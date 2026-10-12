@@ -699,7 +699,7 @@ pub fn conduct_gnu_ton(
             // he was defeated, and then he lives again (a replay can undo a
             // defeat).
             if !held {
-                commands.entity(entity).insert(ae::PoseOwnedExternally);
+                commands.entity(entity).insert(ae::PoseOwnedExternally::only(ae::PoseHold::Conductor));
             }
             ground.invalidate();
             // The centre only: body integration publishes the size of the

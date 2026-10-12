@@ -6,37 +6,26 @@
 //! from the published `ai_slop` sheet.
 //!
 //! Unlike the snake, a squashed AI Slop does not become anything — it just dies. The
-//! stomp reads the body's authored brain ([`is_ai_slop_brain`]), so it never touches
-//! a snake (which owns its own shell rule); the two enemies never share a code path.
+//! squash is the module `ambition_demo_mary_o_modules::squash`, bound to the body's
+//! authored brain key in `body_contact`, so it never touches a snake (which owns its
+//! own shell rule); the two enemies never share a code path.
 //!
 //! Every type it names comes through the `ambition_platformer2d` umbrella — the E9 oracle.
 
-use bevy::prelude::*;
-
-use ambition_platformer2d::characters::actor::BodyHealth;
-use ambition_platformer2d::combat::actor_tuning::ActorConfig;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
-use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
-
-use crate::stomp::{player_touch, PlayerTouch};
 
 /// The catalog `display_name` an AI Slop renders from, and the name every AI Slop
 /// spawn carries so its `ai_slop` sheet resolves.
 pub const AI_SLOP_DISPLAY_NAME: &str = "AI Slop";
 
 /// The roster brain key the AI Slop archetype is filed under, namespaced so it
-/// never collides with a host provider's roster.
-pub const AI_SLOP_BRAIN_KEY: &str = "mary_o_ai_slop";
+/// never collides with a host provider's roster. The squash module binds it.
+pub use ambition_demo_mary_o_modules::squash::AI_SLOP_BRAIN_KEY;
 
 /// The `ai_slop` sheet TARGET (also the catalog id) — the generated sheet the
 /// enemy render resolves for an AI Slop.
 pub const AI_SLOP_SHEET_TARGET: &str = "ai_slop";
-
-/// Upward speed Mary-O gets off a squashed AI Slop — a lively hop, a touch under a
-/// full jump so a stomp reads as a bounce, not a re-jump. Matches the snake's, so
-/// bouncing off either enemy feels identical.
-const BOUNCE_SPEED: f32 = 430.0;
 
 // Demo-owned hostile archetype: ONE 1-HP `Wanderer` that walks forward and reverses
 // at walls (`aggro_radius`/`attack_range` are ignored by that template). It carries
@@ -75,81 +64,6 @@ pub fn ai_slop_half_size() -> ae::Vec2 {
 /// this crate no longer stages a second copy.
 pub fn is_ai_slop_brain(brain: &CharacterBrain) -> bool {
     matches!(brain, CharacterBrain::Custom(key) if key == AI_SLOP_BRAIN_KEY)
-}
-
-/// The head-stomp. A player on an AI Slop's head bounces up and squashes it —
-/// the classic contact stomp, NOT the engine's attack-hitbox pogo. "On its head" is
-/// the shared [`crate::stomp::PlayerTouch::Top`] rule, so this and the snake's shell
-/// can never disagree about the same contact — and a player standing STILL on a mob
-/// is stomping it, not being hurt by it.
-///
-/// Ordered BEFORE the shared body-contact-damage pass so a stomp never also hurts
-/// the stomper: on a squash the mob's health is zeroed THIS frame (a component
-/// write, immediately visible), so the contact pass sees a not-alive attacker and
-/// skips it; the body is then despawned. A SIDE touch (no head overlap) is left
-/// untouched here and lands as normal contact damage on Mary-O.
-///
-/// Why this despawns directly instead of routing through the shared actor-death
-/// path (`HitEvent` → drops/score/debris): that path is DEFERRED — a hit emitted
-/// here is consumed a stage later, so the mob would still be alive-and-hostile when
-/// the contact pass runs THIS frame and would hurt the stomper. And it has no score
-/// value and no drop table, so there is nothing for the shared path to carry. The
-/// one thing a silent despawn would drop is the visible pop, so we emit a dust
-/// [`ambition_platformer2d::vfx::VfxMessage::Burst`] at the corpse through the engine's own vfx
-/// seam — a squash reads as a squash without adopting a wrong-ordered pipeline.
-pub fn bounce_squash_ai_slop(
-    mut commands: Commands,
-    mut vfx: ambition_platformer2d::vfx::VfxWriter,
-    // The squash burst is drawn in the mob's own live room.
-    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
-    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
-    mut players: Query<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>,
-    // Which bodies are AI Slop is their authored brain, read here rather
-    // than copied onto a marker after they are built.
-    mut mobs: Query<
-        (Entity, &ae::BodyKinematics, &mut BodyHealth, &ActorConfig),
-        (Without<PrimaryPlayer>, Without<PlayerEntity>),
-    >,
-) {
-    let Ok((player_entity, mut player)) = players.single_mut() else {
-        return;
-    };
-    let (p, pvel) = (player.aabb(), player.vel);
-    for (entity, mob_kin, mut health, config) in &mut mobs {
-        // A swallow is squashed the way a walker is.
-        let squashable = is_ai_slop_brain(&config.brain)
-            || crate::swallow::is_laden_swallow_brain(&config.brain);
-        if !squashable || !health.alive() {
-            continue;
-        }
-        // The shared top/side rule: only a TOP contact squashes. A side (or an
-        // underside) touch is left alone here and lands as normal contact damage.
-        if player_touch(mob_kin.aabb(), p, pvel) != Some(PlayerTouch::Top) {
-            continue;
-        }
-        ae::movement::set_jump_velocity(&mut player.vel, ae::DEFAULT_GRAVITY_DIR, BOUNCE_SPEED);
-        // The squash pops a low, tan dust burst through the engine's shared particle
-        // seam, so the mob leaves a mark instead of blinking out.
-        vfx.for_room(rooms.of(entity)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
-            pos: mob_kin.pos,
-            count: 12,
-            speed: 130.0,
-            color: [0.80, 0.68, 0.48, 1.0],
-            kind: ambition_platformer2d::vfx::ParticleKind::Dust,
-        });
-        // ...and the stomp thuds on the shared `Pogo` cue (the "you bounced off
-        // something" verb a head-stomp is), voiced by the provider's own spec.
-        //
-        // H2: the STOMPER's, like every other pogo. The mob is what got bounced off,
-        // not what made the sound.
-        sfx.write_for(
-            player_entity,
-            ambition_platformer2d::sfx::SfxMessage::Pogo { pos: mob_kin.pos },
-        );
-        // Neutralize before the contact pass runs THIS frame, then remove the body.
-        health.health.current = 0;
-        commands.entity(entity).despawn();
-    }
 }
 
 #[cfg(test)]

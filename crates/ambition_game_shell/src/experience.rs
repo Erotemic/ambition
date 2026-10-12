@@ -65,6 +65,10 @@ pub struct ExperienceRegistration {
     /// its route is in the catalog, its characters join the roster, and tests
     /// can activate it by route id.
     pub listed: bool,
+    /// The look of this experience's launcher row: a semantic key (a theme
+    /// name such as `"open_sky"`), which the host's launcher presentation
+    /// resolves. The shell does not read it. `None`: the host's default look.
+    pub launcher_look: Option<String>,
 }
 
 impl ExperienceRegistration {
@@ -81,7 +85,15 @@ impl ExperienceRegistration {
             launch_route: launch_route.into(),
             availability: ExperienceAvailability::Available,
             listed: true,
+            launcher_look: None,
         }
+    }
+
+    /// Name the look of this experience's launcher row. See
+    /// [`launcher_look`](Self::launcher_look).
+    pub fn with_launcher_look(mut self, look: impl Into<String>) -> Self {
+        self.launcher_look = Some(look.into());
+        self
     }
 
     /// Compose and route this experience, but keep it out of the launcher.
@@ -126,6 +138,7 @@ impl ExperienceRegistration {
             description: self.description.clone(),
             available: self.availability.is_available(),
             unavailable_reason: self.availability.reason().map(str::to_owned),
+            look: self.launcher_look.clone(),
         }
     }
 }

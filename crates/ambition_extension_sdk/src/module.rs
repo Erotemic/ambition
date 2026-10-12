@@ -98,6 +98,15 @@ pub mod phases {
     /// the Ambition runtime this is after `ActorDecisionSet::Publish` and
     /// before `PlayerInputSet::ControlGate`.
     pub const ACTOR_THINK: Phase = Phase::new("actor_think");
+
+    /// A body that player bodies touch decides what the touch does.
+    /// Guarantees: the bodies have integrated this tick, so each box is
+    /// where it is now; requests submitted here are consumed THIS tick,
+    /// before the shared contact damage reads the bodies, so a body that a
+    /// rule defeats hurts nobody in this tick. In the Ambition runtime this
+    /// is in `WorldPrepSet::AfterIntegrate` and before
+    /// `WorldPrepSet::ContactDamage`.
+    pub const BODY_CONTACT: Phase = Phase::new("body_contact");
 }
 
 /// The trigger port that starts an entry, and the selector inside that port

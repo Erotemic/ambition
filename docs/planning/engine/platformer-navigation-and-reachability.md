@@ -252,8 +252,37 @@ hold-up (local -y) to the kernel, in the rollout and in the brain. Guard:
 `navigation::graph::tests::a_body_that_climbs_gets_up_a_wall_no_jump_clears`
 (a pillar three jumps tall: a wall-climb link that arrives in the kernel;
 control, with no climb the top is out of reach). Poison: no hold-up, red at
-the wall-climb link. A wall jump (a kick off one face to another) is still
-no leg.
+the wall-climb link.
+
+A wall jump is one leg (2026-10-12), for a body that can wall jump: a hop to
+the face beside a higher surface, then a kick off each wall the body touches
+below the landing, going on the way the kick sends it to the next wall, and
+once the feet are over the landing's height, a steer onto it. So it goes up a
+shaft of two walls. `LegFacts.wall` carries the wall the body touches (its
+face's side), from the rollout's body, from a brain's `side_contact_normal`
+and from the walker's `BodyWallState`. It is proposed after the climb and
+before flight, only where nothing cheaper arrives, up to 600 px. No early
+miss: the body is below its landing the whole way up. Guard:
+`navigation::graph::tests::a_body_that_wall_jumps_gets_up_a_shaft_no_jump_clears`
+(two walls three jumps tall: a wall-jump link from the shaft's floor to a
+wall's top that arrives in the kernel; control, with no wall jump the top is
+out of reach). Poison: no kick, red at the wall-jump link.
+
+A dash is one leg, the dash hop (2026-10-12), for a body with a dash: jump
+at the take-off, and at the top of the arc press the dash (the burst press)
+straight toward the landing, so the body goes along at the height of the apex
+for the dash's time, then steer to the landing. It is proposed after the
+double hop and before the climb, only where no hop, drop or double hop
+arrives, no higher than a jump, and up to `MAX_DASH_GAIN` (400 px) further
+than the running jump; the rollout decides. `LegInput.dash_pressed` carries
+the press to the kernel in the rollout, to the brain (`burst_pressed`) and to
+the walkers (the burst key). Measured: for the test walker (270 px/s, a dash
+at 760 px/s for 8 steps) a dash at the apex goes about 100 px past where a
+level jump lands. Guard:
+`navigation::graph::tests::a_body_that_dashes_gets_across_a_gap_no_jump_clears`
+(a gap 50 px past the level jump, over a deep pit: a dash-hop link that
+arrives in the kernel; control, with no dash the far ledge is out of reach).
+Poison: no dash press, red at the dash-hop link.
 
 Flight is one leg, the fly leg (2026-10-10), for a body that can toggle
 flight: toggle at the start, rise to 32 px above the landing
@@ -304,7 +333,11 @@ blocks only, red at `alice_relay` (the body walks into the lock and stops).
 Not modelled, each a seam:
 
 - a drop through a one-way surface, a second air jump, an air jump in a drop,
-  a dash, a wall jump, permanent flight, a pogo bounce;
+  a dash on the ground or up, a wall jump off one wall onto its own top,
+  permanent flight, a pogo bounce. The pogo is a combat effect (a down-air
+  hitbox on a `PogoOrb`, `pogo_moveset_off_world_orbs`), and a leg's rollout
+  runs the movement kernel only, so a pogo leg needs the attack's hitbox in
+  the rollout first (measured 2026-10-12);
 - a slope or a surface chain, a surface that moves;
 - geometry that is not authored in the room (a gate, a breakable). A leg such a
   thing stops fails, and the brain plans again;
@@ -411,8 +444,20 @@ The slices, each with its own witness:
    mismatch at frame 182 again.
 
 Not in these slices: enemy navigation and a baked graph (Jon's open
-decisions), a door that needs Interact (a body crosses edge zones first), and
-legs for a wall jump or a dash (the air jump and the climb have legs, above).
+decisions). The air jump, the climb, the dash and the wall jump have legs
+(above).
+
+**A door that needs Interact (re-measured 2026-10-12).** The basement's
+`npc_door` is a `Door` zone (Interact), and the crossings above go through
+it: the errand is the press. What was missing was the gate. The player's
+road refused a gate portal that was not `On`, and the errand road did not
+ask, so a dog could go through a portal that was shut for the player. Both
+roads now ask `GatePortalRegistry::lets_through`. Witness
+`a_dog_sent_for_an_item::a_dog_on_an_errand_waits_at_a_shut_gate_portal`: the
+door made a portal with its switch off, the dog waits in its zone in the
+hub; switched on, it goes through and takes the Blink. Poison (the errand
+road does not ask): red at "the dog went through a gate portal that is
+shut".
 
 ## Architecture direction
 

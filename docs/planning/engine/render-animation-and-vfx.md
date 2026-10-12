@@ -201,6 +201,21 @@ logical frame, rendered frame, anchor and final drawable transform together.
 
 ### R6 - reconcile semantic screen-field sources by visual ownership
 
+**What landed (2026-10-12):** Mary-O's `reconcile_void_auras` makes the
+aura of each visual what its thing is now, each frame and both ways: one
+pass over the bodies keyed by (live room, id), so a visual of another live
+room of the same definition does not take a void body's field; an aura
+follows a sprite's new size; it goes when its body goes or is not void; a
+shot's aura follows its view's visual id. Witness:
+`ambition_demo_mary_o void_look a_visual_has_the_aura_of_its_own_body_now`;
+three poisons (id-only key, no removal, no update) each fail at their own
+assertion. On the shipped spawn roads (drawn demo, 1-3), each void body's
+visual has its aura: `mary_o_it --features visible`
+`each_void_body_of_the_drawn_demo_has_a_visual_with_its_aura`; a body key
+with no room fails it. Not done: the many-body scaling curve (the nested scan is gone,
+so the cost is one pass over bodies and one over visuals). The text below
+is the case as found.
+
 **Real customer (Mary-O, 2026-10-11).**
 `game/ambition_demo_mary_o/src/void_look.rs:65-88` scans every body for
 *each* `FeatureVisual` without a `VoidAura`: `bodies.iter().any(...)` joins
@@ -237,6 +252,18 @@ show a many-body scaling regression, or leave a stale marker after rebind.
 
 ### R7 - full-screen field visibility must match the camera's render layers
 
+**What landed (2026-10-12):** `sync_void_fields` gives a camera only the
+auras and wards it draws: `drawn_through` is the renderer's own rule (no
+`RenderLayers` is layer 0; `RenderLayers` does not go down to children, so
+a thing's layers are its own). Witnesses: `ambition_render void_field`
+`a_camera_has_only_the_field_of_the_things_it_draws` (two cameras on two
+layers, auras and a ward at one pixel, a layer-0 control) and
+`a_camera_that_draws_no_void_thing_has_no_pass`; poison (no layer test)
+fails both. Not done: a room-scope filter (live rooms have their own layer
+band, so no reuse is known), a quality-tier downgrade case, and nested
+visuals (by the rule, a child's own layers decide). The text below is the
+case as found.
+
 **Direct code finding:** `crates/ambition_render/src/void_field.rs:158-191`
 loops over all `VoidAura` and `VoidWard` entities for each `MainCamera`.
 It checks `InheritedVisibility` and viewport projection, but **never**
@@ -267,6 +294,22 @@ future screen-space effect derived from a world entity; rendering in a
 single camera is not enough evidence.
 
 ### R8 - portal fragment lifetime and measured render churn
+
+**Measured (2026-10-12), headless, the far-side compositor:** a far-covered
+body for 600 frames (300 still, 300 moving) makes 2 pieces a frame (1200
+in all) and a new material for each; with the asset store's own handle
+tracking (`AssetPlugin`) at most 4 materials are live, so there is churn
+and no growth. A test-side leak (keeping each piece's handle) gives 1200
+live and fails the guard, so the instrument sees retention. Test:
+`ambition_portal2d_presentation far_side
+far_side_pieces_are_made_each_frame_and_their_materials_do_not_grow`.
+Not measured: frame time and GPU cost (no renderer in this harness), the
+transit pieces of `visuals.rs`, two panes and two cameras. The agent VM
+cannot measure the GPU half: it has no GPU (checked 2026-10-12: no
+`/dev/dri`, and Vulkan lists no device), so its offscreen device is a
+software rasterizer. So a retained
+reconciliation is not justified by growth; only frame time could justify
+it. The text below is the case as found.
 
 **Source, `ed0d1ccd`:**
 `ambition_portal2d_presentation/src/far_side.rs:62-94` discards every

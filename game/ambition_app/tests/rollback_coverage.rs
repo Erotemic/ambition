@@ -890,7 +890,7 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
         // ride's clock; `MountReservedFor` is a mount held for a rider who has
         // not boarded yet, which is a state this pair never reaches naturally
         // and so is asserted onto the mount below.
-        ambition_platformer2d::engine_core::PoseOwnedExternally,
+        ambition_platformer2d::engine_core::PoseOwnedExternally::only(ambition_platformer2d::engine_core::PoseHold::Ride),
         ambition_platformer2d::mount::RideLease { remaining: 5.0 },
     ));
     sim.world_mut().entity_mut(mount).insert((

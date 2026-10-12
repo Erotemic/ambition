@@ -4105,3 +4105,39 @@ fn a_block_broken_in_one_session_is_whole_in_the_next() {
         removed(&app)
     );
 }
+
+/// IN7: each game of the shipped launcher names the look of its own row, and
+/// no two of them share one. The host resolves a look to a backdrop theme
+/// (`ParallaxTheme::from_key`); the route name is not read. The game with no
+/// look (Ambition) gets the hub.
+#[test]
+fn each_game_of_the_launcher_names_its_own_look() {
+    use ambition_platformer2d::game_shell::ShellExperienceRegistry;
+    use ambition_platformer2d::sprite_sheet::game_assets::ParallaxTheme;
+    let app = shell_host_app();
+    let rows: Vec<(String, ParallaxTheme)> = app
+        .world()
+        .resource::<ShellExperienceRegistry>()
+        .launch_entries()
+        .into_iter()
+        .map(|entry| {
+            let theme = entry.look.as_deref().and_then(ParallaxTheme::from_key).unwrap_or(ParallaxTheme::Hub);
+            (entry.label, theme)
+        })
+        .collect();
+    let theme = |label: &str| {
+        rows.iter()
+            .find(|(l, _)| l == label)
+            .map(|(_, theme)| *theme)
+            .unwrap_or_else(|| panic!("the launcher offers no `{label}` row: {rows:?}"))
+    };
+    assert_eq!(theme("Sanic"), ParallaxTheme::OpenSky, "{rows:?}");
+    assert_eq!(theme("Mary-O"), ParallaxTheme::Starlight, "{rows:?}");
+    assert_eq!(theme("Smash Siblings"), ParallaxTheme::Eclipse, "{rows:?}");
+    let games = ["Ambition", "Sanic", "Mary-O", "Smash Siblings"].map(theme);
+    for (i, a) in games.iter().enumerate() {
+        for b in &games[i + 1..] {
+            assert_ne!(a, b, "two games of the launcher show one look: {rows:?}");
+        }
+    }
+}

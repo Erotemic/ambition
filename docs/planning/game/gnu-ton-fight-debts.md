@@ -39,6 +39,32 @@ Status of each: OPEN. The content comes first.
 
 ### 2. A module can not open a portal
 
+**THE PAIR AND THE LOOK LINES LANDED 2026-10-12.** The conductor asks
+for the pair of the punch each tick it is open through
+`ambition.portal.held_pair` (`HeldPortalPair { slot, ends, looks }`), and
+the portal domain's adapter (`ambition_portal2d::extension`) owns the two
+ends, their link, their identity and their end. `open_gnu_ton_portals` is
+deleted.
+
+The look lines are `ambition.portal.light_line` (`LightLine { slot, at,
+normal, length, look }`), debt 3's road (b). The adapter keeps this tick's
+lines of each body as a view on the body (`HeldLightLines`, the derived
+row `derived.portal.held_light_lines`), and
+`ambition_portal2d_presentation::dress_held_light_lines` keeps a
+`PortalLightLine` for each. The simulation spawns nothing for a line.
+`light_gnu_ton_lines`, `GnuTonLine` and `GnuTonLookLine` are deleted; the
+colours and sides of the four lines are the conductor's. Witnesses:
+`ambition_portal2d extension::tests::each_body_has_the_lines_its_entry_asks_for_this_tick`
+(poisons: no removal, red at "a body that asks for no line has no view";
+the first word for a slot kept, red at "the second word for slot 0
+counts"); `ambition_portal2d_presentation glow::tests::a_light_line_is_drawn_while_its_body_has_it_in_its_view`
+(poison: no despawn, red at "a line the view lost is taken away");
+`app_it gnu_ton_fight::his_look_lines_are_the_lines_his_conductor_asks_for`
+(the view is the record's lines, and a defeated scholar has none; poison:
+the conductor asks for none, red at "the lines drawn are the lines his
+record has"). Not done: the line does not dissolve (debt 3). The trail starts are a
+port too (debt 6). The text below is the case as found.
+
 - The conductor is an extension module. It has no port for a portal, so it
   writes where each line is into its RECORD, and a native system of the
   game (`ambition_content::bosses::gnu_ton::portals`) reads the record and
@@ -50,6 +76,10 @@ Status of each: OPEN. The content comes first.
   portals, and `portals.rs` goes.
 
 ### 3. A line that is a look needed a new thing
+
+**ROAD (b), 2026-10-12.** `PortalLightLine` stays, and the presentation
+spawns it from a view (`HeldLightLines`), not the simulation (debt 2). It
+does not dissolve yet. The text below is the case as found.
 
 - A `PlacedPortal` with no partner takes nothing through, but when it MOVES
   the engine pushes each body on its plane to one side
@@ -97,6 +127,34 @@ Status of each: OPEN. The content comes first.
   say a body is not presented, which is less.)
 
 ### 6. The trail of a fist joins two lines, by a resource
+
+**THE START IS ON THE FIST, AND A PORT, 2026-10-12; the view index is
+OPEN.** Each fist carries `LimbBondStart` (`ambition_characters::actor`, a
+derived row). The conductor asks for each fist's start each tick through
+`ambition.boss.limb_bond` (`LimbBond { slot, start }`), and the boss
+domain's `bond_limbs` is the one writer of the start: a limb not asked for
+in a tick has none, so its bond is from its host's body. `join_gnu_ton_lines`
+and `portals.rs` are deleted, so no system of the game reads the record as a
+channel. The fist's view carries the start as `FeatureView::limb_host`, and
+the trail reads only the view. The renderer's `LimbTrailStarts` is deleted,
+so no simulation system writes a presentation resource, and the start is
+not keyed by `FeatureId`.
+
+- Witness of the port: `ambition_boss_encounter conduct::limb_bond_tests::a_limb_has_the_bond_start_asked_for_it_this_tick`
+  (poison: no removal, red at "a fist not asked for has its bond from the
+  giant again"). With the conductor asking for no bond, the two app tests
+  below fail at their own assertions.
+
+- Witness: `app_it gnu_ton_fight::the_fist_through_the_pair_has_its_trail_from_the_near_line`.
+  It compares against the near end of the held pair; the control is the
+  other fist, whose bond is on the giant.
+- `a_slam_lands_where_you_stood_and_the_stuck_fist_carries_your_blow_to_him`
+  now asserts that a loosed fist's bond is its shoulder's line.
+- A writer that writes no start fails both tests at their own assertions.
+
+**Still open:** `FeatureViewIndex` is keyed by `FeatureId` alone, so two
+live instances of one room share a limb's view. The text below is the case
+as found.
 
 - Jon (2026-10-11): the trail is part of the scholar's spell, and joins the
   two portals an arm is in. So the wisps (`limb_trail.rs`) start at the
@@ -159,6 +217,41 @@ Status of each: OPEN. The content comes first.
   the pair can give a body that comes out a push along its normal.
 
 ### 12. The portal and trail names omit the encounter
+
+**THE PAIR AND THE LOOK LINES ARE PORTS, 2026-10-12; the view index is
+OPEN.** The punch's pair is a held request of the conductor
+(`ambition.portal.held_pair`, debt 2). The portal domain's adapter keeps
+the pair's record on the scholar (`HeldPortalPairs`, rollback row
+`portal.held_pairs`, with its entity map), and the pair is ONE `PortalLink`
+of its owner's simulation identity, entry and slot, so the portal core gives
+it a stable channel pair of its room (the
+[portal identity](../engine/portal-pair-identity-and-aperture.md) core). The
+blue and orange are a presentation-only `PortalLook` (channels 24 and 25,
+asked for by the module). Each end is `SimId::singleton("held_portal",
+"{owner}/{entry}/{slot}/{end}")`. `open_gnu_ton_portals` and the punch half
+of `GnuTonPortal` are deleted; the tag is now `GnuTonLookLine`.
+
+- Witness: `ambition_portal2d extension::tests::each_holder_has_his_own_pair_while_he_asks_for_it`.
+  Two holders share a room, and a second live instance holds a body with
+  the first one's placement id. Then one stops asking, one moves its pair,
+  and one is despawned. Five poisons each fail at their own assertion: a
+  link without the owner (at "his two ends are a pair"); no release ("only
+  B's pair"); no orphan sweep ("a holder that is gone"); no held check ("no
+  pair spawned twice"); no move ("B's ends follow").
+- A body with no simulation identity gets no pair, and the control is the
+  same body with one (`a_body_with_no_identity_gets_no_pair`).
+- Under a GGRS sync-test session the real fight opens and closes the pair as
+  one pair (`app_it gnu_ton_fight::the_punchs_pair_is_one_pair_across_rewinds`).
+  With the `portal.held_pairs` rows removed, the sync test fails with a
+  checksum mismatch at frame 233.
+- The way up still works through the held pair
+  (`the_punchs_pair_is_the_way_up_to_the_giants_back`).
+
+**Still open:** the look lines are a port now (debt 2); the trail
+starts are on each fist now, but the view index is keyed by `FeatureId`
+alone (debt 6); two live instances of one
+room give one placement's end one `SimId` (as they give its body one); two
+sessions in one host were not run.
 
 **Evidence, `ed0d1ccd` (2026-10-11):**
 
@@ -232,6 +325,25 @@ GNU-ton-key repair may land before the full portal API only if it is
 explicitly temporary, collision-free and covered by the two-boss test.
 
 ### 13. The exit gate reads a corpse, not an encounter outcome
+
+**✅ DONE 2026-10-12.** Rule chosen: the arena is ONE encounter. Its ladder
+and `ladder_floor_gate` open when every GNU-ton of the arena is `Cleared` in
+the save (`placement_is_cleared`, the same answer as `boss.cleared`). The
+members are the GNU-ton placements the arena's spec authors plus any GNU-ton
+body live in the room. A corpse is not the evidence. A record retracted by a
+replay closes the arena again, and a rewind restores the record (the save is
+checksummed rollback state). Two live instances of the arena share their
+placements, so a recorded defeat is the outcome of both (a fact of the world).
+**Found on the way:** the gate compared the geometry's DISPLAY name
+("Ambition: gnu ton arena") with the room id `gnu_ton_arena`. It never ran in
+the shipped game: the ladder was never hidden in the fight, and the floor
+gate was never removed after a win. It now reads the live room's spec id.
+Witnesses: `bosses::gnu_ton::tests::{two_gnu_tons_in_one_arena_open_it_only_when_both_are_beaten_and_it_stays_open,
+the_arena_is_known_by_its_room_id_not_by_its_display_name, leaving_arena_resets_state_for_next_visit}`
+and, in the real arena, `gnu_ton_fight::{defeating_him_opens_the_arena_and_his_body_going_does_not_close_it,
+a_won_fight_leaves_the_arena_open_when_you_come_back}` (both red on the old
+gate). Not run: a rollback test across the defeat tick, and a rendered
+playthrough.
 
 **Source-confirmed, `ed0d1ccd`:**
 `game/ambition_content/src/bosses/gnu_ton/mod.rs:79-106`

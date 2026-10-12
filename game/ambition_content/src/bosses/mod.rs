@@ -445,13 +445,6 @@ impl Plugin for AmbitionBossContentPlugin {
                 .before(ambition_platformer2d_actor_monolith::features::HazardTickSet)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
-        // The portals of GNU-ton's fight: opened where his conductor's record
-        // says each line is (`gnu_ton::portals`).
-        app.add_systems(
-            sim,
-            gnu_ton::portals::open_gnu_ton_portals
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
-        );
         // The duel on the giant's back: after his conductor chose (its record
         // is written in `boss_conduct`), and before the boss's move starts.
         app.add_systems(
@@ -460,15 +453,10 @@ impl Plugin for AmbitionBossContentPlugin {
                 .after(ambition_extension_host::ExtensionSet::Lower(ambition_content_modules::gnu_ton::conductor::CONDUCT_PHASE))
                 .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Trigger),
         );
-        app.add_systems(
-            sim,
-            gnu_ton::portals::join_gnu_ton_lines
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
-        );
         #[cfg(feature = "portal_render")]
         app.add_systems(
             sim,
-            (gnu_ton::portals::light_gnu_ton_lines, gnu_ton::fist_lines::light_fist_lines)
+            gnu_ton::fist_lines::light_fist_lines
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
         // The Flying Spaghetti Monster's conductor is the `fsm` procedural

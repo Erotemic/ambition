@@ -291,6 +291,8 @@ impl Plugin for MaryOExperiencePlugin {
             "Prepare Mary-O",
             mary_o_authored_catalogs(),
         )
+        // The look of its launcher row.
+        .with_launcher_look("starlight")
         // A fixed 4:3 gameplay rectangle everywhere; the surround belongs to
         // HUD and controls rather than to the level.
         .with_presentation_profiles(profiles::fixed_four_by_three())

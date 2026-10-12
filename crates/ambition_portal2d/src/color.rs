@@ -208,9 +208,10 @@ impl PortalChannelColor {
             "cyan" => Cyan,
             "rose" => Rose,
             other => {
-                // Generated channels: `c{index}` (e.g. `c8`, `c9`).
+                // Generated channels: `c{index}` (e.g. `c8`, `c9`). The link
+                // range is not a name (`link::LINK_CHANNEL_FIRST`).
                 let idx = other.strip_prefix('c')?.parse::<u8>().ok()?;
-                Indexed(idx)
+                Indexed(Some(idx).filter(|idx| *idx < crate::link::LINK_CHANNEL_FIRST)?)
             }
         })
     }

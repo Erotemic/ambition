@@ -43,7 +43,7 @@ pub fn try_projectile_portal_transit(
         let Some(exit) = find_portal(portals, enter.channel.partner()) else {
             continue;
         };
-        if body.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent)) {
+        if body.strict_intersects(ae::Aabb::new(enter.pos, enter.opening_half_extent())) {
             kin.vel = portal_transform_velocity(kin.vel, enter.normal, exit.normal, convention);
             let clearance = half.dot(exit.normal.abs()) + PROJECTILE_EXIT_MARGIN;
             kin.pos = exit.pos + exit.normal * clearance;

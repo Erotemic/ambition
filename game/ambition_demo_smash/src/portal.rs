@@ -191,7 +191,8 @@ pub fn close_expired_move_portals(
                 continue;
             }
             let offset = (transit.exit_pos - aperture.pos).abs();
-            if offset.x <= aperture.half_extent.x && offset.y <= aperture.half_extent.y {
+            let half = aperture.opening_half_extent();
+            if offset.x <= half.x && offset.y <= half.y {
                 expired.push(portal.pair_index);
             }
         }

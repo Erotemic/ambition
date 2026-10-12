@@ -283,17 +283,74 @@ fn arena_with_free_fists() -> Platformer2dSimHarness {
     sim
 }
 
+/// ⭐ HIS LOOK LINES ARE A PORT (IN1, debt 3). After phase 1 his conductor asks
+/// the portal domain for the line at each shoulder and behind each wrist
+/// (`ambition.portal.light_line`), and the scholar's view of this tick's
+/// lines (`HeldLightLines`, which the presentation draws) is where his record
+/// says each line is. A defeated scholar asks for none, and his view goes.
+/// The authority: the conductor's record.
+#[test]
+fn his_look_lines_are_the_lines_his_conductor_asks_for() {
+    use ambition_platformer2d::portal::extension::HeldLightLines;
+    fn scholar(sim: &mut Platformer2dSimHarness) -> Entity {
+        let world = sim.world_mut();
+        world
+            .query::<(Entity, &BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.behavior.id == GNU_TON_ID)
+            .map(|(entity, _)| entity)
+            .expect("GNU-ton is in the arena")
+    }
+    /// Each line of his view, by slot, and each line of his record.
+    fn lines(sim: &mut Platformer2dSimHarness) -> (Vec<(u32, ae::Vec2)>, Vec<(u32, ae::Vec2)>) {
+        let scholar = scholar(sim);
+        let world = sim.world_mut();
+        let mut view: Vec<(u32, ae::Vec2)> = world
+            .get::<HeldLightLines>(scholar)
+            .map(|held| held.0.iter().map(|line| (line.slot, line.at)).collect())
+            .unwrap_or_default();
+        view.sort_by_key(|(slot, _)| *slot);
+        let record = conductor_of(world, scholar)
+            .map(|conductor| {
+                conductor.look_lines.iter().enumerate().filter_map(|(slot, at)| at.map(|at| (slot as u32, at))).collect()
+            })
+            .unwrap_or_default();
+        (view, record)
+    }
+    let mut sim = arena_with_free_fists();
+    step_until(&mut sim, 600, "his four look lines", |sim| lines(sim).1.len() == 4);
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+        let (view, record) = lines(&mut sim);
+        assert_eq!(view, record, "the lines drawn are the lines his record has");
+    }
+    assert_eq!(lines(&mut sim).0.len(), 4, "premise: four lines are drawn");
+
+    scholar_health_to(&mut sim, 0.0);
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let scholar = scholar(&mut sim);
+    assert!(
+        sim.world().get::<HeldLightLines>(scholar).is_none(),
+        "a defeated scholar's lines are still drawn: {:?}",
+        sim.world().get::<HeldLightLines>(scholar)
+    );
+}
+
 /// The pair of the punch is the way up. From the floor, two jumps take the
 /// player up into the far line; it comes up out of the near line, over the
 /// giant's right shoulder, and goes to the side onto the giant's back.
 #[test]
 fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
-    use ambition_content::bosses::gnu_ton::portals::{GnuTonLine, GnuTonPortal};
+    use ambition_platformer2d::portal::extension::HeldPortalOf;
     use ambition_platformer2d::portal::PlacedPortal;
-    fn line(sim: &mut Platformer2dSimHarness, which: GnuTonLine) -> Option<ae::Vec2> {
+    /// An end of the pair his conductor holds: the near line faces up the
+    /// screen (the fist goes down into it), the far line down.
+    fn line(sim: &mut Platformer2dSimHarness, near: bool) -> Option<ae::Vec2> {
         let world = sim.world_mut();
-        let mut portals = world.query::<(&GnuTonPortal, &PlacedPortal)>();
-        portals.iter(world).find(|(tag, _)| tag.0 == which).map(|(_, portal)| portal.pos)
+        let mut portals = world.query_filtered::<&PlacedPortal, With<HeldPortalOf>>();
+        portals.iter(world).find(|portal| (portal.normal.y < 0.0) == near).map(|portal| portal.pos)
     }
     let mut sim = arena();
     untouchable_player(&mut sim);
@@ -306,8 +363,8 @@ fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
     for _ in 0..30 {
         sim.step(AgentAction::default());
     }
-    let far = line(&mut sim, GnuTonLine::PunchFar).expect("the far line of the pair is open");
-    let near = line(&mut sim, GnuTonLine::PunchNear).expect("the near line of the pair is open");
+    let far = line(&mut sim, false).expect("the far line of the pair is open");
+    let near = line(&mut sim, true).expect("the near line of the pair is open");
     let s = scene(&mut sim);
     let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
     assert!(near.y < back.min.y, "the premise: the near line {near:?} is over the giant's back {back:?}");
@@ -384,22 +441,34 @@ fn a_slam_lands_where_you_stood_and_the_stuck_fist_carries_your_blow_to_him() {
     let (stuck, ..) = s.fists.iter().find(|(fist, ..)| on_floor(fist, s.floor)).cloned().expect("a stuck fist");
     assert!((stuck.pos.x - 400.0).abs() < 40.0, "it fell where the player stood: {:?}", stuck.pos);
     // Far from the gnu, it is still drawn bound to it: its view carries the
-    // point on the gnu's body its trail runs from.
+    // point its trail runs from, the line at its shoulder (debt 6) or, with
+    // no line, a point on the gnu's body.
     {
         let world = sim.world_mut();
-        let ids: Vec<FeatureId> =
-            world.query_filtered::<&FeatureId, With<Limb>>().iter(world).cloned().collect();
+        let scholar = world
+            .query::<(Entity, &BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.behavior.id == GNU_TON_ID)
+            .map(|(entity, _)| entity)
+            .expect("GNU-ton is in the arena");
+        let lines = conductor_of(world, scholar).expect("his conductor").look_lines;
+        let fists: Vec<(LimbSlot, FeatureId)> =
+            world.query::<(&Limb, &FeatureId)>().iter(world).map(|(limb, id)| (limb.slot, id.clone())).collect();
         let views = world.resource::<ambition_platformer2d::sim_view::FeatureViewIndex>();
-        assert_eq!(ids.len(), 2);
-        for id in ids {
+        assert_eq!(fists.len(), 2);
+        for (slot, id) in fists {
             let bond = views.get(id.as_str()).and_then(|view| view.limb_host);
             let bond = bond.unwrap_or_else(|| panic!("fist {id:?} is drawn with no bond to the gnu"));
+            let shoulder = lines[usize::from(slot == LimbSlot::HAND_RIGHT)];
             let off = bond - s.giant.pos;
-            assert!(
-                off.x.abs() < s.giant.size.x * 0.5 && off.y.abs() < s.giant.size.y * 0.5,
-                "fist {id:?}'s bond {bond:?} is off the gnu's body at {:?}",
-                s.giant.pos
-            );
+            match shoulder {
+                Some(line) => assert_eq!(bond, line, "fist {id:?}'s trail runs from the line at its shoulder"),
+                None => assert!(
+                    off.x.abs() < s.giant.size.x * 0.5 && off.y.abs() < s.giant.size.y * 0.5,
+                    "fist {id:?}'s bond {bond:?} is off the gnu's body at {:?}",
+                    s.giant.pos
+                ),
+            }
         }
     }
     for _ in 0..6 {
@@ -1140,4 +1209,203 @@ fn alive_again_he_takes_his_fists_back() {
     set_health(&mut sim, true);
     sim.step(AgentAction::default());
     assert_eq!(held(&mut sim), vec![true, true], "alive again, he holds both fists");
+}
+
+/// The arena's exit this frame: (ladder carves, floor gate removed), from
+/// the overlay the gate writes on the live room's root. The arena is the one
+/// live room (its geometry is named "Ambition: gnu ton arena"; its room id is
+/// `gnu_ton_arena`).
+fn arena_exit(sim: &mut Platformer2dSimHarness) -> (usize, bool) {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<
+        &ambition_platformer2d::world::FeatureEcsWorldOverlay,
+        With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
+    >();
+    let overlay = q.single(world).expect("one live room, the arena, with its overlay");
+    (
+        overlay.climbable_carves.len(),
+        overlay.removed_block_names.iter().any(|name| name == "ladder_floor_gate"),
+    )
+}
+
+fn gnu_ton_bodies(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
+    let world = sim.world_mut();
+    let mut q = world.query::<(Entity, &BossConfig)>();
+    q.iter(world).filter(|(_, config)| config.behavior.id == GNU_TON_ID).map(|(entity, _)| entity).collect()
+}
+
+/// ⭐ DEBT 13, IN THE REAL ARENA: his defeat opens the way out, and the way
+/// stays open when his body goes. The gate read a dead body, so the body
+/// going closed the arena again.
+#[test]
+fn defeating_him_opens_the_arena_and_his_body_going_does_not_close_it() {
+    let mut sim = arena();
+    // The intro ends before he can be beaten: a death in the intro is not a
+    // won fight (the phase does not go to Death from Intro).
+    let phase = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &ambition_platformer2d::boss_encounter::BossEncounter)>();
+        q.iter(world)
+            .find(|(config, _)| config.behavior.id == GNU_TON_ID)
+            .map(|(_, encounter)| encounter.encounter_phase())
+            .expect("GNU-ton")
+    };
+    let mut ticks = 0;
+    while matches!(
+        phase(&mut sim),
+        ambition_platformer2d::boss_encounter::BossEncounterPhase::Dormant
+            | ambition_platformer2d::boss_encounter::BossEncounterPhase::Intro
+    ) {
+        assert!(ticks < 1200, "the premise: his intro ends");
+        sim.step(AgentAction::default());
+        ticks += 1;
+    }
+    let (carves, _) = arena_exit(&mut sim);
+    assert!(carves > 0, "the premise: the fight is on and the ladder is hidden");
+    assert_eq!(arena_exit(&mut sim).1, false);
+    {
+        // As a lethal hit kills him (`boss_lifecycle::force_kill_boss`).
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &mut ambition_platformer2d::boss_encounter::BossEncounter, &mut BodyHealth)>();
+        for (config, mut status, mut health) in q.iter_mut(world) {
+            if config.behavior.id == GNU_TON_ID {
+                health.health.current = 0;
+                if let Some(phase) = status.encounter.as_mut() {
+                    let _ = phase.kill();
+                }
+            }
+        }
+    }
+    // The boss domain records the defeat when his death settles.
+    let recorded = |sim: &mut Platformer2dSimHarness| {
+        sim.world().resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().boss("hall.gnu_ton")
+            == ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared
+    };
+    let mut ticks = 0;
+    while !recorded(&mut sim) {
+        assert!(ticks < 1800, "the premise: his death settles and the boss domain records it ({:?})", phase(&mut sim));
+        sim.step(AgentAction::default());
+        ticks += 1;
+    }
+    sim.step(AgentAction::default());
+    assert_eq!(arena_exit(&mut sim), (0, true), "beaten (recorded after {ticks} ticks): the ladder and the gap are open");
+    let bodies = gnu_ton_bodies(&mut sim);
+    assert!(!bodies.is_empty(), "the premise: his body is still there");
+    for body in bodies {
+        sim.world_mut().despawn(body);
+    }
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(arena_exit(&mut sim), (0, true), "his body went; the recorded defeat keeps the way open");
+}
+
+/// ⭐ A won fight leaves the arena open when you come back. A cleared
+/// placement is not built again, so the gate that looked for a dead body
+/// found nothing and hid the ladder: the way out was shut for good.
+#[test]
+fn a_won_fight_leaves_the_arena_open_when_you_come_back() {
+    let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
+    save.set_boss("hall.gnu_ton", ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared);
+    let opts = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_required_start_room(ARENA)
+        .with_save(save);
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the gnu-ton arena builds headlessly");
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let alive: Vec<bool> = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &BodyHealth)>();
+        q.iter(world).filter(|(config, _)| config.behavior.id == GNU_TON_ID).map(|(_, health)| health.alive()).collect()
+    };
+    assert!(!alive.contains(&true), "the premise: no live GNU-ton in a won arena: {alive:?}");
+    assert_eq!(arena_exit(&mut sim), (0, true), "a won arena is open");
+}
+
+/// The pair of the punch under a GGRS sync-test session. The pair is held by
+/// the portal domain's adapter, and which pair each slot holds is rollback
+/// state on the scholar (`portal.held_pairs`). A rewind across the tick the
+/// pair opened must give it back as it was: if the record were lost, the
+/// replay would open a second pair, and the checksum would disagree.
+#[test]
+fn the_punchs_pair_is_one_pair_across_rewinds() {
+    use ambition_platformer2d::portal::extension::HeldPortalOf;
+    let opts = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_required_start_room(ARENA)
+        .with_sync_test_rollback_settings(4, 10);
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the GGRS sync-test arena builds");
+    untouchable_player(&mut sim);
+    place_player(&mut sim, ae::Vec2::new(400.0, 1200.0));
+    let mut most = 0;
+    let mut opened = false;
+    let mut closed_after = false;
+    let mut first_error = None;
+    for _ in 0..1500 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let open = world.query_filtered::<(), With<HeldPortalOf>>().iter(world).count();
+        most = most.max(open);
+        opened |= open > 0;
+        closed_after |= opened && open == 0;
+        if first_error.is_none() {
+            first_error = ambition_platformer2d::rollback::session_health(sim.world()).err();
+        }
+        if closed_after {
+            break;
+        }
+    }
+    assert!(opened, "the premise: a punch opened the pair under the sync test");
+    assert!(closed_after, "the premise: the pair closed again, so a rewind crossed both edges");
+    assert_eq!(most, 2, "one pair, never two, across every rewind");
+    assert_eq!(first_error, None, "the sync-test session stayed healthy");
+}
+
+/// Debt 6: the trail of the fist that is through the pair starts at the pair's
+/// near line. The start is on the fist (`LimbBondStart`), and the view of the
+/// fist carries it (`FeatureView::limb_host`); no resource of the renderer
+/// holds it. The authority is the near end of the pair the portal domain
+/// holds. The control is the other fist, whose bond is on the giant.
+#[test]
+fn the_fist_through_the_pair_has_its_trail_from_the_near_line() {
+    use ambition_platformer2d::portal::extension::HeldPortalOf;
+    use ambition_platformer2d::portal::PlacedPortal;
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    place_player(&mut sim, ae::Vec2::new(400.0, 1200.0));
+    step_until(&mut sim, 900, "the strike of a punch through the pair", |sim| {
+        scene(sim).performing == Some(("portal_punch", true))
+    });
+    sim.step(AgentAction::default());
+    let world = sim.world_mut();
+    let near = world
+        .query_filtered::<&PlacedPortal, With<HeldPortalOf>>()
+        .iter(world)
+        .find(|portal| portal.normal.y < 0.0)
+        .map(|portal| portal.pos)
+        .expect("the near line of the pair is open");
+    let giant = world
+        .query_filtered::<&ae::BodyKinematics, (With<LimbRig>, Without<Limb>)>()
+        .iter(world)
+        .next()
+        .cloned()
+        .expect("the giant");
+    let fists: Vec<(LimbSlot, FeatureId)> =
+        world.query::<(&Limb, &FeatureId)>().iter(world).map(|(limb, id)| (limb.slot, id.clone())).collect();
+    let views = world.resource::<ambition_platformer2d::sim_view::FeatureViewIndex>();
+    let bond = |slot: LimbSlot| {
+        let (_, id) = fists.iter().find(|(s, _)| *s == slot).expect("the fist");
+        views.get(id.as_str()).and_then(|view| view.limb_host).expect("the fist's view has a bond")
+    };
+    assert_eq!(bond(LimbSlot::HAND_RIGHT), near, "the fist through the pair has its trail from the near line");
+    let left = bond(LimbSlot::HAND_LEFT);
+    assert!(left != near, "the control: the other fist's trail is not from the pair");
+    let off = left - giant.pos;
+    assert!(
+        off.x.abs() < giant.size.x * 0.5 && off.y.abs() < giant.size.y * 0.5,
+        "the control: the other fist's bond {left:?} is on the giant at {:?}",
+        giant.pos
+    );
 }

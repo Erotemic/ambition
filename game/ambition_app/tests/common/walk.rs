@@ -33,6 +33,8 @@ pub struct Press {
     pub interact: bool,
     /// Press the flight toggle.
     pub fly_toggle: bool,
+    /// Press the dash (the burst).
+    pub dash: bool,
     /// Press confirm: dismiss a beat of a cutscene.
     pub confirm: bool,
 }
@@ -77,6 +79,7 @@ impl Walker for Pad<'_> {
             interact,
             interact_held: press.interact,
             fly_toggle: press.fly_toggle,
+            dash: press.dash,
             confirm: press.confirm,
             ..crate::common::base()
         });
@@ -148,6 +151,8 @@ impl Walker for Keys<'_> {
         // Utility toggles flight; a toggle is a press, so the key is up again
         // on the next frame.
         self.hold(KeyCode::KeyD, press.fly_toggle);
+        // Burst dashes; a press, so the key is up again on the next frame.
+        self.hold(KeyCode::KeyC, press.dash);
         self.hold(KeyCode::Enter, press.confirm);
         let jump_is_held = self.held.contains(&KeyCode::KeyZ);
         if self.jump_owed {
@@ -338,6 +343,9 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
         }
         let kinematics = *world.get::<ae::BodyKinematics>(player).expect("the player has a body");
         let on_ground = world.get::<ae::BodyGroundState>(player).is_some_and(|ground| ground.on_ground);
+        let wall = world
+            .get::<ae::BodyWallState>(player)
+            .and_then(|wall| wall.on_wall.then_some(wall.wall_normal_x.signum()));
         let feet = kinematics.pos + graph.frame.down * graph.half.y;
         let mut press = Press::default();
         if leg.is_none() && on_ground {
@@ -370,6 +378,7 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
                 side: graph.frame.side,
                 down: graph.frame.down,
                 dt: 1.0 / 60.0,
+                wall,
             };
             let (input, progress) = follow_leg(&current, phase, &facts);
             // A player walks at the top speed; the leg slows the stick
@@ -379,6 +388,7 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
             press.jump_pressed = input.jump_pressed;
             press.jump_held = input.jump_held;
             press.fly_toggle = input.fly_toggle;
+            press.dash = input.dash_pressed;
             leg = match progress {
                 LegProgress::Going(next) => Some((current, next)),
                 LegProgress::Arrived | LegProgress::Failed => None,

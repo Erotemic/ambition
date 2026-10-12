@@ -6,10 +6,11 @@
 //! a shell kills it, as they kill each body with one point of health.
 //!
 //! Its row is a body that stands still (`StandStill`). This module moves it:
-//! the place of a plant on each tick is a function of the simulation tick and
-//! of the pipe it stands in, so the cycle is no state of its own and a
-//! rollback has nothing more to restore. It does not come up while a player is
-//! on its pipe or beside it.
+//! the cycle a plant wants is a function of the simulation tick and of the
+//! pipe it stands in. How far out it is now is its own state
+//! ([`SnakePlantOut`]), because it follows the cycle at a limited speed and
+//! stays down while a player of its own live room is on its pipe or beside
+//! it.
 
 use bevy::prelude::*;
 
@@ -18,6 +19,7 @@ use ambition_platformer2d::combat::actor_tuning::{ActorConfig, ContactThreatWith
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
+
 
 use crate::ldtk_vocabulary::{pipe_of, MaryOPipeMouth};
 
@@ -39,6 +41,16 @@ const SHY_REACH: f32 = 40.0;
 /// Below this part of its height out of the pipe, the plant hurts nobody: a
 /// body that stands on the pipe, or rides down it, does not touch the plant.
 const HARMLESS_BELOW: f32 = 0.12;
+
+/// How far out of its pipe a plant is, from 0 (hidden) to 1 (all the way
+/// out). Rollback state.
+///
+/// ⛔ NOT READ BACK FROM ITS POSITION. The movement step of the next tick
+/// pushes a plant that is in its pipe out of the pipe's solid, so a fraction
+/// read from the position was one step down and back each tick: the plant
+/// stayed at the mouth.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct SnakePlantOut(pub f32);
 
 /// Is this body a Snake Plant?
 pub fn is_snake_plant_brain(brain: &CharacterBrain) -> bool {
@@ -93,14 +105,23 @@ fn pot_of(world: &ae::World, pos: ae::Vec2) -> Option<ae::Aabb> {
 ///
 /// A plant that stands in no pipe is not moved: it is a plant that is always
 /// out. The plant is put on its path after the movement step of the tick, so
-/// the path wins, and it says that its pose is not its own
-/// (`PoseOwnedExternally`), so the movement step does not pull it down or put
-/// it out of the pipe.
+/// the path wins, and it holds its pose (`PoseHold::Path`), so the movement
+/// step does not pull it down or put it out of the pipe. A plant that dies,
+/// loses its pipe or is no plant now lets go of that hold, and only of it.
+///
+/// Any player of the plant's live room keeps it shy. It read one global
+/// primary player: a player in another live room kept it down, and with two
+/// players nobody did.
+///
+/// ⛔ IT TAKES A PLANT WITHOUT `ContactThreatWithdrawn`. Only the snake
+/// requires that component, and this query required it, so no plant was ever
+/// moved: in the shipped game a Snake Plant stood still in its pipe
+/// (MEASURED 2026-10-12, 400 ticks at one height). The plant now gets it here.
 pub fn run_snake_plants(
     mut commands: Commands,
     tick: Option<Res<ambition_platformer2d::time::SimTick>>,
     geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
-    players: Query<&ae::BodyKinematics, With<PrimaryPlayer>>,
+    players: Query<(Entity, &ae::BodyKinematics), With<PlayerEntity>>,
     mut plants: Query<
         (
             Entity,
@@ -108,8 +129,9 @@ pub fn run_snake_plants(
             &mut ambition_platformer2d::actor::MotionModel,
             &ActorConfig,
             &BodyHealth,
-            &mut ContactThreatWithdrawn,
-            Has<ae::PoseOwnedExternally>,
+            Option<&mut ContactThreatWithdrawn>,
+            Option<&ae::PoseOwnedExternally>,
+            Option<&mut SnakePlantOut>,
         ),
         (Without<PrimaryPlayer>, Without<PlayerEntity>),
     >,
@@ -118,29 +140,45 @@ pub fn run_snake_plants(
     let Some(tick) = tick else {
         return;
     };
-    let player = players.single().ok().map(|kin| kin.aabb());
-    for (entity, clusters, mut model, config, health, mut withdrawn, held) in &mut plants {
-        if !is_snake_plant_brain(&config.brain) || !health.alive() {
-            continue;
-        }
+    for (entity, clusters, mut model, config, health, mut withdrawn, holds, mut out_state) in &mut plants {
+        let held = holds.is_some_and(|holds| holds.holds(ae::PoseHold::Path));
         let mut item = clusters;
         let mut clusters = item.as_clusters_mut();
         let (pos, half_height) = (clusters.kinematics.pos, clusters.kinematics.size.y * 0.5);
-        let Some(pot) = geometry.of(entity).and_then(|room| pot_of(&room.0, pos)) else {
+        let pot = (is_snake_plant_brain(&config.brain) && health.alive())
+            .then(|| geometry.of(entity).and_then(|room| pot_of(&room.0, pos)))
+            .flatten();
+        let Some(pot) = pot else {
+            if held {
+                ae::release_pose_hold(&mut commands, entity, ae::PoseHold::Path);
+            }
             continue;
         };
+        let room = geometry.room_of(entity);
         // Out: its feet on the mouth. Hidden: its head under the mouth.
         let (out_y, hidden_y) = (pot.min.y - half_height, pot.min.y + half_height + 1.0);
-        let now = ((hidden_y - pos.y) / (hidden_y - out_y)).clamp(0.0, 1.0);
-        let shy = player.is_some_and(|player| {
-            player.max.x > pot.min.x - SHY_REACH
-                && player.min.x < pot.max.x + SHY_REACH
-                && player.max.y <= pot.max.y
+        // Its own fraction; a plant that has none yet starts where it stands.
+        let now = out_state
+            .as_deref()
+            .map_or_else(|| ((hidden_y - pos.y) / (hidden_y - out_y)).clamp(0.0, 1.0), |out| out.0);
+        let shy = players.iter().any(|(player, kin)| {
+            let player_box = kin.aabb();
+            geometry.room_of(player) == room
+                && player_box.max.x > pot.min.x - SHY_REACH
+                && player_box.min.x < pot.max.x + SHY_REACH
+                && player_box.max.y <= pot.max.y
         });
         // Each pipe has its own place in the cycle, from where it stands, so a
         // row of plants does not come up as one.
         let offset = (pot.min.x.max(0.0) as u64 / 16) * 53;
         let out = next_out(now, wanted_out(tick.get() + offset), shy);
+        match out_state.as_deref_mut() {
+            Some(state) if state.0 != out => state.0 = out,
+            Some(_) => {}
+            None => {
+                commands.entity(entity).try_insert(SnakePlantOut(out));
+            }
+        }
         ambition_platformer2d::engine_core::movement::transit_body(
             &mut model,
             &mut clusters,
@@ -148,11 +186,15 @@ pub fn run_snake_plants(
             ambition_platformer2d::engine_core::movement::TransitVelocity::Zero,
         );
         let harmless = out < HARMLESS_BELOW;
-        if withdrawn.0 != harmless {
-            withdrawn.0 = harmless;
+        match withdrawn.as_deref_mut() {
+            Some(withdrawn) if withdrawn.0 != harmless => withdrawn.0 = harmless,
+            Some(_) => {}
+            None => {
+                commands.entity(entity).try_insert(ContactThreatWithdrawn(harmless));
+            }
         }
         if !held {
-            commands.entity(entity).try_insert(ae::PoseOwnedExternally);
+            ae::claim_pose_hold(&mut commands, entity, ae::PoseHold::Path);
         }
     }
 }

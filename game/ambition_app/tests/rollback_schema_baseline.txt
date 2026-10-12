@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v344
+ggrs-rollback-schema-v346
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -132,6 +132,7 @@ content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapsh
 content.mary_o_level_state	component-clone	MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_snake_plant_out	component-clone	SnakePlantOut	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_snake_shell	component-clone	SnakeShell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_spent_power_blocks	resource-clone-custom-checksum	SpentPowerBlocks	bevy_ggrs clone snapshot + an order-independent checksum over the spent ids
 content.pending_cut_rope_room_replay	resource-clone-custom-checksum	PendingCutRopeRoomReplay	the dialogue-authored room replay, latched until the conversation ends
@@ -160,6 +161,7 @@ derived.boss_animation_frame_sample	derived	BossAnimationFrameSample	republished
 derived.class_b_remap_log	derived	ClassBRemapLog	frame-local diagnostic ledger cleared before every simulation step
 derived.cleared_encounters	derived	ClearedEncounters	which encounters are cleared this tick; rebuilt from the lifecycles after the reducer
 derived.contact_threat_withdrawn	derived	ContactThreatWithdrawn	re-derived every tick, before the contact pass, by the system owning the body's canonical state
+derived.contact_touchers	derived	ContactTouchers	written again in each tick's body_contact collect and read only by that tick's lowering
 derived.control_frame	derived	ControlFrame	per-tick input frame regenerated from the synchronized input stream
 derived.controlled_subject	derived	ControlledSubject	resolved from the entity holding DrivingParticipant for the active slot
 derived.custody_residency	derived	InCustodyOf	room residency reprojected from ItemCustody every tick
@@ -173,11 +175,13 @@ derived.gated_lock_wall_verdicts	derived	GatedLockWallVerdicts	why each authored
 derived.global_transform	derived	GlobalTransform	Bevy transform propagation rebuilds it from Transform and hierarchy
 derived.gravity_zones	derived	GravityZones	rebuilt from authoritative GravityZone components before body integration
 derived.input_stream_recorder	derived	InputStreamRecorder	tick-addressed recording: a resimulation rewrites its own tail, so the stream needs no restore — and snapshotting it made frame N cost N
+derived.limb_bond_start	derived	LimbBondStart	written again each tick from its game's rollback state before any reader
 derived.navigation_advice	derived	NavigationAdvice	rebuilt in the Observe phase from the room's surface graph, each body and its brain's goal
 derived.nearest_interactable	derived	NearestInteractable	proximity read model recomputed per frame
 derived.perception_peers	derived	PerceptionPeers	perception snapshot rebuilt every tick before brains read it
 derived.perception_projectiles	derived	PerceptionProjectiles	perception snapshot rebuilt every tick before brains read it
 derived.player_body_frame_output	derived	PlayerBodyFrameOutput	republished by body integration every simulation frame
+derived.portal.held_light_lines	derived	HeldLightLines	written again each tick from the module's rollback record; presentation reads it
 derived.portal_carves	derived	PortalCarves	rebuilt from placed portals and transit occupancy each frame
 derived.portal_host_depths	derived	PortalHostDepthsByRoom	republished from the authoritative collision world each frame
 derived.projectile_view	derived	ProjectileView	SimView projection rebuilt every tick
@@ -291,6 +295,8 @@ map.mount_reserved_for	entity-mapping	MountReservedFor	bevy_ggrs LoadWorld entit
 map.mount_slot	entity-mapping	MountSlot	bevy_ggrs LoadWorld entity-reference remapping
 map.move_playback	entity-mapping	MovePlayback	bevy_ggrs LoadWorld entity-reference remapping
 map.pending_challenge	entity-mapping	PendingChallenge	bevy_ggrs LoadWorld entity-reference remapping
+map.portal.held_pairs	entity-mapping	HeldPortalPairs	bevy_ggrs LoadWorld entity-reference remapping
+map.portal.held_portal_of	entity-mapping	HeldPortalOf	bevy_ggrs LoadWorld entity-reference remapping
 map.projectile_hits	entity-mapping	ProjectileHits	bevy_ggrs LoadWorld entity-reference remapping
 map.projectile_owner	entity-mapping	ProjectileOwner	bevy_ggrs LoadWorld entity-reference remapping
 map.resource.active_conversation	resource-entity-mapping	ActiveConversation	bevy_ggrs LoadWorld resource entity-reference remapping
@@ -397,7 +403,7 @@ mount.can_pilot	component-clone	CanPilot	bevy_ggrs clone snapshot; not in the se
 mount.mass	component-clone	Mass	bevy_ggrs clone snapshot; not in the session checksum
 mount.mountable	component-clone	Mountable	bevy_ggrs clone snapshot; not in the session checksum
 mount.mounted	component-clone	Mounted	bevy_ggrs clone snapshot; not in the session checksum
-mount.pose_owned_externally	component-clone	PoseOwnedExternally	bevy_ggrs clone snapshot; not in the session checksum
+mount.pose_owned_externally	component-clone	PoseOwnedExternally	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 mount.reserved_for	component-clone	MountReservedFor	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 mount.ride_lease	component-clone	RideLease	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 mount.riding_on	component-clone	RidingOn	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
@@ -408,7 +414,11 @@ player.safety_state	component-canonical	PlayerSafetyState	bevy_ggrs canonical co
 portal.emission	component-clone	PortalEmission	bevy_ggrs clone snapshot; not in the session checksum
 portal.gun	component-clone	PortalGun	bevy_ggrs clone snapshot; not in the session checksum
 portal.gun_pickup	component-clone	PortalGunPickup	bevy_ggrs clone snapshot; not in the session checksum
+portal.held_pairs	component-clone-cursor	HeldPortalPairs	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
+portal.held_portal_of	component-clone	HeldPortalOf	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 portal.input_warp	component-clone	PortalInputWarp	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+portal.link	component-clone	PortalLink	bevy_ggrs clone snapshot; not in the session checksum
+portal.look	component-clone	PortalLook	bevy_ggrs clone snapshot; not in the session checksum
 portal.owned_gun_pair	component-clone	OwnedPortalGunPair	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 portal.placed	component-clone	PlacedPortal	bevy_ggrs clone snapshot; not in the session checksum
 portal.shot	component-clone	PortalShot	bevy_ggrs clone snapshot; not in the session checksum

@@ -864,7 +864,12 @@ watch_paths = ["crates/ambition_portal2d/Cargo.toml"]
 rationale = "ambition_portal2d must stay host-free"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_platformer2d_core", "ambition_platformer2d_shared_tangle"]
+# + the held portal pair port (review IN1, 2026-10-12): the port values, the
+# extension host the adapter installs into, and the SDK phase. The extension
+# host is not the game host: combat and abilities name it the same way.
+# `ambition_time` is a dev-dependency only: the host reads the logical tick and
+# gameplay time, and the adapter's tests give it both.
+allow = ["ambition_platformer2d_core", "ambition_platformer2d_shared_tangle", "ambition_extension_host", "ambition_extension_sdk", "ambition_portal_port", "ambition_time"]
 manifest = "crates/ambition_portal2d/Cargo.toml"
 
 [[policy]]
@@ -3321,7 +3326,7 @@ watch_paths = ["Cargo.toml"]
 rationale = "the extension SDK must stay a registered workspace member"
 source_doc = "docs/planning/engine/extension-model.md"
 severity = "error"
-members = ["ambition_extension_sdk", "ambition_extension_host", "ambition_extension_wasm", "ambition_boss_special_port", "ambition_combat_port", "ambition_content_modules", "ambition_extension_fixture_modules"]
+members = ["ambition_extension_sdk", "ambition_extension_host", "ambition_extension_wasm", "ambition_boss_special_port", "ambition_combat_port", "ambition_portal_port", "ambition_content_modules", "ambition_extension_fixture_modules"]
 
 [[policy]]
 id = "engine.ambition_extension_sdk-portable"
@@ -3396,3 +3401,16 @@ severity = "error"
 exact = true
 allow = ["ambition_extension_sdk"]
 manifest = "crates/ambition_combat_port/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_portal_port-portable"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_portal_port"]
+watch_paths = ["crates/ambition_portal_port/Cargo.toml"]
+rationale = "the portal port's values are submitted by modules, so the leaf names only the SDK"
+source_doc = "docs/planning/engine/extension-domain-contracts.md"
+severity = "error"
+exact = true
+allow = ["ambition_extension_sdk"]
+manifest = "crates/ambition_portal_port/Cargo.toml"

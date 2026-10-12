@@ -967,7 +967,7 @@ mod tests {
         // Board.
         app.world_mut()
             .entity_mut(body)
-            .insert(ambition_platformer2d_core::PoseOwnedExternally);
+            .insert(ambition_platformer2d_core::PoseOwnedExternally::only(ambition_platformer2d_core::PoseHold::Ride));
         app.update();
 
         let prompt = app.world().resource::<ControlPrompt>();

@@ -529,6 +529,9 @@ pub enum ControlHold {
     /// the dog being petted. Projected from the gesture timers on
     /// `BodyAnimFacts`, so it lets go when they run out.
     Gesture = 1 << 5,
+    /// A scripted transit carries the body (a pipe ride): it can not steer,
+    /// jump or fall out of it.
+    Transit = 1 << 6,
 }
 
 /// Authorities currently suppressing ordinary control. Holds are claims on a

@@ -17,6 +17,9 @@ use crate::store::RecordSet;
 
 /// One saved record: the schema it was written under and its values, each
 /// in the exact wire encoding, and the schema key as text for a reader.
+///
+/// The schema key in `schema` is the identity of the row. `key` is a label
+/// and an index: a row whose label names another schema is refused.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SavedRow {
     pub key: String,
@@ -50,14 +53,27 @@ pub fn saved_rows(admitted: &Admitted, road: SaveRoad, records: &RecordSet) -> V
     rows
 }
 
+/// The schema key written in `row`, if its schema decodes.
+fn written_key(row: &SavedRow) -> Option<SchemaKey> {
+    StateSchema::read(&mut WireReader::new(&row.schema)).ok().map(|schema| schema.key)
+}
+
 /// The rows a save keeps after road `road` writes `live` into `saved`: the
 /// live rows, and each saved row of a schema the road does not keep in this
-/// composition (a module that is not loaded).
+/// composition (a module that is not loaded), unchanged.
+///
+/// ⛔ A saved row is dropped when EITHER its label or the schema written in
+/// it is one the road keeps. It kept a row by its label only, so a row
+/// labelled as a module that is not loaded, with the schema of a module that
+/// is, stayed in the save beside the live row, and the next load adopted it
+/// over that live record.
 pub fn merged_rows(admitted: &Admitted, road: SaveRoad, saved: &[SavedRow], live: Vec<SavedRow>) -> Vec<SavedRow> {
     let kept: Vec<String> = kept_by(admitted, road).map(ToString::to_string).collect();
     let mut rows: Vec<SavedRow> = saved
         .iter()
-        .filter(|row| !kept.contains(&row.key))
+        .filter(|row| {
+            !kept.contains(&row.key) && written_key(row).is_none_or(|key| !kept.contains(&key.to_string()))
+        })
         .cloned()
         .chain(live)
         .collect();
@@ -68,9 +84,25 @@ pub fn merged_rows(admitted: &Admitted, road: SaveRoad, saved: &[SavedRow], live
 /// Put each saved row that road `road` keeps into `records`, migrated to the
 /// admitted shape. Returns one line for each row that could not be read; that
 /// row is not adopted, and the live record keeps its value.
+///
+/// A row is refused when its label names another schema than the one
+/// written in it, and every row of a schema that two rows give is refused:
+/// the save does not say which is the record, and the last one in the list
+/// won.
 pub fn adopt_saved_rows(admitted: &Admitted, road: SaveRoad, records: &mut RecordSet, saved: &[SavedRow]) -> Vec<String> {
     let mut problems = Vec::new();
-    for row in saved {
+    let keys: Vec<Option<SchemaKey>> = saved.iter().map(written_key).collect();
+    for (row, key) in saved.iter().zip(&keys) {
+        if let Some(key) = key {
+            if row.key != key.to_string() {
+                problems.push(format!("saved record {}: its schema is {key}, not the schema its label names", row.key));
+                continue;
+            }
+            if keys.iter().filter(|other| other.as_ref() == Some(key)).count() > 1 {
+                problems.push(format!("saved record {}: the save has more than one row of {key}", row.key));
+                continue;
+            }
+        }
         let written = match StateSchema::read(&mut WireReader::new(&row.schema)) {
             Ok(schema) => schema,
             Err(error) => {

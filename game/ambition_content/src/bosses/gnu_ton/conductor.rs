@@ -22,6 +22,9 @@ pub struct GnuTonView {
     pub performing: Option<(Move, bool)>,
     /// The hall under the gnu, once it has measured it.
     pub hall: Option<Hall>,
+    /// The look lines, where each is: the left shoulder's, the right
+    /// shoulder's, the left wrist's, the right wrist's.
+    pub look_lines: [Option<ae::Vec2>; 4],
 }
 
 /// The conductor's record on `scholar`, as a view. `None` before the module
@@ -33,5 +36,6 @@ pub fn conductor_of(world: &World, scholar: Entity) -> Option<GnuTonView> {
     Some(GnuTonView {
         performing: c.performing(),
         hall: c.hall().map(|hall| Hall { floor: hall.floor, left: hall.left, right: hall.right }),
+        look_lines: c.look_lines().map(|line| line.map(|(at, _)| ae::Vec2::new(at.x, at.y))),
     })
 }

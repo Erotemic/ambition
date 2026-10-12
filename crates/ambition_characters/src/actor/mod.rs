@@ -39,7 +39,7 @@ pub use definition::DEFAULT_UNAUTHORED_BODY_HEALTH;
 /// flat beside the blueprint it is a field of.
 pub use definition::AutonomousPolicy;
 pub mod limb;
-pub use limb::{fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot};
+pub use limb::{fan_out_limb_intents, Limb, LimbBondStart, LimbIntents, LimbRig, LimbRouteState, LimbSlot};
 pub mod intrinsics;
 pub use intrinsics::{CharacterHands, CharacterLocomotion, CharacterMount, ContactDamage, MountBack};
 pub mod worn;

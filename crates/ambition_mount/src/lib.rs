@@ -346,8 +346,10 @@ pub fn ride_armed() -> RideConstraints {
         Mounted,
         // The one fact a constrained body owes the domains that cannot see this
         // one: the movement kernel must not integrate its locomotion, and a move
-        // may forbid itself while it is set.
-        ambition_platformer2d_core::PoseOwnedExternally,
+        // may forbid itself while it is set. For a body built as a rider; a
+        // body that boards later CLAIMS the ride's hold beside any other
+        // holder's (`board`).
+        ambition_platformer2d_core::PoseOwnedExternally::only(ambition_platformer2d_core::PoseHold::Ride),
     )
 }
 
@@ -992,7 +994,11 @@ pub fn board(world: &mut bevy::prelude::World, rider: Entity, mount: Entity) -> 
     // constrained body owes the domains that cannot see this one — the movement
     // kernel must not integrate its locomotion and a move may forbid itself
     // while it is set. See the marker's own note for why it lives in `_core`.
-    world.entity_mut(rider).insert(rider_of(mount));
+    // The ride's own hold, beside any other holder's: inserting the whole
+    // marker would take a conductor's hold away.
+    let mut boarding = world.entity_mut(rider);
+    boarding.insert((RidingOn { mount }, Mounted));
+    ambition_platformer2d_core::claim_pose_hold_on(&mut boarding, ambition_platformer2d_core::PoseHold::Ride);
     world.entity_mut(mount).insert(saddle_holding(rider));
     true
 }
@@ -1070,12 +1076,9 @@ pub fn apply_dismount_requests(
         // The centre only: the next publish states the footprint of the
         // restored size (see `sync_riders_to_mounts`).
         aabb.center = kin.pos;
-        commands.entity(request.rider).remove::<(
-            RidingOn,
-            Mounted,
-            RideLease,
-            ambition_platformer2d_core::PoseOwnedExternally,
-        )>();
+        commands.entity(request.rider).remove::<(RidingOn, Mounted, RideLease)>();
+        // The ride's hold only: another holder keeps its own.
+        ambition_platformer2d_core::release_pose_hold(&mut commands, request.rider, ambition_platformer2d_core::PoseHold::Ride);
         // ⛔⛔ AND THE RIDE'S CLAIM ENDS HERE, which it did not until 2026-09-06.
         // This arm removes `RidingOn`, and the only other place that released the
         // mount's claim queries bodies that HAVE `RidingOn` — so after an ordinary
@@ -1386,9 +1389,15 @@ pub fn enforce_mount_rider_link(
                     commands.entity(rider_entity).insert((
                         cache.brain.clone(),
                         cache.action_set.clone(),
-                        // BOTH halves — see `RideConstraints`.
-                        ride_armed(),
+                        // BOTH halves — see `RideConstraints`: `Mounted`
+                        // here, and the ride's hold beside any other's.
+                        Mounted,
                     ));
+                    ambition_platformer2d_core::claim_pose_hold(
+                        &mut commands,
+                        rider_entity,
+                        ambition_platformer2d_core::PoseHold::Ride,
+                    );
                     // Record the mount by stable id for snapshot restore. Only when
                     // the mount carries a `SimId` (otherwise the link isn't
                     // reconstructible); the marker above still tracks live state.
@@ -1460,7 +1469,7 @@ pub fn enforce_mount_rider_link(
                     // alone left the kernel refusing to integrate the
                     // locomotion of a body this same statement just declared
                     // autonomous.
-                    .remove::<RideConstraints>()
+                    .remove::<Mounted>()
                     // ⛔ THE `Autonomous` WRITE THAT USED TO SIT HERE WAS THE BUG.
                     // A dead mount ends the RIDE's claim; it does not make the body
                     // autonomous, and saying so erased a live possession. The claim
@@ -1469,6 +1478,12 @@ pub fn enforce_mount_rider_link(
                     // re-resolves on the next presentation pass.
                     .remove::<ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind>(
                     );
+                // The other half: the ride's hold, and only it.
+                ambition_platformer2d_core::release_pose_hold(
+                    &mut commands,
+                    rider_entity,
+                    ambition_platformer2d_core::PoseHold::Ride,
+                );
                 ambition_platformer2d_shared_tangle::temporary_control::drop_claim(
                     &mut commands,
                     rider_entity,
@@ -1607,10 +1622,14 @@ where
     registrar.rollback_component_clone::<Mounted>(OWNER, "mount.mounted");
     // ⚠ OWNED HERE, NOT BY `_core`, and the split is deliberate: `_core` DEFINES
     // the marker so both domains can name it, and whoever maintains its
-    // lifecycle registers it. Today the saddle is the only thing that sets it.
-    registrar.rollback_component_clone::<ambition_platformer2d_core::PoseOwnedExternally>(
+    // lifecycle registers it. The saddle holds it, and so do a conductor, a
+    // transit and a path, each with its own `PoseHold`; the holds are in the
+    // clone, so a rewind gives each holder back its own. Probed by value:
+    // two peers that agree a body is held and disagree by whom are a desync.
+    registrar.rollback_component_clone_probed::<ambition_platformer2d_core::PoseOwnedExternally>(
         OWNER,
         "mount.pose_owned_externally",
+        |holds| u64::from(holds.bits()),
     );
     registrar.rollback_component_clone_entity_ref::<RidingOn>(OWNER, "mount.riding_on", |riding| {
         riding.mount

@@ -50,7 +50,8 @@ fi
 
 # The sources a module build reads. A change anywhere under them rebuilds.
 sources=(game/ambition_content_modules crates/ambition_extension_sdk
-    crates/ambition_boss_special_port crates/ambition_combat_port crates/ambition_projectile_spec)
+    crates/ambition_boss_special_port crates/ambition_combat_port crates/ambition_portal_port
+    crates/ambition_projectile_spec)
 stamp="$(mktemp)"
 trap 'rm -f "$stamp"' EXIT
 build || echo "build failed; watching for the next change"

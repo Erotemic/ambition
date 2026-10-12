@@ -439,6 +439,7 @@ dependencies = [
  "ambition_boss_special_port",
  "ambition_combat_port",
  "ambition_extension_sdk",
+ "ambition_portal_port",
  "ambition_projectile_spec",
  "bevy_math",
 ]
@@ -1225,8 +1226,12 @@ dependencies = [
 name = "ambition_portal2d"
 version = "0.1.0"
 dependencies = [
+ "ambition_extension_host",
+ "ambition_extension_sdk",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_portal_port",
+ "ambition_time",
  "bevy",
  "serde",
 ]
@@ -1241,6 +1246,13 @@ dependencies = [
  "ambition_sprite_fx",
  "bevy",
  "naga",
+]
+
+[[package]]
+name = "ambition_portal_port"
+version = "0.1.0"
+dependencies = [
+ "ambition_extension_sdk",
 ]
 
 [[package]]

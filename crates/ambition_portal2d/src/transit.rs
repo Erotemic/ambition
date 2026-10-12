@@ -409,7 +409,7 @@ pub fn portal_teleport_free_bodies<B: FreePortalBody>(
                 continue;
             };
             if vel.dot(enter.normal) < 0.0
-                && body_aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent))
+                && body_aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.opening_half_extent()))
             {
                 // Rotation preserves speed, so momentum carries through.
                 let exit_vel = portal_transform_velocity(vel, enter.normal, exit.normal, convention);

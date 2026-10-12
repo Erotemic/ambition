@@ -1261,9 +1261,7 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
     };
     // wait out the opening countdown first. A smash match opens SUSPENDED (`opens_suspended` /
     // `opening_countdown_ticks` — the 3-2-1-GO), so input pressed before GO moves nothing.
-    for _ in 0..240 {
-        app.update();
-    }
+    wait_for_the_round_to_go_live(&mut app);
 
     const FRAMES: usize = 40;
     let hitstun = |app: &App, body: Entity| -> f32 {
@@ -2134,9 +2132,7 @@ fn the_shipped_polygon_carries_both_halves_of_her_ranged_move() {
     launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
     pick_and_start(&mut app, "projectile_polygon");
-    for _ in 0..240 {
-        app.update();
-    }
+    wait_for_the_round_to_go_live(&mut app);
 
     let world = app.world_mut();
     let mut q = world.query::<(
@@ -2690,29 +2686,38 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
 
 /// Run out the opening ceremony.
 ///
-/// The Smash ruleset opens 3 — 2 — 1 — GO: every fighter carries
-/// `ControlHolds` until the count ends, so a test that presses a button on
-/// the tick the stage appears is pressing it at a held body and measuring the
-/// ceremony rather than the input. Waiting is what a player does too.
+/// The Smash ruleset opens 3 — 2 — 1 — GO: every fighter carries the
+/// opening's `ControlHold` until the count ends, so a test that presses a
+/// button on the tick the stage appears is pressing it at a held body and
+/// measuring the ceremony rather than the input. Waiting is what a player
+/// does too.
+///
+/// ⛔ READY IS "SEATS, AND NONE HELD BY THE OPENING", NOT "NONE HELD". With no
+/// seats, "none held" is also true, before the match is built (measured
+/// 2026-09-12: it returned at once). So this waits until the cast exists.
+/// It waits on the condition, under the wall-clock ceiling, and not for a
+/// count of frames: in company the activation is late (seen at frame 83), and
+/// a fixed 240 frames can end before the 180-tick count does.
 fn wait_for_the_round_to_go_live(app: &mut App) {
-    for _ in 0..600 {
-        let held = {
+    use ambition_platformer2d::characters::control::{ControlHold, ControlHolds};
+    let started = std::time::Instant::now();
+    loop {
+        let (seats, held) = {
             let world = app.world_mut();
-            let mut q = world.query_filtered::<
-                &ambition_platformer2d::versus_match::MatchSeat,
-                With<ambition_platformer2d::characters::control::ControlHolds>,
-            >();
-            q.iter(world).count()
+            let mut q = world.query_filtered::<Option<&ControlHolds>, With<ambition_platformer2d::versus_match::MatchSeat>>();
+            q.iter(world).fold((0usize, 0usize), |(seats, held), holds| {
+                (seats + 1, held + usize::from(holds.is_some_and(|holds| holds.holds(ControlHold::Opening))))
+            })
         };
-        if held == 0 {
+        if seats > 0 && held == 0 {
             return;
         }
+        assert!(
+            started.elapsed() < crate::common::ACTIVATION_CEILING,
+            "the round did not go live: {seats} seat(s), {held} held by the opening"
+        );
         app.update();
     }
-    panic!(
-        "the opening hold never came off in ten seconds of ticks, so every \
-         fighter in this match is a statue"
-    );
 }
 
 /// SETTLE THE MATCH THE WAY THE FIGHTERS DO — knock every seat but the first
@@ -4391,9 +4396,7 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
     }
     click(&mut app, layout.start_button());
     // Past the 3-2-1 opening hold, so nothing below is refused for being held.
-    for _ in 0..240 {
-        app.update();
-    }
+    wait_for_the_round_to_go_live(&mut app);
 
     let seated = |app: &mut App| -> Vec<(String, Entity, i32, i32, f32)> {
         let world = app.world_mut();
@@ -6020,9 +6023,7 @@ mod launched {
         }
         click(app, layout.start_button());
         // Past the 3-2-1 opening hold.
-        for _ in 0..240 {
-            app.update();
-        }
+        wait_for_the_round_to_go_live(app);
         let bodies: Vec<(String, Entity)> = {
             let world = app.world_mut();
             let mut q = world.query::<(Entity, &WornCharacter)>();
@@ -6701,22 +6702,7 @@ mod ring_out {
         pick_fighter(app, 1, victim_id);
         let layout = screen(app);
         click(app, layout.start_button());
-        // ⛔⛔ THE BLIND COUNTDOWN WAIT IS DELIBERATE, AND `wait_for_the_round_to_go_live`
-        // IS THE WRONG TOOL HERE. That helper returns as soon as no `MatchSeat`
-        // holds `ControlHolds` — which is vacuously true when there are ZERO
-        // seats, i.e. before the match has been built at all. Measured
-        // 2026-09-12: it returned instantly, this fixture queried a world with
-        // no cast, and both arms died on the mirror assertion below in 3.1s
-        // having never paid for a boot. A readiness check whose "ready" and
-        // "nothing exists yet" answers are the same value cannot gate a
-        // fixture that is waiting for something to be CREATED.
-        //
-        // ⇒ Spend the opening hold the way `two_seated_fighters` does, then use
-        // the readiness helper for what it is good for: seats now exist, so
-        // "nobody is held" means what it says.
-        for _ in 0..240 {
-            app.update();
-        }
+        // The wait is for the cast to exist and its opening hold to be off.
         wait_for_the_round_to_go_live(app);
         // The whole cast, kept for the diagnostic: a count alone cannot say
         // whether the mirror failed to seat or seated somebody else.
@@ -8593,9 +8579,7 @@ fn the_robot_deals_health_damage_at_home_and_percent_on_a_smash_stage() {
     launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
     pick_and_start(&mut app, ROBOT);
-    for _ in 0..240 {
-        app.update();
-    }
+    wait_for_the_round_to_go_live(&mut app);
     let seated = |app: &mut App| -> (bevy::prelude::Entity, MovesetContract) {
         let world = app.world_mut();
         let mut q = world.query::<(bevy::prelude::Entity, &WornCharacter, &ActorMoveset)>();

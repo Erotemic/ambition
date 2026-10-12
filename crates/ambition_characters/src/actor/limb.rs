@@ -190,6 +190,16 @@ pub struct Limb {
     pub home_offset: ae::Vec2,
 }
 
+/// On a LIMB body: where its bond starts, when that is not its host's body, in
+/// engine world coordinates. A game says it for a bond that is its own (a
+/// spell that joins two portals: the bond runs from the one the arm is in).
+/// The view of the limb carries it (`FeatureView::limb_host`), so each limb
+/// has its own start and two live rooms do not share one.
+///
+/// Derived: the game writes it again each tick from its own rollback state.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct LimbBondStart(pub ae::Vec2);
+
 /// Remembers the move currently driving limbs so `melee_pressed` fires only on
 /// the active-window onset.
 #[derive(Component, Clone, Default, Debug)]

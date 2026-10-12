@@ -8,7 +8,7 @@
 //! Presentation only, and content-owned. In the form she is drawn from parts
 //! (`mary_o_v2_cosmic` of the sprite renderer), and her wings are parts of
 //! their own. The part renderer says where the parts of her body are
-//! ([`PartSetRequest`] for [`BODY_TRACKS`]), and one quad over her draws
+//! (an ask for [`BODY_TRACKS`] under its own name, `ask_for_parts`), and one quad over her draws
 //! light on the border of their shape (`shaders/cosmic_barrier.wgsl`). The
 //! quad draws nothing on her, and nothing about her wings or her long hair.
 //!
@@ -31,7 +31,7 @@ use bevy::{
 
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
-use ambition_platformer2d::render::rendering::actors::rigged::{PartSetDraws, PartSetRequest};
+use ambition_platformer2d::render::rendering::actors::rigged::{ask_for_parts, forget_parts, PartSetDraws, PartSetRequest};
 use ambition_platformer2d::render::rendering::{ActorOverlaySet, PlayerVisual};
 
 /// The tracks of her flipbook that are her body: her figure, and no more
@@ -142,19 +142,36 @@ pub fn install(app: &mut App) {
     );
 }
 
+/// The name of the barrier's ask for her parts.
+const BARRIER_READER: &str = "mary_o_cosmic_barrier";
+
 /// What the barrier draws this frame: its uniforms, the page of her parts,
 /// and the quad under the place of her feet. `None` when no part of her body
 /// is drawn from parts, or its page is not loaded.
 ///
-/// A part is read where it stands with no turn and no scale of its own: the
-/// layers of her body have none. `page_size` is the size of the page in texels.
+/// ⛔ `None` ALSO for parts the shader can not draw: more than
+/// [`MOST_PARTS`], more than one page, or a part with a turn or a scale of
+/// its own. It took the first page and the first parts and read each part
+/// with no turn: a barrier that left out a part of her, or put it in the
+/// wrong place. No barrier is the honest picture of a body it can not draw.
+/// `page_size` is the size of the page in texels.
 fn barrier_of(draws: &PartSetDraws, page_size: impl Fn(&Handle<Image>) -> Option<Vec2>) -> Option<(BarrierUniform, Handle<Image>, Transform)> {
-    let page = draws.parts.first()?.image.clone();
+    let parts = draws.parts(BARRIER_READER);
+    let page = parts.first()?.image.clone();
+    let drawable = parts.len() <= MOST_PARTS
+        && parts.iter().all(|part| {
+            part.image == page
+                && part.local.rotation.angle_between(Quat::IDENTITY) < 1e-4
+                && (part.local.scale.truncate() - Vec2::ONE).abs().max_element() < 1e-4
+        });
+    if !drawable {
+        return None;
+    }
     let texels = page_size(&page)?;
     let mut uniform = BarrierUniform::default();
     let (mut low, mut high) = (Vec2::MAX, Vec2::MIN);
     let mut count = 0;
-    for part in draws.parts.iter().filter(|part| part.image == page).take(MOST_PARTS) {
+    for part in parts {
         let pivot = part.local.translation.truncate();
         // A sprite's anchor is the point of it at its place.
         let corner = pivot - (part.anchor + Vec2::splat(0.5)) * part.size;
@@ -201,7 +218,7 @@ fn raise_her_barrier(
             Entity,
             &WornCharacter,
             Option<&PartSetDraws>,
-            Has<PartSetRequest>,
+            Option<&PartSetRequest>,
             Option<&HasCosmicBarrier>,
             Option<&RenderLayers>,
         ),
@@ -213,8 +230,8 @@ fn raise_her_barrier(
     for (body, worn, draws, asks, has, layers) in &bodies {
         let wanted = in_budget && crate::cosmic::is_cosmic(worn.id());
         if !wanted {
-            if asks {
-                commands.entity(body).try_remove::<(PartSetRequest, PartSetDraws)>();
+            if asks.is_some_and(|asks| asks.tracks_of(BARRIER_READER).is_some()) {
+                forget_parts(&mut commands, body, BARRIER_READER);
             }
             if let Some(has) = has {
                 commands.entity(has.0).try_despawn();
@@ -222,10 +239,8 @@ fn raise_her_barrier(
             }
             continue;
         }
-        if !asks {
-            commands.entity(body).try_insert(PartSetRequest {
-                tracks: BODY_TRACKS.iter().map(|track| track.to_string()).collect(),
-            });
+        if asks.is_none_or(|asks| asks.tracks_of(BARRIER_READER).is_none()) {
+            ask_for_parts(&mut commands, body, BARRIER_READER, &BODY_TRACKS);
         }
         let drawn = draws.and_then(|draws| barrier_of(draws, |page| images.get(page).map(|image| image.size_f32())));
         match (drawn, has) {
@@ -313,10 +328,11 @@ mod tests {
             anchor: Vec2::new(-0.5, 0.5),
             local: Transform::from_translation(at.extend(0.0)),
         };
-        let draws = PartSetDraws {
-            place: Transform::from_xyz(100.0, 50.0, 3.0),
-            parts: vec![part(Vec2::new(-30.0, 90.0), Vec2::new(48.0, 75.0)), part(Vec2::new(-21.0, 96.0), Vec2::new(54.0, 96.0))],
-        };
+        let draws = PartSetDraws::from_parts(
+            Transform::from_xyz(100.0, 50.0, 3.0),
+            BARRIER_READER,
+            vec![part(Vec2::new(-30.0, 90.0), Vec2::new(48.0, 75.0)), part(Vec2::new(-21.0, 96.0), Vec2::new(54.0, 96.0))],
+        );
         let (uniform, _, quad) = barrier_of(&draws, |_| Some(Vec2::new(640.0, 541.0))).unwrap();
         assert_eq!(uniform.control.x, 2.0);
         // The figure: its top left at (-21, 96), so its low corner at (-21, 0).
@@ -327,5 +343,34 @@ mod tests {
         assert_eq!(quad.translation.z, 3.0 + BARRIER_Z);
         assert!(barrier_of(&PartSetDraws::default(), |_| Some(Vec2::ONE)).is_none());
         assert!(barrier_of(&draws, |_| None).is_none());
+    }
+
+    /// ⭐ A6: parts the shader can not draw give no barrier: a fifth part, a
+    /// second page, a turned part, a scaled part. Four plain parts on one
+    /// page are the control.
+    #[test]
+    fn parts_the_shader_can_not_draw_give_no_barrier() {
+        let page = Handle::<Image>::default();
+        let other = Handle::<Image>::Uuid(bevy::asset::uuid::Uuid::from_u128(7), std::marker::PhantomData);
+        let part = |image: &Handle<Image>, local: Transform| PlacedPart {
+            image: image.clone(),
+            rect: Rect::new(0.0, 0.0, 8.0, 8.0),
+            size: Vec2::splat(8.0),
+            anchor: Vec2::ZERO,
+            local,
+        };
+        let barrier = |parts: Vec<PlacedPart>| {
+            barrier_of(&PartSetDraws::from_parts(Transform::IDENTITY, BARRIER_READER, parts), |_| Some(Vec2::splat(64.0)))
+                .is_some()
+        };
+        let plain = || part(&page, Transform::IDENTITY);
+        assert!(barrier(vec![plain(), plain(), plain(), plain()]), "the control: four plain parts");
+        assert!(!barrier(vec![plain(), plain(), plain(), plain(), plain()]), "a fifth part");
+        assert!(!barrier(vec![plain(), part(&other, Transform::IDENTITY)]), "a second page");
+        assert!(!barrier(vec![plain(), part(&page, Transform::from_rotation(Quat::from_rotation_z(0.3)))]), "a turn");
+        assert!(!barrier(vec![plain(), part(&page, Transform::from_scale(Vec3::new(2.0, 1.0, 1.0)))]), "a scale");
+        // An answer for another reader is not the barrier's.
+        let theirs = PartSetDraws::from_parts(Transform::IDENTITY, "trail", vec![plain()]);
+        assert!(barrier_of(&theirs, |_| Some(Vec2::splat(64.0))).is_none(), "another reader's parts");
     }
 }

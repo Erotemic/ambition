@@ -270,6 +270,66 @@ fn a_saved_row_comes_back_and_a_row_of_an_older_shape_migrates() {
     assert_eq!(save::merged_rows(&old, SaveRoad::SessionDurable, &rows, Vec::new()), Vec::new());
 }
 
+/// ⭐ A7: the schema written in a saved row is its identity. A row whose
+/// label names another schema, and two rows of one schema, change no
+/// record on a load, and a row labelled as a module that is not loaded,
+/// with the schema of one that is, does not stay in the save as a ghost.
+#[test]
+fn a_saved_row_is_the_schema_written_in_it() {
+    const TALLY: SchemaKey = SchemaKey::new("test", "tally", 1);
+    let roads: std::collections::BTreeSet<SaveRoad> = [SaveRoad::SessionDurable].into();
+    let mut m = module(vec![entry("a", vec![])]);
+    m.schemas[0].attachment = Attachment::Session;
+    m.schemas[0].save = SaveEligibility::Durable;
+    let mut tally = m.schemas[0].clone();
+    tally.key = TALLY;
+    m.schemas.push(tally);
+    let admitted = admit_with_roads(API_VERSION, &offers(), &roads, &[DeclaredModule::from(m)]).unwrap();
+    let put = |records: &mut RecordSet, key: SchemaKey, count: u32| {
+        let mut record = admitted.schemas[&key].schema.initial_record();
+        record.set(COUNT, Value::U32(count)).unwrap();
+        let shape = admitted.schemas[&key].shape;
+        records.put(key, shape, record);
+    };
+    let mut live = RecordSet::default();
+    put(&mut live, COUNTER, 7);
+    put(&mut live, TALLY, 3);
+    let rows = save::saved_rows(&admitted, SaveRoad::SessionDurable, &live);
+    assert_eq!(rows.len(), 2, "the premise: one row for each record");
+    let counter_row = |count: u32| {
+        let mut records = RecordSet::default();
+        put(&mut records, COUNTER, count);
+        save::saved_rows(&admitted, SaveRoad::SessionDurable, &records).remove(0)
+    };
+
+    // The control: the rows the road wrote come back equal.
+    let mut loaded = RecordSet::default();
+    assert!(save::adopt_saved_rows(&admitted, SaveRoad::SessionDurable, &mut loaded, &rows).is_empty());
+    assert_eq!(loaded, live);
+
+    // A row with the label of the tally and the schema of the counter.
+    let mut mislabelled = counter_row(99);
+    mislabelled.key = TALLY.to_string();
+    let mut loaded = live.clone();
+    let problems = save::adopt_saved_rows(&admitted, SaveRoad::SessionDurable, &mut loaded, &[mislabelled]);
+    assert_eq!(problems.len(), 1, "a mislabelled row is refused: {problems:?}");
+    assert_eq!(loaded, live, "and it changes neither record");
+
+    // Two rows of the counter.
+    let mut loaded = live.clone();
+    let problems =
+        save::adopt_saved_rows(&admitted, SaveRoad::SessionDurable, &mut loaded, &[counter_row(7), counter_row(99)]);
+    assert_eq!(problems.len(), 2, "both rows of one schema are refused: {problems:?}");
+    assert_eq!(loaded, live, "and the live record keeps its value");
+
+    // A row with the label of a module that is not loaded, and the schema of
+    // the counter: the live rows replace it.
+    let mut ghost = counter_row(99);
+    ghost.key = SchemaKey::new("test", "dormant", 1).to_string();
+    let merged = save::merged_rows(&admitted, SaveRoad::SessionDurable, &[ghost], rows.clone());
+    assert_eq!(merged, rows, "no ghost row after the merge");
+}
+
 #[test]
 fn a_newer_minor_api_and_a_foreign_schema_are_refused() {
     let mut newer = module(vec![entry("a", vec![])]);

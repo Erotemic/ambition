@@ -14,6 +14,9 @@ pub struct ShellLaunchEntry {
     pub available: bool,
     /// Player-facing reason this entry is disabled, when `available` is false.
     pub unavailable_reason: Option<String>,
+    /// The look its provider names for it
+    /// ([`crate::ExperienceRegistration::launcher_look`]).
+    pub look: Option<String>,
 }
 
 impl ShellExperienceId {

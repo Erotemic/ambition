@@ -675,3 +675,18 @@ mod actor_cap_selects_actors_tests {
         }
     }
 }
+
+#[cfg(all(test, feature = "portal"))]
+mod authored_channel_range_tests {
+    /// The authoring parser and the portal crate agree where the link
+    /// channels start, so no authored channel name is an end of a link pair.
+    #[test]
+    fn authoring_stops_where_the_link_channels_start() {
+        use ambition_platformer2d_world::rooms::PortalChannelColorSpec as Spec;
+        assert_eq!(Spec::FIRST_LINK_CHANNEL, ambition_portal2d::LINK_CHANNEL_FIRST);
+        assert_eq!(Spec::from_name("c127"), Some(Spec::Indexed(127)));
+        assert_eq!(Spec::from_name("c128"), None);
+        assert_eq!(Spec::from_name("c255"), None);
+        assert_eq!(ambition_portal2d::PortalChannelColor::from_name("c129"), None);
+    }
+}

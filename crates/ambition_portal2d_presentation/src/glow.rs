@@ -47,7 +47,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, LiveRoomInstance, SessionScopeId, SessionScopedEntity, SessionSpawnScope,
     SpawnSessionScopedExt,
 };
-use ambition_portal2d::{find_portal, PlacedPortal, PortalChannel, PORTAL_VISUAL_THICKNESS};
+use ambition_portal2d::{PlacedPortal, PortalChannel, PORTAL_VISUAL_THICKNESS};
 
 use crate::PortalFrames;
 
@@ -130,7 +130,11 @@ pub(crate) fn add_portal_glow_material_plugin(app: &mut App) {
 pub struct PortalGlow {
     /// The portal it draws. `None` when that portal is gone: it dissolves.
     pub portal: Option<Entity>,
+    /// The channel that pairs the portal: which aperture this glow is.
     pub channel: PortalChannel,
+    /// The channel whose colour it is drawn in: the portal's
+    /// [`PortalLook`](ambition_portal2d::PortalLook), or its channel.
+    pub look: PortalChannel,
     pub room: LiveRoomInstance,
     /// The portal's last pose, in engine world coordinates.
     pub pos: Vec2,
@@ -158,7 +162,8 @@ impl PortalGlow {
 pub fn opening_length(portal: &PlacedPortal) -> f32 {
     let n = portal.normal.normalize_or_zero();
     let along = Vec2::new(-n.y, n.x);
-    let half = along.x.abs() * portal.half_extent.x + along.y.abs() * portal.half_extent.y;
+    let opening = portal.opening_half_extent();
+    let half = along.x.abs() * opening.x + along.y.abs() * opening.y;
     (half * 2.0).max(PORTAL_VISUAL_THICKNESS)
 }
 
@@ -191,13 +196,13 @@ fn seed_of(pos: Vec2) -> f32 {
     (pos.x * 0.0131 + pos.y * 0.0173).fract().abs()
 }
 
-fn material_of(glow: &PortalGlow, partner: PortalChannel) -> PortalGlowMaterial {
+fn material_of(glow: &PortalGlow, partner_look: PortalChannel) -> PortalGlowMaterial {
     let size = quad_size(glow.length);
     PortalGlowMaterial {
         shape: Vec4::new(glow.length, size.x, size.y, seed_of(glow.pos)),
         phase: Vec4::new(glow.appear, glow.dissolve, 0.0, 0.0),
-        front: linear(glow.channel.display().1),
-        back: linear(partner.display().1),
+        front: linear(glow.look.display().1),
+        back: linear(partner_look.display().1),
     }
 }
 
@@ -218,6 +223,7 @@ pub fn sync_portal_glows(
     time: Res<Time>,
     frames: PortalFrames,
     portals: Query<(Entity, &PlacedPortal)>,
+    looks: Query<&ambition_portal2d::PortalLook>,
     active_session: Option<Res<ActiveSessionScope>>,
     style: Option<Res<PortalGlowStyle>>,
     mut glows: Query<(
@@ -256,13 +262,29 @@ pub fn sync_portal_glows(
             commands.entity(entity).despawn();
         }
     }
-    let by_room = frames.portals_by_room(portals.iter());
-
     // Each portal that can be drawn: its room is live.
     let live: Vec<(Entity, crate::PortalPlacement, &PlacedPortal)> = portals
         .iter()
         .filter_map(|(entity, portal)| Some((entity, frames.of(entity)?, portal)))
         .collect();
+
+    // The look of each live portal, by its room and channel, so the far side
+    // of a line has its partner's look. The first in the crate's stable order
+    // answers, as `find_portal` does.
+    let look_of = |entity: Entity, portal: &PlacedPortal| looks.get(entity).map_or(portal.channel, |look| look.0);
+    let mut by_order: Vec<&(Entity, crate::PortalPlacement, &PlacedPortal)> = live.iter().collect();
+    by_order.sort_by(|a, b| ambition_portal2d::stable_portal_order(a.2, b.2));
+    let mut looks_by: HashMap<(LiveRoomInstance, PortalChannel), PortalChannel> = HashMap::new();
+    for (entity, placement, portal) in by_order {
+        looks_by.entry((placement.room, portal.channel)).or_insert_with(|| look_of(*entity, portal));
+    }
+    let far_side_look = |room: LiveRoomInstance, channel: PortalChannel, own: PortalChannel| {
+        if style.as_deref().is_some_and(|style| style.partner_colour) {
+            looks_by.get(&(room, channel.partner())).copied().unwrap_or(own)
+        } else {
+            own
+        }
+    };
 
     // How long each live room has been seen, with or without a portal: the
     // first portal of an old room was added to it. A room seen for the first
@@ -311,6 +333,7 @@ pub fn sync_portal_glows(
         let glow = PortalGlow {
             portal: Some(*entity),
             channel: portal.channel,
+            look: look_of(*entity, portal),
             room: placement.room,
             pos: portal.pos,
             normal,
@@ -318,8 +341,7 @@ pub fn sync_portal_glows(
             appear: if was_there { 1.0 } else { 0.0 },
             dissolve: 0.0,
         };
-        let room_portals = by_room.in_room(Some(placement.room));
-        let partner = far_side_channel(style.as_deref(), room_portals, portal.channel);
+        let partner = far_side_look(placement.room, portal.channel, glow.look);
         let mesh = unit_mesh.get_or_insert_with(|| meshes.add(Rectangle::default())).clone();
         // Of this session and of this room: it leaves with either.
         commands.spawn_session_scoped(scope.in_room(Some(placement.room)), (
@@ -341,13 +363,13 @@ pub fn sync_portal_glows(
             commands.entity(entity).despawn();
             continue;
         };
-        let room_portals = by_room.in_room(Some(glow.room));
         match glow.portal.and_then(|portal| live.iter().find(|(e, ..)| *e == portal)) {
-            Some((_, _, portal)) => {
+            Some((portal_entity, _, portal)) => {
                 glow.pos = portal.pos;
                 glow.normal = portal.normal.normalize_or_zero();
                 glow.length = opening_length(portal);
                 glow.channel = portal.channel;
+                glow.look = look_of(*portal_entity, portal);
                 glow.appear = (glow.appear + dt / APPEAR_S).min(1.0);
                 glow.dissolve = 0.0;
             }
@@ -364,7 +386,7 @@ pub fn sync_portal_glows(
             *transform = placed;
         }
         // Written only when it changes: a portal at rest costs no upload.
-        let wanted = material_of(&glow, far_side_channel(style.as_deref(), room_portals, glow.channel));
+        let wanted = material_of(&glow, far_side_look(glow.room, glow.channel, glow.look));
         if materials.get(&material.0).is_some_and(|current| *current != wanted) {
             if let Some(mut current) = materials.get_mut(&material.0) {
                 *current = wanted;
@@ -391,6 +413,78 @@ pub struct PortalLightLine {
     pub normal: Vec2,
     /// Its length in px.
     pub length: f32,
+}
+
+/// On a [`PortalLightLine`] that [`dress_held_light_lines`] keeps: the body
+/// whose view has the line, and the line's entry and slot.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct HeldLightLineOf {
+    pub owner: Entity,
+    pub entry: std::sync::Arc<str>,
+    pub slot: u32,
+}
+
+/// Keep a [`PortalLightLine`] for each line that a module asked for this
+/// tick (each body's `HeldLightLines` view, `ambition.portal.light_line`),
+/// in the body's live room. A line that is in no view is taken away, so a
+/// line goes when its module stops asking or its body goes.
+pub fn dress_held_light_lines(
+    mut commands: Commands,
+    active_session: Option<Res<ActiveSessionScope>>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    holders: Query<(Entity, &ambition_portal2d::extension::HeldLightLines)>,
+    mut lines: Query<(
+        Entity,
+        &HeldLightLineOf,
+        &mut PortalLightLine,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    )>,
+) {
+    let light_of = |line: &ambition_portal2d::extension::HeldLightLine| PortalLightLine {
+        channel: PortalChannel::Authored(ambition_portal2d::PortalChannelColor::Indexed(line.look)),
+        pos: line.at,
+        normal: line.normal,
+        length: line.length,
+    };
+    let mut wanted: Vec<(Entity, &ambition_portal2d::extension::HeldLightLine)> =
+        holders.iter().flat_map(|(owner, held)| held.0.iter().map(move |line| (owner, line))).collect();
+    for (entity, of, mut light, room) in &mut lines {
+        let Some(index) =
+            wanted.iter().position(|(owner, line)| *owner == of.owner && line.entry == of.entry && line.slot == of.slot)
+        else {
+            commands.entity(entity).try_despawn();
+            continue;
+        };
+        let (owner, line) = wanted.swap_remove(index);
+        let want = light_of(line);
+        if *light != want {
+            *light = want;
+        }
+        // The line is drawn in its body's room: a body that crossed takes it.
+        if let Some(owner_room) = live.of(owner) {
+            if room.map(|room| room.0) != Some(owner_room) {
+                commands
+                    .entity(entity)
+                    .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(owner_room));
+            }
+        }
+    }
+    let Some(scope) = SessionSpawnScope::for_optional_active_session(active_session.as_deref()) else {
+        return;
+    };
+    for (owner, line) in wanted {
+        let Some(room) = live.of(owner) else {
+            continue;
+        };
+        commands.spawn_session_scoped(
+            scope.in_room(Some(room)),
+            (
+                light_of(line),
+                HeldLightLineOf { owner, entry: line.entry.clone(), slot: line.slot },
+                Name::new(format!("light line {} of {}", line.slot, line.entry)),
+            ),
+        );
+    }
 }
 
 /// Draw each [`PortalLightLine`]: give it its quad, open it, and follow it.
@@ -452,28 +546,6 @@ pub fn sync_portal_light_lines(
             }
         }
     }
-}
-
-/// The channel whose colour the far side of the line of a portal on `channel`
-/// has: its own, or its partner's when the style asks for that
-/// ([`PortalGlowStyle`]).
-fn far_side_channel(
-    style: Option<&PortalGlowStyle>,
-    room_portals: &[PlacedPortal],
-    channel: PortalChannel,
-) -> PortalChannel {
-    if style.is_some_and(|style| style.partner_colour) {
-        partner_channel(room_portals, channel)
-    } else {
-        channel
-    }
-}
-
-/// The channel of the partner of a portal on `channel`, for the far side of
-/// its line: its partner's when the partner is placed, and its own when it is
-/// not.
-fn partner_channel(room_portals: &[PlacedPortal], channel: PortalChannel) -> PortalChannel {
-    find_portal(room_portals, channel.partner()).map_or(channel, |partner| partner.channel)
 }
 
 #[cfg(test)]

@@ -276,9 +276,10 @@ rather than add a second outcome test:
 3. ✅ A unit-level reflection test of the decision layer (built 2026-10-08,
    see Coverage). Extend its scenes to reach the `rollout.rs` sites.
 4. ✅ A same-tick tie fixture (2026-10-08): two bodies grab each other on one
-   tick, in both spawn orders, and the lower `SimId` wins
-   (`two_bodies_grabbing_each_other_on_one_tick_make_one_hold`; poison: an
-   entity-order tie-break, red). Two bodies on one ledge are the ledge
+   tick, in both spawn orders. Since S0.2 (`81fd79963`, 2026-10-11) neither
+   grab holds and both bodies rebound by the clank's rule, because a lower
+   `SimId` win treated mirrored bodies differently (Q49)
+   (`two_bodies_grabbing_each_other_on_one_tick_parry_and_rebound`). Two bodies on one ledge are the ledge
    policy's (`CombatRules::ledge_occupancy`, receipt LEDGE-OCCUPANCY).
 5. Poisons: a `signum(0) = +1` site, an unmirrored random draw, a list-order
    tie-break and a left-first query must each turn the test red.

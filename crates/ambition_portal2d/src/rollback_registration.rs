@@ -24,6 +24,27 @@ where
     );
     registrar.rollback_component_clone::<crate::PortalTransit>(OWNER, "portal.transit");
     registrar.rollback_component_clone::<crate::PlacedPortal>(OWNER, "portal.placed");
+    // A portal's link and its look are part of the portal: a rewind across a
+    // pair's close re-creates its ends, and an end with no link pairs with
+    // nothing.
+    registrar.rollback_component_clone::<crate::PortalLink>(OWNER, "portal.link");
+    registrar.rollback_component_clone::<crate::PortalLook>(OWNER, "portal.look");
+    // The pairs a module holds, and on each end the body that holds it: a
+    // rewind that lost them would spawn the pair again on the replay.
+    registrar
+        .rollback_component_cursor::<crate::extension::HeldPortalPairs>(OWNER, "portal.held_pairs")
+        .rollback_map_entities::<crate::extension::HeldPortalPairs>(OWNER, "map.portal.held_pairs");
+    registrar.rollback_component_clone_entity_ref::<crate::extension::HeldPortalOf>(
+        OWNER,
+        "portal.held_portal_of",
+        |of| of.0,
+    );
+    registrar.rollback_map_entities::<crate::extension::HeldPortalOf>(OWNER, "map.portal.held_portal_of");
+    registrar.declare_rollback_derived_component::<crate::extension::HeldLightLines>(
+        OWNER,
+        "derived.portal.held_light_lines",
+        "written again each tick from the module's rollback record; presentation reads it",
+    );
     registrar.rollback_component_clone_probed::<crate::PortalTransitCooldown>(
         OWNER,
         "portal.transit_cooldown",

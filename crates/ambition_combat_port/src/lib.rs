@@ -15,6 +15,7 @@
 //! * **Result** — submitted is not applied. No acknowledgement port yet.
 
 pub mod attachments;
+pub mod contact;
 pub mod hold;
 pub mod module_entity;
 pub mod motion;
@@ -26,6 +27,7 @@ pub use module_entity::{
     PullBodiesPort, SpawnModuleEntityPort,
 };
 pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
+pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort};
 pub use hold::{BodyHold, BodyHoldPort};
 pub use motion::{
     Destination, Effect, EffectPort, HitMark, HitMarkPort, MovementCooldown, MovementCooldownPort, Place, SetVelocity,

@@ -391,7 +391,8 @@ fn portal_view_cone_debug_dump_text(
         let _ = writeln!(out, "  channel: {:?}", portal.channel);
         let _ = writeln!(out, "  pos: {}", fmt_vec2(portal.pos));
         let _ = writeln!(out, "  normal: {}", fmt_vec2(portal.normal));
-        let _ = writeln!(out, "  half_extent: {}", fmt_vec2(portal.half_extent));
+        let _ = writeln!(out, "  authored_half_extent: {}", fmt_vec2(portal.authored_half_extent));
+        let _ = writeln!(out, "  opening_half_extent: {}", fmt_vec2(portal.opening_half_extent()));
         let Some(partner) = find_portal(&all, portal.channel.partner()) else {
             let _ = writeln!(out, "  partner: <missing>");
             let _ = writeln!(out);
@@ -1356,7 +1357,8 @@ mod compositing_report_tests {
             channel: PortalChannel::Authored(PortalChannelColor::Purple),
             pos: Vec2::new(100.0, 300.0),
             normal: Vec2::new(0.0, 1.0),
-            half_extent: Vec2::new(46.0, 9.0),
+            authored_half_extent: Vec2::new(46.0, 9.0),
+            partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,
             prev_pos: Vec2::new(100.0, 300.0),

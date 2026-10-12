@@ -357,6 +357,8 @@ on-screen rebind before saying live reload is supported.
 | Boss ports: trigger `ambition.boss.special_cast`; `ambition.boss.summon`; conduct trigger `ambition.boss.conduct` (selector is the behavior id) with `ambition.boss.conducted_pose`, `ambition.presentation.drawn_row`, `ambition.feedback.burst` | `crates/ambition_boss_special_port`; adapters `ambition_boss_encounter::{extension, conduct}` | port cards and wire tests |
 | Combat ports: `ambition.combat.damage_box` (on the owner's effective faction), `ambition.combat.held_damage_box` (combat owns the entity; record `combat.held_damage_boxes`), `ambition.combat.riding_hitbox` | `crates/ambition_combat_port`; adapter `ambition_combat::extension` | port cards |
 | Projectile port `ambition.projectiles.spawn` | `ambition_projectile_spec::ProjectileSpawnPort`; adapter `ambition_projectiles::extension` | card on the port |
+| Portal port: `ambition.portal.held_pair` (the portal domain owns the two ends; the pair's link is the owner's identity, entry and slot; record `portal.held_pairs`). Offered only with the runtime's `portal` feature | `crates/ambition_portal_port`; adapter `ambition_portal2d::extension` | `ambition_portal2d extension::tests` (owner-keyed pairs, release, orphan sweep, refusal); `app_it gnu_ton_fight::the_punchs_pair_is_one_pair_across_rewinds` (sync test) |
+| Portal port: `ambition.portal.light_line` (a line of a portal's light that is no portal: a look, named by its slot). The adapter keeps this tick's lines of each body as a view on the body (`HeldLightLines`, a derived row), and the presentation draws each one (`dress_held_light_lines`); the simulation spawns nothing for a line. Offered only with the runtime's `portal` feature | `crates/ambition_portal_port`; adapter `ambition_portal2d::extension`; drawn by `ambition_portal2d_presentation` | `ambition_portal2d extension::tests::each_body_has_the_lines_its_entry_asks_for_this_tick`; `ambition_portal2d_presentation glow::tests::a_light_line_is_drawn_while_its_body_has_it_in_its_view`; `app_it gnu_ton_fight::his_look_lines_are_the_lines_his_conductor_asks_for` |
 | Wielded items: phase `wielded_use` (`ItemPickupSet::WieldedAbilities`, after the native wielded users and before the movement cooldown ticks), trigger `ambition.items.wielded_use` v3, requests `ambition.resources.spend_mana`, `ambition.feedback.body_sound` v2 | `ambition_combat_port::wielded`; adapters `ambition_abilities::extension` | `the_ports_mana_rule_is_the_banks` |
 | Body motion: request `ambition.motion.transit` v3 (any body; along a line, walls permitting, by the box of its last step, or to a point; an optional facing; lowered first in `wielded_use`, as a carry of the travelled path), `ambition.abilities.movement_cooldown`, `ambition.combat.strike` v2 (a circle or the span a body crossed; an optional knockback), `ambition.feedback.effect`. A module cannot see the walls, so a request after the transit takes a `Place`: `Place::Body` is where the body is when the request is lowered, which is the arrival | `ambition_combat_port::motion`; adapters `ambition_abilities::extension`, `ambition_combat::extension` | `wielded_ability_parity_tests::transits` (blink, dive and mark/recall, linked and WASM road, a crawler on a wall among the bodies, a mark of the other live room); `app_it::a_wielded_blink_runs_on_the_extension_host`, `a_wielded_dive_runs_on_the_extension_host`, `a_wielded_mark_and_recall_run_on_the_extension_host` (plain and sync-test); `a_blink_stops_at_a_wall_of_its_own_live_room`; `dive_drill_reachability` |
 | The mark: trigger `ambition.items.wielded_alternate` (Blink; the same `Wielder`), observation `ambition.items.mark` (the body's mark, none of another live room), request `ambition.items.set_mark`. The mark is the world's fact (`PlayerMark`), which the beacon visual, the session reset and the simulation view read | `ambition_combat_port::wielded`; adapters `ambition_abilities::extension` | the same parity and app witnesses |
@@ -419,7 +421,8 @@ before you add a port.
   `ambition.boss.limb_blow` (a fist refuses damage until it is an opening;
   the blow it takes heals and passes on to the scholar once);
   `ambition.boss.mount_launch` (the buck's hop) and
-  `ambition.feedback.speech_bubble` (eureka). The fist hit volumes and the
+  `ambition.feedback.speech_bubble` (eureka); `ambition.boss.limb_bond`
+  (where a fist's trail starts, 2026-10-12). The fist hit volumes and the
   stomp's travelling shocks need no new port: `ambition.combat.held_damage_box`
   v2 keeps a box while it is re-submitted, moves it to the submitted centre,
   and a new generation re-arms it with a fresh hit memory. The module
@@ -492,7 +495,43 @@ before you add a port.
     (each gated frame of two periods against `drops_on` and `over`; a held
     swallow drops nothing). Poison: the adapter sends no placement, red at
     tick 115 (`EnemySpawn-108048`).
-  - Not a packet yet, measured 2026-10-11: the demo behaviour still in Rust
+  - Contact route C1-C2 ✅ (2026-10-12). C1 (engine): the phase
+    `body_contact`, in `WorldPrepSet::AfterIntegrate` and before
+    `WorldPrepSet::ContactDamage`. The trigger `ambition.body.contact`
+    (selector: the `CharacterBrain::Custom` key) gives the touched body and
+    each player body of its own live room that touches it (side to side
+    overlap; top to bottom overlap or meet, so a body standing on a head
+    touches it), in identity order. Requests: `ambition.body.contact_bounce`
+    (a toucher by index jumps off; an optional pogo cue) and
+    `ambition.body.defeat` (health zero before the contact damage, then
+    removed); `ambition.feedback.burst` and `ambition.feedback.body_sound`
+    are offered there too (one burst lowering, generic over the phase).
+    Witnesses `ambition_combat extension::contact::tests` (a stomp bounces
+    and defeats; a side touch, an unbound brain and an untouched body are
+    left alone; a player of another live room does not touch). Poisons: no
+    defeat, red at "the stomped walker is gone"; a strict top, red at
+    "touches(body, standing)"; no room filter, red at "the walker is
+    stomped only by a player of its own room". C2 (Mary-O): the AI Slop and
+    Laden Swallow squash is the module `ambition_demo_mary_o_modules::squash`;
+    the native `bounce_squash_ai_slop` is deleted, and the top/side rule
+    moved into the modules crate (`stomp`), which the native snake shells
+    read through `crate::stomp`, so the two can not disagree. Witness
+    `mary_o_it::a_mob_is_squashed_by_each_player` (each player of the
+    mob's room squashes it, a player of another room does not); poison:
+    the module not linked, red at "the premise: her stomp squashes it".
+    Next: the snake shells and the Sanic badnik. Measured 2026-10-12: the
+    plant is not a contact rule (it moves on its path and stays down near a
+    player: a brain and a pose, `actor_think`). The badnik needs two facts
+    of the toucher that the trigger does not give: that it rolls (the
+    demo's own `ball_dash::Rolling`) and that it harms on contact (the
+    monolith's `Empowerment::HARMS_ON_CONTACT`). Each has one owner now, and
+    a toucher fact copied from it for the port would be a second one; the
+    road is to give the trigger the owner's fact where it is defined, which
+    for the roll means moving `Rolling` out of the demo. The badnik rule
+    read one global `PrimaryPlayer` and no room; since 2026-10-12 it reads
+    each player of the badnik's live room
+    (`badnik::tests::each_player_of_the_badniks_room_squashes_it_and_no_other`).
+  - Measured 2026-10-11 (the case before C1-C2): the demo behaviour still in Rust
     is contact rules and techniques, not brains. Mary-O's plant, snake
     shells and AI Slop, and Sanic's badnik, decide what a touch does (a
     stomp bounces the toucher and defeats the body, a roll defeats it) in

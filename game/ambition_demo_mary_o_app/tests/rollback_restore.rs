@@ -146,4 +146,30 @@ fn a_dirty_level_state_mutation_is_rolled_back_by_restore() {
     );
     ambition_platformer2d::rollback::session_health(app.world())
         .expect("the run stays checksum-identical after the dirty write is rolled back");
+
+    // The same for a hold on her pose (review A3/A4): a hold no gameplay
+    // made, put on her outside any input, is gone after the restore. A
+    // holder's hold is rollback state, so a rewind gives each holder back
+    // its own and no other.
+    let her = {
+        let world = app.world_mut();
+        world
+            .query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .iter(world)
+            .next()
+            .expect("her body under the rollback host")
+    };
+    let held = |app: &App| app.world().get::<ambition_platformer2d::engine_core::PoseOwnedExternally>(her).copied();
+    assert_eq!(held(&app), None, "the premise: nothing holds her pose");
+    ambition_platformer2d::engine_core::claim_pose_hold_on(
+        &mut app.world_mut().entity_mut(her),
+        ambition_platformer2d::engine_core::PoseHold::Ride,
+    );
+    assert!(held(&app).is_some(), "the premise: the poke is on her");
+    for _ in 0..6 {
+        app.update();
+    }
+    assert_eq!(held(&app), None, "a hold no gameplay made is gone after the restore");
+    ambition_platformer2d::rollback::session_health(app.world())
+        .expect("the run stays checksum-identical after the dirty hold is rolled back");
 }

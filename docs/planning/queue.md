@@ -61,7 +61,7 @@ Re-check against the live tree before acting: the I4 S1-S3 control-gate migratio
 landed after the reviewed `ed0d1ccd` snapshot. Do not reopen its solved work or
 the five closed REVIEW-1011 rows.
 
-Short slice at any point: [PUBLICATION-FAULT](#publication-fault--a-refused-later-room-must-not-leave-a-mixed-world).
+Done 2026-10-09: [PUBLICATION-FAULT](#publication-fault--a-refused-later-room-must-not-leave-a-mixed-world---done-2026-10-09).
 The two owner pages the 2026-10-08 review found stale (the fingerprint and the
 second-seat join) were corrected against the tree on 2026-10-09.
 
@@ -74,136 +74,89 @@ neither side of it.
 
 ### REVIEW-1011-INTEGRATION - real engine contracts for new demo behavior
 
-**Source:** static, multi-domain follow-up review of supplied source at
-`ed0d1ccd` (2026-10-11), covering `abf79de..ed0d1ccd` (133 commits).
-The five prior REVIEW-1011 repairs below remain **closed**. Owner:
-engine architecture with portal, control, combat and presentation domain
-owners. This audit did not execute new runtime witnesses. **Live-tree check
-at `e473d2c`:** I4 S1-S3, including the pre-gate `actor_think` phase and
-Void Lizard/Laden Swallow migration, have landed with integration witnesses.
-Do not reimplement those parts of the historical audit.
+**Source:** the static review of `abf79de..ed0d1ccd` (2026-10-11). Each
+finding was re-measured against the live tree and repaired at its owning
+domain on 2026-10-12, with a failing witness first and a poison for each
+arm; the evidence and the poisons are on the owner pages, and the
+[source ledger](triage/2026-10-11-integration-source-audit.md) marks each
+row. I4 S1-S3 (the pre-gate `actor_think` road) had landed before and is
+not part of this row.
 
-**Current failures, ordered by effect on engine authority:**
+**Done 2026-10-12** (one line each; the owner page has the case):
 
-1. `portal2d::resolve_portal_links` assigns end A/B from position and pair
-   channel from the sorted set of all link hashes. Moving or adding
-   portals can change an existing body's transit identity; overlapping
-   endpoints can both resolve to the same slot. Aperture equalization also
-   mutates away the authored width. GNU-ton separately reconciles only by
-   `(room,line)`, fixed channels 24/25 and singleton IDs.
-2. Mary-O's Snake Plant still reads a global `PrimaryPlayer` position
-   without checking the plant's live room. A stopped/rebound plant may retain
-   its external-pose marker. **Already corrected since `ed0d1ccd`:** Void
-   Lizard and Laden Swallow now decide through the pre-gate `actor_think`
-   module path; their `ActorTarget` source already filters to the actor's
-   live room. The historical late-control-writer defect is no longer open.
-3. Mary-O's pipe ride borrows `BodyCombat.recoil_lock_timer` as an input
-   lock, then zeros that combat timer on exit. It also shares a boolean
-   `PoseOwnedExternally` with unrelated pose producers.
-4. `ambition_render::void_field` projects every viewport-visible aura and
-   ward into every camera, regardless of `RenderLayers`. Its Mary-O aura
-   producer performs a per-visual full body string scan and only adds
-   markers; it never retracts changed sources.
-5. Mary-O's cosmic barrier truncates parts (first page, first 4,
-   no turn/scale); one `PartSetRequest` on the body is a single-reader
-   slot that another effect cannot share safely. Its quad has a separate
-   orphan scan and missing explicit portal-compositor placement.
-6. Cosmic form selection is by driven subject, but several form effects
-   are primary-only. Its advertised shorter **world** hitstop clamps the
-   wearer's `BodyCombat` timer after resolution, while the world freeze
-   comes from `ResolvedBodyHit` and `ImpactHitstop`.
+- IN1 portal core: stable pairs and ends, a cap per room, `c128`+ refused,
+  derived aperture ([portal identity](engine/portal-pair-identity-and-aperture.md)).
+  GNU-ton: one link per scholar, owner-keyed join, `PortalLook`
+  ([debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter), interim).
+- IN2 Mary-O players: the Snake Plant, snake shells, AI Slop squashes, and
+  her walk/run, spark, form ladder, weaker-form refusal and quasar serve
+  each player of the live room, not one global `PrimaryPlayer`; the plant
+  holds its own pose and has its own out fraction (it never moved before)
+  ([movement](engine/unified-movement-kernel.md#pose-ownership-under-script-encounter-and-plant-control-new-customer)).
+- IN3: the pipe ride holds `ControlHold::Transit` and `PoseHold::Transit`
+  ([control policy](engine/control-authority-and-ai-policy.md#scripted-movement-cannot-borrow-combat-recoil-as-a-control-lease));
+  a camera has only the void field of what it draws
+  ([R7](engine/render-animation-and-vfx.md#r7---full-screen-field-visibility-must-match-the-cameras-render-layers));
+  a void visual has the aura of its own body, now
+  ([R6](engine/render-animation-and-vfx.md#r6---reconcile-semantic-screen-field-sources-by-visual-ownership)).
+- IN4: part asks by reader and the barrier refuses what it can not draw
+  ([part reader](engine/semantic-part-rendering-and-ragdolls.md#a-part-set-demand-cannot-be-owned-by-one-effect-component));
+  the cosmic form serves each body in it and shortens her own stop
+  (contact hits never stop the world, measured;
+  [combat](engine/combat-model.md#a-forms-shorter-global-hitstop-belongs-at-hit-resolution)).
+- IN5: the GNU-ton arena opens on the recorded defeat
+  ([debt 13](game/gnu-ton-fight-debts.md#13-the-exit-gate-reads-a-corpse-not-an-encounter-outcome)).
+- IN6: far-side piece churn measured: remade each frame, no growth
+  ([R8](engine/render-animation-and-vfx.md#r8---portal-fragment-lifetime-and-measured-render-churn)).
+- IN7: a provider names the look of its launcher row (`with_launcher_look`),
+  and the route-name prefixes are gone
+  ([UI](engine/ui-localization-and-accessibility.md#launcher-theme-quality-and-provider-composition));
+  the launcher backdrop follows the quality
+  ([UI](engine/ui-localization-and-accessibility.md#launcher-theme-quality-and-provider-composition));
+  a sprite key that two files give is refused
+  ([reload](engine/content-generation-and-reload.md#sprite-source-identity-and-live-presentation-refresh)).
+- Saved module rows are the schema written in them
+  ([extension state](engine/extension-state-and-execution.md#saved-row-identity-validation-new-durable-session-customer-2026-10-11)).
+- IN1, GNU-ton's pair is a port: the conductor asks for a held pair through
+  `ambition.portal.held_pair`, the portal domain keeps it (rollback row
+  `portal.held_pairs`), and `open_gnu_ton_portals` is gone
+  ([debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter)).
+  Each fist carries its trail start (`LimbBondStart`, in its view); the
+  renderer's `LimbTrailStarts` is gone
+  ([debt 6](game/gnu-ton-fight-debts.md#6-the-trail-of-a-fist-joins-two-lines-by-a-resource)).
+- IN1, GNU-ton's look lines are a port: `ambition.portal.light_line`; the
+  portal domain keeps each body's lines as a view and the presentation
+  draws them, and `light_gnu_ton_lines` is gone
+  ([debt 2](game/gnu-ton-fight-debts.md#2-a-module-can-not-open-a-portal)).
+  Each fist's trail start is `ambition.boss.limb_bond`, lowered by the boss
+  domain, and `portals.rs` is gone
+  ([debt 6](game/gnu-ton-fight-debts.md#6-the-trail-of-a-fist-joins-two-lines-by-a-resource)).
 
-7. GNU-ton's room ladder opens when **any** GNU-ton is dead, even when
-   another is alive; a dead entity's removal also removes the sole evidence
-   of completion. Encounter/arena completion needs its own authoritative
-   terminal fact, not a live query over corpses.
-8. Portal far-side/transit presentation despawns and re-creates clipped
-   piece entities and material assets on every render update. The churn is
-   source-confirmed, but a frame-time or retained-asset penalty has **not**
-   been measured; instrument before selecting a retained-piece strategy.
-9. The generic game shell has a provider registry, but the new title
-   backdrop maps route-name prefixes to themes. Disabling its parallax
-   quality budget while the launcher stays open leaves an earlier backdrop
-   alive. A quality-tier change also does not update an already active scene.
-10. The development sprite publish now skips Rust recompilation, as intended,
-    but sprite tables/rigs are first-read caches rather than live-reloaded
-    assets. `sprite_tree::companions` silently drops duplicate keys, which
-    should instead produce source-aware validation. Live sprite refresh is a
-    separate **P2 authoring capability**, not a regression of the landed build
-    improvement.
+**Open:**
 
-**Next verified slices; assign independent owners where possible:**
+1. **IN1, the view index (P1, waits for its road).** The pair, the look
+   lines and each fist's trail start are ports (done). The view index is
+   keyed by `FeatureId` alone, so two live instances of one room would
+   share a limb's view (debt 6). Measured 2026-10-12: `FeatureViewIndex`
+   has 107 references outside tests, most in `ambition_render`, and no road
+   of the game makes a definition live twice (REVIEW-1011 item 4: the
+   witnesses make the second instance by hand). The key changes with the
+   first road that does, and that road's two-instance witness is the
+   failing fixture this item asks for. See [debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
+2. **IN6, frame time (P2).** Measure the portal-piece frame cost in a drawn
+   host before any retained-piece strategy. Needs a machine with a GPU:
+   the agent VM has none (checked 2026-10-12: no `/dev/dri`, and Vulkan
+   lists no device), so its offscreen device is a software rasterizer and a
+   frame time there measures the rasterizer. The drawn host exists
+   (`OffscreenGpu`, as WA7 uses it), and `capture_scene --portal-shot`
+   opens a pair in a real room.
+3. **IN7, live sprite refresh (P2).** The launcher theme is the provider's
+   (done). Live sprite refresh stays behind the prepared-generation boundary ([I3](engine/fast-iteration-implementation.md#i3---coordinated-generation-publication-and-local-reload)).
 
-- **IN1 / P0, portal core + GNU-ton:** witness stable links across
-  insertion/movement/overlap and authored aperture growth, including
-  insertion of an unrelated named pair in a *different live room* and
-  more than 63 distinct linked names spread across rooms, then two boss
-  occurrences in one live room. Make pair/end and request
-  occurrence identity stable; migrate transit/adapter users, remove
-  GNU-ton's fixed-channel join. See
-  [portal identity](engine/portal-pair-identity-and-aperture.md) and
-  [GNU-ton debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
-- **IN2 / P1, remaining plant authority:** the S1-S3 `actor_think`
-  pre-gate control road and Void Lizard/Swallow module migration are **done**
-  with held-body production-path witnesses. `select_actor_targets` already
-  filters `ActorTarget` to the actor's live room; do not duplicate that
-  selection in each module. Add a two-live-room witness for Snake Plant's
-  global-primary proximity check and repair its stale pose hold on brain,
-  geometry, death and rollback transitions. Its contact consequences belong
-  in the separately proposed body-contact phase, not another brain path.
-  See [I4](engine/fast-iteration-implementation.md#i4---small-procedural-sdk-and-one-native-semantic-reference)
-  and [movement](engine/unified-movement-kernel.md#pose-ownership-under-script-encounter-and-plant-control-new-customer).
-- **IN3 / P1, control/presentation isolation:** replace pipe's recoil
-  borrowing with an independent source-owned control hold; guard pose
-  ownership. Add effective render-layer and live-instance filtering
-  to the camera's void sources **and** wards. See
-  [control policy](engine/control-authority-and-ai-policy.md#scripted-movement-cannot-borrow-combat-recoil-as-a-control-lease)
-  and [R7](engine/render-animation-and-vfx.md#r7---full-screen-field-visibility-must-match-the-cameras-render-layers).
-- **IN5 / P1, encounter completion:** fix the GNU-ton ladder gate so the
-  owning arena/encounter has an explicit terminal outcome. Prove two
-  same-room GNU-ton encounters and outcome surviving completed-boss teardown;
-  defeat, unload, replay and reset must not reopen a completed fight by
-  accident. See [GNU-ton debt 13](game/gnu-ton-fight-debts.md#13-the-exit-gate-reads-a-corpse-not-an-encounter-outcome).
-- **IN6 / P1 diagnose, P2 optimize, portal-piece presentation:** instrument
-  idle and moving portal scenes for spawned/despawned fragments, new mesh/
-  material assets, steady-state frame time and handle/residency counts. Then
-  choose stable source-owned reconciliation only where measured or required
-  by correct lifecycle. See [R8](engine/render-animation-and-vfx.md#r8---portal-fragment-lifetime-and-measured-render-churn)
-  and [performance](engine/performance-and-iteration.md#portal-fragments-create-entities-and-materials-on-every-presentation-frame).
-- **IN7 / P1 quality cleanup, P2 shell/authoring:** remove the launcher
-  backdrop when its quality budget turns off, and invalidate the displayed
-  scene on resolution-tier change; make a new game's optional launcher
-  presentation provider-authored rather than a route-name prefix. Validate
-  duplicate sprite companion keys with source paths; stage true runtime
-  sprite refresh behind the existing prepared-generation boundary. See
-  [UI](engine/ui-localization-and-accessibility.md#launcher-theme-quality-and-provider-composition),
-  [reload](engine/content-generation-and-reload.md#sprite-source-identity-and-live-presentation-refresh)
-  and [I3](engine/fast-iteration-implementation.md#i3---coordinated-generation-publication-and-local-reload).
-- **IN4 / P1, form/rig fidelity:** make part-request ownership composable;
-  refuse or correctly render unsupported multi-page/turned/fifth parts.
-  Reconcile visual ownership, body layers, portal candidate sync and
-  disappearance. First settle whether cosmic is meant to shorten the
-  attacker's *personal* recovery, the **global** connect freeze, or both;
-  route each through its own owner. Global freeze currently excludes
-  `HitSource::Contact`, so don't change that to satisfy the form. Make form
-  grants work on every eligible controlled body.
-  See [part reader](engine/semantic-part-rendering-and-ragdolls.md#a-part-set-demand-cannot-be-owned-by-one-effect-component),
-  [R6](engine/render-animation-and-vfx.md#r6---reconcile-semantic-screen-field-sources-by-visual-ownership)
-  and [combat](engine/combat-model.md#a-forms-shorter-global-hitstop-belongs-at-hit-resolution).
+**Acceptance:** each open item is exposed by a failing engine-level
+fixture before repair, and the fix changes the owning domain.
 
-The [third-pass source ledger](triage/2026-10-11-integration-source-audit.md)
-records each assertion's evidence, the counterexample it still needs, and
-which apparent defects were already addressed or are merely capability gaps.
-
-**Acceptance:** each old mistake is exposed by a failing engine-level
-fixture before repair; fixes change the **owning domain**, not duplicate
-a native gameplay road. Include multiple independent occurrences,
-room/camera separation and rewind where state is authoritative. Record
-bounded follow-up work in the linked owner pages. Do not launch a new
-universal scene/AI/effect registry or a new competing backlog.
-
-**Blocked by:** none for witness/diagnosis slices. Port and part readers
-follow their existing admission, quality and rendering boundaries.
+**Blocked by:** none.
 
 ### REVIEW-1011 — five boundaries where one subsystem reconstructs another's fact
 
@@ -491,7 +444,7 @@ reads cargo output to it.
 
 1. **The compile-cost ratchet reports and does not fail the gate** (re-measured 2026-10-09: 8 findings, 0 gating, exit 0). Since `a614327fe` (2026-09-25, Jon: "line-count should not be a gate") only PATH and GONE gate; the size and seconds rows are reports. The critical path of 15 crates is banked (2026-10-09, `--adopt-wins`). The carve was `d56c46de9`, which removed `ambition_items`'s dead dependency on `ambition_combat`; the old 16-crate chain went through that edge. Two `--adopt-wins` defects found on the way are fixed: a held row kept its old `depth` (path 15 beside a row of depth 16), and `carried_from` dropped the older commit of a chain (`scripts/tests/test_compile_ratchet.py`, each arm red under its poison). Still open: the baseline disagrees with itself in three places (`ambition_geometry`, the monolith, `ambition_platformer2d_core`). The held numbers are from `11ef33c5b5a5`, and their table rows were already different, so no adopt can repair this; only a deliberate re-freeze can. Reported: the monolith's largest unit (100,742 → 132,359 lines). ⛔ Do not re-freeze with `--update` as bookkeeping: it banks the regressions, and that is a judgement to state in its own commit.
 2. **An arm fails only in company** (see [the triage page](triage/a-composition-acceptance-that-only-fails-in-company.md)): `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps` failed once on 2026-09-10, and its assertion was never captured. Three other instances of the signature were per-arm measurements reading process-global state (`app_it` runs arms as threads of one process); they are fixed, and `scripts/a_test_static_is_a_channel_between_arms.py` guards the class. Next: capture this arm's assertion. `hall_redecode_census.rs` asserts over a delta of a process-wide counter, and it is not a candidate: it is `#[ignore]`d and run alone by `scripts/measure_hall_redecodes.sh` (read 2026-10-08). Counted 2026-10-09 from this machine's cost ledger (`run_tests_cost.jsonl`) since 2026-09-10: 56 job runs that run `app_it` in company passed and 35 failed, and no failed row says which arm failed: the evidence was only in a status file that the next run writes over. The ledger row of a failed job now keeps its `failure_evidence` (`test_a_failed_job_keeps_its_evidence_in_the_cost_ledger_row`), so a recurrence can be counted from here on. The A9 probe found and repaired two couplings that fail a composition without `BossEncounters` (`simulation_world` required `BossCatalog`; the progression plugin registered `populate_boss_encounter_registry`); whether either was this failure is not known. ⛔ Do not add a retry.
-3. **The reload family failed under load, and its waits for the first activation now wait on the condition (2026-10-09).** The family is `an_edit_reaches_the_shipped_game`. Measured with the family alone at 30 test threads, five runs for each state: on main `0e2c22f9e`, five of five runs were red (two or three arms for each run, ten different arms, 13 failures), and each failure was a premise that the first session is live. With the waits changed, five of five runs were green. The cause: the gameplay route becomes active after work on other threads, so a fixed 240 frames is not a wait. Alone, the route was active on frame 3; in company it was seen on frame 83, and the red runs are the cases later than frame 240. The waits are in `game/ambition_app/tests/common/mod.rs`: `step_until_route_is_active`, `step_until_route_is_active_and_settled` and `ActivationWindow`. Each waits on the route under a ceiling of 120 seconds of wall time and then steps the frames the old loop stepped after frame 3. Two arms in that file hold the ceiling (`a_wait_for_a_route_that_never_activates_ends_at_its_ceiling` and the one for the window); with a ceiling check removed, its arm does not end. Converted 2026-10-09 (CalculexAmbition, `4cfe4e476` and the next commit): 16 candidate arms wait until `PendingGeneration` is gone and first assert that one was pending; two arms refused at request time assert that none is pending; two handoff waits wait on the activation id and on the handoff, under the same ceiling. Measured: a generation settled in 2-3 frames alone and at 30 test threads, so these arms were not short of frames; the change is that a negative arm now fails if the refusal was never decided. Left: the census probe, one handoff whose premise check fails loudly when its transaction has not run, three loops that assert on each frame, and each other family (63 loops of 240 frames outside this file). No failure of those was seen in the ten runs after the change; that is not a proof that they hold. One older session-root handoff failure did not reproduce in four full runs, and its assertion was never captured. One of its two candidate arms (`the_shipped_app_never_holds_two_session_roots_across_a_handoff`) had this window; whether that was the failure is not known. ⛔ Do not add a retry, and do not make the 240 larger: wait on the condition.
+3. **The reload family failed under load, and its waits for the first activation now wait on the condition (2026-10-09).** The family is `an_edit_reaches_the_shipped_game`. Measured with the family alone at 30 test threads, five runs for each state: on main `0e2c22f9e`, five of five runs were red (two or three arms for each run, ten different arms, 13 failures), and each failure was a premise that the first session is live. With the waits changed, five of five runs were green. The cause: the gameplay route becomes active after work on other threads, so a fixed 240 frames is not a wait. Alone, the route was active on frame 3; in company it was seen on frame 83, and the red runs are the cases later than frame 240. The waits are in `game/ambition_app/tests/common/mod.rs`: `step_until_route_is_active`, `step_until_route_is_active_and_settled` and `ActivationWindow`. Each waits on the route under a ceiling of 120 seconds of wall time and then steps the frames the old loop stepped after frame 3. Two arms in that file hold the ceiling (`a_wait_for_a_route_that_never_activates_ends_at_its_ceiling` and the one for the window); with a ceiling check removed, its arm does not end. Converted 2026-10-09 (CalculexAmbition, `4cfe4e476` and the next commit): 16 candidate arms wait until `PendingGeneration` is gone and first assert that one was pending; two arms refused at request time assert that none is pending; two handoff waits wait on the activation id and on the handoff, under the same ceiling. Measured: a generation settled in 2-3 frames alone and at 30 test threads, so these arms were not short of frames; the change is that a negative arm now fails if the refusal was never decided. Left: the census probe, one handoff whose premise check fails loudly when its transaction has not run, three loops that assert on each frame, and each other family (63 loops of 240 frames outside this file). Done 2026-10-12, Smash: `wait_for_the_round_to_go_live` was vacuous with no seats ("none held" before the cast was built), so six fixtures waited a blind 240 frames for the 180-tick count, which a late activation can outlast. It now waits for seats with no opening hold, under the wall-clock ceiling, and the six waits use it (75 of 75 pass; the old condition reddens 13 at their "the cast exists" premises). Counted after: 63 `0..240` loops in the app tests, of which 5 are in the reload file and 5 are Smash loops that break on their own condition. No failure of those was seen in the ten runs after the change; that is not a proof that they hold. One older session-root handoff failure did not reproduce in four full runs, and its assertion was never captured. One of its two candidate arms (`the_shipped_app_never_holds_two_session_roots_across_a_handoff`) had this window; whether that was the failure is not known. ⛔ Do not add a retry, and do not make the 240 larger: wait on the condition.
 
 4. **`NOT RUN` is a first-class receipt state** (Q59 ruling, 2026-10-03). A
    ledger or receipt must tell PASS, FAIL, "not run, not required now" and "not
@@ -702,11 +655,12 @@ second-seat road) and in a room that is not live (through the ledger). Arms in
 arm for each road. Deterministic; no model call inside the simulation. The
 slices, measurements and poisons are on the owner page.
 
-Open, not in this row: legs for a wall jump and a dash (granted to this
-session by ToothbrushAmbition), a door that needs Interact for a body no slot
-drives, permanent flight and a pogo bounce.
+Open, not in this row: permanent flight and a pogo bounce. The dash hop
+and the wall jump legs landed 2026-10-12, and a body on an errand waits at
+a gate portal that is shut for the player (owner page). The errand already
+went through an Interact door (`npc_door`).
 
-### PUBLICATION-FAULT — a refused later room must not leave a mixed world
+### PUBLICATION-FAULT — a refused later room must not leave a mixed world — ✅ DONE 2026-10-09
 
 **Owner:** [residency plan](engine/open-world-runtime-and-residency.md), the
 multi-room hot reload row.
@@ -805,7 +759,7 @@ Rust move tables are migration scaffolding.
 
 - The three families that did not reload (music cues, cutscenes, quests) all take part since 2026-10-07. The references a candidate can break (a room naming a removed cutscene; a quest step naming a boss or room that does not exist) are judged at request time by the startup validator itself (`ContentGraphRefused`, 2026-10-07). Supersession of an in-flight generation is done (2026-10-07), and the quest book is asked again at the activation gate with the save as it is then, so a save that moves while a generation waits cancels it instead of being clamped.
 - I4: save eligibility for body records and checkpoints. A session record `kept durable` is kept by the durable save since 2026-10-11 (`module_save_road`; see the I5 section). GNU-ton's conductor is a module (2026-10-11). Every held traversal item is a module (blink, dive, mark/recall and the grapple, 2026-10-10; the grapple reads the first wall along its aim through `ambition.items.aim_cast`).
-- I4 `actor_think` S1-S3 are complete (pre-gate module brain, Void Lizard, Laden Swallow; tests in `app_it` and `mary_o_it`). The next missing route is body-contact plus its domain ports for plant, snake shells, AI Slop and Sanic badnik; do not replace the completed brain road.
+- I4 `actor_think` S1-S3 are complete (pre-gate module brain, Void Lizard, Laden Swallow; tests in `app_it` and `mary_o_it`). The body-contact route exists (2026-10-12: phase `body_contact`, `ambition.body.contact`, `ambition.body.contact_bounce`, `ambition.body.defeat`), and the AI Slop and Laden Swallow squash is its first module (`ambition_demo_mary_o_modules::squash`). Next on it: the snake shells and the Sanic badnik (which needs the toucher's roll and its harm on contact, each owned elsewhere now; see I4). The plant is not a contact rule (a brain and a pose). Do not replace the completed brain road.
 
 **Blocked by:** nothing.
 

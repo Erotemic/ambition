@@ -39,6 +39,34 @@ the admission road the group feeds is built
 
 ### Launcher theme, quality and provider composition
 
+**What landed (2026-10-12), the quality half:** with the parallax budget
+off, the launcher's backdrop goes at once (it returned and left the old
+backdrop); a scene records the image folder of the tier it was made at, and
+a scene of another tier is not the wanted scene, so the new tier's scene
+fades in over it. Witness: `ambition_app title_screen
+the_backdrop_follows_the_quality_while_the_launcher_is_up`; poisons (no
+despawn, folder not compared) fail at their own assertions.
+
+**What landed (2026-10-12), the provider half:** a provider names the look
+of its launcher row. `ExperienceRegistration::launcher_look` is a semantic
+key (a theme name), which `PlatformerExperienceAuthoring::with_launcher_look`
+sets and `ShellLaunchEntry::look` carries; the shell does not read it. The
+host's title screen resolves it with `ParallaxTheme::from_key`, and a row
+with no look, or a look that is no theme, gets the hub. The route-name
+prefixes in `scene_of` are deleted. Sanic names `open_sky`, Mary-O
+`starlight`, Smash and Versus `eclipse`.
+
+- Witness: `ambition_app title_screen a_provider_names_the_look_of_its_row`.
+  A route name the host has never seen gets the look it names; the controls
+  are no look, an unknown look, and the Exit row.
+- `app_it shell_host_lifecycle::each_game_of_the_launcher_names_its_own_look`:
+  the shipped launcher's games each have their own look.
+- Poisons: a resolver that ignores the look fails at "the look it names";
+  an authoring that does not pass the look on fails the shipped-launcher
+  test with every row at the hub.
+
+The text below is the case as found.
+
 **October 11 real customer:** `game/ambition_app/src/app/title_screen.rs`.
 The new host title screen chooses `ParallaxTheme` from route string
 prefixes (`scene_of`, lines 79-86), even though `ShellExperienceRegistry`

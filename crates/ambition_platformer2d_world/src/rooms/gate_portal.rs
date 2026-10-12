@@ -164,6 +164,15 @@ impl GatePortalRegistry {
         self.portals.contains_key(zone_id)
     }
 
+    /// Whether a body can cross the loading zone `zone_id` now: a zone that
+    /// is not a portal always lets a body through, and a portal only while
+    /// its phase is `On`. Each road that crosses a zone asks this (a player's
+    /// press, an errand), so a body that no slot drives does not go through a
+    /// portal that is shut for the player.
+    pub fn lets_through(&self, phases: &GatePortalPhases, zone_id: &str) -> bool {
+        !self.is_portal(zone_id) || phases.allows_traversal(zone_id)
+    }
+
     /// Every registered portal, for the tick and the visuals.
     ///
     /// Key order is deterministic (`BTreeMap`), so two runs of the same content

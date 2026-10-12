@@ -134,6 +134,11 @@ where
         "derived.resolved_attack_gesture",
         "republished from ActorControl and rollback-backed gesture history before move triggering",
     );
+    registrar.declare_rollback_derived_component::<crate::actor::LimbBondStart>(
+        OWNER,
+        "derived.limb_bond_start",
+        "written again each tick from its game's rollback state before any reader",
+    );
     registrar.rollback_resource_canonical::<crate::control::SlotInteractionState>(
         OWNER,
         "resource.slot_interaction_state",

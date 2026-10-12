@@ -47,7 +47,7 @@ pub mod stomp;
 pub mod swallow;
 pub mod test_course;
 pub mod void_lizard;
-mod void_look;
+pub mod void_look;
 pub mod void_star;
 
 pub use provider::{
@@ -1138,6 +1138,14 @@ pub fn install_mary_o_content(app: &mut App) {
                 "content.mary_o_pipe_transit",
                 rollback_probes::pipe_transit,
             )
+            // How far out of its pipe a Snake Plant is: it follows its cycle at
+            // a limited speed and stays down under a player, so a rewind must
+            // put it back where it was.
+            .rollback_component_clone_probed::<plant::SnakePlantOut>(
+                "ambition_demo_mary_o",
+                "content.mary_o_snake_plant_out",
+                |out| u64::from(out.0.to_bits()),
+            )
             // WHICH blocks are spent is authoritative: a rewind across the frame
             // a block was struck must leave that block ARMED again, or the same
             // bonk on the re-simulated timeline finds a block that already gave
@@ -1531,11 +1539,11 @@ impl Plugin for MaryORulesPlugin {
         //   not hypothetical — it is the regression that made this edge explicit
         //   rather than an accident of plugin insertion order.)
         // * `.before(apply_actor_contact_damage)` — a stomp resolves the enemy
-        //   (snake → inert shell; AI Slop → dead) in time for that pass to skip
-        //   it, so the stomper is never also hurt.
+        //   (snake → inert shell) in time for that pass to skip it, so the
+        //   stomper is never also hurt. The AI Slop's squash is a module in
+        //   `body_contact`, which has the same two edges.
         let cronies = (
             snake::run_snake_shells,
-            ai_slop::bounce_squash_ai_slop,
             // After the movement step, so the path of the plant wins, and
             // before the contact pass, so a hidden plant hurts nobody.
             plant::run_snake_plants,
@@ -1927,11 +1935,21 @@ fn warp_through_secret_pipe(
             continue;
         }
 
-        commands.entity(entity).try_insert((
-            pipe::PipeTransit::begin(kin.pos, tube.entrance.centre(), tube.exit.arrival(), tube.entrance.travel_axis(), T),
-            // The transit has her pose from this tick (see `pipe.rs`).
-            ae::PoseOwnedExternally,
+        commands.entity(entity).try_insert(pipe::PipeTransit::begin(
+            kin.pos,
+            tube.entrance.centre(),
+            tube.exit.arrival(),
+            tube.entrance.travel_axis(),
+            T,
         ));
+        // The transit has her pose and her control from this tick (see
+        // `pipe.rs`).
+        ae::claim_pose_hold(&mut commands, entity, ae::PoseHold::Transit);
+        ambition_platformer2d::characters::control::claim_control_hold(
+            &mut commands,
+            entity,
+            ambition_platformer2d::characters::control::ControlHold::Transit,
+        );
         // H2: the warp is the entering BODY's — she is the one sliding down it.
         sfx.write_for(
             entity,
@@ -3237,6 +3255,7 @@ mod tests {
             .id();
         app.world_mut().spawn((
             ambition_platformer2d::platformer::markers::PrimaryPlayer,
+            ambition_platformer2d::platformer::markers::PlayerEntity,
             ambition_platformer2d::engine_core::BodyKinematics {
                 pos: at,
                 size: ambition_platformer2d::engine_core::Vec2::new(30.0, 48.0),

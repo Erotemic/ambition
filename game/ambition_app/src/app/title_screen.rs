@@ -25,7 +25,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::game_shell::{
-    BasicShellUiRoot, LauncherTab, ShellExperienceRegistry, ShellLauncherState,
+    BasicShellUiRoot, LauncherTab, ShellExperienceRegistry, ShellLaunchEntry, ShellLauncherState,
 };
 use ambition_platformer2d::menu::render::bevy_ui::{AmbitionMenuControlKind, BevyUiMenuPanel, BevyUiMenuTab};
 use ambition_platformer2d::menu::{MenuControlKind, MenuVisualState};
@@ -72,17 +72,15 @@ const CURSOR_EDGE: Color = Color::srgb(1.0, 0.98, 0.86);
 const CURSOR_EDGE_LOW: f32 = 0.45;
 const CURSOR_BREATH_S: f32 = 1.8;
 
-/// The scene behind the row of `route`. `None` is the Exit row.
+/// The scene behind the row `entry`. `None` is the Exit row.
 ///
-/// The host names each provider's scene: it is the one composition that has
-/// all of them. A route it does not know gets the hub.
-fn scene_of(route: Option<&str>) -> ParallaxTheme {
-    match route {
+/// Each provider names the look of its row (`launcher_look`); this resolves
+/// the name to a backdrop theme. A row with no look, or a look that is not a
+/// theme, gets the hub. No route name is read.
+fn scene_of(entry: Option<&ShellLaunchEntry>) -> ParallaxTheme {
+    match entry {
         None => ParallaxTheme::Cove,
-        Some(route) if route.starts_with("sanic") => ParallaxTheme::OpenSky,
-        Some(route) if route.starts_with("mary_o") => ParallaxTheme::Starlight,
-        Some(route) if route.starts_with("smash") || route.starts_with("versus") => ParallaxTheme::Eclipse,
-        Some(_) => ParallaxTheme::Hub,
+        Some(entry) => entry.look.as_deref().and_then(ParallaxTheme::from_key).unwrap_or(ParallaxTheme::Hub),
     }
 }
 
@@ -95,6 +93,9 @@ pub struct TitleBackdrop;
 #[derive(Component)]
 pub struct TitleScene {
     pub theme: ParallaxTheme,
+    /// The folder of its images: the resolution of the quality tier it was
+    /// made at.
+    subdir: &'static str,
     shown: f32,
     wanted: f32,
 }
@@ -163,15 +164,20 @@ fn show_the_scene_of_the_cursor(
     mut order: Local<i32>,
 ) {
     let budget = quality.as_deref().map(|quality| &quality.budget.parallax);
+    // ⛔ No parallax: no backdrop. It returned and left the backdrop that
+    // was there.
     if budget.is_some_and(|budget| !budget.enabled) {
+        for root in &roots {
+            commands.entity(root).try_despawn();
+        }
         return;
     }
+    let subdir = budget.map_or("backgrounds/parallax_layers", |budget| budget.resolution_scale.parallax_subdir());
     // The settings tab has no game under the cursor: the scene stays.
     let wanted = match launcher.tab {
         LauncherTab::Home => {
             let entries = registry.launch_entries();
-            let route = entries.iter().filter(|entry| entry.available).nth(launcher.selected).map(|entry| entry.route_id.as_str().to_owned());
-            Some(scene_of(route.as_deref()))
+            Some(scene_of(entries.iter().filter(|entry| entry.available).nth(launcher.selected)))
         }
         LauncherTab::Settings => scenes.iter().find(|scene| scene.wanted > 0.5).map(|scene| scene.theme),
     }
@@ -196,16 +202,18 @@ fn show_the_scene_of_the_cursor(
             .id()
     });
 
+    // A scene of another quality tier is not the wanted scene: the scene of
+    // the new tier fades in over it. It kept the images of the tier it was
+    // made at.
     let mut present = false;
     for mut scene in &mut scenes {
-        let is_wanted = scene.theme == wanted;
+        let is_wanted = scene.theme == wanted && scene.subdir == subdir;
         present |= is_wanted;
         scene.wanted = if is_wanted { 1.0 } else { 0.0 };
     }
     if present {
         return;
     }
-    let subdir = budget.map_or("backgrounds/parallax_layers", |budget| budget.resolution_scale.parallax_subdir());
     // The first scene of the screen is there at once: there is nothing to fade from.
     let shown = if scenes.is_empty() { 1.0 } else { 0.0 };
     *order += 1;
@@ -215,7 +223,7 @@ fn show_the_scene_of_the_cursor(
             Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0), ..default() },
             // The newest scene is in front, so it fades in over the one before.
             ZIndex(*order),
-            TitleScene { theme: wanted, shown, wanted: 1.0 },
+            TitleScene { theme: wanted, subdir, shown, wanted: 1.0 },
             Name::new(format!("title scene: {}", wanted.key())),
         ))
         .with_children(|scene| {
@@ -393,21 +401,76 @@ fn style_the_launcher_menu(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d::persistence::settings::TextureResolutionScale;
 
+    fn launcher_app() -> App {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, bevy::asset::AssetPlugin::default(), TitleScreenPlugin));
+        app.init_asset::<Image>();
+        app.insert_resource(ShellLauncherState { active: true, ..default() });
+        app.init_resource::<ShellExperienceRegistry>();
+        app.insert_resource(ResolvedVisualQuality::default());
+        app
+    }
+
+    /// (folder, wanted) of each scene, sorted.
+    fn scenes(app: &mut App) -> Vec<(&'static str, bool)> {
+        let world = app.world_mut();
+        let mut query = world.query::<&TitleScene>();
+        let mut scenes: Vec<_> = query.iter(world).map(|scene| (scene.subdir, scene.wanted > 0.5)).collect();
+        scenes.sort();
+        scenes
+    }
+
+    fn backdrops(app: &mut App) -> usize {
+        let world = app.world_mut();
+        world.query_filtered::<(), With<TitleBackdrop>>().iter(world).count()
+    }
+
+    /// ⭐ B1: a new quality tier makes the scene again at its resolution,
+    /// and with no parallax the backdrop goes.
     #[test]
-    fn each_row_of_the_launcher_has_a_scene_and_no_two_games_share_one() {
-        let scenes = [
-            scene_of(Some("ambition_gameplay")),
-            scene_of(Some("sanic_gameplay")),
-            scene_of(Some("mary_o_gameplay")),
-            scene_of(Some("smash_select")),
-            scene_of(None),
-        ];
-        for (i, a) in scenes.iter().enumerate() {
-            for b in &scenes[i + 1..] {
-                assert_ne!(a, b, "two rows of the launcher show one scene");
-            }
-        }
+    fn the_backdrop_follows_the_quality_while_the_launcher_is_up() {
+        let mut app = launcher_app();
+        app.world_mut().resource_mut::<ResolvedVisualQuality>().budget.parallax.resolution_scale =
+            TextureResolutionScale::Full;
+        app.update();
+        let full = TextureResolutionScale::Full.parallax_subdir();
+        assert_eq!(scenes(&mut app), vec![(full, true)], "the premise: one scene");
+
+        let quarter = TextureResolutionScale::Quarter.parallax_subdir();
+        app.world_mut().resource_mut::<ResolvedVisualQuality>().budget.parallax.resolution_scale =
+            TextureResolutionScale::Quarter;
+        app.update();
+        let mut expected = vec![(full, false), (quarter, true)];
+        expected.sort();
+        assert_eq!(scenes(&mut app), expected, "the scene of the new tier comes in over the old");
+
+        app.world_mut().resource_mut::<ResolvedVisualQuality>().budget.parallax.enabled = false;
+        app.update();
+        assert_eq!(backdrops(&mut app), 0, "no parallax: no backdrop");
+    }
+
+    /// ⭐ IN7: a provider with a route name the host has never seen gets the
+    /// look it names. The scene was chosen from route-name prefixes, so a new
+    /// provider got the hub until this host was edited. The control: with no
+    /// look, or a look that is no theme, the row gets the hub; the Exit row
+    /// gets the cove.
+    #[test]
+    fn a_provider_names_the_look_of_its_row() {
+        let entry = |look: Option<&str>| ShellLaunchEntry {
+            route_id: "zz_new_route".into(),
+            label: "New".into(),
+            description: String::new(),
+            available: true,
+            unavailable_reason: None,
+            look: look.map(str::to_owned),
+        };
+        assert_eq!(scene_of(Some(&entry(Some("open_sky")))), ParallaxTheme::OpenSky, "the look it names");
+        assert_eq!(scene_of(Some(&entry(Some("starlight")))), ParallaxTheme::Starlight, "the look it names");
+        assert_eq!(scene_of(Some(&entry(None))), ParallaxTheme::Hub, "the control: no look");
+        assert_eq!(scene_of(Some(&entry(Some("no_such_look")))), ParallaxTheme::Hub, "the control: no theme");
+        assert_eq!(scene_of(None), ParallaxTheme::Cove, "the Exit row");
     }
 
     #[test]

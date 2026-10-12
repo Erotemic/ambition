@@ -173,7 +173,7 @@ fn world(road: Road) -> (App, Cast) {
                 ae::CenteredAabb::new(pos, ae::Vec2::new(65.0, 50.0)),
                 BodyHealth::new(Health::new(10)),
                 ae::BodyGroundState::default(),
-                ae::PoseOwnedExternally,
+                ae::PoseOwnedExternally::only(ae::PoseHold::Conductor),
                 PinnedRow::default(),
                 room,
             ))

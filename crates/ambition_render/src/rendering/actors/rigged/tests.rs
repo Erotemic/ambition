@@ -1595,3 +1595,43 @@ fn a_part_pose_that_reaches_past_its_cell_is_drawn_directly() {
     }
     assert!(draws_impostor(&app, root, owner), "she did not go back to her cell after the pose ended");
 }
+
+/// ⭐ Review A6: the driver answers each reader of a body's parts with the
+/// draws of its own tracks, from one pass. Two readers on different tracks
+/// each get theirs; a third that asks for both gets both; when one forgets,
+/// the others keep their answers.
+#[test]
+fn the_driver_answers_each_reader_with_its_own_tracks() {
+    use bevy::ecs::system::RunSystemOnce;
+    let (mut app, root) = app(true);
+    settle(&mut app);
+    let tracks: Vec<String> = {
+        let owner = owner(&app, root);
+        app.world().get::<RiggedPresentation>(owner).unwrap().pages.flipbook.tracks.clone()
+    };
+    assert!(tracks.len() >= 2, "the premise: the raider has two tracks");
+    let (a, b) = (tracks[0].clone(), tracks[1].clone());
+    app.world_mut()
+        .run_system_once(move |mut commands: Commands| {
+            ask_for_parts(&mut commands, root, "a", &[a.as_str()]);
+            ask_for_parts(&mut commands, root, "b", &[b.as_str()]);
+            ask_for_parts(&mut commands, root, "both", &[a.as_str(), b.as_str()]);
+        })
+        .unwrap();
+    settle(&mut app);
+    let counts = |app: &App| {
+        let draws = app.world().get::<PartSetDraws>(root).expect("the answers");
+        (draws.parts("a").len(), draws.parts("b").len(), draws.parts("both").len())
+    };
+    let (in_a, in_b, in_both) = counts(&app);
+    assert!(in_a > 0 && in_b > 0, "each reader has the draws of its track: {:?}", counts(&app));
+    assert_eq!(in_both, in_a + in_b, "a reader of both tracks has the draws of both");
+    {
+        let draws = app.world().get::<PartSetDraws>(root).unwrap();
+        assert_ne!(draws.parts("a"), draws.parts("b"), "two tracks are two sets of draws");
+    }
+
+    app.world_mut().run_system_once(move |mut commands: Commands| forget_parts(&mut commands, root, "a")).unwrap();
+    settle(&mut app);
+    assert_eq!(counts(&app), (0, in_b, in_both), "the others keep their answers when one forgets");
+}

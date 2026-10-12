@@ -13,10 +13,13 @@
 //!
 //! ## Exit gating
 //!
-//! One current boss-alive check controls both sides of the retreat path: while
-//! alive, the ladder is carved out and `ladder_floor_gate` remains solid; after
-//! defeat, the ladder reappears and the floor gate is removed. The rule derives
-//! from current ECS boss state each frame, so room resets recompute it naturally.
+//! The arena is one encounter. Its ladder and its `ladder_floor_gate` follow
+//! the RECORDED OUTCOME: the ladder opens when every GNU-ton of the arena is
+//! `Cleared` in the save (`boss.cleared`, the boss domain's one answer), and
+//! not when a body is found dead. The members are the GNU-ton placements the
+//! room authors, and any GNU-ton body that is live in the room. A corpse that
+//! goes, a room that is entered again (a cleared placement is not built
+//! again), and a rewind before the defeat each read the same record.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
@@ -28,7 +31,6 @@ pub mod conductor;
 pub mod duel;
 #[cfg(feature = "portal_render")]
 pub mod fist_lines;
-pub mod portals;
 
 pub use conductor::{birth, conductor_of, GnuTonView, Move, GNU_TON_ID};
 
@@ -53,56 +55,88 @@ fn boss_is_gnu_ton(
         || boss.config.name.eq_ignore_ascii_case("gnu-ton")
 }
 
-/// Derive GNU-ton arena collision overlays from current boss state, in each
-/// live room that is the arena.
-///
-/// The authored `RoomGeometry` remains immutable: while the room's boss is
-/// alive the room's overlay hides ladder regions; after defeat it exposes those
-/// regions and removes the named floor gate. `WorldPrep` rebuilds this overlay
-/// from scratch each frame. Each live arena reads its own boss, so a defeat in
-/// one live room opens only that room's ladder.
+/// Whether an authored boss placement is GNU-ton (the rider; the `giant_gnu`
+/// mount is an actor, and its death is a phase of the fight).
+fn placement_is_gnu_ton(
+    spawn: &ambition_platformer2d_world::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
+) -> bool {
+    let scripted = matches!(
+        &spawn.payload,
+        ambition_entity_catalog::placements::BossBrain::PhaseScript { script_id } if script_id == GNU_TON_ID
+    );
+    scripted || spawn.name.eq_ignore_ascii_case("gnu_ton") || spawn.name.eq_ignore_ascii_case("gnu-ton")
+}
+
+/// Derive GNU-ton arena collision overlays from the recorded outcome, in
+/// each live room that is the arena. Each live arena reads its own members.
+/// Two live instances of the arena share its placements, so a defeat
+/// recorded in one is the outcome of both: it is a fact of the world.
 pub fn gate_gnu_ton_arena_ladder(
     arenas: Query<
-        (&ambition_platformer2d::platformer::lifecycle::LiveRoomInstance, &RoomGeometry),
+        (
+            &ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+            &RoomGeometry,
+            &ambition_platformer2d_world::rooms::LiveRoomDefinition,
+        ),
         With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
     >,
+    room_set: Option<
+        Single<
+            &ambition_platformer2d_world::rooms::RoomSet,
+            With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+        >,
+    >,
+    save: Option<Res<ambition_persistence::save::AmbitionGameSave>>,
     live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
-    bosses: Query<(Entity, BossClusterRef, &ambition_characters::actor::BodyHealth)>,
+    bosses: Query<(Entity, BossClusterRef)>,
     mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
-    for (room, world) in &arenas {
-        if world.0.name != ARENA_ROOM_NAME {
+    let Some(rooms) = room_set.as_deref() else {
+        return;
+    };
+    for (room, world, definition) in &arenas {
+        // The room's identity is its spec id (the LDtk level identifier).
+        // The geometry's name is a display name ("Ambition: gnu ton arena"):
+        // a gate that compared it never ran in the shipped game.
+        let spec = rooms.spec(*definition);
+        if spec.id != ARENA_ROOM_NAME {
             continue;
         }
+        let mut members: Vec<String> =
+            spec.boss_spawns.iter().filter(|spawn| placement_is_gnu_ton(spawn)).map(|spawn| spawn.id.clone()).collect();
+        for (entity, feature) in &bosses {
+            let boss = feature.as_boss_ref();
+            if live.of(entity) == Some(*room) && boss_is_gnu_ton(&boss) {
+                members.push(boss.config.id.clone());
+            }
+        }
+        members.sort_unstable();
+        members.dedup();
+        // No member is no outcome: a fight that is not built yet is not won.
+        let completed = !members.is_empty()
+            && save.as_deref().is_some_and(|save| {
+                members.iter().all(|id| ambition_boss_encounter::placement_is_cleared(save.data(), id))
+            });
         let Some(overlay) = overlays.for_room(Some(&ambition_platformer2d::platformer::lifecycle::InRoomInstance(*room))) else {
             continue;
         };
-        gate_one_arena(world, *room, &live, &bosses, overlay);
+        gate_one_arena(world, completed, overlay);
     }
 }
 
 fn gate_one_arena(
     world: &RoomGeometry,
-    room: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
-    live: &ambition_platformer2d::platformer::lifecycle::LiveRooms,
-    bosses: &Query<(Entity, BossClusterRef, &ambition_characters::actor::BodyHealth)>,
+    completed: bool,
     mut overlay: Mut<ambition_platformer2d::world::FeatureEcsWorldOverlay>,
 ) {
-    // Defeat = an ECS gnu_ton boss in this room observed `alive = false`. An
-    // empty query (boss not yet spawned) is NOT defeat — the ladder stays hidden.
-    let boss_defeated = bosses.iter().any(|(entity, feature, health)| {
-        let boss = feature.as_boss_ref();
-        live.of(entity) == Some(room) && boss_is_gnu_ton(&boss) && !health.alive()
-    });
-
-    if boss_defeated {
+    if completed {
         // Open the gap above the ladder so the player can climb back to the exit.
         overlay
             .removed_block_names
             .push(FLOOR_GATE_BLOCK_NAME.to_string());
         // Ladders: contribute no carve → they reappear from the immutable base.
     } else {
-        // Hide every authored Ladder region while the fight is live.
+        // Hide every authored Ladder region while the fight is not won.
         for region in &world.0.climbable_regions {
             if region.kind == ae::ClimbableKind::Ladder {
                 overlay.climbable_carves.push(region.aabb);

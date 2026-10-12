@@ -18,18 +18,20 @@
 //! one, so the player can go up through it to the giant's back. When the
 //! encounter leaves phase 1 the arms go into two lines that close on them
 //! (the clamp), and from then the fists are bodies of their own. This module
-//! says where each line is in its record; the game opens the portals
-//! (`ambition_content::bosses::gnu_ton::portals`).
+//! asks the portal domain for the pair of the punch each tick it is open
+//! (`ambition.portal.held_pair`), and for each look line each tick it is
+//! there (`ambition.portal.light_line`).
 
 use ambition_boss_special_port::{
     BossConduct, BossConductPort, BossGuard, BossGuardPort, ConductedPose, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LimbBlow,
-    LimbBlowPort, LimbHold, LimbOpening, LimbOpeningPort, LimbPose, LimbPosePort, MountLaunch, MountLaunchPort,
+    LimbBlowPort, LimbBond, LimbBondPort, LimbHold, LimbOpening, LimbOpeningPort, LimbPose, LimbPosePort, MountLaunch, MountLaunchPort,
     MountView, MountViewPort, Pose as BodyPose,
 };
 use ambition_combat_port::{
     BodySound, BodySoundPort, Burst, BurstPort, HeldDamageBox, HeldDamageBoxPort, Place, RidingHitbox,
     RidingHitboxPort, RidingKnockback, SpeechBubble, SpeechBubblePort,
 };
+use ambition_portal_port::{HeldPortalPair, HeldPortalPairPort, LightLine, LightLinePort, PortalEnd};
 use ambition_extension_sdk::{
     phases::BOSS_CONDUCT, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
     ModuleDescriptor, ModuleKey, Port, SchemaKey, TriggerBinding, API_VERSION,
@@ -82,6 +84,8 @@ const WAVE_LIFETIME_S: f32 = 6.0;
 const FIST_BOX_SLOT: u32 = 0;
 const WAVE_BOX_SLOT: u32 = 2;
 const WAVES: usize = 4;
+/// The held portal pair's slot: the pair of the punch.
+const PUNCH_PAIR_SLOT: u32 = 0;
 const INK: [f32; 4] = [1.0, 0.86, 0.45, 0.95];
 const WARNING: [f32; 4] = [1.0, 0.42, 0.25, 1.0];
 const GOLD: [f32; 4] = [1.0, 0.84, 0.2, 1.0];
@@ -388,8 +392,11 @@ pub fn module() -> ModuleDescriptor {
                 LimbPosePort::KEY,
                 LimbOpeningPort::KEY,
                 LimbBlowPort::KEY,
+                LimbBondPort::KEY,
                 MountLaunchPort::KEY,
                 HeldDamageBoxPort::KEY,
+                HeldPortalPairPort::KEY,
+                LightLinePort::KEY,
                 RidingHitboxPort::KEY,
                 BurstPort::KEY,
                 BodySoundPort::KEY,
@@ -479,7 +486,14 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let dt = inv.dt();
     let mut c = Conductor::load(inv)?.sized();
     if dt <= 0.0 {
-        return Ok(());
+        // A tick with no time keeps what is open: a pair or a line that is
+        // not asked for in a tick is closed.
+        hold_punch_pair(inv, &c)?;
+        if !scholar.alive {
+            return Ok(());
+        }
+        hold_look_lines(inv, &c)?;
+        return bond_fists(inv, &c, &giant);
     }
     // The hall under the gnu, measured every tick: the pair can be carried
     // into another room, and fists posed against the last room's floor fall
@@ -1076,7 +1090,75 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             dust(inv, center + Vec2::new(0.0, WAVE_HALF.y * 0.5), 3, 120.0, [0.62, 0.52, 0.4, 1.0])?;
         }
     }
+    hold_punch_pair(inv, &c)?;
+    hold_look_lines(inv, &c)?;
+    bond_fists(inv, &c, &giant)?;
     c.store(inv)
+}
+
+/// The trail of each fist is part of his spell: it joins the two lines the
+/// arm is in. It starts at the shoulder's line (after phase 1), or, for the
+/// right fist when it is through the pair of the punch, at the pair's near
+/// line. A fist with neither has its trail from the giant: no start is asked
+/// for.
+fn bond_fists(inv: &mut Invocation<'_>, c: &Conductor, giant: &MountView) -> Result<(), Fault> {
+    let lines = c.look_lines();
+    for fist in Fist::BOTH {
+        let i = fist.index();
+        if !giant.limbs.iter().any(|l| l.slot == FIST_SLOTS[i]) {
+            continue;
+        }
+        let through = c.punch_pair().filter(|_| i == 1).map(|[near, _]| near);
+        let Some(start) = lines[i].map(|(at, _)| at).or(through) else {
+            continue;
+        };
+        inv.submit::<LimbBondPort>(LimbBond { slot: FIST_SLOTS[i].into(), start: a(start) })?;
+    }
+    Ok(())
+}
+
+/// The colour of each look line, in the order of `look_lines`. A line has
+/// the colour of the end of the punch it looks like: a shoulder's is blue
+/// (24), a wrist's is orange (25).
+const LOOK_LINE_LOOKS: [u8; 4] = [24, 24, 25, 25];
+/// The side of each look line that the room is on. The giant is between his
+/// two shoulders' lines; a fist is out from its wrist's line, away from him.
+const LOOK_LINE_NORMALS: [[f32; 2]; 4] = [[1.0, 0.0], [-1.0, 0.0], [-1.0, 0.0], [1.0, 0.0]];
+
+/// The lines at his shoulders and behind his wrists are a look and no way
+/// through: ask the portal domain to draw each one that the record has, in
+/// the slot of its place in `look_lines`.
+fn hold_look_lines(inv: &mut Invocation<'_>, c: &Conductor) -> Result<(), Fault> {
+    for (slot, placed) in c.look_lines().into_iter().enumerate() {
+        let Some((at, half)) = placed else {
+            continue;
+        };
+        inv.submit::<LightLinePort>(LightLine {
+            slot: slot as u32,
+            at: a(at),
+            normal: LOOK_LINE_NORMALS[slot],
+            length: half * 2.0,
+            look: LOOK_LINE_LOOKS[slot],
+        })?;
+    }
+    Ok(())
+}
+
+/// The pair of the punch is a real pair of portals: ask the portal domain to
+/// keep it for this tick, where the record says its lines are. The giant's
+/// fist goes down into the near line, and comes down out of the far line; a
+/// body that goes up into the far line comes up out of the near line. Its
+/// ends are blue and orange (channels 24 and 25), a look only.
+fn hold_punch_pair(inv: &mut Invocation<'_>, c: &Conductor) -> Result<(), Fault> {
+    let Some([near, far]) = c.punch_pair() else {
+        return Ok(());
+    };
+    let end = |at: Vec2, normal: [f32; 2]| PortalEnd { at: a(at), normal, half_length: ch::arms::PUNCH_HALF };
+    inv.submit::<HeldPortalPairPort>(HeldPortalPair {
+        slot: PUNCH_PAIR_SLOT,
+        ends: [end(near, [0.0, -1.0]), end(far, [0.0, 1.0])],
+        looks: [24, 25],
+    })
 }
 
 /// Defeated: he draws his own death, the gnu stands, and the fists fall where

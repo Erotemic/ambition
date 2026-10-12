@@ -9,7 +9,7 @@
 //! |---|---|---|
 //! | `technique_execution` | `CombatSet::ContentSpecials`, gameplay-gated | trigger `ambition.boss.special_cast` (boss domain); requests `ambition.projectiles.spawn` (projectile domain), `ambition.combat.damage_box` and `ambition.combat.held_damage_box` (combat domain), `ambition.boss.summon` (boss domain) |
 //! | `wielded_use` | `ItemPickupSet::WieldedAbilities`, before the movement cooldown ticks, gameplay-gated | triggers `ambition.items.wielded_use` and `ambition.items.wielded_alternate`; observations `ambition.items.mark` and `ambition.items.aim_cast`; requests `ambition.motion.transit` (lowered first, in `BodyPathSet::Carry`), `ambition.abilities.movement_cooldown`, `ambition.feedback.effect`, `ambition.feedback.burst`, `ambition.feedback.hit_mark`, `ambition.motion.velocity`, `ambition.items.set_mark`, `ambition.resources.spend_mana`, `ambition.feedback.body_sound` and `ambition.world.spawn_module_entity` (held-item domain, `ambition_abilities`), `ambition.combat.damage_box` and `ambition.combat.strike`, `ambition.projectiles.spawn` |
-//! | `boss_conduct` | `WorldPrepSet::AfterIntegrate`, after the rider sync, gameplay-gated | trigger `ambition.boss.conduct`; observations `ambition.body.attachments` and `ambition.boss.mount`; requests `ambition.boss.conducted_pose`, `ambition.boss.limb_pose`, `ambition.boss.limb_opening`, `ambition.boss.limb_blow`, `ambition.boss.mount_launch`, `ambition.feedback.speech_bubble`, `ambition.presentation.drawn_row`, `ambition.feedback.burst`, `ambition.boss.summon` (boss domain), `ambition.combat.held_damage_box`, `ambition.combat.riding_hitbox` (combat), `ambition.projectiles.spawn`, `ambition.feedback.body_sound` |
+//! | `boss_conduct` | `WorldPrepSet::AfterIntegrate`, after the rider sync, gameplay-gated | trigger `ambition.boss.conduct`; observations `ambition.body.attachments` and `ambition.boss.mount`; requests `ambition.boss.conducted_pose`, `ambition.boss.limb_pose`, `ambition.boss.limb_opening`, `ambition.boss.limb_blow`, `ambition.boss.mount_launch`, `ambition.feedback.speech_bubble`, `ambition.presentation.drawn_row`, `ambition.feedback.burst`, `ambition.boss.summon` (boss domain), `ambition.combat.held_damage_box`, `ambition.combat.riding_hitbox` (combat), `ambition.projectiles.spawn`, `ambition.feedback.body_sound`, `ambition.portal.held_pair` (portal, with the `portal` feature) |
 //! | `module_entity_tick` | `ItemPickupSet::WieldedAbilities`, after `wielded_use`, gameplay-gated | trigger `ambition.world.module_entity_tick`; requests `ambition.feedback.body_sound`, `ambition.world.pull_bodies` (lowered in `BodyPathSet::Carry`) and `ambition.world.end_module_entity` (`ambition_abilities`), `ambition.projectiles.spawn` |
 //! | `actor_think` | after `ActorDecisionSet::Publish`, before `PlayerInputSet::ControlGate`, gameplay-gated | trigger `ambition.actor.think`; requests `ambition.actor.fire` (`ambition_combat`) and `ambition.motion.velocity` (`ambition_abilities`) |
 
@@ -21,7 +21,7 @@ pub use ambition_extension_host::ExtensionGeneration;
 
 /// The name of the prepared-content section that holds [`ExtensionGeneration`].
 pub const EXTENSION_MODULES_SECTION: &str = "extension.modules";
-use ambition_extension_sdk::phases::{ACTOR_THINK, BOSS_CONDUCT, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
+use ambition_extension_sdk::phases::{ACTOR_THINK, BODY_CONTACT, BOSS_CONDUCT, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
 use ambition_platformer2d_shared_tangle::schedule::{CombatSet, GameplayGated, ItemPickupSet, SimScheduleExt};
 use bevy::prelude::*;
 
@@ -49,9 +49,17 @@ pub fn install_ports(app: &mut App) {
     ambition_combat::extension::install_for_boss_conduct(app);
     ambition_projectiles::extension::install_for_boss_conduct(app);
     ambition_abilities::extension::install_for_boss_conduct(app);
+    // The held portal pair: a game with no portals offers no such port, and
+    // admission refuses an entry that asks for it.
+    #[cfg(feature = "portal")]
+    ambition_portal2d::extension::install_for_boss_conduct(app);
     // actor_think
     ambition_combat::extension::install_for_actor_think(app);
     ambition_abilities::extension::install_for_actor_think(app);
+    // body_contact: the burst and the sound before the defeat, which removes
+    // the body they are drawn and heard for.
+    ambition_abilities::extension::install_for_body_contact(app);
+    ambition_combat::extension::install_for_body_contact(app);
 }
 
 /// Order the phases that depend on each other: an entity spawned in
@@ -178,6 +186,21 @@ impl Plugin for ExtensionCompositionPlugin {
                 .in_set(GameplayGated)
                 .after(ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet::Publish)
                 .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate),
+        );
+        // `body_contact` guarantees: the bodies have integrated this tick, and
+        // what a contact rule asks for is applied before the shared contact
+        // damage reads the bodies, so a body it defeats hurts nobody.
+        app.configure_sets(
+            sim,
+            (
+                ExtensionSet::Collect(BODY_CONTACT),
+                ExtensionSet::Invoke(BODY_CONTACT),
+                ExtensionSet::Lower(BODY_CONTACT),
+            )
+                .in_set(GameplayGated)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate)
+                .after(ExtensionSet::Lower(BOSS_CONDUCT))
+                .before(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage),
         );
         // The side a conducted boss's module chose reaches the body through
         // its control, which the boss integration applies.

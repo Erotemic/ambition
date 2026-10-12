@@ -26,10 +26,10 @@ use ambition_combat_port::{
 /// path.
 pub use ambition_combat_port::TransitPort;
 use ambition_extension_host::{
-    AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox, InActorThink, InBossConduct, InModuleEntityTick,
-    InWieldedUse, LowersIn,
+    AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox, InActorThink, InBodyContact, InBossConduct,
+    InModuleEntityTick, InWieldedUse, LowersIn,
 };
-use ambition_extension_sdk::phases::{ACTOR_THINK, BOSS_CONDUCT, MODULE_ENTITY_TICK, WIELDED_USE};
+use ambition_extension_sdk::phases::{ACTOR_THINK, BODY_CONTACT, BOSS_CONDUCT, MODULE_ENTITY_TICK, WIELDED_USE};
 use ambition_extension_sdk::Port;
 use ambition_platformer2d_core::resources::ActorResources;
 use ambition_platformer2d_core::BodyKinematics;
@@ -58,7 +58,7 @@ pub fn install(app: &mut App) {
     // with the port has it, whether or not a module shows an effect.
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.install_extension_request::<EffectPort, _>(WIELDED_USE, "ambition_abilities", lower_effects);
-    app.install_extension_request::<BurstPort, _>(WIELDED_USE, "ambition_abilities", lower_wielded_bursts);
+    app.install_extension_request::<BurstPort, _>(WIELDED_USE, "ambition_abilities", lower_bursts::<InWieldedUse>);
     app.install_extension_request::<HitMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_hit_marks);
     app.install_extension_request::<SetVelocityPort, _>(WIELDED_USE, "ambition_abilities", lower_velocities::<InWieldedUse>);
     app.install_extension_request::<SetMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_set_marks);
@@ -107,6 +107,17 @@ pub fn install_for_boss_conduct(app: &mut App) {
         BOSS_CONDUCT,
         "ambition_abilities",
         lower_body_sounds::<InBossConduct>,
+    );
+}
+
+/// Install the burst and the sound requests in `body_contact`: a contact
+/// rule's pop is drawn and heard in the touched body's room.
+pub fn install_for_body_contact(app: &mut App) {
+    app.install_extension_request::<BurstPort, _>(BODY_CONTACT, "ambition_abilities", lower_bursts::<InBodyContact>);
+    app.install_extension_request::<BodySoundPort, _>(
+        BODY_CONTACT,
+        "ambition_abilities",
+        lower_body_sounds::<InBodyContact>,
     );
 }
 
@@ -456,12 +467,12 @@ fn lower_effects(
     }
 }
 
-fn lower_wielded_bursts(
+fn lower_bursts<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
     mut vfx: ambition_vfx::vfx::VfxWriter,
     rooms: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
 ) {
-    for submitted in outbox.drain::<BurstPort>(&WIELDED_USE) {
+    for submitted in outbox.drain::<BurstPort>(&L::PHASE) {
         let burst = submitted.value;
         let Some(kind) = ambition_vfx::vfx::ParticleKind::named(&burst.kind) else {
             warn!("extension entry {} asked for a burst of {:?}; refused", submitted.entry, burst.kind);

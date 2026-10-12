@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v344",
+    "version": "ggrs-rollback-schema-v346",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -93,6 +93,7 @@
       "feature.world_time_schedule\tcomponent-clone-custom-checksum\tWorldTimeSchedule\tbevy_ggrs clone snapshot + when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)",
       "player.projectile_state\tcomponent-canonical\tPlayerProjectileState",
       "player.safety_state\tcomponent-canonical\tPlayerSafetyState",
+      "portal.held_pairs\tcomponent-clone-cursor\tHeldPortalPairs",
       "projectile.allegiance\tcomponent-canonical\tProjectileAllegiance",
       "projectile.fired_by_move_instance\tcomponent-canonical\tFiredByMoveInstance",
       "projectile.gameplay\tcomponent-canonical\tProjectileGameplay",

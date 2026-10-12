@@ -62,7 +62,7 @@ pub use authority::{
 };
 pub use collision::{hazard_contact_on_path, touching_hazard_aabb, touching_rebound_aabb};
 pub use events::{BlinkEvent, FrameEvents, GroundContactTransition, ResetCause};
-pub use facts::{BodyMotionFacts, LedgeFacts, PoseOwnedExternally};
+pub use facts::{claim_pose_hold, claim_pose_hold_on, release_pose_hold, release_pose_hold_on, BodyMotionFacts, LedgeFacts, PoseHold, PoseOwnedExternally};
 pub use input::{ActionEdges, ActionKey, Edge, InputState, MovementAction};
 /// Screen-vertical input → gravity-relative "descend" intent (the vertical
 /// sibling of the run-axis transform). Every crouch/pogo/drop-through/fast-fall

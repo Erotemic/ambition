@@ -119,10 +119,10 @@ scope = "game"
 kind = "dependency-allowlist"
 owners = ["ambition_platformer2d"]
 watch_paths = ["game/ambition_demo_mary_o/Cargo.toml"]
-rationale = "Mary-O demo depends on the umbrella plus its own content only; the pure MOVE VOCABULARY is not the engine and a move table must not reach it through a crate that links Bevy (fast-iteration I1)"
+rationale = "Mary-O demo depends on the umbrella plus its own content only; the pure MOVE VOCABULARY is not the engine and a move table must not reach it through a crate that links Bevy (fast-iteration I1); its enemy brains are its own content, as modules (fast-iteration I4)"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_platformer2d", "ambition_entity_catalog"]
+allow = ["ambition_platformer2d", "ambition_entity_catalog", "ambition_demo_mary_o_modules"]
 manifest = "game/ambition_demo_mary_o/Cargo.toml"
 
 [[policy]]

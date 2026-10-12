@@ -1487,21 +1487,6 @@ runtime product by runtime unit.
 and has no new exclusion; the packaged ultrapack holds only reachable pages;
 the game draws the same at each tier.
 
-### PORTRAIT-TIERS — portraits scale with quality and stay usable
-
-**Owner:** `ambition_sprite_sheet` (`bake_portrait_manifests`) and the dialog
-portrait consumer. Plan:
-[`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md#quality-is-a-presentation-policy-q84).
-
-**Ruling:** Q84 (2026-10-04).
-
-**Current state:** reduced portrait tiers are generated and shipped, and
-nothing loads them.
-
-**Acceptance:** each quality tier loads its own portrait product, sized from
-the dialog draw size; potato portraits are smaller than full and still fill
-their box.
-
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.

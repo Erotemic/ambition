@@ -150,7 +150,10 @@ impl PortraitSheetRegistry {
                 Ok(manifest) => {
                     let path = normalize_manifest_path(asset_path);
                     let target = manifest.target.trim().to_string();
-                    if !target.is_empty() {
+                    // A quality tier's manifest is the same target's cheaper
+                    // product, found by its path (`tier_portrait`), not a
+                    // second claim on the target.
+                    if !target.is_empty() && tier_dir_of(&path).is_none() {
                         // Refused, not last-writer-wins, like
                         // `AuthoredSheets::insert_ron`.
                         if let Some(existing) = registry.by_target.get(&target) {
@@ -245,6 +248,32 @@ impl PortraitSheetRegistry {
         )
     }
 
+    /// The portrait product that `scale` loads: the manifest and the image of
+    /// that quality tier (`sprites_0_5x/x_portraits.ron` for
+    /// `sprites/x_portraits.ron`). Q84: each tier publishes a portrait sized
+    /// from the dialogue box, so it is the cheaper product that still fills
+    /// the box.
+    ///
+    /// `None` for `Full`, for a path outside `sprites/`, and when the tier did
+    /// not publish this portrait; the caller then draws the full product, as a
+    /// character sheet does when its tier is missing.
+    pub fn tier_portrait(
+        &self,
+        manifest_path: &str,
+        image_path: &str,
+        scale: ambition_persistence::settings::TextureResolutionScale,
+    ) -> Option<(String, String)> {
+        let suffix = scale.asset_id_suffix()?;
+        let (tier_dir, _) = crate::sprite_tree::TIERS.iter().find(|(_, marker)| *marker == suffix)?;
+        let in_tier = |path: &str| {
+            normalize_manifest_path(path)
+                .strip_prefix("sprites/")
+                .map(|rest| format!("{tier_dir}/{rest}"))
+        };
+        let manifest = in_tier(manifest_path)?;
+        self.manifests.contains_key(&manifest).then_some((manifest, in_tier(image_path)?))
+    }
+
     pub fn len(&self) -> usize {
         self.manifests.len()
     }
@@ -272,6 +301,14 @@ fn select_clip<'a>(
                 .get_key_value(name)
                 .map(|(name, clip)| (name.as_str(), clip))
         })
+}
+
+/// The quality-tier folder a manifest path is in, if it is in one.
+fn tier_dir_of(path: &str) -> Option<&'static str> {
+    crate::sprite_tree::TIERS
+        .iter()
+        .map(|(dir, _)| *dir)
+        .find(|dir| path.strip_prefix(dir).is_some_and(|rest| rest.starts_with('/')))
 }
 
 fn normalize_manifest_path(path: &str) -> String {

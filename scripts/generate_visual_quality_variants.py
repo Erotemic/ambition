@@ -77,6 +77,14 @@ from ambition_sprite2d_renderer.registry import (  # noqa: E402
 POTATO_MIN_FRAME_PX = 8
 POTATO_SOURCE_RENDER_FLOOR = 0.25
 
+#: The largest box a dialogue draws a portrait in: the widest and the tallest
+#: `portrait_width` and `portrait_height` of `DialogLayoutProfile`
+#: (`game/ambition_content/src/presentation/dialog.rs`; a test holds the two
+#: together). Q84: a portrait's job is to be read in that box, so a reduced
+#: tier is the tier's factor floored at this size, not the sprite tiers' 1/16
+#: rule, and every tier fills the box without an upscale.
+PORTRAIT_BOX_PX = (104, 120)
+
 
 @dataclass(frozen=True)
 class Variant:
@@ -1192,6 +1200,66 @@ def build_parts_variant(ron_src: Path, ron_dst: Path, variant: Variant) -> int:
     return len(packed.pages)
 
 
+def portrait_claims(src: Path) -> dict[Path, Path]:
+    """Every published portrait manifest (`<target>_portraits.ron`) under
+    `src`, with the image it names."""
+    claims: dict[Path, Path] = {}
+    for ron in sorted(src.rglob("*_portraits.ron")):
+        root = RonParser(ron.read_text()).parse()
+        image = root.get("image") if isinstance(root, Struct) else None
+        if isinstance(image, Str) and (ron.parent / image.value).is_file():
+            claims[ron] = ron.parent / image.value
+    return claims
+
+
+def portrait_scale(frame_w: int, frame_h: int, variant: Variant) -> float:
+    """The tier's factor, floored so a frame covers `PORTRAIT_BOX_PX`, and
+    never above the full size."""
+    floor = max(PORTRAIT_BOX_PX[0] / frame_w, PORTRAIT_BOX_PX[1] / frame_h)
+    return min(1.0, max(variant.nominal_scale, floor))
+
+
+def build_portrait_variant(ron_src: Path, png_src: Path, ron_dst: Path, variant: Variant) -> tuple[int, int]:
+    """Publish one quality tier of a portrait sheet: each frame cell resized
+    on its own (no neighbour bleeds in), laid out on the same grid at the
+    tier's frame size, and a manifest whose rects are that grid's.
+
+    The frames of a portrait sheet are cells of a `frame_width` x
+    `frame_height` grid (each published sheet is; a frame off the grid is
+    refused). Returns the tier's frame size.
+    """
+    root = RonParser(ron_src.read_text()).parse()
+    assert isinstance(root, Struct), f"{ron_src} is not a portrait manifest"
+    fw, fh = int(root.get("frame_width").raw), int(root.get("frame_height").raw)
+    factor = portrait_scale(fw, fh, variant)
+    nfw, nfh = max(1, round(fw * factor)), max(1, round(fh * factor))
+    resampling = resampling_for_variant(variant)
+    with Image.open(png_src) as opened:
+        source = opened.convert("RGBA")
+    cols, rows = -(-source.width // fw), -(-source.height // fh)
+    out = Image.new("RGBA", (cols * nfw, rows * nfh), (0, 0, 0, 0))
+    for row in range(rows):
+        for col in range(cols):
+            cell = source.crop((col * fw, row * fh, (col + 1) * fw, (row + 1) * fh))
+            out.paste(cell.resize((nfw, nfh), resampling), (col * nfw, row * nfh))
+    for _, clip in root.get("clips").entries:
+        for frame in clip.get("frames").items:
+            x, y, w, h = (int(frame.get(key).raw) for key in "xywh")
+            if x % fw or y % fh or (w, h) != (fw, fh):
+                raise SystemExit(f"{ron_src}: frame ({x}, {y}, {w}, {h}) is not a cell of its {fw}x{fh} grid")
+            for key, value in (("x", x // fw * nfw), ("y", y // fh * nfh), ("w", nfw), ("h", nfh)):
+                _set_num_field(frame, key, value)
+    _set_num_field(root, "frame_width", nfw)
+    _set_num_field(root, "frame_height", nfh)
+    ron_dst.parent.mkdir(parents=True, exist_ok=True)
+    png_dst = ron_dst.parent / png_src.name
+    break_symlink_before_write(png_dst)
+    out.save(png_dst)
+    break_symlink_before_write(ron_dst)
+    ron_dst.write_text(dump(root) + "\n")
+    return nfw, nfh
+
+
 def source_publishable_targets() -> dict[str, Target]:
     """Targets that can render quality tiers directly from vector/source data.
 
@@ -1486,8 +1554,16 @@ def generate_sprite_variants(
     flipbook_pngs = {
         page.resolve() for pages in part_flipbook_claims(src).values() for page in pages
     }
+    portraits = {
+        ron: png
+        for ron, png in portrait_claims(src).items()
+        if selects(ron.name.removesuffix("_portraits.ron"), selectors)
+    }
     sheet_pngs = {page.resolve() for pages in claims.values() for page in pages}
     sheet_pngs |= flipbook_pngs
+    # A portrait image is a grid of frames with a manifest: its tiers are
+    # built below, never resized whole.
+    sheet_pngs |= {png.resolve() for png in portrait_claims(src).values()}
     loose_srcs: list[Path] = []
     for png in sorted(src.rglob("*.png")):
         rel = png.relative_to(src)
@@ -1498,7 +1574,7 @@ def generate_sprite_variants(
         ):
             loose_srcs.append(png)
 
-    if selectors and not units and not loose_srcs and not flipbooks:
+    if selectors and not units and not loose_srcs and not flipbooks and not portraits:
         raise SystemExit(
             f"no sprite sheet or loose PNG under {src} matched {list(selectors)}"
         )
@@ -1548,6 +1624,16 @@ def generate_sprite_variants(
                 continue
             with clock.phase("part flipbook", unit=ron.stem):
                 build_parts_variant(ron, ron_dst, variant)
+
+    for ron, png in portraits.items():
+        stamp = _input_stamp((ron, png))
+        for variant in tiers:
+            ron_dst = asset_root / f"sprites_{variant.suffix}" / ron.relative_to(src)
+            outputs = (_mtime(ron_dst), _mtime(ron_dst.parent / png.name))
+            if not force and all(m is not None and m >= stamp for m in outputs):
+                continue
+            with clock.phase("portrait", unit=ron.stem):
+                build_portrait_variant(ron, png, ron_dst, variant)
 
     loose_built = {variant.suffix: 0 for variant in tiers}
     for png in loose_srcs:

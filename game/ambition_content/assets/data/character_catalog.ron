@@ -10,6 +10,14 @@
 // Current architecture: `docs/systems/actors-brains-and-character-content.md`.
 // Authoring workflow: `docs/recipes/adding-a-character.md`.
 //
+// HOW TALL A PERSON IS (Jon, 2026-10-12). The robot is a SHORT character: he
+// stands about 65% as tall as The Director. A `Standard` body with no
+// `standing_height` is the robot's 48. A person states their own, at the
+// scale where the robot's 48 is 124 cm: `standing_height` = cm x 48 / 124.
+// The Director's 190 cm is 73.5, Jeff Hinter's 178 cm is 68.9, Ramen-nujan's
+// 168 cm is 65. The row's comment gives the height meant, in centimetres. It
+// is a cartoon: the heights are for people to differ by, not a record.
+//
 // A row that states how its body moves (`locomotion` or `locomotion_preset`) is
 // a character this game builds. Its move table, if it has one, is its file under
 // `movesets/`; every other fact of the character is its row.
@@ -576,6 +584,8 @@
             manifest: "sprites/busy_beaver_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 152 cm.
+            standing_height: Some(58.8),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -597,6 +607,8 @@
             manifest: "sprites/charley_beagle_svg_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -618,6 +630,8 @@
             manifest: "sprites/niels_boar_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.7),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -644,6 +658,8 @@
             manifest: "sprites/vera_ruin_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -886,6 +902,8 @@
             manifest: "sprites/absurd_general_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 180 cm.
+            standing_height: Some(69.7),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -976,6 +994,8 @@
             manifest: "sprites/pulse_voyager_captain_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 180 cm.
+            standing_height: Some(69.7),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -994,6 +1014,8 @@
             manifest: "sprites/tech_bro_disruptor_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.8),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -1014,6 +1036,8 @@
             manifest: "sprites/noether_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(61.9),
             composition: None,
             default_brain: "stand_still",
             //  2026-08-16: she authors a sixteen-move smash repertoire
@@ -1059,6 +1083,8 @@
             manifest: "sprites/pirate_admiral_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 185 cm.
+            standing_height: Some(71.6),
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "pirate_pistol",
@@ -1096,6 +1122,8 @@
             manifest: "sprites/pirate_raider_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.7),
             composition: None,
             default_action_set: "raider_gun_sword",
             // A SHARK RIDER. Touching it does not hurt; its gun-sword does. It holds
@@ -1133,6 +1161,8 @@
             manifest: "sprites/pirate_quartermaster_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.8),
             composition: None,
             default_brain: "",
             default_action_set: "pirate_cutlass",
@@ -1159,6 +1189,8 @@
             manifest: "sprites/pirate_lookout_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
             composition: None,
             default_brain: "",
             default_action_set: "pirate_bolt",
@@ -1185,6 +1217,8 @@
             manifest: "sprites/pirate_navigator_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
             composition: None,
             default_brain: "",
             default_action_set: "pirate_bolt",
@@ -1383,7 +1417,9 @@
             // `Wide` has no default, so this row rode `ldtk_box x collision_scale`.
             // Identical output today (the legacy scale WAS height/body_h); the point
             // is that changing the size is now one number.
-            standing_height: Some(58.7),
+            // 210 cm, at the scale of the cast (the header of this file). It was
+            // 58.7 when a person stood 48: one of the heavy crew is taller than the crew.
+            standing_height: Some(81.3),
             composition: None,
             default_brain: "",
             default_action_set: "pirate_heavy_cutlass",
@@ -1414,7 +1450,9 @@
             // `Wide` has no default, so this row rode `ldtk_box x collision_scale`.
             // Identical output today (the legacy scale WAS height/body_h); the point
             // is that changing the size is now one number.
-            standing_height: Some(56.2),
+            // 200 cm, at the scale of the cast (the header of this file). It was
+            // 56.2 when a person stood 48: one of the heavy crew is taller than the crew.
+            standing_height: Some(77.4),
             composition: None,
             default_action_set: "heavy_raider_gun_sword",
             // A SHARK RIDER. Touching it does not hurt; its gun-sword does. It holds
@@ -1456,7 +1494,9 @@
             // `Wide` has no default, so this row rode `ldtk_box x collision_scale`.
             // Identical output today (the legacy scale WAS height/body_h); the point
             // is that changing the size is now one number.
-            standing_height: Some(60.4),
+            // 216 cm, at the scale of the cast (the header of this file). It was
+            // 60.4 when a person stood 48: one of the heavy crew is taller than the crew.
+            standing_height: Some(83.6),
             composition: None,
             default_brain: "",
             default_action_set: "pirate_heavy_cutlass",
@@ -1692,6 +1732,8 @@
             manifest: "sprites/ninja_shadow_oni_leader_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.8),
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
@@ -1714,6 +1756,8 @@
             manifest: "sprites/ninja_shadow_duelist_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
@@ -1734,6 +1778,8 @@
             manifest: "sprites/architect_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -1759,6 +1805,8 @@
             manifest: "sprites/kernel_guide_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
             composition: None,
             default_brain: "patrol_peaceful",
             // THE KIT (Jon, 2026-10-10, after he fought the guide): "They should have
@@ -1791,6 +1839,8 @@
             manifest: "sprites/vault_keeper_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -1809,6 +1859,8 @@
             manifest: "sprites/merchant_prototype_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -1832,6 +1884,8 @@
             portrait: None,
             tier: MainHall,
             body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -1854,6 +1908,8 @@
             manifest: "sprites/bob_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -1876,6 +1932,8 @@
             manifest: "sprites/creator_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 180 cm.
+            standing_height: Some(69.7),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -1895,6 +1953,8 @@
             portrait: None,
             tier: MainHall,
             body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
             composition: None,
             default_brain: "patrol_peaceful",
             //  2026-08-16: he authors a sixteen-move smash repertoire
@@ -1924,6 +1984,8 @@
             manifest: "sprites/kernel_guide_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -1942,6 +2004,8 @@
             manifest: "sprites/architect_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -1975,6 +2039,8 @@
             manifest: "sprites/erdish_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2156,6 +2222,8 @@
             manifest: "sprites/colonial_statesman_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 188 cm.
+            standing_height: Some(72.8),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2174,6 +2242,8 @@
             manifest: "sprites/craig_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 180 cm.
+            standing_height: Some(69.7),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2217,6 +2287,8 @@
             manifest: "sprites/eve_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2235,6 +2307,8 @@
             manifest: "sprites/raid_enforcer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.8),
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
@@ -2305,6 +2379,8 @@
             manifest: "sprites/galwah_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2323,6 +2399,8 @@
             manifest: "sprites/general_hero_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 185 cm.
+            standing_height: Some(71.6),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2341,6 +2419,8 @@
             manifest: "sprites/ghoul_skulker_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
@@ -2358,6 +2438,8 @@
             manifest: "sprites/girdle_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2505,6 +2587,8 @@
             manifest: "sprites/judy_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2523,6 +2607,8 @@
             manifest: "sprites/mallory_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.7),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2596,7 +2682,9 @@
             // rectangle and the sheet's publishing padding, neither of which is a
             // claim about how tall anybody is. Same output today; the point is
             // that changing it is now one number.
-            standing_height: Some(55.3),
+            // 198 cm, at the scale of the cast (the header of this file). It was
+            // 55.3 when a person stood 48: one of the heavy crew is taller than the crew.
+            standing_height: Some(76.6),
             composition: None,
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
@@ -2614,6 +2702,8 @@
             manifest: "sprites/olivia_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2632,6 +2722,8 @@
             manifest: "sprites/peggy_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(61.9),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2650,6 +2742,8 @@
             manifest: "sprites/pirate_cutlass_viper_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.7),
             composition: None,
             default_brain: "",
             default_action_set: "pirate_cutlass",
@@ -2805,6 +2899,8 @@
             manifest: "sprites/sybil_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2840,6 +2936,8 @@
             manifest: "sprites/trent_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.8),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2882,6 +2980,8 @@
             manifest: "sprites/trudy_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 157 cm.
+            standing_height: Some(60.8),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2900,6 +3000,8 @@
             manifest: "sprites/victor_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 185 cm.
+            standing_height: Some(71.6),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -2924,7 +3026,9 @@
             // rectangle and the sheet's publishing padding, neither of which is a
             // claim about how tall anybody is. Same output today; the point is
             // that changing it is now one number.
-            standing_height: Some(46.5),
+            // 180 cm, at the scale of the cast (the header of this file). It was
+            // 46.5 when a person stood 48: one of the heavy crew is taller than the crew.
+            standing_height: Some(69.7),
             composition: None,
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
@@ -2948,7 +3052,9 @@
             // rectangle and the sheet's publishing padding, neither of which is a
             // claim about how tall anybody is. Same output today; the point is
             // that changing it is now one number.
-            standing_height: Some(50.8),
+            // 196 cm, at the scale of the cast (the header of this file). It was
+            // 50.8 when a person stood 48: one of the heavy crew is taller than the crew.
+            standing_height: Some(75.9),
             composition: None,
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
@@ -2966,6 +3072,8 @@
             manifest: "sprites/viking_shieldmaiden_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
@@ -2983,6 +3091,8 @@
             manifest: "sprites/viking_warrior_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 185 cm.
+            standing_height: Some(71.6),
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
@@ -3000,6 +3110,8 @@
             manifest: "sprites/walter_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -3072,6 +3184,8 @@
             manifest: "sprites/ramen_nujan_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
             composition: None,
             default_brain: "stand_still",
             // He authors his own repertoire (`movesets/ramen_nujan.ron`): the
@@ -3097,6 +3211,8 @@
             portrait: None,
             tier: MainHall,
             body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -3113,6 +3229,8 @@
             manifest: "sprites/jeff_hinter_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -3129,6 +3247,8 @@
             manifest: "sprites/jeff_hinter_armored_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.8),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -3145,6 +3265,8 @@
             manifest: "sprites/davy_hylbert_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -3161,6 +3283,8 @@
             manifest: "sprites/m_leblanc_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(61.9),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -3177,6 +3301,8 @@
             manifest: "sprites/fascist_enforcer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.8),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -3255,6 +3381,8 @@
             manifest: "sprites/carl_runga_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.8),
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
@@ -3272,6 +3400,8 @@
             manifest: "sprites/martin_cutta_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
@@ -3289,6 +3419,8 @@
             manifest: "sprites/anne_druid_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -3315,6 +3447,8 @@
             manifest: "sprites/richard_duckling_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 152 cm.
+            standing_height: Some(58.8),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -3366,6 +3500,8 @@
             manifest: "sprites/hypatia_prime_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -3383,6 +3519,8 @@
             manifest: "sprites/marie_curry_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 155 cm.
+            standing_height: Some(60.0),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "striker_swipe",
@@ -3409,6 +3547,8 @@
             manifest: "sprites/joseph_furrier_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "striker_swipe",
@@ -3432,6 +3572,8 @@
             manifest: "sprites/admiral_grass_hopper_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "striker_swipe",
@@ -3458,6 +3600,8 @@
             manifest: "sprites/python_goras_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.7),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "striker_swipe",
@@ -3487,6 +3631,8 @@
             manifest: "sprites/leib_knives_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "striker_swipe",
@@ -3531,6 +3677,8 @@
             manifest: "sprites/paul_diracula_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.8),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "striker_swipe",
@@ -3613,6 +3761,8 @@
             manifest: "sprites/pointed_polygon_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.7),
             composition: None,
             //  this said `"combatant"`, which is not a brain preset and never
             // was — it is a TRAIT name (see the `traits:` list in any
@@ -3652,6 +3802,8 @@
             manifest: "sprites/pugnacious_polygon_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
             composition: None,
             // The sword archetype's preset, for the same reason and by the same
             // rule — see its row above. A brawler is a MainHall melee fighter.
@@ -3681,6 +3833,8 @@
             manifest: "sprites/projectile_polygon_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
             composition: None,
             default_brain: "skirmisher_ranger",
             default_action_set: "polygon_cannon",
@@ -3713,6 +3867,8 @@
             manifest: "sprites/director_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 190 cm.
+            standing_height: Some(73.5),
             composition: None,
             // The sword archetype's preset, by the same rule its row states: an
             // armed MainHall melee fighter takes what every other one takes.
@@ -3745,6 +3901,8 @@
             manifest: "sprites/officer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 180 cm.
+            standing_height: Some(69.7),
             composition: None,
             // The brawler archetype's preset, for the reason the Pugnacious
             // Polygon's row gives: an unarmed MainHall melee fighter is still a
@@ -3779,6 +3937,8 @@
             manifest: "sprites/medic_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
             composition: None,
             // The brawler archetype's preset, for the reason the Officer's row
             // gives: an unarmed MainHall melee fighter is still a MainHall
@@ -3816,6 +3976,8 @@
             manifest: "sprites/performer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
             composition: None,
             // The sword archetype's preset, for the reason the Director's row
             // gives -- she is that archetype, carrying nothing.
@@ -3854,6 +4016,8 @@
             manifest: "sprites/patent_clerk_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.7),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "striker_swipe",
@@ -3893,6 +4057,8 @@
             manifest: "sprites/gnu_ton_scholar_fighter_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
             composition: None,
             default_brain: "",
             // He authors his own repertoire (`movesets/gnu_ton.ron`): the
@@ -3924,6 +4090,8 @@
             manifest: "sprites/carl_stargan_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 180 cm.
+            standing_height: Some(69.7),
             composition: None,
             default_brain: "",
             //  2026-08-16: he authors a sixteen-move repertoire
@@ -3958,6 +4126,8 @@
             manifest: "sprites/data_lovelace_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,  // renderer calls this silhouette "Slim"; gameplay body class is Standard
+            // 165 cm.
+            standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -3974,6 +4144,8 @@
             manifest: "sprites/neil_ongras_turfson_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 188 cm.
+            standing_height: Some(72.8),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -3990,6 +4162,8 @@
             manifest: "sprites/paradox_barber_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,  // renderer calls this silhouette "Slim"; gameplay body class is Standard
+            // 175 cm.
+            standing_height: Some(67.7),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -4006,6 +4180,8 @@
             manifest: "sprites/mami_marzakhani_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(61.9),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -4022,6 +4198,8 @@
             manifest: "sprites/genghis_can_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -4038,6 +4216,8 @@
             manifest: "sprites/genghis_cant_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",

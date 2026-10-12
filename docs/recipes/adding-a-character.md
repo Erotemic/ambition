@@ -73,6 +73,13 @@ and its lines (`fallback_dialogue`). A demo registers every row of its pack with
 character the game builds. Copy a nearby row rather than recreating an old
 archetype shape.
 
+**How tall.** A `Standard` body that states no `standing_height` is 48, the
+player robot's height, and the robot is a short character. A person states
+their own, in the scale at the top of Ambition's `character_catalog.ron` (the
+robot's 48 is 124 cm), with the centimetres meant in a comment on the row. The
+height sizes the picture and the collision body together. A row whose sheet
+publishes no body box can not take one (a test names such a row).
+
 A weapon with a charge, a muzzle, an aim or its own look is an action-set
 preset whose `ranged` is a whole `Weapon((..))` spec (see `officer_sidearm`
 and `polygon_cannon`). An Ambition character needs no Rust. A character a

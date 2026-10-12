@@ -46,8 +46,14 @@ impl CharacterBodyKind {
     ///
     /// 48.0 is not invented: it is the protagonist. `player_robot_v3`
     /// resolves to a 30x48 body through the sprite-authored seam, so a Standard
-    /// character now stands exactly as tall as the character the player looks at
-    /// most. A reference the game already contains beats a plausible number.
+    /// character that states no height stands as tall as the character the
+    /// player looks at most. A reference the game already contains beats a
+    /// plausible number.
+    ///
+    /// It is the height of a row that does not say, not the height of a
+    /// person. In Ambition the robot is a short character (Jon, 2026-10-12): a
+    /// person's row states its own `standing_height`, taller than this (the
+    /// scale is in the header of Ambition's `character_catalog.ron`, in centimetres).
     pub fn default_standing_height(self) -> Option<f32> {
         match self {
             Self::Standard => Some(48.0),

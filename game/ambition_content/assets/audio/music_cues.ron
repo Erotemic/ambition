@@ -45,57 +45,72 @@
             post_clear_bridge_state: Some("cleared_bridge"),
         ),
         (
-            // The primeval trail. The audio is the playback layers of
+            // The primeval trail. ONE loop, the whole song (verse, chorus and
+            // the two solo sections), in six layers; a state is a set of layer
+            // gains. So a walk from room to room, and the start of the T-rex
+            // fight, change only gains: nothing starts again and nothing is
+            // cut (Jon, 2026-10-12: "The user should never hear a
+            // discontinuity in the music. New instruments should layer onto
+            // the loop making each section progressively rock harder"). Each
+            // level of intensity is the whole song. The soundtrack version,
+            // with its intro, its outro and a master chain, is the track
+            // `dinosaur_liberators`.
+            //
+            // The audio is the playback layers of
             // scores/active/dinosaur_liberators_adaptive.music.yaml: sums of
-            // stems before the master chain, so all layers together are the
-            // level of a mastered track, and gains stay near one. The states
-            // of `trail` are one loop with more layers; a change between them
-            // changes only gains. Measure with the renderer's
+            // stems before the master chain. Measure with the renderer's
             // dev/measure_playback_layers.py before you change a gain.
             id: "dinosaur_liberators_adaptive",
             asset_root: "audio/music/generated/dinosaur_liberators_adaptive",
             bpm: 110.0,
             beats_per_bar: 4.0,
-            relative_volume: 1.0,
+            // The fight state peaks 0.3 dB under full scale at a volume of
+            // one (measured); this leaves it 1.2 dB.
+            relative_volume: 0.9,
             sections: [
+                // Plays one time, to its end, when the cue starts.
                 (id: "intro", duration_beats: 32.0, looped: false, sources: [
                     (layer_id: "bed", path: "playback/intro/intro.bed.ogg"),
                     (layer_id: "tune", path: "playback/intro/intro.tune.ogg"),
                 ]),
-                // The verse and the chorus of the song.
-                (id: "trail", duration_beats: 128.0, looped: true, sources: [
-                    (layer_id: "bed", path: "playback/trail/trail.bed.ogg"),
-                    (layer_id: "drums", path: "playback/trail/trail.drums.ogg"),
-                    (layer_id: "tune", path: "playback/trail/trail.tune.ogg"),
-                    (layer_id: "grit", path: "playback/trail/trail.grit.ogg"),
-                ]),
-                // The two solo sections.
-                (id: "fight", duration_beats: 128.0, looped: true, sources: [
-                    (layer_id: "bed", path: "playback/fight/fight.bed.ogg"),
-                    (layer_id: "drums", path: "playback/fight/fight.drums.ogg"),
-                    (layer_id: "tune", path: "playback/fight/fight.tune.ogg"),
-                    (layer_id: "grit", path: "playback/fight/fight.grit.ogg"),
-                    (layer_id: "solo", path: "playback/fight/fight.solo.ogg"),
+                (id: "song", duration_beats: 256.0, looped: true, sources: [
+                    (layer_id: "bed", path: "playback/song/song.bed.ogg"),
+                    (layer_id: "tune", path: "playback/song/song.tune.ogg"),
+                    (layer_id: "drums", path: "playback/song/song.drums.ogg"),
+                    (layer_id: "crunch", path: "playback/song/song.crunch.ogg"),
+                    (layer_id: "horn", path: "playback/song/song.horn.ogg"),
+                    (layer_id: "second", path: "playback/song/song.second.ogg"),
                 ]),
             ],
+            // In the order the level adds them.
             layers: [
                 // Arpeggio guitar, bass, organ and piano.
                 (id: "bed", slot: 0),
-                (id: "drums", slot: 1),
-                // The lead guitar and the slide guitar.
-                (id: "tune", slot: 2),
-                // The heavy rhythm guitar and the horns.
-                (id: "grit", slot: 3),
-                (id: "solo", slot: 4),
+                // The melody of each part of the song: the lead and the slide
+                // guitar in the verse and the chorus, the first solo guitar in
+                // the solo sections.
+                (id: "tune", slot: 1),
+                (id: "drums", slot: 2),
+                // The heavy rhythm guitar.
+                (id: "crunch", slot: 3),
+                (id: "horn", slot: 4),
+                // The second solo guitar: it plays in the last quarter of the loop.
+                (id: "second", slot: 5),
             ],
+            // Each state is the state before it and one layer more. The level
+            // of each over the loop, measured at these gains: soft -23.7 dB,
+            // rolling +1.8, driving +1.1, charging +0.4, blazing +0.2, fight
+            // +0.6. At a gain of one the heavy guitar adds 0.5 dB and the
+            // horns 0.2: the gains over one are what make them a step.
             states: [
                 (id: "intro", section_id: "intro", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
-                (id: "soft", section_id: "trail", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
-                (id: "rolling", section_id: "trail", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.0)]),
-                // The grit layer adds 0.6 dB at a gain of one: texture and
-                // not level. The gain above one makes the step clear.
-                (id: "driving", section_id: "trail", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "grit", gain: 1.25)]),
-                (id: "fight", section_id: "fight", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "grit", gain: 1.0), (layer_id: "solo", gain: 1.0)]),
+                (id: "soft", section_id: "song", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
+                (id: "rolling", section_id: "song", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.0)]),
+                (id: "driving", section_id: "song", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "crunch", gain: 1.5)]),
+                (id: "charging", section_id: "song", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "crunch", gain: 1.5), (layer_id: "horn", gain: 1.8)]),
+                (id: "blazing", section_id: "song", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "crunch", gain: 1.5), (layer_id: "horn", gain: 1.8), (layer_id: "second", gain: 1.6)]),
+                // Every layer, and each louder: the top of the song.
+                (id: "fight", section_id: "song", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.12), (layer_id: "crunch", gain: 1.7), (layer_id: "horn", gain: 2.0), (layer_id: "second", gain: 1.8)]),
             ],
         ),
     ],
@@ -110,14 +125,20 @@
             cleared_state: "outro",
         ),
     ],
-    // A room's adaptive music, in place of its `music_track`. The rooms of the
-    // primeval trail share one cue: each room deeper in adds a layer, and the
-    // T-rex fight plays the solo sections. The intro plays one time, when the
-    // cue starts at the trailhead.
+    // A room's adaptive music, in place of its `music_track`. The six rooms of
+    // the primeval trail share one cue, and EACH has a binding: a room of the
+    // trail with none plays its `music_track` from the top, which cuts the
+    // song (the rookery and the ridge had none from 2026-10-11 to 10-12). Each
+    // room deeper in adds a layer, and the T-rex fight is every layer. The
+    // intro plays one time, to its end, when the cue starts at the trailhead;
+    // a player who is in the next room before it ends hears it end, and then
+    // the loop at that room's state.
     room_bindings: [
         (room_id: "primeval_trailhead", cue_id: "dinosaur_liberators_adaptive", state: "soft", entry_state: Some("intro")),
         (room_id: "primeval_run", cue_id: "dinosaur_liberators_adaptive", state: "rolling"),
-        (room_id: "primeval_canopy", cue_id: "dinosaur_liberators_adaptive", state: "driving"),
-        (room_id: "primeval_tyrant_hall", cue_id: "dinosaur_liberators_adaptive", state: "driving", fight_state: Some("fight")),
+        (room_id: "primeval_rookery", cue_id: "dinosaur_liberators_adaptive", state: "driving"),
+        (room_id: "primeval_ridge", cue_id: "dinosaur_liberators_adaptive", state: "charging"),
+        (room_id: "primeval_canopy", cue_id: "dinosaur_liberators_adaptive", state: "blazing"),
+        (room_id: "primeval_tyrant_hall", cue_id: "dinosaur_liberators_adaptive", state: "blazing", fight_state: Some("fight")),
     ],
 )

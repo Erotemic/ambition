@@ -91,4 +91,79 @@ mod tests {
         let failure = format!("{:?}", dangling.expect_err("a dangling state refuses the pack"));
         assert!(failure.contains("unknown state 'missing'"), "{failure}");
     }
+
+    /// The rooms of the primeval trail, in the order of the level: the levels
+    /// of the world whose name starts `primeval_`, by where they are.
+    fn rooms_of_the_trail() -> Vec<String> {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/worlds/sandbox.ldtk");
+        let world: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).expect("the world file")).expect("the world is JSON");
+        let mut rooms: Vec<(i64, String)> = world["levels"]
+            .as_array()
+            .expect("the world has levels")
+            .iter()
+            .filter_map(|level| {
+                let id = level["identifier"].as_str()?;
+                id.starts_with("primeval_").then(|| (level["worldX"].as_i64().unwrap_or(0), id.to_string()))
+            })
+            .collect();
+        rooms.sort();
+        rooms.into_iter().map(|(_, id)| id).collect()
+    }
+
+    /// The music of the primeval trail is never cut (Jon, 2026-10-12: "The
+    /// user should never hear a discontinuity in the music. New instruments
+    /// should layer onto the loop making each section progressively rock
+    /// harder").
+    ///
+    /// A room of the trail with no binding plays its `music_track` from the
+    /// top: that was the cut, in the two rooms the trail got on 2026-10-11.
+    /// And a state on another section starts that section from its top. So:
+    /// each room binds the cue, each state a room can ask for is on the one
+    /// loop, and each room has every layer of the room before it, as loud or
+    /// louder, and more.
+    #[test]
+    fn each_room_of_the_trail_plays_the_one_loop_and_a_layer_more() {
+        let authored = ambition_audio::content_schema::lowered_music_cues(crate::pack::shipped()).expect("the shipped cues");
+        let rooms = rooms_of_the_trail();
+        assert!(rooms.len() >= 6, "the trail is six rooms or more: {rooms:?}");
+
+        let mut cue_id: Option<&str> = None;
+        let mut before: Option<(&str, &ambition_audio::music::MusicStateSpec)> = None;
+        for room in &rooms {
+            let binding = authored
+                .room_bindings
+                .iter()
+                .find(|binding| &binding.room_id == room)
+                .unwrap_or_else(|| panic!("`{room}` binds no cue: its music_track would start from the top there"));
+            assert_eq!(*cue_id.get_or_insert(binding.cue_id.as_str()), binding.cue_id, "`{room}` binds another cue: a change of cue is a cut");
+            let cue = authored.cues.iter().find(|cue| cue.id == binding.cue_id).expect("the cue of the binding");
+            let state_of = |id: &str| cue.states.iter().find(|state| state.id == id).unwrap_or_else(|| panic!("no state `{id}`"));
+            let looped = |state: &ambition_audio::music::MusicStateSpec| {
+                cue.sections.iter().find(|section| section.id == state.section_id).is_some_and(|section| section.looped)
+            };
+            let state = state_of(&binding.state);
+            assert!(looped(state), "`{room}` plays `{}`, which is not on a loop", state.id);
+            for fight in binding.fight_state.iter().map(|id| state_of(id)) {
+                assert_eq!(fight.section_id, state.section_id, "the fight of `{room}` is on another section: its start would cut the song");
+            }
+            if let Some((room_before, state_before)) = before {
+                assert_eq!(state.section_id, state_before.section_id, "`{room}` and `{room_before}` are on two sections: the door between them would cut the song");
+                let gain = |state: &ambition_audio::music::MusicStateSpec, layer: &str| {
+                    state.gains.iter().find(|gain| gain.layer_id == layer).map_or(0.0, |gain| gain.gain)
+                };
+                for kept in &state_before.gains {
+                    assert!(gain(state, &kept.layer_id) >= kept.gain, "`{room}` has less of `{}` than `{room_before}`: it does not rock harder", kept.layer_id);
+                }
+            }
+            before = Some((room.as_str(), state));
+        }
+        // The level adds something on the way: its last room has more layers
+        // than its first.
+        let layers = |room: &String| {
+            let binding = authored.room_bindings.iter().find(|binding| &binding.room_id == room).expect("checked above");
+            let cue = authored.cues.iter().find(|cue| cue.id == binding.cue_id).expect("checked above");
+            cue.states.iter().find(|state| state.id == binding.state).map_or(0, |state| state.gains.iter().filter(|gain| gain.gain > 0.0).count())
+        };
+        assert!(layers(rooms.last().expect("rooms")) > layers(&rooms[0]), "the last room of the trail has no more layers than the first");
+    }
 }

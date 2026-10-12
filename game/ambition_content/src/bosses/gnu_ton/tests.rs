@@ -141,12 +141,60 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
 }
 
 fn make_app(world: ambition_platformer2d_core::RoomGeometry) -> App {
+    make_app_authoring(world, &[&gnu_ton_placement()])
+}
+
+/// The session room set of these tests: the arena, whose spec authors a
+/// GNU-ton placement for each id (as the shipped arena authors
+/// `hall.gnu_ton`), and one other room. A live room is the room its
+/// `LiveRoomDefinition` names, as in the game.
+fn room_set(placements: &[&str]) -> ambition_platformer2d_world::rooms::RoomSet {
+    let mut arena = ambition_platformer2d_world::rooms::RoomSpec::new(
+        ARENA_ROOM_NAME,
+        make_game_world(ARENA_ROOM_NAME, Vec::new()).0,
+    );
+    for id in placements {
+        arena.boss_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
+            *id,
+            "GNU-ton",
+            ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::splat(40.0)),
+            ambition_entity_catalog::placements::BossBrain::PhaseScript { script_id: GNU_TON_ID.to_string() },
+        ));
+    }
+    let other = ambition_platformer2d_world::rooms::RoomSpec::new(
+        OTHER_ROOM,
+        make_game_world(OTHER_ROOM, Vec::new()).0,
+    );
+    ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(ARENA_ROOM_NAME, vec![arena, other], Vec::new())
+}
+
+const OTHER_ROOM: &str = "some_other_room";
+
+fn definition(id: &str) -> ambition_platformer2d_world::rooms::LiveRoomDefinition {
+    room_set(&[]).definition_by_id(id).expect("a room of the test set")
+}
+
+fn seat_room_set(app: &mut App, placements: &[&str]) {
+    app.world_mut().spawn((
+        ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
+            ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1),
+        ),
+        room_set(placements),
+    ));
+}
+
+/// The app of one live room, the room `world` is named for.
+fn make_app_authoring(world: ambition_platformer2d_core::RoomGeometry, placements: &[&str]) -> App {
     let mut app = App::new();
+    seat_room_set(&mut app, placements);
+    let seated = definition(&world.0.name);
     ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         world,
     );
+    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(app.world_mut(), seated);
     ambition_platformer2d::session::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     // Mirror the production WorldPrep order: the overlay rebuild clears the
     // per-frame contributions, then the gate re-derives them this frame.
     app.add_systems(
@@ -154,6 +202,29 @@ fn make_app(world: ambition_platformer2d_core::RoomGeometry) -> App {
         (rebuild_feature_ecs_world_overlay, gate_gnu_ton_arena_ladder).chain(),
     );
     app
+}
+
+/// The boss dies, and the boss domain records its placement `Cleared`.
+fn kill(app: &mut App, boss: Entity) {
+    app.world_mut().get_mut::<ambition_characters::actor::BodyHealth>(boss).unwrap().health.current = 0;
+    record_defeat(app, &gnu_ton_placement());
+}
+
+/// The save's record of a placement, as the boss domain writes it on the
+/// tick a death settles (and a replay retracts it).
+fn record(app: &mut App, placement: &str, state: ambition_persistence::save_data::PersistedEncounterState) {
+    app.world_mut()
+        .get_resource_or_insert_with(ambition_persistence::save::AmbitionGameSave::default)
+        .data_mut()
+        .set_boss(placement, state);
+}
+
+fn record_defeat(app: &mut App, placement: &str) {
+    record(app, placement, ambition_persistence::save_data::PersistedEncounterState::Cleared);
+}
+
+fn gnu_ton_placement() -> String {
+    spawn_gnu_ton_runtime().config.id.clone()
 }
 
 fn ladder_aabb() -> ae::Aabb {
@@ -274,11 +345,7 @@ fn ladder_appears_when_boss_dies() {
     assert_eq!(climbable_regions_len(&app), 0);
 
     // Kill the boss; next tick should add the ladder back.
-    app.world_mut()
-        .get_mut::<ambition_characters::actor::BodyHealth>(boss_entity)
-        .unwrap()
-        .health
-        .current = 0;
+    kill(&mut app, boss_entity);
     app.update();
     let regions = &ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
         ambition_platformer2d_core::RoomGeometry,
@@ -329,11 +396,7 @@ fn floor_gate_block_is_removed_on_boss_defeat() {
         .id();
     app.update();
     assert_eq!(floor_gate_count(&app), 1);
-    app.world_mut()
-        .get_mut::<ambition_characters::actor::BodyHealth>(boss_entity)
-        .unwrap()
-        .health
-        .current = 0;
+    kill(&mut app, boss_entity);
     app.update();
     assert_eq!(
         floor_gate_count(&app),
@@ -361,7 +424,7 @@ fn ladder_is_not_added_when_no_boss_present() {
 #[test]
 fn non_arena_rooms_pass_climbables_through_untouched() {
     let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
-    let mut app = make_app(make_game_world("some_other_room", vec![ladder]));
+    let mut app = make_app(make_game_world(OTHER_ROOM, vec![ladder]));
     for _ in 0..5 {
         app.update();
     }
@@ -382,30 +445,32 @@ fn leaving_arena_resets_state_for_next_visit() {
         .spawn(spawn_gnu_ton_runtime().into_components())
         .id();
     app.update();
-    app.world_mut()
-        .get_mut::<ambition_characters::actor::BodyHealth>(boss_entity)
-        .unwrap()
-        .health
-        .current = 0;
+    kill(&mut app, boss_entity);
     app.update();
     assert_eq!(climbable_regions_len(&app), 1);
 
-    // Leave the arena (room change → world wholesale replaced,
-    // boss entity despawned in the real flow but irrelevant
-    // here since the room-name check fires first).
+    // Leave the arena: the live room is another room now.
+    *ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<
+        ambition_platformer2d_world::rooms::LiveRoomDefinition,
+    >(app.world_mut())
+    .expect("the live room's definition") = definition(OTHER_ROOM);
     ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<
         ambition_platformer2d_core::RoomGeometry,
     >(app.world_mut())
     .expect("session room geometry")
     .0 = ae::World::new(
-        "some_other_room",
+        OTHER_ROOM,
         ae::Vec2::new(2_000.0, 2_000.0),
         ae::Vec2::ZERO,
         Vec::new(),
     );
     app.update();
 
-    // Re-enter arena with fresh ladder + fresh (alive) boss.
+    // Re-enter the arena.
+    *ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<
+        ambition_platformer2d_world::rooms::LiveRoomDefinition,
+    >(app.world_mut())
+    .expect("the live room's definition") = definition(ARENA_ROOM_NAME);
     ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<
         ambition_platformer2d_core::RoomGeometry,
     >(app.world_mut())
@@ -417,18 +482,101 @@ fn leaving_arena_resets_state_for_next_visit() {
         Vec::new(),
     )
     .with_climbable_regions(vec![ladder]);
-    // Replace the existing boss component (still alive=false) with
-    // a fresh-spawn boss so the gate sees a live boss again.
+    // The body is gone (a cleared placement is not built again). The
+    // record still says the fight is won.
     app.world_mut().despawn(boss_entity);
-    app.world_mut()
-        .spawn(spawn_gnu_ton_runtime().into_components());
     app.update();
+    assert_eq!(climbable_regions_len(&app), 1, "re-entry after a won fight: the ladder is open");
 
+    // A replay retracts the defeat and builds him again: the fight is on.
+    record(&mut app, &gnu_ton_placement(), ambition_persistence::save_data::PersistedEncounterState::Untouched);
+    app.world_mut().spawn(spawn_gnu_ton_runtime().into_components());
+    app.update();
     assert_eq!(
         climbable_regions_len(&app),
         0,
-        "ladder must be hidden again on re-entry with a live boss"
+        "ladder must be hidden again on re-entry when the defeat was retracted"
     );
+}
+
+/// ⭐ DEBT 13: THE ARENA OPENS ON THE RECORDED OUTCOME OF EVERY GNU-TON IN
+/// IT. Two GNU-tons in one arena: one dead body opened it while the other
+/// lived, and a corpse that went closed it again.
+#[test]
+fn two_gnu_tons_in_one_arena_open_it_only_when_both_are_beaten_and_it_stays_open() {
+    let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
+    let mut app = make_app_authoring(
+        make_game_world_with_floor_gate(ARENA_ROOM_NAME, vec![ladder]),
+        &["boss_gnu_ton_a", "boss_gnu_ton_b"],
+    );
+    let bosses: Vec<(Entity, String)> = ["boss_gnu_ton_a", "boss_gnu_ton_b"]
+        .into_iter()
+        .map(|id| {
+            let mut scratch = spawn_gnu_ton_runtime();
+            scratch.config.id = id.to_string();
+            (app.world_mut().spawn(scratch.into_components()).id(), id.to_string())
+        })
+        .collect();
+    app.update();
+    assert_eq!((climbable_regions_len(&app), floor_gate_count(&app)), (0, 1), "the premise: the fight is on");
+
+    // A dies and is recorded. B lives.
+    app.world_mut().get_mut::<ambition_characters::actor::BodyHealth>(bosses[0].0).unwrap().health.current = 0;
+    record_defeat(&mut app, &bosses[0].1);
+    app.update();
+    assert_eq!(
+        (climbable_regions_len(&app), floor_gate_count(&app)),
+        (0, 1),
+        "one GNU-ton of two is beaten: the arena stays shut"
+    );
+
+    app.world_mut().get_mut::<ambition_characters::actor::BodyHealth>(bosses[1].0).unwrap().health.current = 0;
+    record_defeat(&mut app, &bosses[1].1);
+    app.update();
+    assert_eq!((climbable_regions_len(&app), floor_gate_count(&app)), (1, 0), "both are beaten: open");
+
+    // Both bodies go. Their records stay, and so does the outcome.
+    for (entity, _) in &bosses {
+        app.world_mut().despawn(*entity);
+    }
+    app.update();
+    assert_eq!(
+        (climbable_regions_len(&app), floor_gate_count(&app)),
+        (1, 0),
+        "the outcome is the record, not the corpses"
+    );
+}
+
+/// The arena is the room whose spec id is the arena's, whatever its
+/// geometry is called: the shipped arena's geometry is "Ambition: gnu ton
+/// arena", and a gate that compared that name never ran in the game.
+#[test]
+fn the_arena_is_known_by_its_room_id_not_by_its_display_name() {
+    let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
+    let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder]));
+    ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<
+        ambition_platformer2d_core::RoomGeometry,
+    >(app.world_mut())
+    .expect("session room geometry")
+    .0
+    .name = "Ambition: gnu ton arena".to_string();
+    app.world_mut().spawn(spawn_gnu_ton_runtime().into_components());
+    app.update();
+    assert_eq!(climbable_regions_len(&app), 0, "the fight is on in the arena: the ladder is hidden");
+}
+
+/// A dead body with no record is not a won fight (a body a test or a script
+/// zeroed): the boss domain records the defeat when the death settles.
+#[test]
+fn a_dead_body_with_no_record_does_not_open_the_arena() {
+    let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
+    let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder]));
+    let boss = app.world_mut().spawn(spawn_gnu_ton_runtime().into_components()).id();
+    app.world_mut().get_mut::<ambition_characters::actor::BodyHealth>(boss).unwrap().health.current = 0;
+    for _ in 0..3 {
+        app.update();
+    }
+    assert_eq!(climbable_regions_len(&app), 0);
 }
 
 /// OW1 cut 7: each live arena gates its ladder by its own boss. Two live
@@ -441,6 +589,7 @@ fn each_live_arena_gates_its_ladder_by_its_own_boss() {
     use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
     let (first, second) = (LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next());
     let mut app = App::new();
+    seat_room_set(&mut app, &[]);
     app.add_systems(
         Update,
         (rebuild_feature_ecs_world_overlay, gate_gnu_ton_arena_ladder).chain(),
@@ -449,12 +598,17 @@ fn each_live_arena_gates_its_ladder_by_its_own_boss() {
         app.world_mut().spawn((
             RoomInstanceRoot,
             room,
+            definition(ARENA_ROOM_NAME),
             make_game_world_with_floor_gate(ARENA_ROOM_NAME, vec![ae::ClimbableRegion::ladder(ladder_aabb())]),
             FeatureEcsWorldOverlay::default(),
         ));
+        // Two placements: the record of one is not the outcome of the other.
+        let mut scratch = spawn_gnu_ton_runtime();
+        scratch.config.id = format!("boss_gnu_ton_{alive}");
+        let placement = scratch.config.id.clone();
         let boss = app
             .world_mut()
-            .spawn((spawn_gnu_ton_runtime().into_components(), InRoomInstance(room)))
+            .spawn((scratch.into_components(), InRoomInstance(room)))
             .id();
         if !alive {
             app.world_mut()
@@ -462,6 +616,7 @@ fn each_live_arena_gates_its_ladder_by_its_own_boss() {
                 .unwrap()
                 .health
                 .current = 0;
+            record_defeat(&mut app, &placement);
         }
     }
     app.update();

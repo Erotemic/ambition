@@ -159,7 +159,7 @@ Do not reimplement those parts of the historical audit.
   to the camera's void sources **and** wards. See
   [control policy](engine/control-authority-and-ai-policy.md#scripted-movement-cannot-borrow-combat-recoil-as-a-control-lease)
   and [R7](engine/render-animation-and-vfx.md#r7---full-screen-field-visibility-must-match-the-cameras-render-layers).
-- **IN5 / P1, encounter completion:** fix the GNU-ton ladder gate so the
+- **IN5 / P1, encounter completion:** ✅ DONE 2026-10-12, see [debt 13](game/gnu-ton-fight-debts.md#13-the-exit-gate-reads-a-corpse-not-an-encounter-outcome) (the gate also never ran in the shipped game: it compared a display name). Was: fix the GNU-ton ladder gate so the
   owning arena/encounter has an explicit terminal outcome. Prove two
   same-room GNU-ton encounters and outcome surviving completed-boss teardown;
   defeat, unload, replay and reset must not reopen a completed fight by

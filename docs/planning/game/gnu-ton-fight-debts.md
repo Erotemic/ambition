@@ -233,6 +233,25 @@ explicitly temporary, collision-free and covered by the two-boss test.
 
 ### 13. The exit gate reads a corpse, not an encounter outcome
 
+**✅ DONE 2026-10-12.** Rule chosen: the arena is ONE encounter. Its ladder
+and `ladder_floor_gate` open when every GNU-ton of the arena is `Cleared` in
+the save (`placement_is_cleared`, the same answer as `boss.cleared`). The
+members are the GNU-ton placements the arena's spec authors plus any GNU-ton
+body live in the room. A corpse is not the evidence. A record retracted by a
+replay closes the arena again, and a rewind restores the record (the save is
+checksummed rollback state). Two live instances of the arena share their
+placements, so a recorded defeat is the outcome of both (a fact of the world).
+**Found on the way:** the gate compared the geometry's DISPLAY name
+("Ambition: gnu ton arena") with the room id `gnu_ton_arena`. It never ran in
+the shipped game: the ladder was never hidden in the fight, and the floor
+gate was never removed after a win. It now reads the live room's spec id.
+Witnesses: `bosses::gnu_ton::tests::{two_gnu_tons_in_one_arena_open_it_only_when_both_are_beaten_and_it_stays_open,
+the_arena_is_known_by_its_room_id_not_by_its_display_name, leaving_arena_resets_state_for_next_visit}`
+and, in the real arena, `gnu_ton_fight::{defeating_him_opens_the_arena_and_his_body_going_does_not_close_it,
+a_won_fight_leaves_the_arena_open_when_you_come_back}` (both red on the old
+gate). Not run: a rollback test across the defeat tick, and a rendered
+playthrough.
+
 **Source-confirmed, `ed0d1ccd`:**
 `game/ambition_content/src/bosses/gnu_ton/mod.rs:79-106`
 computes `boss_defeated = bosses.iter().any(...)` over dead GNU-ton

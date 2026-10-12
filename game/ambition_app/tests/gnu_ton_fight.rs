@@ -1141,3 +1141,116 @@ fn alive_again_he_takes_his_fists_back() {
     sim.step(AgentAction::default());
     assert_eq!(held(&mut sim), vec![true, true], "alive again, he holds both fists");
 }
+
+/// The arena's exit this frame: (ladder carves, floor gate removed), from
+/// the overlay the gate writes on the live room's root. The arena is the one
+/// live room (its geometry is named "Ambition: gnu ton arena"; its room id is
+/// `gnu_ton_arena`).
+fn arena_exit(sim: &mut Platformer2dSimHarness) -> (usize, bool) {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<
+        &ambition_platformer2d::world::FeatureEcsWorldOverlay,
+        With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
+    >();
+    let overlay = q.single(world).expect("one live room, the arena, with its overlay");
+    (
+        overlay.climbable_carves.len(),
+        overlay.removed_block_names.iter().any(|name| name == "ladder_floor_gate"),
+    )
+}
+
+fn gnu_ton_bodies(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
+    let world = sim.world_mut();
+    let mut q = world.query::<(Entity, &BossConfig)>();
+    q.iter(world).filter(|(_, config)| config.behavior.id == GNU_TON_ID).map(|(entity, _)| entity).collect()
+}
+
+/// ⭐ DEBT 13, IN THE REAL ARENA: his defeat opens the way out, and the way
+/// stays open when his body goes. The gate read a dead body, so the body
+/// going closed the arena again.
+#[test]
+fn defeating_him_opens_the_arena_and_his_body_going_does_not_close_it() {
+    let mut sim = arena();
+    // The intro ends before he can be beaten: a death in the intro is not a
+    // won fight (the phase does not go to Death from Intro).
+    let phase = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &ambition_platformer2d::boss_encounter::BossEncounter)>();
+        q.iter(world)
+            .find(|(config, _)| config.behavior.id == GNU_TON_ID)
+            .map(|(_, encounter)| encounter.encounter_phase())
+            .expect("GNU-ton")
+    };
+    let mut ticks = 0;
+    while matches!(
+        phase(&mut sim),
+        ambition_platformer2d::boss_encounter::BossEncounterPhase::Dormant
+            | ambition_platformer2d::boss_encounter::BossEncounterPhase::Intro
+    ) {
+        assert!(ticks < 1200, "the premise: his intro ends");
+        sim.step(AgentAction::default());
+        ticks += 1;
+    }
+    let (carves, _) = arena_exit(&mut sim);
+    assert!(carves > 0, "the premise: the fight is on and the ladder is hidden");
+    assert_eq!(arena_exit(&mut sim).1, false);
+    {
+        // As a lethal hit kills him (`boss_lifecycle::force_kill_boss`).
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &mut ambition_platformer2d::boss_encounter::BossEncounter, &mut BodyHealth)>();
+        for (config, mut status, mut health) in q.iter_mut(world) {
+            if config.behavior.id == GNU_TON_ID {
+                health.health.current = 0;
+                if let Some(phase) = status.encounter.as_mut() {
+                    let _ = phase.kill();
+                }
+            }
+        }
+    }
+    // The boss domain records the defeat when his death settles.
+    let recorded = |sim: &mut Platformer2dSimHarness| {
+        sim.world().resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().boss("hall.gnu_ton")
+            == ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared
+    };
+    let mut ticks = 0;
+    while !recorded(&mut sim) {
+        assert!(ticks < 1800, "the premise: his death settles and the boss domain records it ({:?})", phase(&mut sim));
+        sim.step(AgentAction::default());
+        ticks += 1;
+    }
+    sim.step(AgentAction::default());
+    assert_eq!(arena_exit(&mut sim), (0, true), "beaten (recorded after {ticks} ticks): the ladder and the gap are open");
+    let bodies = gnu_ton_bodies(&mut sim);
+    assert!(!bodies.is_empty(), "the premise: his body is still there");
+    for body in bodies {
+        sim.world_mut().despawn(body);
+    }
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(arena_exit(&mut sim), (0, true), "his body went; the recorded defeat keeps the way open");
+}
+
+/// ⭐ A won fight leaves the arena open when you come back. A cleared
+/// placement is not built again, so the gate that looked for a dead body
+/// found nothing and hid the ladder: the way out was shut for good.
+#[test]
+fn a_won_fight_leaves_the_arena_open_when_you_come_back() {
+    let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
+    save.set_boss("hall.gnu_ton", ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared);
+    let opts = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_required_start_room(ARENA)
+        .with_save(save);
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the gnu-ton arena builds headlessly");
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let alive: Vec<bool> = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &BodyHealth)>();
+        q.iter(world).filter(|(config, _)| config.behavior.id == GNU_TON_ID).map(|(_, health)| health.alive()).collect()
+    };
+    assert!(!alive.contains(&true), "the premise: no live GNU-ton in a won arena: {alive:?}");
+    assert_eq!(arena_exit(&mut sim), (0, true), "a won arena is open");
+}

@@ -448,8 +448,9 @@ before you add a port.
   `extension-domain-contracts.md` serves these brains. What remains in
   demo Rust includes plant/snake/AI Slop and Sanic contact consequences,
   plus move-invoked techniques: these need a body-contact phase and domain
-  ports, not another custom-brain dispatcher. The separate SHOT-END-REPLAY
-  rollback regression remains open in the [queue](../queue.md#shot-end-replay--a-brain-that-saw-its-shot-end-replays-differently).
+  ports, not another custom-brain dispatcher. The SHOT-END-REPLAY
+  rollback defect its sync-test arm found is fixed (a body's motion facts
+  come back with a rewind; [queue](../queue.md#shot-end-replay--a-brain-that-saw-its-shot-end-replays-differently---done-2026-10-11)).
   - S1 ✅ (engine): the phase `actor_think`, after `ActorDecisionSet::Publish`
     and before `PlayerInputSet::ControlGate`. The trigger
     `ambition.actor.think` (selector: the `CharacterBrain::Custom` key) gives

@@ -48,11 +48,14 @@ fn record_gated_fire(mut seen: ResMut<GatedFires>, bodies: Query<(&FeatureId, &A
 }
 
 /// A thinker beside the player, `held` by a script or not, with the fixture
-/// module loaded or not.
-fn run(module: Option<&std::path::Path>, held: bool) -> Run {
+/// module loaded or not, under a GGRS sync test or not.
+fn run(module: Option<&std::path::Path>, held: bool, rollback: bool) -> Run {
     let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
     if let Some(module) = module {
         options = options.with_extension_module_files(vec![module.to_path_buf()]);
+    }
+    if rollback {
+        options = options.with_sync_test_rollback_settings(4, 10);
     }
     let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
     let player = {
@@ -110,7 +113,7 @@ fn a_custom_brain_module_fires_through_the_gate_and_a_held_body_does_not() {
 
     // Control: no module. No brain of the game fires straight up, so a frame
     // or a shot that does is the module's.
-    let unloaded = run(None, false);
+    let unloaded = run(None, false, false);
     assert_eq!(unloaded.fires.len(), FRAMES, "the probe ran once a frame");
     assert_eq!(fires_up(&unloaded.fires), 0, "with no module, no frame fires straight up: {:?}", unloaded.fires);
     assert_eq!(unloaded.up_shots, 0, "with no module, no shot of the thinker flies straight up");
@@ -118,18 +121,35 @@ fn a_custom_brain_module_fires_through_the_gate_and_a_held_body_does_not() {
     // A fire that reached the body after the gate would be in no gated frame,
     // and the moveset would still fire it: so the held body's shots are the
     // assertion that the gate saw the fire.
-    let held = run(Some(&wasm), true);
+    let held = run(Some(&wasm), true, false);
     assert_eq!(fires_up(&held.fires), 0, "the gate removes the module's fire from a held body: {:?}", held.fires);
     assert_eq!(
         held.up_shots, 0,
         "a body a script holds fires none of the module's shots, as it fires none of a brain's"
     );
 
-    let free = run(Some(&wasm), false);
+    let free = run(Some(&wasm), false, false);
     assert!(
         fires_up(&free.fires) >= FRAMES / 2,
         "the module's fire is in the gated frame of a free body: {:?}",
         free.fires
     );
     assert!(free.up_shots > 0, "the body's moveset fires the module's fire");
+}
+
+/// The same free thinker under a GGRS sync test: each rewound tick replays to
+/// the same state. Its brain reads whether its body is running before the
+/// body moves this tick, so that fact must come back with a rewind
+/// (SHOT-END-REPLAY: it did not, and the replay chose another mode).
+#[test]
+fn a_custom_brain_module_replays_the_same_under_rollback() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let wasm = ambition_platformer2d::extension::build_module_crate(&root, "ambition_extension_fixture_modules")
+        .expect("the fixture crate builds for wasm32-unknown-unknown");
+    let rolled = run(Some(&wasm), false, true);
+    assert!(
+        fires_up(&rolled.fires) >= FRAMES / 2,
+        "the module's fire is in the gated frame under rollback too: {:?}",
+        rolled.fires
+    );
 }

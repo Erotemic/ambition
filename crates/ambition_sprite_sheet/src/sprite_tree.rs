@@ -122,8 +122,9 @@ pub fn companions(owner: &Path, suffix: &str, tiers: bool) -> Vec<(String, PathB
     one_file_for_each_key(entries, suffix)
 }
 
-/// Every `*_portraits.ron` under `sprites/`, at any depth, keyed by its path
-/// relative to `assets/` with `/` separators, sorted by key.
+/// Every `*_portraits.ron` under `sprites/` and each quality tier, at any
+/// depth, keyed by its path relative to `assets/` with `/` separators, sorted
+/// by key. A tier's manifest is the cheaper product of the same portrait (Q84).
 pub fn portrait_manifests(owner: &Path) -> Vec<(String, PathBuf)> {
     fn walk(dir: &Path, assets: &Path, out: &mut Vec<(String, PathBuf)>) {
         let Ok(entries) = fs::read_dir(dir) else {
@@ -142,6 +143,9 @@ pub fn portrait_manifests(owner: &Path) -> Vec<(String, PathBuf)> {
     let assets = owner.join("assets");
     let mut entries = Vec::new();
     walk(&assets.join("sprites"), &assets, &mut entries);
+    for (dir, _) in TIERS {
+        walk(&assets.join(dir), &assets, &mut entries);
+    }
     entries.sort_by(|a, b| a.0.cmp(&b.0));
     entries
 }
@@ -226,6 +230,18 @@ mod tests {
     fn refusal(scan: impl FnOnce() -> Vec<(String, PathBuf)> + std::panic::UnwindSafe) -> String {
         let payload = std::panic::catch_unwind(scan).expect_err("the scan refuses the tree");
         payload.downcast_ref::<String>().cloned().unwrap_or_default()
+    }
+
+    /// Q84: each quality tier's portrait manifest is in the tree, under its
+    /// own path, beside the full one.
+    #[test]
+    fn the_portrait_manifests_of_each_tier_are_in_the_tree() {
+        let owner = tree(
+            "portraits",
+            &["sprites/alice_portraits.ron", "sprites_0_5x/alice_portraits.ron", "sprites_potato/alice_portraits.ron", "sprites/alice_spritesheet.ron"],
+        );
+        let keys: Vec<String> = portrait_manifests(&owner).into_iter().map(|(key, _)| key).collect();
+        assert_eq!(keys, ["sprites/alice_portraits.ron", "sprites_0_5x/alice_portraits.ron", "sprites_potato/alice_portraits.ron"]);
     }
 
     /// ⭐ C1: two files of one key are refused with both paths, in each scan

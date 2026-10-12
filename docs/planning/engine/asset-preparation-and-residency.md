@@ -167,11 +167,22 @@ in a dialogue box, so its reduced tiers are sized from its draw size
 (`DialogLayoutProfile`, `game/ambition_content/src/presentation/dialog.rs`:
 56×62, 82×94 or 104×120 px), not from the 1/16 sprite rule.
 
-Today the reduced portrait tiers are generated and shipped but never loaded:
-`bake_portrait_manifests` (`ambition_sprite_sheet/build.rs`) reads only
-`sprites/`. `dev/patches/portrait-tiers-are-never-baked-20260902.patch`
-implements the opposite answer (full resolution only) and is superseded by
-Q84. Work: queue row PORTRAIT-TIERS.
+Built 2026-10-12. `scripts/generate_visual_quality_variants.py` publishes each
+tier of a portrait sheet as its own product: each frame cell resized on its
+own, at the tier's factor floored so a frame covers the largest box
+(`PORTRAIT_BOX_PX`, 104×120; a test holds it to the layout profiles), with a
+manifest in the tier's rects. A 256×320 frame is 128×160 at `0_5x` and 104×130
+at `0_25x` and `potato` (it was 16×20 at `potato`, a whole-image resize with no
+manifest). The sprite tree indexes the tier manifests by their own paths
+(`sprite_tree::portrait_manifests`); a tier manifest is not a second claim on
+its target. The dialogue draws the tier that the sprite budget loads
+(`PortraitSheetRegistry::tier_portrait`, `effective_scale()`), and the full
+product when a tier published none, as a character sheet does. Witnesses:
+`each_quality_tier_draws_the_portrait_it_published` (ambition_content),
+`the_portrait_manifests_of_each_tier_are_in_the_tree` (ambition_sprite_sheet),
+`scripts/tests/test_portrait_tiers_fill_the_dialogue_box.py`. The
+full-resolution-only patch is deleted. A quality change rebuilds an open
+dialogue, as a font change does.
 
 The broader rule: a quality mode may in time choose a cheaper implementation
 of any presentation-only system (textures, particles, animation detail,

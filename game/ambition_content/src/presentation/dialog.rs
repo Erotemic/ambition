@@ -403,6 +403,8 @@ fn sync_ambition_dialog_ui(
     declared_characters: ambition_platformer2d::characters::prepared::SessionCast,
     mut portrait_playback: ResMut<AmbitionDialogPortraitPlayback>,
     asset_server: Option<Res<AssetServer>>,
+    // Which portrait product to load (Q84): the tier the sprite budget loads.
+    quality: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
     // Where the choice window is scrolled to, remembered across rebuilds.
     //
     // A `Local` because it is a PRESENTATION fact: it is a function of the
@@ -427,7 +429,8 @@ fn sync_ambition_dialog_ui(
         || ui_fonts.as_ref().is_some_and(|fonts| fonts.is_changed())
         || character_catalog.is_changed()
         || portrait_catalog.is_changed()
-        || portrait_registry.is_changed();
+        || portrait_registry.is_changed()
+        || quality.as_ref().is_some_and(|quality| quality.is_changed());
     if !presentation_inputs_changed {
         return;
     }
@@ -484,6 +487,11 @@ fn sync_ambition_dialog_ui(
         &portrait_catalog,
         &portrait_registry,
         declared_characters.get(),
+        quality
+            .as_deref()
+            .map_or(ambition_persistence::settings::TextureResolutionScale::Full, |quality| {
+                quality.budget.sprites.effective_scale()
+            }),
     );
     let portrait_image_path = resolved_portrait
         .as_ref()
@@ -950,6 +958,7 @@ fn resolve_portrait_visual(
     portrait_catalog: &AmbitionDialogPortraitCatalog,
     portrait_registry: &PortraitSheetRegistry,
     declared_characters: Option<&ambition_platformer2d::character::PreparedCharacterRegistry>,
+    scale: ambition_persistence::settings::TextureResolutionScale,
 ) -> Option<ResolvedPortraitVisual> {
     let character_id = character_id?;
     if let Some(override_spec) = portrait_catalog.get(character_id) {
@@ -977,19 +986,24 @@ fn resolve_portrait_visual(
         registered_target,
         character_id,
     )?;
+    // The quality tier's product, when it published one; its clips are the
+    // same clips in its own smaller rects.
+    let (manifest_path, image_path) = portrait_registry
+        .tier_portrait(&portrait.manifest, &portrait.image, scale)
+        .unwrap_or((portrait.manifest, portrait.image));
     // ANIMATED, said out loud. A dialogue box plays a clip; the still road next
     // door draws one frame. The sheet can answer either, so the caller picks.
     let (clip_name, clip) = portrait_registry.resolve_animated(
-        &portrait.manifest,
+        &manifest_path,
         requested_clip,
         Some(&portrait.default_clip),
     )?;
     Some(ResolvedPortraitVisual {
-        image_path: portrait.image.clone(),
+        image_path: image_path.clone(),
         playback: Some((
             PortraitPlaybackKey {
-                image_path: portrait.image,
-                manifest_path: portrait.manifest,
+                image_path,
+                manifest_path,
                 clip_name: clip_name.to_string(),
             },
             clip.clone(),
@@ -1053,10 +1067,7 @@ mod tests {
         assert_eq!(placeholder_monogram(""), "?");
     }
 
-    fn portrait_registry_fixture() -> PortraitSheetRegistry {
-        PortraitSheetRegistry::from_baked_table(&[(
-            "sprites/alice_portraits.ron",
-            r#"(
+    const FULL_ALICE_PORTRAITS: &str = r#"(
                 target: "alice",
                 image: "alice_portraits.png",
                 frame_width: 256,
@@ -1075,8 +1086,10 @@ mod tests {
                         ],
                     ),
                 },
-            )"#,
-        )])
+            )"#;
+
+    fn portrait_registry_fixture() -> PortraitSheetRegistry {
+        PortraitSheetRegistry::from_baked_table(&[("sprites/alice_portraits.ron", FULL_ALICE_PORTRAITS)])
     }
 
     fn portrait_catalog_fixture() -> CharacterCatalog {
@@ -1119,12 +1132,57 @@ mod tests {
             &overrides,
             &registry,
             None,
+            ambition_persistence::settings::TextureResolutionScale::Full,
         )
         .expect("stable id resolves portrait product");
         assert_eq!(visual.image_path, "sprites/alice_portraits.png");
         let (key, clip) = visual.playback.expect("generated portraits have a clip");
         assert_eq!(key.clip_name, "speaking");
         assert_eq!(clip.frames.len(), 2);
+    }
+
+    /// Q84: a quality tier draws its own portrait product, in its own rects,
+    /// and a tier that published none draws the full one.
+    #[test]
+    fn each_quality_tier_draws_the_portrait_it_published() {
+        use ambition_persistence::settings::TextureResolutionScale as Scale;
+        let catalog = portrait_catalog_fixture();
+        let potato_ron = r#"(
+            target: "alice",
+            image: "alice_portraits.png",
+            frame_width: 104,
+            frame_height: 130,
+            default_clip: "default",
+            clips: {
+                "default": (frames: [(x: 0, y: 0, w: 104, h: 130)]),
+                "speaking": (
+                    duration_ms: 100,
+                    looping: true,
+                    frames: [(x: 104, y: 0, w: 104, h: 130), (x: 208, y: 0, w: 104, h: 130)],
+                ),
+            },
+        )"#;
+        let registry = PortraitSheetRegistry::from_baked_table(&[
+            ("sprites/alice_portraits.ron", FULL_ALICE_PORTRAITS),
+            ("sprites_potato/alice_portraits.ron", potato_ron),
+        ]);
+        let overrides = AmbitionDialogPortraitCatalog::default();
+        let at = |scale| {
+            let visual = resolve_portrait_visual(Some("npc_alice"), Some("speaking"), &catalog, &overrides, &registry, None, scale)
+                .expect("alice has a portrait");
+            let (key, clip) = visual.playback.expect("a clip");
+            (visual.image_path, key.manifest_path, clip.frames[0])
+        };
+        let (image, manifest, frame) = at(Scale::Potato);
+        assert_eq!((image.as_str(), manifest.as_str()), ("sprites_potato/alice_portraits.png", "sprites_potato/alice_portraits.ron"));
+        assert_eq!((frame.x, frame.w, frame.h), (104, 104, 130), "the tier's own rects");
+        // Controls: the full tier, and a tier that published no portrait.
+        for scale in [Scale::Full, Scale::Half] {
+            let (image, _, frame) = at(scale);
+            assert_eq!((image.as_str(), frame.w), ("sprites/alice_portraits.png", 256), "{scale:?}");
+        }
+        // The tier is not a second claim on the target.
+        assert_eq!(registry.manifest_for_target("alice").map(|(path, _)| path), Some("sprites/alice_portraits.ron"));
     }
 
     #[test]
@@ -1139,6 +1197,7 @@ mod tests {
             &overrides,
             &registry,
             None,
+            ambition_persistence::settings::TextureResolutionScale::Full,
         )
         .expect("missing expression falls back");
         let (key, _) = visual.playback.expect("default clip resolves");
@@ -1160,7 +1219,8 @@ mod tests {
             &catalog,
             &overrides,
             &registry,
-            None
+            None,
+            ambition_persistence::settings::TextureResolutionScale::Full,
         )
         .is_none());
     }

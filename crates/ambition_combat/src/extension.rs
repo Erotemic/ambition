@@ -623,5 +623,8 @@ fn lower_body_holds(
     }
 }
 
+pub mod think;
+pub use think::install_for_actor_think;
+
 #[cfg(test)]
 mod tests;

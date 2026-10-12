@@ -415,7 +415,7 @@ before you add a port.
   record (`bosses::gnu_ton::conductor_of`). Poison: the module removed from
   `MODULES` reddens 12 `gnu_ton_fight` arms and the two-room hall arm.
 
-- Open (2026-10-11), **a custom brain as a module** (`actor_think`). The
+- Open (2026-10-11; S1 ✅ the same day), **a custom brain as a module** (`actor_think`). The
   ported Ambition behaviour is modules, but a demo's enemy behaviour is still
   Rust in the demo crate. Measured 2026-10-11: one constant edit in a Mary-O
   enemy rule compiles `ambition_demo_mary_o` and its app (23.7 s); the same
@@ -423,8 +423,11 @@ before you add a port.
   (`void_lizard`, `swallow`, `plant`, `snake`, `ai_slop`) run in
   `WorldPrepSet::AfterIntegrate`. Two of them (`void_lizard`, `swallow`)
   write the body's fire intent there, after the control gate, so the gate
-  never sees it (the A4 debt class; the shipped census in `sim_phase_pins`
-  does not see Mary-O). The route is "Body-control
+  never sees it (the A4 debt class). The shipped census
+  (`sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`)
+  sees both and is red on them on 2026-10-11: `run_void_lizard` and
+  `drop_coconuts` are after-gate writers no row declares. S2 and the swallow
+  slice make it green by deleting them, not by declaring them. The route is "Body-control
   contribution" in `extension-domain-contracts.md` (Source routes):
   - S1 (engine): the phase `actor_think`, after `ActorDecisionSet::Publish`
     and before `PlayerInputSet::ControlGate`. The trigger
@@ -432,9 +435,16 @@ before you add a port.
     the body's position, velocity, facing, ground, health, size and the
     position of its target. The request `ambition.actor.fire` puts a fire
     direction into the body's control frame, so the gate restricts it like a
-    brain's own fire. Witness: a loaded fixture module bound to a custom
-    brain key fires through the gated frame, and a body a script holds does
-    not. Poison: the lowering after the gate.
+    brain's own fire. ✅ Witness
+    `app_it::a_custom_brain_module_fires_through_the_gate`: the loaded
+    fixture module `thinker` (`fixtures/extension_fixture_modules`) bound to
+    the key `fixture_thinker` fires straight up in the gated frame and the
+    body's moveset fires the shot; a body a script holds fires none; with no
+    module, no frame or shot goes straight up. Poisons: the phase in
+    `WorldPrepSet::AfterIntegrate` (after the gate) is red at the held body's
+    shots (23 frames of shots); the fire dropped by the adapter is red at
+    the free body's gated frame. The sync-test arm found SHOT-END-REPLAY
+    (queue), a defect on the road from a shot's end to a brain.
   - S2 (Mary-O, with the Mary-O owner): the Void Lizard as a module in a
     Mary-O module crate (its fire, and its hop through
     `ambition.motion.velocity` offered in `actor_think`); the native

@@ -15,10 +15,15 @@
 //! move between two cells). A move that joins two nodes that are already
 //! connected closes a CYCLE: the module finds the cycle's path, puts a damage
 //! box over it, and takes the cycle's edges out of the graph.
+//!
+//! `thinker` is a custom brain: a body whose placement authors its key fires
+//! from `actor_think`, through the control gate.
 
-use ambition_combat_port::{DamageBox, DamageBoxPort, WieldedUsePort, Wielder};
+use ambition_combat_port::{
+    ActorFire, ActorFirePort, ActorThink, ActorThinkPort, DamageBox, DamageBoxPort, WieldedUsePort, Wielder,
+};
 use ambition_extension_sdk::{
-    phases::WIELDED_USE, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
+    phases::{ACTOR_THINK, WIELDED_USE}, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
     ModuleDescriptor, ModuleKey, Port, SchemaKey, TriggerBinding, API_VERSION,
 };
 use ambition_projectile_spec::{ProjectileSpawn, ProjectileSpawnPort};
@@ -283,8 +288,52 @@ fn walk(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     trail.store(inv)
 }
 
+/// The custom brain key `thinker` binds.
+pub const THINKER_BRAIN: &str = "fixture_thinker";
+/// The way `thinker` fires: straight up, which no shipped brain asks for, so
+/// a frame that holds it holds the module's request.
+pub const THINKER_FIRE: [f32; 2] = [0.0, -1.0];
+
+/// `thinker` proves the custom-brain road (fast-iteration I4, `actor_think`):
+/// a body whose placement authors the key [`THINKER_BRAIN`] fires every tick
+/// it has a target, and the fire is in the frame the control gate restricts.
+pub fn thinker() -> ModuleDescriptor {
+    ModuleDescriptor {
+        key: ModuleKey::new(PROVIDER, "thinker"),
+        api: API_VERSION,
+        code: CodeIdentity::StaticNative {
+            crate_name: env!("CARGO_PKG_NAME").into(),
+            version: env!("CARGO_PKG_VERSION").into(),
+        },
+        schemas: Vec::new(),
+        entries: vec![EntryDescriptor {
+            key: "think".into(),
+            phase: ACTOR_THINK,
+            trigger: TriggerBinding {
+                port: ActorThinkPort::KEY,
+                selector: THINKER_BRAIN.into(),
+            },
+            reads: Vec::new(),
+            writes: Vec::new(),
+            requests: vec![ActorFirePort::KEY],
+            after: Vec::new(),
+            limits: Limits { max_requests: 1 },
+            on_idle: IdlePolicy::Invoke,
+            run: EntryCode::Native(think),
+        }],
+    }
+}
+
+fn think(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let body: ActorThink = inv.trigger::<ActorThinkPort>()?.clone();
+    if body.target.is_some() {
+        inv.submit::<ActorFirePort>(ActorFire { direction: THINKER_FIRE })?;
+    }
+    Ok(())
+}
+
 /// Every module this crate provides, as constructors.
-pub const MODULES: &[fn() -> ModuleDescriptor] = &[session_tally, trail_loop];
+pub const MODULES: &[fn() -> ModuleDescriptor] = &[session_tally, trail_loop, thinker];
 
 #[cfg(test)]
 mod tests {

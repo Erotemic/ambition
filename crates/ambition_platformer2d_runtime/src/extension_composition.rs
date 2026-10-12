@@ -11,6 +11,7 @@
 //! | `wielded_use` | `ItemPickupSet::WieldedAbilities`, before the movement cooldown ticks, gameplay-gated | triggers `ambition.items.wielded_use` and `ambition.items.wielded_alternate`; observations `ambition.items.mark` and `ambition.items.aim_cast`; requests `ambition.motion.transit` (lowered first, in `BodyPathSet::Carry`), `ambition.abilities.movement_cooldown`, `ambition.feedback.effect`, `ambition.feedback.burst`, `ambition.feedback.hit_mark`, `ambition.motion.velocity`, `ambition.items.set_mark`, `ambition.resources.spend_mana`, `ambition.feedback.body_sound` and `ambition.world.spawn_module_entity` (held-item domain, `ambition_abilities`), `ambition.combat.damage_box` and `ambition.combat.strike`, `ambition.projectiles.spawn` |
 //! | `boss_conduct` | `WorldPrepSet::AfterIntegrate`, after the rider sync, gameplay-gated | trigger `ambition.boss.conduct`; observations `ambition.body.attachments` and `ambition.boss.mount`; requests `ambition.boss.conducted_pose`, `ambition.boss.limb_pose`, `ambition.boss.limb_opening`, `ambition.boss.limb_blow`, `ambition.boss.mount_launch`, `ambition.feedback.speech_bubble`, `ambition.presentation.drawn_row`, `ambition.feedback.burst`, `ambition.boss.summon` (boss domain), `ambition.combat.held_damage_box`, `ambition.combat.riding_hitbox` (combat), `ambition.projectiles.spawn`, `ambition.feedback.body_sound` |
 //! | `module_entity_tick` | `ItemPickupSet::WieldedAbilities`, after `wielded_use`, gameplay-gated | trigger `ambition.world.module_entity_tick`; requests `ambition.feedback.body_sound`, `ambition.world.pull_bodies` (lowered in `BodyPathSet::Carry`) and `ambition.world.end_module_entity` (`ambition_abilities`), `ambition.projectiles.spawn` |
+//! | `actor_think` | after `ActorDecisionSet::Publish`, before `PlayerInputSet::ControlGate`, gameplay-gated | trigger `ambition.actor.think`; request `ambition.actor.fire` (`ambition_combat`) |
 
 use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
 
@@ -20,7 +21,7 @@ pub use ambition_extension_host::ExtensionGeneration;
 
 /// The name of the prepared-content section that holds [`ExtensionGeneration`].
 pub const EXTENSION_MODULES_SECTION: &str = "extension.modules";
-use ambition_extension_sdk::phases::{BOSS_CONDUCT, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
+use ambition_extension_sdk::phases::{ACTOR_THINK, BOSS_CONDUCT, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
 use ambition_platformer2d_shared_tangle::schedule::{CombatSet, GameplayGated, ItemPickupSet, SimScheduleExt};
 use bevy::prelude::*;
 
@@ -48,6 +49,8 @@ pub fn install_ports(app: &mut App) {
     ambition_combat::extension::install_for_boss_conduct(app);
     ambition_projectiles::extension::install_for_boss_conduct(app);
     ambition_abilities::extension::install_for_boss_conduct(app);
+    // actor_think
+    ambition_combat::extension::install_for_actor_think(app);
 }
 
 /// Order the phases that depend on each other: an entity spawned in
@@ -159,6 +162,21 @@ impl Plugin for ExtensionCompositionPlugin {
         app.configure_sets(
             sim,
             ExtensionSet::Collect(BOSS_CONDUCT).after(ambition_mount::RidersSyncedToMounts),
+        );
+        // `actor_think` guarantees: the brains of this tick have published
+        // their control frames and each body's target is settled; a fire asked
+        // for here is in the frame the control gate restricts, and the body
+        // integrates after it.
+        app.configure_sets(
+            sim,
+            (
+                ExtensionSet::Collect(ACTOR_THINK),
+                ExtensionSet::Invoke(ACTOR_THINK),
+                ExtensionSet::Lower(ACTOR_THINK),
+            )
+                .in_set(GameplayGated)
+                .after(ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet::Publish)
+                .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate),
         );
         // The side a conducted boss's module chose reaches the body through
         // its control, which the boss integration applies.

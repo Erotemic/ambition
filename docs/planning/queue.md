@@ -600,6 +600,30 @@ Not done: an apply-time refusal after every room passed is logged
 (`apply_world_replacement`), not failed loudly. With a correct projection it
 cannot happen.
 
+### SHOT-END-REPLAY — a brain that saw its shot end replays differently
+
+**Owner:** [simulation authority](engine/simulation-authority-and-determinism.md).
+Found 2026-10-11 by the `actor_think` witness (fast-iteration I4).
+
+**Measured:** a smash-brain NPC (`perfect_cellular_automaton`) whose fire is
+straight up, under a GGRS sync test (check distance 4, window 10). Its shot
+flies from frame 7 to frame 30 and is gone on frame 31. From frame 35,
+`RollbackRestoreAudit` reports `ambition_characters::brain::Brain` (the
+cursor census over the room's 4 brains) "recomputed differently on replay",
+and GGRS reports a checksum mismatch at frame 38. The same body with its
+native fire (toward the player, the shot does not end in the window) is
+healthy for 40 frames, and a held body (the gate removes the fire) is
+healthy. So the cause is on the road from a shot's end to a brain's state,
+not in the extension host.
+
+**Reproducer:** `app_it::a_custom_brain_module_fires_through_the_gate` with
+`with_sync_test_rollback_settings(4, 10)` on its free arm.
+
+**Next:** find which brain and which field moves (the census is an xor over
+the room), and which read of the shot's end differs between the first run
+and a replay (a raw `Entity`, a message across the rewind, a non-rollback
+`Local`). Fix it in its own slice, and add the sync-test arm to the witness.
+
 ### AP14 — semantic actor-monolith SCC decomposition (continuous; deferred 2026-10-09)
 
 **Owner:** [`actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
@@ -650,6 +674,7 @@ Rust move tables are migration scaffolding.
 
 - The three families that did not reload (music cues, cutscenes, quests) all take part since 2026-10-07. The references a candidate can break (a room naming a removed cutscene; a quest step naming a boss or room that does not exist) are judged at request time by the startup validator itself (`ContentGraphRefused`, 2026-10-07). Supersession of an in-flight generation is done (2026-10-07), and the quest book is asked again at the activation gate with the save as it is then, so a save that moves while a generation waits cancels it instead of being clamped.
 - I4: save eligibility for body records and checkpoints. A session record `kept durable` is kept by the durable save since 2026-10-11 (`module_save_road`; see the I5 section). GNU-ton's conductor is a module (2026-10-11). Every held traversal item is a module (blink, dive, mark/recall and the grapple, 2026-10-10; the grapple reads the first wall along its aim through `ambition.items.aim_cast`).
+- I4 `actor_think` (a custom brain as a module, to take demo enemy behaviour out of the demo crates): S1 landed 2026-10-11 (the phase, `ambition.actor.think`, `ambition.actor.fire`; witness `app_it::a_custom_brain_module_fires_through_the_gate`). S2, the Void Lizard as a Mary-O module, is next, with the Mary-O owner.
 
 **Blocked by:** nothing.
 

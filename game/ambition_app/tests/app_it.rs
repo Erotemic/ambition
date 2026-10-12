@@ -82,6 +82,7 @@ mod boot_budget;
 mod boss_contact_iframes;
 mod boss_draw_cursor;
 mod a_boss_special_runs_on_the_extension_host;
+mod a_custom_brain_module_fires_through_the_gate;
 mod a_loaded_module_keeps_session_state;
 mod boss_lifecycle;
 mod boss_replay_retraction;

@@ -60,6 +60,13 @@ fn rescue_script() -> CutsceneScript {
     )
 }
 
+/// Put the cutscene of the rescue in the library of the app, one time, when
+/// the app is built: a provider gives the library the rows of its own ids.
+pub fn install(app: &mut App) {
+    app.init_resource::<CutsceneLibrary>();
+    app.world_mut().resource_mut::<CutsceneLibrary>().insert(rescue_script());
+}
+
 /// The switch of the room the controlled body is in, with that body.
 fn switch_of_her_room(
     rooms: Option<&LiveRoomSpecs>,
@@ -123,12 +130,11 @@ pub fn the_robot_thanks_her(
     subject: Option<Res<ControlledSubject>>,
     rooms: Option<LiveRoomSpecs>,
     mut owners: Query<(&FlagSequence, &mut crate::MaryOLevelState)>,
-    library: Option<ResMut<CutsceneLibrary>>,
     queue: Option<ResMut<CutsceneTriggerQueue>>,
     active: Option<Res<ActiveCutscene>>,
 ) {
     // A world with no cutscenes (a test of one rule) ends its castle with no line.
-    let (Some(mut library), Some(mut queue), Some(active)) = (library, queue, active) else {
+    let (Some(mut queue), Some(active)) = (queue, active) else {
         return;
     };
     let Ok((sequence, mut level)) = owners.single_mut() else {
@@ -141,11 +147,6 @@ pub fn the_robot_thanks_her(
         return;
     }
     if level.tally_dwell == 0.0 {
-        // The library is the session's, and a load of content can put a new
-        // one in its place. So the script is put in when it is asked for.
-        if library.get(RESCUE_CUTSCENE).is_none() {
-            library.insert(rescue_script());
-        }
         queue.request(RESCUE_CUTSCENE);
         return;
     }

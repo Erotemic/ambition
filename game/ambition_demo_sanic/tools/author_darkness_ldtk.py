@@ -299,6 +299,11 @@ def main() -> None:
              str(MAP_TARGET), "--in-place")
     run_tool("level", "set-field", "--ldtk", str(MAP_TARGET), "--level", ROOM_ID,
              "--set", f"next_room={NEXT_ROOM}", "--in-place")
+    # The course is at every height of the view: no layer in front of it.
+    run_tool("level", "add-field-def", "foreground_treatment", "--type", "String",
+             str(MAP_TARGET), "--in-place")
+    run_tool("level", "set-field", "--ldtk", str(MAP_TARGET), "--level", ROOM_ID,
+             "--set", "foreground_treatment=none", "--in-place")
     run_tool("repair", str(MAP_TARGET), "--in-place")
     run_tool("validate", str(MAP_TARGET))
     if not TARGET.is_symlink():

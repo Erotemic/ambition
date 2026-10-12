@@ -416,6 +416,9 @@ def main() -> None:
     # levels does not validate.
     run_tool("level", "add-field-def", "next_room", "--type", "String", str(target), "--in-place")
     run_tool("level", "set-field", "--ldtk", str(target), "--level", ROOM_ID, "--set", f"next_room={NEXT_ROOM}", "--in-place")
+    # The course is at every height of the view: no layer in front of it.
+    run_tool("level", "add-field-def", "foreground_treatment", "--type", "String", str(target), "--in-place")
+    run_tool("level", "set-field", "--ldtk", str(target), "--level", ROOM_ID, "--set", "foreground_treatment=none", "--in-place")
     run_tool("repair", str(target), "--in-place")
     run_tool("validate", str(target))
     if not TARGET.is_symlink():

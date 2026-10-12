@@ -621,7 +621,7 @@ pub fn spawn_surface_chain_visuals(
     world: &ae::World,
     theme: Option<ambition_sprite_sheet::game_assets::ParallaxTheme>,
 ) {
-    use super::chain_skin::{ChainEarth, ChainTurf};
+    use super::chain_skin::{ChainEarth, ChainTurf, TurfFace, FAR_LANE_DIM};
     const THICKNESS: f32 = 8.0;
 
     for chain in world.chains.iter().filter(|chain| chain.filled && !chain.closed) {
@@ -648,6 +648,67 @@ pub fn spawn_surface_chain_visuals(
                 RoomVisual,
             ),
         );
+    }
+
+    // Track in the air (a loop, the ramp into it) has depth lanes and no earth
+    // of its own: it is drawn as a band of earth on the side a body does not
+    // ride, one band for each lane, at the depth of the lane.
+    for chain in world
+        .chains
+        .iter()
+        .filter(|chain| !chain.depth_lanes.is_empty() && chain.earth.is_empty() && !chain.filled)
+    {
+        let count = chain.segment_count();
+        if count == 0 {
+            continue;
+        }
+        let normal = |segment: usize| {
+            let n = chain.normal(segment);
+            BVec2::new(n.x, n.y)
+        };
+        // The way out of the earth at a vertex: between the normals of the
+        // two segments that meet at it.
+        let out_at = |vertex: usize| {
+            let before = if vertex > 0 {
+                Some(vertex - 1)
+            } else {
+                chain.closed.then(|| count - 1)
+            };
+            let after = if vertex < count { Some(vertex) } else { chain.closed.then_some(0) };
+            (before.map_or(BVec2::ZERO, normal) + after.map_or(BVec2::ZERO, normal))
+                .try_normalize()
+                .unwrap_or(BVec2::NEG_Y)
+        };
+        let mut lanes: Vec<i8> = (0..count).map(|segment| chain.segment_depth(segment)).collect();
+        lanes.sort_unstable();
+        lanes.dedup();
+        for lane in lanes {
+            let segments: Vec<[(BVec2, BVec2); 2]> = (0..count)
+                .filter(|segment| chain.segment_depth(*segment) == lane)
+                .map(|segment| {
+                    let (a, b) = chain.segment(segment);
+                    let end = if chain.closed { (segment + 1) % count } else { segment + 1 };
+                    [(BVec2::new(a.x, a.y), out_at(segment)), (BVec2::new(b.x, b.y), out_at(end))]
+                })
+                .collect();
+            let (z, dim) = if lane < 0 {
+                (WORLD_Z_BLOCK + 0.5, FAR_LANE_DIM)
+            } else if lane > 0 {
+                (WORLD_Z_PLAYER + 0.3, 1.0)
+            } else {
+                (WORLD_Z_BLOCK + 1.5, 1.0)
+            };
+            commands.spawn_session_scoped(
+                session_scope,
+                (
+                    ChainEarth::band(world, &segments, theme, dim),
+                    Transform::from_xyz(0.0, 0.0, z),
+                    Visibility::Visible,
+                    Name::new(format!("Track earth: {} lane {}", chain.name, lane)),
+                    RoomVisual,
+                ),
+            );
+        }
     }
 
     for chain in &world.chains {
@@ -687,7 +748,9 @@ pub fn spawn_surface_chain_visuals(
                 ),
             );
             if let Some(theme) = theme {
-                strip.insert(ChainTurf { theme, along, length, lane: depth });
+                let normal = chain.normal(segment_index);
+                let face = TurfFace::of(BVec2::new(normal.x, normal.y));
+                strip.insert(ChainTurf { theme, along, length, lane: depth, face });
             }
             along += length;
         }

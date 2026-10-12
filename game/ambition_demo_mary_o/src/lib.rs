@@ -1460,6 +1460,7 @@ impl Plugin for MaryORulesPlugin {
             MARY_O_MODE,
             mary_o_level_owner,
         );
+        castle_end::install(app);
         let rules = (
             // A new room starts a fresh lap before the flag reads that room's
             // pole, so a sequence never drives the body to the last room's pole.
@@ -2630,6 +2631,8 @@ mod tests {
                 .filter(|block| ldtk_vocabulary::block_look_of(&block.name).is_none())
                 .filter(|block| ldtk_vocabulary::pipe_of(&block.name).is_none())
                 .filter(|block| !block.name.starts_with(GOAL_POLE_PREFIX))
+                // A prop draws the switch of a castle, as one draws a pole.
+                .filter(|block| block.name != castle_end::GOAL_SWITCH)
                 .collect();
             assert!(!undressed.is_empty(), "{} authors no plain block", room.id);
             for block in undressed {

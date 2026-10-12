@@ -259,6 +259,7 @@ pub fn sanic_speedway() -> RoomSpec {
         )
     }));
     monitors::dress_monitors(&mut room);
+    scenery::dress_goal(&mut room);
     room
 }
 
@@ -295,6 +296,7 @@ pub fn sanic_highway() -> RoomSpec {
         ),
     )];
     monitors::dress_monitors(&mut room);
+    scenery::dress_goal(&mut room);
     room
 }
 
@@ -325,6 +327,7 @@ pub fn sanic_darkness() -> RoomSpec {
         ),
     )];
     monitors::dress_monitors(&mut room);
+    scenery::dress_goal(&mut room);
     room
 }
 
@@ -347,6 +350,7 @@ pub mod badnik;
 pub mod ball_dash;
 pub mod monitors;
 pub mod provider;
+pub mod scenery;
 pub mod pack;
 #[cfg(test)]
 mod smash_moveset;
@@ -408,9 +412,20 @@ pub fn install_sanic_content(app: &mut App) {
                 },
             );
         }
+        // The goal post of each act, and the side it shows.
+        app.register_prop_sheet(
+            scenery::GOAL_POST_SPRITE,
+            PropSheetSource::SpriteFolder {
+                target: scenery::GOAL_POST_SPRITE.to_string(),
+                tuning: ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
+            },
+        );
         // Presentation reads sim state and writes render components, in
         // `Update` (Mary-O's `dress_power_blocks` says why not in the sim).
-        app.add_systems(bevy::prelude::Update, monitors::dress_monitor_boxes);
+        app.add_systems(
+            bevy::prelude::Update,
+            (monitors::dress_monitor_boxes, scenery::dress_goal_posts),
+        );
     }
 
     // Sanic's mutable sim state joins the rollback contract here, before

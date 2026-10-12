@@ -11,8 +11,9 @@
 | [`monitors`](src/monitors.rs) | Monitor boxes: Sanic's power-up crates, pure content on two engine seams. |
 | [`pack`](src/pack.rs) | The Sanic demo's content pack. |
 | [`provider`](src/provider.rs) | The Sanic experience provider. |
+| [`scenery`](src/scenery.rs) | The scenery of a Sanic act: the goal post. |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -257,6 +257,14 @@ pub fn spawn_parallax_layers(
         .take(max_layers)
         .flat_map(|spec| slots.iter().map(move |slot| (spec, *slot)))
     {
+        // A room says `foreground_treatment: none` when its play is at every
+        // height of the view (a course with loops): the layer in front of
+        // the play would be over it.
+        if spec.asset == ParallaxLayerAsset::Foreground
+            && metadata.visual_profile.foreground_treatment.as_deref() == Some("none")
+        {
+            continue;
+        }
         let Some(image) = assets.parallax_layers.get(theme, spec.asset) else {
             continue;
         };

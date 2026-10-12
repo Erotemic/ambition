@@ -95,23 +95,52 @@ pub fn stage_loaded_replacements(world: &mut World, artifacts: Vec<LoadedArtifac
         .and_then(|staged| staged.candidate.as_ref().map(|(_, declared)| declared.clone()))
         .unwrap_or_else(|| composition.declared.clone());
     let replaced: Vec<Arc<str>> = artifacts.iter().map(|a| a.artifact.clone()).collect();
-    // A linked module of the same key stays, replaced again.
-    let mut declared: Vec<DeclaredModule> = base
-        .into_iter()
-        .filter(|m| !matches!(&m.code, ModuleCode::Loaded { artifact, .. } if replaced.contains(artifact)))
-        .collect();
+    // A linked module of the same key stays, replaced again. Each replaced
+    // file keeps the place of its first module and its `replaces`: the
+    // declaration order is the serial order, and both are in the generation,
+    // so a reload of the same bytes must not change either.
+    let mut declared: Vec<DeclaredModule> = Vec::with_capacity(base.len());
+    let mut places: Vec<(Arc<str>, usize, bool)> = Vec::new();
+    for module in base {
+        if let ModuleCode::Loaded { artifact, .. } = &module.code {
+            if replaced.contains(artifact) {
+                if !places.iter().any(|(seen, ..)| seen == artifact) {
+                    places.push((artifact.clone(), declared.len(), module.replaces));
+                }
+                continue;
+            }
+        }
+        declared.push(module);
+    }
+    let mut placed: Vec<(usize, usize, Vec<DeclaredModule>)> = Vec::new();
     for loaded in artifacts {
-        for (index, descriptor) in loaded.modules.into_iter().enumerate() {
-            declared.push(DeclaredModule {
+        let place = places.iter().position(|(seen, ..)| *seen == loaded.artifact);
+        let replaces = place.is_none_or(|order| places[order].2);
+        let modules: Vec<DeclaredModule> = loaded
+            .modules
+            .into_iter()
+            .enumerate()
+            .map(|(index, descriptor)| DeclaredModule {
                 descriptor,
                 code: ModuleCode::Loaded {
                     backend: loaded.backend.clone(),
                     module: index as u32,
                     artifact: loaded.artifact.clone(),
                 },
-                replaces: true,
-            });
+                replaces,
+            })
+            .collect();
+        match place {
+            Some(order) => placed.push((places[order].1, order, modules)),
+            // A file that gave no module before goes at the end.
+            None => declared.extend(modules),
         }
+    }
+    // From the last place to the first, so an insert does not move a place
+    // that is still to come.
+    placed.sort_by(|a, b| (b.0, b.1).cmp(&(a.0, a.1)));
+    for (at, _, modules) in placed {
+        declared.splice(at..at, modules);
     }
     let candidate = crate::admit_with_roads(API_VERSION, &composition.offers, &composition.save_roads, &declared)
         .map_err(|refusals| {

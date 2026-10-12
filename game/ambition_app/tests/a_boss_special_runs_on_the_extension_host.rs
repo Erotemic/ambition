@@ -188,14 +188,25 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
     // Every module the file provides replaced its linked build: all its
     // entries loaded, none linked. A module can have more than one entry (the
     // sentry deploys and ticks its turret), so the replacements are counted
-    // by module.
-    let loaded = admitted
-        .entries
-        .iter()
-        .filter(|e| matches!(e.runner, ambition_platformer2d::extension::EntryRunner::Loaded { .. }))
-        .count();
-    assert_eq!(loaded, admitted.entries.len(), "no linked entry runs beside the loaded ones");
-    let modules: std::collections::BTreeSet<_> = admitted.entries.iter().map(|e| e.module.to_string()).collect();
+    // by module. The file is the `ambition` provider's crate. A module of
+    // another provider (Mary-O's, linked into the same game) is not in it and
+    // stays linked.
+    let is_loaded = |runner: &ambition_platformer2d::extension::EntryRunner| {
+        matches!(runner, ambition_platformer2d::extension::EntryRunner::Loaded { .. })
+    };
+    let (provided, others): (Vec<_>, Vec<_>) =
+        admitted.entries.iter().partition(|e| e.module.to_string().starts_with("ambition::"));
+    assert_eq!(
+        provided.iter().filter(|e| is_loaded(&e.runner)).count(),
+        provided.len(),
+        "no linked entry of the file's modules runs beside the loaded ones"
+    );
+    assert!(
+        !others.is_empty() && !others.iter().any(|e| is_loaded(&e.runner)),
+        "the modules of another provider stay linked: {:?}",
+        others.iter().map(|e| e.path.as_str()).collect::<Vec<_>>()
+    );
+    let modules: std::collections::BTreeSet<_> = provided.iter().map(|e| e.module.to_string()).collect();
     assert_eq!(admitted.replaced.len(), modules.len(), "{:?}", admitted.replaced);
     let bursts = fight_requests(&mut sim, TWO_STRIKES);
     assert!(bursts.len() >= 2, "{bursts:?}");

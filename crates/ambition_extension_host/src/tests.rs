@@ -1145,6 +1145,27 @@ fn a_module_a_rebuilt_file_no_longer_exports_leaves_with_it() {
     assert!(!keys.iter().any(|k| k.contains("extra")), "{keys:?}");
 }
 
+/// ⛔ A RELOAD OF THE SAME BYTES IS THE SAME GENERATION, also when a module
+/// of another file is declared after the reloaded file. The declaration order
+/// is the serial order, so a reload that puts the file at the end also runs
+/// its modules after the other file's modules.
+#[test]
+fn a_reloaded_file_keeps_its_place_in_the_declaration_order() {
+    let mut app = bare_app();
+    let (backend, published) = loaded(vec![module(vec![entry("a", vec![])])]);
+    app.add_loaded_extension_modules("counter.wasm", backend, published, false);
+    let (backend, published) = loaded(vec![extra("0")]);
+    app.add_loaded_extension_modules("extra.wasm", backend, published, false);
+    app.finish();
+    let before = app.world().resource::<ExtensionGeneration>().clone();
+    assert_eq!(before.0.lines().count(), 2, "the premise: two files, one module each: {}", before.0);
+
+    let (backend, published) = loaded(vec![module(vec![entry("a", vec![])])]);
+    reload::stage_loaded_replacement(app.world_mut(), "counter.wasm", backend, published).unwrap();
+    assert!(reload::publish_staged_replacement(app.world_mut()));
+    assert_eq!(*app.world().resource::<ExtensionGeneration>(), before);
+}
+
 /// ⛔ P2b: TWO FILES CHANGED BEFORE ONE PUBLICATION ARE ONE GENERATION, in one
 /// poll or in two. Each candidate was built from the published composition,
 /// so the second dropped the first.

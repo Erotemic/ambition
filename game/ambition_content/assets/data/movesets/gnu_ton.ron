@@ -86,12 +86,189 @@
                                         (
                                             shape: Rect(
                                                 offset: (36.0, -8.0),
-                                                half_extents: (26.0, 8.0),
+                                                half_extents: (26.0, 13.0),
                                             ),
                                             damage: 3,
-                                            knockback: 42.0,
-                                            knockback_growth: Some(1.1),
+                                            knockback: 34.0,
+                                            knockback_growth: Some(0.7),
                                             launch_dir: None,
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: None,
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.1236,
+                                    end_s: 0.2232,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.1236,
+                                    end_s: 0.2232,
+                                    tag: Cancelable(
+                                        into: [
+                                            "jab_2",
+                                        ],
+                                        condition: OnHit,
+                                    ),
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // The second of the string: the same flick, a step in. A press when the first lands.
+                        (
+                            id: "jab_2",
+                            display_name: None,
+                            clip: (
+                                clip: "jab_2",
+                                fallbacks: [
+                                    "jab",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.2232,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.074,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.074,
+                                    end_s: 0.1236,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (36.0, -8.0),
+                                                half_extents: (26.0, 13.0),
+                                            ),
+                                            damage: 3,
+                                            knockback: 38.0,
+                                            knockback_growth: Some(0.8),
+                                            launch_dir: None,
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: None,
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.1236,
+                                    end_s: 0.2232,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.1236,
+                                    end_s: 0.2232,
+                                    tag: Cancelable(
+                                        into: [
+                                            "jab_3",
+                                        ],
+                                        condition: OnHit,
+                                    ),
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // The third: the quill through, and out. It ends the string and sends you away: his way out of a scramble.
+                        (
+                            id: "jab_3",
+                            display_name: None,
+                            clip: (
+                                clip: "jab_3",
+                                fallbacks: [
+                                    "attack_side",
+                                    "jab",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.2232,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.074,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.074,
+                                    end_s: 0.1236,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (38.0, -6.0),
+                                                half_extents: (30.0, 14.0),
+                                            ),
+                                            damage: 5,
+                                            knockback: 72.0,
+                                            knockback_growth: Some(1.3),
+                                            launch_dir: Some((1.0, -0.35)),
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),
@@ -161,7 +338,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (44.0, -6.0),
-                                                half_extents: (32.0, 9.0),
+                                                half_extents: (32.0, 14.0),
                                             ),
                                             damage: 6,
                                             knockback: 69.7,
@@ -310,8 +487,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (40.0, 22.0),
-                                                half_extents: (30.0, 8.0),
+                                                offset: (40.0, 20.0),
+                                                half_extents: (30.0, 12.0),
                                             ),
                                             damage: 4,
                                             knockback: 56.0,
@@ -685,8 +862,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (42.0, -4.0),
-                                                half_extents: (30.0, 10.0),
+                                                offset: (40.0, 2.0),
+                                                half_extents: (30.0, 18.0),
                                             ),
                                             damage: 8,
                                             knockback: 89.25,

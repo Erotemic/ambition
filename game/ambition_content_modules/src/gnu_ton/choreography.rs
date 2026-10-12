@@ -619,14 +619,17 @@ pub mod arms {
     /// (`ambition_content::bosses::gnu_ton::duel`). This says only WHICH move
     /// and WHEN; a move's times, reach and hurt are in the table.
     ///
-    /// Each: the move's id in the table, and the seconds until he chooses
-    /// again (the move, and a rest to punish).
-    pub const DUEL_MOVES: [(&str, f32); 5] = [
-        ("jab", 0.5),
-        ("tilt_forward", 0.75),
-        ("tilt_up", 0.75),
-        ("tilt_down", 0.7),
-        ("smash_forward", 1.35),
+    /// Each: the move's id in the table, the seconds until he chooses again,
+    /// and for how many of them he is OPEN (the move, and the time to punish
+    /// it). For the rest he has his book up: a blow on his guard does nothing.
+    /// So the way to hurt him is the way to hurt a fighter: make him miss, and
+    /// strike before the book comes up.
+    pub const DUEL_MOVES: [(&str, f32, f32); 5] = [
+        ("jab", 0.7, 0.46),
+        ("tilt_forward", 0.9, 0.62),
+        ("tilt_up", 0.9, 0.62),
+        ("tilt_down", 0.85, 0.58),
+        ("smash_forward", 1.55, 1.25),
     ];
     /// The beat before his first move, when the player comes onto the back.
     pub const DUEL_READY: f32 = 0.35;

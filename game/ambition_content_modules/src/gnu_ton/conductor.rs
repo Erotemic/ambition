@@ -22,7 +22,7 @@
 //! (`ambition_content::bosses::gnu_ton::portals`).
 
 use ambition_boss_special_port::{
-    BossConduct, BossConductPort, ConductedPose, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LimbBlow,
+    BossConduct, BossConductPort, BossGuard, BossGuardPort, ConductedPose, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LimbBlow,
     LimbBlowPort, LimbHold, LimbOpening, LimbOpeningPort, LimbPose, LimbPosePort, MountLaunch, MountLaunchPort,
     MountView, MountViewPort, Pose as BodyPose,
 };
@@ -186,6 +186,8 @@ record! {
     /// Seconds into the giant taking its arm back out of a punch that the
     /// duel cut short.
     50 pull: Option<f32>,
+    /// In the duel his book is up: a blow on him does nothing.
+    51 guard: bool,
 }
 
 /// What he says at the turns of the fight, once each.
@@ -306,7 +308,7 @@ impl Conductor {
         let chosen = (self.duel_move as usize)
             .checked_sub(1)
             .and_then(|i| ch::arms::DUEL_MOVES.get(i))
-            .map(|(id, _)| (*id, self.duel_turn));
+            .map(|(id, ..)| (*id, self.duel_turn));
         (self.dueling, chosen)
     }
 
@@ -381,6 +383,7 @@ pub fn module() -> ModuleDescriptor {
             writes: vec![Conductor::KEY],
             requests: vec![
                 ConductedPosePort::KEY,
+                BossGuardPort::KEY,
                 DrawnRowPort::KEY,
                 LimbPosePort::KEY,
                 LimbOpeningPort::KEY,
@@ -763,6 +766,13 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             }
         }
     }
+    // After his move and the time to punish it, his book is up until he
+    // chooses again.
+    c.guard = c.dueling
+        && c.hop.is_none()
+        && c.reflex.is_none()
+        && (c.duel_move as usize).checked_sub(1).and_then(|i| ch::arms::DUEL_MOVES.get(i)).is_some_and(|(_, gap, open)| gap - c.duel_wait >= *open);
+    inv.submit::<BossGuardPort>(BossGuard { guarded: c.guard })?;
     // The duel cut a punch short: the giant takes its arm back.
     if c.dueling && !was_dueling && previous.is_some_and(|p| p.mv == Move::PortalPunch && p.striking) {
         c.pull = Some(0.0);
@@ -794,6 +804,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         (Some(t), _) if t < ch::arms::SNAP => draw(inv, DrawnPart::Body, Some((&["invoke"], t, false)))?,
         // He goes to the other shoulder.
         (_, Some(t)) => draw(inv, DrawnPart::Body, Some((&["brace"], t, false)))?,
+        // His book is up.
+        _ if c.guard => draw(inv, DrawnPart::Body, Some((&["shield_hold", "brace"], clock, true)))?,
         _ => draw(inv, DrawnPart::Body, ch::rows::scholar(cue.as_ref()))?,
     }
     match (c.reflex, c.clamp) {

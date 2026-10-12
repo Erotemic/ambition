@@ -201,12 +201,12 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
 /// file name under `data/fighters/`. Gated like the move tables, because a
 /// facet is tuned by the same edit loop.
 #[cfg(feature = "static_content")]
-const FIGHTER_FACETS: &[(&str, Option<&'static str>)] = &[(
-    "player_robot_v3",
-    Some(include_str!("../assets/data/fighters/player_robot_v3.ron")),
-)];
+const FIGHTER_FACETS: &[(&str, Option<&'static str>)] = &[
+    ("player_robot_v3", Some(include_str!("../assets/data/fighters/player_robot_v3.ron"))),
+    ("npc_gnu_ton", Some(include_str!("../assets/data/fighters/npc_gnu_ton.ron"))),
+];
 #[cfg(not(feature = "static_content"))]
-const FIGHTER_FACETS: &[(&str, Option<&'static str>)] = &[("player_robot_v3", None)];
+const FIGHTER_FACETS: &[(&str, Option<&'static str>)] = &[("player_robot_v3", None), ("npc_gnu_ton", None)];
 
 /// The authored fighter difficulty ladder.
 ///

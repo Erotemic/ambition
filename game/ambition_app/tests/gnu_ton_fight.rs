@@ -614,6 +614,7 @@ fn with_its_arms_on_he_changes_shoulder_twice_and_the_third_blow_throws() {
 /// The giant does not punch then.
 #[test]
 fn on_the_giants_back_he_fights_with_his_own_moves() {
+    use ambition_platformer2d::boss_encounter::BossEncounter;
     use ambition_platformer2d::combat::moveset::MovePlayback;
     let mut sim = arena();
     step_until(&mut sim, 600, "his first move", |sim| scene(sim).performing.is_some());
@@ -624,15 +625,21 @@ fn on_the_giants_back_he_fights_with_his_own_moves() {
     let (_, hp_before) = player(&mut sim);
     let mut swung: Vec<String> = Vec::new();
     let mut hurt_at = None;
+    // His book: up between his moves, and down while he swings.
+    let (mut book_up, mut swung_with_book_up) = (0, 0);
     for frame in 0..240 {
         sim.step(AgentAction::default());
         let world = sim.world_mut();
-        let mut bosses = world.query::<(&BossConfig, Option<&MovePlayback>)>();
-        let on_body = bosses
+        let mut bosses = world.query::<(&BossConfig, Option<&MovePlayback>, &BossEncounter)>();
+        let (on_body, guarded) = bosses
             .iter(world)
-            .find(|(config, _)| config.behavior.id == GNU_TON_ID)
-            .and_then(|(_, playback)| playback.map(|pb| pb.spec.id.clone()));
-        if let Some(id) = on_body.filter(|id| id.starts_with("gnu_duel_")) {
+            .find(|(config, ..)| config.behavior.id == GNU_TON_ID)
+            .map(|(_, playback, status)| (playback.map(|pb| pb.spec.id.clone()), status.guarded))
+            .expect("the scholar is in his arena");
+        let on_body = on_body.filter(|id| id.starts_with("gnu_duel_"));
+        book_up += usize::from(guarded);
+        swung_with_book_up += usize::from(guarded && on_body.is_some());
+        if let Some(id) = on_body {
             if swung.last() != Some(&id) {
                 swung.push(id);
             }
@@ -647,11 +654,12 @@ fn on_the_giants_back_he_fights_with_his_own_moves() {
         }
         if hurt_at.is_none() && player(&mut sim).1 < hp_before {
             hurt_at = Some(frame);
-            break;
         }
     }
     assert!(!swung.is_empty(), "in four seconds on the back beside him he played no move of his table");
     assert!(hurt_at.is_some(), "he swung ({swung:?}) at a player who stood beside him, and it never hurt");
+    assert!(book_up > 0, "between his moves ({swung:?}) his book was never up");
+    assert_eq!(swung_with_book_up, 0, "his book was up while he swung");
 }
 
 /// After the apple rain a golden apple knocks him off the gnu: he sits dazed on

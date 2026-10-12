@@ -92,12 +92,15 @@ fn duel_spec(spec: &MoveSpec) -> MoveSpec {
     spec
 }
 
-/// The duel moves, made once from the shipped table.
-fn duel_specs() -> Vec<MoveSpec> {
-    let table = crate::authored_movesets::shipped(FIGHTER);
+/// The duel moves, made once from the fighter's table in the pack this App
+/// plays.
+fn duel_specs(pack: &crate::pack::SelectedContentPack) -> Vec<MoveSpec> {
+    let table = ambition_characters::moveset_content_schema::lowered_movesets(pack.get())
+        .and_then(|tables| tables.get(FIGHTER))
+        .unwrap_or_else(|| panic!("the pack has no move table for `{FIGHTER}`"));
     arms::DUEL_MOVES
         .iter()
-        .map(|(id, _)| duel_spec(table.move_by_id(id).unwrap_or_else(|| panic!("the table of `{FIGHTER}` has no `{id}`"))))
+        .map(|(id, ..)| duel_spec(table.move_by_id(id).unwrap_or_else(|| panic!("the table of `{FIGHTER}` has no `{id}`"))))
         .collect()
 }
 
@@ -106,6 +109,7 @@ fn duel_specs() -> Vec<MoveSpec> {
 #[allow(clippy::type_complexity)]
 pub fn duel_gnu_ton(
     mut commands: Commands,
+    pack: Res<crate::pack::SelectedContentPack>,
     mut specs: Local<Option<Vec<MoveSpec>>>,
     mut scholars: Query<(
         Entity,
@@ -129,7 +133,7 @@ pub fn duel_gnu_ton(
         };
         // His body has the duel moves beside the pattern's.
         if moveset.0.moves.iter().all(|spec| !spec.id.starts_with(PREFIX)) {
-            moveset.0.moves.extend(specs.get_or_insert_with(duel_specs).iter().cloned());
+            moveset.0.moves.extend(specs.get_or_insert_with(|| duel_specs(&pack)).iter().cloned());
         }
         let (fights, chosen) = records
             .get(&Conductor::KEY)

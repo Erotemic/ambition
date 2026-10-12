@@ -29,7 +29,7 @@ from disk and watches nothing.
 | `crates/ambition_platformer2d_actor_monolith/assets/ambition/platformer_defaults.ron` (movement tuning, and combat/time feel under `feel:`) | Writes a changed tuning to the F3 inspector's mirror (`EditableMovementTuning`, `EditableFeelTuning`); the developer-edit road publishes it about 20 frames after the save. A file that does not parse, or a `feel:` field the engine does not have, is refused. The starting abilities in the file need a restart. | `a_movement_tuning_saved_while_the_game_runs_is_played` |
 | A Yarn file (`assets/dialogue/sandbox/*.yarn`) | Compiles the whole dialogue project with the new file, then uses it. A dialogue that is open starts its current node again. | `content_it::a_saved_dialogue_edit_is_played` |
 | A procedural module (`game/ambition_content_modules/src/*.rs`) | Nothing until you rebuild the `.wasm` (next section); then the game loads the new code. | `a_module_file_that_changes_while_the_game_runs_is_reloaded` |
-| A Mary-O enemy brain (`game/ambition_demo_mary_o_modules/src/*.rs`; the Void Lizard) | The same: rebuild that crate's `.wasm` (next section, with the crate name), and the Mary-O app loads the new code. | `mary_o_it::the_void_lizard_runs_from_its_module_file` |
+| A Mary-O enemy brain (`game/ambition_demo_mary_o_modules/src/*.rs`; the Void Lizard, the Laden Swallow) | The same: rebuild that crate's `.wasm` (next section, with the crate name), and the Mary-O app loads the new code. | `mary_o_it::the_void_lizard_runs_from_its_module_file` |
 | The LDtk world | Press F11 to apply the edit, or F12 to apply each save. | `an_edit_reaches_the_shipped_game` |
 
 A reload is refused, and the game keeps what it runs, when:

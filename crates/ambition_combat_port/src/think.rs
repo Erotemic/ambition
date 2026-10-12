@@ -31,10 +31,15 @@ pub struct ActorThink {
     pub health: i32,
     /// Where the body's target is now. `None` when it has no target.
     pub target: Option<[f32; 2]>,
+    /// The id of the placement that built the body (`FeatureId`): a module
+    /// that gives each placement its own beat reads it. `None` for a body no
+    /// placement built.
+    pub placement: Option<String>,
 }
 
 impl Port for ActorThinkPort {
-    const KEY: PortKey = PortKey::new("ambition.actor.think", 1);
+    /// Version 2 (2026-10-11): `placement`.
+    const KEY: PortKey = PortKey::new("ambition.actor.think", 2);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = ActorThink;
 
@@ -46,6 +51,7 @@ impl Port for ActorThinkPort {
         wire::put_bool(out, v.on_ground);
         wire::put_i32(out, v.health);
         wire::put_opt(out, v.target, wire::put_vec2);
+        wire::put_opt(out, v.placement.as_deref(), wire::put_str);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<ActorThink, WireError> {
@@ -57,6 +63,7 @@ impl Port for ActorThinkPort {
             on_ground: r.bool()?,
             health: r.i32()?,
             target: r.opt(WireReader::vec2)?,
+            placement: r.opt(|r| r.str().map(str::to_owned))?,
         })
     }
 }

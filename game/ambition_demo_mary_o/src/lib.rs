@@ -1533,9 +1533,6 @@ impl Plugin for MaryORulesPlugin {
             // After the movement step, so the path of the plant wins, and
             // before the contact pass, so a hidden plant hurts nobody.
             plant::run_snake_plants,
-            // The fire intent of this tick: the actions of the brains are read
-            // after this phase.
-            swallow::drop_coconuts,
         )
             .chain()
             // Both edges are PHASES now, which is the same statement without a

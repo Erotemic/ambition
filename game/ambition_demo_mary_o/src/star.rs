@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::actors::features::empowerment::{Empowered, Empowerment};
 use ambition_platformer2d::characters::equipment::{EquipmentRow, WornEquipment};
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 
 /// Row id of the pocket quasar. Unlike the wand and the beacon this row is NOT a
 /// power form: it takes no `exclusive_slot`, because becoming briefly untouchable
@@ -62,7 +62,7 @@ pub const COSMIC_QUASAR_SUPER_STATE: Empowerment =
 /// longer star as far as the player can tell.
 pub fn begin_star_power(
     mut commands: Commands,
-    mut players: Query<(Entity, &mut WornEquipment), With<PrimaryPlayer>>,
+    mut players: Query<(Entity, &mut WornEquipment), With<PlayerEntity>>,
 ) {
     for (body, mut worn) in &mut players {
         if worn.unequip(POCKET_QUASAR_ID).is_some() {
@@ -92,17 +92,27 @@ pub fn begin_star_power(
 /// from the gameplay fact rather than from a race. It also answers the half a
 /// music fix could not: her *status* is reset too, which is what the player
 /// actually asked for.
+///
+/// Each player of the live room whose flag sequence runs: the course of that
+/// room is the one that ends.
 pub fn end_star_power_at_victory(
     mut commands: Commands,
-    sequences: Query<&crate::flag::FlagSequence>,
-    empowered: Query<Entity, (With<Empowered>, With<PrimaryPlayer>)>,
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
+    sequences: Query<(Entity, &crate::flag::FlagSequence)>,
+    empowered: Query<Entity, (With<Empowered>, With<PlayerEntity>)>,
 ) {
-    let victory_running = sequences.iter().any(|sequence| sequence.active());
-    if !victory_running {
+    let won: Vec<_> = sequences
+        .iter()
+        .filter(|(_, sequence)| sequence.active())
+        .map(|(entity, _)| rooms.of(entity))
+        .collect();
+    if won.is_empty() {
         return;
     }
     for body in &empowered {
-        commands.entity(body).remove::<Empowered>();
+        if won.contains(&rooms.of(body)) {
+            commands.entity(body).remove::<Empowered>();
+        }
     }
 }
 
@@ -145,6 +155,7 @@ mod tests {
             .world_mut()
             .spawn((
                 PrimaryPlayer,
+                PlayerEntity,
                 WornEquipment::default(),
                 ambition_platformer2d::characters::actor::BodyHealth::new(
                     ambition_platformer2d::characters::actor::Health::new(1),
@@ -307,6 +318,7 @@ mod victory_tests {
                 .world_mut()
                 .spawn((
                     PrimaryPlayer,
+                    PlayerEntity,
                     Empowered::for_seconds(COSMIC_QUASAR_SUPER_STATE, 10.0),
                 ))
                 .id();

@@ -14,7 +14,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::characters::equipment::{EquipmentGrant, WornEquipment};
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::platformer::markers::PlayerEntity;
 
 
 /// Walking is 60% of Mary-O's run speed: 180 px/s versus 300 px/s in the
@@ -32,7 +32,7 @@ pub const WALK_THROTTLE: f32 = 0.6;
 /// simulation could never see the difference between a walk and a half-pushed
 /// stick.
 pub fn walk_by_default_run_while_held(
-    mut bodies: Query<&mut ActorControl, With<PrimaryPlayer>>,
+    mut bodies: Query<&mut ActorControl, With<PlayerEntity>>,
 ) {
     for mut control in &mut bodies {
         let frame = &mut control.0;
@@ -59,7 +59,7 @@ pub fn walk_by_default_run_while_held(
 /// sparks fly as the spark authors (`max_live`), so this system keeps no clock
 /// and no count of its own.
 pub fn fire_spark_on_run_press(
-    mut bodies: Query<(&mut ActorControl, &ae::BodyKinematics, &WornEquipment), With<PrimaryPlayer>>,
+    mut bodies: Query<(&mut ActorControl, &ae::BodyKinematics, &WornEquipment), With<PlayerEntity>>,
 ) {
     for (mut control, kin, worn) in &mut bodies {
         if !armed(worn) {

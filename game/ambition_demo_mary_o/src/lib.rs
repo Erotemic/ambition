@@ -3255,6 +3255,7 @@ mod tests {
             .id();
         app.world_mut().spawn((
             ambition_platformer2d::platformer::markers::PrimaryPlayer,
+            ambition_platformer2d::platformer::markers::PlayerEntity,
             ambition_platformer2d::engine_core::BodyKinematics {
                 pos: at,
                 size: ambition_platformer2d::engine_core::Vec2::new(30.0, 48.0),

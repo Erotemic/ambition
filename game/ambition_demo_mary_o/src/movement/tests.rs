@@ -9,7 +9,8 @@ use crate::powerups::{cinder_beacon, star_wand};
 fn body(app: &mut App) -> Entity {
     app.world_mut()
         .spawn((
-            PrimaryPlayer,
+            // A player body, not the first player: the policy is for each player.
+            ambition_platformer2d::platformer::markers::PlayerEntity,
             ActorControl::default(),
             ae::BodyKinematics {
                 pos: ae::Vec2::ZERO,

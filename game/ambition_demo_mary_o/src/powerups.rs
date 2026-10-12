@@ -437,36 +437,38 @@ pub fn refuse_a_weaker_form_pickup(
             Option<&WornEquipment>,
             Option<&mut ambition_platformer2d::characters::actor::BodyWallet>,
         ),
-        With<PrimaryPlayer>,
+        With<PlayerEntity>,
     >,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
-    let Ok((body, worn, mut wallet)) = players.single_mut() else {
-        return;
-    };
-    use ae::AabbExt as _;
-    let body_aabb = ae::Aabb::new(body.pos, body.size * 0.5);
-    let rank = worn_form_rank(worn);
-    for (entity, item) in &items {
-        if !body_aabb.strict_intersects(item.aabb()) {
-            continue;
+    // Each player body. An item that one player takes is gone for the next.
+    let mut taken = Vec::new();
+    for (body, worn, mut wallet) in &mut players {
+        use ae::AabbExt as _;
+        let body_aabb = ae::Aabb::new(body.pos, body.size * 0.5);
+        let rank = worn_form_rank(worn);
+        for (entity, item) in &items {
+            if taken.contains(&entity) || !body_aabb.strict_intersects(item.aabb()) {
+                continue;
+            }
+            let ambition_platformer2d::world_items::WorldItemPayload::Equip(row) = &item.payload;
+            let is_form = row
+                .exclusive_slot
+                .as_deref()
+                .is_some_and(|slot| slot == FORM_SLOT);
+            if !is_form || form_rank(&row.id) > rank {
+                continue;
+            }
+            if let Some(purse) = wallet.as_mut() {
+                purse.add(COINS_PER_BLOCK);
+            }
+            sfx.write_from(
+                crate::provider::MARY_O_EXPERIENCE,
+                ambition_platformer2d::sfx::SfxMessage::Hit { pos: item.pos },
+            );
+            commands.entity(entity).despawn();
+            taken.push(entity);
         }
-        let ambition_platformer2d::world_items::WorldItemPayload::Equip(row) = &item.payload;
-        let is_form = row
-            .exclusive_slot
-            .as_deref()
-            .is_some_and(|slot| slot == FORM_SLOT);
-        if !is_form || form_rank(&row.id) > rank {
-            continue;
-        }
-        if let Some(purse) = wallet.as_mut() {
-            purse.add(COINS_PER_BLOCK);
-        }
-        sfx.write_from(
-            crate::provider::MARY_O_EXPERIENCE,
-            ambition_platformer2d::sfx::SfxMessage::Hit { pos: item.pos },
-        );
-        commands.entity(entity).despawn();
     }
 }
 
@@ -1010,7 +1012,7 @@ pub fn sync_grown_form(
             &ae::BodyKinematics,
             Option<&WornEquipment>,
         ),
-        With<PrimaryPlayer>,
+        With<PlayerEntity>,
     >,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     // ⭐ THE CATALOG IS WHERE THE FORM'S SHEET IS AUTHORED. The beat's length is
@@ -1027,60 +1029,60 @@ pub fn sync_grown_form(
     authored: Option<bevy::prelude::Res<ambition_platformer2d::character::AuthoredSheets>>,
     mut commands: bevy::prelude::Commands,
 ) {
-    let Ok((body, mut worn_char, kin, worn)) = players.single_mut() else {
-        return;
-    };
-    // The form is the rung her worn rows put her on. The fire (beacon) and grown
-    // (wand) forms are the SAME height: the beacon downgrades INTO the wand on a
-    // hit, so across that transition she stays tall and only her look and spark
-    // loadout change. Only the final grown -> small hit changes her size.
-    let target_id = ladder_character(worn);
-    if worn_char.id() == target_id {
-        return;
-    }
-    // The cosmic form is off the ladder: what she wears while she is in it
-    // changes the rung she comes back to, and not the form she has now
-    // (`cosmic::toggle_cosmic_form`).
-    if crate::cosmic::is_cosmic(worn_char.id()) {
-        return;
-    }
-    // No size is written here, and that is the fix.
-    //
-    // Her forms now author `SpriteAuthored` bodies (see [`MARY_O_WORLD_PER_PIXEL`]), so swapping
-    // the identity below is the WHOLE change: the engine's per-tick sync reads the arriving sheet
-    // and resizes her feet-planted through the one resize op that owns that rule. Growing is a
-    // consequence of the art, not an instruction.
-    let previous_id = worn_char.id().to_string();
-    if let Some(cue_id) = power_transition_sfx(&previous_id, target_id) {
-        // The named transition is content-authority: small→big, big→fire, and
-        // each loss path have different layered sound design rather than sharing
-        // one generic pitch slide.  The hit cue may still play on a downgrade;
-        // this second voice says WHAT power state was lost.
-        sfx.write_for(
-            body,
-            ambition_platformer2d::sfx::SfxMessage::Play {
-                id: ambition_platformer2d::sfx::SfxId::new(cue_id),
-                pos: kin.pos,
-            },
-        );
-    }
-    // The transformation MOMENT, in BOTH directions. The shrink clip is about the form, so it gets
-    // the same beat the growth does. Same shape as the cue above: the transition picks it.
-    commands.entity(body).try_insert(
-        ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested(
-            transform_beat_policy(
-                catalog.as_deref(),
-                authored.as_deref(),
-                target_id,
-                power_tier(&previous_id),
-                power_tier(target_id),
+    // Each player body: a second player has her ladder too.
+    for (body, mut worn_char, kin, worn) in &mut players {
+        // The form is the rung her worn rows put her on. The fire (beacon) and grown
+        // (wand) forms are the SAME height: the beacon downgrades INTO the wand on a
+        // hit, so across that transition she stays tall and only her look and spark
+        // loadout change. Only the final grown -> small hit changes her size.
+        let target_id = ladder_character(worn);
+        if worn_char.id() == target_id {
+            continue;
+        }
+        // The cosmic form is off the ladder: what she wears while she is in it
+        // changes the rung she comes back to, and not the form she has now
+        // (`cosmic::toggle_cosmic_form`).
+        if crate::cosmic::is_cosmic(worn_char.id()) {
+            continue;
+        }
+        // No size is written here, and that is the fix.
+        //
+        // Her forms now author `SpriteAuthored` bodies (see [`MARY_O_WORLD_PER_PIXEL`]), so swapping
+        // the identity below is the WHOLE change: the engine's per-tick sync reads the arriving sheet
+        // and resizes her feet-planted through the one resize op that owns that rule. Growing is a
+        // consequence of the art, not an instruction.
+        let previous_id = worn_char.id().to_string();
+        if let Some(cue_id) = power_transition_sfx(&previous_id, target_id) {
+            // The named transition is content-authority: small→big, big→fire, and
+            // each loss path have different layered sound design rather than sharing
+            // one generic pitch slide.  The hit cue may still play on a downgrade;
+            // this second voice says WHAT power state was lost.
+            sfx.write_for(
+                body,
+                ambition_platformer2d::sfx::SfxMessage::Play {
+                    id: ambition_platformer2d::sfx::SfxId::new(cue_id),
+                    pos: kin.pos,
+                },
+            );
+        }
+        // The transformation MOMENT, in BOTH directions. The shrink clip is about the form, so it gets
+        // the same beat the growth does. Same shape as the cue above: the transition picks it.
+        commands.entity(body).try_insert(
+            ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested(
+                transform_beat_policy(
+                    catalog.as_deref(),
+                    authored.as_deref(),
+                    target_id,
+                    power_tier(&previous_id),
+                    power_tier(target_id),
+                ),
             ),
-        ),
-    );
-    worn_char.0 = target_id.into();
-    commands
-        .entity(body)
-        .try_insert(ambition_platformer2d::characters::actor::RecharacterizeBody);
+        );
+        worn_char.0 = target_id.into();
+        commands
+            .entity(body)
+            .try_insert(ambition_platformer2d::characters::actor::RecharacterizeBody);
+    }
 }
 
 /// The transformation numbers for ONE tier change, authored per transition
@@ -1700,6 +1702,7 @@ mod tests {
             .world_mut()
             .spawn((
                 PrimaryPlayer,
+                PlayerEntity,
                 WornCharacter::new(MARY_O_CHARACTER_ID),
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
@@ -1756,6 +1759,7 @@ mod tests {
             .world_mut()
             .spawn((
                 PrimaryPlayer,
+                PlayerEntity,
                 WornCharacter::new(MARY_O_CHARACTER_ID),
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
@@ -1822,6 +1826,7 @@ mod tests {
             .world_mut()
             .spawn((
                 PrimaryPlayer,
+                PlayerEntity,
                 WornCharacter::new(MARY_O_CHARACTER_ID),
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
@@ -1892,6 +1897,7 @@ mod tests {
             .world_mut()
             .spawn((
                 PrimaryPlayer,
+                PlayerEntity,
                 WornCharacter::new(MARY_O_CHARACTER_ID),
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
@@ -2621,6 +2627,7 @@ mod loose_form_tests {
             .id();
         app.world_mut().spawn((
             PrimaryPlayer,
+            PlayerEntity,
             ae::BodyKinematics {
                 pos: at,
                 size: ae::Vec2::new(30.0, 48.0),
@@ -2647,6 +2654,7 @@ mod loose_form_tests {
             .id();
         app.world_mut().spawn((
             PrimaryPlayer,
+            PlayerEntity,
             ae::BodyKinematics {
                 pos: at,
                 size: ae::Vec2::new(30.0, 48.0),

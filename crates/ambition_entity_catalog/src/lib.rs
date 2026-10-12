@@ -2734,17 +2734,31 @@ impl MoveSpec {
                 _ => None,
             })
             .collect();
-        // Startup = time until the first live hit; a move with no Active window
-        // is pure recovery/utility, so its "startup" is its whole duration.
-        let first_active = active_spans
-            .iter()
-            .map(|(s, _)| *s)
-            .fold(f32::MAX, f32::min);
-        let startup_s = if active_spans.is_empty() {
-            self.duration_s
-        } else {
-            first_active
+        // Startup = time until the first live hit; a move with no live hit is
+        // pure recovery/utility, so its "startup" is its whole duration.
+        //
+        // ⛔ A LIVE HIT, NOT AN ACTIVE WINDOW. A counter's stance is Active
+        // (the parry authority reads that tag) and hits nobody until somebody
+        // strikes into it. `third_law` holds its stance from 0.0 s and sweeps
+        // at 0.18 s; read from the first Active window, it was a frame-0
+        // strike, the fastest move of the kit, and the brain pressed it at
+        // point blank for 0% damage. A window is live when it has a volume, a
+        // capture or a sustained hazard.
+        let live = |w: &MoveWindow| {
+            matches!(w.tag, WindowTag::Active)
+                && (!w.volumes.is_empty()
+                    || w.sustain_effect.as_ref().is_some_and(|effect| {
+                        effect.key == crate::smash_capture::CAPTURE_ATTEMPT
+                            || crate::hazard::hazard_of(effect).is_some()
+                    }))
         };
+        let startup_s = self
+            .windows
+            .iter()
+            .filter(|w| live(w))
+            .map(|w| w.start_s)
+            .reduce(f32::min)
+            .unwrap_or(self.duration_s);
         // Recovery = from the last Active edge to the move's end.
         let last_active_end = active_spans.iter().map(|(_, e)| *e).fold(0.0_f32, f32::max);
         let recovery_s = (self.duration_s - last_active_end).max(0.0);

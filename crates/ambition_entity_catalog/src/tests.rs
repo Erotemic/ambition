@@ -266,6 +266,56 @@ fn frame_data_says_a_move_with_an_unblockable_strike_ignores_the_guard() {
     assert!(!with(VolumeGuard::default()), "an ordinary strike ignores the guard");
 }
 
+/// A counter's stance is an Active window that hits nobody, so the first
+/// live hit of a stance-then-sweep move (`third_law`) is the sweep, not the
+/// stance. The control: a capture is a live hit with no volume, so a grab's
+/// startup is its capture window.
+#[test]
+fn frame_data_startup_is_the_first_live_hit_not_a_counters_stance() {
+    let sweep = MoveWindow {
+        start_s: 0.18,
+        end_s: 0.297,
+        tag: WindowTag::Active,
+        volumes: vec![HitVolume {
+            hit_sfx: None,
+            shape: VolumeShape::Rect { offset: (0.0, 20.0), half_extents: (44.0, 12.0) },
+            damage: 8,
+            knockback: 86.0,
+            knockback_growth: None,
+            launch_dir: None,
+            on_hit: None,
+            vfx: None,
+            reaction: None,
+            guard: Default::default(),
+        }],
+        sustain_effect: None,
+        motion_scale: 1.0,
+    };
+    let held = |key: &str, end_s: f32| MoveWindow {
+        start_s: 0.0,
+        end_s,
+        tag: WindowTag::Active,
+        volumes: vec![],
+        sustain_effect: Some(EffectRef { key: key.to_string(), params: ParamValue::default() }),
+        motion_scale: 1.0,
+    };
+    let mut third_law = bare_move("third_law", Some(true));
+    third_law.duration_s = 0.585;
+    third_law.windows = vec![held(crate::smash_counter::COUNTER, 0.18), sweep.clone()];
+    let fd = third_law.frame_data();
+    assert!(
+        (fd.startup_s - 0.18).abs() < 1e-6,
+        "the sweep is the first live hit, and startup read {}",
+        fd.startup_s
+    );
+    assert_eq!(fd.threat_live_at_s, Some(fd.startup_s));
+    assert_eq!(fd.active_spans, vec![(0.0, 0.18), (0.18, 0.297)], "the stance stays an Active span");
+
+    let mut grab = bare_move("grab", Some(true));
+    grab.windows = vec![MoveWindow { start_s: 0.07, ..held(crate::smash_capture::CAPTURE_ATTEMPT, 0.13) }];
+    assert!((grab.frame_data().startup_s - 0.07).abs() < 1e-6, "a capture is a live hit");
+}
+
 #[test]
 fn frame_data_of_a_hitless_move_is_all_startup_no_reach() {
     // A pure-utility move (no Active window): "startup" spans the whole move,

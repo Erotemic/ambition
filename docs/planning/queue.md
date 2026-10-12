@@ -1036,7 +1036,16 @@ before and after a change, on one binary, and report both columns.
    Carl Stargan 6 → 17, the pirate admiral's `air_up`×101 lock is gone; the
    robot (17 → 12), the director (10 → 7) and the officer (15 → 11) use fewer.
    Unchanged: the medic (its one move lands), the goblin, the patent clerk and
-   GNU-ton (`third_law`×160 at point blank, 0%), which are road 2's case.
+   GNU-ton (`third_law`×160 at point blank, 0%).
+   **Done 2026-10-12: a move's startup is its first live hit.** GNU-ton's
+   lock was not road 2: `third_law`'s counter stance is an Active window from
+   0.0 s, and `frame_data` read its sweep (0.18 s) as a frame-0 strike. A
+   window is live when it has a volume, a capture or a sustained hazard
+   (`frame_data_startup_is_the_first_live_hit_not_a_counters_stance`;
+   poison: every Active window live). Grid, one binary each side, 23
+   mirrors: dealt 5577 → 6296, moves 260 → 290; only the four kits with a
+   counter before a strike moved (GNU-ton 0% → 74%/74%, 2 → 12 moves; the
+   patent clerk 11/11% → 198/173%, 2 → 19).
 2. **A counter and a buff cannot be chosen between.** Pricing them needs a defensive feature ("is the opponent committed to a swing"), not a wider admission rule.
 3. **`sanic` @5 leaves the stage early** (about 640–780 ticks, both seats airborne). That is a stage defect, not the one-move lock. The guard for it is a bout that ends early, not move variety.
 4. **A ranged move scores `launch: 0`.** A projectile hit writes a dimensionless `HitKnockbackMagnitude::FeelScale(0.85)`, not `LaunchSpeed`. Settle whether the feel reference belongs on `LaunchConditions`, whether `0.85` leaves the projectile stepper, and what `max_knockback` means for a launcher. A launcher also needs a hazard-coverage feature (its `reach_fit` is zero at every range).

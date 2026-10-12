@@ -153,7 +153,7 @@ Do not reimplement those parts of the historical audit.
   in the separately proposed body-contact phase, not another brain path.
   See [I4](engine/fast-iteration-implementation.md#i4---small-procedural-sdk-and-one-native-semantic-reference)
   and [movement](engine/unified-movement-kernel.md#pose-ownership-under-script-encounter-and-plant-control-new-customer).
-- **IN3 / P1, control/presentation isolation:** pipe half ✅ DONE 2026-10-12: `ControlHold::Transit` + `PoseHold::Transit`, see [control policy](engine/control-authority-and-ai-policy.md#scripted-movement-cannot-borrow-combat-recoil-as-a-control-lease). Was: replace pipe's recoil
+- **IN3 / P1, control/presentation isolation:** void-field layers ✅ DONE 2026-10-12 (see [R7](engine/render-animation-and-vfx.md#r7---full-screen-field-visibility-must-match-the-cameras-render-layers)); pipe half ✅ DONE 2026-10-12: `ControlHold::Transit` + `PoseHold::Transit`, see [control policy](engine/control-authority-and-ai-policy.md#scripted-movement-cannot-borrow-combat-recoil-as-a-control-lease). Was: replace pipe's recoil
   borrowing with an independent source-owned control hold; guard pose
   ownership. Add effective render-layer and live-instance filtering
   to the camera's void sources **and** wards. See

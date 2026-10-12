@@ -237,6 +237,18 @@ show a many-body scaling regression, or leave a stale marker after rebind.
 
 ### R7 - full-screen field visibility must match the camera's render layers
 
+**What landed (2026-10-12):** `sync_void_fields` gives a camera only the
+auras and wards it draws: `drawn_through` is the renderer's own rule (no
+`RenderLayers` is layer 0; `RenderLayers` does not go down to children, so
+a thing's layers are its own). Witnesses: `ambition_render void_field`
+`a_camera_has_only_the_field_of_the_things_it_draws` (two cameras on two
+layers, auras and a ward at one pixel, a layer-0 control) and
+`a_camera_that_draws_no_void_thing_has_no_pass`; poison (no layer test)
+fails both. Not done: a room-scope filter (live rooms have their own layer
+band, so no reuse is known), a quality-tier downgrade case, and nested
+visuals (by the rule, a child's own layers decide). The text below is the
+case as found.
+
 **Direct code finding:** `crates/ambition_render/src/void_field.rs:158-191`
 loops over all `VoidAura` and `VoidWard` entities for each `MainCamera`.
 It checks `InheritedVisibility` and viewport projection, but **never**

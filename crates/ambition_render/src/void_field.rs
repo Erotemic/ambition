@@ -25,6 +25,7 @@ use bevy::{
         Core2dSystems,
     },
     ecs::{schedule::ScheduleConfigs, system::BoxedSystem},
+    camera::visibility::RenderLayers,
     prelude::*,
     render::{extract_component::ExtractComponent, render_resource::ShaderType},
     shader::ShaderRef,
@@ -180,19 +181,39 @@ fn view_in_target(camera: &Camera) -> Vec4 {
 /// A view that is its whole target.
 const WHOLE_TARGET: Vec4 = Vec4::new(0.0, 0.0, 1.0, 1.0);
 
+/// Does a camera on `camera` draw a thing on `thing`? The rule of the
+/// renderer: no `RenderLayers` is layer 0. `RenderLayers` does not go down to
+/// children, so the layers of a thing are its own.
+///
+/// ⛔ A field the camera does not draw is not in its picture. Two live rooms
+/// can be at the same world place on different layers: with no layer test,
+/// the void of one room took the colour out of the picture of the other, and
+/// a ward of one room stopped the void of the other.
+fn drawn_through(camera: Option<&RenderLayers>, thing: Option<&RenderLayers>) -> bool {
+    match (camera, thing) {
+        (None, None) => true,
+        (Some(camera), None) => camera.intersects(&RenderLayers::default()),
+        (None, Some(thing)) => thing.intersects(&RenderLayers::default()),
+        (Some(camera), Some(thing)) => camera.intersects(thing),
+    }
+}
+
 /// Give each gameplay camera the field of the auras in its view, and take the
 /// pass away from a camera that sees none.
 fn sync_void_fields(
     mut commands: Commands,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
-    auras: Query<(&GlobalTransform, &VoidAura, Option<&InheritedVisibility>)>,
-    wards: Query<(&GlobalTransform, &VoidWard, Option<&InheritedVisibility>)>,
-    mut cameras: Query<(Entity, &Camera, &GlobalTransform, Option<&mut VoidFieldSettings>), With<MainCamera>>,
+    auras: Query<(&GlobalTransform, &VoidAura, Option<&InheritedVisibility>, Option<&RenderLayers>)>,
+    wards: Query<(&GlobalTransform, &VoidWard, Option<&InheritedVisibility>, Option<&RenderLayers>)>,
+    mut cameras: Query<
+        (Entity, &Camera, &GlobalTransform, Option<&RenderLayers>, Option<&mut VoidFieldSettings>),
+        With<MainCamera>,
+    >,
 ) {
     // A visual that is hidden has no field. A visual that is only out of the
     // view keeps its field: the field is wider than the visual.
     let in_budget = quality.is_none_or(|quality| quality.budget.shaders.draws_screen_shaders());
-    for (entity, camera, camera_at, current) in &mut cameras {
+    for (entity, camera, camera_at, camera_layers, current) in &mut cameras {
         let next = camera
             .logical_viewport_size()
             .filter(|_| in_budget)
@@ -206,13 +227,17 @@ fn sync_void_fields(
                 };
                 let seen = auras
                     .iter()
-                    .filter(|(_, _, visible)| visible.is_none_or(|visible| visible.get()))
-                    .filter_map(|(at, aura, _)| in_view(at, aura.radius, aura.strength))
+                    .filter(|(_, _, visible, layers)| {
+                        visible.is_none_or(|visible| visible.get()) && drawn_through(camera_layers, *layers)
+                    })
+                    .filter_map(|(at, aura, ..)| in_view(at, aura.radius, aura.strength))
                     .collect();
                 let wards = wards
                     .iter()
-                    .filter(|(_, _, visible)| visible.is_none_or(|visible| visible.get()))
-                    .filter_map(|(at, ward, _)| in_view(at, ward.radius, ward.strength))
+                    .filter(|(_, _, visible, layers)| {
+                        visible.is_none_or(|visible| visible.get()) && drawn_through(camera_layers, *layers)
+                    })
+                    .filter_map(|(at, ward, ..)| in_view(at, ward.radius, ward.strength))
                     .collect();
                 pack_sources(seen, wards, view_px.x / view_px.y, view_in_target(camera))
             });
@@ -236,6 +261,76 @@ fn sync_void_fields(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::camera::{ComputedCameraValues, RenderTargetInfo};
+    use bevy::ecs::system::RunSystemOnce;
+
+    /// A main camera at the world origin, 640 by 360, on `layers`, with no
+    /// window or render app. `ComputedCameraValues` is public for this.
+    fn camera(world: &mut World, layers: Option<RenderLayers>) -> Entity {
+        let mut camera = Camera::default();
+        camera.computed = ComputedCameraValues {
+            clip_from_view: Mat4::orthographic_rh(-320.0, 320.0, -180.0, 180.0, -1000.0, 1000.0),
+            target_info: Some(RenderTargetInfo {
+                physical_size: UVec2::new(640, 360),
+                scale_factor: 1.0,
+            }),
+            ..default()
+        };
+        let mut entity = world.spawn((camera, GlobalTransform::IDENTITY, MainCamera));
+        if let Some(layers) = layers {
+            entity.insert(layers);
+        }
+        entity.id()
+    }
+
+    fn at_the_middle(world: &mut World, thing: impl Bundle, layers: Option<RenderLayers>) {
+        let mut entity = world.spawn((GlobalTransform::IDENTITY, thing));
+        if let Some(layers) = layers {
+            entity.insert(layers);
+        }
+    }
+
+    const AURA: VoidAura = VoidAura { radius: 60.0, strength: 1.0 };
+    const WARD: VoidWard = VoidWard { radius: 60.0, strength: 1.0 };
+
+    /// (auras, wards) a camera's pass has, or `None` with no pass.
+    fn field(world: &World, camera: Entity) -> Option<(usize, usize)> {
+        world
+            .get::<VoidFieldSettings>(camera)
+            .map(|field| (field.control.x as usize, field.control.w as usize))
+    }
+
+    /// ⭐ R7: two cameras on two layers, and an aura and a ward of each room
+    /// at the same pixel. Each camera has the field of its own room only.
+    #[test]
+    fn a_camera_has_only_the_field_of_the_things_it_draws() {
+        let mut world = World::new();
+        let (a, b) = (RenderLayers::layer(5), RenderLayers::layer(6));
+        let camera_a = camera(&mut world, Some(a.clone()));
+        let camera_b = camera(&mut world, Some(b.clone()));
+        // The control: a camera and a thing with no layers, both on layer 0.
+        let camera_world = camera(&mut world, None);
+        at_the_middle(&mut world, AURA, Some(a.clone()));
+        at_the_middle(&mut world, AURA, Some(a));
+        at_the_middle(&mut world, AURA, Some(b.clone()));
+        at_the_middle(&mut world, WARD, Some(b));
+        at_the_middle(&mut world, AURA, None);
+        world.run_system_once(sync_void_fields).unwrap();
+        assert_eq!(field(&world, camera_a), Some((2, 0)), "room A: its two auras, no ward");
+        assert_eq!(field(&world, camera_b), Some((1, 1)), "room B: its aura and its ward");
+        assert_eq!(field(&world, camera_world), Some((1, 0)), "layer 0: the aura with no layers");
+    }
+
+    /// A camera that draws no void thing has no pass, though another room's
+    /// void is at the same place.
+    #[test]
+    fn a_camera_that_draws_no_void_thing_has_no_pass() {
+        let mut world = World::new();
+        let camera_a = camera(&mut world, Some(RenderLayers::layer(5)));
+        at_the_middle(&mut world, AURA, Some(RenderLayers::layer(6)));
+        world.run_system_once(sync_void_fields).unwrap();
+        assert_eq!(field(&world, camera_a), None);
+    }
 
     /// An aura with no part in the view is not a source: a camera that sees
     /// none has no pass.

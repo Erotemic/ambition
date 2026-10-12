@@ -10,8 +10,9 @@ use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
-/// Liveness cap only; transition timing is not part of the assertion.
-const COMMIT_CAP: usize = 600;
+/// Liveness cap only; transition timing is not part of the assertion. The
+/// castle ends with a line of four seconds before it goes.
+const COMMIT_CAP: usize = 1200;
 
 /// Authoritative active room id.
 fn room_id(app: &mut App) -> Option<String> {

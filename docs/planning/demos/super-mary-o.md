@@ -46,7 +46,13 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
   one ferry): pillars, three ferries, a climb of shelves with a low road
   under it, a bridge of bricks, and steps down to the pole. World 1-4 is the
   castle (178 tiles): bars of fire over pits, a low hall, a ride under a bar,
-  two plants, and a bridge with the boss on it. The pole is past the bridge.
+  two plants, and a bridge with the boss on it. The castle has no pole (Jon,
+  2026-10-11): a switch is past the bridge (`castle_end.rs`, the block
+  `goal_switch`). The flag sequence takes the switch as it takes a pole. The
+  bridge falls, the Void Lizard dies with it, she walks to the robot
+  (`mary_o_robot`, the sheet of `player_robot_v3`), his line is on the screen
+  for four seconds (a cutscene of the engine, a timed banner, no button), and
+  the level goes.
   Each has its script beside 1-2's (`author_mary_o_1_3_ldtk.py`,
   `author_mary_o_1_4_ldtk.py`); the tile language is `tools/mary_o_level.py`.
 - Enemy kinds added 2026-10-11. Each cycle reads the simulation tick, so
@@ -68,7 +74,8 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
     enemy body, not a boss of the engine's boss encounter: a large walker
     with the health of five sparks that throws an orb along its bridge and
     hops. Its bridge is `MaryOBlock`s of kind `Plank`, and all the planks of
-    a room fall when its pole is taken (`bricks.rs`), so the boss falls too.
+    a room fall when its goal is taken (`bricks.rs`), so the boss falls too,
+    and `castle_end::the_fall_kills_the_boss` makes its death sure.
 - Her fireball is the spark blossom (`super_mary_o_spark`, a sheet). A fire
   has a glow (`fire_shader.rs`): a shader that moves an authored flame
   picture through a soft light behind the spark and behind each orb of a bar

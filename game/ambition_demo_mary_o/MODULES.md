@@ -8,6 +8,7 @@
 |---|---|
 | [`ai_slop`](src/ai_slop.rs) | Mary-O's AI Slop — the plain stompable walker, authored as pure content. |
 | [`bricks`](src/bricks.rs) | Mary-O's breakable bricks — the SECOND consumer of the reactive-block primitive. |
+| [`castle_end`](src/castle_end.rs) | The end of a castle: a switch, the fall of the bridge, and who waits past it. |
 | [`cosmic`](src/cosmic.rs) | Eternal Cosmic Mary-O: her ultimate form. |
 | [`cosmic_aura`](src/cosmic_aura.rs) | The light about Eternal Cosmic Mary-O. |
 | [`death`](src/death.rs) | The death beat. |
@@ -34,7 +35,7 @@
 | [`void_look`](src/void_look.rs) | The field of the void about each void thing of Mary-O: the Void Star, the Void Lizard, and the orb the Void Lizard throws. |
 | [`void_star`](src/void_star.rs) | The Void Star: the enemy that no stomp can hurt. |
 
-_27 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_28 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

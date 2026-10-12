@@ -49,3 +49,4 @@ mod placed_actors_start_on_the_ground;
 mod her_spark_leaves_her_hand;
 mod a_pipe_ride_is_not_a_landing;
 mod eternal_cosmic;
+mod the_switch_ends_the_castle;

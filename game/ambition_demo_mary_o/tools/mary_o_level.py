@@ -345,6 +345,18 @@ class Level:
         for row in range(self.floor - tall, self.floor):
             self.marks.append((col, row, "|"))
 
+    def switch(self, col: int) -> None:
+        """The goal of a castle: a switch of one tile on the floor (`castle_end.rs`).
+
+        It is a named block, as the parts of a pole are."""
+        self.named.append({"type": "OneWayPlatform", "px": [col * T, (self.floor - 1) * T], "size": [T, T], "fields": {"name": "goal_switch"}})
+        self.marks.append((col, self.floor - 1, "!"))
+
+    def npc(self, character: str, col: float, size: tuple[int, int] = (28, 44)) -> None:
+        """A character of the catalog that stands on the floor and is not an enemy."""
+        self._entity("NpcSpawn", (col * T, self.floor * T - size[1]), size, character_id=character)
+        self.marks.append((int(col), self.floor - 1, "R"))
+
     # ── output ──────────────────────────────────────────────────────────
     def picture(self) -> list[str]:
         rows = [row[:] for row in self.grid]

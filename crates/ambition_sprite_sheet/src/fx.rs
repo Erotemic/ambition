@@ -36,6 +36,21 @@ pub struct FxSheet {
     /// the fighter exists, so they use the character's demand and reveal
     /// barrier.
     pub residency: FxResidency,
+    /// Who fades an effect of this sheet out. Declared, because the art
+    /// decides it and the game cannot read that from a frame.
+    pub fade: FxFade,
+}
+
+/// Who fades an effect out. See [`FxSheet::fade`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FxFade {
+    /// The game fades it, from its first instant to its last: it is at half
+    /// strength at the middle of its clip.
+    OverItsLife,
+    /// Its frames do: the art draws its own start and its own end (it ends
+    /// on a clear frame), and the game draws each frame at full strength. A
+    /// solid thing that comes and goes (a fist out of a portal) is this.
+    InItsFrames,
 }
 
 /// When an FX sheet is decoded. See [`FxSheet::residency`].
@@ -59,66 +74,85 @@ pub const FX_SHEETS: &[FxSheet] = &[
         target: "generic_action_fx",
         cue_family: "generic_action",
         residency: FxResidency::Core,
+        fade: FxFade::OverItsLife,
     },
     FxSheet {
         target: "generic_world_fx",
         cue_family: "generic_world",
         residency: FxResidency::Core,
+        fade: FxFade::OverItsLife,
     },
     FxSheet {
         target: "generic_exotic_fx",
         cue_family: "generic_exotic",
         residency: FxResidency::Core,
+        fade: FxFade::OverItsLife,
     },
     FxSheet {
         target: "generic_explosions",
         cue_family: "explosion",
         residency: FxResidency::Core,
+        fade: FxFade::OverItsLife,
     },
     FxSheet {
         target: "george_booul_vfx",
         cue_family: "george_booul",
         residency: FxResidency::OwnedByCharacter,
+        fade: FxFade::OverItsLife,
     },
     FxSheet {
         target: "oiler_vfx",
         cue_family: "oiler",
         residency: FxResidency::OwnedByCharacter,
+        fade: FxFade::OverItsLife,
     },
     FxSheet {
         target: "pirate_admiral_vfx",
         cue_family: "pirate_admiral",
         residency: FxResidency::OwnedByCharacter,
+        fade: FxFade::OverItsLife,
     },
     FxSheet {
         target: "ninja_shadow_oni_leader_vfx",
         cue_family: "ninja_shadow_oni_leader",
         residency: FxResidency::OwnedByCharacter,
+        fade: FxFade::OverItsLife,
     },
     FxSheet {
         target: "pca_vfx",
         cue_family: "pca",
         residency: FxResidency::OwnedByCharacter,
+        fade: FxFade::OverItsLife,
     },
     FxSheet {
         target: "patent_clerk_vfx",
         cue_family: "patent_clerk",
         residency: FxResidency::OwnedByCharacter,
+        fade: FxFade::OverItsLife,
     },
     FxSheet {
         target: "carl_stargan_vfx",
         cue_family: "carl_stargan",
         residency: FxResidency::OwnedByCharacter,
+        fade: FxFade::OverItsLife,
     },
     FxSheet {
         target: "noether_vfx",
         cue_family: "noether",
         residency: FxResidency::OwnedByCharacter,
+        fade: FxFade::OverItsLife,
+    },
+    FxSheet {
+        target: "gnu_ton_vfx",
+        cue_family: "gnu_ton",
+        residency: FxResidency::OwnedByCharacter,
+        fade: FxFade::InItsFrames,
     },
     FxSheet {
         target: "projectile_polygon_vfx",
         cue_family: "projectile_polygon",
         residency: FxResidency::OwnedByCharacter,
+        fade: FxFade::OverItsLife,
     },
 ];
 
@@ -173,6 +207,8 @@ pub struct AuthoredEffect {
     pub frame_count: usize,
     /// Seconds per frame, as authored.
     pub duration_secs: f32,
+    /// Who fades it out: its sheet's rule.
+    pub fade: FxFade,
 }
 
 impl AuthoredEffect {
@@ -206,6 +242,7 @@ pub fn authored_effects() -> &'static BTreeMap<&'static str, AuthoredEffect> {
                     cue: format!("vfx.{}.{}", sheet.cue_family, name),
                     frame_count: row.frame_count as usize,
                     duration_secs: row.duration_secs,
+                    fade: sheet.fade,
                 });
             }
         }
@@ -290,8 +327,9 @@ mod tests {
             // 189, plus the Projectile Polygon's six charge rows (his neutral
             // special charges at the muzzle, which follows his aim and lasts
             // while the button is held, so it cannot be a character row), plus
-            // the trapdoor rows.
-            196,
+            // the trapdoor rows, plus GNU-ton's three rows of the giant's fist
+            // out of a portal (his smash attacks on a platform-fighter stage).
+            199,
             "the shipped FX vocabulary changed size; if that is intended, say so here"
         );
 

@@ -263,6 +263,31 @@ pre-defeat snapshot (gate closed). If the intended design is *one exit per
 encounter*, substitute two individually named exits and assert isolation.
 Poison: restore `any(!health.alive())`, which must fail the two-boss test.
 
+### 14. An effect's frame is stretched, and each effect fades from its start
+
+Found 2026-10-11 with the fist of the fighter's smash attacks
+(`gnu_ton_vfx`).
+
+- `draw_effect_clip` (`crates/ambition_render/src/fx.rs`) gives the sprite
+  one `custom_size`, a square, for its life. Each effect sheet is published
+  with trimmed frames, and a trimmed frame is not the square's shape: it is
+  stretched to it. A character's sprite does not have this fault
+  (`CharacterAnimator::current_render` gives the size and the anchor of
+  each trimmed frame); the effect road does not call it.
+- `update_effects` sets `alpha = 1 - t` for each effect: an effect is at
+  half strength at the middle of its clip, whatever its frames say. The
+  effect sheets fade in their own frames already.
+- What was done: the fist's sheet is published with whole frames
+  (`whole_frames` in `_character_vfx_common.publish_catalog`), so it is not
+  stretched. And a sheet now declares who fades its effects
+  (`FxSheet::fade`): the fist's says `InItsFrames`, each other sheet says
+  `OverItsLife`, which is the rule of today.
+- Why it was not fixed: the size of each effect in the game today is the
+  stretched size, and its look is the faded look. The right rule (the
+  trimmed frame in its own shape; the frames own the fade) makes each
+  effect smaller and stronger. That needs a look at each effect, with the
+  hit sparks first: they are combat feel.
+
 ## An order
 
 1. Determine the arena-terminal policy and record its source of truth (13).

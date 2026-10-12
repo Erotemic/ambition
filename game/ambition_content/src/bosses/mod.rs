@@ -468,7 +468,7 @@ impl Plugin for AmbitionBossContentPlugin {
         #[cfg(feature = "portal_render")]
         app.add_systems(
             sim,
-            gnu_ton::portals::light_gnu_ton_lines
+            (gnu_ton::portals::light_gnu_ton_lines, gnu_ton::fist_lines::light_fist_lines)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
         // The Flying Spaghetti Monster's conductor is the `fsm` procedural

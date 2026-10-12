@@ -115,6 +115,8 @@ pub struct EffectVisual {
     pos: ae::Vec2,
     age: f32,
     duration: f32,
+    /// Who fades it out (its sheet's rule).
+    fade: ambition_sprite_sheet::fx::FxFade,
 }
 
 #[derive(Component)]
@@ -615,6 +617,7 @@ fn draw_effect_clip(
                 age: 0.0,
                 // The authored clip length.
                 duration: effect.clip_secs().max(0.05),
+                fade: effect.fade,
             },
         ),
     );
@@ -720,7 +723,10 @@ pub fn update_effects(
             atlas.index = index;
         }
         let t = (fx.age / fx.duration).clamp(0.0, 1.0);
-        let alpha = 1.0 - t;
+        let alpha = match fx.fade {
+            ambition_sprite_sheet::fx::FxFade::OverItsLife => 1.0 - t,
+            ambition_sprite_sheet::fx::FxFade::InItsFrames => 1.0,
+        };
         if let Some(world) = world.of(entity) {
             transform.translation = world_to_bevy(&world.0, fx.pos, WORLD_Z_FX + 6.0);
         }

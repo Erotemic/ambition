@@ -27,7 +27,7 @@ use ambition_characters::brain::{BossAttackIntent, BossAttackProfile};
 use ambition_combat::moveset::{cancel_move_playback, ActorMoveset, MoveEnd, MovePlayback};
 use ambition_content_modules::gnu_ton::choreography::arms;
 use ambition_content_modules::gnu_ton::conductor::{Conductor, GNU_TON_ID};
-use ambition_entity_catalog::{MoveSpec, VolumeShape, WindowTag};
+use ambition_entity_catalog::{MoveEventKind, MoveSpec, VolumeShape, WindowTag};
 use ambition_platformer2d::sprite_sheet::character::PinnedRow;
 
 /// The fighter whose table he fights with.
@@ -66,10 +66,29 @@ pub struct GnuTonDuel {
     cooling: bool,
 }
 
+/// The effects of the fighter that call the fist of his giant out of a
+/// portal (`gnu_ton_vfx`). They are of the platform-fighter stage. In his
+/// boss fight the giant is under him and has its own punch, so a move that
+/// calls the fist is a blow of his book here.
+pub(super) const CALLED_FIST: &str = "gnu_fist_";
+/// The reach of his book, about his body, in the fighter's units: where the
+/// blow is, and its half size.
+const BOOK: ((f32, f32), (f32, f32)) = ((42.0, -4.0), (30.0, 24.0));
+
 /// A move of the fighter's table, made for the main game and for his body.
 fn duel_spec(spec: &MoveSpec) -> MoveSpec {
     let mut spec = spec.clone();
     spec.id = format!("{PREFIX}{}", spec.id);
+    let events = spec.events.len();
+    spec.events
+        .retain(|event| !matches!(&event.kind, MoveEventKind::Vfx { effect, .. } if effect.starts_with(CALLED_FIST)));
+    if spec.events.len() != events {
+        for volume in spec.windows.iter_mut().flat_map(|window| &mut window.volumes) {
+            if let VolumeShape::Rect { offset, half_extents } = &mut volume.shape {
+                (*offset, *half_extents) = BOOK;
+            }
+        }
+    }
     for window in &mut spec.windows {
         for volume in &mut window.volumes {
             let (damage, launch) = if volume.damage >= HEAVY_DAMAGE { HEAVY } else { LIGHT };

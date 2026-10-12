@@ -454,7 +454,10 @@ pub fn rebuild_body_pose_views(
             .filter(|playback| playback.spec.upper_body_at(playback.t))
             .map(|_| pick(None))
             .filter(|legs| {
-                matches!(legs, CharacterAnim::Walk | CharacterAnim::Run | CharacterAnim::Jump | CharacterAnim::Fall)
+                matches!(
+                    legs,
+                    CharacterAnim::Walk | CharacterAnim::Run | CharacterAnim::Jump | CharacterAnim::Fall | CharacterAnim::Fly
+                )
             });
         // A content pose PIN wins over the picked pose — the SAME rule `rebuild_actor_anim_index`
         // applies to every brain-driven actor, and it belongs here for the identical reason: a pose

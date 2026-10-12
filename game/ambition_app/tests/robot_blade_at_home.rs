@@ -209,3 +209,40 @@ fn a_landing_in_a_move_charges_a_small_share_of_its_lag() {
         assert!(lag <= authored * 0.34, "a landing charged {lag} s of a move's {authored} s");
     }
 }
+
+/// Jon, 2026-10-12: "when I'm flying (jets on my feet), they disappear when
+/// I slash." The body that flies keeps the row of its flight under a swing,
+/// and that row's jets are of the lower body: the swing's row has none.
+#[test]
+fn a_swing_in_flight_keeps_the_jets() {
+    use ambition_platformer2d::sim_view::BodyPoseView;
+    use ambition_platformer2d::sprite_sheet::character::rigged::RiggedSpriteAsset;
+    use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
+    fn pose(sim: &mut Platformer2dSimHarness) -> BodyPoseView {
+        let world = sim.world_mut();
+        let mut q = world
+            .query_filtered::<&BodyPoseView, bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::PlayerVisual>>();
+        q.iter(world).next().expect("the player's pose view").clone()
+    }
+    let mut sim = home();
+    sim.step(AgentAction { fly_toggle: true, ..Default::default() });
+    rest(&mut sim, 20);
+    assert_eq!(pose(&mut sim).anim, CharacterAnim::Fly, "the premise: the robot flies");
+    sim.step(AgentAction { attack: true, attack_held: true, ..Default::default() });
+    rest(&mut sim, 3);
+    assert!(swing(&mut sim).is_some_and(|(id, _)| id == "blade_rise"), "the premise: he swings in flight");
+    let clip = pose(&mut sim).clip.expect("a swing asks for its row");
+    assert_eq!(clip.legs, Some(CharacterAnim::Fly), "the swing in flight asks for no flight under it");
+
+    // The picture: the swing's row with the flight row under it draws jets.
+    let flipbook = RiggedSpriteAsset::baked("player_robot_v3").expect("the robot's part flipbook is published");
+    let jets = |draws: &[ambition_platformer2d::sprite_sheet::character::rigged::PartDraw]| {
+        draws.iter().filter(|draw| draw.track.is_some_and(|track| flipbook.tracks[usize::from(track)].contains("jet"))).count()
+    };
+    let (mut drawn, mut scratch) = (Vec::new(), Vec::new());
+    flipbook.tween_into(&clip.clip, 1, 0.0, &mut drawn).expect("the swing's row");
+    assert_eq!(jets(&drawn), 0, "the premise: the swing's row draws no jet");
+    // The robot's row for `Fly` is `hover` (the sheet's name for it).
+    assert!(flipbook.legs_under("hover", 0, 0.0, &mut drawn, &mut scratch), "the flight row did not go under the swing");
+    assert!(jets(&drawn) > 0, "the swing in flight draws no jet");
+}

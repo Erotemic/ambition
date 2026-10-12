@@ -172,12 +172,16 @@ pub fn is_hip_track(name: &str) -> bool {
 ///
 /// By the words of the name, which are a rig part's (`near_leg_u`,
 /// `far_foot`, `pelvis_back`). A flipbook does not state its lower body, and
-/// a rig names its parts for what they are.
+/// a rig names its parts for what they are. What a foot fires is of the foot
+/// (`near_jet`, `far_jet_glow`): a body that flies and swings keeps its jets.
 pub fn is_lower_body_track(name: &str) -> bool {
     is_hip_track(name)
-        || name
-            .split(['_', ':'])
-            .any(|word| matches!(word, "leg" | "legs" | "foot" | "feet" | "thigh" | "shin" | "calf" | "knee" | "boot" | "shoe"))
+        || name.split(['_', ':']).any(|word| {
+            matches!(
+                word,
+                "leg" | "legs" | "foot" | "feet" | "thigh" | "shin" | "calf" | "knee" | "boot" | "shoe" | "jet" | "jets" | "thruster"
+            )
+        })
 }
 
 /// The four corners of a part's quad, from its pivot.

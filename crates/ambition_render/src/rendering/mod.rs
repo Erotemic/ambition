@@ -285,7 +285,6 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             .add_systems(Startup, morph_ball::build_morph_ball_sprite)
             .add_systems(Startup, submerged::build_trapdoor_sprite)
             .add_systems(Startup, flyline::build_flyline_sprite)
-            .init_resource::<limb_trail::LimbTrailStarts>()
             .add_systems(Startup, limb_trail::build_limb_trail_sprite)
             .add_systems(
                 Update,

@@ -176,37 +176,46 @@ pub fn light_gnu_ton_lines(
 /// The trail of each fist is part of his spell: it joins the two lines the
 /// arm is in. It starts at the shoulder's line (after phase 1), or at the
 /// near line of the punch for the fist that is through the pair. A fist on
-/// its arm has its trail from the giant, where its body is: no length.
+/// its arm has its trail from the giant, where its body is: no start of its
+/// own. The start is on the fist (`LimbBondStart`), so each fist has its
+/// own, and a fist of a scholar who is dead has none.
 pub fn join_gnu_ton_lines(
+    mut commands: Commands,
     live: LiveRooms,
     scholars: Scholars,
     riders: Query<&ambition_mount::RidingOn>,
     rigs: Query<&ambition_characters::actor::LimbRig>,
-    ids: Query<&ambition_combat::components::FeatureId>,
-    starts: Option<ResMut<ambition_render::rendering::limb_trail::LimbTrailStarts>>,
+    starts: Query<&ambition_characters::actor::LimbBondStart>,
 ) {
-    use ambition_characters::actor::LimbSlot;
-    let Some(mut starts) = starts else {
-        return;
-    };
-    let mut wanted = bevy::platform::collections::HashMap::new();
-    for (scholar, _, _, conductor) in conductors_of(&scholars, &live) {
+    use ambition_characters::actor::{LimbBondStart, LimbSlot};
+    let living = conductors_of(&scholars, &live);
+    for (scholar, boss, ..) in &scholars {
+        if !super::boss_is_gnu_ton(&boss.as_boss_ref()) {
+            continue;
+        }
         let Some(rig) = riders.get(scholar).ok().and_then(|riding| rigs.get(riding.mount).ok()) else {
             continue;
         };
-        let lines = conductor.look_lines();
+        let conductor = living.iter().find(|(s, ..)| *s == scholar).map(|(.., conductor)| conductor);
         for (index, slot) in [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].into_iter().enumerate() {
-            let Some(id) = rig.get(slot).and_then(|fist| ids.get(fist).ok()) else {
+            let Some(fist) = rig.get(slot) else {
                 continue;
             };
-            // The right fist is the one that goes through the pair of the punch.
-            let through = conductor.punch_pair().filter(|_| index == 1).map(|[near, _]| near);
-            if let Some(from) = lines[index].map(|(at, _)| at).or(through) {
-                wanted.insert(id.as_str().to_string(), Vec2::new(from.x, from.y));
+            let want = conductor.and_then(|conductor| {
+                // The right fist is the one that goes through the pair of the punch.
+                let through = conductor.punch_pair().filter(|_| index == 1).map(|[near, _]| near);
+                conductor.look_lines()[index].map(|(at, _)| at).or(through)
+            });
+            let now = starts.get(fist).ok().map(|start| start.0);
+            match want.map(|at| Vec2::new(at.x, at.y)) {
+                Some(at) if now != Some(at) => {
+                    commands.entity(fist).try_insert(LimbBondStart(at));
+                }
+                None if now.is_some() => {
+                    commands.entity(fist).try_remove::<LimbBondStart>();
+                }
+                _ => {}
             }
         }
-    }
-    if starts.0 != wanted {
-        starts.0 = wanted;
     }
 }

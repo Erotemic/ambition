@@ -386,22 +386,34 @@ fn a_slam_lands_where_you_stood_and_the_stuck_fist_carries_your_blow_to_him() {
     let (stuck, ..) = s.fists.iter().find(|(fist, ..)| on_floor(fist, s.floor)).cloned().expect("a stuck fist");
     assert!((stuck.pos.x - 400.0).abs() < 40.0, "it fell where the player stood: {:?}", stuck.pos);
     // Far from the gnu, it is still drawn bound to it: its view carries the
-    // point on the gnu's body its trail runs from.
+    // point its trail runs from, the line at its shoulder (debt 6) or, with
+    // no line, a point on the gnu's body.
     {
         let world = sim.world_mut();
-        let ids: Vec<FeatureId> =
-            world.query_filtered::<&FeatureId, With<Limb>>().iter(world).cloned().collect();
+        let scholar = world
+            .query::<(Entity, &BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.behavior.id == GNU_TON_ID)
+            .map(|(entity, _)| entity)
+            .expect("GNU-ton is in the arena");
+        let lines = conductor_of(world, scholar).expect("his conductor").look_lines;
+        let fists: Vec<(LimbSlot, FeatureId)> =
+            world.query::<(&Limb, &FeatureId)>().iter(world).map(|(limb, id)| (limb.slot, id.clone())).collect();
         let views = world.resource::<ambition_platformer2d::sim_view::FeatureViewIndex>();
-        assert_eq!(ids.len(), 2);
-        for id in ids {
+        assert_eq!(fists.len(), 2);
+        for (slot, id) in fists {
             let bond = views.get(id.as_str()).and_then(|view| view.limb_host);
             let bond = bond.unwrap_or_else(|| panic!("fist {id:?} is drawn with no bond to the gnu"));
+            let shoulder = lines[usize::from(slot == LimbSlot::HAND_RIGHT)];
             let off = bond - s.giant.pos;
-            assert!(
-                off.x.abs() < s.giant.size.x * 0.5 && off.y.abs() < s.giant.size.y * 0.5,
-                "fist {id:?}'s bond {bond:?} is off the gnu's body at {:?}",
-                s.giant.pos
-            );
+            match shoulder {
+                Some(line) => assert_eq!(bond, line, "fist {id:?}'s trail runs from the line at its shoulder"),
+                None => assert!(
+                    off.x.abs() < s.giant.size.x * 0.5 && off.y.abs() < s.giant.size.y * 0.5,
+                    "fist {id:?}'s bond {bond:?} is off the gnu's body at {:?}",
+                    s.giant.pos
+                ),
+            }
         }
     }
     for _ in 0..6 {
@@ -1294,4 +1306,51 @@ fn the_punchs_pair_is_one_pair_across_rewinds() {
     assert!(closed_after, "the premise: the pair closed again, so a rewind crossed both edges");
     assert_eq!(most, 2, "one pair, never two, across every rewind");
     assert_eq!(first_error, None, "the sync-test session stayed healthy");
+}
+
+/// Debt 6: the trail of the fist that is through the pair starts at the pair's
+/// near line. The start is on the fist (`LimbBondStart`), and the view of the
+/// fist carries it (`FeatureView::limb_host`); no resource of the renderer
+/// holds it. The authority is the near end of the pair the portal domain
+/// holds. The control is the other fist, whose bond is on the giant.
+#[test]
+fn the_fist_through_the_pair_has_its_trail_from_the_near_line() {
+    use ambition_platformer2d::portal::extension::HeldPortalOf;
+    use ambition_platformer2d::portal::PlacedPortal;
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    place_player(&mut sim, ae::Vec2::new(400.0, 1200.0));
+    step_until(&mut sim, 900, "the strike of a punch through the pair", |sim| {
+        scene(sim).performing == Some(("portal_punch", true))
+    });
+    sim.step(AgentAction::default());
+    let world = sim.world_mut();
+    let near = world
+        .query_filtered::<&PlacedPortal, With<HeldPortalOf>>()
+        .iter(world)
+        .find(|portal| portal.normal.y < 0.0)
+        .map(|portal| portal.pos)
+        .expect("the near line of the pair is open");
+    let giant = world
+        .query_filtered::<&ae::BodyKinematics, (With<LimbRig>, Without<Limb>)>()
+        .iter(world)
+        .next()
+        .cloned()
+        .expect("the giant");
+    let fists: Vec<(LimbSlot, FeatureId)> =
+        world.query::<(&Limb, &FeatureId)>().iter(world).map(|(limb, id)| (limb.slot, id.clone())).collect();
+    let views = world.resource::<ambition_platformer2d::sim_view::FeatureViewIndex>();
+    let bond = |slot: LimbSlot| {
+        let (_, id) = fists.iter().find(|(s, _)| *s == slot).expect("the fist");
+        views.get(id.as_str()).and_then(|view| view.limb_host).expect("the fist's view has a bond")
+    };
+    assert_eq!(bond(LimbSlot::HAND_RIGHT), near, "the fist through the pair has its trail from the near line");
+    let left = bond(LimbSlot::HAND_LEFT);
+    assert!(left != near, "the control: the other fist's trail is not from the pair");
+    let off = left - giant.pos;
+    assert!(
+        off.x.abs() < giant.size.x * 0.5 && off.y.abs() < giant.size.y * 0.5,
+        "the control: the other fist's bond {left:?} is on the giant at {:?}",
+        giant.pos
+    );
 }

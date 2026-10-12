@@ -68,10 +68,12 @@ pub struct FeatureView {
     /// ruleset owns, so this read model never learns what a `TetherReel` is. A
     /// third line mechanic publishes the same fact and needs no change here.
     pub line_anchor: Option<ae::Vec2>,
-    /// A LIMB's bond to its host, in world space: the point on the host's body
-    /// it hangs from (a gnu's fist to the gnu). Not a line the limb is pulled
-    /// along — `line_anchor` is that — but a relation presentation may draw
-    /// (the fists' ethereal trail). Projected from `Limb::of`.
+    /// A LIMB's bond to its host, in world space: where the bond starts. That
+    /// is the point on the host's body it hangs from (a gnu's fist to the
+    /// gnu), or the point a game names on the limb (`LimbBondStart`). Not a
+    /// line the limb is pulled along — `line_anchor` is that — but a relation
+    /// presentation may draw (the fists' ethereal trail). Projected from
+    /// `Limb::of`.
     pub limb_host: Option<ae::Vec2>,
     /// The depth plane the body stands in (`ae::DepthPlane`). A body behind the
     /// playable plane draws behind the bodies in it: the giant gnu under the
@@ -314,8 +316,10 @@ pub fn rebuild_feature_view_index(
             (
                 Option<&ambition_combat::moveset::MovePlayback>,
                 Option<&ambition_platformer2d_core::BodyLineAnchor>,
-                // A limb's host, for the bond `limb_host` projects.
+                // A limb's host, for the bond `limb_host` projects, and where a
+                // game says the bond starts instead.
                 Option<&ambition_characters::actor::Limb>,
+                Option<&ambition_characters::actor::LimbBondStart>,
                 Option<&ae::DepthPlane>,
                 // The body, for the live room it is in.
                 Entity,
@@ -518,7 +522,7 @@ pub fn rebuild_feature_view_index(
         sprite_offset,
         respawn_grace,
         body_mode,
-        (playback, line_anchor, limb, depth_plane, entity, out_of_the_world),
+        (playback, line_anchor, limb, bond_start, depth_plane, entity, out_of_the_world),
     ) in &actors
     {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
@@ -590,6 +594,9 @@ pub fn rebuild_feature_view_index(
                 line_anchor: line_anchor.map(|anchor| anchor.0),
                 // Toward the limb, inside the host's body: where its trail meets it.
                 limb_host: limb.and_then(|limb| hosts.get(limb.of).ok()).map(|host| {
+                    if let Some(start) = bond_start {
+                        return start.0;
+                    }
                     let reach = aabb.center - host.pos;
                     host.pos
                         + ae::Vec2::new(

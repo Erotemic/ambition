@@ -118,15 +118,17 @@ not part of this row.
   `ambition.portal.held_pair`, the portal domain keeps it (rollback row
   `portal.held_pairs`), and `open_gnu_ton_portals` is gone
   ([debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter)).
+  Each fist carries its trail start (`LimbBondStart`, in its view); the
+  renderer's `LimbTrailStarts` is gone
+  ([debt 6](game/gnu-ton-fight-debts.md#6-the-trail-of-a-fist-joins-two-lines-by-a-resource)).
 
 **Open:**
 
-1. **IN1, GNU-ton light lines and trail starts (P1).** The pair is a port
-   (done). The look lines still go through the conductor's record to
-   `portals.rs`, because no presentation port exists, and the global
-   `LimbTrailStarts` writer stays. The trail start and the view index are
-   keyed by `FeatureId` alone, so two live instances of one room share them
-   (debt 6). See [debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
+1. **IN1, GNU-ton light lines and the view index (P1).** The pair is a port,
+   and each fist carries its own trail start (done). The look lines still go
+   through the conductor's record to `portals.rs`, because no presentation
+   port exists. The view index is keyed by `FeatureId` alone, so two live
+   instances of one room share a limb's view (debt 6). See [debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
 2. **IN6, frame time (P2).** Measure the portal-piece frame cost in a drawn
    host before any retained-piece strategy.
 3. **IN7, provider theme and live sprite refresh (P2).** The launcher theme

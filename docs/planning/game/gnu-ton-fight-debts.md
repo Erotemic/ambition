@@ -107,6 +107,25 @@ exists. The text below is the case as found.
 
 ### 6. The trail of a fist joins two lines, by a resource
 
+**THE START IS ON THE FIST, 2026-10-12; the view index is OPEN.** Each fist
+carries `LimbBondStart` (`ambition_characters::actor`, a derived row), which
+`join_gnu_ton_lines` writes on the fist entity from the conductor's record.
+The fist's view carries it as `FeatureView::limb_host`, and the trail reads
+only the view. The renderer's `LimbTrailStarts` is deleted, so no simulation
+system writes a presentation resource, and the start is not keyed by
+`FeatureId`.
+
+- Witness: `app_it gnu_ton_fight::the_fist_through_the_pair_has_its_trail_from_the_near_line`.
+  It compares against the near end of the held pair; the control is the
+  other fist, whose bond is on the giant.
+- `a_slam_lands_where_you_stood_and_the_stuck_fist_carries_your_blow_to_him`
+  now asserts that a loosed fist's bond is its shoulder's line.
+- A writer that writes no start fails both tests at their own assertions.
+
+**Still open:** `FeatureViewIndex` is keyed by `FeatureId` alone, so two
+live instances of one room share a limb's view. The text below is the case
+as found.
+
 - Jon (2026-10-11): the trail is part of the scholar's spell, and joins the
   two portals an arm is in. So the wisps (`limb_trail.rs`) start at the
   shoulder's line (or at the near line of the punch), not in the giant.
@@ -199,7 +218,8 @@ of `GnuTonPortal` are deleted; the tag is now `GnuTonLookLine`.
   (`the_punchs_pair_is_the_way_up_to_the_giants_back`).
 
 **Still open:** the look lines (debt 2: no presentation port); the trail
-starts (`LimbTrailStarts` by `FeatureId`, debt 6); two live instances of one
+starts are on each fist now, but the view index is keyed by `FeatureId`
+alone (debt 6); two live instances of one
 room give one placement's end one `SimId` (as they give its body one); two
 sessions in one host were not run.
 

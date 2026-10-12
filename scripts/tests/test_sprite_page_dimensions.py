@@ -47,7 +47,10 @@ RATCHET = {
     # 2026-10-11: 65 -> 67 over 2048 px. Two NEW sheets, not a sheet that grew:
     # the fighter `gnu_ton_scholar_fighter` (94 rows, 4096 x 3423) and the
     # scholar the boss wears, `gnu_ton_scholar_boss` (22 rows, 2173 x 1771).
-    "sprites": (16236, 67, 16, 7),
+    # 2026-10-12: 67 -> 68. One sheet that grew, deliberately: `ramen_nujan`
+    # became a Smash fighter (43 rows -> 68, 466 frames of 208 x 176), and its
+    # page is 2432 x 1967 (it was 1983 x 1599). Its half tier is 1280 x 955.
+    "sprites": (16236, 68, 16, 7),
     # 2026-10-11: 24 -> 25 over 2048 px: the same new fighter's half tier
     # (2176 x 1689).
     "sprites_0_5x": (8118, 25, 7, 0),

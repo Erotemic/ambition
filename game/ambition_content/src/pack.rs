@@ -172,6 +172,7 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
             "../assets/data/movesets/pugnacious_polygon.ron"
         )),
     ),
+    ("ramen_nujan", Some(include_str!("../assets/data/movesets/ramen_nujan.ron"))),
 ];
 #[cfg(not(feature = "static_content"))]
 const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
@@ -195,6 +196,7 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
     ("pointed_polygon", None),
     ("projectile_polygon", None),
     ("pugnacious_polygon", None),
+    ("ramen_nujan", None),
 ];
 
 /// Every platform-fighter facet this provider authors (`smash_fighter`), by
@@ -204,9 +206,10 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
 const FIGHTER_FACETS: &[(&str, Option<&'static str>)] = &[
     ("player_robot_v3", Some(include_str!("../assets/data/fighters/player_robot_v3.ron"))),
     ("npc_gnu_ton", Some(include_str!("../assets/data/fighters/npc_gnu_ton.ron"))),
+    ("npc_ramen_nujan", Some(include_str!("../assets/data/fighters/npc_ramen_nujan.ron"))),
 ];
 #[cfg(not(feature = "static_content"))]
-const FIGHTER_FACETS: &[(&str, Option<&'static str>)] = &[("player_robot_v3", None), ("npc_gnu_ton", None)];
+const FIGHTER_FACETS: &[(&str, Option<&'static str>)] = &[("player_robot_v3", None), ("npc_gnu_ton", None), ("npc_ramen_nujan", None)];
 
 /// The authored fighter difficulty ladder.
 ///

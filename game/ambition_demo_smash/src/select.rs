@@ -53,6 +53,10 @@ pub const SMASH_ROSTER: &[&str] = &[
     // The scholar of the GNU-ton boss fight, as a fighter: a light fencer
     // with a quill and a book (his own table, `movesets/gnu_ton.ron`).
     "npc_gnu_ton",
+    // The mathematician of the hall, as a fighter: light, and his blows are
+    // symbols written at arm's length from him (his own table,
+    // `movesets/ramen_nujan.ron`). His grab is his scarf.
+    "npc_ramen_nujan",
     // The deliberately simple SVG-rigged humanoid reference fighter. Unlike the
     // stand-ins below, this is a real character owned by Ambition content.
     "pointed_polygon",

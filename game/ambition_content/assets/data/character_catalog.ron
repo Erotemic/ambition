@@ -3074,8 +3074,16 @@
             body_kind: Standard,
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
-            tags: ["mathematician", "peaceful"],
+            // He authors his own repertoire (`movesets/ramen_nujan.ron`): the
+            // action set says only that this body can attack. In the hall he
+            // stands still; that is his policy there, not what he is able to do.
+            default_action_set: "striker_swipe",
+            // THE BODY: a little quicker than the hall walk, and the humanoid
+            // four. Ordinary tuning values: change them if play says so.
+            locomotion: Some((run_speed: 230.0, move_style: Walk)),
+            max_health: Some(4),
+            tags: ["mathematician", "humanoid", "fsm_faction", "playable_candidate"],
+            gameplay_description: "A light fighter whose blows are chalk-gold symbols written at arm's length from him: his body is seldom in the blow. His smashes are the factorial and the seal of -1/12; his grab is his scarf, which reaches far and is slow. His specials: a partition (a long poke), 1729 (he goes forward; two blows), a divergent series (a save), and -1/12 (a counter).",
         barks: (
             idle: ["I dreamt the formulae; I merely wrote them down.", "The partitions grow faster than anyone expects."],
             hall: ["I dreamt the answer. Proof can have it after breakfast.", "1729 has two doors and excellent secrets.", "The noodles were infinite. The bowl was not.", "You owe me an egg."],

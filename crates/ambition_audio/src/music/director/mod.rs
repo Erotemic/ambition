@@ -43,7 +43,12 @@ fn authorized_adaptive(
 /// The simple track backend uses `AudioLibrary` / `MusicChannel`; adaptive
 /// cues use the layer-bank scheduler in this module.
 pub fn drive_music_director(
-    time: Res<Time>,
+    // The clock of the sound device. The director counts how long a section
+    // has played to start the next one at its end, and the sound does not
+    // stop or slow when the game's clock does: virtual time is clamped at a
+    // long frame (a load) and can be paused, and each second it loses is a
+    // second of nothing between an intro and its loop.
+    time: Res<Time<Real>>,
     catalogs: Res<AdaptiveMusicCatalogRegistry>,
     assets: Option<ResMut<LoadedMusicCueAssets>>,
     director: Option<ResMut<MusicDirectorState>>,
@@ -250,6 +255,22 @@ mod adaptive_authority_tests {
 mod restart_tests {
     use super::*;
     use crate::music::MusicDirectorMode;
+
+    /// The loop after an intro starts on the frame nearest the intro's end: a
+    /// frame that is half a frame short of it starts the loop, and the frame
+    /// before does not. (At 60 Hz, a 17.4545 s intro of 32 beats at 110 ends
+    /// between two frames.)
+    #[test]
+    fn the_section_after_an_intro_starts_on_the_frame_nearest_its_end() {
+        use super::adaptive::intro_has_ended;
+        let (duration, dt): (f32, f32) = (32.0 * 60.0 / 110.0, 1.0 / 60.0);
+        let frames_to_end = (duration / dt).round();
+        assert!(!intro_has_ended((frames_to_end - 1.0) * dt, duration, dt));
+        assert!(intro_has_ended(frames_to_end * dt, duration, dt));
+        // No frame is skipped: the first frame that says yes is within half a
+        // frame of the end, before it or after it.
+        assert!((frames_to_end * dt - duration).abs() <= dt * 0.5 + 1e-6);
+    }
 
     #[test]
     fn should_restart_adaptive_when_cue_id_changes() {

@@ -36,6 +36,14 @@ walk from room to room changes the state and does not start the cue again. State
 on one section change only the layer gains. A room binding can also name an entry
 state (a section that plays one time when the cue starts) and a fight state.
 
+A change of gains is continuous; a change of section is not (the new section
+starts from its top). So a level whose music must never be cut puts every state
+its rooms and its fight can ask for on ONE looped section, and gives each of its
+rooms a binding: a room with none plays its `music_track` from the top. The
+primeval trail is the example, and a test of `ambition_content` holds it to
+that. An entry section always plays to its end; the section after it starts on
+the frame nearest that end, at the state the game asks for then.
+
 ## VFX ownership
 
 `ambition_vfx` provides presentation-neutral effect messages. Render/content

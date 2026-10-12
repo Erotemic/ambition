@@ -55,6 +55,16 @@ pub(super) fn should_start_new_bank_at_target_gain(
     previous_mode == MusicDirectorMode::AdaptiveIntro && target_section_looped
 }
 
+/// Has a section that plays one time, `duration` long, ended on this frame?
+///
+/// The director counts in frames, so it can not start the next section on
+/// the sample. It starts it on the frame NEAREST the end: the first frame
+/// that is within half a frame of it. The first frame after the end is half
+/// a frame late on average, and that is silence.
+pub(super) fn intro_has_ended(seconds_in_mode: f32, duration: f32, dt: f32) -> bool {
+    seconds_in_mode >= duration - dt.max(0.0) * 0.5
+}
+
 pub(super) fn drive_adaptive_cue_state(
     director: &mut MusicDirectorState,
     provider_id: &str,
@@ -148,11 +158,27 @@ pub(super) fn drive_adaptive_cue_state(
             .as_deref()
             .and_then(|id| cue.section(id));
         let intro_done = current_section
-            .map(|section| director.seconds_in_mode >= section.duration_seconds(cue))
+            .map(|section| intro_has_ended(director.seconds_in_mode, section.duration_seconds(cue), dt))
             .unwrap_or(true);
         if !intro_done {
             return;
         }
+        // The intro played to its end: the section the game asks for now
+        // starts on this frame. It is not queued: a queue is a wait of
+        // `MIN_TRANSITION_DELAY_SECONDS` with nothing playing, between the
+        // intro's last sample and the loop's first.
+        director.pending_state = None;
+        start_adaptive_state(
+            director,
+            provider_id,
+            cue,
+            target_state,
+            assets,
+            channels,
+            settings,
+            INTRO_TO_LOOP_CROSSFADE_SECONDS,
+        );
+        return;
     }
 
     if let Some(mut pending) = director.pending_state.clone() {

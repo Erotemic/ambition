@@ -61,7 +61,7 @@ Re-check against the live tree before acting: the I4 S1-S3 control-gate migratio
 landed after the reviewed `ed0d1ccd` snapshot. Do not reopen its solved work or
 the five closed REVIEW-1011 rows.
 
-Short slice at any point: [PUBLICATION-FAULT](#publication-fault--a-refused-later-room-must-not-leave-a-mixed-world).
+Done 2026-10-09: [PUBLICATION-FAULT](#publication-fault--a-refused-later-room-must-not-leave-a-mixed-world---done-2026-10-09).
 The two owner pages the 2026-10-08 review found stale (the fingerprint and the
 second-seat join) were corrected against the tree on 2026-10-09.
 
@@ -641,7 +641,7 @@ Open, not in this row: legs for a wall jump and a dash (granted to this
 session by ToothbrushAmbition), a door that needs Interact for a body no slot
 drives, permanent flight and a pogo bounce.
 
-### PUBLICATION-FAULT — a refused later room must not leave a mixed world
+### PUBLICATION-FAULT — a refused later room must not leave a mixed world — ✅ DONE 2026-10-09
 
 **Owner:** [residency plan](engine/open-world-runtime-and-residency.md), the
 multi-room hot reload row.

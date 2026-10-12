@@ -1465,12 +1465,14 @@ impl Plugin for MaryORulesPlugin {
             // A new room starts a fresh lap before the flag reads that room's
             // pole, so a sequence never drives the body to the last room's pole.
             begin_a_lap_on_arrival,
+            // Before the sequence, which reads the wait it writes.
+            castle_end::she_waits_while_the_bridge_falls,
             flag::run_flag_sequence,
             flag::play_victory_music,
             // After the lap of this room starts, so the goal that is taken is
             // the goal of this room and not of the last one.
             bricks::drop_planks_when_the_goal_is_taken,
-            castle_end::the_fall_kills_the_boss,
+            castle_end::the_lava_takes_the_boss,
             tick_level_clock,
             // Reads the clock the tick above just settled, so a timeout leaves by
             // the SAME door a pit does — as a published death fact, on the frame

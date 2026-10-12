@@ -4,9 +4,12 @@
 //! the bridge of its boss, and the flag sequence takes a switch as it takes a
 //! pole ([`crate::room_pole`]): the bridge falls when the goal is taken
 //! (`bricks::drop_planks_when_the_goal_is_taken`), she walks off, and the level
-//! goes where its room says. This module adds what only a castle has. The boss
-//! dies with its bridge, the switch shows that it is down, and the one she
-//! saved thanks her before the level goes.
+//! goes where its room says. This module adds what only a castle has. She
+//! waits at the switch while the bridge breaks and the lava takes the boss
+//! (Jon, 2026-10-11: "you need to see the void boss swallowed by the lava,
+//! and see the bridge break"), the switch shows that it is down, and the one
+//! she saved thanks her before the level goes. The level gives the bridge one
+//! view that does not move (`Level.arena`), so each of these is in it.
 
 use ambition_platformer2d::cutscene::{
     ActiveCutscene, CutsceneBeat, CutsceneLibrary, CutsceneScript, CutsceneTriggerQueue,
@@ -34,6 +37,15 @@ pub const RESCUE_LINE: &str = "ROBOT:  \"Thank you, Mary-O. You saved me.\"";
 /// How long his line stays, in seconds. It needs no button: a level that
 /// waits for a button at its end can hold a player who does not know which.
 const RESCUE_LINE_SECONDS: f32 = 4.0;
+/// How fast the lava takes a boss down, in world px per second.
+const SINK_SPEED: f32 = 46.0;
+/// Ticks from one splash of the lava about a boss to the next.
+const SPLASH_TICKS: u64 = 7;
+/// A boss is dead when its top is this far under the top of the lava.
+const SUNK_UNDER: f32 = 6.0;
+/// With no lava under it, a boss is dead this far under the floor.
+const FALLEN_UNDER: f32 = 96.0;
+
 /// The tally does not go past this while his line is on the screen, so the
 /// level waits for the line, and goes a short time after it.
 const TALLY_HOLD: f32 = crate::LEVEL_CYCLE_DWELL - 0.75;
@@ -77,22 +89,84 @@ fn switch_of_her_room(
     Some((body, switch))
 }
 
-/// The boss dies with its bridge.
+/// Whether a living Void Lizard of `room` is under the line of the floor
+/// `floor`: it falls, or the lava has it.
+fn a_boss_falls(
+    bosses: impl Iterator<Item = (Entity, bool, ae::Vec2, ae::Vec2)>,
+    live: &ambition_platformer2d::platformer::lifecycle::LiveRooms,
+    room: Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance>,
+    floor: f32,
+) -> bool {
+    bosses
+        .filter(|(entity, alive, _, _)| *alive && live.of(*entity) == room)
+        .any(|(_, _, pos, size)| pos.y + size.y * 0.5 > floor + 1.0)
+}
+
+/// She waits at the switch while the bridge breaks and the boss falls.
 ///
-/// After the switch is taken, a Void Lizard of her room dies when it is below
-/// the floor of the bridge, and each one that is left dies when she has walked
-/// off. So the switch is a sure end of the boss, also when a post or a pit held
-/// it up.
-pub fn the_fall_kills_the_boss(
+/// The walk-off of the sequence waits (`FlagSequence::hold`) while a plank of
+/// her room is whole, or a living Void Lizard is under the line of the floor.
+/// Each has an end: a plank breaks each few ticks, and the lava takes a boss
+/// down at a fixed speed. A boss that did not fall does not hold her: it dies
+/// when she has walked off. Written each tick from state that rewinds.
+#[allow(clippy::type_complexity)]
+pub fn she_waits_while_the_bridge_falls(
+    subject: Option<Res<ControlledSubject>>,
+    rooms: Option<LiveRoomSpecs>,
+    live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
+    broken: Option<Res<crate::bricks::BrokenBricks>>,
+    geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
+    mut sequences: Query<&mut FlagSequence>,
+    bosses: Query<(
+        Entity,
+        &ambition_platformer2d::combat::actor_tuning::ActorConfig,
+        &ambition_platformer2d::characters::actor::BodyHealth,
+        &ae::BodyKinematics,
+    )>,
+) {
+    let Ok(mut sequence) = sequences.single_mut() else {
+        return;
+    };
+    let hold = sequence.active()
+        && switch_of_her_room(rooms.as_ref(), subject.as_deref()).is_some_and(|(body, switch)| {
+            let planks = match (broken.as_deref(), geometry.room_of(body), geometry.of(body)) {
+                (Some(broken), Some(room), Some(room_geometry)) => {
+                    crate::bricks::planks_left(broken, room, room_geometry).next().is_some()
+                }
+                _ => false,
+            };
+            let lizards = bosses
+                .iter()
+                .filter(|(_, config, _, _)| crate::void_lizard::is_void_lizard_brain(&config.brain))
+                .map(|(entity, _, health, kin)| (entity, health.alive(), kin.pos, kin.size));
+            planks || a_boss_falls(lizards, &live, live.of(body), switch.max.y)
+        });
+    if sequence.hold != hold {
+        sequence.hold = hold;
+    }
+}
+
+/// The lava takes the boss.
+///
+/// After the switch is taken, a Void Lizard of her room that is in the lava
+/// goes down at a fixed speed, with a splash each few ticks, and dies when it
+/// is under. The lava is drawn over a body, so it is seen to go in. With no
+/// lava under it, it dies a few tiles under the floor. Each one that is left
+/// dies when she has walked off. So the switch is a sure end of the boss, also
+/// when a post held it up.
+#[allow(clippy::type_complexity)]
+pub fn the_lava_takes_the_boss(
     sequences: Query<&FlagSequence>,
     subject: Option<Res<ControlledSubject>>,
     rooms: Option<LiveRoomSpecs>,
     live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
+    tick: Option<Res<ambition_platformer2d::time::SimTick>>,
+    mut vfx: ambition_platformer2d::vfx::VfxWriter,
     mut bosses: Query<(
         Entity,
         &ambition_platformer2d::combat::actor_tuning::ActorConfig,
         &mut ambition_platformer2d::characters::actor::BodyHealth,
-        &ae::BodyKinematics,
+        &mut ae::BodyKinematics,
     )>,
 ) {
     let Ok(sequence) = sequences.single() else {
@@ -104,18 +178,50 @@ pub fn the_fall_kills_the_boss(
     let Some((body, switch)) = switch_of_her_room(rooms.as_ref(), subject.as_deref()) else {
         return;
     };
+    let pools = rooms
+        .as_ref()
+        .and_then(|rooms| rooms.spec_of(body))
+        .map(crate::scenery::lava_pools_of)
+        .unwrap_or_default();
     let walked_off = matches!(sequence.phase, FlagPhase::Tallied { .. });
     let room = live.of(body);
-    for (entity, config, mut health, kin) in &mut bosses {
+    // The base of the switch is the line of the floor.
+    let floor = switch.max.y;
+    for (entity, config, mut health, mut kin) in &mut bosses {
         if !crate::void_lizard::is_void_lizard_brain(&config.brain) || !health.alive() {
             continue;
         }
         if live.of(entity) != room {
             continue;
         }
-        // The base of the switch is the line of the floor.
-        if walked_off || kin.pos.y - kin.size.y * 0.5 > switch.max.y {
+        if walked_off {
             health.health.current = 0;
+            continue;
+        }
+        let (top, feet) = (kin.pos.y - kin.size.y * 0.5, kin.pos.y + kin.size.y * 0.5);
+        let lava = pools
+            .iter()
+            .map(|(_, pool)| *pool)
+            .find(|pool| kin.pos.x >= pool.min.x && kin.pos.x <= pool.max.x);
+        match lava {
+            Some(pool) if feet >= pool.min.y => {
+                // In the lava: down at a fixed speed, and no way to the side.
+                kin.vel = ae::Vec2::new(0.0, SINK_SPEED);
+                if tick.as_ref().is_some_and(|tick| tick.get() % SPLASH_TICKS == 0) {
+                    vfx.for_room(room).write(ambition_platformer2d::vfx::VfxMessage::Burst {
+                        pos: ae::Vec2::new(kin.pos.x, pool.min.y),
+                        count: 10,
+                        speed: 190.0,
+                        color: [1.0, 0.52, 0.14, 1.0],
+                        kind: ambition_platformer2d::vfx::ParticleKind::Shard,
+                    });
+                }
+                if top > pool.min.y + SUNK_UNDER {
+                    health.health.current = 0;
+                }
+            }
+            None if top > floor + FALLEN_UNDER => health.health.current = 0,
+            _ => {}
         }
     }
 }

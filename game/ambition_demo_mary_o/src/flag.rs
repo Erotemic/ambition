@@ -116,6 +116,11 @@ pub struct FlagSequence {
     /// and the next would accumulate into the slide. Once the flag is grabbed, the
     /// body's own position stops being an input.
     pub driven: Option<ae::Vec2>,
+    /// The walk-off waits while this is true: she stands where the sequence
+    /// has her. A level writes it each tick it has a thing to show before she
+    /// walks (the fall of the bridge of a castle, `castle_end.rs`), from state
+    /// that rewinds, so it is no state of its own.
+    pub hold: bool,
 }
 
 impl FlagSequence {
@@ -225,6 +230,11 @@ fn step_phase(
                 on_pole: true,
             })
         }
+        FlagPhase::WalkingOff { .. } if seq.hold => Some(FlagDrive {
+            pos: body,
+            vel: ae::Vec2::ZERO,
+            on_pole: false,
+        }),
         FlagPhase::WalkingOff { score, remaining } => {
             let step = WALK_OFF_SPEED * dt;
             if step >= remaining {
@@ -543,6 +553,7 @@ mod tests {
         let mut seq = FlagSequence {
             phase: FlagPhase::Tallied { score: 800 },
             driven: Some(body),
+            hold: false,
         };
         for _ in 0..600 {
             assert_eq!(

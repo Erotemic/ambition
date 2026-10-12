@@ -575,23 +575,28 @@ reads cargo output to it.
    (control: all certified, nothing runs; poison: run every required check,
    red at the commands assertion).
 
-9. **A test behind an opt-in feature is red only in the union feature job,
-   and no required lane runs that job (2026-10-11).** The job is
-   `./run_tests.sh --run-everything-you-probably-dont-need-this --only-job
-   'every headless-safe feature'`. A per-crate feature job only runs `cargo
-   check`, so this job is the one that runs the 526 feature-gated tests (the
-   footer count from `scripts/feature_gated_tests.py`). One run on 2026-10-11
-   found four reds, all on main and all invisible to the default lanes:
-   - the portal exit-copy test ran on a copy of the host's bridges (moved onto
-     the real bridges, `16bc6f9e8`);
-   - `match_shots.rs` did not compile (`43f958e2d`);
-   - the rollback exit oracle did not count an instrument channel as cleared
-     (`d5168b524`);
-   - the schema-parity test was red under `falling_sand` (the feature is
-     deleted, `645b9d88c`).
+9. **The union feature job is required by the two kinds of change that
+   reddened it (2026-10-12).** `./run_tests.sh
+   --run-everything-you-probably-dont-need-this --only-job 'every headless-safe
+   feature'` runs the 528 tests behind an opt-in feature (the footer of
+   `scripts/feature_gated_tests.py`). Measured 2026-10-12 from an empty target:
+   3283 s, of which the tests are 1764 s (`app_it` 1248 s). Of its reds on
+   2026-10-11 and 2026-10-12, three were rollback arms (the exit oracle twice,
+   the schema parity once; one of them a probe that only the `portal`
+   composition registers) and two were gated test files. `required_checks.py` now requires it for
+   a path of `ROLLBACK_REGISTRATION_PATHS` and for a file that holds a gated
+   test (89 of 2225 tracked `.rs` files), and its remedy asks for the
+   exhaustive mode. Witnesses `test_a_registration_requires_the_union_feature_job`
+   and `test_a_file_with_a_test_behind_an_opt_in_feature_requires_the_union_feature_job`
+   (poisons: each rule, the gated `mod` arm, a default-on gate counted as
+   hidden, the missing exhaustive flag; each red at its own assertion).
 
-   Next: run the job again to green, and decide which change makes it
-   required (`required_checks.py` selects it for no path today).
+   Open: a change in one crate that reddens another crate's gated test is not
+   selected. On 2026-10-12 the demos' HUD declarations against their apps'
+   `visible` pins, and a map edit against a `visible` test that counted 1-2's
+   blocks, were red only here. The next step is a per-package feature
+   requirement (`cargo test -p <demo app> --features visible`) for a change to
+   a demo crate.
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.

@@ -378,8 +378,14 @@ def test_each_job_a_rule_names_is_a_job_of_the_runner() -> None:
     planned = {job.name for job in run_tests.build_jobs([], heavy=True, libtest_args=[], everything=True)}
     detached = {job.name for job in run_tests.build_detached_tool_jobs()}
     assert SPRITE_TREE_EMBEDDED_JOB == run_tests.SPRITE_TREE_EMBEDDED_JOB
-    for name in (REPO_TOOLING_JOB, LDTK_TOOLS_JOB, SPRITE_TREE_EMBEDDED_JOB):
+    from required_checks import UNION_FEATURE_JOB
+
+    for name in (REPO_TOOLING_JOB, LDTK_TOOLS_JOB, SPRITE_TREE_EMBEDDED_JOB, UNION_FEATURE_JOB):
         assert name in (detached if name in DETACHED_TOOL_JOBS else planned), name
+    # Planned only in the exhaustive mode, so its command must ask for it.
+    default_plan = {job.name for job in run_tests.build_jobs([], heavy=False, libtest_args=[])}
+    assert UNION_FEATURE_JOB not in default_plan
+    assert "--run-everything-you-probably-dont-need-this --only-job" in remedy([Job(UNION_FEATURE_JOB)])
     assert "--tool-tests --only-job 'ldtk authoring tool tests'" in remedy([Job(LDTK_TOOLS_JOB)])
 
 
@@ -425,6 +431,43 @@ def test_a_content_change_requires_the_content_arms_and_a_registration_the_rollb
     assert "./run_tests.sh -p ambition_app -k rollback_ --only-job '(default features)'" in remedy(
         [CargoTestNamed(APP_PACKAGE, "rollback_")]
     )
+
+
+def test_a_registration_requires_the_union_feature_job() -> None:
+    """A registration can add a row that only a feature's composition
+    registers: the `portal` composition's presence probes were red in the
+    union job alone (2026-10-12)."""
+    from required_checks import UNION_FEATURE_JOB, requirements_for
+
+    members = {"crates/ambition_portal2d": "ambition_portal2d"}
+    assert Job(UNION_FEATURE_JOB) in requirements_for("crates/ambition_portal2d/src/rollback_registration.rs", members)
+    # Control: the crate's other files do not.
+    assert Job(UNION_FEATURE_JOB) not in requirements_for("crates/ambition_portal2d/src/extension.rs", members)
+
+
+def test_a_file_with_a_test_behind_an_opt_in_feature_requires_the_union_feature_job(tmp_path: Path) -> None:
+    from required_checks import UNION_FEATURE_JOB, requirements_for
+
+    crate = tmp_path / "crates" / "alpha"
+    (crate / "src").mkdir(parents=True)
+    (crate / "tests").mkdir()
+    (crate / "Cargo.toml").write_text('[package]\nname = "alpha"\n[features]\ndefault = ["on"]\non = []\nextra = []\n')
+    (crate / "tests" / "gated.rs").write_text('#![cfg(feature = "extra")]\n#[test]\nfn t() {}\n')
+    (crate / "tests" / "default_on.rs").write_text('#![cfg(feature = "on")]\n#[test]\nfn t() {}\n')
+    (crate / "src" / "lib.rs").write_text('#[cfg(feature = "extra")]\nmod hidden;\n#[test]\nfn bare() {}\n')
+    (crate / "src" / "hidden.rs").write_text('#[test]\nfn t() {}\n')
+    members = {"crates/alpha": "alpha"}
+
+    def union(path: str) -> bool:
+        return Job(UNION_FEATURE_JOB) in requirements_for(path, members, tmp_path)
+
+    assert union("crates/alpha/tests/gated.rs")
+    assert union("crates/alpha/src/hidden.rs"), "reached only through a gated `mod` declaration"
+    # Controls: a gate on a default feature hides nothing, a bare test is run
+    # by the crate's own lane, and a path that is gone holds nothing.
+    assert not union("crates/alpha/tests/default_on.rs")
+    assert not union("crates/alpha/src/lib.rs")
+    assert not union("crates/alpha/tests/deleted.rs")
 
 
 def test_the_named_rules_name_what_the_live_tree_has() -> None:

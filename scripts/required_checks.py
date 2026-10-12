@@ -104,6 +104,24 @@ ROLLBACK_REGISTRATION_PATHS = (
     "*/sim_phase_pins.rs",
 )
 
+#: The one job that runs the tests behind an opt-in feature: the whole
+#: workspace with every headless-safe feature (`run_tests.py` plans it only
+#: with `--run-everything-you-probably-dont-need-this`). Measured 2026-10-12
+#: from an empty target: 3283 s, of which the tests are 1764 s (`app_it` 1248
+#: s). Too long for every Rust change, so two rules require it, from where its
+#: reds came on 2026-10-11 and 2026-10-12:
+#: - a rollback registration or a schedule pin (three reds were rollback arms:
+#:   an exit-oracle channel count, a schema parity under one feature, and a
+#:   portal probe that only the `portal` composition registers);
+#: - a file that holds a test behind an opt-in feature (`match_shots.rs` did not
+#:   compile, and the portal exit-copy test ran on a copy).
+#: ⚠ Not held: a change in one crate that reddens another crate's gated test
+#: (a demo's HUD declaration against its app's `visible` pins; a map edit
+#: against a `visible` test that counts its blocks).
+UNION_FEATURE_JOB = "workspace [every headless-safe feature] — one graph, every gated test"
+#: Jobs that `run_tests.py` plans only in its exhaustive mode.
+EXHAUSTIVE_JOBS = {UNION_FEATURE_JOB}
+
 #: Procedural modules (fast-iteration I4). The module crate has no Bevy, and
 #: its own tests check little more than its wire. What a module DOES is
 #: measured where it is composed: the parity and reference harnesses of
@@ -202,7 +220,24 @@ def workspace_members(repo: Path) -> dict[str, str]:
     return members
 
 
-def requirements_for(path: str, members: dict[str, str]) -> set[Requirement]:
+def holds_gated_test(path: str, members: dict[str, str], repo: Path) -> bool:
+    """Whether `path` holds a test that a default-feature run of its crate does
+    not run: the test is behind an opt-in feature, in the file or through a
+    gated `mod` declaration (`feature_gated_tests.py` decides both)."""
+    import feature_gated_tests as census
+
+    file = repo / path
+    if not path.endswith(".rs") or not file.is_file():
+        return False
+    crate = next((repo / d for d in members if path.startswith(d + "/")), None)
+    if crate is None:
+        return False
+    on_by_default = census.default_features(crate)
+    tests, gated, _ = census.scan_file(file, on_by_default)
+    return gated > 0 or (tests > 0 and file in census.gated_subtrees(crate, on_by_default))
+
+
+def requirements_for(path: str, members: dict[str, str], repo: Path = REPO) -> set[Requirement]:
     """The checks a change to `path` requires."""
     if path.endswith(PROSE_SUFFIX):
         return {Job(REPO_TOOLING_JOB)}
@@ -219,7 +254,9 @@ def requirements_for(path: str, members: dict[str, str]) -> set[Requirement]:
         required.add(CargoTest(MODULE_HARNESS_PACKAGE))
         required.update(CargoTestNamed(APP_PACKAGE, arm) for arm in MODULE_ARMS)
     if any(fnmatch.fnmatch(path, pattern) for pattern in ROLLBACK_REGISTRATION_PATHS):
-        required.update({CargoTestNamed(APP_PACKAGE, "rollback_"), Job(REPO_TOOLING_JOB)})
+        required.update({CargoTestNamed(APP_PACKAGE, "rollback_"), Job(REPO_TOOLING_JOB), Job(UNION_FEATURE_JOB)})
+    if holds_gated_test(path, members, repo):
+        required.add(Job(UNION_FEATURE_JOB))
     # The workspace policies read every crate, when the workspace has them.
     if (path.startswith(POLICY_READS) or path == "Cargo.toml") and POLICY_PACKAGE in members.values():
         required.add(CargoTest(POLICY_PACKAGE))
@@ -366,7 +403,7 @@ def judge(repo: Path, base: str, rev: str) -> tuple[list[str], list[Verdict]]:
     members = workspace_members(repo)
     triggers: dict[Requirement, list[str]] = {}
     for path in paths:
-        for requirement in requirements_for(path, members):
+        for requirement in requirements_for(path, members, repo):
             triggers.setdefault(requirement, []).append(path)
     ledger = lane_ledger.rows(repo)
     verdicts = []
@@ -420,6 +457,8 @@ def remedy_commands(missing: list[Requirement]) -> list[list[str]]:
         )
     for job in jobs:
         lane = ["--tool-tests"] if job in DETACHED_TOOL_JOBS else []
+        if job in EXHAUSTIVE_JOBS:
+            lane = ["--run-everything-you-probably-dont-need-this"]
         commands.append(["./run_tests.sh", *lane, "--only-job", job])
     return commands
 

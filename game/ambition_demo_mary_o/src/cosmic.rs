@@ -32,7 +32,7 @@ use ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges;
 use ambition_platformer2d::characters::actor::{RecharacterizeBody, WornCharacter};
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::platformer::markers::{ControlledSubject, PrimaryPlayer};
+use ambition_platformer2d::platformer::markers::ControlledSubject;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 /// The catalog id of the form.
@@ -66,10 +66,18 @@ const COSMIC_MUSIC_OWNER: &str = "mary_o_cosmic";
 /// music renderer), whose intro is as long as the transformation.
 pub const COSMIC_MUSIC_TRACK: &str = "eternal_cosmic";
 
-/// The longest stop of the world for a hit that she lands in the form, in
+/// The longest stop of her own body for a hit that she lands in the form, in
 /// seconds. Each body she touches in the form is a hit, and the stop of a
 /// hit is 0.1 s: a flight through a line of enemies was a row of stops
 /// (Jon, 2026-10-11: "considerably less hit stun").
+///
+/// ⚠ HER STOP, NOT THE WORLD'S. A touch in the form is a `HitSource::Contact`
+/// hit (`Empowerment::HARMS_ON_CONTACT`), and the stop of the world
+/// (`ImpactHitstop`) is not for contact hits, so these hits do not stop the
+/// world (measured: `mary_o_it a_hit_in_the_form_stops_her_less_and_not_the_world`).
+/// The stops of a flight were the stops of her own body, which the attacker's
+/// timer (`BodyCombat::hitstop_timer`) holds. This is the stop the form
+/// shortens.
 const COSMIC_HIT_STOP_MAX: f32 = 0.02;
 
 /// The key of the form's entry in her ability contributions.
@@ -204,7 +212,7 @@ pub fn toggle_cosmic_form(
 /// longer than the hold: a beat is not gone before this sees its end.
 pub fn come_back_from_the_form(
     time: Res<ambition_platformer2d::time::WorldTime>,
-    mut bodies: Query<(Entity, &mut WornCharacter, Option<&WornEquipment>, &TransformBeat), With<PrimaryPlayer>>,
+    mut bodies: Query<(Entity, &mut WornCharacter, Option<&WornEquipment>, &TransformBeat)>,
     mut commands: Commands,
 ) {
     for (body, mut worn, equipment, beat) in &mut bodies {
@@ -261,7 +269,7 @@ fn lent_verbs() -> ae::AbilitySet {
 /// Lend her the jump in the air while she wears the form, and take it back
 /// after. The entry is read from the character she wears on each tick, so it
 /// is no state of its own. How many jumps she has is the form's tuning.
-pub fn lend_the_jump_in_the_air(mut bodies: Query<(&WornCharacter, &mut ae::AbilityContributions), With<PrimaryPlayer>>) {
+pub fn lend_the_jump_in_the_air(mut bodies: Query<(&WornCharacter, &mut ae::AbilityContributions)>) {
     for (worn, mut contributions) in &mut bodies {
         let lent = contributions.get(COSMIC_ABILITY_SOURCE).is_some();
         let wanted = is_cosmic(worn.id());
@@ -273,11 +281,11 @@ pub fn lend_the_jump_in_the_air(mut bodies: Query<(&WornCharacter, &mut ae::Abil
     }
 }
 
-/// Cut short the stop of the world for a hit she lands in the form. It runs
-/// after the hits of the tick are resolved, and the clock reads the timer on
-/// the next tick.
+/// Cut short the stop of her own body for a hit she lands in the form. It
+/// runs after the hits of the tick are resolved, and the clock reads the
+/// timer on the next tick. Each body in the form, not only the first player.
 pub fn shorten_her_hit_stop(
-    mut bodies: Query<(&WornCharacter, &mut ambition_platformer2d::characters::actor::BodyCombat), With<PrimaryPlayer>>,
+    mut bodies: Query<(&WornCharacter, &mut ambition_platformer2d::characters::actor::BodyCombat)>,
 ) {
     for (worn, mut combat) in &mut bodies {
         if is_cosmic(worn.id()) && combat.hitstop_timer > COSMIC_HIT_STOP_MAX {
@@ -291,7 +299,7 @@ pub fn shorten_her_hit_stop(
 /// that room is in it, so the theme of the level comes back with no record
 /// here of what it was.
 pub fn play_cosmic_music(
-    bodies: Query<(Entity, &WornCharacter), With<PrimaryPlayer>>,
+    bodies: Query<(Entity, &WornCharacter)>,
     live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<

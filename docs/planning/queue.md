@@ -179,7 +179,7 @@ Do not reimplement those parts of the historical audit.
   [UI](engine/ui-localization-and-accessibility.md#launcher-theme-quality-and-provider-composition),
   [reload](engine/content-generation-and-reload.md#sprite-source-identity-and-live-presentation-refresh)
   and [I3](engine/fast-iteration-implementation.md#i3---coordinated-generation-publication-and-local-reload).
-- **IN4 / P1, form/rig fidelity:** part asks by reader and the barrier's refusal ✅ DONE 2026-10-12, see [part reader](engine/semantic-part-rendering-and-ragdolls.md#a-part-set-demand-cannot-be-owned-by-one-effect-component). Was: make part-request ownership composable;
+- **IN4 / P1, form/rig fidelity:** form grants for every body in the form and the hitstop decision (her own stop; contact hits never stop the world, measured) ✅ DONE 2026-10-12, see [combat](engine/combat-model.md#a-forms-shorter-global-hitstop-belongs-at-hit-resolution); part asks by reader and the barrier's refusal ✅ DONE 2026-10-12, see [part reader](engine/semantic-part-rendering-and-ragdolls.md#a-part-set-demand-cannot-be-owned-by-one-effect-component). Was: make part-request ownership composable;
   refuse or correctly render unsupported multi-page/turned/fifth parts.
   Reconcile visual ownership, body layers, portal candidate sync and
   disappearance. First settle whether cosmic is meant to shorten the

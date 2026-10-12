@@ -94,6 +94,23 @@ that status here.
 
 ## A form's shorter global hitstop belongs at hit resolution
 
+**Decided and measured (2026-10-12):** the cosmic form shortens HER OWN
+stop, not the world's. A touch in the form is a `HitSource::Contact` hit
+(`Empowerment::HARMS_ON_CONTACT`), which `ImpactHitstop::is_a_connect`
+excludes, so these hits never stopped the world; the stops of a flight
+through a line of enemies (Jon, 2026-10-11: "considerably less hit stun")
+were the attacker's own `BodyCombat::hitstop_timer`, set for every hit she
+lands (`features/ecs/damage/mod.rs`, the attacker's hitlag). Measured in
+the shipped demo (`mary_o_it the_form_is_its_wearers
+a_hit_in_the_form_stops_her_less_and_not_the_world`): with the clamp her
+stop is at most 0.02 s and the world never freezes; without it her stop is
+0.105 s. No engine modifier is built: no form needs a shorter world freeze.
+The clamp now runs for each body in the form, not only `PrimaryPlayer`.
+Kept as it is: the clamp is a second writer of the attacker's timer, after
+the hit resolution of the same tick; a form-authored cap at the attacker
+hitlag writer is the cleaner owner if a second form wants one. The text
+below is the case as found.
+
 **Real 2026-10-11 customer:** Mary-O cosmic form. Its current function
 `game/ambition_demo_mary_o/src/cosmic.rs:180-190` is described as making
 *hits she lands* stop the world less, but it clamps **her own**

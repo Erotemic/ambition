@@ -1,9 +1,10 @@
 //! The default attack VFX: what a strike looks like when its character authored
 //! no art of its own.
 //!
-//! Only one shipped character authors `attack_vfx` (the protagonist's blade is
-//! cut from its own hit polygon and must not be reused). So this is what almost
-//! every strike draws, and it must meet that standard.
+//! Few shipped characters author `attack_vfx` (the protagonist's blade is cut
+//! from its own hit polygon and must not be reused; GNU-ton has the stroke of
+//! his quill). So this is what almost every strike draws, and it must meet
+//! that standard.
 //!
 //! It draws the real volume geometry, and it exists exactly while the volume
 //! can hurt. The volume, position, and lifetime are the strike's own. The form

@@ -54,6 +54,7 @@ pub fn rebuild_attack_vfx_views(
         (
             Entity,
             Option<&ambition_characters::actor::WornCharacter>,
+            Option<&ambition_characters::actor::StrikesAs>,
             Option<&AttackVfxView>,
         ),
         bevy::prelude::Or<(
@@ -62,10 +63,13 @@ pub fn rebuild_attack_vfx_views(
         )>,
     >,
 ) {
-    for (entity, worn, current) in &bodies {
-        // A body with no worn character is a resolved no-sheet case.
+    for (entity, worn, strikes_as, current) in &bodies {
+        // A body with no worn character is a resolved no-sheet case, unless
+        // it says whose moves it strikes with.
         let sheet = worn
-            .and_then(|worn| catalog.attack_vfx(worn.id()))
+            .map(|worn| worn.id())
+            .or(strikes_as.map(|strikes_as| strikes_as.0.as_str()))
+            .and_then(|character| catalog.attack_vfx(character))
             .map(str::to_owned);
         if current.map(|view| &view.sheet) != Some(&sheet) {
             commands.entity(entity).insert(AttackVfxView { sheet });

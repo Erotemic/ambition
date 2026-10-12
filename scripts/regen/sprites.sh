@@ -600,6 +600,9 @@ tackon_targets=(
     # two impacts, none of which a character row can carry.
     polygon_charge_shot
     robot_slash
+    # The stroke of GNU-ton's quill: the same kind of sheet, his own art
+    # (`attack_vfx` of `npc_gnu_ton`).
+    gnu_ton_slash
     news_board
     town_tileset
     # Intro / cut-the-rope content (loaded by ambition_content's intro
@@ -678,6 +681,8 @@ tackon_targets=(
     # presentation seam remains generic.
     pirate_admiral_vfx
     ninja_shadow_oni_leader_vfx
+    # GNU-ton the fighter: the fist of his giant, out of a portal's line.
+    gnu_ton_vfx
     # these two were AUTHORED IN THE SUBMODULE AND NEVER LISTED HERE
     # . `george_booul_vfx` ships a published sheet only because
     # someone ran it with a focused `--target`, so a fresh clone's regen would

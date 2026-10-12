@@ -87,6 +87,8 @@ fn duel_spec(spec: &MoveSpec) -> MoveSpec {
             if let VolumeShape::Rect { offset, half_extents } = &mut volume.shape {
                 (*offset, *half_extents) = BOOK;
             }
+            // The fist was the picture of the blow; the book's is his stroke.
+            volume.vfx = Some(ambition_entity_catalog::authoring::SLASH_ARC_VFX.to_string());
         }
     }
     for window in &mut spec.windows {
@@ -147,7 +149,8 @@ pub fn duel_gnu_ton(
             continue;
         }
         let Some(mut duel) = duel else {
-            commands.entity(entity).insert(GnuTonDuel::default());
+            // His strikes are drawn with the fighter's art (his stroke of ink).
+            commands.entity(entity).insert((GnuTonDuel::default(), ambition_characters::actor::StrikesAs(FIGHTER.into())));
             continue;
         };
         // His body has the duel moves beside the pattern's.

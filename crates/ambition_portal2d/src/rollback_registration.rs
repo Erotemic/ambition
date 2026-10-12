@@ -11,6 +11,29 @@ use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 
 const OWNER: &str = env!("CARGO_PKG_NAME");
 
+/// One number for each channel: a gun end by its slot, an authored channel
+/// above them.
+fn look_probe(channel: crate::PortalChannel) -> u64 {
+    use crate::{PortalChannel, PortalChannelColor as C};
+    match channel {
+        PortalChannel::Gun(gun) => u64::from(gun.slot),
+        PortalChannel::Authored(color) => {
+            0x100
+                + match color {
+                    C::Purple => 0,
+                    C::Yellow => 1,
+                    C::Teal => 2,
+                    C::Red => 3,
+                    C::Green => 4,
+                    C::Magenta => 5,
+                    C::Cyan => 6,
+                    C::Rose => 7,
+                    C::Indexed(index) => 0x100 + u64::from(index),
+                }
+        }
+    }
+}
+
 /// Register reusable portal topology/transit/shot state, with no portal-gun
 /// custody or control vocabulary.
 pub fn register_portal_rollback_state<R>(registrar: &mut R)
@@ -27,8 +50,10 @@ where
     // A portal's link and its look are part of the portal: a rewind across a
     // pair's close re-creates its ends, and an end with no link pairs with
     // nothing.
-    registrar.rollback_component_clone::<crate::PortalLink>(OWNER, "portal.link");
-    registrar.rollback_component_clone::<crate::PortalLook>(OWNER, "portal.look");
+    // The probes read the values, so the exit oracle sees a link or a look
+    // that a rewind restored wrong, not only one that it lost.
+    registrar.rollback_component_clone_probed::<crate::PortalLink>(OWNER, "portal.link", |link| link.0);
+    registrar.rollback_component_clone_probed::<crate::PortalLook>(OWNER, "portal.look", |look| look_probe(look.0));
     // The pairs a module holds, and on each end the body that holds it: a
     // rewind that lost them would spawn the pair again on the replay.
     registrar

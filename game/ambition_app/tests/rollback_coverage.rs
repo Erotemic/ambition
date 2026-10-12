@@ -2027,6 +2027,44 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
          written once before any frame runs",
     ),
     (
+        "ambition_demo_mary_o::cosmic_aura::CosmicAuraInstalled",
+        "a marker inserted during PLUGIN BUILD to make the cosmic light install \
+         idempotent, as `QuasarShaderInstalled` above. Composition state, \
+         written once before any frame runs",
+    ),
+    (
+        "ambition_demo_mary_o::cosmic_aura::CosmicAuraAssets",
+        "the unit quad the cosmic light scales, made during PLUGIN BUILD, and \
+         its one material, made by `light_her_while_she_is_cosmic` (Update) the \
+         first time it lights a `PlayerVisual`. Presentation: the form is the \
+         worn character, which is rollback state; no simulation reads this",
+    ),
+    (
+        "ambition_demo_mary_o::cosmic_barrier::CosmicBarrierInstalled",
+        "a marker inserted during PLUGIN BUILD to make the cosmic barrier \
+         install idempotent, as `QuasarShaderInstalled` above. Composition \
+         state, written once before any frame runs",
+    ),
+    (
+        "ambition_demo_mary_o::cosmic_barrier::CosmicBarrierQuad",
+        "the handle of the unit quad the barrier scales, made one time during \
+         PLUGIN BUILD and only read after, by the overlay set in Update. \
+         Presentation, as `ShimmerQuad` below",
+    ),
+    (
+        "ambition_demo_mary_o::fire_shader::FireGlowInstalled",
+        "a marker inserted during PLUGIN BUILD to make the fire glow install \
+         idempotent, as `QuasarShaderInstalled` above. Composition state, \
+         written once before any frame runs",
+    ),
+    (
+        "ambition_demo_mary_o::fire_shader::FireGlowAssets",
+        "the unit quad each fire glow scales, made during PLUGIN BUILD, and the \
+         one material all glows share, made by `give_each_fire_its_glow` \
+         (Update) for the first fire visual. Presentation: the fire itself is a \
+         hazard or a shot, which is rollback state; no simulation reads this",
+    ),
+    (
         "ambition_demo_mary_o::shimmer_shader::ShimmerQuad",
         "the handle of the unit quad mesh each shimmer scales, made one time \
          during PLUGIN BUILD and only read after. Presentation: the shimmer is \

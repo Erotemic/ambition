@@ -907,6 +907,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
         const PLAYER_HEIGHT: f32 = 48.0;
         app.world_mut().spawn((
             PrimaryPlayer,
+            ambition_platformer2d::platformer::markers::PlayerEntity,
             ae::BodyKinematics {
                 pos: ae::Vec2::new(body.pos.x, head + 0.5 - PLAYER_HEIGHT * 0.5),
                 vel: ae::Vec2::new(0.0, 120.0),
@@ -1025,6 +1026,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
         .world_mut()
         .spawn((
             PrimaryPlayer,
+            ambition_platformer2d::platformer::markers::PlayerEntity,
             ae::BodyKinematics {
                 pos: ae::Vec2::new(410.0, 300.0),
                 vel: ae::Vec2::ZERO,
@@ -1157,6 +1159,7 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     // the snake were alive (that is exactly what the sibling test proves).
     app.world_mut().spawn((
         PrimaryPlayer,
+        ambition_platformer2d::platformer::markers::PlayerEntity,
         ae::BodyKinematics {
             pos: ae::Vec2::new(410.0, 300.0),
             vel: ae::Vec2::ZERO,

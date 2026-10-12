@@ -114,6 +114,17 @@ fn declared_hud_node_count(app: &mut App) -> usize {
     query.iter(app.world()).count()
 }
 
+/// The slot ids of the active route's declared HUD: what the renderer is asked
+/// to draw.
+fn declared_hud_slots(app: &App) -> Vec<String> {
+    app.world()
+        .resource::<ambition_platformer2d::presentation::ActiveHudDeclaration>()
+        .slots()
+        .iter()
+        .map(|slot| slot.id.as_str().to_owned())
+        .collect()
+}
+
 fn active_route(app: &App) -> Option<&str> {
     app.world()
         .resource::<ShellRouter>()
@@ -309,10 +320,16 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
     // that marker. Pinning the demo's own HUD to EXACTLY what it declared means
     // neither side can drift without a failure — too few and the demo's feature
     // regressed, too many and something else is wearing its marker.
+    use ambition_demo_sanic::provider as p;
+    assert_eq!(
+        declared_hud_slots(&app),
+        [p::RINGS_HUD_SLOT, p::TIME_HUD_SLOT, p::TITLE_HUD_SLOT, p::RESULTS_HUD_SLOT],
+        "this demo declares its ring counter, its clock, the act's title card and the end-of-act results card"
+    );
     assert_eq!(
         declared_hud_node_count(&mut app),
-        2,
-        "this demo declares 2 HUD readout(s) — the ring counter and the\n         end-of-act results card — and must draw exactly that many"
+        declared_hud_slots(&app).len(),
+        "the demo draws exactly the HUD readouts it declares"
     );
 
     // ...and the engine's own visual-quality budget IS part of the face, because
@@ -386,9 +403,10 @@ fn visible_sanic_presentation_retires_and_relaunches_with_the_session() {
     // counts these nodes.
     assert_eq!(
         declared_hud_node_count(&mut app),
-        2,
+        declared_hud_slots(&app).len(),
         "the declared HUD is session-scoped and must rebuild on relaunch"
     );
+    assert!(!declared_hud_slots(&app).is_empty(), "the relaunched route declares its HUD");
 }
 
 /// Rings must render via the ANIMATED pickup path (a `sanic_ring_prop` sheet),
@@ -442,9 +460,9 @@ fn the_declared_hud_shows_the_games_own_words_and_a_live_value() {
             .query_filtered::<&bevy::prelude::Text, bevy::prelude::With<ambition_platformer2d::presentation::DeclaredHudRoot>>();
         query.iter(app.world()).map(|text| text.0.clone()).collect()
     };
-    assert_eq!(texts.len(), 2, "both declared slots draw a text node");
-    // The results card is deliberately BLANK while the act is running — it is
-    // published only on a clear — so the ring counter is the one with text.
+    assert_eq!(texts.len(), declared_hud_slots(&app).len(), "each declared slot draws a text node");
+    // The results card is deliberately BLANK while the act is running: it is
+    // published only on a clear.
     let rings = texts
         .iter()
         .find(|t| t.starts_with("RINGS "))

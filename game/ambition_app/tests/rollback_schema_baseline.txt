@@ -417,8 +417,8 @@ portal.gun_pickup	component-clone	PortalGunPickup	bevy_ggrs clone snapshot; not 
 portal.held_pairs	component-clone-cursor	HeldPortalPairs	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 portal.held_portal_of	component-clone	HeldPortalOf	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 portal.input_warp	component-clone	PortalInputWarp	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-portal.link	component-clone	PortalLink	bevy_ggrs clone snapshot; not in the session checksum
-portal.look	component-clone	PortalLook	bevy_ggrs clone snapshot; not in the session checksum
+portal.link	component-clone	PortalLink	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+portal.look	component-clone	PortalLook	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 portal.owned_gun_pair	component-clone	OwnedPortalGunPair	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 portal.placed	component-clone	PlacedPortal	bevy_ggrs clone snapshot; not in the session checksum
 portal.shot	component-clone	PortalShot	bevy_ggrs clone snapshot; not in the session checksum

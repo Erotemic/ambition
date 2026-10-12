@@ -110,6 +110,17 @@ fn declared_hud_node_count(app: &mut App) -> usize {
     query.iter(app.world()).count()
 }
 
+/// The slot ids of the active route's declared HUD: what the renderer is asked
+/// to draw.
+fn declared_hud_slots(app: &App) -> Vec<String> {
+    app.world()
+        .resource::<ambition_platformer2d::presentation::ActiveHudDeclaration>()
+        .slots()
+        .iter()
+        .map(|slot| slot.id.as_str().to_owned())
+        .collect()
+}
+
 fn active_route(app: &App) -> Option<&str> {
     app.world()
         .resource::<ShellRouter>()
@@ -247,10 +258,16 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
     // that marker. Pinning the demo's own HUD to EXACTLY what it declared means
     // neither side can drift without a failure — too few and the demo's feature
     // regressed, too many and something else is wearing its marker.
+    use ambition_demo_mary_o::provider as p;
+    assert_eq!(
+        declared_hud_slots(&app),
+        [p::SCORE_HUD_SLOT, p::COINS_HUD_SLOT, p::TIME_HUD_SLOT, p::LIVES_HUD_SLOT, p::CARD_HUD_SLOT, p::BOSS_HUD_SLOT],
+        "this demo declares its score, coins, time, lives, the transient card and the boss gauge"
+    );
     assert_eq!(
         declared_hud_node_count(&mut app),
-        5,
-        "this demo declares 5 HUD readout(s) — score, coins, time, lives, and the\n         transient card — and must draw exactly that many"
+        declared_hud_slots(&app).len(),
+        "the demo draws exactly the HUD readouts it declares"
     );
 
     // ...and the engine's own visual-quality budget IS part of the face, because
@@ -401,9 +418,10 @@ fn visible_mary_o_presentation_retires_and_relaunches_with_the_session() {
     // counts these nodes.
     assert_eq!(
         declared_hud_node_count(&mut app),
-        5,
+        declared_hud_slots(&app).len(),
         "the declared HUD is session-scoped and must rebuild on relaunch"
     );
+    assert!(!declared_hud_slots(&app).is_empty(), "the relaunched route declares its HUD");
 }
 
 /// A `VfxMessage` this demo writes must be DRAWN by this demo.

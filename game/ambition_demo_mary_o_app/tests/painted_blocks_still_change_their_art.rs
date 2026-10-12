@@ -70,23 +70,16 @@ fn hold_jump() -> ControlFrame {
     }
 }
 
+/// The leftmost block of `look` that 1-2 authors.
 fn authored(look: MaryOBlockLook) -> ae::world::Block {
     let room = level_1_2();
-    let mut found: Vec<_> = room
-        .world
+    room.world
         .blocks
         .iter()
         .filter(|block| block_look_of(&block.name) == Some(look))
+        .min_by(|a, b| a.aabb.min.x.total_cmp(&b.aabb.min.x).then(a.aabb.min.y.total_cmp(&b.aabb.min.y)))
         .cloned()
-        .collect();
-    assert_eq!(
-        found.len(),
-        1,
-        "1-2 should author exactly one {look:?} block; found {} ({:?})",
-        found.len(),
-        found.iter().map(|b| b.name.as_str()).collect::<Vec<_>>(),
-    );
-    found.remove(0)
+        .unwrap_or_else(|| panic!("1-2 authors no {look:?} block"))
 }
 
 /// The image the live render entity for this block is drawing, or `None` when
@@ -179,6 +172,7 @@ fn the_invisible_brick_triggers_from_below() {
     let mut app = cavern();
     let hidden = authored(MaryOBlockLook::Hidden);
     let underside = hidden.aabb.max.y;
+    let items_before = world_item_count(&mut app);
     let strike = jump_into_from_below(&mut app, &hidden);
 
     // the SECOND term: her head actually got there. Asserted BEFORE the
@@ -202,16 +196,32 @@ fn the_invisible_brick_triggers_from_below() {
         strike.apex_head,
     );
 
-    // the EFFECT a player would see. A coin block credits the purse
-    // directly rather than dropping a pickup, so the coin count IS the payout —
-    // and `SpentPowerBlocks` alone would go green on a block that acknowledged
-    // the strike and gave nothing.
-    assert!(
-        player_purse(&mut app) > strike.purse_before,
-        "the brick was marked spent but paid nothing: purse {} → {}",
-        strike.purse_before,
-        player_purse(&mut app),
-    );
+    // the EFFECT a player would see, as the block's authored contents say it.
+    // A coin block credits the purse directly rather than dropping a pickup, so
+    // the coin count IS the payout; any other contents pop an item into the
+    // world. `SpentPowerBlocks` alone would go green on a block that
+    // acknowledged the strike and gave nothing.
+    use ambition_demo_mary_o::ldtk_vocabulary::{block_of, MaryOBlockContents, MaryOPickup};
+    match block_of(&hidden.name).expect("an authored block").contents {
+        MaryOBlockContents::Coins(_) | MaryOBlockContents::Always(MaryOPickup::Coin) => assert!(
+            player_purse(&mut app) > strike.purse_before,
+            "the brick was marked spent but paid nothing: purse {} → {}",
+            strike.purse_before,
+            player_purse(&mut app),
+        ),
+        MaryOBlockContents::Empty => panic!("a hidden block that holds nothing pays nothing; 1-2 authors it with contents"),
+        contents => assert!(
+            world_item_count(&mut app) > items_before,
+            "the brick holds {} and was marked spent, but popped no item: {items_before} → {}",
+            contents.authored(),
+            world_item_count(&mut app),
+        ),
+    }
+}
+
+fn world_item_count(app: &mut App) -> usize {
+    let mut query = app.world_mut().query::<&ambition_platformer2d::world_items::WorldItem>();
+    query.iter(app.world()).count()
 }
 
 /// the mechanism is a REPLACEMENT read as a DELETION.

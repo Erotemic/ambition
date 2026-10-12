@@ -164,6 +164,13 @@ record! {
     41 line_half: Vec<f32> [max 4],
     /// What he has said (a bit for each line of `Bark`): he says each once.
     42 said: u32,
+    /// The blows he took from the giant's back while its arms are on it,
+    /// since it last threw.
+    43 back_blows: u32,
+    /// He is on the giant's left shoulder (his saddle is on the right), and
+    /// seconds into a hop from the shoulder he is on to the other.
+    44 on_left: bool,
+    45 hop: Option<f32>,
 }
 
 /// What he says at the turns of the fight, once each.
@@ -638,6 +645,21 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         clock,
     });
 
+    // The far line of a punch follows the player through the tell, then locks.
+    if cue.as_ref().is_some_and(|cue| c.punch_open && ch::arms::tracking(cue)) {
+        let want = ch::arms::far_line(&stage, giant_pos, giant_size, aim_now);
+        let mut at = v(c.punch_far);
+        // The line does not go under the giant: when the player is on its
+        // other side, the line is at that flank at once.
+        let side = (want.x - giant_pos.x).signum();
+        if side * (at.x - giant_pos.x) < 0.0 {
+            at.x = giant_pos.x + side * (giant_size.x * 0.5 + ch::arms::CLEAR_OF_FLANK);
+        }
+        let to = want - at;
+        let step = ch::arms::TRACK_SPEED * dt;
+        c.punch_far = a(at + if to.length() <= step { to } else { to.normalize() * step });
+    }
+
     // ── The gnu's reflex: hurt its rider from its back and it throws you ──
     let hurt = c.last_health.is_some_and(|hp| scholar.health < hp);
     c.last_health = Some(scholar.health);
@@ -651,14 +673,47 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if foe_on_back && arms_on {
         say(inv, &mut c, Bark::Boarded, head)?;
     }
-    if hurt && foe_on_back && c.reflex.is_none() && c.reflex_cooldown <= 0.0 {
+    // With its arms on it the giant lets him take blows, and throws at the
+    // third; after each of the others he goes to its other shoulder.
+    let struck = hurt && foe_on_back;
+    let throws = if arms_on {
+        if struck {
+            c.back_blows += 1;
+        }
+        struck && c.back_blows >= ch::arms::BLOWS_BEFORE_BUCK
+    } else {
+        struck
+    };
+    if arms_on && struck && !throws && c.hop.is_none() {
+        c.hop = Some(0.0);
+    }
+    if throws && c.reflex.is_none() && c.reflex_cooldown <= 0.0 {
         c.reflex = Some(0.0);
+        c.back_blows = 0;
         play(inv, SFX_SNORT, giant_pos)?;
     }
+    // His saddle is on the right shoulder (the giant carries him there each
+    // tick, so `scholar_pos` is the saddle); the left is its mirror about the
+    // middle of the back. When the arms go into their lines he goes back.
+    if let Some(t) = c.hop {
+        c.hop = (t + dt < ch::arms::HOP).then_some(t + dt);
+        if c.hop.is_none() {
+            c.on_left = !c.on_left;
+        }
+    } else if c.on_left && !arms_on {
+        c.hop = Some(0.0);
+    }
+    let left_seat = giant.back.map_or(scholar_pos, |[min_x, _, max_x, _]| Vec2::new(min_x + max_x - scholar_pos.x, scholar_pos.y));
+    let seat = |left: bool| if left { left_seat } else { scholar_pos };
+    let shoulder_pose = match c.hop {
+        Some(t) => Some(ch::arms::hop(seat(c.on_left), seat(!c.on_left), t)),
+        None => c.on_left.then_some(left_seat),
+    };
     if let Some(t) = c.reflex {
         let next = t + dt;
         if t < REFLEX_TELL && next >= REFLEX_TELL {
-            buck(inv, scholar_pos, giant.back)?;
+            // The throw rides him where he is: on a shoulder, or between them.
+            buck(inv, shoulder_pose.unwrap_or(scholar_pos), giant.back)?;
         }
         c.reflex = (next < REFLEX_LEN).then_some(next);
         if c.reflex.is_none() {
@@ -667,9 +722,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
 
     // ── What he and the gnu are drawn as ──
-    match c.clamp {
+    match (c.clamp, c.hop) {
         // He calls the two lines that take the arms, and closes them.
-        Some(t) if t < ch::arms::SNAP => draw(inv, DrawnPart::Body, Some((&["invoke"], t, false)))?,
+        (Some(t), _) if t < ch::arms::SNAP => draw(inv, DrawnPart::Body, Some((&["invoke"], t, false)))?,
+        // He goes to the other shoulder.
+        (_, Some(t)) => draw(inv, DrawnPart::Body, Some((&["brace"], t, false)))?,
         _ => draw(inv, DrawnPart::Body, ch::rows::scholar(cue.as_ref()))?,
     }
     match (c.reflex, c.clamp) {
@@ -829,7 +886,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 
     // ── The lines that are a look: one at each shoulder, one behind each wrist ──
     let shoulders = c.loosed || c.clamp.is_some();
-    let tight = ch::arms::tight(c.clamp);
+    // When he is dazed his spell has no hold: the lines come open, and flicker.
+    let dazed = cue.as_ref().is_some_and(|cue| {
+        cue.mv == Move::Eureka && cue.striking && ch::eureka::part(cue.t, cue.dur) == ch::eureka::Part::Dazed
+    });
+    let tight = ch::arms::tight(c.clamp) - if dazed { ch::arms::dazed_slack(clock) } else { 0.0 };
     for fist in Fist::BOTH {
         let i = fist.index();
         c.line_half[i] = ch::arms::SHOULDER_WIDE + (ch::arms::SHOULDER_TIGHT - ch::arms::SHOULDER_WIDE) * tight;
@@ -890,12 +951,22 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             })?;
             c.posed = true;
         }
-        None if c.posed => {
-            // He is back in the saddle: the gnu carries him again.
-            inv.submit::<ConductedPosePort>(ConductedPose { pose: None, side: None })?;
-            c.posed = false;
-        }
-        None => {}
+        None => match shoulder_pose {
+            // He is on the giant's other shoulder, or on his way to one.
+            Some(at) => {
+                inv.submit::<ConductedPosePort>(ConductedPose {
+                    pose: Some(BodyPose { position: a(at), velocity: [0.0, 0.0] }),
+                    side: None,
+                })?;
+                c.posed = true;
+            }
+            None if c.posed => {
+                // He is back in the saddle: the gnu carries him again.
+                inv.submit::<ConductedPosePort>(ConductedPose { pose: None, side: None })?;
+                c.posed = false;
+            }
+            None => {}
+        },
     }
 
     // ── The stomp's shocks roll out along the floor ──
@@ -961,10 +1032,12 @@ fn ink(
     let hall = stage.hall;
     match cue.mv {
         Move::PortalPunch if !cue.striking => {
-            // A plumb line from the far line to where the fist will land.
+            // A plumb line from the far line to where the fist will land:
+            // the colour of a warning when the line has locked.
             let far = v(c.punch_far);
+            let colour = if ch::arms::tracking(cue) { INK } else { WARNING };
             for k in 1..=6 {
-                spark(inv, Vec2::new(far.x, far.y + (hall.floor - far.y) * k as f32 / 6.0), WARNING, 1, 4.0)?;
+                spark(inv, Vec2::new(far.x, far.y + (hall.floor - far.y) * k as f32 / 6.0), colour, 1, 4.0)?;
             }
         }
         Move::Demonstrate | Move::DemonstratePair => {

@@ -423,6 +423,22 @@
                 "This bridge goes nowhere. So do you.",
             ],
         ),
+        // The one the void held in the castle. He waits past the bridge and
+        // thanks her (`castle_end.rs`). He wears the sheet of the player robot
+        // of Ambition; his name is his own, because a catalog that is put
+        // together from many games refuses two rows with one name.
+        "mary_o_robot": (
+            display_name: "Rescued Robot",
+            spritesheet: "sprites/player_robot_v3_spritesheet.png",
+            manifest: "sprites/player_robot_v3_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["npc"],
+            fallback_dialogue: ["Thank you. You saved me."],
+        ),
         // The two flying swarms. Their Hall pedestals and dialogue stay in
         // Ambition's world files and resolve by id from the merged catalog in
         // hosted builds. Free flight is a body capability, so it travels with

@@ -37,8 +37,16 @@ Built: `game/ambition_demo_sanic` (content) and `game/ambition_demo_sanic_app`
   animated `sanic_ring_prop` sheet. A hit taken holding rings costs the rings
   (`BodyHitResolution::WalletShielded`) and scatters them radially. A hit taken
   holding none is fatal (`max_health: 1`).
-- The badnik is defeated by a stomp with bounce or by a roll-through, through the
-  shared contact pass. Badniks ride the surface solver.
+- A badnik is defeated by a stomp with bounce or by a roll-through, through the
+  shared contact pass. Badniks ride the surface solver. There are six kinds,
+  each a row of the cast that wears the sheet of an AI-era enemy and has a
+  height and a pace of its own: the plain one (AI Slop), and the liar, noodle,
+  friend, swarm and saint. A kind is a row in `assets/data/character_catalog.ron`
+  and an entry of `BADNIKS` in `tools/author_highway_ldtk.py`; each act's
+  script says which kind stands where.
+- The ground wears the skin of the act's biome: the earth takes the fill and
+  each segment of a chain takes the cap, turned to it
+  (`crates/ambition_render/src/rendering/chain_skin.rs`).
 - Crossing the goal clears the act: the clock stops, time and rings are captured,
   a results card holds, and the act replays through `RoomReplayRequested`. After
   the goal the course takes the controls, so Sanic cannot coast off the level.

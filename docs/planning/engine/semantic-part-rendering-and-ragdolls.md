@@ -121,6 +121,16 @@ frames are composited.
   by room: both readers decide late in the frame), the puppy slug's dream, and
   Mary-O's star power; a fading frame composites itself. `CharacterColorShift`
   has no production inserter; it still applies only to a composited body.
+- **A reader of a SET of parts asks for their draws** (`PartSetRequest` on the
+  root, answered each frame in `PartSetDraws`, 2026-10-11;
+  `rigged/part_set.rs`). A composited image has no parts, so a reader of it
+  cannot draw about a body and not about its wings. The request names tracks as
+  the flipbook names them; the answer is their draws (page, rect, size, pivot,
+  place under the feet) and the place of the feet in the world, the same on
+  both roads. The engine draws nothing for it. First reader: the barrier of
+  Eternal Cosmic Mary-O (`cosmic_barrier.rs`), about her hair and her figure.
+  Not done: a part that is turned or scaled is in the answer, and that first
+  reader reads each part as not turned.
 - **A composited root states where its frame is** (`FrameInSprite`): the cell is
   square with the frame inside its margin, where a baked frame was its whole
   image. A reader that patterns over the body (the slug's dream, Mary-O's

@@ -9,8 +9,9 @@ tile language and the command line.
 
 The castle is a closed hall of bars of fire over pits of lava, and at its end a
 bridge with the Void Lizard on it. The void has taken the castle: where a void
-thing is, the hall has no colour. The quasar gives it back. The pole is past the bridge: the bridge falls when
-the pole is taken, and the Void Lizard falls with it.
+thing is, the hall has no colour. The quasar gives it back. A castle has no
+pole: a switch is past the bridge. The bridge falls when the switch is taken,
+the Void Lizard falls with it, and the robot that the void held thanks her.
 """
 
 from __future__ import annotations
@@ -129,18 +130,20 @@ def garden(lv: Level) -> None:
 
 
 def bridge(lv: Level) -> None:
-    """Columns 138 to 175. The bridge of planks, the Void Lizard on it, and the pole past it.
+    """Columns 138 to 175. The bridge of planks, the Void Lizard on it, and the switch and the robot past it.
 
     A post of rock at each end of the bridge turns the Void Lizard, so it stays on
     the bridge. A post is three tiles high: its hop does not go over it, and a
-    jump of the player does. The planks fall when the pole is taken."""
+    jump of the player does. The planks fall when the switch is taken. She
+    walks three tiles from the switch, and the robot is past that."""
     lv.column(138, 1, 3)
     pit(lv, 139, 16)
     lv.planks(139, FLOOR, 16)
     lv.column(155, 1, 3)
     lv.enemy("void_lizard", 149)
     lv.coins(141, up(4), 4, step=3)
-    lv.pole(164, 8)
+    lv.switch(158)
+    lv.npc("mary_o_robot", 163)
 
 
 if __name__ == "__main__":

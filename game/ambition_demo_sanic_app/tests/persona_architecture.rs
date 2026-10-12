@@ -429,7 +429,8 @@ fn every_authored_badnik_sleeps_under_sanics_rule() {
             matches!(
                 &config.brain,
                 ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(key)
-                    if key == ambition_demo_sanic::badnik::BADNIK_BRAIN_KEY
+                    // Each kind of badnik: the key of each starts with the plain one's.
+                    if key.starts_with(ambition_demo_sanic::badnik::BADNIK_BRAIN_KEY)
             )
         })
         .map(|(_, faction, is_mob, is_mount, is_limb)| {
@@ -517,7 +518,8 @@ fn the_super_form_s_traits_are_stated_by_its_row() {
                     matches!(
                         &config.brain,
                         ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(key)
-                            if key == ambition_demo_sanic::badnik::BADNIK_BRAIN_KEY
+                            // A badnik of any kind: the first call can cost the act the one it took.
+                            if key.starts_with(ambition_demo_sanic::badnik::BADNIK_BRAIN_KEY)
                     )
                 })
                 .map(|(entity, _)| entity)

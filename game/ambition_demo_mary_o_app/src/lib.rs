@@ -165,6 +165,20 @@ pub fn build_windowed_demo_app_entering(
     // chains + normals, read-model body/feature boxes). Shapes only — no dev
     // HUD. Starts OFF; press F1 in-game.
     app.add_plugins(ambition_platformer2d::render::rendering::debug_viz::DebugVizPlugin::default());
+    // The cards of a cutscene. The engine plays a cutscene in every game, and
+    // the app that hosts the game draws it: the multi-game host does so for
+    // itself, and this is the same for the game alone. The castle ends on one.
+    app.add_systems(
+        Update,
+        (
+            ambition_platformer2d::render::cutscene::sync_cutscene_ui,
+            ambition_platformer2d::render::reading_layout::fit_to_reading_rect::<
+                ambition_platformer2d::render::cutscene::CutsceneOverlayRoot,
+            >,
+        )
+            .chain()
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
+    );
 
     // The windowed host uses the physical Kira backend. Mary-O's provider authors
     // a run+jump SFX voice and the "Support Theme" music cue; this wires the same

@@ -46,7 +46,13 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
   one ferry): pillars, three ferries, a climb of shelves with a low road
   under it, a bridge of bricks, and steps down to the pole. World 1-4 is the
   castle (178 tiles): bars of fire over pits, a low hall, a ride under a bar,
-  two plants, and a bridge with the boss on it. The pole is past the bridge.
+  two plants, and a bridge with the boss on it. The castle has no pole (Jon,
+  2026-10-11): a switch is past the bridge (`castle_end.rs`, the block
+  `goal_switch`). The flag sequence takes the switch as it takes a pole. The
+  bridge falls, the Void Lizard dies with it, she walks to the robot
+  (`mary_o_robot`, the sheet of `player_robot_v3`), his line is on the screen
+  for four seconds (a cutscene of the engine, a timed banner, no button), and
+  the level goes.
   Each has its script beside 1-2's (`author_mary_o_1_3_ldtk.py`,
   `author_mary_o_1_4_ldtk.py`); the tile language is `tools/mary_o_level.py`.
 - Enemy kinds added 2026-10-11. Each cycle reads the simulation tick, so
@@ -68,7 +74,8 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
     enemy body, not a boss of the engine's boss encounter: a large walker
     with the health of five sparks that throws an orb along its bridge and
     hops. Its bridge is `MaryOBlock`s of kind `Plank`, and all the planks of
-    a room fall when its pole is taken (`bricks.rs`), so the boss falls too.
+    a room fall when its goal is taken (`bricks.rs`), so the boss falls too,
+    and `castle_end::the_fall_kills_the_boss` makes its death sure.
 - Her fireball is the spark blossom (`super_mary_o_spark`, a sheet). A fire
   has a glow (`fire_shader.rs`): a shader that moves an authored flame
   picture through a soft light behind the spark and behind each orb of a bar
@@ -113,7 +120,15 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
     that reads the starlight shimmer picture (`cosmic_aura.rs`). The engine's
     spark particles are squares and were taken out; a star particle is not
     made. She has the ward against the void at all times in the form
-    (`void_look.rs`), and the overlay of the quasar does not draw over her.
+    (`void_look.rs`).
+  - Three layers of light (Jon, 2026-10-11): the glow under her, a barrier on
+    the border of her body, and the overlay of the quasar over her while she
+    holds a quasar (not from the form alone). The barrier is about her hair
+    and her figure and not about her wings: she is drawn from parts in the
+    form (each row but `transform`), and the part renderer says where the
+    parts of her body are (`cosmic_barrier.rs`, `PartSetRequest`).
+  - A hit stops the world for 0.02 s at most in the form
+    (`cosmic::shorten_her_hit_stop`).
   - Her theme is the cue `eternal_cosmic` of the music renderer: an intro as
     long as the transformation, then a loop of forty bars
     (`cosmic::COSMIC_MUSIC_TRACK`). The castle plays `castle_crash_override`

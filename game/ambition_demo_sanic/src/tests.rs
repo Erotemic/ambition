@@ -232,12 +232,31 @@ fn sanic_speedway_composes_through_the_umbrella() {
          form is reachable only from the Utility action"
     );
     assert_eq!(room.enemy_spawns.len(), 4, "four badniks pace the flats");
-    assert!(
-        room.enemy_spawns
-            .iter()
-            .all(|spawn| spawn.name == badnik::BADNIK_DISPLAY_NAME),
-        "every enemy spawn resolves the badnik identity row"
-    );
+    // Each is a row of the cast, and they are not all one kind. The first is
+    // the plain badnik: the tests that need "a badnik" take that one.
+    let catalog = {
+        use ambition_platformer2d::characters::actor::character_catalog::{lowered_catalog, CharacterCatalog};
+        CharacterCatalog::from_data(
+            lowered_catalog(crate::pack::PACK.prepared()).expect("the Sanic pack states its cast").clone(),
+        )
+    };
+    let names: Vec<&str> = room.enemy_spawns.iter().map(|spawn| spawn.name.as_str()).collect();
+    let badnik_rows = [
+        "sanic_badnik",
+        "sanic_badnik_liar",
+        "sanic_badnik_noodle",
+        "sanic_badnik_friend",
+        "sanic_badnik_swarm",
+        "sanic_badnik_saint",
+    ];
+    for name in &names {
+        assert!(
+            badnik_rows.iter().any(|id| catalog.display_name(id) == Some(*name)),
+            "the enemy spawn `{name}` names no badnik of the cast"
+        );
+    }
+    assert_eq!(names[0], badnik::BADNIK_DISPLAY_NAME);
+    assert!(names.iter().any(|name| *name != badnik::BADNIK_DISPLAY_NAME), "the act has more than one kind of badnik");
     assert_eq!(
         room.metadata.visual_profile.parallax_theme.as_deref(),
         Some("skybridge"),

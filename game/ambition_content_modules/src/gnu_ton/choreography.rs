@@ -593,6 +593,36 @@ pub mod arms {
     pub const LINE_OVER: f32 = 96.2;
     /// The far line is no nearer to the giant's flank than this.
     pub const CLEAR_OF_FLANK: f32 = 110.0;
+    /// Through the tell the far line follows the player this fast (a player
+    /// runs at 270), until the last `LOCK` of it: then it stays, and the
+    /// player has a thing to step out from under, and a way that is open.
+    pub const TRACK_SPEED: f32 = 360.0;
+    pub const LOCK: f32 = 0.3;
+
+    /// With its arms on it the giant lets him take blows from its back: at
+    /// this blow it throws. After each blow before it he goes to the giant's
+    /// other shoulder (`HOP` seconds, this high), so the next blow is a walk
+    /// away. (When the fists are bodies of their own, the first blow throws.)
+    pub const BLOWS_BEFORE_BUCK: u32 = 3;
+    pub const HOP: f32 = 0.42;
+    pub const HOP_HEIGHT: f32 = 70.0;
+
+    /// Where he is `t` seconds into a hop from `from` to `to`.
+    pub fn hop(from: Vec2, to: Vec2, t: f32) -> Vec2 {
+        let u = ease(t / HOP);
+        from + (to - from) * u - Vec2::new(0.0, (std::f32::consts::PI * u).sin() * HOP_HEIGHT)
+    }
+
+    /// How far the lines come open when he is dazed (0 is tight): his spell
+    /// has no hold, and they flicker.
+    pub fn dazed_slack(clock: f32) -> f32 {
+        0.3 + 0.35 * (clock * 23.0).sin().abs()
+    }
+
+    /// Does the far line still follow the player?
+    pub fn tracking(cue: &Cue) -> bool {
+        cue.mv == Move::PortalPunch && !cue.striking && cue.t < cue.dur - LOCK
+    }
     /// The blow: the row `punch_strike`, and the part of it that hurts.
     pub const STRIKE: f32 = 0.35;
     pub const HARM: (f32, f32) = (0.1, 0.42);

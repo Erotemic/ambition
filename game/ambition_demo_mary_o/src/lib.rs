@@ -18,8 +18,10 @@ pub mod ai_slop;
 #[cfg(test)]
 mod binding_tests;
 pub mod bricks;
+pub mod castle_end;
 pub mod cosmic;
 pub mod cosmic_aura;
+pub mod cosmic_barrier;
 pub mod death;
 pub mod fire_shader;
 pub mod flag;
@@ -678,6 +680,7 @@ fn dress_authored_blocks(room: &mut RoomSpec) {
             == Some(ldtk_vocabulary::MaryOBlockLook::Hidden)
             || ldtk_vocabulary::pipe_of(&block.name).is_some()
             || block.name.starts_with(GOAL_POLE_PREFIX)
+            || block.name == castle_end::GOAL_SWITCH
         {
             block.art_color = Some(scenery::TRANSPARENT);
         }
@@ -748,6 +751,17 @@ fn scenery_for_authored_room(room: &RoomSpec) -> Vec<PropSpec> {
             }),
             _ => {}
         }
+    }
+
+    // The switch of a castle: drawn larger than its block, on the same floor.
+    for (_, min, size) in authored_blocks_named(room, castle_end::GOAL_SWITCH) {
+        let grow = size * 0.5;
+        props.push(scenery::structure_prop(
+            castle_end::SWITCH_ART,
+            scenery::SWITCH_SPRITE,
+            min - ae::Vec2::new(grow.x * 0.5, grow.y),
+            size + grow,
+        ));
     }
 
     // Every pipe, tiled over its OWN block: one LIP tile at the open end and body
@@ -901,12 +915,15 @@ pub fn authored_pole(room: &RoomSpec) -> flag::FlagPole {
 /// The flag reads it from the active room every tick, so the goal is always the
 /// goal of the room she is in, a rewind included.
 pub fn room_pole(room: &RoomSpec) -> Option<flag::FlagPole> {
+    // A castle ends on a switch. The sequence takes it as a pole that is as
+    // tall as the switch: she touches it, she is on the floor, she walks off.
     let aabb = room
         .world
         .blocks
         .iter()
-        .find(|block| block.name == GOAL_POLE_PREFIX)?
-        .aabb;
+        .find(|block| block.name == GOAL_POLE_PREFIX)
+        .map(|block| block.aabb)
+        .or_else(|| castle_end::room_switch(room))?;
     Some(flag::FlagPole {
         x: (aabb.min.x + aabb.max.x) * 0.5,
         top_y: aabb.min.y,
@@ -1068,6 +1085,8 @@ pub fn install_mary_o_content(app: &mut App) {
             powerups::dress_power_blocks,
             // The look of a bar of fire, for the same reason in `Update`.
             scenery::dress_fire,
+            // The switch of a castle, up or down.
+            castle_end::dress_the_switch,
         ),
     );
 
@@ -1158,6 +1177,7 @@ impl Plugin for MaryODemoContentPlugin {
         fire_shader::install(app);
         void_look::install(app);
         cosmic_aura::install(app);
+        cosmic_barrier::install(app);
         let room = level_1_1();
         let source = ambition_platformer2d::runtime::PreparedPlatformerSource::new(
             provider::MARY_O_EXPERIENCE,
@@ -1440,6 +1460,7 @@ impl Plugin for MaryORulesPlugin {
             begin_a_lap_on_arrival,
             flag::run_flag_sequence,
             flag::play_victory_music,
+            castle_end::the_fall_kills_the_boss,
             tick_level_clock,
             // Reads the clock the tick above just settled, so a timeout leaves by
             // the SAME door a pit does — as a published death fact, on the frame
@@ -1453,6 +1474,8 @@ impl Plugin for MaryORulesPlugin {
             spend_lives_on_death,
             death::voice_her_death,
             death::play_death_music,
+            // Before the tally, which it holds while his line is up.
+            castle_end::the_robot_thanks_her,
             cycle_level_on_flag_tally,
         )
             .chain()

@@ -119,8 +119,24 @@ SKY_ISLAND = (13280, 480, 420)  # x, y, width
 
 FINISH_TOWER_X = 15880
 
-BADNIK_CHARACTER_ID = "sanic_badnik"
-BADNIK_DISPLAY_NAME = "Sanic Badnik"
+#: The badniks: kind -> (character id, display name). The id is the brain
+#: key of the placement too. Each is a row of the demo's character catalog.
+BADNIKS = {
+    "slop": ("sanic_badnik", "Sanic Badnik"),
+    "liar": ("sanic_badnik_liar", "Liar Badnik"),
+    "noodle": ("sanic_badnik_noodle", "Noodle Badnik"),
+    "friend": ("sanic_badnik_friend", "Friend Badnik"),
+    "swarm": ("sanic_badnik_swarm", "Swarm Badnik"),
+    "saint": ("sanic_badnik_saint", "Saint Badnik"),
+}
+
+
+def badnik_fields(kind: str) -> dict:
+    """The fields of an `EnemySpawn` that is a badnik of ``kind``."""
+    character_id, display_name = BADNIKS[kind]
+    return {"brain": character_id, "character_id": character_id, "name": display_name}
+
+
 RING_SIZE = (18, 18)  # the same side as Act 1 and a scattered ring
 RING_SPRITE = "sanic_ring_prop"
 
@@ -183,17 +199,10 @@ def surface_loop(name: str, centre_x: float, radius: float, attach_to: str, floo
     )
 
 
-def badnik(ground_y, x: float) -> dict:
+def badnik(ground_y, x: float, kind: str = "slop") -> dict:
     # Dropped just above the ground it will walk: a badnik rides the surface
     # now, so a spawn inside a hill would walk the floor under it.
-    return rect(
-        "EnemySpawn",
-        (x, ground_y(x + 14) - 48),
-        (28, 32),
-        brain=BADNIK_CHARACTER_ID,
-        character_id=BADNIK_CHARACTER_ID,
-        name=BADNIK_DISPLAY_NAME,
-    )
+    return rect("EnemySpawn", (x, ground_y(x + 14) - 48), (28, 32), **badnik_fields(kind))
 
 
 def spring(x: float, floor_y: float, up: float) -> dict:
@@ -320,12 +329,12 @@ def area_spec() -> dict:
         rect("DamageVolume", (14760, 1184), (64, 16), name="gauntlet_spikes_3", damage=1),
         # Badniks walk the slopes now: on the rolling descent, the valley, the
         # plateau and the run-in.
-        badnik(west_y, 1180),
-        badnik(west_y, 1700),
-        badnik(valley_y, 5400),
-        badnik(valley_y, 6400),
-        badnik(east_y, 12900),
-        badnik(east_y, 15100),
+        badnik(west_y, 1180, "slop"),
+        badnik(west_y, 1700, "noodle"),
+        badnik(valley_y, 5400, "friend"),
+        badnik(valley_y, 6400, "swarm"),
+        badnik(east_y, 12900, "liar"),
+        badnik(east_y, 15100, "saint"),
     ]
     entities += ring_placements()
     return {

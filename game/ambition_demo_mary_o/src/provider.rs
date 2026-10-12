@@ -147,6 +147,7 @@ impl Plugin for MaryOExperiencePlugin {
         crate::fire_shader::install(app);
         crate::void_look::install(app);
         crate::cosmic_aura::install(app);
+        crate::cosmic_barrier::install(app);
         // Declare the star wand pickup art (pure id → path + size DATA; no render
         // dependency here). The render layer resolves it into a real sprite through
         // the shared `WorldItem` art seam, so the ?-block's wand draws as a wand

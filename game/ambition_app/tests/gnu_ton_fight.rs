@@ -360,6 +360,15 @@ fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
     assert!(on_back, "out of the near line at {near:?} the player did not get onto the back {back:?}: {trail:?}");
 }
 
+/// Put the scholar's health at `fraction` of its full.
+fn scholar_health_to(sim: &mut Platformer2dSimHarness, fraction: f32) {
+    let world = sim.world_mut();
+    let mut bosses = world.query::<(&BossConfig, &mut BodyHealth)>();
+    let (_, mut health) =
+        bosses.iter_mut(world).find(|(config, _)| config.behavior.id == GNU_TON_ID).expect("the scholar");
+    health.health.current = ((health.max() as f32) * fraction).ceil() as i32;
+}
+
 /// A demonstration hovers over the player, falls where they stood, hurts them,
 /// and stays in the floor; a blow to the stuck fist lands on the scholar.
 #[test]
@@ -528,9 +537,11 @@ fn a_body_stands_where_the_giant_has_moss() {
 /// hurt its rider while you stand on its back and it rears and throws you.
 #[test]
 fn hit_him_from_the_gnus_back_and_it_bucks_you_off() {
-    let mut sim = arena();
+    // The fists are bodies of their own: the first blow starts the throw.
+    // (With the giant's arms on it, the third does: the test after this.)
+    let mut sim = arena_with_free_fists();
     untouchable_player(&mut sim);
-    // Into Phase 1, well before its own buck (the fourth beat of the cycle).
+    // His first move, well before the pattern's own buck.
     step_until(&mut sim, 600, "his first move", |sim| scene(sim).performing.is_some());
     let s = scene(&mut sim);
     let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
@@ -548,12 +559,65 @@ fn hit_him_from_the_gnus_back_and_it_bucks_you_off() {
     thrown_off_the_back(&mut sim, back, 28);
 }
 
+/// With the giant's arms on it (phase 1) he takes two blows from its back, and
+/// after each he goes to its other shoulder; the third blow starts the throw.
+/// The way up through the pair of the punch is paid with three blows.
+#[test]
+fn with_its_arms_on_he_changes_shoulder_twice_and_the_third_blow_throws() {
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    step_until(&mut sim, 600, "his first move", |sim| scene(sim).performing.is_some());
+    let s = scene(&mut sim);
+    let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
+    let middle = (back.min.x + back.max.x) * 0.5;
+    assert!(s.scholar.pos.x > middle, "the premise: his saddle is on the right shoulder: {:?}", s.scholar.pos);
+
+    // The first blow, from his left: he goes to the left shoulder.
+    let stand = ae::Vec2::new(s.scholar.pos.x - 45.0, back.min.y - 40.0);
+    assert!(strike_him_from(&mut sim, stand, 1.0), "the premise: a blow from his shoulders lands");
+    step_until(&mut sim, 60, "him on the left shoulder", |sim| {
+        let s = scene(sim);
+        s.scholar.pos.x < middle && s.scholar.vel == ae::Vec2::ZERO && (s.scholar.pos.x - (2.0 * middle - stand.x - 45.0)).abs() < 2.0
+    });
+    let (kin, _) = player(&mut sim);
+    assert!(
+        ((kin.pos.y + kin.size.y * 0.5) - back.min.y).abs() < 2.0,
+        "the first blow threw the player: {:?}",
+        kin.pos
+    );
+
+    // The second, on the left shoulder: he goes back to the right.
+    let s = scene(&mut sim);
+    let stand = ae::Vec2::new(s.scholar.pos.x + 45.0, back.min.y - 40.0);
+    assert!(strike_him_from(&mut sim, stand, -1.0), "the premise: a second blow lands on the left shoulder");
+    step_until(&mut sim, 60, "him back on the right shoulder", |sim| {
+        let s = scene(sim);
+        s.scholar.pos.x > middle + 60.0 && s.scholar.vel == ae::Vec2::ZERO
+    });
+    let (kin, _) = player(&mut sim);
+    assert!(
+        ((kin.pos.y + kin.size.y * 0.5) - back.min.y).abs() < 2.0,
+        "the second blow threw the player: {:?}",
+        kin.pos
+    );
+
+    // The third: the giant throws.
+    let s = scene(&mut sim);
+    let stand = ae::Vec2::new(s.scholar.pos.x - 45.0, back.min.y - 40.0);
+    assert!(strike_him_from(&mut sim, stand, 1.0), "the premise: a third blow lands");
+    touchable_player(&mut sim);
+    thrown_off_the_back(&mut sim, back, 28);
+}
+
 /// After the apple rain a golden apple knocks him off the gnu: he sits dazed on
 /// the floor, then climbs back to the saddle.
 #[test]
 fn eureka_puts_him_on_the_floor_and_he_climbs_back() {
     let mut sim = arena_with_free_fists();
     untouchable_player(&mut sim);
+    // The apple rain comes under a part of his health (`boss_profiles.ron`:
+    // 0.52), and the enrage is under 0.28.
+    scholar_health_to(&mut sim, 0.45);
     place_player(&mut sim, ae::Vec2::new(300.0, 1200.0));
     step_until(&mut sim, 3000, "him dazed on the floor after the apple rain", |sim| {
         let s = scene(sim);

@@ -31,6 +31,9 @@ TARGET = REPO / "game" / "ambition_demo_sanic" / "assets" / "worlds" / "sanic_sp
 sys.path.insert(0, str(TOOLS))
 from ambition_ldtk_tools import terrain  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from author_highway_ldtk import badnik_fields  # noqa: E402
+
 GRID = 16
 
 # ── Layout constants (mirrored by game/ambition_demo_sanic/src/lib.rs) ──────
@@ -127,8 +130,9 @@ RING_SIZE = (18, 18)
 # : back to the generic coin. Authoring it here is what makes the script the
 # : file's only author again.
 RING_SPRITE = "sanic_ring_prop"
-BADNIK_CHARACTER_ID = "sanic_badnik"
-BADNIK_DISPLAY_NAME = "Sanic Badnik"
+#: The badniks of the act, west to east: (x, kind). The kinds are the table
+#: of `author_highway_ldtk.py`.
+BADNIK_PLACES = ((3136, "slop"), (3552, "liar"), (5056, "noodle"), (5760, "saint"))
 
 
 def ring(cx: float, cy: float) -> dict:
@@ -249,17 +253,7 @@ def area_spec() -> dict:
         rect("DamageVolume", (5648, 656), (96, 16), name="mid_spikes", damage=1),
         # Badniks. They ride the surface solver, so a badnik walks the hills
         # like Sanic does and turns back at the pit's lip.
-        *(
-            rect(
-                "EnemySpawn",
-                (x, 640),
-                (28, 32),
-                brain=BADNIK_CHARACTER_ID,
-                character_id=BADNIK_CHARACTER_ID,
-                name=BADNIK_DISPLAY_NAME,
-            )
-            for x in (3136, 3552, 5056, 5760)
-        ),
+        *(rect("EnemySpawn", (x, 640), (28, 32), **badnik_fields(kind)) for x, kind in BADNIK_PLACES),
     ]
     entities += ring_placements()
     return {

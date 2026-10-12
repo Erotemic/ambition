@@ -103,7 +103,7 @@ pub fn bounce_squash_ai_slop(
     // The squash burst is drawn in the mob's own live room.
     rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
-    mut players: Query<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>,
+    mut players: Query<(Entity, &mut ae::BodyKinematics), With<PlayerEntity>>,
     // Which bodies are AI Slop is their authored brain, read here rather
     // than copied onto a marker after they are built.
     mut mobs: Query<
@@ -111,10 +111,16 @@ pub fn bounce_squash_ai_slop(
         (Without<PrimaryPlayer>, Without<PlayerEntity>),
     >,
 ) {
-    let Ok((player_entity, mut player)) = players.single_mut() else {
-        return;
-    };
-    let (p, pvel) = (player.aabb(), player.vel);
+    // Each player body, its live room, and its box and velocity at the start
+    // of the pass, in entity order.
+    //
+    // ⛔ EACH PLAYER OF THE MOB'S OWN LIVE ROOM. It read one global
+    // `PrimaryPlayer` with `single_mut()`: with two players nobody could
+    // squash a mob, and a player in another live room at the same place
+    // could.
+    let mut everyone: Vec<(Entity, Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance>, ae::Aabb, ae::Vec2)> =
+        players.iter().map(|(player, kin)| (player, rooms.of(player), kin.aabb(), kin.vel)).collect();
+    everyone.sort_by_key(|(player, ..)| *player);
     for (entity, mob_kin, mut health, config) in &mut mobs {
         // A swallow is squashed the way a walker is.
         let squashable = is_ai_slop_brain(&config.brain)
@@ -124,10 +130,20 @@ pub fn bounce_squash_ai_slop(
         }
         // The shared top/side rule: only a TOP contact squashes. A side (or an
         // underside) touch is left alone here and lands as normal contact damage.
-        if player_touch(mob_kin.aabb(), p, pvel) != Some(PlayerTouch::Top) {
+        // The first player of its room on its head is the stomper.
+        let room = rooms.of(entity);
+        let Some(player_entity) = everyone
+            .iter()
+            .find(|(_, player_room, aabb, vel)| {
+                *player_room == room && player_touch(mob_kin.aabb(), *aabb, *vel) == Some(PlayerTouch::Top)
+            })
+            .map(|(player, ..)| *player)
+        else {
             continue;
+        };
+        if let Ok((_, mut player)) = players.get_mut(player_entity) {
+            ae::movement::set_jump_velocity(&mut player.vel, ae::DEFAULT_GRAVITY_DIR, BOUNCE_SPEED);
         }
-        ae::movement::set_jump_velocity(&mut player.vel, ae::DEFAULT_GRAVITY_DIR, BOUNCE_SPEED);
         // The squash pops a low, tan dust burst through the engine's shared particle
         // seam, so the mob leaves a mark instead of blinking out.
         vfx.for_room(rooms.of(entity)).write(ambition_platformer2d::vfx::VfxMessage::Burst {

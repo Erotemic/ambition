@@ -143,7 +143,7 @@ Do not reimplement those parts of the historical audit.
   GNU-ton's fixed-channel join. See
   [portal identity](engine/portal-pair-identity-and-aperture.md) and
   [GNU-ton debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
-- **IN2 / P1, remaining plant authority:** ✅ Snake Plant DONE 2026-10-12: room-scoped shyness, its own `PoseHold::Path`, its own out fraction (it never moved before), see [movement](engine/unified-movement-kernel.md#pose-ownership-under-script-encounter-and-plant-control-new-customer). Snake shells ✅ same fix 2026-10-12 (found on the way: `run_snake_shells` read one global `PrimaryPlayer` with `single()`; now each player of the snake's live room, witness `mary_o_it a_snake_is_each_players`). The contact-phase note below stays open. Was: the S1-S3 `actor_think`
+- **IN2 / P1, remaining plant authority:** ✅ Snake Plant DONE 2026-10-12: room-scoped shyness, its own `PoseHold::Path`, its own out fraction (it never moved before), see [movement](engine/unified-movement-kernel.md#pose-ownership-under-script-encounter-and-plant-control-new-customer). Snake shells ✅ same fix 2026-10-12 (found on the way: `run_snake_shells` read one global `PrimaryPlayer` with `single()`; now each player of the snake's live room, witness `mary_o_it a_snake_is_each_players`), and AI Slop squashes the same (`a_mob_is_squashed_by_each_player`). The contact-phase note below stays open. Was: the S1-S3 `actor_think`
   pre-gate control road and Void Lizard/Swallow module migration are **done**
   with held-body production-path witnesses. `select_actor_targets` already
   filters `ActorTarget` to the actor's live room; do not duplicate that

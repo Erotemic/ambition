@@ -20,6 +20,7 @@ fn player(app: &mut App, vel_y: f32) -> Entity {
     app.world_mut()
         .spawn((
             PrimaryPlayer,
+            PlayerEntity,
             ae::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 72.0),
                 vel: ae::Vec2::new(0.0, vel_y),

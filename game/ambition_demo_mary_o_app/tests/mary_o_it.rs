@@ -52,6 +52,7 @@ mod a_hold_is_its_holders;
 mod a_void_visual_has_its_bodys_aura;
 mod the_form_is_its_wearers;
 mod a_snake_is_each_players;
+mod a_mob_is_squashed_by_each_player;
 mod eternal_cosmic;
 mod the_switch_ends_the_castle;
 mod the_laden_swallow_is_a_module;

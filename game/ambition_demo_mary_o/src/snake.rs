@@ -406,11 +406,8 @@ pub fn run_snake_shells(
     // `PrimaryPlayer` with `single()`: with two players nobody could stomp or
     // kick a snake, and a player in another live room at the same place
     // could.
-    let everyone: Vec<(Entity, ambition_platformer2d::platformer::lifecycle::LiveRoomInstance, ae::Aabb, ae::Vec2, ae::Vec2)> =
-        players
-            .iter()
-            .filter_map(|(player, kin)| Some((player, rooms.of(player)?, kin.aabb(), kin.pos, kin.vel)))
-            .collect();
+    let everyone: Vec<(Entity, Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance>, ae::Aabb, ae::Vec2, ae::Vec2)> =
+        players.iter().map(|(player, kin)| (player, rooms.of(player), kin.aabb(), kin.pos, kin.vel)).collect();
 
     // First pass: advance every snake's phase and apply presentation/physics.
     // Collect each sliding shell's (entity, AABB, own-id, whether it is
@@ -431,7 +428,7 @@ pub fn run_snake_shells(
         let room = rooms.of(entity);
         let player = everyone
             .iter()
-            .filter(|(_, player_room, ..)| Some(*player_room) == room)
+            .filter(|(_, player_room, ..)| *player_room == room)
             .map(|(player, _, aabb, pos, vel)| (*player, *pos, player_touch(kin.aabb(), *aabb, *vel)))
             .min_by(|a, b| {
                 (a.2.is_none(), a.1.distance_squared(kin.pos), a.0)

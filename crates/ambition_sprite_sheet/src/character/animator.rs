@@ -70,6 +70,21 @@ pub struct CharacterAnimator {
     /// again: a column that tiles fills its box
     /// (`CharacterSheetSpec::column_slices`), not the trimmed rect of a frame.
     pub keeps_its_quad: bool,
+    /// The legs under a clip that is the picture of the upper body only
+    /// ([`Self::under_clip`]): their pose, and their own cursor.
+    legs: Option<LegsCursor>,
+    /// The pose the body left for a clip, and its cursor then. Legs that go
+    /// on in that pose under the clip start from it: a walk does not start
+    /// again when a swing does.
+    left: Option<LegsCursor>,
+}
+
+/// A pose's row cursor, for the legs under a clip.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct LegsCursor {
+    anim: CharacterAnim,
+    frame: usize,
+    elapsed: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -101,6 +116,8 @@ impl CharacterAnimator {
             render_basis: None,
             samples_inside_frame: false,
             keeps_its_quad: false,
+            legs: None,
+            left: None,
         }
     }
 
@@ -262,9 +279,12 @@ impl CharacterAnimator {
         if self.current == anim && !had_clip {
             return;
         }
+        // Legs that went on in this pose under the clip go on from where
+        // they are: the walk does not start again when the swing ends.
+        let legs = self.legs.take().filter(|legs| legs.anim == anim);
+        self.left = None;
         self.current = anim;
-        self.frame = 0;
-        self.elapsed = 0.0;
+        (self.frame, self.elapsed) = legs.map_or((0, 0.0), |legs| (legs.frame, legs.elapsed));
         self.clip_held = false;
     }
 
@@ -351,6 +371,10 @@ impl CharacterAnimator {
         if self.clip_slot == Some(slot) {
             return;
         }
+        if self.clip_slot.is_none() {
+            // From a pose to a clip: where the pose was.
+            self.left = Some(LegsCursor { anim: self.current, frame: self.frame, elapsed: self.elapsed });
+        }
         self.clip_slot = Some(slot);
         self.frame = 0;
         self.elapsed = 0.0;
@@ -405,6 +429,64 @@ impl CharacterAnimator {
         self.clip_phase = self.clip_slot.and(phase);
     }
 
+    /// Say that the clip drawn now is the picture of the body above the hips,
+    /// and that its legs are in the pose `legs` (a walk, a run, a jump, a
+    /// fall); `None`: the clip is the whole body. Call each frame, after the
+    /// frame's request.
+    ///
+    /// The legs have their own cursor on their row's clock. It goes on from
+    /// the pose the body left for the clip when that is the same pose, and
+    /// the pose goes on from it when the clip ends ([`Self::request`]). A
+    /// sheet with no row for the pose, and a frame with no clip, have no
+    /// legs apart from the row.
+    pub fn under_clip(&mut self, legs: Option<CharacterAnim>) {
+        let legs = legs
+            .filter(|_| self.clip_slot.is_some())
+            .map(|anim| self.spec.resolve_anim(anim))
+            .filter(|anim| self.spec.row_for_anim(*anim).is_some());
+        let Some(anim) = legs else {
+            self.legs = None;
+            return;
+        };
+        if self.legs.is_none_or(|legs| legs.anim != anim) {
+            let from = self.left.filter(|left| left.anim == anim);
+            self.legs = Some(from.unwrap_or(LegsCursor { anim, frame: 0, elapsed: 0.0 }));
+        }
+        self.left = None;
+    }
+
+    /// The legs under the clip drawn now: their row (the mirror row while
+    /// the character shows its other side), the frame, and how far it has
+    /// run toward the next (`0..1`). `None`: the clip's row is the whole body.
+    pub fn legs_row(&self) -> Option<(usize, usize, f32)> {
+        self.clip_slot?;
+        let legs = self.legs?;
+        let slot = self.mirror_of(self.spec.row_for_anim(legs.anim)?);
+        let row = self.spec.row_at(slot);
+        let t = if row.duration_secs > 0.0 { (legs.elapsed / row.duration_secs).clamp(0.0, 1.0) } else { 0.0 };
+        Some((slot, legs.frame.min(row.frame_count.saturating_sub(1)), t))
+    }
+
+    fn advance_legs(&mut self, dt: f32) {
+        let Some(mut legs) = self.legs else {
+            return;
+        };
+        let row = self.spec.row(legs.anim);
+        if row.frame_count == 0 || row.duration_secs <= 0.0 {
+            return;
+        }
+        legs.elapsed += dt.max(0.0);
+        while legs.elapsed >= row.duration_secs {
+            legs.elapsed -= row.duration_secs;
+            legs.frame = match (legs.frame + 1 >= row.frame_count, non_looping(legs.anim)) {
+                (true, true) => row.frame_count - 1,
+                (true, false) => 0,
+                (false, _) => legs.frame + 1,
+            };
+        }
+        self.legs = Some(legs);
+    }
+
     /// The flat atlas index of the frame drawn now, without advancing: what
     /// [`Self::tick`] last returned.
     pub fn atlas_index(&self) -> usize {
@@ -437,6 +519,7 @@ impl CharacterAnimator {
     pub fn tick(&mut self, dt: f32) -> usize {
         self.asked_for += dt.max(0.0);
         self.advance(dt);
+        self.advance_legs(dt);
         // Whatever advanced, the index is the row actually DRAWN: the authored
         // row, or its mirror while the character shows its other side.
         self.spec.flat_index_at(self.drawn_slot(), self.frame)

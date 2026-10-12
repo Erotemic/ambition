@@ -80,7 +80,9 @@
         coyote_time: 0.120,
         jump_buffer: 0.135,
         pogo_speed: 720.0,
-        slash_recoil: 110.0,
+        // Jon, 2026-10-12: a swing of the blade does not change the robot's
+        // speed (the nail of Hollow Knight). No kick back on a press.
+        slash_recoil: 0.0,
         air_jumps: 1,
         dodge_roll_time: 0.22,
         dodge_roll_speed: 530.0,

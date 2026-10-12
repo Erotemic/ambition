@@ -83,15 +83,20 @@ fn a_swing_does_not_slow_a_walk() {
     let speed = body(&mut sim).vel.x;
     assert!(speed > 100.0, "the premise: the robot runs: {speed}");
     sim.step(AgentAction { attack: true, attack_held: true, ..right.clone() });
-    let mut slowest = f32::MAX;
+    // From the frame of the press: a kick back on the press is a slower run.
+    let mut slowest = body(&mut sim).vel.x;
     let mut swung = false;
-    for _ in 0..16 {
-        sim.step(right.clone());
+    let mut second = false;
+    for frame in 0..34 {
+        // A second press: the down swing does not slow him either.
+        sim.step(AgentAction { attack: frame == 15, attack_held: frame == 15, ..right.clone() });
         swung |= swing(&mut sim).is_some_and(|(id, _)| id == "blade_rise");
+        second |= swing(&mut sim).is_some_and(|(id, _)| id == "blade_fall");
         slowest = slowest.min(body(&mut sim).vel.x);
     }
     assert!(swung, "a press in a run started no swing of the blade");
-    assert!(slowest >= speed * 0.97, "the swing slowed the run from {speed} to {slowest}");
+    assert!(second, "the second press in a run started no down swing");
+    assert!(slowest >= speed * 0.999, "the swing slowed the run from {speed} to {slowest}");
 }
 
 #[test]
@@ -160,4 +165,47 @@ fn the_air_has_the_same_swings_and_the_strike_behind_turns_him_about() {
     assert_eq!(moves.first().map(String::as_str), Some("blade_behind"), "the stick behind him in the air: {moves:?}");
     assert!(turned_at.is_some(), "the strike behind did not turn him about");
     assert_eq!(moves.get(1).map(String::as_str), Some("blade_rise"), "the same stick after the turn is forward: {moves:?}");
+}
+
+/// Jon, 2026-10-12: "In the ambition game itself, landing lag should be
+/// significantly lowered." The move states its lag; the game charges a share.
+#[test]
+fn a_landing_in_a_move_charges_a_small_share_of_its_lag() {
+    use ambition_platformer2d::actor::BodyCombat;
+    let mut sim = home();
+    let mut charged: Vec<(f32, f32)> = Vec::new();
+    // Start the strike under him at more than one height: in some of them he
+    // is in it when he lands.
+    for wait in [10, 16, 22, 28, 34] {
+        sim.step(AgentAction { jump: true, jump_held: true, ..Default::default() });
+        for _ in 0..wait {
+            sim.step(AgentAction { jump_held: true, ..Default::default() });
+        }
+        let down = AgentAction { move_y: 1.0, ..Default::default() };
+        sim.step(AgentAction { attack: true, attack_held: true, ..down.clone() });
+        let mut authored = None;
+        let mut lag = 0.0_f32;
+        for _ in 0..240 {
+            sim.step(down.clone());
+            let world = sim.world_mut();
+            let mut q = world.query_filtered::<(Option<&MovePlayback>, &BodyCombat), PrimaryPlayerOnly>();
+            let (playback, combat) = q.iter(world).next().expect("the player");
+            authored = authored.or(playback.and_then(|pb| pb.spec.landing_lag_s));
+            lag = lag.max(combat.landing_lag_timer);
+            if on_ground(&mut sim) && swing(&mut sim).is_none() && lag == 0.0 {
+                break;
+            }
+            if lag > 0.0 {
+                break;
+            }
+        }
+        if let (Some(authored), true) = (authored, lag > 0.0) {
+            charged.push((authored, lag));
+        }
+        rest(&mut sim, 40);
+    }
+    assert!(!charged.is_empty(), "no landing was in a move that states a landing lag: the test measured nothing");
+    for (authored, lag) in charged {
+        assert!(lag <= authored * 0.34, "a landing charged {lag} s of a move's {authored} s");
+    }
 }

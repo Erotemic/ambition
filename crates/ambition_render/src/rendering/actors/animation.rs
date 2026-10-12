@@ -84,6 +84,8 @@ pub(crate) fn apply_character_frame(
         barking,
     );
     animator.slave_clip_to(clip.and_then(|request| request.phase));
+    // A move whose row is the upper body only: the legs keep their own pose.
+    animator.under_clip(clip.and_then(|request| request.legs));
     // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
     // sprite, so the flip inverts (#33). The flip is XORed with the sheet's
     // authored facing (`authored_faces_left`), the same term `animate_bosses`

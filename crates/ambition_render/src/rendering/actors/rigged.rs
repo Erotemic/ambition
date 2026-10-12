@@ -1362,6 +1362,13 @@ fn frame_draws<'a>(
 ) -> Option<&'a [PartDraw]> {
     let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row))?;
     flipbook.tween_into(row, animator.frame, animator.frame_phase(), drawn)?;
+    // The row is the picture of the upper body: its legs are those of the
+    // pose the body is in under the move (it walks, it runs, it falls).
+    if let Some((legs_row, frame, t)) = animator.legs_row() {
+        if let Some(legs_row) = animator.spec.row_name(legs_row) {
+            flipbook.legs_under(legs_row, frame, t, drawn, posed_draws);
+        }
+    }
     Some(match (pose, posed) {
         (Some(pose), Some(posed)) => {
             posed.place(drawn, &pose.joints, posed_draws);

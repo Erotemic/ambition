@@ -53,6 +53,9 @@ pub(crate) struct SlashSource {
     /// has no such rows draws its side arc for them.
     rise: RowPlayback,
     fall: RowPlayback,
+    /// The straight thrust. A sheet that has no such row draws its `down`
+    /// row for it, as each sheet did before the row was read.
+    poke: RowPlayback,
 }
 
 impl SlashSource {
@@ -62,7 +65,7 @@ impl SlashSource {
             SlashPose::Side if kind == SlashKind::Fall => self.fall,
             SlashPose::Up if kind != SlashKind::Poke => self.up_arc,
             SlashPose::Down => self.down_slash,
-            _ if kind == SlashKind::Poke => self.down_slash,
+            _ if kind == SlashKind::Poke => self.poke,
             _ => self.side_arc,
         }
     }
@@ -151,6 +154,7 @@ fn build_slash_source(
         down_slash: row("down"),
         rise: optional_row(record, "rise").unwrap_or(row("side")),
         fall: optional_row(record, "fall").unwrap_or(row("side")),
+        poke: optional_row(record, "poke").unwrap_or(row("down")),
     };
     ledger.finish().log("slash visual");
     Some(source)

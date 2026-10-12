@@ -138,6 +138,11 @@ pub struct ClipRequest {
     /// hitstop or a slowed body freezes or slows the drawing with the hitbox.
     /// `None` (a body state, a held charge) plays the row on its own clock.
     pub phase: Option<f32>,
+    /// The row is the picture of the body above the hips, and this is the
+    /// pose of its legs: what the body does under the move (it walks, runs,
+    /// jumps or falls). `None`: the row is the whole body. See
+    /// `WindowTag::UpperBody`.
+    pub legs: Option<ambition_sprite_sheet::character::CharacterAnim>,
 }
 
 impl ClipRequest {
@@ -149,6 +154,7 @@ impl ClipRequest {
             clip: (*clip).to_string(),
             fallbacks: fallbacks.iter().map(|f| (*f).to_string()).collect(),
             phase: None,
+            legs: None,
         })
     }
 
@@ -165,7 +171,15 @@ impl ClipRequest {
             clip: binding.clip.clone(),
             fallbacks: binding.fallbacks.clone(),
             phase: Some(phase),
+            legs: None,
         }
+    }
+
+    /// The same request, with the row as the picture of the upper body and
+    /// `legs` as the pose of the legs under it.
+    pub fn over_legs(mut self, legs: Option<ambition_sprite_sheet::character::CharacterAnim>) -> Self {
+        self.legs = legs;
+        self
     }
 
     /// The chain in preference order — the exact clip, then the author's
@@ -191,6 +205,7 @@ impl ClipRequest {
             // The row placed ahead is a BODY STATE's (a held charge), and the
             // move's progress is frozen while it shows — it runs its own clock.
             phase: None,
+            legs: None,
         }
     }
 
@@ -201,6 +216,7 @@ impl ClipRequest {
             clip: clip.to_string(),
             fallbacks: Vec::new(),
             phase: None,
+            legs: None,
         }
     }
 }

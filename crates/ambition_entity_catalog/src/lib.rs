@@ -759,6 +759,15 @@ pub enum WindowTag {
     /// swing again. Without this tag that wait is a part of the swing's
     /// picture: the row is stretched over it.
     Settled,
+    /// In this window the move's row is the picture of the body ABOVE THE
+    /// HIPS. The legs are drawn by what the body does: it walks, it runs, it
+    /// jumps, it falls. A body that stands is drawn by the row whole.
+    ///
+    /// For a move that roots no one (a swing a body walks through): without
+    /// this the row's standing legs slide along the floor. A presentation
+    /// that draws a body from parts splices the two; one that draws whole
+    /// frames draws the row, as before.
+    UpperBody,
 }
 
 /// The cancel-target class namespace: names an authored `into` entry may use
@@ -2599,6 +2608,12 @@ impl MoveSpec {
             .filter(|w| matches!(w.tag, WindowTag::Settled))
             .map(|w| w.start_s)
             .fold(self.duration_s, f32::min)
+    }
+
+    /// Is the move's row the picture of the upper body only at `t`? See
+    /// [`WindowTag::UpperBody`].
+    pub fn upper_body_at(&self, t: f32) -> bool {
+        self.tagged_window_covers(t, |tag| matches!(tag, WindowTag::UpperBody))
     }
 
     /// Is the move's picture over at `t`? See [`WindowTag::Settled`].

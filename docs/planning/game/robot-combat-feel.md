@@ -72,17 +72,56 @@ rise, fall, thrust; in a walk it is rise, fall, rise, fall; a second press
 0.45 s after the first is still the fall; presses 0.6 s apart are each the
 rise; in the air the string is the same, and the strike behind turns him.
 
+## The second pass (2026-10-12)
+
+Jon, after he played it: the thrust reaches as far as the two swings; the
+robot walks and runs while it swings; the three swings sound different; the
+swing art is better; Ambition charges much less landing lag.
+
+- **Reach.** `blade_thrust` reaches 90 px (the rise 94, the fall 86); its
+  height did not change.
+- **Legs under a swing.** `WindowTag::UpperBody` on a move says its row is
+  the body above the hips. While it is live and the body walks, runs, jumps
+  or falls, the legs are drawn from that row and the swing's row gives the
+  rest, moved by the difference of the two hips
+  (`RiggedSpriteAsset::legs_under`). The legs keep their own time, and the
+  walk continues from there when the swing ends. Which tracks are legs is by
+  the track's name (`is_lower_body_track`). The four blade moves that do not
+  root have the window. Only the player's road asks for it; an NPC's does
+  not yet.
+- **Sound.** Three cues: `player.robot.blade.rise` (the air goes up and
+  stays bright), `.fall` (comes down, more body), `.thrust` (one fast narrow
+  push, a longer wake). Each has its loudest 10 ms about 60 ms in; the cue
+  before had it at 88 ms. `blade_overhead` plays the rise; `blade_low` and
+  `blade_behind` play the fall. The audition is
+  `untracked/sfx-candidates/robot_blade/` (`make.py`; reels of the cue
+  before, of these, and of two more families: a thin ring of the edge, and a
+  low push of the arm).
+- **Art.** The slash rows `rise` and `fall` are a blade that turns about the
+  hand with a crescent behind it that goes out from its start; `poke` is its
+  own row, a lance. The robot's face in a swing is open, not a glare.
+- **No kick back on a press.** Ambition's `slash_recoil` was 110 px/s: each
+  press of attack pushed the robot back along its facing (a run of 270 went
+  to 247 for one frame). It is 0 now (`platformer_defaults.ron`). The test
+  measures from the frame of the press, through two swings.
+- **Landing lag.** `LandingLagRules` (`ambition_combat::landing_lag`), a
+  rule each game declares: Ambition charges 0.25 of each move's landing lag
+  (`AMBITION_LANDING_LAG_SHARE`). At home only `air_down` (0.28 s, now
+  0.07 s) and `stabilizer_dive` (0.3 s) state one. The Smash game declares
+  none and charges each move's own.
+
 ## Open
 
 1. **Play it.** Each number is a first cut. Seen in software renders of the
    Smash stage (`--home`) only; not in a room of Ambition, and not on a GPU.
-2. The robot in the air draws the ground rows (standing legs). Rows of its
-   own for the swings in the air are art work.
+2. The legs under a swing are by the names of the tracks, and for the
+   player only. A body of an NPC that swings in a walk slides.
 3. The up swing and the down swing differ in the body's row and in which
    end of the slash has the light. If that is too quiet, the slash rows can
    differ more.
-4. `air_down` keeps a fighter's landing lag (0.28 s). Hollow Knight's pogo
-   has none.
+4. Jon, 2026-10-12: the smash attacks' picture, and maybe their hit volume,
+   are much smaller than the tilts'. They are to be as large or a little
+   larger. And one more pass on the slash art.
 5. `blade_low` roots no one: the robot can walk in a low poke. If the low
    poke is to stop it, that is one flag.
 6. Enemies were tuned against a jab that rooted. The fastest string is the

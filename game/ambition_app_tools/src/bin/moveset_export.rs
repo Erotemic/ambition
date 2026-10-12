@@ -158,6 +158,7 @@ fn window_json(
         WindowTag::Recovery => ("recovery".to_string(), Vec::new()),
         WindowTag::Invuln => ("invuln".to_string(), Vec::new()),
         WindowTag::Settled => ("settled".to_string(), Vec::new()),
+        WindowTag::UpperBody => ("upper_body".to_string(), Vec::new()),
         WindowTag::Armor => ("armor".to_string(), Vec::new()),
         // Keep the threshold in the tag string. Plain `"armor"` would read as
         // super armor.

@@ -411,7 +411,7 @@ pub fn rebuild_body_pose_views(
         // The anim pick runs only over the FULL cluster set `animate_player`
         // used to require — a partial body keeps `Idle` (it never animated
         // before either) while its transform facts stay live.
-        let anim = match (
+        let pick = |swing| match (
             (ground, motion_facts, flight),
             (combat, anim_facts, blink_cam),
             (body_mode, env_contact, abilities, shield),
@@ -424,7 +424,7 @@ pub fn rebuild_body_pose_views(
                 anim_facts,
                 combat,
                 blink_cam,
-                ambition_combat::moveset::melee_swing_of(playback, moveset).as_ref(),
+                swing,
                 kinematics,
                 ground,
                 motion_facts,
@@ -444,6 +444,18 @@ pub fn rebuild_body_pose_views(
             ),
             _ => CharacterAnim::Idle,
         };
+        let swing = ambition_combat::moveset::melee_swing_of(playback, moveset);
+        let anim = pick(swing.as_ref());
+        // The move's row is the picture of the upper body: the legs are
+        // drawn by what the body does under the move. The same ladder with
+        // no swing says what that is. A body that stands has no such pose:
+        // the row draws it whole.
+        let legs = playback
+            .filter(|playback| playback.spec.upper_body_at(playback.t))
+            .map(|_| pick(None))
+            .filter(|legs| {
+                matches!(legs, CharacterAnim::Walk | CharacterAnim::Run | CharacterAnim::Jump | CharacterAnim::Fall)
+            });
         // A content pose PIN wins over the picked pose — the SAME rule `rebuild_actor_anim_index`
         // applies to every brain-driven actor, and it belongs here for the identical reason: a pose
         // the disposition-agnostic picker cannot infer (a shelled enemy's withdraw, a body
@@ -478,7 +490,7 @@ pub fn rebuild_body_pose_views(
             // same two-step the actor road takes, so the two never disagree.
             clip: playback
                 .filter(|playback| !playback.settled())
-                .map(|playback| crate::ClipRequest::for_move(&playback.spec.clip, playback.phase()))
+                .map(|playback| crate::ClipRequest::for_move(&playback.spec.clip, playback.phase()).over_legs(legs))
                 .or_else(|| {
                     crate::ClipRequest::from_chain(ambition_character_sprites::body_state_clip(
                         motion_facts?,

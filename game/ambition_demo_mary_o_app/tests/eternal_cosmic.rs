@@ -121,10 +121,44 @@ fn the_utility_control_puts_her_in_the_form_and_takes_her_out_of_it() {
     assert!(app.world().get::<TransformBeat>(body).is_none());
     assert_eq!(worn(&app, body), COSMIC_CHARACTER_ID);
 
-    // The next press is her way out, to the form her equipment gives her.
+    // The next press is her way out. She wears the form while its row plays:
+    // 18 frames of 95 ms, and a hold on the last.
     press_utility(&mut app);
-    idle(&mut app, 40);
+    idle(&mut app, 8);
+    assert_eq!(worn(&app, body), COSMIC_CHARACTER_ID, "she left the form before the row of her way out played");
+    let leave = *app
+        .world()
+        .get::<TransformBeat>(body)
+        .expect("her way out of the form has its row");
+    assert_eq!(leave.policy.anim, CharacterAnim::Shrink);
+    assert!(
+        (leave.policy.duration - 1.91).abs() < 0.05,
+        "her way out is as long as its row takes to draw and its hold, and it is {} s",
+        leave.policy.duration
+    );
+    // Then she is the form her equipment gives her.
+    idle(&mut app, 240);
     assert_eq!(worn(&app, body), before, "she comes back to the form she had");
+    assert!(app.world().get::<TransformBeat>(body).is_none(), "a beat is left on her after she came back");
+}
+
+/// A press while she changes out of the form ends the change.
+#[test]
+fn a_press_on_her_way_out_takes_her_out_at_once() {
+    let (mut app, body) = seated();
+    let before = worn(&app, body);
+    press_utility(&mut app);
+    idle(&mut app, 4);
+    press_utility(&mut app);
+    idle(&mut app, 8);
+    assert_eq!(worn(&app, body), COSMIC_CHARACTER_ID);
+    // Her way out, and a press four ticks into it.
+    press_utility(&mut app);
+    idle(&mut app, 4);
+    assert_eq!(worn(&app, body), COSMIC_CHARACTER_ID);
+    press_utility(&mut app);
+    idle(&mut app, 4);
+    assert_eq!(worn(&app, body), before, "the press on her way out did not take her out of the form");
 }
 
 #[test]

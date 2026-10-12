@@ -6,6 +6,11 @@
 //! and she is faster. This module is the way in and the way out: one
 //! technique on the Utility control, which changes the character she wears.
 //!
+//! Each way has a row of the form's sheet. Her way in changes her character
+//! and then plays `transform`. Her way out plays `shrink` and then changes
+//! her character ([`come_back_from_the_form`]): the picture is of the form she
+//! leaves, so she wears that form while it plays.
+//!
 //! The jump in the air is a verb, and a body gets its verbs when the session
 //! builds it: to wear a row later changes its feel and not its verbs. So the
 //! form lends her the verb while she wears it ([`lend_the_jump_in_the_air`]),
@@ -39,10 +44,17 @@ pub const COSMIC_DISPLAY_NAME: &str = "Eternal Cosmic Mary-O";
 /// control: `ActionSpec::display` title-cases it to "Transform".
 pub const TRANSFORM_TECHNIQUE_ID: &str = "transform";
 
-/// The beat of her way out of the form: short, and with no clip. A clip of
-/// the form she comes back to is the clip of a hit, and she was not hit.
-const LEAVE_BEAT: TransformBeatPolicy = TransformBeatPolicy {
-    duration: 0.3,
+/// The clip of her way out of the form: the row `shrink` of the form's sheet
+/// (`mary_o_v2_cosmic.LEAVE_ROW` of the sprite renderer). No other thing plays
+/// that clip on the form: she is not hurt in it.
+const LEAVE_ANIM: CharacterAnim = CharacterAnim::Shrink;
+/// How long the last frame of her way out stays before she is the form she
+/// comes back to, in seconds. The beat is this much longer than the row.
+const LEAVE_HOLD: f32 = 0.2;
+/// The beat of the form she comes back to: short, and with no clip. A clip of
+/// that form is the clip of a hit, and she was not hit.
+const ARRIVE_BEAT: TransformBeatPolicy = TransformBeatPolicy {
+    duration: 0.2,
     anim: CharacterAnim::Idle,
     clock_scale: 1.0,
     untouchable: true,
@@ -96,15 +108,35 @@ fn enter_beat(
     }
 }
 
+/// The beat of her way out of the form: the row of [`LEAVE_ANIM`] of the
+/// form's sheet, and [`LEAVE_HOLD`] on its last frame. She wears the form
+/// while it plays.
+fn leave_beat(
+    catalog: Option<&ambition_platformer2d::character::CharacterCatalog>,
+    authored: Option<&ambition_platformer2d::character::AuthoredSheets>,
+) -> TransformBeatPolicy {
+    TransformBeatPolicy {
+        duration: crate::powerups::clip_seconds(catalog, authored, COSMIC_CHARACTER_ID, LEAVE_ANIM) + LEAVE_HOLD,
+        anim: LEAVE_ANIM,
+        clock_scale: 1.0,
+        untouchable: true,
+    }
+}
+
+/// Whether `beat` is her way out of the form.
+fn is_leaving(beat: &TransformBeat) -> bool {
+    beat.policy.anim == LEAVE_ANIM
+}
+
 /// Change the body the player drives between the form and the form of her
 /// ladder, on a press of the technique. A press while she changes into the
-/// form ends the change: she is in the form at once.
+/// form ends the change: she is in the form at once. A press while she
+/// changes out of it ends that change: she is out of it on the next tick.
 pub fn toggle_cosmic_form(
     subject: Option<Res<ControlledSubject>>,
     mut bodies: Query<(
         &ResolvedTechniqueEdges,
         &mut WornCharacter,
-        Option<&WornEquipment>,
         &ae::BodyKinematics,
         Option<&mut TransformBeat>,
     )>,
@@ -116,7 +148,7 @@ pub fn toggle_cosmic_form(
     let Some(body) = subject.and_then(|subject| subject.0) else {
         return;
     };
-    let Ok((edges, mut worn, equipment, kin, beat)) = bodies.get_mut(body) else {
+    let Ok((edges, mut worn, kin, beat)) = bodies.get_mut(body) else {
         return;
     };
     if !edges.pressed(TRANSFORM_TECHNIQUE_ID) {
@@ -128,15 +160,27 @@ pub fn toggle_cosmic_form(
             beat.remaining = 0.0;
             return;
         }
+        if in_form && is_leaving(&beat) {
+            // No time is left of it, so `come_back_from_the_form` takes her
+            // out of the form on this tick.
+            beat.remaining = 0.0;
+            return;
+        }
     }
-    let (next, policy, cue) = if in_form {
-        (crate::powerups::ladder_character(equipment), LEAVE_BEAT, crate::powerups::SFX_FIRE_TO_BIG)
+    let cue = if in_form {
+        // Her way out: the row plays on the form, and she wears the form
+        // until it ends.
+        commands
+            .entity(body)
+            .try_insert(TransformBeatRequested(leave_beat(catalog.as_deref(), authored.as_deref())));
+        crate::powerups::SFX_FIRE_TO_BIG
     } else if crate::powerups::is_her_form(worn.id()) {
-        (
-            COSMIC_CHARACTER_ID,
-            enter_beat(catalog.as_deref(), authored.as_deref()),
-            crate::powerups::SFX_BIG_TO_FIRE,
-        )
+        worn.0 = COSMIC_CHARACTER_ID.into();
+        commands.entity(body).try_insert((
+            TransformBeatRequested(enter_beat(catalog.as_deref(), authored.as_deref())),
+            RecharacterizeBody,
+        ));
+        crate::powerups::SFX_BIG_TO_FIRE
     } else {
         // A body that is not Mary-O has no such form.
         return;
@@ -148,10 +192,33 @@ pub fn toggle_cosmic_form(
             pos: kin.pos,
         },
     );
-    worn.0 = next.into();
-    commands
-        .entity(body)
-        .try_insert((TransformBeatRequested(policy), RecharacterizeBody));
+}
+
+/// Take her out of the form when the row of her way out has played: she
+/// wears the form of her ladder that her equipment gives her, with a short
+/// beat of its own.
+///
+/// The beat of her way out is the only record that she is on her way out.
+/// The engine takes a beat away when its time is up, so she comes back while
+/// it still has the time of its hold, or the time of two ticks when a tick is
+/// longer than the hold: a beat is not gone before this sees its end.
+pub fn come_back_from_the_form(
+    time: Res<ambition_platformer2d::time::WorldTime>,
+    mut bodies: Query<(Entity, &mut WornCharacter, Option<&WornEquipment>, &TransformBeat), With<PrimaryPlayer>>,
+    mut commands: Commands,
+) {
+    for (body, mut worn, equipment, beat) in &mut bodies {
+        if !is_cosmic(worn.id()) || !is_leaving(beat) {
+            continue;
+        }
+        if beat.remaining > LEAVE_HOLD.max(2.0 * time.wall_dt()) {
+            continue;
+        }
+        worn.0 = crate::powerups::ladder_character(equipment).into();
+        commands
+            .entity(body)
+            .try_insert((TransformBeatRequested(ARRIVE_BEAT), RecharacterizeBody));
+    }
 }
 
 /// The verbs the form lends: the jump in the air.

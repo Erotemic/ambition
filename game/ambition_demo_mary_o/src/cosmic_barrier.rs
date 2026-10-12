@@ -10,7 +10,7 @@
 //! their own. The part renderer says where the parts of her body are
 //! ([`PartSetRequest`] for [`BODY_TRACKS`]), and one quad over her draws
 //! light on the border of their shape (`shaders/cosmic_barrier.wgsl`). The
-//! quad draws nothing on her, and nothing about her wings.
+//! quad draws nothing on her, and nothing about her wings or her long hair.
 //!
 //! The light about her (`cosmic_aura.rs`) stays under her, and the quasar
 //! draws over her while she holds one (`quasar_shader.rs`): three layers.
@@ -34,10 +34,12 @@ use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
 use ambition_platformer2d::render::rendering::actors::rigged::{PartSetDraws, PartSetRequest};
 use ambition_platformer2d::render::rendering::{ActorOverlaySet, PlayerVisual};
 
-/// The tracks of her flipbook that are her body: her hair and her figure.
-/// Her wings, the ring about her head and the star of her crown are not
-/// (`_mary_o_v2_cosmic_art.BODY_TRACKS` of the sprite renderer).
-pub const BODY_TRACKS: [&str; 2] = ["overlay:hair", "overlay:body"];
+/// The tracks of her flipbook that are her body: her figure, and no more
+/// (Jon, 2026-10-11: her long hair is not "part of her body that the glow
+/// should surround"). Her hair, her wings, the ring about her head and the
+/// star of her crown are not (`_mary_o_v2_cosmic_art.BODY_TRACKS` of the
+/// sprite renderer).
+pub const BODY_TRACKS: [&str; 1] = ["overlay:body"];
 /// Sheet pixels to one pixel of her art: her frame is 216 px for a stage of
 /// 72 px (`mary_o_v2_cosmic.STAGE`). The barrier is drawn in pixels of her art.
 const ART_PIXEL: f32 = 3.0;

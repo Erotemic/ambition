@@ -123,6 +123,9 @@ pub fn break_bricks(
             &PlayerBodyFrameOutput,
             Option<&WornEquipment>,
             Option<&ambition_platformer2d::platformer::sim_id::SimId>,
+            // Her ultimate form is not a rung of her ladder, so her equipment
+            // does not say she is in it.
+            Option<&ambition_platformer2d::characters::actor::WornCharacter>,
         ),
         With<PlayerEntity>,
     >,
@@ -137,14 +140,16 @@ pub fn break_bricks(
     let strikers = ambition_platformer2d::platformer::sim_selection::in_deterministic_order(
         players.iter(),
         |_| 0.0,
-        |(_, _, _, id)| *id,
+        |(_, _, _, id, _)| *id,
     );
-    for (striker, frame, worn, _) in strikers {
+    for (striker, frame, worn, _, character) in strikers {
         // this asks [`crate::powerups::is_small`] rather than testing two
         // equipment ids, so the ladder stays the single authority on what a
         // form is — see its doc for why `wears(STAR_WAND_ID)` would have muted
         // fire.
-        if crate::powerups::is_small(worn) {
+        // Eternal Cosmic Mary-O breaks a brick whatever her equipment is.
+        let cosmic = character.is_some_and(|character| crate::cosmic::is_cosmic(character.id()));
+        if crate::powerups::is_small(worn) && !cosmic {
             continue;
         }
         let (Some(room), Some(room_geometry)) = (geometry.room_of(striker), geometry.of(striker)) else {
@@ -214,6 +219,13 @@ fn break_bricks_struck_by(
 }
 
 /// A bridge falls when the goal of its room is taken.
+///
+/// ⛔ It runs after the lap of the room starts (`begin_a_lap_on_arrival`, in
+/// the chain of the level rules). The sequence stays in its tally while she
+/// goes to the next room. Before the lap of that room starts, the sequence
+/// still says the goal of the LAST room is taken: this ran before that, and
+/// each arrival in the castle from 1-3 dropped its bridge and its boss
+/// (Jon, 2026-10-11: "I get to the bridge and there is nothing there").
 ///
 /// Each plank (`MaryOBlockLook::Plank`) of the room of the body on the pole is
 /// marked broken, one time, with the shards of a brick. A plank then goes the

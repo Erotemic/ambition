@@ -134,7 +134,7 @@ Do not reimplement those parts of the historical audit.
 
 **Next verified slices; assign independent owners where possible:**
 
-- **IN1 / P0, portal core + GNU-ton:** witness stable links across
+- **IN1 / P0, portal core + GNU-ton:** ✅ core DONE 2026-10-12 (stable pairs and ends, a cap for each room, `c128`+ refused, derived aperture; see the [portal identity](engine/portal-pair-identity-and-aperture.md) "What landed"). OPEN: the GNU-ton half below. Witness stable links across
   insertion/movement/overlap and authored aperture growth, including
   insertion of an unrelated named pair in a *different live room* and
   more than 63 distinct linked names spread across rooms, then two boss

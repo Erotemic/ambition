@@ -1,7 +1,48 @@
 # Portal pair identity and derived aperture - an engine contract
 
-**Status:** OPEN, discovered in the October 11 late-source review of
-`abf79de..ed0d1ccd`. **Owner:** `ambition_portal2d`, with portal presentation
+**Status:** CORE DONE 2026-10-12 (witnesses 1, 2, 3, 4 and 6 below, in
+`ambition_portal2d`); witness 5 (two GNU-ton bosses) is OPEN with the
+[GNU-ton owner](../game/gnu-ton-fight-debts.md). Discovered in the October 11
+late-source review of `abf79de..ed0d1ccd`.
+
+## What landed (2026-10-12)
+
+- **A pair keeps its channels.** `resolve_portal_links` keeps the channel
+  pair a link group already has and each end's end of it. A new group takes
+  the lowest free pair **of its own live room**. Position decides an end only
+  when the end has none yet. There is no rank over all hashes, so a new or
+  removed pair, in this room or another one, does not rename an open pair,
+  and two ends that pass or meet keep their roles.
+- **The cap is per room and deterministic:** 63 groups in one live room
+  (bases 128..252). The 64th group of a room is refused (dead channel 255)
+  and the open pairs keep theirs. 64 rooms with one pair each all work.
+- **The two namespaces are separate:** `c128` and up are refused by both
+  channel parsers (`PortalChannelColorSpec::from_name` gives the LDtk error
+  "unknown color"; `PortalChannelColor::from_name`), and a monolith test checks
+  that `PortalChannelColorSpec::FIRST_LINK_CHANNEL == LINK_CHANNEL_FIRST`.
+- **The aperture is derived.** `PlacedPortal.half_extent` is now
+  `authored_half_extent`, which nothing but its owner writes.
+  `equalize_pair_apertures` writes only `partner_opening_half` (derived from
+  the two authored extents). Every reader of the opening (transit capture
+  box, `portal_fits`, straddle and carve via `aperture()`, projectile transit,
+  the glow, the compositor pane, the gizmo) reads
+  `opening_half_extent()`. The rename made each old reader a compile error.
+- **Witnesses:** `link::tests::{a_pair_keeps_its_channels_when_another_pair_opens_and_goes,
+  the_ends_of_a_pair_keep_their_roles_when_they_pass_and_meet,
+  a_pair_opens_its_smaller_end_and_opens_wide_again_when_it_grows,
+  sixty_four_rooms_with_a_link_each_all_work,
+  the_sixty_fourth_group_of_one_room_is_refused_and_the_others_keep_their_pairs}`,
+  each red under its own poison (claims ignored; ends by position; minimum
+  written back; one cap over all rooms). Witness 1 runs the eviction road: a
+  body in the plane of the open pair is not pushed when another pair opens.
+- **Not done here, and why:** transit, cooldown and eviction still know a
+  portal by `(live room, channel)`. That is sound now that a live pair's
+  channel does not change, so a separate logical pair key was not added (no
+  witness needs it). The rewind and fresh-room-load arms of witness 4 were
+  not run as their own tests: `partner_opening_half` is a field of the
+  clone-snapshotted `PlacedPortal` and is derived again each frame from the
+  authored extents. The dev capture tool uses pair 254/255, which overlaps
+  the dead link channel 255; it is a tool-only scene with no link portals. **Owner:** `ambition_portal2d`, with portal presentation
 and lifecycle adapters. **First new customer:** two simultaneous GNU-ton
 encounters. This page owns the general portal defect; the
 [GNU-ton debt plan](../game/gnu-ton-fight-debts.md) owns the game adapter and

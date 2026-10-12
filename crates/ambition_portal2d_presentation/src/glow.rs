@@ -158,7 +158,8 @@ impl PortalGlow {
 pub fn opening_length(portal: &PlacedPortal) -> f32 {
     let n = portal.normal.normalize_or_zero();
     let along = Vec2::new(-n.y, n.x);
-    let half = along.x.abs() * portal.half_extent.x + along.y.abs() * portal.half_extent.y;
+    let opening = portal.opening_half_extent();
+    let half = along.x.abs() * opening.x + along.y.abs() * opening.y;
     (half * 2.0).max(PORTAL_VISUAL_THICKNESS)
 }
 

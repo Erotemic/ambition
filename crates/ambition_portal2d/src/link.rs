@@ -1,26 +1,36 @@
 //! Explicit portal linking by id, plus the min-aperture equalizer.
 //!
-//! Two portals with the same [`PortalLink`] are partners. This is preferred
-//! over pairing by complementary color. [`resolve_portal_links`] gives each
-//! valid link group a pair of [`Indexed`](crate::PortalChannelColor::Indexed)
-//! channels (partner = `^1`), with the ends ordered by position. A group
-//! without exactly two members is closed: its portals get a channel with no
-//! partner, so they never carve or transit.
+//! Two portals with the same [`PortalLink`] in one live room are partners.
+//! This is preferred over pairing by complementary color.
+//! [`resolve_portal_links`] gives each link group of a live room a pair of
+//! [`Indexed`](crate::PortalChannelColor::Indexed) channels (partner = `^1`).
+//! A group without exactly two members is closed: its portals get a channel
+//! with no partner, so they never carve or transit.
 //!
-//! [`equalize_pair_apertures`] then shrinks both openings (and drawn bars) of
-//! a pair to the smaller authored length, centered. There is no scaling, so
-//! transit stays an isometry.
+//! ⭐ A PAIR KEEPS ITS CHANNELS. A group that has a channel pair keeps it, and
+//! each end keeps its end of the pair, while the group lives. A new group
+//! takes the lowest free pair OF ITS ROOM. Transit, its cooldown and the
+//! eviction of a straddling body know a portal by its channel, so a channel
+//! that another room's pair, a new pair or a moved end could change was a
+//! body that lost its portal in the middle of a crossing.
+//!
+//! [`equalize_pair_apertures`] derives the opening of each end from the two
+//! authored openings (the smaller, centered). It writes
+//! [`PlacedPortal::partner_opening_half`] and never the authored extent, so a
+//! partner that grows again gives the wider opening back. There is no
+//! scaling, so transit stays an isometry.
 
-use bevy::platform::collections::HashMap;
+use std::collections::BTreeMap;
+
 use bevy::prelude::*;
 
 use crate::color::{PortalChannel, PortalChannelColor};
-use crate::types::{portal_half_extent_with_length, portal_opening_half, PlacedPortal};
+use crate::types::{portal_opening_half, stable_portal_order, PlacedPortal};
 
 /// A portal authored with an explicit link id (the hash of the LDtk `link`
 /// field). Two portals with the same id are a pair. [`resolve_portal_links`]
-/// derives the channel each frame, so [`PlacedPortal::channel`] is provisional
-/// until then.
+/// derives the channel, so [`PlacedPortal::channel`] is provisional until
+/// then.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PortalLink(pub u64);
 
@@ -35,17 +45,34 @@ pub fn link_hash(s: &str) -> u64 {
     h
 }
 
-/// Link channels use the high `Indexed` range (offset by [`LINK_GROUP_BASE`]),
-/// so they do not collide with hand-authored `cN` channels, which start at 0.
-const LINK_GROUP_BASE: u8 = 64;
+/// The first channel of the link range. A hand-authored `cN` channel stops
+/// below it ([`PortalChannelColor::from_name`] refuses `c128` and up), so an
+/// authored pair and a link pair can not have one channel.
+pub const LINK_CHANNEL_FIRST: u8 = 128;
 
-/// Highest representable link group index: bases run `(64+gi)*2`, and index
-/// 254/255 is reserved as the dead (never-paired) channel for refused groups.
-const MAX_LINK_GROUPS: usize = 62;
+/// The highest base of a link pair. Bases are 128, 130, ..., 252: 63 pairs in
+/// one live room. 254/255 is the dead channel.
+const LINK_CHANNEL_LAST_BASE: u8 = 252;
 
 /// Channel index for refused link groups. Its partner (254) is never
 /// assigned, so a dead portal never carves or transits.
 const DEAD_LINK_CHANNEL: u8 = 255;
+
+/// The base of the link pair that `channel` is an end of, if it is one.
+fn link_base(channel: PortalChannel) -> Option<u8> {
+    match channel {
+        PortalChannel::Authored(PortalChannelColor::Indexed(c))
+            if (LINK_CHANNEL_FIRST..=LINK_CHANNEL_LAST_BASE + 1).contains(&c) =>
+        {
+            Some(c & !1)
+        }
+        _ => None,
+    }
+}
+
+fn link_channel(index: u8) -> PortalChannel {
+    PortalChannel::Authored(PortalChannelColor::Indexed(index))
+}
 
 /// The set [`resolve_portal_links`] runs in.
 ///
@@ -58,65 +85,48 @@ const DEAD_LINK_CHANNEL: u8 = 255;
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PortalLinkResolution;
 
-/// Resolve [`PortalLink`] groups into channel pairs. Valid (exactly-two) groups
-/// get partner-able `Indexed` channels distinguished by position; every other
-/// group is closed (slot-0 channel with no partner).
+/// One portal of a link group.
+struct Member {
+    entity: Entity,
+    portal: PlacedPortal,
+}
+
+/// Resolve [`PortalLink`] groups into channel pairs (see the module doc).
 ///
 /// ⭐ A GROUP IS A LINK IN ONE LIVE ROOM (OW1). Two live rooms that author
 /// one link id (two instances of a room, or two rooms that reuse an id) are
-/// two groups. Keyed by the link alone, they were one group of four, and a
-/// group that is not two is closed: every portal of the link stopped working.
+/// two groups, and each room has its own 63 pairs: a pair is found among the
+/// portals of its own room only, so two rooms can use one channel.
 pub fn resolve_portal_links(
     mut portals: Query<(Entity, &PortalLink, &mut PlacedPortal)>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
-    // Pass 1: collect each link group's member positions.
-    let mut groups: HashMap<(crate::PortalRoom, u64), Vec<Vec2>> = HashMap::default();
+    // Each room's groups in link-hash order, so a new group takes the same
+    // free pair on every run, whatever the query order.
+    let mut rooms: BTreeMap<crate::PortalRoom, BTreeMap<u64, Vec<Member>>> = BTreeMap::new();
     for (entity, link, p) in portals.iter() {
-        groups.entry((live.of(entity), link.0)).or_default().push(p.pos);
+        rooms
+            .entry(live.of(entity))
+            .or_default()
+            .entry(link.0)
+            .or_default()
+            .push(Member { entity, portal: p.clone() });
     }
-    if groups.is_empty() {
-        return;
+    let mut assigned: Vec<(Entity, PortalChannel)> = Vec::new();
+    for groups in rooms.values_mut() {
+        assign_room(groups, &mut assigned);
     }
-    // Deterministic group index from the sorted hashes; member order from the
-    // sorted positions (so each end's slot is stable).
-    // The index is the link's, not the group's: two rooms' groups of one link
-    // share a channel pair, which is safe because a pair is one room's.
-    let mut hashes: Vec<u64> = groups.keys().map(|(_, hash)| *hash).collect();
-    hashes.sort_unstable();
-    hashes.dedup();
-    let group_index: HashMap<u64, usize> =
-        hashes.iter().enumerate().map(|(i, h)| (*h, i)).collect();
-    for members in groups.values_mut() {
-        members.sort_by(|a, b| a.x.total_cmp(&b.x).then(a.y.total_cmp(&b.y)));
-    }
-
-    // Pass 2: assign each link portal its channel. Group indices out of range
-    // are refused (dead channel), not clamped: a clamp would link two
-    // unrelated groups.
-    for (entity, link, mut p) in portals.iter_mut() {
-        let gi = group_index[&link.0];
-        let members = &groups[&(live.of(entity), link.0)];
-        let channel = if gi > MAX_LINK_GROUPS {
-            PortalChannel::Authored(PortalChannelColor::Indexed(DEAD_LINK_CHANNEL))
-        } else {
-            let base = (LINK_GROUP_BASE + gi as u8).wrapping_mul(2);
-            // Exactly two members  slot by position; otherwise everyone slot
-            // 0, which has no partner (slot 1 absent)  closed.
-            let slot = if members.len() == 2 {
-                members.iter().position(|m| *m == p.pos).unwrap_or(0) as u8
-            } else {
-                0
-            };
-            PortalChannel::Authored(PortalChannelColor::Indexed(base + slot))
+    for (entity, channel) in assigned {
+        let Ok((_, _, mut p)) = portals.get_mut(entity) else {
+            continue;
         };
         if p.channel != channel {
-            if gi > MAX_LINK_GROUPS {
+            if channel == link_channel(DEAD_LINK_CHANNEL) {
                 bevy::log::warn!(
                     target: "ambition_platformer2d::portal",
-                    "portal link group {} exceeds the {} representable groups;                      refusing to link (dead channel) — reduce distinct link ids",
-                    gi,
-                    MAX_LINK_GROUPS + 1,
+                    "a live room has more than {} portal link groups; the new group is refused \
+                     (dead channel) and the groups that have a pair keep it",
+                    usize::from((LINK_CHANNEL_LAST_BASE - LINK_CHANNEL_FIRST) / 2 + 1),
                 );
             }
             p.channel = channel;
@@ -124,9 +134,78 @@ pub fn resolve_portal_links(
     }
 }
 
-/// Shrink every linked pair's opening to the smaller of the two authored
-/// lengths, centered. The transit map does not change. Runs after
-/// [`resolve_portal_links`].
+/// The channels of one live room's link groups.
+fn assign_room(groups: &mut BTreeMap<u64, Vec<Member>>, assigned: &mut Vec<(Entity, PortalChannel)>) {
+    for members in groups.values_mut() {
+        members.sort_by(|a, b| stable_portal_order(&a.portal, &b.portal));
+    }
+    // 1. A group keeps the pair its ends have. When two groups claim one pair
+    //    (it can not happen by this system), the first in hash order keeps it.
+    let mut taken: Vec<u8> = Vec::new();
+    let mut bases: BTreeMap<u64, u8> = BTreeMap::new();
+    for (hash, members) in groups.iter() {
+        let claim = members.iter().filter_map(|m| link_base(m.portal.channel)).min();
+        if let Some(base) = claim.filter(|base| !taken.contains(base)) {
+            taken.push(base);
+            bases.insert(*hash, base);
+        }
+    }
+    // 2. A group with no pair takes the lowest free one, in hash order.
+    for hash in groups.keys() {
+        if bases.contains_key(hash) {
+            continue;
+        }
+        let free = (LINK_CHANNEL_FIRST..=LINK_CHANNEL_LAST_BASE)
+            .step_by(2)
+            .find(|base| !taken.contains(base));
+        if let Some(base) = free {
+            taken.push(base);
+            bases.insert(*hash, base);
+        }
+    }
+    // 3. The ends.
+    for (hash, members) in groups.iter() {
+        let Some(&base) = bases.get(hash) else {
+            for m in members {
+                assigned.push((m.entity, link_channel(DEAD_LINK_CHANNEL)));
+            }
+            continue;
+        };
+        if members.len() != 2 {
+            // Closed: every member on the first end, which has no partner.
+            for m in members {
+                assigned.push((m.entity, link_channel(base)));
+            }
+            continue;
+        }
+        // An end keeps its end of the pair. Position decides only for an end
+        // that has none yet (or when both say the same end), so two ends that
+        // pass each other or meet keep their roles.
+        let end = |m: &Member| match m.portal.channel {
+            PortalChannel::Authored(PortalChannelColor::Indexed(c)) if link_base(m.portal.channel) == Some(base) => {
+                Some(c & 1)
+            }
+            _ => None,
+        };
+        let ends = match (end(&members[0]), end(&members[1])) {
+            (Some(a), Some(b)) if a != b => [a, b],
+            (Some(a), _) => [a, a ^ 1],
+            (None, Some(b)) => [b ^ 1, b],
+            (None, None) => [0, 1],
+        };
+        for (m, end) in members.iter().zip(ends) {
+            assigned.push((m.entity, link_channel(base + end)));
+        }
+    }
+}
+
+/// Derive each linked portal's opening this frame: the smaller of its own
+/// authored opening and its partner's, centered. The transit map does not
+/// change. Runs after [`resolve_portal_links`].
+///
+/// It reads only authored extents and writes only
+/// [`PlacedPortal::partner_opening_half`], so the result does not depend on
+/// which end it does first, and an end whose partner grows opens wide again.
 pub fn equalize_pair_apertures(
     mut portals: Query<(Entity, &mut PlacedPortal)>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
@@ -139,16 +218,10 @@ pub fn equalize_pair_apertures(
         &live,
     );
     for (entity, mut p) in portals.iter_mut() {
-        let partner = p.channel.partner();
-        let Some(partner_portal) = crate::find_portal(by_room.in_room(live.of(entity)), partner) else {
-            continue; // no partner placed — leave the authored opening as-is
-        };
-        let self_open = portal_opening_half(p.normal, p.half_extent);
-        let partner_open =
-            portal_opening_half(partner_portal.normal, partner_portal.half_extent);
-        let min = self_open.min(partner_open);
-        if (self_open - min).abs() > 1e-3 {
-            p.half_extent = portal_half_extent_with_length(p.normal, min);
+        let partner = crate::find_portal(by_room.in_room(live.of(entity)), p.channel.partner())
+            .map(|partner| portal_opening_half(partner.normal, partner.authored_half_extent));
+        if p.partner_opening_half != partner {
+            p.partner_opening_half = partner;
         }
     }
 }
@@ -169,7 +242,8 @@ mod aperture_partner_tests {
             pos: Vec2::new(x, 0.0),
             normal: Vec2::new(0.0, 1.0),
             // Normal is +Y, so the OPENING runs along x.
-            half_extent: Vec2::new(opening, PORTAL_THICKNESS_HALF),
+            authored_half_extent: Vec2::new(opening, PORTAL_THICKNESS_HALF),
+            partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,
             prev_pos: Vec2::new(x, 0.0),
@@ -188,7 +262,7 @@ mod aperture_partner_tests {
         q.iter(app.world())
             .find(|p| p.channel == yellow)
             .expect("the yellow aperture")
-            .half_extent
+            .opening_half_extent()
             .x
     }
 

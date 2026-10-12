@@ -26,8 +26,15 @@ pub struct PlacedPortal {
     /// Current collision/render helpers are cardinal-first; future APIs should
     /// make the tangent/aperture basis explicit for non-axis-aligned portals.
     pub normal: Vec2,
-    /// Half-extent of the portal's overlap region.
-    pub half_extent: Vec2,
+    /// Half-extent of the portal's overlap region, as its owner placed it.
+    /// The opening that transit, carve and drawing use is
+    /// [`Self::opening_half_extent`]: a pair opens the smaller of its two
+    /// openings, and nothing writes that minimum back here.
+    pub authored_half_extent: Vec2,
+    /// The authored opening half-length of this portal's partner, or `None`
+    /// when it has no partner. `equalize_pair_apertures` derives it each
+    /// frame from the two authored extents. It is not authored.
+    pub partner_opening_half: Option<f32>,
     /// The face this aperture rides, if any. A hosted portal closes when its
     /// face disappears.
     pub host: PortalHost,
@@ -77,7 +84,8 @@ impl PlacedPortal {
             channel,
             pos,
             normal,
-            half_extent,
+            authored_half_extent: half_extent,
+            partner_opening_half: None,
             host: PortalHost::Unattributed,
             vel: Vec2::ZERO,
             prev_pos: pos,
@@ -106,12 +114,24 @@ impl PlacedPortal {
         }
     }
 
+    /// The half-extent of the opening this frame: the authored one, made
+    /// shorter along the surface (centered) to the partner's opening when
+    /// the partner's is smaller. The thickness does not change, so transit
+    /// stays an isometry.
+    pub fn opening_half_extent(&self) -> Vec2 {
+        let own = portal_opening_half(self.normal, self.authored_half_extent);
+        match self.partner_opening_half {
+            Some(partner) if partner < own - 1e-3 => portal_half_extent_with_length(self.normal, partner),
+            _ => self.authored_half_extent,
+        }
+    }
+
     /// Frame and opening extent, used by the piece decomposition, straddle
     /// test, carve, and portal-aware casts.
     pub fn aperture(&self) -> PortalAperture {
         PortalAperture {
             frame: self.frame(),
-            half_length: portal_opening_half(self.normal, self.half_extent),
+            half_length: portal_opening_half(self.normal, self.opening_half_extent()),
         }
     }
 }
@@ -245,7 +265,8 @@ mod find_portal_determinism_tests {
             channel,
             pos: Vec2::new(x, y),
             normal: Vec2::new(0.0, 1.0),
-            half_extent: Vec2::new(PORTAL_OPENING_HALF, PORTAL_THICKNESS_HALF),
+            authored_half_extent: Vec2::new(PORTAL_OPENING_HALF, PORTAL_THICKNESS_HALF),
+            partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,
             prev_pos: Vec2::new(x, y),
@@ -301,7 +322,8 @@ mod stable_order_tests {
             channel: PortalChannelColor::Purple.channel(),
             pos: Vec2::new(x, y),
             normal: Vec2::new(0.0, 1.0),
-            half_extent: Vec2::new(PORTAL_OPENING_HALF, PORTAL_THICKNESS_HALF),
+            authored_half_extent: Vec2::new(PORTAL_OPENING_HALF, PORTAL_THICKNESS_HALF),
+            partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,
             prev_pos: Vec2::new(x, y),

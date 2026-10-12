@@ -24,7 +24,7 @@ pub(crate) fn draw_portals<'a>(
         draw_aabb(
             gizmos,
             world,
-            ae::Aabb::new(portal.pos, portal.half_extent),
+            ae::Aabb::new(portal.pos, portal.opening_half_extent()),
             color,
         );
         // Outward normal tick from the portal face into the room.

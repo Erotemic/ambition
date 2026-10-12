@@ -34,10 +34,11 @@ pub enum PaneRelation {
 
 /// The pane's world rect: what it covers, and what is subtracted from a
 /// far-side drawable. [`pane_relation`] and the compositor both use this rect.
-/// Two spellings of `pos ± half_extent` could leave a hairline of the far body
-/// along the pane edge.
+/// Two spellings of `pos ± half extent` could leave a hairline of the far body
+/// along the pane edge. The pane is the opening of this frame.
 pub fn pane_cover_rect(pane: &PlacedPortal) -> (Vec2, Vec2) {
-    (pane.pos - pane.half_extent, pane.pos + pane.half_extent)
+    let half = pane.opening_half_extent();
+    (pane.pos - half, pane.pos + half)
 }
 
 /// Classify `drawable` (world-space bounds, as drawn) against one `pane`.
@@ -483,7 +484,8 @@ mod tests {
             ),
             pos: at,
             normal,
-            half_extent: Vec2::new(46.0, 9.0),
+            authored_half_extent: Vec2::new(46.0, 9.0),
+            partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,
             prev_pos: at,

@@ -321,6 +321,11 @@ pub enum PortalChannelColorSpec {
 }
 
 impl PortalChannelColorSpec {
+    /// The first channel that authoring can not name: `ambition_portal2d`
+    /// gives `c128` and up to the pairs of `link` ids, so an authored `c130`
+    /// would be one pair with a link pair.
+    pub const FIRST_LINK_CHANNEL: u8 = 128;
+
     pub fn partner(self) -> Self {
         use PortalChannelColorSpec::*;
         match self {
@@ -362,7 +367,13 @@ impl PortalChannelColorSpec {
             "magenta" => Magenta,
             "cyan" => Cyan,
             "rose" => Rose,
-            other => Indexed(other.strip_prefix('c')?.parse::<u8>().ok()?),
+            other => Indexed(
+                other
+                    .strip_prefix('c')?
+                    .parse::<u8>()
+                    .ok()
+                    .filter(|index| *index < Self::FIRST_LINK_CHANNEL)?,
+            ),
         })
     }
 }

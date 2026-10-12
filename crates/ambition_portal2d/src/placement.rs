@@ -146,10 +146,11 @@ pub fn portal_input_warp_flips_horizontal_for_convention(
 /// height, and a floor or ceiling portal checks its width.
 pub fn portal_fits(size: Vec2, portal: &PlacedPortal) -> bool {
     let normal_is_horizontal = portal.normal.x.abs() >= portal.normal.y.abs();
+    let half = portal.opening_half_extent();
     let (opening, cross) = if normal_is_horizontal {
-        (portal.half_extent.y * 2.0, size.y)
+        (half.y * 2.0, size.y)
     } else {
-        (portal.half_extent.x * 2.0, size.x)
+        (half.x * 2.0, size.x)
     };
     cross <= opening
 }
@@ -217,7 +218,7 @@ pub fn measure_host_depth(occluders: &[ae::Aabb], frame: &PortalFrame, probe_dep
 pub(crate) fn capture_box(portal: &PlacedPortal) -> ae::Aabb {
     ae::Aabb::new(
         portal.pos,
-        portal.half_extent + Vec2::splat(TRANSIT_BEGIN_MARGIN),
+        portal.opening_half_extent() + Vec2::splat(TRANSIT_BEGIN_MARGIN),
     )
 }
 

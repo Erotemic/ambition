@@ -1,5 +1,7 @@
 // The source of the moves of `pugnacious_polygon`.
 // The game loads this file through the content pack (`assets/pack.ron`); edit it here.
+// Its grab boxes are stated for its standing height (68.9), not for the 48 of a
+// row that states none: a grab is the reach of the body, so it grows with the body.
 //
 // DESIGN NOTES, carried from the Rust table this file replaced. A note in
 // parentheses names the line it was written beside.
@@ -1299,15 +1301,15 @@
                                         key: "smash.capture_attempt",
                                         params: ({
                                             "half_extents": [
-                                                26.0,
-                                                20.0,
+                                                37.3,
+                                                28.7,
                                             ],
                                             "hold_offset": [
-                                                14.0,
-                                                3.0,
+                                                20.1,
+                                                4.3,
                                             ],
                                             "offset": [
-                                                32.0,
+                                                45.9,
                                                 0.0,
                                             ],
                                         }),
@@ -1676,16 +1678,16 @@
                                         key: "smash.capture_attempt",
                                         params: ({
                                             "half_extents": [
-                                                19.0,
-                                                16.0,
+                                                27.3,
+                                                23.0,
                                             ],
                                             "hold_offset": [
-                                                14.0,
-                                                3.0,
+                                                20.1,
+                                                4.3,
                                             ],
                                             "offset": [
-                                                15.0,
-                                                1.0,
+                                                21.5,
+                                                1.4,
                                             ],
                                         }),
                                     )),
@@ -1760,16 +1762,16 @@
                                         key: "smash.capture_attempt",
                                         params: ({
                                             "half_extents": [
-                                                19.0,
-                                                16.0,
+                                                27.3,
+                                                23.0,
                                             ],
                                             "hold_offset": [
-                                                14.0,
-                                                3.0,
+                                                20.1,
+                                                4.3,
                                             ],
                                             "offset": [
-                                                15.0,
-                                                1.0,
+                                                21.5,
+                                                1.4,
                                             ],
                                         }),
                                     )),

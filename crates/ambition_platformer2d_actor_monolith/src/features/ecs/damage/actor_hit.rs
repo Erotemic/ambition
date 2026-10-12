@@ -131,6 +131,9 @@ pub(crate) fn apply_actor_hit(
     // same reason: the actor cluster is at Bevy's column ceiling and this is a
     // read of one component by entity.
     evading: bool,
+    // Does another authority own where this body is (`PoseOwnedExternally`)?
+    // Then its hit reaction stages the launch and writes no velocity.
+    pose_held: bool,
     // ⭐ MAY THIS HIT SPEAK? — drawn by the caller, for the same reason
     // `heavy_attacker` and `evading` above are resolved there: the draw needs
     // the tick and the match, and this resolver holds neither.
@@ -487,6 +490,7 @@ pub(crate) fn apply_actor_hit(
                 ambition_combat::hit_reaction::VictimStance {
                     grounded: em.ground.on_ground,
                     crouching: em.body_mode.body_mode == ae::BodyMode::Crouching,
+                    pose_held,
                 },
                 // ⭐ THE AIR DODGE A HIT GIVES BACK — one resource, and the
                 // reaction's rather than each road's (D203). ⛔ NOT the double

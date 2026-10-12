@@ -1,5 +1,7 @@
 // The source of the moves of `npc_alice`.
 // The game loads this file through the content pack (`assets/pack.ron`); edit it here.
+// Its grab boxes are stated for its standing height (63.9), not for the 48 of a
+// row that states none: a grab is the reach of the body, so it grows with the body.
 //
 // DESIGN NOTES, carried from the Rust table this file replaced. A note in
 // parentheses names the line it was written beside.
@@ -1961,16 +1963,16 @@
                                         key: "smash.capture_attempt",
                                         params: ({
                                             "half_extents": [
-                                                18.0,
-                                                15.0,
+                                                24.0,
+                                                20.0,
                                             ],
                                             "hold_offset": [
-                                                13.0,
-                                                3.0,
+                                                17.3,
+                                                4.0,
                                             ],
                                             "offset": [
-                                                12.0,
-                                                1.0,
+                                                16.0,
+                                                1.3,
                                             ],
                                         }),
                                     )),
@@ -2045,16 +2047,16 @@
                                         key: "smash.capture_attempt",
                                         params: ({
                                             "half_extents": [
-                                                18.0,
-                                                15.0,
+                                                24.0,
+                                                20.0,
                                             ],
                                             "hold_offset": [
-                                                13.0,
-                                                3.0,
+                                                17.3,
+                                                4.0,
                                             ],
                                             "offset": [
-                                                12.0,
-                                                1.0,
+                                                16.0,
+                                                1.3,
                                             ],
                                         }),
                                     )),

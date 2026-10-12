@@ -1,5 +1,7 @@
 // The source of the moves of `npc_ramen_nujan`: Ramen-nujan as a fighter.
 // The game loads this file through the content pack (`assets/pack.ron`); edit it here.
+// Its grab boxes are stated for its standing height (65.0), not for the 48 of a
+// row that states none: a grab is the reach of the body, so it grows with the body.
 //
 // DESIGN NOTES.
 //
@@ -1765,16 +1767,16 @@
                                         key: "smash.capture_attempt",
                                         params: ({
                                             "half_extents": [
-                                                24.0,
-                                                13.0,
+                                                32.5,
+                                                17.6,
                                             ],
                                             "hold_offset": [
-                                                20.0,
-                                                3.0,
+                                                27.1,
+                                                4.1,
                                             ],
                                             "offset": [
-                                                28.0,
-                                                -5.0,
+                                                37.9,
+                                                -6.8,
                                             ],
                                         }),
                                     )),
@@ -1841,16 +1843,16 @@
                                         key: "smash.capture_attempt",
                                         params: ({
                                             "half_extents": [
-                                                24.0,
-                                                13.0,
+                                                32.5,
+                                                17.6,
                                             ],
                                             "hold_offset": [
-                                                20.0,
-                                                3.0,
+                                                27.1,
+                                                4.1,
                                             ],
                                             "offset": [
-                                                28.0,
-                                                -5.0,
+                                                37.9,
+                                                -6.8,
                                             ],
                                         }),
                                     )),

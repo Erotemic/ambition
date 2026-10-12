@@ -1,5 +1,7 @@
 // The source of the moves of `special_patent_clerk`.
 // The game loads this file through the content pack (`assets/pack.ron`); edit it here.
+// Its grab boxes are stated for its standing height (67.7), not for the 48 of a
+// row that states none: a grab is the reach of the body, so it grows with the body.
 //
 // DESIGN NOTES, carried from the Rust table this file replaced. A note in
 // parentheses names the line it was written beside.
@@ -1896,16 +1898,16 @@
                                         key: "smash.capture_attempt",
                                         params: ({
                                             "half_extents": [
-                                                18.0,
-                                                15.0,
+                                                25.4,
+                                                21.2,
                                             ],
                                             "hold_offset": [
-                                                13.0,
-                                                3.0,
+                                                18.3,
+                                                4.2,
                                             ],
                                             "offset": [
-                                                12.0,
-                                                1.0,
+                                                16.9,
+                                                1.4,
                                             ],
                                         }),
                                     )),
@@ -1980,16 +1982,16 @@
                                         key: "smash.capture_attempt",
                                         params: ({
                                             "half_extents": [
-                                                18.0,
-                                                15.0,
+                                                25.4,
+                                                21.2,
                                             ],
                                             "hold_offset": [
-                                                13.0,
-                                                3.0,
+                                                18.3,
+                                                4.2,
                                             ],
                                             "offset": [
-                                                12.0,
-                                                1.0,
+                                                16.9,
+                                                1.4,
                                             ],
                                         }),
                                     )),

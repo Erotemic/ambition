@@ -545,6 +545,9 @@ pub(crate) fn handle_player_damage_events(
     // The published maneuver facts (ADR 0024): dodge-roll i-frames gate at
     // consume time from the semantic projection, not the policy's timer.
     facts: &ae::BodyMotionFacts,
+    // Does another authority own where this body is (`PoseOwnedExternally`)?
+    // Then a knockback stages its launch and writes no velocity.
+    pose_held: bool,
 ) -> bool {
     let Some(damage) = damage_events.first().cloned() else {
         return false;
@@ -726,6 +729,7 @@ pub(crate) fn handle_player_damage_events(
                         victim_source,
                         heavy_attacker,
                         strike_weight,
+                        pose_held,
                     );
                     publish_resolved_hit(
                         death_writers.resolved.as_mut(),
@@ -823,6 +827,7 @@ pub(crate) fn handle_player_damage_events(
                     victim_source,
                     heavy_attacker,
                     strike_weight,
+                    pose_held,
                 );
                 publish_resolved_hit(
                     death_writers.resolved.as_mut(),
@@ -1072,6 +1077,8 @@ pub(crate) fn apply_player_knockback(
     heavy_attacker: bool,
     // The room's line between light and heavy hits (its game's rule).
     strike_weight: Option<ambition_combat::strike_weight::StrikeWeightRules>,
+    // See `handle_player_damage_events`.
+    pose_held: bool,
 ) -> BodyReactionOutcome {
     let boss_hit = heavy_attacker;
     let knockback = damage.knockback.as_ref();
@@ -1094,6 +1101,7 @@ pub(crate) fn apply_player_knockback(
         VictimStance {
             grounded: clusters.ground.on_ground,
             crouching: clusters.body_mode.body_mode == ae::BodyMode::Crouching,
+            pose_held,
         },
         // The refresh used to be a separate call right here, and being the
         // CALLER's is exactly how the actor and throw roads came to be without
@@ -1466,8 +1474,10 @@ pub fn apply_player_hit_events(
             // The body's movement policy: a death/safe respawn is a discrete
             // TRANSIT and must reconcile model-private attachment.
             &mut ambition_platformer2d_core::movement::MotionModel,
-            // The published maneuver projection (dodge i-frames, blink grace).
-            &ae::BodyMotionFacts,
+            // The published maneuver projection (dodge i-frames, blink grace),
+            // and whether another authority owns where the body is (a saddle):
+            // nested, so the tuple stays inside Bevy's width.
+            (&ae::BodyMotionFacts, bevy::prelude::Has<ae::PoseOwnedExternally>),
         ),
         // SLOT-0 BY DESIGN: this is the PLAYER-VICTIM path — hitstop, the death
         // banner, the safe-position rewind. Actor-vs-actor damage runs through
@@ -1547,7 +1557,7 @@ pub fn apply_player_hit_events(
         control,
         resolved_frame,
         mut motion_model,
-        facts,
+        (facts, pose_held),
     ) in &mut player_q
     {
         // The walls of this player's own live room (OW1 cut 7p). This read the
@@ -1657,6 +1667,7 @@ pub fn apply_player_hit_events(
             &mut combat,
             &mut motion_model,
             facts,
+            pose_held,
         );
         // Class-B transit authority (`docs/concepts/movement-collision.md`). Death and the
         // hazard safe-respawn both teleport the victim; recorded here because

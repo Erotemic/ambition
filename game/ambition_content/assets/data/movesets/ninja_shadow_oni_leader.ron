@@ -1,5 +1,7 @@
 // The source of the moves of `npc_ninja_shadow_oni_leader`.
 // The game loads this file through the content pack (`assets/pack.ron`); edit it here.
+// Its grab boxes are stated for its standing height (70.8), not for the 48 of a
+// row that states none: a grab is the reach of the body, so it grows with the body.
 //
 // DESIGN NOTES, carried from the Rust table this file replaced. A note in
 // parentheses names the line it was written beside.
@@ -1893,16 +1895,16 @@
                                         key: "smash.capture_attempt",
                                         params: ({
                                             "half_extents": [
-                                                21.0,
-                                                16.0,
+                                                31.0,
+                                                23.6,
                                             ],
                                             "hold_offset": [
-                                                13.0,
-                                                3.0,
+                                                19.2,
+                                                4.4,
                                             ],
                                             "offset": [
-                                                12.0,
-                                                1.0,
+                                                17.7,
+                                                1.5,
                                             ],
                                         }),
                                     )),
@@ -1977,16 +1979,16 @@
                                         key: "smash.capture_attempt",
                                         params: ({
                                             "half_extents": [
-                                                21.0,
-                                                16.0,
+                                                31.0,
+                                                23.6,
                                             ],
                                             "hold_offset": [
-                                                13.0,
-                                                3.0,
+                                                19.2,
+                                                4.4,
                                             ],
                                             "offset": [
-                                                12.0,
-                                                1.0,
+                                                17.7,
+                                                1.5,
                                             ],
                                         }),
                                     )),

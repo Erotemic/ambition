@@ -1892,7 +1892,10 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
     //
     // RE-BASED 2026-10-11 TO 20 OF 22 for the same reason: `fdc6622e9` seated
     // GNU-ton, who authors no feel. The two authors are unchanged.
-    const ON_THE_ENEMYS_BODY: usize = 20;
+    //
+    // RE-BASED 2026-10-12 TO 21 OF 23 for the same reason: `54f9c36c7` seated
+    // Ramen-nujan, who authors no feel. The two authors are unchanged.
+    const ON_THE_ENEMYS_BODY: usize = 21;
     assert_eq!(
         silent.len(),
         ON_THE_ENEMYS_BODY,

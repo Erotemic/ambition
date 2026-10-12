@@ -2070,6 +2070,7 @@ fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
             VictimStance {
                 grounded: true,
                 crouching,
+                ..Default::default()
             },
             None,
             None,

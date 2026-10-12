@@ -391,9 +391,11 @@ pub fn apply_feature_hit_events(
     // `victim_motion` answers whether the body it reached is inside an evade —
     // one term of the shared eligibility gate, which the actor cluster query
     // has no column left to carry.
-    (victim_volumes, victim_motion): (
+    // `victim_held` answers whether another authority owns where it is.
+    (victim_volumes, victim_motion, victim_held): (
         Query<&ambition_combat::components::DamageableVolumes>,
         Query<&ambition_platformer2d_core::BodyMotionFacts>,
+        Query<(), bevy::prelude::With<ambition_platformer2d_core::PoseOwnedExternally>>,
     ),
     mut banner: ResMut<GameplayBanner>,
     // Knockback feel for struck actors (§A2 step 6). `Option` so minimal
@@ -825,6 +827,9 @@ pub fn apply_feature_hit_events(
                 victim_motion
                     .get(actor_entity)
                     .is_ok_and(ambition_platformer2d_core::BodyMotionFacts::evading),
+                // Is its pose held (a saddle, a hold)? Read by entity for
+                // the same reason.
+                victim_held.contains(actor_entity),
                 // ⭐⭐ MAY THIS HIT SPEAK? Jon, 2026-08-24: *"not have barks
                 // happen every time a character is hit. Make it a more rare
                 // event. Not never."*

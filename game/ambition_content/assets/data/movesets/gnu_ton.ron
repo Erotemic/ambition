@@ -1,5 +1,7 @@
 // The source of the moves of `npc_gnu_ton`: the scholar GNU-ton as a fighter.
 // The game loads this file through the content pack (`assets/pack.ron`); edit it here.
+// Its grab boxes are stated for its standing height (65.0), not for the 48 of a
+// row that states none: a grab is the reach of the body, so it grows with the body.
 //
 // DESIGN NOTES.
 //
@@ -1782,16 +1784,16 @@
                                         key: "smash.capture_attempt",
                                         params: ({
                                             "half_extents": [
-                                                18.0,
-                                                15.0,
+                                                24.4,
+                                                20.3,
                                             ],
                                             "hold_offset": [
-                                                13.0,
-                                                3.0,
+                                                17.6,
+                                                4.1,
                                             ],
                                             "offset": [
-                                                12.0,
-                                                1.0,
+                                                16.2,
+                                                1.4,
                                             ],
                                         }),
                                     )),
@@ -1858,16 +1860,16 @@
                                         key: "smash.capture_attempt",
                                         params: ({
                                             "half_extents": [
-                                                18.0,
-                                                15.0,
+                                                24.4,
+                                                20.3,
                                             ],
                                             "hold_offset": [
-                                                13.0,
-                                                3.0,
+                                                17.6,
+                                                4.1,
                                             ],
                                             "offset": [
-                                                12.0,
-                                                1.0,
+                                                16.2,
+                                                1.4,
                                             ],
                                         }),
                                     )),

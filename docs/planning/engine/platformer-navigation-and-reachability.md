@@ -255,6 +255,22 @@ control, with no climb the top is out of reach). Poison: no hold-up, red at
 the wall-climb link. A wall jump (a kick off one face to another) is still
 no leg.
 
+A dash is one leg, the dash hop (2026-10-12), for a body with a dash: jump
+at the take-off, and at the top of the arc press the dash (the burst press)
+straight toward the landing, so the body goes along at the height of the apex
+for the dash's time, then steer to the landing. It is proposed after the
+double hop and before the climb, only where no hop, drop or double hop
+arrives, no higher than a jump, and up to `MAX_DASH_GAIN` (400 px) further
+than the running jump; the rollout decides. `LegInput.dash_pressed` carries
+the press to the kernel in the rollout, to the brain (`burst_pressed`) and to
+the walkers (the burst key). Measured: for the test walker (270 px/s, a dash
+at 760 px/s for 8 steps) a dash at the apex goes about 100 px past where a
+level jump lands. Guard:
+`navigation::graph::tests::a_body_that_dashes_gets_across_a_gap_no_jump_clears`
+(a gap 50 px past the level jump, over a deep pit: a dash-hop link that
+arrives in the kernel; control, with no dash the far ledge is out of reach).
+Poison: no dash press, red at the dash-hop link.
+
 Flight is one leg, the fly leg (2026-10-10), for a body that can toggle
 flight: toggle at the start, rise to 32 px above the landing
 (`FLIGHT_CLEARANCE`), go along to it, toggle off at half that height and fall
@@ -304,7 +320,7 @@ blocks only, red at `alice_relay` (the body walks into the lock and stops).
 Not modelled, each a seam:
 
 - a drop through a one-way surface, a second air jump, an air jump in a drop,
-  a dash, a wall jump, permanent flight, a pogo bounce;
+  a dash on the ground or up, a wall jump, permanent flight, a pogo bounce;
 - a slope or a surface chain, a surface that moves;
 - geometry that is not authored in the room (a gate, a breakable). A leg such a
   thing stops fails, and the brain plans again;
@@ -412,7 +428,7 @@ The slices, each with its own witness:
 
 Not in these slices: enemy navigation and a baked graph (Jon's open
 decisions), a door that needs Interact (a body crosses edge zones first), and
-legs for a wall jump or a dash (the air jump and the climb have legs, above).
+legs for a wall jump (the air jump, the climb and the dash have legs, above).
 
 ## Architecture direction
 

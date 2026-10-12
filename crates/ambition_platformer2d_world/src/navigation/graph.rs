@@ -50,6 +50,9 @@ const RUN_UP: f32 = 140.0;
 /// The most a wall climb rises: a leg rollout has `MAX_LEG_STEPS`, and a
 /// climb of this height at the kernel's climb speed fits in it.
 const MAX_CLIMB: f32 = 600.0;
+/// The most further than a jump a dash hop is proposed for. A filter of the
+/// proposals only: the kernel rollout says whether the leg arrives.
+const MAX_DASH_GAIN: f32 = 400.0;
 
 /// A leg the body can do, from one surface to another.
 #[derive(Clone, Debug, PartialEq)]
@@ -133,6 +136,7 @@ impl NavGraph {
         let verbs = body.abilities.abilities;
         let can_climb = verbs.wall_cling && verbs.wall_climb;
         let can_fly = verbs.fly && verbs.fly_toggle;
+        let can_dash = verbs.dash;
         let mut graph = Self {
             frame: nav,
             half,
@@ -159,10 +163,13 @@ impl NavGraph {
                 let double = air_jump_apex > apex + 1.0
                     && rise < air_jump_apex - 1.0
                     && gap <= air_jump_reach + slack;
+                // A dash carries the body along at the height of the apex: no
+                // higher than a jump, and further.
+                let dash = can_dash && rise < apex - 1.0 && gap <= jump_reach + MAX_DASH_GAIN + slack;
                 let climb = can_climb && rise > 1.0 && rise <= MAX_CLIMB && gap <= air_jump_reach.max(jump_reach) + slack;
                 // Flight is for going up: a drop gets down.
                 let fly = can_fly && rise > 1.0;
-                if rise < -envelope.probe.max_drop || !(hop || drop || double || climb || fly) {
+                if rise < -envelope.probe.max_drop || !(hop || drop || double || dash || climb || fly) {
                     continue;
                 }
                 let mut cost = BuildCost::default();
@@ -181,10 +188,11 @@ impl NavGraph {
                     proposals(a, b, half.x, true, false).into_iter().map(move |leg| NavLeg { kind, ..leg }).collect()
                 };
                 // The cheaper leg first: one jump, then the air jump, then a
-                // climb, then flight, each only where the one before it does
-                // not arrive.
+                // dash, then a climb, then flight, each only where the one
+                // before it does not arrive.
                 let best = arrived(proposals(a, b, half.x, hop, drop), &mut cost)
                     .or_else(|| double.then(|| arrived(as_kind(NavLegKind::DoubleHop), &mut cost)).flatten())
+                    .or_else(|| dash.then(|| arrived(as_kind(NavLegKind::DashHop), &mut cost)).flatten())
                     .or_else(|| climb.then(|| arrived(as_kind(NavLegKind::WallClimb), &mut cost)).flatten())
                     .or_else(|| {
                         fly.then(|| {
@@ -586,7 +594,8 @@ fn step(body: &mut BodyClusterScratch, world: &World, frame: MotionFrame, dt: f3
         axes: LocalAxes::new(input.axis, if input.up { -1.0 } else { 0.0 }),
         movement: ActionEdges::<MovementAction>::EMPTY
             .with(MovementAction::Jump, Edge { pressed: input.jump_pressed, held: input.jump_held, released: false })
-            .with(MovementAction::FlyToggle, Edge { pressed: input.fly_toggle, held: input.fly_toggle, released: false }),
+            .with(MovementAction::FlyToggle, Edge { pressed: input.fly_toggle, held: input.fly_toggle, released: false })
+            .with(MovementAction::Burst, Edge { pressed: input.dash_pressed, held: input.dash_pressed, released: false }),
         ..Default::default()
     };
     let facing_intent = input.local_axis().x;

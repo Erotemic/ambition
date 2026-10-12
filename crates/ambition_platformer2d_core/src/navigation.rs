@@ -49,6 +49,9 @@ pub enum NavLegKind {
     /// the body clings, climbs, takes the ledge and pulls itself up onto it.
     /// For a body that can cling and climb.
     WallClimb,
+    /// Jump at `takeoff`, dash toward `land` at the top of the arc, and
+    /// steer to it: for a body with a dash, over a gap no jump clears.
+    DashHop,
     /// Toggle flight at `start`, fly up and along to the air above `land`,
     /// toggle flight off there and fall onto it. For a body that can toggle
     /// flight.
@@ -124,6 +127,8 @@ pub struct LegInput {
     pub up: bool,
     /// Press the flight toggle.
     pub fly_toggle: bool,
+    /// Press the dash (the burst press), aimed along `axis`.
+    pub dash_pressed: bool,
 }
 
 /// What a step of a leg came to.
@@ -175,7 +180,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
             let running = LegInput { axis: direction, full_speed: true, ..Default::default() };
             match leg.kind {
                 NavLegKind::Walk => (LegInput::default(), LegProgress::Going(LegPhase::Approach)),
-                NavLegKind::Hop | NavLegKind::DoubleHop | NavLegKind::WallClimb => {
+                NavLegKind::Hop | NavLegKind::DoubleHop | NavLegKind::DashHop | NavLegKind::WallClimb => {
                     if !facts.on_ground {
                         return (LegInput::default(), LegProgress::Failed);
                     }
@@ -267,6 +272,23 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                     jump_held: !climb,
                     up: climb,
                     fly_toggle: false,
+                    dash_pressed: false,
+                };
+                let next = if falling { LegPhase::SecondAir } else { LegPhase::Air };
+                return (input, LegProgress::Going(next));
+            }
+            // The dash of a dash hop: at the top of the arc, straight toward
+            // the landing, so it carries the body along at the height of the
+            // apex. Before it, the body is short of a landing that one jump
+            // does not reach, and that is not a miss.
+            if leg.kind == NavLegKind::DashHop && phase == LegPhase::Air {
+                let toward = along(leg.land).signum();
+                let input = LegInput {
+                    axis: if falling { toward } else { steer_to(leg.land, 16.0) },
+                    full_speed: true,
+                    jump_held: true,
+                    dash_pressed: falling,
+                    ..LegInput::default()
                 };
                 let next = if falling { LegPhase::SecondAir } else { LegPhase::Air };
                 return (input, LegProgress::Going(next));
@@ -294,7 +316,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                 axis: steer_to(leg.land, 16.0),
                 full_speed: true,
                 jump_pressed: false,
-                jump_held: matches!(leg.kind, NavLegKind::Hop | NavLegKind::DoubleHop),
+                jump_held: matches!(leg.kind, NavLegKind::Hop | NavLegKind::DoubleHop | NavLegKind::DashHop),
                 ..LegInput::default()
             };
             (input, LegProgress::Going(phase))

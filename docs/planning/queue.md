@@ -639,9 +639,10 @@ second-seat road) and in a room that is not live (through the ledger). Arms in
 arm for each road. Deterministic; no model call inside the simulation. The
 slices, measurements and poisons are on the owner page.
 
-Open, not in this row: legs for a wall jump and a dash (granted to this
-session by ToothbrushAmbition), a door that needs Interact for a body no slot
-drives, permanent flight and a pogo bounce.
+Open, not in this row: a leg for a wall jump (granted to this session by
+ToothbrushAmbition), a door that needs Interact for a body no slot drives,
+permanent flight and a pogo bounce. The dash hop landed 2026-10-12 (owner
+page).
 
 ### PUBLICATION-FAULT — a refused later room must not leave a mixed world — ✅ DONE 2026-10-09
 

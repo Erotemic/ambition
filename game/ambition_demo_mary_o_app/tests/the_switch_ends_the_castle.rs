@@ -4,10 +4,18 @@
 //! boss. and that has to be what ends that level, not the flag. We can have
 //! robot v3 be the reward at the end and you get a cut scene where the robot
 //! says 'thank you mary-o'."
+//!
+//! Jon, 2026-10-12: the switch is a button she lands on, a gate is past it,
+//! and the end has beats: "After the void lizard falls and you see the death,
+//! then the wall to the right of the button opens, and you walk over to the
+//! robot ..., and then the robot thanks you, there is a pause so the player
+//! can take in the victory, and then it transitions to the next level".
 
 use bevy::prelude::*;
 
-use ambition_demo_mary_o::castle_end::{room_switch, RESCUED_CHARACTER_ID, RESCUE_CUTSCENE, RESCUE_LINE};
+use ambition_demo_mary_o::castle_end::{
+    room_switch, CastleBeat, GOAL_GATE, RESCUED_CHARACTER_ID, RESCUE_CUTSCENE, RESCUE_LINE,
+};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
@@ -71,39 +79,100 @@ fn the_switch_drops_the_boss_and_the_robot_thanks_her_before_the_level_goes() {
     );
     assert_eq!(living_lizards(&mut app), 1, "the castle has one Void Lizard, alive, before the switch");
 
-    // Put her on the floor at the switch.
-    {
+    let gate = room
+        .world
+        .blocks
+        .iter()
+        .find(|block| block.name == GOAL_GATE)
+        .expect("the castle authors no `goal_gate` block: the way past the switch is open")
+        .aabb;
+    assert!(gate.min.x >= switch.max.x, "the gate is not past the switch");
+
+    // A body in the air over the switch does not press it.
+    let place = |app: &mut App, pos: ae::Vec2| {
         let world = app.world_mut();
         let mut bodies = world.query_filtered::<&mut ae::BodyKinematics, With<PrimaryPlayer>>();
         let mut body = bodies.iter_mut(world).next().expect("her body");
-        let half = body.size.y * 0.5;
-        body.pos = ae::Vec2::new((switch.min.x + switch.max.x) * 0.5, switch.max.y - half);
+        body.pos = pos;
         body.vel = ae::Vec2::ZERO;
-    }
+    };
+    let her_half = {
+        let world = app.world_mut();
+        let mut bodies = world.query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
+        bodies.iter(world).next().expect("her body").size.y * 0.5
+    };
+    let over = ae::Vec2::new((switch.min.x + switch.max.x) * 0.5, switch.min.y - her_half);
+    place(&mut app, over - ae::Vec2::new(0.0, 40.0));
+    app.update();
+    assert_eq!(beat(&mut app), None, "a body in the air over the switch pressed it");
 
+    // She comes down on it.
+    let mut pressed_at = None;
+    let mut seen = vec![];
     let mut heard = None;
-    let mut dead_at_the_line = None;
-    for frame in 0..900 {
+    for frame in 0..2400 {
         app.update();
+        if let Some(now) = beat(&mut app) {
+            pressed_at.get_or_insert(frame);
+            if seen.last() != Some(&now) {
+                // What is true of the world when a beat starts.
+                match now {
+                    CastleBeat::Aftermath => {
+                        assert_eq!(living_lizards(&mut app), 0, "the Void Lizard is alive after its fall");
+                    }
+                    // The gate is a wall of solid rock to the ceiling: she is
+                    // past it only if it opened.
+                    CastleBeat::Thanks => {
+                        let at = her_x(&mut app);
+                        assert!(at > gate.max.x, "he thanks her and she is not past the gate (x {at}, gate {gate:?})");
+                    }
+                    beat if beat < CastleBeat::Walks => {
+                        let at = her_x(&mut app);
+                        assert!(at < gate.min.x, "she is at the gate in {beat:?} (x {at})");
+                    }
+                    _ => {}
+                }
+                seen.push(now);
+            }
+        }
         if heard.is_none() {
             if let Some(text) = line_on_screen(&app) {
                 heard = Some((frame, text));
-                dead_at_the_line = Some(living_lizards(&mut app) == 0);
             }
         }
         if room_id(&mut app).as_deref() != Some(CASTLE) {
-            let (_, text) = heard.expect("the level went and the robot did not say his line");
+            use CastleBeat::*;
+            assert_eq!(seen, [Pressed, Charges, BridgeFalls, BossFalls, Aftermath, GateOpens, Walks, Thanks, Victory]);
+            let (line_frame, text) = heard.expect("the level went and the robot did not say his line");
             assert_eq!(text, RESCUE_LINE);
-            assert_eq!(dead_at_the_line, Some(true), "the Void Lizard was alive when the robot thanked her");
+            let pressed_at = pressed_at.expect("a beat was seen");
+            assert!(
+                line_frame - pressed_at > 240,
+                "his line came {} frames after the switch: the end of the castle is a blink",
+                line_frame - pressed_at
+            );
             assert_eq!(room_id(&mut app).as_deref(), Some("mary_o_1_1"), "the castle names 1-1 as its next room");
             return;
         }
     }
     panic!(
-        "she took the switch of the castle and the level did not go in 900 frames \
-         (his line: {heard:?}, lizards alive: {})",
+        "she landed on the switch of the castle and the level did not go in 2400 frames \
+         (beats: {seen:?}, his line: {heard:?}, lizards alive: {})",
         living_lizards(&mut app)
     );
+}
+
+/// The beat of the end of the castle.
+fn beat(app: &mut App) -> Option<CastleBeat> {
+    let world = app.world_mut();
+    let mut sequences = world.query::<&ambition_demo_mary_o::flag::FlagSequence>();
+    sequences.iter(world).next().and_then(|sequence| sequence.castle_beat()).map(|(beat, _)| beat)
+}
+
+fn her_x(app: &mut App) -> f32 {
+    let world = app.world_mut();
+    let mut bodies = world.query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
+    bodies.iter(world).next().expect("her body").pos.x
 }
 
 /// Where the living Void Lizards have their feet.

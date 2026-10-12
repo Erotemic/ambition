@@ -577,7 +577,8 @@
                                             launch_dir: Some((1.0, -0.45)),
                                             reaction: None,
                                             on_hit: None,
-                                            vfx: Some("slash_arc"),
+                                            // The fist is the picture of this blow.
+                                            vfx: None,
                                             hit_sfx: Some("player.hit"),
                                         ),
                                     ],
@@ -661,7 +662,8 @@
                                             launch_dir: Some((0.0, -1.0)),
                                             reaction: None,
                                             on_hit: None,
-                                            vfx: Some("slash_arc"),
+                                            // The fist is the picture of this blow.
+                                            vfx: None,
                                             hit_sfx: Some("player.hit"),
                                         ),
                                     ],
@@ -745,7 +747,8 @@
                                             launch_dir: Some((0.95, -0.45)),
                                             reaction: None,
                                             on_hit: None,
-                                            vfx: Some("slash_arc"),
+                                            // The fist is the picture of this blow.
+                                            vfx: None,
                                             hit_sfx: Some("player.hit"),
                                         ),
                                     ],

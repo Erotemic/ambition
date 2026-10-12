@@ -8,7 +8,7 @@
 |---|---|
 | [`ai_slop`](src/ai_slop.rs) | Mary-O's AI Slop — the plain stompable walker, authored as pure content. |
 | [`bricks`](src/bricks.rs) | Mary-O's breakable bricks — the SECOND consumer of the reactive-block primitive. |
-| [`castle_end`](src/castle_end.rs) | The end of a castle: a switch, the fall of the bridge, and who waits past it. |
+| [`castle_end`](src/castle_end.rs) | The end of a castle: a switch, the fall of the bridge, a gate, and who waits past it. |
 | [`cosmic`](src/cosmic.rs) | Eternal Cosmic Mary-O: her ultimate form. |
 | [`cosmic_aura`](src/cosmic_aura.rs) | The light about Eternal Cosmic Mary-O. |
 | [`cosmic_barrier`](src/cosmic_barrier.rs) | The barrier of Eternal Cosmic Mary-O. |

@@ -24,7 +24,8 @@ use ambition_platformer2d::game_shell::{ShellExperienceRegistry, ShellLauncherCo
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
 /// Frames a leg may take before we call the transition wedged.
-const COMMIT_CAP: usize = 900;
+// The end of the castle is the longest: its beats are 18 seconds.
+const COMMIT_CAP: usize = 1800;
 
 fn host_app() -> App {
     use bevy::asset::AssetPlugin;
@@ -100,7 +101,8 @@ fn launch(app: &mut App, label: &str) {
 
 /// Finish `from` by touching its OWN authored pole; report where she landed.
 fn finish_at_the_pole(app: &mut App, from: &str) -> String {
-    let pole = ambition_demo_mary_o::pole_for_room(from);
+    // At the pole of the room, or over the switch of a castle.
+    let goal = ambition_demo_mary_o::goal_entry_for_room(from);
     {
         let mut q = app
             .world_mut()
@@ -110,7 +112,7 @@ fn finish_at_the_pole(app: &mut App, from: &str) -> String {
             .iter_mut(world)
             .next()
             .unwrap_or_else(|| panic!("no controlled body in '{from}' to carry to its pole"));
-        body.pos = ae::Vec2::new(pole.x, pole.base_y - 8.0);
+        body.pos = goal;
         body.vel = ae::Vec2::ZERO;
     }
     for _ in 0..COMMIT_CAP {

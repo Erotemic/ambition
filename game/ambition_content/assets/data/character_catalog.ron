@@ -4064,6 +4064,8 @@
             // He authors his own repertoire (`movesets/gnu_ton.ron`): the
             // action set says only that this body can attack.
             default_action_set: "striker_swipe",
+            // The stroke of his quill: ink, as a pen makes it.
+            attack_vfx: Some("gnu_ton_slash"),
             // THE BODY. A light, fast fencer: he runs, and what hits him sends
             // him far. Ordinary tuning values: change them if play says so.
             locomotion: Some((run_speed: 250.0, move_style: Walk)),

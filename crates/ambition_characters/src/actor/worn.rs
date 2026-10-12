@@ -47,6 +47,13 @@ impl WornCharacter {
     }
 }
 
+/// A body that strikes with the moves of a catalog character it does not wear
+/// (a boss that plays a fighter's table): the character whose attack art
+/// draws those strikes. A body that wears a character needs none: its own
+/// character says its art.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct StrikesAs(pub ambition_entity_catalog::CharacterId);
+
 /// One-shot request to reapply a body's character template after a deliberate
 /// runtime identity change. The request is consumed after application.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]

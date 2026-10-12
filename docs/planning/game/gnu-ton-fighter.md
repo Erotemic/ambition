@@ -161,8 +161,14 @@ finish zoom, an impact flash, slash arcs, hit and swing sounds.
 
 - No per-move hitlag or shake multiplier: a heavy and a light hit differ
   only by their damage (`smash-parity-inventory.md`, row S0.3).
-- His own effects: each of his moves draws the common slash. No ink, no
-  apple, no page.
+- **His strikes draw his own stroke** (done 2026-10-12): the sheet
+  `gnu_ton_slash`, a stroke of ink as a pen makes it (`attack_vfx` of
+  `npc_gnu_ton`; the second character with a sheet of his own, after the
+  robot). Before it each strike drew the red stand-in of a character with no
+  art. The game stretches the sheet onto the hit volume, so a narrow volume
+  (the up tilt) has a narrow stroke. The boss body wears no catalog
+  character; it says whose art draws its strikes (`StrikesAs`). The smashes
+  draw no stroke: the fist is their picture. No apple and no page yet.
 - The sheet publishes no hit polygons for him, so his reach is the table's
   box and not the quill in the picture.
 - **An effect's frame is stretched and fades.** `draw_effect_clip` draws
@@ -190,9 +196,9 @@ finish zoom, an impact flash, slash arcs, hit and swing sounds.
    blow's own vector, DI, a tech), in place of the conductor's path.
 4. His aerials and his specials in the fight on the back (he has no jump
    there).
-5. **Hit polygons from the rig** for the quill, and his own effects for the
-   quill and the book (ink, a page). The fist has its own sound to get: it
-   plays the giant's stomp.
+5. **Hit polygons from the rig** for the quill (the stroke is then the
+   shape of the strike, not of a box), and an effect of his book (a page).
+   The fist has its own sound to get: it plays the giant's stomp.
 6. **The fist as a thing of the fight**: a charged smash that makes the fist
    larger; a fist that a strong hit can clang with.
 7. **The hall**: a row in the hall of characters and a hall dialogue.

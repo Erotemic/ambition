@@ -100,6 +100,13 @@ pub enum FlagPhase {
     Sliding { score: u32 },
     /// Walking off to the right, `remaining` px to go.
     WalkingOff { score: u32, remaining: f32 },
+    /// The end of a castle, from the switch to the tally: `since` is the
+    /// seconds in `beat`. `castle_end.rs` steps it.
+    Castle {
+        score: u32,
+        beat: crate::castle_end::CastleBeat,
+        since: f32,
+    },
     /// Done. The tally is on screen and the level is over.
     Tallied { score: u32 },
 }
@@ -116,11 +123,6 @@ pub struct FlagSequence {
     /// and the next would accumulate into the slide. Once the flag is grabbed, the
     /// body's own position stops being an input.
     pub driven: Option<ae::Vec2>,
-    /// The walk-off waits while this is true: she stands where the sequence
-    /// has her. A level writes it each tick it has a thing to show before she
-    /// walks (the fall of the bridge of a castle, `castle_end.rs`), from state
-    /// that rewinds, so it is no state of its own.
-    pub hold: bool,
 }
 
 impl FlagSequence {
@@ -135,7 +137,26 @@ impl FlagSequence {
             FlagPhase::Idle => None,
             FlagPhase::Sliding { score }
             | FlagPhase::WalkingOff { score, .. }
+            | FlagPhase::Castle { score, .. }
             | FlagPhase::Tallied { score } => Some(score),
+        }
+    }
+
+    /// The beat of the end of a castle, and the seconds in it.
+    pub fn castle_beat(&self) -> Option<(crate::castle_end::CastleBeat, f32)> {
+        match self.phase {
+            FlagPhase::Castle { beat, since, .. } => Some((beat, since)),
+            _ => None,
+        }
+    }
+
+    /// Is the level won? A pole is won when it is touched. A castle is won
+    /// when its boss is dead, and that is some beats after its switch.
+    pub fn won(&self) -> bool {
+        match self.phase {
+            FlagPhase::Idle => false,
+            FlagPhase::Castle { beat, .. } => beat >= crate::castle_end::CastleBeat::Aftermath,
+            _ => true,
         }
     }
 }
@@ -230,11 +251,6 @@ fn step_phase(
                 on_pole: true,
             })
         }
-        FlagPhase::WalkingOff { .. } if seq.hold => Some(FlagDrive {
-            pos: body,
-            vel: ae::Vec2::ZERO,
-            on_pole: false,
-        }),
         FlagPhase::WalkingOff { score, remaining } => {
             let step = WALK_OFF_SPEED * dt;
             if step >= remaining {
@@ -260,8 +276,9 @@ fn step_phase(
                 on_pole: false,
             })
         }
-        // Done. The body stays where it is; a results screen is.
-        FlagPhase::Tallied { .. } => Some(FlagDrive {
+        // Done. The body stays where it is; a results screen is. The end of a
+        // castle is not a beat of a pole: `castle_end.rs` steps it.
+        FlagPhase::Tallied { .. } | FlagPhase::Castle { .. } => Some(FlagDrive {
             pos: body,
             vel: ae::Vec2::ZERO,
             on_pole: false,
@@ -451,6 +468,7 @@ mod tests {
                 FlagPhase::Idle => "idle",
                 FlagPhase::Sliding { .. } => "sliding",
                 FlagPhase::WalkingOff { .. } => "walking",
+                FlagPhase::Castle { .. } => "castle",
                 FlagPhase::Tallied { .. } => "tallied",
             };
             if seen.last() != Some(&label) {
@@ -553,7 +571,6 @@ mod tests {
         let mut seq = FlagSequence {
             phase: FlagPhase::Tallied { score: 800 },
             driven: Some(body),
-            hold: false,
         };
         for _ in 0..600 {
             assert_eq!(
@@ -615,25 +632,7 @@ pub fn run_flag_sequence(
     let Ok((mut kin, mut sweep)) = bodies.get_mut(entity) else {
         return;
     };
-    // The pole owns the body from the grab to the tally. The engine's `ControlHolds` blanks at
-    // the one point where it is observable, and takes her out of the pickup pass while she is on
-    // the pole.
-    if matches!(sequence.phase, FlagPhase::Idle) {
-        // the POLE's hold and nobody else's: off the pole is not the same
-        // fact as free.
-        ambition_platformer2d::characters::control::release_control_hold(
-            &mut commands,
-            entity,
-            holds.get_mut(entity).ok().as_deref_mut(),
-            ambition_platformer2d::characters::control::ControlHold::Sequence,
-        );
-    } else {
-        ambition_platformer2d::characters::control::claim_control_hold(
-            &mut commands,
-            entity,
-            ambition_platformer2d::characters::control::ControlHold::Sequence,
-        );
-    }
+    hold_her_while_the_sequence_runs(&mut commands, entity, &sequence, holds.get_mut(entity).ok().as_deref_mut());
 
     // Her LIVE half-height, so the slide plants the form she is actually wearing:
     // small and tall Mary-O stand on the same ground line, and the tall one is
@@ -644,24 +643,49 @@ pub fn run_flag_sequence(
     else {
         return;
     };
-    // The scripted end-of-level slide is an external kinematic constraint
-    // (ADR 0024 authority): the sequence owns the pose while it plays.
-    //
-    // AND THE VELOCITY IT IMPOSES IS THE TRUE ONE. This passed
-    // `Vec2::ZERO`, so every reader of her motion was told she was standing
-    // still while her position jumped — which is why she appeared to translate
-    // rather than slide and walk. `constrain_body_pose` has taken an imposed
-    // velocity all along; the sequence simply was not telling it anything.
-    ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), drive.pos, drive.vel);
-    // Walking off is to the RIGHT, so she should be looking that way.
+    drive_her(&drive, &mut kin, sweep.as_deref_mut(), modes.get_mut(entity).ok());
+}
+
+/// The sequence owns the body from the goal to the tally. The engine's
+/// `ControlHolds` blanks at the one point where it is observable, and takes
+/// her out of the pickup pass while the sequence has her.
+///
+/// It is the hold of the SEQUENCE and of nobody else: off the goal is not the
+/// same fact as free.
+pub(crate) fn hold_her_while_the_sequence_runs(
+    commands: &mut Commands,
+    entity: Entity,
+    sequence: &FlagSequence,
+    holds: Option<&mut ambition_platformer2d::characters::control::ControlHolds>,
+) {
+    use ambition_platformer2d::characters::control::{claim_control_hold, release_control_hold, ControlHold};
+    if sequence.active() {
+        claim_control_hold(commands, entity, ControlHold::Sequence);
+    } else {
+        release_control_hold(commands, entity, holds, ControlHold::Sequence);
+    }
+}
+
+/// Put her where the sequence says, at the speed it says.
+///
+/// The scripted end of a level is an external kinematic constraint (ADR 0024
+/// authority): the sequence owns the pose while it plays. The velocity it
+/// imposes is the true one, so each reader of her motion (the animation
+/// picker above all) is told what she does. On the pole is a BODY MODE and
+/// not a clip: the picker turns `Climbing` into the climb clip, as it does
+/// on a ladder.
+pub(crate) fn drive_her(
+    drive: &FlagDrive,
+    kin: &mut ae::BodyKinematics,
+    sweep: Option<&mut ae::SweepSample>,
+    mode: Option<Mut<ae::BodyModeState>>,
+) {
+    ae::movement::constrain_body_pose(kin, sweep, drive.pos, drive.vel);
+    // She looks the way she walks.
     if drive.vel.x.abs() > f32::EPSILON {
         kin.facing = drive.vel.x.signum();
     }
-    // being on the pole is a BODY MODE, not a clip. The animation picker
-    // turns `Climbing` into the climb clip on its own — the same road a ladder
-    // takes — so the slide animates because the body says what it is doing, and
-    // this file names no clip at all.
-    if let Ok(mut mode) = modes.get_mut(entity) {
+    if let Some(mut mode) = mode {
         let wanted = if drive.on_pole {
             ae::BodyMode::Climbing
         } else {
@@ -703,7 +727,7 @@ pub fn play_victory_music(
     };
     let now = sim_tick.as_ref().map_or(0, |tick| tick.0);
     let room = live.of(entity);
-    if matches!(sequence.phase, FlagPhase::Idle) {
+    if !sequence.won() {
         music.release_priority(room, VICTORY_MUSIC_OWNER);
     } else {
         music.claim_priority(

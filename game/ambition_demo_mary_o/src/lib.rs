@@ -681,6 +681,7 @@ fn dress_authored_blocks(room: &mut RoomSpec) {
             || ldtk_vocabulary::pipe_of(&block.name).is_some()
             || block.name.starts_with(GOAL_POLE_PREFIX)
             || block.name == castle_end::GOAL_SWITCH
+            || block.name == castle_end::GOAL_GATE
         {
             block.art_color = Some(scenery::TRANSPARENT);
         }
@@ -753,15 +754,20 @@ fn scenery_for_authored_room(room: &RoomSpec) -> Vec<PropSpec> {
         }
     }
 
-    // The switch of a castle: drawn larger than its block, on the same floor.
+    // The switch of a castle: its art is a square on the floor of its block,
+    // and the top of its button is the top of the block.
     for (_, min, size) in authored_blocks_named(room, castle_end::GOAL_SWITCH) {
-        let grow = size * 0.5;
+        let art = ae::Vec2::splat(castle_end::SWITCH_ART_PX);
         props.push(scenery::structure_prop(
             castle_end::SWITCH_ART,
             scenery::SWITCH_SPRITE,
-            min - ae::Vec2::new(grow.x * 0.5, grow.y),
-            size + grow,
+            ae::Vec2::new(min.x + (size.x - art.x) * 0.5, min.y + size.y - art.y),
+            art,
         ));
+    }
+    // The gate of a castle, over its block.
+    for (_, min, size) in authored_blocks_named(room, castle_end::GOAL_GATE) {
+        props.push(scenery::structure_prop(castle_end::GATE_ART, scenery::GATE_SPRITE, min, size));
     }
 
     // Every pipe, tiled over its OWN block: one LIP tile at the open end and body
@@ -915,15 +921,13 @@ pub fn authored_pole(room: &RoomSpec) -> flag::FlagPole {
 /// The flag reads it from the active room every tick, so the goal is always the
 /// goal of the room she is in, a rewind included.
 pub fn room_pole(room: &RoomSpec) -> Option<flag::FlagPole> {
-    // A castle ends on a switch. The sequence takes it as a pole that is as
-    // tall as the switch: she touches it, she is on the floor, she walks off.
+    // A castle has no pole: its goal is a switch (`castle_end::room_switch`).
     let aabb = room
         .world
         .blocks
         .iter()
         .find(|block| block.name == GOAL_POLE_PREFIX)
-        .map(|block| block.aabb)
-        .or_else(|| castle_end::room_switch(room))?;
+        .map(|block| block.aabb)?;
     Some(flag::FlagPole {
         x: (aabb.min.x + aabb.max.x) * 0.5,
         top_y: aabb.min.y,
@@ -953,6 +957,19 @@ pub fn pole_for_room(room_id: &str) -> flag::FlagPole {
     } else {
         authored_pole(&authored_room(room_id))
     }
+}
+
+/// Where to put the middle of a body so that it takes the goal of a room: on
+/// the pole near its base, or in the air over the switch of a castle, so that
+/// it lands on it. For a harness that ends a level and does not play it.
+pub fn goal_entry_for_room(room_id: &str) -> ae::Vec2 {
+    if room_id != test_course::TEST_COURSE_ROOM_ID {
+        if let Some(switch) = castle_end::room_switch(&authored_room(room_id)) {
+            return ae::Vec2::new((switch.min.x + switch.max.x) * 0.5, switch.min.y - 40.0);
+        }
+    }
+    let pole = pole_for_room(room_id);
+    ae::Vec2::new(pole.x, pole.base_y - 8.0)
 }
 
 /// Start a fresh lap when the mode arrives in another room, or when the replay
@@ -1085,8 +1102,8 @@ pub fn install_mary_o_content(app: &mut App) {
             powerups::dress_power_blocks,
             // The look of a bar of fire, for the same reason in `Update`.
             scenery::dress_fire,
-            // The switch of a castle, up or down.
-            castle_end::dress_the_switch,
+            // The switch of a castle, up or down, and its gate.
+            castle_end::dress_the_goal,
         ),
     );
 
@@ -1473,14 +1490,17 @@ impl Plugin for MaryORulesPlugin {
             // A new room starts a fresh lap before the flag reads that room's
             // pole, so a sequence never drives the body to the last room's pole.
             begin_a_lap_on_arrival,
-            // Before the sequence, which reads the wait it writes.
-            castle_end::she_waits_while_the_bridge_falls,
             flag::run_flag_sequence,
+            // A room has a pole or a switch: one of the two drives her.
+            castle_end::run_castle_ending,
             flag::play_victory_music,
             // After the lap of this room starts, so the goal that is taken is
             // the goal of this room and not of the last one.
+            castle_end::charges_go_off_on_the_bridge,
             bricks::drop_planks_when_the_goal_is_taken,
             castle_end::the_lava_takes_the_boss,
+            castle_end::the_gate_opens,
+            castle_end::he_looks_at_her,
             tick_level_clock,
             // Reads the clock the tick above just settled, so a timeout leaves by
             // the SAME door a pit does — as a published death fact, on the frame
@@ -1495,7 +1515,6 @@ impl Plugin for MaryORulesPlugin {
             death::voice_her_death,
             death::play_death_music,
             cosmic::the_sky_has_a_top,
-            // Before the tally, which it holds while his line is up.
             castle_end::the_robot_thanks_her,
             cycle_level_on_flag_tally,
         )
@@ -2651,8 +2670,8 @@ mod tests {
                 .filter(|block| ldtk_vocabulary::block_look_of(&block.name).is_none())
                 .filter(|block| ldtk_vocabulary::pipe_of(&block.name).is_none())
                 .filter(|block| !block.name.starts_with(GOAL_POLE_PREFIX))
-                // A prop draws the switch of a castle, as one draws a pole.
-                .filter(|block| block.name != castle_end::GOAL_SWITCH)
+                // A prop draws the switch of a castle and its gate, as one draws a pole.
+                .filter(|block| block.name != castle_end::GOAL_SWITCH && block.name != castle_end::GOAL_GATE)
                 .collect();
             assert!(!undressed.is_empty(), "{} authors no plain block", room.id);
             for block in undressed {
@@ -3903,6 +3922,9 @@ mod rollback_probes {
                 3 ^ ((*score as u64) << 8) ^ ((remaining.to_bits() as u64) << 32)
             }
             flag::FlagPhase::Tallied { score } => 4 ^ ((*score as u64) << 8),
+            flag::FlagPhase::Castle { score, beat, since } => {
+                5 ^ ((*score as u64) << 8) ^ ((*beat as u64) << 24) ^ ((since.to_bits() as u64) << 32)
+            }
         };
         // the DRIVEN position is half the state: while the flag sequence owns
         // the body, a rewind that restored the phase and not the position would

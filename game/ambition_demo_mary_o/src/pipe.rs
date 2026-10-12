@@ -22,9 +22,12 @@
 //!   feet 6 to 14 px in the top of the pipe it put her back on the pipe and
 //!   reported a landing, one for each tick (MEASURED in the flagship app: 4
 //!   landing cues and 4 puffs of dust in one ride down, Jon 2026-10-11).
-//! * The lock is [`BodyCombat::recoil_lock_timer`], the engine's existing
-//!   "carried, can't steer" gate, re-held every tick of the transit — the same
-//!   lever the snake's shell uses to be frozen. You cannot jump out of a pipe.
+//! * The lock is the transit's own control hold (`ControlHold::Transit`):
+//!   the control gate gives a held body a neutral frame, so you can not steer
+//!   or jump out of a pipe. It borrowed `BodyCombat::recoil_lock_timer` and
+//!   set it to zero at the end of the ride, which cut short a real recoil.
+//!   The pose is the transit's own `PoseHold::Transit`, so a ride that ends
+//!   does not take a hold that another holder has.
 //!
 //! The choreography is a pure function ([`step_pipe_transit`]) with a thin ECS
 //! wrapper, mirroring `snake.rs` and `flag.rs`, so its timing is unit-tested even
@@ -32,7 +35,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::characters::actor::BodyCombat;
+use ambition_platformer2d::characters::control::{claim_control_hold, release_control_hold, ControlHold, ControlHolds};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PlayerEntity;
 
@@ -55,11 +58,6 @@ const ON_THE_LINE: f32 = 0.5;
 /// the body is completely swallowed at the moment of the crossing and nothing
 /// pops.
 pub const TRAVEL_TILES: f32 = 2.0;
-
-/// The freeze-lock re-stamped each tick of a transit (the engine's
-/// `recoil_lock_timer`, which hard-zeros movement input). Any value above one
-/// frame works — it is refreshed every tick and cleared when the transit ends.
-const TRANSIT_LOCK: f32 = 1.0;
 
 /// The authored cue a warp voices, procedurally synthesized from the provider's
 /// audio fragment (see `provider.rs`). Named as an id rather than a shared
@@ -231,14 +229,15 @@ pub fn run_pipe_transits(
             Entity,
             ae::BodyClusterQueryData,
             &mut ambition_platformer2d::actor::MotionModel,
-            &mut BodyCombat,
             &mut PipeTransit,
+            Option<&mut ControlHolds>,
+            Option<&ae::PoseOwnedExternally>,
         ),
         With<PlayerEntity>,
     >,
 ) {
     let dt = world_time.sim_dt();
-    for (entity, clusters, mut model, mut combat, mut transit) in &mut bodies {
+    for (entity, clusters, mut model, mut transit, mut control_holds, pose_holds) in &mut bodies {
         let fx = step_pipe_transit(*transit, dt);
         let mut item = clusters;
         let mut clusters = item.as_clusters_mut();
@@ -252,16 +251,23 @@ pub fn run_pipe_transits(
         );
         match fx.next {
             Some(next) => {
-                // Held every tick: you cannot steer, jump, or fall out of a pipe.
-                combat.recoil_lock_timer = TRANSIT_LOCK;
                 *transit = next;
-                // Said again each tick, so a transit that a restore brings
-                // back has the fact on its next tick.
-                commands.entity(entity).try_insert(ae::PoseOwnedExternally);
+                // Claimed again on each tick that does not hold them, so a
+                // transit that a restore brings back has its holds on its
+                // next tick: you can not steer, jump or fall out of a pipe.
+                if !control_holds.as_deref().is_some_and(|holds| holds.holds(ControlHold::Transit)) {
+                    claim_control_hold(&mut commands, entity, ControlHold::Transit);
+                }
+                if !pose_holds.is_some_and(|holds| holds.holds(ae::PoseHold::Transit)) {
+                    ae::claim_pose_hold(&mut commands, entity, ae::PoseHold::Transit);
+                }
             }
             None => {
-                combat.recoil_lock_timer = 0.0;
-                commands.entity(entity).remove::<(PipeTransit, ae::PoseOwnedExternally)>();
+                commands.entity(entity).remove::<PipeTransit>();
+                // The transit's holds only: a recoil, a script or a mount
+                // keeps its own.
+                release_control_hold(&mut commands, entity, control_holds.as_deref_mut(), ControlHold::Transit);
+                ae::release_pose_hold(&mut commands, entity, ae::PoseHold::Transit);
             }
         }
     }

@@ -299,7 +299,7 @@ mod tests {
         let free = app.world_mut().spawn(body(50.0)).id();
         let held = app
             .world_mut()
-            .spawn((body(90.0), ambition_platformer2d_core::PoseOwnedExternally))
+            .spawn((body(90.0), ambition_platformer2d_core::PoseOwnedExternally::only(ambition_platformer2d_core::PoseHold::Ride)))
             .id();
         let captor = app.world_mut().spawn_empty().id();
         let captive = app

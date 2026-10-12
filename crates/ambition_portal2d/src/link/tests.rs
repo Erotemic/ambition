@@ -273,7 +273,7 @@ fn sixty_four_rooms_with_a_link_each_all_work() {
 fn the_sixty_fourth_group_of_one_room_is_refused_and_the_others_keep_their_pairs() {
     let mut app = app();
     let mut ends: Vec<[Entity; 2]> = Vec::new();
-    let mut spawn_group = |app: &mut App, index: usize| {
+    let spawn_group = |app: &mut App, index: usize| {
         let name = format!("door_{index}");
         [100.0, 500.0].map(|x| {
             app.world_mut()

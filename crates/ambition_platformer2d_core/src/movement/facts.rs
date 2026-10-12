@@ -40,9 +40,17 @@ pub struct LedgeFacts {
 /// there is no crate among them that could hold this. Both depend on this one.
 /// A marker here is the only shape in which "held" is sayable to both.
 ///
-/// ⚠ IT SAYS NOTHING ABOUT WHO. Deliberately: a consumer that needed the holder
-/// would be reaching into a domain it does not depend on, which is the coupling
-/// this marker exists to avoid. Ask the domain that owns the relationship.
+/// ⚠ ITS READERS ASK NOTHING ABOUT WHO. Deliberately: a consumer that needed
+/// the holder would be reaching into a domain it does not depend on, which is
+/// the coupling this marker exists to avoid. Ask the domain that owns the
+/// relationship.
+///
+/// ⭐ BUT EACH HOLDER RELEASES ONLY ITS OWN HOLD. The component is a set of
+/// [`PoseHold`]s, like `ControlHolds`: PRESENCE is the fact the readers read
+/// (`Has<PoseOwnedExternally>`), and it exists exactly while some holder has
+/// the body. It was one bit, so a pipe that let go removed a hold a mount or
+/// a conductor still had, and a plant that stopped never let go. Claim with
+/// [`claim_pose_hold`] and release with [`release_pose_hold`].
 ///
 /// # What a constrained body still advances
 ///
@@ -95,8 +103,92 @@ pub struct LedgeFacts {
 /// ⛔ And it is NOT routed through `out_of_play`, which halts velocity and zeroes
 /// `dt` outright — correct for a body nobody is driving, and the exact opposite
 /// of what a rider needs.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct PoseOwnedExternally;
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PoseOwnedExternally(u8);
+
+/// One kind of holder of a body's pose. A bit of [`PoseOwnedExternally`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum PoseHold {
+    /// A mount carries its rider (the saddle).
+    Ride = 1 << 0,
+    /// A boss's conductor poses its limb, or its whole body.
+    Conductor = 1 << 1,
+    /// A scripted transit carries the body (a pipe ride).
+    Transit = 1 << 2,
+    /// The body is on an authored path of its own (a plant in its pot).
+    Path = 1 << 3,
+}
+
+impl PoseOwnedExternally {
+    /// A body held by exactly one holder.
+    pub const fn only(hold: PoseHold) -> Self {
+        Self(hold as u8)
+    }
+
+    /// Claim this hold. Idempotent.
+    pub fn claim(&mut self, hold: PoseHold) {
+        self.0 |= hold as u8;
+    }
+
+    /// Release this hold, and ONLY this hold.
+    pub fn release(&mut self, hold: PoseHold) {
+        self.0 &= !(hold as u8);
+    }
+
+    pub fn holds(&self, hold: PoseHold) -> bool {
+        self.0 & (hold as u8) != 0
+    }
+
+    /// Nobody holds the pose: the movement step has it again.
+    pub fn is_empty(&self) -> bool {
+        self.0 == 0
+    }
+
+    /// The holds, for a rollback probe.
+    pub fn bits(&self) -> u8 {
+        self.0
+    }
+}
+
+/// **Claim a pose hold, whatever else already holds this body.**
+pub fn claim_pose_hold(commands: &mut bevy_ecs::system::Commands, body: bevy_ecs::entity::Entity, hold: PoseHold) {
+    commands
+        .entity(body)
+        .entry::<PoseOwnedExternally>()
+        .and_modify(move |mut holds| holds.claim(hold))
+        .or_insert(PoseOwnedExternally::only(hold));
+}
+
+/// **Release a pose hold, and ONLY that hold.** The movement step has the
+/// pose again when the LAST holder lets go. It is applied when the commands
+/// are, so a claim and a release of two holders in one tick both count.
+pub fn release_pose_hold(commands: &mut bevy_ecs::system::Commands, body: bevy_ecs::entity::Entity, hold: PoseHold) {
+    commands
+        .entity(body)
+        .queue_silenced(move |mut entity: bevy_ecs::world::EntityWorldMut| release_pose_hold_on(&mut entity, hold));
+}
+
+/// [`claim_pose_hold`], for a caller with the world.
+pub fn claim_pose_hold_on(entity: &mut bevy_ecs::world::EntityWorldMut, hold: PoseHold) {
+    match entity.get_mut::<PoseOwnedExternally>() {
+        Some(mut holds) => holds.claim(hold),
+        None => {
+            entity.insert(PoseOwnedExternally::only(hold));
+        }
+    }
+}
+
+/// [`release_pose_hold`], for a caller with the world.
+pub fn release_pose_hold_on(entity: &mut bevy_ecs::world::EntityWorldMut, hold: PoseHold) {
+    let Some(mut holds) = entity.get_mut::<PoseOwnedExternally>() else {
+        return;
+    };
+    holds.release(hold);
+    if holds.is_empty() {
+        entity.remove::<PoseOwnedExternally>();
+    }
+}
 
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyMotionFacts {

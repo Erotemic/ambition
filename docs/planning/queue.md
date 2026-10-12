@@ -143,7 +143,7 @@ Do not reimplement those parts of the historical audit.
   GNU-ton's fixed-channel join. See
   [portal identity](engine/portal-pair-identity-and-aperture.md) and
   [GNU-ton debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
-- **IN2 / P1, remaining plant authority:** the S1-S3 `actor_think`
+- **IN2 / P1, remaining plant authority:** ✅ Snake Plant DONE 2026-10-12: room-scoped shyness, its own `PoseHold::Path`, its own out fraction (it never moved before), see [movement](engine/unified-movement-kernel.md#pose-ownership-under-script-encounter-and-plant-control-new-customer). The contact-phase note below stays open. Was: the S1-S3 `actor_think`
   pre-gate control road and Void Lizard/Swallow module migration are **done**
   with held-body production-path witnesses. `select_actor_targets` already
   filters `ActorTarget` to the actor's live room; do not duplicate that
@@ -153,7 +153,7 @@ Do not reimplement those parts of the historical audit.
   in the separately proposed body-contact phase, not another brain path.
   See [I4](engine/fast-iteration-implementation.md#i4---small-procedural-sdk-and-one-native-semantic-reference)
   and [movement](engine/unified-movement-kernel.md#pose-ownership-under-script-encounter-and-plant-control-new-customer).
-- **IN3 / P1, control/presentation isolation:** replace pipe's recoil
+- **IN3 / P1, control/presentation isolation:** pipe half ✅ DONE 2026-10-12: `ControlHold::Transit` + `PoseHold::Transit`, see [control policy](engine/control-authority-and-ai-policy.md#scripted-movement-cannot-borrow-combat-recoil-as-a-control-lease). Was: replace pipe's recoil
   borrowing with an independent source-owned control hold; guard pose
   ownership. Add effective render-layer and live-instance filtering
   to the camera's void sources **and** wards. See

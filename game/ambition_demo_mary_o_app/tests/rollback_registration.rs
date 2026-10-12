@@ -18,7 +18,15 @@ fn mary_o_sim_state_is_in_the_rollback_contract() {
         .descriptors()
         .map(|descriptor| descriptor.name.as_str())
         .collect();
-    for expected in ["content.mary_o_level_state", "content.mary_o_flag_sequence"] {
+    // The holds of a body and their state: the pipe ride, the Snake Plant's
+    // place in its cycle, and whose holds a body's pose is under.
+    for expected in [
+        "content.mary_o_level_state",
+        "content.mary_o_flag_sequence",
+        "content.mary_o_pipe_transit",
+        "content.mary_o_snake_plant_out",
+        "mount.pose_owned_externally",
+    ] {
         assert!(
             names.contains(&expected),
             "`{expected}` is missing from the rollback registry — Mary-O's sim \

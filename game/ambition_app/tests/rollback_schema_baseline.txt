@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v344
+ggrs-rollback-schema-v345
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -132,6 +132,7 @@ content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapsh
 content.mary_o_level_state	component-clone	MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_snake_plant_out	component-clone	SnakePlantOut	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_snake_shell	component-clone	SnakeShell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_spent_power_blocks	resource-clone-custom-checksum	SpentPowerBlocks	bevy_ggrs clone snapshot + an order-independent checksum over the spent ids
 content.pending_cut_rope_room_replay	resource-clone-custom-checksum	PendingCutRopeRoomReplay	the dialogue-authored room replay, latched until the conversation ends
@@ -397,7 +398,7 @@ mount.can_pilot	component-clone	CanPilot	bevy_ggrs clone snapshot; not in the se
 mount.mass	component-clone	Mass	bevy_ggrs clone snapshot; not in the session checksum
 mount.mountable	component-clone	Mountable	bevy_ggrs clone snapshot; not in the session checksum
 mount.mounted	component-clone	Mounted	bevy_ggrs clone snapshot; not in the session checksum
-mount.pose_owned_externally	component-clone	PoseOwnedExternally	bevy_ggrs clone snapshot; not in the session checksum
+mount.pose_owned_externally	component-clone	PoseOwnedExternally	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 mount.reserved_for	component-clone	MountReservedFor	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 mount.ride_lease	component-clone	RideLease	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 mount.riding_on	component-clone	RidingOn	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity

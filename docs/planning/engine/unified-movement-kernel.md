@@ -63,6 +63,22 @@ A direct unit test of the wiring may be cheaper than an end-to-end assertion.
 
 ### Pose ownership under script, encounter and plant control (new customer)
 
+**What landed (2026-10-12):** `PoseOwnedExternally` is a set
+of holds (`PoseHold::{Ride, Conductor, Transit, Path}`), not a boolean.
+Each producer claims and releases its own bit through `claim_pose_hold` /
+`release_pose_hold`; the marker goes when the last hold goes, and readers
+still test presence. The saddle, a boss conductor, the pipe ride and the
+Snake Plant each hold their own bit. The record is in the rollback clone
+(`mount.pose_owned_externally`). The Snake Plant releases `Path` when it is
+dead, out of its pot or no longer a plant, is shy of each player of its own
+live room (`LiveRoomOf::room_of`), and has its own out fraction
+(`SnakePlantOut`, rollback state): it read its fraction back from its
+position, which the movement step pushed out of the pipe solid, so it never
+left its mouth. Witnesses: `mary_o_it a_hold_is_its_holders` (three tests,
+five poisons). Not witnessed: a pose hold across a rollback restore, and
+arbitration between two holders that want different paths (no customer
+has two path holders on one body). The text below is the case as found.
+
 `PoseOwnedExternally` tells the movement kernel not to integrate a body.
 Three separate producers now use this marker: `ambition_boss_encounter`'s
 conducted limbs, Mary-O's pipe transit and Mary-O's Snake Plants. The

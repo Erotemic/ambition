@@ -895,7 +895,7 @@ fn construct_giant_hand(
     // its own.
     if conductor.is_some() {
         ctx.insert((
-            ambition_platformer2d_core::PoseOwnedExternally,
+            ambition_platformer2d_core::PoseOwnedExternally::only(ambition_platformer2d_core::PoseHold::Conductor),
             ambition_combat::components::ActiveCombatant,
             ambition_combat::components::RulesetOwnsDeath,
             ambition_sprite_sheet::character::PinnedRow::default(),

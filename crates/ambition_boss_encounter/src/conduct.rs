@@ -174,7 +174,9 @@ pub fn mount_of(world: &World, scope: Entity) -> Option<ambition_boss_special_po
                         size: [limb_kin.size.x, limb_kin.size.y],
                         home_offset: [home.x, home.y],
                         lost_health: lost,
-                        held: world.get::<ae::PoseOwnedExternally>(limb).is_some(),
+                        held: world
+                            .get::<ae::PoseOwnedExternally>(limb)
+                            .is_some_and(|holds| holds.holds(ae::PoseHold::Conductor)),
                     })
                 })
                 .collect()
@@ -223,7 +225,7 @@ pub fn pose_limbs(
         &mut ae::CenteredAabb,
         &mut ae::BodyGroundState,
         Option<&mut ae::SweepSample>,
-        Has<ae::PoseOwnedExternally>,
+        Option<&ae::PoseOwnedExternally>,
     )>,
     mut commands: Commands,
 ) {
@@ -236,9 +238,10 @@ pub fn pose_limbs(
             );
             continue;
         };
-        let Ok((mut kin, mut aabb, mut ground, mut sweep, held)) = limbs.get_mut(limb) else {
+        let Ok((mut kin, mut aabb, mut ground, mut sweep, holds)) = limbs.get_mut(limb) else {
             continue;
         };
+        let held = holds.is_some_and(|holds| holds.holds(ae::PoseHold::Conductor));
         match pose.hold {
             Some(hold) => {
                 ae::movement::constrain_body_pose(
@@ -249,14 +252,14 @@ pub fn pose_limbs(
                 );
                 kin.facing = hold.facing;
                 if !held {
-                    commands.entity(limb).try_insert(ae::PoseOwnedExternally);
+                    ae::claim_pose_hold(&mut commands, limb, ae::PoseHold::Conductor);
                 }
                 // A discrete pose change: the next step finds the ground again.
                 ground.invalidate();
             }
             None => {
                 if held {
-                    commands.entity(limb).try_remove::<ae::PoseOwnedExternally>();
+                    ae::release_pose_hold(&mut commands, limb, ae::PoseHold::Conductor);
                 }
                 // It falls straight down from where it is.
                 let (pos, fall) = (kin.pos, kin.vel.y);
@@ -411,7 +414,7 @@ pub fn lower_conducted_poses(
             &mut ae::BodyKinematics,
             &mut ae::CenteredAabb,
             Option<&mut ae::SweepSample>,
-            Has<ae::PoseOwnedExternally>,
+            Option<&ae::PoseOwnedExternally>,
             Option<&mut ConductedFacing>,
         ),
         With<BossConfig>,
@@ -419,13 +422,14 @@ pub fn lower_conducted_poses(
     mut commands: Commands,
 ) {
     for submitted in outbox.drain::<ConductedPosePort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
-        let Ok((mut kin, mut aabb, mut sweep, owned, facing)) = bosses.get_mut(submitted.scope) else {
+        let Ok((mut kin, mut aabb, mut sweep, holds, facing)) = bosses.get_mut(submitted.scope) else {
             warn!(
                 "extension entry {} asked to conduct {:?}, which is not a boss; refused",
                 submitted.entry, submitted.scope
             );
             continue;
         };
+        let owned = holds.is_some_and(|holds| holds.holds(ae::PoseHold::Conductor));
         let pose = submitted.value;
         match pose.pose {
             Some(p) => {
@@ -433,12 +437,12 @@ pub fn lower_conducted_poses(
                 ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, ae::Vec2::from(p.velocity));
                 aabb.center = pos;
                 if !owned {
-                    commands.entity(submitted.scope).try_insert(ae::PoseOwnedExternally);
+                    ae::claim_pose_hold(&mut commands, submitted.scope, ae::PoseHold::Conductor);
                 }
             }
             None => {
                 if owned {
-                    commands.entity(submitted.scope).try_remove::<ae::PoseOwnedExternally>();
+                    ae::release_pose_hold(&mut commands, submitted.scope, ae::PoseHold::Conductor);
                 }
             }
         }
@@ -587,7 +591,7 @@ mod mount_view_tests {
         let mut left_health = Health::new(10);
         left_health.current = 7;
         let left = world
-            .spawn((body(ae::Vec2::new(630.0, 970.0), ae::Vec2::new(130.0, 100.0)), ambition_characters::actor::BodyHealth::new(left_health), ae::PoseOwnedExternally))
+            .spawn((body(ae::Vec2::new(630.0, 970.0), ae::Vec2::new(130.0, 100.0)), ambition_characters::actor::BodyHealth::new(left_health), ae::PoseOwnedExternally::only(ae::PoseHold::Conductor)))
             .id();
         let right = world
             .spawn((body(ae::Vec2::new(1170.0, 970.0), ae::Vec2::new(130.0, 100.0)), ambition_characters::actor::BodyHealth::new(Health::new(10))))

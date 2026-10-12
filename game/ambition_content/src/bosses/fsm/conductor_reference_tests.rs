@@ -406,7 +406,7 @@ pub fn conduct_fsm(
             }
             row.clear();
             if !pose_owned {
-                commands.entity(god).try_insert(ae::PoseOwnedExternally);
+                commands.entity(god).try_insert(ae::PoseOwnedExternally::only(ae::PoseHold::Conductor));
             }
             let rest = Vec2::new(at.x, hall.floor - STRANDED_ABOVE_FLOOR);
             let pos = glide(at, rest, 120.0, dt);
@@ -513,7 +513,7 @@ pub fn conduct_fsm(
         }
         match (conducts, pose_owned) {
             (true, false) => {
-                commands.entity(god).try_insert(ae::PoseOwnedExternally);
+                commands.entity(god).try_insert(ae::PoseOwnedExternally::only(ae::PoseHold::Conductor));
             }
             (false, true) => {
                 commands.entity(god).try_remove::<ae::PoseOwnedExternally>();

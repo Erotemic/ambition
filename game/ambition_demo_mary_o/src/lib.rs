@@ -1138,6 +1138,14 @@ pub fn install_mary_o_content(app: &mut App) {
                 "content.mary_o_pipe_transit",
                 rollback_probes::pipe_transit,
             )
+            // How far out of its pipe a Snake Plant is: it follows its cycle at
+            // a limited speed and stays down under a player, so a rewind must
+            // put it back where it was.
+            .rollback_component_clone_probed::<plant::SnakePlantOut>(
+                "ambition_demo_mary_o",
+                "content.mary_o_snake_plant_out",
+                |out| u64::from(out.0.to_bits()),
+            )
             // WHICH blocks are spent is authoritative: a rewind across the frame
             // a block was struck must leave that block ARMED again, or the same
             // bonk on the re-simulated timeline finds a block that already gave
@@ -1927,11 +1935,21 @@ fn warp_through_secret_pipe(
             continue;
         }
 
-        commands.entity(entity).try_insert((
-            pipe::PipeTransit::begin(kin.pos, tube.entrance.centre(), tube.exit.arrival(), tube.entrance.travel_axis(), T),
-            // The transit has her pose from this tick (see `pipe.rs`).
-            ae::PoseOwnedExternally,
+        commands.entity(entity).try_insert(pipe::PipeTransit::begin(
+            kin.pos,
+            tube.entrance.centre(),
+            tube.exit.arrival(),
+            tube.entrance.travel_axis(),
+            T,
         ));
+        // The transit has her pose and her control from this tick (see
+        // `pipe.rs`).
+        ae::claim_pose_hold(&mut commands, entity, ae::PoseHold::Transit);
+        ambition_platformer2d::characters::control::claim_control_hold(
+            &mut commands,
+            entity,
+            ambition_platformer2d::characters::control::ControlHold::Transit,
+        );
         // H2: the warp is the entering BODY's — she is the one sliding down it.
         sfx.write_for(
             entity,

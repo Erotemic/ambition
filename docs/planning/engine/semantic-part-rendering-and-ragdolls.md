@@ -86,8 +86,11 @@ took the first page and the first four and read them with no turn.
 Witnesses: `ambition_render part_set a_reader_forgets_its_own_ask_and_no_other`;
 `ambition_demo_mary_o cosmic_barrier parts_the_shader_can_not_draw_give_no_barrier`.
 Poisons: forget removes both components (fails); the old truncating
-barrier (fails at "a fifth part"). Not witnessed: the driver's split of
-draws by reader (it needs a rigged presentation), and recharacterize,
+barrier (fails at "a fifth part"). The driver's split by reader, on the
+published raider: `ambition_render rigged the_driver_answers_each_reader_with_its_own_tracks`
+(two readers on two tracks, a reader of both gets both, one forgets and the
+others keep theirs); every reader given every draw fails it. Not
+witnessed: recharacterize,
 tier change, hybrid row, rewind and despawn. The text below is the case
 as found.
 

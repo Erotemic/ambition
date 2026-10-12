@@ -218,7 +218,7 @@ pub fn detect_room_transition_system(
         // The switch only commands the boot/shutdown sequence — the
         // portal itself runs the state machine. Non-portal zones pass
         // through unchanged.
-        if portals.is_portal(&zone.zone.id) && !phases.allows_traversal(&zone.zone.id) {
+        if !portals.lets_through(&phases, &zone.zone.id) {
             continue;
         }
         let zone_sfx = match zone.zone.activation {

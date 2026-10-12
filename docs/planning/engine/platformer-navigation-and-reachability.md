@@ -441,8 +441,20 @@ The slices, each with its own witness:
    mismatch at frame 182 again.
 
 Not in these slices: enemy navigation and a baked graph (Jon's open
-decisions), and a door that needs Interact (a body crosses edge zones first).
-The air jump, the climb, the dash and the wall jump have legs (above).
+decisions). The air jump, the climb, the dash and the wall jump have legs
+(above).
+
+**A door that needs Interact (re-measured 2026-10-12).** The basement's
+`npc_door` is a `Door` zone (Interact), and the crossings above go through
+it: the errand is the press. What was missing was the gate. The player's
+road refused a gate portal that was not `On`, and the errand road did not
+ask, so a dog could go through a portal that was shut for the player. Both
+roads now ask `GatePortalRegistry::lets_through`. Witness
+`a_dog_sent_for_an_item::a_dog_on_an_errand_waits_at_a_shut_gate_portal`: the
+door made a portal with its switch off, the dog waits in its zone in the
+hub; switched on, it goes through and takes the Blink. Poison (the errand
+road does not ask): red at "the dog went through a gate portal that is
+shut".
 
 ## Architecture direction
 

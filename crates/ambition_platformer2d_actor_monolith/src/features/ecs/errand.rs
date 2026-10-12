@@ -96,6 +96,7 @@ pub(crate) fn errand_item_at<'a>(
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ErrandCrossing {
     pub zone: ae::Aabb,
+    pub zone_id: String,
     pub into: CrossInto,
     pub into_id: String,
     pub arrival: ae::Vec2,
@@ -205,6 +206,7 @@ pub(crate) fn errand_crossing<'a>(
     let transition = rooms.transition_through(from, &first.zone).ok_or(NoRoute)?;
     Ok(ErrandCrossing {
         zone: zone.aabb,
+        zone_id: zone.id.clone(),
         into: enters(first.to, route.len() == 1)?.map_or(CrossInto::Dormant, CrossInto::Live),
         into_id: rooms.rooms[first.to].id.clone(),
         arrival: transition.arrival,
@@ -229,6 +231,10 @@ pub(crate) fn errand_crossing<'a>(
 /// outlook reinstates it), and the errand ends with the body. A body that
 /// holds or wears something does not leave: what it carries has no road to a
 /// room that is not live.
+///
+/// ⛔ A gate portal that is shut for the player is shut for the errand too
+/// (`GatePortalRegistry::lets_through`): the body waits in the zone until the
+/// portal is `On`.
 #[allow(clippy::type_complexity)]
 pub fn cross_on_errands(
     mut commands: Commands,
@@ -251,7 +257,11 @@ pub fn cross_on_errands(
         &mut ae::movement::MotionModel,
     )>,
     mut occurrences: Option<bevy::prelude::ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    portals: Option<Res<ambition_platformer2d_world::rooms::GatePortalRegistry>>,
+    phases: Option<Res<ambition_platformer2d_world::rooms::GatePortalPhases>>,
 ) {
+    let no_phases = ambition_platformer2d_world::rooms::GatePortalPhases::default();
+    let phases = phases.as_deref().unwrap_or(&no_phases);
     let Some(specs) = specs else {
         return;
     };
@@ -271,6 +281,9 @@ pub fn cross_on_errands(
         };
         // The reach of the body is its collision box, as for a take.
         if !cluster.kinematics.collision_box(cluster.sweep.as_deref()).strict_intersects(crossing.zone) {
+            continue;
+        }
+        if portals.as_deref().is_some_and(|portals| !portals.lets_through(phases, &crossing.zone_id)) {
             continue;
         }
         let edges = edges.get_or_insert_with(|| custody.iter().map(|(entity, held)| (entity, held.custodian)).collect());

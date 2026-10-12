@@ -438,6 +438,62 @@ fn a_dog_sent_for_an_item_in_another_live_room_goes_through_the_door() {
     assert_eq!(sim.world().get::<ItemCustody>(blink).copied(), Some(ItemCustody::Held { holder: dog }));
 }
 
+/// ⛔ A GATE PORTAL THAT IS SHUT FOR THE PLAYER IS SHUT FOR THE ERRAND. The
+/// basement's door to `basement_npcs` is made a gate portal whose switch is
+/// off: the dog on its errand goes into the door's zone and waits there, in
+/// the hub. Then the switch is turned on: the portal boots, and the dog goes
+/// through and takes the Blink. The authorities: the portal's phase (what
+/// the player's press reads) and the dog's room stamp.
+///
+/// The control is the arm above: the same door with no portal on it lets
+/// the dog through.
+#[test]
+fn a_dog_on_an_errand_waits_at_a_shut_gate_portal() {
+    use ambition_platformer2d::world::rooms::{GatePortalPhases, GatePortalRegistry};
+    const SWITCH: &str = "a_dog_sent_for_an_item.npc_door_switch";
+    let (mut sim, dog, blink, hub, alices_room) = the_blink_next_door();
+    let door = crate::two_players_two_live_rooms::door_of(&mut sim, HUB, NEXT_DOOR);
+    sim.world_mut()
+        .resource_mut::<GatePortalRegistry>()
+        .try_register(door.id.clone(), SWITCH, "no_sprite", "no_ring")
+        .expect("the basement's door is no portal yet");
+    put_the_dog_at(&mut sim, dog, FAR_FROM_THE_DOOR);
+    send_for_the_blink(&mut sim, dog);
+    let mut ticks_in_the_door = 0;
+    for _ in 0..PATIENCE {
+        sim.step(base());
+        let dog_box = {
+            let world = sim.world();
+            world.get::<ae::BodyKinematics>(dog).expect("the dog").collision_box(world.get::<ae::SweepSample>(dog))
+        };
+        if ae::AabbExt::strict_intersects(dog_box, door.aabb) {
+            ticks_in_the_door += 1;
+        }
+    }
+    assert!(
+        !sim.world().resource::<GatePortalPhases>().allows_traversal(&door.id),
+        "premise: the portal is shut while its switch is off"
+    );
+    assert_eq!(
+        (sim.world().get::<Errand>(dog).map(|errand| errand.outcome), room_of(&sim, dog)),
+        (Some(ErrandOutcome::Pending), Some(hub)),
+        "the dog went through a gate portal that is shut"
+    );
+    assert!(ticks_in_the_door > 60, "premise: the dog waited in the door's zone ({ticks_in_the_door} ticks)");
+
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_switch(SWITCH, true);
+    let outcome = run_errand(&mut sim, dog, PATIENCE);
+    assert_eq!(
+        (outcome, room_of(&sim, dog)),
+        (ErrandOutcome::Done, Some(alices_room)),
+        "the dog did not go through the portal once it was on"
+    );
+    assert_eq!(sim.world().get::<ItemCustody>(blink).copied(), Some(ItemCustody::Held { holder: dog }));
+}
+
 /// ⭐ A DOG THAT WENT INTO ANOTHER ROOM IS NOT AUTHORED AGAIN AT HOME. After
 /// the dog crosses, Bob leaves the hub too, so the hub retires; Alice walks
 /// back and the hub is built again. The dog lives in `basement_npcs`, so the

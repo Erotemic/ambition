@@ -644,9 +644,10 @@ second-seat road) and in a room that is not live (through the ledger). Arms in
 arm for each road. Deterministic; no model call inside the simulation. The
 slices, measurements and poisons are on the owner page.
 
-Open, not in this row: a door that needs Interact for a body no slot
-drives, permanent flight and a pogo bounce. The dash hop and the wall jump
-legs landed 2026-10-12 (owner page).
+Open, not in this row: permanent flight and a pogo bounce. The dash hop
+and the wall jump legs landed 2026-10-12, and a body on an errand waits at
+a gate portal that is shut for the player (owner page). The errand already
+went through an Interact door (`npc_door`).
 
 ### PUBLICATION-FAULT — a refused later room must not leave a mixed world — ✅ DONE 2026-10-09
 

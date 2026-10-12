@@ -130,13 +130,15 @@ def garden(lv: Level) -> None:
 
 
 def bridge(lv: Level) -> None:
-    """Columns 138 to 167. The bridge of planks, the Void Lizard on it, and the switch and the robot past it.
+    """Columns 138 to 167. The bridge of planks, the Void Lizard on it, the switch, the gate and the robot.
 
     A post of rock at each end of the bridge turns the Void Lizard, so it stays on
     the bridge. A post is three tiles high: its hop does not go over it, and a
-    jump of the player does. The planks fall when the switch is taken, one
-    after the other from the switch, and the lava takes the Void Lizard. Then
-    she walks three tiles from the switch, and the robot is past that."""
+    jump of the player does. Past the bridge is the switch, and a wall with a
+    gate in it: there is no way on but the switch. A body that lands on the
+    switch breaks the bridge, plank by plank from the switch, and the lava
+    takes the Void Lizard. Then the gate opens, and she walks to the robot in
+    the cell behind it."""
     lv.column(138, 1, 3)
     # The lava of this pit is lower than that of the others: the bridge is
     # read as a bridge by what shows under it.
@@ -147,12 +149,21 @@ def bridge(lv: Level) -> None:
     lv.enemy("void_lizard", 145)
     lv.coins(140, up(4), 4, step=3)
     lv.switch(153)
-    lv.npc("mary_o_robot", 158)
-    # One view for the fight and its end: the bridge, its two posts, the
-    # switch and the robot. So the fall of the bridge and of the boss is seen
-    # from the switch (Jon, 2026-10-11: "you need to see the void boss
-    # swallowed by the lava, and see the bridge break").
-    lv.arena("mary_o_1_4_bridge_view", "Bridge", 136, 26, zoom=1.15, down=2.0)
+    # The wall is all the rock from the gate to the end of the level. The cell
+    # of the robot is cut in it: five tiles wide and four high.
+    gate, cell, cell_wide = 155, 156, 5
+    lv.rock(gate, TOP, 1, FLOOR - 3 - TOP)
+    lv.gate(gate, 3)
+    lv.rock(cell, TOP, cell_wide, FLOOR - 4 - TOP)
+    lv.rock(cell + cell_wide, TOP, WIDTH - WALL - cell - cell_wide, FLOOR - TOP)
+    lv.npc("mary_o_robot", 158.25)
+    # One view for the fight and its end: from the first plank to the end of
+    # the cell. It starts ON the bridge, so the view stays with her until she
+    # is over the first post (Jon, 2026-10-12: "the camera shifts to the bridge
+    # too soon"). The fall of the bridge and of the boss is seen from the
+    # switch (Jon, 2026-10-11: "you need to see the void boss swallowed by the
+    # lava, and see the bridge break").
+    lv.arena("mary_o_1_4_bridge_view", "Bridge", 139, cell + cell_wide - 139, zoom=1.25, down=2.0)
 
 
 if __name__ == "__main__":

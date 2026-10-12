@@ -368,11 +368,21 @@ class Level:
             self.marks.append((col, row, "|"))
 
     def switch(self, col: int) -> None:
-        """The goal of a castle: a switch of one tile on the floor (`castle_end.rs`).
+        """The goal of a castle: a button on the floor (`castle_end.rs`). A body presses it when it lands on it.
 
-        It is a named block, as the parts of a pole are."""
-        self.named.append({"type": "OneWayPlatform", "px": [col * T, (self.floor - 1) * T], "size": [T, T], "fields": {"name": "goal_switch"}})
+        It is a named block, as the parts of a pole are. It is solid, and it
+        has the size of its art: 36 px wide, and 44 px to the top of the button."""
+        wide, tall = 36, 44
+        x = col * T + (T - wide) // 2
+        self.named.append({"type": "Solid", "px": [x, self.floor * T - tall], "size": [wide, tall], "fields": {"name": "goal_switch"}})
         self.marks.append((col, self.floor - 1, "!"))
+
+    def gate(self, col: int, tall: int = 3) -> None:
+        """The gate of a castle: a wall of one tile in a doorway `tall` tiles high. It opens when the boss
+        of the castle is dead (`castle_end.rs`). It is a named block, as the switch is."""
+        self.named.append({"type": "Solid", "px": [col * T, (self.floor - tall) * T], "size": [T, tall * T], "fields": {"name": "goal_gate"}})
+        for row in range(self.floor - tall, self.floor):
+            self.marks.append((col, row, "H"))
 
     def npc(self, character: str, col: float, size: tuple[int, int] = (28, 44)) -> None:
         """A character of the catalog that stands on the floor and is not an enemy."""

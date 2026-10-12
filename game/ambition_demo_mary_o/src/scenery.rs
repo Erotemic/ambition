@@ -40,6 +40,9 @@ pub const LAVA_TOP_SPRITE: &str = "super_mary_o_lava_top";
 pub const LAVA_BODY_SPRITE: &str = "super_mary_o_lava_body";
 /// The switch at the end of a castle: a button, up (`idle`) and down (`pressed`).
 pub const SWITCH_SPRITE: &str = "super_mary_o_switch";
+/// The gate past the switch: a portcullis, one row for each position from down
+/// (`idle`) to up in the wall (`open`).
+pub const GATE_SPRITE: &str = "super_mary_o_gate";
 /// A damage volume whose name starts with this is a pit of lava: the level
 /// draws it as lava (`lava_pools_of`), and not as a ball of fire.
 pub const LAVA_PREFIX: &str = "lava";
@@ -56,6 +59,7 @@ const CONSTRUCTION_PROPS: &[&str] = &[
     LAVA_TOP_SPRITE,
     LAVA_BODY_SPRITE,
     SWITCH_SPRITE,
+    GATE_SPRITE,
 ];
 
 /// A fully transparent block-art override. Applied to the pole/pipe collision

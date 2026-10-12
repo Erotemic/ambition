@@ -81,7 +81,7 @@ impl BrokenBricks {
     /// Mark this brick of `room` broken; `true` only on the FRESH break, so the
     /// caller shatters it exactly once rather than every frame the contact
     /// re-reports.
-    fn mark(&mut self, room: LiveRoomInstance, name: &str) -> bool {
+    pub(crate) fn mark(&mut self, room: LiveRoomInstance, name: &str) -> bool {
         self.0.in_room_mut(room).insert(name.to_string())
     }
 
@@ -219,7 +219,7 @@ fn break_bricks_struck_by(
 }
 
 /// Ticks from one plank of a bridge that breaks to the next.
-pub const PLANK_TICKS: u64 = 5;
+pub const PLANK_TICKS: u64 = 7;
 
 /// The planks of `room` that are not broken.
 pub fn planks_left<'a>(
@@ -244,8 +244,9 @@ pub fn planks_left<'a>(
 ///
 /// The planks (`MaryOBlockLook::Plank`) of the room of the body at the goal
 /// are marked broken one after the other, the nearest to her first, one each
-/// [`PLANK_TICKS`], each with the shards of a brick: the bridge is seen to
-/// break from the goal. A plank then goes the way a broken brick goes (the
+/// [`PLANK_TICKS`], each with an explosion and the shards of a brick: the
+/// bridge is seen to break from the goal. The bridge of a castle waits for its
+/// beat (`CastleBeat::BridgeFalls`). A plank then goes the way a broken brick goes (the
 /// overlay below), and it is whole again in the next attempt. What stood on
 /// the bridge falls. A world with no simulation clock (a test of one rule)
 /// breaks them all in one tick.
@@ -253,6 +254,7 @@ pub fn drop_planks_when_the_goal_is_taken(
     mut broken: ResMut<BrokenBricks>,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
+    mut explosions: MessageWriter<ambition_platformer2d::vfx::FxRequest>,
     sequences: Query<&crate::flag::FlagSequence>,
     subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
@@ -261,7 +263,11 @@ pub fn drop_planks_when_the_goal_is_taken(
     let Ok(sequence) = sequences.single() else {
         return;
     };
-    if !sequence.active() {
+    let breaks = match sequence.castle_beat() {
+        Some((beat, _)) => beat >= crate::castle_end::CastleBeat::BridgeFalls,
+        None => sequence.active(),
+    };
+    if !breaks {
         return;
     }
     let Some(body) = subject.and_then(|subject| subject.0) else {
@@ -293,6 +299,11 @@ pub fn drop_planks_when_the_goal_is_taken(
             color: [0.72, 0.35, 0.22, 1.0],
             kind: ambition_platformer2d::vfx::ParticleKind::Shard,
         });
+        explosions.write(
+            ambition_platformer2d::vfx::FxRequest::classic(Some(room), center)
+                .with_scale(0.75)
+                .from_source(crate::provider::MARY_O_EXPERIENCE.into()),
+        );
         // One crack for each plank of a bridge that breaks in time, and one
         // for a bridge that breaks in one tick.
         if index == 0 {

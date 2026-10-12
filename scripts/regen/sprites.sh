@@ -637,6 +637,8 @@ tackon_targets=(
     super_mary_o_lava_body
     # The switch at the end of Mary-O's castle: a button, up and down.
     super_mary_o_switch
+    # The gate past the switch: a portcullis, one row for each position.
+    super_mary_o_gate
     # The moving platform of Mary-O: a `MovingPlatform` that names it in its
     # `visual` field is drawn as it.
     super_mary_o_lift

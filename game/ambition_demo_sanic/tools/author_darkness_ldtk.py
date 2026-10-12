@@ -29,7 +29,7 @@ import tempfile
 from pathlib import Path
 
 from author_highway_ldtk import (
-    BADNIK_CHARACTER_ID, BADNIK_DISPLAY_NAME, REPO, RING_SIZE, TOOLS, booster, monitor,
+    REPO, RING_SIZE, TOOLS, badnik_fields, booster, monitor,
     rect, ring, ring_arc, rings_over, run_tool, spring, surface_loop,
 )
 
@@ -147,11 +147,8 @@ def shelf(name: str) -> tuple[float, float]:
     return x, road_y(x + SHELF_W / 2) - SHELF_LIFT
 
 
-def on_ground_badnik(x: float) -> dict:
-    return rect(
-        "EnemySpawn", (x, ground_y(x + 14) - 48), (28, 32),
-        brain=BADNIK_CHARACTER_ID, character_id=BADNIK_CHARACTER_ID, name=BADNIK_DISPLAY_NAME,
-    )
+def on_ground_badnik(x: float, kind: str) -> dict:
+    return rect("EnemySpawn", (x, ground_y(x + 14) - 48), (28, 32), **badnik_fields(kind))
 
 
 def area_spec() -> dict:
@@ -211,12 +208,15 @@ def area_spec() -> dict:
         *[rect("OneWayPlatform", shelf(name), (SHELF_W, 16), name=f"{name}_shelf")
           for name in SHELVES],
     ]
-    for keys, positions in [
-        (WEST, [1400, 4550]), (VIADUCT, [6300, 7500, 9000]),
-        (VAULT, [13500]), (BASIN, [15300, 17500, 19900]),
-        (EAST, [21100, 23900, 25900, 29600, 30600]),
+    # The badniks of each stretch of the course: (x, kind).
+    for keys, places in [
+        (WEST, [(1400, "slop"), (4550, "noodle")]),
+        (VIADUCT, [(6300, "liar"), (7500, "swarm"), (9000, "friend")]),
+        (VAULT, [(13500, "saint")]),
+        (BASIN, [(15300, "swarm"), (17500, "slop"), (19900, "liar")]),
+        (EAST, [(21100, "friend"), (23900, "saint"), (25900, "swarm"), (29600, "liar"), (30600, "slop")]),
     ]:
-        entities += [on_ground_badnik(x) for x in positions]
+        entities += [on_ground_badnik(x, kind) for x, kind in places]
     entities += rings()
     return {
         "id": ROOM_ID, "level_id": ROOM_ID, "world_x": 0, "world_y": 0,

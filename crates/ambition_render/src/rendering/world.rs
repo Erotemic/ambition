@@ -89,7 +89,6 @@ pub fn spawn_room_visuals(
 ) {
     let world = &spec.world;
     spawn_grid(commands, session_scope, world);
-    spawn_surface_chain_visuals(commands, session_scope, world);
     // The theme the room names: its blocks take the terrain skin of it.
     // A room with a look of its own (a `palette`) draws its blocks its own way:
     // no skin goes on them. On a device that does not draw the look, the
@@ -98,6 +97,7 @@ pub fn spawn_room_visuals(
     // what it has until it is presented again.)
     let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::named_by_room_metadata(&spec.metadata)
         .filter(|_| spec.metadata.visual_profile.palette.is_none() || !looks_are_drawn);
+    spawn_surface_chain_visuals(commands, session_scope, world, theme);
     if theme.is_some() {
         // Where the decor of the skin must not stand: on a thing of the play.
         let rect = |aabb: &ae::Aabb| {
@@ -609,28 +609,26 @@ fn spawn_climbable_region(
     }
 }
 
-/// Draw the simulation's rideable surface chains as thin, rotated strips.
+/// Draw the simulation's rideable surface chains: the earth under each, and
+/// each segment as a thin strip turned along it.
 ///
 /// Generic room presentation: any game that authors a chain gets this visual.
+/// In a room that names a `theme`, the earth and the strips take the skin of
+/// the theme (`chain_skin`).
 pub fn spawn_surface_chain_visuals(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
+    theme: Option<ambition_sprite_sheet::game_assets::ParallaxTheme>,
 ) {
+    use super::chain_skin::{ChainEarth, ChainTurf};
     const THICKNESS: f32 = 8.0;
 
     for chain in world.chains.iter().filter(|chain| chain.filled && !chain.closed) {
         commands.spawn_session_scoped(
             session_scope,
             (
-                FilledGroundVisual {
-                    top: chain
-                        .points
-                        .iter()
-                        .map(|point| world_to_bevy(world, *point, 0.0).truncate())
-                        .collect(),
-                    floor: world_to_bevy(world, ae::Vec2::new(0.0, world.size.y), 0.0).y,
-                },
+                ChainEarth::under(world, &chain.points, theme),
                 Transform::from_xyz(0.0, 0.0, WORLD_Z_BLOCK - 0.5),
                 Visibility::Visible,
                 Name::new(format!("Filled ground: {}", chain.name)),
@@ -643,7 +641,7 @@ pub fn spawn_surface_chain_visuals(
         commands.spawn_session_scoped(
             session_scope,
             (
-                PaintedEarthVisual::new(world, &chain.earth),
+                ChainEarth::painted(world, &chain.earth, theme),
                 Transform::from_xyz(0.0, 0.0, WORLD_Z_BLOCK - 0.5),
                 Visibility::Visible,
                 Name::new(format!("Painted earth: {}", chain.name)),
@@ -653,6 +651,9 @@ pub fn spawn_surface_chain_visuals(
     }
 
     for chain in &world.chains {
+        // How far along the chain the segment starts: the cap of a skin goes
+        // on along the whole chain.
+        let mut along = 0.0;
         for segment_index in 0..chain.segment_count() {
             let depth = chain.segment_depth(segment_index);
             let (z, color) = if depth < 0 {
@@ -670,7 +671,9 @@ pub fn spawn_surface_chain_visuals(
             if length <= f32::EPSILON {
                 continue;
             }
-            commands.spawn_session_scoped(
+            // Turned along the segment, the strip's own up is the side a body
+            // rides (`SurfaceChain::normal`).
+            let mut strip = commands.spawn_session_scoped(
                 session_scope,
                 (
                     Sprite::from_color(color, BVec2::new(length, THICKNESS)),
@@ -683,152 +686,11 @@ pub fn spawn_surface_chain_visuals(
                     RoomVisual,
                 ),
             );
-        }
-    }
-}
-
-/// The earth under a filled chain (see `SurfaceChain::filled`), in Bevy space:
-/// the chain's points and the room floor's y.
-///
-/// Spawned with the room's other visuals, which have only `Commands`;
-/// [`build_filled_ground_meshes`] gives it its mesh on the next frame.
-#[derive(Component, Clone, Debug)]
-pub struct FilledGroundVisual {
-    top: Vec<BVec2>,
-    floor: f32,
-}
-
-/// Painted earth (see `SurfaceChain::earth`), in Bevy space: its convex
-/// polygons, and each vertex's depth below the top of the earth in its column,
-/// which shades it the way [`FilledGroundVisual`] shades depth below a chain.
-#[derive(Component, Clone, Debug)]
-pub struct PaintedEarthVisual {
-    polygons: Vec<Vec<BVec2>>,
-    depths: Vec<Vec<f32>>,
-}
-
-impl PaintedEarthVisual {
-    fn new(world: &ae::World, earth: &[Vec<ae::Vec2>]) -> Self {
-        /// Column width for the shading's "top of the earth here": one LDtk cell.
-        const COLUMN: f32 = 16.0;
-        let column = |x: f32| (x / COLUMN).floor() as i64;
-        let mut tops: std::collections::HashMap<i64, f32> = std::collections::HashMap::new();
-        for polygon in earth {
-            let (min_x, max_x, min_y) = polygon.iter().fold(
-                (f32::INFINITY, f32::NEG_INFINITY, f32::INFINITY),
-                |(a, b, c), p| (a.min(p.x), b.max(p.x), c.min(p.y)),
-            );
-            for col in column(min_x)..column(max_x - 0.01).max(column(min_x)) + 1 {
-                let top = tops.entry(col).or_insert(min_y);
-                *top = top.min(min_y);
+            if let Some(theme) = theme {
+                strip.insert(ChainTurf { theme, along, length, lane: depth });
             }
+            along += length;
         }
-        let depth = |p: ae::Vec2| {
-            // A vertex on a column boundary belongs to both columns: the
-            // shallower answer keeps a cliff's face lit from its top.
-            let top = [column(p.x), column(p.x - 0.01)]
-                .into_iter()
-                .filter_map(|col| tops.get(&col).copied())
-                .fold(f32::INFINITY, f32::min);
-            if top.is_finite() { (p.y - top).max(0.0) } else { 0.0 }
-        };
-        Self {
-            polygons: earth
-                .iter()
-                .map(|polygon| {
-                    polygon.iter().map(|p| world_to_bevy(world, *p, 0.0).truncate()).collect()
-                })
-                .collect(),
-            depths: earth.iter().map(|polygon| polygon.iter().map(|p| depth(*p)).collect()).collect(),
-        }
-    }
-}
-
-/// Mesh every [`FilledGroundVisual`] and [`PaintedEarthVisual`] that has none
-/// yet. Filled ground is one quad per chain segment, from the segment down to
-/// the room floor; painted earth is its own polygons. Both shade darker with
-/// depth.
-pub fn build_filled_ground_meshes(
-    mut commands: Commands,
-    meshes: Option<ResMut<Assets<Mesh>>>,
-    materials: Option<ResMut<Assets<bevy::sprite_render::ColorMaterial>>>,
-    fresh: Query<(Entity, &FilledGroundVisual), Without<Mesh2d>>,
-    fresh_earth: Query<(Entity, &PaintedEarthVisual), Without<Mesh2d>>,
-) {
-    use bevy::asset::RenderAssetUsages;
-    use bevy::mesh::{Indices, PrimitiveTopology};
-
-    const TOP: [f32; 4] = [0.05, 0.20, 0.26, 1.0];
-    const DEEP: [f32; 4] = [0.02, 0.05, 0.09, 1.0];
-    /// How far below the surface the shade reaches `DEEP`.
-    const SHADE_DEPTH: f32 = 480.0;
-
-    let (Some(mut meshes), Some(mut materials)) = (meshes, materials) else {
-        return;
-    };
-    for (entity, ground) in &fresh {
-        let mut positions: Vec<[f32; 3]> = Vec::new();
-        let mut colors: Vec<[f32; 4]> = Vec::new();
-        let mut indices: Vec<u32> = Vec::new();
-        let shade = |depth: f32| {
-            let t = (depth / SHADE_DEPTH).clamp(0.0, 1.0);
-            std::array::from_fn(|i| TOP[i] + (DEEP[i] - TOP[i]) * t)
-        };
-        for pair in ground.top.windows(2) {
-            let (a, b) = (pair[0], pair[1]);
-            let base = positions.len() as u32;
-            positions.extend([
-                [a.x, a.y, 0.0],
-                [b.x, b.y, 0.0],
-                [b.x, ground.floor, 0.0],
-                [a.x, ground.floor, 0.0],
-            ]);
-            colors.extend([
-                TOP,
-                TOP,
-                shade(b.y - ground.floor),
-                shade(a.y - ground.floor),
-            ]);
-            indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
-        }
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-        mesh.insert_indices(Indices::U32(indices));
-        commands.entity(entity).try_insert((
-            Mesh2d(meshes.add(mesh)),
-            bevy::sprite_render::MeshMaterial2d(
-                materials.add(bevy::sprite_render::ColorMaterial::from_color(Color::WHITE)),
-            ),
-        ));
-    }
-    for (entity, earth) in &fresh_earth {
-        let shade = |depth: f32| -> [f32; 4] {
-            let t = (depth / SHADE_DEPTH).clamp(0.0, 1.0);
-            std::array::from_fn(|i| TOP[i] + (DEEP[i] - TOP[i]) * t)
-        };
-        let mut positions: Vec<[f32; 3]> = Vec::new();
-        let mut colors: Vec<[f32; 4]> = Vec::new();
-        let mut indices: Vec<u32> = Vec::new();
-        for (polygon, depths) in earth.polygons.iter().zip(&earth.depths) {
-            let base = positions.len() as u32;
-            positions.extend(polygon.iter().map(|p| [p.x, p.y, 0.0]));
-            colors.extend(depths.iter().map(|d| shade(*d)));
-            // Convex: a fan from the first vertex.
-            for k in 1..polygon.len().saturating_sub(1) as u32 {
-                indices.extend([base, base + k, base + k + 1]);
-            }
-        }
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-        mesh.insert_indices(Indices::U32(indices));
-        commands.entity(entity).try_insert((
-            Mesh2d(meshes.add(mesh)),
-            bevy::sprite_render::MeshMaterial2d(
-                materials.add(bevy::sprite_render::ColorMaterial::from_color(Color::WHITE)),
-            ),
-        ));
     }
 }
 

@@ -62,7 +62,14 @@ impl Plugin for SessionRoomVisualsPlugin {
             )
                 .after(crate::rendering::apply_entity_art),
         );
-        app.add_systems(Update, crate::rendering::build_filled_ground_meshes);
+        // The earth under a surface chain and the cap on each of its segments.
+        app.add_systems(
+            Update,
+            (
+                crate::rendering::chain_skin::build_chain_earth_meshes,
+                crate::rendering::chain_skin::dress_chain_turf,
+            ),
+        );
         // The host tells portal presentation what it draws. That crate sees only the
         // decomposed scene body and the affordance body, so an ordinary NPC behind an
         // aperture is invisible to it unless published here.

@@ -142,7 +142,7 @@ fn main() {
         settle: 1,
     });
     app.insert_resource(CenterSubject(center_subject));
-    app.insert_resource(StandAt(at));
+    app.insert_resource(StandAt(at.map(|point| (point, warmup / 2))));
     let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(&mut app);
     app.add_systems(sim, stand_the_subject_at);
     app.add_systems(Startup, setup_capture_target);
@@ -177,16 +177,22 @@ fn main() {
     app.run();
 }
 
-/// Where `--at` stands Sanic; taken once he is.
+/// Where `--at` stands Sanic, and how much of the warmup is left when it does;
+/// taken once he is.
 #[derive(Resource)]
-struct StandAt(Option<Vec2>);
+struct StandAt(Option<(Vec2, u32)>);
 
-/// Stand the player at `--at` once something is drawing (the room is built by
-/// then), at rest. A transit, like any teleport: a rider lets go of its
-/// surface and falls from there onto whatever is below. In the simulation
-/// schedule, where pose writes belong.
+/// Stand the player at `--at` half way through the warmup, at rest. A
+/// transit, like any teleport: a rider lets go of its surface and falls from
+/// there onto whatever is below. In the simulation schedule, where pose
+/// writes belong.
+///
+/// Half way, not on the first drawn frame: the room commits a few frames
+/// after something first draws and puts the player on its start, so a
+/// placement made before that was lost and the picture was of the start.
 fn stand_the_subject_at(
     target: Option<Res<CaptureTarget>>,
+    warmup: Res<Warmup>,
     mut at: ResMut<StandAt>,
     mut players: Query<
         (
@@ -199,9 +205,12 @@ fn stand_the_subject_at(
     if target.is_none_or(|target| target.adopted == 0) {
         return;
     }
-    let Some(point) = at.0 else {
+    let Some((point, when)) = at.0 else {
         return;
     };
+    if warmup.remaining > when {
+        return;
+    }
     let mut placed = false;
     for (mut clusters, mut model) in &mut players {
         ambition_platformer2d::engine_core::movement::transit_body(

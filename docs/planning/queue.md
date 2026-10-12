@@ -128,11 +128,14 @@ not part of this row.
   portal domain keeps each body's lines as a view and the presentation
   draws them, and `light_gnu_ton_lines` is gone
   ([debt 2](game/gnu-ton-fight-debts.md#2-a-module-can-not-open-a-portal)).
+  Each fist's trail start is `ambition.boss.limb_bond`, lowered by the boss
+  domain, and `portals.rs` is gone
+  ([debt 6](game/gnu-ton-fight-debts.md#6-the-trail-of-a-fist-joins-two-lines-by-a-resource)).
 
 **Open:**
 
-1. **IN1, the view index (P1).** The pair and the look lines are ports, and
-   each fist carries its own trail start (done). The view index is keyed by
+1. **IN1, the view index (P1).** The pair, the look lines and each fist's
+   trail start are ports (done). The view index is keyed by
    `FeatureId` alone, so two live instances of one room share a limb's view
    (debt 6). See [debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
 2. **IN6, frame time (P2).** Measure the portal-piece frame cost in a drawn

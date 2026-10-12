@@ -62,8 +62,8 @@ counts"); `ambition_portal2d_presentation glow::tests::a_light_line_is_drawn_whi
 `app_it gnu_ton_fight::his_look_lines_are_the_lines_his_conductor_asks_for`
 (the view is the record's lines, and a defeated scholar has none; poison:
 the conductor asks for none, red at "the lines drawn are the lines his
-record has"). Not done: the line does not dissolve (debt 3), and the trail
-starts still read the record (debt 6). The text below is the case as found.
+record has"). Not done: the line does not dissolve (debt 3). The trail starts are a
+port too (debt 6). The text below is the case as found.
 
 - The conductor is an extension module. It has no port for a portal, so it
   writes where each line is into its RECORD, and a native system of the
@@ -128,13 +128,22 @@ does not dissolve yet. The text below is the case as found.
 
 ### 6. The trail of a fist joins two lines, by a resource
 
-**THE START IS ON THE FIST, 2026-10-12; the view index is OPEN.** Each fist
-carries `LimbBondStart` (`ambition_characters::actor`, a derived row), which
-`join_gnu_ton_lines` writes on the fist entity from the conductor's record.
-The fist's view carries it as `FeatureView::limb_host`, and the trail reads
-only the view. The renderer's `LimbTrailStarts` is deleted, so no simulation
-system writes a presentation resource, and the start is not keyed by
-`FeatureId`.
+**THE START IS ON THE FIST, AND A PORT, 2026-10-12; the view index is
+OPEN.** Each fist carries `LimbBondStart` (`ambition_characters::actor`, a
+derived row). The conductor asks for each fist's start each tick through
+`ambition.boss.limb_bond` (`LimbBond { slot, start }`), and the boss
+domain's `bond_limbs` is the one writer of the start: a limb not asked for
+in a tick has none, so its bond is from its host's body. `join_gnu_ton_lines`
+and `portals.rs` are deleted, so no system of the game reads the record as a
+channel. The fist's view carries the start as `FeatureView::limb_host`, and
+the trail reads only the view. The renderer's `LimbTrailStarts` is deleted,
+so no simulation system writes a presentation resource, and the start is
+not keyed by `FeatureId`.
+
+- Witness of the port: `ambition_boss_encounter conduct::limb_bond_tests::a_limb_has_the_bond_start_asked_for_it_this_tick`
+  (poison: no removal, red at "a fist not asked for has its bond from the
+  giant again"). With the conductor asking for no bond, the two app tests
+  below fail at their own assertions.
 
 - Witness: `app_it gnu_ton_fight::the_fist_through_the_pair_has_its_trail_from_the_near_line`.
   It compares against the near end of the held pair; the control is the

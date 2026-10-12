@@ -66,7 +66,7 @@ expiration: [SHOT-END-REPLAY](../queue.md#shot-end-replay--a-brain-that-saw-its-
    sprite-refresh feature is independent and should remain P2. Do not undo
    the source-tree/compiled-binary separation as part of the fix.
 5. **The title cursor's filtered available rows are consistent with shell
-   routing.** `title_screen.rs:173` and the shell cursor registration both
+   routing.** `title_screen.rs:180` and the shell cursor registration both
    filter unavailable entries; this is not a newly found selection bug.
 6. **The 60 Hz world-hitstop conversion has an existing plan.** Reference
    `simulation-tick-rate-compatibility.md`; do not introduce a duplicate

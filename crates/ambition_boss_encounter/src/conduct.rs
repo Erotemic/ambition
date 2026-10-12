@@ -272,6 +272,47 @@ pub fn pose_limbs(
     }
 }
 
+/// The `ambition.boss.limb_bond` requests of this tick, for [`bond_limbs`].
+pub fn drain_limb_bonds(
+    mut outbox: ResMut<ExtensionOutbox>,
+) -> Vec<ambition_extension_host::Submitted<ambition_boss_special_port::LimbBond>> {
+    outbox.drain::<ambition_boss_special_port::LimbBondPort>(&BOSS_CONDUCT)
+}
+
+/// Lower `ambition.boss.limb_bond`: each limb asked for this tick has its
+/// bond start (`LimbBondStart`), and each other limb has none, so its bond
+/// is from its host's body. This adapter is the one writer of the start.
+pub fn bond_limbs(
+    In(requests): In<Vec<ambition_extension_host::Submitted<ambition_boss_special_port::LimbBond>>>,
+    riders: Query<&ambition_mount::RidingOn>,
+    rigs: Query<&ambition_characters::actor::LimbRig>,
+    starts: Query<(Entity, &ambition_characters::actor::LimbBondStart)>,
+    mut commands: Commands,
+) {
+    use ambition_characters::actor::LimbBondStart;
+    let mut asked: Vec<Entity> = Vec::new();
+    for submitted in requests {
+        let bond = submitted.value;
+        let Some(limb) = ridden_limb(submitted.scope, &bond.slot, &riders, &rigs) else {
+            warn!(
+                "extension entry {} asked for the bond of limb {:?} of the mount {:?} rides, which it does not have; refused",
+                submitted.entry, bond.slot, submitted.scope
+            );
+            continue;
+        };
+        asked.push(limb);
+        let start = ae::Vec2::from(bond.start);
+        if starts.get(limb).ok().map(|(_, now)| now.0) != Some(start) {
+            commands.entity(limb).try_insert(LimbBondStart(start));
+        }
+    }
+    for (limb, _) in &starts {
+        if !asked.contains(&limb) {
+            commands.entity(limb).try_remove::<LimbBondStart>();
+        }
+    }
+}
+
 /// The `ambition.boss.limb_opening` requests of this tick, for [`open_limbs`].
 pub fn drain_limb_openings(
     mut outbox: ResMut<ExtensionOutbox>,
@@ -688,6 +729,60 @@ mod limb_pose_tests {
         let kin = *world.get::<ae::BodyKinematics>(limb).unwrap();
         assert_eq!((kin.pos, kin.vel), (ae::Vec2::new(630.0, 970.0), ae::Vec2::new(0.0, -3.0)), "a released limb falls straight down");
         assert!(world.get::<ae::PoseOwnedExternally>(limb).is_none(), "a released limb is not held");
+    }
+}
+
+#[cfg(test)]
+mod limb_bond_tests {
+    use super::*;
+    use ambition_boss_special_port::LimbBond;
+    use ambition_characters::actor::{LimbBondStart, LimbRig, LimbSlot};
+    use ambition_extension_host::Submitted;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    fn bond(world: &mut World, boss: Entity, bonds: &[(&str, [f32; 2])]) {
+        let requests = bonds
+            .iter()
+            .map(|(slot, start)| Submitted {
+                scope: boss,
+                invocation: Default::default(),
+                occurrence: None,
+                entry: "test::gnu/conduct".into(),
+                value: LimbBond { slot: (*slot).into(), start: *start },
+            })
+            .collect();
+        world.run_system_once_with(bond_limbs, requests).unwrap();
+    }
+
+    fn start(world: &World, limb: Entity) -> Option<ae::Vec2> {
+        world.get::<LimbBondStart>(limb).map(|start| start.0)
+    }
+
+    /// ⭐ A LIMB'S BOND START IS THE ONE ASKED FOR THIS TICK. Each fist has the
+    /// start asked for it, a fist not asked for has none (its bond is from
+    /// the giant again), and a slot the rig does not have puts a start on no
+    /// limb.
+    #[test]
+    fn a_limb_has_the_bond_start_asked_for_it_this_tick() {
+        let mut world = World::new();
+        let left = world.spawn_empty().id();
+        let right = world.spawn_empty().id();
+        let gnu = world.spawn(LimbRig::from_pairs([(LimbSlot::HAND_LEFT, left), (LimbSlot::HAND_RIGHT, right)])).id();
+        let scholar = world.spawn(ambition_mount::RidingOn { mount: gnu }).id();
+
+        bond(&mut world, scholar, &[("hand_left", [100.0, 800.0]), ("hand_right", [900.0, 820.0])]);
+        assert_eq!((start(&world, left), start(&world, right)), (Some(ae::Vec2::new(100.0, 800.0)), Some(ae::Vec2::new(900.0, 820.0))));
+
+        bond(&mut world, scholar, &[("hand_right", [880.0, 500.0]), ("tail", [0.0, 0.0])]);
+        assert_eq!(
+            (start(&world, left), start(&world, right)),
+            (None, Some(ae::Vec2::new(880.0, 500.0))),
+            "a fist not asked for has its bond from the giant again, and the other follows"
+        );
+        assert_eq!(start(&world, gnu), None, "a slot the rig does not have puts a start on no limb");
+
+        bond(&mut world, scholar, &[]);
+        assert_eq!((start(&world, left), start(&world, right)), (None, None), "nothing asked for, no start");
     }
 }
 

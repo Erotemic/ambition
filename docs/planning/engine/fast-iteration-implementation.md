@@ -421,7 +421,8 @@ before you add a port.
   `ambition.boss.limb_blow` (a fist refuses damage until it is an opening;
   the blow it takes heals and passes on to the scholar once);
   `ambition.boss.mount_launch` (the buck's hop) and
-  `ambition.feedback.speech_bubble` (eureka). The fist hit volumes and the
+  `ambition.feedback.speech_bubble` (eureka); `ambition.boss.limb_bond`
+  (where a fist's trail starts, 2026-10-12). The fist hit volumes and the
   stomp's travelling shocks need no new port: `ambition.combat.held_damage_box`
   v2 keeps a box while it is re-submitted, moves it to the submitted centre,
   and a new generation re-arms it with a fresh hit memory. The module

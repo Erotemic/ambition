@@ -24,7 +24,7 @@
 
 use ambition_boss_special_port::{
     BossConduct, BossConductPort, BossGuard, BossGuardPort, ConductedPose, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LimbBlow,
-    LimbBlowPort, LimbHold, LimbOpening, LimbOpeningPort, LimbPose, LimbPosePort, MountLaunch, MountLaunchPort,
+    LimbBlowPort, LimbBond, LimbBondPort, LimbHold, LimbOpening, LimbOpeningPort, LimbPose, LimbPosePort, MountLaunch, MountLaunchPort,
     MountView, MountViewPort, Pose as BodyPose,
 };
 use ambition_combat_port::{
@@ -392,6 +392,7 @@ pub fn module() -> ModuleDescriptor {
                 LimbPosePort::KEY,
                 LimbOpeningPort::KEY,
                 LimbBlowPort::KEY,
+                LimbBondPort::KEY,
                 MountLaunchPort::KEY,
                 HeldDamageBoxPort::KEY,
                 HeldPortalPairPort::KEY,
@@ -488,7 +489,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         // A tick with no time keeps what is open: a pair or a line that is
         // not asked for in a tick is closed.
         hold_punch_pair(inv, &c)?;
-        return if scholar.alive { hold_look_lines(inv, &c) } else { Ok(()) };
+        if !scholar.alive {
+            return Ok(());
+        }
+        hold_look_lines(inv, &c)?;
+        return bond_fists(inv, &c, &giant);
     }
     // The hall under the gnu, measured every tick: the pair can be carried
     // into another room, and fists posed against the last room's floor fall
@@ -1087,7 +1092,29 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
     hold_punch_pair(inv, &c)?;
     hold_look_lines(inv, &c)?;
+    bond_fists(inv, &c, &giant)?;
     c.store(inv)
+}
+
+/// The trail of each fist is part of his spell: it joins the two lines the
+/// arm is in. It starts at the shoulder's line (after phase 1), or, for the
+/// right fist when it is through the pair of the punch, at the pair's near
+/// line. A fist with neither has its trail from the giant: no start is asked
+/// for.
+fn bond_fists(inv: &mut Invocation<'_>, c: &Conductor, giant: &MountView) -> Result<(), Fault> {
+    let lines = c.look_lines();
+    for fist in Fist::BOTH {
+        let i = fist.index();
+        if !giant.limbs.iter().any(|l| l.slot == FIST_SLOTS[i]) {
+            continue;
+        }
+        let through = c.punch_pair().filter(|_| i == 1).map(|[near, _]| near);
+        let Some(start) = lines[i].map(|(at, _)| at).or(through) else {
+            continue;
+        };
+        inv.submit::<LimbBondPort>(LimbBond { slot: FIST_SLOTS[i].into(), start: a(start) })?;
+    }
+    Ok(())
 }
 
 /// The colour of each look line, in the order of `look_lines`. A line has

@@ -453,11 +453,6 @@ impl Plugin for AmbitionBossContentPlugin {
                 .after(ambition_extension_host::ExtensionSet::Lower(ambition_content_modules::gnu_ton::conductor::CONDUCT_PHASE))
                 .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Trigger),
         );
-        app.add_systems(
-            sim,
-            gnu_ton::portals::join_gnu_ton_lines
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
-        );
         #[cfg(feature = "portal_render")]
         app.add_systems(
             sim,

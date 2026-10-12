@@ -547,6 +547,46 @@ impl Port for LimbPosePort {
     }
 }
 
+/// The request port marker for where the bond of a limb of the mount a boss
+/// rides starts.
+///
+/// Port card:
+///
+/// * **Operation** — draw the limb's bond (the trail that joins it to its
+///   host) from `start`, not from its host's body: a bond that is a module's
+///   own (a spell that joins the two portals an arm is in). Presentation: no
+///   simulation state reads it. Asked for each tick: a limb whose bond start
+///   is not asked for in a tick has its bond from its host's body again.
+/// * **Owner** — `ambition_boss_encounter::conduct`, which keeps the limb's
+///   `LimbBondStart`. The limb's view carries it.
+/// * **Scope** — the boss the invocation ran for; the limb is `slot` of the
+///   rig of the mount it rides. A boss that rides nothing, or a slot the rig
+///   does not have, is refused with a warning.
+/// * **Time** — `boss_conduct`.
+pub struct LimbBondPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LimbBond {
+    pub slot: String,
+    /// Where the bond starts, in world units.
+    pub start: [f32; 2],
+}
+
+impl Port for LimbBondPort {
+    const KEY: PortKey = PortKey::new("ambition.boss.limb_bond", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = LimbBond;
+
+    fn encode(v: &LimbBond, out: &mut Vec<u8>) {
+        wire::put_str(out, &v.slot);
+        wire::put_vec2(out, v.start);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<LimbBond, WireError> {
+        Ok(LimbBond { slot: r.str()?.to_owned(), start: r.vec2()? })
+    }
+}
+
 /// The request port marker for whether a limb of the mount a boss rides can
 /// be struck.
 ///
@@ -743,6 +783,8 @@ mod tests {
         for flag in [false, true] {
             let opening = LimbOpening { slot: "hand_left".into(), open: flag };
             assert_eq!(round::<LimbOpeningPort>(&opening), opening);
+            let bond = LimbBond { slot: "hand_left".into(), start: [if flag { 12.5 } else { -3.0 }, 840.25] };
+            assert_eq!(round::<LimbBondPort>(&bond), bond);
             let blow = LimbBlow { slot: "hand_right".into(), pass: flag };
             assert_eq!(round::<LimbBlowPort>(&blow), blow);
         }

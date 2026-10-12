@@ -141,6 +141,7 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.presentation.drawn_row` v2 | request (`boss_conduct`) | `ambition_boss_special_port::DrawnRow` (the sheet row a part is drawn with; v2: the part is the boss, the mount it rides or a limb of that mount, and the names are a fallback list) |
 | `ambition.boss.mount` v1 | observation (`boss_conduct`) | `ambition_boss_special_port::MountView` (the body the boss rides: its pose, its back, the hall under it, its limbs with their rest, lost health and hold) |
 | `ambition.boss.limb_pose` v1 | request (`boss_conduct`) | `ambition_boss_special_port::LimbPose` (hold a limb of the ridden mount at a pose, or release it to fall straight down) |
+| `ambition.boss.limb_bond` v1 | request (`boss_conduct`) | `ambition_boss_special_port::LimbBond` (where the bond of a limb of the ridden mount starts, while re-submitted each tick: a trail that is the module's own; a limb not asked for has its bond from its host) |
 | `ambition.boss.limb_opening` v1 | request (`boss_conduct`) | `ambition_boss_special_port::LimbOpening` (a closed limb of the ridden mount refuses damage) |
 | `ambition.boss.limb_blow` v1 | request (`boss_conduct`) | `ambition_boss_special_port::LimbBlow` (heal what a limb lost; with `pass`, the boss takes it unless it refuses damage now) |
 | `ambition.boss.mount_launch` v1 | request (`boss_conduct`) | `ambition_boss_special_port::MountLaunch` (launch the ridden mount through its launch gateway; `flinchless` for a hop) |

@@ -19,7 +19,8 @@ use ambition_platformer2d_core as ae;
 #[cfg(feature = "causal")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BodyReaction {
-    /// The velocity the launch wrote.
+    /// The launch velocity. A free body takes it now; a held body only has
+    /// it staged.
     pub velocity: ae::Vec2,
     /// The DI the victim held, in its local frame. `ZERO` means it did not
     /// steer — which is a different finding from steering and being overruled.
@@ -311,7 +312,15 @@ pub fn apply_body_hit_reaction(
             }
         }
     };
-    *vel = launch;
+    // ⛔ NOT ON A HELD BODY. Another authority (a saddle, a hold) owns where
+    // that body is and sets its velocity to zero each tick, before the hits of
+    // that tick. A write here stays until the end of the tick: a rider that
+    // the saddle carries then shows a velocity that nothing will apply. The
+    // staged launch below is the one road: the kernel decides at its gateway
+    // what a held body does with it (`step_motion`).
+    if !stance.pose_held {
+        *vel = launch;
+    }
     //  and PUBLISH it, because the write above is not authoritative for every
     // body. `BodyKinematics::vel` is the authority for an axis-swept body and a
     // MIRROR for a riding surface-momentum one, whose velocity is derived from
@@ -392,8 +401,8 @@ pub fn apply_body_hit_reaction(
     }
     // CARRY THE LAUNCH, for exactly as long as the body cannot answer for it.
     //
-    // The floor is the run-axis component of the velocity just written, in the
-    // same frame the launch was resolved in. The window is HITSTUN, not the
+    // The floor is the run-axis component of the launch, in the same frame
+    // the launch was resolved in. The window is HITSTUN, not the
     // recoil lock: the recoil lock is the short hard beat at the front, while
     // hitstun is the whole span in which the body has no authority over its own
     // trajectory — and "momentum you were given while you could not act" is a
@@ -401,12 +410,12 @@ pub fn apply_body_hit_reaction(
     // new tuning knob; the carry is owed for exactly as long as the reaction it
     // belongs to.
     let side = ae::AccelerationFrame::new(gravity_dir).side;
-    flight.carried_run = vel.dot(side);
+    flight.carried_run = launch.dot(side);
     flight.carried_hold = combat.hitstun_timer;
 
     #[cfg(feature = "causal")]
     return BodyReaction {
-        velocity: *vel,
+        velocity: launch,
         di_input_local,
         hitstun: combat.hitstun_timer,
         had_knockback: true,
@@ -431,6 +440,10 @@ pub struct VictimStance {
     /// ducking is a defensive option at low percent rather than only a shorter
     /// hurtbox. See [`CombatRules::crouch_cancel_scale`](crate::rules::CombatRules::crouch_cancel_scale).
     pub crouching: bool,
+    /// Does another authority own where this body is
+    /// (`PoseOwnedExternally`: a saddle, a hold)? Then the launch is only
+    /// staged, and the velocity is not written.
+    pub pose_held: bool,
 }
 
 /// The kernel-tuning row for one struck body: the boss/enemy feel SELECTION is
@@ -1063,5 +1076,56 @@ mod super_armor_tests {
              tool in the game and nobody authored it to be"
         );
         assert!(blown.post_recovery_helpless);
+    }
+
+    /// A body whose pose another authority owns (a saddle) takes the launch
+    /// staged and its velocity unchanged: the holder sets that velocity, and
+    /// the kernel decides at its gateway what the held body does with the
+    /// launch. The control is a free body, whose velocity is the launch.
+    #[test]
+    fn a_held_body_has_its_launch_staged_and_its_velocity_left_to_its_holder() {
+        let hit = |pose_held: bool| {
+            let mut vel = ae::Vec2::ZERO;
+            let mut flight = ae::BodyFlightState::default();
+            let mut combat = BodyCombat::default();
+            apply_body_hit_reaction(
+                &mut vel,
+                &mut flight,
+                &mut combat,
+                ae::Vec2::new(20.0, 0.0),
+                1.0,
+                ae::Vec2::new(0.0, 1.0),
+                false,
+                Some(&hard_knockback()),
+                12,
+                ae::Vec2::ZERO,
+                VictimStance {
+                    pose_held,
+                    ..Default::default()
+                },
+                None,
+                None,
+                None,
+                feel(),
+            );
+            (vel, flight, combat)
+        };
+        let (free_vel, free_flight, _) = hit(false);
+        let (held_vel, held_flight, held_combat) = hit(true);
+        assert_ne!(free_vel, ae::Vec2::ZERO, "the control: a free body is launched");
+        assert_eq!(free_flight.pending_launch_state().velocity, free_vel);
+        assert_eq!(
+            held_vel,
+            ae::Vec2::ZERO,
+            "the hit wrote a velocity on a held body, which stays to the end \
+             of the tick with nothing to apply it"
+        );
+        assert_eq!(
+            held_flight.pending_launch_state().velocity,
+            free_vel,
+            "the held body's launch is staged as the free body's is"
+        );
+        assert!(held_combat.hitstun_timer > 0.0, "the held body is still hit");
+        assert_eq!(held_flight.carried_run, free_flight.carried_run);
     }
 }

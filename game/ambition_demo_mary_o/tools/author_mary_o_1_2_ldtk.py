@@ -57,8 +57,8 @@ def build() -> Level:
     lv.rock(0, FLOOR, WIDTH, SLAB)
     lv.rock(0, 0, WALL, HEIGHT)
     lv.rock(WIDTH - WALL, 0, WALL, HEIGHT)
-    # The camera stays on the corridor: a room this high would show the attic
-    # over each part of it.
+    # The camera stays on the corridor: a room this high would show the top
+    # road over each part of it.
     lv.camera_zone("mary_o_1_2_corridor", "Corridor", TOP - 1, HEIGHT - (TOP - 1))
 
     arrival(lv)

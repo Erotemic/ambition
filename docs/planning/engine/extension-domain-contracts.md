@@ -79,7 +79,7 @@ list, with witnesses, is in I4 of the [packet catalog](fast-iteration-implementa
 | Port values | Ports |
 | --- | --- |
 | `crates/ambition_boss_special_port` | `ambition.boss.special_cast`, `ambition.boss.summon`, `ambition.boss.conduct` and its requests |
-| `crates/ambition_combat_port` | `ambition.combat.damage_box`, `ambition.combat.held_damage_box`, `ambition.combat.riding_hitbox`, the wielded-use and module-entity ports |
+| `crates/ambition_combat_port` | `ambition.combat.damage_box`, `ambition.combat.held_damage_box`, `ambition.combat.riding_hitbox`, the wielded-use and module-entity ports, the contact ports (`ambition.body.contact`, `ambition.body.contact_bounce`, `ambition.body.defeat`) |
 | `ambition_projectile_spec::ProjectileSpawnPort` | `ambition.projectiles.spawn` |
 | `crates/ambition_portal_port` | `ambition.portal.held_pair`, `ambition.portal.light_line` (with the runtime's `portal` feature) |
 
@@ -100,6 +100,7 @@ production observation port exists yet; every module reads its trigger.
 | --- | --- | --- |
 | Move-invoked technique | `crates/ambition_combat/src/technique.rs`; `crates/ambition_combat/src/strike.rs`; runtime `combat_schedule.rs` | Installed delivery mode, invoking move occurrence, target and contact credit |
 | Body-control contribution | A4 in the [frontier](actor-monolith-work-frontier.md); shared `schedule.rs` | Accepted-control owner, body and proper-time units, one execution path |
+| Contact rule (built 2026-10-12: phase `body_contact`) | `WorldPrepSet::AfterIntegrate` and `WorldPrepSet::ContactDamage`; the demo rules it replaces | A touch is between bodies of one live room; the rule runs on this tick's positions and before the shared contact damage, so a defeated body hurts nobody in that tick |
 | Actor creation | `crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs`, `SpawnActorRequest`; typed construction | Identity allocation, admission, scoped construction and the actual spawn result |
 | Item acquisition or transfer | `item-custody-and-accounting.md` and A7 | One occurrence, custody and accounting transaction; no second inventory |
 | World observation | `world-facts-observations-and-memory.md`; spatial query owner | Instance and coordinate scope; settled facts against observer knowledge |

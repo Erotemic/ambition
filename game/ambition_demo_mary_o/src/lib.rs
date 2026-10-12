@@ -1539,11 +1539,11 @@ impl Plugin for MaryORulesPlugin {
         //   not hypothetical — it is the regression that made this edge explicit
         //   rather than an accident of plugin insertion order.)
         // * `.before(apply_actor_contact_damage)` — a stomp resolves the enemy
-        //   (snake → inert shell; AI Slop → dead) in time for that pass to skip
-        //   it, so the stomper is never also hurt.
+        //   (snake → inert shell) in time for that pass to skip it, so the
+        //   stomper is never also hurt. The AI Slop's squash is a module in
+        //   `body_contact`, which has the same two edges.
         let cronies = (
             snake::run_snake_shells,
-            ai_slop::bounce_squash_ai_slop,
             // After the movement step, so the path of the plant wins, and
             // before the contact pass, so a hidden plant hurts nobody.
             plant::run_snake_plants,

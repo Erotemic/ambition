@@ -495,7 +495,34 @@ before you add a port.
     (each gated frame of two periods against `drops_on` and `over`; a held
     swallow drops nothing). Poison: the adapter sends no placement, red at
     tick 115 (`EnemySpawn-108048`).
-  - Not a packet yet, measured 2026-10-11: the demo behaviour still in Rust
+  - Contact route C1-C2 ✅ (2026-10-12). C1 (engine): the phase
+    `body_contact`, in `WorldPrepSet::AfterIntegrate` and before
+    `WorldPrepSet::ContactDamage`. The trigger `ambition.body.contact`
+    (selector: the `CharacterBrain::Custom` key) gives the touched body and
+    each player body of its own live room that touches it (side to side
+    overlap; top to bottom overlap or meet, so a body standing on a head
+    touches it), in identity order. Requests: `ambition.body.contact_bounce`
+    (a toucher by index jumps off; an optional pogo cue) and
+    `ambition.body.defeat` (health zero before the contact damage, then
+    removed); `ambition.feedback.burst` and `ambition.feedback.body_sound`
+    are offered there too (one burst lowering, generic over the phase).
+    Witnesses `ambition_combat extension::contact::tests` (a stomp bounces
+    and defeats; a side touch, an unbound brain and an untouched body are
+    left alone; a player of another live room does not touch). Poisons: no
+    defeat, red at "the stomped walker is gone"; a strict top, red at
+    "touches(body, standing)"; no room filter, red at "the walker is
+    stomped only by a player of its own room". C2 (Mary-O): the AI Slop and
+    Laden Swallow squash is the module `ambition_demo_mary_o_modules::squash`;
+    the native `bounce_squash_ai_slop` is deleted, and the top/side rule
+    moved into the modules crate (`stomp`), which the native snake shells
+    read through `crate::stomp`, so the two can not disagree. Witness
+    `mary_o_it::a_mob_is_squashed_by_each_player` (each player of the
+    mob's room squashes it, a player of another room does not); poison:
+    the module not linked, red at "the premise: her stomp squashes it".
+    Next: the snake shells, the plant, and the Sanic badnik, whose roll is
+    the demo's own `Rolling` state: the trigger needs a toucher fact for it
+    first. The badnik rule also reads one global `PrimaryPlayer`.
+  - Measured 2026-10-11 (the case before C1-C2): the demo behaviour still in Rust
     is contact rules and techniques, not brains. Mary-O's plant, snake
     shells and AI Slop, and Sanic's badnik, decide what a touch does (a
     stomp bounces the toucher and defeats the body, a roll defeats it) in

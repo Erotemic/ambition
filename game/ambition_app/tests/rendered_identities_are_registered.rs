@@ -57,7 +57,14 @@ fn target_dir() -> PathBuf {
 /// describes happening again: two renderer targets that were on disk when the
 /// count was last set are not on disk now, and nothing in this repository's
 /// history explains either. No commit here touched the renderer.
-const COMPUTED_ID_TARGETS: usize = 15;
+///
+/// 15 → 16 on 2026-10-11, and the review is this note: `mary_o_v2_cosmic`
+/// (Eternal Cosmic Mary-O) names its id as `mary_o_v2` does, `f"pc_{TARGET}"`.
+/// The hand check: she has a row, `mary_o_cosmic`, in the catalog of Mary-O
+/// (`game/ambition_demo_mary_o/assets/data/character_catalog.ron`), and that
+/// row names her sheet. The target landed on 2026-10-11 without this number;
+/// a run of the app suite by another session found it.
+const COMPUTED_ID_TARGETS: usize = 16;
 
 /// Every literal `character_id` value in one target source, accepting dict keys
 /// with either quote style and keyword-argument syntax.

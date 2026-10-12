@@ -47,7 +47,7 @@ pub mod stomp;
 pub mod swallow;
 pub mod test_course;
 pub mod void_lizard;
-mod void_look;
+pub mod void_look;
 pub mod void_star;
 
 pub use provider::{

@@ -201,6 +201,21 @@ logical frame, rendered frame, anchor and final drawable transform together.
 
 ### R6 - reconcile semantic screen-field sources by visual ownership
 
+**What landed (2026-10-12):** Mary-O's `reconcile_void_auras` makes the
+aura of each visual what its thing is now, each frame and both ways: one
+pass over the bodies keyed by (live room, id), so a visual of another live
+room of the same definition does not take a void body's field; an aura
+follows a sprite's new size; it goes when its body goes or is not void; a
+shot's aura follows its view's visual id. Witness:
+`ambition_demo_mary_o void_look a_visual_has_the_aura_of_its_own_body_now`;
+three poisons (id-only key, no removal, no update) each fail at their own
+assertion. On the shipped spawn roads (drawn demo, 1-3), each void body's
+visual has its aura: `mary_o_it --features visible`
+`each_void_body_of_the_drawn_demo_has_a_visual_with_its_aura`; a body key
+with no room fails it. Not done: the many-body scaling curve (the nested scan is gone,
+so the cost is one pass over bodies and one over visuals). The text below
+is the case as found.
+
 **Real customer (Mary-O, 2026-10-11).**
 `game/ambition_demo_mary_o/src/void_look.rs:65-88` scans every body for
 *each* `FeatureVisual` without a `VoidAura`: `bodies.iter().any(...)` joins

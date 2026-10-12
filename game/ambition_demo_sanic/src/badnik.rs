@@ -120,6 +120,14 @@ pub fn defeat_badniks(
             color: [0.85, 0.62, 0.35, 1.0],
             kind: ambition_platformer2d::vfx::ParticleKind::Dust,
         });
+        // And a few bright sparks over the dust: a pop, not only a puff.
+        vfx.for_room(rooms.of(entity)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
+            pos: badnik_kin.pos,
+            count: 8,
+            speed: 260.0,
+            color: [1.0, 0.94, 0.62, 1.0],
+            kind: ambition_platformer2d::vfx::ParticleKind::Spark,
+        });
         // H2: the badnik is a body, and this is it popping. Its own voice.
         sfx.write_for(
             entity,

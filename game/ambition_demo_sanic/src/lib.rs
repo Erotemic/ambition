@@ -351,6 +351,7 @@ pub mod ball_dash;
 pub mod monitors;
 pub mod provider;
 pub mod scenery;
+pub mod trail;
 pub mod pack;
 #[cfg(test)]
 mod smash_moveset;
@@ -771,6 +772,8 @@ impl Plugin for SanicRulesPlugin {
             sync_super_form_traits,
             // Braking scrape on the skid onset (reads the published skid fact).
             emit_sanic_skid_sfx,
+            // Dust at his feet while he runs or skids.
+            trail::emit_speed_dust,
             // The goal, then the cycle: a clear captured this frame must be
             // read by the card before the dwell can retire it.
             clear_act_at_goal,
@@ -1462,6 +1465,27 @@ pub fn act_score(time: f32, rings: i32) -> i32 {
 pub fn act_time_text(seconds: f32) -> String {
     let whole = seconds.max(0.0) as i32;
     format!("{}:{:02}", whole / 60, whole % 60)
+}
+
+/// The clock the HUD shows while an act runs: minutes, seconds and
+/// hundredths.
+pub fn act_clock_text(seconds: f32) -> String {
+    let hundredths = (seconds.max(0.0) * 100.0) as i32;
+    format!("{}:{:02}.{:02}", hundredths / 6000, hundredths / 100 % 60, hundredths % 100)
+}
+
+/// How long the name of an act is on the screen when the act begins.
+pub const ACT_TITLE_SECONDS: f32 = 2.5;
+
+/// The name of an act and its number, by its room. `None` for a room that
+/// is not an act.
+pub fn act_title(room_id: &str) -> Option<(&'static str, u8)> {
+    match room_id {
+        SPEEDWAY_ROOM_ID => Some(("SKYBRIDGE SPEEDWAY", 1)),
+        HIGHWAY_ROOM_ID => Some(("COVE HIGHWAY", 2)),
+        DARKNESS_ROOM_ID => Some(("ECLIPSE CIRCUIT", 3)),
+        _ => None,
+    }
 }
 
 /// After the goal, the course drives him, not the player.

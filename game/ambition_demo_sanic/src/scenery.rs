@@ -14,7 +14,7 @@ use crate::{SanicActPhase, SanicActState};
 /// The sheet of the goal post, and the name of its prop.
 pub const GOAL_POST_SPRITE: &str = "sanic_goal_post";
 /// How tall the post stands, in world units. Sanic is 48.
-pub const GOAL_POST_HEIGHT: f32 = 96.0;
+pub const GOAL_POST_HEIGHT: f32 = 84.0;
 
 /// The rows of the sheet: it turns over once, then shows its other side.
 const SPIN_ROW: &str = "spin";

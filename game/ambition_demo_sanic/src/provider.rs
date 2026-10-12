@@ -95,6 +95,22 @@ impl Plugin for SanicExperiencePlugin {
                         .with_font_size(22.0)
                         .with_color([1.0, 0.85, 0.25, 1.0]),
                 )
+                // The clock of the act, beside the rings.
+                .slot(
+                    ambition_platformer2d::presentation::HudSlotSpec::new(TIME_HUD_SLOT)
+                        .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
+                        .with_order(1)
+                        .with_font_size(22.0)
+                        .with_color([0.96, 0.97, 1.0, 1.0]),
+                )
+                // The name of the act, for its first seconds.
+                .slot(
+                    ambition_platformer2d::presentation::HudSlotSpec::new(TITLE_HUD_SLOT)
+                        .with_order(98)
+                        .with_font_size(34.0)
+                        .with_color([1.0, 1.0, 1.0, 1.0])
+                        .centered(),
+                )
                 // The results card. Published only while the act is cleared, so it
                 // needs no hide path — an unpublished slot draws nothing.
                 .slot(
@@ -131,6 +147,12 @@ pub const RINGS_HUD_SLOT: &str = "sanic_rings";
 /// The end-of-act results card.
 pub const RESULTS_HUD_SLOT: &str = "sanic_results";
 
+/// The clock of the act.
+pub const TIME_HUD_SLOT: &str = "sanic_time";
+
+/// The name of the act, shown as it begins.
+pub const TITLE_HUD_SLOT: &str = "sanic_title";
+
 /// Publish the ring count into the declared HUD.
 ///
 /// Rings are ordinary `currency:1` pickups: the shared economy credits the
@@ -140,12 +162,47 @@ pub const RESULTS_HUD_SLOT: &str = "sanic_results";
 fn publish_sanic_ring_readout(
     facts: bevy::prelude::Res<ambition_platformer2d::sim_view::PlayerHudFacts>,
     act: bevy::prelude::Query<&crate::SanicActState>,
+    runner: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+    >,
+    // The room the runner is in: its act has the name the title card shows.
+    rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     if !facts.present {
         return;
     }
     readouts.set_labelled(RINGS_HUD_SLOT, "RINGS", facts.balance);
+
+    // The clock: the act's own, which stops when the act is cleared.
+    let running = act.iter().find_map(|state| match state.phase {
+        crate::SanicActPhase::Running => Some(state.elapsed),
+        crate::SanicActPhase::Cleared { .. } => None,
+    });
+    match running.or_else(|| {
+        act.iter().find_map(|state| match state.phase {
+            crate::SanicActPhase::Cleared { time, .. } => Some(time),
+            crate::SanicActPhase::Running => None,
+        })
+    }) {
+        Some(seconds) => readouts.set_labelled(TIME_HUD_SLOT, "TIME", crate::act_clock_text(seconds)),
+        None => readouts.clear_slot(TIME_HUD_SLOT),
+    }
+
+    // The name of the act, while the act is young.
+    let title = running
+        .filter(|elapsed| *elapsed < crate::ACT_TITLE_SECONDS)
+        .and_then(|_| runner.single().ok())
+        .and_then(|runner| rooms.spec_of(runner))
+        .and_then(|spec| crate::act_title(&spec.id));
+    match title {
+        Some((name, number)) => readouts.set(
+            TITLE_HUD_SLOT,
+            ambition_platformer2d::presentation::HudReadout::bare(format!("{name}    ACT {number}")),
+        ),
+        None => readouts.clear_slot(TITLE_HUD_SLOT),
+    }
 
     // The results card, published only while the act is cleared.
     match act.iter().find_map(|state| match state.phase {

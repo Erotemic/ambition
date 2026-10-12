@@ -108,7 +108,10 @@ not part of this row.
   ([debt 13](game/gnu-ton-fight-debts.md#13-the-exit-gate-reads-a-corpse-not-an-encounter-outcome)).
 - IN6: far-side piece churn measured: remade each frame, no growth
   ([R8](engine/render-animation-and-vfx.md#r8---portal-fragment-lifetime-and-measured-render-churn)).
-- IN7: the launcher backdrop follows the quality
+- IN7: a provider names the look of its launcher row (`with_launcher_look`),
+  and the route-name prefixes are gone
+  ([UI](engine/ui-localization-and-accessibility.md#launcher-theme-quality-and-provider-composition));
+  the launcher backdrop follows the quality
   ([UI](engine/ui-localization-and-accessibility.md#launcher-theme-quality-and-provider-composition));
   a sprite key that two files give is refused
   ([reload](engine/content-generation-and-reload.md#sprite-source-identity-and-live-presentation-refresh)).
@@ -131,9 +134,8 @@ not part of this row.
    instances of one room share a limb's view (debt 6). See [debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
 2. **IN6, frame time (P2).** Measure the portal-piece frame cost in a drawn
    host before any retained-piece strategy.
-3. **IN7, provider theme and live sprite refresh (P2).** The launcher theme
-   is still a route-name prefix; live sprite refresh stays behind the
-   prepared-generation boundary ([I3](engine/fast-iteration-implementation.md#i3---coordinated-generation-publication-and-local-reload)).
+3. **IN7, live sprite refresh (P2).** The launcher theme is the provider's
+   (done). Live sprite refresh stays behind the prepared-generation boundary ([I3](engine/fast-iteration-implementation.md#i3---coordinated-generation-publication-and-local-reload)).
 
 **Acceptance:** each open item is exposed by a failing engine-level
 fixture before repair, and the fix changes the owning domain.

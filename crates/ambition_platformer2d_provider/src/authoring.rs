@@ -496,6 +496,8 @@ pub struct PlatformerExperienceAuthoring {
     /// experience usually means it to be playable. See
     /// [`PlatformerExperienceAuthoring::unlisted`].
     pub listed: bool,
+    /// The look of its launcher row. See [`Self::with_launcher_look`].
+    pub launcher_look: Option<String>,
     /// What this experience puts into its own session while the engine builds
     /// it. See [`Self::with_session_contents`].
     pub session_contents: Option<crate::SessionContentsFn>,
@@ -528,6 +530,7 @@ impl PlatformerExperienceAuthoring {
             defense_presentation: None,
             hud: None,
             listed: true,
+            launcher_look: None,
             session_contents: None,
             initial_inventory: None,
         }
@@ -546,6 +549,16 @@ impl PlatformerExperienceAuthoring {
     /// to know it exists. This one is simply not offered.
     pub fn unlisted(mut self) -> Self {
         self.listed = false;
+        self
+    }
+
+    /// Name the look of this experience's launcher row: a semantic key, such
+    /// as a backdrop theme's name (`"starlight"`). The host's launcher
+    /// presentation resolves it; a key it does not know, or none, gives its
+    /// default look. So a provider with a new route name needs no edit of
+    /// the host to have its own look.
+    pub fn with_launcher_look(mut self, look: impl Into<String>) -> Self {
+        self.launcher_look = Some(look.into());
         self
     }
 
@@ -707,6 +720,10 @@ impl PlatformerExperienceAuthoring {
             registration
         } else {
             registration.unlisted()
+        };
+        let registration = match self.launcher_look.as_deref() {
+            Some(look) => registration.with_launcher_look(look),
+            None => registration,
         };
         app.register_gameplay_experience(
             registration,

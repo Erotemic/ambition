@@ -643,6 +643,8 @@ pub fn compose_versus_experience(app: &mut App) {
         "Prepare Versus",
         AuthoredCatalogFragments::new(FIGHTERS[0], VERSUS_EXPERIENCE),
     )
+    // The look of its launcher row.
+    .with_launcher_look("eclipse")
     // Declare one health gauge per possible seat. `publish_versus_hud` owns
     // round-specific text; the engine does not model rounds.
     .with_hud({

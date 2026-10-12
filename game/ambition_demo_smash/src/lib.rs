@@ -2706,6 +2706,8 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 SMASH_EXPERIENCE,
             ),
         )
+        // The look of its launcher row.
+        .with_launcher_look("eclipse")
         // The launcher row enters the select screen, not the stage (see
         // `.entered_at`).
         //

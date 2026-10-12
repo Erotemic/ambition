@@ -335,7 +335,9 @@ impl ParallaxTheme {
         None
     }
 
-    fn from_key(value: &str) -> Option<Self> {
+    /// The theme a key names (`"starlight"`, `"open_sky"`, and the other
+    /// names authored content uses), if any.
+    pub fn from_key(value: &str) -> Option<Self> {
         let key = value.trim().to_ascii_lowercase().replace('-', "_");
         match key.as_str() {
             "hub" | "default" | "cantina" | "orange" => Some(Self::Hub),

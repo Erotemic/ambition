@@ -25,7 +25,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::game_shell::{
-    BasicShellUiRoot, LauncherTab, ShellExperienceRegistry, ShellLauncherState,
+    BasicShellUiRoot, LauncherTab, ShellExperienceRegistry, ShellLaunchEntry, ShellLauncherState,
 };
 use ambition_platformer2d::menu::render::bevy_ui::{AmbitionMenuControlKind, BevyUiMenuPanel, BevyUiMenuTab};
 use ambition_platformer2d::menu::{MenuControlKind, MenuVisualState};
@@ -72,17 +72,15 @@ const CURSOR_EDGE: Color = Color::srgb(1.0, 0.98, 0.86);
 const CURSOR_EDGE_LOW: f32 = 0.45;
 const CURSOR_BREATH_S: f32 = 1.8;
 
-/// The scene behind the row of `route`. `None` is the Exit row.
+/// The scene behind the row `entry`. `None` is the Exit row.
 ///
-/// The host names each provider's scene: it is the one composition that has
-/// all of them. A route it does not know gets the hub.
-fn scene_of(route: Option<&str>) -> ParallaxTheme {
-    match route {
+/// Each provider names the look of its row (`launcher_look`); this resolves
+/// the name to a backdrop theme. A row with no look, or a look that is not a
+/// theme, gets the hub. No route name is read.
+fn scene_of(entry: Option<&ShellLaunchEntry>) -> ParallaxTheme {
+    match entry {
         None => ParallaxTheme::Cove,
-        Some(route) if route.starts_with("sanic") => ParallaxTheme::OpenSky,
-        Some(route) if route.starts_with("mary_o") => ParallaxTheme::Starlight,
-        Some(route) if route.starts_with("smash") || route.starts_with("versus") => ParallaxTheme::Eclipse,
-        Some(_) => ParallaxTheme::Hub,
+        Some(entry) => entry.look.as_deref().and_then(ParallaxTheme::from_key).unwrap_or(ParallaxTheme::Hub),
     }
 }
 
@@ -179,8 +177,7 @@ fn show_the_scene_of_the_cursor(
     let wanted = match launcher.tab {
         LauncherTab::Home => {
             let entries = registry.launch_entries();
-            let route = entries.iter().filter(|entry| entry.available).nth(launcher.selected).map(|entry| entry.route_id.as_str().to_owned());
-            Some(scene_of(route.as_deref()))
+            Some(scene_of(entries.iter().filter(|entry| entry.available).nth(launcher.selected)))
         }
         LauncherTab::Settings => scenes.iter().find(|scene| scene.wanted > 0.5).map(|scene| scene.theme),
     }
@@ -454,20 +451,26 @@ mod tests {
         assert_eq!(backdrops(&mut app), 0, "no parallax: no backdrop");
     }
 
+    /// ⭐ IN7: a provider with a route name the host has never seen gets the
+    /// look it names. The scene was chosen from route-name prefixes, so a new
+    /// provider got the hub until this host was edited. The control: with no
+    /// look, or a look that is no theme, the row gets the hub; the Exit row
+    /// gets the cove.
     #[test]
-    fn each_row_of_the_launcher_has_a_scene_and_no_two_games_share_one() {
-        let scenes = [
-            scene_of(Some("ambition_gameplay")),
-            scene_of(Some("sanic_gameplay")),
-            scene_of(Some("mary_o_gameplay")),
-            scene_of(Some("smash_select")),
-            scene_of(None),
-        ];
-        for (i, a) in scenes.iter().enumerate() {
-            for b in &scenes[i + 1..] {
-                assert_ne!(a, b, "two rows of the launcher show one scene");
-            }
-        }
+    fn a_provider_names_the_look_of_its_row() {
+        let entry = |look: Option<&str>| ShellLaunchEntry {
+            route_id: "zz_new_route".into(),
+            label: "New".into(),
+            description: String::new(),
+            available: true,
+            unavailable_reason: None,
+            look: look.map(str::to_owned),
+        };
+        assert_eq!(scene_of(Some(&entry(Some("open_sky")))), ParallaxTheme::OpenSky, "the look it names");
+        assert_eq!(scene_of(Some(&entry(Some("starlight")))), ParallaxTheme::Starlight, "the look it names");
+        assert_eq!(scene_of(Some(&entry(None))), ParallaxTheme::Hub, "the control: no look");
+        assert_eq!(scene_of(Some(&entry(Some("no_such_look")))), ParallaxTheme::Hub, "the control: no theme");
+        assert_eq!(scene_of(None), ParallaxTheme::Cove, "the Exit row");
     }
 
     #[test]

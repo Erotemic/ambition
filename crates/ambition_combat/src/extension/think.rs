@@ -31,8 +31,9 @@ pub fn install_for_actor_think(app: &mut App) {
 }
 
 /// One invocation for each live body whose custom brain key is bound, each
-/// tick with a gameplay step, in the order of the body's simulation identity
-/// (then its entity), so a rewind invokes them in the same order.
+/// tick with a gameplay step, in the order of the body's simulation identity,
+/// so a rewind invokes them in the same order. A rewind makes new entities, so
+/// an `Entity` does not decide the order.
 #[allow(clippy::type_complexity)]
 pub fn queue_actor_thinks(
     admitted: Res<AdmittedExtensions>,
@@ -74,7 +75,7 @@ pub fn queue_actor_thinks(
             _ => None,
         })
         .collect();
-    thinking.sort_by(|a, b| (a.6.map(SimId::as_str), a.0.to_bits()).cmp(&(b.6.map(SimId::as_str), b.0.to_bits())));
+    thinking.sort_by(|a, b| a.6.map(SimId::as_str).cmp(&b.6.map(SimId::as_str)));
     for (entity, key, kin, ground, health, target, _) in thinking {
         // The target where it is now: `ActorTarget` holds where the body last
         // saw it.

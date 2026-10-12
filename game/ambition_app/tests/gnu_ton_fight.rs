@@ -609,6 +609,51 @@ fn with_its_arms_on_he_changes_shoulder_twice_and_the_third_blow_throws() {
     thrown_off_the_back(&mut sim, back, 28);
 }
 
+/// With the giant's arms on it and the player on its back, HE fights: he
+/// plays moves of the fighter `npc_gnu_ton` on his own body, and they hurt.
+/// The giant does not punch then.
+#[test]
+fn on_the_giants_back_he_fights_with_his_own_moves() {
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+    let mut sim = arena();
+    step_until(&mut sim, 600, "his first move", |sim| scene(sim).performing.is_some());
+    let s = scene(&mut sim);
+    let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
+    // Beside him, at the length of his quill, on the side of the giant's head.
+    place_player(&mut sim, ae::Vec2::new(s.scholar.pos.x - 80.0, back.min.y - 40.0));
+    let (_, hp_before) = player(&mut sim);
+    let mut swung: Vec<String> = Vec::new();
+    let mut hurt_at = None;
+    for frame in 0..240 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut bosses = world.query::<(&BossConfig, Option<&MovePlayback>)>();
+        let on_body = bosses
+            .iter(world)
+            .find(|(config, _)| config.behavior.id == GNU_TON_ID)
+            .and_then(|(_, playback)| playback.map(|pb| pb.spec.id.clone()));
+        if let Some(id) = on_body.filter(|id| id.starts_with("gnu_duel_")) {
+            if swung.last() != Some(&id) {
+                swung.push(id);
+            }
+        }
+        // He is the fight: the giant's punch is not performed.
+        if frame > 30 {
+            assert_ne!(
+                scene(&mut sim).performing.map(|(key, _)| key),
+                Some("portal_punch"),
+                "frame {frame}: the giant punches while he duels"
+            );
+        }
+        if hurt_at.is_none() && player(&mut sim).1 < hp_before {
+            hurt_at = Some(frame);
+            break;
+        }
+    }
+    assert!(!swung.is_empty(), "in four seconds on the back beside him he played no move of his table");
+    assert!(hurt_at.is_some(), "he swung ({swung:?}) at a player who stood beside him, and it never hurt");
+}
+
 /// After the apple rain a golden apple knocks him off the gnu: he sits dazed on
 /// the floor, then climbs back to the saddle.
 #[test]

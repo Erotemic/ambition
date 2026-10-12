@@ -613,6 +613,44 @@ pub mod arms {
         from + (to - from) * u - Vec2::new(0.0, (std::f32::consts::PI * u).sin() * HOP_HEIGHT)
     }
 
+    /// The duel. With the giant's arms on it and the player on its back, HE
+    /// fights: moves of his own table (`movesets/gnu_ton.ron`, the table of
+    /// the fighter `npc_gnu_ton`), which the game plays on his body
+    /// (`ambition_content::bosses::gnu_ton::duel`). This says only WHICH move
+    /// and WHEN; a move's times, reach and hurt are in the table.
+    ///
+    /// Each: the move's id in the table, and the seconds until he chooses
+    /// again (the move, and a rest to punish).
+    pub const DUEL_MOVES: [(&str, f32); 5] = [
+        ("jab", 0.5),
+        ("tilt_forward", 0.75),
+        ("tilt_up", 0.75),
+        ("tilt_down", 0.7),
+        ("smash_forward", 1.35),
+    ];
+    /// The beat before his first move, when the player comes onto the back.
+    pub const DUEL_READY: f32 = 0.35;
+    /// After a blow lands on him he does not swing for this long.
+    pub const DUEL_STAGGER: f32 = 0.55;
+
+    /// The move he chooses (a place in `DUEL_MOVES`) for a player at
+    /// `to_player` from him, at his `turn`th choice. `None`: out of reach.
+    pub fn duel_choice(to_player: Vec2, turn: u32) -> Option<usize> {
+        let reach = to_player.x.abs();
+        if to_player.y < -44.0 && reach < 70.0 {
+            // Over him: the flourish over his head.
+            Some(2)
+        } else if reach <= 64.0 {
+            // At his elbow: the jab, and each third time the sweep.
+            Some(if turn % 3 == 2 { 3 } else { 0 })
+        } else if reach <= 124.0 {
+            // At the quill's length: the thrust, and each fourth time the book.
+            Some(if turn % 4 == 3 { 4 } else { 1 })
+        } else {
+            None
+        }
+    }
+
     /// How far the lines come open when he is dazed (0 is tight): his spell
     /// has no hold, and they flicker.
     pub fn dazed_slack(clock: f32) -> f32 {

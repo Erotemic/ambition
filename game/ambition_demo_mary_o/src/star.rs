@@ -336,4 +336,39 @@ mod victory_tests {
             );
         }
     }
+
+    /// A flag ends the quasar of each player of its own live room, and of no
+    /// player of another: the course that ends is the course of that room.
+    #[test]
+    fn a_flag_ends_the_quasar_of_its_own_room_only() {
+        use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        let mut app = App::new();
+        let (won, other) = (LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next());
+        for room in [won, other] {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        let player = |app: &mut App, room| {
+            app.world_mut()
+                .spawn((PlayerEntity, InRoomInstance(room), Empowered::for_seconds(COSMIC_QUASAR_SUPER_STATE, 10.0)))
+                .id()
+        };
+        let first = player(&mut app, won);
+        let second = player(&mut app, won);
+        let elsewhere = player(&mut app, other);
+        app.world_mut().spawn((
+            FlagSequence {
+                phase: FlagPhase::Sliding { score: 400 },
+                ..Default::default()
+            },
+            InRoomInstance(won),
+        ));
+        app.add_systems(Update, end_star_power_at_victory);
+        app.update();
+        let burning = |body| app.world().get::<Empowered>(body).is_some();
+        assert_eq!(
+            [burning(first), burning(second), burning(elsewhere)],
+            [false, false, true],
+            "(first player of the room, second player of the room, a player of another room)"
+        );
+    }
 }

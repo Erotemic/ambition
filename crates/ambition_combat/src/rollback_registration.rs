@@ -306,6 +306,11 @@ where
         OWNER,
         "marker.post_boss_npc",
     );
+    registrar.declare_rollback_derived_resource::<crate::extension::contact::ContactTouchers>(
+        OWNER,
+        "derived.contact_touchers",
+        "written again in each tick's body_contact collect and read only by that tick's lowering",
+    );
     registrar.declare_rollback_derived_resource::<crate::rules::ResolvedCombatTuning>(
         OWNER,
         "derived.resolved_combat_tuning",

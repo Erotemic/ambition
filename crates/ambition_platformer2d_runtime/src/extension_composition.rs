@@ -21,7 +21,7 @@ pub use ambition_extension_host::ExtensionGeneration;
 
 /// The name of the prepared-content section that holds [`ExtensionGeneration`].
 pub const EXTENSION_MODULES_SECTION: &str = "extension.modules";
-use ambition_extension_sdk::phases::{ACTOR_THINK, BOSS_CONDUCT, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
+use ambition_extension_sdk::phases::{ACTOR_THINK, BODY_CONTACT, BOSS_CONDUCT, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
 use ambition_platformer2d_shared_tangle::schedule::{CombatSet, GameplayGated, ItemPickupSet, SimScheduleExt};
 use bevy::prelude::*;
 
@@ -56,6 +56,10 @@ pub fn install_ports(app: &mut App) {
     // actor_think
     ambition_combat::extension::install_for_actor_think(app);
     ambition_abilities::extension::install_for_actor_think(app);
+    // body_contact: the burst and the sound before the defeat, which removes
+    // the body they are drawn and heard for.
+    ambition_abilities::extension::install_for_body_contact(app);
+    ambition_combat::extension::install_for_body_contact(app);
 }
 
 /// Order the phases that depend on each other: an entity spawned in
@@ -182,6 +186,21 @@ impl Plugin for ExtensionCompositionPlugin {
                 .in_set(GameplayGated)
                 .after(ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet::Publish)
                 .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate),
+        );
+        // `body_contact` guarantees: the bodies have integrated this tick, and
+        // what a contact rule asks for is applied before the shared contact
+        // damage reads the bodies, so a body it defeats hurts nobody.
+        app.configure_sets(
+            sim,
+            (
+                ExtensionSet::Collect(BODY_CONTACT),
+                ExtensionSet::Invoke(BODY_CONTACT),
+                ExtensionSet::Lower(BODY_CONTACT),
+            )
+                .in_set(GameplayGated)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate)
+                .after(ExtensionSet::Lower(BOSS_CONDUCT))
+                .before(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage),
         );
         // The side a conducted boss's module chose reaches the body through
         // its control, which the boss integration applies.

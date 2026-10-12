@@ -540,9 +540,15 @@ a GPU). What is not elegant in it: `gnu-ton-fight-debts.md`.**
   `conductor`), `ambition_content::bosses::gnu_ton::portals`, the rows of
   `giant_art.py`, `boss_profiles.ron`.
 
-**How the fight could play better (a proposal, 2026-10-11; Jon: "rework
-and improve how this fight plays out", and phase 2 does not need to be the
-fight of before).** Each line is a change that can be made alone.
+**How the fight could play better (2026-10-11; Jon: "rework and improve
+how this fight plays out", phase 2 does not need to be the fight of
+before; and of this list: "Your proposals make sense").** Each line is a
+change that can be made alone. BUILT 2026-10-11: 1 (three blows, the one
+and the two; not "faster on the floor"), 2 (the lock; the one-two is two
+quick punches 0.5 s apart), 3 (he goes to the other shoulder after a
+blow), 4, and of 5 the lines that come open when he is dazed. NOT built:
+the left arm and the punch along the floor (art), barks at each move, the
+bright trail, and 6 (it needs rows with one arm on and one in its line).
 
 1. *Phase 1 has one question: "where is the way up?"* The far line is the
    threat and the way. Make that plain: the first punch is slow and he says

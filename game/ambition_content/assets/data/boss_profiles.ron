@@ -415,8 +415,8 @@
             // on it. It punches down into a portal by its shoulder, and the
             // fist comes down out of the pair's far line, over the player. The
             // pair is a real one: the way up to the giant's back, and to him.
-            // A slow punch with a long time to go up through the pair, then a
-            // quick one.
+            // A slow punch with a long time to go up through the pair, then two
+            // quick ones, one after the other.
             phase1: (steps: [
                 Rest(duration: 1.0),
                 // Its tell is its own (pose and cue): not the tell of a
@@ -425,79 +425,91 @@
                     telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
                 // 2.0 is the longest strike of a slam (`boss_seeds.ron`).
                 Strike(profile: Special("portal_punch"), duration: 2.0),
-                Rest(duration: 0.8),
+                Rest(duration: 0.5),
                 Telegraph(profile: Special("portal_punch"), duration: 0.8,
                     telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
-                Strike(profile: Special("portal_punch"), duration: 1.6),
-                Rest(duration: 0.6),
+                Strike(profile: Special("portal_punch"), duration: 1.4),
+                // A slam needs more than 0.4 to punish (the fairness rules).
+                Rest(duration: 0.5),
+                Telegraph(profile: Special("portal_punch"), duration: 0.8,
+                    telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
+                Strike(profile: Special("portal_punch"), duration: 1.4),
+                Rest(duration: 0.8),
             ]),
             // The clamp: two lines take the arms and close on them. The
             // conductor performs it while the encounter holds its beat.
             transition: (steps: [Rest(duration: 3.0)]),
-            // Phase 2 — "Lectures on Motion", then "Principia": the fists are
-            // bodies of their own. One fist at a time, then both hands and the
-            // curve he draws.
+            // Phase 2 — "Lectures on Motion" and "Principia": the fists are
+            // bodies of their own. Each turn is short and answers where the
+            // player is: a demonstration (the fist that sticks is the way to
+            // hurt him), then one lecture chosen by the player's place, then,
+            // under a part of his health, the apple rain and his eureka.
             phase2: (steps: [
                 Telegraph(profile: Special("demonstrate"), duration: 1.0,
                     telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.charge")))),
                 Strike(profile: Special("demonstrate"), duration: 1.5),
-                Rest(duration: 0.8),
-                Telegraph(profile: Special("pendulum"), duration: 0.9,
-                    telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.charge")))),
-                Strike(profile: Special("pendulum"), duration: 2.4),
-                Rest(duration: 0.8),
-                Telegraph(profile: Special("demonstrate"), duration: 1.0,
-                    telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.charge")))),
-                Strike(profile: Special("demonstrate"), duration: 1.5),
-                Rest(duration: 0.8),
+                Rest(duration: 0.7),
                 Select(table: [
-                    (weight: 1.0, when: Some(PlayerNear), steps: [
-                        Telegraph(profile: Special("buck"), duration: 0.7,
-                            telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.snort")))),
-                        Strike(profile: Special("buck"), duration: 0.5),
-                        Rest(duration: 0.8),
-                    ]),
-                    (weight: 1.0, when: Some(PlayerFar), steps: [
-                        Telegraph(profile: Special("stomp"), duration: 0.8,
-                            telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.snort")))),
-                        Strike(profile: Special("stomp"), duration: 0.5),
-                        Rest(duration: 0.8),
-                    ]),
-                ]),
-                Telegraph(profile: Special("fluxions"), duration: 1.5,
-                    telegraph: Some((pose: Some("spike_halo"), cue: Some("boss.gnu_ton.charge")))),
-                Strike(profile: Special("fluxions"), duration: 1.4),
-                Rest(duration: 0.8),
-                Telegraph(profile: Special("demonstrate_pair"), duration: 1.0,
-                    telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.stomp")))),
-                Strike(profile: Special("demonstrate_pair"), duration: 2.0),
-                Rest(duration: 0.8),
-                Select(table: [
+                    // On the giant with him: it throws.
                     (weight: 1.0, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("buck"), duration: 0.7,
                             telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.snort")))),
                         Strike(profile: Special("buck"), duration: 0.5),
                         Rest(duration: 0.6),
                     ]),
+                    // Higher than him, on a perch: the curve he draws goes there.
+                    (weight: 1.0, when: Some(PlayerAbove), steps: [
+                        Telegraph(profile: Special("fluxions"), duration: 1.5,
+                            telegraph: Some((pose: Some("spike_halo"), cue: Some("boss.gnu_ton.charge")))),
+                        Strike(profile: Special("fluxions"), duration: 1.4),
+                        Rest(duration: 0.7),
+                    ]),
+                    // On the floor: one of the lectures.
                     (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("pendulum"), duration: 0.9,
+                            telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.charge")))),
+                        Strike(profile: Special("pendulum"), duration: 2.4),
+                        Rest(duration: 0.7),
+                    ]),
+                    (weight: 0.8, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("demonstrate_pair"), duration: 1.0,
+                            telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.stomp")))),
+                        Strike(profile: Special("demonstrate_pair"), duration: 2.0),
+                        Rest(duration: 0.7),
+                    ]),
+                    (weight: 0.7, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("cradle"), duration: 1.0,
+                            telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.stomp")))),
+                        Strike(profile: Special("cradle"), duration: 3.3),
+                        Rest(duration: 0.7),
+                    ]),
+                    (weight: 0.6, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("fluxions"), duration: 1.5,
+                            telegraph: Some((pose: Some("spike_halo"), cue: Some("boss.gnu_ton.charge")))),
+                        Strike(profile: Special("fluxions"), duration: 1.4),
+                        Rest(duration: 0.7),
+                    ]),
+                    (weight: 0.5, when: Some(PlayerFar), steps: [
                         Telegraph(profile: Special("stomp"), duration: 0.8,
                             telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.snort")))),
                         Strike(profile: Special("stomp"), duration: 0.5),
-                        Rest(duration: 0.6),
+                        Rest(duration: 0.7),
                     ]),
                 ]),
-                Telegraph(profile: Special("cradle"), duration: 1.0,
-                    telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.stomp")))),
-                Strike(profile: Special("cradle"), duration: 3.3),
-                Rest(duration: 0.8),
-                Telegraph(profile: Special("pendulum"), duration: 0.9,
-                    telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.charge")))),
-                Strike(profile: Special("pendulum"), duration: 2.4),
-                Rest(duration: 0.6),
-                Telegraph(profile: Special("apple_rain"), duration: 1.0,
-                    telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.snort")))),
-                Strike(profile: Special("apple_rain"), duration: 3.0),
-                Rest(duration: 3.5),
+                // Under a part of his health: the apple rain, and his eureka
+                // over the Rest after it (the golden apple, the tumble, the
+                // daze, the climb).
+                Select(table: [
+                    (weight: 2.0, when: Some(HpBelow(0.52)), steps: [
+                        Telegraph(profile: Special("apple_rain"), duration: 1.0,
+                            telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.snort")))),
+                        Strike(profile: Special("apple_rain"), duration: 3.0),
+                        Rest(duration: 3.5),
+                    ]),
+                    (weight: 1.0, when: None, steps: [
+                        Rest(duration: 0.2),
+                    ]),
+                ]),
             ]),
             // Enrage — "The System of the World": the planets, and everything
             // at once.

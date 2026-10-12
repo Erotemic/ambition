@@ -30,7 +30,26 @@ fn gun_sword_visual(entity_name: &str) -> WieldedItemVisualSpec {
     }
 }
 
+/// The coconut in the feet of the bird that carries it. A hostile body's item
+/// is drawn by this catalog and not by the in-hand one (`drawn_over_the_hand`),
+/// so a coconut with no row here is in a swallow's hand and nowhere on screen.
+///
+/// The picture is 54 by 48 and the coconut is 18 wide in the world; the bird
+/// that carries one is 20 tall. It is held by its middle: the overlay turns to
+/// the wielder's aim, and a round thing held by its middle does not swing.
+fn coconut_visual() -> WieldedItemVisualSpec {
+    WieldedItemVisualSpec {
+        texture_path: "sprites/props/coconut.png".into(),
+        source_rect: Rect::from_corners(Vec2::ZERO, Vec2::new(54.0, 48.0)),
+        grip_px: Vec2::new(27.0, 24.0),
+        width_per_wielder_height: 18.0 / 20.0,
+        z_bias: 0.7,
+        entity_name: "Carried coconut".into(),
+    }
+}
+
 pub(super) fn register(app: &mut App) {
+    app.register_wielded_item_visual("coconut", coconut_visual());
     app.register_wielded_item_visual("gun_sword", gun_sword_visual("Pirate gun-sword"));
     // The heavy archetype has always authored a distinct mechanical item id,
     // but uses the same visible weapon sheet and anchor.
@@ -44,6 +63,15 @@ pub(super) fn register(app: &mut App) {
 mod tests {
     use super::*;
     use ambition_render::rendering::WieldedItemVisualCatalog;
+
+    /// A hostile body's item is drawn from this catalog alone: the coconut an
+    /// African swallow carries needs its row.
+    #[test]
+    fn the_coconut_a_swallow_carries_has_a_picture() {
+        let mut app = App::new();
+        register(&mut app);
+        assert!(app.world().resource::<WieldedItemVisualCatalog>().get(crate::primeval::COCONUT).is_some());
+    }
 
     #[test]
     fn ambition_registers_both_gun_sword_item_ids() {

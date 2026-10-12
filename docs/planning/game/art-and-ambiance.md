@@ -217,9 +217,8 @@ suit the style of the game.
   `ambition_content::items::thrown_impact` hurts the body it strikes and
   bounces off (the coconut: one blow of 2). A boss is not hurt by one yet.
 - [ ] Still to do for the coconut: a palm that GROWS them (nothing puts a
-  taken ground item back), and the African swallow picking one up and
-  dropping it on the player (no body but a player's can throw or drop an
-  item, and the errand that fetches one is for bodies that walk).
+  taken ground item back). The African swallow picks one up and lets it go
+  over the player now (the entry on the six rooms, below).
 - [x] The primeval trail, a linear dinosaur level (Jon): the hub ->
   `primeval_trailhead` -> `primeval_run` -> `primeval_canopy` ->
   `primeval_tyrant_hall` (the T-rex, with his own encounter id
@@ -231,6 +230,19 @@ suit the style of the game.
   simple, the biome has no foreground layer and no room in the hall of
   biomes, and reaching the tyrant's hall asks nothing of the player but
   walking there.
+- [x] The trail is six rooms, and two more kinds hunt on it (Jon,
+  2026-10-11): `primeval_rookery` (penguins on rocks) and `primeval_ridge`
+  (a long flat road) are between the run and the canopy, and the run is a
+  third longer. Willson, the pelican on a bicycle, is an enemy row now
+  (`willson_peck`; he stands in the hall because its placements say so): one
+  rides the end of the run and two the ridge road. The penguin is placed in
+  the rookery. An African swallow picks up a coconut at rest in its room,
+  carries it over what it hunts and lets it go
+  (`ambition_content::primeval::swallows_carry_coconuts`; the take and the
+  release are the held-item crate's one take and one release, and the
+  release is shared with the throw). The system keeps no state. Not done: a
+  swallow does not take a coconut out of the air or off a palm, and the
+  European swallows of the run carry nothing.
 - [x] Four dinosaurs that are not birds, for the trail (Jon): the
   `compsognathus` (tiny, placed in threes), the `dilophosaurus` (it spits
   from a distance), the `pachycephalosaurus` (it rams) and the `triceratops`

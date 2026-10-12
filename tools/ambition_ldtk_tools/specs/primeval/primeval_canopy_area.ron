@@ -2,7 +2,7 @@
 (
     id: "primeval_canopy",
     level_id: "primeval_canopy",
-    world_x: 25000,
+    world_x: 41008,
     world_y: 0,
     px_wid: 2000,
     px_hei: 704,
@@ -16,7 +16,7 @@
         ( type: "Solid", px: [0, 16], size: [16, 656], fields: ( name: "left_wall" ) ),
         ( type: "Solid", px: [1984, 16], size: [16, 656], fields: ( name: "right_wall" ) ),
         ( type: "PlayerStart", px: [90, 626], size: [28, 46], fields: ( name: "primeval_canopy_spawn" ) ),
-        ( type: "LoadingZone", px: [16, 576], size: [48, 96], fields: ( id: "primeval_canopy_west", name: "back to the run", activation: "Door", target_room: "primeval_run", target_zone: "primeval_run_east", bidirectional: true ) ),
+        ( type: "LoadingZone", px: [16, 576], size: [48, 96], fields: ( id: "primeval_canopy_west", name: "back to the ridge road", activation: "Door", target_room: "primeval_ridge", target_zone: "primeval_ridge_east", bidirectional: true ) ),
         ( type: "Prop", px: [150, 472], size: [176, 200], fields: ( name: "primeval_canopy_palm_1", kind: "coconut_palm" ) ),
         ( type: "GroundItem", px: [240, 657], size: [18, 15], fields: ( id: "primeval_canopy_coconut_1", name: "coconut", held_item: "coconut" ) ),
         ( type: "Prop", px: [1090, 472], size: [176, 200], fields: ( name: "primeval_canopy_palm_2", kind: "coconut_palm" ) ),
@@ -40,6 +40,6 @@
         ( type: "DebugLabel", px: [70, 40], size: [900, 24], fields: ( name: "primeval_canopy_label", text: "The canopy. Something on that ledge has not moved. It is looking at you.", category: "Custom" ) ),
     ],
     connect_to: [
-        ( target_room: "primeval_run", px: [2336, 384], size: [48, 96], id: "primeval_run_east", name: "to the canopy", target_zone: "primeval_canopy_west", activation: "Door", bidirectional: true ),
+        ( target_room: "primeval_ridge", px: [3344, 384], size: [48, 96], id: "primeval_ridge_east", name: "to the canopy", target_zone: "primeval_canopy_west", activation: "Door", bidirectional: true ),
     ],
 )

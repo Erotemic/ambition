@@ -167,26 +167,39 @@ fn in_the_form_each_press_of_jump_in_the_air_is_a_jump() {
     let ground = kin(&app, body).pos.y;
     press_jump(&mut app);
     let mut highest = ground;
-    // Ten more presses, each one when she starts to come down.
-    let mut jumps_in_the_air = 0;
+    // Ten more presses, each one when she starts to come down, or as many as
+    // there are before she is at the top of the room: the sky has a top
+    // (`the_sky_has_a_top`), and a press there is no flight.
+    let (mut presses, mut jumps_in_the_air) = (0, 0);
+    let mut at_the_top = false;
     for _ in 0..600 {
         let now = kin(&app, body);
         highest = highest.min(now.pos.y);
-        if now.vel.y > 0.0 && jumps_in_the_air < 10 {
+        at_the_top = now.pos.y - now.size.y * 0.5 < 48.0;
+        if presses == 10 || at_the_top {
+            break;
+        }
+        if now.vel.y > 0.0 {
+            presses += 1;
             press_jump(&mut app);
+            // The jump is in her speed on the tick after the press.
+            idle(&mut app, 1);
             if kin(&app, body).vel.y < 0.0 {
                 jumps_in_the_air += 1;
             }
         } else {
             idle(&mut app, 1);
         }
-        if jumps_in_the_air == 10 {
-            break;
-        }
     }
-    assert_eq!(jumps_in_the_air, 10, "each press of jump in the air must be a jump");
-    // One jump of this form is under five tiles. Ten of them are a flight.
-    assert!(ground - highest > 400.0, "ten jumps in the air took her {} px up", ground - highest);
+    assert!(presses >= 2, "she made {presses} press(es) in the air, so this measured nothing");
+    assert_eq!(jumps_in_the_air, presses, "each press of jump in the air must be a jump");
+    // One jump of this form is under five tiles. More of them are a flight:
+    // 400 px up, or to the top of the room when the room is not that high.
+    assert!(
+        ground - highest > 400.0 || at_the_top,
+        "{presses} jumps in the air took her {} px up, and not to the top of the room",
+        ground - highest
+    );
 }
 
 #[test]
@@ -205,4 +218,24 @@ fn out_of_the_form_a_press_of_jump_in_the_air_is_nothing() {
         idle(&mut app, 1);
     }
     assert!(tried, "she never came down from her jump");
+}
+
+/// The sky has a top. With a jump for each press she went up with no end,
+/// out of the room and out of the view (Jon, 2026-10-11: "a camera bug when
+/// you are above the intended play zone, it keeps snapping up and down").
+#[test]
+fn in_the_form_she_does_not_fly_over_the_top_of_the_room() {
+    let (mut app, body) = in_the_form();
+    let mut highest = f32::MAX;
+    for tick in 0..600 {
+        if tick % 8 == 0 {
+            press_jump(&mut app);
+        } else {
+            idle(&mut app, 1);
+        }
+        let kin = kin(&app, body);
+        highest = highest.min(kin.pos.y - kin.size.y * 0.5);
+    }
+    assert!(highest < 40.0, "she did not get near the top of the room, so this measured nothing (top {highest})");
+    assert!(highest >= -0.5, "her head went {} px over the top of the room", -highest);
 }

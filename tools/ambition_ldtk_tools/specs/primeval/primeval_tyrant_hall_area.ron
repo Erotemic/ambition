@@ -2,7 +2,7 @@
 (
     id: "primeval_tyrant_hall",
     level_id: "primeval_tyrant_hall",
-    world_x: 28000,
+    world_x: 44000,
     world_y: 0,
     px_wid: 1792,
     px_hei: 704,

@@ -6,19 +6,27 @@
 
 Run it from `tools/ambition_ldtk_tools`.
 
-A linear level of four rooms in a row, in the `primeval` biome. The enemies
+A linear level of six rooms in a row, in the `primeval` biome. The enemies
 are the T-rex's kin (the birds, and the raptors) and the dinosaurs that are
 not birds yet; the T-rex is at its end.
 
-    central hub -> trailhead -> run -> canopy -> the tyrant's hall
+    central hub -> trailhead -> run -> rookery -> ridge road -> canopy -> the tyrant's hall
 
 A coconut palm (a `Prop`, scenery) stands by each coconut on the ground.
 
 - `primeval_trailhead`: the small birds (kiwis, a cockerel and his hen), a
   pack of three compsognathus, and a coconut to learn to throw.
 - `primeval_run`: a long flat room for the runners (emus, a pair of
-  ostriches, a pachycephalosaurus) with swallows over it, and a
-  dilophosaurus that spits from the last ledge.
+  ostriches, a pachycephalosaurus) with swallows over it, a dilophosaurus
+  that spits from a ledge, and at its end the first Willson: a pelican on a
+  bicycle, who rides at what he sees.
+- `primeval_rookery`: the penguins' rocks. Two African swallows by the door
+  with a coconut under them: they pick it up, carry it over the player and
+  let it go (`ambition_content::primeval`). Penguins in a pair and in a
+  huddle, a shoebill on a rock, and a third swallow with its own coconut.
+- `primeval_ridge`: a long road. Two Willsons ride it, with a pack of
+  compsognathus, a raptor, an emu and a pachycephalosaurus, and a swallow
+  over the middle. Ledges over the road are out of a bicycle's reach.
 - `primeval_canopy`: a tall room of ledges. Raptors on the floor, a
   cassowary, a shoebill and a dilophosaurus on ledges, an owl and a vulture
   over it, and a triceratops in front of the way out.
@@ -29,7 +37,7 @@ A coconut palm (a `Prop`, scenery) stands by each coconut on the ground.
 Each room after the first has its door back, and puts the door forward in the
 room before it (`connect_to`), so the rooms are made in order. A room that is
 in the map already is replaced, with the doors that other rooms put in it:
-make all four again, in order (`--apply` does). The central hub is not
+make all six again, in order (`--apply` does). The central hub is not
 replaced, so its door stays: a second `--apply` makes the trailhead without
 the link that placed it.
 
@@ -66,7 +74,21 @@ BOX = {
     "ostrich_hen": (40, 104), "cassowary": (40, 82), "shoebill": (36, 80), "npc_raptor_stalker": (48, 80),
     "stochastic_parrot": (36, 32), "owl": (36, 48), "european_swallow": (24, 20), "african_swallow": (24, 20),
     "vulture": (44, 66), "compsognathus": (24, 26), "dilophosaurus": (44, 74), "pachycephalosaurus": (44, 72),
-    "triceratops": (96, 92),
+    "triceratops": (96, 92), "penguin": (28, 40), "willson": (76, 88),
+}
+
+#: Each room: where it is in the world (a multiple of 16), and its size. The
+#: rooms are a row in this order; a room's door forward is in its east wall.
+#: A room that is made again where another room of the map still is, is
+#: refused: the rooms after the trailhead are past where the first four were
+#: (20000 to 29792), so a map with the old rooms can be made into this one.
+ROOMS_AT = {
+    "primeval_trailhead": (20000, 1600, 512),
+    "primeval_run": (30000, 3200, 512),
+    "primeval_rookery": (34000, 2608, 512),
+    "primeval_ridge": (37008, 3408, 512),
+    "primeval_canopy": (41008, 2000, 704),
+    "primeval_tyrant_hall": (44000, 1792, 704),
 }
 
 
@@ -101,10 +123,12 @@ def door(zone, name, x, floor_y, to_room, to_zone):
             f'activation: "Door", target_room: "{to_room}", target_zone: "{to_zone}", bidirectional: true ) ),')
 
 
-def forward_door(in_level, zone, name, x, floor_y, to_zone):
-    """The door forward, put in the room before this one. `name` is what
-    the player reads at the door: prose, not the id of the zone."""
-    return (f'( target_room: "{in_level}", px: [{x}, {floor_y - 96}], size: [48, 96], id: "{zone}", name: "{name}", '
+def forward_door(in_level, name, to_zone):
+    """The door forward, put in the east wall of the room before this one
+    (`in_level`). `name` is what the player reads at the door: prose, not the
+    id of the zone."""
+    _, w, h = ROOMS_AT[in_level]
+    return (f'( target_room: "{in_level}", px: [{w - WALL - 48}, {h - 32 - 96}], size: [48, 96], id: "{in_level}_east", name: "{name}", '
             f'target_zone: "{to_zone}", activation: "Door", bidirectional: true ),')
 
 
@@ -118,7 +142,8 @@ def shell(w, h):
     ]
 
 
-def room(rid, world_x, w, h, entities, connect, label):
+def room(rid, entities, connect, label):
+    world_x, w, h = ROOMS_AT[rid]
     body = "\n        ".join(entities + [
         f'( type: "CameraZone", px: [0, 0], size: [{w}, {h}], fields: ( id: "{rid}_camera", name: "{rid}_camera", mode: "Default" ) ),',
         f'( type: "DebugLabel", px: [70, 40], size: [900, 24], fields: ( name: "{rid}_label", text: "{label}", category: "Custom" ) ),',
@@ -147,7 +172,8 @@ def room(rid, world_x, w, h, entities, connect, label):
 
 
 def trailhead():
-    rid, w, h = "primeval_trailhead", 1600, 512
+    rid = "primeval_trailhead"
+    _, w, h = ROOMS_AT[rid]
     floor, e = shell(w, h)
     e += [
         f'( type: "PlayerStart", px: [90, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
@@ -169,11 +195,12 @@ def trailhead():
     ]
     connect = [(f'( target_room: "central_hub_main", px: [{HUB_DOOR[0]}, {HUB_DOOR[1]}], size: [48, 96], id: "primeval_hub_door", name: "{HUB_DOOR_NAME}", '
                 f'target_zone: "{rid}_to_hub", activation: "Door", bidirectional: true ),')]
-    return rid, room(rid, 20000, w, h, e, connect, "The primeval trail. A coconut: Attack picks it up, Attack throws it.")
+    return rid, room(rid, e, connect, "The primeval trail. A coconut: Attack picks it up, Attack throws it.")
 
 
 def run():
-    rid, w, h = "primeval_run", 2400, 512
+    rid = "primeval_run"
+    _, w, h = ROOMS_AT[rid]
     floor, e = shell(w, h)
     e += [
         f'( type: "PlayerStart", px: [90, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
@@ -193,19 +220,90 @@ def run():
         enemy(rid, 1, "ostrich", 1640, floor),
         enemy(rid, 1, "ostrich_hen", 1900, floor),
         ledge("rest_c", 2040, floor - 112, 176),
-        # It spits down the last stretch from the top of the ledge.
+        # It spits down the stretch from the top of the ledge.
         enemy(rid, 1, "dilophosaurus", 2110, floor - 112),
+        # The last stretch is his: a pelican on a bicycle, and a ledge to be
+        # on when he comes.
+        ledge("rest_d", 2560, floor - 112, 208),
+        enemy(rid, 1, "willson", 2900, floor),
+        palm(rid, 4, 2700, floor),
     ]
-    connect = [forward_door("primeval_trailhead", "primeval_trailhead_east", "to the run", 1600 - WALL - 48, 480, f"{rid}_west")]
-    return rid, room(rid, 22000, w, h, e, connect, "The run. The tall birds are fast: a ledge is out of the reach of a kick.")
+    connect = [forward_door("primeval_trailhead", "to the run", f"{rid}_west")]
+    return rid, room(rid, e, connect, "The run. The tall birds are fast: a ledge is out of the reach of a kick.")
 
 
-def canopy():
-    rid, w, h = "primeval_canopy", 2000, 704
+def rookery():
+    rid = "primeval_rookery"
+    _, w, h = ROOMS_AT[rid]
     floor, e = shell(w, h)
     e += [
         f'( type: "PlayerStart", px: [90, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         door(f"{rid}_west", "back to the run", WALL, floor, "primeval_run", "primeval_run_east"),
+        # Two swallows and one coconut by the door: the first thing the room
+        # shows is a bird that picks it up.
+        palm(rid, 1, 260, floor),
+        coconut(rid, 1, 360, floor),
+        enemy(rid, 1, "african_swallow", 430, floor - 210),
+        enemy(rid, 2, "african_swallow", 640, floor - 250),
+        ledge("shelf_a", 560, floor - 104, 176),
+        # The rocks: steps of stone that a penguin does not climb.
+        solid("rock_a", 820, floor - 48, 224, 48),
+        enemy(rid, 1, "penguin", 1080, floor),
+        enemy(rid, 2, "penguin", 1150, floor),
+        ledge("shelf_b", 1220, floor - 120, 192),
+        enemy(rid, 1, "shoebill", 1290, floor - 120),
+        solid("rock_b", 1480, floor - 64, 192, 64),
+        palm(rid, 2, 1700, floor),
+        coconut(rid, 2, 1800, floor),
+        enemy(rid, 3, "african_swallow", 1860, floor - 240),
+        ledge("shelf_c", 1900, floor - 112, 176),
+        # The huddle, in front of the way out.
+        enemy(rid, 3, "penguin", 2140, floor),
+        enemy(rid, 4, "penguin", 2210, floor),
+        enemy(rid, 5, "penguin", 2280, floor),
+    ]
+    connect = [forward_door("primeval_run", "to the rookery", f"{rid}_west")]
+    return rid, room(rid, e, connect, "The rookery. A swallow with a coconut is slow. Look up.")
+
+
+def ridge():
+    rid = "primeval_ridge"
+    _, w, h = ROOMS_AT[rid]
+    floor, e = shell(w, h)
+    e += [
+        f'( type: "PlayerStart", px: [90, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        door(f"{rid}_west", "back to the rookery", WALL, floor, "primeval_rookery", "primeval_rookery_east"),
+        palm(rid, 1, 190, floor),
+        coconut(rid, 1, 290, floor),
+        ledge("over_a", 520, floor - 112, 208),
+        enemy(rid, 1, "compsognathus", 700, floor),
+        enemy(rid, 2, "compsognathus", 750, floor),
+        enemy(rid, 3, "compsognathus", 800, floor),
+        # The road is flat from end to end: it is his.
+        enemy(rid, 1, "willson", 1120, floor),
+        ledge("over_b", 1260, floor - 128, 224),
+        coconut(rid, 2, 1340, floor - 128),
+        enemy(rid, 1, "african_swallow", 1560, floor - 260),
+        palm(rid, 2, 1620, floor),
+        enemy(rid, 1, "emu", 1840, floor),
+        ledge("over_c", 2020, floor - 112, 208),
+        enemy(rid, 1, "npc_raptor_stalker", 2260, floor),
+        ledge("over_d", 2520, floor - 136, 224),
+        enemy(rid, 2, "willson", 2760, floor),
+        palm(rid, 3, 2980, floor),
+        enemy(rid, 1, "pachycephalosaurus", 3140, floor),
+    ]
+    connect = [forward_door("primeval_rookery", "to the ridge road", f"{rid}_west")]
+    return rid, room(rid, e, connect, "The ridge road. It is flat from end to end, and it is his.")
+
+
+def canopy():
+    rid = "primeval_canopy"
+    _, w, h = ROOMS_AT[rid]
+    floor, e = shell(w, h)
+    e += [
+        f'( type: "PlayerStart", px: [90, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        door(f"{rid}_west", "back to the ridge road", WALL, floor, "primeval_ridge", "primeval_ridge_east"),
         palm(rid, 1, 150, floor),
         coconut(rid, 1, 240, floor),
         palm(rid, 2, 1090, floor),
@@ -227,12 +325,13 @@ def canopy():
         # The heavy stands in front of the way out.
         enemy(rid, 1, "triceratops", 1790, floor),
     ]
-    connect = [forward_door("primeval_run", "primeval_run_east", "to the canopy", 2400 - WALL - 48, 480, f"{rid}_west")]
-    return rid, room(rid, 25000, w, h, e, connect, "The canopy. Something on that ledge has not moved. It is looking at you.")
+    connect = [forward_door("primeval_ridge", "to the canopy", f"{rid}_west")]
+    return rid, room(rid, e, connect, "The canopy. Something on that ledge has not moved. It is looking at you.")
 
 
 def tyrant_hall():
-    rid, w, h = "primeval_tyrant_hall", 1792, 704
+    rid = "primeval_tyrant_hall"
+    _, w, h = ROOMS_AT[rid]
     floor, e = shell(w, h)
     e += [
         # The hall of `trex_arena`: a ledge by each wall out of the reach of
@@ -246,8 +345,8 @@ def tyrant_hall():
         (f'( type: "BossSpawn", px: [1120, {floor - 112}], size: [140, 112], fields: ( name: "T-Rex", '
          f'brain: "PhaseScript:trex_boss", encounter_id: "primeval.trex" ) ),'),
     ]
-    connect = [forward_door("primeval_canopy", "primeval_canopy_east", "to the tyrant's hall", 2000 - WALL - 48, 672, f"{rid}_entry")]
-    return rid, room(rid, 28000, w, h, e, connect, "The Tyrant King.")
+    connect = [forward_door("primeval_canopy", "to the tyrant's hall", f"{rid}_entry")]
+    return rid, room(rid, e, connect, "The Tyrant King.")
 
 
 #: Where the door of the level is in the central hub (`door free-spots central_hub_main`).
@@ -255,7 +354,7 @@ HUB_DOOR = (1200, 880)
 #: What the player reads at that door.
 HUB_DOOR_NAME = "to the primeval trail"
 
-ROOMS = (trailhead, run, canopy, tyrant_hall)
+ROOMS = (trailhead, run, rookery, ridge, canopy, tyrant_hall)
 
 
 def hub_door_is_placed():

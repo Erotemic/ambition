@@ -1486,6 +1486,7 @@ impl Plugin for MaryORulesPlugin {
             spend_lives_on_death,
             death::voice_her_death,
             death::play_death_music,
+            cosmic::the_sky_has_a_top,
             // Before the tally, which it holds while his line is up.
             castle_end::the_robot_thanks_her,
             cycle_level_on_flag_tally,

@@ -1,10 +1,11 @@
 //! The primeval trail: the level of the dinosaurs.
 //!
-//! Four rooms in a row (`tools/ambition_ldtk_tools/specs/primeval/`): the
-//! T-rex's kin are its enemies and the T-rex is at its end. This asks three
+//! Six rooms in a row (`tools/ambition_ldtk_tools/specs/primeval/`): the
+//! T-rex's kin are its enemies and the T-rex is at its end. This asks four
 //! things of it: that its rooms are a row with a door each way, that an enemy
 //! it places hunts (a placed catalog character with no profile stands where
-//! it was put and notices nobody), and that its last room holds a T-rex that
+//! it was put and notices nobody), that an African swallow picks up a coconut
+//! and lets it go over the player, and that its last room holds a T-rex that
 //! has measured his hall.
 
 use crate::common::{base, fixed_60hz_room_options};
@@ -18,8 +19,15 @@ use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use bevy::prelude::Entity;
 
 /// The rooms of the trail, in the order a player walks them.
-const TRAIL: [&str; 5] =
-    ["central_hub_complex", "primeval_trailhead", "primeval_run", "primeval_canopy", "primeval_tyrant_hall"];
+const TRAIL: [&str; 7] = [
+    "central_hub_complex",
+    "primeval_trailhead",
+    "primeval_run",
+    "primeval_rookery",
+    "primeval_ridge",
+    "primeval_canopy",
+    "primeval_tyrant_hall",
+];
 
 fn room(id: &str) -> Platformer2dSimHarness {
     let mut sim = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(id)).unwrap_or_else(|e| panic!("`{id}` builds: {e}"));
@@ -56,7 +64,7 @@ fn the_rooms_of_the_trail_are_a_row_with_a_door_each_way() {
 }
 
 /// The cast each room places: the kinds, and how many of each.
-const CAST: [(&str, &[(&str, usize)]); 3] = [
+const CAST: [(&str, &[(&str, usize)]); 5] = [
     ("primeval_trailhead", &[("kiwi", 2), ("chicken", 1), ("chicken_hen", 1), ("compsognathus", 3)]),
     (
         "primeval_run",
@@ -67,6 +75,19 @@ const CAST: [(&str, &[(&str, usize)]); 3] = [
             ("ostrich_hen", 1),
             ("pachycephalosaurus", 1),
             ("dilophosaurus", 1),
+            ("willson", 1),
+        ],
+    ),
+    ("primeval_rookery", &[("african_swallow", 3), ("penguin", 5), ("shoebill", 1)]),
+    (
+        "primeval_ridge",
+        &[
+            ("compsognathus", 3),
+            ("willson", 2),
+            ("african_swallow", 1),
+            ("emu", 1),
+            ("npc_raptor_stalker", 1),
+            ("pachycephalosaurus", 1),
         ],
     ),
     (
@@ -95,8 +116,51 @@ fn each_room_places_its_cast_and_its_coconuts() {
         let world = sim.world_mut();
         let mut items = world.query::<&ambition_platformer2d::held_items::GroundItem>();
         let coconuts = items.iter(world).filter(|item| item.spec.id == "coconut").count();
-        assert_eq!(coconuts, 2, "`{id}` has two coconuts to throw");
+        assert_eq!(coconuts, 2, "`{id}` has two coconuts: to throw, and for a swallow to carry");
     }
+}
+
+/// An African swallow by the door of the rookery goes to the coconut under it,
+/// takes it, carries it over a player who stands still, and lets it go from
+/// high enough to hurt.
+#[test]
+fn an_african_swallow_takes_a_coconut_and_lets_it_go_over_the_player() {
+    use ambition_content::primeval::{COCONUT, COCONUT_CARRIER, LET_GO_OVER};
+    use ambition_platformer2d::held_items::{GroundItem, ItemCustody};
+
+    let mut sim = room("primeval_rookery");
+    // Each coconut a swallow holds now, and how far over the player the first
+    // one to be let go was when it left the bird.
+    let mut in_its_feet: Vec<Entity> = Vec::new();
+    let mut carried = false;
+    let mut let_go_over: Option<f32> = None;
+    for _ in 0..60 * 30 {
+        sim.step(AgentAction::default());
+        let at = player(&mut sim);
+        let world = sim.world_mut();
+        let mut items = world.query::<(Entity, &GroundItem, &ItemCustody)>();
+        let coconuts: Vec<(Entity, f32, ItemCustody)> =
+            items.iter(world).filter(|(_, item, _)| item.spec.id == COCONUT).map(|(e, item, custody)| (e, item.pos.y, *custody)).collect();
+        let mut worn = world.query::<&WornCharacter>();
+        let mut held_now = Vec::new();
+        for (coconut, y, custody) in coconuts {
+            match custody {
+                ItemCustody::Held { holder } if worn.get(world, holder).is_ok_and(|worn| worn.id() == COCONUT_CARRIER) => {
+                    carried = true;
+                    held_now.push(coconut);
+                }
+                ItemCustody::InWorld if in_its_feet.contains(&coconut) && let_go_over.is_none() => let_go_over = Some(at.y - y),
+                _ => {}
+            }
+        }
+        in_its_feet = held_now;
+        if let_go_over.is_some() {
+            break;
+        }
+    }
+    assert!(carried, "no African swallow of the rookery took a coconut in 30 s");
+    let over = let_go_over.expect("a swallow took a coconut and did not let it go in 30 s");
+    assert!(over >= LET_GO_OVER - 12.0, "the coconut was let go {over} over the player: under {LET_GO_OVER}, it does not hurt");
 }
 
 /// A placed bird hunts: the kiwis and the chickens of the trailhead come for a

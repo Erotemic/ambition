@@ -39,6 +39,16 @@ the admission road the group feeds is built
 
 ### Launcher theme, quality and provider composition
 
+**What landed (2026-10-12), the quality half:** with the parallax budget
+off, the launcher's backdrop goes at once (it returned and left the old
+backdrop); a scene records the image folder of the tier it was made at, and
+a scene of another tier is not the wanted scene, so the new tier's scene
+fades in over it. Witness: `ambition_app title_screen
+the_backdrop_follows_the_quality_while_the_launcher_is_up`; poisons (no
+despawn, folder not compared) fail at their own assertions. OPEN, P2: the
+theme is still chosen from a route-name prefix, not from the provider. The
+text below is the case as found.
+
 **October 11 real customer:** `game/ambition_app/src/app/title_screen.rs`.
 The new host title screen chooses `ParallaxTheme` from route string
 prefixes (`scene_of`, lines 79-86), even though `ShellExperienceRegistry`

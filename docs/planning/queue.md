@@ -170,7 +170,7 @@ Do not reimplement those parts of the historical audit.
   choose stable source-owned reconciliation only where measured or required
   by correct lifecycle. See [R8](engine/render-animation-and-vfx.md#r8---portal-fragment-lifetime-and-measured-render-churn)
   and [performance](engine/performance-and-iteration.md#portal-fragments-create-entities-and-materials-on-every-presentation-frame).
-- **IN7 / P1 quality cleanup, P2 shell/authoring:** remove the launcher
+- **IN7 / P1 quality cleanup, P2 shell/authoring:** launcher quality half ✅ DONE 2026-10-12, see [UI](engine/ui-localization-and-accessibility.md#launcher-theme-quality-and-provider-composition). Was: remove the launcher
   backdrop when its quality budget turns off, and invalidate the displayed
   scene on resolution-tier change; make a new game's optional launcher
   presentation provider-authored rather than a route-name prefix. Validate

@@ -19,15 +19,20 @@
 //! arrives and only for a body that can cling and climb. Flight is modelled as
 //! one fly leg: toggle flight on, rise to the air above a higher surface, go
 //! along to it, toggle flight off and fall onto it, proposed last and only for
-//! a body that can toggle flight.
+//! a body that can toggle flight. A dash is modelled as one dash hop: a jump,
+//! and a dash toward the landing at the top of the arc, proposed only where a
+//! jump does not reach. A wall jump is modelled as one leg up a shaft of two
+//! walls: a kick off each wall the body touches below the landing, proposed
+//! after the climb and only where nothing cheaper arrives.
 //!
 //! A leg whose body the kernel resets (a hazard in its air, a fall out of the
 //! world) fails its rollout, by the kernel's own reset flag. A leg whose body
 //! enters an exit of [`NavGraph::build_avoiding`] fails too.
 //!
 //! NOT MODELLED: a drop through a one-way surface, a second air jump, an air
-//! jump in a drop, a dash, a wall jump, permanent flight, a pogo bounce, a
-//! surface that moves, and a slope.
+//! jump in a drop, a dash on the ground or up, a wall jump off one wall onto
+//! its own top, permanent flight, a pogo bounce (a combat effect, which the
+//! kernel rollout does not run), a surface that moves, and a slope.
 
 use ambition_platformer2d_core as ae;
 use ae::movement::{step_motion, ActionEdges, Edge, InputState, MotionStepContext, MovementAction};

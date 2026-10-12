@@ -334,7 +334,10 @@ Not modelled, each a seam:
 
 - a drop through a one-way surface, a second air jump, an air jump in a drop,
   a dash on the ground or up, a wall jump off one wall onto its own top,
-  permanent flight, a pogo bounce;
+  permanent flight, a pogo bounce. The pogo is a combat effect (a down-air
+  hitbox on a `PogoOrb`, `pogo_moveset_off_world_orbs`), and a leg's rollout
+  runs the movement kernel only, so a pogo leg needs the attack's hitbox in
+  the rollout first (measured 2026-10-12);
 - a slope or a surface chain, a surface that moves;
 - geometry that is not authored in the room (a gate, a breakable). A leg such a
   thing stops fails, and the brain plans again;

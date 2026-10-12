@@ -72,24 +72,49 @@ table's damage is percent already, so the facet names no move.
 
 ## The boss fights back
 
-With the giant's arms on it (phase 1) and the player on its back:
+With the giant's arms on it (phase 1) and the player on its back, or over it
+in a jump, the back is a platform and he is a fighter on it. His conductor
+(the module) says where he is and what he does; a native system
+(`bosses/gnu_ton/duel.rs`) plays the move on his body. The giant does not
+punch then: he is the fight.
 
-- The conductor module chooses a move by where the player is (at his elbow:
-  the jab, each third time the low sweep; at the quill's length: the thrust,
-  each fourth time the book; over him: the flourish), and when.
-- A native system (`bosses/gnu_ton/duel.rs`) plays that move on his body and
-  draws its row. The giant does not punch then: he is the fight.
-- A blow on him stops his move if it has not struck yet, and he goes to the
-  other shoulder. The third blow: the giant throws.
+- **He goes to the player.** Out of his reach he walks; from far he runs,
+  and he strikes out of the run (his dash attack, with a slide to the
+  player).
+- **He chooses a move by where the player is**: at his elbow the jab (each
+  third time the low sweep), at the quill's length the thrust (each fourth
+  time the book), over him the flourish.
+- **The jab is a string of three**: with the player still at his elbow, the
+  next of it starts.
+- **He rolls through the player** (each fifth choice at his elbow), with his
+  book up in the middle of the roll, and strikes from the other side. With
+  no room behind the player he rolls away.
 - **His book is up between his moves** (`ambition.boss.guard`; the row
   `shield_hold`). A blow on it is a clang and no health. For each move the
   choreography says how long he is open: the move, and a time after it
-  (`DUEL_MOVES`: 0.46 s of 0.7 for the jab, 1.25 of 1.55 for the book). So
-  the way to hurt him is the way to hurt a fighter: make him miss, and
-  strike before the book comes up.
+  (`DUEL_MOVES`). So the way to hurt him is the way to hurt a fighter: make
+  him miss, and strike before the book comes up.
+- **A blow launches him**: away from the blow, in an arc, with no guard and
+  no move until he has his feet again. The launch grows with each blow since
+  the giant last threw (300, 450, 600 px/s), with the hearts of the blow, and
+  with the part of his health he lost. The first blow moves him a step, the
+  third throws him off the back.
+- **Thrown off the back, he comes back**: he rises to its nearer end (the
+  row `special_up`). A blow on the way launches him again.
+- The third blow: the giant throws the player, as before.
+- With the player gone from the back for 1.1 s, or when the arms go into
+  their lines, he hops to his saddle.
 
-He has no dodge that is his choice, and he is not launched: a boss body
-takes hearts only. Those are the next steps (below).
+What this is NOT: his launch is a path the conductor computes (gravity, the
+ends of the back, the floor of the hall), not the engine's launch of a
+fighter. The player's blow gives its hearts and its side, not its launch
+vector; he has no DI and no tech. The roll and the string are his choice by
+count, not an answer to what the player does: the conductor does not see the
+player's swing. A fighter's body under a boss's encounter is still the large
+step (the debts document).
+
+To photograph a blow with no player that swings: `capture_scene
+--boss-blow TICK[xHEARTS]`.
 
 ## Combat feel: what was measured
 
@@ -148,20 +173,23 @@ finish zoom, an impact flash, slash arcs, hit and swing sounds.
   frames (`whole_frames` of the publisher) and declares that its frames own
   the fade (`FxSheet::fade`). Each other effect is as it was: a change of
   those needs a look at each. Debt 14 of `gnu-ton-fight-debts.md`.
-- Rows that no state asks for: `hit_heavy`, `launch`, `turnaround`,
-  `walk_stop`, `land`. A held guard draws
-  `idle` (the sheet has no `block` row by that name).
+- Rows that no state of the Smash game asks for: `hit_heavy`, `launch`,
+  `turnaround`, `walk_stop`, `land`. (The boss fight draws `launch`, `fall`
+  and `land` itself.) A held guard draws `idle` (the sheet has no `block`
+  row by that name).
 
 ## Next
 
-1. **Play it.** Nothing here was seen in a window on a GPU.
-2. **He dodges** in the duel (a spot dodge row is on his sheet). His guard
-   is built; a guard that BREAKS (a shield's health) is not.
-3. **He is launched.** A boss body takes hearts only. For "like a Smash
-   character" he needs hitstun and a launch on the giant's back, and a way
-   back up. This is the large step: a fighter's body under a boss's
-   encounter (see the debts document).
-4. His rows for heavy hit and turn are bound.
+1. **Play it.** Nothing here was seen in a window on a GPU. The numbers of
+   the fight on the back (`choreography.rs`, `arms`: speeds, the launch, the
+   roll, how long he is open) are a first cut for a hand to tune.
+2. **He answers the player**: the conductor's view of the player has a place
+   and a size, and no swing. With the swing in the view he can roll or guard
+   on a tell, and punish a miss. A guard that BREAKS is not built.
+3. **A fighter's body under the boss's encounter**: the engine's launch (the
+   blow's own vector, DI, a tech), in place of the conductor's path.
+4. His aerials and his specials in the fight on the back (he has no jump
+   there).
 5. **Hit polygons from the rig** for the quill, and his own effects for the
    quill and the book (ink, a page). The fist has its own sound to get: it
    plays the giant's stomp.

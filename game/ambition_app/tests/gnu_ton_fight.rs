@@ -544,6 +544,14 @@ fn you_can_stand_on_the_giants_shoulders_until_it_bucks() {
     let s = scene(&mut sim);
     let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
     let spot = ae::Vec2::new((back.min.x + back.max.x) * 0.5 - 60.0, back.min.y - 40.0);
+    // The fixture puts the fight in phase 2 with no clamp. Until a move of
+    // the free fists starts, the arms are on the giant, and he would fight a
+    // player on its back (the pattern has no move then).
+    step_until(&mut sim, 600, "the giant's arms in their lines", |sim| {
+        let world = sim.world_mut();
+        let scholar = world.query::<(Entity, &BossConfig)>().iter(world).find(|(_, config)| config.behavior.id == GNU_TON_ID).map(|(e, _)| e);
+        scholar.and_then(|e| conductor_of(world, e)).is_some_and(|view| view.look_lines.iter().flatten().count() == 4)
+    });
     place_player(&mut sim, spot);
     for _ in 0..20 {
         sim.step(AgentAction::default());
@@ -628,54 +636,85 @@ fn hit_him_from_the_gnus_back_and_it_bucks_you_off() {
     thrown_off_the_back(&mut sim, back, 28);
 }
 
-/// With the giant's arms on it (phase 1) he takes two blows from its back, and
-/// after each he goes to its other shoulder; the third blow starts the throw.
-/// The way up through the pair of the punch is paid with three blows.
+/// A blow on him from the giant's back, when his book is not up. He moves on
+/// the back and guards, so this tries from beside him until a blow lands; the
+/// player is put on the side of him that has more of the back.
+fn land_a_blow_on_him(sim: &mut Platformer2dSimHarness, back: ae::Aabb) -> f32 {
+    for _ in 0..12 {
+        let him = scene(sim).scholar;
+        let side = if him.pos.x - back.min.x > back.max.x - him.pos.x { -1.0 } else { 1.0 };
+        if strike_him_from(sim, ae::Vec2::new(him.pos.x + side * 45.0, back.min.y - 40.0), -side) {
+            return side;
+        }
+    }
+    panic!("twelve tries from beside him on the back, and no blow landed");
+}
+
+/// With the giant's arms on it (phase 1) a blow from its back LAUNCHES him, as
+/// a blow launches a fighter: away from the blow, off his feet, and he comes
+/// down on the back, or comes back to it when the blow threw him off it. The
+/// player keeps the back for two blows; the third starts the giant's throw.
 #[test]
-fn with_its_arms_on_he_changes_shoulder_twice_and_the_third_blow_throws() {
+fn with_its_arms_on_a_blow_launches_him_and_the_third_blow_throws() {
     let mut sim = arena();
     untouchable_player(&mut sim);
     step_until(&mut sim, 600, "his first move", |sim| scene(sim).performing.is_some());
     let s = scene(&mut sim);
     let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
-    let middle = (back.min.x + back.max.x) * 0.5;
-    assert!(s.scholar.pos.x > middle, "the premise: his saddle is on the right shoulder: {:?}", s.scholar.pos);
+    let level = s.scholar.pos.y;
 
-    // The first blow, from his left: he goes to the left shoulder.
-    let stand = ae::Vec2::new(s.scholar.pos.x - 45.0, back.min.y - 40.0);
-    assert!(strike_him_from(&mut sim, stand, 1.0), "the premise: a blow from his shoulders lands");
-    step_until(&mut sim, 60, "him on the left shoulder", |sim| {
-        let s = scene(sim);
-        s.scholar.pos.x < middle && s.scholar.vel == ae::Vec2::ZERO && (s.scholar.pos.x - (2.0 * middle - stand.x - 45.0)).abs() < 2.0
-    });
-    let (kin, _) = player(&mut sim);
-    assert!(
-        ((kin.pos.y + kin.size.y * 0.5) - back.min.y).abs() < 2.0,
-        "the first blow threw the player: {:?}",
-        kin.pos
-    );
-
-    // The second, on the left shoulder: he goes back to the right.
-    let s = scene(&mut sim);
-    let stand = ae::Vec2::new(s.scholar.pos.x + 45.0, back.min.y - 40.0);
-    assert!(strike_him_from(&mut sim, stand, -1.0), "the premise: a second blow lands on the left shoulder");
-    step_until(&mut sim, 60, "him back on the right shoulder", |sim| {
-        let s = scene(sim);
-        s.scholar.pos.x > middle + 60.0 && s.scholar.vel == ae::Vec2::ZERO
-    });
-    let (kin, _) = player(&mut sim);
-    assert!(
-        ((kin.pos.y + kin.size.y * 0.5) - back.min.y).abs() < 2.0,
-        "the second blow threw the player: {:?}",
-        kin.pos
-    );
+    for blow in ["first", "second"] {
+        let side = land_a_blow_on_him(&mut sim, back);
+        let from = scene(&mut sim).scholar.pos;
+        step_until(&mut sim, 30, "him in the air, away from the blow", |sim| {
+            let him = scene(sim).scholar;
+            him.pos.y < level - 20.0 && (him.pos.x - from.x) * -side > 10.0
+        });
+        step_until(&mut sim, 300, "him on his feet on the back again", |sim| {
+            let him = scene(sim).scholar;
+            (him.pos.y - level).abs() < 1.0 && (back.min.x..=back.max.x).contains(&him.pos.x)
+        });
+        let (kin, _) = player(&mut sim);
+        assert!(
+            ((kin.pos.y + kin.size.y * 0.5) - back.min.y).abs() < 2.0,
+            "the {blow} blow threw the player: {:?}",
+            kin.pos
+        );
+    }
 
     // The third: the giant throws.
-    let s = scene(&mut sim);
-    let stand = ae::Vec2::new(s.scholar.pos.x - 45.0, back.min.y - 40.0);
-    assert!(strike_him_from(&mut sim, stand, 1.0), "the premise: a third blow lands");
+    land_a_blow_on_him(&mut sim, back);
     touchable_player(&mut sim);
     thrown_off_the_back(&mut sim, back, 28);
+}
+
+/// A blow that throws him off the back does not end him there: he comes back
+/// to the back, and a player at its far end is not left alone, he goes to him.
+#[test]
+fn thrown_off_the_back_he_comes_back_and_he_goes_to_a_player_at_its_far_end() {
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    step_until(&mut sim, 600, "his first move", |sim| scene(sim).performing.is_some());
+    let s = scene(&mut sim);
+    let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
+    let (saddle, level) = (s.scholar.pos.x, s.scholar.pos.y);
+    // From his left, in his saddle by the right end of the back: off that end.
+    assert!(strike_him_from(&mut sim, ae::Vec2::new(saddle - 45.0, back.min.y - 40.0), 1.0), "the premise: a blow lands");
+    step_until(&mut sim, 90, "him off the end of the back, under it", |sim| {
+        let him = scene(sim).scholar;
+        him.pos.x > back.max.x && him.pos.y > level
+    });
+    step_until(&mut sim, 300, "him on the back again", |sim| {
+        let him = scene(sim).scholar;
+        (him.pos.y - level).abs() < 1.0 && (back.min.x..=back.max.x).contains(&him.pos.x)
+    });
+    // The far end of the back: out of the reach of each move he has.
+    place_player(&mut sim, ae::Vec2::new(back.min.x + 30.0, back.min.y - 40.0));
+    step_until(&mut sim, 300, "him at the player, on his feet", |sim| {
+        let him = scene(sim).scholar;
+        let (kin, _) = player(sim);
+        (him.pos.x - kin.pos.x).abs() < 130.0 && (him.pos.y - level).abs() < 1.0
+    });
 }
 
 /// With the giant's arms on it and the player on its back, HE fights: he

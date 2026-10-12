@@ -600,10 +600,10 @@ pub mod arms {
     pub const LOCK: f32 = 0.3;
 
     /// With its arms on it the giant lets him take blows from its back: at
-    /// this blow it throws. After each blow before it he goes to the giant's
-    /// other shoulder (`HOP` seconds, this high), so the next blow is a walk
-    /// away. (When the fists are bodies of their own, the first blow throws.)
+    /// this blow it throws. Each blow launches HIM (`launch`).
     pub const BLOWS_BEFORE_BUCK: u32 = 3;
+    /// The way back to his saddle when the fight on the back is over: this
+    /// long, this high.
     pub const HOP: f32 = 0.42;
     pub const HOP_HEIGHT: f32 = 70.0;
 
@@ -611,6 +611,97 @@ pub mod arms {
     pub fn hop(from: Vec2, to: Vec2, t: f32) -> Vec2 {
         let u = ease(t / HOP);
         from + (to - from) * u - Vec2::new(0.0, (std::f32::consts::PI * u).sin() * HOP_HEIGHT)
+    }
+
+    /// The back is a platform, and on it he is a fighter: he goes to the
+    /// player, he rolls through him, a blow launches him, and he comes back
+    /// when it throws him off. The numbers of that.
+    ///
+    /// He goes to a player that is out of his reach at `WALK`, and at `RUN`
+    /// from farther than `RUN_FROM`. He comes no nearer than `EDGE` to an end
+    /// of the back.
+    pub const WALK: f32 = 120.0;
+    pub const RUN: f32 = 270.0;
+    pub const RUN_FROM: f32 = 200.0;
+    pub const EDGE: f32 = 22.0;
+    /// The player is in the fight while he is over the back, to this high
+    /// over it: a jump does not end the fight.
+    pub const OVER_THE_BACK: f32 = 230.0;
+    /// With the player gone from the back for this long, he goes to his saddle.
+    pub const HOME_AFTER: f32 = 1.1;
+
+    /// A blow launches him away from it. The speed grows with each blow
+    /// since the giant last threw (the first moves him a step along the
+    /// back, the third throws him off it), with the hearts of the blow, and
+    /// with the part of his health he lost (a fighter's percent; he has many
+    /// hearts, so this is small in one stay on the back).
+    pub const LAUNCH_BASE: f32 = 300.0;
+    pub const LAUNCH_PER_BLOW: f32 = 150.0;
+    pub const LAUNCH_PER_HEART: f32 = 90.0;
+    pub const LAUNCH_GROWTH: f32 = 400.0;
+    /// The part of the speed that is along the back, and that is up.
+    pub const LAUNCH_ALONG: f32 = 0.66;
+    pub const LAUNCH_UP: f32 = 1.05;
+    /// What pulls him down in the air.
+    pub const GRAVITY: f32 = 1500.0;
+    /// He does not act for this long after he lands.
+    pub const LAND: f32 = 0.22;
+    /// For this long of a launch he is drawn in the row `launch`, then he tumbles.
+    pub const LAUNCH_ROW: f32 = 0.3;
+
+    /// His speed when a blow launches him to the side `away` (1 or -1): the
+    /// `blow`th since the giant last threw (from 1), of `hearts`, with `lost`
+    /// of his health gone (0 to 1).
+    pub fn launch(away: f32, blow: u32, hearts: i32, lost: f32) -> Vec2 {
+        let speed = LAUNCH_BASE
+            + LAUNCH_PER_BLOW * blow.saturating_sub(1).min(4) as f32
+            + LAUNCH_PER_HEART * (hearts - 1).clamp(0, 4) as f32
+            + LAUNCH_GROWTH * lost.clamp(0.0, 1.0);
+        Vec2::new(away * speed * LAUNCH_ALONG, -speed * LAUNCH_UP)
+    }
+
+    /// Thrown off the back, he comes back when he is this far under it: he
+    /// rises (his `levity`) to a place this far in from the end of the back.
+    /// He has no guard on the way: a blow there launches him again.
+    pub const RECOVER_UNDER: f32 = 44.0;
+    pub const RECOVER_IN: f32 = 48.0;
+    pub const RECOVER_SPEED: f32 = 330.0;
+    pub const RECOVER_OVER: f32 = 58.0;
+
+    /// The seconds of the way back from `from` to `to`.
+    pub fn recover_time(from: Vec2, to: Vec2) -> f32 {
+        ((to - from).length() / RECOVER_SPEED).clamp(0.5, 1.5)
+    }
+
+    /// Where he is at `u` (0 to 1) of the way back: up and over the end of
+    /// the back, and down onto it.
+    pub fn recover(from: Vec2, to: Vec2, u: f32) -> Vec2 {
+        let u = u.clamp(0.0, 1.0);
+        // He rises first and goes in after: the end of the back is in his way.
+        let along = ease(((u - 0.25) / 0.75).clamp(0.0, 1.0));
+        let up = ease((u / 0.7).clamp(0.0, 1.0));
+        let over = (std::f32::consts::PI * u).sin() * RECOVER_OVER;
+        Vec2::new(from.x + (to.x - from.x) * along, from.y + (to.y - from.y) * up - over)
+    }
+
+    /// The roll: with the player at his elbow he rolls THROUGH him, to this
+    /// far on his other side, in this long. For the part `ROLL_SAFE` of it
+    /// his book is up.
+    pub const ROLL: f32 = 0.4;
+    pub const ROLL_PAST: f32 = 58.0;
+    pub const ROLL_SAFE: (f32, f32) = (0.04, 0.3);
+    /// After a roll he chooses in this long: the roll is the way to the
+    /// player's back.
+    pub const ROLL_THEN: f32 = 0.08;
+
+    /// Does he roll at his `turn`th choice, with the player at `to_player`?
+    pub fn duel_rolls(to_player: Vec2, turn: u32) -> bool {
+        to_player.x.abs() <= 64.0 && to_player.y >= -44.0 && turn % 5 == 4
+    }
+
+    /// Where he is `t` seconds into a roll along the back from `from` to `to`.
+    pub fn roll(from: f32, to: f32, t: f32) -> f32 {
+        from + (to - from) * ease(t / ROLL)
     }
 
     /// The duel. With the giant's arms on it and the player on its back, HE
@@ -624,17 +715,46 @@ pub mod arms {
     /// it). For the rest he has his book up: a blow on his guard does nothing.
     /// So the way to hurt him is the way to hurt a fighter: make him miss, and
     /// strike before the book comes up.
-    pub const DUEL_MOVES: [(&str, f32, f32); 5] = [
+    pub const DUEL_MOVES: [(&str, f32, f32); 8] = [
         ("jab", 0.7, 0.46),
         ("tilt_forward", 0.9, 0.62),
         ("tilt_up", 0.9, 0.62),
         ("tilt_down", 0.85, 0.58),
         ("smash_forward", 1.55, 1.25),
+        // The rest of the jab's string (`string_next`).
+        ("jab_2", 0.7, 0.46),
+        ("jab_3", 0.95, 0.66),
+        // Out of his run (`DASH_ATTACK`).
+        ("gnu_ton_dash_attack", 1.05, 0.76),
     ];
+    /// The jab is a string of three. With the player still at his elbow
+    /// this long after a jab started, the next of the string starts (when
+    /// the jab is over: the game starts a move when the last is gone).
+    pub const STRING_AT: f32 = 0.2;
+    pub const STRING_REACH: f32 = 70.0;
+
+    /// The move that follows the move at `choice` in a string.
+    pub fn string_next(choice: usize) -> Option<usize> {
+        match choice {
+            0 => Some(5),
+            5 => Some(6),
+            _ => None,
+        }
+    }
+
+    /// He runs at a player who is far, and from this far he strikes out of
+    /// the run: the place of the dash attack in `DUEL_MOVES`. He slides on in
+    /// it for this long, to this far from where the player was (the move's
+    /// reach is short: it is his shoulder).
+    pub const DASH_ATTACK: usize = 7;
+    pub const DASH_ATTACK_FROM: f32 = 150.0;
+    pub const DASH_SLIDE: f32 = 0.26;
+    pub const DASH_SLIDE_TO: f32 = 40.0;
     /// The beat before his first move, when the player comes onto the back.
     pub const DUEL_READY: f32 = 0.35;
-    /// After a blow lands on him he does not swing for this long.
-    pub const DUEL_STAGGER: f32 = 0.55;
+    /// After he lands from a launch, or the giant throws, he does not swing
+    /// for this long.
+    pub const DUEL_STAGGER: f32 = 0.28;
 
     /// The move he chooses (a place in `DUEL_MOVES`) for a player at
     /// `to_player` from him, at his `turn`th choice. `None`: out of reach.

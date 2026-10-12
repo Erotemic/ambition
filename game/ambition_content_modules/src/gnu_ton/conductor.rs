@@ -89,7 +89,10 @@ const PUNCH_PAIR_SLOT: u32 = 0;
 const INK: [f32; 4] = [1.0, 0.86, 0.45, 0.95];
 const WARNING: [f32; 4] = [1.0, 0.42, 0.25, 1.0];
 const GOLD: [f32; 4] = [1.0, 0.84, 0.2, 1.0];
+/// The dust where he lands on the back.
+const DUST: [f32; 4] = [0.86, 0.8, 0.68, 0.9];
 const SFX_SNORT: &str = "boss.gnu_ton.snort";
+const SFX_CHARGE: &str = "boss.gnu_ton.charge";
 const SFX_STOMP: &str = "boss.gnu_ton.stomp";
 /// A fist's size when the gnu has none.
 const DEFAULT_FIST: Vec2 = Vec2::new(130.0, 100.0);
@@ -175,10 +178,7 @@ record! {
     /// The blows he took from the giant's back while its arms are on it,
     /// since it last threw.
     43 back_blows: u32,
-    /// He is on the giant's left shoulder (his saddle is on the right), and
-    /// seconds into a hop from the shoulder he is on to the other.
-    44 on_left: bool,
-    45 hop: Option<f32>,
+    // 44 and 45 were his two shoulders and the hop between them.
     /// The duel on the giant's back: he fights (the game suppresses the
     /// pattern's own move then), the move he chose (a place in
     /// `ch::arms::DUEL_MOVES` and 1; 0 is none), a count of his choices, and
@@ -192,6 +192,50 @@ record! {
     50 pull: Option<f32>,
     /// In the duel his book is up: a blow on him does nothing.
     51 guard: bool,
+    /// On the back he is a fighter on a platform. Where he is when he is not
+    /// in his saddle: from the saddle (so he goes with the giant).
+    52 off: Option<[f32; 2]>,
+    /// What he does there (the code of a `Footing`), and seconds into it.
+    53 footing: u32,
+    54 footing_t: f32,
+    /// His speed in the air, when a blow launched him.
+    55 air: [f32; 2],
+    /// Where a roll, a way back or a hop to the saddle started and ends
+    /// (from the saddle), and how long it is.
+    56 path_from: [f32; 2],
+    57 path_to: [f32; 2],
+    58 path_len: f32,
+    /// The most health he had: the part of it he lost makes a blow launch
+    /// him farther.
+    59 full_health: i32,
+}
+
+/// What he does on the giant's back when he is not in his saddle.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Footing {
+    /// He stands where he is.
+    Stand,
+    /// He goes to the player along the back.
+    Walk,
+    /// He rolls through the player.
+    Roll,
+    /// A blow launched him: he is in the air and can do nothing.
+    Launched,
+    /// He landed, and does not act yet.
+    Land,
+    /// The blow threw him off the back: he comes back to it.
+    Recover,
+    /// The fight on the back is over: he hops to his saddle.
+    Home,
+}
+
+impl Footing {
+    const ALL: [Footing; 7] =
+        [Footing::Stand, Footing::Walk, Footing::Roll, Footing::Launched, Footing::Land, Footing::Recover, Footing::Home];
+
+    fn code(self) -> u32 {
+        Self::ALL.iter().position(|f| *f == self).unwrap_or(0) as u32
+    }
 }
 
 /// What he says at the turns of the fight, once each.
@@ -314,6 +358,22 @@ impl Conductor {
             .and_then(|i| ch::arms::DUEL_MOVES.get(i))
             .map(|(id, ..)| (*id, self.duel_turn));
         (self.dueling, chosen)
+    }
+
+    /// What he does on the back.
+    pub fn footing(&self) -> Footing {
+        Footing::ALL.get(self.footing as usize).copied().unwrap_or(Footing::Stand)
+    }
+
+    fn step_to(&mut self, footing: Footing) {
+        self.footing = footing.code();
+        self.footing_t = 0.0;
+    }
+
+    /// A blow launched him and he has not his feet under him yet: a move of
+    /// his that plays is stopped, whatever part of it plays.
+    pub fn reels(&self) -> bool {
+        matches!(self.footing(), Footing::Launched | Footing::Land | Footing::Recover)
     }
 
     /// The lines that are a look and no way through (see `lines`): the middle
@@ -705,6 +765,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 
     // ── The gnu's reflex: hurt its rider from its back and it throws you ──
     let hurt = c.last_health.is_some_and(|hp| scholar.health < hp);
+    let hearts = c.last_health.map_or(0, |hp| hp - scholar.health);
     c.last_health = Some(scholar.health);
     c.reflex_cooldown = (c.reflex_cooldown - dt).max(0.0);
     let foe_on_back = giant.back.is_some_and(|[min_x, min_y, max_x, _]| {
@@ -716,9 +777,23 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if foe_on_back && arms_on {
         say(inv, &mut c, Bark::Boarded, head)?;
     }
+    // The fight on the back: the player is on it, or over it in a jump.
+    let foe_over_back = giant.back.is_some_and(|[min_x, min_y, max_x, _]| {
+        scholar.target_body.is_some_and(|body| {
+            let feet = body.position[1] + body.size[1] * 0.5;
+            (min_y - ch::arms::OVER_THE_BACK..=min_y + 4.0).contains(&feet) && (min_x..=max_x).contains(&body.position[0])
+        })
+    });
+    // Where he is: his saddle (the giant carries him there each tick, so
+    // `scholar_pos` is the saddle), or a place from it.
+    let mut me = scholar_pos + c.off.map_or(Vec2::ZERO, v);
+    let to_player = scholar.target_body.map(|body| v(body.position) - me);
+    // The ends of the back, from the saddle: where he can stand.
+    let ends = giant.back.map_or((0.0, 0.0), |[min_x, _, max_x, _]| (min_x - scholar_pos.x, max_x - scholar_pos.x));
+    c.full_health = c.full_health.max(scholar.health);
     // With its arms on it the giant lets him take blows, and throws at the
-    // third; after each of the others he goes to its other shoulder.
-    let struck = hurt && foe_on_back;
+    // third. Each blow launches him away from it.
+    let struck = hurt && (foe_on_back || (arms_on && foe_over_back));
     let throws = if arms_on {
         if struck {
             c.back_blows += 1;
@@ -727,65 +802,191 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     } else {
         struck
     };
-    if arms_on && struck && !throws && c.hop.is_none() {
-        c.hop = Some(0.0);
+    if arms_on && struck {
+        let away = if to_player.is_some_and(|to| to.x > 0.0) { -1.0 } else { 1.0 };
+        let lost = 1.0 - scholar.health as f32 / c.full_health.max(1) as f32;
+        c.off = Some(a(me - scholar_pos));
+        c.air = a(ch::arms::launch(away, c.back_blows.max(1), hearts, lost));
+        c.step_to(Footing::Launched);
+        spark(inv, me, GOLD, 10, 220.0)?;
     }
     if throws && c.reflex.is_none() && c.reflex_cooldown <= 0.0 {
         c.reflex = Some(0.0);
         c.back_blows = 0;
         play(inv, SFX_SNORT, giant_pos)?;
     }
-    // His saddle is on the right shoulder (the giant carries him there each
-    // tick, so `scholar_pos` is the saddle); the left is its mirror about the
-    // middle of the back. When the arms go into their lines he goes back.
-    if let Some(t) = c.hop {
-        c.hop = (t + dt < ch::arms::HOP).then_some(t + dt);
-        if c.hop.is_none() {
-            c.on_left = !c.on_left;
+    // ── He is a body on the back: the launch, the landing, the way back ──
+    c.footing_t += dt;
+    match (c.footing(), c.off.map(v)) {
+        (Footing::Launched, Some(at)) => {
+            let vel = v(c.air) + Vec2::new(0.0, ch::arms::GRAVITY * dt);
+            let mut to = at + vel * dt;
+            // The walls of the hall, and its floor.
+            to.x = to.x.clamp(hall.left + scholar_size.x * 0.5 - scholar_pos.x, hall.right - scholar_size.x * 0.5 - scholar_pos.x);
+            let floor = hall.floor - scholar_size.y * 0.5 - scholar_pos.y;
+            c.air = a(vel);
+            let over_back = (ends.0..=ends.1).contains(&to.x);
+            if vel.y > 0.0 && over_back && at.y <= 0.0 && to.y >= 0.0 {
+                // He comes down on the back.
+                to.y = 0.0;
+                c.air = [0.0, 0.0];
+                c.step_to(Footing::Land);
+                spark(inv, scholar_pos + to + Vec2::new(0.0, scholar_size.y * 0.5), DUST, 8, 120.0)?;
+            } else if vel.y > 0.0 && (to.y >= ch::arms::RECOVER_UNDER.min(floor) || to.y >= floor) {
+                // The blow threw him off the back: he comes back to its
+                // nearer end.
+                to.y = to.y.min(floor);
+                let near = if (to.x - ends.0).abs() < (to.x - ends.1).abs() { ends.0 + ch::arms::RECOVER_IN } else { ends.1 - ch::arms::RECOVER_IN };
+                c.path_from = a(to);
+                c.path_to = [near, 0.0];
+                c.path_len = ch::arms::recover_time(to, Vec2::new(near, 0.0));
+                c.air = [0.0, 0.0];
+                c.step_to(Footing::Recover);
+                play(inv, SFX_CHARGE, scholar_pos + to)?;
+            }
+            c.off = Some(a(to));
         }
-    } else if c.on_left && !arms_on {
-        c.hop = Some(0.0);
+        (Footing::Land, _) if c.footing_t >= ch::arms::LAND => c.step_to(Footing::Stand),
+        (Footing::Recover, Some(_)) => {
+            let u = c.footing_t / c.path_len.max(0.01);
+            let at = ch::arms::recover(v(c.path_from), v(c.path_to), u);
+            c.off = Some(a(at));
+            if ticks % 3 == 0 {
+                spark(inv, scholar_pos + at + Vec2::new(0.0, scholar_size.y * 0.5), GOLD, 2, 60.0)?;
+            }
+            if u >= 1.0 {
+                c.step_to(Footing::Land);
+            }
+        }
+        (Footing::Roll, Some(at)) => {
+            c.off = Some([ch::arms::roll(c.path_from[0], c.path_to[0], c.footing_t), at.y]);
+            if c.footing_t >= ch::arms::ROLL {
+                c.step_to(Footing::Stand);
+            }
+        }
+        (Footing::Home, Some(_)) => {
+            c.off = Some(a(ch::arms::hop(v(c.path_from), Vec2::ZERO, c.footing_t)));
+            if c.footing_t >= ch::arms::HOP {
+                c.off = None;
+                c.step_to(Footing::Stand);
+            }
+        }
+        _ => {}
     }
+    me = scholar_pos + c.off.map_or(Vec2::ZERO, v);
+    let to_player = scholar.target_body.map(|body| v(body.position) - me);
+    let on_his_feet = matches!(c.footing(), Footing::Stand | Footing::Walk);
     // ── The duel: with the player on the back, he fights ──
     let was_dueling = c.dueling;
-    c.dueling = arms_on && foe_on_back && c.clamp.is_none();
-    if !c.dueling || c.hop.is_some() || c.reflex.is_some() {
-        // Not on the back with him, or he is on his way to the other
-        // shoulder, or the giant throws: no move.
+    c.dueling = arms_on && foe_over_back && c.clamp.is_none();
+    if !c.dueling || !on_his_feet || c.reflex.is_some() {
+        // No player on the back, or he is in the air, or the giant throws:
+        // no move.
         c.duel_move = 0;
-        c.duel_wait = c.duel_wait.max(if c.dueling { ch::arms::DUEL_STAGGER * 0.5 } else { ch::arms::DUEL_READY });
-    } else {
-        if struck {
-            // A blow on him stops his own.
-            c.duel_move = 0;
-            c.duel_wait = ch::arms::DUEL_STAGGER;
+        if c.footing() != Footing::Roll {
+            c.duel_wait = c.duel_wait.max(if c.dueling { ch::arms::DUEL_STAGGER } else { ch::arms::DUEL_READY });
         }
+        if c.footing() == Footing::Walk {
+            c.step_to(Footing::Stand);
+        }
+        // The fight on the back is over: he goes to his saddle.
+        let over = !arms_on || c.clamp.is_some() || c.footing_t >= ch::arms::HOME_AFTER;
+        if !c.dueling && c.footing() == Footing::Stand && c.off.is_some() && over {
+            c.path_from = c.off.unwrap_or_default();
+            c.step_to(Footing::Home);
+        }
+    } else {
         c.duel_wait -= dt;
+        let playing = (c.duel_move as usize).checked_sub(1);
+        let since = playing.and_then(|i| ch::arms::DUEL_MOVES.get(i)).map_or(0.0, |(_, gap, _)| gap - c.duel_wait);
+        // The jab's string: the player is still at his elbow.
+        if let (Some(next), Some(to)) = (playing.and_then(ch::arms::string_next), to_player) {
+            if since >= ch::arms::STRING_AT && to.x.abs() <= ch::arms::STRING_REACH && to.y >= -44.0 {
+                c.duel_move = next as u32 + 1;
+                c.duel_turn = c.duel_turn.wrapping_add(1);
+                c.duel_wait = ch::arms::DUEL_MOVES[next].1;
+            }
+        }
+        // The dash attack: he slides on, the way he ran.
+        if playing == Some(ch::arms::DASH_ATTACK) && since < ch::arms::DASH_SLIDE + dt {
+            let u = ch::ease(since / ch::arms::DASH_SLIDE);
+            c.off = Some([c.path_from[0] + (c.path_to[0] - c.path_from[0]) * u, c.path_from[1]]);
+        }
         if c.duel_wait <= 0.0 {
-            // Where he stands: his saddle, or its mirror on the left shoulder.
-            let me = giant.back.filter(|_| c.on_left).map_or(scholar_pos, |[min_x, _, max_x, _]| {
-                Vec2::new(min_x + max_x - scholar_pos.x, scholar_pos.y)
-            });
-            let to_player = scholar.target_body.map(|body| v(body.position) - me);
-            match to_player.and_then(|to| ch::arms::duel_choice(to, c.duel_turn)) {
-                Some(choice) => {
-                    c.duel_move = choice as u32 + 1;
-                    c.duel_turn = c.duel_turn.wrapping_add(1);
-                    c.duel_wait = ch::arms::DUEL_MOVES[choice].1;
+            let here = c.off.map_or(Vec2::ZERO, v);
+            let turn = c.duel_turn;
+            match to_player {
+                // The player is at his elbow: he rolls through him.
+                Some(to) if ch::arms::duel_rolls(to, turn) => {
+                    let (low, high) = (ends.0 + ch::arms::EDGE, ends.1 - ch::arms::EDGE);
+                    let past = here.x + to.x + to.x.signum() * ch::arms::ROLL_PAST;
+                    // With no room behind the player, he rolls away from him.
+                    let away = here.x - to.x.signum() * 2.0 * ch::arms::ROLL_PAST;
+                    let goal = if (low..=high).contains(&past) { past } else { away.clamp(low, high) };
+                    c.off = Some(a(here));
+                    c.path_from = a(here);
+                    c.path_to = [goal, 0.0];
+                    c.duel_move = 0;
+                    c.duel_turn = turn.wrapping_add(1);
+                    c.duel_wait = ch::arms::ROLL_THEN;
+                    c.step_to(Footing::Roll);
                 }
+                Some(to) => match ch::arms::duel_choice(to, turn) {
+                    Some(choice) => {
+                        c.duel_move = choice as u32 + 1;
+                        c.duel_turn = turn.wrapping_add(1);
+                        c.duel_wait = ch::arms::DUEL_MOVES[choice].1;
+                        if c.footing() == Footing::Walk {
+                            c.step_to(Footing::Stand);
+                        }
+                    }
+                    // He ran, and the player is near: he strikes out of the run.
+                    None if c.footing() == Footing::Walk
+                        && c.air[0].abs() > ch::arms::WALK * dt * 1.5
+                        && to.x.abs() <= ch::arms::DASH_ATTACK_FROM =>
+                    {
+                        c.duel_move = ch::arms::DASH_ATTACK as u32 + 1;
+                        c.duel_turn = turn.wrapping_add(1);
+                        c.duel_wait = ch::arms::DUEL_MOVES[ch::arms::DASH_ATTACK].1;
+                        let to_x = here.x + to.x - to.x.signum() * ch::arms::DASH_SLIDE_TO;
+                        c.path_from = a(here);
+                        c.path_to = [to_x.clamp(ends.0 + ch::arms::EDGE, ends.1 - ch::arms::EDGE), here.y];
+                        c.step_to(Footing::Stand);
+                    }
+                    // Out of his reach: he goes to the player.
+                    None => {
+                        c.duel_move = 0;
+                        c.duel_wait = 0.0;
+                        // A run that started is a run to its end.
+                        let ran = c.footing() == Footing::Walk && c.air[0].abs() > ch::arms::WALK * dt * 1.5;
+                        let speed = if ran || to.x.abs() > ch::arms::RUN_FROM { ch::arms::RUN } else { ch::arms::WALK };
+                        let x = (here.x + to.x.signum() * speed * dt).clamp(ends.0 + ch::arms::EDGE, ends.1 - ch::arms::EDGE);
+                        c.air = [x - here.x, 0.0];
+                        c.off = Some([x, here.y]);
+                        if c.footing() != Footing::Walk {
+                            c.step_to(Footing::Walk);
+                        }
+                    }
+                },
                 None => {
                     c.duel_move = 0;
                     c.duel_wait = 0.15;
                 }
             }
         }
+        if c.footing() == Footing::Stand {
+            // He stands in the fight: this is not the wait for the way home.
+            c.footing_t = 0.0;
+        }
     }
     // After his move and the time to punish it, his book is up until he
-    // chooses again.
-    c.guard = c.dueling
-        && c.hop.is_none()
-        && c.reflex.is_none()
-        && (c.duel_move as usize).checked_sub(1).and_then(|i| ch::arms::DUEL_MOVES.get(i)).is_some_and(|(_, gap, open)| gap - c.duel_wait >= *open);
+    // chooses again; and in the middle of a roll.
+    let rolls_safe = c.footing() == Footing::Roll && (ch::arms::ROLL_SAFE.0..ch::arms::ROLL_SAFE.1).contains(&c.footing_t);
+    c.guard = rolls_safe
+        || (c.dueling
+            && on_his_feet
+            && c.reflex.is_none()
+            && (c.duel_move as usize).checked_sub(1).and_then(|i| ch::arms::DUEL_MOVES.get(i)).is_some_and(|(_, gap, open)| gap - c.duel_wait >= *open));
     inv.submit::<BossGuardPort>(BossGuard { guarded: c.guard })?;
     // The duel cut a punch short: the giant takes its arm back.
     if c.dueling && !was_dueling && previous.is_some_and(|p| p.mv == Move::PortalPunch && p.striking) {
@@ -794,11 +995,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if let Some(t) = c.pull {
         c.pull = (t + dt < ch::arms::RECOVER).then_some(t + dt);
     }
-    let left_seat = giant.back.map_or(scholar_pos, |[min_x, _, max_x, _]| Vec2::new(min_x + max_x - scholar_pos.x, scholar_pos.y));
-    let seat = |left: bool| if left { left_seat } else { scholar_pos };
-    let shoulder_pose = match c.hop {
-        Some(t) => Some(ch::arms::hop(seat(c.on_left), seat(!c.on_left), t)),
-        None => c.on_left.then_some(left_seat),
+    // Where he is when he is not in his saddle, and his speed there.
+    let shoulder_pose = c.off.map(|off| scholar_pos + v(off));
+    let shoulder_vel = match c.footing() {
+        Footing::Launched => c.air,
+        _ => [0.0, 0.0],
     };
     if let Some(t) = c.reflex {
         let next = t + dt;
@@ -813,13 +1014,25 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
 
     // ── What he and the gnu are drawn as ──
-    match (c.clamp, c.hop) {
+    let t = c.footing_t;
+    match (c.clamp, c.footing()) {
+        // A blow launched him: he is thrown, then he tumbles.
+        (_, Footing::Launched) if t < ch::arms::LAUNCH_ROW => draw(inv, DrawnPart::Body, Some((&["launch", "hit_heavy", "hit"], t, false)))?,
+        (_, Footing::Launched) => draw(inv, DrawnPart::Body, Some((&["fall", "tumble"], t - ch::arms::LAUNCH_ROW, true)))?,
+        (_, Footing::Land) => draw(inv, DrawnPart::Body, Some((&["land", "brace"], t, false)))?,
+        // He comes back to the back.
+        (_, Footing::Recover) => draw(inv, DrawnPart::Body, Some((&["special_up", "brace"], t, false)))?,
+        (_, Footing::Roll) => draw(inv, DrawnPart::Body, Some((&["roll", "spot_dodge", "brace"], t, false)))?,
+        // He goes to his saddle.
+        (_, Footing::Home) => draw(inv, DrawnPart::Body, Some((&["brace"], t, false)))?,
         // He calls the two lines that take the arms, and closes them.
         (Some(t), _) if t < ch::arms::SNAP => draw(inv, DrawnPart::Body, Some((&["invoke"], t, false)))?,
-        // He goes to the other shoulder.
-        (_, Some(t)) => draw(inv, DrawnPart::Body, Some((&["brace"], t, false)))?,
+        (_, Footing::Walk) if c.air[0].abs() > ch::arms::WALK * dt * 1.5 => draw(inv, DrawnPart::Body, Some((&["run", "walk", "idle"], clock, true)))?,
+        (_, Footing::Walk) => draw(inv, DrawnPart::Body, Some((&["walk", "idle"], clock, true)))?,
         // His book is up.
         _ if c.guard => draw(inv, DrawnPart::Body, Some((&["shield_hold", "brace"], clock, true)))?,
+        // His stance in the fight.
+        _ if c.dueling && cue.is_none() => draw(inv, DrawnPart::Body, Some((&["idle"], clock, true)))?,
         _ => draw(inv, DrawnPart::Body, ch::rows::scholar(cue.as_ref()))?,
     }
     match (c.reflex, c.clamp) {
@@ -1051,7 +1264,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             // He is on the giant's other shoulder, or on his way to one.
             Some(at) => {
                 inv.submit::<ConductedPosePort>(ConductedPose {
-                    pose: Some(BodyPose { position: a(at), velocity: [0.0, 0.0] }),
+                    pose: Some(BodyPose { position: a(at), velocity: shoulder_vel }),
                     side: None,
                 })?;
                 c.posed = true;

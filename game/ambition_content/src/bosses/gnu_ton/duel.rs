@@ -154,11 +154,15 @@ pub fn duel_gnu_ton(
         if moveset.0.moves.iter().all(|spec| !spec.id.starts_with(PREFIX)) {
             moveset.0.moves.extend(specs.get_or_insert_with(|| duel_specs(&pack)).iter().cloned());
         }
-        let (fights, chosen) = records
-            .get(&Conductor::KEY)
-            .and_then(|record| Conductor::from_record(record).ok())
-            .filter(|_| health.alive())
-            .map_or((false, None), |conductor| conductor.duel());
+        let conductor = records.get(&Conductor::KEY).and_then(|record| Conductor::from_record(record).ok()).filter(|_| health.alive());
+        let (fights, chosen) = conductor.as_ref().map_or((false, None), Conductor::duel);
+        // A blow launched him: his move is stopped, whatever part of it plays.
+        if conductor.as_ref().is_some_and(Conductor::reels) {
+            if let Some(pb) = playback.as_mut().filter(|pb| pb.spec.id.starts_with(PREFIX)) {
+                cancel_move_playback(&mut commands, entity, pb, MoveEnd::Interrupted);
+                playback = None;
+            }
+        }
 
         if !fights {
             // A move of the duel that still plays is stopped.

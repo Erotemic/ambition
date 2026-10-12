@@ -106,6 +106,10 @@ struct SceneCaptureConfig {
     /// so art a boss wears by its wounds — the Flying Spaghetti Monster's sauce
     /// — can be photographed without fighting it there.
     boss_hp: Option<f32>,
+    /// Blows on each boss (`--boss-blow TICK[xHEARTS]`): on that sim tick the
+    /// boss loses that much health, so what a boss does when a blow lands on
+    /// it can be photographed without a player that swings.
+    boss_blows: Vec<(u64, i32)>,
     /// The fog in front of the sky of the two-state room look
     /// (`--look-depth FOG,PATCHES`), to tune it with photographs: the numbers
     /// of `RoomLookDepth`, in its field order.
@@ -257,6 +261,11 @@ OPTIONS:
     --flag NAME[@TICK]  record the world flag NAME on sim tick TICK
                         [default: 1]; repeat for more flags. A room that reads
                         its state from a flag is photographed in that state.
+    --boss-blow TICK[xHEARTS]
+                        take HEARTS [default: 1] of each boss's health on sim
+                        tick TICK, as a blow that lands does; repeat for more
+                        blows. What a boss does when it is hurt is
+                        photographed with no player that swings.
     --player-at X,Y[@TICK]
                         put the player at world X,Y (its centre) on sim tick
                         TICK [default: 60], at rest; repeat for more places
@@ -472,6 +481,24 @@ fn hold_boss_health(
     }
 }
 
+/// `--boss-blow`: take the configured health from each boss on its tick. A
+/// sim system that names its tick, as [`place_player_at`] is.
+fn blow_on_bosses(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    mut bosses: Query<
+        &mut ambition_platformer2d::characters::actor::BodyHealth,
+        With<ambition_platformer2d::boss_encounter::BossConfig>,
+    >,
+) {
+    for (_, hearts) in config.boss_blows.iter().filter(|(on_tick, _)| *on_tick == tick.get()) {
+        for mut health in &mut bosses {
+            health.health.current = (health.current() - hearts).max(1);
+        }
+        eprintln!("capture_scene: a blow of {hearts} on each boss on tick {}", tick.get());
+    }
+}
+
 /// `--flag`: record each configured world flag on its tick, through the
 /// world-fact domain's own request, as an authored `world.set_flag` does. A
 /// sim system that names its tick: a replay of that tick asks again, and a
@@ -583,7 +610,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, place_player_beside, place_player_at, record_flags, fire_portal_shots),
+        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, fire_portal_shots),
     );
     if app.world().resource::<SceneCaptureConfig>().nav_overlay {
         app.insert_resource(ambition_app::dev::navigation_overlay::NavigationOverlay { shown: true });
@@ -765,6 +792,7 @@ impl SceneCaptureConfig {
         let mut combat_overlay = false;
         let mut nav_overlay = false;
         let mut boss_hp: Option<f32> = None;
+        let mut boss_blows: Vec<(u64, i32)> = Vec::new();
         let mut look_depth: Option<[f32; 2]> = None;
         let mut camera_zoom = None;
         let mut screen_effects: Vec<ScreenEffect> = Vec::new();
@@ -901,6 +929,18 @@ impl SceneCaptureConfig {
                         ),
                         None => (value.clone(), 1),
                     });
+                    2
+                }
+                "--boss-blow" => {
+                    let bad = |value: &str| format!("--boss-blow wants TICK[xHEARTS], got '{value}'");
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--boss-blow requires TICK[xHEARTS]".to_string());
+                    };
+                    let (tick, hearts) = match value.split_once('x') {
+                        Some((tick, hearts)) => (tick, hearts.parse::<i32>().map_err(|_| bad(value))?),
+                        None => (value.as_str(), 1),
+                    };
+                    boss_blows.push((tick.parse::<u64>().map_err(|_| bad(value))?, hearts));
                     2
                 }
                 "--player-at" => {
@@ -1110,6 +1150,7 @@ impl SceneCaptureConfig {
                 combat_overlay,
                 nav_overlay,
                 boss_hp,
+                boss_blows: Vec::new(),
                 look_depth,
                 camera_zoom,
                 screen_effects,
@@ -1158,6 +1199,7 @@ impl SceneCaptureConfig {
             combat_overlay,
             nav_overlay,
             boss_hp,
+            boss_blows,
             look_depth,
             camera_zoom,
             screen_effects,

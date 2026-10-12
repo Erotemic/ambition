@@ -519,9 +519,16 @@ before you add a port.
     `mary_o_it::a_mob_is_squashed_by_each_player` (each player of the
     mob's room squashes it, a player of another room does not); poison:
     the module not linked, red at "the premise: her stomp squashes it".
-    Next: the snake shells, the plant, and the Sanic badnik, whose roll is
-    the demo's own `Rolling` state: the trigger needs a toucher fact for it
-    first. The badnik rule also reads one global `PrimaryPlayer`.
+    Next: the snake shells and the Sanic badnik. Measured 2026-10-12: the
+    plant is not a contact rule (it moves on its path and stays down near a
+    player: a brain and a pose, `actor_think`). The badnik needs two facts
+    of the toucher that the trigger does not give: that it rolls (the
+    demo's own `ball_dash::Rolling`) and that it harms on contact (the
+    monolith's `Empowerment::HARMS_ON_CONTACT`). Each has one owner now, and
+    a toucher fact copied from it for the port would be a second one; the
+    road is to give the trigger the owner's fact where it is defined, which
+    for the roll means moving `Rolling` out of the demo. The badnik rule
+    also reads one global `PrimaryPlayer`.
   - Measured 2026-10-11 (the case before C1-C2): the demo behaviour still in Rust
     is contact rules and techniques, not brains. Mary-O's plant, snake
     shells and AI Slop, and Sanic's badnik, decide what a touch does (a

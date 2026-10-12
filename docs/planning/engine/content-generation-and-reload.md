@@ -425,6 +425,46 @@ whether the prior scene is unchanged, recovered or stopped.
   activation, scenario reset and first observed behavior separately (M0).
   Fixtures FI1-FI4 in [acceptance](fast-iteration-acceptance.md).
 
+### Sprite source identity and live presentation refresh
+
+The first-read development `OnceLock` tables in
+`ambition_sprite_sheet/src/baked_sheet_rons.rs`,
+`baked_part_flipbooks.rs`, and the parsed rig cache prevent changes from
+reaching an already running process. This is not a claim that the October 11
+*no Rust recompilation* sprint failed; that path is landed and useful.
+It means a programmatic 2D authoring experience still needs a separate
+candidate/live-presentation activation path.
+
+The source scanner has a more immediate deterministic-validation issue:
+`ambition_sprite_sheet/src/sprite_tree.rs:85-104` collects companion names,
+sorts only by logical key and silently `dedup_by` key. Two directories
+that publish the same target can silently select one file. The adjacent
+sheet-manifest scanner returns duplicate keys without an explicit
+source-aware conflict policy. Reject collisions with both source paths,
+or require explicit, inspectable pack overlay precedence; do not let file
+traversal order or sort ties decide the winner. Add a two-source collision
+fixture for both manifests and companions (including quality tiers).
+
+**Future live path:** the source scanner reports the changed logical key
+and a canonical source fingerprint. Preparation decodes the changed sheet,
+landmarks, part frames/flipbooks and dependent rig/atlas descriptions into
+a candidate presentation generation. Validate name/key uniqueness,
+references, atlas page dimensions and material dependencies. Publish the
+whole dependent visual slice coherently or leave the old visuals alone
+and report refusal. A successfully activated visual revision rebinds
+all currently visible consumers, including rigged bodies, multiple view
+instances and quality variants. Keep a reasoned policy for switching
+simulation-authored physical geometry if it depends on the sheet; **do not**
+secretly update hitboxes mid-timeline under the label 'visual reload'.
+Static-content and packaged builds still consume baked immutable tables.
+
+**Witnesses:** duplicate logical sheet key, duplicate companion key, bad
+RON edit leaving live visuals unchanged, valid edit changing one visible
+character without relinking, two instances rebinding together, replay after
+rewind, and quality-tier switch. Record cold source-read versus live
+activation times. Do not call it 'hot reload' if only the next process boot
+sees the update.
+
 ## Forbidden regressions
 
 - A reload that publishes one family at generation N+1 while another family

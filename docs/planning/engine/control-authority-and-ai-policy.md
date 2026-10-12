@@ -125,6 +125,63 @@ The pin is not debt: no schema bump, no new dependency, no call sites touched.
 Reopen only if `ambition_mount` stops holding a `Brain` by value, or if
 `SnapshotCursor` moves somewhere both `Brain` and a domain codec can see.
 
+## New form customer: presentation and ability grants are not primary-player-only
+
+Mary-O's `cosmic::toggle_cosmic_form` (2026-10-11) selects the body from
+`ControlledSubject`, so a possessed/selected body can become cosmic. The
+same module's `lend_the_jump_in_the_air`, `shorten_her_hit_stop`, and
+`play_cosmic_music` filter their queries with `With<PrimaryPlayer>`.
+The selectors do not mean the same thing. A non-primary controlled body can
+therefore wear the cosmic catalog row without receiving its jump grant,
+hitstop rule or musical claim. This is a direct customer for the existing
+relativity rule, not evidence for another global active-player component.
+
+**Target:** if a mechanic depends on the character's current form, derive its
+body-local grants and combat policy from each eligible body wearing that
+form. An input press targets the actor assigned to that participant; the
+rest of the form does not depend on which seat is designated primary. A
+music claim is keyed to the form's source/body occurrence and its live room,
+through the existing priority music protocol. If only Mary-O is eligible,
+the admission predicate is its catalog/ability, not an implicit seat number.
+Do not make `ControlledSubject` the global answer for every game's action.
+
+**Witness:** give the same cosmic form to the primary body and to a second
+eligible, driven body; both get the jump, hitstop and visual semantics.
+Then change a body out of the form, despawn it or move it to another live
+room. Its contributions and room music claim retract without affecting the
+other body's state. Verify the current single-player Mary-O behavior and
+rollback. Poison: restore `With<PrimaryPlayer>` on a body-local form grant;
+the second-body fixture must fail.
+
+### Scripted movement cannot borrow combat recoil as a control lease
+
+**New immediate customer:** `game/ambition_demo_mary_o/src/pipe.rs:226-267`
+uses the shared `movement::transit_body` to move a body along its pipe, which
+is correct. But it keeps the actor from steering by setting
+`BodyCombat.recoil_lock_timer = TRANSIT_LOCK` each tick and sets the timer to
+`0.0` on exit. This is not a recoil: a concurrent attack, capture or other
+combat event may set a real recoil lock during transit, and pipe exit
+unconditionally deletes it. The `a_pipe_ride_is_not_a_landing` production
+tests check land SFX/dust, not this collision of authorities.
+
+**Target:** a source-owned, temporary *input/action hold* evaluated at the
+existing control gate. It is separate from who drives the body
+(`DrivingParticipant`/`ControlClaims`), from movement pose ownership, and
+from combat recoil. The pipe acquires its own hold for its own transit,
+releases only that claim on exit, interruption, despawn or room teardown,
+and reconstructs it deterministically after rewind. A combat hit during
+the ride keeps its real recoil/hitstun. Two different holds can coexist;
+ending one does not clear the other. Do not add another control gate, or
+silently make `recoil_lock_timer` a multi-purpose lock.
+
+**Witness:** enter a pipe with a non-zero recoil timer, let a hit or other
+independent source increase recoil mid-ride, finish the pipe, and compare
+against an identical control body without the pipe. The independent lock
+must survive. Test early cancellation, restore, and two simultaneous bodies.
+Poison: the old `= 0.0` on exit makes the first case fail. An engine
+control-hold abstraction should have at least pipe plus one scripted
+movement/cutscene consumer before widening its public authoring format.
+
 ## Acceptance
 
 - `PossessionState` holds no brain state. Met.

@@ -54,6 +54,10 @@ the way in its own slice:
 [REVIEW-1011](#review-1011--five-boundaries-where-one-subsystem-reconstructs-anothers-fact)
 rows.
 
+New correctness interrupt from the 2026-10-11 late source review:
+[REVIEW-1011-INTEGRATION](#review-1011-integration---real-engine-contracts-for-new-demo-behavior).
+It needs witness-first repair; do not reopen the five closed REVIEW-1011 rows.
+
 Short slice at any point: [PUBLICATION-FAULT](#publication-fault--a-refused-later-room-must-not-leave-a-mixed-world).
 The two owner pages the 2026-10-08 review found stale (the fingerprint and the
 second-seat join) were corrected against the tree on 2026-10-09.
@@ -64,6 +68,134 @@ universal planner and the Bevy 0.20 upgrade. Q157 is Jon's decision; build
 neither side of it.
 
 ## P0 — architecture and correctness
+
+### REVIEW-1011-INTEGRATION - real engine contracts for new demo behavior
+
+**Source:** static, multi-domain follow-up review of supplied source at
+`ed0d1ccd` (2026-10-11), covering `abf79de..ed0d1ccd` (133 commits).
+The five prior REVIEW-1011 repairs below remain **closed**. Owner:
+engine architecture with portal, control, combat and presentation domain
+owners. Runtime failing witnesses and fixes have **not** been run yet.
+
+**Current failures, ordered by effect on engine authority:**
+
+1. `portal2d::resolve_portal_links` assigns end A/B from position and pair
+   channel from the sorted set of all link hashes. Moving or adding
+   portals can change an existing body's transit identity; overlapping
+   endpoints can both resolve to the same slot. Aperture equalization also
+   mutates away the authored width. GNU-ton separately reconciles only by
+   `(room,line)`, fixed channels 24/25 and singleton IDs.
+2. Mary-O's Void Lizard and Swallow write `ActorControl.fire` **after**
+   the common gate, and Snake Plants use a global player's coordinates
+   across live rooms. A stopped/rebound plant may retain an external-pose
+   marker.
+3. Mary-O's pipe ride borrows `BodyCombat.recoil_lock_timer` as an input
+   lock, then zeros that combat timer on exit. It also shares a boolean
+   `PoseOwnedExternally` with unrelated pose producers.
+4. `ambition_render::void_field` projects every viewport-visible aura and
+   ward into every camera, regardless of `RenderLayers`. Its Mary-O aura
+   producer performs a per-visual full body string scan and only adds
+   markers; it never retracts changed sources.
+5. Mary-O's cosmic barrier truncates parts (first page, first 4,
+   no turn/scale); one `PartSetRequest` on the body is a single-reader
+   slot that another effect cannot share safely. Its quad has a separate
+   orphan scan and missing explicit portal-compositor placement.
+6. Cosmic form selection is by driven subject, but several form effects
+   are primary-only. Its advertised shorter **world** hitstop clamps the
+   wearer's `BodyCombat` timer after resolution, while the world freeze
+   comes from `ResolvedBodyHit` and `ImpactHitstop`.
+
+7. GNU-ton's room ladder opens when **any** GNU-ton is dead, even when
+   another is alive; a dead entity's removal also removes the sole evidence
+   of completion. Encounter/arena completion needs its own authoritative
+   terminal fact, not a live query over corpses.
+8. Portal far-side/transit presentation despawns and re-creates clipped
+   piece entities and material assets on every render update. The churn is
+   source-confirmed, but a frame-time or retained-asset penalty has **not**
+   been measured; instrument before selecting a retained-piece strategy.
+9. The generic game shell has a provider registry, but the new title
+   backdrop maps route-name prefixes to themes. Disabling its parallax
+   quality budget while the launcher stays open leaves an earlier backdrop
+   alive. A quality-tier change also does not update an already active scene.
+10. The development sprite publish now skips Rust recompilation, as intended,
+    but sprite tables/rigs are first-read caches rather than live-reloaded
+    assets. `sprite_tree::companions` silently drops duplicate keys, which
+    should instead produce source-aware validation. Live sprite refresh is a
+    separate **P2 authoring capability**, not a regression of the landed build
+    improvement.
+
+**Next verified slices; assign independent owners where possible:**
+
+- **IN1 / P0, portal core + GNU-ton:** witness stable links across
+  insertion/movement/overlap and authored aperture growth, including
+  insertion of an unrelated named pair in a *different live room* and
+  more than 63 distinct linked names spread across rooms, then two boss
+  occurrences in one live room. Make pair/end and request
+  occurrence identity stable; migrate transit/adapter users, remove
+  GNU-ton's fixed-channel join. See
+  [portal identity](engine/portal-pair-identity-and-aperture.md) and
+  [GNU-ton debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
+- **IN2 / P0, action authority:** held custom-brain fire must fail at
+  the production control gate. Implement the existing I4 `actor_think`
+  pre-gate phase, migrate Void Lizard then Swallow. Scope Snake Plant
+  observations to its live room and remove stale pose holds. Scope the
+  Void Lizard and Swallow to the same live-room rule as well. A post-gate
+  fire write is **not necessarily dropped**: the combat move trigger follows
+  this writer in the fixed-step schedule. The failure is bypass of the gate
+  and loss of one admission authority. See
+  [I4](engine/fast-iteration-implementation.md#i4---small-procedural-sdk-and-one-native-semantic-reference)
+  and [movement](engine/unified-movement-kernel.md#pose-ownership-under-script-encounter-and-plant-control-new-customer).
+- **IN3 / P1, control/presentation isolation:** replace pipe's recoil
+  borrowing with an independent source-owned control hold; guard pose
+  ownership. Add effective render-layer and live-instance filtering
+  to the camera's void sources **and** wards. See
+  [control policy](engine/control-authority-and-ai-policy.md#scripted-movement-cannot-borrow-combat-recoil-as-a-control-lease)
+  and [R7](engine/render-animation-and-vfx.md#r7---full-screen-field-visibility-must-match-the-cameras-render-layers).
+- **IN5 / P1, encounter completion:** fix the GNU-ton ladder gate so the
+  owning arena/encounter has an explicit terminal outcome. Prove two
+  same-room GNU-ton encounters and outcome surviving completed-boss teardown;
+  defeat, unload, replay and reset must not reopen a completed fight by
+  accident. See [GNU-ton debt 13](game/gnu-ton-fight-debts.md#13-the-exit-gate-reads-a-corpse-not-an-encounter-outcome).
+- **IN6 / P1 diagnose, P2 optimize, portal-piece presentation:** instrument
+  idle and moving portal scenes for spawned/despawned fragments, new mesh/
+  material assets, steady-state frame time and handle/residency counts. Then
+  choose stable source-owned reconciliation only where measured or required
+  by correct lifecycle. See [R8](engine/render-animation-and-vfx.md#r8---portal-fragment-lifetime-and-measured-render-churn)
+  and [performance](engine/performance-and-iteration.md#portal-fragments-create-entities-and-materials-on-every-presentation-frame).
+- **IN7 / P1 quality cleanup, P2 shell/authoring:** remove the launcher
+  backdrop when its quality budget turns off, and invalidate the displayed
+  scene on resolution-tier change; make a new game's optional launcher
+  presentation provider-authored rather than a route-name prefix. Validate
+  duplicate sprite companion keys with source paths; stage true runtime
+  sprite refresh behind the existing prepared-generation boundary. See
+  [UI](engine/ui-localization-and-accessibility.md#launcher-theme-quality-and-provider-composition),
+  [reload](engine/content-generation-and-reload.md#sprite-source-identity-and-live-presentation-refresh)
+  and [I3](engine/fast-iteration-implementation.md#i3---coordinated-generation-publication-and-local-reload).
+- **IN4 / P1, form/rig fidelity:** make part-request ownership composable;
+  refuse or correctly render unsupported multi-page/turned/fifth parts.
+  Reconcile visual ownership, body layers, portal candidate sync and
+  disappearance. First settle whether cosmic is meant to shorten the
+  attacker's *personal* recovery, the **global** connect freeze, or both;
+  route each through its own owner. Global freeze currently excludes
+  `HitSource::Contact`, so don't change that to satisfy the form. Make form
+  grants work on every eligible controlled body.
+  See [part reader](engine/semantic-part-rendering-and-ragdolls.md#a-part-set-demand-cannot-be-owned-by-one-effect-component),
+  [R6](engine/render-animation-and-vfx.md#r6---reconcile-semantic-screen-field-sources-by-visual-ownership)
+  and [combat](engine/combat-model.md#a-forms-shorter-global-hitstop-belongs-at-hit-resolution).
+
+The [third-pass source ledger](triage/2026-10-11-integration-source-audit.md)
+records each assertion's evidence, the counterexample it still needs, and
+which apparent defects were already addressed or are merely capability gaps.
+
+**Acceptance:** each old mistake is exposed by a failing engine-level
+fixture before repair; fixes change the **owning domain**, not duplicate
+a native gameplay road. Include multiple independent occurrences,
+room/camera separation and rewind where state is authoritative. Record
+bounded follow-up work in the linked owner pages. Do not launch a new
+universal scene/AI/effect registry or a new competing backlog.
+
+**Blocked by:** none for witness/diagnosis slices. Port and part readers
+follow their existing admission, quality and rendering boundaries.
 
 ### REVIEW-1011 — five boundaries where one subsystem reconstructs another's fact
 
@@ -600,30 +732,6 @@ Not done: an apply-time refusal after every room passed is logged
 (`apply_world_replacement`), not failed loudly. With a correct projection it
 cannot happen.
 
-### SHOT-END-REPLAY — a brain that saw its shot end replays differently
-
-**Owner:** [simulation authority](engine/simulation-authority-and-determinism.md).
-Found 2026-10-11 by the `actor_think` witness (fast-iteration I4).
-
-**Measured:** a smash-brain NPC (`perfect_cellular_automaton`) whose fire is
-straight up, under a GGRS sync test (check distance 4, window 10). Its shot
-flies from frame 7 to frame 30 and is gone on frame 31. From frame 35,
-`RollbackRestoreAudit` reports `ambition_characters::brain::Brain` (the
-cursor census over the room's 4 brains) "recomputed differently on replay",
-and GGRS reports a checksum mismatch at frame 38. The same body with its
-native fire (toward the player, the shot does not end in the window) is
-healthy for 40 frames, and a held body (the gate removes the fire) is
-healthy. So the cause is on the road from a shot's end to a brain's state,
-not in the extension host.
-
-**Reproducer:** `app_it::a_custom_brain_module_fires_through_the_gate` with
-`with_sync_test_rollback_settings(4, 10)` on its free arm.
-
-**Next:** find which brain and which field moves (the census is an xor over
-the room), and which read of the shot's end differs between the first run
-and a replay (a raw `Entity`, a message across the rewind, a non-rollback
-`Local`). Fix it in its own slice, and add the sync-test arm to the witness.
-
 ### AP14 — semantic actor-monolith SCC decomposition (continuous; deferred 2026-10-09)
 
 **Owner:** [`actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
@@ -674,7 +782,6 @@ Rust move tables are migration scaffolding.
 
 - The three families that did not reload (music cues, cutscenes, quests) all take part since 2026-10-07. The references a candidate can break (a room naming a removed cutscene; a quest step naming a boss or room that does not exist) are judged at request time by the startup validator itself (`ContentGraphRefused`, 2026-10-07). Supersession of an in-flight generation is done (2026-10-07), and the quest book is asked again at the activation gate with the save as it is then, so a save that moves while a generation waits cancels it instead of being clamped.
 - I4: save eligibility for body records and checkpoints. A session record `kept durable` is kept by the durable save since 2026-10-11 (`module_save_road`; see the I5 section). GNU-ton's conductor is a module (2026-10-11). Every held traversal item is a module (blink, dive, mark/recall and the grapple, 2026-10-10; the grapple reads the first wall along its aim through `ambition.items.aim_cast`).
-- I4 `actor_think` (a custom brain as a module, to take demo enemy behaviour out of the demo crates): S1 landed 2026-10-11 (the phase, `ambition.actor.think`, `ambition.actor.fire`; witness `app_it::a_custom_brain_module_fires_through_the_gate`). S2 landed the same day: the Void Lizard is `ambition_demo_mary_o_modules::void_lizard`, an edit to it is 0.57 s against 23.7 s, and the Mary-O app loads the `.wasm`. S3 the same day: the Laden Swallow is a module too (`ambition.actor.think` v2 gives the placement), and the control-gate census is green. Next: the plant, the snake shells and the AI Slop, each needing a body port first.
 
 **Blocked by:** nothing.
 

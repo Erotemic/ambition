@@ -209,6 +209,60 @@ Do not reopen these without new contrary measurement:
 - entity/system-count reduction without an attributed cost;
 - broad physics rewrites justified only by aggregate frame rate.
 
+### New 2026-10-11 terrain-skin cost witness
+
+`crates/ambition_render/src/rendering/chain_skin.rs` adds reusable dressing
+for surface chains. Preserve the **correct** separation: simulation publishes
+surface geometry; the renderer decorates it from a prepared room theme.
+This is a useful engine capability, not a Sanic-only special case.
+
+Three costs require measurement before the next large surface-chain room:
+
+1. `earth_mesh` clips each polygon against every skin grid cell in its
+   axis-aligned bounds. The iteration count rises with bounding-box area,
+   not only occupied polygon area. Measure steep/large polygons, narrow
+   diagonals, and room unload/reload. Record cell visits, generated vertices,
+   mesh build time and allocated bytes. Consider clipping only intersecting
+   cells, chunking, or caching *only* after an attributed cost is observed.
+2. `dress_chain_turf` spawns a Sprite child for each pattern piece on every
+   chain segment. Measure the count, draw calls and frame cost in a long
+   Sanic-style route. Do not add batching or a custom material before a
+   target-profile trace shows a limit.
+3. `ChainEarthSettled` and `ChainTurfDressed` mark one-time preparation.
+   Verify that a changed prepared theme, quality tier or reloaded asset
+   invalidates derived meshes/children once and frees old asset handles.
+   This is a **correctness** guard, independent of measured speed.
+
+Use the existing quality/residency, source-generation and room teardown
+contracts. Present the same topology through normal and Potato art tiers.
+Compare cold realization, second entry and an edit while the room is live.
+No game crate should maintain a parallel skin/tessellation implementation.
+
+### Portal fragments create entities and materials on every presentation frame
+
+The new portal compositor uses a deliberately rebuilt representation. That
+simplicity is reasonable for correctness, but it has a measurable cost to
+investigate, not an assumed performance emergency:
+`crates/ambition_portal2d_presentation/src/far_side.rs` and
+`src/visuals.rs` despawn and spawn derived pieces every update and add
+new `PortalClipMaterial` assets when clipped pieces are generated. A still
+source can thus allocate even when its transform and sheet are unchanged.
+
+Benchmark stable and animated portals under the same graphics settings,
+visible cameras, and fixed simulation steps. Collect frame-time distribution,
+entity spawn/despawn, distinct and retained material handles, mesh allocations,
+GPU draw calls, and peak resident bytes over a long run. Compare no panes,
+one pane, and two panes; then room unload, camera switch, rollback and
+quality downgrade. Disable candidate/pane work separately to attribute the
+cost. A drop in CPU time with no material gain is not proof that a retained
+reconciler is worthwhile; a material residency increase without a live
+reference leak is not yet proof of a leak.
+
+If the traced cost is significant, hand the lifetime fix to
+[render/VFX R8](render-animation-and-vfx.md#r8---portal-fragment-lifetime-and-measured-render-churn),
+not to each portal-using game. Preserve the presentation-only nature of the
+pieces and the portal-visibility arbitration while optimizing.
+
 ## Acceptance
 
 The performance/iteration program is healthy when:

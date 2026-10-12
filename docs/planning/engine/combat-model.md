@@ -92,6 +92,57 @@ missing reusable semantics. In combat, the important families are:
 The inventory owns whether each is shipped, partial, or absent. Do not duplicate
 that status here.
 
+## A form's shorter global hitstop belongs at hit resolution
+
+**Real 2026-10-11 customer:** Mary-O cosmic form. Its current function
+`game/ambition_demo_mary_o/src/cosmic.rs:180-190` is described as making
+*hits she lands* stop the world less, but it clamps **her own**
+`BodyCombat.hitstop_timer` after hit resolution. The match/world freeze is
+instead set by
+`crates/ambition_combat/src/impact_hitstop/mod.rs:103-124` from a
+`ResolvedBodyHit.hitlag_seconds`. That event is written by the damage
+resolver with the **victim's** resolved timer
+(`crates/ambition_damage/src/lib.rs:730-734,827-831`). Clamping the
+attacker's timer does not change that event or `ImpactHitstop.until_tick`.
+The implementation therefore does not prove its advertised result.
+
+**Decision first:** separate victim hitlag, attacker recovery/hitstop and
+match/world freeze. `ImpactHitstop::is_a_connect` only accepts
+`HitSource::{Melee, Projectile, Pogo}`; in particular contact attrition
+is deliberately excluded so a damaging surface does not freeze the match
+every few ticks. A cosmic form may reduce the attacker's personal recovery,
+reduce the world's *eligible connect* freeze, or both. Verify the authored
+rule and specify it precisely before building an engine modifier API.
+A shorter personal timer is not evidence of a shorter global freeze.
+
+**Authority, only if the world-freeze rule is intended:** a character form
+may author a bounded modifier to how long the global freeze lasts **when
+that form lands an eligible hit**. Apply it
+at the combat owner where an attacker and its current source/form are
+known, before publishing/consuming the authoritative resolved-connect
+fact. Do not rewrite the victim's real hit reaction to fake shorter
+world freeze; do not create a Mary-O-only `ImpactHitstop` writer; do not
+clamp the attacker afterward and call it global freeze. Use the existing
+resolved-hit and hitstop system, with a typed, source-scoped policy if
+needed. Keep the current match-level freeze decision explicit if two
+independent rooms share one simulation; do not assume a match resource
+is always a room-local resource.
+
+**Witness:** first establish whether the form's intended effect is on
+personal recovery or world freeze. In the latter case use the same
+eligible `Melee`, `Projectile` or `Pogo` connect, damage, victim and tick,
+first with an
+ordinary attacker and then with a cosmic attacker. Compare
+`ImpactHitstop.until_tick` and real victim hitstun/knockback. The cosmic
+case gets its authored shorter global freeze; the victim's unrelated
+reaction is unchanged. Then make a third CPU-versus-CPU fixture (no
+`PrimaryPlayer`), a simultaneous second-room hit, and a rollback of the
+connect. Explicitly test whether the intended scope is the match or a
+live room. Poison: revert to clamping the attacker's timer after the
+resolved event; the global-freeze fixture must fail. Also test repeated
+`Contact` damage and confirm it **does not** begin freezing the match.
+Do not infer form intent from a misleading function name alone.
+
 ## Capture
 
 `CapturedBy` is the one temporary hold relationship. Standing, running, pivot,

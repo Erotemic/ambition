@@ -112,6 +112,59 @@ operating an editor.
 The competitive question is **time and reliability from intent to validated game
 change**, not number of editor panels.
 
+## Real-customer extraction test: October 11, 2026
+
+GNU-ton, Mary-O and Sanic make the capability target testable. The
+[portal pair owner](portal-pair-identity-and-aperture.md) and the new
+scripted-control/pose clients show why request identity must survive an
+independent content consumer. A reusable
+engine feature has not landed merely because one demo compiles against it.
+It should satisfy the following cross-game test before the last game-specific
+adapter is removed:
+
+1. **Authority:** one domain owns the fact. A boss may request a portal but
+   not reimplement pairing; a shader may present a body but not join bodies
+   by captions; a level may request defeat but not invent a second health
+   reducer.
+2. **Composition:** two instances of one boss, two rooms, two participants,
+   and two games do not share singleton identity or UI/control state by
+   accident. A missing optional provider does not break headless gameplay.
+3. **Expressiveness:** a real developer can author the next portal boss,
+   enemy brain, screen field, body-part effect, terrain theme or castle
+   sequence through an installed capability and semantic content contract,
+   without editing a central named-game switch.
+4. **Life cycle:** every held or persistent entity has an owner, a stable
+   occurrence reference, deterministic admission, teardown, rewind behavior
+   and explicit save policy. Presentation derivatives can be rebuilt.
+5. **Efficiency:** work scales with participating sources and changed
+   generations, not repeated scans of all bodies for each drawable. State
+   the target-device and session/room population when claiming a win.
+6. **Iteration:** edited data and loaded modules use the prepared generation
+   and the public inspection road. A bad edit is refused without corrupting
+   the previous active session. Prove on a distinct SDK fixture as well as
+   inside the flagship game.
+
+This is a *test of the current architecture*, not a call for an Ambition scene
+tree or a Godot-compatible editor. Link each failing customer to its owning
+planning page. The execution order belongs only in `docs/planning/queue.md`.
+
+**October 11 additional extraction checks:**
+
+- The shell must accept an externally registered game with a new route
+  without a special-case `scene_of` string prefix. Visual presentation is
+  optional and quality-aware, not a requirement of the simulation or menu.
+- The sprite-authoring workflow must distinguish no-recompile publishing
+  (now working) from changing a **running** game's visuals. Source
+  collisions must be reported, and a refused edit must preserve the last
+  validated visual generation. Do not market a first-read `OnceLock` as
+  runtime hot reload.
+- Portal compositing should not require new persistent render entities and
+  materials for each static source every frame without an explicit measured
+  reason. Keep the portal domain's identity independent of those entities.
+- A room's victory/exit state must survive whatever body entity teardown
+  policy the encounter uses; multiple same-room encounters must not share
+  outcome merely because their bosses have the same kind.
+
 ## Explicit non-goals for Engine 1.0
 
 Engine 1.0 does not require:

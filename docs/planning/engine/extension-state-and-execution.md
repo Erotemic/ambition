@@ -26,6 +26,39 @@ counted in `ExtensionFaults` and the session continues), save eligibility for
 body records and for checkpoints,
 durable references to unloaded entities and a production observation port.
 
+## Saved-row identity validation (new durable-session customer, 2026-10-11)
+
+`crates/ambition_extension_host/src/save.rs:71-101` decodes the stored
+`StateSchema` and selects the admitted record by `written.key`. The outer
+`SavedRow.key` is not compared with that decoded key. The merge path instead
+selects retained rows by the **outer** `SavedRow.key`. A saved row with
+conflicting keys can therefore be adopted under one identity and retained
+under another. Duplicate entries for one embedded schema can also make the
+last row win without an explicit duplicate policy. The ordinary writer
+produces consistent keys, but the load path must still validate its input.
+
+**Severity and scope:** normal saved output is internally consistent;
+this review has not demonstrated a corrupt production save. The input
+validation hole matters for imported/edited saves, dormant module state,
+and schema migrations. Rank it as a bounded durability-integrity repair,
+not a reason to rewrite persistence or block unrelated rendering work.
+
+**Contract:** the outer key is an index and a readable label, not a second
+schema authority. Validate `row.key == written.key` before adoption. Reject
+or diagnose duplicates before they change an admitted record. On an invalid
+row, keep the active record or its defined initial state; do not silently
+change another schema. Preserve still-unadmitted modules' rows and their
+migration data exactly, as the existing save road intends. Apply these rules
+at the domain save adapter, not in each game.
+
+**Witness:** save a valid durable record, then load one copy whose outer key
+names another schema and a second copy with a duplicate embedded key. Neither
+may overwrite an unrelated admitted record or reappear as a ghost row after
+merge. Verify unchanged valid save/load, migration by field tag, an unloaded
+module's dormant row, and New Game reset. Poison: remove the key comparison;
+the mismatch fixture must fail. This is a bounded I5 follow-up, not a new
+persistence backend.
+
 ## Contract boundary
 
 The procedural SDK offers immutable definition handles, typed observation

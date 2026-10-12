@@ -131,6 +131,52 @@ moves retain their selected definition, and mechanical revisions activate at an
 explicit session/reconstruction boundary first. A metadata hash is not proof of
 native-code compatibility, and a typed Rust provider is not sandboxed.
 
+### O5 - castle completion is a concrete authored domain sequence
+
+**Real customer:** Mary-O's castle in commit `16186fc` (2026-10-11).
+`game/ambition_demo_mary_o/src/castle_end.rs` reacts to `FlagSequence` and
+`ControlledSubject`, searches for Void Lizards by their brain key, and writes
+`BodyHealth.health.current = 0`. It then registers a Rust-built
+`CutsceneScript` during gameplay and keeps a global tally counter below
+`TALLY_HOLD` while the banner plays. The shipped test proves the castle
+advances, but not two simultaneous castle occurrences or encounter death
+phase/reward behavior.
+
+**Authority gap:** `ambition_boss_encounter::encounter_script::tick_encounter_scripts`
+already handles `EncounterEffect::ForceKill` by reducing member health **and**
+advancing the encounter's phase. The castle's direct health write does not.
+A killed ordinary enemy is not necessarily an encounter participant; first
+check whether the Void Lizard is intentionally a normal actor or an encounter
+member. Do not silently convert it into a `BossEncounter` just to reuse an
+effect. Make its kill go through its actual owning damage/death protocol.
+
+**Target:** the castle level authors a switch, a bridge state, a defeat
+condition, a named rescue cutscene and a completion gate. The room/sequence
+domain owns the order and the one-shot latch for that occurrence. Domain
+commands own bridge state, actor defeat, cutscene request and level transfer.
+Use the existing prepared condition/command and encounter-gate roads where
+their semantics match. When they do not, add the smallest typed request to
+the *owning* domain. Resolve authored IDs once at preparation; reject a
+missing goal, boss reference, bridge or cutscene with room/source diagnostics.
+The cutscene belongs to prepared content, not a system that repairs a
+missing session library inside the simulation tick.
+
+**Phase and scope:** no `single()` over every castle's `FlagSequence`, and
+no implicit global `ControlledSubject` for independent encounters. Bind the
+completion to a live-room and participant/goal occurrence; the authored next
+room is still the authority for travel. Two parallel endings cannot share a
+single mutable cutscene request or dwell counter without an explicit policy.
+Rewind must restore the switch, bridge, living/dead members, cutscene latch
+and score consistently. Preserve the current visible Mary-O sequence.
+
+**Acceptance:** one real castle switch triggers one death (with the right
+phase/reward semantics for the actor's kind), one cutscene and one transfer;
+a second castle in another live room is untouched; a second participant does
+not take over the first one's sequence; a rewind before the switch replays the
+same result once. Poison: update `BodyHealth` from the demo's castle-system
+callback, or register the cutscene inside a simulation tick; the boundary
+test must reject the duplicate authority. Do not add a universal sequencer.
+
 ## Determinism and lifetime
 
 Prepared program data is immutable. If a future authored rule has mutable

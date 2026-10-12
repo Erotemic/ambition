@@ -323,6 +323,26 @@ admission fails. FI2-FI4 give the independent assertions.
 | I3b | Typed candidate data split from active mutation; one bounded publication path with A10 | FI4: candidate refusal and valid reconstruction |
 | I3c | Scenario pin and replay, changed-section explanation, activation status, generation-aware cancellation | FI1-FI4 plus M0 on the real edit loop |
 
+### Sprite publish success is not live sprite reload
+
+The October 11 sprint removed the sprite tree and authored world data from
+the normal development binary's compilation closure. Preserve that win:
+saving/publishing a sheet should not recompile or relink the consumer.
+However, `ambition_sprite_sheet::baked_sheet_rons::sheet_rons` uses a
+first-read `OnceLock` in the nonembedded build,
+`baked_part_flipbooks::part_flipbooks` also caches, and the rigged-sprite
+reader caches decoded rigs. A running process does not automatically see
+edited sprite text merely because no Rust build is needed. That is a
+**separate live-iteration capability gap**, not a failed compile-closure
+migration. Refer to the [sprite reload owner](content-generation-and-reload.md#sprite-source-identity-and-live-presentation-refresh).
+
+Do not disable caching per frame as a shortcut. A typed, fingerprinted
+candidate should validate/prepare changed sprite products once and publish
+at a safe visual-generation boundary. Embedded/static-content targets keep
+using their baked tables; headless simulation must not need a texture
+asset server. Inspect one changed source, candidate rejection, and actual
+on-screen rebind before saying live reload is supported.
+
 ## I4 - small procedural SDK and one native semantic reference
 
 **Current shape (first cut landed).** Recipe:
@@ -415,7 +435,7 @@ before you add a port.
   record (`bosses::gnu_ton::conductor_of`). Poison: the module removed from
   `MODULES` reddens 12 `gnu_ton_fight` arms and the two-room hall arm.
 
-- 2026-10-11 (S1 ✅, S2 ✅), **a custom brain as a module** (`actor_think`). The
+- Open (2026-10-11), **a custom brain as a module** (`actor_think`). The
   ported Ambition behaviour is modules, but a demo's enemy behaviour is still
   Rust in the demo crate. Measured 2026-10-11: one constant edit in a Mary-O
   enemy rule compiles `ambition_demo_mary_o` and its app (23.7 s); the same
@@ -423,11 +443,8 @@ before you add a port.
   (`void_lizard`, `swallow`, `plant`, `snake`, `ai_slop`) run in
   `WorldPrepSet::AfterIntegrate`. Two of them (`void_lizard`, `swallow`)
   write the body's fire intent there, after the control gate, so the gate
-  never sees it (the A4 debt class). The shipped census
-  (`sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`)
-  sees both and is red on them on 2026-10-11: `run_void_lizard` and
-  `drop_coconuts` are after-gate writers no row declares. S2 and the swallow
-  slice make it green by deleting them, not by declaring them. The route is "Body-control
+  never sees it (the A4 debt class; the shipped census in `sim_phase_pins`
+  does not see Mary-O). The route is "Body-control
   contribution" in `extension-domain-contracts.md` (Source routes):
   - S1 (engine): the phase `actor_think`, after `ActorDecisionSet::Publish`
     and before `PlayerInputSet::ControlGate`. The trigger
@@ -435,44 +452,61 @@ before you add a port.
     the body's position, velocity, facing, ground, health, size and the
     position of its target. The request `ambition.actor.fire` puts a fire
     direction into the body's control frame, so the gate restricts it like a
-    brain's own fire. ✅ Witness
-    `app_it::a_custom_brain_module_fires_through_the_gate`: the loaded
-    fixture module `thinker` (`fixtures/extension_fixture_modules`) bound to
-    the key `fixture_thinker` fires straight up in the gated frame and the
-    body's moveset fires the shot; a body a script holds fires none; with no
-    module, no frame or shot goes straight up. Poisons: the phase in
-    `WorldPrepSet::AfterIntegrate` (after the gate) is red at the held body's
-    shots (23 frames of shots); the fire dropped by the adapter is red at
-    the free body's gated frame. The sync-test arm found SHOT-END-REPLAY
-    (queue), a defect on the road from a shot's end to a brain.
-  - S2 ✅ (Mary-O): the Void Lizard is the module
-    `ambition_demo_mary_o_modules::void_lizard` (its throws, and its hop
-    through `ambition.motion.velocity`, now offered in `actor_think`); the
-    native `run_void_lizard` is deleted, and `sim_phase_pins` lost that row.
-    The Mary-O app has `wasm_modules`, so a developer run loads the file:
-    an edit is 0.57 s (`scripts/build_extension_modules.sh
-    ambition_demo_mary_o_modules`) against 23.7 s. The hop is one tick
-    earlier than the native rule's: the module asks before the body
-    integrates, the native rule asked after. Witnesses
-    `mary_o_it::the_void_lizard_throws_and_hops_on_its_modules_schedule_and_not_when_held`
-    (each gated frame of a round against the module's schedule; a held
-    lizard throws nothing) and `the_void_lizard_runs_from_its_module_file`
-    (the same round from the `.wasm`, its runner `Loaded`). Poisons: the
-    module not linked is red at tick 34's throw; the hop not asked is red
-    at tick 165; the file not loaded is red at the runner (`Native`).
-  - S3 ✅ (2026-10-11): the Laden Swallow is
-    `ambition_demo_mary_o_modules::laden_swallow`; `ambition.actor.think`
-    v2 gives the placement id, which offsets each bird's drop tick. The
-    native `drop_coconuts` is deleted, and the control-gate census
-    (`sim_phase_pins`) is green: no Mary-O rule writes control after the
-    gate. Witness
-    `mary_o_it::the_laden_swallow_drops_on_its_modules_rule_and_not_when_held`
-    (each gated frame of two periods against `drops_on` and `over`; a held
-    swallow drops nothing). Poison: the adapter sends no placement, red at
-    tick 115 (`EnemySpawn-108048`).
-  - Next, one slice each, adding only the ports each needs: the plant, the
-    snake shells and the AI Slop (they move bodies after the integration,
-    not control, so each needs a body port first).
+    brain's own fire. Witness: a loaded fixture module bound to a custom
+    brain key fires through the gated frame, and a body a script holds does
+    not. Poison: the lowering after the gate.
+  - S2 (Mary-O, with the Mary-O owner): the Void Lizard as a module in a
+    Mary-O module crate (its fire, and its hop through
+    `ambition.motion.velocity` offered in `actor_think`); the native
+    `run_void_lizard` is deleted. Then each other enemy rule, one slice each,
+    adding only the ports it needs.
+
+**Immediate I4 correction (reviewed at `ed0d1ccd`, 2026-10-11).**
+`game/ambition_demo_mary_o/src/lib.rs:1523-1540` installs
+`swallow::drop_coconuts` and `void_lizard::run_void_lizard` in
+`WorldPrepSet::AfterIntegrate`. They set `ActorControl.0.fire`; the common
+`PlayerInputSet::ControlGate` has already run. The combat action emitter
+runs after `WorldPrep`, so a projectile may still be emitted, but it was not
+subject to that frame's common gate. The existing tests in `swallow.rs` and
+`void_lizard.rs` prove modulo timing, not end-to-end action authority.
+
+1. Keep **one** production control gate. Do not run the gate again after
+   `AfterIntegrate`: this would disturb capture mash sampling, control
+   restriction and other consumers.
+2. In I4 S1, publish a custom brain's intent only in `actor_think`, after
+   `ActorDecisionSet::Publish` and before `PlayerInputSet::ControlGate`.
+   Declare its selection, observation freshness, body/room association,
+   deterministic invocation order and refusal behavior. Lower `actor.fire`
+   into the exact frame the shared gate checks. A hop uses a domain-owned
+   motion request, not mutation of `BodyKinematics` from a module.
+3. Prove one custom brain fires on its scheduled tick and that an equivalent
+   brain under a scripted/captured control hold does **not** fire. Prove a
+   different player in a different live room is not used as the target.
+   Use the production phase graph; a unit test of `throws_on()` is not enough.
+4. Port one Mary-O rule at a time, delete its native implementation and keep
+   reference parity. The extension module must be loadable without recompiling
+   the host. Do not create a second special-case custom-brain dispatcher.
+5. The clock supplied to a module must expose elapsed-time/rate meaning;
+   modulo ticks in Mary-O encode 60 Hz design timing. Coordinate with
+   [simulation tick-rate compatibility](simulation-tick-rate-compatibility.md).
+
+**Second native AI customer (Snake Plant):**
+`game/ambition_demo_mary_o/src/plant.rs:99-157` mixes brain recognition,
+room geometry lookup, single global primary-player targeting, cycle timing,
+pose ownership, and `ContactThreatWithdrawn` projection in one system.
+A player in another live room can affect the plant's shy state. A plant
+whose brain or pot changes can retain `PoseOwnedExternally`. The I4
+`actor_think` observation should include live-room membership and
+relevant nearby actor geometry; its output needs a domain-owned pose/path
+request and threat-active contribution, not permission to write `BodyHealth`
+or `BodyKinematics` directly. Fix room-aware target choice and release
+semantics in the current native system first if the full port is not ready.
+See [unified movement](unified-movement-kernel.md#pose-ownership-under-script-encounter-and-plant-control-new-customer).
+
+**Poison:** move the port lowering back after `ControlGate`; the held-body
+witness must detect the bypass. Remove the module entry from the prepared
+catalog; validation must refuse the custom brain rather than quietly run the
+old native path.
 
 **Acceptance:** an independent module builds against the SDK without Bevy or
 engine code. A ported technique emits the same accepted requests and

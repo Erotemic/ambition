@@ -2,8 +2,9 @@
 
 The frame-aware movement kernel, typed resolution seams, rollback
 registration, surface-momentum operations and portal transit geometry are
-implemented. Git history has the architecture and migration record. Two items
-remain, both waiting on a customer, not on effort.
+are implemented. Git history has the architecture and migration record.
+Two older customer-gated items remain below. A new scripted-pose ownership
+issue is recorded after them; it has concrete October 11 customers.
 
 ## Remaining
 
@@ -59,6 +60,45 @@ obstacles:
   under Reflection.
 
 A direct unit test of the wiring may be cheaper than an end-to-end assertion.
+
+### Pose ownership under script, encounter and plant control (new customer)
+
+`PoseOwnedExternally` tells the movement kernel not to integrate a body.
+Three separate producers now use this marker: `ambition_boss_encounter`'s
+conducted limbs, Mary-O's pipe transit and Mary-O's Snake Plants. The
+marker is a **boolean**, not a record of its owner. One producer can
+remove it while another still expects to hold the same body. Do not
+address this by putting a second kinematic update in gameplay systems.
+
+- `game/ambition_demo_mary_o/src/plant.rs:121-155` sets the marker while
+  its brain is recognized and its pot is found. If either becomes false
+  on a later tick, it `continue`s and does not release its marker. The
+  same path uses `players.single()` globally (`:121`) for its shy-range
+  test: a player in a different live room at overlapping coordinates can
+  change a plant's cycle. These are distinct correctness failures.
+- `game/ambition_demo_mary_o/src/pipe.rs:253-265` removes the common
+  marker on exit, with no check that another authority owns the pose.
+  Its position writes already use `movement::transit_body`, and that
+  common geometry/remap seam should stay.
+
+**Target:** a source-qualified *pose lease* or equivalent admitted
+movement authority that projects to `PoseOwnedExternally` only while at
+least one valid source holds a body. Define arbitration or explicit
+refusal if two incompatible sources try to set one body's path in the
+same frame; do not let system order decide who wins. The engine
+movement kernel remains the one integrator/remap owner. A scripted path
+publishes a transit/pose request and releases its claim on cancellation,
+changed character/brain, room retirement, death, and rollback restore.
+Observation of a player uses `LiveRooms.of(player) == LiveRooms.of(plant)`
+and a deterministic target policy when more than one participant shares
+the room. Port the Snake Plant's behavior to I4 only when `actor_think`
+can express the cycle and its pose request without new native shortcuts.
+
+**Witness:** stop a plant brain or remove/change its pipe while it remains
+alive, and confirm the marker is released; a player in another live room
+cannot make it shy; two pose sources do not erase one another; an active
+pipe/boss limb restores its lease across rollback; the movement kernel
+still sees exactly one final authority and emits no artificial landing.
 
 ## Re-measuring these gates
 

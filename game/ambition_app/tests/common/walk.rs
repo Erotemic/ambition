@@ -343,6 +343,9 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
         }
         let kinematics = *world.get::<ae::BodyKinematics>(player).expect("the player has a body");
         let on_ground = world.get::<ae::BodyGroundState>(player).is_some_and(|ground| ground.on_ground);
+        let wall = world
+            .get::<ae::BodyWallState>(player)
+            .and_then(|wall| wall.on_wall.then_some(wall.wall_normal_x.signum()));
         let feet = kinematics.pos + graph.frame.down * graph.half.y;
         let mut press = Press::default();
         if leg.is_none() && on_ground {
@@ -375,6 +378,7 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
                 side: graph.frame.side,
                 down: graph.frame.down,
                 dt: 1.0 / 60.0,
+                wall,
             };
             let (input, progress) = follow_leg(&current, phase, &facts);
             // A player walks at the top speed; the leg slows the stick

@@ -252,8 +252,21 @@ hold-up (local -y) to the kernel, in the rollout and in the brain. Guard:
 `navigation::graph::tests::a_body_that_climbs_gets_up_a_wall_no_jump_clears`
 (a pillar three jumps tall: a wall-climb link that arrives in the kernel;
 control, with no climb the top is out of reach). Poison: no hold-up, red at
-the wall-climb link. A wall jump (a kick off one face to another) is still
-no leg.
+the wall-climb link.
+
+A wall jump is one leg (2026-10-12), for a body that can wall jump: a hop to
+the face beside a higher surface, then a kick off each wall the body touches
+below the landing, going on the way the kick sends it to the next wall, and
+once the feet are over the landing's height, a steer onto it. So it goes up a
+shaft of two walls. `LegFacts.wall` carries the wall the body touches (its
+face's side), from the rollout's body, from a brain's `side_contact_normal`
+and from the walker's `BodyWallState`. It is proposed after the climb and
+before flight, only where nothing cheaper arrives, up to 600 px. No early
+miss: the body is below its landing the whole way up. Guard:
+`navigation::graph::tests::a_body_that_wall_jumps_gets_up_a_shaft_no_jump_clears`
+(two walls three jumps tall: a wall-jump link from the shaft's floor to a
+wall's top that arrives in the kernel; control, with no wall jump the top is
+out of reach). Poison: no kick, red at the wall-jump link.
 
 A dash is one leg, the dash hop (2026-10-12), for a body with a dash: jump
 at the take-off, and at the top of the arc press the dash (the burst press)
@@ -320,7 +333,8 @@ blocks only, red at `alice_relay` (the body walks into the lock and stops).
 Not modelled, each a seam:
 
 - a drop through a one-way surface, a second air jump, an air jump in a drop,
-  a dash on the ground or up, a wall jump, permanent flight, a pogo bounce;
+  a dash on the ground or up, a wall jump off one wall onto its own top,
+  permanent flight, a pogo bounce;
 - a slope or a surface chain, a surface that moves;
 - geometry that is not authored in the room (a gate, a breakable). A leg such a
   thing stops fails, and the brain plans again;
@@ -427,8 +441,8 @@ The slices, each with its own witness:
    mismatch at frame 182 again.
 
 Not in these slices: enemy navigation and a baked graph (Jon's open
-decisions), a door that needs Interact (a body crosses edge zones first), and
-legs for a wall jump (the air jump, the climb and the dash have legs, above).
+decisions), and a door that needs Interact (a body crosses edge zones first).
+The air jump, the climb, the dash and the wall jump have legs (above).
 
 ## Architecture direction
 

@@ -52,6 +52,10 @@ pub enum NavLegKind {
     /// Jump at `takeoff`, dash toward `land` at the top of the arc, and
     /// steer to it: for a body with a dash, over a gap no jump clears.
     DashHop,
+    /// Jump at `takeoff` to the wall face beside `land`, and kick off each
+    /// wall the body touches below `land` until it is above it, then steer
+    /// onto it: up a shaft of two walls. For a body that can wall jump.
+    WallJump,
     /// Toggle flight at `start`, fly up and along to the air above `land`,
     /// toggle flight off there and fall onto it. For a body that can toggle
     /// flight.
@@ -111,6 +115,9 @@ pub struct LegFacts {
     pub side: Vec2,
     pub down: Vec2,
     pub dt: f32,
+    /// The wall the body touches, as the side its face points to along
+    /// `side` (`1.0`: away from it is `+side`), or `None`.
+    pub wall: Option<f32>,
 }
 
 /// The input of one step of a leg.
@@ -180,7 +187,11 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
             let running = LegInput { axis: direction, full_speed: true, ..Default::default() };
             match leg.kind {
                 NavLegKind::Walk => (LegInput::default(), LegProgress::Going(LegPhase::Approach)),
-                NavLegKind::Hop | NavLegKind::DoubleHop | NavLegKind::DashHop | NavLegKind::WallClimb => {
+                NavLegKind::Hop
+                | NavLegKind::DoubleHop
+                | NavLegKind::DashHop
+                | NavLegKind::WallClimb
+                | NavLegKind::WallJump => {
                     if !facts.on_ground {
                         return (LegInput::default(), LegProgress::Failed);
                     }
@@ -292,6 +303,36 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                 };
                 let next = if falling { LegPhase::SecondAir } else { LegPhase::Air };
                 return (input, LegProgress::Going(next));
+            }
+            // A wall jump: kick off each wall touched below the landing, keep
+            // going the way the kick sends the body to the next wall, and
+            // steer onto the landing once above it. The body is below its
+            // landing the whole way up: no early miss.
+            if leg.kind == NavLegKind::WallJump {
+                // The feet are over the landing's height: it is below them.
+                let above = below(leg.land) > LAND_TOLERANCE;
+                let input = match facts.wall {
+                    Some(away) if !above => LegInput {
+                        axis: away,
+                        full_speed: true,
+                        jump_pressed: true,
+                        jump_held: true,
+                        ..LegInput::default()
+                    },
+                    _ if above => LegInput {
+                        axis: steer_to(leg.land, 16.0),
+                        full_speed: true,
+                        jump_held: true,
+                        ..LegInput::default()
+                    },
+                    _ => LegInput {
+                        axis: speed.signum(),
+                        full_speed: true,
+                        jump_held: true,
+                        ..LegInput::default()
+                    },
+                };
+                return (input, LegProgress::Going(phase));
             }
             // A climbing body is below its landing the whole way up, and it
             // slides down a little before it climbs: no early miss. A climb
@@ -419,7 +460,7 @@ mod tests {
     use super::*;
 
     fn facts(feet: Vec2, vel: Vec2, on_ground: bool) -> LegFacts {
-        LegFacts { feet, vel, on_ground, side: Vec2::X, down: Vec2::Y, dt: 1.0 / 60.0 }
+        LegFacts { feet, vel, on_ground, side: Vec2::X, down: Vec2::Y, dt: 1.0 / 60.0, wall: None }
     }
 
     #[test]

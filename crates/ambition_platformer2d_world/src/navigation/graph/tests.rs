@@ -101,6 +101,7 @@ impl Fixture {
                     side: Vec2::X,
                     down: Vec2::Y,
                     dt: DT,
+                    wall: body.wall.on_wall.then_some(body.wall.wall_normal_x.signum()),
                 };
                 let (step_input, progress) = follow_leg(&current, phase, &facts);
                 input = step_input;
@@ -379,6 +380,54 @@ fn a_body_that_dashes_gets_across_a_gap_no_jump_clears() {
         NavNext::Unreachable,
         "control: with no dash the far ledge is out of reach"
     );
+}
+
+/// ⭐ A BODY THAT WALL JUMPS GETS UP A SHAFT NO JUMP CLEARS. Two walls three
+/// jumps tall, with a shaft between them: the graph has a wall-jump link from
+/// the floor of the shaft to the top of a wall, and it arrives in the kernel
+/// by the follower's rule (it jumps to a face, kicks off each wall it
+/// touches, and steers onto the top when it is above it). The control is the
+/// same body with no wall jump: the top is out of reach.
+#[test]
+fn a_body_that_wall_jumps_gets_up_a_shaft_no_jump_clears() {
+    let kicker = || {
+        let abilities = AbilitySet { move_horizontal: true, jump: true, wall_jump: true, ..AbilitySet::NONE };
+        BodyClusterScratch::new_with_abilities(Vec2::ZERO, abilities)
+    };
+    let apex = TraversalEnvelope::measure(&kicker(), normal_frame(), EnvelopeProbe::default())
+        .expect("measured")
+        .apex_rise();
+    let tall = apex * 3.0;
+    let world = World::new(
+        "a shaft no jump clears",
+        Vec2::new(4000.0, 3000.0),
+        Vec2::ZERO,
+        vec![
+            Block::solid("floor", Vec2::new(0.0, FLOOR), Vec2::new(1600.0, 64.0)),
+            Block::solid("left wall", Vec2::new(600.0, FLOOR - tall), Vec2::new(100.0, tall)),
+            Block::solid("right wall", Vec2::new(900.0, FLOOR - tall), Vec2::new(100.0, tall)),
+        ],
+    );
+    let fixture = Fixture {
+        graph: NavGraph::build(&world, &kicker(), normal_frame()).expect("an upright body has a graph"),
+        world,
+        body: kicker(),
+    };
+    let shaft = Vec2::new(800.0, FLOOR);
+    let top = fixture.middle("right wall");
+    let link = fixture
+        .graph
+        .surface_at(shaft)
+        .zip(fixture.graph.surface_at(top))
+        .and_then(|(from, to)| fixture.graph.links.iter().find(|link| link.from == from && link.to == to))
+        .map(|link| link.leg.kind);
+    assert_eq!(link, Some(NavLegKind::WallJump), "the shaft's floor to the right wall's top");
+    fixture
+        .travel(shaft, top)
+        .unwrap_or_else(|why| panic!("up the shaft by wall jumps: {why}"));
+
+    let graph = NavGraph::build(&fixture.world, &walker(), normal_frame()).expect("a walker has a graph");
+    assert_eq!(graph.next(shaft, top), NavNext::Unreachable, "control: with no wall jump the top is out of reach");
 }
 
 /// ⭐ A LEG THROUGH A HAZARD IS NO LEG. A gap the body hops, with a hazard

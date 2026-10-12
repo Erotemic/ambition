@@ -95,6 +95,7 @@ impl NavFollower {
                 side,
                 down: frame.to_world(ae::Vec2::Y),
                 dt: snapshot.dt,
+                wall: snapshot.side_contact_normal,
             };
             let (input, progress) = follow_leg(&leg, self.phase, &facts);
             out.locomotion = if input.full_speed {

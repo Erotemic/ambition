@@ -137,6 +137,7 @@ impl NavGraph {
         let can_climb = verbs.wall_cling && verbs.wall_climb;
         let can_fly = verbs.fly && verbs.fly_toggle;
         let can_dash = verbs.dash;
+        let can_wall_jump = verbs.wall_jump;
         let mut graph = Self {
             frame: nav,
             half,
@@ -167,9 +168,10 @@ impl NavGraph {
                 // higher than a jump, and further.
                 let dash = can_dash && rise < apex - 1.0 && gap <= jump_reach + MAX_DASH_GAIN + slack;
                 let climb = can_climb && rise > 1.0 && rise <= MAX_CLIMB && gap <= air_jump_reach.max(jump_reach) + slack;
+                let wall_jump = can_wall_jump && rise > 1.0 && rise <= MAX_CLIMB && gap <= jump_reach + slack;
                 // Flight is for going up: a drop gets down.
                 let fly = can_fly && rise > 1.0;
-                if rise < -envelope.probe.max_drop || !(hop || drop || double || dash || climb || fly) {
+                if rise < -envelope.probe.max_drop || !(hop || drop || double || dash || climb || wall_jump || fly) {
                     continue;
                 }
                 let mut cost = BuildCost::default();
@@ -188,12 +190,13 @@ impl NavGraph {
                     proposals(a, b, half.x, true, false).into_iter().map(move |leg| NavLeg { kind, ..leg }).collect()
                 };
                 // The cheaper leg first: one jump, then the air jump, then a
-                // dash, then a climb, then flight, each only where the one
-                // before it does not arrive.
+                // dash, then a climb, then wall jumps, then flight, each only
+                // where the one before it does not arrive.
                 let best = arrived(proposals(a, b, half.x, hop, drop), &mut cost)
                     .or_else(|| double.then(|| arrived(as_kind(NavLegKind::DoubleHop), &mut cost)).flatten())
                     .or_else(|| dash.then(|| arrived(as_kind(NavLegKind::DashHop), &mut cost)).flatten())
                     .or_else(|| climb.then(|| arrived(as_kind(NavLegKind::WallClimb), &mut cost)).flatten())
+                    .or_else(|| wall_jump.then(|| arrived(as_kind(NavLegKind::WallJump), &mut cost)).flatten())
                     .or_else(|| {
                         fly.then(|| {
                             let mut legs: Vec<NavLeg> = as_kind(NavLegKind::Fly);
@@ -355,6 +358,7 @@ impl NavGraph {
                 side: self.frame.side,
                 down: self.frame.down,
                 dt,
+                wall: body.wall.on_wall.then_some(body.wall.wall_normal_x.signum()),
             };
             let (input, progress) = follow_leg(leg, phase, &facts);
             match progress {

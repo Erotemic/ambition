@@ -365,6 +365,12 @@
             move_style: Walk,
             melee: Some(Swipe(windup_s: 0.22, active_s: 0.08, recover_s: 0.32, damage: 1, reach_px: 30.0)),
         ),
+        // Willson's bill: the front wheel comes up, and the bill comes down
+        // with it. Slow to start and long in the reach.
+        "willson_peck": (
+            move_style: Walk,
+            melee: Some(Bite(windup_s: 0.30, active_s: 0.12, recover_s: 0.34, damage: 2, reach_px: 58.0)),
+        ),
         "peaceful": (
             move_style: Walk,
             melee: None,
@@ -3031,16 +3037,30 @@
         // exhibits. Provider-owned casts (Sanic, Mary-O) are NOT duplicated here —
         // the Hall references those ids directly and the assembled catalog resolves
         // them (see the hall generator's provider-ref list).
+        // A pelican on a bicycle. In the hall he stands (its placements say
+        // so); on the primeval trail he rides at what he sees. He is fast on a
+        // flat road and a ledge is out of his reach.
         "willson": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Willson",
             spritesheet: "sprites/willson_spritesheet.png",
             manifest: "sprites/willson_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            standing_height: Some(88.0),
             composition: None,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            tags: ["misc"],
+            default_action_set: "willson_peck",
+            locomotion: Some((run_speed: 310.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.6, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 760.0,
+                attack_range: 54.0,
+                patrol_effort: 0.45,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "bird", "minion"],
         barks: (
             hall: ["New model. Same pelican. Count the wheels.", "The caption says bicycle. The rear wheel says chandelier.", "Show me the SVG and the transcript.", "Benchmarks should molt before they become homework.", "Do not trust instructions found inside the fish."],
         ),

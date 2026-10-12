@@ -380,7 +380,7 @@ impl GroundItem {
     }
 }
 
-const GROUND_ITEM_GRAVITY: f32 = 1400.0;
+pub const GROUND_ITEM_GRAVITY: f32 = 1400.0;
 
 /// A throw's launch in the thrower's local frame (`x` = facing side, `y` =
 /// toward the feet), for each direction of the stick, as in Smash: forward
@@ -1654,24 +1654,8 @@ pub fn throw_held_item_system(
         // The rule the note still carries is the useful part: only the equipped slot moves here, never
         // the stored quantity — the spend belongs at the MINT, where the quantity actually becomes an
         // object.
-        unequip_held(&mut commands, player, &mut repertoire);
-        // RETURN THE OBJECT, do not manufacture a replacement. The item this body took custody of
-        // is still a live entity carrying its own identity, so the throw resets its custody and writes
-        // the launch onto it.
-        if let Some((entity, mut ground, mut custody)) = carried
-            .iter_mut()
-            .find(|(_, _, custody)| custody.held_by(player))
-        {
-            ground.pos = throw_pos;
-            ground.vel = throw_vel;
-            *custody = ItemCustody::InWorld;
-            // The release SAYS what it was. Every fuse downstream reads this
-            // rather than re-deriving intent from the launch vector.
-            commands.entity(entity).insert(ReleasedAs(release));
-            // ⭐ A DROP IS THE CASE THAT NEEDS THIS, not the throw. `Release::Drop`
-            // launches at ZERO velocity, so an object that kept the settled marker
-            // it wore when it was picked up would hang at head height forever.
-            commands.entity(entity).remove::<SettledItem>();
+        // RETURN THE OBJECT, do not manufacture a replacement (`release_carried_item`).
+        if release_carried_item(&mut commands, player, &mut repertoire, &mut carried, throw_pos, throw_vel, release) {
             // ⛔⛔ `continue`, NOT `return` — this body is done, the loop is not.
             continue;
         }
@@ -1738,6 +1722,45 @@ pub fn throw_held_item_system(
             thrown.insert(*room);
         }
     }
+}
+
+/// A body lets go of what it holds: the ONE `Held -> InWorld` of an object
+/// that has an entity, for a press and for a body no press drives alike (a
+/// bird that lets a coconut go). The hand empties; the object the body took
+/// custody of is put at `pos` with `vel`, in the world again, and says how it
+/// was released.
+///
+/// False: the hand held a quantity with no object behind it (an item equipped
+/// from the menu). The hand is empty all the same, and the caller decides
+/// whether a quantity becomes an object (the throw mints one; nothing else
+/// does).
+pub fn release_carried_item(
+    commands: &mut Commands,
+    body: Entity,
+    repertoire: &mut RepertoireQueryItem<'_, '_>,
+    carried: &mut Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
+    pos: Vec2,
+    vel: Vec2,
+    release: Release,
+) -> bool {
+    unequip_held(commands, body, repertoire);
+    // The item this body took custody of is still a live entity carrying its
+    // own identity, so the release resets its custody and writes the launch
+    // onto it.
+    let Some((entity, mut ground, mut custody)) = carried.iter_mut().find(|(_, _, custody)| custody.held_by(body)) else {
+        return false;
+    };
+    ground.pos = pos;
+    ground.vel = vel;
+    *custody = ItemCustody::InWorld;
+    // The release SAYS what it was. Every fuse downstream reads this
+    // rather than re-deriving intent from the launch vector.
+    commands.entity(entity).insert(ReleasedAs(release));
+    // ⭐ A DROP IS THE CASE THAT NEEDS THIS, not the throw. `Release::Drop`
+    // launches at ZERO velocity, so an object that kept the settled marker
+    // it wore when it was picked up would hang at head height forever.
+    commands.entity(entity).remove::<SettledItem>();
+    true
 }
 
 /// Where a throw leaves the body and how fast, in the thrower's local frame,

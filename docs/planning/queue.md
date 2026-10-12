@@ -54,9 +54,12 @@ the way in its own slice:
 [REVIEW-1011](#review-1011--five-boundaries-where-one-subsystem-reconstructs-anothers-fact)
 rows.
 
-New correctness interrupt from the 2026-10-11 late source review:
-[REVIEW-1011-INTEGRATION](#review-1011-integration---real-engine-contracts-for-new-demo-behavior).
-It needs witness-first repair; do not reopen the five closed REVIEW-1011 rows.
+New correctness interrupts from the 2026-10-11 integration review:
+[REVIEW-1011-INTEGRATION](#review-1011-integration---real-engine-contracts-for-new-demo-behavior)
+and [SHOT-END-REPLAY](#shot-end-replay--a-brain-that-saw-its-shot-end-replays-differently).
+Re-check against the live tree before acting: the I4 S1-S3 control-gate migration
+landed after the reviewed `ed0d1ccd` snapshot. Do not reopen its solved work or
+the five closed REVIEW-1011 rows.
 
 Short slice at any point: [PUBLICATION-FAULT](#publication-fault--a-refused-later-room-must-not-leave-a-mixed-world).
 The two owner pages the 2026-10-08 review found stale (the fingerprint and the
@@ -75,7 +78,10 @@ neither side of it.
 `ed0d1ccd` (2026-10-11), covering `abf79de..ed0d1ccd` (133 commits).
 The five prior REVIEW-1011 repairs below remain **closed**. Owner:
 engine architecture with portal, control, combat and presentation domain
-owners. Runtime failing witnesses and fixes have **not** been run yet.
+owners. This audit did not execute new runtime witnesses. **Live-tree check
+at `e473d2c`:** I4 S1-S3, including the pre-gate `actor_think` phase and
+Void Lizard/Laden Swallow migration, have landed with integration witnesses.
+Do not reimplement those parts of the historical audit.
 
 **Current failures, ordered by effect on engine authority:**
 
@@ -85,10 +91,12 @@ owners. Runtime failing witnesses and fixes have **not** been run yet.
    endpoints can both resolve to the same slot. Aperture equalization also
    mutates away the authored width. GNU-ton separately reconciles only by
    `(room,line)`, fixed channels 24/25 and singleton IDs.
-2. Mary-O's Void Lizard and Swallow write `ActorControl.fire` **after**
-   the common gate, and Snake Plants use a global player's coordinates
-   across live rooms. A stopped/rebound plant may retain an external-pose
-   marker.
+2. Mary-O's Snake Plant still reads a global `PrimaryPlayer` position
+   without checking the plant's live room. A stopped/rebound plant may retain
+   its external-pose marker. **Already corrected since `ed0d1ccd`:** Void
+   Lizard and Laden Swallow now decide through the pre-gate `actor_think`
+   module path; their `ActorTarget` source already filters to the actor's
+   live room. The historical late-control-writer defect is no longer open.
 3. Mary-O's pipe ride borrows `BodyCombat.recoil_lock_timer` as an input
    lock, then zeros that combat timer on exit. It also shares a boolean
    `PoseOwnedExternally` with unrelated pose producers.
@@ -135,15 +143,15 @@ owners. Runtime failing witnesses and fixes have **not** been run yet.
   GNU-ton's fixed-channel join. See
   [portal identity](engine/portal-pair-identity-and-aperture.md) and
   [GNU-ton debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
-- **IN2 / P0, action authority:** held custom-brain fire must fail at
-  the production control gate. Implement the existing I4 `actor_think`
-  pre-gate phase, migrate Void Lizard then Swallow. Scope Snake Plant
-  observations to its live room and remove stale pose holds. Scope the
-  Void Lizard and Swallow to the same live-room rule as well. A post-gate
-  fire write is **not necessarily dropped**: the combat move trigger follows
-  this writer in the fixed-step schedule. The failure is bypass of the gate
-  and loss of one admission authority. See
-  [I4](engine/fast-iteration-implementation.md#i4---small-procedural-sdk-and-one-native-semantic-reference)
+- **IN2 / P1, remaining plant authority:** the S1-S3 `actor_think`
+  pre-gate control road and Void Lizard/Swallow module migration are **done**
+  with held-body production-path witnesses. `select_actor_targets` already
+  filters `ActorTarget` to the actor's live room; do not duplicate that
+  selection in each module. Add a two-live-room witness for Snake Plant's
+  global-primary proximity check and repair its stale pose hold on brain,
+  geometry, death and rollback transitions. Its contact consequences belong
+  in the separately proposed body-contact phase, not another brain path.
+  See [I4](engine/fast-iteration-implementation.md#i4---small-procedural-sdk-and-one-native-semantic-reference)
   and [movement](engine/unified-movement-kernel.md#pose-ownership-under-script-encounter-and-plant-control-new-customer).
 - **IN3 / P1, control/presentation isolation:** replace pipe's recoil
   borrowing with an independent source-owned control hold; guard pose
@@ -732,6 +740,30 @@ Not done: an apply-time refusal after every room passed is logged
 (`apply_world_replacement`), not failed loudly. With a correct projection it
 cannot happen.
 
+### SHOT-END-REPLAY — a brain that saw its shot end replays differently
+
+**Owner:** [simulation authority](engine/simulation-authority-and-determinism.md).
+Found 2026-10-11 by the `actor_think` witness (fast-iteration I4).
+
+**Measured:** a smash-brain NPC (`perfect_cellular_automaton`) whose fire is
+straight up, under a GGRS sync test (check distance 4, window 10). Its shot
+flies from frame 7 to frame 30 and is gone on frame 31. From frame 35,
+`RollbackRestoreAudit` reports `ambition_characters::brain::Brain` (the
+cursor census over the room's 4 brains) "recomputed differently on replay",
+and GGRS reports a checksum mismatch at frame 38. The same body with its
+native fire (toward the player, the shot does not end in the window) is
+healthy for 40 frames, and a held body (the gate removes the fire) is
+healthy. So the cause is on the road from a shot's end to a brain's state,
+not in the extension host.
+
+**Reproducer:** `app_it::a_custom_brain_module_fires_through_the_gate` with
+`with_sync_test_rollback_settings(4, 10)` on its free arm.
+
+**Next:** find which brain and which field moves (the census is an xor over
+the room), and which read of the shot's end differs between the first run
+and a replay (a raw `Entity`, a message across the rewind, a non-rollback
+`Local`). Fix it in its own slice, and add the sync-test arm to the witness.
+
 ### AP14 — semantic actor-monolith SCC decomposition (continuous; deferred 2026-10-09)
 
 **Owner:** [`actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
@@ -782,6 +814,7 @@ Rust move tables are migration scaffolding.
 
 - The three families that did not reload (music cues, cutscenes, quests) all take part since 2026-10-07. The references a candidate can break (a room naming a removed cutscene; a quest step naming a boss or room that does not exist) are judged at request time by the startup validator itself (`ContentGraphRefused`, 2026-10-07). Supersession of an in-flight generation is done (2026-10-07), and the quest book is asked again at the activation gate with the save as it is then, so a save that moves while a generation waits cancels it instead of being clamped.
 - I4: save eligibility for body records and checkpoints. A session record `kept durable` is kept by the durable save since 2026-10-11 (`module_save_road`; see the I5 section). GNU-ton's conductor is a module (2026-10-11). Every held traversal item is a module (blink, dive, mark/recall and the grapple, 2026-10-10; the grapple reads the first wall along its aim through `ambition.items.aim_cast`).
+- I4 `actor_think` S1-S3 are complete (pre-gate module brain, Void Lizard, Laden Swallow; tests in `app_it` and `mary_o_it`). The next missing route is body-contact plus its domain ports for plant, snake shells, AI Slop and Sanic badnik; do not replace the completed brain road.
 
 **Blocked by:** nothing.
 

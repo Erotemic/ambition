@@ -435,18 +435,22 @@ before you add a port.
   record (`bosses::gnu_ton::conductor_of`). Poison: the module removed from
   `MODULES` reddens 12 `gnu_ton_fight` arms and the two-room hall arm.
 
-- Open (2026-10-11), **a custom brain as a module** (`actor_think`). The
-  ported Ambition behaviour is modules, but a demo's enemy behaviour is still
-  Rust in the demo crate. Measured 2026-10-11: one constant edit in a Mary-O
-  enemy rule compiles `ambition_demo_mary_o` and its app (23.7 s); the same
-  edit in a loaded module is 0.34 s and no relink. The Mary-O enemy rules
-  (`void_lizard`, `swallow`, `plant`, `snake`, `ai_slop`) run in
-  `WorldPrepSet::AfterIntegrate`. Two of them (`void_lizard`, `swallow`)
-  write the body's fire intent there, after the control gate, so the gate
-  never sees it (the A4 debt class; the shipped census in `sim_phase_pins`
-  does not see Mary-O). The route is "Body-control
-  contribution" in `extension-domain-contracts.md` (Source routes):
-  - S1 (engine): the phase `actor_think`, after `ActorDecisionSet::Publish`
+- 2026-10-11 (S1-S3 ✅), **a custom brain as a module** (`actor_think`).
+  A custom brain now decides through a loaded module after
+  `ActorDecisionSet::Publish` and before the single
+  `PlayerInputSet::ControlGate`. The Void Lizard and Laden Swallow have been
+  migrated and their late native fire writers deleted; the production
+  witnesses cover normal and held bodies. The old after-gate bypass from
+  `ed0d1ccd` is **historical**, not remaining work. Moving their behavior
+  from demo Rust to modules reduced one edit from 23.7 s for a host build
+  to 0.34-0.57 s for a module (different measured edits; no claim of a
+  controlled benchmark). The `Body-control contribution` route in
+  `extension-domain-contracts.md` serves these brains. What remains in
+  demo Rust includes plant/snake/AI Slop and Sanic contact consequences,
+  plus move-invoked techniques: these need a body-contact phase and domain
+  ports, not another custom-brain dispatcher. The separate SHOT-END-REPLAY
+  rollback regression remains open in the [queue](../queue.md#shot-end-replay--a-brain-that-saw-its-shot-end-replays-differently).
+  - S1 ✅ (engine): the phase `actor_think`, after `ActorDecisionSet::Publish`
     and before `PlayerInputSet::ControlGate`. The trigger
     `ambition.actor.think` (selector: the `CharacterBrain::Custom` key) gives
     the body's position, velocity, facing, ground, health, size and the

@@ -10,6 +10,16 @@ Do not equate an apparent static defect with a measured user-facing failure.
 Each engine owner document specifies the target abstraction. This is evidence,
 not a second work tracker.
 
+**Current-tree status check at `e473d2c` (2026-10-11):** S1-S3 of the
+`actor_think` migration have landed. The loaded Void Lizard and Laden Swallow
+submit fire before the common control gate and have held-body witnesses;
+`select_actor_targets` filters `ActorTarget` candidates by `LiveRooms`.
+The table's late-fire and primary-target rows describe the **older audited
+snapshot**, not outstanding defects in those two modules. Snake Plant still
+reads `PrimaryPlayer` without a live-room join and can retain its pose marker.
+The rollout also found an open, reproducible brain rollback mismatch at shot
+expiration: [SHOT-END-REPLAY](../queue.md#shot-end-replay--a-brain-that-saw-its-shot-end-replays-differently).
+
 | Case | Source evidence at this commit | Static verdict | Minimum falsifier / witness | Owner |
 | --- | --- | --- | --- | --- |
 | Portal link renumbering | `crates/ambition_portal2d/src/link.rs:69-127`; rank in sorted *current* hashes **across all rooms** becomes channel; at most 63 distinct link hashes globally | Definite identity instability on insertion/removal of lower-sorted link, even in another room, plus global scale cap | Two static pairs, insert a third in a different room, inspect both old channels/cooldowns; distribute 64 names across rooms | [portal identity](../engine/portal-pair-identity-and-aperture.md) |
@@ -17,8 +27,8 @@ not a second work tracker.
 | Irreversible aperture shrink | `link.rs:130-153` writes min opening into the same `PlacedPortal.half_extent` it reads next frame | Definite lossy update if an opening later grows | Shrink one mate, restore it, inspect previously authored size | [portal identity](../engine/portal-pair-identity-and-aperture.md) |
 | GNU-ton duplicate portal request | `game/ambition_content/src/bosses/gnu_ton/portals.rs:125-228` joins by room+line, fixed channels 24/25, singleton `SimId` | Definite missing encounter scope | Two bosses, same live room, distinct portal destinations before/after one dies | [boss debt 12](../game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter) |
 | GNU-ton gate reads corpse state | `game/ambition_content/src/bosses/gnu_ton/mod.rs:79-106` uses `any(!alive())` | Definite early opening for two bosses; potential reclose after corpse cleanup | Two bosses defeat-one/defeat-both, despawn corpses, reload/rollback | [boss debt 13](../game/gnu-ton-fight-debts.md#13-the-exit-gate-reads-a-corpse-not-an-encounter-outcome) |
-| Mary-O fire bypass | `game/ambition_demo_mary_o/src/{void_lizard,swallow}.rs` write control in `WorldPrepSet::AfterIntegrate`, after `PlayerInputSet::ControlGate` | Definite bypass of gate; **not** proven suppressed attack because combat consumes later | Production-schedule gate-held body on shot tick, compare gated vs non-gated; fire must be admitted once | [I4](../engine/fast-iteration-implementation.md#i4---small-procedural-sdk-and-one-native-semantic-reference) |
-| AI sees wrong live room | Void Lizard, Swallow and Plant read `PrimaryPlayer` without joining `LiveRooms` to their target | Definite missing room filter; observed gameplay effect conditional on simultaneous rooms | One player in room A, enemies in B at same coordinates | [control](../engine/control-authority-and-ai-policy.md) |
+| Mary-O fire bypass (historical, repaired) | At `ed0d1ccd`, `game/ambition_demo_mary_o/src/{void_lizard,swallow}.rs` wrote control in `WorldPrepSet::AfterIntegrate` after the gate | Repaired by I4 S1-S3 in `e473d2c`: native fire writers deleted, module intent pre-gate; production witnesses in `app_it` and `mary_o_it` | Keep held-body/module-file witnesses; do not reopen the gate migration | [I4](../engine/fast-iteration-implementation.md#i4---small-procedural-sdk-and-one-native-semantic-reference) |
+| AI sees wrong live room (partial, still open for Plant) | At `ed0d1ccd`, Void Lizard, Swallow and Plant used global `PrimaryPlayer`. Now modules read `ActorTarget`, whose selector filters to same `LiveRooms` instance; Plant still uses a global player | Remaining Snake Plant room filter is absent; its gameplay impact needs simultaneous-room witness | One player in room A, plant in B at overlapping coordinates; module targets remain actor-room scoped | [control](../engine/control-authority-and-ai-policy.md) |
 | Scripted pipe borrows combat lock | `game/ambition_demo_mary_o/src/pipe.rs:253-264` writes `recoil_lock_timer`, clears to zero on exit | Definite overlapping-writer hazard; actual collision requires overlapping sources | Apply independent recoil during transit; exit must not erase it | [control](../engine/control-authority-and-ai-policy.md) |
 | Pose marker can be stolen | Mary-O Plant/Pipe and mount path use `PoseOwnedExternally`; independently insert/remove same boolean | Source-overlap can release somebody else's hold | Overlap two pose sources, remove one, confirm pose remains owned | [movement](../engine/unified-movement-kernel.md) |
 | Void fields cross camera layers | `crates/ambition_render/src/void_field.rs:158-191` projects all visible effects without camera/source `RenderLayers` check | Definite omitted layer filter; external visibility impact depends on view arrangement | Two overlapping camera projections on disjoint layers; include wards and multiple live rooms | [R7](../engine/render-animation-and-vfx.md#r7---full-screen-field-visibility-must-match-the-cameras-render-layers) |
@@ -36,11 +46,14 @@ not a second work tracker.
 
 ## Explicit corrections to earlier review claims
 
-1. **Mary-O late fire is gate bypass, not necessarily a dropped attack.** In
-   the fixed-tick schedule the combat move trigger follows the custom brain's
-   `WorldPrepSet::AfterIntegrate`. The proof needed is admission/hold behavior,
-   not a guessed no-projectile symptom. The Lizard also writes velocity
-   directly; route it through the appropriate movement authority.
+1. **At `ed0d1ccd`, Mary-O late fire was gate bypass, not necessarily a
+   dropped attack.** In the fixed-tick schedule the combat move trigger
+   followed the old late writer. I4 S1-S3 have since repaired the admission
+   path: loaded module fire is pre-gate and Void Lizard's hop submits the
+   `ambition.motion.velocity` port, rather than directly editing kinematics.
+   The completed tests are receipts; do not ask an architecture agent to
+   implement this old migration again. The separate shot-end rollback bug
+   remains queued.
 2. **Cosmic hitstop intent is a choice, not established by the function name.**
    `ImpactHitstop` ignores contact damage intentionally. A modifier for
    eligible attack connects must not let repetitive contact attrition freeze

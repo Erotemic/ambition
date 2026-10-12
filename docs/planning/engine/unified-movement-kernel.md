@@ -1,7 +1,7 @@
 # Unified movement kernel — remaining work
 
 The frame-aware movement kernel, typed resolution seams, rollback
-registration, surface-momentum operations and portal transit geometry are
+registration, surface-momentum operations and portal transit geometry
 are implemented. Git history has the architecture and migration record.
 Two older customer-gated items remain below. A new scripted-pose ownership
 issue is recorded after them; it has concrete October 11 customers.

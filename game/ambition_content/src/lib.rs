@@ -132,6 +132,8 @@ mod patent_clerk_moveset;
 mod performer_moveset;
 #[cfg(test)]
 mod pirate_admiral_moveset;
+#[cfg(test)]
+mod ramen_nujan_moveset;
 pub mod player_robot_lineage;
 pub mod player_robot_moveset;
 pub mod plugin;

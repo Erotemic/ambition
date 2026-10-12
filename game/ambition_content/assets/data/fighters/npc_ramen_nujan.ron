@@ -1,0 +1,12 @@
+// RAMEN-NUJAN'S PLATFORM-FIGHTER FACET: what the mathematician is on a Smash
+// stage, where that differs from what his moveset says.
+//
+// His moveset (`data/movesets/ramen_nujan.ron`) is authored for the Smash
+// stage, so its damage is percent already and no move is named here.
+//
+// He is a slight man in a coat: a light fighter. A hit launches him further
+// than it launches the reference body.
+(
+    character: "npc_ramen_nujan",
+    knockback_weight: Some(0.9),
+)

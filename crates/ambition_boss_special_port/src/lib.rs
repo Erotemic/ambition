@@ -200,7 +200,7 @@ impl BossSummon {
 
 pub mod conduct;
 pub use conduct::{
-    BodyBox, BossConduct, BossConductPort, BossGuard, BossGuardPort, ConductedPose, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort,
+    BodyBox, BodySwing, BossConduct, BossConductPort, BossGuard, BossGuardPort, ConductedPose, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort,
     LimbBlow, LimbBlowPort, LimbBond, LimbBondPort, LimbHold, LimbOpening, LimbOpeningPort, LimbPose, LimbPosePort, MountLaunch, MountLaunchPort, LiveMove, MountLimb, MountView, MountViewPort, Pose, RoomHall,
 };
 

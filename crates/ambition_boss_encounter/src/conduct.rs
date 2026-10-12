@@ -9,7 +9,7 @@
 //! flying spaghetti monster is the first (`ambition_content_modules::fsm`).
 
 use ambition_boss_special_port::{
-    BodyBox, BossConduct, BossConductPort, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LiveMove, RoomHall,
+    BodyBox, BodySwing, BossConduct, BossConductPort, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LiveMove, RoomHall,
 };
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::{BossAttackProfile, BossAttackState};
@@ -74,7 +74,7 @@ pub fn queue_boss_conducts(
     >,
     live_rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // The tracked body, read now: `ActorTarget` holds where the boss last saw it.
-    bodies: Query<&ae::BodyKinematics>,
+    bodies: Query<(&ae::BodyKinematics, Option<&ambition_combat::moveset::MovePlayback>)>,
 ) {
     if time.sim_dt() <= 0.0 {
         return;
@@ -133,12 +133,28 @@ pub fn queue_boss_conducts(
                 room,
                 health: health.current(),
                 invulnerable: encounter.encounter.as_ref().is_some_and(|state| state.boss_invulnerable()),
-                target_body: target.and_then(|t| t.entity).and_then(|tracked| bodies.get(tracked).ok()).map(|body| {
-                    BodyBox { position: [body.pos.x, body.pos.y], size: [body.size.x, body.size.y] }
+                target_body: target.and_then(|t| t.entity).and_then(|tracked| bodies.get(tracked).ok()).map(|(body, playback)| {
+                    BodyBox { position: [body.pos.x, body.pos.y], size: [body.size.x, body.size.y], swing: playback.map(swing_of) }
                 }),
                 size: [kin.size.x, kin.size.y],
             },
         );
+    }
+}
+
+/// The move a body plays, as the boss that tracks it sees it.
+fn swing_of(playback: &ambition_combat::moveset::MovePlayback) -> BodySwing {
+    use ambition_entity_catalog::WindowTag;
+    let t = playback.t;
+    let mut hurts = playback.spec.windows.iter().filter(|w| matches!(w.tag, WindowTag::Active) && !w.volumes.is_empty());
+    let live = hurts.clone().any(|w| (w.start_s..w.end_s).contains(&t));
+    // The next part that hurts, when it is not live now.
+    let next = hurts.find(|w| w.start_s > t).map(|w| w.start_s - t);
+    BodySwing {
+        since: t,
+        hurts_in: if live { 0.0 } else { next.unwrap_or(0.0) },
+        live,
+        ends_in: (playback.spec.duration_s - t).max(0.0),
     }
 }
 

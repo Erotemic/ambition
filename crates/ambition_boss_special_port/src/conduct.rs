@@ -36,7 +36,9 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   transition lock, or the `Dormant`, `Intro`, `Transition` or `Death`
 ///   phase): it is wider than `between_phases`. `target_body` is where the
 ///   tracked body is now and its size; `target` is where the boss last saw
-///   it, and the two differ when the body moved after the boss looked.
+///   it, and the two differ when the body moved after the boss looked. Its
+///   `swing` is the move the tracked body plays now (a boss that reads a
+///   blow guards it, or strikes when it is over): `None` when it plays none.
 ///   `size` is the boss's own body size (its feet are `position.y + size.y / 2`).
 /// * **Absence** — `target` is `None` when the boss tracks nothing, and
 ///   `target_body` also when the tracked entity has no body; `hall`
@@ -98,11 +100,26 @@ pub struct BossConduct {
     pub size: [f32; 2],
 }
 
-/// A body's centre and size.
+/// A body's centre and size, and the move it plays.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BodyBox {
     pub position: [f32; 2],
     pub size: [f32; 2],
+    pub swing: Option<BodySwing>,
+}
+
+/// The move a body plays, as one who watches it sees it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BodySwing {
+    /// Seconds since the move started.
+    pub since: f32,
+    /// Seconds until it can first hurt. 0 when it can hurt now, when it is
+    /// past that, and when it never hurts.
+    pub hurts_in: f32,
+    /// It can hurt now.
+    pub live: bool,
+    /// Seconds until the move is over.
+    pub ends_in: f32,
 }
 
 fn put_move(out: &mut Vec<u8>, m: Option<&LiveMove>) {
@@ -127,8 +144,9 @@ impl Port for BossConductPort {
     /// Version 2 (2026-10-06): `holding` and `minions`. Version 3
     /// (2026-10-06): `between_phases`. Version 4 (2026-10-06): `room`.
     /// Version 5 (2026-10-10): `health`, `invulnerable`, `target_body`.
-    /// Version 6 (2026-10-10): `size`.
-    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 6);
+    /// Version 6 (2026-10-10): `size`. Version 7 (2026-10-12): the
+    /// `swing` of `target_body`.
+    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 7);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossConduct;
 
@@ -158,6 +176,12 @@ impl Port for BossConductPort {
         wire::put_opt(out, v.target_body, |out, b| {
             wire::put_vec2(out, b.position);
             wire::put_vec2(out, b.size);
+            wire::put_opt(out, b.swing, |out, s| {
+                wire::put_f32(out, s.since);
+                wire::put_f32(out, s.hurts_in);
+                wire::put_bool(out, s.live);
+                wire::put_f32(out, s.ends_in);
+            });
         });
         wire::put_vec2(out, v.size);
     }
@@ -189,7 +213,13 @@ impl Port for BossConductPort {
             room: r.opt(WireReader::vec2)?,
             health: r.i32()?,
             invulnerable: r.bool()?,
-            target_body: r.opt(|r| Ok(BodyBox { position: r.vec2()?, size: r.vec2()? }))?,
+            target_body: r.opt(|r| {
+                Ok(BodyBox {
+                    position: r.vec2()?,
+                    size: r.vec2()?,
+                    swing: r.opt(|r| Ok(BodySwing { since: r.f32()?, hurts_in: r.f32()?, live: r.bool()?, ends_in: r.f32()? }))?,
+                })
+            })?,
             size: r.vec2()?,
         })
     }
@@ -730,10 +760,16 @@ mod tests {
             room: Some([1280.0, 720.0]),
             health: -2,
             invulnerable: true,
-            target_body: Some(BodyBox { position: [9.5, 7.0], size: [24.0, 40.0] }),
+            target_body: Some(BodyBox {
+                position: [9.5, 7.0],
+                size: [24.0, 40.0],
+                swing: Some(BodySwing { since: 0.1, hurts_in: 0.05, live: false, ends_in: 0.3 }),
+            }),
             size: [40.0, 60.0],
         };
         assert_eq!(round::<BossConductPort>(&conduct), conduct);
+        let at_rest = BossConduct { target_body: Some(BodyBox { position: [1.0, 2.0], size: [3.0, 4.0], swing: None }), ..conduct.clone() };
+        assert_eq!(round::<BossConductPort>(&at_rest), at_rest);
         let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, target_body: None, ..conduct };
         assert_eq!(round::<BossConductPort>(&bare), bare);
         for guarded in [false, true] {

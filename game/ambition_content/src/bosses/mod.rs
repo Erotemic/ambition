@@ -452,6 +452,14 @@ impl Plugin for AmbitionBossContentPlugin {
             gnu_ton::portals::open_gnu_ton_portals
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
+        // The duel on the giant's back: after his conductor chose (its record
+        // is written in `boss_conduct`), and before the boss's move starts.
+        app.add_systems(
+            sim,
+            gnu_ton::duel::duel_gnu_ton
+                .after(ambition_extension_host::ExtensionSet::Lower(ambition_content_modules::gnu_ton::conductor::CONDUCT_PHASE))
+                .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Trigger),
+        );
         app.add_systems(
             sim,
             gnu_ton::portals::join_gnu_ton_lines

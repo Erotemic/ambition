@@ -125,6 +125,8 @@ mod officer_moveset;
 #[cfg(test)]
 mod oiler_moveset;
 #[cfg(test)]
+mod gnu_ton_moveset;
+#[cfg(test)]
 mod patent_clerk_moveset;
 #[cfg(test)]
 mod performer_moveset;

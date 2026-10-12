@@ -3859,6 +3859,37 @@
         ),
         hall_dialogue_id: Some("hall_special_patent_clerk"),
         ),
+        "npc_gnu_ton": (
+            display_name: "GNU-ton",
+            spritesheet: "sprites/gnu_ton_scholar_fighter_spritesheet.png",
+            manifest: "sprites/gnu_ton_scholar_fighter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "",
+            // He authors his own repertoire (`movesets/gnu_ton.ron`): the
+            // action set says only that this body can attack.
+            default_action_set: "striker_swipe",
+            // THE BODY. A light, fast fencer: he runs, and what hits him sends
+            // him far. Ordinary tuning values: change them if play says so.
+            locomotion: Some((run_speed: 250.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: Smash,
+                aggro_radius: 420.0,
+                attack_range: 120.0,
+                patrol_effort: 0.45,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(4),
+            tags: ["special_character", "humanoid", "gnu_ton", "fencer", "playable_candidate", "svg_rigged"],
+            authoring_description: "GNU-ton the scholar as a fighter: the small man in the coat and the wig who rides the giant gnu in his boss fight, on his own feet. A parody of Isaac Newton: the quill, the book, the apple, the laws. He does not think he is in a fight; he thinks he is giving a lecture that you keep interrupting.",
+            gameplay_description: "A light, fast fencer with two tools. The quill is long and thin and wins by reach and speed; it does little and it does not end a stock. The book is short and slow and is what ends one. His specials are his laws: a flash that launches the same at each percent, a line he draws through you, a moment with no gravity, and a counter (to each action an equal and opposite reaction).",
+        barks: (
+            on_hit: ["Counterfeit.", "Your defiance has mass.", "Impact is merely mathematics becoming rude."],
+            idle: ["Fall. I have already solved for where.", "The universe is not cruel. It is exact."],
+            hall: ["An apple taught me everything. The apple asked for nothing.", "You are falling toward me right now. Too slowly to be polite about it."],
+        ),
+        ),
         "npc_carl_stargan": (
             display_name: "Carl Stargan",
             spritesheet: "sprites/carl_stargan_spritesheet.png",

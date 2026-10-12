@@ -28,7 +28,9 @@ const EXPECTED_SHEETS: [(&str, &str); 7] = [
     ("giant_gnu", "gnu_ton_boss/giant_gnu_spritesheet.png"),
     (
         "gnu_ton_rider",
-        "gnu_ton_boss/gnu_ton_rider_spritesheet.png",
+        // The scholar as the boss wears him: his boss rows and the rows of his
+        // duel, from the rig he shares with the fighter `npc_gnu_ton`.
+        "gnu_ton_scholar_boss_spritesheet.png",
     ),
     ("gradient_sentinel", "boss_spritesheet.png"),
     ("mockingbird", "mockingbird_boss_v2_spritesheet.png"),

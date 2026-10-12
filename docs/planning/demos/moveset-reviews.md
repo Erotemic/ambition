@@ -84,7 +84,7 @@ these slugs with the code as sets. Every moveset file must appear in exactly one
 list, so a new fighter must be classified.
 
 <!-- reviewed-fighters: alice, director, goblin, officer, oiler, patent_clerk, performer, pirate_admiral, player_robot, pointed_polygon, projectile_polygon -->
-<!-- free-fighters: bob, carl_stargan, cellular_automaton, emmy_noether, imperfect_cellular_automaton, medic, ninja_shadow_oni_leader, pugnacious_polygon -->
+<!-- free-fighters: bob, carl_stargan, cellular_automaton, emmy_noether, gnu_ton, imperfect_cellular_automaton, medic, ninja_shadow_oni_leader, pugnacious_polygon -->
 
 ## The guard
 

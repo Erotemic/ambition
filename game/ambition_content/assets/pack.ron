@@ -52,6 +52,7 @@
         (path: "data/movesets/cellular_automaton.ron", schema: "moveset", version: 1),
         (path: "data/movesets/director.ron", schema: "moveset", version: 1),
         (path: "data/movesets/emmy_noether.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/gnu_ton.ron", schema: "moveset", version: 1),
         (path: "data/movesets/goblin.ron", schema: "moveset", version: 1),
         (path: "data/movesets/imperfect_cellular_automaton.ron", schema: "moveset", version: 1),
         (path: "data/movesets/medic.ron", schema: "moveset", version: 1),

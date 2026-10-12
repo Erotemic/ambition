@@ -103,20 +103,22 @@
         body_centered: true,
         authored_faces_left: false,
     ),
-    // GNU-ton, the scholar who rides the giant: his own 192x192 sheet (v2, a
-    // posable three-quarter figure drawn at 3 px per design unit). The frame is
-    // drawn 96 px of basis (the arena's 54x96 BossSpawn) x 1.75 = 168 world
-    // units tall whatever its pixels, so 192 px is 0.875 wu/px: twice the
-    // detail of the old 96 px sheet at the same scale. His collision is his
-    // authored body. Centred on his body: he sits in a saddle, not on a floor.
+    // GNU-ton, the scholar who rides the giant: the sheet `gnu_ton_scholar_boss`
+    // (the rigged scholar; 248x262 frames). The frame is drawn 96 px of basis
+    // (the arena's 54x96 BossSpawn) x 1.687 = 162 world units tall, so his
+    // authored body (102x178 px) is 63x110: the size he had. His collision is
+    // his authored body. Centred on his body: he sits in a saddle, not on a
+    // floor.
     //
     // The fixed slots draw his closest rows (FloorSlam: point, SideSweep:
     // conduct, SpikeHalo: invoke). The conductor pins the named rows past them
-    // (brace, tumble, dazed, climb) — and every move's own row — by name.
+    // (brace, tumble, dazed, climb) by name, and the duel pins the rows of his
+    // fighter's moves (jab, attack_side, attack_up, attack_down,
+    // smash_forward).
     "gnu_ton_rider": (
         label_width: 0,
-        frame_width: 192,
-        frame_height: 192,
+        frame_width: 248,
+        frame_height: 262,
         rows: [
             (Rest, (
                 frame_count: 10,
@@ -143,7 +145,7 @@
                 duration_secs: 0.105,
             )),
         ],
-        collision_scale: 1.75,
+        collision_scale: 1.687,
         feet_anchor_y: 0.0,
         frame_sample_inset: 1,
         body_centered: true,

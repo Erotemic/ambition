@@ -44,8 +44,13 @@ REPO = Path(__file__).resolve().parents[2]
 # ratchet takes the lower figures with it (over 4096: 23 -> 16; 0.25x over 2048:
 # 13 -> 9).
 RATCHET = {
-    "sprites": (16236, 65, 16, 7),
-    "sprites_0_5x": (8118, 24, 7, 0),
+    # 2026-10-11: 65 -> 67 over 2048 px. Two NEW sheets, not a sheet that grew:
+    # the fighter `gnu_ton_scholar_fighter` (94 rows, 4096 x 3423) and the
+    # scholar the boss wears, `gnu_ton_scholar_boss` (22 rows, 2173 x 1771).
+    "sprites": (16236, 67, 16, 7),
+    # 2026-10-11: 24 -> 25 over 2048 px: the same new fighter's half tier
+    # (2176 x 1689).
+    "sprites_0_5x": (8118, 25, 7, 0),
     "sprites_0_25x": (4059, 9, 0, 0),
     "sprites_potato": (1015, 0, 0, 0),
     "sprite_packs": (2048, 0, 0, 0),

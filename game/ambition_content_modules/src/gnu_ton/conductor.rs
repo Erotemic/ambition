@@ -41,6 +41,10 @@ use super::choreography::{self as ch, Cue, Fist, Hall, Latch, Move, Pose, Stage}
 /// The behaviour id of the boss it conducts.
 pub const GNU_TON_ID: &str = "gnu_ton_rider";
 
+/// The phase its entry runs in: a system of the game that reads its record in
+/// the same tick is ordered after this phase's requests are lowered.
+pub use ambition_extension_sdk::phases::BOSS_CONDUCT as CONDUCT_PHASE;
+
 /// The limb slot of each fist (`ambition_characters::actor::LimbSlot`).
 const FIST_SLOTS: [&str; 2] = ["hand_left", "hand_right"];
 
@@ -171,6 +175,17 @@ record! {
     /// seconds into a hop from the shoulder he is on to the other.
     44 on_left: bool,
     45 hop: Option<f32>,
+    /// The duel on the giant's back: he fights (the game suppresses the
+    /// pattern's own move then), the move he chose (a place in
+    /// `ch::arms::DUEL_MOVES` and 1; 0 is none), a count of his choices, and
+    /// the seconds until the next.
+    46 dueling: bool,
+    47 duel_move: u32,
+    48 duel_turn: u32,
+    49 duel_wait: f32,
+    /// Seconds into the giant taking its arm back out of a punch that the
+    /// duel cut short.
+    50 pull: Option<f32>,
 }
 
 /// What he says at the turns of the fight, once each.
@@ -282,6 +297,17 @@ impl Conductor {
     /// The pair of the punch, when it is open: its near line and its far line.
     pub fn punch_pair(&self) -> Option<[Vec2; 2]> {
         self.punch_open.then(|| [v(self.punch_near), v(self.punch_far)])
+    }
+
+    /// The duel on the giant's back: whether he fights now, and the move of his
+    /// table he chose (its id, and the count of his choices: a new count is a
+    /// new move).
+    pub fn duel(&self) -> (bool, Option<(&'static str, u32)>) {
+        let chosen = (self.duel_move as usize)
+            .checked_sub(1)
+            .and_then(|i| ch::arms::DUEL_MOVES.get(i))
+            .map(|(id, _)| (*id, self.duel_turn));
+        (self.dueling, chosen)
     }
 
     /// The lines that are a look and no way through (see `lines`): the middle
@@ -703,6 +729,47 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     } else if c.on_left && !arms_on {
         c.hop = Some(0.0);
     }
+    // ── The duel: with the player on the back, he fights ──
+    let was_dueling = c.dueling;
+    c.dueling = arms_on && foe_on_back && c.clamp.is_none();
+    if !c.dueling || c.hop.is_some() || c.reflex.is_some() {
+        // Not on the back with him, or he is on his way to the other
+        // shoulder, or the giant throws: no move.
+        c.duel_move = 0;
+        c.duel_wait = c.duel_wait.max(if c.dueling { ch::arms::DUEL_STAGGER * 0.5 } else { ch::arms::DUEL_READY });
+    } else {
+        if struck {
+            // A blow on him stops his own.
+            c.duel_move = 0;
+            c.duel_wait = ch::arms::DUEL_STAGGER;
+        }
+        c.duel_wait -= dt;
+        if c.duel_wait <= 0.0 {
+            // Where he stands: his saddle, or its mirror on the left shoulder.
+            let me = giant.back.filter(|_| c.on_left).map_or(scholar_pos, |[min_x, _, max_x, _]| {
+                Vec2::new(min_x + max_x - scholar_pos.x, scholar_pos.y)
+            });
+            let to_player = scholar.target_body.map(|body| v(body.position) - me);
+            match to_player.and_then(|to| ch::arms::duel_choice(to, c.duel_turn)) {
+                Some(choice) => {
+                    c.duel_move = choice as u32 + 1;
+                    c.duel_turn = c.duel_turn.wrapping_add(1);
+                    c.duel_wait = ch::arms::DUEL_MOVES[choice].1;
+                }
+                None => {
+                    c.duel_move = 0;
+                    c.duel_wait = 0.15;
+                }
+            }
+        }
+    }
+    // The duel cut a punch short: the giant takes its arm back.
+    if c.dueling && !was_dueling && previous.is_some_and(|p| p.mv == Move::PortalPunch && p.striking) {
+        c.pull = Some(0.0);
+    }
+    if let Some(t) = c.pull {
+        c.pull = (t + dt < ch::arms::RECOVER).then_some(t + dt);
+    }
     let left_seat = giant.back.map_or(scholar_pos, |[min_x, _, max_x, _]| Vec2::new(min_x + max_x - scholar_pos.x, scholar_pos.y));
     let seat = |left: bool| if left { left_seat } else { scholar_pos };
     let shoulder_pose = match c.hop {
@@ -736,7 +803,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         (None, Some(t)) if t < ch::arms::SNAP => draw(inv, DrawnPart::Mount, Some((&["clamp"], t, false)))?,
         // The lines closed on its arms: it flinches.
         (None, Some(t)) => draw(inv, DrawnPart::Mount, Some((&["hit"], t - ch::arms::SNAP, false)))?,
-        (None, None) if arms_on => draw(inv, DrawnPart::Mount, Some(ch::arms::gnu(cue.as_ref(), clock)))?,
+        (None, None) if arms_on => match c.pull.filter(|_| cue.is_none()) {
+            Some(t) => draw(inv, DrawnPart::Mount, Some((&["punch_recover"], t, false)))?,
+            None => draw(inv, DrawnPart::Mount, Some(ch::arms::gnu(cue.as_ref(), clock)))?,
+        },
         (None, None) => draw(inv, DrawnPart::Mount, ch::rows::gnu(cue.as_ref()))?,
     }
     let mut poses = [Pose::idle(Vec2::ZERO); 2];

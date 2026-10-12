@@ -109,6 +109,10 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
         Some(include_str!("../assets/data/movesets/emmy_noether.ron")),
     ),
     (
+        "gnu_ton",
+        Some(include_str!("../assets/data/movesets/gnu_ton.ron")),
+    ),
+    (
         "goblin",
         Some(include_str!("../assets/data/movesets/goblin.ron")),
     ),
@@ -177,6 +181,7 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
     ("cellular_automaton", None),
     ("director", None),
     ("emmy_noether", None),
+    ("gnu_ton", None),
     ("goblin", None),
     ("imperfect_cellular_automaton", None),
     ("medic", None),

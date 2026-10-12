@@ -7,7 +7,10 @@
         "mockingbird": "mockingbird_boss_v2_spritesheet.png",
         "smirking_behemoth_boss": "smirking_behemoth_boss_spritesheet.png",
         "giant_gnu": "gnu_ton_boss/giant_gnu_spritesheet.png",
-        "gnu_ton_rider": "gnu_ton_boss/gnu_ton_rider_spritesheet.png",
+        // The scholar as the boss wears him: his boss rows, then the rows of
+        // his duel (the renderer's target `gnu_ton_scholar_boss`, the same
+        // drawing as the fighter `npc_gnu_ton`).
+        "gnu_ton_rider": "gnu_ton_scholar_boss_spritesheet.png",
         "flying_spaghetti_monster_boss": "flying_spaghetti_monster_boss_spritesheet.png",
         "trex_boss": "trex_enemy_spritesheet.png",
     },

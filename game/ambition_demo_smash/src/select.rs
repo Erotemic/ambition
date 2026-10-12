@@ -50,6 +50,9 @@ pub const SMASH_ROSTER: &[&str] = &[
     // is still live as an ability grant (`lib.rs`).
     "npc_carl_stargan",
     "special_patent_clerk",
+    // The scholar of the GNU-ton boss fight, as a fighter: a light fencer
+    // with a quill and a book (his own table, `movesets/gnu_ton.ron`).
+    "npc_gnu_ton",
     // The deliberately simple SVG-rigged humanoid reference fighter. Unlike the
     // stand-ins below, this is a real character owned by Ambition content.
     "pointed_polygon",

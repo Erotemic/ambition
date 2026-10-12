@@ -134,10 +134,15 @@ not part of this row.
 
 **Open:**
 
-1. **IN1, the view index (P1).** The pair, the look lines and each fist's
-   trail start are ports (done). The view index is keyed by
-   `FeatureId` alone, so two live instances of one room share a limb's view
-   (debt 6). See [debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
+1. **IN1, the view index (P1, waits for its road).** The pair, the look
+   lines and each fist's trail start are ports (done). The view index is
+   keyed by `FeatureId` alone, so two live instances of one room would
+   share a limb's view (debt 6). Measured 2026-10-12: `FeatureViewIndex`
+   has 107 references outside tests, most in `ambition_render`, and no road
+   of the game makes a definition live twice (REVIEW-1011 item 4: the
+   witnesses make the second instance by hand). The key changes with the
+   first road that does, and that road's two-instance witness is the
+   failing fixture this item asks for. See [debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
 2. **IN6, frame time (P2).** Measure the portal-piece frame cost in a drawn
    host before any retained-piece strategy. Needs a machine with a GPU:
    the agent VM has none (checked 2026-10-12: no `/dev/dri`, and Vulkan

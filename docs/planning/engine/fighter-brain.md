@@ -381,6 +381,13 @@ general shape; check new code against it.
   `MoveFrameData::threat_live_at_s` for the second. The payoff gate asks when the
   move connects (`arrival_of` for a hazard, `threat_live_at_s` otherwise), and
   the closures that answer it are shared by admission and scoring.
+- **Startup is the first live hit, not the first Active window.** A counter's
+  stance is an Active window (the parry authority reads that tag) and hits
+  nobody. `MoveSpec::frame_data` counts a window as live when it has a volume,
+  a capture or a sustained hazard. Read from the first Active window,
+  GNU-ton's `third_law` (stance from 0.0 s, sweep at 0.18 s) was a frame-0
+  strike, the fastest move of his kit. Witness
+  `frame_data_startup_is_the_first_live_hit_not_a_counters_stance`.
 - **A hazard carries its travel law.** `ThreatTravel::{Straight, Boomerang,
   Placed}` answers `travel_to(distance)`, and `None` for a distance it never
   covers. A new travel shape is a new variant, never a new scalar. A boomerang's

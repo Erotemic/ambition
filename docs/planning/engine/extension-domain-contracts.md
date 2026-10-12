@@ -81,7 +81,7 @@ list, with witnesses, is in I4 of the [packet catalog](fast-iteration-implementa
 | `crates/ambition_boss_special_port` | `ambition.boss.special_cast`, `ambition.boss.summon`, `ambition.boss.conduct` and its requests |
 | `crates/ambition_combat_port` | `ambition.combat.damage_box`, `ambition.combat.held_damage_box`, `ambition.combat.riding_hitbox`, the wielded-use and module-entity ports |
 | `ambition_projectile_spec::ProjectileSpawnPort` | `ambition.projectiles.spawn` |
-| `crates/ambition_portal_port` | `ambition.portal.held_pair` (with the runtime's `portal` feature) |
+| `crates/ambition_portal_port` | `ambition.portal.held_pair`, `ambition.portal.light_line` (with the runtime's `portal` feature) |
 
 Each port crate names only the SDK (workspace policies
 `engine.ambition_boss_special_port-portable`,

@@ -265,3 +265,71 @@ fn a_line_has_its_own_colour_and_its_partners_only_when_the_style_asks() {
     // The far side of each line is the near side of the other.
     assert!(paired.iter().all(|(_, back)| paired.iter().any(|(front, _)| front == back)));
 }
+
+/// Each light line this crate keeps for a module: its owner, its slot, its
+/// middle and its colour.
+fn held_lines(app: &mut App) -> Vec<(Entity, u32, Vec2, PortalChannel)> {
+    let mut rows: Vec<_> = app
+        .world_mut()
+        .query::<(&HeldLightLineOf, &PortalLightLine)>()
+        .iter(app.world())
+        .map(|(of, line)| (of.owner, of.slot, line.pos, line.channel))
+        .collect();
+    rows.sort_by_key(|row| (row.0.index(), row.1));
+    rows
+}
+
+fn view(lines: &[(u32, f32)]) -> ambition_portal2d::extension::HeldLightLines {
+    ambition_portal2d::extension::HeldLightLines(
+        lines
+            .iter()
+            .map(|(slot, x)| ambition_portal2d::extension::HeldLightLine {
+                entry: "test::lines/conduct".into(),
+                slot: *slot,
+                at: Vec2::new(*x, 300.0),
+                normal: Vec2::new(1.0, 0.0),
+                length: 120.0,
+                look: 25,
+            })
+            .collect(),
+    )
+}
+
+/// ⭐ THE PRESENTATION DRAWS EACH LINE OF A BODY'S VIEW, AND ONLY THOSE. A
+/// line of `ambition.portal.light_line` is a view on its body; this crate
+/// keeps one `PortalLightLine` for each, follows it, and takes it away when
+/// the view loses it or the body goes.
+#[test]
+fn a_light_line_is_drawn_while_its_body_has_it_in_its_view() {
+    let mut app = App::new();
+    crate::one_live_room(&mut app, WORLD);
+    app.add_systems(Update, dress_held_light_lines);
+    let a = app.world_mut().spawn(view(&[(0, 100.0), (1, 200.0)])).id();
+    let b = app.world_mut().spawn(view(&[(0, 700.0)])).id();
+    app.update();
+    let orange = PortalChannel::Authored(PortalChannelColor::Indexed(25));
+    assert_eq!(
+        held_lines(&mut app),
+        vec![
+            (a, 0, Vec2::new(100.0, 300.0), orange),
+            (a, 1, Vec2::new(200.0, 300.0), orange),
+            (b, 0, Vec2::new(700.0, 300.0), orange),
+        ],
+        "each line of each view is drawn once"
+    );
+
+    app.world_mut().entity_mut(a).insert(view(&[(1, 250.0)]));
+    app.update();
+    app.update();
+    assert_eq!(
+        held_lines(&mut app),
+        vec![(a, 1, Vec2::new(250.0, 300.0), orange), (b, 0, Vec2::new(700.0, 300.0), orange)],
+        "a line the view lost is taken away, and a line that moved follows"
+    );
+
+    app.world_mut().despawn(b);
+    app.world_mut().entity_mut(a).remove::<ambition_portal2d::extension::HeldLightLines>();
+    app.update();
+    app.update();
+    assert_eq!(held_lines(&mut app), vec![], "no view, no line");
+}

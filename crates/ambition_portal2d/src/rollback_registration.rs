@@ -40,6 +40,11 @@ where
         |of| of.0,
     );
     registrar.rollback_map_entities::<crate::extension::HeldPortalOf>(OWNER, "map.portal.held_portal_of");
+    registrar.declare_rollback_derived_component::<crate::extension::HeldLightLines>(
+        OWNER,
+        "derived.portal.held_light_lines",
+        "written again each tick from the module's rollback record; presentation reads it",
+    );
     registrar.rollback_component_clone_probed::<crate::PortalTransitCooldown>(
         OWNER,
         "portal.transit_cooldown",

@@ -39,14 +39,31 @@ Status of each: OPEN. The content comes first.
 
 ### 2. A module can not open a portal
 
-**THE PAIR LANDED 2026-10-12; the look lines are OPEN.** The conductor asks
+**THE PAIR AND THE LOOK LINES LANDED 2026-10-12.** The conductor asks
 for the pair of the punch each tick it is open through
 `ambition.portal.held_pair` (`HeldPortalPair { slot, ends, looks }`), and
 the portal domain's adapter (`ambition_portal2d::extension`) owns the two
 ends, their link, their identity and their end. `open_gnu_ton_portals` is
-deleted. The look lines (`LightLine`) still go through the record to
-`portals.rs`, because a light line is presentation and no presentation port
-exists. The text below is the case as found.
+deleted.
+
+The look lines are `ambition.portal.light_line` (`LightLine { slot, at,
+normal, length, look }`), debt 3's road (b). The adapter keeps this tick's
+lines of each body as a view on the body (`HeldLightLines`, the derived
+row `derived.portal.held_light_lines`), and
+`ambition_portal2d_presentation::dress_held_light_lines` keeps a
+`PortalLightLine` for each. The simulation spawns nothing for a line.
+`light_gnu_ton_lines`, `GnuTonLine` and `GnuTonLookLine` are deleted; the
+colours and sides of the four lines are the conductor's. Witnesses:
+`ambition_portal2d extension::tests::each_body_has_the_lines_its_entry_asks_for_this_tick`
+(poisons: no removal, red at "a body that asks for no line has no view";
+the first word for a slot kept, red at "the second word for slot 0
+counts"); `ambition_portal2d_presentation glow::tests::a_light_line_is_drawn_while_its_body_has_it_in_its_view`
+(poison: no despawn, red at "a line the view lost is taken away");
+`app_it gnu_ton_fight::his_look_lines_are_the_lines_his_conductor_asks_for`
+(the view is the record's lines, and a defeated scholar has none; poison:
+the conductor asks for none, red at "the lines drawn are the lines his
+record has"). Not done: the line does not dissolve (debt 3), and the trail
+starts still read the record (debt 6). The text below is the case as found.
 
 - The conductor is an extension module. It has no port for a portal, so it
   writes where each line is into its RECORD, and a native system of the
@@ -59,6 +76,10 @@ exists. The text below is the case as found.
   portals, and `portals.rs` goes.
 
 ### 3. A line that is a look needed a new thing
+
+**ROAD (b), 2026-10-12.** `PortalLightLine` stays, and the presentation
+spawns it from a view (`HeldLightLines`), not the simulation (debt 2). It
+does not dissolve yet. The text below is the case as found.
 
 - A `PlacedPortal` with no partner takes nothing through, but when it MOVES
   the engine pushes each body on its plane to one side
@@ -188,7 +209,7 @@ as found.
 
 ### 12. The portal and trail names omit the encounter
 
-**THE PAIR IS A PORT, 2026-10-12; the look lines and trail starts are
+**THE PAIR AND THE LOOK LINES ARE PORTS, 2026-10-12; the view index is
 OPEN.** The punch's pair is a held request of the conductor
 (`ambition.portal.held_pair`, debt 2). The portal domain's adapter keeps
 the pair's record on the scholar (`HeldPortalPairs`, rollback row
@@ -217,7 +238,7 @@ of `GnuTonPortal` are deleted; the tag is now `GnuTonLookLine`.
 - The way up still works through the held pair
   (`the_punchs_pair_is_the_way_up_to_the_giants_back`).
 
-**Still open:** the look lines (debt 2: no presentation port); the trail
+**Still open:** the look lines are a port now (debt 2); the trail
 starts are on each fist now, but the view index is keyed by `FeatureId`
 alone (debt 6); two live instances of one
 room give one placement's end one `SimId` (as they give its body one); two

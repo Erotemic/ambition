@@ -108,7 +108,10 @@ impl Plugin for PortalPresentationPlugin {
             crate::glow::add_portal_glow_material_plugin(app);
             app.add_systems(
                 Update,
-                (crate::glow::sync_portal_glows, crate::glow::sync_portal_light_lines)
+                (
+                    crate::glow::sync_portal_glows,
+                    (crate::glow::dress_held_light_lines, crate::glow::sync_portal_light_lines).chain(),
+                )
                     .in_set(PortalPresentationSet)
                     .run_if(resource_exists::<Assets<Mesh>>)
                     .run_if(resource_exists::<Assets<crate::glow::PortalGlowMaterial>>),

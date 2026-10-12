@@ -283,6 +283,61 @@ fn arena_with_free_fists() -> Platformer2dSimHarness {
     sim
 }
 
+/// ⭐ HIS LOOK LINES ARE A PORT (IN1, debt 3). After phase 1 his conductor asks
+/// the portal domain for the line at each shoulder and behind each wrist
+/// (`ambition.portal.light_line`), and the scholar's view of this tick's
+/// lines (`HeldLightLines`, which the presentation draws) is where his record
+/// says each line is. A defeated scholar asks for none, and his view goes.
+/// The authority: the conductor's record.
+#[test]
+fn his_look_lines_are_the_lines_his_conductor_asks_for() {
+    use ambition_platformer2d::portal::extension::HeldLightLines;
+    fn scholar(sim: &mut Platformer2dSimHarness) -> Entity {
+        let world = sim.world_mut();
+        world
+            .query::<(Entity, &BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.behavior.id == GNU_TON_ID)
+            .map(|(entity, _)| entity)
+            .expect("GNU-ton is in the arena")
+    }
+    /// Each line of his view, by slot, and each line of his record.
+    fn lines(sim: &mut Platformer2dSimHarness) -> (Vec<(u32, ae::Vec2)>, Vec<(u32, ae::Vec2)>) {
+        let scholar = scholar(sim);
+        let world = sim.world_mut();
+        let mut view: Vec<(u32, ae::Vec2)> = world
+            .get::<HeldLightLines>(scholar)
+            .map(|held| held.0.iter().map(|line| (line.slot, line.at)).collect())
+            .unwrap_or_default();
+        view.sort_by_key(|(slot, _)| *slot);
+        let record = conductor_of(world, scholar)
+            .map(|conductor| {
+                conductor.look_lines.iter().enumerate().filter_map(|(slot, at)| at.map(|at| (slot as u32, at))).collect()
+            })
+            .unwrap_or_default();
+        (view, record)
+    }
+    let mut sim = arena_with_free_fists();
+    step_until(&mut sim, 600, "his four look lines", |sim| lines(sim).1.len() == 4);
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+        let (view, record) = lines(&mut sim);
+        assert_eq!(view, record, "the lines drawn are the lines his record has");
+    }
+    assert_eq!(lines(&mut sim).0.len(), 4, "premise: four lines are drawn");
+
+    scholar_health_to(&mut sim, 0.0);
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let scholar = scholar(&mut sim);
+    assert!(
+        sim.world().get::<HeldLightLines>(scholar).is_none(),
+        "a defeated scholar's lines are still drawn: {:?}",
+        sim.world().get::<HeldLightLines>(scholar)
+    );
+}
+
 /// The pair of the punch is the way up. From the floor, two jumps take the
 /// player up into the far line; it comes up out of the near line, over the
 /// giant's right shoulder, and goes to the side onto the giant's back.

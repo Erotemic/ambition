@@ -187,3 +187,109 @@ fn a_body_with_no_identity_gets_no_pair() {
         assert_eq!(count, if with_id { 2 } else { 0 }, "with an identity {with_id}");
     }
 }
+
+/// On a body: how many lines of light its entry asks for, at which x.
+#[derive(Component)]
+struct AsksLines(u32, f32);
+
+struct LinePoke;
+impl Port for LinePoke {
+    const KEY: PortKey = PortKey::new("test.light_line_poke", 1);
+    const ROLE: PortRole = PortRole::Trigger;
+    type Value = (u32, f32);
+    fn encode(v: &(u32, f32), out: &mut Vec<u8>) {
+        wire::put_u32(out, v.0);
+        wire::put_f32(out, v.1);
+    }
+    fn decode(r: &mut wire::WireReader<'_>) -> Result<(u32, f32), wire::WireError> {
+        Ok((r.u32()?, r.f32()?))
+    }
+}
+
+/// The lines of GNU-ton's shoulders, as his conductor asks for them: slot
+/// `i` at `x + 10 i`. Slot 0 is asked for twice, and the second one counts.
+fn ask_lines(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let (count, x) = *inv.trigger::<LinePoke>()?;
+    let line = |slot: u32, x: f32| ambition_portal_port::LightLine {
+        slot,
+        at: [x, 400.0],
+        normal: [1.0, 0.0],
+        length: 120.0,
+        look: 24,
+    };
+    if count > 0 {
+        inv.submit::<LightLinePort>(line(0, -1.0))?;
+    }
+    for slot in 0..count {
+        inv.submit::<LightLinePort>(line(slot, x + 10.0 * slot as f32))?;
+    }
+    Ok(())
+}
+
+fn collect_line_pokes(mut invocations: ResMut<ExtensionInvocations>, bodies: Query<(Entity, &AsksLines)>) {
+    for (entity, asks) in &bodies {
+        invocations.trigger::<LinePoke>(&BOSS_CONDUCT, "go", entity, None, false, (asks.0, asks.1));
+    }
+}
+
+fn line_app() -> App {
+    let mut app = App::new();
+    app.init_schedule(Sim);
+    app.add_plugins(ExtensionHostPlugin::new(Sim))
+        .init_resource::<ambition_time::SimTick>()
+        .init_resource::<ambition_time::WorldTime>()
+        .install_extension_trigger::<LinePoke, _>(BOSS_CONDUCT, "test", collect_line_pokes)
+        .install_extension_request::<LightLinePort, _>(BOSS_CONDUCT, "ambition_portal2d", lower_light_lines)
+        .add_extension_module(ModuleDescriptor {
+            key: ModuleKey::new("test", "lines"),
+            api: ambition_extension_sdk::API_VERSION,
+            code: CodeIdentity::StaticNative { crate_name: "test".into(), version: "0".into() },
+            schemas: vec![],
+            entries: vec![EntryDescriptor {
+                key: "conduct".into(),
+                phase: BOSS_CONDUCT,
+                trigger: TriggerBinding { port: LinePoke::KEY, selector: "go".into() },
+                reads: vec![],
+                writes: vec![],
+                requests: vec![LightLinePort::KEY],
+                after: vec![],
+                limits: Limits { max_requests: 8 },
+                on_idle: IdlePolicy::Invoke,
+                run: EntryCode::Native(ask_lines),
+            }],
+        });
+    app.finish();
+    app
+}
+
+/// Each line of a body's view: its slot and its x.
+fn lines_of(app: &App, body: Entity) -> Option<Vec<(u32, f32)>> {
+    app.world().get::<HeldLightLines>(body).map(|held| held.0.iter().map(|line| (line.slot, line.at.x)).collect())
+}
+
+/// ⭐ A BODY'S LINES OF LIGHT ARE THE LINES ITS ENTRY ASKED FOR THIS TICK. Two
+/// bodies each have their own; a line that is not asked for goes, and a body
+/// that asks for none has no view. The simulation spawns nothing for a line.
+#[test]
+fn each_body_has_the_lines_its_entry_asks_for_this_tick() {
+    let mut app = line_app();
+    let a = app.world_mut().spawn(AsksLines(2, 100.0)).id();
+    let b = app.world_mut().spawn(AsksLines(1, 900.0)).id();
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(lines_of(&app, a), Some(vec![(0, 100.0), (1, 110.0)]), "A's two lines; the second word for slot 0 counts");
+    assert_eq!(lines_of(&app, b), Some(vec![(0, 900.0)]), "B's one line");
+    let entities = app.world().entities().len();
+
+    app.world_mut().get_mut::<AsksLines>(a).unwrap().0 = 1;
+    app.world_mut().get_mut::<AsksLines>(b).unwrap().1 = 800.0;
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(lines_of(&app, a), Some(vec![(0, 100.0)]), "a line that A no longer asks for goes");
+    assert_eq!(lines_of(&app, b), Some(vec![(0, 800.0)]), "B's line follows where he asks");
+
+    app.world_mut().get_mut::<AsksLines>(a).unwrap().0 = 0;
+    app.world_mut().run_schedule(Sim);
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(lines_of(&app, a), None, "a body that asks for no line has no view");
+    assert_eq!(lines_of(&app, b), Some(vec![(0, 800.0)]));
+    assert_eq!(app.world().entities().len(), entities, "the simulation spawns nothing for a line");
+}

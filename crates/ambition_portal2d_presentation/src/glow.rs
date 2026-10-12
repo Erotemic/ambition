@@ -415,6 +415,78 @@ pub struct PortalLightLine {
     pub length: f32,
 }
 
+/// On a [`PortalLightLine`] that [`dress_held_light_lines`] keeps: the body
+/// whose view has the line, and the line's entry and slot.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct HeldLightLineOf {
+    pub owner: Entity,
+    pub entry: std::sync::Arc<str>,
+    pub slot: u32,
+}
+
+/// Keep a [`PortalLightLine`] for each line that a module asked for this
+/// tick (each body's `HeldLightLines` view, `ambition.portal.light_line`),
+/// in the body's live room. A line that is in no view is taken away, so a
+/// line goes when its module stops asking or its body goes.
+pub fn dress_held_light_lines(
+    mut commands: Commands,
+    active_session: Option<Res<ActiveSessionScope>>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    holders: Query<(Entity, &ambition_portal2d::extension::HeldLightLines)>,
+    mut lines: Query<(
+        Entity,
+        &HeldLightLineOf,
+        &mut PortalLightLine,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    )>,
+) {
+    let light_of = |line: &ambition_portal2d::extension::HeldLightLine| PortalLightLine {
+        channel: PortalChannel::Authored(ambition_portal2d::PortalChannelColor::Indexed(line.look)),
+        pos: line.at,
+        normal: line.normal,
+        length: line.length,
+    };
+    let mut wanted: Vec<(Entity, &ambition_portal2d::extension::HeldLightLine)> =
+        holders.iter().flat_map(|(owner, held)| held.0.iter().map(move |line| (owner, line))).collect();
+    for (entity, of, mut light, room) in &mut lines {
+        let Some(index) =
+            wanted.iter().position(|(owner, line)| *owner == of.owner && line.entry == of.entry && line.slot == of.slot)
+        else {
+            commands.entity(entity).try_despawn();
+            continue;
+        };
+        let (owner, line) = wanted.swap_remove(index);
+        let want = light_of(line);
+        if *light != want {
+            *light = want;
+        }
+        // The line is drawn in its body's room: a body that crossed takes it.
+        if let Some(owner_room) = live.of(owner) {
+            if room.map(|room| room.0) != Some(owner_room) {
+                commands
+                    .entity(entity)
+                    .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(owner_room));
+            }
+        }
+    }
+    let Some(scope) = SessionSpawnScope::for_optional_active_session(active_session.as_deref()) else {
+        return;
+    };
+    for (owner, line) in wanted {
+        let Some(room) = live.of(owner) else {
+            continue;
+        };
+        commands.spawn_session_scoped(
+            scope.in_room(Some(room)),
+            (
+                light_of(line),
+                HeldLightLineOf { owner, entry: line.entry.clone(), slot: line.slot },
+                Name::new(format!("light line {} of {}", line.slot, line.entry)),
+            ),
+        );
+    }
+}
+
 /// Draw each [`PortalLightLine`]: give it its quad, open it, and follow it.
 pub fn sync_portal_light_lines(
     mut commands: Commands,

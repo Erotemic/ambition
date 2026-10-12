@@ -13,8 +13,9 @@ default = []
 # OUR feature names; each forwards to the matching ambition_platformer2d_actor_monolith machinery
 # feature so a mismatched combination is a compile error, never a silent
 # missing-registration.
-# The runtime's portal edge offers the held portal pair port, which GNU-ton's
-# conductor asks for (`ambition.portal.held_pair`).
+# The runtime's portal edge offers the held portal pair port and the light
+# line port, which GNU-ton's conductor asks for (`ambition.portal.held_pair`,
+# `ambition.portal.light_line`).
 portal = ["ambition_platformer2d_actor_monolith/portal", "ambition_platformer2d_runtime/portal"]
 portal_render = ["portal", "dep:ambition_portal2d_presentation"]
 ui = ["ambition_platformer2d_actor_monolith/ui", "ambition_dialog/ui", "dep:bevy_yarnspinner", "dep:yarnspinner"]

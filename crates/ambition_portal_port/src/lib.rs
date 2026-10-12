@@ -25,6 +25,28 @@
 //! * **Replay** — the adapter's record of what each body holds is rollback
 //!   state on the body.
 //! * **Result** — submitted is not applied. No acknowledgement port yet.
+//!
+//! Port card for [`LightLinePort`]:
+//!
+//! * **Operation** — draw a line of a portal's light that is NO portal:
+//!   nothing goes through it, and it pushes nothing. A look, for a thing
+//!   that stays in a portal (an arm in its line). The line is named by its
+//!   SLOT.
+//! * **Owner** — `ambition_portal2d::extension` keeps this tick's lines of
+//!   each body as a view on the body (`HeldLightLines`), and
+//!   `ambition_portal2d_presentation` draws each line of the view. The
+//!   simulation spawns nothing for a line.
+//! * **Scope and grant** — the owner is the body the invocation ran for. The
+//!   line is drawn in the owner's live room.
+//! * **Time** — offered in `boss_conduct`. A line that the body's entry did
+//!   NOT submit this tick is not drawn. A line whose owner is gone is not
+//!   drawn.
+//! * **Read model** — world units, +Y down. A `normal` points out of the
+//!   line into the room.
+//! * **Look** — the authored channel index whose colour the line has.
+//! * **Replay** — presentation: the view is derived again each tick from the
+//!   module's record, and no simulation system reads it.
+//! * **Result** — submitted is not applied. No acknowledgement port.
 
 use ambition_extension_sdk::wire::{self, WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
@@ -89,6 +111,50 @@ impl Port for HeldPortalPairPort {
     }
 }
 
+/// A line of a portal's light that a module asks for: a look, and no way
+/// through.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LightLine {
+    /// The module's name for the line. Slots are per entry.
+    pub slot: u32,
+    /// Its middle.
+    pub at: [f32; 2],
+    /// The side of the line that the room is on.
+    pub normal: [f32; 2],
+    /// Its length.
+    pub length: f32,
+    /// The authored channel index whose colour it has.
+    pub look: u8,
+}
+
+/// The request port marker for a line of light. See its port card at the
+/// top of this crate.
+pub struct LightLinePort;
+
+impl Port for LightLinePort {
+    const KEY: PortKey = PortKey::new("ambition.portal.light_line", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = LightLine;
+
+    fn encode(v: &LightLine, out: &mut Vec<u8>) {
+        wire::put_u32(out, v.slot);
+        wire::put_vec2(out, v.at);
+        wire::put_vec2(out, v.normal);
+        wire::put_f32(out, v.length);
+        wire::put_u8(out, v.look);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<LightLine, WireError> {
+        Ok(LightLine {
+            slot: r.u32()?,
+            at: r.vec2()?,
+            normal: r.vec2()?,
+            length: r.f32()?,
+            look: r.u8()?,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -107,6 +173,16 @@ mod tests {
         HeldPortalPairPort::encode(&pair, &mut bytes);
         let mut reader = WireReader::new(&bytes);
         assert_eq!(HeldPortalPairPort::decode(&mut reader).unwrap(), pair);
+        assert!(reader.finish().is_ok());
+    }
+
+    #[test]
+    fn a_light_line_comes_back_from_the_wire_equal() {
+        let line = LightLine { slot: 2, at: [-4.0, 96.5], normal: [1.0, 0.0], length: 130.0, look: 25 };
+        let mut bytes = Vec::new();
+        LightLinePort::encode(&line, &mut bytes);
+        let mut reader = WireReader::new(&bytes);
+        assert_eq!(LightLinePort::decode(&mut reader).unwrap(), line);
         assert!(reader.finish().is_ok());
     }
 }

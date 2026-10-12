@@ -79,7 +79,7 @@ first.
 | alter world mechanisms, return to the changed state | ✔ `a_lever_left_on_is_on_when_you_come_back` (the save is a switch's one authority) |
 | encounter persistent and spawned actors | ✔ the encounter suite, `a_spawn_request_on_the_bus_becomes_a_body` |
 | save/reload without losing instance/location truth | ✔ `loading_a_save_builds_the_room_a_re_entry_builds`, `a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike` |
-| navigate enough that tooling can reason about routes | ▢ the navigation frontier |
+| navigate enough that tooling can reason about routes | ✔ (2026-10-10, [NAVIGATION](../engine/platformer-navigation-and-reachability.md)) a route of rooms (`RoomSet::route`) and, in each room, a graph of the body's own legs that its kernel rollout keeps: `a_walked_route_of_the_persistent_world::the_player_walks_from_the_hub_to_alice_and_bob` walks seven crossings by the agent's input; `a_dog_sent_for_an_item_in_another_live_room_goes_through_the_door` sends a body no slot drives through a door for an item |
 | separate from another participant into another room | ◐ simulation and most of the view are built; see A3 in [`multiplayer.md`](multiplayer.md) |
 
 Q55 is decided (2026-10-04): do not make demo content only so that each

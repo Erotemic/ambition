@@ -385,7 +385,7 @@ pub fn run_snake_shells(
     rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut hits: MessageWriter<HitEvent>,
-    mut players: Query<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>,
+    mut players: Query<(Entity, &mut ae::BodyKinematics), With<PlayerEntity>>,
     mut snakes: Query<
         (
             Entity,
@@ -400,18 +400,23 @@ pub fn run_snake_shells(
     >,
 ) {
     let dt = world_time.sim_dt();
-    // Read the player once (entity + body): a missing player means no stomp/hit.
-    let player_read = players
-        .single()
-        .ok()
-        .map(|(e, p)| (e, p.aabb(), p.pos, p.vel));
-    let player_box = player_read.map(|(_, aabb, pos, vel)| (aabb, pos, vel));
+    // Each player body and its live room, read once.
+    //
+    // ⛔ EACH PLAYER OF THE SNAKE'S OWN LIVE ROOM. It read one global
+    // `PrimaryPlayer` with `single()`: with two players nobody could stomp or
+    // kick a snake, and a player in another live room at the same place
+    // could.
+    let everyone: Vec<(Entity, ambition_platformer2d::platformer::lifecycle::LiveRoomInstance, ae::Aabb, ae::Vec2, ae::Vec2)> =
+        players
+            .iter()
+            .filter_map(|(player, kin)| Some((player, rooms.of(player)?, kin.aabb(), kin.pos, kin.vel)))
+            .collect();
 
     // First pass: advance every snake's phase and apply presentation/physics.
     // Collect each sliding shell's (entity, AABB, own-id, whether it is
     // side-hitting the player) so the shared-pipeline hits below retain causal
     // attribution after the mutable query borrow ends.
-    let mut sliding: Vec<(Entity, ae::Aabb, String, bool)> = Vec::new();
+    let mut sliding: Vec<(Entity, ae::Aabb, String, Option<Entity>)> = Vec::new();
     for (entity, feature_id, health, mut kin, mut holds, mut withdrawn, mut shell) in &mut snakes {
         if !health.alive() {
             // A corpse is out of the mechanic: it stops sliding, advances no phase,
@@ -420,15 +425,28 @@ pub fn run_snake_shells(
             kin.vel.x = 0.0;
             continue;
         }
-        let touch = player_box.and_then(|(p, _, pvel)| player_touch(kin.aabb(), p, pvel));
-        let inputs = shell_inputs_for(*shell, &kin, player_box.map(|(_, pos, _)| pos), touch);
+        // The player of its room that touches it; with no touch, the nearest
+        // player of its room. A tie goes to the lower entity, so the choice
+        // is the same on each replay.
+        let room = rooms.of(entity);
+        let player = everyone
+            .iter()
+            .filter(|(_, player_room, ..)| Some(*player_room) == room)
+            .map(|(player, _, aabb, pos, vel)| (*player, *pos, player_touch(kin.aabb(), *aabb, *vel)))
+            .min_by(|a, b| {
+                (a.2.is_none(), a.1.distance_squared(kin.pos), a.0)
+                    .partial_cmp(&(b.2.is_none(), b.1.distance_squared(kin.pos), b.0))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+        let touch = player.and_then(|(_, _, touch)| touch);
+        let inputs = shell_inputs_for(*shell, &kin, player.map(|(_, pos, _)| pos), touch);
         let fx = step_snake_shell(*shell, dt, inputs);
 
         // The stomp bounce is applied to the PLAYER (a fresh stomp on a walker OR a
         // stomp from above onto a moving shell — both stop the threat and bounce).
         if fx.just_squashed {
             let mut stomper = None;
-            if let Ok((player_entity, mut player)) = players.single_mut() {
+            if let Some(Ok((player_entity, mut player))) = player.map(|(player, ..)| players.get_mut(player)) {
                 ae::movement::set_jump_velocity(
                     &mut player.vel,
                     ae::DEFAULT_GRAVITY_DIR,
@@ -461,7 +479,7 @@ pub fn run_snake_shells(
             }
         }
         if fx.just_kicked {
-            let kicker = players.single().ok().map(|(entity, _)| entity);
+            let kicker = player.map(|(player, ..)| player);
             match kicker {
                 Some(kicker) => sfx.write_for(
                     kicker,
@@ -520,7 +538,7 @@ pub fn run_snake_shells(
                 entity,
                 kin.aabb(),
                 feature_id.as_str().to_string(),
-                side_hit,
+                player.filter(|_| side_hit).map(|(player, ..)| player),
             ));
         }
         *shell = fx.phase;
@@ -531,7 +549,7 @@ pub fn run_snake_shells(
     // the player (the drain's actor query is `Without<PlayerEntity>`) and EXCEPT the
     // shell itself (ignored by both disposition prefixes); the side-hit player event
     // is the only thing that can hurt the player.
-    for (shell_entity, aabb, self_id, side_hit) in sliding {
+    for (shell_entity, aabb, self_id, hit_player) in sliding {
         hits.write(HitEvent {
             strike_sfx: None,
             volume: aabb.into(),
@@ -545,8 +563,8 @@ pub fn run_snake_shells(
             ignored_targets: vec![format!("enemy:{self_id}"), format!("npc:{self_id}")],
                     attacker_move_instance: None,
         });
-        if side_hit {
-            if let Some((player_entity, ..)) = player_read {
+        if let Some(player_entity) = hit_player {
+            {
                 hits.write(HitEvent {
                     strike_sfx: None,
                     volume: aabb.into(),

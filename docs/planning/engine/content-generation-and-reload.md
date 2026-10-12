@@ -435,6 +435,16 @@ reaching an already running process. This is not a claim that the October 11
 It means a programmatic 2D authoring experience still needs a separate
 candidate/live-presentation activation path.
 
+**Collision half landed (2026-10-12):** `companions` and `sheet_manifests`
+refuse a key that two files give, and the refusal names both files
+(`one_file_for_each_key`); the build script and the development read use
+the same scan, so both refuse. The shipped tree has none (measured: 644
+tiered parts keys, 161 base, 9 rigs, 884 sheets, no collision). Witness:
+`ambition_sprite_sheet sprite_tree a_key_that_two_files_give_is_refused`
+(two folders, a quality tier, the sheet scan; one file a key is the
+control); the old keep-the-first poison fails it. The text below is the
+case as found.
+
 The source scanner has a more immediate deterministic-validation issue:
 `ambition_sprite_sheet/src/sprite_tree.rs:85-104` collects companion names,
 sorts only by logical key and silently `dedup_by` key. Two directories

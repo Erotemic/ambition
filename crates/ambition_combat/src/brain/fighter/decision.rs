@@ -11,7 +11,7 @@ use super::rollout::refine_by_rollout;
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::brain::attack_kit::AttackCandidate;
 use ambition_characters::brain::fighter::data::{
-    FighterCfg, FighterState, FoeSample, PendingAttack,
+    FighterCfg, FighterState, FoeSample, OwnAttack, PendingAttack, RefusedAttack,
 };
 use ambition_characters::brain::fighter::habit::Choice;
 use ambition_characters::brain::fighter::options::{
@@ -125,11 +125,14 @@ pub fn tick_fighter(
         state.ticks_until_decision -= 1;
     }
 
+    watch_the_own_attack(state);
+
     match state.pending_press {
         Some(PendingAttack {
             ticks: 0,
             binding,
             hold_ticks: hold,
+            move_ticks,
         }) => {
             state.pending_press = None;
             // THE ONE EMISSION POINT. A press with no APM token is DROPPED
@@ -145,6 +148,14 @@ pub fn tick_fighter(
                 state.charge_hold_ticks = hold;
                 state.charge_hold_gesture = charge_gesture_of(binding.verb);
                 hold_the_committed_button(state, &mut frame);
+                if move_ticks > 0 {
+                    state.own_attack = Some(OwnAttack {
+                        binding,
+                        watch_ticks: move_ticks.saturating_add(state.perception.delay_ticks() as u32),
+                        refuse_ticks: move_ticks,
+                        landed: false,
+                    });
+                }
             }
         }
         Some(pending) => {
@@ -188,6 +199,45 @@ pub fn tick_fighter(
         }
     }
     *out = frame;
+}
+
+/// Learn whether this body's own last attack hit, and decline a binding that
+/// whiffed for as long as its move plays (BRAIN road 1).
+///
+/// A hit is the foe seen in hitstun while the move could have hit it. The
+/// brain sees the foe late, so the watch lasts the move plus the perception
+/// delay. Every tick, not only on decision ticks: hitstun can be shorter than
+/// the decision interval.
+fn watch_the_own_attack(state: &mut FighterState) {
+    if let Some(refused) = state.refused.as_mut() {
+        refused.ticks = refused.ticks.saturating_sub(1);
+        if refused.ticks == 0 {
+            state.refused = None;
+        }
+    }
+    let foe_reels = state.perception.perceive().is_some_and(|view| {
+        view.nearest_hostile()
+            .is_some_and(|foe| foe.phase == ambition_characters::perception::BodyPhase::Hitstun)
+    });
+    let Some(own) = state.own_attack.as_mut() else {
+        return;
+    };
+    own.landed |= foe_reels;
+    own.watch_ticks = own.watch_ticks.saturating_sub(1);
+    if own.watch_ticks == 0 {
+        let own = *own;
+        state.own_attack = None;
+        if !own.landed {
+            state.refused = Some(RefusedAttack {
+                binding: own.binding,
+                ticks: own.refuse_ticks,
+            });
+        }
+    }
+}
+
+fn refuses(state: &FighterState, binding: ambition_characters::brain::attack_kit::AttackBinding) -> bool {
+    state.refused.is_some_and(|refused| refused.binding == binding)
 }
 
 /// What a fighter inside a capture presses — `None` at neither end of one.
@@ -466,13 +516,17 @@ fn decide(
         Some(_) => None,
         // An ordinary situation: no recovery search ran, and the ranking is
         // exactly right.
+        // A binding that just whiffed is declined while its refusal runs; the
+        // next attack in the ranking answers instead, or none does.
         None => refined
             .as_ref()
             .and_then(|refined| refined.binding.zip(refined.move_id.clone()))
+            .filter(|(binding, _)| !refuses(state, *binding))
             .or_else(|| {
                 options
                     .attacks
-                    .first()
+                    .iter()
+                    .find(|attack| !refuses(state, attack.binding))
                     .map(|attack| (attack.binding, attack.move_id.clone()))
             })
             // ⭐⭐ **AND WHEN NOTHING IN THE KIT CAN REACH THEM, A MOVE THAT
@@ -642,6 +696,11 @@ fn decide(
                 }
                 ambition_characters::brain::attack_kit::AttackVerb::Grab => 0,
             },
+            move_ticks: options
+                .attacks
+                .iter()
+                .find(|attack| Some(&attack.move_id) == wants_attack.as_ref().map(|(_, id)| id))
+                .map_or(0, |attack| (attack.frames.total_s * cfg.tick_hz).ceil().max(0.0) as u32),
         });
     }
 

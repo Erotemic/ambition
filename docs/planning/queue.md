@@ -1023,7 +1023,20 @@ before and after a change, on one binary, and report both columns.
 
 **Open roads, in order:**
 
-1. **A brain cannot decline to attack.** The decision takes `options.attacks.first()` whenever the body is free, so the move that survives at range is thrown until the world changes. The brain does not remember its own last move. A decline gate on decision ticks was built and was a no-op, because presses are bounded by move duration (24 ticks), not the decision cadence (5). Next: a refusal that lasts as long as the move would have (`frames.total_s`), which needs one more piece of brain state and its snapshot projection.
+1. **Done 2026-10-12: a brain declines a move it whiffed.** It remembers its
+   own last press (`FighterState::own_attack`, by binding) and watches for the
+   foe in hitstun for the move's length plus its perception delay; a whiff
+   refuses that binding for as long as the move plays (`refused`), and the
+   next attack of the ranking answers. Both are rollback state (projected in
+   the brain snapshot). Witness
+   `a_brain_that_whiffed_declines_that_move_for_as_long_as_it_plays`
+   (control: a foe seen reeling; poisons: no refusal, no hit seen). The grid,
+   before and after on one binary (23 mirrors, 3600 ticks): damage dealt
+   5363 → 6440, distinct moves 224 → 253; Bob 3 → 19 moves (12/31% → 172/149%),
+   Carl Stargan 6 → 17, the pirate admiral's `air_up`×101 lock is gone; the
+   robot (17 → 12), the director (10 → 7) and the officer (15 → 11) use fewer.
+   Unchanged: the medic (its one move lands), the goblin, the patent clerk and
+   GNU-ton (`third_law`×160 at point blank, 0%), which are road 2's case.
 2. **A counter and a buff cannot be chosen between.** Pricing them needs a defensive feature ("is the opponent committed to a swing"), not a wider admission rule.
 3. **`sanic` @5 leaves the stage early** (about 640–780 ticks, both seats airborne). That is a stage defect, not the one-move lock. The guard for it is a bout that ends early, not move variety.
 4. **A ranged move scores `launch: 0`.** A projectile hit writes a dimensionless `HitKnockbackMagnitude::FeelScale(0.85)`, not `LaunchSpeed`. Settle whether the feel reference belongs on `LaunchConditions`, whether `0.85` leaves the projectile stepper, and what `max_knockback` means for a launcher. A launcher also needs a hazard-coverage feature (its `reach_fit` is zero at every range).

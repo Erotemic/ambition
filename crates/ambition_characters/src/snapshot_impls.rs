@@ -488,16 +488,8 @@ impl SnapshotCursor for crate::brain::Brain {
                         put_bool(out, true);
                         put_u32(out, pending.ticks);
                         put_u32(out, pending.hold_ticks);
-                        put_u8(
-                            out,
-                            match pending.binding.verb {
-                                crate::brain::attack_kit::AttackVerb::Basic => 0,
-                                crate::brain::attack_kit::AttackVerb::Smash => 1,
-                                crate::brain::attack_kit::AttackVerb::Special => 2,
-                                crate::brain::attack_kit::AttackVerb::Grab => 3,
-                            },
-                        );
-                        put_u8(out, attack_dir_tag(pending.binding.direction));
+                        put_u32(out, pending.move_ticks);
+                        put_attack_binding(out, pending.binding);
                     }
                 }
                 put_u64(out, state.noise);
@@ -549,6 +541,26 @@ impl SnapshotCursor for crate::brain::Brain {
                         ambition_entity_catalog::ChargeGesture::Special => 1,
                     },
                 );
+                // Its memory of its own last attack, and the binding it
+                // declines: both decide what it presses next.
+                match state.own_attack {
+                    None => put_bool(out, false),
+                    Some(own) => {
+                        put_bool(out, true);
+                        put_attack_binding(out, own.binding);
+                        put_u32(out, own.watch_ticks);
+                        put_u32(out, own.refuse_ticks);
+                        put_bool(out, own.landed);
+                    }
+                }
+                match state.refused {
+                    None => put_bool(out, false),
+                    Some(refused) => {
+                        put_bool(out, true);
+                        put_attack_binding(out, refused.binding);
+                        put_u32(out, refused.ticks);
+                    }
+                }
             }
             // Every field of `RoamState` decides what the body does next: the
             // place it goes to, the leg it is on, and when its rest ends.
@@ -561,6 +573,20 @@ impl SnapshotCursor for crate::brain::Brain {
             _ => put_u8(out, 0),
         }
     }
+}
+
+/// An attack binding: its verb, then its direction.
+fn put_attack_binding(out: &mut Vec<u8>, binding: crate::brain::attack_kit::AttackBinding) {
+    put_u8(
+        out,
+        match binding.verb {
+            crate::brain::attack_kit::AttackVerb::Basic => 0,
+            crate::brain::attack_kit::AttackVerb::Smash => 1,
+            crate::brain::attack_kit::AttackVerb::Special => 2,
+            crate::brain::attack_kit::AttackVerb::Grab => 3,
+        },
+    );
+    put_u8(out, attack_dir_tag(binding.direction));
 }
 
 /// The explicit brain SELECTION for a catalog-backed NPC: its character

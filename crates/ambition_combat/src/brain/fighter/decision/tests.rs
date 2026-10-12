@@ -51,6 +51,7 @@ fn planted_press(ticks: u32) -> PendingAttack {
             direction: AttackDir::Forward,
         },
         hold_ticks: 0,
+        move_ticks: 0,
     }
 }
 
@@ -931,6 +932,7 @@ fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
         ticks: 0,
         binding,
         hold_ticks: 0,
+        move_ticks: 0,
     });
     state.ticks_until_decision = 30;
     tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
@@ -958,6 +960,7 @@ fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
             direction: AttackDir::Neutral,
         },
         hold_ticks: 0,
+        move_ticks: 0,
     });
     state.ticks_until_decision = 30;
     let mut out = ActorControlFrame::neutral();
@@ -1371,6 +1374,7 @@ fn a_smash_keeps_the_button_down_after_the_press() {
         ticks: 0,
         binding,
         hold_ticks: 4,
+        move_ticks: 0,
     });
     state.ticks_until_decision = 30;
 
@@ -1928,4 +1932,65 @@ fn twin_floors_are_told_apart_by_the_facing_and_not_by_the_list() {
         assert_eq!(ledge_for(1.0, reversed), 100.0, "facing right, list reversed {reversed}");
         assert_eq!(ledge_for(-1.0, reversed), -100.0, "facing left, list reversed {reversed}");
     }
+}
+
+/// BRAIN road 1: a brain that whiffed declines that binding for as long as the
+/// move plays, and throws the next attack of its ranking instead. With no
+/// memory of its own move it threw the same move until the world changed (the
+/// medic: 177 presses of one move, none landed).
+///
+/// The control is the same brain and kit against a foe seen reeling: the move
+/// landed, so nothing is declined and the best move stays the only one thrown.
+#[test]
+fn a_brain_that_whiffed_declines_that_move_for_as_long_as_it_plays() {
+    let mut snapshot = armed_snapshot();
+    let mut poke = snapshot.attack_kit[0].clone();
+    poke.move_id = "poke".to_string();
+    poke.frames.max_damage = 2;
+    poke.binding = AttackBinding {
+        verb: AttackVerb::Basic,
+        direction: AttackDir::Down,
+    };
+    snapshot.attack_kit.push(poke);
+    let jab = snapshot.attack_kit[0].binding;
+    let poke = snapshot.attack_kit[1].binding;
+
+    let pressed = |foe_reels: bool| {
+        let (cfg, mut state) = rig(immediate_profile());
+        let mut view = scene(300.0, 340.0);
+        if foe_reels {
+            view.actors[0].phase = ambition_characters::perception::BodyPhase::Hitstun;
+        }
+        let mut out = ActorControlFrame::neutral();
+        let mut presses = Vec::new();
+        for tick in 0..120u32 {
+            let pending = state.pending_press;
+            tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+            if out.melee_pressed {
+                presses.push((tick, pending.expect("a press comes from an armed attack").binding));
+            }
+        }
+        (presses, state)
+    };
+
+    let (whiffed, _) = pressed(false);
+    assert_eq!(whiffed.first().map(|(_, binding)| *binding), Some(jab), "premise: the jab ranks first: {whiffed:?}");
+    // The jab plays 0.35 s, 21 ticks at 60 Hz, and this brain sees with no delay.
+    let move_ticks = (0.35f32 * 60.0).ceil() as u32;
+    let first = whiffed[0].0;
+    assert!(
+        whiffed.iter().all(|(tick, binding)| *tick > first + move_ticks || *binding == jab),
+        "nothing is declined before the jab's time is over: {whiffed:?}"
+    );
+    assert!(
+        whiffed.iter().any(|(tick, binding)| *binding == poke && *tick > first + move_ticks && *tick <= first + 2 * move_ticks + 1),
+        "a whiffed jab is declined, and the poke is thrown while the refusal runs: {whiffed:?}"
+    );
+
+    let (landed, state) = pressed(true);
+    assert!(
+        !landed.is_empty() && landed.iter().all(|(_, binding)| *binding == jab),
+        "a jab that landed is not declined: {landed:?}"
+    );
+    assert_eq!(state.refused, None);
 }

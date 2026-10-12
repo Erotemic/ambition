@@ -528,7 +528,9 @@ before you add a port.
     a toucher fact copied from it for the port would be a second one; the
     road is to give the trigger the owner's fact where it is defined, which
     for the roll means moving `Rolling` out of the demo. The badnik rule
-    also reads one global `PrimaryPlayer`.
+    read one global `PrimaryPlayer` and no room; since 2026-10-12 it reads
+    each player of the badnik's live room
+    (`badnik::tests::each_player_of_the_badniks_room_squashes_it_and_no_other`).
   - Measured 2026-10-11 (the case before C1-C2): the demo behaviour still in Rust
     is contact rules and techniques, not brains. Mary-O's plant, snake
     shells and AI Slop, and Sanic's badnik, decide what a touch does (a

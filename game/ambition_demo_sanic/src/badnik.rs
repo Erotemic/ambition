@@ -50,12 +50,20 @@ const STOMP_BAND: f32 = 16.0;
 /// speed. A super player squashes it on any overlap. A side touch while not
 /// rolling and not super lands as normal contact damage.
 ///
+/// ⛔ EACH PLAYER OF THE BADNIK'S OWN LIVE ROOM. It read one global
+/// `PrimaryPlayer` with `single_mut()` and no room: a second seat could not
+/// squash a badnik, and the primary player squashed a badnik of another live
+/// room at the same place. The players are taken in the order of their
+/// simulation identity, and the first one whose touch is lethal is the one
+/// that squashes it.
+///
 /// Ordered before the shared body-contact-damage pass: the squash zeroes the
 /// badnik's health this frame, so the contact pass skips a dead attacker; the
 /// body is then despawned. Direct despawn (not the deferred actor-death
 /// pipeline), as for the Mary-O crony: the shared path runs a stage late and
 /// would hurt the stomper first, and a badnik has no drops or score. The pop
 /// is a dust burst through the engine's vfx seam.
+#[allow(clippy::type_complexity)]
 pub fn defeat_badniks(
     mut commands: Commands,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
@@ -64,14 +72,16 @@ pub fn defeat_badniks(
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<
         (
+            Entity,
             &mut ae::BodyKinematics,
             Option<&crate::ball_dash::Rolling>,
             // What is true of this body: its grant and the character it
             // wears. Optional so the thin test harnesses need not dress the body.
             Option<&ambition_platformer2d::actors::features::empowerment::Empowered>,
             Option<&ambition_platformer2d::characters::actor::WornCharacter>,
+            Option<&ambition_platformer2d::platformer::sim_id::SimId>,
         ),
-        With<PrimaryPlayer>,
+        With<PlayerEntity>,
     >,
     cast: ambition_platformer2d::characters::prepared::SessionCast,
     mut badniks: Query<
@@ -79,41 +89,49 @@ pub fn defeat_badniks(
         (Without<PrimaryPlayer>, Without<PlayerEntity>),
     >,
 ) {
-    let Ok((mut player, rolling, grant, worn)) = players.single_mut() else {
-        return;
-    };
-    // Squashing on touch is a trait the body holds, not a name it wears.
-    // Rolling joins the kill condition but not the bounce: a super stomp
-    // still bounces.
-    let harms_on_contact =
-        ambition_platformer2d::actors::features::empowerment::empowerment_of(grant, worn, cast.get())
-            .holds(ambition_platformer2d::actors::features::empowerment::Empowerment::HARMS_ON_CONTACT);
-    let rolling = rolling.is_some();
-    let lethal_touch = rolling || harms_on_contact;
-    // Screen gravity is +y: "descending" is vel.y > 0, feet are the max-y edge.
-    let falling = player.vel.y > 0.0;
-    if !lethal_touch && !falling {
-        return;
-    }
-    let p = player.aabb();
+    // Each player: its room, its box and velocity at the start of the pass,
+    // whether it rolls, and whether any touch of it is lethal. Squashing on
+    // touch is a trait the body holds, not a name it wears.
+    let everyone = ambition_platformer2d::platformer::sim_selection::in_deterministic_order(
+        players.iter().map(|(player, kin, rolling, grant, worn, id)| {
+            let harms_on_contact =
+                ambition_platformer2d::actors::features::empowerment::empowerment_of(grant, worn, cast.get())
+                    .holds(ambition_platformer2d::actors::features::empowerment::Empowerment::HARMS_ON_CONTACT);
+            (player, rooms.of(player), kin.aabb(), kin.vel, rolling.is_some(), harms_on_contact, id.cloned())
+        }),
+        |_| 0.0,
+        |(.., id)| id.as_ref(),
+    );
     for (entity, badnik_kin, faction, mut health) in &mut badniks {
         if !matches!(faction, ActorFaction::Enemy) {
             continue;
         }
+        let room = rooms.of(entity);
         let g = badnik_kin.aabb();
-        let overlap_x = p.min.x < g.max.x && p.max.x > g.min.x;
-        let overlap_y = p.min.y < g.max.y && p.max.y > g.min.y;
-        let feet = p.max.y;
-        let stomp =
-            falling && overlap_x && feet >= g.min.y - STOMP_BAND && feet <= g.min.y + STOMP_BAND;
-        let roll = lethal_touch && overlap_x && overlap_y;
-        if !stomp && !roll {
+        // Rolling joins the kill condition but not the bounce: a super stomp
+        // still bounces. Screen gravity is +y: "descending" is vel.y > 0, feet
+        // are the max-y edge.
+        let squash = everyone.iter().find_map(|(player, player_room, p, vel, rolling, harms, _)| {
+            if *player_room != room {
+                return None;
+            }
+            let falling = vel.y > 0.0;
+            let overlap_x = p.min.x < g.max.x && p.max.x > g.min.x;
+            let overlap_y = p.min.y < g.max.y && p.max.y > g.min.y;
+            let feet = p.max.y;
+            let stomp = falling && overlap_x && feet >= g.min.y - STOMP_BAND && feet <= g.min.y + STOMP_BAND;
+            let roll = (*rolling || *harms) && overlap_x && overlap_y;
+            (stomp || roll).then_some((*player, stomp && !*rolling))
+        });
+        let Some((player, bounce)) = squash else {
             continue;
+        };
+        if bounce {
+            if let Ok((_, mut kin, ..)) = players.get_mut(player) {
+                ae::movement::set_jump_velocity(&mut kin.vel, ae::DEFAULT_GRAVITY_DIR, BOUNCE_SPEED);
+            }
         }
-        if stomp && !rolling {
-            ae::movement::set_jump_velocity(&mut player.vel, ae::DEFAULT_GRAVITY_DIR, BOUNCE_SPEED);
-        }
-        vfx.for_room(rooms.of(entity)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
+        vfx.for_room(room).write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: badnik_kin.pos,
             count: 12,
             speed: 150.0,
@@ -121,7 +139,7 @@ pub fn defeat_badniks(
             kind: ambition_platformer2d::vfx::ParticleKind::Dust,
         });
         // And a few bright sparks over the dust: a pop, not only a puff.
-        vfx.for_room(rooms.of(entity)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
+        vfx.for_room(room).write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: badnik_kin.pos,
             count: 8,
             speed: 260.0,
@@ -179,6 +197,7 @@ mod tests {
         let badnik = spawn_badnik(&mut app, ae::Vec2::new(0.0, 32.0));
         app.world_mut().spawn((
             PrimaryPlayer,
+            PlayerEntity,
             kin(ae::Vec2::ZERO, ae::Vec2::new(0.0, 240.0)),
         ));
         app.update();
@@ -194,6 +213,7 @@ mod tests {
         let badnik = spawn_badnik(&mut app, ae::Vec2::new(10.0, 0.0));
         app.world_mut().spawn((
             PrimaryPlayer,
+            PlayerEntity,
             crate::ball_dash::Rolling,
             kin(ae::Vec2::ZERO, ae::Vec2::new(600.0, 0.0)),
         ));
@@ -210,6 +230,7 @@ mod tests {
         let badnik = spawn_badnik(&mut app, ae::Vec2::new(10.0, 0.0));
         app.world_mut().spawn((
             PrimaryPlayer,
+            PlayerEntity,
             kin(ae::Vec2::ZERO, ae::Vec2::new(0.0, -200.0)),
         ));
         app.update();
@@ -227,6 +248,7 @@ mod tests {
         let badnik = spawn_badnik(&mut app, ae::Vec2::new(10.0, 0.0));
         app.world_mut().spawn((
             PrimaryPlayer,
+            PlayerEntity,
             ambition_platformer2d::actors::features::empowerment::Empowered::held(
                 ambition_platformer2d::actors::features::empowerment::Empowerment::HARMS_ON_CONTACT,
             ),
@@ -248,6 +270,7 @@ mod tests {
         let badnik = spawn_badnik(&mut app, ae::Vec2::new(10.0, 0.0));
         app.world_mut().spawn((
             PrimaryPlayer,
+            PlayerEntity,
             ambition_platformer2d::characters::actor::WornCharacter::new(
                 crate::SUPER_SANIC_CHARACTER_ID,
             ),
@@ -268,6 +291,7 @@ mod tests {
         let badnik = spawn_badnik(&mut app, ae::Vec2::new(10.0, 0.0));
         app.world_mut().spawn((
             PrimaryPlayer,
+            PlayerEntity,
             ambition_platformer2d::characters::actor::WornCharacter::new(crate::SANIC_CHARACTER_ID),
             kin(ae::Vec2::ZERO, ae::Vec2::new(120.0, 0.0)),
         ));
@@ -276,5 +300,39 @@ mod tests {
             app.world().get_entity(badnik).is_ok(),
             "the base form's side touch leaves the badnik alive"
         );
+    }
+
+    /// ⛔ A SECOND SEAT SQUASHES A BADNIK OF ITS OWN ROOM, AND A PLAYER OF
+    /// ANOTHER LIVE ROOM AT THE SAME PLACE DOES NOT. The rule read one global
+    /// `PrimaryPlayer` and no room. The control is the primary player, in the
+    /// badnik's room, which squashes it.
+    #[test]
+    fn each_player_of_the_badniks_room_squashes_it_and_no_other() {
+        use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        // (the primary player, the player's room): squashed?
+        for (primary, room, squashed) in [(true, 0, true), (false, 0, true), (true, 1, false), (false, 1, false)] {
+            let mut app = defeat_app();
+            for room in rooms {
+                app.world_mut().spawn((RoomInstanceRoot, room));
+            }
+            let badnik = spawn_badnik(&mut app, ae::Vec2::new(0.0, 32.0));
+            app.world_mut().entity_mut(badnik).insert(InRoomInstance(rooms[0]));
+            let player = app
+                .world_mut()
+                .spawn((PlayerEntity, InRoomInstance(rooms[room]), kin(ae::Vec2::ZERO, ae::Vec2::new(0.0, 240.0))))
+                .id();
+            if primary {
+                app.world_mut().entity_mut(player).insert(PrimaryPlayer);
+            }
+            app.update();
+            assert_eq!(
+                app.world().get_entity(badnik).is_err(),
+                squashed,
+                "primary {primary}, in room {room}: squashed {squashed}"
+            );
+            let vel = app.world().get::<ae::BodyKinematics>(player).unwrap().vel;
+            assert_eq!(vel.y < 0.0, squashed, "primary {primary}, in room {room}: the stomper bounces, and only it");
+        }
     }
 }

@@ -19,6 +19,10 @@ struct VoidFieldSettings {
     // For each ward, as for a source. A ward gives the picture its colour
     // back: where it is, the void takes nothing.
     wards: array<vec4<f32>, 4>,
+    // The view of the camera in its target: x, y = its top left, z, w = its
+    // size, each as a part of the target. This pass draws on the whole
+    // target, and the sources are in the view.
+    view: vec4<f32>,
 }
 
 @group(0) @binding(2) var<uniform> settings: VoidFieldSettings;
@@ -26,12 +30,18 @@ struct VoidFieldSettings {
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let colour = textureSample(screen_texture, texture_sampler, in.uv);
+    // Where this pixel is in the view of the camera. A pixel of the target
+    // that is not in the view is not of this camera.
+    let at = (in.uv - settings.view.xy) / max(settings.view.zw, vec2<f32>(0.0001));
+    if at.x < 0.0 || at.y < 0.0 || at.x > 1.0 || at.y > 1.0 {
+        return colour;
+    }
     var field = 0.0;
     let count = i32(settings.control.x);
     for (var index = 0; index < count; index++) {
         let source = settings.sources[index];
         // In view heights, so a field is round on a wide view.
-        let offset = (in.uv - source.xy) * vec2<f32>(settings.control.y, 1.0);
+        let offset = (at - source.xy) * vec2<f32>(settings.control.y, 1.0);
         let near = 1.0 - smoothstep(0.25, 1.0, length(offset) / max(source.z, 0.0001));
         field = max(field, near * source.w);
     }
@@ -39,7 +49,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let ward_count = i32(settings.control.w);
     for (var index = 0; index < ward_count; index++) {
         let source = settings.wards[index];
-        let offset = (in.uv - source.xy) * vec2<f32>(settings.control.y, 1.0);
+        let offset = (at - source.xy) * vec2<f32>(settings.control.y, 1.0);
         let near = 1.0 - smoothstep(0.45, 1.0, length(offset) / max(source.z, 0.0001));
         ward = max(ward, near * source.w);
     }

@@ -157,6 +157,7 @@ fn window_json(
         WindowTag::Active => ("active".to_string(), Vec::new()),
         WindowTag::Recovery => ("recovery".to_string(), Vec::new()),
         WindowTag::Invuln => ("invuln".to_string(), Vec::new()),
+        WindowTag::Settled => ("settled".to_string(), Vec::new()),
         WindowTag::Armor => ("armor".to_string(), Vec::new()),
         // Keep the threshold in the tag string. Plain `"armor"` would read as
         // super armor.
@@ -460,6 +461,7 @@ fn event_json(event: &ambition_entity_catalog::MoveEvent) -> serde_json::Value {
             ("gravity_modifier", format!("x{scale} for {seconds}s"))
         }
         MoveEventKind::HoldVelocity { seconds } => ("hold_velocity", format!("{seconds}s")),
+        MoveEventKind::TurnAround => ("turn_around", String::new()),
     };
     serde_json::json!({
         "at_s": event.at_s,

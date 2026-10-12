@@ -616,8 +616,8 @@ fn moveset_of(app: &mut App, character: &str) -> Option<ambition_entity_catalog:
     app.world()
         .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .and_then(|registry| registry.get(character))
-        .and_then(|prepared| prepared.kit.projectable_moveset())
-        .cloned()
+        // As a seat on the stage of the takes wears it.
+        .and_then(|prepared| prepared.moveset_in(ambition_platformer2d::characters::smash_fighter::FIGHTER_DAMAGE))
 }
 
 /// Does this move author offence: a strike volume, or an event that fires?

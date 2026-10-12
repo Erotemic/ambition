@@ -474,8 +474,8 @@ fn two_peers_agree_in_the_rooms_that_carry_the_float_rows() {
         .map(|row| row.rsplit("::").next().unwrap())
         .collect();
     assert_eq!(missing, vec!["MountedSize"], "the float rows no walk carries");
-    // ⚠ ONE WALK ENDS ITS SESSION. In `portal_bridge` Alice walks off the
-    // bridge, and her replay of the room is a lifecycle operation: under a
+    // ⚠ ONE WALK ENDS ITS SESSION, TWICE. In `portal_bridge` Alice walks off
+    // the bridge, and her replay of the room is a lifecycle operation: under a
     // peer session it freezes, commits on each peer and starts the next
     // session, as a door does. So this walk also shows that the peers agree
     // across a same-room replay. (Before the peer commit the replay waited
@@ -486,7 +486,9 @@ fn two_peers_agree_in_the_rooms_that_carry_the_float_rows() {
             ("blink_run", 1),
             ("portal_lab", 1),
             ("basement_hazards", 1),
-            ("portal_bridge", 2),
+            // Three since 2026-10-12: a swing of the robot at home does not
+            // root it, so in the same frames she walks off the bridge twice.
+            ("portal_bridge", 3),
             ("basement_boss", 1),
             ("pirate_sky_lookout", 1),
             ("goblin_encounter", 1),

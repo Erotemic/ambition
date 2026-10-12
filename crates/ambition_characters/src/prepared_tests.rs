@@ -202,6 +202,7 @@ fn a_definition_carries_no_controller_binding() {
         // The same moves' damage in another game's scale: a body fact read
         // under one ruleset, not a controller binding.
         scaled_move_damage: _,
+        scaled_verbs: _,
         // A CAPABILITY, not a controller binding, and the distinction is the
         // whole of §4.7: this says what the body can reach for, and says nothing
         // about who decides to reach. A human and a CPU wearing this character

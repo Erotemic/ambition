@@ -477,6 +477,7 @@ pub fn rebuild_body_pose_views(
             //  a MOVE names its row; failing that, a fighter STATE does — the
             // same two-step the actor road takes, so the two never disagree.
             clip: playback
+                .filter(|playback| !playback.settled())
                 .map(|playback| crate::ClipRequest::for_move(&playback.spec.clip, playback.phase()))
                 .or_else(|| {
                     crate::ClipRequest::from_chain(ambition_character_sprites::body_state_clip(

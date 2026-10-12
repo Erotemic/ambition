@@ -13,6 +13,7 @@ fn facet() -> SmashFighterFacet {
         body: None,
         knockback_weight: None,
         move_damage: MoveDamage::new(),
+        verbs: Default::default(),
         character: "test_fighter".to_string(),
     }
 }

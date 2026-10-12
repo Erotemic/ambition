@@ -12,7 +12,7 @@
 use ambition_characters::brain::action_set::IdentityKit;
 use ambition_characters::brain::{ActionSet, RangedExecution};
 use ambition_characters::prepared::{overlay_authored_moves, PreparedCharacterDefinition};
-use ambition_characters::move_damage::{move_damage_over, DamageScale};
+use ambition_characters::move_damage::{move_damage_over, verb_moves_over, DamageScale};
 use ambition_entity_catalog::MovesetContract;
 
 use crate::moveset::build_actor_moveset;
@@ -26,8 +26,9 @@ pub struct SeatTerms<'a> {
     /// The stage's borrowed repertoire. It replaces the action set; see
     /// [`WornKit::of`].
     pub action_set: Option<&'a ActionSet>,
-    /// The damage scale the fighter's moves deal on this stage; `None` is
-    /// each moveset's own damage.
+    /// The scale the fighter plays in on this stage: the damage its moves
+    /// deal, and the move each of its verbs names. `None` is each moveset's
+    /// own damage and its own verbs.
     pub move_damage: Option<DamageScale>,
 }
 
@@ -83,7 +84,7 @@ impl WornKit {
     ///
     /// A MATCH ALSO SAYS WHICH DAMAGE ITS HITS DEAL (`terms.move_damage`): a
     /// platform-fighter stage reads the character's `smash_fighter` damage over
-    /// the same moves. Resolved here and not at seating, so a fighter that
+    /// the same moves, and that facet's verbs (which move a button plays). Resolved here and not at seating, so a fighter that
     /// re-wears its character during the match keeps the stage's damage.
     pub fn of(prepared: &PreparedCharacterDefinition, terms: SeatTerms<'_>) -> Self {
         let execution = prepared.ranged_execution;
@@ -117,6 +118,21 @@ impl WornKit {
                     }
                 }
             }
+            None => derived,
+        };
+        // The stage's verbs, over the same moves: which move a button plays
+        // in this game.
+        let verbs = terms.move_damage.and_then(|scale| prepared.scaled_verbs.get(&scale)).filter(|verbs| !verbs.is_empty());
+        let derived = match verbs {
+            Some(verbs) => match verb_moves_over(verbs, derived.clone()) {
+                Ok(moveset) => moveset,
+                // Preparation reported this (`unresolved_references`). The
+                // body keeps one game's verbs.
+                Err(problems) => {
+                    bevy::log::error!("character '{}' keeps its moveset's verbs on this stage: {problems:?}", prepared.id.as_str());
+                    derived
+                }
+            },
             None => derived,
         };
         Self {

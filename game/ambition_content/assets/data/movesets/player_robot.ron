@@ -17,6 +17,14 @@
 // (`DeclaredRules<CombatRules>`). So Ambition reads this table as
 // Hollow-Knight combat and Smash reads it as a platform fighter.
 //
+// WHICH MOVE A BUTTON PLAYS IS A SECOND THING WITH TWO MEANINGS (2026-10-12).
+// The `verbs` here are the robot at home: the blade of Ambition (`blade_*`),
+// swings that root no one. A Smash stage reads the verbs of the robot's
+// platform-fighter facet (`data/fighters/player_robot_v3.ron`), which name
+// the fighter's moves in this same file (`jab`, the tilts, the aerials, the
+// dash attack). So a move here can have no verb of the home game.
+// `docs/planning/game/robot-combat-feel.md`.
+//
 // DAMAGE IS THE ONE NUMBER WITH TWO MEANINGS. Here it is Ambition's damage,
 // which is health: an ordinary tilt or aerial deals 1 and only the smash
 // attacks deal 3 or more, so a smash attack is the robot's heavy hit
@@ -134,16 +142,15 @@
                 presentation: None,
                 moveset: Some((
                     verbs: {
-                        "attack": "jab",
-                        "attack_air": "air_neutral",
-                        "attack_air_back": "air_back",
+                        "attack": "blade_rise",
+                        "attack_air": "blade_rise",
+                        "attack_air_back": "blade_behind",
                         "attack_air_down": "air_down",
-                        "attack_air_forward": "air_forward",
-                        "attack_air_up": "air_up",
-                        "attack_dash": "player_robot_dash_attack",
-                        "attack_down": "tilt_down",
-                        "attack_forward": "tilt_forward",
-                        "attack_up": "tilt_up",
+                        "attack_air_forward": "blade_rise",
+                        "attack_air_up": "blade_overhead",
+                        "attack_down": "blade_low",
+                        "attack_forward": "blade_rise",
+                        "attack_up": "blade_overhead",
                         "capture_pummel": "robot_pummel",
                         "capture_throw_back": "robot_bthrow",
                         "capture_throw_down": "robot_dthrow",
@@ -161,6 +168,662 @@
                         "taunt": "player_robot_taunt",
                     },
                     moves: [
+                        // THE BLADE AT HOME (Jon, 2026-10-12). In Ambition the robot fights as the
+                        // knight of Hollow Knight does: a swing does not root it. It walks, jumps and
+                        // dashes through each of these, on the ground and in the air.
+                        // 
+                        // `blade_rise` and `blade_fall` are the 1-2: the blade goes up across the
+                        // front, then comes down. They are one reach; the picture says which half.
+                        // A press in a swing's last part (from 0.24 s, and to 0.5 s: the swing's
+                        // picture is over at 0.28 s, and the time after is the time to press again)
+                        // is the next of the string. After that a press is the rise again.
+                        // 
+                        // The stick decides the third. At rest (the jab): rise, fall, `blade_thrust`.
+                        // Held forward (the forward attack, and a walk): rise, fall, rise, fall. The
+                        // two verbs name one move, `blade_rise`, and the cancel table makes the two
+                        // strings: at rest the fall's first follow-up is the thrust; a forward press
+                        // asks for the rise, and the fall lets any attack follow it.
+                        (
+                            id: "blade_rise",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_side",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.5,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.05,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.05,
+                                    end_s: 0.12,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (28.0, -1.0),
+                                                half_extents: (20.0, 14.0),
+                                            ),
+                                            damage: 1,
+                                            knockback: 58.0,
+                                            knockback_growth: Some(1.1),
+                                            launch_dir: None,
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_rise"),
+                                            hit_sfx: Some("player.robot.slash.impact"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.12,
+                                    end_s: 0.28,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.24,
+                                    end_s: 0.5,
+                                    tag: Cancelable(
+                                        into: [
+                                            "blade_fall",
+                                            "any_attack",
+                                            "special",
+                                            "ranged",
+                                            "grab",
+                                            "taunt",
+                                        ],
+                                        condition: Always,
+                                    ),
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.28,
+                                    end_s: 0.5,
+                                    tag: Settled,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.05,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: None,
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // The fall: the second of the 1-2. The row `jab` is the blade from high to low.
+                        (
+                            id: "blade_fall",
+                            display_name: None,
+                            clip: (
+                                clip: "jab",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.5,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.05,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.05,
+                                    end_s: 0.12,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (28.0, -1.0),
+                                                half_extents: (20.0, 14.0),
+                                            ),
+                                            damage: 1,
+                                            knockback: 58.0,
+                                            knockback_growth: Some(1.1),
+                                            launch_dir: None,
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_fall"),
+                                            hit_sfx: Some("player.robot.slash.impact"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.12,
+                                    end_s: 0.28,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.24,
+                                    end_s: 0.5,
+                                    tag: Cancelable(
+                                        into: [
+                                            "blade_thrust",
+                                            "any_attack",
+                                            "special",
+                                            "ranged",
+                                            "grab",
+                                            "taunt",
+                                        ],
+                                        condition: Always,
+                                    ),
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.28,
+                                    end_s: 0.5,
+                                    tag: Settled,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.05,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: None,
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // The third strike of the string at rest: a thrust, heavier than the two
+                        // swings (2 of health; a smash attack is 3 or more). No part of a walk has it.
+                        // The row `dash_attack` is its picture: at home the robot has no dash attack.
+                        (
+                            id: "blade_thrust",
+                            display_name: None,
+                            clip: (
+                                clip: "dash_attack",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.5,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.065,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.065,
+                                    end_s: 0.17,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (34.0, -2.0),
+                                                half_extents: (26.0, 16.0),
+                                            ),
+                                            damage: 2,
+                                            knockback: 110.0,
+                                            knockback_growth: Some(1.4),
+                                            launch_dir: Some((1.0, -0.3)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.robot.slash.impact"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.17,
+                                    end_s: 0.5,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.38,
+                                    end_s: 0.5,
+                                    tag: Cancelable(
+                                        into: [
+                                            "any_attack",
+                                            "special",
+                                            "ranged",
+                                            "grab",
+                                            "taunt",
+                                        ],
+                                        condition: Always,
+                                    ),
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.46,
+                                    end_s: 0.5,
+                                    tag: Settled,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.065,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.065,
+                                    kind: Impulse(
+                                        local: (110.0, 0.0),
+                                        mode: Add,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: None,
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // Over the head, on the ground and in the air: one move for the two verbs.
+                        (
+                            id: "blade_overhead",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_up",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.5,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.055,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.055,
+                                    end_s: 0.125,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (8.0, -32.0),
+                                                half_extents: (21.0, 23.0),
+                                            ),
+                                            damage: 1,
+                                            knockback: 75.0,
+                                            knockback_growth: Some(1.5),
+                                            launch_dir: Some((0.12, -1.0)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.robot.slash.impact"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.125,
+                                    end_s: 0.28,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.24,
+                                    end_s: 0.5,
+                                    tag: Cancelable(
+                                        into: [
+                                            "any_attack",
+                                            "special",
+                                            "ranged",
+                                            "grab",
+                                            "taunt",
+                                        ],
+                                        condition: Always,
+                                    ),
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.28,
+                                    end_s: 0.5,
+                                    tag: Settled,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.055,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: None,
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // The low poke, on the ground. The frames of `tilt_down`, and it roots no one.
+                        (
+                            id: "blade_low",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_down",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.28,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.06,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.06,
+                                    end_s: 0.12,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (26.0, 16.0),
+                                                half_extents: (20.0, 10.0),
+                                            ),
+                                            damage: 1,
+                                            knockback: 60.0,
+                                            knockback_growth: Some(1.2),
+                                            launch_dir: Some((0.5, -0.85)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.robot.slash.impact"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.12,
+                                    end_s: 0.28,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.06,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // Behind, in the air (a body in the air does not turn to the stick). As
+                        // Marth's: the strike is behind the body, and then the body turns about
+                        // (`TurnAround`), so the same stick is forward, and the next press is the rise.
+                        // The turn is at 6/7 of the picture: the row's last frame is the first that
+                        // is drawn turned.
+                        (
+                            id: "blade_behind",
+                            display_name: None,
+                            clip: (
+                                clip: "air_back",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.5,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.088,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.088,
+                                    end_s: 0.15,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (-32.0, -2.0),
+                                                half_extents: (22.0, 18.0),
+                                            ),
+                                            damage: 1,
+                                            knockback: 100.0,
+                                            knockback_growth: Some(1.8),
+                                            launch_dir: Some((-1.0, -0.38)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.robot.slash.impact"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.15,
+                                    end_s: 0.36,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.32,
+                                    end_s: 0.5,
+                                    tag: Cancelable(
+                                        into: [
+                                            "any_attack",
+                                            "special",
+                                            "ranged",
+                                            "grab",
+                                            "taunt",
+                                        ],
+                                        condition: Always,
+                                    ),
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.36,
+                                    end_s: 0.5,
+                                    tag: Settled,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.088,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.3086,
+                                    kind: TurnAround,
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(false),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
                         (
                             id: "jab",
                             display_name: None,

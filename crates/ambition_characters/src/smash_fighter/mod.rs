@@ -77,6 +77,17 @@ pub struct SmashFighterFacet {
     /// map does not name keeps its moveset damage.
     #[serde(default)]
     pub move_damage: crate::move_damage::MoveDamage,
+    /// The move each verb names on a platform-fighter stage, where that is
+    /// not the move its moveset names. Folded under [`FIGHTER_DAMAGE`] with
+    /// the damage; a match that plays in that scale applies both.
+    ///
+    /// The moveset's own `verbs` are the character's HOME game. A character
+    /// whose home attack is not a platform fighter's (the robot at home
+    /// swings as it walks; a fighter's jab roots, and a fighter has a dash
+    /// attack) names here the moves a fighter's buttons play. Each move is
+    /// still in the one moveset file: this map has ids, and no frame.
+    #[serde(default)]
+    pub verbs: crate::move_damage::VerbMoves,
 }
 
 /// The damage scale this capability folds a facet's `move_damage` under. A
@@ -199,6 +210,11 @@ impl SmashFighterFacet {
                     "`move_damage.{move_id}` is {values:?}; it needs one value of at least 1 \
                      for each volume of the move that deals damage"
                 ));
+            }
+        }
+        for (verb, move_id) in &self.verbs {
+            if verb.trim().is_empty() || move_id.trim().is_empty() {
+                out.push(format!("`verbs` has the entry `{verb}`: `{move_id}`; a verb and a move id are both names"));
             }
         }
         if let Some(weight) = self.knockback_weight {

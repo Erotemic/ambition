@@ -123,6 +123,10 @@ pub struct CharacterDefinition {
     /// [`crate::smash_fighter::FIGHTER_DAMAGE`]). Only a match that plays in a
     /// scale reads that scale's map. See [`crate::move_damage`].
     pub scaled_move_damage: crate::move_damage::ScaledMoveDamage,
+    /// The move each verb names in each scale other than its moveset's own,
+    /// folded in beside the damage. Only a match that plays in a scale reads
+    /// that scale's map. See [`crate::move_damage::VerbMoves`].
+    pub scaled_verbs: crate::move_damage::ScaledVerbMoves,
     /// Actions this character may choose, separate from the moveset that defines the moves.
     pub action_set: Option<crate::brain::ActionSet>,
     /// How this character MOVES — the state-free movement policy.
@@ -221,6 +225,7 @@ impl CharacterDefinition {
             death_traits: None,
             moveset: None,
             scaled_move_damage: crate::move_damage::ScaledMoveDamage::new(),
+            scaled_verbs: crate::move_damage::ScaledVerbMoves::new(),
             action_set: None,
             motion_model: None,
             movement_tuning: None,
@@ -437,6 +442,7 @@ mod authority_tests {
             death_traits: _,
             moveset: _,
             scaled_move_damage: _,
+            scaled_verbs: _,
             action_set: _,
             motion_model: _,
             movement_tuning: _,

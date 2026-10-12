@@ -21,7 +21,10 @@ use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
 use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
-use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d::platformer::markers::PlayerEntity;
+// The tests seat the first player.
+#[cfg(test)]
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 use crate::provider::MARY_O_CHARACTER_ID;

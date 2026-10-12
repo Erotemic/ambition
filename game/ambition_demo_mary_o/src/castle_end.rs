@@ -206,7 +206,9 @@ pub fn the_lava_takes_the_boss(
         match lava {
             Some(pool) if feet >= pool.min.y => {
                 // In the lava: down at a fixed speed, and no way to the side.
-                kin.vel = ae::Vec2::new(0.0, SINK_SPEED);
+                // The lava holds the speed; the step moves the body.
+                let at = kin.pos;
+                ae::movement::constrain_body_pose(&mut kin, None, at, ae::Vec2::new(0.0, SINK_SPEED));
                 if tick.as_ref().is_some_and(|tick| tick.get() % SPLASH_TICKS == 0) {
                     vfx.for_room(room).write(ambition_platformer2d::vfx::VfxMessage::Burst {
                         pos: ae::Vec2::new(kin.pos.x, pool.min.y),

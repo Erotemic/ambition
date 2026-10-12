@@ -8,7 +8,10 @@ use bevy::prelude::*;
 use ambition_platformer2d::actors::features::empowerment::{Empowered, Empowerment};
 use ambition_platformer2d::characters::equipment::{EquipmentRow, WornEquipment};
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d::platformer::markers::PlayerEntity;
+// The tests seat the first player.
+#[cfg(test)]
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
 /// Row id of the pocket quasar. Unlike the wand and the beacon this row is NOT a
 /// power form: it takes no `exclusive_slot`, because becoming briefly untouchable

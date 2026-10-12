@@ -241,20 +241,21 @@ pub fn come_back_from_the_form(
 /// over the top.
 pub fn the_sky_has_a_top(
     mut bodies: Query<
-        (&mut ae::BodyKinematics, &ae::BodyGroundState),
+        (&mut ae::BodyKinematics, Option<&mut ae::SweepSample>, &ae::BodyGroundState),
         With<ambition_platformer2d::platformer::markers::PlayerEntity>,
     >,
 ) {
-    for (mut kin, ground) in &mut bodies {
+    for (mut kin, mut sweep, ground) in &mut bodies {
         let half = kin.size.y * 0.5;
         // The top of a room is the line y = 0 of its own space.
         if ground.on_ground || kin.pos.y >= half {
             continue;
         }
-        kin.pos.y = half;
-        if kin.vel.y < 0.0 {
-            kin.vel.y = 0.0;
-        }
+        // The top holds her as a ceiling does: at the line, with no speed up.
+        // The sweep moves with her, so the next step does not see a jump.
+        let at = ae::Vec2::new(kin.pos.x, half);
+        let vel = ae::Vec2::new(kin.vel.x, kin.vel.y.max(0.0));
+        ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), at, vel);
     }
 }
 

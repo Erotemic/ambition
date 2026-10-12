@@ -28,6 +28,18 @@ durable references to unloaded entities and a production observation port.
 
 ## Saved-row identity validation (new durable-session customer, 2026-10-11)
 
+**What landed (2026-10-12):** the schema written in a saved row is its
+identity. `adopt_saved_rows` refuses a row whose label names another
+schema, and refuses every row of a schema that two rows give (the live
+record keeps its value; each refusal is a problem line). `merged_rows`
+drops a saved row when its label OR its written schema is one the road
+keeps, so a mislabelled row does not stay as a ghost beside the live row;
+an unadmitted module's rows stay unchanged. Witness:
+`ambition_extension_host a_saved_row_is_the_schema_written_in_it`; three
+poisons (no label check, no duplicate refusal, merge by label) each fail at
+their own assertion. Not changed: an undecodable row of an unadmitted
+module stays by its label, as before. The text below is the case as found.
+
 `crates/ambition_extension_host/src/save.rs:71-101` decodes the stored
 `StateSchema` and selects the admitted record by `written.key`. The outer
 `SavedRow.key` is not compared with that decoded key. The merge path instead

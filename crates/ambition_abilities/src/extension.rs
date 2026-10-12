@@ -26,10 +26,10 @@ use ambition_combat_port::{
 /// path.
 pub use ambition_combat_port::TransitPort;
 use ambition_extension_host::{
-    AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox, InBossConduct, InModuleEntityTick,
+    AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox, InActorThink, InBossConduct, InModuleEntityTick,
     InWieldedUse, LowersIn,
 };
-use ambition_extension_sdk::phases::{BOSS_CONDUCT, MODULE_ENTITY_TICK, WIELDED_USE};
+use ambition_extension_sdk::phases::{ACTOR_THINK, BOSS_CONDUCT, MODULE_ENTITY_TICK, WIELDED_USE};
 use ambition_extension_sdk::Port;
 use ambition_platformer2d_core::resources::ActorResources;
 use ambition_platformer2d_core::BodyKinematics;
@@ -60,7 +60,7 @@ pub fn install(app: &mut App) {
     app.install_extension_request::<EffectPort, _>(WIELDED_USE, "ambition_abilities", lower_effects);
     app.install_extension_request::<BurstPort, _>(WIELDED_USE, "ambition_abilities", lower_wielded_bursts);
     app.install_extension_request::<HitMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_hit_marks);
-    app.install_extension_request::<SetVelocityPort, _>(WIELDED_USE, "ambition_abilities", lower_velocities);
+    app.install_extension_request::<SetVelocityPort, _>(WIELDED_USE, "ambition_abilities", lower_velocities::<InWieldedUse>);
     app.install_extension_request::<SetMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_set_marks);
     app.install_extension_request::<BodySoundPort, _>(
         WIELDED_USE,
@@ -107,6 +107,16 @@ pub fn install_for_boss_conduct(app: &mut App) {
         BOSS_CONDUCT,
         "ambition_abilities",
         lower_body_sounds::<InBossConduct>,
+    );
+}
+
+/// Install the velocity request in `actor_think`: a custom brain's hop. The
+/// body integrates it this tick.
+pub fn install_for_actor_think(app: &mut App) {
+    app.install_extension_request::<SetVelocityPort, _>(
+        ACTOR_THINK,
+        "ambition_abilities",
+        lower_velocities::<InActorThink>,
     );
 }
 
@@ -486,8 +496,8 @@ fn lower_hit_marks(
     }
 }
 
-fn lower_velocities(mut outbox: ResMut<ExtensionOutbox>, mut bodies: Query<&mut BodyKinematics>) {
-    for submitted in outbox.drain::<SetVelocityPort>(&WIELDED_USE) {
+fn lower_velocities<L: LowersIn>(mut outbox: ResMut<ExtensionOutbox>, mut bodies: Query<&mut BodyKinematics>) {
+    for submitted in outbox.drain::<SetVelocityPort>(&L::PHASE) {
         let Ok(mut kin) = bodies.get_mut(submitted.scope) else {
             warn!("extension entry {} asked to set the velocity of a body with none; refused", submitted.entry);
             continue;

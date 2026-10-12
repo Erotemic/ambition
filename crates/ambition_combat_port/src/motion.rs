@@ -299,7 +299,8 @@ impl Port for EffectPort {
 /// * **Owner** — `ambition_abilities::extension` (`BodyKinematics::vel`).
 /// * **Time** — `wielded_use`, after the body stepped this tick: the kernel
 ///   moves the body by it on the next tick, as it does for a native held
-///   item that sets the velocity.
+///   item that sets the velocity. `actor_think` (a custom brain), before the
+///   body integrates: the kernel moves the body by it this tick.
 pub struct SetVelocityPort;
 
 #[derive(Clone, Debug, PartialEq)]

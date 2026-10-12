@@ -415,7 +415,7 @@ before you add a port.
   record (`bosses::gnu_ton::conductor_of`). Poison: the module removed from
   `MODULES` reddens 12 `gnu_ton_fight` arms and the two-room hall arm.
 
-- Open (2026-10-11; S1 ✅ the same day), **a custom brain as a module** (`actor_think`). The
+- 2026-10-11 (S1 ✅, S2 ✅), **a custom brain as a module** (`actor_think`). The
   ported Ambition behaviour is modules, but a demo's enemy behaviour is still
   Rust in the demo crate. Measured 2026-10-11: one constant edit in a Mary-O
   enemy rule compiles `ambition_demo_mary_o` and its app (23.7 s); the same
@@ -445,11 +445,24 @@ before you add a port.
     shots (23 frames of shots); the fire dropped by the adapter is red at
     the free body's gated frame. The sync-test arm found SHOT-END-REPLAY
     (queue), a defect on the road from a shot's end to a brain.
-  - S2 (Mary-O, with the Mary-O owner): the Void Lizard as a module in a
-    Mary-O module crate (its fire, and its hop through
-    `ambition.motion.velocity` offered in `actor_think`); the native
-    `run_void_lizard` is deleted. Then each other enemy rule, one slice each,
-    adding only the ports it needs.
+  - S2 ✅ (Mary-O): the Void Lizard is the module
+    `ambition_demo_mary_o_modules::void_lizard` (its throws, and its hop
+    through `ambition.motion.velocity`, now offered in `actor_think`); the
+    native `run_void_lizard` is deleted, and `sim_phase_pins` lost that row.
+    The Mary-O app has `wasm_modules`, so a developer run loads the file:
+    an edit is 0.57 s (`scripts/build_extension_modules.sh
+    ambition_demo_mary_o_modules`) against 23.7 s. The hop is one tick
+    earlier than the native rule's: the module asks before the body
+    integrates, the native rule asked after. Witnesses
+    `mary_o_it::the_void_lizard_throws_and_hops_on_its_modules_schedule_and_not_when_held`
+    (each gated frame of a round against the module's schedule; a held
+    lizard throws nothing) and `the_void_lizard_runs_from_its_module_file`
+    (the same round from the `.wasm`, its runner `Loaded`). Poisons: the
+    module not linked is red at tick 34's throw; the hop not asked is red
+    at tick 165; the file not loaded is red at the runner (`Native`).
+  - Next, one slice each, adding only the ports each needs: the swallow
+    (`drop_coconuts`, the last Mary-O row in `sim_phase_pins`), then the
+    plant, the snake shells and the AI Slop.
 
 **Acceptance:** an independent module builds against the SDK without Bevy or
 engine code. A ported technique emits the same accepted requests and

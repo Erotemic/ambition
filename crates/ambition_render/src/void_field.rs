@@ -85,6 +85,18 @@ pub struct VoidFieldSettings {
     pub sources: [Vec4; MAX_VOID_SOURCES],
     /// For each ward, as for a source.
     pub wards: [Vec4; MAX_VOID_WARDS],
+    /// The view of the camera in its target: x, y = its top left, z, w = its
+    /// size, each as a part of the target (0 to 1).
+    ///
+    /// ⛔ The pass draws on the whole target, and a camera can draw to a part
+    /// of it (a window with bars at its sides: `apply_gameplay_camera_viewport`).
+    /// The sources are in the view, so the shader must know where the view
+    /// is. With no such field, the field of a void thing was at the place the
+    /// thing has in a view as large as the window, and went across the screen
+    /// at another speed than the thing (Jon, 2026-10-11: "the void star void
+    /// field isn't actually on the void star, it lags behind it"). A capture
+    /// has no bars and did not show it.
+    pub view: Vec4,
 }
 
 impl FullscreenMaterial for VoidFieldSettings {
@@ -140,7 +152,7 @@ fn nearest<const N: usize>(mut seen: Vec<Vec4>) -> ([Vec4; N], usize) {
 /// Pack the sources and the wards of one camera: the nearest to the middle
 /// of the view first, and no more than the shader has places for. `None`
 /// with no source: a ward has nothing to stop.
-fn pack_sources(seen: Vec<Vec4>, wards: Vec<Vec4>, aspect: f32) -> Option<VoidFieldSettings> {
+fn pack_sources(seen: Vec<Vec4>, wards: Vec<Vec4>, aspect: f32, view: Vec4) -> Option<VoidFieldSettings> {
     if seen.is_empty() {
         return None;
     }
@@ -150,8 +162,23 @@ fn pack_sources(seen: Vec<Vec4>, wards: Vec<Vec4>, aspect: f32) -> Option<VoidFi
         control: Vec4::new(count as f32, aspect, VOID_DARKEN, ward_count as f32),
         sources,
         wards,
+        view,
     })
 }
+
+/// The view of `camera` as a part of its target: its top left and its size,
+/// each from 0 to 1. The whole target when the camera states no part.
+fn view_in_target(camera: &Camera) -> Vec4 {
+    match (camera.logical_viewport_rect(), camera.logical_target_size()) {
+        (Some(rect), Some(target)) if target.x > 0.0 && target.y > 0.0 && rect.width() > 0.0 && rect.height() > 0.0 => {
+            Vec4::new(rect.min.x / target.x, rect.min.y / target.y, rect.width() / target.x, rect.height() / target.y)
+        }
+        _ => WHOLE_TARGET,
+    }
+}
+
+/// A view that is its whole target.
+const WHOLE_TARGET: Vec4 = Vec4::new(0.0, 0.0, 1.0, 1.0);
 
 /// Give each gameplay camera the field of the auras in its view, and take the
 /// pass away from a camera that sees none.
@@ -187,7 +214,7 @@ fn sync_void_fields(
                     .filter(|(_, _, visible)| visible.is_none_or(|visible| visible.get()))
                     .filter_map(|(at, ward, _)| in_view(at, ward.radius, ward.strength))
                     .collect();
-                pack_sources(seen, wards, view_px.x / view_px.y)
+                pack_sources(seen, wards, view_px.x / view_px.y, view_in_target(camera))
             });
         match (next, current) {
             (Some(next), Some(mut current)) => {
@@ -226,11 +253,12 @@ mod tests {
     #[test]
     fn the_sources_nearest_to_the_middle_of_the_view_are_kept() {
         let seen: Vec<Vec4> = (0..12).map(|index| Vec4::new(0.5 + index as f32 * 0.04, 0.5, 0.1, 1.0)).collect();
-        let packed = pack_sources(seen, vec![Vec4::new(0.5, 0.5, 0.2, 1.0)], 16.0 / 9.0).unwrap();
+        let packed = pack_sources(seen, vec![Vec4::new(0.5, 0.5, 0.2, 1.0)], 16.0 / 9.0, WHOLE_TARGET).unwrap();
+        assert_eq!(packed.view, WHOLE_TARGET);
         assert_eq!(packed.control.w, 1.0);
         assert_eq!(packed.control.x as usize, MAX_VOID_SOURCES);
         assert!(packed.sources.iter().all(|source| source.x < 0.5 + 8.0 * 0.04));
         // A ward with no void in the view is no pass.
-        assert!(pack_sources(Vec::new(), vec![Vec4::ONE], 1.0).is_none());
+        assert!(pack_sources(Vec::new(), vec![Vec4::ONE], 1.0, WHOLE_TARGET).is_none());
     }
 }

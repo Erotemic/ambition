@@ -218,6 +218,21 @@ fn break_bricks_struck_by(
     }
 }
 
+/// Ticks from one plank of a bridge that breaks to the next.
+pub const PLANK_TICKS: u64 = 5;
+
+/// The planks of `room` that are not broken.
+pub fn planks_left<'a>(
+    broken: &'a BrokenBricks,
+    room: LiveRoomInstance,
+    geometry: &'a ae::RoomGeometry,
+) -> impl Iterator<Item = &'a ae::Block> + 'a {
+    geometry.0.blocks.iter().filter(move |block| {
+        crate::ldtk_vocabulary::block_look_of(&block.name) == Some(MaryOBlockLook::Plank)
+            && !broken.is_broken(room, &block.name)
+    })
+}
+
 /// A bridge falls when the goal of its room is taken.
 ///
 /// ⛔ It runs after the lap of the room starts (`begin_a_lap_on_arrival`, in
@@ -227,10 +242,13 @@ fn break_bricks_struck_by(
 /// each arrival in the castle from 1-3 dropped its bridge and its boss
 /// (Jon, 2026-10-11: "I get to the bridge and there is nothing there").
 ///
-/// Each plank (`MaryOBlockLook::Plank`) of the room of the body on the pole is
-/// marked broken, one time, with the shards of a brick. A plank then goes the
-/// way a broken brick goes (the overlay below), and it is whole again in the
-/// next attempt. What stood on the bridge falls.
+/// The planks (`MaryOBlockLook::Plank`) of the room of the body at the goal
+/// are marked broken one after the other, the nearest to her first, one each
+/// [`PLANK_TICKS`], each with the shards of a brick: the bridge is seen to
+/// break from the goal. A plank then goes the way a broken brick goes (the
+/// overlay below), and it is whole again in the next attempt. What stood on
+/// the bridge falls. A world with no simulation clock (a test of one rule)
+/// breaks them all in one tick.
 pub fn drop_planks_when_the_goal_is_taken(
     mut broken: ResMut<BrokenBricks>,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
@@ -238,8 +256,12 @@ pub fn drop_planks_when_the_goal_is_taken(
     sequences: Query<&crate::flag::FlagSequence>,
     subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
+    tick: Option<Res<ambition_platformer2d::time::SimTick>>,
 ) {
-    if !sequences.single().is_ok_and(|sequence| sequence.active()) {
+    let Ok(sequence) = sequences.single() else {
+        return;
+    };
+    if !sequence.active() {
         return;
     }
     let Some(body) = subject.and_then(|subject| subject.0) else {
@@ -248,16 +270,22 @@ pub fn drop_planks_when_the_goal_is_taken(
     let (Some(room), Some(room_geometry)) = (geometry.room_of(body), geometry.of(body)) else {
         return;
     };
-    let mut first = None;
-    for block in &room_geometry.0.blocks {
-        if crate::ldtk_vocabulary::block_look_of(&block.name) != Some(MaryOBlockLook::Plank) {
+    // The names and the middles, so the list does not hold the set it marks.
+    let mut planks: Vec<(String, ae::Vec2)> = planks_left(&broken, room, room_geometry)
+        .map(|block| (block.name.clone(), (block.aabb.min + block.aabb.max) * 0.5))
+        .collect();
+    // Where she is at the goal, and the tick: with both, one plank at a time.
+    let how_many = match (sequence.driven, tick.as_ref()) {
+        (Some(at), Some(tick)) => {
+            planks.sort_by(|a, b| (a.1.x - at.x).abs().total_cmp(&(b.1.x - at.x).abs()));
+            usize::from(tick.get() % PLANK_TICKS == 0)
+        }
+        _ => planks.len(),
+    };
+    for (index, (name, center)) in planks.into_iter().take(how_many).enumerate() {
+        if !broken.mark(room, &name) {
             continue;
         }
-        if !broken.mark(room, &block.name) {
-            continue;
-        }
-        let center = (block.aabb.min + block.aabb.max) * 0.5;
-        first.get_or_insert(center);
         vfx.for_room(Some(room)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: center,
             count: 8,
@@ -265,13 +293,14 @@ pub fn drop_planks_when_the_goal_is_taken(
             color: [0.72, 0.35, 0.22, 1.0],
             kind: ambition_platformer2d::vfx::ParticleKind::Shard,
         });
-    }
-    // One crack for the bridge, not one for each plank.
-    if let Some(pos) = first {
-        sfx.write_from(
-            crate::provider::MARY_O_EXPERIENCE,
-            ambition_platformer2d::sfx::SfxMessage::Hit { pos },
-        );
+        // One crack for each plank of a bridge that breaks in time, and one
+        // for a bridge that breaks in one tick.
+        if index == 0 {
+            sfx.write_from(
+                crate::provider::MARY_O_EXPERIENCE,
+                ambition_platformer2d::sfx::SfxMessage::Hit { pos: center },
+            );
+        }
     }
 }
 

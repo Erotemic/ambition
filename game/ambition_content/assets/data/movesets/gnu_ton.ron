@@ -5,8 +5,14 @@
 //
 // A light, fast FENCER with two tools. The QUILL is long and thin: it wins by
 // reach and by speed, it does little, and it does not end a stock. The BOOK is
-// short and slow: it is what ends one (the forward smash, the back air, the
-// back throw). He is light: what hits him sends him far.
+// short and slow: it is what ends one (the back air, the back throw). He is
+// light: what hits him sends him far.
+//
+// His SMASH ATTACKS are not his own. He opens the line of a portal, and the
+// fist of his giant comes out of it (the effects `gnu_fist_*` of
+// `gnu_ton_vfx`; the hit volume is the fist's). They are of this stage only:
+// in his boss fight the giant is under him, and the same moves are a blow of
+// his book (`bosses/gnu_ton/duel.rs`).
 //
 // His specials are his laws. Neutral: Opticks (a flash, the same launch at each
 // percent). Side: a fluxion (he goes forward through you). Up: levity (a save,
@@ -534,7 +540,7 @@
                             equips: None,
                             flow: None,
                         ),
-                        // The Second Law. The BOOK, with all of him behind it: his one heavy thing on the ground. Slow to start, and it ends a stock.
+                        // The Second Law. He opens a line before him, and the FIST of his giant comes out of it: his one heavy thing on the ground. Slow to start, long, and it ends a stock.
                         (
                             id: "smash_forward",
                             display_name: None,
@@ -562,8 +568,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (42.0, -4.0),
-                                                half_extents: (30.0, 24.0),
+                                                offset: (74.0, -6.0),
+                                                half_extents: (60.0, 30.0),
                                             ),
                                             damage: 19,
                                             knockback: 183.75,
@@ -588,6 +594,15 @@
                                 ),
                             ],
                             events: [
+                                (
+                                    at_s: 0.18,
+                                    kind: Vfx(
+                                        effect: "gnu_fist_forward",
+                                        at: (68.0, -6.0),
+                                        scale: 2.7,
+                                        sfx: Some("boss.gnu_ton.stomp"),
+                                    ),
+                                ),
                             ],
                             gates: (
                                 grounded: Some(true),
@@ -609,7 +624,7 @@
                             equips: None,
                             flow: None,
                         ),
-                        // The book thrown up over his head and caught.
+                        // He opens a line on the floor, and the fist of his giant comes up out of it.
                         (
                             id: "smash_up",
                             display_name: None,
@@ -637,8 +652,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (6.0, -36.0),
-                                                half_extents: (26.0, 32.0),
+                                                offset: (46.0, -48.0),
+                                                half_extents: (30.0, 46.0),
                                             ),
                                             damage: 15,
                                             knockback: 170.0,
@@ -663,6 +678,15 @@
                                 ),
                             ],
                             events: [
+                                (
+                                    at_s: 0.145,
+                                    kind: Vfx(
+                                        effect: "gnu_fist_up",
+                                        at: (46.0, -30.0),
+                                        scale: 2.7,
+                                        sfx: Some("boss.gnu_ton.stomp"),
+                                    ),
+                                ),
                             ],
                             gates: (
                                 grounded: Some(true),
@@ -684,7 +708,7 @@
                             equips: None,
                             flow: None,
                         ),
-                        // A turn with the quill low, to each side: the answer to a roll behind him.
+                        // He opens a line over the ground before him, and the fist of his giant comes down out of it. It is to one side only: a roll behind him is safe from it.
                         (
                             id: "smash_down",
                             display_name: None,
@@ -712,8 +736,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (0.0, 16.0),
-                                                half_extents: (42.0, 13.0),
+                                                offset: (40.0, -20.0),
+                                                half_extents: (30.0, 44.0),
                                             ),
                                             damage: 14,
                                             knockback: 147.25,
@@ -738,6 +762,15 @@
                                 ),
                             ],
                             events: [
+                                (
+                                    at_s: 0.135,
+                                    kind: Vfx(
+                                        effect: "gnu_fist_down",
+                                        at: (40.0, -40.0),
+                                        scale: 2.7,
+                                        sfx: Some("boss.gnu_ton.stomp"),
+                                    ),
+                                ),
                             ],
                             gates: (
                                 grounded: Some(true),

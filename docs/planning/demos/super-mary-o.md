@@ -75,7 +75,10 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
     with the health of five sparks that throws an orb along its bridge and
     hops. Its bridge is `MaryOBlock`s of kind `Plank`, and all the planks of
     a room fall when its goal is taken (`bricks.rs`), so the boss falls too,
-    and `castle_end::the_fall_kills_the_boss` makes its death sure.
+    one plank after the other from the switch. She waits at the switch
+    while it falls, the lava takes the boss down with splashes
+    (`castle_end::the_lava_takes_the_boss`), and one view that does not move
+    holds the bridge, the switch and the robot (`Level.arena`).
 - Her fireball is the spark blossom (`super_mary_o_spark`, a sheet). A fire
   has a glow (`fire_shader.rs`): a shader that moves an authored flame
   picture through a soft light behind the spark and behind each orb of a bar

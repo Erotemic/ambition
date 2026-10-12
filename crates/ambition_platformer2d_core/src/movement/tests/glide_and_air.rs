@@ -944,3 +944,109 @@ fn carried_momentum_conserves_flings_while_ordinary_drift_stays_tight() {
         scratch.kinematics.vel.x
     );
 }
+
+/// A world of one block that moves `step` each tick, and a body that rests on it.
+fn rider_on_a_moving_block(kind_one_way: bool) -> (crate::world::World, crate::body_clusters::BodyClusterScratch) {
+    use crate::world::{Block, World};
+    let (min, size) = (Vec2::new(0.0, 400.0), Vec2::new(400.0, 16.0));
+    let platform = if kind_one_way {
+        Block::one_way("platform", min, size)
+    } else {
+        Block::solid("platform", min, size)
+    };
+    let world = World {
+        name: "moving platform".to_string(),
+        size: Vec2::new(800.0, 2000.0),
+        spawn: Vec2::new(200.0, 360.0),
+        blocks: vec![platform],
+        climbable_regions: Vec::new(),
+        chains: Vec::new(),
+        edges: Default::default(),
+        water_regions: Vec::new(),
+    };
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 360.0));
+    for _ in 0..30 {
+        update_player_with_tuning_scratch(&world, &mut scratch, InputState::default(), 1.0 / 60.0, TEST_TUNING);
+    }
+    assert!(scratch.ground.on_ground, "precondition: the body rests on the platform");
+    (world, scratch)
+}
+
+/// Move `block` by `step` and state the move as its velocity, as a platform
+/// does (`Block::velocity` is the move of one tick).
+fn move_block(block: &mut crate::world::Block, step: Vec2) {
+    let size = block.aabb.max - block.aabb.min;
+    block.aabb = crate::geometry::aabb_from_min_size(block.aabb.min + step, size);
+    block.velocity = step;
+}
+
+/// Move the block by `step`, as a platform does before the bodies step, and
+/// step the body. Returns whether the body landed this tick.
+fn ride_one_tick(world: &mut crate::world::World, scratch: &mut crate::body_clusters::BodyClusterScratch, step: Vec2) -> bool {
+    move_block(&mut world.blocks[0], step);
+    let events = update_player_with_tuning_scratch(world, scratch, InputState::default(), 1.0 / 60.0, TEST_TUNING);
+    matches!(events.ground_contact, crate::movement::GroundContactTransition::Landed { .. })
+}
+
+/// Jon, 2026-10-11: "There is a also a bug with falling platforms where you
+/// are constantly falling onto them and doing a landing visualization." A
+/// lift of Mary-O goes down at 60 px a second: 1 px a tick, and a body at
+/// rest moves 0.6 px a tick toward its support. Each kind of platform, and a
+/// faster one.
+#[test]
+fn a_body_on_a_platform_that_goes_down_stays_on_it_and_does_not_land_again() {
+    for (one_way, speed) in [(true, 1.0), (false, 1.0), (true, 3.0)] {
+        let (mut world, mut scratch) = rider_on_a_moving_block(one_way);
+        let (mut landings, mut grounded) = (0usize, 0usize);
+        for _ in 0..120 {
+            if ride_one_tick(&mut world, &mut scratch, Vec2::new(0.0, speed)) {
+                landings += 1;
+            }
+            if scratch.ground.on_ground {
+                grounded += 1;
+            }
+            let feet = scratch.kinematics.pos.y + scratch.kinematics.size.y * 0.5;
+            assert!(
+                (feet - world.blocks[0].aabb.min.y).abs() < 0.05,
+                "the feet of the rider are {} px from the platform (one_way {one_way}, {speed} px a tick)",
+                feet - world.blocks[0].aabb.min.y
+            );
+        }
+        assert_eq!(grounded, 120, "the rider was in the air for a tick (one_way {one_way}, {speed} px a tick)");
+        assert_eq!(landings, 0, "the rider landed {landings} times in 120 ticks (one_way {one_way}, {speed} px a tick)");
+    }
+}
+
+/// The other half: a body that jumps from a platform that goes down leaves
+/// it, and a body on a platform that goes up is as it was.
+#[test]
+fn a_jump_leaves_a_platform_that_goes_down_and_a_platform_that_goes_up_is_as_it_was() {
+    let (mut world, mut scratch) = rider_on_a_moving_block(true);
+    let step = Vec2::new(0.0, 1.0);
+    ride_one_tick(&mut world, &mut scratch, step);
+    move_block(&mut world.blocks[0], step);
+    let jump = InputState {
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Jump,
+            crate::Edge {
+                pressed: true,
+                held: true,
+                released: false,
+            },
+        ),
+        ..InputState::default()
+    };
+    update_player_with_tuning_scratch(&world, &mut scratch, jump, 1.0 / 60.0, TEST_TUNING);
+    assert!(!scratch.ground.on_ground, "a jump did not leave the platform that goes down");
+    assert!(scratch.kinematics.vel.y < 0.0, "the jump has no speed up: {}", scratch.kinematics.vel.y);
+
+    let (mut world, mut scratch) = rider_on_a_moving_block(true);
+    let mut landings = 0usize;
+    for _ in 0..60 {
+        if ride_one_tick(&mut world, &mut scratch, Vec2::new(0.0, -1.0)) {
+            landings += 1;
+        }
+        assert!(scratch.ground.on_ground, "the rider left a platform that goes up");
+    }
+    assert_eq!(landings, 0);
+}

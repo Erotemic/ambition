@@ -296,6 +296,9 @@ pub(super) fn integrate_velocity_clusters(
         was_clinging,
         events,
     );
+    // A jump and a drop through a one-way surface clear the flag before this
+    // function, so this is true only for a body that stood and did not leave.
+    let was_grounded = clusters.ground.on_ground;
     clusters.ground.on_ground = false;
     // Cleared with `on_ground` beside it: both ends of the gravity axis are
     // re-sampled by the sweep below, and a stale head contact would let a body
@@ -308,10 +311,45 @@ pub(super) fn integrate_velocity_clusters(
         &mut events.constraint_conflicts,
     );
 
+    // ⛔ A SUPPORT THAT GOES DOWN TAKES ITS RIDER DOWN. A body at rest moves
+    // `g * dt * dt` toward its support each tick (0.6 px at 60 Hz), and the
+    // sweep is exact. A support that goes away from the feet faster than that
+    // (a lift that goes down at 60 px a second: 1 px a tick) left the body in
+    // the air, and it came down and landed again one tick in three: a landing
+    // sound and a puff of dust 20 times a second (Jon, 2026-10-11). So a body
+    // that stood, that did not leave, and that the sweep did not put on a
+    // surface is put on the surface it is within the contact slop of, when that
+    // surface moves toward the body's feet side. Static geometry does not move,
+    // so it does not take a body down a step or off a ledge.
+    if was_grounded && !clusters.ground.on_ground && state.drop_through_timer <= 0.0 {
+        let g = frame.down();
+        if clusters.kinematics.vel.dot(g) >= 0.0 {
+            let oriented = clusters.kinematics.aabb_oriented(g);
+            let receding = world.blocks.iter().find(|block| {
+                block.velocity.dot(g) > 0.0
+                    && crate::collision_semantics::surface_supports_body_at_rest(
+                        block.kind,
+                        oriented,
+                        block.aabb,
+                        g,
+                        false,
+                    )
+            });
+            if let Some(support) = receding {
+                clusters.kinematics.pos +=
+                    crate::collision_semantics::snap_feet_to_surface(oriented, support.aabb, g);
+                let along = clusters.kinematics.vel.dot(g);
+                clusters.kinematics.vel -= g * along;
+                clusters.ground.on_ground = true;
+            }
+        }
+    }
+
     // Emergent platform riding, and every body gets it because every body is
     // swept here: a grounded body resting on a MOVING solid is carried
-    // by that solid's gravity-perpendicular velocity (the gravity-axis ride is
-    // already handled by gravity + the landing). Static geometry carries `ZERO`, so
+    // by that solid's gravity-perpendicular velocity (toward a support the
+    // gravity-axis ride is gravity and the sweep; away from it, the block
+    // above). Static geometry carries `ZERO`, so
     // this is a no-op off moving platforms. This is why the player — and the
     // brain-driven clone, which runs this exact core — ride moving platforms: not a
     // player feature, a property of standing on a moving solid.

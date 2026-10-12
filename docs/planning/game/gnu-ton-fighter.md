@@ -22,8 +22,8 @@ design is in `bosses.md`; what is not elegant in the fight is in
   - `gnu_ton_scholar_boss`: the ten boss rows, then the rows of the duel.
     The sheet the boss body wears (`boss_art_keys.ron`, `gnu_ton_rider`).
 - **The table.** `game/ambition_content/assets/data/movesets/gnu_ton.ron`:
-  26 moves (jab, three tilts, three smashes, five aerials, dash attack,
-  taunt, five specials, the grab kit). The roster fighter plays it. The boss
+  28 moves (a jab string of three, three tilts, three smashes, five aerials,
+  dash attack, taunt, five specials, the grab kit). The roster fighter plays it. The boss
   plays FIVE of its moves on the giant's back: the same `MoveSpec`, made for
   the main game (hearts and a fixed launch) and for his larger body. So a
   move's times are tuned in one place and are felt in both games.
@@ -41,6 +41,35 @@ First cut. The table was derived from the patent clerk's for its format, and
 each move's times, hurt, launch and reach were set for this body. No number
 is a result of play.
 
+**His smash attacks are the giant's** (Jon, 2026-10-11: "bayonetta style
+smash attack where the gnu hand pops out and punches out of a portal ... in
+the smash game that is, obviously he doesn't get those in the ambition
+game"). He opens the line of a portal (before him, on the floor, over the
+ground) and the fist of his giant comes out of it and goes back.
+
+- The art is a sheet of his own, `gnu_ton_vfx` (the renderer's
+  `targets/props/gnu_ton_vfx.py`): rows `gnu_fist_forward`, `gnu_fist_up`,
+  `gnu_fist_down`. The fist is the boss fight's (`giant_art.fist`), so the
+  two games show one giant.
+- **The sheet has no portal in it.** It has the fore arm and the fist, cut
+  where the line is. The engine draws the line: `bosses/gnu_ton/
+  fist_lines.rs` puts a `PortalLightLine` (the portal presentation's look
+  line, as at the giant's shoulders in the boss fight) where the arm is cut,
+  for as long as the row plays. (The first cut of the sheet had a line
+  painted in it. Jon: "we should not be authoring 3d black holes for
+  portals. Use the portal presentation tool even though these are fake
+  portals.")
+- The move's `Vfx` event starts the row after the charge hold, so the fist
+  is fully out when the move goes live. The hit volume is the fist's (the
+  forward smash reaches 134 from him; his book reached 72).
+- In the boss fight the same move is a blow of his book: `duel_spec`
+  drops the event and puts the volume back at the book's reach.
+- The fist is a picture and a box. It is not a body: nothing can strike it
+  or stand on it.
+
+**His weight.** `data/fighters/npc_gnu_ton.ron`: 0.86, a light fighter. His
+table's damage is percent already, so the facet names no move.
+
 ## The boss fights back
 
 With the giant's arms on it (phase 1) and the player on its back:
@@ -52,9 +81,15 @@ With the giant's arms on it (phase 1) and the player on its back:
   draws its row. The giant does not punch then: he is the fight.
 - A blow on him stops his move if it has not struck yet, and he goes to the
   other shoulder. The third blow: the giant throws.
+- **His book is up between his moves** (`ambition.boss.guard`; the row
+  `shield_hold`). A blow on it is a clang and no health. For each move the
+  choreography says how long he is open: the move, and a time after it
+  (`DUEL_MOVES`: 0.46 s of 0.7 for the jab, 1.25 of 1.55 for the book). So
+  the way to hurt him is the way to hurt a fighter: make him miss, and
+  strike before the book comes up.
 
-He has no guard, no dodge that is his choice, and he is not launched: a boss
-body takes hearts only. Those are the next steps (below).
+He has no dodge that is his choice, and he is not launched: a boss body
+takes hearts only. Those are the next steps (below).
 
 ## Combat feel: what was measured
 
@@ -76,6 +111,21 @@ live part of each move with the part of its row where the limb is out.
   wrong side (it measures reach against the first frame, any way); those
   need a look, not a number.
 
+**A take of each verb** (`moveset_takes`, the sandbag at 40 px, 0 %; ticks
+of 1/60 s; measured 2026-10-11 after the changes above):
+
+| Verb | Live at | Result |
+|---|---|---|
+| jab | 4 | a string of three (`jab`, `jab_2`, `jab_3`) that cancels on hit; the second starts in the hitstun of the first |
+| tilts (forward, up, down) | 5, 4, 3 | each hits |
+| smashes | 44 to 46 | includes the take's charge hold |
+| aerials | 4 to 7 | each hits but the forward air |
+| specials | 6 to 14 | each hits |
+
+The forward air does not hit in the take: the fighter is OVER the sandbag
+then (0.2 px to the side), and the box starts 10 px before him. That is the
+take's staging. A fighter who jumps at a standing one is hit.
+
 **What the engine has for feel** (it is a real model, not a gap): hitlag
 from damage (`hit_response.rs`, 0.070 s at 11 damage, 0.5x to 1.5x), a
 whole-match freeze, hitstun from launch, the launch law with growth, rage
@@ -90,22 +140,31 @@ finish zoom, an impact flash, slash arcs, hit and swing sounds.
   apple, no page.
 - The sheet publishes no hit polygons for him, so his reach is the table's
   box and not the quill in the picture.
-- Rows that no state asks for: `shield_hold`, `hit_heavy`, `launch`,
-  `turnaround`, `walk_stop`, `jab_2`, `jab_3`, `land`. A held guard draws
+- **An effect's frame is stretched and fades.** `draw_effect_clip` draws
+  each frame into one square, so a frame the sheet trimmed to another shape
+  is stretched (each effect sheet is trimmed). And `update_effects` fades
+  each effect from its first instant (`alpha = 1 - t`), so the fist is at
+  about 0.6 when it lands. For the fist the sheet is published with whole
+  frames (`whole_frames` of the publisher) and declares that its frames own
+  the fade (`FxSheet::fade`). Each other effect is as it was: a change of
+  those needs a look at each. Debt 14 of `gnu-ton-fight-debts.md`.
+- Rows that no state asks for: `hit_heavy`, `launch`, `turnaround`,
+  `walk_stop`, `land`. A held guard draws
   `idle` (the sheet has no `block` row by that name).
 
 ## Next
 
 1. **Play it.** Nothing here was seen in a window on a GPU.
-2. **He guards and he dodges** in the duel (`BossGuard` is the port; a spot
-   dodge row is on his sheet), and a hit on his guard is not a blow.
+2. **He dodges** in the duel (a spot dodge row is on his sheet). His guard
+   is built; a guard that BREAKS (a shield's health) is not.
 3. **He is launched.** A boss body takes hearts only. For "like a Smash
    character" he needs hitstun and a launch on the giant's back, and a way
    back up. This is the large step: a fighter's body under a boss's
    encounter (see the debts document).
-4. **The jab is a string** (`jab_2`, `jab_3` are drawn), and his rows for
-   guard, heavy hit and turn are bound.
-5. **Hit polygons from the rig** for the quill, and his own effects.
-6. **A facet** (`data/fighters/npc_gnu_ton.ron`): his weight (light) and
-   his damage in percent. Until then he fights with the table's numbers.
+4. His rows for heavy hit and turn are bound.
+5. **Hit polygons from the rig** for the quill, and his own effects for the
+   quill and the book (ink, a page). The fist has its own sound to get: it
+   plays the giant's stomp.
+6. **The fist as a thing of the fight**: a charged smash that makes the fist
+   larger; a fist that a strong hit can clang with.
 7. **The hall**: a row in the hall of characters and a hall dialogue.

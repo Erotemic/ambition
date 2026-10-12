@@ -26,6 +26,8 @@ use ambition_platformer2d_core::RoomGeometry;
 
 pub mod conductor;
 pub mod duel;
+#[cfg(feature = "portal_render")]
+pub mod fist_lines;
 pub mod portals;
 
 pub use conductor::{birth, conductor_of, GnuTonView, Move, GNU_TON_ID};

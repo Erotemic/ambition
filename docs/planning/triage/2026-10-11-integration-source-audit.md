@@ -18,7 +18,7 @@ The table's late-fire and primary-target rows describe the **older audited
 snapshot**, not outstanding defects in those two modules. Snake Plant still
 reads `PrimaryPlayer` without a live-room join and can retain its pose marker.
 The rollout also found an open, reproducible brain rollback mismatch at shot
-expiration: [SHOT-END-REPLAY](../queue.md#shot-end-replay--a-brain-that-saw-its-shot-end-replays-differently).
+expiration: [SHOT-END-REPLAY](../queue.md#shot-end-replay--a-brain-that-saw-its-shot-end-replays-differently---done-2026-10-11) (fixed 2026-10-11, d215fcbdf: the cause was `BodyMotionFacts` read across a rewind, not the shot's end).
 
 | Case | Source evidence at this commit | Static verdict | Minimum falsifier / witness | Owner |
 | --- | --- | --- | --- | --- |

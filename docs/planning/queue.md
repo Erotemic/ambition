@@ -56,7 +56,7 @@ rows.
 
 New correctness interrupts from the 2026-10-11 integration review:
 [REVIEW-1011-INTEGRATION](#review-1011-integration---real-engine-contracts-for-new-demo-behavior)
-and [SHOT-END-REPLAY](#shot-end-replay--a-brain-that-saw-its-shot-end-replays-differently).
+and [SHOT-END-REPLAY](#shot-end-replay--a-brain-that-saw-its-shot-end-replays-differently---done-2026-10-11) (done 2026-10-11).
 Re-check against the live tree before acting: the I4 S1-S3 control-gate migration
 landed after the reviewed `ed0d1ccd` snapshot. Do not reopen its solved work or
 the five closed REVIEW-1011 rows.
@@ -740,29 +740,20 @@ Not done: an apply-time refusal after every room passed is logged
 (`apply_world_replacement`), not failed loudly. With a correct projection it
 cannot happen.
 
-### SHOT-END-REPLAY — a brain that saw its shot end replays differently
+### SHOT-END-REPLAY — a brain that saw its shot end replays differently — ✅ DONE 2026-10-11
 
 **Owner:** [simulation authority](engine/simulation-authority-and-determinism.md).
-Found 2026-10-11 by the `actor_think` witness (fast-iteration I4).
 
-**Measured:** a smash-brain NPC (`perfect_cellular_automaton`) whose fire is
-straight up, under a GGRS sync test (check distance 4, window 10). Its shot
-flies from frame 7 to frame 30 and is gone on frame 31. From frame 35,
-`RollbackRestoreAudit` reports `ambition_characters::brain::Brain` (the
-cursor census over the room's 4 brains) "recomputed differently on replay",
-and GGRS reports a checksum mismatch at frame 38. The same body with its
-native fire (toward the player, the shot does not end in the window) is
-healthy for 40 frames, and a held body (the gate removes the fire) is
-healthy. So the cause is on the road from a shot's end to a brain's state,
-not in the extension host.
-
-**Reproducer:** `app_it::a_custom_brain_module_fires_through_the_gate` with
-`with_sync_test_rollback_settings(4, 10)` on its free arm.
-
-**Next:** find which brain and which field moves (the census is an xor over
-the room), and which read of the shot's end differs between the first run
-and a replay (a raw `Entity`, a message across the rewind, a non-rollback
-`Local`). Fix it in its own slice, and add the sync-test arm to the witness.
+The shot's end was not the cause. `BodyMotionFacts` was declared derived
+("republished every movement step"), but the brains read it in the decision
+chain, before this tick's movement step. After a rewind a smash brain read
+`running` from the abandoned timeline, so `melee_reach_of` gave the dash
+attack's reach (54) on one run and the jab's (40) on the other; the mode
+choice split (Engage against Approach at sim tick 38) with identical
+kinematics, target, memory and combat state. Now `actor.body_motion_facts` is
+a value-probed clone and the false derived declaration is deleted (schema
+343 -> 344). Witness `app_it::a_custom_brain_module_replays_the_same_under_rollback`:
+red before (GGRS mismatch at frame 38), green after. Commit d215fcbdf.
 
 ### AP14 — semantic actor-monolith SCC decomposition (continuous; deferred 2026-10-09)
 

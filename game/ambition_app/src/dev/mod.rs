@@ -201,8 +201,64 @@ fn install_egui_inspectors(app: &mut App) {
         );
     }
 
-    app.add_plugins(EguiPlugin::default())
-        .add_plugins(ResourceInspectorPlugin::<DeveloperTools>::default().run_if(inspector_visible))
+    app.add_plugins(EguiPlugin::default());
+
+    // The developer panels have a camera of their own, the last one of the
+    // window. `bevy_egui` otherwise gives its primary context to the first
+    // camera its query returns, which is not the first camera spawned, and it
+    // has no order against the `bevy_ui` pass of that camera (its `bevy_ui`
+    // feature is off in this build). Measured in a window, 2026-10-12: F3 and
+    // F4 drew nothing; on the HUD camera the panels drew UNDER the pillarbox.
+    //
+    // The camera draws no world layer and is active only while a panel shows.
+    {
+        use bevy::camera::visibility::RenderLayers;
+        use bevy_inspector_egui::bevy_egui::{EguiGlobalSettings, PrimaryEguiContext};
+
+        /// Over the front HUD camera (order 9) and each camera a game adds.
+        const DEVELOPER_PANEL_CAMERA_ORDER: isize = 1000;
+
+        #[derive(Component)]
+        struct DeveloperPanelCamera;
+
+        fn spawn_developer_panel_camera(mut commands: Commands) {
+            commands.spawn((
+                Camera2d,
+                Camera {
+                    order: DEVELOPER_PANEL_CAMERA_ORDER,
+                    clear_color: ClearColorConfig::None,
+                    is_active: false,
+                    ..default()
+                },
+                RenderLayers::none(),
+                PrimaryEguiContext,
+                DeveloperPanelCamera,
+                Name::new("Developer Panel Camera"),
+            ));
+        }
+
+        fn show_developer_panel_camera_with_its_panels(
+            tools: Res<DeveloperTools>,
+            mut cameras: Query<&mut Camera, With<DeveloperPanelCamera>>,
+        ) {
+            let wanted = tools.inspector_visible || tools.world_inspector_visible;
+            for mut camera in &mut cameras {
+                if camera.is_active != wanted {
+                    camera.is_active = wanted;
+                }
+            }
+        }
+
+        app.world_mut()
+            .resource_mut::<EguiGlobalSettings>()
+            .auto_create_primary_context = false;
+        app.add_systems(bevy::app::Startup, spawn_developer_panel_camera)
+            // `Last`: a hotkey and the developer menu each change the tools in
+            // a different schedule, and the camera is read after all of them.
+            .add_systems(bevy::app::Last, show_developer_panel_camera_with_its_panels);
+    }
+
+    app.add_plugins(ResourceInspectorPlugin::<DeveloperTools>::default().run_if(inspector_visible))
         .add_plugins(
             ResourceInspectorPlugin::<EditableAbilitySet>::default().run_if(inspector_visible),
         )

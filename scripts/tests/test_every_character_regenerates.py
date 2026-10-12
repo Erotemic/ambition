@@ -166,3 +166,36 @@ def test_the_scan_would_notice_an_orphan():
     assert not _names("a_character_nobody_ever_drew", script)
     # …and a real one is not reported, so the matcher is not simply always false.
     assert _names("alice", script)
+
+
+REVIEW_CONFIGS = REPO / "tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/review"
+
+
+def _bash_array(name: str) -> list[str]:
+    """The words of one `name=( ... )` array of the publish script, without
+    its comments."""
+    text = REGEN.read_text(encoding="utf8")
+    body = re.search(rf"^{name}=\((.*?)^\)", text, re.S | re.M)
+    assert body, f"the publish script has no `{name}` array"
+    words = []
+    for line in body.group(1).splitlines():
+        words += line.split("#", 1)[0].split()
+    return words
+
+
+def test_each_review_cue_has_its_review_config():
+    """`draw-review` renders `configs/review/*.yaml`, and the publish stops at
+    a cue it did not render. The Kernel Guide became a target of its own and
+    lost its review config; its cue stayed, and every full publish stopped
+    there (2026-10-12)."""
+    import pytest
+
+    if not REVIEW_CONFIGS.is_dir():
+        pytest.skip("the renderer submodule is not checked out")
+    cues = _bash_array("review_cues")
+    assert cues, "the review cue array parsed empty"
+    orphans = [cue for cue in cues if not (REVIEW_CONFIGS / f"{cue}.yaml").is_file()]
+    assert not orphans, (
+        f"review cues with no review config, which `draw-review` does not render: {orphans}. "
+        "A character drawn by its own target goes in `tackon_targets`."
+    )

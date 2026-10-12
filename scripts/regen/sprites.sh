@@ -456,7 +456,9 @@ fi
 
 review_cues=(
     # Toon-target NPC variants already promoted.
-    absurd_general architect kernel_guide vault_keeper
+    absurd_general architect vault_keeper
+    # kernel_guide is NOT here any more -- see `tackon_targets`, the same move
+    # as oiler and bob.
     # oiler is NOT here any more — see `tackon_targets`. His body comes from
     # the direct-SVG rig; leaving the review cue in place would have this loop
     # overwrite the rig's sheet with the toon render on every full run.
@@ -514,6 +516,11 @@ tackon_targets=(
     # before the redraw, which `draw-review` no longer produces -- and the game
     # drew the old Bob with his new art committed and nothing red.
     bob
+    # The Kernel Guide, a character on the crew rig since the renderer's
+    # `bda6df5` (`targets/characters/kernel_guide.py`); its review config is
+    # deleted, so `draw-review` renders it no more and the publish stopped at
+    # its cue.
+    kernel_guide
     # The Flying Spaghetti Monster's thrown meatball, the `meatball` projectile
     # visual, named here for the same reason as the apple above.
     fsm_meatball
@@ -1472,7 +1479,7 @@ run_renderer_python publish-entities -m ambition_sprite2d_renderer publish entit
 
 echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 # `draw-review` renders configs/review/*.yaml (toon-target NPC
-# variants such as absurd_general, architect, kernel_guide). We
+# variants such as absurd_general and architect). We
 # render to a scratch dir, then copy the specific sheets we use
 # in-game into $sprites_dir. Promoting a review config to a
 # permanent runtime sheet means: add the cue id to `review_cues` in

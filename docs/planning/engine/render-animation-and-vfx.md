@@ -295,6 +295,19 @@ single camera is not enough evidence.
 
 ### R8 - portal fragment lifetime and measured render churn
 
+**Measured (2026-10-12), headless, the far-side compositor:** a far-covered
+body for 600 frames (300 still, 300 moving) makes 2 pieces a frame (1200
+in all) and a new material for each; with the asset store's own handle
+tracking (`AssetPlugin`) at most 4 materials are live, so there is churn
+and no growth. A test-side leak (keeping each piece's handle) gives 1200
+live and fails the guard, so the instrument sees retention. Test:
+`ambition_portal2d_presentation far_side
+far_side_pieces_are_made_each_frame_and_their_materials_do_not_grow`.
+Not measured: frame time and GPU cost (no renderer in this harness), the
+transit pieces of `visuals.rs`, two panes and two cameras. So a retained
+reconciliation is not justified by growth; only frame time could justify
+it. The text below is the case as found.
+
 **Source, `ed0d1ccd`:**
 `ambition_portal2d_presentation/src/far_side.rs:62-94` discards every
 `PortalFarSidePiece` before reconstructing the participating fragments;

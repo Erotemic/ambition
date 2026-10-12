@@ -164,7 +164,7 @@ Do not reimplement those parts of the historical audit.
   same-room GNU-ton encounters and outcome surviving completed-boss teardown;
   defeat, unload, replay and reset must not reopen a completed fight by
   accident. See [GNU-ton debt 13](game/gnu-ton-fight-debts.md#13-the-exit-gate-reads-a-corpse-not-an-encounter-outcome).
-- **IN6 / P1 diagnose, P2 optimize, portal-piece presentation:** instrument
+- **IN6 / P1 diagnose, P2 optimize, portal-piece presentation:** far-side retention measured 2026-10-12: churn of 2 pieces and 2 materials a frame, no growth (see [R8](engine/render-animation-and-vfx.md#r8---portal-fragment-lifetime-and-measured-render-churn)); frame time still unmeasured. Was: instrument
   idle and moving portal scenes for spawned/despawned fragments, new mesh/
   material assets, steady-state frame time and handle/residency counts. Then
   choose stable source-owned reconciliation only where measured or required

@@ -500,6 +500,53 @@ mod tests {
             .id()
     }
 
+    /// B2, the measurement (R8): a far-covered body for 600 frames, still
+    /// and then moving. Each frame makes its pieces and their materials
+    /// again; with the asset store's own handle tracking (`AssetPlugin`),
+    /// the materials of the pieces that went are freed, so the live count
+    /// stays the count of one frame's pieces. Churn, and no growth.
+    #[test]
+    fn far_side_pieces_are_made_each_frame_and_their_materials_do_not_grow() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, bevy::asset::AssetPlugin::default()));
+        app.init_asset::<Image>()
+            .init_asset::<TextureAtlasLayout>()
+            .init_asset::<Mesh>()
+            .init_asset::<PortalClipMaterial>();
+        crate::one_live_room(&mut app, WORLD);
+        app.add_systems(
+            Update,
+            (composite_far_side_bodies, crate::source_visibility::resolve_portal_source_visibility).chain(),
+        );
+        #[derive(Resource, Default)]
+        struct Made(usize);
+        app.init_resource::<Made>();
+        app.add_observer(|_: On<Add, PortalFarSidePiece>, mut made: ResMut<Made>| made.0 += 1);
+        app.world_mut().spawn(pane());
+        spawn_viewer(&mut app, Vec2::new(400.0, 300.0));
+        let body = spawn_candidate(&mut app, Vec2::new(505.0, 300.0), Vec2::new(24.0, 24.0));
+        let frame = PortalWorldFrame { size: WORLD };
+        let mut most_live = 0;
+        for tick in 0..600 {
+            if tick >= 300 {
+                // Moving: up and down across the pane.
+                let at = Vec2::new(505.0, 300.0 + ((tick as f32) * 0.1).sin() * 20.0);
+                let mut entity = app.world_mut().entity_mut(body);
+                entity.get_mut::<PortalCompositingCandidate>().unwrap().drawn_centre = at;
+                *entity.get_mut::<Transform>().unwrap() = Transform::from_translation(frame.to_render(at, 11.0));
+            }
+            app.update();
+            most_live = most_live.max(app.world().resource::<Assets<PortalClipMaterial>>().len());
+        }
+        let made = app.world().resource::<Made>().0;
+        let per_frame = pieces(&mut app);
+        let live = app.world().resource::<Assets<PortalClipMaterial>>().len();
+        println!("B2: {made} pieces made in 600 frames, {per_frame} a frame; materials live at the end {live}, at most {most_live}");
+        assert!(per_frame > 0, "the premise: the body is drawn as pieces");
+        assert!(made >= 600 * per_frame / 2, "the churn: pieces are made each frame ({made})");
+        assert!(most_live <= 3 * per_frame, "no growth: the materials of old pieces are freed ({most_live} live at most)");
+    }
+
     fn pieces(app: &mut App) -> usize {
         app.world_mut()
             .query_filtered::<Entity, With<PortalFarSidePiece>>()

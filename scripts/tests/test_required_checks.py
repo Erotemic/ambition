@@ -470,6 +470,38 @@ def test_a_file_with_a_test_behind_an_opt_in_feature_requires_the_union_feature_
     assert not union("crates/alpha/tests/deleted.rs")
 
 
+def test_a_demo_change_requires_its_apps_tests_behind_its_own_features() -> None:
+    from required_checks import own_features_job, remedy, requirements_for
+
+    mary_o = own_features_job("ambition_demo_mary_o_app")
+    # The two roads of 2026-10-12: the demo's HUD declaration, and its map.
+    assert mary_o in requirements_for("game/ambition_demo_mary_o/src/provider.rs", {})
+    assert mary_o in requirements_for("game/ambition_map_assets/ambition_demo_mary_o/worlds/mary_o.ldtk", {})
+    assert mary_o in requirements_for("game/ambition_demo_mary_o_modules/src/squash.rs", {})
+    assert own_features_job("ambition_demo_sanic_app") in requirements_for(
+        "game/ambition_demo_sanic_app/tests/ov1_draws_the_world.rs", {}
+    )
+    # Controls: content that no demo app draws, and a demo with no host app.
+    for path in ("game/ambition_content/src/lib.rs", "game/ambition_demo_pocket/src/lib.rs", "game/ambition_map_assets/ambition_content/x.ldtk"):
+        assert not any(r.name.endswith(" — its tests behind its own features") for r in requirements_for(path, {}) if isinstance(r, Job)), path
+    assert (
+        "./run_tests.sh -p ambition_demo_mary_o_app --only-job "
+        "'ambition_demo_mary_o_app — its tests behind its own features'"
+    ) in remedy([mary_o])
+
+
+def test_each_demo_apps_own_feature_job_is_planned_for_its_package() -> None:
+    """The remedy runs `-p <app> --only-job <name>`: that plan must hold the job."""
+    import run_tests
+
+    from required_checks import DEMO_HOST_APPS, own_features_job
+
+    assert run_tests.DEMO_HOST_APPS == DEMO_HOST_APPS
+    for app in DEMO_HOST_APPS:
+        planned = {job.name for job in run_tests.build_jobs([app], heavy=False, libtest_args=[])}
+        assert own_features_job(app).name in planned, app
+
+
 def test_the_named_rules_name_what_the_live_tree_has() -> None:
     """A pattern that matches no file, or an arm no module holds, can never
     be met or never asks."""

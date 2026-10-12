@@ -122,6 +122,26 @@ UNION_FEATURE_JOB = "workspace [every headless-safe feature] — one graph, ever
 #: Jobs that `run_tests.py` plans only in its exhaustive mode.
 EXHAUSTIVE_JOBS = {UNION_FEATURE_JOB}
 
+#: A demo host app's tests behind its own opt-in features (`run_tests.py`
+#: plans the job when `-p` names the app). A change to the demo's crates or
+#: to its map assets requires it: on 2026-10-12 the Mary-O and Sanic HUD
+#: declarations reddened their apps' `visible` pins, and a 1-2 map edit
+#: reddened a `visible` test of its blocks, and no default lane saw either.
+OWN_FEATURES_SUFFIX = " — its tests behind its own features"
+
+
+def own_features_job(app: str) -> "Job":
+    return Job(app + OWN_FEATURES_SUFFIX)
+
+
+def demo_app_of(path: str) -> str | None:
+    """The demo host app whose drawn tests a change to `path` can redden."""
+    for app in DEMO_HOST_APPS:
+        demo = app.removesuffix("_app")
+        if path.startswith((f"game/{demo}/", f"game/{demo}_", f"game/ambition_map_assets/{demo}/")):
+            return app
+    return None
+
 #: Procedural modules (fast-iteration I4). The module crate has no Bevy, and
 #: its own tests check little more than its wire. What a module DOES is
 #: measured where it is composed: the parity and reference harnesses of
@@ -257,6 +277,8 @@ def requirements_for(path: str, members: dict[str, str], repo: Path = REPO) -> s
         required.update({CargoTestNamed(APP_PACKAGE, "rollback_"), Job(REPO_TOOLING_JOB), Job(UNION_FEATURE_JOB)})
     if holds_gated_test(path, members, repo):
         required.add(Job(UNION_FEATURE_JOB))
+    if (app := demo_app_of(path)) is not None:
+        required.add(own_features_job(app))
     # The workspace policies read every crate, when the workspace has them.
     if (path.startswith(POLICY_READS) or path == "Cargo.toml") and POLICY_PACKAGE in members.values():
         required.add(CargoTest(POLICY_PACKAGE))
@@ -459,6 +481,8 @@ def remedy_commands(missing: list[Requirement]) -> list[list[str]]:
         lane = ["--tool-tests"] if job in DETACHED_TOOL_JOBS else []
         if job in EXHAUSTIVE_JOBS:
             lane = ["--run-everything-you-probably-dont-need-this"]
+        if job.endswith(OWN_FEATURES_SUFFIX):
+            lane = ["-p", job.removesuffix(OWN_FEATURES_SUFFIX)]
         commands.append(["./run_tests.sh", *lane, "--only-job", job])
     return commands
 

@@ -591,12 +591,18 @@ reads cargo output to it.
    (poisons: each rule, the gated `mod` arm, a default-on gate counted as
    hidden, the missing exhaustive flag; each red at its own assertion).
 
-   Open: a change in one crate that reddens another crate's gated test is not
-   selected. On 2026-10-12 the demos' HUD declarations against their apps'
-   `visible` pins, and a map edit against a `visible` test that counted 1-2's
-   blocks, were red only here. The next step is a per-package feature
-   requirement (`cargo test -p <demo app> --features visible`) for a change to
-   a demo crate.
+   A demo's own change is held too: a change to a demo's crates or its map
+   assets requires its host app's tests behind the app's own features
+   (`run_tests.py` plans `<app> — its tests behind its own features` when
+   `-p` names the app; for most apps that is `visible`). The demos' HUD
+   declarations and a 1-2 map edit were red only there on 2026-10-12.
+   Witnesses `test_a_demo_change_requires_its_apps_tests_behind_its_own_features`
+   and `test_each_demo_apps_own_feature_job_is_planned_for_its_package`
+   (poisons: no rule, no map-assets arm, no `-p` in the remedy, not
+   planned).
+
+   Open: a change in an engine crate that reddens another crate's gated test
+   is selected only at the exhaustive mode.
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.

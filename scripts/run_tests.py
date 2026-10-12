@@ -243,6 +243,33 @@ def expand_default(features: dict[str, list[str]]) -> set[str]:
     return seen
 
 
+#: The demo host apps (`required_checks.DEMO_HOST_APPS` names the same four).
+DEMO_HOST_APPS = (
+    "ambition_demo_mary_o_app",
+    "ambition_demo_sanic_app",
+    "ambition_demo_smash_app",
+    "ambition_demo_twintrack_app",
+)
+
+#: The name of the job that runs a package's tests behind its own opt-in features.
+OWN_FEATURES_SUFFIX = " — its tests behind its own features"
+
+
+def own_feature_features(crate: Path) -> list[str]:
+    """The crate's opt-in features that the union job also turns on."""
+    features = tomllib.loads((crate / "Cargo.toml").read_text()).get("features", {})
+    default = expand_default(features)
+    return sorted(f for f in features if not is_denied(f) and f not in default)
+
+
+def own_feature_test_job(crate: Path, package: str, libtest: list[str]) -> "Job | None":
+    extra = own_feature_features(crate)
+    if not extra or not crate_has_tests(crate):
+        return None
+    return Job(package + OWN_FEATURES_SUFFIX,
+               [CARGO, "test", "-p", package, "--features", ",".join(extra), *libtest])
+
+
 def crate_has_tests(crate: Path) -> bool:
     if (crate / "tests").is_dir():
         return True
@@ -811,6 +838,20 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         jobs.append(Job(SPRITE_TREE_EMBEDDED_JOB,
                         [CARGO, "test", "-p", "ambition_sprite_sheet", "--lib",
                          "--features", "static_content", *libtest()]))
+
+    # A demo host app's tests behind its own opt-in features (most are its
+    # drawn host's, `visible`). A default run of the app compiles none of
+    # them, and the union job is the exhaustive mode's. Planned when `-p`
+    # names the app; `required_checks.py` selects it for a change to the
+    # demo. Measured 2026-10-12: the Mary-O and Sanic HUD pins and a 1-2
+    # block count were red here and in no default lane.
+    if only:
+        for crate in members:
+            package = package_name(crate)
+            if package in only and package in DEMO_HOST_APPS:
+                job = own_feature_test_job(crate, package, libtest())
+                if job is not None:
+                    jobs.append(job)
 
     # The unfiltered default plan also boots visible presentation through a small `capture_scene`;
     # package-filtered runs stay scoped to the requested crate.

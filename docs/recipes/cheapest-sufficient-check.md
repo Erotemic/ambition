@@ -18,7 +18,7 @@ no safety.
 | anything the app composes | `cargo check -p ambition_app` | behaviour. A per-crate `cargo check` can be green while the app build fails. |
 | anything a `#[cfg(feature = …)]` gates | `cargo test -p <crate> --features <f>` (or `cargo check -p <crate> --features <combo> --all-targets`) | that the app still builds; other feature combinations |
 | a crate SEAM: a trait, a re-export, a dependency edge, a registration | `cargo check -p ambition_app`, then `cargo test -p ambition_app --test app_it -- <module>` | a defect that exists only where two CONTENT crates meet |
-| a rollback registration, a schedule pin, a message channel | `cargo test -p ambition_app --test app_it -- rollback_` **and** `python3 -m pytest scripts/tests/ -q` | feature-gated channels: only the union job compiles them |
+| a rollback registration, a schedule pin, a message channel | `cargo test -p ambition_app --test app_it -- rollback_` **and** `python3 -m pytest scripts/tests/ -q` **and** the union feature job | a message channel: it is not a path, so no rule selects it |
 | session death, a checkpoint restore, room replay, a sandbox reset, or the rollback host | the row above, **and** the demo host lane in [`running-the-heavy-app-it-lane.md`](running-the-heavy-app-it-lane.md#the-demo-host-apps-have-their-own-lane) | a network transport. `app_it` does not run a demo app's tests, and a demo fixture can read an instrument that no `app_it` arm reads. |
 | a new param on a shared `SystemParam` struct | `git grep -l '<the system>'`, then `cargo test -p` **each crate that names it** | nothing else. See "Hand-built apps" below. |
 | Bevy app WIRING (plugins, systems, ordering) | `cargo test -p ambition_app --test app_it -- <module>` | Pin `TimeUpdateStrategy` in any new test app, or it measures machine load. |
@@ -43,7 +43,13 @@ Notes:
   `sim_phase_pins.rs`, and for a procedural module
   (`game/ambition_content_modules`) the harnesses that run it:
   `cargo test -p ambition_content` and the `app_it` arms in
-  `MODULE_ARMS`. A check named by test name counts for a run whose
+  `MODULE_ARMS`. The union feature job (every headless-safe feature, the
+  exhaustive mode's) is required for a rollback registration or
+  `sim_phase_pins.rs`, and for a `.rs` file that holds a test behind an opt-in
+  feature. A change to a demo's crates or its map assets requires its host
+  app's tests behind the app's own features (`./run_tests.sh -p <app>
+  --only-job '<app> — its tests behind its own features'`, for most of them
+  `visible`). A check named by test name counts for a run whose
   filter is part of that name, or that had no filter. A check counts only when `run_tests.py` recorded
   it as passed on a tree with your change in it
   (`target/lane_ledger.jsonl`); a plain `cargo test` records nothing. It

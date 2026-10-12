@@ -567,6 +567,7 @@ tackon_targets=(
     sanic
     super_sanic
     sanic_ring_prop
+    sanic_goal_post
     creator
     creator_lab_props
     gnu_ton_boss

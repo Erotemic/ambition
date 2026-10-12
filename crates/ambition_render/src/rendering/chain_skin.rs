@@ -4,8 +4,13 @@
 //! earth under it is polygons. With no theme the earth is one flat colour that
 //! darkens with depth, and each segment of a chain is a strip of colour. A
 //! room that names a theme whose skin has the parts gives the earth the fill
-//! of the skin and gives each segment its cap, turned to the segment, with
-//! the top of the cap on the side a body rides.
+//! of the skin and gives each segment a trim, turned to the segment: the cap
+//! on ground (the top of the cap on the side a body rides), the side shade
+//! on the face of a cliff, the underside on a ceiling.
+//!
+//! Track in the air (a loop, the ramp into it) has no earth of its own. It is
+//! drawn as a band of earth on the side of the chain a body does not ride
+//! ([`ChainEarth::band`]).
 //!
 //! The pattern of the fill is fixed to the room, as the pattern of a block's
 //! is (`terrain_skin`): the earth is cut where the pattern repeats and each
@@ -25,7 +30,8 @@ use ambition_platformer2d_core as ae;
 use ambition_sprite_sheet::game_assets::{GameAssets, ParallaxTheme, RoomDressingPart};
 
 use super::terrain_skin::{
-    anchored_pieces, CAP_HEIGHT, CAP_SURFACE, SKIN_PERIOD, SKIN_PX_PER_UNIT,
+    anchored_pieces, CAP_HEIGHT, CAP_SURFACE, SIDE_WIDTH, SKIN_PERIOD, SKIN_PX_PER_UNIT,
+    UNDER_EDGE, UNDER_HEIGHT,
 };
 
 /// The colour of earth with no skin, at its top and far below it.
@@ -40,6 +46,16 @@ const SHADE_DEPTH: f32 = 480.0;
 const CAP_OVERLAP: f32 = 0.75;
 /// What the cap of a segment behind the plane of the play is multiplied by.
 const FAR_LANE_TINT: Color = Color::srgb(0.62, 0.66, 0.78);
+/// How much of its light earth behind the plane of the play keeps.
+pub const FAR_LANE_DIM: f32 = 0.66;
+/// How thick the band of earth of track in the air is.
+pub const BAND_THICKNESS: f32 = 26.0;
+/// The depth the far edge of a band is shaded as: the band is darker on the
+/// side away from the body that rides it.
+const BAND_FAR_DEPTH: f32 = 190.0;
+/// A segment whose normal is this much up or down is ground or a ceiling;
+/// one between is the face of a cliff.
+const FACE_SLOPE: f32 = 0.5;
 
 /// One corner of a polygon of earth: where it is in its room (y is down) and
 /// how far below the top of the earth it is.
@@ -56,6 +72,8 @@ pub struct ChainEarth {
     polygons: Vec<Vec<EarthVertex>>,
     world_size: Vec2,
     theme: Option<ParallaxTheme>,
+    /// How much of its light it keeps: 1, or less behind the plane of the play.
+    dim: f32,
 }
 
 /// On a [`ChainEarth`] whose mesh will not change: it has the fill of its
@@ -93,6 +111,44 @@ impl ChainEarth {
             polygons,
             world_size: Vec2::new(world.size.x, world.size.y),
             theme,
+            dim: 1.0,
+        }
+    }
+
+    /// A band of earth along `segments` of a chain, [`BAND_THICKNESS`] thick,
+    /// on the side a body does not ride: the body of a loop, of a ramp in the
+    /// air. Each segment is its two ends and, for each end, the way out of
+    /// the earth there (the mean of the normals of the two segments that
+    /// meet at it, so the band has no gap at a bend). All of it in the
+    /// coordinates of the room.
+    pub fn band(
+        world: &ae::World,
+        segments: &[[(Vec2, Vec2); 2]],
+        theme: Option<ParallaxTheme>,
+        dim: f32,
+    ) -> Self {
+        let polygons = segments
+            .iter()
+            .map(|[(a, out_a), (b, out_b)]| {
+                vec![
+                    EarthVertex { at: *a, depth: 0.0 },
+                    EarthVertex { at: *b, depth: 0.0 },
+                    EarthVertex {
+                        at: *b - *out_b * BAND_THICKNESS,
+                        depth: BAND_FAR_DEPTH,
+                    },
+                    EarthVertex {
+                        at: *a - *out_a * BAND_THICKNESS,
+                        depth: BAND_FAR_DEPTH,
+                    },
+                ]
+            })
+            .collect();
+        Self {
+            polygons,
+            world_size: Vec2::new(world.size.x, world.size.y),
+            theme,
+            dim,
         }
     }
 
@@ -146,6 +202,7 @@ impl ChainEarth {
             polygons,
             world_size: Vec2::new(world.size.x, world.size.y),
             theme,
+            dim: 1.0,
         }
     }
 }
@@ -201,7 +258,14 @@ fn earth_mesh(earth: &ChainEarth, skinned: bool) -> Mesh {
     };
     let shade = |depth: f32| -> [f32; 4] {
         let t = (depth / SHADE_DEPTH).clamp(0.0, 1.0);
-        std::array::from_fn(|i| top[i] + (deep[i] - top[i]) * t)
+        std::array::from_fn(|i| {
+            let light = top[i] + (deep[i] - top[i]) * t;
+            if i < 3 {
+                light * earth.dim
+            } else {
+                light
+            }
+        })
     };
     let mut positions: Vec<[f32; 3]> = Vec::new();
     let mut colors: Vec<[f32; 4]> = Vec::new();
@@ -316,7 +380,32 @@ pub fn build_chain_earth_meshes(
     }
 }
 
-/// On the strip of a chain segment whose room names a theme: the cap of the
+/// What a chain segment is to the skin: which way its earth faces.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TurfFace {
+    /// Ground: a body rides on top of it. It takes the cap.
+    Top,
+    /// The face of a cliff. It takes the side shade.
+    Wall,
+    /// A ceiling: a body rides under it. It takes the underside.
+    Under,
+}
+
+impl TurfFace {
+    /// The face of a segment whose ride side is `normal`, in the coordinates
+    /// of a room (y is down).
+    pub fn of(normal: Vec2) -> Self {
+        if normal.y < -FACE_SLOPE {
+            Self::Top
+        } else if normal.y > FACE_SLOPE {
+            Self::Under
+        } else {
+            Self::Wall
+        }
+    }
+}
+
+/// On the strip of a chain segment whose room names a theme: the trim of the
 /// theme takes the place of the strip ([`dress_chain_turf`]).
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ChainTurf {
@@ -326,13 +415,14 @@ pub struct ChainTurf {
     pub length: f32,
     /// The depth lane of the segment (`SurfaceChain::segment_depth`).
     pub lane: i8,
+    pub face: TurfFace,
 }
 
 /// On a [`ChainTurf`] whose question is answered.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ChainTurfDressed;
 
-/// The pieces of cap on a segment: for each, how far into the pattern it
+/// The pieces of trim on a segment: for each, how far into the pattern it
 /// starts, its length, and where its middle is from the middle of the
 /// segment, along it.
 fn turf_pieces(turf: &ChainTurf) -> Vec<(f32, f32, f32)> {
@@ -348,11 +438,84 @@ fn turf_pieces(turf: &ChainTurf) -> Vec<(f32, f32, f32)> {
         .collect()
 }
 
-/// Give each chain segment of a room that names a theme the cap of the theme.
+/// One piece of trim as a child of its strip: the sprite, and where it is in
+/// the strip. The strip is turned along the segment with its own up on the
+/// side a body rides, which is the way out of the earth.
+fn trim_piece(
+    face: TurfFace,
+    image: Handle<Image>,
+    color: Color,
+    offset: f32,
+    length: f32,
+    along: f32,
+) -> (Sprite, Transform) {
+    let px = SKIN_PX_PER_UNIT;
+    match face {
+        // The top of the cap is out of the earth; the surface is
+        // `CAP_SURFACE` below the top of the picture.
+        TurfFace::Top => (
+            Sprite {
+                image,
+                color,
+                rect: Some(Rect::new(
+                    offset * px,
+                    0.0,
+                    (offset + length) * px,
+                    CAP_HEIGHT * px,
+                )),
+                custom_size: Some(Vec2::new(length + CAP_OVERLAP, CAP_HEIGHT)),
+                ..Default::default()
+            },
+            Transform::from_xyz(along, CAP_SURFACE - CAP_HEIGHT * 0.5, 0.01),
+        ),
+        // The top of the underside picture is in the earth, so it is drawn
+        // upside down in the strip; the edge of the earth is `UNDER_EDGE`
+        // below the top of the picture.
+        TurfFace::Under => (
+            Sprite {
+                image,
+                color,
+                rect: Some(Rect::new(
+                    offset * px,
+                    0.0,
+                    (offset + length) * px,
+                    UNDER_HEIGHT * px,
+                )),
+                custom_size: Some(Vec2::new(length + CAP_OVERLAP, UNDER_HEIGHT)),
+                flip_y: true,
+                ..Default::default()
+            },
+            Transform::from_xyz(along, UNDER_HEIGHT * 0.5 - UNDER_EDGE, 0.01),
+        ),
+        // The side picture is drawn for a left edge: its left is out of the
+        // earth and its pattern goes down. A quarter turn puts its left on
+        // the strip's up, and it lies in the earth.
+        TurfFace::Wall => (
+            Sprite {
+                image,
+                color,
+                rect: Some(Rect::new(
+                    0.0,
+                    offset * px,
+                    SIDE_WIDTH * px,
+                    (offset + length) * px,
+                )),
+                custom_size: Some(Vec2::new(SIDE_WIDTH, length + CAP_OVERLAP)),
+                ..Default::default()
+            },
+            Transform::from_xyz(along, -SIDE_WIDTH * 0.5, 0.01)
+                .with_rotation(Quat::from_rotation_z(-std::f32::consts::FRAC_PI_2)),
+        ),
+    }
+}
+
+/// Give each chain segment of a room that names a theme the trim of the
+/// theme for its face: the cap, the side shade or the underside.
 ///
-/// The strip of the segment is turned along it with its own up on the side a
-/// body rides, so a piece of cap that is its child has its top on that side.
-/// A theme with no cap leaves the strip as it is.
+/// A theme with no cap leaves the strip of a ground segment as it is. The
+/// strip of a cliff face or of a ceiling is hidden even with no trim for it:
+/// the earth is drawn up to the segment, and a strip of colour over the edge
+/// of a skinned cliff is not its look.
 pub fn dress_chain_turf(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
@@ -366,11 +529,17 @@ pub fn dress_chain_turf(
             continue;
         }
         commands.entity(entity).try_insert(ChainTurfDressed);
-        let Some(cap) = assets
-            .room_dressing
-            .get(turf.theme, RoomDressingPart::Cap)
-            .cloned()
-        else {
+        let skin = |part| assets.room_dressing.get(turf.theme, part).cloned();
+        let Some(cap) = skin(RoomDressingPart::Cap) else {
+            continue;
+        };
+        let image = match turf.face {
+            TurfFace::Top => Some(cap),
+            TurfFace::Wall => skin(RoomDressingPart::Side),
+            TurfFace::Under => skin(RoomDressingPart::Under),
+        };
+        *sprite = Sprite::from_color(Color::NONE, sprite.custom_size.unwrap_or(Vec2::ZERO));
+        let Some(image) = image else {
             continue;
         };
         let color = if turf.lane < 0 {
@@ -378,29 +547,13 @@ pub fn dress_chain_turf(
         } else {
             Color::WHITE
         };
-        let pieces: Vec<(Sprite, Vec3)> = turf_pieces(turf)
+        let face = turf.face;
+        let pieces: Vec<(Sprite, Transform)> = turf_pieces(turf)
             .into_iter()
             .map(|(offset, length, along)| {
-                let piece = Sprite {
-                    image: cap.clone(),
-                    color,
-                    rect: Some(Rect::new(
-                        offset * SKIN_PX_PER_UNIT,
-                        0.0,
-                        (offset + length) * SKIN_PX_PER_UNIT,
-                        CAP_HEIGHT * SKIN_PX_PER_UNIT,
-                    )),
-                    custom_size: Some(Vec2::new(length + CAP_OVERLAP, CAP_HEIGHT)),
-                    ..Default::default()
-                };
-                // The surface is `CAP_SURFACE` below the top of the picture.
-                (
-                    piece,
-                    Vec3::new(along, CAP_SURFACE - CAP_HEIGHT * 0.5, 0.01),
-                )
+                trim_piece(face, image.clone(), color, offset, length, along)
             })
             .collect();
-        *sprite = Sprite::from_color(Color::NONE, sprite.custom_size.unwrap_or(Vec2::ZERO));
         // A world closure: a strip is room-scoped, and a room transition can
         // despawn it before the command flush.
         commands.queue(move |world: &mut World| {
@@ -409,11 +562,7 @@ pub fn dress_chain_turf(
             };
             strip.with_children(|parent| {
                 for (piece, at) in pieces {
-                    parent.spawn((
-                        piece,
-                        Transform::from_translation(at),
-                        Name::new("Chain turf piece"),
-                    ));
+                    parent.spawn((piece, at, Name::new("Chain turf piece")));
                 }
             });
         });
@@ -492,6 +641,7 @@ mod tests {
             along: 50.0,
             length: 30.0,
             lane: 0,
+            face: TurfFace::Top,
         };
         let pieces = turf_pieces(&turf);
         assert_eq!(pieces.len(), 2);
@@ -506,6 +656,56 @@ mod tests {
         assert!(
             offset.abs() < 1e-3 && (length - 16.0).abs() < 1e-3 && (along - 7.0).abs() < 1e-3,
             "{pieces:?}"
+        );
+    }
+
+    /// Turf is for ground. The face of a cliff and a ceiling are not ground:
+    /// what a segment is follows the way a body rides it.
+    #[test]
+    fn the_face_of_a_segment_follows_its_ride_side() {
+        // In a room y is down: a body rides a floor on its upper side.
+        assert_eq!(TurfFace::of(Vec2::new(0.0, -1.0)), TurfFace::Top);
+        assert_eq!(
+            TurfFace::of(Vec2::new(0.6, -0.8)),
+            TurfFace::Top,
+            "a hill is ground"
+        );
+        assert_eq!(TurfFace::of(Vec2::new(1.0, 0.0)), TurfFace::Wall);
+        assert_eq!(TurfFace::of(Vec2::new(-1.0, 0.0)), TurfFace::Wall);
+        assert_eq!(TurfFace::of(Vec2::new(0.0, 1.0)), TurfFace::Under);
+    }
+
+    /// The band of a piece of track is on the side a body does not ride, and
+    /// two segments that share an end share the corners of the band there.
+    #[test]
+    fn a_band_is_away_from_the_ride_side_and_has_no_gap_at_a_bend() {
+        let world = ae::World::new(
+            "band",
+            ae::Vec2::new(400.0, 300.0),
+            ae::Vec2::new(50.0, 50.0),
+            Vec::new(),
+        );
+        let up = Vec2::new(0.0, -1.0);
+        let bent = Vec2::new(0.3, -1.0).normalize();
+        let (a, b, c) = (
+            Vec2::new(100.0, 200.0),
+            Vec2::new(140.0, 200.0),
+            Vec2::new(176.0, 180.0),
+        );
+        let earth = ChainEarth::band(
+            &world,
+            &[[(a, up), (b, bent)], [(b, bent), (c, bent)]],
+            None,
+            1.0,
+        );
+        let first = &earth.polygons[0];
+        assert!(
+            first[3].at.y > a.y,
+            "the band of a floor is under it: {first:?}"
+        );
+        assert_eq!(
+            earth.polygons[0][2].at, earth.polygons[1][3].at,
+            "the two share the far corner at the bend"
         );
     }
 }

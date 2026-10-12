@@ -36,3 +36,15 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # ActorRoll orientation, the SimDt sim-clock seam, and the room-scoped spawn
 # helpers. Portal sits directly above it (ADR 0019). Never ambition_platformer2d_actor_monolith.
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+
+# The extension host and the portal port: a module's held pair of portals
+# (`extension`). The port is a leaf of values; the host owns admission and
+# the outbox the adapter drains.
+ambition_extension_host = { path = "../ambition_extension_host" }
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
+ambition_portal_port = { path = "../ambition_portal_port" }
+
+[dev-dependencies]
+# The extension host reads the logical tick and gameplay time; the adapter's
+# tests in a tiny App give it both.
+ambition_time = { path = "../ambition_time" }

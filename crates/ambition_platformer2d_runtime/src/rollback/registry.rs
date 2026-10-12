@@ -1150,7 +1150,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 344 -> 345: `content.mary_o_snake_plant_out` (`SnakePlantOut`) is a
 /// new value-probed clone, and `mount.pose_owned_externally` is a set of
 /// holds with a value probe, not a presence marker (review A3/A4).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 345;
+/// ⛔⛤ 345 -> 346: `portal.held_pairs` (`HeldPortalPairs`, a cursor) and its
+/// map row, `portal.held_portal_of` and its map row, and the clones
+/// `portal.link` and `portal.look`: a module's held portal pair is rollback
+/// state of the portal domain (review IN1).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 346;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

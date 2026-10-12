@@ -146,6 +146,7 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.boss.mount_launch` v1 | request (`boss_conduct`) | `ambition_boss_special_port::MountLaunch` (launch the ridden mount through its launch gateway; `flinchless` for a hop) |
 | `ambition.feedback.speech_bubble` v1 | request (`boss_conduct`) | `ambition_combat_port::SpeechBubble` (text in a bubble, in the body's live room) |
 | `ambition.combat.riding_hitbox` v1 | request (`boss_conduct`) | `ambition_combat_port::RidingHitbox` (a volume that rides its owner) |
+| `ambition.portal.held_pair` v1 | request (`boss_conduct`; a game with the `portal` feature) | `ambition_portal_port::HeldPortalPair` (a linked pair of portals, held while re-submitted each tick at the submitted places; named by its slot; a look index for each end) |
 | `ambition.feedback.burst` v1 | request (`boss_conduct`) | `ambition_combat_port::Burst` (particles) |
 | `ambition.feedback.camera_shake` v1 | request (`boss_conduct`) | `ambition_combat_port::CameraShake` (an amplitude; the strongest of a frame wins) |
 | `ambition.combat.body_hold` v2 | request (`boss_conduct`) | `ambition_combat_port::BodyHold` (seize a body in a reach, carry it, pummel it, throw it, release it: the engine's capture relation; v2: `hold_at` names the attachment of the owner's body rig that the hold rides, and the engine places it from the rig's pose each tick) |

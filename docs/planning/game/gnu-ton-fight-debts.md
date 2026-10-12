@@ -39,6 +39,15 @@ Status of each: OPEN. The content comes first.
 
 ### 2. A module can not open a portal
 
+**THE PAIR LANDED 2026-10-12; the look lines are OPEN.** The conductor asks
+for the pair of the punch each tick it is open through
+`ambition.portal.held_pair` (`HeldPortalPair { slot, ends, looks }`), and
+the portal domain's adapter (`ambition_portal2d::extension`) owns the two
+ends, their link, their identity and their end. `open_gnu_ton_portals` is
+deleted. The look lines (`LightLine`) still go through the record to
+`portals.rs`, because a light line is presentation and no presentation port
+exists. The text below is the case as found.
+
 - The conductor is an extension module. It has no port for a portal, so it
   writes where each line is into its RECORD, and a native system of the
   game (`ambition_content::bosses::gnu_ton::portals`) reads the record and
@@ -160,24 +169,39 @@ Status of each: OPEN. The content comes first.
 
 ### 12. The portal and trail names omit the encounter
 
-**INTERIM REPAIR LANDED 2026-10-12; the port is still OPEN.** The punch's
-pair and the look lines are joined by `(live room, owner, line)`, where the
-owner is the scholar's placement id (`GnuTonPortal { line, owner }`). The
-pair is ONE `PortalLink` of its owner (`gnu_ton/{owner}/punch`), so the
-portal core gives it a stable channel pair of its room (the
+**THE PAIR IS A PORT, 2026-10-12; the look lines and trail starts are
+OPEN.** The punch's pair is a held request of the conductor
+(`ambition.portal.held_pair`, debt 2). The portal domain's adapter keeps
+the pair's record on the scholar (`HeldPortalPairs`, rollback row
+`portal.held_pairs`, with its entity map), and the pair is ONE `PortalLink`
+of its owner's simulation identity, entry and slot, so the portal core gives
+it a stable channel pair of its room (the
 [portal identity](../engine/portal-pair-identity-and-aperture.md) core). The
-blue and orange are a presentation-only `PortalLook`, which the glow reads;
-pairing never reads it. The id is `SimId::singleton("gnu_ton_portal",
-"{owner}/{line}")`. Witness:
-`bosses::gnu_ton::tests::each_gnu_ton_has_his_own_pair_of_the_punch` (two
-scholars in one room, and a second live instance of a placement; then one
-pair closes and the other stays). Poisons: join by `(room, line)` speaks at
-"only B's pair is open"; the fixed channels without the link speak at "no end
-of another GNU-ton is the partner of his". **Still open:** the pair/line
-port (debt 2) that deletes `portals.rs`; two live instances of one room give
-one placement's portal one `SimId` (as they give its body one); the trail
-starts (`LimbTrailStarts` by `FeatureId`, debt 6); a rewind across a pair's
-opening and two sessions in one host were not run.
+blue and orange are a presentation-only `PortalLook` (channels 24 and 25,
+asked for by the module). Each end is `SimId::singleton("held_portal",
+"{owner}/{entry}/{slot}/{end}")`. `open_gnu_ton_portals` and the punch half
+of `GnuTonPortal` are deleted; the tag is now `GnuTonLookLine`.
+
+- Witness: `ambition_portal2d extension::tests::each_holder_has_his_own_pair_while_he_asks_for_it`.
+  Two holders share a room, and a second live instance holds a body with
+  the first one's placement id. Then one stops asking, one moves its pair,
+  and one is despawned. Five poisons each fail at their own assertion: a
+  link without the owner (at "his two ends are a pair"); no release ("only
+  B's pair"); no orphan sweep ("a holder that is gone"); no held check ("no
+  pair spawned twice"); no move ("B's ends follow").
+- A body with no simulation identity gets no pair, and the control is the
+  same body with one (`a_body_with_no_identity_gets_no_pair`).
+- Under a GGRS sync-test session the real fight opens and closes the pair as
+  one pair (`app_it gnu_ton_fight::the_punchs_pair_is_one_pair_across_rewinds`).
+  With the `portal.held_pairs` rows removed, the sync test fails with a
+  checksum mismatch at frame 233.
+- The way up still works through the held pair
+  (`the_punchs_pair_is_the_way_up_to_the_giants_back`).
+
+**Still open:** the look lines (debt 2: no presentation port); the trail
+starts (`LimbTrailStarts` by `FeatureId`, debt 6); two live instances of one
+room give one placement's end one `SimId` (as they give its body one); two
+sessions in one host were not run.
 
 **Evidence, `ed0d1ccd` (2026-10-11):**
 

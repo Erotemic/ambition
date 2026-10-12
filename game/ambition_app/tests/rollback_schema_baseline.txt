@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v345
+ggrs-rollback-schema-v346
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -292,6 +292,8 @@ map.mount_reserved_for	entity-mapping	MountReservedFor	bevy_ggrs LoadWorld entit
 map.mount_slot	entity-mapping	MountSlot	bevy_ggrs LoadWorld entity-reference remapping
 map.move_playback	entity-mapping	MovePlayback	bevy_ggrs LoadWorld entity-reference remapping
 map.pending_challenge	entity-mapping	PendingChallenge	bevy_ggrs LoadWorld entity-reference remapping
+map.portal.held_pairs	entity-mapping	HeldPortalPairs	bevy_ggrs LoadWorld entity-reference remapping
+map.portal.held_portal_of	entity-mapping	HeldPortalOf	bevy_ggrs LoadWorld entity-reference remapping
 map.projectile_hits	entity-mapping	ProjectileHits	bevy_ggrs LoadWorld entity-reference remapping
 map.projectile_owner	entity-mapping	ProjectileOwner	bevy_ggrs LoadWorld entity-reference remapping
 map.resource.active_conversation	resource-entity-mapping	ActiveConversation	bevy_ggrs LoadWorld resource entity-reference remapping
@@ -409,7 +411,11 @@ player.safety_state	component-canonical	PlayerSafetyState	bevy_ggrs canonical co
 portal.emission	component-clone	PortalEmission	bevy_ggrs clone snapshot; not in the session checksum
 portal.gun	component-clone	PortalGun	bevy_ggrs clone snapshot; not in the session checksum
 portal.gun_pickup	component-clone	PortalGunPickup	bevy_ggrs clone snapshot; not in the session checksum
+portal.held_pairs	component-clone-cursor	HeldPortalPairs	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
+portal.held_portal_of	component-clone	HeldPortalOf	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 portal.input_warp	component-clone	PortalInputWarp	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+portal.link	component-clone	PortalLink	bevy_ggrs clone snapshot; not in the session checksum
+portal.look	component-clone	PortalLook	bevy_ggrs clone snapshot; not in the session checksum
 portal.owned_gun_pair	component-clone	OwnedPortalGunPair	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 portal.placed	component-clone	PlacedPortal	bevy_ggrs clone snapshot; not in the session checksum
 portal.shot	component-clone	PortalShot	bevy_ggrs clone snapshot; not in the session checksum

@@ -1,5 +1,7 @@
 {
-  "accepted_reasons": {},
+  "accepted_reasons": {
+    "critical_path_crates": "review IN1 (2026-10-12): the portal domain's held-pair adapter lives in ambition_portal2d (as combat's, abilities', projectiles' and the boss domain's adapters live in their domain crates), so ambition_portal2d (height 12) now names ambition_extension_host, and host -> time -> core -> geometry each rise by one. The host is the sanctioned seam for domain adapters; a separate crate for one adapter would add a crate and a registration road to save one level."
+  },
   "carried_from": "11ef33c5b5a5",
   "commit": "4ed566a24ad1",
   "consumer": "ambition_app",
@@ -1599,7 +1601,7 @@
       "test_file_lines": 193
     }
   },
-  "critical_path_crates": 15,
+  "critical_path_crates": 16,
   "dirty": true,
   "first_party_crates": 76,
   "first_party_lines": 768021,
@@ -1616,7 +1618,7 @@
     "seconds": 283.422
   },
   "line_unit": "physical lines of <crate>/src/**/*.rs, inline #[cfg(test)] included",
-  "recorded_at": "2026-10-09T13:57:38-0400",
+  "recorded_at": "2026-10-12T05:30:24-0400",
   "run_id": "487145198e44",
   "schema": 1,
   "unit_weights": {

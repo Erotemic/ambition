@@ -84,6 +84,13 @@ pub struct BossSpecialContentPlugin;
 impl Plugin for BossSpecialContentPlugin {
     fn build(&self, app: &mut App) {
         for module in ambition_content_modules::modules() {
+            // GNU-ton's conductor asks for a held pair of portals. A game with
+            // no portals offers no such port, and admission would refuse the
+            // whole composition: such a game has no GNU-ton conductor.
+            #[cfg(not(feature = "portal"))]
+            if module.key == ambition_content_modules::gnu_ton::conductor::module().key {
+                continue;
+            }
             app.add_extension_module(module);
         }
     }

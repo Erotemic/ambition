@@ -16,6 +16,7 @@
 
 mod color;
 mod eviction;
+pub mod extension;
 mod gun;
 mod gun_construction;
 mod gun_lifecycle;

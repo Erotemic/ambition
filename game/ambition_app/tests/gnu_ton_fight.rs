@@ -288,12 +288,14 @@ fn arena_with_free_fists() -> Platformer2dSimHarness {
 /// giant's right shoulder, and goes to the side onto the giant's back.
 #[test]
 fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
-    use ambition_content::bosses::gnu_ton::portals::{GnuTonLine, GnuTonPortal};
+    use ambition_platformer2d::portal::extension::HeldPortalOf;
     use ambition_platformer2d::portal::PlacedPortal;
-    fn line(sim: &mut Platformer2dSimHarness, which: GnuTonLine) -> Option<ae::Vec2> {
+    /// An end of the pair his conductor holds: the near line faces up the
+    /// screen (the fist goes down into it), the far line down.
+    fn line(sim: &mut Platformer2dSimHarness, near: bool) -> Option<ae::Vec2> {
         let world = sim.world_mut();
-        let mut portals = world.query::<(&GnuTonPortal, &PlacedPortal)>();
-        portals.iter(world).find(|(tag, _)| tag.line == which).map(|(_, portal)| portal.pos)
+        let mut portals = world.query_filtered::<&PlacedPortal, With<HeldPortalOf>>();
+        portals.iter(world).find(|portal| (portal.normal.y < 0.0) == near).map(|portal| portal.pos)
     }
     let mut sim = arena();
     untouchable_player(&mut sim);
@@ -306,8 +308,8 @@ fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
     for _ in 0..30 {
         sim.step(AgentAction::default());
     }
-    let far = line(&mut sim, GnuTonLine::PunchFar).expect("the far line of the pair is open");
-    let near = line(&mut sim, GnuTonLine::PunchNear).expect("the near line of the pair is open");
+    let far = line(&mut sim, false).expect("the far line of the pair is open");
+    let near = line(&mut sim, true).expect("the near line of the pair is open");
     let s = scene(&mut sim);
     let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
     assert!(near.y < back.min.y, "the premise: the near line {near:?} is over the giant's back {back:?}");
@@ -1253,4 +1255,43 @@ fn a_won_fight_leaves_the_arena_open_when_you_come_back() {
     };
     assert!(!alive.contains(&true), "the premise: no live GNU-ton in a won arena: {alive:?}");
     assert_eq!(arena_exit(&mut sim), (0, true), "a won arena is open");
+}
+
+/// The pair of the punch under a GGRS sync-test session. The pair is held by
+/// the portal domain's adapter, and which pair each slot holds is rollback
+/// state on the scholar (`portal.held_pairs`). A rewind across the tick the
+/// pair opened must give it back as it was: if the record were lost, the
+/// replay would open a second pair, and the checksum would disagree.
+#[test]
+fn the_punchs_pair_is_one_pair_across_rewinds() {
+    use ambition_platformer2d::portal::extension::HeldPortalOf;
+    let opts = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_required_start_room(ARENA)
+        .with_sync_test_rollback_settings(4, 10);
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the GGRS sync-test arena builds");
+    untouchable_player(&mut sim);
+    place_player(&mut sim, ae::Vec2::new(400.0, 1200.0));
+    let mut most = 0;
+    let mut opened = false;
+    let mut closed_after = false;
+    let mut first_error = None;
+    for _ in 0..1500 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let open = world.query_filtered::<(), With<HeldPortalOf>>().iter(world).count();
+        most = most.max(open);
+        opened |= open > 0;
+        closed_after |= opened && open == 0;
+        if first_error.is_none() {
+            first_error = ambition_platformer2d::rollback::session_health(sim.world()).err();
+        }
+        if closed_after {
+            break;
+        }
+    }
+    assert!(opened, "the premise: a punch opened the pair under the sync test");
+    assert!(closed_after, "the premise: the pair closed again, so a rewind crossed both edges");
+    assert_eq!(most, 2, "one pair, never two, across every rewind");
+    assert_eq!(first_error, None, "the sync-test session stayed healthy");
 }

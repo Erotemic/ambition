@@ -18,8 +18,9 @@
 //! one, so the player can go up through it to the giant's back. When the
 //! encounter leaves phase 1 the arms go into two lines that close on them
 //! (the clamp), and from then the fists are bodies of their own. This module
-//! says where each line is in its record; the game opens the portals
-//! (`ambition_content::bosses::gnu_ton::portals`).
+//! asks the portal domain for the pair of the punch each tick it is open
+//! (`ambition.portal.held_pair`), and says in its record where each look line
+//! is; the game draws those (`ambition_content::bosses::gnu_ton::portals`).
 
 use ambition_boss_special_port::{
     BossConduct, BossConductPort, BossGuard, BossGuardPort, ConductedPose, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LimbBlow,
@@ -30,6 +31,7 @@ use ambition_combat_port::{
     BodySound, BodySoundPort, Burst, BurstPort, HeldDamageBox, HeldDamageBoxPort, Place, RidingHitbox,
     RidingHitboxPort, RidingKnockback, SpeechBubble, SpeechBubblePort,
 };
+use ambition_portal_port::{HeldPortalPair, HeldPortalPairPort, PortalEnd};
 use ambition_extension_sdk::{
     phases::BOSS_CONDUCT, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
     ModuleDescriptor, ModuleKey, Port, SchemaKey, TriggerBinding, API_VERSION,
@@ -82,6 +84,8 @@ const WAVE_LIFETIME_S: f32 = 6.0;
 const FIST_BOX_SLOT: u32 = 0;
 const WAVE_BOX_SLOT: u32 = 2;
 const WAVES: usize = 4;
+/// The held portal pair's slot: the pair of the punch.
+const PUNCH_PAIR_SLOT: u32 = 0;
 const INK: [f32; 4] = [1.0, 0.86, 0.45, 0.95];
 const WARNING: [f32; 4] = [1.0, 0.42, 0.25, 1.0];
 const GOLD: [f32; 4] = [1.0, 0.84, 0.2, 1.0];
@@ -390,6 +394,7 @@ pub fn module() -> ModuleDescriptor {
                 LimbBlowPort::KEY,
                 MountLaunchPort::KEY,
                 HeldDamageBoxPort::KEY,
+                HeldPortalPairPort::KEY,
                 RidingHitboxPort::KEY,
                 BurstPort::KEY,
                 BodySoundPort::KEY,
@@ -479,7 +484,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let dt = inv.dt();
     let mut c = Conductor::load(inv)?.sized();
     if dt <= 0.0 {
-        return Ok(());
+        // A tick with no time keeps what is open: a pair that is not asked
+        // for in a tick is closed.
+        return hold_punch_pair(inv, &c);
     }
     // The hall under the gnu, measured every tick: the pair can be carried
     // into another room, and fists posed against the last room's floor fall
@@ -1076,7 +1083,25 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             dust(inv, center + Vec2::new(0.0, WAVE_HALF.y * 0.5), 3, 120.0, [0.62, 0.52, 0.4, 1.0])?;
         }
     }
+    hold_punch_pair(inv, &c)?;
     c.store(inv)
+}
+
+/// The pair of the punch is a real pair of portals: ask the portal domain to
+/// keep it for this tick, where the record says its lines are. The giant's
+/// fist goes down into the near line, and comes down out of the far line; a
+/// body that goes up into the far line comes up out of the near line. Its
+/// ends are blue and orange (channels 24 and 25), a look only.
+fn hold_punch_pair(inv: &mut Invocation<'_>, c: &Conductor) -> Result<(), Fault> {
+    let Some([near, far]) = c.punch_pair() else {
+        return Ok(());
+    };
+    let end = |at: Vec2, normal: [f32; 2]| PortalEnd { at: a(at), normal, half_length: ch::arms::PUNCH_HALF };
+    inv.submit::<HeldPortalPairPort>(HeldPortalPair {
+        slot: PUNCH_PAIR_SLOT,
+        ends: [end(near, [0.0, -1.0]), end(far, [0.0, 1.0])],
+        looks: [24, 25],
+    })
 }
 
 /// Defeated: he draws his own death, the gnu stands, and the fists fall where

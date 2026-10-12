@@ -114,14 +114,19 @@ not part of this row.
   ([reload](engine/content-generation-and-reload.md#sprite-source-identity-and-live-presentation-refresh)).
 - Saved module rows are the schema written in them
   ([extension state](engine/extension-state-and-execution.md#saved-row-identity-validation-new-durable-session-customer-2026-10-11)).
+- IN1, GNU-ton's pair is a port: the conductor asks for a held pair through
+  `ambition.portal.held_pair`, the portal domain keeps it (rollback row
+  `portal.held_pairs`), and `open_gnu_ton_portals` is gone
+  ([debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter)).
 
 **Open:**
 
-1. **IN1, GNU-ton pair port (P1).** The module requests a held pair and its
-   light lines through portal and presentation ports; `portals.rs` and the
-   global `LimbTrailStarts` writer go away. The trail start and the view
-   index are keyed by `FeatureId` alone, so two live instances of one room
-   share them (debt 6). See [debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
+1. **IN1, GNU-ton light lines and trail starts (P1).** The pair is a port
+   (done). The look lines still go through the conductor's record to
+   `portals.rs`, because no presentation port exists, and the global
+   `LimbTrailStarts` writer stays. The trail start and the view index are
+   keyed by `FeatureId` alone, so two live instances of one room share them
+   (debt 6). See [debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
 2. **IN6, frame time (P2).** Measure the portal-piece frame cost in a drawn
    host before any retained-piece strategy.
 3. **IN7, provider theme and live sprite refresh (P2).** The launcher theme

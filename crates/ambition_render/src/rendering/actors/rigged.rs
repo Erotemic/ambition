@@ -557,6 +557,8 @@ type Roots<'w, 's> = Query<
         Option<&'static PartPose>,
         Option<&'static FrameInSprite>,
         Option<&'static PerformedBodyWarp>,
+        // A reader's ask for the draws of some tracks, and its answer.
+        Option<(&'static PartSetRequest, &'static mut PartSetDraws)>,
     ),
     (Without<RiggedPresentation>, Without<RiggedPartSlot>),
 >;
@@ -991,7 +993,7 @@ pub fn drive_rigged_presentations(
     // so a body given a cell in one draws directly once more.
     let mut fresh_pages: Vec<(usize, usize)> = Vec::new();
     for (_, &RiggedPresentationOf(root), mut presentation, _, _) in &mut owners {
-        let Ok((animator, _, _, _, _, _, root_layers, pose, _, performed)) = roots.get(root) else {
+        let Ok((animator, _, _, _, _, _, root_layers, pose, _, performed, _)) = roots.get(root) else {
             continue;
         };
         let flipbook = presentation.pages.flipbook.clone();
@@ -1123,6 +1125,7 @@ pub fn drive_rigged_presentations(
             pose,
             frame_in_sprite,
             performed,
+            mut asked,
         )) = roots.get_mut(root)
         else {
             continue;
@@ -1147,6 +1150,9 @@ pub fn drive_rigged_presentations(
             presentation.posed_draws = posed_draws;
             // The baked frame draws the body, and is its whole image.
             draw_baked_frame(&mut root_sprite, animator);
+            if let Some((_, answer)) = asked.as_mut() {
+                part_set::clear(answer);
+            }
             if frame_in_sprite.is_some() {
                 commands.entity(root).try_remove::<FrameInSprite>();
             }
@@ -1166,28 +1172,10 @@ pub fn drive_rigged_presentations(
             let margin = impostor_margin(&flipbook);
             let cell = frame_size.max_element() + 2.0 * margin;
             let (size, anchor) = body_quad(animator, basis, &root_sprite, &root_anchor, frame_size, margin, cell);
-            // The frame's feet pixel in that cell, in the quad's normalized
-            // space (+y up, mirrored with the image), carried to the world.
-            let feet_in_cell = (Vec2::splat(margin) + flipbook.feet_pixel) / cell;
-            let mut feet = Vec2::new(feet_in_cell.x - 0.5, 0.5 - feet_in_cell.y);
-            if root_sprite.flip_x {
-                feet.x = -feet.x;
+            let place = feet_place(root_transform, &flipbook, size, anchor, cell, margin, root_sprite.flip_x);
+            if let Some((request, answer)) = asked.as_mut() {
+                part_set::answer(request, answer, &presentation, draws, place);
             }
-            let feet = (feet - anchor) * size;
-            let world_per_pixel = size / cell;
-            let flip = if root_sprite.flip_x { -1.0 } else { 1.0 };
-            // ⛔ THROUGH THE ROOT'S WHOLE TRANSFORM. The baked quad is drawn
-            // through it, so the root's turn (the gravity of its room, a
-            // somersault, a crawler on a wall) turns the frame about the root.
-            // The root draws nothing here, so the owner carries the turn: the
-            // feet offset and the mirror are in the root's own frame, and the
-            // root's transform is applied after them. An owner that took only
-            // the root's translation drew the player level in a room with
-            // sideways gravity (2026-10-05).
-            let place = root_transform.mul_transform(
-                Transform::from_translation(feet.extend(0.0))
-                    .with_scale(Vec3::new(flip * world_per_pixel.x, world_per_pixel.y, 1.0)),
-            );
             let frame_opacity = row.map_or(1.0, |row| flipbook.frame_opacity(row, animator.frame));
             drive_direct_presentation(
                 &mut presentation,
@@ -1274,6 +1262,13 @@ pub fn drive_rigged_presentations(
             margin,
             atlas.cell_size(),
         );
+        if let Some((request, answer)) = asked.as_mut() {
+            // Where its parts would be in the world: the root draws its cell
+            // there, and a reader of its parts draws there also.
+            let place =
+                feet_place(root_transform, &flipbook, size, anchor, atlas.cell_size(), margin, root_sprite.flip_x);
+            part_set::answer(request, answer, &presentation, draws, place);
+        }
         if root_sprite.image != atlas.image {
             root_sprite.image = atlas.image.clone();
         }
@@ -1502,6 +1497,42 @@ fn part_color(draw: &PartDraw, root: LinearRgba) -> Color {
     ))
 }
 
+/// The body's feet in the world, for a body whose quad (`body_quad`) is
+/// `size` at `anchor` over a cell `cell` sheet pixels square: one unit a sheet
+/// pixel, +y up, mirrored when the root is flipped.
+///
+/// ⛔ THROUGH THE ROOT'S WHOLE TRANSFORM. The baked quad is drawn through it,
+/// so the root's turn (the gravity of its room, a somersault, a crawler on a
+/// wall) turns the frame about the root. A body drawn directly draws nothing
+/// at its root, so its owner carries the turn: the feet offset and the mirror
+/// are in the root's own frame, and the root's transform is applied after
+/// them. An owner that took only the root's translation drew the player level
+/// in a room with sideways gravity (2026-10-05).
+fn feet_place(
+    root_transform: &Transform,
+    flipbook: &RiggedSpriteAsset,
+    size: Vec2,
+    anchor: Vec2,
+    cell: f32,
+    margin: f32,
+    flip_x: bool,
+) -> Transform {
+    // The frame's feet pixel in that cell, in the quad's normalized space
+    // (+y up, mirrored with the image), carried to the world.
+    let feet_in_cell = (Vec2::splat(margin) + flipbook.feet_pixel) / cell;
+    let mut feet = Vec2::new(feet_in_cell.x - 0.5, 0.5 - feet_in_cell.y);
+    if flip_x {
+        feet.x = -feet.x;
+    }
+    let feet = (feet - anchor) * size;
+    let world_per_pixel = size / cell;
+    let flip = if flip_x { -1.0 } else { 1.0 };
+    root_transform.mul_transform(
+        Transform::from_translation(feet.extend(0.0))
+            .with_scale(Vec3::new(flip * world_per_pixel.x, world_per_pixel.y, 1.0)),
+    )
+}
+
 /// The quad a body's frame is drawn on this frame, in a cell `cell` sheet
 /// pixels square (`cell_quad`), with the root's crouch squash and mirror row
 /// applied and mirrored with the root.
@@ -1596,6 +1627,9 @@ fn stance_squash(animator: &CharacterAnimator, root: &Sprite, anchor: Option<&An
     let held = (a0 * h0 - a1 * h1) / (h0 - h1);
     Some((h1 / h0, (held - a0) * h0))
 }
+
+mod part_set;
+pub use part_set::{PartSetDraws, PartSetRequest, PlacedPart};
 
 #[cfg(test)]
 mod tests;

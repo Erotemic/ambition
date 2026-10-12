@@ -21,6 +21,7 @@ pub mod bricks;
 pub mod castle_end;
 pub mod cosmic;
 pub mod cosmic_aura;
+pub mod cosmic_barrier;
 pub mod death;
 pub mod fire_shader;
 pub mod flag;
@@ -1176,6 +1177,7 @@ impl Plugin for MaryODemoContentPlugin {
         fire_shader::install(app);
         void_look::install(app);
         cosmic_aura::install(app);
+        cosmic_barrier::install(app);
         let room = level_1_1();
         let source = ambition_platformer2d::runtime::PreparedPlatformerSource::new(
             provider::MARY_O_EXPERIENCE,

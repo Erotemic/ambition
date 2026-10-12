@@ -120,7 +120,15 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
     that reads the starlight shimmer picture (`cosmic_aura.rs`). The engine's
     spark particles are squares and were taken out; a star particle is not
     made. She has the ward against the void at all times in the form
-    (`void_look.rs`), and the overlay of the quasar does not draw over her.
+    (`void_look.rs`).
+  - Three layers of light (Jon, 2026-10-11): the glow under her, a barrier on
+    the border of her body, and the overlay of the quasar over her while she
+    holds a quasar (not from the form alone). The barrier is about her hair
+    and her figure and not about her wings: she is drawn from parts in the
+    form (each row but `transform`), and the part renderer says where the
+    parts of her body are (`cosmic_barrier.rs`, `PartSetRequest`).
+  - A hit stops the world for 0.02 s at most in the form
+    (`cosmic::shorten_her_hit_stop`).
   - Her theme is the cue `eternal_cosmic` of the music renderer: an intro as
     long as the transformation, then a loop of forty bars
     (`cosmic::COSMIC_MUSIC_TRACK`). The castle plays `castle_crash_override`

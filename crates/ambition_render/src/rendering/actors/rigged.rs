@@ -1629,7 +1629,7 @@ fn stance_squash(animator: &CharacterAnimator, root: &Sprite, anchor: Option<&An
 }
 
 mod part_set;
-pub use part_set::{PartSetDraws, PartSetRequest, PlacedPart};
+pub use part_set::{ask_for_parts, forget_parts, PartSetDraws, PartSetRequest, PlacedPart};
 
 #[cfg(test)]
 mod tests;

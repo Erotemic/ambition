@@ -40,7 +40,7 @@ pub use admission::{
     ModuleBackend, ModuleCode, PortOffer, Refusal, SaveRoad,
 };
 pub use exec::{
-    run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord, InBossConduct,
+    run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord, InActorThink, InBossConduct,
     InModuleEntityTick, InTechniqueExecution, InWieldedUse, InstalledPortCodecs, InvocationId, LowersIn,
     PendingInvocation, Submitted, Supplier,
 };

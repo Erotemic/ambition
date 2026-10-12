@@ -88,6 +88,16 @@ pub mod phases {
     /// requests submitted here are consumed THIS tick. In the Ambition
     /// runtime this is `WorldPrepSet::AfterIntegrate`.
     pub const BOSS_CONDUCT: Phase = Phase::new("boss_conduct");
+
+    /// A body whose brain is a custom key decides this tick. Guarantees: the
+    /// brains of this tick have run and published their control frames, and
+    /// each body's target is settled; a control contribution asked for here
+    /// is in the body's frame before the control gate, so a restriction on
+    /// the body applies to it as it does to the brain's own frame; requests
+    /// submitted here are consumed THIS tick, before the body integrates. In
+    /// the Ambition runtime this is after `ActorDecisionSet::Publish` and
+    /// before `PlayerInputSet::ControlGate`.
+    pub const ACTOR_THINK: Phase = Phase::new("actor_think");
 }
 
 /// The trigger port that starts an entry, and the selector inside that port

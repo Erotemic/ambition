@@ -935,7 +935,9 @@ ADJUDICATED: dict[str, str] = {
         "module-entity domain's `queue_module_entity_ticks` (in the abilities "
         "crate's module_entity file, phase module_entity_tick) is the fourth, and "
         "the conducted-boss trigger `queue_boss_conducts` (in the boss-encounter "
-        "crate's conduct file, phase boss_conduct) the fifth. "
+        "crate's conduct file, phase boss_conduct) the fifth, and the "
+        "custom-brain trigger `queue_actor_thinks` (in the combat crate's "
+        "extension/think file, phase actor_think) the sixth. "
         "Each adapter appends only for its own port and phase."
     ),
     "ExtensionOutbox": (
@@ -956,7 +958,8 @@ ADJUDICATED: dict[str, str] = {
         "`drain_limb_blows`, `drain_mount_launches`, `drain_speech_bubbles` "
         "and `lower_bursts` (in the "
         "boss-encounter crate's conduct file; each drain system pipes what it "
-        "took into the system that applies it), in "
+        "took into the system that applies it), and the custom-brain adapter "
+        "`lower_actor_fires` (in the combat crate's extension/think file), in "
         "`ExtensionSet::Lower`, chained "
         "after Invoke, and each in its own `ExtensionSet::LowerPort` set, ordered "
         "by install order); a drain takes only "

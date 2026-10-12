@@ -190,6 +190,8 @@ pub struct InWieldedUse;
 pub struct InModuleEntityTick;
 /// The marker of `boss_conduct`. See [`LowersIn`].
 pub struct InBossConduct;
+/// The marker of `actor_think`. See [`LowersIn`].
+pub struct InActorThink;
 
 impl LowersIn for InTechniqueExecution {
     const PHASE: Phase = ambition_extension_sdk::phases::TECHNIQUE_EXECUTION;
@@ -202,6 +204,9 @@ impl LowersIn for InModuleEntityTick {
 }
 impl LowersIn for InBossConduct {
     const PHASE: Phase = ambition_extension_sdk::phases::BOSS_CONDUCT;
+}
+impl LowersIn for InActorThink {
+    const PHASE: Phase = ambition_extension_sdk::phases::ACTOR_THINK;
 }
 
 /// A recorded fault. Diagnostic only: it is not rollback state.

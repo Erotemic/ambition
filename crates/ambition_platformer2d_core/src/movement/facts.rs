@@ -271,6 +271,46 @@ impl BodyMotionFacts {
 
     /// Project the active policy's semantic facts. Non-axis policies have no
     /// axis maneuvers by construction — their projection is the default.
+    /// A value of every fact, for the rollback restore audit (the census asks
+    /// whether the value moved, not only whether the component is there).
+    pub fn rollback_probe(&self) -> u64 {
+        let flags = [
+            self.dashing,
+            self.running,
+            self.initial_dashing,
+            self.turning_around,
+            self.teetering,
+            self.wire_anchor.is_some(),
+            self.jump_squatting,
+            self.dodge_rolling,
+            self.evade_invulnerable,
+            self.ledge_intangible,
+            self.spot_dodging,
+            self.air_dodging,
+            self.air_dodge_endlag,
+            self.dodge_roll_endlag,
+            self.evade_committed,
+            self.tumbling,
+            self.knocked_down,
+            self.getup_invulnerable,
+            self.blink_telegraph,
+            self.blink_aiming,
+            self.blink_grace,
+            self.wall_clinging,
+            self.wall_climbing,
+            self.gliding,
+            self.fast_falling,
+            self.skidding,
+            self.ledge.is_some(),
+            self.ledge.is_some_and(|ledge| ledge.climbing),
+            self.adhesive_crawling,
+        ];
+        let bits = flags.iter().enumerate().fold(0u64, |bits, (i, set)| bits | (u64::from(*set) << i));
+        let anchor = self.wire_anchor.unwrap_or_default();
+        let amounts = [self.air_jump_rise_owned, anchor.x, anchor.y, self.blink_aim_offset.x, self.blink_aim_offset.y];
+        amounts.iter().fold(bits, |acc, amount| acc.rotate_left(13) ^ u64::from(amount.to_bits()))
+    }
+
     pub fn from_model(model: &MotionModel) -> Self {
         // the crawler is answered BEFORE the early return. Every fact below
         // is axis-swept state, so the old `else { return default() }` gave a

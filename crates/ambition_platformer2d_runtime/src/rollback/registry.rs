@@ -1143,7 +1143,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 342 -> 343: `resource.pending_player_hit_events` hashes the staged
 /// hit's guard policy (`HitKnockback::guard`, S0.3). No row moves; the bytes
 /// of one projection do, so peers of the two versions must not connect.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 343;
+/// ⛔⛤ 343 -> 344: `actor.body_motion_facts` (`BodyMotionFacts`) is a
+/// value-probed clone, no longer declared derived. A brain reads it before the
+/// movement step republishes it, so a rewind must bring it back
+/// (SHOT-END-REPLAY).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 344;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

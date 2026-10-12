@@ -58,6 +58,17 @@ where
         .rollback_component_canonical::<bc::DepthPlane>(OWNER, "body.depth_plane")
         .rollback_component_canonical::<bc::Unmirrored>(OWNER, "body.unmirrored")
         .rollback_component_canonical::<crate::MotionModel>(OWNER, "actor.motion_model");
+    // The movement step publishes these facts, and the brains read them BEFORE
+    // the next movement step (a running body reads the reach of its dash
+    // attack). So a rewind must bring back the value of the previous step: a
+    // value the abandoned timeline left is not this timeline's
+    // (SHOT-END-REPLAY: a replay read `running` from the future and chose
+    // another mode).
+    registrar.rollback_component_clone_probed::<crate::BodyMotionFacts>(
+        OWNER,
+        "actor.body_motion_facts",
+        crate::BodyMotionFacts::rollback_probe,
+    );
 
     // Value-bearing bookkeeping a recreated entity cannot re-derive.
     registrar.rollback_component_clone::<bc::AbilityBase>(OWNER, "body.ability_base");
@@ -75,11 +86,6 @@ where
             OWNER,
             "derived.body_environment_contact",
             "rewritten every movement step from body geometry and the live world",
-        )
-        .declare_rollback_derived_component::<crate::BodyMotionFacts>(
-            OWNER,
-            "derived.body_motion_facts",
-            "republished from MotionModel every movement step",
         )
         .declare_rollback_derived_component::<crate::ability_projection::AbilityContributions>(
             OWNER,

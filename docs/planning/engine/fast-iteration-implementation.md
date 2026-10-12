@@ -460,9 +460,19 @@ before you add a port.
     (the same round from the `.wasm`, its runner `Loaded`). Poisons: the
     module not linked is red at tick 34's throw; the hop not asked is red
     at tick 165; the file not loaded is red at the runner (`Native`).
-  - Next, one slice each, adding only the ports each needs: the swallow
-    (`drop_coconuts`, the last Mary-O row in `sim_phase_pins`), then the
-    plant, the snake shells and the AI Slop.
+  - S3 ✅ (2026-10-11): the Laden Swallow is
+    `ambition_demo_mary_o_modules::laden_swallow`; `ambition.actor.think`
+    v2 gives the placement id, which offsets each bird's drop tick. The
+    native `drop_coconuts` is deleted, and the control-gate census
+    (`sim_phase_pins`) is green: no Mary-O rule writes control after the
+    gate. Witness
+    `mary_o_it::the_laden_swallow_drops_on_its_modules_rule_and_not_when_held`
+    (each gated frame of two periods against `drops_on` and `over`; a held
+    swallow drops nothing). Poison: the adapter sends no placement, red at
+    tick 115 (`EnemySpawn-108048`).
+  - Next, one slice each, adding only the ports each needs: the plant, the
+    snake shells and the AI Slop (they move bodies after the integration,
+    not control, so each needs a body port first).
 
 **Acceptance:** an independent module builds against the SDK without Bevy or
 engine code. A ported technique emits the same accepted requests and

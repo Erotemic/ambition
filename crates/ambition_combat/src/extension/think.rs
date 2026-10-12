@@ -22,7 +22,7 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::*;
 
 use crate::actor_tuning::ActorConfig;
-use crate::components::ActorTarget;
+use crate::components::{ActorTarget, FeatureId};
 
 /// Install the trigger port and the fire request in `actor_think`.
 pub fn install_for_actor_think(app: &mut App) {
@@ -48,6 +48,7 @@ pub fn queue_actor_thinks(
             &BodyHealth,
             Option<&ActorTarget>,
             Option<&SimId>,
+            Option<&FeatureId>,
         ),
         (Without<PlayerEntity>, Without<DrivingParticipant>),
     >,
@@ -68,15 +69,15 @@ pub fn queue_actor_thinks(
     }
     let mut thinking: Vec<_> = bodies
         .iter()
-        .filter_map(|(entity, config, kin, ground, health, target, id)| match &config.brain {
+        .filter_map(|(entity, config, kin, ground, health, target, id, placement)| match &config.brain {
             CharacterBrain::Custom(key) if bound.contains(&key.as_str()) && health.alive() => {
-                Some((entity, key.clone(), kin, ground, health, target, id))
+                Some((entity, key.clone(), kin, ground, health, target, id, placement))
             }
             _ => None,
         })
         .collect();
     thinking.sort_by(|a, b| a.6.map(SimId::as_str).cmp(&b.6.map(SimId::as_str)));
-    for (entity, key, kin, ground, health, target, _) in thinking {
+    for (entity, key, kin, ground, health, target, _, placement) in thinking {
         // The target where it is now: `ActorTarget` holds where the body last
         // saw it.
         let target = target
@@ -97,6 +98,7 @@ pub fn queue_actor_thinks(
                 on_ground: ground.is_some_and(|ground| ground.on_ground),
                 health: health.current(),
                 target,
+                placement: placement.map(|placement| placement.as_str().to_owned()),
             },
         );
     }

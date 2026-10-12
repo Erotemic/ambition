@@ -6,9 +6,10 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`laden_swallow`](src/laden_swallow.rs) | The Laden Swallow's brain: the bird that stays over its target and lets coconuts go. |
 | [`void_lizard`](src/void_lizard.rs) | The Void Lizard's brain: the boss of the castle. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

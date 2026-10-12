@@ -137,6 +137,7 @@ pub fn add_simulation_plugins(app: &mut App) {
 
     declare_ambition_death_rules(app);
     declare_ambition_strike_weight(app);
+    declare_ambition_landing_lag(app);
 
     // App-LOCAL residue the E5 step-5 carve deliberately left behind. The
     // engine group above registers the shared per-frame wiring (player input
@@ -203,6 +204,21 @@ fn declare_ambition_strike_weight(app: &mut App) {
         ambition_platformer2d::combat::strike_weight::StrikeWeightRules::heavy_at(
             AMBITION_HEAVY_HIT_DAMAGE,
         ),
+    );
+}
+
+/// The share of a move's landing lag that Ambition charges. A move's lag is
+/// written for a platform fighter, where a missed aerial is to cost its owner
+/// (the robot's down air owes 0.28 s). Ambition is not that game: a body that
+/// lands is to move again at once (Jon, 2026-10-12: "landing lag should be
+/// significantly lowered"). A quarter leaves the down air 0.07 s, four ticks.
+pub const AMBITION_LANDING_LAG_SHARE: f32 = 0.25;
+
+fn declare_ambition_landing_lag(app: &mut App) {
+    use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
+    app.declare_rules(
+        ambition_platformer2d::combat::scoped_rules::RulesScope::UntaggedRooms,
+        ambition_platformer2d::combat::landing_lag::LandingLagRules::scaled_by(AMBITION_LANDING_LAG_SHARE),
     );
 }
 

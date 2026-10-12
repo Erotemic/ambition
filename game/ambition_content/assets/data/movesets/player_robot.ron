@@ -197,6 +197,16 @@
                             ),
                             duration_s: 0.5,
                             windows: [
+                                // The row is the blade and the body above the hips: the legs walk,
+                                // run, jump or fall as the body does (`UpperBody`).
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.28,
+                                    tag: UpperBody,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
                                 (
                                     start_s: 0.0,
                                     end_s: 0.05,
@@ -267,7 +277,7 @@
                                 (
                                     at_s: 0.05,
                                     kind: Sfx(
-                                        cue: "player.robot.slash.air",
+                                        cue: "player.robot.blade.rise",
                                     ),
                                 ),
                             ],
@@ -306,6 +316,16 @@
                             ),
                             duration_s: 0.5,
                             windows: [
+                                // The row is the blade and the body above the hips: the legs walk,
+                                // run, jump or fall as the body does (`UpperBody`).
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.28,
+                                    tag: UpperBody,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
                                 (
                                     start_s: 0.0,
                                     end_s: 0.05,
@@ -376,7 +396,7 @@
                                 (
                                     at_s: 0.05,
                                     kind: Sfx(
-                                        cue: "player.robot.slash.air",
+                                        cue: "player.robot.blade.fall",
                                     ),
                                 ),
                             ],
@@ -402,6 +422,8 @@
                         ),
                         // The third strike of the string at rest: a thrust, heavier than the two
                         // swings (2 of health; a smash attack is 3 or more). No part of a walk has it.
+                        // It reaches as far as the two swings do (90 from the middle of the body;
+                        // MEASURED 2026-10-12: the rise is 94, the fall 86), and is not as tall.
                         // The row `dash_attack` is its picture: at home the robot has no dash attack.
                         (
                             id: "blade_thrust",
@@ -417,6 +439,16 @@
                             ),
                             duration_s: 0.5,
                             windows: [
+                                // The row is the blade and the body above the hips: the legs walk,
+                                // run, jump or fall as the body does (`UpperBody`).
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.46,
+                                    tag: UpperBody,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
                                 (
                                     start_s: 0.0,
                                     end_s: 0.065,
@@ -432,8 +464,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (34.0, -2.0),
-                                                half_extents: (26.0, 16.0),
+                                                offset: (46.0, -2.0),
+                                                half_extents: (44.0, 16.0),
                                             ),
                                             damage: 2,
                                             knockback: 110.0,
@@ -441,7 +473,7 @@
                                             launch_dir: Some((1.0, -0.3)),
                                             reaction: None,
                                             on_hit: None,
-                                            vfx: Some("slash_arc"),
+                                            vfx: Some("slash_poke"),
                                             hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
@@ -486,7 +518,7 @@
                                 (
                                     at_s: 0.065,
                                     kind: Sfx(
-                                        cue: "player.robot.slash.air",
+                                        cue: "player.robot.blade.thrust",
                                     ),
                                 ),
                                 (
@@ -532,6 +564,16 @@
                             ),
                             duration_s: 0.5,
                             windows: [
+                                // The row is the blade and the body above the hips: the legs walk,
+                                // run, jump or fall as the body does (`UpperBody`).
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.28,
+                                    tag: UpperBody,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
                                 (
                                     start_s: 0.0,
                                     end_s: 0.055,
@@ -556,7 +598,7 @@
                                             launch_dir: Some((0.12, -1.0)),
                                             reaction: None,
                                             on_hit: None,
-                                            vfx: Some("slash_arc"),
+                                            vfx: Some("slash_rise"),
                                             hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
@@ -601,7 +643,7 @@
                                 (
                                     at_s: 0.055,
                                     kind: Sfx(
-                                        cue: "player.robot.slash.air",
+                                        cue: "player.robot.blade.rise",
                                     ),
                                 ),
                             ],
@@ -684,7 +726,7 @@
                                 (
                                     at_s: 0.06,
                                     kind: Sfx(
-                                        cue: "player.robot.slash.air",
+                                        cue: "player.robot.blade.fall",
                                     ),
                                 ),
                             ],
@@ -796,7 +838,7 @@
                                 (
                                     at_s: 0.088,
                                     kind: Sfx(
-                                        cue: "player.robot.slash.air",
+                                        cue: "player.robot.blade.fall",
                                     ),
                                 ),
                                 (
@@ -862,7 +904,7 @@
                                             launch_dir: None,
                                             reaction: None,
                                             on_hit: None,
-                                            vfx: Some("slash_arc"),
+                                            vfx: Some("slash_fall"),
                                             hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
@@ -948,7 +990,7 @@
                                             launch_dir: Some((1.0, -0.26)),
                                             reaction: None,
                                             on_hit: None,
-                                            vfx: Some("slash_arc"),
+                                            vfx: Some("slash_rise"),
                                             hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
@@ -1039,7 +1081,7 @@
                                             launch_dir: Some((0.15, -1.0)),
                                             reaction: None,
                                             on_hit: None,
-                                            vfx: Some("slash_arc"),
+                                            vfx: Some("slash_rise"),
                                             hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
@@ -1211,7 +1253,7 @@
                                             launch_dir: Some((1.0, -0.42)),
                                             reaction: None,
                                             on_hit: None,
-                                            vfx: Some("slash_arc"),
+                                            vfx: Some("slash_fall"),
                                             hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
@@ -1293,7 +1335,7 @@
                                             launch_dir: Some((0.12, -1.0)),
                                             reaction: None,
                                             on_hit: None,
-                                            vfx: Some("slash_arc"),
+                                            vfx: Some("slash_rise"),
                                             hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],

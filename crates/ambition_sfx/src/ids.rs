@@ -39,6 +39,12 @@ sfx_ids! {
     PLAYER_SLASH => "player.slash",
     /// Canonical robot protagonist blade: the dry swing through open air.
     PLAYER_ROBOT_SLASH_AIR => "player.robot.slash.air",
+    /// The robot's blade at home: the up swing, the down swing, and the thrust
+    /// that ends the standing string. Three cues, so a string is heard as three
+    /// strikes.
+    PLAYER_ROBOT_BLADE_RISE => "player.robot.blade.rise",
+    PLAYER_ROBOT_BLADE_FALL => "player.robot.blade.fall",
+    PLAYER_ROBOT_BLADE_THRUST => "player.robot.blade.thrust",
     /// Internal selector cue carried by the robot protagonist's hit volume. The
     /// victim-side resolver replaces it with the matching material variant.
     PLAYER_ROBOT_SLASH_IMPACT => "player.robot.slash.impact",

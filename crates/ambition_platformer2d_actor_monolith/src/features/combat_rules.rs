@@ -39,6 +39,8 @@ pub fn project_combat_rules(
     strike_weight: crate::session::governing_rules::GoverningRules<
         ambition_combat::strike_weight::StrikeWeightRules,
     >,
+    // The room's share of each move's landing lag: a rule of its own too.
+    landing_lag: crate::session::governing_rules::GoverningRules<ambition_combat::landing_lag::LandingLagRules>,
     baseline_feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
     baseline_ff: Option<Res<ambition_combat::targeting::FriendlyFire>>,
     rule_rooms: crate::session::governing_rules::LiveRuleRooms,
@@ -60,6 +62,7 @@ pub fn project_combat_rules(
             baseline_ff.as_deref(),
         )
         .with_strike_weight(strike_weight.in_room(room))
+        .with_landing_lag(landing_lag.in_room(room))
     };
     commands.insert_resource(resolve(ambition_combat::scoped_rules::ActiveRoom::NoRoom));
     for (root, room) in &roots {

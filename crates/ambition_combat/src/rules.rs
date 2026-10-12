@@ -457,6 +457,10 @@ pub struct ResolvedCombatTuning {
     /// [`CombatRules`], so [`Self::resolve`] leaves it `None` and the projection
     /// sets it with [`Self::with_strike_weight`].
     pub strike_weight: Option<crate::strike_weight::StrikeWeightRules>,
+    /// This room's share of each move's landing lag, where its game stated
+    /// one ([`crate::landing_lag`]). Declared apart from [`CombatRules`], as
+    /// [`Self::strike_weight`] is, and set with [`Self::with_landing_lag`].
+    pub landing_lag: Option<crate::landing_lag::LandingLagRules>,
 }
 
 /// The rules one live room's combat reads: that room's declared rules folded
@@ -667,6 +671,7 @@ impl ResolvedCombatTuning {
                 ledge_occupancy: rules.ledge_occupancy.unwrap_or_default(),
                 double_jump_cancel: rules.double_jump_cancel.unwrap_or(false),
                 strike_weight: None,
+                landing_lag: None,
             },
             // growth has NO world baseline to fall back to, unlike DI and
             // friendly fire: nothing outside a declaration authors it, so an
@@ -722,6 +727,7 @@ impl ResolvedCombatTuning {
                 ledge_occupancy: LedgeOccupancy::Trump,
                 double_jump_cancel: false,
                 strike_weight: None,
+                landing_lag: None,
             },
         }
     }
@@ -733,6 +739,13 @@ impl ResolvedCombatTuning {
         weight: Option<crate::strike_weight::StrikeWeightRules>,
     ) -> Self {
         self.strike_weight = weight;
+        self
+    }
+
+    /// These rules with `share` as the room's share of each move's landing
+    /// lag. See [`Self::landing_lag`].
+    pub fn with_landing_lag(mut self, share: Option<crate::landing_lag::LandingLagRules>) -> Self {
+        self.landing_lag = share;
         self
     }
 
@@ -1071,6 +1084,7 @@ mod tests {
                 sudden_death_damage: None,
                 // ⛔ NO GAME, NO HEAVY HITS: the engine draws no line.
                 strike_weight: None,
+                landing_lag: None,
             }
         );
     }

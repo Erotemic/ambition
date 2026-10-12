@@ -161,6 +161,25 @@ pub struct RiggedSpriteAsset {
     max_draws: usize,
 }
 
+/// Is a track of this name a part of the hips, by which two rows of one body
+/// are lined up ([`RiggedSpriteAsset::legs_under`])?
+pub fn is_hip_track(name: &str) -> bool {
+    name.split(['_', ':']).any(|word| matches!(word, "pelvis" | "hip" | "hips"))
+}
+
+/// Is a track of this name a part of the lower body: the hips and what is
+/// under them?
+///
+/// By the words of the name, which are a rig part's (`near_leg_u`,
+/// `far_foot`, `pelvis_back`). A flipbook does not state its lower body, and
+/// a rig names its parts for what they are.
+pub fn is_lower_body_track(name: &str) -> bool {
+    is_hip_track(name)
+        || name
+            .split(['_', ':'])
+            .any(|word| matches!(word, "leg" | "legs" | "foot" | "feet" | "thigh" | "shin" | "calf" | "knee" | "boot" | "shoe"))
+}
+
 /// The four corners of a part's quad, from its pivot.
 fn part_corners(part: &RigPart) -> [Vec2; 4] {
     [Vec2::ZERO, Vec2::new(part.size.x, 0.0), Vec2::new(0.0, part.size.y), part.size].map(|corner| corner - part.pivot)
@@ -642,6 +661,59 @@ impl RiggedSpriteAsset {
             }
         }
         Some(())
+    }
+
+    /// Put the LEGS of another row under the draws in `out` (a frame of a row
+    /// that is the picture of the upper body: [`Self::tween_into`] made it).
+    /// The legs are frame `index` of `legs_row`, `t` of the way to the next.
+    ///
+    /// THE RULE. A draw whose track is of the lower body (the hips and what is
+    /// under them: [`is_lower_body_track`]) is the legs row's draw of that
+    /// track. Each other draw is moved by what the hips moved between the two
+    /// rows, so the body above the hips sits on the hips that walk. The order
+    /// is the upper row's, with a legs draw in the place of the draw it
+    /// replaced; a legs draw whose track the upper row does not draw goes
+    /// behind them all.
+    ///
+    /// `false`, and `out` as it was, when the splice has no hold: `legs_row`
+    /// is not a part clip, or one of the two frames draws no hips to line the
+    /// rows up by.
+    pub fn legs_under(&self, legs_row: &str, index: usize, t: f32, out: &mut Vec<PartDraw>, scratch: &mut Vec<PartDraw>) -> bool {
+        if self.tween_into(legs_row, index, t, scratch).is_none() {
+            return false;
+        }
+        let lower = |draw: &PartDraw| {
+            draw.track.and_then(|track| self.tracks.get(usize::from(track))).is_some_and(|name| is_lower_body_track(name))
+        };
+        let hips = |draws: &[PartDraw]| {
+            draws.iter().find(|draw| {
+                draw.track.and_then(|track| self.tracks.get(usize::from(track))).is_some_and(|name| is_hip_track(name))
+            }).map(|draw| draw.at)
+        };
+        let (Some(upper_hips), Some(legs_hips)) = (hips(out), hips(scratch)) else {
+            return false;
+        };
+        let moved = legs_hips - upper_hips;
+        let mut placed = vec![false; scratch.len()];
+        out.retain_mut(|draw| {
+            if !lower(draw) {
+                draw.at += moved;
+                return true;
+            }
+            match scratch.iter().position(|legs| legs.track == draw.track) {
+                Some(found) => {
+                    *draw = scratch[found];
+                    placed[found] = true;
+                    true
+                }
+                // The legs row does not draw this part of the legs.
+                None => false,
+            }
+        });
+        let behind: Vec<PartDraw> =
+            scratch.iter().zip(&placed).filter(|(draw, placed)| !**placed && lower(draw)).map(|(draw, _)| *draw).collect();
+        out.splice(0..0, behind);
+        true
     }
 
     /// The opacity of frame `index` of `row` as one picture: its draws are

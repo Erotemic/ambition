@@ -2070,6 +2070,8 @@ pub fn resolve_aerial_landings(
         &ambition_platformer2d_core::BodyGroundState,
         &mut ambition_characters::actor::BodyCombat,
     )>,
+    // The share of the lag that the game of the owner's room charges.
+    tuning: crate::rules::CombatTuningOf,
 ) {
     for (owner, mut playback, ground, mut combat) in &mut bodies {
         let was_airborne = !playback.was_grounded;
@@ -2088,7 +2090,8 @@ pub fn resolve_aerial_landings(
         {
             continue;
         }
-        combat.landing_lag_timer = combat.landing_lag_timer.max(lag.max(0.0));
+        let lag = crate::landing_lag::LandingLagRules::charged(tuning.of(owner).and_then(|rules| rules.landing_lag), lag);
+        combat.landing_lag_timer = combat.landing_lag_timer.max(lag);
         // The move is OVER — its remaining windows do not survive the landing,
         // which is what makes the lag a cost rather than a delay.
         cancel_move_playback(&mut commands, owner, &mut playback, MoveEnd::Interrupted);

@@ -237,7 +237,8 @@ mod tests {
                 _ => None,
             })
             .expect("the jab sounds its swing");
-        assert_eq!(swing, ids::PLAYER_ROBOT_SLASH_AIR, "the jab's swing cue");
+        // At home the jab is the up swing of the blade, with its own cue.
+        assert_eq!(swing, ids::PLAYER_ROBOT_BLADE_RISE, "the jab's swing cue");
         let jab_contact = jab
             .windows
             .iter()

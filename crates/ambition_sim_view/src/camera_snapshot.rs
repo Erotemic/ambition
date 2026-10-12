@@ -180,8 +180,15 @@ impl Default for CameraSnapshot2d {
 /// The body/focus that a follow camera should frame.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CameraFocus2d {
-    /// Current body/focus center in world coordinates.
+    /// Current body/focus center in world coordinates: where the body is DRAWN.
     pub center_world: ae::Vec2,
+    /// Where the body IS on the simulation tick. The drawn centre runs ahead
+    /// of it by up to a tick of travel. A camera zone is a rule about where
+    /// the body is, so the zone is found from this centre: a body that came
+    /// down on the top line of a zone was drawn in the zone for one frame, and
+    /// the camera went to the zone and back (Mary-O 1-2, 2026-10-12). A focus
+    /// that is not drawn ahead of a tick gives its centre.
+    pub tick_center_world: ae::Vec2,
     /// Current body/focus size in world units.
     pub size: ae::Vec2,
     pub base_size: ae::Vec2,
@@ -194,8 +201,9 @@ pub struct CameraFocus2d {
 }
 
 impl CameraFocus2d {
-    pub fn aabb(self) -> ae::Aabb {
-        ae::Aabb::new(self.center_world, self.size * 0.5)
+    /// The box that says which camera zone the subject is in.
+    pub fn zone_aabb(self) -> ae::Aabb {
+        ae::Aabb::new(self.tick_center_world, self.size * 0.5)
     }
 
     pub fn stable_center(self) -> ae::Vec2 {
@@ -308,7 +316,7 @@ pub fn resolve_follow_camera_snapshot(
     input: CameraSnapshotResolveInput<'_>,
     mut ease_state: Option<&mut CameraEaseState>,
 ) -> CameraSnapshot2d {
-    let focus_aabb = input.focus.aabb();
+    let focus_aabb = input.focus.zone_aabb();
     let mut active_camera_zones = 0usize;
     let active_zone = input
         .camera_zones
@@ -469,6 +477,10 @@ pub fn resolve_follow_camera_snapshot(
         }
     };
 
+    // The target is adopted, not eased, on the first resolve of a room.
+    let target_adopted = ease_state
+        .as_deref()
+        .is_some_and(|state| !state.target_initialized);
     let target_world = match input.mode {
         CameraSnapshotResolveMode::Instant => desired_target_world,
         CameraSnapshotResolveMode::Eased => {
@@ -480,7 +492,7 @@ pub fn resolve_follow_camera_snapshot(
                 } else {
                     let target_ease_hz = active_zone
                         .and_then(|zone| zone.easing_hz)
-                        .unwrap_or(8.0)
+                        .unwrap_or(DEFAULT_TARGET_EASE_HZ)
                         .max(0.0);
                     let alpha = (1.0 - (-target_ease_hz * dt).exp()).clamp(0.0, 1.0);
                     let previous_target_world = state.live_target_world;
@@ -553,6 +565,42 @@ pub fn resolve_follow_camera_snapshot(
         input.world.size.y * 0.5 - normal_host_y,
     );
 
+    // A change of zone changes the clamp in one tick, and the clamp comes
+    // after the ease of the target: the centre stepped by the whole difference
+    // (192 world units on the roof of Mary-O 1-2, 2026-10-12). The step is
+    // carried and eased out. A cut (a snap, the overview, a new room) carries
+    // nothing.
+    let (center_world, unpadded_center_world) = match (input.mode, ease_state.as_deref_mut()) {
+        (CameraSnapshotResolveMode::Eased, Some(state)) => {
+            let zone = active_zone.and_then(|active| {
+                input
+                    .camera_zones
+                    .iter()
+                    .position(|zone| std::ptr::eq(zone, active))
+            });
+            let cut = input.overview_camera || input.snap_camera || target_adopted;
+            let carried = match state.live_center_world {
+                Some(_) if cut => ae::Vec2::ZERO,
+                Some(previous) if state.live_zone != zone => previous - center_world,
+                Some(_) => state.zone_handover_world,
+                None => ae::Vec2::ZERO,
+            };
+            let handover_hz = active_zone
+                .and_then(|zone| zone.easing_hz)
+                .filter(|hz| *hz > 0.0)
+                .unwrap_or(DEFAULT_TARGET_EASE_HZ);
+            let mut handover = carried * (-handover_hz * dt).exp();
+            if handover.length() < ZONE_HANDOVER_EPSILON {
+                handover = ae::Vec2::ZERO;
+            }
+            state.live_zone = zone;
+            state.zone_handover_world = handover;
+            state.live_center_world = Some(center_world + handover);
+            (center_world + handover, unpadded_center_world + handover)
+        }
+        _ => (center_world, unpadded_center_world),
+    };
+
     CameraSnapshot2d {
         base_view: input.base_view,
         requested_view: ae::Vec2::new(target_view_w, target_view_h),
@@ -567,6 +615,13 @@ pub fn resolve_follow_camera_snapshot(
         active_camera_zone: active_zone.map(|zone| zone.id.clone()),
     }
 }
+
+/// The rate of the ease of the target, and of the handover between two zones,
+/// where the zone gives no `easing_hz`.
+const DEFAULT_TARGET_EASE_HZ: f32 = 8.0;
+
+/// Under this length, in world units, the handover is at its end.
+const ZONE_HANDOVER_EPSILON: f32 = 0.01;
 
 /// Return the camera target that keeps the subject's protected bounds inside
 /// the safe region, moving `previous` as little as possible.
@@ -1511,6 +1566,7 @@ pub fn resolve_camera_observation(
 
     let focus = CameraFocus2d {
         center_world: player_body.pos,
+        tick_center_world: subject_sim_pos,
         size: player_body.size,
         base_size: player_base_size.base_size,
         facing: player_body.facing,
@@ -1540,6 +1596,7 @@ pub fn resolve_camera_observation(
         Some((
             CameraFocus2d {
                 center_world: center,
+                tick_center_world: kin.pos,
                 size: kin.size,
                 base_size: kin.size,
                 facing: kin.facing,
@@ -1938,6 +1995,7 @@ mod m2_forward_scroll_tests {
                 camera_zones: zones,
                 focus: CameraFocus2d {
                     center_world: ae::Vec2::new(x, 300.0),
+                    tick_center_world: ae::Vec2::new(x, 300.0),
                     size: ae::Vec2::new(24.0, 40.0),
                     base_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
@@ -2005,6 +2063,148 @@ mod m2_forward_scroll_tests {
             back < far - 100.0,
             "a free camera comes back: {far} -> {back}"
         );
+    }
+}
+
+/// A room as high as two views, with a zone on its lower rows: the corridor
+/// of Mary-O 1-2 under its top road.
+#[cfg(test)]
+mod zone_handover_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
+
+    const ZONE_TOP: f32 = 256.0;
+    const BODY: ae::Vec2 = ae::Vec2::new(24.0, 40.0);
+
+    fn world() -> ae::World {
+        ae::World::new("rows", ae::Vec2::new(4000.0, 672.0), ae::Vec2::ZERO, Vec::new())
+    }
+
+    fn corridor() -> CameraZoneSpec {
+        CameraZoneSpec {
+            id: "corridor".into(),
+            name: "corridor".into(),
+            aabb: ae::Aabb::new(ae::Vec2::new(2000.0, 464.0), ae::Vec2::new(2000.0, 208.0)),
+            priority: 0,
+            zoom: Some(1.0),
+            target_offset: ae::Vec2::ZERO,
+            easing_hz: None,
+            cinematic_lock: false,
+            clamp_mode: CameraClampMode::ZoneBounds,
+            scroll_policy: CameraScrollPolicy::Free,
+        }
+    }
+
+    /// `feet` is the bottom of the body on the tick; `drawn_ahead` is how far
+    /// down the frame clock has carried the drawn body from it.
+    fn resolve(
+        zones: &[CameraZoneSpec],
+        feet: f32,
+        drawn_ahead: f32,
+        ease: &mut CameraEaseState,
+    ) -> CameraSnapshot2d {
+        let tick = ae::Vec2::new(2000.0, feet - BODY.y * 0.5);
+        resolve_follow_camera_snapshot(
+            CameraSnapshotResolveInput {
+                world: &world(),
+                camera_zones: zones,
+                focus: CameraFocus2d {
+                    center_world: tick + ae::Vec2::new(0.0, drawn_ahead),
+                    tick_center_world: tick,
+                    size: BODY,
+                    base_size: BODY,
+                    facing: 1.0,
+                    velocity_world: ae::Vec2::ZERO,
+                },
+                base_view: ae::Vec2::new(480.0, 270.0),
+                viewport_px: ae::Vec2::new(480.0, 270.0),
+                aspect_policy: CameraAspectPolicy::FixedHeight,
+                framing: CameraFramingPreset::default(),
+                overview_scale: 1.0,
+                encounter_scale: 1.0,
+                overview_camera: false,
+                snap_camera: false,
+                blink: None,
+                dt: 1.0 / 60.0,
+                mode: CameraSnapshotResolveMode::Eased,
+                extra_clamp_center_world: None,
+                chart_transit: None,
+                must_frame_world: None,
+                ease_tuning: CameraEaseTuning::default(),
+                screen_framing: None,
+                reference_frame: Default::default(),
+                subject_down: None,
+            },
+            Some(ease),
+        )
+    }
+
+    /// She comes down on the top line of the zone. The drawn body is under the
+    /// line for a frame; the body is not, and the camera stays where it is.
+    #[test]
+    fn a_body_drawn_ahead_of_its_tick_is_not_in_a_zone_it_has_not_reached() {
+        let zones = [corridor()];
+        let mut ease = CameraEaseState::default();
+        let mut still = resolve(&zones, ZONE_TOP, 0.0, &mut ease);
+        for _ in 0..120 {
+            still = resolve(&zones, ZONE_TOP, 0.0, &mut ease);
+        }
+        assert_eq!(still.active_camera_zone, None, "feet on the line are not in the zone");
+
+        let landing = resolve(&zones, ZONE_TOP, 6.0, &mut ease);
+        assert_eq!(
+            landing.active_camera_zone, None,
+            "the drawn body put her in the zone, and the body on the tick is not in it"
+        );
+        assert!(
+            (landing.center_world.y - still.center_world.y).abs() < 8.0,
+            "the camera went {} units in the frame she landed",
+            landing.center_world.y - still.center_world.y
+        );
+    }
+
+    /// She goes down through the line. The clamp of the zone is there at once,
+    /// and the centre goes to it over a number of ticks.
+    #[test]
+    fn the_centre_does_not_step_when_the_zone_changes() {
+        let zones = [corridor()];
+        let mut ease = CameraEaseState::default();
+        let mut last = resolve(&zones, ZONE_TOP, 0.0, &mut ease);
+        for _ in 0..120 {
+            last = resolve(&zones, ZONE_TOP, 0.0, &mut ease);
+        }
+        let above = last.center_world.y;
+
+        let mut largest = 0.0f32;
+        for _ in 0..240 {
+            let next = resolve(&zones, ZONE_TOP + 1.0, 0.0, &mut ease);
+            assert_eq!(next.active_camera_zone.as_deref(), Some("corridor"));
+            largest = largest.max((next.center_world.y - last.center_world.y).abs());
+            last = next;
+        }
+        let travelled = last.center_world.y - above;
+        assert!(travelled > 100.0, "the zone did not move the camera: {travelled}");
+        assert!(
+            largest < travelled * 0.2,
+            "the camera went {largest} of {travelled} units in one tick"
+        );
+        // The handover ends: the centre is the clamped centre of the zone.
+        assert_eq!(ease.zone_handover_world, ae::Vec2::ZERO);
+        assert!((last.center_world.y - (ZONE_TOP + 135.0)).abs() < 0.5, "{}", last.center_world.y);
+    }
+
+    /// A cut is a cut: a snap carries no handover into the new zone.
+    #[test]
+    fn a_snap_carries_nothing_between_zones() {
+        let zones = [corridor()];
+        let mut ease = CameraEaseState::default();
+        for _ in 0..60 {
+            resolve(&zones, ZONE_TOP, 0.0, &mut ease);
+        }
+        ease.target_initialized = false;
+        let cut = resolve(&zones, ZONE_TOP + 200.0, 0.0, &mut ease);
+        assert_eq!(ease.zone_handover_world, ae::Vec2::ZERO);
+        assert!(cut.center_world.y >= ZONE_TOP + 135.0 - 0.5, "{}", cut.center_world.y);
     }
 }
 
@@ -2293,6 +2493,7 @@ mod soft_framing_tests {
                 camera_zones: zones,
                 focus: CameraFocus2d {
                     center_world: pos,
+                    tick_center_world: pos,
                     size: BODY,
                     base_size: BODY,
                     facing: if vel.x < 0.0 { -1.0 } else { 1.0 },
@@ -2805,6 +3006,7 @@ mod observer_roll_continuity_tests {
                 camera_zones: &[],
                 focus: CameraFocus2d {
                     center_world: ae::Vec2::new(2000.0, 1000.0),
+                    tick_center_world: ae::Vec2::new(2000.0, 1000.0),
                     size: ae::Vec2::new(24.0, 40.0),
                     base_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
@@ -2972,6 +3174,7 @@ mod rolled_safe_area_tests {
     fn framed(roll: f32) -> ae::Vec2 {
         let focus = CameraFocus2d {
             center_world: ae::Vec2::ZERO,
+            tick_center_world: ae::Vec2::ZERO,
             size: ae::Vec2::new(20.0, 20.0),
             base_size: ae::Vec2::new(20.0, 20.0),
             facing: 1.0,
@@ -3037,6 +3240,7 @@ mod rolled_safe_area_tests {
     fn an_upright_view_is_unchanged_by_the_rotation_path() {
         let focus = CameraFocus2d {
             center_world: ae::Vec2::new(100.0, 50.0),
+            tick_center_world: ae::Vec2::new(100.0, 50.0),
             size: ae::Vec2::new(24.0, 40.0),
             base_size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,

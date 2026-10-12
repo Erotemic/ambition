@@ -1790,6 +1790,7 @@ fn apply_capture_snapshot(
             camera_zones: &active_spec.camera_zones,
             focus: CameraFocus2d {
                 center_world: focus_center,
+                tick_center_world: focus_center,
                 size: ae::Vec2::new(30.0, 48.0),
                 base_size: ae::Vec2::new(30.0, 48.0),
                 facing: 1.0,

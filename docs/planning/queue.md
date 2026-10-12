@@ -127,7 +127,7 @@ not part of this row.
 3. **IN7, provider theme and live sprite refresh (P2).** The launcher theme
    is still a route-name prefix; live sprite refresh stays behind the
    prepared-generation boundary ([I3](engine/fast-iteration-implementation.md#i3---coordinated-generation-publication-and-local-reload)).
-4. **Not witnessed, from the done slices:** pipe cancellation; the rigged driver's split of draws by
+4. **Not witnessed, from the done slices:** the rigged driver's split of draws by
    reader; the room scope of the quasar's end at victory.
 
 **Acceptance:** each open item is exposed by a failing engine-level

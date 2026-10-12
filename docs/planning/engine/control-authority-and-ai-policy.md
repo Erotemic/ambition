@@ -162,8 +162,13 @@ claims both on entry and on each tick of the ride, and releases only those
 two at the end. `TRANSIT_LOCK` and its write to `recoil_lock_timer` are
 deleted. Witness: `a_pipe_ride_leaves_a_recoil_and_another_holders_hold`
 (a recoil set mid-ride outlives the ride; another pose holder keeps its
-hold). Not witnessed: early cancellation, rollback restore, and two bodies
-in pipes at once. The text below is the case as found.
+hold). No road cancels a ride: only `run_pipe_transits` removes
+`PipeTransit`, and it releases both holds when it does. Measured: a level
+clock that runs out mid-ride lets the ride end, the holds go, and the death
+replay comes after (an `hp = 0` poke is not a death in Mary-O: death is a
+hit, a kernel reset or the clock). The rollback restore of a hold is
+witnessed (`mary_o_it rollback_restore`). Not witnessed: two bodies in pipes
+at once. The text below is the case as found.
 
 **New immediate customer:** `game/ambition_demo_mary_o/src/pipe.rs:226-267`
 uses the shared `movement::transit_body` to move a body along its pipe, which

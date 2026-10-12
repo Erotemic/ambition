@@ -56,7 +56,7 @@ pub use gun_projectile::{
 };
 pub use lifecycle::clear_portals_on_reset;
 pub use link::{
-    equalize_pair_apertures, link_hash, resolve_portal_links, PortalLink, PortalLinkResolution, LINK_CHANNEL_FIRST,
+    equalize_pair_apertures, link_hash, resolve_portal_links, PortalLink, PortalLinkResolution, LINK_CHANNEL_FIRST, UNRESOLVED_LINK_CHANNEL,
 };
 pub use messages::{
     ClearPortals, DropPortalGun, FirePortalGun, PickUpPortalGun, PortalBodyEntered,
@@ -79,7 +79,7 @@ pub use tuning::{
 };
 pub use types::{
     find_portal, portal_half_extent, portal_half_extent_with_length, portal_opening_half,
-    PlacedPortal, PortalHost, PortalHostDepths, PortalTransitCooldown, MIN_EXIT_SPEED, PORTAL_VISUAL_THICKNESS, stable_portal_order};
+    PlacedPortal, PortalHost, PortalHostDepths, PortalLook, PortalTransitCooldown, MIN_EXIT_SPEED, PORTAL_VISUAL_THICKNESS, stable_portal_order};
 pub use view::{
     aperture_wedge, aperture_wedge_multi, blend_cones, copy_roll, copy_transform,
     copy_transform_for_convention, map_viewpoint_frame, view_cone, view_point, visible_cone,

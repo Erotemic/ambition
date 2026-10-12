@@ -228,6 +228,20 @@ macro_rules! record {
                 })
             }
 
+            /// The struct as a record of its schema: what a test or a tool
+            /// seats in the host's store. The inverse of [`Self::from_record`].
+            #[allow(unused_assignments)]
+            pub fn to_record(&self) -> $crate::Record {
+                let mut record = Self::schema().initial_record();
+                let mut index = 0usize;
+                $(
+                    let _ = record.set($crate::FieldRef(index), $crate::typed::RecordField::to_value(&self.$field));
+                    index += 1;
+                )*
+                let _ = index;
+                record
+            }
+
             /// Write the struct back as this invocation's record.
             #[allow(unused_assignments)]
             pub fn store(&self, inv: &mut $crate::Invocation<'_>) -> Result<(), $crate::Fault> {

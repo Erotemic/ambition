@@ -47,7 +47,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, LiveRoomInstance, SessionScopeId, SessionScopedEntity, SessionSpawnScope,
     SpawnSessionScopedExt,
 };
-use ambition_portal2d::{find_portal, PlacedPortal, PortalChannel, PORTAL_VISUAL_THICKNESS};
+use ambition_portal2d::{PlacedPortal, PortalChannel, PORTAL_VISUAL_THICKNESS};
 
 use crate::PortalFrames;
 
@@ -130,7 +130,11 @@ pub(crate) fn add_portal_glow_material_plugin(app: &mut App) {
 pub struct PortalGlow {
     /// The portal it draws. `None` when that portal is gone: it dissolves.
     pub portal: Option<Entity>,
+    /// The channel that pairs the portal: which aperture this glow is.
     pub channel: PortalChannel,
+    /// The channel whose colour it is drawn in: the portal's
+    /// [`PortalLook`](ambition_portal2d::PortalLook), or its channel.
+    pub look: PortalChannel,
     pub room: LiveRoomInstance,
     /// The portal's last pose, in engine world coordinates.
     pub pos: Vec2,
@@ -192,13 +196,13 @@ fn seed_of(pos: Vec2) -> f32 {
     (pos.x * 0.0131 + pos.y * 0.0173).fract().abs()
 }
 
-fn material_of(glow: &PortalGlow, partner: PortalChannel) -> PortalGlowMaterial {
+fn material_of(glow: &PortalGlow, partner_look: PortalChannel) -> PortalGlowMaterial {
     let size = quad_size(glow.length);
     PortalGlowMaterial {
         shape: Vec4::new(glow.length, size.x, size.y, seed_of(glow.pos)),
         phase: Vec4::new(glow.appear, glow.dissolve, 0.0, 0.0),
-        front: linear(glow.channel.display().1),
-        back: linear(partner.display().1),
+        front: linear(glow.look.display().1),
+        back: linear(partner_look.display().1),
     }
 }
 
@@ -219,6 +223,7 @@ pub fn sync_portal_glows(
     time: Res<Time>,
     frames: PortalFrames,
     portals: Query<(Entity, &PlacedPortal)>,
+    looks: Query<&ambition_portal2d::PortalLook>,
     active_session: Option<Res<ActiveSessionScope>>,
     style: Option<Res<PortalGlowStyle>>,
     mut glows: Query<(
@@ -257,13 +262,29 @@ pub fn sync_portal_glows(
             commands.entity(entity).despawn();
         }
     }
-    let by_room = frames.portals_by_room(portals.iter());
-
     // Each portal that can be drawn: its room is live.
     let live: Vec<(Entity, crate::PortalPlacement, &PlacedPortal)> = portals
         .iter()
         .filter_map(|(entity, portal)| Some((entity, frames.of(entity)?, portal)))
         .collect();
+
+    // The look of each live portal, by its room and channel, so the far side
+    // of a line has its partner's look. The first in the crate's stable order
+    // answers, as `find_portal` does.
+    let look_of = |entity: Entity, portal: &PlacedPortal| looks.get(entity).map_or(portal.channel, |look| look.0);
+    let mut by_order: Vec<&(Entity, crate::PortalPlacement, &PlacedPortal)> = live.iter().collect();
+    by_order.sort_by(|a, b| ambition_portal2d::stable_portal_order(a.2, b.2));
+    let mut looks_by: HashMap<(LiveRoomInstance, PortalChannel), PortalChannel> = HashMap::new();
+    for (entity, placement, portal) in by_order {
+        looks_by.entry((placement.room, portal.channel)).or_insert_with(|| look_of(*entity, portal));
+    }
+    let far_side_look = |room: LiveRoomInstance, channel: PortalChannel, own: PortalChannel| {
+        if style.as_deref().is_some_and(|style| style.partner_colour) {
+            looks_by.get(&(room, channel.partner())).copied().unwrap_or(own)
+        } else {
+            own
+        }
+    };
 
     // How long each live room has been seen, with or without a portal: the
     // first portal of an old room was added to it. A room seen for the first
@@ -312,6 +333,7 @@ pub fn sync_portal_glows(
         let glow = PortalGlow {
             portal: Some(*entity),
             channel: portal.channel,
+            look: look_of(*entity, portal),
             room: placement.room,
             pos: portal.pos,
             normal,
@@ -319,8 +341,7 @@ pub fn sync_portal_glows(
             appear: if was_there { 1.0 } else { 0.0 },
             dissolve: 0.0,
         };
-        let room_portals = by_room.in_room(Some(placement.room));
-        let partner = far_side_channel(style.as_deref(), room_portals, portal.channel);
+        let partner = far_side_look(placement.room, portal.channel, glow.look);
         let mesh = unit_mesh.get_or_insert_with(|| meshes.add(Rectangle::default())).clone();
         // Of this session and of this room: it leaves with either.
         commands.spawn_session_scoped(scope.in_room(Some(placement.room)), (
@@ -342,13 +363,13 @@ pub fn sync_portal_glows(
             commands.entity(entity).despawn();
             continue;
         };
-        let room_portals = by_room.in_room(Some(glow.room));
         match glow.portal.and_then(|portal| live.iter().find(|(e, ..)| *e == portal)) {
-            Some((_, _, portal)) => {
+            Some((portal_entity, _, portal)) => {
                 glow.pos = portal.pos;
                 glow.normal = portal.normal.normalize_or_zero();
                 glow.length = opening_length(portal);
                 glow.channel = portal.channel;
+                glow.look = look_of(*portal_entity, portal);
                 glow.appear = (glow.appear + dt / APPEAR_S).min(1.0);
                 glow.dissolve = 0.0;
             }
@@ -365,7 +386,7 @@ pub fn sync_portal_glows(
             *transform = placed;
         }
         // Written only when it changes: a portal at rest costs no upload.
-        let wanted = material_of(&glow, far_side_channel(style.as_deref(), room_portals, glow.channel));
+        let wanted = material_of(&glow, far_side_look(glow.room, glow.channel, glow.look));
         if materials.get(&material.0).is_some_and(|current| *current != wanted) {
             if let Some(mut current) = materials.get_mut(&material.0) {
                 *current = wanted;
@@ -453,28 +474,6 @@ pub fn sync_portal_light_lines(
             }
         }
     }
-}
-
-/// The channel whose colour the far side of the line of a portal on `channel`
-/// has: its own, or its partner's when the style asks for that
-/// ([`PortalGlowStyle`]).
-fn far_side_channel(
-    style: Option<&PortalGlowStyle>,
-    room_portals: &[PlacedPortal],
-    channel: PortalChannel,
-) -> PortalChannel {
-    if style.is_some_and(|style| style.partner_colour) {
-        partner_channel(room_portals, channel)
-    } else {
-        channel
-    }
-}
-
-/// The channel of the partner of a portal on `channel`, for the far side of
-/// its line: its partner's when the partner is placed, and its own when it is
-/// not.
-fn partner_channel(room_portals: &[PlacedPortal], channel: PortalChannel) -> PortalChannel {
-    find_portal(room_portals, channel.partner()).map_or(channel, |partner| partner.channel)
 }
 
 #[cfg(test)]

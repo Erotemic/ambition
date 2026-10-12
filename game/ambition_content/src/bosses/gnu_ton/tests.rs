@@ -640,6 +640,95 @@ fn each_live_arena_gates_its_ladder_by_its_own_boss() {
     );
 }
 
+/// ⭐ DEBT 12: EACH GNU-TON HAS HIS OWN PAIR OF THE PUNCH. The portals were
+/// joined by (room, line) on the fixed channels 24/25 with a singleton id, so
+/// two GNU-tons in one room had one pair, which went to the last scholar's
+/// places. Here two scholars share room #0, and a second live instance (#1)
+/// holds a scholar with the first one's placement id.
+#[test]
+fn each_gnu_ton_has_his_own_pair_of_the_punch() {
+    use super::portals::{open_gnu_ton_portals, GnuTonLine, GnuTonPortal};
+    use ambition_content_modules::gnu_ton::conductor::Conductor;
+    use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_portal2d::PlacedPortal;
+    let mut app = App::new();
+    app.add_systems(
+        Update,
+        (open_gnu_ton_portals, ambition_portal2d::resolve_portal_links, ambition_portal2d::equalize_pair_apertures).chain(),
+    );
+    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    for room in rooms {
+        app.world_mut().spawn((RoomInstanceRoot, room));
+    }
+    let scholars = [("boss_gnu_ton_a", rooms[0], 100.0), ("boss_gnu_ton_b", rooms[0], 900.0), ("boss_gnu_ton_a", rooms[1], 300.0)];
+    let near_of = |x: f32| ae::Vec2::new(x, 500.0);
+    let far_of = |x: f32| ae::Vec2::new(x + 50.0, 200.0);
+    for (id, room, x) in scholars {
+        let mut scratch = spawn_gnu_ton_runtime();
+        scratch.config.id = id.to_string();
+        let near = near_of(x);
+        let far = far_of(x);
+        let conductor = Conductor { punch_open: true, punch_near: [near.x, near.y], punch_far: [far.x, far.y], ..Default::default() };
+        let mut records = ambition_extension_host::BodyRecords::default();
+        records.put(Conductor::KEY, Conductor::schema().shape_digest(), conductor.to_record());
+        app.world_mut().spawn((scratch.into_components(), records, InRoomInstance(room)));
+    }
+    app.update();
+    app.update();
+    let mut q = app.world_mut().query::<(&GnuTonPortal, &PlacedPortal, &InRoomInstance)>();
+    let portals: Vec<(String, GnuTonLine, LiveRoomInstance, ae::Vec2, ambition_portal2d::PortalChannel)> = q
+        .iter(app.world())
+        .map(|(tag, portal, room)| (tag.owner.clone(), tag.line, room.0, portal.pos, portal.channel))
+        .collect();
+    assert_eq!(portals.len(), 6, "three scholars, three pairs: {portals:?}");
+    for (id, room, x) in scholars {
+        let end = |line: GnuTonLine| {
+            portals
+                .iter()
+                .find(|(owner, l, r, ..)| owner == id && *l == line && *r == room)
+                .unwrap_or_else(|| panic!("{id} in {room:?} has his {line:?}: {portals:?}"))
+        };
+        let (near, far) = (end(GnuTonLine::PunchNear), end(GnuTonLine::PunchFar));
+        assert_eq!((near.3, far.3), (near_of(x), far_of(x)), "{id} in {room:?}: his ends are where his record says");
+        assert_eq!(near.4.partner(), far.4, "{id} in {room:?}: his two ends are a pair");
+        let others: Vec<_> = portals.iter().filter(|(owner, _, r, ..)| *r == room && owner != id).collect();
+        assert!(
+            others.iter().all(|other| other.4 != near.4.partner() && other.4 != far.4.partner()),
+            "{id} in {room:?}: no end of another GNU-ton is the partner of his: {others:?}"
+        );
+    }
+
+    // A's pair closes in room #0 (his punch is over); B's stays. B keeps his
+    // own ends where his record says, and A has none.
+    let a_in_first = {
+        let mut q = app.world_mut().query::<(Entity, &ambition_boss_encounter::BossConfig, &InRoomInstance)>();
+        q.iter(app.world())
+            .find(|(_, config, room)| config.id == "boss_gnu_ton_a" && room.0 == rooms[0])
+            .map(|(entity, ..)| entity)
+            .expect("scholar A in room #0")
+    };
+    let closed = Conductor { punch_open: false, ..Default::default() };
+    app.world_mut()
+        .get_mut::<ambition_extension_host::BodyRecords>(a_in_first)
+        .unwrap()
+        .put(Conductor::KEY, Conductor::schema().shape_digest(), closed.to_record());
+    app.update();
+    app.update();
+    let mut q = app.world_mut().query::<(&GnuTonPortal, &PlacedPortal, &InRoomInstance)>();
+    let first: Vec<(String, GnuTonLine, ae::Vec2)> = q
+        .iter(app.world())
+        .filter(|(_, _, room)| room.0 == rooms[0])
+        .map(|(tag, portal, _)| (tag.owner.clone(), tag.line, portal.pos))
+        .collect();
+    let mut owners: Vec<&str> = first.iter().map(|(owner, ..)| owner.as_str()).collect();
+    owners.sort_unstable();
+    assert_eq!(owners, ["boss_gnu_ton_b", "boss_gnu_ton_b"], "only B's pair is open in room #0: {first:?}");
+    for (_, line, pos) in &first {
+        let want = if *line == GnuTonLine::PunchNear { near_of(900.0) } else { far_of(900.0) };
+        assert_eq!(*pos, want, "B's {line:?} stays where his record says");
+    }
+}
+
 /// The choreography's rows against the sheets the game ships: the
 /// choreography is in the module crate, and the catalogs are here.
 mod pinned_rows {

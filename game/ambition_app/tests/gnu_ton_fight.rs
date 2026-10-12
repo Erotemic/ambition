@@ -293,7 +293,7 @@ fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
     fn line(sim: &mut Platformer2dSimHarness, which: GnuTonLine) -> Option<ae::Vec2> {
         let world = sim.world_mut();
         let mut portals = world.query::<(&GnuTonPortal, &PlacedPortal)>();
-        portals.iter(world).find(|(tag, _)| tag.0 == which).map(|(_, portal)| portal.pos)
+        portals.iter(world).find(|(tag, _)| tag.line == which).map(|(_, portal)| portal.pos)
     }
     let mut sim = arena();
     untouchable_player(&mut sim);

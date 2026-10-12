@@ -6,7 +6,9 @@
 //! holds the clock, so this adds no rollback state.
 //!
 //! * The pair of the punch (phase 1) is a REAL pair: two [`PlacedPortal`]s
-//!   on partner channels. The giant's fist goes down into the near line; the
+//!   of one [`PortalLink`] of their scholar's own. The portal core gives the
+//!   link a channel pair of the room, so two GNU-tons in one room have two
+//!   pairs. The blue and orange of the fight are a [`PortalLook`]. The giant's fist goes down into the near line; the
 //!   drawing of the fist comes down out of the far line. A body that goes up
 //!   into the far line comes up out of the near line, by the giant's
 //!   shoulder.
@@ -28,7 +30,10 @@ use ambition_content_modules::gnu_ton::conductor::Conductor;
 use ambition_platformer2d::platformer::lifecycle::{
     InRoomInstance, LiveRoomInstance, LiveRooms, SessionCommands, SpawnSessionScopedExt,
 };
-use ambition_portal2d::{portal_half_extent_with_length, PlacedPortal, PortalChannel, PortalChannelColor};
+use ambition_portal2d::{
+    link_hash, portal_half_extent_with_length, PlacedPortal, PortalChannel, PortalChannelColor, PortalLink, PortalLook,
+    UNRESOLVED_LINK_CHANNEL,
+};
 
 /// Which line of the fight a portal is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -49,9 +54,10 @@ impl GnuTonLine {
     const LOOKS: [GnuTonLine; 4] =
         [GnuTonLine::Shoulder(0), GnuTonLine::Shoulder(1), GnuTonLine::Wrist(0), GnuTonLine::Wrist(1)];
 
-    /// Its channel. The pair of the punch is two partners (24 and 25: blue
-    /// and orange). A look line has the colour of the end it looks like: a
-    /// shoulder's is blue, a wrist's is orange.
+    /// The channel of its colour. The ends of the punch are blue and orange
+    /// (24 and 25). A look line has the colour of the end it looks like: a
+    /// shoulder's is blue, a wrist's is orange. It is a look: the pair is
+    /// paired by its link.
     fn channel(self) -> PortalChannel {
         let index = match self {
             GnuTonLine::PunchNear | GnuTonLine::Shoulder(_) => 24,
@@ -88,9 +94,30 @@ impl GnuTonLine {
     }
 }
 
-/// A portal of GNU-ton's fight: this system opened it and closes it.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GnuTonPortal(pub GnuTonLine);
+/// A portal (or a look line) of GNU-ton's fight: this system opened it and
+/// closes it. `owner` is the placement id of the scholar whose conductor
+/// asks for it: two GNU-tons in one room each have their own lines.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct GnuTonPortal {
+    pub line: GnuTonLine,
+    pub owner: String,
+}
+
+impl GnuTonPortal {
+    /// Its simulation identity: its owner's line. Two live instances of one
+    /// room give one placement's line one id, as they give its body one.
+    fn sim_id(&self) -> ambition_platformer2d::platformer::sim_id::SimId {
+        ambition_platformer2d::platformer::sim_id::SimId::singleton(
+            "gnu_ton_portal",
+            &format!("{}/{}", self.owner, self.line.name()),
+        )
+    }
+
+    /// The link of its owner's pair of the punch.
+    fn punch_link(owner: &str) -> PortalLink {
+        PortalLink(link_hash(&format!("gnu_ton/{owner}/punch")))
+    }
+}
 
 /// A living GNU-ton's scholar: his body, his encounter, his conductor's
 /// record.
@@ -105,19 +132,20 @@ type Scholars<'w, 's> = Query<
     ),
 >;
 
-/// The conductor's record of each living GNU-ton, with his live room.
-fn conductors(scholars: &Scholars, live: &LiveRooms) -> Vec<(LiveRoomInstance, Conductor)> {
-    conductors_of(scholars, live).into_iter().map(|(_, room, conductor)| (room, conductor)).collect()
+/// The conductor's record of each living GNU-ton, with his placement id and
+/// his live room.
+fn conductors(scholars: &Scholars, live: &LiveRooms) -> Vec<(String, LiveRoomInstance, Conductor)> {
+    conductors_of(scholars, live).into_iter().map(|(_, owner, room, conductor)| (owner, room, conductor)).collect()
 }
 
 /// The same, with the scholar.
-fn conductors_of(scholars: &Scholars, live: &LiveRooms) -> Vec<(Entity, LiveRoomInstance, Conductor)> {
+fn conductors_of(scholars: &Scholars, live: &LiveRooms) -> Vec<(Entity, String, LiveRoomInstance, Conductor)> {
     scholars
         .iter()
         .filter(|(_, boss, _, health)| super::boss_is_gnu_ton(&boss.as_boss_ref()) && health.alive())
-        .filter_map(|(scholar, _, records, _)| {
+        .filter_map(|(scholar, boss, records, _)| {
             let conductor = Conductor::from_record(records.get(&Conductor::KEY)?).ok()?;
-            Some((scholar, live.of(scholar)?, conductor))
+            Some((scholar, boss.as_boss_ref().config.id.clone(), live.of(scholar)?, conductor))
         })
         .collect()
 }
@@ -133,16 +161,17 @@ pub fn open_gnu_ton_portals(
     let Some(scope) = commands.spawn_scope() else {
         return;
     };
-    let mut wanted: Vec<(LiveRoomInstance, GnuTonLine, ae::Vec2)> = Vec::new();
-    for (room, conductor) in conductors(&scholars, &live) {
+    let mut wanted: Vec<(LiveRoomInstance, GnuTonPortal, ae::Vec2)> = Vec::new();
+    for (owner, room, conductor) in conductors(&scholars, &live) {
         if let Some([near, far]) = conductor.punch_pair() {
-            wanted.push((room, GnuTonLine::PunchNear, ae::Vec2::new(near.x, near.y)));
-            wanted.push((room, GnuTonLine::PunchFar, ae::Vec2::new(far.x, far.y)));
+            for (line, at) in [(GnuTonLine::PunchNear, near), (GnuTonLine::PunchFar, far)] {
+                wanted.push((room, GnuTonPortal { line, owner: owner.clone() }, ae::Vec2::new(at.x, at.y)));
+            }
         }
     }
     for (entity, tag, mut portal) in &mut portals {
         let room = live.of(entity);
-        match wanted.iter().position(|(r, line, _)| Some(*r) == room && *line == tag.0) {
+        match wanted.iter().position(|(r, want, _)| Some(*r) == room && want == tag) {
             Some(index) => {
                 let (_, _, at) = wanted.swap_remove(index);
                 if portal.pos != at {
@@ -153,21 +182,24 @@ pub fn open_gnu_ton_portals(
             None => commands.entity(entity).despawn(),
         }
     }
-    for (room, line, at) in wanted {
+    for (room, tag, at) in wanted {
+        let line = tag.line;
         let normal = line.normal();
         commands
             .spawn_room_in_session(
                 scope,
                 (
                     PlacedPortal::fixed(
-                        line.channel(),
+                        UNRESOLVED_LINK_CHANNEL,
                         at,
                         normal,
                         portal_half_extent_with_length(normal, arms::PUNCH_HALF),
                     ),
-                    GnuTonPortal(line),
-                    Name::new(format!("GNU-ton portal: {}", line.name())),
-                    ambition_platformer2d::platformer::sim_id::SimId::singleton("gnu_ton_portal", line.name()),
+                    GnuTonPortal::punch_link(&tag.owner),
+                    PortalLook(line.channel()),
+                    Name::new(format!("GNU-ton portal: {} of {}", line.name(), tag.owner)),
+                    tag.sim_id(),
+                    tag,
                 ),
             )
             .insert(InRoomInstance(room));
@@ -188,17 +220,17 @@ pub fn light_gnu_ton_lines(
     };
     // Each line: its room, which it is, its middle, its length. The length
     // changes: the lines open wide and close on the arms (the clamp).
-    let mut wanted: Vec<(LiveRoomInstance, GnuTonLine, ae::Vec2, f32)> = Vec::new();
-    for (room, conductor) in conductors(&scholars, &live) {
+    let mut wanted: Vec<(LiveRoomInstance, GnuTonPortal, ae::Vec2, f32)> = Vec::new();
+    for (owner, room, conductor) in conductors(&scholars, &live) {
         for (line, placed) in GnuTonLine::LOOKS.into_iter().zip(conductor.look_lines()) {
             if let Some((at, half)) = placed {
-                wanted.push((room, line, ae::Vec2::new(at.x, at.y), half * 2.0));
+                wanted.push((room, GnuTonPortal { line, owner: owner.clone() }, ae::Vec2::new(at.x, at.y), half * 2.0));
             }
         }
     }
     for (entity, tag, mut light) in &mut lines {
         let room = live.of(entity);
-        match wanted.iter().position(|(r, line, ..)| Some(*r) == room && *line == tag.0) {
+        match wanted.iter().position(|(r, want, ..)| Some(*r) == room && want == tag) {
             Some(index) => {
                 let (_, _, at, length) = wanted.swap_remove(index);
                 if light.pos != at || light.length != length {
@@ -209,7 +241,8 @@ pub fn light_gnu_ton_lines(
             None => commands.entity(entity).despawn(),
         }
     }
-    for (room, line, at, length) in wanted {
+    for (room, tag, at, length) in wanted {
+        let line = tag.line;
         commands
             .spawn_room_in_session(
                 scope,
@@ -220,8 +253,8 @@ pub fn light_gnu_ton_lines(
                         normal: line.normal(),
                         length,
                     },
-                    GnuTonPortal(line),
-                    Name::new(format!("GNU-ton light line: {}", line.name())),
+                    Name::new(format!("GNU-ton light line: {} of {}", line.name(), tag.owner)),
+                    tag,
                 ),
             )
             .insert(InRoomInstance(room));
@@ -245,7 +278,7 @@ pub fn join_gnu_ton_lines(
         return;
     };
     let mut wanted = bevy::platform::collections::HashMap::new();
-    for (scholar, _, conductor) in conductors_of(&scholars, &live) {
+    for (scholar, _, _, conductor) in conductors_of(&scholars, &live) {
         let Some(rig) = riders.get(scholar).ok().and_then(|riding| rigs.get(riding.mount).ok()) else {
             continue;
         };

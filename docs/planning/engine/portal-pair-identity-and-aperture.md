@@ -1,8 +1,10 @@
 # Portal pair identity and derived aperture - an engine contract
 
 **Status:** CORE DONE 2026-10-12 (witnesses 1, 2, 3, 4 and 6 below, in
-`ambition_portal2d`); witness 5 (two GNU-ton bosses) is OPEN with the
-[GNU-ton owner](../game/gnu-ton-fight-debts.md). Discovered in the October 11
+`ambition_portal2d`); witness 5 (two GNU-ton bosses) has its interim repair (2026-10-12: one
+`PortalLink` per scholar, a `PortalLook` for the colours; see
+[GNU-ton debt 12](../game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter));
+the port that deletes the game reconciler is OPEN. Discovered in the October 11
 late-source review of `abf79de..ed0d1ccd`.
 
 ## What landed (2026-10-12)

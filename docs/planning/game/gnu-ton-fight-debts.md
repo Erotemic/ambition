@@ -160,6 +160,25 @@ Status of each: OPEN. The content comes first.
 
 ### 12. The portal and trail names omit the encounter
 
+**INTERIM REPAIR LANDED 2026-10-12; the port is still OPEN.** The punch's
+pair and the look lines are joined by `(live room, owner, line)`, where the
+owner is the scholar's placement id (`GnuTonPortal { line, owner }`). The
+pair is ONE `PortalLink` of its owner (`gnu_ton/{owner}/punch`), so the
+portal core gives it a stable channel pair of its room (the
+[portal identity](../engine/portal-pair-identity-and-aperture.md) core). The
+blue and orange are a presentation-only `PortalLook`, which the glow reads;
+pairing never reads it. The id is `SimId::singleton("gnu_ton_portal",
+"{owner}/{line}")`. Witness:
+`bosses::gnu_ton::tests::each_gnu_ton_has_his_own_pair_of_the_punch` (two
+scholars in one room, and a second live instance of a placement; then one
+pair closes and the other stays). Poisons: join by `(room, line)` speaks at
+"only B's pair is open"; the fixed channels without the link speak at "no end
+of another GNU-ton is the partner of his". **Still open:** the pair/line
+port (debt 2) that deletes `portals.rs`; two live instances of one room give
+one placement's portal one `SimId` (as they give its body one); the trail
+starts (`LimbTrailStarts` by `FeatureId`, debt 6); a rewind across a pair's
+opening and two sessions in one host were not run.
+
 **Evidence, `ed0d1ccd` (2026-10-11):**
 
 - `game/ambition_content/src/bosses/gnu_ton/portals.rs:125-174`

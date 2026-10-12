@@ -48,6 +48,14 @@ pub struct PlacedPortal {
     pub prev_pos: Vec2,
 }
 
+/// The channel whose colours draw a portal, when that is not the channel that
+/// pairs it. Presentation reads it; pairing, transit and carve never do. A
+/// portal paired by a [`crate::PortalLink`] gets its channel from the free
+/// pairs of its room, and an owner that wants its own colours (a boss whose
+/// pair is blue and orange) says so here. Colour is a look, not an identity.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PortalLook(pub PortalChannel);
+
 /// Which face, if any, a portal rides. One value, so "not looked at yet",
 /// "static" and "hosted" cannot disagree, and a rewind restores the answer
 /// with the portal.

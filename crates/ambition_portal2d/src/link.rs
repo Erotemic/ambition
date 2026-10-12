@@ -70,6 +70,12 @@ fn link_base(channel: PortalChannel) -> Option<u8> {
     }
 }
 
+/// The channel to place a linked portal on before [`resolve_portal_links`]
+/// gives it its pair: the dead channel, which has no partner, so the portal
+/// takes nothing through until its pair is known.
+pub const UNRESOLVED_LINK_CHANNEL: PortalChannel =
+    PortalChannel::Authored(PortalChannelColor::Indexed(DEAD_LINK_CHANNEL));
+
 fn link_channel(index: u8) -> PortalChannel {
     PortalChannel::Authored(PortalChannelColor::Indexed(index))
 }

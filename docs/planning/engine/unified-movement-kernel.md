@@ -75,8 +75,10 @@ live room (`LiveRoomOf::room_of`), and has its own out fraction
 (`SnakePlantOut`, rollback state): it read its fraction back from its
 position, which the movement step pushed out of the pipe solid, so it never
 left its mouth. Witnesses: `mary_o_it a_hold_is_its_holders` (three tests,
-five poisons). Not witnessed: a pose hold across a rollback restore, and
-arbitration between two holders that want different paths (no customer
+five poisons). A hold across a rollback restore: a hold that no gameplay
+made, put on her outside any input, is gone after the restore of a GGRS
+sync-test session (`mary_o_it rollback_restore`; with the registration
+removed it stays). Not witnessed: arbitration between two holders that want different paths (no customer
 has two path holders on one body). The text below is the case as found.
 
 `PoseOwnedExternally` tells the movement kernel not to integrate a body.

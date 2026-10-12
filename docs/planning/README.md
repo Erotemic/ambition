@@ -76,6 +76,9 @@ links to.
 - [`game/art-and-ambiance.md`](game/art-and-ambiance.md) — backgrounds, terrain
   skins, foregrounds and motes for each biome; the rules of the art lane.
 - [`game/bosses.md`](game/bosses.md) — boss design language and specific bosses.
+- [`game/robot-combat-feel.md`](game/robot-combat-feel.md) — the robot's
+  blade in Ambition: Hollow Knight feel (Jon's ruling), the moves that are
+  built, and how the Smash game keeps a fighter's moves.
 - [`game/gnu-ton-fighter.md`](game/gnu-ton-fighter.md) — GNU-ton as a
   Smash fighter and a boss that fights back with the same move table; what
   was measured of combat feel, and what is next.

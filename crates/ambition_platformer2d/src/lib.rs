@@ -734,6 +734,11 @@ pub mod actor {
     /// WHICH MOVE THE BODY IS PLAYING, and where in it. Read by any driver that
     /// has to know whether the press it made became the move it asked for.
     pub use ambition_combat::moveset::MovePlayback;
+    /// THE MOVES THE BODY WEARS, with the verbs of the game it is in. A seat
+    /// on a platform-fighter stage wears its fighter's verbs; the prepared
+    /// character has those of its home game. A driver that asks which move a
+    /// press should become reads the body.
+    pub use ambition_combat::moveset::ActorMoveset;
     /// WHAT THE BODY IS RIDING, when it is riding something. An observer that
     /// cannot see this reports a mounted body's own locomotion as if it were
     /// driving.

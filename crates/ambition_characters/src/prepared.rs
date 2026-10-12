@@ -95,6 +95,8 @@ struct PreparedCharacterOverrides {
     moveset: Option<MovesetContract>,
     /// See [`CharacterDefinition::scaled_move_damage`].
     scaled_move_damage: crate::move_damage::ScaledMoveDamage,
+    /// See [`CharacterDefinition::scaled_verbs`].
+    scaled_verbs: crate::move_damage::ScaledVerbMoves,
     /// The authored action set, carried through preparation unchanged.
     ///
     /// `None` and `Some(empty)` mean different things all the way to the body —
@@ -1292,6 +1294,10 @@ pub struct PreparedCharacterDefinition {
     /// Preparation has checked each scale's map against the authored moves; a
     /// problem is in [`Self::unresolved_references`].
     pub scaled_move_damage: crate::move_damage::ScaledMoveDamage,
+    /// The move each verb names in each scale other than its moveset's own.
+    /// See [`CharacterDefinition::scaled_verbs`]. Preparation has checked
+    /// each scale's map against the authored moves.
+    pub scaled_verbs: crate::move_damage::ScaledVerbMoves,
     /// The movement policy, resolved. Every body already carries exactly one
     /// explicit model, so this is a value rather than a question.
     pub motion_model: ambition_platformer2d_core::MotionModelSpec,
@@ -1326,6 +1332,27 @@ pub struct PreparedCharacterDefinition {
     /// boot); carrying the failures onto the published value is what lets a guard
     /// be red about them without making the runtime fatal.
     unresolved: Vec<String>,
+}
+
+impl PreparedCharacterDefinition {
+    /// The moves this character carries as a game that plays in `scale`
+    /// reads them: that scale's damage and that scale's verbs over the one
+    /// table. `None` when it carries no moves.
+    ///
+    /// What a seat in that scale wears (`WornKit::of` with no borrowed kit).
+    /// A tool or a test that asks what a fighter's button plays on a
+    /// platform-fighter stage reads this, and not `kit.projectable_moveset()`:
+    /// that is the character at home.
+    pub fn moveset_in(&self, scale: crate::move_damage::DamageScale) -> Option<MovesetContract> {
+        let mut moveset = self.kit.projectable_moveset()?.clone();
+        if let Some(damage) = self.scaled_move_damage.get(&scale) {
+            moveset = crate::move_damage::move_damage_over(damage, moveset.clone()).unwrap_or(moveset);
+        }
+        if let Some(verbs) = self.scaled_verbs.get(&scale) {
+            moveset = crate::move_damage::verb_moves_over(verbs, moveset.clone()).unwrap_or(moveset);
+        }
+        Some(moveset)
+    }
 }
 
 impl PreparedCharacterDefinition {
@@ -1748,6 +1775,12 @@ fn prepare_character(
             unresolved.extend(problems.into_iter().map(|problem| format!("{}: {problem}", scale.0)));
         }
     }
+    for (scale, verbs) in &definition.scaled_verbs {
+        let moveset = definition.moveset.clone().unwrap_or_default();
+        if let Err(problems) = crate::move_damage::verb_moves_over(verbs, moveset) {
+            unresolved.extend(problems.into_iter().map(|problem| format!("{}: {problem}", scale.0)));
+        }
+    }
     let prepared = PreparedCharacterOverrides {
         id: definition.id.as_str().to_string(),
         display_name: definition.display_name,
@@ -1779,6 +1812,7 @@ fn prepare_character(
         hands: definition.hands,
         moveset: definition.moveset,
         scaled_move_damage: definition.scaled_move_damage,
+        scaled_verbs: definition.scaled_verbs,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
         movement_tuning: definition.movement_tuning,
@@ -1860,6 +1894,7 @@ fn finalize_character(
         hands,
         moveset,
         scaled_move_damage,
+        scaled_verbs,
         action_set,
         motion_model,
         movement_tuning,
@@ -2092,6 +2127,7 @@ fn finalize_character(
         hands,
         authored_moveset,
         scaled_move_damage,
+        scaled_verbs,
         // Resolve canonical identity during preparation from the definition's provider. Spawn
         // consumes the prepared identity and does not reinterpret authored references.
         id: ambition_entity_catalog::CharacterId::new(id),

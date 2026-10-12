@@ -113,8 +113,7 @@ fn duel_spec(spec: &MoveSpec) -> MoveSpec {
     spec
 }
 
-/// The duel moves, made once from the fighter's table in the pack this App
-/// plays.
+/// The duel moves, made from the fighter's table in the pack this App plays.
 fn duel_specs(pack: &crate::pack::SelectedContentPack) -> Vec<MoveSpec> {
     let table = ambition_characters::moveset_content_schema::lowered_movesets(pack.get())
         .and_then(|tables| tables.get(FIGHTER))
@@ -131,7 +130,6 @@ fn duel_specs(pack: &crate::pack::SelectedContentPack) -> Vec<MoveSpec> {
 pub fn duel_gnu_ton(
     mut commands: Commands,
     pack: Res<crate::pack::SelectedContentPack>,
-    mut specs: Local<Option<Vec<MoveSpec>>>,
     mut scholars: Query<(
         Entity,
         &BossConfig,
@@ -154,8 +152,10 @@ pub fn duel_gnu_ton(
             continue;
         };
         // His body has the duel moves beside the pattern's.
+        // Made when a body has none of them, from the pack, and kept by no
+        // one but the body: this system is in the schedule that rewinds.
         if moveset.0.moves.iter().all(|spec| !spec.id.starts_with(PREFIX)) {
-            moveset.0.moves.extend(specs.get_or_insert_with(|| duel_specs(&pack)).iter().cloned());
+            moveset.0.moves.extend(duel_specs(&pack));
         }
         let conductor = records.get(&Conductor::KEY).and_then(|record| Conductor::from_record(record).ok()).filter(|_| health.alive());
         let (fights, chosen) = conductor.as_ref().map_or((false, None), Conductor::duel);

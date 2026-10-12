@@ -748,6 +748,17 @@ pub enum WindowTag {
         #[serde(default)]
         condition: CancelCondition,
     },
+    /// The picture of the move is over. From the start of this window the
+    /// body is drawn by what it does (it stands, it walks, it falls), and the
+    /// move's row is slaved to the time before it.
+    ///
+    /// The move still plays: this is the time in which a follow-up can still
+    /// come. A swing whose next part is a second swing has a `Cancelable`
+    /// window over the same span, and a player who presses again at an easy
+    /// pace gets the second swing; after the move ends, a press is the first
+    /// swing again. Without this tag that wait is a part of the swing's
+    /// picture: the row is stretched over it.
+    Settled,
 }
 
 /// The cancel-target class namespace: names an authored `into` entry may use
@@ -1466,6 +1477,18 @@ pub enum MoveEventKind {
         #[serde(default)]
         mode: ImpulseMode,
     },
+    /// The owner turns about: from this beat it faces the other way.
+    ///
+    /// The move keeps the facing it started with (`MovePlayback::facing`), so
+    /// its volumes, its impulses and its effects stay where they were
+    /// authored: a strike behind the body stays behind where the body faced.
+    /// What changes is the body, and so each press after this beat. A back
+    /// air that ends in this leaves its owner facing the way it struck, and
+    /// the same stick is then "forward".
+    ///
+    /// An event and not a flag of the move, so the author says WHEN the body
+    /// turns: its picture turns at that beat.
+    TurnAround,
     /// Put the owner under a timed gravity multiplier: a parasol, a float, a
     /// slow-fall. `scale` multiplies the body's gravity for `seconds`, after
     /// which the movement domain restores it with no second call.
@@ -2415,6 +2438,7 @@ impl MoveSpec {
                 | MoveEventKind::Sfx { .. }
                 | MoveEventKind::Ranged
                 | MoveEventKind::Impulse { .. }
+                | MoveEventKind::TurnAround
                 | MoveEventKind::GravityModifier { .. }
                 | MoveEventKind::HoldVelocity { .. } => {}
             }
@@ -2560,10 +2584,26 @@ impl MoveSpec {
     /// Normalized phase (`0..=1`) at proper-time `t`. Presentation samples the
     /// bound clip by this.
     pub fn phase_at(&self, t: f32) -> f32 {
-        if self.duration_s <= 0.0 {
+        let pictured = self.pictured_s();
+        if pictured <= 0.0 {
             return 1.0;
         }
-        (t / self.duration_s).clamp(0.0, 1.0)
+        (t / pictured).clamp(0.0, 1.0)
+    }
+
+    /// The seconds of the move that its row shows: to its first
+    /// [`WindowTag::Settled`] window, or all of it.
+    pub fn pictured_s(&self) -> f32 {
+        self.windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Settled))
+            .map(|w| w.start_s)
+            .fold(self.duration_s, f32::min)
+    }
+
+    /// Is the move's picture over at `t`? See [`WindowTag::Settled`].
+    pub fn settled_at(&self, t: f32) -> bool {
+        t >= self.pictured_s() && self.pictured_s() < self.duration_s
     }
 
     /// Where a charge freezes when the move authors no policy of its own: a

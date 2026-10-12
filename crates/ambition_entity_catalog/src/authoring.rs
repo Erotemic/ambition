@@ -29,6 +29,12 @@ use crate::{
 pub const SLASH_ARC_VFX: &str = "slash_arc";
 /// The sweep a straight poke draws.
 pub const SLASH_POKE_VFX: &str = "slash_poke";
+/// A swing that goes UP across the body's front (low to high), and one that
+/// comes DOWN (high to low). The same reach as an arc: the two are the two
+/// halves of a 1-2 string, and the picture says which half this is. A sheet
+/// with no picture for them draws its arc.
+pub const SLASH_RISE_VFX: &str = "slash_rise";
+pub const SLASH_FALL_VFX: &str = "slash_fall";
 
 
 fn event(mut m: MoveSpec, at_s: f32, kind: MoveEventKind) -> MoveSpec {

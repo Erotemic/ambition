@@ -49,12 +49,18 @@ pub(crate) struct SlashSource {
     side_arc: RowPlayback,
     up_arc: RowPlayback,
     down_slash: RowPlayback,
+    /// The swing up and the swing down across the body's front. A sheet that
+    /// has no such rows draws its side arc for them.
+    rise: RowPlayback,
+    fall: RowPlayback,
 }
 
 impl SlashSource {
     fn row(&self, kind: SlashKind, pose: SlashPose) -> RowPlayback {
         match pose {
-            SlashPose::Up if kind == SlashKind::Arc => self.up_arc,
+            SlashPose::Side if kind == SlashKind::Rise => self.rise,
+            SlashPose::Side if kind == SlashKind::Fall => self.fall,
+            SlashPose::Up if kind != SlashKind::Poke => self.up_arc,
             SlashPose::Down => self.down_slash,
             _ if kind == SlashKind::Poke => self.down_slash,
             _ => self.side_arc,
@@ -143,9 +149,22 @@ fn build_slash_source(
         side_arc: row("side"),
         up_arc: row("up"),
         down_slash: row("down"),
+        rise: optional_row(record, "rise").unwrap_or(row("side")),
+        fall: optional_row(record, "fall").unwrap_or(row("side")),
     };
     ledger.finish().log("slash visual");
     Some(source)
+}
+
+/// A row a slash sheet may have. A sheet without it is not at fault, so its
+/// absence is reported to no one.
+fn optional_row(record: &ambition_sprite_sheet::SheetRecord, name: &str) -> Option<RowPlayback> {
+    record
+        .rows
+        .iter()
+        .any(|row| row.animation == name)
+        .then(|| row_playback(record, name, "slash visual", &mut BindingLedger::new()))
+        .flatten()
 }
 
 /// Consume `VfxMessage::Slash` cues and spawn the matching one-shot effect.

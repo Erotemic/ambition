@@ -272,7 +272,20 @@ pub const VERBS: &[Verb] = &[
 /// decides. Without this a driver can only ask "did ANY move play", which calls
 /// the known back-air-resolves-as-forward-air case a success and files the
 /// forward air under `attack_air_back`.
+///
+/// The body in seat zero answers when it is there: a seat wears the verbs of
+/// the game it sits in (a platform-fighter stage gives a fighter its
+/// `smash_fighter` verbs), and the prepared character has those of its home
+/// game. Before a body is seated, the prepared character answers.
 pub fn intended_move(app: &mut App, character: &str, verb: &str) -> Option<String> {
+    let world = app.world_mut();
+    let mut seats = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        &ambition_platformer2d::actor::ActorMoveset,
+    )>();
+    if let Some((_, moveset)) = seats.iter(world).find(|(seat, _)| seat.0 == 0) {
+        return moveset.0.verbs.get(verb).cloned();
+    }
     app.world()
         .get_resource::<ambition_platformer2d::character::PreparedCharacterRegistry>()
         .and_then(|registry| registry.get(character))

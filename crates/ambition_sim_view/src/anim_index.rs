@@ -372,6 +372,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 // that authors no charge row draws exactly what it drew before.
                 clip: a
                     .playback
+                    .filter(|playback| !playback.settled())
                     .map(|playback| ClipRequest::for_move(&playback.spec.clip, playback.phase()))
                     .or_else(|| {
                         ClipRequest::from_chain(ambition_character_sprites::body_state_clip(

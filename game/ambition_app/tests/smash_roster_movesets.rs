@@ -761,7 +761,9 @@ fn report_the_smash_kit_every_selectable_fighter_has() {
             continue;
         };
         let authored = prepared.authored_moveset.is_some();
-        let Some(moveset) = prepared.kit.projectable_moveset() else {
+        // As a seat on this stage wears it: a fighter's buttons can play
+        // other moves here than at home (the robot's do).
+        let Some(moveset) = prepared.moveset_in(ambition_platformer2d::characters::smash_fighter::FIGHTER_DAMAGE) else {
             rows.push(format!("  {id:<34} NO KIT AT ALL"));
             continue;
         };

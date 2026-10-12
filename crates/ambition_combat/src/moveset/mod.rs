@@ -1030,6 +1030,12 @@ impl MovePlayback {
         self.spec.phase_at(self.t)
     }
 
+    /// The move's picture is over: the body is drawn by what it does, and
+    /// not as this move. See [`WindowTag::Settled`].
+    pub fn settled(&self) -> bool {
+        self.spec.settled_at(self.t)
+    }
+
     pub fn finished(&self) -> bool {
         self.t >= self.spec.duration_s
     }
@@ -1509,6 +1515,12 @@ pub fn advance_move_playback(
                     }
                     continue;
                 }
+                // The body turns about. A write on the owner, as an impulse
+                // is: applied at the authored instant, never published.
+                if let MoveEventKind::TurnAround = &ev.kind {
+                    kin.facing = -kin.facing;
+                    continue;
+                }
                 if let MoveEventKind::Impulse { local, mode } = &ev.kind {
                     let body_frame = owner_frames
                         .get(owner)
@@ -1878,11 +1890,7 @@ pub fn advance_move_playback(
                         // damage does (one box drives both) — emitted once at the
                         // Active edge.
                         if let Some(tag) = &volume.vfx {
-                            let kind = if tag == SLASH_POKE_VFX {
-                                ambition_vfx::vfx::SlashKind::Poke
-                            } else {
-                                ambition_vfx::vfx::SlashKind::Arc
-                            };
+                            let kind = ambition_vfx::vfx::SlashKind::for_tag(tag, pb.facing);
                             // The AERIAL clips are named `air_*`, not
                             // `attack_air*` — `directional_attack_variants`
                             // rebinds them that way on purpose, because that is
@@ -3636,7 +3644,17 @@ pub fn trigger_moveset_moves(
                     intent.direction == AttackDir::Neutral
                         && intent.strength != AttackStrength::Smash
                 });
-            let successor = (neutral_repress || held_string)
+            // A THIRD FOLLOW-UP: A PRESS THAT ASKS FOR THE MOVE THAT PLAYS.
+            // A directed press is a move-into-move when it asks for another
+            // move. When it resolves to the very move on the body (the
+            // forward attack, pressed again in the forward attack), it asks
+            // for no other move: it is "again", and "again" in a string is
+            // its next part. So a swing that a body can walk through chains
+            // with the stick held, as a jab chains with the stick at rest.
+            let same_repress = proposer == ProposedVerb::Attack
+                && gesture.pressed.is_some()
+                && spec.as_ref().is_some_and(|spec| spec.id == pb.spec.id);
+            let successor = (neutral_repress || held_string || same_repress)
                 .then(|| {
                     pb.spec
                         .cancel_successors(pb.t, pb.contact())
@@ -4561,6 +4579,9 @@ pub fn dispatch_move_events(
             // past this match and say what it means, which a `_ => {}` would
             // quietly excuse it from.
             MoveEventKind::Impulse { .. } => {}
+            // UNREACHABLE BY CONSTRUCTION: a turn is a write on the owner's
+            // facing, applied at the authored instant.
+            MoveEventKind::TurnAround => {}
             // UNREACHABLE BY CONSTRUCTION, and named for the reason the arm
             // above is. A `GravityModifier` is a write on the owner's own
             // movement policy, so `advance_move_playback` applies it at the

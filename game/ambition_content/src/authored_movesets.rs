@@ -25,23 +25,23 @@ pub fn shipped(character: &str) -> MovesetContract {
 }
 
 /// The move table `character` fights with on a platform-fighter stage: its
-/// shipped table with the damage its `smash_fighter` facet states, which is
-/// what a Smash seat applies (`smash_fighter::FIGHTER_DAMAGE`). A character
-/// with no facet fights with its shipped table.
+/// shipped table with the damage and the verbs its `smash_fighter` facet
+/// states, which is what a Smash seat applies
+/// (`smash_fighter::FIGHTER_DAMAGE`). A character with no facet fights with
+/// its shipped table.
 ///
-/// A test that compares fighters in PERCENT reads this, not [`shipped`]: the
-/// shipped table's damage is the character's home game's.
+/// A test that compares fighters in PERCENT, or asks what a fighter's button
+/// plays, reads this, not [`shipped`]: the shipped table's damage and verbs
+/// are the character's home game's.
 pub fn on_a_platform_fighter_stage(character: &str) -> MovesetContract {
     let moveset = shipped(character);
     match ambition_characters::smash_fighter::content_schema::facet(
         crate::pack::shipped(),
         character,
     ) {
-        Some(facet) => ambition_characters::move_damage::move_damage_over(
-            &facet.move_damage,
-            moveset,
-        )
-        .unwrap_or_else(|problems| panic!("`{character}`'s fighter damage does not fit: {problems:?}")),
+        Some(facet) => ambition_characters::move_damage::move_damage_over(&facet.move_damage, moveset)
+            .and_then(|moveset| ambition_characters::move_damage::verb_moves_over(&facet.verbs, moveset))
+            .unwrap_or_else(|problems| panic!("`{character}`'s fighter facet does not fit: {problems:?}")),
         None => moveset,
     }
 }

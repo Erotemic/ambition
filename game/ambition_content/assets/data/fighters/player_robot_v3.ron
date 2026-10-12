@@ -4,8 +4,18 @@
 // The moveset (`data/movesets/player_robot.ron`) is the robot's HOME game,
 // Ambition, where damage is health: a tilt deals 1 and a smash attack deals 3
 // or 4. On a Smash stage damage is percent, and those numbers are too small by
-// far. The frames and the hitboxes are the same moves in both games. Only the
-// damage has a second meaning, so only the damage is stated here.
+// far. Each move's frames and hitboxes are in the moveset, for both games.
+//
+// Two things have a second meaning on a Smash stage, and are stated here:
+//
+// - The DAMAGE of a move (`move_damage`).
+// - Which move a button plays (`verbs`). At home the robot swings as the
+//   knight of Hollow Knight does: a swing roots no one, the jab and the
+//   forward attack are one 1-2 string, and the same swing is in the air. A
+//   platform fighter is not that: its jab and its tilts root it, it has a
+//   dash attack, and each aerial is a move of its own with landing lag. So
+//   the fighter's buttons name the fighter's moves. They are in the same
+//   moveset file; the home verbs do not name them.
 //
 // A Smash match reads this because it declares
 // `MoveDamageSource::SmashFighterFacet` (`apply_smash_match_rules`). Ambition
@@ -17,6 +27,18 @@
 // wrong length (`PreparedCharacterDefinition::unresolved_references`).
 (
     character: "player_robot_v3",
+    verbs: {
+        "attack": "jab",
+        "attack_forward": "tilt_forward",
+        "attack_up": "tilt_up",
+        "attack_down": "tilt_down",
+        "attack_dash": "player_robot_dash_attack",
+        "attack_air": "air_neutral",
+        "attack_air_forward": "air_forward",
+        "attack_air_back": "air_back",
+        "attack_air_up": "air_up",
+        "attack_air_down": "air_down",
+    },
     move_damage: {
         // The jab is fast, safe and plain.
         "jab": [3],

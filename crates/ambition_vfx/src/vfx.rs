@@ -193,6 +193,32 @@ impl Default for HurtFeedback {
 pub enum SlashKind {
     Arc,
     Poke,
+    /// The blade goes up across the front of the body, as the art is drawn
+    /// (for a body that faces right). The effect is TURNED to the strike, and
+    /// a half turn makes a rise a fall: the producer names the row that is
+    /// right after the turn (`slash_kind_for`).
+    Rise,
+    /// The blade comes down across the front of the body.
+    Fall,
+}
+
+impl SlashKind {
+    /// The art for an authored strike tag, for a strike that faces `facing`.
+    ///
+    /// The effect is drawn turned to the strike's direction. A strike to the
+    /// left is the art turned half about, which is the art mirrored AND
+    /// upside down. So a rise to the left is the picture of a fall, turned.
+    pub fn for_tag(tag: &str, facing: f32) -> Self {
+        let mirrored = facing < 0.0;
+        match tag {
+            "slash_poke" => Self::Poke,
+            "slash_rise" if mirrored => Self::Fall,
+            "slash_rise" => Self::Rise,
+            "slash_fall" if mirrored => Self::Rise,
+            "slash_fall" => Self::Fall,
+            _ => Self::Arc,
+        }
+    }
 }
 
 /// Which directional ROW / pose to play for a slash effect.

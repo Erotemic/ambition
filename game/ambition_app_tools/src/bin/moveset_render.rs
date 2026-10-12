@@ -76,7 +76,18 @@ OPTIONS:
                      rendered art, from the SAME execution. That is the whole
                      point of this binary: one picture, one simulation, no
                      second coordinate system.
+    --home           the fighter's buttons play what they play in its HOME game
+                     A fighter on this stage wears the verbs of a platform
+                     fighter (its `smash_fighter` facet). With this flag seat
+                     zero wears its moveset's own verbs, so the moves of its
+                     own game (the robot's blade in Ambition) are photographed
+                     on the one stage that has an exercise and a camera.
+    --repress TICKS  press the verb again on these exercise ticks (a comma
+                     list), to photograph a string: `--repress 16,32`
     --out DIR        directory for the PNGs and manifest.json  [default: /tmp/moveset_render]
+                     QUALITY: the pictures are at the `low` visual quality
+                     profile unless `AMBITION_QUALITY_PROFILE` names another.
+                     To judge art, name `high` or `ultra`. Never `potato`.
     --frames N       how many pictures                          [default: 24]
     --stride K       simulation ticks between pictures          [default: 1]
     --adapter WHICH  auto | hardware | software                  [default: auto]
@@ -248,6 +259,13 @@ fn main() {
         print!("{USAGE}");
         return;
     }
+    // Before the app starts: textures are loaded for the profile. With no
+    // profile named, a software adapter seeds the potato tier, and a picture
+    // of that tier is not the game a player sees (Jon, 2026-10-12).
+    eprintln!(
+        "moveset_render: visual quality `{}`",
+        ambition_platformer2d::render::capture::name_capture_quality_profile()
+    );
     let arg = |name: &str| args.windows(2).find(|w| w[0] == name).map(|w| w[1].clone());
     if let Some(bad) = args
         .iter()
@@ -270,6 +288,8 @@ fn main() {
                     | "--overlay"
                     | "--spacing"
                     | "--view-width"
+                    | "--home"
+                    | "--repress"
             )
         })
     {
@@ -317,6 +337,10 @@ fn main() {
     }
     // A batch is a directory of directories. One pair writes straight into
     // `--out`, the layout the inspector server caches by.
+    let home = args.iter().any(|a| a == "--home");
+    let repress: Vec<usize> = arg("--repress")
+        .map(|list| list.split(',').filter_map(|tick| tick.trim().parse().ok()).collect())
+        .unwrap_or_default();
     let batching = arg("--characters").is_some() || arg("--verbs").is_some() || verbs.len() > 1;
     let out_dir =
         std::path::PathBuf::from(arg("--out").unwrap_or_else(|| "/tmp/moveset_render".to_string()));
@@ -531,6 +555,8 @@ fn main() {
                 adapter,
                 out_dir: pair_dir.clone(),
                 batched: batching,
+                home,
+                repress: &repress,
             };
             match render_pair(&mut app, &camera, &request) {
                 Ok(manifest) => {
@@ -622,6 +648,10 @@ struct PairRequest<'a> {
     out_dir: std::path::PathBuf,
     /// Whether this pair shared its app with others — see the manifest field.
     batched: bool,
+    /// Seat zero wears its moveset's own verbs (`--home`).
+    home: bool,
+    /// The exercise ticks on which the verb is pressed again (`--repress`).
+    repress: &'a [usize],
 }
 
 /// How many fighters are staged, and how many the ceremony still holds.
@@ -821,6 +851,26 @@ fn render_pair(
     // Without it, a back air that resolves as a forward air counts as a
     // success. Spacing is measured at the press: a connect launches the
     // target, so the gap after the run is larger.
+    if req.home {
+        // The verbs of the fighter's own game, on the body that is seated.
+        let verbs = app
+            .world()
+            .get_resource::<ambition_platformer2d::character::PreparedCharacterRegistry>()
+            .and_then(|registry| registry.get(character))
+            .and_then(|prepared| prepared.kit.projectable_moveset())
+            .map(|moveset| moveset.verbs.clone())
+            .ok_or_else(|| format!("'{character}' has no prepared moveset to take home verbs from"))?;
+        let world = app.world_mut();
+        let mut seats = world.query::<(
+            &ambition_platformer2d::actor::MatchSeat,
+            &mut ambition_platformer2d::actor::ActorMoveset,
+        )>();
+        for (seat, mut moveset) in seats.iter_mut(world) {
+            if seat.0 == 0 {
+                moveset.0.verbs = verbs.clone();
+            }
+        }
+    }
     let spacing_at_press = move_exercise::gap_to_seat(app, 1).map(f32::abs);
     let intended = move_exercise::intended_move(app, character, verb.verb);
     // After staging. Roles are entity identities, and the route spawns the
@@ -836,11 +886,13 @@ fn render_pair(
     let mut shots: Vec<serde_json::Value> = Vec::new();
     let mut pumps_total = 0usize;
     let mut action_tick = 0usize;
+    // A press again (`--repress`) restarts the verb's schedule at its tick.
+    let since_press = |tick: usize| req.repress.iter().filter(|at| **at <= tick).max().map_or(tick, |at| tick - at);
 
     for shot in 0..frames {
         move_exercise::step(
             app,
-            move_exercise::action_frame(verb, action_tick, facing),
+            move_exercise::action_frame(verb, since_press(action_tick), facing),
         );
         let tick = sim_tick(app);
         let at_action = action_tick;
@@ -914,7 +966,7 @@ fn render_pair(
         for _ in 1..stride {
             move_exercise::step(
                 app,
-                move_exercise::action_frame(verb, action_tick, facing),
+                move_exercise::action_frame(verb, since_press(action_tick), facing),
             );
             action_tick += 1;
             if let Some(id) = move_exercise::playing_move(app) {
@@ -932,7 +984,7 @@ fn render_pair(
     while !move_exercise::released_by(action_tick) {
         move_exercise::step(
             app,
-            move_exercise::action_frame(verb, action_tick, facing),
+            move_exercise::action_frame(verb, since_press(action_tick), facing),
         );
         action_tick += 1;
         if let Some(id) = move_exercise::playing_move(app) {

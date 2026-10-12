@@ -1367,6 +1367,12 @@ impl Plugin for MaryORulesPlugin {
         >();
         // The vocabulary is a value handed to the conversion now ([`ldtk_vocabulary::vocabulary`]),
         // so a reader that forgets it cannot get a half-populated global — it does not compile.
+        // The enemy brains that are modules (the Void Lizard): they act on a
+        // body whose placement authors their brain key, so they need no rules
+        // scope.
+        for module in ambition_demo_mary_o_modules::modules() {
+            ambition_platformer2d::extension::ExtensionAppExt::add_extension_module(app, module);
+        }
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
 
         // declared HERE as well as engine-side, because a channel's EMITTER
@@ -1529,7 +1535,6 @@ impl Plugin for MaryORulesPlugin {
             // The fire intent of this tick: the actions of the brains are read
             // after this phase.
             swallow::drop_coconuts,
-            void_lizard::run_void_lizard,
         )
             .chain()
             // Both edges are PHASES now, which is the same statement without a

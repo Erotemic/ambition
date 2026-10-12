@@ -34,7 +34,10 @@ input = ["ambition_platformer2d/input"]
 [dependencies]
 # The engine, host, and vocabulary — through the ONE umbrella surface. A demo app
 # depends on `ambition_platformer2d`, never on `ambition_app`. That is the demo gate.
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
+# `wasm_modules`: a developer run loads the enemy brains from `.wasm` files
+# (`AMBITION_EXTENSION_MODULES`), so an enemy edit rebuilds only
+# `ambition_demo_mary_o_modules` and not this app.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "wasm_modules"] }
 # The demo's own content + rules. The shell names nothing else.
 ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 # Bevy's derives cannot be reached through a re-export (see the content crate's
@@ -43,6 +46,10 @@ bevy = { version = "0.19.1", default-features = false }
 # The windowed shell's audio face (jump SFX + music) uses the Kira backend, exactly
 # like the Sanic demo shell. Optional: the sim-only bin and exit-3 test never link it.
 bevy_kira_audio = { version = "0.26", default-features = false, features = ["ogg"], optional = true }
+
+[dev-dependencies]
+# The Void Lizard's module schedule: the authority its witness compares with.
+ambition_demo_mary_o_modules = { path = "../ambition_demo_mary_o_modules" }
 
 # ONE aggregated integration-test binary instead of 11. See tests/mary_o_it.rs.
 [[test]]

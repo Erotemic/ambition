@@ -30,6 +30,16 @@ pub fn build_demo_app_with_body_rigs() -> App {
     build_demo_app_on(app, ambition_demo_mary_o::MARY_O_LAUNCHER_ROUTE)
 }
 
+/// The demo with these `.wasm` module files loaded: each file's modules
+/// replace the linked modules of the same key (`ExtensionModuleFiles`). The
+/// developer road is the variable `AMBITION_EXTENSION_MODULES`; this is the
+/// same road for a test, which must not set a process variable.
+pub fn build_demo_app_loading(files: Vec<std::path::PathBuf>) -> App {
+    let mut app = App::new();
+    app.insert_resource(ambition_platformer2d::extension::ExtensionModuleFiles(files));
+    build_demo_app_on(app, ambition_demo_mary_o::MARY_O_LAUNCHER_ROUTE)
+}
+
 fn build_demo_app_on(mut app: App, home_route: &str) -> App {
     ambition_platformer2d::engine::add_headless_foundation(&mut app);
     app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());

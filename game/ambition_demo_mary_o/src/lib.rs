@@ -1467,6 +1467,9 @@ impl Plugin for MaryORulesPlugin {
             begin_a_lap_on_arrival,
             flag::run_flag_sequence,
             flag::play_victory_music,
+            // After the lap of this room starts, so the goal that is taken is
+            // the goal of this room and not of the last one.
+            bricks::drop_planks_when_the_goal_is_taken,
             castle_end::the_fall_kills_the_boss,
             tick_level_clock,
             // Reads the clock the tick above just settled, so a timeout leaves by
@@ -1621,8 +1624,7 @@ impl Plugin for MaryORulesPlugin {
         // the render reconcile, drawing). The contribution runs AFTER the engine's
         // overlay rebuild clears that list — the same slot `contribute_encounter_lock_walls`
         // takes — so the removals survive the per-frame clean slate.
-        let bricks = (bricks::break_bricks, bricks::drop_planks_when_the_goal_is_taken)
-            .chain()
+        let bricks = bricks::break_bricks
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::FeatureInteraction);
         let brick_overlay = (
             bricks::contribute_broken_bricks_to_overlay,
@@ -1646,7 +1648,7 @@ impl Plugin for MaryORulesPlugin {
         // that the gate resolved. The gate is in `WorldPrep`.
         app.add_systems(
             sim,
-            (cosmic::toggle_cosmic_form, cosmic::lend_the_jump_in_the_air)
+            (cosmic::toggle_cosmic_form, cosmic::come_back_from_the_form, cosmic::lend_the_jump_in_the_air)
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
                 .after(ambition_platformer2d::actors::avatar::WornControlGateSet)

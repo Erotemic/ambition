@@ -154,6 +154,52 @@ authors no fighter body (it plays on the ruleset body
 `SMASH_FIGHTER_BODY`; a missing author is a product call). `CharacterDefinition`
 has no `with_vitals` builder; that is ergonomics, not a duplicate authority.
 
+### A1b - factor repeated authored archetypes before runtime, not in ECS
+
+**Real customer:** `game/ambition_demo_sanic/assets/data/character_catalog.ron`
+adds six badnik kinds in commit `d5d37f9` (2026-10-11). They repeat the
+same one-hit enemy, Wanderer patrol, ground momentum, contact damage and
+action semantics. Their identities, sizes, movement speeds and sheets differ.
+Mary-O's newly authored enemy rows put similar pressure on reusable character
+families, without necessarily sharing Sanic's exact movement law.
+
+**Target authoring contract:** support a named, typed *authored preset* for a
+coherent character facet or a small set of facets, with explicit override
+fields. Composition happens at source preparation, before admission and
+content fingerprinting. The outcome is one fully resolved immutable
+`PreparedCharacterDefinition` per character and one authoritative value for
+each field. Diagnostics retain the source preset and the field override
+provenance. Invalid/unknown overrides and cycles refuse the content. Do not
+make gameplay look up an inheritance chain at runtime, and do not add a
+`Badnik` engine variant or a second store of runtime character facts.
+
+Begin with the smallest reusable pure authoring helper or pack-time preset
+that expresses two current variants. If the current `CharacterCatalog` codec
+cannot express it cleanly, a typed preparer/source generator is a smaller
+experiment than speculative general-purpose multiple inheritance. If it
+requires new format syntax, keep explicit facet names, stable override order
+and strict conflict errors. Preserve the ordinary, fully expanded RON road.
+
+**Acceptance:** one badnik base plus per-character art/height/speed overrides
+produces the same six prepared values as the existing expanded rows; original
+and prepared provenance remain inspectable; editing the base changes all
+intended variants at one admitted generation and changes no other character.
+Two independent games can use the same authoring primitive without importing
+Sanic. Poison: leave a runtime fallback through a base character id or permit
+a silent conflicting override. Benchmark edited-source to visible behavior,
+not just reduced lines in RON.
+
+**Source identity guard for A1b/A4:** the October 11 sprite tree scan has
+another authoring-facing ambiguity: `sprite_tree::companions` discards
+colliding logical keys after sorting and `sheet_manifests` can return
+collisions. A preset or a character facet must not make that ambiguity
+harder to diagnose. An authored, logical sprite target has an explicit
+source/pack/quality provenance and either a uniquely selected definition
+or a declared overlay-precedence rule. Report both paths on conflict before
+sealing the prepared character/sprite generation. This is a source-validation
+repair, independent of creating a preset language; share the normal content
+preparation refusal path. See [sprite reload](content-generation-and-reload.md#sprite-source-identity-and-live-presentation-refresh).
+
 ### A2 — keep the first fighter facet load-bearing
 
 The current platform-fighter facet is evidence that character-owned typed facets

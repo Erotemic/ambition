@@ -105,3 +105,67 @@ fn the_switch_drops_the_boss_and_the_robot_thanks_her_before_the_level_goes() {
         living_lizards(&mut app)
     );
 }
+
+/// Where the living Void Lizards have their feet.
+fn lizard_feet(app: &mut App) -> Vec<f32> {
+    let world = app.world_mut();
+    let mut bodies = world.query::<(
+        &ambition_platformer2d::combat::actor_tuning::ActorConfig,
+        &ambition_platformer2d::characters::actor::BodyHealth,
+        &ae::BodyKinematics,
+    )>();
+    bodies
+        .iter(world)
+        .filter(|(config, health, _)| {
+            ambition_demo_mary_o::void_lizard::is_void_lizard_brain(&config.brain) && health.alive()
+        })
+        .map(|(_, _, kin)| kin.pos.y + kin.size.y * 0.5)
+        .collect()
+}
+
+/// Jon, 2026-10-11: "I get to the bridge and there is nothing there ... and
+/// when I jump onto it, it indeed has no collision." The sequence of the flag
+/// stays in its tally while she goes from 1-3 to the castle, and the bridge
+/// fell for that tally on the tick she came in. A test that starts in the
+/// castle does not see it: this one comes from 1-3, by its pole.
+#[test]
+fn the_bridge_and_its_boss_are_there_for_a_body_that_comes_from_the_last_level() {
+    const BEFORE: &str = "mary_o_1_3";
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(BEFORE.to_string()));
+    for _ in 0..120 {
+        app.update();
+    }
+    let pole = ambition_demo_mary_o::pole_for_room(BEFORE);
+    {
+        let world = app.world_mut();
+        let mut bodies = world.query_filtered::<&mut ae::BodyKinematics, With<PrimaryPlayer>>();
+        let mut body = bodies.iter_mut(world).next().expect("her body in 1-3");
+        body.pos = ae::Vec2::new(pole.x, pole.base_y - 8.0);
+        body.vel = ae::Vec2::ZERO;
+    }
+    let mut arrived = false;
+    for _ in 0..900 {
+        app.update();
+        if room_id(&mut app).as_deref() == Some(CASTLE) {
+            arrived = true;
+            break;
+        }
+    }
+    assert!(arrived, "the pole of 1-3 did not lead to the castle");
+    // Time for a boss with no bridge under it to fall out of the room.
+    for _ in 0..240 {
+        app.update();
+    }
+    let room = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .expect("the castle is live")
+        .clone();
+    let floor = room_switch(&room).expect("the switch of the castle").max.y;
+    let feet = lizard_feet(&mut app);
+    assert_eq!(feet.len(), 1, "the Void Lizard is not alive four seconds after she came in from 1-3");
+    assert!(
+        feet[0] <= floor + 2.0,
+        "the Void Lizard is under its bridge (feet {}, floor {floor}): the bridge fell when she came in",
+        feet[0]
+    );
+}

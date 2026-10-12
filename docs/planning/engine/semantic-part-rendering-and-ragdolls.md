@@ -14,6 +14,96 @@ The current part pipeline was a useful compatibility bridge: it let part-authore
 
 The long-term engine should not require every semantic body part to be flattened back into one body image every frame. Whole-body or local composition should be a derived presentation operation used only where its mathematics or an unmigrated consumer require it.
 
+## New part-set consumer: outline geometry and lifetime (2026-10-11)
+
+`PartSetRequest` and `PartSetDraws` are a useful **general engine API**:
+`crates/ambition_render/src/rendering/actors/rigged/part_set.rs` publishes
+an ordered set of named-tracked `PlacedPart`s with their page, UV rectangle,
+anchor, position, turn and scale. This is better than making a game infer its
+art from the whole-body sprite. The first consumer is Mary-O's cosmic barrier
+(`game/ambition_demo_mary_o/src/cosmic_barrier.rs`). It exposes gaps that
+should not become permanent assumptions of the engine API:
+
+- `barrier_of` uses `parts.first().image` and then only parts on that first
+  atlas page. A change to a second page silently drops geometry.
+- It takes at most `MOST_PARTS = 4`. A fifth selected track's part is
+  silently absent from the outline.
+- It ignores `PlacedPart.local.rotation` and `.scale`. The present Mary-O
+  frames have no such turns, but the general part API expressly supports
+  them. A reused barrier would outline the wrong geometry.
+- The barrier quad is not a child of its body. `HasCosmicBarrier(Entity)`
+  and `drop_the_barrier_of_a_body_that_is_gone` implement their own lifetime
+  protocol, including an all-quad/all-owner cleanup scan after any owner
+  removal. `RenderLayers` is copied on spawn but not resynchronized later.
+- `raise_her_barrier` runs after `drive_rigged_presentations`; it has no
+  declared place in the `BodyOwnedDrawableSync` -> portal candidate boundary.
+  Check far-side panes and transit rather than assuming a secondary mesh
+  participates in body portal compositing.
+
+**Target:** the renderer exposes one prepared **part-group geometry** result
+in the body's pose space, with explicit track resolution, coverage and current
+part transforms. It does not promise that arbitrary parts share a page or can
+be represented as four axis-aligned boxes. A reader requests a named group,
+then selects a deliberate output form: body-local mask, contour or draw list.
+A mask/compositor chooses a correct bound and handles multiple pages, angle,
+scale and source sampling. Keep Mary-O's colour, band, pixel grid and timing
+in Mary-O. Do not put cosmic lore in `ambition_render`.
+
+**Near-term correctness slice:** keep the existing `PartSetDraws` API; for
+unsupported shapes, provide an explicit refusal or fallback rather than
+quietly drop parts. Cover multi-page and turned/scaled synthetic sets in pure
+tests. Make the barrier a derived, body-owned presentation with a single
+teardown road. Its owner, render layer, visibility and room follow the body;
+its geometry is published before portal candidate collection. Retraction on
+form change, despawn and rewind must work without a global scan for orphans.
+Retain the no-render/headless build path. Use Bevy parent/child lifetime where
+it fits; do not add a new entity registry solely for one effect.
+
+**Promotion rule for the larger mask API:** only implement a renderer-wide
+part-group contour/mask cache after the second part-group effect needs it, or
+a real authored Mary-O frame violates the near-term limits. Compare CPU work,
+GPU passes, draw calls, cached bytes and scale/quality tier behavior before
+choosing CPU unions, an offscreen mask, stencil or another method. The
+correctness contract holds either way. This also informs the future
+part-aware portal compositor and 2D ragdoll pose road.
+
+**Acceptance:** 5+ parts across 2 atlas pages, one part turned 30 degrees,
+one mirrored/scaled part, body recharacterization, a body in a second live
+room, a portal transit and owner despawn. Test the actual mesh material, not
+just its bounds arithmetic. Poison: silently skip the fifth part or remove
+owner-following layer sync.
+
+### A part-set demand cannot be owned by one effect component
+
+The new `PartSetRequest` is a **single component** on the body root:
+`crates/ambition_render/src/rendering/actors/rigged/part_set.rs:23-40`
+contains just `Vec<String>` and has one `PartSetDraws` answer. The first
+consumer, `cosmic_barrier.rs:214-227`, removes both components whenever
+its own barrier is no longer wanted. If another effect asks for a
+different set of tracks on the same body, its request is overwritten or
+silently reused; ending the cosmic effect deletes the other effect's
+answer. This is a compositional API problem **in addition** to the
+barrier's four-part/one-page/axis-aligned geometry loss.
+
+**Correct direction:** the **named consumer** owns a request/lease, and
+the rigged driver answers current draws per named track group or
+consumer, with a single shared pose evaluation. Adding/removing one
+consumer must not change the other consumer's requested groups or
+lifetime. A small source-keyed collection on the root, or a typed
+per-consumer read API over the driver's current authoritative draws,
+is sufficient; do not create a universal graph/cache or copy a whole
+rig for every effect. Treat `PartSetDraws` as derived presentation, not
+saved state. Keep the existing fast path for one consumer if it can
+represent the multi-consumer contract without hidden arbitration.
+
+**Witness:** one rigged body has a barrier request for torso/hair and a
+second effect requesting hands/weapon. Both receive correct groups in
+one frame; removing or disabling the barrier does not clear the second
+effect's answer. Then recharacterize, change quality tier, switch to a
+hybrid baked row, rewind and despawn. A second effect is required before
+promoting a general GPU part-mask compositor, but the request protocol
+must not make that effect mutually exclusive today.
+
 ## Discovery results and the implemented shape (2026-10-05)
 
 All numbers MEASURED on this host (llvmpipe) unless marked.

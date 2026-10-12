@@ -323,6 +323,26 @@ admission fails. FI2-FI4 give the independent assertions.
 | I3b | Typed candidate data split from active mutation; one bounded publication path with A10 | FI4: candidate refusal and valid reconstruction |
 | I3c | Scenario pin and replay, changed-section explanation, activation status, generation-aware cancellation | FI1-FI4 plus M0 on the real edit loop |
 
+### Sprite publish success is not live sprite reload
+
+The October 11 sprint removed the sprite tree and authored world data from
+the normal development binary's compilation closure. Preserve that win:
+saving/publishing a sheet should not recompile or relink the consumer.
+However, `ambition_sprite_sheet::baked_sheet_rons::sheet_rons` uses a
+first-read `OnceLock` in the nonembedded build,
+`baked_part_flipbooks::part_flipbooks` also caches, and the rigged-sprite
+reader caches decoded rigs. A running process does not automatically see
+edited sprite text merely because no Rust build is needed. That is a
+**separate live-iteration capability gap**, not a failed compile-closure
+migration. Refer to the [sprite reload owner](content-generation-and-reload.md#sprite-source-identity-and-live-presentation-refresh).
+
+Do not disable caching per frame as a shortcut. A typed, fingerprinted
+candidate should validate/prepare changed sprite products once and publish
+at a safe visual-generation boundary. Embedded/static-content targets keep
+using their baked tables; headless simulation must not need a texture
+asset server. Inspect one changed source, candidate rejection, and actual
+on-screen rebind before saying live reload is supported.
+
 ## I4 - small procedural SDK and one native semantic reference
 
 **Current shape (first cut landed).** Recipe:
@@ -415,21 +435,22 @@ before you add a port.
   record (`bosses::gnu_ton::conductor_of`). Poison: the module removed from
   `MODULES` reddens 12 `gnu_ton_fight` arms and the two-room hall arm.
 
-- 2026-10-11 (S1 ✅, S2 ✅), **a custom brain as a module** (`actor_think`). The
-  ported Ambition behaviour is modules, but a demo's enemy behaviour is still
-  Rust in the demo crate. Measured 2026-10-11: one constant edit in a Mary-O
-  enemy rule compiles `ambition_demo_mary_o` and its app (23.7 s); the same
-  edit in a loaded module is 0.34 s and no relink. The Mary-O enemy rules
-  (`void_lizard`, `swallow`, `plant`, `snake`, `ai_slop`) run in
-  `WorldPrepSet::AfterIntegrate`. Two of them (`void_lizard`, `swallow`)
-  write the body's fire intent there, after the control gate, so the gate
-  never sees it (the A4 debt class). The shipped census
-  (`sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`)
-  sees both and is red on them on 2026-10-11: `run_void_lizard` and
-  `drop_coconuts` are after-gate writers no row declares. S2 and the swallow
-  slice make it green by deleting them, not by declaring them. The route is "Body-control
-  contribution" in `extension-domain-contracts.md` (Source routes):
-  - S1 (engine): the phase `actor_think`, after `ActorDecisionSet::Publish`
+- 2026-10-11 (S1-S3 ✅), **a custom brain as a module** (`actor_think`).
+  A custom brain now decides through a loaded module after
+  `ActorDecisionSet::Publish` and before the single
+  `PlayerInputSet::ControlGate`. The Void Lizard and Laden Swallow have been
+  migrated and their late native fire writers deleted; the production
+  witnesses cover normal and held bodies. The old after-gate bypass from
+  `ed0d1ccd` is **historical**, not remaining work. Moving their behavior
+  from demo Rust to modules reduced one edit from 23.7 s for a host build
+  to 0.34-0.57 s for a module (different measured edits; no claim of a
+  controlled benchmark). The `Body-control contribution` route in
+  `extension-domain-contracts.md` serves these brains. What remains in
+  demo Rust includes plant/snake/AI Slop and Sanic contact consequences,
+  plus move-invoked techniques: these need a body-contact phase and domain
+  ports, not another custom-brain dispatcher. The separate SHOT-END-REPLAY
+  rollback regression remains open in the [queue](../queue.md#shot-end-replay--a-brain-that-saw-its-shot-end-replays-differently).
+  - S1 ✅ (engine): the phase `actor_think`, after `ActorDecisionSet::Publish`
     and before `PlayerInputSet::ControlGate`. The trigger
     `ambition.actor.think` (selector: the `CharacterBrain::Custom` key) gives
     the body's position, velocity, facing, ground, health, size and the
@@ -483,6 +504,16 @@ before you add a port.
     exists); each needs its domain's ports (sleep and lock timers, steering,
     a mine as a module entity). Write the contact route first: it serves
     four rules in two demos.
+  - Snake Plant follow-up: separately verify that proximity decisions use
+    players in the plant's live room, not a global primary player, and
+    that externally owned pose state is released when its brain or pot
+    geometry changes. Keep behavioral decisions distinct from contact
+    consequences: the latter belong in the proposed body-contact phase.
+    See [unified movement](unified-movement-kernel.md#pose-ownership-under-script-encounter-and-plant-control-new-customer).
+  - Module clock contract: preserve elapsed-time and simulation-rate
+    semantics rather than assuming that tick counts always represent
+    60 Hz timing. Coordinate with
+    [simulation tick-rate compatibility](simulation-tick-rate-compatibility.md).
 
 **Acceptance:** an independent module builds against the SDK without Bevy or
 engine code. A ported technique emits the same accepted requests and

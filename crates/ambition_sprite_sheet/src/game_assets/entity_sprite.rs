@@ -66,6 +66,10 @@ pub enum EntitySprite {
     /// A spent block does not use `SolidTile`. A used block that looks like a
     /// wall would hide its history from a player deciding whether to hit it.
     SpentBlockTile,
+    /// One tile of a bridge: a deck of boards with a chain under it, open
+    /// below, so what is under the bridge shows. A game names it through the
+    /// `EntityArt` component.
+    BridgePlankTile,
     SolidTile,
     OneWayTile,
     HazardTile,
@@ -107,6 +111,7 @@ impl EntitySprite {
             Self::FireOrb => "entities/fire_orb.png",
             Self::BonusBlockTile => "entities/bonus_block_tile.png",
             Self::SpentBlockTile => "entities/spent_block_tile.png",
+            Self::BridgePlankTile => "entities/bridge_plank_tile.png",
             Self::SolidTile => "entities/solid_tile.png",
             Self::OneWayTile => "entities/one_way_tile.png",
             Self::HazardTile => "entities/hazard_tile.png",
@@ -143,6 +148,7 @@ impl EntitySprite {
         Self::FireOrb,
         Self::BonusBlockTile,
         Self::SpentBlockTile,
+        Self::BridgePlankTile,
         Self::SolidTile,
         Self::OneWayTile,
         Self::HazardTile,
@@ -186,6 +192,7 @@ pub fn entity_sprite_asset_id(key: EntitySprite) -> AssetId {
         EntitySprite::FireOrb => "fire_orb",
         EntitySprite::BonusBlockTile => "bonus_block_tile",
         EntitySprite::SpentBlockTile => "spent_block_tile",
+        EntitySprite::BridgePlankTile => "bridge_plank_tile",
         EntitySprite::SolidTile => "solid_tile",
         EntitySprite::OneWayTile => "one_way_tile",
         EntitySprite::HazardTile => "hazard_tile",

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from mary_o_level import T, Level, cli
 
-WIDTH = 178
+WIDTH = 170
 TOP = 2  # the first row of the hall
 FLOOR = 12  # the row of the top of the floor
 SLAB = 3  # rows of rock in the floor
@@ -130,20 +130,29 @@ def garden(lv: Level) -> None:
 
 
 def bridge(lv: Level) -> None:
-    """Columns 138 to 175. The bridge of planks, the Void Lizard on it, and the switch and the robot past it.
+    """Columns 138 to 167. The bridge of planks, the Void Lizard on it, and the switch and the robot past it.
 
     A post of rock at each end of the bridge turns the Void Lizard, so it stays on
     the bridge. A post is three tiles high: its hop does not go over it, and a
-    jump of the player does. The planks fall when the switch is taken. She
-    walks three tiles from the switch, and the robot is past that."""
+    jump of the player does. The planks fall when the switch is taken, one
+    after the other from the switch, and the lava takes the Void Lizard. Then
+    she walks three tiles from the switch, and the robot is past that."""
     lv.column(138, 1, 3)
-    pit(lv, 139, 16)
-    lv.planks(139, FLOOR, 16)
-    lv.column(155, 1, 3)
-    lv.enemy("void_lizard", 149)
-    lv.coins(141, up(4), 4, step=3)
-    lv.switch(158)
-    lv.npc("mary_o_robot", 163)
+    # The lava of this pit is lower than that of the others: the bridge is
+    # read as a bridge by what shows under it.
+    lv.pit(139, 12)
+    lv.lava(139, 12, under=1.75)
+    lv.planks(139, FLOOR, 12)
+    lv.column(151, 1, 3)
+    lv.enemy("void_lizard", 145)
+    lv.coins(140, up(4), 4, step=3)
+    lv.switch(153)
+    lv.npc("mary_o_robot", 158)
+    # One view for the fight and its end: the bridge, its two posts, the
+    # switch and the robot. So the fall of the bridge and of the boss is seen
+    # from the switch (Jon, 2026-10-11: "you need to see the void boss
+    # swallowed by the lava, and see the bridge break").
+    lv.arena("mary_o_1_4_bridge_view", "Bridge", 136, 26, zoom=1.15, down=2.0)
 
 
 if __name__ == "__main__":

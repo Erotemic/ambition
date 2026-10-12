@@ -1,0 +1,14 @@
+// GNU-TON'S PLATFORM-FIGHTER FACET: what the scholar is on a Smash stage, where
+// that differs from what his moveset says.
+//
+// His moveset (`data/movesets/gnu_ton.ron`) is authored for the Smash stage, so
+// its damage is percent already and no move is named here. (His boss fight is
+// the game that changes the numbers: `bosses/gnu_ton/duel.rs` makes hearts of
+// them.)
+//
+// He is a small man with a quill and a book: a light fighter. A hit launches
+// him further than it launches the reference body.
+(
+    character: "npc_gnu_ton",
+    knockback_weight: Some(0.86),
+)

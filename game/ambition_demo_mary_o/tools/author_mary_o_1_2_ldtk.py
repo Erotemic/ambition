@@ -13,10 +13,11 @@ from __future__ import annotations
 from mary_o_level import T, Level, cli
 
 WIDTH = 240
-# Rows, from the top: the rock over the attic, the attic, the roof of the
-# corridor (it is the floor of the attic), the corridor, the floor.
-ATTIC = 2  # the first row of the attic
-ATTIC_FLOOR = 7  # the row of the top of the attic floor
+# Rows, from the top: the rock over the top road, the top road, the roof of
+# the corridor (one row of bricks: it is the floor of the top road), the
+# corridor, the floor.
+ATTIC = 2  # the first row of the top road
+ATTIC_FLOOR = 8  # the row of the roof: its top is the floor of the top road
 TOP = 9  # the first row of the corridor
 FLOOR = 19  # the row of the top of the floor
 SLAB = 2  # rows of rock in the floor
@@ -49,6 +50,10 @@ def build() -> Level:
     # The shell: rock from the top of the level down to the corridor, a floor,
     # and a wall at each end. The roof has no hole in its top row.
     lv.rock(0, 0, WIDTH, TOP)
+    # The top road: open from end to end over the roof (Jon, 2026-10-11: "the
+    # ceiling should be made of breakable blocks so you can run on top of the
+    # stage if you can get up there").
+    lv.carve(WALL, ATTIC, WIDTH - 2 * WALL, ATTIC_FLOOR - ATTIC)
     lv.rock(0, FLOOR, WIDTH, SLAB)
     lv.rock(0, 0, WALL, HEIGHT)
     lv.rock(WIDTH - WALL, 0, WALL, HEIGHT)
@@ -65,7 +70,25 @@ def build() -> Level:
     clock_gallery(lv)
     ferry(lv)
     goal(lv)
+    roof(lv)
     return lv
+
+
+def roof(lv: Level) -> None:
+    """The roof of the corridor: one row of bricks from end to end.
+
+    A body that can break a brick and can get its head to the roof goes up
+    through it and runs on the top road. Rock stays under and over a pipe. The
+    lines of the lifts stay open. Over the steps of the goal the roof has a
+    hole: the way down from the top road."""
+    rock = set(range(175, 178)) | set(range(188, 191))
+    hole = {227, 228}
+    for col in range(WALL, WIDTH - WALL):
+        if lv.grid[ATTIC_FLOOR][col] != "#" or col in rock:
+            continue
+        lv.carve(col, ATTIC_FLOOR, 1, 1)
+        if col not in hole:
+            lv.block(col, ATTIC_FLOOR, "Brick")
 
 
 def arrival(lv: Level) -> None:
@@ -160,11 +183,9 @@ def lifts(lv: Level) -> None:
 
 
 def attic(lv: Level) -> None:
-    """The room over the roof, columns 136 to 179. Coins, and a pipe that comes out before the ferry.
+    """The part of the top road over the clock gallery, columns 136 to 179. Coins, and a pipe that comes out before the ferry.
 
-    The only way in is the lift that goes up. It is a way past the clock gallery."""
-    lv.carve(136, ATTIC, 2, ATTIC_FLOOR - ATTIC)
-    lv.carve(141, ATTIC, 39, ATTIC_FLOOR - ATTIC)
+    The lift that goes up comes to it, and it is a way past the clock gallery."""
     lv.coins(144, ATTIC_FLOOR - 1, 28, stem="attic_coin")
     for col in (146, 154, 162):
         lv.coin_arc(col, ATTIC_FLOOR - 3, (0, 0.5, 0.5, 0))

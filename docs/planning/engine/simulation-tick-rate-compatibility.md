@@ -82,6 +82,13 @@ An integer Hz is a rate, not a rational representation of the exact frame period
 
 **Problem:** this timer uses **unscaled `SimTick`** because a hitstop must be able to end while `WorldTime::sim_dt()` is zero. It multiplies seconds by 60 to choose the expiry tick. At 40 Hz, 100 ms would still use six ticks and last about 150 ms.
 
+**October 11 cross-check:** this remains present in the supplied
+`ed0d1ccd` snapshot: `impact_hitstop/mod.rs:57-61` defines
+`TICKS_PER_SECOND: f32 = 60.0`. Do **not** open a second hitstop-rate task
+under the cosmic-form bug: one concerns conversion of authored seconds to
+an expiry tick, the other whether a connect modifier changes the relevant
+hitstop authority. They can share tests but not a duplicate rate source.
+
 **Change:** inject the immutable session rate into the conversion. Retain tick-based expiry and the current rule for extending an existing freeze. Define rounding for very short positive hitlag. Keep the expiry fully deterministic under same-rate resimulation.
 
 **Done when:** 100 ms, short positive freezes, overlapping hits, pause, and scaled-time ramp cases have bounded duration error of at most one chosen tick at all target rates. Existing 60 Hz behavior remains the baseline.
@@ -292,6 +299,35 @@ For every timer whose authoring unit is seconds, use a tolerance of at most **on
 If work per simulation tick were constant, a change from 60 to 40 Hz would remove about one-third of simulation advances; 30 Hz would remove half. Those are **upper-level work-count estimates**, not verified CPU or FPS gains. Physics step cost, catch-up policy, scheduler overhead, navigation construction, render CPU work, and the GGRS host all affect the actual result. A 40 Hz sim at a 30 FPS render target has a noninteger ratio and can perform one or two sim ticks per rendered frame. The fixed-step accumulator and presentation phase must handle that without visible double movement or repeated input.
 
 Measure 40 Hz first. Compare 30 Hz if 40 Hz does not make the device playable. Treat 44 Hz as another candidate, not a special clock architecture. Keep 120 Hz available for future feel experiments, but do not require a slow device to run it.
+
+### Additional 2026-10-11 demo timing witnesses
+
+The Mary-O enemies added after the original census use unscaled `SimTick`
+modulo constants in `game/ambition_demo_mary_o/src/void_lizard.rs`
+(`ROUND_TICKS = 420`, `THROW_TICKS`, `HOP_TICK`) and
+`game/ambition_demo_mary_o/src/swallow.rs` (`DROP_EVERY_TICKS = 150`,
+placement-byte-derived phase). Those are 7-second and 2.5-second rhythms
+**only at 60 Hz**. `plant.rs` also uses a tick plus placement-derived offset.
+Changing the host to 40 Hz without changing these contracts slows the attacks
+and changes which actors act together. This does not block a 60 Hz launch,
+but it belongs in the P1 gameplay-time conversion and the I4 custom-brain
+port, not a separate Mary-O clock implementation.
+
+**Design:** preserve intent in authored seconds or explicit 60 Hz design
+frames; resolve the cadence against the one immutable session rate. If an
+attack is a discrete once-per-cycle event, use a specified rounding rule and
+stable per-occurrence phase. Use a stable occurrence key, not a visible name
+that may repeat across live room instances. Do not assume scaled
+`WorldTime::sim_dt()` if the attack must proceed through hitstop; state
+whether the clock is scaled or unscaled. Module observations must expose the
+same contract as native brains. Keep the 60 Hz sequence in the baseline.
+
+**Acceptance:** equivalent elapsed-time attack cadence at 30/40/60/120 Hz,
+explicit bounds of one chosen tick, two instances with independent phases,
+controlled movement and a hitstop window. Poison: run the 420-tick modulo
+unmodified at 40 Hz; the duration test must fail. The portal conductor's
+own tick timing must be reviewed under the same rule before it is advertised
+as a rate-independent module.
 
 ## Exit rule
 

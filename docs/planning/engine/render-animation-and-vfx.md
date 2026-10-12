@@ -199,6 +199,112 @@ If art and collision disagree, establish which semantic coordinate basis is
 wrong before editing both code and assets. Measurement tools should report the
 logical frame, rendered frame, anchor and final drawable transform together.
 
+### R6 - reconcile semantic screen-field sources by visual ownership
+
+**Real customer (Mary-O, 2026-10-11).**
+`game/ambition_demo_mary_o/src/void_look.rs:65-88` scans every body for
+*each* `FeatureVisual` without a `VoidAura`: `bodies.iter().any(...)` joins
+`FeatureId` strings to the rendered id. In the unmarked case the cost is
+O(visuals * bodies) each `Update`. The system adds the marker but does not
+retract it when the source brain, bound visual, image size, or projectile
+visual id changes. `ward_her_with_the_quasar` already shows the better
+pattern: it inserts and removes its ward from current semantic state.
+
+**Contract:** the authoritative body/projectile gives presentation a source
+identity, its look/effect recipe and lifecycle. The realized visual declares
+which source it presents. Reconcile the resulting `VoidAura`/`VoidWard`
+from the current source and current visual size; update, remove or move the
+derived effect when binding, form, quality, visibility or room changes. No
+render system should search all bodies by a display id for each visual. The
+source may be looked up once through a bounded index or an explicit binding.
+It must not be a second copy of the gameplay brain table in the renderer.
+
+`crates/ambition_render/src/void_field.rs` already makes the full-screen
+pass opt-in per camera. Preserve that path; a theme-specific void shader is
+not grounds for a universal field-simulation subsystem. Its current shader
+budget is 8 sources and 4 wards per camera (`MAX_VOID_SOURCES`,
+`MAX_VOID_WARDS`); excess sources are dropped by distance from view centre.
+Specify this loss policy for consumers. Measure the gameplay case where a
+ward or relevant aura falls outside the cap before altering its cost or
+capacity. Do not silently convert render truncation into simulation logic.
+
+**Tests:** a changed brain and worn form retract an old aura; a changed
+sprite size updates its radius; projectile visual replacement removes the
+source; two live rooms and two cameras show only their own eligible sources;
+no visible host means no shader pass. Measure the body/visual population
+curve in the supported visible host. Poison: restore the nested id scan and
+show a many-body scaling regression, or leave a stale marker after rebind.
+
+### R7 - full-screen field visibility must match the camera's render layers
+
+**Direct code finding:** `crates/ambition_render/src/void_field.rs:158-191`
+loops over all `VoidAura` and `VoidWard` entities for each `MainCamera`.
+It checks `InheritedVisibility` and viewport projection, but **never**
+compares each source's effective `RenderLayers` with those of the camera.
+`world_to_viewport` does not express the renderer's layer filter. Two
+live rooms can have identical world coordinates but distinct camera
+layers, and one room's void could desaturate the other's picture. A ward
+from the other room may also suppress the current room's effect. The
+shader can therefore contradict the actual visible set of draws even
+when there are fewer than 8 auras or 4 wards.
+
+**Fix at the presentation owner:** use the **effective** render-layer
+mask of each source/ward and each camera, including the established
+inheritance policy, as well as the camera's visibility/frustum test.
+Sources that could not render through that camera must not affect its
+full-screen pass. A room scope may be a second necessary filter if
+layer reuse makes independent live rooms share a layer. Do not add an
+app-global `PrimaryPlayer` or compare authored room definitions as a
+shortcut. The source-to-visual binding repair in R6 remains separate.
+
+**Witness:** two main cameras with disjoint render layers and two auras
+at exactly the same pixel coordinates; each camera receives only its
+own aura. Repeat with wards, nested/child visuals, one source becoming
+hidden, a quality-tier downgrade and two **instances** of the same
+room definition. Poison: remove the layer intersection: both cameras
+receive the other room's source. Require the same filter for every
+future screen-space effect derived from a world entity; rendering in a
+single camera is not enough evidence.
+
+### R8 - portal fragment lifetime and measured render churn
+
+**Source, `ed0d1ccd`:**
+`ambition_portal2d_presentation/src/far_side.rs:62-94` discards every
+`PortalFarSidePiece` before reconstructing the participating fragments;
+`visuals.rs:117-151` does the same for `PortalBodyPiece`. Both builders
+create `PortalClipMaterial` assets inside their per-frame spawn paths.
+This is **definite entity/material churn**, not by itself proof of a GPU
+regression or unbounded asset retention. In particular, the far-side
+module explicitly explains why its fragments are derived, not simulation
+state: pose, atlas and clipping must follow the source each frame.
+
+**Preferred presentation contract:** a source-owned, view/room/pane-scoped
+reconciliation record may retain only derived fragment entities/materials.
+Do not cache the source's authoritative pose or make a second rollback
+component. On a changed `DeclaredFrame`, atlas page, texture, flip, transform,
+portal clip plane, quality mode, render layer or camera scope, mutate the
+owned fragments' appearance; when a source stops participating, remove
+exactly its fragments and associated hide reason. Use source and fragment
+roles in the key; an ECS entity alone is not an exported stable save identity.
+A removal/reappearance of the source must not accidentally reattach its old
+fragments to an unrelated new entity.
+
+**Order of work:** instrument first: steady 600-frame stationary case,
+animated character, straddling transit, two panes, two cameras, body
+teardown and rollback correction. Record piece spawn/despawn, material and
+mesh creation, live asset counts and CPU/GPU frame costs on a documented
+quality/target profile. Then choose either a retained-fragment reconciler
+where the result is measurable or a consciously bounded rebuild where the
+extra complexity is not justified. Preserve the existing source-hiding,
+last-pose and portal-candidate publication contracts. The already-known
+multi-camera pane selection problem is a *different* issue; this task does
+not silently claim to solve it.
+
+**Poison:** after a retained path is chosen, force a fresh `materials.add`
+for each unchanged source on every `Update`; the steady-state allocation
+witness fails. Delete a portal/source; all derived fragments and hide
+claims must retire by the correct presentation boundary.
+
 ## Acceptance
 
 This program is healthy for Engine 1.0 when:

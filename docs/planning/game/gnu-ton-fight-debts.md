@@ -158,11 +158,121 @@ Status of each: OPEN. The content comes first.
   the engine (debt 1) the near line can be where the design wants it, and
   the pair can give a body that comes out a push along its normal.
 
+### 12. The portal and trail names omit the encounter
+
+**Evidence, `ed0d1ccd` (2026-10-11):**
+
+- `game/ambition_content/src/bosses/gnu_ton/portals.rs:125-174`
+  collects wanted portals by `(LiveRoomInstance, GnuTonLine)` and matches
+  existing ones by the same two fields. It does not keep the scholar, mount,
+  encounter or module invocation that requested the line.
+- Both punch ends use authored channels 24 and 25 (`GnuTonLine::channel`).
+  `PortalChannel::partner` pairs these channels; the channels have no encounter
+  field. Two same-room encounters cannot have independent pairs.
+- A spawned end uses `SimId::singleton("gnu_ton_portal", line.name())`.
+  That name omits both room and encounter. A singleton is the wrong identity
+  for an entity that can have many live occurrences.
+- `light_gnu_ton_lines` repeats the room/line join. `join_gnu_ton_lines`
+  stores a trail origin in `LimbTrailStarts: HashMap<String, Vec2>`, keyed by
+  `FeatureId`. The renderer then looks it up by `FeatureVisual.id`. The
+  presentation request has no explicit encounter or room key.
+
+**Failure:** a second GNU-ton with the same line in a live room shares the
+first one's portal record. A second occurrence can also reuse a singleton
+name. The trail can select the last origin written under a reused visual id.
+The production code proves the collision in the join keys; a two-encounter
+runtime witness still needs to be written.
+
+**Should be:** the portal domain owns a *held pair* identified by
+`(session occurrence, owning boss/module occurrence, slot)`. Its two ends
+carry this pair identity and an end role, not merely a display colour. An
+owner may change their locations each tick; a missing request, defeat,
+room unload, session replacement or rollback removes or reconstructs the
+pair under that owner. `LightLine` has a similarly owned presentation-only
+slot. A stable `SimId` comes from the encounter identity and its slot, with
+an explicit collision policy. Do not derive authority from an ECS `Entity`,
+from a display string, or from an authored colour index.
+Colours remain an authored look; they must not be a global pairing namespace.
+
+A module's conductor record remains its own clock, not a hidden portal
+registry. The module requests the held pair and its light lines through
+ports owned by the portal and presentation domains. The host reconciles the
+requests. The game-side `portals.rs` and the global `LimbTrailStarts` writer
+then go away. The bond's origin follows the identified limb and its
+current line through an owner-scoped presentation view.
+
+**Order:** repair occurrence identity *before* adding another portal-using
+boss. The later visual refactor in debts 1-6 can then use the same contract.
+An interim repair is acceptable only if it keeps the full owner key and does
+not install a second permanent portal manager.
+
+**Required witnesses:** two living GNU-ton encounters in the same live room;
+two live instances of one room; two sessions in one host; one encounter
+defeated while the other remains; both pairs displaced in a rewind. Assert
+pair endpoints, transit destination, stable IDs, trail origin and teardown.
+Poison: remove the owner from the join key or use the old singleton id;
+the two-encounter test must fail.
+
+### Core correction before the pair port
+
+The October 11 follow-up found a **separate engine problem** in
+`ambition_portal2d::link::resolve_portal_links`: it computes channels
+from the rank of all live link hashes and end roles from endpoint
+position. Adding/moving an unrelated pair can change the channel that
+`PortalTransit` or its cooldown holds. The aperture equalizer also
+writes a derived minimum into the authored `PlacedPortal.half_extent`,
+so a temporarily small end can permanently shrink a moving pair.
+
+This problem is **not** fixed by giving GNU-ton one `PortalLink` per
+boss. The [portal-pair design](../engine/portal-pair-identity-and-aperture.md)
+owns explicit end roles, source/placement occurrence, derived openings,
+legacy authored colour compatibility and the link/transit migration.
+GNU-ton debt 12 provides the first two-boss consumer. The smaller
+GNU-ton-key repair may land before the full portal API only if it is
+explicitly temporary, collision-free and covered by the two-boss test.
+
+### 13. The exit gate reads a corpse, not an encounter outcome
+
+**Source-confirmed, `ed0d1ccd`:**
+`game/ambition_content/src/bosses/gnu_ton/mod.rs:79-106`
+computes `boss_defeated = bosses.iter().any(...)` over dead GNU-ton
+`BodyHealth` entities in the live room. One defeated boss opens the ladder
+while a second one still lives. If the defeated boss entity is later
+removed, that evidence disappears; the gate closes on the next overlay
+rebuild. The code does not store that the encounter has completed. A
+single-boss happy-path fight does not witness either case.
+
+**Choose one explicit game rule:** if the arena is a single encounter with
+several participants/bosses, open only after *all required members* complete;
+if each boss has its own exit, name each encounter's gate owner and attach
+that gate to its encounter. Do **not** replace `any(dead)` mechanically with
+`all(dead)`; an empty or despawned query would still be ambiguous.
+
+**Engine contract:** use the existing encounter/session-scoped terminal
+state, or extend that domain with a typed terminal fact if it lacks one.
+Room geometry projection consumes the fact; boss ECS lifetime is not the
+history of arena completion. Decide explicitly whether a completed arena
+persists through room residency changes, checkpoint restore, and New Game.
+Keep this separate from portal-pair identity (debt 12) while testing both
+against the same two-encounter fixture.
+
+**Writers' acceptance tests:** two live GNU-ton bosses, defeat only A (gate
+closed if they share an arena), defeat B (gate open), despawn both (gate
+still follows the recorded outcome), unload/re-enter, and restore a
+pre-defeat snapshot (gate closed). If the intended design is *one exit per
+encounter*, substitute two individually named exits and assert isolation.
+Poison: restore `any(!health.alive())`, which must fail the two-boss test.
+
 ## An order
 
-1. The actor road reads `looping` (7). Small; one copy of a row goes.
-2. A person plays the way up (11), and its numbers get room.
-3. A limb "on its host" (5), and the trail (6).
-4. The port for a pair and a line (2), with the decision of 3.
-5. The lines from the sheet (4), with step 1 of the other document.
-6. The arm through the pair by the engine (1), with angled portals.
+1. Determine the arena-terminal policy and record its source of truth (13).
+   The gate should not depend on a dead body's retained ECS entity.
+2. Correct the pair/line/trail occurrence identity (12). This blocks a
+   second instance of the encounter and is independent of later art work.
+2. The actor road reads `looping` (7). Small; one copy of a row goes.
+3. A person plays the way up (11), and its numbers get room.
+4. A limb "on its host" (5), and the trail (6).
+5. The port for a pair and a line (2), with the decision of 3 and the
+   occurrence contract of 12. Delete the interim reconciler.
+6. The lines from the sheet (4), with step 1 of the other document.
+7. The arm through the pair by the engine (1), with angled portals.

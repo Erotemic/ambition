@@ -1248,6 +1248,9 @@ pub fn dress_power_blocks(
             // spent-block texture; empty bricks shatter instead of reaching `spent`.
             Some(MaryOBlockLook::Brick) if is_spent => Some(EntityArt(EntitySprite::SpentBlockTile)),
             Some(MaryOBlockLook::Brick) => None,
+            // A plank of a bridge is not the masonry of its room: a bridge
+            // that looks like the floor is not read as a bridge.
+            Some(MaryOBlockLook::Plank) => Some(EntityArt(EntitySprite::BridgePlankTile)),
             _ => None,
         };
         let Some(want) = want else {

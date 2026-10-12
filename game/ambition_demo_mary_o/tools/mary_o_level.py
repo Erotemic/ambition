@@ -334,6 +334,24 @@ class Level:
             zoom=1.0,
         )
 
+    def arena(self, ident: str, name: str, col: int, wide: int, *, zoom: float = 1.0, down: float = 0.0) -> None:
+        """A view that does not move: while the player is in these columns the
+        camera looks at their middle, `down` tiles under the middle of the
+        height of the level. `zoom` is how much MORE of the level the view
+        shows: 1.2 is a view a fifth wider (the engine does not go under 1)."""
+        self._entity(
+            "CameraZone",
+            (col * T, 0),
+            (wide * T, self.height * T),
+            id=ident,
+            name=name,
+            priority=10,
+            zoom=zoom,
+            target_offset_y=down * T,
+            cinematic_lock=True,
+            easing_hz=2.5,
+        )
+
     def pole(self, col: int, tall: int) -> None:
         """The goal: a shaft, its knob and its banner, as the first level has them.
 

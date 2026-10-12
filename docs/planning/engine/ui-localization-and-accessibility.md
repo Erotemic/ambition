@@ -37,6 +37,47 @@ portal facing). Move that group to the game (`Q68`). Nothing blocks the move:
 the admission road the group feeds is built
 ([SETTINGS-ROLLBACK](../queue.md#settings-rollback--a-settings-change-reaches-simulation-only-at-an-admitted-rebase---done-2026-10-08)).
 
+### Launcher theme, quality and provider composition
+
+**October 11 real customer:** `game/ambition_app/src/app/title_screen.rs`.
+The new host title screen chooses `ParallaxTheme` from route string
+prefixes (`scene_of`, lines 79-86), even though `ShellExperienceRegistry`
+contains independently registered providers. A provider with a new route
+name therefore falls back to `Hub` unless this one host source is edited.
+That is acceptable as a default, **not** as the only way to customize a
+provider's launch look.
+
+**Composable presentation contract:** a provider can declare optional
+launcher-art intent as part of its visual/presentation registration, using
+stable semantic keys or a small descriptor that the launcher presentation
+adapter resolves. No game-specific route prefix appears in the reusable
+shell. Keep theme asset choice, fallback and quality budget in the host's
+presentation composition; never force the headless shell registry to import
+the `ParallaxTheme` renderer enum or to require game assets. An absent
+visual provider gives a readable, keyboard-accessible default launch row.
+If this needs a new API, start with one existing provider and one
+independent fixture; do not design an extensible title-screen scene graph.
+
+**Immediate lifecycle correction:** `show_the_scene_of_the_cursor` returns
+early if `budget.parallax.enabled` is false but does not despawn a prior
+`TitleBackdrop`; `take_the_backdrop_away` currently only runs when the
+launcher exits. Once a theme is present, disabling the quality budget can
+leave it visible and resident indefinitely. Changing the parallax resolution
+scale while the route/theme stays the same also leaves prior layer handles;
+`TitleScene` is keyed only by theme. Define one visual-generation key that
+includes effective quality and theme, and reconcile the active scenes and
+scrim/window styling on both disabling and re-enabling, not only on the
+first render. Do not let a visual budget affect shell routing, focus or
+input admission.
+
+**Witnesses:** start title with background, disable parallax without leaving
+launcher, observe zero `TitleBackdrop` roots and appropriate original UI
+contrast; re-enable, see precisely one rebuilt scene; switch quality
+resolution, see the new-tier assets; register an unrelated-route provider,
+see its declared look without editing the host mapping; run the shell in
+headless/asset-absent mode. Poison: keep the `if !enabled { return; }`
+without cleanup, or key active scenes only by `ParallaxTheme`.
+
 ## Triggered localization/accessibility backlog
 
 The broad presentation/shell audit is closed. Its surviving product gaps belong

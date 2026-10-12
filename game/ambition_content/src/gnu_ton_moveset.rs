@@ -12,6 +12,10 @@ mod tests {
 
     const FIGHTER: &str = crate::bosses::gnu_ton::duel::FIGHTER;
 
+    fn spec_len(table: &ambition_entity_catalog::MovesetContract, id: &str) -> f32 {
+        table.move_by_id(id).map_or(f32::MAX, |spec| spec.duration_s)
+    }
+
     /// Each press of the platform-fighter kit has a move of his own: no press
     /// falls through to a jab, and no throw is a dead input.
     #[test]
@@ -29,7 +33,10 @@ mod tests {
     #[test]
     fn each_move_of_the_duel_is_a_strike_of_his_table() {
         let table = crate::authored_movesets::shipped(FIGHTER);
-        for (id, rest) in ambition_content_modules::gnu_ton::choreography::arms::DUEL_MOVES {
+        for (id, rest, open) in ambition_content_modules::gnu_ton::choreography::arms::DUEL_MOVES {
+            // He is open for the whole of the move, and for a time after it.
+            assert!(open > spec_len(&table, id), "his book comes up before `{id}` is over");
+            assert!(open < rest, "he chooses again before his book comes up after `{id}`");
             let spec = table.move_by_id(id).unwrap_or_else(|| panic!("the duel names `{id}`, which is not in his table"));
             let strikes = spec.windows.iter().any(|w| matches!(w.tag, WindowTag::Active) && !w.volumes.is_empty());
             assert!(strikes, "`{id}` has no live volume: he would swing and hurt nothing");

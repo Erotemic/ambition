@@ -110,6 +110,42 @@ swing art is better; Ambition charges much less landing lag.
   0.07 s) and `stabilizer_dive` (0.3 s) state one. The Smash game declares
   none and charges each move's own.
 
+## The third pass: the slash art and the smash attacks (2026-10-12)
+
+Jon's rules for a slash, in his words:
+
+- "I want more of the upward or downward motion and follow through visible
+  in the slashes." "The symmetric parts at the end are what I don't like."
+- "parts of the slash should not be visible until the slash has 'traveled
+  through' that area."
+- "any alpha parts you add fade to complete transparency before the sheet
+  ends, so there isn't any discontinuity by overlaying on something."
+- A sheet of very good slashes is his reference for quality, and it is not
+  to be copied.
+
+What is built (`robot_slash`, in the sprite renderer):
+
+- A swing with a direction (`rise`, `fall`) is a comet that goes along the
+  outline of the hit region: from one horn, across the front, to the other
+  horn, and then back over the body (the follow through). Its head is the
+  blade; its tail comes after. The last frames are the curl at the end of
+  the swing. Nothing is drawn where the blade has not been.
+- The comet is a solid white band with a sharp inner edge, thin fibres
+  behind it, and a little light on the air behind those. The rows with no
+  direction (`side`, `up`, `down`) have the same parts.
+- No frame has alpha at a side of its cell (a test in the renderer).
+- A move says its direction with its volume's `vfx`: `slash_rise` or
+  `slash_fall`, in each pose. For an up strike, a rise goes from the body's
+  front, over it, to its back. Stated for: the 1-2 string, the up attack
+  (`blade_overhead`), the forward smash (a fall: it is a chop), the up
+  smash, and the Smash game's jab and two tilts. Not stated yet: the back
+  air, the down attack, the airs of the Smash game, the down smash (it is
+  on the two sides at one time).
+- The smash attacks have sheet polygons, as the tilts have (they used the
+  moveset's boxes, and the art is fitted to the volume): forward 110 x 106
+  (the tilt is 96 x 94), up 100 x 98 (the tilt is 87 x 84), down 155 x 39
+  on the two sides. World units.
+
 ## Open
 
 1. **Play it.** Each number is a first cut. Seen in software renders of the
@@ -119,9 +155,8 @@ swing art is better; Ambition charges much less landing lag.
 3. The up swing and the down swing differ in the body's row and in which
    end of the slash has the light. If that is too quiet, the slash rows can
    differ more.
-4. Jon, 2026-10-12: the smash attacks' picture, and maybe their hit volume,
-   are much smaller than the tilts'. They are to be as large or a little
-   larger. And one more pass on the slash art.
+4. The other arcs have no direction yet (see the third pass), and the
+   thrust's lance did not get the solid band and fibres.
 5. `blade_low` roots no one: the robot can walk in a low poke. If the low
    poke is to stop it, that is one flag.
 6. Enemies were tuned against a jab that rooted. The fastest string is the

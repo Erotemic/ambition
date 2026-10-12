@@ -61,8 +61,11 @@ pub(crate) struct SlashSource {
 impl SlashSource {
     fn row(&self, kind: SlashKind, pose: SlashPose) -> RowPlayback {
         match pose {
-            SlashPose::Side if kind == SlashKind::Rise => self.rise,
-            SlashPose::Side if kind == SlashKind::Fall => self.fall,
+            // A swing with a direction has its row in each pose: each row is
+            // drawn along the strike, and the pose only turns it. An up strike
+            // that rises goes from the body's front, over it, to its back.
+            _ if kind == SlashKind::Rise => self.rise,
+            _ if kind == SlashKind::Fall => self.fall,
             SlashPose::Up if kind != SlashKind::Poke => self.up_arc,
             SlashPose::Down => self.down_slash,
             _ if kind == SlashKind::Poke => self.poke,

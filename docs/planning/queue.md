@@ -133,7 +133,12 @@ not part of this row.
    port exists. The view index is keyed by `FeatureId` alone, so two live
    instances of one room share a limb's view (debt 6). See [debt 12](game/gnu-ton-fight-debts.md#12-the-portal-and-trail-names-omit-the-encounter).
 2. **IN6, frame time (P2).** Measure the portal-piece frame cost in a drawn
-   host before any retained-piece strategy.
+   host before any retained-piece strategy. Needs a machine with a GPU:
+   the agent VM has none (checked 2026-10-12: no `/dev/dri`, and Vulkan
+   lists no device), so its offscreen device is a software rasterizer and a
+   frame time there measures the rasterizer. The drawn host exists
+   (`OffscreenGpu`, as WA7 uses it), and `capture_scene --portal-shot`
+   opens a pair in a real room.
 3. **IN7, live sprite refresh (P2).** The launcher theme is the provider's
    (done). Live sprite refresh stays behind the prepared-generation boundary ([I3](engine/fast-iteration-implementation.md#i3---coordinated-generation-publication-and-local-reload)).
 

@@ -304,7 +304,10 @@ live and fails the guard, so the instrument sees retention. Test:
 `ambition_portal2d_presentation far_side
 far_side_pieces_are_made_each_frame_and_their_materials_do_not_grow`.
 Not measured: frame time and GPU cost (no renderer in this harness), the
-transit pieces of `visuals.rs`, two panes and two cameras. So a retained
+transit pieces of `visuals.rs`, two panes and two cameras. The agent VM
+cannot measure the GPU half: it has no GPU (checked 2026-10-12: no
+`/dev/dri`, and Vulkan lists no device), so its offscreen device is a
+software rasterizer. So a retained
 reconciliation is not justified by growth; only frame time could justify
 it. The text below is the case as found.
 

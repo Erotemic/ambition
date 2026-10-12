@@ -470,9 +470,19 @@ before you add a port.
     (each gated frame of two periods against `drops_on` and `over`; a held
     swallow drops nothing). Poison: the adapter sends no placement, red at
     tick 115 (`EnemySpawn-108048`).
-  - Next, one slice each, adding only the ports each needs: the plant, the
-    snake shells and the AI Slop (they move bodies after the integration,
-    not control, so each needs a body port first).
+  - Not a packet yet, measured 2026-10-11: the demo behaviour still in Rust
+    is contact rules and techniques, not brains. Mary-O's plant, snake
+    shells and AI Slop, and Sanic's badnik, decide what a touch does (a
+    stomp bounces the toucher and defeats the body, a roll defeats it) in
+    `WorldPrepSet::AfterIntegrate` before the contact damage: they need a
+    body-contact phase and its ports, which no route in
+    `extension-domain-contracts.md` names yet. Sanic's ball dash and the
+    Smash demo's specials (`bolt`, `bomb`, `counter`, `dilation`, `homing`,
+    `limit`, `mark`, `mine`, `riposte`, `spring`, `tether`, `sing`,
+    `capture`, `portal`) are move-invoked techniques (`technique_execution`
+    exists); each needs its domain's ports (sleep and lock timers, steering,
+    a mine as a module entity). Write the contact route first: it serves
+    four rules in two demos.
 
 **Acceptance:** an independent module builds against the SDK without Bevy or
 engine code. A ported technique emits the same accepted requests and

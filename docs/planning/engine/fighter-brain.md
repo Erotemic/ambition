@@ -360,6 +360,14 @@ read the trace, which carries both axes.
 These rules come from defects in the option and scoring layers. Each one is a
 general shape; check new code against it.
 
+- **A brain remembers its own last move.** With no memory of it, a brain that
+  whiffed derives the same ranking from the same world and throws the same
+  move until the world changes, which in a mirror it never does. The brain
+  keeps its last press (`FighterState::own_attack`) and declines a binding
+  that whiffed for as long as the move plays (`refused`). A hit is the foe
+  seen in hitstun within the move's length plus the perception delay. Both
+  fields are rollback state. Measured on the grid 2026-10-12: queue row BRAIN,
+  road 1.
 - **Perception is delayed on purpose.** `DelayedPerception` implements the
   no-cheat reaction delay, and `Perceived::staleness_s()` reports how old a view
   is. Attack admission carries the foe forward over `staleness + time to

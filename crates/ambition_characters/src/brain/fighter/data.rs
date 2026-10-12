@@ -131,6 +131,37 @@ pub struct PendingAttack {
     /// because the opening being paid for is the one that was read.
     /// `0` for everything that is not a smash.
     pub hold_ticks: u32,
+    /// How long the chosen move plays (`frames.total_s`), in ticks. The press
+    /// carries it so that the brain can remember its own move after the press
+    /// ([`OwnAttack`]). `0` when the move is not known: no memory is kept.
+    pub move_ticks: u32,
+}
+
+/// The attack this body pressed last, while it can still learn whether it hit.
+///
+/// BRAIN road 1. With no memory of its own move, a brain that whiffed derives
+/// the same ranking from the same world and throws the same move again, until
+/// the world changes; in a mirror it never does (the medic: 177 presses of one
+/// move, none landed). The key is the binding, because the engine resolves a
+/// press by its binding.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct OwnAttack {
+    pub binding: crate::brain::attack_kit::AttackBinding,
+    /// Ticks left to watch for the foe reeling: the move's length plus the
+    /// perception delay, because the brain sees the foe late. Counts DOWN.
+    pub watch_ticks: u32,
+    /// How long a whiff refuses this binding: as long as the move plays.
+    pub refuse_ticks: u32,
+    /// The foe was seen in hitstun while the move could have hit it.
+    pub landed: bool,
+}
+
+/// A binding this body whiffed with, and how much longer it declines it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RefusedAttack {
+    pub binding: crate::brain::attack_kit::AttackBinding,
+    /// Counts DOWN; the refusal ends at zero.
+    pub ticks: u32,
 }
 
 /// The mutable half. Every field decides what the brain does next, so every
@@ -171,6 +202,10 @@ pub struct FighterState {
     /// and both fields are written every tick from this pair, so switching from
     /// one to the other cannot leave the old one stuck down.
     pub charge_hold_gesture: ambition_entity_catalog::ChargeGesture,
+    /// The attack this body pressed last, while it can learn whether it hit.
+    pub own_attack: Option<OwnAttack>,
+    /// The binding it whiffed with, declined for as long as that move plays.
+    pub refused: Option<RefusedAttack>,
 }
 
 /// The observable facts about a foe that a habit is inferred from. Deliberately
@@ -198,6 +233,8 @@ impl FighterState {
             last_foe: None,
             charge_hold_ticks: 0,
             charge_hold_gesture: ambition_entity_catalog::ChargeGesture::Smash,
+            own_attack: None,
+            refused: None,
         }
     }
 }

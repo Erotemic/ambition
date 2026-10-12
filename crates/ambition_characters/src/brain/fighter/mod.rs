@@ -23,7 +23,7 @@ pub mod options;
 pub mod profile;
 pub mod situation;
 
-pub use data::{ApmLedger, FighterCfg, FighterState, FoeSample, PendingAttack, ShadowTuning};
+pub use data::{ApmLedger, FighterCfg, FighterState, FoeSample, OwnAttack, PendingAttack, RefusedAttack, ShadowTuning};
 pub use habit::{Choice, HabitModel};
 pub use options::{generate_options, AttackOption, MoveOption, OptionSet, UtilityWeights};
 pub use profile::{

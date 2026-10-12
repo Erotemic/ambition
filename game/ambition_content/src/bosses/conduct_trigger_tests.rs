@@ -128,5 +128,5 @@ fn a_conductor_reads_the_boss_health_its_refusal_and_the_tracked_body_now() {
     assert!(conduct.invulnerable, "a boss in its intro refuses damage");
     assert!(!conduct.between_phases, "an intro is not between two phases");
     assert_eq!(conduct.target, Some([500.0, 870.0]), "where the boss last saw its target");
-    assert_eq!(conduct.target_body, Some(BodyBox { position: [640.0, 870.0], size: [20.0, 30.0] }), "the tracked body now");
+    assert_eq!(conduct.target_body, Some(BodyBox { position: [640.0, 870.0], size: [20.0, 30.0], swing: None }), "the tracked body now");
 }

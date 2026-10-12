@@ -684,6 +684,16 @@ pub mod arms {
         Vec2::new(from.x + (to.x - from.x) * along, from.y + (to.y - from.y) * up - over)
     }
 
+    /// He reads the player's blow (the conductor sees the move the player
+    /// plays). With no move of his own, and the player this near, his book
+    /// goes up `REACT` seconds into a blow that has not struck yet: a quick
+    /// blow is there before the book, a slow one is not. And when a blow of
+    /// the player is over, with this much of it or more still to play, he
+    /// strikes at once: a blow on his book, or at the air, is paid for.
+    pub const REACT: f32 = 0.13;
+    pub const REACT_REACH: f32 = 150.0;
+    pub const PUNISH_LEAST: f32 = 0.05;
+
     /// The roll: with the player at his elbow he rolls THROUGH him, to this
     /// far on his other side, in this long. For the part `ROLL_SAFE` of it
     /// his book is up.

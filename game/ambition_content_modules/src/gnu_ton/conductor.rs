@@ -876,9 +876,21 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     me = scholar_pos + c.off.map_or(Vec2::ZERO, v);
     let to_player = scholar.target_body.map(|body| v(body.position) - me);
     let on_his_feet = matches!(c.footing(), Footing::Stand | Footing::Walk);
+    // The move the player plays, and whether he is near enough for it to
+    // be a blow at him.
+    let foe_swing = scholar.target_body.and_then(|body| body.swing);
+    let foe_near = to_player.is_some_and(|to| to.x.abs() <= ch::arms::REACT_REACH && to.y.abs() <= ch::arms::REACT_REACH * 0.6);
     // ── The duel: with the player on the back, he fights ──
     let was_dueling = c.dueling;
     c.dueling = arms_on && foe_over_back && c.clamp.is_none();
+    // He reads a blow that comes: with no move of his own, his book goes up
+    // and stays up until the blow is over.
+    let reads = c.dueling
+        && on_his_feet
+        && c.reflex.is_none()
+        && c.duel_move == 0
+        && foe_near
+        && foe_swing.is_some_and(|s| s.since >= ch::arms::REACT && (s.live || s.hurts_in > 0.0));
     if !c.dueling || !on_his_feet || c.reflex.is_some() {
         // No player on the back, or he is in the air, or the giant throws:
         // no move.
@@ -896,9 +908,20 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             c.step_to(Footing::Home);
         }
     } else {
+        if reads {
+            // He does not start a move into a blow he reads.
+            c.duel_wait = c.duel_wait.max(dt * 1.5);
+        }
         c.duel_wait -= dt;
         let playing = (c.duel_move as usize).checked_sub(1);
         let since = playing.and_then(|i| ch::arms::DUEL_MOVES.get(i)).map_or(0.0, |(_, gap, _)| gap - c.duel_wait);
+        // The player's blow is over and he is still in it: he strikes now,
+        // if his own move and the time to punish it are over.
+        let closed = playing.and_then(|i| ch::arms::DUEL_MOVES.get(i)).is_none_or(|(_, _, open)| since >= *open);
+        let missed = foe_swing.is_some_and(|s| !s.live && s.hurts_in <= 0.0 && s.ends_in >= ch::arms::PUNISH_LEAST);
+        if closed && missed && foe_near {
+            c.duel_wait = 0.0;
+        }
         // The jab's string: the player is still at his elbow.
         if let (Some(next), Some(to)) = (playing.and_then(ch::arms::string_next), to_player) {
             if since >= ch::arms::STRING_AT && to.x.abs() <= ch::arms::STRING_REACH && to.y >= -44.0 {
@@ -983,6 +1006,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     // chooses again; and in the middle of a roll.
     let rolls_safe = c.footing() == Footing::Roll && (ch::arms::ROLL_SAFE.0..ch::arms::ROLL_SAFE.1).contains(&c.footing_t);
     c.guard = rolls_safe
+        || reads
         || (c.dueling
             && on_his_feet
             && c.reflex.is_none()

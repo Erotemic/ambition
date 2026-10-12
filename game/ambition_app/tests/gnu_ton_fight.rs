@@ -717,6 +717,81 @@ fn thrown_off_the_back_he_comes_back_and_he_goes_to_a_player_at_its_far_end() {
     });
 }
 
+/// His guard and the move on his body, this frame.
+fn his_guard_and_move(sim: &mut Platformer2dSimHarness) -> (bool, Option<String>) {
+    use ambition_platformer2d::boss_encounter::BossEncounter;
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+    let world = sim.world_mut();
+    let mut bosses = world.query::<(&BossConfig, Option<&MovePlayback>, &BossEncounter)>();
+    bosses
+        .iter(world)
+        .find(|(config, ..)| config.behavior.id == GNU_TON_ID)
+        .map(|(_, playback, status)| (status.guarded, playback.map(|pb| pb.spec.id.to_string())))
+        .expect("the scholar is in his arena")
+}
+
+/// He reads the player. A slow blow (a smash) that he sees come finds his
+/// book up, and when a blow of the player is over he does not wait for his
+/// turn: he strikes at once.
+#[test]
+fn he_guards_a_slow_blow_he_reads_and_strikes_when_it_is_over() {
+    use ambition_platformer2d::sim::AttackStrengthHint;
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    step_until(&mut sim, 600, "his first move", |sim| scene(sim).performing.is_some());
+    let s = scene(&mut sim);
+    let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
+    let hp = s.scholar_hp;
+    // Beside him, on the back, face to him, and a smash at once: he has
+    // chosen no move yet (the beat before his first is 0.35 s).
+    place_player(&mut sim, ae::Vec2::new(s.scholar.pos.x - 45.0, back.min.y - 21.0));
+    for _ in 0..10 {
+        sim.step(AgentAction { move_x: 1.0, ..Default::default() });
+        let (me, _) = player(&mut sim);
+        if me.facing == 1.0 && me.vel.y == 0.0 {
+            break;
+        }
+    }
+    let (mut live_frames, mut guarded_while_live, mut over_at, mut struck_at) = (0, 0, None, None);
+    let mut played: Vec<(usize, String, bool)> = Vec::new();
+    for frame in 0..90 {
+        let action = match frame {
+            0 => AgentAction { move_x: 1.0, attack: true, attack_held: true, attack_strength: AttackStrengthHint::Smash, ..Default::default() },
+            _ => AgentAction::default(),
+        };
+        sim.step(action);
+        let live = {
+            use ambition_platformer2d::combat::moveset::MovePlayback;
+            let world = sim.world_mut();
+            let mut players = world.query_filtered::<Option<&MovePlayback>, PrimaryPlayerOnly>();
+            players.iter(world).next().flatten().map(|pb| {
+                (pb.spec.id.to_string(), pb.spec.windows.iter().any(|w| !w.volumes.is_empty() && (w.start_s..w.end_s).contains(&pb.t)))
+            })
+        };
+        let (guarded, on_body) = his_guard_and_move(&mut sim);
+        if let Some((id, _)) = &live {
+            played.push((frame, id.clone(), guarded));
+        }
+        let live = live.map(|(_, live)| live);
+        match live {
+            Some(true) => {
+                live_frames += 1;
+                guarded_while_live += usize::from(guarded);
+            }
+            Some(false) if live_frames > 0 && over_at.is_none() => over_at = Some(frame),
+            _ => {}
+        }
+        if over_at.is_some() && struck_at.is_none() && on_body.is_some_and(|id| id.starts_with("gnu_duel_")) {
+            struck_at = Some(frame);
+        }
+    }
+    assert!(live_frames > 0, "the premise: the player's smash was live");
+    assert_eq!(guarded_while_live, live_frames, "his book was down for a part of a smash he saw come: {played:?}");
+    assert_eq!(scene(&mut sim).scholar_hp, hp, "the smash on his book took health");
+    let (over_at, struck_at) = (over_at.expect("the smash ended"), struck_at.expect("after the smash he played no move"));
+    assert!(struck_at - over_at <= 6, "he waited {} frames after the player's blow was over", struck_at - over_at);
+}
+
 /// With the giant's arms on it and the player on its back, HE fights: he
 /// plays moves of the fighter `npc_gnu_ton` on his own body, and they hurt.
 /// The giant does not punch then.

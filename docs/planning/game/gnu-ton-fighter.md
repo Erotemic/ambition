@@ -94,6 +94,14 @@ punch then: he is the fight.
   choreography says how long he is open: the move, and a time after it
   (`DUEL_MOVES`). So the way to hurt him is the way to hurt a fighter: make
   him miss, and strike before the book comes up.
+- **He reads the player's blow** (the conductor's view of the player has the
+  move he plays: `swing` of `target_body`, `ambition.boss.conduct` v7). With
+  no move of his own, his book goes up 0.13 s into a blow that has not
+  struck yet: the robot's jab and tilts (0.05 to 0.07 s) are there before
+  the book, its smashes (0.22 to 0.3 s) are not. He starts no move into a
+  blow he reads. And when a blow of the player is over, he does not wait
+  for his turn: he strikes at once. So a blow on his book, or at the air
+  beside him, is paid for.
 - **A blow launches him**: away from the blow, in an arc, with no guard and
   no move until he has his feet again. The launch grows with each blow since
   the giant last threw (300, 450, 600 px/s), with the hearts of the blow, and
@@ -109,9 +117,8 @@ What this is NOT: his launch is a path the conductor computes (gravity, the
 ends of the back, the floor of the hall), not the engine's launch of a
 fighter. The player's blow gives its hearts and its side, not its launch
 vector; he has no DI and no tech. The roll and the string are his choice by
-count, not an answer to what the player does: the conductor does not see the
-player's swing. A fighter's body under a boss's encounter is still the large
-step (the debts document).
+count, not an answer to what the player does. A fighter's body under a
+boss's encounter is still the large step (the debts document).
 
 To photograph a blow with no player that swings: `capture_scene
 --boss-blow TICK[xHEARTS]`.
@@ -189,9 +196,9 @@ finish zoom, an impact flash, slash arcs, hit and swing sounds.
 1. **Play it.** Nothing here was seen in a window on a GPU. The numbers of
    the fight on the back (`choreography.rs`, `arms`: speeds, the launch, the
    roll, how long he is open) are a first cut for a hand to tune.
-2. **He answers the player**: the conductor's view of the player has a place
-   and a size, and no swing. With the swing in the view he can roll or guard
-   on a tell, and punish a miss. A guard that BREAKS is not built.
+2. **More answers to the player**: he guards a blow he reads and punishes a
+   blow that is over. Not built: a roll on a tell, a guard that BREAKS, a
+   grab for a player who holds his own guard.
 3. **A fighter's body under the boss's encounter**: the engine's launch (the
    blow's own vector, DI, a tech), in place of the conductor's path.
 4. His aerials and his specials in the fight on the back (he has no jump

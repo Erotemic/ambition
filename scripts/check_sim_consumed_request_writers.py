@@ -146,6 +146,12 @@ SUBJECTS: dict[str, tuple[str, dict[str, str]]] = {
                 "one session's trigger cannot start in the next. A different boundary "
                 "from the rollback one (read 2026-09-17)"
             ),
+            "game/ambition_demo_mary_o/src/castle_end.rs::the_robot_thanks_her": (
+                "PRODUCER, in `Platformer2dSimulationPhase::GameplayEffects` (the "
+                "`rules` chain of Mary-O) — in the sim schedule. Its edge is "
+                "`MaryOLevelState::tally_dwell == 0.0`, which is rollback state, so a "
+                "replay re-produces it (read 2026-10-11)"
+            ),
         },
     )
 }

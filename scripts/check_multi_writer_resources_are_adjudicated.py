@@ -579,10 +579,15 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/sim_core_resources.rs",
         "crates/ambition_portal2d/src/plugin.rs",
     ),
+    "CutsceneLibrary": (
+        "game/ambition_content/src/reload.rs",
+        "game/ambition_demo_mary_o/src/castle_end.rs",
+    ),
     "CutsceneTriggerQueue": (
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "game/ambition_demo_mary_o/src/castle_end.rs",
     ),
     "GameplayTraceBuffer": (
         "crates/ambition_encounter_features/src/systems.rs",
@@ -2384,6 +2389,15 @@ ADJUDICATED: dict[str, str] = {
         "`a_refused_replay_is_asked_again_until_one_is_admitted`). So a refusal "
         "costs one tick of dwell and nothing else, unlike the door's press."
     ),
+    "CutsceneLibrary": (
+        "CORRECT — ONE MAP, AND EACH PROVIDER WRITES THE ROWS OF ITS OWN IDS. "
+        "`reload.rs` takes out and puts in the rows the selected pack lowered, "
+        "and refuses a candidate that takes an id another provider holds "
+        "(`candidate_cutscene_ownership`). `castle_end.rs` puts in one row, "
+        "(`RESCUE_CUTSCENE`), one time, when the app is built "
+        "(`castle_end::install`); no system of it writes the library. READ "
+        "2026-10-11. Not measured: no test deletes one writer."
+    ),
     "CutsceneTriggerQueue": (
         "CORRECT BY COINCIDENCE — CUTSCENE-ROLLBACK-DECISION item 2: every "
         "producer happens to sit inside the sim schedule, so a replay "
@@ -3563,6 +3577,9 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
         "game/ambition_content/src/bosses/cut_rope/mod.rs",
+        # The theme of the cosmic form: a claim of the priority tier, as her
+        # death and her flag make (2026-10-11).
+        "game/ambition_demo_mary_o/src/cosmic.rs",
         "game/ambition_demo_mary_o/src/death.rs",
         "game/ambition_demo_mary_o/src/flag.rs",
         "game/ambition_demo_mary_o/src/star.rs",
@@ -3598,7 +3615,7 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
     ),
 }
 
-#: ⛤ **IT WAS FOUR TYPES AND EIGHT WRITERS ON 2026-09-17; IT IS TWO AND NINE.**
+#: ⛤ **IT WAS FOUR TYPES AND EIGHT WRITERS ON 2026-09-17; IT IS TWO AND TEN.**
 #: `RoomGeometry` and `RoomSet` left because their second writer was never a
 #: writer: the New Game processor (deleted 2026-09-29) bound both without `mut` — one an
 #: explicit *"A GUARD, NOT A WRITE TARGET"*, the other reading `.start` and

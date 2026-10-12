@@ -31,10 +31,8 @@ use bevy::{
 
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
-use ambition_platformer2d::render::rendering::actors::rigged::{
-    drive_rigged_presentations, PartSetDraws, PartSetRequest,
-};
-use ambition_platformer2d::render::rendering::PlayerVisual;
+use ambition_platformer2d::render::rendering::actors::rigged::{PartSetDraws, PartSetRequest};
+use ambition_platformer2d::render::rendering::{ActorOverlaySet, PlayerVisual};
 
 /// The tracks of her flipbook that are her body: her hair and her figure.
 /// Her wings, the ring about her head and the star of her crown are not
@@ -132,8 +130,9 @@ pub fn install(app: &mut App) {
         Update,
         (
             raise_her_barrier
-                // The parts of this frame, not of the last.
-                .after(drive_rigged_presentations)
+                // After the rigged driver, as each overlay of a body is: the
+                // parts of this frame, not of the last.
+                .in_set(ActorOverlaySet)
                 .run_if(resource_exists::<CosmicBarrierQuad>)
                 .run_if(resource_exists::<Assets<MaryOCosmicBarrierMaterial>>),
             drop_the_barrier_of_a_body_that_is_gone,

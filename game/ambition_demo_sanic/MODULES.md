@@ -12,8 +12,9 @@
 | [`pack`](src/pack.rs) | The Sanic demo's content pack. |
 | [`provider`](src/provider.rs) | The Sanic experience provider. |
 | [`scenery`](src/scenery.rs) | The scenery of a Sanic act: the goal post. |
+| [`trail`](src/trail.rs) | Dust where Sanic's speed shows: a puff at his feet while he runs, a spray of it when he skids. |
 
-_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

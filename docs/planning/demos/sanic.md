@@ -45,8 +45,16 @@ Built: `game/ambition_demo_sanic` (content) and `game/ambition_demo_sanic_app`
   and an entry of `BADNIKS` in `tools/author_highway_ldtk.py`; each act's
   script says which kind stands where.
 - The ground wears the skin of the act's biome: the earth takes the fill and
-  each segment of a chain takes the cap, turned to it
-  (`crates/ambition_render/src/rendering/chain_skin.rs`).
+  each segment of a chain takes a trim for its face (the cap on ground, the
+  side shade on a cliff, the underside on a ceiling). A loop and the ramp
+  into it are a band of earth
+  (`crates/ambition_render/src/rendering/chain_skin.rs`). The acts say
+  `foreground_treatment: none`: no layer is drawn in front of the course.
+- A goal post stands at the goal of each act and turns its sign over when
+  the act is cleared (`src/scenery.rs`, sheet `sanic_goal_post`).
+- The HUD shows the rings and the act's clock; the name of the act is on the
+  screen for its first 2.5 seconds. A running body leaves dust at its feet
+  and a skid sprays it (`src/trail.rs`).
 - Crossing the goal clears the act: the clock stops, time and rings are captured,
   a results card holds, and the act replays through `RoomReplayRequested`. After
   the goal the course takes the controls, so Sanic cannot coast off the level.

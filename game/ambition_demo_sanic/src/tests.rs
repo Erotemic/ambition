@@ -2597,3 +2597,18 @@ fn each_world_is_read_off_disk_unless_the_build_embeds_it() {
         );
     }
 }
+
+/// The clock the HUD shows counts hundredths, and each act has a name for
+/// its title card.
+#[test]
+fn the_act_clock_counts_hundredths_and_each_act_has_a_title() {
+    assert_eq!(act_clock_text(0.0), "0:00.00");
+    assert_eq!(act_clock_text(7.256), "0:07.25");
+    assert_eq!(act_clock_text(83.5), "1:23.50");
+    let numbers: Vec<u8> = [SPEEDWAY_ROOM_ID, HIGHWAY_ROOM_ID, DARKNESS_ROOM_ID]
+        .into_iter()
+        .map(|room| act_title(room).unwrap_or_else(|| panic!("`{room}` has no title")).1)
+        .collect();
+    assert_eq!(numbers, [1, 2, 3]);
+    assert_eq!(act_title("somewhere_else"), None);
+}

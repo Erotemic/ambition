@@ -1891,7 +1891,10 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
     // `SurfaceMomentum` body, so he has no `AxisManeuverState` and reads none of
     // these numbers. Taking him off costs the other motion model a seat for the
     // state, which is the engine gap the ledger records — not an authoring job.
-    const ON_THE_ENEMYS_BODY: usize = 19;
+    //
+    // RE-BASED 2026-10-11 TO 20 OF 22 for the same reason: `fdc6622e9` seated
+    // GNU-ton, who authors no feel. The two authors are unchanged.
+    const ON_THE_ENEMYS_BODY: usize = 20;
     assert_eq!(
         silent.len(),
         ON_THE_ENEMYS_BODY,

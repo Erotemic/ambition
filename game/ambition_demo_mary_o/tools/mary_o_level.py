@@ -323,7 +323,11 @@ class Level:
             self.marks.append((col + 1, row, "v" if down else "^"))
 
     def camera_zone(self, ident: str, name: str, row: int, tall: int) -> None:
-        """The camera stays in these rows while the player is in them."""
+        """The camera stays in these rows while the player is in them.
+
+        A body that stands on the top line of the zone is not in it (measured
+        on the roof of 1-2: her feet are on the line at each tick, and a box
+        that touches a zone is not in it)."""
         self._entity(
             "CameraZone",
             (0, row * T),

@@ -221,6 +221,35 @@ pub fn come_back_from_the_form(
     }
 }
 
+/// The sky of a level has a top: a body of the player that goes up in the
+/// air stops at the top of its room.
+///
+/// The form has a jump for each press, so she went up with no end: 4400 px
+/// over the top of 1-1 in ten seconds (measured, 2026-10-11). The view stays
+/// in the room, so she was out of it, and the view went up and down as it
+/// looked for her (Jon: "a camera bug when you are above the intended play
+/// zone, it keeps snapping up and down"). A body on the ground is not moved:
+/// a ledge near the top of a room is a place she can stand, with her head
+/// over the top.
+pub fn the_sky_has_a_top(
+    mut bodies: Query<
+        (&mut ae::BodyKinematics, &ae::BodyGroundState),
+        With<ambition_platformer2d::platformer::markers::PlayerEntity>,
+    >,
+) {
+    for (mut kin, ground) in &mut bodies {
+        let half = kin.size.y * 0.5;
+        // The top of a room is the line y = 0 of its own space.
+        if ground.on_ground || kin.pos.y >= half {
+            continue;
+        }
+        kin.pos.y = half;
+        if kin.vel.y < 0.0 {
+            kin.vel.y = 0.0;
+        }
+    }
+}
+
 /// The verbs the form lends: the jump in the air.
 fn lent_verbs() -> ae::AbilitySet {
     ae::AbilitySet {

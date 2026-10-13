@@ -467,8 +467,9 @@ review_cues=(
     merchant_prototype raid_enforcer fascist_enforcer
     # Named characters whose YAML manifests already live in $sprites_dir.
     # bob is NOT here any more -- see `tackon_targets`, the same move as oiler.
-    alice craig eve general_hero judy mallory olivia
-    peggy sybil trent trudy victor walter
+    # The cryptography crew but for Alice are NOT here any more -- they are
+    # rigged module targets (`crypto_crew.py`), in the roster below.
+    alice general_hero
     # Phase 6 + bonus follow-up: every review config is now an
     # actual catalog character. Install the rest so the Hall of
     # Characters has a sprite for each.
@@ -757,6 +758,7 @@ tackon_targets=(
     willson
     ramen_nujan
     erdish
+    craig eve judy mallory olivia peggy sybil trent trudy victor walter
     jeff_hinter
     jeff_hinter_armored
     m_leblanc

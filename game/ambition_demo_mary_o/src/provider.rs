@@ -144,6 +144,7 @@ impl Plugin for MaryOExperiencePlugin {
         crate::install_mary_o_content(app);
         crate::quasar_shader::install(app);
         crate::shimmer_shader::install(app);
+        crate::pipe_signs::install(app);
         crate::fire_shader::install(app);
         crate::void_look::install(app);
         crate::cosmic_aura::install(app);

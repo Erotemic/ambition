@@ -307,3 +307,91 @@ fn every_component_in_a_hosted_level_is_registered_derived_or_waived() {
         );
     }
 }
+
+/// In the HOST, a pipe of the warp room puts her at the START of its level.
+///
+/// Jon, 2026-10-12: "the warp seems to drop you in the middle of the level
+/// instead of the start of it". The demo app test of the same trip was green:
+/// the two compositions run the arrival and the pipe rules in a different
+/// order, as the top of this file says of the lap.
+#[test]
+fn a_warp_pipe_in_the_host_arrives_at_the_start_of_its_level() {
+    use ambition_demo_mary_o::pipe::PipeTransit;
+
+    const WARP_ROOM: &str = "mary_o_warp";
+    const TO: &str = "mary_o_1_3";
+
+    fn place(app: &mut App, pos: ae::Vec2) {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&mut ae::BodyKinematics, With<PrimaryPlayer>>();
+        let world = app.world_mut();
+        let mut body = q.iter_mut(world).next().expect("a controlled body");
+        body.pos = pos;
+        body.vel = ae::Vec2::ZERO;
+    }
+    fn arrive(app: &mut App, room: &str) {
+        for _ in 0..COMMIT_CAP {
+            app.update();
+            if room_id(app).as_deref() == Some(room) {
+                for _ in 0..30 {
+                    app.update();
+                }
+                return;
+            }
+        }
+        panic!("in the HOST she did not get to `{room}`: the room is {:?}", room_id(app));
+    }
+
+    let mut app = host_app();
+    for _ in 0..8 {
+        app.update();
+    }
+    launch(&mut app, "Mary-O");
+
+    // Into the sky zone of 1-1, which leads to the warp room.
+    let sky = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .expect("a live room")
+        .loading_zones
+        .first()
+        .expect("1-1 has its sky zone")
+        .aabb;
+    place(&mut app, (sky.min + sky.max) * 0.5);
+    arrive(&mut app, WARP_ROOM);
+
+    // Into the pipe to 1-3: the transit a press on its mouth begins.
+    let pipe = ambition_demo_mary_o::warp_pipes_for_room(WARP_ROOM)
+        .iter()
+        .find(|pipe| pipe.room == TO)
+        .expect("the warp room has a pipe to 1-3")
+        .mouth
+        .aabb;
+    let on_it = ae::Vec2::new((pipe.min.x + pipe.max.x) * 0.5, pipe.min.y - 16.0);
+    place(&mut app, on_it);
+    {
+        let mut q = app.world_mut().query_filtered::<Entity, With<PrimaryPlayer>>();
+        let body = q.iter(app.world()).next().expect("a controlled body");
+        app.world_mut().entity_mut(body).insert(PipeTransit::begin_leaving(
+            on_it,
+            (pipe.min + pipe.max) * 0.5,
+            ae::Vec2::new(0.0, 1.0),
+            32.0,
+        ));
+    }
+    arrive(&mut app, TO);
+
+    let start = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .expect("a live room")
+        .world
+        .spawn;
+    let mut q = app
+        .world_mut()
+        .query_filtered::<(&ae::BodyKinematics, Has<PipeTransit>), With<PrimaryPlayer>>();
+    let (kin, in_a_pipe) = q.iter(app.world()).next().expect("a controlled body in 1-3");
+    assert!(
+        (kin.pos.x - start.x).abs() < 48.0,
+        "the pipe to 1-3 put her at {:?}; the start of 1-3 is {start:?} and the pipe is at {on_it:?}",
+        kin.pos
+    );
+    assert!(!in_a_pipe, "the pipe transit of the warp room went with her to 1-3");
+}

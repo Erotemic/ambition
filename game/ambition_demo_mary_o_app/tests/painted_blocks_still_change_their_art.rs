@@ -499,3 +499,63 @@ fn place_player(app: &mut App, pos: Vec2) {
 fn live_room(world: &World) -> ambition_platformer2d::platformer::lifecycle::LiveRoomInstance {
     *ambition_platformer2d::session::sole_live_room_component(world).expect("the course is one live room")
 }
+
+/// A brick that held coins, in a room whose blocks wear the skin of its
+/// biome, is a used block when its coins are gone.
+///
+/// Jon, 2026-10-12: "multi-hit blocks or hidden blocks don't get the 'spent'
+/// visual correctly after they are used up." The skin of a room is pieces in
+/// front of the sprite of each block. The brick got its used-block art, under
+/// its skin, and looked as it did before. 1-2 was the only room these tests
+/// were in, and its hidden block is painted: it has no skin.
+#[test]
+fn a_used_up_brick_in_a_skinned_room_wears_the_spent_plate_and_no_skin() {
+    use ambition_platformer2d::render::rendering::terrain_skin::TerrainTrim;
+
+    const SKY_LEVEL: &str = "mary_o_1_3";
+    let mut app = build_windowed_demo_app_entering(
+        RenderMode::Headless,
+        ambition_demo_mary_o::MARY_O_GAMEPLAY_ROUTE,
+        SKY_LEVEL,
+    );
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f32(1.0 / 60.0),
+    ));
+    for _ in 0..120 {
+        app.update();
+    }
+    let brick = ambition_demo_mary_o::authored_level(SKY_LEVEL)
+        .world
+        .blocks
+        .into_iter()
+        // The record of what is spent is written here, so each brick of the
+        // room is as good as the one that holds coins.
+        .find(|block| block_look_of(&block.name) == Some(MaryOBlockLook::Brick))
+        .expect("1-3 authors a brick");
+
+    fn skin_pieces(app: &mut App, geo_id: &ae::GeoId) -> usize {
+        let mut blocks = app.world_mut().query::<(&BlockVisual, Option<&Children>)>();
+        let children: Vec<Entity> = blocks
+            .iter(app.world())
+            .find(|(visual, _)| &visual.geo_id == geo_id)
+            .and_then(|(_, children)| children.map(|children| children.iter().collect()))
+            .unwrap_or_default();
+        children.into_iter().filter(|child| app.world().entity(*child).contains::<TerrainTrim>()).count()
+    }
+    assert!(
+        skin_pieces(&mut app, &brick.id) > 0,
+        "the brick has no skin BEFORE it is used up, so this probe can say nothing about what the skin does to its new art",
+    );
+
+    let room = live_room(app.world());
+    app.world_mut().resource_mut::<SpentPowerBlocks>().in_room_mut(room).spend(brick.id.clone());
+    for _ in 0..30 {
+        app.update();
+    }
+    assert_eq!(
+        drawn_image_opt(&mut app, &brick.id),
+        Some(art(&app, EntitySprite::SpentBlockTile)),
+        "a used-up brick is not wearing the spent plate",
+    );
+    assert_eq!(skin_pieces(&mut app, &brick.id), 0, "the skin of the room is in front of the spent plate");
+}

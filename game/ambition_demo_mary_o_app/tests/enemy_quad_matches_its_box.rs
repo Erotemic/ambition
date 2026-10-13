@@ -76,11 +76,15 @@ fn the_ai_slops_box_has_the_shape_its_sheet_publishes() {
         1.0,
     )
     .expect("the AI Slop's sheet publishes body metrics");
-    let sheet_aspect = sheet.collision.x / sheet.collision.y;
+    // The body is the heap where it is high. The skirt of its puddle and its
+    // sparkles are in the picture and not in the box: the box is the middle
+    // part of the frame (Jon, 2026-10-12: the box went past what he could
+    // see; it was 161 of the 192 px of the frame, and the heap is 101).
     assert!(
-        sheet_aspect > 1.2,
-        "this test exists because the slop is WIDER than it is tall ({sheet_aspect:.2}:1); \
-         if the art became square the square box was never the bug"
+        sheet.collision.x < sheet.render.x * 0.6,
+        "the box of the slop is {} px of a frame of {} px: the skirt of its puddle is in it",
+        sheet.collision.x,
+        sheet.render.x
     );
 
     // Exercise the production sizing function rather than recomputing its
@@ -101,17 +105,12 @@ fn the_ai_slops_box_has_the_shape_its_sheet_publishes() {
         "the derived body is {width:.1} wide, not the {authored:.1} its row authors — \
          width is the anchor and every level is placed against it"
     );
+    // The shape is the shape of the sheet: the scale is one number for the
+    // width and for the height.
+    let sheet_aspect = sheet.collision.x / sheet.collision.y;
     assert!(
-        (height - width).abs() > TILE * 0.25,
-        "the derived body came out near-square ({width:.1} x {height:.1}), which \
-         means the derivation is not doing anything and the splat could come back \
-         unnoticed"
-    );
-    // the number this replaced, stated so the change is legible: the splat put
-    // 28 x 28 on a creature whose art is 28 x ~18.
-    assert!(
-        height < width,
-        "an AI Slop is a wide low blob; its box measured {width:.1} x {height:.1}"
+        (width / height - sheet_aspect).abs() < 0.01,
+        "the derived body is {width:.1} x {height:.1}, and the sheet's is {sheet_aspect:.2}:1"
     );
 }
 

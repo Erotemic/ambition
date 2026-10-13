@@ -168,3 +168,33 @@ fn a_player_of_another_live_room_does_not_touch() {
         );
     }
 }
+
+/// ⛔ A TOUCH IS BETWEEN THE BOXES THE BODIES COLLIDE WITH. A player in
+/// sideways gravity (its last step's DOWN is +X) lies along its wall: its
+/// 24 x 44 body is a 44 x 24 box. Beside the walker, that box meets the
+/// walker's side and the level box does not. The control is the same player
+/// with no turned step, which does not touch. The module is given the turned
+/// box too.
+#[test]
+fn a_touch_is_between_the_boxes_the_bodies_collide_with() {
+    for turned in [true, false] {
+        let mut app = app();
+        let body = walker(&mut app, WALKER, ae::Vec2::new(100.0, 900.0));
+        // The walker's side is at x = 120: the level box (half 12) stops at
+        // 128, the turned box (half 22) at 118.
+        let beside = player(&mut app, "p1", ae::Vec2::new(140.0, 900.0), ae::Vec2::ZERO);
+        if turned {
+            let kin = *app.world().get::<ae::BodyKinematics>(beside).unwrap();
+            app.world_mut().entity_mut(beside).insert(ae::SweepSample::at_rest(kin, ae::Vec2::X));
+        }
+        app.world_mut().run_schedule(Sim);
+        let table: Vec<(Entity, Vec<Entity>)> =
+            app.world().resource::<ContactTouchers>().0.iter().map(|(body, _, touchers)| (*body, touchers.clone())).collect();
+        let expected = if turned { vec![(body, vec![beside])] } else { vec![] };
+        assert_eq!(table, expected, "turned {turned}: the player touches the walker only with its turned box");
+    }
+    let kin = ae::BodyKinematics { pos: ae::Vec2::new(140.0, 900.0), size: ae::Vec2::new(24.0, 44.0), ..Default::default() };
+    let step = ae::SweepSample::at_rest(kin, ae::Vec2::X);
+    assert_eq!(contact_body(&kin, Some(&step)).size, [44.0, 24.0], "the module is given the box the body collides with");
+    assert_eq!(contact_body(&kin, None).size, [24.0, 44.0], "with no step, the level box");
+}

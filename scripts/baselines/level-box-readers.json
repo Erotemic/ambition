@@ -159,28 +159,13 @@
       "class": "a shot"
     },
     {
-      "file": "game/ambition_demo_mary_o/src/ai_slop.rs",
-      "code": "if player_touch(mob_kin.aabb(), p, pvel) != Some(PlayerTouch::Top) {",
-      "class": "a game with no turned gravity"
-    },
-    {
       "file": "game/ambition_demo_mary_o/src/lib.rs",
       "code": "let body = ae::Aabb::new(kin.pos, kin.size * 0.5);",
       "class": "a game with no turned gravity"
     },
     {
       "file": "game/ambition_demo_mary_o/src/snake.rs",
-      "code": "let touch = player_box.and_then(|(p, _, pvel)| player_touch(kin.aabb(), p, pvel));",
-      "class": "a game with no turned gravity"
-    },
-    {
-      "file": "game/ambition_demo_mary_o/src/snake.rs",
       "code": "kin.aabb(),",
-      "class": "a game with no turned gravity"
-    },
-    {
-      "file": "game/ambition_demo_mary_o/src/plant.rs",
-      "code": "let player = players.single().ok().map(|kin| kin.aabb());",
       "class": "a game with no turned gravity"
     },
     {
@@ -217,6 +202,31 @@
       "file": "crates/ambition_platformer2d_actor_monolith/src/avatar/body_integration.rs",
       "code": "&& platform.is_supporting_body(kin.aabb(), ground.on_ground, ae::Vec2::Y)",
       "class": "a lift's rider test at level gravity"
+    },
+    {
+      "file": "game/ambition_demo_mary_o/src/castle_end.rs",
+      "code": "half: kin.size * 0.5,",
+      "class": "a game with no turned gravity"
+    },
+    {
+      "file": "game/ambition_demo_mary_o/src/plant.rs",
+      "code": "let player_box = kin.aabb();",
+      "class": "a game with no turned gravity"
+    },
+    {
+      "file": "game/ambition_demo_mary_o/src/snake.rs",
+      "code": "players.iter().map(|(player, kin)| (player, rooms.of(player), kin.aabb(), kin.pos, kin.vel)).collect();",
+      "class": "a game with no turned gravity"
+    },
+    {
+      "file": "game/ambition_demo_mary_o/src/snake.rs",
+      "code": ".map(|(player, _, aabb, pos, vel)| (*player, *pos, player_touch(kin.aabb(), *aabb, *vel)))",
+      "class": "a game with no turned gravity"
+    },
+    {
+      "file": "game/ambition_demo_sanic/src/badnik.rs",
+      "code": "(player, rooms.of(player), kin.aabb(), kin.vel, rolling.is_some(), harms_on_contact, id.cloned())",
+      "class": "a game with no turned gravity"
     }
   ]
 }

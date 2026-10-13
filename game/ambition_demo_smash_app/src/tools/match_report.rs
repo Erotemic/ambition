@@ -121,7 +121,7 @@ pub struct MatchReportArgs {
     /// Load an authored difficulty ladder from a `.ron` and install it.
     ///
     /// Without it, this reports the engine floor, not the shipped game:
-    /// `build_demo_app` installs no `AuthoredFighterLadder`, so every seat
+    /// `build_demo_app` declares no fighter ladder, so every seat
     /// carries `UtilityWeights::default()` (the level-9 row) at level-5
     /// reaction, APM, and noise.
     #[arg(long, value_name = "PATH")]
@@ -149,7 +149,7 @@ pub fn run(args: MatchReportArgs) {
                     eprintln!("[match_report] --ladder {path} did not parse: {err}");
                     std::process::exit(2);
                 });
-        ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder(ladder)
+        ladder
     });
     // Name the ladder before the first number. Do it here, not in a report
     // function: `runs == 1` and `runs > 1` take different report paths.
@@ -294,11 +294,11 @@ fn run_one(
     // Out-param: the header must measure the composition, and this is where
     // a built app is in hand. Filled on every run.
     carried: &mut Vec<String>,
-    authored_ladder: Option<&ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder>,
+    authored_ladder: Option<&ambition_platformer2d::characters::brain::fighter::FighterBrainLadder>,
 ) -> Vec<Tally> {
     let mut app = build_demo_app();
     if let Some(ladder) = authored_ladder {
-        app.world_mut().insert_resource(ladder.clone());
+        super::declare_smash_ladder(&mut app, ladder.clone());
     }
     #[cfg(feature = "causal")]
     {

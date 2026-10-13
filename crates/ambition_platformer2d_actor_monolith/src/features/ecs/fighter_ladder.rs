@@ -8,6 +8,12 @@ use ambition_characters::brain::{Brain, StateMachineCfg};
 
 /// Project the game's authored fighter difficulty rung into fighter brains.
 ///
+/// The ladder is a rule of the rooms it governs (Q88: the game owns the
+/// mapping from "CPU level N" to the brain's knobs). Each brain reads the
+/// ladder declared for its own live room: Smash's in a Smash room, Ambition's
+/// in an Ambition room. A brain in a room that no game gave a ladder keeps the
+/// profile it was built with, the engine floor.
+///
 /// Rebuild `FighterState` so profile-cached perception and habit fields match the
 /// authored rung, while preserving the fighter's existing noise-stream position.
 /// The projection is idempotent and only rewrites when the rung differs.
@@ -18,7 +24,7 @@ use ambition_characters::brain::{Brain, StateMachineCfg};
 /// LIVE session keeps running this system every frame. Change detection
 /// compares a component's added tick against the SYSTEM'S last run, so by the
 /// time a candidate is adopted its brains are no longer newly added — and this
-/// is the only production consumer of `AuthoredFighterLadder`, so such a
+/// is the only production consumer of the authored ladder, so such a
 /// fighter kept `FighterBrainProfile::for_level`, the ENGINE FLOOR, in a game
 /// that authored a ladder. Silent: a floor profile is a valid profile.
 ///
@@ -35,8 +41,8 @@ use ambition_characters::brain::{Brain, StateMachineCfg};
 ///
 /// ⛔⛤ **IT MUST STAY IN THE SIMULATION SCHEDULE, AND THAT IS A TRANSACTION
 /// CONSTRAINT RATHER THAN A PERFORMANCE ONE.** A 2026-09-19 review raised it:
-/// `AuthoredFighterLadder` is an App-global resource that
-/// `commit_content_generation` republishes at generation N+1 partway through
+/// The content ladder is a declaration that `commit_content_generation`
+/// restates at generation N+1 partway through
 /// `Update` — `.after(AmbitionGameShellSet::Pending)`, `.before(GameplaySessionSet::Providers)`
 /// — and the candidate that owns N+1 is adopted at the far end of that span.
 /// A projection running inside the span would rewrite the LIVE session's
@@ -50,20 +56,34 @@ use ambition_characters::brain::{Brain, StateMachineCfg};
 /// `reload_publication_is_installed::no_simulation_tick_falls_between_the_generation_commit_and_its_adoption`,
 /// poison-verified by registering this system in `Update` as well.
 pub fn project_authored_fighter_ladder(
-    ladder: Option<bevy::prelude::Res<ambition_characters::brain::fighter::AuthoredFighterLadder>>,
-    mut brains: bevy::prelude::Query<&mut Brain>,
+    ladders: crate::session::governing_rules::RulesOf<ambition_characters::brain::fighter::FighterBrainLadder>,
+    mut brains: bevy::prelude::Query<(bevy::prelude::Entity, &mut Brain)>,
 ) {
-    let Some(ladder) = ladder else {
-        // No ladder shipped: the engine floor is the answer, which is the rule
-        // `profile_for_level` states.
-        return;
-    };
-    for mut brain in &mut brains {
+    // One resolution for each room, not one for each fighter: a resolution
+    // clones the ladder's rows.
+    let mut by_room: Vec<(
+        Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        Option<ambition_characters::brain::fighter::FighterBrainLadder>,
+    )> = Vec::new();
+    for (entity, mut brain) in &mut brains {
         let wanted = {
             let Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) = &*brain else {
                 continue;
             };
-            let Some(rung) = ladder.0.level(cfg.profile.level) else {
+            let room = ladders.room_of(entity);
+            let index = match by_room.iter().position(|(seen, _)| *seen == room) {
+                Some(index) => index,
+                None => {
+                    by_room.push((room, ladders.in_live_room(room)));
+                    by_room.len() - 1
+                }
+            };
+            // No ladder governs this room: the engine floor is the answer,
+            // which is the rule `profile_for_level` states.
+            let Some(ladder) = &by_room[index].1 else {
+                continue;
+            };
+            let Some(rung) = ladder.level(cfg.profile.level) else {
                 continue;
             };
             if cfg.profile == *rung {
@@ -86,7 +106,8 @@ pub fn project_authored_fighter_ladder(
 #[cfg(test)]
 mod ladder_projection_tests {
     use super::*;
-    use ambition_characters::brain::fighter::{AuthoredFighterLadder, FighterBrainLadder};
+    use ambition_characters::brain::fighter::FighterBrainLadder;
+    use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
     use bevy::prelude::*;
 
     /// Two rungs that differ from the engine floor in the way the SHIPPED ladder
@@ -135,9 +156,10 @@ mod ladder_projection_tests {
     #[test]
     fn a_spawned_fighter_takes_the_authored_rung_over_the_floor() {
         let mut app = App::new();
-        app.insert_resource(AuthoredFighterLadder(
+        app.declare_rules(
+            RulesScope::EveryRoom,
             FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
-        ));
+        );
         app.add_systems(Update, project_authored_fighter_ladder);
 
         let floor = ambition_characters::brain::fighter::FighterBrainProfile::for_level(1);
@@ -160,6 +182,43 @@ mod ladder_projection_tests {
         assert_eq!(projected.apm_cap, 60.0, "the authored action cap");
     }
 
+    /// ⭐ **EACH FIGHTER READS THE LADDER OF ITS OWN ROOM.** One binary hosts
+    /// several games (Ambition hosts Smash), and the ladder is the game's
+    /// rule (Q88). As one App-global resource, the second installer would
+    /// have won in every room. Here the hall (no mode) declares `LADDER` and
+    /// the Smash stage declares a ladder whose level 1 caps at 30 actions; a
+    /// fighter in each room takes its own room's row, and a fighter in no live
+    /// room keeps the floor.
+    #[test]
+    fn each_fighter_takes_the_rung_of_its_own_rooms_ladder() {
+        use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+        let mut app = App::new();
+        app.declare_rules(
+            RulesScope::UntaggedRooms,
+            FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
+        );
+        app.declare_rules(
+            RulesScope::Mode("smash"),
+            FighterBrainLadder::from_ron(&LADDER.replace("apm_cap: 60.0", "apm_cap: 30.0"))
+                .expect("the stage's ladder parses"),
+        );
+        let hall = crate::session::governing_rules::tests::two_game_session(&mut app, true);
+        app.add_systems(Update, project_authored_fighter_ladder);
+        let in_hall = app.world_mut().spawn((fighter_brain(1), InRoomInstance(hall))).id();
+        let on_stage = app.world_mut().spawn((fighter_brain(1), InRoomInstance(hall.next()))).id();
+        let nowhere = app.world_mut().spawn(fighter_brain(1)).id();
+        app.update();
+
+        let apm = |entity| profile_of(app.world().get::<Brain>(entity).expect("brain")).apm_cap;
+        assert_eq!(apm(in_hall), 60.0, "the fighter in the hall did not take the hall's ladder");
+        assert_eq!(apm(on_stage), 30.0, "the fighter on the Smash stage did not take Smash's ladder");
+        assert_eq!(
+            profile_of(app.world().get::<Brain>(nowhere).expect("brain")),
+            ambition_characters::brain::fighter::FighterBrainProfile::for_level(1),
+            "a fighter in no live room took a ladder that governs no room it is in"
+        );
+    }
+
     /// **No ladder means the floor, which is the engine's stated rule.**
     #[test]
     fn without_a_ladder_the_engine_floor_stands() {
@@ -179,9 +238,10 @@ mod ladder_projection_tests {
     #[test]
     fn projecting_twice_lands_on_the_same_brain() {
         let mut app = App::new();
-        app.insert_resource(AuthoredFighterLadder(
+        app.declare_rules(
+            RulesScope::EveryRoom,
             FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
-        ));
+        );
         app.add_systems(Update, project_authored_fighter_ladder);
         let entity = app.world_mut().spawn(fighter_brain(2)).id();
         app.update();
@@ -216,9 +276,10 @@ mod ladder_projection_tests {
     #[test]
     fn a_profile_written_from_outside_is_reverted_on_the_very_next_tick() {
         let mut app = App::new();
-        app.insert_resource(AuthoredFighterLadder(
+        app.declare_rules(
+            RulesScope::EveryRoom,
             FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
-        ));
+        );
         app.add_systems(Update, project_authored_fighter_ladder);
         let entity = app.world_mut().spawn(fighter_brain(1)).id();
         app.update();
@@ -264,9 +325,10 @@ mod ladder_projection_tests {
     #[test]
     fn the_revert_rebuilds_the_state_so_a_losing_writer_wipes_the_fighter_each_tick() {
         let mut app = App::new();
-        app.insert_resource(AuthoredFighterLadder(
+        app.declare_rules(
+            RulesScope::EveryRoom,
             FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
-        ));
+        );
         app.add_systems(Update, project_authored_fighter_ladder);
         let entity = app.world_mut().spawn(fighter_brain(1)).id();
         app.update();
@@ -303,9 +365,10 @@ mod ladder_projection_tests {
     #[test]
     fn the_projection_carries_the_stream_it_was_handed() {
         let mut app = App::new();
-        app.insert_resource(AuthoredFighterLadder(
+        app.declare_rules(
+            RulesScope::EveryRoom,
             FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
-        ));
+        );
         app.add_systems(Update, project_authored_fighter_ladder);
         let entity = app.world_mut().spawn(fighter_brain(1)).id();
         app.update();
@@ -338,7 +401,7 @@ mod ladder_projection_tests {
     /// session, for every frame the candidate stays hidden. By the time the
     /// candidate is adopted its brains are no longer "added" relative to a
     /// system that has run since, so the one production consumer of
-    /// `AuthoredFighterLadder` never sees them and the fighter keeps
+    /// the authored ladder never sees them and the fighter keeps
     /// `FighterBrainProfile::for_level`, the ENGINE FLOOR, in a game that
     /// authored a ladder.
     ///
@@ -367,9 +430,10 @@ mod ladder_projection_tests {
         let scope = SessionScopeId(7);
         let mut app = App::new();
         register_inactive_candidate_filter(app.world_mut());
-        app.insert_resource(AuthoredFighterLadder(
+        app.declare_rules(
+            RulesScope::EveryRoom,
             FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
-        ));
+        );
         app.add_systems(Update, project_authored_fighter_ladder);
 
         // Built hidden, exactly as a candidate session builds its population:
@@ -411,9 +475,10 @@ mod ladder_projection_tests {
     #[test]
     fn an_unauthored_level_keeps_the_floor() {
         let mut app = App::new();
-        app.insert_resource(AuthoredFighterLadder(
+        app.declare_rules(
+            RulesScope::EveryRoom,
             FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
-        ));
+        );
         app.add_systems(Update, project_authored_fighter_ladder);
         let entity = app.world_mut().spawn(fighter_brain(7)).id();
         app.update();

@@ -896,18 +896,20 @@ pub(crate) fn candidate_quest_book(
 
 /// Absent in the candidate means remove, not keep. See
 /// [`publish_participant_families`]; `profile_for_level` treats absent as the
-/// engine floor.
+/// engine floor. Only this pack's own declaration (every room) is restated: a
+/// hosted game's declaration for its mode is that game's.
 fn publish_fighter_ladder(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
 ) {
-    use ambition_characters::brain::fighter::AuthoredFighterLadder;
-    match ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(pack) {
-        Some(ladder) => world.insert_resource(AuthoredFighterLadder(ladder.clone())),
-        None => {
-            world.remove_resource::<AuthoredFighterLadder>();
-        }
-    }
+    use ambition_combat::scoped_rules::{DeclaredRules, RulesScope};
+    let ladder =
+        ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(pack).cloned();
+    world
+        .get_resource_or_insert_with(
+            DeclaredRules::<ambition_characters::brain::fighter::FighterBrainLadder>::default,
+        )
+        .restate(RulesScope::EveryRoom, ladder);
 }
 
 /// Absent in the candidate means remove. `ItemCatalogRead` treats an absent

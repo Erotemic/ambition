@@ -2969,8 +2969,8 @@ fn a_candidate_that_would_fail_admission_is_refused_before_the_request_is_issued
 // new authority. The family is `fighter_brain_ladder`. (Items joined later,
 // on 2026-10-01, when the catalog became an App-local resource; see
 // `a_candidate_that_changes_only_items_publishes_the_item_catalog`.)
-// The ladder is one declared source with one lowering site, published as a
-// plain `AuthoredFighterLadder` resource.
+// The ladder is one declared source with one lowering site, published as
+// this pack's declaration for every room.
 // ---------------------------------------------------------------------------
 
 const LADDER_PATH: &str = "data/fighter_brain_ladder.ron";
@@ -3001,10 +3001,35 @@ fn pack_with_a_faster_first_rung() -> ambition_content_pack::PreparedContentPack
     pack
 }
 
+type Ladders =
+    ambition_combat::scoped_rules::DeclaredRules<ambition_characters::brain::fighter::FighterBrainLadder>;
+
+/// The ladder that governs Ambition's rooms (the rooms with no mode tag), if
+/// any.
+fn ambitions_ladder(
+    world: &bevy::ecs::world::World,
+) -> Option<ambition_characters::brain::fighter::FighterBrainLadder> {
+    world.get_resource::<Ladders>()?.governing(ambition_combat::scoped_rules::ActiveRoom::Untagged)
+}
+
+/// Declare the shipped pack's ladder for every room, as the content plugin
+/// does at startup.
+fn declare_the_shipped_ladder(world: &mut bevy::ecs::world::World) {
+    world.get_resource_or_insert_with(Ladders::default).restate(
+        ambition_combat::scoped_rules::RulesScope::EveryRoom,
+        Some(
+            ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
+                crate::pack::shipped(),
+            )
+            .cloned()
+            .expect("the shipped pack lowers its ladder"),
+        ),
+    );
+}
+
 fn live_first_rung(app: &bevy::app::App) -> f32 {
-    app.world()
-        .resource::<ambition_characters::brain::fighter::AuthoredFighterLadder>()
-        .0
+    ambitions_ladder(app.world())
+        .expect("Ambition declares a ladder for its own rooms")
         .level(1)
         .expect("the shipped ladder has a level 1")
         .reaction_ms
@@ -3018,14 +3043,7 @@ fn live_first_rung(app: &bevy::app::App) -> f32 {
 #[test]
 fn the_fighter_ladder_is_the_second_family_the_transaction_carries() {
     let mut app = host_with_the_shipped_cast();
-    app.world_mut()
-        .insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
-            ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
-                crate::pack::shipped(),
-            )
-            .cloned()
-            .expect("the shipped pack lowers its ladder"),
-        ));
+    declare_the_shipped_ladder(app.world_mut());
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
@@ -3105,13 +3123,7 @@ fn the_fighter_ladder_is_the_second_family_the_transaction_carries() {
 #[test]
 fn a_candidate_that_declares_no_ladder_removes_the_live_one() {
     let mut world = bevy::ecs::world::World::new();
-    world.insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
-        ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
-            crate::pack::shipped(),
-        )
-        .cloned()
-        .expect("the shipped pack lowers its ladder"),
-    ));
+    declare_the_shipped_ladder(&mut world);
     let ladderless = pack_of(&doc_text(0.2)).expect("the synthetic pack compiles");
     assert!(
         ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(&ladderless)
@@ -3122,9 +3134,7 @@ fn a_candidate_that_declares_no_ladder_removes_the_live_one() {
     crate::reload::publish_participant_families(&mut world, &ladderless);
 
     assert!(
-        world
-            .get_resource::<ambition_characters::brain::fighter::AuthoredFighterLadder>()
-            .is_none(),
+        ambitions_ladder(&world).is_none(),
         "the candidate declares no ladder and generation N's rungs are still live, \
          so `profile_for_level` reports authored difficulty the pack no longer \
          carries"
@@ -3245,9 +3255,7 @@ fn the_encounter_wave_book_is_the_third_family_the_transaction_carries() {
 fn publishing_a_generation_installs_every_pack_derived_family() {
     let mut world = bevy::ecs::world::World::new();
     assert!(
-        world
-            .get_resource::<ambition_characters::brain::fighter::AuthoredFighterLadder>()
-            .is_none()
+        ambitions_ladder(&world).is_none()
             && world
                 .get_resource::<ambition_encounter::EncounterWaveBook>()
                 .is_none(),
@@ -3258,9 +3266,7 @@ fn publishing_a_generation_installs_every_pack_derived_family() {
     crate::reload::publish_participant_families(&mut world, crate::pack::shipped());
 
     assert!(
-        world
-            .get_resource::<ambition_characters::brain::fighter::AuthoredFighterLadder>()
-            .is_some(),
+        ambitions_ladder(&world).is_some(),
         "`fighter_brain_ladder` is declared in PACK_DERIVED_FAMILIES and the \
          shipped pack lowers it, but publishing a generation did not install it"
     );
@@ -3292,14 +3298,7 @@ fn a_ladder_only_generation_needs_no_technique_table() {
         "the fixture did not install a technique table, so removing it proves \
          nothing about a generation that does not need one"
     );
-    app.world_mut()
-        .insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
-            ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
-                crate::pack::shipped(),
-            )
-            .cloned()
-            .expect("the shipped pack lowers its ladder"),
-        ));
+    declare_the_shipped_ladder(app.world_mut());
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,

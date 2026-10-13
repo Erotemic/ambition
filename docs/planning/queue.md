@@ -1361,7 +1361,7 @@ rules/content; another game can build the brain with no ladder; no authored
 ladder field is inert.
 
 **Measured 2026-10-08 (NamekAmbition):** the Smash demo app installs no
-`AuthoredFighterLadder` (`the_ladder_the_demo_runs.rs` pins the floor).
+fighter ladder (`the_ladder_the_demo_runs.rs` pins the floor).
 `ambition_content` `plugin.rs` and `reload.rs` (`publish_fighter_ladder`)
 are the only installers. A Smash pack source may name a file outside its
 root, as George's facet does.
@@ -1371,9 +1371,16 @@ root, as George's facet does.
 plays it. The order of the move is in
 [`fighter-brain.md` F1](engine/fighter-brain.md#f1--the-authored-ladder-is-the-authority-q88-2026-10-03):
 the ladder becomes a rule scoped to the rooms it governs (`ambition_app`
-composes Smash, so a second `AuthoredFighterLadder` installer would make two
-authorities), Smash declares its pack's rows for its mode, and then the floor
-becomes one level-free default.
+composes Smash, so a second global installer would make two authorities),
+Smash declares its pack's rows for its mode, and then the floor becomes one
+level-free default.
+
+**Built 2026-10-13 (step 1):** the global resource is deleted; the ladder is
+`DeclaredRules<FighterBrainLadder>`, declared by `ambition_content` for every
+room and restated by its reload; each brain reads its own room's ladder.
+Witness `each_fighter_takes_the_rung_of_its_own_rooms_ladder`; grid unchanged.
+**Blocked (step 2):** with Smash's rows declared, the George mirror in the demo
+throws no move at rung 5 (18-tick reaction resonance; 325 ms fights). See F1.
 
 ### LANDMARK-CLIP-TIME — a published landmark clip loops or holds as the row it describes
 

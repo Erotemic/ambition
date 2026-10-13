@@ -1,8 +1,9 @@
 //! Which difficulty ladder this demo's fighters get.
 //!
 //! The standalone demo app gives every CPU rung the same utility weights.
-//! `Res<AuthoredFighterLadder>` is inserted by `ambition_content`, which
-//! neither `ambition_demo_smash` nor `ambition_demo_smash_app` depends on. So
+//! The ladder is declared by `ambition_content` (for every room of its
+//! binary), which neither `ambition_demo_smash` nor `ambition_demo_smash_app`
+//! depends on. So
 //! `profile_for_level` falls back to `FighterBrainProfile::for_level`, whose
 //! `utility_weights` is `UtilityWeights::default()` (`v1()`, the level-9 row)
 //! for every level. The shipped game composes `ambition_content` and gets the
@@ -12,9 +13,7 @@
 //! the rig's claims about what it measures.
 
 use ambition_demo_smash_app::build_demo_app;
-use ambition_platformer2d::characters::brain::fighter::{
-    AuthoredFighterLadder, FighterBrainProfile,
-};
+use ambition_platformer2d::characters::brain::fighter::{FighterBrainLadder, FighterBrainProfile};
 
 /// The floor gives EVERY rung the level-9 utility weights.
 ///
@@ -51,8 +50,15 @@ fn the_demo_app_still_runs_its_fighters_on_the_engine_floor() {
     let mut app = build_demo_app();
     app.update();
     assert!(
-        app.world().get_resource::<AuthoredFighterLadder>().is_none(),
-        "an AuthoredFighterLadder is installed now — good, but the ladder rig \
+        app.world()
+            .get_resource::<ambition_platformer2d::combat::scoped_rules::DeclaredRules<FighterBrainLadder>>()
+            .and_then(|rules| {
+                rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::Mode(
+                    ambition_demo_smash::SMASH_MODE,
+                ))
+            })
+            .is_none(),
+        "a fighter ladder governs the Smash rooms now — good, but the ladder rig \
          still prints that it measured the floor, and every recorded ladder \
          number was taken without this. Update the rig's report and the \
          fighter-brain ladder section, then delete this test."

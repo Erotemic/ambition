@@ -7,9 +7,8 @@
 //! Smash fighter consumers together.
 
 use ambition_platformer2d::characters::actor::character_catalog::{brain_from_preset, BrainPreset};
-use ambition_platformer2d::characters::brain::fighter::{
-    AuthoredFighterLadder, FighterBrainProfile,
-};
+use ambition_platformer2d::characters::brain::fighter::{FighterBrainLadder, FighterBrainProfile};
+use ambition_platformer2d::combat::scoped_rules::{ActiveRoom, DeclaredRules};
 use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
 
 /// The rung the smash roster's `duelist` actually ships on, and the one where the
@@ -33,12 +32,15 @@ fn a_fighter_in_the_host_runs_on_the_authored_rung_not_the_engine_floor() {
     let floor = FighterBrainProfile::for_level(LEVEL);
     let authored = {
         let world = sim.world_mut();
-        let ladder = world.get_resource::<AuthoredFighterLadder>().expect(
-            "ambition_content inserts AuthoredFighterLadder from the lowered pack; \
-             without it every fighter silently runs on the engine floor",
-        );
+        // Ambition's own rooms have no mode tag, and the host's first room is one.
+        let ladder = world
+            .get_resource::<DeclaredRules<FighterBrainLadder>>()
+            .and_then(|rules| rules.governing(ActiveRoom::Untagged))
+            .expect(
+                "ambition_content declares its ladder for Ambition's rooms from the \
+                 lowered pack; without it every fighter silently runs on the engine floor",
+            );
         *ladder
-            .0
             .level(LEVEL)
             .expect("the authored ladder has a row for every level 1..=9")
     };

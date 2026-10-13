@@ -239,7 +239,7 @@ pub struct LadderRigArgs {
     /// Use this to measure the shipped fighter.
     ///
     /// Without it, the rig measures the engine floor: the demo app installs no
-    /// `AuthoredFighterLadder`, so `profile_for_level` falls back to
+    /// fighter ladder, so `profile_for_level` falls back to
     /// `FighterBrainProfile::for_level`. The floor gives every rung the level-9
     /// weights (`UtilityWeights::default()` is `v1()`) and turns rollout on at
     /// level 6; the authored ladder disables rollout on all rows.
@@ -434,11 +434,8 @@ impl<'a> ProfileOverride<'a> {
     }
 }
 
-fn authored_ladder(
-) -> Option<ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder> {
-    use ambition_platformer2d::characters::brain::fighter::{
-        AuthoredFighterLadder, FighterBrainLadder,
-    };
+fn authored_ladder() -> Option<ambition_platformer2d::characters::brain::fighter::FighterBrainLadder> {
+    use ambition_platformer2d::characters::brain::fighter::FighterBrainLadder;
     let path = args().ladder.as_deref()?;
     let text = std::fs::read_to_string(path).unwrap_or_else(|err| {
         eprintln!("[ladder_rig] --ladder {path}: {err}");
@@ -467,7 +464,7 @@ fn authored_ladder(
             );
         }
     }
-    Some(AuthoredFighterLadder(ladder))
+    Some(ladder)
 }
 
 /// A short, stable digest of the ladder file's bytes, so two runs can be shown
@@ -498,7 +495,6 @@ fn ladder_rungs_summary() -> Vec<String> {
         return Vec::new();
     };
     ladder
-        .0
         .rungs()
         .iter()
         .map(|rung| {
@@ -711,13 +707,10 @@ fn report_which_ladder_is_in_play() {
     report_which_fighters_are_in_play();
     let mut app = build_demo_app();
     if let Some(ladder) = authored_ladder() {
-        app.world_mut().insert_resource(ladder);
+        super::declare_smash_ladder(&mut app, ladder);
     }
     app.update();
-    let authored = app
-        .world()
-        .get_resource::<ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder>()
-        .is_some();
+    let authored = super::smash_ladder_is_declared(&app);
     if authored {
         // Print the path, a digest of the parsed text, and every rung, so two
         // arms that differ only by file have different logs. The digest covers the
@@ -728,7 +721,7 @@ fn report_which_ladder_is_in_play() {
         // the bytes the digest covers.
         println!(
             "[ladder_rig] ladder: the rows from `{}` (digest {}) — \
-             AuthoredFighterLadder is installed.{}",
+             it is declared for the Smash rooms.{}",
             args().ladder.as_deref().unwrap_or("<none>"),
             ladder_digest().unwrap_or_else(|| "n/a".to_string()),
             match ProfileOverride::from_args() {
@@ -745,7 +738,7 @@ fn report_which_ladder_is_in_play() {
         }
     } else {
         println!(
-            "[ladder_rig] ⛔ ladder: the ENGINE FLOOR — no AuthoredFighterLadder in this app, so \
+            "[ladder_rig] ⛔ ladder: the ENGINE FLOOR — no fighter ladder governs the Smash rooms, so \
              every rung carries the floor's `UtilityWeights::default()` (== v1, the level-9 row) \
              and differs in reaction/APM/noise. ⛔⛔ AND THE FLOOR SWITCHES THE L3 ROLLOUT ON \
              AT RUNGS 6-9 (`rollout_depth: 12`), WHICH THE SHIPPED LADDER SETS TO 0 ON ALL NINE — \
@@ -851,7 +844,7 @@ fn noise_stream(seed: u64, seat: usize, swap_streams: bool) -> u64 {
 ///
 /// It writes the live cfg, not the published policy. That is intended for
 /// a sweep. It is correct only where the floor owns the profile. With an
-/// `AuthoredFighterLadder` installed, the override belongs in the rows (see
+/// declared ladder, the override belongs in the rows (see
 /// `ProfileOverride`).
 fn force_profile(app: &mut bevy::app::App, over: ProfileOverride) -> bool {
     use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
@@ -1774,7 +1767,7 @@ fn run_bout_at(
     // applies rows to brains with `Added<Brain>`, so a later ladder never
     // reaches them.
     if let Some(ladder) = authored_ladder() {
-        app.world_mut().insert_resource(ladder);
+        super::declare_smash_ladder(&mut app, ladder);
     }
     // Insert before the route: the preparation source reads this resource once,
     // when the match is requested.
@@ -2357,7 +2350,7 @@ mod tests {
 
     /// Every override moves its own field and nothing else.
     ///
-    /// Where it is applied matters more: with an `AuthoredFighterLadder`
+    /// Where it is applied matters more: with a declared ladder
     /// installed, the value goes into the rows, because
     /// `project_authored_fighter_ladder` rewrites live profiles every tick
     /// (pinned by `a_profile_written_from_outside_is_reverted_on_the_very_next_tick`).

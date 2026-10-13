@@ -201,7 +201,7 @@
                 "Taller, yes. Braver, unclear.",
                 "I can see the top of the flagpole from here.",
             ],
-            hall_dialogue_id: Some("hall_mary_o_tall"),
+            form_of: Some("mary_o"),
         ),
         // The cinder beacon (fire flower) form: a second power-up above the
         // wand. Its own sheet (the white-and-red palette with a fireball pose)
@@ -231,6 +231,7 @@
                 "Warm opinions, thrown at speed.",
                 "Everything flammable, please step back.",
             ],
+            form_of: Some("mary_o"),
         ),
         // Eternal Cosmic Mary-O: her ultimate form (`cosmic.rs`). The row
         // states what the form is. She is not hurt and she harms what she
@@ -266,6 +267,7 @@
                 "The star came down when I called.",
                 "Nothing here can take my colours.",
             ],
+            form_of: Some("mary_o"),
         ),
         // The shelled walker (the Koopa of this game). Its sheet carries the
         // shell rows (retreat, boxed_idle, peek, emerge) that the in-place

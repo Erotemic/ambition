@@ -170,6 +170,33 @@ pub fn cmd_pet(
     narrative.write(ambition_platformer2d_actor_monolith::features::PetRequested { petter, petted });
 }
 
+/// `<<transform "character_id">>` — the character the player talks to wears
+/// another catalog row: another look of the same character (its armor, its
+/// grown form). The simulation refuses, with a log, an id the catalog does
+/// not have. The conversation stays the one authored on the placement, so one
+/// node offers every look and the way back.
+pub fn cmd_transform(
+    In(character): In<String>,
+    conversation: Res<ambition_conversation::ActiveConversation>,
+    bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
+    mut narrative: NarrativeInputWriter<
+        ambition_platformer2d_actor_monolith::features::WearRequested,
+    >,
+) {
+    let Some(actor) = conversation.talker() else {
+        warn!("<<transform>>: no speaker entity in dialogue context; ignoring");
+        return;
+    };
+    let Some(body) = bodies.id_of(actor) else {
+        warn!("<<transform>>: speaker has no SimId; ignoring");
+        return;
+    };
+    narrative.write(ambition_platformer2d_actor_monolith::features::WearRequested {
+        body,
+        character: ambition_entity_catalog::CharacterId::new(character),
+    });
+}
+
 /// `<<use_brain "preset">>` — switch the NPC the player is talking to onto an
 /// explicit brain preset at runtime, changing its AUTONOMOUS behaviour (a
 /// dialogue outcome like "fight me" pairs this with the `<<challenge>>` command
@@ -589,6 +616,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let use_brain_id = commands.register_system(cmd_use_brain);
     let restore_brain_id = commands.register_system(cmd_restore_brain);
     let pet_id = commands.register_system(cmd_pet);
+    let transform_id = commands.register_system(cmd_transform);
     let give_item_id = commands.register_system(cmd_give_item);
     let buy_item_id = commands.register_system(cmd_buy_item);
     let sell_item_id = commands.register_system(cmd_sell_item);
@@ -602,6 +630,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     cmds.add_command("use_brain", use_brain_id);
     cmds.add_command("restore_brain", restore_brain_id);
     cmds.add_command("pet", pet_id);
+    cmds.add_command("transform", transform_id);
     cmds.add_command("give_item", give_item_id);
     cmds.add_command("buy_item", buy_item_id);
     cmds.add_command("sell_item", sell_item_id);

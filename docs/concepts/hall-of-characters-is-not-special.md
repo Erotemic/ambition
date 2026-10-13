@@ -46,6 +46,17 @@ It is GENERATED, by
 catalog, so it grows on its own whenever the cast does. **Never hand-edit the
 level.** That is the only handling it needs.
 
+## A character with a transform stands once (2026-10-13)
+
+A transform state (Jeff Hinter's armor, Mary-O's grown forms, Super Sanic) is a
+look of one character, not a second character. Its catalog row names its
+character in `form_of`, and the generator gives that row no place. The
+character's own Hall conversation offers each look as a choice:
+`<<transform "character_id">>` makes the body that is talked to wear that
+row, and one choice goes back. So the Hall shows the canonical frame of each
+state on one body. Two characters that are different people (PCA and ICA) are
+not forms of each other.
+
 ## What the Hall is for (Q85, 2026-10-04)
 
 The Hall is a visual showcase, a population and stress test, an asset and

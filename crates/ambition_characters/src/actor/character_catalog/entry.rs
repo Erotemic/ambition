@@ -689,6 +689,16 @@ pub struct CharacterCatalogEntry {
     /// the hall generator to populate each pedestal's `dialogue_id`.
     #[serde(default)]
     pub hall_dialogue_id: Option<String>,
+    /// The character this row is a look of: a transform state (an armor, a
+    /// grown form, a super form). `Some` says the row is not a second
+    /// character. A body changes look by wearing the row, and the two rows
+    /// are one character with more than one side. The Hall seats the
+    /// character once, at the row this names, and that row's conversation
+    /// offers each look (`<<transform>>`); a look states no
+    /// `hall_dialogue_id` of its own. `None` (the default): the row is a
+    /// character.
+    #[serde(default)]
+    pub form_of: Option<String>,
     /// Surface-momentum motion feel (Q21 / S2). `Some` opts this character's
     /// body into `MotionModel::SurfaceMomentum` — the surface-follower solver
     /// (slopes, loops, momentum) — whether it is spawned as an NPC or WORN by

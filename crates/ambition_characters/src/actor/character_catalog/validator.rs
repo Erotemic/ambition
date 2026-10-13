@@ -216,6 +216,26 @@ pub(crate) fn findings<'a>(catalog: &'a CharacterCatalogData) -> Vec<Finding<'a>
                 );
             }
         }
+        if let Some(name) = entry.form_of.as_deref() {
+            push(
+                "form_of",
+                FindingKind::Reference {
+                    table: PresetTable::Character,
+                    name,
+                },
+            );
+            // A look is seen at its character's place in the Hall, by that
+            // character's conversation.
+            if entry.hall_dialogue_id.is_some() {
+                push(
+                    "form_of",
+                    FindingKind::BothStated {
+                        inline_field: "hall_dialogue_id",
+                        what: "Hall conversation (a look uses its character's)",
+                    },
+                );
+            }
+        }
         if let Some(name) = entry.derived_from.as_deref() {
             push(
                 "derived_from",

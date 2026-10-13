@@ -1997,24 +1997,6 @@
                 48,
             ],
             fields: (
-                character_id: "npc_jeff_hinter_armored",
-                prompt: "Inspect",
-                dialogue_id: "hall_npc_jeff_hinter_armored",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                688,
-                736,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
                 character_id: "npc_davy_hylbert",
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_davy_hylbert",
@@ -2025,7 +2007,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                688,
                 736,
             ],
             size: [
@@ -2043,7 +2025,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                816,
                 736,
             ],
             size: [
@@ -2061,7 +2043,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                944,
                 736,
             ],
             size: [
@@ -2079,7 +2061,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1072,
                 736,
             ],
             size: [
@@ -2097,7 +2079,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1200,
                 736,
             ],
             size: [
@@ -2115,7 +2097,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1328,
                 736,
             ],
             size: [
@@ -2133,7 +2115,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1456,
                 736,
             ],
             size: [
@@ -2151,7 +2133,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1584,
                 736,
             ],
             size: [
@@ -2169,7 +2151,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1712,
                 736,
             ],
             size: [
@@ -2187,7 +2169,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
+                1840,
                 736,
             ],
             size: [
@@ -2205,8 +2187,8 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
-                544,
+                1968,
+                736,
             ],
             size: [
                 32,
@@ -2223,7 +2205,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                48,
                 544,
             ],
             size: [
@@ -2241,7 +2223,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                176,
                 544,
             ],
             size: [
@@ -2259,7 +2241,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                304,
                 544,
             ],
             size: [
@@ -2277,7 +2259,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                432,
                 544,
             ],
             size: [
@@ -2295,7 +2277,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                560,
                 544,
             ],
             size: [
@@ -2313,7 +2295,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                688,
                 544,
             ],
             size: [
@@ -2331,7 +2313,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                816,
                 544,
             ],
             size: [
@@ -2349,7 +2331,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                944,
                 544,
             ],
             size: [
@@ -2367,7 +2349,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1072,
                 544,
             ],
             size: [
@@ -2385,7 +2367,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1200,
                 544,
             ],
             size: [
@@ -2403,7 +2385,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1328,
                 544,
             ],
             size: [
@@ -2421,7 +2403,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1456,
                 544,
             ],
             size: [
@@ -2439,7 +2421,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1584,
                 544,
             ],
             size: [
@@ -2457,7 +2439,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1712,
                 544,
             ],
             size: [
@@ -2475,7 +2457,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
+                1840,
                 544,
             ],
             size: [
@@ -2486,6 +2468,24 @@
                 character_id: "special_patent_clerk",
                 prompt: "Inspect",
                 dialogue_id: "hall_special_patent_clerk",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1968,
+                544,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_gnu_ton",
+                prompt: "Inspect",
+                dialogue_id: "",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2951,45 +2951,9 @@
                 48,
             ],
             fields: (
-                character_id: "super_sanic",
-                prompt: "Inspect",
-                dialogue_id: "hall_super_sanic",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1328,
-                160,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
                 character_id: "mary_o",
                 prompt: "Inspect",
                 dialogue_id: "hall_mary_o",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1456,
-                160,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "mary_o_tall",
-                prompt: "Inspect",
-                dialogue_id: "hall_mary_o_tall",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),

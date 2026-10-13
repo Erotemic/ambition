@@ -396,6 +396,7 @@ message.toggle_portal_guns_active	message-clear	TogglePortalGunsActive	clear aba
 message.trail_continuity_break	message-clear	TrailContinuityBreak	clear abandoned-future message buffer in LoadWorld::Mapping
 message.vfx	message-clear	VfxInRoom	clear abandoned-future message buffer in LoadWorld::Mapping
 message.wallet_shield_spent	message-clear	WalletShieldSpent	clear abandoned-future message buffer in LoadWorld::Mapping
+message.wear_requested	message-clear	WearRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 mount.authored_size	component-clone	MountedSize	bevy_ggrs clone snapshot; not in the session checksum
 mount.back_ledge	component-clone	BackLedge	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 mount.brain_cache	component-clone	MountedBrainCache	bevy_ggrs clone snapshot; not in the session checksum

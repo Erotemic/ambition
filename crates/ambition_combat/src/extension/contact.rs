@@ -133,11 +133,13 @@ pub fn queue_body_contacts(
 }
 
 /// A toucher bounces off: it jumps up off the body at the asked speed,
-/// against its gravity, and with the cue its pogo cue plays at the body.
+/// against its own gravity (its resolved frame's DOWN, which a gravity zone
+/// or a portal can turn), and with the cue its pogo cue plays at the body.
+/// A toucher with no resolved frame has no gravity to jump against: refused.
 pub fn lower_contact_bounces(
     mut outbox: ResMut<ExtensionOutbox>,
     table: Res<ContactTouchers>,
-    mut bodies: Query<&mut ae::BodyKinematics>,
+    mut bodies: Query<(&mut ae::BodyKinematics, Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>)>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     for submitted in outbox.drain::<ContactBouncePort>(&BODY_CONTACT) {
@@ -154,8 +156,16 @@ pub fn lower_contact_bounces(
             );
             continue;
         };
-        if let Ok(mut kin) = bodies.get_mut(toucher) {
-            ae::movement::set_jump_velocity(&mut kin.vel, ae::DEFAULT_GRAVITY_DIR, bounce.speed);
+        match bodies.get_mut(toucher) {
+            Ok((mut kin, Some(frame))) => ae::movement::set_jump_velocity(&mut kin.vel, frame.down(), bounce.speed),
+            Ok((_, None)) => {
+                warn!(
+                    "extension entry {} asked {:?} to bounce, which has no resolved gravity frame; refused",
+                    submitted.entry, toucher
+                );
+                continue;
+            }
+            Err(_) => continue,
         }
         if bounce.pogo_cue {
             sfx.write_for(toucher, ambition_sfx::SfxMessage::Pogo { pos: at });

@@ -90,6 +90,7 @@ fn player(app: &mut App, id: &str, at: ae::Vec2, vel: ae::Vec2) -> Entity {
         .spawn((
             PlayerEntity,
             ae::BodyKinematics { pos: at, vel, size: ae::Vec2::new(24.0, 44.0), ..Default::default() },
+            ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
             SimId::placement(id),
         ))
         .id()
@@ -197,4 +198,37 @@ fn a_touch_is_between_the_boxes_the_bodies_collide_with() {
     let step = ae::SweepSample::at_rest(kin, ae::Vec2::X);
     assert_eq!(contact_body(&kin, Some(&step)).size, [44.0, 24.0], "the module is given the box the body collides with");
     assert_eq!(contact_body(&kin, None).size, [24.0, 44.0], "with no step, the level box");
+}
+
+/// ⛔ A BOUNCE IS AGAINST THE TOUCHER'S OWN GRAVITY. Under reversed gravity
+/// (DOWN is -Y), a toucher the rule bounces goes toward +Y, away from its own
+/// floor; it went toward -Y, the screen's up (review 2026-10-12). The control
+/// is the same stomp under screen gravity. A toucher with no resolved frame
+/// is refused, not bounced against the screen, and the defeat still lands.
+#[test]
+fn a_bounce_is_against_the_touchers_own_gravity() {
+    use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
+    let falling = ae::Vec2::new(30.0, 200.0);
+    for (name, down, expected) in [
+        ("reversed", Some(-ae::Vec2::Y), ae::Vec2::new(30.0, BOUNCE)),
+        ("screen", Some(ae::Vec2::Y), ae::Vec2::new(30.0, -BOUNCE)),
+        ("no frame", None, falling),
+    ] {
+        let mut app = app();
+        let stomped = walker(&mut app, WALKER, ae::Vec2::new(100.0, 900.0));
+        let toucher = player(&mut app, "p1", on_head(100.0), falling);
+        match down {
+            Some(down) => {
+                let frame = ae::MotionFrame::from_direction(down, 0.0);
+                app.world_mut().get_mut::<ResolvedMotionFrame>(toucher).unwrap().publish_resolved_frame(frame);
+            }
+            None => {
+                app.world_mut().entity_mut(toucher).remove::<ResolvedMotionFrame>();
+            }
+        }
+        app.world_mut().run_schedule(Sim);
+        assert!(app.world().get_entity(stomped).is_err(), "{name}: premise, the rule stomped the walker");
+        let vel = app.world().get::<ae::BodyKinematics>(toucher).unwrap().vel;
+        assert_eq!(vel, expected, "{name}: the toucher's velocity after the bounce");
+    }
 }

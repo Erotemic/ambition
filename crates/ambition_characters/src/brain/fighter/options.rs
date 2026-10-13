@@ -834,7 +834,23 @@ pub fn generate_options(
                 let (mx, my) = motion_of(&c.frames);
                 let (lx, ly) = (ix + mx, iy + my);
                 let speed = (lx * lx + ly * ly).sqrt();
-                my_world.travel_share(lx, ly, speed * c.frames.total_s)
+                // ⭐ A MOVE THAT ROOTS ITS OWNER TAKES THE STICK, so the speed
+                // the body brings into it is not braked: the body slides on the
+                // way it was going, at its law's hands-off rate, for as long as
+                // the move holds it. Measured 2026-10-13, Sanic at rung 5: he
+                // started `sonic_boom` (rooted) at about 530 px/s and coasted
+                // off the stage at `friction` 400 px/s². `min` with the
+                // undamped travel over the move bounds the slide by the move's
+                // length, the same worst case as the move's own self-motion.
+                let along = me.vel.dot(basis.side);
+                if c.frames.roots_steering && me.on_ground && along != 0.0 {
+                    let facing = if me.facing < 0.0 { -1.0 } else { 1.0 };
+                    let slide = me.coast_distance.min(along.abs() * c.frames.total_s);
+                    let (dx, dy) = (lx * c.frames.total_s + along.signum() * facing * slide, ly * c.frames.total_s);
+                    my_world.travel_share(dx, dy, (dx * dx + dy * dy).sqrt())
+                } else {
+                    my_world.travel_share(lx, ly, speed * c.frames.total_s)
+                }
             };
             let features = Features {
                 reach_fit,

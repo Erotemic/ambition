@@ -1,6 +1,8 @@
-//! [`MotionModel::ground_stop_distance`] against the axis-swept laws it reads.
-//! A brain spends this number at a ledge, so each law must stop inside it
-//! when the body brakes in the strongest way that law has.
+//! [`MotionModel::ground_stop_distance`] and
+//! [`MotionModel::ground_coast_distance`] against the axis-swept laws they
+//! read. A brain spends these numbers at a ledge, so each law must stop inside
+//! the first when the body brakes in the strongest way that law has, and
+//! inside the second with no stick.
 
 use super::super::*;
 use super::{test_world, TEST_TUNING};
@@ -38,11 +40,16 @@ fn floor_to_stop(tuning: TestTuning, stick: f32) -> f32 {
     panic!("the body did not stop in four seconds");
 }
 
-/// The distance the model says, and the two ways to brake: with the stick
-/// against the motion, and hands off.
+/// The stop distance the model says, and the two ways to brake: with the
+/// stick against the motion, and hands off. The hands-off slide is also held
+/// to the coast distance the model says.
 fn measure(tuning: TestTuning) -> (f32, f32, f32) {
-    let said = MotionModel::axis_swept(tuning.params()).ground_stop_distance(SPEED);
-    (said, floor_to_stop(tuning, -1.0), floor_to_stop(tuning, 0.0))
+    let model = MotionModel::axis_swept(tuning.params());
+    let said = model.ground_stop_distance(SPEED);
+    let hands_off = floor_to_stop(tuning, 0.0);
+    let coast = model.ground_coast_distance(SPEED);
+    assert!((hands_off - coast).abs() <= SPEED * DT, "hands off: {hands_off} px, the model's coast is {coast} px");
+    (said, floor_to_stop(tuning, -1.0), hands_off)
 }
 
 /// ⭐ THE RESPONSIVE LAW STOPS HARDEST HANDS OFF: it approaches the zero

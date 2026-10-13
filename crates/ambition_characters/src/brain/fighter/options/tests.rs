@@ -40,6 +40,7 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         // is what opts a fixture INTO being a finisher.
         launch: ambition_entity_catalog::LaunchEnvelope::default(),
         start_impulse: (0.0, 0.0),
+        roots_steering: false,
         // No self-motion at all. `lifting_candidate` below is what opts a
         // fixture INTO carrying a route, so the ordinary move stays a move.
         lift_speed: 0.0,
@@ -1565,6 +1566,46 @@ fn an_approach_that_runs_through_the_foe_loses_to_the_brake() {
     assert!(stale < retreat, "a view 0.3 s old: 171 px of travel and 90 px to stop pass the foe, and the approach ({stale}) still outranks the brake ({retreat})");
     let (close, retreat) = scores(340.0, 571.0, 90.0, 0.0);
     assert!(close < retreat, "the foe's far side 64 px away: 90 px to stop passes it, and the approach ({close}) still outranks the brake ({retreat})");
+}
+
+/// ⭐ A MOVE THAT ROOTS ITS OWNER IS COSTED FOR THE SLIDE THE BODY BRINGS
+/// INTO IT. Measured 2026-10-13, Sanic at rung 5: he started `sonic_boom`
+/// (`roots_steering: true`) at about 530 px/s and coasted at his law's
+/// hands-off rate, off the stage. Two moves identical but for the root: the
+/// body runs at 530 px/s toward the near blast line 170 px away, with 351 px
+/// to coast, and the rooted move carries it there.
+///
+/// The controls: at rest the two moves score the same, and so they do when
+/// the body runs away from that line (its standing risk is the larger).
+#[test]
+fn a_move_that_roots_the_body_is_costed_for_the_slide_it_brings() {
+    let mut planted = candidate("planted", 0.1, 100.0);
+    planted.frames.roots_steering = true;
+    let free = candidate("free", 0.1, 100.0);
+    let kit = [planted, free];
+    let weights = UtilityWeights::v1();
+    let scores = |vel_x: f32, coast_distance: f32| {
+        let mut view = view_with(630.0, 690.0);
+        view.self_view.facing = 1.0;
+        view.self_view.vel.x = vel_x;
+        view.self_view.coast_distance = coast_distance;
+        let options = generate_options(Perceived::cheating(&view), Situation::Neutral, &kit, &weights);
+        let score = |id: &str| options.attacks.iter().find(|a| a.move_id == id).map(|a| a.score).unwrap_or(f32::NAN);
+        (score("planted"), score("free"))
+    };
+    let (planted_at_rest, free_at_rest) = scores(0.0, 0.0);
+    assert!(planted_at_rest.is_finite(), "the control: the fixture offers the rooted move");
+    assert_eq!(planted_at_rest, free_at_rest, "at rest the root changed the move's score");
+    let (planted_away, free_away) = scores(-530.0, 351.0);
+    assert!(planted_away.is_finite(), "the control: the fixture offers the rooted move running away");
+    assert_eq!(planted_away, free_away, "running away from the near line, the root changed the move's score");
+    let (planted_toward, free_toward) = scores(530.0, 351.0);
+    assert!(free_toward.is_finite(), "the fixture offers the free move running toward the foe");
+    assert!(
+        planted_toward < free_toward,
+        "running at 530 px/s toward a blast line 170 px away with 351 px to coast, the rooted move ({planted_toward}) \
+         scores as the free one ({free_toward})"
+    );
 }
 
 /// A body with no perceived terrain is not penalised. An airborne fighter,

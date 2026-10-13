@@ -2324,14 +2324,17 @@ fn floor_to_stop(params: &MomentumParams, speed: f32, stick: f32) -> f32 {
 /// 400), give or take one tick of travel. 571 px/s is the speed at which
 /// Sanic ran off the stage in the L5 mirror. Hands off it coasts more than
 /// four times as far: the control which shows the model took the stronger
-/// rate.
+/// rate. That hands-off slide is the coast distance the model says.
 #[test]
 fn a_momentum_body_stops_inside_the_distance_its_model_says() {
     let params = MomentumParams::default();
     let speed = 571.0;
-    let said = crate::MotionModel::surface_momentum(params).ground_stop_distance(speed);
+    let model = crate::MotionModel::surface_momentum(params);
+    let said = model.ground_stop_distance(speed);
     let against = floor_to_stop(&params, speed, -1.0);
     let hands_off = floor_to_stop(&params, speed, 0.0);
+    let coast = model.ground_coast_distance(speed);
+    assert!((hands_off - coast).abs() <= speed * DT, "hands off: {hands_off} px, the model's coast is {coast} px");
     assert!((against - said).abs() <= speed * DT, "against the motion: {against} px, the model says {said} px");
     assert!(hands_off > 4.0 * said, "hands off: {hands_off} px, the model says {said} px");
 }

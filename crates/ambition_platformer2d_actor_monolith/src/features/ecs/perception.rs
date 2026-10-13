@@ -97,6 +97,8 @@ pub struct PerceptionBody {
     pub on_ground: bool,
     /// See [`SelfView::stop_distance`].
     pub stop_distance: f32,
+    /// See [`SelfView::coast_distance`].
+    pub coast_distance: f32,
     pub alive: bool,
     pub can_fire: bool,
     pub can_blink: bool,
@@ -793,6 +795,7 @@ pub fn build_world_view(
         gravity_down: body.gravity_down,
         on_ground: body.on_ground,
         stop_distance: body.stop_distance,
+        coast_distance: body.coast_distance,
         alive: body.alive,
         faction: body.faction,
         can_fire: body.can_fire,
@@ -1071,6 +1074,7 @@ pub(crate) fn perception_body_for(
         // Along world x, the axis `WorldView::floor_ahead` measures the floor
         // on.
         stop_distance: motion_model.ground_stop_distance(body.kin.vel.x.abs()),
+        coast_distance: motion_model.ground_coast_distance(body.kin.vel.x.abs()),
         // The identity `build_world_view` uses to skip this body's own row.
         // Taken from the body's OWN peer row rather than passed separately: it
         // is the same entity `peers_seen_by` compared against, and a body with

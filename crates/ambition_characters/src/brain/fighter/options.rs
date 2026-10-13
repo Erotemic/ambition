@@ -1766,10 +1766,12 @@ fn walks_off(view: &crate::perception::WorldView, toward: f32) -> bool {
 /// mirror: the two seats were 36 px apart, each held the stick toward the
 /// other, they passed at about 600 px/s, and both ran off.
 ///
-/// The body's own travel since the view was taken counts too
-/// ([`Perceived::staleness_s`]): a person leads their own position as they
-/// lead their aim. This is not the present: the speed is the one the view
-/// saw.
+/// ⛔ THE BODY'S OWN TRAVEL OVER THE VIEW'S STALENESS IS NOT ADDED. The first
+/// version led it ([`Perceived::staleness_s`]), and at rung 5 that is 81 px
+/// for a walker at 270 px/s: two George mirrors in the Smash demo backed away
+/// whenever they came within about 84 px and threw no move in 900 ticks
+/// (`the_repertoire_gets_used`, measured 2026-10-13). The stop distance alone
+/// is a fact of the body's law, and it is a few pixels for a walker.
 fn overshoots(view: &Perceived<'_>, foe: &PerceivedActor, toward: f32) -> bool {
     let me = &view.self_view;
     // `stop_distance` is a ground fact. A body in the air brakes by another
@@ -1777,9 +1779,8 @@ fn overshoots(view: &Perceived<'_>, foe: &PerceivedActor, toward: f32) -> bool {
     if !me.on_ground || me.vel.x * toward <= 0.0 {
         return false;
     }
-    let travel = me.vel.x.abs() * view.staleness_s() + me.stop_distance;
     let past_the_foe = (foe.pos.x - me.pos.x).abs() + foe.half_extent.x + me.half_extent.x;
-    travel > past_the_foe
+    me.stop_distance > past_the_foe
 }
 
 fn movement_options(

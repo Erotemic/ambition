@@ -1528,15 +1528,17 @@ fn a_body_coasting_toward_the_edge_does_not_choose_to_retreat_off_it() {
 /// ⭐ AN APPROACH THAT CANNOT STOP BEFORE IT PASSES THROUGH THE FOE IS
 /// PENALISED, and Retreat, which brakes here, outranks it. Measured
 /// 2026-10-13 in the Sanic L5 mirror: two seats 36 px apart held the stick
-/// toward each other, passed at about 600 px/s and both ran off the stage,
-/// seen 300 ms late.
+/// toward each other, passed at about 600 px/s and both ran off the stage.
 ///
 /// The body moves toward the foe at 571 px/s with 90 px to stop. With the
-/// foe's far side 104 px away, the stop alone is short of it; the body's own
-/// travel over a view 0.3 s old (171 px) is not. With the foe's far side
-/// 64 px away, the stop alone passes it.
+/// foe's far side 104 px away it stops short of it; with the far side 64 px
+/// away it passes it.
 ///
-/// The controls: the same body at rest, and moving away from the foe.
+/// The controls: the same body at rest, and moving away from the foe. And
+/// the walker the first version broke: at 270 px/s with 3 px to stop, on a
+/// view 0.3 s old, 64 px from the foe's far side, it approaches. Leading its
+/// own travel over the stale view (81 px) made two George mirrors back away
+/// from each other and throw nothing.
 #[test]
 fn an_approach_that_runs_through_the_foe_loses_to_the_brake() {
     use crate::perception::DelayedPerception;
@@ -1556,16 +1558,16 @@ fn an_approach_that_runs_through_the_foe_loses_to_the_brake() {
         let options = generate_options(perceived, Situation::Neutral, &[], &weights);
         (score_of(&options, MovementVerb::Approach), score_of(&options, MovementVerb::Retreat))
     };
-    let (at_rest, _) = scores(380.0, 0.0, 0.0, 0.3);
+    let (at_rest, _) = scores(380.0, 0.0, 0.0, 0.0);
     assert_eq!(at_rest, 0.5, "the control: a body at rest approaches the foe 80 px away");
-    let (away, _) = scores(380.0, -571.0, 90.0, 0.3);
+    let (away, _) = scores(380.0, -571.0, 90.0, 0.0);
     assert_eq!(away, at_rest, "moving away from the foe changed the approach's score");
-    let (fresh, _) = scores(380.0, 571.0, 90.0, 0.0);
-    assert_eq!(fresh, at_rest, "a fresh view: 90 px to stop is short of the foe's far side at 104 px");
-    let (stale, retreat) = scores(380.0, 571.0, 90.0, 0.3);
-    assert!(stale < retreat, "a view 0.3 s old: 171 px of travel and 90 px to stop pass the foe, and the approach ({stale}) still outranks the brake ({retreat})");
+    let (short, _) = scores(380.0, 571.0, 90.0, 0.0);
+    assert_eq!(short, at_rest, "90 px to stop is short of the foe's far side at 104 px, and the approach was penalised");
     let (close, retreat) = scores(340.0, 571.0, 90.0, 0.0);
     assert!(close < retreat, "the foe's far side 64 px away: 90 px to stop passes it, and the approach ({close}) still outranks the brake ({retreat})");
+    let (walker, _) = scores(340.0, 270.0, 3.0, 0.3);
+    assert_eq!(walker, at_rest, "a walker with 3 px to stop, on a view 0.3 s old, backed away from a foe 64 px from its far side");
 }
 
 /// ⭐ A MOVE THAT ROOTS ITS OWNER IS COSTED FOR THE SLIDE THE BODY BRINGS

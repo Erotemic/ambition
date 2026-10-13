@@ -47,6 +47,10 @@ const EFFECT_STRENGTH: f32 = 1.0;
 /// (`puppy_slug.py`, `dream_skin`), published beside its sheet.
 const DREAM_SKIN_PICTURE: &str = "sprites/puppy_slug_dream_skin.png";
 
+/// The heads of the dream: four heads of the slug with nothing behind them
+/// (`puppy_slug.py`, `dream_faces`), published beside its sheet.
+const DREAM_FACES_PICTURE: &str = "sprites/puppy_slug_dream_faces.png";
+
 /// How wide one tile of the skin is on a body, in world units. A tile has
 /// seven eyes across it, so an eye is about a tenth of this.
 const DREAM_SKIN_TILE: f32 = 50.0;
@@ -139,8 +143,9 @@ fn declare_deep_dream_demand(
 /// - `control.z`: effect strength.
 /// - `control.w`: deterministic per-entity seed.
 /// - `tint`: reserved for future hit-flash / attack tint mixing.
-/// - `skin`, `skin_tiles`: the authored skin of the dream and how many of its
-///   tiles cover the frame. The pass draws no art of its own.
+/// - `skin`, `skin_tiles`, `faces`: the authored skin of the dream, how many of
+///   its tiles cover the frame, and the authored heads of the dream. The pass
+///   draws no art of its own.
 /// - `frame_rect.xy` / `frame_rect.zw`: the body's frame inside that image
 ///   (`FrameInSprite`), normalized, unflipped. The pattern is laid over the
 ///   frame, not over a composited body's whole square cell, where a wide slug
@@ -166,6 +171,11 @@ pub struct PuppySlugDeepDreamMaterial {
     /// `xy`: how many tiles of the skin go across the frame, and down it.
     #[uniform(8)]
     pub skin_tiles: Vec4,
+    /// The heads of the dream ([`DREAM_FACES_PICTURE`]): four heads of the
+    /// slug, two cells each way. The pass puts them on the body where no head
+    /// is. It is sampled with the sampler of `skin`.
+    #[texture(9)]
+    pub faces: Handle<Image>,
 }
 
 impl Material2d for PuppySlugDeepDreamMaterial {
@@ -241,6 +251,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
             frame_rect: frame_rect(frame),
             skin: ambition_sprite_sheet::game_assets::load_sheet_image(&asset_server, "fx-sheet", DREAM_SKIN_PICTURE),
             skin_tiles: skin_tiles(render_size, frame_rect(frame)),
+            faces: ambition_sprite_sheet::game_assets::load_sheet_image(&asset_server, "fx-sheet", DREAM_FACES_PICTURE),
         });
         let mesh = meshes.add(Rectangle::default());
         let overlay_transform = overlay_transform_from_source(transform, anchor, render_size);

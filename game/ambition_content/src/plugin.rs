@@ -146,6 +146,8 @@ impl Plugin for AmbitionContentPlugin {
         app.add_plugins(crate::intro::IntroPlugin);
         // The primeval trail: the scenery its rooms name.
         app.add_plugins(crate::primeval::PrimevalPlugin);
+        // The Noodly Temple: the sheets of its keys and of its doors.
+        app.add_plugins(crate::noodly_temple::NoodlyTemplePlugin);
 
         // Ambition-specific portal adapters; the reusable portal core is installed
         // separately in `add_simulation_plugins`.

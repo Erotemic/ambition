@@ -1,0 +1,210 @@
+//! The Noodly Temple: a level of keys and doors, with the Flying Spaghetti
+//! Monster in its last room.
+//!
+//! Seven rooms round one hall (`tools/ambition_ldtk_tools/specs/noodly_temple/`).
+//! `check_temple.py` there walks a model of the level and proves that it can
+//! be finished. This asks the game itself what the model takes as given: that
+//! a key that is taken opens its doors and no other, that one wheel opens one
+//! sluice and shuts another, that the end of a fight opens the grille its room
+//! names, and that the monster is in the sanctum.
+
+use std::collections::BTreeSet;
+
+use crate::common::{a_save_that_has_seen_the_hub_intro, base, fixed_60hz_room_options, walk_through_the_door_to};
+use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness};
+use ambition_platformer2d::boss_encounter::BossConfig;
+use ambition_platformer2d::characters::actor::BodyHealth;
+use ambition_platformer2d::ldtk_map::LdtkProject;
+
+fn room(id: &str) -> Platformer2dSimHarness {
+    let mut sim =
+        Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(id).with_save(a_save_that_has_seen_the_hub_intro()))
+            .unwrap_or_else(|e| panic!("`{id}` builds: {e}"));
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    sim
+}
+
+/// The gate solids that stand in the live room, by name: a gated wall is
+/// `gated_lock:<its id>` and the wall of a fight is `lockwall:<its encounter>`.
+fn standing(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
+    ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<ambition_platformer2d::world::FeatureEcsWorldOverlay>(
+        sim.world_mut(),
+    )
+    .expect("the live room has a collision overlay")
+    .gate_solids
+    .iter()
+    .map(|solid| solid.name.clone())
+    .collect()
+}
+
+fn stands(sim: &mut Platformer2dSimHarness, wall: &str) -> bool {
+    standing(sim).contains(&format!("gated_lock:{wall}"))
+}
+
+fn flag(sim: &mut Platformer2dSimHarness, id: &str) -> bool {
+    sim.world_mut().resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().flag(id)
+}
+
+/// Stand on the lever `id` and press Interact once.
+fn press(sim: &mut Platformer2dSimHarness, id: &str) {
+    let at = {
+        let world = sim.world_mut();
+        world
+            .query::<(
+                &ambition_platformer2d::encounter::switches::SwitchFeature,
+                &ambition_platformer2d::engine_core::geometry::CenteredAabb,
+            )>()
+            .iter(world)
+            .find(|(feature, _)| feature.activation.id == id)
+            .map(|(_, aabb)| (aabb.center.x, aabb.center.y))
+            .unwrap_or_else(|| panic!("the room has no lever `{id}`"))
+    };
+    sim.teleport_player(at);
+    sim.step(base());
+    sim.step(AgentAction { interact: true, ..base() });
+    for _ in 0..5 {
+        sim.step(base());
+    }
+}
+
+/// Each room of the temple has a door to the nave and back, the nave has a
+/// door to the narthex and back, and the narthex to the central hub.
+#[test]
+fn the_temple_is_a_hall_with_a_door_to_each_room_and_back() {
+    let manifest = ambition_content::worlds::world_manifest();
+    let project = LdtkProject::load_default_for_dev(&manifest).expect("the world loads");
+    let rooms = project.to_room_set(&manifest, &ambition_app::composed_ldtk_vocabulary()).expect("the world composes");
+    let index = |id: &str| rooms.room_index_by_id(id).unwrap_or_else(|| panic!("the world has no room `{id}`"));
+    let mut pairs = vec![("central_hub_complex", "noodly_narthex"), ("noodly_narthex", "noodly_nave")];
+    for wing in ["noodly_scullery", "noodly_cistern", "noodly_belfry", "noodly_reliquary", "noodly_sanctum"] {
+        pairs.push(("noodly_nave", wing));
+    }
+    for (a, b) in pairs {
+        let (from, to) = (index(a), index(b));
+        assert!(rooms.neighboring_room_indices_of(from).contains(&to), "`{a}` has no door to `{b}`");
+        assert!(rooms.neighboring_room_indices_of(to).contains(&from), "`{b}` has no door back to `{a}`");
+    }
+}
+
+/// The Marinara Key is taken in the pantry of the scullery, and it is kept:
+/// in the nave its two doors are open, and each other door stands.
+#[test]
+fn a_key_that_is_taken_opens_its_doors_and_no_other() {
+    const DOORS: [(&str, bool); 5] = [
+        ("noodly_nave_cistern_door_0", true),
+        ("noodly_nave_belfry_door_0", true),
+        ("noodly_nave_reliquary_door_0", false),
+        ("noodly_nave_reliquary_door_1", false),
+        ("noodly_nave_sanctum_door_0", false),
+    ];
+    // The control: with no key, each door of the nave stands.
+    let mut nave = room("noodly_nave");
+    for (door, _) in DOORS {
+        assert!(stands(&mut nave, door), "`{door}` stands before a key is taken: {:?}", standing(&mut nave));
+    }
+
+    let mut sim = room("noodly_scullery");
+    assert!(!flag(&mut sim, "noodly_key_marinara"), "the key is not taken yet");
+    let key = {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::combat::components::PickupFeature, &ambition_platformer2d::engine_core::geometry::CenteredAabb)>()
+            .iter(world)
+            .find(|(feature, _)| {
+                matches!(&feature.pickup.kind, ambition_platformer2d::interaction::PickupKind::StoryFlag { flag } if flag == "noodly_key_marinara")
+            })
+            .map(|(_, aabb)| (aabb.center.x, aabb.center.y))
+            .expect("the scullery has the Marinara Key")
+    };
+    sim.teleport_player(key);
+    for _ in 0..20 {
+        sim.step(base());
+    }
+    assert!(flag(&mut sim, "noodly_key_marinara"), "a body on the key takes it");
+
+    assert_eq!(walk_through_the_door_to(&mut sim, "noodly_nave"), "noodly_nave");
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    for (door, opened) in DOORS {
+        assert_eq!(stands(&mut sim, door), !opened, "with the Marinara Key, `{door}`: {:?}", standing(&mut sim));
+    }
+}
+
+/// Wheel I of the cistern opens the low sluice and shuts the sluice of the
+/// well and the first sluice of the lock; a second turn puts each back.
+#[test]
+fn a_wheel_opens_one_sluice_and_shuts_another() {
+    let mut sim = room("noodly_cistern");
+    let read = |sim: &mut Platformer2dSimHarness| {
+        ["noodly_cistern_sluice_low", "noodly_cistern_sluice_well", "noodly_cistern_sluice_lock_a", "noodly_cistern_sluice_high"]
+            .map(|wall| stands(sim, wall))
+    };
+    assert_eq!(read(&mut sim), [true, false, false, true], "with each wheel off: {:?}", standing(&mut sim));
+    press(&mut sim, "noodly_wheel_a");
+    assert_eq!(read(&mut sim), [false, true, true, true], "with wheel I on: {:?}", standing(&mut sim));
+    press(&mut sim, "noodly_wheel_a");
+    assert_eq!(read(&mut sim), [true, false, false, true], "with wheel I off again: {:?}", standing(&mut sim));
+    press(&mut sim, "noodly_wheel_b");
+    assert_eq!(read(&mut sim), [true, false, false, false], "wheel II opens the high sluice only: {:?}", standing(&mut sim));
+}
+
+/// The fight of the scullery shuts the room while it is on, each of its three
+/// waves comes, and its end opens the grille of the pantry.
+#[test]
+fn the_end_of_the_fight_opens_the_pantry() {
+    use ambition_platformer2d::combat::components::EncounterMob;
+    const FIGHT: &str = "noodly_scullery_brawl";
+    const PANTRY: &str = "noodly_scullery_pantry_door";
+    let mut sim = room("noodly_scullery");
+    assert!(stands(&mut sim, PANTRY), "the pantry is shut before the fight");
+    assert!(!standing(&mut sim).contains(&format!("lockwall:{FIGHT}")), "the room is open before the fight");
+
+    // Into the strip that starts the fight.
+    sim.teleport_player((352.0, 560.0));
+    let mut shut = false;
+    let mut mobs_seen = 0usize;
+    let mut cleared = false;
+    for _ in 0..60 * 40 {
+        sim.step(base());
+        shut |= standing(&mut sim).contains(&format!("lockwall:{FIGHT}"));
+        // Each mob that is there is struck down, as a player who wins does.
+        let world = sim.world_mut();
+        let mut mobs = world.query_filtered::<&mut BodyHealth, bevy::prelude::With<EncounterMob>>();
+        for mut health in mobs.iter_mut(world) {
+            if health.alive() {
+                mobs_seen += 1;
+                health.health.current = 0;
+            }
+        }
+        let state = world.resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().encounter(FIGHT);
+        if state == ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared {
+            cleared = true;
+            break;
+        }
+    }
+    assert!(shut, "the fight shut the room");
+    assert_eq!(mobs_seen, 8, "the three waves of the scullery are eight cooks");
+    assert!(cleared, "the fight ended when each cook was down");
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    assert!(!stands(&mut sim, PANTRY), "the end of the fight opens the pantry: {:?}", standing(&mut sim));
+    assert!(!standing(&mut sim).contains(&format!("lockwall:{FIGHT}")), "the room is open after the fight");
+}
+
+#[test]
+fn the_monster_is_in_the_sanctum() {
+    let mut sim = room("noodly_sanctum");
+    for _ in 0..60 {
+        sim.step(base());
+    }
+    let world = sim.world_mut();
+    let there = world
+        .query::<(&BossConfig, &BodyHealth)>()
+        .iter(world)
+        .any(|(config, health)| config.behavior.id == "flying_spaghetti_monster_boss" && health.alive());
+    assert!(there, "the Flying Spaghetti Monster is in the sanctum, alive");
+}

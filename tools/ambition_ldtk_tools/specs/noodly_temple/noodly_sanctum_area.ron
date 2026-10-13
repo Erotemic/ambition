@@ -1,0 +1,29 @@
+// Written by specs/noodly_temple/make_specs.py. Change the script, not this file.
+(
+    id: "noodly_sanctum",
+    level_id: "noodly_sanctum",
+    world_x: 82000,
+    world_y: 0,
+    px_wid: 960,
+    px_hei: 768,
+    fill_collision: "empty",
+    bg_color: "#15131F",
+    biome: "boss",
+    music_track: "flying_spaghetti_monster_roots_boss_choir_backing",
+    entities: [
+        ( type: "Solid", px: [0, 736], size: [960, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [16, 736], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [944, 0], size: [16, 736], fields: ( name: "right_wall" ) ),
+        ( type: "Solid", px: [16, 0], size: [928, 16], fields: ( name: "ceiling" ) ),
+        ( type: "OneWayPlatform", px: [96, 592], size: [192, 16], fields: ( name: "ledge_left" ) ),
+        ( type: "OneWayPlatform", px: [672, 592], size: [192, 16], fields: ( name: "ledge_right" ) ),
+        ( type: "PlayerStart", px: [96, 672], size: [24, 48], fields: ( name: "noodly_sanctum_spawn" ) ),
+        ( type: "LoadingZone", px: [160, 640], size: [48, 96], fields: ( id: "noodly_sanctum_entry", name: "to the nave", activation: "Door", target_room: "noodly_nave", target_zone: "noodly_nave_sanctum", bidirectional: true ) ),
+        ( type: "BossSpawn", px: [480, 240], size: [168, 150], fields: ( name: "Flying Spaghetti Monster", brain: "PhaseScript:flying_spaghetti_monster_boss", encounter_id: "noodly_temple.fsm" ) ),
+        ( type: "CameraZone", px: [0, 0], size: [960, 768], fields: ( id: "noodly_sanctum_camera", name: "noodly_sanctum_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [40, 32], size: [400, 24], fields: ( name: "noodly_sanctum_sign_title", text: "The sanctum.", category: "Custom" ) ),
+    ],
+    connect_to: [
+        
+    ],
+)

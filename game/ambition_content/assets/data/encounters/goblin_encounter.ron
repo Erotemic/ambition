@@ -57,4 +57,65 @@
             ],
         ),
     ],
+    // The Noodly Temple (`tools/ambition_ldtk_tools/specs/noodly_temple/`).
+    // Each of its two fights shuts its room and opens a grille at its end
+    // (`encounter.cleared`). Coordinates are in the room; the floor of each
+    // room is y=608.
+    //
+    // The scullery: the cooks of the temple are pirates (the chosen people of
+    // the Flying Spaghetti Monster).
+    "noodly_scullery_brawl": [
+        (
+            label: "wave 1 — two cooks",
+            mobs: [
+                (kind: "skirmisher", character: Some("npc_pirate_raider"), spawn: (700.0, 582.0), size: (34.0, 52.0), delay: 0.0),
+                (kind: "skirmisher", character: Some("npc_pirate_raider"), spawn: (980.0, 582.0), size: (34.0, 52.0), delay: 0.5),
+            ],
+        ),
+        (
+            label: "wave 2 — the kitchen comes",
+            mobs: [
+                (kind: "skirmisher", character: Some("npc_pirate_raider"), spawn: (520.0, 582.0), size: (34.0, 52.0), delay: 0.0),
+                (kind: "skirmisher", character: Some("npc_pirate_lookout"), spawn: (880.0, 454.0), size: (34.0, 52.0), delay: 0.6),
+                (kind: "skirmisher", character: Some("npc_pirate_raider"), spawn: (1040.0, 582.0), size: (34.0, 52.0), delay: 1.4),
+            ],
+        ),
+        (
+            label: "wave 3 — the head cook",
+            mobs: [
+                (kind: "door_guard", character: Some("npc_pirate_heavy_iron_mary"), spawn: (900.0, 580.0), size: (40.0, 56.0), delay: 0.0),
+                (kind: "skirmisher", character: Some("npc_pirate_raider"), spawn: (560.0, 582.0), size: (34.0, 52.0), delay: 1.2),
+                (kind: "skirmisher", character: Some("npc_pirate_raider"), spawn: (1040.0, 582.0), size: (34.0, 52.0), delay: 1.2),
+            ],
+        ),
+    ],
+    // The reliquary: the monster's own.
+    "noodly_reliquary_vigil": [
+        (
+            label: "wave 1 — noodlings",
+            mobs: [
+                (kind: "combatant", character: Some("npc_fsm_noodling"), spawn: (520.0, 360.0), size: (40.0, 40.0), delay: 0.0),
+                (kind: "combatant", character: Some("npc_fsm_noodling"), spawn: (760.0, 300.0), size: (40.0, 40.0), delay: 0.4),
+                (kind: "combatant", character: Some("npc_fsm_noodling"), spawn: (960.0, 380.0), size: (40.0, 40.0), delay: 0.8),
+            ],
+        ),
+        (
+            label: "wave 2 — two knots",
+            mobs: [
+                (kind: "medium_striker", character: Some("npc_spaghetti_event"), spawn: (640.0, 580.0), size: (34.0, 56.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("npc_spaghetti_event"), spawn: (940.0, 580.0), size: (34.0, 56.0), delay: 0.6),
+                (kind: "combatant", character: Some("npc_fsm_noodling"), spawn: (700.0, 280.0), size: (40.0, 40.0), delay: 1.6),
+            ],
+        ),
+        (
+            label: "wave 3 — the whole vigil",
+            mobs: [
+                (kind: "combatant", character: Some("npc_fsm_noodling"), spawn: (480.0, 300.0), size: (40.0, 40.0), delay: 0.0),
+                (kind: "combatant", character: Some("npc_fsm_noodling"), spawn: (980.0, 300.0), size: (40.0, 40.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("npc_spaghetti_event"), spawn: (560.0, 580.0), size: (34.0, 56.0), delay: 0.8),
+                (kind: "medium_striker", character: Some("npc_spaghetti_event"), spawn: (960.0, 580.0), size: (34.0, 56.0), delay: 0.8),
+                (kind: "combatant", character: Some("npc_fsm_noodling"), spawn: (730.0, 240.0), size: (40.0, 40.0), delay: 2.4),
+            ],
+        ),
+    ],
 }

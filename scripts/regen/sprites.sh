@@ -591,6 +591,22 @@ tackon_targets=(
     coconut
     # Scenery of the primeval trail (an LDtk `Prop`).
     coconut_palm
+    # The keys and the doors of the Noodly Temple (`PickupSpawn.sprite`,
+    # `LockWall.look`).
+    temple_key_marinara
+    temple_gate_marinara
+    temple_key_pesto
+    temple_gate_pesto
+    temple_key_parmesan
+    temple_gate_parmesan
+    temple_key_colander
+    temple_gate_colander
+    temple_gate_iron
+    temple_gate_sluice_1
+    temple_gate_sluice_2
+    temple_gate_sluice_3
+    temple_gate_sluice_1_shut
+    temple_gate_bell
     portal_gun_blue
     portal_gun_orange
     hunting_bow

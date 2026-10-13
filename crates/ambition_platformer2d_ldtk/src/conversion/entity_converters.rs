@@ -70,6 +70,9 @@ pub(super) fn convert_lock_wall(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
             gated_by: field_string(entity, "gated_by")
                 .map(|value| value.trim().to_string())
                 .filter(|value| !value.is_empty()),
+            look: field_string(entity, "look")
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty()),
             min,
             size,
         }],

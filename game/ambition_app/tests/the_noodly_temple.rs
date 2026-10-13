@@ -281,3 +281,69 @@ fn swing_of_the_noodle(sim: &mut Platformer2dSimHarness) -> Option<ambition_plat
         .expect("the view has the noodle in a hand")
         .swing
 }
+
+/// ⭐ A PLAYER WALKS IN, WINS THE FIGHT OF THE SCULLERY AND TAKES ITS KEY,
+/// WITH ITS OWN INPUTS. From the central hub through the narthex and the
+/// nave to the scullery by the room graph (`common::walk`), into the strip
+/// that starts the fight, the fight won by Attack presses at the cooks (no
+/// health is written), into the pantry the fight's end opens for the Marinara
+/// Key, and back to the nave, whose two doors the key opens. No step puts the
+/// body anywhere (review 2026-10-12: each temple test teleported or wrote
+/// health). The mechanism tests above are the controls for each part.
+#[test]
+fn a_player_walks_in_wins_the_fight_of_the_scullery_and_takes_its_key() {
+    use crate::common::walk::{fight, walk_through, walk_to, Pad, Walker as _};
+    use ambition_platformer2d::combat::components::EncounterMob;
+    use ambition_platformer2d::persistence::save_data::PersistedEncounterState;
+    const FIGHT: &str = "noodly_scullery_brawl";
+
+    let mut sim = room("central_hub_complex");
+    let key = {
+        let mut pad = Pad::new(&mut sim);
+        for (to, why) in [("noodly_narthex", "the hub"), ("noodly_nave", "the narthex"), ("noodly_scullery", "the nave")] {
+            walk_through(&mut pad, to).unwrap_or_else(|e| panic!("from {why} to `{to}`: {e}"));
+        }
+        // Into the strip that starts the fight.
+        walk_to(&mut pad, ambition_platformer2d::engine_core::Vec2::new(352.0, 560.0))
+            .unwrap_or_else(|e| panic!("to the strip of the fight: {e}"));
+        let cleared = |world: &bevy::prelude::World| {
+            world.resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().encounter(FIGHT)
+                == PersistedEncounterState::Cleared
+        };
+        let frames = fight(&mut pad, |world, body| world.get::<EncounterMob>(body).is_some(), cleared, 60 * 120)
+            .unwrap_or_else(|e| panic!("the fight of the scullery: {e}"));
+        eprintln!("[temple] the fight of the scullery was won in {frames} frames");
+        // The grille of the pantry and the lock walls fall a few frames after
+        // the fight is cleared: wait, as a player does.
+        for _ in 0..30 {
+            pad.step(Default::default());
+        }
+        let key = {
+            let world = pad.world_mut();
+            world
+                .query::<(&ambition_platformer2d::combat::components::PickupFeature, &ambition_platformer2d::engine_core::geometry::CenteredAabb)>()
+                .iter(world)
+                .find(|(feature, _)| {
+                    matches!(&feature.pickup.kind, ambition_platformer2d::interaction::PickupKind::StoryFlag { flag } if flag == "noodly_key_marinara")
+                })
+                .map(|(_, aabb)| aabb.center)
+                .expect("the scullery has the Marinara Key")
+        };
+        walk_to(&mut pad, key).unwrap_or_else(|e| panic!("into the pantry to the key: {e}"));
+        for _ in 0..20 {
+            pad.step(Default::default());
+        }
+        key
+    };
+    assert!(flag(&mut sim, "noodly_key_marinara"), "the player took the key at {key:?}");
+    {
+        let mut pad = Pad::new(&mut sim);
+        walk_through(&mut pad, "noodly_nave").unwrap_or_else(|e| panic!("back to the nave: {e}"));
+        for _ in 0..10 {
+            pad.step(Default::default());
+        }
+    }
+    assert!(!stands(&mut sim, "noodly_nave_cistern_door_0"), "the key opens the door of the cistern: {:?}", standing(&mut sim));
+    assert!(!stands(&mut sim, "noodly_nave_belfry_door_0"), "the key opens the door of the belfry: {:?}", standing(&mut sim));
+    assert!(stands(&mut sim, "noodly_nave_sanctum_door_0"), "and not the door of the sanctum: {:?}", standing(&mut sim));
+}

@@ -15,7 +15,7 @@
 
 use std::sync::Arc;
 
-use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionOutbox};
+use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox};
 use ambition_extension_sdk::phases::BOSS_CONDUCT;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRooms, SessionCommands, SpawnSessionScopedExt};
@@ -158,30 +158,25 @@ pub fn held_pair_link(owner: &SimId, entry: &str, slot: u32) -> PortalLink {
 }
 
 /// See the port card on `HeldPortalPairPort`: release what was not asked for
-/// this tick, move what is held, spawn what is asked for and not held, and
-/// despawn a portal whose holder is gone.
+/// this tick, make what is held what was asked, spawn what is asked for and
+/// not held, and despawn a portal whose holder is gone.
+///
+/// Each request is the whole of its pair this tick: its places, normals,
+/// openings and looks. A pair is held only while its entry asks for it, so
+/// the pairs of an entry that is no longer admitted (a reload that removed
+/// it) are released: nothing can ask for them again.
 #[allow(clippy::type_complexity)]
 fn lower_held_portal_pairs(
     mut commands: SessionCommands,
     mut outbox: ResMut<ExtensionOutbox>,
-    admitted: Res<AdmittedExtensions>,
     live: LiveRooms,
     mut holders: Query<(Entity, &mut HeldPortalPairs)>,
     ids: Query<&SimId>,
-    mut portals: Query<(Entity, &HeldPortalOf, &mut PlacedPortal)>,
+    mut portals: Query<(Entity, &HeldPortalOf, &mut PlacedPortal, &mut PortalLook)>,
 ) {
     let submitted = outbox.drain::<HeldPortalPairPort>(&BOSS_CONDUCT);
-    // Only this phase's entries' pairs.
-    let mine: Vec<&str> = admitted
-        .0
-        .entries
-        .iter()
-        .filter(|e| e.descriptor.phase == BOSS_CONDUCT)
-        .map(|e| e.path.as_str())
-        .collect();
     let asked = |owner: Entity, r: &HeldPortalPairRecord| {
-        !mine.contains(&&*r.entry)
-            || submitted.iter().any(|s| s.scope == owner && *s.entry == *r.entry && s.value.slot == r.slot)
+        submitted.iter().any(|s| s.scope == owner && *s.entry == *r.entry && s.value.slot == r.slot)
     };
     for (owner, mut held) in &mut holders {
         if held.0.iter().all(|r| asked(owner, r)) {
@@ -202,7 +197,7 @@ fn lower_held_portal_pairs(
     // ⛔ A portal whose holder is gone, or that its holder no longer holds:
     // a body that is despawned takes its record with it, and its portals
     // must not stay open.
-    for (portal, of, _) in &portals {
+    for (portal, of, ..) in &portals {
         let held = holders
             .get(of.0)
             .is_ok_and(|(_, held)| held.0.iter().any(|r| r.ends.contains(&portal)));
@@ -222,13 +217,27 @@ fn lower_held_portal_pairs(
             .ok()
             .and_then(|(_, h)| h.0.iter().find(|r| *r.entry == *s.entry && r.slot == pair.slot).cloned());
         if let Some(record) = held {
-            // Held: its ends follow the asked places.
-            for (end, asked) in record.ends.iter().zip(&pair.ends) {
-                if let Ok((_, _, mut portal)) = portals.get_mut(*end) {
+            // Held: each end is what was asked this tick, in place, normal,
+            // opening and look. Written only where it changed, so an
+            // unchanged pair is not marked changed.
+            for (index, (end, asked)) in record.ends.iter().zip(&pair.ends).enumerate() {
+                if let Ok((_, _, mut portal, mut look)) = portals.get_mut(*end) {
                     let at = ae::Vec2::from(asked.at);
+                    let normal = ae::Vec2::from(asked.normal);
+                    let half = portal_half_extent_with_length(normal, asked.half_length);
                     if portal.pos != at {
                         portal.pos = at;
                         portal.prev_pos = at;
+                    }
+                    if portal.normal != normal {
+                        portal.normal = normal;
+                    }
+                    if portal.authored_half_extent != half {
+                        portal.authored_half_extent = half;
+                    }
+                    let want = PortalLook(PortalChannel::Authored(PortalChannelColor::Indexed(pair.looks[index])));
+                    if *look != want {
+                        *look = want;
                     }
                 }
             }

@@ -3,7 +3,7 @@
 //! `lower_held_portal_pairs` keeps the portals.
 
 use super::*;
-use ambition_extension_host::{ExtensionHostPlugin, ExtensionInvocations, ExtensionSet};
+use ambition_extension_host::{AdmittedExtensions, ExtensionHostPlugin, ExtensionInvocations, ExtensionSet};
 use ambition_extension_sdk::{
     wire, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits, ModuleDescriptor, ModuleKey,
     Port, PortKey, PortRole, TriggerBinding,
@@ -40,17 +40,26 @@ fn far_of(x: f32) -> ae::Vec2 {
     ae::Vec2::new(x + 50.0, 200.0)
 }
 
+/// A poke at or past this asks for the pair TURNED: its normals along the
+/// side axis, a narrower opening and other looks, at `x - TURNED`.
+const TURNED: u32 = 10_000;
+
 /// The pair of the punch, as GNU-ton's conductor asks for it.
 fn ask(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let x = *inv.trigger::<Poke>()?;
     if x == 0 {
         return Ok(());
     }
-    let end = |at: ae::Vec2, normal: [f32; 2]| PortalEnd { at: [at.x, at.y], normal, half_length: 65.0 };
+    let (x, normals, half_length, looks) = if x >= TURNED {
+        (x - TURNED, [[1.0, 0.0], [-1.0, 0.0]], 40.0, [26, 27])
+    } else {
+        (x, [[0.0, -1.0], [0.0, 1.0]], 65.0, [24, 25])
+    };
+    let end = |at: ae::Vec2, normal: [f32; 2]| PortalEnd { at: [at.x, at.y], normal, half_length };
     inv.submit::<HeldPortalPairPort>(HeldPortalPair {
         slot: 0,
-        ends: [end(near_of(x as f32), [0.0, -1.0]), end(far_of(x as f32), [0.0, 1.0])],
-        looks: [24, 25],
+        ends: [end(near_of(x as f32), normals[0]), end(far_of(x as f32), normals[1])],
+        looks,
     })
 }
 
@@ -292,4 +301,69 @@ fn each_body_has_the_lines_its_entry_asks_for_this_tick() {
     assert_eq!(lines_of(&app, a), None, "a body that asks for no line has no view");
     assert_eq!(lines_of(&app, b), Some(vec![(0, 800.0)]));
     assert_eq!(app.world().entities().len(), entities, "the simulation spawns nothing for a line");
+}
+
+/// The first end of `holder`'s pair: its normal, its opening as placed, and
+/// its look.
+fn first_end(app: &mut App, holder: Entity) -> (ae::Vec2, ae::Vec2, crate::PortalLook) {
+    let world = app.world_mut();
+    let record = world.get::<HeldPortalPairs>(holder).expect("a held pair").0[0].clone();
+    let portal = world.get::<PlacedPortal>(record.ends[0]).expect("its first end");
+    let look = *world.get::<crate::PortalLook>(record.ends[0]).expect("its look");
+    (portal.normal, portal.authored_half_extent, look)
+}
+
+/// ⛔ EACH REQUEST IS THE WHOLE OF ITS PAIR. A module that turns its held
+/// pair and narrows it gets a turned, narrower pair, with the looks it asks
+/// for, and the same two portals (review 2026-10-12: only the places
+/// followed). The control is the first request, which the pair was made
+/// from.
+#[test]
+fn a_held_pair_takes_the_normal_the_opening_and_the_look_it_is_asked_for() {
+    let mut app = app();
+    let room = LiveRoomInstance::ACTIVATION;
+    app.world_mut().spawn((RoomInstanceRoot, room));
+    let holder = app.world_mut().spawn((Asks(100), SimId::placement("a"), InRoomInstance(room))).id();
+    app.world_mut().run_schedule(Sim);
+    let ends = app.world().get::<HeldPortalPairs>(holder).expect("a held pair").0[0].ends;
+    let indexed = |look: u8| crate::PortalLook(PortalChannel::Authored(PortalChannelColor::Indexed(look)));
+    assert_eq!(
+        first_end(&mut app, holder),
+        (ae::Vec2::new(0.0, -1.0), portal_half_extent_with_length(ae::Vec2::new(0.0, -1.0), 65.0), indexed(24)),
+        "control: the pair is made as first asked"
+    );
+
+    app.world_mut().get_mut::<Asks>(holder).unwrap().0 = TURNED + 100;
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(
+        first_end(&mut app, holder),
+        (ae::Vec2::new(1.0, 0.0), portal_half_extent_with_length(ae::Vec2::new(1.0, 0.0), 40.0), indexed(26)),
+        "a turned, narrower request turns and narrows the held pair"
+    );
+    assert_eq!(app.world().get::<HeldPortalPairs>(holder).unwrap().0[0].ends, ends, "the same two portals");
+}
+
+/// ⛔ A PAIR IS HELD ONLY WHILE ITS ENTRY CAN ASK FOR IT. When the entry is
+/// no longer admitted (a reload that removed it), its pair is released and
+/// its portals close (review 2026-10-12: a pair of an unadmitted entry was
+/// kept as asked). The control is the tick before, with the entry admitted.
+#[test]
+fn the_pair_of_an_entry_that_is_no_longer_admitted_is_released() {
+    let mut app = app();
+    let room = LiveRoomInstance::ACTIVATION;
+    app.world_mut().spawn((RoomInstanceRoot, room));
+    let holder = app.world_mut().spawn((Asks(100), SimId::placement("a"), InRoomInstance(room))).id();
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(portals(&mut app).len(), 2, "control: the admitted entry holds its pair");
+
+    let mut admitted = (*app.world().resource::<AdmittedExtensions>().0).clone();
+    admitted.entries.clear();
+    app.world_mut().resource_mut::<AdmittedExtensions>().0 = std::sync::Arc::new(admitted);
+    app.world_mut().run_schedule(Sim);
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(portals(&mut app), vec![], "the pair of an entry that is gone is closed");
+    assert!(
+        app.world().get::<HeldPortalPairs>(holder).is_none_or(|held| held.0.is_empty()),
+        "and its record released"
+    );
 }

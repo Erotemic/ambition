@@ -82,6 +82,63 @@ fn a_body_that_can_sit_sits_when_it_stands_idle_and_is_up_when_it_moves() {
     assert_eq!(animator.current, CharacterAnim::Idle);
 }
 
+/// A sheet with rows that face the viewer shows them when its body is at
+/// rest, the talking one in a conversation, and the side rows when the body
+/// does anything else. A sheet with no such row is drawn as before.
+#[test]
+fn a_sheet_with_front_rows_faces_the_viewer_at_rest_and_in_a_conversation() {
+    let animator_of = |rows: &str| {
+        let record: SheetRecord = ron::from_str(&format!(
+            r#"(target: "front_fixture", image: "front.png", label_width: 0, frame_width: 16, frame_height: 16, rows: [
+                (animation: "idle", row_index: 0, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
+                (animation: "walk", row_index: 1, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
+                {rows}
+            ])"#
+        ))
+        .expect("the fixture sheet parses");
+        let asset = CharacterSpriteAsset {
+            texture: Default::default(),
+            layout: Default::default(),
+            spec: spec_from_record(&record, &SheetTuning::new(1.0, 1)),
+            pages: Vec::new(),
+            requested_tier: Default::default(),
+            resolved_tier: Default::default(),
+            rigged: None,
+        };
+        CharacterAnimator::new(&asset)
+    };
+    let mut animator = animator_of(
+        r#"(animation: "front", row_index: 2, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
+           (animation: "front_talk", row_index: 3, frame_count: 2, duration_ms: 100, duration_secs: 0.1),"#,
+    );
+    let front = animator.spec.clip_slot(["front"]).expect("the sheet keeps its `front` row");
+    let talk = animator.spec.clip_slot(["front_talk"]).expect("the sheet keeps its `front_talk` row");
+    assert_ne!(front, talk);
+    let shown = |animator: &CharacterAnimator| animator.showing_clip();
+
+    // At rest it faces the viewer; it loops (it does not hold its last frame).
+    animator.request_actor_pose(CharacterAnim::Idle, [], false, false, false);
+    assert_eq!(shown(&animator), Some(front));
+    animator.tick(0.5);
+    assert!(!animator.clip_finished(), "the row at rest holds its last frame");
+    // In a conversation it talks to the viewer.
+    animator.request_actor_pose(CharacterAnim::Idle, [], false, true, false);
+    assert_eq!(shown(&animator), Some(talk));
+    // It walks: the side row, at once.
+    animator.request_actor_pose(CharacterAnim::Walk, [], false, false, false);
+    assert_eq!(shown(&animator), None);
+    assert_eq!(animator.current, CharacterAnim::Walk);
+    // A row a move or a state asks for wins over the front row.
+    animator.request_actor_pose(CharacterAnim::Idle, ["walk"], true, false, false);
+    assert_ne!(shown(&animator), Some(front));
+
+    // Control: a sheet with no front row is drawn as before.
+    let mut plain = animator_of("");
+    plain.request_actor_pose(CharacterAnim::Idle, [], false, true, false);
+    assert_eq!(shown(&plain), None);
+    assert_eq!(plain.current, CharacterAnim::Idle);
+}
+
 /// When the manifest has a `tuning:` block, `spec_from_record` uses it, not the
 /// passed-in `SheetTuning` const.
 #[test]

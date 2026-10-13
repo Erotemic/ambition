@@ -3254,8 +3254,8 @@
             manifest: "sprites/jeff_hinter_armored_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
-            // 183 cm.
-            standing_height: Some(70.8),
+            // 178 cm: he is the height he is without the armor.
+            standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -3581,8 +3581,8 @@
             manifest: "sprites/admiral_grass_hopper_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
-            // 165 cm.
-            standing_height: Some(63.9),
+            // 155 cm: a small woman.
+            standing_height: Some(60.0),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "striker_swipe",
@@ -3664,6 +3664,8 @@
             manifest: "sprites/georg_canter_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // 200 cm to the top of his head: a man on a horse's shoulders.
+            standing_height: Some(77.4),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "striker_swipe",

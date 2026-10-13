@@ -340,6 +340,18 @@ impl CharacterAnimator {
                 return;
             }
         }
+        // A sheet that has rows that face the viewer shows them when its body
+        // is at rest: `front`, and `front_talk` in a conversation. The body
+        // turns to the side when it does anything else, and a sheet with no
+        // such row draws what it drew before. (Jon, 2026-10-13: "none of
+        // these character seem to have a forward facing pose".)
+        if !has_clip && !barking && anim == CharacterAnim::Idle {
+            let front: &[&str] = if conversation_held { &["front_talk", "front"] } else { &["front"] };
+            if self.spec.clip_slot(front.iter().copied()).is_some() {
+                self.request_loop(front.iter().copied(), anim);
+                return;
+            }
+        }
         if barking && self.spec.maps(CharacterAnim::Bark) {
             self.request(CharacterAnim::Bark);
         } else if has_clip {
@@ -410,6 +422,12 @@ impl CharacterAnimator {
         self.frame = frame.min(count - 1);
         self.elapsed = 0.0;
         self.clip_held = true;
+    }
+
+    /// The slot of the authored row that is showing, when one is (and not a
+    /// semantic pose).
+    pub fn showing_clip(&self) -> Option<usize> {
+        self.clip_slot
     }
 
     /// Whether an authored clip is showing and has reached its last frame,

@@ -1610,6 +1610,75 @@ fn a_move_that_roots_the_body_is_costed_for_the_slide_it_brings() {
     );
 }
 
+/// `view` turned so that its gravity points along `down`: each position,
+/// velocity and box laid out on the frame `AccelerationFrame::new(down)` as it
+/// was on the screen-down one. Half extents are along each body's own axes, so
+/// they do not turn.
+fn turned(view: &WorldView, down: ae::Vec2) -> WorldView {
+    let frame = ae::AccelerationFrame::new(down);
+    let at = |p: ae::Vec2| frame.side * p.x + frame.down * p.y;
+    let mut out = view.clone();
+    out.self_view.pos = at(view.self_view.pos);
+    out.self_view.vel = at(view.self_view.vel);
+    out.self_view.gravity_down = frame.down;
+    for (actor, upright) in out.actors.iter_mut().zip(&view.actors) {
+        actor.pos = at(upright.pos);
+        actor.vel = at(upright.vel);
+        actor.gravity_down = Some(frame.down);
+    }
+    for (solid, upright) in out.terrain.iter_mut().zip(&view.terrain) {
+        let (a, b) = (at(upright.aabb.min), at(upright.aabb.max));
+        solid.aabb = ae::Aabb { min: a.min(b), max: a.max(b) };
+    }
+    out
+}
+
+/// ⭐ THE LEDGE AND OVERSHOOT VERDICTS DO NOT DEPEND ON WHICH WAY GRAVITY
+/// POINTS. They read world x: under sideways gravity a body that ran at the
+/// edge, or through the foe, along world y had no momentum toward either
+/// (review of 80116a77b, finding 1). Each scenario of the two witnesses above,
+/// turned to sideways and reversed gravity, scores Approach and Retreat as it
+/// does under screen-down gravity.
+///
+/// The control: the scenarios include each verdict upright (a penalised
+/// retreat, a penalised approach, and neither), so a frame that loses a
+/// penalty changes a score.
+#[test]
+fn the_ledge_and_overshoot_verdicts_are_the_same_in_every_gravity_frame() {
+    let weights = UtilityWeights::default();
+    let scores = |view: &WorldView| {
+        let options = generate_options(Perceived::cheating(view), Situation::Neutral, &[], &weights);
+        (score_of(&options, MovementVerb::Approach), score_of(&options, MovementVerb::Retreat))
+    };
+    let scenario = |me_x: f32, foe_x: f32, platform: (f32, f32), vel_x: f32, stop_distance: f32| {
+        let mut view = on_a_platform(me_x, foe_x, platform);
+        view.self_view.vel.x = vel_x;
+        view.self_view.stop_distance = stop_distance;
+        view.actors[0].half_extent = ae::Vec2::new(12.0, 24.0);
+        view
+    };
+    let at_the_edge = |vel_x| scenario(160.0, 300.0, (100.0, 400.0), vel_x, 90.0);
+    let near_the_foe = |foe_x| scenario(300.0, foe_x, (100.0, 900.0), 571.0, 90.0);
+    let (_, retreat_away) = scores(&at_the_edge(571.0));
+    let (_, retreat_coasting) = scores(&at_the_edge(-571.0));
+    assert!(retreat_coasting < retreat_away, "the control: upright, coasting at the edge penalises the retreat");
+    let (approach_short, _) = scores(&near_the_foe(380.0));
+    let (approach_through, _) = scores(&near_the_foe(340.0));
+    assert!(approach_through < approach_short, "the control: upright, running through the foe penalises the approach");
+    for view in [at_the_edge(571.0), at_the_edge(-571.0), near_the_foe(380.0), near_the_foe(340.0)] {
+        let upright = scores(&view);
+        for down in [ae::Vec2::new(1.0, 0.0), ae::Vec2::new(-1.0, 0.0), ae::Vec2::new(0.0, -1.0)] {
+            assert_eq!(
+                scores(&turned(&view, down)),
+                upright,
+                "the body at {:?} moving {:?}: turned to gravity {down:?}, approach and retreat score differently",
+                view.self_view.pos,
+                view.self_view.vel
+            );
+        }
+    }
+}
+
 /// A body with no perceived terrain is not penalised. An airborne fighter,
 /// or a view whose terrain was never filled, is not a ledge question — and
 /// treating "I cannot see the floor" as "the floor ends here" would freeze every

@@ -1849,3 +1849,28 @@ fn the_view_marks_only_the_gates_open_for_this_body() {
     assert_eq!(open_of(&[]), vec![false, false], "control: no gate is open");
     assert_eq!(open_of(&["wall"]), vec![false, true], "the named gate, and only it, is open");
 }
+
+/// ⭐ THE STOP AND COAST DISTANCES ARE ALONG THE BODY'S OWN SIDE AXIS. A body
+/// under sideways gravity runs along world y, and read off world x it had no
+/// momentum to stop (review of 80116a77b, finding 1). The same run speed gives
+/// the same distances in the screen-down, sideways and reversed frames, and a
+/// speed along the body's down axis is no run at all.
+#[test]
+fn the_ground_distances_are_along_the_bodys_own_side_axis() {
+    let model = ae::MotionModel::default();
+    let screen_down = ground_distances(&model, ae::Vec2::new(500.0, 0.0), ae::Vec2::new(0.0, 1.0));
+    assert!(screen_down.0 > 0.0 && screen_down.1 > 0.0, "the control: a run of 500 px/s needs ground to stop");
+    for down in [ae::Vec2::new(1.0, 0.0), ae::Vec2::new(-1.0, 0.0), ae::Vec2::new(0.0, -1.0)] {
+        let frame = ae::AccelerationFrame::new(down);
+        assert_eq!(
+            ground_distances(&model, frame.side * 500.0, down),
+            screen_down,
+            "a run of 500 px/s along the side axis of gravity {down:?}"
+        );
+        assert_eq!(
+            ground_distances(&model, frame.down * 500.0, down),
+            (0.0, 0.0),
+            "a speed along gravity {down:?} itself was read as a run"
+        );
+    }
+}

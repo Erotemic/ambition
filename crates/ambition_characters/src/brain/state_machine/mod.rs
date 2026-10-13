@@ -178,7 +178,7 @@ pub fn tick_simple_state_machine(
         return true;
     }
     match sm {
-        StateMachineCfg::StandStill => tick_stand_still(out),
+        StateMachineCfg::StandStill => tick_stand_still(snapshot, out),
         StateMachineCfg::Patrol { cfg, state } => tick_patrol(cfg, state, snapshot, out),
         StateMachineCfg::Wanderer { cfg } => tick_wanderer(cfg, snapshot, out),
         StateMachineCfg::MeleeBrute { cfg, state } => tick_melee_brute(cfg, state, snapshot, out),
@@ -199,8 +199,30 @@ pub fn tick_simple_state_machine(
 
 // ===== StandStill =====
 
-fn tick_stand_still(out: &mut crate::actor::control::ActorControlFrame) {
+/// How near a visitor is when a body that stands turns to it (px).
+pub const STAND_TURN_RADIUS: f32 = 150.0;
+
+/// A body wider than this from its centre to its edge does not turn to its
+/// target when it stands (px).
+///
+/// Jon, 2026-10-13: "maybe they turn to face the player ... Not every
+/// character should do this, very large characters like the mockingbird
+/// probably should not turn to face the player." A person is 13 to 22 wide.
+pub const STAND_TURN_MAX_HALF_WIDTH: f32 = 48.0;
+
+/// Stand. A body that is not very large turns to the one who is near it; it
+/// does nothing else.
+///
+/// The one near it is at `target_pos`. A body with no foe has no living
+/// target (`target_alive` is false), and `target_pos` is then where the
+/// player is: the visitor a peaceful body turns to. With no player it is the
+/// body's own place, and the body keeps its facing.
+fn tick_stand_still(snapshot: &BrainSnapshot, out: &mut crate::actor::control::ActorControlFrame) {
     *out = crate::actor::control::ActorControlFrame::neutral();
+    let to_target = snapshot.target_delta_local();
+    if snapshot.actor_half_width <= STAND_TURN_MAX_HALF_WIDTH && to_target.x.abs().max(to_target.y.abs()) <= STAND_TURN_RADIUS {
+        out.facing = snapshot.face_toward(to_target.x);
+    }
 }
 
 // ===== Patrol =====

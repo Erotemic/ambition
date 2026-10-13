@@ -21,11 +21,11 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6111,14 +6111,14 @@
+@@ -6148,14 +6148,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3776,
+-			"pxHei": 3774,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
 +			"pxHei": 915,
@@ -53,11 +53,11 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6249,14 +6249,14 @@
+@@ -6363,14 +6363,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3776,
+-			"pxHei": 3774,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
 +			"pxHei": 915,
@@ -85,11 +85,11 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6519,14 +6519,14 @@
+@@ -6963,14 +6963,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3776,
+-			"pxHei": 3774,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
 +			"pxHei": 915,
@@ -117,11 +117,11 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6044,14 +6044,14 @@
+@@ -6081,14 +6081,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3776,
+-			"pxHei": 3774,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
 +			"pxHei": 915,
@@ -144,17 +144,17 @@ patch and not a commit.
  			"tileRenderMode": "Cover",
 -			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
 -			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
-+			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 101, "h": 95 },
-+			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 101, "h": 95 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -8421,14 +8421,14 @@
+@@ -8942,14 +8942,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 2468,
--			"pxWid": 3072,
+-			"pxHei": 3776,
+-			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
 +			"pxHei": 915,
 +			"pxWid": 1216,
@@ -164,7 +164,7 @@ patch and not a commit.
  			"tags": ["sprite"],
  			"tagsSourceEnumUid": null,
 -			"tileGridSize": 256,
-+			"tileGridSize": 101,
++			"tileGridSize": 76,
  			"uid": 6852
  		},
  		{
@@ -176,17 +176,17 @@ patch and not a commit.
  			"tileRenderMode": "Cover",
 -			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
 -			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
-+			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 101, "h": 95 },
-+			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 101, "h": 95 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -8421,14 +8421,14 @@
+@@ -8942,14 +8942,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 2468,
--			"pxWid": 3072,
+-			"pxHei": 3776,
+-			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
 +			"pxHei": 915,
 +			"pxWid": 1216,
@@ -196,7 +196,7 @@ patch and not a commit.
  			"tags": ["sprite"],
  			"tagsSourceEnumUid": null,
 -			"tileGridSize": 256,
-+			"tileGridSize": 101,
++			"tileGridSize": 76,
  			"uid": 6852
  		},
  		{
@@ -208,17 +208,17 @@ patch and not a commit.
  			"tileRenderMode": "Cover",
 -			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
 -			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
-+			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 101, "h": 95 },
-+			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 101, "h": 95 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -8458,14 +8458,14 @@
+@@ -8942,14 +8942,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 2468,
--			"pxWid": 3072,
+-			"pxHei": 3776,
+-			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
 +			"pxHei": 915,
 +			"pxWid": 1216,
@@ -228,7 +228,7 @@ patch and not a commit.
  			"tags": ["sprite"],
  			"tagsSourceEnumUid": null,
 -			"tileGridSize": 256,
-+			"tileGridSize": 101,
++			"tileGridSize": 76,
  			"uid": 6852
  		},
  		{

@@ -103,6 +103,10 @@ WAIVERS: dict[str, str] = {
         "encounter lock walls: same reasoning. A game without encounters would "
         "pay for a system that reconciles an empty set."
     ),
+    "slide_lock_wall_visuals": (
+        "the slide of a lock wall's picture as it opens or shuts. It runs "
+        "chained after `sync_lock_wall_visuals` and goes where that system goes."
+    ),
     "sync_boss_health_bar_overlay": (
         "a boss HUD is Ambition's, and no other composition ships a boss."
     ),

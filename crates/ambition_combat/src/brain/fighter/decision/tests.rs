@@ -8,6 +8,7 @@ use super::*;
 use ambition_characters::actor::attack_gesture::AttackDir;
 use ambition_characters::actor::ActorFaction;
 use ambition_characters::brain::attack_kit::{AttackBinding, AttackVerb};
+use ambition_characters::brain::OwnMoveFact;
 use ambition_characters::brain::fighter::options::UtilityWeights;
 use ambition_characters::brain::fighter::profile::FighterBrainProfile;
 use ambition_characters::perception::{PerceivedActor, SelfView, StageView, WorldView};
@@ -1935,15 +1936,56 @@ fn twin_floors_are_told_apart_by_the_facing_and_not_by_the_list() {
     }
 }
 
-/// BRAIN road 1: a brain that whiffed declines that binding for as long as the
-/// move plays, and throws the next attack of its ranking instead. With no
-/// memory of its own move it threw the same move until the world changed (the
-/// medic: 177 presses of one move, none landed).
-///
-/// The control is the same brain and kit against a foe seen reeling: the move
-/// landed, so nothing is declined and the best move stays the only one thrown.
-#[test]
-fn a_brain_that_whiffed_declines_that_move_for_as_long_as_it_plays() {
+/// How the body under a test brain answers its presses: each melee press
+/// starts a fresh use of the move on the next tick, which plays `move_ticks`
+/// and touches a body when `lands` says so.
+#[derive(Clone, Copy)]
+struct Body {
+    /// A press starts a move at all.
+    plays: bool,
+    /// The use of the move touches a body on its fourth tick.
+    lands: bool,
+}
+
+/// Drive a brain for `ticks` against `view`, with `body` answering its
+/// presses. Returns each press (tick, binding) and the brain's last state.
+fn drive(
+    snapshot: &BrainSnapshot,
+    view: &WorldView,
+    body: Body,
+    ticks: u32,
+) -> (Vec<(u32, AttackBinding)>, FighterState) {
+    let (cfg, mut state) = rig(immediate_profile());
+    let mut snapshot = snapshot.clone();
+    let mut out = ActorControlFrame::neutral();
+    let mut presses = Vec::new();
+    let move_ticks = (0.35f32 * 60.0).ceil() as u32;
+    let mut instance = 7u32;
+    let mut started: Option<u32> = None;
+    for tick in 0..ticks {
+        snapshot.own_move = started.filter(|at| tick - at < move_ticks).map(|at| OwnMoveFact {
+            instance,
+            contact: ambition_entity_catalog::MoveContact {
+                overlapped: body.lands && tick - at >= 3,
+                connected: body.lands && tick - at >= 3,
+                blocked: false,
+            },
+        });
+        let pending = state.pending_press;
+        tick_fighter(&cfg, &mut state, &snapshot, Some(view), &mut out);
+        if out.melee_pressed {
+            presses.push((tick, pending.expect("a press comes from an armed attack").binding));
+            if body.plays {
+                instance += 1;
+                started = Some(tick + 1);
+            }
+        }
+    }
+    (presses, state)
+}
+
+/// The armed kit with a second, weaker move bound on another direction.
+fn jab_and_poke() -> (BrainSnapshot, AttackBinding, AttackBinding) {
     let mut snapshot = armed_snapshot();
     let mut poke = snapshot.attack_kit[0].clone();
     poke.move_id = "poke".to_string();
@@ -1955,28 +1997,26 @@ fn a_brain_that_whiffed_declines_that_move_for_as_long_as_it_plays() {
     snapshot.attack_kit.push(poke);
     let jab = snapshot.attack_kit[0].binding;
     let poke = snapshot.attack_kit[1].binding;
+    (snapshot, jab, poke)
+}
 
-    let pressed = |foe_reels: bool| {
-        let (cfg, mut state) = rig(immediate_profile());
-        let mut view = scene(300.0, 340.0);
-        if foe_reels {
-            view.actors[0].phase = ambition_characters::perception::BodyPhase::Hitstun;
-        }
-        let mut out = ActorControlFrame::neutral();
-        let mut presses = Vec::new();
-        for tick in 0..120u32 {
-            let pending = state.pending_press;
-            tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
-            if out.melee_pressed {
-                presses.push((tick, pending.expect("a press comes from an armed attack").binding));
-            }
-        }
-        (presses, state)
-    };
-
-    let (whiffed, _) = pressed(false);
+/// BRAIN road 1: a brain that whiffed declines that binding for as long as the
+/// move plays, and throws the next attack of its ranking instead. With no
+/// memory of its own move it threw the same move until the world changed (the
+/// medic: 177 presses of one move, none landed).
+///
+/// ⛔ THE OUTCOME IS ITS OWN MOVE'S RECORD, NOT THE FOE REELING. Here the foe
+/// is in hitstun the whole time (another body's hit), and this brain's jab
+/// touches nothing: it whiffed, and it is declined. The brain read the foe's
+/// hitstun as its own hit before (review 2026-10-12).
+#[test]
+fn a_brain_that_whiffed_declines_that_move_for_as_long_as_it_plays() {
+    let (snapshot, jab, poke) = jab_and_poke();
+    let mut view = scene(300.0, 340.0);
+    view.actors[0].phase = ambition_characters::perception::BodyPhase::Hitstun;
+    let (whiffed, _) = drive(&snapshot, &view, Body { plays: true, lands: false }, 120);
     assert_eq!(whiffed.first().map(|(_, binding)| *binding), Some(jab), "premise: the jab ranks first: {whiffed:?}");
-    // The jab plays 0.35 s, 21 ticks at 60 Hz, and this brain sees with no delay.
+    // The jab plays 0.35 s, 21 ticks at 60 Hz.
     let move_ticks = (0.35f32 * 60.0).ceil() as u32;
     let first = whiffed[0].0;
     assert!(
@@ -1984,14 +2024,68 @@ fn a_brain_that_whiffed_declines_that_move_for_as_long_as_it_plays() {
         "nothing is declined before the jab's time is over: {whiffed:?}"
     );
     assert!(
-        whiffed.iter().any(|(tick, binding)| *binding == poke && *tick > first + move_ticks && *tick <= first + 2 * move_ticks + 1),
-        "a whiffed jab is declined, and the poke is thrown while the refusal runs: {whiffed:?}"
+        whiffed.iter().any(|(tick, binding)| *binding == poke && *tick > first + move_ticks && *tick <= first + 2 * move_ticks + 2),
+        "a jab that touched nothing is declined, though the foe reels from another hit: {whiffed:?}"
     );
+}
 
-    let (landed, state) = pressed(true);
+/// The control: the same brain's jab touches the foe, and the foe is not seen
+/// reeling (a hit the brain has not seen yet, or a block). It landed, so
+/// nothing is declined and the best move stays the only one thrown.
+#[test]
+fn a_brain_whose_own_move_touched_the_foe_declines_nothing() {
+    let (snapshot, jab, _) = jab_and_poke();
+    let view = scene(300.0, 340.0);
+    let (landed, state) = drive(&snapshot, &view, Body { plays: true, lands: true }, 120);
     assert!(
         !landed.is_empty() && landed.iter().all(|(_, binding)| *binding == jab),
         "a jab that landed is not declined: {landed:?}"
     );
     assert_eq!(state.refused, None);
+}
+
+/// A press the body does not play (the engine refused it) is no whiff: the
+/// move was not thrown, so nothing is declined.
+#[test]
+fn a_press_that_starts_no_move_declines_nothing() {
+    let (snapshot, jab, _) = jab_and_poke();
+    let view = scene(300.0, 340.0);
+    let (presses, state) = drive(&snapshot, &view, Body { plays: false, lands: false }, 120);
+    assert!(
+        presses.len() > 1 && presses.iter().all(|(_, binding)| *binding == jab),
+        "an unplayed jab is pressed again, not declined: {presses:?}"
+    );
+    assert_eq!(state.refused, None);
+}
+
+/// The use of a move that plays when the press is made is not the press's
+/// move. A press over a jab that touched the foe starts a fresh jab; that one
+/// touches nothing, and it is declined.
+#[test]
+fn the_move_playing_at_the_press_is_not_the_pressed_move() {
+    let (snapshot, jab, _) = jab_and_poke();
+    let (cfg, mut state) = rig(immediate_profile());
+    let touched = ambition_entity_catalog::MoveContact { overlapped: true, connected: true, blocked: false };
+    let playing = |instance: u32, contact| Some(OwnMoveFact { instance, contact });
+    state.own_attack = Some(OwnAttack {
+        binding: jab,
+        watch_ticks: 40,
+        refuse_ticks: 21,
+        before: Some(3),
+        instance: None,
+        landed: false,
+    });
+    let mut snapshot = snapshot.clone();
+    // The old jab still plays, and it touched the foe: not this press's move.
+    snapshot.own_move = playing(3, touched);
+    watch_the_own_attack(&mut state, &snapshot);
+    assert_eq!(state.own_attack.map(|own| (own.instance, own.landed)), Some((None, false)));
+    // The fresh jab plays and touches nothing, then it is over.
+    snapshot.own_move = playing(4, Default::default());
+    watch_the_own_attack(&mut state, &snapshot);
+    snapshot.own_move = None;
+    watch_the_own_attack(&mut state, &snapshot);
+    assert_eq!(state.own_attack, None, "the move is over when the body plays none");
+    assert_eq!(state.refused.map(|refused| refused.binding), Some(jab), "the fresh jab whiffed");
+    let _ = cfg;
 }

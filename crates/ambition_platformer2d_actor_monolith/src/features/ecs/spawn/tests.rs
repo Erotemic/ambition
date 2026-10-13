@@ -609,6 +609,7 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
         world_size: ambition_platformer2d_core::Vec2::ZERO,
         front_wall_clearance: None,
         player_input: None,
+        own_move: None,
         crowding: None,
         terrain: None,
         navigation: Default::default(),

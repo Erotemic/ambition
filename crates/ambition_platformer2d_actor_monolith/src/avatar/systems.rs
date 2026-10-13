@@ -219,6 +219,9 @@ pub fn tick_controlled_brains(
             crowding: None,
             terrain: None,
             navigation: Default::default(),
+            // A person learns from their own eyes whether their move hit; the
+            // player brain does not read this field.
+            own_move: None,
             // Player brain does not consult this snapshot field; air-jump
             // acceptance remains body-side movement state.
             air_jumps_remaining: 0,

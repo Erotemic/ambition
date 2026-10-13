@@ -2521,6 +2521,12 @@ fn build_enemy_brain_snapshot(
         world_size: ae::Vec2::ZERO,
         front_wall_clearance: None,
         player_input: None,
+        // The body's own move and what it touched, from the one record of
+        // it: a brain learns from this whether its own attack hit.
+        own_move: playback.map(|pb| ambition_characters::brain::OwnMoveFact {
+            instance: pb.instance,
+            contact: pb.contact(),
+        }),
         crowding,
         terrain: None,
         // `tick_actor_brains` fills it from this tick's advice.

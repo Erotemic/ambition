@@ -760,6 +760,18 @@ variants. Also found in that regen:
   moved by +256 and 4 by +3, with their auto-layer tiles. These are editor
   visuals; why the atlas moved is not measured, and the change was not
   committed (Q62: a delta needs a domain-aware reading first).
+10. **A sprite publish writes in place, so a cut-short publish is a mixed
+    asset set (measured 2026-10-13).** A merge that moves the renderer
+    pointer makes the local sheets stale, and two app_it arms read them
+    (the transform beat, the drawn playthrough). The republish took about
+    1 hour (render cost 3546 s). A run stopped part way left `sandbag`'s
+    part flipbook naming a clip (`blink_in`) that its realized sheet does
+    not have, and app_it reported it as a red arm of the code. It also
+    rewrites the four tileset heights in the map submodule's `.ldtk`
+    files. Next: publish into a staging root and move it into place only
+    when the run ends, so a stopped run leaves the last whole set; and
+    let a lane name a stale or mixed sprite set as NOT RUN with its
+    remedy, not as a failure.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

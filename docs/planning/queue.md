@@ -56,7 +56,7 @@ rows.
 
 Correctness interrupts from the 2026-10-13 review:
 [REVIEW-1013](#review-1013---frame-and-acceptance-gaps-from-the-2026-10-13-review)
-(items 1 and 2 done; 3 and 4 open).
+(items 1, 2 and 4 done; 3 open).
 
 Correctness interrupts from the 2026-10-12 review:
 [REVIEW-1012](#review-1012---feedback-and-adapter-contracts-from-the-2026-10-12-review)
@@ -107,10 +107,21 @@ and a control.
    front idle ↔ walk or combat. A held item on a real published sheet,
    both facings, through an attack (`capture_scene --wear ID=LOOK[@TICK]`
    photographs a look).
-4. **Open, unclaimed:** `posed_hand.rs` takes the first `FeatureVisual`
-   with the holder's feature id. Add a test with a stand-in and the rigged
-   root at once, and select the rigged root by the existing
-   feature-to-visual relation.
+4. **Done 2026-10-13:** the posed hand's root is never the feature's
+   stand-in (`UnclaimedBodyPlaceholder`, which carries the feature's id in
+   a transition and draws no parts): the root query excludes it.
+   `the_root_of_a_feature_is_its_rigged_visual_and_not_its_stand_in`
+   spawns the stand-in first; the filter removed, it is red at "the
+   stand-in ... was taken for the root".
+
+Found on the way, open for its author (the session of `047f37e92`,
+`27a90dba3`, `d7e82dfaf`, `Claude-Session: …017PmHh7VwJMuFrWZkxix2gB`):
+three repo tooling guards are red on main after the bubble shield and the
+behemoth's beam: `test_foreign_system_ordering` (78 edges, ceiling 76),
+`test_multi_writer_resources_are_adjudicated` and
+`test_resources_crossing_the_rewind_boundary`. Each judges the new
+systems, so the author decides. The two list entries (the behemoth's
+module arm, the `bubble-shield` road) are done.
 
 ### REVIEW-1012 - feedback and adapter contracts from the 2026-10-12 review
 

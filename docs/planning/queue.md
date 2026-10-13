@@ -681,10 +681,12 @@ reads cargo output to it.
    `a_used_up_brick_in_a_skinned_room_wears_the_spent_plate_and_no_skin`,
    red at its premise (the brick of 1-3 has no skin). The same arm is the
    one red of `ambition_demo_mary_o_app`'s own-feature job (117 of 118); the
-   Sanic, Smash and Twintrack own-feature jobs are green. It is red three
-   times in this session (also alone) and green four times in another
-   session on the same checkout and commit; that session (Mary-O's owner)
-   took it with the difference measured (user, HOME, build path).
+   Sanic, Smash and Twintrack own-feature jobs are green. The cause was
+   this machine: the terrain skins are published art (git ignores
+   `assets/room_dressing/`), and this clone had none. After
+   `./scripts/regen/backgrounds.sh` (20 `starlight_*` skins) the arm is
+   green. Its premise now names the missing file and the command
+   (Mary-O's owner, `436b564f0`; seen to fire here before the publish).
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.

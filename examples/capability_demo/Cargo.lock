@@ -870,8 +870,11 @@ dependencies = [
 name = "ambition_portal2d"
 version = "0.1.0"
 dependencies = [
+ "ambition_extension_host",
+ "ambition_extension_sdk",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_portal_port",
  "bevy",
  "serde",
 ]
@@ -885,6 +888,13 @@ dependencies = [
  "ambition_portal2d",
  "ambition_sprite_fx",
  "bevy",
+]
+
+[[package]]
+name = "ambition_portal_port"
+version = "0.1.0"
+dependencies = [
+ "ambition_extension_sdk",
 ]
 
 [[package]]

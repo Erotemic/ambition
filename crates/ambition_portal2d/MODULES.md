@@ -8,6 +8,7 @@
 |---|---|
 | [`color`](src/color.rs) | Portal pair-linking identity. |
 | [`eviction`](src/eviction.rs) | Straddle eviction: the only pushout the portal mechanic performs. |
+| [`extension`](src/extension.rs) | The portal domain's extension request adapters: a module's HELD pair of portals ([`HeldPortalPairPort`]), and its lines of light that are no portal ([`LightLinePort`]). |
 | [`gun`](src/gun.rs) | Compatibility state for Ambition's held portal gun. |
 | [`gun_construction`](src/gun_construction.rs) | Transactional construction owned by the optional portal-gun capability. |
 | [`gun_lifecycle`](src/gun_lifecycle.rs) | Compatibility lifecycle for gun-owned portals. |
@@ -27,7 +28,7 @@
 | [`types`](src/types.rs) | Shared portal types, geometry constants, and small helpers used across the portal submodules (placement, transit, presentation, …). |
 | [`view`](src/view.rs) | Pure through-portal view geometry. |
 
-_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

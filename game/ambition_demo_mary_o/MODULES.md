@@ -20,6 +20,7 @@
 | [`movement`](src/movement.rs) | Mary-O Classic presentation/control glue. |
 | [`pack`](src/pack.rs) | The Mary-O demo's content pack. |
 | [`pipe`](src/pipe.rs) | The pipe transit — the scripted slide into one tube and out of the other. |
+| [`pipe_signs`](src/pipe_signs.rs) | The name of a level over the pipe that goes to it. |
 | [`plane`](src/plane.rs) | Flying Mary-O enemy archetypes. |
 | [`plant`](src/plant.rs) | The Snake Plant: the plant that comes up out of a pipe. |
 | [`powerups`](src/powerups.rs) | Super Mary-O's powerups — the equipment chain, authored as A3 data. |
@@ -29,14 +30,14 @@
 | [`shimmer_shader`](src/shimmer_shader.rs) | The shimmer in the air of a Mary-O room: sparkles and ribbons of light in the starlight rooms, embers and a low mist in the starless room, sparks and red heat in the castle. |
 | [`snake`](src/snake.rs) | Mary-O's Solid Snake walker and shell state machine. |
 | [`star`](src/star.rs) | Mary-O's pocket-quasar super state. |
-| [`stomp`](src/stomp.rs) | The ONE top/side contact authority for Mary-O's enemies. |
+| [`stomp`](src/stomp.rs) | The ONE top/side contact authority for Mary-O's enemies, in the engine's box type. |
 | [`swallow`](src/swallow.rs) | The Laden Swallow: the bird that stays over the player and lets coconuts go. |
 | [`test_course`](src/test_course.rs) | A level for the TESTS to play, which nobody authors. |
 | [`void_lizard`](src/void_lizard.rs) | The Void Lizard: the boss of the castle. |
 | [`void_look`](src/void_look.rs) | The field of the void about each void thing of Mary-O: the Void Star, the Void Lizard, and the orb the Void Lizard throws. |
 | [`void_star`](src/void_star.rs) | The Void Star: the enemy that no stomp can hurt. |
 
-_29 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

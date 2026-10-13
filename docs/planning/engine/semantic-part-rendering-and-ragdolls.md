@@ -14,6 +14,45 @@ The current part pipeline was a useful compatibility bridge: it let part-authore
 
 The long-term engine should not require every semantic body part to be flattened back into one body image every frame. Whole-body or local composition should be a derived presentation operation used only where its mathematics or an unmigrated consumer require it.
 
+## New part-set consumer: a held item in the hand of the pose (2026-10-13)
+
+Jon: "swings need to have character art that looks like they are swinging to
+go with held items." An item in a hand was drawn at a fixed place on the body
+box and turned there by a formula (`item_swing_angle`). The art did not know.
+
+Now the art leads (`rendering/posed_hand.rs`). A body that is drawn from parts
+has a hand track (`near_hand`, `front_hand`, `right_hand`, and the far names).
+An item is held rigidly in that hand part: it is where the part is, and it
+turns as the part turns, in the frame that is drawn. A swing is a row of the
+character's art.
+
+- The reader asks the holder's rigged root for its hand tracks (one ask for
+  each hand) and reads `PartSetDraws`. Both item roads use it: the in-hand road
+  (`sync_held_item_visual`) and the over-hand road
+  (`sync_wielded_item_visuals`).
+- The contract with the art: a hand part that is not turned holds an item that
+  points the way the body faces and `ITEM_REST_ANGLE` (24) degrees up. An
+  artist turns the hand part to turn the item. This is true of each hand. The
+  player robot's far blade is drawn pointing back, so its item strikes
+  (`ITEM_STRIKES`) do not give the far hand the turn of the far blade.
+- The hand is the character's `gesture_hand`, then the other. On a mirror row
+  it is the other hand first, because the item stays in the hand that holds it.
+- An item that fires (a gun-sword) is in the posed hand and points at its aim.
+- A body that is not drawn from parts, or has no hand track, is drawn the old
+  way: the fixed place and the formula.
+- An item is registered one time (`HeldItemArtManifest`). The in-hand road
+  also draws the item of a living hostile when the over-hand catalog does not
+  have it.
+
+Art that uses it: the pirate heavies (`right_hand`, turned as the haft), and
+the player robot's `item_swing` row (a keyed strike with no blade).
+`moveset_render --hold ITEM` shows a swing with the item in the hand, and
+`--face-left` shows the mirror row.
+
+Open: the rows `item_swing_up`, `item_swing_down` and `item_swing_back` do not
+exist on a sheet; a swing in those directions draws a fallback row. The sim's
+hit volume of an item does not follow the posed hand.
+
 ## New part-set consumer: outline geometry and lifetime (2026-10-11)
 
 `PartSetRequest` and `PartSetDraws` are a useful **general engine API**:

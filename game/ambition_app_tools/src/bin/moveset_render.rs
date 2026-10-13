@@ -76,6 +76,11 @@ OPTIONS:
                      rendered art, from the SAME execution. That is the whole
                      point of this binary: one picture, one simulation, no
                      second coordinate system.
+    --hold ITEM      put the held item ITEM (`pool_noodle`, `axe`) in the fighter's
+                     hand before the press, so the swing of an item can be
+                     seen with the item in the hand of the pose
+    --face-left      the fighter faces left at the press: the mirror row of a
+                     sheet that has one
     --home           the fighter's buttons play what they play in its HOME game
                      A fighter on this stage wears the verbs of a platform
                      fighter (its `smash_fighter` facet). With this flag seat
@@ -289,6 +294,8 @@ fn main() {
                     | "--spacing"
                     | "--view-width"
                     | "--home"
+                    | "--hold"
+                    | "--face-left"
                     | "--repress"
             )
         })
@@ -338,6 +345,8 @@ fn main() {
     // A batch is a directory of directories. One pair writes straight into
     // `--out`, the layout the inspector server caches by.
     let home = args.iter().any(|a| a == "--home");
+    let hold = arg("--hold");
+    let face_left = args.iter().any(|a| a == "--face-left");
     let repress: Vec<usize> = arg("--repress")
         .map(|list| list.split(',').filter_map(|tick| tick.trim().parse().ok()).collect())
         .unwrap_or_default();
@@ -556,6 +565,8 @@ fn main() {
                 out_dir: pair_dir.clone(),
                 batched: batching,
                 home,
+                hold: hold.as_deref(),
+                face_left,
                 repress: &repress,
             };
             match render_pair(&mut app, &camera, &request) {
@@ -650,6 +661,11 @@ struct PairRequest<'a> {
     batched: bool,
     /// Seat zero wears its moveset's own verbs (`--home`).
     home: bool,
+    /// The held item seat zero has in its hand at the press (`--hold`).
+    hold: Option<&'a str>,
+    /// Seat zero faces left at the press (`--face-left`): the mirror row of a
+    /// sheet that has one.
+    face_left: bool,
     /// The exercise ticks on which the verb is pressed again (`--repress`).
     repress: &'a [usize],
 }
@@ -868,6 +884,31 @@ fn render_pair(
         for (seat, mut moveset) in seats.iter_mut(world) {
             if seat.0 == 0 {
                 moveset.0.verbs = verbs.clone();
+            }
+        }
+    }
+    if let Some(item) = req.hold {
+        // In the hand of the body that is seated, as a pickup leaves it.
+        let spec = ambition_platformer2d::characters::brain::held_item_by_id(item)
+            .ok_or_else(|| format!("'{item}' is not a held item (`--hold`)"))?;
+        let world = app.world_mut();
+        let mut seats = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::actor::MatchSeat)>();
+        let body = seats
+            .iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(body, _)| body)
+            .ok_or_else(|| "no body in seat zero to hold the item (`--hold`)".to_owned())?;
+        world.entity_mut(body).insert(ambition_platformer2d::combat::held_items::HeldItem::new(spec));
+    }
+    if req.face_left {
+        let world = app.world_mut();
+        let mut seats = world.query::<(
+            &ambition_platformer2d::actor::MatchSeat,
+            &mut ambition_platformer2d::actor::BodyKinematics,
+        )>();
+        for (seat, mut kin) in seats.iter_mut(world) {
+            if seat.0 == 0 {
+                kin.facing = -1.0;
             }
         }
     }

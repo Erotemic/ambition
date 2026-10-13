@@ -119,6 +119,8 @@ pub fn sync_wielded_item_visuals(
     active_session: Option<Res<ActiveSessionScope>>,
     catalog: Res<WieldedItemVisualCatalog>,
     wielded_items: Res<HostileWieldedItemsView>,
+    // The hand of the pose each wielder draws (`posed_hand`).
+    hands: super::posed_hand::PosedHands,
     existing: Query<Entity, With<WieldedItemVisual>>,
     mut textures: Local<BTreeMap<String, Handle<Image>>>,
 ) {
@@ -152,20 +154,35 @@ pub fn sync_wielded_item_visuals(
         let frame_size = spec.source_rect.size();
         let anchor_x_norm = (spec.grip_px.x - frame_size.x * 0.5) / frame_size.x;
         // Image pixels grow downward while Bevy anchor Y grows upward.
-        let anchor_y_norm = -(spec.grip_px.y - frame_size.y * 0.5) / frame_size.y;
+        let mut anchor_y_norm = -(spec.grip_px.y - frame_size.y * 0.5) / frame_size.y;
 
         let width = spec.width_per_wielder_height * fact.wielder_height;
         let render_size = Vec2::new(width, width * frame_size.y / frame_size.x);
         let hand_world = fact.hand_world;
-        let bevy_angle = dy_world_to_bevy_angle(
+        let mut bevy_angle = dy_world_to_bevy_angle(
             fact.aim_world.x - hand_world.x,
             fact.aim_world.y - hand_world.y,
         );
-        let translation = world_to_bevy(&world.0, hand_world, WORLD_Z_PLAYER + spec.z_bias);
+        let mut translation = world_to_bevy(&world.0, hand_world, WORLD_Z_PLAYER + spec.z_bias);
 
         let mut sprite = Sprite::from_image(texture);
         sprite.custom_size = Some(render_size);
         sprite.rect = Some(spec.source_rect.clone());
+        // The art's own hand, in the frame that is drawn: the item is in it.
+        // An item that fires still points at its target; one that does not
+        // turns as the hand part turns, so a swing is the wielder's own row.
+        if let Some(posed) = hands.of(&fact.holder) {
+            translation.x = posed.at.x;
+            translation.y = posed.at.y;
+            if !fact.ranged {
+                bevy_angle = posed.angle();
+                // A mirrored body holds the mirror image of the item.
+                sprite.flip_y = posed.mirrored;
+                if posed.mirrored {
+                    anchor_y_norm = -anchor_y_norm;
+                }
+            }
+        }
 
         commands.spawn_session_scoped(
             session_scope.in_room(Some(room)),

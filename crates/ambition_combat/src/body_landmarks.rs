@@ -160,18 +160,22 @@ impl BodyLandmarks<'_, '_> {
         package_landmark(landmark, pose, &table, world_per_pixel, clocks)
     }
 
+    /// The hand the character of `body` states it makes a gesture with: the
+    /// near hand when it states none, or wears no character.
+    pub fn stated_gesture_hand(&self, body: Entity) -> ambition_characters::actor::GestureHand {
+        self.bodies
+            .get(body)
+            .ok()
+            .and_then(|(worn, ..)| Some(self.characters.as_ref()?.get(worn?.id())?.gesture_hand))
+            .unwrap_or_default()
+    }
+
     /// The hand `body` makes a gesture with (a pet, a shot), in its rig
     /// space: the hand its character states
     /// ([`ambition_characters::actor::GestureHand`], the near hand when it
     /// states none), else the other hand.
     pub fn gesture_hand(&self, body: Entity, pose: LandmarkPose<'_>) -> Option<Vec2> {
-        let stated = self
-            .bodies
-            .get(body)
-            .ok()
-            .and_then(|(worn, ..)| Some(self.characters.as_ref()?.get(worn?.id())?.gesture_hand))
-            .unwrap_or_default();
-        stated
+        self.stated_gesture_hand(body)
             .hands()
             .into_iter()
             .find_map(|hand| self.in_rig_space(body, hand, pose))

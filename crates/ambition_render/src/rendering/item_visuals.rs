@@ -445,9 +445,7 @@ pub fn sync_world_item_visuals(
     }
 }
 
-/// How far up an item with a grip points while its holder does not swing it,
-/// in degrees from level.
-const ITEM_REST_ANGLE: f32 = 24.0;
+use super::posed_hand::ITEM_REST_ANGLE;
 
 /// The angle of an item with a grip in the hand of a holder that faces
 /// right, in degrees up from level.
@@ -474,6 +472,19 @@ pub fn item_swing_angle(swing: Option<ambition_sim_view::ItemSwingFact>) -> f32 
     struck + (ITEM_REST_ANGLE - struck) * (swing.settle * swing.settle * (3.0 - 2.0 * swing.settle))
 }
 
+/// One item to draw in a hand, from either view of the holders.
+struct InHand<'a> {
+    item_id: &'a str,
+    /// The hand when the body's art has none: a fixed place on its box.
+    hand: Vec2,
+    facing: f32,
+    ranged: bool,
+    aim: Vec2,
+    swing: Option<ambition_sim_view::ItemSwingFact>,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    holder: &'a ambition_sim_view::ItemHolder,
+}
+
 /// Marks the sprite shown in the player's hand for the currently held item.
 #[derive(Component)]
 pub struct HeldItemVisual;
@@ -498,6 +509,14 @@ pub fn sync_held_item_visual(
     failed_art: Option<Res<FailedItemArt>>,
     active_session: Option<Res<ActiveSessionScope>>,
     held_view: Res<HeldItemView>,
+    // A living hostile is on the over-hand road. That road draws the items
+    // its own catalog has (the gun-swords); an item it does not have is drawn
+    // here, from the same art as in any other hand, so that an item is
+    // registered one time.
+    wielded_view: Res<ambition_sim_view::HostileWieldedItemsView>,
+    wielded_catalog: Option<Res<super::wielded_item_visuals::WieldedItemVisualCatalog>>,
+    // The hand of the pose each holder draws (`posed_hand`).
+    hands: super::posed_hand::PosedHands,
     visuals: Query<Entity, With<HeldItemVisual>>,
     mut reported: Local<ReportedOnce>,
 ) {
@@ -511,15 +530,52 @@ pub fn sync_held_item_visual(
     };
     // One visual per driven holder. The view is ordered by `SimId`, so the
     // draw order is the same every run.
-    for held in &held_view.0 {
+    let in_hand = held_view.0.iter().map(|held| {
         let facing = if held.facing >= 0.0 { 1.0 } else { -1.0 };
-        // In the hand: just in front, at hand height (y-down, so small +y).
-        let hand = held.pos + Vec2::new(facing * (held.size.x * 0.45 + 4.0), held.size.y * 0.06);
+        InHand {
+            item_id: held.item_id.as_str(),
+            // In the hand: just in front, at hand height (y-down, so small +y).
+            hand: held.pos + Vec2::new(facing * (held.size.x * 0.45 + 4.0), held.size.y * 0.06),
+            facing: held.facing,
+            ranged: held.ranged,
+            aim: held.aim,
+            swing: held.swing,
+            room: held.room,
+            holder: &held.holder,
+        }
+    });
+    let over_hand = wielded_view
+        .0
+        .iter()
+        .filter(|fact| wielded_catalog.as_deref().is_none_or(|catalog| catalog.get(&fact.item_id).is_none()))
+        .map(|fact| {
+            let aim = fact.aim_world - fact.hand_world;
+            InHand {
+                item_id: fact.item_id.as_str(),
+                hand: fact.hand_world,
+                facing: if aim.x >= 0.0 { 1.0 } else { -1.0 },
+                ranged: fact.ranged,
+                aim,
+                swing: None,
+                room: fact.room,
+                holder: &fact.holder,
+            }
+        });
+    for held in in_hand.chain(over_hand) {
+        let facing = if held.facing >= 0.0 { 1.0 } else { -1.0 };
+        let hand = held.hand;
         let Some((room, world)) = held.room.and_then(|room| Some((room, rooms.in_room(room)?))) else {
             continue;
         };
         let session_scope = session_scope.in_room(Some(room));
         let mut translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, hand, 12.0);
+        // The art's own hand, when the body is drawn from parts that have
+        // one: the item is in it, in the frame that is drawn.
+        let posed = hands.of(held.holder);
+        if let Some(posed) = posed {
+            translation.x = posed.at.x;
+            translation.y = posed.at.y;
+        }
         let grip = manifest.as_deref().and_then(|manifest| {
             manifest.effective().into_iter().find(|entry| entry.item_id == held.item_id).and_then(|entry| Some((entry.grip?, entry.size.x)))
         });
@@ -537,8 +593,24 @@ pub fn sync_held_item_visual(
             // World is y-down, render space y-up. Aiming left flips vertically,
             // so the gun stays upright.
             let angle = (-aim.y).atan2(aim.x);
-            (Quat::from_rotation_z(angle), false, aim.x < 0.0)
+            let rotation = Quat::from_rotation_z(angle);
+            // In a hand of the art, the grip of the picture is in the hand,
+            // and the rest of it points along the aim.
+            if let (Some(_), Some((grip, length))) = (posed, grip) {
+                translation += rotation * Vec3::new((0.5 - grip) * length, 0.0, 0.0);
+            }
+            (rotation, false, aim.x < 0.0)
+        } else if let (Some(posed), Some((grip, length))) = (posed, grip) {
+            // An item with a grip is held rigidly: it turns as the hand part
+            // of the pose turns, so a swing is the character's own row. The
+            // picture has its far end to the right; a mirrored body holds its
+            // mirror image.
+            let rotation = Quat::from_rotation_z(posed.angle());
+            translation += rotation * Vec3::new((0.5 - grip) * length, 0.0, 0.0);
+            (rotation, false, posed.mirrored)
         } else if let Some((grip, length)) = grip {
+            // No hand in the art (a body that is not drawn from parts): the
+            // fixed hand, and a turn by a formula.
             // An item with a grip points out of the hand, and a swing turns
             // it about the hand. The picture has its far end to the right;
             // for a holder that faces left it is mirrored and it turns the
@@ -558,7 +630,7 @@ pub fn sync_held_item_visual(
         let bound = resolve_art(
             art.as_deref().map(|art| &art.0),
             failed_art.as_deref().map(|failed| &failed.held),
-            held.item_id.as_str(),
+            held.item_id,
             || "held item".to_owned(),
             &mut reported,
             "held item visual",
@@ -573,7 +645,7 @@ pub fn sync_held_item_visual(
                 ..default()
             })
             .unwrap_or_else(|| {
-                let color = match held.item_id.as_str() {
+                let color = match held.item_id {
                     "axe" => Color::srgb(0.72, 0.52, 0.30),
                     "javelin" => Color::srgb(0.86, 0.84, 0.62),
                     _ => Color::srgb(0.82, 0.82, 0.82),

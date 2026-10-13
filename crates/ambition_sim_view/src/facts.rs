@@ -221,6 +221,22 @@ pub struct HeldItemFact {
     /// The live room of the thing this row draws (`LiveRooms::of`). The
     /// visual is placed by that room's geometry and stamped with it.
     pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    /// Who holds it, for the presentation: it draws the item in the hand of
+    /// the pose that body draws, when the body's art has one.
+    pub holder: ItemHolder,
+}
+
+/// Who holds an item, as the presentation finds the body's drawn pose.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ItemHolder {
+    /// The body that holds it.
+    pub body: Entity,
+    /// The feature id of the body, when it is an actor: an actor's visual is
+    /// a separate entity that carries this id. A player's body has none and
+    /// is its own visual.
+    pub feature: Option<String>,
+    /// The hand its character holds with (`GestureHand`), first choice.
+    pub hand: ambition_characters::actor::GestureHand,
 }
 
 /// How far a holder is through the swing of its item.
@@ -297,7 +313,9 @@ pub fn rebuild_held_item_view(
         Option<&ambition_combat::components::ActorDisposition>,
         Option<&BodyHealth>,
         Option<&ambition_combat::moveset::MovePlayback>,
+        Option<&ambition_combat::components::FeatureId>,
     )>,
+    landmarks: ambition_combat::body_landmarks::BodyLandmarks,
 ) {
     // ⛔⛔ THIS READ ONLY `ControlledSubject`, so exactly ONE held item was ever
     // drawn — in a couch match seat one's drawn weapon was invisible, and in a
@@ -324,10 +342,10 @@ pub fn rebuild_held_item_view(
     // draw order between runs.
     let mut rows: Vec<_> = bodies
         .iter()
-        .filter(|(_, _, _, _, _, disposition, health, _)| {
+        .filter(|(_, _, _, _, _, disposition, health, _, _)| {
             drawn_in_the_hand(disposition.copied(), health.map(|health| health.alive()))
         })
-        .map(|(body, kin, held, control, id, _, _, playback)| {
+        .map(|(body, kin, held, control, id, _, _, playback, feature)| {
             (
                 id.clone(),
                 HeldItemFact {
@@ -339,6 +357,11 @@ pub fn rebuild_held_item_view(
                     aim: control.0.aim.vec(),
                     swing: playback.and_then(ItemSwingFact::of),
                     room: live.of(body),
+                    holder: ItemHolder {
+                        body,
+                        feature: feature.map(|feature| feature.as_str().to_owned()),
+                        hand: landmarks.stated_gesture_hand(body),
+                    },
                 },
             )
         })
@@ -616,6 +639,11 @@ pub struct HostileWieldedItemFact {
     /// The live room of the thing this row draws (`LiveRooms::of`). The
     /// visual is placed by that room's geometry and stamped with it.
     pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    /// The item fires (a gun-sword): it points at `aim_world`. An item that
+    /// does not fire points as the hand that holds it is turned.
+    pub ranged: bool,
+    /// Who holds it, for the presentation (as [`HeldItemFact::holder`]).
+    pub holder: ItemHolder,
 }
 
 /// A WIELDER AIMS AT WHAT IT IS FIGHTING, not at "the player".
@@ -640,6 +668,7 @@ pub fn rebuild_hostile_wielded_items_view(
         Option<&BodyKinematics>,
         Option<&BodyHealth>,
         Option<&ambition_combat::components::ActorTarget>,
+        Option<&ambition_combat::components::FeatureId>,
     )>,
     bodies: Query<&BodyKinematics>,
     controlled: Res<ControlledSubject>,
@@ -658,7 +687,7 @@ pub fn rebuild_hostile_wielded_items_view(
         .and_then(|entity| bodies.get(entity).ok())
         .or_else(|| player_q.single().ok())
         .map(|kin| kin.pos);
-    for (entity, disposition, held_item, kin, health, target) in &wielders {
+    for (entity, disposition, held_item, kin, health, target, feature) in &wielders {
         let Some(kin) = kin else {
             continue;
         };
@@ -681,6 +710,12 @@ pub fn rebuild_hostile_wielded_items_view(
             aim_world,
             wielder_height,
             room: live.of(entity),
+            ranged: held_item.spec.ranged.is_some(),
+            holder: ItemHolder {
+                body: entity,
+                feature: feature.map(|feature| feature.as_str().to_owned()),
+                hand: landmarks.stated_gesture_hand(entity),
+            },
         });
     }
 }

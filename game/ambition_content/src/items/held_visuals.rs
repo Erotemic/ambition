@@ -34,6 +34,11 @@ const GAUNTLET_PROP_IDS: &[&str] = &[
     "fireball",
 ];
 
+/// Where the hand holds the gun-sword, as a part of the length of its picture:
+/// the middle of the wrapped handle (measured on `props/gunsword.png`,
+/// 2026-10-13: the handle is from 20 to 47 of 177 pixels).
+const GUN_SWORD_GRIP: f32 = 0.19;
+
 /// Contribute Ambition's held-item art declarations to the render manifest.
 pub(super) fn register(app: &mut App) {
     let mut entries = vec![
@@ -49,23 +54,28 @@ pub(super) fn register(app: &mut App) {
         // and it turns about the hand when it is swung.
         HeldItemArtEntry::new("pool_noodle", "sprites/props/pool_noodle.png", Vec2::new(72.0, 14.0)).gripped_at(0.14),
         // The heavy archetype authors a distinct item id but the same gun-sword art.
+        // The grip is the wrapped handle at the near end of the picture: a
+        // holder whose art has a hand holds it there (`posed_hand`).
         HeldItemArtEntry::new(
             "gun_sword",
             "sprites/props/gunsword.png",
             Vec2::new(54.0, 14.0),
-        ),
+        )
+        .gripped_at(GUN_SWORD_GRIP),
         HeldItemArtEntry::new(
             "gun_sword_heavy",
             "sprites/props/gunsword.png",
             Vec2::new(54.0, 14.0),
-        ),
+        )
+        .gripped_at(GUN_SWORD_GRIP),
         // The Admiral's own gun-sword. A distinct item id (its shot is a special's
         // payoff, not a raider's sidearm) with the same art, like the heavy above.
         HeldItemArtEntry::new(
             "admiral_gun_sword",
             "sprites/props/gunsword.png",
             Vec2::new(54.0, 14.0),
-        ),
+        )
+        .gripped_at(GUN_SWORD_GRIP),
         // The Polygon's held items. A held item with no art registration is not a
         // silent fallback: it logs an `ERROR` per spawn ("unknown held item art
         // `polygon_bomb`") and draws nothing.

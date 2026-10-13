@@ -120,6 +120,7 @@ pub mod submerged;
 pub mod moving_platforms;
 mod nameplates;
 mod parallax;
+pub mod posed_hand;
 mod primitives;
 pub mod terrain_skin;
 pub mod chain_skin;
@@ -351,7 +352,12 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     sync_removed_block_visuals,
                     // A struck block flinches (presentation only; see `block_nudge`).
                     flinch_struck_blocks,
-                    item_visuals::sync_held_item_visual.after(actors::sync_visuals),
+                    // After the driver, which writes the hand of the frame it
+                    // draws; else the item is one frame behind the hand.
+                    item_visuals::sync_held_item_visual
+                        .after(actors::sync_visuals)
+                        .after(actors::rigged::drive_rigged_presentations),
+                    posed_hand::ask_holders_for_their_hands,
                     shrine_visuals::sync_shrine_visual.after(actors::sync_visuals),
                     shrine_visuals::animate_shrine_visuals.after(actors::animate_props),
                     unauthored_volumes::draw_unauthored_attack_volumes,
@@ -560,7 +566,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 actors::manage_gradient_lane_visual,
                 // Provider-authored over-hand item sprites, from the wielded-item
                 // read model and the app-local visual catalog.
-                wielded_item_visuals::sync_wielded_item_visuals,
+                wielded_item_visuals::sync_wielded_item_visuals.after(actors::rigged::drive_rigged_presentations),
                 // The fallback runs last, after every family: a body the sim
                 // published that no family claimed gets a marked rectangle. It must
                 // be registered only once, here, under the session gate.

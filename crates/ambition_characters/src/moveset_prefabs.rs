@@ -43,10 +43,12 @@ const _: () = ();
 /// The timeline maps to startup/active/recovery windows and one body-local hit
 /// volume. Directional and aerial variants derive from this move so all melee
 /// executes through the shared moveset runtime.
-/// The clip of a swing of the item in the hand. No sheet has a row of this
-/// name, and that is the point: a swing with the clip of a blade row takes the
-/// hit polygon of the blade. The body is drawn by the intent of the swing, and
-/// the item turns in the hand ([`ItemSwingDir`]).
+/// The clip of a swing of the item in the hand. It is not a blade row, and
+/// that is the point: a swing with the clip of a blade row takes the hit
+/// polygon of the blade. A sheet that has a row of this name (the player
+/// robot) poses the body through the swing, and the item is drawn in the hand
+/// of that pose. A sheet that has none draws a fallback row, and the item
+/// turns in a fixed hand ([`ItemSwingDir`]).
 pub const ITEM_SWING_CLIP: &str = "item_swing";
 /// What a swing of an item sounds like in the air, and when it lands. These
 /// are cues the game has (a rush of air, a bounce) until an item has cues of

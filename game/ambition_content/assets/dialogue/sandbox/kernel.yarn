@@ -330,3 +330,39 @@ The Rope Appreciator: How are you going to spend the rest of your day?
 -> Just walk away.
     The Rope Appreciator: Works for me. I'm going to stand here for a while.
 ===
+
+title: noodly_ramen_nujan
+---
+Ramen-nujan: I dreamt of this place before I found it. Every door in it was a term of a series, and the series converged on Him.
+-> How do I reach Him?
+    <<jump noodly_ramen_nujan__1>>
+-> What do the doors want?
+    <<jump noodly_ramen_nujan__2>>
+-> Why are you here?
+    <<jump noodly_ramen_nujan__3>>
+-> ⟨step aside⟩
+===
+
+title: noodly_ramen_nujan__1
+---
+Ramen-nujan: He is in the sanctum, past the nave, behind the door with the holes in it. That door takes the Colander Key, and the Colander Key is in the reliquary. You will need every sauce in the house before you get that far. I checked the count twice.
+-> Something else.
+    <<jump noodly_ramen_nujan>>
+-> ⟨step aside⟩
+===
+
+title: noodly_ramen_nujan__2
+---
+Ramen-nujan: Each door has a colour, and each colour has one key. Red is marinara: the cooks in the scullery hold it, and they do not share. Green is pesto: it is down in the cistern, where a wheel that opens one sluice shuts another. Gold is parmesan: up the belfry, behind three bells. A key you have taken stays taken.
+-> Something else.
+    <<jump noodly_ramen_nujan>>
+-> ⟨step aside⟩
+===
+
+title: noodly_ramen_nujan__3
+---
+Ramen-nujan: The noodles were infinite. The bowl was not. I came to see who made the bowl.
+-> Something else.
+    <<jump noodly_ramen_nujan>>
+-> ⟨step aside⟩
+===

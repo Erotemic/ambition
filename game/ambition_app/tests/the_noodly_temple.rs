@@ -208,3 +208,40 @@ fn the_monster_is_in_the_sanctum() {
         .any(|(config, health)| config.behavior.id == "flying_spaghetti_monster_boss" && health.alive());
     assert!(there, "the Flying Spaghetti Monster is in the sanctum, alive");
 }
+
+/// A pool noodle lies by the pools of the cistern. An Attack press over it
+/// picks it up, and the next Attack swings it: it stays in the hand.
+#[test]
+fn a_pool_noodle_by_the_pools_is_taken_and_swung() {
+    use ambition_platformer2d::held_items::{GroundItem, ItemCustody};
+    use bevy::prelude::Entity;
+
+    let mut sim = room("noodly_cistern");
+    let (noodle, at) = {
+        let world = sim.world_mut();
+        let mut items = world.query::<(Entity, &GroundItem)>();
+        let mut noodles: Vec<(Entity, f32, f32)> =
+            items.iter(world).filter(|(_, item)| item.spec.id == "pool_noodle").map(|(e, item)| (e, item.pos.x, item.pos.y)).collect();
+        assert_eq!(noodles.len(), 2, "the cistern has two pool noodles");
+        noodles.sort_by(|a, b| a.1.total_cmp(&b.1));
+        (noodles[0].0, (noodles[0].1, noodles[0].2 - 16.0))
+    };
+    sim.teleport_player(at);
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let held = |sim: &Platformer2dSimHarness| matches!(sim.world().get::<ItemCustody>(noodle), Some(ItemCustody::Held { .. }));
+    assert!(!held(&sim), "the noodle is on the floor until it is taken");
+    sim.step(AgentAction { attack: true, ..base() });
+    sim.step(base());
+    assert!(held(&sim), "an Attack press over the pool noodle picks it up");
+    // It has a swing, so a use keeps it: a coconut would be thrown here.
+    for _ in 0..40 {
+        sim.step(base());
+    }
+    sim.step(AgentAction { attack: true, ..base() });
+    for _ in 0..40 {
+        sim.step(base());
+    }
+    assert!(held(&sim), "an Attack press with the pool noodle in hand swings it and keeps it");
+}

@@ -607,6 +607,8 @@ tackon_targets=(
     temple_gate_sluice_3
     temple_gate_sluice_1_shut
     temple_gate_bell
+    # A held item of the Noodly Temple: a foam noodle to hit with.
+    pool_noodle
     portal_gun_blue
     portal_gun_orange
     hunting_bow
@@ -840,6 +842,7 @@ held_prop_map=(
     "pirate_heavy_axe:axe"
     "throwing_javelin:javelin"
     "coconut:coconut"
+    "pool_noodle:pool_noodle"
     "lasersword_with_guns:gunsword"
     "portal_gun_blue:portal_gun_blue"
     "portal_gun_orange:portal_gun_orange"

@@ -546,6 +546,23 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::ThrowOnUse,
             },
         );
+        // A pool noodle: a long tube of foam. It is quick and it reaches far,
+        // and it does not hurt much. It has a melee verb, so a use swings it.
+        items.insert(
+            "pool_noodle",
+            HeldItemSpec {
+                id: "pool_noodle".into(),
+                melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+                    windup_s: 0.08,
+                    active_s: 0.12,
+                    recover_s: 0.16,
+                    damage: 1,
+                    reach_px: 88.0,
+                })),
+                ranged: None,
+                use_behavior: HeldUseBehavior::Auto,
+            },
+        );
         items
     });
 

@@ -8,7 +8,7 @@
     px_hei: 512,
     fill_collision: "empty",
     bg_color: "#15131F",
-    biome: "boss",
+    biome: "noodly",
     music_track: "flying_spaghetti_monster_roots_stage_choir_backing",
     entities: [
         ( type: "Solid", px: [0, 480], size: [960, 32], fields: ( name: "floor" ) ),
@@ -18,7 +18,7 @@
         ( type: "PlayerStart", px: [110, 434], size: [28, 46], fields: ( name: "noodly_narthex_spawn" ) ),
         ( type: "LoadingZone", px: [32, 384], size: [48, 96], fields: ( id: "noodly_narthex_to_hub", name: "to the central hub", activation: "Door", target_room: "central_hub_complex", target_zone: "noodly_hub_door", bidirectional: true ) ),
         ( type: "LoadingZone", px: [864, 384], size: [48, 96], fields: ( id: "noodly_narthex_east", name: "to the nave", activation: "Door", target_room: "noodly_nave", target_zone: "noodly_nave_west", bidirectional: true ) ),
-        ( type: "NpcSpawn", px: [400, 410], size: [42, 70], fields: ( character_id: "npc_pirate_quartermaster", prompt: "Talk", dialogue_id: "noodly_sexton", brain_override: "stand_still" ) ),
+        ( type: "NpcSpawn", px: [400, 410], size: [42, 70], fields: ( character_id: "npc_ramen_nujan", prompt: "Talk", dialogue_id: "noodly_ramen_nujan", brain_override: "stand_still" ) ),
         ( type: "Solid", px: [560, 240], size: [384, 32], fields: ( name: "alms_floor" ) ),
         ( type: "Solid", px: [560, 16], size: [32, 96], fields: ( name: "alms_lintel" ) ),
         ( type: "LockWall", px: [560, 112], size: [32, 128], fields: ( id: "noodly_narthex_alms_door", name: "a door of Pesto Key", gated_by: "noodly_key_pesto", look: "temple_gate_pesto" ) ),

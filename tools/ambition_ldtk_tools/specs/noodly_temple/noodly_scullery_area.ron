@@ -8,7 +8,7 @@
     px_hei: 640,
     fill_collision: "empty",
     bg_color: "#15131F",
-    biome: "boss",
+    biome: "noodly",
     music_track: "flying_spaghetti_monster_roots_stage_choir_backing",
     entities: [
         ( type: "Solid", px: [0, 608], size: [1408, 32], fields: ( name: "floor" ) ),

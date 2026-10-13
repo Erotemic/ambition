@@ -173,12 +173,25 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     let (rider_metrics, rider_size) =
         boss_sprite_metrics_from_registry(crate::test_boss_catalog(), rider.as_ref(), &registry)
             .expect("the scholar's sheet authors his body");
-    assert!(rider_metrics.body_pixel_bbox.is_some() && rider_metrics.animations.is_empty());
+    assert!(rider_metrics.animations.is_empty());
+    let body = rider_metrics.body_pixel_bbox.expect("his sheet publishes one static body");
     let size = rider_size.expect("a static body derives his combat size");
-    assert!(
-        (size.x - 69.0 * 0.875).abs() < 1.0 && (size.y - 126.0 * 0.875).abs() < 1.0,
-        "his collision is his drawn body (69x126 px at 0.875): {size:?}",
+    // Against the body and the frame his published sheet states, not a copy
+    // of their pixels: the art is redrawn (a 126 px body in a 192 px frame,
+    // 0.875 units a pixel, before the rows of a fight, 2026-10-12).
+    let per_pixel = ae::Vec2::new(
+        rider_metrics.sprite_render_size.x / rider_metrics.frame_width as f32,
+        rider_metrics.sprite_render_size.y / rider_metrics.frame_height as f32,
     );
+    let drawn = ae::Vec2::new(body.w as f32 * per_pixel.x, body.h as f32 * per_pixel.y);
+    assert!(
+        (size.x - drawn.x).abs() < 1.0 && (size.y - drawn.y).abs() < 1.0,
+        "his collision is his drawn body ({}x{} px at {per_pixel:?} = {drawn:?}): {size:?}",
+        body.w,
+        body.h,
+    );
+    // Not a sixth of his size: the defect this guards.
+    assert!(size.y > 90.0, "the scholar stands {} units, a fraction of his drawn body", size.y);
 }
 
 #[test]

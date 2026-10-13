@@ -110,7 +110,8 @@ def tested_tree(repo: Path) -> str | None:
 
 def record(repo: Path, tree: str, job: str, argv: list[str], ok: bool,
            unrunnable: str | None, tree_after: str | None = None,
-           failure_evidence: list[str] | None = None) -> None:
+           failure_evidence: list[str] | None = None,
+           environment: str | None = None) -> None:
     """Append one finished job: the tree when it started and when it ended.
 
     A row is evidence only for paths that both trees hold the same way.
@@ -134,6 +135,10 @@ def record(repo: Path, tree: str, job: str, argv: list[str], ok: bool,
         "finished": time.time(),
         # Only on a failed job, so a passing row keeps the shape it had.
         **({"failure_evidence": failure_evidence} if failure_evidence and not ok else {}),
+        # Only on a failed job: a fact about the machine that the failure may
+        # be (`run_tests.published_sprites_stale`), so a count of failures can
+        # tell the assets from the code.
+        **({"environment": environment} if environment and not ok else {}),
     }
     with path.open("a") as handle:
         handle.write(json.dumps(row) + "\n")

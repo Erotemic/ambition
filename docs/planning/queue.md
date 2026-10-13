@@ -784,7 +784,14 @@ variants. Also found in that regen:
     are now read: a module whose target name is not its file name, a config
     target's config, a helper package's by-name modules, and a shared
     module with no underscore. The first publish after this change renders
-    every sheet once. Open: the staging root and the NOT RUN verdict.
+    every sheet once.
+    **Built 2026-10-13, the reading:** a run with a cargo job asks
+    `sprites.sh --check` once (2.6 s). When the set is stale, a failed
+    job prints the reason and the remedy, and its lane-ledger row carries
+    `environment`. The verdict stays FAILED and is not NOT RUN: another
+    failure in the same job can be real
+    (`test_a_failed_cargo_job_on_a_stale_sprite_set_says_so`).
+    Open: the staging root.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

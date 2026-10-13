@@ -34,6 +34,7 @@ import fnmatch
 import shlex
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -114,10 +115,17 @@ ROLLBACK_REGISTRATION_PATHS = (
 #:   an exit-oracle channel count, a schema parity under one feature, and a
 #:   portal probe that only the `portal` composition registers);
 #: - a file that holds a test behind an opt-in feature (`match_shots.rs` did not
-#:   compile, and the portal exit-copy test ran on a copy).
-#: ⚠ Not held: a change in one crate that reddens another crate's gated test
-#: (a demo's HUD declaration against its app's `visible` pins; a map edit
-#: against a `visible` test that counts its blocks).
+#:   compile, and the portal exit-copy test ran on a copy);
+#: - a change to the feature wiring of the root or a member manifest
+#:   (`feature_wiring_changed`): the boundary table of
+#:   `docs/concepts/testing-and-validation.md` gives "a change to features" to
+#:   the exhaustive run.
+#: A change in one crate can redden the gated test of a crate that depends on
+#: it. 31 crates hide tests behind features (2026-10-12), so nearly each
+#: engine crate has such a dependent, and this job for each of those changes
+#: is the release boundary's cost at each push. That case is not required: the
+#: receipt names it as NOT RUN, not required at this boundary
+#: (`deferred_union_job`), so it is not silent.
 UNION_FEATURE_JOB = "workspace [every headless-safe feature] — one graph, every gated test"
 #: Jobs that `run_tests.py` plans only in its exhaustive mode.
 EXHAUSTIVE_JOBS = {UNION_FEATURE_JOB}
@@ -255,6 +263,118 @@ def holds_gated_test(path: str, members: dict[str, str], repo: Path) -> bool:
     on_by_default = census.default_features(crate)
     tests, gated, _ = census.scan_file(file, on_by_default)
     return gated > 0 or (tests > 0 and file in census.gated_subtrees(crate, on_by_default))
+
+
+#: The tables of a manifest that name dependencies.
+DEPENDENCY_TABLES = ("dependencies", "dev-dependencies", "build-dependencies")
+
+
+def dependency_tables(manifest: dict) -> list[tuple[str, dict]]:
+    """Each dependency table of a parsed manifest, by its dotted name: the
+    plain tables, each `[target.<cfg>.*]` table and `[workspace.dependencies]`."""
+    tables = [(table, manifest.get(table, {})) for table in DEPENDENCY_TABLES]
+    for cfg, target in manifest.get("target", {}).items():
+        tables += [(f"target.{cfg}.{table}", target.get(table, {})) for table in DEPENDENCY_TABLES]
+    tables.append(("workspace.dependencies", manifest.get("workspace", {}).get("dependencies", {})))
+    return tables
+
+
+def feature_wiring(text: str) -> dict:
+    """What in a manifest decides which features a build turns on: the
+    `[features]` table, and for each dependency its `features`, `optional` and
+    `default-features`. A version, a path or a dependency with none of these
+    is not wiring."""
+    manifest = tomllib.loads(text) if text else {}
+    wiring: dict = {"[features]": manifest.get("features", {})}
+    for table, deps in dependency_tables(manifest):
+        for name, spec in deps.items():
+            if not isinstance(spec, dict):
+                continue
+            wired = (
+                sorted(spec.get("features", [])),
+                spec.get("optional", False),
+                spec.get("default-features", spec.get("default_features", True)),
+            )
+            if wired != ([], False, True):
+                wiring[f"{table}.{name}"] = wired
+    return wiring
+
+
+def show(repo: Path, rev: str, path: str) -> str:
+    """The text of `path` at `rev`, or "" where it is not there."""
+    result = subprocess.run(["git", "show", f"{rev}:{path}"], cwd=repo, capture_output=True, text=True)
+    return result.stdout if result.returncode == 0 else ""
+
+
+def feature_wiring_changed(repo: Path, base: str, rev: str, path: str, members: dict[str, str]) -> bool:
+    """Whether the change to `path` changes the feature wiring of the root or a
+    member manifest. The change is `git diff base...rev`, so it is compared
+    from the merge base. A manifest that does not parse counts as changed."""
+    if not (path == "Cargo.toml" or path.removesuffix("/Cargo.toml") in members):
+        return False
+    fork = subprocess.run(
+        ["git", "merge-base", base, rev], cwd=repo, capture_output=True, text=True, check=True
+    ).stdout.strip()
+    try:
+        return feature_wiring(show(repo, fork, path)) != feature_wiring(show(repo, rev, path))
+    except tomllib.TOMLDecodeError:
+        return True
+
+
+def workspace_dependents(repo: Path, members: dict[str, str]) -> dict[str, set[str]]:
+    """`{package: each member that depends on it, directly or through other
+    members}`. A dev-dependency counts: its change can redden the tests of
+    the member that names it."""
+    names = set(members.values())
+    users: dict[str, set[str]] = {name: set() for name in names}
+    for directory, package in members.items():
+        try:
+            manifest = tomllib.loads((repo / directory / "Cargo.toml").read_text())
+        except (OSError, tomllib.TOMLDecodeError):
+            continue
+        for _, deps in dependency_tables(manifest):
+            for key, spec in deps.items():
+                dep = spec.get("package", key) if isinstance(spec, dict) else key
+                if dep in names and dep != package:
+                    users[dep].add(package)
+    closure: dict[str, set[str]] = {}
+    for name in names:
+        seen: set[str] = set()
+        stack = list(users[name])
+        while stack:
+            user = stack.pop()
+            if user not in seen:
+                seen.add(user)
+                stack.extend(users[user])
+        closure[name] = seen
+    return closure
+
+
+def deferred_union_job(paths: list[str], members: dict[str, str], repo: Path) -> tuple[list[str], list[str]]:
+    """The case of the union job that no rule requires: a change in a member
+    whose dependents hide tests behind features. Returns the paths of that
+    change and the dependents (the members changed included) that hide a
+    test, sorted. Both are empty when the change has no such dependent."""
+    import feature_gated_tests as census
+
+    touched: dict[str, list[str]] = {}
+    for path in paths:
+        if path.endswith(PROSE_SUFFIX):
+            continue
+        for directory, package in members.items():
+            if path.startswith(directory + "/"):
+                touched.setdefault(package, []).append(path)
+    if not touched:
+        return [], []
+    dependents = workspace_dependents(repo, members)
+    reached = set(touched)
+    for package in touched:
+        reached |= dependents.get(package, set())
+    directory_of = {package: directory for directory, package in members.items()}
+    hiding = sorted(p for p in reached if census.scan_crate(repo / directory_of[p])[1] > 0)
+    if not hiding:
+        return [], []
+    return sorted(path for found in touched.values() for path in found), hiding
 
 
 def requirements_for(path: str, members: dict[str, str], repo: Path = REPO) -> set[Requirement]:
@@ -418,6 +538,14 @@ class Verdict:
     certified: bool
     #: Why not, when it is not: no row ran it, it failed, or its tree is old.
     reason: str
+    #: False for a check that this boundary does not require (Q59: NOT RUN,
+    #: not required at this boundary). It counts against the change only
+    #: when it failed on it.
+    required: bool = True
+
+    def blocks(self) -> bool:
+        """Whether this verdict leaves the change not certified."""
+        return not self.certified and (self.required or self.reason == "FAILED on this change")
 
 
 def judge(repo: Path, base: str, rev: str) -> tuple[list[str], list[Verdict]]:
@@ -427,39 +555,62 @@ def judge(repo: Path, base: str, rev: str) -> tuple[list[str], list[Verdict]]:
     for path in paths:
         for requirement in requirements_for(path, members, repo):
             triggers.setdefault(requirement, []).append(path)
+        if feature_wiring_changed(repo, base, rev, path, members):
+            triggers.setdefault(Job(UNION_FEATURE_JOB), []).append(path)
+    deferred: dict[Requirement, tuple[list[str], str]] = {}
+    if Job(UNION_FEATURE_JOB) not in triggers:
+        by, hiding = deferred_union_job(paths, members, repo)
+        if hiding:
+            shown = ", ".join(hiding[:3]) + (f" and {len(hiding) - 3} more" if len(hiding) > 3 else "")
+            deferred[Job(UNION_FEATURE_JOB)] = (
+                by,
+                f"not required at this boundary (a release or a change to features is); "
+                f"{len(hiding)} crate(s) the change reaches hide tests behind features: {shown}",
+            )
     ledger = lane_ledger.rows(repo)
     verdicts = []
     for requirement, by in sorted(triggers.items(), key=lambda item: item[0].label()):
-        relevant = [row for row in ledger if covers(row, requirement)]
-        # The paths the run must have held as `rev` does: every path of the
-        # change, but prose only for the job that reads prose, and scripts
-        # not for a cargo test. A doc or a script edited while a crate's tests
-        # ran did not change what they tested.
-        held = paths if requirement == Job(REPO_TOOLING_JOB) else [p for p in paths if not p.endswith(PROSE_SUFFIX)]
-        if isinstance(requirement, (CargoTest, CargoTestNamed)):
-            held = [p for p in held if not p.startswith(TOOLING_PREFIX)]
-        # Both ends of the run: a path of the change that moved while the job
-        # ran was tested in neither state.
-        current = [
-            row for row in relevant
-            if not held
-            or all(agrees(repo, row.get(end) or row["tree"], rev, held) for end in ("tree", "tree_after"))
-        ]
-        # The newest row on a current tree is the verdict: a later failure
-        # after an earlier pass on the same content is a failure.
-        if current:
-            newest = max(current, key=lambda row: row.get("finished", 0))
-            if newest.get("ok") and not newest.get("unrunnable"):
-                verdicts.append(Verdict(requirement, by, True, "passed on this change"))
-            elif newest.get("unrunnable"):
-                verdicts.append(Verdict(requirement, by, False, f"NOT RUN: {newest['unrunnable']}"))
-            else:
-                verdicts.append(Verdict(requirement, by, False, "FAILED on this change"))
-        elif relevant:
-            verdicts.append(Verdict(requirement, by, False, "ran only on a tree before this change"))
-        else:
-            verdicts.append(Verdict(requirement, by, False, "NOT RUN"))
+        verdicts.append(verdict_for(repo, rev, paths, ledger, requirement, by))
+    for requirement, (by, why) in deferred.items():
+        found = verdict_for(repo, rev, paths, ledger, requirement, by)
+        if found.reason == "NOT RUN" or found.reason.startswith("ran only on a tree before"):
+            found.reason = f"NOT RUN, {why}"
+        found.required = False
+        verdicts.append(found)
     return paths, verdicts
+
+
+def verdict_for(
+    repo: Path, rev: str, paths: list[str], ledger: list[dict], requirement: Requirement, by: list[str]
+) -> Verdict:
+    """The verdict on one check, from the ledger rows that ran it."""
+    relevant = [row for row in ledger if covers(row, requirement)]
+    # The paths the run must have held as `rev` does: every path of the
+    # change, but prose only for the job that reads prose, and scripts
+    # not for a cargo test. A doc or a script edited while a crate's tests
+    # ran did not change what they tested.
+    held = paths if requirement == Job(REPO_TOOLING_JOB) else [p for p in paths if not p.endswith(PROSE_SUFFIX)]
+    if isinstance(requirement, (CargoTest, CargoTestNamed)):
+        held = [p for p in held if not p.startswith(TOOLING_PREFIX)]
+    # Both ends of the run: a path of the change that moved while the job
+    # ran was tested in neither state.
+    current = [
+        row for row in relevant
+        if not held
+        or all(agrees(repo, row.get(end) or row["tree"], rev, held) for end in ("tree", "tree_after"))
+    ]
+    # The newest row on a current tree is the verdict: a later failure
+    # after an earlier pass on the same content is a failure.
+    if current:
+        newest = max(current, key=lambda row: row.get("finished", 0))
+        if newest.get("ok") and not newest.get("unrunnable"):
+            return Verdict(requirement, by, True, "passed on this change")
+        if newest.get("unrunnable"):
+            return Verdict(requirement, by, False, f"NOT RUN: {newest['unrunnable']}")
+        return Verdict(requirement, by, False, "FAILED on this change")
+    if relevant:
+        return Verdict(requirement, by, False, "ran only on a tree before this change")
+    return Verdict(requirement, by, False, "NOT RUN")
 
 
 def remedy_commands(missing: list[Requirement]) -> list[list[str]]:
@@ -497,7 +648,8 @@ def certify(repo: Path, base: str, rev: str, run=subprocess.run) -> tuple[list[s
     is the verdict. A command that fails does not stop the others; its
     failure is in the ledger."""
     paths, verdicts = judge(repo, base, rev)
-    missing = [verdict.requirement for verdict in verdicts if not verdict.certified]
+    # Only what this boundary requires: a deferred check is the release's.
+    missing = [verdict.requirement for verdict in verdicts if verdict.required and not verdict.certified]
     for command in remedy_commands(missing):
         print(f"required_checks: running {shlex.join(command)}", flush=True)
         run(command, cwd=repo)
@@ -507,13 +659,16 @@ def certify(repo: Path, base: str, rev: str, run=subprocess.run) -> tuple[list[s
 
 
 def report(paths: list[str], verdicts: list[Verdict]) -> int:
-    print(f"required_checks: {len(paths)} changed path(s), {len(verdicts)} required check(s)")
+    required = sum(v.required for v in verdicts)
+    deferred = len(verdicts) - required
+    later = f", {deferred} not required at this boundary" if deferred else ""
+    print(f"required_checks: {len(paths)} changed path(s), {required} required check(s){later}")
     for verdict in verdicts:
-        mark = "ok  " if verdict.certified else "MISS"
+        mark = "ok  " if verdict.certified else "MISS" if verdict.blocks() else "defer"
         shown = ", ".join(verdict.triggered_by[:3])
         more = f" and {len(verdict.triggered_by) - 3} more" if len(verdict.triggered_by) > 3 else ""
         print(f"  {mark} {verdict.requirement.label()}  ({verdict.reason}; for {shown}{more})")
-    missing = [v.requirement for v in verdicts if not v.certified]
+    missing = [v.requirement for v in verdicts if v.blocks()]
     if missing:
         print("\nNOT CERTIFIED: the change requires checks this tree has not passed. Run:")
         print(remedy(missing))

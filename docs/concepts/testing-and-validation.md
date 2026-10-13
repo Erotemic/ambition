@@ -91,6 +91,10 @@ list only says when to ask them:
 | Handoff or milestone | The default plan, `./run_tests.sh` | `scripts/run_tests.py`; its footer names what the plan does not cover |
 | Release, or a change to features, an SDK surface or the web path | `./run_tests.sh --run-everything-you-probably-dont-need-this` | the same footer |
 
+At a push, `required_checks.py` requires the union feature job for a change to
+the feature wiring of a manifest, and names it as `NOT RUN, not required at this
+boundary` for a change whose dependent crates hide tests behind features.
+
 A change to prose or pictures only (`.md`, `.png`, `.svg`, `.txt`) requires no
 check.
 

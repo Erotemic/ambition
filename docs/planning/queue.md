@@ -601,8 +601,31 @@ reads cargo output to it.
    (poisons: no rule, no map-assets arm, no `-p` in the remedy, not
    planned).
 
-   Open: a change in an engine crate that reddens another crate's gated test
-   is selected only at the exhaustive mode.
+   A change to the feature wiring of the root or a member manifest (a
+   feature, or a dependency's `features`, `optional` or `default-features`)
+   requires it too (2026-10-12, `feature_wiring_changed`): the boundary table
+   of [testing and validation](../concepts/testing-and-validation.md#validation-states-and-cadence)
+   gives "a change to features" to the exhaustive run. Witness
+   `test_a_change_to_feature_wiring_requires_the_union_feature_job` (four
+   wiring arms, four controls: a version, a plain dependency, package
+   metadata, a workspace version; poisons: no wiring check, red at the four
+   arms; the version counted as wiring, red at the workspace control).
+
+   A change in one crate that can redden another crate's gated test is
+   named, not required (2026-10-12): the receipt prints the union job as
+   `defer ... NOT RUN, not required at this boundary` with the crates the
+   change reaches that hide tests (`deferred_union_job`, through the members'
+   manifests, dev-dependencies included). It refuses the change only when
+   the job failed on it, and `--run` does not run it. Measured on
+   `68f527cc4` (the drop-through leg): the change reaches 28 of the 31 crates
+   that hide tests, so requiring the 55-minute job here would require it for
+   nearly each Rust push. Witnesses
+   `test_a_change_whose_dependents_hide_tests_names_the_union_job_as_not_required`
+   (control `test_a_change_with_no_dependent_that_hides_a_test_names_no_union_job`)
+   and `test_run_does_not_run_a_check_this_boundary_does_not_require`
+   (poisons: no deferral, dependents not followed, the deferral required,
+   `--run` runs it, a failure that does not refuse; each red at its own
+   assertion).
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.

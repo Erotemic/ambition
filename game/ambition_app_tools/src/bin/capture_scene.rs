@@ -77,6 +77,12 @@ struct SceneCaptureConfig {
     /// a state the world gets from a flag (a room's look, a gate) can be
     /// photographed, and a change of it can be filmed.
     flags: Vec<(String, u64)>,
+    /// Looks to put on bodies, each on its sim tick
+    /// (`--wear ID=LOOK[@TICK]`): the first body that wears catalog character
+    /// ID wears LOOK from then on, as the conversation's `<<transform>>` asks.
+    /// Keys do not reach a conversation's choices, so this is how a look of a
+    /// character with a transform is photographed, and its change filmed.
+    wears: Vec<(String, String, u64)>,
     /// Put the primary player at a world point on a sim tick
     /// (`--player-at X,Y[@TICK]`), at rest, one time for each use of the
     /// option: a body that stands in a portal's plane can be photographed
@@ -258,6 +264,11 @@ OPTIONS:
                         take every part-drawn body apart by the teleport warp
                         of a blink, one time each SECONDS [default: 1.0], on
                         the row it draws
+    --wear ID=LOOK[@TICK]
+                        the first body wearing catalog character ID wears
+                        LOOK from sim tick TICK [default: 60], as a
+                        conversation's `<<transform>>` asks; repeat for more.
+                        A look with a `transform` row plays it.
     --flag NAME[@TICK]  record the world flag NAME on sim tick TICK
                         [default: 1]; repeat for more flags. A room that reads
                         its state from a flag is photographed in that state.
@@ -519,6 +530,38 @@ fn record_flags(
     }
 }
 
+/// `--wear`: ask the first body that wears a character to wear a look, on its
+/// tick, through the request a conversation's `<<transform>>` writes. A sim
+/// system that names its tick, as [`record_flags`] is.
+fn ask_bodies_to_wear(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    ids: ambition_platformer2d::platformer::lifecycle::LiveBodies,
+    bodies: Query<(Entity, &ambition_platformer2d::characters::actor::WornCharacter)>,
+    mut requests: MessageWriter<ambition_platformer2d::actors::features::WearRequested>,
+) {
+    for (wearer, look, on_tick) in &config.wears {
+        if tick.get() != *on_tick {
+            continue;
+        }
+        let body = bodies
+            .iter()
+            .find(|(_, worn)| worn.id() == wearer.as_str())
+            .and_then(|(entity, _)| ids.id_of(entity));
+        let Some(body) = body else {
+            eprintln!("capture_scene: --wear found no body wearing {wearer} on tick {on_tick}");
+            continue;
+        };
+        requests.write(ambition_platformer2d::actors::features::WearRequested {
+            body,
+            character: ambition_platformer2d::characters::actor::WornCharacter::new(look.as_str())
+                .character()
+                .clone(),
+        });
+        eprintln!("capture_scene: asked the body wearing {wearer} to wear {look} on tick {on_tick}");
+    }
+}
+
 /// `--player-at`: put the primary player at the configured point on its tick,
 /// at rest, through the motion authority (ADR 0024). A sim system that names
 /// its tick, as [`place_player_beside`] is.
@@ -610,7 +653,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, fire_portal_shots),
+        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, ask_bodies_to_wear, fire_portal_shots),
     );
     if app.world().resource::<SceneCaptureConfig>().nav_overlay {
         app.insert_resource(ambition_app::dev::navigation_overlay::NavigationOverlay { shown: true });
@@ -807,6 +850,7 @@ impl SceneCaptureConfig {
         let mut player_beside: Option<(String, u64)> = None;
         let mut interact_on_arrival = false;
         let mut flags: Vec<(String, u64)> = Vec::new();
+        let mut wears: Vec<(String, String, u64)> = Vec::new();
         let mut portal_shots: Vec<PortalShotAt> = Vec::new();
         let mut player_at: Vec<(Vec2, u64)> = Vec::new();
         let mut body_warp = None;
@@ -929,6 +973,24 @@ impl SceneCaptureConfig {
                         ),
                         None => (value.clone(), 1),
                     });
+                    2
+                }
+                "--wear" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--wear requires ID=LOOK".to_string());
+                    };
+                    let (pair, tick) = match value.split_once('@') {
+                        Some((pair, tick)) => (
+                            pair,
+                            tick.parse::<u64>()
+                                .map_err(|_| format!("--wear ID=LOOK@TICK wants a sim tick, got '{tick}'"))?,
+                        ),
+                        None => (value.as_str(), 60),
+                    };
+                    let Some((wearer, look)) = pair.split_once('=') else {
+                        return Err(format!("--wear wants ID=LOOK, got '{pair}'"));
+                    };
+                    wears.push((wearer.to_string(), look.to_string(), tick));
                     2
                 }
                 "--boss-blow" => {
@@ -1143,6 +1205,7 @@ impl SceneCaptureConfig {
                 player_beside: None,
                 interact_on_arrival: false,
                 flags: Vec::new(),
+                wears: Vec::new(),
                 player_at: Vec::new(),
                 portal_shots: Vec::new(),
                 body_warp: None,
@@ -1207,6 +1270,7 @@ impl SceneCaptureConfig {
             player_beside,
             interact_on_arrival,
             flags,
+            wears,
             player_at,
             portal_shots,
             body_warp,

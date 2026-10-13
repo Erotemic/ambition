@@ -116,6 +116,82 @@ fn a_feature_view() -> ambition_sim_view::FeatureView {
     }
 }
 
+/// An actor that changes the character it wears, and keeps its size, is drawn
+/// from the art of the new character.
+///
+/// Jeff Hinter and his armor are one body of one size (2026-10-13): the kind,
+/// the footprint and the tier of the binding stayed the same, so the binder
+/// had nothing to do and the Hall kept the man with no armor on the screen.
+#[test]
+fn an_actor_that_wears_another_character_of_its_size_is_bound_to_that_art() {
+    const OTHER_CHARACTER: &str = "probe_character_armored";
+    let mut app = asset_app();
+    app.insert_resource(quality(VisualQualityProfile::High));
+
+    let own = a_pending_realization(&mut app, TextureResolutionScale::Full);
+    the_image_lands(&mut app, &own);
+    let own_image = own.texture.id();
+    let other = a_pending_realization(&mut app, TextureResolutionScale::Full);
+    the_image_lands(&mut app, &other);
+    let other_image = other.texture.id();
+    let mut assets = GameAssets::default();
+    assets.characters.publish(ACTOR_CHARACTER, own);
+    assets.characters.publish(OTHER_CHARACTER, other);
+    app.insert_resource(assets);
+
+    app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+        ACTOR_ID.to_string(),
+        a_feature_view(),
+    )]));
+    let wearing = |character: &str| {
+        ambition_sim_view::ActorRenderIndex::from_rows([(
+            ACTOR_ID.to_string(),
+            ambition_sim_view::ActorRenderView {
+                sprite_character_id: Some(character.to_string()),
+                name: ACTOR_NAME.to_string(),
+                is_sandbag: false,
+                render_size: None,
+                dream_seed: None,
+                geometry: ambition_sim_view::PoseGeometry::Settled,
+            },
+        )])
+    };
+    app.insert_resource(wearing(ACTOR_CHARACTER));
+    app.insert_resource(ambition_sim_view::BossRenderIndex::default());
+    app.add_systems(Update, super::upgrade_actor_sprites);
+
+    let body = app
+        .world_mut()
+        .spawn(FeatureVisual {
+            id: ACTOR_ID.to_string(),
+        })
+        .id();
+    app.update();
+    assert_eq!(app.world().get::<Sprite>(body).map(|s| s.image.id()), Some(own_image));
+
+    // The same body, the same footprint, the same tier: only the character.
+    app.insert_resource(wearing(OTHER_CHARACTER));
+    app.update();
+    assert_eq!(
+        app.world().get::<Sprite>(body).map(|s| s.image.id()),
+        Some(other_image),
+        "the body wears another character and is still drawn from the art of the first"
+    );
+    assert_eq!(
+        app.world().get::<super::BoundActorArt>(body),
+        Some(&super::BoundActorArt(OTHER_CHARACTER.to_string())),
+    );
+
+    // And nothing is bound again while it wears the same character.
+    let changed_before = app.world().entity(body).get_change_ticks::<Sprite>().map(|t| t.changed);
+    app.update();
+    assert_eq!(
+        app.world().entity(body).get_change_ticks::<Sprite>().map(|t| t.changed),
+        changed_before,
+        "a body that wears the same character was bound again"
+    );
+}
+
 /// An actor body converges to the realization the table now holds.
 ///
 /// Medium (Half) to High (Full): the same entity, with the same feature and

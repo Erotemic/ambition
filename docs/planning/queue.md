@@ -676,6 +676,16 @@ reads cargo output to it.
    `--run` runs it, a failure that does not refuse; each red at its own
    assertion).
 
+   **Run 2026-10-13 at `c7ae3da0c`:** the union job ran each gated test
+   (2624 s, the tests 1872 s): all green but one Mary-O arm,
+   `a_used_up_brick_in_a_skinned_room_wears_the_spent_plate_and_no_skin`,
+   red at its premise (the brick of 1-3 has no skin). The same arm is the
+   one red of `ambition_demo_mary_o_app`'s own-feature job (117 of 118); the
+   Sanic, Smash and Twintrack own-feature jobs are green. It is red three
+   times in this session (also alone) and green four times in another
+   session on the same checkout and commit; that session (Mary-O's owner)
+   took it with the difference measured (user, HOME, build path).
+
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.
 

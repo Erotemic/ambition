@@ -462,7 +462,9 @@ review_cues=(
     # oiler is NOT here any more — see `tackon_targets`. His body comes from
     # the direct-SVG rig; leaving the review cue in place would have this loop
     # overwrite the rig's sheet with the toon render on every full run.
-    merchant_prototype erdish raid_enforcer fascist_enforcer
+    # erdish is NOT here any more -- he is a rigged module target, in the
+    # roster below.
+    merchant_prototype raid_enforcer fascist_enforcer
     # Named characters whose YAML manifests already live in $sprites_dir.
     # bob is NOT here any more -- see `tackon_targets`, the same move as oiler.
     alice craig eve general_hero judy mallory olivia
@@ -754,6 +756,7 @@ tackon_targets=(
     weird_hermit
     willson
     ramen_nujan
+    erdish
     jeff_hinter
     jeff_hinter_armored
     m_leblanc

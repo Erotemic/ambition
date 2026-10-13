@@ -542,6 +542,15 @@ fn a_used_up_brick_in_a_skinned_room_wears_the_spent_plate_and_no_skin() {
             .unwrap_or_default();
         children.into_iter().filter(|child| app.world().entity(*child).contains::<TerrainTrim>()).count()
     }
+    // The art of a skin is published, and git does not hold it. A checkout
+    // with no published terrain skins has no skin to probe.
+    let skin_art = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../crates/ambition_platformer2d_actor_monolith/assets/room_dressing/starlight_fill.png");
+    assert!(
+        skin_art.exists(),
+        "the terrain skin of 1-3 is not published in this checkout ({}): run ./scripts/regen/backgrounds.sh",
+        skin_art.display(),
+    );
     assert!(
         skin_pieces(&mut app, &brick.id) > 0,
         "the brick has no skin BEFORE it is used up, so this probe can say nothing about what the skin does to its new art",

@@ -1016,6 +1016,17 @@ fn perceived_solid_kind(kind: ae::BlockKind) -> Option<SolidKind> {
 #[cfg(test)]
 mod tests;
 
+/// The ground distances a body needs to stop (its strongest brake) and to
+/// coast to rest (hands off), from its speed along its own side axis.
+///
+/// The side axis is the axis its run law brakes on and the axis
+/// `WorldView::floor_ahead` measures the floor on. It is world x only under
+/// screen-down gravity: a body under sideways gravity runs along world y.
+fn ground_distances(motion_model: &ae::MotionModel, vel: ae::Vec2, gravity_down: ae::Vec2) -> (f32, f32) {
+    let along = vel.dot(ae::AccelerationFrame::new(gravity_down).side).abs();
+    (motion_model.ground_stop_distance(along), motion_model.ground_coast_distance(along))
+}
+
 /// Project a live actor body into the perception input its own world view is
 /// built from.
 ///
@@ -1069,12 +1080,11 @@ pub(crate) fn perception_body_for(
         body.dash,
         axis_motion.params,
     );
+    let (stop_distance, coast_distance) = ground_distances(motion_model, body.kin.vel, gravity_down);
     PerceptionBody {
         launch_law,
-        // Along world x, the axis `WorldView::floor_ahead` measures the floor
-        // on.
-        stop_distance: motion_model.ground_stop_distance(body.kin.vel.x.abs()),
-        coast_distance: motion_model.ground_coast_distance(body.kin.vel.x.abs()),
+        stop_distance,
+        coast_distance,
         // The identity `build_world_view` uses to skip this body's own row.
         // Taken from the body's OWN peer row rather than passed separately: it
         // is the same entity `peers_seen_by` compared against, and a body with

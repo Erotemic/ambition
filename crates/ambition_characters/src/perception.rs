@@ -745,14 +745,25 @@ impl WorldView {
     /// One authority, because L1 asks it to classify and L2 asks it to score, and
     /// two implementations of "where does the floor end" would drift the moment
     /// one of them learned about one-way platforms.
+    ///
+    /// `toward` is a sign on the body's own side axis
+    /// ([`Self::side_sign_toward`]), and the floor is measured on that axis, as
+    /// [`Self::supporting_floor`] finds it. Under screen-down gravity that axis
+    /// is world x.
     pub fn floor_ahead(&self, toward: f32) -> Option<f32> {
         let support = self.supporting_floor()?;
+        let at = self.footing();
+        let (low, high) = Self::span_on(&support, at.side);
+        Some(if toward >= 0.0 { high - at.centre } else { at.centre - low })
+    }
+
+    /// The sign of `at` from this body on its own side axis: the direction a
+    /// stick toward `at` runs, and the `toward` that [`Self::floor_ahead`]
+    /// takes. `f32::signum`, so a point straight along the gravity axis reads
+    /// as `1.0`.
+    pub fn side_sign_toward(&self, at: ae::Vec2) -> f32 {
         let me = &self.self_view;
-        Some(if toward >= 0.0 {
-            support.max.x - me.pos.x
-        } else {
-            me.pos.x - support.min.x
-        })
+        (at - me.pos).dot(me.acceleration_frame().side).signum()
     }
 
     /// The solid I am standing on, as its full box — the authority behind

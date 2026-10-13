@@ -54,6 +54,10 @@ the way in its own slice:
 [REVIEW-1011](#review-1011--five-boundaries-where-one-subsystem-reconstructs-anothers-fact)
 rows.
 
+Correctness interrupts from the 2026-10-13 review:
+[REVIEW-1013](#review-1013---frame-and-acceptance-gaps-from-the-2026-10-13-review)
+(items 1 and 2 done; 3 and 4 open).
+
 Correctness interrupts from the 2026-10-12 review:
 [REVIEW-1012](#review-1012---feedback-and-adapter-contracts-from-the-2026-10-12-review)
 (all five items done 2026-10-13; the hands-on feel of GNU-ton waits for a
@@ -76,6 +80,37 @@ universal planner and the Bevy 0.20 upgrade. Q157 is Jon's decision; build
 neither side of it.
 
 ## P0 — architecture and correctness
+
+### REVIEW-1013 - frame and acceptance gaps from the 2026-10-13 review
+
+Review of `4af5c66f..80116a77b` (2026-10-13). It retires the five
+REVIEW-1012 items. Each item is its own commit with a witness, a poison
+and a control.
+
+1. **Done 2026-10-13:** the brain's stop and coast distances, and the
+   ledge and overshoot facts that read them, are on the body's own side
+   axis, not world x (`perception_body_for` → `ground_distances`;
+   `WorldView::floor_ahead` and `side_sign_toward`; `walks_off`,
+   `overshoots`, the corner width in `situation.rs`). Witnesses:
+   `the_ground_distances_are_along_the_bodys_own_side_axis` and
+   `the_ledge_and_overshoot_verdicts_are_the_same_in_every_gravity_frame`
+   (the two ledge witnesses turned to sideways and reversed gravity).
+   Five poisons (each world-x read put back) are red. Under screen-down
+   gravity each changed expression is the same float operation. Open:
+   `StageView::room_toward` asks the stage's world box along world x, so a
+   cornered check under turned gravity is still a world-x question.
+2. **Done 2026-10-13 (ToothbrushArtAgent):** the real Hall conversation
+   puts the armor on Jeff Hinter by key presses
+   (`the_armor_choice_of_his_hall_conversation_puts_the_armor_on_him`).
+3. **Open, unclaimed:** visual acceptance in the running game. Front rows
+   were seen at ultra for idle and for a held conversation; not seen:
+   front idle ↔ walk or combat. A held item on a real published sheet,
+   both facings, through an attack (`capture_scene --wear ID=LOOK[@TICK]`
+   photographs a look).
+4. **Open, unclaimed:** `posed_hand.rs` takes the first `FeatureVisual`
+   with the holder's feature id. Add a test with a stand-in and the rigged
+   root at once, and select the rigged root by the existing
+   feature-to-visual relation.
 
 ### REVIEW-1012 - feedback and adapter contracts from the 2026-10-12 review
 

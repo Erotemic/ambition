@@ -102,11 +102,11 @@ with a witness, a poison and a control.
    turns `check_temple.py` prints) for the Pesto Key, rings the belfry's
    three bells for the Parmesan Key, and wins the reliquary's three-wave
    vigil (about 4900 frames) for the Colander Key. No teleport and no
-   health written. The fight keeps a move toward a foe on the surface it
-   stands on (the graph takes spikes out of a surface), jumps under a foe
-   only within its measured apex, swings without dropping a leg in the air,
-   and follows a Fly leg's toggle. Poison: Attack never pressed, red at
-   "the fight ... was not over". Open: the monster in the sanctum by the
+   health written (`c0701fca9`). The fight jumps under a foe only within
+   its measured apex and never during a leg, follows a Fly leg's toggle,
+   and turns off a flight that no leg steers; each of the last three is red
+   when poisoned. Poison: Attack never pressed, red at "the fight ... was
+   not over". Open: the monster in the sanctum by the
    same road, and GNU-ton's fighter timing judged in the Smash runtime. The
    WORLD-ACCEPTANCE opener now states the Q164 remainder.
 

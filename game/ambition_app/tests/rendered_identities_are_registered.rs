@@ -64,7 +64,13 @@ fn target_dir() -> PathBuf {
 /// (`game/ambition_demo_mary_o/assets/data/character_catalog.ron`), and that
 /// row names her sheet. The target landed on 2026-10-11 without this number;
 /// a run of the app suite by another session found it.
-const COMPUTED_ID_TARGETS: usize = 16;
+///
+/// 16 → 17 on 2026-10-13: `crypto_crew` (renderer d37754c, the rigged crew)
+/// is one module that names each member's id as `f"npc_{target}"`. The hand
+/// check: each of its eleven people (craig, eve, judy, mallory, olivia, peggy,
+/// sybil, trent, trudy, victor, walter) has an `npc_` row in a character
+/// catalog.
+const COMPUTED_ID_TARGETS: usize = 17;
 
 /// Every literal `character_id` value in one target source, accepting dict keys
 /// with either quote style and keyword-argument syntax.

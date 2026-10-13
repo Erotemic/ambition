@@ -445,4 +445,67 @@ mod he_uses_the_gust {
              the weight and not about the direction"
         );
     }
+
+    /// A foe at `gap` px who faces the Officer and winds up a swing of
+    /// `reach` px that goes live in `live_in` s (`AttackStartup`).
+    fn winding_up(gap: f32, live_in: f32, reach: f32) -> WorldView {
+        let mut v = view(400.0, 400.0 + gap);
+        let foe = &mut v.actors[0];
+        foe.facing = -1.0;
+        foe.half_extent = ae::Vec2::new(12.0, 24.0);
+        foe.phase = ambition_characters::perception::BodyPhase::AttackStartup;
+        foe.phase_remaining = live_in;
+        foe.attack_reach = Some(reach);
+        v.self_view.half_extent = ae::Vec2::new(12.0, 24.0);
+        v
+    }
+
+    fn best_against(kit: &[AttackCandidate], v: &WorldView, weights: &UtilityWeights) -> Option<String> {
+        generate_options(Perceived::cheating(v), Situation::Neutral, kit, weights)
+            .attacks
+            .first()
+            .map(|a| a.move_id.clone())
+    }
+
+    const RIOT_SHIELD: &str = "officer_riot_shield";
+
+    fn offers(kit: &[AttackCandidate], v: &WorldView, id: &str) -> bool {
+        generate_options(Perceived::cheating(v), Situation::Neutral, kit, &UtilityWeights::v1())
+            .attacks
+            .iter()
+            .any(|a| a.move_id == id)
+    }
+
+    /// The Officer raises his riot shield (a counter, stance 0.12-0.32 s)
+    /// against a swing that meets the stance and that none of his strikes can
+    /// answer first, and swings himself when a strike of his lands first.
+    /// The band of `counter_value`'s weight on his real kit (2026-10-12):
+    /// the shield beats the gust at 100 px from 0.49, and beats the uppercut
+    /// (0.08 s, which lands before a swing live in 0.13-0.30 s) from 1.17.
+    #[test]
+    fn a_counter_is_chosen_against_a_swing_that_meets_its_stance() {
+        let kit = kit();
+        let weights = UtilityWeights::v1();
+        // Out of every strike's reach, inside the foe's: the stance answers.
+        assert_eq!(
+            best_against(&kit, &winding_up(100.0, 0.2, 110.0), &weights).as_deref(),
+            Some(RIOT_SHIELD),
+            "a swing that reaches him and that he can not reach goes live in his stance"
+        );
+        // In reach of his uppercut, which lands before the swing goes live.
+        let close = best_against(&kit, &winding_up(36.0, 0.2, 50.0), &weights);
+        assert_ne!(close.as_deref(), Some(RIOT_SHIELD), "a strike that lands first is the better answer");
+        assert!(offers(&kit, &winding_up(36.0, 0.2, 50.0), RIOT_SHIELD), "premise: the stance is offered there too");
+
+        // CONTROLS: the stance is not offered against a swing it cannot meet.
+        let mut neutral = winding_up(100.0, 0.2, 110.0);
+        neutral.actors[0].phase = ambition_characters::perception::BodyPhase::Neutral;
+        assert!(!offers(&kit, &neutral, RIOT_SHIELD), "no swing: nothing to answer");
+        assert!(!offers(&kit, &winding_up(100.0, 0.4, 110.0), RIOT_SHIELD), "the swing goes live after the stance closes");
+        assert!(!offers(&kit, &winding_up(100.0, 0.05, 110.0), RIOT_SHIELD), "the swing goes live before the stance opens");
+        assert!(!offers(&kit, &winding_up(100.0, 0.2, 60.0), RIOT_SHIELD), "the swing does not reach him");
+        let mut away = winding_up(100.0, 0.2, 110.0);
+        away.actors[0].facing = 1.0;
+        assert!(!offers(&kit, &away, RIOT_SHIELD), "the swing faces away from him");
+    }
 }

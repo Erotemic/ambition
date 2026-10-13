@@ -7,6 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`asset_census`](src/asset_census.rs) | Text census of texture decoding, in the style of the `[startup]` and `[schedule-census]` loggers in `ambition_dev_tools::profiling`. |
+| [`bubble_shield_fx`](src/bubble_shield_fx.rs) | The live layer of the bubble shield. |
 | [`capture`](src/capture.rs) | Generic offscreen capture plumbing for composed apps. |
 | [`cutscene`](src/cutscene/mod.rs) | Sandbox cutscene presentation overlay. |
 | [`dialog_ui`](src/dialog_ui.rs) | Provider-selectable dialogue presentation. |
@@ -22,7 +23,7 @@
 | [`ui_fonts`](src/ui_fonts.rs) | UI font loading for the presentation layer. |
 | [`void_field`](src/void_field.rs) | The field of the void: the picture loses its colour, and a part of its light, near each void thing. |
 
-_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

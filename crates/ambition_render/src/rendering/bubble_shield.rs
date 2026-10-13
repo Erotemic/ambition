@@ -1,106 +1,64 @@
 // ---------------------------------------------------------------------------
-// Bubble shield (procedural)
+// Bubble shield
 // ---------------------------------------------------------------------------
 //
-// The guard is a soft filled field around the body: a translucent interior
-// the fighter shows through, with a bright rim at its edge. It is drawn in
-// front of the body, so the character is visibly inside it. Behind the
-// sprite it would read as a halo; a hollow ring in front reads as a hoop.
+// The guard is a field around the body: a translucent interior the fighter
+// shows through, with a bright rim at its edge. It is drawn in front of the
+// body, so the character is visibly inside it. Behind the sprite it would
+// read as a halo; a hollow ring in front reads as a hoop.
 //
-// The texture is one white field generated at startup and tinted by
-// `Sprite.color` each frame, so parry, held, and near-break states need no
-// image upload. The tint and size come from resolved sim facts on
+// The picture is authored: `bubble_shield_field.png`, of the sprite
+// submodule's `bubble_shield` target. It is white, and `Sprite.color` gives
+// it its hue each frame, so parry, held, and near-break states need no image
+// upload. The tint and size come from resolved sim facts on
 // `ShieldRingsView` (integrity, parry state, shieldstun). This layer owns no
 // shield policy.
+//
+// On a device with a budget for shaders a second layer is drawn over the
+// sprite (`crate::bubble_shield_fx`). The sprite alone is the whole look
+// where there is none.
 
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use bevy::asset::RenderAssetUsages;
-use bevy::image::Image;
 use bevy::prelude::*;
-use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-/// Procedural field texture. Built once at startup.
+/// The pictures of the bubble (the sprite submodule's `bubble_shield`).
+const FIELD_PICTURE: &str = "sprites/bubble_shield_field.png";
+const LATTICE_PICTURE: &str = "sprites/bubble_shield_lattice.png";
+const CRACKS_PICTURE: &str = "sprites/bubble_shield_cracks.png";
+
+/// The authored pictures of the bubble. Loaded once at startup.
 #[derive(Resource, Clone, Default)]
 pub struct BubbleShieldSprite {
+    /// The field: the picture of the sprite.
     pub handle: Handle<Image>,
+    /// The honeycomb and the cracks, for the shader layer.
+    pub lattice: Handle<Image>,
+    pub cracks: Handle<Image>,
 }
 
 /// Marker on the shield sibling sprite.
 #[derive(Component)]
 pub struct BubbleShieldVisual;
 
-/// 128 rather than 64: the field is mostly a smooth gradient now, and a
-/// gradient stretched from 64px over a fighter shows its steps.
-const SHIELD_TEXTURE_SIZE: u32 = 128;
-
-/// Where the field ends, as a fraction of the texture's half-width.
-const BUBBLE_EDGE: f32 = 0.94;
-/// Where the rim is brightest, and how tightly it is gathered there.
-const RIM_CENTRE: f32 = 0.87;
-const RIM_SPREAD: f32 = 0.075;
-/// Peak alpha the rim contributes on top of the interior.
-const RIM_GAIN: f32 = 1.0;
-/// The interior's alpha at the very centre, and at the rim's inner shoulder.
-/// The fighter has to stay readable THROUGH this.
-const INTERIOR_ALPHA_CENTRE: f32 = 0.32;
-const INTERIOR_ALPHA_EDGE: f32 = 0.58;
-
-/// Generate the filled field: translucent inside, bright at the rim,
-/// transparent outside. White, so `Sprite.color` supplies the hue and the
-/// global alpha.
-pub fn build_bubble_shield_image() -> Image {
-    let size = SHIELD_TEXTURE_SIZE;
-    let centre = (size as f32 - 1.0) * 0.5;
-    // One texel expressed in the normalized radius the profile is written in,
-    // so the outer edge gets the same ~2px anti-alias band at any resolution.
-    let texel = 1.0 / centre.max(1.0);
-
-    let mut data = vec![0u8; (size * size * 4) as usize];
-    for y in 0..size {
-        for x in 0..size {
-            let dx = x as f32 - centre;
-            let dy = y as f32 - centre;
-            // Normalized radius: 1.0 is the texture's edge.
-            let r = (dx * dx + dy * dy).sqrt() / centre.max(1.0);
-            let alpha = field_alpha(r, texel * 2.0);
-            let i = ((y * size + x) * 4) as usize;
-            data[i] = 255;
-            data[i + 1] = 255;
-            data[i + 2] = 255;
-            data[i + 3] = (alpha * 255.0).round().clamp(0.0, 255.0) as u8;
-        }
-    }
-    Image::new(
-        Extent3d {
-            width: size,
-            height: size,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        data,
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::default(),
-    )
+/// What a bubble shows now, as its sync resolved it, for a layer that draws
+/// on it (`crate::bubble_shield_fx`). Presentation state: no rule reads it.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct BubbleShieldLook {
+    /// How whole the guard is, 1 to 0.
+    pub integrity: f32,
+    /// The pulse of a blow it took, 1 to 0.
+    pub pulse: f32,
+    pub parrying: bool,
+    /// How strong a layer on the bubble is: less while the guard flickers.
+    pub strength: f32,
 }
 
-/// The field's alpha profile at normalized radius `r`, anti-aliased over `aa`.
-///
-/// Written as a pure function of the radius so the shape is testable without
-/// an image: a filled interior that gathers outward, plus a gaussian rim, cut
-/// off at [`BUBBLE_EDGE`].
-fn field_alpha(r: f32, aa: f32) -> f32 {
-    let outer_fade = ((BUBBLE_EDGE - r) / aa.max(f32::EPSILON)).clamp(0.0, 1.0);
-    if outer_fade <= 0.0 {
-        return 0.0;
+impl Default for BubbleShieldLook {
+    fn default() -> Self {
+        Self { integrity: 1.0, pulse: 0.0, parrying: false, strength: 0.0 }
     }
-    let toward_edge = (r / BUBBLE_EDGE).clamp(0.0, 1.0);
-    let interior =
-        INTERIOR_ALPHA_CENTRE + (INTERIOR_ALPHA_EDGE - INTERIOR_ALPHA_CENTRE) * toward_edge;
-    let from_rim = (r - RIM_CENTRE) / RIM_SPREAD;
-    let rim = RIM_GAIN * (-(from_rim * from_rim)).exp();
-    outer_fade * (interior + rim).clamp(0.0, 1.0)
 }
 
 /// One pooled bubble sprite (hidden until `sync` assigns it to a shielder).
@@ -115,6 +73,7 @@ fn new_bubble_sprite(handle: Handle<Image>) -> impl Bundle {
         Transform::from_xyz(0.0, 0.0, BUBBLE_Z),
         Visibility::Hidden,
         BubbleShieldVisual,
+        BubbleShieldLook::default(),
         Name::new("Bubble Shield Visual"),
     )
 }
@@ -124,10 +83,14 @@ fn new_bubble_sprite(handle: Handle<Image>) -> impl Bundle {
 /// silhouette is never covered by its own guard.
 const BUBBLE_Z: f32 = ambition_platformer2d_core::config::WORLD_Z_PLAYER + 0.05;
 
-/// Startup system: build the procedural field image and stash its handle.
-pub fn build_bubble_shield_sprite(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    let handle = images.add(build_bubble_shield_image());
-    commands.insert_resource(BubbleShieldSprite { handle });
+/// Startup system: ask for the authored pictures and keep their handles.
+pub fn build_bubble_shield_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
+    use ambition_sprite_sheet::game_assets::load_sheet_image;
+    commands.insert_resource(BubbleShieldSprite {
+        handle: load_sheet_image(&asset_server, "bubble-shield", FIELD_PICTURE),
+        lattice: load_sheet_image(&asset_server, "bubble-shield", LATTICE_PICTURE),
+        cracks: load_sheet_image(&asset_server, "bubble-shield", CRACKS_PICTURE),
+    });
 }
 
 /// Seed the pool with one bubble. `sync` grows it on demand when several
@@ -252,6 +215,7 @@ pub fn sync_bubble_shield_visual(
             &mut Transform,
             &mut Sprite,
             &mut Visibility,
+            &mut BubbleShieldLook,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         With<BubbleShieldVisual>,
@@ -266,7 +230,7 @@ pub fn sync_bubble_shield_visual(
         .collect();
     let pool_size = bubbles.iter().count();
     let mut assigned = 0usize;
-    for (bubble, mut transform, mut sprite, mut vis, stamp) in &mut bubbles {
+    for (bubble, mut transform, mut sprite, mut vis, mut look, stamp) in &mut bubbles {
         if let Some((guard, room, world)) = active.get(assigned).copied() {
             // A pooled bubble draws a different guard from frame to frame, so it
             // takes the room of the guard it draws now.
@@ -292,12 +256,17 @@ pub fn sync_bubble_shield_visual(
                 guard.size.x * 1.70 * extent,
                 guard.size.y * 1.35 * extent,
             ));
-            sprite.color = shield_bubble_color(
-                guard.parrying,
-                guard.integrity,
+            let flicker = shield_danger_flicker(guard.integrity, tick.0);
+            sprite.color = shield_bubble_color(guard.parrying, guard.integrity, pulse, flicker);
+            let shown = BubbleShieldLook {
+                integrity: guard.integrity.clamp(0.0, 1.0),
                 pulse,
-                shield_danger_flicker(guard.integrity, tick.0),
-            );
+                parrying: guard.parrying,
+                strength: 1.0 - DANGER_FLICKER_DEPTH * flicker.clamp(0.0, 1.0),
+            };
+            if *look != shown {
+                *look = shown;
+            }
             *vis = Visibility::Visible;
             assigned += 1;
         } else {
@@ -391,49 +360,6 @@ mod tests {
     }
 
     use super::*;
-
-    fn alpha_at(img: &Image, x: usize, y: usize) -> u8 {
-        let size = SHIELD_TEXTURE_SIZE as usize;
-        img.data.as_ref().expect("image data")[(y * size + x) * 4 + 3]
-    }
-
-    #[test]
-    fn build_bubble_shield_image_is_correct_size() {
-        let img = build_bubble_shield_image();
-        assert_eq!(img.width(), SHIELD_TEXTURE_SIZE);
-        assert_eq!(img.height(), SHIELD_TEXTURE_SIZE);
-    }
-
-    /// The guard is a filled field, not a hoop: the fighter is inside a bubble.
-    #[test]
-    fn the_field_is_filled_and_the_body_reads_through_it() {
-        let img = build_bubble_shield_image();
-        let mid = SHIELD_TEXTURE_SIZE as usize / 2;
-        let centre = alpha_at(&img, mid, mid);
-        assert!(centre > 40, "the interior must be present, got {centre}");
-        assert!(
-            centre < 130,
-            "the interior must stay translucent enough to read the fighter \
-             through, got {centre}"
-        );
-    }
-
-    /// The rim is the brightest part of the field, and it is a band rather
-    /// than the whole disc.
-    #[test]
-    fn the_rim_is_the_brightest_band() {
-        let img = build_bubble_shield_image();
-        let mid = SHIELD_TEXTURE_SIZE as usize / 2;
-        let half = (SHIELD_TEXTURE_SIZE as f32 - 1.0) * 0.5;
-        let sample = |r: f32| alpha_at(&img, mid + (half * r) as usize, mid);
-
-        let centre = sample(0.0);
-        let rim = sample(RIM_CENTRE);
-        let outside = sample(1.0);
-        assert!(rim > centre, "rim {rim} must outshine interior {centre}");
-        assert!(rim > 200, "the rim must read as an edge, got {rim}");
-        assert_eq!(outside, 0, "outside the field is transparent");
-    }
 
     /// A spent guard covers less of the body. Monotone, because "smaller means
     /// weaker" is the read.

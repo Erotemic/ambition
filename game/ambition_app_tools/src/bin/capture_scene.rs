@@ -95,6 +95,9 @@ struct SceneCaptureConfig {
     /// Shots to fire, each on its sim tick (`--shot`), so the look of a
     /// projectile is photographed with no body that fires it.
     shots: Vec<ShotAt>,
+    /// Bubble shields to draw, each at a place (`--guard`), so the look of a
+    /// guard in a state is photographed with no body that holds one.
+    guards: Vec<GuardAt>,
     /// Take every part-drawn body apart by a teleport warp, again and again
     /// (`--body-warp out|in[@SECONDS]`), so the warp can be photographed
     /// without a blink.
@@ -298,6 +301,11 @@ OPTIONS:
                         and flight); any other id flies straight on the body
                         of a plain ranged shot; `-` is a shot that names no
                         look. The player owns the shot.
+    --guard X,Y:INTEGRITY[:parry|:hit]
+                        draw a bubble shield at world X,Y, INTEGRITY whole
+                        (1 to 0); `parry` draws it in a parry, `hit` gives it
+                        a blow two times each second; repeat for more. No
+                        body holds it: it is to photograph the look.
     --press-during N    open the shutter N press-driving frames in, INSTEAD of
                         after the sequence finishes — the only way to photograph
                         a frame that exists only WHILE an input is being
@@ -633,6 +641,62 @@ impl PortalShotAt {
     }
 }
 
+/// One `--guard`: a bubble shield to draw at a place, in a state.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct GuardAt {
+    at: Vec2,
+    /// How whole the guard is, 1 to 0.
+    integrity: f32,
+    parrying: bool,
+    /// It takes a blow two times each second.
+    hit: bool,
+}
+
+impl GuardAt {
+    /// `X,Y:INTEGRITY[:parry|:hit]`.
+    fn parse(value: &str) -> Result<Self, String> {
+        let bad = || format!("--guard wants X,Y:INTEGRITY[:parry|:hit], got '{value}'");
+        let parts: Vec<&str> = value.split(':').collect();
+        let (at, integrity, mode) = match parts.as_slice() {
+            [at, integrity] => (at, integrity, ""),
+            [at, integrity, mode @ ("parry" | "hit")] => (at, integrity, *mode),
+            _ => return Err(bad()),
+        };
+        let (x, y) = at.split_once(',').ok_or_else(bad)?;
+        Ok(Self {
+            at: Vec2::new(x.trim().parse().map_err(|_| bad())?, y.trim().parse().map_err(|_| bad())?),
+            integrity: integrity.parse().map_err(|_| bad())?,
+            parrying: mode == "parry",
+            hit: mode == "hit",
+        })
+    }
+}
+
+/// `--guard`: add each configured guard to the shield read model, each
+/// frame, after the simulation's own guards. Presentation only: no body
+/// holds these, and no rule reads them. Each is the size of the robot.
+fn draw_guards(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
+    mut view: ResMut<ambition_platformer2d::sim_view::ShieldRingsView>,
+) {
+    use ambition_platformer2d::engine_core::Vec2 as SimVec2;
+    for guard in &config.guards {
+        // A blow each 30 ticks: the shieldstun it leaves runs down for 8.
+        let since_blow = (tick.get() % 30) as f32 / 60.0;
+        view.0.push(ambition_platformer2d::sim_view::ShieldRingFact {
+            pos: SimVec2::new(guard.at.x, guard.at.y),
+            size: SimVec2::new(28.0, 46.0),
+            parrying: guard.parrying,
+            integrity: guard.integrity,
+            stun_secs: if guard.hit { (0.13 - since_blow).max(0.0) } else { 0.0 },
+            gravity_dir: SimVec2::new(0.0, 1.0),
+            room: rooms.sole(),
+        });
+    }
+}
+
 /// One `--shot`: a projectile with a look, fired on a sim tick.
 #[derive(Clone, Debug, PartialEq)]
 struct ShotAt {
@@ -758,6 +822,14 @@ fn install_room_capture(app: &mut App) {
     );
     if app.world().resource::<SceneCaptureConfig>().nav_overlay {
         app.insert_resource(ambition_app::dev::navigation_overlay::NavigationOverlay { shown: true });
+    }
+    if !app.world().resource::<SceneCaptureConfig>().guards.is_empty() {
+        app.add_systems(
+            Update,
+            draw_guards
+                .after(ambition_platformer2d::sim_view::rebuild_shield_rings_view)
+                .before(ambition_platformer2d::render::rendering::bubble_shield::sync_bubble_shield_visual),
+        );
     }
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(
@@ -954,6 +1026,7 @@ impl SceneCaptureConfig {
         let mut wears: Vec<(String, String, u64)> = Vec::new();
         let mut portal_shots: Vec<PortalShotAt> = Vec::new();
         let mut shots: Vec<ShotAt> = Vec::new();
+        let mut guards: Vec<GuardAt> = Vec::new();
         let mut player_at: Vec<(Vec2, u64)> = Vec::new();
         let mut body_warp = None;
         let mut i = 0usize;
@@ -1129,6 +1202,13 @@ impl SceneCaptureConfig {
                         return Err("--portal-shot requires TICK:X,Y:DX,DY[:b]".to_string());
                     };
                     portal_shots.push(PortalShotAt::parse(value)?);
+                    2
+                }
+                "--guard" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--guard requires X,Y:INTEGRITY[:parry|:hit]".to_string());
+                    };
+                    guards.push(GuardAt::parse(value)?);
                     2
                 }
                 "--shot" => {
@@ -1318,6 +1398,7 @@ impl SceneCaptureConfig {
                 player_at: Vec::new(),
                 portal_shots: Vec::new(),
                 shots: Vec::new(),
+                guards: Vec::new(),
                 body_warp: None,
                 dev_overlays,
                 combat_overlay,
@@ -1384,6 +1465,7 @@ impl SceneCaptureConfig {
             player_at,
             portal_shots,
             shots,
+            guards,
             body_warp,
             route: None,
             press,

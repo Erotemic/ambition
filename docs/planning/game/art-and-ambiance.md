@@ -348,9 +348,34 @@ No shot of Ambition is the engine's orange box now:
 
 To see a look: `capture_scene ROOM X,Y out.png --shot TICK:X,Y:DX,DY:LOOK`.
 
-Open: Jon has not judged this art. A shot that flies left is turned half
-round, so it is upside down (the spit's highlight is under it). The eight
-boss moves share one bolt; each could have a look of its own.
+A shot that is turned to its flight and flies left is mirrored top to bottom,
+so its top is up (it was turned half round, upside down).
+
+Open: Jon has not judged this art. The eight boss moves share one bolt; each
+could have a look of its own.
+
+## The bubble shield, 2026-10-13 (Jon)
+
+Jon: "I would also like to improve the art for the bubble shield and
+potentially make it reactive and more interesting looking with a shader."
+
+The art is authored (the renderer's `bubble_shield` target), three white
+pictures: the field, a honeycomb that tiles, and cracks. The field was a
+gradient that Rust made at start. The game gives the hue, which is the state
+of the guard, as before.
+
+- The sprite draws the field. That is the whole look with no shader budget
+  (the `potato` tier, Android).
+- A shader layer over it (`ambition_render`'s `bubble_shield_fx`) draws the
+  honeycomb, wrapped on the bubble as on a ball: it shows toward the rim and
+  drifts, a ring goes through it on the beat a blow is taken, and all of it
+  is lit in a parry. The cracks grow from the rim as the guard is spent. The
+  shader draws no art of its own.
+
+To see it: `capture_scene ROOM X,Y out.png --guard X,Y:INTEGRITY[:parry|:hit]`.
+
+Open: Jon has not judged this art. The ring of a blow starts at the middle of
+the bubble: the simulation does not say where a blow landed.
 
 ## Not done
 

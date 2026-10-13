@@ -1154,7 +1154,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// map row, `portal.held_portal_of` and its map row, and the clones
 /// `portal.link` and `portal.look`: a module's held portal pair is rollback
 /// state of the portal domain (review IN1).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 346;
+/// ⛔⛤ 346 -> 347: the fighter brain's snapshot encodes `own_attack` (the
+/// watch of its own move) and `refused` (the binding it declines after a
+/// whiff), BRAIN road 1 (`c6be52169`). No row moves; the bytes of one
+/// projection do, so peers of the two versions must not connect.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 347;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

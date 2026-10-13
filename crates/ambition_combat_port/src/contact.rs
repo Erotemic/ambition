@@ -24,7 +24,8 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 /// * **Touch** — the two boxes overlap side to side, and top to bottom they
 ///   overlap or meet: a body that stands on the other's head touches it.
 /// * **Read model** — world units, +Y down; each box and velocity as it is
-///   at the start of the phase. The touchers are in the order of their
+///   at the start of the phase. A box is the one the body collides with
+///   under its own DOWN: a body in turned gravity has a turned box. The touchers are in the order of their
 ///   simulation identity, and a request names a toucher by its index.
 pub struct BodyContactPort;
 

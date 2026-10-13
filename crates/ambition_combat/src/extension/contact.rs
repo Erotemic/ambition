@@ -49,8 +49,20 @@ pub fn touches(body: ae::Aabb, toucher: ae::Aabb) -> bool {
         && toucher.max.y >= body.min.y
 }
 
-fn contact_body(kin: &ae::BodyKinematics) -> ContactBody {
-    ContactBody { position: [kin.pos.x, kin.pos.y], size: [kin.size.x, kin.size.y], velocity: [kin.vel.x, kin.vel.y] }
+/// The box of a body as the wire gives it.
+fn box_of(body: &ContactBody) -> ae::Aabb {
+    let centre = ae::Vec2::from(body.position);
+    let half = ae::Vec2::from(body.size) * 0.5;
+    ae::Aabb { min: centre - half, max: centre + half }
+}
+
+/// The body as the wire gives it: the box it collides with under its own
+/// DOWN (`collision_box`), not its level box. A body in turned gravity lies
+/// along its support, so its box is turned too.
+fn contact_body(kin: &ae::BodyKinematics, last_step: Option<&ae::SweepSample>) -> ContactBody {
+    let reach = kin.collision_box(last_step);
+    let (centre, size) = ((reach.min + reach.max) * 0.5, reach.max - reach.min);
+    ContactBody { position: [centre.x, centre.y], size: [size.x, size.y], velocity: [kin.vel.x, kin.vel.y] }
 }
 
 /// One invocation for each live body whose custom brain key a contact entry
@@ -65,10 +77,10 @@ pub fn queue_body_contacts(
     mut invocations: ResMut<ExtensionInvocations>,
     mut table: ResMut<ContactTouchers>,
     bodies: Query<
-        (Entity, &ActorConfig, &ae::BodyKinematics, &BodyHealth, Option<&SimId>),
+        (Entity, &ActorConfig, &ae::BodyKinematics, Option<&ae::SweepSample>, &BodyHealth, Option<&SimId>),
         (Without<PlayerEntity>, Without<DrivingParticipant>),
     >,
-    players: Query<(Entity, &ae::BodyKinematics, Option<&SimId>), With<PlayerEntity>>,
+    players: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>, Option<&SimId>), With<PlayerEntity>>,
 ) {
     table.0.clear();
     if time.sim_dt() <= 0.0 {
@@ -84,23 +96,26 @@ pub fn queue_body_contacts(
     if bound.is_empty() {
         return;
     }
-    let mut everyone: Vec<_> = players.iter().map(|(player, kin, id)| (player, live.of(player), kin, id)).collect();
+    let mut everyone: Vec<_> = players
+        .iter()
+        .map(|(player, kin, last_step, id)| (player, live.of(player), contact_body(kin, last_step), id))
+        .collect();
     everyone.sort_by(|a, b| (a.3.map(SimId::as_str), a.0).cmp(&(b.3.map(SimId::as_str), b.0)));
     let mut touched: Vec<_> = bodies
         .iter()
-        .filter_map(|(entity, config, kin, health, id)| match &config.brain {
+        .filter_map(|(entity, config, kin, last_step, health, id)| match &config.brain {
             CharacterBrain::Custom(key) if bound.contains(&key.as_str()) && health.alive() => {
-                Some((entity, key.clone(), kin, id))
+                Some((entity, key.clone(), kin.pos, contact_body(kin, last_step), id))
             }
             _ => None,
         })
         .collect();
-    touched.sort_by(|a, b| (a.3.map(SimId::as_str), a.0).cmp(&(b.3.map(SimId::as_str), b.0)));
-    for (entity, key, kin, _) in touched {
+    touched.sort_by(|a, b| (a.4.map(SimId::as_str), a.0).cmp(&(b.4.map(SimId::as_str), b.0)));
+    for (entity, key, pos, body, _) in touched {
         let room = live.of(entity);
         let touchers: Vec<_> = everyone
             .iter()
-            .filter(|(_, player_room, player, _)| *player_room == room && touches(kin.aabb(), player.aabb()))
+            .filter(|(_, player_room, player, _)| *player_room == room && touches(box_of(&body), box_of(player)))
             .collect();
         if touchers.is_empty() {
             continue;
@@ -111,12 +126,9 @@ pub fn queue_body_contacts(
             entity,
             None,
             false,
-            BodyContact {
-                body: contact_body(kin),
-                touchers: touchers.iter().map(|(_, _, player, _)| contact_body(player)).collect(),
-            },
+            BodyContact { body, touchers: touchers.iter().map(|(_, _, player, _)| *player).collect() },
         );
-        table.0.push((entity, kin.pos, touchers.iter().map(|(player, ..)| *player).collect()));
+        table.0.push((entity, pos, touchers.iter().map(|(player, ..)| *player).collect()));
     }
 }
 

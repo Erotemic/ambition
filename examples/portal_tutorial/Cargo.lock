@@ -130,6 +130,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_extension_host"
+version = "0.1.0"
+dependencies = [
+ "ambition_extension_sdk",
+ "ambition_platformer2d_core",
+ "ambition_sim_schedule",
+ "ambition_time",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_extension_sdk"
 version = "0.1.0"
 
@@ -172,8 +183,11 @@ dependencies = [
 name = "ambition_portal2d"
 version = "0.1.0"
 dependencies = [
+ "ambition_extension_host",
+ "ambition_extension_sdk",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_portal_port",
  "bevy",
  "serde",
 ]
@@ -187,6 +201,13 @@ dependencies = [
  "ambition_portal2d",
  "ambition_sprite_fx",
  "bevy",
+]
+
+[[package]]
+name = "ambition_portal_port"
+version = "0.1.0"
+dependencies = [
+ "ambition_extension_sdk",
 ]
 
 [[package]]
@@ -230,6 +251,14 @@ dependencies = [
 name = "ambition_sprite_fx"
 version = "0.1.0"
 dependencies = [
+ "bevy",
+]
+
+[[package]]
+name = "ambition_time"
+version = "0.1.0"
+dependencies = [
+ "ambition_platformer2d_core",
  "bevy",
 ]
 

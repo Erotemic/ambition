@@ -216,6 +216,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_abilities/src/module_entity.rs",
         "crates/ambition_boss_encounter/src/conduct.rs",
         "crates/ambition_boss_encounter/src/extension.rs",
+        "crates/ambition_combat/src/extension/contact.rs",
+        "crates/ambition_combat/src/extension/think.rs",
         "crates/ambition_extension_host/src/exec.rs",
     ),
     "ExtensionOutbox": (
@@ -224,8 +226,15 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/conduct.rs",
         "crates/ambition_boss_encounter/src/extension.rs",
         "crates/ambition_combat/src/extension.rs",
+        "crates/ambition_combat/src/extension/contact.rs",
+        "crates/ambition_combat/src/extension/think.rs",
         "crates/ambition_extension_host/src/exec.rs",
+        "crates/ambition_portal2d/src/extension.rs",
         "crates/ambition_projectiles/src/extension.rs",
+    ),
+    "BrokenBricks": (
+        "game/ambition_demo_mary_o/src/bricks.rs",
+        "game/ambition_demo_mary_o/src/castle_end.rs",
     ),
     "AmbitionGameSave": (
         "crates/ambition_boss_encounter/src/life_switch.rs",
@@ -937,7 +946,9 @@ ADJUDICATED: dict[str, str] = {
         "the conducted-boss trigger `queue_boss_conducts` (in the boss-encounter "
         "crate's conduct file, phase boss_conduct) the fifth, and the "
         "custom-brain trigger `queue_actor_thinks` (in the combat crate's "
-        "extension/think file, phase actor_think) the sixth. "
+        "extension/think file, phase actor_think) the sixth, and the body-contact "
+        "trigger `queue_body_contacts` (in the combat crate's extension/contact "
+        "file, phase body_contact) the seventh. "
         "Each adapter appends only for its own port and phase."
     ),
     "ExtensionOutbox": (
@@ -959,12 +970,29 @@ ADJUDICATED: dict[str, str] = {
         "and `lower_bursts` (in the "
         "boss-encounter crate's conduct file; each drain system pipes what it "
         "took into the system that applies it), and the custom-brain adapter "
-        "`lower_actor_fires` (in the combat crate's extension/think file), in "
+        "`lower_actor_fires` (in the combat crate's extension/think file), the "
+        "contact adapters `lower_contact_bounces` and `lower_body_defeats` (in "
+        "its extension/contact file), and the portal domain's "
+        "`lower_held_portal_pairs` and `lower_light_lines` (in ambition_portal2d), in "
         "`ExtensionSet::Lower`, chained "
         "after Invoke, and each in its own `ExtensionSet::LowerPort` set, ordered "
         "by install order); a drain takes only "
         "its own port's items. Each port has exactly one adapter: admission refuses a second "
         "offer for a port in a phase (`Refusal::DuplicateOffer`)."
+    ),
+    "BrokenBricks": (
+        "A SET THAT ONLY GROWS IN A TICK, ON DISJOINT NAMES (read 2026-10-12). "
+        "Each writer only marks a name of a live room (`BrokenBricks::mark`, an "
+        "insert into a `BTreeSet`): `break_bricks` marks a block whose authored "
+        "look is `Brick` and that breaks when empty, "
+        "`drop_planks_when_the_goal_is_taken` marks a plank of `planks_left` "
+        "(both in bricks.rs), and castle_end's `the_gate_opens` marks only "
+        "`GOAL_GATE`. An insert is commutative and idempotent, so the order of "
+        "the writers does not change the set; `mark` returns true on the fresh "
+        "insert only, so each name fires its effect once, and no two writers "
+        "mark one name. The set leaves only by the attempt reset "
+        "(`AttemptScoped`), and its checksum is order-independent. Not "
+        "measured by deleting a writer."
     ),
     "DeveloperTools": (
         "NO FIELD IS REACHED BY TWO FILES AT ALL — `census.shared_targets` "

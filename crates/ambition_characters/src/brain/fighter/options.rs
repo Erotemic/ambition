@@ -1741,8 +1741,33 @@ fn walks_off(view: &crate::perception::WorldView, toward: f32) -> bool {
     ahead < me.half_extent.x * 2.0 + coasting
 }
 
+/// The body moves toward the foe faster than it can stop before it passes
+/// through it: an approach would cross the foe and leave it behind.
+///
+/// The approach emitter holds a full stick toward the foe. A body that stops
+/// in a few pixels arrives. A body that coasts runs through the foe, and on a
+/// stage it runs on toward the far edge. Measured 2026-10-13 in the Sanic L5
+/// mirror: the two seats were 36 px apart, each held the stick toward the
+/// other, they passed at about 600 px/s, and both ran off.
+///
+/// The body's own travel since the view was taken counts too
+/// ([`Perceived::staleness_s`]): a person leads their own position as they
+/// lead their aim. This is not the present: the speed is the one the view
+/// saw.
+fn overshoots(view: &Perceived<'_>, foe: &PerceivedActor, toward: f32) -> bool {
+    let me = &view.self_view;
+    // `stop_distance` is a ground fact. A body in the air brakes by another
+    // law, and the recovery lens owns that question.
+    if !me.on_ground || me.vel.x * toward <= 0.0 {
+        return false;
+    }
+    let travel = me.vel.x.abs() * view.staleness_s() + me.stop_distance;
+    let past_the_foe = (foe.pos.x - me.pos.x).abs() + foe.half_extent.x + me.half_extent.x;
+    travel > past_the_foe
+}
+
 fn movement_options(
-    view: &crate::perception::WorldView,
+    view: &Perceived<'_>,
     situation: Situation,
     // Does the body's own kit contain a move that lifts it? A fact about the
     // repertoire, derived by [`lifting_candidates`] and passed in rather than
@@ -1755,13 +1780,10 @@ fn movement_options(
     // floor is still there. Zero when there is nobody to approach, and a zero
     // direction reads as "no ledge question", which is correct: a brain with no
     // foe is not closing on anything.
-    let toward_foe = view
-        .actors
-        .iter()
-        .find(|actor| actor.hostile_to_self && actor.alive)
-        .map(|foe| (foe.pos.x - me.pos.x).signum())
-        .unwrap_or(0.0);
+    let first_foe = view.actors.iter().find(|actor| actor.hostile_to_self && actor.alive);
+    let toward_foe = first_foe.map(|foe| (foe.pos.x - me.pos.x).signum()).unwrap_or(0.0);
     let approach_walks_off = toward_foe != 0.0 && walks_off(view, toward_foe);
+    let approach_overshoots = first_foe.is_some_and(|foe| overshoots(view, foe, toward_foe));
     let retreat_walks_off = toward_foe != 0.0 && walks_off(view, -toward_foe);
     // ⛔⛔ A FOE-RELATIVE VERB WITH NO FOE IS AN OPTION THE EMITTER CANNOT ACT
     // ON. `apply_movement` builds Approach/Retreat/Dash from the direction to
@@ -1795,7 +1817,7 @@ fn movement_options(
         // and the forgotten arm is always the one a real match spends its time
         // in.
         let score = match verb {
-            MovementVerb::Approach | MovementVerb::Dash if approach_walks_off => score - 1.0,
+            MovementVerb::Approach | MovementVerb::Dash if approach_walks_off || approach_overshoots => score - 1.0,
             MovementVerb::Retreat if retreat_walks_off => score - 1.0,
             _ => score,
         };

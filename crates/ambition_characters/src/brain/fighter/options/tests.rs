@@ -1524,6 +1524,49 @@ fn a_body_coasting_toward_the_edge_does_not_choose_to_retreat_off_it() {
     assert!(coasting < approach, "coasting at the edge, the retreat ({coasting}) still outranks the approach ({approach})");
 }
 
+/// ⭐ AN APPROACH THAT CANNOT STOP BEFORE IT PASSES THROUGH THE FOE IS
+/// PENALISED, and Retreat, which brakes here, outranks it. Measured
+/// 2026-10-13 in the Sanic L5 mirror: two seats 36 px apart held the stick
+/// toward each other, passed at about 600 px/s and both ran off the stage,
+/// seen 300 ms late.
+///
+/// The body moves toward the foe at 571 px/s with 90 px to stop. With the
+/// foe's far side 104 px away, the stop alone is short of it; the body's own
+/// travel over a view 0.3 s old (171 px) is not. With the foe's far side
+/// 64 px away, the stop alone passes it.
+///
+/// The controls: the same body at rest, and moving away from the foe.
+#[test]
+fn an_approach_that_runs_through_the_foe_loses_to_the_brake() {
+    use crate::perception::DelayedPerception;
+    let weights = UtilityWeights::default();
+    let scores = |foe_x: f32, vel_x: f32, stop_distance: f32, staleness_s: f32| {
+        let mut view = on_a_platform(300.0, foe_x, (100.0, 900.0));
+        view.self_view.vel.x = vel_x;
+        view.self_view.stop_distance = stop_distance;
+        view.actors[0].half_extent = ae::Vec2::new(12.0, 24.0);
+        let mut perception = DelayedPerception::new(1);
+        let mut live = view.clone();
+        live.sim_time = view.sim_time + staleness_s;
+        perception.observe(view);
+        perception.observe(live);
+        let perceived = perception.perceive().unwrap();
+        assert!((perceived.staleness_s() - staleness_s).abs() < 1e-4, "the fixture's view is not {staleness_s} s old");
+        let options = generate_options(perceived, Situation::Neutral, &[], &weights);
+        (score_of(&options, MovementVerb::Approach), score_of(&options, MovementVerb::Retreat))
+    };
+    let (at_rest, _) = scores(380.0, 0.0, 0.0, 0.3);
+    assert_eq!(at_rest, 0.5, "the control: a body at rest approaches the foe 80 px away");
+    let (away, _) = scores(380.0, -571.0, 90.0, 0.3);
+    assert_eq!(away, at_rest, "moving away from the foe changed the approach's score");
+    let (fresh, _) = scores(380.0, 571.0, 90.0, 0.0);
+    assert_eq!(fresh, at_rest, "a fresh view: 90 px to stop is short of the foe's far side at 104 px");
+    let (stale, retreat) = scores(380.0, 571.0, 90.0, 0.3);
+    assert!(stale < retreat, "a view 0.3 s old: 171 px of travel and 90 px to stop pass the foe, and the approach ({stale}) still outranks the brake ({retreat})");
+    let (close, retreat) = scores(340.0, 571.0, 90.0, 0.0);
+    assert!(close < retreat, "the foe's far side 64 px away: 90 px to stop passes it, and the approach ({close}) still outranks the brake ({retreat})");
+}
+
 /// A body with no perceived terrain is not penalised. An airborne fighter,
 /// or a view whose terrain was never filled, is not a ledge question — and
 /// treating "I cannot see the floor" as "the floor ends here" would freeze every

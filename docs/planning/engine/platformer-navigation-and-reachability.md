@@ -330,9 +330,19 @@ stands on the floor before the exit to Bob until the survey (112 px tall), and
 the walk goes over it with a double hop. Poison: the graph over the authored
 blocks only, red at `alice_relay` (the body walks into the lock and stops).
 
+A drop through a one-way surface (2026-10-12): `NavLegKind::DropThrough`.
+The graph proposes it from a one-way surface to a surface under it, in their
+overlap; the body stands there, holds down and presses jump until the surface
+lets it go (`LegInput::down`, mapped by `leg_stick_y` for each driver), and
+steers to the landing. The kernel rollout decides. Witness
+`navigation::graph::tests::a_body_drops_through_a_one_way_floor_to_the_floor_under_it`:
+a one-way loft between two walls, with no end to walk off. Control: the same
+room with a solid loft has no road down. Poisons (no proposal; a stick that
+ignores down): red at the link assertion.
+
 Not modelled, each a seam:
 
-- a drop through a one-way surface, a second air jump, an air jump in a drop,
+- a second air jump, an air jump in a drop,
   a dash on the ground or up, a wall jump off one wall onto its own top,
   permanent flight, a pogo bounce. The pogo is a combat effect (a down-air
   hitbox on a `PogoOrb`, `pogo_moveset_off_world_orbs`), and a leg's rollout

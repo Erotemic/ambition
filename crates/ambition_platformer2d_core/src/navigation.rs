@@ -41,6 +41,9 @@ pub enum NavLegKind {
     Hop,
     /// Walk off the surface past `takeoff` and steer to `land` in the air.
     Drop,
+    /// Stand on a one-way surface at `takeoff`, hold down and press jump to
+    /// fall through it, and steer to `land` below.
+    DropThrough,
     /// Jump at `takeoff`, jump again in the air at the top of the first
     /// arc, and steer to `land`: for a body with an air jump.
     DoubleHop,
@@ -132,10 +135,22 @@ pub struct LegInput {
     pub jump_held: bool,
     /// Hold up: climb a wall, and pull up from a ledge.
     pub up: bool,
+    /// Hold down: with `jump_pressed`, fall through a one-way surface.
+    pub down: bool,
     /// Press the flight toggle.
     pub fly_toggle: bool,
     /// Press the dash (the burst press), aimed along `axis`.
     pub dash_pressed: bool,
+}
+
+/// The stick's axis toward the feet that `input` holds, in the body's local
+/// axes: up is -1, down is 1. Each driver of a leg maps it the same way.
+pub fn leg_stick_y(input: LegInput) -> f32 {
+    match (input.up, input.down) {
+        (true, false) => -1.0,
+        (false, true) => 1.0,
+        _ => 0.0,
+    }
 }
 
 /// What a step of a leg came to.
@@ -224,6 +239,13 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                     let next = if facts.on_ground { LegPhase::Commit } else { LegPhase::Air };
                     (running, LegProgress::Going(next))
                 }
+                // Where the body stands: down and jump until the surface lets
+                // it go.
+                NavLegKind::DropThrough => {
+                    let input = LegInput { down: true, jump_pressed: true, ..LegInput::default() };
+                    let next = if facts.on_ground { LegPhase::Commit } else { LegPhase::Air };
+                    (input, LegProgress::Going(next))
+                }
             }
         }
         LegPhase::Launch => {
@@ -282,6 +304,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                     jump_pressed: falling,
                     jump_held: !climb,
                     up: climb,
+                    down: false,
                     fly_toggle: false,
                     dash_pressed: false,
                 };

@@ -10,11 +10,48 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var puppy_texture: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var puppy_sampler: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(5) var<uniform> frame_rect: vec4<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(6) var skin_texture: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(7) var skin_sampler: sampler;
+// xy: how many tiles of the skin go across the frame, and down it.
+@group(#{MATERIAL_BIND_GROUP}) @binding(8) var<uniform> skin_tiles: vec4<f32>;
 
 const PI: f32 = 3.141592653589793;
 
-// Higher means the visible pattern gets larger / more zoomed in.
-const DREAM_PATTERN_ZOOM: f32 = 2.5;
+// THE DREAM IS MADE OF AUTHORED ART. This pass draws no art of its own: each
+// colour it writes is a sample of the body's own frame or of the SKIN OF THE
+// DREAM (`puppy_slug_dream_skin.png`, a picture of the slug's sprite target:
+// eyes in a lattice, a whorl of ripples round each, dots as scales). It is the
+// look of the pictures an image network dreamed in 2015. The sheet is good to
+// look at with the pass off.
+//
+//   1. The flow: the art is sampled a little way off, along a slow field, so
+//      its surface moves as if it breathes.
+//   2. The skin: the tile is laid over the body twice, large and fine, and it
+//      goes with the flow. It takes the colour and the light of the art under
+//      it (the fur stays warm and the slug stays green), its eyes show whole,
+//      and its red and its blue are a little apart, as in those pictures.
+//   3. The copies: the frame again, small, in a grid that drifts. A dream of
+//      this kind finds the animal again in each part of the animal.
+//   4. The oil: the hue turns along the flow, and thin bright bands follow the
+//      lines of equal light.
+//
+// Black line art stays black, and nothing is drawn where the sprite is clear.
+
+// How far the art is moved by the flow, as a part of the frame.
+const FLOW_REACH: f32 = 0.030;
+// How much of the skin shows (its own alpha is 1 at an eye), large and fine;
+// how far it takes the colour of the art under it; how far its red and its
+// blue are apart, in tiles.
+const SKIN_ALPHA: f32 = 0.86;
+const SKIN_FINE_ALPHA: f32 = 0.22;
+const SKIN_DYE: f32 = 0.7;
+const SKIN_FRINGE: f32 = 0.008;
+// How many copies of the frame go across it, and how much of a copy shows.
+const COPIES: f32 = 5.0;
+const COPY_ALPHA: f32 = 0.30;
+// How far the hue turns (radians, each way) and how bright the bands are.
+const HUE_TURN: f32 = 0.9;
+const BAND_LIGHT: f32 = 0.16;
 
 // Preserve black / near-black line art.
 const BLACK_PRESERVE_LOW: f32 = 0.025;
@@ -86,6 +123,43 @@ fn sample_frame(local_uv: vec2<f32>) -> vec4<f32> {
     return textureSample(puppy_texture, puppy_sampler, atlas_uv(local_uv));
 }
 
+// The art at a frame coordinate; clear where the coordinate is off the frame.
+fn sample_art(frame_uv: vec2<f32>) -> vec4<f32> {
+    let art = sample_frame(on_quad(frame_uv));
+    let low = step(vec2<f32>(0.0), frame_uv);
+    let high = step(frame_uv, vec2<f32>(1.0));
+    return vec4<f32>(art.rgb, art.a * low.x * low.y * high.x * high.y);
+}
+
+// A colour turned about the grey axis: its hue changes and its light does not.
+fn hue_turn(c: vec3<f32>, angle: f32) -> vec3<f32> {
+    let k = vec3<f32>(0.57735);
+    let ca = cos(angle);
+    let sa = sin(angle);
+    return c * ca + cross(k, c) * sa + k * dot(k, c) * (1.0 - ca);
+}
+
+// The frame again, small, in a grid of `cells` across it that drifts. Each
+// cell wakes and sleeps on its own clock, half of the cells are mirrored, and
+// each has a hue of its own.
+fn copies(frame_uv: vec2<f32>, cells: f32, time: f32, seed: f32, drift: vec2<f32>) -> vec4<f32> {
+    let p = frame_uv * cells + drift * time + vec2<f32>(seed * 3.1, seed * 1.7);
+    let cell = floor(p);
+    let q = fract(p);
+    let n = hash21(cell + vec2<f32>(seed, 7.0));
+    let wake = smoothstep(0.5, 0.92, 0.5 + 0.5 * sin(time * (0.45 + n) + n * 40.0));
+    let mirror = step(0.5, hash21(cell + vec2<f32>(3.0, seed)));
+    let src = vec2<f32>(mix(q.x, 1.0 - q.x, mirror), q.y);
+    let art = sample_art(src);
+    let edge = smoothstep(0.0, 0.14, min(min(q.x, 1.0 - q.x), min(q.y, 1.0 - q.y)));
+    return vec4<f32>(hue_turn(art.rgb, n * 2.0 * PI), art.a * wake * edge);
+}
+
+// The skin of the dream at a place in tiles. It repeats.
+fn sample_skin(p: vec2<f32>) -> vec4<f32> {
+    return textureSampleLevel(skin_texture, skin_sampler, fract(p), 0.0);
+}
+
 fn dream_rgb(
     local_uv: vec2<f32>,
     base_rgb: vec3<f32>,
@@ -93,52 +167,44 @@ fn dream_rgb(
     strength: f32,
     seed: f32
 ) -> vec3<f32> {
-    let centred = local_uv - vec2<f32>(0.5, 0.5);
-    let radius = length(centred);
-    let angle = atan2(centred.y, centred.x);
+    let luma_of = vec3<f32>(0.299, 0.587, 0.114);
 
-    let folded_scale = 8.0 / DREAM_PATTERN_ZOOM;
-    let detail_scale = 26.0 / DREAM_PATTERN_ZOOM;
-    let ridge_scale = 6.0 / DREAM_PATTERN_ZOOM;
+    // 1. The flow.
+    let grain = vec2<f32>(5.0, 3.6);
+    let f1 = fbm(local_uv * grain + vec2<f32>(time * 0.21 + seed, -time * 0.13));
+    let f2 = fbm(local_uv * grain + vec2<f32>(11.3 - time * 0.17, 4.1 + time * 0.19 + seed * 2.3));
+    let flow = (vec2<f32>(f1, f2) - vec2<f32>(0.5)) * FLOW_REACH * strength;
+    let moved = sample_art(local_uv + flow);
+    var rgb = mix(base_rgb, moved.rgb, moved.a * 0.85);
 
-    let fold_count = 5.0 + floor(seed * 4.0);
-    let folded_angle = abs(fract(angle / (2.0 * PI) * fold_count + 0.5) - 0.5) * 2.0 * PI;
-    let folded = vec2<f32>(cos(folded_angle), sin(folded_angle)) * radius;
+    // 2. The skin.
+    let tiles = max(skin_tiles.xy, vec2<f32>(0.25));
+    let place = (local_uv + flow * 1.6) * tiles
+        + vec2<f32>(time * 0.012 + seed * 0.37, sin(time * 0.2) * 0.01 + seed * 0.61);
+    let fringe = vec2<f32>(SKIN_FRINGE, -SKIN_FRINGE * 0.6) * strength;
+    let skin = sample_skin(place);
+    let skin_rgb = vec3<f32>(sample_skin(place + fringe).r, skin.g, sample_skin(place - fringe).b);
+    let lit = 0.45 + 0.9 * dot(rgb, luma_of);
+    let dyed = mix(skin_rgb, skin_rgb * (rgb * 1.6 + vec3<f32>(0.15)), SKIN_DYE);
+    rgb = mix(rgb, dyed * lit, skin.a * SKIN_ALPHA * strength);
+    let fine = sample_skin(place * 2.3 + vec2<f32>(0.31, 0.17) - flow * tiles * 2.0);
+    rgb = mix(rgb, mix(fine.rgb, fine.rgb * rgb * 1.8, 0.6), fine.a * SKIN_FINE_ALPHA * strength);
 
-    // Larger-scale dream fields than before.
-    let dream_field = fbm(
-        folded * folded_scale + vec2<f32>(time * 0.55 + seed, -time * 0.32)
-    );
-    let fine_field = fbm(
-        local_uv * detail_scale + vec2<f32>(seed * 9.0, time * 1.7)
-    );
+    // 3. The copies.
+    let small = copies(local_uv - flow * 3.0, COPIES, time, seed + 0.37, vec2<f32>(-0.09, 0.02));
+    rgb = mix(rgb, small.rgb, small.a * COPY_ALPHA * strength);
 
-    let melt_gate = smoothstep(0.28, 0.92, dream_field + local_uv.y * 0.34);
-    let drip = vec2<f32>(
-        sin((local_uv.y * 18.0 + time * 2.2 + seed) * PI) * 0.018,
-        (melt_gate * melt_gate) * (0.08 + 0.04 * sin(time * 1.9 + local_uv.x * 10.0))
-    ) * strength;
-
-    let warped_uv = on_quad(local_uv + drip + (fine_field - 0.5) * 0.030 * strength);
-
-    let split = (0.010 + 0.018 * dream_field) * strength;
-    let red = sample_frame(on_quad(warped_uv + vec2<f32>(split, -split * 0.35))).r;
-    let green = sample_frame(warped_uv).g;
-    let blue = sample_frame(on_quad(warped_uv - vec2<f32>(split * 0.7, split))).b;
-
-    var rgb = mix(base_rgb, vec3<f32>(red, green, blue), 0.55 * strength);
-
-    let hue = fract(dream_field * 0.82 + fine_field * 0.33 + time * 0.09 + seed);
-    let rainbow = hsv2rgb(vec3<f32>(hue, 0.88, 1.15));
-    let luma = dot(base_rgb, vec3<f32>(0.299, 0.587, 0.114));
-    rgb = mix(rgb, rainbow * (0.45 + luma * 0.95), 0.78 * strength);
-
-    let ridge = 1.0 - smoothstep(
-        0.020,
-        0.120,
-        abs(fract((dream_field + fine_field) * ridge_scale) - 0.5)
-    );
-    rgb += rainbow * ridge * 0.42 * strength;
+    // 4. The oil.
+    let field = f1 * 0.7 + f2 * 0.3;
+    let luma = dot(rgb, luma_of);
+    let turn = ((field - 0.5) * 2.0 * HUE_TURN + sin(time * 0.35 + seed * 6.0) * 0.35) * strength;
+    rgb = hue_turn(rgb, turn);
+    let grey = vec3<f32>(dot(rgb, luma_of));
+    rgb = max(mix(grey, rgb, 1.0 + 0.3 * strength), vec3<f32>(0.0));
+    let band = abs(fract((luma * 1.6 + field * 2.4 + time * 0.05) * 3.0) - 0.5);
+    let ridge = 1.0 - smoothstep(0.03, 0.11, band);
+    let rainbow = hsv2rgb(vec3<f32>(fract(field * 1.3 + time * 0.07 + seed), 0.7, 1.0));
+    rgb += rainbow * ridge * BAND_LIGHT * strength * smoothstep(0.06, 0.3, luma);
 
     return rgb;
 }
@@ -148,15 +214,11 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     let strength = clamp(control.z, 0.0, 1.0);
     let seed = control.w * 17.0;
 
+    // Bevy's 2D `Rectangle` mesh and the atlas agree on +y down in a frame, so
+    // `mesh.uv` is the sample with no flip of its own.
     let uv = frame_in_sprite::frame_uv(mesh.uv, frame_rect, flipped());
     let base = sample_frame(uv);
-
-    // For a sprite whose body sits in only part of the frame vertically (like the puppy slug,
-    // whose body occupies y=43..74 of a 95-tall frame), that logic ALWAYS picked the flipped
-    // sample for mesh rows where the natural sample is transparent — drawing the body a second
-    // time, mirrored above its real position. That was the visible "puppy slug is being
-    // mirrored" artifact. Bevy's 2D `Rectangle` mesh and our atlas UV layout agree on y-down
-    // within a frame, so the natural `mesh.uv` is the right sample without any flip-detection.
+    let dream = dream_rgb(uv, base.rgb, time, strength, seed);
 
     // Only draw where the sprite itself is visible.
     let mask_alpha = base.a;
@@ -164,30 +226,18 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
         discard;
     }
 
-    let base_rgb = base.rgb;
-    let dream = dream_rgb(uv, base_rgb, time, strength, seed);
-
     // Preserve black / near-black line art.
-    let max_channel = max(base_rgb.r, max(base_rgb.g, base_rgb.b));
+    let max_channel = max(base.rgb.r, max(base.rgb.g, base.rgb.b));
     let preserve_black = 1.0 - smoothstep(
         BLACK_PRESERVE_LOW,
         BLACK_PRESERVE_HIGH,
         max_channel
     );
-
-    let rgb = mix(dream, base_rgb, preserve_black);
-
-    let dissolve_scale = 14.0 / DREAM_PATTERN_ZOOM;
-    let dissolve_noise = fbm(
-        uv * dissolve_scale + vec2<f32>(time * -0.8, time * 0.45 + seed)
-    );
-    let dissolve_wave = 0.5 + 0.5 * sin(time * 2.6 + uv.y * 13.0 + seed * 6.0);
-    let dissolve = smoothstep(0.18, 0.74, dissolve_noise + dissolve_wave * 0.35);
-    let overlay_alpha = mask_alpha * mix(0.62, 0.98, dissolve) * strength;
+    let rgb = mix(dream, base.rgb, preserve_black);
 
     return vec4<f32>(
         clamp(rgb * tint.rgb, vec3<f32>(0.0), vec3<f32>(1.6)),
-        overlay_alpha * tint.a
+        mask_alpha * strength * tint.a
     );
 }
 

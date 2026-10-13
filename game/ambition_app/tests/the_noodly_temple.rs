@@ -282,16 +282,18 @@ fn swing_of_the_noodle(sim: &mut Platformer2dSimHarness) -> Option<ambition_plat
         .swing
 }
 
-/// ⭐ A PLAYER WALKS IN, WINS THE FIGHT OF THE SCULLERY AND TAKES ITS KEY,
-/// WITH ITS OWN INPUTS. From the central hub through the narthex and the
-/// nave to the scullery by the room graph (`common::walk`), into the strip
-/// that starts the fight, the fight won by Attack presses at the cooks (no
-/// health is written), into the pantry the fight's end opens for the Marinara
-/// Key, and back to the nave, whose two doors the key opens. No step puts the
+/// ⭐ A PLAYER WALKS IN AND TAKES THE FOUR KEYS, WITH ITS OWN INPUTS. From
+/// the central hub through the narthex and the nave to the scullery by the
+/// room graph (`common::walk`), into the strip that starts the fight, the
+/// fight won by Attack presses at the cooks (no health is written), into the
+/// pantry the fight's end opens for the Marinara Key, and back to the nave,
+/// whose two doors the key opens. Then the cistern's wheels turned by
+/// Interact for the Pesto Key, the belfry's bells rung for the Parmesan Key,
+/// and the reliquary's vigil fought for the Colander Key. No step puts the
 /// body anywhere (review 2026-10-12: each temple test teleported or wrote
 /// health). The mechanism tests above are the controls for each part.
 #[test]
-fn a_player_walks_in_wins_the_fight_of_the_scullery_and_takes_its_key() {
+fn a_player_walks_in_and_takes_the_four_keys_of_the_temple() {
     use crate::common::walk::{fight, walk_through, walk_to, Pad, Walker as _};
     use ambition_platformer2d::combat::components::EncounterMob;
     use ambition_platformer2d::persistence::save_data::PersistedEncounterState;
@@ -310,7 +312,9 @@ fn a_player_walks_in_wins_the_fight_of_the_scullery_and_takes_its_key() {
             world.resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().encounter(FIGHT)
                 == PersistedEncounterState::Cleared
         };
-        let frames = fight(&mut pad, |world, body| world.get::<EncounterMob>(body).is_some(), cleared, 60 * 120)
+        // In the strip of the fight, where the walk above put the body.
+        const STRIP: ambition_platformer2d::engine_core::Vec2 = ambition_platformer2d::engine_core::Vec2::new(352.0, 560.0);
+        let frames = fight(&mut pad, |world, body| world.get::<EncounterMob>(body).is_some(), cleared, STRIP, 60 * 120)
             .unwrap_or_else(|e| panic!("the fight of the scullery: {e}"));
         eprintln!("[temple] the fight of the scullery was won in {frames} frames");
         // The grille of the pantry and the lock walls fall a few frames after
@@ -346,4 +350,112 @@ fn a_player_walks_in_wins_the_fight_of_the_scullery_and_takes_its_key() {
     assert!(!stands(&mut sim, "noodly_nave_cistern_door_0"), "the key opens the door of the cistern: {:?}", standing(&mut sim));
     assert!(!stands(&mut sim, "noodly_nave_belfry_door_0"), "the key opens the door of the belfry: {:?}", standing(&mut sim));
     assert!(stands(&mut sim, "noodly_nave_sanctum_door_0"), "and not the door of the sanctum: {:?}", standing(&mut sim));
+
+    // The cistern: the wheels in the order of the least turns to its key
+    // (`check_temple.py` prints it), each walked to and turned with
+    // Interact, then the Pesto Key.
+    assert!(!flag(&mut sim, "noodly_key_pesto"), "the control: no Pesto Key before the cistern");
+    {
+        let mut pad = Pad::new(&mut sim);
+        walk_through(&mut pad, "noodly_cistern").unwrap_or_else(|e| panic!("from the nave to the cistern: {e}"));
+        for wheel in ["noodly_wheel_a", "noodly_wheel_b", "noodly_wheel_a", "noodly_wheel_c"] {
+            turn(&mut pad, wheel);
+        }
+        let key = key_at(pad.world_mut(), "noodly_key_pesto");
+        walk_to(&mut pad, key).unwrap_or_else(|e| panic!("to the Pesto Key: {e}"));
+        for _ in 0..20 {
+            pad.step(Default::default());
+        }
+    }
+    assert!(flag(&mut sim, "noodly_key_pesto"), "the player took the Pesto Key");
+
+    // The belfry: its three bells rung, each by Interact, open its three
+    // seals before the Parmesan Key.
+    assert!(!flag(&mut sim, "noodly_key_parmesan"), "the control: no Parmesan Key before the belfry");
+    {
+        let mut pad = Pad::new(&mut sim);
+        walk_through(&mut pad, "noodly_nave").unwrap_or_else(|e| panic!("from the cistern to the nave: {e}"));
+        walk_through(&mut pad, "noodly_belfry").unwrap_or_else(|e| panic!("from the nave to the belfry: {e}"));
+        for bell in ["noodly_bell_1", "noodly_bell_2", "noodly_bell_3"] {
+            turn(&mut pad, bell);
+        }
+        let key = key_at(pad.world_mut(), "noodly_key_parmesan");
+        walk_to(&mut pad, key).unwrap_or_else(|e| panic!("to the Parmesan Key: {e}"));
+        for _ in 0..20 {
+            pad.step(Default::default());
+        }
+    }
+    assert!(flag(&mut sim, "noodly_key_parmesan"), "the player took the Parmesan Key");
+
+    // The reliquary: its vigil fought and won, then the Colander Key behind
+    // the grille the vigil opens.
+    assert!(!flag(&mut sim, "noodly_key_colander"), "the control: no Colander Key before the reliquary");
+    {
+        const VIGIL: &str = "noodly_reliquary_vigil";
+        // In the strip that starts the vigil, west of the spikes.
+        const STRIP: ambition_platformer2d::engine_core::Vec2 = ambition_platformer2d::engine_core::Vec2::new(352.0, 560.0);
+        let mut pad = Pad::new(&mut sim);
+        walk_through(&mut pad, "noodly_nave").unwrap_or_else(|e| panic!("from the belfry to the nave: {e}"));
+        walk_through(&mut pad, "noodly_reliquary").unwrap_or_else(|e| panic!("from the nave to the reliquary: {e}"));
+        walk_to(&mut pad, STRIP).unwrap_or_else(|e| panic!("into the strip of the vigil: {e}"));
+        let cleared = |world: &bevy::prelude::World| {
+            world.resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().encounter(VIGIL)
+                == PersistedEncounterState::Cleared
+        };
+        let frames = fight(&mut pad, |world, body| world.get::<EncounterMob>(body).is_some(), cleared, STRIP, 60 * 120)
+            .unwrap_or_else(|e| {
+                // The phase of the vigil: a fight that stalls in its intro
+                // and one that waits for its last foe read the same above.
+                let world = pad.world_mut();
+                let mut vigils = world.query::<(&ambition_platformer2d::encounter::Encounter, &ambition_platformer2d::encounter::EncounterLifecycle)>();
+                let phases: Vec<_> = vigils.iter(world).filter(|(encounter, _)| encounter.id == VIGIL).map(|(_, life)| life.phase()).collect();
+                panic!("the vigil of the reliquary: {e}; its phase {phases:?}")
+            });
+        eprintln!("[temple] the vigil of the reliquary was won in {frames} frames");
+        for _ in 0..30 {
+            pad.step(Default::default());
+        }
+        let key = key_at(pad.world_mut(), "noodly_key_colander");
+        walk_to(&mut pad, key).unwrap_or_else(|e| panic!("to the Colander Key: {e}"));
+        for _ in 0..20 {
+            pad.step(Default::default());
+        }
+    }
+    assert!(flag(&mut sim, "noodly_key_colander"), "the player took the Colander Key");
+}
+
+/// Where the key that sets `flag` lies in the live room.
+fn key_at(world: &mut bevy::prelude::World, flag: &str) -> ambition_platformer2d::engine_core::Vec2 {
+    world
+        .query::<(&ambition_platformer2d::combat::components::PickupFeature, &ambition_platformer2d::engine_core::geometry::CenteredAabb)>()
+        .iter(world)
+        .find(|(feature, _)| {
+            matches!(&feature.pickup.kind, ambition_platformer2d::interaction::PickupKind::StoryFlag { flag: f } if f == flag)
+        })
+        .map(|(_, aabb)| aabb.center)
+        .unwrap_or_else(|| panic!("the room has the key `{flag}`"))
+}
+
+/// Walk to the lever `id` with the player's own inputs and turn it with one
+/// press of Interact.
+fn turn(pad: &mut crate::common::walk::Pad<'_>, id: &str) {
+    use crate::common::walk::{walk_to, Press, Walker as _};
+    let at = {
+        let world = pad.world_mut();
+        world
+            .query::<(
+                &ambition_platformer2d::encounter::switches::SwitchFeature,
+                &ambition_platformer2d::engine_core::geometry::CenteredAabb,
+            )>()
+            .iter(world)
+            .find(|(feature, _)| feature.activation.id == id)
+            .map(|(_, aabb)| aabb.center)
+            .unwrap_or_else(|| panic!("the room has no lever `{id}`"))
+    };
+    walk_to(pad, at).unwrap_or_else(|e| panic!("to the lever `{id}`: {e}"));
+    pad.step(Press::default());
+    pad.step(Press { interact: true, ..Press::default() });
+    for _ in 0..20 {
+        pad.step(Press::default());
+    }
 }

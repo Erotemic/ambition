@@ -428,7 +428,8 @@ const RETARGET_FRAMES: usize = 30;
 /// Fight in the live room with the player's own inputs until `done` says
 /// the fight is over: go to the nearest live foe that `foe` names, by the
 /// room's graph, and press Attack facing it when it is in reach. While no
-/// foe stands, wait (a wave comes). Returns the frames it took.
+/// foe stands, go back to `rally` and wait there (a wave comes to a player
+/// in its arena). Returns the frames it took.
 ///
 /// The graph is built again when the gate solids change: a fight shuts the
 /// room with its lock walls.
@@ -436,6 +437,7 @@ pub fn fight(
     walker: &mut impl Walker,
     foe: impl Fn(&World, Entity) -> bool,
     done: impl Fn(&World) -> bool,
+    rally: ae::Vec2,
     frames: usize,
 ) -> Result<usize, String> {
     let player = the_player(walker.world_mut());
@@ -445,10 +447,18 @@ pub fn fight(
     let mut leg: Option<(NavLeg, LegPhase)> = None;
     let mut goal: Option<ae::Vec2> = None;
     let mut last_swing = 0usize;
+    // Deaths in the fight: a death starts the attempt again, and its fight
+    // with it. Counted by the death the game announces, because a hazard
+    // kills a body at full health.
+    let mut deaths = 0usize;
     for step in 0..frames {
         if done(walker.world()) {
             return Ok(step);
         }
+        deaths += walker
+            .world()
+            .get_resource::<bevy::prelude::Messages<ambition_platformer2d::combat::death_rules::ActorDiedMessage>>()
+            .map_or(0, |died| died.iter_current_update_messages().filter(|death| death.victim == player).count());
         let now = gate_solid_names(walker, player);
         if now != solids {
             solids = now;
@@ -462,6 +472,7 @@ pub fn fight(
         let wall = world
             .get::<ae::BodyWallState>(player)
             .and_then(|wall| wall.on_wall.then_some(wall.wall_normal_x.signum()));
+        let flying = world.get::<ae::BodyFlightState>(player).is_some_and(|flight| flight.fly_enabled);
         let player_room = the_players_room(world, player);
         let mut bodies = world.query::<(Entity, &ae::BodyKinematics, &ambition_platformer2d::characters::actor::BodyHealth)>();
         let candidates: Vec<(Entity, ae::Vec2)> = bodies
@@ -479,26 +490,62 @@ pub fn fight(
             .min_by(|a, b| (a.1 - kinematics.pos).length().total_cmp(&(b.1 - kinematics.pos).length()));
         let feet = kinematics.pos + graph.frame.down * graph.half.y;
         let mut press = Press::default();
-        let Some((_, at)) = nearest else {
-            leg = None;
-            goal = None;
-            walker.step(press);
-            continue;
+        let at = match nearest {
+            Some((_, at)) => at,
+            // No foe stands: to the rally place, unless the body is there.
+            // At the rally place: in a fight's strip, which is narrow.
+            None if (rally - kinematics.pos).dot(graph.frame.side).abs() <= ae::navigation::ARRIVE_TOLERANCE * 2.0 => {
+                leg = None;
+                goal = None;
+                walker.step(press);
+                continue;
+            }
+            None => rally,
         };
         let offset = at - kinematics.pos;
         let (along, tall) = (offset.dot(graph.frame.side), offset.dot(graph.frame.down));
-        if along.abs() <= REACH_ALONG && tall.abs() <= REACH_TALL {
+        // Reach and the jump under a foe are for a foe; the rally place is
+        // walked to.
+        let foe_stands = nearest.is_some();
+        if foe_stands && along.abs() <= REACH_ALONG && tall.abs() <= REACH_TALL {
             // In reach: face it, and swing on an edge once the last swing is
-            // over.
+            // over. In the air, keep the jump held.
             leg = None;
             goal = None;
             let facing = kinematics.facing;
+            press.jump_held = !on_ground;
             if facing * along < 0.0 {
                 press.axis = along.signum();
             } else if step >= last_swing + SWING_FRAMES {
                 press.attack = true;
                 last_swing = step;
             }
+            walker.step(press);
+            continue;
+        }
+        // A jump brings the blade as high as the feet rise, and a little
+        // more: a foe higher than that is on a ledge, which a leg gets to.
+        let jump_tall = graph.apex_rise + REACH_TALL;
+        if foe_stands
+            && leg.is_none()
+            && along.abs() <= REACH_ALONG
+            && tall < -REACH_TALL
+            && tall >= -jump_tall
+        {
+            // Above the blade: jump under it, as a player does, and swing
+            // when the jump brings the blade level with it (the branch
+            // above). A leg that is under way goes on: it is how the body
+            // gets to a ledge, and a jump in its air drops it.
+            goal = None;
+            press.jump_pressed = on_ground;
+            press.jump_held = true;
+            walker.step(press);
+            continue;
+        }
+        if leg.is_none() && flying {
+            // A flight that no leg steers: turn it off, and land. A leg
+            // starts from the ground.
+            press.fly_toggle = true;
             walker.step(press);
             continue;
         }
@@ -525,6 +572,7 @@ pub fn fight(
             press.down = input.down;
             press.jump_pressed = input.jump_pressed;
             press.jump_held = input.jump_held;
+            press.fly_toggle = input.fly_toggle;
             press.dash = input.dash_pressed;
             leg = match progress {
                 LegProgress::Going(next) => Some((current, next)),
@@ -533,7 +581,34 @@ pub fn fight(
         }
         walker.step(press);
     }
-    Err(format!("the fight in `{room}` was not over after {frames} frames"))
+    // What was left, so a fight that did not end says why.
+    let world = walker.world_mut();
+    let player_room = the_players_room(world, player);
+    let mut bodies = world.query::<(Entity, &ae::BodyKinematics, &ambition_platformer2d::characters::actor::BodyHealth)>();
+    let rows: Vec<(Entity, ae::Vec2, i32, bool)> =
+        bodies.iter(world).map(|(entity, kin, health)| (entity, kin.pos, health.current(), health.alive())).collect();
+    let left: Vec<String> = rows
+        .iter()
+        .filter(|(entity, _, _, alive)| *alive && *entity != player && foe(world, *entity))
+        .filter(|(entity, ..)| {
+            world.get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(*entity).map(|room| room.0) == player_room
+        })
+        .map(|(entity, pos, health, _)| format!("{entity:?} at {pos:?} health {health}"))
+        .collect();
+    let me = rows.iter().find(|(entity, ..)| *entity == player).map(|(_, pos, health, _)| (*pos, *health));
+    // Each body the fight names, in any room, alive or not.
+    let named: Vec<String> = rows
+        .iter()
+        .filter(|(entity, ..)| *entity != player && foe(world, *entity))
+        .map(|(entity, pos, health, alive)| {
+            let room = world.get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(*entity).map(|room| room.0);
+            format!("{entity:?} at {pos:?} health {health} alive {alive} room {room:?}")
+        })
+        .collect();
+    Err(format!(
+        "the fight in `{room}` was not over after {frames} frames; the player (place, health) {me:?} in {player_room:?}, \
+         {deaths} death(s); foes left: {left:?}; every body named: {named:?}"
+    ))
 }
 
 /// The names of the gate solids that stand in the player's room now.

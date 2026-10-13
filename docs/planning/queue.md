@@ -93,15 +93,21 @@ with a witness, a poison and a control.
    own frame (`PerceivedActor::gravity_down`).
 4. **Done 2026-10-13 (`cde89753f`):** a contact bounce is against the
    toucher's own gravity; a toucher with no frame is refused.
-5. **Part done 2026-10-13:** `a_player_walks_in_wins_the_fight_of_the_scullery_and_takes_its_key`
+5. **Part done 2026-10-13:** `a_player_walks_in_and_takes_the_four_keys_of_the_temple`
    walks from the central hub through the narthex and the nave to the
    scullery by the room graph, wins its fight of eight cooks by Attack
    presses (`common::walk::fight`; about 1500 frames), takes the Marinara
    Key in the pantry and walks back to the nave, whose two doors it opens.
-   No teleport and no health written. Poison: Attack never pressed, red at
-   "the fight ... was not over". Open: the rest of the temple (the cistern's
-   wheels, the belfry, the reliquary, the monster in the sanctum) by the same
-   road, and GNU-ton's fighter timing judged in the Smash runtime. The
+   Then it turns the cistern's wheels by Interact (a, b, a, c: the least
+   turns `check_temple.py` prints) for the Pesto Key, rings the belfry's
+   three bells for the Parmesan Key, and wins the reliquary's three-wave
+   vigil (about 4900 frames) for the Colander Key. No teleport and no
+   health written. The fight keeps a move toward a foe on the surface it
+   stands on (the graph takes spikes out of a surface), jumps under a foe
+   only within its measured apex, swings without dropping a leg in the air,
+   and follows a Fly leg's toggle. Poison: Attack never pressed, red at
+   "the fight ... was not over". Open: the monster in the sanctum by the
+   same road, and GNU-ton's fighter timing judged in the Smash runtime. The
    WORLD-ACCEPTANCE opener now states the Q164 remainder.
 
 ### REVIEW-1011-INTEGRATION - real engine contracts for new demo behavior

@@ -157,6 +157,9 @@ def main():
 
         first = (START[0], arrival(rooms[START[0]], START[1], shut(START[0], frozenset())), frozenset())
         seen = {first: 0}
+        # The state each state was last reached from, and the wheel turned on
+        # that edge (`None` for a step): the turns of the cheapest road.
+        parent = {first: None}
         edges = {}
         found = set()
         touched = set()
@@ -171,7 +174,7 @@ def main():
             for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 to = (cell[0] + dx, cell[1] + dy)
                 if fits(to, shut(room_id, on), room):
-                    nexts.append(((room_id, to, on), 0))
+                    nexts.append(((room_id, to, on), 0, None))
             for kind, box, fields in room.things:
                 if not touches(cell, box):
                     continue
@@ -190,32 +193,34 @@ def main():
                         # of a gate that shuts: the game pushes the body
                         # out. The model does not turn the wheel there.
                         if fits(cell, shut(room_id, flipped), room):
-                            nexts.append(((room_id, cell, flipped), 1))
+                            nexts.append(((room_id, cell, flipped), 1, fields["id"]))
                 elif kind == "LoadingZone":
                     target = fields.get("target_room")
                     if target == HUB:
                         exits.add(state)
                     elif target in rooms:
                         there = arrival(rooms[target], fields["target_zone"], shut(target, on))
-                        nexts.append(((target, there, on), 0))
+                        nexts.append(((target, there, on), 0, None))
                         touched.add(("room", target))
-            edges[state] = [n for n, _ in nexts]
+            edges[state] = [n for n, _, _ in nexts]
             # The least turns of a wheel to each state: a step is free and a
             # turn costs one, so a state found again by fewer turns is walked
             # again.
-            for to, cost in nexts:
+            for to, cost, wheel in nexts:
                 if to not in seen or turns + cost < seen[to]:
                     seen[to] = turns + cost
+                    parent[to] = (state, wheel)
                     (queue.append if cost else queue.appendleft)(to)
-        return seen, edges, found - facts, touched, exits
+        return seen, parent, edges, found - facts, touched, exits
 
     problems = []
     facts = frozenset()
     order = []
     touched_all = set()
     turns_to_key = None
+    wheel_road = []
     while True:
-        seen, edges, new, touched, exits = walk(facts)
+        seen, parent, edges, new, touched, exits = walk(facts)
         touched_all |= touched
         # A trap: a state from which no door of the hub can be reached.
         back = {}
@@ -245,7 +250,14 @@ def main():
                 if room_id == "noodly_cistern":
                     for box, fields in rooms[room_id].of("PickupSpawn"):
                         if fields.get("kind") == "flag:noodly_key_pesto" and touches(cell, box):
-                            turns_to_key = turns if turns_to_key is None else min(turns_to_key, turns)
+                            if turns_to_key is None or turns < turns_to_key:
+                                turns_to_key = turns
+                                road, at = [], (room_id, cell, on)
+                                while parent[at] is not None:
+                                    at, wheel = parent[at]
+                                    if wheel is not None:
+                                        road.append(wheel)
+                                wheel_road = road[::-1]
         facts = facts | new
 
     for room_id in ROOMS[1:]:
@@ -258,7 +270,7 @@ def main():
         problems.append("the monster can not be reached")
 
     print("keys, in the order they are found:", " -> ".join("+".join(k[11:] for k in keys) for keys in order))
-    print("least turns of a wheel before the key of the cistern:", turns_to_key)
+    print("least turns of a wheel before the key of the cistern:", turns_to_key, "(" + ", ".join(wheel_road) + ")")
     if problems:
         print("\n".join(f"PROBLEM: {p}" for p in problems))
         return 1

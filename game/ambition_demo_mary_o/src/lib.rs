@@ -316,8 +316,9 @@ fn pipe_tubes(room: &RoomSpec) -> Result<Vec<PipeTube>, String> {
     let mut by_link: std::collections::BTreeMap<String, Vec<(PipeHalf, MaryOPipeRole)>> =
         std::collections::BTreeMap::new();
     for (half, pipe) in pipe_halves_of(room) {
-        // A sealed pipe is a half of no tube.
-        if pipe.role == MaryOPipeRole::Sealed {
+        // A sealed pipe is a half of no tube, and a pipe to another level
+        // has no far pipe (see `warp_pipes`).
+        if matches!(pipe.role, MaryOPipeRole::Sealed | MaryOPipeRole::Warp) {
             continue;
         }
         by_link
@@ -416,6 +417,64 @@ pub fn tubes_for_room(room_id: &str) -> &'static [PipeTube] {
     tubes_by_room()
         .get(room_id)
         .map_or(NONE, |tubes| tubes.as_slice())
+}
+
+/// A pipe that goes to another level: the mouth you press into, and the room
+/// its authored `link` names. She comes out at the start of that room.
+#[derive(Clone, Debug)]
+pub struct WarpPipe {
+    pub mouth: PipeHalf,
+    pub room: String,
+}
+
+/// The pipes of `room` that go to another level.
+fn warp_pipes(room: &RoomSpec) -> Vec<WarpPipe> {
+    pipe_halves_of(room)
+        .into_iter()
+        .filter(|(_, pipe)| pipe.role == MaryOPipeRole::Warp)
+        .map(|(mouth, pipe)| WarpPipe { mouth, room: pipe.link })
+        .collect()
+}
+
+/// The pipes to another level that each authored area has, keyed by the room
+/// that authors them.
+///
+/// THE LOAD-TIME CHECK: the level a pipe names is in the file. A pipe to a
+/// level that is not there swallows her and the trip never arrives, so the
+/// spelling is refused here, with the pipe and the levels there are.
+fn warp_pipes_by_room() -> &'static std::collections::BTreeMap<String, Vec<WarpPipe>> {
+    static WARPS: std::sync::LazyLock<std::collections::BTreeMap<String, Vec<WarpPipe>>> =
+        std::sync::LazyLock::new(|| {
+            let rooms = authored_world().rooms;
+            let ids: Vec<&str> = rooms.iter().map(|room| room.id.as_str()).collect();
+            rooms
+                .iter()
+                .map(|room| {
+                    let warps = warp_pipes(room);
+                    for warp in &warps {
+                        assert!(
+                            ids.contains(&warp.room.as_str()),
+                            "the Warp pipe `{}` of `{}` goes to the level `{}`, which is not \
+                             in the file. The `link` of a Warp pipe is the id of a level: {ids:?}",
+                            warp.mouth.name,
+                            room.id,
+                            warp.room,
+                        );
+                    }
+                    (room.id.clone(), warps)
+                })
+                .collect()
+        });
+    &WARPS
+}
+
+/// The pipes of `room_id` that go to another level: empty for a room that has
+/// none, and for a room that is not in the file (see [`tubes_for_room`]).
+pub fn warp_pipes_for_room(room_id: &str) -> &'static [WarpPipe] {
+    const NONE: &[WarpPipe] = &[];
+    warp_pipes_by_room()
+        .get(room_id)
+        .map_or(NONE, |warps| warps.as_slice())
 }
 
 /// The tube `room_id` authors with this link id.
@@ -642,6 +701,16 @@ fn authored_world() -> ambition_platformer2d::runtime::demo_fixture::RoomSet {
 /// a zone that names NO target contributes no link on purpose: it is the
 /// landing pad half of a one-way trip, and a pad with an outgoing edge fires on
 /// the body that just arrived on it.
+/// The levels that a loading zone leads to. They are side rooms: the circuit
+/// of `next_room` does not go through them (the warp room, from the sky of
+/// 1-1).
+pub fn side_room_ids() -> Vec<String> {
+    let mut rooms: Vec<String> = authored_room_links().into_iter().map(|link| link.to_room).collect();
+    rooms.sort();
+    rooms.dedup();
+    rooms
+}
+
 pub fn authored_room_links() -> Vec<ambition_platformer2d::world::rooms::RoomLink> {
     authored_world().canonical_links()
 }
@@ -1536,7 +1605,12 @@ impl Plugin for MaryORulesPlugin {
         // Pipe input is authoritative rollback state on the player body. Entry
         // and transit run after ordinary WorldPrep movement, so the scripted
         // position wins this frame instead of racing the shared integrator.
-        let pipe_rules = (warp_through_secret_pipe, pipe::run_pipe_transits)
+        let pipe_rules = (
+            a_pipe_transit_ends_with_its_room,
+            warp_through_secret_pipe,
+            pipe::run_pipe_transits,
+            leave_through_a_warp_pipe,
+        )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerSimulation)
             .after(ambition_platformer2d::damage::PlayerHitResolutionSet);
@@ -1928,12 +2002,12 @@ fn warp_through_secret_pipe(
     // empty slice enters nothing and clears the latch, which is the same
     // answer a pipeless room gives.
     const NO_ROOM_NO_TUBES: &[PipeTube] = &[];
+    const NO_ROOM_NO_WARPS: &[WarpPipe] = &[];
 
     for (entity, kin, control, mut latch) in &mut bodies {
-        let tubes = room_set
-            .as_ref()
-            .and_then(|set| set.spec_of(entity))
-            .map_or(NO_ROOM_NO_TUBES, |spec| tubes_for_room(&spec.id));
+        let room = room_set.as_ref().and_then(|set| set.spec_of(entity));
+        let tubes = room.map_or(NO_ROOM_NO_TUBES, |spec| tubes_for_room(&spec.id));
+        let warps = room.map_or(NO_ROOM_NO_WARPS, |spec| warp_pipes_for_room(&spec.id));
         let down = control.0.locomotion.y > DIR_DEADZONE;
         let up = control.0.locomotion.y < -DIR_DEADZONE;
         let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
@@ -1943,24 +2017,35 @@ fn warp_through_secret_pipe(
         // so additional authored tubes work without Rust changes in any level, and
         // opposite-direction ends still cannot
         // ping-pong a held press.
-        let entered = tube_entered(body, down, up, tubes);
-        let pressed = entered.is_some();
+        //
+        // A pipe to another level is entered by the same press at the same
+        // mouth: it has no far pipe, so its transit ends in the pipe.
+        let transit = match tube_entered(body, down, up, tubes) {
+            Some(tube) => Some(pipe::PipeTransit::begin(
+                kin.pos,
+                tube.entrance.centre(),
+                tube.exit.arrival(),
+                tube.entrance.travel_axis(),
+                T,
+            )),
+            None => warps
+                .iter()
+                .find(|warp| warp.mouth.entered_by(down, up) && at_mouth(body, warp.mouth.mouth_band()))
+                .map(|warp| {
+                    pipe::PipeTransit::begin_leaving(kin.pos, warp.mouth.centre(), warp.mouth.travel_axis(), T)
+                }),
+        };
+        let pressed = transit.is_some();
         let rising_edge = pressed && !latch.pressed;
         latch.pressed = pressed;
-        let Some(tube) = entered else {
+        let Some(transit) = transit else {
             continue;
         };
         if !rising_edge {
             continue;
         }
 
-        commands.entity(entity).try_insert(pipe::PipeTransit::begin(
-            kin.pos,
-            tube.entrance.centre(),
-            tube.exit.arrival(),
-            tube.entrance.travel_axis(),
-            T,
-        ));
+        commands.entity(entity).try_insert(transit);
         // The transit has her pose and her control from this tick (see
         // `pipe.rs`).
         ae::claim_pose_hold(&mut commands, entity, ae::PoseHold::Transit);
@@ -1977,6 +2062,90 @@ fn warp_through_secret_pipe(
                 pos: kin.pos,
             },
         );
+    }
+}
+
+/// The level goes when a pipe that has no far pipe has swallowed her.
+///
+/// The pipe says WHERE: the room its authored `link` names. The mode owner's
+/// [`Departure`](ambition_platformer2d::session::Departure) takes her there, as
+/// it does from a goal. The request is made on the first tick of
+/// [`pipe::TransitPhase::Leaving`], when the pipe art covers her.
+fn leave_through_a_warp_pipe(
+    room_set: Option<ambition_platformer2d::world::rooms::LiveRoomSpecs>,
+    bodies: bevy::prelude::Query<
+        (bevy::prelude::Entity, &pipe::PipeTransit),
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+    >,
+    mut owners: bevy::prelude::Query<&mut ambition_platformer2d::session::Departure>,
+) {
+    // No live room: no pipe can be read, and no level can go.
+    let Some(room_set) = room_set else {
+        return;
+    };
+    for (entity, transit) in &bodies {
+        if transit.phase != pipe::TransitPhase::Leaving || transit.elapsed != 0.0 {
+            continue;
+        }
+        let Some(spec) = room_set.spec_of(entity) else {
+            continue;
+        };
+        // The swallow ends in the pipe she went into.
+        let Some(warp) = warp_pipes_for_room(&spec.id)
+            .iter()
+            .find(|warp| {
+                let (min, max) = (warp.mouth.aabb.min, warp.mouth.aabb.max);
+                transit.swallowed.cmpge(min).all() && transit.swallowed.cmple(max).all()
+            })
+        else {
+            continue;
+        };
+        let Ok(mut departure) = owners.single_mut() else {
+            continue;
+        };
+        ambition_platformer2d::platformer::world_log::world_event(format_args!(
+            "mary-o warp pipe: `{}` to `{}`",
+            spec.id, warp.room
+        ));
+        departure.leave(ambition_platformer2d::session::Destination::Room(warp.room.clone()));
+    }
+}
+
+/// A pipe transit is of its room: a new room, and a replay of this one, end it.
+///
+/// The transit writes a position of the room it began in onto the body on each
+/// tick (see [`pipe::run_pipe_transits`]). She arrives at the start of the new
+/// room, and the next tick would put her back in the pipe of the last one. It
+/// is the hazard `begin_a_lap_on_arrival` names for the flag, and this runs
+/// before the transits for the same reason.
+fn a_pipe_transit_ends_with_its_room(
+    mut commands: bevy::prelude::Commands,
+    mut replays: ambition_platformer2d::combat::events::AdmittedReplays,
+    owners: bevy::prelude::Query<&ambition_platformer2d::session::ModeVisit>,
+    mut bodies: bevy::prelude::Query<
+        (
+            bevy::prelude::Entity,
+            Option<&mut ambition_platformer2d::characters::control::ControlHolds>,
+        ),
+        bevy::prelude::With<pipe::PipeTransit>,
+    >,
+) {
+    let replayed = replays.read().count() > 0;
+    let arrived = owners
+        .single()
+        .is_ok_and(|visit| visit.arrival() == ambition_platformer2d::session::Arrival::FromAnotherRoom);
+    if !(replayed || arrived) {
+        return;
+    }
+    for (entity, mut holds) in &mut bodies {
+        commands.entity(entity).remove::<pipe::PipeTransit>();
+        ambition_platformer2d::characters::control::release_control_hold(
+            &mut commands,
+            entity,
+            holds.as_deref_mut(),
+            ambition_platformer2d::characters::control::ControlHold::Transit,
+        );
+        ae::release_pose_hold(&mut commands, entity, ae::PoseHold::Transit);
     }
 }
 
@@ -3757,12 +3926,18 @@ mod tests {
              areas are {authored:?}",
             LEVEL_1_1_ROOM_ID
         );
-        assert_eq!(
-            visited.len(),
-            authored.len(),
-            "the circuit closed after visiting {visited:?}, but the world \
-             authors {authored:?} — a level nobody can reach by playing is as \
-             good as unauthored"
+        // A level that is not on the circuit is a side room: a loading zone
+        // of a level leads to it (the warp room, from the sky of 1-1).
+        let side_rooms = side_room_ids();
+        let unreached: Vec<&String> = authored
+            .iter()
+            .filter(|area| !visited.contains(area) && !side_rooms.contains(area))
+            .collect();
+        assert!(
+            unreached.is_empty(),
+            "the circuit closed after visiting {visited:?} and loading zones lead to \
+             {side_rooms:?}, but the world authors {unreached:?} also — a level nobody \
+             can reach by playing is as good as unauthored"
         );
 
         assert_eq!(
@@ -3958,6 +4133,7 @@ mod rollback_probes {
             pipe::TransitPhase::Swallowing => 1,
             pipe::TransitPhase::Emerging => 2,
             pipe::TransitPhase::Centering => 3,
+            pipe::TransitPhase::Leaving => 4,
         };
         // The transit OWNS the body's position for its duration, so `elapsed`
         // alone is not the state — where it is going matters as much.
@@ -3968,5 +4144,6 @@ mod rollback_probes {
             ^ point(transit.to).rotate_left(19)
             ^ point(transit.arrival).rotate_left(31)
             ^ point(transit.swallowed).rotate_left(43)
+            ^ ((transit.leaves as u64) << 5)
     }
 }

@@ -30,6 +30,13 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
   blocks draw as nothing). `test_course.rs` builds a synthetic room in code on
   purpose. Do not grow the programmatic path. A missing authoring concept goes
   into LDtk and the tooling.
+- The warp room (`mary_o_warp`, `tools/author_mary_o_warp_ldtk.py`) is a
+  secret: a row of pipes, one to the start of each level. The way in is the
+  top of 1-1, an engine `LoadingZone` with a landing zone in the warp room. A
+  pipe whose `role` is `Warp` has no far pipe: its `link` is the id of the
+  level (`leave_through_a_warp_pipe`). A new level gets a pipe in `LEVELS` of
+  the script. The level circuit does not go through the room
+  (`side_room_ids`). No loading zone of Mary-O has a picture.
 - World 1-2 is 240 tiles long (it was 60), built by
   `game/ambition_demo_mary_o/tools/author_mary_o_1_2_ldtk.py`: one function
   for each part of the level, `--preview` prints it as text, `--apply`

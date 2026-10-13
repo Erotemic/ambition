@@ -81,14 +81,21 @@ mod enabled {
                 // N observed whatever this panel held NOW. It edits
                 // `EditablePortalTuning` now; `publish_editable_portal_tuning`
                 // moves the value once the rollback timeline's owner admits it.
-                // ⚠ `DerefMut`, so every `&mut tuning.field` row below is
-                // unchanged.
-                let Some(mut tuning) =
-                    world.get_resource_mut::<ambition_platformer2d::portal::EditablePortalTuning>()
+                //
+                // The rows edit a COPY, written back only when a value differs.
+                // A changed mirror is a proposal, and a proposal stops the local
+                // rollback baseline. `DerefMut` on the resource marked it changed
+                // on each frame the panel was drawn, so the simulation did not
+                // advance while F3 was open (measured 2026-10-12: the tick held
+                // at 1494, and frame-step reported `delta 0`).
+                let Some(shown) = world
+                    .get_resource::<ambition_platformer2d::portal::EditablePortalTuning>()
+                    .copied()
                 else {
                     missing_resource(ui, "EditablePortalTuning");
                     return;
                 };
+                let mut tuning = shown;
                 egui::Grid::new("portal_mechanics_grid")
                     .num_columns(3)
                     .spacing([14.0, 4.0])
@@ -160,6 +167,10 @@ mod enabled {
                             "Global gate for same-wall turn-around transits to re-orient the body's facing. It turns around only the body a seat drives (DrivingParticipant). \u{26d4} THIS ROW DOES NOT STICK: sync_portal_reorient_from_settings republishes it from Gameplay > Portal Reverse Facing whenever the two differ, so an edit here is reverted on the next pass. Change the setting instead.",
                         );
                     });
+                if tuning.0 != shown.0 {
+                    *world.resource_mut::<ambition_platformer2d::portal::EditablePortalTuning>() =
+                        tuning;
+                }
             });
     }
 

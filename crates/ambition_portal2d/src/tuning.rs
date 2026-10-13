@@ -45,7 +45,7 @@ impl PortalConvention {
 }
 
 /// Portal mechanics and adapter feel knobs surfaced in the F3 dev inspector.
-#[derive(Resource, Clone, Copy, Debug, Reflect)]
+#[derive(Resource, Clone, Copy, Debug, PartialEq, Reflect)]
 #[reflect(Resource)]
 pub struct PortalTuning {
     /// Active portal map convention. Exposed as a combo box by the inspector.

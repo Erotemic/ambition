@@ -211,7 +211,7 @@ class Level:
 
     def pipe(self, col: int, link: str, role: str, *, on: int | None = None, under: int | None = None) -> None:
         """A pipe, 3 tiles wide and 2 tall. `role` is Entrance or Exit, and two pipes of one `link` are one
-        tube; or it is Sealed, and the pipe goes nowhere.
+        tube; or it is Sealed, and the pipe goes nowhere; or it is Warp, and `link` is the level it goes to.
 
         `on` is the row of the top of the surface it stands on: its mouth is up.
         `under` is the first row below the ceiling it hangs from: its mouth is down."""
@@ -384,6 +384,24 @@ class Level:
         for row in range(self.floor - tall, self.floor):
             self.marks.append((col, row, "H"))
 
+    def loading_zone(
+        self, ident: str, name: str, col: float, row: float, wide: float, tall: float, *, to: tuple[str, str] | None = None
+    ) -> None:
+        """A zone of the engine that takes a body to another level when the body is in it.
+
+        `to` is the level and the zone of that level where the body arrives.
+        With no `to` the zone is where a trip ends, and it takes a body
+        nowhere: the body arrives in the middle of it, 26 px over its bottom."""
+        fields = {"id": ident, "name": name, "activation": "Walk", "bidirectional": False}
+        if to is not None:
+            fields |= {"target_room": to[0], "target_zone": to[1]}
+        self._entity("LoadingZone", (col * T, row * T), (int(wide * T), int(tall * T)), **fields)
+
+    def label(self, col: float, row: float, text: str) -> None:
+        """Words in the level, with their middle over `col`."""
+        wide = 4 * T
+        self._entity("DebugLabel", (col * T - wide / 2, row * T), (wide, 16), name=text, text=text, category="Custom")
+
     def npc(self, character: str, col: float, size: tuple[int, int] = (28, 44)) -> None:
         """A character of the catalog that stands on the floor and is not an enemy."""
         self._entity("NpcSpawn", (col * T, self.floor * T - size[1]), size, character_id=character)
@@ -493,13 +511,17 @@ def draw(lv: Level, path: Path, scale: int = 8) -> None:
     image.save(path)
 
 
-def cli(build: Callable[[], Level], doc: str) -> None:
+def cli(build: Callable[[], Level], doc: str, *, before_apply: Callable[[], None] | None = None) -> None:
     """The command line of a level script.
 
     `--preview` prints the level as text and changes nothing. `--png FILE`
     draws the same picture. `--apply` REPLACES the level in the LDtk file: an
     edit made in the LDtk editor after the last `--apply` is lost. Make such an
-    edit in the script also, or stop using the script for the level."""
+    edit in the script also, or stop using the script for the level.
+
+    `before_apply` runs before the level goes into the file: a script uses it
+    for an entity that it puts in a level of another script. `apply` checks
+    the file at its end, so the two levels are checked together."""
     parser = argparse.ArgumentParser(description=doc, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--preview", action="store_true", help="print the level as text")
     parser.add_argument("--png", type=Path, help="draw the level to this file")
@@ -514,4 +536,6 @@ def cli(build: Callable[[], Level], doc: str) -> None:
     if args.png:
         draw(lv, args.png)
     if args.apply:
+        if before_apply is not None:
+            before_apply()
         apply(lv)

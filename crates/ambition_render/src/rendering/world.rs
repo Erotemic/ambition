@@ -50,6 +50,8 @@ pub fn present_live_room_visuals(
     assets: Option<Res<GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
+    // The zones a game draws no picture for. Absent: each zone has its picture.
+    hidden_zones: Option<Res<super::gate_portal_visuals::HiddenLoadingZones>>,
 ) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
@@ -70,6 +72,7 @@ pub fn present_live_room_visuals(
             rooms.rooms().spec(definition),
             assets.as_deref(),
             looks_are_drawn,
+            hidden_zones.as_deref(),
         );
         commands.spawn_session_scoped(
             scope,
@@ -86,6 +89,9 @@ pub fn spawn_room_visuals(
     // Whether this device draws the look of a room that has one
     // (`ShaderBudget::draws_screen_shaders`).
     looks_are_drawn: bool,
+    // The loading zones that have no picture and no nameplate
+    // (`HiddenLoadingZones`): a place to arrive at, or a zone that is a secret.
+    hidden_zones: Option<&super::gate_portal_visuals::HiddenLoadingZones>,
 ) {
     let world = &spec.world;
     spawn_grid(commands, session_scope, world);
@@ -154,6 +160,12 @@ pub fn spawn_room_visuals(
         spawn_climbable_region(commands, session_scope, world, region, theme);
     }
     for zone in &spec.loading_zones {
+        // No picture is no nameplate also: the nameplate of a zone that is not
+        // drawn named a place nothing showed (the name of the sky zone of
+        // Mary-O 1-1, over a level whose secret it is).
+        if hidden_zones.is_some_and(|hidden| hidden.0.contains(&zone.id)) {
+            continue;
+        }
         spawn_loading_zone(commands, session_scope, world, zone, assets, theme);
     }
     // Per-family authored visuals. Each family carries an `Authored<T>`

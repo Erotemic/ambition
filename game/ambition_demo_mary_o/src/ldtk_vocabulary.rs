@@ -408,6 +408,10 @@ pub enum MaryOPipeRole {
     /// stands in the level. It is a half of no tube, so its `link` pairs it
     /// with nothing.
     Sealed,
+    /// A mouth you press INTO that has no far pipe: its `link` is the id of
+    /// the level you come out in, at that level's start. It is a half of no
+    /// tube.
+    Warp,
 }
 
 impl MaryOPipeRole {
@@ -416,6 +420,7 @@ impl MaryOPipeRole {
             Self::Entrance => "Entrance",
             Self::Exit => "Exit",
             Self::Sealed => "Sealed",
+            Self::Warp => "Warp",
         }
     }
 
@@ -424,6 +429,7 @@ impl MaryOPipeRole {
             "entrance" | "enter" | "in" => Some(Self::Entrance),
             "exit" | "out" => Some(Self::Exit),
             "sealed" | "none" => Some(Self::Sealed),
+            "warp" | "level" => Some(Self::Warp),
             _ => None,
         }
     }
@@ -543,9 +549,9 @@ pub fn convert_mary_o_pipe(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Stri
     let Some(role) = MaryOPipeRole::parse(&authored_role) else {
         return Err(format!(
             "MaryOPipe `{}` has role {authored_role:?}, which is not Entrance, \
-             Exit or Sealed. Each link of a tube needs exactly one Entrance and \
-             one Exit — the tube is a trip, not a doorway. A Sealed pipe goes \
-             nowhere",
+             Exit, Sealed or Warp. Each link of a tube needs exactly one Entrance \
+             and one Exit — the tube is a trip, not a doorway. A Sealed pipe goes \
+             nowhere, and the `link` of a Warp pipe is the level it goes to",
             entity.iid
         ));
     };

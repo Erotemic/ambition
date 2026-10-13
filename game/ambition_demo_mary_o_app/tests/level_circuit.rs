@@ -165,12 +165,18 @@ fn finishing_each_level_carries_you_to_the_other_one() {
     for _ in 0..=authored.len() {
         let next = finish_the_level(&mut app, &here);
         if next == first {
-            assert_eq!(
-                visited.len(),
-                authored.len(),
-                "the circuit closed after visiting {visited:?}, but the world \
-                 authors {authored:?} — a level nobody can reach by playing is \
-                 as good as unauthored"
+            // A side room is not on the circuit: a loading zone leads to
+            // it (`the_sky_of_1_1_leads_to_the_warp_room` goes there).
+            let side_rooms = ambition_demo_mary_o::side_room_ids();
+            let unreached: Vec<&String> = authored
+                .iter()
+                .filter(|area| !visited.contains(area) && !side_rooms.contains(area))
+                .collect();
+            assert!(
+                unreached.is_empty(),
+                "the circuit closed after visiting {visited:?} and loading zones \
+                 lead to {side_rooms:?}, but the world authors {unreached:?} also — \
+                 a level nobody can reach by playing is as good as unauthored"
             );
             return;
         }

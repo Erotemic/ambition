@@ -1158,7 +1158,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// watch of its own move) and `refused` (the binding it declines after a
 /// whiff), BRAIN road 1 (`c6be52169`). No row moves; the bytes of one
 /// projection do, so peers of the two versions must not connect.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 347;
+/// ⛔⛤ 347 -> 348: `own_attack` encodes the use of a move playing at the
+/// press and the use the press started (`before`, `instance`): the brain
+/// learns its outcome from its body's record of that use, not from the foe
+/// seen reeling (review 2026-10-12).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 348;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

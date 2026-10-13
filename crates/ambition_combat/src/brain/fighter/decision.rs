@@ -125,7 +125,7 @@ pub fn tick_fighter(
         state.ticks_until_decision -= 1;
     }
 
-    watch_the_own_attack(state);
+    watch_the_own_attack(state, snapshot);
 
     match state.pending_press {
         Some(PendingAttack {
@@ -153,6 +153,8 @@ pub fn tick_fighter(
                         binding,
                         watch_ticks: move_ticks.saturating_add(state.perception.delay_ticks() as u32),
                         refuse_ticks: move_ticks,
+                        before: snapshot.own_move.map(|playing| playing.instance),
+                        instance: None,
                         landed: false,
                     });
                 }
@@ -204,30 +206,40 @@ pub fn tick_fighter(
 /// Learn whether this body's own last attack hit, and decline a binding that
 /// whiffed for as long as its move plays (BRAIN road 1).
 ///
-/// A hit is the foe seen in hitstun while the move could have hit it. The
-/// brain sees the foe late, so the watch lasts the move plus the perception
-/// delay. Every tick, not only on decision ticks: hitstun can be shorter than
-/// the decision interval.
-fn watch_the_own_attack(state: &mut FighterState) {
+/// The outcome is the combat authority's record of the use of the move this
+/// press started (`BrainSnapshot::own_move`): the first use that is not the
+/// one playing at the press. A foe seen reeling is not the outcome: another
+/// body or a hazard can put it in hitstun. The record is the body's own, so
+/// it has no perception delay. The move is over when the body plays another
+/// use or none; a press that starts no move in the watch teaches nothing.
+/// Every tick, not only on decision ticks: a strike can be shorter than the
+/// decision interval.
+fn watch_the_own_attack(state: &mut FighterState, snapshot: &BrainSnapshot) {
     if let Some(refused) = state.refused.as_mut() {
         refused.ticks = refused.ticks.saturating_sub(1);
         if refused.ticks == 0 {
             state.refused = None;
         }
     }
-    let foe_reels = state.perception.perceive().is_some_and(|view| {
-        view.nearest_hostile()
-            .is_some_and(|foe| foe.phase == ambition_characters::perception::BodyPhase::Hitstun)
-    });
     let Some(own) = state.own_attack.as_mut() else {
         return;
     };
-    own.landed |= foe_reels;
+    let playing = snapshot.own_move;
+    let mut over = false;
+    match (own.instance, playing) {
+        (None, Some(now)) if Some(now.instance) != own.before => {
+            own.instance = Some(now.instance);
+            own.landed |= now.contact.overlapped;
+        }
+        (Some(mine), Some(now)) if now.instance == mine => own.landed |= now.contact.overlapped,
+        (Some(_), _) => over = true,
+        (None, _) => {}
+    }
     own.watch_ticks = own.watch_ticks.saturating_sub(1);
-    if own.watch_ticks == 0 {
+    if over || own.watch_ticks == 0 {
         let own = *own;
         state.own_attack = None;
-        if !own.landed {
+        if own.instance.is_some() && !own.landed {
             state.refused = Some(RefusedAttack {
                 binding: own.binding,
                 ticks: own.refuse_ticks,

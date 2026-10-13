@@ -146,6 +146,7 @@ fn tick_peaceful(
         world_size: ambition_platformer2d_core::Vec2::ZERO,
         front_wall_clearance: None,
         player_input: None,
+        own_move: None,
         crowding: None,
         terrain: None,
         navigation: Default::default(),

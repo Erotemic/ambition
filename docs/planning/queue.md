@@ -54,6 +54,10 @@ the way in its own slice:
 [REVIEW-1011](#review-1011--five-boundaries-where-one-subsystem-reconstructs-anothers-fact)
 rows.
 
+Correctness interrupts from the 2026-10-12 review:
+[REVIEW-1012](#review-1012---feedback-and-adapter-contracts-from-the-2026-10-12-review)
+(items 1-4 done 2026-10-13; item 5, two acceptance passes, open).
+
 New correctness interrupts from the 2026-10-11 integration review:
 [REVIEW-1011-INTEGRATION](#review-1011-integration---real-engine-contracts-for-new-demo-behavior)
 and [SHOT-END-REPLAY](#shot-end-replay--a-brain-that-saw-its-shot-end-replays-differently---done-2026-10-11) (done 2026-10-11).
@@ -71,6 +75,34 @@ universal planner and the Bevy 0.20 upgrade. Q157 is Jon's decision; build
 neither side of it.
 
 ## P0 — architecture and correctness
+
+### REVIEW-1012 - feedback and adapter contracts from the 2026-10-12 review
+
+Review of `857ec24c..4af5c66f` (2026-10-12). Each item is its own commit
+with a witness, a poison and a control.
+
+1. **Done 2026-10-13 (`c1abe758d`):** a fighter learns whether its own attack hit from
+   its body's record of that use of the move (`BrainSnapshot::own_move`,
+   from `MovePlayback`), not from the foe seen in hitstun.
+2. **Done 2026-10-13 (`ba4a799b1`):** a held portal pair takes the whole
+   request each tick (place, normal, opening, look), and the pair of an
+   entry that is no longer admitted is released. Open: a holder that crosses
+   rooms keeps its pair in the room it was made in (the portal core's
+   channel pair is per room; no customer crosses rooms with one).
+3. **Done 2026-10-13 (`e901e04ec`):** a counter reads a swing in the foe's
+   own frame (`PerceivedActor::gravity_down`).
+4. **Done 2026-10-13 (`cde89753f`):** a contact bounce is against the
+   toucher's own gravity; a toucher with no frame is refused.
+5. **Part done 2026-10-13:** `a_player_walks_in_wins_the_fight_of_the_scullery_and_takes_its_key`
+   walks from the central hub through the narthex and the nave to the
+   scullery by the room graph, wins its fight of eight cooks by Attack
+   presses (`common::walk::fight`; about 1500 frames), takes the Marinara
+   Key in the pantry and walks back to the nave, whose two doors it opens.
+   No teleport and no health written. Poison: Attack never pressed, red at
+   "the fight ... was not over". Open: the rest of the temple (the cistern's
+   wheels, the belfry, the reliquary, the monster in the sanctum) by the same
+   road, and GNU-ton's fighter timing judged in the Smash runtime. The
+   WORLD-ACCEPTANCE opener now states the Q164 remainder.
 
 ### REVIEW-1011-INTEGRATION - real engine contracts for new demo behavior
 
@@ -235,10 +267,13 @@ row starts with a failing production-path witness.
 [residency plan](engine/open-world-runtime-and-residency.md) and
 [item custody](engine/item-custody-and-accounting.md).
 
-**Current failure:** each mechanism has its own passing arm (room transitions,
-item custody, persisted switches, spawned actors, saves), but no single run of
-the real game proves they compose. A set of passing arms does not prove the
-game.
+**Current state (2026-10-13):** the playthrough exists and is walked
+(WA1-WA8 below): one run of the shipped game explores, takes the Blink,
+carries Alice's note to Bob, opens the wall, dies, saves, reloads in a new
+process and walks back, with a second participant, and in the composition
+that draws it. What is left is the fact horizon of a death, which waits on
+[Q164](awaiting-maintainer-decision.md). (Until WA2 each mechanism had only
+its own arm, and no single run proved they compose.)
 
 **Measured 2026-10-09, the content it can run on:** the intro world authors the
 route as `intro_cartography_route` (`data/quests.ron`): Alice's sealed note in

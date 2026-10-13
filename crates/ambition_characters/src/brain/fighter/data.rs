@@ -144,15 +144,24 @@ pub struct PendingAttack {
 /// the world changes; in a mirror it never does (the medic: 177 presses of one
 /// move, none landed). The key is the binding, because the engine resolves a
 /// press by its binding.
+///
+/// The outcome is the combat authority's record of THIS use of the move
+/// (`BrainSnapshot::own_move`), not the foe seen reeling: a foe in hitstun
+/// can be another body's hit, or a hazard's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OwnAttack {
     pub binding: crate::brain::attack_kit::AttackBinding,
-    /// Ticks left to watch for the foe reeling: the move's length plus the
-    /// perception delay, because the brain sees the foe late. Counts DOWN.
+    /// The most ticks to watch: the move's length plus the perception delay.
+    /// A press that starts no move in that time teaches nothing. Counts DOWN.
     pub watch_ticks: u32,
     /// How long a whiff refuses this binding: as long as the move plays.
     pub refuse_ticks: u32,
-    /// The foe was seen in hitstun while the move could have hit it.
+    /// The use of a move that played when the press was made: not this
+    /// press's move.
+    pub before: Option<u32>,
+    /// The use of a move this press started, once the body plays it.
+    pub instance: Option<u32>,
+    /// That use touched a body (a connect or a block): it did not whiff.
     pub landed: bool,
 }
 

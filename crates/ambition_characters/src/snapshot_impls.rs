@@ -550,6 +550,15 @@ impl SnapshotCursor for crate::brain::Brain {
                         put_attack_binding(out, own.binding);
                         put_u32(out, own.watch_ticks);
                         put_u32(out, own.refuse_ticks);
+                        for instance in [own.before, own.instance] {
+                            match instance {
+                                None => put_bool(out, false),
+                                Some(instance) => {
+                                    put_bool(out, true);
+                                    put_u32(out, instance);
+                                }
+                            }
+                        }
                         put_bool(out, own.landed);
                     }
                 }

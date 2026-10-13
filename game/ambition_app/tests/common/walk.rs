@@ -39,6 +39,8 @@ pub struct Press {
     pub dash: bool,
     /// Press confirm: dismiss a beat of a cutscene.
     pub confirm: bool,
+    /// Press Attack.
+    pub attack: bool,
 }
 
 /// A session that a player's input steps one frame at a time.
@@ -87,6 +89,7 @@ impl Walker for Pad<'_> {
             fly_toggle: press.fly_toggle,
             dash: press.dash,
             confirm: press.confirm,
+            attack: press.attack,
             ..crate::common::base()
         });
     }
@@ -161,6 +164,8 @@ impl Walker for Keys<'_> {
         // Burst dashes; a press, so the key is up again on the next frame.
         self.hold(KeyCode::KeyC, press.dash);
         self.hold(KeyCode::Enter, press.confirm);
+        // Attack is a press, so the key is up again on the next frame.
+        self.hold(KeyCode::KeyX, press.attack);
         let jump_is_held = self.held.contains(&KeyCode::KeyZ);
         if self.jump_owed {
             self.jump_owed = false;
@@ -406,4 +411,132 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
     }
     let at = walker.world().get::<ae::BodyKinematics>(player).map(|kinematics| kinematics.pos);
     Err(format!("still in `{from}` after {FRAMES_FOR_A_ROOM} frames, at {at:?}, aiming at {goal:?}"))
+}
+
+/// How near a foe is for the fight to swing at it: its centre within this
+/// along the side axis of the player's centre, and within `REACH_TALL`
+/// along DOWN. The robot's blade reaches about this far.
+const REACH_ALONG: f32 = 56.0;
+const REACH_TALL: f32 = 40.0;
+/// Frames between two Attack presses: a press is an edge, and a swing must
+/// play out before the next one starts.
+const SWING_FRAMES: usize = 18;
+/// Frames between two choices of the foe to go to: a foe moves, so the goal
+/// is chosen again.
+const RETARGET_FRAMES: usize = 30;
+
+/// Fight in the live room with the player's own inputs until `done` says
+/// the fight is over: go to the nearest live foe that `foe` names, by the
+/// room's graph, and press Attack facing it when it is in reach. While no
+/// foe stands, wait (a wave comes). Returns the frames it took.
+///
+/// The graph is built again when the gate solids change: a fight shuts the
+/// room with its lock walls.
+pub fn fight(
+    walker: &mut impl Walker,
+    foe: impl Fn(&World, Entity) -> bool,
+    done: impl Fn(&World) -> bool,
+    frames: usize,
+) -> Result<usize, String> {
+    let player = the_player(walker.world_mut());
+    let room = the_players_room_id(walker.world(), player);
+    let mut solids = gate_solid_names(walker, player);
+    let mut graph = the_players_graph(walker, player, None)?;
+    let mut leg: Option<(NavLeg, LegPhase)> = None;
+    let mut goal: Option<ae::Vec2> = None;
+    let mut last_swing = 0usize;
+    for step in 0..frames {
+        if done(walker.world()) {
+            return Ok(step);
+        }
+        let now = gate_solid_names(walker, player);
+        if now != solids {
+            solids = now;
+            graph = the_players_graph(walker, player, None)?;
+            leg = None;
+            goal = None;
+        }
+        let world = walker.world_mut();
+        let kinematics = *world.get::<ae::BodyKinematics>(player).expect("the player has a body");
+        let on_ground = world.get::<ae::BodyGroundState>(player).is_some_and(|ground| ground.on_ground);
+        let wall = world
+            .get::<ae::BodyWallState>(player)
+            .and_then(|wall| wall.on_wall.then_some(wall.wall_normal_x.signum()));
+        let player_room = the_players_room(world, player);
+        let mut bodies = world.query::<(Entity, &ae::BodyKinematics, &ambition_platformer2d::characters::actor::BodyHealth)>();
+        let candidates: Vec<(Entity, ae::Vec2)> = bodies
+            .iter(world)
+            .filter(|(entity, _, health)| *entity != player && health.alive())
+            .map(|(entity, kin, _)| (entity, kin.pos))
+            .collect();
+        let nearest = candidates
+            .into_iter()
+            .filter(|(entity, _)| foe(world, *entity))
+            .filter(|(entity, _)| {
+                world.get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(*entity).map(|room| room.0)
+                    == player_room
+            })
+            .min_by(|a, b| (a.1 - kinematics.pos).length().total_cmp(&(b.1 - kinematics.pos).length()));
+        let feet = kinematics.pos + graph.frame.down * graph.half.y;
+        let mut press = Press::default();
+        let Some((_, at)) = nearest else {
+            leg = None;
+            goal = None;
+            walker.step(press);
+            continue;
+        };
+        let offset = at - kinematics.pos;
+        let (along, tall) = (offset.dot(graph.frame.side), offset.dot(graph.frame.down));
+        if along.abs() <= REACH_ALONG && tall.abs() <= REACH_TALL {
+            // In reach: face it, and swing on an edge once the last swing is
+            // over.
+            leg = None;
+            goal = None;
+            let facing = kinematics.facing;
+            if facing * along < 0.0 {
+                press.axis = along.signum();
+            } else if step >= last_swing + SWING_FRAMES {
+                press.attack = true;
+                last_swing = step;
+            }
+            walker.step(press);
+            continue;
+        }
+        if on_ground && (goal.is_none() || step % RETARGET_FRAMES == 0) && leg.is_none() {
+            goal = (0..graph.surfaces.len())
+                .map(|index| graph.point_on(index, graph.frame.along(at)))
+                .filter(|place| graph.frame.below(*place) >= graph.frame.below(at) - 1.0)
+                .min_by(|a, b| (*a - at).length().total_cmp(&(*b - at).length()));
+        }
+        if leg.is_none() && on_ground {
+            if let Some(goal) = goal {
+                match graph.next(feet, goal) {
+                    NavNext::Leg(next) => leg = Some((next, LegPhase::Approach)),
+                    NavNext::Arrived | NavNext::Unknown => press.axis = along.signum(),
+                    NavNext::Unreachable => return Err(format!("no route to a foe at {at:?} in `{room}` from {feet:?}")),
+                }
+            }
+        }
+        if let Some((current, phase)) = leg {
+            let facts = LegFacts { feet, vel: kinematics.vel, on_ground, side: graph.frame.side, down: graph.frame.down, dt: 1.0 / 60.0, wall };
+            let (input, progress) = follow_leg(&current, phase, &facts);
+            press.axis = input.axis;
+            press.up = input.up;
+            press.down = input.down;
+            press.jump_pressed = input.jump_pressed;
+            press.jump_held = input.jump_held;
+            press.dash = input.dash_pressed;
+            leg = match progress {
+                LegProgress::Going(next) => Some((current, next)),
+                LegProgress::Arrived | LegProgress::Failed => None,
+            };
+        }
+        walker.step(press);
+    }
+    Err(format!("the fight in `{room}` was not over after {frames} frames"))
+}
+
+/// The names of the gate solids that stand in the player's room now.
+fn gate_solid_names(walker: &mut impl Walker, player: Entity) -> Vec<String> {
+    the_players_overlay(walker.world_mut(), player).gate_solids.iter().map(|solid| solid.name.clone()).collect()
 }

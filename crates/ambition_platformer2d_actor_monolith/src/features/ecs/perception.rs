@@ -175,6 +175,8 @@ pub struct PerceptionPeer {
     pub vel: ae::Vec2,
     pub facing: f32,
     pub half_extent: ae::Vec2,
+    /// See [`ambition_characters::perception::PerceivedActor::gravity_down`].
+    pub gravity_down: Option<ae::Vec2>,
     pub faction: ActorFaction,
     pub alive: bool,
     pub on_ground: bool,
@@ -326,6 +328,8 @@ pub fn collect_perception_peers(
         // ⭐ HOW HEAVY THIS BODY IS. `None` is the reference body, which is the
         // same answer `knockback_growth_inputs` gives a body with no tuning.
         Option<&ambition_combat::components::CombatTuning>,
+        // The body's own frame: its facing and its swing are along it.
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
@@ -344,6 +348,7 @@ pub fn collect_perception_peers(
         team,
         facts,
         tuning,
+        frame,
     ) in &bodies
     {
         // ⛔⛤ **THE MECHANICAL ROAD HAS NO FALLBACK FROM CANONICAL IDENTITY TO
@@ -421,6 +426,7 @@ pub fn collect_perception_peers(
             // The half is in the body's OWN frame, not turned to the world
             // axes: see `PerceivedActor::half_extent`.
             half_extent: kin.size * 0.5,
+            gravity_down: frame.map(|frame| frame.down()),
             faction: *faction,
             alive: health.alive(),
             on_ground: ground.is_some_and(|g| g.on_ground),
@@ -839,6 +845,7 @@ pub fn build_world_view(
             vel: p.vel,
             facing: p.facing,
             half_extent: p.half_extent,
+            gravity_down: p.gravity_down,
             faction: p.faction,
             // A foe by faction (`FactionRelations`) OR by a personal grudge against
             // this exact body — the SAME two-part rule `select_actor_targets` uses, so

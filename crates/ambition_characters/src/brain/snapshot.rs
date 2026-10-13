@@ -228,6 +228,12 @@ pub struct BrainSnapshot {
     /// body's `DrivingParticipant(slot)`; no input frame is copied onto the entity.
     pub player_input: Option<ambition_platformer2d_core::ControlFrame>,
 
+    /// The move this body plays now, as the combat authority records it (the
+    /// body's `MovePlayback`): which use of a move it is, and what that use
+    /// has touched. `None` when no move plays. A brain learns from it whether
+    /// ITS OWN move hit; a foe seen reeling can be another body's hit.
+    pub own_move: Option<OwnMoveFact>,
+
     /// Per-tick crowding signal — same-faction + non-faction
     /// nearby-actor counts, the averaged "away" direction, and
     /// aggregate pressure. Smash uses this for brawler spacing;
@@ -270,6 +276,16 @@ pub fn face_toward(current: f32, side: f32, half_width: f32) -> f32 {
 /// The band a body with no reported width turns by (px): a target this close to
 /// its centre line is neither side of it.
 pub const MIN_TURN_BAND: f32 = 4.0;
+
+/// One use of a move by this body, as the combat authority records it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct OwnMoveFact {
+    /// Which use of a move this is on this body: it changes at each start,
+    /// also when a move is started again over itself.
+    pub instance: u32,
+    /// What this use has touched so far.
+    pub contact: ambition_entity_catalog::MoveContact,
+}
 
 impl BrainSnapshot {
     /// [`face_toward`] for this body: keep facing unless `side` is past its edge.
@@ -319,6 +335,7 @@ impl BrainSnapshot {
             world_size: ae::Vec2::ZERO,
             front_wall_clearance: None,
             player_input: None,
+            own_move: None,
             crowding: None,
             terrain: None,
             navigation: ae::navigation::NavAdvice::default(),

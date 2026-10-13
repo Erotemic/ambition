@@ -556,6 +556,14 @@ impl PendingLaunch {
 }
 
 impl BodyFlightState {
+    /// The flight a body of `abilities` starts with, at its spawn and at each
+    /// reset: a kit with flight and no toggle is always in flight, so it
+    /// starts flying. One baseline for both roads: a body built on the ground
+    /// that a reset puts in the air is two bodies.
+    pub fn at_start(abilities: &crate::abilities::AbilitySet) -> Self {
+        Self { fly_enabled: abilities.fly && !abilities.fly_toggle, ..Self::default() }
+    }
+
     /// Hand a launch to the gateway, with the kind it is.
     ///
     /// ⭐ ONE CALL FOR THE PAIR, so a writer cannot set the velocity and forget
@@ -1110,10 +1118,7 @@ pub fn reset_body_clusters(
         charges_available: dash_charges,
         ..Default::default()
     };
-    *clusters.flight = BodyFlightState {
-        fly_enabled: abilities.fly && !abilities.fly_toggle,
-        ..BodyFlightState::default()
-    };
+    *clusters.flight = BodyFlightState::at_start(&abilities);
     *clusters.blink = BodyBlinkState::default();
     *clusters.ledge = BodyLedgeState::default();
     *clusters.dodge = BodyDodgeState::default();
@@ -1399,7 +1404,7 @@ impl BodyClusterScratch {
                 charges_available: dash_charges,
                 cooldown: 0.0,
             },
-            flight: BodyFlightState::default(),
+            flight: BodyFlightState::at_start(&abilities),
             blink: BodyBlinkState::default(),
             ledge: BodyLedgeState::default(),
             dodge: BodyDodgeState::default(),
@@ -1511,6 +1516,29 @@ impl BodyClusterScratch {
 #[cfg(test)]
 mod reset_tests {
     use super::*;
+
+    /// ⛔ A BODY STARTS WITH THE FLIGHT A RESET GIVES IT. A kit with flight and
+    /// no toggle (`FreeFlight`, a spacecraft) is always in flight: a reset
+    /// latches it, so the built body must start flying too. The scratch body
+    /// of a navigation graph and a seat's home body are built here; built on
+    /// the ground, a flier's graph was the graph of a walker. The controls: a
+    /// kit that toggles flight starts on the ground, and so does a walker.
+    #[test]
+    fn a_body_starts_with_the_flight_a_reset_gives_it() {
+        use crate::abilities::{AbilityGrant, AbilitySet};
+        let toggled = AbilitySet { fly: true, fly_toggle: true, move_horizontal: true, ..AbilitySet::NONE };
+        let walker = AbilitySet { move_horizontal: true, jump: true, ..AbilitySet::NONE };
+        for (name, abilities, flies) in
+            [("free flight", AbilityGrant::FreeFlight.to_set(), true), ("toggled", toggled, false), ("walker", walker, false)]
+        {
+            let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::new(400.0, 400.0), abilities);
+            let built = scratch.flight;
+            assert_eq!(built.fly_enabled, flies, "{name}: the built body's flight");
+            let (model, mut clusters) = scratch.parts();
+            reset_body_clusters(model, &mut clusters, Vec2::new(64.0, 352.0), ResetFacing::Keep, 1);
+            assert_eq!(scratch.flight, built, "{name}: a reset gives the flight the body was built with");
+        }
+    }
 
     /// A reset returns every banked resource to the start it was DECLARED with
     /// — the baseline the body was built from — whatever the caller passes for

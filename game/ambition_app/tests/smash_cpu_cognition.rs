@@ -77,6 +77,10 @@ struct SeatState {
     playing: Option<(String, f32)>,
     /// The position in the fighter's cognitive stream.
     stream: Option<u64>,
+    /// The use of a move the brain's last press started, once it knows it.
+    own_bound: Option<u32>,
+    /// The use of a move the body plays, by the combat authority's record.
+    playing_instance: Option<u32>,
 }
 
 /// The two seats' states, seat 0 first, or `None` unless exactly two are seated.
@@ -106,6 +110,13 @@ fn seat_states(app: &mut App) -> Option<[SeatState; 2]> {
                         Some(Brain::StateMachine(StateMachineCfg::Fighter { state, .. })) => Some(state.noise),
                         _ => None,
                     },
+                    own_bound: match brain {
+                        Some(Brain::StateMachine(StateMachineCfg::Fighter { state, .. })) => {
+                            state.own_attack.and_then(|own| own.instance)
+                        }
+                        _ => None,
+                    },
+                    playing_instance: playback.map(|playback| playback.instance),
                 },
             )
         })
@@ -609,4 +620,34 @@ fn the_backslash_key_turns_the_frame_of_each_cpu_fighter_in_a_hosted_match() {
     let (down, samples, _) = a_match_in_cycled_gravity(1, true);
     assert!(samples > 0, "no fighter was sampled");
     assert_eq!(down, (-1.0, 0.0), "one press of the key did not turn the frame of a CPU fighter");
+}
+
+/// ⭐ A FIGHTER LEARNS WHETHER ITS OWN MOVE HIT FROM ITS BODY'S RECORD OF THAT
+/// MOVE, in the composition the desktop binary runs. The brain binds its press
+/// to the use of a move its body then plays (`BrainSnapshot::own_move`, from
+/// the body's `MovePlayback`), so a foe put in hitstun by another body is not
+/// its hit (review 2026-10-12). The unit tests in the fighter decision hold
+/// the rule; this holds the road: a bound use is one the body plays, never a
+/// later one than the body's, and a mirror match binds some.
+#[test]
+fn a_fighter_binds_its_press_to_the_move_its_body_plays() {
+    let (_, frames, _) = play_mirror_match(ORDINARY, 600);
+    let mut matched = 0usize;
+    for (index, pair) in frames.iter().enumerate() {
+        for (seat, state) in pair.iter().enumerate() {
+            let (Some(bound), Some(playing)) = (state.own_bound, state.playing_instance) else {
+                continue;
+            };
+            assert!(
+                bound <= playing,
+                "frame {index}, seat {seat}: the brain bound use {bound}, later than the use {playing} its body plays"
+            );
+            matched += usize::from(bound == playing);
+        }
+    }
+    assert!(
+        matched > 0,
+        "no frame of {} had a fighter bound to the move its body plays: the brain does not see its own move",
+        frames.len()
+    );
 }

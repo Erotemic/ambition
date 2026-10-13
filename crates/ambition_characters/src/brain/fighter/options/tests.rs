@@ -3035,3 +3035,45 @@ fn only_a_pure_counter_has_its_stance_priced() {
     };
     assert_eq!(pure_counter_stance(&hybrid), None, "a stance before a strike is priced as the strike");
 }
+
+/// ⛔ A SWING IS READ IN THE FOE'S OWN FRAME. The foe's facing and its reach
+/// are along its own side axis (review 2026-10-12). The defender stands in
+/// screen gravity throughout. The control is a foe in the same gravity: it
+/// threatens when it faces the defender. A foe in reversed gravity has its
+/// side axis toward -X, so `facing: 1.0` faces away; read in the defender's
+/// axes it faced it. A foe in sideways gravity under the defender swings up
+/// its own side axis into the defender, which the defender's axes call
+/// neither side. A foe whose frame is not known is not answered.
+#[test]
+fn a_counter_reads_the_swing_in_the_foes_own_frame() {
+    let me = SelfView {
+        pos: ae::Vec2::new(100.0, 300.0),
+        half_extent: ae::Vec2::new(12.0, 24.0),
+        gravity_down: ae::Vec2::Y,
+        alive: true,
+        ..Default::default()
+    };
+    let foe = |at: ae::Vec2, down: Option<ae::Vec2>, facing: f32| PerceivedActor {
+        pos: at,
+        facing,
+        half_extent: ae::Vec2::new(12.0, 24.0),
+        gravity_down: down,
+        alive: true,
+        hostile_to_self: true,
+        phase: BodyPhase::AttackStartup,
+        phase_remaining: 0.2,
+        attack_reach: Some(50.0),
+        ..Default::default()
+    };
+    let stance = (0.1, 0.3);
+    let left = ae::Vec2::new(60.0, 300.0);
+    let value = |f: PerceivedActor| counter_value(&f, &me, stance, 0.0);
+    assert_eq!(value(foe(left, Some(ae::Vec2::Y), 1.0)), 1.0, "control: one gravity, it faces me");
+    assert_eq!(value(foe(left, Some(ae::Vec2::Y), -1.0)), 0.0, "control: one gravity, it faces away");
+    assert_eq!(value(foe(left, Some(-ae::Vec2::Y), 1.0)), 0.0, "reversed gravity: facing 1 is toward -X, away");
+    assert_eq!(value(foe(left, Some(-ae::Vec2::Y), -1.0)), 1.0, "reversed gravity: facing -1 is toward me");
+    let under = ae::Vec2::new(100.0, 340.0);
+    assert_eq!(value(foe(under, Some(ae::Vec2::X), 1.0)), 1.0, "sideways gravity: it swings up its side axis into me");
+    assert_eq!(value(foe(under, Some(ae::Vec2::X), -1.0)), 0.0, "sideways gravity: it swings down, away");
+    assert_eq!(value(foe(left, None, 1.0)), 0.0, "a foe with no known frame is not answered");
+}

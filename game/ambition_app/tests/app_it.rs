@@ -67,6 +67,7 @@ mod how_much_of_the_peer_checksum_actually_varies;
 mod a_ron_game_installs_no_ldtk_world;
 mod a_save_remembers_where_you_left_things;
 mod a_teleported_subject_does_not_get_chased;
+mod a_transform_choice_changes_the_look_of_the_one_body;
 mod actor_phase_split;
 mod admiral_gun_sword;
 mod rigged_sprite_trial;

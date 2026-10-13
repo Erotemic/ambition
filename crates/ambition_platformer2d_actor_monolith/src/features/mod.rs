@@ -138,7 +138,7 @@ pub use ecs::{
     sync_encounter_reward_chests_ecs, tick_actor_brains, tick_and_despawn_hitboxes,
     tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges,
     trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
-    advance_hazards, apply_hazard_contacts, ActorConstructionContext, ActorSteering, ChallengeRequested, PetRequested,
+    advance_hazards, apply_hazard_contacts, ActorConstructionContext, ActorSteering, ChallengeRequested, PetRequested, WearRequested,
     EncounterRewardSyncPlugin, FactionRelations, FriendlyFire,
     HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
     OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
@@ -207,6 +207,9 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // leaves them: the next control gate reads the pet's state
                 // and not the state one tick before it.
                 ecs::project_pet_holds,
+                // A look a conversation asked a body to wear. The template is
+                // applied by the wear system on the tick after.
+                ecs::apply_wear_requests,
                 crate::items::narrative::apply_item_grants,
                 crate::items::narrative::apply_shop_transactions,
                 crate::items::narrative::apply_item_uses,
@@ -1486,6 +1489,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             ambition_conversation::NarrativeInputPlugin::<crate::features::BrainCommand>::default(),
             ambition_conversation::NarrativeInputPlugin::<crate::features::ReleaseProvocation>::default(),
             ambition_conversation::NarrativeInputPlugin::<crate::features::PetRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<crate::features::WearRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::ItemGrantRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
             // A menu uses a consumable through the host-intent ledger.

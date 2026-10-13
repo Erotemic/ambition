@@ -68,6 +68,7 @@ mod fighter_harness;
 mod interact;
 mod pet;
 mod talk_spacing;
+mod wear;
 pub mod errand;
 pub mod navigation;
 pub mod perception;
@@ -135,6 +136,7 @@ pub use pet::{
     PET_SECONDS, PET_WALK_SPEED,
 };
 pub use talk_spacing::{space_the_talkers, TalkSpacing, TALK_GAP};
+pub use wear::{apply_wear_requests, WearRequested};
 // ⭐ THE MOUNT PAIR'S TESTS STAYED, because their fixtures are this crate's
 // construction road. They exercise `ambition_mount` from the composition.
 #[cfg(test)]

@@ -3264,7 +3264,9 @@
             idle: ["Please attack conventionally. The armor dislikes surprises.", "The shell is strongest from directions the game permits."],
             hall: ["THREE! The armor has depth. I remain offended.", "When everything glows, the hint is leave.", "An unexpected dent is merely a newly discovered dimension.", "The defensive representation is holding. Reality is under review."],
         ),
-        hall_dialogue_id: Some("hall_npc_jeff_hinter_armored"),
+        // The other side of Jeff Hinter: the Hall shows it on his body
+        // (`<<transform>>` in `hall_npc_jeff_hinter`).
+        form_of: Some("npc_jeff_hinter"),
         ),
         "npc_davy_hylbert": (
             display_name: "Davy Hylbert",

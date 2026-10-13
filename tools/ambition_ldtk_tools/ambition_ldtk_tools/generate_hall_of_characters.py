@@ -207,6 +207,7 @@ def parse_catalog(
     ids = [match.group("id") for match in matches]
     tiers: dict[str, str] = {}
     hall_dialogue_ids: dict[str, str] = {}
+    forms: set[str] = set()
     for idx, match in enumerate(matches):
         cid = match.group("id")
         end = (
@@ -223,7 +224,14 @@ def parse_catalog(
         hm = re.search(r'hall_dialogue_id:\s*Some\(\s*"([^"]+)"\s*\)', window)
         if hm:
             hall_dialogue_ids[cid] = hm.group(1)
+        # A look of another character (`form_of`) has no place of its own:
+        # the Hall shows it on its character's body (`<<transform>>` in that
+        # character's conversation).
+        fm = re.search(r'^\s*form_of:\s*Some\(\s*"([^"]+)"\s*\)', window, re.MULTILINE)
+        if fm:
+            forms.add(cid)
 
+    ids = [cid for cid in ids if cid not in forms]
     main = [cid for cid in ids if tiers[cid] == "MainHall"]
     basement = [cid for cid in ids if tiers[cid] == "Basement"]
     giants = [cid for cid in ids if tiers[cid] == "Giant"]
@@ -602,13 +610,12 @@ HEADER = """\
 # from the Hall, never by editing the provider's own definition.
 #
 # (character_id, tier, hall_dialogue_id), where tier is "MainHall" or
-# "Basement". Transformations
-# (super_sanic, mary_o_tall) are listed EXPLICITLY, never auto-expanded.
+# "Basement". A transformation (super_sanic, mary_o_tall) is NOT listed: its
+# catalog row names its character in `form_of`, and the Hall shows it on that
+# character's body (`<<transform>>` in the character's conversation).
 PROVIDER_HALL_ENTRIES: list[tuple[str, str, str]] = [
     ("sanic", "MainHall", "hall_sanic"),
-    ("super_sanic", "MainHall", "hall_super_sanic"),
     ("mary_o", "MainHall", "hall_mary_o"),
-    ("mary_o_tall", "MainHall", "hall_mary_o_tall"),
 ]
 
 

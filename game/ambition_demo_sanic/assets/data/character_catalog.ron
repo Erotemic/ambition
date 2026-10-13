@@ -122,7 +122,7 @@
                 "Gravity had one job and it has been reassigned.",
                 "I went so fast I met the version of me that was leaving.",
             ],
-            hall_dialogue_id: Some("hall_super_sanic"),
+            form_of: Some("sanic"),
         ),
         // A 1-HP wanderer that paces and reverses at walls, with no melee: its
         // only offense is walking into you. It wears the published `ai_slop`

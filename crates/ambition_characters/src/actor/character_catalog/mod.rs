@@ -382,6 +382,22 @@ impl CharacterCatalog {
     pub fn hall_dialogue_id(&self, character_id: &str) -> Option<&str> {
         self.get(character_id)?.hall_dialogue_id.as_deref()
     }
+
+    /// The character `character_id` is a look of, when its row is a
+    /// transform state (`form_of`).
+    pub fn form_of(&self, character_id: &str) -> Option<&str> {
+        self.get(character_id)?.form_of.as_deref()
+    }
+
+    /// The looks of `character_id`: each row that names it in `form_of`, in
+    /// id order.
+    pub fn forms_of<'a>(&'a self, character_id: &'a str) -> impl Iterator<Item = &'a str> + 'a {
+        self.0
+            .characters
+            .iter()
+            .filter(move |(_, entry)| entry.form_of.as_deref() == Some(character_id))
+            .map(|(id, _)| id.as_str())
+    }
 }
 
 // The roster-data tests (catalog parses, validator passes over the real

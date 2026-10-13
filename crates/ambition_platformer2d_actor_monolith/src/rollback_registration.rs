@@ -663,6 +663,10 @@ where
         OWNER,
         "message.pet_requested",
     );
+    registrar.clear_message_on_rollback::<crate::features::WearRequested>(
+        OWNER,
+        "message.wear_requested",
+    );
     // Written and recorded inside one tick; a resimulated tick re-announces
     // the transition that caused it.
     registrar.clear_message_on_rollback::<crate::features::NpcProvocationChanged>(

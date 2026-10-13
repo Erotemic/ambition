@@ -1004,19 +1004,13 @@ Jeff Hinter: THREE! ...Still no. I can see the route around that wall and this p
     Jeff Hinter: Go try it. I'll still be here if I was wrong.
 -> What if your hint is wrong?
     Jeff Hinter: Then I missed something. Usually a ladder. Tell me if you find it.
-===
-
-title: hall_npc_jeff_hinter_armored
----
-Armored Jeff Hinter: THREE! Put all this armor on me and I still can't step around you. Infuriating.
--> Does it actually protect you?
-    Armored Jeff Hinter: Against the attacks I planned for. Please use those.
--> Can armored you still give hints?
-    Armored Jeff Hinter: Enemy glows, move. Floor glows, move faster. Everything glows, leave.
--> Where is the weak point?
-    Armored Jeff Hinter: Back seam. Since you cannot go around me, hit whatever seam you can reach.
--> What if the armor fails?
-    Armored Jeff Hinter: Then I planned for the wrong attack. Try not to enjoy that too much.
+-> Put the armor on.
+    <<transform "npc_jeff_hinter_armored">>
+    Jeff Hinter: THREE! Put all this armor on me and I still can't step around you. Infuriating.
+    Jeff Hinter: It protects me against the attacks I planned for. Please use those.
+-> Take the armor off.
+    <<transform "npc_jeff_hinter">>
+    Jeff Hinter: Back seam first. There. If the armor had failed, I planned for the wrong attack.
 ===
 
 title: hall_npc_davy_hylbert
@@ -1090,15 +1084,12 @@ Sanic: They told me to stand still. Rude.
     Sanic: I can stop. Watch. ...No.
 -> How fast are you?
     Sanic: Faster than that camera likes.
-===
-
-title: hall_super_sanic
----
-Super Sanic: Glow? That is speed.
--> How long can you stay like this?
-    Super Sanic: Until the rings run out.
--> Can you slow down?
-    Super Sanic: Haven't found the top speed yet.
+-> Go super.
+    <<transform "super_sanic">>
+    Sanic: Glow? That is speed. It lasts until the rings run out.
+-> Power down.
+    <<transform "sanic">>
+    Sanic: Haven't found the top speed yet. Next time.
 ===
 
 title: hall_mary_o
@@ -1108,15 +1099,18 @@ Mary-O: Brick problem? Stand under it.
     Mary-O: I get three. Use all three.
 -> Are you really a plumber?
     Mary-O: Plumber enough. I spend more time inside pipes than under sinks.
-===
-
-title: hall_mary_o_tall
----
-Mary-O (Tall): Great. Now I hit every low ceiling.
--> Is being taller better?
-    Mary-O (Tall): Better for blocks. Worse for doors.
--> Can you change back?
-    Mary-O (Tall): One bad hit usually fixes it.
+-> Grow tall.
+    <<transform "mary_o_tall">>
+    Mary-O: Great. Now I hit every low ceiling. Better for blocks. Worse for doors.
+-> Take the fire.
+    <<transform "mary_o_fire">>
+    Mary-O: Warm opinions, thrown at speed.
+-> Go cosmic.
+    <<transform "mary_o_cosmic">>
+    Mary-O: The star came down when I called.
+-> Be small again.
+    <<transform "mary_o">>
+    Mary-O: One bad hit usually fixes it.
 ===
 
 title: hall_npc_carl_runga

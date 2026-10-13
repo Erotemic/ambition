@@ -749,6 +749,7 @@ tackon_targets=(
     mantis_lancer
     ninja_heavy
     ninja_shadow_duelist
+    ninja_shadow_oni_leader
     pirate_cutlass_viper
     president_portrait
     puppy_slug_variant2

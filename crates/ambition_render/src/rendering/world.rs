@@ -1336,6 +1336,12 @@ fn is_lock_wall_block(name: &str) -> bool {
         .any(|prefix| name.starts_with(prefix))
 }
 
+/// How many runs of [`sync_lock_wall_visuals`] a live room must be the same
+/// room before a wall of it that opens or shuts is heard: about half a
+/// second. The walls of a room are made in its first runs, and the walls of
+/// the room before it go in them.
+const LOCK_WALL_QUIET_FRAMES: u32 = 30;
+
 /// The authored `look` of the lock wall that the gate solid `block_name` is:
 /// the prop sheet that draws it (a door, a gate).
 ///
@@ -1365,16 +1371,27 @@ fn lock_wall_look<'a>(
 /// A gated wall that opens or shuts while its room is live is heard: a lock
 /// that opens, a gate that falls. A wall that stands when its room becomes
 /// live makes no sound, and a wall that goes with its room makes none.
+///
+/// The room that a body enters can take the live room of the room it left.
+/// So "the room was live already" is not asked of the live room alone: a room
+/// is heard after it has been the same room (the same root, the same
+/// geometry) for [`LOCK_WALL_QUIET_FRAMES`] runs of this system. Each door of
+/// a room that had just become live fell with a sound, all at one time
+/// (Jon, 2026-10-12).
 pub fn sync_lock_wall_visuals(
     mut commands: Commands,
     mut sfx: Option<ambition_sfx::SfxWriter>,
-    // The rooms that were live when this last ran.
-    mut live_before: Local<std::collections::HashSet<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>>,
+    // Each live room: its root, the name of its geometry, and for how many
+    // runs it has been that room.
+    mut settled: Local<
+        std::collections::HashMap<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, (Entity, String, u32)>,
+    >,
     active_session: Option<Res<ActiveSessionScope>>,
     // Every live room's walls, each drawn in its own room and stamped with
     // it. A sole-room read did not run while two rooms were live.
     rooms: Query<
         (
+            Entity,
             &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
             &ambition_platformer2d_core::RoomGeometry,
             &ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
@@ -1407,7 +1424,21 @@ pub fn sync_lock_wall_visuals(
     for (entity, visual, room) in &existing {
         existing_by_name.insert((room.map(|room| room.0), visual.block_name.clone()), (entity, visual.centre));
     }
-    let live_now: std::collections::HashSet<_> = rooms.iter().map(|(room, _, _)| *room).collect();
+    // Count the runs each live room has been the same room. A room that is
+    // new, or that took the place of another, starts again from none.
+    let mut heard_rooms = std::collections::HashSet::new();
+    let mut now = std::collections::HashMap::new();
+    for (root, room, world, _) in &rooms {
+        let runs = match settled.get(room) {
+            Some((was_root, was_name, runs)) if *was_root == root && *was_name == world.0.name => runs + 1,
+            _ => 0,
+        };
+        if runs >= LOCK_WALL_QUIET_FRAMES {
+            heard_rooms.insert(*room);
+        }
+        now.insert(*room, (root, world.0.name.clone(), runs));
+    }
+    *settled = now;
     let mut heard = |id: ambition_sfx::SfxId, pos: ae::Vec2| {
         if let Some(sfx) = sfx.as_mut() {
             sfx.write(ambition_sfx::SfxMessage::Play { id, pos });
@@ -1417,7 +1448,7 @@ pub fn sync_lock_wall_visuals(
     // Pass 1: spawn a visual for each lock-wall block without one. Mark
     // consumed keys so pass 2 keeps them.
     let mut consumed: std::collections::HashSet<Key> = std::collections::HashSet::new();
-    let blocks = rooms.iter().flat_map(|(room, world, overlay)| {
+    let blocks = rooms.iter().flat_map(|(_, room, world, overlay)| {
         overlay.gate_solids.iter().map(move |block| (*room, world, block))
     });
     for (room, world, block) in blocks {
@@ -1430,7 +1461,7 @@ pub fn sync_lock_wall_visuals(
             continue;
         }
         // A gate that shuts in a room that was live already is heard.
-        if block.name.starts_with("gated_lock:") && live_before.contains(&room) {
+        if block.name.starts_with("gated_lock:") && heard_rooms.contains(&room) {
             heard(ambition_sfx::ids::WORLD_GATE_FALL, block.aabb.center());
         }
         let size = block.aabb.half_size() * 2.0;
@@ -1504,13 +1535,12 @@ pub fn sync_lock_wall_visuals(
     for (key, (entity, centre)) in &existing_by_name {
         if !consumed.contains(key) {
             // A gate that opens in a room that stays live is heard.
-            if key.1.starts_with("gated_lock:") && key.0.is_some_and(|room| live_now.contains(&room)) {
+            if key.1.starts_with("gated_lock:") && key.0.is_some_and(|room| heard_rooms.contains(&room)) {
                 heard(ambition_sfx::ids::WORLD_LOCK_OPEN, *centre);
             }
             commands.entity(*entity).try_despawn();
         }
     }
-    *live_before = live_now;
 }
 
 /// A struck block flinches; the collision box does not move.
@@ -1735,6 +1765,66 @@ mod lock_wall_visual_tests {
         let mut names: Vec<String> = q.iter(app.world()).map(|v| v.block_name.clone()).collect();
         names.sort();
         names
+    }
+
+    /// The sounds this system wrote, by cue id.
+    fn heard(app: &mut App) -> Vec<ambition_sfx::SfxId> {
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ambition_sfx::OwnedSfxMessage>>()
+            .drain()
+            .filter_map(|message| match message.request {
+                ambition_sfx::SfxMessage::Play { id, .. } => Some(id),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// A door that opens in a room is heard, and so is one that shuts. The
+    /// doors a room has when a body enters it are not heard, and the doors
+    /// of the room it left are not: the next room takes the live room of the
+    /// room before it, and each of its doors fell with a sound at one time.
+    #[test]
+    fn a_door_is_heard_when_it_opens_and_not_when_its_room_is_entered() {
+        let door = || ae::Block::solid("gated_lock:nave_door", ae::Vec2::new(300.0, 300.0), ae::Vec2::new(32.0, 128.0));
+        let mut app = App::new();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), room());
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(),
+            FeatureEcsWorldOverlay { gate_solids: vec![door()], ..Default::default() },
+        );
+        app.add_systems(Update, sync_lock_wall_visuals);
+        let overlay = |app: &mut App, solids: Vec<ae::Block>| {
+            ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<FeatureEcsWorldOverlay>(app.world_mut())
+                .expect("the live room has a collision overlay")
+                .gate_solids = solids;
+        };
+
+        // The room is entered with its door shut.
+        for _ in 0..LOCK_WALL_QUIET_FRAMES + 5 {
+            app.update();
+        }
+        assert!(heard(&mut app).is_empty(), "a door that stands when its room is entered makes no sound");
+
+        // The door opens, then it shuts again.
+        overlay(&mut app, Vec::new());
+        app.update();
+        assert_eq!(heard(&mut app), vec![ambition_sfx::ids::WORLD_LOCK_OPEN], "a door that opens is heard one time");
+        overlay(&mut app, vec![door()]);
+        app.update();
+        assert_eq!(heard(&mut app), vec![ambition_sfx::ids::WORLD_GATE_FALL], "a door that shuts is heard one time");
+
+        // The body goes to the next room, which takes this live room: the
+        // door of the room it left goes, and the doors of the next room come.
+        ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<RoomGeometry>(app.world_mut())
+            .expect("the live room has its geometry")
+            .0
+            .name = "the next room".into();
+        overlay(&mut app, vec![ae::Block::solid("gated_lock:next_door", ae::Vec2::new(500.0, 300.0), ae::Vec2::new(32.0, 128.0))]);
+        for _ in 0..5 {
+            app.update();
+        }
+        assert!(heard(&mut app).is_empty(), "the doors of a room that is entered make no sound");
     }
 
     /// The reconcile reads the overlay's `gate_solids`, not the authored base:

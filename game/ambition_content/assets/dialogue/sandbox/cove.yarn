@@ -301,29 +301,3 @@ Parrot: "The treasure was the priors we updated along the way." ...I don't know 
     <<jump parrot_cove>>
 -> Squawk back and leave.
 ===
-
-title: noodly_sexton
----
-Sexton: Welcome to the temple, landstrider. He boiled for our sins. Mind the sauce.
--> How do I see Him?
-    <<jump noodly_sexton__1>>
--> What do the doors want?
-    <<jump noodly_sexton__2>>
--> ⟨step aside⟩
-===
-
-title: noodly_sexton__1
----
-Sexton: He's in the sanctum, past the nave, behind the door with the holes in it. That door wants the Colander Key, an' the Colander Key sleeps in the reliquary. Ye'll need every sauce in the house afore ye get that far.
--> Aught else, sexton?
-    <<jump noodly_sexton>>
--> ⟨step aside⟩
-===
-
-title: noodly_sexton__2
----
-Sexton: Every door has a colour an' every colour has a key. Red is marinara: the cooks have that one, an' the cooks don't share. Green is pesto: it's down the cistern, where a wheel that opens one sluice shuts another. Gold is parmesan: up the belfry, behind three bells. A key ye've taken is yours for good.
--> Aught else, sexton?
-    <<jump noodly_sexton>>
--> ⟨step aside⟩
-===

@@ -8,7 +8,7 @@
     px_hei: 800,
     fill_collision: "empty",
     bg_color: "#15131F",
-    biome: "boss",
+    biome: "noodly",
     music_track: "flying_spaghetti_monster_roots_stage_choir_backing",
     entities: [
         ( type: "Solid", px: [0, 768], size: [1600, 32], fields: ( name: "floor" ) ),
@@ -48,6 +48,9 @@
         ( type: "Solid", px: [1456, 592], size: [32, 48], fields: ( name: "cell_wall" ) ),
         ( type: "LockWall", px: [1456, 640], size: [32, 128], fields: ( id: "noodly_cistern_cell_door", name: "a door of Parmesan Key", gated_by: "noodly_key_parmesan", look: "temple_gate_parmesan" ) ),
         ( type: "ChestSpawn", px: [1496, 710], size: [76, 58], fields: ( name: "the hoard of the cistern", reward: "currency:200" ) ),
+        ( type: "GroundItem", px: [170, 756], size: [72, 12], fields: ( id: "noodly_cistern_pool_noodle_1", name: "pool noodle", held_item: "pool_noodle" ) ),
+        ( type: "GroundItem", px: [1298, 292], size: [72, 12], fields: ( id: "noodly_cistern_pool_noodle_2", name: "pool noodle", held_item: "pool_noodle" ) ),
+        ( type: "DebugLabel", px: [76, 658], size: [260, 24], fields: ( name: "noodly_cistern_sign_noodle", text: "A pool noodle. Attack takes it.", category: "Custom" ) ),
         ( type: "EnemySpawn", px: [720, 150], size: [40, 40], fields: ( name: "noodly_cistern_npc_fsm_noodling_1", brain: "combatant", character_id: "npc_fsm_noodling", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [860, 520], size: [40, 40], fields: ( name: "noodly_cistern_npc_fsm_noodling_2", brain: "combatant", character_id: "npc_fsm_noodling", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [1340, 440], size: [40, 40], fields: ( name: "noodly_cistern_npc_fsm_noodling_3", brain: "combatant", character_id: "npc_fsm_noodling", respawn: "OnRoomReenter" ) ),

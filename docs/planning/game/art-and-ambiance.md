@@ -219,6 +219,12 @@ suit the style of the game.
 - [ ] Still to do for the coconut: a palm that GROWS them (nothing puts a
   taken ground item back). The African swallow picks one up and lets it go
   over the player now (the entry on the six rooms, below).
+- [x] A biome of pasta for the Noodly Temple (Jon, 2026-10-12: "a much more
+  noodly biome"): `noodly` (`ParallaxTheme::Noodly`). A colander over the
+  world with the light through its holes, columns of rigatoni, curtains of
+  noodles; ground of noodles under marinara, with noodles under each block
+  and ledges of lasagne. See [`noodly-temple.md`](noodly-temple.md). Seen
+  with `capture_scene` at the ultra profile, not in a window on a GPU.
 - [x] The primeval trail, a linear dinosaur level (Jon): the hub ->
   `primeval_trailhead` -> `primeval_run` -> `primeval_canopy` ->
   `primeval_tyrant_hall` (the T-rex, with his own encounter id

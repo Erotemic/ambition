@@ -7,7 +7,7 @@
 Run it from `tools/ambition_ldtk_tools`.
 
 The temple of the Flying Spaghetti Monster: seven rooms round one hall, in
-the `boss` biome. The monster is in the last room. The way to it is shut by
+the `noodly` biome. The monster is in the last room. The way to it is shut by
 doors, and each door has a key.
 
     central hub -> narthex -> nave -+-> scullery   (open)        the Marinara Key
@@ -24,7 +24,7 @@ turned round asks `not world.switch_on`.
 
 What each room asks of the player:
 
-- `noodly_narthex`: the way in. The sexton says what the temple is. A green
+- `noodly_narthex`: the way in. Ramen-nujan says what the temple is. A green
   door shuts the alms: the first lock the player sees has no key yet.
 - `noodly_nave`: the hall, with a shrine. Each other room is behind a chapel
   in its walls, and each chapel but one is behind a door.
@@ -69,7 +69,7 @@ from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 LDTK = default_sandbox_ldtk()
 
-BIOME = "boss"
+BIOME = "noodly"
 MUSIC = "flying_spaghetti_monster_roots_stage_choir_backing"
 BOSS_MUSIC = "flying_spaghetti_monster_roots_boss_choir_backing"
 BG = "#15131F"
@@ -161,6 +161,13 @@ def lever(switch_id, name, prompt, x, floor_y, action="ToggleFlag", target=""):
             f'prompt: "{prompt}", action: "{action}"{link} ) ),')
 
 
+def pool_noodle(room, n, x, floor_y):
+    """A pool noodle on the floor at `floor_y`: `Attack` picks it up, and
+    `Attack` swings it."""
+    return (f'( type: "GroundItem", px: [{x}, {floor_y - 12}], size: [72, 12], fields: ( id: "{room}_pool_noodle_{n}", '
+            f'name: "pool noodle", held_item: "pool_noodle" ) ),')
+
+
 def sign(room, n, text, x, y, w=320):
     """A line of writing in the room, with its middle over `x`."""
     return (f'( type: "DebugLabel", px: [{x - w // 2}, {y}], size: [{w}, 24], fields: ( name: "{room}_sign_{n}", '
@@ -249,8 +256,10 @@ def narthex():
         f'( type: "PlayerStart", px: [110, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         door(f"{rid}_to_hub", "to the central hub", 32, floor, "central_hub_complex", HUB_DOOR_ID),
         door(f"{rid}_east", "to the nave", w - WALL - 80, floor, "noodly_nave", "noodly_nave_west"),
-        (f'( type: "NpcSpawn", px: [400, {floor - 70}], size: [42, 70], fields: ( character_id: "npc_pirate_quartermaster", '
-         f'prompt: "Talk", dialogue_id: "noodly_sexton", brain_override: "stand_still" ) ),'),
+        # Ramen-nujan says what the temple is (Jon, 2026-10-12: he is the one
+        # at the door, not a sexton).
+        (f'( type: "NpcSpawn", px: [400, {floor - 70}], size: [42, 70], fields: ( character_id: "npc_ramen_nujan", '
+         f'prompt: "Talk", dialogue_id: "noodly_ramen_nujan", brain_override: "stand_still" ) ),'),
         # The alms: a room over the way out, shut by a green door. The player
         # has no green key for a long time.
         solid("alms_floor", 560, 240, w - WALL - 560, 32),
@@ -401,6 +410,11 @@ def cistern():
         solid("cell_wall", 1456, 592, GATE_W, 48),
         key_door(f"{rid}_cell_door", "parmesan", 1456, 640),
         chest("the hoard of the cistern", "currency:200", 1496, floor),
+        # By the pools: a pool noodle on the landing, and one on the shelf of
+        # the vault.
+        pool_noodle(rid, 1, 170, floor),
+        pool_noodle(rid, 2, 1298, 304),
+        sign(rid, "noodle", "A pool noodle. Attack takes it.", 206, floor - 110, 260),
         enemy(rid, 1, "npc_fsm_noodling", 720, 190),
         enemy(rid, 2, "npc_fsm_noodling", 860, 560),
         enemy(rid, 3, "npc_fsm_noodling", 1340, 480),

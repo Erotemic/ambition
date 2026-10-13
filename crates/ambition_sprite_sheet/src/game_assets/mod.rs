@@ -190,6 +190,11 @@ pub enum ParallaxTheme {
     /// The land of the dinosaurs: a jungle of palms and tree ferns under a
     /// volcano that smokes.
     Primeval,
+    /// The house of the Flying Spaghetti Monster: all of it pasta, under a
+    /// colander that lets the light through its holes. Columns of rigatoni,
+    /// curtains of noodles, hills of meatballs in steam. The rooms of the
+    /// Noodly Temple name it.
+    Noodly,
     /// Mary-O's land in the colours of a magical girl: round hills, a far
     /// castle, a rainbow and a crescent moon in a pink sky. The rooms of
     /// Mary-O name it.
@@ -244,6 +249,7 @@ impl ParallaxTheme {
         Self::Water,
         Self::Forest,
         Self::Primeval,
+        Self::Noodly,
         Self::Starlight,
         Self::Stardune,
         Self::Starless,
@@ -268,6 +274,7 @@ impl ParallaxTheme {
             Self::Water => "water",
             Self::Forest => "forest",
             Self::Primeval => "primeval",
+            Self::Noodly => "noodly",
             Self::Starlight => "starlight",
             Self::Stardune => "stardune",
             Self::Starless => "starless",
@@ -360,6 +367,7 @@ impl ParallaxTheme {
                 Some(Self::Forest)
             }
             "primeval" | "jungle" | "dinosaur" | "prehistoric" => Some(Self::Primeval),
+            "noodly" | "noodle" | "pasta" => Some(Self::Noodly),
             "starlight" | "magical_girl" | "magical" => Some(Self::Starlight),
             "stardune" | "star_dunes" => Some(Self::Stardune),
             "starless" | "dark_magical_girl" => Some(Self::Starless),

@@ -43,6 +43,9 @@ pub(super) fn register(app: &mut App) {
         // The coconut (renderer target `coconut`): a thing to throw, and what
         // the African swallow carries.
         HeldItemArtEntry::new("coconut", "sprites/props/coconut.png", Vec2::new(18.0, 15.0)),
+        // The pool noodle (renderer target `pool_noodle`): a long foam tube to
+        // hit with. It lies by the pools of the Noodly Temple.
+        HeldItemArtEntry::new("pool_noodle", "sprites/props/pool_noodle.png", Vec2::new(72.0, 14.0)),
         // The heavy archetype authors a distinct item id but the same gun-sword art.
         HeldItemArtEntry::new(
             "gun_sword",

@@ -4,6 +4,10 @@ Jon, 2026-10-12: "I want to build a level that has the FSM as the boss at the
 end. It should be a puzzle style level that keys you have to find and doors to
 unlock. This should be a fairly sophisticated level."
 
+Jon, the same day, while the level was made: "We also want a much more noodly
+biome." and "It might also be fun to have a pool noodle prop near the pools
+that the character can pick up and use as a weapon."
+
 ## What it is
 
 Seven rooms round one hall, from a door in the central hub ("to the Noodly
@@ -13,7 +17,7 @@ script and run it with `--apply`; do not change the rooms in the map.
 
 | Room | Behind | What it asks | What it gives |
 | --- | --- | --- | --- |
-| `noodly_narthex` | the hub door | nothing: the sexton says what the temple is | (the alms, behind a green door) |
+| `noodly_narthex` | the hub door | nothing: Ramen-nujan says what the temple is | (the alms, behind a green door) |
 | `noodly_nave` | open | the hall, with a shrine | a way to each other room |
 | `noodly_scullery` | open | a fight of three waves that shuts the room | the Marinara Key (red) |
 | `noodly_cistern` | a red door | three wheels and five sluices | the Pesto Key (green) |
@@ -51,6 +55,41 @@ green door. Each key but the last opens a second door with a reward behind it
   (`targets/props/_temple_kit.py`), and `ambition_content::noodly_temple`
   registers them.
 
+## The noodly biome
+
+The rooms name the biome `noodly` (`ParallaxTheme::Noodly`; the keys `noodle`
+and `pasta` name it also). All of it is pasta. The art is in the sprite
+renderer:
+
+- The scene (`backgrounds/noodly.py`): the roof of the world is a colander,
+  and the light is what comes through its holes. Hills of meatballs in steam,
+  forks that stand like spires, columns of rigatoni with arches of macaroni,
+  and noodles that hang between them. Near, great columns and curtains of
+  noodles. The foreground is a few noodles that hang from above.
+- The ground (`terrain/skins.py`, the row `noodly`): noodles in a press (the
+  material `noodle`), marinara that runs down the edge in round drips with
+  cheese and basil on it (the cap `sauce`), noodles that hang under each
+  block (the underside `noodles`), and a ledge of lasagne (the one-way
+  `lasagne`).
+- On the ground (`terrain/decor.py`): meatballs, a nest of noodles, a pot on
+  the boil, garlic, breadsticks, basil. The door is the door of a kitchen.
+  The motes are steam.
+
+Publish it with `python -m ambition_sprite2d_renderer.backgrounds draw
+--out-dir <assets>/backgrounds/parallax_layers noodly`, the same for
+`.terrain` to `<assets>/room_dressing`, then
+`./scripts/regen/quality_variants.sh --backgrounds-only --target 'noodly*'`.
+
+## The pool noodle
+
+A held item, `pool_noodle`: a tube of foam, long, quick and weak (a swing
+of 88 reach and 1 damage). `Attack` over it picks it up, and `Attack` swings
+it. Two lie in the cistern: one on the landing by the basin, one on the shelf
+of the vault. It is a row of the held-item table
+(`ambition_characters::brain::action_set`), a renderer target (`pool_noodle`)
+and an art entry (`ambition_content::items::held_visuals`). A room places one
+with a `GroundItem` (`held_item: "pool_noodle"`).
+
 ## The check
 
 `python specs/noodly_temple/check_temple.py` (from `tools/ambition_ldtk_tools`)
@@ -62,8 +101,9 @@ takes as given.
 
 ## Open
 
-- The rooms are in the `boss` biome with no art of their own. A temple biome
-  (a scene, a skin, a door) is not made.
+- The hall of biomes has no room for `noodly`.
+- The pool noodle is drawn in the hand as the axe is: one picture that turns
+  with the swing. It does not bend. Its swing has the sound of each swing.
 - A door that the player can not open says nothing when he touches it. The
   writing by each door says what it wants.
 - The keys the player has are not shown on the screen.

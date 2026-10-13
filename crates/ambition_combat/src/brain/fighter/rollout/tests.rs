@@ -21,6 +21,7 @@ fn frames(startup_s: f32, reach: f32, max_damage: i32, max_knockback: f32) -> Mo
         cancel_windows: Vec::new(),
         reach,
         ignores_guard: false,
+        counter_stance: None,
         hazard: None,
         // `None` keeps every fixture's aim on `startup_s`, which is what the
         // lead read before this field existed. A fixture that means to test the

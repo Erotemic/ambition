@@ -388,6 +388,19 @@ general shape; check new code against it.
   GNU-ton's `third_law` (stance from 0.0 s, sweep at 0.18 s) was a frame-0
   strike, the fastest move of his kit. Witness
   `frame_data_startup_is_the_first_live_hit_not_a_counters_stance`.
+- **A counter is priced by the swing it meets.** `Features::counter_value` is 1
+  when the foe is committed to a swing (`AttackStartup` or `AttackActive`)
+  that faces me, reaches me (its `attack_reach`) and goes live while the
+  stance (`MoveFrameData::counter_stance`) is open, read through the view's
+  delay; else 0. Only a pure counter (a stance that offers nothing else,
+  `pure_counter_stance`) is priced so, and it is offered only while it is 1.
+  Its frame advantage reads the stance opening, not its startup (a stance is
+  not a live hit). A move that also strikes is priced as its strike: priced
+  as a stance too, two patent clerks in a mirror answered each other's windup
+  with the same move, 160 presses for 0%. The weight (0.8) is the middle of the band on the Officer's real kit:
+  from 0.49 the stance beats his gust against a swing that outranges him, and
+  from 1.17 it beats an uppercut that lands first. Witness
+  `a_counter_is_chosen_against_a_swing_that_meets_its_stance`.
 - **A hazard carries its travel law.** `ThreatTravel::{Straight, Boomerang,
   Placed}` answers `travel_to(distance)`, and `None` for a distance it never
   covers. A new travel shape is a new variant, never a new scalar. A boomerang's

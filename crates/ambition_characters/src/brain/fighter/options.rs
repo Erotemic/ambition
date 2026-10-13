@@ -140,6 +140,11 @@ pub struct Features {
     /// feature with its own weight because a shove is worth a DIFFERENT amount
     /// than a hit, and the amount depends on where the foe is standing.
     pub displacement_value: f32,
+    /// `0..=1`. What a counter's STANCE is worth right now: 1 when the foe
+    /// is committed to a swing that reaches me and goes live while the stance
+    /// is open, else 0. Zero for every move with no stance. See
+    /// [`counter_value`].
+    pub counter_value: f32,
 }
 
 impl Features {
@@ -151,6 +156,7 @@ impl Features {
             + self.expected_payoff * w.expected_payoff
             + self.capture_value * w.capture_value
             + self.displacement_value * w.displacement_value
+            + self.counter_value * w.counter_value
     }
 }
 
@@ -183,6 +189,12 @@ pub struct UtilityWeights {
     /// identically to one written before the feature existed.
     #[serde(default = "default_displacement_value_weight")]
     pub displacement_value: f32,
+    /// Prices what a counter's stance is worth. Positive.
+    ///
+    /// `serde(default)` for the same reason as `capture_value` above, and with
+    /// the same hazard.
+    #[serde(default = "default_counter_value_weight")]
+    pub counter_value: f32,
 }
 
 /// The `capture_value` weight an authored profile gets when it does not name one.
@@ -194,6 +206,12 @@ fn default_capture_value_weight() -> f32 {
 /// name one.
 fn default_displacement_value_weight() -> f32 {
     UtilityWeights::v1().displacement_value
+}
+
+/// The `counter_value` weight an authored profile gets when it does not name
+/// one.
+fn default_counter_value_weight() -> f32 {
+    UtilityWeights::v1().counter_value
 }
 
 impl UtilityWeights {
@@ -263,6 +281,12 @@ impl UtilityWeights {
             // this number is ONE move on ONE character. See
             // `officer_moveset.rs::he_shoves_at_the_ledge_and_punches_at_centre`.
             displacement_value: 1.8,
+            // The middle of the band measured on the Officer's real kit
+            // (`a_counter_is_chosen_against_a_swing_that_meets_its_stance`,
+            // 2026-10-12): from 0.49 the stance beats his gust against a swing
+            // that outranges him, and from 1.17 it beats an uppercut that
+            // lands before the swing goes live.
+            counter_value: 0.8,
         }
     }
 }
@@ -729,7 +753,12 @@ pub fn generate_options(
         .filter(|c| c.legality == ActionLegality::Now)
         .map(|c| {
             use crate::brain::attack_kit::AttackVerb;
-            let fa = frame_advantage(c.frames.startup_s, their_commitment, kit_slowest_startup);
+            // A pure counter is ready when its stance opens, and its
+            // `startup_s` is its whole duration (a stance is not a live hit).
+            // Whether the stance meets a swing is `counter_value`'s question.
+            let stance = pure_counter_stance(&c.frames);
+            let ready_at = stance.map_or(c.frames.startup_s, |(open, _)| open);
+            let fa = frame_advantage(ready_at, their_commitment, kit_slowest_startup);
             // ⭐ **WHEN THIS MOVE CAN ACTUALLY TOUCH THEM**, which for a
             // launcher is the throw plus the flight and for a swing is the
             // tick its hitbox opens. `threat_at` alone is when the thing
@@ -950,6 +979,8 @@ pub fn generate_options(
                     AttackVerb::Grab => capture_value(foe),
                     AttackVerb::Basic | AttackVerb::Smash | AttackVerb::Special => 0.0,
                 },
+                counter_value: stance
+                    .map_or(0.0, |stance| counter_value(foe, me, stance, view.staleness_s())),
             };
             AttackOption {
                 move_id: c.move_id.clone(),
@@ -1066,13 +1097,18 @@ pub fn generate_options(
         // effect-key table alone would have deleted her entire game. The
         // catalog answers them `RANGED_ACTION_REACH`.
         //
-        // ⚠ A COUNTER AND A BUFF ARE NOT DELETED FROM THE GAME, they are off
-        // the ATTACK ranking — which is the only list that was ever choosing
-        // them, and it chose them by having nothing else left. Pricing them
-        // needs a defensive feature (*"is the opponent committed to a
-        // swing"*), and inventing one to keep them on a list they never won on
-        // merit would be the wrong order.
+        // ⚠ A BUFF IS NOT DELETED FROM THE GAME, it is off the ATTACK ranking
+        // — which is the only list that was ever choosing it, and it chose it
+        // by having nothing else left. A COUNTER has its defensive feature
+        // now (`counter_value`: is the opponent committed to a swing that
+        // meets the stance) and is offered at the top of this arm only while
+        // that is true.
         (None, None) => {
+            // A counter is offered while a swing it can answer is coming,
+            // and only then: its stance hits nobody who does not strike.
+            if attack.frames.counter_stance.is_some() {
+                return attack.features.counter_value > 0.0;
+            }
             // Reaches through something it puts in the world: a bolt, a
             // bomb, the body's own shot. Priced against its own reach, the
             // same absolute question the hit arm asks.
@@ -1123,8 +1159,8 @@ pub fn generate_options(
             // two different prices. See [`travel_of`].
             //
             // What is left on this arm is what genuinely offers nobody
-            // anything: counters, buffs, and the moves that are legal only
-            // inside a hold.
+            // anything: buffs, and the moves that are legal only inside a
+            // hold.
             false
         }
     });
@@ -1610,6 +1646,60 @@ const THROW_CONVERSION: f32 = 0.35;
 
 /// `+1` when the attack lands a full startup before the opponent can answer; `-1` when it is a full
 /// startup too slow.
+/// The stance of a move that is ONLY a counter: it holds a stance and offers
+/// the opponent nothing else (`threat_live_at_s: None`).
+///
+/// ⛔ A move that also strikes (`third_law`, `synchronize_clocks`) is priced
+/// as its strike. Priced as a stance too, two of them in a mirror each saw
+/// the other wind up and answered with the same move: the patent clerk
+/// pressed `synchronize_clocks` 160 times for 0% (grid, 2026-10-12).
+pub fn pure_counter_stance(frames: &ambition_entity_catalog::MoveFrameData) -> Option<(f32, f32)> {
+    frames.counter_stance.filter(|_| frames.threat_live_at_s.is_none())
+}
+
+/// What a counter's stance is worth against this foe now: `1.0` when the foe
+/// is committed to a swing that faces me, reaches me and goes live while the
+/// stance (`stance`, on the counter's own timeline from the press) is open;
+/// else `0.0`.
+///
+/// The foe's clock is read through the view's delay: the swing is
+/// `staleness_s` nearer than the view says. A swing that is already live
+/// counts while it is still live when the stance opens. A swing whose reach
+/// is not known (`attack_reach: None`) is not a swing this can answer.
+pub fn counter_value(
+    foe: &PerceivedActor,
+    me: &crate::perception::SelfView,
+    stance: (f32, f32),
+    staleness_s: f32,
+) -> f32 {
+    if !foe.alive {
+        return 0.0;
+    }
+    let Some(reach) = foe.attack_reach else {
+        return 0.0;
+    };
+    let basis = me.acceleration_frame();
+    let to_me = me.pos - foe.pos;
+    let side = to_me.dot(basis.side);
+    let faces_me = side * foe.facing > 0.0;
+    let reaches_me = side.abs() <= reach + me.half_extent.x
+        && to_me.dot(basis.down).abs() <= me.half_extent.y + foe.half_extent.y;
+    if !faces_me || !reaches_me {
+        return 0.0;
+    }
+    let remaining = foe.phase_remaining - staleness_s;
+    let meets = match foe.phase {
+        BodyPhase::AttackStartup => (stance.0..=stance.1).contains(&remaining),
+        BodyPhase::AttackActive => remaining > stance.0,
+        _ => false,
+    };
+    if meets {
+        1.0
+    } else {
+        0.0
+    }
+}
+
 pub fn frame_advantage(startup_s: f32, their_commitment_s: f32, slowest_startup_s: f32) -> f32 {
     let scale = slowest_startup_s.max(0.01);
     ((their_commitment_s - startup_s) / scale).clamp(-1.0, 1.0)

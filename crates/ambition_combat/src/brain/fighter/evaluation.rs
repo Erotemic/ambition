@@ -74,6 +74,7 @@ fn rig_kit() -> Vec<AttackCandidate> {
         cancel_windows: Vec::new(),
         reach,
         ignores_guard: false,
+        counter_stance: None,
         hazard: None,
         // `None` keeps every fixture's aim on `startup_s`, which is what the
         // lead read before this field existed. A fixture that means to test the

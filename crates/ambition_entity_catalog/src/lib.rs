@@ -2971,7 +2971,18 @@ impl MoveSpec {
                     best
                 }
             });
+        let counter_stance = self
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active))
+            .find(|w| {
+                w.sustain_effect
+                    .as_ref()
+                    .is_some_and(|effect| effect.key == crate::smash_counter::COUNTER)
+            })
+            .map(|w| (w.start_s, w.end_s));
         MoveFrameData {
+            counter_stance,
             charge_hold_at_s: self.charge_policy().map(|policy| policy.hold_at_s),
             total_s: self.duration_s,
             startup_s,
@@ -3218,7 +3229,9 @@ pub struct MoveFrameData {
     /// Not `startup_s`. The hold point is in the windup, before the first hit,
     /// so a reader that wants the charge start must read this.
     pub charge_hold_at_s: Option<f32>,
-    /// Time until the first Active window opens: the tell the opponent reads.
+    /// Time until the first live hit: the tell the opponent reads. A
+    /// counter's stance is Active and is not a live hit (see
+    /// [`Self::counter_stance`]).
     pub startup_s: f32,
     /// Every Active window's `(start, end)`, in declaration order.
     pub active_spans: Vec<(f32, f32)>,
@@ -3238,6 +3251,11 @@ pub struct MoveFrameData {
     /// Genre-neutral: to a planner, unblockables, command grabs and armor
     /// breaks are the same fact: the shield is not the answer.
     pub ignores_guard: bool,
+    /// When this move holds a counter's stance ([`smash_counter::COUNTER`]):
+    /// `(start, end)` on the move's own timeline. A strike that meets the
+    /// stance is answered by the counter's response. `None` for a move with
+    /// no stance.
+    pub counter_stance: Option<(f32, f32)>,
     /// What this move puts into the world that can hurt somebody. `None` for
     /// most moves.
     ///

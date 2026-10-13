@@ -15,6 +15,7 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         cancel_windows: Vec::new(),
         reach,
         ignores_guard: false,
+        counter_stance: None,
         hazard: None,
         // `None` keeps every fixture's aim on `startup_s`, which is what the
         // lead read before this field existed. A fixture that means to test the
@@ -1259,6 +1260,7 @@ fn the_score_is_exactly_the_weighted_features() {
         expected_payoff: 0.0,
         capture_value: 0.0,
         displacement_value: 0.0,
+        counter_value: 0.0,
     };
     let opts = generate_options(
         Perceived::cheating(&view_with(300.0, 400.0)),
@@ -2019,6 +2021,7 @@ fn every_utility_weight_can_change_a_score() {
         expected_payoff: 0.4,
         capture_value: 0.6,
         displacement_value: 0.8,
+        counter_value: 0.2,
     };
     let base = UtilityWeights::v1();
     let baseline = features.dot(&base);
@@ -2034,6 +2037,7 @@ fn every_utility_weight_can_change_a_score() {
         ("expected_payoff", UtilityWeights { expected_payoff: base.expected_payoff + 1.0, ..base }),
         ("capture_value", UtilityWeights { capture_value: base.capture_value + 1.0, ..base }),
         ("displacement_value", UtilityWeights { displacement_value: base.displacement_value + 1.0, ..base }),
+        ("counter_value", UtilityWeights { counter_value: base.counter_value + 1.0, ..base }),
     ];
 
     for (name, weights) in &perturbations {
@@ -2061,8 +2065,9 @@ fn every_utility_weight_can_change_a_score() {
             expected_payoff: _,
             capture_value: _,
             displacement_value: _,
+            counter_value: _,
         } = base;
-        7
+        8
     };
     assert_eq!(
         perturbations.len(),
@@ -3008,4 +3013,25 @@ fn wearing_a_finisher_out_costs_it_the_percent_term_and_not_its_base() {
         stale / fresh,
         (base + growth * worn.damage * victim_damage) / (base + growth * victim_damage),
     );
+}
+
+/// Only a move that is nothing but a counter has its stance priced. A move
+/// that also strikes is priced as its strike: priced as a stance too, two
+/// patent clerks in a mirror answered each other's windup with the same move,
+/// 160 presses for 0% (grid, 2026-10-12). The control is a pure stance.
+#[test]
+fn only_a_pure_counter_has_its_stance_priced() {
+    let pure = MoveFrameData {
+        counter_stance: Some((0.12, 0.32)),
+        threat_live_at_s: None,
+        coverage: None,
+        ..frames(0.7, 0.0, 0.0)
+    };
+    assert_eq!(pure_counter_stance(&pure), Some((0.12, 0.32)), "the control: a pure stance is priced");
+    let hybrid = MoveFrameData {
+        counter_stance: Some((0.0, 0.18)),
+        threat_live_at_s: Some(0.18),
+        ..frames(0.18, 44.0, 0.3)
+    };
+    assert_eq!(pure_counter_stance(&hybrid), None, "a stance before a strike is priced as the strike");
 }

@@ -433,12 +433,6 @@ def timings_payload(results: list[JobResult]) -> list[dict]:
                 if r.executed_seconds is not None
                 else None
             ),
-            # Present only on a FAILED job. The status file holds the same lines
-            # until the next run writes over it, so this row is the only
-            # history of what failed: 35 FAILED workspace rows from 2026-09-10
-            # to 2026-10-09 cannot say whether the arm the in-company triage
-            # waits for failed again.
-            **({"failure_evidence": r.failure_evidence} if r.failure_evidence else {}),
         }
         for r in results
     ]
@@ -2798,7 +2792,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             tree_after = lane_ledger.tested_tree(REPO) if tree_before is not None else None
             if tree_before is not None and tree_after is not None:
                 lane_ledger.record(REPO, tree_before, j.name, j.argv, rc == 0, blocked,
-                                   tree_after=tree_after)
+                                   tree_after=tree_after, failure_evidence=evidence)
             if blocked:
                 print(f"\033[33m    INCOMPLETE ({j.name}) — {blocked}\033[0m")
             elif rc != 0:

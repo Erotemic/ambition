@@ -302,6 +302,31 @@ def test_a_run_with_a_status_of_its_own_records_no_evidence(monkeypatch, tmp_pat
     assert len(lane_ledger.rows(REPO)) == before, "a test's fake job was recorded as evidence"
 
 
+def test_a_failed_job_keeps_its_evidence_in_the_lane_ledger_row(monkeypatch, repo: Path) -> None:
+    """The lane ledger is the history of failures. The status file is written
+    over by the next run, and the cost ledger is not written for a narrowed
+    `--only-job` run, which is how a change's required checks run. So a
+    failure that occurs once is counted only if its ledger row says what
+    failed. Driven through `run()`, the road that writes the row."""
+    import run_tests
+
+    monkeypatch.setattr(run_tests, "REPO", repo)
+    monkeypatch.delenv(run_tests.NESTED_ENV, raising=False)
+    monkeypatch.setattr(run_tests, "free_gb_on_target", lambda: 500.0)
+    monkeypatch.setattr(run_tests, "append_cost_ledger", lambda *a, **k: None)
+    panic = "thread 'arm' panicked at tests/x.rs:1:1:"
+    passing = run_tests.Job("passing job", [sys.executable, "-c", "pass"])
+    failing = run_tests.Job(
+        "failing job", [sys.executable, "-c", f"import sys; print({panic!r}); sys.exit(101)"]
+    )
+    assert run_tests.run([passing, failing], False) != 0
+    rows = {row["job"]: row for row in lane_ledger.rows(repo)}
+    assert panic in rows["failing job"].get("failure_evidence", []), (
+        f"the failed job's ledger row does not say what failed: {rows['failing job']}"
+    )
+    assert "failure_evidence" not in rows["passing job"], "a passing row keeps the shape it had"
+
+
 def test_an_unrelated_edit_during_the_run_does_not_void_it(repo: Path) -> None:
     """A docs file changed by the host while the job ran: the change's paths
     were the same at both ends, so the run certifies it. An edit to the

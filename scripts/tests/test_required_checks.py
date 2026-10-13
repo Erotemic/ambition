@@ -570,3 +570,122 @@ def test_run_runs_only_the_checks_that_are_not_certified_and_judges_again(repo: 
     commands.clear()
     certify(repo, "base", "HEAD", run=runner)
     assert commands == [], "control: with every check certified, nothing runs"
+
+
+def rebase_at(repo: Path, files: dict[str, str]) -> None:
+    """Write `files` and move the `base` tag onto a commit that holds them."""
+    for path, text in files.items():
+        (repo / path).parent.mkdir(parents=True, exist_ok=True)
+        (repo / path).write_text(text)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "base manifests")
+    git(repo, "tag", "-f", "base")
+
+
+ALPHA_MANIFEST = '[package]\nname = "alpha"\nversion = "0.1.0"\n[dependencies]\nserde = "1"\n[features]\ndefault = []\nextra = []\n'
+ROOT_MANIFEST = (
+    '[workspace]\nmembers = [\n    "crates/alpha",\n    "crates/beta",\n]\n'
+    '[workspace.dependencies]\nbevy = { version = "0.18", default-features = false }\n'
+)
+
+
+@pytest.mark.parametrize(
+    ("path", "before", "after", "wiring"),
+    [
+        ("crates/alpha/Cargo.toml", ALPHA_MANIFEST, ALPHA_MANIFEST.replace("extra = []", "extra = []\nmore = []"), True),
+        ("crates/alpha/Cargo.toml", ALPHA_MANIFEST,
+         ALPHA_MANIFEST.replace('serde = "1"', 'serde = { version = "1", features = ["derive"] }'), True),
+        ("crates/alpha/Cargo.toml", ALPHA_MANIFEST,
+         ALPHA_MANIFEST.replace('serde = "1"', 'serde = { version = "1", optional = true }'), True),
+        ("Cargo.toml", ROOT_MANIFEST, ROOT_MANIFEST.replace("default-features = false", 'default-features = false, features = ["x"]'), True),
+        # Controls: a version, a new plain dependency and package metadata are
+        # not feature wiring.
+        ("crates/alpha/Cargo.toml", ALPHA_MANIFEST, ALPHA_MANIFEST.replace('serde = "1"', 'serde = "1.0.200"'), False),
+        ("crates/alpha/Cargo.toml", ALPHA_MANIFEST, ALPHA_MANIFEST.replace('serde = "1"', 'serde = "1"\nlog = "0.4"'), False),
+        ("crates/alpha/Cargo.toml", ALPHA_MANIFEST, ALPHA_MANIFEST.replace('version = "0.1.0"', 'version = "0.2.0"'), False),
+        ("Cargo.toml", ROOT_MANIFEST, ROOT_MANIFEST.replace('"0.18"', '"0.18.1"'), False),
+    ],
+)
+def test_a_change_to_feature_wiring_requires_the_union_feature_job(
+    repo: Path, path: str, before: str, after: str, wiring: bool
+) -> None:
+    """The boundary table gives "a change to features" to the exhaustive run:
+    a feature, or a dependency's `features`, `optional` or `default-features`,
+    in the root or a member manifest requires the union job."""
+    from required_checks import UNION_FEATURE_JOB
+
+    rebase_at(repo, {path: before})
+    commit(repo, path, after)
+    found = verdicts(repo)
+    assert (Job(UNION_FEATURE_JOB).label() in found) == wiring
+
+
+def test_a_manifest_outside_the_workspace_is_not_its_wiring(repo: Path) -> None:
+    """An external consumer fixture builds against its own lock and features:
+    the union job does not build it."""
+    from required_checks import UNION_FEATURE_JOB
+
+    rebase_at(repo, {"fixtures/outside/Cargo.toml": ALPHA_MANIFEST})
+    commit(repo, "fixtures/outside/Cargo.toml", ALPHA_MANIFEST.replace("extra = []", "extra = []\nmore = []"))
+    assert Job(UNION_FEATURE_JOB).label() not in verdicts(repo)
+
+
+def a_dependent_that_hides_a_test(repo: Path, depends: bool) -> None:
+    """`beta` hides a test behind its opt-in `extra`; it depends on `alpha` when
+    `depends`. `alpha` hides none."""
+    beta = '[package]\nname = "beta"\n[features]\nextra = []\n'
+    if depends:
+        beta += '[dependencies]\nalpha = { path = "../alpha" }\n'
+    rebase_at(repo, {
+        "crates/alpha/Cargo.toml": '[package]\nname = "alpha"\n',
+        "crates/beta/Cargo.toml": beta,
+        "crates/beta/tests/gated.rs": '#![cfg(feature = "extra")]\n#[test]\nfn t() {}\n',
+    })
+
+
+def test_a_change_whose_dependents_hide_tests_names_the_union_job_as_not_required(repo: Path, capsys) -> None:
+    """⭐ NO CHECK IS SILENTLY SKIPPED. A change in `alpha` can redden the gated
+    test of `beta`, which depends on it. This boundary does not require the
+    union job for that (it is the release's), so the receipt names it as NOT
+    RUN, not required at this boundary, and the change is still certified."""
+    from required_checks import UNION_FEATURE_JOB, report
+
+    a_dependent_that_hides_a_test(repo, depends=True)
+    (repo / "crates/alpha/src/lib.rs").write_text("// two\n")
+    ran(repo, ["cargo", "test", "-p", "alpha"])
+    git(repo, "commit", "-qam", "alpha")
+    paths, found = judge(repo, "base", "HEAD")
+    union = next((v for v in found if v.requirement == Job(UNION_FEATURE_JOB)), None)
+    assert union is not None, "the receipt does not name the union job for a change its dependents' gated tests can see"
+    assert not union.required and not union.certified
+    assert union.reason.startswith("NOT RUN, not required at this boundary"), union.reason
+    assert "beta" in union.reason
+    assert report(paths, found) == 0, "a check this boundary does not require does not refuse the change"
+    assert "defer" in capsys.readouterr().out
+
+    # A failure on this change is a failure, required or not.
+    ran(repo, ["cargo", "test", "--workspace"], ok=False, job=UNION_FEATURE_JOB)
+    paths, found = judge(repo, "base", "HEAD")
+    union = next((v for v in found if v.requirement == Job(UNION_FEATURE_JOB)), None)
+    assert union is not None, "the receipt does not name the union job for a change its dependents' gated tests can see"
+    assert union.reason == "FAILED on this change" and union.blocks()
+    assert report(paths, found) == 1
+
+
+def test_a_change_with_no_dependent_that_hides_a_test_names_no_union_job(repo: Path) -> None:
+    """Control: the same change, with `beta` not depending on `alpha`."""
+    from required_checks import UNION_FEATURE_JOB
+
+    a_dependent_that_hides_a_test(repo, depends=False)
+    commit(repo, "crates/alpha/src/lib.rs", "// two\n")
+    assert Job(UNION_FEATURE_JOB).label() not in verdicts(repo)
+
+
+def test_run_does_not_run_a_check_this_boundary_does_not_require(repo: Path) -> None:
+    from required_checks import certify
+
+    a_dependent_that_hides_a_test(repo, depends=True)
+    commit(repo, "crates/alpha/src/lib.rs", "// two\n")
+    commands: list[list[str]] = []
+    certify(repo, "base", "HEAD", run=lambda command, cwd: commands.append(command))
+    assert commands == [["./run_tests.sh", "-p", "alpha", "--only-job", "(default features)"]]

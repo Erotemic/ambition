@@ -699,6 +699,21 @@ pub struct CharacterCatalogEntry {
     /// character.
     #[serde(default)]
     pub form_of: Option<String>,
+    /// The character this row is a PART of: a limb, or the body its limbs are
+    /// conducted round (the fists of the giant gnu, and the body the fight
+    /// draws with no arms). `Some` says the row is not an identity: the Hall
+    /// has one stand for each semantic identity of a character, and gives a
+    /// part none (Jon, 2026-10-13: "The hall doesn't need to exhibit each part
+    /// of multipart characters separately"). A part states no
+    /// `hall_dialogue_id`. `None` (the default): the row is a character.
+    #[serde(default)]
+    pub part_of: Option<String>,
+    /// The row of its sheet a body of this character draws when it is at rest
+    /// and nothing else pins a row, in place of its idle row. For a look that
+    /// is one row of a sheet a fight also draws from (the giant gnu whole,
+    /// with its arms on it). `None` (the default): its idle row.
+    #[serde(default)]
+    pub rest_row: Option<String>,
     /// Surface-momentum motion feel (Q21 / S2). `Some` opts this character's
     /// body into `MotionModel::SurfaceMomentum` — the surface-follower solver
     /// (slopes, loops, momentum) — whether it is spawned as an NPC or WORN by

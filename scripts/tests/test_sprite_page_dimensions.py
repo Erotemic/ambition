@@ -50,12 +50,22 @@ RATCHET = {
     # 2026-10-12: 67 -> 68. One sheet that grew, deliberately: `ramen_nujan`
     # became a Smash fighter (43 rows -> 68, 466 frames of 208 x 176), and its
     # page is 2432 x 1967 (it was 1983 x 1599). Its half tier is 1280 x 955.
-    "sprites": (16236, 68, 16, 7),
+    # 2026-10-13: 68 -> 77. One sheet that grew, deliberately:
+    # `imperfect_cellular_automaton` had 4 rows on one page (1279 x 1186). It
+    # now has each row of the perfect one's move table, from both of its sides
+    # (272 rows, 1826 frames): 10 pages of 4096 px, and a part page of
+    # 2176 x 1903. MEASURED in `moveset_render`: the game loads the part page
+    # and none of the 10. No page is over 4096 px.
+    "sprites": (16236, 77, 16, 7),
     # 2026-10-11: 24 -> 25 over 2048 px: the same new fighter's half tier
     # (2176 x 1689).
-    "sprites_0_5x": (8118, 25, 7, 0),
-    "sprites_0_25x": (4059, 9, 0, 0),
-    "sprites_potato": (1015, 0, 0, 0),
+    # 2026-10-13: 25 -> 28: the half tier of the same sheet is three pages
+    # (4096 x 4068, 4096 x 4013, 4094 x 1689).
+    "sprites_0_5x": (8118, 28, 7, 0),
+    # 2026-10-13: 9 -> 10: its quarter tier is one page of 3648 x 2816.
+    "sprites_0_25x": (4059, 10, 0, 0),
+    # 2026-10-13: worst side 1015 -> 1024: the potato page of the same sheet.
+    "sprites_potato": (1024, 0, 0, 0),
     "sprite_packs": (2048, 0, 0, 0),
 }
 

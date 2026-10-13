@@ -44,6 +44,8 @@ fn same_faction_crowding(away_dir: ae::Vec2) -> crate::brain::smash::CrowdingSig
     }
 }
 
+/// A body that stands does nothing but turn: all of its frame but its facing
+/// is the neutral one.
 #[test]
 fn stand_still_emits_neutral_frame() {
     let mut sm = StateMachineCfg::StandStill;
@@ -51,7 +53,9 @@ fn stand_still_emits_neutral_frame() {
     out.locomotion = ae::LocalAxes::new(99.0, 99.0); // pre-poisoned
     out.melee_pressed = true;
     tick_simple_state_machine(&mut sm, &BrainSnapshot::idle(), &mut out);
-    assert_eq!(out, crate::actor::control::ActorControlFrame::neutral());
+    let neutral = crate::actor::control::ActorControlFrame::neutral();
+    out.facing = neutral.facing;
+    assert_eq!(out, neutral);
 }
 
 #[test]

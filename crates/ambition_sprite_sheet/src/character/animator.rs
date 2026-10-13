@@ -77,7 +77,15 @@ pub struct CharacterAnimator {
     /// on in that pose under the clip start from it: a walk does not start
     /// again when a swing does.
     left: Option<LegsCursor>,
+    /// The way the art was last asked to face ([`Self::face`]), and how long
+    /// the turn it started still shows the `front` row (s).
+    faced: Option<bool>,
+    turn_left: f32,
 }
+
+/// How long a body that turns round at rest shows its `front` row (s): the
+/// turn goes through the view that faces the viewer.
+pub const TURN_THROUGH_FRONT_S: f32 = 0.26;
 
 /// A pose's row cursor, for the legs under a clip.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -118,6 +126,8 @@ impl CharacterAnimator {
             keeps_its_quad: false,
             legs: None,
             left: None,
+            faced: None,
+            turn_left: 0.0,
         }
     }
 
@@ -236,6 +246,19 @@ impl CharacterAnimator {
     /// on the correct side; every other sheet is flipped as before. Call after
     /// the frame's request and before [`Self::tick`].
     pub fn face(&mut self, flip: bool) -> bool {
+        // A body at rest that turns round shows its `front` row for
+        // [`TURN_THROUGH_FRONT_S`], when its sheet has one. The first facing
+        // of a body is not a turn. A sheet with no such row turns at once, as
+        // a very large body does (it has no view from the front).
+        let turned = self.faced.is_some_and(|faced| faced != flip);
+        self.faced = Some(flip);
+        if turned && self.asked == CharacterAnim::Idle && self.spec.clip_slot(["front"]).is_some() {
+            let pose_showing = self.clip_slot.is_none() || self.turn_left > 0.0;
+            if pose_showing {
+                self.turn_left = TURN_THROUGH_FRONT_S;
+                self.request_loop(["front"], CharacterAnim::Idle);
+            }
+        }
         self.mirrored = flip && self.spec.mirror_slot(self.authored_slot()).is_some();
         flip && !self.mirrored
     }
@@ -293,6 +316,9 @@ impl CharacterAnimator {
     /// [`Self::request_actor_pose`].
     pub fn note_idle(&mut self, idle: bool, dt: f32) {
         self.idle_for = if idle { self.idle_for + dt.max(0.0) } else { 0.0 };
+        // A turn is a thing a body does at rest: it ends when the body does
+        // anything else.
+        self.turn_left = if idle { (self.turn_left - dt.max(0.0)).max(0.0) } else { 0.0 };
     }
 
     /// Select a sheet-authored social pose for the addressed actor.
@@ -340,15 +366,14 @@ impl CharacterAnimator {
                 return;
             }
         }
-        // A sheet that has rows that face the viewer shows them when its body
-        // is at rest: `front`, and `front_talk` in a conversation. The body
-        // turns to the side when it does anything else, and a sheet with no
-        // such row draws what it drew before. (Jon, 2026-10-13: "none of
-        // these character seem to have a forward facing pose".)
-        if !has_clip && !barking && anim == CharacterAnim::Idle {
-            let front: &[&str] = if conversation_held { &["front_talk", "front"] } else { &["front"] };
-            if self.spec.clip_slot(front.iter().copied()).is_some() {
-                self.request_loop(front.iter().copied(), anim);
+        // A body at rest shows its side. The row that faces the viewer is
+        // what a turn goes through ([`Self::face`]): Jon, 2026-10-13, "the
+        // hall characters should probably default to the side view, maybe
+        // they turn to face the player and have the animation move through
+        // their front facing view (when the character has one)".
+        if self.turn_left > 0.0 && !has_clip && !barking && anim == CharacterAnim::Idle {
+            self.request_loop(["front"], anim);
+            if self.clip_slot.is_some() {
                 return;
             }
         }

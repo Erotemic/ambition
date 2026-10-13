@@ -488,13 +488,13 @@ Girdle: I found a sentence the system can't prove from inside itself. I spent si
     Girdle: Please don't tell me the foundations are secure. I have spent years checking foundations. I would like one afternoon off.
 ===
 
-title: hall_npc_gnu_ton_boss
+title: hall_npc_gnu_ton
 ---
-Gnu Ton: You have mass. I have more. We are pulling on each other right now.
+GNU-ton: You have mass. I have more. We are pulling on each other right now.
 -> That sounds like a threat.
-    Gnu Ton: Mine is the pull you notice. I am enormous.
+    GNU-ton: Mine is the pull you notice. The giant under me in the arena has a great deal of it.
 -> Can I escape your pull?
-    Gnu Ton: Go sideways fast enough and you keep missing the ground. Planets have been doing it for ages.
+    GNU-ton: Go sideways fast enough and you keep missing the ground. Planets have been doing it for ages.
 ===
 
 title: hall_npc_exploding_mite
@@ -927,15 +927,8 @@ Giant GNU: Gnu Ton brought me a quotation about shoulders. I asked for a saddle.
     Giant GNU: GNU, Gnu Ton, Giant GNU. Yes, the names are a mess. Take it up with whoever printed the plaques.
 -> Who do you stand on?
     Giant GNU: I stand on the floor. Works well.
-===
-
-title: hall_npc_giant_gnu_hands
----
-Giant GNU Hand: Talk to the hand. The rest of him is busy.
--> Are you left or right?
-    Giant GNU Hand: Left when convenient, right when blamed.
--> What do you do without a body?
-    Giant GNU Hand: Point. Punch. Catch things. I do enough.
+-> And the hands?
+    Giant GNU: Mine. In a fight he borrows them. Left when convenient, right when blamed.
 ===
 
 title: hall_npc_news_board

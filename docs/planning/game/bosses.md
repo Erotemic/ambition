@@ -46,6 +46,14 @@ Remaining PCA work is encounter and narrative polish, not kit.
 `imperfect_cellular_automaton` is a separate catalog character (a hall NPC). It
 wears the PCA's move table. Whether it is a boss is an open design call.
 
+Its art (2026-10-13) is an SVG rig whose bones have the PCA's names, so it
+plays the PCA's clips, hunched. Its two halves differ (green keeps the rule,
+purple is a fault), so each row is published from both sides and the game
+draws the `~mirrored` row when it faces left. Open: its `standing_height` is
+50 and the PCA's is 67.8, so it is drawn at about 80% of the PCA's scale; its
+sheet states no attack volumes of its own; its tail goes under the ground in
+the rows where it lies down.
+
 ## Roster (story bosses)
 
 - **Perfect Cell-ular Automaton** — the dialogue-gated fighter above.

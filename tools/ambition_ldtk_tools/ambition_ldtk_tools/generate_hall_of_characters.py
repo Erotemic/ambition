@@ -230,6 +230,11 @@ def parse_catalog(
         fm = re.search(r'^\s*form_of:\s*Some\(\s*"([^"]+)"\s*\)', window, re.MULTILINE)
         if fm:
             forms.add(cid)
+        # A part of a multipart character (`part_of`: a limb, the body a
+        # fight draws with no limbs) has no place either: the Hall has one
+        # stand for each semantic identity of a character.
+        if re.search(r'^\s*part_of:\s*Some\(\s*"([^"]+)"\s*\)', window, re.MULTILINE):
+            forms.add(cid)
 
     ids = [cid for cid in ids if cid not in forms]
     main = [cid for cid in ids if tiers[cid] == "MainHall"]

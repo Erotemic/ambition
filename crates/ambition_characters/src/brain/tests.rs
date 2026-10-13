@@ -46,6 +46,42 @@ fn brain_display_contains_label() {
 
 
 
+/// A body that stands turns to the one who is near it, a foe or a visitor. It
+/// does not turn to one that is far, and a very large body does not turn at all.
+///
+/// Jon, 2026-10-13: "maybe they turn to face the player ... very large
+/// characters like the mockingbird probably should not turn to face the
+/// player."
+#[test]
+fn a_standing_body_turns_to_a_near_target_unless_it_is_very_large() {
+    use crate::brain::state_machine::{STAND_TURN_MAX_HALF_WIDTH, STAND_TURN_RADIUS};
+    let facing_of = |half_width: f32, target_x: f32, alive: bool| {
+        let snapshot = BrainSnapshot {
+            actor_pos: ae::Vec2::new(0.0, 0.0),
+            actor_facing: 1.0,
+            actor_half_width: half_width,
+            target_pos: ae::Vec2::new(target_x, 0.0),
+            target_alive: alive,
+            ..BrainSnapshot::idle()
+        };
+        let mut brain = Brain::StateMachine(StateMachineCfg::StandStill);
+        let mut out = crate::actor::control::ActorControlFrame::neutral();
+        tick_simple(&mut brain, &snapshot, &mut out);
+        out.facing
+    };
+    let keeps = crate::actor::control::ActorControlFrame::neutral().facing;
+
+    // A person, and a visitor behind them: they turn round.
+    assert_eq!(facing_of(14.0, -60.0, true), -1.0);
+    assert_eq!(facing_of(14.0, 60.0, true), 1.0);
+    // A visitor is not a living target, and they turn to the visitor too.
+    assert_eq!(facing_of(14.0, -60.0, false), -1.0);
+    // The other is far: they keep their facing.
+    assert_eq!(facing_of(14.0, -(STAND_TURN_RADIUS + 20.0), true), keeps);
+    // A very large body keeps its facing.
+    assert_eq!(facing_of(STAND_TURN_MAX_HALF_WIDTH + 10.0, -100.0, true), keeps);
+}
+
 #[test]
 fn actor_control_default_is_neutral_frame() {
     // crate::control::ActorControl Default = frame.neutral. Pins the

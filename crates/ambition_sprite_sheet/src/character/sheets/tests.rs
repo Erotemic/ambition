@@ -82,11 +82,15 @@ fn a_body_that_can_sit_sits_when_it_stands_idle_and_is_up_when_it_moves() {
     assert_eq!(animator.current, CharacterAnim::Idle);
 }
 
-/// A sheet with rows that face the viewer shows them when its body is at
-/// rest, the talking one in a conversation, and the side rows when the body
-/// does anything else. A sheet with no such row is drawn as before.
+/// A body at rest shows its side. When it turns round, a sheet with a `front`
+/// row shows that row for a moment, and then the side again. A sheet with no
+/// such row turns at once.
+///
+/// Jon, 2026-10-13: "the hall characters should probably default to the side
+/// view, maybe they turn to face the player and have the animation move
+/// through their front facing view (when the character has one)".
 #[test]
-fn a_sheet_with_front_rows_faces_the_viewer_at_rest_and_in_a_conversation() {
+fn a_turn_at_rest_goes_through_the_front_row_and_rest_is_the_side_row() {
     let animator_of = |rows: &str| {
         let record: SheetRecord = ron::from_str(&format!(
             r#"(target: "front_fixture", image: "front.png", label_width: 0, frame_width: 16, frame_height: 16, rows: [
@@ -112,29 +116,47 @@ fn a_sheet_with_front_rows_faces_the_viewer_at_rest_and_in_a_conversation() {
            (animation: "front_talk", row_index: 3, frame_count: 2, duration_ms: 100, duration_secs: 0.1),"#,
     );
     let front = animator.spec.clip_slot(["front"]).expect("the sheet keeps its `front` row");
-    let talk = animator.spec.clip_slot(["front_talk"]).expect("the sheet keeps its `front_talk` row");
-    assert_ne!(front, talk);
     let shown = |animator: &CharacterAnimator| animator.showing_clip();
+    // One frame of a body at rest that faces `flip`.
+    let rest = |animator: &mut CharacterAnimator, flip: bool, dt: f32| {
+        animator.note_idle(true, dt);
+        animator.request_actor_pose(CharacterAnim::Idle, [], false, false, false);
+        animator.face(flip);
+        animator.tick(dt);
+    };
 
-    // At rest it faces the viewer; it loops (it does not hold its last frame).
-    animator.request_actor_pose(CharacterAnim::Idle, [], false, false, false);
-    assert_eq!(shown(&animator), Some(front));
-    animator.tick(0.5);
-    assert!(!animator.clip_finished(), "the row at rest holds its last frame");
-    // In a conversation it talks to the viewer.
+    // At rest, and in a conversation: its side.
+    rest(&mut animator, false, 0.016);
+    assert_eq!(shown(&animator), None, "the first facing of a body is not a turn");
+    assert_eq!(animator.current, CharacterAnim::Idle);
     animator.request_actor_pose(CharacterAnim::Idle, [], false, true, false);
-    assert_eq!(shown(&animator), Some(talk));
-    // It walks: the side row, at once.
+    assert_eq!(shown(&animator), None, "a body in a conversation shows the viewer its front");
+
+    // It turns round: the front row, on the frame of the turn.
+    rest(&mut animator, true, 0.016);
+    assert_eq!(shown(&animator), Some(front));
+    rest(&mut animator, true, 0.1);
+    assert_eq!(shown(&animator), Some(front), "the turn ended before its time");
+    // And then its side again.
+    rest(&mut animator, true, super::super::animator::TURN_THROUGH_FRONT_S);
+    rest(&mut animator, true, 0.016);
+    assert_eq!(shown(&animator), None, "the body is still turned to the viewer after its turn");
+
+    // A body that walks while it turns does not wait for the turn.
+    rest(&mut animator, false, 0.016);
+    assert_eq!(shown(&animator), Some(front));
+    animator.note_idle(false, 0.016);
     animator.request_actor_pose(CharacterAnim::Walk, [], false, false, false);
     assert_eq!(shown(&animator), None);
     assert_eq!(animator.current, CharacterAnim::Walk);
-    // A row a move or a state asks for wins over the front row.
-    animator.request_actor_pose(CharacterAnim::Idle, ["walk"], true, false, false);
-    assert_ne!(shown(&animator), Some(front));
+    // A body that turns while it walks does not show its front.
+    animator.face(true);
+    assert_eq!(shown(&animator), None);
 
-    // Control: a sheet with no front row is drawn as before.
+    // Control: a sheet with no front row turns at once.
     let mut plain = animator_of("");
-    plain.request_actor_pose(CharacterAnim::Idle, [], false, true, false);
+    rest(&mut plain, false, 0.016);
+    rest(&mut plain, true, 0.016);
     assert_eq!(shown(&plain), None);
     assert_eq!(plain.current, CharacterAnim::Idle);
 }

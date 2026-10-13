@@ -12,12 +12,21 @@
 //! The request changes [`WornCharacter`] and asks for the template to be
 //! applied again ([`RecharacterizeBody`]). It does not change what the body
 //! is to talk to: its conversation stays the one authored on its placement.
+//!
+//! When the sheet of the new look has a `transform` row, the request also
+//! asks for a transform beat ([`TransformBeatRequested`]) as long as that
+//! row, so the body plays its change. A sheet with no such row changes at
+//! once.
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::{RecharacterizeBody, WornCharacter};
 use ambition_entity_catalog::CharacterId;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveBodies, LiveBodyId};
+use ambition_sprite_sheet::character::sheets::AuthoredSheets;
+use ambition_sprite_sheet::character::{catalog_join, CharacterAnim};
 use bevy::prelude::*;
+
+use crate::features::transform_beat::{TransformBeatPolicy, TransformBeatRequested};
 
 /// A conversation asked one body to wear a catalog character, by live
 /// identity.
@@ -38,11 +47,15 @@ pub struct WearRequested {
 /// A request that names no live body, a body that wears nothing, or a
 /// character the catalog does not have is refused with a log and changes
 /// nothing. A body that already wears the character is left as it is.
+///
+/// The body is untouchable while it plays the `transform` row of its new
+/// look ([`arrival_beat`]).
 pub fn apply_wear_requests(
     mut commands: Commands,
     mut requests: MessageReader<WearRequested>,
     ids: LiveBodies,
     catalog: Res<CharacterCatalog>,
+    authored: Option<Res<AuthoredSheets>>,
     mut worn: Query<&mut WornCharacter>,
 ) {
     for request in requests.read() {
@@ -75,8 +88,33 @@ pub fn apply_wear_requests(
             continue;
         }
         *worn = WornCharacter(request.character.clone());
-        commands.entity(entity).try_insert(RecharacterizeBody);
+        let mut body = commands.entity(entity);
+        body.try_insert(RecharacterizeBody);
+        if let Some(beat) = arrival_beat(authored.as_deref(), &catalog, request.character.as_str()) {
+            body.try_insert(TransformBeatRequested(beat));
+        }
     }
+}
+
+/// The beat of a body's arrival in the look `character`: the `transform` row
+/// of the look's sheet, for as long as the row takes to draw.
+///
+/// `None` when the sheet has no row of its own for [`CharacterAnim::Transform`]
+/// (a fallback row is not a change to play), or when no sheet is known for the
+/// character.
+fn arrival_beat(
+    authored: Option<&AuthoredSheets>,
+    catalog: &CharacterCatalog,
+    character: &str,
+) -> Option<TransformBeatPolicy> {
+    let spec = catalog_join::sheet_for_character_id_from_data(authored?, catalog.data(), character)?;
+    spec.row_for_anim(CharacterAnim::Transform)?;
+    Some(TransformBeatPolicy {
+        duration: spec.clip_seconds(CharacterAnim::Transform),
+        anim: CharacterAnim::Transform,
+        clock_scale: 1.0,
+        untouchable: true,
+    })
 }
 
 #[cfg(test)]

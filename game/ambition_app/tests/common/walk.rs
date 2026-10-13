@@ -360,6 +360,13 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
             .and_then(|wall| wall.on_wall.then_some(wall.wall_normal_x.signum()));
         let feet = kinematics.pos + graph.frame.down * graph.half.y;
         let mut press = Press::default();
+        // A flight that no leg steers (a fight can end in the air of a Fly
+        // leg): turn it off, and land. A leg starts from the ground.
+        if leg.is_none() && world.get::<ae::BodyFlightState>(player).is_some_and(|flight| flight.fly_enabled) {
+            press.fly_toggle = true;
+            walker.step(press);
+            continue;
+        }
         if leg.is_none() && on_ground {
             match graph.next(feet, goal) {
                 // At the exit. A door takes a fresh press of Interact. An edge
@@ -413,11 +420,13 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
     Err(format!("still in `{from}` after {FRAMES_FOR_A_ROOM} frames, at {at:?}, aiming at {goal:?}"))
 }
 
-/// How near a foe is for the fight to swing at it: its centre within this
-/// along the side axis of the player's centre, and within `REACH_TALL`
-/// along DOWN. The robot's blade reaches about this far.
-const REACH_ALONG: f32 = 56.0;
-const REACH_TALL: f32 = 40.0;
+/// How near a foe is for the fight to swing at it: its edge within this
+/// along the side axis of the player's edge, and its box within
+/// `REACH_TALL` along DOWN. The robot's blade reaches about this far. It is
+/// from the edge, so the body swings from beside a big foe and not from
+/// inside it, where its touch does harm.
+const BLADE_REACH: f32 = 24.0;
+const REACH_TALL: f32 = 20.0;
 /// Frames between two Attack presses: a press is an edge, and a swing must
 /// play out before the next one starts.
 const SWING_FRAMES: usize = 18;
@@ -475,15 +484,15 @@ pub fn fight(
         let flying = world.get::<ae::BodyFlightState>(player).is_some_and(|flight| flight.fly_enabled);
         let player_room = the_players_room(world, player);
         let mut bodies = world.query::<(Entity, &ae::BodyKinematics, &ambition_platformer2d::characters::actor::BodyHealth)>();
-        let candidates: Vec<(Entity, ae::Vec2)> = bodies
+        let candidates: Vec<(Entity, ae::Vec2, ae::Vec2)> = bodies
             .iter(world)
             .filter(|(entity, _, health)| *entity != player && health.alive())
-            .map(|(entity, kin, _)| (entity, kin.pos))
+            .map(|(entity, kin, _)| (entity, kin.pos, kin.size * 0.5))
             .collect();
         let nearest = candidates
             .into_iter()
-            .filter(|(entity, _)| foe(world, *entity))
-            .filter(|(entity, _)| {
+            .filter(|(entity, ..)| foe(world, *entity))
+            .filter(|(entity, ..)| {
                 world.get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(*entity).map(|room| room.0)
                     == player_room
             })
@@ -491,7 +500,7 @@ pub fn fight(
         let feet = kinematics.pos + graph.frame.down * graph.half.y;
         let mut press = Press::default();
         let at = match nearest {
-            Some((_, at)) => at,
+            Some((_, at, _)) => at,
             // No foe stands: to the rally place, unless the body is there.
             // At the rally place: in a fight's strip, which is narrow.
             None if (rally - kinematics.pos).dot(graph.frame.side).abs() <= ae::navigation::ARRIVE_TOLERANCE * 2.0 => {
@@ -507,7 +516,12 @@ pub fn fight(
         // Reach and the jump under a foe are for a foe; the rally place is
         // walked to.
         let foe_stands = nearest.is_some();
-        if foe_stands && along.abs() <= REACH_ALONG && tall.abs() <= REACH_TALL {
+        // The foe's half box on the two axes, and the reach to its edge.
+        let foe_half = nearest.map_or(ae::Vec2::ZERO, |(_, _, half)| half);
+        let foe_half_along = (foe_half * graph.frame.side.abs()).length();
+        let reach_along = foe_half_along + graph.half.x + BLADE_REACH;
+        let reach_tall = (foe_half * graph.frame.down.abs()).length() + REACH_TALL;
+        if foe_stands && along.abs() <= reach_along && tall.abs() <= reach_tall {
             // In reach: face it, and swing on an edge once the last swing is
             // over. In the air, keep the jump held.
             leg = None;
@@ -525,11 +539,11 @@ pub fn fight(
         }
         // A jump brings the blade as high as the feet rise, and a little
         // more: a foe higher than that is on a ledge, which a leg gets to.
-        let jump_tall = graph.apex_rise + REACH_TALL;
+        let jump_tall = graph.apex_rise + reach_tall;
         if foe_stands
             && leg.is_none()
-            && along.abs() <= REACH_ALONG
-            && tall < -REACH_TALL
+            && along.abs() <= reach_along
+            && tall < -reach_tall
             && tall >= -jump_tall
         {
             // Above the blade: jump under it, as a player does, and swing

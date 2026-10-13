@@ -119,7 +119,10 @@ walks a model of the level. It fails when the monster, a key or a room can
 not be reached, and when the player can be in a place from which the door of
 the hub can not be reached again. Run it after each change of the rooms.
 `game/ambition_app/tests/the_noodly_temple.rs` asks the game what the model
-takes as given.
+takes as given. Its `a_player_walks_in_takes_the_four_keys_and_beats_the_monster`
+plays the level from the hub to the monster's defeat with the player's own
+inputs (the room graph and `common::walk::fight`): the wheels are turned in
+the order the check prints, and no step moves the body or writes health.
 
 ## Open
 

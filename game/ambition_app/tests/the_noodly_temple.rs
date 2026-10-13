@@ -282,18 +282,20 @@ fn swing_of_the_noodle(sim: &mut Platformer2dSimHarness) -> Option<ambition_plat
         .swing
 }
 
-/// ⭐ A PLAYER WALKS IN AND TAKES THE FOUR KEYS, WITH ITS OWN INPUTS. From
-/// the central hub through the narthex and the nave to the scullery by the
-/// room graph (`common::walk`), into the strip that starts the fight, the
-/// fight won by Attack presses at the cooks (no health is written), into the
-/// pantry the fight's end opens for the Marinara Key, and back to the nave,
-/// whose two doors the key opens. Then the cistern's wheels turned by
-/// Interact for the Pesto Key, the belfry's bells rung for the Parmesan Key,
-/// and the reliquary's vigil fought for the Colander Key. No step puts the
-/// body anywhere (review 2026-10-12: each temple test teleported or wrote
-/// health). The mechanism tests above are the controls for each part.
+/// ⭐ A PLAYER WALKS IN, TAKES THE FOUR KEYS AND BEATS THE MONSTER, WITH ITS
+/// OWN INPUTS. From the central hub through the narthex and the nave to the
+/// scullery by the room graph (`common::walk`), into the strip that starts
+/// the fight, the fight won by Attack presses at the cooks (no health is
+/// written), into the pantry the fight's end opens for the Marinara Key, and
+/// back to the nave, whose two doors the key opens. Then the cistern's wheels
+/// turned by Interact for the Pesto Key, the belfry's bells rung for the
+/// Parmesan Key, the reliquary's vigil fought for the Colander Key, and the
+/// Flying Spaghetti Monster fought in the sanctum until the save has it
+/// beaten. No step puts the body anywhere (review 2026-10-12: each temple
+/// test teleported or wrote health). The mechanism tests above are the
+/// controls for each part.
 #[test]
-fn a_player_walks_in_and_takes_the_four_keys_of_the_temple() {
+fn a_player_walks_in_takes_the_four_keys_and_beats_the_monster() {
     use crate::common::walk::{fight, walk_through, walk_to, Pad, Walker as _};
     use ambition_platformer2d::combat::components::EncounterMob;
     use ambition_platformer2d::persistence::save_data::PersistedEncounterState;
@@ -422,6 +424,35 @@ fn a_player_walks_in_and_takes_the_four_keys_of_the_temple() {
         }
     }
     assert!(flag(&mut sim, "noodly_key_colander"), "the player took the Colander Key");
+
+    // The sanctum: the four keys open its door, and the monster is fought
+    // by Attack presses until the save has it beaten.
+    let beaten = |world: &bevy::prelude::World| {
+        let save = world.resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>();
+        world
+            .try_query::<&BossConfig>()
+            .is_some_and(|mut configs| {
+                configs.iter(world).any(|config| {
+                    config.behavior.id == "flying_spaghetti_monster_boss"
+                        && ambition_platformer2d::boss_encounter::boss_is_cleared(save, config)
+                })
+            })
+    };
+    {
+        let mut pad = Pad::new(&mut sim);
+        walk_through(&mut pad, "noodly_nave").unwrap_or_else(|e| panic!("from the reliquary to the nave: {e}"));
+    }
+    assert!(!stands(&mut sim, "noodly_nave_sanctum_door_0"), "the four keys open the door of the sanctum: {:?}", standing(&mut sim));
+    assert!(!beaten(sim.world()), "the control: the monster is not beaten before the sanctum");
+    {
+        let mut pad = Pad::new(&mut sim);
+        walk_through(&mut pad, "noodly_sanctum").unwrap_or_else(|e| panic!("from the nave to the sanctum: {e}"));
+        const FLOOR: ambition_platformer2d::engine_core::Vec2 = ambition_platformer2d::engine_core::Vec2::new(480.0, 700.0);
+        let frames = fight(&mut pad, |world, body| world.get::<BossConfig>(body).is_some(), beaten, FLOOR, 60 * 240)
+            .unwrap_or_else(|e| panic!("the fight of the sanctum: {e}"));
+        eprintln!("[temple] the monster was beaten in {frames} frames");
+    }
+    assert!(beaten(sim.world()), "the save has the monster beaten");
 }
 
 /// Where the key that sets `flag` lies in the live room.

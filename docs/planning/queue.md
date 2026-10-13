@@ -93,21 +93,22 @@ with a witness, a poison and a control.
    own frame (`PerceivedActor::gravity_down`).
 4. **Done 2026-10-13 (`cde89753f`):** a contact bounce is against the
    toucher's own gravity; a toucher with no frame is refused.
-5. **Part done 2026-10-13:** `a_player_walks_in_and_takes_the_four_keys_of_the_temple`
-   walks from the central hub through the narthex and the nave to the
-   scullery by the room graph, wins its fight of eight cooks by Attack
-   presses (`common::walk::fight`; about 1500 frames), takes the Marinara
-   Key in the pantry and walks back to the nave, whose two doors it opens.
-   Then it turns the cistern's wheels by Interact (a, b, a, c: the least
-   turns `check_temple.py` prints) for the Pesto Key, rings the belfry's
-   three bells for the Parmesan Key, and wins the reliquary's three-wave
-   vigil (about 4900 frames) for the Colander Key. No teleport and no
-   health written (`c0701fca9`). The fight jumps under a foe only within
-   its measured apex and never during a leg, follows a Fly leg's toggle,
-   and turns off a flight that no leg steers; each of the last three is red
-   when poisoned. Poison: Attack never pressed, red at "the fight ... was
-   not over". Open: the monster in the sanctum by the
-   same road, and GNU-ton's fighter timing judged in the Smash runtime. The
+5. **Part done 2026-10-13:** `a_player_walks_in_takes_the_four_keys_and_beats_the_monster`
+   plays the whole Noodly Temple by ordinary controls: from the central hub
+   by the room graph, the scullery's fight of eight cooks won by Attack
+   presses (`common::walk::fight`) for the Marinara Key, the cistern's
+   wheels turned by Interact (a, b, a, c: the least turns `check_temple.py`
+   prints) for the Pesto Key, the belfry's three bells for the Parmesan Key,
+   the reliquary's three-wave vigil for the Colander Key, and the Flying
+   Spaghetti Monster (48 HP, flying) fought until the save has it beaten
+   (about 6100 frames). No teleport and no health written; a control before
+   each room asserts its key or defeat is not yet set. The fight reaches
+   from a foe's edge (from its centre it stood inside the monster and took
+   its touch), jumps under a foe only within its
+   measured apex and never during a leg, follows a Fly leg's toggle, and
+   turns off a flight that no leg steers (`walk` too). Poison: Attack never
+   pressed, red at "the fight ... was not over". Open: GNU-ton's fighter
+   timing judged in the Smash runtime. The
    WORLD-ACCEPTANCE opener now states the Q164 remainder.
 
 ### REVIEW-1011-INTEGRATION - real engine contracts for new demo behavior

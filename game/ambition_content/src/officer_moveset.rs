@@ -453,6 +453,7 @@ mod he_uses_the_gust {
         let foe = &mut v.actors[0];
         foe.facing = -1.0;
         foe.half_extent = ae::Vec2::new(12.0, 24.0);
+        foe.gravity_down = Some(ae::DEFAULT_GRAVITY_DIR);
         foe.phase = ambition_characters::perception::BodyPhase::AttackStartup;
         foe.phase_remaining = live_in;
         foe.attack_reach = Some(reach);

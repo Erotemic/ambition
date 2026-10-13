@@ -753,15 +753,22 @@ fn two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list() {
 /// perceived foe plays, read from its hitbox. Without it the brain assumed
 /// one reach for every swing (`assumed_foe_reach`).
 ///
+/// 104 since 2026-10-13: `gravity_down`, the DOWN of the perceived body's own
+/// frame. A swing's facing and reach are along that frame's side axis, and
+/// without it a counter read a foe in other gravity on the defender's axes
+/// (review 2026-10-12). 12 bytes, 16 with the struct's alignment; a bare
+/// `Vec2` with zero for "none" would save 8 and be a sentinel. At 14.4 peers
+/// a view is ~1.5 KB, which still fits L1.
+///
 /// ⚠ It is also the number the "per-build cost rises with population" open
 /// question is argued over — see the measurements journal. 88 bytes × 14.4 peers
-/// is ~1.27 KB per actor's view, which FITS L1, and that is why crude "cache
-/// pressure" is not an accepted explanation there.
+/// was ~1.27 KB per actor's view (104 bytes: ~1.5 KB), which FITS L1, and that
+/// is why crude "cache pressure" is not an accepted explanation there.
 #[test]
 fn the_perception_structs_do_not_silently_widen() {
     assert_eq!(
         std::mem::size_of::<PerceivedActor>(),
-        88,
+        104,
         "PerceivedActor changed width; it is constructed ~1,900 times per tick"
     );
     assert_eq!(std::mem::size_of::<PerceivedProjectile>(), 24);

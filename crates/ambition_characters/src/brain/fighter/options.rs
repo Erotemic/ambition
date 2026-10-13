@@ -1666,6 +1666,12 @@ pub fn pure_counter_stance(frames: &ambition_entity_catalog::MoveFrameData) -> O
 /// `staleness_s` nearer than the view says. A swing that is already live
 /// counts while it is still live when the stance opens. A swing whose reach
 /// is not known (`attack_reach: None`) is not a swing this can answer.
+///
+/// ⛔ THE SWING IS IN THE FOE'S FRAME. Its facing and its reach are along the
+/// foe's own side axis, and its box is on the foe's own axes; under another
+/// gravity the defender's axes say a swing faces it when it faces away
+/// (review 2026-10-12). My box is laid onto the foe's axes. A foe whose frame
+/// is not known (`gravity_down: None`) is not a swing this can answer.
 pub fn counter_value(
     foe: &PerceivedActor,
     me: &crate::perception::SelfView,
@@ -1678,12 +1684,20 @@ pub fn counter_value(
     let Some(reach) = foe.attack_reach else {
         return 0.0;
     };
-    let basis = me.acceleration_frame();
+    let Some(foe_down) = foe.gravity_down else {
+        return 0.0;
+    };
+    let theirs = ae::AccelerationFrame::new(foe_down);
+    let mine = me.acceleration_frame();
+    // My half on one of the foe's axes: my box is on my own axes.
+    let my_half_on = |axis: ae::Vec2| {
+        mine.side.dot(axis).abs() * me.half_extent.x + mine.down.dot(axis).abs() * me.half_extent.y
+    };
     let to_me = me.pos - foe.pos;
-    let side = to_me.dot(basis.side);
+    let side = to_me.dot(theirs.side);
     let faces_me = side * foe.facing > 0.0;
-    let reaches_me = side.abs() <= reach + me.half_extent.x
-        && to_me.dot(basis.down).abs() <= me.half_extent.y + foe.half_extent.y;
+    let reaches_me = side.abs() <= reach + my_half_on(theirs.side)
+        && to_me.dot(theirs.down).abs() <= my_half_on(theirs.down) + foe.half_extent.y;
     if !faces_me || !reaches_me {
         return 0.0;
     }

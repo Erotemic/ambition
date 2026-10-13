@@ -47,6 +47,7 @@ fn peer(id: &str, pos: ae::Vec2, faction: ActorFaction) -> PerceptionPeer {
         vel: ae::Vec2::ZERO,
         facing: -1.0,
         half_extent: ae::Vec2::new(12.0, 18.0),
+        gravity_down: Some(ae::DEFAULT_GRAVITY_DIR),
         faction,
         alive: true,
         on_ground: true,

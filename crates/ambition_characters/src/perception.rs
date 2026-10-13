@@ -239,10 +239,15 @@ pub struct PerceivedActor {
     pub facing: f32,
     /// The half of the perceived body's collision box in the body's OWN frame:
     /// `x` along its side axis and `y` along its DOWN. It is not turned to the
-    /// world axes. A reader lays it out with a frame (the rollout projects on
-    /// `side` and `down`); the view has no DOWN of a peer, so a reader takes
-    /// the viewer's.
+    /// world axes. A reader lays it out with a frame: the body's own
+    /// ([`Self::gravity_down`]) when the reader asks about this body's own
+    /// motion or swing; the rollout projects it on the viewer's.
     pub half_extent: ae::Vec2,
+    /// The DOWN of this body's own frame (its resolved gravity), or `None`
+    /// when it has none. Visible: a body stands on the floor its gravity
+    /// gives it. Its `facing` and its swing's reach are along the side axis
+    /// of this frame, not of the viewer's.
+    pub gravity_down: Option<ae::Vec2>,
     pub faction: ActorFaction,
     /// True iff the viewing body's faction is hostile to this actor's faction
     /// (resolved against `FactionRelations` at build time). The relational,

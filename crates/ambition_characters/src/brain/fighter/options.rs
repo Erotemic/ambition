@@ -1723,7 +1723,8 @@ pub fn frame_advantage(startup_s: f32, their_commitment_s: f32, slowest_startup_
 /// for the situation's immediate obligation: recover, evade, or approach.
 ///
 /// `walks_off` protects approach choices on open stages. Its margin is one body
-/// width so a fighter does not deliberately stop on the ledge boundary.
+/// width so a fighter does not deliberately stop on the ledge boundary, plus
+/// the floor the body needs to stop when it already moves toward that edge.
 fn walks_off(view: &crate::perception::WorldView, toward: f32) -> bool {
     // ONE authority: `WorldView::floor_ahead`, which L1 also asks to classify
     // `Disadvantage`. Two implementations of "where does the floor end" would
@@ -1731,7 +1732,13 @@ fn walks_off(view: &crate::perception::WorldView, toward: f32) -> bool {
     let Some(ahead) = view.floor_ahead(toward) else {
         return false;
     };
-    ahead < view.self_view.half_extent.x * 2.0
+    let me = &view.self_view;
+    // A body that coasts toward the edge covers its stopping distance before
+    // a turn can take effect. Without this term Sanic (571 px/s, about 90 px
+    // to stop) chose to retreat with 40 px of floor left and ran off the
+    // stage. A body that moves away from the edge does not need it.
+    let coasting = if me.vel.x * toward > 0.0 { me.stop_distance } else { 0.0 };
+    ahead < me.half_extent.x * 2.0 + coasting
 }
 
 fn movement_options(

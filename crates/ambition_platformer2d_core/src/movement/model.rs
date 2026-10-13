@@ -28,7 +28,7 @@ use bevy_ecs::component::Component;
 use super::adhesive_crawler::{AdhesiveCrawlerMotion, CrawlerParams};
 use super::surface_momentum::{MomentumParams, SurfaceMotion};
 use super::tuning::BLINK_DISTANCE;
-use super::AxisSweptParams;
+use super::{AxisHorizontalLaw, AxisSweptParams};
 use crate::body_clusters::{BodyLedgeState, LEDGE_KNOCK_OFF_COOLDOWN};
 use crate::Vec2;
 
@@ -706,6 +706,35 @@ impl MotionModel {
 
     pub fn adhesive_crawler(params: CrawlerParams) -> Self {
         Self::AdhesiveCrawler(AdhesiveCrawlerMotion::new(params))
+    }
+
+    /// The ground distance (px) this body needs to stop from `speed` (px/s)
+    /// along its side axis, if it brakes as hard as its law lets it.
+    ///
+    /// A brain asks this before it lets a fast body run at a ledge: a margin
+    /// of one body width is enough for a walker and too short for a body
+    /// that coasts. The law owns the braking rate, so the law answers. Each
+    /// law takes the stronger of its two ground rates (input against the
+    /// motion, hands off). The responsive law applies BOTH of its rates when
+    /// the stick is released (it approaches a zero target at `run_accel` and
+    /// then applies `ground_friction`), so hands off it brakes at their sum.
+    /// A crawler sets its speed directly and stops at once.
+    pub fn ground_stop_distance(&self, speed: f32) -> f32 {
+        let decel = match self {
+            Self::AxisSwept(axis) => {
+                let locomotion = &axis.params.locomotion;
+                match locomotion.horizontal_law {
+                    AxisHorizontalLaw::Responsive => locomotion.run_accel + locomotion.ground_friction,
+                    AxisHorizontalLaw::Momentum(law) => law.ground_reverse_accel.max(law.ground_coast_decel),
+                }
+            }
+            Self::SurfaceMomentum(motion) => motion.params.brake.max(motion.params.friction),
+            Self::AdhesiveCrawler(_) => return 0.0,
+        };
+        if decel <= 0.0 {
+            return f32::INFINITY;
+        }
+        speed * speed / (2.0 * decel)
     }
 
     /// Seconds left in a committed jump-squat, or `0.0` for a policy that has

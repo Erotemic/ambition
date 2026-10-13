@@ -1491,6 +1491,39 @@ fn a_wider_body_refuses_an_approach_a_narrower_one_takes() {
     }
 }
 
+/// ⭐ A BODY THAT COASTS TOWARD THE EDGE NEEDS ITS STOPPING DISTANCE AS WELL
+/// AS ITS WIDTH. Measured 2026-10-13 in the Sanic L5 mirror: each seat ran
+/// outward at up to 571 px/s and the retreat stayed unpenalised until less
+/// than one body width of floor was left, so he left the stage without being
+/// hit. Here the body stands 60 px from the left edge with the foe to the
+/// right, so a retreat goes left. 60 px is more than its 24 px width and less
+/// than its width plus its 90 px to stop.
+///
+/// The controls: the same body at rest, and the same body moving at the same
+/// speed AWAY from that edge. Neither retreat is penalised, so the penalty is
+/// the coasting and not the place.
+#[test]
+fn a_body_coasting_toward_the_edge_does_not_choose_to_retreat_off_it() {
+    let weights = UtilityWeights::default();
+    let retreat = |vel_x: f32, stop_distance: f32| {
+        let mut view = on_a_platform(160.0, 300.0, (100.0, 400.0));
+        view.self_view.vel.x = vel_x;
+        view.self_view.stop_distance = stop_distance;
+        let options = generate_options(Perceived::cheating(&view), Situation::Neutral, &[], &weights);
+        (score_of(&options, MovementVerb::Retreat), score_of(&options, MovementVerb::Approach))
+    };
+    let (at_rest, _) = retreat(0.0, 0.0);
+    let (away, _) = retreat(571.0, 90.0);
+    let (coasting, approach) = retreat(-571.0, 90.0);
+    assert_eq!(at_rest, away, "moving away from the edge changed the retreat's score");
+    assert!(
+        coasting < at_rest,
+        "a body coasting at the edge at 571 px/s with 90 px to stop and 60 px of floor scores the retreat \
+         {coasting}, as at rest ({at_rest}): it runs off the stage"
+    );
+    assert!(coasting < approach, "coasting at the edge, the retreat ({coasting}) still outranks the approach ({approach})");
+}
+
 /// A body with no perceived terrain is not penalised. An airborne fighter,
 /// or a view whose terrain was never filled, is not a ledge question — and
 /// treating "I cannot see the floor" as "the floor ends here" would freeze every

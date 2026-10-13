@@ -1,0 +1,180 @@
+//! The secret of 1-1: its sky leads to a room of pipes, and a pipe of that
+//! room leads to the start of a level.
+//!
+//! Jon, 2026-10-12: "if I fly too high in world 1-1 I trigger a special
+//! loading zone to a special level with warp pipes that lets me to into any
+//! starting world. This will be a nice secret in the game and also let me
+//! debug easier."
+
+use ambition_demo_mary_o::pipe::PipeTransit;
+use ambition_demo_mary_o::{warp_pipes_for_room, LEVEL_1_1_ROOM_ID};
+use ambition_demo_mary_o_app::build_demo_app;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+use bevy::prelude::*;
+
+const WARP_ROOM: &str = "mary_o_warp";
+
+fn boot() -> App {
+    let mut app = build_demo_app();
+    ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
+    for _ in 0..90 {
+        app.update();
+    }
+    app
+}
+
+fn step(app: &mut App, frame: ControlFrame) {
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
+        .0 = frame;
+    app.update();
+}
+
+fn active_room(app: &mut App) -> String {
+    ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .expect("the session has a live room")
+        .id
+        .clone()
+}
+
+fn body(app: &mut App) -> ae::BodyKinematics {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
+    *query.iter(app.world()).next().expect("gameplay has a primary player")
+}
+
+fn in_a_pipe(app: &mut App) -> bool {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<(), (With<PrimaryPlayer>, With<PipeTransit>)>();
+    query.iter(app.world()).next().is_some()
+}
+
+fn place(app: &mut App, pos: Vec2, velocity: Vec2) {
+    let mut query = app.world_mut().query_filtered::<(
+        ae::BodyClusterQueryData,
+        &mut ambition_platformer2d::actor::MotionModel,
+    ), With<PrimaryPlayer>>();
+    let world = app.world_mut();
+    let (mut cluster_item, mut motion_model) = query
+        .iter_mut(world)
+        .next()
+        .expect("gameplay has a primary player");
+    let mut clusters = cluster_item.as_clusters_mut();
+    ae::movement::transit_body(
+        &mut motion_model,
+        &mut clusters,
+        pos,
+        ae::movement::TransitVelocity::Set(velocity),
+    );
+}
+
+/// Step until the active room is `room`, for `frames` at most.
+fn arrives_in(app: &mut App, room: &str, frames: usize, frame: ControlFrame) -> bool {
+    for _ in 0..frames {
+        step(app, frame.clone());
+        if active_room(app) == room {
+            return true;
+        }
+    }
+    false
+}
+
+#[test]
+fn she_goes_up_out_of_1_1_and_takes_a_pipe_to_a_level() {
+    let mut app = boot();
+    assert_eq!(active_room(&mut app), LEVEL_1_1_ROOM_ID);
+
+    // A full jump from the highest block of 1-1 does not get to the top: a
+    // body that is there went up by another way. She is put in the air under
+    // the top, on her way up.
+    place(&mut app, Vec2::new(400.0, 70.0), Vec2::new(0.0, -600.0));
+    assert!(
+        arrives_in(&mut app, WARP_ROOM, 240, ControlFrame::default()),
+        "she went up to the top of 1-1 and the room is `{}`",
+        active_room(&mut app)
+    );
+
+    // She is in the room, and she comes down to its floor.
+    let size = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .expect("a live room")
+        .world
+        .size;
+    for _ in 0..180 {
+        step(&mut app, ControlFrame::default());
+    }
+    let at = body(&mut app).pos;
+    assert!(
+        at.x > 0.0 && at.x < size.x && at.y > 0.0 && at.y < size.y,
+        "she is at {at:?}, out of the warp room ({size:?})"
+    );
+    assert_eq!(active_room(&mut app), WARP_ROOM, "she did not stay in the warp room");
+
+    // A pipe for each level of the file that is not this room.
+    let pipes = warp_pipes_for_room(WARP_ROOM);
+    for level in ["mary_o_1_1", "mary_o_1_2", "mary_o_1_3", "mary_o_1_4"] {
+        assert!(
+            pipes.iter().any(|pipe| pipe.room == level),
+            "the warp room has no pipe to `{level}`"
+        );
+    }
+
+    // She stands on the pipe to 1-3 and presses down.
+    let pipe = pipes.iter().find(|pipe| pipe.room == "mary_o_1_3").unwrap();
+    let half = body(&mut app).size.y * 0.5;
+    let top = Vec2::new(
+        (pipe.mouth.aabb.min.x + pipe.mouth.aabb.max.x) * 0.5,
+        pipe.mouth.aabb.min.y - half,
+    );
+    place(&mut app, top, Vec2::ZERO);
+    for _ in 0..20 {
+        step(&mut app, ControlFrame::default());
+    }
+    assert_eq!(active_room(&mut app), WARP_ROOM, "to stand on a pipe is not to go into it");
+
+    let mut down = ControlFrame::default();
+    down.axis_y = 1.0;
+    // The press is of the control of the body, some ticks after the device.
+    for _ in 0..10 {
+        step(&mut app, down.clone());
+        if in_a_pipe(&mut app) {
+            break;
+        }
+    }
+    assert!(in_a_pipe(&mut app), "she pressed down on the pipe and did not go into it");
+    assert!(
+        arrives_in(&mut app, "mary_o_1_3", 300, ControlFrame::default()),
+        "she went down the pipe to 1-3 and the room is `{}`",
+        active_room(&mut app)
+    );
+
+    // The ride ends with the room: she is at the start of 1-3 and can move.
+    for _ in 0..30 {
+        step(&mut app, ControlFrame::default());
+    }
+    assert!(!in_a_pipe(&mut app), "the pipe transit of the warp room went with her to 1-3");
+    let start = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .expect("a live room")
+        .world
+        .spawn;
+    let at = body(&mut app).pos;
+    assert!(
+        (at.x - start.x).abs() < 48.0,
+        "she is at {at:?}, and the start of 1-3 is {start:?}"
+    );
+    let mut right = ControlFrame::default();
+    right.axis_x = 1.0;
+    right.right_pressed = true;
+    for _ in 0..40 {
+        step(&mut app, right.clone());
+    }
+    assert!(
+        body(&mut app).pos.x > at.x + 16.0,
+        "she can not walk after the pipe: {} -> {}",
+        at.x,
+        body(&mut app).pos.x
+    );
+}

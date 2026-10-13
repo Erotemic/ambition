@@ -222,3 +222,35 @@ fn a_body_on_the_centre_line_sinks_at_once() {
     assert_eq!(transit.to, transit.swallowed);
 }
 
+
+/// A pipe to another level has no far pipe. She goes down it as she goes down
+/// a tube, the swallow ends with the one crossing, and she stays in the pipe:
+/// the transit has no end of its own, and the room she arrives in ends it.
+#[test]
+fn a_pipe_to_another_level_swallows_her_and_keeps_her() {
+    let mut transit = PipeTransit::begin_leaving(
+        ae::Vec2::new(100.0, 100.0),
+        ae::Vec2::new(100.0, 132.0),
+        ae::Vec2::new(0.0, 1.0),
+        TILE,
+    );
+    let swallowed = ae::Vec2::new(100.0, 100.0 + TRAVEL_TILES * TILE);
+    let mut crossed_at = None;
+    for tick in 0..600 {
+        let fx = step_pipe_transit(transit, DT);
+        if fx.crossed {
+            assert!(crossed_at.is_none(), "a transit crosses exactly ONCE");
+            crossed_at = Some(tick);
+            assert_eq!(fx.pos, swallowed, "the level goes when the pipe has all of her");
+        }
+        if crossed_at.is_some() {
+            assert_eq!(fx.pos, swallowed, "she came out of a pipe that has no far end");
+        }
+        transit = fx.next.expect("a pipe to another level let her go");
+    }
+    let crossed_at: usize = crossed_at.expect("the swallow did not end");
+    assert_eq!(transit.phase, TransitPhase::Leaving);
+    // The same slide as a tube: no faster, no slower.
+    let ticks = (SWALLOW_S / DT).round() as usize;
+    assert!(crossed_at.abs_diff(ticks) <= 2, "the swallow took {crossed_at} ticks, and a tube takes {ticks}");
+}

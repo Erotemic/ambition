@@ -84,6 +84,9 @@ pub enum TransitPhase {
     Swallowing,
     /// Rising OUT of the far pipe, after it.
     Emerging,
+    /// In a pipe that has no far pipe: she stays in it until the level goes
+    /// (see [`PipeTransit::leaves`]).
+    Leaving,
 }
 
 /// A pipe transit in flight, carried by the body making it.
@@ -106,6 +109,10 @@ pub struct PipeTransit {
     pub throat: ae::Vec2,
     /// Where the body finally stands when the whole transit is over.
     pub arrival: ae::Vec2,
+    /// The pipe has no far pipe: the far end is another level. The swallow
+    /// ends in [`TransitPhase::Leaving`], and the room she arrives in ends the
+    /// transit.
+    pub leaves: bool,
 }
 
 impl PipeTransit {
@@ -141,6 +148,20 @@ impl PipeTransit {
             // mouth and rose into place going down, and overshot and sank going up.
             throat: arrival - travel,
             arrival,
+            leaves: false,
+        }
+    }
+
+    /// Begin the transit into a pipe that goes to another level: the same step
+    /// to the centre line and the same slide down, and no far pipe. She stays
+    /// where the swallow ends.
+    pub fn begin_leaving(at: ae::Vec2, mouth: ae::Vec2, axis: ae::Vec2, tile: f32) -> Self {
+        let swallowed = Self::begin(at, mouth, at, axis, tile).swallowed;
+        Self {
+            throat: swallowed,
+            arrival: swallowed,
+            leaves: true,
+            ..Self::begin(at, mouth, at, axis, tile)
         }
     }
 }
@@ -153,7 +174,8 @@ pub struct TransitEffects {
     /// The transit's next state, or `None` when it is over (unlock the body).
     pub next: Option<PipeTransit>,
     /// This tick is the CROSSING — the body left the near pipe's throat and
-    /// appeared in the far one. Only true for one tick of a transit.
+    /// appeared in the far one, or the swallow of a pipe that leaves the level
+    /// ended. Only true for one tick of a transit.
     pub crossed: bool,
 }
 
@@ -169,6 +191,14 @@ pub fn step_pipe_transit(transit: PipeTransit, dt: f32) -> TransitEffects {
         TransitPhase::Centering => CENTER_S,
         TransitPhase::Swallowing => SWALLOW_S,
         TransitPhase::Emerging => EMERGE_S,
+        // No end of its own: the room she arrives in ends it.
+        TransitPhase::Leaving => {
+            return TransitEffects {
+                pos: transit.to,
+                next: Some(PipeTransit { elapsed, ..transit }),
+                crossed: false,
+            };
+        }
     };
     let t = (elapsed / duration).clamp(0.0, 1.0);
     let pos = transit.from.lerp(transit.to, smoothstep(t));
@@ -192,6 +222,18 @@ pub fn step_pipe_transit(transit: PipeTransit, dt: f32) -> TransitEffects {
             }),
             crossed: false,
         },
+        // Fully swallowed, and no far pipe: she stays here while the level goes.
+        TransitPhase::Swallowing if transit.leaves => TransitEffects {
+            pos: transit.swallowed,
+            next: Some(PipeTransit {
+                phase: TransitPhase::Leaving,
+                elapsed: 0.0,
+                from: transit.swallowed,
+                to: transit.swallowed,
+                ..transit
+            }),
+            crossed: true,
+        },
         // Fully swallowed: cross to the far pipe's throat and start rising.
         TransitPhase::Swallowing => TransitEffects {
             pos: transit.throat,
@@ -210,6 +252,7 @@ pub fn step_pipe_transit(transit: PipeTransit, dt: f32) -> TransitEffects {
             next: None,
             crossed: false,
         },
+        TransitPhase::Leaving => unreachable!("a Leaving phase has no end of its own"),
     }
 }
 

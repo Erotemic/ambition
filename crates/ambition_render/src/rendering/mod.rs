@@ -470,6 +470,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // through it.
         app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
         hit_flash::add_hit_flash_material_plugin(app);
+        // The live layer of the bubble shield: a shader, on Android as the hit
+        // flash is (not there).
+        #[cfg(not(target_os = "android"))]
+        app.add_plugins(crate::bubble_shield_fx::BubbleShieldFxPlugin);
         // Place the content-owned overlay seam: after the character animator
         // (overlays mirror its new frame), before the hit-flash mirror (the
         // silhouette reads sprite state that overlays may tint). The set carries

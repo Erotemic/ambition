@@ -255,8 +255,8 @@ suit the style of the game.
   (the heavy). The three on two legs are the `ratite` anatomy with arms on
   the wing bones (`scripts/build_ratite_rigs.py`); the triceratops is the
   `quadruped` anatomy and a tail bone (`scripts/build_triceratops_rig.py`).
-  The T-rex does not call them: his flock is birds. Not done: the spit of
-  the dilophosaurus is the thrown `Rock`, with no projectile art of its own.
+  The T-rex does not call them: his flock is birds. Its spit flies as the
+  thrown `Rock` and looks like a glob of venom (2026-10-13).
 - [x] Two biomes for Mary-O (Jon, 2026-10-11), in the colours of a magical
   girl and with the shapes of an old platform game. `starlight` is the land
   above: a pink sky, a crescent moon, a rainbow, round hills with marks on
@@ -324,6 +324,64 @@ suit the style of the game.
   play. The stroke is upright, thicker than the hook, and starts four rows
   above the hook (`bonus_block_tile` in `targets/props/entities.py`, and the
   16 px copy in the Mary-O tileset).
+
+## Plain shots, 2026-10-13 (Jon)
+
+Jon: "We need to generally improve the art for these generic fireballs /
+projectiles. The robot fireballs need new art. And I think there is a spitting
+dinosaur that has generic square projectiles."
+
+One sheet, the renderer's `shot_kit`, has a row for each: `fireball`,
+`coldfire`, `hadouken`, `hadouken_super`, `spit`, `rock`, `bolt`. The head of
+each shot is at the middle of its frame, so the tail is behind the body.
+`game/ambition_content/src/projectiles.rs` registers the looks.
+
+No shot of Ambition is the engine's orange box now:
+
+- A ranged style has a default look (`RangedStyle::default_visual`): a thrown
+  rock, an arrow (the `bow_arrow` sheet, which no shot used), the pistol round.
+- A shot that names no look (the empty id) is the magic bolt. This is every
+  `Bolt` action and eight boss moves that name none.
+- The dilophosaurus names `spit`.
+- The Officer's `pistol_round` sheet was not in the publish roster, so his
+  shot was the magenta box of a missing sheet. It is in the roster.
+
+To see a look: `capture_scene ROOM X,Y out.png --shot TICK:X,Y:DX,DY:LOOK`.
+
+A shot that is turned to its flight and flies left is mirrored top to bottom,
+so its top is up (it was turned half round, upside down).
+
+Open: Jon has not judged this art. The eight boss moves share one bolt; each
+could have a look of its own.
+
+## The bubble shield, 2026-10-13 (Jon)
+
+Jon: "I would also like to improve the art for the bubble shield and
+potentially make it reactive and more interesting looking with a shader."
+
+The art is authored (the renderer's `bubble_shield` target), three white
+pictures: the field, a honeycomb that tiles, and cracks. The field was a
+gradient that Rust made at start. The game gives the hue, which is the state
+of the guard, as before.
+
+- The sprite draws the field. That is the whole look with no shader budget
+  (the `potato` tier, Android).
+- A shader layer over it (`ambition_render`'s `bubble_shield_fx`) draws the
+  honeycomb, wrapped on the bubble as on a ball: it shows toward the rim and
+  drifts, a ring goes round the ball from the point where a blow landed, and
+  all of it is lit in a parry. The cracks grow from the rim as the guard is spent. The
+  shader draws no art of its own.
+
+To see it: `capture_scene ROOM X,Y out.png --guard X,Y:INTEGRITY[:parry|:hit|:blow@PHASE]`
+(`blow@0.3` holds one moment of the beat of a blow).
+
+Jon, 2026-10-13: "New art looks good."
+
+Each guard that blocks a blow records where it landed and for how long that
+reads (`BodyShieldState::note_blocked_blow`, rollback state; schema 349). A
+shield that is not a resource records it too, so a guard outside a match
+flares when it blocks. Before, only shieldstun showed a blow, and such a
+shield owes none.
 
 ## Not done
 

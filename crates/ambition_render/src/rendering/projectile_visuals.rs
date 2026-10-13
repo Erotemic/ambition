@@ -42,6 +42,11 @@ pub struct VisualProjectile(pub Entity);
 #[derive(Component, Clone, Copy)]
 pub struct ProjectileVisualLink(#[allow(dead_code)] pub Entity);
 
+/// The visual turns about the `"pommel"` anchor of its sheet frame, and keeps
+/// that anchor for every frame of its row.
+#[derive(Component)]
+pub struct TurnsAboutPommel;
+
 /// Per-projectile frame cycler for an animated spritesheet kind. Holds the row's
 /// source rects (read once from the manifest at spawn) and steps them on the
 /// row's authored cadence, scaled by `PresentationTime` so bullet-time slows the
@@ -111,6 +116,8 @@ struct BuiltVisual {
     sprite: Sprite,
     anchor: Option<Anchor>,
     anim: Option<ProjectileFrameAnim>,
+    /// See [`TurnsAboutPommel`].
+    pommel: bool,
 }
 
 /// Bevy `Rect` for a manifest frame rect.
@@ -128,6 +135,10 @@ fn render_size(size: ProjectileRenderSize, body: Vec2, frame_aspect: f32) -> Vec
             Vec2::new(body.x.max(min), body.y.max(min)) * scale
         }
         ProjectileRenderSize::FixedWidth(w) => Vec2::new(w, w / frame_aspect.max(0.0001)),
+        ProjectileRenderSize::BodyWidth { scale } => {
+            let w = body.x * scale;
+            Vec2::new(w, w / frame_aspect.max(0.0001))
+        }
     }
 }
 
@@ -188,6 +199,7 @@ fn build_visual(
                 sprite,
                 anchor: None,
                 anim: None,
+                pommel: false,
             }
         }
         ProjectileArtSource::SolidColor { rgba: c } => {
@@ -198,6 +210,7 @@ fn build_visual(
                 sprite,
                 anchor: None,
                 anim: None,
+                pommel: false,
             }
         }
         ProjectileArtSource::Image { path } => {
@@ -211,6 +224,7 @@ fn build_visual(
                 sprite,
                 anchor: None,
                 anim: None,
+                pommel: false,
             }
         }
         ProjectileArtSource::Sheet {
@@ -255,6 +269,7 @@ fn build_sheet_visual(
             sprite: Sprite::from_color(Color::srgb(1.0, 0.0, 1.0), size),
             anchor: None,
             anim: None,
+            pommel: false,
         };
     };
     let frames: Vec<Rect> = row.rects.iter().map(frame_rect).collect();
@@ -286,9 +301,12 @@ fn build_sheet_visual(
         index: 0,
     });
 
-    // A velocity-aligned blade turns about its pommel. An animated row has an
-    // anchor for each frame, so it starts with its first frame's.
-    let anchor = if matches!(rotation, ProjectileRotation::VelocityAligned) {
+    // A velocity-aligned blade whose sheet names a pommel turns about it. Any
+    // other animated row has an anchor for each frame (the middle of the
+    // logical frame), so it starts with its first frame's.
+    let pommel = matches!(rotation, ProjectileRotation::VelocityAligned)
+        && row.rects.first().is_some_and(|rect| rect.anchors.contains_key("pommel"));
+    let anchor = if pommel {
         Some(pommel_anchor(&row.rects[0]))
     } else {
         anim.as_ref().and_then(|anim| anim.frames.first()).map(|frame| Anchor(frame.anchor))
@@ -298,6 +316,7 @@ fn build_sheet_visual(
         sprite,
         anchor,
         anim,
+        pommel,
     }
 }
 
@@ -330,6 +349,7 @@ pub fn sync_projectile_visuals(
             Option<&mut Anchor>,
             &mut Transform,
             &mut Sprite,
+            Has<TurnsAboutPommel>,
         ),
         With<ProjectileVisual>,
     >,
@@ -371,6 +391,9 @@ pub fn sync_projectile_visuals(
         if let Some(anim) = built.anim {
             visual.insert(anim);
         }
+        if built.pommel {
+            visual.insert(TurnsAboutPommel);
+        }
         let visual = visual.id();
         commands
             .entity(proj_entity)
@@ -379,7 +402,7 @@ pub fn sync_projectile_visuals(
 
     // Refresh existing visuals from their live view; despawn orphans.
     let dt = presentation_time.scaled_dt();
-    for (visual_entity, link, visual_id, anim, anchor, mut transform, mut sprite) in &mut visuals {
+    for (visual_entity, link, visual_id, anim, mut anchor, mut transform, mut sprite, pommel) in &mut visuals {
         let Ok(view) = bodies.get(link.0) else {
             commands.entity(visual_entity).despawn();
             continue;
@@ -403,6 +426,18 @@ pub fn sync_projectile_visuals(
             }
             ProjectileRotation::VelocityAligned => {
                 transform.rotation = Quat::from_rotation_z(velocity_aligned_angle(view.vel));
+                // A shot that flies toward -x is turned past the vertical, so
+                // its art is upside down. Mirrored top to bottom about its
+                // own axis, its top is up again.
+                let mirrored = view.vel.x < 0.0;
+                if sprite.flip_y != mirrored {
+                    sprite.flip_y = mirrored;
+                    // The image is mirrored about the middle of the sprite;
+                    // a pommel that is not on that middle goes with it.
+                    if let Some(anchor) = anchor.as_deref_mut().filter(|_| pommel) {
+                        anchor.0.y = -anchor.0.y;
+                    }
+                }
             }
         }
 
@@ -417,11 +452,12 @@ pub fn sync_projectile_visuals(
                 let frame = anim.frames[anim.index];
                 sprite.rect = Some(frame.rect);
                 sprite.custom_size = Some(frame.size);
-                // A velocity-aligned blade keeps its pommel anchor.
-                if let Some(mut anchor) = anchor.filter(|_| !matches!(rotation, ProjectileRotation::VelocityAligned)) {
+                // A blade that turns about its pommel keeps that anchor.
+                if let Some(anchor) = anchor.as_deref_mut().filter(|_| !pommel) {
                     // A flipped sprite is flipped about its own centre.
-                    let flip = if sprite.flip_x { -1.0 } else { 1.0 };
-                    anchor.0 = Vec2::new(frame.anchor.x * flip, frame.anchor.y);
+                    let flip_x = if sprite.flip_x { -1.0 } else { 1.0 };
+                    let flip_y = if sprite.flip_y { -1.0 } else { 1.0 };
+                    anchor.0 = Vec2::new(frame.anchor.x * flip_x, frame.anchor.y * flip_y);
                 }
             }
         }

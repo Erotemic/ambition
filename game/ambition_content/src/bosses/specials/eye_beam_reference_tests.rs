@@ -138,7 +138,7 @@ pub fn spawn_eye_beam_from_special_messages(
                     max_lifetime: lifetime_s.max(0.05),
                     half_extent: ae::Vec2::new(half_x.max(1.0), half_y.max(1.0)),
                     gravity: 0.0,
-                    visual_id: String::new(),
+                    visual_id: ambition_content_modules::eye_beam::VISUAL.into(),
                     // Straight shot: this ability authors no bounce.
                     bounces: 0,
                     bounce_on_world_contact: false,

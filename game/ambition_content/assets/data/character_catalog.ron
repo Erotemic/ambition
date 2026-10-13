@@ -4776,8 +4776,8 @@
         hall_dialogue_id: Some("hall_compsognathus"),
         ),
         // The dilophosaurus keeps its distance and spits (the `shoot` row), and
-        // bites what comes close. Its spit is the thrown `Rock` for now: it has
-        // no projectile art of its own yet.
+        // bites what comes close. Its spit flies as a thrown `Rock` does, and
+        // looks like a glob of venom (`ranged_vfx`).
         "dilophosaurus": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Dial-up Dilophosaurus",
@@ -4788,6 +4788,7 @@
             standing_height: Some(74.0),
             composition: None,
             default_action_set: "dilophosaurus_spit",
+            ranged_vfx: Some("spit"),
             locomotion: Some((run_speed: 190.0, move_style: Walk)),
             autonomous_profile: Some((
                 template: Skirmisher,

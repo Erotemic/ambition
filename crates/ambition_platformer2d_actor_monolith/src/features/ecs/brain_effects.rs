@@ -286,14 +286,13 @@ pub fn spawn_projectiles_from_brain_actions(
         // resolves through the content catalog — never the owner-id string.
         // Precedence: the ACTION's own authored visual (a drawn weapon and an
         // equipment-granted verb both bring their look with them), else the
-        // archetype's default ranged look.
-        let visual_id = if let Some(authored) = spec.visual.clone() {
-            authored
-        } else {
-            config
-                .map(|c| c.tuning.ranged_visual.clone())
-                .unwrap_or_default()
-        };
+        // archetype's default ranged look, else the look of the action's
+        // style (a thrown rock is a rock).
+        let visual_id = spec
+            .visual
+            .clone()
+            .or_else(|| config.map(|c| c.tuning.ranged_visual.clone()).filter(|id| !id.is_empty()))
+            .unwrap_or_else(|| spec.style.default_visual().to_string());
         // Flight is the ACTION's to author; the shared envelope is the fallback
         // for every ranged verb that doesn't care.
         let flight = spec.flight.unwrap_or(ProjectileFlight {

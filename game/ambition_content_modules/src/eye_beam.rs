@@ -1,7 +1,11 @@
 //! The Smirking Behemoth's eye beam: during the telegraph the boss locks where
 //! its target is; on the first strike tick it fires a short line of fast
-//! bubble-laser boxes from its eye toward that point. One readable beam, not
-//! a barrage. Migrated from the native system (fast-iteration I4/I7).
+//! bolts from its eye toward that point. One readable beam, not a barrage.
+//! Migrated from the native system (fast-iteration I4/I7).
+//!
+//! The eye is the boss's `projectile_origin_offset` (`boss_profiles.ron`). The
+//! bolts are drawn by the `eye_beam` projectile look, which the game's content
+//! registers; with no look they are the engine's plain orange boxes.
 
 use ambition_boss_special_port::{BossCaster, BossSpecialCast};
 use ambition_extension_sdk::{
@@ -15,6 +19,8 @@ use crate::strike;
 
 /// The special-action key in `boss_profiles.ron`.
 pub const KEY: &str = "eye_beam";
+/// The projectile look of a bolt.
+pub const VISUAL: &str = "eye_beam";
 
 const SHOT_SPEED: f32 = 780.0;
 const DAMAGE: i32 = 1;
@@ -82,7 +88,7 @@ fn fire(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             max_lifetime: LIFETIME_S.max(0.05),
             half_extent: Vec2::new(HALF_EXTENT.x.max(1.0), HALF_EXTENT.y.max(1.0)),
             gravity: 0.0,
-            visual_id: String::new(),
+            visual_id: VISUAL.into(),
             // A straight shot: this ability authors no bounce.
             bounces: 0,
             bounce_on_world_contact: false,

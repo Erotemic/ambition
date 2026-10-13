@@ -9,9 +9,10 @@
 //! The regular character sprite remains visible and authoritative: the normal
 //! `animate_characters` system still advances its atlas frame, facing bit, and
 //! hit tint. This module adds a separate world-space `Material2d` quad that
-//! samples the same atlas frame and draws a vivid, semi-transparent surreal
-//! overlay on top. The source sprite is never hidden, so a material/shader
-//! failure cannot erase the enemy.
+//! samples the same atlas frame and draws the dream over it. The dream is made
+//! of the slug's own art (moved, turned in hue, laid over itself small): the
+//! pass draws no art of its own, and the source sprite is never hidden or
+//! tinted, so a slug with no pass is the authored slug.
 //!
 //! v6 deliberately uses a sibling world-space mesh instead of a child. The
 //! first attempt used a child quad, which is elegant but harder to debug when
@@ -41,6 +42,22 @@ use ambition_render::rendering::{
 /// Keep the local material strong enough to read over the original sprite.
 const EFFECT_STRENGTH: f32 = 1.0;
 
+/// The skin of the dream: eyes in a lattice, a whorl of ripples round each,
+/// dots as scales. It is a picture of the slug's own sprite target
+/// (`puppy_slug.py`, `dream_skin`), published beside its sheet.
+const DREAM_SKIN_PICTURE: &str = "sprites/puppy_slug_dream_skin.png";
+
+/// How wide one tile of the skin is on a body, in world units. A tile has
+/// seven eyes across it, so an eye is about a tenth of this.
+const DREAM_SKIN_TILE: f32 = 50.0;
+
+/// How many tiles of the skin cover a body's frame.
+fn skin_tiles(render_size: Vec2, frame: Vec4) -> Vec4 {
+    let frame_size = (Vec2::new(frame.z, frame.w) - Vec2::new(frame.x, frame.y)).max(Vec2::splat(1e-4));
+    let tiles = render_size * frame_size / DREAM_SKIN_TILE;
+    Vec4::new(tiles.x, tiles.y, 0.0, 0.0)
+}
+
 /// Draw the local overlay clearly in front of the source sprite. This is still
 /// below the foreground/player debug layers in normal rooms, but large enough
 /// to avoid same-z ordering surprises in the transparent 2D phase. The
@@ -54,8 +71,8 @@ const LOCAL_OVERLAY_Z_BIAS: f32 = 0.9;
 #[derive(Resource, Reflect, Default, Debug, Clone, Copy)]
 #[reflect(Resource)]
 pub struct PuppySlugDreamSettings {
-    /// Hide the sibling overlay material and skip the rainbow source tint;
-    /// the slug renders in its native palette.
+    /// Hide the sibling overlay material: the slug is drawn as its authored
+    /// art alone.
     pub disabled: bool,
 }
 
@@ -122,6 +139,8 @@ fn declare_deep_dream_demand(
 /// - `control.z`: effect strength.
 /// - `control.w`: deterministic per-entity seed.
 /// - `tint`: reserved for future hit-flash / attack tint mixing.
+/// - `skin`, `skin_tiles`: the authored skin of the dream and how many of its
+///   tiles cover the frame. The pass draws no art of its own.
 /// - `frame_rect.xy` / `frame_rect.zw`: the body's frame inside that image
 ///   (`FrameInSprite`), normalized, unflipped. The pattern is laid over the
 ///   frame, not over a composited body's whole square cell, where a wide slug
@@ -139,6 +158,14 @@ pub struct PuppySlugDeepDreamMaterial {
     pub color_texture: Handle<Image>,
     #[uniform(5)]
     pub frame_rect: Vec4,
+    /// The skin of the dream ([`DREAM_SKIN_PICTURE`]). The pass lays it over
+    /// the body; it tiles.
+    #[texture(6)]
+    #[sampler(7)]
+    pub skin: Handle<Image>,
+    /// `xy`: how many tiles of the skin go across the frame, and down it.
+    #[uniform(8)]
+    pub skin_tiles: Vec4,
 }
 
 impl Material2d for PuppySlugDeepDreamMaterial {
@@ -175,6 +202,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
     mut materials: ResMut<Assets<PuppySlugDeepDreamMaterial>>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     actor_render: Res<ambition_sim_view::ActorRenderIndex>,
+    asset_server: Res<AssetServer>,
     candidates: Query<
         (
             Entity,
@@ -211,6 +239,8 @@ pub fn attach_puppy_slug_deep_dream_overlays(
             tint: Vec4::ONE,
             color_texture: sprite.image.clone(),
             frame_rect: frame_rect(frame),
+            skin: ambition_sprite_sheet::game_assets::load_sheet_image(&asset_server, "fx-sheet", DREAM_SKIN_PICTURE),
+            skin_tiles: skin_tiles(render_size, frame_rect(frame)),
         });
         let mesh = meshes.add(Rectangle::default());
         let overlay_transform = overlay_transform_from_source(transform, anchor, render_size);
@@ -255,11 +285,11 @@ pub fn sync_puppy_slug_deep_dream_overlays(
     mut elapsed: Local<f32>,
     settings: Res<PuppySlugDreamSettings>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
-    mut sources: Query<
+    sources: Query<
         (
             Entity,
             &Transform,
-            &mut Sprite,
+            &Sprite,
             Option<&Anchor>,
             Option<&FrameInSprite>,
             &PuppySlugDeepDreamSource,
@@ -280,8 +310,8 @@ pub fn sync_puppy_slug_deep_dream_overlays(
     *elapsed += dt;
     let disabled = settings.disabled;
 
-    for (source_entity, source_transform, mut source_sprite, anchor, frame, source, source_visibility) in
-        &mut sources
+    for (source_entity, source_transform, source_sprite, anchor, frame, source, source_visibility) in
+        &sources
     {
         let Some(render_size) = source_sprite.custom_size else {
             continue;
@@ -292,35 +322,10 @@ pub fn sync_puppy_slug_deep_dream_overlays(
         let flip = flip_flag(&source_sprite);
         let source_visible = !matches!(source_visibility, Some(v) if *v == Visibility::Hidden);
 
-        // Rainbow tint fail-safe (kept from `05e5feb`): even when the
-        // sibling deep-dream material draws on top, multiplying the source
-        // sprite's color through an HSV cycle keeps the slug visibly
-        // "surreal" if the shader doesn't fully cover. Multiplies against
-        // the existing color (rather than overwriting) so the upstream
-        // hit-flash tint from `sync_visuals` still reads through —
-        // a red flash multiplied by current HSV becomes a tinted red
-        // rather than getting clobbered to plain rainbow.
-        //
-        // Skip the source-color recoloring while the disable toggle
-        // is on so the slug renders in its native palette during A/B
-        // tests against the mirror-duplication artifact.
-        if !disabled {
-            let hue = (*elapsed * 0.7 + source.seed * 0.91).rem_euclid(1.0);
-            let tint_rgb = hsv_to_rgb(hue, 0.78, 1.0);
-            let existing = source_sprite.color.to_srgba();
-            source_sprite.color = Color::srgba(
-                existing.red * tint_rgb.x,
-                existing.green * tint_rgb.y,
-                existing.blue * tint_rgb.z,
-                existing.alpha,
-            );
-        } else {
-            // Restore opaque white so the source sprite renders cleanly
-            // without the carry-over rainbow multiplier from the
-            // previous frame.
-            source_sprite.color = Color::WHITE;
-        }
-
+        // The source sprite keeps its own colours: the dream is the overlay's,
+        // and a slug with the pass off (or a pass that does not draw) is the
+        // authored art, not a tint of it. Before 2026-10-13 this system also
+        // multiplied the source's colour by a turning hue, and that hid the art.
         let Ok((
             overlay_entity,
             mut overlay_transform,
@@ -348,6 +353,7 @@ pub fn sync_puppy_slug_deep_dream_overlays(
             material.control = Vec4::new(*elapsed, flip, EFFECT_STRENGTH, source.seed);
             material.color_texture = source_sprite.image.clone();
             material.frame_rect = frame_rect(frame);
+            material.skin_tiles = skin_tiles(render_size, material.frame_rect);
         }
         let _ = (overlay_entity, source_visible);
     }
@@ -480,24 +486,4 @@ fn seed_from_id(id: &str) -> f32 {
         hash = hash.wrapping_mul(0x01000193);
     }
     (hash & 0x00ff_ffff) as f32 / 16_777_216.0
-}
-
-/// Cheap HSV → linear RGB conversion. Used by the rainbow-tint
-/// fail-safe in `sync_puppy_slug_deep_dream_overlays`; doesn't need
-/// to be color-space-accurate, just lively.
-fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Vec3 {
-    let h = h.rem_euclid(1.0);
-    let i = (h * 6.0).floor() as i32;
-    let f = h * 6.0 - i as f32;
-    let p = v * (1.0 - s);
-    let q = v * (1.0 - s * f);
-    let t = v * (1.0 - s * (1.0 - f));
-    match i.rem_euclid(6) {
-        0 => Vec3::new(v, t, p),
-        1 => Vec3::new(q, v, p),
-        2 => Vec3::new(p, v, t),
-        3 => Vec3::new(p, q, v),
-        4 => Vec3::new(t, p, v),
-        _ => Vec3::new(v, p, q),
-    }
 }

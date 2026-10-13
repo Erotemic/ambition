@@ -428,6 +428,16 @@ pub struct SelfView {
     /// this; defaults to screen-down `(0, 1)`.
     pub gravity_down: ae::Vec2,
     pub on_ground: bool,
+    /// The floor (px) this body needs to stop from its present speed along
+    /// `x`, if it brakes as hard as its own motion law lets it
+    /// (`MotionModel::ground_stop_distance`). A brain adds it to its ledge
+    /// margin: a body that coasts needs more floor than a body that walks.
+    /// `0` for a body at rest, and for a view that no body law built.
+    pub stop_distance: f32,
+    /// The floor (px) this body slides from its present speed along `x` with
+    /// no stick (`MotionModel::ground_coast_distance`): how far a move that
+    /// roots it carries it. `0` as for [`Self::stop_distance`].
+    pub coast_distance: f32,
     pub alive: bool,
     pub faction: ActorFaction,
     /// Ranged attack available this tick (cooldown elapsed + capability present).

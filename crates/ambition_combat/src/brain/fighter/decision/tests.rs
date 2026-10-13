@@ -91,6 +91,7 @@ fn armed_snapshot() -> BrainSnapshot {
                 launch: ambition_entity_catalog::LaunchEnvelope::default()
                     .with_volume(40.0, Some(1.0)),
                 start_impulse: (0.0, 0.0),
+                roots_steering: false,
                 lift_speed: 0.0,
                 lift_at_s: 0.0,
                 lift_side: 0.0,

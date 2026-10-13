@@ -40,6 +40,7 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         // is what opts a fixture INTO being a finisher.
         launch: ambition_entity_catalog::LaunchEnvelope::default(),
         start_impulse: (0.0, 0.0),
+        roots_steering: false,
         // No self-motion at all. `lifting_candidate` below is what opts a
         // fixture INTO carrying a route, so the ordinary move stays a move.
         lift_speed: 0.0,
@@ -1489,6 +1490,124 @@ fn a_wider_body_refuses_an_approach_a_narrower_one_takes() {
              penalised, so the rule is not about the ledge at all"
         );
     }
+}
+
+/// ⭐ A BODY THAT COASTS TOWARD THE EDGE NEEDS ITS STOPPING DISTANCE AS WELL
+/// AS ITS WIDTH. Measured 2026-10-13 in the Sanic L5 mirror: each seat ran
+/// outward at up to 571 px/s and the retreat stayed unpenalised until less
+/// than one body width of floor was left, so he left the stage without being
+/// hit. Here the body stands 60 px from the left edge with the foe to the
+/// right, so a retreat goes left. 60 px is more than its 24 px width and less
+/// than its width plus its 90 px to stop.
+///
+/// The controls: the same body at rest, and the same body moving at the same
+/// speed AWAY from that edge. Neither retreat is penalised, so the penalty is
+/// the coasting and not the place.
+#[test]
+fn a_body_coasting_toward_the_edge_does_not_choose_to_retreat_off_it() {
+    let weights = UtilityWeights::default();
+    let retreat = |vel_x: f32, stop_distance: f32| {
+        let mut view = on_a_platform(160.0, 300.0, (100.0, 400.0));
+        view.self_view.vel.x = vel_x;
+        view.self_view.stop_distance = stop_distance;
+        let options = generate_options(Perceived::cheating(&view), Situation::Neutral, &[], &weights);
+        (score_of(&options, MovementVerb::Retreat), score_of(&options, MovementVerb::Approach))
+    };
+    let (at_rest, _) = retreat(0.0, 0.0);
+    let (away, _) = retreat(571.0, 90.0);
+    let (coasting, approach) = retreat(-571.0, 90.0);
+    assert_eq!(at_rest, away, "moving away from the edge changed the retreat's score");
+    assert!(
+        coasting < at_rest,
+        "a body coasting at the edge at 571 px/s with 90 px to stop and 60 px of floor scores the retreat \
+         {coasting}, as at rest ({at_rest}): it runs off the stage"
+    );
+    assert!(coasting < approach, "coasting at the edge, the retreat ({coasting}) still outranks the approach ({approach})");
+}
+
+/// ⭐ AN APPROACH THAT CANNOT STOP BEFORE IT PASSES THROUGH THE FOE IS
+/// PENALISED, and Retreat, which brakes here, outranks it. Measured
+/// 2026-10-13 in the Sanic L5 mirror: two seats 36 px apart held the stick
+/// toward each other, passed at about 600 px/s and both ran off the stage.
+///
+/// The body moves toward the foe at 571 px/s with 90 px to stop. With the
+/// foe's far side 104 px away it stops short of it; with the far side 64 px
+/// away it passes it.
+///
+/// The controls: the same body at rest, and moving away from the foe. And
+/// the walker the first version broke: at 270 px/s with 3 px to stop, on a
+/// view 0.3 s old, 64 px from the foe's far side, it approaches. Leading its
+/// own travel over the stale view (81 px) made two George mirrors back away
+/// from each other and throw nothing.
+#[test]
+fn an_approach_that_runs_through_the_foe_loses_to_the_brake() {
+    use crate::perception::DelayedPerception;
+    let weights = UtilityWeights::default();
+    let scores = |foe_x: f32, vel_x: f32, stop_distance: f32, staleness_s: f32| {
+        let mut view = on_a_platform(300.0, foe_x, (100.0, 900.0));
+        view.self_view.vel.x = vel_x;
+        view.self_view.stop_distance = stop_distance;
+        view.actors[0].half_extent = ae::Vec2::new(12.0, 24.0);
+        let mut perception = DelayedPerception::new(1);
+        let mut live = view.clone();
+        live.sim_time = view.sim_time + staleness_s;
+        perception.observe(view);
+        perception.observe(live);
+        let perceived = perception.perceive().unwrap();
+        assert!((perceived.staleness_s() - staleness_s).abs() < 1e-4, "the fixture's view is not {staleness_s} s old");
+        let options = generate_options(perceived, Situation::Neutral, &[], &weights);
+        (score_of(&options, MovementVerb::Approach), score_of(&options, MovementVerb::Retreat))
+    };
+    let (at_rest, _) = scores(380.0, 0.0, 0.0, 0.0);
+    assert_eq!(at_rest, 0.5, "the control: a body at rest approaches the foe 80 px away");
+    let (away, _) = scores(380.0, -571.0, 90.0, 0.0);
+    assert_eq!(away, at_rest, "moving away from the foe changed the approach's score");
+    let (short, _) = scores(380.0, 571.0, 90.0, 0.0);
+    assert_eq!(short, at_rest, "90 px to stop is short of the foe's far side at 104 px, and the approach was penalised");
+    let (close, retreat) = scores(340.0, 571.0, 90.0, 0.0);
+    assert!(close < retreat, "the foe's far side 64 px away: 90 px to stop passes it, and the approach ({close}) still outranks the brake ({retreat})");
+    let (walker, _) = scores(340.0, 270.0, 3.0, 0.3);
+    assert_eq!(walker, at_rest, "a walker with 3 px to stop, on a view 0.3 s old, backed away from a foe 64 px from its far side");
+}
+
+/// ⭐ A MOVE THAT ROOTS ITS OWNER IS COSTED FOR THE SLIDE THE BODY BRINGS
+/// INTO IT. Measured 2026-10-13, Sanic at rung 5: he started `sonic_boom`
+/// (`roots_steering: true`) at about 530 px/s and coasted at his law's
+/// hands-off rate, off the stage. Two moves identical but for the root: the
+/// body runs at 530 px/s toward the near blast line 170 px away, with 351 px
+/// to coast, and the rooted move carries it there.
+///
+/// The controls: at rest the two moves score the same, and so they do when
+/// the body runs away from that line (its standing risk is the larger).
+#[test]
+fn a_move_that_roots_the_body_is_costed_for_the_slide_it_brings() {
+    let mut planted = candidate("planted", 0.1, 100.0);
+    planted.frames.roots_steering = true;
+    let free = candidate("free", 0.1, 100.0);
+    let kit = [planted, free];
+    let weights = UtilityWeights::v1();
+    let scores = |vel_x: f32, coast_distance: f32| {
+        let mut view = view_with(630.0, 690.0);
+        view.self_view.facing = 1.0;
+        view.self_view.vel.x = vel_x;
+        view.self_view.coast_distance = coast_distance;
+        let options = generate_options(Perceived::cheating(&view), Situation::Neutral, &kit, &weights);
+        let score = |id: &str| options.attacks.iter().find(|a| a.move_id == id).map(|a| a.score).unwrap_or(f32::NAN);
+        (score("planted"), score("free"))
+    };
+    let (planted_at_rest, free_at_rest) = scores(0.0, 0.0);
+    assert!(planted_at_rest.is_finite(), "the control: the fixture offers the rooted move");
+    assert_eq!(planted_at_rest, free_at_rest, "at rest the root changed the move's score");
+    let (planted_away, free_away) = scores(-530.0, 351.0);
+    assert!(planted_away.is_finite(), "the control: the fixture offers the rooted move running away");
+    assert_eq!(planted_away, free_away, "running away from the near line, the root changed the move's score");
+    let (planted_toward, free_toward) = scores(530.0, 351.0);
+    assert!(free_toward.is_finite(), "the fixture offers the free move running toward the foe");
+    assert!(
+        planted_toward < free_toward,
+        "running at 530 px/s toward a blast line 170 px away with 351 px to coast, the rooted move ({planted_toward}) \
+         scores as the free one ({free_toward})"
+    );
 }
 
 /// A body with no perceived terrain is not penalised. An airborne fighter,

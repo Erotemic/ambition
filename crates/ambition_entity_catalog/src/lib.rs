@@ -3000,6 +3000,7 @@ impl MoveSpec {
             max_knockback,
             launch,
             start_impulse: self.start_impulse.unwrap_or((0.0, 0.0)),
+            roots_steering: self.gates.roots_steering,
             lift_speed,
             lift_at_s,
             lift_side,
@@ -3334,6 +3335,10 @@ pub struct MoveFrameData {
     /// The move's authored self-motion at trigger, body-local (`+x` toward
     /// facing, `+y` per the authoring convention). `(0, 0)` when none.
     pub start_impulse: (f32, f32),
+    /// The move takes the stick from its owner for its whole length
+    /// (`MoveGates::roots_steering`). A body that moves when it starts such a
+    /// move slides on with no stick, and a planner prices that slide.
+    pub roots_steering: bool,
     /// The against-gravity speed this move commands, from its strongest
     /// [`ImpulseMode::Set`] impulse. `0.0` for moves that do not lift their
     /// owner.

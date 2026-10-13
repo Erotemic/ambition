@@ -2292,3 +2292,49 @@ fn a_rider_stops_at_a_wall_that_is_another_chain() {
     );
     assert!(body.pos.y < 300.0, "and on the floor, not through it: {:?}", body.pos);
 }
+
+/// The floor (px) a body riding a block floor at `speed` covers before it
+/// stops, with the stick held at `stick` (negative is against the motion).
+fn floor_to_stop(params: &MomentumParams, speed: f32, stick: f32) -> f32 {
+    let world = world_with_blocks(vec![floor_block(Vec2::new(0.0, 500.0), Vec2::new(4000.0, 100.0))]);
+    let mut body = SurfaceBody::new(Vec2::new(200.0, 400.0), 14.0);
+    for _ in 0..60 {
+        step_surface_body(&mut body, &world, params, gframe(G), SurfaceInputs::default(), DT, None);
+    }
+    let SurfaceMotion::Riding { v_t, .. } = &mut body.motion else {
+        panic!("the body did not come to rest on the floor: {:?}", body.motion);
+    };
+    *v_t = speed;
+    let start = body.pos.x;
+    for _ in 0..600 {
+        let input = SurfaceInputs { local_axes: crate::LocalAxes::new(stick, 0.0), jump_pressed: false };
+        step_surface_body(&mut body, &world, params, gframe(G), input, DT, None);
+        let SurfaceMotion::Riding { v_t, .. } = body.motion else {
+            panic!("the body left the floor while it braked");
+        };
+        if v_t <= 1.0 {
+            return body.pos.x - start;
+        }
+    }
+    panic!("the body did not stop in ten seconds");
+}
+
+/// ⭐ A MOMENTUM BODY STOPS INSIDE THE DISTANCE ITS MODEL SAYS when it brakes
+/// with the stick against the motion (`brake` 1800 is more than `friction`
+/// 400), give or take one tick of travel. 571 px/s is the speed at which
+/// Sanic ran off the stage in the L5 mirror. Hands off it coasts more than
+/// four times as far: the control which shows the model took the stronger
+/// rate. That hands-off slide is the coast distance the model says.
+#[test]
+fn a_momentum_body_stops_inside_the_distance_its_model_says() {
+    let params = MomentumParams::default();
+    let speed = 571.0;
+    let model = crate::MotionModel::surface_momentum(params);
+    let said = model.ground_stop_distance(speed);
+    let against = floor_to_stop(&params, speed, -1.0);
+    let hands_off = floor_to_stop(&params, speed, 0.0);
+    let coast = model.ground_coast_distance(speed);
+    assert!((hands_off - coast).abs() <= speed * DT, "hands off: {hands_off} px, the model's coast is {coast} px");
+    assert!((against - said).abs() <= speed * DT, "against the motion: {against} px, the model says {said} px");
+    assert!(hands_off > 4.0 * said, "hands off: {hands_off} px, the model says {said} px");
+}

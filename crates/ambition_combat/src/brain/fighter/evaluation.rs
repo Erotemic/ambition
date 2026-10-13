@@ -89,6 +89,7 @@ fn rig_kit() -> Vec<AttackCandidate> {
         // This rig's moves author no launch, so no move on it is a finisher.
         launch: ambition_entity_catalog::LaunchEnvelope::default(),
         start_impulse: (0.0, 0.0),
+        roots_steering: false,
         // The rig's moves displace nobody: it measures the DECIDING, and a
         // candidate that carried a way home would put a recovery route into
         // every scenario that has nothing to do with one.

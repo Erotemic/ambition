@@ -571,6 +571,46 @@ Owner: no page owns UI scale. The nearest is the menu backend
   can scroll, the dialogue box can have fewer lines). The most work, and the
   only answer that lets a screen have a different layout on a phone.
 
+## Q166 — does a body that a grounded attack roots slide on with its speed, or plant its feet?
+
+Filed 2026-10-13. Blocks nothing. **Default in force until you rule:** (a),
+the current behaviour.
+
+A grounded move with `roots_steering: true` takes the stick from its owner
+for its whole length ("you cannot walk out of a grounded attack",
+`MovePlayback::motion_scale_now`). With no stick, each motion law brakes at
+its hands-off rate. The axis laws stop at once (the responsive law at
+`run_accel + ground_friction`, 12 800 px/s²: 3 px from 270 px/s). The
+surface-momentum law, which Sanic runs, coasts at `friction` 400 px/s²: from
+530 px/s he slides 351 px, more than half of the 480 px smash stage.
+
+Measured 2026-10-13 in the Sanic L5 mirror (BRAIN road 3 on the queue): the
+CPU braked from a run (the new arrive rule), then started `sonic_boom`
+(grounded, rooted) at about 530 px/s and slid off the stage at 400 px/s². The
+brain cannot avoid it by pricing: any admitted attack is pressed, a risk
+feature only ranks attacks against each other, and each of Sanic's grounded
+attacks roots, so each carries the same slide.
+
+Owner: [unified movement kernel](engine/unified-movement-kernel.md), with the
+[fighter brain](engine/fighter-brain.md) row BRAIN road 3.
+
+* **(a) The body slides at its hands-off rate (current).** Momentum is
+  Sanic's identity, and an attack from a run carries it. A CPU at speed near a
+  ledge throws itself off, and a person must stop before they attack.
+* **(b) A rooted body plants its feet: it brakes at its law's strongest ground
+  rate** (`MotionModel::ground_stop_distance`; Sanic: `brake` 1800 px/s², a
+  78 px slide from 530 px/s). The axis laws do not change, because their
+  hands-off rate is already their strongest. An attack from a run is a short
+  skid.
+* **(c) A rooted body does not leave its floor by sliding** (the platform
+  fighter rule: a ground attack stops at the ledge). It keeps (a)'s slide in
+  mid-stage. The rule needs the floor's end in the kernel step, for each law.
+
+Recommendation: (b). It is the "rooted" rule read for a body whose hands-off
+rate is not a stop, it changes no axis body, and it is one rate in one law.
+(c) is the genre rule and the most work; it can follow (b) if a ledge still
+takes rooted bodies.
+
 ## Architecture and engine policy
 
 ## Q94 — what residency-memory limit should the runtime target?

@@ -834,7 +834,23 @@ pub fn generate_options(
                 let (mx, my) = motion_of(&c.frames);
                 let (lx, ly) = (ix + mx, iy + my);
                 let speed = (lx * lx + ly * ly).sqrt();
-                my_world.travel_share(lx, ly, speed * c.frames.total_s)
+                // ⭐ A MOVE THAT ROOTS ITS OWNER TAKES THE STICK, so the speed
+                // the body brings into it is not braked: the body slides on the
+                // way it was going, at its law's hands-off rate, for as long as
+                // the move holds it. Measured 2026-10-13, Sanic at rung 5: he
+                // started `sonic_boom` (rooted) at about 530 px/s and coasted
+                // off the stage at `friction` 400 px/s². `min` with the
+                // undamped travel over the move bounds the slide by the move's
+                // length, the same worst case as the move's own self-motion.
+                let along = me.vel.dot(basis.side);
+                if c.frames.roots_steering && me.on_ground && along != 0.0 {
+                    let facing = if me.facing < 0.0 { -1.0 } else { 1.0 };
+                    let slide = me.coast_distance.min(along.abs() * c.frames.total_s);
+                    let (dx, dy) = (lx * c.frames.total_s + along.signum() * facing * slide, ly * c.frames.total_s);
+                    my_world.travel_share(dx, dy, (dx * dx + dy * dy).sqrt())
+                } else {
+                    my_world.travel_share(lx, ly, speed * c.frames.total_s)
+                }
             };
             let features = Features {
                 reach_fit,
@@ -1723,7 +1739,8 @@ pub fn frame_advantage(startup_s: f32, their_commitment_s: f32, slowest_startup_
 /// for the situation's immediate obligation: recover, evade, or approach.
 ///
 /// `walks_off` protects approach choices on open stages. Its margin is one body
-/// width so a fighter does not deliberately stop on the ledge boundary.
+/// width so a fighter does not deliberately stop on the ledge boundary, plus
+/// the floor the body needs to stop when it already moves toward that edge.
 fn walks_off(view: &crate::perception::WorldView, toward: f32) -> bool {
     // ONE authority: `WorldView::floor_ahead`, which L1 also asks to classify
     // `Disadvantage`. Two implementations of "where does the floor end" would
@@ -1731,11 +1748,43 @@ fn walks_off(view: &crate::perception::WorldView, toward: f32) -> bool {
     let Some(ahead) = view.floor_ahead(toward) else {
         return false;
     };
-    ahead < view.self_view.half_extent.x * 2.0
+    let me = &view.self_view;
+    // A body that coasts toward the edge covers its stopping distance before
+    // a turn can take effect. Without this term Sanic (571 px/s, about 90 px
+    // to stop) chose to retreat with 40 px of floor left and ran off the
+    // stage. A body that moves away from the edge does not need it.
+    let coasting = if me.vel.x * toward > 0.0 { me.stop_distance } else { 0.0 };
+    ahead < me.half_extent.x * 2.0 + coasting
+}
+
+/// The body moves toward the foe faster than it can stop before it passes
+/// through it: an approach would cross the foe and leave it behind.
+///
+/// The approach emitter holds a full stick toward the foe. A body that stops
+/// in a few pixels arrives. A body that coasts runs through the foe, and on a
+/// stage it runs on toward the far edge. Measured 2026-10-13 in the Sanic L5
+/// mirror: the two seats were 36 px apart, each held the stick toward the
+/// other, they passed at about 600 px/s, and both ran off.
+///
+/// ⛔ THE BODY'S OWN TRAVEL OVER THE VIEW'S STALENESS IS NOT ADDED. The first
+/// version led it ([`Perceived::staleness_s`]), and at rung 5 that is 81 px
+/// for a walker at 270 px/s: two George mirrors in the Smash demo backed away
+/// whenever they came within about 84 px and threw no move in 900 ticks
+/// (`the_repertoire_gets_used`, measured 2026-10-13). The stop distance alone
+/// is a fact of the body's law, and it is a few pixels for a walker.
+fn overshoots(view: &Perceived<'_>, foe: &PerceivedActor, toward: f32) -> bool {
+    let me = &view.self_view;
+    // `stop_distance` is a ground fact. A body in the air brakes by another
+    // law, and the recovery lens owns that question.
+    if !me.on_ground || me.vel.x * toward <= 0.0 {
+        return false;
+    }
+    let past_the_foe = (foe.pos.x - me.pos.x).abs() + foe.half_extent.x + me.half_extent.x;
+    me.stop_distance > past_the_foe
 }
 
 fn movement_options(
-    view: &crate::perception::WorldView,
+    view: &Perceived<'_>,
     situation: Situation,
     // Does the body's own kit contain a move that lifts it? A fact about the
     // repertoire, derived by [`lifting_candidates`] and passed in rather than
@@ -1748,13 +1797,10 @@ fn movement_options(
     // floor is still there. Zero when there is nobody to approach, and a zero
     // direction reads as "no ledge question", which is correct: a brain with no
     // foe is not closing on anything.
-    let toward_foe = view
-        .actors
-        .iter()
-        .find(|actor| actor.hostile_to_self && actor.alive)
-        .map(|foe| (foe.pos.x - me.pos.x).signum())
-        .unwrap_or(0.0);
+    let first_foe = view.actors.iter().find(|actor| actor.hostile_to_self && actor.alive);
+    let toward_foe = first_foe.map(|foe| (foe.pos.x - me.pos.x).signum()).unwrap_or(0.0);
     let approach_walks_off = toward_foe != 0.0 && walks_off(view, toward_foe);
+    let approach_overshoots = first_foe.is_some_and(|foe| overshoots(view, foe, toward_foe));
     let retreat_walks_off = toward_foe != 0.0 && walks_off(view, -toward_foe);
     // ⛔⛔ A FOE-RELATIVE VERB WITH NO FOE IS AN OPTION THE EMITTER CANNOT ACT
     // ON. `apply_movement` builds Approach/Retreat/Dash from the direction to
@@ -1788,7 +1834,7 @@ fn movement_options(
         // and the forgotten arm is always the one a real match spends its time
         // in.
         let score = match verb {
-            MovementVerb::Approach | MovementVerb::Dash if approach_walks_off => score - 1.0,
+            MovementVerb::Approach | MovementVerb::Dash if approach_walks_off || approach_overshoots => score - 1.0,
             MovementVerb::Retreat if retreat_walks_off => score - 1.0,
             _ => score,
         };

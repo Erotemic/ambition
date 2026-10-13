@@ -622,6 +622,15 @@ pub struct BoundSpriteQuality {
     pub scale: TextureResolutionScale,
 }
 
+/// Which character's art an actor's sprite was bound from.
+///
+/// An actor can change the character it wears and keep its size (Jeff Hinter
+/// and his armor), and the kind, the footprint and the quality tier of its
+/// binding then stay the same. [`upgrade_actor_sprites`] compares this with
+/// the art identity the read-model holds and binds again when they differ.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct BoundActorArt(pub String);
+
 /// Render-owned record of which catalog character id the controlled-body sprite
 /// was bound from at presentation startup. The app writes it while crossing the
 /// sim/render seam; quality reloads then preserve the same sheet without render
@@ -648,7 +657,8 @@ pub fn actor_sprite_path_owns(id: &str, boss_render: &ambition_sim_view::BossRen
 }
 
 /// Bind an actor's visual to its character sheet when the asset is available,
-/// and rebind when its collision footprint or quality tier changes. One system
+/// and rebind when its collision footprint, its quality tier or the character
+/// it wears changes. One system
 /// serves every actor (enemy, NPC, sandbag). Resolution: the actor's art
 /// identity (a fighting-flipped NPC keeps its own sheet), then its display
 /// name, against the shared character registry. An actor with no sheet draws
@@ -665,6 +675,7 @@ pub fn upgrade_actor_sprites(
         &FeatureVisual,
         Option<&BoundFeatureKind>,
         Option<&BoundSpriteQuality>,
+        Option<&BoundActorArt>,
     )>,
     // Materialized actor identity read-model (name / sprite-override / sandbag /
     // authored render size) — the renderer binds a sprite from this snapshot
@@ -681,7 +692,7 @@ pub fn upgrade_actor_sprites(
     let Some(assets) = assets else {
         return;
     };
-    for (entity, visual, bound, bound_quality) in &features {
+    for (entity, visual, bound, bound_quality, bound_art) in &features {
         let Some(view) = feature_views.get(&visual.id) else {
             continue;
         };
@@ -747,8 +758,11 @@ pub fn upgrade_actor_sprites(
             continue;
         };
         // The other half of "nothing to do": this body's presentation was built
-        // from a realization at the tier the table still holds.
-        if kind_bound && bound_quality.is_some_and(|q| q.scale == character_asset.resolved_tier) {
+        // from a realization at the tier the table still holds, and from the
+        // art of the character it wears now. A body bound before
+        // `BoundActorArt` existed has none, and is bound again one time.
+        let art_bound = bound_art.map(|art| art.0.as_str()) == art_identity;
+        if kind_bound && art_bound && bound_quality.is_some_and(|q| q.scale == character_asset.resolved_tier) {
             continue;
         }
         // Android loads assets out of the APK asynchronously, and missing or
@@ -831,6 +845,7 @@ pub fn upgrade_actor_sprites(
             BoundSpriteQuality {
                 scale: character_asset.resolved_tier,
             },
+            BoundActorArt(art_identity.unwrap_or_default().to_string()),
         ));
     }
 }

@@ -353,7 +353,7 @@ Ramen-nujan: He is in the sanctum, past the nave, behind the door with the holes
 
 title: noodly_ramen_nujan__2
 ---
-Ramen-nujan: Each door has a colour, and each colour has one key. Red is marinara: the cooks in the scullery hold it, and they do not share. Green is pesto: it is down in the cistern, where a wheel that opens one sluice shuts another. Gold is parmesan: up the belfry, behind three bells. A key you have taken stays taken.
+Ramen-nujan: Each door has a colour, and each colour has one key. Red is marinara: the cooks in the scullery hold it, and they do not share. Green is pesto: it is down in the cistern, where a wheel that opens one gate shuts another. Gold is parmesan: up the belfry, behind three bells. A key you have taken stays taken.
 -> Something else.
     <<jump noodly_ramen_nujan>>
 -> ⟨step aside⟩

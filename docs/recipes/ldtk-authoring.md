@@ -127,7 +127,11 @@ A door that a key opens is two entities and no code.
 - The door: a `LockWall` with `gated_by: "<flag>"`. It is solid until the
   flag is set. `look` names the prop sheet that draws it over its box; a
   sheet that is a column that tiles fills a wall of any height. With no
-  `look` it is the lock wall tile. A `LockWall` needs an `id`.
+  `look` it is the lock wall tile. A `LockWall` needs an `id`. A wall that
+  opens while the player is in the room slides up into its lintel, so put
+  solid wall over each door.
+- Do not put a door where it holds water back: water does not flow, so the
+  door would open on water that stays where it is. Put a pool in a pit.
 
 `gated_by` is a condition line. A bare value is a flag. A first token with a
 dot is a condition with its arguments: `world.switch_on <switch id>` (a lever

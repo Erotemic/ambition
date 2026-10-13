@@ -20,7 +20,7 @@ script and run it with `--apply`; do not change the rooms in the map.
 | `noodly_narthex` | the hub door | nothing: Ramen-nujan says what the temple is | (the alms, behind a green door) |
 | `noodly_nave` | open | the hall, with a shrine | a way to each other room |
 | `noodly_scullery` | open | a fight of three waves that shuts the room | the Marinara Key (red) |
-| `noodly_cistern` | a red door | three wheels and five sluices | the Pesto Key (green) |
+| `noodly_cistern` | a red door | three wheels and five gates | the Pesto Key (green) |
 | `noodly_belfry` | a red door | three bells: a wall that breaks, the meatballs, a green door | the Parmesan Key (gold) |
 | `noodly_reliquary` | a green door and a gold door | a second fight | the Colander Key |
 | `noodly_sanctum` | the colander door | the Flying Spaghetti Monster | the end |
@@ -28,10 +28,15 @@ script and run it with `--apply`; do not change the rooms in the map.
 The player flies and blinks, so no height and no gap shuts a way. Each way
 that is shut is shut by solid wall with one opening and a door in the opening.
 
-The cistern is the puzzle of the level. Wheel I opens the low sluice and shuts
-the sluice of the well and the first sluice of the lock. The key is past the
+The cistern is the puzzle of the level. Wheel I opens the low gate and shuts
+the gate of the well and the first gate of the lock. The key is past the
 lock, so the player must turn wheel I back and go the long way round (through
 the gallery and down the well). The least number of turns is four.
+
+The pools of the cistern are pits in a dry deck, and no gate is at a pool
+(Jon, 2026-10-12): the game has no water that flows, so a gate that held water
+back would open on water that stays where it is. The gates are dry gates that
+a wheel moves, not sluices.
 
 The belfry can not be finished before the cistern: its third bell is behind a
 green door. Each key but the last opens a second door with a reward behind it
@@ -46,6 +51,11 @@ green door. Each key but the last opens a second door with a reward behind it
   column that tiles (`temple_gate_iron`) fills a wall of any height.
 - A gate that answers a lever asks `world.switch_on <switch id>`. The first
   word `not` turns a gate round: it stands while its condition is true.
+- A wall that opens while its room is live goes up into its lintel, and one
+  that shuts comes down (`slide_lock_wall_visuals`). The picture is cut at the
+  lintel; a grille gets shorter from its foot. The wall of the simulation
+  opens and shuts at once. A wall that stands when a room is entered does not
+  slide and makes no sound.
 - A fight is an `EncounterTrigger`, a `LockWall` with no `gated_by`, and a
   `Switch` that names the fight (`target_encounter`): without the switch the
   fight starts again each time a body enters the trigger. A grille that the
@@ -83,8 +93,20 @@ Publish it with `python -m ambition_sprite2d_renderer.backgrounds draw
 ## The pool noodle
 
 A held item, `pool_noodle`: a tube of foam, long, quick and weak (a swing
-of 88 reach and 1 damage). `Attack` over it picks it up, and `Attack` swings
-it. Two lie in the cistern: one on the landing by the basin, one on the shelf
+of 88 reach and 1 damage, with a knockback of 300). `Attack` over it picks it
+up, and `Attack` swings it.
+
+It is an item of a platform fighter (Jon, 2026-10-12: "It's like a smash
+item (will eventually become a smash item)"). Its swing is the swing of the
+item (`MeleeActionSpec::Batter`), not of the body that holds it: the move
+names the clip `item_swing` (so it does not take the hit polygon of the
+robot's blade), it draws no blade arc, and the noodle turns in the hand
+through the swing (`HeldItemArtEntry::gripped_at`, `ItemSwingFact`,
+`item_swing_angle`). Up, down and back are the same swing turned. Its sounds
+are two cues the game has (`player.dash` in the air, `player.pogo` on a hit)
+until Jon chooses its own from `untracked/sfx-candidates/pool_noodle/`. While
+it is held it is the whole melee vocabulary of the holder, as each held
+weapon is: the robot has no smash attack with it. Two lie in the cistern: one on the landing by the basin, one on the shelf
 of the vault. It is a row of the held-item table
 (`ambition_characters::brain::action_set`), a renderer target (`pool_noodle`)
 and an art entry (`ambition_content::items::held_visuals`). A room places one
@@ -102,8 +124,10 @@ takes as given.
 ## Open
 
 - The hall of biomes has no room for `noodly`.
-- The pool noodle is drawn in the hand as the axe is: one picture that turns
-  with the swing. It does not bend. Its swing has the sound of each swing.
+- The pool noodle does not bend when it is swung, and its swing has no
+  trail. Its sounds are not its own yet. It is not a Smash item yet (no
+  forward smash with it, no spawn in a match).
+- The robot's body plays its blade pose while it swings the noodle.
 - A door that the player can not open says nothing when he touches it. The
   writing by each door says what it wants.
 - The keys the player has are not shown on the screen.

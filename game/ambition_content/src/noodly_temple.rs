@@ -18,15 +18,15 @@ use bevy::prelude::*;
 /// The sauces: a key and a door for each. The colander is the last.
 pub const SAUCES: [&str; 4] = ["marinara", "pesto", "parmesan", "colander"];
 
-/// The doors that no key opens: the grille of a fight, the sluices of the
-/// cistern (by the number of the wheel; `_shut` is a sluice its wheel shuts)
+/// The doors that no key opens: the grille of a fight, the gates of the
+/// cistern (by the number of the wheel; `_shut` is a gate its wheel shuts)
 /// and the seal of a bell.
 pub const OTHER_DOORS: [&str; 6] = [
     "temple_gate_iron",
-    "temple_gate_sluice_1",
-    "temple_gate_sluice_2",
-    "temple_gate_sluice_3",
-    "temple_gate_sluice_1_shut",
+    "temple_gate_wheel_1",
+    "temple_gate_wheel_2",
+    "temple_gate_wheel_3",
+    "temple_gate_wheel_1_shut",
     "temple_gate_bell",
 ];
 

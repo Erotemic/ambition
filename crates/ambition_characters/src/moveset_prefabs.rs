@@ -43,8 +43,47 @@ const _: () = ();
 /// The timeline maps to startup/active/recovery windows and one body-local hit
 /// volume. Directional and aerial variants derive from this move so all melee
 /// executes through the shared moveset runtime.
+/// The clip of a swing of the item in the hand. No sheet has a row of this
+/// name, and that is the point: a swing with the clip of a blade row takes the
+/// hit polygon of the blade. The body is drawn by the intent of the swing, and
+/// the item turns in the hand ([`ItemSwingDir`]).
+pub const ITEM_SWING_CLIP: &str = "item_swing";
+/// What a swing of an item sounds like in the air, and when it lands. These
+/// are cues the game has (a rush of air, a bounce) until an item has cues of
+/// its own.
+pub const ITEM_SWING_SFX_CUE: &str = "player.dash";
+pub const ITEM_HIT_SFX_CUE: &str = "player.pogo";
+
+/// Which way an item is swung: the direction of the move that swings it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ItemSwingDir {
+    Forward,
+    Up,
+    Down,
+    Back,
+}
+
+impl ItemSwingDir {
+    /// The clip of a swing of an item this way.
+    pub fn clip(self) -> &'static str {
+        match self {
+            Self::Forward => ITEM_SWING_CLIP,
+            Self::Up => "item_swing_up",
+            Self::Down => "item_swing_down",
+            Self::Back => "item_swing_back",
+        }
+    }
+
+    /// The way of the swing that `clip` is, or `None` for a clip that is not
+    /// the swing of an item.
+    pub fn of_clip(clip: &str) -> Option<Self> {
+        [Self::Forward, Self::Up, Self::Down, Self::Back].into_iter().find(|dir| dir.clip() == clip)
+    }
+}
+
 pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
     let (windup, active, recover, damage, reach) = spec.timeline();
+    let batter = spec.batter();
     // The authored-melee path is now a thin adapter over the `simple_melee`
     // engine prefab (A2): the MeleeActionSpec timeline becomes prefab params.
     // Byte-identical — the clamps + volume shape live in the prefab core.
@@ -54,14 +93,25 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
         recover_s: recover,
         damage,
         reach_px: reach,
-        knockback: 120.0,
+        knockback: batter.map_or(120.0, |batter| batter.knockback),
         // The authored-melee adapter keeps the engine-default swing presentation
         // (byte-parity with the pre-CM5 path); per-move sfx/vfx is authored on
-        // the prefab RON rows, not synthesized here.
-        swing_sfx: None,
+        // the prefab RON rows, not synthesized here. The swing of an item has
+        // the sounds of an item.
+        swing_sfx: batter.map(|_| ITEM_SWING_SFX_CUE.to_string()),
         swing_vfx: None,
-        hit_sfx: None,
+        hit_sfx: batter.map(|_| ITEM_HIT_SFX_CUE.to_string()),
     });
+    if batter.is_some() {
+        // The item is what the swing shows: no blade arc, and no blade row.
+        attack.clip = ClipBinding {
+            clip: ITEM_SWING_CLIP.to_string(),
+            fallbacks: vec!["attack_side".to_string(), "slash".to_string(), "idle".to_string()],
+        };
+        for volume in attack.windows.iter_mut().flat_map(|window| window.volumes.iter_mut()) {
+            volume.vfx = None;
+        }
+    }
     // A Lunge steps forward while it winds up: the authored distance over the
     // authored windup, as a set side speed the body holds for exactly the
     // windup. `Set`, so a body that arrived walking steps the authored
@@ -636,7 +686,19 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
                     MoveEventKind::Impulse { .. } | MoveEventKind::HoldVelocity { .. }
                 )
             });
-            m.clip.clip = clip.to_string();
+            // A turned swing of an item is a swing of the item still: it
+            // names the item's clip for its way, not a blade row.
+            m.clip.clip = match ItemSwingDir::of_clip(&base.clip.clip) {
+                Some(_) => match dir {
+                    Dir::Fwd => ItemSwingDir::Forward,
+                    Dir::Up => ItemSwingDir::Up,
+                    Dir::Down => ItemSwingDir::Down,
+                    Dir::Back => ItemSwingDir::Back,
+                }
+                .clip()
+                .to_string(),
+                None => clip.to_string(),
+            };
             m.gates.grounded = Some(grounded);
             for w in &mut m.windows {
                 if !matches!(w.tag, WindowTag::Active) {

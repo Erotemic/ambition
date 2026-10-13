@@ -5,7 +5,7 @@
 //! `check_temple.py` there walks a model of the level and proves that it can
 //! be finished. This asks the game itself what the model takes as given: that
 //! a key that is taken opens its doors and no other, that one wheel opens one
-//! sluice and shuts another, that the end of a fight opens the grille its room
+//! gate and shuts another, that the end of a fight opens the grille its room
 //! names, and that the monster is in the sanctum.
 
 use std::collections::BTreeSet;
@@ -133,13 +133,13 @@ fn a_key_that_is_taken_opens_its_doors_and_no_other() {
     }
 }
 
-/// Wheel I of the cistern opens the low sluice and shuts the sluice of the
-/// well and the first sluice of the lock; a second turn puts each back.
+/// Wheel I of the cistern opens the low gate and shuts the gate of the
+/// well and the first gate of the lock; a second turn puts each back.
 #[test]
-fn a_wheel_opens_one_sluice_and_shuts_another() {
+fn a_wheel_opens_one_gate_and_shuts_another() {
     let mut sim = room("noodly_cistern");
     let read = |sim: &mut Platformer2dSimHarness| {
-        ["noodly_cistern_sluice_low", "noodly_cistern_sluice_well", "noodly_cistern_sluice_lock_a", "noodly_cistern_sluice_high"]
+        ["noodly_cistern_gate_low", "noodly_cistern_gate_well", "noodly_cistern_gate_lock_a", "noodly_cistern_gate_high"]
             .map(|wall| stands(sim, wall))
     };
     assert_eq!(read(&mut sim), [true, false, false, true], "with each wheel off: {:?}", standing(&mut sim));
@@ -148,7 +148,7 @@ fn a_wheel_opens_one_sluice_and_shuts_another() {
     press(&mut sim, "noodly_wheel_a");
     assert_eq!(read(&mut sim), [true, false, false, true], "with wheel I off again: {:?}", standing(&mut sim));
     press(&mut sim, "noodly_wheel_b");
-    assert_eq!(read(&mut sim), [true, false, false, false], "wheel II opens the high sluice only: {:?}", standing(&mut sim));
+    assert_eq!(read(&mut sim), [true, false, false, false], "wheel II opens the high gate only: {:?}", standing(&mut sim));
 }
 
 /// The fight of the scullery shuts the room while it is on, each of its three
@@ -235,13 +235,49 @@ fn a_pool_noodle_by_the_pools_is_taken_and_swung() {
     sim.step(AgentAction { attack: true, ..base() });
     sim.step(base());
     assert!(held(&sim), "an Attack press over the pool noodle picks it up");
-    // It has a swing, so a use keeps it: a coconut would be thrown here.
+    // It has a swing, so a use keeps it: a coconut would be thrown here. The
+    // swing is the swing of the item, not of the robot's blade: its clip is
+    // the item's, it draws no blade arc, it reaches farther than the blade,
+    // and the picture of the noodle turns in the hand while it lasts.
     for _ in 0..40 {
         sim.step(base());
     }
+    let rest = swing_of_the_noodle(&mut sim);
+    assert_eq!(rest, None, "a noodle that is held and not swung does not turn");
     sim.step(AgentAction { attack: true, ..base() });
-    for _ in 0..40 {
+    let mut turned = false;
+    let mut blade_arc = false;
+    let mut reach = 0.0_f32;
+    let mut clip = String::new();
+    for _ in 0..30 {
         sim.step(base());
+        turned |= swing_of_the_noodle(&mut sim).is_some();
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&ambition_platformer2d::combat::moveset::MovePlayback, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
+        if let Some(playback) = q.iter(world).next() {
+            clip = playback.spec.clip.clip.clone();
+            for volume in playback.spec.windows.iter().flat_map(|window| &window.volumes) {
+                blade_arc |= volume.vfx.is_some();
+                if let ambition_platformer2d::entity_catalog::VolumeShape::Rect { offset, half_extents } = volume.shape {
+                    reach = reach.max(offset.0 + half_extents.0);
+                }
+            }
+        }
     }
     assert!(held(&sim), "an Attack press with the pool noodle in hand swings it and keeps it");
+    assert_eq!(clip, "item_swing", "the swing is the swing of the item");
+    assert!(!blade_arc, "the swing of the noodle draws no blade arc");
+    assert!(reach > 80.0, "the noodle reaches farther than the blade: {reach}");
+    assert!(turned, "the noodle turns in the hand while it is swung");
+}
+
+/// The swing the view shows for the pool noodle in the player's hand.
+fn swing_of_the_noodle(sim: &mut Platformer2dSimHarness) -> Option<ambition_platformer2d::sim_view::ItemSwingFact> {
+    sim.world_mut()
+        .resource::<ambition_platformer2d::sim_view::HeldItemView>()
+        .0
+        .iter()
+        .find(|fact| fact.item_id == "pool_noodle")
+        .expect("the view has the noodle in a hand")
+        .swing
 }

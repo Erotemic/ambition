@@ -214,7 +214,7 @@ pub use world::{
     apply_entity_art, fit_tiled_block_tiles, flinch_struck_blocks, refresh_entity_sprite_handles_on_game_assets_change, TiledBlockTile,
     present_live_room_visuals, spawn_room_visuals, spawn_surface_chain_visuals,
     DOOR_SPRITE_ASPECT,
-    sync_lock_wall_visuals, sync_removed_block_visuals, PresentedRoomVisuals,
+    slide_lock_wall_visuals, sync_lock_wall_visuals, sync_removed_block_visuals, LockWallSlide, PresentedRoomVisuals,
 };
 
 /// How far above a body's own depth the things drawn ON the body reach: an

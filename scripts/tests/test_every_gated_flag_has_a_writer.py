@@ -46,6 +46,13 @@ flag read as unwritable. Its real writer is in a world file: the `PickupSpawn`
 in `drain_alley` with `kind: "flag:p1_stabilizer_received"` (a `StoryFlag`
 pickup, `parse_pickup_kind`). So a `flag:` pickup kind now counts as a writer.
 
+2026-10-12: A `Switch` IS A WRITER TOO. The bells of the Noodly Temple gate
+three walls on `switch_noodly_bell_<n>_used`, the flag a press of a switch
+sets for good. Its name is made from the id of the switch, so it is a literal
+in no file, and the rule read it as a door that never opens. A `Switch` in a
+world file with the id `<id>` now counts as the writer of `switch_<id>_used`.
+A gate that misspells the id of its switch is still found: no switch has it.
+
 Poison-verified three ways: a misspelt flag in a dialogue read, a misspelt flag
 in an LDtk `gated_by`, and the floor with the read spelling removed.
 """
@@ -104,6 +111,17 @@ def _writable() -> set[str]:
         for level in world.get("levels", []):
             for layer in level.get("layerInstances") or []:
                 for entity in layer.get("entityInstances") or []:
+                    # A `Switch` with the id `<id>` sets `switch_<id>_used`
+                    # when it is pressed, and nothing clears it
+                    # (`switch_used_flag` in `ambition_encounter::switches`).
+                    # The name is made of the id, so no file has it as a
+                    # literal: the switch in the world is its writer.
+                    if entity.get("__identifier") == "Switch":
+                        for field in entity.get("fieldInstances", []):
+                            value = field.get("__value")
+                            if field.get("__identifier") == "id" and isinstance(value, str) and value.strip():
+                                names.add(f"switch_{value.strip()}_used")
+                        continue
                     if entity.get("__identifier") != "PickupSpawn":
                         continue
                     for field in entity.get("fieldInstances", []):

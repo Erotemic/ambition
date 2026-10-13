@@ -173,8 +173,11 @@ fn the_shipped_game_draws_the_rig_characters_from_their_parts() {
 ///
 /// * the presentations and the very same slot entities stay as they were with
 ///   one view: the parts belong to the body, not to a view;
-/// * no main camera draws a part: the parts stand on the private impostor
-///   layer, and every view draws the ROOT, which draws the impostor.
+/// * every view draws the ROOT. A body read as one image (composited) has
+///   its parts on the private impostor layer, which no main camera draws: the
+///   root draws the impostor. A body drawn directly (since 2026-10-05, the
+///   body nothing reads as one image) has its parts in the world, on its
+///   root's own layers, so each view that draws the root draws them.
 ///
 /// ⛔ Not each camera's `VisibleEntities`: without a window the host camera
 /// lists no sprite at all, so those lists cannot tell a missing part from a
@@ -227,6 +230,7 @@ fn a_second_view_draws_the_same_parts_and_makes_no_more() {
     assert_eq!(cameras.len(), 2, "the host camera and the pane camera");
     let mut presentations = world.query::<(&RiggedPresentation, &RiggedPresentationOf)>();
     let mut checked = 0;
+    let mut composited = 0;
     for (presentation, of) in presentations.iter(world) {
         let root = layers_of(world, of.0);
         for camera in &cameras {
@@ -237,11 +241,21 @@ fn a_second_view_draws_the_same_parts_and_makes_no_more() {
                 continue;
             }
             let part = layers_of(world, *slot);
-            for camera in &cameras {
-                assert!(!camera.intersects(&part), "a view on {camera:?} draws a loose part on {part:?}");
+            match presentation.impostor {
+                Some(_) => {
+                    composited += 1;
+                    for camera in &cameras {
+                        assert!(
+                            !camera.intersects(&part),
+                            "a view on {camera:?} draws a loose part of a composited body on {part:?}"
+                        );
+                    }
+                }
+                None => assert_eq!(part, root, "a part of a body drawn directly is not on its root's layers"),
             }
             checked += 1;
         }
     }
     assert!(checked >= 16, "only {checked} drawn parts checked");
+    println!("[second-view] {checked} drawn parts, {composited} of a composited body");
 }

@@ -27,7 +27,16 @@ from mary_o_level import TARGET, T, Level, cli, run_tool
 AREA = "mary_o_warp"
 # The levels a pipe goes to, in the sequence of the pipes: the id of the level
 # and the words over its pipe.
-LEVELS = (("mary_o_1_1", "1-1"), ("mary_o_1_2", "1-2"), ("mary_o_1_3", "1-3"), ("mary_o_1_4", "1-4"))
+LEVELS = (
+    ("mary_o_1_1", "1-1"),
+    ("mary_o_1_2", "1-2"),
+    ("mary_o_1_3", "1-3"),
+    ("mary_o_1_4", "1-4"),
+    ("mary_o_2_1", "2-1"),
+    ("mary_o_2_2", "2-2"),
+    ("mary_o_2_3", "2-3"),
+    ("mary_o_2_4", "2-4"),
+)
 
 WALL = 2  # columns of rock at each end
 FIRST_PIPE = 9  # the column of the first pipe

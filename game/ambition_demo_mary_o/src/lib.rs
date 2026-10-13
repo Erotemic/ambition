@@ -2827,7 +2827,12 @@ mod tests {
             assert!(
                 matches!(
                     ParallaxTheme::named_by_room_metadata(&room.metadata),
-                    Some(ParallaxTheme::Starlight | ParallaxTheme::Starless | ParallaxTheme::VoidCastle)
+                    Some(
+                        ParallaxTheme::Starlight
+                            | ParallaxTheme::Stardune
+                            | ParallaxTheme::Starless
+                            | ParallaxTheme::VoidCastle
+                    )
                 ),
                 "the biome of {}",
                 room.id

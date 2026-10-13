@@ -194,6 +194,10 @@ pub enum ParallaxTheme {
     /// castle, a rainbow and a crescent moon in a pink sky. The rooms of
     /// Mary-O name it.
     Starlight,
+    /// The desert of Mary-O's second world, in the morning: a whole sun, low,
+    /// pyramids in steps a long way off, dunes, and thick palms. The desert
+    /// rooms of Mary-O name it.
+    Stardune,
     /// The cavern under Mary-O's land, in the colours of a dark magical
     /// girl: a moon eaten to a ring in a rift, arches, the wheels of a clock
     /// that does not turn. The underground room of Mary-O names it.
@@ -241,6 +245,7 @@ impl ParallaxTheme {
         Self::Forest,
         Self::Primeval,
         Self::Starlight,
+        Self::Stardune,
         Self::Starless,
         Self::VoidCastle,
         Self::Cave,
@@ -264,6 +269,7 @@ impl ParallaxTheme {
             Self::Forest => "forest",
             Self::Primeval => "primeval",
             Self::Starlight => "starlight",
+            Self::Stardune => "stardune",
             Self::Starless => "starless",
             Self::VoidCastle => "void_castle",
             Self::Cave => "cave",
@@ -355,6 +361,7 @@ impl ParallaxTheme {
             }
             "primeval" | "jungle" | "dinosaur" | "prehistoric" => Some(Self::Primeval),
             "starlight" | "magical_girl" | "magical" => Some(Self::Starlight),
+            "stardune" | "star_dunes" => Some(Self::Stardune),
             "starless" | "dark_magical_girl" => Some(Self::Starless),
             "void_castle" | "castle" => Some(Self::VoidCastle),
             "cave" | "damp" => Some(Self::Cave),

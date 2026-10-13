@@ -96,6 +96,8 @@ impl Default for AmbientMoteStyles {
                 (T::Starless, MoteStyle::new(26, 3.0, 12.0, 8.0, 0.2, 1.8, 3.8, 0.75, 0.6, 1.6, 0.4)),
                 // Sparks that go up fast from the fire under the floor.
                 (T::VoidCastle, MoteStyle::new(30, 4.0, 22.0, 8.0, 0.2, 1.6, 3.4, 0.8, 0.6, 1.8, 0.4)),
+                // Grains of sand that the wind takes along the ground.
+                (T::Stardune, MoteStyle::new(24, 14.0, -1.0, 12.0, 0.10, 1.4, 2.8, 0.7, 0.5, 0.8, 0.4)),
                 // Sparkles that come and go, and go up slowly.
                 (T::Starlight, MoteStyle::new(26, 2.0, 5.0, 10.0, 0.10, 2.4, 5.0, 0.85, 0.85, 0.7, 0.4)),
                 (T::Water, MoteStyle::new(30, 0.0, 22.0, 4.0, 0.35, 2.4, 6.0, 0.62, 0.15, 0.8, 0.4)),

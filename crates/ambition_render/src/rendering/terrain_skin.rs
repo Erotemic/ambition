@@ -633,6 +633,29 @@ pub fn skin_terrain_surfaces(
     }
 }
 
+/// Take the skin off a block that gets art of its own after its skin was laid.
+///
+/// [`skin_terrain_surfaces`] leaves a block with art alone, but a game can
+/// give a block its art late: a brick of Mary-O that holds coins is masonry
+/// until it is used up, and then it is a used block. The pieces of the skin
+/// are children of the block, in front of its sprite, so the new art was
+/// under them and did not show. They go, and `apply_entity_art` puts the art
+/// on the sprite of the block.
+pub fn unskin_blocks_that_get_art(
+    mut commands: Commands,
+    blocks: Query<&Children, (With<TerrainSkinned>, Added<EntityArt>)>,
+    pieces: Query<(), Or<(With<TerrainTrim>, With<TerrainDecorItem>, With<TerrainDecorGlow>)>>,
+) {
+    for children in &blocks {
+        for child in children.iter() {
+            if pieces.contains(child) {
+                // The room of the block can retire in this frame.
+                commands.entity(child).try_despawn();
+            }
+        }
+    }
+}
+
 /// What a fixture of a room is to the art of its theme.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ThemedFixtureKind {
@@ -782,6 +805,30 @@ pub fn dress_themed_doors(
 mod tests {
     use super::*;
     use bevy::ecs::system::RunSystemOnce;
+
+    /// A block gets art of its own after its skin was laid: the pieces of the
+    /// skin go, and what is not of the skin stays. The control is the same
+    /// block before it has art: its skin stays.
+    #[test]
+    fn a_skinned_block_that_gets_art_loses_its_skin() {
+        let mut world = World::new();
+        let block = world.spawn((TerrainSkinned, Sprite::from_color(Color::NONE, Vec2::splat(32.0)))).id();
+        let mut other = Entity::PLACEHOLDER;
+        world.entity_mut(block).with_children(|parent| {
+            parent.spawn(TerrainTrim::Fill);
+            parent.spawn(TerrainTrim::Cap);
+            parent.spawn(TerrainDecorItem);
+            parent.spawn(TerrainDecorGlow);
+            other = parent.spawn(Name::new("not of the skin")).id();
+        });
+        world.run_system_once(unskin_blocks_that_get_art).unwrap();
+        assert_eq!(world.entity(block).get::<Children>().unwrap().len(), 5, "a block with no art lost a piece of its skin");
+
+        world.entity_mut(block).insert(EntityArt(ambition_sprite_sheet::game_assets::EntitySprite::ChestOpen));
+        world.run_system_once(unskin_blocks_that_get_art).unwrap();
+        let left: Vec<Entity> = world.entity(block).get::<Children>().unwrap().iter().collect();
+        assert_eq!(left, vec![other], "the skin is on a block that has art of its own");
+    }
 
     /// A ladder takes the ladder of its theme in pieces that cover it, and its
     /// placeholder rungs go. The surface of a body of water is higher than the

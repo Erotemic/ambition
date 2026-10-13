@@ -313,7 +313,12 @@
             // height follows from the art. The width was 28 until 2026-10-08
             // (Jon: the enemies were too small), and the rooms were authored
             // against 28.
-            posed_body: Some(Width(56.0)),
+            //
+            // 35 is the same picture as 56 was. The box of the sheet was the
+            // heap with the skirt of its puddle (161 px); it is the heap where
+            // it is high (101 px) from 2026-10-12, when Jon said that the box
+            // went past what he could see. 56 * 101 / 161 = 35.
+            posed_body: Some(Width(35.0)),
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["enemy"],
@@ -427,6 +432,12 @@
         // thanks her (`castle_end.rs`). He wears the sheet of the player robot
         // of Ambition; his name is his own, because a catalog that is put
         // together from many games refuses two rows with one name.
+        //
+        // He has no line of his own here. A line of `fallback_dialogue` is
+        // said in a bubble when she is near, and she is near him, on the
+        // bridge, before she saves him (Jon, 2026-10-12: he thanked her
+        // "before she actually saves the robot"). His thanks is the line of
+        // the cutscene at the end of the castle.
         "mary_o_robot": (
             display_name: "Rescued Robot",
             spritesheet: "sprites/player_robot_v3_spritesheet.png",
@@ -437,7 +448,7 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["npc"],
-            fallback_dialogue: ["Thank you. You saved me."],
+            fallback_dialogue: [],
         ),
         // The two flying swarms. Their Hall pedestals and dialogue stay in
         // Ambition's world files and resolve by id from the merged catalog in

@@ -45,7 +45,11 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
   into LDtk and the tooling.
 - The warp room (`mary_o_warp`, `tools/author_mary_o_warp_ldtk.py`) is a
   secret: a row of pipes, one to the start of each level. The way in is the
-  top of 1-1, an engine `LoadingZone` with a landing zone in the warp room. A
+  sky of 1-1, an engine `LoadingZone` with a landing zone in the warp room.
+  The file has the zone on the top line of the level, and the game puts it
+  five tiles over the level (`lift_the_sky_zones`): she must go up out of the
+  view to be in it. The game writes the name of a level over its pipe, dark
+  with a white edge (`pipe_signs.rs`). A
   pipe whose `role` is `Warp` has no far pipe: its `link` is the id of the
   level (`leave_through_a_warp_pipe`). A new level gets a pipe in `LEVELS` of
   the script. The level circuit does not go through the room

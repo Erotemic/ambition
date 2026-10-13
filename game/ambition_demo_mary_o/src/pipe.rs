@@ -37,6 +37,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::characters::control::{claim_control_hold, release_control_hold, ControlHold, ControlHolds};
 use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance};
 use ambition_platformer2d::platformer::markers::PlayerEntity;
 
 /// Seconds spent sinking into the near pipe, and rising out of the far one. Half
@@ -113,6 +114,10 @@ pub struct PipeTransit {
     /// ends in [`TransitPhase::Leaving`], and the room she arrives in ends the
     /// transit.
     pub leaves: bool,
+    /// The live room the transit is in. `None` until its first tick, which
+    /// takes the room of the body ([`run_pipe_transits`]). Each position of
+    /// the transit is a position of that room.
+    pub room: Option<LiveRoomInstance>,
 }
 
 impl PipeTransit {
@@ -149,6 +154,7 @@ impl PipeTransit {
             throat: arrival - travel,
             arrival,
             leaves: false,
+            room: None,
         }
     }
 
@@ -264,6 +270,14 @@ fn smoothstep(t: f32) -> f32 {
 /// The transit, as an ECS system. A thin wrapper over [`step_pipe_transit`]:
 /// hold the body's input lock, relocate it along the eased path through the
 /// engine's transit authority, and drop the component when it surfaces.
+///
+/// A transit is of its live room. A body that is in another live room (the
+/// level went through a pipe, or the room was played again) has a transit
+/// whose positions are of a room it is not in: the transit ends there, and
+/// writes no position. In the shell host the arrival is seen by the mode owner
+/// one tick after this system has run, so a rule on the arrival was a tick
+/// late: she came out at the place of the pipe in the new level (Jon,
+/// 2026-10-12: "the warp seems to drop you in the middle of the level").
 pub fn run_pipe_transits(
     mut commands: Commands,
     world_time: Res<ambition_platformer2d::time::WorldTime>,
@@ -275,12 +289,23 @@ pub fn run_pipe_transits(
             &mut PipeTransit,
             Option<&mut ControlHolds>,
             Option<&ae::PoseOwnedExternally>,
+            Option<&InRoomInstance>,
         ),
         With<PlayerEntity>,
     >,
 ) {
     let dt = world_time.sim_dt();
-    for (entity, clusters, mut model, mut transit, mut control_holds, pose_holds) in &mut bodies {
+    for (entity, clusters, mut model, mut transit, mut control_holds, pose_holds, stamp) in &mut bodies {
+        let here = stamp.map(|stamp| stamp.0);
+        if transit.room.is_none() {
+            transit.room = here;
+        }
+        if transit.room != here {
+            commands.entity(entity).remove::<PipeTransit>();
+            release_control_hold(&mut commands, entity, control_holds.as_deref_mut(), ControlHold::Transit);
+            ae::release_pose_hold(&mut commands, entity, ae::PoseHold::Transit);
+            continue;
+        }
         let fx = step_pipe_transit(*transit, dt);
         let mut item = clusters;
         let mut clusters = item.as_clusters_mut();

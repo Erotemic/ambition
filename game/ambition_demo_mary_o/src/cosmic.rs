@@ -239,21 +239,27 @@ pub fn come_back_from_the_form(
 /// zone, it keeps snapping up and down"). A body on the ground is not moved:
 /// a ledge near the top of a room is a place she can stand, with her head
 /// over the top.
+///
+/// A level with a sky zone has a higher sky: she goes up out of the view as
+/// far as the zone (`crate::sky_top`), and the zone takes her.
 pub fn the_sky_has_a_top(
+    rooms: Option<ambition_platformer2d::world::rooms::LiveRoomSpecs>,
     mut bodies: Query<
-        (&mut ae::BodyKinematics, Option<&mut ae::SweepSample>, &ae::BodyGroundState),
+        (Entity, &mut ae::BodyKinematics, Option<&mut ae::SweepSample>, &ae::BodyGroundState),
         With<ambition_platformer2d::platformer::markers::PlayerEntity>,
     >,
 ) {
-    for (mut kin, mut sweep, ground) in &mut bodies {
+    for (entity, mut kin, mut sweep, ground) in &mut bodies {
         let half = kin.size.y * 0.5;
-        // The top of a room is the line y = 0 of its own space.
-        if ground.on_ground || kin.pos.y >= half {
+        // The top of a room is the line y = 0 of its own space. With no live
+        // room, that line is the top.
+        let top = rooms.as_ref().and_then(|rooms| rooms.spec_of(entity)).map_or(0.0, crate::sky_top);
+        if ground.on_ground || kin.pos.y >= top + half {
             continue;
         }
         // The top holds her as a ceiling does: at the line, with no speed up.
         // The sweep moves with her, so the next step does not see a jump.
-        let at = ae::Vec2::new(kin.pos.x, half);
+        let at = ae::Vec2::new(kin.pos.x, top + half);
         let vel = ae::Vec2::new(kin.vel.x, kin.vel.y.max(0.0));
         ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), at, vel);
     }

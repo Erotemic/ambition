@@ -397,11 +397,6 @@ class Level:
             fields |= {"target_room": to[0], "target_zone": to[1]}
         self._entity("LoadingZone", (col * T, row * T), (int(wide * T), int(tall * T)), **fields)
 
-    def label(self, col: float, row: float, text: str) -> None:
-        """Words in the level, with their middle over `col`."""
-        wide = 4 * T
-        self._entity("DebugLabel", (col * T - wide / 2, row * T), (wide, 16), name=text, text=text, category="Custom")
-
     def npc(self, character: str, col: float, size: tuple[int, int] = (28, 44)) -> None:
         """A character of the catalog that stands on the floor and is not an enemy."""
         self._entity("NpcSpawn", (col * T, self.floor * T - size[1]), size, character_id=character)

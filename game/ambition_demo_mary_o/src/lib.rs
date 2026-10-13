@@ -31,6 +31,7 @@ pub mod ldtk_vocabulary;
 pub mod level_1_2;
 pub mod movement;
 pub mod pipe;
+pub mod pipe_signs;
 pub mod plane;
 pub mod plant;
 pub mod powerups;
@@ -629,9 +630,42 @@ fn finish_authored_room(room: RoomSpec) -> RoomSpec {
 /// partner it wants.
 fn try_finish_authored_room(mut room: RoomSpec) -> Result<RoomSpec, String> {
     pipe_tubes(&room)?;
+    lift_the_sky_zones(&mut room);
     dress_authored_blocks(&mut room);
     room.props.extend(scenery_for_authored_room(&room));
     Ok(room)
+}
+
+/// How far over the top of a level its sky zone is, to the bottom of the zone.
+///
+/// A view of the level ends at the top of the level, so a body in the zone is
+/// this far out of the view (Jon, 2026-10-12: "I want her to have to go a bit
+/// past the normal visible level boundry before she hits that loading zone, so
+/// players who get the fly ability don't always find it").
+pub const SKY_ZONE_RISE: f32 = 5.0 * T;
+
+/// A loading zone on the top line of a level is the sky of the level: the game
+/// puts it [`SKY_ZONE_RISE`] over the top.
+///
+/// The file has the zone IN the level, on its top line, because a level file
+/// holds no thing that is out of its level. Where the sky is, is a rule of the
+/// game and the same for each level. `cosmic::the_sky_has_a_top` lets a body go
+/// up as far as the zone.
+fn lift_the_sky_zones(room: &mut RoomSpec) {
+    for zone in &mut room.loading_zones {
+        if zone.aabb.min.y > 0.5 {
+            continue;
+        }
+        let rise = zone.aabb.max.y + SKY_ZONE_RISE;
+        zone.aabb.min.y -= rise;
+        zone.aabb.max.y -= rise;
+    }
+}
+
+/// The top of the sky of `room`, in its own space: the top of the room, or the
+/// top of a sky zone that is over it.
+pub fn sky_top(room: &RoomSpec) -> f32 {
+    room.loading_zones.iter().map(|zone| zone.aabb.min.y).fold(0.0, f32::min)
 }
 
 /// Every authored area, finished, and the graph between them, as the file is
@@ -701,6 +735,10 @@ fn authored_world() -> ambition_platformer2d::runtime::demo_fixture::RoomSet {
 /// a zone that names NO target contributes no link on purpose: it is the
 /// landing pad half of a one-way trip, and a pad with an outgoing edge fires on
 /// the body that just arrived on it.
+pub fn authored_room_links() -> Vec<ambition_platformer2d::world::rooms::RoomLink> {
+    authored_world().canonical_links()
+}
+
 /// The levels that a loading zone leads to. They are side rooms: the circuit
 /// of `next_room` does not go through them (the warp room, from the sky of
 /// 1-1).
@@ -709,10 +747,6 @@ pub fn side_room_ids() -> Vec<String> {
     rooms.sort();
     rooms.dedup();
     rooms
-}
-
-pub fn authored_room_links() -> Vec<ambition_platformer2d::world::rooms::RoomLink> {
-    authored_world().canonical_links()
 }
 
 /// The authored loading zone a room calls `id`.
@@ -1268,6 +1302,7 @@ impl Plugin for MaryODemoContentPlugin {
         install_mary_o_content(app);
         quasar_shader::install(app);
         shimmer_shader::install(app);
+        pipe_signs::install(app);
         fire_shader::install(app);
         void_look::install(app);
         cosmic_aura::install(app);
@@ -1606,7 +1641,6 @@ impl Plugin for MaryORulesPlugin {
         // and transit run after ordinary WorldPrep movement, so the scripted
         // position wins this frame instead of racing the shared integrator.
         let pipe_rules = (
-            a_pipe_transit_ends_with_its_room,
             warp_through_secret_pipe,
             pipe::run_pipe_transits,
             leave_through_a_warp_pipe,
@@ -2108,44 +2142,6 @@ fn leave_through_a_warp_pipe(
             spec.id, warp.room
         ));
         departure.leave(ambition_platformer2d::session::Destination::Room(warp.room.clone()));
-    }
-}
-
-/// A pipe transit is of its room: a new room, and a replay of this one, end it.
-///
-/// The transit writes a position of the room it began in onto the body on each
-/// tick (see [`pipe::run_pipe_transits`]). She arrives at the start of the new
-/// room, and the next tick would put her back in the pipe of the last one. It
-/// is the hazard `begin_a_lap_on_arrival` names for the flag, and this runs
-/// before the transits for the same reason.
-fn a_pipe_transit_ends_with_its_room(
-    mut commands: bevy::prelude::Commands,
-    mut replays: ambition_platformer2d::combat::events::AdmittedReplays,
-    owners: bevy::prelude::Query<&ambition_platformer2d::session::ModeVisit>,
-    mut bodies: bevy::prelude::Query<
-        (
-            bevy::prelude::Entity,
-            Option<&mut ambition_platformer2d::characters::control::ControlHolds>,
-        ),
-        bevy::prelude::With<pipe::PipeTransit>,
-    >,
-) {
-    let replayed = replays.read().count() > 0;
-    let arrived = owners
-        .single()
-        .is_ok_and(|visit| visit.arrival() == ambition_platformer2d::session::Arrival::FromAnotherRoom);
-    if !(replayed || arrived) {
-        return;
-    }
-    for (entity, mut holds) in &mut bodies {
-        commands.entity(entity).remove::<pipe::PipeTransit>();
-        ambition_platformer2d::characters::control::release_control_hold(
-            &mut commands,
-            entity,
-            holds.as_deref_mut(),
-            ambition_platformer2d::characters::control::ControlHold::Transit,
-        );
-        ae::release_pose_hold(&mut commands, entity, ae::PoseHold::Transit);
     }
 }
 
@@ -4150,5 +4146,6 @@ mod rollback_probes {
             ^ point(transit.arrival).rotate_left(31)
             ^ point(transit.swallowed).rotate_left(43)
             ^ ((transit.leaves as u64) << 5)
+            ^ transit.room.map_or(0, |room| u64::from(room.ordinal()) + 1).rotate_left(53)
     }
 }

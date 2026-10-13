@@ -7,13 +7,16 @@
 `--apply` REPLACES the level in the LDtk file. See `mary_o_level.py` for the
 tile language and the command line.
 
-The room is a secret. The way in is the sky of 1-1: a body that goes up to the
-top of that level is in a `LoadingZone` that brings it here (Jon, 2026-10-12:
-"if I fly too high in world 1-1 I trigger a special loading zone to a special
-level with warp pipes"). `--apply` puts that zone in 1-1 first, one time: 1-1
-has no script of its own.
+The room is a secret. The way in is the sky of 1-1: a `LoadingZone` on the top
+line of that level brings a body here (Jon, 2026-10-12: "if I fly too high in
+world 1-1 I trigger a special loading zone to a special level with warp
+pipes"). The game puts a zone that is on the top line of a level some tiles
+OVER the level (`lift_the_sky_zones`), so a body must go up out of the view to
+be in it. `--apply` puts the zone in 1-1 first, one time: 1-1 has no script of
+its own.
 
-A new level gets a pipe here: add it to `LEVELS`.
+A new level gets a pipe here: add its id to `LEVELS`. The game writes the name
+of the level over its pipe (`pipe_signs.rs`).
 """
 
 from __future__ import annotations
@@ -25,17 +28,16 @@ from pathlib import Path
 from mary_o_level import TARGET, T, Level, cli, run_tool
 
 AREA = "mary_o_warp"
-# The levels a pipe goes to, in the sequence of the pipes: the id of the level
-# and the words over its pipe.
+# The levels a pipe goes to, in the sequence of the pipes.
 LEVELS = (
-    ("mary_o_1_1", "1-1"),
-    ("mary_o_1_2", "1-2"),
-    ("mary_o_1_3", "1-3"),
-    ("mary_o_1_4", "1-4"),
-    ("mary_o_2_1", "2-1"),
-    ("mary_o_2_2", "2-2"),
-    ("mary_o_2_3", "2-3"),
-    ("mary_o_2_4", "2-4"),
+    "mary_o_1_1",
+    "mary_o_1_2",
+    "mary_o_1_3",
+    "mary_o_1_4",
+    "mary_o_2_1",
+    "mary_o_2_2",
+    "mary_o_2_3",
+    "mary_o_2_4",
 )
 
 WALL = 2  # columns of rock at each end
@@ -72,11 +74,8 @@ def build() -> Level:
     lv.start(4, "mary_o_warp_start")
     # She comes down out of the sky, to the left of the first pipe.
     lv.loading_zone(ARRIVAL_ZONE, "From the sky", 3, 1, 3, 3)
-    lv.label(WIDTH / 2, 2, "WARP ZONE")
-    for index, (level, words) in enumerate(LEVELS):
-        col = FIRST_PIPE + PIPE_STEP * index
-        lv.pipe(col, level, "Warp")
-        lv.label(col + 1.5, FLOOR - 4, words)
+    for index, level in enumerate(LEVELS):
+        lv.pipe(FIRST_PIPE + PIPE_STEP * index, level, "Warp")
     return lv
 
 

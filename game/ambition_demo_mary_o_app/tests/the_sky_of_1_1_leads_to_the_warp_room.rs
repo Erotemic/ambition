@@ -88,10 +88,16 @@ fn she_goes_up_out_of_1_1_and_takes_a_pipe_to_a_level() {
     let mut app = boot();
     assert_eq!(active_room(&mut app), LEVEL_1_1_ROOM_ID);
 
-    // A full jump from the highest block of 1-1 does not get to the top: a
-    // body that is there went up by another way. She is put in the air under
-    // the top, on her way up.
+    // The top of the view is not the zone: a body that is at the top of the
+    // level, and no more than a tile over it, stays in 1-1.
     place(&mut app, Vec2::new(400.0, 70.0), Vec2::new(0.0, -600.0));
+    for _ in 0..120 {
+        step(&mut app, ControlFrame::default());
+    }
+    assert_eq!(active_room(&mut app), LEVEL_1_1_ROOM_ID, "the top line of 1-1 took her to the warp room");
+
+    // She goes up out of the view, as the form with a jump in the air does.
+    place(&mut app, Vec2::new(400.0, 70.0), Vec2::new(0.0, -1400.0));
     assert!(
         arrives_in(&mut app, WARP_ROOM, 240, ControlFrame::default()),
         "she went up to the top of 1-1 and the room is `{}`",
@@ -177,4 +183,40 @@ fn she_goes_up_out_of_1_1_and_takes_a_pipe_to_a_level() {
         at.x,
         body(&mut app).pos.x
     );
+}
+
+/// Each pipe of the warp room has the name of its level over it, in dark words
+/// with a white edge (Jon, 2026-10-12: the white words could not be seen on
+/// the pale sky).
+#[cfg(feature = "visible")]
+#[test]
+fn each_pipe_of_the_warp_room_has_the_name_of_its_level_over_it() {
+    use ambition_demo_mary_o_app::{build_windowed_demo_app_entering, RenderMode};
+    use ambition_platformer2d::render::rendering::WorldLabel;
+
+    let mut app = build_windowed_demo_app_entering(
+        RenderMode::Headless,
+        ambition_demo_mary_o::MARY_O_GAMEPLAY_ROUTE,
+        WARP_ROOM,
+    );
+    for _ in 0..120 {
+        app.update();
+    }
+    let mut signs = app.world_mut().query::<(&Text2d, &TextColor, &WorldLabel, &Children)>();
+    let mut words = Vec::new();
+    for (text, ink, label, edge) in signs.iter(app.world()) {
+        if !label.owner_id.starts_with("mary_o_pipe_sign:") {
+            continue;
+        }
+        words.push(text.0.clone());
+        let ink = ink.0.to_srgba();
+        assert!(ink.red + ink.green + ink.blue < 1.0, "the words `{}` are not dark: {ink:?}", text.0);
+        assert_eq!(edge.len(), 8, "the words `{}` have no edge on each side", text.0);
+        for part in edge.iter() {
+            let colour = app.world().entity(part).get::<TextColor>().expect("a part of the edge is words").0;
+            assert_eq!(colour.to_srgba(), Color::WHITE.to_srgba(), "the edge of `{}` is not white", text.0);
+        }
+    }
+    words.sort();
+    assert_eq!(words, ["1-1", "1-2", "1-3", "1-4", "2-1", "2-2", "2-3", "2-4"]);
 }

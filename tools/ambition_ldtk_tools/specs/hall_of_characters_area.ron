@@ -2485,7 +2485,7 @@
             fields: (
                 character_id: "npc_gnu_ton",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_gnu_ton",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3059,24 +3059,6 @@
                 80,
             ],
             fields: (
-                character_id: "npc_gnu_ton_boss",
-                prompt: "Inspect",
-                dialogue_id: "hall_npc_gnu_ton_boss",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1256,
-                2448,
-            ],
-            size: [
-                48,
-                80,
-            ],
-            fields: (
                 character_id: "npc_mantis_lancer",
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_mantis_lancer",
@@ -3087,7 +3069,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1768,
+                1256,
                 2448,
             ],
             size: [
@@ -3105,8 +3087,8 @@
         (
             type: "NpcSpawn",
             px: [
-                232,
-                2832,
+                1768,
+                2448,
             ],
             size: [
                 48,
@@ -3123,7 +3105,7 @@
         (
             type: "NpcSpawn",
             px: [
-                744,
+                232,
                 2832,
             ],
             size: [
@@ -3141,7 +3123,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1256,
+                744,
                 2832,
             ],
             size: [
@@ -3159,7 +3141,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1768,
+                1256,
                 2832,
             ],
             size: [
@@ -3177,8 +3159,8 @@
         (
             type: "NpcSpawn",
             px: [
-                232,
-                3216,
+                1768,
+                2832,
             ],
             size: [
                 48,
@@ -3195,7 +3177,7 @@
         (
             type: "NpcSpawn",
             px: [
-                744,
+                232,
                 3216,
             ],
             size: [
@@ -3221,27 +3203,9 @@
                 80,
             ],
             fields: (
-                character_id: "npc_giant_gnu",
+                character_id: "npc_giant_gnu_whole",
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_giant_gnu",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1512,
-                4064,
-            ],
-            size: [
-                48,
-                80,
-            ],
-            fields: (
-                character_id: "npc_giant_gnu_hands",
-                prompt: "Inspect",
-                dialogue_id: "hall_npc_giant_gnu_hands",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),

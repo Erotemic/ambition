@@ -210,6 +210,9 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // A look a conversation asked a body to wear. The template is
                 // applied by the wear system on the tick after.
                 ecs::apply_wear_requests,
+                // The row a character rests in, when its catalog row states
+                // one (the giant gnu whole, with its arms on it).
+                ecs::pin_rest_rows,
                 crate::items::narrative::apply_item_grants,
                 crate::items::narrative::apply_shop_transactions,
                 crate::items::narrative::apply_item_uses,

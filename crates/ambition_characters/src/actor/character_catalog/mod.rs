@@ -389,6 +389,12 @@ impl CharacterCatalog {
         self.get(character_id)?.form_of.as_deref()
     }
 
+    /// The row of its sheet a body of `character_id` draws at rest in place
+    /// of its idle row (`rest_row`), when the row states one.
+    pub fn rest_row(&self, character_id: &str) -> Option<&str> {
+        self.get(character_id)?.rest_row.as_deref()
+    }
+
     /// The looks of `character_id`: each row that names it in `form_of`, in
     /// id order.
     pub fn forms_of<'a>(&'a self, character_id: &'a str) -> impl Iterator<Item = &'a str> + 'a {

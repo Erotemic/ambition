@@ -1567,7 +1567,9 @@
         // well as a mount; its gallery voice speaks as the mount, not the rider.
         "npc_giant_gnu": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
-            display_name: "Giant GNU",
+            // The name of the giant is the whole giant's (`npc_giant_gnu_whole`):
+            // two rows do not share one.
+            display_name: "Giant GNU (body)",
             spritesheet: "sprites/gnu_ton_boss/giant_gnu_spritesheet.png",
             manifest: "sprites/gnu_ton_boss/giant_gnu_spritesheet.ron",
             tier: Giant,
@@ -1643,7 +1645,9 @@
             barks: (
                 hall: ["Gnu Ton brought a quotation. I asked for a saddle.", "GNU's not Unix. I am not the rider. Please keep up.", "Everyone wants the shoulders. Nobody asks about the knees."],
             ),
-            hall_dialogue_id: Some("hall_npc_giant_gnu"),
+            // The body the fight draws, with no arms: a part of the giant. The
+            // Hall's stand is the giant whole (`npc_giant_gnu_whole`).
+            part_of: Some("npc_giant_gnu_whole"),
         ),
 
         // ===== Giant GNU Fist (the giant's two limb bodies, conducted by
@@ -1682,7 +1686,37 @@
             barks: (
                 hall: ["Talk to the hand. Appointment required for the giant.", "I am right-handed on alternate Tuesdays.", "Pointing is free. Punching is billable."],
             ),
-            hall_dialogue_id: Some("hall_npc_giant_gnu_hands"),
+            part_of: Some("npc_giant_gnu_whole"),
+        ),
+
+        // ===== Giant GNU, whole (the Hall's stand). The identity of the
+        // giant: the same sheet as the body of the fight, at rest in the row
+        // that has its arms on it. Jon, 2026-10-13: "the giant also needs his
+        // full version with arms and we remove the hands as standalone
+        // characters from the hall ... It should have one stand per 'semantic
+        // identity' of a character." It is not a mount and has no fists of
+        // its own: the fight uses the two parts above.
+        "npc_giant_gnu_whole": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Giant GNU",
+            spritesheet: "sprites/gnu_ton_boss/giant_gnu_spritesheet.png",
+            manifest: "sprites/gnu_ton_boss/giant_gnu_spritesheet.ron",
+            tier: Giant,
+            body_kind: Wide,
+            composition: None,
+            default_action_set: "peaceful",
+            posed_body: Some(SameAs("npc_giant_gnu")),
+            unmirrored: true,
+            rest_row: Some("armed_rest"),
+            locomotion: Some((run_speed: 0.0, move_style: WalkHeavy)),
+            autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
+            max_health: Some(42),
+            mass: Some(8.0),
+            tags: ["giant"],
+            barks: (
+                hall: ["Gnu Ton brought a quotation. I asked for a saddle.", "GNU's not Unix. I am not the rider. Please keep up.", "Talk to the hand. Appointment required for the giant."],
+            ),
+            hall_dialogue_id: Some("hall_npc_giant_gnu"),
         ),
 
         // ===== Puppy Slug (wanderer crawlid).
@@ -2467,7 +2501,10 @@
             idle: ["Fall. I have already solved for where.", "The universe is not cruel. It is exact.", "I have split the sun. I can divide you.", "I know false weight when it breathes.", "Your motion was inevitable.", "I require no prophecy to know your end.", "Do not resist the law. You are made of it.", "I have measured the heavens. You are a rounding error.", "Every body attracts every other. Unfortunately for you, I am very large.", "You are not escaping. You are tracing a curve.", "Be still. I am observing.", "Hold steady. The experiment requires repetition.", "The prism does not lie. It only reveals the lie.", "Your shadow has an angle. Your death has a proof.", "Lead dreams of gold. Flesh dreams of dust.", "The furnace corrects all impurities.", "Mercury remembers the shape of every sin.", "Be transmuted.", "The world is a crucible, and you are not the gold.", "Impurity is just matter confessing.", "History is a cipher. You are a solved term.", "The end is not near. It is numbered.", "I do not predict. I calculate.", "Even apocalypse obeys arithmetic.", "God wrote in number. I learned to read.", "Creation is not chaos. It is a ledger.", "You mistake mystery for permission.", "The stars keep their stations. Learn from them.", "You are light coin.", "Clipped, debased, and due for hanging.", "Bring the scales.", "The stamp shall reveal your value.", "I have sent better men to the gallows for less.", "Fraud always leaves a shaving.", "Enough observation. Now comes proof.", "You have survived the question. Face the answer.", "Let us remove the remaining variables.", "No more approximations.", "Let the heavens fall inward.", "Now every law acts at once.", "The calculation accelerates.", "Your margin of error is closed.", "The proof concludes."],
             hall: ["You're falling toward me right now. Too slowly to be polite about it.", "An apple taught me everything. The apple asked for nothing."],
         ),
-        hall_dialogue_id: Some("hall_npc_gnu_ton_boss"),
+        // The scholar ON the giant, as one old picture: a look of GNU-ton and
+        // not a second character. The Hall's stand is the scholar
+        // (`npc_gnu_ton`), on a stand of his own.
+        form_of: Some("npc_gnu_ton"),
         ),
         // Sandbox kamikaze mite (the exploding-mite archetype); spawn name "Exploding Mite".
         "npc_exploding_mite": (
@@ -4096,6 +4133,7 @@
             idle: ["Fall. I have already solved for where.", "The universe is not cruel. It is exact."],
             hall: ["An apple taught me everything. The apple asked for nothing.", "You are falling toward me right now. Too slowly to be polite about it."],
         ),
+        hall_dialogue_id: Some("hall_npc_gnu_ton"),
         ),
         "npc_carl_stargan": (
             display_name: "Carl Stargan",

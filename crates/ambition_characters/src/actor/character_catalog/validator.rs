@@ -236,6 +236,26 @@ pub(crate) fn findings<'a>(catalog: &'a CharacterCatalogData) -> Vec<Finding<'a>
                 );
             }
         }
+        if let Some(name) = entry.part_of.as_deref() {
+            push(
+                "part_of",
+                FindingKind::Reference {
+                    table: PresetTable::Character,
+                    name,
+                },
+            );
+            // A part is seen as a part of its character, at that character's
+            // place in the Hall.
+            if entry.hall_dialogue_id.is_some() {
+                push(
+                    "part_of",
+                    FindingKind::BothStated {
+                        inline_field: "hall_dialogue_id",
+                        what: "Hall conversation (a part has no stand)",
+                    },
+                );
+            }
+        }
         if let Some(name) = entry.derived_from.as_deref() {
             push(
                 "derived_from",

@@ -1,0 +1,16 @@
+# The Ninja Heavy stands in the Shadow Dojo, at the door to the arena (Jon,
+# 2026-10-13: "add the ninja to the dojo"). He does not fight here: as the
+# Leader and the Duelist, he stands and can be talked to.
+#
+# A second pass over the room: `area create` of `ninja_dojo_area.ron` with
+# `--replace-existing` wipes it, so run this again after that.
+level_id: ninja_dojo
+entities:
+  - type: NpcSpawn
+    px: [960, 498]
+    size: [72, 110]
+    fields:
+      character_id: npc_ninja_heavy
+      prompt: Talk
+      dialogue_id: ninja_heavy
+      brain_override: stand_still

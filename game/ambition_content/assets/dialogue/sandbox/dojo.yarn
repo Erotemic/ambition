@@ -59,3 +59,29 @@ Shadow Oni: Tell the Admiral we hold the eastern thermals. Afterward he goes bac
     <<jump ninja_leader>>
 -> Open the arena door.
 ===
+
+title: ninja_heavy
+---
+Ninja Heavy: The Leader opens the far door. The heavy one closes it. Speak.
+-> Why do they call you the heavy one?
+    <<jump ninja_heavy__1>>
+-> Any advice for the bird?
+    <<jump ninja_heavy__2>>
+-> Carry on.
+===
+
+title: ninja_heavy__1
+---
+Ninja Heavy: The Duelist is not there when you strike. The heavy one is there. It changes nothing.
+-> Ask another question.
+    <<jump ninja_heavy>>
+-> Carry on.
+===
+
+title: ninja_heavy__2
+---
+Ninja Heavy: It can copy a voice. It can not copy a weight. Strike when it laughs.
+-> Ask another question.
+    <<jump ninja_heavy>>
+-> Carry on.
+===

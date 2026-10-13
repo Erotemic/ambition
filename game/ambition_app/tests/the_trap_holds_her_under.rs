@@ -45,12 +45,17 @@ fn the_trap_keeps_her_under_the_stage_until_an_action_press_ends_it() {
         for _ in 0..30 {
             app.update();
         }
-        // ⛔ `smash_roster`, NOT `smash_roster_at_levels`: the levelled helper
-        // makes EVERY participant a CPU, and `drive_control_frame` would then be
-        // talking to a slot nobody owns. `smash_ride.rs` records the day that
-        // cost.
-        app.world_mut()
-            .insert_resource(ambition_demo_smash::smash_roster(["performer", "performer"]));
+        // ⛔ Seat 0 is a person (`smash_roster`, NOT `smash_roster_at_levels`:
+        // the levelled helper makes EVERY participant a CPU, and
+        // `drive_control_frame` would then be talking to a slot nobody owns;
+        // `smash_ride.rs` records the day that cost). Seat 1 stands still: a
+        // live CPU walked up and struck her on the fifth tick of the trap
+        // after its approach rule changed (2026-10-13), so the test measured
+        // the CPU and not the move.
+        app.world_mut().insert_resource(ambition_demo_smash::smash_roster_with_passive_targets([
+            "performer",
+            "performer",
+        ]));
         app.world_mut()
             .write_message(ShellCommand::GoTo(ShellRouteId::new(
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,

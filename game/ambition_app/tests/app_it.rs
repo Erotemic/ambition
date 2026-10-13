@@ -20,6 +20,7 @@ mod pirate_sky_crew;
 mod robot_blade_at_home;
 mod window_cameras_share_one_main_texture;
 mod the_cart_of_the_wake_room;
+mod the_noodly_temple;
 mod the_primeval_trail;
 mod the_session_owns_its_generation;
 mod the_sync_test_sees_a_first_run_only_effect;

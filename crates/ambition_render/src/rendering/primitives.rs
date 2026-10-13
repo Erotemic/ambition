@@ -51,6 +51,8 @@ pub struct QuestPanelText;
 #[derive(Component, Clone, Debug)]
 pub struct LockWallVisual {
     pub block_name: String,
+    /// The middle of the wall in its room: where the sound of it is.
+    pub centre: ambition_platformer2d_core::Vec2,
 }
 
 /// Marker with an authored block visual's name, so a mid-run removal of that

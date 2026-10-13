@@ -117,6 +117,40 @@ area wipes the second pass, so re-run `entity add` after every `area create`.
 Worked example: `apply` in `game/ambition_demo_mary_o/tools/mary_o_level.py`,
 which runs the two passes for each Mary-O level.
 
+## Keys, doors and levers
+
+A door that a key opens is two entities and no code.
+
+- The key: a `PickupSpawn` with `kind: "flag:<flag>"` and `respawn: "Never"`.
+  `sprite` names the prop sheet that draws it. The player reads "picked up
+  <name>".
+- The door: a `LockWall` with `gated_by: "<flag>"`. It is solid until the
+  flag is set. `look` names the prop sheet that draws it over its box; a
+  sheet that is a column that tiles fills a wall of any height. With no
+  `look` it is the lock wall tile. A `LockWall` needs an `id`.
+
+`gated_by` is a condition line. A bare value is a flag. A first token with a
+dot is a condition with its arguments: `world.switch_on <switch id>` (a lever
+that is on), `encounter.cleared <encounter id>`, `inventory.holds <item>`.
+The first word `not` turns the gate round: `not world.switch_on wheel` is a
+wall that stands while the lever is on. One lever can then open one gate and
+shut another.
+
+A `Switch` with `action: "ToggleFlag"` is a lever: each press turns it. A
+press of any switch also sets the flag `switch_<id>_used` for good, which is
+the gate of a thing that stays done (a bell that was rung).
+
+A room has one fight at most (`EncounterTrigger`). Its wall is the room's
+`LockWall` that has no `gated_by`. Give the fight a `Switch` with
+`target_encounter`: a fight with no switch starts again each time a body
+enters its trigger.
+
+The player flies and blinks. A way is shut only by solid wall round the door:
+check each way round it. The worked example is the Noodly Temple
+(`tools/ambition_ldtk_tools/specs/noodly_temple/`): `make_specs.py` writes its
+rooms and `check_temple.py` proves that the level can be finished and that no
+place in it is a trap.
+
 ## A second instance of a room
 
 `level clone` copies a whole room under a new identifier with fresh ids: its

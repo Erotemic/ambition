@@ -2883,8 +2883,15 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // THE BODY of the placed enemy (the Noodly Temple): a knot that
+            // walks at what it sees and swipes, with the shared
+            // `medium_striker` policy. It names no preset, as the goblin
+            // names none: a placement is what makes it an enemy.
+            locomotion: Some((run_speed: 140.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.6, amount: 1)),
+            named_autonomous_profile: Some("medium_striker"),
+            max_health: Some(4),
             tags: ["enemy"],
         barks: (
             on_hit: ["Noodly retaliation!", "The entanglement grows!", "Sauced and ready!"],

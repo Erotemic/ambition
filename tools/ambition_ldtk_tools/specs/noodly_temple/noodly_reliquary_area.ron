@@ -1,0 +1,38 @@
+// Written by specs/noodly_temple/make_specs.py. Change the script, not this file.
+(
+    id: "noodly_reliquary",
+    level_id: "noodly_reliquary",
+    world_x: 80000,
+    world_y: 0,
+    px_wid: 1280,
+    px_hei: 640,
+    fill_collision: "empty",
+    bg_color: "#15131F",
+    biome: "boss",
+    music_track: "flying_spaghetti_monster_roots_stage_choir_backing",
+    entities: [
+        ( type: "Solid", px: [0, 608], size: [1280, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1280, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 592], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1264, 16], size: [16, 592], fields: ( name: "right_wall" ) ),
+        ( type: "LockWall", px: [176, 16], size: [32, 592], fields: ( id: "noodly_reliquary_lock", name: "noodly_reliquary_lock", look: "temple_gate_iron" ) ),
+        ( type: "EncounterTrigger", px: [320, 16], size: [64, 592], fields: ( id: "noodly_reliquary_vigil", name: "noodly_reliquary_vigil_trigger", camera_zoom: 1.2 ) ),
+        ( type: "Switch", px: [140, 576], size: [24, 32], fields: ( id: "noodly_reliquary_again", name: "the bell of the fight", prompt: "Ring for the fight again", action: "ResetEncounter", target_encounter: "noodly_reliquary_vigil" ) ),
+        ( type: "PlayerStart", px: [96, 562], size: [28, 46], fields: ( name: "noodly_reliquary_spawn" ) ),
+        ( type: "LoadingZone", px: [32, 512], size: [48, 96], fields: ( id: "noodly_reliquary_west", name: "to the nave", activation: "Door", target_room: "noodly_nave", target_zone: "noodly_nave_reliquary", bidirectional: true ) ),
+        ( type: "OneWayPlatform", px: [448, 464], size: [144, 16], fields: ( name: "stall_a" ) ),
+        ( type: "OneWayPlatform", px: [768, 464], size: [144, 16], fields: ( name: "stall_b" ) ),
+        ( type: "OneWayPlatform", px: [608, 336], size: [144, 16], fields: ( name: "stall_c" ) ),
+        ( type: "HazardBlock", px: [480, 592], size: [96, 16], fields: ( name: "sauce_a" ) ),
+        ( type: "HazardBlock", px: [784, 592], size: [96, 16], fields: ( name: "sauce_b" ) ),
+        ( type: "Solid", px: [1056, 16], size: [32, 464], fields: ( name: "vault_wall" ) ),
+        ( type: "LockWall", px: [1056, 480], size: [32, 128], fields: ( id: "noodly_reliquary_vault_door", name: "the grille of the vault", gated_by: "encounter.cleared noodly_reliquary_vigil", look: "temple_gate_iron" ) ),
+        ( type: "PickupSpawn", px: [1151, 531], size: [34, 34], fields: ( name: "the Colander Key", kind: "flag:noodly_key_colander", respawn: "Never", sprite: "temple_key_colander" ) ),
+        ( type: "DebugLabel", px: [700, 418], size: [320, 24], fields: ( name: "noodly_reliquary_sign_vault", text: "The vault opens when the vigil ends.", category: "Custom" ) ),
+        ( type: "CameraZone", px: [0, 0], size: [1280, 640], fields: ( id: "noodly_reliquary_camera", name: "noodly_reliquary_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [40, 32], size: [400, 24], fields: ( name: "noodly_reliquary_sign_title", text: "The reliquary. His own keep watch here.", category: "Custom" ) ),
+    ],
+    connect_to: [
+        
+    ],
+)

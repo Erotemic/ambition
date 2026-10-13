@@ -490,6 +490,73 @@ def apply(lv: Level) -> None:
     run_tool("asset", "editor-art", str(EDITOR_ART_VIEW), "--in-place")
 
 
+# What a body stands on, in the letters of `Level.picture`.
+STANDS_ON = set("#=Bb?_PH!")
+# A jump that each level can ask for, in tiles. They are under what the
+# `classic` tuning gives (see the top of this file), so a level that passes
+# has room for a player who is not exact.
+JUMP_UP, JUMP_OVER, JUMP_OVER_HIGH, FALL_OVER = 4, 6, 4, 7
+
+
+def way_through(lv: Level) -> tuple[bool, str]:
+    """Is there a way from the start to the goal by jumps of a safe size?
+
+    The places a body stands are the tiles over a thing of `STANDS_ON`, the
+    line a ferry goes along, and each height of a line of lifts. A jump goes
+    up `JUMP_UP` tiles at most and over `JUMP_OVER` (`JUMP_OVER_HIGH` when it
+    goes up more than two); a fall goes over `FALL_OVER`. A column between
+    the two places that is solid for the full height of a jump stops it. An
+    enemy is not seen, and a roof is not seen: this finds a pit that is too
+    wide and a wall or a ledge that is too high, and no more than that."""
+    rows = lv.picture()
+    spots: set[tuple[int, int]] = set()
+    for r in range(1, lv.height):
+        for c in range(lv.width):
+            if rows[r][c] in STANDS_ON and rows[r - 1][c] not in STANDS_ON:
+                spots.add((c, r - 1))
+    start = goal = None
+    for entity in lv.entities + lv.named:
+        col, row = entity["px"][0] / T, entity["px"][1] / T
+        fields = entity.get("fields", {})
+        if entity["type"] == "PlayerStart":
+            start = int(col)
+        elif fields.get("name") in ("goal_pole", "goal_switch"):
+            goal = int(col)
+        elif entity["type"] == "MovingPlatform":
+            wide = entity["size"][0] // T
+            if "loop_dy" in fields:
+                spots.update((int(col) + i, r) for i in range(wide) for r in range(1, lv.height - 1))
+            else:
+                reach = int(abs(fields.get("sweep_dx", 0.0)) // T)
+                spots.update((int(col) + i, int(row) - 1) for i in range(wide + reach))
+    if start is None:
+        return False, "the level has no start"
+    if goal is None:
+        # A room of pipes: each way out is a pipe.
+        return True, "the level has no pole and no switch: there is no goal to get to"
+    def walled(c1: int, r1: int, c2: int) -> bool:
+        low = max(0, r1 - JUMP_UP)
+        return any(all(rows[r][c] in STANDS_ON for r in range(low, r1 + 1)) for c in range(min(c1, c2) + 1, max(c1, c2)))
+
+    seen = {spot for spot in spots if spot[0] == start}
+    edge = list(seen)
+    while edge:
+        c1, r1 = edge.pop()
+        for spot in spots:
+            if spot in seen:
+                continue
+            over, up = abs(spot[0] - c1), r1 - spot[1]
+            if up > JUMP_UP or over > (FALL_OVER if up < 0 else JUMP_OVER if up <= 2 else JUMP_OVER_HIGH):
+                continue
+            if walled(c1, r1, spot[0]):
+                continue
+            seen.add(spot)
+            edge.append(spot)
+    if any(abs(c - goal) <= 2 for c, _ in seen):
+        return True, f"a way of safe jumps goes from column {start} to the goal at column {goal}"
+    return False, f"no way of safe jumps goes past column {max(c for c, _ in seen)}: the goal is at column {goal}"
+
+
 def draw(lv: Level, path: Path, scale: int = 8) -> None:
     from PIL import Image, ImageDraw
 
@@ -515,7 +582,8 @@ def cli(build: Callable[[], Level], doc: str, *, before_apply: Callable[[], None
     """The command line of a level script.
 
     `--preview` prints the level as text and changes nothing. `--png FILE`
-    draws the same picture. `--apply` REPLACES the level in the LDtk file: an
+    draws the same picture. `--check` looks for a way from the start to the
+    goal (`way_through`); `--apply` does it first and stops if there is none. `--apply` REPLACES the level in the LDtk file: an
     edit made in the LDtk editor after the last `--apply` is lost. Make such an
     edit in the script also, or stop using the script for the level.
 
@@ -525,10 +593,16 @@ def cli(build: Callable[[], Level], doc: str, *, before_apply: Callable[[], None
     parser = argparse.ArgumentParser(description=doc, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--preview", action="store_true", help="print the level as text")
     parser.add_argument("--png", type=Path, help="draw the level to this file")
+    parser.add_argument("--check", action="store_true", help="look for a way from the start to the goal by safe jumps")
     parser.add_argument("--apply", action="store_true", help="replace the level in the LDtk file")
     args = parser.parse_args()
     lv = build()
-    if args.preview or not (args.png or args.apply):
+    if args.check or args.apply:
+        ok, words = way_through(lv)
+        print(("OK: " if ok else "error: ") + words)
+        if not ok:
+            sys.exit(1)
+    if args.preview or not (args.png or args.apply or args.check):
         ruler = "".join(str((c // 10) % 10) if c % 10 == 0 else " " for c in range(lv.width))
         print("   " + ruler)
         for r, row in enumerate(lv.picture()):

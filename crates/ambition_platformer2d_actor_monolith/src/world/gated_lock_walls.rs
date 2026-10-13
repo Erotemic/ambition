@@ -21,6 +21,12 @@
 //! anything else is a flag name. ⇒ A flag id containing a `.` is therefore not
 //! addressable in the bare form and must be written out in full.
 //!
+//! ⭐ `not` TURNS THE GATE ROUND. A line that starts with the word `not`
+//! (`"not world.switch_on sluice_wheel"`) is a wall that stands WHILE its
+//! condition is true and is open when the answer is no. A condition that
+//! cannot be answered is neither: that wall stands, as each gate does. So one
+//! lever can open one gate and shut another.
+//!
 //! Evaluation is exclusive
 //! because condition callbacks receive `&World`; if this grows to many independent
 //! rules, evaluate conditions once and publish outcomes for parallel readers.
@@ -376,7 +382,7 @@ fn publish_gated_lock_wall_verdicts(world: &mut World, per_room: Vec<(Entity, Ve
                         .filter(|body| {
                             catalog
                                 .ask_for(world, question, *body)
-                                .is_some_and(|outcome| outcome.is_satisfied())
+                                .is_some_and(|outcome| opens(&cached.wall.gated_by, &outcome))
                         })
                         .collect();
                     Some(ambition_platformer2d_shared_tangle::feature_overlay::GatePass {
@@ -419,7 +425,7 @@ fn publish_gated_lock_wall_verdicts(world: &mut World, per_room: Vec<(Entity, Ve
                 );
                 // A per-actor wall stands whatever the population answer is;
                 // the answer is still published, as the explanation.
-                let stands = !verdict.is_satisfied()
+                let stands = !opens(&cached.wall.gated_by, &verdict)
                     || catalog.answers_for_a_subject(question.id());
                 verdicts.insert(cached.wall.id.clone(), verdict);
                 stands
@@ -529,6 +535,7 @@ pub fn prepare_authored_gate(
     authored: &str,
 ) -> Result<PreparedCondition, ambition_platformer2d_shared_tangle::authored_logic::PreparationError>
 {
+    let (_, authored) = gate_sense(authored);
     if names_its_own_condition(authored) {
         catalog.prepare_line(authored)
     } else {
@@ -563,6 +570,30 @@ fn prepare_question(
             );
             None
         }
+    }
+}
+
+/// Whether an authored gate is turned round, and the condition it asks.
+///
+/// A first word `not` turns the gate round: the wall stands while the
+/// condition is true. The rest of the line is the condition, in the form
+/// [`prepare_authored_gate`] reads.
+pub fn gate_sense(authored: &str) -> (bool, &str) {
+    let line = authored.trim_start();
+    match line.split_once(char::is_whitespace) {
+        Some(("not", condition)) => (true, condition.trim_start()),
+        _ => (false, line),
+    }
+}
+
+/// Whether the answer `outcome` opens the wall that authors `gated_by`.
+///
+/// A gate opens on yes, and a gate turned round opens on no. An answer that
+/// could not be given opens neither.
+fn opens(gated_by: &str, outcome: &ConditionOutcome) -> bool {
+    match gate_sense(gated_by).0 {
+        false => outcome.is_satisfied(),
+        true => matches!(outcome, ConditionOutcome::NotSatisfied(_)),
     }
 }
 

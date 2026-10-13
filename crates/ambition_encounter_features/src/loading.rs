@@ -78,8 +78,10 @@ pub fn load_encounter_specs_from_rooms(
         let trigger_min = [trigger.min.x, trigger.min.y];
         let trigger_size = [trigger.size.x, trigger.size.y];
 
-        // The lock wall marker (one per area, optional).
-        let lock_wall = room.lock_walls.first().map(|wall| LockWallSpec {
+        // The lock wall marker (one per area, optional). A wall that authors
+        // `gated_by` is a gate with its own condition: it is not the
+        // encounter's, wherever it is in the room's list.
+        let lock_wall = room.lock_walls.iter().find(|wall| wall.gated_by.is_none()).map(|wall| LockWallSpec {
             min: [wall.min.x, wall.min.y],
             size: [wall.size.x, wall.size.y],
         });

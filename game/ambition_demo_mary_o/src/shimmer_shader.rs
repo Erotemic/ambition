@@ -3,7 +3,7 @@
 //! and red heat in the castle.
 //!
 //! Presentation only, and content-owned. A room has a shimmer when its biome
-//! is one of Mary-O's (`ParallaxTheme::Starlight`, `::Starless`, `::VoidCastle`). The
+//! is one of Mary-O's (`ParallaxTheme::Starlight`, `::Stardune`, `::Starless`, `::VoidCastle`). The
 //! shimmer is one quad the size of the room, behind the blocks and in front
 //! of the parallax scene.
 //!
@@ -80,6 +80,17 @@ fn style_of(theme: ParallaxTheme) -> Option<ShimmerStyle> {
             tile: 620.0,
             rise: 5.0,
             band: [-0.05, 0.75],
+        }),
+        // Pale gold sparkles, few; ribbons of sand low over the ground.
+        ParallaxTheme::Stardune => Some(ShimmerStyle {
+            shapes: [[1.0, 0.97, 0.80], [1.0, 0.88, 0.70]],
+            ribbons: [[1.0, 0.88, 0.66], [1.0, 0.78, 0.60]],
+            shape_strength: 0.55,
+            ribbon_strength: 0.18,
+            twinkle: 1.1,
+            tile: 660.0,
+            rise: 3.0,
+            band: [0.30, 0.60],
         }),
         // Magenta embers that go up; a low mist of violet.
         ParallaxTheme::Starless => Some(ShimmerStyle {
@@ -281,7 +292,10 @@ mod tests {
     #[test]
     fn only_the_biomes_of_mary_o_have_a_shimmer() {
         let with: Vec<_> = ParallaxTheme::ALL.iter().copied().filter(|theme| style_of(*theme).is_some()).collect();
-        assert_eq!(with, vec![ParallaxTheme::Starlight, ParallaxTheme::Starless, ParallaxTheme::VoidCastle]);
+        assert_eq!(
+            with,
+            vec![ParallaxTheme::Starlight, ParallaxTheme::Stardune, ParallaxTheme::Starless, ParallaxTheme::VoidCastle]
+        );
     }
 
     #[test]

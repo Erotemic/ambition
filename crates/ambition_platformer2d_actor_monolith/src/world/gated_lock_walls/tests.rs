@@ -647,6 +647,35 @@ fn a_wall_may_be_gated_on_a_world_mechanism_being_latched_on() {
     );
 }
 
+/// A gate turned round: `not` makes a wall that stands while its condition is
+/// true, so one lever opens one gate and shuts another.
+///
+/// The third arm is the one that matters: a condition nobody publishes can not
+/// be answered, and that is not a "no". The wall stands.
+#[test]
+fn a_gate_turned_round_stands_while_its_condition_is_true() {
+    use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
+
+    let mut app = world_with_one_wall_gated_by("not world.switch_on sluice_wheel");
+    app.publish_condition(
+        crate::world_facts::switch_on_descriptor(),
+        crate::world_facts::switch_on,
+    );
+    app.update();
+    assert_eq!(standing(&app), 0, "the wheel is off, so the gate turned round is open");
+
+    app.world_mut()
+        .resource_mut::<ambition_persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_switch("sluice_wheel", true);
+    app.update();
+    assert_eq!(standing(&app), 1, "the wheel is on, so the gate turned round is shut");
+
+    let mut unpublished = world_with_one_wall_gated_by("not world.switch_on sluice_wheel");
+    unpublished.update();
+    assert_eq!(standing(&unpublished), 1, "a question nobody can answer opens no gate");
+}
+
 /// A ROUTE GATED ON AN ENCOUNTER OUTCOME — and the arm that separates it from
 /// the switch.
 ///

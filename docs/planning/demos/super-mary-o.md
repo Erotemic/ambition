@@ -23,6 +23,19 @@ shared economy; LDtk authoring of levels, loading zones and pipes.
 Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
 (standalone shell).
 
+- World 2 (2-1 to 2-4), each level from a script of
+  `game/ambition_demo_mary_o/tools/` (`author_mary_o_2_<n>_ldtk.py`): 2-1 the
+  desert (dunes, an oasis, a pyramid, a ferry), 2-2 a tomb under it (lifts,
+  bars of fire), 2-3 mesas over a fall, 2-4 a castle whose end is the switch
+  and the bridge of 1-4. The circuit is 1-1 to 1-4, 2-1 to 2-4, and 1-1 again.
+  The levels are not played by a person yet. A script has `--check`, and
+  `--apply` does it first: `way_through` in `mary_o_level.py` looks for a way
+  from the start to the goal by jumps of a safe size. It finds a pit that is
+  too wide and a wall that is too high, and no more than that.
+- The desert has a biome of its own, `stardune` (`ParallaxTheme::Stardune`):
+  the scene is `backgrounds/outdoors.py::stardune` of the sprite renderer, with
+  a row in each terrain table. Its music is the cue `sparse_theme` ("Sparse
+  Theme"), named by the level field `music_track` of 2-1 and 2-3.
 - Four levels (1-1, 1-2, 1-3, 1-4) in the Mary-O LDtk world of the
   `ambition_map_assets` submodule, read through `authored_levels`. Each level's fields
   state its game mode; stone colors are level or `Solid` fields. Rust still

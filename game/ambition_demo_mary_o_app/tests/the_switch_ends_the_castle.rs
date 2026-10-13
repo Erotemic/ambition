@@ -151,7 +151,7 @@ fn the_switch_drops_the_boss_and_the_robot_thanks_her_before_the_level_goes() {
                 "his line came {} frames after the switch: the end of the castle is a blink",
                 line_frame - pressed_at
             );
-            assert_eq!(room_id(&mut app).as_deref(), Some("mary_o_1_1"), "the castle names 1-1 as its next room");
+            assert_eq!(room_id(&mut app).as_deref(), Some("mary_o_2_1"), "the castle names 2-1 as its next room");
             return;
         }
     }

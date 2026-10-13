@@ -17,6 +17,10 @@
         // World 1-2, the level below the ground. The room names it in its
         // `music_track`.
         (id: "embedded_theme", display_name: "Embedded Theme"),
+        // The desert of the second world (2-1 and 2-3), by their level field
+        // `music_track`. The score is `scores/active/sparse_theme.music.yaml`
+        // of the music renderer.
+        (id: "sparse_theme", display_name: "Sparse Theme"),
         // Over her death: its own score with a `death_sting` section.
         (id: "mary_o_you_died", display_name: "Mary O You Died", one_shot: true),
         // The course-clear sting over the flagpole: two bars at 156 bpm, about

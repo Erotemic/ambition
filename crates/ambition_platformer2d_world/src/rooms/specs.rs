@@ -201,6 +201,11 @@ pub struct EncounterLockWallSpec {
     /// an encounter's.  absent is meaningful and common: a `LockWall` with no
     /// `gated_by` belongs to the encounter whose phase drives it, or is inert.
     pub gated_by: Option<String>,
+    /// The authored `look`: the prop sheet that draws this wall while it
+    /// stands (a door, a gate), in place of the lock wall tile. Presentation
+    /// only: the wall is the same solid with or without it.
+    #[serde(default)]
+    pub look: Option<String>,
     /// World-space minimum corner of the wall.
     pub min: ae::Vec2,
     /// World-space size of the wall.

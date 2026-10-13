@@ -41,7 +41,7 @@ def build() -> Level:
         world=(0, 3392),
         bg_color="#14101c",
         fields={"biome": "void_castle", "music_track": "castle_crash_override", "mode": "mary_o"},
-        late_fields={"next_room": "mary_o_1_1", "title": "WORLD 1-4"},
+        late_fields={"next_room": "mary_o_2_1", "title": "WORLD 1-4"},
         coin_stem="castle_coin",
     )
     lv.rock(0, 0, WIDTH, TOP)

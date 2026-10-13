@@ -117,16 +117,25 @@ fn finishing_each_level_lands_in_the_next_one_and_the_lap_closes() {
     leg(&mut app, LEVEL_1_1_ROOM_ID, LEVEL_1_2_ROOM_ID);
     leg(&mut app, LEVEL_1_2_ROOM_ID, LEVEL_1_3_ROOM_ID);
     leg(&mut app, LEVEL_1_3_ROOM_ID, LEVEL_1_4_ROOM_ID);
-    // the return leg. `mary_o_1_4` authors `next_room = mary_o_1_1`, so the
-    // lap closes rather than dead-ending -- and a destination installed once at
-    // Startup would have sent this one to 1-2.
-    leg(&mut app, LEVEL_1_4_ROOM_ID, LEVEL_1_1_ROOM_ID);
+    the_second_world_and_home(&mut app);
+}
+
+/// The legs from the castle of the first world: the four levels of the second
+/// world, and the return leg. `mary_o_2_4` authors `next_room = mary_o_1_1`, so
+/// the lap closes rather than dead-ending -- and a destination installed once
+/// at Startup would have sent this one to 1-2.
+fn the_second_world_and_home(app: &mut App) {
+    leg(app, LEVEL_1_4_ROOM_ID, "mary_o_2_1");
+    leg(app, "mary_o_2_1", "mary_o_2_2");
+    leg(app, "mary_o_2_2", "mary_o_2_3");
+    leg(app, "mary_o_2_3", "mary_o_2_4");
+    leg(app, "mary_o_2_4", LEVEL_1_1_ROOM_ID);
 }
 
 /// ⭐⛤ **THE ROOM YOU COME BACK TO IS NOT THE ROOM YOU LEFT, AND UNTIL
 /// 2026-09-20 NOTHING IN THIS WORLD COULD SAY SO.**
 ///
-/// The lap above closes: 1-1 → 1-2 → 1-3 → 1-4 → 1-1. `RoomSet` therefore reports
+/// The lap above closes: 1-1 → … → 1-4 → 2-1 → … → 2-4 → 1-1. `RoomSet` therefore reports
 /// the SAME active index at both ends, because an index selects a
 /// DEFINITION — and `RoomConstructionPlanId` reports the same thing for the
 /// same reason, being a content hash whose own doc excludes commit-time
@@ -172,7 +181,7 @@ fn a_lap_comes_back_to_the_same_room_definition_and_a_different_live_room() {
     let midway_instance = live_room(&mut app);
     leg(&mut app, LEVEL_1_2_ROOM_ID, LEVEL_1_3_ROOM_ID);
     leg(&mut app, LEVEL_1_3_ROOM_ID, LEVEL_1_4_ROOM_ID);
-    leg(&mut app, LEVEL_1_4_ROOM_ID, LEVEL_1_1_ROOM_ID);
+    the_second_world_and_home(&mut app);
 
     let closing_index = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
         .expect("the live room names its definition")

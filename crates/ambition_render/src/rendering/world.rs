@@ -1336,6 +1336,22 @@ fn is_lock_wall_block(name: &str) -> bool {
         .any(|prefix| name.starts_with(prefix))
 }
 
+/// The authored `look` of the lock wall that the gate solid `block_name` is:
+/// the prop sheet that draws it (a door, a gate).
+///
+/// A gated wall is named by its own id. An encounter's wall is named by its
+/// encounter, and it is the room's wall that authors no gate.
+fn lock_wall_look<'a>(
+    spec: &'a ambition_platformer2d_world::rooms::RoomSpec,
+    block_name: &str,
+) -> Option<&'a str> {
+    let wall = match block_name.strip_prefix("gated_lock:") {
+        Some(id) => spec.lock_walls.iter().find(|wall| wall.gated_by.is_some() && wall.id.trim() == id),
+        None => spec.lock_walls.iter().find(|wall| wall.gated_by.is_none()),
+    };
+    wall.and_then(|wall| wall.look.as_deref())
+}
+
 /// Reconcile `LockWallVisual` entities against the lock-wall gate solids in
 /// the per-frame collision overlay. Spawn a sprite for each new lock wall;
 /// despawn a visual whose block is gone (encounter cleared or failed, flag
@@ -1345,8 +1361,15 @@ fn is_lock_wall_block(name: &str) -> bool {
 /// `RoomGeometry` base. Read the base only for the world-to-screen frame.
 /// Without this system a lock wall collides but is invisible. `LockWallTile`
 /// keeps it distinct from ordinary walls.
+///
+/// A gated wall that opens or shuts while its room is live is heard: a lock
+/// that opens, a gate that falls. A wall that stands when its room becomes
+/// live makes no sound, and a wall that goes with its room makes none.
 pub fn sync_lock_wall_visuals(
     mut commands: Commands,
+    mut sfx: Option<ambition_sfx::SfxWriter>,
+    // The rooms that were live when this last ran.
+    mut live_before: Local<std::collections::HashSet<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>>,
     active_session: Option<Res<ActiveSessionScope>>,
     // Every live room's walls, each drawn in its own room and stamped with
     // it. A sole-room read did not run while two rooms were live.
@@ -1359,6 +1382,9 @@ pub fn sync_lock_wall_visuals(
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
     assets: Option<Res<GameAssets>>,
+    // The authored walls of each live room, for the look a wall names.
+    // Absent: a world with no room set, where each wall is the tile.
+    specs: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     existing: Query<(
         Entity,
         &LockWallVisual,
@@ -1377,10 +1403,16 @@ pub fn sync_lock_wall_visuals(
     // time. Two live rooms can hold a wall with one name (two instances of
     // one room).
     type Key = (Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, String);
-    let mut existing_by_name: std::collections::HashMap<Key, Entity> = std::collections::HashMap::new();
+    let mut existing_by_name: std::collections::HashMap<Key, (Entity, ae::Vec2)> = std::collections::HashMap::new();
     for (entity, visual, room) in &existing {
-        existing_by_name.insert((room.map(|room| room.0), visual.block_name.clone()), entity);
+        existing_by_name.insert((room.map(|room| room.0), visual.block_name.clone()), (entity, visual.centre));
     }
+    let live_now: std::collections::HashSet<_> = rooms.iter().map(|(room, _, _)| *room).collect();
+    let mut heard = |id: ambition_sfx::SfxId, pos: ae::Vec2| {
+        if let Some(sfx) = sfx.as_mut() {
+            sfx.write(ambition_sfx::SfxMessage::Play { id, pos });
+        }
+    };
 
     // Pass 1: spawn a visual for each lock-wall block without one. Mark
     // consumed keys so pass 2 keeps them.
@@ -1397,8 +1429,43 @@ pub fn sync_lock_wall_visuals(
             consumed.insert(key);
             continue;
         }
+        // A gate that shuts in a room that was live already is heard.
+        if block.name.starts_with("gated_lock:") && live_before.contains(&room) {
+            heard(ambition_sfx::ids::WORLD_GATE_FALL, block.aabb.center());
+        }
         let size = block.aabb.half_size() * 2.0;
         let render = BVec2::new(size.x, size.y);
+        // A wall that names a look is drawn with that sheet, which fills the
+        // box of the wall. A look with no sheet loaded draws the tile.
+        let look = specs
+            .as_ref()
+            .and_then(|specs| {
+                let (_, definition) = specs.live_rooms().find(|(live, _)| *live == room)?;
+                lock_wall_look(specs.rooms().spec(definition), &block.name)
+            })
+            .and_then(|kind| assets.as_deref()?.characters.prop_asset_for_kind(kind));
+        if let Some(asset) = look {
+            commands.spawn_session_scoped(
+                session_scope.in_room(Some(room)),
+                (
+                    prop_sprite_bundle(
+                        PropDraw::Structure,
+                        false,
+                        asset,
+                        render,
+                    ),
+                    Transform::from_translation(world_to_bevy(&world.0, block.aabb.center(), WORLD_Z_BLOCK + 4.0)),
+                    Name::new(format!("LockWall: {}", block.name)),
+                    LockWallVisual {
+                        block_name: block.name.clone(),
+                        centre: block.aabb.center(),
+                    },
+                    RoomVisual,
+                ),
+            );
+            consumed.insert(key);
+            continue;
+        }
         // Bright purple fallback, distinct from the solid-block fallback, so a
         // missing tile is obvious.
         let fallback = Color::srgba(0.65, 0.20, 0.85, 0.92);
@@ -1424,6 +1491,7 @@ pub fn sync_lock_wall_visuals(
                 Name::new(format!("LockWall: {}", block.name)),
                 LockWallVisual {
                     block_name: block.name.clone(),
+                    centre: block.aabb.center(),
                 },
                 BoundEntitySprite::new(game_assets::EntitySprite::LockWallTile),
                 RoomVisual,
@@ -1433,11 +1501,16 @@ pub fn sync_lock_wall_visuals(
     }
 
     // Pass 2: despawn visuals whose gate solid is gone.
-    for (key, entity) in &existing_by_name {
+    for (key, (entity, centre)) in &existing_by_name {
         if !consumed.contains(key) {
+            // A gate that opens in a room that stays live is heard.
+            if key.1.starts_with("gated_lock:") && key.0.is_some_and(|room| live_now.contains(&room)) {
+                heard(ambition_sfx::ids::WORLD_LOCK_OPEN, *centre);
+            }
             commands.entity(*entity).try_despawn();
         }
     }
+    *live_before = live_now;
 }
 
 /// A struck block flinches; the collision box does not move.

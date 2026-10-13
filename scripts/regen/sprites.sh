@@ -1123,117 +1123,13 @@ all_outputs_present() {
 
 # --- Per-sheet cache ------------------------------------------------------
 # The global cache commits only after a fully successful run. Per-sheet keys
-# allow an interrupted run to resume without rebuilding current targets. Each
-# key combines shared renderer infrastructure with that target's leaf generator;
-# shared helper changes invalidate every target, leaf changes only that target.
-# Target modules must not import sibling non-underscore leaf modules, because
-# those siblings are intentionally outside another target's cache key.
+# allow an interrupted run to resume without rebuilding current targets. The
+# key (`compute_core_shared`, `leaf_hash`, `unit_key`) is in
+# `scripts/lib/sprite_cache_key.sh`, so its tests call the functions this
+# script calls.
 sheets_cache_dir="$cache_dir/sheets"
-
-compute_core_shared() {
-    # NOTE: each `find` gets its OWN `| sort -z | xargs -0 sha256sum`
-    # pipeline. Piping several `find … -print0` from one `{ … }` block
-    # into a single `xargs` silently drops all but the first find's
-    # output, so keep them separate (same structure as
-    # `compute_fingerprint`).
-    (
-        cd "$renderer_dir" || exit 1
-        # Top-level package modules (__init__, __main__, ldtk_manifest).
-        find ambition_sprite2d_renderer -maxdepth 1 -type f -name '*.py' -print0 \
-            | sort -z | xargs -0 sha256sum
-        # Shared render infra subpackages — the draw primitives, sheet
-        # spines, RON emitter, packer, discovery, and CLI every target
-        # renders through. These live in subpackages (core/, authoring/,
-        # registry/, cli/), NOT at the package top level, so the maxdepth-1
-        # find above does not see them.
-        find ambition_sprite2d_renderer/core ambition_sprite2d_renderer/authoring \
-            ambition_sprite2d_renderer/registry ambition_sprite2d_renderer/cli \
-            -type f -name '*.py' -print0 \
-            | sort -z | xargs -0 sha256sum
-        # Family helpers + package markers under targets/.
-        find ambition_sprite2d_renderer/targets -type f \( -name '_*.py' -o -name '__init__.py' \) -print0 \
-            | sort -z | xargs -0 sha256sum
-        # Renderer-dir top-level scripts (e.g. the mockingbird generator).
-        find . -maxdepth 1 -type f \( -name '*.py' -o -name '*.sh' \) -print0 \
-            | sort -z | xargs -0 sha256sum
-        # NB: this orchestrator (`scripts/regen/sprites.sh`) is deliberately NOT
-        # hashed into CORE_SHARED. It only chooses *which* targets to
-        # publish and *how* to loop — it never affects a sheet's pixels.
-        # Folding it in here meant that wiring a new sprite (adding its
-        # name to `tackon_targets`) changed CORE_SHARED and invalidated
-        # EVERY per-sheet key, forcing a full regen just to render the
-        # one new sheet. The global fingerprint above (`compute_fingerprint`)
-        # still includes this script, so the all-or-nothing fast-path
-        # correctly re-checks when the script changes.
-    ) | sha256sum | awk '{print $1}'
-}
-
-# Hash a target's own source (single-file module or package dir) AND the
-# authored DATA it renders from.
-#
-# ⛔⛔ THE DATA HALF IS NOT OPTIONAL, AND LEAVING IT OUT SHIPPED A KNOWN-FIXED
-# BUG FOR THREE DAYS. This hashed only `.py`/`.rig.json` leaves, and
-# CORE_SHARED hashes only `.py` — so NOTHING under `data/` was in the key. On
-# 2026-08-27 `f21eac9` ("The Officer stops shooting over his own shoulder")
-# rewrote `data/motion/humanoid/officer_brawler_v1/clips/shoot.clip.json`. The
-# key did not move, the Aug-28 publish hit the cache and skipped the render,
-# and the Officer kept firing over his shoulder in the game until 2026-08-30.
-#
-# ⛔ AND THE OUTPUT-DIGEST GUARD COULD NOT SEE IT. `sheet_cache_fresh` asks
-# whether the files on disk are the ones this cache PRODUCED; they were. Output
-# hashing catches a SUBSTITUTED sheet. It cannot catch a faithfully-cached sheet
-# built from a source that has since changed — that is what the key is for.
-#
-# ⭐ RESOLVED PER-CHARACTER, NOT GLOBALLY. Folding `data/` into CORE_SHARED
-# would make one clip edit invalidate every sheet in the roster, which is the
-# same mistake the CORE_SHARED note above already refuses for this script. A
-# character names its own motion library, so follow that edge and hash exactly
-# what this target reads.
-leaf_hash() {
-    local name="$1"
-    (
-        cd "$renderer_dir" || exit 1
-        local f d
-        # Rigged characters (GUI .rig.json docs) are data, not a .py leaf —
-        # hash the document so editing a rig invalidates only its sheet.
-        local rig="ambition_sprite2d_renderer/targets/characters/rigged/$name.rig.json"
-        if [ -f "$rig" ]; then sha256sum "$rig"; fi
-        for f in ambition_sprite2d_renderer/targets/*/"$name".py; do
-            if [ -f "$f" ]; then sha256sum "$f"; fi
-        done
-        for d in ambition_sprite2d_renderer/targets/*/"$name"; do
-            if [ -d "$d" ]; then
-                find "$d" -type f -name '*.py' -print0 | sort -z | xargs -0 sha256sum
-            fi
-        done
-        # The authored data this character renders from: its SVG, sockets and
-        # `<name>.motion.json`.
-        local cdir="ambition_sprite2d_renderer/data/characters/$name"
-        if [ -d "$cdir" ]; then
-            find "$cdir" -type f -print0 | sort -z | xargs -0 sha256sum
-            # …and the motion library that file BINDS to, which is where the
-            # poses and clips actually live. Path is relative to the character
-            # dir, exactly as the document states it.
-            local motion="$cdir/$name.motion.json"
-            if [ -f "$motion" ]; then
-                local rel lib
-                rel="$(sed -n 's/.*"motion_library"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$motion" | head -1)"
-                if [ -n "$rel" ]; then
-                    lib="$(cd "$cdir" 2>/dev/null && cd "$(dirname "$rel")" 2>/dev/null && pwd)"
-                    if [ -n "$lib" ] && [ -d "$lib" ]; then
-                        find "$lib" -type f -print0 | sort -z | xargs -0 sha256sum \
-                            | awk '{print $1}'
-                    fi
-                fi
-            fi
-        fi
-    ) | sha256sum | awk '{print $1}'
-}
-
-unit_key() {
-    printf '%s:%s' "$core_shared_fingerprint" "$(leaf_hash "$1")" \
-        | sha256sum | awk '{print $1}'
-}
+# shellcheck source=../lib/sprite_cache_key.sh
+source "$repo_root/scripts/lib/sprite_cache_key.sh"
 
 # The digests of everything this unit published, in a stable order. Stored
 # beside the key so freshness can ask whether the files on disk are THE ONES
@@ -1467,6 +1363,14 @@ if [ "$check_only" -eq 1 ]; then
     exit "$check_status"
 fi
 
+# Which files each target reads, asked of the registry once for the run.
+mkdir -p "$cache_dir"
+target_closures_file="$cache_dir/target_closures.tsv"
+if ! sprite_cache_key_prepare; then
+    echo "==> regen FAILED — the renderer could not say which files each target reads" >&2
+    echo "    (scripts/lib/sprite_target_closure.py); a key without them is not that target's key" >&2
+    exit 1
+fi
 core_shared_fingerprint="$(compute_core_shared)"
 
 cached_fingerprint=""

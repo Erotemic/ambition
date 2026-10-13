@@ -772,6 +772,19 @@ variants. Also found in that regen:
     when the run ends, so a stopped run leaves the last whole set; and
     let a lane name a stale or mixed sprite set as NOT RUN with its
     remedy, not as a failure.
+    **Built 2026-10-13, the cost:** the per-sheet key read every
+    `targets/**/_*.py` helper as shared, so one family's rig made all 271
+    sheets stale. Now a sheet's key is the shared core (with what the core
+    imports) and the files the registry says the target is made of, with
+    their imports (`scripts/lib/sprite_target_closure.py`,
+    `scripts/lib/sprite_cache_key.sh`). Measured on the real renderer: an
+    edit to `_person_rig.py` moves 30 keys (was 271), one to
+    `crypto_crew.py` moves the 11 crew (was 0: no key had it), one to a
+    helper the core imports moves 271. Four kinds of file that no key read
+    are now read: a module whose target name is not its file name, a config
+    target's config, a helper package's by-name modules, and a shared
+    module with no underscore. The first publish after this change renders
+    every sheet once. Open: the staging root and the NOT RUN verdict.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

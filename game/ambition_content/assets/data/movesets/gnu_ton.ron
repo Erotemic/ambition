@@ -393,6 +393,8 @@
                             flow: None,
                         ),
                         // The flourish over his head: the answer to a body that comes down on him.
+                        // Its box comes down to the head of a short foe (the robot, 48 px) who
+                        // stands beside him: at (10, -46) x (16, 30) it was 0.5 px over that head.
                         (
                             id: "tilt_up",
                             display_name: None,
@@ -420,8 +422,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (10.0, -46.0),
-                                                half_extents: (16.0, 30.0),
+                                                offset: (10.0, -42.0),
+                                                half_extents: (16.0, 34.0),
                                             ),
                                             damage: 5,
                                             knockback: 63.75,

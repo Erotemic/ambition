@@ -56,7 +56,8 @@ rows.
 
 Correctness interrupts from the 2026-10-12 review:
 [REVIEW-1012](#review-1012---feedback-and-adapter-contracts-from-the-2026-10-12-review)
-(items 1-4 done 2026-10-13; item 5, two acceptance passes, open).
+(all five items done 2026-10-13; the hands-on feel of GNU-ton waits for a
+person with a pad).
 
 New correctness interrupts from the 2026-10-11 integration review:
 [REVIEW-1011-INTEGRATION](#review-1011-integration---real-engine-contracts-for-new-demo-behavior)
@@ -93,7 +94,7 @@ with a witness, a poison and a control.
    own frame (`PerceivedActor::gravity_down`).
 4. **Done 2026-10-13 (`cde89753f`):** a contact bounce is against the
    toucher's own gravity; a toucher with no frame is refused.
-5. **Part done 2026-10-13:** `a_player_walks_in_takes_the_four_keys_and_beats_the_monster`
+5. **Done 2026-10-13:** `a_player_walks_in_takes_the_four_keys_and_beats_the_monster`
    plays the whole Noodly Temple by ordinary controls: from the central hub
    by the room graph, the scullery's fight of eight cooks won by Attack
    presses (`common::walk::fight`) for the Marinara Key, the cistern's
@@ -107,9 +108,15 @@ with a witness, a poison and a control.
    its touch), jumps under a foe only within its
    measured apex and never during a leg, follows a Fly leg's toggle, and
    turns off a flight that no leg steers (`walk` too). Poison: Attack never
-   pressed, red at "the fight ... was not over". Open: GNU-ton's fighter
-   timing judged in the Smash runtime. The
-   WORLD-ACCEPTANCE opener now states the Q164 remainder.
+   pressed, red at "the fight ... was not over". GNU-ton's fighter timing
+   is measured in the Smash match against his template (the patent clerk)
+   and Alice (`gnu-ton-fighter.md`, "In the match, against his template"):
+   faster than the clerk by 0 to 4 ticks of startup, a jab string that is +2
+   on hit. The measure found his up tilt could not hit a foe of the robot's
+   height beside him; its box now reaches that head
+   (`each_ground_strike_of_gnu_ton_hits_a_short_foe_beside_him`, red before,
+   the clerk's up tilt as the control). Open: feel by a hand on a pad in a
+   window. The WORLD-ACCEPTANCE opener now states the Q164 remainder.
 
 ### REVIEW-1011-INTEGRATION - real engine contracts for new demo behavior
 

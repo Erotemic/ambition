@@ -111,6 +111,7 @@ mod content_dormancy;
 mod crouch_stability;
 mod cut_rope_arena;
 mod gnu_ton_fight;
+mod gnu_ton_in_a_match;
 mod fsm_fight;
 mod mockingbird_fight;
 mod the_mockingbirds_sharks_flee;

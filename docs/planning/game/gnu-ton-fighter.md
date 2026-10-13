@@ -39,7 +39,8 @@ air).
 
 First cut. The table was derived from the patent clerk's for its format, and
 each move's times, hurt, launch and reach were set for this body. No number
-is a result of play.
+was tuned by a hand on a pad; what the match does with them is measured
+below ("In the match, against his template").
 
 **His smash attacks are the giant's** (Jon, 2026-10-11: "bayonetta style
 smash attack where the gnu hand pops out and punches out of a portal ... in
@@ -157,6 +158,52 @@ of 1/60 s; measured 2026-10-11 after the changes above):
 The forward air does not hit in the take: the fighter is OVER the sandbag
 then (0.2 px to the side), and the box starts 10 px before him. That is the
 take's staging. A fighter who jumps at a standing one is hit.
+
+**In the match, against his template** (2026-10-13). The real Smash match,
+each move pressed beside the passive training sandbag (48 px tall, the
+robot's height) at 0 %, recorded by
+`moveset_takes --characters npc_gnu_ton,special_patent_clerk,npc_alice
+--spacing 40`. Ticks of 1/60 s. *Start*: from the move's first frame to its
+first live box (a smash's charge hold taken out). *Total*: the frames the
+move played. *Adv*: on hit, the sandbag's hitstun (read on the first tick
+after its hitlag) less the ticks the attacker still plays after the
+contact; hitlag freezes both, so it cancels.
+
+| Move | GNU-ton start / total / adv | Clerk (his template) | Alice |
+|---|---|---|---|
+| jab | 4 / 8 / +2 (the string goes on) | 4 / 22 / −12 | 3 / 14 / −6 |
+| forward tilt | 5 / 19 / −7 | 7 / 26 / −10 | 4 / 19 / −7 |
+| up tilt | 4 / 16 / missed (see below) | 6 / 23 / −9 | 4 / 19 / −7 |
+| down tilt | 3 / 15 / −6 | 5 / 22 / −10 | 4 / 17 / −8 |
+| smashes (f, u, d) | 19, 17, 15 / 73, 69, 70 / −4, −1, −6 | 23, 21, 19 / 79, 76, 78 / −9, −7, −11 | (no charge) |
+| aerials (n, f, b, u, d) | 4, 7, 6, 4, 6 / 17–26 / −3 to −6 | 5, 7, 8, 6, 9 / 24–32 / −8 to −12 | 3–6 / 19–23 / −3 to −6 |
+| neutral, side special | 10, 14 / 32, 32 / −12, −7 | 13, 12 / 40, 40 / −16, −17 | 10, 7 / 40, 35 / −18, −17 |
+| counter (Third Law) | 10 / 36 / −17 | 12 / 39 / −18 | — |
+
+What it says:
+
+- **He is the light, fast fencer the design asks for.** His moves start 0
+  to 4 ticks before the clerk's (the side special, the fluxion, is the one
+  that starts later: 14 to 12) and end 3 to 8 ticks sooner (the jab 14,
+  because it goes on into the next jab). Beside Alice, the other quick kit,
+  he is within a tick of her on the ground; in the air his forward air (7)
+  is 3 ticks slower than hers and the others are within 1.
+- **His jab string is a string.** The jab is +2 on hit, and the next jab
+  starts in the hitstun of the one before.
+- **His smashes are his finish.** After the charge they start in 15 to 19
+  ticks and launch 178 to 223 px/s at 0 % (the clerk's: 185 to 208).
+- **His up tilt could not hit a short foe who stood beside him.** Its box
+  hung 0.5 px over the sandbag's head at 34, 20 and 5 px, so against the
+  robot it was a move that never hit. Its box now comes down to that head
+  (`each_ground_strike_of_gnu_ton_hits_a_short_foe_beside_him`, the
+  clerk's up tilt as the control). The boss's flourish on the giant's back
+  is the same move.
+- **At 0 % a light hit is minus on hit for each fighter**, because the
+  hitstun of a light hit at 0 % is 2 to 8 ticks. That is the engine's
+  hitstun law at low percent, not a number of his table.
+
+What a measure cannot say: whether it feels good. That needs a hand on a
+pad and a window (Next, 1).
 
 **What the engine has for feel** (it is a real model, not a gap): hitlag
 from damage (`hit_response.rs`, 0.070 s at 11 damage, 0.5x to 1.5x), a

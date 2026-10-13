@@ -31,9 +31,10 @@ What each room asks of the player:
 - `noodly_scullery`: a fight that shuts the room (an encounter of three
   waves, `data/encounters/goblin_encounter.ron`). Its end opens the pantry:
   the Marinara Key. A gold door shuts the larder until late in the level.
-- `noodly_cistern`: three wheels and five sluices. Wheel I opens the low
-  sluice and shuts two others, so the way to the key is found with the wheel
-  turned back and the long way round.
+- `noodly_cistern`: three wheels and five gates. Wheel I opens the low gate
+  and shuts two others, so the way to the key is found with the wheel turned
+  back and the long way round. Its pools are pits in a dry deck, and no gate
+  is at a pool: the game has no water that flows.
 - `noodly_belfry`: a tall room with three bells, each in a side room: one
   behind a wall that breaks, one past the meatballs, one behind a green door
   (so the belfry is not finished before the cistern). Three bells open the
@@ -84,7 +85,7 @@ ROOMS_AT = {
     "noodly_narthex": (70000, 960, 512),
     "noodly_nave": (72000, 1600, 1024),
     "noodly_scullery": (74000, 1408, 640),
-    "noodly_cistern": (76000, 1600, 800),
+    "noodly_cistern": (76000, 1600, 896),
     "noodly_belfry": (78000, 1152, 1408),
     "noodly_reliquary": (80000, 1280, 640),
     "noodly_sanctum": (82000, 960, 768),
@@ -361,65 +362,74 @@ def cistern():
     rid = "noodly_cistern"
     _, w, h = ROOMS_AT[rid]
     floor, e = shell(w, h)
+    # The deck: the dry floor that a body walks on and that each gate stands
+    # on. The pools are pits in it, down to the floor of the room. No gate is
+    # at a pool: the game has no water that flows, so a gate that held water
+    # back would open on water that stays where it is.
+    deck = 768
+    pools = ((336, 448), (560, 704), (832, 992), (1216, 1424))
     a, b, c = "noodly_wheel_a", "noodly_wheel_b", "noodly_wheel_c"
     on = "world.switch_on {}".format
     off = "not world.switch_on {}".format
-    # The look of a sluice says which wheel it answers, and how.
-    opened_by = "temple_gate_sluice_{}".format
-    shut_by = "temple_gate_sluice_{}_shut".format
+    # The look of a gate says which wheel it answers, and how.
+    opened_by = "temple_gate_wheel_{}".format
+    shut_by = "temple_gate_wheel_{}_shut".format
+    x = WALL
+    for n, (x0, x1) in enumerate(pools):
+        e.append(solid(f"deck_{n}", x, deck, x0 - x, floor - deck))
+        e.append(f'( type: "WaterVolume", px: [{x0}, {deck + 16}], size: [{x1 - x0}, {floor - deck - 16}], fields: ( id: "{rid}_pool_{n}", name: "a pool" ) ),')
+        x = x1
+    e.append(solid(f"deck_{len(pools)}", x, deck, w - WALL - x, floor - deck))
     e += [
-        f'( type: "PlayerStart", px: [110, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
-        door(f"{rid}_west", "to the nave", 32, floor, "noodly_nave", "noodly_nave_cistern"),
-        # The landing: as tall as the room. Wheel I is in it.
-        lever(a, "wheel I", "Turn wheel I", 300, floor),
-        sign(rid, "wheel_a", "Wheel I", 312, floor - 80, 120),
-        # The wall of the landing: the high sluice (wheel II) and the low
-        # sluice (wheel I).
+        f'( type: "PlayerStart", px: [96, {deck - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        door(f"{rid}_west", "to the nave", 32, deck, "noodly_nave", "noodly_nave_cistern"),
+        # The landing: as tall as the room. Wheel I is in it, by its pool.
+        lever(a, "wheel I", "Turn wheel I", 270, deck),
+        sign(rid, "wheel_a", "Wheel I", 282, deck - 80, 120),
+        # The wall of the landing: the high gate (wheel II) and the low gate
+        # (wheel I).
         solid("landing_wall_top", 480, WALL, GATE_W, 224),
-        gate(f"{rid}_sluice_high", "the high sluice", 480, 240, on(b), opened_by(2)),
+        gate(f"{rid}_gate_high", "the high gate", 480, 240, on(b), opened_by(2)),
         solid("landing_wall_mid", 480, 368, GATE_W, 272),
-        gate(f"{rid}_sluice_low", "the low sluice", 480, 640, on(a), opened_by(1)),
+        gate(f"{rid}_gate_low", "the low gate", 480, 640, on(a), opened_by(1)),
         sign(rid, "high", "II opens", 420, 200, 120),
         sign(rid, "low", "I opens", 420, 600, 120),
         # The floor between the gallery and the basin, with the well in it.
         solid("gallery_floor_west", 512, 368, 432, 32),
         solid("gallery_floor_east", 1040, 368, 128, 32),
-        # The gallery: wheel III, and the sluice of the well (shut by wheel I).
+        # The gallery: wheel III, and the gate of the well (shut by wheel I).
         lever(c, "wheel III", "Turn wheel III", 690, 368),
         sign(rid, "wheel_c", "Wheel III", 702, 288, 120),
         solid("well_wall_top", 912, WALL, GATE_W, 224),
-        gate(f"{rid}_sluice_well", "the sluice of the well", 912, 240, off(a), shut_by(1)),
+        gate(f"{rid}_gate_well", "the gate of the well", 912, 240, off(a), shut_by(1)),
         sign(rid, "well", "I shuts", 850, 200, 120),
         solid("well_back", 1040, WALL, 128, 352),
-        # The basin: wheel II on a plinth out of the water.
-        solid("plinth", 720, 704, 96, 64),
-        lever(b, "wheel II", "Turn wheel II", 756, 704),
-        sign(rid, "wheel_b", "Wheel II", 768, 624, 120),
-        f'( type: "WaterVolume", px: [512, 672], size: [528, {floor - 672}], fields: ( id: "{rid}_basin_water", name: "the basin" ) ),',
-        # The lock: two sluices in a row (shut by wheel I, opened by wheel III).
+        # The basin: two pools, and wheel II on the deck between them.
+        lever(b, "wheel II", "Turn wheel II", 756, deck),
+        sign(rid, "wheel_b", "Wheel II", 768, deck - 80, 120),
+        # The lock: two gates in a row (shut by wheel I, opened by wheel III).
         solid("lock_roof", 1040, 400, 128, 240),
-        gate(f"{rid}_sluice_lock_a", "the first sluice of the lock", 1040, 640, off(a), shut_by(1)),
-        gate(f"{rid}_sluice_lock_b", "the second sluice of the lock", 1136, 640, on(c), opened_by(3)),
+        gate(f"{rid}_gate_lock_a", "the first gate of the lock", 1040, 640, off(a), shut_by(1)),
+        gate(f"{rid}_gate_lock_b", "the second gate of the lock", 1136, 640, on(c), opened_by(3)),
         sign(rid, "lock", "I shuts. III opens.", 1000, 600, 200),
         # The vault: as tall as the room. The key is on a shelf in it.
-        f'( type: "WaterVolume", px: [1168, 672], size: [288, {floor - 672}], fields: ( id: "{rid}_vault_water", name: "the vault" ) ),',
         ledge("key_shelf", 1296, 304, 160),
         key("pesto", 1376, 260),
         # A cell with a gold door, for the end of the level.
         solid("cell_roof", 1456, 560, w - WALL - 1456, 32),
         solid("cell_wall", 1456, 592, GATE_W, 48),
         key_door(f"{rid}_cell_door", "parmesan", 1456, 640),
-        chest("the hoard of the cistern", "currency:200", 1496, floor),
+        chest("the hoard of the cistern", "currency:200", 1496, deck),
         # By the pools: a pool noodle on the landing, and one on the shelf of
         # the vault.
-        pool_noodle(rid, 1, 170, floor),
+        pool_noodle(rid, 1, 150, deck),
         pool_noodle(rid, 2, 1298, 304),
-        sign(rid, "noodle", "A pool noodle. Attack takes it.", 206, floor - 110, 260),
+        sign(rid, "noodle", "A pool noodle. Attack takes it.", 190, deck - 130, 260),
         enemy(rid, 1, "npc_fsm_noodling", 720, 190),
         enemy(rid, 2, "npc_fsm_noodling", 860, 560),
         enemy(rid, 3, "npc_fsm_noodling", 1340, 480),
     ]
-    return rid, room(rid, e, "The cistern. A wheel that opens one sluice shuts another.")
+    return rid, room(rid, e, "The cistern. A wheel that opens one gate shuts another.")
 
 
 def belfry():

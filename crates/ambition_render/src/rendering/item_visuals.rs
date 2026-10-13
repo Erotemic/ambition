@@ -445,6 +445,35 @@ pub fn sync_world_item_visuals(
     }
 }
 
+/// How far up an item with a grip points while its holder does not swing it,
+/// in degrees from level.
+const ITEM_REST_ANGLE: f32 = 24.0;
+
+/// The angle of an item with a grip in the hand of a holder that faces
+/// right, in degrees up from level.
+///
+/// At rest it points forward and a little up. A swing takes it from behind
+/// the strike to past it while the move strikes, and back to rest while the
+/// move settles. A swing forward comes down from over the shoulder; a swing up
+/// goes from low in front to over the head; a swing down goes from in front to
+/// under the feet; a swing back is the forward swing on the other side.
+pub fn item_swing_angle(swing: Option<ambition_sim_view::ItemSwingFact>) -> f32 {
+    use ambition_characters::moveset_prefabs::ItemSwingDir;
+    let Some(swing) = swing else {
+        return ITEM_REST_ANGLE;
+    };
+    let (from, to) = match swing.dir {
+        ItemSwingDir::Forward => (128.0, -46.0),
+        ItemSwingDir::Up => (-20.0, 124.0),
+        ItemSwingDir::Down => (40.0, -112.0),
+        ItemSwingDir::Back => (52.0, 226.0),
+    };
+    // Fast at the start of the strike and slow at its end, as a swing is.
+    let through = 1.0 - (1.0 - swing.strike) * (1.0 - swing.strike);
+    let struck = from + (to - from) * through;
+    struck + (ITEM_REST_ANGLE - struck) * (swing.settle * swing.settle * (3.0 - 2.0 * swing.settle))
+}
+
 /// Marks the sprite shown in the player's hand for the currently held item.
 #[derive(Component)]
 pub struct HeldItemVisual;
@@ -464,6 +493,8 @@ pub fn sync_held_item_visual(
         ambition_platformer2d_core::RoomGeometry,
     >,
     art: Option<Res<HeldItemArt>>,
+    // Where the hand holds each item (`HeldItemArtEntry::grip`).
+    manifest: Option<Res<ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtManifest>>,
     failed_art: Option<Res<FailedItemArt>>,
     active_session: Option<Res<ActiveSessionScope>>,
     held_view: Res<HeldItemView>,
@@ -488,7 +519,10 @@ pub fn sync_held_item_visual(
             continue;
         };
         let session_scope = session_scope.in_room(Some(room));
-        let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, hand, 12.0);
+        let mut translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, hand, 12.0);
+        let grip = manifest.as_deref().and_then(|manifest| {
+            manifest.effective().into_iter().find(|entry| entry.item_id == held.item_id).and_then(|entry| Some((entry.grip?, entry.size.x)))
+        });
 
         // A ranged held item (the gun-sword) points where the subject aims,
         // the direction it fires. Melee and thrown items only flip with
@@ -504,6 +538,16 @@ pub fn sync_held_item_visual(
             // so the gun stays upright.
             let angle = (-aim.y).atan2(aim.x);
             (Quat::from_rotation_z(angle), false, aim.x < 0.0)
+        } else if let Some((grip, length)) = grip {
+            // An item with a grip points out of the hand, and a swing turns
+            // it about the hand. The picture has its far end to the right;
+            // for a holder that faces left it is mirrored and it turns the
+            // other way.
+            let turn = facing * item_swing_angle(held.swing).to_radians();
+            let rotation = Quat::from_rotation_z(turn);
+            let to_middle = rotation * Vec3::new(facing * (0.5 - grip) * length, 0.0, 0.0);
+            translation += to_middle;
+            (rotation, facing < 0.0, false)
         } else {
             (Quat::IDENTITY, facing < 0.0, false)
         };

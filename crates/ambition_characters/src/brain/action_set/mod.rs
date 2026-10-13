@@ -546,18 +546,22 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::ThrowOnUse,
             },
         );
-        // A pool noodle: a long tube of foam. It is quick and it reaches far,
-        // and it does not hurt much. It has a melee verb, so a use swings it.
+        // A pool noodle: a long tube of foam, as an item of a platform
+        // fighter is. It is quick and it reaches far; it does not hurt much
+        // and it sends what it hits a long way. Its swing is the swing of
+        // the item (`Batter`): the body that holds it does not use its own
+        // blade.
         items.insert(
             "pool_noodle",
             HeldItemSpec {
                 id: "pool_noodle".into(),
-                melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+                melee: Some(MeleeActionSpec::Batter(BatterSpec {
                     windup_s: 0.08,
                     active_s: 0.12,
                     recover_s: 0.16,
                     damage: 1,
                     reach_px: 88.0,
+                    knockback: 300.0,
                 })),
                 ranged: None,
                 use_behavior: HeldUseBehavior::Auto,
@@ -607,6 +611,11 @@ pub enum MeleeActionSpec {
     /// Light reactive punch — a quick jab thrown back when struck (for reactive
     /// strikers; a passive practice target does NOT use this).
     PunchWeak(PunchSpec),
+    /// A swing of the thing in the hand (a pool noodle, a bat): the item is
+    /// what hits, and it is what the swing shows. The move has no blade arc
+    /// and its own sounds, and the item turns through the swing in the hand
+    /// (`moveset_prefabs::ITEM_SWING_CLIP`).
+    Batter(BatterSpec),
 }
 
 /// How a shot FLIES once it leaves the barrel — the authored physics of a
@@ -1152,6 +1161,7 @@ impl MeleeActionSpec {
             Self::Slam(s) => s.windup_s + s.active_s + s.recover_s,
             Self::Bite(s) => s.windup_s + s.active_s + s.recover_s,
             Self::PunchWeak(s) => s.windup_s + s.active_s + s.recover_s,
+            Self::Batter(s) => s.windup_s + s.active_s + s.recover_s,
         }
     }
 
@@ -1164,6 +1174,7 @@ impl MeleeActionSpec {
             Self::Slam(s) => s.damage,
             Self::Bite(s) => s.damage,
             Self::PunchWeak(s) => s.damage,
+            Self::Batter(s) => s.damage,
         }
     }
 
@@ -1176,6 +1187,7 @@ impl MeleeActionSpec {
             Self::Slam(s) => s.reach_px,
             Self::Bite(s) => s.reach_px,
             Self::PunchWeak(s) => s.reach_px,
+            Self::Batter(s) => s.reach_px,
         }
     }
 
@@ -1193,6 +1205,15 @@ impl MeleeActionSpec {
             Self::Slam(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
             Self::Bite(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
             Self::PunchWeak(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
+            Self::Batter(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
+        }
+    }
+
+    /// The swing of an item in the hand, when this is one.
+    pub fn batter(self) -> Option<BatterSpec> {
+        match self {
+            Self::Batter(spec) => Some(spec),
+            _ => None,
         }
     }
 
@@ -1201,7 +1222,7 @@ impl MeleeActionSpec {
     pub fn windup_step_px(self) -> Option<f32> {
         match self {
             Self::Lunge(s) => Some(s.step_px),
-            Self::Swipe(_) | Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) => None,
+            Self::Swipe(_) | Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) | Self::Batter(_) => None,
         }
     }
 }
@@ -1255,6 +1276,18 @@ pub enum SpecialActionSpec {
 // a one-for-one move. Chunk 4 / data-table work shrinks duplication.
 
 /// Light melee swing. Striker default.
+/// The swing of an item in the hand: its timeline, and how far it sends what
+/// it hits. A light item sends a body far and hurts it little.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct BatterSpec {
+    pub windup_s: f32,
+    pub active_s: f32,
+    pub recover_s: f32,
+    pub damage: i32,
+    pub reach_px: f32,
+    pub knockback: f32,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct SwipeSpec {
     pub windup_s: f32,
@@ -1539,6 +1572,7 @@ impl ActionRequest {
                 MeleeActionSpec::Slam(_) => "melee_slam",
                 MeleeActionSpec::Bite(_) => "melee_bite",
                 MeleeActionSpec::PunchWeak(_) => "melee_punch_weak",
+                MeleeActionSpec::Batter(_) => "melee_batter",
             },
             Self::Ranged { spec, .. } => match spec.style {
                 RangedStyle::Rock => "ranged_rock",

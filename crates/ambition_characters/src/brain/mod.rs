@@ -31,7 +31,7 @@ pub mod state_machine;
 #[allow(unused_imports)]
 pub use action_set::{
     held_item_by_id, held_item_ids, resolve as resolve_action_requests, ActionRequest, ActionSet,
-    BiteSpec, HeldItemSpec, HeldUseBehavior, LungeSpec, MeleeActionSpec, MoveStyleSpec,
+    BatterSpec, BiteSpec, HeldItemSpec, HeldUseBehavior, LungeSpec, MeleeActionSpec, MoveStyleSpec,
     ProjectileFlight, PunchSpec, RangedActionSpec, RangedCharge, RangedCommitment, RangedExecution,
     SlamSpec, SpecialActionSpec, SwipeSpec,
 };

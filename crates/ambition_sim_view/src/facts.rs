@@ -215,9 +215,44 @@ pub struct HeldItemFact {
     pub item_id: String,
     pub ranged: bool,
     pub aim: ae::Vec2,
+    /// The swing the holder makes with the item now, when its move is the
+    /// swing of an item: the item turns in the hand by it.
+    pub swing: Option<ItemSwingFact>,
     /// The live room of the thing this row draws (`LiveRooms::of`). The
     /// visual is placed by that room's geometry and stamped with it.
     pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+}
+
+/// How far a holder is through the swing of its item.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ItemSwingFact {
+    /// Which way the item is swung.
+    pub dir: ambition_characters::moveset_prefabs::ItemSwingDir,
+    /// From 0 at the start of the move to 1 at the end of its strike.
+    pub strike: f32,
+    /// From 0 at the end of the strike to 1 at the end of the move.
+    pub settle: f32,
+}
+
+impl ItemSwingFact {
+    /// The swing of `playback`, when its move is the swing of an item.
+    pub fn of(playback: &ambition_combat::moveset::MovePlayback) -> Option<Self> {
+        let dir = ambition_characters::moveset_prefabs::ItemSwingDir::of_clip(&playback.spec.clip.clip)?;
+        let duration = playback.spec.duration_s.max(f32::EPSILON);
+        let struck = playback
+            .spec
+            .windows
+            .iter()
+            .filter(|window| matches!(window.tag, ambition_entity_catalog::WindowTag::Active))
+            .map(|window| window.end_s)
+            .fold(0.0_f32, f32::max)
+            .clamp(f32::EPSILON, duration);
+        Some(Self {
+            dir,
+            strike: (playback.t / struck).clamp(0.0, 1.0),
+            settle: ((playback.t - struck) / (duration - struck).max(f32::EPSILON)).clamp(0.0, 1.0),
+        })
+    }
 }
 
 /// WHICH OF THE TWO HELD-ITEM ROADS A HOLDER IS ON, stated once.
@@ -261,6 +296,7 @@ pub fn rebuild_held_item_view(
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
         Option<&ambition_combat::components::ActorDisposition>,
         Option<&BodyHealth>,
+        Option<&ambition_combat::moveset::MovePlayback>,
     )>,
 ) {
     // ⛔⛔ THIS READ ONLY `ControlledSubject`, so exactly ONE held item was ever
@@ -288,10 +324,10 @@ pub fn rebuild_held_item_view(
     // draw order between runs.
     let mut rows: Vec<_> = bodies
         .iter()
-        .filter(|(_, _, _, _, _, disposition, health)| {
+        .filter(|(_, _, _, _, _, disposition, health, _)| {
             drawn_in_the_hand(disposition.copied(), health.map(|health| health.alive()))
         })
-        .map(|(body, kin, held, control, id, _, _)| {
+        .map(|(body, kin, held, control, id, _, _, playback)| {
             (
                 id.clone(),
                 HeldItemFact {
@@ -301,6 +337,7 @@ pub fn rebuild_held_item_view(
                     item_id: held.spec.id.clone(),
                     ranged: held.spec.ranged.is_some(),
                     aim: control.0.aim.vec(),
+                    swing: playback.and_then(ItemSwingFact::of),
                     room: live.of(body),
                 },
             )

@@ -602,10 +602,10 @@ tackon_targets=(
     temple_key_colander
     temple_gate_colander
     temple_gate_iron
-    temple_gate_sluice_1
-    temple_gate_sluice_2
-    temple_gate_sluice_3
-    temple_gate_sluice_1_shut
+    temple_gate_wheel_1
+    temple_gate_wheel_2
+    temple_gate_wheel_3
+    temple_gate_wheel_1_shut
     temple_gate_bell
     # A held item of the Noodly Temple: a foam noodle to hit with.
     pool_noodle

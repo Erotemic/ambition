@@ -187,7 +187,7 @@ def main():
                     if fields["id"] in wheels:
                         flipped = on ^ frozenset([fields["id"]])
                         # A wheel that is turned while the body is in the way
-                        # of a sluice that shuts: the game pushes the body
+                        # of a gate that shuts: the game pushes the body
                         # out. The model does not turn the wheel there.
                         if fits(cell, shut(room_id, flipped), room):
                             nexts.append(((room_id, cell, flipped), 1))

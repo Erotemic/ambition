@@ -1476,7 +1476,7 @@ pub fn sync_lock_wall_visuals(
             })
             .and_then(|kind| assets.as_deref()?.characters.prop_asset_for_kind(kind));
         if let Some(asset) = look {
-            commands.spawn_session_scoped(
+            let mut wall = commands.spawn_session_scoped(
                 session_scope.in_room(Some(room)),
                 (
                     prop_sprite_bundle(
@@ -1494,6 +1494,9 @@ pub fn sync_lock_wall_visuals(
                     RoomVisual,
                 ),
             );
+            if heard_rooms.contains(&room) {
+                wall.insert(LockWallSlide::shuts());
+            }
             consumed.insert(key);
             continue;
         }
@@ -1509,7 +1512,7 @@ pub fn sync_lock_wall_visuals(
             ),
             None => Sprite::from_color(fallback, render),
         };
-        commands.spawn_session_scoped(
+        let mut wall = commands.spawn_session_scoped(
             session_scope.in_room(Some(room)),
             (
                 sprite,
@@ -1528,17 +1531,98 @@ pub fn sync_lock_wall_visuals(
                 RoomVisual,
             ),
         );
+        if heard_rooms.contains(&room) {
+            wall.insert(LockWallSlide::shuts());
+        }
         consumed.insert(key);
     }
 
     // Pass 2: despawn visuals whose gate solid is gone.
     for (key, (entity, centre)) in &existing_by_name {
         if !consumed.contains(key) {
-            // A gate that opens in a room that stays live is heard.
-            if key.1.starts_with("gated_lock:") && key.0.is_some_and(|room| heard_rooms.contains(&room)) {
-                heard(ambition_sfx::ids::WORLD_LOCK_OPEN, *centre);
+            // A wall that opens in a room that stays live is seen to open: it
+            // goes up into its lintel, and then its picture goes. A gate is
+            // heard also. A wall that goes with its room goes at once.
+            if key.0.is_some_and(|room| heard_rooms.contains(&room)) {
+                if key.1.starts_with("gated_lock:") {
+                    heard(ambition_sfx::ids::WORLD_LOCK_OPEN, *centre);
+                }
+                commands.entity(*entity).remove::<LockWallVisual>().insert(LockWallSlide::opens());
+                continue;
             }
             commands.entity(*entity).try_despawn();
+        }
+    }
+}
+
+/// A lock wall whose picture slides: up into its lintel when it opens, down
+/// out of it when it shuts.
+///
+/// The wall of the simulation opens and shuts at once: this is the picture
+/// only. A body can go under a door that is still on its way up.
+#[derive(Component, Clone, Debug)]
+pub struct LockWallSlide {
+    /// The picture goes up, and goes when it is all the way up. `false`: it
+    /// comes down, and stays.
+    opens: bool,
+    elapsed: f32,
+    /// The picture as it is when the wall is shut: its size, where it is,
+    /// and the part of its image it shows. Read on the first run.
+    shut: Option<(BVec2, f32, Option<Rect>)>,
+}
+
+impl LockWallSlide {
+    fn opens() -> Self {
+        Self { opens: true, elapsed: 0.0, shut: None }
+    }
+
+    fn shuts() -> Self {
+        Self { opens: false, elapsed: 0.0, shut: None }
+    }
+
+    /// How long a wall of `height` world units takes: a tall one takes
+    /// longer, and a gate comes down faster than it goes up.
+    fn seconds(&self, height: f32) -> f32 {
+        let up = (0.30 + height / 640.0).clamp(0.35, 0.9);
+        if self.opens { up } else { up * 0.45 }
+    }
+}
+
+/// Slide each lock wall that opens or shuts ([`LockWallSlide`]).
+///
+/// The picture is cut at the lintel: a door that is part of the way up shows
+/// its lower part, in the upper part of its opening. A picture that is a
+/// column that tiles (a grille) is not cut: it gets shorter, so its foot goes
+/// up and its head stays.
+pub fn slide_lock_wall_visuals(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut walls: Query<(Entity, &mut LockWallSlide, &mut Sprite, &mut Transform)>,
+) {
+    for (entity, mut slide, mut sprite, mut transform) in &mut walls {
+        let (size, y, rect) = *slide.shut.get_or_insert_with(|| {
+            // The picture is still from here: no animator may set its frame
+            // while this cuts it.
+            commands.entity(entity).remove::<CharacterAnimator>();
+            (sprite.custom_size.unwrap_or(BVec2::ONE), transform.translation.y, sprite.rect)
+        });
+        slide.elapsed += time.delta_secs();
+        let t = (slide.elapsed / slide.seconds(size.y)).clamp(0.0, 1.0);
+        let eased = t * t * (3.0 - 2.0 * t);
+        // How much of the way up the picture is.
+        let up = if slide.opens { eased } else { 1.0 - eased };
+        if t >= 1.0 {
+            if slide.opens {
+                commands.entity(entity).try_despawn();
+                continue;
+            }
+            commands.entity(entity).remove::<LockWallSlide>();
+        }
+        sprite.custom_size = Some(BVec2::new(size.x, (size.y * (1.0 - up)).max(0.01)));
+        transform.translation.y = y + size.y * up * 0.5;
+        let tiles = matches!(sprite.image_mode, bevy::sprite::SpriteImageMode::Sliced(_));
+        if let (Some(rect), false) = (rect, tiles) {
+            sprite.rect = Some(Rect { min: BVec2::new(rect.min.x, rect.min.y + rect.height() * up), max: rect.max });
         }
     }
 }

@@ -45,7 +45,9 @@ pub(super) fn register(app: &mut App) {
         HeldItemArtEntry::new("coconut", "sprites/props/coconut.png", Vec2::new(18.0, 15.0)),
         // The pool noodle (renderer target `pool_noodle`): a long foam tube to
         // hit with. It lies by the pools of the Noodly Temple.
-        HeldItemArtEntry::new("pool_noodle", "sprites/props/pool_noodle.png", Vec2::new(72.0, 14.0)),
+        // The hand holds it near its near end, so it points out of the hand
+        // and it turns about the hand when it is swung.
+        HeldItemArtEntry::new("pool_noodle", "sprites/props/pool_noodle.png", Vec2::new(72.0, 14.0)).gripped_at(0.14),
         // The heavy archetype authors a distinct item id but the same gun-sword art.
         HeldItemArtEntry::new(
             "gun_sword",

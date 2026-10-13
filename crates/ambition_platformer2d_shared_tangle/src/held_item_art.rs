@@ -44,6 +44,11 @@ pub struct HeldItemArtEntry {
     pub asset_path: String,
     /// On-screen display size, world units.
     pub size: ae::Vec2,
+    /// Where the hand holds the item along its picture, from 0 (its near
+    /// end) to 1 (its far end), or `None` for an item held by its middle. An
+    /// item with a grip points out of the hand, and it turns about the grip
+    /// when it is swung.
+    pub grip: Option<f32>,
 }
 
 impl HeldItemArtEntry {
@@ -53,7 +58,14 @@ impl HeldItemArtEntry {
             item_id: item_id.into(),
             asset_path: asset_path.into(),
             size,
+            grip: None,
         }
+    }
+
+    /// The hand holds this item at `grip` of its length from its near end.
+    pub fn gripped_at(mut self, grip: f32) -> Self {
+        self.grip = Some(grip.clamp(0.0, 1.0));
+        self
     }
 }
 

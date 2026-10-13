@@ -74,10 +74,9 @@ pub fn tick_boss_pattern(
         return;
     }
 
-    // Bosses with a standoff macro do not start telegraph/strike actions
-    // while closing distance or backing away. So the Smirking Behemoth moves
-    // to its preferred ring, then idles or fires eye beams there, and does not
-    // walk into the player.
+    // A boss whose profile says so does not start telegraph/strike actions
+    // while closing distance or backing away: it moves to its preferred
+    // ring, then idles or attacks there.
     if cfg.macro_tuning.suppress_attacks_while_moving
         && matches!(
             state.macro_state,

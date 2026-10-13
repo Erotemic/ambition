@@ -607,6 +607,30 @@ bright trail, and 6 (it needs rows with one arm on and one in its line).
   shoulder it was too low, and the player came out with no rise left.
 - Not tuned: the times, the damage, how many blows end phase 1.
 
+## The Smirking Behemoth — its eye beam (2026-10-13, Jon)
+
+Jon: "his eyes glow, but they should shoot some sort of laser beam or
+projectile at the player ... now the eyes just glow and nothing happens."
+
+MEASURED: the simulation did fire (five shots each strike). Three things made
+that invisible, and each is changed:
+
+- It shot only once it had arrived (`suppress_attacks_while_moving`), so each
+  beam was fired at a player that touched it, across its own body. A player
+  that kept away was never shot. It now shoots as it walks.
+- The shots left from the top of the body. They now leave from the eye
+  (`projectile_origin_offset`, from the sheet's eye point).
+- The shots had no look, so the game drew the engine's plain orange boxes. The
+  `eye_beam` projectile look draws a line of bolts of light (renderer target
+  `behemoth_eye_bolt`) that reads as one beam.
+
+Witness: `game/ambition_app/tests/the_behemoth_shoots_from_its_eyes.rs`.
+
+Open: a shader effect on the beam (Jon: "maybe some cool shader animation");
+a projectile is a plain sprite today, so this needs a material road for
+projectile looks. The telegraph shows only the eye's glow: there is no aim
+line. The pillar by the door is cover from the beam, by the map.
+
 ## Mode Collapse music (Q148)
 
 Mode Collapse (`boss_encounters/mode_collapse_boss.ron`, a summoner that floods

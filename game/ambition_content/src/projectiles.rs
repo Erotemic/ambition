@@ -100,6 +100,27 @@ pub(super) fn register(app: &mut App) {
         },
     );
 
+    // The Smirking Behemoth's eye beam: a line of bolts of light from its
+    // eye, nose along their flight. Each is drawn longer than the space
+    // between two of them, so the line reads as one beam.
+    app.register_projectile_visual(
+        "eye_beam",
+        ProjectileArt {
+            source: ProjectileArtSource::Sheet {
+                target: "behemoth_eye_bolt".to_string(),
+                animation: "fly".to_string(),
+                animate: true,
+            },
+            size: ProjectileRenderSize::FixedWidth(62.0),
+            rotation: ProjectileRotation::VelocityAligned,
+            debug_tint: [1.0, 0.93, 0.55, 1.0],
+            label: "eye_beam".to_string(),
+            expiry_vfx: Some(ProjectileExpiryBurst {
+                fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+                scale: 0.45,
+            }),
+        },
+    );
     // The Mockingbird's wingtip missile: its own sheet (the missile its
     // wing carries, motor lit, the flame flickering), nose along its flight,
     // bursting where it ends.
@@ -317,6 +338,7 @@ mod tests {
             "apple",
             "meatball",
             "trex_rock",
+            "eye_beam",
             "mockingbird_missile",
             "mockingbird_fireball",
             "mockingbird_coldfire",

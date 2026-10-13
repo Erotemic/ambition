@@ -42,9 +42,8 @@ fn legacy_baseline_pins() {
 }
 
 /// The authored profile is a contact chase: `engage_distance = 0`, no
-/// standoff ring, `suppress_attacks_while_moving`. A center-to-center contact
-/// test cannot be met by a 208px-wide body, so it would approach and stay
-/// silent forever.
+/// standoff ring. A center-to-center contact test cannot be met by a
+/// 208px-wide body, so it would approach and never arrive.
 #[test]
 fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
     use ambition_characters::brain::{

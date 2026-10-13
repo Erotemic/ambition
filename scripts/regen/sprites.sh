@@ -536,6 +536,9 @@ tackon_targets=(
     # The burning lightsabers it spits from its mouth (two rows: its red fire
     # and its cold one), the `mockingbird_lightsaber` projectile visuals.
     mockingbird_lightsaber
+    # The bolt the Smirking Behemoth fires from its eye, the `eye_beam`
+    # projectile visual.
+    behemoth_eye_bolt
     # The two Fighting Polygons are named here because a `--target` render is
     # not a PUBLISH ROSTER. Both were rendered into this checkout one target at
     # a time (`scripts/regen/sprites.sh --target <name>`), which works and is the right

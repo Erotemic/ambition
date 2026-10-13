@@ -1895,6 +1895,51 @@ fn a_raised_shield_blocks_the_hit_and_a_lowered_one_does_not() {
 /// it a guard near a ledge is a safe place to stand forever; with it the hits
 /// themselves walk you toward the edge, which is what makes chip pressure a
 /// thing a player has to answer.
+/// A guard that blocks a blow records where the blow landed, from the middle
+/// of the body, and for how long that reads. The picture of the guard draws
+/// its ring from that point. A shield that is not a resource (each body
+/// outside a match) owes no shieldstun and records the blow too.
+#[test]
+fn a_blocked_blow_records_where_it_landed() {
+    for tuning in [ae::ShieldTuning::PLATFORM_FIGHTER, ae::ShieldTuning::default()] {
+        let mut combat = BodyCombat::default();
+        let mut health = test_health(20);
+        let body = ae::Vec2::new(100.0, 200.0);
+        let mut guard = raised_guard();
+        let mut vel = ae::Vec2::ZERO;
+        assert_eq!(guard.blow_phase(), None, "premise: no blow yet");
+
+        let res = resolve_body_hit(
+            &mut combat,
+            Some(&mut health),
+            None,
+            None,
+            Some(GuardUnderFire {
+                state: &mut guard,
+                tuning,
+                vel: &mut vel,
+                body_size: TEST_BODY,
+                extra_shield_damage: 0,
+            }),
+            1.0,
+            body,
+            body + ae::Vec2::new(18.0, -6.0),
+            DOWN,
+            2,
+            1.0,
+            false,
+            TEST_FEEL,
+            false,
+            false,
+        );
+
+        assert_eq!(res, BodyHitResolution::Blocked);
+        assert_eq!(guard.blow_from, ae::Vec2::new(18.0, -6.0), "resource: {}", tuning.is_resource());
+        assert_eq!(guard.blow_timer, ae::body_clusters::BLOCKED_BLOW_READ_TIME);
+        assert_eq!(guard.blow_phase(), Some(0.0));
+    }
+}
+
 #[test]
 fn a_blocked_hit_shoves_the_blocker_laterally_away_from_it() {
     let mut combat = BodyCombat::default();

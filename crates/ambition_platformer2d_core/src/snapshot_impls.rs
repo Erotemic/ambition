@@ -227,6 +227,11 @@ snapshot_pod!(crate::body_clusters::BodyShieldState {
     release_locked: bool,
     drop_lag_timer: f32,
     shield_tilt: f32,
+    // The beat of a blocked blow is a PRESENTATION window, and rollback state
+    // for the reason `parry_caught_timer` is: two peers must draw the same
+    // ring from the same tick.
+    blow_timer: f32,
+    blow_from: vec2,
 });
 
 snapshot_pod!(crate::body_clusters::BodyRestartLatch {

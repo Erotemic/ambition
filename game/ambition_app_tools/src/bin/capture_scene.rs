@@ -301,11 +301,12 @@ OPTIONS:
                         and flight); any other id flies straight on the body
                         of a plain ranged shot; `-` is a shot that names no
                         look. The player owns the shot.
-    --guard X,Y:INTEGRITY[:parry|:hit]
+    --guard X,Y:INTEGRITY[:parry|:hit|:blow@PHASE]
                         draw a bubble shield at world X,Y, INTEGRITY whole
                         (1 to 0); `parry` draws it in a parry, `hit` gives it
-                        a blow two times each second; repeat for more. No
-                        body holds it: it is to photograph the look.
+                        a blow two times each second, `blow@PHASE` holds one
+                        moment of the beat of a blow (0 to 1); repeat for
+                        more. No body holds it: it is to photograph the look.
     --press-during N    open the shutter N press-driving frames in, INSTEAD of
                         after the sequence finishes — the only way to photograph
                         a frame that exists only WHILE an input is being
@@ -650,17 +651,27 @@ struct GuardAt {
     parrying: bool,
     /// It takes a blow two times each second.
     hit: bool,
+    /// It holds one moment of the beat of a blow, 0 to 1 (`blow@PHASE`): a
+    /// capture does not step the simulation one tick for each frame, so a
+    /// beat of 18 ticks is in few of its frames.
+    blow_held_at: Option<f32>,
 }
 
 impl GuardAt {
-    /// `X,Y:INTEGRITY[:parry|:hit]`.
+    /// `X,Y:INTEGRITY[:parry|:hit|:blow@PHASE]`.
     fn parse(value: &str) -> Result<Self, String> {
-        let bad = || format!("--guard wants X,Y:INTEGRITY[:parry|:hit], got '{value}'");
+        let bad = || format!("--guard wants X,Y:INTEGRITY[:parry|:hit|:blow@PHASE], got '{value}'");
         let parts: Vec<&str> = value.split(':').collect();
         let (at, integrity, mode) = match parts.as_slice() {
             [at, integrity] => (at, integrity, ""),
-            [at, integrity, mode @ ("parry" | "hit")] => (at, integrity, *mode),
+            [at, integrity, mode] if matches!(*mode, "parry" | "hit") || mode.starts_with("blow@") => {
+                (at, integrity, *mode)
+            }
             _ => return Err(bad()),
+        };
+        let blow_held_at = match mode.strip_prefix("blow@") {
+            Some(phase) => Some(phase.parse::<f32>().ok().filter(|phase| (0.0..1.0).contains(phase)).ok_or_else(bad)?),
+            None => None,
         };
         let (x, y) = at.split_once(',').ok_or_else(bad)?;
         Ok(Self {
@@ -668,6 +679,7 @@ impl GuardAt {
             integrity: integrity.parse().map_err(|_| bad())?,
             parrying: mode == "parry",
             hit: mode == "hit",
+            blow_held_at,
         })
     }
 }
@@ -683,14 +695,19 @@ fn draw_guards(
 ) {
     use ambition_platformer2d::engine_core::Vec2 as SimVec2;
     for guard in &config.guards {
-        // A blow each 30 ticks: the shieldstun it leaves runs down for 8.
+        // A blow each 30 ticks, from the upper left: the shieldstun it leaves
+        // runs down for 8, and its beat for 18.
         let since_blow = (tick.get() % 30) as f32 / 60.0;
+        let blow_phase =
+            guard.blow_held_at.or(Some(since_blow / 0.30).filter(|phase| guard.hit && *phase < 1.0));
         view.0.push(ambition_platformer2d::sim_view::ShieldRingFact {
             pos: SimVec2::new(guard.at.x, guard.at.y),
             size: SimVec2::new(28.0, 46.0),
             parrying: guard.parrying,
             integrity: guard.integrity,
             stun_secs: if guard.hit { (0.13 - since_blow).max(0.0) } else { 0.0 },
+            blow_phase,
+            blow_from: SimVec2::new(-30.0, -20.0),
             gravity_dir: SimVec2::new(0.0, 1.0),
             room: rooms.sole(),
         });
@@ -1206,7 +1223,7 @@ impl SceneCaptureConfig {
                 }
                 "--guard" => {
                     let Some(value) = args.get(i + 1) else {
-                        return Err("--guard requires X,Y:INTEGRITY[:parry|:hit]".to_string());
+                        return Err("--guard requires X,Y:INTEGRITY[:parry|:hit|:blow@PHASE]".to_string());
                     };
                     guards.push(GuardAt::parse(value)?);
                     2

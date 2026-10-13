@@ -342,6 +342,8 @@ pub fn resolve_body_hit(
         }
         combat.damage_invuln_timer = combat.damage_invuln_timer.max(feel.block_invuln_floor);
         if let Some(guard) = shield {
+            // Before the spend: a blow that breaks the guard is a blocked blow too.
+            guard.state.note_blocked_blow(impact_pos - body_pos);
             // The extra spends the guard only; the pushback below stays the
             // hit's own.
             ae::body_clusters::spend_shield_on_block(

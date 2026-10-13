@@ -1162,7 +1162,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// press and the use the press started (`before`, `instance`): the brain
 /// learns its outcome from its body's record of that use, not from the foe
 /// seen reeling (review 2026-10-12).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 348;
+/// ⛔⛤ 348 -> 349: `BodyShieldState` encodes the beat of a blocked blow and
+/// where it landed (`blow_timer`, `blow_from`). No row moves; the bytes of
+/// one projection do, so peers of the two versions must not connect.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 349;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

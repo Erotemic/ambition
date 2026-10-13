@@ -53,11 +53,23 @@ pub struct BubbleShieldLook {
     pub parrying: bool,
     /// How strong a layer on the bubble is: less while the guard flickers.
     pub strength: f32,
+    /// How far through the beat of a blocked blow the guard is, 0 to 1.
+    pub blow_phase: Option<f32>,
+    /// Where on the bubble that blow landed. The bubble is a circle of
+    /// radius 1 here: x toward the body's right, y toward its feet.
+    pub blow_at: bevy::math::Vec2,
 }
 
 impl Default for BubbleShieldLook {
     fn default() -> Self {
-        Self { integrity: 1.0, pulse: 0.0, parrying: false, strength: 0.0 }
+        Self {
+            integrity: 1.0,
+            pulse: 0.0,
+            parrying: false,
+            strength: 0.0,
+            blow_phase: None,
+            blow_at: bevy::math::Vec2::ZERO,
+        }
     }
 }
 
@@ -193,6 +205,36 @@ fn shield_hit_pulse(stun_secs: f32) -> f32 {
     (stun_secs / HIT_PULSE_SECONDS).clamp(0.0, 1.0)
 }
 
+/// The part of the beat of a blocked blow in which the bubble flares.
+const BLOW_FLARE_PART: f32 = 0.4;
+/// How far from the middle of the bubble the point of a blow is drawn, as a
+/// part of its radius. Under 1: at the rim the bubble turns away from the
+/// viewer, and the point would not show.
+const BLOW_POINT_RADIUS: f32 = 0.8;
+
+/// The flare of a blocked blow: `1.0` when it lands, `0.0` after
+/// [`BLOW_FLARE_PART`] of its beat. The ring of the blow runs the whole beat.
+fn shield_blow_flare(blow_phase: Option<f32>) -> f32 {
+    blow_phase.map_or(0.0, |phase| (1.0 - phase / BLOW_FLARE_PART).clamp(0.0, 1.0))
+}
+
+/// Where on the bubble a blow shows, with the bubble as a circle of radius 1
+/// (x toward the body's right, y toward its feet). The blow can land at any
+/// distance from the body, so only its direction is used. A blow at the
+/// middle shows at the middle.
+fn shield_blow_point(
+    blow_from: ambition_platformer2d_core::Vec2,
+    gravity_dir: ambition_platformer2d_core::Vec2,
+    bubble_size: bevy::math::Vec2,
+) -> bevy::math::Vec2 {
+    let right = ambition_platformer2d_core::Vec2::new(gravity_dir.y, -gravity_dir.x);
+    let on_bubble = bevy::math::Vec2::new(
+        blow_from.dot(right) / (bubble_size.x * 0.5).max(1.0),
+        blow_from.dot(gravity_dir) / (bubble_size.y * 0.5).max(1.0),
+    );
+    on_bubble.try_normalize().map_or(bevy::math::Vec2::ZERO, |dir| dir * BLOW_POINT_RADIUS)
+}
+
 /// Show, hide, and tint a bubble around every body whose shield is up (the
 /// player and any brain-controlled actor). One pooled bubble per active
 /// shielder; unused sprites hide, and the pool grows on demand. Scale follows
@@ -248,14 +290,13 @@ pub fn sync_bubble_shield_visual(
                     guard.gravity_dir,
                 ),
             );
-            let pulse = shield_hit_pulse(guard.stun_secs);
+            let pulse = shield_hit_pulse(guard.stun_secs).max(shield_blow_flare(guard.blow_phase));
             // Generous overlap: the body is inside this, so the field must clear
             // the silhouette.
             let extent = shield_bubble_coverage(guard.integrity) * (1.0 + HIT_PULSE_SWELL * pulse);
-            sprite.custom_size = Some(bevy::math::Vec2::new(
-                guard.size.x * 1.70 * extent,
-                guard.size.y * 1.35 * extent,
-            ));
+            let bubble_size =
+                bevy::math::Vec2::new(guard.size.x * 1.70 * extent, guard.size.y * 1.35 * extent);
+            sprite.custom_size = Some(bubble_size);
             let flicker = shield_danger_flicker(guard.integrity, tick.0);
             sprite.color = shield_bubble_color(guard.parrying, guard.integrity, pulse, flicker);
             let shown = BubbleShieldLook {
@@ -263,6 +304,8 @@ pub fn sync_bubble_shield_visual(
                 pulse,
                 parrying: guard.parrying,
                 strength: 1.0 - DANGER_FLICKER_DEPTH * flicker.clamp(0.0, 1.0),
+                blow_phase: guard.blow_phase,
+                blow_at: shield_blow_point(guard.blow_from, guard.gravity_dir, bubble_size),
             };
             if *look != shown {
                 *look = shown;
@@ -318,6 +361,8 @@ mod tests {
             parrying: false,
             integrity: 1.0,
             stun_secs: 0.0,
+            blow_phase: None,
+            blow_from: ae::Vec2::ZERO,
             gravity_dir: ae::Vec2::new(0.0, 1.0),
             room,
         };
@@ -395,6 +440,19 @@ mod tests {
     #[test]
     fn a_blocked_hit_flares_the_guard_and_the_flare_is_spent_before_the_stun() {
         assert_eq!(shield_hit_pulse(0.0), 0.0, "an unhit guard does not flare");
+        // A blow shows on the side of the bubble it came from, for a body
+        // that stands on a wall too (its feet toward +x: a blow from under
+        // it in the world is at its right).
+        use ambition_platformer2d_core as ae;
+        let size = bevy::math::Vec2::new(40.0, 60.0);
+        let from_the_left = shield_blow_point(ae::Vec2::new(-50.0, 0.0), ae::Vec2::new(0.0, 1.0), size);
+        assert_eq!(from_the_left, bevy::math::Vec2::new(-BLOW_POINT_RADIUS, 0.0));
+        let on_a_wall = shield_blow_point(ae::Vec2::new(0.0, 50.0), ae::Vec2::new(1.0, 0.0), size);
+        assert!(on_a_wall.x < -0.7 && on_a_wall.y.abs() < 1e-4, "{on_a_wall:?}");
+        assert_eq!(shield_blow_point(ae::Vec2::ZERO, ae::Vec2::new(0.0, 1.0), size), bevy::math::Vec2::ZERO);
+        assert_eq!(shield_blow_flare(Some(0.0)), 1.0);
+        assert_eq!(shield_blow_flare(Some(BLOW_FLARE_PART)), 0.0);
+        assert_eq!(shield_blow_flare(None), 0.0);
         assert_eq!(shield_hit_pulse(HIT_PULSE_SECONDS), 1.0);
         // A heavy hit stuns far longer than the flare lasts; the guard flashes
         // once per hit rather than staying lit for the whole stun.

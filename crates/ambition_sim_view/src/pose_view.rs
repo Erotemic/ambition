@@ -616,6 +616,15 @@ pub struct ShieldRingFact {
     /// presentation decision in the simulation and need `ShieldTuning` here to
     /// make it.
     pub stun_secs: f32,
+    /// How far through the beat of a blocked blow this guard is, `0.0` to
+    /// `1.0` (`BodyShieldState::blow_phase`). `None` when no beat runs.
+    ///
+    /// Not [`Self::stun_secs`]: only a shield that is a resource owes
+    /// shieldstun, and each guard that blocks a blow shows it.
+    pub blow_phase: Option<f32>,
+    /// Where that blow landed, from [`Self::pos`] (the middle of the bubble,
+    /// not of the body), in world units.
+    pub blow_from: ambition_platformer2d_core::Vec2,
     /// This body's OWN toward-feet direction — not the global field's, and not
     /// screen `+Y`.
     ///
@@ -660,13 +669,16 @@ pub fn rebuild_shield_rings_view(
             .filter(|(_, _, shield, _, _, _)| shield.active)
             .map(|(entity, kin, shield, presented, model, frame)| {
                 let down = body_down(frame);
+                // From the middle of the body to the middle of the bubble.
+                let lean = down * (shield_half_height(kin.size, down) * shield.shield_tilt);
                 ShieldRingFact {
-                    pos: presented.map_or(kin.pos, |p| p.presented())
-                        + down * (shield_half_height(kin.size, down) * shield.shield_tilt),
+                    pos: presented.map_or(kin.pos, |p| p.presented()) + lean,
                     size: kin.size,
                     parrying: shield.parrying(),
                     integrity: model.map_or(1.0, |m| shield.integrity_fraction(m.shield_tuning())),
                     stun_secs: shield.stun_timer,
+                    blow_phase: shield.blow_phase(),
+                    blow_from: shield.blow_from - lean,
                     gravity_dir: down,
                     room: live.of(entity),
                 }

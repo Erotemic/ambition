@@ -368,14 +368,20 @@ of the guard, as before.
   (the `potato` tier, Android).
 - A shader layer over it (`ambition_render`'s `bubble_shield_fx`) draws the
   honeycomb, wrapped on the bubble as on a ball: it shows toward the rim and
-  drifts, a ring goes through it on the beat a blow is taken, and all of it
-  is lit in a parry. The cracks grow from the rim as the guard is spent. The
+  drifts, a ring goes round the ball from the point where a blow landed, and
+  all of it is lit in a parry. The cracks grow from the rim as the guard is spent. The
   shader draws no art of its own.
 
-To see it: `capture_scene ROOM X,Y out.png --guard X,Y:INTEGRITY[:parry|:hit]`.
+To see it: `capture_scene ROOM X,Y out.png --guard X,Y:INTEGRITY[:parry|:hit|:blow@PHASE]`
+(`blow@0.3` holds one moment of the beat of a blow).
 
-Open: Jon has not judged this art. The ring of a blow starts at the middle of
-the bubble: the simulation does not say where a blow landed.
+Jon, 2026-10-13: "New art looks good."
+
+Each guard that blocks a blow records where it landed and for how long that
+reads (`BodyShieldState::note_blocked_blow`, rollback state; schema 349). A
+shield that is not a resource records it too, so a guard outside a match
+flares when it blocks. Before, only shieldstun showed a blow, and such a
+shield owes none.
 
 ## Not done
 

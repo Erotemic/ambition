@@ -4,8 +4,8 @@
 //! state (`rendering::bubble_shield`). That is the whole look on a device
 //! with no budget for shaders. On a device with one, each bubble has a quad
 //! over it that a shader draws (`shaders/bubble_shield_fx.wgsl`): a honeycomb
-//! that shows near the rim and drifts, a ring through it on the beat a blow
-//! is taken, all of it lit in a parry, and cracks that grow from the rim as
+//! that shows near the rim and drifts, a ring that goes round the bubble
+//! from the point where a blow landed, all of it lit in a parry, and cracks that grow from the rim as
 //! the guard is spent.
 //!
 //! The shader draws no art of its own. The honeycomb and the cracks are
@@ -41,6 +41,11 @@ pub struct BubbleShieldFxMaterial {
     /// in a parry. `w`: the width of the quad over its height.
     #[uniform(1)]
     pub state: Vec4,
+    /// `xy`: where on the bubble a blocked blow landed, with the bubble as a
+    /// circle of radius 1. `z`: how far through its beat, 0 to 1. `w`: 1
+    /// while the beat runs.
+    #[uniform(6)]
+    pub blow: Vec4,
     #[texture(2)]
     #[sampler(3)]
     pub lattice: Handle<Image>,
@@ -115,6 +120,7 @@ fn give_each_bubble_its_layer(
         let material = materials.add(BubbleShieldFxMaterial {
             tint: Vec4::ZERO,
             state: Vec4::new(1.0, 0.0, 0.0, 1.0),
+            blow: Vec4::ZERO,
             lattice: art.lattice.clone(),
             cracks: art.cracks.clone(),
         });
@@ -185,9 +191,13 @@ fn sync_bubble_shield_fx(
         let colour = sprite.color.to_srgba();
         let tint = Vec4::new(colour.red, colour.green, colour.blue, look.strength);
         let state = Vec4::new(look.integrity, look.pulse, f32::from(u8::from(look.parrying)), size.x / size.y);
-        if material.tint != tint || material.state != state {
+        let blow = look
+            .blow_phase
+            .map_or(Vec4::ZERO, |phase| Vec4::new(look.blow_at.x, look.blow_at.y, phase, 1.0));
+        if material.tint != tint || material.state != state || material.blow != blow {
             material.tint = tint;
             material.state = state;
+            material.blow = blow;
         }
     }
 }

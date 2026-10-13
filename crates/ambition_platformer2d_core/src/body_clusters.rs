@@ -747,6 +747,12 @@ pub struct BodyDodgeState {
 /// value with consequences.
 pub const PARRY_CAUGHT_READ_TIME: f32 = 0.20;
 
+/// How long a blocked blow stays readable, in seconds of the body's own time.
+///
+/// A READ window, as [`PARRY_CAUGHT_READ_TIME`] is: no rule of a hit, of the
+/// cost of the shield or of timing reads it.
+pub const BLOCKED_BLOW_READ_TIME: f32 = 0.30;
+
 /// Shield/parry cluster.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyShieldState {
@@ -832,9 +838,35 @@ pub struct BodyShieldState {
     /// Zero whenever the guard is DOWN, so a lowered shield has no stale lean
     /// waiting for it when it comes back up.
     pub shield_tilt: f32,
+    /// The guard BLOCKED a blow, and this is what is left of the beat.
+    ///
+    /// Armed by [`Self::note_blocked_blow`] for each blocked hit, also on a
+    /// shield that is not a resource. [`Self::stun_timer`] cannot be this
+    /// fact: only a shield that is a resource owes shieldstun, and the length
+    /// of the stun is a number of the game, not of the picture.
+    ///
+    /// A DURATION for the reason [`Self::parry_caught_timer`] is one.
+    pub blow_timer: f32,
+    /// Where the last blocked blow landed, from the middle of the body, in
+    /// world units. It has a meaning only while [`Self::blow_timer`] is
+    /// positive.
+    pub blow_from: Vec2,
 }
 
 impl BodyShieldState {
+    /// The guard blocked a blow that landed `from` the middle of the body.
+    /// The ONE site that arms the beat, so each road to a block shows it.
+    pub fn note_blocked_blow(&mut self, from: Vec2) {
+        self.blow_timer = BLOCKED_BLOW_READ_TIME;
+        self.blow_from = from;
+    }
+
+    /// How far through the beat of a blocked blow this guard is: `0.0` when
+    /// the blow lands, `1.0` at the end. `None` when no beat runs.
+    pub fn blow_phase(self) -> Option<f32> {
+        (self.blow_timer > 0.0).then(|| 1.0 - (self.blow_timer / BLOCKED_BLOW_READ_TIME).clamp(0.0, 1.0))
+    }
+
     /// Is this body inside its perfect-shield window?
     ///
     /// the timer ALONE, and dropping `active` was the point. Under

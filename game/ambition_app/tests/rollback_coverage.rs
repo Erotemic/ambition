@@ -1345,7 +1345,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // global.
     (
         "ambition_combat::scoped_rules::DeclaredRules<",
-        "authored rules stated at plugin build; the state they produce is registered per body",
+        "authored rules stated at plugin build; the state they produce is registered per body. \
+         The one runtime writer is the content reload restating a pack's rules (the fighter \
+         ladder), which the publication boundary refuses while a timeline is live, so no tick \
+         a rewind can reach changed them",
     ),
     // The rollback localizer's own state: the probe table and its audit ledger.
     //
@@ -2151,10 +2154,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // tick a rewind can reach is a tick it changed on". A row whose justification
     // is a census of writers rots the moment somebody adds one; a row whose
     // justification is a boundary does not.
-    (
-        "ambition_characters::brain::fighter::profile::AuthoredFighterLadder",
-        "authored difficulty rungs, lowered from the content pack; the one runtime          writer is the reload transaction, which the publication boundary refuses          while a timeline is live, so no tick a rewind can reach changed it",
-    ),
     // The item catalog: what each grid slot is called and how it is used.
     (
         "ambition_items::ItemCatalog",

@@ -32,8 +32,11 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId, ShellRouter}
 /// Level one's reaction latency, as the LIVE composition holds it.
 fn live_first_rung(app: &bevy::prelude::App) -> f32 {
     app.world()
-        .resource::<ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder>()
-        .0
+        .resource::<ambition_platformer2d::combat::scoped_rules::DeclaredRules<
+            ambition_platformer2d::characters::brain::fighter::FighterBrainLadder,
+        >>()
+        .governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::Untagged)
+        .expect("Ambition declares a ladder for its own rooms")
         .level(1)
         .expect("the shipped ladder has a level 1")
         .reaction_ms

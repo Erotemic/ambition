@@ -544,6 +544,22 @@ answers per room. So the step is: the ladder becomes a scoped rule;
 declares its pack's rows for its mode; the content reload republishes a
 scoped declaration, not the resource. Measured 2026-10-08.
 
+✅ Step 1 built (2026-10-13): `AuthoredFighterLadder` is deleted. The ladder is
+`DeclaredRules<FighterBrainLadder>`. `ambition_content` declares the shipped
+rows for `RulesScope::EveryRoom` (the hosted Smash stage too, as the global
+resource did), and its reload restates that one scope
+(`DeclaredRules::restate`). `project_authored_fighter_ladder` reads
+`RulesOf::room_of` for each brain. Witness:
+`each_fighter_takes_the_rung_of_its_own_rooms_ladder` (two sessions, two
+ladders). No CPU changes: the mirror grid is identical.
+
+⛔ Step 2 is blocked by a brain defect, not by the plumbing. With the authored
+rows declared for `Mode(SMASH_MODE)`, the George mirror in the Smash demo throws
+no move: at rung 5 (reaction 300 ms, 18 ticks) the two CPUs approach, cross,
+and turn in phase, so no attack is admitted. The same rows with a 325 ms
+reaction fight. Fix the resonance first (a reaction that does not lock to the
+other CPU's turn), then declare Smash's rows and re-measure the rig.
+
 Whichever survives:
 
 - every game composition must have one unambiguous source;

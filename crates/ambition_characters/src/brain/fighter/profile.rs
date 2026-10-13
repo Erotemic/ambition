@@ -87,21 +87,6 @@ impl FighterBrainProfile {
     }
 }
 
-/// The game's authored ladder, where the sim can reach it.
-///
-/// a resource rather than an argument, because of where the pack lives.
-/// The prepared content pack is `game/ambition_content`, ABOVE the monolith that
-/// builds most brains — so the monolith cannot fetch the ladder, and the game has
-/// to hand it down. Absent means this game shipped no rows and
-/// [`FighterBrainProfile::for_level`] applies, which is the engine's stated rule.
-///
-/// config, not state. A rewind restores a brain; it never rebuilds the
-/// ladder that brain was constructed from, so this is deliberately not rollback
-/// state — the same argument that puts write-once construction data outside the
-/// snapshot.
-#[derive(bevy::prelude::Resource, Clone, Debug, PartialEq)]
-pub struct AuthoredFighterLadder(pub FighterBrainLadder);
-
 /// The one place a level becomes a profile.
 ///
 /// the engine's rule was written in a doc comment and consulted nowhere, so
@@ -119,6 +104,15 @@ pub fn profile_for_level(level: u8, ladder: Option<&FighterBrainLadder>) -> Figh
 }
 
 /// A game's ladder: nine rows, level 1 through 9.
+///
+/// A game declares it as a rule of the rooms it governs
+/// (`DeclaredRules<FighterBrainLadder>`, read per brain by
+/// `project_authored_fighter_ladder`): one binary hosts several games, and each
+/// game's CPUs fight on that game's rows (Q88). A room that no game gave a
+/// ladder keeps [`FighterBrainProfile::for_level`], the engine floor.
+///
+/// Config, not state. A rewind restores a brain; it never rebuilds the ladder
+/// that brain was constructed from, so this is deliberately not rollback state.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 #[serde(transparent)]
 pub struct FighterBrainLadder {

@@ -151,6 +151,21 @@ impl<T: Clone + std::fmt::Debug> DeclaredRules<T> {
         }
     }
 
+    /// State the rules for one scope again from a new content generation:
+    /// `Some` replaces (or makes) that scope's declaration, `None` takes it
+    /// back.
+    ///
+    /// For the content generation's commit, which republishes rules that a
+    /// pack authors (the fighter ladder). It is the same game stating its own
+    /// rooms' rules at a later generation, not a second game claiming them,
+    /// so it does not refuse an existing declaration as [`Self::declare`] does.
+    pub fn restate(&mut self, scope: RulesScope, rules: Option<T>) {
+        self.declarations.retain(|(declared, _)| *declared != scope);
+        if let Some(rules) = rules {
+            self.declarations.push((scope, rules));
+        }
+    }
+
     /// Every declaration, for diagnostics and for the composition guard that
     /// reads them all at once.
     pub fn iter(&self) -> impl Iterator<Item = (RulesScope, T)> + '_ {

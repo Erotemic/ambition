@@ -749,7 +749,7 @@ fn the_shipped_app_decides_a_mechanical_edit_before_the_timeline_advances() {
 /// A 2026-09-19 review raised this as a concrete hole. `project_authored_fighter_ladder`
 /// stopped filtering on `Added<Brain>` (it had to — a brain built behind an
 /// `InactiveCandidate` barrier consumed the edge while hidden), so it now
-/// rewrites EVERY fighter's profile from the App-global `AuthoredFighterLadder`
+/// rewrites EVERY fighter's profile from the declared ladder
 /// on every tick. `commit_content_generation` publishes that ladder at N+1
 /// `.after(AmbitionGameShellSet::Pending)` and `.before(GameplaySessionSet::Providers)`,
 /// where candidate B is adopted. If a simulation tick could fall in that

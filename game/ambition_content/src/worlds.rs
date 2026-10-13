@@ -364,12 +364,12 @@ mod tests {
         // no longer separates migrated characters from the rest; what separates
         // them is `complete`, a character that authors its own locomotion. The
         // only names this Ambition-only fixture cannot resolve are the Hall's
-        // guests from the Mary-O and Sanic providers; any other is a typo.
+        // guests from the Mary-O and Sanic providers; any other is a typo. A
+        // guest's transform (Mary-O tall, Super Sanic) has no placement of its
+        // own: the Hall shows it on the guest's body.
         let guests: std::collections::BTreeSet<String> = [
             "mary_o",
-            "mary_o_tall",
             "sanic",
-            "super_sanic",
         ]
         .into_iter()
         .map(str::to_string)

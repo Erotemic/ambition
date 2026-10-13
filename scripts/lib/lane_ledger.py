@@ -109,10 +109,17 @@ def tested_tree(repo: Path) -> str | None:
 
 
 def record(repo: Path, tree: str, job: str, argv: list[str], ok: bool,
-           unrunnable: str | None, tree_after: str | None = None) -> None:
+           unrunnable: str | None, tree_after: str | None = None,
+           failure_evidence: list[str] | None = None) -> None:
     """Append one finished job: the tree when it started and when it ended.
 
-    A row is evidence only for paths that both trees hold the same way."""
+    A row is evidence only for paths that both trees hold the same way.
+
+    A failed job's row also keeps its `failure_evidence` (the panic lines and
+    the failure roster). This ledger is the history of failures: it is written
+    for each job that runs, a narrowed `--only-job` run too. The cost ledger is
+    written only for a whole lane, and the status file is written over by the
+    next run, so a failure that occurs once is counted from here."""
     path = ledger_path(repo)
     path.parent.mkdir(parents=True, exist_ok=True)
     row = {
@@ -125,6 +132,8 @@ def record(repo: Path, tree: str, job: str, argv: list[str], ok: bool,
         "ok": ok,
         "unrunnable": unrunnable,
         "finished": time.time(),
+        # Only on a failed job, so a passing row keeps the shape it had.
+        **({"failure_evidence": failure_evidence} if failure_evidence and not ok else {}),
     }
     with path.open("a") as handle:
         handle.write(json.dumps(row) + "\n")

@@ -84,12 +84,19 @@ impl Plugin for AmbitionContentPlugin {
                 .expect("the encounter schema lowers its book for every pack that compiles"),
         );
 
-        // Game-authored CPU difficulty ladder consumed during fighter construction.
-        app.insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
-            ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(&pack)
-            .cloned()
-            .expect("the fighter-ladder schema lowers its rungs for every pack that compiles"),
-        ));
+        // The CPU difficulty ladder of this binary: every room, the hosted
+        // Smash stage too, as the App-global resource it replaces did. A game
+        // that ships its own rows declares them for its mode, and the
+        // narrower scope wins there (queue CPU-LADDER).
+        {
+            use ambition_combat::scoped_rules::DeclareRulesExt as _;
+            app.declare_rules(
+                ambition_combat::scoped_rules::RulesScope::EveryRoom,
+                ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(&pack)
+                    .cloned()
+                    .expect("the fighter-ladder schema lowers its rungs for every pack that compiles"),
+            );
+        }
 
         // Spectator duel staging is room-construction content.
         app.init_resource::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>();

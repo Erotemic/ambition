@@ -178,7 +178,7 @@ fn a_shipped_ladder_beats_the_engine_floor() {
 ///
 /// ⛔ `profile_for_level` is `ladder.level(n)` else `FighterBrainProfile::for_level(n)`
 /// — **two answers to "what does rung N mean", both shipping.** A composition that
-/// installs an `AuthoredFighterLadder` gets the game's rows; one that does not
+/// declares a ladder for a room gets the game's rows there; one that does not
 /// gets the floor, silently, with a profile that looks exactly as authoritative.
 ///
 /// ⇒ **Four separate defects on 2026-09-04 were symptoms of this one fork**

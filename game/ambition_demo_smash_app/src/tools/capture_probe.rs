@@ -90,7 +90,7 @@ pub struct CaptureProbeArgs {
     /// Load an authored difficulty ladder from a `.ron` and install it.
     ///
     /// Without this, the probe measures the engine floor, not the shipped
-    /// game: `build_demo_app` installs no `AuthoredFighterLadder`, so every rung
+    /// game: `build_demo_app` declares no fighter ladder, so every rung
     /// carries `UtilityWeights::default()` (the level-9 row).
     #[arg(long, value_name = "PATH")]
     pub ladder: Option<String>,
@@ -122,7 +122,7 @@ pub fn run(args: CaptureProbeArgs) {
                     eprintln!("[capture_probe] --ladder {path} did not parse: {err}");
                     std::process::exit(2);
                 });
-        ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder(ladder)
+        ladder
     });
     println!(
         "[capture_probe] ladder: {}",
@@ -142,7 +142,7 @@ pub fn run(args: CaptureProbeArgs) {
     // Insert before the warm-up: `project_authored_fighter_ladder` applies
     // rows on `Added<Brain>`, so a later ladder reaches nobody.
     if let Some(ladder) = authored_ladder {
-        app.world_mut().insert_resource(ladder);
+        super::declare_smash_ladder(&mut app, ladder);
     }
     app.init_resource::<AttemptsSeen>();
     app.add_systems(bevy::prelude::Update, count_attempts);

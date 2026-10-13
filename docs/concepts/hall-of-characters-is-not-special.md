@@ -57,6 +57,10 @@ row, and one choice goes back. So the Hall shows the canonical frame of each
 state on one body. Two characters that are different people (PCA and ICA) are
 not forms of each other.
 
+When the sheet of the new look has a `transform` row, the body plays that row
+as it changes (the engine's transform beat, the one Mary-O's forms use). A
+sheet with no such row changes at once.
+
 ## What the Hall is for (Q85, 2026-10-04)
 
 The Hall is a visual showcase, a population and stress test, an asset and

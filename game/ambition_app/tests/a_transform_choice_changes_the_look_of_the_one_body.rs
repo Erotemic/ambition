@@ -86,3 +86,38 @@ fn the_hall_seats_a_character_once_and_a_transform_puts_each_look_on_that_body()
         assert_eq!(wearers(&mut sim, character), vec![body]);
     }
 }
+
+/// A look whose sheet has a `transform` row plays it when the body changes
+/// into the look, and a look with no such row changes at once.
+///
+/// The armor of Jeff Hinter closes on him in that row (Jon, 2026-10-13: "The
+/// armor transform should look like a manifold shrinkwrapping over to 'fit'
+/// his body"). The sheet he wears with no armor has no `transform` row.
+#[test]
+fn a_look_with_a_transform_row_plays_it_when_the_body_changes_into_it() {
+    use ambition_platformer2d::actors::features::transform_beat::TransformBeat;
+    use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
+
+    let mut sim = fixed_60hz_room_sim("hall_of_characters");
+    sim.step_n(base(), 10);
+    let body = wearers(&mut sim, "npc_jeff_hinter")[0];
+
+    ask(&mut sim, body, "npc_jeff_hinter_armored");
+    sim.step_n(base(), 4);
+    let beat = *sim
+        .world()
+        .get::<TransformBeat>(body)
+        .expect("the armored look has a `transform` row, and no beat plays it");
+    assert_eq!(beat.policy.anim, CharacterAnim::Transform);
+    assert!(beat.policy.duration > 0.0, "the beat is as long as the row, and the row has no length");
+
+    // The beat ends when the row has played.
+    let frames = (beat.policy.duration * 60.0).ceil() as u32 + 4;
+    sim.step_n(base(), frames);
+    assert!(sim.world().get::<TransformBeat>(body).is_none(), "the beat did not end with its row");
+
+    // The way back: his own sheet has no `transform` row, so he changes at once.
+    ask(&mut sim, body, "npc_jeff_hinter");
+    sim.step_n(base(), 4);
+    assert!(sim.world().get::<TransformBeat>(body).is_none(), "a sheet with no `transform` row asked for a beat");
+}

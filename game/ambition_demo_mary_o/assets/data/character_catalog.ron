@@ -448,7 +448,14 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["npc"],
-            fallback_dialogue: [],
+            // What it says to a body that talks to it BEFORE the switch: it is
+            // not saved yet, so it does not say its thanks (the end of the
+            // castle says those). Every character must have a line
+            // (`every_character_says_something`).
+            fallback_dialogue: [
+                "The switch! It is past the big one, at the end of the bridge.",
+                "I can not go while that thing is on the bridge.",
+            ],
         ),
         // The two flying swarms. Their Hall pedestals and dialogue stay in
         // Ambition's world files and resolve by id from the merged catalog in

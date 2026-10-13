@@ -60,13 +60,24 @@ pub fn sign_words(title: Option<&str>, id: &str) -> String {
     title.strip_prefix("WORLD ").unwrap_or(title).to_string()
 }
 
-pub fn install(app: &mut App) {
-    #[derive(Resource)]
-    struct PipeSignsInstalled;
-    if app.world().contains_resource::<PipeSignsInstalled>() {
-        return;
+/// The systems of the signs. A plugin, so that the two roads that install the
+/// game (`MaryOPlugin` and the provider) add them one time, and no resource in
+/// the world of the simulation says that they are there.
+struct PipeSignsPlugin;
+
+impl Plugin for PipeSignsPlugin {
+    fn build(&self, app: &mut App) {
+        add_systems(app);
     }
-    app.insert_resource(PipeSignsInstalled);
+}
+
+pub fn install(app: &mut App) {
+    if !app.is_plugin_added::<PipeSignsPlugin>() {
+        app.add_plugins(PipeSignsPlugin);
+    }
+}
+
+fn add_systems(app: &mut App) {
     app.add_systems(
         Update,
         (

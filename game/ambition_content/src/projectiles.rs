@@ -16,31 +16,68 @@ use ambition_projectiles::{
 };
 use bevy::prelude::App;
 
-/// The shared "energy ball" look, tinted per gameplay tier — the player kit.
-fn energy_ball(rgba: [f32; 4], label: &str) -> ProjectileArt {
+/// A row of the plain-shot sheet (the renderer's `shot_kit`): drawn nose
+/// along its flight, the head of the shot on the body. `width` is how wide the
+/// art is drawn, in body widths (the art has a tail the body does not).
+fn plain_shot(row: &str, width: f32, debug_tint: [f32; 4], burst: Option<f32>) -> ProjectileArt {
     ProjectileArt {
-        source: ProjectileArtSource::EnergyTinted { rgba },
-        size: ProjectileRenderSize::Body {
-            min: 8.0,
-            scale: 1.0,
+        source: ProjectileArtSource::Sheet {
+            target: "shot_kit".to_string(),
+            animation: row.to_string(),
+            animate: true,
         },
-        rotation: ProjectileRotation::FlipToTravel,
-        debug_tint: [rgba[0], rgba[1], rgba[2], 1.0],
-        label: label.to_string(),
-        expiry_vfx: None,
+        size: ProjectileRenderSize::BodyWidth { scale: width },
+        rotation: ProjectileRotation::VelocityAligned,
+        debug_tint,
+        label: row.to_string(),
+        expiry_vfx: burst.map(|scale| ProjectileExpiryBurst {
+            fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+            scale,
+        }),
     }
 }
 
 /// Register every named Ambition projectile look into the App-local catalog.
 pub(super) fn register(app: &mut App) {
-    // Player kit: the shared energy ball, tinted per tier. Warm orange fireball;
-    // cool blue Hadouken; stronger blue super.
-    app.register_projectile_visual("fireball", energy_ball([1.0, 0.74, 0.30, 0.95], "fireball"));
-    app.register_projectile_visual("hadouken", energy_ball([0.45, 0.78, 1.0, 0.96], "hadouken"));
+    // Player kit: a comet of fire; a ball of blue force behind a crescent
+    // front; the same, larger, with a second crescent.
+    app.register_projectile_visual("fireball", plain_shot("fireball", 1.9, [1.0, 0.74, 0.30, 1.0], None));
+    app.register_projectile_visual("hadouken", plain_shot("hadouken", 2.1, [0.45, 0.78, 1.0, 1.0], None));
     app.register_projectile_visual(
         "hadouken_super",
-        energy_ball([0.30, 0.55, 1.0, 1.0], "hadouken_super"),
+        plain_shot("hadouken_super", 1.8, [0.30, 0.55, 1.0, 1.0], None),
     );
+
+    // The looks of the plain ranged styles (`RangedStyle::default_visual`): a
+    // thrown rock, which tumbles in its row and is not turned to its flight,
+    // and an arrow.
+    app.register_projectile_visual(
+        ambition_platformer2d::characters::brain::action_set::ROCK_VISUAL,
+        ProjectileArt {
+            rotation: ProjectileRotation::FlipToTravel,
+            ..plain_shot("rock", 1.45, [0.55, 0.50, 0.45, 1.0], None)
+        },
+    );
+    app.register_projectile_visual(
+        ambition_platformer2d::characters::brain::action_set::ARROW_VISUAL,
+        ProjectileArt {
+            source: ProjectileArtSource::Sheet {
+                target: "bow_arrow".to_string(),
+                animation: "idle".to_string(),
+                animate: false,
+            },
+            size: ProjectileRenderSize::FixedWidth(44.0),
+            rotation: ProjectileRotation::VelocityAligned,
+            debug_tint: [0.62, 0.45, 0.25, 1.0],
+            label: "arrow".to_string(),
+            expiry_vfx: None,
+        },
+    );
+    // The dilophosaurus's spit: a glob of venom, with drops behind it.
+    app.register_projectile_visual("spit", plain_shot("spit", 2.05, [0.62, 0.84, 0.20, 1.0], Some(0.4)));
+    // A shot that names no look (the empty id): a bolt of magic. A boss's
+    // volley and a `Bolt` ranged action are this, not the engine's orange box.
+    app.register_projectile_visual("", plain_shot("bolt", 1.75, [0.74, 0.40, 0.95, 1.0], Some(0.4)));
 
     // GNU-ton apple rain: a generated apple sprite, a touch over the body box,
     // upright relative to local gravity.
@@ -151,7 +188,8 @@ pub(super) fn register(app: &mut App) {
                 fx: ambition_vfx::fx::ids::CLASSIC_BURST,
                 scale: 0.6,
             }),
-            ..energy_ball([1.0, 0.44, 0.14, 1.0], "mockingbird_fireball")
+            label: "mockingbird_fireball".to_string(),
+            ..plain_shot("fireball", 1.9, [1.0, 0.44, 0.14, 1.0], None)
         },
     );
     // Its fireball once its fire is cold (phase 3): the same ball, blue.
@@ -162,7 +200,8 @@ pub(super) fn register(app: &mut App) {
                 fx: ambition_vfx::fx::ids::CLASSIC_BURST,
                 scale: 0.6,
             }),
-            ..energy_ball([0.36, 0.72, 1.0, 1.0], "mockingbird_coldfire")
+            label: "mockingbird_coldfire".to_string(),
+            ..plain_shot("coldfire", 1.9, [0.36, 0.72, 1.0, 1.0], None)
         },
     );
     // The burning lightsabers it spits from its mouth: its own sheet, one row
@@ -338,6 +377,11 @@ mod tests {
             "apple",
             "meatball",
             "trex_rock",
+            "thrown_rock",
+            "arrow",
+            "spit",
+            // the look of a shot that names none
+            "",
             "eye_beam",
             "mockingbird_missile",
             "mockingbird_fireball",

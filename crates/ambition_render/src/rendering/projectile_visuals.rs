@@ -128,6 +128,10 @@ fn render_size(size: ProjectileRenderSize, body: Vec2, frame_aspect: f32) -> Vec
             Vec2::new(body.x.max(min), body.y.max(min)) * scale
         }
         ProjectileRenderSize::FixedWidth(w) => Vec2::new(w, w / frame_aspect.max(0.0001)),
+        ProjectileRenderSize::BodyWidth { scale } => {
+            let w = body.x * scale;
+            Vec2::new(w, w / frame_aspect.max(0.0001))
+        }
     }
 }
 

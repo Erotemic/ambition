@@ -744,6 +744,21 @@ pub enum RangedStyle {
     Bolt,
 }
 
+impl RangedStyle {
+    /// The look of this style's shot when neither the action nor the body
+    /// that fires it names one. A thrown rock is a rock and an arrow is an
+    /// arrow; a magic bolt has no look of its own (the empty id, which a game
+    /// may give a look: `ProjectileVisualCatalog::resolve`).
+    pub const fn default_visual(self) -> &'static str {
+        match self {
+            Self::Rock => ROCK_VISUAL,
+            Self::Arrow => ARROW_VISUAL,
+            Self::Pistol => PISTOL_ROUND_VISUAL,
+            Self::Bolt => "",
+        }
+    }
+}
+
 /// A concrete ranged action: a cadence, a shot, and optionally how that shot flies
 /// and what it looks like.
 ///
@@ -926,6 +941,13 @@ pub const HELD_SHOT_MAX_RANGE: f32 = 1600.0;
 /// and a bare string at each end drifts silently — an unregistered id does not
 /// fail, it quietly draws the engine's generic quad.
 pub const PISTOL_ROUND_VISUAL: &str = "pistol_round";
+
+/// A thrown rock's shot LOOKS like a rock. Named here for the reason
+/// [`PISTOL_ROUND_VISUAL`] is.
+pub const ROCK_VISUAL: &str = "thrown_rock";
+
+/// A drawn arrow's shot LOOKS like an arrow.
+pub const ARROW_VISUAL: &str = "arrow";
 
 /// A weapon's willingness to correct the shooter's aim.
 ///

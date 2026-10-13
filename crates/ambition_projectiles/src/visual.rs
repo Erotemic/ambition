@@ -68,6 +68,10 @@ pub enum ProjectileRenderSize {
     /// times `scale`.
     Body { min: f32, scale: f32 },
     FixedWidth(f32),
+    /// As wide as the projectile body times `scale`, and as tall as the shape
+    /// of the art makes it. For art that is not the shape of the body (a
+    /// comet with a tail) on a shot whose body changes size (a charged shot).
+    BodyWidth { scale: f32 },
 }
 
 /// How the sprite is oriented each frame.
@@ -184,7 +188,9 @@ impl ProjectileVisualCatalog {
     }
 
     /// Resolve `id` → art, falling back to the generic hostile shot when the id
-    /// is unregistered (or empty). Returns an owned art so callers needn't hold
+    /// is unregistered. The empty id is the id of a shot that names no look: a
+    /// game registers a look under it to say what such a shot looks like, and
+    /// with none registered it is the generic shot too. Returns an owned art so callers needn't hold
     /// the resource borrow across the frame. Clones the record — use the
     /// per-axis accessors ([`Self::rotation`], [`Self::debug_tint`]) on
     /// per-frame per-projectile paths instead.

@@ -255,8 +255,8 @@ suit the style of the game.
   (the heavy). The three on two legs are the `ratite` anatomy with arms on
   the wing bones (`scripts/build_ratite_rigs.py`); the triceratops is the
   `quadruped` anatomy and a tail bone (`scripts/build_triceratops_rig.py`).
-  The T-rex does not call them: his flock is birds. Not done: the spit of
-  the dilophosaurus is the thrown `Rock`, with no projectile art of its own.
+  The T-rex does not call them: his flock is birds. Its spit flies as the
+  thrown `Rock` and looks like a glob of venom (2026-10-13).
 - [x] Two biomes for Mary-O (Jon, 2026-10-11), in the colours of a magical
   girl and with the shapes of an old platform game. `starlight` is the land
   above: a pink sky, a crescent moon, a rainbow, round hills with marks on
@@ -324,6 +324,33 @@ suit the style of the game.
   play. The stroke is upright, thicker than the hook, and starts four rows
   above the hook (`bonus_block_tile` in `targets/props/entities.py`, and the
   16 px copy in the Mary-O tileset).
+
+## Plain shots, 2026-10-13 (Jon)
+
+Jon: "We need to generally improve the art for these generic fireballs /
+projectiles. The robot fireballs need new art. And I think there is a spitting
+dinosaur that has generic square projectiles."
+
+One sheet, the renderer's `shot_kit`, has a row for each: `fireball`,
+`coldfire`, `hadouken`, `hadouken_super`, `spit`, `rock`, `bolt`. The head of
+each shot is at the middle of its frame, so the tail is behind the body.
+`game/ambition_content/src/projectiles.rs` registers the looks.
+
+No shot of Ambition is the engine's orange box now:
+
+- A ranged style has a default look (`RangedStyle::default_visual`): a thrown
+  rock, an arrow (the `bow_arrow` sheet, which no shot used), the pistol round.
+- A shot that names no look (the empty id) is the magic bolt. This is every
+  `Bolt` action and eight boss moves that name none.
+- The dilophosaurus names `spit`.
+- The Officer's `pistol_round` sheet was not in the publish roster, so his
+  shot was the magenta box of a missing sheet. It is in the roster.
+
+To see a look: `capture_scene ROOM X,Y out.png --shot TICK:X,Y:DX,DY:LOOK`.
+
+Open: Jon has not judged this art. A shot that flies left is turned half
+round, so it is upside down (the spit's highlight is under it). The eight
+boss moves share one bolt; each could have a look of its own.
 
 ## Not done
 

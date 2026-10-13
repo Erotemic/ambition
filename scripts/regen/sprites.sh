@@ -539,6 +539,13 @@ tackon_targets=(
     # The bolt the Smirking Behemoth fires from its eye, the `eye_beam`
     # projectile visual.
     behemoth_eye_bolt
+    # The plain shots: the robot's fireball and Hadouken, a spit, a thrown
+    # rock and a magic bolt, one row each (`projectiles.rs` registers them).
+    shot_kit
+    # The Officer's service round, the `pistol_round` projectile visual. It was
+    # not named here, so a publish of the roster did not make it and his shot
+    # was drawn as the magenta box of a look whose sheet is missing.
+    pistol_round
     # The two Fighting Polygons are named here because a `--target` render is
     # not a PUBLISH ROSTER. Both were rendered into this checkout one target at
     # a time (`scripts/regen/sprites.sh --target <name>`), which works and is the right

@@ -92,6 +92,9 @@ struct SceneCaptureConfig {
     /// (`--portal-shot TICK:X,Y:DX,DY[:b]`), so a portal that is placed
     /// and a portal that is replaced can be filmed.
     portal_shots: Vec<PortalShotAt>,
+    /// Shots to fire, each on its sim tick (`--shot`), so the look of a
+    /// projectile is photographed with no body that fires it.
+    shots: Vec<ShotAt>,
     /// Take every part-drawn body apart by a teleport warp, again and again
     /// (`--body-warp out|in[@SECONDS]`), so the warp can be photographed
     /// without a blink.
@@ -287,6 +290,14 @@ OPTIONS:
                         replaces the first portal of that end. The pair is
                         not a gun's: a gun's portals go when no gun is in the
                         room.
+    --shot TICK:X,Y:DX,DY:LOOK
+                        fire a projectile on sim tick TICK from world X,Y
+                        along DX,DY, to photograph its look; repeat for more.
+                        LOOK is a projectile look id: fireball, hadouken and
+                        hadouken_super are the named kinds (their own body
+                        and flight); any other id flies straight on the body
+                        of a plain ranged shot; `-` is a shot that names no
+                        look. The player owns the shot.
     --press-during N    open the shutter N press-driving frames in, INSTEAD of
                         after the sequence finishes — the only way to photograph
                         a frame that exists only WHILE an input is being
@@ -622,6 +633,96 @@ impl PortalShotAt {
     }
 }
 
+/// One `--shot`: a projectile with a look, fired on a sim tick.
+#[derive(Clone, Debug, PartialEq)]
+struct ShotAt {
+    tick: u64,
+    origin: Vec2,
+    dir: Vec2,
+    /// A projectile look. `fireball`, `hadouken` and `hadouken_super` are the
+    /// named kinds, with the body and the flight of the kind. Any other id is
+    /// an open look on the body of a plain ranged shot, and `-` is the look
+    /// of a shot that names none.
+    look: String,
+}
+
+impl ShotAt {
+    /// `TICK:X,Y:DX,DY:LOOK`.
+    fn parse(value: &str) -> Result<Self, String> {
+        let bad = || format!("--shot wants TICK:X,Y:DX,DY:LOOK, got '{value}'");
+        let pair = |text: &str| -> Option<Vec2> {
+            let (x, y) = text.split_once(',')?;
+            Some(Vec2::new(x.trim().parse().ok()?, y.trim().parse().ok()?))
+        };
+        let parts: Vec<&str> = value.split(':').collect();
+        let [tick, origin, dir, look] = parts.as_slice() else {
+            return Err(bad());
+        };
+        Ok(Self {
+            tick: tick.parse().map_err(|_| bad())?,
+            origin: pair(origin).ok_or_else(bad)?,
+            dir: pair(dir).filter(|dir| *dir != Vec2::ZERO).ok_or_else(bad)?,
+            look: if *look == "-" { String::new() } else { look.to_string() },
+        })
+    }
+}
+
+/// `--shot`: fire each configured shot on its tick, through the projectile
+/// domain's own request, as a body that fires does. The primary player owns
+/// it (a shot does not touch its owner). A sim system that names its tick, as
+/// [`fire_portal_shots`] is.
+fn fire_shots(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    players: Query<Entity, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>,
+    mut requests: MessageWriter<ambition_platformer2d::projectiles::ProjectileSpawnRequest>,
+) {
+    use ambition_platformer2d::projectiles::{
+        InFlightProjectile, ProjectileBody, ProjectileKind, ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart,
+    };
+    for shot in config.shots.iter().filter(|shot| shot.tick == tick.get()) {
+        let Ok(owner) = players.single() else {
+            eprintln!("capture_scene: --shot found no player to own the shot on tick {}", shot.tick);
+            continue;
+        };
+        let (origin, dir) = (
+            ambition_platformer2d::engine_core::Vec2::new(shot.origin.x, shot.origin.y),
+            ambition_platformer2d::engine_core::Vec2::new(shot.dir.x, shot.dir.y),
+        );
+        let kind = [ProjectileKind::Fireball, ProjectileKind::Hadouken, ProjectileKind::HadoukenSuper]
+            .into_iter()
+            .find(|kind| kind.visual_id() == shot.look);
+        requests.write(match kind {
+            Some(kind) => ProjectileSpawnRequest::named(
+                owner,
+                InFlightProjectile { body: ProjectileBody::from_spec(kind.spec(origin, dir, 1.0)) },
+                kind,
+                ProjectileStart::StepNextTick,
+            ),
+            // The body and the speed of a plain ranged shot.
+            None => ProjectileSpawnRequest::open(
+                owner,
+                ProjectileSpawn {
+                    origin,
+                    dir,
+                    speed: 300.0,
+                    damage: 1,
+                    max_lifetime: 3.0,
+                    half_extent: ambition_platformer2d::engine_core::Vec2::new(10.0, 8.0),
+                    gravity: 0.0,
+                    visual_id: shot.look.clone(),
+                    bounces: 0,
+                    bounce_on_world_contact: false,
+                    splash_half_extent: 0.0,
+                    boomerang_return_s: None,
+                },
+                ProjectileStart::StepNextTick,
+            ),
+        });
+        eprintln!("capture_scene: fired a shot on tick {}: {shot:?}", shot.tick);
+    }
+}
+
 /// `--portal-shot`: fire each configured shot on its tick, through the portal
 /// domain's own intent, as a gun does. A sim system that names its tick: a
 /// replay of that tick fires again, and a replay of any other does not. The
@@ -653,7 +754,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, ask_bodies_to_wear, fire_portal_shots),
+        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, ask_bodies_to_wear, fire_portal_shots, fire_shots),
     );
     if app.world().resource::<SceneCaptureConfig>().nav_overlay {
         app.insert_resource(ambition_app::dev::navigation_overlay::NavigationOverlay { shown: true });
@@ -852,6 +953,7 @@ impl SceneCaptureConfig {
         let mut flags: Vec<(String, u64)> = Vec::new();
         let mut wears: Vec<(String, String, u64)> = Vec::new();
         let mut portal_shots: Vec<PortalShotAt> = Vec::new();
+        let mut shots: Vec<ShotAt> = Vec::new();
         let mut player_at: Vec<(Vec2, u64)> = Vec::new();
         let mut body_warp = None;
         let mut i = 0usize;
@@ -1027,6 +1129,13 @@ impl SceneCaptureConfig {
                         return Err("--portal-shot requires TICK:X,Y:DX,DY[:b]".to_string());
                     };
                     portal_shots.push(PortalShotAt::parse(value)?);
+                    2
+                }
+                "--shot" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--shot requires TICK:X,Y:DX,DY:LOOK".to_string());
+                    };
+                    shots.push(ShotAt::parse(value)?);
                     2
                 }
                 "--player-beside" => {
@@ -1208,6 +1317,7 @@ impl SceneCaptureConfig {
                 wears: Vec::new(),
                 player_at: Vec::new(),
                 portal_shots: Vec::new(),
+                shots: Vec::new(),
                 body_warp: None,
                 dev_overlays,
                 combat_overlay,
@@ -1273,6 +1383,7 @@ impl SceneCaptureConfig {
             wears,
             player_at,
             portal_shots,
+            shots,
             body_warp,
             route: None,
             press,

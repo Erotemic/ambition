@@ -121,3 +121,84 @@ fn a_look_with_a_transform_row_plays_it_when_the_body_changes_into_it() {
     sim.step_n(base(), 4);
     assert!(sim.world().get::<TransformBeat>(body).is_none(), "a sheet with no `transform` row asked for a beat");
 }
+
+/// The host witness: the shipped presentation app in the Hall, and real key
+/// presses. Interact opens his conversation, the arrow keys go to the choice
+/// "Put the armor on.", and Enter takes it.
+///
+/// The two tests above write the `WearRequested` themselves. This one proves
+/// the road to it: the choice in `hall.yarn`, its `<<transform>>` command, and
+/// the request (REVIEW-1013 item 2).
+#[test]
+fn the_armor_choice_of_his_hall_conversation_puts_the_armor_on_him() {
+    use crate::the_note_travels_from_alice_to_bob::{dialog_active, npc, put_body_at, tap};
+    use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
+    use ambition_platformer2d::actors::features::transform_beat::TransformBeat;
+    use ambition_platformer2d::dialog::DialogState;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use bevy::prelude::KeyCode;
+
+    const CHOICE: &str = "Put the armor on.";
+
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, false, |app| {
+        app.insert_resource(ambition_app::app::StartRoomOverride("hall_of_characters".to_owned()));
+        app.insert_resource(ambition_app::app::StartRoomMustResolve);
+    });
+    for _ in 0..ambition_app::app::shared_host_startup_ticks() + 30 {
+        app.update();
+    }
+
+    let hinter = npc(&mut app, "npc_jeff_hinter");
+    let at = app.world().get::<BodyKinematics>(hinter).expect("a live NPC").pos;
+    let player = crate::neighbor_prefetch_prepares_rooms::alice(&mut app);
+    put_body_at(&mut app, player, at);
+    for _ in 0..10 {
+        app.update();
+    }
+    tap(&mut app, KeyCode::KeyF);
+    for _ in 0..30 {
+        if dialog_active(&app) {
+            break;
+        }
+        app.update();
+    }
+    assert!(dialog_active(&app), "Interact beside Jeff Hinter did not open his conversation");
+
+    // Press through his line until the choices are offered.
+    let labels = |app: &bevy::prelude::App| -> Vec<String> {
+        app.world().resource::<DialogState>().options().iter().map(|choice| choice.label.clone()).collect()
+    };
+    for _ in 0..20 {
+        if !labels(&app).is_empty() {
+            break;
+        }
+        tap(&mut app, KeyCode::Enter);
+    }
+    let offered = labels(&app);
+    let wanted = offered
+        .iter()
+        .position(|label| label == CHOICE)
+        .unwrap_or_else(|| panic!("his conversation does not offer `{CHOICE}`; it offers {offered:?}"));
+    for _ in 0..offered.len() {
+        if app.world().resource::<DialogState>().selected_option() == wanted {
+            break;
+        }
+        tap(&mut app, KeyCode::ArrowDown);
+    }
+    assert_eq!(
+        app.world().resource::<DialogState>().selected_option(),
+        wanted,
+        "the arrow keys did not reach `{CHOICE}`"
+    );
+    tap(&mut app, KeyCode::Enter);
+    for _ in 0..8 {
+        app.update();
+    }
+
+    let worn = app.world().get::<WornCharacter>(hinter).expect("the body stays").id().to_string();
+    assert_eq!(worn, "npc_jeff_hinter_armored", "the choice was taken and he wears `{worn}`");
+    assert!(
+        app.world().get::<TransformBeat>(hinter).is_some(),
+        "he wears the armor and the row of its change does not play"
+    );
+}

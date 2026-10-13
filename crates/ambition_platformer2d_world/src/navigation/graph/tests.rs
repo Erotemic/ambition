@@ -123,7 +123,8 @@ impl Fixture {
 fn the_graph_links_what_the_body_can_do_and_nothing_else() {
     let fixture = Fixture::new();
     assert_eq!(fixture.linked("floor", "perch"), Some(NavLegKind::Hop));
-    assert_eq!(fixture.linked("perch", "floor"), Some(NavLegKind::Drop));
+    // Down through the one-way perch: a faster rollout than off its end.
+    assert_eq!(fixture.linked("perch", "floor"), Some(NavLegKind::DropThrough));
     assert_eq!(fixture.linked("floor", "ledge"), Some(NavLegKind::Hop));
     assert_eq!(fixture.linked("ledge", "floor"), Some(NavLegKind::Hop));
     assert_eq!(fixture.linked("ledge", "cellar"), Some(NavLegKind::Drop));
@@ -591,3 +592,51 @@ fn a_flight_goes_up_through_a_grate_from_under_it() {
     );
 }
 
+
+/// ⭐ A BODY DROPS THROUGH A ONE-WAY FLOOR TO THE FLOOR UNDER IT. A one-way
+/// loft between two walls: neither of its ends can be walked off, so the
+/// only road down is through it (down and jump). The control is the same
+/// room with a solid loft: the floor under it is out of reach.
+#[test]
+fn a_body_drops_through_a_one_way_floor_to_the_floor_under_it() {
+    let apex = TraversalEnvelope::measure(&walker(), normal_frame(), EnvelopeProbe::default())
+        .expect("measured")
+        .apex_rise();
+    let tall = apex * 3.0;
+    let height = apex * 2.0;
+    let room_with = |loft: Block| {
+        World::new(
+            "a loft between two walls",
+            Vec2::new(4000.0, 3000.0),
+            Vec2::ZERO,
+            vec![
+                Block::solid("floor", Vec2::new(0.0, FLOOR), Vec2::new(1600.0, 64.0)),
+                Block::solid("left wall", Vec2::new(400.0, FLOOR - tall), Vec2::new(100.0, tall)),
+                Block::solid("right wall", Vec2::new(900.0, FLOOR - tall), Vec2::new(100.0, tall)),
+                loft,
+            ],
+        )
+    };
+    let world = room_with(Block::one_way("loft", Vec2::new(500.0, FLOOR - height), Vec2::new(400.0, 16.0)));
+    let fixture = Fixture {
+        graph: NavGraph::build(&world, &walker(), normal_frame()).expect("an upright body has a graph"),
+        world,
+        body: walker(),
+    };
+    let loft = fixture.middle("loft");
+    let under = Vec2::new(700.0, FLOOR);
+    let link = fixture
+        .graph
+        .surface_at(loft)
+        .zip(fixture.graph.surface_at(under))
+        .and_then(|(from, to)| fixture.graph.links.iter().find(|link| link.from == from && link.to == to))
+        .map(|link| link.leg.kind);
+    assert_eq!(link, Some(NavLegKind::DropThrough), "the loft to the floor under it");
+    fixture
+        .travel(loft, under)
+        .unwrap_or_else(|why| panic!("down through the loft: {why}"));
+
+    let solid = room_with(Block::solid("loft", Vec2::new(500.0, FLOOR - height), Vec2::new(400.0, 16.0)));
+    let graph = NavGraph::build(&solid, &walker(), normal_frame()).expect("a walker has a graph");
+    assert_eq!(graph.next(loft, under), NavNext::Unreachable, "control: a solid loft has no road down");
+}

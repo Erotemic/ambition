@@ -27,6 +27,8 @@ pub struct Press {
     pub axis: f32,
     /// Hold up: climb a wall, pull up from a ledge.
     pub up: bool,
+    /// Hold down: with a jump press, fall through a one-way surface.
+    pub down: bool,
     pub jump_pressed: bool,
     pub jump_held: bool,
     /// Hold Interact.
@@ -73,7 +75,11 @@ impl Walker for Pad<'_> {
         self.sim.step(ambition_app::AgentAction {
             move_x: press.axis,
             // Up is toward -y in the body's local axes.
-            move_y: if press.up { -1.0 } else { 0.0 },
+            move_y: match (press.up, press.down) {
+                (true, false) => -1.0,
+                (false, true) => 1.0,
+                _ => 0.0,
+            },
             jump: press.jump_pressed,
             jump_held: press.jump_held,
             interact,
@@ -147,6 +153,7 @@ impl Walker for Keys<'_> {
         self.hold(KeyCode::ArrowLeft, arrow && press.axis < 0.0);
         self.hold(KeyCode::ArrowRight, arrow && press.axis > 0.0);
         self.hold(KeyCode::ArrowUp, press.up);
+        self.hold(KeyCode::ArrowDown, press.down);
         self.hold(KeyCode::KeyF, press.interact);
         // Utility toggles flight; a toggle is a press, so the key is up again
         // on the next frame.
@@ -385,6 +392,7 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
             // itself near a point it stops at.
             press.axis = input.axis;
             press.up = input.up;
+            press.down = input.down;
             press.jump_pressed = input.jump_pressed;
             press.jump_held = input.jump_held;
             press.fly_toggle = input.fly_toggle;

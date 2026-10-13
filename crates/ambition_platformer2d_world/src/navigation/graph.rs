@@ -575,6 +575,11 @@ fn proposals(a: &StandSurface, b: &StandSurface, half_width: f32, hop: bool, dro
                 let past = end + direction * (half_width + 3.0);
                 legs.push(leg(NavLegKind::Drop, end - direction * 16.0, past, past + direction * 2.0));
             }
+            // Down through a one-way `a`, where the two overlap.
+            if a.one_way {
+                let middle = (overlap.0 + overlap.1) * 0.5;
+                legs.push(leg(NavLegKind::DropThrough, middle, middle, middle));
+            }
         }
         return legs;
     }
@@ -600,7 +605,7 @@ fn proposals(a: &StandSurface, b: &StandSurface, half_width: f32, hop: bool, dro
 fn step(body: &mut BodyClusterScratch, world: &World, frame: MotionFrame, dt: f32, input: ae::navigation::LegInput) -> bool {
     let input = InputState {
         // Up is toward -y in the body's local axes.
-        axes: LocalAxes::new(input.axis, if input.up { -1.0 } else { 0.0 }),
+        axes: LocalAxes::new(input.axis, ae::navigation::leg_stick_y(input)),
         movement: ActionEdges::<MovementAction>::EMPTY
             .with(MovementAction::Jump, Edge { pressed: input.jump_pressed, held: input.jump_held, released: false })
             .with(MovementAction::FlyToggle, Edge { pressed: input.fly_toggle, held: input.fly_toggle, released: false })

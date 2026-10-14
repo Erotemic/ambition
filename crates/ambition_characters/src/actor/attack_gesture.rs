@@ -157,13 +157,24 @@ pub struct AttackGestureTuning {
     pub special_turn_window_ticks: u8,
 }
 
+/// The default [`AttackGestureTuning::directional_deadzone`].
+///
+/// It is below the diagonal of a walk. The walk key caps the stick at 0.5
+/// (`ambition_input::control::WALK_AXIS_CAP`), so a walk that also holds up
+/// gives 0.35 on each axis. At the earlier 0.5 a body that walked could not aim
+/// an attack: up, or up and to the side, read as no direction, and the press
+/// was the neutral attack (Jon, 2026-10-13). A tilt is a partial deflection by
+/// its name; the flick that makes a smash has its own threshold
+/// ([`AttackGestureTuning::flick_threshold`]).
+pub const DIRECTIONAL_DEADZONE: f32 = 0.3;
+
 impl Default for AttackGestureTuning {
     fn default() -> Self {
         Self {
             flick_threshold: 0.8,
             rearm_threshold: 0.35,
             flick_window_ticks: 4,
-            directional_deadzone: 0.5,
+            directional_deadzone: DIRECTIONAL_DEADZONE,
             // Six ticks at 60Hz — the platform-fighter house range. A knob,
             // not a measurement: tune it against play, do not scatter
             // per-move grace timers beside it.
@@ -179,7 +190,7 @@ impl Default for AttackGestureTuning {
 
 /// How far the brain pushes the stick for a move that is NOT a smash.
 ///
-/// between the body's `directional_deadzone` (0.5) and its `flick_threshold`
+/// between the body's `directional_deadzone` (0.3) and its `flick_threshold`
 /// (0.8), and both halves are load-bearing: below the deadzone the direction
 /// does not register at all and the press falls back to the neutral move; at or
 /// above the flick threshold [`crate::actor::attack_gesture::resolve_attack_gesture`]
@@ -753,7 +764,7 @@ mod special_turn_edge_tests {
     /// ⛔⛔ ONE DEFLECTION, TWO MECHANICS, TWO ANSWERS — ON PURPOSE NOW.
     ///
     /// [`TILT_DEFLECTION`] is 0.65 and its own doc says why: above
-    /// `directional_deadzone` (0.5) so the direction registers, below
+    /// `directional_deadzone` (0.3) so the direction registers, below
     /// `flick_threshold` (0.8) so the press is a TILT and not a smash. The
     /// special turn reads a much softer lean than the attack flick — a
     /// B-reverse in this genre is a stick tap, not a smash input — so 0.65

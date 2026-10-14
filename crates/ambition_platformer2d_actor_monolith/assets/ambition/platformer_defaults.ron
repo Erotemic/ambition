@@ -88,5 +88,30 @@
         dodge_roll_speed: 530.0,
         dodge_roll_cooldown: 0.42,
         parry_window_time: 0.15,
+        // Jon, 2026-10-13: the shield of Ambition plays like the shield of
+        // Smash. It is a resource: it drains while it is up, each blocked hit
+        // spends it, it gets smaller as it is spent, and a spent shield breaks
+        // and leaves the robot dizzy. A hit here is 1 to 3 points, so the
+        // numbers are a tenth of the platform fighter's.
+        shield: (
+            max_health: 6.0,
+            // About six seconds held, about eight to refill.
+            drain_per_second: 1.0,
+            regen_per_second: 0.75,
+            damage_scale: 1.0,
+            break_stun_time: 2.0,
+            stun_per_damage: 0.1,
+            pushback_per_damage: 50.0,
+            min_coverage: 0.45,
+            tilt_range: 0.34,
+            // Guard and down is the spot dodge on each floor of this game.
+            platform_drop: false,
+            // The bubble is also the robot's neutral special, and that special
+            // works in the air. A rule for actions out of shield would refuse
+            // it, so there is none.
+            out_of_shield: None,
+            air_guard: true,
+            drop_lag: 0.18,
+        ),
     ),
 )

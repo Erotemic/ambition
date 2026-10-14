@@ -2157,7 +2157,11 @@ pub fn stow_a_stored_charge_on_guard(
 /// the head under ANY gravity), so `y < 0` is Up with no facing term. Vertical
 /// wins ties so a clear up/down aim beats slight horizontal drift.
 pub fn attack_dir_from_axis(axis: ae::LocalAxes, facing: f32) -> AttackDir {
-    ambition_characters::actor::attack_gesture::attack_dir_from_axis(axis, facing, 0.5)
+    ambition_characters::actor::attack_gesture::attack_dir_from_axis(
+        axis,
+        facing,
+        ambition_characters::actor::attack_gesture::DIRECTIONAL_DEADZONE,
+    )
 }
 
 /// Interpret raw actor-control edges into deterministic semantic attack edges.

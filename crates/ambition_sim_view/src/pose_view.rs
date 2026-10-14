@@ -18,6 +18,11 @@ use ambition_platformer2d_shared_tangle::lifecycle::{PlayerVisual, PosedBody};
 use ambition_sprite_sheet::character::CharacterAnim;
 use bevy::prelude::{Commands, Entity, Or, Query, Res, ResMut, Resource, With};
 
+/// How far up the stick is held for a body that stands to look up. Below the
+/// cap of a walk (`ambition_input::control::WALK_AXIS_CAP`, 0.5), so the pose
+/// is the same with the walk key held.
+const LOOK_UP_AXIS: f32 = 0.4;
+
 /// Sim-resolved presentation pose for one player-bodied entity: everything
 /// the renderer needs to place, size, animate, and flash the sprite. Plain
 /// data (Copy, no `Entity`/`Handle` borrows) — snapshot-safe by construction.
@@ -345,6 +350,8 @@ pub fn rebuild_body_pose_views(
                 Option<&ambition_characters::actor::WornCharacter>,
                 Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
                 bevy::prelude::Has<ambition_combat::stocks::KnockedOutOfTheWorld>,
+                // The stick, for the look-up pose of a body that stands.
+                Option<&ambition_characters::control::ActorControl>,
                 Option<&mut BodyPoseView>,
             ),
         ),
@@ -399,6 +406,7 @@ pub fn rebuild_body_pose_views(
             worn,
             granted,
             out_of_the_world,
+            control,
             pose,
         ),
     ) in &mut bodies
@@ -450,15 +458,29 @@ pub fn rebuild_body_pose_views(
         // drawn by what the body does under the move. The same ladder with
         // no swing says what that is. A body that stands has no such pose:
         // the row draws it whole.
+        //
+        // A slow fall is such a pose too: the legs row carries the boot jets
+        // (`is_lower_body_track`), so a body that swings while it glides keeps
+        // them. Without it the jets went out for the length of each swing.
         let legs = playback
             .filter(|playback| playback.spec.upper_body_at(playback.t))
             .map(|_| pick(None))
             .filter(|legs| {
                 matches!(
                     legs,
-                    CharacterAnim::Walk | CharacterAnim::Run | CharacterAnim::Jump | CharacterAnim::Fall | CharacterAnim::Fly
+                    CharacterAnim::Walk
+                        | CharacterAnim::Run
+                        | CharacterAnim::Jump
+                        | CharacterAnim::Fall
+                        | CharacterAnim::Fly
+                        | CharacterAnim::FloatGlide
                 )
             });
+        // A body that stands and holds the stick up looks up. It is a picture
+        // only: the control frame is read, and nothing is written.
+        let looking_up = anim == CharacterAnim::Idle
+            && anim_override.is_none()
+            && control.is_some_and(|control| control.0.locomotion.y < -LOOK_UP_AXIS);
         // A content pose PIN wins over the picked pose — the SAME rule `rebuild_actor_anim_index`
         // applies to every brain-driven actor, and it belongs here for the identical reason: a pose
         // the disposition-agnostic picker cannot infer (a shelled enemy's withdraw, a body
@@ -505,6 +527,7 @@ pub fn rebuild_body_pose_views(
                                 .map(ambition_character_sprites::GuardBreakBeat::from_phase),
                             parrying: shield.is_some_and(|s| s.parrying()),
                             guard_stunned: shield.is_some_and(|s| s.stun_timer > 0.0),
+                            looking_up,
                             ..Default::default()
                         }
                         .with_gestures(anim_facts),

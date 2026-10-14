@@ -88,6 +88,11 @@ struct SceneCaptureConfig {
     /// option: a body that stands in a portal's plane can be photographed
     /// there, and a walk through it can be filmed step by step.
     player_at: Vec<(Vec2, u64)>,
+    /// A `--player-at` placement also puts the body in the climbing mode
+    /// (`--player-climbs`). No capture key reaches the simulation, so a body
+    /// on a ladder is photographed with no body that climbs onto it. The mode
+    /// stays only while the body touches a climbable region.
+    player_climbs: bool,
     /// Portal shots to fire, each on its sim tick
     /// (`--portal-shot TICK:X,Y:DX,DY[:b]`), so a portal that is placed
     /// and a portal that is replaced can be filmed.
@@ -286,6 +291,9 @@ OPTIONS:
     --player-at X,Y[@TICK]
                         put the player at world X,Y (its centre) on sim tick
                         TICK [default: 60], at rest; repeat for more places
+    --player-climbs     a --player-at placement also puts the body in the
+                        climbing mode, to photograph it on a ladder; give a
+                        point in a climbable region
     --portal-shot TICK:X,Y:DX,DY[:b]
                         fire a portal shot on sim tick TICK from world X,Y
                         along DX,DY: end A of the capture's own pair, or end
@@ -582,6 +590,10 @@ fn ask_bodies_to_wear(
     }
 }
 
+/// The ticks after a `--player-climbs` placement for which the body is put
+/// back in its place, in the climbing mode.
+const PLAYER_CLIMBS_HOLD_TICKS: u64 = 3;
+
 /// `--player-at`: put the primary player at the configured point on its tick,
 /// at rest, through the motion authority (ADR 0024). A sim system that names
 /// its tick, as [`place_player_beside`] is.
@@ -593,7 +605,14 @@ fn place_player_at(
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
 ) {
-    let Some((at, arrival)) = config.player_at.iter().copied().find(|(_, arrival)| *arrival == tick.get()) else {
+    // A body that climbs is held in its place for some ticks more: the mode
+    // stays only while the body's contact with the climbable region is known,
+    // and that contact is one tick behind a placement.
+    let hold = if config.player_climbs { PLAYER_CLIMBS_HOLD_TICKS } else { 0 };
+    let now = tick.get();
+    let Some((at, arrival)) =
+        config.player_at.iter().copied().find(|(_, arrival)| (*arrival..=*arrival + hold).contains(&now))
+    else {
         return;
     };
     let Ok((mut clusters, mut model)) = player.single_mut() else {
@@ -601,7 +620,14 @@ fn place_player_at(
     };
     let mut clusters = clusters.as_clusters_mut();
     ae::movement::transit_body(&mut model, &mut clusters, ae::Vec2::new(at.x, at.y), ae::movement::TransitVelocity::Zero);
-    eprintln!("capture_scene: put the player at {at:?} on tick {arrival}");
+    if config.player_climbs {
+        // The climbing shape is the standing shape, so the mode is set with no
+        // change of the body's size.
+        clusters.body_mode.body_mode = ae::BodyMode::Climbing;
+    }
+    if now == arrival {
+        eprintln!("capture_scene: put the player at {at:?} on tick {arrival}");
+    }
 }
 
 /// One `--portal-shot`: a shot of the capture's own pair, fired on a sim tick.
@@ -1045,6 +1071,7 @@ impl SceneCaptureConfig {
         let mut shots: Vec<ShotAt> = Vec::new();
         let mut guards: Vec<GuardAt> = Vec::new();
         let mut player_at: Vec<(Vec2, u64)> = Vec::new();
+        let mut player_climbs = false;
         let mut body_warp = None;
         let mut i = 0usize;
         while i < args.len() {
@@ -1213,6 +1240,10 @@ impl SceneCaptureConfig {
                     );
                     player_at.push((at, tick));
                     2
+                }
+                "--player-climbs" => {
+                    player_climbs = true;
+                    1
                 }
                 "--portal-shot" => {
                     let Some(value) = args.get(i + 1) else {
@@ -1413,6 +1444,7 @@ impl SceneCaptureConfig {
                 flags: Vec::new(),
                 wears: Vec::new(),
                 player_at: Vec::new(),
+                player_climbs: false,
                 portal_shots: Vec::new(),
                 shots: Vec::new(),
                 guards: Vec::new(),
@@ -1480,6 +1512,7 @@ impl SceneCaptureConfig {
             flags,
             wears,
             player_at,
+            player_climbs,
             portal_shots,
             shots,
             guards,

@@ -327,6 +327,13 @@ impl CharacterAnimator {
     /// stood idle for [`SIT_AFTER_IDLE_S`]. It gets up with its stand-up row
     /// when the conversation ends, and at once when the body moves: a body
     /// that walks does not wait for a pose.
+    ///
+    /// A body that is asked for a clip (`has_clip`: the row of what it does
+    /// now) leaves the pose at once too, and plays the clip. A clip is slaved
+    /// to what the body does, so a stand-up row shown first takes its start
+    /// away: a dog that sat in the conversation stood up through the first
+    /// part of its `petted` row, and the hand stroked the air where its head
+    /// was to be.
     pub fn request_actor_pose<'a>(
         &mut self,
         anim: CharacterAnim,
@@ -344,10 +351,11 @@ impl CharacterAnimator {
             return;
         }
         if can_sit {
-            if !conversation_held && anim != CharacterAnim::Idle {
+            if has_clip || (!conversation_held && anim != CharacterAnim::Idle) {
                 self.social_pose = SocialPose::Stand;
             }
-            let settled = conversation_held || (anim == CharacterAnim::Idle && self.idle_for >= SIT_AFTER_IDLE_S);
+            let settled = !has_clip
+                && (conversation_held || (anim == CharacterAnim::Idle && self.idle_for >= SIT_AFTER_IDLE_S));
             self.social_pose = match (settled, self.social_pose) {
                 (true, SocialPose::Stand | SocialPose::StandingUp) => SocialPose::SittingDown,
                 (true, SocialPose::SittingDown) if self.clip_held => SocialPose::Sitting,

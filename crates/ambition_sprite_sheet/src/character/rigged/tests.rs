@@ -409,8 +409,8 @@ fn every_table_decodes_from_its_bincode_to_the_flipbook_its_ron_is() {
                 failures.push(format!("`{key}`: embedded as text, the build could not read it"));
                 continue;
             }
-            BakedPartFlipbook::Ron(text) => {
-                let published = crate::sprite_tree::read_part_flipbook(text).unwrap_or_else(|error| panic!("`{key}` {error}"));
+            BakedPartFlipbook::Ron(_) | BakedPartFlipbook::File(_) => {
+                let published = crate::sprite_tree::read_part_flipbook(&text).unwrap_or_else(|error| panic!("`{key}` {error}"));
                 bincode::serialize(&published).unwrap_or_else(|error| panic!("`{key}` {error}"))
             }
         };

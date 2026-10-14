@@ -1,0 +1,13 @@
+# Bezoar roams the crawl lab. It is too tall for the crawl gap, so it
+# goes over the block: two one-way stones at each end of the block are its
+# steps (painted for it). It starts at the east side, past the gap.
+level_id: crawl_lab
+entities:
+  - type: NpcSpawn
+    px: [912, 288]
+    size: [64, 64]
+    fields:
+      character_id: npc_dog_bezoar
+      prompt: Greet the dog
+      dialogue_id: hall_npc_dog_bezoar
+      patrol_radius: 1000

@@ -578,6 +578,87 @@
             // at that height.
             petting: Some((sound: Some("npc.dog.woof"), contact_offset: (28.0, 9.0))),
         ),
+        // A house dog, from a photograph of a dog of Jon's (2026-10-13). It is
+        // drawn on the companion dog's rig, with its brain, its body and its
+        // pet, and it roams a test room off the basement. `standing_height`
+        // is the height of the whole drawing, ears included, so it is not how
+        // tall the dog is at the shoulder: Honey is the smallest (35 lb): short legs and a stout body.
+        "npc_dog_honey": (
+            display_name: "Honey",
+            spritesheet: "sprites/dog_honey_spritesheet.png",
+            manifest: "sprites/dog_honey_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(63.0),
+            composition: None,
+            default_brain: "companion_dog_roam",
+            default_action_set: "peaceful",
+            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false))),
+            abilities: Some([Walk, Jump]),
+            max_health: Some(4),
+            tags: ["animal", "dog", "quadruped", "companion", "peaceful"],
+            fallback_dialogue: ["Woof!", "Honey turns one large ear to you."],
+            barks: (
+                idle: ["Woof!", "Arf! Arf!"],
+                hall: ["Woof!", "Honey turns one large ear to you."],
+            ),
+            hall_dialogue_id: Some("hall_npc_dog_honey"),
+            petting: Some((sound: Some("npc.dog.woof"), contact_offset: (28.0, 9.0))),
+        ),
+        // A house dog, from a photograph of a dog of Jon's (2026-10-13). It is
+        // drawn on the companion dog's rig, with its brain, its body and its
+        // pet, and it roams a test room off the basement. `standing_height`
+        // is the height of the whole drawing, ears included, so it is not how
+        // tall the dog is at the shoulder: Roadie is the biggest (50 lb).
+        "npc_dog_roadie": (
+            display_name: "Roadie",
+            spritesheet: "sprites/dog_roadie_spritesheet.png",
+            manifest: "sprites/dog_roadie_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(72.0),
+            composition: None,
+            default_brain: "companion_dog_roam",
+            default_action_set: "peaceful",
+            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false))),
+            abilities: Some([Walk, Jump]),
+            max_health: Some(4),
+            tags: ["animal", "dog", "quadruped", "companion", "peaceful"],
+            fallback_dialogue: ["Wuff.", "Roadie looks for something to herd."],
+            barks: (
+                idle: ["Wuff.", "Arf!"],
+                hall: ["Wuff.", "Roadie looks for something to herd."],
+            ),
+            hall_dialogue_id: Some("hall_npc_dog_roadie"),
+            petting: Some((sound: Some("npc.dog.woof"), contact_offset: (28.0, 9.0))),
+        ),
+        // A house dog, from a photograph of a dog of Jon's (2026-10-13). It is
+        // drawn on the companion dog's rig, with its brain, its body and its
+        // pet, and it roams a test room off the basement. `standing_height`
+        // is the height of the whole drawing, ears included, so it is not how
+        // tall the dog is at the shoulder: Bezoar is taller than Honey and shorter than Roadie (40 lb): lanky, with a slim body.
+        "npc_dog_bezoar": (
+            display_name: "Bezoar",
+            spritesheet: "sprites/dog_bezoar_spritesheet.png",
+            manifest: "sprites/dog_bezoar_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "companion_dog_roam",
+            default_action_set: "peaceful",
+            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false))),
+            abilities: Some([Walk, Jump]),
+            max_health: Some(4),
+            tags: ["animal", "dog", "quadruped", "companion", "peaceful"],
+            fallback_dialogue: ["Woof!", "Bezoar pants, with her tongue out."],
+            barks: (
+                idle: ["Woof!", "Hff, hff, hff."],
+                hall: ["Woof!", "Bezoar pants, with her tongue out."],
+            ),
+            hall_dialogue_id: Some("hall_npc_dog_bezoar"),
+            petting: Some((sound: Some("npc.dog.woof"), contact_offset: (28.0, 9.0))),
+        ),
         "npc_busy_beaver": (
             display_name: "Busy Beaver",
             spritesheet: "sprites/busy_beaver_spritesheet.png",

@@ -1,0 +1,12 @@
+# Roadie roams the quest lab: the floor, and three one-way stones in
+# 64 px steps at the east side (painted for it; a dog's jump rises 89 px).
+level_id: quest_lab
+entities:
+  - type: NpcSpawn
+    px: [256, 288]
+    size: [64, 64]
+    fields:
+      character_id: npc_dog_roadie
+      prompt: Greet the dog
+      dialogue_id: hall_npc_dog_roadie
+      patrol_radius: 700

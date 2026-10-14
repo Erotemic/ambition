@@ -52,6 +52,8 @@ pub mod baked_landmarks;
 pub(crate) mod sprite_tree;
 #[cfg(any(not(embedded_sprites), test))]
 mod published_tree;
+#[cfg(any(not(embedded_sprites), test))]
+mod published_cache;
 use character::landmarks_published;
 use character::rigged::published;
 pub mod baked_part_flipbooks;

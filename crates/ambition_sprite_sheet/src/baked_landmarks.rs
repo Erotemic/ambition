@@ -50,20 +50,48 @@ pub fn landmarks_digest() -> &'static str {
 
 /// A development build's landmark tables and their digest, projected once
 /// per process.
+///
+/// The projection parses every full-resolution flipbook, so it is kept in the
+/// development cache (`published_cache`) under the key of all those files: a
+/// run after the first reads one small file.
 #[cfg(not(embedded_sprites))]
 fn projected() -> &'static (Vec<(&'static str, &'static [u8])>, String) {
     static PROJECTED: OnceLock<(Vec<(&'static str, &'static [u8])>, String)> = OnceLock::new();
     PROJECTED.get_or_init(|| {
-        // The texts the flipbook table already read, full resolution only.
-        let full = crate::baked_part_flipbooks::part_flipbooks()
+        use crate::baked_part_flipbooks::BakedPartFlipbook;
+        use std::path::{Path, PathBuf};
+        // The full-resolution files the flipbook table names.
+        let full: Vec<(String, PathBuf)> = crate::baked_part_flipbooks::part_flipbooks()
             .iter()
             .filter(|(key, _, _)| !key.contains('.'))
             .filter_map(|(key, table, _)| match table {
-                crate::baked_part_flipbooks::BakedPartFlipbook::Ron(text) => Some((*key, *text)),
-                crate::baked_part_flipbooks::BakedPartFlipbook::Encoded(_) => None,
+                BakedPartFlipbook::File(path) => Some(((*key).to_owned(), PathBuf::from(path))),
+                BakedPartFlipbook::Ron(_) | BakedPartFlipbook::Encoded(_) => None,
             })
             .collect();
-        project(full)
+        let sources: Vec<&Path> = full.iter().map(|(_, path)| path.as_path()).collect();
+        type Kept = (Vec<(String, Vec<u8>)>, String);
+        let kept: Option<Kept> = crate::published_cache::derived(
+            "landmarks",
+            &[
+                crate::baked_part_flipbooks::PUBLISHED_SCHEMA_SOURCE,
+                include_str!("character/landmarks_published.rs"),
+                include_str!("sprite_tree.rs"),
+            ],
+            &sources,
+            |bytes| bincode::deserialize(bytes).ok(),
+            || {
+                let (tables, digest) = project(crate::published_tree::texts(full.clone()));
+                let owned: Kept = (tables.iter().map(|(key, bytes)| ((*key).to_owned(), bytes.to_vec())).collect(), digest);
+                bincode::serialize(&owned).ok()
+            },
+        );
+        let (tables, digest) = kept.unwrap_or_default();
+        let tables = tables
+            .into_iter()
+            .map(|(key, bytes)| (crate::published_tree::kept(key), &*Box::leak(bytes.into_boxed_slice())))
+            .collect();
+        (tables, digest)
     })
 }
 

@@ -383,6 +383,88 @@ shield that is not a resource records it too, so a guard outside a match
 flares when it blocks. Before, only shieldstun showed a blow, and such a
 shield owes none.
 
+## Jon's three dogs: Honey, Roadie, Bezoar (2026-10-13)
+
+Jon, with photographs: "I want 3 new dog characters based on these 3 dogs. I
+want them to be roaming in different rooms in the sandbox. Not the central
+hub, but in the test areas connected to it."
+
+Each is an SVG rig with the companion dog's parts about its joints, so the
+companion dog's clips play on each (the renderer's `_house_dog.py`,
+`scripts/svg_art/house_dogs_art.py`). What Jon said of each:
+
+- **Honey** (35 lb): "the smallest and shortest". The tip of her right ear
+  has "a very minor flap", so she has a drawing of each side and `~mirrored`
+  rows: a flip of the sheet would move the flap to her other ear. The tip flops
+  outward. Side on, that is toward the viewer (from her right: the tip hangs
+  down over the face of the ear) or away (from her left: the ear ends in a
+  round fold).
+- **Roadie** (50 lb): "bigger, but still only a medium sized dog".
+- **Bezoar**, "Bea" (40 lb): "taller but lanky". Her coat is "very close to
+  Honey's color, but just slightly tanner". Her two ears have "slight flops".
+  "Her ears only have the dark tips, and her muzzle isn't that dark. It is
+  towards the end, but it sort of blends in." "She should be shorter than
+  roadie but taller than honey."
+- "The eyebrows for honey and beazor are important": Honey has a pale pip
+  over the eye, Bezoar a dark one.
+- The tongue "shouldn't be hanging off the top of their mouth": it lies on
+  the lower jaw, and the muzzle is drawn over its root. The bark mouth is that
+  mouth open a little more (of a wide one: "too wide too big").
+
+Where they roam is in `docs/systems/npc-navigation.md`.
+
+Open:
+
+- Jon wrote "Beazoar should be physically smaller than honey" and then sent
+  a photograph in which she sits taller than Honey. As drawn she is taller,
+  on long thin legs, with a slimmer and shorter body. Jon has not said this
+  reading is right.
+- The spelling "Bezoar" is mine (Jon wrote "beazor" and "beazoar").
+- Roadie has no drawing of its other side, and no second round of polish.
+- The place a hand pets (`contact_offset`) is the companion dog's on each;
+  it was not fitted to the three sizes.
+- No dog has its own bark sound: each uses `npc.dog.woof`.
+
+## The General, redrawn (2026-10-13)
+
+Jon, with a picture of a cartoon general: "Please redo the art for the absurd
+general. I'm going for a general specific sort of vibe (although again, we
+are not copying the character, this is just inspiration)".
+
+He is an SVG rig of his own (the renderer's `absurd_general` target; he was a
+preset of the toon template): a coat like a box on two legs like sticks, a
+nose like a bulb, teeth shut tight, arms akimbo, a swagger stick under his
+arm. The six rows he had are the same six.
+
+- Of the tall leaning hat of the first draft: "No, redo the general hat, Just
+  a normal officer hat". It is a peaked service cap.
+- "He needs more badges and metals on his coat." He has sixteen ribbons,
+  seven medals, two orders, pins along his sash and stars on his collar.
+
+His nose is a part of its own, in front of his far eye; the top of that eye
+shows over it ("a little bit of the eye peaking out so you can see it").
+
+Open: Jon has seen the first draft only, not the cap and the medals. His
+`standing_height` is as it was (69.7, the cap included). He has no row that
+faces the viewer, and no strike rows for when he is provoked (he had none).
+
+## The burning flying shark: a great white, more on fire (2026-10-13)
+
+Jon, with a picture of a pale shark under a sheet of fire: "we have to make
+the burning flying shark look less like an orca ... and we need to make it
+look even more on fire with good fire animation."
+
+- It is pale grey over white with a black eye. It was dark over pale.
+- Fire stands along the whole of its back (tall tongues behind it, shorter
+  ones on it over a line of soot), streams from its fins and tail, and small
+  flames come away behind it. Each place shows six shapes of flame in turn,
+  from a phase of its own. It is 58 draws at most, of the 64 a part flipbook
+  may have: more fire needs fewer pieces somewhere.
+
+Open: Jon has not judged it. A row has 6 or 8 frames, so the fire has that
+many pictures in a loop; smoother fire needs longer rows. The saddle and the
+tack are in the fire and do not burn.
+
 ## Not done
 
 - **The giant gnu, redrawn: in the game, with the fight of today** (Jon,

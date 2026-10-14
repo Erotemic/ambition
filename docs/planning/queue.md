@@ -802,7 +802,20 @@ variants. Also found in that regen:
     `environment`. The verdict stays FAILED and is not NOT RUN: another
     failure in the same job can be real
     (`test_a_failed_cargo_job_on_a_stale_sprite_set_says_so`).
-    Open: the staging root.
+    **Measured end to end, 2026-10-13:** the first publish under the new
+    key rendered all (3671 s). Then one comment in `crypto_crew.py`: the
+    crew's 11 sheets re-rendered and 115 were skipped, but 74
+    portrait-less props and effects re-rendered as well. The freshness test
+    required a portrait row, which a prop never has, so every prop
+    re-rendered on every publish; that condition is removed, and the same
+    edit then published 13 and skipped 184 (the 11 crew among the 13; the
+    other two are not identified). Of a full
+    publish, the cached batches are 1904 s (tack-ons 1646, late targets
+    258) and the uncached draw phases 1764 s (`draw-review` 916,
+    `draw-all` 716, `draw-factions` 132). Those three re-render on every
+    publish that is not a whole-run cache hit, so a family edit still
+    costs about 29 minutes there.
+    Open: per-sheet keys for the three draw phases, and the staging root.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

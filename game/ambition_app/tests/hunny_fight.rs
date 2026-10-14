@@ -71,15 +71,6 @@ fn bear(sim: &mut Platformer2dSimHarness) -> Bear {
     Bear { kin, side, view }
 }
 
-/// Wound him to `fraction` of his health: past phase 1 at a half, enraged
-/// near the end.
-fn wound(sim: &mut Platformer2dSimHarness, fraction: f32) {
-    let world = sim.world_mut();
-    let mut q = world.query::<(&BossConfig, &mut BodyHealth)>();
-    let (_, mut health) = q.iter_mut(world).find(|(config, _)| config.behavior.id == HUNNY_ID).expect("the bear");
-    health.health.current = (health.max() as f32 * fraction).ceil() as i32;
-}
-
 fn honey(sim: &mut Platformer2dSimHarness) -> Vec<ae::Vec2> {
     let world = sim.world_mut();
     let mut q = world.query::<(&ambition_platformer2d::projectiles::ProjectileVisualId, &ae::BodyKinematics)>();

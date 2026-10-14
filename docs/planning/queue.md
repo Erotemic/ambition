@@ -809,7 +809,9 @@ variants. Also found in that regen:
     required a portrait row, which a prop never has, so every prop
     re-rendered on every publish; that condition is removed, and the same
     edit then published 13 and skipped 184 (the 11 crew among the 13; the
-    other two are not identified). Of a full
+    other two are not identified). The tack-on batch still took 230 s
+    (231 s before): the crew's rigged sheets are its cost, so the fix
+    saves renders and little time. Of a full
     publish, the cached batches are 1904 s (tack-ons 1646, late targets
     258) and the uncached draw phases 1764 s (`draw-review` 916,
     `draw-all` 716, `draw-factions` 132). Those three re-render on every

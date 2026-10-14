@@ -808,14 +808,13 @@ variants. Also found in that regen:
     portrait-less props and effects re-rendered as well. The freshness test
     required a portrait row, which a prop never has, so every prop
     re-rendered on every publish; that condition is removed, and the same
-    edit then published 13 and skipped 184: the 11 crew,
-    `interdimensional_gate` (its `_portal_` and `_ring_` sheets) and one
-    target not identified. (`shrine` is not a batch target: the uncached
-    shrine-prop step draws it on every publish.) `interdimensional_gate`
-    is in one batch only, its stored output digests match the disk, and the
-    publish writes into no source of it, so why it is stale is not
-    measured; the next measurement is two publishes on one renderer
-    revision with its key printed at the check and at the store. The tack-on batch still took 230 s
+    edit then published 13 and skipped 184. The 11 crew are among the 13;
+    the other two are not identified, because `publish-many --quiet` names
+    no target. Of the 201 batch targets (`tackon_targets` and the rigs),
+    17 were not logged as skipped: the crew and `absurd_general`,
+    `dog_bezoar`, `dog_honey`, `dog_roadie`, `gnu_ton_boss`, `sandbag`
+    (some may not be registered). Next: print the stale list before
+    `publish-many`, so a run names what it renders. The tack-on batch still took 230 s
     (231 s before): the crew's rigged sheets are its cost, so the fix
     saves renders and little time. Of a full
     publish, the cached batches are 1904 s (tack-ons 1646, late targets

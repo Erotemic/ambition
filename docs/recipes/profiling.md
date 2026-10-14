@@ -270,7 +270,7 @@ runs only when `AMBITION_PROFILE_CENSUS` is set, which
 
 ```text
 [census] frame          t=12.000 frames=60 mean=16.71 p50=16.70 p95=18.20 p99=24.00 min=15.90 max=41.20
-[census] ecs            t=12.000 entities=8123 live=1312 resources=407 archetypes=412 components=1904 bodies=7 players=1
+[census] ecs            t=12.000 entities=8123 live=1312 resources=407 archetypes=1975 resource_archetypes=1478 scene_archetypes=113 empty_archetypes=384 components=1904 bodies=7 players=1
 [census] schedules      t=12.000 schedules=14 systems=1183 Update=822 PostUpdate=15 PreUpdate=9 StateTransition=8 First=4
 [census] views          t=12.000 cameras=5 active=5 world_rendering=3 offscreen=2 local_views=1
 [census] camera         t=12.000 entity=64v1 role=main_gameplay active=true target=primary_window size=1920x1080 viewport=full order=0 layers=0 presents_view= name="Main Camera"
@@ -281,6 +281,17 @@ runs only when `AMBITION_PROFILE_CENSUS` is set, which
 [census] assets         t=12.000 decoded_images=214 decoded_megapixels=612.4 decoded_bytes=2449600000 images_resident=214
 [census] phases         t=12.000 frames=60 outside=6.50 first=0.04 pre=0.31 state=0.09 fixed=0.88 update=8.10 post=1.20 last=0.40
 ```
+
+**`[census] ecs` splits the archetypes.** Since Bevy 0.19 each resource type
+is an entity with an archetype of its own, so `archetypes` is mostly
+`resource_archetypes` (about 1,480 in every game, 2026-10-14) and says little
+about the scene. `scene_archetypes` is the archetypes that hold scene entities
+now (74-113), and `empty_archetypes` the ones scene entities have left. Every
+query state matches all of `archetypes` once when it is made, so the cost of
+the count is paid by query states that are made again and again (a
+`world.query` in a system that runs each frame), not by play. For the shape of
+one game's archetypes (which components split them), run the ignored test
+`mary_o_archetype_shape`.
 
 **`[census] phases` is the one frame breakdown that needs no profiler.** Tracy
 answers it too, but Tracy is a desktop build whose symbol worker can cost more

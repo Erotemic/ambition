@@ -253,17 +253,57 @@ pub fn report_ecs_census(
     // - `resources` is resource entities. It is real engine population, but not
     //   scene content, so it is reported beside `live`, not added to it.
     // Read `live`. `entities - live - resources` is reservation slack.
+    //
+    // The archetypes, split the same way. Since Bevy 0.19 each resource type is
+    // an entity of its own archetype, so `archetypes` grows with the number of
+    // resource types and says little about how the scene is split. Read
+    // `scene_archetypes` (archetypes that hold scene entities now) for that,
+    // and `empty_archetypes` for the ones scene entities have left. Every
+    // query state matches all of `archetypes` once when it is made.
+    let split = archetype_split(archetypes, components);
     eprintln!(
-        "[census] ecs t={at:.3} entities={} live={} resources={} archetypes={} components={} \
+        "[census] ecs t={at:.3} entities={} live={} resources={} archetypes={} \
+         resource_archetypes={} scene_archetypes={} empty_archetypes={} components={} \
          bodies={} players={}",
         entities.len(),
         population.scene_entities(),
         population.resource_entities(),
         archetypes.len(),
+        split.resource,
+        split.scene,
+        split.empty,
         components.len(),
         population.bodies(),
         population.players(),
     );
+}
+
+/// The archetypes, by what they hold now.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ArchetypeSplit {
+    /// Archetypes of resource entities: one per resource type.
+    pub resource: usize,
+    /// Archetypes that hold scene entities now.
+    pub scene: usize,
+    /// Archetypes that hold no entity now.
+    pub empty: usize,
+}
+
+/// Split `archetypes` into [`ArchetypeSplit`]. Metadata only: it visits each
+/// archetype once and no entity.
+pub fn archetype_split(archetypes: &Archetypes, components: &Components) -> ArchetypeSplit {
+    let resource = components.component_id::<IsResource>();
+    let mut split = ArchetypeSplit::default();
+    for archetype in archetypes.iter() {
+        if archetype.is_empty() {
+            split.empty += 1;
+        } else if resource.is_some_and(|id| archetype.contains(id)) {
+            split.resource += 1;
+        } else {
+            split.scene += 1;
+        }
+    }
+    split
 }
 
 /// The registered-system population per schedule, sampled rather than reported
@@ -1477,6 +1517,28 @@ impl Plugin for RuntimeCensusPlugin {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    /// A resource's archetype is not a scene archetype, and an archetype its
+    /// entities have left counts as empty, not as scene.
+    #[test]
+    fn the_archetypes_split_into_resource_scene_and_empty() {
+        #[derive(Resource)]
+        struct Settings;
+        #[derive(Component)]
+        struct Body;
+        #[derive(Component)]
+        struct Hurt;
+        let mut world = World::new();
+        let before = archetype_split(world.archetypes(), world.components());
+        world.insert_resource(Settings);
+        let body = world.spawn(Body).id();
+        world.entity_mut(body).insert(Hurt);
+        let after = archetype_split(world.archetypes(), world.components());
+        assert_eq!(after.resource, before.resource + 1, "{before:?} -> {after:?}");
+        // `(Body)` is left empty when the body gains `Hurt`.
+        assert_eq!(after.scene, before.scene + 1, "{before:?} -> {after:?}");
+        assert_eq!(after.empty, before.empty + 1, "{before:?} -> {after:?}");
+    }
 
     /// The panel and the log row read the same number.
     ///

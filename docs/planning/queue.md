@@ -808,12 +808,14 @@ variants. Also found in that regen:
     portrait-less props and effects re-rendered as well. The freshness test
     required a portrait row, which a prop never has, so every prop
     re-rendered on every publish; that condition is removed, and the same
-    edit then published 13 and skipped 184: the 11 crew, and
-    `interdimensional_gate` (its `_portal_` and `_ring_` sheets) and
-    `shrine`, which re-render on every publish. Measured after the run:
-    `shrine` has no entry in `.cache/sheets` (its key is never stored), and
-    `interdimensional_gate`'s stored output digests all match the disk, so
-    its key differs between the check and the store (not measured why). The tack-on batch still took 230 s
+    edit then published 13 and skipped 184: the 11 crew,
+    `interdimensional_gate` (its `_portal_` and `_ring_` sheets) and one
+    target not identified. (`shrine` is not a batch target: the uncached
+    shrine-prop step draws it on every publish.) `interdimensional_gate`
+    is in one batch only, its stored output digests match the disk, and the
+    publish writes into no source of it, so why it is stale is not
+    measured; the next measurement is two publishes on one renderer
+    revision with its key printed at the check and at the store. The tack-on batch still took 230 s
     (231 s before): the crew's rigged sheets are its cost, so the fix
     saves renders and little time. Of a full
     publish, the cached batches are 1904 s (tack-ons 1646, late targets

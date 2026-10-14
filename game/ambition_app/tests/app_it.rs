@@ -164,6 +164,7 @@ mod input_stream_replay;
 mod input_stream_under_rollback;
 mod isolated_persistence;
 mod map_simulation;
+mod mary_o_archetype_census;
 mod mary_o_hud_surround;
 mod mary_o_lap_in_the_host;
 mod movement_axis;

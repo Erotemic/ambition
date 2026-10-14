@@ -265,6 +265,9 @@ type Staged = (Vec<(SchemaKey, Record)>, Vec<(PortKey, Box<dyn Any + Send + Sync
 
 /// The exclusive system for one phase.
 pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
+    // Kept from tick to tick: a new query state matches each archetype of the
+    // world, and that cost was up to 1.9% of all CPU on Android (2026-10-13).
+    let mut homes: Option<QueryState<Entity, With<SessionRecords>>> = None;
     move |world: &mut World| {
         let pending: Vec<PendingInvocation> = {
             let mut queue = world.resource_mut::<ExtensionInvocations>();
@@ -287,7 +290,8 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
         let dt = world.resource::<ambition_time::WorldTime>().sim_dt();
         // The one session store, when there is exactly one. Read once: no
         // entry spawns or removes a session.
-        let session = session_home(world);
+        let homes = homes.get_or_insert_with(|| world.query_filtered());
+        let session = session_home(world, homes);
         // A replayed tick ran before, and its faults were counted then.
         let replaying = world
             .get_resource::<ambition_sim_schedule::SimulationReplayState>()
@@ -526,8 +530,7 @@ fn reset_idle(world: &mut World, admitted: &Admitted, scope: Entity, writes: &[S
 }
 
 /// The entity that holds the session store: exactly one, or none usable.
-fn session_home(world: &mut World) -> Option<Entity> {
-    let mut homes = world.query_filtered::<Entity, With<SessionRecords>>();
+fn session_home(world: &World, homes: &mut QueryState<Entity, With<SessionRecords>>) -> Option<Entity> {
     let mut found = homes.iter(world);
     let first = found.next();
     // Two session stores is two sessions in one App: no record can say which.

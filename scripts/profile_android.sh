@@ -803,6 +803,18 @@ package_dir() {
     printf '%s\n' "$tarball"
 }
 
+# The clocks and the heat of the device, so two profiles can be compared. A
+# phone that is hot runs its CPU and GPU slower: the app then does the same
+# work in more CPU time, with fewer frames, and its profile looks the same.
+capture_clocks() {
+    local out_dir="$1" when="$2"
+    run_logged "$out_dir" "thermal-$when" "${adb_cmd[@]}" shell dumpsys thermalservice
+    run_logged "$out_dir" "cpufreq-$when" "${adb_cmd[@]}" shell \
+        'for c in /sys/devices/system/cpu/cpu[0-9]*; do echo "$(basename $c) cur=$(cat $c/cpufreq/scaling_cur_freq 2>/dev/null) max=$(cat $c/cpufreq/scaling_max_freq 2>/dev/null) hw_max=$(cat $c/cpufreq/cpuinfo_max_freq 2>/dev/null)"; done'
+    run_logged "$out_dir" "gpufreq-$when" "${adb_cmd[@]}" shell \
+        'for f in gpuclk max_gpuclk devfreq/cur_freq devfreq/max_freq temp; do echo "$f=$(cat /sys/class/kgsl/kgsl-3d0/$f 2>/dev/null)"; done'
+}
+
 main() {
     require_tool "$adb_bin"; require_tool python3
     local out_dir; out_dir="$(make_profile_dir "$mode")"
@@ -810,13 +822,15 @@ main() {
     prepare_app "$out_dir"
     case "$mode" in
         prepare) ;;
-        record) record_cpu "$out_dir" ;;
+        record) capture_clocks "$out_dir" before-record; record_cpu "$out_dir"; capture_clocks "$out_dir" after-record ;;
         heap) record_heap "$out_dir" ;;
         stat) run_stat "$out_dir" ;;
         gfxinfo) run_gfxinfo "$out_dir" ;;
         all)
             run_logged "$out_dir" gfxinfo-reset-before-record "${adb_cmd[@]}" shell dumpsys gfxinfo "$package" reset
+            capture_clocks "$out_dir" before-record
             record_cpu "$out_dir"
+            capture_clocks "$out_dir" after-record
             run_logged "$out_dir" gfxinfo-after-record "${adb_cmd[@]}" shell dumpsys gfxinfo "$package"
             run_logged "$out_dir" gfxinfo-framestats-after-record "${adb_cmd[@]}" shell dumpsys gfxinfo "$package" framestats
             run_stat "$out_dir"

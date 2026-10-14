@@ -133,11 +133,20 @@ type CameraFacts = (
 /// The active cameras that draw into a window, as [`incompatible_window_stacks`]
 /// reads them.
 pub fn window_cameras(world: &mut World) -> Vec<WindowCamera> {
-    let primary = world
-        .query_filtered::<Entity, With<PrimaryWindow>>()
-        .iter(world)
-        .next();
+    let mut primary = world.query_filtered::<Entity, With<PrimaryWindow>>();
     let mut cameras = world.query::<CameraFacts>();
+    window_cameras_in(world, &mut primary, &mut cameras)
+}
+
+/// [`window_cameras`] with query states the caller keeps. A system that runs
+/// each frame must keep them: a new query state matches each archetype of
+/// the world, and that cost was 0.5-0.8% of all CPU on Android (2026-10-13).
+fn window_cameras_in(
+    world: &World,
+    primary: &mut QueryState<Entity, With<PrimaryWindow>>,
+    cameras: &mut QueryState<CameraFacts>,
+) -> Vec<WindowCamera> {
+    let primary = primary.iter(world).next();
     cameras
         .iter(world)
         .filter(|(_, camera, ..)| camera.is_active)
@@ -176,8 +185,13 @@ pub fn window_cameras(world: &mut World) -> Vec<WindowCamera> {
 }
 
 /// Log every incompatible window stack once per change in the camera set.
-pub fn report_incompatible_window_stacks(world: &mut World, mut last: Local<Vec<String>>) {
-    let found: Vec<String> = incompatible_window_stacks(window_cameras(world))
+pub fn report_incompatible_window_stacks(
+    world: &mut World,
+    primary: &mut QueryState<Entity, With<PrimaryWindow>>,
+    cameras: &mut QueryState<CameraFacts>,
+    mut last: Local<Vec<String>>,
+) {
+    let found: Vec<String> = incompatible_window_stacks(window_cameras_in(world, primary, cameras))
         .iter()
         .map(ToString::to_string)
         .collect();

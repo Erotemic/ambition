@@ -1276,10 +1276,12 @@ publish_cached_batch() {
         done <<< "$records"
     fi
 
+    # A target with no portrait row declares no portraits (a prop, an effect):
+    # when the resolution fails, `records_ok` is 0. Requiring a row made all
+    # 74 such targets stale on every run (measured 2026-10-13).
     for target in "${candidates[@]}"; do
         key="$(unit_key "$target")"
         if [ "$records_ok" -eq 1 ] \
-            && [ -n "${portrait_records[$target]-}" ] \
             && sheet_cache_fresh "$target" "$key" "${install_records[$target]-}"; then
             portraits_ok=1
             while IFS= read -r rel; do

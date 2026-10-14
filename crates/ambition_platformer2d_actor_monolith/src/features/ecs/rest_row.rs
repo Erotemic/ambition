@@ -22,36 +22,49 @@ const TICK_S: f32 = 1.0 / 60.0;
 
 /// Pin the rest row of each body whose character states one. (sim)
 ///
-/// A body is left as it is when another row is pinned on it. A body whose
-/// character states no rest row and that still has one pinned by this system
-/// (it wore such a look and changed) is unpinned.
+/// The rest row is a fallback. A body is left as it is while another row is
+/// pinned on it, whichever system pinned first: the pin is this system's only
+/// while it holds the row this system wrote. When the other system clears its
+/// pin, the rest row comes back. A body whose character states no rest row and
+/// that still has one pinned by this system (it wore such a look and changed)
+/// is unpinned.
 pub fn pin_rest_rows(
     tick: Res<SimTick>,
     catalog: Res<CharacterCatalog>,
-    mut bodies: Query<(&WornCharacter, Option<&mut PinnedRow>, Option<&RestRowPinned>, Entity)>,
+    mut bodies: Query<(&WornCharacter, Option<&mut PinnedRow>, Option<&mut RestRowPinned>, Entity)>,
     mut commands: Commands,
 ) {
     let elapsed = tick.get() as f32 * TICK_S;
     for (worn, pinned, ours, entity) in &mut bodies {
+        // The pin holds what this system wrote, and nothing replaced it.
+        let holds_ours = |pinned: &PinnedRow| {
+            ours.as_ref().is_some_and(|ours| pinned.rows.len() == 1 && pinned.rows[0] == ours.0)
+        };
         match (catalog.rest_row(worn.id()), pinned) {
             // A body that no conductor draws has no pin yet: it gets one.
             (Some(row), None) => {
                 let mut pin = PinnedRow::default();
                 pin.pin(&[row], elapsed, true);
-                commands.entity(entity).try_insert((pin, RestRowPinned));
+                commands.entity(entity).try_insert((pin, RestRowPinned(row.to_string())));
             }
-            (Some(row), Some(mut pinned)) if ours.is_some() || !pinned.is_pinned() => {
+            (Some(row), Some(mut pinned)) if holds_ours(&pinned) || !pinned.is_pinned() => {
                 pinned.pin(&[row], elapsed, true);
-                if ours.is_none() {
-                    commands.entity(entity).try_insert(RestRowPinned);
+                match ours {
+                    Some(mut ours) if ours.0 != row => ours.0 = row.to_string(),
+                    Some(_) => {}
+                    None => {
+                        commands.entity(entity).try_insert(RestRowPinned(row.to_string()));
+                    }
                 }
             }
             (Some(_), Some(_)) => {}
             (None, pinned) => {
-                if ours.is_some() {
-                    if let Some(mut pinned) = pinned {
+                if let Some(mut pinned) = pinned {
+                    if holds_ours(&pinned) {
                         pinned.clear();
                     }
+                }
+                if ours.is_some() {
                     commands.entity(entity).try_remove::<RestRowPinned>();
                 }
             }
@@ -59,12 +72,13 @@ pub fn pin_rest_rows(
     }
 }
 
-/// The pin on this body is its rest row, put there by [`pin_rest_rows`].
+/// The rest row [`pin_rest_rows`] last wrote on this body. The pin is that
+/// system's only while it holds this row.
 ///
 /// Not snapshot state: it is derived again on the next tick from the worn
 /// character and the pin, as the pin is.
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct RestRowPinned;
+#[derive(Component, Clone, Debug, Default)]
+pub struct RestRowPinned(pub String);
 
 #[cfg(test)]
 mod tests {
@@ -128,5 +142,62 @@ mod tests {
         *app.world_mut().get_mut::<WornCharacter>(whole).expect("the body") = WornCharacter::new("giant");
         app.update();
         assert!(rows(&app, whole).is_empty(), "the rest row of a look the body no longer wears stayed");
+    }
+
+    /// A conductor that pins `attack` while the fight asks it to, and clears
+    /// its pin when the fight releases it.
+    #[derive(Resource, Default)]
+    struct Attacking(bool);
+
+    fn conductor(attacking: Res<Attacking>, mut pins: Query<&mut PinnedRow, With<WornCharacter>>) {
+        for mut pin in &mut pins {
+            if attacking.0 {
+                pin.pin(&["attack"], 0.0, false);
+            } else if pin.rows == ["attack"] {
+                pin.clear();
+            }
+        }
+    }
+
+    /// The rest row first, then a conductor's row, then the release: the
+    /// conductor's row is drawn until it is released, and then the rest row
+    /// comes back on the clock of the tick, in both orders of the two writers.
+    /// The marker of the rest row once made it write over a later pin.
+    #[test]
+    fn a_pin_made_after_the_rest_row_holds_until_it_is_released() {
+        for conductor_runs_first in [true, false] {
+            let mut app = App::new();
+            app.insert_resource(catalog());
+            app.init_resource::<SimTick>();
+            app.init_resource::<Attacking>();
+            if conductor_runs_first {
+                app.add_systems(Update, (conductor, pin_rest_rows).chain());
+            } else {
+                app.add_systems(Update, (pin_rest_rows, conductor).chain());
+            }
+            let body = app.world_mut().spawn(WornCharacter::new("giant_whole")).id();
+            let rows = |app: &App| app.world().get::<PinnedRow>(body).expect("a pin").rows.clone();
+            app.update();
+            app.update();
+            assert_eq!(rows(&app), ["armed_rest"], "the premise: the rest row is pinned");
+
+            app.world_mut().resource_mut::<Attacking>().0 = true;
+            for _ in 0..3 {
+                app.update();
+                assert_eq!(rows(&app), ["attack"], "the rest row wrote over the conductor's pin (conductor first: {conductor_runs_first})");
+            }
+
+            app.world_mut().resource_mut::<Attacking>().0 = false;
+            app.update();
+            if !conductor_runs_first {
+                // The conductor cleared after the rest row ran; the next tick restores it.
+                app.update();
+            }
+            *app.world_mut().resource_mut::<SimTick>() = SimTick(120);
+            app.update();
+            let pin = app.world().get::<PinnedRow>(body).expect("a pin");
+            assert_eq!(pin.rows, ["armed_rest"], "the rest row did not come back after the release");
+            assert_eq!(pin.elapsed, 120.0 * TICK_S, "the rest row is not on the clock of the tick, so a rewind would draw another frame");
+        }
     }
 }

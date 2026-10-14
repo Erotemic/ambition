@@ -28,7 +28,7 @@
 // DAMAGE IS THE ONE NUMBER WITH TWO MEANINGS. Here it is Ambition's damage,
 // which is health: an ordinary tilt or aerial deals 1 and only the smash
 // attacks deal 3 or more, so a smash attack is the robot's heavy hit
-// (`AMBITION_HEAVY_HIT_DAMAGE`). On a Smash stage damage is percent, and the
+// (`heavy_hit_damage` in `data/room_rules.ron`). On a Smash stage damage is percent, and the
 // robot's percent for each move is in its platform-fighter facet,
 // `data/fighters/player_robot_v3.ron`. Change a move's damage in the game you
 // are balancing, and only there.

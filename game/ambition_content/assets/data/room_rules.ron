@@ -1,0 +1,14 @@
+// The rules of Ambition's own rooms (schema `room_rules`).
+// An absent field declares no rule, and the engine's answer applies.
+(
+    // A death puts the level back at once when no participant remains.
+    replay_level_after_death_s: Some(0.0),
+    // Damage here is health: ordinary tilts and aerials deal 1, and a smash
+    // attack deals 3. A hit of 3 or more lands heavy.
+    heavy_hit_damage: Some(3),
+    // A move's landing lag is written for a platform fighter, where a missed
+    // aerial costs its owner (the robot's down air owes 0.28 s). In Ambition a
+    // body that lands moves again at once (Jon, 2026-10-12: "landing lag should
+    // be significantly lowered"). A quarter leaves the down air 0.07 s.
+    landing_lag_share: Some(0.25),
+)

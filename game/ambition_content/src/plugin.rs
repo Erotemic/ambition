@@ -98,6 +98,18 @@ impl Plugin for AmbitionContentPlugin {
             );
         }
 
+        // The rules of Ambition's own rooms. `UntaggedRooms`: in the multi-game
+        // host, each hosted game tags its rooms with its mode and states its
+        // own rules there, so a Smash stage does not inherit "put the level
+        // back" (ADR 0033).
+        ambition_combat::room_rules::declare_room_rules(
+            app,
+            ambition_combat::scoped_rules::RulesScope::UntaggedRooms,
+            ambition_combat::room_rules::lowered_room_rules(&pack)
+                .copied()
+                .expect("Ambition's pack has a `room_rules` source, and a pack that compiles lowers it"),
+        );
+
         // Spectator duel staging is room-construction content.
         app.init_resource::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>();
         super::duel_arena::register_duel_content_staging(

@@ -4390,3 +4390,125 @@ fn the_pinned_prefix_ends_at_the_current_step() {
         "the current objective was rewritten under a player standing on it"
     );
 }
+
+// ---------------------------------------------------------------------------
+// The rules of Ambition's own rooms (`room_rules`): a feel number that was a
+// Rust constant in the app, so an edit to it was a relink and a restart.
+// ---------------------------------------------------------------------------
+
+const ROOM_RULES_PATH: &str = "data/room_rules.ron";
+
+fn pack_with_room_rules(edit: impl Fn(&str) -> String) -> ambition_content_pack::PreparedContentPack {
+    let mut edited = false;
+    let pack = crate::pack::compile_pack_with(|declared, text| {
+        if declared != ROOM_RULES_PATH {
+            return text;
+        }
+        let out = edit(&text);
+        edited = out != text;
+        out
+    })
+    .expect("the edited pack compiles");
+    assert!(
+        edited,
+        "the edit did not change `{ROOM_RULES_PATH}`, so the candidate is the shipped pack and this witness would pass vacuously"
+    );
+    pack
+}
+
+fn untagged<T: Clone + std::fmt::Debug + Send + Sync + 'static>(world: &bevy::ecs::world::World) -> Option<T> {
+    world
+        .get_resource::<ambition_combat::scoped_rules::DeclaredRules<T>>()?
+        .governing(ambition_combat::scoped_rules::ActiveRoom::Untagged)
+}
+
+fn reload_to(app: &mut bevy::app::App, candidate: ambition_content_pack::PreparedContentPack) {
+    let live = live_pack(app);
+    let candidate = std::sync::Arc::new(candidate);
+    assert_eq!(
+        ambition_content_pack::changed_domains(&live, &candidate)
+            .iter()
+            .map(|s| s.0.as_str())
+            .collect::<Vec<_>>(),
+        vec!["room_rules"],
+        "the premise: ONLY the room rules changed"
+    );
+    assert!(
+        matches!(
+            request_reload(
+                app.world_mut(),
+                ambition_content_pack::CandidateGeneration::prepared_against(
+                    std::sync::Arc::clone(&candidate),
+                    Some(live.fingerprint),
+                ),
+            ),
+            ReloadRequest::Requested { .. }
+        ),
+        "a room-rules candidate was not accepted as a request"
+    );
+    let mine = a_preparation_for(app, "shell.game.1");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+}
+
+fn host_with_the_shipped_room_rules() -> bevy::app::App {
+    let mut app = host_with_the_shipped_cast();
+    ambition_combat::room_rules::restate_room_rules(
+        app.world_mut(),
+        ambition_combat::scoped_rules::RulesScope::UntaggedRooms,
+        ambition_combat::room_rules::lowered_room_rules(crate::pack::shipped()),
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation).chain(),
+    );
+    app
+}
+
+/// An edit to the landing-lag share reaches Ambition's rooms at the
+/// activation, with no build. The death rule is in the same file and is not
+/// edited: it is the control, and it must not move.
+#[test]
+fn an_edit_to_the_landing_lag_share_reaches_ambitions_rooms_without_a_build() {
+    use ambition_combat::death_rules::DeathRules;
+    use ambition_combat::landing_lag::LandingLagRules;
+    let mut app = host_with_the_shipped_room_rules();
+    assert_eq!(
+        untagged::<LandingLagRules>(app.world()),
+        Some(LandingLagRules::scaled_by(0.25)),
+        "the premise: the shipped share governs Ambition's rooms"
+    );
+    let death_before = untagged::<DeathRules>(app.world());
+    assert!(death_before.is_some(), "the premise: the shipped file states a death rule");
+
+    reload_to(
+        &mut app,
+        pack_with_room_rules(|text| text.replacen("landing_lag_share: Some(0.25)", "landing_lag_share: Some(0.5)", 1)),
+    );
+
+    assert_eq!(
+        untagged::<LandingLagRules>(app.world()),
+        Some(LandingLagRules::scaled_by(0.5)),
+        "the route activated and the landing-lag share stayed at generation N"
+    );
+    assert_eq!(untagged::<DeathRules>(app.world()), death_before, "a rule the edit did not touch moved");
+}
+
+/// Absent in the candidate means remove: a rule deleted from the file is no
+/// longer declared, and the engine's undeclared answer applies. A road that
+/// only inserts would keep the old heavy line.
+#[test]
+fn a_rule_deleted_from_the_file_is_no_longer_declared() {
+    use ambition_combat::strike_weight::StrikeWeightRules;
+    let mut app = host_with_the_shipped_room_rules();
+    assert_eq!(untagged::<StrikeWeightRules>(app.world()), Some(StrikeWeightRules::heavy_at(3)));
+
+    reload_to(
+        &mut app,
+        pack_with_room_rules(|text| text.replacen("heavy_hit_damage: Some(3),", "", 1)),
+    );
+
+    assert_eq!(untagged::<StrikeWeightRules>(app.world()), None);
+}

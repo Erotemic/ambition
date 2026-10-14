@@ -106,7 +106,7 @@ swing art is better; Ambition charges much less landing lag.
   measures from the frame of the press, through two swings.
 - **Landing lag.** `LandingLagRules` (`ambition_combat::landing_lag`), a
   rule each game declares: Ambition charges 0.25 of each move's landing lag
-  (`AMBITION_LANDING_LAG_SHARE`). At home only `air_down` (0.28 s, now
+  (`landing_lag_share` in `room_rules.ron`). At home only `air_down` (0.28 s, now
   0.07 s) and `stabilizer_dive` (0.3 s) state one. The Smash game declares
   none and charges each move's own.
 

@@ -57,6 +57,10 @@ pub mod ledge_trump;
 pub mod moveset;
 pub mod on_hit;
 pub mod path_motion;
+/// The `room_rules` schema this capability owns. Behind `content_pack`, as
+/// the fighter ladder's is.
+#[cfg(feature = "content_pack")]
+pub mod room_rules;
 pub mod rules;
 mod snapshot_impls;
 pub mod scoped_rules;

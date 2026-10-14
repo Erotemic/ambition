@@ -71,6 +71,9 @@ the way in its own slice:
 [REVIEW-1011](#review-1011--five-boundaries-where-one-subsystem-reconstructs-anothers-fact)
 rows.
 
+Correctness interrupts from the 2026-10-14 review:
+[REVIEW-1014](#review-1014---sprite-cache-dependencies-and-rest-row-precedence-from-the-2026-10-14-review).
+
 Correctness interrupts from the 2026-10-13 review:
 [REVIEW-1013](#review-1013---frame-and-acceptance-gaps-from-the-2026-10-13-review)
 (items 1, 2 and 4 done; 3 open).
@@ -109,9 +112,17 @@ host relink (7.05 s in M0) and a restart is content written as Rust. A data
 source read off disk costs about 0.4 s and reloads live. The candidates, by
 value for a designer and size of change:
 
-1. Ambition's room rules: the landing-lag share 0.25, heavy-hit damage 3,
-   the death replay delay (`game/ambition_app/src/app/plugins.rs`). They
-   belong in the `feel:` block of `platformer_defaults.ron`, which reloads.
+1. ✅ 2026-10-14, Ambition's room rules: the death replay, the heavy-hit
+   line and the landing-lag share are the pack source `data/room_rules.ron`
+   (schema `room_rules`, owned by `ambition_combat::room_rules`). The content
+   plugin declares them for Ambition's untagged rooms and a reload restates
+   them; the three Rust declarations in `ambition_app` are deleted.
+   Witnesses: `an_edit_to_the_landing_lag_share_reaches_ambitions_rooms_without_a_build`,
+   `a_rule_deleted_from_the_file_is_no_longer_declared` (both red with the
+   publisher emptied), and the schema's refusals name the file and the field.
+   Open: Sanic, Mary-O and Smash still declare their room rules in Rust (one
+   line each; the same schema takes them). The versus stage's heavy line (3)
+   is Rust beside `versus_combat_rules`.
 2. Smash knockback curve, match body and match economy
    (`game/ambition_demo_smash/src/lib.rs`): about 40 numbers, with hand
    sweep tables in their comments. A `smash_rules` pack source.
@@ -125,17 +136,54 @@ value for a designer and size of change:
 5. Demo stages built in Rust (Smash, Twintrack).
 6. Duplicate authority: `ITEM_META` in `ambition_items` is byte-equal to
    `items.ron` (Q104 scaffolding).
+7. A new source line in a pack's `pack.ron` needs a Rust entry beside it
+   (`embedded_sources` in `game/ambition_content/src/pack.rs`, one constant
+   pair for each source), so adding a file to a pack is a build even in a
+   development build that reads every source off disk.
 
 Not here: the boss and Mary-O modules' tuning constants. They are on the
 module road (a 0.34 s WASM rebuild and a live reload).
 
-**Next action:** item 1, then item 2.
+**Next action:** item 2, then item 7.
 
 **Blocked by:** nothing.
 
 **Acceptance:** for each item, an edit to the data reaches the game with no
 Cargo build (measured), a malformed value is refused at admission with the
 file and field named, and the Rust copy is deleted.
+
+### REVIEW-1014 - sprite cache dependencies and rest-row precedence from the 2026-10-14 review
+
+**Owner:** the sprite publish (`scripts/regen/sprites.sh`) and
+`ambition_platformer2d_actor_monolith::features::ecs::rest_row`. Review of
+`80116a77b..d450b0220`.
+
+1. **P1, the cache key misses a target's authored files.** A target that
+   reads another target's art (`gnu_ton_scholar_fighter.rig.json` reads
+   `gnu_ton_scholar_villain.svg`) or a nested rig document
+   (`player_robot_v3_back`) keeps its key when that file changes. The key
+   guessed data by name (a rig at `rigged/<name>.rig.json`,
+   `data/characters/<name>/`). Next: each target renders in a fresh process
+   that records the authored files it opens; the key hashes that record.
+   Acceptance: an edit to a shared SVG makes each target that read it stale
+   and no other.
+2. ✅ **P2, the rest row wrote over a later pin.** `pin_rest_rows` re-pinned
+   its row whenever its marker was present, so a conductor that pinned after
+   it lost its row on the next tick. The rest row is now a fallback: the pin
+   is the system's only while it holds the row the system wrote
+   (`a_pin_made_after_the_rest_row_holds_until_it_is_released`, both writer
+   orders and the release; red with the old condition put back).
+3. **Measure first:** the background warm-up of every rig table
+   (`RiggedSpriteAsset::warm_baked_in_background`): peak and retained memory
+   with and without it, cold and warm frame stalls, desktop and Android.
+4. **Acceptance by a person:** the robot's crouch, turn, double jump and
+   back view in play; the new Hall and sandbox characters; the MSAA quality
+   change on a real GPU.
+
+**Blocked by:** nothing for 1-3. Item 4 needs a person at the game.
+
+**Acceptance:** item 1 and 2 each have a witness that fails without the fix;
+item 3 has a measurement in the owner page before any design change.
 
 ### REVIEW-1013 - frame and acceptance gaps from the 2026-10-13 review
 

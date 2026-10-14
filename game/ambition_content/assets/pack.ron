@@ -73,6 +73,9 @@
         (path: "data/fighters/npc_gnu_ton.ron", schema: "smash_fighter", version: 1),
         (path: "data/fighters/npc_ramen_nujan.ron", schema: "smash_fighter", version: 1),
         (path: "data/encounters/goblin_encounter.ron", schema: "encounter_waves", version: 1),
+        // The rules of Ambition's own rooms: the death replay, which hits land
+        // heavy, and how much landing lag a move charges.
+        (path: "data/room_rules.ron", schema: "room_rules", version: 1),
         // Nine difficulty rungs.  authored since 2026-07 and read by NOTHING until
         // this line: the engine floor (`for_level`) was consulted instead, so every
         // rung scored moves with the level-9 weight set.

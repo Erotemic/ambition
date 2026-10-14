@@ -714,6 +714,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         publish: publish_fighter_ladder,
     },
     PackDerivedFamily {
+        domain: ambition_combat::room_rules::ROOM_RULES_SCHEMA,
+        publish: publish_room_rules,
+    },
+    PackDerivedFamily {
         domain: ambition_encounter::content_schema::ENCOUNTER_WAVES_SCHEMA,
         publish: publish_encounter_waves,
     },
@@ -910,6 +914,20 @@ fn publish_fighter_ladder(
             DeclaredRules::<ambition_characters::brain::fighter::FighterBrainLadder>::default,
         )
         .restate(RulesScope::EveryRoom, ladder);
+}
+
+/// Absent in the candidate means remove: each rule falls back to the engine's
+/// answer for an undeclared rule. Only Ambition's own rooms are restated, as
+/// the plugin declared them.
+fn publish_room_rules(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    ambition_combat::room_rules::restate_room_rules(
+        world,
+        ambition_combat::scoped_rules::RulesScope::UntaggedRooms,
+        ambition_combat::room_rules::lowered_room_rules(pack),
+    );
 }
 
 /// Absent in the candidate means remove. `ItemCatalogRead` treats an absent

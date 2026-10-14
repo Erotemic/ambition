@@ -135,9 +135,9 @@ pub fn add_simulation_plugins(app: &mut App) {
         ambition_content::register_rollback_state(&mut registrar);
     }
 
-    declare_ambition_death_rules(app);
-    declare_ambition_strike_weight(app);
-    declare_ambition_landing_lag(app);
+    // The rules of Ambition's own rooms (death replay, heavy hits, landing
+    // lag) are content: `AmbitionContentPlugin` declares them from the pack's
+    // `room_rules` source, and a reload restates them.
 
     // App-LOCAL residue the E5 step-5 carve deliberately left behind. The
     // engine group above registers the shared per-frame wiring (player input
@@ -153,73 +153,6 @@ pub fn add_simulation_plugins(app: &mut App) {
     // direct-entry session root from the same immutable prepared-content path
     // used by shell activation.
     // PROBE-K2B-EDIT2: deleted
-}
-
-/// Ambition's own answer to *"what happens when the last participant dies"*.
-///
-/// ⛔⛤ **THIS IS ITS OWN FUNCTION BECAUSE IT SPENT AN AFTERNOON INSIDE A DEBUG
-/// FEATURE'S BLOCK AND WAS DELETED WITH IT.** The declaration used to sit under
-/// a `// ── Brain-driven player clone (press K) ──` banner in
-/// `register_app_local_sim_systems`, purely because the clone was the first body
-/// that made the rule observable. `89d78a4a5` deleted the clone — correctly, its
-/// trigger collided with two shipped input presets — and took the production
-/// death rules with it, leaving the untagged rooms with no declaration, so
-/// they read `DeathRules::default()`, which is `LevelReset::Never`. Ordinary Ambition
-/// rooms stopped putting the level back when the last participant died. A
-/// declaration parked inside a feature's braces is a declaration scheduled for
-/// deletion, so it now has a call site nothing can accidentally take with it.
-///
-/// `UntaggedRooms`, not the whole binary. This app is composed into the
-/// multi-game shell host beside Sanic, Mary-O and Smash, and each of those tags
-/// its rooms with its own mode. Ambition's own rooms carry no tag, so
-/// `UntaggedRooms` is exactly the set these rules are about — and a Smash stage
-/// no longer inherits *"put the level back"* from whichever provider happened to
-/// be built last. Exploration's answer is no interlude and the room goes back
-/// when nobody is left in play (ADR 0033).
-///
-/// Held by `the_host_composes_three_games_each_scoped_to_its_own_rooms`
-/// (`game/ambition_app/tests/a_game_governs_only_its_own_rooms.rs`), which
-/// asserts the composed host declares all three scopes. That witness was
-/// already shipped and already correct when the deletion landed; what was
-/// missing was a Rust run between the deletion and the branch.
-fn declare_ambition_death_rules(app: &mut App) {
-    use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
-    app.declare_rules(
-        ambition_platformer2d::combat::scoped_rules::RulesScope::UntaggedRooms,
-        ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0),
-    );
-}
-
-/// The least damage a hit deals to land HEAVY in Ambition's rooms. Damage here
-/// is health: ordinary tilts and aerials deal 1, and 3 is a smash attack.
-pub const AMBITION_HEAVY_HIT_DAMAGE: i32 = 3;
-
-/// Which of Ambition's hits land heavy (`ambition_combat::strike_weight`).
-/// Its own rule for its own rooms, as the death rules above are; a hosted game
-/// states its own line for its rooms.
-fn declare_ambition_strike_weight(app: &mut App) {
-    use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
-    app.declare_rules(
-        ambition_platformer2d::combat::scoped_rules::RulesScope::UntaggedRooms,
-        ambition_platformer2d::combat::strike_weight::StrikeWeightRules::heavy_at(
-            AMBITION_HEAVY_HIT_DAMAGE,
-        ),
-    );
-}
-
-/// The share of a move's landing lag that Ambition charges. A move's lag is
-/// written for a platform fighter, where a missed aerial is to cost its owner
-/// (the robot's down air owes 0.28 s). Ambition is not that game: a body that
-/// lands is to move again at once (Jon, 2026-10-12: "landing lag should be
-/// significantly lowered"). A quarter leaves the down air 0.07 s, four ticks.
-pub const AMBITION_LANDING_LAG_SHARE: f32 = 0.25;
-
-fn declare_ambition_landing_lag(app: &mut App) {
-    use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
-    app.declare_rules(
-        ambition_platformer2d::combat::scoped_rules::RulesScope::UntaggedRooms,
-        ambition_platformer2d::combat::landing_lag::LandingLagRules::scaled_by(AMBITION_LANDING_LAG_SHARE),
-    );
 }
 
 fn register_app_local_sim_systems(app: &mut App) {

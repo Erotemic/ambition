@@ -26,6 +26,7 @@ const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
 const ITEMS_SOURCE_PATH: &str = "data/items.ron";
 const QUESTS_SOURCE_PATH: &str = "data/quests.ron";
 const FIGHTER_BRAIN_LADDER_SOURCE_PATH: &str = "data/fighter_brain_ladder.ron";
+const ROOM_RULES_SOURCE_PATH: &str = "data/room_rules.ron";
 const MUSIC_REGISTRY_SOURCE_PATH: &str = "audio/music_registry.ron";
 const SFX_REGISTRY_SOURCE_PATH: &str = "audio/sfx_registry.ron";
 const MUSIC_CUES_SOURCE_PATH: &str = "audio/music_cues.ron";
@@ -221,6 +222,12 @@ const FIGHTER_BRAIN_LADDER_RON_STATIC: Option<&'static str> =
 #[cfg(not(feature = "static_content"))]
 const FIGHTER_BRAIN_LADDER_RON_STATIC: Option<&'static str> = None;
 
+/// The rules of Ambition's own rooms, gated like the ladder.
+#[cfg(feature = "static_content")]
+const ROOM_RULES_RON_STATIC: Option<&'static str> = Some(include_str!("../assets/data/room_rules.ron"));
+#[cfg(not(feature = "static_content"))]
+const ROOM_RULES_RON_STATIC: Option<&'static str> = None;
+
 /// One declared source's text: embedded when this build baked it in, otherwise
 /// read from the same file off disk.
 ///
@@ -282,6 +289,7 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
             FIGHTER_BRAIN_LADDER_SOURCE_PATH.to_string(),
             source_text(FIGHTER_BRAIN_LADDER_SOURCE_PATH, FIGHTER_BRAIN_LADDER_RON_STATIC),
         ),
+        (ROOM_RULES_SOURCE_PATH.to_string(), source_text(ROOM_RULES_SOURCE_PATH, ROOM_RULES_RON_STATIC)),
         (
             crate::bosses::BOSS_PROFILES_SOURCE_PATH.to_string(),
             crate::bosses::boss_profiles_ron(),

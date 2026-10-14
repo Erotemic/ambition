@@ -842,13 +842,12 @@ fn declare_versus_rules(app: &mut App) {
         ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(VERSUS_EXPERIENCE),
         versus_combat_rules(),
     );
-    // The versus stage keeps each fighter's home damage (health), so its hits
-    // land heavy where Ambition's do.
+    // The versus stage keeps each fighter's home damage (health), so a hit of
+    // 3 lands heavy, as in Ambition's rooms (`heavy_hit_damage` in the pack's
+    // `room_rules.ron`). Rust, like `versus_combat_rules` (queue CONTENT-AS-DATA).
     app.declare_rules(
         ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(VERSUS_EXPERIENCE),
-        ambition_platformer2d::combat::strike_weight::StrikeWeightRules::heavy_at(
-            super::plugins::AMBITION_HEAVY_HIT_DAMAGE,
-        ),
+        ambition_platformer2d::combat::strike_weight::StrikeWeightRules::heavy_at(3),
     );
 }
 

@@ -1,0 +1,139 @@
+// Ambition's cast voiceprints (schema `dialogue_voiceprints`, owned by the
+// audio capability): the dialogue blip each speaker label or dialogue id
+// resolves to. Exact keys are checked first, then aliases, in row order: the
+// first row whose alias a label contains wins. Admission refuses a key that
+// two cues claim, and an exact key that hides another cue's alias. An edit
+// here is played at the next start (and on a content reload), with no Rust
+// build.
+[
+    (
+        cue: "dialogue.blip.alice",
+        exact: ["alice", "hall_npc_alice"],
+        aliases: ["alice"],
+    ),
+    (
+        cue: "dialogue.blip.architect",
+        exact: ["architect", "architect_npc", "hall_architect"],
+        aliases: ["architect"],
+    ),
+    (
+        cue: "dialogue.blip.bob",
+        exact: ["bob", "hall_npc_bob"],
+        aliases: ["bob"],
+    ),
+    (
+        cue: "dialogue.blip.creator",
+        // The alias `creator` matches any label that contains it, so these
+        // exact keys add little: a wrong one here would not be noticed.
+        exact: ["creator", "hall_npc_creator"],
+        aliases: ["creator"],
+    ),
+    (
+        cue: "dialogue.blip.dark_lord",
+        exact: ["dark_lord", "hall_npc_dark_lord"],
+        aliases: ["dark_lord"],
+    ),
+    (
+        cue: "dialogue.blip.gate_janitor",
+        exact: ["gate_janitor", "hall_npc_gate_janitor"],
+        aliases: ["gate_janitor"],
+    ),
+    (
+        cue: "dialogue.blip.goblin_chieftain",
+        exact: ["goblin_chieftain", "fretjaw", "fretjaw_cantina_chieftain"],
+        aliases: ["goblin", "chieftain", "fretjaw"],
+    ),
+    (
+        cue: "dialogue.blip.hand_saint",
+        exact: ["hand_saint"],
+        aliases: ["hand_saint"],
+    ),
+    (
+        cue: "dialogue.blip.kernel_guide",
+        exact: ["kernel_guide", "kernel_guide_npc", "hall_npc_kernel_guide"],
+        aliases: ["kernel"],
+    ),
+    (
+        cue: "dialogue.blip.manifest_clerk",
+        exact: ["manifest_clerk", "hall_npc_manifest_clerk"],
+        aliases: ["manifest_clerk"],
+    ),
+    (
+        cue: "dialogue.blip.merchant_prototype",
+        exact: [
+            "merchant_prototype",
+            "merchant_prototype_npc",
+            "hall_npc_merchant_prototype",
+        ],
+        aliases: ["merchant"],
+    ),
+    (
+        cue: "dialogue.blip.military_general",
+        exact: [
+            "military_general",
+            "general",
+            "general_hero",
+            "hall_npc_general",
+        ],
+        aliases: ["general"],
+    ),
+    (
+        cue: "dialogue.blip.news_board",
+        exact: ["news_board", "drain_market_bulletin"],
+        aliases: ["news", "bulletin"],
+    ),
+    (
+        cue: "dialogue.blip.ninja",
+        exact: ["ninja"],
+        aliases: ["ninja", "shadow", "oni", "duelist"],
+    ),
+    (
+        cue: "dialogue.blip.oiler",
+        exact: ["oiler", "hall_npc_oiler"],
+        aliases: ["oiler"],
+    ),
+    (
+        cue: "dialogue.blip.pirate",
+        exact: ["pirate", "pirate_admiral", "admiral", "hall_pirate_admiral"],
+        aliases: [
+            "pirate",
+            "admiral",
+            "quartermaster",
+            "navigator",
+            "lookout",
+            "raider",
+            "broadside",
+            "iron_mary",
+            "salt_annet",
+        ],
+    ),
+    (
+        cue: "dialogue.blip.pulse_voyager",
+        exact: [
+            "pulse_voyager",
+            "captain_pulse",
+            "hall_npc_pulse_voyager_captain",
+        ],
+        aliases: ["pulse"],
+    ),
+    (
+        cue: "dialogue.blip.robot",
+        exact: ["robot", "hall_robot"],
+        aliases: ["robot", "automaton", "synthetic", "smart_house"],
+    ),
+    (
+        cue: "dialogue.blip.tech_bro",
+        exact: ["tech_bro", "chadwick_iii", "chadwick_disruptor_iii"],
+        aliases: ["tech", "chadwick"],
+    ),
+    (
+        cue: "dialogue.blip.vault_keeper",
+        exact: ["vault_keeper", "vault_keeper_npc", "hall_npc_vault_keeper"],
+        aliases: ["vault_keeper"],
+    ),
+    (
+        cue: "dialogue.blip.weird_hermit",
+        exact: ["weird_hermit"],
+        aliases: ["weird_hermit", "hermit"],
+    ),
+]

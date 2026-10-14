@@ -76,6 +76,8 @@
         // The rules of Ambition's own rooms: the death replay, which hits land
         // heavy, and how much landing lag a move charges.
         (path: "data/room_rules.ron", schema: "room_rules", version: 1),
+        // The voice each speaker of the cast speaks with.
+        (path: "data/dialogue_voiceprints.ron", schema: "dialogue_voiceprints", version: 1),
         // Nine difficulty rungs.  authored since 2026-07 and read by NOTHING until
         // this line: the engine floor (`for_level`) was consulted instead, so every
         // rung scored moves with the level-9 weight set.

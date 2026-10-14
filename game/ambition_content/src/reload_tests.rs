@@ -4512,3 +4512,55 @@ fn a_rule_deleted_from_the_file_is_no_longer_declared() {
 
     assert_eq!(untagged::<StrikeWeightRules>(app.world()), None);
 }
+
+/// A reload that changes only the cast's voiceprints publishes the voice
+/// catalog at the activation, and the running dialogue resolves the new voice.
+#[test]
+fn a_candidate_that_changes_only_voiceprints_publishes_the_voice_catalog() {
+    use ambition_sfx::voice::DialogueVoiceCatalog;
+    use ambition_sfx::SfxId;
+    const BOB: SfxId = SfxId::from_static("dialogue.blip.bob");
+    const ROBOT: SfxId = SfxId::from_static("dialogue.blip.robot");
+
+    let mut app = host_with_the_shipped_cast();
+    let live = live_pack(&app);
+    app.world_mut()
+        .insert_resource(ambition_audio::content_schema::lowered_voice_catalog(&live).expect("the shipped voices"));
+    let mut edited = false;
+    let candidate = std::sync::Arc::new(
+        crate::pack::compile_pack_with(|declared, text| {
+            if declared != "data/dialogue_voiceprints.ron" {
+                return text;
+            }
+            edited = true;
+            text.replacen(r#"cue: "dialogue.blip.bob","#, r#"cue: "dialogue.blip.robot","#, 1)
+        })
+        .unwrap_or_else(|failure| panic!("{}", failure.render())),
+    );
+    assert!(edited, "the edit reached no `dialogue_voiceprints` source");
+    let resolve_bob = |app: &bevy::app::App| app.world().resource::<DialogueVoiceCatalog>().resolve("Bob", "");
+    assert_eq!(resolve_bob(&app), Some(BOB), "control: generation N gives Bob his own voice");
+
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation).chain(),
+    );
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::clone(&candidate),
+            Some(live.fingerprint),
+        ),
+    );
+    assert!(
+        matches!(outcome, ReloadRequest::Requested { .. }),
+        "a voiceprints-only candidate was not requested; got {outcome:?}"
+    );
+    assert_eq!(resolve_bob(&app), Some(BOB), "the REQUEST published the voices; generation N stays until activation");
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+    assert_eq!(resolve_bob(&app), Some(ROBOT), "the activation did not publish the candidate's voices");
+}

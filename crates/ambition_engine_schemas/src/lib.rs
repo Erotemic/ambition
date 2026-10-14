@@ -40,6 +40,7 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
         ambition_audio::content_schema::music_registry_schema(),
         ambition_audio::content_schema::sfx_registry_schema(),
         ambition_audio::content_schema::music_cue_catalog_schema(),
+        ambition_audio::content_schema::dialogue_voiceprints_schema(),
         // Quests belong with the quest capability that registers them.
         ambition_persistence::quest::content_schema::quest_book_schema(),
         ambition_cutscene::content_schema::cutscene_library_schema(),

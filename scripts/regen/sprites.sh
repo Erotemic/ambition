@@ -1311,7 +1311,9 @@ publish_cached_batch() {
 
     [ "${#stale[@]}" -gt 0 ] || return 0
 
-    echo "  publishing ${#stale[@]} target(s) on ${AMBITION_SPRITE_JOBS} process(es)"
+    # Named, because `publish-many --quiet` names none of them, and a count
+    # alone cannot say why a sheet was stale.
+    echo "  publishing ${#stale[@]} target(s) on ${AMBITION_SPRITE_JOBS} process(es): ${stale[*]}"
     local published_list
     published_list="$(mktemp "${TMPDIR:-/tmp}/sprite-published.XXXXXX")"
     if run_renderer_python "publish-batch-$label" \

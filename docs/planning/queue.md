@@ -117,7 +117,8 @@ and a control.
 Found on the way, open for its author (the session of `047f37e92`,
 `27a90dba3`, `d7e82dfaf`, `Claude-Session: …017PmHh7VwJMuFrWZkxix2gB`):
 three repo tooling guards are red on main after the bubble shield and the
-behemoth's beam: `test_foreign_system_ordering` (78 edges, ceiling 76),
+behemoth's beam: `test_foreign_system_ordering` (78 edges, ceiling 76;
+81 at `4b8863b27`, so later commits add to it),
 `test_multi_writer_resources_are_adjudicated` and
 `test_resources_crossing_the_rewind_boundary`. Each judges the new
 systems, so the author decides. The two list entries (the behemoth's
@@ -808,8 +809,15 @@ variants. Also found in that regen:
     portrait-less props and effects re-rendered as well. The freshness test
     required a portrait row, which a prop never has, so every prop
     re-rendered on every publish; that condition is removed, and the same
-    edit then published 13 and skipped 184 (the 11 crew among the 13; the
-    other two are not identified). Of a full
+    edit then published 13 and skipped 184. The 11 crew are among the 13;
+    the other two are not identified, because `publish-many --quiet` names
+    no target. Of the 201 batch targets (`tackon_targets` and the rigs),
+    17 were not logged as skipped: the crew and `absurd_general`,
+    `dog_bezoar`, `dog_honey`, `dog_roadie`, `gnu_ton_boss`, `sandbag`
+    (some may not be registered). The batch line now names its stale
+    targets, so the next publish answers it. The tack-on batch still took 230 s
+    (231 s before): the crew's rigged sheets are its cost, so the fix
+    saves renders and little time. Of a full
     publish, the cached batches are 1904 s (tack-ons 1646, late targets
     258) and the uncached draw phases 1764 s (`draw-review` 916,
     `draw-all` 716, `draw-factions` 132). Those three re-render on every

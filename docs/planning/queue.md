@@ -813,8 +813,8 @@ variants. Also found in that regen:
     no target. Of the 201 batch targets (`tackon_targets` and the rigs),
     17 were not logged as skipped: the crew and `absurd_general`,
     `dog_bezoar`, `dog_honey`, `dog_roadie`, `gnu_ton_boss`, `sandbag`
-    (some may not be registered). Next: print the stale list before
-    `publish-many`, so a run names what it renders. The tack-on batch still took 230 s
+    (some may not be registered). The batch line now names its stale
+    targets, so the next publish answers it. The tack-on batch still took 230 s
     (231 s before): the crew's rigged sheets are its cost, so the fix
     saves renders and little time. Of a full
     publish, the cached batches are 1904 s (tack-ons 1646, late targets

@@ -165,8 +165,16 @@ value for a designer and size of change:
    temporary test, red on one edited value with no compile). Witness:
    `smashs_match_rules_are_its_match_rules_file` (red, at the roster's
    body, when the ruleset skips the pack's rules). Open: a live reload for
-   a demo pack (an edit is a restart today), and the versus stage's match
-   rules (`versus.rs`).
+   a demo pack (an edit is a restart today).
+   ✅ 2026-10-14, the versus stage's match rules: `assets/data/match_rules.ron`
+   in the versus pack (health rounds, no clock, no stocks, no fighter body,
+   and the duel's verb ceiling with no floor). `versus_roster_from` writes
+   the pack's rules and keeps only the item spawns. Deleted: the Rust
+   ruleset literal and `VERSUS_FIGHTER_KIT` (`versus_fighter_kit()` reads
+   `abilities.permitted`). Equal before the deletion (a temporary test, red
+   on one edited verb with no compile: 0.85 s). Witness:
+   `the_versus_roster_plays_its_match_rules_file` (red, at the ceiling, when
+   the roster skips the pack's rules).
    ✅ 2026-10-14, a game's own schemas, and the versus rounds: a rule that
    is the game's policy has a schema the game owns.
    `content_pack! { root: "assets", schemas: [..] }` compiles the pack

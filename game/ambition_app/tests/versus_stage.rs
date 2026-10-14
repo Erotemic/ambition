@@ -2661,7 +2661,7 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
 
 /// A CEILING NARROWS A KIT; IT CANNOT INVENT ONE.
 ///
-/// ⭐⭐ THE DUEL DECLARES `MatchAbilities::at_most(VERSUS_FIGHTER_KIT)`, which
+/// ⭐⭐ THE DUEL DECLARES `MatchAbilities::at_most(versus_fighter_kit())`, which
 /// grants nothing and permits that kit — `(authored ∪ NONE) ∩ kit`. That is the
 /// right operator and it has a silent edge: a character that authored NO
 /// abilities intersects to `AbilitySet::NONE` and arrives on the stage unable to
@@ -2669,7 +2669,7 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
 /// nothing" is a legal thing for a ceiling to conclude.
 ///
 /// ⛔ SO THE GUARD IS ON THE CAST, NOT ON THE OPERATOR. Both duellists dress
-/// themselves (`with_abilities(VERSUS_FIGHTER_KIT)`), and this asserts that the
+/// themselves (`with_abilities(versus_fighter_kit())`), and this asserts that the
 /// day somebody seats a third character here it is dressed too — which is the
 /// only moment the edge above is reachable.
 #[test]

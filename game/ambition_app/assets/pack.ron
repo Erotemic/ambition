@@ -21,6 +21,8 @@
         (path: "data/movesets/arena_duelist_close.ron", schema: "moveset", version: 1),
         // The rules of the stage's room: the combat rules and the heavy line.
         (path: "data/room_rules.ron", schema: "room_rules", version: 1),
+        // The rules of its matches: health rounds, no clock, the verb ceiling.
+        (path: "data/match_rules.ron", schema: "match_rules", version: 1),
         // The rules of its rounds: the wins that take the match, the holds,
         // the countdown.
         (path: "data/versus_rounds.ron", schema: "versus_rounds", version: 1),

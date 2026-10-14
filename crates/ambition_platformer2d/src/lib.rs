@@ -117,7 +117,15 @@ pub mod content {
     /// ```
     pub struct EmbeddedPack {
         texts: PackTexts,
+        /// The schemas the game itself owns, which the pack compiles against
+        /// with the engine's. See [`Self::with_schemas`].
+        schemas: fn() -> Vec<SchemaRegistration>,
         compiled: std::sync::OnceLock<PreparedContentPack>,
+    }
+
+    /// No schemas of the game's own.
+    fn no_schemas() -> Vec<SchemaRegistration> {
+        Vec::new()
     }
 
     /// Where an [`EmbeddedPack`] gets its texts.
@@ -200,6 +208,7 @@ pub mod content {
         ) -> Self {
             Self {
                 texts: PackTexts::Embedded { manifest_ron, sources },
+                schemas: no_schemas,
                 compiled: std::sync::OnceLock::new(),
             }
         }
@@ -213,8 +222,22 @@ pub mod content {
         ) -> Self {
             Self {
                 texts: PackTexts::Rooted { root, embedded },
+                schemas: no_schemas,
                 compiled: std::sync::OnceLock::new(),
             }
+        }
+
+        /// The pack also compiles against `schemas`: the schemas of rules
+        /// that are the game's own policy, which no engine capability can
+        /// read (a game's rounds, its tuning). Each route that compiles the
+        /// pack adds them to the schemas it has, so the game's file is
+        /// checked, lowered and refused as an engine schema's is. A game
+        /// schema with an engine schema's id is refused
+        /// (`AmbiguousSchemaOwnership`). Write it with
+        /// [`crate::content_pack!`]'s `schemas:`.
+        pub const fn with_schemas(mut self, schemas: fn() -> Vec<SchemaRegistration>) -> Self {
+            self.schemas = schemas;
+            self
         }
 
         /// Compile the pack now, without the cache: the road a test takes to
@@ -236,7 +259,19 @@ pub mod content {
             draft: ContentPackDraft,
             schemas: &SchemaRegistry,
         ) -> Result<PreparedContentPack, CompileFailure> {
-            compile(&draft, schemas, &AssetsUnchecked)
+            let own = (self.schemas)();
+            if own.is_empty() {
+                return compile(&draft, schemas, &AssetsUnchecked);
+            }
+            let mut schemas = schemas.clone();
+            let refused: Vec<_> = own
+                .into_iter()
+                .filter_map(|schema| schemas.register(schema).err())
+                .collect();
+            if !refused.is_empty() {
+                return Err(CompileFailure::new(CompileStage::SchemaResolution, refused));
+            }
+            compile(&draft, &schemas, &AssetsUnchecked)
         }
 
         /// The pack's draft, from its texts.
@@ -1553,6 +1588,80 @@ mod content_sdk_tests {
         );
     }
 
+    /// A game's own schema: a pack source whose rules no engine capability
+    /// reads is checked and lowered when the pack names the game's schema
+    /// (`content_pack! { schemas: [..] }`), on each route that compiles it.
+    #[test]
+    fn a_pack_compiles_against_the_schemas_its_game_owns() {
+        use crate::content::{
+            CapabilityId, ContentSchemaHandler, EmbeddedPack,
+            FacetOutcome, FacetSource, RuntimeDisposition, SchemaRegistration,
+        };
+
+        struct Rounds;
+        impl ContentSchemaHandler for Rounds {
+            fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
+                match facet.text.trim().parse::<u8>() {
+                    Ok(rounds) => {
+                        out.define(facet.content_id_in("probe_rounds", "rounds"), rounds.to_string());
+                        out.lower(rounds);
+                    }
+                    Err(error) => out.report(facet.diagnostic(DiagnosticCode::MalformedSource, error.to_string())),
+                }
+            }
+        }
+        fn registration(id: &str) -> SchemaRegistration {
+            SchemaRegistration {
+                id: SchemaId::new(id),
+                version: SchemaVersion(1),
+                capability: CapabilityId::new("probe_game"),
+                disposition: RuntimeDisposition::Runtime,
+                doc: "a probe game's rounds",
+                handler: std::sync::Arc::new(Rounds),
+            }
+        }
+        fn rounds() -> SchemaRegistration {
+            registration("probe_rounds")
+        }
+        fn claims_an_engine_schema() -> SchemaRegistration {
+            registration("room_rules")
+        }
+        const MANIFEST: &str = r#"(
+            id: "game_schema_probe",
+            version: "0.1.0",
+            namespace: "probe",
+            requires: [],
+            sources: [(path: "rounds.txt", schema: "probe_rounds", version: 1)],
+        )"#;
+        const SOURCES: &[(&str, &str)] = &[("rounds.txt", "3")];
+
+        static OWNS: EmbeddedPack = EmbeddedPack::new(MANIFEST, SOURCES).with_schemas(|| vec![rounds()]);
+        let lowered = |pack: &crate::content::PreparedContentPack| {
+            pack.lowered::<u8>(&SchemaId::new("probe_rounds")).copied()
+        };
+        assert_eq!(lowered(OWNS.prepared()), Some(3), "the game's schema lowers its file");
+        // The composition's road: a profile's schemas, plus the game's own.
+        let admitted = OWNS
+            .compile_with(&engine_schemas())
+            .unwrap_or_else(|failure| panic!("{}", failure.render()));
+        assert_eq!(lowered(&admitted), Some(3), "the composition's compile drops the game's schema");
+
+        // Control: the same pack without the game's schema is refused, and
+        // the refusal names the schema.
+        let failure = EmbeddedPack::new(MANIFEST, SOURCES)
+            .compile()
+            .expect_err("no capability owns `probe_rounds` without the game's schema");
+        assert!(failure.has(DiagnosticCode::UnknownSchema), "{}", failure.render());
+
+        // A game cannot take an engine schema's id: two owners for one file
+        // kind is refused, not settled by registration order.
+        let failure = EmbeddedPack::new(MANIFEST, SOURCES)
+            .with_schemas(|| vec![rounds(), claims_an_engine_schema()])
+            .compile()
+            .expect_err("a game schema with an engine schema's id must be refused");
+        assert!(failure.has(DiagnosticCode::AmbiguousSchemaOwnership), "{}", failure.render());
+    }
+
 }
 
 /// A game's [`content::EmbeddedPack`], read off disk in a development build and
@@ -1577,9 +1686,30 @@ mod content_sdk_tests {
 /// ```ignore
 /// pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! { root: "assets" };
 /// ```
+///
+/// A rule that is the game's own policy (its rounds, its tuning) has a schema
+/// the game owns. Name it with `schemas:`, and the pack compiles against it
+/// with the engine's schemas, so the game's file is checked at admission and
+/// read as data. `content::rules_schema` makes such a schema from a struct and
+/// its range check:
+///
+/// ```ignore
+/// pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! {
+///     root: "assets",
+///     schemas: [crate::rules::my_rules_schema],
+/// };
+/// ```
 #[cfg(feature = "content_pack")]
 #[macro_export]
 macro_rules! content_pack {
+    (root: $root:literal, schemas: [$($schema:path),* $(,)?] $(,)?) => {
+        $crate::content_pack! { root: $root }.with_schemas({
+            fn schemas() -> Vec<$crate::content::SchemaRegistration> {
+                vec![$($schema()),*]
+            }
+            schemas
+        })
+    };
     (root: $root:literal $(,)?) => {
         $crate::content::EmbeddedPack::rooted(concat!(env!("CARGO_MANIFEST_DIR"), "/", $root), {
             #[cfg(feature = "static_content")]

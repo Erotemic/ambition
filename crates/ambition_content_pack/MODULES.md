@@ -14,9 +14,10 @@
 | [`identity`](src/identity.rs) | The stable identities a prepared pack assigns. |
 | [`prepared`](src/prepared.rs) | `PreparedContentPack` — the value the pipeline produces. |
 | [`refs`](src/refs.rs) | References — the two safe forms, and the one that is not. |
+| [`rules_schema`](src/rules_schema.rs) | A schema for one file of rules: a RON value that its owner reads whole. |
 | [`schema`](src/schema.rs) | Schema registration — how a capability contributes an authored content family WITHOUT editing one central closed enum. |
 
-_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_10 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -1,13 +1,13 @@
 // The versus stage's own content pack: the arena's two duelists, stated as
 // data. The versus stage is the only composition where more than one cast
 // exists, so its fighters belong to the stage, not to either demo. The manifest
-// is the pack's explicit source list; a source declared here and not embedded
-// in `src/app/versus_pack.rs` (or the reverse) is a loud refusal.
+// is the pack's one list of sources: a line added here is played at the next
+// start, with no Rust build.
 //
-// Validate without rebuilding Rust:
+// `versus_rounds` is the app's own schema (`versus_rules::rounds`), which the
+// content CLI does not link. Validate, reading this tree off disk:
 //
-//     cargo run -p ambition_content_cli --bin ambition_content -- \
-//         game/ambition_app/assets
+//     cargo test -p ambition_app --lib versus
 (
     id: "ambition_app_versus",
     version: "0.1.0",
@@ -21,5 +21,8 @@
         (path: "data/movesets/arena_duelist_close.ron", schema: "moveset", version: 1),
         // The rules of the stage's room: the combat rules and the heavy line.
         (path: "data/room_rules.ron", schema: "room_rules", version: 1),
+        // The rules of its rounds: the wins that take the match, the holds,
+        // the countdown.
+        (path: "data/versus_rounds.ron", schema: "versus_rounds", version: 1),
     ],
 )

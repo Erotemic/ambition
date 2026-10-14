@@ -10,7 +10,11 @@
 /// manifest is the one list, so a source line added there is played with no
 /// Rust build.
 pub static PACK: ambition_platformer2d::content::EmbeddedPack =
-    ambition_platformer2d::content_pack! { root: "assets" };
+    ambition_platformer2d::content_pack! {
+        root: "assets",
+        // The rules of its rounds are the stage's own policy.
+        schemas: [super::versus_rules::versus_rounds_schema],
+    };
 
 /// Register the duelists: the catalog fragment and every row as a character,
 /// with its move table. `default_character` is this experience's catalog

@@ -7,6 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`collision_world`](src/collision_world.rs) | The collision world a projectile flies through. |
+| [`content_schema`](src/content_schema.rs) | The `projectile_visuals` schema: a game's named projectile looks, as data in its pack. |
 | [`diagnostics`](src/diagnostics.rs) | Developer-facing logging and HUD summaries for the projectile system. |
 | [`entity`](src/entity.rs) | Per-projectile ECS entity components (Stage 19 Phase 3c-ii). |
 | [`extension`](src/extension.rs) | The projectile domain's extension request adapter. |
@@ -20,7 +21,7 @@
 | [`state`](src/state.rs) | Per-player projectile controller state: charge machine, motion-input buffer, and tracked unlocks. |
 | [`visual`](src/visual.rs) | Projectile visual identity — an open, content-owned art registry. |
 
-_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

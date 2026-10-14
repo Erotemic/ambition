@@ -12,8 +12,11 @@ crate-type = ["rlib"]
 [features]
 default = []
 portal = ["dep:ambition_portal2d"]
+# The authored-content schema this capability owns (`projectile_visuals`).
+content_pack = ["dep:ambition_content_pack"]
 
 [dependencies]
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 # The projectile domain owns the adapter of its extension request port
 # (`extension.rs`): submitted spawns enter the one spawn-request seam.
 ambition_extension_host = { path = "../ambition_extension_host" }

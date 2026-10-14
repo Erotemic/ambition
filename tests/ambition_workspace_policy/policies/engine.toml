@@ -759,7 +759,10 @@ rationale = "ambition_projectiles source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_projectiles/src"]
-forbid = ["ambition_platformer2d_actor_monolith", "ambition_combat", "ambition_characters", "ambition_sim_view", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app"]
+# `ambition_content::` and `ambition_content;`, not the bare name, which is also
+# a substring of `ambition_content_pack` (the `projectile_visuals` schema is
+# defined through it). The convention of `engine.persistence-crate-source-purity`.
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_combat", "ambition_characters", "ambition_sim_view", "ambition_platformer2d_runtime", "ambition_render", "ambition_content::", "ambition_content;", "ambition_app"]
 
 [[policy]]
 id = "engine.projectiles-actor-stepper-generic"

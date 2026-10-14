@@ -40,7 +40,8 @@ impl ProjectileVisualId {
 
 /// How to draw the pixels for a projectile. Generic render primitives — the
 /// renderer matches on THESE, not on any named identity.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum ProjectileArtSource {
     /// The shared "energy ball" texture, tinted `rgba`. Falls back to a flat
     /// colored quad of the same tint when the texture is missing. (Player kit.)
@@ -62,7 +63,8 @@ pub enum ProjectileArtSource {
 }
 
 /// How big to render the projectile sprite.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum ProjectileRenderSize {
     /// Scale to the projectile body hitbox (each axis clamped to `min` px),
     /// times `scale`.
@@ -75,7 +77,7 @@ pub enum ProjectileRenderSize {
 }
 
 /// How the sprite is oriented each frame.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
 pub enum ProjectileRotation {
     /// Mirror horizontally to face travel direction (energy balls, rocks).
     FlipToTravel,
@@ -91,10 +93,20 @@ pub enum ProjectileRotation {
 /// solid / times out (e.g. the pirate lasersword detonation). The sim stepper
 /// stamps the live position at expiry time via [`Self::to_message`]. `None` on a
 /// kind's art means the stepper's generic impact fallback is used.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProjectileExpiryBurst {
+    /// The effect, by its authored row name (`classic_burst`).
+    #[serde(deserialize_with = "fx_by_name")]
     pub fx: ambition_vfx::FxId,
     pub scale: f32,
+}
+
+/// An authored effect is named by its row (`classic_burst`), as a `Vfx`
+/// effect is; the id is the hash of the name.
+fn fx_by_name<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<ambition_vfx::FxId, D::Error> {
+    let name = <String as serde::Deserialize>::deserialize(deserializer)?;
+    Ok(ambition_vfx::FxId::new(&name))
 }
 
 impl ProjectileExpiryBurst {
@@ -114,7 +126,8 @@ impl ProjectileExpiryBurst {
 /// record, built from orthogonal, reusable axes: a `source` (how to get pixels) ×
 /// `size` × `rotation`. The renderer matches on each AXIS independently, so a new
 /// look that reuses existing axis values needs zero render-system changes.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProjectileArt {
     pub source: ProjectileArtSource,
     pub size: ProjectileRenderSize,
@@ -216,6 +229,32 @@ impl ProjectileVisualCatalog {
             .map_or(ProjectileArt::GENERIC_DEBUG_TINT, |art| art.debug_tint)
     }
 
+    /// Replace the looks one provider stated (`previous`, the ids it
+    /// registered) with `looks`, as a content reload does: an id it no longer
+    /// states is withdrawn, and the others take their new art. The ids of the
+    /// looks it registered now are returned, for the next reload. A look whose
+    /// id another provider registered is not taken: two owners for one id is
+    /// a composition mistake, which the startup registration refuses loudly.
+    pub fn restate<'a>(
+        &mut self,
+        previous: impl IntoIterator<Item = &'a str>,
+        looks: &BTreeMap<String, ProjectileArt>,
+    ) -> Result<Vec<String>, String> {
+        let previous: Vec<&str> = previous.into_iter().collect();
+        let taken: Vec<&String> = looks
+            .keys()
+            .filter(|id| self.arts.contains_key(id.as_str()) && !previous.contains(&id.as_str()))
+            .collect();
+        if !taken.is_empty() {
+            return Err(format!("projectile visual id(s) {taken:?} belong to another provider"));
+        }
+        for id in previous {
+            self.arts.remove(id);
+        }
+        self.arts.extend(looks.iter().map(|(id, art)| (id.clone(), art.clone())));
+        Ok(looks.keys().cloned().collect())
+    }
+
     /// Register a named look. Idempotent for identical (id, art); panics on a
     /// conflicting re-registration so a content authoring mistake is loud at
     /// startup, matching the dialogue/wielded-item catalogs.
@@ -234,7 +273,7 @@ impl ProjectileVisualCatalog {
 }
 
 /// Composition-time sugar for registering a named projectile look from a content
-/// crate, mirroring `register_dialogue_voiceprint` / `register_wielded_item_visual`.
+/// crate, mirroring `register_wielded_item_visual`.
 pub trait ProjectileVisualAppExt {
     fn register_projectile_visual(
         &mut self,

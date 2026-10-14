@@ -4564,3 +4564,75 @@ fn a_candidate_that_changes_only_voiceprints_publishes_the_voice_catalog() {
     app.update();
     assert_eq!(resolve_bob(&app), Some(ROBOT), "the activation did not publish the candidate's voices");
 }
+
+/// A reload that changes only the projectile looks restates Ambition's rows at
+/// the activation: an edited look is drawn with its new art, and a withdrawn
+/// one leaves the catalog. A look another provider registered stays.
+#[test]
+fn a_candidate_that_changes_only_projectile_looks_restates_ambitions_rows() {
+    use ambition_projectiles::{ProjectileRenderSize, ProjectileVisualAppExt, ProjectileVisualCatalog};
+
+    let mut app = host_with_the_shipped_cast();
+    crate::projectiles::register(&mut app);
+    let foreign = ambition_projectiles::ProjectileArt {
+        label: "foreign".into(),
+        ..app.world().resource::<ProjectileVisualCatalog>().get("glider").unwrap().clone()
+    };
+    app.register_projectile_visual("another_provider_shot", foreign);
+    let live = live_pack(&app);
+    let mut edited = false;
+    let candidate = std::sync::Arc::new(
+        crate::pack::compile_pack_with(|declared, text| {
+            if declared != "data/projectile_visuals.ron" {
+                return text;
+            }
+            edited = true;
+            text.replacen("size: FixedWidth(38.0),", "size: FixedWidth(41.0),", 1)
+                .replacen(r#""lasersword": ("#, r#""lasersword_withdrawn": ("#, 1)
+        })
+        .unwrap_or_else(|failure| panic!("{}", failure.render())),
+    );
+    assert!(edited, "the edit reached no `projectile_visuals` source");
+    let catalog = |app: &bevy::app::App| app.world().resource::<ProjectileVisualCatalog>().clone();
+    assert_eq!(
+        catalog(&app).get("glider").map(|art| art.size),
+        Some(ProjectileRenderSize::FixedWidth(38.0)),
+        "control: generation N draws the glider 38 wide"
+    );
+    assert!(catalog(&app).get("lasersword").is_some(), "control: generation N has the lasersword");
+
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation).chain(),
+    );
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::clone(&candidate),
+            Some(live.fingerprint),
+        ),
+    );
+    assert!(
+        matches!(outcome, ReloadRequest::Requested { .. }),
+        "a looks-only candidate was not requested; got {outcome:?}"
+    );
+    assert_eq!(
+        catalog(&app).get("glider").map(|art| art.size),
+        Some(ProjectileRenderSize::FixedWidth(38.0)),
+        "the REQUEST published the looks; generation N stays until activation"
+    );
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+    let after = catalog(&app);
+    assert_eq!(
+        after.get("glider").map(|art| art.size),
+        Some(ProjectileRenderSize::FixedWidth(41.0)),
+        "the activation did not publish the candidate's glider"
+    );
+    assert!(after.get("lasersword").is_none(), "the withdrawn look is still drawn");
+    assert!(after.get("lasersword_withdrawn").is_some(), "the renamed look was not published");
+    assert!(after.get("another_provider_shot").is_some(), "the reload removed another provider's look");
+}

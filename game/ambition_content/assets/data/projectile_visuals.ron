@@ -1,0 +1,440 @@
+// Ambition's projectile looks (schema `projectile_visuals`, owned by the
+// projectile capability), by the visual id a projectile carries. A look is a
+// source of pixels (`Sheet`, `Image`, `EnergyTinted`, `SolidColor`), a size,
+// a rotation, the tint of its debug placeholder, the label traces use, and the
+// effect at expiry (`None`: the generic impact). An edit here is drawn at the
+// next start, and after a content reload, with no Rust build.
+{
+    // A shot that names no look (the empty id): a bolt of magic. A boss's
+    // volley and a `Bolt` ranged action are this, not the engine's orange box.
+    "": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "bolt",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 1.75,
+        ),
+        rotation: VelocityAligned,
+        debug_tint: (0.74, 0.4, 0.95, 1.0),
+        label: "bolt",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.4,
+        )),
+    ),
+    // The GNU-ton's apple rain: a touch over the body box, upright relative to
+    // local gravity.
+    "apple": (
+        source: Image(
+            path: "sprites/gnu_ton_boss/gnu_ton_apple.png",
+        ),
+        size: Body(
+            min: 8.0,
+            scale: 1.12,
+        ),
+        rotation: GravityUpright,
+        debug_tint: (0.9, 0.2, 0.2, 1.0),
+        label: "apple",
+        expiry_vfx: None,
+    ),
+    // The arrow of the plain ranged styles (`RangedStyle::default_visual`).
+    "arrow": (
+        source: Sheet(
+            target: "bow_arrow",
+            animation: "idle",
+            animate: false,
+        ),
+        size: FixedWidth(44.0),
+        rotation: VelocityAligned,
+        debug_tint: (0.62, 0.45, 0.25, 1.0),
+        label: "arrow",
+        expiry_vfx: None,
+    ),
+    // The Smirking Behemoth's eye beam: a line of bolts of light, nose along
+    // their flight. Each is drawn longer than the space between two of them,
+    // so the line reads as one beam.
+    "eye_beam": (
+        source: Sheet(
+            target: "behemoth_eye_bolt",
+            animation: "fly",
+            animate: true,
+        ),
+        size: FixedWidth(62.0),
+        rotation: VelocityAligned,
+        debug_tint: (1.0, 0.93, 0.55, 1.0),
+        label: "eye_beam",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.45,
+        )),
+    ),
+    // Player kit: a comet of fire.
+    "fireball": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "fireball",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 1.9,
+        ),
+        rotation: VelocityAligned,
+        debug_tint: (1.0, 0.74, 0.3, 1.0),
+        label: "fireball",
+        expiry_vfx: None,
+    ),
+    // The gauntlet fireball a player throws: its own glowing sprite, radial,
+    // drawn a touch over the 24 x 18 contact box so the fire fills the space
+    // that hits. Not the player kit's `fireball`.
+    "gauntlet_fireball": (
+        source: Image(
+            path: "sprites/props/gauntlet_fireball.png",
+        ),
+        size: FixedWidth(30.0),
+        rotation: GravityUpright,
+        debug_tint: (1.0, 0.55, 0.2, 1.0),
+        label: "gauntlet_fireball",
+        expiry_vfx: None,
+    ),
+    // The Perfect Cell-ular Automaton's zoning shot: the animated Conway
+    // glider, upright, sized for the arena and not the small hitbox.
+    "glider": (
+        source: Sheet(
+            target: "glider",
+            animation: "fly",
+            animate: true,
+        ),
+        size: FixedWidth(38.0),
+        rotation: GravityUpright,
+        debug_tint: (0.4, 0.95, 0.45, 1.0),
+        label: "glider",
+        expiry_vfx: None,
+    ),
+    // Player kit: a ball of blue force behind a crescent front.
+    "hadouken": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "hadouken",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 2.1,
+        ),
+        rotation: VelocityAligned,
+        debug_tint: (0.45, 0.78, 1.0, 1.0),
+        label: "hadouken",
+        expiry_vfx: None,
+    ),
+    // Player kit: the Hadouken, larger, with a second crescent.
+    "hadouken_super": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "hadouken_super",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 1.8,
+        ),
+        rotation: VelocityAligned,
+        debug_tint: (0.3, 0.55, 1.0, 1.0),
+        label: "hadouken_super",
+        expiry_vfx: None,
+    ),
+    // The Hunny Horror's honey: the globs he spits and the drops his roar
+    // shakes from the ceiling. Upright: it falls.
+    "honey_glob": (
+        source: Image(
+            path: "sprites/honey_glob.png",
+        ),
+        size: Body(
+            min: 10.0,
+            scale: 1.3,
+        ),
+        rotation: GravityUpright,
+        debug_tint: (0.96, 0.66, 0.12, 1.0),
+        label: "honey_glob",
+        expiry_vfx: None,
+    ),
+    // The pirate gun-sword: the first frame of the lasersword sheet, turned
+    // along its flight (the pommel is the pivot, from the manifest), bursting
+    // where it ends.
+    "lasersword": (
+        source: Sheet(
+            target: "lasersword",
+            animation: "idle",
+            animate: false,
+        ),
+        size: FixedWidth(56.0),
+        rotation: VelocityAligned,
+        debug_tint: (0.45, 1.0, 0.85, 1.0),
+        label: "lasersword",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.7,
+        )),
+    ),
+    // The Flying Spaghetti Monster's thrown meatball, sauced: a touch over the
+    // body box, upright.
+    "meatball": (
+        source: Image(
+            path: "sprites/fsm_meatball.png",
+        ),
+        size: Body(
+            min: 8.0,
+            scale: 1.15,
+        ),
+        rotation: GravityUpright,
+        debug_tint: (0.55, 0.3, 0.2, 1.0),
+        label: "meatball",
+        expiry_vfx: None,
+    ),
+    // The Mockingbird's fireball once its fire is cold (phase 3): the same
+    // ball, blue.
+    "mockingbird_coldfire": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "coldfire",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 1.9,
+        ),
+        rotation: VelocityAligned,
+        debug_tint: (0.36, 0.72, 1.0, 1.0),
+        label: "mockingbird_coldfire",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.6,
+        )),
+    ),
+    // The Mockingbird's fireball: hotter and redder than the player's,
+    // bursting where it ends.
+    "mockingbird_fireball": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "fireball",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 1.9,
+        ),
+        rotation: VelocityAligned,
+        debug_tint: (1.0, 0.44, 0.14, 1.0),
+        label: "mockingbird_fireball",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.6,
+        )),
+    ),
+    // The burning lightsabers the Mockingbird spits, one row for each fire.
+    // The saber's turn is in the row's frames (the flames trail the spin), so
+    // the sprite is not turned to its flight.
+    "mockingbird_lightsaber": (
+        source: Sheet(
+            target: "mockingbird_lightsaber",
+            animation: "fly",
+            animate: true,
+        ),
+        size: FixedWidth(150.0),
+        rotation: GravityUpright,
+        debug_tint: (1.0, 0.3, 0.15, 1.0),
+        label: "mockingbird_lightsaber",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.7,
+        )),
+    ),
+    "mockingbird_lightsaber_cold": (
+        source: Sheet(
+            target: "mockingbird_lightsaber",
+            animation: "fly_cold",
+            animate: true,
+        ),
+        size: FixedWidth(150.0),
+        rotation: GravityUpright,
+        debug_tint: (0.3, 0.6, 1.0, 1.0),
+        label: "mockingbird_lightsaber_cold",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.7,
+        )),
+    ),
+    // The Mockingbird's wingtip missile, motor lit: nose along its flight,
+    // bursting where it ends.
+    "mockingbird_missile": (
+        source: Sheet(
+            target: "mockingbird_missile",
+            animation: "fly",
+            animate: true,
+        ),
+        size: FixedWidth(78.0),
+        rotation: VelocityAligned,
+        debug_tint: (0.82, 0.84, 0.88, 1.0),
+        label: "mockingbird_missile",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.9,
+        )),
+    ),
+    // The Officer's service round. `FlipToTravel` assumes art drawn pointing
+    // +x, which this sheet is. `FixedWidth`, not `Body`: its hitbox is the
+    // shared pistol envelope, and a bullet drawn to it would be a fat lozenge.
+    "pistol_round": (
+        source: Sheet(
+            target: "pistol_round",
+            animation: "travel",
+            animate: true,
+        ),
+        size: FixedWidth(22.0),
+        rotation: FlipToTravel,
+        debug_tint: (0.97, 0.81, 0.42, 1.0),
+        label: "pistol_round",
+        expiry_vfx: None,
+    ),
+    // The Projectile Polygon's charge shot, in five tiers told apart by shape
+    // (tier 1 a bare pellet, tier 3 an orbiting arc, tier 5 a compression
+    // ring), not by scale. `Body` sizing, so the drawn ball follows the hitbox
+    // the charge scales. Not turned: a ball has no forward face.
+    "polygon_charge_shot_tier1": (
+        source: Sheet(
+            target: "polygon_charge_shot",
+            animation: "travel_tier1",
+            animate: true,
+        ),
+        size: Body(
+            min: 10.0,
+            scale: 2.4,
+        ),
+        rotation: FlipToTravel,
+        debug_tint: (0.38, 0.84, 0.99, 1.0),
+        label: "polygon_charge_shot_tier1",
+        expiry_vfx: None,
+    ),
+    "polygon_charge_shot_tier2": (
+        source: Sheet(
+            target: "polygon_charge_shot",
+            animation: "travel_tier2",
+            animate: true,
+        ),
+        size: Body(
+            min: 10.0,
+            scale: 2.4,
+        ),
+        rotation: FlipToTravel,
+        debug_tint: (0.38, 0.84, 0.99, 1.0),
+        label: "polygon_charge_shot_tier2",
+        expiry_vfx: None,
+    ),
+    "polygon_charge_shot_tier3": (
+        source: Sheet(
+            target: "polygon_charge_shot",
+            animation: "travel_tier3",
+            animate: true,
+        ),
+        size: Body(
+            min: 10.0,
+            scale: 2.4,
+        ),
+        rotation: FlipToTravel,
+        debug_tint: (0.38, 0.84, 0.99, 1.0),
+        label: "polygon_charge_shot_tier3",
+        expiry_vfx: None,
+    ),
+    "polygon_charge_shot_tier4": (
+        source: Sheet(
+            target: "polygon_charge_shot",
+            animation: "travel_tier4",
+            animate: true,
+        ),
+        size: Body(
+            min: 10.0,
+            scale: 2.4,
+        ),
+        rotation: FlipToTravel,
+        debug_tint: (0.38, 0.84, 0.99, 1.0),
+        label: "polygon_charge_shot_tier4",
+        expiry_vfx: None,
+    ),
+    "polygon_charge_shot_tier5": (
+        source: Sheet(
+            target: "polygon_charge_shot",
+            animation: "travel_tier5",
+            animate: true,
+        ),
+        size: Body(
+            min: 10.0,
+            scale: 2.4,
+        ),
+        rotation: FlipToTravel,
+        debug_tint: (0.38, 0.84, 0.99, 1.0),
+        label: "polygon_charge_shot_tier5",
+        expiry_vfx: None,
+    ),
+    // The Hunny Horror's red balloon: he rises on it, lets go, and it floats
+    // on to pop on the ceiling. From its sheet, which keeps the picture's
+    // shape (an `Image` is drawn square).
+    "red_balloon": (
+        source: Sheet(
+            target: "red_balloon",
+            animation: "idle",
+            animate: false,
+        ),
+        size: FixedWidth(56.0),
+        rotation: GravityUpright,
+        debug_tint: (0.84, 0.12, 0.16, 1.0),
+        label: "red_balloon",
+        expiry_vfx: None,
+    ),
+    // The dilophosaurus's spit: a glob of venom, with drops behind it.
+    "spit": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "spit",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 2.05,
+        ),
+        rotation: VelocityAligned,
+        debug_tint: (0.62, 0.84, 0.2, 1.0),
+        label: "spit",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.4,
+        )),
+    ),
+    // The thrown rock of the plain ranged styles: it tumbles in its row and is
+    // not turned to its flight.
+    "thrown_rock": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "rock",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 1.45,
+        ),
+        rotation: FlipToTravel,
+        debug_tint: (0.55, 0.5, 0.45, 1.0),
+        label: "rock",
+        expiry_vfx: None,
+    ),
+    // The Tyrant King's falling rock: a chunk of his arena's ceiling, shaken
+    // loose by a stomp, a landing or a crash. Upright: it falls, it does not
+    // fly.
+    "trex_rock": (
+        source: Image(
+            path: "sprites/trex_rock.png",
+        ),
+        size: Body(
+            min: 10.0,
+            scale: 1.2,
+        ),
+        rotation: GravityUpright,
+        debug_tint: (0.5, 0.44, 0.4, 1.0),
+        label: "trex_rock",
+        expiry_vfx: None,
+    ),
+}

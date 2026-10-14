@@ -8,6 +8,9 @@
 //! actor/world state.
 
 pub mod collision_world;
+/// The `projectile_visuals` schema: a game's projectile looks as pack data.
+#[cfg(feature = "content_pack")]
+pub mod content_schema;
 pub mod diagnostics;
 pub mod entity;
 pub mod extension;

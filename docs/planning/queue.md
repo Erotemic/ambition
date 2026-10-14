@@ -241,6 +241,21 @@ value for a designer and size of change:
    `a_candidate_that_changes_only_voiceprints_publishes_the_voice_catalog`
    (red, at the activation, without the reload row),
    `a_voiceprint_file_is_refused_for_a_shared_key_and_for_a_hidden_alias`.
+   ✅ 2026-10-14, the projectile looks: Ambition's 27 rows are the pack's
+   `data/projectile_visuals.ron`, schema `projectile_visuals`, owned by the
+   projectile capability (`ambition_projectiles`, feature `content_pack`).
+   Admission refuses a size or burst scale that is not finite or not more
+   than 0, a colour channel out of 0..1, a source that names no file and an
+   empty label, each with the look's id and field. A content reload
+   restates Ambition's rows only (`ProjectileVisualCatalog::restate`); a look
+   another provider registered stays, and an id another provider owns is
+   refused. Deleted: the Rust registrations in `ambition_content`. Equal
+   before the deletion (a temporary test, red on one edited scale with no
+   compile: 0.94 s). Witness:
+   `a_candidate_that_changes_only_projectile_looks_restates_ambitions_rows`
+   (red at the request without the reload row; red at "the withdrawn look
+   is still drawn" when `restate` keeps the previous ids). Open: Mary-O's
+   three looks are still Rust (`provider.rs`).
 5. Demo stages built in Rust (Smash, Twintrack).
 6. Duplicate authority: `ITEM_META` in `ambition_items` is byte-equal to
    `items.ron` (Q104 scaffolding). Measured 2026-10-14: the engine reads

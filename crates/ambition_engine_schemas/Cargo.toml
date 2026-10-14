@@ -30,3 +30,6 @@ ambition_cutscene = { path = "../ambition_cutscene", features = ["content_pack"]
 # 2026-10-14: nine. `ambition_match` owns `match_rules` (it adds itself and
 # `ambition_body_seed` to the CLI closure, measured by member).
 ambition_match = { path = "../ambition_match", features = ["content_pack"] }
+# 2026-10-14: `ambition_projectiles` owns `projectile_visuals` (already in the
+# CLI closure through `ambition_combat`).
+ambition_projectiles = { path = "../ambition_projectiles", features = ["content_pack"] }

@@ -294,6 +294,21 @@ the count is paid by query states that are made again and again (a
 one game's archetypes (which components split them), run the ignored test
 `mary_o_archetype_shape`.
 
+**`[census] render_ecs` is the same split for the render world**, which has its
+own archetypes, systems and query states (Mary-O, 2026-10-14: 571, flat in
+play).
+
+**Who makes Bevy match query states, with no phone**:
+`scripts/attribute_archetype_matching.py` reads a desktop `perf` profile with
+DWARF stacks and names the frame that called the matching (its docstring has
+the recording recipe; `perf` needs `sudo` here). Mary-O, 2026-10-14, on a VM
+whose GPU is software: archetype matching was 1.5% of all samples, about 11%
+of the game's own CPU, while neither world made an archetype. About 85% of it
+was the per-run check each system makes (the executors' frames: it grows with
+the systems run each frame, not with the archetypes), and the rest query
+states made fresh each frame, the largest of them the `virtual_joystick`
+systems (`World::query` on each run).
+
 **`[census] resources` says who made the resources**: each resource type by the
 crate it was made for (a generic resource such as `Messages<T>` or
 `GgrsSnapshots<T>` counts for the crate of `T`), and the generic wrappers.

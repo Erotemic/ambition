@@ -732,6 +732,43 @@ pub fn report_asset_census(
 
 /// Install the presentation-side censuses.
 ///
+/// The render world's scale, once a second on its own clock (the census clock
+/// is a main-world resource):
+///
+/// ```text
+/// [census] render_ecs t=12.000 entities=812 archetypes=230 resource_archetypes=150 scene_archetypes=60 empty_archetypes=20
+/// ```
+///
+/// Every system and query state of the render world matches each archetype
+/// made after it once; a count that grows in steady play is work every frame.
+#[cfg(not(target_arch = "wasm32"))]
+fn report_render_world_ecs_census(
+    mut next: Local<Option<std::time::Instant>>,
+    started: Local<Option<std::time::Instant>>,
+    entities: &bevy::ecs::entity::Entities,
+    archetypes: &bevy::ecs::archetype::Archetypes,
+    components: &bevy::ecs::component::Components,
+) {
+    let mut started = started;
+    let now = std::time::Instant::now();
+    let start = *started.get_or_insert(now);
+    if next.is_some_and(|at| now < at) {
+        return;
+    }
+    *next = Some(now + std::time::Duration::from_secs(1));
+    let split = ambition_dev_tools::runtime_census::archetype_split(archetypes, components);
+    eprintln!(
+        "[census] render_ecs t={:.3} entities={} archetypes={} resource_archetypes={} scene_archetypes={} \
+         empty_archetypes={}",
+        (now - start).as_secs_f64(),
+        entities.len(),
+        archetypes.len(),
+        split.resource,
+        split.scene,
+        split.empty,
+    );
+}
+
 /// Adds `RenderDiagnosticsPlugin` when the render app exists and nothing has
 /// added it. A `--features profile` build gets it from `bevy_render`; this
 /// gives other profiling builds the same per-pass rows.
@@ -757,6 +794,16 @@ impl Plugin for PresentationCensusPlugin {
             );
             #[cfg(feature = "portal_render")]
             app.add_systems(Last, report_portal_census);
+        }
+
+        // The render world's own archetypes: it is a world of its own, with
+        // its own systems and query states, and the main world's row does not
+        // see it.
+        #[cfg(not(target_arch = "wasm32"))]
+        if RuntimeCensus::from_env().enabled() {
+            if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
+                render_app.add_systems(bevy::render::Render, report_render_world_ecs_census);
+            }
         }
 
         // `bevy_render` installs this under `bevy/trace_tracy` (`--features

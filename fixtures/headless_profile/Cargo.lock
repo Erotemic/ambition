@@ -489,6 +489,7 @@ dependencies = [
  "ambition_resource_spec",
  "ambition_sprite_sheet",
  "bevy",
+ "serde",
 ]
 
 [[package]]

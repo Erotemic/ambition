@@ -49,6 +49,13 @@ impl Plugin for VisualQualityPlugin {
             Update,
             (sync_resolved_visual_quality, sync_raster_budget).chain(),
         );
+        // The render half of an MSAA change: see the system.
+        if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
+            render_app.add_systems(
+                bevy::render::Render,
+                respecialize_views_after_an_msaa_change.in_set(bevy::render::RenderSystems::PrepareMeshes),
+            );
+        }
         // This bridge reads visual quality and writes portal presentation
         // quality, so register it only when the destination resource exists.
         #[cfg(feature = "portal_render")]
@@ -238,6 +245,50 @@ pub fn sync_raster_budget(
             commands.entity(entity).insert(desired);
         }
     }
+}
+
+/// Mark a view for re-specialization on the first frame it shows a 2D mesh
+/// after its MSAA sample count changed.
+///
+/// Bevy 0.19.1 marks such a view itself, on the frame of the change, and each
+/// `specialize_material2d_meshes` then discards the pipelines it kept for the
+/// view. But that system leaves a view that shows no `Mesh2d` on that frame
+/// BEFORE it discards, and the mark is cleared at the end of the frame. The
+/// pipelines of the old sample count stay, and the next 2D mesh the view shows
+/// is drawn with one of them into a pass of the new sample count. wgpu refuses
+/// that ("Incompatible sample count"), and the game quits on a validation
+/// error: a change of quality from Ultra to Medium, made in the pause menu,
+/// did so (Jon, 2026-10-14).
+///
+/// The sample count changes when the player changes the quality
+/// ([`sync_raster_budget`]). This system runs after the visible entities are
+/// collected (`PrepareAssets`) and before the pipelines are specialized.
+fn respecialize_views_after_an_msaa_change(
+    views: Query<(
+        &bevy::render::view::ExtractedView,
+        &Msaa,
+        &bevy::render::view::RenderVisibleEntities,
+    )>,
+    // The sample count each view had, and whether a change of it still waits
+    // for a frame that shows a 2D mesh.
+    mut seen: Local<bevy::platform::collections::HashMap<bevy::render::view::RetainedViewEntity, (u32, bool)>>,
+    mut dirty: ResMut<bevy::render::camera::DirtySpecializations>,
+) {
+    let mut live: bevy::platform::collections::HashSet<bevy::render::view::RetainedViewEntity> = Default::default();
+    for (view, msaa, visible) in &views {
+        let key = view.retained_view_entity;
+        live.insert(key);
+        let samples = msaa.samples();
+        let entry = seen.entry(key).or_insert((samples, false));
+        if entry.0 != samples {
+            *entry = (samples, true);
+        }
+        if entry.1 && visible.get::<Mesh2d>().is_some() {
+            dirty.views.insert(key);
+            entry.1 = false;
+        }
+    }
+    seen.retain(|key, _| live.contains(key));
 }
 
 /// The hardware seed against the schedule that actually runs it.

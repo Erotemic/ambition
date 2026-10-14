@@ -102,7 +102,9 @@ pub fn rigged_pages_for(asset: &CharacterSpriteAsset, asset_server: &AssetServer
 
 /// The flipbook pages of `spec`'s sheet at `tier`, loaded from `directory`
 /// (where that tier's sheet pages are), or `None` when that tier publishes no
-/// flipbook. Panics as [`rigged_pages_for`] does.
+/// flipbook, or its tier table is of another publish than its full table (a
+/// publish in progress). Panics as [`rigged_pages_for`] does for a table that
+/// is refused for another reason.
 pub fn rigged_pages_in(
     spec: &ambition_sprite_sheet::character::CharacterSheetSpec,
     tier: TextureResolutionScale,
@@ -127,9 +129,22 @@ pub fn rigged_pages_in(
             spec.row_names().collect::<Vec<_>>()
         )
     });
-    let flipbook = full
-        .for_tier(tier)?
-        .unwrap_or_else(|error| panic!("the part flipbook of `{target}` {error}"));
+    let flipbook = match full.for_tier(tier)? {
+        Ok(flipbook) => flipbook,
+        // A publish writes the full table first and the tier tables after it
+        // (about 45 s later for one character). A game that realizes the sheet
+        // between the two reads a tier table of the publish before. That is
+        // not a broken publish: the sheet is drawn baked, as a tier with no
+        // flipbook is, and the next start reads the two tables of one publish.
+        Err(error @ ambition_sprite_sheet::character::rigged::RiggedSpriteError::TierMismatch { .. }) => {
+            bevy::log::warn!(
+                target: "ambition_platformer2d::sprites",
+                "the part flipbook of `{target}` {error}; a publish is in progress, so this sheet is drawn baked for this run"
+            );
+            return None;
+        }
+        Err(error) => panic!("the part flipbook of `{target}` {error}"),
+    };
     let pages = flipbook
         .pages
         .iter()

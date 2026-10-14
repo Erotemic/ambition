@@ -43,6 +43,7 @@
 | [`on_hit`](src/on_hit.rs) | On-hit techniques — conditional effects driven by resolved strike facts. |
 | [`path_motion`](src/path_motion.rs) | `PathMotion`: waypoint-following used by moving hazards/platforms. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_combat`. |
+| [`room_rules`](src/room_rules.rs) | The `room_rules` authored-content schema: the per-game rules of a game's own rooms, as data in its pack. |
 | [`rules`](src/rules.rs) | The combat rules a match plays under — resolved, not borrowed. |
 | [`scoped_rules`](src/scoped_rules.rs) | Rules that one game states for the rooms it governs (ADR 0033). |
 | [`snapshot_impls`](src/snapshot_impls.rs) | Rollback wire-format implementations for combat-owned types. |
@@ -57,7 +58,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_50 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_51 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

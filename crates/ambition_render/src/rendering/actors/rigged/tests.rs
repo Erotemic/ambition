@@ -1513,13 +1513,23 @@ fn a_part_pose_on_the_root_places_its_parts() {
 /// covers the farthest any of its draws reaches, with the fringe to spare.
 #[test]
 fn a_cell_holds_every_draw_of_its_body() {
-    let oni = RiggedSpriteAsset::baked("ninja_shadow_oni_leader").expect("the oni leader publishes a flipbook");
-    // ⛔ Premise: the case that caused this reaches past the old margin.
-    assert!(oni.art_overhang > IMPOSTOR_MARGIN, "the oni leader's art stays within {IMPOSTOR_MARGIN} px: {}", oni.art_overhang);
+    let mut widest = ("", 0.0_f32);
     for key in ambition_sprite_sheet::baked_part_flipbooks::baked_part_flipbook_targets() {
         let flipbook = RiggedSpriteAsset::baked(key).unwrap();
         assert!(impostor_margin(&flipbook) >= flipbook.art_overhang + 2.0, "`{key}`'s cell clips its art");
+        if flipbook.art_overhang > widest.1 {
+            widest = (key, flipbook.art_overhang);
+        }
     }
+    // ⛔ Premise: some published body reaches past the old fixed margin, so the
+    // loop above judged the case this test is for. The oni leader was that
+    // body until its redraw (2026-10-13) kept its art within 7 px.
+    assert!(
+        widest.1 > IMPOSTOR_MARGIN,
+        "no published flipbook reaches past {IMPOSTOR_MARGIN} px (the widest is `{}` at {}), so the loop tested no art that the old margin cut",
+        widest.0,
+        widest.1
+    );
 }
 
 /// ⛔ A POSE THAT REACHES PAST THE CELL IS NOT COMPOSITED. A cell holds the

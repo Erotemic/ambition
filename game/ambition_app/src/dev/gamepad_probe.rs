@@ -49,7 +49,7 @@ const SMASH_FLICK_THRESHOLD: f32 = 0.8;
 
 /// The magnitude an ordinary directional attack needs, POST-deadzone. The
 /// contrast is the finding: a pad can clear this and never clear the flick.
-const TILT_THRESHOLD: f32 = 0.5;
+const TILT_THRESHOLD: f32 = 0.3;
 
 /// The raw magnitude needed to reach `post` through an inner deadzone.
 ///
@@ -300,7 +300,7 @@ mod tests {
 
     /// ⛔⛔ THE ARITHMETIC THE WHOLE HYPOTHESIS RESTS ON. A Switch Pro is
     /// classified `Switch`, which takes the `Generic` profile's baseline 0.18
-    /// inner deadzone, so a Smash flick needs 0.836 RAW while a tilt needs 0.59.
+    /// inner deadzone, so a Smash flick needs 0.836 RAW while a tilt needs 0.426.
     /// If those two numbers were not far apart there would be no mystery to
     /// explain.
     #[test]
@@ -315,7 +315,7 @@ mod tests {
         let smash = raw_needed_for(SMASH_FLICK_THRESHOLD, deadzone);
         let tilt = raw_needed_for(TILT_THRESHOLD, deadzone);
         assert!((smash - 0.836).abs() < 0.001, "smash needs {smash} raw");
-        assert!((tilt - 0.59).abs() < 0.001, "tilt needs {tilt} raw");
+        assert!((tilt - 0.426).abs() < 0.001, "tilt needs {tilt} raw");
     }
 
     /// And the inverse really is the inverse of the transform the game applies —

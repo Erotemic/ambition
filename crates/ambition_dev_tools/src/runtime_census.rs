@@ -278,6 +278,88 @@ pub fn report_ecs_census(
     );
 }
 
+/// Environment variable naming a file the resource census writes the whole
+/// list of resource types to, one per line, at each sample.
+pub const RESOURCE_LIST_ENV: &str = "AMBITION_RESOURCE_LIST";
+
+/// Who made the resources: each resource type by the crate that defines it,
+/// most first. A generic resource is counted by its wrapper and by its payload
+/// (`Messages<ambition_x::Hit>` is a `bevy_ecs` type made for `ambition_x`),
+/// because the payload is who asked for it.
+///
+/// ```text
+/// [census] resources t=12.000 total=1478 by_payload: bevy_render=210 ambition_combat=60 ...
+/// ```
+///
+/// Metadata only: one pass over the archetypes and their component names.
+pub fn report_resource_census(census: Res<RuntimeCensus>, archetypes: &Archetypes, components: &Components) {
+    let Some(at) = census.due() else {
+        return;
+    };
+    let names = resource_type_names(archetypes, components);
+    let mut by_payload: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    let mut by_wrapper: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    for name in &names {
+        *by_payload.entry(payload_crate(name).to_string()).or_default() += 1;
+        if let Some(wrapper) = generic_wrapper(name) {
+            *by_wrapper.entry(wrapper.to_string()).or_default() += 1;
+        }
+    }
+    let mut row = format!("[census] resources t={at:.3} total={}", names.len());
+    for (label, counts) in [("by_payload", &by_payload), ("generic", &by_wrapper)] {
+        let mut ranked: Vec<_> = counts.iter().collect();
+        ranked.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
+        row.push_str(&format!(" {label}:"));
+        for (name, count) in ranked {
+            row.push_str(&format!(" {name}={count}"));
+        }
+    }
+    eprintln!("{row}");
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Ok(path) = std::env::var(RESOURCE_LIST_ENV) {
+        let mut sorted = names;
+        sorted.sort();
+        if let Err(error) = std::fs::write(&path, sorted.join("\n") + "\n") {
+            eprintln!("[census] resources could not write {path}: {error}");
+        }
+    }
+}
+
+/// The type name of each resource: the component beside `IsResource` in each
+/// resource entity's archetype.
+pub fn resource_type_names(archetypes: &Archetypes, components: &Components) -> Vec<String> {
+    let Some(resource) = components.component_id::<IsResource>() else {
+        return Vec::new();
+    };
+    let mut names = Vec::new();
+    for archetype in archetypes.iter() {
+        if archetype.is_empty() || !archetype.contains(resource) {
+            continue;
+        }
+        for id in archetype.components().iter().copied().filter(|id| *id != resource) {
+            if let Some(info) = components.get_info(id) {
+                names.push(info.name().to_string());
+            }
+        }
+    }
+    names
+}
+
+/// The crate of the innermost type argument of `name`, or of `name` itself:
+/// who a resource was made for.
+fn payload_crate(name: &str) -> &str {
+    let inner = name.rfind('<').map_or(name, |i| &name[i + 1..]);
+    let inner = inner.trim_start_matches(['&', ' ', '(']);
+    inner.split("::").next().unwrap_or(inner).trim_end_matches(['>', ')', ',', ' '])
+}
+
+/// The last path segment of a generic resource's outer type (`Messages`,
+/// `Assets`), or `None` for a resource that is not generic.
+fn generic_wrapper(name: &str) -> Option<&str> {
+    let outer = &name[..name.find('<')?];
+    Some(outer.rsplit("::").next().unwrap_or(outer))
+}
+
 /// The archetypes, by what they hold now.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ArchetypeSplit {
@@ -1478,6 +1560,7 @@ impl Plugin for RuntimeCensusPlugin {
                 (
                     report_frame_interval_census,
                     report_ecs_census,
+                    report_resource_census,
                     report_schedule_load_census,
                     report_entity_populations,
                     // The sim schedule exists only after a session activates, so the
@@ -1517,6 +1600,15 @@ impl Plugin for RuntimeCensusPlugin {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    /// A generic resource is made for its payload's crate.
+    #[test]
+    fn a_resource_is_counted_for_the_crate_it_was_made_for() {
+        assert_eq!(payload_crate("bevy_ecs::message::Messages<ambition_combat::events::HitEvent>"), "ambition_combat");
+        assert_eq!(payload_crate("ambition_time::WorldTime"), "ambition_time");
+        assert_eq!(generic_wrapper("bevy_ecs::message::Messages<ambition_combat::events::HitEvent>"), Some("Messages"));
+        assert_eq!(generic_wrapper("ambition_time::WorldTime"), None);
+    }
 
     /// A resource's archetype is not a scene archetype, and an archetype its
     /// entities have left counts as empty, not as scene.

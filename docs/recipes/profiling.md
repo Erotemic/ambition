@@ -270,6 +270,7 @@ runs only when `AMBITION_PROFILE_CENSUS` is set, which
 
 ```text
 [census] frame          t=12.000 frames=60 mean=16.71 p50=16.70 p95=18.20 p99=24.00 min=15.90 max=41.20
+[census] resources      t=12.000 total=1478 by_payload: ambition_combat=92 ambition_platformer2d_actor_monolith=90 ... generic: GgrsSnapshots=330 Messages=291 ...
 [census] ecs            t=12.000 entities=8123 live=1312 resources=407 archetypes=1975 resource_archetypes=1478 scene_archetypes=113 empty_archetypes=384 components=1904 bodies=7 players=1
 [census] schedules      t=12.000 schedules=14 systems=1183 Update=822 PostUpdate=15 PreUpdate=9 StateTransition=8 First=4
 [census] views          t=12.000 cameras=5 active=5 world_rendering=3 offscreen=2 local_views=1
@@ -292,6 +293,14 @@ the count is paid by query states that are made again and again (a
 `world.query` in a system that runs each frame), not by play. For the shape of
 one game's archetypes (which components split them), run the ignored test
 `mary_o_archetype_shape`.
+
+**`[census] resources` says who made the resources**: each resource type by the
+crate it was made for (a generic resource such as `Messages<T>` or
+`GgrsSnapshots<T>` counts for the crate of `T`), and the generic wrappers.
+Set `AMBITION_RESOURCE_LIST=PATH` as well to write every resource type name to
+`PATH`. Measured in Mary-O (2026-10-14): 1,478 resource types; 991 made for
+Ambition types (223 `GgrsSnapshots`, one per rollback registration; 157
+`Messages`; 465 plain resources) and 487 Bevy's and third parties' own.
 
 **`[census] phases` is the one frame breakdown that needs no profiler.** Tracy
 answers it too, but Tracy is a desktop build whose symbol worker can cost more

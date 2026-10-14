@@ -383,6 +383,45 @@ shield that is not a resource records it too, so a guard outside a match
 flares when it blocks. Before, only shieldstun showed a blow, and such a
 shield owes none.
 
+## Jon's three dogs: Honey, Roadie, Bezoar (2026-10-13)
+
+Jon, with photographs: "I want 3 new dog characters based on these 3 dogs. I
+want them to be roaming in different rooms in the sandbox. Not the central
+hub, but in the test areas connected to it."
+
+Each is an SVG rig with the companion dog's parts about its joints, so the
+companion dog's clips play on each (the renderer's `_house_dog.py`,
+`scripts/svg_art/house_dogs_art.py`). What Jon said of each:
+
+- **Honey** (35 lb): "the smallest and shortest". The tip of her right ear
+  has "a very minor flap", so she has a drawing of each side and `~mirrored`
+  rows: a flip of the sheet would move the flap to her other ear. The tip flops
+  outward. Side on, that is toward the viewer (from her right: the tip hangs
+  down over the face of the ear) or away (from her left: the ear ends in a
+  round fold).
+- **Roadie** (50 lb): "bigger, but still only a medium sized dog".
+- **Bezoar**, "Bea" (40 lb): "taller but lanky". Her coat is "very close to
+  Honey's color, but just slightly tanner". Her two ears have "slight flops".
+- "The eyebrows for honey and beazor are important": Honey has a pale pip
+  over the eye, Bezoar a dark one.
+- The tongue "shouldn't be hanging off the top of their mouth": it lies on
+  the lower jaw, and the muzzle is drawn over its root. The bark mouth is that
+  mouth open a little more (of a wide one: "too wide too big").
+
+Where they roam is in `docs/systems/npc-navigation.md`.
+
+Open:
+
+- Jon wrote "Beazoar should be physically smaller than honey" and then sent
+  a photograph in which she sits taller than Honey. As drawn she is taller,
+  on long thin legs, with a slimmer and shorter body. Jon has not said this
+  reading is right.
+- The spelling "Bezoar" is mine (Jon wrote "beazor" and "beazoar").
+- Roadie has no drawing of its other side, and no second round of polish.
+- The place a hand pets (`contact_offset`) is the companion dog's on each;
+  it was not fitted to the three sizes.
+- No dog has its own bark sound: each uses `npc.dog.woof`.
+
 ## Not done
 
 - **The giant gnu, redrawn: in the game, with the fight of today** (Jon,

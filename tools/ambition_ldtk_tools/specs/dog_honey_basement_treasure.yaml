@@ -1,0 +1,13 @@
+# Honey roams the treasure room: the floor, and the long one-way
+# strip 48 px above it. It starts at the east end, far from the door, so a
+# player who holds interact at the door gets the door.
+level_id: basement_treasure
+entities:
+  - type: NpcSpawn
+    px: [1312, 640]
+    size: [64, 64]
+    fields:
+      character_id: npc_dog_honey
+      prompt: Greet the dog
+      dialogue_id: hall_npc_dog_honey
+      patrol_radius: 1400

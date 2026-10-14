@@ -100,6 +100,17 @@ default player body rises about 130 px.
 The basement of the central hub has twelve one-way stones in 64 px steps for
 this; the three lowest are two tiles wide, to fit between the doors (`central_hub_basement` in `sandbox.ldtk`).
 
+Three more dogs roam test rooms off the basement, each with the companion
+dog's `Roam` preset (the placements are `tools/ambition_ldtk_tools/specs/dog_*.yaml`):
+
+| Dog | Room | Its places |
+|---|---|---|
+| Honey (`npc_dog_honey`) | `basement_treasure` | the floor, and the long one-way strip 48 px over it |
+| Roadie (`npc_dog_roadie`) | `quest_lab` | the floor, and three one-way stones in 64 px steps at the east side |
+| Bezoar (`npc_dog_bezoar`) | `crawl_lab` | both floors and the top of the block: two one-way stones at each end of the block are the steps (a dog does not fit the crawl gap) |
+
+The stones of the two labs were painted for the dogs (2026-10-13).
+
 To paint a step:
 
 ```bash

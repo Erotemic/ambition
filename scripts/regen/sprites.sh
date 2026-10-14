@@ -834,6 +834,11 @@ tackon_targets=(
     yuclid
     # The roaming dog of the central hub basement (`npc_companion_dog`).
     companion_dog
+    # The three house dogs, each in a test room off the basement. They are
+    # drawn on the companion dog's rig.
+    dog_honey
+    dog_roadie
+    dog_bezoar
 )
 
 # Rigged characters authored as GUI `.rig.json` documents auto-register as

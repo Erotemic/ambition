@@ -1391,6 +1391,39 @@ Companion Dog: *wags its tail*
     Companion Dog: *takes a small hop and looks pleased*
 ===
 
+title: hall_npc_dog_honey
+---
+Honey: *turns both large ears to you*
+-> Pet the dog.
+    <<pet>>
+-> Say hello.
+    Honey: Woof! *leans her grey muzzle on your hand*
+-> Watch the dog.
+    Honey: *one ear tips to the side, and the other stays up*
+===
+
+title: hall_npc_dog_roadie
+---
+Roadie: *looks at you, and then behind you, for more of you to herd*
+-> Pet the dog.
+    <<pet>>
+-> Say hello.
+    Roadie: Wuff. *the white end of its tail goes left and right*
+-> Watch the dog.
+    Roadie: *walks a half circle about you and waits for you to move*
+===
+
+title: hall_npc_dog_bezoar
+---
+Bezoar: *pants, with her tongue out, and smiles*
+-> Pet the dog.
+    <<pet>>
+-> Say hello.
+    Bezoar: Woof! *the tags on her collar ring*
+-> Watch the dog.
+    Bezoar: *sits, and the ends of her ears flop forward*
+===
+
 title: hall_npc_busy_beaver
 ---
 Busy Beaver: Started logging this morning. I'm on file eight thousand two hundred fourteen.

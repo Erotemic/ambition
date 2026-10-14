@@ -128,14 +128,17 @@ pub mod content {
             manifest_ron: &'static str,
             sources: &'static [(&'static str, &'static str)],
         },
-        /// Read off disk unless the build embedded them ([`crate::content_pack!`]).
-        Sourced {
-            manifest: PackText,
-            sources: &'static [(&'static str, PackText)],
+        /// The pack at `root` ([`crate::content_pack!`]): its `pack.ron` and
+        /// each source that manifest declares, read off disk when the pack
+        /// compiles, unless the build embedded them (`embedded`, the manifest
+        /// and each `(declared path, text)`).
+        Rooted {
+            root: &'static str,
+            embedded: Option<(&'static str, &'static [(&'static str, &'static str)])>,
         },
     }
 
-    /// One text of a pack written with [`crate::content_pack!`]: the file in
+    /// One authored file written with [`crate::content_text!`]: the file in
     /// the source tree, and its bytes when the build embeds them.
     #[derive(Clone, Copy, Debug)]
     pub struct PackText {
@@ -169,24 +172,23 @@ pub mod content {
                     }),
             }
         }
+    }
 
-        fn read(&self, declared: &str) -> Result<String, Diagnostic> {
-            if let Some(text) = self.embedded {
-                return Ok(text.to_string());
-            }
-            std::fs::read_to_string(self.file).map_err(|error| {
-                Diagnostic::error(
-                    DiagnosticCode::MalformedSource,
-                    CompileStage::Parse,
-                    format!("declared source is not readable: {error}"),
-                )
-                .in_source(declared)
-                .fix(format!(
-                    "create {}, or build with the crate's `static_content` feature to embed it",
-                    self.file
-                ))
-            })
-        }
+    /// The text of `file`, the pack file declared as `declared`, as it is on
+    /// disk now; or a diagnostic that names the declared path.
+    fn read_declared(file: &std::path::Path, declared: &str) -> Result<String, Diagnostic> {
+        std::fs::read_to_string(file).map_err(|error| {
+            Diagnostic::error(
+                DiagnosticCode::MalformedSource,
+                CompileStage::Parse,
+                format!("declared source is not readable: {error}"),
+            )
+            .in_source(declared)
+            .fix(format!(
+                "create {}, or build with the crate's `static_content` feature to embed it",
+                file.display()
+            ))
+        })
     }
 
     impl EmbeddedPack {
@@ -202,15 +204,15 @@ pub mod content {
             }
         }
 
-        /// A pack whose texts are read off disk unless the build embedded
-        /// them. Write it with [`crate::content_pack!`], which fills both
-        /// halves of each [`PackText`] from one path.
-        pub const fn sourced(
-            manifest: PackText,
-            sources: &'static [(&'static str, PackText)],
+        /// The pack at `root`, a directory that holds `pack.ron`: the
+        /// manifest is the list of sources. Off disk unless the build embedded
+        /// the texts (`embedded`). Write it with [`crate::content_pack!`].
+        pub const fn rooted(
+            root: &'static str,
+            embedded: Option<(&'static str, &'static [(&'static str, &'static str)])>,
         ) -> Self {
             Self {
-                texts: PackTexts::Sourced { manifest, sources },
+                texts: PackTexts::Rooted { root, embedded },
                 compiled: std::sync::OnceLock::new(),
             }
         }
@@ -246,15 +248,24 @@ pub mod content {
                         .iter()
                         .map(|(path, text)| ((*path).to_string(), (*text).to_string())),
                 )?,
-                PackTexts::Sourced { manifest, sources } => {
-                    let manifest = manifest
-                        .read("pack.ron")
+                PackTexts::Rooted { embedded: Some((manifest_ron, sources)), .. } => {
+                    ContentPackDraft::from_manifest_ron(
+                        manifest_ron,
+                        sources
+                            .iter()
+                            .map(|(path, text)| ((*path).to_string(), (*text).to_string())),
+                    )?
+                }
+                PackTexts::Rooted { root, embedded: None } => {
+                    let root = std::path::Path::new(root);
+                    let file = |declared: &str| read_declared(&root.join(declared), declared);
+                    let manifest = file("pack.ron")
                         .map_err(|unreadable| CompileFailure::new(CompileStage::Parse, vec![unreadable]))?;
-                    let mut read = Vec::with_capacity(sources.len());
+                    let mut read = Vec::new();
                     let mut unreadable = Vec::new();
-                    for (declared, text) in *sources {
-                        match text.read(declared) {
-                            Ok(text) => read.push(((*declared).to_string(), text)),
+                    for declared in ambition_content_pack::embed::declared_paths(&manifest) {
+                        match file(&declared) {
+                            Ok(text) => read.push((declared, text)),
                             Err(diagnostic) => unreadable.push(diagnostic),
                         }
                     }
@@ -1398,34 +1409,41 @@ mod content_sdk_tests {
     }
 
     /// A pack read off disk (`content_pack!` without `static_content`): it
-    /// plays the file as it is now, and a file it cannot read is a refusal
-    /// that names each one, not only the first.
+    /// plays each file as it is now, the manifest is the list of sources (a
+    /// source line added to `pack.ron` is compiled with no Rust list), and a
+    /// file it cannot read is a refusal that names each one, not only the
+    /// first.
     #[test]
-    fn a_sourced_pack_reads_its_files_and_names_every_one_it_cannot() {
-        use crate::content::{EmbeddedPack, PackText};
-        let dir = std::env::temp_dir().join(format!("ambition_sourced_pack_{}", std::process::id()));
+    fn a_rooted_pack_reads_its_manifests_sources_and_names_every_one_it_cannot() {
+        use crate::content::EmbeddedPack;
+        let dir = std::env::temp_dir().join(format!("ambition_rooted_pack_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("moves")).unwrap();
-        std::fs::write(
-            dir.join("pack.ron"),
-            r#"(
-                id: "sourced_probe",
-                version: "0.1.0",
-                namespace: "probe",
-                requires: [],
-                sources: [(path: "moves/hero.ron", schema: "moveset", version: 1)],
-            )"#,
-        )
-        .unwrap();
-        let hero = |duration: f32| {
+        let manifest = |sources: &[&str]| {
+            let lines: String = sources
+                .iter()
+                .map(|path| format!(r#"(path: "{path}", schema: "moveset", version: 1),"#))
+                .collect();
+            format!(
+                r#"(
+                    id: "rooted_probe",
+                    version: "0.1.0",
+                    namespace: "probe",
+                    requires: [],
+                    sources: [{lines}],
+                )"#
+            )
+        };
+        let mover = |id: &str, duration: f32| {
             format!(
                 r#"(
                     schema_version: 1,
                     entities: [(
-                        id: "hero",
+                        id: "{id}",
                         contracts: (moveset: Some((
-                            verbs: {{ "attack": "hero_jab" }},
+                            verbs: {{ "attack": "{id}_jab" }},
                             moves: [(
-                                id: "hero_jab",
+                                id: "{id}_jab",
                                 clip: (clip: "jab"),
                                 duration_s: {duration},
                                 windows: [(start_s: 0.0, end_s: {duration}, tag: Recovery, volumes: [])],
@@ -1435,28 +1453,31 @@ mod content_sdk_tests {
                 )"#
             )
         };
-        let text = |relative: &str| PackText {
-            file: Box::leak(dir.join(relative).display().to_string().into_boxed_str()),
-            embedded: None,
+        let root: &'static str = Box::leak(dir.display().to_string().into_boxed_str());
+        let jab = |pack: &EmbeddedPack, id: &str| {
+            pack.compile()
+                .ok()
+                .and_then(|_| pack.moveset(id).move_by_id(&format!("{id}_jab")).map(|jab| jab.duration_s))
         };
-        let sources: &'static [(&'static str, PackText)] =
-            Box::leak(Box::new([("moves/hero.ron", text("moves/hero.ron"))]));
 
         // The file as it is when the pack compiles, not when the crate did.
+        std::fs::write(dir.join("pack.ron"), manifest(&["moves/hero.ron"])).unwrap();
         for duration in [0.25, 0.5] {
-            std::fs::write(dir.join("moves/hero.ron"), hero(duration)).unwrap();
-            let pack = EmbeddedPack::sourced(text("pack.ron"), sources);
-            assert_eq!(
-                pack.moveset("hero").move_by_id("hero_jab").map(|jab| jab.duration_s),
-                Some(duration)
-            );
+            std::fs::write(dir.join("moves/hero.ron"), mover("hero", duration)).unwrap();
+            assert_eq!(jab(&EmbeddedPack::rooted(root, None), "hero"), Some(duration));
         }
 
-        let absent: &'static [(&'static str, PackText)] = Box::leak(Box::new([
-            ("moves/hero.ron", text("moves/absent.ron")),
-            ("moves/other.ron", text("moves/gone.ron")),
-        ]));
-        let failure = EmbeddedPack::sourced(text("pack.ron"), absent)
+        // A source line added to the manifest is a source: no Rust names it.
+        std::fs::write(dir.join("moves/rival.ron"), mover("rival", 0.75)).unwrap();
+        std::fs::write(dir.join("pack.ron"), manifest(&["moves/hero.ron", "moves/rival.ron"])).unwrap();
+        assert_eq!(jab(&EmbeddedPack::rooted(root, None), "rival"), Some(0.75));
+
+        std::fs::write(
+            dir.join("pack.ron"),
+            manifest(&["moves/hero.ron", "moves/absent.ron", "moves/gone.ron"]),
+        )
+        .unwrap();
+        let failure = EmbeddedPack::rooted(root, None)
             .compile()
             .expect_err("a source that cannot be read must refuse the pack");
         let named: Vec<_> = failure
@@ -1545,29 +1566,29 @@ mod content_sdk_tests {
 /// crate declares the feature, and the app that hosts it forwards its own.
 ///
 /// `root` is relative to the calling crate's directory and holds `pack.ron`.
-/// Each source is the path `pack.ron` declares, which is relative to `root`
-/// (`..` included).
+/// The manifest is the one list of the pack's sources: each is the path
+/// `pack.ron` declares, relative to `root` (`..` included). A source line added
+/// to `pack.ron` is played at the next start with no Rust build.
+///
+/// To embed, the calling crate has a `build.rs` that calls
+/// `ambition_content_pack::embed::embed_pack` with the same `root`; it writes
+/// the `include_str!` of each declared source under `static_content`.
 ///
 /// ```ignore
-/// pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! {
-///     root: "assets",
-///     sources: ["data/character_catalog.ron", "data/movesets/hero.ron"],
-/// };
+/// pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! { root: "assets" };
 /// ```
 #[cfg(feature = "content_pack")]
 #[macro_export]
 macro_rules! content_pack {
-    (
-        root: $root:literal,
-        sources: [$($declared:literal),* $(,)?]
-        $(,)?
-    ) => {
-        $crate::content::EmbeddedPack::sourced(
-            $crate::__content_pack_text!(concat!($root, "/pack.ron")),
-            &[
-                $(($declared, $crate::__content_pack_text!(concat!($root, "/", $declared))),)*
-            ],
-        )
+    (root: $root:literal $(,)?) => {
+        $crate::content::EmbeddedPack::rooted(concat!(env!("CARGO_MANIFEST_DIR"), "/", $root), {
+            #[cfg(feature = "static_content")]
+            const TEXTS: Option<(&str, &[(&str, &str)])> =
+                Some(include!(concat!(env!("OUT_DIR"), "/content_pack/", $root, "/embedded.rs")));
+            #[cfg(not(feature = "static_content"))]
+            const TEXTS: Option<(&str, &[(&str, &str)])> = None;
+            TEXTS
+        })
     };
 }
 
@@ -1590,8 +1611,8 @@ macro_rules! content_text {
     };
 }
 
-/// One [`content::PackText`] for [`content_pack!`]. The `cfg` is read in the
-/// crate that calls `content_pack!`, so each game embeds by its own feature.
+/// One [`content::PackText`] for [`content_text!`]. The `cfg` is read in the
+/// crate that calls `content_text!`, so each game embeds by its own feature.
 #[cfg(feature = "content_pack")]
 #[doc(hidden)]
 #[macro_export]

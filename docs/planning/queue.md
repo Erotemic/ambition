@@ -136,7 +136,7 @@ value for a designer and size of change:
 5. Demo stages built in Rust (Smash, Twintrack).
 6. Duplicate authority: `ITEM_META` in `ambition_items` is byte-equal to
    `items.ron` (Q104 scaffolding).
-7. ✅ 2026-10-14 for Ambition's pack: `pack.ron` is the one list of its
+7. ✅ 2026-10-14 for every pack: `pack.ron` is the one list of its
    sources. A development build reads the manifest and each source it
    declares when the pack compiles (an edit to `pack.ron` compiles nothing:
    0.71 s, measured); `build.rs` embeds the same list under
@@ -145,14 +145,17 @@ value for a designer and size of change:
    manifest, and the content watch looks at `pack.ron` and refreshes its
    list. Witnesses: `a_source_declared_in_the_roots_manifest_is_played_without_a_build`
    (red with the build's manifest), `a_source_added_to_pack_ron_while_the_game_runs_is_played`
-   (7 frames after the save; red with `pack.ron` unwatched). Open: the demo
-   packs (`content_pack!` in `ambition_platformer2d`) still list their
-   sources in Rust.
+   (7 frames after the save; red with `pack.ron` unwatched). The demo packs
+   and the versus stage follow: `content_pack! { root: "assets" }` reads the
+   manifest's list, and each crate's `build.rs`
+   (`ambition_content_pack::embed::embed_pack`) embeds it under
+   `static_content`. Witness: `a_rooted_pack_reads_its_manifests_sources_and_names_every_one_it_cannot`
+   (red when the read takes only the first declared source). Item 7 is done.
 
 Not here: the boss and Mary-O modules' tuning constants. They are on the
 module road (a 0.34 s WASM rebuild and a live reload).
 
-**Next action:** item 7 for the demo packs (`content_pack!`), then item 2.
+**Next action:** item 2.
 
 **Blocked by:** nothing.
 

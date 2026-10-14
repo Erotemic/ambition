@@ -10,6 +10,7 @@
 pub mod artifact;
 /// A prepared-but-unpublished complete content generation (fast-iteration I3).
 pub mod candidate;
+pub mod embed;
 mod diagnostic;
 mod draft;
 mod identity;

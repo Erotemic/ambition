@@ -173,6 +173,7 @@ name = "ambition_app"
 version = "0.1.0"
 dependencies = [
  "ambition_content",
+ "ambition_content_pack",
  "ambition_demo_mary_o",
  "ambition_demo_pocket",
  "ambition_demo_sanic",
@@ -502,6 +503,7 @@ dependencies = [
 name = "ambition_demo_mary_o"
 version = "0.1.0"
 dependencies = [
+ "ambition_content_pack",
  "ambition_demo_mary_o_modules",
  "ambition_entity_catalog",
  "ambition_platformer2d",
@@ -531,6 +533,7 @@ dependencies = [
 name = "ambition_demo_pocket"
 version = "0.1.0"
 dependencies = [
+ "ambition_content_pack",
  "ambition_platformer2d",
  "bevy",
 ]
@@ -539,6 +542,7 @@ dependencies = [
 name = "ambition_demo_sanic"
 version = "0.1.0"
 dependencies = [
+ "ambition_content_pack",
  "ambition_entity_catalog",
  "ambition_platformer2d",
  "bevy",
@@ -558,6 +562,7 @@ dependencies = [
 name = "ambition_demo_smash"
 version = "0.1.0"
 dependencies = [
+ "ambition_content_pack",
  "ambition_entity_catalog",
  "ambition_platformer2d",
  "ambition_resource_spec",
@@ -579,6 +584,7 @@ dependencies = [
 name = "ambition_demo_twintrack"
 version = "0.1.0"
 dependencies = [
+ "ambition_content_pack",
  "ambition_platformer2d",
  "bevy",
 ]

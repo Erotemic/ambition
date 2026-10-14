@@ -6,17 +6,11 @@
 //! and states the stage's ability ceiling, which is a ruleset fact, not a
 //! character's.
 
-/// The versus pack: `assets/pack.ron` and every source it declares, with the
-/// path `pack.ron` spells.
+/// The versus pack: `assets/pack.ron` and every source it declares. The
+/// manifest is the one list, so a source line added there is played with no
+/// Rust build.
 pub static PACK: ambition_platformer2d::content::EmbeddedPack =
-    ambition_platformer2d::content_pack! {
-        root: "assets",
-        sources: [
-            "data/character_catalog.ron",
-            "data/movesets/arena_duelist_long.ron",
-            "data/movesets/arena_duelist_close.ron",
-        ],
-    };
+    ambition_platformer2d::content_pack! { root: "assets" };
 
 /// Register the duelists: the catalog fragment and every row as a character,
 /// with its move table. `default_character` is this experience's catalog

@@ -33,10 +33,9 @@ static_map = ["ambition_platformer2d_actor_monolith/static_map"]
 static_content = []
 
 [build-dependencies]
-# `build.rs` reads `assets/pack.ron` under `static_content`, with the
-# compiler's own manifest type, to embed each source it declares.
+# `build.rs` embeds each source `assets/pack.ron` declares, under
+# `static_content` (`ambition_content_pack::embed`).
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
-ron = { workspace = true }
 
 [dependencies]
 # Ambition's procedural extension modules (the echo fan, fast-iteration I4),

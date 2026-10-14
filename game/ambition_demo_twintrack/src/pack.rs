@@ -5,12 +5,6 @@
 
 use ambition_platformer2d::content::EmbeddedPack;
 
-/// `assets/pack.ron` and every source it declares, with the path `pack.ron`
-/// spells.
-pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! {
-    root: "assets",
-    sources: [
-        "data/character_catalog.ron",
-        "audio/sfx_registry.ron",
-    ],
-};
+/// `assets/pack.ron` and every source it declares: the manifest is the one
+/// list, so a source line added there is played with no Rust build.
+pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! { root: "assets" };

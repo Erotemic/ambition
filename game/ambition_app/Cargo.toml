@@ -181,6 +181,11 @@ kaleidoscope_menu = ["ambition_platformer2d/kaleidoscope_menu", "dep:ambition_me
 frame_pacing = ["ambition_platformer2d/frame_pacing", "dep:bevy_framepace"]
 profile = ["ambition_platformer2d/profile"]
 
+[build-dependencies]
+# `build.rs` embeds each source `assets/pack.ron` declares, under
+# `static_content` (`ambition_content_pack::embed`).
+ambition_content_pack = { path = "../../crates/ambition_content_pack" }
+
 [dependencies]
 # The linked game providers of the multi-game shell host. The HOST depends on
 # providers; providers never depend on hosts (each also runs unchanged in its

@@ -119,13 +119,15 @@ affected character tests.
 - The artifact codec is `crates/ambition_content_pack/src/artifact.rs`. The
   move section codec is next to its pure value owner; host hydration is next to
   character preparation.
-- Every data source of the Ambition pack is read off disk through
-  `pack::source_text`. It is embedded only under `static_content` (web,
-  Android, a build without the source tree). Only `pack.ron` stays embedded,
-  because a new source needs a declaration in `pack.rs` anyway.
-- The demo packs use `content_pack!` (`ambition_platformer2d`): one `PackText`
-  per file, embedded only under the calling crate's `static_content`. Witness:
-  `content_sdk_tests::a_sourced_pack_reads_its_files_and_names_every_one_it_cannot`.
+- Every pack's `pack.ron` is the one list of its sources. A development build
+  reads the manifest and each source it declares when the pack compiles
+  (Ambition: `pack::pack_source_text`; the demos and the versus stage:
+  `content_pack! { root: "assets" }` in `ambition_platformer2d`). Each crate's
+  `build.rs` calls `ambition_content_pack::embed::embed_pack`, which writes the
+  `include_str!` of the same list only under the crate's `static_content`
+  feature (web, Android, a build without the source tree). Witnesses:
+  `pack_selection_tests::a_source_declared_in_the_roots_manifest_is_played_without_a_build`,
+  `content_sdk_tests::a_rooted_pack_reads_its_manifests_sources_and_names_every_one_it_cannot`.
 - `platformer_defaults.ron` (starting abilities, `MovementTuning` and an
   optional `feel:` block with `deny_unknown_fields`) is read by
   `Platformer2dGameplayDefaults::load`. `ambition_app::app::movement_defaults_watch`

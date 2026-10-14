@@ -95,18 +95,21 @@ ambition_game_bin` after touching the file, with a warm target:
 | A sprite publish (any file under `assets/sprites*` or `assets/sprite_packs` of the actor monolith) | 0.67 s, no crate compiled, for the Sanic app (embedded, it was 185 s and 23 crates). A development build reads the tree at startup. |
 | A file that is still embedded (`include_str!`) | about 6 to 7 s: `ambition_content` and the app compile again |
 
-`assets/pack.ron` itself stays embedded: a new source also needs a new
-declaration in `game/ambition_content/src/pack.rs`.
+`assets/pack.ron` is the one list of the pack's sources. A development build
+reads it when the pack compiles, so a new source is a new file and one line in
+`pack.ron`, and no Rust build (0.71 s, measured). A running game watches
+`pack.ron` too and plays the new source at the save.
 
 A demo's other authored files, such as a world, are written with
 `ambition_platformer2d::content_text!`: one file, read off disk the same way
 and embedded under the same feature.
 
-A demo's pack is written with `ambition_platformer2d::content_pack!`, which
-reads every text (its `pack.ron` included) off disk and embeds them only under
-the demo crate's own `static_content` feature. A new source is one more line in
-the macro's `sources`. `ambition_app`'s `static_content` turns the feature on
-for the demos it hosts.
+A demo's pack is written with `ambition_platformer2d::content_pack! { root:
+"assets" }`, which reads `pack.ron` and each source it declares off disk. A new
+source is one line in that `pack.ron`, as for Ambition. The demo crate's
+`build.rs` (`ambition_content_pack::embed::embed_pack`) embeds the same list
+only under the crate's own `static_content` feature. `ambition_app`'s
+`static_content` turns the feature on for the demos it hosts.
 
 ## Validation
 

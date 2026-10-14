@@ -24,6 +24,11 @@ visible = [
     "bevy/bevy_window",
 ]
 
+[build-dependencies]
+# `build.rs` embeds each source `assets/pack.ron` declares, under
+# `static_content` (`ambition_content_pack::embed`).
+ambition_content_pack = { path = "../../crates/ambition_content_pack" }
+
 [dependencies]
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack", "relativity"] }
 bevy = { version = "0.19.1", default-features = false }

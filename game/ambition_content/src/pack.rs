@@ -18,20 +18,21 @@
 use ambition_content_pack::{CompileFailure, PreparedContentPack};
 
 /// The pack a build with no source tree embeds: `assets/pack.ron` and each
-/// source it declares, written by `build.rs` under `static_content`. `None`
-/// in a build that reads its content off disk.
-pub(crate) struct EmbeddedPack {
-    manifest: &'static str,
-    sources: &'static [(&'static str, &'static str)],
-}
+/// `(declared path, text)` it declares, written by `build.rs` under
+/// `static_content` (`ambition_content_pack::embed`). `None` in a build that
+/// reads its content off disk.
+#[cfg(feature = "static_content")]
+const EMBEDDED_PACK: Option<(&str, &[(&str, &str)])> = Some(include!(concat!(env!("OUT_DIR"), "/content_pack/assets/embedded.rs")));
+#[cfg(not(feature = "static_content"))]
+const EMBEDDED_PACK: Option<(&str, &[(&str, &str)])> = None;
 
-include!(concat!(env!("OUT_DIR"), "/embedded_pack.rs"));
+use ambition_content_pack::embed::declared_paths;
 
 /// The manifest this build compiles: the embedded one, or `assets/pack.ron`
 /// as it is on disk now.
 fn manifest_ron() -> String {
-    match &EMBEDDED_PACK {
-        Some(pack) => pack.manifest.to_string(),
+    match EMBEDDED_PACK {
+        Some((manifest, _)) => manifest.to_string(),
         None => source_text("pack.ron", None),
     }
 }
@@ -39,9 +40,8 @@ fn manifest_ron() -> String {
 /// One source of the pack: the embedded text, or the file as it is on disk
 /// now. `declared` is the path as `pack.ron` spells it.
 pub(crate) fn pack_source_text(declared: &str) -> String {
-    match &EMBEDDED_PACK {
-        Some(pack) => pack
-            .sources
+    match EMBEDDED_PACK {
+        Some((_, sources)) => sources
             .iter()
             .find(|(path, _)| *path == declared)
             .map(|(_, text)| text.to_string())
@@ -50,14 +50,6 @@ pub(crate) fn pack_source_text(declared: &str) -> String {
             }),
         None => source_text(declared, None),
     }
-}
-
-/// The source paths a manifest declares, in its order. A manifest that does
-/// not parse declares none here; the compiler reports why.
-fn declared_paths(manifest_ron: &str) -> Vec<String> {
-    ron::from_str::<ambition_content_pack::ContentPackManifest>(manifest_ron)
-        .map(|manifest| manifest.sources.into_iter().map(|source| source.path).collect())
-        .unwrap_or_default()
 }
 
 /// One declared source's text: embedded when this build baked it in, otherwise

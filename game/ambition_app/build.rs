@@ -11,6 +11,10 @@
 use std::path::PathBuf;
 
 fn main() {
+    // The versus stage's pack (`app::versus_fighters::PACK`): the list is
+    // `assets/pack.ron` itself.
+    ambition_content_pack::embed::embed_pack("assets");
+
     // Declare the cfg name so it is never "unexpected", even on the common
     // build where the feature is off and the cfg stays unset.
     println!("cargo:rustc-check-cfg=cfg(ambition_static_sfx_bank_path)");

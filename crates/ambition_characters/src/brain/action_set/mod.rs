@@ -1268,6 +1268,11 @@ pub enum MoveStyleSpec {
     Float,
 }
 
+/// The key of the special that IS the guard: the body raises its shield for as
+/// long as the move plays (`sustain_bubble_shield`). It is not an action out
+/// of the shield, so a rule for actions out of shield does not refuse it.
+pub const BUBBLE_SHIELD_SPECIAL: &str = "bubble_shield";
+
 /// Per-entity signature move.
 ///
 /// Specials are content-defined string keys. A content-owned *Technique*

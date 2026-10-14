@@ -767,7 +767,7 @@ pub fn sustain_bubble_shield(
         let Some(SpecialActionSpec::Special(key)) = actions.special.as_ref() else {
             continue;
         };
-        if key != "bubble_shield" {
+        if key != ambition_characters::brain::action_set::BUBBLE_SHIELD_SPECIAL {
             continue;
         }
         let playing = playback.is_some_and(|p| p.spec.id == *key);

@@ -106,10 +106,17 @@
             tilt_range: 0.34,
             // Guard and down is the spot dodge on each floor of this game.
             platform_drop: false,
-            // The bubble is also the robot's neutral special, and that special
-            // works in the air. A rule for actions out of shield would refuse
-            // it, so there is none.
-            out_of_shield: None,
+            // Jon, 2026-10-13: no attack out of shield. A raised guard lets
+            // out a jump, a dodge, a grab and an up special, and each drops
+            // it. The bubble special is the guard itself and is not refused.
+            out_of_shield: Some((
+                jump: true,
+                burst: true,
+                grab: true,
+                up_attack: false,
+                up_special: true,
+            )),
+            // Jon, 2026-10-13: the shield works in the air.
             air_guard: true,
             drop_lag: 0.18,
         ),

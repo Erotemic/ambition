@@ -18,6 +18,20 @@ use ambition_platformer2d_shared_tangle::lifecycle::{PlayerVisual, PosedBody};
 use ambition_sprite_sheet::character::CharacterAnim;
 use bevy::prelude::{Commands, Entity, Or, Query, Res, ResMut, Resource, With};
 
+/// How long a body draws its `turnaround` row after its facing flips on the
+/// ground. The row is slaved to this time, so its frames fit it whatever the
+/// sheet's frame duration is. A sheet with no such row draws the body's own
+/// pose.
+pub const TURN_SECS: f32 = 0.16;
+
+/// The row of a turn.
+const TURNAROUND_CLIP: &str = "turnaround";
+
+/// The poses a turn is drawn from and in: on the ground, under no move.
+fn turns_on_the_ground(anim: CharacterAnim) -> bool {
+    matches!(anim, CharacterAnim::Idle | CharacterAnim::Walk | CharacterAnim::Run)
+}
+
 /// How far up the stick is held for a body that stands to look up. Below the
 /// cap of a walk (`ambition_input::control::WALK_AXIS_CAP`, 0.5), so the pose
 /// is the same with the walk key held.
@@ -37,6 +51,11 @@ pub struct BodyPoseView {
     /// body without a `BodyBaseSize`.
     pub base_size: ambition_platformer2d_core::Vec2,
     pub facing: f32,
+    /// Seconds since the drawn facing last flipped while the body stood,
+    /// walked or ran, and `f32::INFINITY` before any. A picture fact only:
+    /// the facing flips at once, and the `turnaround` row is drawn over the
+    /// first [`TURN_SECS`] of it.
+    pub turn_secs: f32,
     /// Aerial/gravity roll angle (radians) — the sprite rotation.
     pub roll_angle: f32,
     /// `size.y / base_size.y`, clamped (0.1, 1.0] — the trimmed-sheet
@@ -236,6 +255,7 @@ impl Default for BodyPoseView {
             size: ambition_platformer2d_core::Vec2::ONE,
             base_size: ambition_platformer2d_core::Vec2::ONE,
             facing: 1.0,
+            turn_secs: f32::INFINITY,
             // A body with no pose yet is playing no move.
             clip: None,
             roll_angle: 0.0,
@@ -279,6 +299,8 @@ pub fn rebuild_body_pose_views(
     // The running session's frozen cast, or the published one with no
     // session (`SessionCast`).
     registry: ambition_characters::prepared::SessionCast,
+    // The clock of the turn (`BodyPoseView::turn_secs`).
+    time: Option<Res<bevy::prelude::Time>>,
     mut bodies: Query<
         (
             (
@@ -501,12 +523,28 @@ pub fn rebuild_body_pose_views(
         } else {
             kinematics.facing
         };
+        // The turn: the drawn facing flipped between two poses on the ground.
+        let free = playback.is_none_or(|playback| playback.settled()) && anim_override.is_none();
+        let turn_secs = match pose.as_deref() {
+            Some(before)
+                if free
+                    && before.facing != drawn_facing
+                    && turns_on_the_ground(before.anim)
+                    && turns_on_the_ground(anim) =>
+            {
+                0.0
+            }
+            Some(before) => before.turn_secs + time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs),
+            None => f32::INFINITY,
+        };
+        let turning = free && turns_on_the_ground(anim) && turn_secs < TURN_SECS;
         let next = BodyPoseView {
             pos: kinematics.pos,
             vel: kinematics.vel,
             size: kinematics.size,
             base_size: base,
             facing: drawn_facing,
+            turn_secs,
             roll_angle: roll.map_or(0.0, |r| r.angle),
             stance_ratio_y,
             gravity_dir,
@@ -516,6 +554,14 @@ pub fn rebuild_body_pose_views(
             clip: playback
                 .filter(|playback| !playback.settled())
                 .map(|playback| crate::ClipRequest::for_move(&playback.spec.clip, playback.phase()).over_legs(legs))
+                .or_else(|| {
+                    turning.then(|| crate::ClipRequest {
+                        clip: TURNAROUND_CLIP.to_string(),
+                        fallbacks: Vec::new(),
+                        phase: Some(turn_secs / TURN_SECS),
+                        legs: None,
+                    })
+                })
                 .or_else(|| {
                     crate::ClipRequest::from_chain(ambition_character_sprites::body_state_clip(
                         motion_facts?,

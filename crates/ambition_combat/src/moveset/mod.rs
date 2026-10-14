@@ -2384,6 +2384,28 @@ fn record_impulse_authorship(
     );
 }
 
+/// Does this special press start the special that IS the guard
+/// (`BUBBLE_SHIELD_SPECIAL`)?
+///
+/// `sustain_bubble_shield` raises the guard on the tick of the press, and the
+/// move keeps it up. A rule for actions out of shield read that guard and
+/// refused the move that holds it up, so the bubble went down one tick after
+/// it went up. The press is not an action out of the guard: it is the guard.
+fn is_the_guard_special(
+    moveset: &MovesetContract,
+    action_set: Option<&ambition_characters::brain::action_set::ActionSet>,
+    dir: AttackDir,
+    grounded: bool,
+) -> bool {
+    let Some(SpecialActionSpec::Special(key)) = action_set.and_then(|actions| actions.special.as_ref()) else {
+        return false;
+    };
+    key == ambition_characters::brain::action_set::BUBBLE_SHIELD_SPECIAL
+        && moveset
+            .move_for_directional_verb(SPECIAL_VERB, dir, grounded)
+            .is_some_and(|spec| spec.id == *key)
+}
+
 /// WHICH DIRECTIONS RISE out of a raised guard — the platform-fighter half of
 /// the out-of-shield rule, and the only half that belongs to combat.
 ///
@@ -2685,6 +2707,9 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     commands
         .entity(entity)
         .insert(crate::moveset::MoveOccurrence(occurrence));
+    // The move that IS the guard holds it up (`sustain_bubble_shield`): it is
+    // not an action out of the guard, and it does not spend it.
+    let is_the_guard = spec.id == ambition_characters::brain::action_set::BUBBLE_SHIELD_SPECIAL;
     commands.entity(entity).insert(
         MovePlayback::new(spec, facing)
             .at_occurrence(occurrence)
@@ -2698,7 +2723,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     // not start the next one behind it.
     proposer.spend(action_buffer);
     // ... and the guard leaves with the action it launched.
-    if let Some(shield) = shield.as_mut() {
+    if let Some(shield) = shield.as_mut().filter(|_| !is_the_guard) {
         ae::movement::spend_out_of_shield(shield, oos_policy);
     }
     // ⭐⭐ AND THE WEAPON IS SPENT AT ACCEPTANCE, not at the fire beat. That is
@@ -3307,6 +3332,7 @@ pub fn trigger_moveset_moves(
             )
         } else if special_intent.is_some_and(|intent| {
             rises_out_of_shield(&gate, intent.direction, ae::OutOfShieldAction::UpSpecial)
+                || is_the_guard_special(&moveset.0, action_set, intent.direction, grounded)
         }) {
             // ⛔⛔ THE PRESS'S OWN DIRECTION AND POSTURE, not the live stick's.
             // `special_intent` is `ResolvedAttackGesture::special`, which

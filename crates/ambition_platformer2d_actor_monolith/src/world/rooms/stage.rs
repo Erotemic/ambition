@@ -429,108 +429,11 @@ impl RoomConstructionPlan {
         session_scope: SessionSpawnScope,
         facts: crate::construction::CommitFactsSource,
     ) {
-        // ⛔ THE ROOM DECLARES WHAT IT IS REBUILDING. See `transaction::open`
-        // for the measurement that this had no production caller at all.
+        // The room declares what it will rebuild before it creates candidates.
         transaction::open(commands, publication, &self.features, session_scope);
-        // ⛔⛤ **THE CANDIDATE ROAD IS THE ONLY ROAD — the rollout switch was
-        // deleted 2026-09-15.** Every root in every lane is minted
-        // `InactiveCandidate`, so nothing this room builds is visible to an
-        // ordinary query until `transaction::close` admits it, and a refused
-        // room is DROPPED rather than left standing half-built.
-        //
-        // ⭐⭐ **WHAT UNBLOCKED IT WAS A DECLARATION, NOT A RULING.** This
-        // paragraph used to say the flag *"waits on a gameplay ruling alone"* —
-        // `Q124`, what happens to a placement in your custody when a death
-        // rebuilds the room that authored it — because turning it on refused
-        // `death_restores_the_checkpoint` with
-        //
-        //     violations=[ Duplicated { placement:ground_gun_sword, count: 2 },
-        //                  ReconstructedOldSurvived { stale: 514v0 } ]
-        //
-        // ⇒ **BOTH OF THOSE ARE THE VERIFIER ANSWERING A QUESTION NOBODY MEANT
-        // TO ASK.** `reconstructing` states *"the old body should already be
-        // gone"*, so a carried predecessor is a violation BY DEFINITION. The
-        // transaction now splits its declaration per identity —
-        // `superseding(id, id)` for one the baseline still holds,
-        // `reconstructing` for the rest — and the coexistence it was refusing is
-        // the A10 premise. See `transaction::open`.
-        //
-        // ⚠ And `Q124` was WITHDRAWN (2026-09-13): the rule was never a ruling
-        // anybody owed, because it is already shipped and TEMPORAL — the
-        // baseline decides PER ITEM by which side of the checkpoint each
-        // acquisition fell on, and both halves already run — the room
-        // re-authors the object in its world state, the custodian's own
-        // retraction takes it out of the hand. See `retire_superseded` for the
-        // measured reason publication must not do that half itself.
-        //
-        // ⛔⛤ **THE OTHER BLOCKER WAS BIGGER THAN THE RULING AND IS ALSO
-        // CLOSED — 2026-09-13.** A census of every room-construction refusal
-        // across the whole `app_it` suite found SIX, and the two largest were on
-        // the HOT-RELOAD road rather than the death road: 8 placements and **18,
-        // the whole of `central_hub_complex`**. The world log gave the mechanism:
-        //
-        //     f16  session-end   activation=2 scope=0
-        //     f16  session-start activation=3 scope=1
-        //          room-refused :: 18x Duplicated, 18x ReconstructedOldSurvived
-        //
-        // A session handoff retires the old scope and starts the new one IN THE
-        // SAME FRAME, and `GameplaySessionSet::Providers` was ordered BEFORE
-        // `SessionScopeSet::Cleanup`, so the incoming room's transaction captured
-        // a baseline that still held every one of the outgoing scope's
-        // placements. ⛔ NOT A RACE — a declared order: `Providers` is
-        // `.before(Presentation)` and `Presentation` chained ahead of
-        // `RetireAuthority -> Cleanup`.
-        //
-        // ⇒ `SessionScopeSet` now chains `RetireAuthority -> Cleanup -> Activate
-        // -> Presentation`: the dying scope finishes dying before the live one is
-        // born. **The census fell from 6 refusals to 4**, and all four that
-        // remain were the single-placement custody shape above. Guarded by
-        // `the_retired_scopes_sweep_precedes_the_incoming_sessions_construction`
-        // (the schedule) and by `an_edited_pack_reaches_the_cast_the_shipped_composition_plays`
-        // (the production verdict).
-        //
-        // ⚠ It cost ALMOST nothing visible, which is why it survived that long —
-        // and the "no production reader" half of that sentence was WRONG.
-        // MEASURED 2026-09-14: `RoomLoaded` has three production readers through
-        // `ambition_combat::events::FreshAttempt`, so a refusal also left staged
-        // hits unvoided and per-attempt state un-re-armed. Both are the right
-        // outcome (no attempt began), which is why nobody noticed. Under this
-        // bracket it would have dropped the whole room and landed every hot
-        // reload in an EMPTY WORLD.
-        //
-        // ✅ **AND THE BRACKET NOW BUYS THE WHOLE ROOM-SCOPE GUARANTEE.** This
-        // paragraph read *"`replace_live_world` still retires the OUTGOING room
-        // and writes `RoomSet` / `RoomGeometry` / the platform state BEFORE any of
-        // this runs"*. It stages all of it now — see `PendingWorldReplacement` —
-        // and a refusal leaves the session with the room it was already playing.
-        // ⚠ The SESSION scope is a different transaction and is not started; see
-        // `docs/planning/queue.md`'s A10 row for what each half covers.
-        // ⛔⛤ **THE CONSTRUCTION BOUNDARY OWNS BOTH THE PREREQUISITE AND THE
-        // ACTION IT AUTHORIZES — 2026-09-15 AUDIT, FINDING 4.**
-        //
-        // This used to call the spawn right here, which queued every candidate
-        // command BEHIND `open`'s. `open` runs first at flush and can discover
-        // that this world cannot hide a candidate — and could do nothing about
-        // the commands already sitting behind it:
-        //
-        //     queue open -> queue construction -> queue close
-        //     flush: open REFUSES; construction runs anyway (VISIBLY, because the
-        //            refusal IS that nothing here is hidden); close cleans up
-        //
-        // A refusal that has to be repaired afterwards is not a refusal. Worse,
-        // the window is not unobservable: `commit_inactive`'s own note records
-        // that component hooks and lifecycle observers DO run during
-        // `queue.apply`, even though no scheduled system does.
-        //
-        // ⇒ The whole construction is ONE exclusive-world command that consults
-        // the opening decision first and applies its own command queue only if
-        // that decision was to proceed. A world that cannot hide a candidate
-        // performs ZERO candidate construction — there is nothing to clean up,
-        // and `refuse`'s retirement stays as the backstop rather than the fix.
-        //
-        // ⚠ RECIPES GAIN NO `World` ACCESS FROM THIS. They still execute through
-        // the constrained `RootScope`/`RelationScope` surface; what moved is
-        // WHERE the queue they fill is applied.
+        // The exclusive-world construction command checks the opening record
+        // before creating candidates. Roots remain hidden until admission;
+        // a refusal preserves the current live room and its residents.
         construct_room_candidate(
             commands,
             publication,

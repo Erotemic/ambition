@@ -119,85 +119,13 @@ pub enum ParamKind {
     /// makes the rule un-renameable and un-validatable; an `Entity` is a slot in
     /// an allocator that does not survive the thing it names.
     Reference,
-    /// A short authored name that is not a reference — a save flag id, a
-    /// mechanism channel.  this is the escape hatch, and every use of it is a
-    /// small bet that the thing named will never need renaming.
+    /// An authored string, such as a flag or mechanism id.
     ///
-    /// ⛔⛔ **AND A SECOND BET NOBODY WROTE DOWN: THAT A MISSPELLING IS
-    /// DISTINGUISHABLE FROM A "NO".** `prepare_one` accepts any string for a
-    /// `Name`, so this kind is the one hole in the promise
-    /// [`ConditionCatalog::ask`] makes — *"everything that could have been wrong
-    /// about the call was already wrong at prepare time."* `Number`, `Truth` and
-    /// `Reference` all parse and can refuse; `Name` cannot, because
-    /// preparation holds no `World` and the roster it would check lives in one.
-    ///
-    /// ⇒ **So the refusal has to happen in the EVALUATOR, and the evaluator must
-    /// want to.** A name drawn from an authored roster has two absences in it —
-    /// *"no such subject"* and *"that subject, and the answer is no"* — and
-    /// answering both with `NotSatisfied` is the permissive default that makes a
-    /// typo a gate which never opens, silently, forever. Split them:
-    /// [`ConditionOutcome::unanswerable`] is the "no such subject" arm and it
-    /// reaches a content diagnostic; `false` is an answer about a real thing.
-    ///
-    /// ⭐ **`body.can` IS THE SHAPE TO COPY** (`actor_monolith/src/body_conditions.rs`).
-    /// It resolves the verb against a DEFAULT `AbilitySet` *before* looking at
-    /// any body, and its comment says why: *"so an unknown verb is a content
-    /// diagnostic even in a composition with no body in it. Resolving the body
-    /// first would report 'nothing is driving' for a misspelling."*
-    ///
-    /// ⚠ **AND THE CHOICE IS NOT ALWAYS THE EVALUATOR'S TO MAKE. MEASURED
-    /// 2026-09-06 across all 12 published `ParamSpec`s**, three stances are in
-    /// the tree, and which one is right turns on ONE question — *is the roster
-    /// reachable where the check would go?*
-    ///
-    /// 1. **REFUSE AT EVALUATE, because the roster is reachable.** `body.can`
-    ///    (`AbilitySet`'s fields are compiled in, so `default()` is a complete
-    ///    roster needing no world), `inventory.holds` (`ItemCatalog::item_by_dialog_id`
-    ///    resolves the spelling or refuses), and `quest.active` (the runtime
-    ///    `QuestRegistry`, consulted only once `initialized` — a roster is not
-    ///    authoritative until something has filled it).
-    /// 2. **DEFER TO CONTENT VALIDATION, stated.** `world.switch_on` rules
-    ///    exactly this and says so — *"a MISSPELT id is indistinguishable from
-    ///    an unflipped one; that is a content-validation question about authored
-    ///    ids, not a runtime one."* `world.flag_set` needs no roster at all: a
-    ///    save flag is genuinely free-form, which is the honest escape hatch this
-    ///    kind was named for.
-    /// 3. **UNEXAMINED** — `encounter.cleared` alone. It reads a save whose
-    ///    accessor reconstructs ANY string as an "untouched" row and does not
-    ///    say which of (1) or (2) it intends. ⚠ **And it has no authored callers
-    ///    to protect: measured 2026-09-06, zero by every road** — no Yarn alias
-    ///    is registered for it, no `gated_by` names it (there are exactly two
-    ///    authored `gated_by` rows tree-wide, both `intro.ldtk` LockWalls, both
-    ///    `bob_field_survey_received`), and no authored condition line mentions
-    ///    it. ⇒ A guard modelled on the boss one would certify the empty set, so
-    ///    the honest reason this is unexamined is that **nobody has typed a
-    ///    misspelling yet** — not that the question was dodged. It becomes a real
-    ///    question the day the first author writes one.
-    ///
-    /// ⚠ **`boss.cleared` BELONGS IN (2) AND I FILED IT WRONG — twice in one
-    /// day, on the same condition.** It is the worked example of this whole
-    /// entry: authored dialogue asked `boss_cleared("mockingbird")`, a real
-    /// BEHAVIOUR id, against a save keyed by PLACEMENT, and three branches could
-    /// never open for weeks with no error anywhere. Jon ruled it (decision 57,
-    /// 2026-09-05), the callers were migrated, and TWO guards hold it — one
-    /// resolving through the production `boss_placement_id` so a behaviour id is
-    /// a RED. ⇒ Its roster lives in the authored worlds, which no `&World` here
-    /// can reach, so deferring is not a shrug: the check runs where the roster
-    /// is.
-    ///
-    /// ⛔ **I MISCOUNTED THIS TWICE, IN THE SAME DIRECTION, AND THE REASON IS
-    /// WORTH MORE THAN THE TALLY.** First draft called `world.switch_on` an
-    /// oversight when it had ruled; second called `inventory.holds` unexamined
-    /// when it already refuses in its third line and says so in its doc. Both
-    /// times I classified from the `ParamSpec` — which is where the KIND is —
-    /// without reading the evaluator to its end, which is where the CHOICE is.
-    /// ⇒ A param's kind tells you what preparation could not check; only the
-    /// evaluator tells you whether anyone checked it anyway.
-    ///
-    /// ⇒ Stance 2 is not a shrug; it names an owner. The fallback for a roster a
-    /// type cannot hold is an authored-integrity guard, which is why this project
-    /// already runs several. Adding a `Name` param means picking 1, 2 or 3, and
-    /// only the first two are choices.
+    /// Preparation cannot validate it against a world-owned roster.
+    /// An evaluator with a roster must report an unknown name as
+    /// `Unanswerable`, not as an ordinary false condition. Where the
+    /// roster is not available at evaluation, authored-content validation
+    /// must check it. Free-form flags need no such roster.
     Name,
     Number,
     Truth,
@@ -560,51 +488,14 @@ impl ConditionCatalog {
     }
 }
 
-/// **WHAT THE ENGINE WAS ASKED, AND WHAT IT ANSWERED** — the per-call verdict
-/// surface `engine/inspection-diagnostics-and-workbench.md` has carried as the
-/// open half of M5 since the `WhyNot` vocabulary landed on 2026-09-02.
+/// Optional diagnostic stream for authored conditions and commands.
 ///
-/// ⭐ **QUESTIONS AND VERBS IN ONE ORDERED STREAM, BECAUSE THE INTERESTING
-/// THING IS THE PAIR.** *"The door did not open when I pressed it"* is a
-/// condition's structured `no` followed by the command that never ran, or a
-/// satisfied condition followed by a command that refused for its own reason —
-/// and which of those it is, is the whole diagnosis. Two logs would make the
-/// reader join them by hand, and the join is the answer.
+/// The condition catalog records verdicts at the evaluation boundary,
+/// including unknown arguments. Callers need not duplicate this logic.
 ///
-/// ⛔⛤ **THE STRUCTURE EXISTED AND NOBODY COULD READ IT.** Every production
-/// evaluator states a [`WhyNot`] — the term that blocked, the object it names,
-/// that object's state — and exactly one consumer published it:
-/// `GatedLockWallVerdicts`, keyed by wall id, for the walls of the active room.
-/// Every other `no` in the engine was built, returned to its one caller, and
-/// dropped. An agent asking *"why did this rule not fire"* about a quest gate,
-/// a dialogue branch, an item condition or a boss phase had a structured answer
-/// produced on the tick it wanted and no way to see it without a debugger.
-///
-/// ⭐ **RECORDED AT THE CATALOG, NOT AT THE CALLERS, FOR THE REASON THE CATALOG
-/// ALREADY GIVES ABOUT ARITY:** *"an evaluator that had to validate its own
-/// arguments would be fifty domains each writing the same four lines, and the
-/// day one of them wrote them differently the catalog's schema would stop
-/// meaning anything."* The same argument applies to recording, one step out:
-/// twelve call sites remembering to log is twelve chances to forget, and the
-/// ones that forgot would be invisible. [`ConditionCatalog::evaluate`] is the
-/// one door, so it is the one recorder — including for the three
-/// `Unanswerable` refusals it issues itself, which are the answers a caller is
-/// least able to explain and the ones a misspelled id produces.
-///
-/// ⚠ **ABSENT BY DEFAULT, AND ABSENCE IS THE OFF SWITCH.** A composition that
-/// wants the log inserts it; one that does not pays a resource lookup per
-/// evaluation and nothing else. There is no env var and no feature flag,
-/// because the question *"is this world recording"* is already answerable by
-/// asking the world.
-///
-/// ⛔ **IT IS NOT SIMULATION STATE AND IT IS NOT REGISTERED FOR ROLLBACK.**
-/// Two consequences, both deliberate. Nothing in the simulation may READ it —
-/// a rule that branched on what the log remembers would be a rule whose
-/// behaviour depends on whether a diagnostic is installed. And its ORDER is
-/// not deterministic: conditions evaluate from `&World`, so two systems may
-/// ask in parallel and the ring interleaves them however the scheduler ran. A
-/// test may assert on WHAT is in the log; asserting on the order of two
-/// entries from different systems is asserting on the scheduler.
+/// This log is not simulation state. Simulation must not read it, and
+/// the order of evaluations from independent systems is not stable.
+/// Install the resource only where diagnostics are requested.
 #[derive(Resource)]
 pub struct AuthoredVerdictLog {
     entries: std::sync::Mutex<std::collections::VecDeque<AuthoredVerdict>>,
@@ -660,38 +551,12 @@ impl AuthoredVerdict {
     }
 }
 
-/// **WHEN AN ANSWER WAS PRODUCED, AND WHETHER THAT MOMENT SURVIVED.**
+/// Rollback identity and confirmation status for a diagnostic verdict.
 ///
-/// ⛔⛤ **A DIAGNOSTIC OUTSIDE ROLLBACK STILL NEEDS ROLLBACK IDENTITY —
-/// REVIEWED 2026-09-20.** Keeping the ring out of rollback state is right:
-/// rewinding the evidence would erase exactly what an observer came to read.
-/// But a rollback host RE-SIMULATES a frame it guessed wrong about, so without
-/// a stamp the ring holds
-///
-/// ```text
-/// frame N (speculative)  world.flag_set("door_A") => no
-/// frame N (corrected)    world.flag_set("door_A") => yes
-/// ```
-///
-/// as two entries with nothing to say one belonged to an abandoned future —
-/// and *"this rule oscillated"* reads identically to *"the first prediction
-/// was rolled back and never became history"*. For a surface whose entire
-/// purpose is to explain the engine, unlabelled duplication is the wrong
-/// answer.
-///
-/// ⭐ **A CORRECTED PASS REPLACES ITS PREDECESSOR — BY THE FRAME, NOT BY THE
-/// CALL.** `GameplayTraceBuffer` carries the same `Option<(u64, i32)>` under
-/// the same name, and the analogy stops one step short of this stream:
-/// that buffer holds ONE observation per `(session, frame)`, so replacement
-/// there IS the entry. This stream holds arbitrarily many, and a re-simulated
-/// frame can ask different questions a different number of times, so
-/// [`AuthoredVerdictLog::begin_pass`] clears the frame's whole batch and lets
-/// it refill.
-///
-/// ⚠ **`None` MEANS NO ROLLBACK HOST, NOT "UNKNOWN".** `ConfirmedFrameBoundary`
-/// is absent exactly when nothing can rewind, and its own module says that
-/// case means *"confirm everything"*. An unstamped verdict is therefore never
-/// cleared: it happened once, in a timeline with no alternatives.
+/// Re-simulation replaces the whole batch for `(session, frame)` in
+/// `AuthoredVerdictLog::begin_pass`, since a corrected frame may evaluate
+/// a different set of conditions. `None` marks a non-rollback host; its
+/// verdicts are not cleared by a rollback pass.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VerdictStamp {
     /// `(rollback session generation, simulation frame)`, or `None` when no

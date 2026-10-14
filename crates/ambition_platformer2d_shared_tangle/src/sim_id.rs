@@ -116,39 +116,11 @@ impl SimId {
         ))
     }
 
-    /// An object the MATCH itself put into the world — a spawned item.
+    /// Stable identity for the one match-owned item spawned on a tick.
     ///
-    /// ⭐ DERIVED, not sequenced, for the same reason [`Self::strike_volume`]
-    /// is: `(match, tick)` determines it completely and at most one spawn per
-    /// tick exists, so a counter would be a second authority on a fact the tick
-    /// already settles. That matters more here than convenience — the pickup
-    /// road mints under the THROWER and takes a `SimIdCounter` from it, and a
-    /// match-level spawner has no thrower to take one from. Deriving is not a
-    /// workaround for that; it is the reason the problem does not arise.
-    ///
-    /// ⛔ THE TICK IS NOT DECORATION. Two items spawned on different ticks are
-    /// different objects and a save must be able to tell them apart; two spawned
-    /// on the SAME tick would be the same object, which is why the caller must
-    /// not draw twice in one tick without the schedule saying so.
-    /// ⭐ AND THE FIRST TERM IS THE MATCH'S ORDINAL WITHIN THE AGREED SESSION,
-    /// which is why the parameter is no longer called `activation`. It restarts
-    /// at zero every session, so session A's match 0 and session B's match 0
-    /// mint the same namespace — sound for the same reason the match projections
-    /// are: the two never coexist. A match-spawned item is a `RoomScopedEntity`
-    /// (`items::match_spawn` spawns it with `spawn_room_in_session`), and a session
-    /// change rebuilds the world, so nothing session A minted is alive when
-    /// session B's first match opens.
-    ///
-    /// ⚠ THAT WAS FALSE UNTIL 2026-10-04. The item was spawned on a road with
-    /// no session stamp, and the session teardown despawns by that stamp only.
-    /// A room-scoped spawn now takes its session as an argument.
-    ///
-    /// ⚠ **IT IS NOT `MatchScoped`, WHICH THIS DOC CLAIMED FOR A DAY.** That
-    /// marker and its sweep belong to the smash ruleset and cover five spawn
-    /// sites — bomb, bolt, mine, portal, spring. A match item is not one of
-    /// them; it is ended by the room, not by the match. The namespace claim
-    /// above does not need it, and whether the sweep SHOULD cover items is a
-    /// ruleset question, not an identity one.
+    /// The match ordinal and tick determine the identity. The caller
+    /// must not spawn two distinct items with this key in one tick.
+    /// The item belongs to a room and is retired with its session.
     pub fn match_spawn(match_ordinal: u64, tick: u64) -> Self {
         Self(format!("match:{match_ordinal}/spawn/{tick}"))
     }
@@ -250,49 +222,9 @@ impl SimIdCounter {
 mod tests {
     use super::*;
 
-    /// ⭐⭐ A RESIMULATED TICK RE-MINTS THE SAME ID — the half of that claim that
-    /// can be proved without a rollback session, proved.
-    ///
-    /// ✔✔ **AND LEG (b) WAS ALREADY MEASURED — see
-    /// `docs/planning/engine/simulation-authority-and-determinism.md:189`**,
-    /// which recorded on 2026-09-02 that minting from a process-global counter
-    /// instead of the spawner's `SimIdCounter` desyncs the session at frame 2.
-    /// ⚠ **Cite that, not the re-derivation.** A second poison on 2026-09-04 — at
-    /// a different site, `next()` itself rather than the mint call — reached the
-    /// same verdict at frame 9, which makes them two independent instruments
-    /// rather than one result quoted twice. But it cost a near-total rebuild to
-    /// learn something the owner doc already held, and **re-reading an open row
-    /// beats building.** ⇒ So `SimId` is
-    /// genuinely IN the session checksum and an unstable mint is genuinely SEEN,
-    /// which `rollback_component_canonical` alone could not have established —
-    /// this repo already records that **REGISTERED ≠ CHECKSUMMED**, and that a
-    /// real desync once read clean.
-    ///
-    /// ⭐ Worth knowing about that poison: it works only because the fixture's
-    /// subject fires bolts every ninth frame INSIDE the rolled-back window. The
-    /// five ids minted before the frames are never re-run, so without those bolts
-    /// it would have proved nothing about resimulation while appearing to.
-    /// **A poison at the wrong layer passes for the right one.**
-    ///
-    /// ⛔ **THE CLAIM HAS TWO LEGS AND THIS TEST IS ONE OF THEM.** When
-    /// `PortalFireIntent` gained a minted `SimId` (2026-09-04) the argument was:
-    /// the counter lives on the firer and is rollback state, so a rewind restores
-    /// it, so the re-simulation mints the same number. ⇒ Leg (a) is *minting is a
-    /// pure function of the counter's value* — that is this test. Leg (b) is *the
-    /// rewind actually restores the counter* — that is
-    /// `rollback_component_canonical::<SimIdCounter>("body.sim_id_counter")` in
-    /// `rollback_registration.rs`, and it is asserted by the schema baseline
-    /// rather than here.
-    ///
-    /// ⚠ Written because the author of that change flagged the whole claim as
-    /// ARGUED and not measured, and half of it is measurable in four lines. The
-    /// remaining half is now a named registration rather than a piece of
-    /// reasoning. ⇒ And the two legs want DIFFERENT INSTRUMENTS, which is why
-    /// neither substitutes for the other: purity is a unit test, *is it in the
-    /// checksum* is a poisoned session, and the registration line is neither.
-    /// ⭐ Two independent instruments reached the same verdict here, and this
-    /// test would have caught that poison on its own — a global drift makes two
-    /// mints from `SimIdCounter(7)` differ, which is exactly what it asserts.
+    /// A restored owner counter must mint the same identity on replay.
+    /// Rollback registration must restore the counter; this unit test alone
+    /// does not prove the session restoration path.
     #[test]
     fn a_resimulated_tick_re_mints_the_same_id() {
         let firer = SimId::player_slot(0);

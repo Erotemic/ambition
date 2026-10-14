@@ -604,83 +604,14 @@ mod latch_authority_tests {
 
 #[cfg(test)]
 mod the_bytes_two_peers_exchange {
-    //! ⛔⛤ **NOTHING VERSIONED THE SHAPE OF THE INPUT WIRE, AND EVERY CANDIDATE
-    //! THAT LOOKED LIKE IT DID COVERS SOMETHING ELSE.**
+    //! Guard the bincode input bytes used by GGRS.
     //!
-    //! `AmbitionGgrsConfig = GgrsConfig<PeerInput>`, and a `PeerInput` holds a
-    //! [`ControlFrame`] first, so these bytes are the first 70 of what crosses
-    //! between peers for each handle. The whole input is pinned in
-    //! `ambition_platformer2d_rollback_ggrs::peer_input`.
-    //!
-    //! The state half of the wire has both an identity and a ratchet (`GGRS_ROLLBACK_SCHEMA_VERSION` and
-    //! `scripts/tests/rollback_codec_shape.txt`). Before this module the input
-    //! half had neither:
-    //!
-    //! - `INPUT_STREAM_VERSION` versions RECORDED REPLAY FILES and exempts added
-    //!   fields **by design** — this very type's doc comment says so: *"adding a
-    //!   `ControlFrame` field does not bump `INPUT_STREAM_VERSION`"*;
-    //! - the rollback dump carries ONE row naming the type
-    //!   (`derived.control_frame`) and not its fields;
-    //! - the schema fingerprint hashes that dump, so it inherits the same blindness;
-    //! - `rollback_codec_shape.txt` has zero mentions, because `ControlFrame` has
-    //!   no `SnapshotState` impl at all — it is `derived`, rebuilt FROM the input
-    //!   stream rather than snapshotted.
-    //!
-    //! ⇒ So this is a RATCHET, not a version: it cannot tell you what to bump,
-    //! because there is nothing to bump yet. It makes a change to the peer input
-    //! payload impossible to make silently, which is the property that was
-    //! missing. See ID-PEER's fifteenth road in `docs/planning/queue.md`.
-    //!
-    //! ⚠ **LATENT, NOT HARMLESS.** Only `SyncTestSession` is built today
-    //! (netcode `N2`), and a sync test has one peer, so no mismatch can be
-    //! observed. The first real P2P session is where a silent shape change
-    //! becomes two hosts that agree on every checksum and cannot decode each
-    //! other's input.
-    //!
-    //! ⛔⛤ **AND FOR A DAY THIS MODULE PINNED PRETTY-PRINTED serde JSON AND
-    //! `size_of`, CALLING THE FIRST "the exact payload serde puts on the wire".
-    //! NEITHER IS THE WIRE.** Read out of the pinned `ggrs` checkout itself
-    //! (`0.13.0`, git `e97e3d2`), not out of a changelog:
-    //!
-    //! ```text
-    //! InputBytes::zeroed          bincode::serialized_size(&T::Input::default())
-    //! InputBytes::from_inputs     bincode::serialize_into(&mut bytes, &input.input)
-    //! InputBytes::to_player_inputs   bincode::deserialize(player_byte_slice)
-    //! ```
-    //!
-    //! ⚠ **AND `serialized_size(&Default)` IS NOT THE WIRE STRIDE — CORRECTED
-    //! 2026-09-16 AFTER A SECOND GPT REVIEW, BY READING `InputBytes` RATHER THAN
-    //! ITS THREE CALLS.** `zeroed` uses it to size a ZEROED buffer for
-    //! `NULL_FRAME` placeholders. `from_inputs` appends each player's ACTUAL
-    //! encoding to one `Vec` with no per-player length, and `to_player_inputs`
-    //! recovers the stride as `self.bytes.len() / num_players` — the SENDER's
-    //! total, divided evenly. See [`every_frame_encodes_to_the_same_width`] for
-    //! what that makes Ambition responsible for.
-    //!
-    //! bincode is POSITIONAL: it writes fields in declaration order and carries
-    //! no field names at all. So the old module's whole poison argument was
-    //! false. **Measured 2026-09-16 by poison:** renaming the live
-    //! `#[serde(rename = "dash_pressed")]` attribute to something else leaves
-    //! this encoding **byte-identical** — same 68 bytes, same hex — while it
-    //! reddened the JSON assertion the module was built around. And `size_of`
-    //! was **60** against a serialized size of **68**, so the companion
-    //! "neither implies the other" constant was pinning Rust's in-memory layout
-    //! and calling it the transport.
-    //!
-    //! ⭐⛤ **WHAT THE COMPILER ALREADY CATCHES.** ADDING a field fails to
-    //! compile: [`ControlFrame::merge_sample`] builds an EXHAUSTIVE literal, so a
-    //! new field must also declare whether it is a LEVEL (latest wins) or an
-    //! EDGE (OR-accumulated). That is about merge semantics, not about the peer,
-    //! and satisfying it is one line — it says nothing of the wire.
-    //!
-    //! ⚠ **AND WHAT THESE BYTES CANNOT SEE, SO THAT THE NEXT READER DOES NOT
-    //! TRUST THEM FOR IT.** `bool` and `u8` are both ONE byte in bincode and
-    //! encode the same values identically, so a type swap between them moves
-    //! nothing here. The FIELD TYPES are carried by the source-level census in
-    //! `scripts/check_absence_contracts.py::input_payload_shape`, which records
-    //! declaration order, each field's type, and the variants of every nested
-    //! enum. The two are complements: that one is the shape, this one is the
-    //! transport actually producing bytes.
+    //! The peer input format is positional and has no field names. A replay
+    //! stream version does not establish peer input compatibility. These tests
+    //! pin representative encoded values, including nonzero fields. The
+    //! source-shape guard also checks field types and order because distinct
+    //! Rust types can produce the same bincode bytes.
+    //! GGRS expects the same encoded width for every input frame.
 
     use super::{AttackStrengthHint, ControlFrame};
     use crate::{ControlFrameModes, InputFrameMode};

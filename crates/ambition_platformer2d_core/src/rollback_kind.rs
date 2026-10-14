@@ -352,42 +352,11 @@ pub mod detail {
          outside the peer schema identity";
 }
 
-/// A registrar method's (kind, sentence) pair, spelled ONCE.
+/// Shared rollback registration kind, description, and mechanism.
 ///
-/// ⛔⛤ **EVERY PAIR BELOW WAS WRITTEN TWICE UNTIL 2026-09-16 — once on the
-/// RECORDING road (`ambition_platformer2d_runtime`'s registrar, which writes the
-/// descriptor the schema baseline and every census read) and once on the
-/// INSTALLING road (`ambition_platformer2d_rollback_ggrs`, which adds the
-/// snapshot plugin). Nothing derived one from the other.** Splitting
-/// `resource-canonical-custom-checksum` out of `resource-canonical` on
-/// 2026-09-15 changed the recording road only, and one registration arrived
-/// under two different kinds. It was caught by `RollbackRegistry`'s
-/// conflicting-registration check — accidental cross-evidence, not a designed
-/// guard, and it covers only names BOTH roads reach.
-///
-/// ⭐ **MEASURED, WHICH IS WHY THIS TABLE IS KEYED ON THE PAIR AND NOT ON THE
-/// METHOD.** Across both roads there are exactly 18 distinct literal (kind,
-/// detail) pairs and each occurs EXACTLY TWICE — a perfect 1:1 between the
-/// roads, with zero disagreements. A method-keyed table would have needed the
-/// method attribution that two separate parsers of mine got wrong; the pair
-/// needs none. The remaining methods take a caller-supplied `detail` and so have
-/// no literal to collapse.
-///
-/// ⛔ **THE COSTED DESIGN THIS REPLACES DOES NOT TYPECHECK, AND THAT IS
-/// MEASURED, NOT REASONED.** The queue row proposed ONE required
-/// `install<T>(owner, name, kind, detail, ops)` primitive with 24 default
-/// bodies. The methods' `T` bounds are DISJOINT — `SnapshotState` vs
-/// `SnapshotCursor` vs `SnapshotResolve` vs `MapEntities`, and `Component` vs
-/// `Resource` — so `install`'s own `where` clause would have to be their UNION,
-/// and every default body fails `E0277` at the call. Compiled against `rustc` to
-/// confirm rather than argued. The shapes that do typecheck (a per-op trait, or
-/// fn-pointers carrying the work) either reintroduce ~21 op types — the cost the
-/// row already rejected — or require this crate to name the host's `App`, which
-/// is exactly the dependency the split exists to prevent.
-///
-/// ⇒ So the pair moves to the declaration side WITHOUT trait surgery. Changing a
-/// method's kind here changes both roads, because neither road spells a kind
-/// literal any more.
+/// The recording and installation paths use one declaration for each
+/// fixed pair. Keep the mechanism token stable for schema identity; the
+/// human-readable description may change without changing the schema.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Spelling {
     pub kind: RollbackEntryKind,

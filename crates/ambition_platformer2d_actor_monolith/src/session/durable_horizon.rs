@@ -70,53 +70,11 @@ pub fn adopt_occurrence_checkpoint_from_save(
     );
 }
 
-/// ⛔⛤ **THE LEDGER HAS ONE ADOPTION ROAD FOR A SESSION BEING BUILT, AND IT IS
-/// THE CANDIDATE'S HORIZON.** There used to be a second:
-/// `adopt_the_occurrence_ledger_at_activation`, a system on
-/// `SessionScopeActivated` that re-read `AmbitionGameSave` into
-/// `AuthoredOccurrences`, `OccurrenceBaseline` and `CustodyBaseline` process-wide.
-/// It was the A10.5-era answer to a load that constructed its first room knowing
-/// nothing; preparing the candidate before the route activates moved that moment
-/// EARLIER still, and left the system writing the same three resources from the
-/// same file one system before [`CandidateDurableHorizon::install`] wrote them
-/// again.
-///
-/// ⚠ MEASURED 2026-09-15 over the shipped `app_it` composition: **639 gameplay
-/// activations, 639 of them ran both writers, and the values agreed in every
-/// one** (`save_rows` equalled the installed row count, 637 x 0 and 2 x 1). They
-/// agreed because both read the same resource in the same frame — which is how a
-/// second authority hides. The order was `reset_session_scoped_resources_on_activation`
-/// -> the system -> `install`, uniformly, so the candidate's value won by
-/// SCHEDULE ACCIDENT rather than by any edge. A save swapped between preparing
-/// the candidate and publishing it, or a schedule that ever put those two the
-/// other way round, would have silently made the live file authoritative over
-/// the horizon the candidate was validated against.
-///
-/// ⭐ THE SAME MEASUREMENT FOUND ZERO UNPREPARED ACTIVATIONS — the shell's
-/// `None => active_scope.begin()` branch, the road for an activation nobody
-/// prepared a candidate for, was taken 0 times in 639 while the other two probes
-/// fired 639 times each, so the zero is the instrument working rather than a
-/// build that never ran. A mid-session load still has
-/// [`adopt_occurrence_checkpoint_from_save`] above, which is a different trigger
-/// (the `SaveRestored` latch) rather than a second answer to this question.
-///
-/// The save that a candidate session is built from: the save of ITS
-/// experience.
-///
-/// ⛔ NOT THE LIVE SAVE. A candidate is built hidden, before its route is
-/// activated, and the activation is what gives the live save to its
-/// experience (`ambition_persistence::save::hand_the_save_to`). Until
-/// 2026-10-04 the builder read `AmbitionGameSave`, so a candidate that was
-/// prepared while another experience played took the durable horizon of that
-/// experience. Measured in `app_it`
-/// (`a_session_prepared_while_another_experience_plays_is_built_from_its_own_save`):
-/// an Ambition session that replaced a Sanic session had, for its first 3
-/// frames, an item that Ambition's save says is gone for good. A fresh host
-/// with the same save never has it.
-///
-/// ⭐ THE VALUE IS THE ONE THE ACTIVATION HANDS OVER. Persistence puts the
-/// prepared save aside for its experience and changes no ownership, so a
-/// refused candidate leaves the live save with the session that plays.
+/// Read the durable save for the experience whose session is being
+/// prepared. A candidate may belong to a different experience from
+/// the live one. It must not read or overwrite the live experience's
+/// save. Adoption installs the candidate's validated horizon.
+/// A separate latched path handles a save loaded during a live session.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct CandidateSave<'w> {
     /// Absent in a composition with no durable horizon. An empty horizon is
@@ -148,22 +106,12 @@ impl CandidateSave<'_> {
     }
 }
 
-/// The save value that a candidate session was built from.
+/// The save value used to prepare a candidate session.
 ///
-/// A candidate of the experience that plays (a restart) is built from the
-/// live save, and the session that plays can change that save before the
-/// candidate is adopted. The adoption gives the save to nobody, because the
-/// experience has it. Measured 2026-10-05 in `app_it`
-/// (`a_session_that_replaces_its_own_experience_is_built_from_the_save_at_its_adoption`):
-/// the adopted world had an item that the live save said was gone for good.
-///
-/// ⛔ THE CANDIDATE IS NOT REPAIRED AND THE EARLIER SAVE IS NOT PUT BACK. A
-/// candidate whose save changed is stale. Its builder discards it and builds
-/// a new one from the save as it is ([`Self::is_current`]).
-///
-/// The whole save is compared, not only the part that construction reads: the
-/// save has no field that changes each frame, and a rule that names fields
-/// goes out of date when construction reads one more.
+/// Before adoption, compare it with the experience's current save.
+/// If it changed, discard and rebuild the candidate instead of
+/// repairing it or restoring the old save. Compare the entire save
+/// so newly added construction inputs are not silently omitted.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PreparedFromSave(Option<ambition_persistence::save_data::AmbitionGameSaveData>);
 
@@ -187,21 +135,9 @@ impl PreparedFromSave {
     }
 }
 
-/// A candidate session's durable horizon, held as a VALUE.
-///
-/// ⛔⛤ **REVIEW FINDING 1, 2026-09-15: PREPARING A CANDIDATE MUST NOT WRITE THE
-/// LIVE SESSION'S CHECKPOINT STATE.** `adopt_the_ledger_for_a_pending_candidate`
-/// installed `AuthoredOccurrences`, `OccurrenceBaseline` and `CustodyBaseline`
-/// process-wide while the OUTGOING session was still the live one — and the two
-/// baselines are rollback-authoritative checkpoint state, deliberately NOT equal
-/// to the current save/live projection. A candidate that then refused left A
-/// playable with different death semantics than it had a moment before, which is
-/// precisely what the last-good-world invariant forbids.
-///
-/// ⇒ **THE SAME SHAPE `SessionMechanics` AND `MovingPlatformSet` ALREADY USE:**
-/// built from the save as a value, carried on the candidate, and installed by
-/// ADOPTION. A refused candidate drops it and A's resources were never touched.
-/// ⛔ Deliberately NOT another process-global `PendingFoo` mirror.
+/// Durable state prepared as a value for one candidate session.
+/// It is installed only after adoption; a refused candidate must
+/// never modify the live session's occurrences or checkpoint state.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct CandidateDurableHorizon {
     occurrences: AuthoredOccurrences,

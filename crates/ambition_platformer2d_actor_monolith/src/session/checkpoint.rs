@@ -21,37 +21,11 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_core::{self as ae};
 
-/// Resume where the player last rested.
+/// Track one session's checkpoint resume operation.
 ///
-/// A checkpoint you cannot return to is a number in a file. This is the other
-/// half: once per constructed session, if the save names a checkpoint in the room
-/// that was just built, the primary body starts THERE instead of at the room's
-/// authored spawn.
-///
-/// Deliberately a separate system rather than a branch inside session setup.
-/// Construction has one job and already has more parameters than it should; a
-/// post-construction placement is additive, is testable on its own, and cannot
-/// make the authored-spawn path behave differently for every existing test.
-///
-/// How far this session's startup checkpoint resume has got.
-///
-/// ⛔⛔ THIS WAS TWO `Local`s ON A SIM SYSTEM, AND A `Local` DOES NOT REWIND.
-/// `restore_checkpoint_on_session_start` runs in `PlayerSimulation`, so a
-/// rollback that crossed the frame it routed on would resimulate with the memory
-/// already past the crossing: one timeline asks for the resume, the other
-/// believes it already did.
-///
-/// ⛔⛔ AND IT WAS THEN TWO BOOLEAN-ISH LATCHES — `routed_for` and `applied_for`
-/// — which is a SECOND completion mechanism beside the operation model the reset
-/// road uses. A startup crossing and a death crossing are the same operation
-/// asked twice; two ways of knowing one finished is how they drift. What
-/// replaces them is not another pair: [`StartupResume::Routed`] names the
-/// admitted operation by KEY, and it becomes `Satisfied` only when that
-/// operation publishes its terminal outcome.
-///
-/// ⭐ THE GENERATION IS PART OF THE VALUE, so a memory left over from a retired
-/// session simply does not match the live one and self-corrects. That is why
-/// this is not also session-scoped state.
+/// The state belongs to the rollback simulation, not a local variable.
+/// `Routed` holds the admitted operation key; `Satisfied` follows its
+/// terminal outcome. A session-generation change invalidates old state.
 #[derive(bevy::prelude::Component, Default, Clone, Debug, PartialEq)]
 pub struct SessionStartupResume {
     /// The session generation this state describes, and how far it got.
@@ -900,61 +874,19 @@ pub fn resume_at_checkpoint_on_reset(
     });
 }
 
-/// The accepted restore: one operation, and every input it was accepted with.
+/// Inputs pinned to one admitted checkpoint restore operation.
 ///
-/// ⭐ THE SESSION OWNS IT because the session coordinator owns these values'
-/// consistency boundary, and because it may name item types `shared_tangle` must
-/// never depend on. It is written only on admission, read by room preparation
-/// and by the commit executors, and retired when the lifecycle slot gives up the
-/// intent.
-///
-/// ⭐ WHY IT OUTLIVES ITS FRAME, measured 2026-09-08. Room preparation derives
-/// the destination's occurrence outlook from a ledger, and uses it both to
-/// validate a prefetched plan and to lower a fresh one. Reading the LIVE ledger
-/// was only the right answer for a checkpoint reset because
-/// `restore_occurrence_baseline` overwrote it earlier in the SAME FRAME —
-/// `CheckpointRestore` sat in `PlayerInput`, room-transition readiness runs
-/// after `RoomTransitionSet::Detect` in `RoomTransition`, and the phase order
-/// put one before the other. So the room was prepared from a live resource
-/// swapped to the checkpoint value in order to be read, which is exactly the
-/// preparation shape the protocol forbids, and its correctness rested on a
-/// phase-ordering accident nothing stated as a checkpoint requirement.
-///
-/// ⇒ Preparation and application both read THIS. The pinned values are the
-/// operation's own, whatever the live baselines say by the time the load runs
-/// and the commit lands.
-///
-/// ⛔ IT IS NOT AN AUTHORIZATION TOKEN, and there is deliberately no longer one.
-/// A1c/1-2 published a one-frame `AdmittedCheckpointRestore` that every domain
-/// reducer had to remember to consult; A1c/3b deleted it, because the reducers
-/// now live in `CheckpointDomainApply` and only a commit executor runs that.
-/// Holding these values does not permit a restore — being invoked by the commit
-/// does. This is the operation's DATA.
+/// Both preparation and commit read these values, not a mutable live
+/// ledger. Holding them does not authorize a restore; only the lifecycle
+/// commit executor can apply the operation.
 #[derive(bevy::prelude::Component, Default, Clone, Debug, PartialEq)]
 pub struct AcceptedCheckpointRestore(Option<AcceptedRestore>);
 
-/// Which restore operation this is.
+/// Identity of one admitted checkpoint restore within a session.
 ///
-/// ⛔⛔ **A FRAME NUMBER IS NOT AN IDENTITY, AND NEITHER IS AN INTENT.** The
-/// accepted value was matched by `LifecycleIntent` equality, and two crossings
-/// to one room with one subject and one arrival compare EQUAL — so a later,
-/// unrelated transition could be served the earlier operation's pinned
-/// population. A frame does not fix it either: a room rebase restarts the
-/// rollback timeline at zero, so frame 12 happens repeatedly within one session.
-///
-/// ⭐ SO IT IS THE SESSION'S OWNERSHIP STAMP PLUS A SEQUENCE THAT ADVANCES ONLY
-/// ON ADMISSION. The scope makes it unique across teardown and re-entry — an old
-/// operation cannot act in a new session even if its integer matches — and the
-/// sequence makes repeated identical intents distinguishable within one session.
-///
-/// ⚠ NOT THE HOST'S LOAD SEQUENCE, which counts room-transition transactions and
-/// is a different identity with a different lifetime. Two crossings can share
-/// neither, one, or both, and conflating them would let a load authorize a
-/// restore it has nothing to do with.
-///
-/// ⛔ IT DOES NOT RESET AT A ROOM REBASE. Recycling a live identifier is how a
-/// stale load becomes authorized merely because its integer matches; overflow is
-/// refused instead — see [`SessionCheckpointOperations::admit`].
+/// A scoped sequence distinguishes identical restore intents. The
+/// sequence does not reset on room rebase; stale operations must never
+/// become valid by reusing their integer key. The key is host-local.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CheckpointOperationKey {
     /// The session that owns the operation. `None` only in an explicit
@@ -1654,38 +1586,13 @@ pub fn cancel_accepted_checkpoint_restore(
     true
 }
 
-/// A checkpoint operation whose room preparation FAILED, waiting for a commit
-/// executor to end it.
+/// Record a failed host-side checkpoint preparation for safe cancellation.
 ///
-/// ⛔⛔ **DELIBERATELY NOT ROLLBACK STATE, AND THAT ABSENCE IS THE DESIGN.** The
-/// fact it records — "this host could not prepare the destination" — is a HOST
-/// fact: asset residency and construction preflight are not simulated, do not
-/// rewind, and are not guaranteed to agree between two peers. Snapshotting it
-/// would put a non-deterministic value into the checksum; rewinding it would
-/// resurrect an operation the host has already given up on.
-///
-/// ⛔⛔ **AND IT IS WHY THE TERMINALIZATION IS SPLIT IN TWO.** The readiness
-/// phase runs in `Update`, which never rewinds, so it may not touch
-/// [`AcceptedCheckpointRestore`] or `PendingLifecycleCommit` — a retraction
-/// written there survives a rollback and desyncs the run. What readiness may do
-/// is take the failed operation's key OFF its own host-side transaction and
-/// leave it here; the retraction itself then happens where every other write to
-/// the lifecycle slot happens — the commit executor, on a frame that is never
-/// re-simulated.
-///
-/// ⛔⛔ **IT NAMES THE OPERATION BY VALUE, NOT BY KEY, AND THE REASON IS A
-/// REWIND.** `SessionCheckpointOperations` is rollback state, so its sequence
-/// rewinds: a speculative branch can mint key K, leave a note for K here, be
-/// discarded, and a DIFFERENT operation can later be minted with sequence K. A
-/// note holding only the key would cancel that replacement — a healthy operation
-/// ended by a failure that belongs to a timeline that no longer exists. So the
-/// note carries the admitted frame and the accepted operation's value checksum,
-/// and a note that does not match the live accepted operation exactly is
-/// DISCARDED rather than spent.
-///
-/// ⚠ ONE SLOT, LAST WRITER WINS. At most one restore is accepted at a time, so a
-/// second abandoned note means the first was already answered (or never
-/// accepted).
+/// This is not rollback state. The readiness phase cannot retract a
+/// simulated operation directly. The commit executor verifies the
+/// accepted key, frame, and value checksum before cancellation. The
+/// extra terms prevent a stale note from cancelling a new operation after
+/// rollback reuses a sequence number.
 #[derive(bevy::prelude::Component, Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AbandonedCheckpointOperation(Option<AbandonedOperation>);
 

@@ -42,35 +42,9 @@ pub struct MoveBrandishedItem {
     /// asking the id rather than "is anything playing" so a move CANCELLED into
     /// another one that brandishes nothing still puts the old item back.
     pub move_id: String,
-    /// The SPEC this displaced, restored when the move ends. `None` is a body
-    /// that was carrying nothing, which is most of them.
-    ///
-    /// ⛔⛔ THIS WAS THE ID, AND RE-RESOLVING IT COULD DESTROY THE ITEM. The
-    /// restore looked the id up through `ambition_characters::brain::held_item_by_id`
-    /// and on `None` it removed the body's `HeldItem` entirely. Per item custody
-    /// I1 the hand IS the record, so that is not a cosmetic loss: the axe is not
-    /// in the bag either. It is gone.
-    ///
-    /// ⚠ A SECOND REGISTRY IS WHAT MADE THE `None` REACHABLE, and it is gone as
-    /// of 2026-09-05 -- `axe` and `javelin` were built in `ambition_held_items`,
-    /// a crate that DEPENDS on this one, so the wide resolver could not be called
-    /// from here without a cycle and no care at the call site could fix it. That
-    /// is history, not the reason this field holds a spec: a registry with ONE
-    /// table still answers `None` for an id nobody registered, and the test below
-    /// uses exactly such an id.
-    ///
-    /// ⚠ TWO SHIPPED MOVESETS AUTHOR `equips` -- the pirate admiral's side-B and
-    /// Projectile Polygon's -- so this path is LIVE, not theoretical. Both
-    /// equipped ids are in the narrow table, so the DRAW was never at risk; what
-    /// was at risk is whatever the presser was already carrying.
-    ///
-    /// ⭐ SO THE LOOKUP IS GONE INSTEAD OF FIXED. The body HAD the spec; storing
-    /// its id and deriving the spec back was a second authority for "what this
-    /// body was holding", and the derivation was the part that could fail.
-    /// Keeping the spec makes the restore INFALLIBLE -- no registry, no `None`
-    /// branch, and no arrangement of ids that loses a weapon. The cost is one
-    /// `HeldItemSpec` per brandishing body, the same type `HeldItem` already
-    /// keeps in rollback state on that same entity.
+    /// The complete item spec displaced by the move, or `None` if the
+    /// hand was empty. Store the value to restore it without a second
+    /// catalog lookup that might fail and lose an existing item.
     pub previous: Option<ambition_characters::brain::HeldItemSpec>,
 }
 

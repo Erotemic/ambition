@@ -1,80 +1,21 @@
-//! The single encounter→audio music-intent stream.
+//! Session-owned encounter music intent.
 //!
-//! One session-owned `EncounterMusicRequest` component carries the desired track from every
-//! encounter source with an EXPLICIT priority, so a per-frame encounter tick —
-//! which writes its source every frame, including `None` when nothing of its
-//! kind is in flight — can never clobber a concurrent higher-priority
-//! encounter's music.
+//! Each source writes or releases its own claim. The focused encounter
+//! takes precedence over base arena music, which takes precedence over
+//! room music. A source must release its claim even when it stops
+//! producing events or its actor despawns. Clearing a whole priority
+//! tier would also erase claims that belong to other sources.
 //!
-//! The two slots express priority directly rather than naming encounter kinds:
-//! a focused encounter writes `priority_track`, while a lower-priority arena
-//! writes `base_track`.
-//!
-//! # ⛔⛔ THE RULE EVERY SOURCE MUST OBEY, and three shipped bugs that broke it
-//!
-//! **A source's CLEARING path must be reachable on a frame when the source has
-//! nothing to say.** Not merely present — REACHABLE. All three failures below
-//! shipped with a clearing path sitting right beside the writing one, and in each
-//! the clear could not run at the moment it was needed. Because `desired_track`
-//! ranks this stream ABOVE room music, a stale value does not linger quietly: it
-//! plays the wrong track in every room the player enters.
-//!
-//! 1. **A one-shot claimed and nothing released.** `CUT_ROPE_MUSIC_OWNER` was
-//!    claimed inside a room-REPLAY handler — and a death is a replay. Its only
-//!    release was the `None` arm of that same one-shot, so leaving the room kept
-//!    the boss's intro. Fixed with a system that has no run condition.
-//! 2. **An EFFECT fires once; a DESPAWN fires nothing.** `SCRIPT_MUSIC_OWNER`'s
-//!    release was reachable only while a live `EncounterScript` emitted
-//!    `SetMusic(None)`. An encounter that ended without that beat, or simply
-//!    despawned, took its claim with it.
-//! 3. **A guard the write did not need sat above it.** `base_track`'s write —
-//!    documented right here as happening every frame including `None` — sat below
-//!    `if player_body_q.is_empty() { return; }`. A death and a room transition are
-//!    both frames with no player body, and both are when an encounter stops being
-//!    in flight, so the track latched.
-//!
-//! ⭐ **THE CHECK, before adding a source:** name the frame on which your source
-//! goes quiet, and prove the clearing write runs on it. `ambition_boss_encounter`'s
-//! `BOSS_MUSIC_OWNER` states the shape to copy — *"this system has no run
-//! condition, so it reaches the 'no boss is fighting' arm on every frame of every
-//! game."*
-//!
-//! ⚠ **And release only your OWN claim.** [`Self::release_priority`] is
-//! owner-checked for this reason: clearing the tier outright silences whoever
-//! legitimately holds it, which that crate's comments record having shipped once.
-//!
-//! ⛤ **AND THE FIELDS ARE PRIVATE SINCE 2026-09-18, so the owner check is the
-//! compiler's rule rather than a habit.** NINE production files write this
-//! component and it is the largest multi-writer population in the session-world
-//! census. MEASURED with comments stripped before the change: six of the nine
-//! touched `claim_priority`/`release_priority` and NOTHING else, one wrote only
-//! the base tier, one wrote only `last_applied` (the presentation adapter's
-//! mirror, which nothing read; deleted 2026-09-24), and one is the session reset
-//! clearing it at a boundary — a perfect separation held entirely by convention
-//! over `pub` fields. ⚠ THIS SAID EIGHT UNTIL 2026-09-18 and the number was a
-//! receipt from a blind instrument: the reset writes through
-//! `session_world_component_mut`, a spelling the census did not read at the time,
-//! so the ninth file was counted by neither. ⇒ The discipline was already
-//! universal; what was missing was anything to keep it that way. The priority
-//! tier can now only be reached through the owner check.
+//! Claims are scoped to the live room. Readers choose the strongest
+//! claimed tier among participant rooms, with the primary seat breaking
+//! ties. A roomless fixture uses the roomless tier.
 
 use bevy::prelude::Component;
 
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 
-/// Music request from the encounter layer to the audio backend. Each source
-/// writes its OWN priority tier; the music-intent adapter reads
-/// [`Self::desired_track`] (priority beats base) and writes nothing back.
-///
-/// ⭐ THE TIERS ARE KEPT PER LIVE ROOM (customer 2). A fight claims the tier of
-/// the room it is fought in, and the music intent reads the tier of the room
-/// it plays for: of the participants' rooms, the one with the highest
-/// [`Self::priority_of`], the primary seat's on a tie (Q150, Q72). So Bob's
-/// boss in `switch_lab` outranks Alice's ambient music in the hub, and an
-/// encounter in her room does not lose to his ambient music. The `None` room
-/// is the world of a
-/// composition with no live room (a fixture): its writers and its reader name
-/// no room, so they meet there. Only rooms with a claim are stored.
+/// Encounter music claims per live room.
+/// Claims are owner-checked; readers use the highest active tier.
 #[derive(Component, Default, Debug, Clone)]
 pub struct EncounterMusicRequest {
     rooms: std::collections::BTreeMap<Option<LiveRoomInstance>, RoomMusicTiers>,

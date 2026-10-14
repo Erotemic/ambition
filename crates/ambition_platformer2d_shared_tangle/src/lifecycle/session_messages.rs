@@ -1,47 +1,11 @@
-//! A simulation message does not cross a session boundary.
+//! Message-channel lifetime across session replacement.
 //!
-//! A simulation system that writes a message after the reader of that message
-//! ran leaves the message on the bus for the next tick. When the session ends
-//! there, the next tick is the first tick of another session, and that session
-//! reads the message. Measured 2026-10-04 over `app_it`: at 10 of the 59 first
-//! ticks of a later session, one `ClockScaleRequest` and one
-//! `ActorActionMessage` of the session that ended were still on the bus. Both
-//! are written every tick. A clock request of a session that ended in a
-//! hitstop is `scale: 0.0`, and the next session then starts with a tick of no
-//! time on this host only.
-//!
-//! ⭐ ONE OWNER, ONE LIST. The channels are those a domain declares to the
-//! rollback census (`clear_message_on_rollback`): a channel that must not
-//! cross a rewind must not cross a session. Each rollback registrar declares
-//! its channels here also, so there is no second list to keep equal to the
-//! first one.
-//!
-//! ⭐ EMPTIED AT ACTIVATION, AS THE OTHER SESSION STATE IS
-//! ([`SessionScopeSet::Activate`]). That edge is before a provider builds the
-//! world of the new session, so the messages the new session writes while it
-//! is built are not taken. A reader does not drain its own bus when it refuses
-//! for want of a session: that would be one rule in each reader.
-//!
-//! ⛔ ONE CHANNEL IS KEPT, AND ITS READER IS THE REASON
-//! ([`keep_message_across_session_activation`]). The host writes to the sound
-//! channel also (a menu row, a start). That channel can cross because its
-//! reader plays a sound only for the live audio owner, so a sound of the
-//! session that ended is refused where it is read.
-//!
-//! ⚠ The first version of this file said that the clear "took the sound of
-//! the menu row that started the session". On 2026-10-04 that did not
-//! reproduce: with the sound channel emptied too, `app_it` fails only the
-//! bus control of `an_effect_that_a_session_asked_for_is_not_presented_by_the_next`.
-//! The channel is kept because its reader makes that safe, not because a
-//! test needs it.
-//!
-//! ⚠ "PRESENTATION READS IT" IS NOT A REASON TO KEEP A CHANNEL. Until
-//! 2026-10-04 each presentation channel was kept, on the ground that no
-//! simulation reads one. A presentation reader of the next session reads it:
-//! a camera shake moved the next session's screen, and an effect that names
-//! room 0 was drawn in the next session's room 0. Each presentation channel
-//! now ends at the activation (`end_presentation_effects_with_their_session`),
-//! and a kept channel states how its reader refuses an old message.
+//! A message written after its reader runs can survive into the next
+//! session. Clear rollback-declared session messages at activation,
+//! before the new session publishes its own messages. Preserve only
+//! channels whose readers reject messages of retired owners or whose
+//! messages do not belong to a session. Presentation channels require
+//! the same lifetime boundary as simulation channels.
 
 use std::any::TypeId;
 use std::collections::BTreeSet;

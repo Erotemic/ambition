@@ -1,50 +1,9 @@
-//! How many peers each viewer actually KEEPS, per tick.
+//! Optional counts for peers offered to and retained by each world view.
 //!
-//! ⭐ THE NUMBER THE ATTENTION BUDGET WILL BE JUDGED AGAINST. `Decide` grows
-//! superlinearly with population while each viewer's kept-peer set is still
-//! growing, and flattens when it saturates — measured 2026-09-01, 5.9x cost for
-//! 4x bodies between 16 and 64, then linear above it. That saturation is a
-//! property of the hall's GEOMETRY (a sparse gallery, so `Perception::Sighted`'s
-//! viewport stops admitting peers), not a law. A dense melee would keep growing.
-//!
-//! Until now `kept ≈ 14` was a number from a throwaway probe, quoted long after
-//! the probe was gone. This makes it a measurement anyone can re-take, and gives
-//! `bounded-perception-and-attention.md`'s acceptance criterion — exact set
-//! bounded by K regardless of room population — something to assert against.
-//!
-//! ⚠ OFF BY DEFAULT AND NEARLY FREE WHEN OFF: one relaxed load per world view.
-//! The census is a measuring instrument and must not join the population it
-//! measures when nobody asked it to.
-//!
-//! ⛔⛔ **A PREMISE OF EVERY HALL MEASUREMENT, NOT A FOOTNOTE: THE CAST MUST
-//! NEED PERCEPTION OR THIS RECORDS NOTHING.** The counting site is inside
-//! `build_world_view`, and a brain declaring `PerceptionRequirement::None`
-//! never builds a view — so `hall_of_characters`, whose cast is authored
-//! `stand_still`, produces ZERO views and the census line carries **no `kept=`
-//! field at all**. Measured 2026-09-02: a viewport sweep printed "NO CENSUS ROW"
-//! for every arm until the cast was re-brained with
-//! `AMBITION_ACTOR_BRAIN_PROFILE=ambition::medium_striker`, whose template
-//! consumes a view.
-//!
-//! ⭐ **THE TELL IS AN ABSENT FIELD, NOT A SMALL NUMBER**, and that distinction
-//! is the whole safety of this instrument: `kept=0` would have read as "the
-//! budget is binding hard" and been published. An instrument reporting NOTHING
-//! looks exactly like an instrument reporting a little. ⇒ Before quoting a
-//! `kept`, ask what had to RUN for it to be recorded — the gate that made the
-//! hall cheap is the gate that makes it unmeasurable.
-//!
-//! ⭐ IT MOVED HERE FROM `ambition_dev_tools` ON 2026-09-02, and the direction
-//! is the point (D33). The counting site is `build_world_view` in the actor
-//! kernel — a HOT LOOP, so the number cannot be recovered from outside — and
-//! while the sink lived in the developer crate, the simulation had to name that
-//! crate to record it. That was one of the two production reads keeping the
-//! kernel's upward `ambition_dev_tools` dependency alive.
-//!
-//! ⛔ THE DEVELOPER CRATE STILL OWNS THE REPORT. `runtime_census` calls
-//! [`enable`] where it installs its other rows and [`drain`] where it prints
-//! them; nothing here formats, schedules, or decides when to measure. What
-//! moved down is the COUNTER, which is a property of the views this module
-//! builds, not the instrument's policy.
+//! Enabled only when requested; the disabled path uses a cheap flag
+//! check. A brain with no perception requirement builds no world view,
+//! so an absent sample is not a zero-peer sample.
+//! The developer measurement tool enables and drains these counters.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 

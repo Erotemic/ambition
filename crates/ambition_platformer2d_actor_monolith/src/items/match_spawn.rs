@@ -1,38 +1,10 @@
-//! ITEMS THE MATCH DROPS — the genre's other combatant.
+//! Deterministic match item spawns.
 //!
-//! ⭐⭐ AND IT IS THE FIRST CUSTOMER OF `sim_random`, which is why it exists in
-//! this shape. A spawner is the smallest honest consumer of a rollback-safe
-//! random source: it draws twice a tick (which item, which point), it must draw
-//! the SAME two on a resimulated tick, and it must not correlate with anything
-//! else drawing that tick.
-//!
-//! ⛔⛔ NO SCHEDULE STATE OF ITS OWN, and that is still the whole design. There
-//! is no countdown resource here and no "last spawned" tick: a drop happens on
-//! the step where gameplay time CROSSES a multiple of `every_ticks`, a pure
-//! function of the match clock the same way the opening ceremony's phase is.
-//!
-//! ⚠ `elapsed` IS THE LIVE MATCH CLOCK
-//! ([`LiveMatchTicks`](crate::character_runtime::live_match_clock::LiveMatchTicks)),
-//! not `ActiveMatch::ticks_since_activation`. That clock IS counted and IS
-//! registered rollback state, so the cost is real — and it is paid ONCE, by the
-//! clock, for the two consumers that need it. The alternative is each consumer
-//! patching around the opening ceremony its own way.
-//!
-//! ⛔ AND THE IDENTITY IS DERIVED, not sequenced. `SimId::match_spawn(activation,
-//! ordinal)` — the pickup road mints under the THROWER and takes a
-//! `SimIdCounter` from it, and a match-level spawner has no thrower. Deriving is
-//! not a workaround for that: `(match, ordinal)` determines the object
-//! completely, so a counter would be a second authority on a fact the cadence
-//! already settles.
-//!
-//! ⛔⛔ AND THE ORDINAL IS THE DROP'S NUMBER, NOT THE TICK IT LANDED ON, which is
-//! the correction of 2026-08-25. The paragraph above used to claim the live tick
-//! was *"strictly increasing within a match and so still unique"*. It is not:
-//! the live clock counts SCALED gameplay and projects it back to 60 Hz, so under
-//! a hitstop ramp one conceptual tick lands on two consecutive steps. A
-//! divisibility test fired on both — two items, and two entities deriving the
-//! SAME `SimId`, which is a determinism defect rather than double loot. Counting
-//! BOUNDARIES cannot repeat however time is scaled.
+//! Spawn at gameplay-clock interval crossings, not sampled tick
+//! divisibility. Scaled time can repeat a tick. The drop ordinal
+//! determines its stable identity; match context and distinct salts
+//! determine the two rollback-safe random draws. No independent
+//! spawn countdown or identity counter is needed.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionCommands, SpawnSessionScopedExt};
@@ -66,21 +38,9 @@ pub fn spawn_match_items(
     if !rules.active() {
         return;
     }
-    // ⭐ THE LIVE CLOCK — gameplay this match has actually been FOUGHT, with the
-    // opening ceremony and every pause already excluded by the one system that
-    // owns the question. This used to be `ticks_since_activation` plus a
-    // hand-written `elapsed == 0`, which stood in for "not during the countdown"
-    // and stopped being true the moment an interval was shorter than one.
-    //
-    // ⛔⛔ AND IT ASKS FOR A CROSSING, NOT A SAMPLE. `elapsed % every == 0` was
-    // reading a projection that no longer advances once per step: at half speed
-    // one conceptual tick lands on two consecutive steps and the test fired on
-    // both. See `LiveMatchTicks::crossed`.
-    //
-    // ⛔ ZERO IS STILL NEVER A DROP, for what is now its structural reason
-    // rather than a hand-written guard: the first boundary a match can cross is
-    // ordinal 1, one whole interval in. Live tick zero is the RELEASE tick, and
-    // an item landing on it is an item nobody had a frame to contest.
+    // `crossed` reports each interval once even when scaled gameplay
+    // time holds a projected tick across multiple simulation steps.
+    // The first spawn is after one complete interval, not at release.
     let Some(ordinal) = live.crossed(&active, rules.every_ticks) else {
         return;
     };

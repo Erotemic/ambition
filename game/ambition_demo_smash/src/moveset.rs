@@ -314,7 +314,7 @@ mod tests {
                         v.damage,
                         v.knockback,
                         v.knockback_growth
-                            .unwrap_or(v.knockback * crate::SMASH_KNOCKBACK_GROWTH),
+                            .unwrap_or(v.knockback * crate::smash_combat_rules().knockback_growth),
                     )
                 })
                 .next()
@@ -397,7 +397,7 @@ mod tests {
                 let Some(authored) = volume.knockback_growth.filter(|g| *g > 0.0) else {
                     continue;
                 };
-                let expected = volume.knockback * crate::SMASH_KNOCKBACK_GROWTH;
+                let expected = volume.knockback * crate::smash_combat_rules().knockback_growth;
                 assert!(
                     (authored - expected).abs() < 0.01,
                     "`{}` launches at {} and grows {}/point, but the stage \
@@ -407,7 +407,7 @@ mod tests {
                     mv.id,
                     volume.knockback,
                     authored,
-                    crate::SMASH_KNOCKBACK_GROWTH,
+                    crate::smash_combat_rules().knockback_growth,
                 );
             }
         }

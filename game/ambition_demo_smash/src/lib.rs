@@ -121,10 +121,6 @@ where
     roster.published_by(SMASH_EXPERIENCE)
 }
 
-/// The least percent a hit deals to land HEAVY on a Smash stage: the smash
-/// attacks. See `ambition_combat::strike_weight`.
-pub const SMASH_HEAVY_HIT_PERCENT: i32 = 12;
-
 /// The Smash ruleset, in one place.
 pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32) {
     // This match grants no pilot licence. The admiral authors
@@ -650,9 +646,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // nothing publishes them on entry or gives them back on exit.
         {
             use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
-            app.declare_rules(
+            // The combat rules and the heavy-hit line are the pack's
+            // (`assets/data/room_rules.ron`).
+            ambition_platformer2d::combat::room_rules::declare_room_rules(
+                app,
                 ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
-                smash_combat_rules(),
+                smash_room_rules(),
             );
             // Name prompts by button. A Smash Attack slot hosts a dozen moves
             // chosen by direction and posture, so naming the move would change
@@ -660,14 +659,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             app.declare_rules(
                 ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
                 ambition_platformer2d::sim_view::PromptNaming::ByButton,
-            );
-            // Which hits land heavy. Damage here is percent, so a jab deals 3 and
-            // only a smash-attack-sized hit crosses the line.
-            app.declare_rules(
-                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
-                ambition_platformer2d::combat::strike_weight::StrikeWeightRules::heavy_at(
-                    SMASH_HEAVY_HIT_PERCENT,
-                ),
             );
             // Only the seats hold a Limit slot, so the fill reaches no other body.
             app.declare_rules(
@@ -1167,106 +1158,22 @@ pub const SMASH_STAGE_TRACK: &str = "super_smash_siblings_theme";
 /// this demo owns. The pack declares it either way.
 pub const SMASH_SELECT_TRACK: &str = "super_smash_siblings_character_select";
 
-/// The combat rules Smash plays under. [`SmashRulesPlugin`] declares them for
-/// the rooms tagged [`SMASH_MODE`]; tools that fold them outside a match read
-/// this function.
+/// The rules of Smash's rooms, as its pack states them
+/// (`assets/data/room_rules.ron`): the combat rules and the heavy-hit line.
+/// [`SmashRulesPlugin`] declares them for the rooms tagged [`SMASH_MODE`].
+///
+/// An edit to the file is played at the next start, with no Rust build.
+pub fn smash_room_rules() -> ambition_platformer2d::combat::room_rules::RoomRules {
+    *ambition_platformer2d::combat::room_rules::lowered_room_rules(crate::smash_pack::PACK.prepared())
+        .expect("Smash's pack states the rules of its rooms (`data/room_rules.ron`)")
+}
+
+/// The combat rules Smash plays under: the `combat` block of
+/// [`smash_room_rules`]. Tools that fold them outside a match read this.
 pub fn smash_combat_rules() -> ambition_platformer2d::combat::rules::CombatRules {
-    ambition_platformer2d::combat::rules::CombatRules {
-        di_max_angle: SMASH_DI_MAX_ANGLE,
-        knockback_growth: SMASH_KNOCKBACK_GROWTH,
-        // The robot's down-air can rebound its attacker. Ambition uses that;
-        // a platform fighter must not, because offstage it would save the
-        // attacker instead of killing the victim.
-        downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Spike,
-        // Meteor lock: about 18 frames in which a spiked body cannot recover.
-        // Long enough to kill offstage, short enough to survive over the stage.
-        // The end of the window is the meteor cancel.
-        meteor_lock_time: 0.30,
-        // Rage, capped at 1.4x. Percent already makes a hurt fighter easier
-        // to launch; the cap keeps a comeback a chance, not a coin flip.
-        rage_per_damage: 0.004,
-        rage_max_scale: 1.4,
-        // Staling, floored at 0.55: nine landings of one move and it is worth
-        // about half. Varying moves lets it recover.
-        stale_step: 0.05,
-        stale_floor: 0.55,
-        // Staling reduces damage in full but launch only a little. At high
-        // percent the launch is mostly the percent term, so full staling would
-        // stop a fighter's best kill move from killing. At 0.30 a fully stale
-        // move keeps `1 - 0.30 * (1 - 0.55)` = 86.5% of its reach and deals 55%
-        // of its damage.
-        stale_knockback_influence: Some(0.30),
-        // The percent curve's steepness; see
-        // `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE`.
-        victim_percent_knockback_scale: Some(SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE),
-        // Kill moves are authored explicitly, not inferred. Base knockback is
-        // not role: a growth curve on base knockback overrode authored
-        // `knockback_growth`, distorted deliberate high-BKB/low-KBG shoves, and
-        // did not reach throws. Movesets author the separation instead (pirate
-        // f-smash `growth/base` 0.0256, up-smash 0.0413, jab 0.020), derived
-        // from measured stage thresholds (`G_new = G_old * p0/p1` for strikes,
-        // `* (p0+d)/(p1+d)` for throws).
-        growth_base: None,
-        // Crouch cancel, 0.85x: a defensive read at low percent that does not
-        // save anyone from a kill move.
-        crouch_cancel_scale: 0.85,
-        // No blanket mercy window, as in Smash. Repeat protection belongs to
-        // the move: one hitbox cannot hit a body twice, and separate Active
-        // windows can. A 0.2s window would also stop George Booul's `bivalence`
-        // launcher (0.42s) from landing after its pop (0.30s).
-        hit_repeat_window_scale: 0.0,
-        // Edge cancel: an aerial landed on a platform edge that slides off
-        // cancels its landing lag.
-        edge_cancel_recovery: Some(true),
-        // B-reverse: a special pressed backward turns the fighter around.
-        special_turn: Some(true),
-        // Wavebounce: the turn also reverses drift. One rule with two
-        // settings, so neither becomes a per-fighter hack. Both are feel calls.
-        special_turn_reverses_drift: Some(true),
-        // Clanking is off: a tuning decision, the mechanism is tested. At 9
-        // damage (the genre's threshold) CPUs traded so often that nobody was
-        // launched (`every_live_fighter_stays_inside_the_frame`) and
-        // `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match` failed,
-        // even ground-only. Try `9.0` first after a play session.
-        clank_damage_window: 0.0,
-        // A clank pushes both fighters back: less than a launch, but out of
-        // each other's next swing.
-        clank_rebound_speed: 190.0,
-        // Sudden death at 150%: a timed match that ends level goes to a
-        // point where almost any clean hit kills.
-        sudden_death_damage: Some(150),
-        // Losing the ledge to a trump pushes the previous holder off, so a
-        // trump is a real edge-guard option. 260px/s is a shove, not a kill.
-        // A starting value; tune by play.
-        ledge_trump_pop: Some(260.0),
-        // Ultimate holds a trumped fighter for about 30 frames. The number is
-        // a tuning value: its only source is a forum measurement seen through
-        // a search summary (smash-parity-inventory.md, "Ledge occupancy").
-        ledge_trump_lockout: Some(0.5),
-        // Ultimate's rule: a recovering fighter can steal the edge back.
-        // `Hog` is the other generation's rule.
-        ledge_occupancy: Some(ambition_platformer2d::combat::rules::LedgeOccupancy::Trump),
-        // Double-jump cancel: an aerial from an air jump ends the jump's rise.
-        // A feel call.
-        double_jump_cancel: Some(true),
-        // One hit in six barks. A rate, not a cooldown: a cooldown makes the
-        // first hit of every exchange bark, which players hear as a rhythm.
-        // A starting value; tune by play.
-        bark_chance: Some(1.0 / 6.0),
-        // Grab hold grows with percent (Ultimate's 90 + 1.7p frames: 1.5s at
-        // 0%, about 4.3s at 100%). Percent is read at the grab, so pummels do
-        // not extend the hold.
-        grab_hold_base_seconds: 90.0 / 60.0,
-        grab_hold_per_damage: 1.7 / 60.0,
-        // Every hold ends, however hurt the captive is.
-        grab_hold_max_seconds: 6.0,
-        // 14.4 frames per press (Ultimate's rate), so mashing is a real
-        // option.
-        grab_mash_seconds: 14.4 / 60.0,
-        // Teams decide who may hit whom. Global friendly fire would also make
-        // teammates hittable.
-        friendly_fire: false,
-    }
+    smash_room_rules()
+        .combat
+        .expect("Smash's `data/room_rules.ron` states a `combat` block")
 }
 
 /// The kit this experience gives a fighter that authors none.
@@ -2797,68 +2704,6 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         }
     }
 }
-
-/// Maximum directional influence on launch angle, in radians.
-const SMASH_DI_MAX_ANGLE: f32 = 0.31;
-
-/// Fraction of base launch added per point of victim damage. This is a Smash
-/// game rule; the shared PvE movement baseline does not scale knockback this way.
-/// Public so roster-wide validation can check every authored fighter moveset.
-pub const SMASH_KNOCKBACK_GROWTH: f32 = 0.02;
-
-/// How steep the victim-percent curve is, as a multiplier on the percent term
-/// alone. `1.0` is the original law.
-///
-/// One global number instead of editing every fighter: 38 of 40 authored
-/// knockback volumes already state `knockback_growth` at a median of 0.0200 of
-/// base, matching [`SMASH_KNOCKBACK_GROWTH`].
-///
-/// `1.25` is the smallest swept value that ends the stock. Guards in
-/// `smash_in_the_host::ring_out`:
-///
-/// | scale | 700% stale jab | lateral | 0% fresh |
-/// |-------|----------------|---------|----------|
-/// | 1.00  | ALIVE          | 246.4px | poke     |
-/// | **1.25** | **KO**      | 523.4px | **poke** |
-/// | 1.50  | KO             | 627.7px | poke     |
-/// | 1.75+ | KO             | 722px+  | poke     |
-///
-/// `1.50` is a ceiling the table cannot show: two CPU floors fail at `1.50`
-/// and pass at `1.25`:
-/// `smash_cpus_damage_each_other::two_cpus_in_the_shipped_composition_damage_each_other`
-/// and `the_repertoire_gets_used::every_authored_route_gets_pressed`. A steeper
-/// curve separates the CPUs, so they exchange less. Re-run both floors before
-/// raising this (see `docs/planning/queue.md`).
-///
-/// Measurement traps: this jab has `launch_dir: None`, so it kills through the
-/// ceiling, not a side; measure the resolved launch, not the trajectory
-/// maximum; pin the attacker's rage (an unpinned CPU at 62% multiplies every
-/// cell by 1.248). A launch past the tumble threshold is not a ring-out, so
-/// calibrate on the stage's knockout verdict.
-///
-/// The companion is `CombatRules::stale_knockback_influence`: that
-/// makes a worn move still convert; this makes percent itself convert.
-pub const SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE: f32 = 1.25;
-
-/// The base knockback at which the kill curve is exactly `1.0` — a JAB.
-///
-/// Measured: jab base knockback over the seatable cast is n=21, min 40, median
-/// 48, max 60. Pokes at or below the pivot keep their percent curve.
-pub const SMASH_GROWTH_BASE_PIVOT: f32 = 48.0;
-
-/// How sharply the kill curve climbs above a jab.
-///
-/// Calibrated against a measured KO threshold: at `0.25` a base-160 forward
-/// smash gets `(160/48)^0.25` = 1.351x its authored growth, which brings a 145%
-/// centre knockout into the 80-120% band.
-pub const SMASH_GROWTH_BASE_EXPONENT: f32 = 0.25;
-
-/// The most the kill curve may steepen anything.
-///
-/// `1.40` is the factor at the largest smash base (185). Past that a move is a
-/// finisher, so huge-base outliers such as `bivalence` (367.2) do not get the
-/// biggest multiplier. See `GrowthBaseCurve::ceiling`.
-pub const SMASH_GROWTH_BASE_CEILING: f32 = 1.40;
 
 /// Stable ids the shell routes and lists this demo by.
 pub const SMASH_EXPERIENCE: &str = "smash";

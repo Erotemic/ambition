@@ -1,0 +1,132 @@
+// The rules of Smash's rooms (schema `room_rules`): the rooms tagged with the
+// `smash` mode. `SmashRulesPlugin` declares them; tools that fold them outside
+// a match read `smash_combat_rules()`. An edit here is played at the next
+// start, with no Rust build.
+(
+    // Damage here is percent, so a jab deals 3 and only a hit the size of a
+    // smash attack (12% or more) lands heavy.
+    heavy_hit_damage: Some(12),
+    combat: Some((
+        // How far a launched body may steer its launch, in radians.
+        di_max_angle: 0.31,
+        // A launch grows by this fraction of the move's base launch per point
+        // of the victim's percent, for a volume that states no growth of its
+        // own. 38 of 40 authored knockback volumes state a median of 0.0200.
+        knockback_growth: 0.02,
+        // The robot's down air can rebound its attacker. Ambition uses that;
+        // a platform fighter must not, because offstage it would save the
+        // attacker instead of killing the victim.
+        downward_hit: Spike,
+        // Meteor lock: about 18 frames in which a spiked body cannot recover.
+        // Long enough to kill offstage, short enough to survive over the
+        // stage. The end of the window is the meteor cancel.
+        meteor_lock_time: 0.30,
+        // Rage, capped at 1.4x. Percent already makes a hurt fighter easier to
+        // launch; the cap keeps a comeback a chance, not a coin flip.
+        rage_per_damage: 0.004,
+        rage_max_scale: 1.4,
+        // Staling, floored at 0.55: nine landings of one move and it is worth
+        // about half. Varying moves lets it recover.
+        stale_step: 0.05,
+        stale_floor: 0.55,
+        // Staling reduces damage in full but launch only a little. At high
+        // percent the launch is mostly the percent term, so full staling would
+        // stop a fighter's best kill move from killing. At 0.30 a fully stale
+        // move keeps 1 - 0.30 * (1 - 0.55) = 86.5% of its reach and deals 55%
+        // of its damage.
+        stale_knockback_influence: Some(0.30),
+        // How steep the victim-percent curve is, as a multiplier on the
+        // percent term alone. 1.0 is the original law. 1.25 is the smallest
+        // swept value that ends the stock (guards in
+        // `smash_in_the_host::ring_out`):
+        //
+        //     scale | 700% stale jab | lateral | 0% fresh
+        //     1.00  | ALIVE          | 246.4px | poke
+        //     1.25  | KO             | 523.4px | poke
+        //     1.50  | KO             | 627.7px | poke
+        //     1.75+ | KO             | 722px+  | poke
+        //
+        // 1.50 is a ceiling the table cannot show: two CPU floors fail at 1.50
+        // and pass at 1.25
+        // (`smash_cpus_damage_each_other::two_cpus_in_the_shipped_composition_damage_each_other`
+        // and `the_repertoire_gets_used::every_authored_route_gets_pressed`).
+        // A steeper curve separates the CPUs, so they exchange less. Run both
+        // floors again before you make this larger.
+        //
+        // Measurement traps: this jab has `launch_dir: None`, so it kills
+        // through the ceiling, not a side; measure the resolved launch, not
+        // the trajectory maximum; pin the attacker's rage (an unpinned CPU at
+        // 62% multiplies every cell by 1.248). A launch past the tumble
+        // threshold is not a ring-out, so calibrate on the stage's knockout
+        // verdict.
+        victim_percent_knockback_scale: Some(1.25),
+        // Kill moves are authored explicitly, not inferred. Base knockback is
+        // not role: a growth curve on base knockback overrode authored
+        // `knockback_growth`, distorted deliberate high-base, low-growth
+        // shoves, and did not reach throws. Movesets author the separation
+        // instead (pirate f-smash growth/base 0.0256, up-smash 0.0413, jab
+        // 0.020), derived from measured stage thresholds
+        // (G_new = G_old * p0/p1 for strikes, * (p0+d)/(p1+d) for throws).
+        growth_base: None,
+        // Crouch cancel, 0.85x: a defensive read at low percent that does not
+        // save anyone from a kill move.
+        crouch_cancel_scale: 0.85,
+        // No blanket mercy window, as in Smash. Repeat protection belongs to
+        // the move: one hitbox cannot hit a body twice, and separate Active
+        // windows can. A 0.2 s window would also stop George Booul's
+        // `bivalence` launcher (0.42 s) from landing after its pop (0.30 s).
+        hit_repeat_window_scale: 0.0,
+        // Grab hold grows with percent (Ultimate's 90 + 1.7p frames: 1.5 s at
+        // 0%, about 4.3 s at 100%). Percent is read at the grab, so pummels do
+        // not extend the hold.
+        grab_hold_base_seconds: 1.5,
+        grab_hold_per_damage: 0.028333334,
+        // Every hold ends, however hurt the captive is.
+        grab_hold_max_seconds: 6.0,
+        // 14.4 frames per press (Ultimate's rate), so mashing is a real
+        // option.
+        grab_mash_seconds: 0.24,
+        // Teams decide who may hit whom. Global friendly fire would also make
+        // teammates hittable.
+        friendly_fire: false,
+        // Clanking is off: a tuning decision, the mechanism is tested. At 9
+        // damage (the genre's threshold) CPUs traded so often that nobody was
+        // launched (`every_live_fighter_stays_inside_the_frame`) and
+        // `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match` failed,
+        // even ground-only. Try 9.0 first after a play session.
+        clank_damage_window: 0.0,
+        // A clank pushes both fighters back: less than a launch, but out of
+        // each other's next swing.
+        clank_rebound_speed: 190.0,
+        // Edge cancel: an aerial landed on a platform edge that slides off
+        // cancels its landing lag.
+        edge_cancel_recovery: Some(true),
+        // B-reverse: a special pressed backward turns the fighter around.
+        special_turn: Some(true),
+        // Wavebounce: the turn also reverses drift. One rule with two
+        // settings, so neither becomes a per-fighter hack. Both are feel
+        // calls.
+        special_turn_reverses_drift: Some(true),
+        // Sudden death at 150%: a timed match that ends level goes to a point
+        // where almost any clean hit kills.
+        sudden_death_damage: Some(150),
+        // One hit in six barks. A rate, not a cooldown: a cooldown makes the
+        // first hit of every exchange bark, which players hear as a rhythm.
+        // A starting value; tune by play.
+        bark_chance: Some(0.16666667),
+        // Losing the ledge to a trump pushes the previous holder off, so a
+        // trump is a real edge-guard option. 260 px/s is a shove, not a kill.
+        // A starting value; tune by play.
+        ledge_trump_pop: Some(260.0),
+        // Ultimate holds a trumped fighter for about 30 frames. The number is
+        // a tuning value: its only source is a forum measurement seen through
+        // a search summary (smash-parity-inventory.md, "Ledge occupancy").
+        ledge_trump_lockout: Some(0.5),
+        // Ultimate's rule: a recovering fighter can steal the edge back.
+        // `Hog` is the other generation's rule.
+        ledge_occupancy: Some(Trump),
+        // Double-jump cancel: an aerial from an air jump ends the jump's rise.
+        // A feel call.
+        double_jump_cancel: Some(true),
+    )),
+)

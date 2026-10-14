@@ -79,3 +79,90 @@ fn a_misspelled_field_is_an_unknown_field() {
     assert!(lowered(&out).is_none());
     assert_eq!(out.diagnostics.first().map(|d| d.code), Some(DiagnosticCode::UnknownField));
 }
+
+/// A whole `combat` block: every field of `CombatRules` that is not an
+/// `Option`, with `edit` replacing one `field: value,` line.
+fn combat_block(edit: (&str, &str)) -> String {
+    let fields = [
+        ("di_max_angle", "0.31"),
+        ("knockback_growth", "0.02"),
+        ("downward_hit", "Spike"),
+        ("meteor_lock_time", "0.3"),
+        ("rage_per_damage", "0.004"),
+        ("rage_max_scale", "1.4"),
+        ("stale_step", "0.05"),
+        ("stale_floor", "0.55"),
+        ("crouch_cancel_scale", "0.85"),
+        ("hit_repeat_window_scale", "0.0"),
+        ("grab_hold_base_seconds", "1.5"),
+        ("grab_hold_per_damage", "0.03"),
+        ("grab_hold_max_seconds", "6.0"),
+        ("grab_mash_seconds", "0.24"),
+        ("friendly_fire", "false"),
+        ("clank_damage_window", "0.0"),
+        ("clank_rebound_speed", "190.0"),
+        ("ledge_occupancy", "Some(Trump)"),
+    ];
+    let mut lines = String::new();
+    let mut replaced = false;
+    for (field, value) in fields {
+        if field == edit.0 {
+            replaced = true;
+            if !edit.1.is_empty() {
+                lines.push_str(&format!("{field}: {},", edit.1));
+            }
+        } else {
+            lines.push_str(&format!("{field}: {value},"));
+        }
+    }
+    if !replaced {
+        lines.push_str(&format!("{}: {},", edit.0, edit.1));
+    }
+    format!("(heavy_hit_damage: Some(12), combat: Some(({lines})))")
+}
+
+/// The combat rules are pack data (Smash's `room_rules.ron`): the block is
+/// the `CombatRules` it states, and an `Option` field it leaves out is `None`.
+#[test]
+fn a_combat_block_is_the_combat_rules_it_states() {
+    let out = check(&combat_block(("victim_percent_knockback_scale", "Some(1.25)")));
+    assert!(out.diagnostics.is_empty(), "{:?}", out.diagnostics);
+    let combat = lowered(&out).and_then(|rules| rules.combat).expect("the block lowers");
+    assert_eq!(combat.di_max_angle, 0.31);
+    assert_eq!(combat.downward_hit, crate::rules::DownwardHitStyle::Spike);
+    assert_eq!(combat.victim_percent_knockback_scale, Some(1.25));
+    assert_eq!(combat.ledge_occupancy, Some(crate::rules::LedgeOccupancy::Trump));
+    assert_eq!(combat.sudden_death_damage, None, "an `Option` left out is `None`");
+}
+
+/// A game states every value its game plays under: a required field left out
+/// is a refusal that names it, not the engine's baseline.
+#[test]
+fn a_combat_block_that_leaves_out_a_required_field_is_refused() {
+    let out = check(&combat_block(("stale_floor", "")));
+    assert!(lowered(&out).is_none());
+    let shown = format!("{:?}", out.diagnostics);
+    assert!(shown.contains("stale_floor"), "the refusal does not name the field: {shown}");
+}
+
+#[test]
+fn a_combat_value_the_runtime_cannot_use_is_refused_with_its_field() {
+    for (edit, field) in [
+        (("clank_rebound_speed", "-1.0"), "combat.clank_rebound_speed"),
+        (("bark_chance", "Some(1.5)"), "combat.bark_chance"),
+        (("stale_knockback_influence", "Some(-0.1)"), "combat.stale_knockback_influence"),
+    ] {
+        let out = check(&combat_block(edit));
+        assert!(lowered(&out).is_none(), "{edit:?} lowered");
+        let shown = format!("{:?}", out.diagnostics);
+        assert!(shown.contains(field), "the refusal of {edit:?} does not name `{field}`: {shown}");
+        assert!(shown.contains(PATH), "the refusal of {edit:?} does not name the file: {shown}");
+    }
+}
+
+#[test]
+fn a_misspelled_combat_field_is_an_unknown_field() {
+    let out = check(&combat_block(("knockback_grwoth", "0.02")));
+    assert!(lowered(&out).is_none());
+    assert_eq!(out.diagnostics.first().map(|d| d.code), Some(DiagnosticCode::UnknownField));
+}

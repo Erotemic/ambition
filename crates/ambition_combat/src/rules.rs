@@ -19,7 +19,7 @@ use bevy::prelude::Resource;
 
 /// WHO KEEPS A CONTESTED LEDGE. See
 /// [`CombatRules::ledge_occupancy`].
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
 pub enum LedgeOccupancy {
     /// The NEWEST grab wins and the older holder is knocked off — Ultimate's
     /// rule, and what every ledge in this engine did before the knob existed.
@@ -46,7 +46,12 @@ pub use ambition_entity_catalog::launch::GrowthBaseCurve;
 /// the value its game plays under. Stating "the baseline's value" would make the
 /// declaration a copy of the world at build time, which is the borrow again.
 /// A game that wants the world's DI declares no combat rules at all.
-#[derive(Clone, Copy, Debug, PartialEq)]
+///
+/// A game's pack states them as the `combat` block of its `room_rules` source
+/// (`crate::room_rules`): each field that is not an `Option` is required, and
+/// an unknown field is a refusal.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CombatRules {
     /// How far a launched body may steer its own trajectory (CM2). `0.0`
     /// disables directional influence entirely, which is Ambition's PvE answer.
@@ -528,7 +533,7 @@ impl CombatTuningOf<'_, '_> {
 
 /// How this game reads a downward attack. See
 /// [`CombatRules::downward_hit`].
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
 pub enum DownwardHitStyle {
     /// The ATTACKER rebounds off what it hit — Hollow Knight's down-slash, and
     /// Ambition's. The default, because it is what an authored `pogo_bounce`

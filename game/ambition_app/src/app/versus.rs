@@ -609,13 +609,13 @@ pub fn versus_combat_rules() -> ambition_platformer2d::combat::rules::CombatRule
         // the generic versus stage stays FLAT for now: its rounds end
         // on health rather than on a blast zone, so a launch that grows
         // without bound is a different game's mechanic. Smash declares
-        // its own — see `SMASH_KNOCKBACK_GROWTH`.
+        // its own — see Smash's `knockback_growth` (its `room_rules.ron`).
         knockback_growth: 0.0,
         // the generic versus stage keeps the POGO reading, deliberately:
         // its rounds end on health rather than on a blast zone, so a
         // spike has nothing to kill you off and the rebound is the more
         // useful of the two. Smash declares otherwise — see
-        // `SMASH_KNOCKBACK_GROWTH`'s neighbour.
+        // Smash's `knockback_growth` (its `room_rules.ron`)'s neighbour.
         downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Pogo,
         friendly_fire: false,
         // the versus route says NOTHING here. Its

@@ -1112,7 +1112,7 @@ fn every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip() {
         app.world()
             .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
     let grid = SmashRoster::assemble(registry);
-    let declared = ambition_demo_smash::SMASH_KNOCKBACK_GROWTH;
+    let declared = ambition_demo_smash::smash_combat_rules().knockback_growth;
 
     let mut volumes_seen = 0usize;
     let mut fighters_seen = 0usize;

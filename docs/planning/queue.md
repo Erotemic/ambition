@@ -291,6 +291,14 @@ file and field named, and the Rust copy is deleted.
 3. **Measure first:** the background warm-up of every rig table
    (`RiggedSpriteAsset::warm_baked_in_background`): peak and retained memory
    with and without it, cold and warm frame stalls, desktop and Android.
+   Desktop, measured 2026-10-14 (`measure_the_memory_the_warm_up_keeps`,
+   ignored; run by name with `--ignored --nocapture`; two runs agree): the
+   166 published tables decode in 0.19 s on one thread and keep 22 MiB
+   (resident 23 to 46 MiB). The slowest table is 12 ms
+   (`imperfect_cellular_automaton`): without the warm-up, that is the stall
+   of a first draw, most of a 16.7 ms frame. So the warm-up buys about 12 ms
+   off the worst first draw for 22 MiB. Open: Android, and frame stalls
+   measured in the running game.
 4. **Acceptance by a person:** the robot's crouch, turn, double jump and
    back view in play; the new Hall and sandbox characters; the MSAA quality
    change on a real GPU.

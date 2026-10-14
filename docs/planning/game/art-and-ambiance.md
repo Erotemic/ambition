@@ -425,6 +425,26 @@ Open:
   it was not fitted to the three sizes.
 - No dog has its own bark sound: each uses `npc.dog.woof`.
 
+## The General, redrawn (2026-10-13)
+
+Jon, with a picture of a cartoon general: "Please redo the art for the absurd
+general. I'm going for a general specific sort of vibe (although again, we
+are not copying the character, this is just inspiration)".
+
+He is an SVG rig of his own (the renderer's `absurd_general` target; he was a
+preset of the toon template): a coat like a box on two legs like sticks, a
+nose like a bulb, teeth shut tight, arms akimbo, a swagger stick under his
+arm. The six rows he had are the same six.
+
+- Of the tall leaning hat of the first draft: "No, redo the general hat, Just
+  a normal officer hat". It is a peaked service cap.
+- "He needs more badges and metals on his coat." He has sixteen ribbons,
+  seven medals, two orders, pins along his sash and stars on his collar.
+
+Open: Jon has seen the first draft only, not the cap and the medals. His
+`standing_height` is as it was (69.7, the cap included). He has no row that
+faces the viewer, and no strike rows for when he is provoked (he had none).
+
 ## Not done
 
 - **The giant gnu, redrawn: in the game, with the fight of today** (Jon,

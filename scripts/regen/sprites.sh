@@ -456,7 +456,9 @@ fi
 
 review_cues=(
     # Toon-target NPC variants already promoted.
-    absurd_general architect vault_keeper
+    architect vault_keeper
+    # absurd_general is NOT here any more -- see `tackon_targets`: the General
+    # is an SVG rig of his own (2026-10-13).
     # kernel_guide is NOT here any more -- see `tackon_targets`, the same move
     # as oiler and bob.
     # oiler is NOT here any more — see `tackon_targets`. His body comes from
@@ -834,6 +836,9 @@ tackon_targets=(
     yuclid
     # The roaming dog of the central hub basement (`npc_companion_dog`).
     companion_dog
+    # The General (`npc_general`): an SVG rig, not a preset of the toon
+    # template any more.
+    absurd_general
     # The three house dogs, each in a test room off the basement. They are
     # drawn on the companion dog's rig.
     dog_honey

@@ -22,7 +22,19 @@ use bevy::prelude::{Commands, Entity, Or, Query, Res, ResMut, Resource, With};
 /// ground. The row is slaved to this time, so its frames fit it whatever the
 /// sheet's frame duration is. A sheet with no such row draws the body's own
 /// pose.
-pub const TURN_SECS: f32 = 0.16;
+pub const TURN_SECS: f32 = 0.22;
+
+/// How long the head takes to go up (or down) when the stick is held up.
+pub const LOOK_UP_SECS: f32 = 0.12;
+
+/// The row of a look up.
+const LOOK_UP_CLIP: &str = "idle_look_up";
+
+/// How far a body climbs in one cycle of its climb row (px).
+pub const CLIMB_CYCLE_PX: f32 = 120.0;
+
+/// The row of a climb.
+const CLIMB_CLIP: &str = "climb";
 
 /// The row of a turn.
 const TURNAROUND_CLIP: &str = "turnaround";
@@ -56,6 +68,15 @@ pub struct BodyPoseView {
     /// the facing flips at once, and the `turnaround` row is drawn over the
     /// first [`TURN_SECS`] of it.
     pub turn_secs: f32,
+    /// How far up this body looks, 0 to 1: it rises over [`LOOK_UP_SECS`]
+    /// while the body stands and holds the stick up, and falls as fast when
+    /// it lets go. The `idle_look_up` row is drawn at this fraction, so the
+    /// head goes up and comes down through its frames.
+    pub look_up: f32,
+    /// Where in its climb row a body on a ladder is, 0 to 1. It moves with the
+    /// distance the body climbs ([`CLIMB_CYCLE_PX`] a cycle), so a body that
+    /// holds still on a ladder holds still in its picture.
+    pub climb_phase: f32,
     /// Aerial/gravity roll angle (radians) — the sprite rotation.
     pub roll_angle: f32,
     /// `size.y / base_size.y`, clamped (0.1, 1.0] — the trimmed-sheet
@@ -256,6 +277,8 @@ impl Default for BodyPoseView {
             base_size: ambition_platformer2d_core::Vec2::ONE,
             facing: 1.0,
             turn_secs: f32::INFINITY,
+            look_up: 0.0,
+            climb_phase: 0.0,
             // A body with no pose yet is playing no move.
             clip: None,
             roll_angle: 0.0,
@@ -538,6 +561,25 @@ pub fn rebuild_body_pose_views(
             None => f32::INFINITY,
         };
         let turning = free && turns_on_the_ground(anim) && turn_secs < TURN_SECS;
+        let dt = time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs);
+        // The look up rises while it is asked for and falls when it is not; a
+        // body that does anything but stand has its head level at once.
+        let look_up = if free && anim == CharacterAnim::Idle {
+            let before = pose.as_deref().map_or(0.0, |before| before.look_up);
+            let step = dt / LOOK_UP_SECS;
+            if looking_up { (before + step).min(1.0) } else { (before - step).max(0.0) }
+        } else {
+            0.0
+        };
+        // The climb row moves with the distance climbed.
+        let climb_phase = {
+            let before = pose.as_deref().map_or(0.0, |before| before.climb_phase);
+            if anim == CharacterAnim::LadderClimb {
+                (before + kinematics.vel.length() * dt / CLIMB_CYCLE_PX).fract()
+            } else {
+                before
+            }
+        };
         let next = BodyPoseView {
             pos: kinematics.pos,
             vel: kinematics.vel,
@@ -545,6 +587,8 @@ pub fn rebuild_body_pose_views(
             base_size: base,
             facing: drawn_facing,
             turn_secs,
+            look_up,
+            climb_phase,
             roll_angle: roll.map_or(0.0, |r| r.angle),
             stance_ratio_y,
             gravity_dir,
@@ -555,12 +599,24 @@ pub fn rebuild_body_pose_views(
                 .filter(|playback| !playback.settled())
                 .map(|playback| crate::ClipRequest::for_move(&playback.spec.clip, playback.phase()).over_legs(legs))
                 .or_else(|| {
-                    turning.then(|| crate::ClipRequest {
-                        clip: TURNAROUND_CLIP.to_string(),
+                    // A row slaved to a fraction of the body's own: the turn,
+                    // the look up, the climb. A sheet with none of these rows
+                    // draws the body's own pose.
+                    let slaved = |clip: &str, phase: f32| crate::ClipRequest {
+                        clip: clip.to_string(),
                         fallbacks: Vec::new(),
-                        phase: Some(turn_secs / TURN_SECS),
+                        phase: Some(phase),
                         legs: None,
-                    })
+                    };
+                    if turning {
+                        Some(slaved(TURNAROUND_CLIP, turn_secs / TURN_SECS))
+                    } else if look_up > 0.0 {
+                        Some(slaved(LOOK_UP_CLIP, look_up))
+                    } else if free && anim == CharacterAnim::LadderClimb {
+                        Some(slaved(CLIMB_CLIP, climb_phase))
+                    } else {
+                        None
+                    }
                 })
                 .or_else(|| {
                     crate::ClipRequest::from_chain(ambition_character_sprites::body_state_clip(
@@ -573,7 +629,6 @@ pub fn rebuild_body_pose_views(
                                 .map(ambition_character_sprites::GuardBreakBeat::from_phase),
                             parrying: shield.is_some_and(|s| s.parrying()),
                             guard_stunned: shield.is_some_and(|s| s.stun_timer > 0.0),
-                            looking_up,
                             ..Default::default()
                         }
                         .with_gestures(anim_facts),

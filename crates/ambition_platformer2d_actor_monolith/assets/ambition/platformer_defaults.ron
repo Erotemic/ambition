@@ -106,13 +106,16 @@
             tilt_range: 0.34,
             // Guard and down is the spot dodge on each floor of this game.
             platform_drop: false,
-            // Jon, 2026-10-13: no attack out of shield. A raised guard lets
-            // out a jump, a dodge, a grab and an up special, and each drops
-            // it. The bubble special is the guard itself and is not refused.
+            // Jon, 2026-10-13: no attack out of shield, and an attack pressed
+            // there does nothing ("he should just not do anything when you hit
+            // attack and you can't"). A raised guard lets out a jump, a dodge
+            // and an up special, and each drops it. No grab either: shield and
+            // attack is the grab of Smash, and it read as an attack here. The
+            // bubble special is the guard itself and is not refused.
             out_of_shield: Some((
                 jump: true,
                 burst: true,
-                grab: true,
+                grab: false,
                 up_attack: false,
                 up_special: true,
             )),

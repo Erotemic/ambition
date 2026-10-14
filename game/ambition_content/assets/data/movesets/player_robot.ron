@@ -696,9 +696,13 @@
                                     tag: Active,
                                     volumes: [
                                         (
+                                            // The poke down at the floor ahead: the line of the
+                                            // drawn blade, from the crouched body's middle to
+                                            // the floor 34 px ahead (the sheet's `attack_down`
+                                            // shape is the same line).
                                             shape: Rect(
-                                                offset: (26.0, 16.0),
-                                                half_extents: (20.0, 10.0),
+                                                offset: (18.0, 4.0),
+                                                half_extents: (17.0, 7.0),
                                             ),
                                             damage: 1,
                                             knockback: 60.0,
@@ -706,7 +710,7 @@
                                             launch_dir: Some((0.5, -0.85)),
                                             reaction: None,
                                             on_hit: None,
-                                            vfx: Some("slash_arc"),
+                                            vfx: Some("slash_poke"),
                                             hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
@@ -1155,9 +1159,13 @@
                                     tag: Active,
                                     volumes: [
                                         (
+                                            // The poke down at the floor ahead: the line of the
+                                            // drawn blade, from the crouched body's middle to
+                                            // the floor 34 px ahead (the sheet's `attack_down`
+                                            // shape is the same line).
                                             shape: Rect(
-                                                offset: (26.0, 16.0),
-                                                half_extents: (20.0, 10.0),
+                                                offset: (18.0, 4.0),
+                                                half_extents: (17.0, 7.0),
                                             ),
                                             damage: 1,
                                             knockback: 60.0,
@@ -1165,7 +1173,7 @@
                                             launch_dir: Some((0.5, -0.85)),
                                             reaction: None,
                                             on_hit: None,
-                                            vfx: Some("slash_arc"),
+                                            vfx: Some("slash_poke"),
                                             hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],

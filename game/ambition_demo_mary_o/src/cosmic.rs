@@ -48,9 +48,6 @@ pub const TRANSFORM_TECHNIQUE_ID: &str = "transform";
 /// (`mary_o_v2_cosmic.LEAVE_ROW` of the sprite renderer). No other thing plays
 /// that clip on the form: she is not hurt in it.
 const LEAVE_ANIM: CharacterAnim = CharacterAnim::Shrink;
-/// How long the last frame of her way out stays before she is the form she
-/// comes back to, in seconds. The beat is this much longer than the row.
-const LEAVE_HOLD: f32 = 0.2;
 /// The beat of the form she comes back to: short, and with no clip. A clip of
 /// that form is the clip of a hit, and she was not hit.
 const ARRIVE_BEAT: TransformBeatPolicy = TransformBeatPolicy {
@@ -65,20 +62,6 @@ const COSMIC_MUSIC_OWNER: &str = "mary_o_cosmic";
 /// The track the form plays: its own theme (the cue `eternal_cosmic` of the
 /// music renderer), whose intro is as long as the transformation.
 pub const COSMIC_MUSIC_TRACK: &str = "eternal_cosmic";
-
-/// The longest stop of her own body for a hit that she lands in the form, in
-/// seconds. Each body she touches in the form is a hit, and the stop of a
-/// hit is 0.1 s: a flight through a line of enemies was a row of stops
-/// (Jon, 2026-10-11: "considerably less hit stun").
-///
-/// ⚠ HER STOP, NOT THE WORLD'S. A touch in the form is a `HitSource::Contact`
-/// hit (`Empowerment::HARMS_ON_CONTACT`), and the stop of the world
-/// (`ImpactHitstop`) is not for contact hits, so these hits do not stop the
-/// world (measured: `mary_o_it a_hit_in_the_form_stops_her_less_and_not_the_world`).
-/// The stops of a flight were the stops of her own body, which the attacker's
-/// timer (`BodyCombat::hitstop_timer`) holds. This is the stop the form
-/// shortens.
-const COSMIC_HIT_STOP_MAX: f32 = 0.02;
 
 /// The key of the form's entry in her ability contributions.
 const COSMIC_ABILITY_SOURCE: &str = "mary_o_cosmic";
@@ -117,14 +100,14 @@ fn enter_beat(
 }
 
 /// The beat of her way out of the form: the row of [`LEAVE_ANIM`] of the
-/// form's sheet, and [`LEAVE_HOLD`] on its last frame. She wears the form
+/// form's sheet, and `cosmic.leave_hold_seconds` (`mary_o_rules.ron`) on its last frame. She wears the form
 /// while it plays.
 fn leave_beat(
     catalog: Option<&ambition_platformer2d::character::CharacterCatalog>,
     authored: Option<&ambition_platformer2d::character::AuthoredSheets>,
 ) -> TransformBeatPolicy {
     TransformBeatPolicy {
-        duration: crate::powerups::clip_seconds(catalog, authored, COSMIC_CHARACTER_ID, LEAVE_ANIM) + LEAVE_HOLD,
+        duration: crate::powerups::clip_seconds(catalog, authored, COSMIC_CHARACTER_ID, LEAVE_ANIM) + crate::rules::mary_o_rules().cosmic.leave_hold_seconds,
         anim: LEAVE_ANIM,
         clock_scale: 1.0,
         untouchable: true,
@@ -219,7 +202,7 @@ pub fn come_back_from_the_form(
         if !is_cosmic(worn.id()) || !is_leaving(beat) {
             continue;
         }
-        if beat.remaining > LEAVE_HOLD.max(2.0 * time.wall_dt()) {
+        if beat.remaining > crate::rules::mary_o_rules().cosmic.leave_hold_seconds.max(2.0 * time.wall_dt()) {
             continue;
         }
         worn.0 = crate::powerups::ladder_character(equipment).into();
@@ -295,8 +278,8 @@ pub fn shorten_her_hit_stop(
     mut bodies: Query<(&WornCharacter, &mut ambition_platformer2d::characters::actor::BodyCombat)>,
 ) {
     for (worn, mut combat) in &mut bodies {
-        if is_cosmic(worn.id()) && combat.hitstop_timer > COSMIC_HIT_STOP_MAX {
-            combat.hitstop_timer = COSMIC_HIT_STOP_MAX;
+        if is_cosmic(worn.id()) && combat.hitstop_timer > crate::rules::mary_o_rules().cosmic.hit_stop_max_seconds {
+            combat.hitstop_timer = crate::rules::mary_o_rules().cosmic.hit_stop_max_seconds;
         }
     }
 }

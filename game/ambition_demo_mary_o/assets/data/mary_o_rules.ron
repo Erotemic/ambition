@@ -1,0 +1,103 @@
+// The Mary-O demo's tuning (schema `mary_o_rules`, owned by the demo: these
+// are this game's rules, and no engine capability reads them). An edit here
+// is played at the next start, with no Rust build.
+(
+    // The spark the fire form throws.
+    spark: (
+        // Seconds between two sparks; the body's `RangedRefire` enforces it.
+        // It is not less than the bolt's own move (a 0.18 s draw and a 0.20 s
+        // settle), because a second move cannot start while the first one
+        // plays: a shorter number would never be the gate.
+        refire_seconds: 0.4,
+        // Half the size of a spark (px): the shot is 20 px across a 32 px
+        // tile. The art draws at this size (`ProjectileRenderSize::Body`), so
+        // the sprite cannot disagree with the hitbox.
+        half_extent: 10.0,
+        // Launch speed (px/s).
+        speed: 300.0,
+        // Damage before the beacon's x1.5: enough to end a snake.
+        damage: 4,
+        // The downward pull that turns a flat shot into a skipping arc.
+        gravity: 900.0,
+        // Floor skips before it burns out.
+        bounces: 2,
+        // A spark that finds no floor still expires.
+        lifetime_seconds: 1.5,
+    ),
+    // The snake plant in its pipe.
+    snake_plant: (
+        // One cycle: up, out, down, hidden.
+        cycle_ticks: 330,
+        // To come all the way up, and to go all the way down.
+        travel_ticks: 36,
+        // All the way out.
+        out_ticks: 108,
+        // A player this near the side of the pipe (px) keeps a hidden plant
+        // hidden.
+        shy_reach: 40.0,
+        // Below this part of its height out of the pipe, the plant hurts
+        // nobody: a body that stands on the pipe, or rides down it, does not
+        // touch the plant.
+        harmless_below: 0.12,
+    ),
+    // A body's trip through a pipe.
+    pipe: (
+        // Sinking into the near pipe, and rising out of the far one. Half a
+        // second each way: slow enough to read as a slide and not a snap,
+        // short enough that a player who takes the pipe often never waits.
+        swallow_seconds: 0.5,
+        emerge_seconds: 0.5,
+        // Stepping across the mouth to the pipe's centre line before the
+        // slide. Short: it is a step, and a body on the line skips it.
+        center_seconds: 0.14,
+        // How far along the tube's axis the body travels in each phase. Two
+        // tiles is the pipe's own height, so the body is fully swallowed at
+        // the moment of the crossing and nothing pops.
+        travel_tiles: 2.0,
+    ),
+    // The stomped snake and its shell.
+    shell: (
+        // Upward speed off a stomped snake: a lively hop, a touch less than a
+        // full jump, so a stomp reads as a bounce and not a jump.
+        stomp_bounce_speed: 430.0,
+        // Faster than a snake walks, so a kicked shell runs a line of them
+        // down instead of trailing behind.
+        slide_speed: 300.0,
+        // To another enemy it runs down: lethal, so a kicked shell clears the
+        // trash mobs in its way through the shared hit pipeline.
+        enemy_damage: 99,
+        // To the player on a side hit: an ordinary contact hit (the shared
+        // i-frames keep it from hitting again every frame it overlaps).
+        player_damage: 1,
+        // A freshly kicked shell cannot hurt the player: the kick starts it
+        // inside the kicker. It still mows down enemies during the grace.
+        kick_grace_seconds: 0.25,
+        // Pulling into the shell (the `retreat` row) before it is kickable.
+        retreat_seconds: 0.35,
+        // Boxed and kickable before it peeks back out: generous, so a kick
+        // almost always lands in it.
+        boxed_seconds: 4.0,
+        // Peeking (the `peek` row): a wary look before it commits.
+        peek_seconds: 0.5,
+        // Climbing back out (the `emerge` row) before it walks again.
+        emerge_seconds: 0.45,
+    ),
+    // How long the star's power lasts.
+    star_seconds: 10.0,
+    // One coin, like the coins in the vault (`currency:1` in the level file).
+    coins_per_block: 1,
+    // Ticks from one plank of a breaking bridge to the next.
+    plank_ticks: 7,
+    // Walking is 60% of her run speed. Her catalog row owns the absolute cap;
+    // this is only the walk-to-run ratio.
+    walk_throttle: 0.6,
+    // The beats of the cosmic form.
+    cosmic: (
+        // The last frame of her way out stays this long before she is the
+        // form she comes back to; the beat is this much longer than the row.
+        leave_hold_seconds: 0.2,
+        // The longest hit stop her own body takes in the form: the stop of a
+        // flight is her own, and this is the stop the form shortens.
+        hit_stop_max_seconds: 0.02,
+    ),
+)

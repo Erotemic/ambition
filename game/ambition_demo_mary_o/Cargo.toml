@@ -32,3 +32,5 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-f
 # the CONSUMER's manifest, so a re-export does not satisfy them. The E9 oracle's
 # real claim: a downstream game names `ambition_platformer2d` + `bevy`, and NOTHING ELSE.
 bevy = { version = "0.19.1", default-features = false }
+# The demo's own pack schema (`rules.rs`) derives its reader.
+serde = { workspace = true }

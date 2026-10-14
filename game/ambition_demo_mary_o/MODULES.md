@@ -26,6 +26,7 @@
 | [`powerups`](src/powerups.rs) | Super Mary-O's powerups — the equipment chain, authored as A3 data. |
 | [`provider`](src/provider.rs) | The Mary-O experience provider. |
 | [`quasar_shader`](src/quasar_shader.rs) | Mary-O's invincible rainbow-quasar presentation pass. |
+| [`rules`](src/rules.rs) | The `mary_o_rules` schema: the demo's own tuning, as data in its pack (`assets/data/mary_o_rules.ron`). |
 | [`scenery`](src/scenery.rs) | Mary-O scenery props — the flagpole and the warp pipes, drawn from their generated construction sheets instead of flat placeholder quads. |
 | [`shimmer_shader`](src/shimmer_shader.rs) | The shimmer in the air of a Mary-O room: sparkles and ribbons of light in the starlight rooms, embers and a low mist in the starless room, sparks and red heat in the castle. |
 | [`snake`](src/snake.rs) | Mary-O's Solid Snake walker and shell state machine. |
@@ -37,7 +38,7 @@
 | [`void_look`](src/void_look.rs) | The field of the void about each void thing of Mary-O: the Void Star, the Void Lizard, and the orb the Void Lizard throws. |
 | [`void_star`](src/void_star.rs) | The Void Star: the enemy that no stomp can hurt. |
 
-_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_31 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

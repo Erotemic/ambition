@@ -30,41 +30,6 @@ pub const SNAKE_DISPLAY_NAME: &str = "Solid Snake";
 /// never collides with a host provider's roster.
 pub const SNAKE_BRAIN_KEY: &str = "mary_o_snake";
 
-/// Upward speed Mary-O gets off a stomped snake — a lively hop, a touch under a
-/// full jump so a stomp reads as a bounce, not a re-jump.
-const BOUNCE_SPEED: f32 = 430.0;
-
-/// How fast a kicked shell slides. Faster than a snake walks, so a kicked shell
-/// reliably runs a line of them down instead of trailing behind.
-const SHELL_SLIDE_SPEED: f32 = 300.0;
-
-/// Damage a moving shell deals to another ENEMY it runs down — lethal, so a kicked
-/// shell one-shots the trash mobs it mows through (snakes, AI Slop), like a Koopa
-/// shell clearing a line. Routed through the shared hit pipeline, so the victim
-/// dies with the same drops/score/reaction any other kill produces.
-const SHELL_ENEMY_DAMAGE: i32 = 99;
-/// Damage a moving shell deals to the PLAYER on a SIDE hit — an ordinary contact
-/// tick (the shared i-frames keep it from re-hitting every frame it overlaps).
-const SHELL_PLAYER_DAMAGE: i32 = 1;
-
-/// Seconds a freshly kicked shell cannot hurt the PLAYER. You kick a shell from
-/// the side, so the moment it starts moving it is still inside you — without this
-/// the kick would hurt the kicker every single time. It still mows down ENEMIES
-/// during the grace (kicking a shell into a crowd is instant), and long enough for
-/// a shell that ricochets straight back off a nearby wall to be a real threat again.
-const KICK_GRACE_S: f32 = 0.25;
-
-/// Seconds the snake spends pulling into its shell (the `retreat` row) before it
-/// is a settled, kickable shell.
-const RETREAT_S: f32 = 0.35;
-/// Seconds a shell sits boxed and kickable before it starts to peek back out. A
-/// generous window so a kick almost always lands during it.
-const BOXED_S: f32 = 4.0;
-/// Seconds spent peeking (the `peek` row) — a wary look before committing.
-const PEEK_S: f32 = 0.5;
-/// Seconds spent climbing back out (the `emerge` row) before it walks again.
-const EMERGE_S: f32 = 0.45;
-
 /// A Solid Snake's shell lifecycle. `Walking` is the ordinary patroller; the rest
 /// are the withdraw cycle, driven by [`step_snake_shell`]. Each timed stage's `f32`
 /// is the time it has left.
@@ -148,6 +113,7 @@ pub struct ShellInputs {
 /// presentation/physics the ECS should apply. No world access, so it is exhaustively
 /// unit-tested below.
 pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> ShellEffects {
+    let shell = crate::rules::mary_o_rules().shell;
     use SnakeShell::*;
     // Defaults for the shelled (corpse) stages: pinned pose, held still, dead.
     let shelled = |phase, anim| ShellEffects {
@@ -166,7 +132,7 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
     if inputs.stomped {
         let reseat = ShellEffects {
             just_squashed: true,
-            ..shelled(Boxed(BOXED_S), CharacterAnim::ShellIdle)
+            ..shelled(Boxed(shell.boxed_seconds), CharacterAnim::ShellIdle)
         };
         // Landing on a RESTING shell kicks it, exactly as a side bump does. The classic never
         // does that — you land on a still shell and it shoots out from under you.
@@ -178,11 +144,11 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
             return ShellEffects {
                 just_squashed: true,
                 just_kicked: true,
-                vel_x: Some(dir * SHELL_SLIDE_SPEED),
+                vel_x: Some(dir * shell.slide_speed),
                 ..shelled(
                     Sliding {
                         dir,
-                        grace: KICK_GRACE_S,
+                        grace: shell.kick_grace_seconds,
                     },
                     CharacterAnim::ShellIdle,
                 )
@@ -192,7 +158,7 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
             // A live walker starts the withdraw; the retreat row plays first.
             Walking => ShellEffects {
                 just_squashed: true,
-                ..shelled(Retreating(RETREAT_S), CharacterAnim::Retreat)
+                ..shelled(Retreating(shell.retreat_seconds), CharacterAnim::Retreat)
             },
             // Mid-withdraw: let the retreat run out on its own clock.
             Retreating(t) => {
@@ -228,7 +194,7 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
         Retreating(t) => {
             let t = t - dt;
             if t <= 0.0 {
-                shelled(Boxed(BOXED_S), CharacterAnim::ShellIdle)
+                shelled(Boxed(shell.boxed_seconds), CharacterAnim::ShellIdle)
             } else {
                 shelled(Retreating(t), CharacterAnim::Retreat)
             }
@@ -237,11 +203,11 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
             if let Some(dir) = inputs.kick_dir {
                 ShellEffects {
                     just_kicked: true,
-                    vel_x: Some(dir * SHELL_SLIDE_SPEED),
+                    vel_x: Some(dir * shell.slide_speed),
                     ..shelled(
                         Sliding {
                             dir,
-                            grace: KICK_GRACE_S,
+                            grace: shell.kick_grace_seconds,
                         },
                         CharacterAnim::ShellIdle,
                     )
@@ -249,7 +215,7 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
             } else {
                 let t = t - dt;
                 if t <= 0.0 {
-                    shelled(Peeking(PEEK_S), CharacterAnim::Peek)
+                    shelled(Peeking(shell.peek_seconds), CharacterAnim::Peek)
                 } else {
                     shelled(Boxed(t), CharacterAnim::ShellIdle)
                 }
@@ -273,14 +239,14 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
                 (dir, (grace - dt).max(0.0))
             };
             ShellEffects {
-                vel_x: Some(dir * SHELL_SLIDE_SPEED),
+                vel_x: Some(dir * shell.slide_speed),
                 ..shelled(Sliding { dir, grace }, CharacterAnim::ShellIdle)
             }
         }
         Peeking(t) => {
             let t = t - dt;
             if t <= 0.0 {
-                shelled(Emerging(EMERGE_S), CharacterAnim::Emerge)
+                shelled(Emerging(shell.emerge_seconds), CharacterAnim::Emerge)
             } else {
                 shelled(Peeking(t), CharacterAnim::Peek)
             }
@@ -368,7 +334,7 @@ pub fn is_snake_brain(brain: &CharacterBrain) -> bool {
 /// player), so the player half is cleanly separate and DIRECTIONAL, exactly like
 /// Mario: [`PlayerTouch::Top`] is a stomp — it stops the shell and bounces you,
 /// always safe — and only [`PlayerTouch::Side`] on an ARMED shell (past its
-/// [`KICK_GRACE_S`] window) is a real hit.
+/// `shell.kick_grace_seconds` (`mary_o_rules.ron`) window) is a real hit.
 ///
 /// Ordered BEFORE the shared contact-damage pass so a stomp makes the snake inert
 /// that frame, before that pass could hurt the stomper.
@@ -447,7 +413,7 @@ pub fn run_snake_shells(
                 ae::movement::set_jump_velocity(
                     &mut player.vel,
                     ae::DEFAULT_GRAVITY_DIR,
-                    BOUNCE_SPEED,
+                    crate::rules::mary_o_rules().shell.stomp_bounce_speed,
                 );
                 stomper = Some(player_entity);
             }
@@ -550,7 +516,7 @@ pub fn run_snake_shells(
         hits.write(HitEvent {
             strike_sfx: None,
             volume: aabb.into(),
-            damage: SHELL_ENEMY_DAMAGE,
+            damage: crate::rules::mary_o_rules().shell.enemy_damage,
             source: HitSource::Contact,
             attacker: Some(shell_entity),
             room: None,
@@ -565,7 +531,7 @@ pub fn run_snake_shells(
                 hits.write(HitEvent {
                     strike_sfx: None,
                     volume: aabb.into(),
-                    damage: SHELL_PLAYER_DAMAGE,
+                    damage: crate::rules::mary_o_rules().shell.player_damage,
                     source: HitSource::Contact,
                     attacker: Some(shell_entity),
                     room: None,
@@ -602,7 +568,7 @@ fn shell_inputs_for(
         kick_dir,
         // A sliding shell whose speed collapsed hit something.
         blocked: matches!(shell, SnakeShell::Sliding { .. })
-            && kin.vel.x.abs() < SHELL_SLIDE_SPEED * 0.25,
+            && kin.vel.x.abs() < crate::rules::mary_o_rules().shell.slide_speed * 0.25,
     }
 }
 

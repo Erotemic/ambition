@@ -196,8 +196,19 @@ value for a designer and size of change:
    The content CLI does not link a game's schema, so such a pack is checked
    by the game's own test, which reads the tree off disk (the `pack.ron`
    comment names it).
-3. Mary-O rules and the spark projectile; the GNU-ton duel damage; boss
-   bark cadence and wake radius; the primeval swallow's fetch tuning.
+3. The GNU-ton duel damage; boss bark cadence and wake radius; the primeval
+   swallow's fetch tuning; Mary-O's castle end and flag.
+   ✅ 2026-10-14, Mary-O: the spark (refire, size, speed, damage, gravity,
+   bounces, lifetime), the snake plant's cycle, the pipe's timings, the
+   snake's shell (stomp bounce, slide, damages, kick grace and its four
+   phase times), the star, the coin block, the bridge's plank beat, the walk
+   throttle and the cosmic form's two beats are the pack's
+   `data/mary_o_rules.ron`, schema `mary_o_rules`, owned by the demo
+   (`src/rules.rs`). Deleted: 31 constants in eight modules. Equal before
+   the deletion (a temporary test, red on one edited value with no compile:
+   0.73 s); a plant cycle shorter than its own rise, time out and fall is
+   refused with the field named. Witness: `mary_os_tuning_is_its_pack_file`
+   (red at the plant's half-out sample when the rise reads another travel).
    ✅ 2026-10-14, Sanic: the ring monitor, the speed shoes, the ring loss
    (the invulnerable window and the scatter's nine numbers), the act's
    score and cards, and the badnik's wake radius and bounce are the pack's

@@ -142,14 +142,15 @@ pub fn cinder_beacon() -> EquipmentRow {
 /// a visual id off the spec, exactly as it does for every other projectile. That
 /// is the point — a bouncing spark is a set of numbers, not a code path.
 fn spark_shot() -> RangedActionSpec {
-    RangedActionSpec::bolt(SPARK_SPEED, SPARK_DAMAGE)
+    let spark = crate::rules::mary_o_rules().spark;
+    RangedActionSpec::bolt(spark.speed, spark.damage)
         .with_flight(
-            ProjectileFlight::arcing(SPARK_GRAVITY, SPARK_BOUNCES)
-                .with_lifetime(SPARK_LIFETIME_S)
-                .with_half_extent(ae::Vec2::new(SPARK_HALF_EXTENT, SPARK_HALF_EXTENT)),
+            ProjectileFlight::arcing(spark.gravity, spark.bounces)
+                .with_lifetime(spark.lifetime_seconds)
+                .with_half_extent(ae::Vec2::new(spark.half_extent, spark.half_extent)),
         )
         .with_visual(SPARK_VISUAL)
-        .with_refire(SPARK_REFIRE_S)
+        .with_refire(spark.refire_seconds)
         // The classic rule: two of her sparks on screen at once.
         .with_max_live(2)
         // No kick. A ranged action that states no discharge takes the generic
@@ -166,7 +167,7 @@ fn spark_shot() -> RangedActionSpec {
 /// The hand is her near hand in the middle frame of her `shoot` row: `(27.47,
 /// -36.88)` px from her feet in the published rig of her fire form
 /// (`mary_o_v2_fire_body_rig.ron`). She is 64 px tall, so the hand is `(27.47,
-/// -4.88)` px from her centre, and the spark's centre is [`SPARK_HALF_EXTENT`]
+/// -4.88)` px from her centre, and the spark's centre is `spark.half_extent` (`mary_o_rules.ron`)
 /// more along the throw. A [`Muzzle::Offset`] is a fraction of her height.
 ///
 /// The shipped demo admits no body rig, so the hand is stated here and not
@@ -178,30 +179,6 @@ pub const SPARK_MUZZLE: Muzzle = Muzzle::Offset {
     y: -0.0762,
 };
 
-/// Seconds between two sparks. The body's `RangedRefire` enforces it.
-///
-/// It is not less than the bolt's own move, a 0.18 s draw and a 0.20 s
-/// settle, because a second move cannot start while the first one plays. A
-/// shorter number would never be the gate, so it would not say her cadence.
-pub const SPARK_REFIRE_S: f32 = 0.4;
-
-/// Half-extent of a spark, in px — so the shot is 20 px across a 32 px tile.
-///
-/// This is a FEEL number and the obvious one to tune; what matters structurally is that it is the
-/// ONE place the size is written. The render art asks for `ProjectileRenderSize::Body`, so the
-/// drawn quad follows this half-extent and the sprite cannot disagree with the hitbox.
-const SPARK_HALF_EXTENT: f32 = 10.0;
-
-/// Launch speed of a spark (px/s).
-const SPARK_SPEED: f32 = 300.0;
-/// Base damage before the beacon's x1.5 fold — enough to end a snake.
-const SPARK_DAMAGE: i32 = 4;
-/// Downward pull, which is what turns a flat shot into a skipping arc.
-const SPARK_GRAVITY: f32 = 900.0;
-/// Floor skips before it burns out.
-const SPARK_BOUNCES: u8 = 2;
-/// Hard lifetime cap, so a spark that finds no floor still expires.
-const SPARK_LIFETIME_S: f32 = 1.5;
 /// The projectile-visual id Mary-O registers her spark look under.
 pub const SPARK_VISUAL: &str = "mary_o_spark";
 
@@ -463,7 +440,7 @@ pub fn refuse_a_weaker_form_pickup(
                 continue;
             }
             if let Some(purse) = wallet.as_mut() {
-                purse.add(COINS_PER_BLOCK);
+                purse.add(crate::rules::mary_o_rules().coins_per_block);
             }
             sfx.write_from(
                 crate::provider::MARY_O_EXPERIENCE,
@@ -720,10 +697,6 @@ enum BlockPayout {
     Coins(i32),
 }
 
-/// How much one coin block is worth. One, like the coins lying in the vault —
-/// `currency:1` in the level file.
-const COINS_PER_BLOCK: i32 = 1;
-
 /// One rung of her power ladder: the form row she wears on it (none on the
 /// bottom rung) and the catalog row she is drawn as.
 struct FormRung {
@@ -850,7 +823,7 @@ fn without_downgrading(reward: PowerReward, worn: Option<&WornEquipment>) -> Blo
         .as_deref()
         .is_some_and(|slot| slot == FORM_SLOT);
     if is_form && form_rank(&reward.row.id) <= worn_form_rank(worn) {
-        return BlockPayout::Coins(COINS_PER_BLOCK);
+        return BlockPayout::Coins(crate::rules::mary_o_rules().coins_per_block);
     }
     BlockPayout::Item(Box::new(reward))
 }
@@ -868,16 +841,16 @@ fn reward_for(contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> Opt
         // ladder for the same reason the quasar is not — it is not a form.
         MaryOBlockContents::Always(pickup) => match pickup_reward(pickup) {
             Some(reward) => without_downgrading(reward, worn),
-            None => BlockPayout::Coins(COINS_PER_BLOCK),
+            None => BlockPayout::Coins(crate::rules::mary_o_rules().coins_per_block),
         },
         MaryOBlockContents::Toward(pickup) => match next_rung_toward(pickup, worn) {
             Some(reward) => without_downgrading(reward, worn),
-            None => BlockPayout::Coins(COINS_PER_BLOCK),
+            None => BlockPayout::Coins(crate::rules::mary_o_rules().coins_per_block),
         },
         // one coin per HIT, whatever the authored count. The count says
         // how many hits the block has left, not how much a single hit is worth
         // the caller's, because only it knows which block was struck.
-        MaryOBlockContents::Coins(_) => BlockPayout::Coins(COINS_PER_BLOCK),
+        MaryOBlockContents::Coins(_) => BlockPayout::Coins(crate::rules::mary_o_rules().coins_per_block),
     })
 }
 
@@ -1419,13 +1392,13 @@ mod tests {
         let base = actions.ranged.clone().expect("beacon set a ranged spec");
         let shot = resolved_ranged(base, &worn, "ranged", RANGED_VERB);
         assert_eq!(shot.damage(), 6, "x1.5 on the beacon's 4-damage spark");
-        assert_eq!(shot.speed(), SPARK_SPEED, "speed is unmodified");
+        assert_eq!(shot.speed(), crate::rules::mary_o_rules().spark.speed, "speed is unmodified");
         // The equipment fold must not drop the authored flight/visual — that was a
         // real bug in the variant-by-variant rebuild this replaced.
         let flight = shot.flight.expect("the fold preserves authored flight");
         assert!(flight.gravity > 0.0, "the spark arcs");
         assert!(flight.bounce_on_world_contact, "and skips off floors");
-        assert_eq!(flight.bounces, SPARK_BOUNCES);
+        assert_eq!(flight.bounces, crate::rules::mary_o_rules().spark.bounces);
         assert_eq!(shot.visual.as_deref(), Some(SPARK_VISUAL));
         // Jon asked for the classic TWO on screen. The engine test of the
         // limit passes at any number, so the number is asserted here, and the
@@ -2548,7 +2521,7 @@ mod tests {
         // Each row: the form she is in, the pickup authored, what it must pay.
         let wand = MaryOBlockContents::Always(MaryOPickup::Wand);
         let lantern = MaryOBlockContents::Always(MaryOPickup::Lantern);
-        let coins = BlockPayout::Coins(COINS_PER_BLOCK);
+        let coins = BlockPayout::Coins(crate::rules::mary_o_rules().coins_per_block);
 
         let paid = |contents, worn| match reward_for(contents, worn) {
             Some(BlockPayout::Item(reward)) => reward.row.id.clone(),

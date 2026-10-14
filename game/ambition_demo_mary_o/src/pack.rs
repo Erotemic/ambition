@@ -8,7 +8,11 @@ use ambition_platformer2d::content::EmbeddedPack;
 
 /// `assets/pack.ron` and every source it declares: the manifest is the one
 /// list, so a source line added there is played with no Rust build.
-pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! { root: "assets" };
+pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! {
+    root: "assets",
+    // The demo's tuning is its own policy.
+    schemas: [crate::rules::mary_o_rules_schema],
+};
 
 /// The rules of the demo's rooms, as its pack states them
 /// (`assets/data/room_rules.ron`). An edit to the file is played at the next

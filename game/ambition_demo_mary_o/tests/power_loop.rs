@@ -44,7 +44,7 @@ use ambition_platformer2d::sprite_sheet::character::{
 };
 
 use ambition_demo_mary_o::movement::{
-    fire_spark_on_run_press, walk_by_default_run_while_held, WALK_THROTTLE,
+    fire_spark_on_run_press, walk_by_default_run_while_held,
 };
 use ambition_demo_mary_o::powerups::{
     bonk_power_blocks, cinder_beacon, sync_grown_form, SpentPowerBlocks, CINDER_BEACON_ID,
@@ -506,7 +506,7 @@ fn the_whole_power_loop_runs_on_the_real_systems() {
     // --- hold run -> run speed ----------------------------------------------
     game.intend(1.0, false, false);
     game.app.update();
-    assert_eq!(game.throttle(), WALK_THROTTLE, "no run held: she walks");
+    assert_eq!(game.throttle(), ambition_demo_mary_o::rules::mary_o_rules().walk_throttle, "no run held: she walks");
 
     game.intend(1.0, true, false);
     game.app.update();
@@ -1327,7 +1327,7 @@ fn press_locomotion(app: &mut App, body: Entity, y: f32) {
 /// only after the authored slide has run. Nothing here sets a position by hand.
 #[test]
 fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
-    use ambition_demo_mary_o::pipe::{PipeTransit, EMERGE_S, SWALLOW_S};
+    use ambition_demo_mary_o::pipe::PipeTransit;
     use ambition_demo_mary_o::{pipe_mouth, vault_arrival, LEVEL_1_1_ROOM_ID};
     use ambition_platformer2d::characters::actor::BodyCombat;
     use ambition_platformer2d::engine_core::AabbExt;
@@ -1383,7 +1383,7 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
     );
 
     // Let the whole authored slide run.
-    let ticks = ((SWALLOW_S + EMERGE_S) / (1.0 / 60.0)).ceil() as usize + 4;
+    let ticks = ((ambition_demo_mary_o::rules::mary_o_rules().pipe.swallow_seconds + ambition_demo_mary_o::rules::mary_o_rules().pipe.emerge_seconds) / (1.0 / 60.0)).ceil() as usize + 4;
     for _ in 0..ticks {
         app.update();
     }
@@ -1418,7 +1418,7 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
 /// Same real plugin, same real systems, opposite verb.
 #[test]
 fn pressing_up_under_the_vault_pipe_surfaces_her_on_the_exit_pipe() {
-    use ambition_demo_mary_o::pipe::{PipeTransit, EMERGE_S, SWALLOW_S};
+    use ambition_demo_mary_o::pipe::PipeTransit;
     use ambition_demo_mary_o::{pipe_arrival, vault_exit, LEVEL_1_1_ROOM_ID};
     use ambition_platformer2d::engine_core::AabbExt;
 
@@ -1439,7 +1439,7 @@ fn pressing_up_under_the_vault_pipe_surfaces_her_on_the_exit_pipe() {
         "pressing UP at the return pipe's lip must start a transit"
     );
 
-    let ticks = ((SWALLOW_S + EMERGE_S) / (1.0 / 60.0)).ceil() as usize + 4;
+    let ticks = ((ambition_demo_mary_o::rules::mary_o_rules().pipe.swallow_seconds + ambition_demo_mary_o::rules::mary_o_rules().pipe.emerge_seconds) / (1.0 / 60.0)).ceil() as usize + 4;
     for _ in 0..ticks {
         app.update();
     }
@@ -1468,7 +1468,7 @@ fn pressing_up_under_the_vault_pipe_surfaces_her_on_the_exit_pipe() {
 #[test]
 fn a_warp_tube_authored_outside_1_1_still_warps_her() {
     use ambition_demo_mary_o::ldtk_vocabulary::MaryOPipeMouth;
-    use ambition_demo_mary_o::pipe::{PipeTransit, EMERGE_S, SWALLOW_S};
+    use ambition_demo_mary_o::pipe::PipeTransit;
     use ambition_demo_mary_o::{authored_area_ids, tubes_for_room, LEVEL_1_1_ROOM_ID};
     use ambition_platformer2d::engine_core::AabbExt;
 
@@ -1507,7 +1507,7 @@ fn a_warp_tube_authored_outside_1_1_still_warps_her() {
 
     // The whole authored slide, then the arrival — THIS room's paired exit, not
     // a coordinate this test carries.
-    let ticks = ((SWALLOW_S + EMERGE_S) / (1.0 / 60.0)).ceil() as usize + 4;
+    let ticks = ((ambition_demo_mary_o::rules::mary_o_rules().pipe.swallow_seconds + ambition_demo_mary_o::rules::mary_o_rules().pipe.emerge_seconds) / (1.0 / 60.0)).ceil() as usize + 4;
     for _ in 0..ticks {
         app.update();
     }

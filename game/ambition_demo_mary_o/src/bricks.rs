@@ -218,9 +218,6 @@ fn break_bricks_struck_by(
     }
 }
 
-/// Ticks from one plank of a bridge that breaks to the next.
-pub const PLANK_TICKS: u64 = 7;
-
 /// The planks of `room` that are not broken.
 pub fn planks_left<'a>(
     broken: &'a BrokenBricks,
@@ -244,7 +241,7 @@ pub fn planks_left<'a>(
 ///
 /// The planks (`MaryOBlockLook::Plank`) of the room of the body at the goal
 /// are marked broken one after the other, the nearest to her first, one each
-/// [`PLANK_TICKS`], each with an explosion and the shards of a brick: the
+/// `plank_ticks` (`mary_o_rules.ron`), each with an explosion and the shards of a brick: the
 /// bridge is seen to break from the goal. The bridge of a castle waits for its
 /// beat (`CastleBeat::BridgeFalls`). A plank then goes the way a broken brick goes (the
 /// overlay below), and it is whole again in the next attempt. What stood on
@@ -284,7 +281,7 @@ pub fn drop_planks_when_the_goal_is_taken(
     let how_many = match (sequence.driven, tick.as_ref()) {
         (Some(at), Some(tick)) => {
             planks.sort_by(|a, b| (a.1.x - at.x).abs().total_cmp(&(b.1.x - at.x).abs()));
-            usize::from(tick.get() % PLANK_TICKS == 0)
+            usize::from(tick.get() % crate::rules::mary_o_rules().plank_ticks == 0)
         }
         _ => planks.len(),
     };

@@ -560,6 +560,21 @@ and turn in phase, so no attack is admitted. The same rows with a 325 ms
 reaction fight. Fix the resonance first (a reaction that does not lock to the
 other CPU's turn), then declare Smash's rows and re-measure the rig.
 
+Traced 2026-10-13 (`AMBITION_FIGHTER_TRACE=1`, the repertoire arm with the
+rows declared): no attack is ever admitted. The two seats walk through each
+other at the centre, walk about 100 px on (the view is 18 ticks old), turn,
+and repeat the same orbit. Admission leads the foe by the relative velocity
+over staleness plus startup (about 216 px at 540 px/s). At the turn, the
+view's own velocity goes from −97 to +270 px/s between two decisions 5 ticks
+apart, so the predicted gap goes from 276 px to −42 px and skips the reach
+band. The orbit repeats exactly, so it skips it on each pass; at 20 ticks
+the phase moves and a decision lands in the band. Testing the move's whole
+active window does not help: the band falls between decisions, not inside a
+move. The cause is that the brain leads with its OWN velocity from the
+stale view, though it knows what it has pressed since. The fix is an
+efference-copy lead (the body's own commands since the view, through the
+shadow model), not a retuned rung.
+
 Whichever survives:
 
 - every game composition must have one unambiguous source;

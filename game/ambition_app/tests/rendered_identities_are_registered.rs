@@ -70,7 +70,11 @@ fn target_dir() -> PathBuf {
 /// check: each of its eleven people (craig, eve, judy, mallory, olivia, peggy,
 /// sybil, trent, trudy, victor, walter) has an `npc_` row in a character
 /// catalog.
-const COMPUTED_ID_TARGETS: usize = 17;
+///
+/// 17 → 18 on 2026-10-13: `imperfect_cellular_automaton` is redrawn as an SVG
+/// rig (renderer e0891f4) and now names its id as `TARGET_NAME`. The hand
+/// check: `imperfect_cellular_automaton` has a row in Ambition's catalog.
+const COMPUTED_ID_TARGETS: usize = 18;
 
 /// Every literal `character_id` value in one target source, accepting dict keys
 /// with either quote style and keyword-argument syntax.

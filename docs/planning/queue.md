@@ -54,6 +54,10 @@ the way in its own slice:
 [REVIEW-1011](#review-1011--five-boundaries-where-one-subsystem-reconstructs-anothers-fact)
 rows.
 
+Correctness interrupts from the 2026-10-13 review:
+[REVIEW-1013](#review-1013---frame-and-acceptance-gaps-from-the-2026-10-13-review)
+(items 1, 2 and 4 done; 3 open).
+
 Correctness interrupts from the 2026-10-12 review:
 [REVIEW-1012](#review-1012---feedback-and-adapter-contracts-from-the-2026-10-12-review)
 (all five items done 2026-10-13; the hands-on feel of GNU-ton waits for a
@@ -76,6 +80,48 @@ universal planner and the Bevy 0.20 upgrade. Q157 is Jon's decision; build
 neither side of it.
 
 ## P0 — architecture and correctness
+
+### REVIEW-1013 - frame and acceptance gaps from the 2026-10-13 review
+
+Review of `4af5c66f..80116a77b` (2026-10-13). It retires the five
+REVIEW-1012 items. Each item is its own commit with a witness, a poison
+and a control.
+
+1. **Done 2026-10-13:** the brain's stop and coast distances, and the
+   ledge and overshoot facts that read them, are on the body's own side
+   axis, not world x (`perception_body_for` → `ground_distances`;
+   `WorldView::floor_ahead` and `side_sign_toward`; `walks_off`,
+   `overshoots`, the corner width in `situation.rs`). Witnesses:
+   `the_ground_distances_are_along_the_bodys_own_side_axis` and
+   `the_ledge_and_overshoot_verdicts_are_the_same_in_every_gravity_frame`
+   (the two ledge witnesses turned to sideways and reversed gravity).
+   Five poisons (each world-x read put back) are red. Under screen-down
+   gravity each changed expression is the same float operation. Open:
+   `StageView::room_toward` asks the stage's world box along world x, so a
+   cornered check under turned gravity is still a world-x question.
+2. **Done 2026-10-13 (ToothbrushArtAgent):** the real Hall conversation
+   puts the armor on Jeff Hinter by key presses
+   (`the_armor_choice_of_his_hall_conversation_puts_the_armor_on_him`).
+3. **Open, unclaimed:** visual acceptance in the running game. Front rows
+   were seen at ultra for idle and for a held conversation; not seen:
+   front idle ↔ walk or combat. A held item on a real published sheet,
+   both facings, through an attack (`capture_scene --wear ID=LOOK[@TICK]`
+   photographs a look).
+4. **Done 2026-10-13:** the posed hand's root is never the feature's
+   stand-in (`UnclaimedBodyPlaceholder`, which carries the feature's id in
+   a transition and draws no parts): the root query excludes it.
+   `the_root_of_a_feature_is_its_rigged_visual_and_not_its_stand_in`
+   spawns the stand-in first; the filter removed, it is red at "the
+   stand-in ... was taken for the root".
+
+Found on the way, open for its author (the session of `047f37e92`,
+`27a90dba3`, `d7e82dfaf`, `Claude-Session: …017PmHh7VwJMuFrWZkxix2gB`):
+three repo tooling guards are red on main after the bubble shield and the
+behemoth's beam: `test_foreign_system_ordering` (78 edges, ceiling 76),
+`test_multi_writer_resources_are_adjudicated` and
+`test_resources_crossing_the_rewind_boundary`. Each judges the new
+systems, so the author decides. The two list entries (the behemoth's
+module arm, the `bubble-shield` road) are done.
 
 ### REVIEW-1012 - feedback and adapter contracts from the 2026-10-12 review
 
@@ -725,6 +771,38 @@ variants. Also found in that regen:
   moved by +256 and 4 by +3, with their auto-layer tiles. These are editor
   visuals; why the atlas moved is not measured, and the change was not
   committed (Q62: a delta needs a domain-aware reading first).
+10. **A sprite publish writes in place, so a cut-short publish is a mixed
+    asset set (measured 2026-10-13).** A merge that moves the renderer
+    pointer makes the local sheets stale, and two app_it arms read them
+    (the transform beat, the drawn playthrough). The republish took about
+    1 hour (render cost 3546 s). A run stopped part way left `sandbag`'s
+    part flipbook naming a clip (`blink_in`) that its realized sheet does
+    not have, and app_it reported it as a red arm of the code. It also
+    rewrites the four tileset heights in the map submodule's `.ldtk`
+    files. Next: publish into a staging root and move it into place only
+    when the run ends, so a stopped run leaves the last whole set; and
+    let a lane name a stale or mixed sprite set as NOT RUN with its
+    remedy, not as a failure.
+    **Built 2026-10-13, the cost:** the per-sheet key read every
+    `targets/**/_*.py` helper as shared, so one family's rig made all 271
+    sheets stale. Now a sheet's key is the shared core (with what the core
+    imports) and the files the registry says the target is made of, with
+    their imports (`scripts/lib/sprite_target_closure.py`,
+    `scripts/lib/sprite_cache_key.sh`). Measured on the real renderer: an
+    edit to `_person_rig.py` moves 30 keys (was 271), one to
+    `crypto_crew.py` moves the 11 crew (was 0: no key had it), one to a
+    helper the core imports moves 271. Four kinds of file that no key read
+    are now read: a module whose target name is not its file name, a config
+    target's config, a helper package's by-name modules, and a shared
+    module with no underscore. The first publish after this change renders
+    every sheet once.
+    **Built 2026-10-13, the reading:** a run with a cargo job asks
+    `sprites.sh --check` once (2.6 s). When the set is stale, a failed
+    job prints the reason and the remedy, and its lane-ledger row carries
+    `environment`. The verdict stays FAILED and is not NOT RUN: another
+    failure in the same job can be real
+    (`test_a_failed_cargo_job_on_a_stale_sprite_set_says_so`).
+    Open: the staging root.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

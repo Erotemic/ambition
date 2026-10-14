@@ -49,12 +49,14 @@ every content-art demand. The vocabulary, every string literal reaching
 `note_demand` / `load_sheet_image` / `load_sprite_pages`:
 
 ```text
-asset-manifest   boss-sheet   character-parts   character-sheet   entity-sprite
-fx-sheet         held-item    parallax          portrait          projectile-art
-room-dressing    shrine-sheet vanity-card
+asset-manifest   boss-sheet   bubble-shield     character-parts  character-sheet
+entity-sprite    fx-sheet     held-item         parallax         portrait
+projectile-art   room-dressing shrine-sheet     vanity-card
 ```
 
-**THIRTEEN live roads.** `room-dressing` (the terrain skin, motes and decor of
+**FOURTEEN live roads.** `bubble-shield` (the shield's field, lattice and
+crack pictures, `ambition_render::rendering::bubble_shield`) is the
+fourteenth, 2026-10-13. `room-dressing` (the terrain skin, motes and decor of
 a room's theme, `RoomDressingSet`) is the thirteenth, 2026-10-10. `character-parts` (a part flipbook's pages,
 `RIGGED_SPRITE_ROAD`) was stamped all along through a constant the scan does not
 read; it surfaced when the pages moved onto `load_sheet_image` (2026-10-05). Derived from the call sites by

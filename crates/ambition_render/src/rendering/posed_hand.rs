@@ -86,13 +86,16 @@ pub fn posed_hand(draws: &PartSetDraws, hand: GestureHand) -> Option<PosedHand> 
 #[derive(SystemParam)]
 pub struct PosedHands<'w, 's> {
     draws: Query<'w, 's, (&'static PartSetDraws, Option<&'static ambition_sprite_sheet::character::CharacterAnimator>)>,
-    visuals: Query<'w, 's, (Entity, &'static FeatureVisual)>,
+    // A feature's stand-in (`UnclaimedBodyPlaceholder`) can carry the feature's
+    // id for a frame of a transition, and it draws no parts.
+    visuals: Query<'w, 's, (Entity, &'static FeatureVisual), Without<super::features::UnclaimedBodyPlaceholder>>,
 }
 
 impl PosedHands<'_, '_> {
     /// The rigged root that draws `holder`: the visual of its feature when it
     /// is an actor (a separate entity that carries the feature's id), else
-    /// the holder itself (a player's root is its simulation body).
+    /// the holder itself (a player's root is its simulation body). Never the
+    /// feature's stand-in, which carries the same id in a transition.
     pub fn root(&self, holder: &ItemHolder) -> Entity {
         holder
             .feature
@@ -208,5 +211,29 @@ mod tests {
         let near_only = PartSetDraws::from_parts(Transform::IDENTITY, NEAR_READER, vec![part(Vec2::new(1.0, 0.0), 0.0)]);
         assert_eq!(posed_hand(&near_only, GestureHand::Far).map(|hand| hand.at), Some(Vec2::new(1.0, 0.0)));
         assert!(posed_hand(&PartSetDraws::default(), GestureHand::Near).is_none());
+    }
+
+    /// ⭐ THE ROOT OF A FEATURE IS ITS RIGGED VISUAL, NOT ITS STAND-IN. In a
+    /// transition the feature's placeholder (`UnclaimedBodyPlaceholder`) can
+    /// carry the same id as its rigged visual, and the first visual with the
+    /// id was taken. The placeholder draws no parts, so the hand was `None` and
+    /// the item went back to the old placement for that frame (review of
+    /// 80116a77b, finding 2). The stand-in is spawned first here, so a scan
+    /// meets it first.
+    #[test]
+    fn the_root_of_a_feature_is_its_rigged_visual_and_not_its_stand_in() {
+        use bevy::ecs::system::SystemState;
+        let mut world = World::new();
+        let body = world.spawn_empty().id();
+        let stand_in = world
+            .spawn((FeatureVisual { id: "npc".into() }, crate::rendering::features::UnclaimedBodyPlaceholder))
+            .id();
+        let draws = PartSetDraws::from_parts(Transform::IDENTITY, NEAR_READER, vec![part(Vec2::new(1.0, 0.0), 0.0)]);
+        let rigged = world.spawn((FeatureVisual { id: "npc".into() }, draws)).id();
+        let holder = ItemHolder { body, feature: Some("npc".into()), hand: GestureHand::Near };
+        let mut state = SystemState::<PosedHands>::new(&mut world);
+        let hands = state.get(&world).expect("the hands of this world");
+        assert_eq!(hands.root(&holder), rigged, "the stand-in {stand_in:?} was taken for the root");
+        assert_eq!(hands.of(&holder).map(|hand| hand.at), Some(Vec2::new(1.0, 0.0)), "the hand of the rigged visual");
     }
 }

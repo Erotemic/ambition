@@ -127,11 +127,16 @@ pub fn classify(view: Perceived<'_>) -> Situation {
     // asked in. Backed against the left ledge with the foe to the right is
     // still cornered; standing at the right ledge with the foe off it is a
     // whole stage of retreat and the strongest position in the genre.
+    //
+    // The floor is measured on the body's own side axis (`floor_ahead`), so
+    // the retreat it is asked about is a sign on that axis. The stage's room
+    // is a world box, and `room_toward` still asks it along world x.
     let retreat = -(foe.pos.x - me.pos.x).signum();
-    let floor_edge = view.floor_ahead(retreat).unwrap_or(f32::INFINITY);
+    let floor_edge = view.floor_ahead(-view.side_sign_toward(foe.pos)).unwrap_or(f32::INFINITY);
+    let side = me.acceleration_frame().side;
     let corner_margin = view
         .supporting_floor()
-        .map(|floor| (floor.max.x - floor.min.x) * CORNER_SHARE_OF_FLOOR)
+        .map(|floor| (floor.max - floor.min).dot(side).abs() * CORNER_SHARE_OF_FLOOR)
         .unwrap_or(CORNER_MARGIN_PX);
     let cornered =
         view.stage.room_toward(me.pos, retreat) < CORNER_MARGIN_PX || floor_edge < corner_margin;

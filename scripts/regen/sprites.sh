@@ -333,8 +333,8 @@ esac
 export AMBITION_SPRITE_PROGRESS="${AMBITION_SPRITE_PROGRESS:-1}"
 
 # The renderer is single-threaded Python. With one process, a full regen took
-# more than 2.5 h on a 14-core machine at a load average of 1.45. `draw-all`,
-# `draw-review` and `publish-many` render each job or target in its own process
+# more than 2.5 h on a 14-core machine at a load average of 1.45. `publish-many`
+# renders each target in its own process
 # when this is above 1; each one writes only its own files. Half the cores,
 # because one long publish process grew to 3.7 GB, and at most 6: the machine is
 # shared (at most 6 parallel jobs, Jon 2026-10-03).
@@ -454,6 +454,9 @@ fi
 # added below is covered the moment it is added, and a filename that no target
 # produces cannot be named at all.
 
+# Characters authored as configs/review/*.yaml that the game draws: config
+# targets of the registry, published by the cached batch. To promote a review
+# config, add its name here AND give it a `character_catalog.ron` entry.
 review_cues=(
     # Toon-target NPC variants already promoted.
     architect vault_keeper
@@ -466,7 +469,9 @@ review_cues=(
     # overwrite the rig's sheet with the toon render on every full run.
     # erdish is NOT here any more -- he is a rigged module target, in the
     # roster below.
-    merchant_prototype raid_enforcer fascist_enforcer
+    # raid_enforcer is NOT here any more: its config is the main one
+    # (configs/raid_enforcer.yaml), a runtime config target above.
+    merchant_prototype fascist_enforcer
     # Named characters whose YAML manifests already live in $sprites_dir.
     # bob is NOT here any more -- see `tackon_targets`, the same move as oiler.
     # The cryptography crew but for Alice are NOT here any more -- they are
@@ -489,8 +494,10 @@ review_cues=(
     # target that no batch publishes does not exist for anybody who did not
     # render it by hand, and generated art is gitignored, so "it works on my
     # checkout" is the expected symptom rather than a surprising one.
+    # goblin_forest_spear is NOT here any more: its one config is the main
+    # one (configs/goblin_forest_spear.yaml), a runtime config target.
     goblin_brute_hammer goblin_cave_dagger goblin_desert_bow
-    goblin_forest_spear goblin_frost_sword goblin_shaman_staff
+    goblin_frost_sword goblin_shaman_staff
 )
 
 # Faction-leader cues copied out of the `draw-factions` scratch render. Their
@@ -889,12 +896,44 @@ construction_prop_map=(
     "super_mary_o_flag:mary_o_flag"
 )
 
-# Every registered target this script publishes. `draw-all` owns a declared
-# runtime subset of the main CharacterJob configs; the expected-file helper below
-# imports that SAME renderer contract rather than assuming every configs/*.yaml
-# document is a runtime publication.
+# The runtime sheets authored as CharacterJob configs: the renderer's
+# `RUNTIME_ADAPTER_CONFIG_STEMS`, as registered target names. Not every
+# configs/*.yaml document is a runtime sheet. A name that the registry gives to
+# a module target (`sandbag`) is that module's, published by its own line.
+#
+# They publish through the cached batch, as the other targets do. The
+# `draw-all` and `draw-review` phases rendered every config on every publish
+# that was not a whole-run cache hit: about 27 minutes, because one sheet held
+# each phase (`alice` 891 s, `goblin` 684 s; measured 2026-10-14). And a name
+# with a main config and a review config was two products: `draw-all` wrote
+# the main sheet and the review install loop wrote over it, so the full
+# publish and `--target` shipped different art.
+if ! config_target_list="$(
+    cd "$renderer_dir" && "$python_bin" - <<'CONFIG_TARGETS'
+from pathlib import Path
+
+from ambition_sprite2d_renderer.registry import (
+    RUNTIME_ADAPTER_CONFIG_STEMS,
+    discover_all_targets,
+    load_jobs,
+)
+
+targets = discover_all_targets().targets
+for path, job in load_jobs(Path("ambition_sprite2d_renderer/configs")):
+    name = job.output_stem(path)
+    if path.stem in RUNTIME_ADAPTER_CONFIG_STEMS and targets[name].kind == "config":
+        print(name)
+CONFIG_TARGETS
+)"; then
+    echo "the renderer could not list its runtime config targets; refusing to run" >&2
+    exit 1
+fi
+mapfile -t config_targets <<< "$config_target_list"
+
+# Every registered target this script publishes.
 publish_targets=(
     entities
+    "${config_targets[@]}"
     "${review_cues[@]}"
     "${tackon_targets[@]}"
     "${rig_targets[@]}"
@@ -928,11 +967,7 @@ declare_expected_files() {
 import sys
 from pathlib import Path
 
-from ambition_sprite2d_renderer.registry import (
-    RUNTIME_ADAPTER_CONFIG_STEMS,
-    discover_all_targets,
-    load_jobs,
-)
+from ambition_sprite2d_renderer.registry import discover_all_targets
 
 DIAGNOSTIC_SUFFIXES = (
     "_canonical.png",
@@ -958,11 +993,6 @@ def runtime_required(rel: str) -> bool:
 
 report = discover_all_targets()
 names = list(sys.argv[1:])
-names += [
-    job.output_stem(path)
-    for path, job in load_jobs(Path("ambition_sprite2d_renderer/configs"))
-    if path.stem in RUNTIME_ADAPTER_CONFIG_STEMS
-]
 
 unknown = sorted({n for n in names if n not in report.targets})
 if unknown:
@@ -1065,9 +1095,11 @@ if [ "$check_only" -eq 1 ]; then
 fi
 
 # --- Fingerprint cache ----------------------------------------------------
-# Hash every .py and .yaml under the renderer module + the boss generator
-# script. If the hash matches the cached value AND every expected sheet
-# is already present in $sprites_dir, skip the whole regen.
+# The key of the whole publish (`compute_fingerprint`, in
+# `scripts/lib/sprite_cache_key.sh`): every file of the renderer, the files
+# each recorded render read, this script and the toolchain. If it matches the
+# cached value AND every expected sheet is already present in $sprites_dir,
+# skip the whole regen.
 #
 # The expected-files list is the same one the postcondition validates at
 # the end. Keeping a single source of truth means deleting one published
@@ -1075,44 +1107,10 @@ fi
 
 cache_dir="$renderer_dir/.cache"
 fingerprint_file="$cache_dir/regen-fingerprint"
+# What each target's last render read: `publish-many` records it under this
+# variable, and both keys hash it (`leaf_hash`, `compute_fingerprint`).
+target_reads_dir="$cache_dir/reads"
 
-compute_fingerprint() {
-    # `cd` into renderer dir so the file paths in `sha256sum` output
-    # are relative; absolute paths would make the hash depend on the
-    # filesystem location.
-    (
-        cd "$renderer_dir" || exit 1
-        {
-            find ambition_sprite2d_renderer -type f \( -name '*.py' -o -name '*.yaml' -o -name '*.json' \) -print0 \
-                | sort -z \
-                | xargs -0 sha256sum
-            find . -maxdepth 1 -type f \( -name '*.py' -o -name '*.sh' \) -print0 \
-                | sort -z \
-                | xargs -0 sha256sum
-            # The orchestrator script itself: changes to the install
-            # loops, expected-files list, or the cache logic must
-            # invalidate the cache too. Hash relative to repo root
-            # to keep stability across filesystem locations.
-            sha256sum "$repo_root/scripts/regen/sprites.sh" \
-                | awk -v root="$repo_root/" '{sub(root, "", $2); print}'
-            # ⛔⛔ THE TOOLCHAIN IS AN INPUT. The same source art renders
-            # DIFFERENTLY, or not at all, depending on whether the native SVG
-            # rasteriser is importable — `resvg-py` is declared in the
-            # renderer's pyproject, and v3 of the player robot is SVG-rigged
-            # where v2 is not. A checkout whose tool venv is missing or points
-            # at another user's Python silently resolves to a bare `python3`
-            # without it.
-            #
-            # ⚠ MEASURED 2026-08-29: all three `tools/*/.venv/pyvenv.cfg` in
-            # this shared checkout name `/home/joncrall/.local/share/uv/...`,
-            # so the venv is real for one user and interpreter-less for anyone
-            # else on the same filesystem. Without this line both produce
-            # artifacts under one fingerprint and each treats the other's as
-            # current.
-            renderer_capability_fingerprint
-        }
-    ) | sha256sum | awk '{print $1}'
-}
 
 
 # What the renderer can actually DO on this machine, as a hashable line.
@@ -1383,7 +1381,7 @@ if [ "$check_only" -eq 1 ]; then
     if [ "$check_fingerprint" = "$check_saved" ]; then
         echo "ok: the published sheets are from this renderer (fingerprint ${check_saved})"
     else
-        echo "stale: the renderer, its configs, this script or the toolchain changed since the last full publish" \
+        echo "stale: the renderer, its art or configs, this script or the toolchain changed since the last full publish" \
             "(saved ${check_saved:-none}, now ${check_fingerprint})."
         echo "The files above can be present and still be what an older renderer drew."
         echo "Publish again with: ./scripts/regen/sprites.sh  (unchanged sheets are reused from the per-sheet cache)"
@@ -1395,6 +1393,7 @@ fi
 # Which files each target reads, asked of the registry once for the run.
 mkdir -p "$cache_dir"
 target_closures_file="$cache_dir/target_closures.tsv"
+export AMBITION_SPRITE_READS_DIR="$target_reads_dir"
 if ! sprite_cache_key_prepare; then
     echo "==> regen FAILED — the renderer could not say which files each target reads" >&2
     echo "    (scripts/lib/sprite_target_closure.py); a key without them is not that target's key" >&2
@@ -1432,65 +1431,11 @@ fi
 echo "==> validate sprite character configs"
 run_renderer_python validate-configs -m ambition_sprite2d_renderer validate-configs
 
-echo "==> config-driven targets (robot / goblin / boss) → $sprites_dir"
-run_renderer_python draw-all -m ambition_sprite2d_renderer draw-all --out-dir "$sprites_dir"
-
 echo "==> entity sprites → $entities_dir"
 # `$sprites_dir`, not `$entities_dir`: the target's own `install` hook adds the
 # `entities/` leg now. Passing the subdirectory here as well would nest it
 # (`sprites/entities/entities/`) — see the note in `regen_one_target`.
 run_renderer_python publish-entities -m ambition_sprite2d_renderer publish entities --dest-root "$sprites_dir"
-
-echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
-# `draw-review` renders configs/review/*.yaml (toon-target NPC
-# variants such as absurd_general and architect). We
-# render to a scratch dir, then copy the specific sheets we use
-# in-game into $sprites_dir. Promoting a review config to a
-# permanent runtime sheet means: add the cue id to `review_cues` in
-# the publish roster AND give it a `character_catalog.ron` entry (specs are built
-# from the sheet RON at load; the old `*_SHEET` statics in
-# character_sprites are gone).
-review_scratch="$renderer_dir/generated/review"
-mkdir -p "$review_scratch"
-# ⛔ EMPTY IT FIRST. The install loop below copies whatever `<cue>_*` it finds
-# here, so a cue `draw-review` stopped rendering (a character moved to its own
-# target) would be installed from a previous run's leftovers, silently. Bob was.
-find "$review_scratch" -maxdepth 1 -type f -delete
-run_renderer_python draw-review -m ambition_sprite2d_renderer draw-review --out-dir "$review_scratch"
-# `ron` is included because the sandbox SheetRegistry parses RON at
-# startup (see `presentation::character_sprites::registry`). Without
-# the copy step the .ron in $sprites_dir would drift from the
-# regenerated .yaml/.png.
-for cue in "${review_cues[@]}"; do
-    for ext in png yaml ron; do
-        src="$review_scratch/${cue}_spritesheet.$ext"
-        if [ -f "$src" ]; then
-            cp "$src" "$sprites_dir/${cue}_spritesheet.$ext"
-            echo "  installed ${cue}_spritesheet.$ext"
-        else
-            # A promoted cue with no fresh render keeps a stale sheet in the
-            # game. Fail: drop the cue here, or publish it from its target.
-            echo "ERROR: review cue '$cue' was not rendered by draw-review ($src missing)" >&2
-            exit 1
-        fi
-    done
-    # The part flipbook the generator published beside the sheet
-    # (`<cue>_parts.ron` and its pages), when it publishes one.
-    for src in "$review_scratch/${cue}"_parts*; do
-        [ -f "$src" ] || continue
-        cp "$src" "$sprites_dir/$(basename "$src")"
-        echo "  installed $(basename "$src")"
-    done
-    for ext in png ron; do
-        src="$review_scratch/${cue}_portraits.$ext"
-        if [ -f "$src" ]; then
-            cp "$src" "$sprites_dir/${cue}_portraits.$ext"
-            echo "  installed ${cue}_portraits.$ext"
-        else
-            echo "  WARN: $src missing — skipped"
-        fi
-    done
-done
 
 echo "==> faction-leader sheets (robot-target leaders) → $sprites_dir"
 # `draw-factions` renders configs/factions/*.yaml (the
@@ -1531,7 +1476,8 @@ echo "==> tack-on targets (render-publish into $sprites_dir)"
 # (auto-discovered from targets/<category>/ — run `list` to see it); keep that
 # roster covering every target the game references (mockingbird_boss and the
 # pirates ride the late-targets batch below).
-publish_cached_batch tackons "${tackon_targets[@]}" "${rig_targets[@]}"
+publish_cached_batch tackons \
+    "${config_targets[@]}" "${review_cues[@]}" "${tackon_targets[@]}" "${rig_targets[@]}"
 
 echo "==> held-item prop canonicals (single-pose → $sprites_dir/props)"
 # A few props are shown in-game as STATIC held / ground items, which load

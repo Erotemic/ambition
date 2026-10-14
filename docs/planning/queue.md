@@ -43,8 +43,9 @@ possible without a recompile. Work in this order:
    move each content fact that is still Rust onto the pack's data and reload
    road, and delete the Rust copy.
 2. Efficient content preparation: [TEST-LANES](#test-lanes--keep-required-test-lanes-executable)
-   item 10 (the sprite publish: cache the draw phases, render only what it
-   installs, publish into a staging root).
+   item 10 (the sprite publish: `draw-review` and `draw-all` are cached
+   since 2026-10-14; left: `draw-factions` and the entity publish, and a
+   staging root).
 3. Pack elegance: admission diagnostics that name the file and the field;
    [CPU-LADDER](#cpu-ladder--the-brain-owns-the-knobs-smash-owns-the-ladder)
    step 2 (blocked by the George L5 resonance, fighter-brain.md F1).
@@ -169,15 +170,28 @@ file and field named, and the Rust copy is deleted.
 `ambition_platformer2d_actor_monolith::features::ecs::rest_row`. Review of
 `80116a77b..d450b0220`.
 
-1. **P1, the cache key misses a target's authored files.** A target that
-   reads another target's art (`gnu_ton_scholar_fighter.rig.json` reads
-   `gnu_ton_scholar_villain.svg`) or a nested rig document
-   (`player_robot_v3_back`) keeps its key when that file changes. The key
-   guessed data by name (a rig at `rigged/<name>.rig.json`,
-   `data/characters/<name>/`). Next: each target renders in a fresh process
-   that records the authored files it opens; the key hashes that record.
-   Acceptance: an edit to a shared SVG makes each target that read it stale
-   and no other.
+1. ✅ 2026-10-14 **P1, the cache key missed a target's authored files.**
+   The key guessed data by name (a rig at `rigged/<name>.rig.json`,
+   `data/characters/<name>/`), so a target that reads another target's art
+   (`gnu_ton_scholar_fighter` reads `gnu_ton_scholar_villain.svg`) kept its
+   key when that file changed. Now `publish-many` renders each target in a
+   new interpreter that records the files it opens and the directories it
+   lists (the renderer's `read_record.py`), and the key hashes the record
+   (`leaf_hash`; a target with no record is never fresh). Witness:
+   `test_an_edit_to_shared_art_makes_each_target_that_read_it_stale_and_no_other`.
+   Two more defects found by measuring it on the real publish: the key of
+   the whole publish (`compute_fingerprint`) hashed only `.py`, `.yaml` and
+   `.json`, so a comment in the villain SVG was a whole-run cache hit that
+   rendered nothing; now it hashes every file of the renderer and every
+   recorded read (three witnesses, one for each arm, each red under its
+   poison). And the output-digest cache keyed diagnostics that the publish
+   boundary then moves out, so `gnu_ton_boss` and `mockingbird_boss`
+   re-rendered on every publish (`test_the_cache_keys_only_what_stays_after_the_publish_boundary`).
+   Measured: one comment in `gnu_ton_scholar_villain.svg` re-renders the
+   targets whose records list it (`gnu_ton_scholar_villain`, `_fighter`,
+   `_boss`; the name guess had only the villain), render cost 394 s, wall
+   1026 s; the uncached phases are the rest. A publish with no edit is a
+   whole-run hit, 82 s.
 2. ✅ **P2, the rest row wrote over a later pin.** `pin_rest_rows` re-pinned
    its row whenever its marker was present, so a conductor that pinned after
    it lost its row on the next tick. The rest row is now a fallback: the pin
@@ -191,7 +205,7 @@ file and field named, and the Rust copy is deleted.
    back view in play; the new Hall and sandbox characters; the MSAA quality
    change on a real GPU.
 
-**Blocked by:** nothing for 1-3. Item 4 needs a person at the game.
+**Blocked by:** nothing for 3. Item 4 needs a person at the game.
 
 **Acceptance:** item 1 and 2 each have a witness that fails without the fix;
 item 3 has a measurement in the owner page before any design change.
@@ -938,7 +952,20 @@ variants. Also found in that regen:
     `draw-all` 716, `draw-factions` 132). Those three re-render on every
     publish that is not a whole-run cache hit, so a family edit still
     costs about 29 minutes there.
-    Open: per-sheet keys for the three draw phases, and the staging root.
+    **Built 2026-10-14:** `draw-review` and `draw-all` are deleted: their
+    targets publish in the cached batch (the runtime adapter configs and
+    the review cues), and the five `configs/review/` files that shadowed a
+    `configs/` file are deleted. The first full publish took 2413 s of
+    render (was 3671 s); `publish-many` starts the slowest targets first
+    (`.cache/publish_seconds.json`). The key reads what each render
+    recorded (REVIEW-1014 item 1). The two unidentified re-renders of the
+    13 above were `gnu_ton_boss` and `mockingbird_boss`, whose cached
+    digests named diagnostics the sweep moves; fixed. Of the 17 targets
+    not logged as skipped, `gnu_ton_boss` is explained.
+    Open: per-sheet keys for `draw-factions` and the entity publish (they
+    run on every publish that is not a whole-run hit, with the LDtk art,
+    the vanity card, the variants and the atlases: about 10 minutes), and
+    the staging root.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

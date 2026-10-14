@@ -10,7 +10,9 @@ with no textual relation to the target at all. Only the registry knows.
 
 ⭐ ONE IMPLEMENTATION, TWO CONSUMERS. `check_published_sheets_are_present.py`
 imports `claimed_install_names`; `scripts/regen/sprites.sh` runs this file as a
-script through the renderer's interpreter to key its output-digest cache. The
+script through the renderer's interpreter to key its output-digest cache, and
+the script prints only what stays in the runtime root
+(`runtime_install_names`). The
 guess used to live in the cache layer as `_target_sheet_glob`, which is how a
 19-minute publish of 137 targets ended in a silent `set -e` abort with no
 message: four of them install nothing matching the glob, the digest helper
@@ -81,6 +83,25 @@ def claimed_install_names(targets: list[str]) -> dict[str, list[str]] | None:
     return claimed
 
 
+def runtime_install_names(claimed: dict[str, list[str]]) -> dict[str, list[str]]:
+    """The installed paths that stay in the runtime root after the publish
+    boundary (`scripts/sweep_runtime_diagnostics.py`), which the output-digest
+    cache of `scripts/regen/sprites.sh` keys on.
+
+    ⛔ The cache stored the digest of each claimed path, diagnostics included.
+    The sweep then moves the diagnostics out, so on the next run each target
+    that claims one (`gnu_ton_boss`, `mockingbird_boss`) had a "missing"
+    output and was published again, on every run (measured 2026-10-14).
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from sweep_runtime_diagnostics import is_diagnostic
+
+    return {
+        target: [name for name in names if not is_diagnostic(Path(name))]
+        for target, names in claimed.items()
+    }
+
+
 def main(argv: list[str]) -> int:
     if not argv:
         print("usage: sprite_install_names.py <target>...", file=sys.stderr)
@@ -94,7 +115,7 @@ def main(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 3
-    for target, names in claimed.items():
+    for target, names in runtime_install_names(claimed).items():
         for name in names:
             print(f"{target}\t{name}")
     return 0

@@ -34,8 +34,59 @@ sprite_cache_key_prepare() {
 # underscore (`targets/super_mary_o_common.py`).
 #
 # Requires, set by the caller: `renderer_dir`, `repo_root`, `python_bin`,
-# `core_target_files` (from `sprite_cache_key_prepare`) and
-# `target_closures_file`.
+# `core_target_files` (from `sprite_cache_key_prepare`), `target_closures_file`
+# and `target_reads_dir`; and, for `compute_fingerprint`, the function
+# `renderer_capability_fingerprint`.
+
+compute_fingerprint() {
+    # `cd` into renderer dir so the file paths in `sha256sum` output
+    # are relative; absolute paths would make the hash depend on the
+    # filesystem location.
+    (
+        cd "$renderer_dir" || exit 1
+        {
+            # ⛔ EVERY FILE OF THE RENDERER, NOT ONLY ITS CODE. This hashed the
+            # `.py`, `.yaml` and `.json` files. A comment added to
+            # `gnu_ton_scholar_villain.svg` gave a cache hit, and no target was
+            # published (measured 2026-10-14). The phases with no per-sheet key
+            # (entities, factions) record nothing, so they are keyed by
+            # everything they can read here.
+            local authored=(ambition_sprite2d_renderer)
+            [ -d assets ] && authored+=(assets)
+            find "${authored[@]}" -type f -not -path '*/__pycache__/*' -not -name '*.pyc' -print0 \
+                | sort -z \
+                | xargs -0 -r sha256sum
+            find . -maxdepth 1 -type f \( -name '*.py' -o -name '*.sh' \) -print0 \
+                | sort -z \
+                | xargs -0 sha256sum
+            # The orchestrator script itself: changes to the install
+            # loops, expected-files list, or the cache logic must
+            # invalidate the cache too. Hash relative to repo root
+            # to keep stability across filesystem locations.
+            # The files each recorded render read, where they are (the
+            # per-sheet keys read the same records, so a key of the whole
+            # publish that omits one would hit where a sheet key misses).
+            hash_reads "$target_reads_dir"/*.reads
+            sha256sum "$repo_root/scripts/regen/sprites.sh" \
+                | awk -v root="$repo_root/" '{sub(root, "", $2); print}'
+            # ⛔⛔ THE TOOLCHAIN IS AN INPUT. The same source art renders
+            # DIFFERENTLY, or not at all, depending on whether the native SVG
+            # rasteriser is importable — `resvg-py` is declared in the
+            # renderer's pyproject, and v3 of the player robot is SVG-rigged
+            # where v2 is not. A checkout whose tool venv is missing or points
+            # at another user's Python silently resolves to a bare `python3`
+            # without it.
+            #
+            # ⚠ MEASURED 2026-08-29: all three `tools/*/.venv/pyvenv.cfg` in
+            # this shared checkout name `/home/joncrall/.local/share/uv/...`,
+            # so the venv is real for one user and interpreter-less for anyone
+            # else on the same filesystem. Without this line both produce
+            # artifacts under one fingerprint and each treats the other's as
+            # current.
+            renderer_capability_fingerprint
+        }
+    ) | sha256sum | awk '{print $1}'
+}
 
 compute_core_shared() {
     # NOTE: each `find` gets its OWN `| sort -z | xargs -0 sha256sum`
@@ -78,62 +129,62 @@ compute_core_shared() {
     ) | sha256sum | awk '{print $1}'
 }
 
-# Hash a target's own source (single-file module or package dir) AND the
-# authored DATA it renders from.
+# Hash a target's own source and the authored data it renders from.
 #
-# ⛔⛔ THE DATA HALF IS NOT OPTIONAL, AND LEAVING IT OUT SHIPPED A KNOWN-FIXED
-# BUG FOR THREE DAYS. This hashed only `.py`/`.rig.json` leaves, and
-# CORE_SHARED hashes only `.py` — so NOTHING under `data/` was in the key. On
-# 2026-08-27 `f21eac9` ("The Officer stops shooting over his own shoulder")
-# rewrote `data/motion/humanoid/officer_brawler_v1/clips/shoot.clip.json`. The
-# key did not move, the Aug-28 publish hit the cache and skipped the render,
-# and the Officer kept firing over his shoulder in the game until 2026-08-30.
+# The source is the static import closure of the files the registry says the
+# target is made of (`target_closures_file`). The data is what the target's
+# last render read, as the render recorded it (`<target_reads_dir>/<name>.reads`,
+# written by `publish-many` under `AMBITION_SPRITE_READS_DIR`; see the
+# renderer's `read_record.py`).
 #
-# ⛔ AND THE OUTPUT-DIGEST GUARD COULD NOT SEE IT. `sheet_cache_fresh` asks
-# whether the files on disk are the ones this cache PRODUCED; they were. Output
-# hashing catches a SUBSTITUTED sheet. It cannot catch a faithfully-cached sheet
-# built from a source that has since changed — that is what the key is for.
+# ⛔ THE DATA WAS GUESSED BY NAME, AND A GUESS MISSES WHAT IS NOT NAMED FOR
+# THE TARGET. The key hashed `rigged/<name>.rig.json` and
+# `data/characters/<name>/`. `gnu_ton_scholar_fighter` draws
+# `gnu_ton_scholar_villain.svg`, and `emu` is `rigged/emu/emu_side.rig.json`:
+# an edit to either kept the key, and the sheet stayed stale (review of
+# 2026-10-14). Before the name guess, nothing under `data/` was in the key, and
+# the Officer fired over his shoulder for three days after his clip was fixed
+# (2026-08-27).
 #
-# ⭐ RESOLVED PER-CHARACTER, NOT GLOBALLY. Folding `data/` into CORE_SHARED
-# would make one clip edit invalidate every sheet in the roster, which is the
-# same mistake the CORE_SHARED note above already refuses for this script. A
-# character names its own motion library, so follow that edge and hash exactly
-# what this target reads.
+# A record lists what was read last time. That is enough: a render can read a
+# new file only when something it read or ran has changed, and each of those
+# is in the key. A target with no record has never published under one, so
+# its key is one that no stored key can equal.
 leaf_hash() {
     local name="$1"
     (
         cd "$renderer_dir" || exit 1
-        local f d
-        # Rigged characters (GUI .rig.json docs) are data, not a .py leaf —
-        # hash the document so editing a rig invalidates only its sheet.
-        local rig="ambition_sprite2d_renderer/targets/characters/rigged/$name.rig.json"
-        if [ -f "$rig" ]; then sha256sum "$rig"; fi
-        # The files the registry says this target is made of, and every file
-        # under targets/ they import.
         awk -F'\t' -v n="$name" '$1 == n { print $2 }' "$target_closures_file" \
             | tr '\n' '\0' | xargs -0 -r sha256sum
-        # The authored data this character renders from: its SVG, sockets and
-        # `<name>.motion.json`.
-        local cdir="ambition_sprite2d_renderer/data/characters/$name"
-        if [ -d "$cdir" ]; then
-            find "$cdir" -type f -print0 | sort -z | xargs -0 sha256sum
-            # …and the motion library that file BINDS to, which is where the
-            # poses and clips actually live. Path is relative to the character
-            # dir, exactly as the document states it.
-            local motion="$cdir/$name.motion.json"
-            if [ -f "$motion" ]; then
-                local rel lib
-                rel="$(sed -n 's/.*"motion_library"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$motion" | head -1)"
-                if [ -n "$rel" ]; then
-                    lib="$(cd "$cdir" 2>/dev/null && cd "$(dirname "$rel")" 2>/dev/null && pwd)"
-                    if [ -n "$lib" ] && [ -d "$lib" ]; then
-                        find "$lib" -type f -print0 | sort -z | xargs -0 sha256sum \
-                            | awk '{print $1}'
-                    fi
-                fi
-            fi
+        local record="$target_reads_dir/$name.reads"
+        if [ ! -f "$record" ]; then
+            printf 'unrecorded %s %s %s\n' "$name" "$(date +%s%N)" "$RANDOM"
+            exit 0
         fi
+        hash_reads "$record"
     ) | sha256sum | awk '{print $1}'
+}
+
+# The text that keys the reads the records `$@` list: the content of each `f`
+# file and the listing of each `d` directory, relative to `repo_root`. A
+# record that does not exist lists nothing.
+hash_reads() {
+    (
+        cd "$repo_root" || exit 1
+        local rel files=() dirs=()
+        while IFS= read -r rel; do
+            if [ -f "$rel" ]; then
+                files+=("$rel")
+            else
+                printf 'missing %s\n' "$rel"
+            fi
+        done < <(awk '$1 == "f" { print $2 }' "$@" 2>/dev/null | LC_ALL=C sort -u)
+        [ "${#files[@]}" -eq 0 ] || sha256sum "${files[@]}"
+        while IFS= read -r rel; do
+            printf 'directory %s\n' "$rel"
+            ls -A "$rel" 2>/dev/null | LC_ALL=C sort || true
+        done < <(awk '$1 == "d" { print $2 }' "$@" 2>/dev/null | LC_ALL=C sort -u)
+    )
 }
 
 unit_key() {

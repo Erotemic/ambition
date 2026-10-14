@@ -70,8 +70,8 @@ MAIN_CONFIGS = (
 #     for rig in "$renderer_dir"/…/targets/characters/rigged/*.rig.json
 #
 # so a character authored as a top-level `.rig.json` is published without the
-# script ever spelling its name — the same shape as `draw-all` rendering every
-# `configs/*.yaml`, which this file already handles two lines below. Missing it
+# script ever spelling its name — the same shape as the runtime config roster
+# (`RUNTIME_ADAPTER_CONFIG_STEMS`), which this file handles below. Missing it
 # reported `pointed_polygon` as an orphan while the glob published it.
 #
 # TOP-LEVEL ONLY, mirroring the script's glob exactly. A rig that moved
@@ -86,17 +86,37 @@ RIGGED_TARGETS = (
 )
 
 
+RUNTIME_CONFIG_ROSTER = (
+    REPO / "tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/registry/config.py"
+)
+
+
+def _runtime_config_stems() -> set[str]:
+    """`RUNTIME_ADAPTER_CONFIG_STEMS`, read from its source: the configs the
+    publish derives `config_targets` from. A `configs/*.yaml` outside it is
+    not published (`robot_runner`, `robot_guardian`, `player_extended`)."""
+    import ast
+
+    tree = ast.parse(RUNTIME_CONFIG_ROSTER.read_text(encoding="utf8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == "RUNTIME_ADAPTER_CONFIG_STEMS":
+            return {elt.value for elt in node.value.args[0].elts}
+    raise AssertionError(f"{RUNTIME_CONFIG_ROSTER} has no RUNTIME_ADAPTER_CONFIG_STEMS")
+
+
 def _published_by_regen() -> str:
-    """`scripts/regen/sprites.sh` with comments stripped, plus what `draw-all` covers.
+    """`scripts/regen/sprites.sh` with comments stripped, plus what the
+    publish covers by a list it derives.
 
      comments matter: the first run of this census counted a stem mentioned
     only in a comment as covered, and reported `player_robot_v3` as fine when
     nothing publishes it.
 
-     THREE surfaces publish by DIRECTORY, not by name. `draw-all` renders
-    every `configs/*.yaml` unconditionally and `rig_targets` globs every
-    top-level `rigged/*.rig.json`, so those targets are covered without the
-    script ever spelling them. They used to be spelled anyway, incidentally,
+     TWO surfaces publish without the script spelling a name: `config_targets`
+    is each config in `RUNTIME_ADAPTER_CONFIG_STEMS`, and `rig_targets` globs
+    every top-level `rigged/*.rig.json`. (`draw-all` rendered every
+    `configs/*.yaml` until 2026-10-14; counting a config outside the roster as
+    covered now would be a false green.) They used to be spelled anyway, incidentally,
     by the hand-written `expected_files` list — and when that list was replaced
     by one derived from the roster, four of them (`dividing_mite`,
     `exploding_mite`, and the two ninjas) read as orphans here despite nothing
@@ -107,7 +127,10 @@ def _published_by_regen() -> str:
         line.split("#")[0] for line in REGEN.read_text(encoding="utf8").splitlines()
     )
     covered = [path.name[: -len(".rig.json")] for path in sorted(RIGGED_TARGETS.glob("*.rig.json"))]
+    roster = _runtime_config_stems()
     for path in sorted(MAIN_CONFIGS.glob("*.yaml")):
+        if path.stem not in roster:
+            continue
         covered.append(path.stem)
         # `output_name` renames the target (ninja.yaml -> ninja_shadow_duelist).
         override = re.search(
@@ -184,8 +207,8 @@ def _bash_array(name: str) -> list[str]:
 
 
 def test_each_review_cue_has_its_review_config():
-    """`draw-review` renders `configs/review/*.yaml`, and the publish stops at
-    a cue it did not render. The Kernel Guide became a target of its own and
+    """A review cue is published as the target its `configs/review/*.yaml`
+    registers, and the publish stops at a cue that no target registers. The Kernel Guide became a target of its own and
     lost its review config; its cue stayed, and every full publish stopped
     there (2026-10-12)."""
     import pytest
@@ -196,6 +219,6 @@ def test_each_review_cue_has_its_review_config():
     assert cues, "the review cue array parsed empty"
     orphans = [cue for cue in cues if not (REVIEW_CONFIGS / f"{cue}.yaml").is_file()]
     assert not orphans, (
-        f"review cues with no review config, which `draw-review` does not render: {orphans}. "
+        f"review cues with no review config, so no target to publish: {orphans}. "
         "A character drawn by its own target goes in `tackon_targets`."
     )

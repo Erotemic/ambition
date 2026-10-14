@@ -1,9 +1,10 @@
 """The per-sheet cache key of `scripts/regen/sprites.sh` (`scripts/lib/sprite_cache_key.sh`).
 
-The functions run as the publish runs them, on a small renderer tree: two
-targets with a rig each, and a helper that the core imports. The closure map
-and the core's files are written here as `sprite_cache_key_prepare` would
-write them (that step asks the renderer's registry, which this tree has not).
+The functions run as the publish runs them, on a small renderer tree: three
+targets, two with a rig each, a helper that the core imports, and art that two
+targets read. The closure map, the core's files and each target's read record
+are written here as `sprite_cache_key_prepare` and a recorded publish would
+write them (those steps ask the renderer, which this tree has not).
 """
 
 from __future__ import annotations
@@ -32,6 +33,10 @@ def renderer(tmp_path: Path) -> Path:
         f"{PKG}/targets/fam/_rig_b.py": "B = 1\n",
         f"{PKG}/targets/fam/alpha.py": "from ._rig_a import A\n",
         f"{PKG}/targets/fam/beta.py": "from ._rig_b import B\n",
+        f"{PKG}/targets/fam/gamma.py": "G = 1\n",
+        f"{PKG}/data/characters/villain/villain.svg": "<svg/>\n",
+        f"{PKG}/data/characters/alpha/alpha.svg": "<svg/>\n",
+        f"{PKG}/data/characters/gamma/gamma.svg": "<svg/>\n",
     }.items():
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -39,7 +44,19 @@ def renderer(tmp_path: Path) -> Path:
     fam = f"{PKG}/targets/fam"
     (tmp_path / "closures.tsv").write_text(
         f"alpha\t{fam}/alpha.py\nalpha\t{fam}/_rig_a.py\nbeta\t{fam}/beta.py\nbeta\t{fam}/_rig_b.py\n"
+        f"gamma\t{fam}/gamma.py\n"
     )
+    # What each target's last render read, relative to the repository (here
+    # `tmp_path`). Alpha and beta both draw the villain's art, as
+    # `gnu_ton_scholar_fighter` draws `gnu_ton_scholar_villain.svg`.
+    data = f"renderer/{PKG}/data/characters"
+    reads = tmp_path / "reads"
+    reads.mkdir()
+    (reads / "alpha.reads").write_text(
+        f"f {data}/alpha/alpha.svg\nf {data}/villain/villain.svg\n"
+    )
+    (reads / "beta.reads").write_text(f"f {data}/villain/villain.svg\n")
+    (reads / "gamma.reads").write_text(f"f {data}/gamma/gamma.svg\nd {data}/gamma\n")
     return root
 
 
@@ -49,11 +66,12 @@ def keys(renderer: Path) -> dict[str, str]:
         set -euo pipefail
         source {LIB}
         renderer_dir={renderer}
+        repo_root={renderer.parent}
         target_closures_file={renderer.parent / 'closures.tsv'}
+        target_reads_dir={renderer.parent / 'reads'}
         core_target_files={PKG}/targets/fam/_shared.py
         core_shared_fingerprint="$(compute_core_shared)"
-        printf 'alpha %s\\n' "$(unit_key alpha)"
-        printf 'beta %s\\n' "$(unit_key beta)"
+        for name in alpha beta gamma; do printf '%s %s\\n' "$name" "$(unit_key "$name")"; done
     """
     out = subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=True).stdout
     return dict(line.split() for line in out.splitlines())
@@ -87,3 +105,116 @@ def test_an_edit_to_a_helper_the_core_imports_makes_every_target_stale(renderer:
     edit(renderer, "_shared.py")
     after = keys(renderer)
     assert after["alpha"] != before["alpha"] and after["beta"] != before["beta"]
+
+
+def edit_art(renderer: Path, character: str) -> None:
+    path = renderer / PKG / "data" / "characters" / character / f"{character}.svg"
+    path.write_text(path.read_text() + "<!-- edited -->\n")
+
+
+def test_an_edit_to_shared_art_makes_each_target_that_read_it_stale_and_no_other(renderer: Path) -> None:
+    """The defect (review of 2026-10-14): the key read art by the target's own
+    name, so `gnu_ton_scholar_fighter` kept its key when the villain's SVG it
+    draws changed."""
+    before = keys(renderer)
+    edit_art(renderer, "villain")
+    after = keys(renderer)
+    assert after["alpha"] != before["alpha"], "alpha read the villain's art and kept its key"
+    assert after["beta"] != before["beta"], "beta read the villain's art and kept its key"
+    assert after["gamma"] == before["gamma"], "gamma did not read the villain's art and went stale"
+
+
+def test_an_edit_to_a_targets_own_art_makes_only_it_stale(renderer: Path) -> None:
+    before = keys(renderer)
+    edit_art(renderer, "alpha")
+    after = keys(renderer)
+    assert after["alpha"] != before["alpha"]
+    assert after["beta"] == before["beta"] and after["gamma"] == before["gamma"]
+
+
+def test_a_new_file_in_a_directory_a_target_listed_makes_it_stale(renderer: Path) -> None:
+    before = keys(renderer)
+    (renderer / PKG / "data" / "characters" / "gamma" / "gamma_extra.svg").write_text("<svg/>\n")
+    after = keys(renderer)
+    assert after["gamma"] != before["gamma"] and after["alpha"] == before["alpha"]
+
+
+def test_a_target_with_no_record_is_never_fresh(renderer: Path) -> None:
+    """A target that never published under a record has no data half to key,
+    so no stored key may equal its key."""
+    (renderer.parent / "reads" / "beta.reads").unlink()
+    assert keys(renderer)["beta"] != keys(renderer)["beta"]
+
+
+def fingerprint(renderer: Path) -> str:
+    """`compute_fingerprint`, the key of the whole publish: when it equals the
+    saved one and every output is present, the publish renders nothing."""
+    regen = renderer.parent / "scripts" / "regen" / "sprites.sh"
+    regen.parent.mkdir(parents=True, exist_ok=True)
+    if not regen.exists():
+        regen.write_text("# the orchestrator\n")
+    script = f"""
+        set -euo pipefail
+        source {LIB}
+        renderer_capability_fingerprint() {{ echo 'capability resvg'; }}
+        renderer_dir={renderer}
+        repo_root={renderer.parent}
+        target_reads_dir={renderer.parent / 'reads'}
+        compute_fingerprint
+    """
+    return subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=True).stdout.strip()
+
+
+def test_an_edit_to_art_makes_the_whole_publish_stale(renderer: Path) -> None:
+    """The defect (measured 2026-10-14): the whole-publish key hashed only the
+    renderer's `.py`, `.yaml` and `.json`. A comment added to
+    `gnu_ton_scholar_villain.svg` gave "regen cache hit: renderer sources +
+    outputs unchanged", and no target was published. Here the SVG is one that
+    no record lists, as the phases with no per-sheet key (entities, factions)
+    read theirs."""
+    art = renderer / PKG / "data" / "entities" / "torch.svg"
+    art.parent.mkdir(parents=True)
+    art.write_text("<svg/>\n")
+    before = fingerprint(renderer)
+    art.write_text("<svg><!-- edited --></svg>\n")
+    assert fingerprint(renderer) != before, "an edit to an SVG kept the whole-publish key"
+
+
+def test_an_edit_to_the_renderers_top_level_assets_makes_the_whole_publish_stale(
+    renderer: Path,
+) -> None:
+    """Six renders read the renderer's top-level `assets/` (`alice.svg`),
+    which is not in the package; a phase with no record reads it unlisted."""
+    art = renderer / "assets" / "alice.svg"
+    art.parent.mkdir()
+    art.write_text("<svg/>\n")
+    before = fingerprint(renderer)
+    art.write_text("<svg><!-- edited --></svg>\n")
+    assert fingerprint(renderer) != before
+
+
+def test_an_edit_to_a_recorded_file_outside_the_renderer_makes_the_whole_publish_stale(
+    renderer: Path,
+) -> None:
+    """The per-sheet keys hash what each record lists, wherever it is. A
+    whole-publish key that omits one would hit where a sheet key misses."""
+    art = renderer.parent / "shared" / "banner.svg"
+    art.parent.mkdir()
+    art.write_text("<svg/>\n")
+    reads = renderer.parent / "reads" / "gamma.reads"
+    reads.write_text(reads.read_text() + "f shared/banner.svg\n")
+    before = fingerprint(renderer)
+    art.write_text("<svg><!-- edited --></svg>\n")
+    assert fingerprint(renderer) != before
+
+
+def test_what_no_render_reads_does_not_make_the_whole_publish_stale(renderer: Path) -> None:
+    """The control: bytecode, the cache and a file outside the renderer that
+    no record lists."""
+    before = fingerprint(renderer)
+    (renderer / PKG / "__pycache__").mkdir()
+    (renderer / PKG / "__pycache__" / "draw.cpython-311.pyc").write_bytes(b"\0")
+    (renderer / ".cache").mkdir()
+    (renderer / ".cache" / "publish_seconds.json").write_text("{}\n")
+    (renderer.parent / "unrelated.txt").write_text("x\n")
+    assert fingerprint(renderer) == before

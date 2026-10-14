@@ -105,7 +105,9 @@ Options:
   --report-timeout SEC    Max seconds per report command. Default: 45.
 
 Symbol/profile-build options:
-  --profile-build         Run ./build_for_android.sh before capture with --no-strip --fresh-install --no-logs.
+  --profile-build         Run ./build_for_android.sh before capture with --strip --fresh-install --no-logs.
+                          The APK is stripped; host reports take names from the
+                          unstripped library under target/ (same build id).
   --build-profile NAME    With --profile-build, use a Cargo profile. Default: android-profile.
   --build-release         With --profile-build, build Rust release native library.
   --build-debug           With --profile-build, build Rust dev native library.
@@ -317,9 +319,14 @@ run_profile_build() {
         release) cmd+=(--rust-release) ;;
         *) cmd+=(--cargo-profile "$build_rust_mode") ;;
     esac
-    # The no-strip profile APK is large enough that Android's package manager
-    # can fail a replace install while trying to keep old + new copies staged.
-    cmd+=(--apk-debug --no-strip --fresh-install --no-logs)
+    # The APK's copy of the library is STRIPPED. Unstripped it was 2.6 GB and
+    # the APK 2.5 GB, and a phone refused it even after an uninstall
+    # (INSUFFICIENT_STORAGE, 2026-10-13). The names are not lost: the strip is
+    # of the copy in the APK project, the library cargo built under `target/`
+    # keeps its DWARF and the same build id (`--build-id` below), and the host
+    # reports read the names from it (`find_symbol_candidates`, the auto
+    # symfs). A report made on the device has no Rust names.
+    cmd+=(--apk-debug --strip --fresh-install --no-logs)
     if [[ -n "$serial" ]]; then cmd+=(--device "$serial"); fi
     if [[ "${#build_extra_args[@]}" -gt 0 ]]; then cmd+=("${build_extra_args[@]}"); fi
     local android_rustflags="${CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS:-}"

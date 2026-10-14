@@ -20,65 +20,47 @@ use bevy::prelude::*;
 /// The length of a tick, for the clock of a rest row (s).
 const TICK_S: f32 = 1.0 / 60.0;
 
+/// The name [`pin_rest_rows`] writes its pins under ([`PinnedRow::pin_as`]).
+pub const REST_ROW_WRITER: &str = "rest_row";
+
 /// Pin the rest row of each body whose character states one. (sim)
 ///
-/// The rest row is a fallback. A body is left as it is while another row is
-/// pinned on it, whichever system pinned first: the pin is this system's only
-/// while it holds the row this system wrote. When the other system clears its
-/// pin, the rest row comes back. A body whose character states no rest row and
-/// that still has one pinned by this system (it wore such a look and changed)
-/// is unpinned.
+/// The rest row is a fallback. A body is left as it is while a pin that this
+/// system did not write is held on it, whichever system pinned first and
+/// whichever row it pinned: GNU-ton's choreography pins `armed_rest` with
+/// its own clock, which is the row a rest row also names. When the other
+/// system clears its pin, the rest row comes back. A body whose character
+/// states no rest row and that still holds a pin this system wrote (it wore
+/// such a look and changed) is unpinned.
+///
+/// ⛔ Whose pin it is was read from the row: the pin was this system's while
+/// it held the row this system last wrote. A conductor that pinned that same
+/// row lost its clock to this system on the next tick (review of
+/// 2026-10-14). The pin now names its writer.
 pub fn pin_rest_rows(
     tick: Res<SimTick>,
     catalog: Res<CharacterCatalog>,
-    mut bodies: Query<(&WornCharacter, Option<&mut PinnedRow>, Option<&mut RestRowPinned>, Entity)>,
+    mut bodies: Query<(&WornCharacter, Option<&mut PinnedRow>, Entity)>,
     mut commands: Commands,
 ) {
     let elapsed = tick.get() as f32 * TICK_S;
-    for (worn, pinned, ours, entity) in &mut bodies {
-        // The pin holds what this system wrote, and nothing replaced it.
-        let holds_ours = |pinned: &PinnedRow| {
-            ours.as_ref().is_some_and(|ours| pinned.rows.len() == 1 && pinned.rows[0] == ours.0)
-        };
+    for (worn, pinned, entity) in &mut bodies {
         match (catalog.rest_row(worn.id()), pinned) {
             // A body that no conductor draws has no pin yet: it gets one.
             (Some(row), None) => {
                 let mut pin = PinnedRow::default();
-                pin.pin(&[row], elapsed, true);
-                commands.entity(entity).try_insert((pin, RestRowPinned(row.to_string())));
+                pin.pin_as(REST_ROW_WRITER, &[row], elapsed, true);
+                commands.entity(entity).try_insert(pin);
             }
-            (Some(row), Some(mut pinned)) if holds_ours(&pinned) || !pinned.is_pinned() => {
-                pinned.pin(&[row], elapsed, true);
-                match ours {
-                    Some(mut ours) if ours.0 != row => ours.0 = row.to_string(),
-                    Some(_) => {}
-                    None => {
-                        commands.entity(entity).try_insert(RestRowPinned(row.to_string()));
-                    }
-                }
+            (Some(row), Some(mut pinned)) if pinned.written_by(REST_ROW_WRITER) || !pinned.is_pinned() => {
+                pinned.pin_as(REST_ROW_WRITER, &[row], elapsed, true);
             }
             (Some(_), Some(_)) => {}
-            (None, pinned) => {
-                if let Some(mut pinned) = pinned {
-                    if holds_ours(&pinned) {
-                        pinned.clear();
-                    }
-                }
-                if ours.is_some() {
-                    commands.entity(entity).try_remove::<RestRowPinned>();
-                }
-            }
+            (None, Some(mut pinned)) if pinned.written_by(REST_ROW_WRITER) => pinned.clear(),
+            (None, _) => {}
         }
     }
 }
-
-/// The rest row [`pin_rest_rows`] last wrote on this body. The pin is that
-/// system's only while it holds this row.
-///
-/// Not snapshot state: it is derived again on the next tick from the worn
-/// character and the pin, as the pin is.
-#[derive(Component, Clone, Debug, Default)]
-pub struct RestRowPinned(pub String);
 
 #[cfg(test)]
 mod tests {
@@ -159,10 +141,48 @@ mod tests {
         }
     }
 
+    /// A conductor that pins the rest row's own row, with its own clock and
+    /// no loop: the pin is the conductor's until it is released, and then the
+    /// rest row comes back. Whose pin it is was read from the row, so the rest
+    /// row took this pin over and wrote its own clock on it.
+    #[test]
+    fn a_conductor_that_pins_the_same_row_keeps_its_own_clock() {
+        let mut app = App::new();
+        app.insert_resource(catalog());
+        app.init_resource::<SimTick>();
+        app.add_systems(Update, pin_rest_rows);
+        let body = app.world_mut().spawn(WornCharacter::new("giant_whole")).id();
+        app.update();
+        app.update();
+        assert!(
+            app.world().get::<PinnedRow>(body).expect("a pin").written_by(REST_ROW_WRITER),
+            "the premise: the rest row is pinned"
+        );
+
+        app.world_mut().get_mut::<PinnedRow>(body).expect("a pin").pin(&["armed_rest"], 0.37, false);
+        for tick in 1..4 {
+            *app.world_mut().resource_mut::<SimTick>() = SimTick(tick * 30);
+            app.update();
+            let pin = app.world().get::<PinnedRow>(body).expect("a pin");
+            assert_eq!(
+                (pin.rows.as_slice(), pin.elapsed, pin.looping),
+                (["armed_rest".to_string()].as_slice(), 0.37, false),
+                "the rest row took over a conductor's pin of the same row"
+            );
+        }
+
+        app.world_mut().get_mut::<PinnedRow>(body).expect("a pin").clear();
+        app.update();
+        assert!(
+            app.world().get::<PinnedRow>(body).expect("a pin").written_by(REST_ROW_WRITER),
+            "the rest row did not come back after the release"
+        );
+    }
+
     /// The rest row first, then a conductor's row, then the release: the
     /// conductor's row is drawn until it is released, and then the rest row
     /// comes back on the clock of the tick, in both orders of the two writers.
-    /// The marker of the rest row once made it write over a later pin.
+    /// A marker on the body once made the rest row write over a later pin.
     #[test]
     fn a_pin_made_after_the_rest_row_holds_until_it_is_released() {
         for conductor_runs_first in [true, false] {

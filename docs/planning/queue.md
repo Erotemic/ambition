@@ -215,6 +215,14 @@ file and field named, and the Rust copy is deleted.
    is the system's only while it holds the row the system wrote
    (`a_pin_made_after_the_rest_row_holds_until_it_is_released`, both writer
    orders and the release; red with the old condition put back).
+   Follow-up review the same day: ownership was still read from the row
+   name, so a conductor that pins the same row (GNU-ton's choreography pins
+   `armed_rest`) lost its clock to the rest row. The pin now names its writer
+   (`PinnedRow::pin_as`, `written_by`), and the marker on the body is deleted
+   (`a_conductor_that_pins_the_same_row_keeps_its_own_clock`; red, on its
+   clock and its loop, with ownership by row name put back). The same review
+   found that a successful publish saved a fingerprint from before its
+   renders rewrote their records; fixed (`fingerprint_after_publish`).
 3. **Measure first:** the background warm-up of every rig table
    (`RiggedSpriteAsset::warm_baked_in_background`): peak and retained memory
    with and without it, cold and warm frame stalls, desktop and Android.

@@ -455,15 +455,22 @@ the burning flying shark look less like an orca ... and we need to make it
 look even more on fire with good fire animation."
 
 - It is pale grey over white with a black eye. It was dark over pale.
-- Fire stands along the whole of its back (tall tongues behind it, shorter
-  ones on it over a line of soot), streams from its fins and tail, and small
-  flames come away behind it. Each place shows six shapes of flame in turn,
-  from a phase of its own. It is 58 draws at most, of the 64 a part flipbook
-  may have: more fire needs fewer pieces somewhere.
+- The fire is one body of flame. The first try put one small tongue at many
+  places; Jon: "too same-y ... We shouldn't just slapdash the same small fire
+  piece around. It looks tiled." It is four manes now: each is a whole
+  stretch of fire drawn as one picture, with tongues of different heights and
+  leans on one mass of root, each tongue on a beat of its own. The fins and
+  the tail keep single tongues, in three sizes, and small flames come away.
+- Its body box is authored in its target (`BODY_BOX`), not measured from the
+  picture: the game sizes the shark and seats its rider from that box, and
+  the fire moved it. Its catalog row states `standing_height` (56, the size
+  it had as a mount), so it has that size in the Hall too ("should also have
+  a bigger size in the hall"); a stand's small box had made it tiny there.
 
-Open: Jon has not judged it. A row has 6 or 8 frames, so the fire has that
-many pictures in a loop; smoother fire needs longer rows. The saddle and the
-tack are in the fire and do not burn.
+Open: Jon has not judged the manes. A row has 6 or 8 frames, so the fire has
+that many pictures in a loop. The saddle and the tack are in the fire and do
+not burn. In the Hall the shark is as wide as its stand, and its fire goes
+over the next stand a little.
 
 ## Not done
 

@@ -45,6 +45,11 @@ pub use published::{ClipTween, Realize, RigPlacement};
 /// file is snapped and opaque.
 pub const PART_FLIPBOOK_SCHEMA_VERSION: u32 = 3;
 
+/// The threads of [`RiggedSpriteAsset::warm_baked_in_background`]. The tables
+/// are a short burst of work (about 0.3 s in all from the development cache,
+/// 2.5 s from RON after a publish), and the game runs beside it.
+const WARM_THREADS: usize = 3;
+
 
 /// One part raster on an atlas page.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -556,25 +561,64 @@ impl RiggedSpriteAsset {
     ///
     /// Decoded once per process and cloned after (the robot's table is 38,418
     /// draws). A build with no source tree embeds it decoded from RON already
-    /// ([`Self::from_published_bytes`]); a development build parses its RON
-    /// here.
+    /// ([`Self::from_published_bytes`]); a development build reads it through
+    /// its cache (`baked_part_flipbooks`). A game that draws calls
+    /// [`Self::warm_baked_in_background`], so that the decode is not on the
+    /// frame that realizes the sheet.
     pub fn baked(target: &str) -> Option<Self> {
+        Some(Self::baked_checked(target)?.unwrap_or_else(|error| panic!("the published part flipbook `{target}` {error}")))
+    }
+
+    /// [`Self::baked`], with a refused table returned and not a panic.
+    fn baked_checked(target: &str) -> Option<Result<Self, RiggedSpriteError>> {
         use std::collections::HashMap;
         use std::sync::{Mutex, OnceLock};
         static PARSED: OnceLock<Mutex<HashMap<String, RiggedSpriteAsset>>> = OnceLock::new();
         let table = crate::baked_part_flipbooks::baked_part_flipbook(target)?;
         let parsed = PARSED.get_or_init(Default::default);
         if let Some(asset) = parsed.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(target) {
-            return Some(asset.clone());
+            return Some(Ok(asset.clone()));
         }
-        let asset = table
-            .decode()
-            .unwrap_or_else(|error| panic!("the published part flipbook `{target}` {error}"));
+        // Decoded with the lock open: the warm threads and the game do not
+        // wait for each other. Two decodes of one table give one table.
+        let asset = match table.decode() {
+            Ok(asset) => asset,
+            Err(error) => return Some(Err(error)),
+        };
         parsed
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .insert(target.to_owned(), asset.clone());
-        Some(asset)
+        Some(Ok(asset))
+    }
+
+    /// Decode every published full-resolution flipbook on background threads,
+    /// one time for the process. It returns at once.
+    ///
+    /// A sheet reads its table on the main thread when it realizes
+    /// ([`Self::baked`]), and a room realizes its whole cast in one frame: the
+    /// hub's neighbour prefetch stalled for 1.1 s on the cast of the hall
+    /// (profile of 2026-10-14). After this, a realization finds its table
+    /// decoded and clones it. A sheet that realizes before its table is warm
+    /// decodes it itself, as before.
+    ///
+    /// A table that is refused is left for the sheet that realizes it: that
+    /// is where the error is reported.
+    pub fn warm_baked_in_background() {
+        static STARTED: std::sync::Once = std::sync::Once::new();
+        STARTED.call_once(|| {
+            let targets: Vec<&'static str> = crate::baked_part_flipbooks::baked_part_flipbook_targets().collect();
+            let chunk = targets.len().div_ceil(WARM_THREADS).max(1);
+            for (index, part) in targets.chunks(chunk).enumerate() {
+                let part = part.to_vec();
+                // A thread that cannot start costs the warm-up only.
+                let _ = std::thread::Builder::new().name(format!("part table warm {index}")).spawn(move || {
+                    for target in part {
+                        let _ = Self::baked_checked(target);
+                    }
+                });
+            }
+        });
     }
 
     /// The flipbook for `tier`: the published draws, drawn from the tier's

@@ -1,8 +1,9 @@
 //! How long does the game take to read each published part-flipbook draw
 //! table? `RiggedSpriteAsset::baked` reads a table on the main thread the
 //! first time a sheet realizes it. Times what this build reads (the embedded
-//! bincode under `static_content`, the RON in a development build) beside a
-//! parse of the RON it was built from.
+//! bincode under `static_content`; in a development build the file, through
+//! the cache of `published_cache`) beside a parse of the RON it was built
+//! from. In a development build the first run after a publish fills the cache.
 //!
 //!     cargo run --profile profiling -p ambition_sprite_sheet --features static_content --example measure_part_table_parse
 //!

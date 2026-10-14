@@ -612,6 +612,12 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .run_if(session_presentation_is_ready),
         );
         actors::rigged::add_rigged_impostor_material_plugin(app);
+        // A room realizes its whole cast in one frame, and each sheet reads its
+        // part table then. The tables are decoded on background threads from
+        // startup, so that frame finds them ready.
+        app.add_systems(bevy::prelude::Startup, || {
+            ambition_sprite_sheet::character::rigged::RiggedSpriteAsset::warm_baked_in_background();
+        });
         app.add_systems(
             Update,
             (

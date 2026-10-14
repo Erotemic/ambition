@@ -10,12 +10,13 @@
 | [`candidate`](src/candidate.rs) | A prepared-but-unpublished content generation — fast-iteration I3's complete-candidate transaction. |
 | [`diagnostic`](src/diagnostic.rs) | Structured diagnostics — the compiler's output when it refuses. |
 | [`draft`](src/draft.rs) | `ContentPackDraft` — the authored side, read but not yet meaningful. |
+| [`embed`](src/embed.rs) | A pack's embedded texts, for a crate's `build.rs`. |
 | [`identity`](src/identity.rs) | The stable identities a prepared pack assigns. |
 | [`prepared`](src/prepared.rs) | `PreparedContentPack` — the value the pipeline produces. |
 | [`refs`](src/refs.rs) | References — the two safe forms, and the one that is not. |
 | [`schema`](src/schema.rs) | Schema registration — how a capability contributes an authored content family WITHOUT editing one central closed enum. |
 
-_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -3,7 +3,8 @@
 # The self-tests point dependency rules at this file and assert they REACT:
 #   * dependency-denylist must catch `ambition_content` and `bevy_ecs_ldtk`;
 #   * dependency-allowlist (allow = ["ambition_platformer2d_core"]) must catch the
-#     extra `ambition_content` / `ambition_render` deps.
+#     extra `ambition_content` / `ambition_render` deps, and the build
+#     dependency `ambition_content_pack` unless `allow_build` names it.
 #
 # It is NOT a Cargo package (named `manifest.toml`, not `Cargo.toml`) so cargo
 # never tries to build it. A rule that stopped reacting to this file would be a
@@ -19,3 +20,6 @@ bevy_ecs_ldtk = "0.1"
 
 [dev-dependencies]
 ambition_app = { path = "../w" }
+
+[build-dependencies]
+ambition_content_pack = { path = "../v" }

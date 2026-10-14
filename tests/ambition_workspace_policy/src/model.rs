@@ -153,6 +153,13 @@ pub struct Policy {
     /// `dependency-allowlist`: the complete set of allowed `ambition*` deps.
     #[serde(default)]
     pub allow: Vec<String>,
+    /// `dependency-allowlist`: crates the manifest may name only in
+    /// `[build-dependencies]`: a tool its build script runs, which the crate
+    /// does not link. A game that depends only on the umbrella still embeds
+    /// its pack with `ambition_content_pack::embed` from `build.rs`. A crate
+    /// named here in `[dependencies]` or `[dev-dependencies]` is a violation.
+    #[serde(default)]
+    pub allow_build: Vec<String>,
     /// `dependency-allowlist`: when true the allow set must EXACTLY match the
     /// manifest's `ambition*` deps — a stale allow entry (no longer a real dep)
     /// fails too, so the ratchet tightens as edges dissolve. Default is a ceiling

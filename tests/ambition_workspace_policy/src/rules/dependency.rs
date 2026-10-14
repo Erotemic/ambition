@@ -14,8 +14,9 @@ fn manifest_of(policy: &Policy) -> &str {
     })
 }
 
-/// The `ambition*` deps of `manifest` must be a subset of `allow`. A dep not in
-/// the list fails; the list may name crates that are not currently deps (it is a
+/// The `ambition*` deps of `manifest` must be a subset of `allow`, and its
+/// build script's deps a subset of `allow` and `allow_build`. A dep not in the
+/// list fails; the list may name crates that are not currently deps (it is a
 /// ceiling, not an exact set — the extraction ratchets tighten it over time).
 pub fn allowlist(ws: &Workspace, policy: &Policy, report: &mut Report) {
     let manifest = manifest_of(policy);
@@ -25,8 +26,9 @@ pub fn allowlist(ws: &Workspace, policy: &Policy, report: &mut Report) {
          if that is intended, say so explicitly rather than leaving it blank",
         policy.id
     );
-    let deps = ws.ambition_deps(manifest);
-    for dep in &deps {
+    let linked = ws.ambition_linked_deps(manifest);
+    let build = ws.ambition_build_deps(manifest);
+    for dep in &linked {
         if !policy.allow.iter().any(|a| a == dep) {
             report.push(policy.diag(
                 format!("{manifest} → {dep}"),
@@ -34,6 +36,18 @@ pub fn allowlist(ws: &Workspace, policy: &Policy, report: &mut Report) {
             ));
         }
     }
+    for dep in build.difference(&linked) {
+        if !policy.allow.iter().chain(&policy.allow_build).any(|a| a == dep) {
+            report.push(policy.diag(
+                format!("{manifest} → {dep}"),
+                format!(
+                    "build dependency not in the allowlist {:?} nor in `allow_build` {:?}",
+                    policy.allow, policy.allow_build
+                ),
+            ));
+        }
+    }
+    let deps: std::collections::BTreeSet<String> = linked.union(&build).cloned().collect();
     // Bidirectional ratchet: a stale allow entry — one that names no current dep —
     // means the edge dissolved. Fail so the allowlist shrinks with the code (this
     // is the property the ambition_platformer2d_world world-IR purity ratchet relies on).
@@ -43,6 +57,14 @@ pub fn allowlist(ws: &Workspace, policy: &Policy, report: &mut Report) {
                 report.push(policy.diag(
                     format!("{manifest} → {allowed}"),
                     "stale allowlist entry — no longer a dependency; remove it from `allow`",
+                ));
+            }
+        }
+        for allowed in &policy.allow_build {
+            if !build.contains(allowed) {
+                report.push(policy.diag(
+                    format!("{manifest} → {allowed}"),
+                    "stale `allow_build` entry — no longer a build dependency; remove it",
                 ));
             }
         }

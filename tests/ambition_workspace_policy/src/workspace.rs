@@ -109,10 +109,26 @@ impl Workspace {
     /// `build-dependencies`, and their `target.<cfg>.*` forms). Parsed TOML, not
     /// a line grep — an optional/renamed/table dep is just a key.
     pub fn ambition_deps(&self, manifest_rel: &str) -> BTreeSet<String> {
-        let text = std::fs::read_to_string(self.abs(manifest_rel)).unwrap_or_else(|e| {
+        ambition_deps_of(&self.read_manifest(manifest_rel), &["dependencies", "dev-dependencies", "build-dependencies"])
+    }
+
+    /// The `ambition*` dependencies the crate or its tests link:
+    /// `[dependencies]` and `[dev-dependencies]` (and their `target.<cfg>.*`
+    /// forms).
+    pub fn ambition_linked_deps(&self, manifest_rel: &str) -> BTreeSet<String> {
+        ambition_deps_of(&self.read_manifest(manifest_rel), &["dependencies", "dev-dependencies"])
+    }
+
+    /// The `ambition*` dependencies of the crate's build script:
+    /// `[build-dependencies]` (and its `target.<cfg>.*` form).
+    pub fn ambition_build_deps(&self, manifest_rel: &str) -> BTreeSet<String> {
+        ambition_deps_of(&self.read_manifest(manifest_rel), &["build-dependencies"])
+    }
+
+    fn read_manifest(&self, manifest_rel: &str) -> String {
+        std::fs::read_to_string(self.abs(manifest_rel)).unwrap_or_else(|e| {
             panic!("read manifest `{manifest_rel}`: {e}");
-        });
-        ambition_deps_of(&text)
+        })
     }
 
     /// Every non-`target/` `.rs` file under a repo-relative root, sorted.
@@ -164,9 +180,9 @@ fn package_name(manifest: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-/// Collect `ambition_*` dependency names from every standard dependency table of
-/// a parsed manifest.
-fn ambition_deps_of(manifest: &str) -> BTreeSet<String> {
+/// Collect `ambition_*` dependency names from the dependency tables `keys` of
+/// a parsed manifest, and from the same tables of each `[target.*]`.
+fn ambition_deps_of(manifest: &str, keys: &[&str]) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     let Ok(table) = manifest.parse::<toml::Table>() else {
         return out;
@@ -183,15 +199,15 @@ fn ambition_deps_of(manifest: &str) -> BTreeSet<String> {
         }
     };
 
-    for key in ["dependencies", "dev-dependencies", "build-dependencies"] {
-        collect(table.get(key));
+    for key in keys {
+        collect(table.get(*key));
     }
-    // `target.<cfg>.{dependencies,dev-dependencies,build-dependencies}`.
+    // `target.<cfg>.<key>`.
     if let Some(targets) = table.get("target").and_then(|v| v.as_table()) {
         for cfg in targets.values() {
             if let Some(cfg_t) = cfg.as_table() {
-                for key in ["dependencies", "dev-dependencies", "build-dependencies"] {
-                    collect(cfg_t.get(key));
+                for key in keys {
+                    collect(cfg_t.get(*key));
                 }
             }
         }

@@ -499,6 +499,35 @@ fn poison_dependency_allowlist_reacts() {
     );
 }
 
+/// `allow_build` admits a crate in `[build-dependencies]` only: a game that
+/// links only the umbrella embeds its pack from `build.rs`.
+#[test]
+fn poison_dependency_allow_build_admits_only_a_build_dependency() {
+    let policy = |allow: &str, allow_build: &str| {
+        poison(&format!(
+            r#"
+            id = "poison.dependency-allow-build"
+            scope = "engine"
+            kind = "dependency-allowlist"
+            rationale = "poison"
+            manifest = "{POISON_MANIFEST}"
+            allow = [{allow}]
+            allow_build = [{allow_build}]
+        "#
+        ))
+    };
+    let linked = r#""ambition_platformer2d_core", "ambition_content", "ambition_render", "ambition_app""#;
+    let refused = run_one(&policy(linked, ""));
+    assert_eq!(refused.len(), 1, "the build dependency is refused when nothing allows it");
+    assert!(run_one(&policy(linked, r#""ambition_content_pack""#)).is_empty(), "`allow_build` admits it");
+    let linked_but_build_only = r#""ambition_platformer2d_core", "ambition_render", "ambition_app""#;
+    assert_eq!(
+        run_one(&policy(linked_but_build_only, r#""ambition_content_pack", "ambition_content""#)).len(),
+        1,
+        "`allow_build` does not admit a crate the manifest links (`ambition_content`)"
+    );
+}
+
 #[test]
 fn poison_forbidden_source_reference_reacts() {
     let p = poison(&format!(

@@ -171,6 +171,7 @@ MODULE_ARMS = (
     "fsm_fight",
     "gnu_ton_fight",
     "mockingbird_fight",
+    "the_behemoth_shoots_from_its_eyes",
     "trex_fight",
 )
 

@@ -327,6 +327,44 @@ def test_a_failed_job_keeps_its_evidence_in_the_lane_ledger_row(monkeypatch, rep
     assert "failure_evidence" not in rows["passing job"], "a passing row keeps the shape it had"
 
 
+def test_a_failed_cargo_job_on_a_stale_sprite_set_says_so(monkeypatch, repo: Path, tmp_path: Path) -> None:
+    """A stale sprite set fails the drawing composition's arms for the assets,
+    and the row read like a code failure (2026-10-13: twice in one day). The
+    verdict stays FAILED, since another failure in the job can be real; the
+    row says what was stale. A passing row keeps its shape."""
+    import run_tests
+
+    monkeypatch.setattr(run_tests, "REPO", repo)
+    monkeypatch.delenv(run_tests.NESTED_ENV, raising=False)
+    monkeypatch.setattr(run_tests, "free_gb_on_target", lambda: 500.0)
+    monkeypatch.setattr(run_tests, "append_cost_ledger", lambda *a, **k: None)
+    monkeypatch.setattr(run_tests, "published_sprites_stale", lambda _repo: "the published sprites are stale (stale: x)")
+    cargo = tmp_path / "bin" / "cargo"
+    cargo.parent.mkdir()
+    cargo.write_text("#!/bin/sh\necho \"thread 'arm' panicked at tests/x.rs:1:1:\"\nexit 101\n")
+    cargo.chmod(0o755)
+    failing = run_tests.Job("failing cargo job", [str(cargo), "test"])
+    passing = run_tests.Job("passing job", [sys.executable, "-c", "pass"])
+    assert run_tests.run([passing, failing], False) != 0
+    rows = {row["job"]: row for row in lane_ledger.rows(repo)}
+    assert "stale" in rows["failing cargo job"].get("environment", ""), rows["failing cargo job"]
+    assert "environment" not in rows["passing job"], "a passing row keeps the shape it had"
+
+
+def test_the_sprite_check_is_the_publish_scripts_own(tmp_path: Path) -> None:
+    """`published_sprites_stale` asks `sprites.sh --check` and repeats its
+    reason; a fresh set is `None`."""
+    import run_tests
+
+    script = tmp_path / "scripts" / "regen" / "sprites.sh"
+    script.parent.mkdir(parents=True)
+    script.write_text("echo 'stale: the renderer changed'\nexit 1\n")
+    reason = run_tests.published_sprites_stale(tmp_path)
+    assert reason is not None and "stale: the renderer changed" in reason and "republish" in reason, reason
+    script.write_text("echo ok\nexit 0\n")
+    assert run_tests.published_sprites_stale(tmp_path) is None
+
+
 def test_an_unrelated_edit_during_the_run_does_not_void_it(repo: Path) -> None:
     """A docs file changed by the host while the job ran: the change's paths
     were the same at both ends, so the run certifies it. An edit to the

@@ -1753,7 +1753,9 @@ fn walks_off(view: &crate::perception::WorldView, toward: f32) -> bool {
     // a turn can take effect. Without this term Sanic (571 px/s, about 90 px
     // to stop) chose to retreat with 40 px of floor left and ran off the
     // stage. A body that moves away from the edge does not need it.
-    let coasting = if me.vel.x * toward > 0.0 { me.stop_distance } else { 0.0 };
+    // On the body's own side axis, the axis `floor_ahead` and `toward` are on.
+    let along = me.vel.dot(me.acceleration_frame().side);
+    let coasting = if along * toward > 0.0 { me.stop_distance } else { 0.0 };
     ahead < me.half_extent.x * 2.0 + coasting
 }
 
@@ -1774,12 +1776,15 @@ fn walks_off(view: &crate::perception::WorldView, toward: f32) -> bool {
 /// is a fact of the body's law, and it is a few pixels for a walker.
 fn overshoots(view: &Perceived<'_>, foe: &PerceivedActor, toward: f32) -> bool {
     let me = &view.self_view;
+    // On the body's own side axis, the axis its run brakes on and `toward` is
+    // on. The two half extents are along each body's own side axis.
+    let side = me.acceleration_frame().side;
     // `stop_distance` is a ground fact. A body in the air brakes by another
     // law, and the recovery lens owns that question.
-    if !me.on_ground || me.vel.x * toward <= 0.0 {
+    if !me.on_ground || me.vel.dot(side) * toward <= 0.0 {
         return false;
     }
-    let past_the_foe = (foe.pos.x - me.pos.x).abs() + foe.half_extent.x + me.half_extent.x;
+    let past_the_foe = (foe.pos - me.pos).dot(side).abs() + foe.half_extent.x + me.half_extent.x;
     me.stop_distance > past_the_foe
 }
 
@@ -1798,7 +1803,7 @@ fn movement_options(
     // direction reads as "no ledge question", which is correct: a brain with no
     // foe is not closing on anything.
     let first_foe = view.actors.iter().find(|actor| actor.hostile_to_self && actor.alive);
-    let toward_foe = first_foe.map(|foe| (foe.pos.x - me.pos.x).signum()).unwrap_or(0.0);
+    let toward_foe = first_foe.map(|foe| view.side_sign_toward(foe.pos)).unwrap_or(0.0);
     let approach_walks_off = toward_foe != 0.0 && walks_off(view, toward_foe);
     let approach_overshoots = first_foe.is_some_and(|foe| overshoots(view, foe, toward_foe));
     let retreat_walks_off = toward_foe != 0.0 && walks_off(view, -toward_foe);

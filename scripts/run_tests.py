@@ -1926,6 +1926,35 @@ UNRUNNABLE_SIGNATURES: tuple[tuple[re.Pattern, str], ...] = (
 )
 
 
+def published_sprites_stale(repo: Path) -> str | None:
+    """Why the published sprite set is not this renderer's, or `None` when it is.
+
+    The drawing composition reads the published sheets, and a merge that moves
+    the renderer pointer makes them stale. Then an arm that reads a sheet row
+    fails like a code defect: measured 2026-10-13, the transform beat and the
+    drawn playthrough (`a part flipbook of sandbag has a clip blink_in, which is
+    not a row of its sheet`), both red for the asset set and not the code. The
+    verdict stays FAILED, because another failure in the same job can be real;
+    the row says what was stale and how to republish.
+    """
+    script = repo / "scripts" / "regen" / "sprites.sh"
+    if not script.exists():
+        return None
+    try:
+        check = subprocess.run(["bash", str(script), "--check"], cwd=repo,
+                               capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return f"the sprite freshness check did not run ({error})"
+    if check.returncode == 0:
+        return None
+    said = [line for line in (check.stdout + check.stderr).splitlines()
+            if line.startswith(("stale:", "missing", "error"))]
+    reason = said[0] if said else "scripts/regen/sprites.sh --check failed"
+    return (f"the published sprites are stale ({reason[:160]}); republish with "
+            "./scripts/regen/sprites.sh before reading a failure that names a "
+            "sheet row or a flipbook clip")
+
+
 def unrunnable_reason(output: str) -> str | None:
     """The remedy for a PRECONDITION failure in this output, if it is one."""
     plain = strip_ansi(output)
@@ -2705,6 +2734,12 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # this loop with fake jobs under real job names and a status of its own;
     # its rows would certify checks that never ran.
     records_evidence = status == REPO / "target" / STATUS_NAME
+    # Asked once, before the jobs: a cargo job can build the drawing
+    # composition, and a stale sprite set fails its arms for the assets.
+    sprites_stale = (published_sprites_stale(REPO)
+                     if any(Path(j.argv[0]).name == "cargo" for j in jobs if j.argv) else None)
+    if sprites_stale:
+        print(f"\033[33m  note: {sprites_stale}\033[0m")
     results: list[JobResult] = []
     # `free_gb` travels in the status file so a long autonomous run can WATCH
     # the headroom fall instead of discovering it at zero.
@@ -2792,11 +2827,14 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             tree_after = lane_ledger.tested_tree(REPO) if tree_before is not None else None
             if tree_before is not None and tree_after is not None:
                 lane_ledger.record(REPO, tree_before, j.name, j.argv, rc == 0, blocked,
-                                   tree_after=tree_after, failure_evidence=evidence)
+                                   tree_after=tree_after, failure_evidence=evidence,
+                                   environment=sprites_stale)
             if blocked:
                 print(f"\033[33m    INCOMPLETE ({j.name}) — {blocked}\033[0m")
             elif rc != 0:
                 print(f"\033[31m    FAILED ({j.name})\033[0m")
+                if sprites_stale:
+                    print(f"\033[33m    and {sprites_stale}\033[0m")
             write_status(status, {**base, "state": "running",
                                   "finished_jobs": len(results),
                                   "current_job": None,

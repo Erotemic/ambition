@@ -117,7 +117,8 @@ and a control.
 Found on the way, open for its author (the session of `047f37e92`,
 `27a90dba3`, `d7e82dfaf`, `Claude-Session: …017PmHh7VwJMuFrWZkxix2gB`):
 three repo tooling guards are red on main after the bubble shield and the
-behemoth's beam: `test_foreign_system_ordering` (78 edges, ceiling 76),
+behemoth's beam: `test_foreign_system_ordering` (78 edges, ceiling 76;
+81 at `4b8863b27`, so later commits add to it),
 `test_multi_writer_resources_are_adjudicated` and
 `test_resources_crossing_the_rewind_boundary`. Each judges the new
 systems, so the author decides. The two list entries (the behemoth's

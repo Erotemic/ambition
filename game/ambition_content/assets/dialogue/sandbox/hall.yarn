@@ -1257,19 +1257,27 @@ Yuclid: You did not walk here. You were placed here. There is a difference, and 
 
 title: hall_npc_hunny_horror_boss
 ---
-<<portrait_clip "snarl">>
-Hunny Horror: Oh. Hello. Did you bring honey? ...Come closer. I want to check.
+<<portrait_clip "speaking">>
+Hunny Horror: Oh! Hello! Did you bring honey?
+<<portrait_clip "creepy">>
+Hunny Horror: ...Come closer. I want to check.
 -> Brought any what?
     <<portrait_clip "evil_flash">>
     Hunny Horror: Honey.
+    <<portrait_clip "speaking">>
+    Hunny Horror: There used to be a pot here every morning.
     <<portrait_clip "roar">>
-    Hunny Horror: There used to be a pot here every morning. One morning there was not. I did not take it well.
+    Hunny Horror: One morning there was not. I did not take it well.
 -> You seem friendly enough.
     <<portrait_clip "speaking">>
-    Hunny Horror: Friendly? I can do friendly. Hold still.
+    Hunny Horror: Friendly? I can do friendly.
+    <<portrait_clip "evil_hold">>
+    Hunny Horror: Hold still.
 -> Why the basement?
+    <<portrait_clip "speaking">>
+    Hunny Horror: Upstairs is crowded.
     <<portrait_clip "snarl">>
-    Hunny Horror: Upstairs is crowded. Down here nobody complains when I lick the walls.
+    Hunny Horror: Down here nobody complains when I lick the walls.
 ===
 
 title: hall_npc_anne_druid

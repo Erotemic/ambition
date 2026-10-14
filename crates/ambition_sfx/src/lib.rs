@@ -26,6 +26,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 pub mod ids;
+/// Which voice a speaker speaks with.
+pub mod voice;
 
 #[cfg(feature = "bevy")]
 mod message;

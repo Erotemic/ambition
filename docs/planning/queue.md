@@ -223,13 +223,41 @@ value for a designer and size of change:
    `sanics_tuning_is_its_pack_file` (red at the score with `act_score`
    reading another par). The level geometry stays Rust: it is the course,
    not tuning.
-4. Tables: dialogue voiceprints (21 rows that repeat catalog ids), held and
-   wielded item art, the projectile visual catalog (20 looks), the per-sheet
-   VFX table in `ambition_sprite_sheet` (an engine crate: one character's
-   VFX sheet rebuilds 23 crates).
+4. Tables: held and wielded item art, the projectile visual catalog (20
+   looks), the per-sheet VFX table in `ambition_sprite_sheet` (an engine
+   crate: one character's VFX sheet rebuilds 23 crates).
+   ✅ 2026-10-14, the dialogue voiceprints: Ambition's 21 rows are the
+   pack's `data/dialogue_voiceprints.ron`, schema `dialogue_voiceprints`,
+   owned by the audio capability (`ambition_audio`). The catalog moved to
+   `ambition_sfx::voice` beside `SfxId`, so the content compiler checks a
+   file by the rules the runtime resolves it by and links no dialogue UI.
+   Admission refuses a key that two cues claim, and an exact key that hides
+   another cue's alias (that was a Rust test over the Rust table; it names
+   both cues now). A content reload restates the catalog. Deleted: the 21
+   `SfxId` constants, the Rust table, `DialogueVoiceCatalogAppExt` and its
+   re-exports from `ambition_dialog`. An edit reached the test in 0.94 s
+   with no compile. Witnesses: `flagship_exact_and_alias_names_keep_their_authored_voiceprints`
+   (red with Bob's cue edited in the file),
+   `a_candidate_that_changes_only_voiceprints_publishes_the_voice_catalog`
+   (red, at the activation, without the reload row),
+   `a_voiceprint_file_is_refused_for_a_shared_key_and_for_a_hidden_alias`.
 5. Demo stages built in Rust (Smash, Twintrack).
 6. Duplicate authority: `ITEM_META` in `ambition_items` is byte-equal to
-   `items.ron` (Q104 scaffolding).
+   `items.ron` (Q104 scaffolding). Measured 2026-10-14: the engine reads
+   the built-in table through `builtin_item_catalog()` in the bag, the
+   starting bag, the conditions and their tests, and a catalog row falls
+   back to it. Deleting it means the engine's `Item` grid has no names
+   without a game, or an engine data file (`include_str!` in an engine
+   crate: a rebuild of its dependents on each edit). Decide before acting;
+   not a mechanical deletion.
+8. Ambition's own tuning (its wake radius, the bark cadence, the GNU-ton
+   duel): `pack::pack_schemas()` is the one place a game schema of
+   Ambition would register. Blocker: the package guard runs the generic
+   content CLI over Ambition's pack, and the CLI links no game schema, so it
+   would refuse the source (`unknown-schema`). Options: a check binary the
+   game links (the guard's `cargo run` then builds the game crate), or the
+   manifest marks a source as checked by the game and the CLI reports it
+   unchecked. Decide before moving a number.
 7. ✅ 2026-10-14 for every pack: `pack.ron` is the one list of its
    sources. A development build reads the manifest and each source it
    declares when the pack compiles (an edit to `pack.ron` compiles nothing:

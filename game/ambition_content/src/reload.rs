@@ -746,6 +746,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         domain: ambition_items::content_schema::ITEM_CATALOG_SCHEMA,
         publish: publish_item_catalog,
     },
+    PackDerivedFamily {
+        domain: ambition_audio::content_schema::DIALOGUE_VOICEPRINTS_SCHEMA,
+        publish: publish_voice_catalog,
+    },
 ];
 
 /// A family no system of the running game reads: the new pack is selected,
@@ -896,6 +900,22 @@ pub(crate) fn candidate_quest_book(
         }
     }
     Ok(())
+}
+
+/// Absent in the candidate means remove: every line takes the generic blip,
+/// as a pack without `dialogue_voiceprints` plays at startup. The catalog is
+/// Ambition's alone (no other provider registers voiceprints), so the reload
+/// replaces it whole.
+fn publish_voice_catalog(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    match ambition_audio::content_schema::lowered_voice_catalog(pack) {
+        Some(catalog) => world.insert_resource(catalog),
+        None => {
+            world.remove_resource::<ambition_sfx::voice::DialogueVoiceCatalog>();
+        }
+    }
 }
 
 /// Absent in the candidate means remove, not keep. See

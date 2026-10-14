@@ -346,5 +346,11 @@ pub fn music_cue_catalog_schema() -> SchemaRegistration {
     }
 }
 
+/// Which voice each speaker of a game's cast speaks with.
+mod voiceprints;
+pub use voiceprints::{
+    dialogue_voiceprints_schema, lowered_voice_catalog, AuthoredVoiceprint, DIALOGUE_VOICEPRINTS_SCHEMA,
+};
+
 #[cfg(test)]
 mod tests;

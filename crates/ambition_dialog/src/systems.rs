@@ -11,7 +11,8 @@
 use bevy::prelude::*;
 
 use crate::runtime::DialogState;
-use crate::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker, DialogueVoiceCatalog};
+use crate::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker};
+use ambition_sfx::voice::DialogueVoiceCatalog;
 #[cfg(feature = "input")]
 use ambition_input::{ActiveDevice, MenuControlFrame, SeatActiveDevices, DIALOGUE_CONTEXT};
 #[cfg(feature = "input")]

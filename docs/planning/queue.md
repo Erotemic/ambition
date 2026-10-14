@@ -810,9 +810,10 @@ variants. Also found in that regen:
     re-rendered on every publish; that condition is removed, and the same
     edit then published 13 and skipped 184: the 11 crew, and
     `interdimensional_gate` (its `_portal_` and `_ring_` sheets) and
-    `shrine`, which re-render on every publish for a reason not yet
-    measured (output digests that a later phase changes is the first
-    candidate). The tack-on batch still took 230 s
+    `shrine`, which re-render on every publish. Measured after the run:
+    `shrine` has no entry in `.cache/sheets` (its key is never stored), and
+    `interdimensional_gate`'s stored output digests all match the disk, so
+    its key differs between the check and the store (not measured why). The tack-on batch still took 230 s
     (231 s before): the crew's rigged sheets are its cost, so the fix
     saves renders and little time. Of a full
     publish, the cached batches are 1904 s (tack-ons 1646, late targets

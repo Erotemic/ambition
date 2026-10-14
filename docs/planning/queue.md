@@ -34,7 +34,24 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
   docs/planning/queue.md | sort -rn | head
 ```
 
-## Priority order (Jon, 2026-10-09)
+## Priority order (Jon, 2026-10-14, 48 h)
+
+Content packs, and changes to the game, made elegant and efficient and
+possible without a recompile. Work in this order:
+
+1. [CONTENT-AS-DATA](#content-as-data--content-still-written-as-rust):
+   move each content fact that is still Rust onto the pack's data and reload
+   road, and delete the Rust copy.
+2. Efficient content preparation: [TEST-LANES](#test-lanes--keep-required-test-lanes-executable)
+   item 10 (the sprite publish: cache the draw phases, render only what it
+   installs, publish into a staging root).
+3. Pack elegance: admission diagnostics that name the file and the field;
+   [CPU-LADDER](#cpu-ladder--the-brain-owns-the-knobs-smash-owns-the-ladder)
+   step 2 (blocked by the George L5 resonance, fighter-brain.md F1).
+4. Each slice states its measured runtime and iteration cost.
+5. Then the 2026-10-09 order below.
+
+## Priority order before 2026-10-14 (Jon, 2026-10-09)
 
 The risk now is improving components one at a time without exercising the
 whole engine. Work in this order, and fix an authoritative-state defect found on
@@ -80,6 +97,45 @@ universal planner and the Bevy 0.20 upgrade. Q157 is Jon's decision; build
 neither side of it.
 
 ## P0 — architecture and correctness
+
+### CONTENT-AS-DATA — content still written as Rust
+
+**Owner:** [`engine/fast-iteration-implementation.md`](engine/fast-iteration-implementation.md)
+and the pack of each game.
+
+**Current state (census 2026-10-14):** no embedded data file is the only
+road in a dev build (the 2026-10-11 census still holds). What still costs a
+host relink (7.05 s in M0) and a restart is content written as Rust. A data
+source read off disk costs about 0.4 s and reloads live. The candidates, by
+value for a designer and size of change:
+
+1. Ambition's room rules: the landing-lag share 0.25, heavy-hit damage 3,
+   the death replay delay (`game/ambition_app/src/app/plugins.rs`). They
+   belong in the `feel:` block of `platformer_defaults.ron`, which reloads.
+2. Smash knockback curve, match body and match economy
+   (`game/ambition_demo_smash/src/lib.rs`): about 40 numbers, with hand
+   sweep tables in their comments. A `smash_rules` pack source.
+3. Mary-O rules and the spark projectile; Sanic's shoes, ring scatter and
+   badnik bounce; the GNU-ton duel damage; boss bark cadence and wake radius;
+   the primeval swallow's fetch tuning.
+4. Tables: dialogue voiceprints (21 rows that repeat catalog ids), held and
+   wielded item art, the projectile visual catalog (20 looks), the per-sheet
+   VFX table in `ambition_sprite_sheet` (an engine crate: one character's
+   VFX sheet rebuilds 23 crates).
+5. Demo stages built in Rust (Smash, Twintrack).
+6. Duplicate authority: `ITEM_META` in `ambition_items` is byte-equal to
+   `items.ron` (Q104 scaffolding).
+
+Not here: the boss and Mary-O modules' tuning constants. They are on the
+module road (a 0.34 s WASM rebuild and a live reload).
+
+**Next action:** item 1, then item 2.
+
+**Blocked by:** nothing.
+
+**Acceptance:** for each item, an edit to the data reaches the game with no
+Cargo build (measured), a malformed value is refused at admission with the
+file and field named, and the Rust copy is deleted.
 
 ### REVIEW-1013 - frame and acceptance gaps from the 2026-10-13 review
 

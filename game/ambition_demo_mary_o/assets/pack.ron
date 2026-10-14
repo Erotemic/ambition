@@ -21,5 +21,7 @@
         // cue sounds.
         (path: "audio/music_registry.ron", schema: "music_registry", version: 1),
         (path: "audio/sfx_registry.ron", schema: "sfx_registry", version: 1),
+        // The rules of her rooms: the death replay, sized by her death music.
+        (path: "data/room_rules.ron", schema: "room_rules", version: 1),
     ],
 )

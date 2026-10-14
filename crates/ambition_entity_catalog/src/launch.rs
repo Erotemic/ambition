@@ -46,7 +46,8 @@
 /// `growth_base: None` (its reasons are beside it), so every live world
 /// resolves to [`Self::IDENTITY`]. The knob stays declarable, and the law must
 /// evaluate it either way.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GrowthBaseCurve {
     /// The base knockback at which the steepening is exactly `1.0`. Pick a
     /// poke-sized base: every volume at or below it is unchanged.
@@ -329,7 +330,7 @@ mod tests {
         )
     }
 
-    /// The smash stage's law by value: `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE`
+    /// The smash stage's law by value: Smash's `victim_percent_knockback_scale`
     /// `1.25` against a Robot v2's `knockback_weight` of `0.85`.
     ///
     /// The curve is `IDENTITY` because the stage declares `growth_base: None`
@@ -345,7 +346,7 @@ mod tests {
             victim_weight: 0.85,
             growth_scale: 1.25,
             growth_base: GrowthBaseCurve::IDENTITY,
-            // The stage's fallback growth, `SMASH_KNOCKBACK_GROWTH`. It does not
+            // The stage's fallback growth, Smash's `knockback_growth`. It does not
             // change the arms below (both smashes author their own growth); a
             // `0.0` here would be the undeclared world.
             ruleset_growth: 0.02,

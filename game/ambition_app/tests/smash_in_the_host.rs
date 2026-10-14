@@ -606,13 +606,16 @@ fn a_seated_fighters_view_carries_the_launch_law_this_stage_declares() {
         )
     });
 
+    let declared_scale = ambition_demo_smash::smash_combat_rules()
+        .victim_percent_knockback_scale
+        .expect("Smash states its percent curve");
     assert_eq!(
-        law.growth_scale, ambition_demo_smash::SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE,
+        law.growth_scale, declared_scale,
         "the stage declares a percent curve of {} and the brain is ranking \
          its finishers under {}. The engine default is 1.0, so this reads as \
          'nothing in the composed host installs `ResolvedCombatTuning` where \
          the actor update can see it' — every unit test below still passes",
-        ambition_demo_smash::SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE, law.growth_scale,
+        declared_scale, law.growth_scale,
     );
     // ⛔ IDENTITY IS THE TRUTH HERE, NOT A WEAK ASSERTION. The stage declares
     // `growth_base: None` — it ran `48 / 0.25 / 1.40` once and retired it in
@@ -5970,7 +5973,7 @@ fn quitting_a_smash_match_gives_the_pad_back() {
 /// measured, not read. In this composition at 1427%, George's authored
 /// up-tilt resolves to `LaunchSpeed(3269.4)` — exactly `130 + 2.20 × 1427 / 1.0`
 /// — reaches the body as `pending_launch`, and the victim's own DI rotates it by
-/// the full `SMASH_DI_MAX_ANGLE` of 0.31 rad while preserving the speed. Every
+/// the full `di_max_angle` of 0.31 rad (Smash's `room_rules.ron`) while preserving the speed. Every
 /// stage of the chain was healthy. The launch pointed down.
 mod launched {
     use super::*;
@@ -7201,7 +7204,7 @@ mod ring_out {
     /// reject the real knockouts that scales `1.00` and `1.25` already produced,
     /// and the only way to satisfy it was to raise a RULESET-WIDE constant until
     /// one diagonal move happened to fly sideways. That is how
-    /// `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE` reached 1.5.
+    /// Smash's `victim_percent_knockback_scale` reached 1.5.
     #[test]
     fn a_fully_stale_jab_at_700_percent_ends_the_stock() {
         let mut app = open_the_lobby();
@@ -7238,7 +7241,7 @@ mod ring_out {
     ///
     /// ⇒ So this arm goes RED exactly when `1.0` starts ending the stock — the
     /// one moment anybody needs to be told, because at that moment
-    /// `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE` is unearned and should return to
+    /// Smash's `victim_percent_knockback_scale` is unearned and should return to
     /// `1.0`. It is a premise guard, not a calibration step; the 7-scale sweep
     /// picks the value.
     ///
@@ -7303,7 +7306,7 @@ mod ring_out {
             !kill.left_the_world,
             "at scale 1.00 a fully stale 700% jab ENDED THE STOCK: the engine \
              resolved {:?}px/s and the body travelled {:.1}px. The percent curve \
-             now converts unaided, so `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE` is \
+             now converts unaided, so Smash's `victim_percent_knockback_scale` is \
              UNEARNED and should return to 1.0.\n\
              ⛔ Do not green this by flipping the assertion back. This arm is the \
              premise the shipped constant rests on, and a red here means the \
@@ -7441,10 +7444,10 @@ mod ring_out {
         println!("PERCENT-SCALE SWEEP (fresh attacker, stage centre, neutral input)\n{table}");
         assert_eq!(
             smallest_passing,
-            Some(ambition_demo_smash::SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE),
+            ambition_demo_smash::smash_combat_rules().victim_percent_knockback_scale,
             "the DECLARED percent scale is not the smallest swept value that both \
              converts at 700% and stays a poke at 0%.\n{table}\n\
-             ⇒ Set `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE` to the smallest passing \
+             ⇒ Set `victim_percent_knockback_scale` in Smash's `room_rules.ron` to the smallest passing \
              value above. If nothing passed, the percent curve is not the whole \
              defect and raising this knob further is the wrong repair."
         );

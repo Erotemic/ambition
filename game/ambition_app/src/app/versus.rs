@@ -416,15 +416,6 @@ fn hash_team(team: &str) -> u64 {
     hasher.finish()
 }
 
-/// The fighting stage's directional-influence budget, in radians.
-///
-/// and `Platformer2dFeelTuningMonolith::di_max_angle`'s own doc has named this mode as the
-/// caller since the field was written: *"a fighter mode (Super Smash Siblings)
-/// authors a smash-like ≈ 0.31 (18°) to turn it on."*
-///
-/// 0.31 rad ≈ 18°: the victim's held stick may rotate its own launch by that
-/// much, which is what makes a knock-off a read instead of a coin flip.
-const VERSUS_DI_MAX_ANGLE: f32 = 0.31;
 
 /// What the fighting stage overwrote, so leaving can put it back.
 ///
@@ -515,7 +506,9 @@ fn track_versus_roster(
     }
 }
 
-/// The combat rules the versus stage plays under, declared for its room's mode.
+/// The combat rules the versus stage plays under, declared for its room's mode:
+/// the `combat` block of [`versus_room_rules`]. Each value's reason is beside
+/// it in that file.
 ///
 /// The stage DID switch on global `FriendlyFire` for a day, because
 /// `effective_faction` maps any player-brained body to Player and two humans are
@@ -527,103 +520,19 @@ fn track_versus_roster(
 /// DECLARE, don't borrow (AE6). The stage states what IT plays under and writes
 /// nothing global. `project_combat_rules` folds the active room's rules over the
 /// world's baseline every tick, so a room outside the stage plays the baseline.
-///
-/// DI ON. A launched fighter can steer its own trajectory, which is the
-/// difference between a knock-off that is a read and one that is a coin flip.
-/// Inert everywhere else: Ambition's PvE keeps 0.0.
 pub fn versus_combat_rules() -> ambition_platformer2d::combat::rules::CombatRules {
-    ambition_platformer2d::combat::rules::CombatRules {
-        // The versus route says nothing about barks: every hit speaks,
-        // which is what it did before the rate existed.
-        bark_chance: None,
-        // ⛔ AND IT SAYS NOTHING ABOUT THE KILL CURVE EITHER. The
-        // base-referenced steepening is a SMASH answer to a measured
-        // Smash problem (its roster authors `growth ~= 0.02 * base`
-        // across every role, so a kill move is a jab times a constant).
-        // Versus authors its own fighters and has not been measured;
-        // declining here keeps its launches exactly as they are.
-        growth_base: None,
-        // The versus route drops a trumped body where it hung.
-        ledge_trump_pop: None,
-        ledge_trump_lockout: None,
-        // The versus route says nothing: its edges trump, which is what
-        // they always did.
-        ledge_occupancy: None,
-        // The versus route's air jumps run their full arc.
-        double_jump_cancel: None,
-        // The versus route says nothing about the edge cancel either:
-        // its landing lag runs out wherever the body is, which is what
-        // it did before the rule existed.
-        edge_cancel_recovery: None,
-        // The versus route's specials come out the way the body faces.
-        special_turn: None,
-        special_turn_reverses_drift: None,
-        di_max_angle: VERSUS_DI_MAX_ANGLE,
-        // no meteor rule here for the same reason the knockback stays
-        // flat: rounds end on health, not on a blast zone, so a spike
-        // has nowhere to send you and a window you cannot recover in
-        // would be a stun with no payoff.
-        meteor_lock_time: 0.0,
-        // and no rage, for the third time the same reason: health
-        // rounds have no percent mechanic to mirror.
-        rage_per_damage: 0.0,
-        rage_max_scale: 1.0,
-        // and no staling: rounds this short do not repeat a move
-        // enough for a queue to mean anything.
-        stale_step: 0.0,
-        stale_floor: 1.0,
-        // and so nothing to attenuate on its way to the launch: with no
-        // staling declared above there is no weakening for an influence
-        // to soften, and a rule nothing can reach is the kind that lies
-        // about what the stage does.
-        stale_knockback_influence: None,
-        // and no percent curve to steepen, for the reason the knockback
-        // stays flat: rounds end on health, not on a blast zone, so
-        // there is no "percent matters more here" to say.
-        victim_percent_knockback_scale: None,
-        // and no crouch cancel: this stage has no crouch verb to
-        // reward, and a rule nothing can reach is a rule that lies about
-        // what the stage does.
-        crouch_cancel_scale: 1.0,
-        // and no clanking, for the reason the meteor rule is absent:
-        // these duelists author four moves between them and none of the
-        // reads a trade opens — bait a clank, win the recoil — exists on
-        // this stage. A rule nothing can reach lies about what the stage
-        // does.
-        clank_damage_window: 0.0,
-        clank_rebound_speed: 0.0,
-        sudden_death_damage: None,
-        // and the engine's own post-hit window stands. This stage's
-        // moves author no separated multi-hit window, so there is
-        // nothing here for a shorter window to make reachable, and
-        // shortening one to match another stage would be tuning this
-        // round against a game it is not.
-        hit_repeat_window_scale: 1.0,
-        // a versus round ends on health, and its grabs are the
-        // engine's flat hold rather than a percent mechanic.
-        grab_hold_base_seconds:
-            ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
-        grab_hold_per_damage: 0.0,
-        grab_hold_max_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
-        grab_mash_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_MASH_SECONDS,
-        // the generic versus stage stays FLAT for now: its rounds end
-        // on health rather than on a blast zone, so a launch that grows
-        // without bound is a different game's mechanic. Smash declares
-        // its own — see `SMASH_KNOCKBACK_GROWTH`.
-        knockback_growth: 0.0,
-        // the generic versus stage keeps the POGO reading, deliberately:
-        // its rounds end on health rather than on a blast zone, so a
-        // spike has nothing to kill you off and the rebound is the more
-        // useful of the two. Smash declares otherwise — see
-        // `SMASH_KNOCKBACK_GROWTH`'s neighbour.
-        downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Pogo,
-        friendly_fire: false,
-        // the versus route says NOTHING here. Its
-        // seats are the shipped cast, every one of which authors its own
-        // kit; a floor is what a stage needs when a body does not, and
-        // this stage does not have that body. `None` leaves the engine's
-        // exploration default standing, which nothing here reaches.
-    }
+    versus_room_rules()
+        .combat
+        .expect("the versus pack's `data/room_rules.ron` states a `combat` block")
+}
+
+/// The rules of the stage's room, as its pack states them
+/// (`game/ambition_app/assets/data/room_rules.ron`): the combat rules and the
+/// heavy-hit line. An edit to the file is played at the next start, with no
+/// Rust build.
+pub fn versus_room_rules() -> ambition_platformer2d::combat::room_rules::RoomRules {
+    *ambition_platformer2d::combat::room_rules::lowered_room_rules(super::versus_fighters::PACK.prepared())
+        .expect("the versus pack states the rules of its room (`data/room_rules.ron`)")
 }
 
 /// Register the versus experience: a launcher entry, a route, and the stage.
@@ -837,17 +746,10 @@ pub fn compose_versus_experience(app: &mut App) {
 ///
 /// A named function so the stage-rule tests compose THIS declaration.
 fn declare_versus_rules(app: &mut App) {
-    use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
-    app.declare_rules(
+    ambition_platformer2d::combat::room_rules::declare_room_rules(
+        app,
         ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(VERSUS_EXPERIENCE),
-        versus_combat_rules(),
-    );
-    // The versus stage keeps each fighter's home damage (health), so a hit of
-    // 3 lands heavy, as in Ambition's rooms (`heavy_hit_damage` in the pack's
-    // `room_rules.ron`). Rust, like `versus_combat_rules` (queue CONTENT-AS-DATA).
-    app.declare_rules(
-        ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(VERSUS_EXPERIENCE),
-        ambition_platformer2d::combat::strike_weight::StrikeWeightRules::heavy_at(3),
+        versus_room_rules(),
     );
 }
 
@@ -1072,7 +974,7 @@ mod stage_rule_tests {
         stand_in(&mut app, true);
         assert_eq!(
             resolved(&app).di_max_angle,
-            VERSUS_DI_MAX_ANGLE,
+            versus_combat_rules().di_max_angle,
             "the fighting stage must author its DI budget"
         );
         assert_eq!(
@@ -1152,7 +1054,7 @@ mod stage_rule_tests {
         authored_is_intact(&app, "during the match");
         assert_eq!(
             resolved(&app).di_max_angle,
-            VERSUS_DI_MAX_ANGLE,
+            versus_combat_rules().di_max_angle,
             "the match is not playing under its own declared DI"
         );
         assert!(

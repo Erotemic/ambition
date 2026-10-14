@@ -1,0 +1,11 @@
+// The rules of Mary-O's rooms (schema `room_rules`). Her plugin declares
+// them for the rooms of its scope. An edit here is played at the next start,
+// with no Rust build.
+(
+    // How long the level holds on her death before it starts again. Sized by
+    // the music, not by taste: `mary_o_you_died` is four bars of 2/4 at 150
+    // bpm (eight beats, 3.2 s), and its last chord is the low thud the whole
+    // cue exists to land. If the score's tempo or bar count changes, this
+    // number changes with it.
+    replay_level_after_death_s: Some(3.2),
+)

@@ -1,0 +1,7 @@
+// The rules of Sanic's rooms (schema `room_rules`). `SanicPlugin`
+// declares them for the rooms of its scope. An edit here is played at the
+// next start, with no Rust build.
+(
+    // A death puts the level back at once when no participant remains.
+    replay_level_after_death_s: Some(0.0),
+)

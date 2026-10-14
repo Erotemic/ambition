@@ -233,7 +233,7 @@ fn the_level_timeout_actually_replays_the_room() {
     for _ in 0..4 {
         app.update();
     }
-    let beat_frames = (ambition_demo_mary_o::death::DEATH_DWELL / (1.0 / 60.0)).ceil() as usize;
+    let beat_frames = (ambition_demo_mary_o::death::death_dwell() / (1.0 / 60.0)).ceil() as usize;
     for _ in 0..beat_frames + 30 {
         app.update();
     }
@@ -271,7 +271,7 @@ fn the_level_timeout_actually_replays_the_room() {
 /// where you were."*
 ///
 /// Every link in that chain was verified present by READING it — the beat's
-/// `DEATH_DWELL`, `restart_level_after_death` writing `RoomReplayRequested`, the
+/// `death_dwell()`, `restart_level_after_death` writing `RoomReplayRequested`, the
 /// one consumer, its composition into `PlatformerEnginePlugins::fixed_tick()`,
 /// and `reset_sandbox` moving her — and nothing observed them together for a
 /// death by damage. The content crate's own
@@ -309,7 +309,7 @@ fn a_fatal_hit_returns_her_to_spawn_when_the_beat_ends() {
          at spawn' is satisfied by her never having left it"
     );
 
-    let beat_frames = (ambition_demo_mary_o::death::DEATH_DWELL / (1.0 / 60.0)).ceil() as usize;
+    let beat_frames = (ambition_demo_mary_o::death::death_dwell() / (1.0 / 60.0)).ceil() as usize;
     for _ in 0..beat_frames + 60 {
         app.update();
     }
@@ -435,7 +435,7 @@ fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
          having left it"
     );
 
-    let beat_frames = (ambition_demo_mary_o::death::DEATH_DWELL / (1.0 / 60.0)).ceil() as usize;
+    let beat_frames = (ambition_demo_mary_o::death::death_dwell() / (1.0 / 60.0)).ceil() as usize;
     for _ in 0..beat_frames + 60 {
         app.update();
     }

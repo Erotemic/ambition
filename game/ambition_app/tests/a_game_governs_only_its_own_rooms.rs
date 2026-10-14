@@ -68,7 +68,7 @@ fn a_smash_stage_does_not_inherit_mary_os_level_replay() {
         .unwrap_or_default();
     assert_eq!(
         hers.interlude,
-        ambition_demo_mary_o::death::DEATH_DWELL,
+        ambition_demo_mary_o::death::death_dwell(),
         "Mary-O must still hold her own rooms for the length of her death \
          music; without that this test's other half proves nothing. Declared: \
          {:?}",

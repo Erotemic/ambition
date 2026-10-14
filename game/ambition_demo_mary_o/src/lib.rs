@@ -1535,12 +1535,8 @@ impl Plugin for MaryORulesPlugin {
         {
             use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
             let scope = self.scope;
-            app.declare_rules(
-                scope,
-                ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(
-                    death::DEATH_DWELL,
-                ),
-            );
+            // Her death replay is the pack's (`assets/data/room_rules.ron`).
+            ambition_platformer2d::combat::room_rules::declare_room_rules(app, scope, crate::pack::room_rules());
             app.declare_rules(
                 scope,
                 ambition_platformer2d::actors::features::ecs::dormancy::DormancyRule {

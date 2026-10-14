@@ -137,7 +137,7 @@ pub use pet::{
     PET_SECONDS, PET_WALK_SPEED,
 };
 pub use talk_spacing::{space_the_talkers, TalkSpacing, TALK_GAP};
-pub use rest_row::{pin_rest_rows, RestRowPinned};
+pub use rest_row::{pin_rest_rows, REST_ROW_WRITER};
 pub use wear::{apply_wear_requests, WearRequested};
 // ⭐ THE MOUNT PAIR'S TESTS STAYED, because their fixtures are this crate's
 // construction road. They exercise `ambition_mount` from the composition.

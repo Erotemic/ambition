@@ -769,13 +769,13 @@ fn the_stage_declares_its_di_budget_for_its_own_rooms_only() {
     use bevy::prelude::*;
 
     assert!(
-        SMASH_DI_MAX_ANGLE > 0.0,
+        crate::smash_combat_rules().di_max_angle > 0.0,
         "⛔ a zero budget makes `di_adjust` a no-op, so declaring the rules at all would be \
          theatre — DI would be off and every test still green"
     );
     // The same trap, one field over.
     assert!(
-        SMASH_KNOCKBACK_GROWTH > 0.0,
+        crate::smash_combat_rules().knockback_growth > 0.0,
         "⛔ a platform fighter whose launch does not grow with percent is a \
          fighting game with no comeback and no kill: every basic swing here \
          is prefab-derived and authors `knockback_growth: 0.0`, so this declaration \
@@ -801,6 +801,53 @@ fn the_stage_declares_its_di_budget_for_its_own_rooms_only() {
              follows the player into a game that authored none"
         );
     }
+    // The heavy-hit line is the pack's too.
+    let strike_weight = app
+        .world()
+        .resource::<DeclaredRules<ambition_platformer2d::combat::strike_weight::StrikeWeightRules>>();
+    assert_eq!(
+        strike_weight.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(SMASH_MODE))),
+        crate::smash_room_rules().strike_weight,
+        "a Smash stage must land heavy where Smash's `room_rules.ron` says"
+    );
+    assert!(crate::smash_room_rules().strike_weight.is_some(), "Smash states a heavy-hit line");
+}
+
+/// Smash's rules are its `assets/data/room_rules.ron`, read when the pack
+/// compiles: the game plays what the file says, and an edit to the file is a
+/// different rule with no Rust build.
+#[test]
+fn smashs_rules_are_its_room_rules_file() {
+    use ambition_platformer2d::combat::room_rules::{lowered_room_rules, ROOM_RULES_SCHEMA};
+    use ambition_platformer2d::content::EmbeddedPack;
+
+    let authored = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/data/room_rules.ron"))
+        .expect("Smash's room rules file is readable");
+    let root = std::env::temp_dir().join(format!("smash_room_rules_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("data")).unwrap();
+    std::fs::write(
+        root.join("pack.ron"),
+        format!(
+            r#"(id: "smash_room_rules_probe", version: "0.1.0", namespace: "probe", requires: [],
+                sources: [(path: "data/room_rules.ron", schema: "{ROOM_RULES_SCHEMA}", version: 1)])"#
+        ),
+    )
+    .unwrap();
+    let rules_of = |text: &str| {
+        std::fs::write(root.join("data/room_rules.ron"), text).unwrap();
+        let pack = EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None);
+        let prepared = pack.compile().unwrap_or_else(|failure| panic!("{}", failure.render()));
+        *lowered_room_rules(&prepared).expect("the probe pack lowers room rules")
+    };
+
+    assert_eq!(rules_of(&authored), crate::smash_room_rules(), "the game plays the file");
+
+    let scale = "victim_percent_knockback_scale: Some(1.25),";
+    assert_eq!(authored.matches(scale).count(), 1, "the probe edits one line of the file");
+    let edited = rules_of(&authored.replace(scale, "victim_percent_knockback_scale: Some(1.5),"));
+    assert_eq!(edited.combat.and_then(|combat| combat.victim_percent_knockback_scale), Some(1.5));
+    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// Run the preparation source as the system it is, with one stage choice.

@@ -121,12 +121,37 @@ value for a designer and size of change:
    Witnesses: `an_edit_to_the_landing_lag_share_reaches_ambitions_rooms_without_a_build`,
    `a_rule_deleted_from_the_file_is_no_longer_declared` (both red with the
    publisher emptied), and the schema's refusals name the file and the field.
-   Open: Sanic, Mary-O and Smash still declare their room rules in Rust (one
-   line each; the same schema takes them). The versus stage's heavy line (3)
-   is Rust beside `versus_combat_rules`.
+   ✅ 2026-10-14, every other game: Sanic's and Mary-O's death replays and
+   the versus stage's combat rules and heavy line are each game's
+   `data/room_rules.ron`; each plugin declares its pack's rules for its own
+   scope. Deleted: the Rust declarations, the body of
+   `versus_combat_rules`, `VERSUS_DI_MAX_ANGLE` and `DEATH_DWELL` (Mary-O's
+   dwell is sized by her death music; the reason is beside the number in
+   her file, and `death::death_dwell()` reads it). The transcription was
+   equal (a test compared each lowered rule with the Rust first, and went
+   red on one edited value with no compile); each game's tests go red at
+   the pack read with the source line taken out of its `pack.ron`. No game
+   declares a room rule in Rust now.
 2. Smash knockback curve, match body and match economy
    (`game/ambition_demo_smash/src/lib.rs`): about 40 numbers, with hand
-   sweep tables in their comments. A `smash_rules` pack source.
+   sweep tables in their comments.
+   ✅ 2026-10-14, the combat rules and the heavy-hit line: the `room_rules`
+   schema has a `combat` block (every field of `CombatRules`, each required
+   field required, `deny_unknown_fields`, each number checked and named), and
+   Smash's pack states it in `assets/data/room_rules.ron`, with the sweep
+   table beside the percent curve. `SmashRulesPlugin` declares the pack's
+   rules for the `smash` mode; `smash_combat_rules()` reads the pack. Deleted:
+   `SMASH_DI_MAX_ANGLE`, `SMASH_KNOCKBACK_GROWTH`,
+   `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE`, `SMASH_HEAVY_HIT_PERCENT`, the
+   body of `smash_combat_rules`, and the three `SMASH_GROWTH_BASE_*` curve
+   constants, which nothing read (`growth_base: None`). The transcription was
+   bit-equal (a test compared the lowered rules with the Rust before the
+   Rust was deleted). Witness: `smashs_rules_are_its_room_rules_file` (an
+   edit to the file lowers the edit; red when the accessor drifts from the
+   file). An edit is played at the next start: measured 0.74 s from a saved
+   edit to a test reading it, no crate compiled. Open: the match body and
+   the match economy (`SMASH_FIGHTER_BODY`, stocks, the clock, the percent
+   reference, respawn timings), and a live reload for a demo pack.
 3. Mary-O rules and the spark projectile; Sanic's shoes, ring scatter and
    badnik bounce; the GNU-ton duel damage; boss bark cadence and wake radius;
    the primeval swallow's fetch tuning.
@@ -198,6 +223,14 @@ file and field named, and the Rust copy is deleted.
    is the system's only while it holds the row the system wrote
    (`a_pin_made_after_the_rest_row_holds_until_it_is_released`, both writer
    orders and the release; red with the old condition put back).
+   Follow-up review the same day: ownership was still read from the row
+   name, so a conductor that pins the same row (GNU-ton's choreography pins
+   `armed_rest`) lost its clock to the rest row. The pin now names its writer
+   (`PinnedRow::pin_as`, `written_by`), and the marker on the body is deleted
+   (`a_conductor_that_pins_the_same_row_keeps_its_own_clock`; red, on its
+   clock and its loop, with ownership by row name put back). The same review
+   found that a successful publish saved a fingerprint from before its
+   renders rewrote their records; fixed (`fingerprint_after_publish`).
 3. **Measure first:** the background warm-up of every rig table
    (`RiggedSpriteAsset::warm_baked_in_background`): peak and retained memory
    with and without it, cold and warm frame stalls, desktop and Android.

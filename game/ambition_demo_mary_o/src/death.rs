@@ -25,15 +25,15 @@
 
 use bevy::prelude::*;
 
-/// How long the level holds on her death before it starts again.
-///
-/// Sized by the music, not by taste. `mary_o_you_died` is four bars of 2/4 at 150bpm — eight
-/// beats, 3.2 seconds — and the last chord is the comic low thud the whole cue exists to land. If
-/// the score's tempo or bar count changes, this number changes with it.
-///
-/// This is the value Mary-O hands the engine as her interlude
-/// ([`ambition_platformer2d::combat::death_rules::DeathRules`]).
-pub const DEATH_DWELL: f32 = 3.2;
+/// How long the level holds on her death before it starts again (s): the
+/// interlude of her pack's death rule (`assets/data/room_rules.ron`, where
+/// the reason is: it is the length of her death music).
+pub fn death_dwell() -> f32 {
+    crate::pack::room_rules()
+        .death
+        .expect("Mary-O's `room_rules.ron` states her death replay")
+        .interlude
+}
 
 /// Her death has its own music.
 ///

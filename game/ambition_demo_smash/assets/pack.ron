@@ -9,9 +9,9 @@
 //
 //  the manifest is the pack's EXPLICIT source list, not a directory glob,
 // for the same reason it is next door: a glob makes the pack's contents depend
-// on filesystem enumeration order. Adding a fighter is one line here plus one
-// line in `embedded_sources` (src/smash_pack.rs), and missing either is a loud
-// refusal rather than a silently absent kit.
+// on filesystem enumeration order. Adding a fighter is one line here: the
+// game reads this list (`content_pack! { root: "assets" }`), and a build that
+// embeds the pack embeds it from this list (`build.rs`).
 //
 // Validate without rebuilding Rust:
 //
@@ -59,5 +59,7 @@
         (path: "data/movesets/smash_duelist_b.ron", schema: "moveset", version: 1),
         // What the session may play.
         (path: "audio/music_registry.ron", schema: "music_registry", version: 1),
+        // The rules of Smash's rooms: the combat rules and the heavy-hit line.
+        (path: "data/room_rules.ron", schema: "room_rules", version: 1),
     ],
 )

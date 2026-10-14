@@ -978,7 +978,7 @@ mod launch_direction_tests {
     /// is the parity arm, so a game that authors no budget is untouched.
     ///
     /// live-verified too: in the composed smash host a CPU victim steered a `3269 px/s` up-tilt
-    /// launch by `0.308 rad` against the declared `SMASH_DI_MAX_ANGLE` of `0.31` — essentially
+    /// launch by `0.308 rad` against Smash's declared `di_max_angle` of `0.31` — essentially
     /// the whole budget — with the speed preserved to four figures.
     #[test]
     fn opposite_held_directions_steer_one_launch_two_ways() {

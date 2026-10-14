@@ -434,6 +434,11 @@ pub struct PinnedRow {
     pub elapsed: f32,
     /// Loop the row (a daze), or hold its last frame (a buck, a fall).
     pub looping: bool,
+    /// The system that wrote this pin, when it names itself ([`Self::pin_as`]).
+    /// `None` for a pin written with [`Self::pin`]. A fallback writer asks
+    /// this, and not the row, whether the pin is still its own: a conductor
+    /// can pin the same row with its own clock.
+    pub writer: Option<&'static str>,
 }
 
 impl PinnedRow {
@@ -442,10 +447,23 @@ impl PinnedRow {
         self.rows.extend(rows.iter().map(|r| (*r).to_string()));
         self.elapsed = elapsed;
         self.looping = looping;
+        self.writer = None;
+    }
+
+    /// [`Self::pin`], by `writer`, which [`Self::written_by`] then answers.
+    pub fn pin_as(&mut self, writer: &'static str, rows: &[&str], elapsed: f32, looping: bool) {
+        self.pin(rows, elapsed, looping);
+        self.writer = Some(writer);
+    }
+
+    /// A pin is held, and `writer` wrote it.
+    pub fn written_by(&self, writer: &str) -> bool {
+        self.is_pinned() && self.writer == Some(writer)
     }
 
     pub fn clear(&mut self) {
         self.rows.clear();
+        self.writer = None;
     }
 
     pub fn is_pinned(&self) -> bool {

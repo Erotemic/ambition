@@ -636,7 +636,7 @@
         // drawn on the companion dog's rig, with its brain, its body and its
         // pet, and it roams a test room off the basement. `standing_height`
         // is the height of the whole drawing, ears included, so it is not how
-        // tall the dog is at the shoulder: Bezoar is taller than Honey and lanky (40 lb): long legs and a slim body.
+        // tall the dog is at the shoulder: Bezoar is taller than Honey and shorter than Roadie (40 lb): lanky, with a slim body.
         "npc_dog_bezoar": (
             display_name: "Bezoar",
             spritesheet: "sprites/dog_bezoar_spritesheet.png",

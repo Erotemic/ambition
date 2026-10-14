@@ -402,6 +402,9 @@ companion dog's clips play on each (the renderer's `_house_dog.py`,
 - **Roadie** (50 lb): "bigger, but still only a medium sized dog".
 - **Bezoar**, "Bea" (40 lb): "taller but lanky". Her coat is "very close to
   Honey's color, but just slightly tanner". Her two ears have "slight flops".
+  "Her ears only have the dark tips, and her muzzle isn't that dark. It is
+  towards the end, but it sort of blends in." "She should be shorter than
+  roadie but taller than honey."
 - "The eyebrows for honey and beazor are important": Honey has a pale pip
   over the eye, Bezoar a dark one.
 - The tongue "shouldn't be hanging off the top of their mouth": it lies on

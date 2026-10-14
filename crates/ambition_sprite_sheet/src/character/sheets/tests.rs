@@ -18,6 +18,7 @@ fn social_animator() -> CharacterAnimator {
             (animation: "bark", row_index: 4, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
             (animation: "death", row_index: 5, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
             (animation: "walk", row_index: 6, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
+            (animation: "petted", row_index: 7, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
         ],
     )"#).expect("the social sheet parses");
     let asset = CharacterSpriteAsset {
@@ -54,6 +55,34 @@ fn a_sheet_with_sit_rows_enters_and_leaves_a_conversation_pose() {
     request(&mut animator, false, false);
     animator.request_actor_pose(CharacterAnim::Death, [], false, true, true);
     assert_eq!(animator.current, CharacterAnim::Death);
+}
+
+/// A body that sits and is asked for a clip plays the clip at once. It does
+/// not stand up first: the clip is slaved to what the body does (a dog lies
+/// down to be petted as the hand comes), so a stand-up row before it takes
+/// the start of the clip away. In a conversation and after one.
+#[test]
+fn a_body_that_sits_plays_a_clip_it_is_asked_for_at_once() {
+    for conversation_held in [true, false] {
+        let mut animator = social_animator();
+        let petted = animator.spec.clip_slot(["petted"]).expect("the sheet has a `petted` row");
+        // It sits, in a conversation.
+        animator.request_actor_pose(CharacterAnim::Idle, [], false, true, false);
+        animator.tick(0.21);
+        animator.request_actor_pose(CharacterAnim::Idle, [], false, true, false);
+        assert_eq!(animator.current, CharacterAnim::SitIdle, "premise: the body sits");
+        // The pet starts.
+        animator.request_actor_pose(CharacterAnim::Idle, ["petted"], true, conversation_held, false);
+        assert_eq!(
+            animator.showing_clip(),
+            Some(petted),
+            "a sitting body asked for its `petted` row shows {:?} first (conversation held: {conversation_held})",
+            animator.current
+        );
+        // When the clip ends in a conversation, the body sits again.
+        animator.request_actor_pose(CharacterAnim::Idle, [], false, true, false);
+        assert_eq!(animator.current, CharacterAnim::SitDown);
+    }
 }
 
 /// A sheet that can sit sits when its body has stood idle for a moment, and

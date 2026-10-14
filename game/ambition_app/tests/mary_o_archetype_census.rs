@@ -82,3 +82,92 @@ fn mary_o_archetype_census() {
         println!("{line}");
     }
 }
+
+/// The SHAPE of the archetypes after a minute of Mary O: how many hold no
+/// entity, one, a few, many; how many tables back them; and which components
+/// are in the most archetypes (the ones that split the others). A
+/// measurement, not a test. For the counts in any game, in play, use the
+/// `[census] ecs` row (`AMBITION_PROFILE_CENSUS=1`, `docs/recipes/profiling.md`).
+///
+/// First result (2026-10-14, this host): 852 archetypes, of which 602 are
+/// resources (one per resource type since Bevy 0.19), 210 empty, 620 hold one
+/// entity; the UI nodes are the largest scene family (129 archetypes, 80
+/// entities).
+///
+///     cargo test -j 6 -p ambition_app --test app_it -- mary_o_archetype_shape --ignored --nocapture
+#[test]
+#[ignore = "a measurement; run it by name with --ignored --nocapture"]
+fn mary_o_archetype_shape() {
+    use std::collections::BTreeMap;
+    let mut app = crate::mary_o_hud_surround::mary_o_hud_app(bevy::math::Vec2::new(1600.0, 900.0));
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_secs_f64(1.0 / 60.0)));
+    ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
+    crate::mary_o_hud_surround::enter_mary_o(&mut app);
+    for frame in 0..3600 {
+        let mut press = ControlFrame::default();
+        press.axis_x = 1.0;
+        press.jump_pressed = frame % 90 == 0;
+        press.jump_held = frame % 90 < 30;
+        app.world_mut().resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>().0 = press;
+        app.update();
+    }
+    let world = app.world();
+    let archetypes: Vec<_> = world.archetypes().iter().collect();
+    let mut buckets: BTreeMap<&str, usize> = BTreeMap::new();
+    for a in &archetypes {
+        let key = match a.len() {
+            0 => "0 entities",
+            1 => "1 entity",
+            2..=9 => "2-9 entities",
+            10..=99 => "10-99 entities",
+            _ => "100+ entities",
+        };
+        *buckets.entry(key).or_default() += 1;
+    }
+    println!("archetypes: {}, tables: {}, entities: {}", archetypes.len(), world.storages().tables.len(), world.entities().len());
+    for (k, v) in &buckets {
+        println!("  {k:>15}: {v}");
+    }
+    // Components by the number of archetypes they are in.
+    let mut per_component: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+    for a in &archetypes {
+        for &id in a.components().iter() {
+            if let Some(info) = world.components().get_info(id) {
+                let name = info.name().to_string();
+                let short = name.rsplit("::").next().unwrap_or(&name).to_string();
+                let e = per_component.entry(short).or_default();
+                e.0 += 1;
+                e.1 += a.len() as usize;
+            }
+        }
+    }
+    let mut ranked: Vec<_> = per_component.into_iter().collect();
+    ranked.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
+    println!("components in the most archetypes (archetypes, entities):");
+    for (name, (n, e)) in ranked.iter().take(25) {
+        println!("  {n:>4} {e:>6}  {name}");
+    }
+    // Archetypes by their most telling component: the rarest one in them.
+    let rarity: BTreeMap<&str, usize> = ranked.iter().map(|(n, (c, _))| (n.as_str(), *c)).collect();
+    let mut families: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+    for a in &archetypes {
+        let rarest = a
+            .components()
+            .iter()
+            .filter_map(|&id| world.components().get_info(id))
+            .map(|info| {
+                let name = info.name().to_string();
+                name.rsplit("::").next().unwrap_or(&name).to_string()
+            })
+            .min_by_key(|n| rarity.get(n.as_str()).copied().unwrap_or(0));
+        let e = families.entry(rarest.unwrap_or_else(|| "(no components)".into())).or_default();
+        e.0 += 1;
+        e.1 += a.len() as usize;
+    }
+    let mut fam: Vec<_> = families.into_iter().collect();
+    fam.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
+    println!("archetype families by their rarest component (archetypes, entities), top 25:");
+    for (name, (n, e)) in fam.iter().take(25) {
+        println!("  {n:>4} {e:>6}  {name}");
+    }
+}

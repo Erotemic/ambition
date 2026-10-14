@@ -808,8 +808,11 @@ variants. Also found in that regen:
     portrait-less props and effects re-rendered as well. The freshness test
     required a portrait row, which a prop never has, so every prop
     re-rendered on every publish; that condition is removed, and the same
-    edit then published 13 and skipped 184 (the 11 crew among the 13; the
-    other two are not identified). The tack-on batch still took 230 s
+    edit then published 13 and skipped 184: the 11 crew, and
+    `interdimensional_gate` (its `_portal_` and `_ring_` sheets) and
+    `shrine`, which re-render on every publish for a reason not yet
+    measured (output digests that a later phase changes is the first
+    candidate). The tack-on batch still took 230 s
     (231 s before): the crew's rigged sheets are its cost, so the fix
     saves renders and little time. Of a full
     publish, the cached batches are 1904 s (tack-ons 1646, late targets

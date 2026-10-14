@@ -93,6 +93,11 @@ struct SceneCaptureConfig {
     /// on a ladder is photographed with no body that climbs onto it. The mode
     /// stays only while the body touches a climbable region.
     player_climbs: bool,
+    /// Controls the primary player holds from a sim tick on
+    /// (`--player-holds NAMES[@TICK]`). No capture key reaches the
+    /// simulation, so this is how a pose that needs a held control (a look
+    /// up, a crawl, a guard, a swing in a slow fall) is photographed.
+    player_holds: Vec<(HeldControls, u64)>,
     /// Portal shots to fire, each on its sim tick
     /// (`--portal-shot TICK:X,Y:DX,DY[:b]`), so a portal that is placed
     /// and a portal that is replaced can be filmed.
@@ -294,6 +299,13 @@ OPTIONS:
     --player-climbs     a --player-at placement also puts the body in the
                         climbing mode, to photograph it on a ladder; give a
                         point in a climbable region
+    --player-holds NAMES[@TICK]
+                        the player holds the controls NAMES from sim tick TICK
+                        [default: 60]: up, down, left, right, walk, jump,
+                        attack, special, shield, joined with `+`, or `none`.
+                        A button the hold before did not have down is pressed
+                        on TICK and held after it. Repeat for a sequence; the
+                        last hold that started applies
     --portal-shot TICK:X,Y:DX,DY[:b]
                         fire a portal shot on sim tick TICK from world X,Y
                         along DX,DY: end A of the capture's own pair, or end
@@ -590,6 +602,99 @@ fn ask_bodies_to_wear(
     }
 }
 
+/// One `--player-holds`: the controls of the primary player from a sim tick.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct HeldControls {
+    axis: Vec2,
+    jump: bool,
+    attack: bool,
+    special: bool,
+    shield: bool,
+}
+
+impl HeldControls {
+    /// `NAMES`: names joined with `+`. `none` holds nothing.
+    fn parse(names: &str) -> Result<Self, String> {
+        let mut held = Self::default();
+        let mut walk = false;
+        for name in names.split('+').map(str::trim) {
+            match name.to_ascii_lowercase().as_str() {
+                "none" => {}
+                "up" => held.axis.y = -1.0,
+                "down" => held.axis.y = 1.0,
+                "left" => held.axis.x = -1.0,
+                "right" => held.axis.x = 1.0,
+                "walk" => walk = true,
+                "jump" => held.jump = true,
+                "attack" => held.attack = true,
+                "special" => held.special = true,
+                "shield" => held.shield = true,
+                other => {
+                    return Err(format!(
+                        "--player-holds does not know '{other}'. Known: up, down, left, right, walk, \
+                         jump, attack, special, shield, none"
+                    ))
+                }
+            }
+        }
+        if walk {
+            // The walk key of the keyboard: the stick at half.
+            held.axis *= 0.5;
+        }
+        Ok(held)
+    }
+
+    /// The frame of one tick. `before` is the hold this one took over from, on
+    /// the tick it starts, and `None` on each tick after: a button that the
+    /// hold before did not have down is PRESSED on that tick, and held after.
+    fn frame(self, before: Option<Self>) -> ae::ControlFrame {
+        let pressed = |now: bool, was: fn(Self) -> bool| now && before.is_some_and(|before| !was(before));
+        ae::ControlFrame {
+            axis_x: self.axis.x,
+            axis_y: self.axis.y,
+            jump_held: self.jump,
+            jump_pressed: pressed(self.jump, |held| held.jump),
+            attack_held: self.attack,
+            attack_pressed: pressed(self.attack, |held| held.attack),
+            special_held: self.special,
+            special_pressed: pressed(self.special, |held| held.special),
+            shield_held: self.shield,
+            ..Default::default()
+        }
+    }
+}
+
+/// `--player-holds`: give the primary seat the controls of the last hold that
+/// has started. It writes the seat's row of `SlotControls`, after the tick
+/// took the input of the devices and before a body reads it: a sample of a
+/// device (which holds nothing here) cannot replace it.
+fn hold_player_controls(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    mut slots: ResMut<ambition_platformer2d::sim::SlotControls>,
+) {
+    let now = tick.get();
+    let Some((held, from)) =
+        config.player_holds.iter().copied().filter(|(_, from)| *from <= now).max_by_key(|(_, from)| *from)
+    else {
+        return;
+    };
+    // The hold that was in force on the tick before this one started.
+    let before = (now == from).then(|| {
+        config
+            .player_holds
+            .iter()
+            .copied()
+            .filter(|(_, earlier)| *earlier < from)
+            .max_by_key(|(_, earlier)| *earlier)
+            .map_or_else(HeldControls::default, |(held, _)| held)
+    });
+    slots.set(ambition_platformer2d::sim::PlayerSlot::PRIMARY, held.frame(before));
+    if now == from {
+        eprintln!("capture_scene: the player holds {held:?} from tick {from}");
+    }
+}
+
 /// The ticks after a `--player-climbs` placement for which the body is put
 /// back in its place, in the climbing mode.
 const PLAYER_CLIMBS_HOLD_TICKS: u64 = 3;
@@ -863,6 +968,16 @@ fn install_room_capture(app: &mut App) {
         sim,
         (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, ask_bodies_to_wear, fire_portal_shots, fire_shots),
     );
+    if !app.world().resource::<SceneCaptureConfig>().player_holds.is_empty() {
+        app.add_systems(
+            sim,
+            hold_player_controls
+                .in_set(ambition_platformer2d::sim::Platformer2dSimulationPhase::PlayerInput)
+                .after(ambition_platformer2d::runtime::host_input::publish_latched_slot_controls)
+                .after(ambition_platformer2d::runtime::host_input::publish_seat_controls_when_nobody_else_does)
+                .before(ambition_platformer2d::runtime::host_input::mirror_primary_slot_to_control_frame),
+        );
+    }
     if app.world().resource::<SceneCaptureConfig>().nav_overlay {
         app.insert_resource(ambition_app::dev::navigation_overlay::NavigationOverlay { shown: true });
     }
@@ -1072,6 +1187,7 @@ impl SceneCaptureConfig {
         let mut guards: Vec<GuardAt> = Vec::new();
         let mut player_at: Vec<(Vec2, u64)> = Vec::new();
         let mut player_climbs = false;
+        let mut player_holds: Vec<(HeldControls, u64)> = Vec::new();
         let mut body_warp = None;
         let mut i = 0usize;
         while i < args.len() {
@@ -1244,6 +1360,21 @@ impl SceneCaptureConfig {
                 "--player-climbs" => {
                     player_climbs = true;
                     1
+                }
+                "--player-holds" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--player-holds requires NAMES[@TICK]".to_string());
+                    };
+                    let (names, tick) = match value.split_once('@') {
+                        Some((names, tick)) => (
+                            names,
+                            tick.parse::<u64>()
+                                .map_err(|_| format!("--player-holds wants NAMES[@TICK], got '{value}'"))?,
+                        ),
+                        None => (value.as_str(), 60),
+                    };
+                    player_holds.push((HeldControls::parse(names)?, tick));
+                    2
                 }
                 "--portal-shot" => {
                     let Some(value) = args.get(i + 1) else {
@@ -1445,6 +1576,7 @@ impl SceneCaptureConfig {
                 wears: Vec::new(),
                 player_at: Vec::new(),
                 player_climbs: false,
+                player_holds: Vec::new(),
                 portal_shots: Vec::new(),
                 shots: Vec::new(),
                 guards: Vec::new(),
@@ -1513,6 +1645,7 @@ impl SceneCaptureConfig {
             wears,
             player_at,
             player_climbs,
+            player_holds,
             portal_shots,
             shots,
             guards,

@@ -268,6 +268,9 @@ pub struct FighterClipFacts {
     pub petting: bool,
     /// This body is being petted (`BodyAnimFacts::petted`).
     pub petted: bool,
+    /// This body stands at rest and its stick is held up. A fact of the
+    /// picture only: the pose view reads the control frame for it.
+    pub looking_up: bool,
 }
 
 impl FighterClipFacts {
@@ -378,6 +381,11 @@ pub fn body_state_clip(
     // short hop is decided in — and it drew the standing pose.
     if facts.jump_squatting {
         return Some(&["jump_squat", "crouch", "idle"]);
+    }
+    // Under each state above: a body that looks up does nothing else. A sheet
+    // with no such row draws its idle, as before.
+    if fighter.looking_up {
+        return Some(&["idle_look_up", "idle"]);
     }
     None
 }

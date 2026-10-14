@@ -1606,6 +1606,12 @@
             manifest: "sprites/burning_flying_shark_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
+            // The height of its body (its box, not its fire), in world px. It
+            // is the size the shark had as a mount (a 108 px spawn box made
+            // 55.99); stated here, the shark has that size in each place it
+            // stands, the Hall too, where a stand's small box made it tiny
+            // (Jon, 2026-10-13: "should also have a bigger size in the hall").
+            standing_height: Some(56.0),
             composition: None,
             default_action_set: "shark_bite",
             // THE FIRST MOUNT TO BECOME A CHARACTER. A flying mount states its own

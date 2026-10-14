@@ -194,7 +194,7 @@ fn publish_sanic_ring_readout(
 
     // The name of the act, while the act is young.
     let title = running
-        .filter(|elapsed| *elapsed < crate::ACT_TITLE_SECONDS)
+        .filter(|elapsed| *elapsed < crate::rules::sanic_rules().act.title_seconds)
         .and_then(|_| runner.single().ok())
         .and_then(|runner| rooms.spec_of(runner))
         .and_then(|spec| crate::act_title(&spec.id));

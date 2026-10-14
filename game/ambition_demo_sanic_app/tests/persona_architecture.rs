@@ -413,7 +413,7 @@ fn every_authored_badnik_sleeps_under_sanics_rule() {
         .expect("Sanic states a dormancy rule for his rooms");
     assert_eq!(
         rule.hostile_wake_radius,
-        ambition_demo_sanic::badnik::BADNIK_WAKE_RADIUS
+        ambition_demo_sanic::rules::sanic_rules().badnik.wake_radius
     );
 
     let mut q = app.world_mut().query::<(

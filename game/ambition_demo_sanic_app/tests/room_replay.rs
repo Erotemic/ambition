@@ -4,7 +4,7 @@
 //! spawn, the rings were not restored, the badniks did not respawn.
 //!
 //! The existing completion proof (`act_completion.rs`) could not catch it: it
-//! stops 30 frames into a 4-second `ACT_CLEAR_DWELL`, so `cycle_act_after_clear`
+//! stops 30 frames into a 4-second `ambition_demo_sanic::rules::sanic_rules().act.clear_dwell`, so `cycle_act_after_clear`
 //! never even reaches the line that writes the message. Extending it in place
 //! was tried and abandoned — see `the_act_clear_restarts_the_act_after_the_full_dwell`
 //! below for why the post-goal death makes that run unable to isolate a replay.
@@ -137,7 +137,7 @@ fn a_replay_request_returns_the_body_to_spawn() {
     );
 }
 
-/// The act clear restarts the act — through the FULL `ACT_CLEAR_DWELL`.
+/// The act clear restarts the act — through the FULL `ambition_demo_sanic::rules::sanic_rules().act.clear_dwell`.
 ///
 /// `cycle_act_after_clear` counts the results card down and then asks for a replay. The
 /// existing completion run (`act_completion.rs`) stops 30 frames into that 4-second dwell, so
@@ -177,12 +177,12 @@ fn the_act_clear_restarts_the_act_after_the_full_dwell() {
         act.phase = ambition_demo_sanic::SanicActPhase::Cleared {
             time: 12.0,
             rings: 26,
-            dwell: ambition_demo_sanic::ACT_CLEAR_DWELL,
+            dwell: ambition_demo_sanic::rules::sanic_rules().act.clear_dwell,
         };
     }
 
     // Half the dwell: the card is still up and nothing has restarted yet.
-    let dwell_frames = (ambition_demo_sanic::ACT_CLEAR_DWELL / (1.0 / 60.0)).ceil() as usize;
+    let dwell_frames = (ambition_demo_sanic::rules::sanic_rules().act.clear_dwell / (1.0 / 60.0)).ceil() as usize;
     for _ in 0..dwell_frames / 2 {
         app.update();
     }

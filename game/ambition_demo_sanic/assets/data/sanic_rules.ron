@@ -1,0 +1,77 @@
+// The Sanic demo's tuning (schema `sanic_rules`, owned by the demo: these are
+// this game's rules, and no engine capability reads them). An edit here is
+// played at the next start, with no Rust build.
+(
+    ring_monitor: (
+        // Rings a ring monitor holds.
+        rings: 10,
+    ),
+    // How long the speed shoes last (sim seconds) and what they multiply.
+    speed_shoes: (
+        seconds: 8.0,
+        top_speed_factor: 1.4,
+        accel_factor: 1.5,
+    ),
+    // Ring loss: what makes a ring worth anything.
+    ring_loss: (
+        // How long (s) a hit keeps Sanic from the next one. This raises the
+        // running window and never replaces it: a hazard respawn arms a
+        // longer one that must not be cut short.
+        invulnerable_seconds: 2.0,
+        // How many of the rings he carried scatter; the rest are gone. A cap
+        // keeps a big purse from becoming a shower, and some loss makes
+        // recovery matter.
+        max_scattered: 12,
+        // Outward launch speed (px/s): an explosion to chase, not a spill at
+        // his feet.
+        burst_speed: 900.0,
+        // Rings in one shell of the burst. Past this the next shell launches
+        // slower, so a big purse bursts as an outer ring and an inner one,
+        // not one circle that is too dense.
+        rings_per_shell: 6,
+        // The speed of each shell inside the first: the classic halving,
+        // softened so that the inner shell still clears the body.
+        inner_shell_scale: 0.55,
+        // Downward pull (px/s^2) that arcs a ring back down. With the launch
+        // speed, this sizes the scatter: an arc about three tiles high and a
+        // dozen wide, on the same screen.
+        gravity: 1400.0,
+        // The fraction of speed a loose ring sheds per second in the air.
+        // Without drag a horizontal ring does not slow until it hits the
+        // floor, and the outer rings leave the level.
+        air_drag: 0.9,
+        // The fraction of speed a ring keeps when it bounces off geometry.
+        restitution: 0.55,
+        // How long (s) a scattered ring cannot be collected. It still bursts
+        // and bounces; the hit costs something even while he stands in the
+        // spray.
+        lock_seconds: 0.6,
+        // How long (s) a scattered ring exists: short enough that a big spray
+        // is never fully recoverable.
+        life_seconds: 4.2,
+    ),
+    act: (
+        // How long the results card holds before the act restarts.
+        clear_dwell: 4.0,
+        // A time bonus makes going fast pay; without it a safer, slower route
+        // always wins. Par is 30 s against a clean run of about 6 s (see the
+        // act-completion proof), so the bonus spreads across real finishing
+        // times.
+        par_seconds: 30.0,
+        time_bonus_per_second: 100,
+        // Each ring he finishes holding. Sized against the time bonus: a clean
+        // run banks about 2400 from time, and a full purse is worth about the
+        // same, so the two pull against each other at a comparable size.
+        ring_bonus: 100,
+        // How long the name of an act is on the screen when the act begins.
+        title_seconds: 2.5,
+    ),
+    badnik: (
+        // How near Sanic must be for a badnik to keep thinking: 2.4 s of lead
+        // at his fastest tuning (`top_speed: 2000.0`).
+        wake_radius: 4800.0,
+        // Upward speed off a stomped badnik: a lively bounce, less than a full
+        // jump.
+        bounce_speed: 460.0,
+    ),
+)

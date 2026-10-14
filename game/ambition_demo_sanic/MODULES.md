@@ -11,10 +11,11 @@
 | [`monitors`](src/monitors.rs) | Monitor boxes: Sanic's power-up crates, pure content on two engine seams. |
 | [`pack`](src/pack.rs) | The Sanic demo's content pack. |
 | [`provider`](src/provider.rs) | The Sanic experience provider. |
+| [`rules`](src/rules.rs) | The `sanic_rules` schema: the demo's own tuning, as data in its pack (`assets/data/sanic_rules.ron`). |
 | [`scenery`](src/scenery.rs) | The scenery of a Sanic act: the goal post. |
 | [`trail`](src/trail.rs) | Dust where Sanic's speed shows: a puff at his feet while he runs, a spray of it when he skids. |
 
-_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

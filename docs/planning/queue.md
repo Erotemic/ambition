@@ -196,9 +196,22 @@ value for a designer and size of change:
    The content CLI does not link a game's schema, so such a pack is checked
    by the game's own test, which reads the tree off disk (the `pack.ron`
    comment names it).
-3. Mary-O rules and the spark projectile; Sanic's shoes, ring scatter and
-   badnik bounce; the GNU-ton duel damage; boss bark cadence and wake radius;
-   the primeval swallow's fetch tuning.
+3. Mary-O rules and the spark projectile; the GNU-ton duel damage; boss
+   bark cadence and wake radius; the primeval swallow's fetch tuning.
+   ✅ 2026-10-14, Sanic: the ring monitor, the speed shoes, the ring loss
+   (the invulnerable window and the scatter's nine numbers), the act's
+   score and cards, and the badnik's wake radius and bounce are the pack's
+   `data/sanic_rules.ron`, schema `sanic_rules`, owned by the demo
+   (`src/rules.rs`, on `content::rules_schema`). Deleted: 21 constants
+   (`RING_MONITOR_RINGS`, `SPEED_SHOES_*`, `RING_LOSS_INVULN_S`,
+   `SCATTER*`, `ACT_CLEAR_DWELL`, `ACT_PAR_SECONDS`,
+   `TIME_BONUS_PER_SECOND`, `RING_BONUS`, `ACT_TITLE_SECONDS`,
+   `BADNIK_WAKE_RADIUS`, `BOUNCE_SPEED`). Equal before the deletion (a
+   temporary test, red on one edited value with no compile: 1.15 s); a
+   misspelt field is refused with its line and the expected names. Witness:
+   `sanics_tuning_is_its_pack_file` (red at the score with `act_score`
+   reading another par). The level geometry stays Rust: it is the course,
+   not tuning.
 4. Tables: dialogue voiceprints (21 rows that repeat catalog ids), held and
    wielded item art, the projectile visual catalog (20 looks), the per-sheet
    VFX table in `ambition_sprite_sheet` (an engine crate: one character's

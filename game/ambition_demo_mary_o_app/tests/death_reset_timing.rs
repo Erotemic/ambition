@@ -347,7 +347,7 @@ fn the_pinned_death_pose_reflags_the_world_reset_every_frame_of_the_beat() {
     // dwells the snake killed her at frame 559, which read as a second beat
     // from one fall. Measured 2026-10-08, when the snake became two times as
     // wide and so reached her sooner.
-    let frames = ((ambition_demo_mary_o::death::DEATH_DWELL + 2.0) * 60.0) as usize;
+    let frames = ((ambition_demo_mary_o::death::death_dwell() + 2.0) * 60.0) as usize;
     for _ in 0..frames {
         app.update();
         let frame = app.world().resource::<FrameCounter>().0;

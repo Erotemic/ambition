@@ -19,5 +19,7 @@
         (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
         (path: "data/movesets/arena_duelist_long.ron", schema: "moveset", version: 1),
         (path: "data/movesets/arena_duelist_close.ron", schema: "moveset", version: 1),
+        // The rules of the stage's room: the combat rules and the heavy line.
+        (path: "data/room_rules.ron", schema: "room_rules", version: 1),
     ],
 )

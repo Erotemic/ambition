@@ -121,9 +121,17 @@ value for a designer and size of change:
    Witnesses: `an_edit_to_the_landing_lag_share_reaches_ambitions_rooms_without_a_build`,
    `a_rule_deleted_from_the_file_is_no_longer_declared` (both red with the
    publisher emptied), and the schema's refusals name the file and the field.
-   Open: Sanic and Mary-O still declare their room rules in Rust (one line
-   each; the same schema takes them). The versus stage's heavy line (3) is
-   Rust beside `versus_combat_rules`.
+   ✅ 2026-10-14, every other game: Sanic's and Mary-O's death replays and
+   the versus stage's combat rules and heavy line are each game's
+   `data/room_rules.ron`; each plugin declares its pack's rules for its own
+   scope. Deleted: the Rust declarations, the body of
+   `versus_combat_rules`, `VERSUS_DI_MAX_ANGLE` and `DEATH_DWELL` (Mary-O's
+   dwell is sized by her death music; the reason is beside the number in
+   her file, and `death::death_dwell()` reads it). The transcription was
+   equal (a test compared each lowered rule with the Rust first, and went
+   red on one edited value with no compile); each game's tests go red at
+   the pack read with the source line taken out of its `pack.ron`. No game
+   declares a room rule in Rust now.
 2. Smash knockback curve, match body and match economy
    (`game/ambition_demo_smash/src/lib.rs`): about 40 numbers, with hand
    sweep tables in their comments.

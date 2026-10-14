@@ -1,0 +1,66 @@
+// The rules of the versus stage's room (schema `room_rules`): the rooms
+// tagged with the `ambition_versus` mode. `declare_versus_rules` declares
+// them; a room outside the stage reads none of them. An edit here is played
+// at the next start, with no Rust build.
+//
+// The stage states what it plays under and writes nothing global
+// (`project_combat_rules` folds the active room's rules over the world's
+// baseline each tick).
+(
+    // The stage keeps each fighter's home damage (health), so a hit of 3 lands
+    // heavy, as in Ambition's rooms.
+    heavy_hit_damage: Some(3),
+    combat: Some((
+        // DI on: a launched fighter can steer its own trajectory by up to
+        // 0.31 rad (about 18 degrees), which makes a knock-off a read and not
+        // a coin flip. Ambition's PvE keeps 0.0.
+        di_max_angle: 0.31,
+        // Flat knockback: rounds end on health, not on a blast zone, so a
+        // launch that grows without bound is a different game's mechanic.
+        // Smash states its own.
+        knockback_growth: 0.0,
+        // The pogo reading, deliberately: a spike has nothing to kill you off
+        // here, and the rebound is the more useful of the two.
+        downward_hit: Pogo,
+        // No meteor rule, for the reason the knockback stays flat: a spike
+        // has nowhere to send you, and a window you cannot recover in would
+        // be a stun with no payoff.
+        meteor_lock_time: 0.0,
+        // No rage: health rounds have no percent mechanic to mirror.
+        rage_per_damage: 0.0,
+        rage_max_scale: 1.0,
+        // No staling: rounds this short do not repeat a move enough for a
+        // queue to mean anything. So there is no weakening for
+        // `stale_knockback_influence` to soften, and it is absent.
+        stale_step: 0.0,
+        stale_floor: 1.0,
+        // No percent curve to steepen (`victim_percent_knockback_scale` is
+        // absent), and no kill curve: the base-referenced steepening is a
+        // Smash answer to a measured Smash problem, and versus authors its
+        // own fighters.
+        growth_base: None,
+        // No crouch cancel: this stage has no crouch verb to reward.
+        crouch_cancel_scale: 1.0,
+        // The engine's own post-hit window stands: these moves author no
+        // separated multi-hit window for a shorter one to make reachable.
+        hit_repeat_window_scale: 1.0,
+        // A round ends on health, and its grabs are the engine's flat hold
+        // (`FLAT_GRAB_HOLD_SECONDS`, and a twentieth of it per mash press),
+        // not a percent mechanic.
+        grab_hold_base_seconds: 4.0,
+        grab_hold_per_damage: 0.0,
+        grab_hold_max_seconds: 4.0,
+        grab_mash_seconds: 0.2,
+        // Teams decide who may hit whom. Global friendly fire would also make
+        // teammates hittable.
+        friendly_fire: false,
+        // No clanking: these duelists author four moves between them, and no
+        // read that a trade opens exists on this stage.
+        clank_damage_window: 0.0,
+        clank_rebound_speed: 0.0,
+        // Absent, each with the engine's answer: barks (every hit speaks),
+        // sudden death, the ledge trump pop, lockout and occupancy (edges
+        // trump), the double-jump cancel, the edge cancel and the special
+        // turn.
+    )),
+)

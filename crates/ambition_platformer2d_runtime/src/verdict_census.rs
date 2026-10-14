@@ -1,39 +1,9 @@
-//! `[census] verdicts` — WHAT AUTHORED CONTENT ASKED, AND WHAT IS STUCK.
+//! Diagnostic summary of the existing authored-verdict ring.
 //!
-//! ⛔⛤ **THE RING COULD ONLY BE READ OUT OF A TEST.** `AuthoredVerdictLog`
-//! answers *"why is this door shut"* — it holds the structured `no`, who asked
-//! it and which frame it was produced on — and every consumer of it was an
-//! `assert!`. A running game had the evidence in memory and no way to show it,
-//! so diagnosing a stuck gate still meant attaching a debugger or writing a
-//! test that reproduces the thing you are trying to understand.
-//!
-//! ⚠ **IT ADDS NO RING.** The last review's steering was *"move to
-//! running-process access … rather than adding more independent diagnostic
-//! rings"*. This is a derived, read-only projection of the one that exists,
-//! like `[census] rooms` is of `RoomSet`.
-//!
-//! ⛔ **IT PRINTS WHO IS BLOCKED, NOT EVERY ENTRY.** A 256-entry ring rendered
-//! every sample is a firehose nobody reads, and the question a periodic line
-//! is actually answering is *"what is refusing right now, and who is asking"*.
-//! So the row carries the counts, the sources that are refusing, and the most
-//! recent negative in full. A reader who needs the rest has the ring.
-//!
-//! ⛔⛤ **`blocked` MEANT "HAS EVER BEEN REFUSED" AND WAS LABELLED "RIGHT NOW"
-//! — REVIEW 2026-09-21.** It inserted a source on every negative entry and
-//! nothing ever removed one, so an ordinary history — `flag_set("key") -> no`,
-//! the player finds the key, `flag_set("key") -> yes` — went on printing
-//! `blocked=1[lock_wall:gate]` until the `no` aged out of the ring. After a
-//! room change it was worse: a wall that no longer exists stayed listed
-//! because its old `no` was still in history.
-//!
-//! ⇒ **THE ROW CARRIES BOTH PRODUCTS AND NAMES EACH.** `stuck` folds the ring
-//! down to the LATEST outcome per `(source, id, args)` and counts only the
-//! ones whose latest answer is negative; `ever-no` is the historical set the
-//! old number actually measured, kept because "this refused at some point"
-//! is the forensic question and is worth one integer. A source that stops
-//! asking cannot leave `stuck` — nothing contradicts its last `no` — and the
-//! doc says so rather than the number implying otherwise; truly current state
-//! needs source liveness, which is OW1's problem and not this row's.
+//! `stuck` counts the latest negative answer per `(source, id, args)`;
+//! `ever-no` reports sources with a negative answer in ring history.
+//! A source that stops asking can remain in `stuck` because the ring
+//! does not establish source liveness. This summary adds no new ring.
 
 use bevy::prelude::{App, Last, Plugin, Res};
 

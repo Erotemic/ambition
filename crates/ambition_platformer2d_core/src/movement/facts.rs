@@ -24,85 +24,18 @@ pub struct LedgeFacts {
     pub getup_kind: LedgeGetupKind,
 }
 
-/// SOMETHING ELSE OWNS THIS BODY'S POSE.
+/// Indicates that a domain other than locomotion controls body pose.
 ///
-/// ⭐⭐ THE ONE FACT A CONSTRAINED BODY OWES EVERY OTHER DOMAIN. A body welded
-/// into a saddle, carried by a lift, held by a grab or posed by a capture is not
-/// deciding where it is — and the systems that need to know that are scattered
-/// across crates which cannot see each other: the movement kernel (do not
-/// integrate its locomotion), combat (a move may forbid itself while the body is
-/// held), presentation, brains. Every one of those asking its own domain-shaped
-/// question is how a body ends up with two authorities that disagree.
+/// Each holder claims a [`PoseHold`]. Only that holder may release
+/// its claim, and the component remains while any claim is active.
+/// Consumers only need to know that the pose is constrained; they
+/// must not inspect the domain-specific holder to enforce this fact.
 ///
-/// ⛔⛔ IT LIVES IN `_core` BECAUSE OF THE DEPENDENCY GRAPH, and that is not an
-/// accident of convenience. `ambition_mount` knows what a saddle is and
-/// `ambition_combat` knows what a move is, and NEITHER depends on the other, so
-/// there is no crate among them that could hold this. Both depend on this one.
-/// A marker here is the only shape in which "held" is sayable to both.
-///
-/// ⚠ ITS READERS ASK NOTHING ABOUT WHO. Deliberately: a consumer that needed
-/// the holder would be reaching into a domain it does not depend on, which is
-/// the coupling this marker exists to avoid. Ask the domain that owns the
-/// relationship.
-///
-/// ⭐ BUT EACH HOLDER RELEASES ONLY ITS OWN HOLD. The component is a set of
-/// [`PoseHold`]s, like `ControlHolds`: PRESENCE is the fact the readers read
-/// (`Has<PoseOwnedExternally>`), and it exists exactly while some holder has
-/// the body. It was one bit, so a pipe that let go removed a hold a mount or
-/// a conductor still had, and a plant that stopped never let go. Claim with
-/// [`claim_pose_hold`] and release with [`release_pose_hold`].
-///
-/// # What a constrained body still advances
-///
-/// ⭐⭐ THE CONTRACT, AXIS BY AXIS, because for a long time this marker DID four
-/// things and STATED none of them, and the difference between "guaranteed" and
-/// "true by luck" was not written anywhere. Measured on the pirate's shark over
-/// 299 mounted ticks with the stick jammed toward the stage edge, and pinned by
-/// `a_saddled_body_advances_its_clocks_and_none_of_its_displacement`:
-///
-/// ```text
-/// DISPLACEMENT        the constraint's, wholly. The kernel still integrates and
-///                     the constraint still overwrites, so the pass is WASTED —
-///                     but a mounted body ends every tick at velocity ZERO, so
-///                     none of it survives into the next one.
-/// GRAVITY             follows displacement: it is an input to an integration
-///                     whose result the constraint discards.
-/// GROUND / CONTACT    the constraint's. A saddled body reads airborne from the
-///                     tick the ride actually has it. ⚠ NOT on the handoff tick,
-///                     where it is genuinely still standing where it was.
-/// LEDGES              unreachable. A rider is not travelling past anything
-///                     under its own power, and cannot catch what carries it.
-/// GAIT                unpublished. `running` and `dashing` describe a body
-///                     driving itself.
-/// VOLUNTARY VERBS     cleared before the kernel sees them, because a jump or a
-///                     dodge spent here changes state the constraint CANNOT
-///                     undo — a snap fixes a position, not a spent double jump.
-/// RESOURCES           not spent, and clearing this tick's verbs was NOT enough
-///                     to say so: an evade and a dash come out of the maneuver
-///                     BUFFER, a press made earlier that stays spendable. A
-///                     press made on the floor a moment before the constraint
-///                     took the body was still spent inside it — measured, the
-///                     air dodge went on mounted tick 2. The spend is refused in
-///                     the control phase now. ⛔ REFUSED, NOT ERASED: the buffer
-///                     is input memory, and dropping it swallows a press the
-///                     player is entitled to have honoured the tick the
-///                     constraint lets go. Not refreshed either, since the
-///                     ground fact they refresh on is the constraint's.
-/// EXTERNAL LAUNCHES   the hit lands NOW and its travel STAYS STAGED — see
-///                     `MotionStepContext::pose_owned_externally`.
-/// CLOCKS AND COMBAT   STILL RUNNING, and this is the half that separates a held
-///                     body from a dead one. A rider steers its mount and swings
-///                     from the saddle; hitstun has to decay or the flinch that
-///                     put it there never ends.
-/// ```
-///
-/// ⛔ THE KERNEL IS NOT SHORT-CIRCUITED FOR THIS, and that was a considered
-/// decision rather than an omission. Skipping the motion step would also skip
-/// the clock decay that lives inside it, which is the half a rider needs most;
-/// the measured cost of running it is wasted arithmetic, not a wrong answer.
-/// ⛔ And it is NOT routed through `out_of_play`, which halts velocity and zeroes
-/// `dt` outright — correct for a body nobody is driving, and the exact opposite
-/// of what a rider needs.
+/// The pose owner controls displacement and contact state. The body
+/// still advances clocks and combat; movement verbs and resource
+/// spending are suppressed during the hold. Buffered input is not
+/// erased. External hit launches remain staged for release. Do not
+/// treat a held body as out of play or stop its simulation clock.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PoseOwnedExternally(u8);
 

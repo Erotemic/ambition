@@ -138,53 +138,16 @@ fn decided_or_device_seating(world: &mut World) -> usize {
     }
 }
 
-/// ⛔⛤ **A DEVELOPER EDIT IS A PROPOSAL UNTIL THE TIMELINE'S OWNER ADMITS IT —
-/// `Q120`, REBUILT 2026-09-13 AFTER THE FIRST VERSION GOT THE ORDER BACKWARDS.**
+/// Decide whether pending mechanical edits may enter the simulation.
 ///
-/// MEASURED 2026-09-12 against the real GGRS sync-test canary (save every frame,
-/// rewind 4, resimulate the same inputs, compare checksums): editing
-/// `ActiveMovementTuning` mid-timeline **DESYNCS**, while the same forty frames
-/// with no edit stay healthy. `Q120`'s own row calls the state that produces it
-/// *"NOT COHERENT"* — a mutable mechanical input outside rollback history that
-/// resimulation reads at its latest value.
+/// Run in `MechanicalEditSet::Admit` before `RunGgrsSystems` and before
+/// adapters publish the edits. No rollback frame may read an edit that
+/// the timeline has not admitted.
 ///
-/// ⛔⛤ **THE FIRST FIX LET THE EDIT LAND AND WATCHED FOR IT AFTERWARDS, AND THE
-/// SCHEDULE NEVER SUPPORTED THAT.** The editor adapter ran in the SIM schedule,
-/// which under this host is `GgrsSchedule`, advanced from `PreUpdate` by
-/// `RunGgrsSystems`; the watcher ran in `Update`. ⇒ The old timeline simulated —
-/// and could RESIMULATE HISTORY — with the new value before anything noticed.
-/// The comment claimed *"the same frame the edit was observed"*; nothing
-/// established it. ⭐ An invariant asserted in a doc comment is a claim about a
-/// schedule, and it has to be asked of the schedule.
-///
-/// ⭐⭐ **SO THE DECISION MOVED IN FRONT OF THE ADVANCE.** This runs in
-/// [`MechanicalEditSet::Admit`], which the host configures
-/// `.before(RunGgrsSystems)`, and the adapters that write the authoritative
-/// values run after it in [`MechanicalEditSet::Publish`] — still before the
-/// advance. No frame exists in which a timeline reads a value nobody admitted.
-///
-/// ## The three answers, and why they are these
-///
-/// * **No live session** → `Publish`. There is no history an edit could
-///   contradict. This is every non-rollback composition, always.
-/// * **A session THIS maintainer owns** → stop it, release the policy memo, then
-///   `Publish`. `maintain_local_session` starts the next baseline against the
-///   edited mechanics in the same frame's `Update`. This is `Q120`'s model 2,
-///   chosen by precedent: the content publication road adopted exactly this
-///   stop-and-release on the same day (`Q118`), reusing what the LDtk reload has
-///   shipped for months.
-/// * **`External` or `Caller`-owned** → `Refuse`, **and the proposal is
-///   retained**. `RollbackSessionOwnership` says an external session *"must
-///   never be replaced unilaterally by the local host"*, and a caller's session
-///   was not started for this.
-///
-/// ⛔⛤ **`Refuse` MEANS THE AUTHORITATIVE VALUE DOES NOT MOVE.** That is what
-/// `Q120`'s model 1 says — *"refuse mechanical live edits while a rollback
-/// timeline is active"* — and the first version of this fix wrote the opposite
-/// into both the code and the row: *"the edit lands and the timeline is left
-/// alone"*. That sentence describes the INCOHERENT state the row exists to
-/// remove, not a policy. The proposal stays pending, so the moment the session
-/// ends or ownership becomes local the edit publishes on its own.
+/// Without a session, publish the edit. For a locally owned session,
+/// stop the session before publishing against a new baseline. For an
+/// external or caller-owned session, refuse and retain the proposal.
+/// A refusal must leave authoritative mechanics unchanged.
 pub fn decide_mechanical_edit_admission(world: &mut World) {
     use ambition_platformer2d_core::{MechanicalEditAdmission, PendingMechanicalEdits};
 

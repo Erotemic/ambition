@@ -948,103 +948,16 @@ pub fn step_projectiles(
             )
         };
 
-        // ⛔⛔ **THE WALL'S TIME OF IMPACT, ASKED ONCE, FOR EVERY BRANCH BELOW.**
+        // Compute one blocking sweep for this projectile leg. Compare
+        // separately resolved body and feature contacts against the
+        // earliest independent blocking surface; an exact tie goes to
+        // that surface. A target's own contributed solid is not an
+        // independent blocker, so the contact can damage the target
+        // and apply the surface response once.
         //
-        // This is A2's finite-time ordering rule and the road had three answers
-        // to it. The BODY branch swept from the muzzle to the victim's CENTRE and
-        // skipped the victim if anything blocked before it — which asks *"is a
-        // wall before the victim's centre?"* rather than *"is a wall before the
-        // shot first touches the victim?"*. For a large body those differ: the
-        // shot reaches the near face, a wall stands between that face and the
-        // centre, and the hit was refused although nothing was in the way of the
-        // contact that actually happened. The FEATURE branch asked nothing at
-        // all: it emitted the targeted hit and the splash and `continue`d, so
-        // the world sweep below only ever ran when NO boss or breakable was
-        // reached — a crate or a boss behind an unrelated wall was struck
-        // through it. And the world branch swept a third time for its own
-        // pull-back.
-        //
-        // ⇒ ONE SWEEP, one finite `time_of_impact` in the leg's own parameter
-        // [0, 1], compared directly against every candidate's contact time. A
-        // target is reached only if nothing blocking stands STRICTLY earlier
-        // along the same leg.
-        //
-        // ⛔⛔ **TIES GO TO THE WALL, AND THE COMMENT HERE USED TO CLAIM THE
-        // OPPOSITE WAS "the protocol's declared policy restated".** It was not.
-        // The protocol says an independent blocking surface at exactly the same
-        // impact time WINS over an unrelated hurt target, precisely so that a
-        // tie cannot grant damage through a wall
-        // (`projectile-contact-protocol.md`, "Blocking surfaces and compound
-        // contacts"). This road implemented `wall < contact - EPSILON`, which is
-        // the opposite policy AND an epsilon comparator the same document
-        // forbids by name for having nontransitive pairwise ties.
-        //
-        // ⭐ THE COMPOUND CASE CANNOT ARISE HERE **TODAY**, AND Q96 HAS RULED
-        // THAT IT MUST. The world a shot sweeps is
-        // `ProjectileCollisionWorld::solids()` — the authored room plus gate
-        // solids minus portal carves — and `overlay.blocks`, every ECS breakable
-        // surface, is NOT in it, by that module's own contract ("a projectile
-        // ... passes through breakable/ECS overlay solids"). So every block this
-        // sweep can return is still by construction an INDEPENDENT blocker and
-        // the tie rule below is exactly right for what it can see.
-        //
-        // ⛔⛔ **THIS PARAGRAPH USED TO SAY THE ROW WAS UNREACHABLE "WHICH IS
-        // EXACTLY WHAT Q96 RECORDS". Q96 IS NOW RULED THE OTHER WAY**
-        // (2026-09-10, `docs/planning/maintainer-decisions.md`): a published
-        // surface PARTICIPATES in projectile collision, and a contributor
-        // supplying both a surface and a damageable volume at the same time of
-        // impact yields ONE contact that damages once AND applies the physical
-        // response. "Wall wins, therefore the crate is invulnerable" is
-        // rejected by name.
-        //
-        // ⇒ **ALL THREE STEPS ARE DONE (2026-09-11).**
-        //   1. contributor identity — `world/overlay.rs` publishes
-        //      `GeoId::placement(PlacementId(FeatureId), ordinal)`.
-        //   2. the surfaces are admitted: `ProjectileCollisionWorld::solids()`
-        //      composes `overlay.blocks` through
-        //      `world_with_contributed_solids_and_carves`.
-        //   3. coalescing: `wall_is_the_targets_own_surface` stops a block being
-        //      called an INDEPENDENT blocker when it names the same occurrence as
-        //      the candidate hurt target.
-        // ⚠ Step 3 is why step 1 had to be real identity: the comparison is
-        // `Placement(PlacementId(target's FeatureId))`, not a name string — which
-        // is the identity the ruling forbids by name, and which would have worked
-        // well enough to look right. A test pins that distinction.
-        //
-        // ⛔⛤ **AND THE OBVIOUS WITNESS FOR STEP 2 IS VACUOUS, WHICH COST AN
-        // HOUR.** "A shot damages a solid crate and does not fly past it" passes
-        // with the surfaces REMOVED, because this branch despawns the shot on any
-        // feature contact whether or not a surface exists. The discriminating
-        // case is a crate the shot CANNOT damage (`BreakableTrigger::OnStand`):
-        // with no surface a bolt sails straight through a solid object, and that
-        // is what `a_crate_no_shot_can_break_still_stops_the_shot` pins.
-        //
-        // ⛔ AND STEP 2 NEEDS A PREDICATE, NOT A FIFTH `Solid | BlinkWall { .. }`
-        // ARM — but only at the FILTERS. Three sites in
-        // `shared_tangle::projectile::collision` ask one question ("is this an
-        // unconditional solid surface?") and should ask it through one predicate
-        // on `BlockKind`, named for the semantics rather than for today's
-        // members. ⚠ The fourth site, that module's response resolver, must stay
-        // an exhaustive match: its own comment says "a new kind that a shot may
-        // hit must decide its response HERE — a fall-through would silently make
-        // it a passthrough." ⇒ **Predicate at the filters; enumeration where the
-        // enumeration is a compile-time obligation on the next author.**
-        //
-        // ⇒ `is_le`, not `< - EPSILON`: a total deterministic comparison, with
-        // the tie going where the protocol puts it.
-        //
-        // ⚠ It is the shot's OWN policy that decides which blocks count
-        // (`blocks_this_shot`), so a `Bouncing` fireball is not stopped by a
-        // one-way it is entitled to cross while an `ExpireOnContact` shot is —
-        // and, since that filter is now `block_obstructs_shot`, a `Bouncing`
-        // fireball IS stopped by a one-way it is descending onto, which is what
-        // the response has always done with it.
-        //
-        // ⭐ THE WHOLE HIT TRAVELS — collider, time and normal — because three
-        // consumers need three different parts of it and each one that
-        // re-derives its part is another answer to "what stopped this shot".
-        // The ordering below wants the TIME, the pull-back wants the collider's
-        // CENTRE, and the physical response wants the COLLIDER ITSELF.
+        // The shot's obstruction policy decides whether one-way
+        // surfaces count. Carry the selected collider through contact
+        // ordering, pull-back, and resolution instead of reselecting it.
         let travel_leg = kin.pos - leg_start;
         let blocked_at: Option<ae::cast::WorldSweepHit<'_>> = if travel_leg == ae::Vec2::ZERO {
             None
@@ -1678,69 +1591,11 @@ pub fn step_projectiles(
         // bouncing fireball arcs whoever throws it; a lasersword detonates on
         // the wall. (B2: retires the faction→policy fork.)
         let world_hit = shot_world_hit;
-        // ⛔⛔ D199, SWEPT HALF: PULL A TUNNELLED SHOT BACK TO ITS IMPACT POINT.
-        // `resolve_world_collision` is an ENDPOINT test — it asks whether the
-        // shot's AABB overlaps a block RIGHT NOW — so a shot fast enough to end
-        // the tick past a thin wall never touches it and sails through. Measured
-        // 2026-08-29: one tick at 4000 px/s through an 8px wall left the body in
-        // flight.
-        //
-        // ⭐ Rather than change that function's signature (its eight test call
-        // sites all pass an endpoint, and they are testing endpoint semantics
-        // correctly), this restores the PRECONDITION it was written for: if the
-        // leg crossed a solid the endpoint has already left behind, put the shot
-        // back at the crossing. The endpoint test then sees exactly what it would
-        // have seen at a slower speed, and every policy below it — bounce,
-        // expire, one-way passthrough — behaves unchanged.
-        //
-        // ⭐⭐ A SWEPT BOX, NOT THE CENTRE LINE, and it asks the SHOT'S OWN
-        // POLICY which blocks count (D199).
-        //
-        // ⛔ THE RAY WAS NOT THE SHOT. A shot is a box, so a box that clips a
-        // block's CORNER along its leg — while the centre line passes beside it
-        // and the endpoint lands clear — was a hit nothing in this road could
-        // see. `body_sweep` is the engine's one body-vs-world swept entry point
-        // and was already sitting beside the raycast, unused by this caller.
-        //
-        // ⛔ AND THE POLICY WAS HARD-CODED TO `include_one_way = false`. That is
-        // right for a `Bouncing` shot — a fireball crosses a one-way from below
-        // by design, and pulling it back onto one would convert a legal
-        // passthrough into a bounce — and WRONG for `ExpireOnContact`, whose
-        // contract is that any solid / blink-wall / one-way contact is expiry. A
-        // fast straight shot flew through a platform its own policy says should
-        // have killed it.
-        //
-        // ⛔⛔ **THE SELECTED WITNESS WAS NOT AUTHORITATIVE, AND `already_touching`
-        // IS WHY.** The pull-back used to be skipped whenever the ENDPOINT
-        // overlapped any blocking object, and `resolve_world_collision` then ran
-        // its OWN endpoint-overlap search. So a shot could sweep through wall A,
-        // finish inside a later wall B, use A's time of impact to refuse every
-        // target — and then physically bounce or expire at B. For a bouncing
-        // shot that is a different collision NORMAL as well as a different
-        // surface: the ordering road and the physics road disagreed about what
-        // stopped the shot, which is the exact fork this packet exists to close.
-        //
-        // ⇒ WHEN THE SWEEP SELECTED A CONTACT, THE SHOT GOES TO IT — AND SO
-        // DOES THE RESPONSE. `blocked_at.is_some()` is itself the guard the old
-        // condition was reaching for: a shot that BEGINS the leg overlapping
-        // something is the case where `sweep_hit` declines a grazing start and
-        // returns `None`, and that shot is left at its endpoint for the resolver
-        // to answer as an endpoint question.
-        //
-        // ⛔⛔ **AND THE COLLIDER GOES WITH IT, BECAUSE THE PULL-BACK WAS NOT
-        // ENOUGH.** This site used to keep only `(toi, centre)` and a comment
-        // here claimed the resolver's endpoint search "necessarily finds that
-        // same block, because the shot is standing a hair inside it". It does
-        // not: the shot may stand inside SEVERAL, and `resolve_world_collision`
-        // scanned solids before one-ways whatever this sweep decided. A shot
-        // that reached a one-way platform and a tall wall at the same instant
-        // was ordered against the platform — a support-face landing that bounces
-        // — and physically resolved against the wall, a side hit that expires.
-        // Half a pixel of pull-back cannot separate a pair the shot straddles.
-        //
-        // ⭐ AND IT IS THE SAME SWEEP THE ORDERING ABOVE USED. `blocked_at` was
-        // taken once, over this leg, with this shot's policy; re-asking anywhere
-        // downstream would be a second answer to "what stopped this shot".
+        // A swept hit moves the whole projectile box to the selected
+        // blocking surface. This catches thin walls and corner clips
+        // that an endpoint or centre-line test misses. Use the same
+        // contact for physical response; another endpoint search could
+        // select a different wall or one-way platform.
         if let Some(hit) = blocked_at {
             // ⭐ A HAIR INSIDE, not exactly tangent. `time_of_impact` puts the
             // box touching the block, and `strict_intersects` — which every

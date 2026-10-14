@@ -975,52 +975,13 @@ impl Default for ConstructionLane {
     }
 }
 
-/// A root that has been CONSTRUCTED but not PUBLISHED: it exists, it is wired,
-/// and **no ordinary query can see it.**
+/// Disabling component for an unpublished construction candidate.
 ///
-/// ⭐⭐ **THIS IS A10's LAST-GOOD-WORLD GUARANTEE IN ONE COMPONENT, AND IT IS NOT
-/// A MARKER.** A10's own text warns that *"a `Pending` marker does not isolate a
-/// candidate from queries, observers or hooks"* — true, and the reason is that a
-/// marker asks every reader to remember it. This is registered with
-/// [`register_inactive_candidate_filter`] as a bevy DISABLING component, so
-/// `DefaultQueryFilters` excludes it from **every query that does not name it**.
-/// The isolation is the engine's, not a convention.
-///
-/// ⛔ WHAT IT DOES NOT DO, stated so nobody assumes the rest: it does not stop
-/// component HOOKS or lifecycle OBSERVERS from firing as the candidate is built.
-/// Measured 2026-09-12: this workspace declares ZERO component hooks and THREE
-/// lifecycle observers, exactly one of which is an `Add` (a touch surface, not on
-/// the construction road). So the residual surface is enumerable and currently
-/// empty for construction — but it is a POPULATION FACT, not a boundary, and it
-/// is the thing to re-measure before trusting this in a new domain.
-///
-/// ⇒ The candidate keeps its `SimId`, its `SpawnOrigin`, its [`TransactionId`]
-/// and its relationships while invisible, which is what makes publication a
-/// component REMOVAL rather than a transfer.
-/// ⛔⛤ **`pub(crate)`, AND THE PRIVACY IS THE CONTRACT (`Q123`, 2026-09-13).**
-/// Publication removes this marker one entity at a time, so a hook or observer
-/// attached to it observes the transaction PARTIALLY PUBLISHED — measured
-/// `[3, 2, 1]` still-hidden siblings across a three-root publication. A workspace
-/// census found zero such hooks, but a census is a population fact and this type
-/// was `pub`, so any crate could add the first one. ⇒ Nobody outside this crate
-/// can name it, and therefore nobody outside this crate can hook it. See
-/// [`publish_candidate`] for the guarantee this narrows.
-/// ⛔⛤ **IT COUNTS OUTSTANDING PUBLICATION BARRIERS — REVIEW FINDING 2,
-/// 2026-09-15.** A candidate ROOM inside a candidate SESSION is hidden for two
-/// independent reasons, and with a unit marker those two reasons were the same
-/// component: the room's own publication called `remove::<InactiveCandidate>()`
-/// and cleared the SESSION's barrier with it. The session had not been admitted;
-/// its room roots simply became visible to ordinary queries because an INNER
-/// transaction succeeded.
-///
-/// ⇒ **AN INNER TRANSACTION MUST NEVER RELEASE AN OUTER TRANSACTION'S
-/// INVISIBILITY.** Each publication level raises one barrier and lowers its own;
-/// the component — and therefore the disabling — goes only when the count reaches
-/// zero. That is the smallest representation that makes the nesting explicit, and
-/// it is what the future `session -> region -> room` shape needs.
-///
-/// ⚠ Correctness does NOT depend on the schedule keeping the two verdicts close
-/// together. That was the previous state of affairs and it is not an invariant.
+/// Ordinary Bevy queries exclude the candidate while any publication
+/// barrier remains. Nested room and session publications each own a
+/// barrier; the inner publication cannot expose an uncommitted outer
+/// session. Disabling filters do not prevent component hooks from
+/// running, so construction must still account for their effects.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct InactiveCandidate {
     barriers: u8,
@@ -2296,51 +2257,12 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     }
 }
 
-/// Check that the world a commit produced is the world the plan described.
+/// Verify that committed authoritative roots match the construction plan.
 ///
-/// This is a detector, not a preventer, and the distinction is the whole
-/// point of having it. The executor allocates each row's root, but a recipe
-/// receives raw `Commands` and the root `Entity`, so it can despawn that root,
-/// strip or rewrite its `SimId`/`SpawnOrigin`, stamp a second entity with a
-/// planned identity, or spawn further authoritative entities of its own. None of
-/// that is structurally prevented today, so a transaction that intends to
-/// publish a room must ask.
-///
-/// ⛔⛤ **THIS USED TO ADD *"the giant hand limbs already do the last of these"*
-/// AND THAT IS NO LONGER TRUE — re-derived 2026-09-12.** The hands are PLAN ROWS
-/// now (`giant_hand_plans` feeds `giant_cluster_rows`), and measured across the
-/// whole tree there is **not one `ctx.commands.spawn` in a production recipe** —
-/// every occurrence is test code. ⇒ The recipe-spawned authoritative root is a
-/// shape this function must still detect, and it currently has **no production
-/// instance**. That distinction matters for A10: with no recipe minting its own
-/// roots, `commit_inactive` stamping every PLANNED root isolates every candidate
-/// this engine actually builds.
-///
-/// Bevy commands do not roll back. By the time this can run, the
-/// construction commands have applied.
-///
-/// ⭐⭐ **AND THAT USED TO MEAN A VIOLATION COULD NOT BE UNDONE — IT DOES NOT ANY
-/// MORE FOR A CANDIDATE (A10, 2026-09-12).** This paragraph read *"a violation
-/// here cannot be undone … and leaves the world in whatever state the offending
-/// recipe produced"*, which is still exactly true of
-/// [`ConstructionPlan::commit`] against the live world. It is NOT true of
-/// [`ConstructionPlan::commit_inactive`]: the offending state is a candidate no
-/// ordinary query can see, so [`retire_candidate`] removes it and the running
-/// world never knew. ⇒ **The limitation this comment described is what the
-/// stronger last-good-world guarantee exists to dissolve**, and the difference
-/// between the two commits is exactly whether a detector's findings are
-/// actionable.
-///
-/// ⚠ Against a LIVE commit the old sentence stands: better than publishing a room
-/// nobody can describe, worse than the structural fix (every authoritative root
-/// an explicit plan row).
-///
-/// The scope is read from the world, not supplied. An earlier version took
-/// a caller-curated `&[(SimId, Entity)]`, which made the check exactly as
-/// complete as the caller's imagination: the roots most worth catching are the
-/// ones nobody thought to list. [`AuthoritativeScope::gather`] queries instead,
-/// and treats an unclassified identity-bearing entity as a finding rather than
-/// as absent.
+/// Recipes can mutate commands beyond their planned roots. This check
+/// collects actual scope membership from the world, not a list supplied
+/// by the caller. A live commit cannot undo side effects after commands
+/// apply; an isolated candidate can instead be retired on refusal.
 pub fn verify_committed_roster<D: ConstructionDomain>(
     plan: &ConstructionPlan<D>,
     receipt: &ConstructionReceipt,

@@ -467,7 +467,7 @@ fn both_fighters_can_actually_hit_each_other() {
 /// the fighters come back, and that two rounds take the match.
 #[test]
 fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
-    use ambition_app::app::versus_rules::ROUNDS_TO_WIN;
+    let rounds_to_win = ambition_app::app::versus_rules::versus_rounds().rounds_to_win;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::versus_match::MatchSeat;
@@ -509,7 +509,7 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
     );
     let seat_one = all[1].1;
     // KO seat 1, twice. Seat 0 should take both rounds and the match.
-    for round in 1..=ROUNDS_TO_WIN {
+    for round in 1..=rounds_to_win {
         // Move the fighter off its seat FIRST. Knocking out a fighter that
         // never moved makes "it was returned to its seat" true for free, which
         // is the assertion you write when you have not checked whether the
@@ -555,7 +555,7 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
                 break;
             }
         }
-        if round < ROUNDS_TO_WIN {
+        if round < rounds_to_win {
             assert!(
                 app.world().get::<BodyHealth>(seat_one).unwrap().current() > 0,
                 "the next round started with the knocked-out fighter still dead"
@@ -2661,7 +2661,7 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
 
 /// A CEILING NARROWS A KIT; IT CANNOT INVENT ONE.
 ///
-/// ⭐⭐ THE DUEL DECLARES `MatchAbilities::at_most(VERSUS_FIGHTER_KIT)`, which
+/// ⭐⭐ THE DUEL DECLARES `MatchAbilities::at_most(versus_fighter_kit())`, which
 /// grants nothing and permits that kit — `(authored ∪ NONE) ∩ kit`. That is the
 /// right operator and it has a silent edge: a character that authored NO
 /// abilities intersects to `AbilitySet::NONE` and arrives on the stage unable to
@@ -2669,7 +2669,7 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
 /// nothing" is a legal thing for a ceiling to conclude.
 ///
 /// ⛔ SO THE GUARD IS ON THE CAST, NOT ON THE OPERATOR. Both duellists dress
-/// themselves (`with_abilities(VERSUS_FIGHTER_KIT)`), and this asserts that the
+/// themselves (`with_abilities(versus_fighter_kit())`), and this asserts that the
 /// day somebody seats a third character here it is dressed too — which is the
 /// only moment the edge above is reachable.
 #[test]

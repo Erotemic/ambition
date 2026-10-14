@@ -15,29 +15,8 @@ use ambition_platformer2d::combat::targeting::MatchTeam;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::versus_match::{seat_placement, MatchSeat};
 
-/// Round wins needed to take the match. Best of three.
-pub const ROUNDS_TO_WIN: u8 = 2;
-
-/// How long the KO is held before the next round starts, in seconds. Long
-/// enough to see what happened and short enough that nobody reaches for the
-/// controller thinking it froze.
-const KO_HOLD_S: f32 = 2.0;
-
-/// How long the match-over card stays up before the match resets.
-const MATCH_HOLD_S: f32 = 4.0;
-
-/// How long a round-start countdown runs, in SIMULATION TICKS.
-///
-/// Ticks, not seconds. A countdown is the one beat where "did both machines start the round on
-/// the same tick" is the whole question, so it counts the thing it actually cares about. At the
-/// normal 60Hz rate this is a second and a half.
-const COUNTDOWN_TICKS: u32 = 90;
-
-/// The last stretch of the countdown reads FIGHT instead of ROUND n.
-///
-/// The split is what makes a countdown a countdown rather than a card: the first
-/// beat tells you WHICH round, the second tells you it is about to be yours.
-const FIGHT_CALL_TICKS: u32 = 30;
+mod rounds;
+pub use rounds::{versus_rounds, versus_rounds_schema, VersusRounds, VERSUS_ROUNDS_SCHEMA};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MatchPhase {
@@ -92,7 +71,7 @@ impl VersusMatch {
             rounds_won: BTreeMap::new(),
             round: 1,
             phase: MatchPhase::Starting {
-                ticks_remaining: COUNTDOWN_TICKS,
+                ticks_remaining: versus_rounds().countdown_ticks,
             },
         }
     }
@@ -105,7 +84,7 @@ impl VersusMatch {
     pub fn winner(&self) -> Option<&str> {
         self.rounds_won
             .iter()
-            .find(|(_, wins)| **wins >= ROUNDS_TO_WIN)
+            .find(|(_, wins)| **wins >= versus_rounds().rounds_to_win)
             .map(|(team, _)| team.as_str())
     }
 }
@@ -292,11 +271,11 @@ pub fn settle_versus_round(
             state.phase = match state.winner() {
                 Some(champion) => MatchPhase::Won {
                     winner: champion.to_string(),
-                    remaining_s: MATCH_HOLD_S,
+                    remaining_s: versus_rounds().match_hold_seconds,
                 },
                 None => MatchPhase::Ko {
                     winner,
-                    remaining_s: KO_HOLD_S,
+                    remaining_s: versus_rounds().ko_hold_seconds,
                 },
             };
             // FREEZE ON THIS TICK, not the next one.
@@ -400,7 +379,7 @@ pub fn settle_versus_round(
             // later rounds have is a countdown that tells you the match already
             // started without you.
             phase: MatchPhase::Starting {
-                ticks_remaining: COUNTDOWN_TICKS,
+                ticks_remaining: versus_rounds().countdown_ticks,
             },
         }
     };
@@ -661,7 +640,7 @@ pub fn publish_versus_hud(
         ambition_platformer2d::presentation::HudReadout::bare(if score.is_empty() {
             String::new()
         } else {
-            format!("ROUNDS  {score}   (first to {ROUNDS_TO_WIN})")
+            format!("ROUNDS  {score}   (first to {})", versus_rounds().rounds_to_win)
         }),
     );
 
@@ -673,7 +652,7 @@ pub fn publish_versus_hud(
         MatchPhase::Starting { ticks_remaining } => readouts.set(
             ANNOUNCE_HUD_SLOT,
             ambition_platformer2d::presentation::HudReadout::bare(
-                if *ticks_remaining > FIGHT_CALL_TICKS {
+                if *ticks_remaining > versus_rounds().fight_call_ticks {
                     format!("ROUND {}", state.round)
                 } else {
                     "FIGHT".to_string()
@@ -808,13 +787,55 @@ mod tests {
         ));
     }
 
+    /// The stage plays its pack's `versus_rounds.ron`, and an edit to the
+    /// file is the rule the next start plays: no Rust names a round count.
+    #[test]
+    fn the_versus_rounds_are_its_pack_file() {
+        use ambition_platformer2d::content::EmbeddedPack;
+
+        let authored = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/data/versus_rounds.ron"))
+            .expect("the versus rounds file is readable");
+        let root = std::env::temp_dir().join(format!("versus_rounds_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("data")).unwrap();
+        std::fs::write(
+            root.join("pack.ron"),
+            format!(
+                r#"(id: "versus_rounds_probe", version: "0.1.0", namespace: "probe", requires: [],
+                    sources: [(path: "data/versus_rounds.ron", schema: "{VERSUS_ROUNDS_SCHEMA}", version: 1)])"#
+            ),
+        )
+        .unwrap();
+        let rounds_of = |text: &str| {
+            std::fs::write(root.join("data/versus_rounds.ron"), text).unwrap();
+            let pack = EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None)
+                .with_schemas(|| vec![versus_rounds_schema()]);
+            let prepared = pack.compile().unwrap_or_else(|failure| panic!("{}", failure.render()));
+            *ambition_platformer2d::content::lowered_rules::<VersusRounds>(&prepared, VERSUS_ROUNDS_SCHEMA)
+                .expect("the probe pack lowers the rounds")
+        };
+
+        assert_eq!(rounds_of(&authored), versus_rounds(), "the stage plays the file");
+        // The shipped file is best of three, and the match reads it.
+        let mut state = VersusMatch::default();
+        state.rounds_won.insert("red".into(), 1);
+        assert_eq!(state.winner(), None, "one round does not take the shipped match");
+        state.rounds_won.insert("red".into(), 2);
+        assert_eq!(state.winner(), Some("red"), "two rounds take the shipped match");
+        let best_of_three = "rounds_to_win: 2,";
+        assert_eq!(authored.matches(best_of_three).count(), 1, "the probe edits one line of the file");
+        let edited = rounds_of(&authored.replace(best_of_three, "rounds_to_win: 3,"));
+        assert_eq!(edited.rounds_to_win, 3);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     #[test]
     fn the_match_is_won_at_two_rounds() {
         let mut state = VersusMatch::default();
         assert_eq!(state.winner(), None);
         state.rounds_won.insert("red".into(), 1);
         assert_eq!(state.winner(), None);
-        state.rounds_won.insert("red".into(), ROUNDS_TO_WIN);
+        state.rounds_won.insert("red".into(), versus_rounds().rounds_to_win);
         assert_eq!(state.winner(), Some("red"));
     }
 }

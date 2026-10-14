@@ -1,0 +1,20 @@
+// The rules of the versus stage's rounds (schema `versus_rounds`, owned by
+// the app: rounds and victory are this stage's policy). A team loses a round
+// when all its members are down; a simultaneous defeat is a draw. An edit
+// here is played at the next start, with no Rust build.
+(
+    // Best of three.
+    rounds_to_win: 2,
+    // Long enough to see what happened, and short enough that nobody reaches
+    // for the controller thinking the game froze.
+    ko_hold_seconds: 2.0,
+    // How long the match-over card stays up before the match resets.
+    match_hold_seconds: 4.0,
+    // Ticks, not seconds: the countdown is the one beat where "did both
+    // machines start the round on the same tick" is the whole question. At
+    // 60 Hz this is a second and a half.
+    countdown_ticks: 90,
+    // The last stretch reads FIGHT and not ROUND n: the first beat says which
+    // round, the second says it is about to be yours.
+    fight_call_ticks: 30,
+)

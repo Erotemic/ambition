@@ -155,31 +155,15 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         .collect();
     MatchParticipantRoster {
         participants,
-        rules: ambition_platformer2d::versus_match::MatchRules {
+        rules: {
+            // The pack's rules (`assets/data/match_rules.ron`): health rounds,
+            // no match clock, no stocks, and the duel's verb ceiling.
+            let mut rules = ambition_platformer2d::versus_match::MatchRules::default();
+            versus_match_rules().apply_to(&mut rules);
             // No items: these rounds are two duelists and a health bar, and an
             // item needs somewhere authored to land.
-            item_spawns: None,
-            // The stage ceremony releases this suspension when the round goes live.
-            opens_suspended: true,
-            // The stage owns its countdown; the engine-level countdown is disabled.
-            opening_countdown_ticks: 0,
-            // Rounds end on health rather than a match clock.
-            time_limit_ticks: 0,
-            // The duel declares one symmetric capability ceiling. `at_most`
-            // preserves character-authored abilities below that ceiling instead
-            // of granting a common floor, so excluded verbs stay excluded.
-            abilities: Some(ae::MatchAbilities::at_most(
-                super::versus_fighters::VERSUS_FIGHTER_KIT,
-            )),
-            // This duel does not impose platform-fighter body defaults.
-            body: None,
-            // Health rounds, not stocks. Opting into stocks also changes fighter
-            // death policy.
-            stocks: None,
-            // Preserve the duelists' authored health pools. A host seating
-            // foreign characters must provide its own normalization.
-            health_pool: None,
-            ..Default::default()
+            rules.item_spawns = None;
+            rules
         },
         seating,
         // WHOSE MATCH THIS IS. The exit rule below removes the roster it
@@ -526,6 +510,15 @@ pub fn versus_combat_rules() -> ambition_platformer2d::combat::rules::CombatRule
         .expect("the versus pack's `data/room_rules.ron` states a `combat` block")
 }
 
+/// The rules of the stage's matches, as its pack states them
+/// (`game/ambition_app/assets/data/match_rules.ron`): health rounds, no match
+/// clock, no stocks and the verb ceiling. An edit to the file is played at the
+/// next start, with no Rust build.
+pub fn versus_match_rules() -> ambition_platformer2d::versus_match::match_rules::AuthoredMatchRules {
+    *ambition_platformer2d::versus_match::match_rules::lowered_match_rules(super::versus_fighters::PACK.prepared())
+        .expect("the versus pack states the rules of its matches (`data/match_rules.ron`)")
+}
+
 /// The rules of the stage's room, as its pack states them
 /// (`game/ambition_app/assets/data/room_rules.ron`): the combat rules and the
 /// heavy-hit line. An edit to the file is played at the next start, with no
@@ -807,6 +800,23 @@ fn declare_versus_experience_scope(app: &mut App) {
 mod stage_rule_tests {
     use super::*;
     use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
+
+    /// The roster plays the pack's `match_rules.ron`: health rounds with no
+    /// clock and no stocks, and the duel's ceiling with no floor.
+    #[test]
+    fn the_versus_roster_plays_its_match_rules_file() {
+        let rules = versus_roster_from(2, RosterSeating::default()).rules;
+        let file = versus_match_rules();
+        let abilities = rules.abilities.expect("the duel states a verb ceiling");
+        assert_eq!(Some(abilities), file.abilities, "the roster's ceiling is the file's");
+        assert_eq!(abilities.granted, ae::AbilitySet::NONE, "the duel grants no floor");
+        assert!(abilities.permitted.attack, "non-vacuity: the duel's ceiling permits a swing");
+        assert_eq!(
+            (rules.stocks, rules.health_pool, rules.time_limit_ticks, rules.opens_suspended),
+            (file.stocks, file.health_pool, file.time_limit_ticks, file.opens_suspended),
+        );
+        assert!(rules.item_spawns.is_none(), "the duel spawns no items");
+    }
 
     fn stage_rule_app() -> App {
         let mut app = App::new();

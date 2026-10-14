@@ -1,0 +1,99 @@
+// The rules of the versus stage's matches (schema `match_rules`). These rounds
+// are two duelists and a health bar: no stocks, no match clock, no percent
+// pool and no platform-fighter body. `versus_roster_from` writes them on the
+// roster; the item spawns stay with the stage. An edit here is played at the
+// next start, with no Rust build.
+(
+    // Health rounds, not stocks. Opting into stocks also changes fighter
+    // death policy.
+    stocks: None,
+    // Preserve the duelists' authored health pools. A host seating foreign
+    // characters must provide its own normalization.
+    health_pool: None,
+    // The stage ceremony releases this suspension when the round goes live.
+    opens_suspended: true,
+    // The stage owns its countdown (`versus_rounds.ron`); the engine-level
+    // countdown is off.
+    opening_countdown_ticks: 0,
+    // Rounds end on health, not on a match clock.
+    time_limit_ticks: 0,
+    // THE STAGE'S CEILING: the verbs a duelist may use here, and no floor. A
+    // character keeps what it authored, minus what this duel forbids, and an
+    // unauthored character gets nothing (permission is not a grant). Each
+    // duelist's row grants itself exactly this kit (`abilities` in
+    // `character_catalog.ron`), so the ceiling narrows nothing a fighter
+    // authored. `double_jump` is stated here because no locomotion floor adds
+    // it to a body; `reset` and `interact` ride in as the rows grant them.
+    abilities: Some((
+        granted: (
+            move_horizontal: false,
+            jump: false,
+            variable_jump: false,
+            double_jump: false,
+            fast_fall: false,
+            wall_jump: false,
+            wall_cling: false,
+            wall_climb: false,
+            dash: false,
+            double_dash: false,
+            fly: false,
+            fly_toggle: false,
+            blink: false,
+            precision_blink: false,
+            blink_through_soft_walls: false,
+            blink_through_hard_walls: false,
+            attack: false,
+            pogo: false,
+            directional_primary: false,
+            directional_special: false,
+            rebound: false,
+            reset: false,
+            ledge_grab: false,
+            swim: false,
+            glide: false,
+            dodge: false,
+            shield: false,
+            grab: false,
+            interact: false,
+            crouch: false,
+            climb: false,
+            morph: false,
+        ),
+        permitted: (
+            move_horizontal: true,
+            jump: true,
+            variable_jump: true,
+            double_jump: true,
+            fast_fall: true,
+            wall_jump: false,
+            wall_cling: false,
+            wall_climb: false,
+            dash: false,
+            double_dash: false,
+            fly: false,
+            fly_toggle: false,
+            blink: false,
+            precision_blink: false,
+            blink_through_soft_walls: false,
+            blink_through_hard_walls: false,
+            attack: true,
+            pogo: false,
+            directional_primary: false,
+            directional_special: false,
+            rebound: false,
+            reset: true,
+            ledge_grab: false,
+            swim: false,
+            glide: false,
+            dodge: false,
+            shield: false,
+            grab: false,
+            interact: true,
+            crouch: true,
+            climb: true,
+            morph: false,
+        ),
+    )),
+    // This duel does not impose platform-fighter body defaults.
+    body: None,
+)

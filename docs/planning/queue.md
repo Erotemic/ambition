@@ -165,8 +165,37 @@ value for a designer and size of change:
    temporary test, red on one edited value with no compile). Witness:
    `smashs_match_rules_are_its_match_rules_file` (red, at the roster's
    body, when the ruleset skips the pack's rules). Open: a live reload for
-   a demo pack (an edit is a restart today), and the versus stage's match
-   rules (`versus_rules.rs`).
+   a demo pack (an edit is a restart today).
+   ✅ 2026-10-14, the versus stage's match rules: `assets/data/match_rules.ron`
+   in the versus pack (health rounds, no clock, no stocks, no fighter body,
+   and the duel's verb ceiling with no floor). `versus_roster_from` writes
+   the pack's rules and keeps only the item spawns. Deleted: the Rust
+   ruleset literal and `VERSUS_FIGHTER_KIT` (`versus_fighter_kit()` reads
+   `abilities.permitted`). Equal before the deletion (a temporary test, red
+   on one edited verb with no compile: 0.85 s). Witness:
+   `the_versus_roster_plays_its_match_rules_file` (red, at the ceiling, when
+   the roster skips the pack's rules).
+   ✅ 2026-10-14, a game's own schemas, and the versus rounds: a rule that
+   is the game's policy has a schema the game owns.
+   `content_pack! { root: "assets", schemas: [..] }` compiles the pack
+   against the engine's schemas and the game's, on every route
+   (`prepared()`, the composition's `compile_with`); a game schema with an
+   engine schema's id is refused (`AmbiguousSchemaOwnership`).
+   `content::rules_schema` makes such a schema from a struct and its range
+   check (the parse, the unknown-field refusal and the problems named by
+   field are written once). The versus stage's rounds (wins to take the
+   match, the KO and match-over holds, the countdown and its FIGHT call) are
+   `assets/data/versus_rounds.ron`, schema `versus_rounds`, owned by the app.
+   Deleted: `ROUNDS_TO_WIN`, `KO_HOLD_S`, `MATCH_HOLD_S`, `COUNTDOWN_TICKS`,
+   `FIGHT_CALL_TICKS`. Equal before the deletion (a temporary test, red on
+   one edited value with no compile: 2.49 s from the edit to the red test).
+   Witnesses: `a_pack_compiles_against_the_schemas_its_game_owns` (red,
+   `unknown-schema`, when the compile drops the game's schemas),
+   `the_versus_rounds_are_its_pack_file` (red at "two rounds take the
+   shipped match" with the file at three), `a_rules_file_lowers_and_each_refusal_names_the_file`.
+   The content CLI does not link a game's schema, so such a pack is checked
+   by the game's own test, which reads the tree off disk (the `pack.ron`
+   comment names it).
 3. Mary-O rules and the spark projectile; Sanic's shoes, ring scatter and
    badnik bounce; the GNU-ton duel damage; boss bark cadence and wake radius;
    the primeval swallow's fetch tuning.

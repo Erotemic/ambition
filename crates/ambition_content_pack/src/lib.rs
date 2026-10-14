@@ -16,9 +16,11 @@ mod draft;
 mod identity;
 mod prepared;
 mod refs;
+mod rules_schema;
 mod schema;
 
 pub use candidate::{changed_domains, CandidateGeneration, CandidateVerdict};
+pub use rules_schema::{lowered_rules, rules_schema};
 pub use diagnostic::{CompileFailure, CompileStage, Diagnostic, DiagnosticCode, Severity};
 pub use draft::{ContentPackDraft, ContentPackManifest, SourceDeclaration, SourceFile};
 pub use identity::{

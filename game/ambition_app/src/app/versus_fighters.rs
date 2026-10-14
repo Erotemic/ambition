@@ -10,7 +10,11 @@
 /// manifest is the one list, so a source line added there is played with no
 /// Rust build.
 pub static PACK: ambition_platformer2d::content::EmbeddedPack =
-    ambition_platformer2d::content_pack! { root: "assets" };
+    ambition_platformer2d::content_pack! {
+        root: "assets",
+        // The rules of its rounds are the stage's own policy.
+        schemas: [super::versus_rules::versus_rounds_schema],
+    };
 
 /// Register the duelists: the catalog fragment and every row as a character,
 /// with its move table. `default_character` is this experience's catalog
@@ -19,33 +23,18 @@ pub fn register_versus_cast(app: &mut bevy::prelude::App, default_character: &st
     PACK.cast(VERSUS_PROVIDER, Some(default_character)).register(app);
 }
 
-/// THE STAGE'S CEILING: the verbs a duelist may use here. `versus.rs` declares
-/// `MatchAbilities::at_most(..)`, a ceiling and no floor: a character keeps what
-/// it authored, minus what this duel forbids, and an unauthored character gets
-/// nothing (permission is not a grant). Each duelist's row grants itself exactly
-/// this kit (`abilities` in `character_catalog.ron`), so the ceiling narrows
-/// nothing a fighter authored.
-///
-/// `reset` and `interact` come from `basic()`, and the rows grant them too, so
-/// the duel plays as it did.
-pub const VERSUS_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
-    ambition_platformer2d::engine_core::AbilitySet {
-        attack: true,
-        fast_fall: true,
-        // ⭐ STATED, NOT INHERITED — and it used to be inherited from a place no
-        // authoring could see. `basic()` leaves this false, and a duelist still
-        // double-jumped because `ActorBody::from_kit` unioned a locomotion floor
-        // into every actor body after the character had spoken. That union is
-        // gone (a union cannot express a refusal, so no character could decline
-        // it), which would have taken this fighter's second jump with it.
-        //
-        // Writing it here keeps the duel exactly as it plays and puts the bit
-        // where it can be read and declined — the same reason the note above
-        // gives for leaving `reset` and `interact` riding in from `basic()`
-        // rather than tidying them: behaviour-neutral, or not worth making.
-        double_jump: true,
-        ..ambition_platformer2d::engine_core::AbilitySet::basic()
-    };
+/// THE STAGE'S CEILING: the verbs a duelist may use here, as the pack's
+/// `match_rules.ron` states it (`abilities.permitted`). The duel declares a
+/// ceiling and no floor: a character keeps what it authored, minus what this
+/// duel forbids, and an unauthored character gets nothing (permission is not
+/// a grant). Each duelist's row grants itself exactly this kit, so the
+/// ceiling narrows nothing a fighter authored.
+pub fn versus_fighter_kit() -> ambition_platformer2d::engine_core::AbilitySet {
+    super::versus::versus_match_rules()
+        .abilities
+        .expect("the versus pack's `match_rules.ron` states the duel's verb ceiling")
+        .permitted
+}
 
 /// The provider these fighters are attributed to.
 ///
@@ -138,7 +127,11 @@ mod tests {
     fn what_the_duelists_author_is_exactly_the_stages_ceiling() {
         use ambition_platformer2d::engine_core::{AbilitySet, MatchAbilities};
 
-        let rules = MatchAbilities::at_most(VERSUS_FIGHTER_KIT);
+        let rules = super::super::versus::versus_match_rules()
+            .abilities
+            .expect("the versus pack states the duel's verb ceiling");
+        let kit = versus_fighter_kit();
+        assert_eq!(rules, MatchAbilities::at_most(kit), "the duel states a ceiling and no floor");
         assert_eq!(
             rules.apply(None),
             AbilitySet::NONE,
@@ -148,7 +141,7 @@ mod tests {
         // non-vacuity: a kit of nothing would satisfy the equalities for the
         // wrong reason. These two fighters throw punches.
         assert!(
-            VERSUS_FIGHTER_KIT.attack && VERSUS_FIGHTER_KIT.move_horizontal && VERSUS_FIGHTER_KIT.jump,
+            kit.attack && kit.move_horizontal && kit.jump,
             "the versus kit cannot fight, so the equalities compare empty sets"
         );
         let catalog = ambition_platformer2d::characters::actor::character_catalog::lowered_catalog(
@@ -159,7 +152,7 @@ mod tests {
             let grants = row.abilities.as_deref().expect("a duelist states its verbs");
             assert_eq!(
                 rules.apply(Some(AbilitySet::compose(grants))),
-                VERSUS_FIGHTER_KIT,
+                kit,
                 "`{id}` does not author exactly the stage's kit, so the ceiling \
                  narrows it or it lacks a verb the duel expects"
             );

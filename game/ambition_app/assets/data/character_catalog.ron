@@ -50,7 +50,7 @@
             // THE VERSUS KIT: the classic run-and-jump floor with a double jump,
             // a fast fall and an attack. `Interact` and `Reset` ride in from the
             // old `basic()` base, kept so the duel plays as it did. The stage's
-            // ceiling (`VERSUS_FIGHTER_KIT`) permits exactly this and grants
+            // ceiling (`abilities.permitted` in `match_rules.ron`) permits exactly this and grants
             // nothing, so a fighter's verbs are its own.
             abilities: Some([RunJump, Interact, Reset, Attack, FastFall, AirJump]),
             // A round has to last long enough to be a round. At these damage

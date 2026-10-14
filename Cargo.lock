@@ -508,6 +508,7 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_platformer2d",
  "bevy",
+ "serde",
 ]
 
 [[package]]
@@ -546,6 +547,7 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_platformer2d",
  "bevy",
+ "serde",
 ]
 
 [[package]]

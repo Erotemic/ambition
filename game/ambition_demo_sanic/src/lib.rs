@@ -353,6 +353,7 @@ pub mod provider;
 pub mod scenery;
 pub mod trail;
 pub mod pack;
+pub mod rules;
 #[cfg(test)]
 mod smash_moveset;
 
@@ -685,7 +686,7 @@ impl Plugin for SanicRulesPlugin {
             app.declare_rules(
                 scope,
                 ambition_platformer2d::actors::features::ecs::dormancy::DormancyRule {
-                    hostile_wake_radius: badnik::BADNIK_WAKE_RADIUS,
+                    hostile_wake_radius: crate::rules::sanic_rules().badnik.wake_radius,
                 },
             );
             // Whoever the player drives here can spin dash and transform.
@@ -1142,57 +1143,9 @@ pub fn add_demo_content(app: &mut App) {
 mod tests;
 
 // ---------------------------------------------------------------------------
-// Ring loss — what makes a ring worth anything.
+// Ring loss — what makes a ring worth anything. The numbers are the pack's
+// `data/sanic_rules.ron` (`ring_loss`).
 // ---------------------------------------------------------------------------
-
-/// How many of the rings you were carrying actually scatter. The rest are gone.
-///
-/// A cap keeps a big purse from becoming a shower, and some loss makes
-/// recovery matter.
-const SCATTERED_RINGS_MAX: usize = 12;
-
-/// Outward launch speed (px/s) a scattered ring bursts from the body with.
-///
-/// Reads as an explosion to chase, not a spill at your feet.
-const SCATTER_BURST_SPEED: f32 = 900.0;
-
-/// How many rings make up one shell of the burst. Past this, the next shell
-/// launches slower, so a big purse bursts as an outer ring plus an inner one
-/// instead of one over-dense circle.
-const SCATTER_RINGS_PER_SHELL: usize = 6;
-
-/// Speed multiplier for each shell inside the first — the classic halving,
-/// softened slightly so the inner shell still clears the body.
-const SCATTER_INNER_SHELL_SCALE: f32 = 0.55;
-
-/// Downward pull (px/s²) that arcs a scattered ring back down, screen-relative
-/// (the demo runs under normal screen gravity).
-///
-/// With the launch speed, this sizes the scatter: an arc about three tiles
-/// high and a dozen wide, on the same screen.
-const SCATTER_GRAVITY: f32 = 1400.0;
-
-/// Fraction of speed a loose ring sheds per second in the air.
-///
-/// Without drag a horizontal ring never slows until it hits the floor, and
-/// the outer rings leave the level.
-const SCATTER_AIR_DRAG: f32 = 0.9;
-
-/// Fraction of speed a scattered ring keeps when it bounces off geometry.
-const SCATTER_RESTITUTION: f32 = 0.55;
-
-/// How long (s) a scattered ring cannot be collected. It still bursts and
-/// bounces; the hit costs something even while you stand in the spray.
-///
-/// This raises the running window, never replaces it: a hazard respawn arms a
-/// longer one that must not be cut short.
-pub(crate) const RING_LOSS_INVULN_S: f32 = 2.0;
-
-const SCATTER_LOCK_S: f32 = 0.6;
-
-/// How long (s) a scattered ring exists. Short enough that a big spray is
-/// never fully recoverable.
-const SCATTER_LIFE_S: f32 = 4.2;
 
 /// A ring the player lost, mid-scatter: it bursts from the body, arcs down,
 /// bounces, is untouchable for a moment, is collectible for the rest of its
@@ -1261,24 +1214,25 @@ pub fn scatter_rings_on_hit(
         // rings land. `WalletShieldSpent` leaves the expression to content.
         // Raise, never replace: a longer running window (a hazard respawn
         // arms 1.10s) must not be cut short.
+        let loss = crate::rules::sanic_rules().ring_loss;
         if let Some(mut combat) = combat {
-            combat.damage_invuln_timer = combat.damage_invuln_timer.max(RING_LOSS_INVULN_S);
+            combat.damage_invuln_timer = combat.damage_invuln_timer.max(loss.invulnerable_seconds);
         }
-        let scattered = (event.amount.max(0) as usize).min(SCATTERED_RINGS_MAX);
+        let scattered = (event.amount.max(0) as usize).min(loss.max_scattered);
         if scattered == 0 {
             continue;
         }
         // Rings leave in evenly-spaced shells around the full circle. The
         // half-slot offset keeps the spray symmetric about both axes and stops
         // any ring launching straight down into the floor it is standing on.
-        let shell_size = SCATTER_RINGS_PER_SHELL.min(scattered);
+        let shell_size = loss.rings_per_shell.min(scattered);
         for i in 0..scattered {
             // Rings burst from the body in every direction and arc under
             // gravity.
             let shell = i / shell_size;
             let t = ((i % shell_size) as f32 + 0.5) / shell_size as f32;
             let angle = std::f32::consts::TAU * t;
-            let speed = SCATTER_BURST_SPEED * SCATTER_INNER_SHELL_SCALE.powi(shell as i32);
+            let speed = loss.burst_speed * loss.inner_shell_scale.powi(shell as i32);
             let vel = ae::Vec2::new(angle.cos(), angle.sin()) * speed;
             let size = ae::Vec2::splat(RING_SIZE);
             let seq = counter.next();
@@ -1313,8 +1267,8 @@ pub fn scatter_rings_on_hit(
                 },
                 ScatteredRing {
                     vel,
-                    lock: SCATTER_LOCK_S,
-                    life: SCATTER_LIFE_S,
+                    lock: loss.lock_seconds,
+                    life: loss.life_seconds,
                 },
                 ambition_platformer2d::actors::features::PickupCollectLock,
             ));
@@ -1325,7 +1279,7 @@ pub fn scatter_rings_on_hit(
             count: 24,
             // Matched to the rings' own launch speed, so the sparkle reads as the
             // same event and not a separate, smaller puff at the centre.
-            speed: SCATTER_BURST_SPEED,
+            speed: loss.burst_speed,
             color: [1.0, 0.86, 0.28, 1.0],
             kind: ambition_platformer2d::vfx::ParticleKind::Dust,
         });
@@ -1364,6 +1318,7 @@ pub fn arc_scattered_rings(
         &mut ae::CenteredAabb,
     )>,
 ) {
+    let loss = crate::rules::sanic_rules().ring_loss;
     let dt = time.sim_dt();
     for (entity, mut ring, mut aabb) in &mut rings {
         let solids = world.of(entity).map(|geometry| &geometry.0);
@@ -1373,13 +1328,13 @@ pub fn arc_scattered_rings(
             commands.entity(entity).despawn();
             continue;
         }
-        ring.vel.y += SCATTER_GRAVITY * dt;
-        ring.vel *= (1.0 - SCATTER_AIR_DRAG * dt).max(0.0);
+        ring.vel.y += loss.gravity * dt;
+        ring.vel *= (1.0 - loss.air_drag * dt).max(0.0);
         let (moved, bounced) = ring_step(solids, aabb.aabb(), ring.vel * dt);
         aabb.center += moved;
         if let Some(normal) = bounced {
             // Reflect and damp, so the ring chatters where it fell and settles.
-            ring.vel = (ring.vel - normal * (2.0 * ring.vel.dot(normal))) * SCATTER_RESTITUTION;
+            ring.vel = (ring.vel - normal * (2.0 * ring.vel.dot(normal))) * loss.restitution;
         }
         if ring.lock > 0.0 {
             ring.lock -= dt;
@@ -1435,27 +1390,11 @@ pub fn goal_x_of(world: &ae::World) -> f32 {
     world.size.x - GOAL_FROM_END
 }
 
-/// How long the results card holds before the act restarts.
-pub const ACT_CLEAR_DWELL: f32 = 4.0;
-
-/// Points per second of time left under par, and the par itself. A time
-/// bonus makes going fast pay; without it a safer, slower route always wins.
-///
-/// Par is 30s against a ~6s clean run (see the act-completion proof), so the
-/// bonus spreads across real finishing times.
-pub const ACT_PAR_SECONDS: f32 = 30.0;
-pub const TIME_BONUS_PER_SECOND: i32 = 100;
-/// Each ring you finish holding is worth this.
-///
-/// Sized against the time bonus: a clean run banks about 2400 from time, and
-/// a full purse is worth about the same. The two only pull against each other
-/// at a comparable size.
-pub const RING_BONUS: i32 = 100;
-
 /// The act's score, from the numbers captured at the clear.
 pub fn act_score(time: f32, rings: i32) -> i32 {
-    let remaining = (ACT_PAR_SECONDS - time).max(0.0);
-    (remaining * TIME_BONUS_PER_SECOND as f32) as i32 + rings.max(0) * RING_BONUS
+    let act = crate::rules::sanic_rules().act;
+    let remaining = (act.par_seconds - time).max(0.0);
+    (remaining * act.time_bonus_per_second as f32) as i32 + rings.max(0) * act.ring_bonus
 }
 
 /// Format a duration the way a results screen does.
@@ -1470,9 +1409,6 @@ pub fn act_clock_text(seconds: f32) -> String {
     let hundredths = (seconds.max(0.0) * 100.0) as i32;
     format!("{}:{:02}.{:02}", hundredths / 6000, hundredths / 100 % 60, hundredths % 100)
 }
-
-/// How long the name of an act is on the screen when the act begins.
-pub const ACT_TITLE_SECONDS: f32 = 2.5;
 
 /// The name of an act and its number, by its room. `None` for a room that
 /// is not an act.
@@ -1591,7 +1527,7 @@ pub fn clear_act_at_goal(
         state.phase = SanicActPhase::Cleared {
             time: state.elapsed,
             rings: wallet.balance,
-            dwell: ACT_CLEAR_DWELL,
+            dwell: crate::rules::sanic_rules().act.clear_dwell,
         };
         vfx.for_room(rooms.live().of(runner)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: kin.pos,

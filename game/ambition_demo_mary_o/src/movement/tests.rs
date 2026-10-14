@@ -56,7 +56,7 @@ fn direction_alone_selects_walk_speed() {
 
     assert_eq!(
         throttle(&app, body),
-        WALK_THROTTLE,
+        crate::rules::mary_o_rules().walk_throttle,
         "no run held -> the walk throttle reaches the body"
     );
 }
@@ -82,7 +82,7 @@ fn the_walk_throttle_is_symmetric() {
     let (mut app, body) = app_with_policy();
     intend(&mut app, body, -1.0, false);
     app.update();
-    assert_eq!(throttle(&app, body), -WALK_THROTTLE);
+    assert_eq!(throttle(&app, body), -crate::rules::mary_o_rules().walk_throttle);
 }
 
 /// The held state survives the frame->tick latch. A sustained technique that
@@ -157,7 +157,7 @@ fn her_authored_gait_makes_speed_something_she_builds_and_keeps() {
     // Releasing run lowers the target to a walk and uses the authored coast
     // rate. It decelerates rather than snapping.
     let dt = 1.0 / 60.0;
-    let walk_target = WALK_THROTTLE * tuning.max_run_speed;
+    let walk_target = crate::rules::mary_o_rules().walk_throttle * tuning.max_run_speed;
     let after_one_tick = tuning.max_run_speed - momentum.ground_coast_decel * dt;
     assert!(
         after_one_tick > walk_target,

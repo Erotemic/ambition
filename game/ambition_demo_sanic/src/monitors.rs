@@ -49,8 +49,6 @@ pub const BREAKABLE_WALL: &str = "breakable_";
 const BREAK_REACH: f32 = 12.0;
 /// The prefix of a ring monitor's block name.
 pub const RING_MONITOR: &str = "monitor_rings";
-/// Rings a ring monitor holds.
-pub const RING_MONITOR_RINGS: i32 = 10;
 
 /// The box art of each monitor kind that grants something: a prop sheet
 /// (`targets/props/sanic_powerup_*.py` in the renderer), registered under its
@@ -174,10 +172,6 @@ pub fn dress_monitor_boxes(
     }
 }
 
-/// How long the speed shoes last (sim seconds) and what they multiply.
-const SPEED_SHOES_SECONDS: f32 = 8.0;
-const SPEED_SHOES_TOP_SPEED_FACTOR: f32 = 1.4;
-const SPEED_SHOES_ACCEL_FACTOR: f32 = 1.5;
 
 /// Vertical tolerance (px) for "feet on the monitor's lid".
 const STOMP_BAND: f32 = 16.0;
@@ -341,10 +335,11 @@ pub fn break_monitor_boxes(
             match block.name.as_str() {
                 name if name.starts_with(RING_MONITOR) => {
                     if let Some(wallet) = wallet.as_deref_mut() {
-                        wallet.add(RING_MONITOR_RINGS);
+                        wallet.add(crate::rules::sanic_rules().ring_monitor.rings);
                     }
                 }
                 name if name.starts_with(SPEED_MONITOR) => {
+                    let shoes = crate::rules::sanic_rules().speed_shoes;
                     // The shoes are a boost on the momentum the body rides: the
                     // kernel folds it into the authored params and spends it, so
                     // a second pair only restarts the clock. The super form
@@ -352,9 +347,9 @@ pub fn break_monitor_boxes(
                     if worn.id() != SUPER_SANIC_CHARACTER_ID {
                         if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *model {
                             momentum.boost = Some(ae::MomentumBoost {
-                                top_speed_scale: SPEED_SHOES_TOP_SPEED_FACTOR,
-                                ground_accel_scale: SPEED_SHOES_ACCEL_FACTOR,
-                                remaining_s: SPEED_SHOES_SECONDS,
+                                top_speed_scale: shoes.top_speed_factor,
+                                ground_accel_scale: shoes.accel_factor,
+                                remaining_s: shoes.seconds,
                             });
                         }
                     }
@@ -584,6 +579,7 @@ mod tests {
         let bob = app.world_mut().spawn(landing_seat(1, bobs_room)).id();
         app.update();
         let spent = app.world().resource::<SpentMonitors>();
+        let held = crate::rules::sanic_rules().ring_monitor.rings;
         assert_eq!(
             (
                 spent.is_broken(LiveRoomInstance::ACTIVATION, RING_MONITOR),
@@ -591,7 +587,7 @@ mod tests {
                 rings(&app, alice),
                 rings(&app, bob),
             ),
-            (true, true, RING_MONITOR_RINGS, RING_MONITOR_RINGS),
+            (true, true, held, held),
             "(Alice's monitor broken, Bob's monitor broken, Alice's rings, Bob's rings)"
         );
     }
@@ -608,7 +604,7 @@ mod tests {
         app.update();
         assert_eq!(
             (rings(&app, alice), rings(&app, bob)),
-            (RING_MONITOR_RINGS, 0),
+            (crate::rules::sanic_rules().ring_monitor.rings, 0),
             "(slot 0's rings, slot 1's rings): one payout, to the first seat by SimId"
         );
     }

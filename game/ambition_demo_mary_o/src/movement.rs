@@ -16,12 +16,6 @@ use ambition_platformer2d::characters::equipment::{EquipmentGrant, WornEquipment
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PlayerEntity;
 
-
-/// Walking is 60% of Mary-O's run speed: 180 px/s versus 300 px/s in the
-/// initial classic profile. Her catalog row owns the absolute cap; this system
-/// owns only the semantic walk/run ratio.
-pub const WALK_THROTTLE: f32 = 0.6;
-
 /// The policy. Scale the body-local locomotion throttle down to a walk unless
 /// the modifier slot is sustained.
 ///
@@ -40,7 +34,7 @@ pub fn walk_by_default_run_while_held(
             // A pure throttle cut. The TARGET speed drops; accumulated velocity is
             // left to the kernel's acceleration, which is what makes releasing run
             // a deceleration rather than a snap.
-            frame.locomotion.x *= WALK_THROTTLE;
+            frame.locomotion.x *= crate::rules::mary_o_rules().walk_throttle;
         }
     }
 }

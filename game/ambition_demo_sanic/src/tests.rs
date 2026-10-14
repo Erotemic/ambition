@@ -1813,11 +1813,11 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     assert_eq!(bursts.len(), 6, "all six lost rings burst outward");
     for r in &bursts {
         assert!(
-            r.vel.length() >= crate::SCATTER_BURST_SPEED - 0.01,
+            r.vel.length() >= crate::rules::sanic_rules().ring_loss.burst_speed - 0.01,
             "the outer shell launches at the full burst speed, got {}",
             r.vel.length()
         );
-        assert_eq!(r.life, crate::SCATTER_LIFE_S, "each ring starts its clock");
+        assert_eq!(r.life, crate::rules::sanic_rules().ring_loss.life_seconds, "each ring starts its clock");
     }
 
     // Radial, not a fan: every quadrant gets a ring, and the velocities sum to
@@ -1838,7 +1838,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     }
     let net: ae::Vec2 = bursts.iter().fold(ae::Vec2::ZERO, |acc, r| acc + r.vel);
     assert!(
-        net.length() < crate::SCATTER_BURST_SPEED * 0.1,
+        net.length() < crate::rules::sanic_rules().ring_loss.burst_speed * 0.1,
         "an even radial spray has (almost) no net direction; got {net:?}"
     );
 
@@ -1930,8 +1930,8 @@ fn a_scattered_ring_bounces_off_the_floor_it_lands_on() {
             crate::ScatteredRing {
                 // Straight down, fast, from just above the floor.
                 vel: ae::Vec2::new(0.0, 400.0),
-                lock: crate::SCATTER_LOCK_S,
-                life: crate::SCATTER_LIFE_S,
+                lock: crate::rules::sanic_rules().ring_loss.lock_seconds,
+                life: crate::rules::sanic_rules().ring_loss.life_seconds,
             },
             ae::CenteredAabb::from_center_size(
                 ae::Vec2::new(400.0, floor_y - 40.0),
@@ -1993,8 +1993,8 @@ fn each_scattered_ring_bounces_off_the_floor_of_its_own_live_room() {
             .spawn((
                 crate::ScatteredRing {
                     vel: ae::Vec2::new(0.0, 400.0),
-                    lock: crate::SCATTER_LOCK_S,
-                    life: crate::SCATTER_LIFE_S,
+                    lock: crate::rules::sanic_rules().ring_loss.lock_seconds,
+                    life: crate::rules::sanic_rules().ring_loss.life_seconds,
                 },
                 ae::CenteredAabb::from_center_size(
                     ae::Vec2::new(400.0, floor_y - 40.0),
@@ -2260,7 +2260,7 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
 /// and the scatter stops mattering.
 #[test]
 fn the_act_score_pays_for_speed_and_for_rings_kept() {
-    use crate::{act_score, act_time_text, ACT_PAR_SECONDS};
+    use crate::{act_score, act_time_text};
 
     // Faster is worth more, all else equal.
     let quick = act_score(20.0, 0);
@@ -2280,10 +2280,10 @@ fn the_act_score_pays_for_speed_and_for_rings_kept() {
 
     // Past par the time bonus floors at zero; a slow run does not owe back
     // its ring bonus.
-    let past_par = act_score(ACT_PAR_SECONDS + 30.0, 10);
+    let past_par = act_score(crate::rules::sanic_rules().act.par_seconds + 30.0, 10);
     assert_eq!(
         past_par,
-        act_score(ACT_PAR_SECONDS, 10),
+        act_score(crate::rules::sanic_rules().act.par_seconds, 10),
         "the time bonus clamps at par rather than turning negative"
     );
     assert!(past_par > 0, "and a slow run still keeps its ring bonus");
@@ -2304,13 +2304,13 @@ fn the_ring_splash_is_wide_enough_to_be_a_scramble() {
         .map(|i| {
             let t = (i as f32 + 0.5) / 6.0;
             let angle = std::f32::consts::TAU * t;
-            let vel = ae::Vec2::new(angle.cos(), angle.sin()) * crate::SCATTER_BURST_SPEED;
+            let vel = ae::Vec2::new(angle.cos(), angle.sin()) * crate::rules::sanic_rules().ring_loss.burst_speed;
             app.world_mut()
                 .spawn((
                     crate::ScatteredRing {
                         vel,
-                        lock: crate::SCATTER_LOCK_S,
-                        life: crate::SCATTER_LIFE_S,
+                        lock: crate::rules::sanic_rules().ring_loss.lock_seconds,
+                        life: crate::rules::sanic_rules().ring_loss.life_seconds,
                     },
                     ae::CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::splat(18.0)),
                 ))
@@ -2395,7 +2395,7 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
         .expect("Sanic keeps his combat state")
         .damage_invuln_timer;
     assert!(
-        armed >= crate::RING_LOSS_INVULN_S,
+        armed >= crate::rules::sanic_rules().ring_loss.invulnerable_seconds,
         "losing the purse left only {armed}s of recovery — the rings have not \
          even landed yet, and the badnik that hit him is still touching him"
     );
@@ -2405,7 +2405,7 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
     app.world_mut()
         .get_mut::<BodyCombat>(sanic)
         .expect("still there")
-        .damage_invuln_timer = crate::RING_LOSS_INVULN_S + 5.0;
+        .damage_invuln_timer = crate::rules::sanic_rules().ring_loss.invulnerable_seconds + 5.0;
     emit_ring_shield_spend(&mut app, sanic, 1);
     app.update();
     let after = app
@@ -2414,7 +2414,7 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
         .expect("still there")
         .damage_invuln_timer;
     assert!(
-        after >= crate::RING_LOSS_INVULN_S + 5.0,
+        after >= crate::rules::sanic_rules().ring_loss.invulnerable_seconds + 5.0,
         "a longer window already running was CUT SHORT to {after}s by a later \
          ring loss"
     );

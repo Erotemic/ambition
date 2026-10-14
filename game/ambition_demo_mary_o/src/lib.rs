@@ -40,6 +40,7 @@ pub mod quasar_shader;
 pub mod scenery;
 pub mod shimmer_shader;
 pub mod pack;
+pub mod rules;
 #[cfg(test)]
 mod smash_moveset;
 pub mod snake;
@@ -2468,7 +2469,7 @@ mod tests {
             "full run selects the top band"
         );
         assert_eq!(
-            jump.band_for_side_speed(movement::WALK_THROTTLE * mary_o_tuning.max_run_speed),
+            jump.band_for_side_speed(crate::rules::mary_o_rules().walk_throttle * mary_o_tuning.max_run_speed),
             1,
             "a walk selects a lower band, so the two gaits jump differently"
         );

@@ -20,7 +20,6 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 
-
 use crate::ldtk_vocabulary::{pipe_of, MaryOPipeMouth};
 
 /// The brain key a level placement carries beside `character_id`.
@@ -29,18 +28,6 @@ pub const SNAKE_PLANT_BRAIN_KEY: &str = "mary_o_snake_plant";
 pub const SNAKE_PLANT_CHARACTER_ID: &str = "snake_plant";
 /// The display name of its row.
 pub const SNAKE_PLANT_DISPLAY_NAME: &str = "Snake Plant";
-
-/// Ticks of one cycle: up, out, down, hidden.
-const CYCLE_TICKS: u64 = 330;
-/// Ticks to come all the way up, and to go all the way down.
-const TRAVEL_TICKS: u64 = 36;
-/// Ticks it stays all the way out.
-const OUT_TICKS: u64 = 108;
-/// A player this near the side of the pipe (px) keeps a hidden plant hidden.
-const SHY_REACH: f32 = 40.0;
-/// Below this part of its height out of the pipe, the plant hurts nobody: a
-/// body that stands on the pipe, or rides down it, does not touch the plant.
-const HARMLESS_BELOW: f32 = 0.12;
 
 /// How far out of its pipe a plant is, from 0 (hidden) to 1 (all the way
 /// out). Rollback state.
@@ -58,19 +45,20 @@ pub fn is_snake_plant_brain(brain: &CharacterBrain) -> bool {
 }
 
 /// How much of the plant the cycle wants out of the pipe at `tick`, from 0
-/// (hidden) to 1 (all the way out). It changes by `1 / TRAVEL_TICKS` at most
+/// (hidden) to 1 (all the way out). It changes by `1 / snake_plant.travel_ticks` at most
 /// from one tick to the next.
 pub fn wanted_out(tick: u64) -> f32 {
-    let at = tick % CYCLE_TICKS;
-    let rise_end = TRAVEL_TICKS;
-    let out_end = rise_end + OUT_TICKS;
-    let sink_end = out_end + TRAVEL_TICKS;
+    let plant = crate::rules::mary_o_rules().snake_plant;
+    let at = tick % plant.cycle_ticks;
+    let rise_end = plant.travel_ticks;
+    let out_end = rise_end + plant.out_ticks;
+    let sink_end = out_end + plant.travel_ticks;
     if at < rise_end {
-        at as f32 / TRAVEL_TICKS as f32
+        at as f32 / plant.travel_ticks as f32
     } else if at < out_end {
         1.0
     } else if at < sink_end {
-        1.0 - (at - out_end) as f32 / TRAVEL_TICKS as f32
+        1.0 - (at - out_end) as f32 / plant.travel_ticks as f32
     } else {
         0.0
     }
@@ -82,7 +70,7 @@ pub fn next_out(now: f32, wanted: f32, shy: bool) -> f32 {
     if shy && now <= 0.0 {
         return 0.0;
     }
-    let step = 1.0 / TRAVEL_TICKS as f32;
+    let step = 1.0 / crate::rules::mary_o_rules().snake_plant.travel_ticks as f32;
     now + (wanted - now).clamp(-step, step)
 }
 
@@ -164,8 +152,8 @@ pub fn run_snake_plants(
         let shy = players.iter().any(|(player, kin)| {
             let player_box = kin.aabb();
             geometry.room_of(player) == room
-                && player_box.max.x > pot.min.x - SHY_REACH
-                && player_box.min.x < pot.max.x + SHY_REACH
+                && player_box.max.x > pot.min.x - crate::rules::mary_o_rules().snake_plant.shy_reach
+                && player_box.min.x < pot.max.x + crate::rules::mary_o_rules().snake_plant.shy_reach
                 && player_box.max.y <= pot.max.y
         });
         // Each pipe has its own place in the cycle, from where it stands, so a
@@ -185,7 +173,7 @@ pub fn run_snake_plants(
             ae::Vec2::new((pot.min.x + pot.max.x) * 0.5, hidden_y + (out_y - hidden_y) * out),
             ambition_platformer2d::engine_core::movement::TransitVelocity::Zero,
         );
-        let harmless = out < HARMLESS_BELOW;
+        let harmless = out < crate::rules::mary_o_rules().snake_plant.harmless_below;
         match withdrawn.as_deref_mut() {
             Some(withdrawn) if withdrawn.0 != harmless => withdrawn.0 = harmless,
             Some(_) => {}
@@ -207,9 +195,9 @@ mod tests {
     /// is a plant that is in a body it was not near one tick before.
     #[test]
     fn the_cycle_is_hidden_then_out_and_has_no_jump() {
-        let step = 1.0 / TRAVEL_TICKS as f32 + 1e-4;
+        let step = 1.0 / crate::rules::mary_o_rules().snake_plant.travel_ticks as f32 + 1e-4;
         let (mut hidden, mut out) = (0, 0);
-        for tick in 0..CYCLE_TICKS * 2 {
+        for tick in 0..crate::rules::mary_o_rules().snake_plant.cycle_ticks * 2 {
             let (a, b) = (wanted_out(tick), wanted_out(tick + 1));
             assert!((a - b).abs() <= step, "the cycle jumps from {a} to {b} at tick {tick}");
             hidden += usize::from(a == 0.0);

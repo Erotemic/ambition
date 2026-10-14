@@ -196,9 +196,33 @@ value for a designer and size of change:
    The content CLI does not link a game's schema, so such a pack is checked
    by the game's own test, which reads the tree off disk (the `pack.ron`
    comment names it).
-3. Mary-O rules and the spark projectile; Sanic's shoes, ring scatter and
-   badnik bounce; the GNU-ton duel damage; boss bark cadence and wake radius;
-   the primeval swallow's fetch tuning.
+3. The GNU-ton duel damage; boss bark cadence and wake radius; the primeval
+   swallow's fetch tuning; Mary-O's castle end and flag.
+   ✅ 2026-10-14, Mary-O: the spark (refire, size, speed, damage, gravity,
+   bounces, lifetime), the snake plant's cycle, the pipe's timings, the
+   snake's shell (stomp bounce, slide, damages, kick grace and its four
+   phase times), the star, the coin block, the bridge's plank beat, the walk
+   throttle and the cosmic form's two beats are the pack's
+   `data/mary_o_rules.ron`, schema `mary_o_rules`, owned by the demo
+   (`src/rules.rs`). Deleted: 31 constants in eight modules. Equal before
+   the deletion (a temporary test, red on one edited value with no compile:
+   0.73 s); a plant cycle shorter than its own rise, time out and fall is
+   refused with the field named. Witness: `mary_os_tuning_is_its_pack_file`
+   (red at the plant's half-out sample when the rise reads another travel).
+   ✅ 2026-10-14, Sanic: the ring monitor, the speed shoes, the ring loss
+   (the invulnerable window and the scatter's nine numbers), the act's
+   score and cards, and the badnik's wake radius and bounce are the pack's
+   `data/sanic_rules.ron`, schema `sanic_rules`, owned by the demo
+   (`src/rules.rs`, on `content::rules_schema`). Deleted: 21 constants
+   (`RING_MONITOR_RINGS`, `SPEED_SHOES_*`, `RING_LOSS_INVULN_S`,
+   `SCATTER*`, `ACT_CLEAR_DWELL`, `ACT_PAR_SECONDS`,
+   `TIME_BONUS_PER_SECOND`, `RING_BONUS`, `ACT_TITLE_SECONDS`,
+   `BADNIK_WAKE_RADIUS`, `BOUNCE_SPEED`). Equal before the deletion (a
+   temporary test, red on one edited value with no compile: 1.15 s); a
+   misspelt field is refused with its line and the expected names. Witness:
+   `sanics_tuning_is_its_pack_file` (red at the score with `act_score`
+   reading another par). The level geometry stays Rust: it is the course,
+   not tuning.
 4. Tables: dialogue voiceprints (21 rows that repeat catalog ids), held and
    wielded item art, the projectile visual catalog (20 looks), the per-sheet
    VFX table in `ambition_sprite_sheet` (an engine crate: one character's
@@ -278,6 +302,14 @@ file and field named, and the Rust copy is deleted.
 3. **Measure first:** the background warm-up of every rig table
    (`RiggedSpriteAsset::warm_baked_in_background`): peak and retained memory
    with and without it, cold and warm frame stalls, desktop and Android.
+   Desktop, measured 2026-10-14 (`measure_the_memory_the_warm_up_keeps`,
+   ignored; run by name with `--ignored --nocapture`; two runs agree): the
+   166 published tables decode in 0.19 s on one thread and keep 22 MiB
+   (resident 23 to 46 MiB). The slowest table is 12 ms
+   (`imperfect_cellular_automaton`): without the warm-up, that is the stall
+   of a first draw, most of a 16.7 ms frame. So the warm-up buys about 12 ms
+   off the worst first draw for 22 MiB. Open: Android, and frame stalls
+   measured in the running game.
 4. **Acceptance by a person:** the robot's crouch, turn, double jump and
    back view in play; the new Hall and sandbox characters; the MSAA quality
    change on a real GPU.

@@ -98,9 +98,9 @@ fn the_shell_cycle_runs_to_completion_and_revives_only_at_the_end() {
 /// not peek early.
 #[test]
 fn a_boxed_shell_waits_out_its_timer_before_peeking() {
-    let fx = step(SnakeShell::Boxed(BOXED_S), ShellInputs::default());
+    let fx = step(SnakeShell::Boxed(crate::rules::mary_o_rules().shell.boxed_seconds), ShellInputs::default());
     assert!(
-        matches!(fx.phase, SnakeShell::Boxed(t) if t < BOXED_S && t > 0.0),
+        matches!(fx.phase, SnakeShell::Boxed(t) if t < crate::rules::mary_o_rules().shell.boxed_seconds && t > 0.0),
         "still boxed, timer ticking"
     );
     assert_eq!(fx.anim, Some(CharacterAnim::ShellIdle));
@@ -116,18 +116,18 @@ fn kicking_a_boxed_shell_sends_it_sliding_away() {
         kick_dir: Some(1.0),
         ..Default::default()
     };
-    let fx = step(SnakeShell::Boxed(BOXED_S), kick_right);
+    let fx = step(SnakeShell::Boxed(crate::rules::mary_o_rules().shell.boxed_seconds), kick_right);
     assert_eq!(
         fx.phase,
         SnakeShell::Sliding {
             dir: 1.0,
-            grace: KICK_GRACE_S
+            grace: crate::rules::mary_o_rules().shell.kick_grace_seconds
         }
     );
     assert!(fx.just_kicked);
     assert_eq!(
         fx.vel_x,
-        Some(SHELL_SLIDE_SPEED),
+        Some(crate::rules::mary_o_rules().shell.slide_speed),
         "kicked rightward at full speed"
     );
 
@@ -135,9 +135,9 @@ fn kicking_a_boxed_shell_sends_it_sliding_away() {
         kick_dir: Some(-1.0),
         ..Default::default()
     };
-    let fx = step(SnakeShell::Boxed(BOXED_S), kick_left);
+    let fx = step(SnakeShell::Boxed(crate::rules::mary_o_rules().shell.boxed_seconds), kick_left);
     assert!(matches!(fx.phase, SnakeShell::Sliding { dir, .. } if dir == -1.0));
-    assert_eq!(fx.vel_x, Some(-SHELL_SLIDE_SPEED));
+    assert_eq!(fx.vel_x, Some(-crate::rules::mary_o_rules().shell.slide_speed));
 }
 
 /// Kicking a shell must not hurt the kicker. The kick comes FROM the side, so
@@ -150,7 +150,7 @@ fn a_freshly_kicked_shell_cannot_hurt_the_kicker_until_its_grace_expires() {
         kick_dir: Some(1.0),
         ..Default::default()
     };
-    let mut phase = step(SnakeShell::Boxed(BOXED_S), kick).phase;
+    let mut phase = step(SnakeShell::Boxed(crate::rules::mary_o_rules().shell.boxed_seconds), kick).phase;
     let grace_of = |p| match p {
         SnakeShell::Sliding { grace, .. } => grace,
         other => panic!("expected a sliding shell, got {other:?}"),
@@ -162,7 +162,7 @@ fn a_freshly_kicked_shell_cannot_hurt_the_kicker_until_its_grace_expires() {
 
     // It expires on its own within the window, and never goes negative. (`+ 1` tick
     // for the float tail of subtracting `dt` off the window repeatedly.)
-    let ticks = (KICK_GRACE_S / DT).ceil() as usize + 1;
+    let ticks = (crate::rules::mary_o_rules().shell.kick_grace_seconds / DT).ceil() as usize + 1;
     for _ in 0..ticks {
         phase = step(phase, ShellInputs::default()).phase;
     }
@@ -183,7 +183,7 @@ fn a_sliding_shell_holds_speed_and_bounces_off_walls() {
     };
     let fx = step(armed, ShellInputs::default());
     assert_eq!(fx.phase, armed);
-    assert_eq!(fx.vel_x, Some(SHELL_SLIDE_SPEED));
+    assert_eq!(fx.vel_x, Some(crate::rules::mary_o_rules().shell.slide_speed));
 
     let blocked = ShellInputs {
         blocked: true,
@@ -194,7 +194,7 @@ fn a_sliding_shell_holds_speed_and_bounces_off_walls() {
         matches!(fx.phase, SnakeShell::Sliding { dir, .. } if dir == -1.0),
         "a wall flips its direction"
     );
-    assert_eq!(fx.vel_x, Some(-SHELL_SLIDE_SPEED));
+    assert_eq!(fx.vel_x, Some(-crate::rules::mary_o_rules().shell.slide_speed));
 }
 
 /// A stomp from ABOVE stops a running shell dead — it becomes a fresh boxed shell
@@ -220,7 +220,7 @@ fn a_stomp_from_above_stops_a_sliding_shell_and_bounces() {
 /// Landing on a resting shell kicks it, and bounces you.
 ///
 /// That made a stomped shell stay put — so a shell under a ?-block trapped her in an endless
-/// bounce, which the classic never does, and is `KICK_GRACE_S`, which did not exist then: a
+/// bounce, which the classic never does, and is `shell.kick_grace_seconds` (`mary_o_rules.ron`), which did not exist then: a
 /// freshly kicked shell cannot hurt the player at all, so the kick-then-hit loop cannot form.
 #[test]
 fn landing_on_a_resting_shell_kicks_it_out_from_under_you() {

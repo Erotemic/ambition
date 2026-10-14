@@ -47,7 +47,7 @@ fn a_transit_slides_for_its_authored_duration_and_lands_on_the_arrival() {
     let (path, crossed_at) = run(descent());
 
     let ticks = path.len() as f32;
-    let total = SWALLOW_S + EMERGE_S;
+    let total = crate::rules::mary_o_rules().pipe.swallow_seconds + crate::rules::mary_o_rules().pipe.emerge_seconds;
     assert!(
         (ticks * DT - total).abs() < 4.0 * DT,
         "the whole transit takes about {total}s, not a frame: {}s",
@@ -60,8 +60,9 @@ fn a_transit_slides_for_its_authored_duration_and_lands_on_the_arrival() {
     );
     let crossed_at = crossed_at.expect("the transit crosses to the far pipe");
     assert!(
-        ((crossed_at as f32 + 1.0) * DT - SWALLOW_S).abs() < 4.0 * DT,
-        "the crossing happens once the body is fully swallowed, about {SWALLOW_S}s in"
+        ((crossed_at as f32 + 1.0) * DT - crate::rules::mary_o_rules().pipe.swallow_seconds).abs() < 4.0 * DT,
+        "the crossing happens once the body is fully swallowed, about {}s in",
+        crate::rules::mary_o_rules().pipe.swallow_seconds
     );
 }
 
@@ -71,7 +72,7 @@ fn a_transit_slides_for_its_authored_duration_and_lands_on_the_arrival() {
 #[test]
 fn the_body_is_swallowed_before_it_crosses_and_emerges_from_inside_the_far_pipe() {
     let t = descent();
-    let travel = TRAVEL_TILES * TILE;
+    let travel = crate::rules::mary_o_rules().pipe.travel_tiles * TILE;
     assert_eq!(
         t.to,
         t.from + ae::Vec2::new(0.0, travel),
@@ -120,7 +121,7 @@ fn the_emergence_travels_the_same_way_as_the_entry() {
 #[test]
 fn the_slide_eases_in_and_out_rather_than_moving_at_a_constant_rate() {
     let (path, _) = run(descent());
-    let swallow_ticks = (SWALLOW_S / DT) as usize;
+    let swallow_ticks = (crate::rules::mary_o_rules().pipe.swallow_seconds / DT) as usize;
     let step = |i: usize| (path[i + 1] - path[i]).length();
     let first = step(0);
     let middle = step(swallow_ticks / 2);
@@ -195,7 +196,7 @@ fn she_steps_to_the_centre_of_the_pipe_before_she_sinks() {
 
     let (path, crossed_at) = run(transit);
     let crossed_at = crossed_at.expect("the transit crosses");
-    let step_ticks = (CENTER_S / DT).ceil() as usize;
+    let step_ticks = (crate::rules::mary_o_rules().pipe.center_seconds / DT).ceil() as usize;
     // The step is across the mouth only: she does not sink while she steps.
     for (tick, pos) in path.iter().enumerate().take(step_ticks - 1) {
         assert_eq!(pos.y, at.y, "tick {tick}: she sank before she reached the centre line");
@@ -209,7 +210,7 @@ fn she_steps_to_the_centre_of_the_pipe_before_she_sinks() {
     }
     assert!(sank, "premise: she sinks into the pipe after the step");
     assert!(
-        ((crossed_at as f32 + 1.0) * DT - (CENTER_S + SWALLOW_S)).abs() < 4.0 * DT,
+        ((crossed_at as f32 + 1.0) * DT - (crate::rules::mary_o_rules().pipe.center_seconds + crate::rules::mary_o_rules().pipe.swallow_seconds)).abs() < 4.0 * DT,
         "the step is added before the swallow, and the swallow keeps its length"
     );
 }
@@ -234,7 +235,7 @@ fn a_pipe_to_another_level_swallows_her_and_keeps_her() {
         ae::Vec2::new(0.0, 1.0),
         TILE,
     );
-    let swallowed = ae::Vec2::new(100.0, 100.0 + TRAVEL_TILES * TILE);
+    let swallowed = ae::Vec2::new(100.0, 100.0 + crate::rules::mary_o_rules().pipe.travel_tiles * TILE);
     let mut crossed_at = None;
     for tick in 0..600 {
         let fx = step_pipe_transit(transit, DT);
@@ -251,6 +252,6 @@ fn a_pipe_to_another_level_swallows_her_and_keeps_her() {
     let crossed_at: usize = crossed_at.expect("the swallow did not end");
     assert_eq!(transit.phase, TransitPhase::Leaving);
     // The same slide as a tube: no faster, no slower.
-    let ticks = (SWALLOW_S / DT).round() as usize;
+    let ticks = (crate::rules::mary_o_rules().pipe.swallow_seconds / DT).round() as usize;
     assert!(crossed_at.abs_diff(ticks) <= 2, "the swallow took {crossed_at} ticks, and a tube takes {ticks}");
 }

@@ -34,13 +34,7 @@ pub const BADNIK_DISPLAY_NAME: &str = "Sanic Badnik";
 /// The roster brain key the LDtk `EnemySpawn` entities reference.
 pub const BADNIK_BRAIN_KEY: &str = "sanic_badnik";
 
-/// How near Sanic must be for a badnik to keep thinking.
-///
-/// Derived from Sanic's fastest tuning (`top_speed: 2000.0`): 2.4s of lead.
-pub const BADNIK_WAKE_RADIUS: f32 = 4800.0;
 
-/// Upward speed off a stomped badnik — a lively bounce, under a full jump.
-const BOUNCE_SPEED: f32 = 460.0;
 
 /// Vertical tolerance (px) for "feet on the badnik's head".
 const STOMP_BAND: f32 = 16.0;
@@ -128,7 +122,7 @@ pub fn defeat_badniks(
         };
         if bounce {
             if let Ok((_, mut kin, ..)) = players.get_mut(player) {
-                ae::movement::set_jump_velocity(&mut kin.vel, ae::DEFAULT_GRAVITY_DIR, BOUNCE_SPEED);
+                ae::movement::set_jump_velocity(&mut kin.vel, ae::DEFAULT_GRAVITY_DIR, crate::rules::sanic_rules().badnik.bounce_speed);
             }
         }
         vfx.for_room(room).write(ambition_platformer2d::vfx::VfxMessage::Burst {

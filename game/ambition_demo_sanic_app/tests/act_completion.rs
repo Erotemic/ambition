@@ -191,7 +191,7 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
     }
     assert!(cleared, "never reached the goal, so this proves nothing");
 
-    let dwell_frames = (ambition_demo_sanic::ACT_CLEAR_DWELL * 60.0).ceil() as usize;
+    let dwell_frames = (ambition_demo_sanic::rules::sanic_rules().act.clear_dwell * 60.0).ceil() as usize;
     let mut furthest_back = f32::MAX;
     for _ in 0..dwell_frames {
         app.world_mut()
@@ -205,6 +205,6 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
         "he ended up at x={furthest_back:.0} during his own {}s results card, \
          from a goal at {GOAL_X} — he ran off the end of the course, died, and \
          is replaying the act while the card still shows his time",
-        ambition_demo_sanic::ACT_CLEAR_DWELL,
+        ambition_demo_sanic::rules::sanic_rules().act.clear_dwell,
     );
 }

@@ -1,12 +1,12 @@
 // The Mary-O demo's own content pack: what its characters are, stated as
 // data. The manifest is the pack's explicit source list, not a directory
-// glob, so its contents do not depend on filesystem order. A source declared
-// here and not embedded in `src/pack.rs` (or the reverse) is a loud refusal.
+// glob, so its contents do not depend on filesystem order. A line added here
+// is played at the next start, with no Rust build.
 //
-// Validate without rebuilding Rust:
+// `mary_o_rules` is the demo's own schema (`src/rules.rs`), which the content
+// CLI does not link. Validate, reading this tree off disk:
 //
-//     cargo run -p ambition_content_cli --bin ambition_content -- \
-//         game/ambition_demo_mary_o/assets
+//     cargo test -p ambition_demo_mary_o --lib pack
 (
     id: "ambition_demo_mary_o",
     version: "0.1.0",
@@ -23,5 +23,7 @@
         (path: "audio/sfx_registry.ron", schema: "sfx_registry", version: 1),
         // The rules of her rooms: the death replay, sized by her death music.
         (path: "data/room_rules.ron", schema: "room_rules", version: 1),
+        // Its tuning: the spark, the plant, the pipe, the shell, the star.
+        (path: "data/mary_o_rules.ron", schema: "mary_o_rules", version: 1),
     ],
 )

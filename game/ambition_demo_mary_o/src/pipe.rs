@@ -40,25 +40,8 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance};
 use ambition_platformer2d::platformer::markers::PlayerEntity;
 
-/// Seconds spent sinking into the near pipe, and rising out of the far one. Half
-/// a second each way: slow enough to read as a slide rather than a snap, short
-/// enough that a player who takes the pipe often never waits on it.
-pub const SWALLOW_S: f32 = 0.5;
-pub const EMERGE_S: f32 = 0.5;
-
-/// Seconds spent stepping across the mouth to the pipe's centre line, before
-/// the slide. Short: it is a step, and a body that is on the line skips it.
-pub const CENTER_S: f32 = 0.14;
-
 /// A body this near the centre line (px) is on it.
 const ON_THE_LINE: f32 = 0.5;
-
-/// How far along the tube's axis the body travels in each phase. Two tiles is the
-/// pipe's own height, so the slide starts at the lip and ends with the body fully
-/// inside the pipe's footprint — which is exactly the span the pipe art covers, so
-/// the body is completely swallowed at the moment of the crossing and nothing
-/// pops.
-pub const TRAVEL_TILES: f32 = 2.0;
 
 /// The authored cue a warp voices, procedurally synthesized from the provider's
 /// audio fragment (see `provider.rs`). Named as an id rather than a shared
@@ -122,7 +105,7 @@ pub struct PipeTransit {
 
 impl PipeTransit {
     /// Begin a transit: the body steps across the mouth to the pipe's centre
-    /// line, sinks `TRAVEL_TILES` along `axis`, then rises the same distance out
+    /// line, sinks `pipe.travel_tiles` (`mary_o_rules.ron`) along `axis`, then rises the same distance out
     /// of the far pipe to `arrival`.
     ///
     /// `axis` is the direction of travel INTO the near pipe — screen-down for the
@@ -132,7 +115,7 @@ impl PipeTransit {
     /// she can press into it off the line; a slide from there would go down
     /// the pipe's wall.
     pub fn begin(at: ae::Vec2, mouth: ae::Vec2, arrival: ae::Vec2, axis: ae::Vec2, tile: f32) -> Self {
-        let travel = axis * (TRAVEL_TILES * tile);
+        let travel = axis * (crate::rules::mary_o_rules().pipe.travel_tiles * tile);
         // Across the mouth only: the part of the way to `mouth` that is not
         // along the pipe.
         let to_mouth = mouth - at;
@@ -194,9 +177,9 @@ pub struct TransitEffects {
 pub fn step_pipe_transit(transit: PipeTransit, dt: f32) -> TransitEffects {
     let elapsed = transit.elapsed + dt;
     let duration = match transit.phase {
-        TransitPhase::Centering => CENTER_S,
-        TransitPhase::Swallowing => SWALLOW_S,
-        TransitPhase::Emerging => EMERGE_S,
+        TransitPhase::Centering => crate::rules::mary_o_rules().pipe.center_seconds,
+        TransitPhase::Swallowing => crate::rules::mary_o_rules().pipe.swallow_seconds,
+        TransitPhase::Emerging => crate::rules::mary_o_rules().pipe.emerge_seconds,
         // No end of its own: the room she arrives in ends it.
         TransitPhase::Leaving => {
             return TransitEffects {

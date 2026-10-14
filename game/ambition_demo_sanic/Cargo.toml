@@ -32,3 +32,5 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-f
 # game names `ambition_platformer2d` + `bevy`, and NOTHING ELSE. It still holds — this file is
 # the proof.
 bevy = { version = "0.19.1", default-features = false }
+# The demo's own pack schema (`rules.rs`) derives its reader.
+serde = { workspace = true }

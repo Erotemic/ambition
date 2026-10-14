@@ -178,7 +178,7 @@ fn each_game_sleeps_its_hostiles_at_its_own_distance_in_its_own_rooms() {
         (None, Some(ambition_content::dormancy::AMBITION_WAKE_RADIUS)),
         (
             Some(ambition_demo_sanic::SANIC_MODE),
-            Some(ambition_demo_sanic::badnik::BADNIK_WAKE_RADIUS),
+            Some(ambition_demo_sanic::rules::sanic_rules().badnik.wake_radius),
         ),
         (
             Some(ambition_demo_mary_o::MARY_O_MODE),

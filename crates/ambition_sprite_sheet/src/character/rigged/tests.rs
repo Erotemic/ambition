@@ -703,3 +703,50 @@ fn the_blink_warp_is_for_a_row_that_draws_the_body_whole() {
     eprintln!("the engine's blink: {engine_blink:?}");
     eprintln!("their own blink: {own_blink:?}");
 }
+
+/// A MEASUREMENT, not a check (review of 2026-10-14, queue REVIEW-1014 item
+/// 3): the memory that [`RiggedSpriteAsset::warm_baked_in_background`] keeps
+/// for the process, as the resident set before and after every published
+/// full-resolution table is decoded and kept, and the decode time on one
+/// thread. Run it by name with `--ignored --nocapture`; it reads the tables
+/// this checkout published.
+#[test]
+#[ignore = "a measurement of the published tables; run by name"]
+fn measure_the_memory_the_warm_up_keeps() {
+    fn resident_kib() -> u64 {
+        std::fs::read_to_string("/proc/self/status")
+            .ok()
+            .and_then(|status| {
+                status
+                    .lines()
+                    .find_map(|line| line.strip_prefix("VmRSS:"))
+                    .and_then(|kib| kib.trim().trim_end_matches("kB").trim().parse().ok())
+            })
+            .unwrap_or(0)
+    }
+    let targets: Vec<&str> = crate::baked_part_flipbooks::baked_part_flipbook_targets().collect();
+    let before = resident_kib();
+    let started = std::time::Instant::now();
+    // The slowest table is the stall a first use pays without the warm-up.
+    let mut slowest = (std::time::Duration::ZERO, "");
+    let mut decoded = 0;
+    for target in &targets {
+        let one = std::time::Instant::now();
+        if RiggedSpriteAsset::baked_checked(target).is_some_and(|asset| asset.is_ok()) {
+            decoded += 1;
+        }
+        slowest = slowest.max((one.elapsed(), target));
+    }
+    let took = started.elapsed();
+    let after = resident_kib();
+    println!(
+        "warm-up: {decoded} of {} tables decoded on one thread in {:.2} s (slowest {:.1} ms, `{}`); resident {} MiB -> {} MiB (+{} MiB kept)",
+        targets.len(),
+        took.as_secs_f64(),
+        slowest.0.as_secs_f64() * 1000.0,
+        slowest.1,
+        before / 1024,
+        after / 1024,
+        after.saturating_sub(before) / 1024
+    );
+}

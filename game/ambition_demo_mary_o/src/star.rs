@@ -25,8 +25,6 @@ pub const QUASAR_SPRITE: &str = "super_mary_o_cosmic_quasar";
 /// The quasar's half-extent — a round pickup, sized from the generated prop.
 pub const QUASAR_HALF: ae::Vec2 = ae::Vec2::new(13.0, 13.0);
 
-pub const STAR_SECONDS: f32 = 10.0;
-
 /// This beat's claim on the encounter layer's priority music tier, mirroring the
 /// death and victory sequences.
 const STAR_MUSIC_OWNER: &str = "mary_o_star";
@@ -71,7 +69,7 @@ pub fn begin_star_power(
         if worn.unequip(POCKET_QUASAR_ID).is_some() {
             commands.entity(body).try_insert(Empowered::for_seconds(
                 COSMIC_QUASAR_SUPER_STATE,
-                STAR_SECONDS,
+                crate::rules::mary_o_rules().star_seconds,
             ));
         }
     }
@@ -248,7 +246,7 @@ mod tests {
         app.update();
 
         // Burn the whole duration, plus a tick.
-        for _ in 0..((STAR_SECONDS * 60.0) as usize + 2) {
+        for _ in 0..((crate::rules::mary_o_rules().star_seconds * 60.0) as usize + 2) {
             app.update();
         }
 

@@ -42,13 +42,8 @@ pub mod character_catalog;
 /// the runtime never consulted, and the runtime could `expect`-panic at startup
 /// on a serde message the pack never saw.
 ///
-/// Read off disk in desktop development, embedded under `static_content`
-/// (see [`pack::source_text`]).
-#[cfg(feature = "static_content")]
-pub(crate) const ENCOUNTER_WAVES_RON_STATIC: Option<&'static str> =
-    Some(include_str!("../assets/data/encounters/goblin_encounter.ron"));
-#[cfg(not(feature = "static_content"))]
-pub(crate) const ENCOUNTER_WAVES_RON_STATIC: Option<&'static str> = None;
+/// A pack source, read off disk in desktop development and embedded under
+/// `static_content` (see [`pack::pack_source_text`]).
 
 pub mod content_validation;
 pub mod dialogue;

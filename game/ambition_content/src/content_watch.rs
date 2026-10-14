@@ -2,7 +2,9 @@
 //! watching calls the same request path").
 //!
 //! A build that reads its content off disk (no `static_content` feature) looks
-//! at every source `pack.ron` declares. When one changes, it compiles the pack
+//! at `pack.ron` and at every source it declares; a change to `pack.ron` also
+//! changes which files are looked at, so a source added there is watched from
+//! the next look. When a file changes, it compiles the pack
 //! again from the files on disk ([`crate::pack::compile_pack_from`]) and asks
 //! for a reload ([`crate::reload::request_reload`]). The reload road decides
 //! the rest: it refuses a pack that does not compile, a change to a domain
@@ -32,7 +34,7 @@ pub struct ContentSourceWatch {
 impl ContentSourceWatch {
     /// Watch the declared sources under `root`, as they are now.
     pub fn new(root: std::path::PathBuf) -> Self {
-        let files = crate::pack::declared_source_paths()
+        let files = watched_files(&root)
             .into_iter()
             .map(|path| {
                 let seen = modified(&root.join(&path));
@@ -59,6 +61,13 @@ impl ContentSourceWatch {
 /// second is below a developer's switch from editor to game.
 const POLL_FRAMES: u32 = 20;
 
+/// The manifest and each source it declares.
+fn watched_files(root: &std::path::Path) -> Vec<String> {
+    std::iter::once("pack.ron".to_string())
+        .chain(crate::pack::declared_source_paths_in(root))
+        .collect()
+}
+
 fn modified(path: &std::path::Path) -> Option<std::time::SystemTime> {
     std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
@@ -83,6 +92,22 @@ pub fn watch_content_sources(world: &mut World) {
                 *seen = now;
                 changed.push(path.clone());
             }
+        }
+        if changed.iter().any(|path| path == "pack.ron") {
+            // The list moved: a source the old list did not have is new now,
+            // so it is a change; one that stayed keeps the time it was seen at.
+            let old = std::mem::take(&mut watch.files);
+            watch.files = watched_files(&root)
+                .into_iter()
+                .map(|path| match old.iter().find(|(was, _)| *was == path) {
+                    Some((_, seen)) => (path, *seen),
+                    None => {
+                        let seen = modified(&root.join(&path));
+                        changed.push(path.clone());
+                        (path, seen)
+                    }
+                })
+                .collect();
         }
         if !changed.is_empty() {
             info!("content sources changed: {changed:?}");

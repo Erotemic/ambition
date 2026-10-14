@@ -40,10 +40,6 @@ pub use gnu_ton::gate_gnu_ton_arena_ladder;
 
 /// `boss_profiles.ron`: the roster, the patterns and their timings.
 pub const BOSS_PROFILES_SOURCE_PATH: &str = "data/boss_profiles.ron";
-#[cfg(feature = "static_content")]
-const BOSS_PROFILES_RON_STATIC: Option<&'static str> = Some(include_str!("../../assets/data/boss_profiles.ron"));
-#[cfg(not(feature = "static_content"))]
-const BOSS_PROFILES_RON_STATIC: Option<&'static str> = None;
 
 /// `boss_sheets.ron` and `boss_art_keys.ron`: not pack sources (see
 /// [`boss_catalog_fragment_from`]), read off disk the same way.
@@ -60,32 +56,23 @@ const BOSS_ART_KEYS_RON_STATIC: Option<&'static str> = None;
 
 /// The text of `boss_profiles.ron` this build reads.
 pub fn boss_profiles_ron() -> String {
-    crate::pack::source_text(BOSS_PROFILES_SOURCE_PATH, BOSS_PROFILES_RON_STATIC)
+    crate::pack::pack_source_text(BOSS_PROFILES_SOURCE_PATH)
 }
 
 pub const BOSS_SEEDS_SOURCE_PATH: &str = "data/boss_seeds.ron";
-#[cfg(feature = "static_content")]
-const BOSS_SEEDS_RON_STATIC: Option<&'static str> = Some(include_str!("../../assets/data/boss_seeds.ron"));
-#[cfg(not(feature = "static_content"))]
-const BOSS_SEEDS_RON_STATIC: Option<&'static str> = None;
 
 /// The text of `boss_seeds.ron` this build reads.
 pub fn boss_seeds_ron() -> String {
-    crate::pack::source_text(BOSS_SEEDS_SOURCE_PATH, BOSS_SEEDS_RON_STATIC)
+    crate::pack::pack_source_text(BOSS_SEEDS_SOURCE_PATH)
 }
 
 /// BD5's per-game fairness calibration (`boss-design.md` §3). One RON per game, so
 /// re-calibrating a fight's fairness is an edit, not a recompile.
 pub const BOSS_VALIDATOR_BANDS_SOURCE_PATH: &str = "data/boss_validator_bands.ron";
-#[cfg(feature = "static_content")]
-const BOSS_VALIDATOR_BANDS_RON_STATIC: Option<&'static str> =
-    Some(include_str!("../../assets/data/boss_validator_bands.ron"));
-#[cfg(not(feature = "static_content"))]
-const BOSS_VALIDATOR_BANDS_RON_STATIC: Option<&'static str> = None;
 
 /// The text of `boss_validator_bands.ron` this build reads.
 pub fn boss_validator_bands_ron() -> String {
-    crate::pack::source_text(BOSS_VALIDATOR_BANDS_SOURCE_PATH, BOSS_VALIDATOR_BANDS_RON_STATIC)
+    crate::pack::pack_source_text(BOSS_VALIDATOR_BANDS_SOURCE_PATH)
 }
 
 /// The validator bands the fight validator judges against, from `pack`.
@@ -111,49 +98,6 @@ pub fn seed_library_of(
     ambition_boss_encounter::pattern::content_schema::lowered_seed_library(pack)
         .expect("the seed schema lowers its library for every pack that compiles")
 }
-
-/// Embedded encounter rows contributed by the Ambition provider: each source's
-/// path and its bytes, together, once.
-///
-/// Reordering either list attached a file's contents to the wrong diagnostic path and fingerprint
-/// while the runtime went on resolving rows by their internal ids — so nothing would fail, and a
-/// compile error would point at the wrong file forever.
-///
-/// positional coupling across two files is the shape, not the count. It
-/// was maintainable at nine and would have been silently wrong at ten.
-/// Each encounter file once: its declared path, and its text when this build
-/// embeds it (`static_content`); otherwise the pack reads the path off disk.
-macro_rules! boss_encounter_sources {
-    ($($file:literal),* $(,)?) => {
-        #[cfg(feature = "static_content")]
-        pub const BOSS_ENCOUNTERS: &[(&str, Option<&'static str>)] = &[$(
-            (
-                concat!("data/boss_encounters/", $file),
-                Some(include_str!(concat!("../../assets/data/boss_encounters/", $file))),
-            ),
-        )*];
-        #[cfg(not(feature = "static_content"))]
-        pub const BOSS_ENCOUNTERS: &[(&str, Option<&'static str>)] =
-            &[$((concat!("data/boss_encounters/", $file), None),)*];
-    };
-}
-boss_encounter_sources!(
-    "clockwork_warden.ron",
-    "mockingbird.ron",
-    "gnu_ton_rider.ron",
-    "smirking_behemoth_boss.ron",
-    "flying_spaghetti_monster_boss.ron",
-    "trex_boss.ron",
-    "mode_collapse_boss.ron",
-    "exploding_gradient_boss.ron",
-    "overflow_boss.ron",
-);
-
-// `boss_encounter_rons()` — "just the bytes, for the catalog builder" — is
-// GONE. It existed to hand nine raw files to a builder that parsed
-// them itself; the builder now takes the compiler's merged book, so the only
-// consumer of those bytes is the pack. [`BOSS_ENCOUNTERS`] still carries them,
-// because the pack is where they belong.
 
 /// Ambition's immutable App-local boss contribution.
 ///
@@ -557,11 +501,11 @@ mod encounter_book_tests {
             crate::pack::shipped(),
         )
         .expect("the encounter schema merges its files for every pack that compiles");
-        assert_eq!(
-            book.len(),
-            super::BOSS_ENCOUNTERS.len(),
-            "one merged entry per authored file"
-        );
+        let files = crate::pack::declared_source_paths()
+            .into_iter()
+            .filter(|path| path.starts_with("data/boss_encounters/"))
+            .count();
+        assert_eq!(book.len(), files, "one merged entry per authored file");
         let catalog = super::shipped_boss_catalog();
         for (id, spec) in book {
             assert_eq!(

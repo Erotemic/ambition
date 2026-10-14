@@ -7,18 +7,15 @@
 //! so the Python tools (`ambition_ldtk_tools.codegen_character_catalog`, the
 //! hall generator) can read it from disk.
 
-/// The authored roster RON: read off disk in desktop development, embedded
-/// under `static_content` (see [`crate::pack::source_text`]). One file, shared
-/// with the off-disk tooling.
+/// The authored roster RON, a pack source: read off disk in desktop
+/// development, embedded under `static_content` (see
+/// [`crate::pack::pack_source_text`]). One file, shared with the off-disk
+/// tooling.
 pub(crate) const CATALOG_SOURCE_PATH: &str = "data/character_catalog.ron";
-#[cfg(feature = "static_content")]
-const CHARACTER_CATALOG_RON_STATIC: Option<&'static str> = Some(include_str!("../assets/data/character_catalog.ron"));
-#[cfg(not(feature = "static_content"))]
-const CHARACTER_CATALOG_RON_STATIC: Option<&'static str> = None;
 
 /// The text of `character_catalog.ron` this build reads.
 pub fn character_catalog_ron() -> String {
-    crate::pack::source_text(CATALOG_SOURCE_PATH, CHARACTER_CATALOG_RON_STATIC)
+    crate::pack::pack_source_text(CATALOG_SOURCE_PATH)
 }
 
 /// The character catalog `pack` lowered, as an explicit immutable value.

@@ -7,226 +7,58 @@
 //! pipeline must be the same for both, so `pack.ron` is embedded from the file
 //! the CLI reads, and both go through `ambition_content_pack::compile`.
 //!
-//! ## Adding a source is two edits here, and both fail loudly
+//! ## Adding a source is one line in `pack.ron`
 //!
-//! A new line in `pack.ron` needs a matching entry in [`embedded_sources`].
-//! Without it, the compiler refuses at startup with "the manifest declares `X`
-//! but no source was supplied for it". A missing schema registration makes
-//! `content_pack_registry` fail before the game runs.
+//! The manifest is the list. A build that reads content off disk reads
+//! `pack.ron` and each source it declares when the pack compiles, so a new
+//! source is no Rust build. A build that embeds its content (`static_content`)
+//! gets the same list from `build.rs`, which reads `pack.ron`. A missing schema
+//! registration makes `content_pack_registry` fail before the game runs.
 
 use ambition_content_pack::{CompileFailure, PreparedContentPack};
 
-/// The pack manifest, embedded from the SAME file the CLI reads off disk.
-const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
+/// The pack a build with no source tree embeds: `assets/pack.ron` and each
+/// source it declares, written by `build.rs` under `static_content`. `None`
+/// in a build that reads its content off disk.
+pub(crate) struct EmbeddedPack {
+    manifest: &'static str,
+    sources: &'static [(&'static str, &'static str)],
+}
 
-/// The declared path of each source, exactly as `pack.ron` spells it.
-///
-/// A mismatch is caught by the compiler's "no source supplied" refusal, not
-/// by an empty family.
-const ITEMS_SOURCE_PATH: &str = "data/items.ron";
-const QUESTS_SOURCE_PATH: &str = "data/quests.ron";
-const FIGHTER_BRAIN_LADDER_SOURCE_PATH: &str = "data/fighter_brain_ladder.ron";
-const ROOM_RULES_SOURCE_PATH: &str = "data/room_rules.ron";
-const MUSIC_REGISTRY_SOURCE_PATH: &str = "audio/music_registry.ron";
-const SFX_REGISTRY_SOURCE_PATH: &str = "audio/sfx_registry.ron";
-const MUSIC_CUES_SOURCE_PATH: &str = "audio/music_cues.ron";
+include!(concat!(env!("OUT_DIR"), "/embedded_pack.rs"));
 
-/// The authored encounter wave timelines.
-const ENCOUNTER_WAVES_SOURCE_PATH: &str = "data/encounters/goblin_encounter.ron";
+/// The manifest this build compiles: the embedded one, or `assets/pack.ron`
+/// as it is on disk now.
+fn manifest_ron() -> String {
+    match &EMBEDDED_PACK {
+        Some(pack) => pack.manifest.to_string(),
+        None => source_text("pack.ron", None),
+    }
+}
 
-/// The authored item grid: read off disk in desktop development, embedded
-/// under `static_content`. The CLI and the Python tooling read the same file.
-#[cfg(feature = "static_content")]
-const ITEMS_RON_STATIC: Option<&'static str> = Some(include_str!("../assets/data/items.ron"));
-#[cfg(not(feature = "static_content"))]
-const ITEMS_RON_STATIC: Option<&'static str> = None;
+/// One source of the pack: the embedded text, or the file as it is on disk
+/// now. `declared` is the path as `pack.ron` spells it.
+pub(crate) fn pack_source_text(declared: &str) -> String {
+    match &EMBEDDED_PACK {
+        Some(pack) => pack
+            .sources
+            .iter()
+            .find(|(path, _)| *path == declared)
+            .map(|(_, text)| text.to_string())
+            .unwrap_or_else(|| {
+                panic!("`{declared}` is not a source `pack.ron` declares, so this build did not embed it")
+            }),
+        None => source_text(declared, None),
+    }
+}
 
-/// The authored cutscenes, gated like the item grid. One list: the path and
-/// the embedded text travel together.
-#[cfg(feature = "static_content")]
-const CUTSCENE_SOURCES: &[(&str, Option<&'static str>)] = &[
-    (
-        "data/cutscenes/sandbox.ron",
-        Some(include_str!("../assets/data/cutscenes/sandbox.ron")),
-    ),
-    (
-        "data/cutscenes/intro.ron",
-        Some(include_str!("../assets/data/cutscenes/intro.ron")),
-    ),
-];
-#[cfg(not(feature = "static_content"))]
-const CUTSCENE_SOURCES: &[(&str, Option<&'static str>)] =
-    &[("data/cutscenes/sandbox.ron", None), ("data/cutscenes/intro.ron", None)];
-
-/// The adaptive music cues, gated like the item grid.
-#[cfg(feature = "static_content")]
-const MUSIC_CUES_RON_STATIC: Option<&'static str> =
-    Some(include_str!("../assets/audio/music_cues.ron"));
-#[cfg(not(feature = "static_content"))]
-const MUSIC_CUES_RON_STATIC: Option<&'static str> = None;
-
-/// The authored quests, gated like the item grid.
-#[cfg(feature = "static_content")]
-const QUESTS_RON_STATIC: Option<&'static str> = Some(include_str!("../assets/data/quests.ron"));
-#[cfg(not(feature = "static_content"))]
-const QUESTS_RON_STATIC: Option<&'static str> = None;
-
-/// Every move table this provider authors, as content, not code.
-///
-/// One list: the path and embedded static derive from it. `pack.ron` stays a
-/// separate statement (it is the pack's manifest, not this crate's), and the
-/// compiler's "no source was supplied" refusal keeps them in step at startup.
-///
-/// Gated like the music registry: off for desktop development, so a move edit
-/// costs a file write and a pack recompile instead of a Rust rebuild; on for
-/// builds with no filesystem (web, Android).
-/// `dev/measurements/m0_move_edit_loop.sh` measures the edit loop.
-///
-/// The name here is the file's, not the character's: a file names the
-/// characters it is for by entity id.
-#[cfg(feature = "static_content")]
-const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
-    (
-        "alice",
-        Some(include_str!("../assets/data/movesets/alice.ron")),
-    ),
-    ("bob", Some(include_str!("../assets/data/movesets/bob.ron"))),
-    (
-        "carl_stargan",
-        Some(include_str!("../assets/data/movesets/carl_stargan.ron")),
-    ),
-    (
-        "cellular_automaton",
-        Some(include_str!(
-            "../assets/data/movesets/cellular_automaton.ron"
-        )),
-    ),
-    (
-        "director",
-        Some(include_str!("../assets/data/movesets/director.ron")),
-    ),
-    (
-        "emmy_noether",
-        Some(include_str!("../assets/data/movesets/emmy_noether.ron")),
-    ),
-    (
-        "gnu_ton",
-        Some(include_str!("../assets/data/movesets/gnu_ton.ron")),
-    ),
-    (
-        "goblin",
-        Some(include_str!("../assets/data/movesets/goblin.ron")),
-    ),
-    (
-        "imperfect_cellular_automaton",
-        Some(include_str!(
-            "../assets/data/movesets/imperfect_cellular_automaton.ron"
-        )),
-    ),
-    (
-        "medic",
-        Some(include_str!("../assets/data/movesets/medic.ron")),
-    ),
-    (
-        "ninja_shadow_oni_leader",
-        Some(include_str!(
-            "../assets/data/movesets/ninja_shadow_oni_leader.ron"
-        )),
-    ),
-    (
-        "officer",
-        Some(include_str!("../assets/data/movesets/officer.ron")),
-    ),
-    (
-        "oiler",
-        Some(include_str!("../assets/data/movesets/oiler.ron")),
-    ),
-    (
-        "patent_clerk",
-        Some(include_str!("../assets/data/movesets/patent_clerk.ron")),
-    ),
-    (
-        "performer",
-        Some(include_str!("../assets/data/movesets/performer.ron")),
-    ),
-    (
-        "pirate_admiral",
-        Some(include_str!("../assets/data/movesets/pirate_admiral.ron")),
-    ),
-    (
-        "player_robot",
-        Some(include_str!("../assets/data/movesets/player_robot.ron")),
-    ),
-    (
-        "pointed_polygon",
-        Some(include_str!("../assets/data/movesets/pointed_polygon.ron")),
-    ),
-    (
-        "projectile_polygon",
-        Some(include_str!(
-            "../assets/data/movesets/projectile_polygon.ron"
-        )),
-    ),
-    (
-        "pugnacious_polygon",
-        Some(include_str!(
-            "../assets/data/movesets/pugnacious_polygon.ron"
-        )),
-    ),
-    ("ramen_nujan", Some(include_str!("../assets/data/movesets/ramen_nujan.ron"))),
-];
-#[cfg(not(feature = "static_content"))]
-const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
-    ("alice", None),
-    ("bob", None),
-    ("carl_stargan", None),
-    ("cellular_automaton", None),
-    ("director", None),
-    ("emmy_noether", None),
-    ("gnu_ton", None),
-    ("goblin", None),
-    ("imperfect_cellular_automaton", None),
-    ("medic", None),
-    ("ninja_shadow_oni_leader", None),
-    ("officer", None),
-    ("oiler", None),
-    ("patent_clerk", None),
-    ("performer", None),
-    ("pirate_admiral", None),
-    ("player_robot", None),
-    ("pointed_polygon", None),
-    ("projectile_polygon", None),
-    ("pugnacious_polygon", None),
-    ("ramen_nujan", None),
-];
-
-/// Every platform-fighter facet this provider authors (`smash_fighter`), by
-/// file name under `data/fighters/`. Gated like the move tables, because a
-/// facet is tuned by the same edit loop.
-#[cfg(feature = "static_content")]
-const FIGHTER_FACETS: &[(&str, Option<&'static str>)] = &[
-    ("player_robot_v3", Some(include_str!("../assets/data/fighters/player_robot_v3.ron"))),
-    ("npc_gnu_ton", Some(include_str!("../assets/data/fighters/npc_gnu_ton.ron"))),
-    ("npc_ramen_nujan", Some(include_str!("../assets/data/fighters/npc_ramen_nujan.ron"))),
-];
-#[cfg(not(feature = "static_content"))]
-const FIGHTER_FACETS: &[(&str, Option<&'static str>)] = &[("player_robot_v3", None), ("npc_gnu_ton", None), ("npc_ramen_nujan", None)];
-
-/// The authored fighter difficulty ladder.
-///
-/// Declared here so the game reads it as content, instead of consulting the
-/// `FighterBrainProfile::for_level` floor.
-#[cfg(feature = "static_content")]
-const FIGHTER_BRAIN_LADDER_RON_STATIC: Option<&'static str> =
-    Some(include_str!("../assets/data/fighter_brain_ladder.ron"));
-#[cfg(not(feature = "static_content"))]
-const FIGHTER_BRAIN_LADDER_RON_STATIC: Option<&'static str> = None;
-
-/// The rules of Ambition's own rooms, gated like the ladder.
-#[cfg(feature = "static_content")]
-const ROOM_RULES_RON_STATIC: Option<&'static str> = Some(include_str!("../assets/data/room_rules.ron"));
-#[cfg(not(feature = "static_content"))]
-const ROOM_RULES_RON_STATIC: Option<&'static str> = None;
+/// The source paths a manifest declares, in its order. A manifest that does
+/// not parse declares none here; the compiler reports why.
+fn declared_paths(manifest_ron: &str) -> Vec<String> {
+    ron::from_str::<ambition_content_pack::ContentPackManifest>(manifest_ron)
+        .map(|manifest| manifest.sources.into_iter().map(|source| source.path).collect())
+        .unwrap_or_default()
+}
 
 /// One declared source's text: embedded when this build baked it in, otherwise
 /// read from the same file off disk.
@@ -236,7 +68,7 @@ const ROOM_RULES_RON_STATIC: Option<&'static str> = None;
 ///
 /// `CARGO_MANIFEST_DIR` is a compile-time string, not a file dependency, so a
 /// file change causes no rebuild. See
-/// [`crate::audio_registries::MUSIC_REGISTRY_RON_STATIC`].
+/// `build.rs`.
 ///
 /// A missing file is fatal. Content that silently lost a family is the
 /// "silent partial start" [`compile_pack`] refuses.
@@ -265,80 +97,26 @@ pub fn source_root() -> std::path::PathBuf {
 
 /// Every source path `pack.ron` declares, relative to [`source_root`].
 pub fn declared_source_paths() -> Vec<String> {
-    embedded_sources().into_iter().map(|(path, _)| path).collect()
+    declared_paths(&manifest_ron())
 }
 
-/// Every source `pack.ron` declares, paired with its embedded text.
-fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
-    // Boss encounters come from one table, `bosses::BOSS_ENCOUNTERS`, where path
-    // and bytes travel together. An index into a separate list could attach one
-    // file's contents to another file's path without any error, because the
-    // runtime resolves rows by their internal ids.
-    let mut sources: Vec<(String, String)> = vec![
-        (
-            crate::character_catalog::CATALOG_SOURCE_PATH.to_string(),
-            crate::character_catalog::character_catalog_ron(),
-        ),
-        (ITEMS_SOURCE_PATH.to_string(), source_text(ITEMS_SOURCE_PATH, ITEMS_RON_STATIC)),
-        (QUESTS_SOURCE_PATH.to_string(), source_text(QUESTS_SOURCE_PATH, QUESTS_RON_STATIC)),
-        (
-            ENCOUNTER_WAVES_SOURCE_PATH.to_string(),
-            source_text(ENCOUNTER_WAVES_SOURCE_PATH, crate::ENCOUNTER_WAVES_RON_STATIC),
-        ),
-        (
-            FIGHTER_BRAIN_LADDER_SOURCE_PATH.to_string(),
-            source_text(FIGHTER_BRAIN_LADDER_SOURCE_PATH, FIGHTER_BRAIN_LADDER_RON_STATIC),
-        ),
-        (ROOM_RULES_SOURCE_PATH.to_string(), source_text(ROOM_RULES_SOURCE_PATH, ROOM_RULES_RON_STATIC)),
-        (
-            crate::bosses::BOSS_PROFILES_SOURCE_PATH.to_string(),
-            crate::bosses::boss_profiles_ron(),
-        ),
-        (
-            crate::bosses::BOSS_SEEDS_SOURCE_PATH.to_string(),
-            crate::bosses::boss_seeds_ron(),
-        ),
-        (
-            crate::bosses::BOSS_VALIDATOR_BANDS_SOURCE_PATH.to_string(),
-            crate::bosses::boss_validator_bands_ron(),
-        ),
-        (
-            MUSIC_REGISTRY_SOURCE_PATH.to_string(),
-            source_text(
-                MUSIC_REGISTRY_SOURCE_PATH,
-                crate::audio_registries::MUSIC_REGISTRY_RON_STATIC,
-            ),
-        ),
-        (
-            SFX_REGISTRY_SOURCE_PATH.to_string(),
-            source_text(SFX_REGISTRY_SOURCE_PATH, crate::audio_registries::SFX_REGISTRY_RON_STATIC),
-        ),
-        (
-            MUSIC_CUES_SOURCE_PATH.to_string(),
-            source_text(MUSIC_CUES_SOURCE_PATH, MUSIC_CUES_RON_STATIC),
-        ),
-    ];
-    sources.extend(MIGRATED_MOVESETS.iter().map(|(table, embedded)| {
-        let path = format!("data/movesets/{table}.ron");
-        let text = source_text(&path, *embedded);
-        (path, text)
-    }));
-    sources.extend(
-        CUTSCENE_SOURCES
-            .iter()
-            .map(|(path, embedded)| ((*path).to_string(), source_text(path, *embedded))),
-    );
-    sources.extend(FIGHTER_FACETS.iter().map(|(file, embedded)| {
-        let path = format!("data/fighters/{file}.ron");
-        let text = source_text(&path, *embedded);
-        (path, text)
-    }));
-    sources.extend(
-        crate::bosses::BOSS_ENCOUNTERS
-            .iter()
-            .map(|(path, embedded)| ((*path).to_string(), source_text(path, *embedded))),
-    );
-    sources
+/// Every source path the `pack.ron` under `root` declares. None when that
+/// manifest is absent or does not parse; [`compile_pack_from`] says why.
+pub fn declared_source_paths_in(root: &std::path::Path) -> Vec<String> {
+    std::fs::read_to_string(root.join("pack.ron"))
+        .map(|manifest| declared_paths(&manifest))
+        .unwrap_or_default()
+}
+
+/// Every source `pack.ron` declares, paired with its text.
+fn embedded_sources() -> Vec<(String, String)> {
+    declared_source_paths()
+        .into_iter()
+        .map(|path| {
+            let text = pack_source_text(&path);
+            (path, text)
+        })
+        .collect()
 }
 
 /// The schemas Ambition's own pack is compiled against.
@@ -378,13 +156,29 @@ pub fn compile_pack_with(
             (path, edited)
         })
         .collect();
-    let draft =
-        ambition_content_pack::ContentPackDraft::from_manifest_ron(PACK_MANIFEST_RON, sources)?;
+    let draft = ambition_content_pack::ContentPackDraft::from_manifest_ron(&manifest_ron(), sources)?;
     ambition_content_pack::compile(
         &draft,
         &pack_schemas(),
         &ambition_content_pack::AssetsUnchecked,
     )
+}
+
+/// Compile `manifest` with the text `text_of` gives for each source it
+/// declares.
+fn compile_manifest(
+    manifest: &str,
+    mut text_of: impl FnMut(&str) -> String,
+) -> Result<PreparedContentPack, CompileFailure> {
+    let sources: Vec<(String, String)> = declared_paths(manifest)
+        .into_iter()
+        .map(|path| {
+            let text = text_of(&path);
+            (path, text)
+        })
+        .collect();
+    let draft = ambition_content_pack::ContentPackDraft::from_manifest_ron(manifest, sources)?;
+    ambition_content_pack::compile(&draft, &pack_schemas(), &ambition_content_pack::AssetsUnchecked)
 }
 
 /// The same compile, with the manifest no longer declaring `omit`.
@@ -408,7 +202,7 @@ pub fn compile_pack_omitting_with(
     mut edit: impl FnMut(&str, String) -> String,
 ) -> Result<PreparedContentPack, CompileFailure> {
     let mut remaining = omit.to_vec();
-    let manifest: String = PACK_MANIFEST_RON
+    let manifest: String = manifest_ron()
         .lines()
         .filter(|line| {
             let named = omit.iter().position(|path| line.contains(&format!("path: \"{path}\"")));
@@ -448,11 +242,15 @@ pub fn compile_pack_omitting_with(
 /// Every missing file is named, and none is inherited from the binary. A
 /// per-file fallback would compile a mixed pack, and which half you played
 /// would depend on which files existed. A root supplies the whole pack or
-/// fails.
+/// fails. The list is the root's own `pack.ron`: a source declared there is
+/// played with no build.
 pub fn compile_pack_from(root: &std::path::Path) -> Result<PreparedContentPack, String> {
+    let manifest_path = root.join("pack.ron");
+    let manifest = std::fs::read_to_string(&manifest_path)
+        .map_err(|err| format!("{} does not supply this pack: {}: {err}", root.display(), manifest_path.display()))?;
     let mut missing: Vec<String> = Vec::new();
     let mut unreadable: Vec<String> = Vec::new();
-    let compiled = compile_pack_with(|declared, _built_in| {
+    let compiled = compile_manifest(&manifest, |declared| {
         let path = root.join(declared);
         match std::fs::read_to_string(&path) {
             Ok(text) => text,
@@ -488,6 +286,8 @@ pub fn compile_pack_from(root: &std::path::Path) -> Result<PreparedContentPack, 
 /// root and still be usable: start from what the binary has, edit one file,
 /// point the host at it.
 pub fn export_sources_to(root: &std::path::Path) -> std::io::Result<usize> {
+    std::fs::create_dir_all(root)?;
+    std::fs::write(root.join("pack.ron"), manifest_ron())?;
     let mut written = 0;
     for (declared, text) in embedded_sources() {
         let path = root.join(&declared);

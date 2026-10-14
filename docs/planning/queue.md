@@ -136,15 +136,23 @@ value for a designer and size of change:
 5. Demo stages built in Rust (Smash, Twintrack).
 6. Duplicate authority: `ITEM_META` in `ambition_items` is byte-equal to
    `items.ron` (Q104 scaffolding).
-7. A new source line in a pack's `pack.ron` needs a Rust entry beside it
-   (`embedded_sources` in `game/ambition_content/src/pack.rs`, one constant
-   pair for each source), so adding a file to a pack is a build even in a
-   development build that reads every source off disk.
+7. ✅ 2026-10-14 for Ambition's pack: `pack.ron` is the one list of its
+   sources. A development build reads the manifest and each source it
+   declares when the pack compiles (an edit to `pack.ron` compiles nothing:
+   0.71 s, measured); `build.rs` embeds the same list under
+   `static_content`. The per-source constant pairs (about 300 lines in five
+   modules) are deleted. `compile_pack_from(root)` compiles the root's own
+   manifest, and the content watch looks at `pack.ron` and refreshes its
+   list. Witnesses: `a_source_declared_in_the_roots_manifest_is_played_without_a_build`
+   (red with the build's manifest), `a_source_added_to_pack_ron_while_the_game_runs_is_played`
+   (7 frames after the save; red with `pack.ron` unwatched). Open: the demo
+   packs (`content_pack!` in `ambition_platformer2d`) still list their
+   sources in Rust.
 
 Not here: the boss and Mary-O modules' tuning constants. They are on the
 module road (a 0.34 s WASM rebuild and a live reload).
 
-**Next action:** item 2, then item 7.
+**Next action:** item 7 for the demo packs (`content_pack!`), then item 2.
 
 **Blocked by:** nothing.
 

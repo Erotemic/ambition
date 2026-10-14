@@ -32,6 +32,12 @@ static_map = ["ambition_platformer2d_actor_monolith/static_map"]
 # (web, Android) or the binary ships without the source tree (Steam Deck).
 static_content = []
 
+[build-dependencies]
+# `build.rs` reads `assets/pack.ron` under `static_content`, with the
+# compiler's own manifest type, to embed each source it declares.
+ambition_content_pack = { path = "../../crates/ambition_content_pack" }
+ron = { workspace = true }
+
 [dependencies]
 # Ambition's procedural extension modules (the echo fan, fast-iteration I4),
 # declared to the host by `bosses::specials`.

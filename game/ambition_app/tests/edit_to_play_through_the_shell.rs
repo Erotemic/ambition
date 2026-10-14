@@ -764,6 +764,74 @@ fn an_item_row_saved_while_the_game_runs_is_played() {
     }
 }
 
+/// A source line added to `pack.ron` while the game runs is played: the
+/// watch looks at the manifest, compiles the root's own list, and the new
+/// cutscene reaches the running library with no build. The control is the same
+/// file saved first with no line in the manifest: nothing reloads.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn a_source_added_to_pack_ron_while_the_game_runs_is_played() {
+    use ambition_content::content_watch::ContentSourceWatch;
+    use ambition_platformer2d::cutscene::CutsceneLibrary;
+    let has_new_script = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+        sim.world()
+            .get_resource::<CutsceneLibrary>()
+            .is_some_and(|library| library.get("a_script_added_on_disk").is_some())
+    };
+    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+
+    let root = std::env::temp_dir().join(format!("ambition_manifest_watch_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ambition_content::pack::export_sources_to(&root).expect("sources export");
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(
+            root.join("data/cutscenes/added_on_disk.ron"),
+            r#"[(id: "a_script_added_on_disk", beats: [Wait(seconds: 0.1)], seen_flag: None)]"#,
+        )
+        .unwrap();
+        for _ in 0..120 {
+            sim.step(common::base());
+        }
+        assert!(!has_new_script(&sim), "the premise: a file no manifest line declares is not played");
+        assert_eq!(sim.world().resource::<ContentSourceWatch>().requested, 0, "a file no manifest line declares asked for a reload");
+
+        let manifest = root.join("pack.ron");
+        let text = std::fs::read_to_string(&manifest).unwrap();
+        let anchor = r#"(path: "data/cutscenes/intro.ron", schema: "cutscene_library", version: 1),"#;
+        assert_eq!(text.matches(anchor).count(), 1, "the premise: the manifest declares the intro cutscenes once");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(
+            &manifest,
+            text.replacen(
+                anchor,
+                &format!(r#"{anchor} (path: "data/cutscenes/added_on_disk.ron", schema: "cutscene_library", version: 1),"#),
+                1,
+            ),
+        )
+        .unwrap();
+
+        let mut frames = 0;
+        while !has_new_script(&sim) {
+            sim.step(common::base());
+            frames += 1;
+            assert!(
+                frames < 600,
+                "600 frames after the manifest save the library has no new script; reloads requested: {}",
+                sim.world().resource::<ContentSourceWatch>().requested
+            );
+        }
+        eprintln!("a source added to pack.ron reached the cutscene library {frames} frames after the save");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}
+
 /// ⭐ A CATALOG SAVE THAT ADDS A CHARACTER, AND ONE THAT REMOVES IT, ARE BOTH
 /// PLAYED WITHOUT A RESTART. The added row is built and staged like every other
 /// row; the removed one is RETIRED: it leaves the cast and the stored source

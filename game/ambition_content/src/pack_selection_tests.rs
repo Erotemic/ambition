@@ -839,3 +839,43 @@ fn production_code_reaches_the_boot_pack_only_in_the_boot_scoped_roads() {
         );
     }
 }
+
+/// A source declared in a root's own `pack.ron` is played with no build: the
+/// manifest is the list. The manifest was embedded with `include_str!` and
+/// each source needed a Rust entry beside it, so a new file in the pack was a
+/// build of `ambition_content`, and a root on disk could only edit the files
+/// the binary already listed. The control is the same root without the line.
+#[test]
+fn a_source_declared_in_the_roots_manifest_is_played_without_a_build() {
+    let root = tempfile::tempdir().expect("a temporary pack root");
+    crate::pack::export_sources_to(root.path()).expect("the pack exports");
+    let has_new_script = |pack: &ambition_content_pack::PreparedContentPack| {
+        ambition_cutscene::content_schema::lowered_cutscenes(pack)
+            .is_some_and(|scripts| scripts.iter().any(|script| script.id == "a_script_added_on_disk"))
+    };
+    std::fs::write(
+        root.path().join("data/cutscenes/added_on_disk.ron"),
+        r#"[(id: "a_script_added_on_disk", beats: [Wait(seconds: 0.1)], seen_flag: None)]"#,
+    )
+    .expect("the new source is written");
+
+    let control = crate::pack::compile_pack_from(root.path()).expect("the exported root compiles");
+    assert!(!has_new_script(&control), "the premise: a file that no manifest line declares is not played");
+
+    let manifest = root.path().join("pack.ron");
+    let text = std::fs::read_to_string(&manifest).expect("the root has a manifest");
+    let anchor = r#"(path: "data/cutscenes/intro.ron", schema: "cutscene_library", version: 1),"#;
+    assert!(text.contains(anchor), "the manifest no longer declares the intro cutscenes, so the edit has no anchor");
+    std::fs::write(
+        &manifest,
+        text.replacen(
+            anchor,
+            &format!(r#"{anchor} (path: "data/cutscenes/added_on_disk.ron", schema: "cutscene_library", version: 1),"#),
+            1,
+        ),
+    )
+    .expect("the manifest is written");
+
+    let edited = crate::pack::compile_pack_from(root.path()).expect("the root with the new source compiles");
+    assert!(has_new_script(&edited), "the root's manifest declares a new source and the pack did not play it");
+}

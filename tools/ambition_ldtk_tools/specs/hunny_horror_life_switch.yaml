@@ -1,0 +1,14 @@
+# The Exploding Gradient's life switch in the Hall of Bosses now shows the
+# Hunny Horror, whose door replaced its door (2026-10-14).
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/hunny_horror_life_switch.yaml \
+#       --ldtk game/ambition_content/assets/worlds/sandbox.ldtk --in-place
+level_id: hall_of_bosses
+edits:
+  - target: { iid: Switch-6947 }
+    fields:
+      id: hall_hunny_horror_life_switch
+      name: Hunny Horror life switch
+      prompt: "Revive or defeat the Hunny Horror"
+      target_encounter: hall.hunny_horror

@@ -1,0 +1,22 @@
+// Boss encounter spec — the Hunny Horror (a stuffed bear the size of a door,
+// sweet at rest and a monster when it attacks; `docs/planning/game/bosses.md`,
+// "The Hunny Horror").
+//
+// Behaviour lives in `assets/data/boss_profiles.ron`; the conductor
+// `ambition_content_modules::hunny` performs the moves.
+//
+// Music: `crooked_ascent_boss` is a temporary authored fallback. Wanted: a
+// music-box lullaby that goes wrong.
+(
+    id: "hunny_horror_boss",
+    name: "Hunny Horror",
+    max_hp: 46,
+    phase1_to_transition_hp: 0.62,
+    phase2_to_enrage_hp: 0.26,
+    intro_seconds: 2.4,
+    transition_seconds: 2.0,
+    music_intro: "crooked_ascent_boss",
+    music_phase1: "crooked_ascent_boss",
+    music_phase2: "crooked_ascent_boss",
+    music_enrage: "crooked_ascent_boss",
+)

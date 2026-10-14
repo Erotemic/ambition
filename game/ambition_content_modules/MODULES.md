@@ -15,8 +15,8 @@
 | [`fsm`](src/fsm.rs) | The Flying Spaghetti Monster's conductor: it flies the god and performs its moves. |
 | [`gnu_ton`](src/gnu_ton/mod.rs) | GNU-ton, the scholar who rides the giant gnu and lectures with its fists. |
 | [`gradient_cascade`](src/gradient_cascade.rs) | Gradient cascade: on the first strike tick, minions drop in from the top of the arena, spread evenly about the boss. |
-| [`gradient_nova`](src/gradient_nova.rs) | The gradient nova: on the first tick of a strike, sixteen shots burst out of the boss in a full circle, at three speed tiers so the ring tears into layers. |
 | [`grapple`](src/grapple.rs) | Grapple: Attack while holding the grapple casts a line along the aim. |
+| [`hunny`](src/hunny.rs) | The Hunny Horror's conductor: it walks the bear and performs his moves. |
 | [`mark_recall`](src/mark_recall.rs) | Mark / Recall: while the body holds the mark/recall item, Attack puts its mark where it stands, and Blink takes it back to the mark at once and strikes there. |
 | [`meteor`](src/meteor.rs) | Meteor: Attack while holding the meteor drops a line of falling rocks on a zone ahead of the body, across its gravity. |
 | [`minima_trap`](src/minima_trap.rs) | Minima trap: on the first strike tick a pit of damage opens where the boss's target is, and a crawler appears beside it, on the boss's side. |

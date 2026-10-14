@@ -56,8 +56,6 @@ mod eye_beam_reference_tests;
 #[cfg(test)]
 mod gradient_cascade_reference_tests;
 #[cfg(test)]
-mod gradient_nova_reference_tests;
-#[cfg(test)]
 mod minima_trap_reference_tests;
 #[cfg(test)]
 mod mode_collapse_reference_tests;

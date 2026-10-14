@@ -69,15 +69,6 @@ const SEISMIC_STOMP: Technique = Technique {
     },
 };
 
-const GRADIENT_NOVA: Technique = Technique {
-    key: "gradient_nova",
-    native: |app| {
-        use super::gradient_nova_reference_tests as r;
-        app.register_required_components::<BossConfig, r::ExplodingGradientState>();
-        app.add_systems(Sim, r::spawn_gradient_nova_from_special_messages);
-    },
-};
-
 const APPLE_RAIN: Technique = Technique {
     key: "apple_rain",
     native: |app| {
@@ -133,12 +124,11 @@ const SADDLE_POINT: Technique = Technique {
 };
 
 /// Every migrated technique.
-const ALL: [&Technique; 11] = [
+const ALL: [&Technique; 10] = [
     &APPLE_RAIN,
     &ECHO_FAN,
     &EYE_BEAM,
     &GRADIENT_CASCADE,
-    &GRADIENT_NOVA,
     &MINIMA_TRAP,
     &MODE_COLLAPSE,
     &OVERFIT_VOLLEY,

@@ -1,0 +1,9 @@
+# The hall's Exploding Gradient door goes with its room (retired 2026-10-14):
+# `hunny_horror_arena_area.ron` puts the Hunny Horror's door at its place.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity delete \
+#       tools/ambition_ldtk_tools/specs/hunny_horror_hall_retire_exploding_gradient.yaml \
+#       --ldtk game/ambition_content/assets/worlds/sandbox.ldtk --in-place
+level_id: hall_of_bosses
+deletes:
+  - target: { iid: LoadingZone-5840 }

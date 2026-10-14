@@ -57,7 +57,7 @@ fn ambition_boss_catalog() -> ambition_boss_encounter::BossCatalog {
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/trex_boss.ron"),
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/mode_collapse_boss.ron"),
-        include_str!("../../../game/ambition_content/assets/data/boss_encounters/exploding_gradient_boss.ron"),
+        include_str!("../../../game/ambition_content/assets/data/boss_encounters/hunny_horror_boss.ron"),
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
     ];
     let fragment = ambition_boss_encounter::BossCatalogFragment::from_ron(

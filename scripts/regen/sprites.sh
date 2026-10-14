@@ -539,6 +539,9 @@ tackon_targets=(
     # The rocks the Tyrant King shakes from his arena's ceiling, the
     # `trex_rock` projectile visual, named here for the same reason.
     trex_rock
+    # The Hunny Horror's honey, the `honey_glob` projectile visual, named here
+    # for the same reason.
+    honey_glob
     # The Mockingbird's wingtip missile, the `mockingbird_missile` projectile
     # visual, named here for the same reason.
     mockingbird_missile

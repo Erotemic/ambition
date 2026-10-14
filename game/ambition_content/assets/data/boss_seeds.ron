@@ -12,7 +12,7 @@
         fair_counters: [Jump, Blink],
         threat: Medium,
         telegraph: (min_s: 0.50, max_s: 1.00),
-        active: (min_s: 0.32, max_s: 3.30),
+        active: (min_s: 0.35, max_s: 3.30),
         instances: [
             "trex_tail_whip", // the T-rex: the tail coils, then sweeps low behind him
             "trex_stomp",     // the T-rex: he rears and stamps, and a shock runs the floor both ways
@@ -32,7 +32,7 @@
             (
                 name: "enrage_tight",
                 telegraph_s: 0.50,
-                active_s: 0.32,
+                active_s: 0.35,
                 notes: "Phase 3. Still 30 ticks of telegraph — the floor for a medium. Do NOT go below it to make a fight harder; add a second threat.",
             ),
             (
@@ -58,6 +58,10 @@
             "trex_snap_up",   // the T-rex: the head thrown up at the ledge you stand on
             "trex_double_bite", // the T-rex: one clack of teeth, then the bite twice; the second catches a dodge back
             "trex_leap",      // the T-rex, enraged: a spring at where you stood, landing with a quake
+            "hunny_swipe",    // the Hunny Horror: the paw back, then the claws across in front of him
+            "hunny_maul",     // the Hunny Horror: both paws up, down in front twice, a stride on each
+            "hunny_hug",      // the Hunny Horror: arms wide, then closed on whoever is in front; a hold, mash out
+            "hunny_flop",     // the Hunny Horror: a belly flop at where you stood, landing with a shock both ways
             "trex_jaw_grab",  // the T-rex: a low lunge, jaws wide; caught, you are thrashed and flung
             "floor_slam",    // wide flat rect at the feet
             "demonstrate",      // GNU-ton: a fist tracks, locks, falls, and sticks
@@ -96,13 +100,13 @@
         fair_counters: [WalkOut, Dash, Blink],
         threat: Medium,
         telegraph: (min_s: 0.55, max_s: 1.20),
-        active: (min_s: 0.40, max_s: 0.50),
+        active: (min_s: 0.45, max_s: 0.50),
         instances: [
             "full_body_pulse", // 0.70 × 0.70 body-relative, centered
-            "gradient_nova",   // the exploding-gradient boss's runaway burst
             "buck",            // GNU-ton's gnu throws whoever stands on its back
             "noodly_pulse",    // the FSM: a ring of noodles flung out from the bell
             "trex_roar",       // the T-rex, enraged: a roar that blows you off him and brings the ceiling down
+            "hunny_roar",      // the Hunny Horror, enraged: a roar that blows you back and brings honey down
         ],
         recipes: [
             (
@@ -114,7 +118,7 @@
             (
                 name: "panic_button",
                 telegraph_s: 0.55,
-                active_s: 0.40,
+                active_s: 0.45,
                 notes: "Enrage only. 33 ticks. At this speed it stops being a punish and becomes a soft cage — use once per loop, never twice.",
             ),
         ],
@@ -166,8 +170,8 @@
         skill_tested: "Move unpredictably; read arrival, not launch.",
         fair_counters: [Jump, Dash, WalkOut, Blink],
         threat: Light,
-        telegraph: (min_s: 0.60, max_s: 1.40),
-        active: (min_s: 0.26, max_s: 4.20),
+        telegraph: (min_s: 0.70, max_s: 1.40),
+        active: (min_s: 0.28, max_s: 4.20),
         instances: [
             "apple_rain",     // GNU-ton; a 2.2s spawn window at 0.35s cadence
             "overfit_volley", // five sampled ghosts, then five tracking shots
@@ -208,6 +212,7 @@
         instances: [
             "mode_collapse_converge", // 12 shots, a 190px ring, closing inward
             "meatball_volley",        // the FSM: 3 (5 enraged) lobbed meatballs fanned at you; a ledge is an umbrella
+            "hunny_spit",             // the Hunny Horror: 3 (5 enraged) honey globs lobbed at you, each a puddle that hurts
             "mockingbird_missile", // the Mockingbird: a missile off its wingtip, at you
             "mockingbird_salvo", // the Mockingbird, wounded: three missiles, each aimed again
             "mockingbird_fireballs", // the Mockingbird: three fireballs spat in a fan at you
@@ -270,6 +275,7 @@
         active: (min_s: 0.50, max_s: 2.00),
         instances: [
             "trex_charge",    // the T-rex: a roar and a scrape, then the hall at a run into the wall, and the stun
+            "hunny_charge",   // the Hunny Horror: a roar, then the room on all fours into the wall, and the daze
             "mockingbird_dive", // the Mockingbird: across the sky at where you were, a bite at the end, then winded (the punish)
             "mockingbird_double_dive", // the Mockingbird, wounded: the dive turns at the end of its first bite and comes again
         ],

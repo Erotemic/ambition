@@ -137,6 +137,25 @@ pub(super) fn register(app: &mut App) {
         },
     );
 
+    // The Hunny Horror's honey: the globs he spits and the drops his roar
+    // shakes from the ceiling. A touch over the body box, upright: it falls.
+    app.register_projectile_visual(
+        "honey_glob",
+        ProjectileArt {
+            source: ProjectileArtSource::Image {
+                path: "sprites/honey_glob.png".to_string(),
+            },
+            size: ProjectileRenderSize::Body {
+                min: 10.0,
+                scale: 1.3,
+            },
+            rotation: ProjectileRotation::GravityUpright,
+            debug_tint: [0.96, 0.66, 0.12, 1.0],
+            label: "honey_glob".to_string(),
+            expiry_vfx: None,
+        },
+    );
+
     // The Smirking Behemoth's eye beam: a line of bolts of light from its
     // eye, nose along their flight. Each is drawn longer than the space
     // between two of them, so the line reads as one beam.
@@ -377,6 +396,7 @@ mod tests {
             "apple",
             "meatball",
             "trex_rock",
+            "honey_glob",
             "thrown_rock",
             "arrow",
             "spit",

@@ -192,5 +192,4 @@ cargo test -p ambition_app --test app_it -- a_boss_special_runs_on_the_extension
 ```
 
 A NEW technique has no native reference: give it its own behaviour test on
-the module road (see `gradient_nova_reference_tests.rs`'s materialization
-tests for the shape).
+the module road (a headless fight test, such as `trex_fight.rs`).

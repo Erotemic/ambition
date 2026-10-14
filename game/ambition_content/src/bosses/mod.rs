@@ -16,6 +16,7 @@ pub mod fsm;
 pub mod trex;
 pub mod gnu_ton;
 pub mod hall;
+pub mod hunny;
 pub mod mockingbird;
 pub mod specials;
 #[cfg(feature = "ui")]
@@ -152,6 +153,7 @@ pub fn boss_catalog_fragment_from(
     .with_birth_kit(gnu_ton::GNU_TON_ID, gnu_ton::birth)
     .with_birth_kit(fsm::conductor::FSM_ID, fsm::birth)
     .with_birth_kit(trex::TREX_ID, trex::birth)
+    .with_birth_kit(hunny::HUNNY_ID, hunny::birth)
     .with_birth_kit(mockingbird::MOCKINGBIRD_ID, mockingbird::birth)
     .with_birth_kit(cut_rope::CUT_ROPE_BOSS_ID, cut_rope::birth);
     Ok(fragment)

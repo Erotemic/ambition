@@ -70,10 +70,10 @@ entities:
     px: [924, 304]
     size: [24, 32]
     fields:
-      id: hall_exploding_gradient_life_switch
-      name: Exploding Gradient life switch
-      prompt: "Revive or defeat the Exploding Gradient"
-      target_encounter: hall.exploding_gradient
+      id: hall_hunny_horror_life_switch
+      name: Hunny Horror life switch
+      prompt: "Revive or defeat the Hunny Horror"
+      target_encounter: hall.hunny_horror
       action: BossLife
   - type: Switch
     px: [1474, 448]

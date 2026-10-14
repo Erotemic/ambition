@@ -1492,7 +1492,7 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
         ("mockingbird", Some("volley")),
         ("smirking_behemoth_boss", Some("beam")),
         ("mode_collapse_boss", Some("vortex")),
-        ("exploding_gradient_boss", Some("sentry")),
+        ("hunny_horror_boss", None),
         ("overflow_boss", Some("dive")),
         ("gnu_ton_rider", Some("meteor")),
         ("clockwork_warden", None),
@@ -1519,10 +1519,10 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
             abilities += 1;
         }
     }
-    // trex + mockingbird + smirking + mode_collapse + exploding_gradient +
-    // overflow + the gnu_ton rider each arm a wielded gauntlet (seven "learn its
-    // attack" drops; trex and the rider also grant a catalog ability).
-    assert_eq!(gauntlets, 7, "seven bosses drop a signature gauntlet");
+    // trex + mockingbird + smirking + mode_collapse + overflow + the gnu_ton
+    // rider each arm a wielded gauntlet (six "learn its attack" drops; trex and
+    // the rider also grant a catalog ability).
+    assert_eq!(gauntlets, 6, "six bosses drop a signature gauntlet");
     // FSM(blink) + trex(grapple) + gnu(fireball) + clockwork(markrecall).
     assert_eq!(abilities, 4, "four bosses grant a catalog ability");
 }

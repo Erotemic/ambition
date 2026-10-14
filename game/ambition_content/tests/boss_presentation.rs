@@ -19,8 +19,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-/// The seven boss sheets Ambition ships, and the file each one draws from.
-const EXPECTED_SHEETS: [(&str, &str); 7] = [
+/// The eight boss sheets Ambition ships, and the file each one draws from.
+const EXPECTED_SHEETS: [(&str, &str); 8] = [
     (
         "flying_spaghetti_monster_boss",
         "flying_spaghetti_monster_boss_spritesheet.png",
@@ -33,6 +33,7 @@ const EXPECTED_SHEETS: [(&str, &str); 7] = [
         "gnu_ton_scholar_boss_spritesheet.png",
     ),
     ("gradient_sentinel", "boss_spritesheet.png"),
+    ("hunny_horror_boss", "hunny_horror_boss_spritesheet.png"),
     ("mockingbird", "mockingbird_boss_v2_spritesheet.png"),
     (
         "smirking_behemoth_boss",
@@ -43,10 +44,16 @@ const EXPECTED_SHEETS: [(&str, &str); 7] = [
 
 /// The nineteen content specials that telegraph, and the sprite rows each one
 /// asks for. The first key is the canonical runtime key.
-const EXPECTED_TELEGRAPHS: [(&str, &[&str]); 27] = [
+const EXPECTED_TELEGRAPHS: [(&str, &[&str]); 33] = [
     ("eye_beam", &["eye_beam", "spike_halo"]),
     ("gradient_cascade", &["spike_halo"]),
-    ("gradient_nova", &["spike_halo"]),
+    ("hunny_charge", &["run"]),
+    ("hunny_flop", &["flop"]),
+    ("hunny_hug", &["hug"]),
+    ("hunny_maul", &["punch"]),
+    ("hunny_roar", &["taunt"]),
+    ("hunny_spit", &["spit"]),
+    ("hunny_swipe", &["slash"]),
     ("minima_trap", &["spike_halo"]),
     ("mockingbird_dive", &["dive"]),
     ("mockingbird_double_dive", &["dive"]),
@@ -184,7 +191,7 @@ fn each_attack_plays_exactly_this_row_and_samples_exactly_this_row() {
 }
 
 #[test]
-fn the_boss_sheet_filenames_are_exactly_these_seven() {
+fn the_boss_sheet_filenames_are_exactly_these_eight() {
     let catalog = ambition_content::bosses::shipped_boss_catalog();
     let got: BTreeMap<&str, &str> = catalog.sprite_filenames().collect();
     let want: BTreeMap<&str, &str> = EXPECTED_SHEETS.iter().copied().collect();

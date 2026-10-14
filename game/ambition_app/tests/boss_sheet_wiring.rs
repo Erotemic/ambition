@@ -150,7 +150,6 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
         "clockwork_warden",
         "mode_collapse_boss",
         "overflow_boss",
-        "exploding_gradient_boss",
     ];
 
     let mut placed = 0usize;

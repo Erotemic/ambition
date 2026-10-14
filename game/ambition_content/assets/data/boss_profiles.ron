@@ -1241,38 +1241,40 @@
     // run: the gradients blow up, so its barrages escalate into chaos). No
     // summons — pure projectile pressure that ramps each phase. Reuses proven
     // attack profiles. Encounter numbers in boss_encounters/exploding_gradient_boss.ron.
-    "exploding_gradient_boss": (
-        id: "exploding_gradient_boss",
-        signature_gauntlet: Some("sentry"),
-        combat_size: Some((150.0, 140.0)),
-        movement: AirSwoop(
-            x_radius: 200.0,
-            y_radius: 80.0,
-            x_frequency: 0.8,
-            y_frequency: 1.2,
-            chase_scale: 0.16,
-            chase_limit: 130.0,
-            speed: 260.0,
+    // ============================================================
+    // The Hunny Horror (`docs/planning/game/bosses.md`, "The Hunny Horror";
+    // Jon, 2026-10-14). Conducted: these `Special` keys say which move and
+    // when; `ambition_content_modules::hunny` walks him, performs each move
+    // and draws its row.
+    //
+    // THE RULE OF THE FIGHT: his face is the tell. Sweet, he is harmless:
+    // his body does not hurt to touch while he walks or sits. Every attack
+    // turns him into the monster first (fur up, eyes glowing, teeth), and
+    // only then does anything hurt.
+    //
+    // Phase 1, Bedtime: near, a claw swipe or the HUG (arms open wide, a
+    // giggle: caught, he squeezes you and throws you; mash to get free); far,
+    // he spits honey that lands in puddles that hurt. Then the charge on all
+    // fours into the wall: he sits down dazed with bees round his head, the
+    // long punish window.
+    // Phase 2, Rumbly Tummy: the swipe becomes a two-paw maul, more honey,
+    // and a belly flop at where you stood that sends a shock along the floor.
+    // Enraged, The Empty Pot: a roar that blows you back and brings honey down
+    // from the ceiling, and a charge that turns once at the wall.
+    // ============================================================
+    "hunny_horror_boss": (
+        id: "hunny_horror_boss",
+        combat_size: Some((110.0, 180.0)),
+        movement: AnchorSway(
+            x_radius: 0.0,
+            y_bob: 0.0,
+            x_frequency: 0.0,
+            y_frequency: 0.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
+            speed: 0.0,
         ),
-        movement_phase2: Some(AirSwoop(
-            x_radius: 240.0,
-            y_radius: 100.0,
-            x_frequency: 1.1,
-            y_frequency: 1.3,
-            chase_scale: 0.30,
-            chase_limit: 190.0,
-            speed: 330.0,
-        )),
-        movement_enrage: Some(AirSwoop(
-            x_radius: 280.0,
-            y_radius: 120.0,
-            x_frequency: 1.4,
-            y_frequency: 1.4,
-            chase_scale: 0.50,
-            chase_limit: 250.0,
-            speed: 400.0,
-        )),
-        strike_speed_scale: 0.30,
+        strike_speed_scale: 1.0,
         macro_tuning: (
             too_close_distance: 0.0,
             too_far_distance: 0.0,
@@ -1285,63 +1287,190 @@
             retreat_distance: 0.0,
         ),
         attacks: [
-            Special("overfit_volley"),
-            Special("saddle_point"),
-            Special("gradient_nova"),
-            Strike("side_sweep"),
-            Strike("full_body_pulse"),
+            Special("hunny_swipe"),
+            Special("hunny_maul"),
+            Special("hunny_hug"),
+            Special("hunny_spit"),
+            Special("hunny_charge"),
+            Special("hunny_flop"),
+            Special("hunny_roar"),
         ],
-        attack_cooldown: 0.9,
-        attack_windup: 0.45,
-        attack_active: 0.30,
+        attack_cooldown: 1.0,
+        attack_windup: 0.5,
+        attack_active: 0.34,
         attack_damage: 2,
-        body_damage: 1,
-        projectile_origin_offset: (0.0, -38.0),
+        body_damage: 0,
         attack_pattern: Scripted(
             intro: (steps: [
-                Telegraph(profile: Strike("full_body_pulse"), duration: 1.0),
-                Strike(profile: Strike("full_body_pulse"), duration: 0.4),
-                Rest(duration: 0.9),
+                // A swipe to learn him by: the longest tell he ever gives.
+                Telegraph(profile: Special("hunny_swipe"), duration: 1.1,
+                    telegraph: Some((pose: Some("slash"), cue: Some("boss.bear_mauler.swipe")))),
+                Strike(profile: Special("hunny_swipe"), duration: 0.45),
+                Rest(duration: 1.4),
             ]),
+            // PHASE 1, BEDTIME.
             phase1: (steps: [
-                Telegraph(profile: Special("overfit_volley"), duration: 1.1),
-                Strike(profile: Special("overfit_volley"), duration: 0.32),
-                Rest(duration: 1.0),
-                Telegraph(profile: Special("saddle_point"), duration: 1.0),
-                Strike(profile: Special("saddle_point"), duration: 0.8),
-                Rest(duration: 1.1),
-                Telegraph(profile: Strike("side_sweep"), duration: 0.8),
-                Strike(profile: Strike("side_sweep"), duration: 0.4),
-                Rest(duration: 1.0),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("hunny_swipe"), duration: 0.75,
+                            telegraph: Some((pose: Some("slash"), cue: Some("boss.bear_mauler.swipe")))),
+                        Strike(profile: Special("hunny_swipe"), duration: 0.45),
+                        Rest(duration: 1.2),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("hunny_hug"), duration: 0.9,
+                            telegraph: Some((pose: Some("hug"), cue: Some("boss.dark_lord.laugh")))),
+                        Strike(profile: Special("hunny_hug"), duration: 0.5),
+                        Rest(duration: 1.2),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("hunny_spit"), duration: 0.9,
+                            telegraph: Some((pose: Some("spit"), cue: Some("enemy.slime.alert")))),
+                        Strike(profile: Special("hunny_spit"), duration: 0.5),
+                        Rest(duration: 1.2),
+                    ]),
+                ]),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("hunny_swipe"), duration: 0.75,
+                            telegraph: Some((pose: Some("slash"), cue: Some("boss.bear_mauler.swipe")))),
+                        Strike(profile: Special("hunny_swipe"), duration: 0.45),
+                        Rest(duration: 1.1),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("hunny_hug"), duration: 0.9,
+                            telegraph: Some((pose: Some("hug"), cue: Some("boss.dark_lord.laugh")))),
+                        Strike(profile: Special("hunny_hug"), duration: 0.5),
+                        Rest(duration: 1.1),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("hunny_spit"), duration: 0.9,
+                            telegraph: Some((pose: Some("spit"), cue: Some("enemy.slime.alert")))),
+                        Strike(profile: Special("hunny_spit"), duration: 0.5),
+                        Rest(duration: 1.1),
+                    ]),
+                ]),
+                // The charge: a roar, then the room on all fours into the wall.
+                // The rest after it is the run and the daze: the fight's long
+                // punish window.
+                Telegraph(profile: Special("hunny_charge"), duration: 1.1,
+                    telegraph: Some((pose: Some("run"), cue: Some("boss.mockingbird.growl")))),
+                Strike(profile: Special("hunny_charge"), duration: 0.5),
+                Rest(duration: 3.6),
             ]),
             transition: (steps: [Rest(duration: 2.0)]),
+            // PHASE 2, RUMBLY TUMMY.
             phase2: (steps: [
-                Telegraph(profile: Special("overfit_volley"), duration: 0.9),
-                Strike(profile: Special("overfit_volley"), duration: 0.30),
-                Rest(duration: 0.8),
-                Telegraph(profile: Special("saddle_point"), duration: 0.9),
-                Strike(profile: Special("saddle_point"), duration: 0.8),
-                Rest(duration: 0.8),
-                // Runaway gradients explode outward — an omnidirectional nova
-                // with ragged speed tiers; weave between the slow and fast fronts.
-                Telegraph(profile: Special("gradient_nova"), duration: 0.9),
-                Strike(profile: Special("gradient_nova"), duration: 0.4),
-                Rest(duration: 0.9),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("hunny_maul"), duration: 0.75,
+                            telegraph: Some((pose: Some("punch"), cue: Some("boss.bear_mauler.swipe")))),
+                        Strike(profile: Special("hunny_maul"), duration: 0.8),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("hunny_hug"), duration: 0.85,
+                            telegraph: Some((pose: Some("hug"), cue: Some("boss.dark_lord.laugh")))),
+                        Strike(profile: Special("hunny_hug"), duration: 0.5),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("hunny_spit"), duration: 0.85,
+                            telegraph: Some((pose: Some("spit"), cue: Some("enemy.slime.alert")))),
+                        Strike(profile: Special("hunny_spit"), duration: 0.5),
+                        Rest(duration: 0.9),
+                    ]),
+                ]),
+                Telegraph(profile: Special("hunny_flop"), duration: 0.8,
+                    telegraph: Some((pose: Some("flop"), cue: Some("boss.generic.intro_roar")))),
+                Strike(profile: Special("hunny_flop"), duration: 1.1),
+                Rest(duration: 1.0),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("hunny_maul"), duration: 0.75,
+                            telegraph: Some((pose: Some("punch"), cue: Some("boss.bear_mauler.swipe")))),
+                        Strike(profile: Special("hunny_maul"), duration: 0.8),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("hunny_hug"), duration: 0.85,
+                            telegraph: Some((pose: Some("hug"), cue: Some("boss.dark_lord.laugh")))),
+                        Strike(profile: Special("hunny_hug"), duration: 0.5),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("hunny_spit"), duration: 0.85,
+                            telegraph: Some((pose: Some("spit"), cue: Some("enemy.slime.alert")))),
+                        Strike(profile: Special("hunny_spit"), duration: 0.5),
+                        Rest(duration: 0.9),
+                    ]),
+                ]),
+                Telegraph(profile: Special("hunny_charge"), duration: 0.95,
+                    telegraph: Some((pose: Some("run"), cue: Some("boss.mockingbird.growl")))),
+                Strike(profile: Special("hunny_charge"), duration: 0.5),
+                Rest(duration: 3.2),
             ]),
+            // ENRAGE, THE EMPTY POT.
             enrage: (steps: [
-                Telegraph(profile: Special("overfit_volley"), duration: 0.6),
-                Strike(profile: Special("overfit_volley"), duration: 0.26),
-                Telegraph(profile: Special("saddle_point"), duration: 0.7),
-                Strike(profile: Special("saddle_point"), duration: 0.7),
-                Telegraph(profile: Strike("side_sweep"), duration: 0.5),
-                Strike(profile: Strike("side_sweep"), duration: 0.32),
-                Rest(duration: 0.5),
+                Telegraph(profile: Special("hunny_roar"), duration: 0.7,
+                    telegraph: Some((pose: Some("taunt"), cue: Some("boss.bear_mauler.roar")))),
+                Strike(profile: Special("hunny_roar"), duration: 0.5),
+                Rest(duration: 1.0),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("hunny_maul"), duration: 0.75,
+                            telegraph: Some((pose: Some("punch"), cue: Some("boss.bear_mauler.swipe")))),
+                        Strike(profile: Special("hunny_maul"), duration: 0.8),
+                        Rest(duration: 0.6),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("hunny_hug"), duration: 0.8,
+                            telegraph: Some((pose: Some("hug"), cue: Some("boss.dark_lord.laugh")))),
+                        Strike(profile: Special("hunny_hug"), duration: 0.5),
+                        Rest(duration: 0.6),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("hunny_spit"), duration: 0.75,
+                            telegraph: Some((pose: Some("spit"), cue: Some("enemy.slime.alert")))),
+                        Strike(profile: Special("hunny_spit"), duration: 0.5),
+                        Rest(duration: 0.6),
+                    ]),
+                ]),
+                Telegraph(profile: Special("hunny_flop"), duration: 0.75,
+                    telegraph: Some((pose: Some("flop"), cue: Some("boss.generic.intro_roar")))),
+                Strike(profile: Special("hunny_flop"), duration: 1.1),
+                Rest(duration: 0.8),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("hunny_maul"), duration: 0.75,
+                            telegraph: Some((pose: Some("punch"), cue: Some("boss.bear_mauler.swipe")))),
+                        Strike(profile: Special("hunny_maul"), duration: 0.8),
+                        Rest(duration: 0.6),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("hunny_hug"), duration: 0.8,
+                            telegraph: Some((pose: Some("hug"), cue: Some("boss.dark_lord.laugh")))),
+                        Strike(profile: Special("hunny_hug"), duration: 0.5),
+                        Rest(duration: 0.6),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("hunny_spit"), duration: 0.75,
+                            telegraph: Some((pose: Some("spit"), cue: Some("enemy.slime.alert")))),
+                        Strike(profile: Special("hunny_spit"), duration: 0.5),
+                        Rest(duration: 0.6),
+                    ]),
+                ]),
+                // The turning charge: twice the room, so a longer rest.
+                Telegraph(profile: Special("hunny_charge"), duration: 0.8,
+                    telegraph: Some((pose: Some("run"), cue: Some("boss.mockingbird.growl")))),
+                Strike(profile: Special("hunny_charge"), duration: 0.5),
+                Rest(duration: 3.6),
             ]),
         ),
         reward: DropChest(
-            pickup: Custom("divergence_shard"),
-            offset: (0.0, 24.0),
-            size: (54.0, 54.0),
+            pickup: Custom("empty_honey_pot"),
+            offset: (0.0, 26.0),
+            size: (56.0, 56.0),
         ),
     ),
     // Overflow — an aerial melee dive-bomber (a numerical overflow: it bursts

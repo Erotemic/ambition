@@ -13,6 +13,7 @@
         "gnu_ton_rider": "gnu_ton_scholar_boss_spritesheet.png",
         "flying_spaghetti_monster_boss": "flying_spaghetti_monster_boss_spritesheet.png",
         "trex_boss": "trex_enemy_spritesheet.png",
+        "hunny_horror_boss": "hunny_horror_boss_spritesheet.png",
     },
     special_animation_rows: {
         "overfit_volley": ["spike_halo", "eye_beam"],
@@ -21,7 +22,6 @@
         "saddle_point": ["spike_halo"],
         "gradient_cascade": ["spike_halo"],
         "mode_collapse_converge": ["spike_halo"],
-        "gradient_nova": ["spike_halo"],
         "overflow_flood": ["spike_halo"],
         // GNU-ton's lectures. Every `Special` draws the scholar's spike-halo row
         // (arms raised: he is conducting), so that is the row each names.
@@ -55,6 +55,14 @@
         "trex_leap": ["leap"],
         "trex_jaw_grab": ["grab_reach"],
         "trex_call": ["roar"],
+        // The Hunny Horror's conducted moves: his module draws them, row by row.
+        "hunny_swipe": ["slash"],
+        "hunny_maul": ["punch"],
+        "hunny_hug": ["hug"],
+        "hunny_spit": ["spit"],
+        "hunny_charge": ["run"],
+        "hunny_flop": ["flop"],
+        "hunny_roar": ["taunt"],
         "lesser_appendages": ["summon"],
         // The Mockingbird's air chase: its module draws each move's row.
         "mockingbird_missile": ["missile"],

@@ -182,7 +182,7 @@ mod tests {
             "flying_spaghetti_monster_boss",
             "trex_boss",
             "mode_collapse_boss",
-            "exploding_gradient_boss",
+            "hunny_horror_boss",
             "overflow_boss",
         ] {
             let profile = BossProfile::from_id(super::super::test_boss_catalog(), id).unwrap();

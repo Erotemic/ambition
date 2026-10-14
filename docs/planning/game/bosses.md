@@ -186,6 +186,46 @@ impacts, stun stars, shockwave, rocks), auditioned before they are ported;
 (6) art: rows the moves need that the sheet lacks (stunned, rear, leap); (7)
 tuning from `fight_discovery` and Jon's playtest.
 
+## The Hunny Horror — the hug (2026-10-14, Jon)
+
+Jon: "turn this character into a proper boss battle and replace one of the
+filler boss battles in the hall of bosses". Ruled the same day: it replaces
+the **Exploding Gradient** (hall-only, no art of its own, borrowed music, a
+generic kit), and the Exploding Gradient is deleted, not kept unplaced
+(its `gradient_nova` move with it). Its hall door and life switch lead to
+`hunny_horror_arena` (`hall.hunny_horror`).
+
+The art (renderer `hunny_horror_boss`): a stuffed bear the size of a door,
+**sweet at rest and horrific when it attacks or is angry**. No red shirt (it
+is not in the public-domain bear) and no scars (Jon).
+
+**The rule of the fight: his face is the tell.** Sweet, he is harmless: his
+body does not hurt to touch while he walks or sits. Every attack turns him
+into the monster first (fur up, glowing eyes, teeth), and only then does
+anything hurt.
+
+| phase | moves (pattern key) | the dodge | the punish |
+|---|---|---|---|
+| Bedtime | swipe (`hunny_swipe`), hug (`hunny_hug`: arms wide and a giggle; caught, squeezed and thrown; mash out), honey spit (`hunny_spit`: globs land in puddles that hurt), the charge on all fours into the wall | back off / do not stand in the open arms / leave the puddles / a ledge or a jump | after the swipe; the daze after the charge (sitting, bees round his head) |
+| Rumbly Tummy | two-paw maul (`hunny_maul`), belly flop at where you stood (`hunny_flop`: a shock both ways), more honey | jump the shock | the flop's recovery |
+| The Empty Pot | roar (`hunny_roar`: blast + honey from the ceiling), the charge turns once | move off your spot | the daze |
+
+Architecture: the T-rex's road. The pattern is `boss_profiles.ron`; the
+conducted module `ambition_content_modules::hunny` performs it; he wears his
+character's sheet (`boss_sheets.ron`, `parts: npc_hunny_horror_boss`) and is
+hit through his body box (no body rig). Receipts: the headless fight
+`game/ambition_app/tests/hunny_fight.rs` (ten tests).
+
+Open:
+- His voice and his sounds are borrowed cues (the bear mauler, a laugh, the
+  slime). Wanted: auditioned candidates in the creature mode first.
+- Music: `crooked_ascent_boss` as a fallback. Wanted: a music-box lullaby
+  that goes wrong.
+- The room wears the `boss` biome. A nursery or a wood at dusk would fit him.
+- No signature gauntlet: the Exploding Gradient's `sentry` gauntlet now drops
+  from no boss.
+- Tuning from `fight_discovery` and Jon's playtest.
+
 ## The Mockingbird — air chase (proposed 2026-10-06, Jon; built 2026-10-06)
 
 **Art: shipped.** The boss wears `mockingbird_boss_v2`, an SVG-rigged
@@ -407,9 +447,9 @@ The hall-only bosses now have placement ids (`hall.trex`, `hall.gnu_ton`,
 practice room, because Mode Collapse has a main-game placement (the overfit
 annex).
 
-Hall-only bosses (T-rex, FSM, Exploding
-Gradient, Overflow, GNU-ton, Cut-the-Rope) stay real until each is placed in
-the main game (Jon, 2026-10-06).
+Hall-only bosses (T-rex, FSM, the Hunny Horror, Overflow, GNU-ton,
+Cut-the-Rope) stay real until each is placed in the main game (Jon,
+2026-10-06).
 
 So a hall placement does not fire these archetype-keyed consequences:
 

@@ -19,7 +19,12 @@
     "mary_o_1_1",
     "mary_o_1_2",
     "mary_o_1_3",
-    "mary_o_1_4"
+    "mary_o_1_4",
+    "mary_o_2_1",
+    "mary_o_2_2",
+    "mary_o_2_3",
+    "mary_o_2_4",
+    "mary_o_warp"
   ],
   "sandbox.ldtk": [
     "basement_boss",
@@ -51,7 +56,6 @@
     "cutscene_lab",
     "dive_drill",
     "duel_arena",
-    "exploding_gradient_arena",
     "falling_sand_room",
     "flying_spaghetti_monster_arena",
     "gap_run",
@@ -66,6 +70,7 @@
     "hall_of_biomes",
     "hall_of_bosses",
     "hall_warden_arena",
+    "hunny_horror_arena",
     "ladder_lab",
     "live_floor",
     "military_tower",
@@ -91,6 +96,8 @@
     "portal_bridge",
     "portal_lab",
     "primeval_canopy",
+    "primeval_ridge",
+    "primeval_rookery",
     "primeval_run",
     "primeval_trailhead",
     "primeval_tyrant_hall",

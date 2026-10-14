@@ -19,8 +19,8 @@ pub mod eye_beam;
 pub mod fsm;
 pub mod gnu_ton;
 pub mod gradient_cascade;
-pub mod gradient_nova;
 pub mod grapple;
+pub mod hunny;
 pub mod mark_recall;
 pub mod meteor;
 pub mod minima_trap;
@@ -53,8 +53,8 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     fsm::module,
     gnu_ton::conductor::module,
     gradient_cascade::module,
-    gradient_nova::module,
     grapple::module,
+    hunny::module,
     mark_recall::module,
     meteor::module,
     minima_trap::module,

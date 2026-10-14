@@ -441,9 +441,29 @@ arm. The six rows he had are the same six.
 - "He needs more badges and metals on his coat." He has sixteen ribbons,
   seven medals, two orders, pins along his sash and stars on his collar.
 
+His nose is a part of its own, in front of his far eye; the top of that eye
+shows over it ("a little bit of the eye peaking out so you can see it").
+
 Open: Jon has seen the first draft only, not the cap and the medals. His
 `standing_height` is as it was (69.7, the cap included). He has no row that
 faces the viewer, and no strike rows for when he is provoked (he had none).
+
+## The burning flying shark: a great white, more on fire (2026-10-13)
+
+Jon, with a picture of a pale shark under a sheet of fire: "we have to make
+the burning flying shark look less like an orca ... and we need to make it
+look even more on fire with good fire animation."
+
+- It is pale grey over white with a black eye. It was dark over pale.
+- Fire stands along the whole of its back (tall tongues behind it, shorter
+  ones on it over a line of soot), streams from its fins and tail, and small
+  flames come away behind it. Each place shows six shapes of flame in turn,
+  from a phase of its own. It is 58 draws at most, of the 64 a part flipbook
+  may have: more fire needs fewer pieces somewhere.
+
+Open: Jon has not judged it. A row has 6 or 8 frames, so the fire has that
+many pictures in a loop; smoother fire needs longer rows. The saddle and the
+tack are in the fire and do not burn.
 
 ## Not done
 

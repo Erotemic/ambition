@@ -218,3 +218,54 @@ def test_what_no_render_reads_does_not_make_the_whole_publish_stale(renderer: Pa
     (renderer / ".cache" / "publish_seconds.json").write_text("{}\n")
     (renderer.parent / "unrelated.txt").write_text("x\n")
     assert fingerprint(renderer) == before
+
+
+def publish(renderer: Path, during: str) -> dict[str, str]:
+    """The fingerprint steps of one publish, in the order `sprites.sh` runs
+    them: the key at the start, `during` (shell run where the renders run),
+    then what it saves and what the next run (and `--check`) computes."""
+    regen = renderer.parent / "scripts" / "regen" / "sprites.sh"
+    regen.parent.mkdir(parents=True, exist_ok=True)
+    if not regen.exists():
+        regen.write_text("# the orchestrator\n")
+    script = f"""
+        set -euo pipefail
+        source {LIB}
+        renderer_capability_fingerprint() {{ echo 'capability resvg'; }}
+        renderer_dir={renderer}
+        repo_root={renderer.parent}
+        target_reads_dir={renderer.parent / 'reads'}
+        current="$(compute_fingerprint)"
+        started="$(compute_authored_fingerprint)"
+        {during}
+        if saved="$(fingerprint_after_publish "$started")"; then :; else saved=none; fi
+        printf 'start %s\\nsaved %s\\nnext %s\\n' "$current" "$saved" "$(compute_fingerprint)"
+    """
+    out = subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=True).stdout
+    return dict(line.split() for line in out.splitlines())
+
+
+def test_a_publish_that_writes_a_new_record_is_fresh_when_it_ends(renderer: Path) -> None:
+    """The defect (review of 2026-10-14): the publish saved the fingerprint
+    from before it rendered, and a render that wrote a record changed the
+    fingerprint, so `--check` called the new set stale and the next run
+    took the slow path."""
+    data = f"renderer/{PKG}/data/characters"
+    run = publish(
+        renderer,
+        f"printf 'f {data}/gamma/gamma.svg\\nf {data}/villain/villain.svg\\n' > {renderer.parent / 'reads' / 'gamma.reads'}",
+    )
+    assert run["start"] != run["next"], "the premise: the render's record changed the fingerprint"
+    assert run["saved"] == run["next"], "the saved fingerprint is not the one the next run computes"
+
+
+def test_a_publish_with_no_change_saves_the_fingerprint_it_started_with(renderer: Path) -> None:
+    run = publish(renderer, ":")
+    assert run["start"] == run["saved"] == run["next"]
+
+
+def test_an_authored_edit_during_the_publish_saves_no_fingerprint(renderer: Path) -> None:
+    """The render may have read the file before the edit, so the run cannot
+    call the edit published."""
+    run = publish(renderer, f"echo '<!-- edited -->' >> {renderer / PKG / 'data' / 'characters' / 'gamma' / 'gamma.svg'}")
+    assert run["saved"] == "none"

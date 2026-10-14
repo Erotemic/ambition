@@ -38,7 +38,38 @@ sprite_cache_key_prepare() {
 # and `target_reads_dir`; and, for `compute_fingerprint`, the function
 # `renderer_capability_fingerprint`.
 
+# The key of the whole publish: the authored inputs
+# (`compute_authored_fingerprint`) and the files each recorded render read.
 compute_fingerprint() {
+    {
+        printf 'authored %s\n' "$(compute_authored_fingerprint)"
+        # The per-sheet keys read the same records, so a key of the whole
+        # publish that omits one would hit where a sheet key misses.
+        hash_reads "$target_reads_dir"/*.reads
+    } | sha256sum | awk '{print $1}'
+}
+
+# The fingerprint to save after a publish that succeeded, or a non-zero status
+# when an authored input changed while it ran (`started` is
+# `compute_authored_fingerprint` from the start of the run).
+#
+# ⛔ The publish saved the fingerprint it computed BEFORE it rendered. Each
+# render writes its read record, and the records are in the fingerprint, so a
+# publish that changed a record saved a fingerprint that `--check` called
+# stale at once, and the next run took the slow path again (review of
+# 2026-10-14). The records a run leaves are the ones its renders read, so the
+# fingerprint is computed again from them. An authored file edited during the
+# run may not be what was rendered, so then nothing is saved and the next run
+# looks again.
+fingerprint_after_publish() {
+    local started="$1"
+    [ "$(compute_authored_fingerprint)" = "$started" ] || return 1
+    compute_fingerprint
+}
+
+# Every authored input of the publish: the renderer's files, this script and
+# the toolchain. Not the read records, which a render writes.
+compute_authored_fingerprint() {
     # `cd` into renderer dir so the file paths in `sha256sum` output
     # are relative; absolute paths would make the hash depend on the
     # filesystem location.
@@ -63,10 +94,6 @@ compute_fingerprint() {
             # loops, expected-files list, or the cache logic must
             # invalidate the cache too. Hash relative to repo root
             # to keep stability across filesystem locations.
-            # The files each recorded render read, where they are (the
-            # per-sheet keys read the same records, so a key of the whole
-            # publish that omits one would hit where a sheet key misses).
-            hash_reads "$target_reads_dir"/*.reads
             sha256sum "$repo_root/scripts/regen/sprites.sh" \
                 | awk -v root="$repo_root/" '{sub(root, "", $2); print}'
             # ⛔⛔ THE TOOLCHAIN IS AN INPUT. The same source art renders

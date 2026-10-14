@@ -1406,6 +1406,7 @@ if [ -f "$fingerprint_file" ]; then
     cached_fingerprint="$(cat "$fingerprint_file")"
 fi
 current_fingerprint="$(compute_fingerprint)"
+started_authored_fingerprint="$(compute_authored_fingerprint)"
 
 if [ "$force_regen" -ne 1 ] \
     && [ -n "$cached_fingerprint" ] \
@@ -1863,9 +1864,15 @@ if [ "${#regen_failures[@]}" -gt 0 ]; then
 fi
 
 # --- Write fingerprint on success ----------------------------------------
+# Of the tree this run leaves (`fingerprint_after_publish`): the renders
+# rewrote their read records.
 mkdir -p "$cache_dir"
-echo "$current_fingerprint" > "$fingerprint_file"
-echo "  cached regen fingerprint at $fingerprint_file"
+if final_fingerprint="$(fingerprint_after_publish "$started_authored_fingerprint")"; then
+    echo "$final_fingerprint" > "$fingerprint_file"
+    echo "  cached regen fingerprint at $fingerprint_file"
+else
+    echo "  an authored input changed while the publish ran; fingerprint not cached (the next run looks again)" >&2
+fi
 
 print_regen_timings
 

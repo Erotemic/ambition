@@ -18,51 +18,13 @@ use ambition_portal2d::{
     PortalShotWorld,
 };
 
-/// Advance portal shots against the concrete collision world. For each shot,
-/// call the pure [`step_portal_shot`] over the `RoomGeometry`'s solids + bounds and
-/// apply the outcome: open (or replace) the portal of the shot's color on a
-/// placeable surface (the warping whoosh + close/attach sfx), or fizzle past
-/// range / out of bounds / on a non-placeable surface (the rejection buzz).
+/// Step portal shots against their live room geometry.
 ///
-/// ⛔⛔ TWO SHOTS OF ONE COLOUR CAN LAND ON ONE TICK, and this used to end with
-/// two portals of that colour in the world. Each shot was applied against the
-/// SAME pre-system `portals` query while its despawn/spawn sat in a deferred
-/// command buffer, so neither could see the portal the other had just queued:
-/// both despawned the old blue and both spawned a new one. `PlacedPortal`'s whole
-/// API assumes at most one per channel — [`ambition_portal2d::find_portal`] is a
-/// `.find()` — so the second portal was unreachable geometry that still carved
-/// the world.
-///
-/// ⚠ IT WAS UNREACHABLE UNTIL THE UPSTREAM FIX. `portal_fire_system` kept only
-/// `read().last()`, so one tick could never produce two shots to begin with;
-/// repairing that loss is what made this downstream assumption live. A fix that
-/// widens a producer owes a look at every consumer that was narrow because the
-/// producer was.
-///
-/// ⭐ THE WINNER IS THE NEWEST SHOT, which is what "opens **or replaces**" already
-/// meant — a later placement replaces an earlier one. Among shots resolving on
-/// the same tick there is no later, so the rule reads the shot's own age:
-/// [`PortalShot::traveled`] is distance covered at a fixed speed, so the SMALLEST
-/// traveled is the most recently fired. Geometry breaks the remaining tie, and a
-/// tie there means two shots that would place the identical portal, where the
-/// choice cannot be observed.
-///
-/// ⛔ NOT `sim_selection::winner_by`: its tie-break vocabulary is [`SimId`], and a
-/// portal shot carries none. Here the placement is fully determined by its own
-/// geometry, which is a stronger tie-break than an id would be — two shots with
-/// equal keys produce byte-identical portals.
-///
-/// ⭐ EACH SHOT STEPS AGAINST ITS OWN LIVE ROOM (OW1 cut 7l). This read the
-/// sole live room, a `Single`, so while two rooms were live the system did not
-/// run and every shot hung in the air. A shot in no live room does not move.
-/// The portal it opens carries the shot's room.
-///
-/// ⭐ A PLACEMENT REPLACES THE PORTAL OF ITS CHANNEL IN ITS OWN ROOM ONLY.
-/// Portal core pairs, carves and transits by live room (`PortalsByRoom`), so
-/// each live room holds its own pair. This replaced the channel's portal in
-/// EVERY room: a blue shot in one room closed the blue portal of the other.
-///
-/// [`SimId`]: ambition_platformer2d_shared_tangle::sim_id::SimId
+/// At most one portal of each channel may remain per room. Resolve
+/// same-tick placements deterministically: newer shots win (less
+/// distance traveled), then geometry breaks ties. Apply placement only
+/// inside the shot's room; a shot without a live room does not move.
+/// Fizzles and successful placements emit different sound requests.
 pub fn portal_projectile_step(
     time: Res<ambition_time::WorldTime>,
     world: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<RoomGeometry>,

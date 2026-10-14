@@ -1,43 +1,9 @@
-//! The construction half of neighboring-room prefetch.
+//! Cached room construction plans for neighboring rooms.
 //!
-//! A prepared [`RoomConstructionPlan`] is an ENGINE artifact keyed by engine
-//! identity — content epoch, session scope, and the live room it neighbours —
-//! so the cache that promotes one into a live transition belongs beside the
-//! transition, not beside the host's sprite manifests.
-//!
-//! The host still decides WHEN to prefetch and owns the asset half (a manifest
-//! and its handle readiness are presentation facts). It publishes finished plans
-//! here; the transition promotes one only if every identity term still matches,
-//! so a hot reload, a provider swap, or a session change is a safe MISS rather
-//! than a stale promotion.
-//!
-//! ⛔⛔ **THE IDENTITY USED TO BE THE CONSUMER'S ALONE, AND THE CACHE WAS
-//! THEREFORE DEAD.** `publish` took a room id and a plan; only `promote` ever
-//! stated an identity, and it stated it by RESETTING the cache to it. The host's
-//! producer never set one — it kept its own copy of the same triple on its
-//! asset-side state and reset THAT — so this cache sat at its default `(0, None,
-//! None)` for the life of a session and the first promotion of every session
-//! cleared every plan in it before looking one up. Measured 2026-09-08 in
-//! `a_checkpoint_outlook_refuses_a_plan_prepared_without_one`: four warm
-//! neighbour plans, every promotion term satisfied, `prefetch_hit=false`.
-//!
-//! ⭐ SO THE IDENTITY TRAVELS WITH THE PLAN. [`PrefetchIdentity`] is one value
-//! and [`RoomConstructionPlanPrefetch::publish`] requires it, which makes "a plan
-//! is in the cache without the cache knowing what world it was prepared for"
-//! unrepresentable rather than merely unlikely. There is no public reset: the
-//! identity is adopted by publishing and checked by promoting, and those are the
-//! only two ways it can change.
-//!
-//! ⭐ THE SOURCE ROOM IS A KEY, NOT A RESET. More than one room can be live, and
-//! each live room has its own neighbours. The identity has two parts. The WORLD
-//! (content epoch and session scope) is one value for the cache: a change clears
-//! all entries. The SOURCE ROOM is a key of each entry: a crossing from one room
-//! does not remove the entries of a different live room. While the source was a
-//! part of the one adopted identity, the first crossing with two live rooms
-//! cleared the plans of the two rooms (measured 2026-10-04,
-//! `each_live_room_keeps_the_plans_of_its_own_neighbours`). The rule is in
-//! [`PrefetchedByRoom`], and the host's asset cache holds one too, so the two
-//! caches cannot disagree about it.
+//! A published plan includes its preparation identity. Promotion must
+//! reject a plan if its content epoch or session scope changed. Cache
+//! entries are keyed by source room so live rooms do not evict each
+//! other's neighbor plans. A world identity change clears all entries.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;

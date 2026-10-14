@@ -1914,33 +1914,12 @@ fn cleanup_prepared_platformer_sessions(
     sessions.retain_requested(&registry);
 }
 
-/// Hold id for the candidate session a pending route is waiting on.
-/// Discard a prepared candidate session the shell is no longer pursuing.
+/// Release a candidate session that the shell no longer needs.
 ///
-/// ⛔⛤ **THE FOURTH EXIT, AND IT SUBSUMES THE THIRD.** A candidate leaves by one
-/// of four doors: ADOPTED (the gate admitted it), REFUSED (the gate refused it),
-/// SUPERSEDED (a later pending route replaced it) or ABANDONED
-/// (`ShellCommand::CancelPending` ended the pending transaction). The last two are
-/// the same question — *is the router still pursuing this candidate's
-/// activation?* — so they are one site rather than two that must be kept in step.
-///
-/// ⛔ **IT ASKS THE RESERVATION AS WELL AS THE ROUTER, and that is what makes it
-/// safe.** "The router is not pending on this activation" is ALSO true for the
-/// window between activation and adoption, and discarding there would destroy the
-/// candidate adoption is about to demand — which now PANICS by design, the
-/// fallback having been deleted. `ReservedGameplayScopes` is the ledger adoption
-/// consumes (`take`), so an outstanding reservation means adoption has not
-/// happened yet and the candidate is genuinely abandoned rather than in flight.
-///
-/// ⭐ MEASURED 2026-09-15 across the whole `app_it` suite before this was written:
-/// the condition fires EXACTLY ONCE in 663 arms, and that once is the supersession
-/// case. Zero false positives on the healthy activation path.
-///
-/// ⚠ THE ORDER OF THE FOUR RELEASES IS LOAD-BEARING: entities and receipt
-/// (queued, because discarding needs `&mut World`), the scope RESERVATION, then
-/// the route HOLD, then its EVALUATOR. Forgetting the evaluator while the hold
-/// still stands leaves the router a hold it cannot evaluate — measured, the route
-/// is then wedged forever and the SUPERSEDING session never starts either.
+/// Check both the router and its reservation: a candidate may be
+/// between activation and adoption even when the router is no longer
+/// pending. Release the candidate, reservation, route hold, and gate
+/// together to avoid leaving a route that cannot complete.
 fn discard_abandoned_candidate(
     router: &ambition_game_shell::ShellRouter,
     reserved: &mut ambition_game_shell::ReservedGameplayScopes,
@@ -3027,26 +3006,9 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ **THE FUNCTION THAT DECIDES WHETHER A PLAYING SESSION IS RETIRED,
-    /// AND IT HAD NO ARM AT ALL.** Measured 2026-09-18: `candidate_session_gate`
-    /// has four verdict paths and nothing in the tree exercised any of them. The
-    /// two `Refuse` arms are the session-scope last-good-world guarantee — *"the
-    /// session that is playing right now was not retired, because the retirement
-    /// is an effect of an activation that is not going to happen"* — and both
-    /// were reasoned into existence on 2026-09-15 rather than witnessed.
-    ///
-    /// ⭐ **THE EMPTY-SLOT ARM USED TO ANSWER `Admit`**, on the reasoning that
-    /// holding forever would wedge a route this provider does not own. It owns
-    /// every route it is asked about: the evaluator is registered ONLY against
-    /// `candidate_session_hold(activation_id)`, a hold this provider created
-    /// beside its own candidate. Flipping it back to `Admit` is a one-word edit
-    /// that retires a live session for a world nobody built, and until now it was
-    /// a one-word edit nothing caught.
-    ///
-    /// ⚠ **`Hold` IS THE CONTROL, not a fourth case bolted on.** Without it,
-    /// "refuses when unpublished" is satisfied by a gate that refuses ALWAYS —
-    /// which would wedge every route in the game and still pass the two `Refuse`
-    /// assertions.
+    /// The session gate must hold while a candidate is pending, admit
+    /// an accepted candidate, and refuse when publication cannot finish.
+    /// A refused activation must not retire the live session.
     #[test]
     fn the_candidate_gate_refuses_rather_than_retiring_a_playing_session() {
         use ambition_game_shell::{

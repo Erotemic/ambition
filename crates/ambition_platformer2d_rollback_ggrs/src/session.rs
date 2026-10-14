@@ -2318,43 +2318,9 @@ mod tests {
         );
     }
 
-    /// ⛔⛤ **A CALLER THAT INVALIDATES ITS OWN PREFLIGHT MUST NOT SILENTLY
-    /// INSTALL, AND BEFORE 2026-09-17 IT DID.**
-    ///
-    /// The token made "install without having checked" unspellable, and this arm
-    /// is the case that shape does not cover: the caller DID check, got a token,
-    /// and then changed the world. The lifecycle road has exactly that structure
-    /// — check, `execute_lifecycle_commit`, install — and `&mut World` does not
-    /// forbid the middle step, only other systems. The 2026-09-17 review said it
-    /// plainly: *"it does not mean the caller cannot invalidate the predicate
-    /// between those two calls."*
-    ///
-    /// ⚠ WHAT THE OLD BEHAVIOUR WAS, WHICH IS WHY THIS IS AN `assert` AND NOT A
-    /// `debug_assert`: in release the frame counters reset, the rebase declined
-    /// to rebuild the order because it cannot describe a hidden carrier, and the
-    /// session installed carrying every rollback order this App ever handed out.
-    /// That is the ID-PEER defect the rebase exists to remove — 59 of 146 GGRS
-    /// checksum parts differing between equivalent hosts — arriving back through
-    /// the one road built to prevent it, in the build that ships.
-    ///
-    /// ⭐ AND IT ASSERTS WHERE THE PANIC HAPPENED, NOT JUST THAT IT HAPPENED.
-    /// A panic raised beside the rebase would leave the frame counters already
-    /// reset and the GGRS clock already installed, which is a half-committed
-    /// session. Every reading below is taken AFTER the unwind.
-    ///
-    /// ⛔⛔ **THIS ARM MUST BE READ IN BOTH PROFILES, AND THE TWO SAY DIFFERENT
-    /// THINGS.** Poisoned by deleting the unconditional census, 2026-09-17:
-    ///
-    ///   `--release`  the session INSTALLS, silently, with a hidden carrier
-    ///               present — the `debug_assert` beside the rebase is gone —
-    ///               and this arm reddens at its `expect_err`. That is the
-    ///               defect, and it is the profile that ships.
-    ///   debug       the `debug_assert` trips first, so the arm still reddens
-    ///               but on the wrong line, and the message assertion is what
-    ///               catches it.
-    ///
-    /// ⇒ A run in debug alone would have shown this arm red under the poison and
-    /// green under the fix, and concluded that `debug_assert` was sufficient.
+    /// Invalidate the installation preflight after it returns its token.
+    /// The installation must panic before it modifies the new timeline or
+    /// its frame counters. This must hold in release as well as debug builds.
     #[test]
     fn an_install_whose_preflight_was_invalidated_panics_before_touching_frame_zero() {
         use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -3204,35 +3170,11 @@ mod mechanical_edit_ordering_tests {
     }
 }
 
-/// ⛔⛤ **ONE ANSWER TO *"MAY A MECHANICAL MUTATION HAPPEN AROUND THIS ROLLBACK
-/// TIMELINE"*, AND TWO FEATURES USED TO ANSWER IT SEPARATELY — REVIEW,
-/// 2026-09-13.**
+/// Classify whether mechanical content may change around a rollback timeline.
 ///
-/// `Q118` (content publication) and `Q120` (developer mechanical edits) both ask
-/// the same four questions — is there a timeline, is it healthy, who owns it, may
-/// this host stop it — and each had implemented its own classification:
-/// `ambition_content`'s `publication_boundary` and this crate's
-/// `decide_mechanical_edit_admission`. **That duplication already produced one
-/// defect**: `Q118`'s transaction-lifetime lease re-checked HEALTH and not the
-/// OWNERSHIP condition that had authorized publication in the first place, so a
-/// generation admitted against a session this host maintained stayed admitted
-/// after a peer-owned one replaced it.
-///
-/// ⇒ And a second discrepancy was live when the review found it: the
-/// mechanical-edit decision reasoned from *session active + ownership* and never
-/// consulted HEALTH, while the publication decision refused an unhealthy
-/// authority outright. ⚠ The behaviour was safe for a reason neither feature
-/// states — `stop_session` STANDS THE AUTHORITY DOWN rather than removing it and
-/// `ActiveRollbackAuthority::installed` refuses to launder a divergence into a
-/// fresh timeline, so a rebase cannot heal one — but *"safe because something
-/// else happens to hold"* is the shape this repository removes, not a policy.
-///
-/// ⭐⭐ **SO THE ROLLBACK SUBSYSTEM ANSWERS ONCE AND THE CALLERS DIFFER ONLY IN
-/// TRANSACTION SEMANTICS.** `Q120` consumes this instantaneously (*may this
-/// editor proposal publish before the next GGRS advance?*); `Q118` holds the same
-/// answer as a transaction-lifetime LEASE (*has the condition that authorized
-/// this pending generation remained valid?*). One authority for the fact, two
-/// lifetimes for the use of it.
+/// Content publication and developer edits use the same authority and
+/// health decision. The callers differ in lifetime: an edit needs an
+/// immediate answer, while publication holds a lease that must remain valid.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MechanicalMutationBoundary {
     /// No authority, or one whose timeline is not speculating. Every

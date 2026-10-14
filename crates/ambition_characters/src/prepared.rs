@@ -1062,43 +1062,12 @@ pub fn revise_staged_moveset(
     Ok(())
 }
 
-/// Stage a whole move SECTION — every character's table from one loadable
-/// artifact — as a single revision.
+/// Stage one complete authored move section as one revision.
 ///
-/// ⭐⭐ **ALL OR NOTHING, AND THAT IS THE WHOLE REASON THIS EXISTS RATHER THAN A
-/// LOOP AT THE CALL SITE.** A pack is one thing an author shipped. Staging the
-/// ids it names one at a time would leave a half-applied pack when the third one
-/// is unknown — a cast nobody authored, assembled out of the readable part of a
-/// file. The artifact envelope refuses a duplicate section for the same reason:
-/// *"a partial write or a watcher firing mid-copy is exactly how a mixed pack
-/// gets selected."*
-///
-/// ⇒ Every id is checked BEFORE anything is staged. On any refusal nothing is
-/// staged at all, and the returned list names every problem so an author fixes
-/// the pack in one pass.
-///
-/// ⚠ STAGING IS NOT ACTIVATION. The caller runs
-/// [`activate_staged_revision`] with its own composition's
-/// [`ambition_entity_catalog::TechniqueSupport`], which is where a technique
-/// this build did not install refuses the pack — the question a codec cannot
-/// answer and this function deliberately does not try to.
-/// ⛔⛤ **IT TAKES NO BASE, AND IT USED TO — THE PARAMETER WAS PROTECTION THAT
-/// COULD NOT FIRE.** MEASURED 2026-09-11: with the stamp read from the world
-/// inside this function, activation was the only road that published after the
-/// barrier and it DRAINED the staged transaction atomically, so stage-time and
-/// fold-time were the same generation in every reachable sequence. The rule was
-/// structurally unreachable. The fix taken then was to make the base a CALLER
-/// parameter — and MEASURED 2026-09-12, the one production caller
-/// (`request_reload`) read the live generation one line before passing it, in
-/// the same synchronous call, which restored the unreachability exactly.
-///
-/// ⇒ **A KNOB NOBODY SUPPLIES HONESTLY IS WORSE THAN NO KNOB**, because it reads
-/// as protection. The fact *"which generation was this prepared against"* now
-/// has ONE recorder — `ambition_content_pack::CandidateGeneration::base`, in
-/// pack-fingerprint units, refused by `admit_candidate` BEFORE anything reaches
-/// here. That check covers this one's whole scenario ("somebody published
-/// between my read and my apply") and the cast cannot move without the pack in
-/// production.
+/// Validate every character id before staging anything. Report all
+/// errors, and leave staged state unchanged on refusal. This step does
+/// not activate content or authorize installed techniques. The content
+/// pack owns the candidate generation baseline.
 pub fn stage_move_section(
     world: &mut bevy::ecs::world::World,
     section: &ambition_entity_catalog::move_section::MoveSectionData,
@@ -2952,45 +2921,12 @@ pub struct StagedCharacterOverrides {
 }
 
 impl StagedCharacterOverrides {
-    /// Canonical generation material for the staged cast.
+    /// Produce deterministic identity material for the staged character cast.
     ///
-    /// ⛔⛤ **THE PREPARED CAST WAS MECHANICAL CONTENT THAT REACHED NO
-    /// FINGERPRINT.** `PreparedContentIdentity` binds
-    /// `CharacterCatalogRegistry::canonical_fragments()`, and MEASURED
-    /// 2026-09-12 that is a DIFFERENT ROAD from this one: the provider API
-    /// `App::register_character` goes to `stage_authored_character` and lands
-    /// here, never in that registry. So two compositions could differ in
-    /// `max_health`, `run_speed`, motion model, contact damage, abilities,
-    /// hurtboxes or brain policy and produce the SAME identity — and the
-    /// rollback timeline contract compares exactly that identity.
-    ///
-    /// ⭐⭐ **SERIALIZED BY `serde`, NOT BY A HAND-LISTED FIELD SET, AND THAT IS
-    /// THE LOAD-BEARING CHOICE.** A hand-rolled canonical writer is a population
-    /// that rots: a new mechanical field is simply absent from it and nothing
-    /// says so, which is the same defect one level up. The derive is exhaustive
-    /// by construction — a field added to `PreparedCharacterOverrides` changes
-    /// this dump on the day it is added.
-    ///
-    /// ⚠ **NOT `Debug`, DELIBERATELY.** `Debug` output is a rendering with no
-    /// stability contract, and hashing one would make the identity hostage to a
-    /// formatting change. RON over a `BTreeMap` is ordered by the id and carries
-    /// the values themselves.
-    ///
-    /// ⚠ **AND IT IS THE PRE-FOLD SOURCE, WHICH IS THE RIGHT MATERIAL.** The
-    /// registry is this table's FOLD (see `by_id`), and folding is lossy —
-    /// "authored nothing" and "authored exactly the catalog row's value" become
-    /// the same prepared value. Fingerprinting the fold would make those two
-    /// compositions identical again.
-    /// ⛔⛤ **IT REFUSES RATHER THAN HASHING AN ERROR MESSAGE.** The first
-    /// version wrote `<unserializable: {error}>` into the dump, reasoning that a
-    /// distinct id-bearing marker still separated two casts. **That fails OPEN
-    /// into the identity machinery:** the fingerprint would then be a hash of a
-    /// failure STRING, and two casts that both fail to serialize for the same
-    /// reason are declared identical — which is precisely the claim
-    /// `RollbackTimelineContract` uses to decide a snapshot may be restored.
-    ///
-    /// ⇒ A generation whose mechanical material cannot be rendered has no
-    /// identity, and the honest answer is to refuse the preparation.
+    /// Serialize the complete pre-fold authored entries as ordered RON.
+    /// Do not use `Debug`, hand-picked mechanical fields, or a lossy
+    /// folded registry. Refuse on serialization failure: an error
+    /// message is not a valid fingerprint for a prepared generation.
     pub fn deterministic_dump(&self) -> Result<String, String> {
         let mut out = String::new();
         for (id, staged) in &self.by_id {
@@ -3312,50 +3248,11 @@ fn finalize_prepared_cast(
         .get_resource::<PreparedCharacterRegistry>()
         .map(PreparedCharacterRegistry::generation)
         .unwrap_or_default();
-    // ⛔⛔ **THE STRICT ADMISSION PASS, AND IT RUNS BEFORE THE REGISTRY IS
-    // PUBLISHED.** `TechniqueSupport::admit` has refused unknown keys, params on
-    // a paramless key, and params that do not hydrate since A11a — and had NO
-    // production caller over authored effects, so none of it ever ran. A
-    // misspelled `smash.teleprot` matched no handler, fell out of every
-    // consumer, and surfaced as a `warn!` in the middle of a fight on a move
-    // that plays and does nothing.
-    //
-    // ⭐ `MoveSpec::effect_refs` is A11b's exhaustive visitor: it destructures
-    // without `..` at every level, so a fifth effect site is a compile error
-    // rather than a silent gap. The two halves existed and nothing joined them;
-    // this is the join.
-    //
-    // ⛔⛔ **IT REPORTS RATHER THAN REFUSES, AND THE MEASUREMENT IS WHY.** Wired
-    // as a panic first — like `install_technique`'s conflict — it reddened seven
-    // application tests, and every refusal was a `smash.*` key in a composition
-    // that does not install `ambition_demo_smash`. `mary_o`'s grab, pummel and
-    // four throws author `smash.capture_*`; the capture REQUESTS
-    // (`CaptureAttemptRequested` and friends) are engine types in
-    // `ambition_combat`, and only the authored-effect TRANSLATION lives in the
-    // Smash demo. So a character in any other composition names a technique
-    // nothing there answers, and those moves already play and do nothing.
-    //
-    // ⇒ That is a real content-layering defect this pass FOUND, not one it
-    // caused, and refusing to boot over it would break shipped compositions to
-    // punish them for a gap they did not create. `TechniqueSupport` cannot tell
-    // the two apart either: a typo and a technique installed by some OTHER
-    // composition are both `Unknown` to a table that only knows what THIS
-    // composition declared.
-    //
-    // ⭐ So the guarantee stands where it can be enforced: the SHIPPED
-    // composition is asserted to have zero refusals by
-    // `authored_effects_are_admitted.rs`, and every other composition gets the
-    // whole list at STARTUP instead of one `warn!` per move mid-fight — which
-    // was the actual failure this packet exists to remove. Whether an
-    // uninstalled technique should refuse the definition outright is a content
-    // ruling; see the maintainer ledger.
-    //
-    // `admit_all` collects every refusal first so an author sees all of them at
-    // once rather than one per run.
-    //
-    // ⚠ AND `kit`'s MOVESET, NOT `authored_moveset`: the kit always carries one
-    // (derived from the action set when the character authored no timelines), so
-    // this is the full set of effects a body wearing this character can reach.
+    // Validate all move effect references before publishing the cast.
+    // `TechniqueSupport::admit_all` reports the complete set of unknown
+    // techniques at startup. A missing technique may belong to another
+    // composition; the shipped composition tests require zero refusals.
+    // Inspect the resolved kit moveset, including derived default moves.
     let staged = cast_with_catalog_rows(staged, authorities.catalog.as_ref());
     // ⭐ THE SUPPORT TABLE ARRIVES AS AN ORDINARY ARGUMENT. It is
     // composition/runtime state and stays owned there; this crate names only

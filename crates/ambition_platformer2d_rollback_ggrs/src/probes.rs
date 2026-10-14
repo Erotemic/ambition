@@ -1059,37 +1059,12 @@ pub fn record_census_after_the_advance(world: &mut World) {
     }
 }
 
-/// ⛔⛤ **S8'S PREDICATE, MEASURED INSTEAD OF READ OFF EIGHT SYSTEMS' SCHEDULES.**
+/// Compare the live rollback census after GGRS advances and at frame end.
 ///
-/// A rollback entry written from a schedule that never rewinds is a desync
-/// candidate, and that population has so far been found by reading registrations
-/// and `add_systems` calls — careful work a forwarder, a set or a `cfg` can hide
-/// from. This measures it: census the world right after the GGRS advance
-/// (`PreUpdate`, after `run_ggrs_schedules`) and again at the end of the frame
-/// (`Last`). **Anything that differs was written by `Update`, `PostUpdate` or
-/// `Last` — the schedules that never rewind.**
-///
-/// ⛔⛤ **THE FIRST VERSION COMPARED AGAINST THE SAVED CENSUS AND WAS WRONG, IN
-/// THE ALARMING DIRECTION.** It reported 29 of 144 hashed entries "written
-/// outside the rewinding schedule", including `SimTick`, `BodyKinematics`,
-/// `MotionModel` and `SweepSample` — types the simulation obviously writes. The
-/// cause: GGRS saves a frame BEFORE advancing it, so the last SAVED census is the
-/// state at the START of the last advanced frame while the live world is its END,
-/// and every per-tick-changing type differed by construction. ⇒ The number was
-/// seven times S8's hand-read four, which is how a broken instrument announces
-/// itself as a discovery; what caught it was reading the LIST and seeing types
-/// whose answer was already known.
-///
-/// ⚠ **IT NAMES A POPULATION, NOT A DEFECT.** Presentation state is legitimately
-/// written there, and a type that is rollback-registered AND presentation-written
-/// is what `Q139` (ruled 2026-09-19) is about. What makes an entry dangerous is that it ALSO feeds
-/// the peer checksum, which the registry knows and this does not; the JOIN is the
-/// finding.
-///
-/// ⚠ **AND IT CANNOT SEE A WRITE THAT PUTS THE VALUE BACK.** A system that
-/// mutates and restores within one frame leaves no trace — which is why a
-/// latch that is set and consumed within one frame satisfies S8's first two
-/// conditions and does not desync. The same blind spot the checksum has.
+/// Differences identify registered state written outside the rewinding
+/// simulation schedule. They are candidates for investigation, not proof
+/// of a desync: only peer-checksummed values can affect peer agreement.
+/// Changes that are undone within the same frame are not visible here.
 pub fn record_live_census(world: &mut World) {
     if !world
         .get_resource::<RollbackRestoreAudit>()

@@ -251,59 +251,12 @@ fn resolved_hitbox_knockback_magnitude(
         // applied whole by the caller, which is what it has always been.
         HitboxKnockback::FeelScale(scale) => HitKnockbackMagnitude::FeelScale(scale.max(0.0)),
         HitboxKnockback::LaunchSpeed { base, growth } => {
-            // ⭐ `Some(0.0)` is FIXED knockback and `None` is "the volume did not
-            // decide". Reading a bare `0.0` as unspecified made the documented
-            // fixed-knockback case the one value you could not author.
-            //
-            // ⛔⛤ **AND THE COLLAPSE OF THE TWO AUTHORING ROADS USED TO
-            // HAPPEN HERE, WHICH IS HOW THE BRAIN CAME TO DISAGREE WITH THIS
-            // FUNCTION ABOUT `None` — REVIEWED 2026-09-20.** `Some(0.0)` is
-            // FIXED knockback and `None` is *"the ruleset decides"*; this read
-            // `None` as `base * ruleset_growth` and the fighter brain's
-            // envelope read it as `0.0`, so `cellular_pulse` (base 140,
-            // `None`) resolved to 490px/s here and 140 there on the same
-            // stage. Both are now `Option<f32>` all the way into
-            // `launch_speed`, which collapses them ONCE.
-            //
-            // ⭐⭐ BOTH ROADS, ONE SCALE — and that is why the ruleset's
-            // fallback travels as a CONDITION rather than being resolved into
-            // a number first: a scale applied after the collapse reaches both
-            // without being restated in two places that could drift apart.
-            //
-            // ⛔ AND THE ROSTER IS GENUINELY SPLIT BETWEEN THEM, so "both" is a
-            // requirement rather than belt-and-braces. Measured 2026-09-12 over
-            // the smash demo: 40 authored knockback volumes, 38 of them with a
-            // POSITIVE authored growth that never consults the ruleset at all.
-            // Scaling only the fallback would have moved almost nothing;
-            // scaling only the authored road would have left every
-            // prefab-derived swing flat.
-            // ⭐⭐ AND THE VOLUME'S OWN `base` STEEPENS THAT GROWTH, for
-            // exactly the reason the ruleset scale does: the line above has
-            // already collapsed the two authoring roads into one `growth`, so
-            // a factor applied after it reaches BOTH — the explicitly authored
-            // `Some(g)` and the `base * ruleset_growth` fallback — without
-            // being restated in two places that could drift. The curve is
-            // handed to the law below rather than multiplied in here, which is
-            // the same statement with one owner instead of two.
-            //
-            // ⛔ AND IT CANNOT RESURRECT A FIXED-KNOCKBACK MOVE. `Some(0.0)`
-            // times any factor is still `0.0`, and the law short-circuits on
-            // the AUTHORED growth to return `base` — so the documented way to
-            // author a launch that ignores percent stays exactly that at every
-            // curve.
-            //
-            // ⭐⭐ **AND THE ARITHMETIC ITSELF LIVES IN THE CATALOG, BECAUSE THE
-            // FIGHTER BRAIN HAS TO SPEND THE SAME LAW AND CANNOT SEE THIS
-            // CRATE.** It had its own copy — `base + growth × victim_damage`,
-            // with a comment arguing the rest could not reorder a kit — and it
-            // ranked finishers the wrong way round for it. This crate still
-            // RESOLVES every input below; it no longer owns the line they are
-            // spent on. See `ambition_entity_catalog::launch`.
-            //
-            // ⚠ THE AUTHORING IS HANDED OVER UNRESOLVED — the `Option`, the
-            // ruleset's fallback and the curve all travel as inputs — which is
-            // what keeps the set-knockback short-circuit reading what the
-            // AUTHOR wrote rather than a scaled copy of it.
+            // Preserve authored growth until the shared launch law resolves it.
+            // `Some(0.0)` means fixed knockback; `None` selects the ruleset
+            // growth fallback. The shared law in `ambition_entity_catalog`
+            // serves combat and fighter evaluation with the same result.
+            // Apply growth scaling to both authored and fallback growth,
+            // without changing the fixed-knockback case.
             HitKnockbackMagnitude::LaunchSpeed(ambition_entity_catalog::launch::launch_speed(
                 base,
                 growth,
@@ -1032,40 +985,9 @@ pub fn apply_hitbox_damage(
                 // applied as though it had one. It still scales the DAMAGE this
                 // hit deals, further down this same loop, unchanged.
                 let stale = rules.stale_scale(attacker.staleness(hitbox.owner));
-                // ⛔⛔ RAGE AND STALING ARE NO LONGER ONE MULTIPLIER, and the
-                // comment that said they were is the bug, written down.
-                //
-                // `magnitude.scaled(rage * stale)` multiplied the WHOLE resolved
-                // launch — `base + percent_term` together — by the stale factor.
-                // So a worn-out move lost its base launch as well as its percent
-                // growth, and at high percent, where the percent term IS
-                // substantially the whole launch, a fully stale move at the
-                // authored floor of 0.55 threw away nearly half of everything.
-                //
-                // ⭐ MEASURED with this split in place but the percent curve
-                // left unrepaired (`victim_percent_knockback_scale` at 1.0): a
-                // fully stale jab on a 700% George Booul, thrown from stage
-                // centre by an attacker whose rage meter is PINNED to zero,
-                // resolves to 520.9px/s and carries the victim 246.4px. THE
-                // STOCK DOES NOT END. Every fighter alive, no stock ever spent,
-                // and the match cannot finish — see `ring_out` in
-                // `smash_in_the_host`, which is that reading as a regression
-                // test. That is why the split alone is not the whole repair.
-                //
-                // ⛔ THE LAUNCH IS READ OFF THE EMITTED `HitEvent`, AND THE
-                // WITNESS IS `left_the_world`. An earlier note here cited
-                // "peaked at 569.5px/s, 152px of the 720px the side blast line
-                // requires", and BOTH of those metrics were refuted: peak body
-                // speed maxes over the whole post-hit window with gravity
-                // included, so a jab that resolves to exactly 50.0px/s read as
-                // 446.4 — and a stock can END with the side line never crossed,
-                // which it does at the declared scale. Do not reintroduce
-                // either as a knockback witness.
-                //
-                // ⇒ So staling reaches the launch through the PERCENT TERM at a
-                // declared influence, and rage keeps multiplying the whole thing
-                // (a hurt attacker hits harder with the base too — the mechanic
-                // was never about a percent decomposition).
+                // Staling scales percent-based launch growth, not its base.
+                // Rage scales the entire launch. Preserve this split when
+                // resolving the shared launch law for combat and AI.
                 let growth_scale =
                     rules.victim_percent_knockback_scale * rules.knockback_stale_scale(stale);
                 let magnitude = resolved_hitbox_knockback_magnitude(

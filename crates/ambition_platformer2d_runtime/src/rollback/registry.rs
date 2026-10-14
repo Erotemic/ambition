@@ -1165,7 +1165,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 348 -> 349: `BodyShieldState` encodes the beat of a blocked blow and
 /// where it landed (`blow_timer`, `blow_from`). No row moves; the bytes of
 /// one projection do, so peers of the two versions must not connect.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 349;
+/// ⛔⛤ 349 -> 350: `BodyCombat` encodes a slow (`slow_timer`, `slow_scale`:
+/// honey, the Hunny Horror's puddles). No row moves; the bytes of one
+/// component do, so peers of the two versions must not connect.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 350;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

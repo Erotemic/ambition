@@ -1252,15 +1252,13 @@
     // turns him into the monster first (fur up, eyes glowing, teeth), and
     // only then does anything hurt.
     //
-    // Phase 1, Bedtime: near, a claw swipe or the HUG (arms open wide, a
-    // giggle: caught, he squeezes you and throws you; mash to get free); far,
-    // he spits honey that lands in puddles that hurt. Then the charge on all
-    // fours into the wall: he sits down dazed with bees round his head, the
-    // long punish window.
-    // Phase 2, Rumbly Tummy: the swipe becomes a two-paw maul, more honey,
-    // and a belly flop at where you stood that sends a shock along the floor.
-    // Enraged, The Empty Pot: a roar that blows you back and brings honey down
-    // from the ceiling, and a charge that turns once at the wall.
+    // Near: a claw swipe (a two-paw maul from phase 2), or the HUG (arms
+    // open wide, a giggle: caught, he squeezes you and throws you; mash to get
+    // free). Far: he lobs honey that lands in puddles that slow whoever steps
+    // in them. Each cycle ends with the RED BALLOON: he rises on it over the
+    // room, lets go and pounces at where you are, and sits dazed where he
+    // lands, bees round his head: the long punish window. Enraged, the
+    // balloon comes twice a cycle and the honey five globs at a time.
     // ============================================================
     "hunny_horror_boss": (
         id: "hunny_horror_boss",
@@ -1291,9 +1289,7 @@
             Special("hunny_maul"),
             Special("hunny_hug"),
             Special("hunny_spit"),
-            Special("hunny_charge"),
-            Special("hunny_flop"),
-            Special("hunny_roar"),
+            Special("hunny_balloon"),
         ],
         attack_cooldown: 1.0,
         attack_windup: 0.5,
@@ -1350,13 +1346,12 @@
                         Rest(duration: 1.1),
                     ]),
                 ]),
-                // The charge: a roar, then the room on all fours into the wall.
-                // The rest after it is the run and the daze: the fight's long
-                // punish window.
-                Telegraph(profile: Special("hunny_charge"), duration: 1.1,
-                    telegraph: Some((pose: Some("run"), cue: Some("boss.mockingbird.growl")))),
-                Strike(profile: Special("hunny_charge"), duration: 0.5),
-                Rest(duration: 3.6),
+                // The balloon: up over the room, then the pounce. The rest after
+                // it is his daze where he landed: the fight's long punish window.
+                Telegraph(profile: Special("hunny_balloon"), duration: 1.1,
+                    telegraph: Some((pose: Some("float"), cue: Some("boss.mockingbird.growl")))),
+                Strike(profile: Special("hunny_balloon"), duration: 1.9),
+                Rest(duration: 3.0),
             ]),
             transition: (steps: [Rest(duration: 2.0)]),
             // PHASE 2, RUMBLY TUMMY.
@@ -1381,10 +1376,6 @@
                         Rest(duration: 0.9),
                     ]),
                 ]),
-                Telegraph(profile: Special("hunny_flop"), duration: 0.8,
-                    telegraph: Some((pose: Some("flop"), cue: Some("boss.generic.intro_roar")))),
-                Strike(profile: Special("hunny_flop"), duration: 1.1),
-                Rest(duration: 1.0),
                 Select(table: [
                     (weight: 3.0, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("hunny_maul"), duration: 0.75,
@@ -1405,17 +1396,17 @@
                         Rest(duration: 0.9),
                     ]),
                 ]),
-                Telegraph(profile: Special("hunny_charge"), duration: 0.95,
-                    telegraph: Some((pose: Some("run"), cue: Some("boss.mockingbird.growl")))),
-                Strike(profile: Special("hunny_charge"), duration: 0.5),
-                Rest(duration: 3.2),
+                Telegraph(profile: Special("hunny_balloon"), duration: 0.95,
+                    telegraph: Some((pose: Some("float"), cue: Some("boss.mockingbird.growl")))),
+                Strike(profile: Special("hunny_balloon"), duration: 1.9),
+                Rest(duration: 2.7),
             ]),
             // ENRAGE, THE EMPTY POT.
             enrage: (steps: [
-                Telegraph(profile: Special("hunny_roar"), duration: 0.7,
-                    telegraph: Some((pose: Some("taunt"), cue: Some("boss.bear_mauler.roar")))),
-                Strike(profile: Special("hunny_roar"), duration: 0.5),
-                Rest(duration: 1.0),
+                Telegraph(profile: Special("hunny_balloon"), duration: 0.8,
+                    telegraph: Some((pose: Some("float"), cue: Some("boss.mockingbird.growl")))),
+                Strike(profile: Special("hunny_balloon"), duration: 1.9),
+                Rest(duration: 1.6),
                 Select(table: [
                     (weight: 3.0, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("hunny_maul"), duration: 0.75,
@@ -1436,10 +1427,6 @@
                         Rest(duration: 0.6),
                     ]),
                 ]),
-                Telegraph(profile: Special("hunny_flop"), duration: 0.75,
-                    telegraph: Some((pose: Some("flop"), cue: Some("boss.generic.intro_roar")))),
-                Strike(profile: Special("hunny_flop"), duration: 1.1),
-                Rest(duration: 0.8),
                 Select(table: [
                     (weight: 3.0, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("hunny_maul"), duration: 0.75,
@@ -1460,11 +1447,10 @@
                         Rest(duration: 0.6),
                     ]),
                 ]),
-                // The turning charge: twice the room, so a longer rest.
-                Telegraph(profile: Special("hunny_charge"), duration: 0.8,
-                    telegraph: Some((pose: Some("run"), cue: Some("boss.mockingbird.growl")))),
-                Strike(profile: Special("hunny_charge"), duration: 0.5),
-                Rest(duration: 3.6),
+                Telegraph(profile: Special("hunny_balloon"), duration: 0.8,
+                    telegraph: Some((pose: Some("float"), cue: Some("boss.mockingbird.growl")))),
+                Strike(profile: Special("hunny_balloon"), duration: 1.9),
+                Rest(duration: 2.6),
             ]),
         ),
         reward: DropChest(

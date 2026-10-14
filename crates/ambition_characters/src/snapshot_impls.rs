@@ -63,6 +63,10 @@ snapshot_pod!(crate::actor::body::BodyCombat {
     // reason every lock beside it is: two peers disagreeing about how long a
     // fighter stays helpless resimulate different matches from that moment.
     sleep_timer: f32,
+    // SLOWED. A status like the sleep above it: two peers that disagree about
+    // how long a body wades through honey resimulate different matches.
+    slow_timer: f32,
+    slow_scale: f32,
     // DERIVED and still encoded: it is republished from the live move every
     // tick, so a restore converges — but the tick a rewind lands ON reads it
     // before the projection runs again, and a peer that decided a launch from a

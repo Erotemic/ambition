@@ -329,6 +329,14 @@ pub struct BodyCombat {
     /// `0.0` for every body nothing has put to sleep, which is all of them
     /// until a move says otherwise.
     pub sleep_timer: f32,
+    /// SLOWED: seconds left in which this body moves at [`Self::slow_scale`]
+    /// of its own speed (honey, glue). Not a control lock: the body acts and
+    /// steers, only slower. Applied by [`Self::slow`]; the body step reads it
+    /// ([`Self::move_speed_scale`]).
+    pub slow_timer: f32,
+    /// The fraction of its own speed a slowed body keeps. Read only while
+    /// [`Self::slow_timer`] runs.
+    pub slow_scale: f32,
     /// ARMOR: what an authored `WindowTag::Armor` window on the move this body
     /// is playing does to a hit that lands inside it. See [`ArmorPolicy`].
     ///
@@ -485,6 +493,23 @@ impl BodyCombat {
         self.struck_recently > 0.0
     }
 
+    /// Slow this body to `scale` of its speed for `seconds`. A body already
+    /// slowed keeps the longer time and the stronger slow.
+    pub fn slow(&mut self, scale: f32, seconds: f32) {
+        let scale = scale.clamp(0.05, 1.0);
+        self.slow_scale = if self.slow_timer > 0.0 { self.slow_scale.min(scale) } else { scale };
+        self.slow_timer = self.slow_timer.max(seconds);
+    }
+
+    /// The fraction of its own speed this body moves at now: 1 unless slowed.
+    pub fn move_speed_scale(&self) -> f32 {
+        if self.slow_timer > 0.0 {
+            self.slow_scale.clamp(0.05, 1.0)
+        } else {
+            1.0
+        }
+    }
+
     /// Decay every body reaction timer by caller-supplied `dt`, clamping at zero.
     /// The caller owns the clock domain used for `dt`.
     pub fn decay_reaction_timers(&mut self, dt: f32) {
@@ -495,6 +520,7 @@ impl BodyCombat {
         self.recoil_lock_timer = (self.recoil_lock_timer - dt).max(0.0);
         self.ledge_trump_lock_timer = (self.ledge_trump_lock_timer - dt).max(0.0);
         self.sleep_timer = (self.sleep_timer - dt).max(0.0);
+        self.slow_timer = (self.slow_timer - dt).max(0.0);
         self.hitstop_timer = (self.hitstop_timer - dt).max(0.0);
         self.landing_lag_timer = (self.landing_lag_timer - dt).max(0.0);
     }
@@ -517,6 +543,9 @@ impl BodyCombat {
         // A fighter who respawns still asleep from the stock before is helpless
         // on arrival with nothing on screen explaining why.
         self.sleep_timer = 0.0;
+        // A body put back to spawn is out of the honey.
+        self.slow_timer = 0.0;
+        self.slow_scale = 0.0;
     }
 }
 
@@ -676,6 +705,9 @@ mod hard_lock_tests {
             // Ticked with the rest: a sleep runs down on the same clock as
             // every other reaction, so nothing has to remember it separately.
             sleep_timer: _,
+            // A slow runs down with the rest; its scale is read only while it does.
+            slow_timer: _,
+            slow_scale: _,
             hitstop_timer: _,
             landing_lag_timer: _,
 
@@ -710,6 +742,9 @@ mod hard_lock_tests {
             // from the stock before is helpless on arrival with nothing on
             // screen explaining why.
             sleep_timer: _,
+            // Cleared: a body put back to spawn is out of the honey.
+            slow_timer: _,
+            slow_scale: _,
 
             // NOT cleared, deliberately: `project_move_defense_windows`
             // republishes it from the live move every tick, so clearing it here
@@ -724,6 +759,22 @@ mod hard_lock_tests {
             // Construction-owned; reset does not change body identity.
             training_dummy: _,
         } = combat;
+    }
+
+    /// A body that steps from one puddle of honey into another keeps the
+    /// longer time and the stronger slow, and is free once the time runs out.
+    #[test]
+    fn a_slow_keeps_the_longer_time_and_the_stronger_slow() {
+        let mut combat = BodyCombat::default();
+        assert_eq!(combat.move_speed_scale(), 1.0);
+        combat.slow(0.4, 0.5);
+        combat.slow(0.7, 1.0);
+        assert_eq!((combat.move_speed_scale(), combat.slow_timer), (0.4, 1.0));
+        combat.decay_reaction_timers(1.0);
+        assert_eq!(combat.move_speed_scale(), 1.0);
+        // A new slow after the last ran out is its own.
+        combat.slow(0.7, 1.0);
+        assert_eq!(combat.move_speed_scale(), 0.7);
     }
 
     /// Hitlag is body state independent of controller kind.

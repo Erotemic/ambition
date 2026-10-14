@@ -60,9 +60,7 @@
         "hunny_maul": ["punch"],
         "hunny_hug": ["hug"],
         "hunny_spit": ["spit"],
-        "hunny_charge": ["run"],
-        "hunny_flop": ["flop"],
-        "hunny_roar": ["taunt"],
+        "hunny_balloon": ["float"],
         "lesser_appendages": ["summon"],
         // The Mockingbird's air chase: its module draws each move's row.
         "mockingbird_missile": ["missile"],

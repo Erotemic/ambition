@@ -1515,6 +1515,26 @@ impl Default for MovementTuning {
 }
 
 impl MovementTuning {
+    /// This tuning for a body that keeps `scale` of its speed (honey, glue):
+    /// its top speeds on the ground and in the air and its dash are `scale` of
+    /// its own, and its jumps lose half as much, so a slowed body can still
+    /// hop out of what slows it. `scale` 1 is this tuning unchanged.
+    pub fn slowed(self, scale: f32) -> Self {
+        if scale >= 1.0 {
+            return self;
+        }
+        let scale = scale.max(0.05);
+        let jump = 0.5 + 0.5 * scale;
+        Self {
+            max_run_speed: self.max_run_speed * scale,
+            max_air_speed: self.max_air_speed * scale,
+            initial_dash_speed: self.initial_dash_speed * scale,
+            jump_speed: self.jump_speed * jump,
+            double_jump_speed: self.double_jump_speed * jump,
+            ..self
+        }
+    }
+
     /// Project the frame-independent policy parameters consumed by the trusted
     /// axis-swept solver. Environment and input mapping remain outside the model.
     pub const fn axis_swept_params(self) -> AxisSweptParams {

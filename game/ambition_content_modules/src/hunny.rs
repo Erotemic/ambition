@@ -15,15 +15,13 @@
 //!   of him. Back off or jump.
 //! - The hug: arms open wide and a giggle. Caught, you are squeezed and thrown
 //!   across the room; mash to get free (`ambition.combat.body_hold`).
-//! - The spit: globs of honey lobbed at you. Each lands in a puddle that hurts
-//!   while it lasts.
-//! - The charge: on all fours across the room into the wall, where he sits
-//!   down dazed with bees round his head: the long punish window. Enraged, he
-//!   turns once at the wall and comes back.
-//! - The belly flop (phase 2 on): a leap at where you stood; the landing sends
-//!   a shock along the floor both ways. Jump it.
-//! - The roar (enraged): it blows you back and shakes honey down from the
-//!   ceiling, each drop where honey drips first.
+//! - The honey: globs lobbed at you in arcs. Each lands in a puddle of honey
+//!   that slows whoever stands in it (`ambition.combat.slow_bodies`), any
+//!   actor, not only you.
+//! - The red balloon (his own move; Jon, 2026-10-14): a red balloon in his paw,
+//!   he rises on it over the room toward you, lets go and pounces. He lands
+//!   dazed, with bees round his head: the long punish window. The balloon
+//!   floats on and pops on the ceiling.
 //!
 //! Every volume is measured from his art (the renderer's `hunny_horror_boss`),
 //! in sheet pixels from the frame's top left, and carried into the world by
@@ -32,8 +30,8 @@
 
 use ambition_boss_special_port::{BossConduct, BossConductPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose};
 use ambition_combat_port::{
-    BodyHold, BodyHoldPort, BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox,
-    HeldDamageBoxPort, RidingHitbox, RidingHitboxPort, RidingKnockback,
+    BodyHold, BodyHoldPort, BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, RidingHitbox,
+    RidingHitboxPort, RidingKnockback, SlowBodies, SlowBodiesPort,
 };
 use ambition_extension_sdk::{
     phases::BOSS_CONDUCT, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
@@ -68,13 +66,10 @@ fn art_box(x0: f32, y0: f32, x1: f32, y1: f32) -> (Vec2, Vec2) {
 pub fn feet_below() -> f32 {
     art(0.0, 200.0).y
 }
-/// How far his snout reaches ahead of his position standing, and on all fours
-/// for the charge; how far his rump reaches behind.
+/// How far his snout reaches ahead of his position standing; how far his rump
+/// reaches behind.
 fn head_front() -> f32 {
     art(200.0, 0.0).x
-}
-pub fn ram_front() -> f32 {
-    art(256.0, 0.0).x
 }
 fn rump_back() -> f32 {
     -art(89.0, 0.0).x
@@ -150,80 +145,65 @@ const GLOB_SPREAD: f32 = 110.0;
 /// How many globs a spit throws, and enraged (at most five: the puddle slots).
 const GLOBS_EARLY: u32 = 3;
 const GLOBS_LATE: u32 = 5;
-/// A puddle hurts this long after its glob lands.
-const PUDDLE_S: f32 = 3.2;
-const PUDDLE_HALF: Vec2 = Vec2::new(30.0, 7.0);
-const PUDDLE_DAMAGE: i32 = 1;
-const PUDDLE_KNOCKBACK: f32 = 0.6;
-/// The held-box slots of the puddles (the shocks hold 0 and 1).
-const PUDDLE_SLOT0: u32 = 2;
+/// A puddle lies this long after its glob lands. It does not hurt: it holds.
+/// A body in it moves at `PUDDLE_SLOW` of its speed, and for `PUDDLE_STICKS_S`
+/// after it steps out.
+const PUDDLE_S: f32 = 4.0;
+const PUDDLE_HALF: Vec2 = Vec2::new(34.0, 10.0);
+const PUDDLE_SLOW: f32 = 0.4;
+const PUDDLE_STICKS_S: f32 = 0.8;
 
-/// The charge: on all fours across the room until his snout meets the wall.
-fn ram_box() -> (Vec2, Vec2) {
-    art_box(190.0, 70.0, 258.0, 200.0)
+/// The red balloon: it rises from his paw (`float` frame 0) and its picture
+/// hangs its string to the paw; the projectile's body is the middle of the
+/// picture, this far over the paw (`red_balloon` drawn 56 wide).
+fn paw_up() -> Vec2 {
+    art(110.0, 24.0)
 }
-const CHARGE_SPEED: f32 = 560.0;
-const CHARGE_RAMP_S: f32 = 0.25;
-const RAM_DAMAGE: i32 = 2;
-const RAM_KNOCKBACK: f32 = 1.8;
-/// The crash knocks him back this far off the wall, onto his bottom.
-pub const CRASH_RECOIL: f32 = 30.0;
-
-/// The belly flop: he springs at where you stood (captured as the strike
-/// starts), flies this long on an arc this high, and lands on his belly.
-const FLOP_FLIGHT_S: f32 = 0.6;
-const FLOP_HEIGHT: f32 = 170.0;
-fn flop_box() -> (Vec2, Vec2) {
-    art_box(100.0, 110.0, 280.0, 200.0)
+const BALLOON_HALF: Vec2 = Vec2::new(18.0, 64.0);
+const BALLOON_OVER_PAW: f32 = 68.0;
+/// He rises this long to this far over the floor, toward a place this far
+/// behind you, and lets go.
+const RISE_S: f32 = 1.1;
+const RISE_TO: f32 = 330.0;
+const RISE_BEHIND: f32 = 110.0;
+/// The pounce: claws first at where you are when he lets go, this fast.
+const POUNCE_SPEED: f32 = 900.0;
+fn pounce_box() -> (Vec2, Vec2) {
+    art_box(176.0, 86.0, 262.0, 168.0)
 }
-const FLOP_DAMAGE: i32 = 2;
-const FLOP_KNOCKBACK: f32 = 1.6;
-const WAVE_SPEED: f32 = 400.0;
-const WAVE_HALF: Vec2 = Vec2::new(22.0, 16.0);
-const WAVE_DAMAGE: i32 = 1;
-const WAVE_KNOCKBACK: f32 = 1.1;
-const WAVE_LIFETIME_S: f32 = 4.0;
-
-/// The roar: the blast leaves his open mouth and blows you back.
-fn roar_box() -> (Vec2, Vec2) {
-    art_box(150.0, -20.0, 560.0, 200.0)
+/// The landing: his belly and his claws come down together.
+fn landing_box() -> (Vec2, Vec2) {
+    art_box(100.0, 90.0, 262.0, 170.0)
 }
-const ROAR_DAMAGE: i32 = 1;
-const ROAR_KNOCKBACK: f32 = 2.6;
-/// Honey shaken from the ceiling by the roar: one over where you stand and
-/// the rest spread from it, each falling after it has dripped for a while.
-const DROP_COUNT: u32 = 5;
-const DROP_SPACING: f32 = 160.0;
-/// Under the ceiling (`hunny_horror_arena_area.ron`: its underside is 656
-/// above the floor).
-const DROP_HEIGHT: f32 = 620.0;
-const DROP_WARN_S: f32 = 0.7;
-const DROP_STAGGER_S: f32 = 0.14;
-const DROP_GRAVITY: f32 = 1400.0;
-const DROP_DAMAGE: i32 = 1;
+/// The lowest point of his pounce (pixel 165): there his claws meet the floor.
+fn pounce_low() -> f32 {
+    art(0.0, 165.0).y
+}
+const POUNCE_DAMAGE: i32 = 2;
+/// The underside of the ceiling over the floor (`hunny_horror_arena_area.ron`:
+/// 656): where his balloon pops.
+const CEILING: f32 = 656.0;
+const POUNCE_KNOCKBACK: f32 = 1.6;
 
-const SHAKE_CRASH: f32 = 11.0;
-const SHAKE_FLOP: f32 = 10.0;
-const SHAKE_ROAR: f32 = 8.0;
+const SHAKE_POUNCE: f32 = 10.0;
 const SHAKE_SQUEEZE: f32 = 3.0;
 const SHAKE_THROW: f32 = 6.0;
-const SHAKE_SKID: f32 = 5.0;
 
 const DUST: [f32; 4] = [0.82, 0.74, 0.58, 1.0];
+const BALLOON_RED: [f32; 4] = [0.84, 0.12, 0.16, 1.0];
 const HONEY: [f32; 4] = [0.96, 0.66, 0.12, 1.0];
 const STUFFING: [f32; 4] = [0.96, 0.94, 0.86, 1.0];
 
 /// Every cue his body makes. ⛔ A cue the bank does not hold plays NOTHING
 /// and says nothing: these name cues `sfx.bank.txt` ships. His own voice is
 /// still to be auditioned; these are borrowed.
-pub const BODY: [&str; 9] =
-    [SFX_SWIPE, SFX_CLAMP, SFX_SPIT, SFX_SPLAT, SFX_STOMP, SFX_CRASH, SFX_ROAR, SFX_THROW, SFX_STEP];
+pub const BODY: [&str; 8] = [SFX_SWIPE, SFX_CLAMP, SFX_SPIT, SFX_SPLAT, SFX_STOMP, SFX_POP, SFX_THROW, SFX_STEP];
 const SFX_SWIPE: &str = "boss.bear_mauler.swipe";
 const SFX_CLAMP: &str = "boss.mockingbird.chomp";
 const SFX_SPIT: &str = "enemy.slime.attack";
 const SFX_SPLAT: &str = "vfx.generic_exotic.slime_splat";
 const SFX_STOMP: &str = "boss.trex.stomp";
-const SFX_CRASH: &str = "cutscene.impact.heavy";
+const SFX_POP: &str = "projectile.generic.impact";
 const SFX_ROAR: &str = "boss.bear_mauler.roar";
 const SFX_THROW: &str = "player.robot.slash.air";
 const SFX_STEP: &str = "player.land";
@@ -235,13 +215,11 @@ pub enum Move {
     Maul,
     Hug,
     Spit,
-    Charge,
-    Flop,
-    Roar,
+    Balloon,
 }
 
 impl Move {
-    pub const ALL: [Move; 7] = [Move::Swipe, Move::Maul, Move::Hug, Move::Spit, Move::Charge, Move::Flop, Move::Roar];
+    pub const ALL: [Move; 5] = [Move::Swipe, Move::Maul, Move::Hug, Move::Spit, Move::Balloon];
 
     pub fn key(self) -> &'static str {
         match self {
@@ -249,9 +227,7 @@ impl Move {
             Move::Maul => "hunny_maul",
             Move::Hug => "hunny_hug",
             Move::Spit => "hunny_spit",
-            Move::Charge => "hunny_charge",
-            Move::Flop => "hunny_flop",
-            Move::Roar => "hunny_roar",
+            Move::Balloon => "hunny_balloon",
         }
     }
 
@@ -270,7 +246,7 @@ impl Move {
 
 record! {
     /// The conductor's memory, on the bear.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "hunny.conductor", 1);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "hunny.conductor", 2);
     /// The room, measured once.
     1 hall_known: bool,
     2 hall_floor: f32,
@@ -291,50 +267,45 @@ record! {
     12 fired: bool,
     /// Where the strike's step started.
     13 step_from: f32,
-    /// Charging: seconds into the run (it outlives the strike: he runs until
-    /// he hits the wall).
-    14 charging: Option<f32>,
-    /// Sitting dazed against the wall: seconds since the crash.
-    15 dazed: Option<f32>,
+    /// Sitting dazed after a pounce: seconds since he landed.
+    14 dazed: Option<f32>,
     /// Seconds until his body can hurt again.
-    16 trunk_rearm: f32,
-    17 stride: f32,
-    /// The shocks rolling the floor: where each is and which way it runs.
-    18 wave_generation: u32,
-    19 wave0_x: Option<f32>,
-    20 wave0_dir: f32,
-    21 wave1_x: Option<f32>,
-    22 wave1_dir: f32,
-    /// Turns left in this charge (enraged, he turns once at the wall).
-    23 charge_turns: u32,
-    /// The belly flop: from where, to where, and whether he has landed.
-    24 flop_from: f32,
-    25 flop_to: f32,
-    26 landed: bool,
+    15 trunk_rearm: f32,
+    16 stride: f32,
     /// The maul's second blow has been spent.
-    27 struck_again: bool,
+    17 struck_again: bool,
     /// Holding a body in his arms: seconds of the squeeze so far.
-    28 squeezing: Option<f32>,
-    29 squeezed_at: f32,
+    18 squeezing: Option<f32>,
+    19 squeezed_at: f32,
     /// The throw's follow-through: seconds since the throw.
-    30 throwing: Option<f32>,
+    20 throwing: Option<f32>,
     /// The puddles of the last spit: seconds since it, where each lands, and
     /// how many there are.
-    31 puddles_t: Option<f32>,
-    32 puddle0: f32,
-    33 puddle1: f32,
-    34 puddle2: f32,
-    35 puddle3: f32,
-    36 puddle4: f32,
-    37 puddle_count: u32,
-    38 puddle_generation: u32,
-    /// A honey fall from the ceiling: seconds since the roar, the x it centres
-    /// on, and how many drops have fallen.
-    39 drops_t: Option<f32>,
-    40 drops_x: f32,
-    41 drops_dropped: u32,
+    21 puddles_t: Option<f32>,
+    22 puddle0: f32,
+    23 puddle1: f32,
+    24 puddle2: f32,
+    25 puddle3: f32,
+    26 puddle4: f32,
+    27 puddle_count: u32,
+    /// The balloon: where he rose from and to; where he pounces from and to
+    /// (from when he lets go); whether he has landed.
+    28 rise_from_x: f32,
+    29 rise_from_y: f32,
+    30 rise_to_x: f32,
+    31 rise_to_y: f32,
+    32 pounce_from: Option<[f32; 2]>,
+    33 pounce_to_x: f32,
+    34 pounce_to_y: f32,
+    35 pounced: bool,
+    /// The balloon he let go of, rising on: where it is, how fast it rises,
+    /// and where the ceiling is.
+    36 balloon_x: f32,
+    37 balloon_y: Option<f32>,
+    38 balloon_vx: f32,
+    39 balloon_vy: f32,
     /// Roaring through the beat between two phases: seconds into it.
-    42 rearing: Option<f32>,
+    40 rearing: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -358,19 +329,20 @@ impl Conductor {
         self.squeezing.is_some()
     }
 
-    /// Sitting dazed after a crash, for tests and inspectors.
+    /// Sitting dazed after a pounce, for tests and inspectors.
     pub fn dazed(&self) -> bool {
         self.dazed.is_some()
     }
 
-    /// Running on all fours, for tests and inspectors.
-    pub fn charging(&self) -> bool {
-        self.charging.is_some()
+    /// Up on his balloon, rising (before he lets go), for tests and
+    /// inspectors.
+    pub fn rising(&self) -> bool {
+        matches!(self.part(), Some(Part { mv: Move::Balloon, striking: true, .. })) && self.pounce_from.is_none()
     }
 
-    /// Whether a shock is rolling the floor, for tests and inspectors.
-    pub fn shock_rolling(&self) -> bool {
-        self.wave0_x.is_some() || self.wave1_x.is_some()
+    /// Pouncing: he has let go and not landed, for tests and inspectors.
+    pub fn pouncing(&self) -> bool {
+        self.pounce_from.is_some() && !self.pounced
     }
 
     /// Whether honey puddles lie on the floor, for tests and inspectors.
@@ -405,24 +377,6 @@ impl Conductor {
         }
     }
 
-    fn wave(&mut self, slot: usize) -> (&mut Option<f32>, &mut f32) {
-        if slot == 0 {
-            (&mut self.wave0_x, &mut self.wave0_dir)
-        } else {
-            (&mut self.wave1_x, &mut self.wave1_dir)
-        }
-    }
-
-    /// Shocks leave `x` both ways along the floor.
-    fn stamp(&mut self, x: f32) {
-        self.wave_generation = self.wave_generation.wrapping_add(1);
-        for (slot, dir) in [(0, -1.0), (1, 1.0)] {
-            let (wave_x, wave_dir) = self.wave(slot);
-            *wave_x = Some(x);
-            *wave_dir = dir;
-        }
-    }
-
     fn puddle(&self, i: u32) -> f32 {
         [self.puddle0, self.puddle1, self.puddle2, self.puddle3, self.puddle4][i as usize]
     }
@@ -454,7 +408,7 @@ pub fn module() -> ModuleDescriptor {
                 CameraShakePort::KEY,
                 BodyHoldPort::KEY,
                 RidingHitboxPort::KEY,
-                HeldDamageBoxPort::KEY,
+                SlowBodiesPort::KEY,
                 ProjectileSpawnPort::KEY,
                 BodySoundPort::KEY,
             ],
@@ -505,18 +459,28 @@ fn riding(
     })
 }
 
-/// A falling thing of honey: a glob he spits or a drop off the ceiling.
-fn honey(inv: &mut Invocation<'_>, origin: Vec2, velocity: Vec2, gravity: f32, damage: i32) -> Result<(), Fault> {
+/// A thing that flies on its own: a glob of honey he spits, or his balloon.
+#[allow(clippy::too_many_arguments)]
+fn fly(
+    inv: &mut Invocation<'_>,
+    visual: &str,
+    origin: Vec2,
+    velocity: Vec2,
+    gravity: f32,
+    damage: i32,
+    half: Vec2,
+    life: f32,
+) -> Result<(), Fault> {
     let speed = velocity.length();
     inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
         origin,
-        dir: if speed > 1e-3 { velocity / speed } else { Vec2::Y },
-        speed: speed.max(1.0),
+        dir: if speed > 1e-3 { velocity / speed } else { Vec2::NEG_Y },
+        speed: speed.max(0.01),
         damage,
-        max_lifetime: 2.5,
-        half_extent: GLOB_HALF,
+        max_lifetime: life,
+        half_extent: half,
         gravity,
-        visual_id: "honey_glob".to_string(),
+        visual_id: visual.to_string(),
         bounces: 0,
         bounce_on_world_contact: false,
         splash_half_extent: 0.0,
@@ -558,6 +522,21 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         x.clamp(lo, hi.max(lo))
     };
     let face = |x: f32| if target.x < x { -1.0 } else { 1.0 };
+    // Where his raised paw is, standing at `pos` facing `side`.
+    let paw = |pos: Vec2, side: f32| pos + Vec2::new(paw_up().x * side, paw_up().y);
+
+    // ── The balloon he let go of rises on, and pops on the ceiling ──
+    if let Some(y) = c.balloon_y.as_mut() {
+        *y += c.balloon_vy * dt;
+        c.balloon_x += c.balloon_vx * dt;
+        let ceiling = hall.floor - CEILING;
+        if *y - BALLOON_HALF.y <= ceiling {
+            let top = Vec2::new(c.balloon_x, ceiling + 30.0);
+            c.balloon_y = None;
+            play(inv, SFX_POP, top)?;
+            burst(inv, top, 18, 260.0, BALLOON_RED, "shard")?;
+        }
+    }
 
     // ── Dead: he settles on the floor and is drawn by the engine ──
     if !bear.alive {
@@ -590,25 +569,35 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         Some((mv, striking, remaining)) => {
             if fresh {
                 if !striking {
-                    // A tell gets him up off the wall and turned to you.
+                    // A tell gets him up and turned to you.
                     c.dazed = None;
-                    if c.charging.is_none() {
-                        side = face(at.x);
+                    side = face(at.x);
+                    if mv == Move::Balloon {
+                        // A red balloon in his raised paw while he giggles. It
+                        // is the one he rises on: the strike's balloon takes
+                        // its place as this one ends.
+                        let held = paw(Vec2::new(at.x, stand_y), side) - Vec2::new(0.0, BALLOON_OVER_PAW);
+                        fly(inv, "red_balloon", held, Vec2::ZERO, 0.0, 0, BALLOON_HALF, remaining.max(dt))?;
+                        burst(inv, held + Vec2::new(0.0, -40.0), 8, 120.0, BALLOON_RED, "spark")?;
                     }
                 } else {
                     c.fired = false;
                     c.step_from = at.x;
                     c.struck_again = false;
-                    if mv == Move::Charge {
-                        c.charging = Some(0.0);
-                        c.charge_turns = u32::from(bear.enraged);
-                    }
-                    if mv == Move::Flop {
-                        // At where you stand now: a flop does not track you.
-                        side = face(at.x);
-                        c.flop_from = at.x;
-                        c.flop_to = clamp_x(target.x, side);
-                        c.landed = false;
+                    if mv == Move::Balloon {
+                        // Up over the room, to a place behind where you are.
+                        let to_x = (target.x - side * RISE_BEHIND).clamp(hall.left + 80.0, hall.right - 80.0);
+                        c.rise_from_x = at.x;
+                        c.rise_from_y = at.y;
+                        c.rise_to_x = to_x;
+                        c.rise_to_y = hall.floor - RISE_TO;
+                        c.pounce_from = None;
+                        c.pounced = false;
+                        let v = (Vec2::new(c.rise_to_x, c.rise_to_y) - at) / RISE_S;
+                        // The balloon he rises on, rising with him; it rises on
+                        // when he lets go.
+                        let held = paw(at, side) - Vec2::new(0.0, BALLOON_OVER_PAW);
+                        fly(inv, "red_balloon", held, v, 0.0, 0, BALLOON_HALF, RISE_S)?;
                     }
                 }
                 Some(Part { mv, striking, t: 0.0, dur: remaining.max(1e-3) })
@@ -625,7 +614,6 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if bear.between_phases {
         if c.rearing.is_none() {
             side = face(at.x);
-            c.charging = None;
             c.dazed = None;
             play(inv, SFX_ROAR, at + Vec2::new(side * head_front(), -60.0))?;
         }
@@ -635,52 +623,63 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
 
     // ── Where he goes ──
-    let mut crashed = None;
-    let mut skidded = None;
     let mut walking = false;
-    let mut lift = 0.0;
-    let mut second_blow = false;
+    let mut landed = false;
     let step = |c: &Conductor, distance: f32, over_s: f32, t: f32, side: f32| {
         clamp_x(c.step_from + side * distance * ease(t / over_s), side)
     };
-    let x = if let Some(run_t) = c.charging.as_mut() {
-        // He runs the room and cannot stop: his snout to the wall.
-        *run_t += dt;
-        let speed = CHARGE_SPEED * ease(*run_t / CHARGE_RAMP_S).max(0.15);
-        let wall = if side > 0.0 { hall.right - ram_front() } else { hall.left + ram_front() };
-        let next = at.x + side * speed * dt;
-        if (next - wall) * side >= 0.0 && c.charge_turns > 0 {
-            c.charge_turns -= 1;
-            *run_t = 0.0;
-            skidded = Some(wall);
-            side = -side;
-            wall
-        } else if (next - wall) * side >= 0.0 {
-            crashed = Some(wall);
-            wall - side * CRASH_RECOIL
+    let balloon = matches!(part, Some(Part { mv: Move::Balloon, striking: true, .. }));
+    let pos = if balloon && !c.pounced {
+        let t = part.map_or(0.0, |p| p.t);
+        if t < RISE_S {
+            // Up on the balloon.
+            let u = t / RISE_S;
+            Vec2::new(c.rise_from_x, c.rise_from_y).lerp(Vec2::new(c.rise_to_x, c.rise_to_y), u)
         } else {
-            next
+            if c.pounce_from.is_none() {
+                // He lets go: the balloon rises on alone, and he pounces at
+                // where you are now.
+                let from = Vec2::new(c.rise_to_x, c.rise_to_y);
+                side = face(from.x);
+                c.pounce_from = Some(from.into());
+                // His claws, not his middle, at you.
+                c.pounce_to_x = clamp_x(target.x - side * pounce_box().0.x, side);
+                c.pounce_to_y = hall.floor - pounce_low();
+                let held = paw(from, side) - Vec2::new(0.0, BALLOON_OVER_PAW);
+                c.balloon_x = held.x;
+                c.balloon_y = Some(held.y);
+                c.balloon_vx = (c.rise_to_x - c.rise_from_x) / RISE_S;
+                c.balloon_vy = (c.rise_to_y - c.rise_from_y) / RISE_S;
+                fly(inv, "red_balloon", held, Vec2::new(c.balloon_vx, c.balloon_vy), 0.0, 0, BALLOON_HALF, 4.0)?;
+                play(inv, SFX_ROAR, from + Vec2::new(side * head_front(), -40.0))?;
+            }
+            let from = Vec2::from(c.pounce_from.unwrap_or([at.x, at.y]));
+            let to = Vec2::new(c.pounce_to_x, c.pounce_to_y);
+            let span = (to - from).length().max(1.0);
+            let u = ((t - RISE_S) * POUNCE_SPEED / span).min(1.0);
+            if u >= 1.0 {
+                c.pounced = true;
+                landed = true;
+            }
+            from.lerp(to, u)
         }
     } else if c.dazed.is_some() || c.squeezing.is_some() || c.throwing.is_some() || c.rearing.is_some() {
-        at.x
+        Vec2::new(at.x, stand_y)
     } else {
-        match part {
+        let x = match part {
             Some(Part { mv: Move::Swipe, striking: true, t, .. }) => step(&c, SWIPE_STEP, SWIPE_STEP_S, t, side),
             Some(Part { mv: Move::Maul, striking: true, t, .. }) => {
                 if t >= SECOND_BLOW_AT_S && !c.struck_again {
                     c.struck_again = true;
                     c.step_from = at.x;
-                    second_blow = true;
+                    let life = part.map_or(0.2, |p| (p.dur - SECOND_BLOW_AT_S) * 0.6);
+                    riding(inv, maul_box(), side, MAUL_DAMAGE, MAUL_KNOCKBACK, life, "hunny_maul_again")?;
+                    play(inv, SFX_SWIPE, at + Vec2::new(side * head_front(), 0.0))?;
                 }
                 let since = if c.struck_again { t - SECOND_BLOW_AT_S } else { t };
                 step(&c, MAUL_STEP, SWIPE_STEP_S, since, side)
             }
             Some(Part { mv: Move::Hug, striking: true, t, .. }) => step(&c, HUG_STEP, HUG_STEP_S, t, side),
-            Some(Part { mv: Move::Flop, striking: true, t, .. }) => {
-                let u = (t / FLOP_FLIGHT_S).clamp(0.0, 1.0);
-                lift = 4.0 * FLOP_HEIGHT * u * (1.0 - u);
-                c.flop_from + (c.flop_to - c.flop_from) * u
-            }
             // Telling and striking, he holds his ground.
             Some(_) => at.x,
             None => {
@@ -696,24 +695,22 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     goal
                 }
             }
-        }
+        };
+        Vec2::new(x, stand_y)
     };
-    let pos = Vec2::new(x, stand_y - lift);
-    if let Some(wall) = skidded {
-        let snout = Vec2::new(wall - side * ram_front(), hall.floor - 50.0);
-        play(inv, SFX_STOMP, snout)?;
-        shake(inv, SHAKE_SKID)?;
-        burst(inv, Vec2::new(pos.x, hall.floor - 6.0), 22, 240.0, DUST, "dust")?;
-    }
-    if let Some(wall) = crashed {
-        c.charging = None;
+    if landed {
+        // Claws into the floor: he sits there dazed until his next tell.
+        let feet = Vec2::new(pos.x, hall.floor - 4.0);
+        riding(inv, landing_box(), side, POUNCE_DAMAGE, POUNCE_KNOCKBACK, 0.12, "hunny_pounce_landing")?;
+        play(inv, SFX_STOMP, feet)?;
+        shake(inv, SHAKE_POUNCE)?;
+        burst(inv, feet, 30, 300.0, DUST, "dust")?;
+        burst(inv, feet + Vec2::new(0.0, -40.0), 12, 200.0, STUFFING, "dust")?;
         c.dazed = Some(0.0);
-        let snout = Vec2::new(wall + side * ram_front(), hall.floor - 60.0);
-        play(inv, SFX_CRASH, snout)?;
-        shake(inv, SHAKE_CRASH)?;
-        burst(inv, snout, 30, 320.0, DUST, "dust")?;
-        // A stuffed bear: the blow knocks stuffing out of him.
-        burst(inv, snout + Vec2::new(-side * 30.0, 20.0), 14, 200.0, STUFFING, "dust")?;
+    }
+    if c.pouncing() && c.ticks % 4 == 0 {
+        // The claws, refreshed while he dives.
+        riding(inv, pounce_box(), side, POUNCE_DAMAGE, POUNCE_KNOCKBACK, 0.1, "hunny_pounce")?;
     }
     if let Some(dazed) = c.dazed.as_mut() {
         *dazed += dt;
@@ -747,7 +744,6 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     let from = pos + Vec2::new(mouth().x * side, mouth().y);
                     c.puddles_t = Some(0.0);
                     c.puddle_count = count;
-                    c.puddle_generation = c.puddle_generation.wrapping_add(1);
                     for i in 0..count {
                         let land = Vec2::new(spread_x(hall, target.x, i, GLOB_SPREAD), hall.floor - GLOB_HALF.y);
                         c.set_puddle(i, land.x);
@@ -756,32 +752,14 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                             (land.x - from.x) / flight,
                             (land.y - from.y - 0.5 * GLOB_GRAVITY * flight * flight) / flight,
                         );
-                        honey(inv, from, v, GLOB_GRAVITY, GLOB_DAMAGE)?;
+                        fly(inv, "honey_glob", from, v, GLOB_GRAVITY, GLOB_DAMAGE, GLOB_HALF, 2.5)?;
                     }
                     play(inv, SFX_SPIT, from)?;
                     burst(inv, from, 10, 160.0, HONEY, "dust")?;
                 }
-                Move::Roar => {
-                    riding(inv, roar_box(), side, ROAR_DAMAGE, ROAR_KNOCKBACK, part.dur * 0.5, "hunny_roar")?;
-                    play(inv, SFX_ROAR, pos + Vec2::new(side * head_front(), -60.0))?;
-                    shake(inv, SHAKE_ROAR)?;
-                    c.drops_t = Some(0.0);
-                    c.drops_x = target.x;
-                    c.drops_dropped = 0;
-                }
-                Move::Hug | Move::Flop | Move::Charge => {}
+                Move::Hug | Move::Balloon => {}
             }
         }
-    }
-    if second_blow {
-        let life = part.map_or(0.2, |p| (p.dur - SECOND_BLOW_AT_S) * 0.6);
-        riding(inv, maul_box(), side, MAUL_DAMAGE, MAUL_KNOCKBACK, life, "hunny_maul_again")?;
-        play(inv, SFX_SWIPE, pos + Vec2::new(side * head_front(), 0.0))?;
-    }
-    if c.charging.is_some() && c.ticks % 6 == 0 {
-        // The ram, refreshed while he runs; dust off his paws.
-        riding(inv, ram_box(), side, RAM_DAMAGE, RAM_KNOCKBACK, 0.12, "hunny_ram")?;
-        burst(inv, Vec2::new(pos.x, hall.floor - 6.0), 5, 140.0, DUST, "dust")?;
     }
 
     // ── The hug: the arms close, the squeeze, the throw ──
@@ -841,48 +819,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
     }
 
-    // ── The belly flop lands ──
-    if let Some(Part { mv: Move::Flop, striking: true, t, .. }) = part {
-        if t >= FLOP_FLIGHT_S && !c.landed {
-            c.landed = true;
-            let belly = Vec2::new(pos.x + side * art(190.0, 0.0).x, hall.floor - 4.0);
-            c.stamp(belly.x);
-            riding(inv, flop_box(), side, FLOP_DAMAGE, FLOP_KNOCKBACK, 0.15, "hunny_flop")?;
-            play(inv, SFX_STOMP, belly)?;
-            play(inv, SFX_SPLAT, belly)?;
-            shake(inv, SHAKE_FLOP)?;
-            burst(inv, belly, 36, 340.0, DUST, "dust")?;
-            burst(inv, belly, 16, 260.0, HONEY, "dust")?;
-        }
-    }
-
-    // ── The shocks roll the floor ──
-    for slot in 0..2usize {
-        let (x, dir) = c.wave(slot);
-        let Some(wx) = x.as_mut() else {
-            continue;
-        };
-        *wx += *dir * WAVE_SPEED * dt;
-        if *wx < hall.left + WAVE_HALF.x || *wx > hall.right - WAVE_HALF.x {
-            *x = None;
-            continue;
-        }
-        let wx = *wx;
-        if c.ticks % 2 == 0 {
-            burst(inv, Vec2::new(wx, hall.floor - 8.0), 6, 200.0, DUST, "dust")?;
-        }
-        inv.submit::<HeldDamageBoxPort>(HeldDamageBox {
-            slot: slot as u32,
-            generation: c.wave_generation,
-            center: [wx, hall.floor - WAVE_HALF.y],
-            half_extent: WAVE_HALF.into(),
-            damage: WAVE_DAMAGE,
-            knockback: WAVE_KNOCKBACK,
-            lifetime_s: WAVE_LIFETIME_S,
-        })?;
-    }
-
-    // ── The honey puddles: each hurts from when its glob lands ──
+    // ── The honey puddles: each holds whoever steps in it ──
     if let Some(t) = c.puddles_t.as_mut() {
         *t += dt;
         let t = *t;
@@ -895,64 +832,37 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 let floor = Vec2::new(x, hall.floor - 3.0);
                 if landing {
                     play(inv, SFX_SPLAT, floor)?;
-                    burst(inv, floor, 14, 180.0, HONEY, "dust")?;
-                } else if c.ticks % 5 == i % 5 {
-                    // The puddle bubbles: it must read from across the room.
-                    burst(inv, floor, 3, 60.0, HONEY, "dust")?;
+                    burst(inv, floor, 16, 180.0, HONEY, "dust")?;
+                } else if c.ticks % 3 == i % 3 {
+                    // The puddle: honey across its width, bubbling. It must read
+                    // from across the room.
+                    let across = ((c.ticks / 3 + i * 7) % 5) as f32 / 4.0 * 2.0 - 1.0;
+                    burst(inv, floor + Vec2::new(across * PUDDLE_HALF.x * 0.8, 0.0), 3, 40.0, HONEY, "dust")?;
                 }
-                inv.submit::<HeldDamageBoxPort>(HeldDamageBox {
-                    slot: PUDDLE_SLOT0 + i,
-                    generation: c.puddle_generation,
+                inv.submit::<SlowBodiesPort>(SlowBodies {
                     center: [x, hall.floor - PUDDLE_HALF.y],
                     half_extent: PUDDLE_HALF.into(),
-                    damage: PUDDLE_DAMAGE,
-                    knockback: PUDDLE_KNOCKBACK,
-                    lifetime_s: GLOB_FLIGHT_S + PUDDLE_S - t,
+                    speed_scale: PUDDLE_SLOW,
+                    seconds: PUDDLE_STICKS_S,
                 })?;
             }
         }
     }
 
-    // ── Honey shaken from the ceiling: it drips where each drop will fall ──
-    if let Some(t) = c.drops_t.as_mut() {
-        *t += dt;
-        let t = *t;
-        let ceiling = hall.floor - DROP_HEIGHT;
-        for i in c.drops_dropped..DROP_COUNT {
-            let x = spread_x(hall, c.drops_x, i, DROP_SPACING);
-            if t >= DROP_WARN_S + i as f32 * DROP_STAGGER_S {
-                c.drops_dropped = i + 1;
-                honey(inv, Vec2::new(x, ceiling), Vec2::new(0.0, 60.0), DROP_GRAVITY, DROP_DAMAGE)?;
-            } else if c.ticks % 4 == i % 4 {
-                burst(inv, Vec2::new(x, ceiling), 2, 40.0, HONEY, "dust")?;
-            }
-        }
-        if c.drops_dropped >= DROP_COUNT {
-            c.drops_t = None;
-        }
-    }
-
     // ── His body hurts to touch while he is the monster ──
-    // Not through the hug: his arms are the move, and a blow from his belly
-    // as they close would knock the body out of them.
-    let hugging = matches!(part, Some(Part { mv: Move::Hug, .. }));
-    let monster = (part.is_some() && !hugging) || c.charging.is_some() || c.rearing.is_some();
+    // Not through the hug (his arms are the move, and a blow from his belly as
+    // they close would knock the body out of them), and not on the balloon,
+    // where his pounce has its own claws.
+    let gentle = matches!(part, Some(Part { mv: Move::Hug | Move::Balloon, .. }));
+    let monster = (part.is_some() && !gentle) || c.rearing.is_some();
     c.trunk_rearm -= dt;
-    // Not while he holds a body: a blow to the held body is a hit reaction,
-    // and a reacting captive is released (`release_interrupted_captures`).
     if monster && c.trunk_rearm <= 0.0 && c.squeezing.is_none() {
         c.trunk_rearm = TRUNK_REARM;
         riding(inv, trunk(), side, TRUNK_DAMAGE, TRUNK_KNOCKBACK, TRUNK_REARM, "hunny_trunk")?;
     }
 
     // ── Where he is, and what he is drawn as ──
-    let airborne = matches!(part, Some(Part { mv: Move::Flop, striking: true, .. }));
-    let conducts = !bear.driven
-        || c.charging.is_some()
-        || c.dazed.is_some()
-        || c.squeezing.is_some()
-        || c.throwing.is_some()
-        || airborne;
+    let conducts = !bear.driven || balloon || c.dazed.is_some() || c.squeezing.is_some() || c.throwing.is_some();
     if !conducts {
         side = if bear.facing < 0.0 { -1.0 } else { 1.0 };
     }
@@ -966,7 +876,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 }
 
 /// The row he is drawn with: the live move's, its tell frames filling the
-/// telegraph and the rest the strike; running; dazed; walking or idling.
+/// telegraph and the rest the strike; on his balloon; dazed; walking or idling.
 fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str, f32, bool) {
     // (row, tell frames, total frames, seconds per frame): the sheet's own.
     let split = |name, tell: usize, total: usize, fd: f32, part: Part| {
@@ -978,9 +888,6 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
         // He roars through the beat between phases, his jaws open.
         let frame = if t < 0.4 { 4.0 * t / 0.4 } else { 4.0 + ((t - 0.4) / 0.1) % 4.0 };
         return ("taunt", frame * 0.1, false);
-    }
-    if let Some(run_t) = c.charging {
-        return ("run", run_t, true);
     }
     if let Some(dazed) = c.dazed {
         return ("stunned", dazed, true);
@@ -996,22 +903,14 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
         Some(p @ Part { mv: Move::Maul, .. }) => split("punch", 3, 10, 0.08, p),
         Some(p @ Part { mv: Move::Hug, .. }) => split("hug", 3, 6, 0.1, p),
         Some(p @ Part { mv: Move::Spit, .. }) => split("spit", 3, 6, 0.09, p),
-        // The charge's tell: he drops onto all fours and paws the floor (the
-        // roar is the roar's tell, so the two cannot be mistaken).
-        Some(Part { mv: Move::Charge, striking: false, t, .. }) => ("run", (t * 2.0).min(0.07), false),
-        Some(Part { mv: Move::Charge, .. }) => ("run", 0.0, true),
-        Some(p @ Part { mv: Move::Roar, .. }) => split("taunt", 4, 10, 0.1, p),
-        // The flop: the crouch held through the tell, frames 1-4 in the air,
-        // 5-7 the landing.
-        Some(Part { mv: Move::Flop, striking: false, .. }) => ("flop", 0.0, false),
-        Some(Part { mv: Move::Flop, t, dur, .. }) => {
-            let frame = if t < FLOP_FLIGHT_S {
-                1.0 + 4.0 * t / FLOP_FLIGHT_S
-            } else {
-                5.0 + 3.0 * ((t - FLOP_FLIGHT_S) / (dur - FLOP_FLIGHT_S).max(1e-3)).clamp(0.0, 0.999)
-            };
-            ("flop", frame.min(7.999) * 0.09, false)
+        // The tell: his paw up with the balloon in it, the sweet frames.
+        Some(Part { mv: Move::Balloon, striking: false, t, .. }) => ("float", (t * 0.5) % 0.24, false),
+        // Up on the balloon: the sweet frames, the monster's at the top. Then
+        // the dive.
+        Some(Part { mv: Move::Balloon, t, .. }) if c.pounce_from.is_none() => {
+            ("float", (t / RISE_S).clamp(0.0, 0.999) * 6.0 * 0.12, false)
         }
+        Some(Part { mv: Move::Balloon, t, .. }) => ("pounce", t, true),
         None if walking => ("walk", c.clock, true),
         None => ("idle", c.clock, true),
     }
@@ -1025,8 +924,6 @@ mod tests {
     #[test]
     fn his_feet_are_where_his_art_draws_them() {
         assert!((feet_below() - 94.0 * PX).abs() < 1e-4);
-        // On all fours his snout reaches further than standing.
-        assert!(ram_front() > head_front());
     }
 
     /// The swipe reaches a standing player in front of him: the box comes down
@@ -1046,5 +943,13 @@ mod tests {
         let hold = hug_hold();
         assert!(hold.x > 0.0);
         assert!((hold - reach).abs().cmple(half).all());
+    }
+
+    /// His pounce lands claws first on the floor: its claws reach the floor
+    /// where his lowest point does.
+    #[test]
+    fn the_pounce_reaches_the_floor() {
+        let (claws, half) = pounce_box();
+        assert!(claws.y + half.y >= pounce_low() - 1.0);
     }
 }

@@ -542,6 +542,9 @@ tackon_targets=(
     # The Hunny Horror's honey, the `honey_glob` projectile visual, named here
     # for the same reason.
     honey_glob
+    # The Hunny Horror's red balloon, the `red_balloon` projectile visual,
+    # named here for the same reason.
+    red_balloon
     # The Mockingbird's wingtip missile, the `mockingbird_missile` projectile
     # visual, named here for the same reason.
     mockingbird_missile

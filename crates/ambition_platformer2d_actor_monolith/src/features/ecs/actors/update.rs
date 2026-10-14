@@ -2728,6 +2728,10 @@ mod body_combat_rebuild_contract {
             // A sleep a move applied — reaction history like the locks above it,
             // owned by the body and never rewritten from the cluster.
             sleep_timer: _,
+            // A slow a puddle applied: owned by the body, never rewritten
+            // from the cluster.
+            slow_timer: _,
+            slow_scale: _,
             // ── Republished every tick from the live move by
             // `project_move_defense_windows`, which is the ONE writer. This
             // sync must never touch it: a second writer would fight the

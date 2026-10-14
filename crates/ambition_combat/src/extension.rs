@@ -53,7 +53,46 @@ pub fn install_for_boss_conduct(app: &mut App) {
     app.add_message::<crate::capture::CapturePummelRequested>();
     app.add_message::<crate::capture::CaptureThrowRequested>();
     app.install_extension_request::<BodyHoldPort, _>(BOSS_CONDUCT, "ambition_combat", lower_body_holds);
+    app.install_extension_request::<ambition_combat_port::SlowBodiesPort, _>(
+        BOSS_CONDUCT,
+        "ambition_combat",
+        lower_slows,
+    );
     app.install_extension_observation::<BodyAttachmentsPort>(BOSS_CONDUCT, "ambition_combat", body_attachments_of);
+}
+
+/// See the port card on `SlowBodiesPort`: each body in the box, in the
+/// requester's live room, of any side, slowed from the next body step on.
+#[allow(clippy::type_complexity)]
+fn lower_slows(
+    mut outbox: ResMut<ExtensionOutbox>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    mut bodies: Query<(
+        Entity,
+        &ae::BodyKinematics,
+        &mut ambition_characters::actor::BodyCombat,
+        Option<&ambition_characters::actor::BodyHealth>,
+        Has<crate::death_rules::OutOfPlay>,
+        Option<&ae::DepthPlane>,
+    )>,
+) {
+    for submitted in outbox.drain::<ambition_combat_port::SlowBodiesPort>(&BOSS_CONDUCT) {
+        let slow = submitted.value;
+        let (centre, half) = (ae::Vec2::from(slow.center), ae::Vec2::from(slow.half_extent));
+        let room = rooms.of(submitted.scope);
+        for (body, kin, mut combat, health, out_of_play, plane) in &mut bodies {
+            if body == submitted.scope
+                || rooms.of(body) != room
+                || crate::util::body_is_untouchable(health, out_of_play, plane)
+            {
+                continue;
+            }
+            let gap = (kin.pos - centre).abs() - (half + kin.size * 0.5);
+            if gap.x < 0.0 && gap.y < 0.0 {
+                combat.slow(slow.speed_scale, slow.seconds);
+            }
+        }
+    }
 }
 
 /// The named points of `scope`'s body rig, from the pose its hurt parts have:

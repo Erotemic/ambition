@@ -143,6 +143,9 @@ mod boss_combat_rebuild_contract {
             // A sleep a move applied. Reaction history like the locks above it,
             // and the boss sync has no opinion about it either.
             sleep_timer: _,
+            // A slow a puddle applied: the same, owned by the body.
+            slow_timer: _,
+            slow_scale: _,
             armor: _,
             training_dummy: _,
         } = combat;

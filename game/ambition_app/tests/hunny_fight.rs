@@ -152,7 +152,7 @@ fn sweet_he_does_not_hurt_to_touch() {
     let mut quiet = 0;
     for _ in 0..60 * 20 {
         let b = bear(&mut sim);
-        if b.view.performing.is_none() && !b.view.charging && !b.view.dazed && !b.view.squeezing {
+        if b.view.performing.is_none() && !b.view.dazed && !b.view.squeezing {
             let (trunk, _) = module::trunk();
             let (_, before) = player(&mut sim);
             place_player(&mut sim, b.kin.pos + ae::Vec2::new(trunk.x * b.side, trunk.y + 30.0));
@@ -264,10 +264,10 @@ fn mashing_breaks_the_hug() {
     assert!(!bear(&mut sim).view.squeezing, "the player broke free and he squeezes on");
 }
 
-/// Far from him, he spits honey at you; each glob lands in a puddle that
-/// hurts while it lasts.
+/// Far away, he lobs honey at you; each glob lands in a puddle that slows
+/// whoever stands in it, and does not hurt.
 #[test]
-fn far_away_he_spits_honey_that_lies_in_puddles() {
+fn far_away_he_lobs_honey_that_lies_in_puddles_that_slow_you() {
     let mut sim = arena();
     untouchable_player(&mut sim, true);
     let b = bear(&mut sim);
@@ -285,62 +285,105 @@ fn far_away_he_spits_honey_that_lies_in_puddles() {
     assert!(matches!(bear(&mut sim).view.performing, Some((Move::Spit, true))), "he never spat at a far player");
     step_until(&mut sim, 10, "the globs to fly", |sim| !honey(sim).is_empty());
     step_until(&mut sim, 90, "the puddles to lie", |sim| bear(sim).view.puddles);
-    // A puddle where the player stood hurts whoever steps in it.
     untouchable_player(&mut sim, false);
     let (_, before) = player(&mut sim);
-    for _ in 0..30 {
-        place_player(&mut sim, stand);
+    // In the puddle: slowed.
+    place_player(&mut sim, stand);
+    for _ in 0..3 {
         sim.step(AgentAction::default());
-        if player(&mut sim).1 < before {
-            return;
+    }
+    assert!(slowed(&mut sim) < 0.99, "a player standing in a honey puddle is not slowed");
+    // And it holds: running out of it is slower than running on clear floor.
+    let run = |sim: &mut Platformer2dSimHarness| {
+        let x0 = player(sim).0.pos.x;
+        for _ in 0..20 {
+            sim.step(AgentAction { move_x: 1.0, right_pressed: true, ..AgentAction::default() });
+        }
+        player(sim).0.pos.x - x0
+    };
+    place_player(&mut sim, stand);
+    sim.step(AgentAction::default());
+    let stuck = run(&mut sim);
+    let (_, after) = player(&mut sim);
+    assert_eq!(after, before, "the honey puddle hurt the player; it should only hold them");
+    // Wait out the honey, then run the same way on clear floor, out of his
+    // reach (he walks to you; a blow would carry the player).
+    untouchable_player(&mut sim, true);
+    let clear = |sim: &mut Platformer2dSimHarness| {
+        let mid = (hall.left + hall.right) * 0.5;
+        let x = if bear(sim).kin.pos.x > mid { hall.left + 150.0 } else { mid + 150.0 };
+        ae::Vec2::new(x, stand.y)
+    };
+    for _ in 0..60 * 6 {
+        let at = clear(&mut sim);
+        place_player(&mut sim, at);
+        sim.step(AgentAction::default());
+        if !bear(&mut sim).view.puddles && slowed(&mut sim) >= 1.0 {
+            break;
         }
     }
-    panic!("standing in a honey puddle did not hurt; last: {:?}", bear(&mut sim));
+    let at = clear(&mut sim);
+    place_player(&mut sim, at);
+    sim.step(AgentAction::default());
+    let free = run(&mut sim);
+    assert!(stuck < free * 0.7, "in honey the player ran {stuck}, on clear floor {free}");
 }
 
-/// The charge runs the room on all fours and cannot stop: his snout meets the
-/// wall, and he sits there dazed — the long punish window.
+/// How much of its speed the player keeps now.
+fn slowed(sim: &mut Platformer2dSimHarness) -> f32 {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<&ambition_platformer2d::characters::actor::BodyCombat, PrimaryPlayerOnly>();
+    q.iter(world).next().expect("the player").move_speed_scale()
+}
+
+/// The red balloon: he rises on it over the room, lets go and pounces at
+/// where you are, and sits dazed where he lands — the long punish window.
 #[test]
-fn a_charge_runs_into_the_wall_and_leaves_him_dazed() {
+fn he_rises_on_his_balloon_and_pounces_where_you_are() {
     let mut sim = arena();
     untouchable_player(&mut sim, true);
-    step_until(&mut sim, 60 * 40, "him to charge", |sim| bear(sim).view.charging);
-    step_until(&mut sim, 60 * 4, "the charge to hit the wall", |sim| bear(sim).view.dazed);
+    step_until(&mut sim, 60 * 40, "him to rise on his balloon", |sim| bear(sim).view.rising);
+    let floor = bear(&mut sim).view.hall.expect("room").floor;
+    let mut highest = f32::MAX;
+    let mut balloon_with_him = false;
+    for _ in 0..90 {
+        sim.step(AgentAction::default());
+        let b = bear(&mut sim);
+        if !b.view.rising {
+            break;
+        }
+        highest = highest.min(b.kin.pos.y);
+        let balloons = projectiles(&mut sim, "red_balloon");
+        balloon_with_him |= balloons.iter().any(|at| at.y < b.kin.pos.y && (at.x - b.kin.pos.x).abs() < 80.0);
+    }
+    let standing = floor - module::feet_below();
+    assert!(standing - highest > 150.0, "his balloon lifted him only {} off his standing height", standing - highest);
+    assert!(balloon_with_him, "no red balloon rose over him");
+    // Where the player is when he lets go is where he pounces.
+    let (kin, _) = player(&mut sim);
+    step_until(&mut sim, 60 * 2, "him to land", |sim| bear(sim).view.dazed);
     let b = bear(&mut sim);
-    let hall = b.view.hall.expect("room");
-    let wall = if b.side > 0.0 { hall.right } else { hall.left };
-    let snout = b.kin.pos.x + b.side * (module::ram_front() + module::CRASH_RECOIL);
-    assert!((snout - wall).abs() < 1.0, "he crashed with his snout at {snout}, the wall is {wall}: {b:?}");
+    assert!((b.kin.pos.x - kin.pos.x).abs() < 120.0, "he landed at {}, the player was at {}", b.kin.pos.x, kin.pos.x);
+    // He sits there: a window, not a flinch.
     for _ in 0..90 {
         sim.step(AgentAction::default());
     }
     assert!(bear(&mut sim).view.dazed, "the daze lasted under a second and a half");
 }
 
-/// Wounded, he belly-flops at where you stood: the landing sends a shock
-/// along the floor.
+/// The pounce lands on a player who stands still.
 #[test]
-fn wounded_his_belly_flop_sends_a_shock_along_the_floor() {
+fn the_pounce_lands_on_a_player_who_stands_still() {
     let mut sim = arena();
     untouchable_player(&mut sim, true);
-    wound(&mut sim, 0.5);
-    step_until(&mut sim, 60 * 40, "him to flop", |sim| {
-        matches!(bear(sim).view.performing, Some((Move::Flop, true)))
-    });
-    step_until(&mut sim, 60 * 2, "the shock to leave his belly", |sim| bear(sim).view.shock_rolling);
+    step_until(&mut sim, 60 * 40, "him to rise on his balloon", |sim| bear(sim).view.rising);
+    untouchable_player(&mut sim, false);
+    let (_, before) = player(&mut sim);
+    step_until(&mut sim, 60 * 3, "the pounce to land on the player", |sim| player(sim).1 < before);
 }
 
-/// Enraged, he roars, and honey comes down from the ceiling.
-#[test]
-fn enraged_his_roar_brings_honey_down_from_the_ceiling() {
-    let mut sim = arena();
-    untouchable_player(&mut sim, true);
-    wound(&mut sim, 0.15);
-    step_until(&mut sim, 60 * 40, "him to roar", |sim| {
-        matches!(bear(sim).view.performing, Some((Move::Roar, true)))
-    });
-    let hall = bear(&mut sim).view.hall.expect("room");
-    step_until(&mut sim, 90, "honey to fall from high up", |sim| {
-        honey(sim).iter().any(|at| at.y < hall.floor - 400.0)
-    });
+fn projectiles(sim: &mut Platformer2dSimHarness, visual: &str) -> Vec<ae::Vec2> {
+    let world = sim.world_mut();
+    let mut q = world.query::<(&ambition_platformer2d::projectiles::ProjectileVisualId, &ae::BodyKinematics)>();
+    q.iter(world).filter(|(id, _)| id.0 == visual).map(|(_, kin)| kin.pos).collect()
 }

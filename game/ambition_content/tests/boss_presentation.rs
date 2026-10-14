@@ -44,14 +44,12 @@ const EXPECTED_SHEETS: [(&str, &str); 8] = [
 
 /// The nineteen content specials that telegraph, and the sprite rows each one
 /// asks for. The first key is the canonical runtime key.
-const EXPECTED_TELEGRAPHS: [(&str, &[&str]); 33] = [
+const EXPECTED_TELEGRAPHS: [(&str, &[&str]); 31] = [
     ("eye_beam", &["eye_beam", "spike_halo"]),
     ("gradient_cascade", &["spike_halo"]),
-    ("hunny_charge", &["run"]),
-    ("hunny_flop", &["flop"]),
+    ("hunny_balloon", &["float"]),
     ("hunny_hug", &["hug"]),
     ("hunny_maul", &["punch"]),
-    ("hunny_roar", &["taunt"]),
     ("hunny_spit", &["spit"]),
     ("hunny_swipe", &["slash"]),
     ("minima_trap", &["spike_halo"]),

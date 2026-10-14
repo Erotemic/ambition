@@ -32,16 +32,16 @@ pub fn birth(scope: &mut ambition_platformer2d_shared_tangle::construction::Enti
 pub struct HunnyView {
     /// The move being performed and whether it is striking.
     pub performing: Option<(Move, bool)>,
-    /// Running the room on all fours, before the wall.
-    pub charging: bool,
-    /// Sitting dazed after the crash: the long punish window.
+    /// Up on his red balloon, rising, before he lets go.
+    pub rising: bool,
+    /// Pouncing: he has let go and not landed.
+    pub pouncing: bool,
+    /// Sitting dazed where his pounce landed: the long punish window.
     pub dazed: bool,
     /// He holds a body in his arms, squeezing it.
     pub squeezing: bool,
     /// Honey puddles lie on the floor.
     pub puddles: bool,
-    /// A shock is rolling along the floor.
-    pub shock_rolling: bool,
     /// The room he measured, once he has.
     pub hall: Option<Hall>,
 }
@@ -54,11 +54,11 @@ pub fn conductor_of(world: &World, bear: Entity) -> Option<HunnyView> {
     let c = Conductor::from_record(records.get(&Conductor::KEY)?).ok()?;
     Some(HunnyView {
         performing: c.performing(),
-        charging: c.charging(),
+        rising: c.rising(),
+        pouncing: c.pouncing(),
         dazed: c.dazed(),
         squeezing: c.squeezing(),
         puddles: c.puddles_live(),
-        shock_rolling: c.shock_rolling(),
         hall: c.hall_known.then_some(Hall { floor: c.hall_floor, left: c.hall_left, right: c.hall_right }),
     })
 }

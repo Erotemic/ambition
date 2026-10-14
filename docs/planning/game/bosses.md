@@ -204,24 +204,46 @@ body does not hurt to touch while he walks or sits. Every attack turns him
 into the monster first (fur up, glowing eyes, teeth), and only then does
 anything hurt.
 
-| phase | moves (pattern key) | the dodge | the punish |
+**Distinct from the T-rex** (Jon, the same day: "make sure that this boss
+feels distinct from the trex. Maybe incorporate a red balloon?", then "He
+could use a red balloon to gain height and then pounce", and a honey throw
+"that lands in a glob on the ground and causes a slow debuff to actors that
+came in contact with it"). The first version echoed the T-rex three times (a
+charge into the wall and a daze, a belly flop with a floor shock, a roar that
+brought things down from the ceiling); those are gone.
+
+| move (pattern key) | what it is | the dodge | the punish |
 |---|---|---|---|
-| Bedtime | swipe (`hunny_swipe`), hug (`hunny_hug`: arms wide and a giggle; caught, squeezed and thrown; mash out), honey spit (`hunny_spit`: globs land in puddles that hurt), the charge on all fours into the wall | back off / do not stand in the open arms / leave the puddles / a ledge or a jump | after the swipe; the daze after the charge (sitting, bees round his head) |
-| Rumbly Tummy | two-paw maul (`hunny_maul`), belly flop at where you stood (`hunny_flop`: a shock both ways), more honey | jump the shock | the flop's recovery |
-| The Empty Pot | roar (`hunny_roar`: blast + honey from the ceiling), the charge turns once | move off your spot | the daze |
+| swipe (`hunny_swipe`), maul from phase 2 (`hunny_maul`) | claws in front, the maul twice | back off / jump | after the follow-through |
+| hug (`hunny_hug`) | arms open wide and a giggle; caught, squeezed and thrown | do not stand in the open arms; mash out | |
+| honey (`hunny_spit`) | globs lobbed in arcs; each lands in a puddle that SLOWS any actor in it (it does not hurt) | leave the landing spots; jump the puddles | |
+| red balloon (`hunny_balloon`) | a red balloon in his paw; he rises on it over the room, lets go and pounces at where you are; the balloon floats on and pops on the ceiling | move off your spot as he lets go | he sits dazed where he lands, bees round his head: the long window |
+
+Each cycle ends with the balloon; enraged, it comes twice a cycle and the
+honey five globs at a time.
+
+The slow is an engine capability, not a bear one: `BodyCombat::slow` (a
+timer and a speed fraction on every body, decayed with the other reaction
+timers and in rollback state), applied in `step_body` (the one movement
+seam of every body) through `MovementTuning::slowed`, and offered to modules
+as `ambition.combat.slow_bodies` (`SlowBodiesPort`) in `boss_conduct`.
 
 Architecture: the T-rex's road. The pattern is `boss_profiles.ron`; the
 conducted module `ambition_content_modules::hunny` performs it; he wears his
 character's sheet (`boss_sheets.ron`, `parts: npc_hunny_horror_boss`) and is
-hit through his body box (no body rig). Receipts: the headless fight
-`game/ambition_app/tests/hunny_fight.rs` (ten tests).
+hit through his body box (no body rig). The balloon is its own picture
+(renderer `red_balloon`), drawn as a projectile that rises with him. Receipts:
+`game/ambition_app/tests/hunny_fight.rs`.
 
 Open:
 - His voice and his sounds are borrowed cues (the bear mauler, a laugh, the
-  slime). Wanted: auditioned candidates in the creature mode first.
+  slime, the mockingbird's growl). Wanted: auditioned candidates first.
 - Music: `crooked_ascent_boss` as a fallback. Wanted: a music-box lullaby
   that goes wrong.
 - The room wears the `boss` biome. A nursery or a wood at dusk would fit him.
+- A slowed body shows nothing on itself: the puddle's bubbling is the only
+  sign. A honey drip on a slowed body is wanted.
+- The balloon cannot be popped by the player: it is a projectile.
 - No signature gauntlet: the Exploding Gradient's `sentry` gauntlet now drops
   from no boss.
 - Tuning from `fight_discovery` and Jon's playtest.

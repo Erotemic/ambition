@@ -61,7 +61,7 @@
             "hunny_swipe",    // the Hunny Horror: the paw back, then the claws across in front of him
             "hunny_maul",     // the Hunny Horror: both paws up, down in front twice, a stride on each
             "hunny_hug",      // the Hunny Horror: arms wide, then closed on whoever is in front; a hold, mash out
-            "hunny_flop",     // the Hunny Horror: a belly flop at where you stood, landing with a shock both ways
+            "hunny_balloon",  // the Hunny Horror: up on a red balloon over the room, then a pounce at where you are
             "trex_jaw_grab",  // the T-rex: a low lunge, jaws wide; caught, you are thrashed and flung
             "floor_slam",    // wide flat rect at the feet
             "demonstrate",      // GNU-ton: a fist tracks, locks, falls, and sticks
@@ -106,7 +106,6 @@
             "buck",            // GNU-ton's gnu throws whoever stands on its back
             "noodly_pulse",    // the FSM: a ring of noodles flung out from the bell
             "trex_roar",       // the T-rex, enraged: a roar that blows you off him and brings the ceiling down
-            "hunny_roar",      // the Hunny Horror, enraged: a roar that blows you back and brings honey down
         ],
         recipes: [
             (
@@ -134,6 +133,7 @@
         telegraph: (min_s: 0.70, max_s: 1.50),
         active: (min_s: 0.50, max_s: 4.80),
         instances: [
+            "hunny_spit",     // the Hunny Horror: 3 (5 enraged) honey globs lobbed at you; each puddle holds whoever steps in it
             "hazard_column", // 0.30 × 1.80 — a tall pillar the player walks around
             "minima_trap",   // a 5s pit hazard (the trap outlives its 0.6s strike)
             "saddle_point",  // rotating cross arms, 220px, up to 4.8s of active
@@ -212,7 +212,6 @@
         instances: [
             "mode_collapse_converge", // 12 shots, a 190px ring, closing inward
             "meatball_volley",        // the FSM: 3 (5 enraged) lobbed meatballs fanned at you; a ledge is an umbrella
-            "hunny_spit",             // the Hunny Horror: 3 (5 enraged) honey globs lobbed at you, each a puddle that hurts
             "mockingbird_missile", // the Mockingbird: a missile off its wingtip, at you
             "mockingbird_salvo", // the Mockingbird, wounded: three missiles, each aimed again
             "mockingbird_fireballs", // the Mockingbird: three fireballs spat in a fan at you
@@ -275,7 +274,6 @@
         active: (min_s: 0.50, max_s: 2.00),
         instances: [
             "trex_charge",    // the T-rex: a roar and a scrape, then the hall at a run into the wall, and the stun
-            "hunny_charge",   // the Hunny Horror: a roar, then the room on all fours into the wall, and the daze
             "mockingbird_dive", // the Mockingbird: across the sky at where you were, a bite at the end, then winded (the punish)
             "mockingbird_double_dive", // the Mockingbird, wounded: the dive turns at the end of its first bite and comes again
         ],

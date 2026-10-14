@@ -20,6 +20,7 @@ pub mod hold;
 pub mod module_entity;
 pub mod motion;
 pub mod riding;
+pub mod slow;
 pub mod think;
 pub mod wielded;
 pub use module_entity::{
@@ -37,6 +38,7 @@ pub use riding::{
     Burst, BurstPort, CameraShake, CameraShakePort, RidingHitbox, RidingHitboxPort, RidingKnockback, SpeechBubble,
     SpeechBubblePort,
 };
+pub use slow::{SlowBodies, SlowBodiesPort};
 pub use think::{ActorFire, ActorFirePort, ActorThink, ActorThinkPort};
 pub use wielded::{
     AimCast, AimCastPort, AimHit, BodySound, BodySoundPort, MarkPort, MarkView, SetMark, SetMarkPort, SpendMana,

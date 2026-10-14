@@ -51,6 +51,9 @@ pub fn step_body(
         // The launch now stays staged until a tick nobody else owns the pose.
         ctx.pose_owned_externally = true;
     }
+    // A slowed body (honey, glue) moves on its own tuning, slowed: one rule for
+    // every body, whoever drives it.
+    let axis_tuning = axis_tuning.slowed(combat.move_speed_scale());
     if let ae::movement::MotionModel::AxisSwept(axis) = model {
         axis.params = axis_tuning.axis_swept_params();
     }

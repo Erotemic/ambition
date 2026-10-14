@@ -156,6 +156,26 @@ pub(super) fn register(app: &mut App) {
         },
     );
 
+    // The Hunny Horror's red balloon: he rises on it, lets go, and it floats
+    // on to pop on the ceiling. The picture is the balloon over its string,
+    // which ends at the bottom of the picture, in his paw; upright. From its
+    // sheet, which keeps the picture's shape (an `Image` is drawn square).
+    app.register_projectile_visual(
+        "red_balloon",
+        ProjectileArt {
+            source: ProjectileArtSource::Sheet {
+                target: "red_balloon".to_string(),
+                animation: "idle".to_string(),
+                animate: false,
+            },
+            size: ProjectileRenderSize::FixedWidth(56.0),
+            rotation: ProjectileRotation::GravityUpright,
+            debug_tint: [0.84, 0.12, 0.16, 1.0],
+            label: "red_balloon".to_string(),
+            expiry_vfx: None,
+        },
+    );
+
     // The Smirking Behemoth's eye beam: a line of bolts of light from its
     // eye, nose along their flight. Each is drawn longer than the space
     // between two of them, so the line reads as one beam.
@@ -397,6 +417,7 @@ mod tests {
             "meatball",
             "trex_rock",
             "honey_glob",
+            "red_balloon",
             "thrown_rock",
             "arrow",
             "spit",

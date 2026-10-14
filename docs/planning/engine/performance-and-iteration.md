@@ -167,6 +167,39 @@ per-actor cost materially.
 Report both total step time and the responsible phase/domain. Do not infer
 superlinear behavior from a single before/after population point.
 
+### P1 — Android CPU (Mary O, measured 2026-10-13)
+
+Three device profiles (`dev/ambition_dev_measurements/profiles/android-*`,
+read with `scripts/symbolize_android_profile.py`). Shares are of all CPU of
+the app:
+
+- The simulation (`GgrsSchedule`) is 26-35%, rendering about 10%. The
+  rest is spread over about 1000 systems, scheduler overhead and malloc.
+- Rollback itself is near zero. The local session has `check_distance: 0`,
+  so GGRS never saves, rewinds or checksums; rollback systems are 0.1-0.4%.
+- A new query state (`World::query*`, `SystemState::new`) in a system that
+  runs each frame is matched against every archetype (about 850). Ours are
+  fixed. These are in dependencies, and each upstream fix is a few lines
+  (keep the state as a `&mut QueryState`/`&mut SystemState` param, or skip
+  the work when there is none):
+  - `virtual_joystick` 2.8: four exclusive systems, about 1.2%;
+  - `bevy_ecs_ldtk` 0.15 `clean_respawn_entities`: about 0.8%. A set
+    condition from our side would delay an LDtk respawn by one frame;
+  - `bevy_yarnspinner` 0.9 `fetch_resources`: about 0.6%;
+  - `bevy_light` 0.19 `check_dir_light_mesh_visibility`: queues its command
+    each frame with no directional light in the world, about 0.5%;
+  - `bevy_ggrs` `handle_requests`: 0.2-0.4%.
+- The sim must do 60 ticks for each second of real time, whatever the frame
+  rate. So it takes its CPU first, and rendering gets what is left. If the
+  device slows by a factor (heat), the frame rate falls by more than that
+  factor. `profile_android.sh` now records the clocks and the thermal state
+  to show when this happens.
+
+Deferred: an audit of the archetype count. About 850 archetypes in play
+makes each new query state and each cached query's first match more
+expensive. Find which component sets are made by optional components that
+are inserted and removed, and see if fewer, stable sets would do.
+
 ### P2 — startup attribution
 
 Measure startup only when a current user-visible/startup budget is threatened.

@@ -29,8 +29,13 @@ impl Plugin for TraceSchedulePlugin {
         // that nobody asked for and nothing prunes. Manual F8 dumps are never
         // gated. See `TraceDumpPolicy`.
         app.insert_resource(ambition_gameplay_trace::TraceDumpPolicy::from_env())
-            .init_resource::<ambition_gameplay_trace::ActorTraceBuffer>()
-            .add_systems(
+            .init_resource::<ambition_gameplay_trace::ActorTraceBuffer>();
+        // Android records no trace. It has no F8 and no environment that opts
+        // in to automatic dumps, so a recorded frame is never read, and the
+        // two recorders cost about 1.2% of all CPU on a phone (2026-10-13).
+        // The buffers stay: other systems write to them.
+        if !cfg!(target_os = "android") {
+            app.add_systems(
                 sim,
                 (
                     super::record_frame_system,
@@ -39,7 +44,9 @@ impl Plugin for TraceSchedulePlugin {
                     super::record_actor_oob_frame_system,
                 )
                     .in_set(Platformer2dSimulationPhase::Trace),
-            )
+            );
+        }
+        app
             // Disk writes are irreversible host effects, so they stay outside
             // the simulation schedule.
             //

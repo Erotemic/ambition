@@ -1,96 +1,24 @@
-//! The mechanical values ONE gameplay generation is made of.
+//! Mechanical inputs bound to one admitted content generation.
 //!
-//! ⛔⛤ **THIS TYPE EXISTS BECAUSE A FREEZE WITH THE WRONG LIFETIME IS BARELY A
-//! FREEZE.** A 2026-09-13 review measured the shape the previous closure left:
-//!
-//! ```text
-//! session activation     -> frozen generation values
-//! later room transition  -> current App values
-//! later reset            -> current App values
-//! ```
-//!
-//! ⇒ *"a prepared generation MEANS its frozen mechanical values"* was true of the
-//! FIRST construction call and of nothing else. Every later road that rebuilds a
-//! room — a door, a death, a reset — went back to querying whatever the App
-//! happened to hold, so a generation's world could be reconstructed out of a
-//! generation it was never prepared against.
-//!
-//! ⭐⭐ **ONE OWNER, PROJECTIONS TO THE ROADS — NOT A FROZEN COPY PER ROAD.** A
-//! "transition registry" beside a "reset registry" beside a "checkpoint
-//! registry" is the duplicate-authority defect wearing a lifecycle hat, and they
-//! would need synchronising, which is the thing this repository removes rather
-//! than automates.
-//!
-//! ⚠ **THE BINDING AND THE VALUES ARE DIFFERENT FACTS AND STAY DIFFERENT
-//! TYPES.** `ActiveContentBinding` names WHICH generation the session runs under
-//! and is compared at the commit boundary; this holds WHAT that generation
-//! contains. Folding the registries into that tiny identifier was considered and
-//! rejected in review: a comparison value and a content bag have no business
-//! being one resource.
+//! Session activation and every later room transition, reset, or checkpoint
+//! rebuild read the same frozen values. The content binding names the
+//! generation; `SessionMechanics` holds the values that identity describes.
+//! Do not keep separate mechanical registries for different rebuild paths.
 
-/// The mechanical registries a session is CONSTRUCTED from.
+/// Frozen construction values for one content generation.
 ///
-/// Frozen when the generation's identity was taken, and — once activation
-/// promotes it — the authority every later construction road reads instead of
-/// the App.
+/// The generation identity must cover these inputs, including authored
+/// brain and population overrides. Character and brain registries are
+/// bound through their source catalog fragments.
 ///
-/// ⚠ **CLONED, AND THE COST IS THE POINT.** These are the values the prepared
-/// fingerprint is over; holding handles instead would reintroduce the
-/// read-at-activation this exists to remove. The shipped cast is 58 characters,
-/// so the cost is bounded and paid once per generation.
-///
-/// ⛔ **WHAT IS NOT IN HERE, said plainly rather than left to be assumed:**
-/// `CharacterCatalog` and `BrainProfileRegistry` are also construction inputs and
-/// are still read from the App on every road — bound TRANSITIVELY (see below), so
-/// a freeze of them would be a freeze the fingerprint corroborates only at one
-/// remove.
-///
-/// ⛔⛤ **`AuthoredBrainOverride` AND `AuthoredPopulationCap` WERE ALSO ON THAT
-/// LIST, AND THE 2026-09-13 REVIEW NAMED WHY THAT WAS NOT ENOUGH.** `Q126` put
-/// them in the identity hash; construction went on reading the live App
-/// resources — at activation (`lifecycle.rs`), at reset (`session/reset`), and at
-/// room transition. ⇒ A value edited after preparation constructs **B under
-/// identity A**, which is a TOCTOU between the fingerprint and its own subject.
-/// *"It appears somewhere in the hash"* is not the invariant: **execution must
-/// consume the same generation-bound input the identity describes.** They are
-/// owned here now, and every road projects them.
-///
-/// ⛔⛤ **AND MY FIRST VERSION OF THIS PARAGRAPH SAID THE FIRST TWO ARE NOT IN
-/// `PreparedContentIdentity` EITHER. THAT WAS WRONG — MEASURED 2026-09-13.** Both
-/// are built by ONE assembly from `CharacterCatalogRegistry`'s fragments (see
-/// `character_catalog::registry`, whose own comment is *"same values, same keys,
-/// so the two cannot disagree"*), the production road never inserts either as a
-/// standalone authority (*"Not `insert_resource(CharacterCatalog)`: that would be
-/// a second authority on what the cast is"*), and the identity binds
-/// `CharacterCatalogRegistry::canonical_fragments()` — the SOURCE RON. ⇒ They are
-/// bound TRANSITIVELY, and poisoning that one binding reddens the catalog arm and
-/// the controller-policy arm together, which is what a shared authority looks
-/// like. `AuthoredBrainOverride` and `AuthoredPopulationCap` were the real gap
-/// and are closed (`Q126`).
-///
-/// ⇒ **A generation owns exactly what its identity binds DIRECTLY, and no more
-/// than that** — extending the ownership without extending the identity would
-/// make this type claim a freeze the fingerprint cannot corroborate, and
-/// extending the identity without extending the ownership leaves the gap above.
-/// The two move together or neither moves.
-///
-/// ⭐ **ABSENT MEANS THAT NO SESSION RUNS, AND A LIVE READER THEN DOES
-/// NOTHING.** This resource is inserted when a generation is activated and
-/// REMOVED when the session is retired (`session::teardown`). Two states have
-/// none (measured 2026-10-04): a host before its first session, and the
-/// remainder of the schedule run that retired the session. The session gate
-/// (`simulation_authorized`) answers once for a run, before the retirement, so
-/// the later systems of that run still execute, with no root, no scope and no
-/// body. ⇒ A live system reads this as `Option` and returns on `None`. It must
-/// not read the App's registries in its place: that is the fallback this type
-/// replaced. A required `Res` is also wrong, because it fails parameter
-/// validation in that remainder.
+/// A live rebuild must not fall back to mutable App registries. This
+/// resource and the active cast are removed at session retirement. A
+/// reader may see neither after retirement in the same schedule run, so
+/// it must accept an absent generation and skip its work.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct SessionMechanics {
-    // ⭐ THE CAST IS NOT HERE ANY MORE (2026-10-01). It is
-    // `ambition_characters::prepared::ActiveSessionCast`, inserted and removed
-    // with this resource, so the crates below this one can read the frozen cast
-    // too. Read it through `SessionCast`.
+    // The prepared character cast is stored in `ActiveSessionCast`,
+    // with the same lifetime as this resource. Read it through `SessionCast`.
     pub sheets: ambition_sprite_sheet::character::sheets::AuthoredSheets,
     pub bosses: ambition_boss_encounter::BossCatalog,
     /// The forced preset/profile a developer build asked for.
@@ -102,71 +30,16 @@ pub struct SessionMechanics {
     pub forced_brains: ambition_characters::brain::AuthoredBrainOverride,
     /// The developer population ceiling this generation was prepared under.
     pub population_cap: ambition_characters::actor::AuthoredPopulationCap,
-    /// The perception viewport override this generation was prepared under.
-    ///
-    /// ⛔⛤ **THE 2026-09-13 REVIEW FOUND THIS ONE OUTSIDE EVERY IDENTITY, AND
-    /// ITS OWN DOC IS THE ARGUMENT FOR BINDING IT:** *"IT CHANGES THE SIMULATION
-    /// AND NO NUMBER TAKEN UNDER IT DESCRIBES THE SHIPPED GAME, exactly as
-    /// `AuthoredPopulationCap` says of itself."* MEASURED at HEAD: its only
-    /// production writer is `dev_tools::perception_extent::from_env`, read once
-    /// at build — so it is MECHANICAL and IMMUTABLE, `Q119`'s first row, and gets
-    /// the first row's treatment rather than a policy of its own.
-    ///
-    /// ⚠ The rollback answer (*"the resulting `Perception` component is rollback
-    /// state"*) covers bodies that already exist. It says nothing about an actor
-    /// constructed later in the generation, and nothing about two peers agreeing
-    /// they run the same mechanics.
+    /// Perception bounds are mechanical inputs to generation identity.
+    /// Rollback state on existing bodies does not bind bodies built later.
     pub perception_extent: ambition_characters::perception::PerceptionExtentOverride,
 }
 
-/// The mechanical registries ONE construction reads — and only one set of them.
-///
-/// ⛔⛤ **THIS USED TO HOLD TWO SOURCES AND RANK THEM, WHICH IS THE LAST OPEN
-/// DUPLICATE-AUTHORITY FAMILY IN THE CENSUS (`DUP-GENERATION-MECHANICS`).** It
-/// carried `active: Option<&SessionMechanics>` beside five `app_*` registries
-/// and every accessor chose between them, so which authority a construction
-/// spent was decided inside the type, by whichever constructor the caller
-/// happened to pick. `Q144`'s option 1 named its own weakness in as many
-/// words: *"nothing but review enforces that choice at a new call site."*
-///
-/// ⭐⭐ **THE CHOICE IS NOW THE CALLER'S AND IT IS MADE ONCE, AT A NAMED
-/// CONSTRUCTOR.** Three roads, three constructors, no ranking left inside:
-///
-/// ```text
-/// of                an activated generation's frozen values
-/// for_live_session  the same, or a REFUSAL
-/// ```
-///
-/// ⛔⛤ **THERE WAS A THIRD, `for_the_generation_being_built`, AND ITS ONE
-/// PRODUCTION CALLER WAS THE DEFECT IT WAS WRITTEN FOR.** It handed
-/// construction five App registries under the argument that *"a hot reload
-/// legitimately has no active generation to read: it is assembling the one that
-/// replaces the live one"*. That is true of a MECHANICAL replacement and false
-/// of the only caller there was: `reload_ldtk_world_from_disk` builds its
-/// candidate with `prepare_world_replacement_candidate`, which copies every
-/// non-`world.` fingerprint section out of the ACTIVE content — so the candidate
-/// published *"same mechanics, new world"* over a room built from whatever the
-/// App happened to hold. Reviewed 2026-09-20.
-///
-/// ⇒ A road that really does replace the mechanics builds the new
-/// `SessionMechanics` and reads it through [`Self::of`], so the values
-/// construction spends and the values the identity is taken over are one
-/// object. There is no constructor left that accepts loose registries, and
-/// therefore no road on which a live rebuild can reach the App at all. The 2026-09-19 composition ruling asked
-/// for exactly that: *"explicit direct/headless/test compositions may hold
-/// scoped fixture/direct-entry authority where needed, but no anonymous
-/// App-global fallback state returns."*
-///
-/// ⚠ **AND THE COST OF DELETING THE FALLBACK WAS MEASURED, NOT ESTIMATED.**
-/// The row had been costed against *"~90 test binaries"*. Poisoning the
-/// `!shell_routed && active.is_none()` branch and running the whole workspace
-/// (2026-09-20) reddened THIRTEEN tests in two files: five in
-/// `session/reset/tests.rs`, which share one `min_app()`, and seven in
-/// `demo_shell_smoke.rs`, plus the arm that asserted the branch existed. The
-/// 740-test `app_it` suite — the whole `Platformer2dSimHarness` population the
-/// estimate was about — passed untouched, because that harness composes
-/// `MinimalShellPlugins` and therefore activates a generation like the shipped
-/// game does.
+/// Generation-bound registries for one construction operation.
+/// Use [`GenerationMechanics::of`] for an explicit prepared generation or
+/// [`GenerationMechanics::for_live_session`] for a live rebuild that must refuse when
+/// either the mechanics or the active cast is absent. There is no
+/// fallback to process-global App registries.
 pub struct GenerationMechanics<'a> {
     characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -176,14 +49,7 @@ pub struct GenerationMechanics<'a> {
 }
 
 impl<'a> GenerationMechanics<'a> {
-    /// An activated generation's frozen values, and nothing else.
-    ///
-    /// ⭐ **THE ROAD THAT CANNOT BE WITHOUT A GENERATION: ACTIVATION, AND NOW
-    /// EVERY LIVE REBUILD TOO.** The provider holds the exact frozen record it
-    /// is building from and has no handles to fall back to — `Q121` removed
-    /// them — so offering it a fallback parameter would be offering it a value
-    /// it must never use. Once the fallback left the live roads, the same is
-    /// true of them.
+    /// Use the frozen values of an explicitly selected generation.
     pub fn of(
         generation: &'a SessionMechanics,
         cast: &'a ambition_characters::prepared::ActiveSessionCast,
@@ -197,24 +63,8 @@ impl<'a> GenerationMechanics<'a> {
         }
     }
 
-    /// The generation a LIVE room rebuild must read — or `None`, which is a
-    /// refusal.
-    ///
-    /// ⛔⛤ **A 2026-09-13 REVIEW NAMED THE COST OF GETTING THIS WRONG.**
-    /// Rebuilding a live world out of whatever the App is holding now is how a
-    /// session prepared under generation N walks through a door into N+1. The
-    /// first repair distinguished *"this composition intentionally has no
-    /// generation"* from *"this shell session should have one and it is
-    /// missing"* with a `shell_routed` flag read off `SessionGatedSimulation`,
-    /// and refused only the second.
-    ///
-    /// ⭐ **THE FLAG IS GONE BECAUSE THE CASE IT PROTECTED IS GONE.** It
-    /// existed to keep the App-registry road open for direct-entry
-    /// compositions; the composition ruling closed that road, so a live rebuild
-    /// with no generation is a refusal whoever asks. A composition that means
-    /// to rebuild rooms declares its construction inputs — a `SessionMechanics`
-    /// it installs itself is the scoped fixture authority the ruling permits —
-    /// and one that declares nothing is told no rather than handed the App.
+    /// Read both live generation inputs or refuse the rebuild.
+    /// Never reconstruct a live room from current App registries.
     pub fn for_live_session(
         active: Option<&'a SessionMechanics>,
         cast: Option<&'a ambition_characters::prepared::ActiveSessionCast>,

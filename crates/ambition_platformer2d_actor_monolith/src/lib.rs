@@ -12,67 +12,24 @@
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
 pub mod audio;
-/// The HOME AVATAR — the body slot 0 owns and returns to, plus the policy that is genuinely the
-/// local human's rather than any body's: its identity bundle, its respawn safety and blink camera,
-/// its starting character, its emitted trail, and the tick that integrates it. What is named here
-/// is named correctly.
+/// Local human avatar state and policy, separate from shared actor mechanics.
 pub mod avatar;
 pub mod brain_tick;
 #[cfg(feature = "causal")]
 pub mod causal;
 #[cfg(test)]
 mod character_roster;
-/// Actor SPAWN PRIMITIVES — the layer `construction`'s recipes are built out of.
-///
-/// ⭐⭐ IT SITS BELOW `construction` DELIBERATELY, AND THAT IS THE WHOLE F1 CUT.
-/// These functions were in `features::ecs::spawn_actors`, which made <!-- cite-ok: records where these functions were before the carve -->
-/// `construction/mod.rs` name `crate::features` fifteen times — the reverse
-/// dependency the work frontier's F1 packet exists to remove. They are not
-/// feature systems: nothing here reads a message, owns a schedule slot or
-/// consumes a construction plan. They are "put an actor of this shape into the
-/// world", which is what a recipe is made OF.
-///
-/// ⛔ THE DIRECTION IS RECIPES -> PRIMITIVES, NEVER BACK. Anything here that
-/// starts needing a `ConstructionPlan`, a receipt or a request builder belongs
-/// one layer up in `construction`, and the cycle this cut removed is what that
-/// mistake looks like when it is left alone.
-/// Actor BUNDLES — the component sets a spawned body is assembled from.
-///
-/// ⭐⭐ TOP-LEVEL BECAUSE TWO LAYERS NEED IT AND NEITHER IS BELOW THE OTHER.
-/// It was `features::ecs::actor_bundles`, which made the spawn primitives reach
-/// up into the feature layer for it. Moving it under `actor_spawn` would have
-/// been worse, not better: `character_runtime` also consumes these bundles and
-/// `actor_spawn` already depends on `character_runtime`, so the "fix" would have
-/// built a fresh two-module cycle. ⇒ A definition two peers share belongs BELOW
-/// both of them, not inside whichever one happens to be nearest.
-///
-/// ⚠ ITS ONLY INTRA-CRATE DEPENDENCY IS `presentation`, which is outside the
-/// kernel's cyclic component — measured, not assumed, because a leaf that
-/// reaches back into the knot would carry the knot with it.
+/// Build and publish room construction plans.
 pub mod construction;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.
 pub mod control;
 pub mod host;
-// ⛔ `platformer_runtime` IS GONE (2026-08-30), and its own TODO is what asked
-// for it: *"migrate `platformer_runtime::{lifecycle,schedule,math,transit,body,
-// collision}` callers to their owning crates, then delete those re-export
-// modules and leave no generic runtime facade inside the actor monolith."* The
-// callers had migrated; what was left was two EMPTY files, a `mod.rs` of `pub
-// mod` lines, and a prelude re-exporting one function that every caller already
-// named through `ambition_platformer2d_core::cast`. Four workspace policies
-// described the shape of that shim; `engine.no-generic-runtime-facade-in-the-actor-crate`
-// now states the rule the shim was standing in for.
 pub mod quest;
 pub mod schedule;
-// Stable facade for save-game data shapes used by dialogue bindings.
 
 // Themed module umbrellas. Each owns a coherent slice of the sandbox.
 pub mod abilities;
-/// Neutral actor-vocabulary home for shared sim-state (the keystone re-home target).
-/// "What would each button do right now?" — the per-frame verb table the HUD
-/// labels its buttons from. A BRIDGE (input x body x world -> verb), which is why
-/// it is neither `control` nor `features`. Moved off `player/` in R6d.
 pub mod assets;
 pub mod body_custody;
 pub mod body_whereabouts;
@@ -84,24 +41,17 @@ pub mod character_sprites;
 /// Swings and shots arbitrated in ONE contest, before either damage road runs.
 pub mod clash;
 pub mod config;
-// No facade re-export stands here on purpose: callers name the crate. The departure and what earned
-// it are in that crate's header; the short version is that its zero import edges were never the
-// blocker — the SCHEDULE was.
 pub mod cutscene;
 pub mod dev;
 #[cfg(test)]
 pub mod enemy_projectile;
 pub mod body_conditions;
 pub mod items;
-// Stable facade for dialogue shop bindings.
 pub mod gravity;
 pub mod music;
-// Unified menu content (model + concrete settings IR + Map tab).
 /// The `ParticipantId` ↔ `PlayerSlot` correspondence, in one place, so the
 /// eventual split of "a person" from "a seat" is localized.
 pub mod participant_seat;
-// The presentation layer was extracted to the `ambition_render` crate (the
-// sim/render seam is now a crate boundary). Consumers import `ambition_render::*`.
 pub mod projectile;
 pub mod repertoire;
 pub mod session;
@@ -121,33 +71,9 @@ pub mod features;
 pub use dev::trace;
 pub use world::rooms;
 
-// Crate-root types/consts whose definitions live in themed modules of this
-// crate. (Generic time vocabulary — `WorldTime`, `ClockState`, `ClockDomain`,
-// `ProperTimeScale`, `refresh_world_time` — lives in `ambition_time`; name it
-// there directly. Only the sandbox-owned `mirror_sim_dt_into_runtime` bridge
-// still surfaces at the crate root.)
+// Keep generic time vocabulary in `ambition_time`; export only the local bridge.
 pub use time::move_toward;
 pub use time::world_time::{mirror_sim_dt_into_runtime, SimDtMirrored};
-
-// ⛔ THE ACTOR-DEATH ANNOUNCEMENT LEFT THIS CRATE ROOT, 2026-08-26.
-// `ActorDiedMessage` and `DeathCause` are `ambition_combat::death_rules`', beside
-// `BodyKnockedOut` and the death rules they belong with — the runtime, two demos
-// and five app tests read them, and `DeathCause` is built from combat's own
-// `HitSource`. Imported, never re-exported.
-
-// ⛔ THE SAFE-POSITION MEMORY LEFT THIS CRATE ROOT, 2026-08-26.
-// `SafePositionContext`, `RoomTransitionCooldown`,
-// `remember_safe_player_position` and `PlayerSafetyState` are ONE mechanic, and
-// three of the four were parked here — a mechanic wearing the crate's address,
-// the same shape `Mass` had before the mount carve. They live in
-// `ambition_platformer2d_shared_tangle::safe_position` now, below the runtime's
-// room transition and this crate's damage road alike. Imported, never
-// re-exported: a `pub use` here would let callers keep spelling the old address.
-
-// `RoomGeometry` (the session-root component wrapping the active room's collision
-// geometry) lives in `ambition_platformer2d_core`, next to the `World` it wraps
-// — so the renderer and a future
-// `ambition_platformer2d_world` name it there directly, not through this 95k crate.
 
 pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 

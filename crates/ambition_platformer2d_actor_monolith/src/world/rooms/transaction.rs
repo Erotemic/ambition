@@ -19,72 +19,33 @@ use ambition_platformer2d_shared_tangle::construction::{
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{live_room_root_for, SessionSpawnScope};
 
-/// The baseline captured at the head of a construction transaction, waiting for
-/// the verification pass at its tail.
+/// The opening baseline for one room publication.
 ///
-/// A COMPONENT ON THE PUBLICATION, because the two ends are separate commands in
-/// one queue and nothing else can carry a value between them. ⚠ THIS SENTENCE
-/// READ "a resource" UNTIL 2026-09-18, three lines above the `#[derive(Component)]`
-/// that contradicts it and directly above the paragraph explaining why a resource
-/// was wrong — the stale half of the very change it describes.
-/// ⛔⛤ **THE CONTROL PLANE IS EXACT NOW, AND IT WAS A SINGLETON — CHANGED
-/// 2026-09-14 ON REVIEW.** The candidate ENTITIES carried exact `TransactionId`s
-/// while the baseline, the staged world and the verdict were all *"the pending
-/// one"* / *"the last one"*: three App resources a second publication would have
-/// overwritten. That is the opposite direction from the rest of A10, and it made
-/// multi-region residency a special case before it was written.
-///
-/// ⇒ One ENTITY is the publication. Everything that belongs to it hangs off that
-/// entity — baseline, declared effects, staged world, owning lane transactions,
-/// target room, verdict — so `baseline(P)`, `staged_world(P)`, `effects(P)` and
-/// `verdict(P)` refer to the same P by construction rather than by a check.
-/// [`PublicationHandle`] is what a caller holds to ask about its OWN publication.
+/// Store it on the publication entity with its candidate, effects, and
+/// verdict. Two concurrent publications must not share a process-global
+/// pending record. [`PublicationHandle`] identifies the exact publication.
 #[derive(Component)]
 pub(crate) struct PendingConstructionBaseline(Result<OpenedTransaction, OpenRefused>);
 
-/// What one room's candidate construction actually built, recorded by the
-/// construction boundary for the verdict to read.
-///
-/// ⛔⛤ **IT IS ON THE PUBLICATION BECAUSE CONSTRUCTION IS NOW DEFERRED —
-/// 2026-09-15 AUDIT, FINDING 4.** `close` used to take the receipt as a
-/// parameter, which was only possible because `spawn_contents_for` called the
-/// spawn at QUEUE time and got its receipt immediately. That is exactly what made
-/// the prerequisite unenforceable: the construction commands were already in the
-/// queue behind `open`, so an opening refusal could not stop them. Construction
-/// is one exclusive-world command now, and its receipt travels the way every
-/// other fact about a publication travels — on the publication.
-///
-/// ⚠ ABSENT MEANS NOTHING WAS BUILT. That is a refusal, not an empty room.
+/// Construction receipt for one publication, set only after the opening
+/// decision permits the exclusive-world construction command to run.
+/// An absent receipt means no candidates were built and publication fails.
 #[derive(Component)]
 pub(crate) struct PendingConstructionReceipt(
     pub(crate) crate::features::RoomFeatureConstructionReceipt,
 );
 
-/// Did this publication's OPENING refuse?
-///
-/// ⛔⛤ **ONE DECISION, READ ONCE — 2026-09-15 AUDIT, FINDING 4.** The room
-/// construction boundary asks this before it builds anything, rather than
-/// re-testing the world fact `open` already tested. Two spellings of one
-/// prerequisite is how the two ends of a bracket come to disagree, and this
-/// version also covers every OTHER reason an opening can refuse — a duplicate
-/// identity in the baseline included — instead of only the missing filter.
-///
-/// ⚠ FAIL-CLOSED. A publication with no opening record at all is treated as
-/// refused: the only way to reach that is a publication nothing opened, and
-/// building a candidate population for one of those is the outcome this exists
-/// to prevent.
+/// Read the opening decision before constructing a room.
+/// A missing opening record or any opening error is a refusal. Do not
+/// repeat only part of the opening checks at the construction boundary.
 pub(crate) fn opening_refused(world: &World, publication: PublicationHandle) -> bool {
     world
         .get::<PendingConstructionBaseline>(publication.0)
         .is_none_or(|opened| opened.0.is_err())
 }
 
-/// A caller's exact reference to the publication it started.
-///
-/// ⚠ **HOST-LOCAL AND CONTROL-PLANE ONLY.** It is an `Entity`, never canonical
-/// state, never in a snapshot, never mixed into a `SimId` or a `TransactionId`.
-/// The peer-stable identity campaign owns canonical provenance; this is the
-/// engine's own bookkeeping and must not become a second identity workaround.
+/// Host-local handle for one room publication.
+/// This entity ID is control-plane state, not a stable `SimId` or rollback ID.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PublicationHandle(pub bevy::ecs::entity::Entity);
 
@@ -105,19 +66,10 @@ pub(crate) struct RoomPublication {
     retention: PublicationRetention,
 }
 
-/// How long a publication's RECEIPT outlives the publication.
+/// The lifetime of a publication receipt.
 ///
-/// ⛔⛤ **AN UNRELATED PUBLICATION MUST NEVER INVALIDATE ANOTHER OWNER'S
-/// RECEIPT — CORRECTED 2026-09-14 ON REVIEW.** `begin_publication` used to reap
-/// every finished publication in the world, so the validity of A's exact receipt
-/// depended on whether B happened to begin: *"A finishes, caller still holds A's
-/// handle, B begins, `publication_succeeded(A)` is suddenly false"*. That is
-/// ownership by coincidence, and it is exactly what a candidate session holding
-/// its first room's receipt across an activation decision cannot tolerate.
-///
-/// ⇒ Retention is DECLARED at `begin_publication`, by the caller that knows
-/// whether anyone is going to read the verdict. Nothing else retires a
-/// publication, ever.
+/// The caller chooses retention when it opens the publication. Starting a
+/// second publication must never invalidate the first caller's receipt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PublicationRetention {
     /// Nobody holds this handle: the publication is retired the instant its
@@ -144,15 +96,8 @@ pub fn retire_publication(world: &mut World, publication: PublicationHandle) {
     }
 }
 
-/// Settle a publication this caller owns: read its verdict ONCE, run the arm
-/// that verdict selects, then retire the receipt. Returns whether it published.
-///
-/// The owner roads (room transition, New Game, the LDtk dev reload) each wrote
-/// this skeleton by hand, and each had to remember two orderings its own
-/// comments warned about: retirement comes after EVERY reader, and it happens
-/// on the refusal branch too, so an arm that returns early cannot leak the
-/// receipt. Here both are structure. Call it where the verdict exists — from a
-/// command queued behind the commit, or an exclusive system after the flush.
+/// Read a publication verdict, run the selected handler, and retire the
+/// receipt on both success and refusal. Call this after the verdict exists.
 pub fn settle_publication(
     world: &mut World,
     publication: PublicationHandle,
@@ -169,34 +114,13 @@ pub fn settle_publication(
     published
 }
 
-/// Everything a VERIFIED room publication owes the world outside its own
-/// candidate population, frozen at the verdict and consumed at finalization.
+/// Effects that a verified room owes outside its candidate population.
 ///
-/// ⛔⛤ **A10 NESTED ENTITY VISIBILITY WITHOUT NESTING PUBLICATION EFFECTS —
-/// 2026-09-15 REVIEW, FINDING 1.** The barrier count made a room publishable
-/// INSIDE a still-hidden candidate session: the room lowers its own barrier and
-/// the session's keeps the population invisible, which is correct and stays.
-/// What did not nest is everything the same success arm did NEXT —
-/// `retire_superseded` despawning live bodies, `apply_custody_handoffs`
-/// stripping items off live hands, `apply_world_replacement` writing the
-/// world-defining state, and a `RoomLoaded` message that carries only a room id.
-///
-/// ⚠ **`RoomLoaded` ALONE IS ENOUGH TO BREAK THE INVARIANT, AND NOT
-/// HYPOTHETICALLY.** `FreshAttempt` treats any `RoomLoaded` as a fresh attempt;
-/// production's `void_pending_player_hits_at_lifecycle_boundaries` answers by
-/// clearing `PendingPlayerHitEvents`, which is rollback-registered and
-/// checksummed. So a candidate B that later REFUSES could still have cleared
-/// live session A's staged hits on its way past — A survives, but A is not
-/// UNCHANGED, and unchanged is what the last-good-world invariant promises.
-/// `a_published_room_inside_a_pending_candidate_session_stays_invisible` already
-/// shows that window is multiple frames wide.
-///
-/// ⇒ **THE RULE, STATED ONCE:** nothing constructed or internally published
-/// under candidate B may produce an externally authoritative effect outside B's
-/// ownership before B's own publication boundary. The bundle is how that rule is
-/// represented rather than remembered — an ordinary live-room transition
-/// finalizes it on the spot, and a candidate session's first room hands it to
-/// the session, which finalizes it at admission.
+/// A candidate room inside an uncommitted session may lower its own
+/// visibility barrier without changing the live world. Defer custody,
+/// supersession, world replacement, and `RoomLoaded` until the owning
+/// session admits the candidate. A refusal must leave the live session
+/// unchanged, including its pending combat events.
 #[derive(Component)]
 pub(crate) struct FrozenPublicationEffects {
     room_id: String,
@@ -220,12 +144,8 @@ pub struct PublicationVerdict {
     pub published: bool,
 }
 
-/// Start a publication: the entity everything about it will hang off.
-///
-/// ⛔⛤ **IT REAPS NOTHING. THE CALLER DECLARES THE RECEIPT'S LIFETIME — see
-/// [`PublicationRetention`].** This used to despawn every finished publication
-/// in the world, which made one owner's receipt depend on whether an unrelated
-/// publication happened to begin.
+/// Create a publication and retain its receipt according to the caller's
+/// [`PublicationRetention`] policy. Do not reap unrelated publications.
 pub(crate) fn begin_publication(
     commands: &mut Commands,
     room_id: String,
@@ -387,16 +307,9 @@ pub fn refuse_held_publication(world: &mut World, publication: PublicationHandle
     });
 }
 
-/// What [`open`] establishes and [`verify_and_publish`] is owed: the world this
-/// transaction opened against, and what it DECLARED it would do to that world.
-///
-/// ⛔⛤ **THE DECLARATION IS MADE AT THE HEAD OF THE TRANSACTION, NOT READ OFF
-/// THE WORLD AT ITS TAIL.** A10's verifier asks *"would the authoritative world
-/// be valid if this published?"*, and a declaration derived at the tail from
-/// whatever construction happened to leave standing cannot answer that — it
-/// would agree with anything. Deriving it here, from the plan and from the
-/// baseline captured before a single root was built, is what makes the
-/// projection falsifiable.
+/// Opening baseline and effects derived from the room plan.
+/// The declaration must be made before construction. Reading effects from
+/// the completed candidate would make projected-roster verification vacuous.
 pub(crate) struct OpenedTransaction {
     baseline: TransactionBaseline,
     effects: PublicationEffects,
@@ -410,27 +323,9 @@ pub(crate) struct OpenedTransaction {
 // the construction-layer primitive; it must not ask a room API to pretend.
 
 /// Why a room transaction refused before it built anything.
-///
-/// ⛔⛤ **THE SECOND VARIANT COLLAPSES A RULE A DOC COMMENT USED TO ASK CALLERS TO
-/// OBEY.** `ConstructionPlan::commit_inactive` REFUSES when
-/// `register_inactive_candidate_filter` was never called, because an
-/// unregistered `InactiveCandidate` is an ordinary inert component — every
-/// "candidate" would be stamped and every one of them would be LIVE, which is
-/// the dangerous direction and is silent. The room road cannot call
-/// `commit_inactive`: it builds through deferred `Commands` and `commit_hidden`
-/// has no `&mut World` to ask with, so its doc said *"the caller owes that
-/// check"*.
-///
-/// ⚠ **THE CALLER DID NOT OWE IT — NOBODY DID.** MEASURED at HEAD 2026-09-13:
-/// `inactive_candidate_filter_installed` has exactly one caller, inside
-/// `commit_inactive` itself, and `register_inactive_candidate_filter` has exactly
-/// one production caller, in `ambition_platformer2d_runtime`'s plugin — a
-/// different crate from the room transaction the doc named. So the check lived
-/// only on the road with no production traffic.
-///
-/// ⇒ The room transaction opens with `&mut World` in hand and asks there. A
-/// composition that would build invisible candidates into a world that cannot
-/// hide them refuses the room instead, on the road production actually uses.
+/// A candidate may be built only if `InactiveCandidate` is registered as
+/// a disabling component. Otherwise candidates would be visible before
+/// verification. Refuse at opening rather than trying to clean them up.
 #[derive(Debug)]
 pub(crate) enum OpenRefused {
     /// The world already held one identity on two entities.
@@ -455,46 +350,9 @@ impl std::fmt::Display for OpenRefused {
     }
 }
 
-/// The live world this room transaction WOULD become, held off to the side
-/// until its verdict.
-///
-/// ⛔⛤ **THE HALF OF A10 THAT IS NOT ENTITIES. EVERYTHING BELOW DESCRIBES
-/// THE SHAPE A10 DELETED ON 2026-09-14 — THIS PARAGRAPH DID NOT SAY SO UNTIL
-/// 2026-09-19, AND IN THE PRESENT TENSE IT READS AS LIVE ARCHITECTURE.**
-/// `RoomConstructionPlan::commit_deferred` <!-- cite-ok: names the method A10 DELETED; that deletion is what this paragraph is about -->
-/// is four statements and only the last one builds the
-/// candidate; the other three — `rooms.set_active`, `geometry.0 = ..`,
-/// `*moving_platforms = ..` — write the LIVE world, and `replace_live_world`
-/// retires the OUTGOING room ahead of all of it. Left there, a refusal points
-/// the session at a room index with no room in it: the strictly worse outcome
-/// A10 exists to delete, reached by the candidate machinery WORKING.
-///
-/// ⇒ Every one of those four is now staged here and applied by the ONE
-/// publication authority in `verify_and_publish` (private to this module), after the candidate has been
-/// admitted. A refusal drops this resource and the live world never learns the
-/// room was attempted.
-///
-/// ⚠ **AND STAGING IT CHANGES WHAT THE BASELINE SEES, WHICH IS THE POINT.** The
-/// outgoing room is still standing when the transaction opens, so the baseline
-/// holds it, the projection can be asked what publication would do to it, and
-/// `LiveLostWithoutDeclaration` can notice construction destroying a piece of it.
-/// Under the old order the outgoing room was already gone before the baseline was
-/// taken and none of those questions were askable.
-/// Where the transiting body lands when — and only when — the room it is
-/// arriving into publishes.
-///
-/// ⛔⛤ **THE BODY IS PART OF THE PUBLICATION, NOT PART OF THE ATTEMPT.** Placing
-/// it before the verdict is the same defect as writing the geometry before the
-/// verdict, and it is the half a 2026-09-14 app-level arm caught still standing:
-/// a refused transition left the player at the REFUSED room's arrival
-/// coordinates, inside the geometry of the room they never left. The world
-/// survived and the body was somewhere it had no reason to be.
-///
-/// ⚠ **DATA, NOT A CLOSURE**, because the caller lives a crate above this one.
-/// The transition computes the arrival against its own plan — it is the only
-/// thing that knows the authored door and the body's size — and states the
-/// result; `apply_world_replacement` performs it through the same
-/// `arrive_body_in_room` authority the caller used to call directly.
+/// The arrival to apply only if the destination room publishes.
+/// The transition resolves the destination and body size before staging;
+/// `apply_world_replacement` performs the arrival after admission.
 pub struct StagedArrival {
     pub subject: bevy::ecs::entity::Entity,
     pub arrival: ambition_platformer2d_core::Vec2,
@@ -502,14 +360,9 @@ pub struct StagedArrival {
     pub momentum: ambition_platformer2d_core::movement::ArrivalMomentum,
 }
 
-/// ⛔⛤ **A COMPONENT ON A HIDDEN CANDIDATE ENTITY, NOT A RESOURCE — CHANGED
-/// 2026-09-14 TO THE SHAPE THE RULING PREFERS.** It was a `Resource`, which is
-/// the *"paired `ActiveFoo`/`CandidateFoo` process global"* shape A10's settled
-/// architecture says not to prefer, and it showed: the refusal path had to
-/// REMEMBER to remove it, and a replacement whose transaction never closed leaked
-/// into the next room's. Held under the candidate it is retired by
-/// `retire_candidate` along with everything else the transaction made, and a leak
-/// carries the dead transaction's stamp so the next room cannot see it at all.
+/// A room replacement staged on the candidate publication entity.
+/// The candidate owns this data until admission or retirement. A refusal
+/// must leave the current room, geometry, and live bodies unchanged.
 #[derive(bevy::prelude::Component)]
 pub(crate) struct PendingWorldReplacement {
     /// The outgoing room's bodies, and whether each is a physics entity — the
@@ -762,32 +615,12 @@ impl PendingWorldReplacement {
     }
 }
 
-/// Why the staged world may not be published.
-///
-/// ⛔⛤ **THE PROJECTED VERIFIER VALIDATES A ROSTER, AND THE ROOM IS NOT ONLY A
-/// ROSTER.** `verify_projected_roster` asks what identities the authoritative
-/// world would hold; the staged replacement also names WHICH ROOM the session
-/// becomes and WHAT GEOMETRY it collides against, and nothing was asking whether
-/// those two agree with each other or with the set they index into.
+/// Preflight failures for the staged room, including its geometry, room
+/// index, and authoritative publication target.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StagedWorldViolation {
-    /// The staged active-room index is not a valid index into the room set that
-    /// would be live.
-    ///
-    /// ⛔⛤ **THE CONSEQUENCE WAS SILENT, WHICH IS WHY THIS EXISTS.**
-    /// `RoomSet::set_active` was `self.active = index.min(len - 1)` — an
-    /// out-of-range index did not panic, it CLAMPED, and the session woke up in
-    /// the last room of the set with the geometry of the one it was told to
-    /// build. Measured by accident 2026-09-14: a poison that staged
-    /// `usize::MAX` moved the active room rather than failing.
-    ///
-    /// ⭐ **THE SET REFUSES TOO, AND THIS CHECK IS STILL THE ONE THAT
-    /// MATTERS.** `RoomSet::definition` returns `None` for an index out of
-    /// range, so no caller can be talked into the clamp. But it is reached from
-    /// `apply_world_replacement`, AFTER the outgoing room has been torn down — a
-    /// refusal there has no good answer left, and the publication asserts rather
-    /// than limps. This violation is the one that can still say no while the old
-    /// world is standing, which is the whole reason a preflight exists.
+    /// The staged room index is outside the room set. Refuse before
+    /// retiring the outgoing room; a later clamp is not safe.
     TargetRoomOutOfRange { target: usize, rooms: usize },
     /// The staged geometry is not the geometry of the staged room.
     ///
@@ -798,49 +631,14 @@ pub enum StagedWorldViolation {
         target: String,
         geometry: String,
     },
-    /// A world was staged and there is no live session root to publish it into.
-    ///
-    /// ⛔⛤ **FAIL-CLOSED, BECAUSE THE OTHER ANSWER IS SILENT AND WRONG.**
-    /// `apply_world_replacement` writes onto the root the transaction's own scope
-    /// resolved and hands it in (`session_world_component_mut_at`), and every
-    /// sink there answers `None` when that entity carries no such component —
-    /// including when there is no session root to have resolved. ⚠ THIS SAID
-    /// `session_world_component_mut` UNTIL 2026-09-18, which is the *"which root
-    /// is LIVE right now"* question the 2026-09-15 review deliberately moved it
-    /// OFF. The refusal is unchanged; the sentence describing it had gone stale
-    /// against the very change that motivated it. So without this the room would
-    /// PUBLISH, report `room-loaded`, and leave the geometry, the active room and
-    /// the platform state exactly as they were. A caller that staged a whole
-    /// world and got nothing would have no way to tell that from success.
-    ///
-    /// ⚠ It WAS reachable by ORDERING as well as by misuse: session activation
-    /// queued its room build before it spawned the session root. That order is
-    /// reversed as of 2026-09-14 (`PlatformerSessionBuilder::build`), and
-    /// `verify_and_publish` now refuses ANY room publication in a shell-routed
-    /// composition that has no root to publish into, staged world or not.
+    /// The staged world has no exact session root to publish into.
+    /// Report refusal instead of accepting a partial room replacement.
     NoSessionRootToPublishInto,
-    /// A world was staged and the live session root carries no `RoomSet` to
-    /// publish the active room into.
-    ///
-    /// ⚠ **THE THIRD AND LAST ACCESSOR IN `apply_world_replacement` THAT CAN
-    /// ANSWER `None`, AND THE ONLY ONE OF THE THREE I CANNOT NAME A PRODUCTION
-    /// ROAD TO.** A session root always carries a room set — the provider's
-    /// bundle and the direct-entry app both insert one. It is checked anyway
-    /// because the alternative is a PARTIAL publication reported as success: the
-    /// geometry and the platform state would be written and the active room
-    /// silently left where it was, which is a session colliding against one room
-    /// while believing it is in another.
+    /// The publication target has no `RoomSet`. Publishing geometry
+    /// without a matching active room would corrupt session state.
     NoRoomSetToPublishInto,
-    /// The exact publication target carries no `RoomGeometry` (in
-    /// `ambition_platformer2d_core::world`) to publish the
-    /// staged room's geometry into.
-    ///
-    /// ⛔⛤ **THE SINK NOTHING PREFLIGHTED — 2026-09-15 REVIEW, FINDING 5.**
-    /// `apply_world_replacement` wrote the geometry through an `if let Some(..)`
-    /// and carried on, so a publication could validate a coherent staged world,
-    /// report success, and leave the session colliding against the geometry of
-    /// the room it just left. The room set and the platform state were checked;
-    /// this one was not asked about at all.
+    /// The publication target has no `RoomGeometry` sink.
+    /// Refuse rather than retain the previous room's collision geometry.
     NoRoomGeometryToPublishInto,
     /// The session has no root for the live room this publication replaces:
     /// another publication replaced it after this one was staged, or it never
@@ -959,13 +757,8 @@ impl std::error::Error for StagedWorldViolation {}
 pub(crate) fn verify_staged_world(
     world: &World,
     pending: &PendingWorldReplacement,
-    // ⛔⛤ **THE ROOT THIS TRANSACTION IS PUBLISHING INTO, RESOLVED BY ITS
-    // CALLER — 2026-09-15.** This asked `session_world_entity`, which answers
-    // *"which root is LIVE right now"*, and refused any staged replacement into a
-    // session that is itself still a candidate. `verify_and_publish` already
-    // resolves the right root by the transaction's own session scope, so the
-    // answer is handed in rather than asked for a second time — and the two ends
-    // cannot disagree about which session this publication belongs to.
+    // Use the exact session root resolved for this publication, including
+    // a candidate session that is not yet the active one.
     publishing_into: Option<bevy::ecs::entity::Entity>,
 ) -> Result<(), Vec<StagedWorldViolation>> {
     use ambition_platformer2d_world::rooms::RoomSet;
@@ -987,13 +780,8 @@ pub(crate) fn verify_staged_world(
     }
     // The moving platforms need no sink check: they are inserted on the live
     // room root, which the geometry check below requires.
-    // ⛔⛤ **THE SINKS ARE ASKED ABOUT ON THE EXACT TARGET — 2026-09-15 REVIEW,
-    // FINDING 5.** This used to accept a staged `next_rooms` as evidence that a
-    // room set existed, which answers a question about the VALUE rather than
-    // about the place it is going. `apply_world_replacement` then wrote through
-    // `if let Some(..)` and published a success verdict having skipped whatever
-    // was missing. A publication may not validate a value without proving the
-    // exact authoritative sink for it exists.
+    // Validate each sink on the exact target before accepting the staged
+    // values. A valid room set alone does not prove it has a live sink.
     match publishing_into {
         Some(root) => {
             match world.get::<RoomSet>(root) {
@@ -1110,50 +898,17 @@ pub(crate) fn verify_staged_world(
     }
 }
 
-/// Make the staged world live: retire the outgoing room, then publish the
-/// world-defining state.
-///
-/// ⛔ CALLED ONLY FROM THE ADMISSION ARM, and only after `publish_candidate`.
-/// The order inside is the one the three former call sites each kept privately —
-/// retire, then commit — and it is safe to read as atomic because nothing is
-/// SCHEDULED inside an exclusive-world call. It is not atomic to hooks or
-/// observers; see `publish_candidate` for the measurement behind that wording.
-/// ⛔⛤ **THE TARGET IS HANDED IN — 2026-09-15 REVIEW, FINDING 5.** Every write
-/// below used `session_world_component_mut`, which asks *"which root is LIVE
-/// right now"* — a different question from *"which root did this publication
-/// verify against"* the moment a hidden candidate session exists.
-/// `verify_and_publish` resolves the target by the transaction's own scope and
-/// `verify_staged_world` validates against THAT entity; re-asking here meant a
-/// publication could be validated for hidden B and applied to live A.
-///
-/// ⚠ **AND A MISSING SINK IS NO LONGER SILENT.** These were `if let Some(..)`
-/// branches that published a success verdict having skipped part of the
-/// application. `verify_staged_world` now preflights every sink on this exact
-/// entity, so reaching one of the error arms below means the world changed
-/// between verification and application — an invariant violation, and it says so
-/// rather than writing nothing.
+/// Apply an admitted room replacement against the verified target.
+/// Retire outgoing bodies before installing the new room. Preflight all
+/// sinks before destructive work. This call has no scheduled-system
+/// interleaving, but component hooks can still run.
 pub(crate) fn apply_world_replacement(
     world: &mut World,
     mut pending: PendingWorldReplacement,
     target: Option<bevy::ecs::entity::Entity>,
 ) {
-    // ⛔⛤ **REVALIDATE BEFORE THE FIRST DESTRUCTIVE ACT, NOT AFTER IT.** Every
-    // arm below this block used to be discovered AFTER the outgoing roster had
-    // already been despawned: a missing sink logged an error and carried on,
-    // having destroyed the old world and installed none of the new one. That is
-    // the same shape `install_rebased_sync_test_session` was corrected for on
-    // 2026-09-17 and `maintain_local_session` on 2026-09-18 — *"everything that
-    // can decline runs while the old session is still alive; the stop is the
-    // first irreversible act and nothing after it may fail"*.
-    //
-    // ⚠ These are the same sinks `verify_staged_world` preflighted on this exact
-    // entity, so reaching a refusal here still means the world changed between
-    // verification and application. What changes is the COST of that: the
-    // outgoing roster is still standing, so the session keeps the room it has
-    // instead of keeping neither.
-    //
-    // ⭐ Read-only, and cheap: three `get`s against one entity, once per
-    // publication.
+    // Recheck the target and its sinks before retiring any outgoing body.
+    // If validation and application saw different worlds, keep the old one.
     let refusal = match target {
         None => Some("no publication target — `verify_staged_world` refuses that with \
                       `NoSessionRootToPublishInto`".to_string()),
@@ -1624,54 +1379,12 @@ pub struct LastConstructionVerification {
 }
 
 
-/// Open the transaction: queue the baseline capture.
-///
-/// Queued before anything the transaction constructs, so what it sees at flush
-/// is what was live when the transaction opened.
-/// Open the transaction: queue the baseline capture, DECLARING what this room
-/// intends to rebuild.
-///
-/// ⛔⛤ **`TransactionBaseline::retiring` AND `::reconstructing` HAD ZERO
-/// PRODUCTION CALLERS, MEASURED AT HEAD 2026-09-13.** Both were reached only from
-/// tests. So every shipped room opened a baseline declaring NOTHING, and
-/// `verify_committed_roster` then judged the finished room against a claim nobody
-/// had made — for the life of the road.
-///
-/// ⇒ **THE CONSEQUENCE IS NOT THAT NOTHING WAS CHECKED. IT IS THAT THE CHECK
-/// COULD NOT NAME WHAT IT FOUND.** A room rebuild legitimately replaces the
-/// bodies of the identities it authors; with no declaration that reads as
-/// `PlannedOverBaseline` — *"you rebuilt something you never said you would"* —
-/// which is true of every room reset in the game and therefore says nothing. With
-/// the declaration, the same situation reports `ReconstructedOldSurvived`, which
-/// is the precise and ACTIONABLE statement: *"you said you would replace this
-/// identity, and the old body is still here."*
-///
-/// ⭐ **THAT IS EXACTLY THE `Q124` DEFECT, NEWLY LEGIBLE.** A death-reset carries
-/// a placement held in the player's custody across the "door" (`RoomResident`
-/// excludes `InCustodyOf`) and then re-mints it, so two entities wear one
-/// authored `SimId`. ⚠ **AND NO RULING IS COMING FOR THE HELD ONE — `Q124` WAS
-/// WITHDRAWN HOURS AFTER THIS PARAGRAPH WAS WRITTEN, 2026-09-13.** The rule is
-/// already shipped and it is TEMPORAL, not item-kind: the reset restores what
-/// the checkpoint saw, per object. What this decides is the smaller and real
-/// thing — that the verifier can say which of the two bodies is unexpected.
-///
-/// ⚠ **RECONSTRUCTING, NOT RETIRING.** A room plan says what the room WILL
-/// contain; it never declares an identity gone. `retiring` therefore still has no
-/// production caller, and that is a statement about room construction rather than
-/// an omission here — a road that genuinely retires an identity (an encounter
-/// clearing its rewards, say) owes its own declaration.
-///
-/// ⛔⛤ **IT TAKES THE PLAN AND DERIVES THE DECLARATION ITSELF, RATHER THAN
-/// ACCEPTING ONE.** The first version took a `BTreeSet<SimId>` from the caller,
-/// and the test harness in `construction/tests.rs` promptly grew its own copy of
-/// `plan.planned_sim_ids()` beside `spawn_contents`'s — TWO spellings of one
-/// fact. MEASURED: poisoning the production declaration to declare NOTHING left
-/// `a_room_that_fails_verification_is_not_published` green, because the harness
-/// was declaring for itself and the arm never reached the production road at all.
-///
-/// ⇒ **A CALLER CANNOT NOW DECLARE SOMETHING OTHER THAN WHAT IT IS ABOUT TO
-/// BUILD**, and the same poison reddens the arm. `close` already took the plan;
-/// the two ends of the bracket are symmetric again.
+/// Queue the opening baseline capture before construction.
+/// The plan supplies the exact identities the room will rebuild.
+/// An existing predecessor may be superseded only when declared; any other
+/// old body that should disappear needs an explicit retirement effect.
+/// A room plan must derive its own declaration, not accept a second list
+/// maintained by a caller.
 pub(crate) fn open(
     commands: &mut Commands,
     publication: PublicationHandle,
@@ -2401,52 +2114,9 @@ fn verify_and_publish(
         );
     }
 
-    // ⛔⛤ **A10: THE ROOM WAS BUILT AS A CANDIDATE, SO THIS IS WHERE IT BECOMES
-    // REAL — OR CEASES TO EXIST.** `spawn_contents` commits every root, in every
-    // lane, stamped `InactiveCandidate` at mint. Until this line nothing in the
-    // room is visible to an ordinary query, which is why the verification above
-    // is allowed to say no.
-    //
-    // ⛔ THE OLD REFUSAL MESSAGE SAID WHAT THIS DELETES: *"The world has already
-    // been mutated and cannot be rolled back."* It can now: a refused room is
-    // DROPPED, and so is the world it staged.
-    //
-    // ⛔⛤ **THIS COMMENT USED TO SAY "THIS IS NOT THE LAST-GOOD-WORLD GUARANTEE"
-    // AND LIST FOUR THINGS PUBLISHED BEFORE THE VERDICT. ALL FOUR ARE CLOSED —
-    // 2026-09-14.** They were: `commit_deferred` writing `RoomSet`, <!-- cite-ok: lists the names A10 DELETED; a resolvable one here would mean the deletion did not happen -->
-    // `RoomGeometry` and the platform state; `replace_live_world` retiring the
-    // OUTGOING room first; the hot-reload caller advancing the session's content
-    // generation afterwards; and a verifier with no way to validate N+1 while
-    // intentionally RETAINING N. In order: `PendingWorldReplacement` stages all
-    // of the first, the sweep moved inside `apply_world_replacement`,
-    // `publication_succeeded` gates the third, and `superseding` plus
-    // `verify_projected_roster` answer the fourth.
-    //
-    // ⚠ **WHAT IS STILL OUTSIDE THE VERDICT IS NAMED IN `docs/planning/queue.md`'s
-    // A10 row** — the whole SESSION scope, which is a different transaction. The
-    // hot reload's body transit and presentation spawns joined the verdict on
-    // 2026-09-14 (`reload_ldtk_world_from_disk`). Do not read the absence of a
-    // warning here as their absence.
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // A10: WOULD THE AUTHORITATIVE WORLD BE VALID IF THIS ROOM PUBLISHED?
-    // ═══════════════════════════════════════════════════════════════════════
-    //
-    // ⛔⛤ **EVERYTHING ABOVE JUDGES THE WORLD AS IT IS. THIS JUDGES THE WORLD
-    // PUBLICATION WOULD PRODUCE**, and the difference is the whole of A10: the
-    // candidates are hidden, the live world is deliberately still the old one,
-    // and a refusal here costs nothing because nothing has been retired to make
-    // room for them.
-    //
-    // ⚠ **ONLY UNDER THE BRACKET, AND THAT IS NOT A CONVENIENCE.** Without it
-    // every root is spawned VISIBLE, so there is no candidate population to
-    // project: each declared supersession would report
-    // `SupersedingCandidateMissing` about a root that is standing right there.
-    // A projection of a world with no candidates in it is not a weaker check,
-    // it is a different and false one.
-    // ⛔ THE OTHER HALF OF THE PROJECTION: the staged world, not the roster.
-    // Asked BEFORE the verdict is taken, so an incoherent staged world refuses
-    // the room exactly as an incoherent roster does.
+    // Candidate roots remain hidden while roster and staged-world checks
+    // project the authoritative state that publication would create.
+    // Refusal leaves the previous room and its simulation state unchanged.
     let staged_entity = world
         .get::<PendingWorldReplacement>(publication.0)
         .map(|_| publication.0);

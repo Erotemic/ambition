@@ -7,40 +7,9 @@
 use super::*;
 use ambition_combat::components::{BreakableFeature, ChestFeature, FeatureId, Opened};
 
-/// Advance every body's animation overlay clocks, exactly once per simulation
-/// tick, on ONE clock.
-///
-/// ⛔⛤ **THIS USED TO EXCLUDE `PlayerEntity` AND THAT LEFT PLAYER 2 WITH NO
-/// TICKING OWNER AT ALL.** The partition was
-/// `Without<PlayerEntity>` here and `PrimaryPlayerOnly` + `single_mut()` in
-/// `control::cleanup_timers_system`, so:
-///
-/// ```text
-/// not a player               → this system
-/// PlayerEntity + PrimaryPlayer → the player tick
-/// PlayerEntity, no PrimaryPlayer → NOTHING
-/// ```
-///
-/// `PlayerEntity`'s own documentation says *zero or many may exist*, and a
-/// second/guest/remote player body carries it WITHOUT `PrimaryPlayer`. Every
-/// timer this function decays — slash, shoot, wall-jump, interact, death, land,
-/// dash-startup — is armed by SHARED combat and movement behaviour that does not
-/// care which slot a body belongs to, so for player two they were armed and then
-/// never decayed: a pose stuck on forever.
-///
-/// ⛔⛤ **AND THE TWO ROADS RAN ON DIFFERENT CLOCKS.** This one passes
-/// `WorldTime::sim_dt` (world-anchored: poses pause and slow with the
-/// simulation); the player road passed `Time::delta_secs` (decays while gameplay
-/// is suspended). Same rollback-registered `BodyAnimFacts` fields, two
-/// semantics, decided by whether the body happened to carry a marker. ⇒ One
-/// body-generic tick, one clock; genuinely player-specific presentation state
-/// (`PlayerBlinkCameraState`) stays in the player system, which is what it was
-/// always for.
-///
-/// ⚠ **THE FIX IS THE MISSING FILTER, NOT A SECOND QUERY.** Adding a
-/// "second player" road would have kept the split and added a third population
-/// to keep in sync. The body-generic fact wants one owner over the whole
-/// population.
+/// Advance all body animation overlays once per simulation tick using
+/// `WorldTime::sim_dt`, including primary and remote player bodies.
+/// Player-only presentation state has a separate owner.
 pub fn advance_body_anim_overlay_clocks(
     world_time: Res<ambition_time::WorldTime>,
     mut bodies: Query<(

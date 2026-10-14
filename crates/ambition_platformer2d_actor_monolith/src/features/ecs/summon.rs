@@ -1,39 +1,9 @@
-//! Summoning: the one spawn road that PLANS at runtime.
-//!
-//! ⭐⭐ IT LIVES HERE RATHER THAN WITH THE SPAWN PRIMITIVES BECAUSE IT IS A
-//! DIFFERENT LAYER, and the two sharing a file is what made the actor crate's
-//! construction cycle look unbreakable. Measured 2026-09-06: `construction/mod.rs`
-//! named 15 things in `crate::features`, and **every one of them was defined in
-//! `spawn_actors.rs`** — the spawn PRIMITIVES (`spawn_*_into`, `is_limbed_host`,
-//! `giant_hand_plans`, `SpawnActorKind`, `SpawnActorRequest`). In the other
-//! direction `features` named `construction` 30 times, and in `spawn_actors.rs`
-//! **all five of those references were inside this one function**.
-//!
-//! ⇒ So the `construction ↔ features` cycle was not two authorities depending on
-//! each other. It was ONE FILE holding two layers: the spawn primitives that
-//! construction legitimately consumes, and one orchestration system that
-//! legitimately consumes construction. Splitting them is what lets the primitives
-//! move BELOW the construction domain without the cycle reappearing in a new
-//! spelling — see `docs/planning/engine/actor-monolith-work-frontier.md`, F1.
-//!
-//! ✔ **AND THE CYCLE IS CLOSED NOW — RE-MEASURED 2026-09-19.** This paragraph
-//! used to say the file *"does not break the cycle"* and that closure waited on
-//! the primitives leaving `features`. They left the CRATE:
-//! `is_limbed_host`, `giant_hand_plans`, `SpawnActorRequest` and
-//! `SpawnActorKind` are `ambition_platformer2d_actor_spawn`'s, and
-//! `spawn_actors.rs` no longer exists. ⇒ `construction/` now names
-//! `crate::features` **zero** times in code, down from 15; the single surviving
-//! mention was a comment path still spelled `features::is_limbed_host` beside
-//! two call sites that already used the crate, and it is repointed. In the
-//! other direction exactly ONE file under `features/` names
-//! `crate::construction`: this one, which is the orchestration layer the split
-//! was for.
+//! Runtime summons use the same construction planner as room residents.
+//! Planning reserves dynamic `SimId` values under the summoner and applies
+//! them through the canonical spawn primitives. This system consumes
+//! construction plans; the spawn primitives do not depend on this system.
 
 use super::*;
-// ⭐ NAMED EXPLICITLY RATHER THAN INHERITED. `spawn_actors.rs` pulls these in at
-// file scope, so while this system lived there its real dependencies were
-// invisible — which is part of how the two layers stayed indistinguishable. Four
-// types is the whole of what the summon road needs from outside its own module.
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_shared_tangle::lifecycle::{ActiveSessionScope, SessionSpawnScope};
 

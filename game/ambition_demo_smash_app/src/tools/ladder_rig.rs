@@ -35,11 +35,14 @@ use crate::build_demo_app;
 use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
 use ambition_platformer2d::engine_core as ae;
 
-/// The shipped match budget. The rig uses the demo's own constant so that it
-/// measures the shipped match. A shorter clock ends bouts before any stock
-/// is taken, and then every verdict falls through to the damage tiebreak.
-/// `--seconds` shortens it for quick runs; the header names the clock.
-const DEFAULT_TICKS: usize = ambition_demo_smash::SMASH_TIME_LIMIT_TICKS as usize;
+/// The shipped match budget. The rig reads the demo's own clock (its
+/// `match_rules.ron`) so that it measures the shipped match. A shorter clock
+/// ends bouts before any stock is taken, and then every verdict falls through
+/// to the damage tiebreak. `--seconds` shortens it for quick runs; the header
+/// names the clock.
+fn default_ticks() -> usize {
+    ambition_demo_smash::smash_time_limit_ticks() as usize
+}
 
 /// The match budget this run is using, in ticks.
 ///
@@ -52,7 +55,7 @@ const DEFAULT_TICKS: usize = ambition_demo_smash::SMASH_TIME_LIMIT_TICKS as usiz
 ///
 /// A run at a non-default clock is not comparable to one at the default.
 fn ticks() -> usize {
-    args().seconds.map_or(DEFAULT_TICKS, |s| s.max(1) * 60)
+    args().seconds.map_or_else(default_ticks, |s| s.max(1) * 60)
 }
 
 /// The rungs the demo actually registers. See the sparseness warning above.
@@ -227,7 +230,7 @@ pub struct LadderRigArgs {
     #[arg(long)]
     pub paired: bool,
     /// Match budget in seconds. Absent means the demo's own
-    /// `SMASH_TIME_LIMIT_TICKS` — the shipped eight minutes.
+    /// `smash_time_limit_ticks()` — the shipped eight minutes.
     ///
     /// See [`ticks()`] for why this is a parameter: a longer clock separates
     /// "this rung is weaker" from "this rung is patient".
@@ -638,12 +641,12 @@ fn resolved_stage() -> ambition_demo_smash::SmashStageChoice {
 
 /// Say how long a bout ran, and say loudly when that is not a real match.
 fn report_which_clock_is_in_play() {
-    let shipped = ambition_demo_smash::SMASH_TIME_LIMIT_TICKS as usize;
+    let shipped = ambition_demo_smash::smash_time_limit_ticks() as usize;
     let used = ticks();
     if used == shipped {
         println!(
             "[ladder_rig] clock: {}s per bout — the SHIPPED match limit \
-             (ambition_demo_smash::SMASH_TIME_LIMIT_TICKS)",
+             (ambition_demo_smash::smash_time_limit_ticks())",
             used / 60
         );
     } else {
@@ -1138,7 +1141,7 @@ fn row_verdict(bouts: &[Bout], properly_paired: bool) -> (&'static str, bool, Op
         median(
             bouts
                 .iter()
-                .map(|b| (ambition_demo_smash::STARTING_STOCKS - b.stocks[1 - seat]) as f32)
+                .map(|b| (ambition_demo_smash::starting_stocks() - b.stocks[1 - seat]) as f32)
                 .collect(),
         )
     };
@@ -1201,7 +1204,7 @@ fn paired_outcomes(bouts: &[Bout]) -> Vec<PairedOutcome> {
         .map(|pair| {
             let took = |seat: usize| -> u32 {
                 pair.iter()
-                    .map(|b| ambition_demo_smash::STARTING_STOCKS - b.stocks[1 - seat])
+                    .map(|b| ambition_demo_smash::starting_stocks() - b.stocks[1 - seat])
                     .sum()
             };
             let dealt = |seat: usize| -> f32 { pair.iter().map(|b| b.damage_taken[1 - seat]).sum() };
@@ -1795,7 +1798,7 @@ fn run_bout_at(
         ));
 
     // An eliminated seat stops existing, so keep the last value seen.
-    let mut stocks = [ambition_demo_smash::STARTING_STOCKS; 2];
+    let mut stocks = [ambition_demo_smash::starting_stocks(); 2];
     let mut eliminated = [ticks(); 2];
     let mut peak_percent = [0.0f32; 2];
     let mut damage_taken = [0.0f32; 2];

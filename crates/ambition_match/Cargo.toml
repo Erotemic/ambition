@@ -21,6 +21,13 @@ ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 # ⛔ NEVER ambition_platformer2d_actor_monolith: the kernel activates the plan this crate prepares.
 bevy = { version = "0.19.1", default-features = false }
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
+ron = { workspace = true, optional = true }
+serde = { workspace = true }
+
+[features]
+# The authored-content schema this capability owns (`match_rules`).
+content_pack = ["dep:ambition_content_pack", "dep:ron"]
 
 [dev-dependencies]
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }

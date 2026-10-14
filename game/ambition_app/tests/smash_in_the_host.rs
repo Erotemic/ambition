@@ -1747,7 +1747,7 @@ fn the_grid_fighters_that_state_their_own_moves_only_grow() {
 /// fourteenth") predates half the grid and understates the difference.
 ///
 /// ⭐⭐ A SEAT ALWAYS GETS A BODY, AND THE QUESTION IS WHAT IT IS COMPOSED OVER.
-/// `MatchRules::body_over` reads `SMASH_FIGHTER_BODY.over(authored.unwrap_or(built))`,
+/// `MatchRules::body_over` reads `smash_fighter_body().over(authored.unwrap_or(built))`,
 /// and `built` is the seed's `ActorTuning.movement` — `BodyMovementTuning::BASELINE`,
 /// the WANDERING-ENEMY body — for every fighter whose character authored no feel
 /// of its own. The stage's six numbers land correctly on top of it and disturb
@@ -2068,8 +2068,8 @@ fn the_smash_demos_cast_is_prepared_from_its_pack_as_the_rust_registration_built
         ..AbilitySet::NONE
     };
     let rule = MatchAbilities {
-        granted: ambition_demo_smash::SMASH_FIGHTER_KIT,
-        permitted: ambition_demo_smash::SMASH_FIGHTER_CEILING,
+        granted: ambition_demo_smash::smash_fighter_kit(),
+        permitted: ambition_demo_smash::smash_fighter_ceiling(),
     };
     for (id, name, sheet) in [
         (SMASH_CHARACTER_ID, "Robot v3", "player_robot_v3"),
@@ -2974,7 +2974,7 @@ fn a_quick_forward_smash_barely_travels_but_plain_forward_still_walks() {
 /// that capability. Another fighter without Pogo should not acquire one merely
 /// by entering Smash."*
 ///
-/// ⛔⛔ AND IT USED TO BE THE STAGE'S. `SMASH_FIGHTER_KIT` granted `pogo` as a
+/// ⛔⛔ AND IT USED TO BE THE STAGE'S. `smash_fighter_kit()` granted `pogo` as a
 /// FLOOR, so all fourteen bodies on the grid got a rebounding down-air by
 /// walking onto it. It read as correct from the seat Jon tested — Robot v3 is
 /// the fighter that authors pogo — and the defect was entirely in the thirteen
@@ -4434,8 +4434,8 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
     assert_eq!(
         pools,
         vec![
-            ambition_demo_smash::SMASH_PERCENT_REFERENCE,
-            ambition_demo_smash::SMASH_PERCENT_REFERENCE
+            ambition_demo_smash::smash_percent_reference(),
+            ambition_demo_smash::smash_percent_reference()
         ],
         "two seats in one match are being read against two different hundreds: \
          {bodies:?}"
@@ -4519,13 +4519,13 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
         after[0].0,
         after[1].0
     );
-    let declared = 1.0 / ambition_demo_smash::SMASH_PERCENT_REFERENCE as f32;
+    let declared = 1.0 / ambition_demo_smash::smash_percent_reference() as f32;
     assert!(
         (crossover_scale - declared).abs() < 1e-6,
         "both fighters agree, and they agree on the wrong number: this stage \
          declares {} as a full meter, so a point of damage is {declared} of one, \
          not {crossover_scale}",
-        ambition_demo_smash::SMASH_PERCENT_REFERENCE
+        ambition_demo_smash::smash_percent_reference()
     );
 }
 
@@ -4708,7 +4708,7 @@ fn report_the_factions_and_teams_a_seated_fighter_carries() {
 ///
 /// also remove everyone's ability to dash in smash. Dash should be an ability for
 /// ambition, it doesn't map into a smash vocabulary."* `AbilitySet::dash` left
-/// [`ambition_demo_smash::SMASH_FIGHTER_KIT`] that day.
+/// [`ambition_demo_smash::smash_fighter_kit()`] that day.
 ///
 /// The gate now reads `dash || dodge` (`apply_intent`), and the kit assertion below is what
 /// stops this file passing over a fighter that quietly lost both.
@@ -4993,7 +4993,7 @@ fn hold_until(app: &mut App, mut property: impl FnMut(&App) -> bool) -> Option<u
 
 /// THE PROBE. A SMASH FIGHTER'S SHIELD BUTTON RAISES THEIR GUARD.
 ///
-/// Every one of the fourteen smash fighters is granted `AbilitySet::shield` by `SMASH_FIGHTER_KIT`,
+/// Every one of the fourteen smash fighters is granted `AbilitySet::shield` by `smash_fighter_kit()`,
 /// and thirteen of them throw an ordinary special, so thirteen fighters had their guard erased
 /// every frame by a gate that had never heard of them.
 ///
@@ -6904,7 +6904,7 @@ mod ring_out {
              be its own walk off the ledge"
         );
 
-        // THE VICTIM'S PERCENT. `SMASH_PERCENT_REFERENCE` is 100, so 700% is 700
+        // THE VICTIM'S PERCENT. `smash_percent_reference()` is 100, so 700% is 700
         // points of accumulated damage.
         {
             let mut health = app.world_mut().get_mut::<BodyHealth>(victim).unwrap();

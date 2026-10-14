@@ -150,8 +150,8 @@ the two questions above before the next slice.
 
 **Not residuals:** a demo mechanic keyed on identity (Mary-O's power tier), a
 character setting its own facts where it is constructed, and a grid fighter that
-authors no fighter body (it plays on the ruleset body
-`SMASH_FIGHTER_BODY`; a missing author is a product call). `CharacterDefinition`
+authors no fighter body (it plays on the ruleset body, `body` in
+Smash's `match_rules.ron`; a missing author is a product call). `CharacterDefinition`
 has no `with_vitals` builder; that is ergonomics, not a duplicate authority.
 
 ### A1b - factor repeated authored archetypes before runtime, not in ECS

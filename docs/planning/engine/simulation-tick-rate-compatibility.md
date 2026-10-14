@@ -184,7 +184,7 @@ hitstop authority. They can share tests but not a duplicate rate source.
 **Sites**
 
 - `game/ambition_app/src/app/versus_rules.rs`: `COUNTDOWN_TICKS = 90`, `FIGHT_CALL_TICKS = 30`, and `MatchPhase::Starting`.
-- `game/ambition_demo_smash/src/lib.rs`: `opening_countdown_ticks = 3 * 60 / COUNTDOWN_SPEEDUP`; `SMASH_TIME_LIMIT_TICKS`.
+- `game/ambition_demo_smash/assets/data/match_rules.ron`: `opening_countdown_ticks: 18` and `time_limit_ticks: 28800`, written in ticks at 60 Hz.
 - `crates/ambition_match/src/prepared.rs`: `MatchRules::opening_countdown_ticks`, `opening_phase`, and time-limit rules.
 - `crates/ambition_characters/src/actor/attack_gesture.rs`: `flick_window_ticks = 4`, `special_turn_window_ticks = 4`.
 - `crates/ambition_combat/src/moveset/mod.rs`: raw-tick gesture and B-reverse windows.

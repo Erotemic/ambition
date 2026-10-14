@@ -7,7 +7,7 @@
 //! lives in `select_screen`.
 
 #[cfg(test)]
-use crate::STARTING_STOCKS;
+use crate::starting_stocks;
 use crate::{MatchParticipant, MatchParticipantRoster};
 
 /// One screen, four slots: the same ceiling as the versus stage and
@@ -46,7 +46,7 @@ pub const SMASH_ROSTER: &[&str] = &[
     "npc_emmy_noether",
     // Both author their own repertoire (their catalog rows), like every id on
     // this roster. No
-    // seated fighter falls back to a generic repertoire. `SMASH_FIGHTER_KIT`
+    // seated fighter falls back to a generic repertoire. `smash_fighter_kit()`
     // is still live as an ability grant (`lib.rs`).
     "npc_carl_stargan",
     "special_patent_clerk",
@@ -513,7 +513,7 @@ impl SmashSelect {
             policy,
             &Default::default(),
             None,
-            crate::STARTING_STOCKS,
+            crate::starting_stocks(),
         )
     }
 

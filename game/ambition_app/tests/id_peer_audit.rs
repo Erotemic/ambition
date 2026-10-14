@@ -554,7 +554,7 @@ fn two_hosts_with_different_local_history_seat_the_same_agreed_match() {
                 POLICY,
                 &Default::default(),
                 None,
-                ambition_demo_smash::STARTING_STOCKS,
+                ambition_demo_smash::starting_stocks(),
             )
             .expect("two decided seats are a match")
             .participants

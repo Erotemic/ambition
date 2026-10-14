@@ -260,7 +260,7 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
             // Both sides call one function now, so a stage that stops declaring a floor turns
             // this red instead of passing.
             Some(ambition_demo_smash::smash_seating_melee()),
-            ambition_demo_smash::STARTING_STOCKS,
+            ambition_demo_smash::starting_stocks(),
         )
         .expect("two decided seats are a match");
     for participant in &roster.participants {
@@ -473,8 +473,8 @@ fn every_smash_fighter_lands_between_the_stages_floor_and_its_ceiling() {
         "the stage GRANTS a verb it does not PERMIT, so `apply` drops it and          every fighter below is short of the kit this stage promised: {rules:?}"
     );
 
-    let floor = ambition_demo_smash::SMASH_FIGHTER_KIT;
-    let ceiling = ambition_demo_smash::SMASH_FIGHTER_CEILING;
+    let floor = ambition_demo_smash::smash_fighter_kit();
+    let ceiling = ambition_demo_smash::smash_fighter_ceiling();
     assert_ne!(
         floor, ceiling,
         "the stage's floor and ceiling are the same set, so this test is about \
@@ -874,7 +874,7 @@ const NOT_AN_AXIS_BODY: &[&str] = &["sanic"];
 /// THE PLATFORM FIGHTER'S BODY REACHES NO GAME THAT DID NOT ASK FOR ONE. ( slice 1b)
 ///
 /// the whole risk of a stage-supplied body is a floor LEAKING. The
-/// numbers `SMASH_FIGHTER_BODY` carries are wrong everywhere else and the engine
+/// numbers `smash_fighter_body()` carries are wrong everywhere else and the engine
 /// says so in its own defaults: a jump squat is a different game's jump (Mary-O's
 /// SMB1 convergence needs the leap on the press tick), an air dodge steals the
 /// airborne burst press from every exploration body, and a tumble floor makes a
@@ -1003,7 +1003,7 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
         // on the way up. The only term that varies across the grid is the body.
         let maneuver = ae::resolve_burst_maneuver(
             &ae::BodyAbilities {
-                abilities: ambition_demo_smash::SMASH_FIGHTER_KIT,
+                abilities: ambition_demo_smash::smash_fighter_kit(),
                 ..Default::default()
             },
             &ae::BodyGroundState {

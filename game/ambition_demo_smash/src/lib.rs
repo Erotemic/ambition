@@ -44,23 +44,6 @@ pub mod tether;
 /// The game-MODE tag this demo's rules gate on, so they sleep everywhere else.
 pub const SMASH_MODE: &str = "smash";
 
-/// The match clock, in ticks: eight minutes at 60Hz.
-///
-/// Public so that measurement tools (for example `ladder_rig`) use the real
-/// match length. A shorter length ends every bout on the damage tiebreak.
-pub const SMASH_TIME_LIMIT_TICKS: u32 = 8 * 60 * 60;
-
-/// Stocks each fighter starts with. Three is the smallest count where the
-/// middle of a match differs from its start and its end.
-pub const STARTING_STOCKS: u32 = 3;
-
-/// What 100% means: the denominator of `damage_percent()`.
-///
-/// Under `DeathPolicy::Unbounded` the pool never kills, so this is only the
-/// scale for percent. The match declares it, not the characters: an undeclared
-/// pool is whatever the character authored. See `apply_smash_match_rules`.
-pub const SMASH_PERCENT_REFERENCE: i32 = 100;
-
 /// The published controller policy a CPU seat asks for: `smash::duelist`
 /// (cite-ok: an authored provider::name key, not a Rust path), resolved in
 /// this stage's own provider.
@@ -117,35 +100,21 @@ where
             },
         )
         .collect();
-    apply_smash_match_rules(&mut roster, STARTING_STOCKS);
+    apply_smash_match_rules(&mut roster, starting_stocks());
     roster.published_by(SMASH_EXPERIENCE)
 }
 
 /// The Smash ruleset, in one place.
 pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32) {
-    // This match grants no pilot licence. The admiral authors
-    // `pilotable_classes`, and `prepared_match` unions it into `CanPilot` on
-    // every road that builds a body. Which shark a body may board is answered
-    // on the mount: see `ambition_mount::MountReservedFor`.
-    roster.rules.opens_suspended = true;
-    // Opening countdown: 3, 2, 1, go. Ticks, not seconds, because the release
-    // compares against the sim clock (`MatchRules::opening_countdown_ticks`).
-    //
-    // A developer speed-up that stays (Q91): `COUNTDOWN_SPEEDUP = 1` gives
-    // the full three seconds.
-    roster.rules.opening_countdown_ticks = 3 * 60 / COUNTDOWN_SPEEDUP;
-    // Match clock (eight minutes, as in Ultimate's default stock match), so a
-    // match between two passive fighters still ends. Derived from
-    // `ActiveMatch::activated_on`, so it costs no rollback state; see
-    // `MatchRules::time_remaining`.
-    roster.rules.time_limit_ticks = SMASH_TIME_LIMIT_TICKS;
-    // A parameter, not a constant or a resource read here: both roads
-    // (`smash_roster` and `SmashSelect::roster_seeded`) must state the count.
+    // The pack's rules (`assets/data/match_rules.ron`): the countdown, the
+    // clock, the respawn beat, the percent pool, the floor and ceiling, the
+    // fighter body and fighter contact. This match grants no pilot licence:
+    // which shark a body may board is answered on the mount (see
+    // `ambition_mount::MountReservedFor`).
+    smash_match_rules().apply_to(&mut roster.rules);
+    // A parameter, not a resource read here: both roads (`smash_roster` and
+    // `SmashSelect::roster_seeded`) must state the count.
     roster.rules.stocks = Some(stocks);
-    roster.rules.stock_respawn_seconds = RESPAWN_INTERVAL_SECONDS;
-    // The match supplies one health pool for percent calculation so crossover
-    // characters are measured against this ruleset rather than their home games.
-    roster.rules.health_pool = Some(SMASH_PERCENT_REFERENCE);
     // Percent is not health, so a fighter's hits deal the damage it states in
     // the platform-fighter scale. A move it does not name keeps its moveset
     // damage, which is right for a fighter whose home game is this one.
@@ -153,20 +122,6 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
         Some(ambition_platformer2d::characters::smash_fighter::FIGHTER_DAMAGE);
     // The Limit is the match's resource: every seat is built holding it, empty.
     roster.rules.resources = vec![crate::limit::SMASH_LIMIT.declaration()];
-    // Every fighter gets the ruleset floor, keeps what of its own kit the
-    // ceiling permits, and brings nothing else. The gap between the two
-    // constants is one verb: Robot v3 keeps its pogo.
-    roster.rules.abilities = Some(ambition_platformer2d::engine_core::MatchAbilities {
-        granted: SMASH_FIGHTER_KIT,
-        permitted: SMASH_FIGHTER_CEILING,
-    });
-    // Apply the ruleset's body baseline alongside its ability policy.
-    roster.rules.body = Some(SMASH_FIGHTER_BODY);
-    // Fighters are solid to each other (jostle). The engine owns the
-    // constraint; the match only says its cast has it. Projectiles and props
-    // do not get it, because they are not seats.
-    roster.rules.fighter_contact =
-        Some(ambition_platformer2d::platformer::body::BodyContact::FIRM);
     // No items for now (Jon's call). The machinery (`MatchItemSpawns`, the
     // spawner, the weighted table) is built and tested; only this declaration
     // is absent. The previous table: a drop every 8s at three points above the
@@ -175,128 +130,47 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
     roster.rules.item_spawns = None;
 }
 
-/// Match-level movement overrides shared by platform fighters on the Smash stage.
-///
-/// These values are authored by the match rather than engine defaults: melee recoil
-/// is disabled, jump squat and the floor game are enabled, and fighters receive the
-/// match air-dodge/SDI behavior. Character-specific movement outside these fields is
-/// preserved by `MatchRules::body_over`.
-pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
-    ambition_platformer2d::engine_core::MatchBody {
-        slash_recoil: 0.0,
-        jump_squat_time: 3.0 / 60.0,
-        air_dodge_time: ambition_platformer2d::engine_core::AIR_DODGE_TIME,
-        air_dodge_speed: ambition_platformer2d::engine_core::AIR_DODGE_SPEED,
-        air_dodge_endlag: ambition_platformer2d::engine_core::AIR_DODGE_ENDLAG,
-        // The roll ends at rest and leaves the fighter punishable. The distance
-        // (530px/s over 0.22s, about 117px) is unchanged on purpose.
-        dodge_roll_endlag: ambition_platformer2d::engine_core::DODGE_ROLL_ENDLAG,
-        // Dodge staling: each recent evade removes a quarter of the
-        // invulnerable window, floored at a third, forgiven one per 1.2s.
-        // It reduces the i-frames, not the distance.
-        dodge_stale_step: 0.25,
-        dodge_stale_floor: 0.34,
-        dodge_stale_recovery: 1.2,
-        // A kill-power hit cannot be teched. Keep this well above the tumble
-        // threshold (500px/s) so ordinary launches keep their tech.
-        untechable_launch_speed: 1400.0,
-        // An evade can cancel into an attack only in its last four frames.
-        // Spot-dodge-into-attack stays a real option; it costs the frames
-        // before the tail.
-        evade_cancel_tail: 4.0 / 60.0,
-        // Spot dodge, 0.16s: shorter than the roll because it covers no
-        // distance. The engine default is `0.0`, so an exploration body keeps
-        // the roll.
-        spot_dodge_time: ambition_platformer2d::engine_core::SPOT_DODGE_TIME,
-        // Smash 4 opens the parry window on the press, Ultimate on the
-        // release. The stage chooses; `OnRelease` is fully live (guarded by
-        // `the_parry_window_opens_where_the_ruleset_says_it_does`).
-        parry_timing: ambition_platformer2d::engine_core::ParryTiming::OnRaise,
-        tumble_speed: 500.0,
-        // SDI, 3px per hitlag tick: shift out of the next hit while frozen.
-        // The engine default is `0.0`.
-        sdi_step: 3.0,
-        // ASDI: one nudge per hit, paid when the freeze lifts. It gives a
-        // defender something against multihits, where `sdi_step` gives little.
-        asdi_step: 6.0,
-        // A jab is a few hundred px/s and a smash is thousands, so this
-        // separates a poke on a downed opponent from a launch.
-        jab_lock_speed: 320.0,
-        // Three pins, then the floor game resets: a combo route, not an
-        // infinite.
-        jab_lock_limit: 3,
-        shield: ambition_platformer2d::engine_core::ShieldTuning::PLATFORM_FIGHTER,
-        footstool: ambition_platformer2d::engine_core::FootstoolTuning::PLATFORM_FIGHTER,
-        // Crouching stops the fighter, as in every Smash for characters
-        // without a crawl. Mobility pays for the smaller hurtbox and the
-        // `crouch_cancel_scale`. A fighter with a crawl declares its own.
-        crouch_speed_frac: 0.0,
-        // Initial dash: the first 14 frames of a ground move, where a
-        // direction change is free (dash-dance, foxtrot re-tap). A genre
-        // starting point, not a measured value.
-        initial_dash_time: 14.0 / 60.0,
-        // Inherit the run speed; the phase controls when you may turn.
-        initial_dash_speed: 0.0,
-        // Reversing out of a run costs frames. 3 frames is what the proving
-        // ground tolerates: at 7, `smash_it` lost two premise guards because
-        // the CPU matchup became one-sided. The value is a feel call for Jon.
-        turnaround_time: 3.0 / 60.0,
-        // A quarter of the footprint past a ledge puts the fighter on the
-        // brink. Published only: `BodyMotionFacts::teetering` is read by
-        // animation and control; collision does not change.
-        teeter_margin: 0.25,
-    };
+/// The rules of Smash's matches, as its pack states them
+/// (`assets/data/match_rules.ron`). [`apply_smash_match_rules`] writes them on
+/// every roster; the accessors below read one rule each.
+pub fn smash_match_rules() -> ambition_platformer2d::versus_match::match_rules::AuthoredMatchRules {
+    crate::smash_pack::match_rules()
+}
 
-/// The basic Smash abilities: the verbs every fighter on this stage has.
-///
-/// `fly` and `blink` are absent: they are the exploration traversal kit, not a
-/// platform fighter's ground game. `interact` and `reset` are absent because a
-/// fighter has no talk button and no teleport home. `dash` is absent: it is a
-/// charge-gated burst that replaces velocity (`apply_dash`), not running.
-/// Running is `move_horizontal` against the body's top speed. Without `dash`,
-/// the burst button means only the dodge here.
-///
-/// `shield`, `dodge` and `ledge_grab` make this a platform fighter.
-///
-/// See `apply_intent` in `movement/abilities.rs`.
-pub const SMASH_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
-    ambition_platformer2d::engine_core::AbilitySet {
-        move_horizontal: true,
-        jump: true,
-        variable_jump: true,
-        double_jump: true,
-        fast_fall: true,
-        attack: true,
-        directional_primary: true,
-        shield: true,
-        // Granting `grab` does not invent a grab: the action scheme also needs
-        // an authored `"grab"` move, so only fighters with one use it.
-        grab: true,
-        dodge: true,
-        ledge_grab: true,
-        ..ambition_platformer2d::engine_core::AbilitySet::NONE
-    };
+/// Stocks each fighter starts with, unless the select screen chooses.
+pub fn starting_stocks() -> u32 {
+    smash_match_rules().stocks.expect("Smash's match rules state a stock count")
+}
 
-/// The ceiling: the floor above, plus the verbs a fighter may bring from home.
-///
-/// The difference between the two constants is character identity. Robot v3
-/// has pogo because it authors pogo; a fighter without pogo does not get one
-/// by entering Smash. Do not move pogo into the floor.
-///
-/// The wall jump and the wall cling (`AbilityGrant::WallMobility`) are the
-/// same kind of verb (S0.7): the genre gives them to some fighters and not
-/// to others. A fighter that authors them keeps them here, and a fighter that
-/// does not author them does not get them. Do not move them into the floor.
-///
-/// `MatchAbilities::levelled` treats these as floor and ceiling. `fly`, `blink`
-/// and `dash` stay out of both: they are the exploration kit.
-pub const SMASH_FIGHTER_CEILING: ambition_platformer2d::engine_core::AbilitySet =
-    ambition_platformer2d::engine_core::AbilitySet {
-        pogo: true,
-        wall_jump: true,
-        wall_cling: true,
-        ..SMASH_FIGHTER_KIT
-    };
+/// The match clock, in ticks. Public so that measurement tools (for example
+/// `ladder_rig`) use the real match length: a shorter one ends every bout on
+/// the damage tiebreak.
+pub fn smash_time_limit_ticks() -> u32 {
+    smash_match_rules().time_limit_ticks
+}
+
+/// What 100% means: the denominator of `damage_percent()`.
+pub fn smash_percent_reference() -> i32 {
+    smash_match_rules().health_pool.expect("Smash's match rules state a percent pool")
+}
+
+/// The fighter body the match writes over each fighter's own movement.
+pub fn smash_fighter_body() -> ambition_platformer2d::engine_core::MatchBody {
+    smash_match_rules().body.expect("Smash's match rules state a fighter body")
+}
+
+/// The floor: the verbs every fighter has here.
+pub fn smash_fighter_kit() -> ambition_platformer2d::engine_core::AbilitySet {
+    smash_match_rules().abilities.expect("Smash's match rules state a floor and ceiling").granted
+}
+
+/// The ceiling: the floor plus the verbs a fighter may bring from home. The
+/// difference is character identity (Robot v3 keeps its pogo because it
+/// authors pogo). `MatchAbilities::levelled` treats the two as floor and
+/// ceiling.
+pub fn smash_fighter_ceiling() -> ambition_platformer2d::engine_core::AbilitySet {
+    smash_match_rules().abilities.expect("Smash's match rules state a floor and ceiling").permitted
+}
 
 /// The same roster, at a named ladder level.
 ///
@@ -1134,14 +1008,6 @@ pub const FIGHTER_HUD_SLOTS: [&str; 4] = [
     "smash_fighter_2",
     "smash_fighter_3",
 ];
-/// How much faster than authored the opening countdown runs. This is a
-/// developer/debug affordance that stays (Q91 in `maintainer-decisions.md`);
-/// `1` gives the authored three seconds.
-///
-/// It divides the ticks, not the beats: `MatchRules::beats()` still counts
-/// three. Tests read the roster's value, not a literal.
-const COUNTDOWN_SPEEDUP: u32 = 10;
-
 /// The winner card. One slot, because the stage says one thing at a time.
 pub const SMASH_ANNOUNCE_HUD_SLOT: &str = "smash_announce";
 
@@ -1676,15 +1542,6 @@ const HUD_PUNCH_REFERENCE_HITLAG: f32 = 0.12;
 /// that spawn camping is not free. Attacking or leaving the platform ends it
 /// early.
 const RESPAWN_PROTECTION_SECONDS: f32 = 2.0;
-
-/// D192: how long the stage waits before putting a knocked-out fighter back.
-///
-/// With zero, the KO cue played over a fighter already back, and the camera
-/// jumped to a body that appeared far away. One second is the genre's pause.
-///
-/// D201: seconds, because the beat is the engine's `DeathInterlude`, counted
-/// on `WorldTime` and rewound with everything else.
-const RESPAWN_INTERVAL_SECONDS: f32 = 1.0;
 
 /// Take an eliminated fighter out of play.
 ///
@@ -2779,12 +2636,12 @@ pub enum SmashStageChoice {
 /// How many stocks this match gives each fighter.
 ///
 /// Feeds `MatchRules::stocks`, which the engine pairs with
-/// `DeathPolicy::Unbounded`. Defaults to [`STARTING_STOCKS`].
+/// `DeathPolicy::Unbounded`. Defaults to [`starting_stocks()`].
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SmashStockChoice {
     /// One stock: no room to learn the matchup inside the match.
     One,
-    /// [`STARTING_STOCKS`]: the count every ladder number was measured at.
+    /// [`starting_stocks()`]: the count every ladder number was measured at.
     #[default]
     Three,
     /// Five: an early mistake is recoverable.
@@ -2796,7 +2653,7 @@ impl SmashStockChoice {
     pub fn count(self) -> u32 {
         match self {
             SmashStockChoice::One => 1,
-            SmashStockChoice::Three => STARTING_STOCKS,
+            SmashStockChoice::Three => starting_stocks(),
             SmashStockChoice::Five => 5,
         }
     }

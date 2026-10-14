@@ -83,7 +83,7 @@ pub fn stage(request: StageRequest<'_>) -> Staged {
         app.update();
     }
     // An untimed match. A probe runs far longer than
-    // `SMASH_TIME_LIMIT_TICKS` (`8 * 60 * 60` = 28_800). When the clock runs
+    // `smash_time_limit_ticks()` (`8 * 60 * 60` = 28_800). When the clock runs
     // out, the cast is despawned, handles dangle, and every later trial
     // refuses with no message.
     //

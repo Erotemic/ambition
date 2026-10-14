@@ -149,9 +149,24 @@ value for a designer and size of change:
    Rust was deleted). Witness: `smashs_rules_are_its_room_rules_file` (an
    edit to the file lowers the edit; red when the accessor drifts from the
    file). An edit is played at the next start: measured 0.74 s from a saved
-   edit to a test reading it, no crate compiled. Open: the match body and
-   the match economy (`SMASH_FIGHTER_BODY`, stocks, the clock, the percent
-   reference, respawn timings), and a live reload for a demo pack.
+   edit to a test reading it, no crate compiled.
+   ✅ 2026-10-14, the match body and the match economy: a `match_rules`
+   schema (owned by `ambition_match`, the field names of `MatchRules`,
+   `deny_unknown_fields`, each number checked and named) and Smash's
+   `assets/data/match_rules.ron` state the stocks, the respawn beat, the
+   percent pool, the countdown and the clock, the ability floor and ceiling,
+   the fighter body (with its shield and footstool) and fighter contact.
+   `apply_smash_match_rules` writes the pack's rules and keeps only what
+   data cannot name (the damage table, the Limit, the item spawns). Deleted:
+   `SMASH_FIGHTER_BODY`, `SMASH_FIGHTER_KIT`, `SMASH_FIGHTER_CEILING`,
+   `STARTING_STOCKS`, `SMASH_TIME_LIMIT_TICKS`, `SMASH_PERCENT_REFERENCE`,
+   `COUNTDOWN_SPEEDUP`, `RESPAWN_INTERVAL_SECONDS` (accessors of the same
+   names, lower case, read the pack). Bit-equal before the deletion (a
+   temporary test, red on one edited value with no compile). Witness:
+   `smashs_match_rules_are_its_match_rules_file` (red, at the roster's
+   body, when the ruleset skips the pack's rules). Open: a live reload for
+   a demo pack (an edit is a restart today), and the versus stage's match
+   rules (`versus_rules.rs`).
 3. Mary-O rules and the spark projectile; Sanic's shoes, ring scatter and
    badnik bounce; the GNU-ton duel damage; boss bark cadence and wake radius;
    the primeval swallow's fetch tuning.

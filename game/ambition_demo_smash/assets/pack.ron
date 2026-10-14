@@ -61,5 +61,7 @@
         (path: "audio/music_registry.ron", schema: "music_registry", version: 1),
         // The rules of Smash's rooms: the combat rules and the heavy-hit line.
         (path: "data/room_rules.ron", schema: "room_rules", version: 1),
+        // The rules of its matches: stocks, clocks, the fighter body, the kit.
+        (path: "data/match_rules.ron", schema: "match_rules", version: 1),
     ],
 )

@@ -12,6 +12,9 @@
 //! preparation versus actor simulation).
 
 pub mod lifetime;
+/// The `match_rules` schema: the rules of a game's matches as pack data.
+#[cfg(feature = "content_pack")]
+pub mod match_rules;
 pub mod prepared;
 
 #[cfg(test)]

@@ -941,7 +941,8 @@ impl AbilityGrant {
 ///
 /// Both statements are needed because they answer different questions. A stage
 /// says which it means with [`Self::levelled`] or [`Self::at_most`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MatchAbilities {
     /// Every fighter has these, whatever its character authored. The floor a
     /// mode guarantees — for a platform fighter, the verbs without which a body
@@ -1025,7 +1026,8 @@ impl MatchAbilities {
 /// this is a narrow struct rather than a partial `MovementTuning`, which would
 /// need a per-field "did the stage mean this" signal nothing in the value
 /// carries.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MatchBody {
     /// How far a melee press shoves its own owner backwards (px/s).
     ///

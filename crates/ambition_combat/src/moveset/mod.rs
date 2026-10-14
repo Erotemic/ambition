@@ -3320,7 +3320,7 @@ pub fn trigger_moveset_moves(
             // every fighter has because `SmashCaptureRepertoire::bound` derives
             // it from that fighter's own standing grab. Same gait fact the dash
             // attack reads — ⛔ `running`, NEVER `BodyMotionFacts::dashing`,
-            // which `SMASH_FIGHTER_KIT` leaves permanently false and which made
+            // which `smash_fighter_kit()` leaves permanently false and which made
             // the dash attack unreachable in the game it was built for.
             (
                 moveset

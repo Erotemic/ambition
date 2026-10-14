@@ -26,3 +26,11 @@ pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! { root: "as
 pub fn fighter_body(character: &str) -> Option<ambition_platformer2d::engine_core::MovementTuning> {
     fighter_body_in(PACK.prepared(), character)
 }
+
+/// The rules of Smash's matches, as its pack states them
+/// (`assets/data/match_rules.ron`): stocks, clocks, the percent pool, the
+/// fighter body, the ability floor and ceiling, fighter contact.
+pub fn match_rules() -> ambition_platformer2d::versus_match::match_rules::AuthoredMatchRules {
+    *ambition_platformer2d::versus_match::match_rules::lowered_match_rules(PACK.prepared())
+        .expect("Smash's pack states the rules of its matches (`data/match_rules.ron`)")
+}

@@ -1,0 +1,203 @@
+// The rules of Smash's matches (schema `match_rules`): the stocks, the
+// clocks, the percent pool, the fighter body, the ability floor and ceiling,
+// and fighter contact. `apply_smash_match_rules` writes them on every roster;
+// the damage table, the Limit and the item spawns stay with the game. An edit
+// here is played at the next start, with no Rust build.
+(
+    // Three is the smallest count where the middle of a match differs from its
+    // start and its end. The select screen's choice writes over it.
+    stocks: Some(3),
+    // How long the stage waits before putting a knocked-out fighter back.
+    // With zero, the KO cue played over a fighter already back, and the camera
+    // jumped to a body that appeared far away. One second is the genre's
+    // pause.
+    stock_respawn_seconds: 1.0,
+    // What 100% means: the denominator of `damage_percent()`. The match
+    // declares it, not the characters, so crossover characters are measured
+    // against this ruleset and not their home games.
+    health_pool: Some(100),
+    // The match opens on a countdown: 3, 2, 1, go.
+    opens_suspended: true,
+    // Ticks, because the release compares against the sim clock. A developer
+    // speed-up that stays (Q91): the full three seconds is 180; this is a
+    // tenth of it. `MatchRules::beats()` still counts three.
+    opening_countdown_ticks: 18,
+    // Eight minutes at 60 Hz, as in Ultimate's default stock match, so a match
+    // between two passive fighters still ends.
+    time_limit_ticks: 28800,
+    // Every fighter gets the floor, keeps what of its own kit the ceiling
+    // permits, and brings nothing else. The gap between the two is one verb
+    // and the wall pair: Robot v3 keeps its pogo because it authors pogo, and a
+    // fighter that authors the wall jump and cling keeps them. `fly`, `blink`
+    // and `dash` stay out of both: they are the exploration kit. Granting
+    // `grab` does not invent a grab: the action scheme also needs an authored
+    // `"grab"` move.
+    abilities: Some((
+        granted: (
+            move_horizontal: true,
+            jump: true,
+            variable_jump: true,
+            double_jump: true,
+            fast_fall: true,
+            wall_jump: false,
+            wall_cling: false,
+            wall_climb: false,
+            dash: false,
+            double_dash: false,
+            fly: false,
+            fly_toggle: false,
+            blink: false,
+            precision_blink: false,
+            blink_through_soft_walls: false,
+            blink_through_hard_walls: false,
+            attack: true,
+            pogo: false,
+            directional_primary: true,
+            directional_special: false,
+            rebound: false,
+            reset: false,
+            ledge_grab: true,
+            swim: false,
+            glide: false,
+            dodge: true,
+            shield: true,
+            grab: true,
+            interact: false,
+            crouch: false,
+            climb: false,
+            morph: false,
+        ),
+        permitted: (
+            move_horizontal: true,
+            jump: true,
+            variable_jump: true,
+            double_jump: true,
+            fast_fall: true,
+            wall_jump: true,
+            wall_cling: true,
+            wall_climb: false,
+            dash: false,
+            double_dash: false,
+            fly: false,
+            fly_toggle: false,
+            blink: false,
+            precision_blink: false,
+            blink_through_soft_walls: false,
+            blink_through_hard_walls: false,
+            attack: true,
+            pogo: true,
+            directional_primary: true,
+            directional_special: false,
+            rebound: false,
+            reset: false,
+            ledge_grab: true,
+            swim: false,
+            glide: false,
+            dodge: true,
+            shield: true,
+            grab: true,
+            interact: false,
+            crouch: false,
+            climb: false,
+            morph: false,
+        ),
+    )),
+    // The fighter body: what the match writes over each fighter's own
+    // movement. Melee recoil off, jump squat and the floor game on.
+    body: Some((
+        slash_recoil: 0.0,
+        // 3 frames.
+        jump_squat_time: 0.05,
+        air_dodge_time: 0.2,
+        air_dodge_speed: 440.0,
+        air_dodge_endlag: 0.16,
+        // The roll ends at rest and leaves the fighter punishable. The
+        // distance (530 px/s over 0.22 s, about 117 px) is unchanged on
+        // purpose.
+        dodge_roll_endlag: 0.08,
+        // Dodge staling: each recent evade removes a quarter of the
+        // invulnerable window, floored at a third, forgiven one per 1.2 s.
+        // It reduces the i-frames, not the distance.
+        dodge_stale_step: 0.25,
+        dodge_stale_floor: 0.34,
+        dodge_stale_recovery: 1.2,
+        // A kill-power hit cannot be teched. Keep this well above the tumble
+        // threshold (500 px/s) so ordinary launches keep their tech.
+        untechable_launch_speed: 1400.0,
+        // An evade can cancel into an attack only in its last four frames.
+        evade_cancel_tail: 0.06666667,
+        tumble_speed: 500.0,
+        // Spot dodge, 0.16 s: shorter than the roll because it covers no
+        // distance. The engine default is 0.0, so an exploration body keeps
+        // the roll.
+        spot_dodge_time: 0.16,
+        // Smash 4 opens the parry window on the press, Ultimate on the
+        // release. The stage chooses; `OnRelease` is fully live (guarded by
+        // `the_parry_window_opens_where_the_ruleset_says_it_does`).
+        parry_timing: OnRaise,
+        // SDI, 3 px per hitlag tick: shift out of the next hit while frozen.
+        sdi_step: 3.0,
+        // ASDI: one nudge per hit, paid when the freeze lifts. It gives a
+        // defender something against multihits, where `sdi_step` gives little.
+        asdi_step: 6.0,
+        // A jab is a few hundred px/s and a smash is thousands, so this
+        // separates a poke on a downed opponent from a launch.
+        jab_lock_speed: 320.0,
+        // Three pins, then the floor game resets: a combo route, not an
+        // infinite.
+        jab_lock_limit: 3,
+        // A guard that survives about six seconds held, refills in about
+        // eight, and costs a point of integrity per point blocked.
+        shield: (
+            max_health: 50.0,
+            drain_per_second: 8.0,
+            regen_per_second: 6.0,
+            damage_scale: 1.0,
+            break_stun_time: 2.0,
+            stun_per_damage: 0.012,
+            pushback_per_damage: 6.0,
+            min_coverage: 0.45,
+            // A third of a half-height: a spent guard tilted down still covers
+            // the feet a poke was reaching for.
+            tilt_range: 0.34,
+            // Guard + down on a soft platform drops through, in every title.
+            platform_drop: true,
+            // A guard is a launching platform in this genre, and these five
+            // are what it launches.
+            out_of_shield: Some((jump: true, burst: true, grab: true, up_attack: true, up_special: true)),
+            // No airborne shield, the genre's rule in every title: the same
+            // press in the air is the air dodge.
+            air_guard: false,
+            // 11 frames, Ultimate's shield drop: an out-of-shield option is
+            // fast, and letting go is not.
+            drop_lag: 0.18333334,
+        ),
+        // Crouching stops the fighter, as in every Smash for characters
+        // without a crawl. A fighter with a crawl declares its own.
+        crouch_speed_frac: 0.0,
+        // Initial dash: the first 14 frames of a ground move, where a
+        // direction change is free (dash-dance, foxtrot re-tap). A genre
+        // starting point, not a measured value.
+        initial_dash_time: 0.23333333,
+        // Inherit the run speed; the phase controls when you may turn.
+        initial_dash_speed: 0.0,
+        // Reversing out of a run costs frames. 3 frames is what the proving
+        // ground tolerates: at 7, `smash_it` lost two premise guards because
+        // the CPU matchup became one-sided. The value is a feel call for Jon.
+        turnaround_time: 0.05,
+        // A quarter of the footprint past a ledge puts the fighter on the
+        // brink. Published only: collision does not change.
+        teeter_margin: 0.25,
+        footstool: (
+            rise_speed: 330.0,
+            press_speed: 220.0,
+            flinch_time: 0.12,
+            air_tumble_time: 0.4,
+            stomper_invuln: 0.06666667,
+            band: 14.0,
+        ),
+    )),
+    // Fighters are solid to each other (jostle). The engine owns the
+    // constraint; the match only says its cast has it.
+    fighter_contact: Some((resistance: 0.85)),
+)

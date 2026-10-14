@@ -95,7 +95,7 @@ fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
     assert_eq!(roster.participants.len(), 2);
     assert_eq!(
         roster.rules.stocks,
-        Some(ambition_demo_smash::STARTING_STOCKS),
+        Some(ambition_demo_smash::starting_stocks()),
         "the decided match is not a stocks match"
     );
 
@@ -865,7 +865,7 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
     // The ruleset is the shipped stage's, not the rig's.
     assert_eq!(
         roster.rules.stocks,
-        Some(ambition_demo_smash::STARTING_STOCKS)
+        Some(ambition_demo_smash::starting_stocks())
     );
     assert!(
         roster.rules.opens_suspended,

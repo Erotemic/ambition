@@ -37,6 +37,8 @@ content_pack = [
     "ambition_encounter/content_pack",
     "ambition_audio/content_pack",
     "ambition_combat/content_pack",
+    # The match capability owns `match_rules`.
+    "ambition_match/content_pack",
     # ⭐ the boss schemas moved here with the boss thinking (D168, 2026-08-27).
     "ambition_boss_encounter/content_pack",
     "ambition_persistence/content_pack",

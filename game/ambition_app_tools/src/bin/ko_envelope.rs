@@ -569,7 +569,7 @@ impl KoProbe {
             seat1,
         } = staged;
 
-        // Stocks first, for correctness: `STARTING_STOCKS` is 3, and
+        // Stocks first, for correctness: `starting_stocks()` is 3, and
         // `take_eliminated_fighters_out_of_play` despawns an eliminated body,
         // so the fourth KO would query a destroyed entity.
         for body in [seat0, seat1] {
@@ -880,7 +880,7 @@ impl KoProbe {
                  Rows ABOVE this line were measured against a live match and stand; \
                  there are no rows below because every later trial would refuse against \
                  a dangling entity handle. The probe simulates more ticks than \
-                 SMASH_TIME_LIMIT_TICKS (8*60*60), so the match clock runs out mid-run."
+                 smash_time_limit_ticks() (8*60*60), so the match clock runs out mid-run."
             );
             eprintln!(
                 "KO_ABORT: seats_now=0 at x={victim_x:.0} pct={entry_percent} — \

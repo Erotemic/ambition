@@ -223,10 +223,10 @@ fn holding_a_respawn_platform_does_not_touch_the_stages_own() {
 fn the_stages_body_opens_a_window_for_every_verb_the_stage_grants() {
     // The body a fighter that brings nothing of its own plays with: the
     // stage's numbers over the engine's.
-    let body = SMASH_FIGHTER_BODY.over(ambition_platformer2d::engine_core::DEFAULT_TUNING);
+    let body = smash_fighter_body().over(ambition_platformer2d::engine_core::DEFAULT_TUNING);
     // The ceiling, not the floor: a verb the stage only permits (pogo) still
     // needs a live window.
-    let kit = SMASH_FIGHTER_CEILING;
+    let kit = smash_fighter_ceiling();
     let dead: Vec<&str> = [
         // (granted?, the number without which the verb does nothing, name)
         (kit.dodge, body.air_dodge_time, "dodge (in the air)"),
@@ -304,7 +304,7 @@ fn the_roster_supplies_the_fighters_body() {
     let roster = smash_roster(["player_robot_v3", "player_robot_v2"]);
     assert_eq!(
         roster.rules.body,
-        Some(SMASH_FIGHTER_BODY),
+        Some(smash_fighter_body()),
         "the stage grants a platform fighter's verbs and supplies no body \
          to run them on"
     );
@@ -314,7 +314,7 @@ fn the_roster_supplies_the_fighters_body() {
 #[test]
 fn the_roster_declares_stocks_for_every_seat() {
     let roster = smash_roster(["player_robot_v3", "player_robot_v2"]);
-    assert_eq!(roster.rules.stocks, Some(STARTING_STOCKS));
+    assert_eq!(roster.rules.stocks, Some(starting_stocks()));
     assert_eq!(roster.participants.len(), 2);
     assert!(
         roster.rules.opens_suspended,
@@ -1049,19 +1049,20 @@ fn the_prepared_session_is_the_smash_stage() {
 #[test]
 fn the_match_declares_the_pool_every_fighters_percent_is_read_against() {
     let mut roster = ambition_platformer2d::actor::MatchParticipantRoster::of(["mary_o", "sanic"]);
-    apply_smash_match_rules(&mut roster, STARTING_STOCKS);
+    apply_smash_match_rules(&mut roster, starting_stocks());
     assert_eq!(
         roster.rules.health_pool,
-        Some(SMASH_PERCENT_REFERENCE),
+        Some(smash_percent_reference()),
         "a stocks match that does not declare its own pool reads each seat's \
          percent against whatever that character's HOME GAME authored"
     );
     // The reference makes percent comparable across characters; one would
     // make every hit read in the thousands.
     assert!(
-        SMASH_PERCENT_REFERENCE >= 50,
-        "a percent reference of {SMASH_PERCENT_REFERENCE} makes a single hit \
-         read in the hundreds, which is the 14000% bug in a smaller hat"
+        smash_percent_reference() >= 50,
+        "a percent reference of {} makes a single hit \
+         read in the hundreds, which is the 14000% bug in a smaller hat",
+        smash_percent_reference()
     );
 }
 
@@ -1410,4 +1411,45 @@ fn every_track_its_code_names_is_declared_by_its_pack() {
         "Smash plays `{}` over its select screen and its pack does not declare it",
         crate::SMASH_SELECT_TRACK
     );
+}
+
+/// Smash's match rules are its `assets/data/match_rules.ron`, read when the
+/// pack compiles: every roster carries what the file says, and an edit to the
+/// file is a different rule with no Rust build.
+#[test]
+fn smashs_match_rules_are_its_match_rules_file() {
+    use ambition_platformer2d::content::EmbeddedPack;
+    use ambition_platformer2d::versus_match::match_rules::{lowered_match_rules, MATCH_RULES_SCHEMA};
+
+    let authored = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/data/match_rules.ron"))
+        .expect("Smash's match rules file is readable");
+    let root = std::env::temp_dir().join(format!("smash_match_rules_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("data")).unwrap();
+    std::fs::write(
+        root.join("pack.ron"),
+        format!(
+            r#"(id: "smash_match_rules_probe", version: "0.1.0", namespace: "probe", requires: [],
+                sources: [(path: "data/match_rules.ron", schema: "{MATCH_RULES_SCHEMA}", version: 1)])"#
+        ),
+    )
+    .unwrap();
+    let rules_of = |text: &str| {
+        std::fs::write(root.join("data/match_rules.ron"), text).unwrap();
+        let pack = EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None);
+        let prepared = pack.compile().unwrap_or_else(|failure| panic!("{}", failure.render()));
+        *lowered_match_rules(&prepared).expect("the probe pack lowers match rules")
+    };
+
+    let played = rules_of(&authored);
+    assert_eq!(played, crate::smash_match_rules(), "the game reads the file");
+    let roster = crate::smash_roster(["smash_duelist_a", "smash_duelist_b"]);
+    assert_eq!(roster.rules.body, played.body, "a roster carries the file's fighter body");
+    assert_eq!(roster.rules.time_limit_ticks, played.time_limit_ticks, "and its clock");
+
+    let turnaround = "turnaround_time: 0.05,";
+    assert_eq!(authored.matches(turnaround).count(), 1, "the probe edits one line of the file");
+    let edited = rules_of(&authored.replace(turnaround, "turnaround_time: 0.1,"));
+    assert_eq!(edited.body.map(|body| body.turnaround_time), Some(0.1));
+    let _ = std::fs::remove_dir_all(&root);
 }

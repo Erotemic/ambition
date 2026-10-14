@@ -27,6 +27,8 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
         ambition_characters::moveset_content_schema::moveset_schema(),
         ambition_combat::brain::fighter::content_schema::fighter_brain_ladder_schema(),
         ambition_combat::room_rules::room_rules_schema(),
+        // The rules a match plays under belong with the match capability.
+        ambition_match::match_rules::match_rules_schema(),
         // Capability schemas remain owned by the capability that can interpret them.
         ambition_items::content_schema::item_catalog_schema(),
         ambition_encounter::content_schema::encounter_waves_schema(),

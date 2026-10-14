@@ -403,7 +403,7 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
                 present = true;
                 seat_x = Some(kinematics.pos.x);
                 peak_speed = peak_speed.max(kinematics.vel.x.abs());
-                let now = ambition_demo_smash::STARTING_STOCKS.saturating_sub(stocks.remaining);
+                let now = ambition_demo_smash::starting_stocks().saturating_sub(stocks.remaining);
                 if now > 0 && first_loss.is_none() {
                     first_loss = Some(tick);
                     death_x = last_x;
@@ -423,7 +423,7 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
     let world = app.world_mut();
     let mut alive = world.query::<&MatchSeat>();
     if !alive.iter(world).any(|seat| seat.0 == 1) {
-        lost = ambition_demo_smash::STARTING_STOCKS;
+        lost = ambition_demo_smash::starting_stocks();
     }
     assert!(
         depth_applied,

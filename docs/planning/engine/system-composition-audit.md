@@ -65,6 +65,20 @@ All counts are measured, without the census's own systems. The hub is
    `docs/recipes/profiling.md`). Fewer systems running reduces it; fewer
    archetypes does not.
 
+7. **The hub is Ambition's app, with the other games added.** Measured with
+   `AMBITION_HUB_GAMES=mary_o` (the hub installs only the named games'
+   providers; the launcher then lists only them): Mary-O ran 1494 systems a
+   frame, against 1551 with every game and 1034 standalone. Sanic, Smash and
+   Versus were 57 of the difference. The rest is Ambition's, and the switch
+   cannot remove it: the host's base composition (`ambition_app`
+   `plugins.rs`, `resources.rs`) installs Ambition's content, presentation and
+   item roster, and loads Ambition's world manifest and audio catalogs. With
+   those left out, the host panics (`WorldManifest` is required by
+   `setup_host_presentation_system` and the LDtk loader). And Ambition's cast
+   uses techniques that Smash registers (`smash.counter`,
+   `smash.place_spring`, ...): without Smash, 20 of its moves are refused at
+   admission.
+
 Not measured yet: the frame time that each change below saves on a phone. The
 VM draws with a software renderer, which takes about 70% of its samples.
 
@@ -125,6 +139,15 @@ is true when any live room is in scope, so it decides whether a game's systems
 run, not which actors they touch. Each system still filters its subjects by
 their room, and the test proves that one room's rules do not act on the other
 room's population.
+
+### S2b — A neutral hub: Ambition installs through its provider (medium-large)
+
+From finding 7. Move Ambition's base installs (content, presentation, item
+roster, world manifest, audio catalogs, its menus) into its provider plugin,
+so the hub is the shell, the launcher and the providers it is given. Move the
+techniques that more than one game uses out of `ambition_demo_smash`. Done
+when `AMBITION_HUB_GAMES=mary_o` runs with no Ambition system, and a hub
+build per game (one Android APK with only Mary-O) is a list of providers.
 
 ### S3 — Each game declares the engine capabilities it uses (large)
 

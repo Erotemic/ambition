@@ -27,13 +27,12 @@ use bevy::prelude::*;
 /// Long enough for the whole move and a good look at what she does after it.
 const WATCH_TICKS: usize = 150;
 
-/// The stage's own numbers, so "fairly large" is measured against something.
-/// See `smash_stage()` in `ambition_demo_smash`.
-const PLATFORM_TOP_Y: f32 = 300.0;
-const PLATFORM_WIDTH: f32 = 480.0;
-const FALL_BLAST_DEPTH: f32 = 240.0;
-
 fn main() {
+    // The stage's own numbers (the Smash pack's `smash_stages.ron`), so
+    // "fairly large" is measured against something.
+    let stage = ambition_demo_smash::smash_stage();
+    let platform = stage.world.blocks[0].aabb;
+    let (platform_top_y, platform_width, fall_blast_depth) = (platform.min.y, platform.width(), stage.world.edges.fall);
     // Which way she swings: the swing is the clause with a direction.
     let steer: f32 = match std::env::args().nth(1).as_deref() {
         Some("left") => -1.0,
@@ -90,8 +89,8 @@ fn main() {
             .world_mut()
             .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(seat0)
         {
-            k.pos.x = 320.0 - PLATFORM_WIDTH * 0.5 - 40.0;
-            k.pos.y = PLATFORM_TOP_Y + 260.0;
+            k.pos.x = platform.min.x - 40.0;
+            k.pos.y = platform_top_y + 260.0;
             k.vel = ambition_platformer2d::engine_core::Vec2::new(0.0, 40.0);
         }
         app.update();
@@ -99,11 +98,11 @@ fn main() {
 
     let start = probe_stage::kin(&app, seat0).0;
     println!(
-        "[wire_probe] starting at ({:.1}, {:.1}) — {} the platform lip at y={PLATFORM_TOP_Y:.0}; \
+        "[wire_probe] starting at ({:.1}, {:.1}) — {} the platform lip at y={platform_top_y:.0}; \
          steering {}",
         start.x,
         start.y,
-        if start.y > PLATFORM_TOP_Y {
+        if start.y > platform_top_y {
             "BELOW"
         } else {
             "above"
@@ -243,10 +242,10 @@ fn main() {
     );
     println!(
         "[wire_probe] 5. A FAIRLY LARGE DISTANCE: {rose:.1}px = {:.2} platform widths \
-         ({PLATFORM_WIDTH:.0}px), {:.2}x the fall blast depth ({FALL_BLAST_DEPTH:.0}px), \
+         ({platform_width:.0}px), {:.2}x the fall blast depth ({fall_blast_depth:.0}px), \
          {:.2}x the 215px teleport.",
-        rose / PLATFORM_WIDTH,
-        rose / FALL_BLAST_DEPTH,
+        rose / platform_width,
+        rose / fall_blast_depth,
         rose / 215.0,
     );
     println!(

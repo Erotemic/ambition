@@ -136,6 +136,10 @@ Done (the commit messages hold the detail):
   installed catalog does not name is no item: nothing is granted, saved or
   drawn. Mary-O, Sanic and Smash state no `items.ron`, so they have no
   items. The owned-items checksum keys a slot by its grid index.
+- Smash's three stages (`smash_stages`, owned by the demo): the shared
+  room, landing point and blast envelope, and each stage's blocks. The
+  geometry constants are deleted, and the select screen's ids must each
+  have a row (refused at admission).
 
 Open:
 
@@ -150,7 +154,8 @@ Open:
    process, so the `&'static` readers do not change. A new character's VFX
    sheet is then a publish and no Rust edit. Needs a still renderer (not
    during a publish) and a republish of the 14 sheets.
-2. Demo stages built in Rust (Smash, Twintrack).
+2. Demo stages built in Rust: Twintrack's plaza (`ambition_demo_twintrack`
+   `lib.rs`, one `World::new`).
 3. A live reload for the demo packs' tuning (a restart today: no reload
    family restates it).
 

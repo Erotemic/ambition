@@ -19,6 +19,7 @@ static_content = []
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 
 [dependencies]
+serde = { workspace = true }
 # The pure move/entity value vocabulary and its authoring primitives.
 # ⭐ DIRECT, not through the engine facade: authoring a move is a value
 # computation, and I1's whole point is that it must not pull the graph.

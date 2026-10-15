@@ -580,6 +580,7 @@ dependencies = [
  "ambition_platformer2d",
  "ambition_resource_spec",
  "bevy",
+ "serde",
 ]
 
 [[package]]

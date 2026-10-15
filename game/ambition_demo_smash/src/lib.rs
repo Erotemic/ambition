@@ -39,6 +39,7 @@ pub mod shark_ride;
 pub mod sing;
 pub mod smash_pack;
 pub mod spring;
+pub mod stages;
 pub mod tether;
 
 /// The game-MODE tag this demo's rules gate on, so they sleep everywhere else.
@@ -278,58 +279,49 @@ pub fn respawn_placement(stage_centre: Vec2, seat: usize) -> Vec2 {
 /// Stable room id for the stage.
 pub const SMASH_STAGE_ROOM_ID: &str = "smash_stage";
 
-/// The authored room around the fighting platform.
-///
-/// Keep this at 640x480 for the demo's presentation frame. The fighting stage
-/// itself is [`PLATFORM_WIDTH`] wide; the room bounds are only an intermediate
-/// seam between the platform and the blast envelope.
-const STAGE_SIZE: Vec2 = Vec2::new(640.0, 480.0);
-const PLATFORM_TOP: f32 = 300.0;
+/// The room id of the platformed stage — see [`smash_platform_stage`].
+pub const SMASH_PLATFORM_STAGE_ROOM_ID: &str = "smash_platform_stage";
 
-/// Fifteen 32px tiles, or ten standing-body heights.
-///
-/// Final Destination's main platform is about ten Mario heights wide. The
-/// default standing body is 48px tall, so 480px gives the same scale and stays
-/// on the 32px floor texture grid.
-const PLATFORM_WIDTH: f32 = 480.0;
+/// The room id of the narrow stage — see [`smash_narrow_stage`].
+pub const SMASH_NARROW_STAGE_ROOM_ID: &str = "smash_narrow_stage";
 
-/// Blast margins chosen so the PLATFORM, not the room rectangle, has Final
-/// Destination-like normalized proportions:
-///
-/// * ledge -> side blast line = 1.000 platform widths;
-/// * platform surface -> ceiling blast line = 1.125 platform widths;
-/// * platform surface -> fall blast line = 0.875 platform widths.
-///
-/// A 480px platform centered in a 640px room leaves 80px from each ledge to the
-/// room edge, so the side margin is 400px. The surface is at y=300 in a 480px
-/// room, so a 240px vertical margin puts the ceiling 540px above and the fall
-/// line 420px below. The envelope is 1440x960: 3x2 platform widths.
-const FALL_BLAST_MARGIN_PX: f32 = 240.0;
-const SIDE_BLAST_MARGIN_PX: f32 = 400.0;
-/// Public because authored moves must stay inside it: Alice's up-B exit portal
-/// rises a fixed height above her. Guarded by
-/// `an_authored_portal_rise_stays_inside_the_stage`.
-pub const CEILING_BLAST_MARGIN_PX: f32 = 240.0;
+/// The stage `id`, built from the pack's `data/smash_stages.ron`.
+fn smash_stage_room(id: &str) -> RoomSpec {
+    stage_room(crate::stages::smash_stages(), id)
+}
 
-/// Everything that makes a room a Smash stage, stated once.
+/// The stage `id` as `stages` states it.
 ///
-/// Each stage states only its name, room id and geometry. Size, spawn, blast
-/// envelope, mode and nameplate policy live here, so all stages share one blast
-/// envelope (see `test_the_stage_choice_decides_which_stage_the_match_prepares`).
-fn smash_stage_room(name: &str, id: &str, blocks: Vec<ae::Block>) -> RoomSpec {
+/// The file states the room every stage shares (size, landing point, blast
+/// envelope) and each stage's blocks. Mode and nameplate policy are what make
+/// a room a Smash stage, so they are set here, once for all stages.
+pub fn stage_room(stages: &crate::stages::SmashStages, id: &str) -> RoomSpec {
+    let stage = stages
+        .stages
+        .get(id)
+        .unwrap_or_else(|| panic!("the pack's admission refuses a `smash_stages` file with no `{id}`"));
+    let blocks = stage
+        .blocks
+        .iter()
+        .map(|block| {
+            let (at, size) = (Vec2::new(block.at.0, block.at.1), Vec2::new(block.size.0, block.size.1));
+            match block.kind {
+                crate::stages::StageBlockKind::Solid => ae::Block::solid(block.name.clone(), at, size),
+                crate::stages::StageBlockKind::OneWay => ae::Block::one_way(block.name.clone(), at, size),
+            }
+        })
+        .collect();
     let mut world = ae::World::new(
-        name,
-        STAGE_SIZE,
-        // Spawn above the platform. Seating places the fighters; this is only
-        // where a lone visitor lands.
-        Vec2::new(STAGE_SIZE.x / 2.0, PLATFORM_TOP - 96.0),
+        stage.name.clone(),
+        Vec2::new(stages.size.0, stages.size.1),
+        Vec2::new(stages.spawn.0, stages.spawn.1),
         blocks,
     );
-    world.edges.fall = FALL_BLAST_MARGIN_PX;
+    world.edges.fall = stages.blast.fall;
     // Set the sides explicitly. The default margin is sized for falling
     // through the floor and is much too generous for a side launch.
-    world.edges.side = Some(SIDE_BLAST_MARGIN_PX);
-    world.edges.rise = Some(CEILING_BLAST_MARGIN_PX);
+    world.edges.side = Some(stages.blast.side);
+    world.edges.rise = Some(stages.blast.rise);
 
     let mut room = RoomSpec::new(id, world);
     room.metadata.mode = Some(SMASH_MODE.to_string());
@@ -341,137 +333,30 @@ fn smash_stage_room(name: &str, id: &str, blocks: Vec<ae::Block>) -> RoomSpec {
     room
 }
 
-/// The stage: a platform surrounded by nothing.
-///
-/// A fighter stage is a place you can be knocked off; the empty space is the
-/// mechanic. Authored in Rust, not LDtk: demo rooms may be Rust, and this
-/// stage is four numbers whose key fact is the blast margin.
+/// The stage: a platform surrounded by nothing (`smash_stages.ron`).
 pub fn smash_stage() -> RoomSpec {
-    smash_stage_room(
-        "Smash Stage",
-        SMASH_STAGE_ROOM_ID,
-        vec![ae::Block::solid(
-            "smash_platform",
-            Vec2::new((STAGE_SIZE.x - PLATFORM_WIDTH) / 2.0, PLATFORM_TOP),
-            Vec2::new(PLATFORM_WIDTH, 32.0),
-        )],
-    )
+    smash_stage_room(SMASH_STAGE_ROOM_ID)
 }
 
-/// The room id of the platformed stage — see [`smash_platform_stage`].
-pub const SMASH_PLATFORM_STAGE_ROOM_ID: &str = "smash_platform_stage";
-
-/// The room id of the narrow stage — see [`smash_narrow_stage`].
-pub const SMASH_NARROW_STAGE_ROOM_ID: &str = "smash_narrow_stage";
-
-/// Ten 32px tiles. Two thirds of [`PLATFORM_WIDTH`], still exactly on the floor
-/// texture grid.
-const NARROW_PLATFORM_WIDTH: f32 = 320.0;
-
-/// The same flat block, two thirds as wide, with the blast envelope unchanged.
-///
-/// The unchanged envelope is the design. Scaling the margins with the width
-/// would give the same stage at a smaller size.
-///
-/// | measured in platform widths | [`smash_stage`] | here |
-/// |---|---|---|
-/// | ledge → side blast line | 1.000 | **1.750** |
-/// | surface → ceiling blast line | 1.125 | **1.688** |
-/// | surface → fall blast line | 0.875 | **1.313** |
-///
-/// Less ground, same envelope: an edgeguard-and-recovery stage. It is not
-/// tuned. It exists so the ladder rig can compare across geometries. It is a
-/// separate stage so that numbers recorded on [`smash_stage`] keep their
-/// meaning.
+/// Less ground, same blast envelope: an edgeguard-and-recovery stage
+/// (`smash_stages.ron`).
 pub fn smash_narrow_stage() -> RoomSpec {
-    smash_stage_room(
-        "Smash Stage — Narrow",
-        SMASH_NARROW_STAGE_ROOM_ID,
-        vec![ae::Block::solid(
-            "smash_platform",
-            Vec2::new((STAGE_SIZE.x - NARROW_PLATFORM_WIDTH) / 2.0, PLATFORM_TOP),
-            Vec2::new(NARROW_PLATFORM_WIDTH, 32.0),
-        )],
-    )
+    smash_stage_room(SMASH_NARROW_STAGE_ROOM_ID)
 }
 
-/// Height of each soft platform above the main stage surface, in world pixels.
-///
-/// Sized from the fighter's jump arc. Apex is `v²/(2·gravity)` (see
-/// `FighterBodyAuthoring::jump_speed`). With the shipped defaults (`GRAVITY`
-/// 2250, `JUMP_SPEED` 630, `DOUBLE_JUMP_SPEED` 520):
-///
-/// | arc | rise |
-/// |---|---:|
-/// | single jump | **88.2px** |
-/// | + air jump taken AT the apex (the best case) | **148.3px** |
-///
-/// The low tier is a comfortable single jump (24px headroom). The top tier
-/// needs the air jump and leaves 28px. `the_tiers_sit_inside_the
-/// _fighters_measured_jump_arc` recomputes both from the engine constants.
-const SOFT_PLATFORM_LOW_RISE: f32 = 64.0;
-const SOFT_PLATFORM_HIGH_RISE: f32 = 120.0;
-/// Width and thickness of a soft platform.
-const SOFT_PLATFORM_SIZE: Vec2 = Vec2::new(168.0, 16.0);
-/// How far the two low platforms sit either side of centre.
-const SOFT_PLATFORM_SPREAD: f32 = 148.0;
-
-/// A platform-fighter stage with platforms: the main surface plus three
-/// drop-through tiers.
-///
-/// It uses the engine's one-way platforms (`BlockKind::OneWay`,
-/// `resolve_one_way_hit`, `drop_through_timer`) and both drop gestures:
-/// down+jump (`wants_drop_through`) and guard+down (`wants_platform_drop`).
-///
-/// It is a second stage, not an edit to the first. Changing the main stage is
-/// Jon's design call, and the ladder rig's recorded numbers were taken on
-/// [`smash_stage`]'s flat block. Reachable through [`SmashStageChoice`] and the
-/// select screen's stage button.
-///
-/// Known issue: the top tier (y 180–196, x 236–404) is 10px under the respawn
-/// platforms (`respawn_placement` puts a body at y 140 with its platform near
-/// y 170). A fighter whose respawn platform expires lands on the tier, not the
-/// stage. Q87 rules that the authored layout changes (the tier or the respawn
-/// point), not the runtime spawn logic. The flat-versus-platforms comparison
-/// in `fighter-brain.md` used this geometry, so change the geometry and the
-/// measurement together.
+/// The main surface plus three drop-through tiers (`smash_stages.ron`).
+/// Reachable through [`SmashStageChoice`] and the select screen's stage
+/// button.
 pub fn smash_platform_stage() -> RoomSpec {
-    let centre_x = STAGE_SIZE.x / 2.0;
-    let main = ae::Block::solid(
-        "smash_platform",
-        Vec2::new((STAGE_SIZE.x - PLATFORM_WIDTH) / 2.0, PLATFORM_TOP),
-        Vec2::new(PLATFORM_WIDTH, 32.0),
-    );
-    // y grows downward, so a platform above the stage has a smaller y.
-    let soft = |name: &str, x: f32, rise: f32| {
-        ae::Block::one_way(
-            name.to_string(),
-            Vec2::new(x - SOFT_PLATFORM_SIZE.x / 2.0, PLATFORM_TOP - rise),
-            SOFT_PLATFORM_SIZE,
-        )
-    };
-    smash_stage_room(
-        "Smash Stage (platforms)",
-        SMASH_PLATFORM_STAGE_ROOM_ID,
-        vec![
-            main,
-            soft(
-                "smash_soft_left",
-                centre_x - SOFT_PLATFORM_SPREAD,
-                SOFT_PLATFORM_LOW_RISE,
-            ),
-            soft(
-                "smash_soft_right",
-                centre_x + SOFT_PLATFORM_SPREAD,
-                SOFT_PLATFORM_LOW_RISE,
-            ),
-            soft("smash_soft_top", centre_x, SOFT_PLATFORM_HIGH_RISE),
-        ],
-    )
+    smash_stage_room(SMASH_PLATFORM_STAGE_ROOM_ID)
 }
 
+/// The top centre of [`smash_stage`]'s main platform: a respawn comes back
+/// above it.
 pub fn stage_centre() -> Vec2 {
-    Vec2::new(STAGE_SIZE.x / 2.0, PLATFORM_TOP)
+    let room = smash_stage();
+    let platform = room.world.blocks[0].aabb;
+    Vec2::new(room.world.size.x / 2.0, platform.min.y)
 }
 
 /// What the match announces when it ends.

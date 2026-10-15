@@ -467,18 +467,25 @@ mod flow_tests {
     /// Alice's up-B once opened its exit 320 px above her, past the smash
     /// ruleset's 240 px ceiling blast margin, so it was outside the playable box.
     ///
-    /// The bound belongs to `ambition_demo_smash::CEILING_BLAST_MARGIN_PX`, which
-    /// this crate cannot depend on, so it is repeated here. That constant's doc
-    /// points at this test, but nothing forces them to agree.
+    /// The bound is `blast.rise` of the Smash pack's `data/smash_stages.ron`.
+    /// This crate cannot depend on the demo, so the test reads the file.
     ///
     /// The rise value itself (150) is tuning and is not pinned.
     #[test]
     fn an_authored_portal_rise_stays_inside_the_stage() {
         use ambition_entity_catalog::smash_portal::{PortalPairParams, PORTAL_PAIR};
 
-        /// `ambition_demo_smash::CEILING_BLAST_MARGIN_PX`, repeated because this
-        /// crate is below the ruleset and cannot read it.
-        const CEILING_BLAST_MARGIN_PX: f32 = 240.0;
+        #[derive(serde::Deserialize)]
+        struct Stages {
+            blast: Blast,
+        }
+        #[derive(serde::Deserialize)]
+        struct Blast {
+            rise: f32,
+        }
+        let stages: Stages = ron::from_str(include_str!("../../ambition_demo_smash/assets/data/smash_stages.ron"))
+            .expect("the Smash pack's stages file states its blast margins");
+        let ceiling_blast_margin = stages.blast.rise;
 
         // Scan the timeline's events, not window sustains: `author_portal_pair`
         // attaches the pair as a `MoveEvent` at a time.
@@ -498,9 +505,9 @@ mod flow_tests {
                         effect.params.hydrate().expect("portal pair params hydrate");
                     checked += 1;
                     assert!(
-                        params.rise < CEILING_BLAST_MARGIN_PX,
+                        params.rise < ceiling_blast_margin,
                         "{fighter}/{}: opens its exit {} px up, and the ruleset's \
-                         ceiling blast margin is {CEILING_BLAST_MARGIN_PX}. The \
+                         ceiling blast margin is {ceiling_blast_margin}. The \
                          destination is outside the playable box — a recovery \
                          that KOs whoever takes it, and off the screen besides.",
                         mv.id,

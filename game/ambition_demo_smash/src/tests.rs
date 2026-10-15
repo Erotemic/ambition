@@ -510,7 +510,7 @@ fn every_seat_comes_back_to_its_own_point_on_the_platform() {
     );
 
     // Every seat is over the platform, not past its lip.
-    let half = PLATFORM_WIDTH / 2.0;
+    let half = smash_stage().world.blocks[0].aabb.width() / 2.0;
     for (seat, at) in seats.iter().enumerate() {
         assert!(
             (at.x - centre.x).abs() < half,
@@ -588,16 +588,13 @@ fn the_stage_and_blast_envelope_keep_their_authored_proportions() {
     let surface_to_ceiling_blast = platform.top() + ceiling_margin;
     let surface_to_fall_blast = (world.size.y - platform.top()) + world.edges.fall;
 
-    assert_eq!(platform.width(), PLATFORM_WIDTH);
-    assert_eq!(left_ledge_to_blast, PLATFORM_WIDTH);
-    assert_eq!(right_ledge_to_blast, PLATFORM_WIDTH);
-    assert_eq!(surface_to_ceiling_blast, PLATFORM_WIDTH * 1.125);
-    assert_eq!(surface_to_fall_blast, PLATFORM_WIDTH * 0.875);
-    assert_eq!(world.size.x + side_margin * 2.0, PLATFORM_WIDTH * 3.0);
-    assert_eq!(
-        world.size.y + ceiling_margin + world.edges.fall,
-        PLATFORM_WIDTH * 2.0
-    );
+    let width = platform.width();
+    assert_eq!(left_ledge_to_blast, width);
+    assert_eq!(right_ledge_to_blast, width);
+    assert_eq!(surface_to_ceiling_blast, width * 1.125);
+    assert_eq!(surface_to_fall_blast, width * 0.875);
+    assert_eq!(world.size.x + side_margin * 2.0, width * 3.0);
+    assert_eq!(world.size.y + ceiling_margin + world.edges.fall, width * 2.0);
 }
 
 /// The room carries the demo's MODE, so its rules sleep everywhere else.
@@ -1032,7 +1029,7 @@ fn the_prepared_session_is_the_smash_stage() {
     );
     assert_eq!(
         prepared.geometry().0.edges.side,
-        Some(SIDE_BLAST_MARGIN_PX),
+        Some(crate::stages::smash_stages().blast.side),
         "the prepared geometry lost the stage's blast margins, so a fighter \
          knocked off would drift instead of dying"
     );
@@ -1379,23 +1376,29 @@ fn the_tiers_sit_inside_the_fighters_measured_jump_arc() {
     let single = apex(JUMP_SPEED);
     let with_air_jump = single + apex(DOUBLE_JUMP_SPEED);
 
+    // Each tier's rise is from the floor's top to the tier's top, as the
+    // pack's `smash_stages.ron` places them.
+    let stage = crate::smash_platform_stage();
+    let floor_top = stage.world.blocks[0].aabb.min.y;
+    let rises: Vec<f32> = stage.world.blocks[1..].iter().map(|tier| floor_top - tier.aabb.min.y).collect();
+    let low = rises.iter().copied().fold(f32::INFINITY, f32::min);
+    let high = rises.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    assert_eq!(rises.len(), 3, "the platformed stage has three tiers");
+
     assert!(
-        crate::SOFT_PLATFORM_LOW_RISE < single,
-        "the low tier at {}px is above the {single:.1}px single-jump apex, so \
-         reaching it needs an air jump — that is the TOP tier's job",
-        crate::SOFT_PLATFORM_LOW_RISE
+        low < single,
+        "the low tier at {low}px is above the {single:.1}px single-jump apex, so \
+         reaching it needs an air jump — that is the TOP tier's job"
     );
     assert!(
-        crate::SOFT_PLATFORM_HIGH_RISE > single,
-        "the top tier at {}px is inside a single jump, so the two tiers ask the \
-         same question of the player",
-        crate::SOFT_PLATFORM_HIGH_RISE
+        high > single,
+        "the top tier at {high}px is inside a single jump, so the two tiers ask the \
+         same question of the player"
     );
     assert!(
-        crate::SOFT_PLATFORM_HIGH_RISE < with_air_jump,
-        "the top tier at {}px is above the {with_air_jump:.1}px ceiling — it is \
-         scenery, not a platform",
-        crate::SOFT_PLATFORM_HIGH_RISE
+        high < with_air_jump,
+        "the top tier at {high}px is above the {with_air_jump:.1}px ceiling — it is \
+         scenery, not a platform"
     );
 }
 

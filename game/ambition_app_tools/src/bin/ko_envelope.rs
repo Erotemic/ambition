@@ -1049,7 +1049,7 @@ impl KoProbe {
             }
         }
         // Do not `park` again here. `park` sets y = 200.0, above the platform
-        // (PLATFORM_TOP is 300), so every trial would start airborne. An
+        // (its top is at y 300 in `smash_stages.ron`), so every trial would start airborne. An
         // airborne body takes a different path when struck, which makes
         // identical trials disagree.
         //

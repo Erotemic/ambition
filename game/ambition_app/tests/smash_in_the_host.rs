@@ -6631,9 +6631,9 @@ mod ring_out {
     /// Centre of the fighting platform and the lateral distance from there to
     /// the side blast line, both read off the authored stage.
     ///
-    /// ⛔ NOT RESTATED AS LITERALS. `PLATFORM_WIDTH`, `STAGE_SIZE` and the blast
-    /// margins are private constants of the demo, and a copy of them here would
-    /// be a second stage that silently stops matching the first.
+    /// ⛔ NOT RESTATED AS LITERALS. The platform, the room and the blast
+    /// margins are the demo pack's `smash_stages.ron`, and a copy of them here
+    /// would be a second stage that silently stops matching the first.
     fn stage_centre_and_reach() -> (f32, f32) {
         let room = ambition_demo_smash::smash_stage();
         let side = room

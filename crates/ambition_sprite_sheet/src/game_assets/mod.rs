@@ -195,6 +195,11 @@ pub enum ParallaxTheme {
     /// curtains of noodles, hills of meatballs in steam. The rooms of the
     /// Noodly Temple name it.
     Noodly,
+    /// The central town of the Math dimension: limestone and whitewash on
+    /// terraces under a clear morning sky, with faceted mountains that are
+    /// polyhedra in the haze and a few small solids floating in the air.
+    /// The rooms of the Math dimension (`math.ldtk`) name it.
+    MathTown,
     /// Mary-O's land in the colours of a magical girl: round hills, a far
     /// castle, a rainbow and a crescent moon in a pink sky. The rooms of
     /// Mary-O name it.
@@ -250,6 +255,7 @@ impl ParallaxTheme {
         Self::Forest,
         Self::Primeval,
         Self::Noodly,
+        Self::MathTown,
         Self::Starlight,
         Self::Stardune,
         Self::Starless,
@@ -275,6 +281,7 @@ impl ParallaxTheme {
             Self::Forest => "forest",
             Self::Primeval => "primeval",
             Self::Noodly => "noodly",
+            Self::MathTown => "math_town",
             Self::Starlight => "starlight",
             Self::Stardune => "stardune",
             Self::Starless => "starless",
@@ -368,6 +375,7 @@ impl ParallaxTheme {
             }
             "primeval" | "jungle" | "dinosaur" | "prehistoric" => Some(Self::Primeval),
             "noodly" | "noodle" | "pasta" => Some(Self::Noodly),
+            "math_town" | "math" | "math_dimension" => Some(Self::MathTown),
             "starlight" | "magical_girl" | "magical" => Some(Self::Starlight),
             "stardune" | "star_dunes" => Some(Self::Stardune),
             "starless" | "dark_magical_girl" => Some(Self::Starless),

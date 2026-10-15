@@ -94,6 +94,9 @@ impl Default for AmbientMoteStyles {
                 (T::Primeval, MoteStyle::new(20, 6.0, -3.0, 16.0, 0.10, 1.6, 3.2, 0.7, 0.4, 0.8, 0.4)),
                 // Steam from the pots: soft, slow, and it goes up.
                 (T::Noodly, MoteStyle::new(22, 2.0, 8.0, 12.0, 0.10, 2.4, 5.0, 0.6, 0.6, 0.6, 0.4)),
+                // Chalk dust in the morning light of the Math town: few, slow,
+                // and it drifts down.
+                (T::MathTown, MoteStyle::new(16, 3.0, -2.0, 10.0, 0.08, 1.4, 2.8, 0.5, 0.35, 0.5, 0.3)),
                 // Embers of a dark light that go up and flicker.
                 (T::Starless, MoteStyle::new(26, 3.0, 12.0, 8.0, 0.2, 1.8, 3.8, 0.75, 0.6, 1.6, 0.4)),
                 // Sparks that go up fast from the fire under the floor.

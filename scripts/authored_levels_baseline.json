@@ -26,6 +26,10 @@
     "mary_o_2_4",
     "mary_o_warp"
   ],
+  "math.ldtk": [
+    "math_gate_hall",
+    "math_town_street"
+  ],
   "sandbox.ldtk": [
     "basement_boss",
     "basement_breakables",

@@ -1042,6 +1042,7 @@ mod tests {
                     false,
                 ),
                 source("world.hall_ldtk", "hall_of_characters.ldtk", false),
+                source("world.math_ldtk", "math.ldtk", false),
             ],
         }
     }

@@ -1,0 +1,37 @@
+# Written by specs/math_town/make_specs.py. Change the script, not this file.
+# Gate 7 of the gate station: the gate to the Math dimension.
+level_id: gate_stack_lower
+entities:
+  - type: Prop
+    px: [1150, 544]
+    size: [192, 192]
+    fields: {name: "Math Gate Ring (Home)", kind: gate_ring}
+  - type: Prop
+    px: [1150, 544]
+    size: [192, 192]
+    fields: {name: "Math Gate Portal (Home)", kind: gate_portal}
+  - type: LoadingZone
+    px: [1198, 544]
+    size: [96, 192]
+    fields:
+      id: math_gate_home_zone
+      name: to the Math dimension
+      activation: Door
+      target_room: math_gate_hall
+      target_zone: math_gate_return_zone
+      bidirectional: false
+  - type: Switch
+    px: [1360, 704]
+    size: [24, 32]
+    fields:
+      id: math_gate_switch
+      name: math_gate_switch
+      action: ResetEncounter
+      target_encounter: ""
+  - type: DebugLabel
+    px: [1130, 512]
+    size: [260, 24]
+    fields:
+      name: gate_stack_sign_gate_seven
+      text: "GATE 7: MATH (see the switch)"
+      category: Custom

@@ -43,6 +43,7 @@ static_world_text!(
     "../assets/worlds/you_have_to_cut_the_rope.ldtk"
 );
 static_world_text!(HALL_LDTK_STATIC, "../assets/worlds/hall_of_characters.ldtk");
+static_world_text!(MATH_LDTK_STATIC, "../assets/worlds/math.ldtk");
 
 /// The intro world's embedded text, when `static_map` baked one in.
 ///
@@ -103,6 +104,16 @@ pub fn world_manifest() -> WorldManifest {
                 "hall_of_characters.ldtk",
                 HALL_LDTK_STATIC,
                 "ambition_content/worlds/hall_of_characters.ldtk",
+                false,
+            ),
+            // The Math dimension: one world file is one dimension. Its rooms
+            // join the others in one room set; a gate in `gate_stack_lower`
+            // is the way in.
+            source(
+                "world.math_ldtk",
+                "math.ldtk",
+                MATH_LDTK_STATIC,
+                "ambition_content/worlds/math.ldtk",
                 false,
             ),
         ],

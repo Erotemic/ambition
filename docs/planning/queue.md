@@ -994,9 +994,14 @@ variants. Also found in that regen:
     Measured: a full publish after a renderer core change (every target
     re-rendered) took 3469 s wall and 2290 s of render (tack-ons 2026 s,
     late targets 261 s), with no faction phase.
-    Open: a per-sheet key for the entity publish (it runs on every publish
-    that is not a whole-run hit, with the LDtk art, the vanity card, the
-    variants and the atlases), and the staging root.
+    **Measured 2026-10-14 (a renderer core change, 3 workers beside cargo):**
+    5474 s wall, 4299 s of render (tack-ons 4036 s, late targets 260 s,
+    the entity publish 2 s). So the entity publish needs no key. About
+    1175 s of wall time is outside the renderer subprocesses (the atlases,
+    the LDtk art, the census, the variants, the vanity card), and no phase
+    was timed. `sprites.sh` now prints each top-level phase's wall time,
+    slowest first (`test_a_publish_says_where_its_wall_time_went`).
+    Open: cut the largest phase the timing names, and the staging root.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

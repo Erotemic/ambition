@@ -721,6 +721,32 @@ fn the_speedway_authors_its_distance_markers_once() {
     assert_eq!(texts.len(), 5, "one label per marker, and no second copy: {texts:?}");
 }
 
+/// The start line's sign is the world file's `start_sign` label: the room
+/// shows the text the file states, and no Rust adds a second start sign. An
+/// edit to the label is the next start's sign, with no build.
+#[test]
+fn the_speedway_start_sign_is_the_world_files_label() {
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&SPEEDWAY_WORLD)).unwrap();
+    let field = ambition_platformer2d::ldtk_map::field_string;
+    let authored: Vec<String> = project
+        .levels
+        .iter()
+        .flat_map(|level| &level.layer_instances)
+        .flat_map(|layer| &layer.entity_instances)
+        .filter(|entity| entity.identifier == "DebugLabel" && field(entity, "name").as_deref() == Some("start_sign"))
+        .filter_map(|entity| field(entity, "text"))
+        .collect();
+    assert_eq!(authored.len(), 1, "the file authors one start sign: {authored:?}");
+    let room = sanic_speedway();
+    let signs: Vec<(&str, &str)> = room
+        .debug_labels
+        .iter()
+        .filter(|label| label.payload.text.starts_with("START"))
+        .map(|label| (label.name.as_str(), label.payload.text.as_str()))
+        .collect();
+    assert_eq!(signs, vec![("start_sign", authored[0].as_str())], "the room shows the file's sign, once");
+}
+
 /// A room that authors no markers sounds none. Act 2 authors none, and the
 /// cue read a table with no room in it, so the speedway's ruler rang in Act 2.
 #[test]

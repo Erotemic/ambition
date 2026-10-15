@@ -386,6 +386,25 @@ def run_tool(*args: str) -> None:
         sys.exit(f"tool step failed: {' '.join(args)}")
 
 
+def ensure_pickup_sprite_field(target: Path) -> None:
+    """Give `PickupSpawn` the `sprite` field the rings name their sheet in.
+
+    `area create` REFUSES an unknown field rather than dropping it, so the def
+    must have the field before the area is built. `world init` clones the
+    shared defs from sandbox.ldtk, which now has the field, and the tool
+    refuses to add it a second time: add it only when the clone lacks it.
+    """
+    defs = json.loads(target.read_text())["defs"]["entities"]
+    spawn = next(entity for entity in defs if entity["identifier"] == "PickupSpawn")
+    if any(field["identifier"] == "sprite" for field in spawn["fieldDefs"]):
+        return
+    # `--no-repair`: the tool's own repair+validate pass refuses a project with
+    # no levels, and the area is the next step. The closing repair+validate
+    # covers the finished file.
+    run_tool("def", "update-entity", "PickupSpawn", str(target), "--add-field", "sprite:String:",
+             "--in-place", "--no-repair")
+
+
 def main() -> None:
     # The world lives in the map-assets submodule and is reached through a
     # tracked symlink (see `real_target` in author_speedway_ldtk.py): generate
@@ -395,9 +414,7 @@ def main() -> None:
     if target.exists():
         target.unlink()
     run_tool("world", "init", str(target), "--identifier", "ambition-sanic-highway-world")
-    # The shared defs lack the ring's sheet field; extend it first.
-    run_tool("def", "update-entity", "PickupSpawn", str(target), "--add-field", "sprite:String:",
-             "--in-place", "--no-repair")
+    ensure_pickup_sprite_field(target)
     with tempfile.TemporaryDirectory() as tmp:
         spec = Path(tmp) / "sanic_highway_area.json"
         spec.write_text(json.dumps(area_spec(), indent=2))

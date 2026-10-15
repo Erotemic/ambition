@@ -176,10 +176,19 @@ told the author to run it. A quest's payout is its `reward` in
 `quests.ron`, checked against the item catalog at admission (it was the
 pirate treasure's Rust constant and a match on that quest's name). The
 intro's flag chains are Ambition's `flag_chains` schema, and the thrown
-items that hurt are `thrown_impacts` in `ambition_rules.ron`. Open, from a
-census of 2026-10-15 (the Smash roster and stand-ins are `smash_rules.ron`
-since then): Mary-O's form ladder, the motion-input gestures, the Mary-O test course and the Sanic start-line
-sign.
+items that hurt are `thrown_impacts` in `ambition_rules.ron`. The Smash
+roster and stand-ins are `smash_rules.ron`. The player's motion-input
+gestures (`qcf`, `qcf_grace`, `hcf`) are the pack's `motion_techniques.ron`
+(a projectile-capability schema), restated by a content reload. The Sanic
+start line's sign is a `DebugLabel` in `sanic_speedway.ldtk`, read at run
+time. Open, from a census of 2026-10-15: Mary-O's form ladder. Its rungs
+name the star wand and the cinder beacon, which are Rust `EquipmentRow`s
+whose spark grant is built from `mary_o_rules.spark`, so a data ladder could
+not be checked against anything in the pack. The ladder moves with those
+rows (a `mary_o_forms` schema holding the rows and the rungs). Not content:
+the Mary-O test course. It is a fixture that no level renders, and its
+module says why it stays Rust (an editor drag would make it a different
+test).
 
 **Next action:** none before priority 2; open item 1 is deferred.
 

@@ -32,7 +32,7 @@ sys.path.insert(0, str(TOOLS))
 from ambition_ldtk_tools import terrain  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from author_highway_ldtk import badnik_fields  # noqa: E402
+from author_highway_ldtk import badnik_fields, ensure_pickup_sprite_field  # noqa: E402
 
 GRID = 16
 
@@ -122,9 +122,8 @@ def rect(etype: str, px: tuple[int, int], size: tuple[int, int], **fields) -> di
 RING_SIZE = (18, 18)
 # : The sheet each ring wears, authored on the placement.
 # :
-# : `PickupSpawn` does not carry a `sprite` field in the shared defs, so
-# : `main()` mints one with `def update-entity` before the area is built. That
-# : field reached the committed world file out-of-band once (an `entity`/`def`
+# : `main()` makes sure `PickupSpawn` has a `sprite` field before the area is
+# : built (`ensure_pickup_sprite_field`). That field reached the committed world file out-of-band once (an `entity`/`def`
 # : edit run by hand), which left THIS script unable to reproduce it: a
 # : regeneration silently dropped the binding from all 35 rings and they fell
 # : back to the generic coin. Authoring it here is what makes the script the
@@ -216,6 +215,21 @@ def distance_markers() -> list[dict]:
     return out
 
 
+# The start line's sign. It names each control by the action it fires, and
+# the engine writes the key the seat presses (the render crate's
+# `control_legend`), so the sign follows a rebind, a pad, and the body the
+# player drives. The demo adds only the loop and finish signs, whose places
+# come from the loop and the goal.
+START_SIGN = rect(
+    "DebugLabel",
+    (300 - 8, FLOOR_TOP - 230 - 8),
+    (16, 16),
+    name="start_sign",
+    text="START   {action:jump}: JUMP   DOWN+{action:spin_dash}: REV   RELEASE DOWN: DASH   {action:transform}: SUPER",
+    category="Custom",
+)
+
+
 def area_spec() -> dict:
     entities = [
         rect("PlayerStart", (146, 626), (28, 46), name="sanic_start"),
@@ -226,6 +240,7 @@ def area_spec() -> dict:
         # the two high ones are spring-served on purpose.
         rect("OneWayPlatform", (64, 528), (256, 16), name="start_gantry"),
         *distance_markers(),
+        START_SIGN,
         # The spring perch is 256px up — unreachable by the ~169px jump apex,
         # exactly the point: the vertical spring below serves it. Wide enough
         # that a walk-on launch (which keeps forward momentum) still lands.
@@ -328,23 +343,7 @@ def main() -> None:
     if target.exists():
         target.unlink()
     run_tool("world", "init", str(target), "--identifier", "ambition-sanic-speedway-world")
-    # `world init` clones the shared defs from sandbox.ldtk, whose `PickupSpawn`
-    # has only `name` + `kind`. The rings need a third field to name their sheet,
-    # and `area create` REFUSES an unknown field rather than dropping it — so the
-    # def is extended before the area is built. See `RING_SPRITE`.
-    run_tool(
-        "def",
-        "update-entity",
-        "PickupSpawn",
-        str(target),
-        "--add-field",
-        "sprite:String:",
-        "--in-place",
-        # the tool's own repair+validate post-pass rejects a project with no
-        # levels, and at this point there are none — `area create` is the next
-        # step. `main()`'s closing repair+validate covers the finished file.
-        "--no-repair",
-    )
+    ensure_pickup_sprite_field(target)  # See `RING_SPRITE`.
     with tempfile.TemporaryDirectory() as tmp:
         spec = Path(tmp) / "sanic_speedway_area.json"
         spec.write_text(json.dumps(area_spec(), indent=2))

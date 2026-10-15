@@ -188,13 +188,6 @@ pub fn distance_markers(room: &RoomSpec) -> Vec<f32> {
     xs
 }
 
-/// The start line's sign. It names each control by the action it fires, and
-/// the engine writes the key the seat presses (see the render crate's
-/// `control_legend`), so the sign follows a rebind, a pad, and the body the
-/// player drives.
-const START_LINE_LEGEND: &str = "START   {action:jump}: JUMP   DOWN+{action:spin_dash}: REV   \
-     RELEASE DOWN: DASH   {action:transform}: SUPER";
-
 /// A world file's text, as it is now.
 pub fn world_text(world: &PackText) -> std::borrow::Cow<'static, str> {
     world.text().unwrap_or_else(|error| panic!("{error}"))
@@ -203,9 +196,10 @@ pub fn world_text(world: &PackText) -> std::borrow::Cow<'static, str> {
 /// Build the Sanic showcase room from the demo's LDtk world. Everything spatial
 /// is authored there: the painted ground (hills, pit, finish tower) and the
 /// loop, a `SurfaceLoop` whose box is its circle, attached to the painted
-/// floor, and the distance markers, and the level fields say its mode, biome
-/// and visual profile (the skybridge parallax). This adds only the start, loop
-/// and finish signs.
+/// floor, the distance markers and the start line's sign (`start_sign`), and
+/// the level fields say its mode, biome and visual profile (the skybridge
+/// parallax). This adds only the loop and finish signs, whose places come
+/// from the loop and the goal.
 pub fn sanic_speedway() -> RoomSpec {
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&SPEEDWAY_WORLD))
         .expect("sanic_speedway.ldtk parses (regen: game/ambition_demo_sanic/tools/author_speedway_ldtk.py)");
@@ -229,11 +223,6 @@ pub fn sanic_speedway() -> RoomSpec {
     // ordinary room debug labels rendered by the generic presentation face, not
     // app-local UI.
     let signs = vec![
-        (
-            "start".to_string(),
-            START_LINE_LEGEND.to_string(),
-            ae::Vec2::new(300.0, FLOOR_TOP - 230.0),
-        ),
         (
             "loop".to_string(),
             "LOOP".to_string(),

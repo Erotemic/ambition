@@ -29,7 +29,7 @@ import tempfile
 from pathlib import Path
 
 from author_highway_ldtk import (
-    REPO, RING_SIZE, TOOLS, badnik_fields, booster, monitor,
+    REPO, RING_SIZE, TOOLS, badnik_fields, booster, ensure_pickup_sprite_field, monitor,
     rect, ring, ring_arc, rings_over, run_tool, spring, surface_loop,
 )
 
@@ -280,8 +280,7 @@ def main() -> None:
     MAP_TARGET.parent.mkdir(parents=True, exist_ok=True)
     run_tool("world", "init", str(MAP_TARGET), "--identifier",
              "ambition-sanic-darkness-world", "--force")
-    run_tool("def", "update-entity", "PickupSpawn", str(MAP_TARGET),
-             "--add-field", "sprite:String:", "--in-place", "--no-repair")
+    ensure_pickup_sprite_field(MAP_TARGET)
     with tempfile.TemporaryDirectory() as tmp:
         area = Path(tmp) / "darkness_area.json"
         area.write_text(json.dumps(area_spec(), indent=2))

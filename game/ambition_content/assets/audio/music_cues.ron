@@ -183,4 +183,18 @@
         (room_id: "primeval_canopy", cue_id: "dinosaur_liberators_adaptive", state: "blazing"),
         (room_id: "primeval_tyrant_hall", cue_id: "dinosaur_liberators_adaptive", state: "blazing", fight_state: Some("fight")),
     ],
+    // The town of the Math dimension by the time of day: four pieces of one
+    // family (the Euclid Street motif). The gate hall under the street
+    // follows the day too; it keeps its lamps (`ambition_content::day_cycle`).
+    // `shoulders_at_rest` stays authored for another place.
+    room_phase_tracks: [
+        (room_id: "math_gate_hall", phase: "morning", track: "math_town_morning"),
+        (room_id: "math_gate_hall", phase: "day", track: "math_town_day"),
+        (room_id: "math_gate_hall", phase: "evening", track: "math_town_evening"),
+        (room_id: "math_gate_hall", phase: "night", track: "math_town_night"),
+        (room_id: "math_town_street", phase: "morning", track: "math_town_morning"),
+        (room_id: "math_town_street", phase: "day", track: "math_town_day"),
+        (room_id: "math_town_street", phase: "evening", track: "math_town_evening"),
+        (room_id: "math_town_street", phase: "night", track: "math_town_night"),
+    ],
 )

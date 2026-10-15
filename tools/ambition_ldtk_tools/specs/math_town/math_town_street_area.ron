@@ -10,7 +10,7 @@
     bg_color: "#BFD7EE",
     biome: "math_town",
     parallax_theme: "math_town",
-    music_track: "shoulders_at_rest",
+    music_track: "math_town_day",
     entities: [
         ( type: "Solid", px: [0, 1040], size: [1504, 64], fields: ( name: "street" ) ),
         ( type: "Solid", px: [1504, 800], size: [896, 304], fields: ( name: "terrace_1" ) ),

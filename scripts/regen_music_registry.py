@@ -105,6 +105,10 @@ def is_denied(cue: str) -> bool:
 # Curated display names. Anything not listed is title-cased from its id
 # (see ``title_case``). Keep guild/faction cues to their short stage name.
 DISPLAY_NAMES = {
+    "math_town_day": "Euclid Street",
+    "math_town_evening": "Golden Ratio Hour",
+    "math_town_morning": "Axioms at Dawn",
+    "math_town_night": "Countably Many Stars",
     "artists_guild_chiaroscuro": "Chiaroscuro",
     "carry_the_one": "Carry the One",
     "elves_faction_silverleaf_reverie": "Silverleaf Reverie",

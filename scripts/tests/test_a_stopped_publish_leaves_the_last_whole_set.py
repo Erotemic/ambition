@@ -21,6 +21,7 @@ def _bash(tmp_path: Path, body: str) -> str:
 set -euo pipefail
 asset_root={tmp_path / "assets"}
 staging_root={tmp_path / "stage"}
+mirror_root={tmp_path / "mirror"}
 source {LIB}
 {body}
 """
@@ -75,6 +76,29 @@ def test_a_swap_that_stopped_part_way_is_repaired_by_the_next_run(tmp_path: Path
     assert not stage.exists()
 
 
+def test_the_next_run_starts_from_the_set_the_swap_replaced(tmp_path: Path) -> None:
+    """A copy of the 1.6 GB of roots is 26 s per run. The swap keeps the set
+    it replaces, and the next run copies into it only what differs."""
+    assets = _tree(tmp_path)
+    (assets / "sprites" / "robot_spritesheet.png").write_text("robot")
+    _bash(tmp_path, 'begin_staging; echo "new sheet" > "$staging_root/sprites/sandbag_spritesheet.png"; finish_staging')
+    mirror = tmp_path / "mirror"
+    assert (mirror / "sprites" / "sandbag_spritesheet.png").read_text() == "old sheet"
+    kept = (mirror / "sprites" / "robot_spritesheet.png").stat().st_ino
+    # Between the runs, the runtime root loses a file.
+    (assets / "sprites" / "sandbag_parts.ron").unlink()
+
+    _bash(tmp_path, "begin_staging")
+    stage = tmp_path / "stage"
+    # The staged copy is the runtime set, file for file.
+    assert sorted(p.name for p in (stage / "sprites").iterdir()) == ["robot_spritesheet.png", "sandbag_spritesheet.png"]
+    assert (stage / "sprites" / "sandbag_spritesheet.png").read_text() == "new sheet\n"
+    assert (stage / "sprite_packs" / "full" / "ultrapack.json").read_text() == "old pack"
+    # It is the mirror, moved: a file that did not change was not copied.
+    assert (stage / "sprites" / "robot_spritesheet.png").stat().st_ino == kept
+    assert not (mirror / "sprites").exists()
+
+
 def test_the_publish_swaps_after_the_sprite_phases_and_before_the_ldtk_phases() -> None:
     text = REGEN.read_text()
     swap = text.index('phase "staging root → runtime roots"')
@@ -89,6 +113,7 @@ def test_the_publish_swaps_after_the_sprite_phases_and_before_the_ldtk_phases() 
         assert begin < text.index(writer) < swap, writer
     assert '--asset-root "$publish_asset_root"' in text
     assert 'pack_root="$publish_asset_root/sprite_packs"' in text
+    assert 'mirror_root="$cache_dir/publish_mirror"' in text
     # The LDtk phases write sheet paths into tracked files: they read the
     # runtime roots, after the swap.
     for reader in ('phase "LDtk editor-icon atlas:"', 'phase "LDtk sprite tilesets:"'):

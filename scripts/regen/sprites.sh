@@ -1164,6 +1164,7 @@ fingerprint_file="$cache_dir/regen-fingerprint"
 target_reads_dir="$cache_dir/reads"
 # On the same file system as `asset_root`, so the swap is a rename.
 staging_root="$cache_dir/publish_staging"
+mirror_root="$cache_dir/publish_mirror"
 # shellcheck source=../lib/sprite_staging.sh
 source "$repo_root/scripts/lib/sprite_staging.sh"
 

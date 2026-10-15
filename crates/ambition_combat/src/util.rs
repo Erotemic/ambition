@@ -143,45 +143,13 @@ pub fn body_vulnerable(
     !invulnerable.any() && !evading && !shield.parrying() && combat.vulnerable()
 }
 
-/// This is the SINGLE tangibility gate the damage *detection* layer consults,
-/// so an untouchable thing is filtered ONCE at every hit boundary rather than
-/// relying on each consume-time resolver to re-check (those checks remain as
-/// last-line defense). A body with no `BodyHealth` — a pure prop — is not
-/// governed here; a breakable owns its own `broken()` gate.
+/// Return whether a body is excluded from world contacts and targeting.
 ///
-/// ⭐⭐ THE DOC ABOVE PROMISED THIS AND THEN THE PROMISE WAS COLLECTED ON:
-/// *"extend THIS function for any future intangibility cause (phasing, spawn-in
-/// grace) and every combat boundary inherits it at once."* `OutOfPlay` is that
-/// cause, and D201 made it a body-generic fact rather than a player-only one.
-///
-/// ⛔⛔ AND A BODY WAITING OUT ITS DEATH BEAT IS NOT A CORPSE, which is why the
-/// health check alone could not see it. `spend_fighter_stocks` calls
-/// `health.reset()` the moment the stock is spent — a fighter comes back FRESH —
-/// so for the whole interlude the body reads ALIVE while `OutOfPlay` says the
-/// world's hands are off it. It could be struck, could shield, could be counted
-/// as a connect, and could accumulate percent it then carried into its next
-/// stock.
-///
-/// ⛔ THE ARGUMENT IS SEPARATE RATHER THAN LOOKED UP because this runs inside
-/// detection loops that already hold the victim's components; a lookup here
-/// would need a `World` this has no business taking. Changing the signature is
-/// deliberate: it makes every existing boundary a compile error until it answers
-/// the new question, which is the only way a gate that claims to be THE gate
-/// stays one.
-/// ⭐ AND IT IS A PARTICIPATION QUESTION, NOT A DEFENSIVE ONE, which is why
-/// `OutOfPlay` belongs here and NOT in [`ambition_characters::actor::Invulnerability`].
-/// This decides whether the world may reach a body at all — it gates strikes,
-/// captures, footstools, contact harm, interaction prompts and TARGET SELECTION.
-/// [`body_vulnerable`] answers the later, narrower question: this body was
-/// reached, may the hit hurt it? Folding out-of-play into the invulnerability
-/// bitset would answer the second question in the first one's place, and a
-/// hunter would go on chasing a body it merely could not damage.
-///
-/// ⭐ AND A BODY OUTSIDE THE PLAYABLE PLANE ([`ae::DepthPlane`]) is the third
-/// cause, 2026-09-25. It is a participation fact, not a defensive one: GNU-ton's
-/// gnu was invulnerable and still took the swing, gave the pogo, and was a thing
-/// a strike could "connect" with. A backdrop body is not in the fight at all.
-/// `plane` is the body's own component; absent means the playable plane.
+/// An out-of-play fighter may already have its health reset for the next
+/// stock, but remains untouchable until it returns. A non-playable depth
+/// plane also excludes contact. This is a participation check, not
+/// damage invulnerability; damage resolution has its own narrower gate.
+/// A body without health is not excluded by the health test.
 pub fn body_is_untouchable(
     health: Option<&ambition_characters::actor::BodyHealth>,
     out_of_play: bool,

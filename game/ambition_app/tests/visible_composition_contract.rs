@@ -164,51 +164,13 @@ fn the_browser_persona_boots_the_launcher_with_the_tile_spine_and_no_desktop_cur
     );
 }
 
-/// ✅ **D-HEADLESS-DESPAWN / `Q114`: a `NoWindow` app CAN despawn a camera, since
-/// 2026-09-13 — AND THIS ARM FLIPPED EXACTLY AS ITS OLD TEXT SAID IT WOULD.**
-/// It was `#[should_panic]`, named `..._still_cannot_...`, and its doc read:
-/// *"when the upstream hook learns to tolerate a missing render world, THIS TEST
-/// FAILS LOUDLY and whoever fixed it deletes the `should_panic` and the `still_`
-/// in the name."* It failed loudly on the same run as the fix. ⇒ A recorded gap
-/// that names its own expiry condition costs nothing and pays for itself once.
+/// Verify that the `NoWindow` composition can despawn a camera.
 ///
-/// ⚠ **THE FIX WAS NOT THE UPSTREAM ONE IT ANTICIPATED**, and the difference is
-/// the point: nobody taught the hook to tolerate a missing world. The `NoWindow`
-/// arm of `build_visible_app` now adds `bevy::render::sync_world::SyncWorldPlugin`
-/// itself — it is public and trivial (one resource, two observers) — so the
-/// resource the still-installed hook reads simply exists. `Q114` offered three
-/// options; two were changes to `bevy_render` and only this one was ever
-/// reachable from here.
-///
-/// ⚠ **THE COST IS REAL AND STATED:** `PendingSyncEntity` is drained by
-/// `entity_sync_system` in `ExtractSchedule`, which lives in the render app this
-/// profile does not have, so it grows with entity churn and is never read. It is
-/// `pub(crate)`, so nothing here can clear it. Bounded by churn, not by frames,
-/// and strictly better than a crash.
-///
-/// ⭐ **AND THE SCOPE BELOW WAS ALWAYS RIGHT WHERE THE QUEUE ROW WAS NOT.** That
-/// row read *"spawning a render-synced entity headless is fine; DESPAWNING one is
-/// fatal"*; this arm's own first line already said the class is *"ANY `Camera`
-/// ENTITY"*. The sprite assertion is added below to make that difference
-/// FALSIFIABLE rather than merely stated.
-///
-/// The mechanism, unchanged and still the reason:
-///
-/// ⛔⛔ THE CLASS IS "ANY `Camera` ENTITY", NOT "A PORTAL RIG". `backends: None`
-/// makes `create_render` return false, so `RenderPlugin::build` skips
-/// `ExtractPlugin` — and with it `SyncWorldPlugin`, the ONLY thing that inserts
-/// `PendingSyncEntity`. Everything after that `if` is added anyway, including
-/// `CameraPlugin`'s `ExtractComponentPlugin::<CameraMainTextureUsages>`, whose
-/// `SyncComponentPlugin` on_remove hook reads that resource UNWRAPPED.
-///
-/// ⇒ Spawning is safe — the Add path is an OBSERVER `SyncWorldPlugin` never
-/// registered, so it silently does nothing. Despawning is fatal, because the
-/// Remove path is a COMPONENT HOOK a different, still-installed plugin
-/// registered. That asymmetry is the whole defect.
-///
-/// ⭐ WHY THIS AND NOT THE DUEL. The bout that found it reaches this through
-/// `npc_alice`'s portal up-B, 3600 ticks and ~6s away, which reads as a fighter
-/// defect. Two entities and no fighter say the same thing in ~1s.
+/// The profile installs `SyncWorldPlugin` without a `RenderApp` so the
+/// camera removal hook can access `PendingSyncEntity`. Without an
+/// extract schedule, this resource retains entries until the app ends;
+/// its cost grows with entity churn. Keep the test scoped to an actual
+/// headless composition, not a rendered host.
 #[test]
 fn a_no_window_app_can_despawn_a_camera() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);

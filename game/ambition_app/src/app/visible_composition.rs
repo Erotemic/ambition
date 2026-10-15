@@ -143,7 +143,8 @@ pub fn compose_ambition_visible_game(
     // plugin builds, which is the deadline every composition input has.
     compose_inputs(app);
 
-    if spec.tile_spine {
+    // The LDtk runtime draws Ambition's world; the other games do not use it.
+    if spec.tile_spine && super::hub_games::installs("ambition") {
         app.add_plugins((
             AmbitionGameSimulationPlugin,
             AmbitionGameLdtkRuntimePlugin,

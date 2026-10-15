@@ -1993,11 +1993,18 @@ fn setup_route_capture_target(
 ///
 /// A shell route has no cameras at `Startup` — it spawns them when the route composes, several
 /// frames in. The count is printed for that reason.
+///
+/// Only the cameras that draw to a window are the route's view. A camera that
+/// draws into its own image (a rigged body's impostor atlas, a portal's view
+/// cone) is part of the picture's making and keeps its target: retargeted, its
+/// atlas stops being drawn, and on a frame where Bevy has sized its view for
+/// its own image but it draws into this one, the render pass fails validation
+/// and the app quits.
 fn adopt_route_cameras(
     mut commands: Commands,
     target: Option<Res<SceneCaptureTarget>>,
     mut runtime: ResMut<SceneCaptureRuntime>,
-    mut cameras: Query<(Entity, &mut Camera)>,
+    mut cameras: Query<(Entity, &mut Camera, Option<&RenderTarget>)>,
 ) {
     let Some(target_res) = target else {
         return;
@@ -2008,11 +2015,15 @@ fn adopt_route_cameras(
     // `Camera::order` and clearing only on the lowest composites the stack.
     let mut ordered: Vec<(Entity, isize)> = cameras
         .iter()
-        .map(|(entity, camera)| (entity, camera.order))
+        .filter(|(_, _, drawn_to)| match drawn_to {
+            Some(RenderTarget::Image(image)) => image.handle == target_res.image,
+            _ => true,
+        })
+        .map(|(entity, camera, _)| (entity, camera.order))
         .collect();
     ordered.sort_by_key(|(entity, order)| (*order, entity.index()));
     for (rank, (entity, order)) in ordered.iter().enumerate() {
-        if let Ok((_, mut camera)) = cameras.get_mut(*entity) {
+        if let Ok((_, mut camera, _)) = cameras.get_mut(*entity) {
             camera.is_active = true;
             camera.clear_color = if rank == 0 {
                 ClearColorConfig::Default

@@ -3016,47 +3016,10 @@ mod scale_fallback_tests {
         );
     }
 
-    /// ⛔⛔ WHAT A GUESSED BASELINE WOULD COST HER, QUANTIFIED.
-    ///
-    /// `PlayerSpriteBaseline` is seeded at three bind sites in `ambition_render`'s
-    /// actor path (the worn-character bind, the resident-quality rebind, and the
-    /// player clone). Since 2026-09-05 all three DERIVE it the same way, through
-    /// `player_presentation_for_collision`, so a site can no longer record a
-    /// baseline that disagrees with the sprite it just built.
-    /// ⚠ What still differs is WHICH BOX they hold: the worn bind falls back to
-    /// `DEFAULT_PLAYER_BODY_*` when no pose has arrived yet, and the clone has no
-    /// pose to read at all.
-    ///
-    /// ⛔⛔ AND THE NUMBERS BELOW ARE A COUNTERFACTUAL, NOT A LIVE COST — measured
-    /// 2026-09-05, after I briefly believed otherwise. HER FORMS ARE
-    /// `BodySource::SpriteAuthored` (`crate::lib.rs:1302`), so she carries
-    /// `SpritePosedBody` and publishes `BodyPoseView::authored_render`, and
-    /// `sync_visuals` takes the authored branch BEFORE the baseline branch and
-    /// never reads the baseline for her at all. ⇒ No baseline value, guessed or
-    /// stale, reaches her on screen. What follows is what the guess WOULD cost if
-    /// that road were ever taken for her, which is why the test is a distance
-    /// check and not a rendering assertion. That baseline is the ratio DENOMINATOR
-    /// (`pose.base_size / baseline.standing_collision`), and that file's own
-    /// comment states the intent is a ratio of ONE — *"it should never scale the
-    /// art"*.
-    ///
-    /// ⇒ For her the guess is not close, and not even uniform, so taking that
-    /// road would DISTORT her rather than merely resize her:
-    ///
-    /// ```text
-    ///   form    box            vs default (30 x 48)   ratio
-    ///   small   21.33 x 32.00                         0.71 x 0.67
-    ///   tall    21.33 x 64.00                         0.71 x 1.33
-    /// ```
-    ///
-    /// ⚠ The vertical ratio CROSSES 1.0 between her forms — too small while she
-    /// is small, too big once she is tall — so an eye calibrated on one form
-    /// reads the other as a different bug.
-    ///
-    /// ⚠ THIS DOES NOT ASSERT THE BUG HAPPENS. It pins that her body is nowhere
-    /// near the default, so that if that road is ever taken for her the result is
-    /// grossly wrong rather than subtly off — and if someone later makes her box
-    /// match the default, this fails and the note above stops being true.
+    /// Guard the difference between Mary-O's authored collision box and
+    /// the engine default. Her current sprite-authored presentation does
+    /// not use the fallback baseline. If a different binding path uses
+    /// it, the fallback would distort the sprite non-uniformly.
     #[test]
     fn the_default_body_guess_is_nowhere_near_her_real_box() {
         let small = ambition_platformer2d::character_sprites::posed_body_geometry(
@@ -3083,57 +3046,12 @@ mod scale_fallback_tests {
         );
     }
 
-    /// ⛔⛔ EVERY POSE SHE PLAYS, NOT JUST IDLE — the sharper form of the "size
-    /// varies with global game state" report.
-    ///
-    /// `posed_body_geometry` resolves PER ANIMATION (`pose_body_bbox(anim)`
-    /// returns an `Option`), and `sync_sprite_posed_bodies` derives BOTH the
-    /// collision box and the sprite quad from that one call. ⇒ An animation whose
-    /// sheet publishes no body metrics does not merely miss a refinement: the
-    /// lookup returns `None` for that frame and the body keeps whatever box and
-    /// quad it last had. The state that "varies" would then be WHICH ANIMATION IS
-    /// PLAYING — walking off a ledge would change her size.
-    /// ⭐⭐ THE GENERATOR MEASURES HER **STANCE** AND CALLS IT A POSE — measured
-    /// 2026-09-06, and corrected TWICE before it said this.
-    ///
-    /// `sync_sprite_posed_bodies` places her quad with `geometry.sprite_offset`,
-    /// whose job its own comment states as *"where does the frame go so the
-    /// POSE's rectangle lands on the box"*. Her per-pose frame offsets DO vary —
-    /// the art moves — while the body box does not, so the art is positioned
-    /// against a rectangle that only knows whether she is standing or crouching.
-    /// That is D-MARYO-SPRITE's mechanism: a misposition that changes with the
-    /// pose, over a collider that looks plausible because it comes from the same
-    /// box.
-    ///
-    /// ⛔⛔ **TWO CORRECTIONS ARE BAKED INTO THIS TEST AND BOTH WERE MINE.**
-    /// * I first attributed it to `pose_body_bbox`'s `.or(self.body_pixel_bbox)`
-    ///   fallback. **Her per-pose entries are POPULATED**, so that `.or()` is
-    ///   never reached — read out of the authored `.ron` by a peer session rather
-    ///   than by re-running my probe. ⇒ Deleting or fail-louding the fallback
-    ///   would give no signal here at all.
-    /// * I then pinned all three sheets at ONE box. **`_tall` and `_fire` publish
-    ///   more** — a standing box and a crouch box. My population was locomotion
-    ///   plus combat and contained **no crouch pose**, which is the only pose
-    ///   that separates them. ⇒ `mary_o_v2` reads 1 because every one of its
-    ///   poses, crouch included, is the same 56x84 — the small form is already
-    ///   short — not because it is differently broken.
-    ///
-    /// ⚠ **A WIDENED POPULATION THAT FINDS NOTHING IS ONLY AS GOOD AS THE AXIS IT
-    /// WAS WIDENED ALONG.** I went from five locomotion poses to nine by adding
-    /// combat, it found nothing, and the pose that would have found something was
-    /// outside both sets.
-    ///
-    /// ⚠ **AND DISTINCTNESS VARIES BY TIER** — `player_robot_v3` reads 27 / 83 /
-    /// 92 / 95 across potato / 0_25x / 0_5x / 1x, because low tiers quantise
-    /// boxes together. So a bare distinctness number is meaningless without its
-    /// tier. This test reads whatever `record_for_sheet_key` resolves in THIS
-    /// composition; it asserts a PARTITION rather than a magnitude for exactly
-    /// that reason, and the partition is tier-independent.
-    ///
-    /// ⇒ **The exit: when the generator measures per POSE, the standing set stops
-    /// sharing one box and this goes red. That is the signal to close
-    /// D-MARYO-SPRITE**, and the fix is a sheet regeneration inside the submodule
-    /// Q65 holds.
+    /// Capture the current distinction between Mary-O's stance boxes
+    /// and pose-specific art offsets. The authored sheets publish one
+    /// collision box per stance, not per animation pose. Distinct box
+    /// counts vary with quality tier, so compare pose partitions rather
+    /// than exact counts. This test must change if per-pose collider
+    /// generation replaces stance-based geometry.
     #[test]
     fn her_body_box_tracks_her_stance_and_not_her_pose() {
         use ambition_platformer2d::sprite_sheet::character::CharacterAnim;

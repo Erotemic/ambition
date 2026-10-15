@@ -103,6 +103,8 @@ links to.
   — target contract for the actor kernel.
 - [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md)
   — capability and plugin composition.
+- [`engine/system-composition-audit.md`](engine/system-composition-audit.md)
+  — which systems each game runs, and the plan to run only what it uses.
 - [`engine/public-sdk-1.0.md`](engine/public-sdk-1.0.md) — public SDK scope.
 - [`engine/prepared-definition-field-census.md`](engine/prepared-definition-field-census.md)
   — A6 per-field reader census.

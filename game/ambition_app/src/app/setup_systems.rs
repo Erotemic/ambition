@@ -39,7 +39,8 @@ pub(crate) struct PresentationCatalogs<'w> {
 #[cfg(feature = "audio")]
 pub(crate) fn setup_host_presentation_system(
     mut commands: Commands,
-    prepared_world: Res<ambition_content::provider::AmbitionPreparedWorld>,
+    // Absent in a hub without Ambition (`hub_games`).
+    prepared_world: Option<Res<ambition_content::provider::AmbitionPreparedWorld>>,
     sfx_registry: Res<ambition_platformer2d::content::SfxRegistry>,
     audio_catalog: Res<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>,
     catalogs: PresentationCatalogs,
@@ -49,7 +50,7 @@ pub(crate) fn setup_host_presentation_system(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
     quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
-    world_manifest: Res<ambition_platformer2d::world::world_manifest::WorldManifest>,
+    world_manifest: Option<Res<ambition_platformer2d::world::world_manifest::WorldManifest>>,
 ) {
     // The host-resident music library must resolve EVERY linked provider's
     // authored tracks — not just Ambition's — so a Sanic or Mary-O session's
@@ -76,12 +77,15 @@ pub(crate) fn setup_host_presentation_system(
             &catalogs.characters,
             &catalogs.bosses,
             &music_registry,
-            &world_manifest,
+            &world_manifest.as_deref().cloned().unwrap_or_default(),
             |manifest| {
-                ambition_content::intro::sprites::extend_with_intro_sprite_entries(
-                    manifest,
-                    &asset_config.sprite_folder,
-                );
+                // Ambition's intro sprites, when Ambition is installed.
+                if prepared_world.is_some() {
+                    ambition_content::intro::sprites::extend_with_intro_sprite_entries(
+                        manifest,
+                        &asset_config.sprite_folder,
+                    );
+                }
             },
         )
     });
@@ -97,7 +101,12 @@ pub(crate) fn setup_host_presentation_system(
         asset_catalog,
         &asset_server,
         &mut atlas_layouts,
-        &prepared_world.room_set.activation_spec().metadata,
+        // The room whose theme binds the block art: Ambition's start room, or
+        // the engine's default theme in a hub without Ambition.
+        &prepared_world
+            .as_deref()
+            .map(|world| world.room_set.activation_spec().metadata.clone())
+            .unwrap_or_default(),
         quality.as_deref().map(|q| &q.budget),
         &catalogs.props,
     );
@@ -121,7 +130,8 @@ pub(crate) fn setup_host_presentation_system(
 #[cfg(not(feature = "audio"))]
 pub(crate) fn setup_host_presentation_system(
     mut commands: Commands,
-    prepared_world: Res<ambition_content::provider::AmbitionPreparedWorld>,
+    // Absent in a hub without Ambition (`hub_games`).
+    prepared_world: Option<Res<ambition_content::provider::AmbitionPreparedWorld>>,
     catalogs: PresentationCatalogs,
     hosted: Option<Res<super::shell_host::AmbitionShellHosted>>,
     audio_catalog: Res<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>,
@@ -129,7 +139,7 @@ pub(crate) fn setup_host_presentation_system(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
     quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
-    world_manifest: Res<ambition_platformer2d::world::world_manifest::WorldManifest>,
+    world_manifest: Option<Res<ambition_platformer2d::world::world_manifest::WorldManifest>>,
 ) {
     // Same provider-sprite composition as the audio variant: rebuild the sandbox
     // asset catalog from the merged character catalog so host-launched Sanic and
@@ -144,12 +154,15 @@ pub(crate) fn setup_host_presentation_system(
             &catalogs.characters,
             &catalogs.bosses,
             &music_registry,
-            &world_manifest,
+            &world_manifest.as_deref().cloned().unwrap_or_default(),
             |manifest| {
-                ambition_content::intro::sprites::extend_with_intro_sprite_entries(
-                    manifest,
-                    &asset_config.sprite_folder,
-                );
+                // Ambition's intro sprites, when Ambition is installed.
+                if prepared_world.is_some() {
+                    ambition_content::intro::sprites::extend_with_intro_sprite_entries(
+                        manifest,
+                        &asset_config.sprite_folder,
+                    );
+                }
             },
         )
     });
@@ -164,7 +177,12 @@ pub(crate) fn setup_host_presentation_system(
         asset_catalog,
         &asset_server,
         &mut atlas_layouts,
-        &prepared_world.room_set.activation_spec().metadata,
+        // The room whose theme binds the block art: Ambition's start room, or
+        // the engine's default theme in a hub without Ambition.
+        &prepared_world
+            .as_deref()
+            .map(|world| world.room_set.activation_spec().metadata.clone())
+            .unwrap_or_default(),
         quality.as_deref().map(|q| &q.budget),
         &catalogs.props,
     );

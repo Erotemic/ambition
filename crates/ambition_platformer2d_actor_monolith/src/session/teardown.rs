@@ -264,59 +264,14 @@ pub struct SessionScopedResources<'w> {
     gate_portal_phases: Option<ResMut<'w, ambition_platformer2d_world::rooms::GatePortalPhases>>,
 }
 
-/// Re-establish the session mirrors for a scope that is about to be built.
+/// Reset session-scoped resources before the incoming world is activated.
 ///
-/// ⭐ THE CORRECTNESS EDGE. Runs in [`SessionScopeSet::Activate`], before any
-/// provider constructs the world these values describe.
-///
-/// ⛔⛤ **TWENTY-THREE OF THESE RESOURCES ARE ROLLBACK-REGISTERED AND THIS IS AN
-/// ORDINARY `Update` SYSTEM, WHICH THE ROLLBACK-MUTATOR GUARD ASKS ABOUT.**
-/// (MEASURED 2026-09-16 across every `.rs` in `crates/` and `game/`, over all ten
-/// `rollback_resource_*` methods the registrar declares. This line read SIXTEEN,
-/// then TWENTY-TWO; ⚠ the count is load-bearing for the argument below, so it is
-/// stated with the method that produced it. Five more were added 2026-10-04:
-/// `RequestedClockScale`, `ClockState` and `WorldTime`
-/// (`rollback_resource_canonical`), and `GatePortalPhases` and
-/// `OwnedItemsBaseline` (`rollback_resource_clone_checksum`);
-/// the total was not measured again. The 22 -> 23 step is re-derived
-/// rather than decremented by hand: `AuthoredOccurrences` moved from
-/// `declare_rollback_derived_resource` to `rollback_resource_clone_checksum` in
-/// schema v195, which `rollback_schema_baseline.txt` records as exactly one row
-/// added and one removed. Two remain derived — `ControlledSubject` and
-/// `EncounterView` — which is a recorded decision that they are recomputed, and
-/// four carry no rollback decision at all; see `docs/planning/queue.md`'s
-/// CUTSCENE-ROLLBACK-DECISION.) Its
-/// question is whether a write is replayed with the value it mutates, and two
-/// things can answer it: the write is inside the rewind window, or the write is
-/// at a point no rewind crosses. This is the second, and the ordering that
-/// establishes it spans three crates rather than living here:
-///
-/// - `ambition_game_shell`'s session plugin chains
-///   `(GameplaySessionSet::Bridge, SessionScopeSet::Activate,
-///   GameplaySessionSet::Providers)` in `Update`;
-/// - `adopt_candidate_platformer_session`, which makes a prepared root the LIVE
-///   one, is in `GameplaySessionSet::Providers`;
-/// - `maintain_local_session` starts GGRS only when
-///   `session_world_entity(world).is_some()`.
-///
-/// ⇒ A scope's rollback timeline cannot exist until that scope's world root is
-/// live, and the root is not live until after this runs. These writes land
-/// before there is a frame zero to rewind to.
-///
-/// ⚠ **IT RESTS ON THE A10 CANDIDATE STAYING HIDDEN.** A10.5 prepares the
-/// session world while the route is still PENDING, so a root for the incoming
-/// scope exists before this system runs. It carries `InactiveCandidate`, a Bevy
-/// disabling component, so the default query behind `session_world_entity`
-/// cannot see it. ⭐ That is HELD, not assumed —
-/// `a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`
-/// (`shared_tangle/src/lifecycle/session/tests.rs`) pins all three halves,
-/// including that ownership does not inherit the disabling. The session root's
-/// canonical `SimId` rests on the same arm.
-///
-/// ⛔ **NOT A REBASE ARGUMENT.** `LifecycleIntent` has two variants,
-/// `Transition` and `ReconstituteRoom`, and a session activation records
-/// neither — so the confirmed-commit GGRS rebase does not fire here and an
-/// argument built on one would be false.
+/// This system runs at `SessionScopeSet::Activate`, before providers
+/// adopt a live session root. GGRS starts only after that root is live,
+/// so these writes to rollback-registered resources occur before the
+/// incoming timeline has a frame to rewind. A prepared candidate stays
+/// hidden by `InactiveCandidate` and is not a live session root.
+/// This is session activation, not a room-transition rebase.
 pub fn reset_session_scoped_resources_on_activation(
     mut activated: MessageReader<SessionScopeActivated>,
     resources: SessionScopedResources,

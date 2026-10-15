@@ -78,27 +78,11 @@ pub use ambition_platformer2d_core::ContentEpoch;
 /// that spelling in this workspace.
 pub use ambition_platformer2d_core::PeerContentIdentity;
 
-/// App-local generation allocator — a source of DISTINCT ids, not a count of
-/// activations.
+/// Allocate distinct app-local content epochs.
 ///
-/// ⛔⛤ **THIS DOC USED TO SAY *"allocation happens only after a candidate
-/// prepared definition has fully validated and is about to be published or
-/// committed"*, AND THAT STOPPED BEING TRUE — REVIEW, 2026-09-13.** The
-/// hot-reload road (`dev_runtime.rs`) allocates BEFORE a preflight that can still
-/// fail, deliberately: the epoch has to be decided before the room is planned, or
-/// every rebuilt root stamps a `TransactionId` naming the generation this reload
-/// is REPLACING — a provenance discrepancy inside rollback state, which is what
-/// that change fixed.
-///
-/// ⭐⭐ **SO THE CONTRACT IS GAP-TOLERANT LINEAGE IDS, AND
-/// [`ContentEpoch`] NO LONGER DERIVES `Ord`.** A refused reload burns a number
-/// and nothing can notice: comparing two epochs is a compile error, and the only
-/// question an epoch answers is *"is this the generation I was planned against"*.
-/// The alternative — reservation semantics, handing the number back on refusal —
-/// buys a property nothing reads at the price of a second lifetime. See
-/// `ambition_platformer2d_core::content_epoch` for the ruling in full.
-///
-/// ⚠ Routing/load transaction ids are deliberately unrelated.
+/// Preparation can reserve an epoch before validation. Refused candidates
+/// may leave gaps; an epoch answers identity equality, not chronology.
+/// It is not a peer-stable content fingerprint or a route load id.
 #[derive(Resource, Clone, Debug)]
 pub struct ContentEpochSequence {
     next: u64,
@@ -200,51 +184,15 @@ impl PreparedContentSection {
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct SelectedContentIdentity(pub String);
 
-/// The candidate MECHANICAL INPUTS one preparation transaction must build from.
+/// Mechanical inputs staged for exactly one load transaction.
 ///
-/// ⛔⛤ **A PENDING GENERATION USED TO OVERWRITE `SelectedContentIdentity`, AND
-/// THAT MADE IT EVERY TRANSACTION'S ANSWER.** A hot reload has to tell the
-/// preparation it is asking for which content to fingerprint, and the only road
-/// was the App-wide selection — so while a reload was in flight the App reported
-/// `SelectedContentPack = N` and `SelectedContentIdentity = N+1`, and any
-/// UNRELATED route preparation running in that window was fingerprinted with a
-/// candidate identity it had nothing to do with. The identity is what the
-/// rollback timeline contract compares, so a stranger's transaction inherited a
-/// generation stamp for content it never prepared.
-///
-/// ⭐ **THE CLAIM IS THE LOAD ID, BECAUSE THAT IS WHAT BOTH ENDS HAVE.** The
-/// router mints `shell.{route}.{counter}` per transaction, and
-/// `PlatformerPreparation::prepare` already receives the
-/// `ProviderLoadTransaction` at the line that reads the identity. A preparation
-/// uses this value iff the claim names ITS load; every other preparation keeps
-/// reading the App's active selection.
-///
-/// ⚠ ONE AT A TIME, DELIBERATELY. The coordinator upstream refuses a second
-/// generation while one is pending, so a single claim is the whole truth rather
-/// than a first-past-the-post over a map.
-/// ⛔⛤ **IT CARRIES THE CANDIDATE CAST TOO, AND THAT IS WHY IT IS NO LONGER
-/// CALLED `PendingContentIdentity`.** A review of `bdbddfe` found the freeze
-/// landed on the wrong generation: a cast-changing reload computes the N+1 cast
-/// at REQUEST time (`take_admitted_revision`) and deliberately withholds it from
-/// the App until the commit boundary, so while the transaction is pending the
-/// published `PreparedCharacterRegistry` is still N. Preparation froze THAT —
-/// giving a session whose identity names N+1 and whose fighters are N's.
-///
-/// ⇒ **THE CANDIDATE MUST NOT HAVE TO BE PUBLISHED GLOBALLY FOR PREPARATION TO
-/// SEE IT** — that is exactly the authority bug `PendingContentIdentity` was
-/// carved out to remove, and restoring it under another name would undo this
-/// whole file. The transaction owns its candidate values and hands them to its
-/// own preparation, keyed by the same `load_id` claim the identity already uses.
-///
-/// ⚠ **THE CAST AND THE BOSS CATALOG RIDE HERE.** The participating families
-/// are the moveset, the boss profiles and encounters (since 2026-10-01),
-/// `fighter_brain_ladder` and `encounter_waves`; a candidate that changes
-/// `AuthoredSheets` is REFUSED by `ReloadRequest` rather than published (see
-/// `PACK_DERIVED_FAMILIES`). It therefore cannot move across the
-/// prepare→activate window, so freezing it from the App is not a second
-/// generation — it is the same one. A family that gains a reload road gains a
-/// field here, and the compiler will not ask for it: the guard is
-/// `participates`.
+/// `load_id` binds candidate identity, cast, and boss catalog to the
+/// preparation that requested them. Other loads keep using the active
+/// content selection. Candidate values stay private until admission;
+/// preparation must not take the outgoing generation's cast for a new
+/// identity. Only one candidate generation may be pending at a time.
+/// New reloadable content families must participate in this staging
+/// contract before they can change during publication.
 #[derive(Resource, Clone, Debug)]
 pub struct PendingGenerationInputs {
     /// The `LoadId` of the transaction these inputs belong to.

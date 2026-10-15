@@ -317,6 +317,13 @@ Set `AMBITION_RESOURCE_LIST=PATH` as well to write every resource type name to
 Ambition types (223 `GgrsSnapshots`, one per rollback registration; 157
 `Messages`; 465 plain resources) and 487 Bevy's and third parties' own.
 
+**`[census] systems_ran` says which registered systems ran in one frame**, by
+schedule and by crate (`ran/registered`), from each system's last-run tick: no
+trace build. Set `AMBITION_SYSTEM_LIST=PATH` to write every system, and compare
+games with `scripts/system_census_table.py` (a standalone demo needs
+`--features bevy/debug` for system names). The per-game audit and its plan are
+in `docs/planning/engine/system-composition-audit.md`.
+
 **`[census] phases` is the one frame breakdown that needs no profiler.** Tracy
 answers it too, but Tracy is a desktop build whose symbol worker can cost more
 than the game (see "Observer effect" in any bundle), and it does not exist on

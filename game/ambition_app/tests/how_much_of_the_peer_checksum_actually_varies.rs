@@ -1,83 +1,13 @@
-//! ID-PEER — of the entries that FEED the peer checksum, how many actually move?
+//! Measure how many peer-checksummed rollback entries change during play.
 //!
-//! ⛔⛤ **THIS EXISTS BECAUSE ONE HASHED ENTRY WAS FOUND FROZEN AND NOBODY HAD
-//! ASKED THE QUESTION OF THE OTHERS.** `AmbitionGameSave` is registered
-//! `resource-clone-custom-checksum` — inside the session checksum, projected
-//! through a function that serialises the whole save — and measured 2026-09-16 it
-//! takes **exactly one value** across every frame GGRS saved twice, while the
-//! live save reaches 247 mirrored items
-//! (`which_hashed_entry_moves_when_the_bag_does.rs`). A hashed entry contributing
-//! a constant is in the peer contract by registration and out of it in effect.
+//! Join checksum-feeding registrations against the rollback restore
+//! audit by exact Rust type name. Assert the join is nonempty; a failed
+//! join must not look like constant state. Constant entries are not
+//! necessarily defects. A moving live value with a constant projection
+//! requires a separate test.
 //!
-//! ⇒ So the general question: **how much of what two peers would compare
-//! actually varies?** The registry knows which entries feed the checksum
-//! (`RollbackEntryKind::feeds_peer_checksum`) and `RollbackRestoreAudit` knows
-//! which types' censuses moved at the frames it compared. The join is the answer.
-//!
-//! ⚠ **A CONSTANT ENTRY IS NOT A DEFECT, AND READING THIS AS A DEFECT LIST IS THE
-//! TRAP.** Most rollback state is legitimately still in a 240-step run of one
-//! room: authored configuration, a seat table nobody re-seats, a match receipt
-//! minted once. The finding `AmbitionGameSave` represents is narrower — an entry
-//! whose LIVE value moves while its hashed projection does not — and separating
-//! those two requires reading the live value too, which this file does not do for
-//! 300 types. What this measures is the SIZE of the varying part, which nobody
-//! had.
-//!
-//! ⚠ **AND THE JOIN IS ON `std::any::type_name`, EXACTLY.** Both sides build it
-//! the same way — `descriptor_owned` stores `std::any::type_name::<T>()` and
-//! `ChecksumProbe` is constructed with it — so a zero overlap would be a broken
-//! join, not a clean world, and the probe asserts against that.
-//!
-//! ⛔⛤ **THIS FILE'S ARMS BROKE EACH OTHER THROUGH A SHARED COUNTER IN THIS FILE
-//! — FOUND AND FIXED 2026-09-16, AFTER THREE SITTINGS OF LOOKING AT THE ENGINE.**
-//!
-//! Adding a SECOND sim App to this file made
-//! `no_registered_type_is_written_outside_the_rewinding_schedule` report **99**
-//! types written outside the rewinding schedule instead of none, under default
-//! parallelism, never alone and never under `--test-threads=1`. The 99 is a
-//! corrupted comparison baseline, not a finding, and a reader who did not know
-//! that would read it as a save bug.
-//!
-//! ⇒ **THE SHARED STATE WAS `playing`, THIS FILE'S OWN INPUT CADENCE.** Its phase
-//! lived in a `static AtomicUsize`, because `run_with` took a bare
-//! `fn() -> AgentAction` and a `fn` pointer cannot carry state. Every caller drew
-//! from that one counter, so two Apps running at once received arbitrary
-//! subsequences of the phases. `playing()` builds a fresh cadence per call now and
-//! `run_with` takes `impl FnMut()`.
-//!
-//! **THE CONTROLLED COMPARISON, one box, one commit, the two arms alone in the
-//! binary:**
-//!
-//! ```text
-//! per-call cadence (`playing()`)     15 runs, 15 passed
-//! shared `static` restored           10 runs,  8 FAILED with the 99-type list
-//! ```
-//!
-//! ⚠ **AND THE EARLIER RATE WAS MEASURED OVER A DIFFERENT POPULATION.** An
-//! earlier 20 runs of "the same configuration" gave 15 pass / 5 fail — 25% — and
-//! the control above gives 80%. Those are not in conflict: the 25% was the whole
-//! binary's arms competing for the counter and the 80% is two arms drawing from it
-//! directly. ⇒ A failure RATE carries the population it was measured over, the
-//! same way a count does.
-//!
-//! ⚠ **A CONCURRENCY EFFECT AND A SHARED-STATE EFFECT ARE THE SAME THING WHEN THE
-//! SHARED STATE IS IN THE MEASUREMENT.** Both standing hypotheses — a plugin
-//! leaving global state behind, and two Apps interfering only while simultaneous —
-//! pointed at the engine, because that is where a reader hunting shared state
-//! looks. The channel was one `static` in the harness, a few lines from the arms
-//! it broke. ⇒ Check the instrument's own globals before the subject's.
-//!
-//! ⚠ Not the item catalog: it was then a process-global `OnceLock` that ALLOWED
-//! identical reinstallation, and both fixtures installed the same one. It is an
-//! App-local resource now (2026-10-01), so it cannot be a channel at all.
-//!
-//! ⚠ Not the wall-clock timestep (`013b70c89`'s mechanism), and this one is
-//! structural rather than statistical: `Platformer2dSimHarness::set_timestep`
-//! calls `enable_manual_stepping` whenever rollback is enabled, both fixtures
-//! build with `with_sync_test_rollback_settings`, and the audit reports exactly
-//! 240 comparisons for 240 steps. ⇒ That elimination does not depend on how many
-//! times anything was run.
-//!
+//! The input cadence must be per test instance, not process-global, so
+//! concurrent test hosts do not alter one another's input streams.
 //! See `docs/planning/triage/a-composition-acceptance-that-only-fails-in-company.md`.
 
 #![cfg(feature = "rl_sim")]

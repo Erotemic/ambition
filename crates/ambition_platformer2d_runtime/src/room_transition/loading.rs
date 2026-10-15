@@ -1511,33 +1511,12 @@ pub fn authorize_ready_room_transition_system(
     }
 }
 
-/// Hand a failed checkpoint restore to the commit executor to be ENDED, on both
-/// hosts.
+/// Forward a terminal checkpoint-restore preparation failure for cleanup.
 ///
-/// ⛔⛔ WITHOUT THIS A FAILED PREPARATION RETRIED FOREVER. The transaction was
-/// torn down while its lifecycle intent stayed PENDING, so readiness opened a
-/// new transaction for the same intent on the next frame, against the same
-/// invalid definition — and the accepted operation was never retired, so nothing
-/// said the session was stuck.
-///
-/// ⛔⛔ **IT DOES NOT DO THE RETRACTION ITSELF, AND MAY NOT.** An earlier version
-/// took `ResMut<AcceptedCheckpointRestore>` and `ResMut<PendingLifecycleCommit>`
-/// here — rollback-registered state, written from `Update`, which never rewinds.
-/// `check_rollback_mutators_run_in_sim` found it: a retraction that survives a
-/// rollback desyncs the run. What this may touch is the HOST-side transaction it
-/// already owns, so it takes the key off the failed load and leaves it in
-/// [`AbandonedCheckpointOperation`]; the commit executor spends it.
-///
-/// ⚠ CHECKPOINT OPERATIONS ONLY. A door whose preparation failed transiently may
-/// legitimately be retried; a checkpoint restore's protocol says an invalid
-/// definition is terminal, and only the checkpoint road recorded the intent this
-/// cancels. Widening it to every transition is a separate ruling.
-///
-/// ⭐ IT RUNS BEFORE THE HEADLESS FINALIZER AND ON THE VISIBLE HOST ALIKE,
-/// because the transaction reaches `Failed` in seven places and is torn down in
-/// two — noting at the phase rather than at either teardown is what keeps the two
-/// hosts from needing separate answers. `take()` makes it idempotent: a second
-/// pass over the same failed transaction finds no key.
+/// Record the failed operation from host-side load state; do not write
+/// rollback-registered intent from `Update`. The simulation commit
+/// executor cancels the operation. Ordinary door preparation failures
+/// follow their own retry policy. `take()` prevents duplicate reports.
 pub fn abandon_failed_checkpoint_restore_system(
     mut state: ResMut<RoomTransitionLoadState>,
     // ⚠ READ, NOT WRITTEN. Reading rollback state in `Update` is ordinary; what

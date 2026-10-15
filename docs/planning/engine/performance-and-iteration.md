@@ -195,10 +195,10 @@ the app:
   factor. `profile_android.sh` now records the clocks and the thermal state
   to show when this happens.
 
-Deferred: an audit of the archetype count. About 850 archetypes in play
-makes each new query state and each cached query's first match more
-expensive. Find which component sets are made by optional components that
-are inserted and removed, and see if fewer, stable sets would do.
+The archetype count was audited on 2026-10-14: it is flat in play, and the
+matching is mostly each system's per-run check, so the lever is the number of
+systems that run each frame, not the archetypes. That audit and its plan are
+in [system-composition-audit.md](system-composition-audit.md).
 
 ### P2 — startup attribution
 

@@ -99,22 +99,39 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
     // The linked providers. Each registers its experience, routes, catalog
     // fragments, session construction, and rules; the launcher below derives
     // its entries from these registrations — no per-game match arms.
-    app.add_plugins((
-        AmbitionExperiencePlugin::new(AmbitionExperienceConfig::default()),
-        ambition_demo_sanic::SanicExperiencePlugin,
-        ambition_demo_mary_o::MaryOExperiencePlugin,
-        // The stocks demo. It is the first provider whose launcher row does NOT
-        // open its gameplay route: "Smash" opens CHARACTER SELECT, which the
-        // demo registers as a frontend route of its own and which then asks the
-        // shell for the stage once every seat has locked in. Nothing here knows
-        // that — the row is derived from the registration like every other.
-        ambition_demo_smash::SmashExperiencePlugin,
-    ));
+    use super::hub_games::installs;
+    if let Some(list) = super::hub_games::selection() {
+        bevy::log::info!(
+            "{}: this hub installs {list:?}",
+            super::hub_games::HUB_GAMES_ENV
+        );
+    }
+    if installs("ambition") {
+        app.add_plugins(AmbitionExperiencePlugin::new(
+            AmbitionExperienceConfig::default(),
+        ));
+    }
+    if installs("sanic") {
+        app.add_plugins(ambition_demo_sanic::SanicExperiencePlugin);
+    }
+    if installs("mary_o") {
+        app.add_plugins(ambition_demo_mary_o::MaryOExperiencePlugin);
+    }
+    // The stocks demo. It is the first provider whose launcher row does NOT
+    // open its gameplay route: "Smash" opens CHARACTER SELECT, which the
+    // demo registers as a frontend route of its own and which then asks the
+    // shell for the stage once every seat has locked in. Nothing here knows
+    // that — the row is derived from the registration like every other.
+    if installs("smash") {
+        app.add_plugins(ambition_demo_smash::SmashExperiencePlugin);
+    }
 
     // The versus stage. Registered AFTER the providers because its fighters are
     // theirs: `mary_o` and `sanic` are registered by two different provider
     // plugins, and this composition is the only one where both casts exist.
-    crate::app::versus::compose_versus_experience(app);
+    if installs("versus") && installs("mary_o") && installs("sanic") {
+        crate::app::versus::compose_versus_experience(app);
+    }
 
     // The scene behind the launcher (presentation; an app that does not draw
     // runs none of it).

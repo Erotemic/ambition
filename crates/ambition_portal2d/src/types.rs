@@ -134,6 +134,15 @@ impl PlacedPortal {
         }
     }
 
+    /// The half-thickness of the opening across the face: the authored one
+    /// (for a slanted face, its box's share along the normal less the
+    /// opening's).
+    pub fn opening_half_thickness(&self) -> f32 {
+        let n = self.normal.normalize_or_zero();
+        let along = portal_opening_half(self.normal, self.opening_half_extent());
+        self.opening_half_extent().dot(n.abs()) - 2.0 * along * n.x.abs() * n.y.abs()
+    }
+
     /// Frame and opening extent, used by the piece decomposition, straddle
     /// test, carve, and portal-aware casts.
     pub fn aperture(&self) -> PortalAperture {
@@ -220,10 +229,12 @@ pub fn portal_half_extent_with_length(normal: Vec2, along_half: f32) -> Vec2 {
 }
 
 /// The along-surface half-length (opening size) of an oriented half-extent —
-/// the inverse of [`portal_half_extent_with_length`]'s along component.
+/// the inverse of [`portal_half_extent_with_length`]. For a slanted normal the
+/// box bounds the turned face, and the thickness's share of the box along the
+/// face is taken back out.
 pub fn portal_opening_half(normal: Vec2, half_extent: Vec2) -> f32 {
     let n = normal.normalize_or_zero();
-    half_extent.dot(Vec2::new(-n.y, n.x).abs())
+    half_extent.dot(Vec2::new(-n.y, n.x).abs()) - 2.0 * PORTAL_THICKNESS_HALF * n.x.abs() * n.y.abs()
 }
 
 /// How far out of the exit portal (along its normal) to place a body so it

@@ -290,6 +290,7 @@ impl<'a> RoomCollision<'a> {
                 && o.chains.is_empty()
                 && o.gate_solids.is_empty()
                 && o.portal_carves.is_empty()
+                && o.portal_line_carves.is_empty()
                 && o.removed_block_names.is_empty()
                 && o.climbable_carves.is_empty()
                 && o.water_regions.is_empty()
@@ -363,6 +364,11 @@ pub fn world_with_sandbox_solids(
     let start = collision_world.chains.len();
     collision_world.chains.extend(ecs_overlay.chains.iter().cloned());
     collision_world.chains[start..].sort_by(|a, b| a.name.cmp(&b.name));
+    // A portal on a line opens a gap in it, so a body can sink into the
+    // portal through the line it stood on.
+    for hole in &ecs_overlay.portal_line_carves {
+        collision_world.chains = collision_world.chains.iter().flat_map(|chain| chain.without(hole)).collect();
+    }
     // Gate solids (lock walls) are authored-equivalent statics: added alongside
     // the base/platform solids BEFORE the carve so a portal aperture splits them
     // exactly as it would a base wall.

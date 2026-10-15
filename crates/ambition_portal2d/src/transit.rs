@@ -47,8 +47,12 @@ pub struct PortalTransit {
 /// a carve changes its collision.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct PortalCarves {
-    /// Aperture rectangles to carve this frame, in publish order, by room.
+    /// Aperture rectangles to carve this frame, in publish order, by room:
+    /// out of the room's boxes.
     pub holes: Vec<(PortalRoom, ae::Aabb)>,
+    /// The same holes turned to their faces: out of the room's lines (a
+    /// portal on a slope). For a cardinal portal each is its box.
+    pub faces: Vec<(PortalRoom, ae::frame::FaceRect)>,
 }
 
 /// Publish apertures that must be carved from host collision this frame.
@@ -71,9 +75,10 @@ pub fn publish_portal_carves(
     host_depths: Option<Res<PortalHostDepthsByRoom>>,
     mut carves: ResMut<PortalCarves>,
 ) {
-    use super::placement::{approach_box, capture_box, portal_fits};
+    use super::placement::{approach_face, capture_face, portal_fits};
 
     carves.holes.clear();
+    carves.faces.clear();
     let by_room = PortalsByRoom::collect(&portals, &live);
     if by_room.is_empty() {
         return;
@@ -81,7 +86,10 @@ pub fn publish_portal_carves(
     // Carve each channel of each room once, and only if its partner is placed
     // in that room: a lone portal must not open a hole.
     let mut carved: Vec<(PortalRoom, PortalChannel)> = Vec::new();
-    let mut carve = |room: PortalRoom, channel: PortalChannel, holes: &mut Vec<(PortalRoom, ae::Aabb)>| {
+    let mut carve = |room: PortalRoom,
+                     channel: PortalChannel,
+                     holes: &mut Vec<(PortalRoom, ae::Aabb)>,
+                     faces: &mut Vec<(PortalRoom, ae::frame::FaceRect)>| {
         if carved.contains(&(room, channel)) {
             return;
         }
@@ -92,7 +100,9 @@ pub fn publish_portal_carves(
         if find_portal(all, channel.partner()).is_none() {
             return;
         }
-        holes.push((room, pp::carve_hole(&enter.aperture())));
+        let face = pp::carve_face_with_depth(&enter.aperture(), f32::INFINITY);
+        holes.push((room, face.bounds()));
+        faces.push((room, face));
         carved.push((room, channel));
     };
 
@@ -112,21 +122,23 @@ pub fn publish_portal_carves(
             // to cross this frame. Otherwise a body behind a thin wall could
             // open a hole through it without transiting.
             let frontal = front >= -TRANSIT_BEGIN_MARGIN
-                && (body.strict_intersects(capture_box(p))
-                    || (kin.vel.dot(p.normal) < 0.0 && body.strict_intersects(approach_box(p))));
+                && (capture_face(p).strict_intersects(body)
+                    || (kin.vel.dot(p.normal) < 0.0 && approach_face(p).strict_intersects(body)));
             // Fast crossing that skipped Begin: keep the hole open while the
             // body is inside the carve volume, bounded by the host depth.
-            let hole = pp::carve_hole_with_depth(&ap, depths.in_room(room).depth(p.channel));
-            let falling_through = kin.vel.dot(p.normal) < 0.0 && body.strict_intersects(hole);
+            let hole = pp::carve_face_with_depth(&ap, depths.in_room(room).depth(p.channel));
+            let falling_through = kin.vel.dot(p.normal) < 0.0 && hole.strict_intersects(body);
             if frontal || falling_through {
-                carve(room, p.channel, &mut carves.holes);
+                let PortalCarves { holes, faces } = &mut *carves;
+                carve(room, p.channel, holes, faces);
             }
         }
     }
     // Latch: keep a straddled portal open through the centroid crossing, in
     // the straddling body's room.
     for (body_entity, t) in &transits {
-        carve(live.of(body_entity), t.straddling, &mut carves.holes);
+        let PortalCarves { holes, faces } = &mut *carves;
+        carve(live.of(body_entity), t.straddling, holes, faces);
     }
 }
 
@@ -409,7 +421,13 @@ pub fn portal_teleport_free_bodies<B: FreePortalBody>(
                 continue;
             };
             if vel.dot(enter.normal) < 0.0
-                && body_aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.opening_half_extent()))
+                && (ae::frame::FaceRect {
+                    center: enter.pos,
+                    normal: enter.normal.normalize_or_zero(),
+                    half_along: enter.aperture().half_length,
+                    half_out: enter.opening_half_thickness(),
+                })
+                .strict_intersects(body_aabb)
             {
                 // Rotation preserves speed, so momentum carries through.
                 let exit_vel = portal_transform_velocity(vel, enter.normal, exit.normal, convention);

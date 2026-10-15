@@ -396,3 +396,41 @@ mod tests {
         assert!(settle_on_line(&world, body, DOWN, drop).is_none());
     }
 }
+
+#[cfg(test)]
+mod portal_cut_tests {
+    use crate::frame::FaceRect;
+    use crate::world::SurfaceChain;
+    use crate::Vec2;
+
+    /// A portal's opening on a line cuts it out: the two pieces either side
+    /// are left, and the line is whole where it is not cut.
+    #[test]
+    fn a_portal_on_a_line_cuts_its_opening_out_of_it() {
+        let ramp = SurfaceChain::open("ramp", vec![Vec2::new(0.0, 200.0), Vec2::new(400.0, 0.0)]);
+        let t = (Vec2::new(400.0, 0.0) - Vec2::new(0.0, 200.0)).normalize();
+        let normal = Vec2::new(t.y, -t.x);
+        let centre = Vec2::new(200.0, 100.0);
+        let hole = FaceRect { center: centre, normal, half_along: 46.0, half_out: 30.0 };
+        let pieces = ramp.without(&hole);
+        assert_eq!(pieces.len(), 2);
+        let gap = (pieces[1].points[0] - pieces[0].points[pieces[0].points.len() - 1]).length();
+        assert!((gap - 92.0).abs() < 1.0e-2, "the gap is the opening: {gap}");
+        let far = FaceRect { center: Vec2::new(900.0, 900.0), ..hole };
+        assert_eq!(ramp.without(&far).len(), 1);
+    }
+
+    /// For a level face the rectangle is a box: its bounds and its overlap
+    /// test are the box's.
+    #[test]
+    fn a_level_face_rect_is_a_box() {
+        use ambition_geometry::geometry::{Aabb, AabbExt};
+        let r = FaceRect { center: Vec2::new(10.0, 20.0), normal: Vec2::new(0.0, -1.0), half_along: 46.0, half_out: 9.0 };
+        let b = r.bounds();
+        assert_eq!(b, Aabb::new(Vec2::new(10.0, 20.0), Vec2::new(46.0, 9.0)));
+        for (c, h) in [(Vec2::new(60.0, 20.0), 5.0), (Vec2::new(52.0, 20.0), 5.0), (Vec2::new(10.0, 33.0), 4.0), (Vec2::new(10.0, 34.0), 4.0)] {
+            let other = Aabb::new(c, Vec2::splat(h));
+            assert_eq!(r.strict_intersects(other), b.strict_intersects(other), "{c:?}");
+        }
+    }
+}

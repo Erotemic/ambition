@@ -32,6 +32,10 @@ pub struct FeatureEcsWorldOverlay {
     /// Per-actor openings of `gate_solids`; see [`GatePass`].
     pub gate_passes: Vec<GatePass>,
     pub portal_carves: Vec<ae::Aabb>,
+    /// The openings of portals on lines (a portal on a slope), cut out of the
+    /// room's lines this tick. Owned by the portal bridge with
+    /// `portal_carves`.
+    pub portal_line_carves: Vec<ae::frame::FaceRect>,
     pub removed_block_names: Vec<String>,
     pub climbable_carves: Vec<ae::Aabb>,
     pub water_regions: Vec<ae::WaterRegion>,
@@ -64,6 +68,7 @@ impl FeatureEcsWorldOverlay {
             gate_solids,
             gate_passes,
             portal_carves,
+            portal_line_carves,
             removed_block_names,
             climbable_carves,
             water_regions,
@@ -76,9 +81,9 @@ impl FeatureEcsWorldOverlay {
         climbable_carves.clear();
         water_regions.clear();
         // ⛔ NOT OURS. The portal bridge (`bridge_portal_carves`) clears and
-        // refills this every frame; clearing it here would race that and blink the
-        // aperture depending on system order.
-        let _ = portal_carves;
+        // refills these every frame; clearing them here would race that and
+        // blink the aperture depending on system order.
+        let _ = (portal_carves, portal_line_carves);
     }
 
     /// Retract every contribution, from both owners, when the active room
@@ -105,6 +110,7 @@ impl FeatureEcsWorldOverlay {
             gate_solids,
             gate_passes,
             portal_carves,
+            portal_line_carves,
             removed_block_names,
             climbable_carves,
             water_regions,
@@ -116,6 +122,7 @@ impl FeatureEcsWorldOverlay {
         // The portal bridge refills this from `PortalCarves` on its next run,
         // as it does every frame.
         portal_carves.clear();
+        portal_line_carves.clear();
         removed_block_names.clear();
         climbable_carves.clear();
         water_regions.clear();

@@ -619,3 +619,73 @@ fn a_transit_takes_its_convention_from_tuning() {
         "a transit tuned to Reflection did not follow its tuning either"
     );
 }
+
+/// A portal on a slope of 30 degrees (its normal 30 degrees from up, toward
+/// the right).
+fn on_a_slope(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
+    let a = 30.0_f32.to_radians();
+    let normal = Vec2::new(a.sin(), -a.cos());
+    PlacedPortal::fixed(channel, pos, normal, portal_half_extent(normal))
+}
+
+/// The opening of a slanted portal is as long as a level one's, and the
+/// capture is turned to its face: a box beside the face's end, inside the
+/// box that bounds the face, is not captured.
+#[test]
+fn a_slanted_portal_opens_as_wide_as_a_level_one_and_captures_on_its_face() {
+    let p = on_a_slope(PURPLE, Vec2::new(500.0, 500.0));
+    assert!((p.aperture().half_length - floor(PURPLE, Vec2::ZERO).aperture().half_length).abs() < 1.0e-3);
+    assert!((p.opening_half_thickness() - crate::types::PORTAL_THICKNESS_HALF).abs() < 1.0e-3);
+    let capture = capture_face(&p);
+    // On the face, a little in front: captured.
+    let t = p.aperture().frame.tangent();
+    let on = ae::Aabb::new(p.pos + p.normal * 4.0 + t * 30.0, Vec2::splat(4.0));
+    assert!(capture.strict_intersects(on));
+    // In the corner of the bounding box, off the face: not.
+    let corner = capture.bounds().max - Vec2::splat(3.0);
+    assert!(ae::AabbExt::strict_intersects(capture.bounds(), ae::Aabb::new(corner, Vec2::splat(2.0))));
+    assert!(!capture.strict_intersects(ae::Aabb::new(corner, Vec2::splat(2.0))));
+}
+
+/// A body that walks down into a portal on a slope begins transit at the
+/// face and comes out of the partner wall portal when its centre crosses.
+#[test]
+fn a_body_goes_through_a_portal_on_a_slope() {
+    let enter = on_a_slope(PURPLE, Vec2::new(500.0, 500.0));
+    let exit = PlacedPortal::fixed(YELLOW, Vec2::new(900.0, 300.0), Vec2::new(-1.0, 0.0), portal_half_extent(Vec2::new(-1.0, 0.0)));
+    let portals = vec![enter.clone(), exit.clone()];
+    let size = Vec2::new(28.0, 46.0);
+    let down = Vec2::new(0.0, 1.0);
+    // Standing on the slope over the portal, moving into it.
+    let mut center = enter.pos + enter.normal * 26.0;
+    let vel = -enter.normal * 200.0;
+    let begin = transit_step(center, size, vel, None, None, &portals, down);
+    let TransitStep::Begin { channel, .. } = begin else {
+        panic!("the body on the slanted face begins transit: {begin:?}");
+    };
+    assert_eq!(channel, PURPLE);
+    let transit = Some(crate::transit::PortalTransit { straddling: PURPLE, crossed: false });
+    let mut step = TransitStep::Continue;
+    for _ in 0..30 {
+        center += vel / 60.0;
+        step = transit_step(center, size, vel, transit, None, &portals, down);
+        if matches!(step, TransitStep::Transfer { .. }) {
+            break;
+        }
+    }
+    let TransitStep::Transfer { pos, vel: out, exit_channel, .. } = step else {
+        panic!("the centre crossed the slanted plane and the body transferred: {step:?}");
+    };
+    assert_eq!(exit_channel, YELLOW);
+    assert!((pos - exit.pos).length() < 40.0, "it comes out at the exit ({pos:?})");
+    assert!(out.dot(exit.normal) > 0.0, "out of the exit, along its normal ({out:?})");
+}
+
+/// A body beside a slanted portal, wider than its opening measured along
+/// the slope, does not fit.
+#[test]
+fn fitting_a_slanted_opening_measures_the_body_along_the_slope() {
+    let p = on_a_slope(PURPLE, Vec2::new(0.0, 0.0));
+    assert!(portal_fits(Vec2::new(28.0, 46.0), &p));
+    assert!(!portal_fits(Vec2::new(80.0, 80.0), &p));
+}

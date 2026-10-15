@@ -588,8 +588,11 @@ pub(super) fn convert_portal(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
     let (entity, name, min, size) = ctx.parts();
     // `color` names the pair (its partner is the linked exit). `normal` is the
     // surface the portal sits on (up = floor, down = ceiling, left = right wall,
-    // right = left wall; y is down). The box is drawn on the wall, and
-    // `settle_portals_on_faces` puts its center on the face of that wall.
+    // right = left wall; y is down), or for a portal on a slope the angle of its
+    // normal in degrees from up toward the right (`"30"`: a floor that falls to
+    // the right). The box is drawn on the surface, and
+    // `settle_portals_on_faces` puts its center on the face of that wall, or
+    // on the line a slanted one is drawn on.
     let color_str = field_string(entity, "color").unwrap_or_default();
     let color = ambition_platformer2d_world::rooms::PortalChannelColorSpec::from_name(&color_str)
         .ok_or_else(|| format!("Portal '{name}' has unknown color '{color_str}'"))?;
@@ -598,7 +601,13 @@ pub(super) fn convert_portal(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
         Some("left") => ae::Vec2::new(-1.0, 0.0),
         Some("right") => ae::Vec2::new(1.0, 0.0),
         Some("up") | None => ae::Vec2::new(0.0, -1.0),
-        Some(other) => return Err(format!("Portal '{name}' has unknown normal '{other}'")),
+        Some(other) => match other.parse::<f32>() {
+            Ok(degrees) if degrees.is_finite() => {
+                let a = degrees.to_radians();
+                ae::Vec2::new(a.sin(), -a.cos())
+            }
+            _ => return Err(format!("Portal '{name}' has unknown normal '{other}' (up/down/left/right or degrees)")),
+        },
     };
     // Explicit link id (preferred pairing). Empty or absent uses color pairing.
     let link = field_string(entity, "link")
@@ -649,12 +658,41 @@ const PORTAL_FACE_SLACK: f32 = 2.0;
 pub(super) fn settle_portals_on_faces(
     placements: &mut [ambition_platformer2d_world::placements::PlacementRecord],
     blocks: &[ae::Block],
+    chains: &[ae::SurfaceChain],
 ) {
     for record in placements {
         let PlacementSchema::Portal(schema) = &record.schema else {
             continue;
         };
         let normal = ae::Vec2::new(schema.normal[0], schema.normal[1]);
+        // A slanted portal is on a line: its center goes along its normal onto
+        // the nearest segment that faces the same way.
+        if normal.x.abs() > 1.0e-3 && normal.y.abs() > 1.0e-3 {
+            let center = (record.aabb.min + record.aabb.max) * 0.5;
+            let reach = (record.aabb.max - record.aabb.min).length() * 0.5 + PORTAL_FACE_SLACK;
+            let mut nearest: Option<f32> = None;
+            for chain in chains {
+                for i in 0..chain.segment_count() {
+                    let (a, b) = chain.segment(i);
+                    let t = b - a;
+                    let n = ae::Vec2::new(t.y, -t.x).normalize_or_zero();
+                    if n.dot(normal) < 0.99 {
+                        continue;
+                    }
+                    let offset = (a - center).dot(n) / normal.dot(n);
+                    let on = center + normal * offset;
+                    let along = (on - a).dot(t) / t.length_squared();
+                    if (0.0..=1.0).contains(&along) && offset.abs() <= reach && nearest.is_none_or(|best| offset.abs() < best.abs()) {
+                        nearest = Some(offset);
+                    }
+                }
+            }
+            if let Some(offset) = nearest {
+                record.aabb.min += normal * offset;
+                record.aabb.max += normal * offset;
+            }
+            continue;
+        }
         let tangent = ae::Vec2::new(normal.y.abs(), normal.x.abs());
         let center = (record.aabb.min + record.aabb.max) * 0.5;
         let half = (record.aabb.max - record.aabb.min) * 0.5;
@@ -1195,7 +1233,7 @@ mod portal_face_tests {
             // In open air.
             portal(ae::Vec2::new(1600.0, 300.0), ae::Vec2::new(18.0, 92.0), [1.0, 0.0]),
         ];
-        settle_portals_on_faces(&mut placements, &blocks);
+        settle_portals_on_faces(&mut placements, &blocks, &[]);
         let centers: Vec<ae::Vec2> = placements.iter().map(center).collect();
         assert_eq!(centers[0], ae::Vec2::new(1200.0, 550.0));
         assert_eq!(centers[1], ae::Vec2::new(2208.0, 856.0), "the left face of the thin wall");

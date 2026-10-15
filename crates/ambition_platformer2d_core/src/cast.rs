@@ -77,6 +77,11 @@ pub trait SolidWorldQuery {
     /// otherwise they are skipped (blink/dive/grapple pass through them, while
     /// portal placement adheres to them).
     fn for_each_solid_aabb(&self, include_one_way: bool, visit: &mut dyn FnMut(Aabb));
+
+    /// Invoke `visit` once for each segment of the world's lines (its
+    /// surface chains), as `(a, b)` with the line's outward normal
+    /// `(t.y, -t.x)` for `t` from `a` to `b`. None by default.
+    fn for_each_line(&self, _visit: &mut dyn FnMut(Vec2, Vec2)) {}
 }
 
 /// The engine_core world's solid-block policy: `Solid` and `BlinkWall` blocks
@@ -92,6 +97,69 @@ impl SolidWorldQuery for World {
             }
         }
     }
+
+    fn for_each_line(&self, visit: &mut dyn FnMut(Vec2, Vec2)) {
+        for chain in &self.chains {
+            for i in 0..chain.segment_count() {
+                let (a, b) = chain.segment(i);
+                visit(a, b);
+            }
+        }
+    }
+}
+
+/// What a cast hit: where, the surface's outward normal there, and, for a
+/// line, the segment it hit (`(a, b)`), so a caller can ask how much of the
+/// line is around the hit.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SurfaceHit {
+    pub distance: f32,
+    pub point: Vec2,
+    pub normal: Vec2,
+    pub segment: Option<(Vec2, Vec2)>,
+}
+
+/// The nearest surface a ray from `origin` along `dir` hits within
+/// `max_dist`: a solid box (as [`raycast_solids_far`]) or a line, which is
+/// one-sided: hit only from the side its normal faces (the side a body
+/// stands on), passed from behind.
+pub fn raycast_surfaces<W: SolidWorldQuery + ?Sized>(
+    world: &W,
+    origin: Vec2,
+    dir: Vec2,
+    max_dist: f32,
+    include_one_way: bool,
+) -> Option<SurfaceHit> {
+    let dir = dir.normalize_or_zero();
+    if dir == Vec2::ZERO {
+        return None;
+    }
+    let mut best = raycast_solids_far(world, origin, dir, max_dist, include_one_way)
+        .map(|(distance, point, normal)| SurfaceHit { distance, point, normal, segment: None });
+    world.for_each_line(&mut |a, b| {
+        let t = b - a;
+        let len = t.length();
+        if len <= 1.0e-4 {
+            return;
+        }
+        let normal = Vec2::new(t.y, -t.x) / len;
+        let facing = dir.dot(normal);
+        if facing >= 0.0 {
+            return;
+        }
+        // origin + dir * s on the line: (origin + dir*s - a) . normal = 0.
+        let s = (a - origin).dot(normal) / facing;
+        let reach = best.map_or(max_dist, |hit| hit.distance);
+        if s < 0.0 || s >= reach {
+            return;
+        }
+        let point = origin + dir * s;
+        let along = (point - a).dot(t) / (len * len);
+        if (0.0..=1.0).contains(&along) {
+            best = Some(SurfaceHit { distance: s, point, normal, segment: Some((a, b)) });
+        }
+    });
+    best
 }
 
 /// Nearest solid surface hit by a ray from `origin` along `dir`.

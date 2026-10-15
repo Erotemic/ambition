@@ -27,6 +27,7 @@ pub fn bridge_portal_carves(
 ) {
     for mut overlay in overlays.each() {
         overlay.portal_carves.clear();
+        overlay.portal_line_carves.clear();
     }
     for (room, hole) in &carves.holes {
         let stamp = room.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
@@ -34,6 +35,15 @@ pub fn bridge_portal_carves(
             continue;
         };
         overlay.portal_carves.push(*hole);
+    }
+    // The same holes turned to their faces cut a portal's opening out of the
+    // room's lines (a portal on a slope).
+    for (room, face) in &carves.faces {
+        let stamp = room.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+        let Some(mut overlay) = overlays.for_room(stamp.as_ref()) else {
+            continue;
+        };
+        overlay.portal_line_carves.push(*face);
     }
 }
 

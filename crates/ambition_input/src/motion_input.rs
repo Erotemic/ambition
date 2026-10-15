@@ -24,7 +24,7 @@ pub struct MotionSample {
     pub time: f32,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Deserialize)]
 pub enum MotionDirection {
     Neutral,
     Up,
@@ -154,12 +154,14 @@ impl MotionInputBuffer {
 /// buffer counts as the technique firing. `invert_facing` flips the reported
 /// facing — a half-circle conventionally fires the direction opposite the one it
 /// ends on, so its authored patterns request the flip.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MotionTechnique {
     /// Alternative direction sequences (e.g. the right-facing and left-facing
     /// forms of the same gesture). Matched by [`MotionInputBuffer::detect_sequence`].
     pub patterns: Vec<Vec<MotionDirection>>,
     /// Negate the facing the matched pattern reports.
+    #[serde(default)]
     pub invert_facing: bool,
 }
 
@@ -205,6 +207,30 @@ impl MotionTechniqueCatalog {
     /// or no pattern matched.
     pub fn detect(&self, id: &str, buffer: &MotionInputBuffer) -> Option<f32> {
         self.techniques.get(id).and_then(|t| t.detect(buffer))
+    }
+
+    /// Replace the techniques one provider registered (`previous`, its ids
+    /// from the last registration) with `techniques`, and return the ids it
+    /// now owns. An id another provider registered is refused, and nothing
+    /// changes: a reload must not take another provider's gesture.
+    pub fn restate<'a>(
+        &mut self,
+        previous: impl IntoIterator<Item = &'a str>,
+        techniques: &BTreeMap<String, MotionTechnique>,
+    ) -> Result<Vec<String>, String> {
+        let previous: Vec<&str> = previous.into_iter().collect();
+        let taken: Vec<&String> = techniques
+            .keys()
+            .filter(|id| self.techniques.contains_key(id.as_str()) && !previous.contains(&id.as_str()))
+            .collect();
+        if !taken.is_empty() {
+            return Err(format!("motion technique id(s) {taken:?} belong to another provider"));
+        }
+        for id in previous {
+            self.techniques.remove(id);
+        }
+        self.techniques.extend(techniques.iter().map(|(id, technique)| (id.clone(), technique.clone())));
+        Ok(techniques.keys().cloned().collect())
     }
 
     /// Register a named technique. Idempotent for an identical (id, technique);

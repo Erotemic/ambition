@@ -1,0 +1,24 @@
+// Ambition's motion techniques (schema `motion_techniques`, owned by the
+// projectile capability): the gestures the player fire system asks for by
+// id. A technique fires when any one of its patterns is in the recent input,
+// in order (other directions may come between). `invert_facing` fires the
+// direction opposite the one the gesture ends on. The compiler refuses a
+// technique with no patterns and an empty pattern: no input fires either.
+// An edit here is played at the next start, or after a content
+// reload, with no Rust build.
+//
+// `qcf_grace` (`Down, Right`) is a part of `qcf` (`Down, DownRight, Right`),
+// so the fire system asks for `qcf` and `hcf` first: the file states the
+// patterns, and the fire system owns which one wins.
+{
+    // Quarter-circle forward, and its mirror.
+    "qcf": (patterns: [[Down, DownRight, Right], [Down, DownLeft, Left]]),
+    // The quarter-circle without its diagonal: the keyboard-friendly road to
+    // the weaker Hadouken.
+    "qcf_grace": (patterns: [[Down, Right], [Down, Left]]),
+    // Half-circle, and its mirror. It fires against the facing it ends on.
+    "hcf": (
+        patterns: [[Right, DownRight, Down, DownLeft, Left], [Left, DownLeft, Down, DownRight, Right]],
+        invert_facing: true,
+    ),
+}

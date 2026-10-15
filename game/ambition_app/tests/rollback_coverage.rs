@@ -2172,6 +2172,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "Ambition's own tuning (`ambition_rules.ron`: boss idle bark, GNU-ton duel,          African swallow), lowered from the pack. Inserted at composition time; the          one runtime writer is the reload transaction, at the publication boundary,          so no tick a rewind can reach changed it",
     ),
     (
+        "ambition_content::input_techniques::AmbitionMotionTechniques",
+        "the motion technique ids Ambition's pack registered, so a reload restates          only its own rows of `MotionTechniqueCatalog`. Written at composition time and          at the reload's publication boundary only",
+    ),
+    (
         "ambition_content::intro::route_state::FlagChains",
         "Ambition's flag chains (`flag_chains.ron`), lowered from the pack. Inserted          at composition time; the one runtime writer is the reload transaction, at the          publication boundary, so no tick a rewind can reach changed it. The flags it          sets go through the save, which rolls back",
     ),

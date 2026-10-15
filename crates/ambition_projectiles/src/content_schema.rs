@@ -1,5 +1,6 @@
 //! The `projectile_visuals` schema: a game's named projectile looks, as data
-//! in its pack.
+//! in its pack. Also `motion_techniques`, the gestures a shot is fired with
+//! (see the end of this file).
 //!
 //! The file is a map from the visual id a projectile carries to its
 //! [`ProjectileArt`]. The render and the sim resolve the id through the
@@ -95,4 +96,65 @@ pub fn projectile_visuals_schema() -> SchemaRegistration {
 /// source.
 pub fn lowered_projectile_looks(pack: &PreparedContentPack) -> Option<&ProjectileLooks> {
     lowered_rules::<ProjectileLooks>(pack, PROJECTILE_VISUALS_SCHEMA)
+}
+
+/// The authored FILE kind: a game's named motion techniques (the gestures a
+/// fire system asks for by id: a quarter-circle, a half-circle).
+pub const MOTION_TECHNIQUES_SCHEMA: &str = "motion_techniques";
+
+/// A game's motion techniques, by id.
+pub type MotionTechniques = BTreeMap<String, crate::MotionTechnique>;
+
+/// Each technique no input can fire, named by its id.
+fn technique_problems(techniques: &MotionTechniques) -> Vec<String> {
+    let mut problems = Vec::new();
+    for (id, technique) in techniques {
+        if technique.patterns.is_empty() {
+            problems.push(format!("`{id}` has no patterns; no input fires it"));
+        }
+        for (index, pattern) in technique.patterns.iter().enumerate() {
+            if pattern.is_empty() {
+                problems.push(format!("`{id}.patterns[{index}]` is empty; it matches no buffer"));
+            }
+        }
+    }
+    problems
+}
+
+/// The schema.
+pub fn motion_techniques_schema() -> SchemaRegistration {
+    rules_schema::<MotionTechniques>(
+        MOTION_TECHNIQUES_SCHEMA,
+        1,
+        PROJECTILES_CAPABILITY,
+        "A game's motion techniques, by the id a fire system asks for: the \
+         direction patterns that fire it (any one matches) and whether it fires \
+         against the facing it ends on.",
+        technique_problems,
+    )
+}
+
+/// The techniques the pack states, or `None` when it has no
+/// `motion_techniques` source.
+pub fn lowered_motion_techniques(pack: &PreparedContentPack) -> Option<&MotionTechniques> {
+    lowered_rules::<MotionTechniques>(pack, MOTION_TECHNIQUES_SCHEMA)
+}
+
+#[cfg(test)]
+mod motion_technique_tests {
+    use super::*;
+    use crate::MotionDirection::{Down, DownRight, Right};
+
+    #[test]
+    fn a_technique_no_input_can_fire_is_named_by_its_id() {
+        let fires = crate::MotionTechnique { patterns: vec![vec![Down, DownRight, Right]], invert_facing: false };
+        let mut techniques: MotionTechniques = [("qcf".to_string(), fires)].into();
+        assert!(technique_problems(&techniques).is_empty(), "{:?}", technique_problems(&techniques));
+        techniques.insert("none".to_string(), crate::MotionTechnique { patterns: vec![], invert_facing: false });
+        techniques.insert("blank".to_string(), crate::MotionTechnique { patterns: vec![vec![]], invert_facing: false });
+        let problems = technique_problems(&techniques);
+        assert!(problems.iter().any(|problem| problem.starts_with("`none` has no patterns")), "{problems:?}");
+        assert!(problems.iter().any(|problem| problem.starts_with("`blank.patterns[0]` is empty")), "{problems:?}");
+        assert_eq!(problems.len(), 2, "{problems:?}");
+    }
 }

@@ -763,6 +763,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         publish: publish_flag_chains,
     },
     PackDerivedFamily {
+        domain: ambition_projectiles::content_schema::MOTION_TECHNIQUES_SCHEMA,
+        publish: publish_motion_techniques,
+    },
+    PackDerivedFamily {
         domain: ambition_items::content_schema::held_item_art::HELD_ITEM_ART_SCHEMA,
         publish: publish_held_item_art,
     },
@@ -1000,6 +1004,28 @@ fn publish_ambition_tuning(
     match ambition_content_schemas::rules::lowered_ambition_rules(pack) {
         Some(rules) => world.insert_resource(crate::tuning::AmbitionTuning(rules)),
         None => bevy::log::error!("the candidate states no `ambition_rules`; the reload keeps Ambition's tuning"),
+    }
+}
+
+/// The techniques restate Ambition's rows of the catalog, which other
+/// providers may fill too; another provider's id is refused, and the reload
+/// keeps Ambition's techniques.
+fn publish_motion_techniques(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    let techniques =
+        ambition_projectiles::content_schema::lowered_motion_techniques(pack).cloned().unwrap_or_default();
+    let previous = world
+        .get_resource::<crate::input_techniques::AmbitionMotionTechniques>()
+        .map(|owned| owned.0.clone())
+        .unwrap_or_default();
+    let restated = world
+        .get_resource_or_insert_with(ambition_projectiles::MotionTechniqueCatalog::default)
+        .restate(previous.iter().map(String::as_str), &techniques);
+    match restated {
+        Ok(ids) => world.insert_resource(crate::input_techniques::AmbitionMotionTechniques(ids)),
+        Err(problem) => bevy::log::error!("the reload keeps Ambition's motion techniques: {problem}"),
     }
 }
 

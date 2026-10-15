@@ -81,6 +81,8 @@
         (path: "data/dialogue_voiceprints.ron", schema: "dialogue_voiceprints", version: 1),
         // The look of each named projectile.
         (path: "data/projectile_visuals.ron", schema: "projectile_visuals", version: 1),
+        // The gestures the player fire system asks for by id.
+        (path: "data/motion_techniques.ron", schema: "motion_techniques", version: 1),
         // How each held item is drawn on the ground and in the hand.
         (path: "data/held_item_art.ron", schema: "held_item_art", version: 1),
         // How an item is drawn over the hand of the body that wields it.

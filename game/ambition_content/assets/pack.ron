@@ -89,6 +89,16 @@
         (path: "data/platform_looks.ron", schema: "platform_looks", version: 1),
         // The gate portals its rooms hold, by loading zone.
         (path: "data/gate_portals.ron", schema: "gate_portals", version: 1),
+        // The dialogue: one Yarn file per zone. A file added here is in the
+        // next start's Yarn project, with no Rust build; an edit to a file
+        // reaches a running game (`content_watch::yarn`).
+        (path: "dialogue/sandbox/intro.yarn", schema: "yarn_dialogue", version: 1),
+        (path: "dialogue/sandbox/kernel.yarn", schema: "yarn_dialogue", version: 1),
+        (path: "dialogue/sandbox/factions.yarn", schema: "yarn_dialogue", version: 1),
+        (path: "dialogue/sandbox/cove.yarn", schema: "yarn_dialogue", version: 1),
+        (path: "dialogue/sandbox/dojo.yarn", schema: "yarn_dialogue", version: 1),
+        (path: "dialogue/sandbox/symmetry.yarn", schema: "yarn_dialogue", version: 1),
+        (path: "dialogue/sandbox/hall.yarn", schema: "yarn_dialogue", version: 1),
         // How each held item is drawn on the ground and in the hand.
         (path: "data/held_item_art.ron", schema: "held_item_art", version: 1),
         // How an item is drawn over the hand of the body that wields it.

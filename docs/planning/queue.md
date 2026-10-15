@@ -204,7 +204,12 @@ of Ambition's rooms (the intro's gate, the Math gate pair) are its
 `gate_portals.ron`: a `gate_portals` schema of the world capability, whose
 rows live in the world crate and which the engine's schema registry
 registers (the world crate does not link the content pack); a reload
-restates Ambition's rows, and `math_town.rs` is deleted. Not content:
+restates Ambition's rows, and `math_town.rs` is deleted. Each Yarn dialogue file is a `yarn_dialogue` source of Ambition's pack
+(the `yarn_files!` list in Rust is deleted): a new file is a manifest line
+(measured 1.0 s to its test, no compile), a build without a source tree
+embeds it as every source, and admission refuses a node with no `===` and
+a title two nodes use. Each node's text is its identity's canonical form,
+so an edit to a spoken line is a new pack fingerprint. Not content:
 the Mary-O test course. It is a fixture that no level renders, and its
 module says why it stays Rust (an editor drag would make it a different
 test).

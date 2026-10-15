@@ -1,15 +1,17 @@
 //! The game's authored Yarn dialogue set — CONTENT data, evicted from the
 //! engine core (R3.2: the engine ships no dialogue).
 //!
-//! One `.yarn` file per zone under `assets/dialogue/sandbox/`; the sources
-//! are embedded and handed to `bevy_yarnspinner` IN MEMORY, so no asset-root
-//! coupling remains and desktop / web / Android all load the same bytes.
+//! One `.yarn` file per zone under `assets/dialogue/sandbox/`, each a
+//! `yarn_dialogue` source of the pack (`assets/pack.ron` is the one list).
+//! The sources are handed to `bevy_yarnspinner` IN MEMORY, so no asset-root
+//! coupling remains and desktop / web / Android all load the same bytes (a
+//! build without a source tree embeds them as it embeds every source).
 //!
 //! Single source of truth: [`yarn_spinner_plugin`] registers exactly
 //! [`yarn_sources`]; the `yarn_compile` integration test compiles exactly the
 //! same set as one project (matching startup); [`known_dialogue_ids`] derives
-//! the validator's accepted ids from the same texts. A new `.yarn` added here
-//! is automatically covered by all three.
+//! the validator's accepted ids from the same texts. A new `.yarn` added to
+//! the manifest is covered by all three.
 
 /// Every EXECUTABLE region of a `.yarn` file, as `(1-based line, body)`.
 ///
@@ -42,38 +44,16 @@ pub fn executable_regions(text: &str) -> Vec<(usize, &str)> {
     regions
 }
 
-/// Each Yarn file the game loads: its logical name, and its text when this
-/// build embeds it (`static_content`: web, Android, a build without the source
-/// tree). Otherwise the text is read off disk at startup, so a dialogue edit
-/// costs a restart, not a rebuild (see [`crate::pack::source_text`]).
-macro_rules! yarn_files {
-    ($($file:literal),* $(,)?) => {
-        #[cfg(feature = "static_content")]
-        const YARN_FILES: &[(&str, Option<&'static str>)] = &[$(
-            (
-                concat!("dialogue/sandbox/", $file),
-                Some(include_str!(concat!("../../assets/dialogue/sandbox/", $file))),
-            ),
-        )*];
-        #[cfg(not(feature = "static_content"))]
-        const YARN_FILES: &[(&str, Option<&'static str>)] =
-            &[$((concat!("dialogue/sandbox/", $file), None),)*];
-    };
-}
-yarn_files!("intro.yarn", "kernel.yarn", "factions.yarn", "cove.yarn", "dojo.yarn", "symmetry.yarn", "hall.yarn");
-
-/// `(logical name, source text)` for every Yarn file the game loads, read
-/// once per process.
+/// `(logical name, source text)` for every Yarn file the game loads: the
+/// pack's `yarn_dialogue` sources, in manifest order. The name is the path
+/// the manifest declares.
 pub fn yarn_sources() -> &'static [(&'static str, &'static str)] {
+    use ambition_content_schemas::yarn_dialogue::{YarnFiles, YARN_DIALOGUE_SCHEMA};
     static SOURCES: std::sync::OnceLock<Vec<(&'static str, &'static str)>> = std::sync::OnceLock::new();
     SOURCES.get_or_init(|| {
-        YARN_FILES
-            .iter()
-            .map(|(name, embedded)| {
-                let text: &'static str = Box::leak(crate::pack::source_text(name, *embedded).into_boxed_str());
-                (*name, text)
-            })
-            .collect()
+        ambition_content_pack::lowered_rules::<YarnFiles>(crate::pack::shipped(), YARN_DIALOGUE_SCHEMA)
+            .map(|files| files.iter().map(|file| (file.path.as_str(), file.text.as_str())).collect())
+            .unwrap_or_default()
     })
 }
 

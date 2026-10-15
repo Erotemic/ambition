@@ -779,6 +779,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         publish: publish_gate_portals,
     },
     PackDerivedFamily {
+        domain: ambition_content_schemas::yarn_dialogue::YARN_DIALOGUE_SCHEMA,
+        publish: publish_nothing_the_yarn_watch_reloads,
+    },
+    PackDerivedFamily {
         domain: ambition_items::content_schema::held_item_art::HELD_ITEM_ART_SCHEMA,
         publish: publish_held_item_art,
     },
@@ -792,6 +796,16 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
 /// and nothing else changes. If a runtime reader appears, this row must publish
 /// what it reads instead.
 fn publish_nothing_a_running_game_reads(
+    _world: &mut bevy::ecs::world::World,
+    _pack: &ambition_content_pack::PreparedContentPack,
+) {
+}
+
+/// The dialogue publishes nothing at the commit: the running Yarn project
+/// reloads its own files when one of them changes on disk
+/// (`content_watch::yarn`), and a file the manifest adds is in the project
+/// of the next start. Selecting the pack keeps its identity true.
+fn publish_nothing_the_yarn_watch_reloads(
     _world: &mut bevy::ecs::world::World,
     _pack: &ambition_content_pack::PreparedContentPack,
 ) {

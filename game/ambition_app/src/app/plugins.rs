@@ -99,7 +99,9 @@ pub fn add_simulation_plugins(app: &mut App) {
     // Named Ambition game content: quests, bosses, dialogue/cutscenes, intro
     // hooks, and portal adapters. Installed after simulation resources so content
     // registries land at the expected assembly point.
-    app.add_plugins(ambition_content::AmbitionContentPlugin);
+    if super::hub_games::installs("ambition") {
+        app.add_plugins(ambition_content::AmbitionContentPlugin);
+    }
     // A saved movement-defaults edit is played by a running development build.
     #[cfg(not(feature = "static_content"))]
     super::movement_defaults_watch::register(app);
@@ -108,7 +110,9 @@ pub fn add_simulation_plugins(app: &mut App) {
     // state, and register the commands / functions / markup used by content.
     #[cfg(feature = "ui")]
     {
-        app.add_plugins(ambition_content::dialogue::yarn_spinner_plugin());
+        if super::hub_games::installs("ambition") {
+            app.add_plugins(ambition_content::dialogue::yarn_spinner_plugin());
+        }
         app.add_plugins(ambition_platformer2d::conversation::dialog::YarnBridgePlugin);
         app.add_plugins(ambition_platformer2d::conversation::dialog::YarnBindingsPlugin);
     }
@@ -130,7 +134,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // content-free engine and therefore are not part of its declaration list.
     // Under rollback, install those same domain-owned declarations through the
     // concrete backend registrar after the backend has built.
-    if simulation_host.is_rollback() {
+    if simulation_host.is_rollback() && super::hub_games::installs("ambition") {
         let mut registrar = ambition_platformer2d::rollback::GgrsRollbackRegistrar::new(app);
         ambition_content::register_rollback_state(&mut registrar);
     }
@@ -262,7 +266,9 @@ pub fn add_presentation_plugins(app: &mut App) {
     app.add_plugins(ambition_platformer2d::render::rendering::PresentationVisualAnimationPlugin);
     // Ambition's named presentation passes (puppy-slug deep-dream) compose onto
     // the renderer's public `ActorOverlaySet` seam the plugin above positions.
-    app.add_plugins(ambition_content::presentation::AmbitionPresentationPlugin);
+    if super::hub_games::installs("ambition") {
+        app.add_plugins(ambition_content::presentation::AmbitionPresentationPlugin);
+    }
     install_camera_and_debug_overlay_systems(app);
     app.add_plugins(ambition_platformer2d::render::rendering::ActorNameplatePresentationPlugin);
     install_fx_and_hud_systems(app);
@@ -403,7 +409,9 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
 /// hotkeys.
 fn install_menu_setup_and_hotkeys(app: &mut App) {
     // Starter item-ownership roster (the 24-item catalog default set).
-    app.add_plugins(ambition_content::items::AmbitionItemRosterPlugin);
+    if super::hub_games::installs("ambition") {
+        app.add_plugins(ambition_content::items::AmbitionItemRosterPlugin);
+    }
     // An open inventory OWNS the seat's input, declared rather than derived:
     // every site that wanted this fact used to spell it `Paused &&
     // inventory.visible`, which is the `GameMode` derivation the participant
@@ -494,7 +502,10 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         .add_systems(
             Update,
             (
-                handle_ldtk_hot_reload,
+                // Ambition's LDtk world; a hub without Ambition has none.
+                handle_ldtk_hot_reload.run_if(
+                    resource_exists::<ambition_platformer2d::world::world_manifest::WorldManifest>,
+                ),
                 ambition_platformer2d::actors::trace::handle_trace_hotkey,
                 // `handle_map_menu_hotkeys` LEFT THIS CHAIN: `MapStatePlugin`
                 // installs it now, ordered against the simulation phase rather
@@ -637,7 +648,9 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         ambition_content::bosses::tick_boss_idle_barks
-            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists)
+            // Ambition's bosses; a hub without Ambition has none.
+            .run_if(|| super::hub_games::installs("ambition")),
     )
     // Portal presentation: read GatePortalRegistry.phase + apply
     // visibility / animation row / ring-spin to the matching

@@ -140,14 +140,37 @@ run, not which actors they touch. Each system still filters its subjects by
 their room, and the test proves that one room's rules do not act on the other
 room's population.
 
-### S2b — A neutral hub: Ambition installs through its provider (medium-large)
+### S2b — A neutral hub: Ambition installs only when selected (medium-large)
 
-From finding 7. Move Ambition's base installs (content, presentation, item
-roster, world manifest, audio catalogs, its menus) into its provider plugin,
-so the hub is the shell, the launcher and the providers it is given. Move the
-techniques that more than one game uses out of `ambition_demo_smash`. Done
-when `AMBITION_HUB_GAMES=mary_o` runs with no Ambition system, and a hub
-build per game (one Android APK with only Mary-O) is a list of providers.
+From finding 7. **Step 1 done (2026-10-14):** `app::hub_games` owns the
+selection, and the hub's base composition installs Ambition's content,
+presentation, item roster, yarn project, rollback state, LDtk runtime and
+world only when `ambition` is selected. Without it, the host builds its asset
+catalog with no LDtk world and keeps Ambition's audio catalog, which holds the
+frontend's music and menu sounds (data, no systems). Measured, Mary-O in the
+hub, systems run in one frame: 1551 with every game, 1381 with
+`AMBITION_HUB_GAMES=mary_o`, 1034 standalone. No `ambition_content` system
+runs. The rest of the gap is the hub's own: its frontend (`ambition_app` 50,
+`bevy_lunex` 35, `bevy_egui` 16), touch controls (29, which a phone needs),
+the GGRS host (26), portals (39), physics debris (`avian2d` and
+interpolation, 39) and 3D lighting (`bevy_light`, `bevy_pbr`, 33).
+
+Next steps, each its own commit:
+
+- Move the selected-Ambition installs into Ambition's provider, so that the
+  hub names no Ambition plugin. The scattered `installs("ambition")` checks
+  are the inventory of what to move.
+- Install the portal, physics debris and 3D lighting plugins only for a
+  selected game that uses them (S3 profiles).
+- Move the techniques more than one game uses out of `ambition_demo_smash`.
+- A Mary-O-only APK (`AMBITION_HUB_GAMES=mary_o ./build_for_android.sh`),
+  measured on the phone against the full hub.
+
+Found on the way: `capture_scene` retargeted every camera to its capture
+image, including the offscreen cameras of the rig impostor atlases and the
+portal view cones. On some frames that failed render validation and quit the
+app; on the others those cameras drew into the capture instead of their
+atlases. It now adopts only the cameras that draw to a window.
 
 ### S3 — Each game declares the engine capabilities it uses (large)
 

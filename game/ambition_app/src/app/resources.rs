@@ -69,6 +69,12 @@ fn sandbox_init_failed() -> ! {
 }
 
 pub fn init_sandbox_resources(app: &mut App) {
+    let sandbox_data = ambition_platformer2d::actors::assets::gameplay_defaults::Platformer2dGameplayDefaults::load();
+    if !super::hub_games::installs("ambition") {
+        init_host_resources_without_ambition(app);
+        insert_host_resources(app, sandbox_data);
+        return;
+    }
     // Register this provider's authored audio and character fragments into the
     // App-local registries. Boss content is contributed by
     // `AmbitionBossContentPlugin` through the same App-local composition model.
@@ -88,8 +94,6 @@ pub fn init_sandbox_resources(app: &mut App) {
     // unaffected by who inserts the resource.
     let world_manifest = ambition_content::worlds::world_manifest();
 
-    let sandbox_data = ambition_platformer2d::actors::assets::gameplay_defaults::Platformer2dGameplayDefaults::load();
-    let feel: Platformer2dFeelTuningMonolith = sandbox_data.feel;
     // Audio lives in its own registries, separate from sandbox tuning and
     // from each other (SFX synthesis vs. generated music pointers).
     let (music_registry, sfx_registry) = {
@@ -187,11 +191,6 @@ pub fn init_sandbox_resources(app: &mut App) {
         }
         sandbox_init_failed();
     }
-    let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
-    let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
-    // The simulation's authority, seeded from the same authored value.
-    let active_tuning =
-        ambition_platformer2d::engine_core::ActiveMovementTuning(sandbox_data.tuning);
     let mut room_set =
         match ldtk_project.to_room_set(&world_manifest, &crate::composed_ldtk_vocabulary()) {
             Ok(room_set) => room_set,
@@ -318,6 +317,29 @@ pub fn init_sandbox_resources(app: &mut App) {
         .insert_resource(hot_reload)
         .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
         .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default())
+        .insert_resource(music_registry)
+        .insert_resource(sfx_registry)
+        .insert_resource(sandbox_catalog);
+    insert_host_resources(app, sandbox_data);
+    #[cfg(feature = "audio")]
+    if let Some(path) = sfx_bank_asset_path {
+        app.insert_resource(path);
+    }
+}
+
+/// The host's own resources: tuning, settings, input and developer state. A
+/// hub installs these whatever games it carries.
+fn insert_host_resources(
+    app: &mut App,
+    sandbox_data: ambition_platformer2d::actors::assets::gameplay_defaults::Platformer2dGameplayDefaults,
+) {
+    let feel: Platformer2dFeelTuningMonolith = sandbox_data.feel;
+    let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
+    let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
+    // The simulation's authority, seeded from the same authored value.
+    let active_tuning =
+        ambition_platformer2d::engine_core::ActiveMovementTuning(sandbox_data.tuning);
+    app
         // `PhysicsSandboxSettings` must exist before the plugins that would
         // otherwise provide it: on the visible binary `AmbitionPhysicsPlugin`
         // re-inserts the default (harmless — same default), but headless does
@@ -355,9 +377,6 @@ pub fn init_sandbox_resources(app: &mut App) {
             ..default()
         })
         .insert_resource(sandbox_data)
-        .insert_resource(music_registry)
-        .insert_resource(sfx_registry)
-        .insert_resource(sandbox_catalog)
         .insert_resource(DeveloperTools::default())
         .insert_resource(EditablePlayerStats::default())
         // The feel values the defaults file states over the engine's.
@@ -385,10 +404,61 @@ pub fn init_sandbox_resources(app: &mut App) {
         // Mutated by the pause menu; read by audio/video/gameplay
         // systems and the input deadzone/hysteresis filter.
         .insert_resource(ambition_platformer2d::persistence::settings::UserSettings::default());
-    #[cfg(feature = "audio")]
-    if let Some(path) = sfx_bank_asset_path {
-        app.insert_resource(path);
-    }
+}
+
+/// A hub without Ambition: no Ambition world, cast, bosses or validation. The
+/// asset catalog is built from the catalogs present, with no LDtk world;
+/// `setup_host_presentation_system` rebuilds it when the providers have
+/// registered.
+fn init_host_resources_without_ambition(app: &mut App) {
+    let character_catalog = app
+        .world()
+        .get_resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>()
+        .cloned()
+        .unwrap_or_else(ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::empty);
+    let boss_catalog = app
+        .world()
+        .get_resource::<ambition_platformer2d::boss_encounter::BossCatalog>()
+        .cloned()
+        .unwrap_or_default();
+    let asset_config = app
+        .world()
+        .get_resource::<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>()
+        .cloned()
+        .unwrap_or_default();
+    // The frontend (title music, menu sounds) is authored in Ambition's audio
+    // catalog, so a hub without Ambition still registers that catalog. It is
+    // data: it adds no system.
+    ambition_content::audio_registries::register(app);
+    let (music_registry, sfx_registry) = {
+        let catalogs = app
+            .world()
+            .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>();
+        (
+            catalogs
+                .music_for(ambition_content::AMBITION_CONTENT_PROVIDER)
+                .expect("Ambition music fragment registered")
+                .clone(),
+            catalogs
+                .sfx_for(ambition_content::AMBITION_CONTENT_PROVIDER)
+                .expect("Ambition SFX fragment registered")
+                .clone(),
+        )
+    };
+    let sandbox_catalog =
+        ambition_platformer2d::actors::assets::platformer_assets::build_sandbox_catalog_with(
+            &asset_config,
+            &character_catalog,
+            &boss_catalog,
+            &music_registry,
+            &ambition_platformer2d::world::world_manifest::WorldManifest::default(),
+            |_| {},
+        );
+    app.insert_resource(sandbox_catalog)
+        .insert_resource(music_registry)
+        .insert_resource(sfx_registry)
+        .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
+        .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default());
 }
 
 // what replaced it is `shell_host::compose_ambition_gameplay_host`: the shell host booted straight

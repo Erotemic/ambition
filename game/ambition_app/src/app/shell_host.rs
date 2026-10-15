@@ -99,19 +99,22 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
     // The linked providers. Each registers its experience, routes, catalog
     // fragments, session construction, and rules; the launcher below derives
     // its entries from these registrations — no per-game match arms.
-    let games = HubGames::from_env();
-    if let Some(list) = &games.0 {
-        bevy::log::warn!("{HUB_GAMES_ENV}: this hub installs only {list:?} (experiment)");
+    use super::hub_games::installs;
+    if let Some(list) = super::hub_games::selection() {
+        bevy::log::info!(
+            "{}: this hub installs {list:?}",
+            super::hub_games::HUB_GAMES_ENV
+        );
     }
-    if games.has("ambition") {
+    if installs("ambition") {
         app.add_plugins(AmbitionExperiencePlugin::new(
             AmbitionExperienceConfig::default(),
         ));
     }
-    if games.has("sanic") {
+    if installs("sanic") {
         app.add_plugins(ambition_demo_sanic::SanicExperiencePlugin);
     }
-    if games.has("mary_o") {
+    if installs("mary_o") {
         app.add_plugins(ambition_demo_mary_o::MaryOExperiencePlugin);
     }
     // The stocks demo. It is the first provider whose launcher row does NOT
@@ -119,14 +122,14 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
     // demo registers as a frontend route of its own and which then asks the
     // shell for the stage once every seat has locked in. Nothing here knows
     // that — the row is derived from the registration like every other.
-    if games.has("smash") {
+    if installs("smash") {
         app.add_plugins(ambition_demo_smash::SmashExperiencePlugin);
     }
 
     // The versus stage. Registered AFTER the providers because its fighters are
     // theirs: `mary_o` and `sanic` are registered by two different provider
     // plugins, and this composition is the only one where both casts exist.
-    if games.has("versus") && games.has("mary_o") && games.has("sanic") {
+    if installs("versus") && installs("mary_o") && installs("sanic") {
         crate::app::versus::compose_versus_experience(app);
     }
 
@@ -359,42 +362,5 @@ fn exit_on_shell_request(mut events: MessageReader<ShellEvent>, mut exit: Messag
         if matches!(event, ShellEvent::ExitRequested) {
             exit.write(AppExit::Success);
         }
-    }
-}
-
-/// The env var that names the games this hub installs, comma-separated:
-/// `ambition`, `sanic`, `mary_o`, `smash`, `versus`. Unset means all of them.
-///
-/// Leaving out `ambition` removes only its launcher row and session: the host's
-/// base composition still installs Ambition's content, world and catalogs, and
-/// fails without them.
-///
-/// An experiment switch: it measures what one game costs when the others are
-/// not installed, in the same binary (`docs/planning/engine/system-composition-audit.md`).
-/// The launcher lists only the games installed, because its rows come from the
-/// registrations.
-pub const HUB_GAMES_ENV: &str = "AMBITION_HUB_GAMES";
-
-struct HubGames(Option<Vec<String>>);
-
-impl HubGames {
-    fn from_env() -> Self {
-        // An APK has no environment, so the build's value is the fallback:
-        // `AMBITION_HUB_GAMES=mary_o ./build_for_android.sh ...`.
-        let list = std::env::var(HUB_GAMES_ENV)
-            .ok()
-            .or_else(|| option_env!("AMBITION_HUB_GAMES").map(str::to_owned));
-        let games = list.map(|list| {
-            list.split(',')
-                .map(|game| game.trim().to_owned())
-                .collect::<Vec<_>>()
-        });
-        Self(games)
-    }
-
-    fn has(&self, game: &str) -> bool {
-        self.0
-            .as_ref()
-            .is_none_or(|games| games.iter().any(|g| g == game))
     }
 }

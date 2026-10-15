@@ -32,7 +32,7 @@ fn main() {
     // "fairly large" is measured against something.
     let stage = ambition_demo_smash::smash_stage();
     let platform = stage.world.blocks[0].aabb;
-    let (platform_top_y, platform_width, fall_blast_depth) = (platform.min.y, platform.width(), stage.world.edges.fall);
+    let (platform_top_y, platform_width, fall_blast_depth) = (platform.min.y, platform.max.x - platform.min.x, stage.world.edges.fall);
     // Which way she swings: the swing is the clause with a direction.
     let steer: f32 = match std::env::args().nth(1).as_deref() {
         Some("left") => -1.0,

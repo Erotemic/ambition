@@ -8,8 +8,14 @@
 // RoomEntered, each with the id it must match. An NPC conversation sets the
 // flag `npc_<dialogue id>_talked`.
 //
-// The compiler refuses a quest with no steps, two quests with one id, and a
-// condition with an empty id. Content validation checks the boss, encounter
+// `reward` (optional) is what the quest pays when it completes: a banner and
+// items by their `dialog_id` in `items.ron`. The payout is taken back if the
+// quest stops being complete, and the save flag `<id>_reward_granted` pays it
+// once.
+//
+// The compiler refuses a quest with no steps, two quests with one id, a
+// condition with an empty id, and a reward item that `items.ron` does not
+// have. Content validation checks the boss, encounter
 // and room ids against the shipped worlds.
 [
     // A tutorial: talk to a hub NPC, clear the goblin encounter, defeat the prototype boss.
@@ -83,6 +89,15 @@
             ),
         ],
         auto_start: true,
+        // The admiral pays out the hoard.
+        reward: Some((
+            banner: "TREASURE RETURNED — Admiral pays out the hoard",
+            items: [
+                (item: "healthcell", count: 3),
+                (item: "sparebattery", count: 2),
+                (item: "datachip", count: 1),
+            ],
+        )),
     ),
     // Intro v1: Alice's sealed note, then Bob's field survey, then the first system
     // boss and P5 Route Memory. Each step is a flag that a PickupSpawn in

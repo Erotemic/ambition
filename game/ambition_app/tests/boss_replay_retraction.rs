@@ -737,7 +737,7 @@ fn a_handed_in_treasure_across_a_replay(banked: bool) -> Vec<((String, u8), i64,
             .world()
             .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
             .data()
-            .flag(ambition_content::quest::PIRATE_TREASURE_REWARD_FLAG);
+            .flag("pirate_treasure_reward_granted");
         (quest(sim.world_mut(), "pirate_treasure").0, cells(sim) - before, flag)
     };
     spawn_mockingbird(&mut sim, "hoard_thief");

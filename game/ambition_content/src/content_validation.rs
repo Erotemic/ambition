@@ -397,6 +397,10 @@ fn check_quest_steps(
     report: &mut ContentValidationReport,
 ) {
     use ambition_persistence::quest::QuestStepCondition as Condition;
+    // A quest's payout sets its flag (`QuestSpec::reward_flag`), so a step
+    // may wait for another quest's payout.
+    let mut flags = ids.flags.clone();
+    flags.extend(specs.iter().filter(|spec| spec.reward.is_some()).map(|spec| spec.reward_flag()));
     for spec in specs {
         if spec.steps.is_empty() {
             report.push_error(format!("quest '{}' has no steps", spec.id));
@@ -408,7 +412,7 @@ fn check_quest_steps(
                 Condition::BossDefeated(boss) => {
                     (&ids.bosses, "authored boss encounter", boss)
                 }
-                Condition::FlagSet(flag) => (&ids.flags, "authored flag", flag),
+                Condition::FlagSet(flag) => (&flags, "authored flag", flag),
                 Condition::ItemCollected(item) => (&ids.items, "pickup/item id", item),
                 // Gameplay emits the runtime NPC object id for NpcTalked. Most
                 // quests use flags, but future ones may use this.
@@ -538,7 +542,6 @@ fn composed_quest_ids(
     let mut flags = BTreeSet::from([
         "met_any_hub_npc".to_string(),
         "test_switch_toggled".to_string(),
-        crate::quest::PIRATE_TREASURE_REWARD_FLAG.to_string(),
     ]);
     let (mut npcs, mut pickups) = (BTreeSet::new(), BTreeSet::new());
     for record in rooms.iter().flat_map(|room| &room.placements) {

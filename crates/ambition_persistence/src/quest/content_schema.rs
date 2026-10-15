@@ -13,7 +13,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use ambition_content_pack::{
-    CapabilityId, ContentSchemaHandler, DiagnosticCode, FacetOutcome, FacetSource,
+    CapabilityId, ContentSchemaHandler, DiagnosticCode, FacetOutcome, FacetSource, PendingRef,
     RuntimeDisposition, SchemaId, SchemaRegistration, SchemaVersion,
 };
 
@@ -27,6 +27,11 @@ pub const QUEST_BOOK_SCHEMA: &str = "quest_book";
 
 /// The schema version this handler reads.
 pub const QUEST_BOOK_VERSION: SchemaVersion = SchemaVersion(1);
+
+/// The item capability's schema (`ambition_items::content_schema::ITEM_SCHEMA`),
+/// which a reward names. The quest capability does not link the items crate;
+/// the compiler resolves the reference against the pack's item catalog.
+const ITEM_SCHEMA: &str = "item";
 
 /// What a prepared pack lowers a checked quest book to, in authored order.
 pub type AuthoredQuestBook = Vec<QuestSpec>;
@@ -83,6 +88,27 @@ fn declare(facet: &FacetSource<'_>, book: &AuthoredQuestBook, out: &mut FacetOut
                     )
                     .fix("a quest advances one step at a time; author at least one step"),
             );
+        }
+        // A reward names an item of the pack's catalog: the compiler resolves
+        // it, so a misspelt item is refused at admission, not paid as nothing.
+        for (index, reward) in quest.reward.iter().flat_map(|reward| &reward.items).enumerate() {
+            out.refer(PendingRef::new(
+                SchemaId::new(ITEM_SCHEMA),
+                reward.item.clone(),
+                "item",
+                facet.content_id(id),
+                "reward",
+            ));
+            if reward.count == 0 {
+                out.report(
+                    facet
+                        .diagnostic(
+                            DiagnosticCode::MalformedSource,
+                            format!("quest {id:?} reward item {index} (`{}`) has count 0; it pays nothing", reward.item),
+                        )
+                        .at_field(format!("reward.items[{index}].count")),
+                );
+            }
         }
         for (index, step) in quest.steps.iter().enumerate() {
             if condition_id(&step.condition).trim().is_empty() {

@@ -3,8 +3,8 @@
 //! The generic quest runtime (registry resource, advance-event
 //! draining, save mirroring) lives in [`ambition_persistence::quest::registry`]; the
 //! Bevy-free data shapes live in [`ambition_persistence::quest`]. This module owns what is
-//! specifically Ambition's: WHICH quests ship, which auto-start, and
-//! named payouts like the pirate treasure.
+//! specifically Ambition's: WHICH quests ship, which auto-start, and the
+//! payouts its quests state (`reward` in `data/quests.ron`).
 
 use bevy::prelude::*;
 
@@ -14,19 +14,6 @@ use ambition_items::{Item, OwnedItems};
 pub use ambition_platformer2d_actor_monolith::quest::push_room_entered_quest_events;
 /// Inbound `crate::quest::QuestRegistry` paths keep working.
 pub use ambition_persistence::quest::registry::{apply_quest_advance_events, QuestRegistry};
-
-/// Save flag set once the pirate-treasure reward has been granted, so
-/// the payout fires exactly once across save/reload cycles.
-pub const PIRATE_TREASURE_REWARD_FLAG: &str = "pirate_treasure_reward_granted";
-
-/// Items the pirate admiral hands over when the treasure is returned.
-/// Kept as a const so the payout is data-defined (and test-pinable)
-/// rather than buried in a system body.
-pub const PIRATE_TREASURE_REWARD: &[(Item, u32)] = &[
-    (Item::HealthCell, 3),
-    (Item::SpareBattery, 2),
-    (Item::DataChip, 1),
-];
 
 /// The quests `pack` ships: the `quest_book` it lowered from
 /// `assets/data/quests.ron`. A pack that declares no quest file ships none: it
@@ -87,24 +74,24 @@ pub fn populate_quest_registry(
     registry.initialized = true;
 }
 
-/// Apply the items in `PIRATE_TREASURE_REWARD` to the inventory and
-/// return a banner string for the HUD. Pure helper so tests can drive
-/// the payout without spinning up Bevy.
-pub fn grant_pirate_treasure_reward(
-    inventory: &mut OwnedItems,
+/// The items of `reward`, resolved against the item catalog. Admission
+/// refuses a reward that names an item the pack does not have, so every row
+/// resolves in a pack that compiled.
+pub fn reward_items(
+    reward: &ambition_persistence::quest::QuestReward,
     items: &ambition_items::ItemCatalog,
-) -> String {
-    for (item, count) in PIRATE_TREASURE_REWARD {
-        inventory.grant(items, *item, *count);
-    }
-    "TREASURE RETURNED — Admiral pays out the hoard".to_string()
+) -> Vec<(Item, u32)> {
+    reward
+        .items
+        .iter()
+        .filter_map(|row| Some((items.item_by_dialog_id(&row.item)?, row.count)))
+        .collect()
 }
 
-/// The payout follows the quest: granted once when the quest completes, and
-/// taken back if a replay retracts the boss defeat it depended on and the
-/// quest is no longer complete (BOSS-REPLAY-RETRACTION). Today only the
-/// pirate-treasure quest has a payout; new quests that need rewards on
-/// completion can extend the match.
+/// Each payout follows its quest: granted once when the quest completes, and
+/// taken back if a replay retracts the event it depended on and the quest is
+/// no longer complete (BOSS-REPLAY-RETRACTION). The save flag
+/// (`QuestSpec::reward_flag`) makes it once across save and reload.
 pub fn grant_quest_completion_rewards(
     registry: Res<QuestRegistry>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
@@ -112,25 +99,30 @@ pub fn grant_quest_completion_rewards(
     items: ambition_items::ItemCatalogRead,
     mut banner_state: ResMut<GameplayBanner>,
 ) {
-    let Some(state) = registry.quests.get("pirate_treasure") else {
-        return;
-    };
-    let paid = save.data().flag(PIRATE_TREASURE_REWARD_FLAG);
-    if !state.is_complete() {
-        if paid {
-            for (item, count) in PIRATE_TREASURE_REWARD {
-                inventory.take(*item, *count);
+    for state in registry.quests.values() {
+        let Some(reward) = &state.spec.reward else {
+            continue;
+        };
+        let flag = state.spec.reward_flag();
+        let paid = save.data().flag(&flag);
+        if !state.is_complete() {
+            if paid {
+                for (item, count) in reward_items(reward, items.get()) {
+                    inventory.take(item, count);
+                }
+                save.data_mut().set_flag(flag, false);
             }
-            save.data_mut().set_flag(PIRATE_TREASURE_REWARD_FLAG, false);
+            continue;
         }
-        return;
+        if paid {
+            continue;
+        }
+        for (item, count) in reward_items(reward, items.get()) {
+            inventory.grant(items.get(), item, count);
+        }
+        save.data_mut().set_flag(flag, true);
+        banner_state.show(reward.banner.clone(), 3.0);
     }
-    if paid {
-        return;
-    }
-    let banner = grant_pirate_treasure_reward(&mut inventory, items.get());
-    save.data_mut().set_flag(PIRATE_TREASURE_REWARD_FLAG, true);
-    banner_state.show(banner, 3.0);
 }
 
 #[cfg(test)]
@@ -198,13 +190,34 @@ mod tests {
     }
 
     #[test]
-    fn grant_pirate_treasure_reward_adds_each_item_listed_in_payout() {
-        let mut inventory = OwnedItems::default();
-        let banner = grant_pirate_treasure_reward(&mut inventory, ambition_items::test_item_catalog());
-        for (item, count) in PIRATE_TREASURE_REWARD {
-            assert_eq!(inventory.count(*item), *count);
-        }
-        assert!(banner.contains("TREASURE"));
+    fn a_quest_reward_is_its_pack_rows_and_a_misspelt_item_is_refused() {
+        use ambition_persistence::quest::content_schema::lowered_quest_book;
+        let catalog = ambition_items::test_item_catalog();
+        let reward = pirate_treasure_spec().reward.expect("the hoard pays out");
+        assert_eq!(
+            reward_items(&reward, catalog),
+            vec![(Item::HealthCell, 3), (Item::SpareBattery, 2), (Item::DataChip, 1)],
+            "every row resolves against the item catalog"
+        );
+        assert_eq!(pirate_treasure_spec().reward_flag(), "pirate_treasure_reward_granted", "the save key of old saves");
+
+        let row = r#"(item: "datachip", count: 1),"#;
+        let with = |replacement: &'static str| {
+            crate::pack::compile_pack_with(move |path, text| {
+                if path != "data/quests.ron" {
+                    return text;
+                }
+                assert_eq!(text.matches(row).count(), 1, "the probe edits one reward row");
+                text.replace(row, replacement)
+            })
+        };
+        let edited = with(r#"(item: "datachip", count: 4),"#).expect("a changed count compiles");
+        let book = lowered_quest_book(&edited).expect("the edited pack lowers a book");
+        let paid = book.iter().find(|quest| quest.id == "pirate_treasure").and_then(|quest| quest.reward.as_ref());
+        assert_eq!(reward_items(paid.expect("the reward"), catalog).last(), Some(&(Item::DataChip, 4)));
+
+        let refused = format!("{:?}", with(r#"(item: "datachp", count: 1),"#).expect_err("a misspelt item refuses the pack"));
+        assert!(refused.contains("datachp"), "the refusal names the item: {refused}");
     }
 
     /// The quests are content: a quest added to `data/quests.ron` reaches the

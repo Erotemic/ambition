@@ -130,6 +130,29 @@ pub struct QuestSpec {
     /// be named in that list cannot be missing from it.
     #[serde(default)]
     pub auto_start: bool,
+    /// What the quest pays when it completes. The payout is taken back if
+    /// the quest stops being complete (a replay retracts the event it
+    /// depended on).
+    #[serde(default)]
+    pub reward: Option<QuestReward>,
+}
+
+/// What a quest pays on completion.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QuestReward {
+    /// The banner the payout shows.
+    pub banner: String,
+    pub items: Vec<RewardItem>,
+}
+
+/// One item of a payout.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RewardItem {
+    /// The item's `dialog_id` in the pack's item catalog.
+    pub item: String,
+    pub count: u32,
 }
 
 impl QuestSpec {
@@ -145,7 +168,14 @@ impl QuestSpec {
             summary: summary.into(),
             steps,
             auto_start: false,
+            reward: None,
         }
+    }
+
+    /// The save flag that records this quest's payout, so it is paid once
+    /// across save and reload. `<quest id>_reward_granted`.
+    pub fn reward_flag(&self) -> String {
+        format!("{}_reward_granted", self.id)
     }
 
     /// Mark this quest to start as soon as the registry initialises.

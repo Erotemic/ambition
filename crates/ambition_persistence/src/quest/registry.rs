@@ -435,6 +435,7 @@ mod checksum_tests {
                 summary: "s".into(),
                 steps: Vec::new(),
                 auto_start: false,
+                reward: None,
             }),
         );
         registry

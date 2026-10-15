@@ -1,62 +1,30 @@
-//! Ambition-owned over-hand item presentation registrations.
+//! Ambition's wielded item art: the pack's `data/wielded_item_art.ron`
+//! (schema `wielded_item_art`, owned by the items capability), registered
+//! into the render layer's over-hand catalog.
 
 use ambition_render::rendering::{WieldedItemVisualAppExt, WieldedItemVisualSpec};
 use bevy::math::{Rect, Vec2};
 use bevy::prelude::App;
 
-const GUN_SWORD_SHEET_PATH: &str = "sprites/lasersword_with_guns_spritesheet.png";
-const GUN_SWORD_FRAME_W: f32 = 177.0;
-const GUN_SWORD_FRAME_H: f32 = 46.0;
-const GUN_SWORD_IDLE_FRAME_X: f32 = 118.0;
-const GUN_SWORD_IDLE_FRAME_Y: f32 = 0.0;
-const GUN_SWORD_GRIP_X_PX: f32 = 36.45;
-const GUN_SWORD_GRIP_Y_PX: f32 = 23.8;
-const GUN_SWORD_WIDTH_PER_WIELDER_HEIGHT: f32 = 64.0 / 72.0;
-
-fn gun_sword_visual(entity_name: &str) -> WieldedItemVisualSpec {
-    WieldedItemVisualSpec {
-        texture_path: GUN_SWORD_SHEET_PATH.into(),
-        source_rect: Rect::from_corners(
-            Vec2::new(GUN_SWORD_IDLE_FRAME_X, GUN_SWORD_IDLE_FRAME_Y),
-            Vec2::new(
-                GUN_SWORD_IDLE_FRAME_X + GUN_SWORD_FRAME_W,
-                GUN_SWORD_IDLE_FRAME_Y + GUN_SWORD_FRAME_H,
-            ),
-        ),
-        grip_px: Vec2::new(GUN_SWORD_GRIP_X_PX, GUN_SWORD_GRIP_Y_PX),
-        width_per_wielder_height: GUN_SWORD_WIDTH_PER_WIELDER_HEIGHT,
-        z_bias: 0.7,
-        entity_name: entity_name.into(),
-    }
-}
-
-/// The coconut in the feet of the bird that carries it. A hostile body's item
-/// is drawn by this catalog and not by the in-hand one (`drawn_over_the_hand`),
-/// so a coconut with no row here is in a swallow's hand and nowhere on screen.
-///
-/// The picture is 54 by 48 and the coconut is 18 wide in the world; the bird
-/// that carries one is 20 tall. It is held by its middle: the overlay turns to
-/// the wielder's aim, and a round thing held by its middle does not swing.
-fn coconut_visual() -> WieldedItemVisualSpec {
-    WieldedItemVisualSpec {
-        texture_path: "sprites/props/coconut.png".into(),
-        source_rect: Rect::from_corners(Vec2::ZERO, Vec2::new(54.0, 48.0)),
-        grip_px: Vec2::new(27.0, 24.0),
-        width_per_wielder_height: 18.0 / 20.0,
-        z_bias: 0.7,
-        entity_name: "Carried coconut".into(),
-    }
-}
-
+/// Register every row the selected pack states.
 pub(super) fn register(app: &mut App) {
-    app.register_wielded_item_visual("coconut", coconut_visual());
-    app.register_wielded_item_visual("gun_sword", gun_sword_visual("Pirate gun-sword"));
-    // The heavy archetype has always authored a distinct mechanical item id,
-    // but uses the same visible weapon sheet and anchor.
-    app.register_wielded_item_visual(
-        "gun_sword_heavy",
-        gun_sword_visual("Heavy pirate gun-sword"),
-    );
+    let pack = crate::pack::select(app.world_mut());
+    let rows = ambition_items::content_schema::wielded_item_art::lowered_wielded_item_art(&pack)
+        .expect("Ambition's pack states its wielded item art (`data/wielded_item_art.ron`)");
+    for (id, art) in rows {
+        let source = art.source;
+        app.register_wielded_item_visual(
+            id.clone(),
+            WieldedItemVisualSpec {
+                texture_path: art.path.clone(),
+                source_rect: Rect::from_corners(Vec2::new(source.x, source.y), Vec2::new(source.x + source.w, source.y + source.h)),
+                grip_px: Vec2::new(art.grip.0, art.grip.1),
+                width_per_wielder_height: art.width_per_wielder_height,
+                z_bias: art.z_bias,
+                entity_name: art.name.clone(),
+            },
+        );
+    }
 }
 
 #[cfg(test)]

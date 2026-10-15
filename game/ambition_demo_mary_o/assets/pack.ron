@@ -25,5 +25,7 @@
         (path: "data/room_rules.ron", schema: "room_rules", version: 1),
         // Its tuning: the spark, the plant, the pipe, the shell, the star.
         (path: "data/mary_o_rules.ron", schema: "mary_o_rules", version: 1),
+        // Her shots' looks: the spark, the coconut, the void orb.
+        (path: "data/projectile_visuals.ron", schema: "projectile_visuals", version: 1),
     ],
 )

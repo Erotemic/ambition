@@ -324,13 +324,9 @@ pub(super) fn establish_axis_ground_contact_baseline(
     clusters: &mut BodyClustersMut<'_>,
     frame: MotionFrame,
 ) -> GroundContactBaseline {
-    let sampled_grounded = supporting_block(
-        world,
-        clusters.kinematics.aabb_oriented(frame.down()),
-        frame.down(),
-        false,
-    )
-    .is_some();
+    let body = clusters.kinematics.aabb_oriented(frame.down());
+    let sampled_grounded = supporting_block(world, body, frame.down(), false).is_some()
+        || crate::walkable_lines::standing_on_line(world, body, frame.down()).is_some();
     establish_ground_contact_baseline_from_sample(clusters, sampled_grounded, frame)
 }
 

@@ -24,6 +24,32 @@ walkable slopes. We need to find the elegant solution."
   rider keeps its own launch rule.
 - A stair is a slope: the art draws the steps, the body rides one line.
 
+## Built (2026-10-15): a walker on fixed slopes
+
+`crates/ambition_platformer2d_core/src/walkable_lines.rs`, called from the
+walker's step after its box sweeps (`movement/integration.rs`). It is
+stateless, not the lasting attachment proposed below: what a body stands on
+is found again each tick, and the line it stood on at the start of the step
+is what it keeps to. The lasting attachment comes with lines that move
+(phase C).
+
+- A chain segment within 50 degrees of up is a one-way floor for a walker;
+  it stands on the highest point under its box; it is held on the line down
+  a ramp, over a crest and off the line's end onto a floor below, with no
+  tick in the air.
+- Forks: a body keeps to the line it stands on while that line goes on; it
+  steps up only onto a line ahead of it; at a fork (its ground goes on) it
+  takes a line whose `boarding` is `up` only while holding up. A stair
+  beside a street is `up`, so the street is walked past its foot. Walking
+  off the end of a terrace onto a stair down takes the stair.
+- A chain with `visual: "none"` is not drawn (the room's art draws it).
+- Tests: `movement/tests/slopes.rs` (ramp up and down with no landing, a
+  fall onto a ramp, a jump up through one, a drop through, a stair passed
+  and boarded, a switchback both ways, a terrace edge to a stair down).
+- Moved to it: the gate cradle (one line) and the Math town's switchback
+  (two lines and a parapet). Left: the wake room's cart and the giant's
+  back, which move (phase C).
+
 ## The sites that move to it
 
 | Site | Today | After |

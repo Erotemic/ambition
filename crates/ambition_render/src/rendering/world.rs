@@ -645,7 +645,9 @@ pub fn spawn_surface_chain_visuals(
     use super::chain_skin::{ChainEarth, ChainTurf, TurfFace, FAR_LANE_DIM};
     const THICKNESS: f32 = 8.0;
 
-    for chain in world.chains.iter().filter(|chain| chain.filled && !chain.closed) {
+    // A hidden chain is drawn by the room's art, not here.
+    let drawn = || world.chains.iter().filter(|chain| !chain.hidden);
+    for chain in drawn().filter(|chain| chain.filled && !chain.closed) {
         commands.spawn_session_scoped(
             session_scope,
             (
@@ -658,7 +660,7 @@ pub fn spawn_surface_chain_visuals(
         );
     }
 
-    for chain in world.chains.iter().filter(|chain| !chain.earth.is_empty()) {
+    for chain in drawn().filter(|chain| !chain.earth.is_empty()) {
         commands.spawn_session_scoped(
             session_scope,
             (
@@ -674,10 +676,7 @@ pub fn spawn_surface_chain_visuals(
     // Track in the air (a loop, the ramp into it) has depth lanes and no earth
     // of its own: it is drawn as a band of earth on the side a body does not
     // ride, one band for each lane, at the depth of the lane.
-    for chain in world
-        .chains
-        .iter()
-        .filter(|chain| !chain.depth_lanes.is_empty() && chain.earth.is_empty() && !chain.filled)
+    for chain in drawn().filter(|chain| !chain.depth_lanes.is_empty() && chain.earth.is_empty() && !chain.filled)
     {
         let count = chain.segment_count();
         if count == 0 {
@@ -732,7 +731,7 @@ pub fn spawn_surface_chain_visuals(
         }
     }
 
-    for chain in &world.chains {
+    for chain in drawn() {
         // How far along the chain the segment starts: the cap of a skin goes
         // on along the whole chain.
         let mut along = 0.0;

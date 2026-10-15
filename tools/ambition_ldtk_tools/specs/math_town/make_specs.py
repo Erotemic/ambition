@@ -134,6 +134,18 @@ def wanderer(name, character, x, floor, h=64):
             f'character_id: "{character}", brain_override: "townsfolk_roam" ) ),')
 
 
+def line(name, points, boarding="auto"):
+    """A walkable line the room's art draws (a stair, a ramp): a hidden
+    `SurfaceChain`, one-way, ridden by every body that walks
+    (`walkable_lines`). `boarding: "up"` is a stair beside other ground: a
+    body steps onto it from that ground only while it holds up."""
+    pts = "; ".join(f"{round(x)},{round(y)}" for x, y in points)
+    x0, y0 = points[0]
+    extra = ', boarding: "up"' if boarding == "up" else ""
+    return (f'( type: "SurfaceChain", px: [{round(x0)}, {round(y0) - 16}], size: [16, 16], fields: ( name: "{name}", '
+            f'points: "{pts}", closed: false, visual: "none"{extra} ) ),')
+
+
 def still(name, x, y, w, h):
     """A zero-speed one-way platform with no picture: a tread of the
     cradle's stairs, or its plinth (the cradle prop draws them)."""
@@ -150,18 +162,15 @@ STEPS = PLINTH_H // STEP_RISE
 
 
 def cradle(prefix, cx, floor):
-    """The cradle centred on `cx`, its plinth's walk, and a tread under each
-    painted step. Returns the entities and the top of the plinth."""
+    """The cradle centred on `cx`, and the line a body walks over it: up the
+    stair at one end, across the plinth, down the stair at the other.
+    Returns the entities and the top of the plinth."""
     x0 = cx - CRADLE_W // 2
     p0, p1 = cx - PLINTH_W // 2, cx + PLINTH_W // 2
     top = floor - PLINTH_H
+    run = STEPS * STEP_RUN
     e = [f'( type: "Prop", px: [{x0}, {floor - CRADLE_H}], size: [{CRADLE_W}, {CRADLE_H}], fields: ( name: "{prefix} Cradle", kind: "gate_cradle" ) ),',
-         still(f"{prefix}_plinth", p0, top, PLINTH_W, PLINTH_H)]
-    for j in range(1, STEPS + 1):
-        rise = j * STEP_RISE
-        near = (STEPS - j) * STEP_RUN
-        e.append(still(f"{prefix}_step_w{j:02d}", p0 - near - STEP_RUN, floor - rise, STEP_RUN, rise))
-        e.append(still(f"{prefix}_step_e{j:02d}", p1 + near, floor - rise, STEP_RUN, rise))
+         line(f"{prefix}_cradle_walk", [(p0 - run, floor), (p0, top), (p1, top), (p1 + run, floor)])]
     return e, top
 
 
@@ -263,15 +272,16 @@ DECK = SUMMIT
 #: The aqueduct (`math_town_terraces`): a span's width, and which span stands
 #: on which ground.
 SPAN_W = 160
-#: The switchback stair (`math_town_terraces`): the left of its frame, every
-#: tread's rise, the runs of the two flights, the landing, and where flight 2
-#: leaves the landing. The numbers are the art's: change them with it.
+#: The switchback stair (`math_town_terraces`): the left of its frame, its
+#: landing, and where flight 2 leaves the landing. The numbers are the art's:
+#: change them with it.
 STAIR_X = CLIFF1 - 320
-STAIR_RISE, F1_RUN, F2_RUN, STAIR_STEPS = 4, 8, 9, 32
 LANDING_W, F2_X0 = 64, 320 - 32 * 9
 #: The ladders: (name, x, top, bottom). Painted on the `Climbable` layer.
 LADDERS = [
-    ("aqueduct", STAIR_X + 16, DECK - 16, STREET_Y - 128),
+    # Up a pier of the aqueduct from the street, clear of the stair (up at
+    # the stair's landing boards flight 2).
+    ("aqueduct", 8 * SPAN_W + 16, DECK - 16, STREET_Y),
     ("terrace_2", CLIFF2 - 48, T2 - 16, T1),
     ("summit", CLIFF3 - 48, SUMMIT - 16, T2),
 ]
@@ -280,20 +290,6 @@ LADDERS = [
 def foot(x):
     """The ground under `x`: the street, the first terrace or the second."""
     return STREET_Y if x < CLIFF1 else T1 if x < CLIFF2 else T2
-
-
-def stair_treads():
-    """Each tread of the stair as (x0, x1, top) in the world: flight 1 climbs
-    left from the foot of the cliff to the landing, flight 2 climbs right from
-    the landing to the top of the cliff (`math_town_terraces.stair_treads`)."""
-    out = []
-    for j in range(1, STAIR_STEPS + 1):
-        x1 = STAIR_X + 320 - F1_RUN * (j - 1)
-        out.append((x1 - F1_RUN, x1, STREET_Y - STAIR_RISE * j))
-    for j in range(1, STAIR_STEPS + 1):
-        x0 = STAIR_X + F2_X0 + F2_RUN * (j - 1)
-        out.append((x0, x0 + F2_RUN, T1 + 128 - STAIR_RISE * j))
-    return out
 
 
 def street():
@@ -336,12 +332,16 @@ def street():
         ("rock_home_summit", "wide", 2960, SUMMIT + 100),
     ]:
         e.append(framed(name, f"math_cliff_home_{kind}", x, y))
-    # The stair: its picture, a still platform under each tread and on the
-    # landing.
+    # The stair: its picture, and two lines: the landing with flight 1 down
+    # to the foot of the cliff, and flight 2 up to the terrace. Both are
+    # boarded holding up, so the street goes on past the foot of the stair and
+    # the landing on down flight 1.
     e.append(framed("switchback_stair", "math_switchback_stair", STAIR_X, T1))
-    for i, (x0, x1, top) in enumerate(stair_treads()):
-        e.append(still(f"stair_tread_{i:02d}", x0, top, x1 - x0, STAIR_RISE))
-    e.append(still("stair_landing", STAIR_X, T1 + 128, LANDING_W, 4))
+    landing_y = T1 + 128
+    e.append(line("stair_flight_1", [(STAIR_X, landing_y), (STAIR_X + LANDING_W, landing_y), (CLIFF1, STREET_Y)], "up"))
+    e.append(line("stair_flight_2", [(STAIR_X + F2_X0, landing_y), (CLIFF1, T1)], "up"))
+    # The parapet at the open end of the landing (the art's).
+    e.append(solid("stair_parapet", STAIR_X, landing_y - 48, 16, 48))
     # The houses: the street's, then the first terrace's, the surveyor's
     # office on the second, the observatory on the summit.
     e += [

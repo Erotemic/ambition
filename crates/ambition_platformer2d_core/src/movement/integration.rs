@@ -278,12 +278,30 @@ pub(super) fn integrate_velocity_clusters(
             ));
         };
 
+    let pos_before_side = clusters.kinematics.pos;
+    // The line the body stands on as the step begins: it keeps to it where
+    // lines fork (`walkable_lines`).
+    let entry_line = clusters
+        .ground
+        .on_ground
+        .then(|| {
+            crate::walkable_lines::standing_on_line(
+                world,
+                clusters.kinematics.aabb_oriented(frame.down()),
+                frame.down(),
+            )
+        })
+        .flatten()
+        .map(|line| line.chain);
     sweep(
         clusters,
         side_axis,
         &mut events.contacts,
         &mut events.constraint_conflicts,
     );
+    // How the body went across the floor: what a slope may rise or fall under
+    // it this step (`walkable_lines::walk_allowance`).
+    let moved_across = clusters.kinematics.pos - pos_before_side;
     apply_wall_abilities_clusters(
         clusters.kinematics,
         clusters.ground,
@@ -304,6 +322,10 @@ pub(super) fn integrate_velocity_clusters(
     // re-sampled by the sweep below, and a stale head contact would let a body
     // tech off a ceiling it left last tick.
     clusters.ground.head_contact = false;
+    let feet_before_fall = clusters
+        .kinematics
+        .aabb_oriented(frame.down())
+        .feet_coord(frame.down());
     sweep(
         clusters,
         gravity_axis,
@@ -342,6 +364,62 @@ pub(super) fn integrate_velocity_clusters(
                 clusters.kinematics.vel -= g * along;
                 clusters.ground.on_ground = true;
             }
+        }
+    }
+
+    // A SLOPE IS GROUND. The room's surface lines are one-way floors for a body
+    // that walks: it lands on one, walks up and down it and over a crest with
+    // no tick in the air, and passes one from below or by dropping through
+    // (`walkable_lines`). After the boxes, because a line counts beside a box
+    // top only where it is higher.
+    {
+        let g = frame.down();
+        let body = clusters.kinematics.aabb_oriented(g);
+        let step = crate::walkable_lines::WalkStep {
+            velocity: clusters.kinematics.vel,
+            prev_feet: feet_before_fall,
+            moved: moved_across,
+            was_grounded,
+            entry_line,
+            supported_by_block: clusters.ground.on_ground,
+            up_held: input.local_axis().y < -crate::walkable_lines::BOARDING_UP,
+            drop_through,
+        };
+        if let Some((delta, step)) = crate::walkable_lines::settle_on_line(world, body, g, step) {
+            clusters.kinematics.pos += delta;
+            let toward_feet = clusters.kinematics.vel.dot(g).max(0.0);
+            clusters.kinematics.vel -= g * toward_feet;
+            clusters.ground.on_ground = true;
+            let contact = match step {
+                crate::walkable_lines::LineStep::Landed(line) | crate::walkable_lines::LineStep::Held(line) => {
+                    crate::collision_semantics::Contact {
+                        kind: crate::collision_semantics::ContactKind::Support,
+                        point: line.point,
+                        normal: line.normal,
+                        toi: 0.0,
+                        surface_velocity: line.velocity,
+                        impact_speed: if matches!(step, crate::walkable_lines::LineStep::Landed(_)) {
+                            toward_feet
+                        } else {
+                            0.0
+                        },
+                        involuntary: false,
+                        source: crate::collision_semantics::ContactSource::Chain {
+                            chain: line.chain as u32,
+                            segment: line.segment as u32,
+                        },
+                    }
+                }
+                crate::walkable_lines::LineStep::OntoBlock(index) => crate::collision_semantics::block_face_contact(
+                    clusters.kinematics.aabb_oriented(g),
+                    &world.blocks[index],
+                    -g,
+                    0.0,
+                    crate::collision_semantics::ContactKind::Support,
+                    0.0,
+                ),
+            };
+            events.contacts.push(contact);
         }
     }
 

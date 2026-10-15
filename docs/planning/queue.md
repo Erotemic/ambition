@@ -1104,6 +1104,14 @@ variants. Also found in that regen:
     129 s (its full tier; half of that is PNG encoding, and a sheet edit
     re-packs every page), the tack-on batch's freshness checks 39 s, the
     LDtk tilesets 25 s, the variants 10 s.
+    **Built 2026-10-15, one freshness process per batch:**
+    `scripts/lib/sprite_freshness.py` gives each target's key (the bytes of
+    `unit_key`) and its output digests with each file hashed once. On the
+    240 registered cached targets: 6.2 s for the batch, was 24.9 s, and the
+    same 233 skips (control: the old bash function on the same tree). The
+    key equivalence is a test against the bash function
+    (`test_the_python_unit_key_is_the_bash_unit_key`; poison: no duplicate
+    removal, red on `hero`).
     **Built 2026-10-15, the staging root:** a full publish writes into a
     copy of the five runtime roots (`sprites`, the three tiers,
     `sprite_packs`) under the renderer's `.cache/publish_staging`, and moves

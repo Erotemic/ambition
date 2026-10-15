@@ -1248,46 +1248,13 @@ sheet_output_digests() {
     (cd "$sprites_dir" && sha256sum -- "${present[@]}") | sed 's/^\([0-9a-f]*\)  /\1 /' | sort
 }
 
-# Fresh iff the stored key matches AND every published output still hashes to
-# what this cache recorded when it wrote them.
-#
-# ⛔⛔ IT USED TO ASK ONLY WHETHER A FILE EXISTED (`compgen -G "$glob"`), AND
-# THAT IS HOW A CHARACTER SHIPPED WEARING ANOTHER CHARACTER'S ART. On
-# 2026-08-29 `sprites/player_robot_v3_spritesheet.png` was byte-identical to
-# `player_robot_v2`'s — 3.9MB of the wrong robot, published under v3's name. The
-# file existed, so this function said "fresh", so every later run skipped it. It
-# took a hand-run `md5sum` across the whole directory to notice, and the game had
-# been drawing the wrong body for a day.
-#
-# ⭐ THE INPUTS WERE ALREADY CONTENT-ADDRESSED — `compute_fingerprint` hashes
-# the renderer, `leaf_hash` hashes each target's generator. Only the OUTPUTS
-# were taken on trust. A build that hashes what it reads and not what it wrote
-# cannot tell "I made this" from "something is there".
-sheet_cache_fresh() {
-    local unit="$1" key="$2" records="$3" stored stored_key stored_digests now_digests
-    [ "$force_regen" -ne 1 ] || return 1
-    [ -f "$sheets_cache_dir/$unit" ] || return 1
-    stored="$(cat "$sheets_cache_dir/$unit")"
-    stored_key="$(printf '%s\n' "$stored" | head -1)"
-    [ "$stored_key" = "$key" ] || return 1
-
-    now_digests="$(sheet_output_digests "$records")" || return 1
-    stored_digests="$(printf '%s\n' "$stored" | tail -n +2)"
-    # An entry written before outputs were recorded has no digest block. Treat
-    # it as stale rather than trusting it: re-rendering one sheet is cheap and
-    # this is exactly the population that may be carrying the defect above.
-    [ -n "$stored_digests" ] || return 1
-    [ "$stored_digests" = "$now_digests" ] || return 1
-    return 0
-}
-
 # ⛔⛔ A TARGET WHOSE OUTPUTS CANNOT BE DIGESTED IS NOT A REASON TO KILL THE RUN.
 # The group's status used to be the `[ -n "$glob" ] && sheet_output_digests ...`
 # conjunction, so an unmatched glob returned 1 out of this function and `set -e`
 # aborted `sprites.sh` where it stood — silently, with no message, after a
 # 19½-minute publish of all 137 targets, leaving the seven targets of the later
 # batches unrendered. Store the key with no digest block instead:
-# `sheet_cache_fresh` already treats that as stale, so the next run re-renders
+# `sprite_freshness.py` already treats that as stale, so the next run re-renders
 # rather than trusting an entry it could not verify.
 sheet_cache_store() {
     local unit="$1" key="$2" records="${3-}" digests=""
@@ -1315,8 +1282,7 @@ publish_cached_batch() {
     shift
     local -a candidates=("$@")
     local -a stale=()
-    local target key rel records portraits_ok records_ok=1
-    local -A portrait_records=()
+    local target rel records="" records_ok=1
     local -A install_records=()
 
     [ "${#candidates[@]}" -gt 0 ] || return 0
@@ -1347,34 +1313,45 @@ publish_cached_batch() {
             records=""
             records_ok=0
         fi
-        while IFS=$'\t' read -r target rel; do
-            [ -n "$target" ] || continue
-            portrait_records["$target"]="${portrait_records[$target]-}$rel"$'\n'
-        done <<< "$records"
     fi
 
     # A target with no portrait row declares no portraits (a prop, an effect):
     # when the resolution fails, `records_ok` is 0. Requiring a row made all
     # 74 such targets stale on every run (measured 2026-10-13).
-    for target in "${candidates[@]}"; do
-        key="$(unit_key "$target")"
-        if [ "$records_ok" -eq 1 ] \
-            && sheet_cache_fresh "$target" "$key" "${install_records[$target]-}"; then
-            portraits_ok=1
-            while IFS= read -r rel; do
-                [ -n "$rel" ] || continue
-                if [ ! -f "$sprites_dir/$rel" ]; then
-                    portraits_ok=0
-                    break
-                fi
-            done <<< "${portrait_records[$target]-}"
-            if [ "$portraits_ok" -eq 1 ]; then
-                echo "  [cache] $target up to date — skipped"
-                continue
-            fi
+    #
+    # One process answers every target: the same key as `unit_key`, the same
+    # digests as `sheet_output_digests`, each file hashed once. Asked one
+    # target at a time it was 15 s of keys and 5 s of digests for 245 targets
+    # (measured 2026-10-15); `sprite_freshness.py` says why the key is the
+    # same bytes.
+    local installs_tsv portraits_tsv verdict
+    installs_tsv="$(mktemp "${TMPDIR:-/tmp}/sprite-installs.XXXXXX")"
+    portraits_tsv="$(mktemp "${TMPDIR:-/tmp}/sprite-portraits.XXXXXX")"
+    printf '%s\n' "$install_lines" >"$installs_tsv"
+    printf '%s\n' "${records-}" >"$portraits_tsv"
+    local -a freshness_flags=()
+    [ "$force_regen" -ne 1 ] || freshness_flags+=(--force)
+    [ "$records_ok" -eq 1 ] || freshness_flags+=(--portraits-failed)
+    local freshness=""
+    if ! freshness="$(
+        cd "$renderer_dir" && "$python_bin" "$repo_root/scripts/lib/sprite_freshness.py" \
+            --repo-root "$repo_root" --cache-dir "$cache_dir" --sprites-dir "$sprites_dir" \
+            --core "$core_shared_fingerprint" --installs "$installs_tsv" --portraits "$portraits_tsv" \
+            "${freshness_flags[@]}" "${candidates[@]}"
+    )"; then
+        echo "  warning: could not judge the freshness of batch '$label'; republishing it" >&2
+        freshness=""
+        stale=("${candidates[@]}")
+    fi
+    rm -f "$installs_tsv" "$portraits_tsv"
+    while IFS=$'\t' read -r verdict target; do
+        [ -n "$target" ] || continue
+        if [ "$verdict" = fresh ]; then
+            echo "  [cache] $target up to date — skipped"
+        else
+            stale+=("$target")
         fi
-        stale+=("$target")
-    done
+    done <<< "$freshness"
 
     [ "${#stale[@]}" -gt 0 ] || return 0
 

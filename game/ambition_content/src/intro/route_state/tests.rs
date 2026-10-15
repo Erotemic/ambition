@@ -1,23 +1,41 @@
 use super::*;
 
+/// The chains are the pack's rows: the game reads the file, an edit is the
+/// next start's chain, and a table the chains cannot run is refused at
+/// admission with the row named.
 #[test]
-fn chain_table_has_no_duplicate_triggers() {
-    // Two chains with the same trigger would emit redundant SetFlag
-    // effects every frame. Forbid that at compile-time-style check.
-    let mut triggers = std::collections::BTreeSet::new();
-    for (trigger, _target) in INTRO_FLAG_CHAINS.iter().copied() {
-        assert!(
-            triggers.insert(trigger),
-            "duplicate trigger in INTRO_FLAG_CHAINS: {trigger}"
-        );
-    }
-}
+fn the_flag_chains_are_the_packs_rows() {
+    use ambition_content_schemas::flag_chains::{lowered_flag_chains, FlagChain};
+    let shipped = lowered_flag_chains(crate::pack::shipped()).expect("Ambition's pack states its chains");
+    assert!(
+        shipped.contains(&FlagChain { when: "bob_field_survey_received".into(), set: "map_private_marks_unlocked".into() }),
+        "{shipped:?}"
+    );
 
-#[test]
-fn chain_table_has_no_trigger_equals_target() {
-    for (trigger, target) in INTRO_FLAG_CHAINS.iter().copied() {
-        assert_ne!(trigger, target, "chain trigger == target: {trigger}");
-    }
+    let row = r#"(when: "alice_route_note_carried", set: "map_basic_unlocked"),"#;
+    let with = |replacement: &'static str| {
+        crate::pack::compile_pack_with(move |path, text| {
+            if path != "data/flag_chains.ron" {
+                return text;
+            }
+            assert_eq!(text.matches(row).count(), 1, "the probe edits one row");
+            text.replace(row, replacement)
+        })
+    };
+    let edited = with(r#"(when: "alice_route_note_carried", set: "map_full_unlocked"),"#).expect("an edited row compiles");
+    let chains = lowered_flag_chains(&edited).expect("the edited pack lowers its chains");
+    assert!(chains.iter().any(|chain| chain.set == "map_full_unlocked"), "{chains:?}");
+
+    let refused = format!(
+        "{:?}",
+        with(r#"(when: "bob_field_survey_received", set: "map_basic_unlocked"),"#).expect_err("two rows with one trigger")
+    );
+    assert!(refused.contains("is the trigger of an earlier row"), "{refused}");
+    let refused = format!(
+        "{:?}",
+        with(r#"(when: "alice_route_note_carried", set: "alice_route_note_carried"),"#).expect_err("a row that sets its trigger")
+    );
+    assert!(refused.contains("is its own `when`"), "{refused}");
 }
 
 /// Setting `bob_field_survey_received` should cause the
@@ -32,6 +50,9 @@ fn emit_chains_promotes_bob_survey_to_private_marks() {
     use bevy::app::{App, Update};
 
     let mut app = App::new();
+    app.insert_resource(super::FlagChains(
+        ambition_content_schemas::flag_chains::lowered_flag_chains(crate::pack::shipped()).cloned().unwrap_or_default(),
+    ));
     app.insert_resource(AmbitionGameSave::default());
     app.insert_resource(QuestRegistry::default());
     app.add_message::<SetFlagRequested>();
@@ -76,6 +97,9 @@ fn cartography_quest_advances_through_alice_bob_p5() {
     use bevy::app::{App, Update};
 
     let mut app = App::new();
+    app.insert_resource(super::FlagChains(
+        ambition_content_schemas::flag_chains::lowered_flag_chains(crate::pack::shipped()).cloned().unwrap_or_default(),
+    ));
     app.insert_resource(AmbitionGameSave::default());
     let mut registry = QuestRegistry::default();
     for spec in shipped_quest_specs() {
@@ -171,6 +195,9 @@ fn emit_chains_promotes_p5_to_route_memory() {
     use bevy::app::{App, Update};
 
     let mut app = App::new();
+    app.insert_resource(super::FlagChains(
+        ambition_content_schemas::flag_chains::lowered_flag_chains(crate::pack::shipped()).cloned().unwrap_or_default(),
+    ));
     app.insert_resource(AmbitionGameSave::default());
     app.insert_resource(QuestRegistry::default());
     app.add_message::<SetFlagRequested>();

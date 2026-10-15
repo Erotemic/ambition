@@ -172,10 +172,12 @@ binary, the content CLI with the demo's schemas
 (`cargo run -p ambition_demo_<game> --features content_check --bin
 <game>_content_check -- <pack>`): the generic CLI refused all three packs
 (no installed capability owns the demo's schema), and Smash's `pack.ron`
-told the author to run it. Open, from a census of 2026-10-15: Mary-O's form
-ladder, the pirate treasure reward, the intro flag chains, the coconut's
-impact, the Smash roster, the motion-input gestures, the Mary-O test
-course and the Sanic start-line sign.
+told the author to run it. A quest's payout is its `reward` in
+`quests.ron`, checked against the item catalog at admission (it was the
+pirate treasure's Rust constant and a match on that quest's name). Open,
+from a census of 2026-10-15: Mary-O's form ladder, the intro flag chains,
+the coconut's impact, the Smash roster, the motion-input gestures, the
+Mary-O test course and the Sanic start-line sign.
 
 **Next action:** none before priority 2; open item 1 is deferred.
 

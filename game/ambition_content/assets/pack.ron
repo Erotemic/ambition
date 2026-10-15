@@ -87,6 +87,8 @@
         (path: "data/wielded_item_art.ron", schema: "wielded_item_art", version: 1),
         // Ambition's own tuning: the idle bark cadence, the GNU-ton duel.
         (path: "data/ambition_rules.ron", schema: "ambition_rules", version: 1),
+        // Save flags that set other save flags: the intro route's consequences.
+        (path: "data/flag_chains.ron", schema: "flag_chains", version: 1),
         // Nine difficulty rungs.  authored since 2026-07 and read by NOTHING until
         // this line: the engine floor (`for_level`) was consulted instead, so every
         // rung scored moves with the level-9 weight set.

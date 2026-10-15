@@ -2172,6 +2172,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "Ambition's own tuning (`ambition_rules.ron`: boss idle bark, GNU-ton duel,          African swallow), lowered from the pack. Inserted at composition time; the          one runtime writer is the reload transaction, at the publication boundary,          so no tick a rewind can reach changed it",
     ),
     (
+        "ambition_content::intro::route_state::FlagChains",
+        "Ambition's flag chains (`flag_chains.ron`), lowered from the pack. Inserted          at composition time; the one runtime writer is the reload transaction, at the          publication boundary, so no tick a rewind can reach changed it. The flags it          sets go through the save, which rolls back",
+    ),
+    (
         "ambition_content::projectiles::AmbitionProjectileLooks",
         "the projectile look ids Ambition's pack registered, so a reload restates          only its own rows of `ProjectileVisualCatalog` (waived above). Presentation          bookkeeping, written at composition time and at the reload's publication          boundary only",
     ),

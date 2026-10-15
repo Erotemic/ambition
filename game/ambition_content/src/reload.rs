@@ -759,6 +759,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         publish: publish_ambition_tuning,
     },
     PackDerivedFamily {
+        domain: ambition_content_schemas::flag_chains::FLAG_CHAINS_SCHEMA,
+        publish: publish_flag_chains,
+    },
+    PackDerivedFamily {
         domain: ambition_items::content_schema::held_item_art::HELD_ITEM_ART_SCHEMA,
         publish: publish_held_item_art,
     },
@@ -997,6 +1001,16 @@ fn publish_ambition_tuning(
         Some(rules) => world.insert_resource(crate::tuning::AmbitionTuning(rules)),
         None => bevy::log::error!("the candidate states no `ambition_rules`; the reload keeps Ambition's tuning"),
     }
+}
+
+/// Absent in the candidate means no chains, as a pack without
+/// `flag_chains` has at startup. The rows are Ambition's alone.
+fn publish_flag_chains(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    let chains = ambition_content_schemas::flag_chains::lowered_flag_chains(pack).cloned().unwrap_or_default();
+    world.insert_resource(crate::intro::route_state::FlagChains(chains));
 }
 
 /// Absent in the candidate means remove: every line takes the generic blip,

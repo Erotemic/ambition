@@ -1,0 +1,22 @@
+// Ambition's flag chains (schema `flag_chains`, owned by
+// `ambition_content_schemas`): when the save holds `when`, it also gets
+// `set`, through the ordinary flag path, so a quest that waits for `set`
+// hears it. The compiler refuses an empty flag, a row that sets its own
+// trigger, and two rows with one trigger (write those as a chain, so the
+// order is stated). An edit here is played at the next start, with no Rust
+// build.
+//
+// Flag-gated walls are authored in LDtk (`gated_by`); do not state those
+// here as well.
+[
+    // Bob's survey reveals private map marks.
+    (when: "bob_field_survey_received", set: "map_private_marks_unlocked"),
+    // The system-boss reward records route memory.
+    (when: "intro_p5_route_memory_received", set: "route_memory_received"),
+    // Alice's route note enables basic map awareness.
+    (when: "alice_route_note_carried", set: "map_basic_unlocked"),
+    // Reporting Alice's route note records both the report and its
+    // consequence.
+    (when: "switch_gate_official_report_used", set: "alice_route_note_reported"),
+    (when: "alice_route_note_reported", set: "private_routes_compromised"),
+]

@@ -43,6 +43,8 @@ pub struct IntroPlugin;
 
 impl Plugin for IntroPlugin {
     fn build(&self, app: &mut App) {
+        // The flag chains the selected pack states (`data/flag_chains.ron`).
+        super::route_state::register(app);
         // The intro props' sheets load with the rest of the art.
         for (kind, _file, spec, pack_target) in intro_prop_sprite_rows() {
             app.register_prop_sheet(

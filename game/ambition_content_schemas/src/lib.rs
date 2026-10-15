@@ -6,6 +6,7 @@
 //! binary of this crate gives them to the content CLI, so one list is read by
 //! both.
 
+pub mod flag_chains;
 pub mod rules;
 
 use ambition_content_pack::SchemaRegistration;
@@ -15,5 +16,5 @@ pub const AMBITION_CAPABILITY: &str = "ambition";
 
 /// Every schema Ambition's pack names beside the engine's.
 pub fn ambition_schemas() -> Vec<SchemaRegistration> {
-    vec![rules::ambition_rules_schema()]
+    vec![rules::ambition_rules_schema(), flag_chains::flag_chains_schema()]
 }

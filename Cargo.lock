@@ -678,6 +678,7 @@ dependencies = [
  "ambition_items",
  "ambition_match",
  "ambition_persistence",
+ "ambition_projectiles",
 ]
 
 [[package]]
@@ -1279,6 +1280,7 @@ dependencies = [
 name = "ambition_projectiles"
 version = "0.1.0"
 dependencies = [
+ "ambition_content_pack",
  "ambition_extension_host",
  "ambition_extension_sdk",
  "ambition_gameplay_trace",

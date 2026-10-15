@@ -78,6 +78,8 @@
         (path: "data/room_rules.ron", schema: "room_rules", version: 1),
         // The voice each speaker of the cast speaks with.
         (path: "data/dialogue_voiceprints.ron", schema: "dialogue_voiceprints", version: 1),
+        // The look of each named projectile.
+        (path: "data/projectile_visuals.ron", schema: "projectile_visuals", version: 1),
         // Nine difficulty rungs.  authored since 2026-07 and read by NOTHING until
         // this line: the engine floor (`for_level`) was consulted instead, so every
         // rung scored moves with the level-9 weight set.

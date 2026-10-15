@@ -29,6 +29,8 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
         ambition_combat::room_rules::room_rules_schema(),
         // The rules a match plays under belong with the match capability.
         ambition_match::match_rules::match_rules_schema(),
+        // A projectile's look belongs with the projectile capability.
+        ambition_projectiles::content_schema::projectile_visuals_schema(),
         // Capability schemas remain owned by the capability that can interpret them.
         ambition_items::content_schema::item_catalog_schema(),
         ambition_encounter::content_schema::encounter_waves_schema(),

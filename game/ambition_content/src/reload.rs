@@ -750,6 +750,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         domain: ambition_audio::content_schema::DIALOGUE_VOICEPRINTS_SCHEMA,
         publish: publish_voice_catalog,
     },
+    PackDerivedFamily {
+        domain: ambition_projectiles::content_schema::PROJECTILE_VISUALS_SCHEMA,
+        publish: publish_projectile_looks,
+    },
 ];
 
 /// A family no system of the running game reads: the new pack is selected,
@@ -900,6 +904,28 @@ pub(crate) fn candidate_quest_book(
         }
     }
     Ok(())
+}
+
+/// Absent in the candidate means remove: a shot whose look is withdrawn draws
+/// as the engine's generic shot. Only Ambition's rows are restated: other
+/// providers register looks into the same catalog. A row whose id another
+/// provider owns is refused, and the catalog keeps generation N's rows.
+fn publish_projectile_looks(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    let looks = ambition_projectiles::content_schema::lowered_projectile_looks(pack).cloned().unwrap_or_default();
+    let previous = world
+        .get_resource::<crate::projectiles::AmbitionProjectileLooks>()
+        .map(|owned| owned.0.clone())
+        .unwrap_or_default();
+    let restated = world
+        .get_resource_or_insert_with(ambition_projectiles::ProjectileVisualCatalog::default)
+        .restate(previous.iter().map(String::as_str), &looks);
+    match restated {
+        Ok(ids) => world.insert_resource(crate::projectiles::AmbitionProjectileLooks(ids)),
+        Err(problem) => bevy::log::error!("the reload keeps Ambition's projectile looks: {problem}"),
+    }
 }
 
 /// Absent in the candidate means remove: every line takes the generic blip,

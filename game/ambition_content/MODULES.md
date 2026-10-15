@@ -29,7 +29,7 @@
 | [`portal`](src/portal/mod.rs) | Ambition-specific portal adapters. |
 | [`presentation`](src/presentation/mod.rs) | Content-owned presentation plugins — named Ambition looks layered onto the reusable renderer's PUBLIC seams. |
 | [`primeval`](src/primeval.rs) | The primeval trail: the level of the dinosaurs. |
-| [`projectiles`](src/projectiles.rs) | Ambition-owned projectile visual registrations. |
+| [`projectiles`](src/projectiles.rs) | Ambition's projectile looks: the pack's `data/projectile_visuals.ron`. |
 | [`provider`](src/provider.rs) | Reusable Ambition gameplay provider. |
 | [`quest`](src/quest.rs) | Ambition's authored quests + their completion payouts. |
 | [`quests`](src/quests/mod.rs) | Named Ambition quest content registration. |

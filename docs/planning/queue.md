@@ -194,7 +194,18 @@ quasar) is her `world_item_art.ron`. Open, from a census of 2026-10-15: Mary-O's
 name the star wand and the cinder beacon, which are Rust `EquipmentRow`s
 whose spark grant is built from `mary_o_rules.spark`, so a data ladder could
 not be checked against anything in the pack. The ladder moves with those
-rows (a `mary_o_forms` schema holding the rows and the rungs). Not content:
+rows (a `mary_o_forms` schema holding the rows and the rungs). Design, read
+2026-10-15 and not started: every type deserializes (`EquipmentRow`,
+`EquipmentGrant`, `RangedActionSpec`, `ActionSpec`). The ladder IS the
+downgrade chain (a rung's row loses into the rung below; every form row
+has the slot `mary_o_form`), so the file states only `slot`, the rungs
+(`character`, `arrival: Grow | Transform`, and a row's `id`, `modifiers`,
+`grants`) and a `cues` list of (from, to, cue); lowering builds each
+`EquipmentRow` with its `on_hit`. It deletes `FORM_LADDER`, `TOP_RUNG`,
+`spark_shot`, `SPARK_MUZZLE`, `mary_o_rules.spark` and
+`power_transition_sfx`; `star_wand()`/`cinder_beacon()` become reads of
+the file, `cosmic.rs` asks the cue list, and `her_spark_leaves_her_hand`
+reads the row's muzzle. Not content:
 the Mary-O test course. It is a fixture that no level renders, and its
 module says why it stays Rust (an editor drag would make it a different
 test).

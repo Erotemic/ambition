@@ -18,6 +18,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
+use serde::Deserialize;
+
 use crate::character::sheets::{record_for_sheet_key, CharacterSheetSpec, SheetTuning};
 
 /// One published FX spritesheet: its manifest target, and the SFX cue family
@@ -42,7 +44,7 @@ pub struct FxSheet {
 }
 
 /// Who fades an effect out. See [`FxSheet::fade`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 pub enum FxFade {
     /// The game fades it, from its first instant to its last: it is at half
     /// strength at the middle of its clip.
@@ -54,7 +56,7 @@ pub enum FxFade {
 }
 
 /// When an FX sheet is decoded. See [`FxSheet::residency`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 pub enum FxResidency {
     /// Decoded at boot, resident for the process.
     Core,
@@ -62,108 +64,49 @@ pub enum FxResidency {
     OwnedByCharacter,
 }
 
-/// The effect art the engine ships. Four generic sheets plus the per-
-/// character effect sheets, in the order they are searched.
+/// The FX facts a sheet record declares (`fx` in its record): the cue family
+/// its rows' sounds were packed under, its residency and who fades it.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FxSheetFacts {
+    pub cue_family: String,
+    pub residency: FxResidency,
+    pub fade: FxFade,
+}
+
+/// The effect sheets the published art declares: each sheet record with
+/// `fx`, the [`FxResidency::Core`] ones first, then by key.
 ///
-/// Generic sheets come first, so a name on both a generic and a character
-/// sheet resolves to the generic one. Today all row names are distinct
+/// Core sheets come first, so a name on both a core and a character sheet
+/// resolves to the core one. Today all row names are distinct
 /// (`every_authored_effect_row_is_reachable_by_name`), so this is only a
-/// tie-break.
-pub const FX_SHEETS: &[FxSheet] = &[
-    FxSheet {
-        target: "generic_action_fx",
-        cue_family: "generic_action",
-        residency: FxResidency::Core,
-        fade: FxFade::OverItsLife,
-    },
-    FxSheet {
-        target: "generic_world_fx",
-        cue_family: "generic_world",
-        residency: FxResidency::Core,
-        fade: FxFade::OverItsLife,
-    },
-    FxSheet {
-        target: "generic_exotic_fx",
-        cue_family: "generic_exotic",
-        residency: FxResidency::Core,
-        fade: FxFade::OverItsLife,
-    },
-    FxSheet {
-        target: "generic_explosions",
-        cue_family: "explosion",
-        residency: FxResidency::Core,
-        fade: FxFade::OverItsLife,
-    },
-    FxSheet {
-        target: "george_booul_vfx",
-        cue_family: "george_booul",
-        residency: FxResidency::OwnedByCharacter,
-        fade: FxFade::OverItsLife,
-    },
-    FxSheet {
-        target: "oiler_vfx",
-        cue_family: "oiler",
-        residency: FxResidency::OwnedByCharacter,
-        fade: FxFade::OverItsLife,
-    },
-    FxSheet {
-        target: "pirate_admiral_vfx",
-        cue_family: "pirate_admiral",
-        residency: FxResidency::OwnedByCharacter,
-        fade: FxFade::OverItsLife,
-    },
-    FxSheet {
-        target: "ninja_shadow_oni_leader_vfx",
-        cue_family: "ninja_shadow_oni_leader",
-        residency: FxResidency::OwnedByCharacter,
-        fade: FxFade::OverItsLife,
-    },
-    FxSheet {
-        target: "pca_vfx",
-        cue_family: "pca",
-        residency: FxResidency::OwnedByCharacter,
-        fade: FxFade::OverItsLife,
-    },
-    FxSheet {
-        target: "patent_clerk_vfx",
-        cue_family: "patent_clerk",
-        residency: FxResidency::OwnedByCharacter,
-        fade: FxFade::OverItsLife,
-    },
-    FxSheet {
-        target: "carl_stargan_vfx",
-        cue_family: "carl_stargan",
-        residency: FxResidency::OwnedByCharacter,
-        fade: FxFade::OverItsLife,
-    },
-    FxSheet {
-        target: "noether_vfx",
-        cue_family: "noether",
-        residency: FxResidency::OwnedByCharacter,
-        fade: FxFade::OverItsLife,
-    },
-    FxSheet {
-        target: "gnu_ton_vfx",
-        cue_family: "gnu_ton",
-        residency: FxResidency::OwnedByCharacter,
-        fade: FxFade::InItsFrames,
-    },
-    FxSheet {
-        target: "projectile_polygon_vfx",
-        cue_family: "projectile_polygon",
-        residency: FxResidency::OwnedByCharacter,
-        fade: FxFade::OverItsLife,
-    },
-];
+/// tie-break. Built once per process from the records, as the effect index is.
+pub fn fx_sheets() -> &'static [FxSheet] {
+    static SHEETS: OnceLock<Vec<FxSheet>> = OnceLock::new();
+    SHEETS.get_or_init(|| {
+        let mut sheets: Vec<FxSheet> = crate::character::sheets::available_sheet_keys()
+            .into_iter()
+            // A tier copy (`<target>.<marker>`) is the same sheet reduced, not
+            // another effect sheet.
+            .filter(|key| !crate::sprite_tree::TIERS.iter().any(|(_, marker)| key.strip_suffix(marker).is_some_and(|rest| rest.ends_with('.'))))
+            .filter_map(|key| {
+                let facts = record_for_sheet_key(key)?.fx.as_ref()?;
+                Some(FxSheet { target: key, cue_family: facts.cue_family.as_str(), residency: facts.residency, fade: facts.fade })
+            })
+            .collect();
+        sheets.sort_by_key(|sheet| (sheet.residency != FxResidency::Core, sheet.target));
+        sheets
+    })
+}
 
 /// The sheet a target names, if the engine ships one.
 pub fn fx_sheet(target: &str) -> Option<&'static FxSheet> {
-    FX_SHEETS.iter().find(|sheet| sheet.target == target)
+    fx_sheets().iter().find(|sheet| sheet.target == target)
 }
 
 /// The sheets decoded at boot: every [`FxResidency::Core`] target, in table order.
 pub fn core_fx_targets() -> impl Iterator<Item = &'static str> {
-    FX_SHEETS
+    fx_sheets()
         .iter()
         .filter(|sheet| sheet.residency == FxResidency::Core)
         .map(|sheet| sheet.target)
@@ -223,7 +166,7 @@ pub fn authored_effects() -> &'static BTreeMap<&'static str, AuthoredEffect> {
     static INDEX: OnceLock<BTreeMap<&'static str, AuthoredEffect>> = OnceLock::new();
     INDEX.get_or_init(|| {
         let mut index = BTreeMap::new();
-        for sheet in FX_SHEETS {
+        for sheet in fx_sheets() {
             // A sheet the build did not bake is absent, like any missing
             // manifest target. The pin test below says it must not happen.
             let Some(record) = record_for_sheet_key(sheet.target) else {
@@ -276,6 +219,34 @@ pub fn fx_sheet_spec(target: &str) -> Option<CharacterSheetSpec> {
 
 #[cfg(test)]
 mod tests {
+    /// The effect sheets are the published records that declare `fx`, and no
+    /// other: a new effect sheet is a publish, with no Rust edit. Core sheets
+    /// come first, so a name on a core and a character sheet resolves to the
+    /// core one.
+    #[test]
+    fn the_effect_sheets_are_the_published_records_that_declare_fx() {
+        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../ambition_platformer2d_actor_monolith/assets/sprites");
+        let mut declared: Vec<String> = std::fs::read_dir(root)
+            .expect("the published sprite root is readable")
+            .filter_map(|entry| {
+                let path = entry.ok()?.path();
+                let text = std::fs::read_to_string(&path).ok()?;
+                let key = path.file_name()?.to_str()?.strip_suffix("_spritesheet.ron")?.to_owned();
+                text.contains("\n    fx: Some(").then_some(key)
+            })
+            .collect();
+        declared.sort();
+        let mut indexed: Vec<String> = fx_sheets().iter().map(|sheet| sheet.target.to_owned()).collect();
+        let core = core_fx_targets().count();
+        assert!(core > 0, "control: the engine ships core effect sheets");
+        assert!(
+            fx_sheets()[..core].iter().all(|sheet| sheet.residency == FxResidency::Core),
+            "the core sheets are not first"
+        );
+        indexed.sort();
+        assert_eq!(indexed, declared, "the effect sheets are not the records that declare `fx`");
+    }
+
     use super::*;
 
     /// The residency split, asked through the seam a realization uses: a
@@ -283,11 +254,11 @@ mod tests {
     /// names owe nothing.
     #[test]
     fn owned_sheets_are_owed_by_the_rows_that_name_them() {
-        let owned: Vec<&FxSheet> = FX_SHEETS
+        let owned: Vec<&FxSheet> = fx_sheets()
             .iter()
             .filter(|sheet| sheet.residency == FxResidency::OwnedByCharacter)
             .collect();
-        assert!(!owned.is_empty() && core_fx_targets().count() + owned.len() == FX_SHEETS.len());
+        assert!(!owned.is_empty() && core_fx_targets().count() + owned.len() == fx_sheets().len());
         let sheet = owned[0];
         let row = record_for_sheet_key(sheet.target).unwrap().rows[0]
             .animation
@@ -315,7 +286,7 @@ mod tests {
     #[test]
     fn every_authored_effect_row_is_reachable_by_name() {
         let mut from_sheets: Vec<(&str, &str)> = Vec::new();
-        for sheet in FX_SHEETS {
+        for sheet in fx_sheets() {
             let record = record_for_sheet_key(sheet.target)
                 .unwrap_or_else(|| panic!("`{}` is a shipped FX sheet", sheet.target));
             for row in &record.rows {

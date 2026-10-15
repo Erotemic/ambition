@@ -266,6 +266,7 @@ impl BossSheetSpec {
             // Keep the drawn facing, as a published sheet RON would.
             authored_faces_left: self.authored_faces_left,
             column_tile: None,
+            fx: None,
             rows,
         }
     }

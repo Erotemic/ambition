@@ -153,6 +153,11 @@ pub struct SheetRecord {
     /// is one picture.
     #[serde(default)]
     pub column_tile: Option<ColumnTile>,
+    /// The sheet is an effect sheet: each row is an effect, named by the row
+    /// (see [`fx`]). `None` (the default): it is not. The renderer target
+    /// declares it, so a new effect sheet is a publish and no Rust edit.
+    #[serde(default)]
+    pub fx: Option<fx::FxSheetFacts>,
     pub rows: Vec<SheetRow>,
 }
 

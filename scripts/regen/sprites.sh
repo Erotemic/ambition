@@ -1365,11 +1365,51 @@ publish_cached_batch() {
 # So the variant stage runs on BOTH paths — it is the only stage whose staleness
 # the cache key does not describe.
 #
+# The wall time of each top-level phase. The render cost above counts only the
+# renderer subprocesses; the phases between them (the entity sprites, the
+# atlases, the LDtk art, the variants) are not in it, and a publish must say
+# where all of its time went before a cache can be aimed at the largest cost.
+phase_names=()
+phase_seconds=()
+phase_started=""
+
+# Close the running phase, if there is one.
+close_phase() {
+    [ -n "$phase_started" ] || return 0
+    phase_seconds+=("$(( $(date +%s) - phase_started ))")
+    phase_started=""
+}
+
+# Start the phase `$1`, and print its header.
+phase() {
+    close_phase
+    phase_names+=("$1")
+    phase_started="$(date +%s)"
+    echo "==> $1"
+}
+
+# Every phase's wall time, slowest first.
+print_phase_seconds() {
+    close_phase
+    [ "${#phase_seconds[@]}" -eq 0 ] && return 0
+    local index total=0
+    for index in "${!phase_seconds[@]}"; do
+        total=$((total + phase_seconds[index]))
+    done
+    echo ""
+    echo "==> phase wall time: ${#phase_seconds[@]} phase(s), ${total}s total"
+    for index in "${!phase_seconds[@]}"; do
+        printf '%s\t%s\n' "${phase_seconds[index]}" "${phase_names[index]%%:*}"
+    done | sort -rn | while IFS=$'\t' read -r seconds name; do
+        printf '    %5ss  %s\n' "$seconds" "${name:0:72}"
+    done
+}
+
 # It is cheap to chain because the generator is incremental: a run where nothing
 # changed costs ~4s, and one changed character ~7s (a full rebuild is ~2m15s).
 #   AMBITION_QUALITY_VARIANTS=0  skip it (same idiom as AMBITION_ULTRAPACK=0)
 run_quality_variants() {
-    echo "==> reduced-resolution quality variants (sprites):"
+    phase "reduced-resolution quality variants (sprites):"
     if [ "${AMBITION_QUALITY_VARIANTS:-1}" = "0" ]; then
         echo "  (skipped — AMBITION_QUALITY_VARIANTS=0)"
         return 0
@@ -1440,16 +1480,16 @@ fi
 
 # Cheap structural preflight before the first expensive render. The adapter config surface is small
 # enough to validate up front.
-echo "==> validate sprite character configs"
+phase "validate sprite character configs"
 run_renderer_python validate-configs -m ambition_sprite2d_renderer validate-configs
 
-echo "==> entity sprites → $entities_dir"
+phase "entity sprites → $entities_dir"
 # `$sprites_dir`, not `$entities_dir`: the target's own `install` hook adds the
 # `entities/` leg now. Passing the subdirectory here as well would nest it
 # (`sprites/entities/entities/`) — see the note in `regen_one_target`.
 run_renderer_python publish-entities -m ambition_sprite2d_renderer publish entities --dest-root "$sprites_dir"
 
-echo "==> tack-on targets (render-publish into $sprites_dir)"
+phase "tack-on targets (render-publish into $sprites_dir)"
 # `tackon_targets` in the publish roster is every registered module target
 # whose manifest the runtime loads. The registry is `registry/discovery.py`
 # (auto-discovered from targets/<category>/ — run `list` to see it); keep that
@@ -1458,7 +1498,7 @@ echo "==> tack-on targets (render-publish into $sprites_dir)"
 publish_cached_batch tackons \
     "${config_targets[@]}" "${faction_cues[@]}" "${review_cues[@]}" "${tackon_targets[@]}" "${rig_targets[@]}"
 
-echo "==> held-item prop canonicals (single-pose → $sprites_dir/props)"
+phase "held-item prop canonicals (single-pose → $sprites_dir/props)"
 # A few props are shown in-game as STATIC held / ground items, which load
 # the single-pose `*_canonical_transparent.png` (not the animated sheet the
 # tack-on publish installs). Copy those canonicals flat into props/ so the
@@ -1477,7 +1517,7 @@ for pair in "${held_prop_map[@]}"; do
     fi
 done
 
-echo "==> Mary-O construction-piece canonicals (fixed canvas → $props_dir)"
+phase "Mary-O construction-piece canonicals (fixed canvas → $props_dir)"
 # These are level-construction sprites rather than held items. Keep their
 # transparent fixed canvases: seam coordinates and attachment anchors are part
 # of the authoring contract, so they must never be auto-cropped here.
@@ -1493,7 +1533,7 @@ for pair in "${construction_prop_map[@]}"; do
     fi
 done
 
-echo "==> wielded-gauntlet prop icons (procedural → $props_dir)"
+phase "wielded-gauntlet prop icons (procedural → $props_dir)"
 # The abstract wielded gauntlets (shockwave/volley/beam/vortex/sentry/dive/
 # meteor) have no character rig, so their ground/held icons are procedural
 # 64x64 PNGs from `item_icons.py::write_gauntlet_props`, consumed at runtime by
@@ -1502,19 +1542,19 @@ echo "==> wielded-gauntlet prop icons (procedural → $props_dir)"
 # module's HELD_ITEM_ICON_SPECS, which `HeldItemArt` resolves instead.
 (cd "$renderer_dir" && "$python_bin" -c "from ambition_sprite2d_renderer.targets.icons.item_icons import write_gauntlet_props as w; w('$props_dir')")
 
-echo "==> heal/save shrine prop (procedural obelisk → $props_dir)"
+phase "heal/save shrine prop (procedural obelisk → $props_dir)"
 # The world heal/save shrine is a free-standing prop (taller than the 64x64
 # icons), an 88x160 obelisk from `item_icons.py::write_shrine_prop`, consumed at
 # runtime by `shrine::sync_shrine_visual`.
 (cd "$renderer_dir" && "$python_bin" -c "from ambition_sprite2d_renderer.targets.icons.item_icons import write_shrine_prop as w; w('$props_dir')")
 
-echo "==> Mark/Recall world beacon prop (procedural crystal → $props_dir)"
+phase "Mark/Recall world beacon prop (procedural crystal → $props_dir)"
 # The recall beacon is a free-standing 48x112 crystal pillar from
 # `item_icons.py::write_mark_beacon_prop`, consumed at runtime by
 # `mark_recall::sync_mark_beacon_visual` (stands at the dropped recall mark).
 (cd "$renderer_dir" && "$python_bin" -c "from ambition_sprite2d_renderer.targets.icons.item_icons import write_mark_beacon_prop as w; w('$props_dir')")
 
-echo "==> pirate, small-enemy, and multipart-boss target batch → $sprites_dir"
+phase "pirate, small-enemy, and multipart-boss target batch → $sprites_dir"
 # Pirates are registered as tack-on `[characters]` targets and publish through
 # the same machinery as the other tack-ons. These late targets share one
 # publishing contract, so they render together and the registry + YAML configs
@@ -1524,7 +1564,7 @@ publish_cached_batch late-targets \
     puppy_slug \
     mockingbird_boss
 
-echo "==> postcondition: every runtime-required sprite file present"
+phase "postcondition: every runtime-required sprite file present"
 # Walk the derived list of files the runtime actually loads and REPORT any that
 # are missing. The list comes from the publish roster near the top of this
 # script (it's also consumed by the cache-skip check), so adding a target is
@@ -1550,14 +1590,14 @@ fi
 # `set -euo pipefail`, which aborted the whole regen (and every phase after it)
 # over Hall rows that no render list produces. The postcondition above is the
 # gate for runtime-required files; this tells the author what else is missing.
-echo "==> Hall-of-Characters portrait coverage:"
+phase "Hall-of-Characters portrait coverage:"
 if ! "$ldtk_python" -m ambition_ldtk_tools.inspect_hall_portraits \
     --catalog "$character_catalog" --sprites-dir "$sprites_dir" \
     --only-issues 2>&1 | sed 's/^/  /'; then
     echo "  note: portrait coverage is incomplete (reported above); not fatal."
 fi
 
-echo "==> portrait review gallery:"
+phase "portrait review gallery:"
 run_renderer_python portrait-gallery -m ambition_sprite2d_renderer portrait-gallery \
     --source-dir "$sprites_dir" \
     --out "$renderer_dir/generated/portrait_gallery.png" 2>&1 | sed 's/^/  /'
@@ -1571,7 +1611,7 @@ run_renderer_python portrait-gallery -m ambition_sprite2d_renderer portrait-gall
 # See docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md
 # (the page was ARCHIVED, not deleted -- this comment pointed at its live path
 # for months after the move, and nothing checks doc paths cited outside docs/).
-echo "==> Publish boundary: sweeping diagnostics out of runtime roots:"
+phase "Publish boundary: sweeping diagnostics out of runtime roots:"
 if command -v "$python_bin" >/dev/null 2>&1; then
     "$python_bin" "$repo_root/scripts/sweep_runtime_diagnostics.py" \
         --repo-root "$repo_root" 2>&1 | sed 's/^/  /' || true
@@ -1596,7 +1636,7 @@ fi
 # would flag them there).
 #   AMBITION_ULTRAPACK=0        skip the pack step entirely (fast dev regen)
 #   AMBITION_ULTRAPACK_DEBUG=1  also emit per-page diagnostics into staging
-echo "==> Ultrapack: shared-page atlases per quality tier → runtime pack root:"
+phase "Ultrapack: shared-page atlases per quality tier → runtime pack root:"
 pack_root="$repo_root/crates/ambition_platformer2d_actor_monolith/assets/sprite_packs"
 pack_debug_root="$repo_root/target/ambition_publish/diagnostics/packs"
 if [ "${AMBITION_ULTRAPACK:-1}" = "0" ]; then
@@ -1716,7 +1756,7 @@ fi
 # Quick check of which catalog entries the Hall will render vs fall
 # back to the colored-rectangle placeholder. Helpful as a final
 # "did the regen actually fix the Hall?" signal.
-echo "==> Hall-of-Characters sprite census:"
+phase "Hall-of-Characters sprite census:"
 if ambition_python_exists "$ldtk_python" && \
     "$ldtk_python" \
         -c "import ambition_ldtk_tools" 2>/dev/null
@@ -1738,7 +1778,7 @@ fi
 # type on a fresh clone. PNG only — the per-entity tileRect wiring is
 # committed in the .ldtk; only re-run `asset register-entity-icons` when the
 # entity set changes (it rewrites the .ldtk).
-echo "==> LDtk editor-icon atlas:"
+phase "LDtk editor-icon atlas:"
 if ambition_python_exists "$ldtk_python" && \
     "$ldtk_python" \
         -c "import ambition_ldtk_tools" 2>/dev/null
@@ -1760,7 +1800,7 @@ fi
 # .ldtk when something actually changed). Default is the curated entity map
 # (a minimal diff); pass --all-sheets by hand to register every sheet for
 # browsing in the editor.
-echo "==> LDtk sprite tilesets:"
+phase "LDtk sprite tilesets:"
 sprite_manifest="$sprites_dir/ldtk_sprite_manifest.json"
 if ambition_python_exists "$python_bin" && \
     "$python_bin" -c 'import ambition_sprite2d_renderer' >/dev/null 2>&1 && \
@@ -1791,7 +1831,7 @@ fi
 # blocks rather than grey cells. The WIRING (auto-layer rules, entity
 # tileRects) is committed in the .ldtk; only the atlas PNG is gitignored, and
 # re-running is a no-op on the .ldtk when nothing about the art moved.
-echo "==> LDtk editor art:"
+phase "LDtk editor art:"
 if ambition_python_exists "$ldtk_python" && \
     "$ldtk_python" \
         -c "import ambition_ldtk_tools" 2>/dev/null
@@ -1817,7 +1857,7 @@ fi
 #
 # The exporter is pure PIL over the committed rig JSON (no Blender), and it
 # rewrites the manifest from the same bake, so the two cannot drift.
-echo "==> director vanity card (part sheet + baked placements → $content_assets_dir/vanity_card_made_this_meme)"
+phase "director vanity card (part sheet + baked placements → $content_assets_dir/vanity_card_made_this_meme)"
 if ! run_renderer_python "vanity-card" scripts/export_director_vanity_card.py 2>&1 | sed 's/^/  /'; then
     regen_failures+=("director vanity card: exporter reported a failure")
 fi
@@ -1832,6 +1872,7 @@ fi
 # reporting a cache hit over a broken tree.
 if [ "${#regen_failures[@]}" -gt 0 ]; then
     print_regen_timings
+    print_phase_seconds
     echo "" >&2
     echo "==> regen FAILED — ${#regen_failures[@]} problem(s):" >&2
     for failure in "${regen_failures[@]}"; do
@@ -1853,6 +1894,7 @@ else
 fi
 
 print_regen_timings
+print_phase_seconds
 
 if [ "$line_profile_enabled" -eq 1 ]; then
     echo "==> line profile reports: $line_profile_run_dir"

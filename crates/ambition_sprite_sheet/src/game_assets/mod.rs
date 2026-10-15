@@ -545,7 +545,7 @@ pub struct GameAssets {
     /// An FX sheet is neither a character nor an LDtk prop, so it has its own
     /// slot. Without it, `spawn_effect` falls back to its no-asset particle
     /// branch. The engine's `load_game_assets` fills this from
-    /// [`crate::fx::FX_SHEETS`] with no content involved.
+    /// [`crate::fx::fx_sheets`] with no content involved.
     pub fx: FxSheetAssets,
     /// Generic boss spritesheet — the fallback the renderer uses for any boss
     /// without a dedicated sheet in `boss_sprites`. Separate from `characters`
@@ -569,7 +569,7 @@ pub struct GameAssets {
 /// Decoded FX spritesheets, keyed by manifest target.
 ///
 /// A `'static` key because the engine's effect sheets are declared in
-/// [`crate::fx::FX_SHEETS`], not discovered from content — the set is a
+/// [`crate::fx::fx_sheets`], not discovered from content — the set is a
 /// property of the build, not of the loaded world.
 #[derive(Default, Clone)]
 pub struct FxSheetAssets {

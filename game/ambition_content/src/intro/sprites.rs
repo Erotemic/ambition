@@ -152,7 +152,7 @@ pub fn intro_prop_sprite_rows() -> Vec<(
             intro_sheet("cut_rope_piano", t),
             None,
         ),
-        // The engine ships its own effect sheets (`ambition_sprite_sheet::fx::FX_SHEETS`);
+        // The engine ships its own effect sheets (`ambition_sprite_sheet::fx::fx_sheets`);
         // a story's prop table does not declare them. Interdimensional gate ring and
         // portal surface.
         (

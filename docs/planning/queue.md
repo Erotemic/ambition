@@ -1097,6 +1097,15 @@ variants. Also found in that regen:
     no-render publish are now the tack-on batch's freshness checks (40 s),
     the staging copy with the fingerprint work (28 s) and the LDtk sprite
     tilesets (26 s).
+    **Measured 2026-10-15, a full re-render** (the shared core's file list
+    changed, a2aebe9f8, so every sheet was stale): 55 min 50 s wall, rc 0.
+    Phases: tack-on targets 2255 s, the reduced-resolution variants 575 s
+    (245 sheets built, 23 current), the target batch 274 s, Ultrapack 99 s
+    (four tiers), staging 29 s, LDtk tilesets 26 s, the swap 3 s. The
+    renderer's page keep (7230c1f: a page with the same pixels is not
+    written again) is not measured by this run: every sheet was rendered
+    again, and the log counts the files a tier writes, not the pages it
+    kept.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

@@ -683,12 +683,6 @@ impl Plugin for SanicRulesPlugin {
             use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
             let scope = self.scope;
             ambition_platformer2d::combat::room_rules::declare_room_rules(app, scope, crate::pack::room_rules());
-            app.declare_rules(
-                scope,
-                ambition_platformer2d::actors::features::ecs::dormancy::DormancyRule {
-                    hostile_wake_radius: crate::rules::sanic_rules().badnik.wake_radius,
-                },
-            );
             // Whoever the player drives here can spin dash and transform.
             app.declare_rules(
                 scope,

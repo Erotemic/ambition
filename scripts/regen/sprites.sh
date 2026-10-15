@@ -500,9 +500,9 @@ review_cues=(
     goblin_frost_sword goblin_shaman_staff
 )
 
-# Faction-leader cues copied out of the `draw-factions` scratch render. Their
-# YAML lives in configs/factions/, which no discovery surface registers, so
-# these are named products rather than registered targets.
+# The faction leaders the game draws: rows of the faction lineup
+# (`configs/factions/music_factions.yaml`), each a registered config target.
+# The lineup's other characters are review art, and nothing publishes them.
 faction_cues=(goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor)
 
 tackon_targets=(
@@ -940,6 +940,7 @@ mapfile -t config_targets <<< "$config_target_list"
 publish_targets=(
     entities
     "${config_targets[@]}"
+    "${faction_cues[@]}"
     "${review_cues[@]}"
     "${tackon_targets[@]}"
     "${rig_targets[@]}"
@@ -1033,14 +1034,6 @@ expected_owners=()
 for row in "${expected_rows[@]}"; do
     expected_owners+=("${row%%$'\t'*}")
     expected_files+=("${row#*$'\t'}")
-done
-# Products this script copies by hand rather than installing through a target.
-for cue in "${faction_cues[@]}"; do
-    for rel in "${cue}_spritesheet.png" "${cue}_spritesheet.yaml" "${cue}_spritesheet.ron" \
-        "${cue}_portraits.png" "${cue}_portraits.ron"; do
-        expected_files+=("$rel")
-        expected_owners+=("draw-factions ($cue)")
-    done
 done
 for pair in "${held_prop_map[@]}" "${construction_prop_map[@]}"; do
     expected_files+=("props/${pair##*:}.png")
@@ -1339,6 +1332,10 @@ publish_cached_batch() {
             kept=$((kept + 1))
         done < "$published_list"
         echo "  [warn] batch '$label' had one or more publish failures; cache keys advanced for the $kept of ${#stale[@]} target(s) that published" >&2
+        # A failed target is a failed run: no whole-run fingerprint, and a
+        # non-zero exit. The old files of a failed target can still satisfy
+        # the postcondition, so it cannot see this.
+        regen_failures+=("batch '$label': $(( ${#stale[@]} - kept )) of ${#stale[@]} target(s) failed to publish")
     fi
     rm -f "$published_list"
 }
@@ -1444,39 +1441,6 @@ echo "==> entity sprites → $entities_dir"
 # (`sprites/entities/entities/`) — see the note in `regen_one_target`.
 run_renderer_python publish-entities -m ambition_sprite2d_renderer publish entities --dest-root "$sprites_dir"
 
-echo "==> faction-leader sheets (robot-target leaders) → $sprites_dir"
-# `draw-factions` renders configs/factions/*.yaml (the
-# faction-leader manifest). Same pattern as draw-review: render to a
-# scratch dir, then copy the named sheets into the runtime asset
-# tree. Factions intentionally render to a separate scratch path so
-# the lineup manifest + canonicals don't pollute review/.
-factions_scratch="$renderer_dir/generated/factions"
-mkdir -p "$factions_scratch"
-run_renderer_python draw-factions -m ambition_sprite2d_renderer draw-factions --out-dir "$factions_scratch"
-for cue in "${faction_cues[@]}"; do
-    for ext in png yaml ron; do
-        src="$factions_scratch/${cue}_spritesheet.$ext"
-        if [ -f "$src" ]; then
-            cp "$src" "$sprites_dir/${cue}_spritesheet.$ext"
-            echo "  installed ${cue}_spritesheet.$ext"
-        else
-            echo "  WARN: $src missing — skipped"
-        fi
-    done
-    # The part flipbook the generator published beside the sheet
-    # (`<cue>_parts.ron` and its pages), when it publishes one.
-    for src in "$factions_scratch/${cue}"_parts*; do
-        [ -f "$src" ] || continue
-        cp "$src" "$sprites_dir/$(basename "$src")"
-        echo "  installed $(basename "$src")"
-    done
-    for ext in png ron; do
-        src="$factions_scratch/${cue}_portraits.$ext"
-        cp "$src" "$sprites_dir/${cue}_portraits.$ext"
-        echo "  installed ${cue}_portraits.$ext"
-    done
-done
-
 echo "==> tack-on targets (render-publish into $sprites_dir)"
 # `tackon_targets` in the publish roster is every registered module target
 # whose manifest the runtime loads. The registry is `registry/discovery.py`
@@ -1484,7 +1448,7 @@ echo "==> tack-on targets (render-publish into $sprites_dir)"
 # roster covering every target the game references (mockingbird_boss and the
 # pirates ride the late-targets batch below).
 publish_cached_batch tackons \
-    "${config_targets[@]}" "${review_cues[@]}" "${tackon_targets[@]}" "${rig_targets[@]}"
+    "${config_targets[@]}" "${faction_cues[@]}" "${review_cues[@]}" "${tackon_targets[@]}" "${rig_targets[@]}"
 
 echo "==> held-item prop canonicals (single-pose → $sprites_dir/props)"
 # A few props are shown in-game as STATIC held / ground items, which load

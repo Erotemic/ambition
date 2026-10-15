@@ -137,6 +137,18 @@ pub fn mary_o_authored_catalogs() -> AuthoredCatalogFragments {
     AuthoredCatalogFragments::new(MARY_O_CHARACTER_ID, MARY_O_EXPERIENCE)
 }
 
+/// Her shots' looks (the spark, the swallow's coconut, the void lizard's orb):
+/// her pack's `data/projectile_visuals.ron`, under the ids her ranged actions
+/// author. The projectile domain never learns what a spark is.
+fn register_projectile_looks(app: &mut App) {
+    use ambition_platformer2d::projectiles::visual::ProjectileVisualAppExt;
+    let looks = ambition_platformer2d::projectiles::content_schema::lowered_projectile_looks(crate::pack::PACK.prepared())
+        .expect("the demo's pack states its projectile looks (`data/projectile_visuals.ron`)");
+    for (id, art) in looks {
+        app.register_projectile_visual(id.clone(), art.clone());
+    }
+}
+
 pub struct MaryOExperiencePlugin;
 
 impl Plugin for MaryOExperiencePlugin {
@@ -191,88 +203,7 @@ impl Plugin for MaryOExperiencePlugin {
                 ),
             ]);
         }
-        {
-            // The spark's LOOK, registered as content under the id her ranged
-            // action authors. One registration, zero render edits — and because
-            // the id lives on the action, the projectile domain never learns what
-            // a spark is.
-            use ambition_platformer2d::projectiles::visual::{
-                ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,
-                ProjectileVisualAppExt,
-            };
-            app.register_projectile_visual(
-                crate::powerups::SPARK_VISUAL,
-                ProjectileArt {
-                    // The spark blossom: a flower of fire that turns, from its
-                    // own sheet (`super_mary_o_spark` in the sprite renderer).
-                    source: ProjectileArtSource::Sheet {
-                        target: "super_mary_o_spark".to_string(),
-                        animation: "idle".to_string(),
-                        animate: true,
-                    },
-                    // The art has a glow about the blossom, so it is drawn
-                    // larger than the body of the shot.
-                    size: ProjectileRenderSize::Body {
-                        min: 0.0,
-                        scale: 1.8,
-                    },
-                    // It tumbles as it skips rather than pointing along travel —
-                    // a spinning ember, not an arrow.
-                    rotation: ProjectileRotation::GravityUpright,
-                    debug_tint: [1.0, 0.62, 0.16, 1.0],
-                    label: "spark".to_string(),
-                    expiry_vfx: None,
-                },
-            );
-        }
-        {
-            // The coconut of the Laden Swallow, under the id its ranged action
-            // authors. The picture is the coconut prop of the sprite renderer.
-            use ambition_platformer2d::projectiles::visual::{
-                ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,
-                ProjectileVisualAppExt,
-            };
-            app.register_projectile_visual(
-                crate::swallow::COCONUT_VISUAL,
-                ProjectileArt {
-                    source: ProjectileArtSource::Image {
-                        path: "sprites/props/coconut.png".to_string(),
-                    },
-                    size: ProjectileRenderSize::Body {
-                        min: 0.0,
-                        scale: 1.4,
-                    },
-                    rotation: ProjectileRotation::GravityUpright,
-                    debug_tint: [0.45, 0.30, 0.18, 1.0],
-                    label: "coconut".to_string(),
-                    expiry_vfx: None,
-                },
-            );
-        }
-        {
-            // The orb of the Void Lizard, under the id its ranged action authors.
-            // The picture is the `void_orb` entity sprite of the sprite renderer.
-            use ambition_platformer2d::projectiles::visual::{
-                ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,
-                ProjectileVisualAppExt,
-            };
-            app.register_projectile_visual(
-                crate::void_lizard::VOID_ORB_VISUAL,
-                ProjectileArt {
-                    source: ProjectileArtSource::Image {
-                        path: "sprites/entities/void_orb.png".to_string(),
-                    },
-                    size: ProjectileRenderSize::Body {
-                        min: 0.0,
-                        scale: 1.5,
-                    },
-                    rotation: ProjectileRotation::GravityUpright,
-                    debug_tint: [0.85, 0.25, 0.75, 1.0],
-                    label: "void orb".to_string(),
-                    expiry_vfx: None,
-                },
-            );
-        }
+        register_projectile_looks(app);
         {
             use ambition_platformer2d::audio::catalog::AudioCatalogAppExt;
             // Her pack states both: what her session may play, and how each
@@ -480,6 +411,56 @@ fn card_text(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Each id her ranged actions author has a look, and the look is the
+    /// pack file's row: an edit to the file is drawn at the next start.
+    #[test]
+    fn her_shots_look_as_her_pack_file_states() {
+        use ambition_platformer2d::content::EmbeddedPack;
+        use ambition_platformer2d::projectiles::content_schema::{
+            lowered_projectile_looks, PROJECTILE_VISUALS_SCHEMA,
+        };
+        use ambition_platformer2d::projectiles::{ProjectileRenderSize, ProjectileVisualCatalog};
+
+        let mut app = App::new();
+        register_projectile_looks(&mut app);
+        let catalog = app.world().resource::<ProjectileVisualCatalog>();
+        for id in [crate::powerups::SPARK_VISUAL, crate::swallow::COCONUT_VISUAL, crate::void_lizard::VOID_ORB_VISUAL] {
+            assert!(catalog.get(id).is_some(), "the action's look `{id}` is not registered");
+        }
+
+        let authored =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/data/projectile_visuals.ron"))
+                .expect("the demo's looks file is readable");
+        let root = std::env::temp_dir().join(format!("mary_o_looks_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("data")).unwrap();
+        std::fs::write(
+            root.join("pack.ron"),
+            format!(
+                r#"(id: "mary_o_looks_probe", version: "0.1.0", namespace: "probe", requires: [],
+                    sources: [(path: "data/projectile_visuals.ron", schema: "{PROJECTILE_VISUALS_SCHEMA}", version: 1)])"#
+            ),
+        )
+        .unwrap();
+        let spark_size = |text: &str| {
+            std::fs::write(root.join("data/projectile_visuals.ron"), text).unwrap();
+            // The engine's schemas hold `projectile_visuals`.
+            let pack = EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None);
+            let prepared = pack.compile().unwrap_or_else(|failure| panic!("{}", failure.render()));
+            lowered_projectile_looks(&prepared).expect("the probe pack lowers the looks")[crate::powerups::SPARK_VISUAL].size
+        };
+
+        let file = spark_size(&authored);
+        assert_eq!(Some(file), catalog.get(crate::powerups::SPARK_VISUAL).map(|art| art.size), "the demo draws the file");
+        let scale = "scale: 1.8,";
+        assert_eq!(authored.matches(scale).count(), 1, "the probe edits one line of the file");
+        assert_eq!(
+            spark_size(&authored.replace(scale, "scale: 2.4,")),
+            ProjectileRenderSize::Body { min: 0.0, scale: 2.4 }
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
 
     /// The room `id` names, built WITHOUT going through the provider — so this
     /// test's expectation comes from the level builder rather than from the seam

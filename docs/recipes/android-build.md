@@ -66,7 +66,7 @@ first root, and AssetManager cannot follow a symlink.
 Payload PNGs/audio are git-ignored but expected on disk (see `AGENTS.md`). Before
 Rust compilation, `scripts/package_asset_guard.py` composes both roots and emits
 a path-and-SHA-256 contract. The content pack's declarations come from the
-content compiler, so this step runs `cargo run -p ambition_content_cli` on the
+content compiler, so this step runs `cargo run -p ambition_content_schemas` on the
 host (see `docs/tools/packaged-asset-guard.md`). The build fails on missing
 declared assets (a pack asset absent from the checkout is reported instead),
 case-colliding names, symlinks, conflicting two-root paths, or copied bytes that

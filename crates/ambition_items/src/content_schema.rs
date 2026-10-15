@@ -23,6 +23,9 @@
 //! parse, but a well-formed file that means something other than what was
 //! intended.
 
+pub mod held_item_art;
+pub mod wielded_item_art;
+
 use std::sync::Arc;
 
 use ambition_content_pack::{

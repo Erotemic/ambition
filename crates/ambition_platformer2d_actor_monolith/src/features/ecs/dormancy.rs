@@ -20,19 +20,7 @@ use ambition_characters::actor::ActorFaction;
 use ambition_mount::Mountable;
 use ambition_platformer2d_core as ae;
 
-/// One game's dormancy rule, declared for the rooms it governs with
-/// [`DeclareRulesExt::declare_rules`](ambition_combat::scoped_rules::DeclareRulesExt::declare_rules).
-/// In a room that no game gave a rule, no brain sleeps.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct DormancyRule {
-    /// A hostile's brain sleeps while every observer is farther than this, in
-    /// world units.
-    ///
-    /// One number, not a rectangle: the wake test is a distance from a point,
-    /// and a screen-shaped region would bake the camera's aspect into the
-    /// simulation.
-    pub hostile_wake_radius: f32,
-}
+use ambition_combat::dormancy_rule::DormancyRule;
 
 /// The distance within which an observer keeps this body's brain awake, or
 /// `None` when the brain never sleeps.

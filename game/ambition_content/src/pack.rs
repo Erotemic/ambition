@@ -111,11 +111,19 @@ fn embedded_sources() -> Vec<(String, String)> {
         .collect()
 }
 
-/// The schemas Ambition's own pack is compiled against.
+/// The schemas Ambition's own pack is compiled against: the engine's, and
+/// Ambition's own (`ambition_content_schemas`, the list its check binary gives
+/// the content CLI).
 ///
 /// The one answer to which crates own which schemas.
 pub fn pack_schemas() -> ambition_content_pack::SchemaRegistry {
-    ambition_platformer2d::content::engine_schemas()
+    let mut schemas = ambition_platformer2d::content::engine_schemas();
+    for schema in ambition_content_schemas::ambition_schemas() {
+        schemas
+            .register(schema)
+            .unwrap_or_else(|refused| panic!("an Ambition schema has an engine schema's id: {refused:?}"));
+    }
+    schemas
 }
 
 /// Compile Ambition's embedded pack.

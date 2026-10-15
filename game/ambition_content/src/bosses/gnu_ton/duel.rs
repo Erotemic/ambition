@@ -27,6 +27,7 @@ use ambition_characters::brain::{BossAttackIntent, BossAttackProfile};
 use ambition_combat::moveset::{cancel_move_playback, ActorMoveset, MoveEnd, MovePlayback};
 use ambition_content_modules::gnu_ton::choreography::arms;
 use ambition_content_modules::gnu_ton::conductor::{Conductor, GNU_TON_ID};
+use ambition_content_schemas::rules::GnuTonDuelRules;
 use ambition_entity_catalog::{MoveEventKind, MoveSpec, VolumeShape, WindowTag};
 use ambition_platformer2d::sprite_sheet::character::PinnedRow;
 
@@ -35,21 +36,6 @@ pub const FIGHTER: &str = "npc_gnu_ton";
 /// A duel move's id on his body: the table's id with this before it, so that
 /// it is none of the pattern's moves.
 const PREFIX: &str = "gnu_duel_";
-/// The table's damage at and over which a move is a heavy one here.
-const HEAVY_DAMAGE: i32 = 12;
-/// What a duel move does in the main game: hearts, and a fixed launch (a
-/// boss's strike is 1.25).
-const LIGHT: (i32, f32) = (1, 1.0);
-const HEAVY: (i32, f32) = (2, 1.7);
-/// The table is of a fighter as tall as the player. On the giant he is drawn
-/// larger (his body is about twice the player's height), so a move's reach is
-/// larger by this, and a move that is not over his head is put DOWN, at the
-/// height of a player beside him (from the middle of his body), and is at
-/// least this tall. Generous on purpose for a first cut.
-const REACH: f32 = 1.3;
-const OVERHEAD: f32 = -30.0;
-const AT_THE_PLAYER: f32 = 24.0;
-const LEAST_HALF_HEIGHT: f32 = 30.0;
 
 /// His state in the duel, on his body. Not rollback state: it is found again
 /// from the record and from the body's move.
@@ -75,8 +61,9 @@ pub(super) const CALLED_FIST: &str = "gnu_fist_";
 /// blow is, and its half size.
 const BOOK: ((f32, f32), (f32, f32)) = ((42.0, -4.0), (30.0, 24.0));
 
-/// A move of the fighter's table, made for the main game and for his body.
-fn duel_spec(spec: &MoveSpec) -> MoveSpec {
+/// A move of the fighter's table, made for the main game and for his body, by
+/// the pack's `gnu_ton_duel` (`data/ambition_rules.ron`).
+fn duel_spec(spec: &MoveSpec, tuning: &GnuTonDuelRules) -> MoveSpec {
     let mut spec = spec.clone();
     spec.id = format!("{PREFIX}{}", spec.id);
     let events = spec.events.len();
@@ -93,19 +80,19 @@ fn duel_spec(spec: &MoveSpec) -> MoveSpec {
     }
     for window in &mut spec.windows {
         for volume in &mut window.volumes {
-            let (damage, launch) = if volume.damage >= HEAVY_DAMAGE { HEAVY } else { LIGHT };
-            volume.damage = damage;
-            volume.knockback = launch;
+            let strike = if volume.damage >= tuning.heavy_damage { tuning.heavy } else { tuning.light };
+            volume.damage = strike.hearts;
+            volume.knockback = strike.launch;
             volume.knockback_growth = None;
             if let VolumeShape::Rect { offset, half_extents } = &mut volume.shape {
-                offset.0 *= REACH;
-                half_extents.0 *= REACH;
-                if offset.1 <= OVERHEAD {
+                offset.0 *= tuning.reach;
+                half_extents.0 *= tuning.reach;
+                if offset.1 <= tuning.overhead {
                     offset.1 *= 1.6;
                     half_extents.1 *= 1.5;
                 } else {
-                    offset.1 = AT_THE_PLAYER;
-                    half_extents.1 = (half_extents.1 * REACH).max(LEAST_HALF_HEIGHT);
+                    offset.1 = tuning.at_the_player;
+                    half_extents.1 = (half_extents.1 * tuning.reach).max(tuning.least_half_height);
                 }
             }
         }
@@ -114,13 +101,13 @@ fn duel_spec(spec: &MoveSpec) -> MoveSpec {
 }
 
 /// The duel moves, made from the fighter's table in the pack this App plays.
-fn duel_specs(pack: &crate::pack::SelectedContentPack) -> Vec<MoveSpec> {
+fn duel_specs(pack: &crate::pack::SelectedContentPack, tuning: &GnuTonDuelRules) -> Vec<MoveSpec> {
     let table = ambition_characters::moveset_content_schema::lowered_movesets(pack.get())
         .and_then(|tables| tables.get(FIGHTER))
         .unwrap_or_else(|| panic!("the pack has no move table for `{FIGHTER}`"));
     arms::DUEL_MOVES
         .iter()
-        .map(|(id, ..)| duel_spec(table.move_by_id(id).unwrap_or_else(|| panic!("the table of `{FIGHTER}` has no `{id}`"))))
+        .map(|(id, ..)| duel_spec(table.move_by_id(id).unwrap_or_else(|| panic!("the table of `{FIGHTER}` has no `{id}`")), tuning))
         .collect()
 }
 
@@ -130,6 +117,7 @@ fn duel_specs(pack: &crate::pack::SelectedContentPack) -> Vec<MoveSpec> {
 pub fn duel_gnu_ton(
     mut commands: Commands,
     pack: Res<crate::pack::SelectedContentPack>,
+    tuning: Res<crate::tuning::AmbitionTuning>,
     mut scholars: Query<(
         Entity,
         &BossConfig,
@@ -155,7 +143,7 @@ pub fn duel_gnu_ton(
         // Made when a body has none of them, from the pack, and kept by no
         // one but the body: this system is in the schedule that rewinds.
         if moveset.0.moves.iter().all(|spec| !spec.id.starts_with(PREFIX)) {
-            moveset.0.moves.extend(duel_specs(&pack));
+            moveset.0.moves.extend(duel_specs(&pack, &tuning.0.gnu_ton_duel));
         }
         let conductor = records.get(&Conductor::KEY).and_then(|record| Conductor::from_record(record).ok()).filter(|_| health.alive());
         let (fights, chosen) = conductor.as_ref().map_or((false, None), Conductor::duel);
@@ -240,5 +228,37 @@ pub fn duel_gnu_ton(
             names.push("point");
             row.pin(&names, pb.t, false);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The duel makes a fighter's move by the pack's `gnu_ton_duel`: an edit
+    /// to a heavy move's hearts in `data/ambition_rules.ron` is what his heavy
+    /// moves deal, with no Rust build. The light moves are the control.
+    #[test]
+    fn the_duel_makes_his_moves_by_the_pack_file() {
+        const HEAVY: &str = "heavy: (hearts: 2, launch: 1.7),";
+        let damages = |edit: Option<&'static str>| {
+            let pack = crate::pack::compile_pack_with(|path, text| match edit {
+                Some(to) if path == "data/ambition_rules.ron" => {
+                    assert_eq!(text.matches(HEAVY).count(), 1, "the edit anchor");
+                    text.replace(HEAVY, to)
+                }
+                _ => text,
+            })
+            .unwrap_or_else(|failure| panic!("{}", failure.render()));
+            let tuning = ambition_content_schemas::rules::lowered_ambition_rules(&pack).expect("the pack states its tuning");
+            let specs = duel_specs(&crate::pack::SelectedContentPack(std::sync::Arc::new(pack)), &tuning.gnu_ton_duel);
+            let mut damages: Vec<i32> =
+                specs.iter().flat_map(|spec| &spec.windows).flat_map(|window| &window.volumes).map(|volume| volume.damage).collect();
+            damages.sort();
+            damages.dedup();
+            damages
+        };
+        assert_eq!(damages(None), vec![1, 2], "the shipped file: light moves deal 1 heart, heavy ones 2");
+        assert_eq!(damages(Some("heavy: (hearts: 5, launch: 1.7),")), vec![1, 5], "the edited file is what his heavy moves deal");
     }
 }

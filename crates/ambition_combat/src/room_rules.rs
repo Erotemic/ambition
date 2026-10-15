@@ -1,8 +1,8 @@
 //! The `room_rules` authored-content schema: the per-game rules of a game's own
 //! rooms, as data in its pack.
 //!
-//! [`DeathRules`], [`StrikeWeightRules`], [`LandingLagRules`] and
-//! [`CombatRules`] are rules that each game states for its own rooms (ADR
+//! [`DeathRules`], [`StrikeWeightRules`], [`LandingLagRules`],
+//! [`CombatRules`] and [`DormancyRule`] are rules that each game states for its own rooms (ADR
 //! 0033). They were Rust
 //! constants in each game's plugin, so a change to one number (a feel call
 //! such as Ambition's landing-lag share) was a relink of the host and a
@@ -15,7 +15,7 @@
 //!
 //! A field that is absent declares nothing, and the engine's answer for an
 //! undeclared rule applies (no interlude and no level reset; no heavy hits; the
-//! move's own landing lag).
+//! move's own landing lag; no brain sleeps).
 
 use std::sync::Arc;
 
@@ -27,6 +27,7 @@ use bevy::prelude::*;
 use serde::Deserialize;
 
 use crate::death_rules::DeathRules;
+use crate::dormancy_rule::DormancyRule;
 use crate::landing_lag::LandingLagRules;
 use crate::rules::CombatRules;
 use crate::scoped_rules::{DeclareRulesExt as _, DeclaredRules, RulesScope};
@@ -63,6 +64,10 @@ struct AuthoredRoomRules {
     /// the world's baseline.
     #[serde(default)]
     combat: Option<CombatRules>,
+    /// A hostile's brain sleeps while every observer is farther than this, in
+    /// world units. Absent: no brain sleeps.
+    #[serde(default)]
+    hostile_wake_radius: Option<f32>,
 }
 
 /// One game's rules for its own rooms, lowered from its pack.
@@ -72,6 +77,7 @@ pub struct RoomRules {
     pub strike_weight: Option<StrikeWeightRules>,
     pub landing_lag: Option<LandingLagRules>,
     pub combat: Option<CombatRules>,
+    pub dormancy: Option<DormancyRule>,
 }
 
 impl AuthoredRoomRules {
@@ -102,6 +108,14 @@ impl AuthoredRoomRules {
         if let Some(combat) = &self.combat {
             problems.extend(combat_problems(combat));
         }
+        if let Some(radius) = self.hostile_wake_radius {
+            if !(radius.is_finite() && radius > 0.0) {
+                problems.push(format!(
+                    "`hostile_wake_radius` is {radius}; it is a distance, finite and more than 0 \
+                     (to let no brain sleep, leave the field out)"
+                ));
+            }
+        }
         problems
     }
 
@@ -111,6 +125,7 @@ impl AuthoredRoomRules {
             strike_weight: self.heavy_hit_damage.map(StrikeWeightRules::heavy_at),
             landing_lag: self.landing_lag_share.map(LandingLagRules::scaled_by),
             combat: self.combat,
+            dormancy: self.hostile_wake_radius.map(|hostile_wake_radius| DormancyRule { hostile_wake_radius }),
         }
     }
 }
@@ -207,7 +222,8 @@ pub fn room_rules_schema() -> SchemaRegistration {
         capability: CapabilityId::new(ROOM_RULES_CAPABILITY),
         disposition: RuntimeDisposition::Runtime,
         doc: "One game's rules for its own rooms: the death replay, the heavy-hit line, \
-              the landing-lag share and the combat rules. An absent field declares nothing.",
+              the landing-lag share, the combat rules and the hostile wake radius. An absent \
+              field declares nothing.",
         handler: Arc::new(RoomRulesSchema),
     }
 }
@@ -225,6 +241,9 @@ pub fn declare_room_rules(app: &mut App, scope: RulesScope, rules: RoomRules) {
     }
     if let Some(combat) = rules.combat {
         app.declare_rules(scope, combat);
+    }
+    if let Some(dormancy) = rules.dormancy {
+        app.declare_rules(scope, dormancy);
     }
 }
 
@@ -245,6 +264,9 @@ pub fn restate_room_rules(world: &mut World, scope: RulesScope, rules: Option<&R
     world
         .get_resource_or_insert_with(DeclaredRules::<CombatRules>::default)
         .restate(scope, rules.combat);
+    world
+        .get_resource_or_insert_with(DeclaredRules::<DormancyRule>::default)
+        .restate(scope, rules.dormancy);
 }
 
 #[cfg(test)]

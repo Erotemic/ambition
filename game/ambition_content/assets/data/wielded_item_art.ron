@@ -1,0 +1,38 @@
+// How an item is drawn over the hand of the body that wields it (schema
+// `wielded_item_art`, owned by the items capability), by held item id. A
+// hostile body's item is drawn by this table and not by `held_item_art`, so
+// an item a hostile carries with no row here is in its hand and nowhere on
+// screen. An edit here is drawn at the next start, with no Rust build.
+{
+    // The coconut in the feet of the bird that carries it. The picture is 54
+    // by 48 and the coconut is 18 wide in the world; the bird that carries one
+    // is 20 tall. It is held by its middle: the overlay turns to the
+    // wielder's aim, and a round thing held by its middle does not swing.
+    "coconut": (
+        path: "sprites/props/coconut.png",
+        source: (x: 0.0, y: 0.0, w: 54.0, h: 48.0),
+        grip: (27.0, 24.0),
+        width_per_wielder_height: 0.9,
+        z_bias: 0.7,
+        name: "Carried coconut",
+    ),
+    // The pirate gun-sword: the idle frame of its sheet, 64 wide for a
+    // wielder 72 tall. The heavy archetype authors a distinct item id with the
+    // same weapon and grip.
+    "gun_sword": (
+        path: "sprites/lasersword_with_guns_spritesheet.png",
+        source: (x: 118.0, y: 0.0, w: 177.0, h: 46.0),
+        grip: (36.45, 23.8),
+        width_per_wielder_height: 0.88888889,
+        z_bias: 0.7,
+        name: "Pirate gun-sword",
+    ),
+    "gun_sword_heavy": (
+        path: "sprites/lasersword_with_guns_spritesheet.png",
+        source: (x: 118.0, y: 0.0, w: 177.0, h: 46.0),
+        grip: (36.45, 23.8),
+        width_per_wielder_height: 0.88888889,
+        z_bias: 0.7,
+        name: "Heavy pirate gun-sword",
+    ),
+}

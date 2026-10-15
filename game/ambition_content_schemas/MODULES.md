@@ -1,0 +1,17 @@
+# `ambition_content_schemas` — module map
+
+<!-- BEGIN generated module map (scripts/modules_md.py) -->
+
+**ambition_content_schemas** — The schemas Ambition's own pack names beside the engine's.
+
+| Module | Its ONE concern (from the module's own `//!` header) |
+|---|---|
+| [`rules`](src/rules.rs) | The `ambition_rules` schema: Ambition's own tuning, as data in its pack (`assets/data/ambition_rules.ron`). |
+
+_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+
+<!-- END generated module map -->
+
+## Notes
+
+_Hand-written notes live here and survive regeneration: the crate's authoritative state, its seams, and anything the module headers cannot say._

@@ -325,7 +325,7 @@ fn jump_into_from_below(app: &mut App, block: &ae::world::Block) -> Strike {
     );
 
     // 1-2 authors a Solid Snake one tile from the hidden block. It sleeps until
-    // she is near (`MARY_O_WAKE_RADIUS`), so placing her below the block woke
+    // she is near (`hostile_wake_radius` in her `room_rules.ron`), so placing her below the block woke
     // it, and it walked into her on the next frame. A dead body takes no
     // input, and the probe reported a jump that never left the floor.
     clear_the_hostile_bodies(app);

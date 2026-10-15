@@ -38,6 +38,9 @@ static_content = []
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 
 [dependencies]
+# Ambition's own schemas (`ambition_rules`), beside the engine's. A crate with
+# no Bevy, so the package guard's check binary builds in seconds.
+ambition_content_schemas = { path = "../ambition_content_schemas" }
 # Ambition's procedural extension modules (the echo fan, fast-iteration I4),
 # declared to the host by `bosses::specials`.
 ambition_content_modules = { path = "../ambition_content_modules" }

@@ -382,6 +382,7 @@ dependencies = [
  "ambition_content_cli",
  "ambition_content_modules",
  "ambition_content_pack",
+ "ambition_content_schemas",
  "ambition_conversation",
  "ambition_cutscene",
  "ambition_dialog",
@@ -452,6 +453,15 @@ dependencies = [
  "ron 0.11.0",
  "serde",
  "thiserror 2.0.20",
+]
+
+[[package]]
+name = "ambition_content_schemas"
+version = "0.1.0"
+dependencies = [
+ "ambition_content_cli",
+ "ambition_content_pack",
+ "serde",
 ]
 
 [[package]]

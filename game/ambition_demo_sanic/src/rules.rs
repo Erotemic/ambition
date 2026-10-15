@@ -70,7 +70,6 @@ pub struct Act {
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Badnik {
-    pub wake_radius: f32,
     pub bounce_speed: f32,
 }
 
@@ -101,7 +100,6 @@ impl SanicRules {
             ("act.clear_dwell", act.clear_dwell),
             ("act.par_seconds", act.par_seconds),
             ("act.title_seconds", act.title_seconds),
-            ("badnik.wake_radius", self.badnik.wake_radius),
             ("badnik.bounce_speed", self.badnik.bounce_speed),
         ] {
             amount(field, value);

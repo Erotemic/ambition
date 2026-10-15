@@ -393,7 +393,8 @@ fn the_utility_control_is_named_by_the_worn_persona_not_by_a_generic_fly_verb() 
 /// whole speedway and can walk off a ledge before Sanic arrives.
 #[test]
 fn every_authored_badnik_sleeps_under_sanics_rule() {
-    use ambition_platformer2d::actors::features::ecs::dormancy::{wake_radius, DormancyRule};
+    use ambition_platformer2d::actors::features::ecs::dormancy::wake_radius;
+    use ambition_platformer2d::combat::dormancy_rule::DormancyRule;
     use ambition_platformer2d::characters::actor::limb::Limb;
     use ambition_platformer2d::combat::actor_tuning::ActorConfig;
     use ambition_platformer2d::combat::components::EncounterMob;
@@ -413,7 +414,7 @@ fn every_authored_badnik_sleeps_under_sanics_rule() {
         .expect("Sanic states a dormancy rule for his rooms");
     assert_eq!(
         rule.hostile_wake_radius,
-        ambition_demo_sanic::rules::sanic_rules().badnik.wake_radius
+        ambition_demo_sanic::pack::room_rules().dormancy.expect("his rooms state a wake radius").hostile_wake_radius
     );
 
     let mut q = app.world_mut().query::<(

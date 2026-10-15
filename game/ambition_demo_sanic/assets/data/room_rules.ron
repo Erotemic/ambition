@@ -4,4 +4,8 @@
 (
     // A death puts the level back at once when no participant remains.
     replay_level_after_death_s: Some(0.0),
+    // How near Sanic must be for a badnik to keep thinking: 2.4 s of lead at
+    // his fastest tuning (`top_speed: 2000.0`). A far badnik does not walk off
+    // a ledge while Sanic is at the start.
+    hostile_wake_radius: Some(4800.0),
 )

@@ -29,7 +29,8 @@ fn lowered(out: &FacetOutcome) -> Option<RoomRules> {
 #[test]
 fn each_authored_field_is_the_rule_it_names() {
     let out = check(
-        "(replay_level_after_death_s: Some(1.5), heavy_hit_damage: Some(3), landing_lag_share: Some(0.25))",
+        "(replay_level_after_death_s: Some(1.5), heavy_hit_damage: Some(3), landing_lag_share: Some(0.25), \
+          hostile_wake_radius: Some(900.0))",
     );
     assert!(out.diagnostics.is_empty(), "{:?}", out.diagnostics);
     let rules = lowered(&out).expect("a valid document lowers");
@@ -42,6 +43,7 @@ fn each_authored_field_is_the_rule_it_names() {
     );
     assert_eq!(rules.strike_weight, Some(StrikeWeightRules::heavy_at(3)));
     assert_eq!(rules.landing_lag, Some(LandingLagRules::scaled_by(0.25)));
+    assert_eq!(rules.dormancy, Some(crate::dormancy_rule::DormancyRule { hostile_wake_radius: 900.0 }));
 }
 
 /// An absent field declares nothing, so the engine's undeclared answer
@@ -52,6 +54,7 @@ fn an_absent_field_declares_no_rule() {
     let rules = lowered(&out).expect("a partial document lowers");
     assert_eq!(rules.death, None);
     assert_eq!(rules.landing_lag, None);
+    assert_eq!(rules.dormancy, None, "an absent wake radius lets no brain sleep");
     assert_eq!(rules.strike_weight, Some(StrikeWeightRules::heavy_at(12)));
 }
 
@@ -63,6 +66,7 @@ fn a_value_the_runtime_cannot_use_is_refused_with_its_file_and_field() {
         ("(landing_lag_share: Some(-0.5))", "landing_lag_share"),
         ("(heavy_hit_damage: Some(0))", "heavy_hit_damage"),
         ("(replay_level_after_death_s: Some(-1.0))", "replay_level_after_death_s"),
+        ("(hostile_wake_radius: Some(0.0))", "hostile_wake_radius"),
     ] {
         let out = check(text);
         assert!(lowered(&out).is_none(), "{text} lowered");

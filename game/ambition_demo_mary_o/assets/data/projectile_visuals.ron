@@ -1,0 +1,54 @@
+// The Mary-O demo's projectile looks (schema `projectile_visuals`, owned by
+// the projectile capability), by the visual id each ranged action carries.
+// An edit here is drawn at the next start, with no Rust build.
+{
+    // The spark blossom: a flower of fire that turns, from its own sheet
+    // (`super_mary_o_spark` in the sprite renderer). The art has a glow about
+    // the blossom, so it is drawn larger than the body of the shot. It tumbles
+    // as it skips: a spinning ember, not an arrow.
+    "mary_o_spark": (
+        source: Sheet(
+            target: "super_mary_o_spark",
+            animation: "idle",
+            animate: true,
+        ),
+        size: Body(
+            min: 0.0,
+            scale: 1.8,
+        ),
+        rotation: GravityUpright,
+        debug_tint: (1.0, 0.62, 0.16, 1.0),
+        label: "spark",
+        expiry_vfx: None,
+    ),
+    // The coconut of the Laden Swallow: the coconut prop of the sprite
+    // renderer.
+    "mary_o_coconut": (
+        source: Image(
+            path: "sprites/props/coconut.png",
+        ),
+        size: Body(
+            min: 0.0,
+            scale: 1.4,
+        ),
+        rotation: GravityUpright,
+        debug_tint: (0.45, 0.3, 0.18, 1.0),
+        label: "coconut",
+        expiry_vfx: None,
+    ),
+    // The orb of the Void Lizard: the `void_orb` entity sprite of the sprite
+    // renderer.
+    "mary_o_void_orb": (
+        source: Image(
+            path: "sprites/entities/void_orb.png",
+        ),
+        size: Body(
+            min: 0.0,
+            scale: 1.5,
+        ),
+        rotation: GravityUpright,
+        debug_tint: (0.85, 0.25, 0.75, 1.0),
+        label: "void orb",
+        expiry_vfx: None,
+    ),
+}

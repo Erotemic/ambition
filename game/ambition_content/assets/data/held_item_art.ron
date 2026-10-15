@@ -1,0 +1,61 @@
+// How each held item is drawn on the ground and in the hand (schema
+// `held_item_art`, owned by the items capability), by held item id: the
+// picture, its size in the world (width, height), and where the hand holds
+// it along its picture (`grip`, 0 at its near end; absent: by its middle).
+// An edit here is drawn at the next start, with no Rust build.
+//
+// A held item with no row is not a silent fallback: it logs an `ERROR` per
+// spawn ("unknown held item art `polygon_bomb`") and draws nothing.
+{
+    // Character props: drawn at their native aspect ratio.
+    "axe": (path: "sprites/props/axe.png", size: (40.0, 18.0)),
+    "javelin": (path: "sprites/props/javelin.png", size: (58.0, 7.0)),
+    // The coconut (renderer target `coconut`): a thing to throw, and what the
+    // African swallow carries.
+    "coconut": (path: "sprites/props/coconut.png", size: (18.0, 15.0)),
+    // The pool noodle (renderer target `pool_noodle`): a long foam tube to hit
+    // with. It lies by the pools of the Noodly Temple. The hand holds it near
+    // its near end, so it points out of the hand and turns about the hand
+    // when it is swung.
+    "pool_noodle": (path: "sprites/props/pool_noodle.png", size: (72.0, 14.0), grip: Some(0.14)),
+    // The gun-sword. The grip is the middle of the wrapped handle (measured on
+    // `props/gunsword.png`, 2026-10-13: the handle is from 20 to 47 of 177
+    // pixels); a holder whose art has a hand holds it there (`posed_hand`).
+    // The heavy archetype and the Admiral author distinct item ids (the
+    // Admiral's shot is a special's payoff, not a raider's sidearm) with the
+    // same art.
+    "gun_sword": (path: "sprites/props/gunsword.png", size: (54.0, 14.0), grip: Some(0.19)),
+    "gun_sword_heavy": (path: "sprites/props/gunsword.png", size: (54.0, 14.0), grip: Some(0.19)),
+    "admiral_gun_sword": (path: "sprites/props/gunsword.png", size: (54.0, 14.0), grip: Some(0.19)),
+    // The Polygon's held items, each with its own drawing
+    // (`item_icons.py::HELD_ITEM_ICON_SPECS`; `scripts/regen/sprites.sh`
+    // installs them, and each `key` there is the id here). The bomb and the
+    // mine must be told apart at a glance: both are her stage objects and they
+    // do opposite things. The bomb is a tall faceted hex on a lit fuse; the
+    // mine is a wide low puck on anchor prongs with one red eye. The
+    // silhouette carries it, at 16 px and for colour-blind players. All three
+    // sources are square (64x64), so these sizes stay square too.
+    "polygon_bomb": (path: "sprites/props/polygon_bomb.png", size: (18.0, 18.0)),
+    "polygon_mine": (path: "sprites/props/polygon_mine.png", size: (16.0, 16.0)),
+    "polygon_ponytail": (path: "sprites/props/polygon_ponytail.png", size: (28.0, 28.0)),
+    // Wielded gauntlets: the abstract abilities with no character prop. A
+    // 64x64 procedural icon (`item_icons.py::write_gauntlet_props`) drawn
+    // about 26 px square on the ground and in the hand. The item-shaped tail
+    // (bomb, grapple, ...) is drawn as a physical object
+    // (`item_icons.py::render_item_object`); the `fireball` prop is also the
+    // in-flight held-shot look.
+    "shockwave": (path: "sprites/props/gauntlet_shockwave.png", size: (26.0, 26.0)),
+    "volley": (path: "sprites/props/gauntlet_volley.png", size: (26.0, 26.0)),
+    "beam": (path: "sprites/props/gauntlet_beam.png", size: (26.0, 26.0)),
+    "vortex": (path: "sprites/props/gauntlet_vortex.png", size: (26.0, 26.0)),
+    "sentry": (path: "sprites/props/gauntlet_sentry.png", size: (26.0, 26.0)),
+    "dive": (path: "sprites/props/gauntlet_dive.png", size: (26.0, 26.0)),
+    "meteor": (path: "sprites/props/gauntlet_meteor.png", size: (26.0, 26.0)),
+    "bomb": (path: "sprites/props/gauntlet_bomb.png", size: (26.0, 26.0)),
+    "grapple": (path: "sprites/props/gauntlet_grapple.png", size: (26.0, 26.0)),
+    "gravity_grenade": (path: "sprites/props/gauntlet_gravity_grenade.png", size: (26.0, 26.0)),
+    "mark_recall": (path: "sprites/props/gauntlet_mark_recall.png", size: (26.0, 26.0)),
+    "blink": (path: "sprites/props/gauntlet_blink.png", size: (26.0, 26.0)),
+    "puppy_slug_gun": (path: "sprites/props/gauntlet_puppy_slug_gun.png", size: (26.0, 26.0)),
+    "fireball": (path: "sprites/props/gauntlet_fireball.png", size: (26.0, 26.0)),
+}

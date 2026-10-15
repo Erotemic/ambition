@@ -109,9 +109,13 @@ PROVENANCE_SIDECAR_NAMES = {"FONT_ASSET_MANIFEST.json"}
 
 # The content pack's manifest, at the root of the composed view.
 PACK_MANIFEST = "pack.ron"
-# The content compiler. `AMBITION_CONTENT_BIN` names a built one; the default
-# builds it on first use and costs milliseconds after.
-CONTENT_COMPILER = ("cargo", "run", "--quiet", "-p", "ambition_content_cli", "--bin", "ambition_content", "--")
+# The content compiler: the content CLI with Ambition's own schemas beside the
+# engine's (the generic binary would refuse `ambition_rules` as an unknown
+# schema). `AMBITION_CONTENT_BIN` names a built one; the default builds it on
+# first use and costs milliseconds after.
+CONTENT_COMPILER = (
+    "cargo", "run", "--quiet", "-p", "ambition_content_schemas", "--bin", "ambition_content_check", "--",
+)
 CONTENT_COMPILER_ENV = "AMBITION_CONTENT_BIN"
 PACK_SOURCE_ORIGIN = f"pack-source:{PACK_MANIFEST}"
 PACK_ASSET_ORIGIN = "pack-asset:"

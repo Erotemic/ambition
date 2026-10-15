@@ -26,6 +26,60 @@ pub struct MaryORules {
     pub plank_ticks: u64,
     pub walk_throttle: f32,
     pub cosmic: Cosmic,
+    pub castle_end: CastleEnd,
+    pub flag: Flag,
+}
+
+/// The end of a castle: the switch, the bridge, the boss in the lava, the
+/// gate and the one she saves.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CastleEnd {
+    pub press_speed: f32,
+    pub gate_step_seconds: f32,
+    pub rescue_line_seconds: f32,
+    pub stand_before_him: f32,
+    pub step_down_speed: f32,
+    pub switch_score: u32,
+    pub sink_speed: f32,
+    pub splash_ticks: u64,
+    pub sunk_under: f32,
+    pub fallen_under: f32,
+    pub boss_fall_limit_seconds: f32,
+    pub beats: CastleBeats,
+}
+
+/// The seconds of each beat of the end of a castle that ends on time.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CastleBeats {
+    pub pressed: f32,
+    pub charges: f32,
+    pub aftermath: f32,
+    pub gate_opens: f32,
+    /// The thanks beat is the rescue line and this much more.
+    pub thanks_after_line: f32,
+    pub victory: f32,
+}
+
+/// The flag at the end of a level.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Flag {
+    pub slide_speed: f32,
+    pub walk_off_px: f32,
+    pub walk_off_speed: f32,
+    /// The score of a grab, by its height on the pole (0 at the base, 1 at
+    /// the top): the first band whose `at` the grab reaches pays.
+    pub score_bands: [FlagBand; 5],
+}
+
+/// One band of the flag's score ladder.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FlagBand {
+    pub at: f32,
+    pub score: u32,
 }
 
 /// The spark the fire form throws.
@@ -113,6 +167,24 @@ impl MaryORules {
             ("walk_throttle", self.walk_throttle),
             ("cosmic.leave_hold_seconds", self.cosmic.leave_hold_seconds),
             ("cosmic.hit_stop_max_seconds", self.cosmic.hit_stop_max_seconds),
+            ("castle_end.press_speed", self.castle_end.press_speed),
+            ("castle_end.gate_step_seconds", self.castle_end.gate_step_seconds),
+            ("castle_end.rescue_line_seconds", self.castle_end.rescue_line_seconds),
+            ("castle_end.stand_before_him", self.castle_end.stand_before_him),
+            ("castle_end.step_down_speed", self.castle_end.step_down_speed),
+            ("castle_end.sink_speed", self.castle_end.sink_speed),
+            ("castle_end.sunk_under", self.castle_end.sunk_under),
+            ("castle_end.fallen_under", self.castle_end.fallen_under),
+            ("castle_end.boss_fall_limit_seconds", self.castle_end.boss_fall_limit_seconds),
+            ("castle_end.beats.pressed", self.castle_end.beats.pressed),
+            ("castle_end.beats.charges", self.castle_end.beats.charges),
+            ("castle_end.beats.aftermath", self.castle_end.beats.aftermath),
+            ("castle_end.beats.gate_opens", self.castle_end.beats.gate_opens),
+            ("castle_end.beats.thanks_after_line", self.castle_end.beats.thanks_after_line),
+            ("castle_end.beats.victory", self.castle_end.beats.victory),
+            ("flag.slide_speed", self.flag.slide_speed),
+            ("flag.walk_off_px", self.flag.walk_off_px),
+            ("flag.walk_off_speed", self.flag.walk_off_speed),
         ] {
             if !(value.is_finite() && value >= 0.0) {
                 problems.push(format!("`{field}` is {value}; it is finite and not negative"));
@@ -136,6 +208,31 @@ impl MaryORules {
                 "`snake_plant.cycle_ticks` is {}; a cycle holds the rise, the time out and the fall ({} ticks)",
                 plant.cycle_ticks,
                 2 * plant.travel_ticks + plant.out_ticks
+            ));
+        }
+        for (field, value) in [
+            ("castle_end.press_speed", self.castle_end.press_speed),
+            ("castle_end.gate_step_seconds", self.castle_end.gate_step_seconds),
+            ("castle_end.step_down_speed", self.castle_end.step_down_speed),
+            ("castle_end.sink_speed", self.castle_end.sink_speed),
+            ("flag.slide_speed", self.flag.slide_speed),
+            ("flag.walk_off_speed", self.flag.walk_off_speed),
+        ] {
+            if value == 0.0 {
+                problems.push(format!("`{field}` is 0; the beat it moves would never end"));
+            }
+        }
+        if self.castle_end.splash_ticks == 0 {
+            problems.push("`castle_end.splash_ticks` is 0; it is the ticks from one splash to the next".to_string());
+        }
+        let bands = &self.flag.score_bands;
+        if bands.iter().any(|band| !(0.0..=1.0).contains(&band.at))
+            || bands.windows(2).any(|pair| pair[0].at <= pair[1].at || pair[0].score <= pair[1].score)
+            || bands[bands.len() - 1].at != 0.0
+        {
+            problems.push(format!(
+                "`flag.score_bands` is {bands:?}; each `at` is from 0 to 1, the bands go down the pole, a lower \
+                 band pays less, and the last is at 0 so every grab pays"
             ));
         }
         if self.plank_ticks == 0 {
@@ -202,6 +299,14 @@ mod tests {
         let travel = file.snake_plant.travel_ticks;
         assert_eq!(crate::plant::wanted_out(travel / 2), (travel / 2) as f32 / travel as f32);
         assert_eq!(crate::plant::wanted_out(travel), 1.0);
+
+        // The flag pays by the file's ladder: its top band at the top of the
+        // pole, its bottom band at the base.
+        assert_eq!(crate::flag::flag_score(1.0), file.flag.score_bands[0].score);
+        assert_eq!(crate::flag::flag_score(0.0), file.flag.score_bands[4].score);
+        let top = "(at: 0.9, score: 5000),";
+        assert_eq!(authored.matches(top).count(), 1, "the probe edits one band of the ladder");
+        assert_eq!(rules_of(&authored.replace(top, "(at: 0.9, score: 9000),")).flag.score_bands[0].score, 9000);
 
         let boxed = "boxed_seconds: 4.0,";
         assert_eq!(authored.matches(boxed).count(), 1, "the probe edits one line of the file");

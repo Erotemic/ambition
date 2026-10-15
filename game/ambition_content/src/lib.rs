@@ -49,7 +49,6 @@ pub mod content_validation;
 pub mod dialogue;
 /// Which of Ambition's named cast may stop thinking — the per-actor dormancy
 /// stances for the bosses, the arena mobs, the duel, and the placed cast.
-pub mod dormancy;
 /// The spectator-duel exhibition fight (RoomLoaded consumer + `<<duel>>`).
 pub mod duel_arena;
 pub mod encounters;
@@ -141,6 +140,7 @@ pub mod presentation;
 #[cfg(test)]
 mod projectile_polygon_moveset;
 pub mod projectiles;
+pub mod tuning;
 #[cfg(test)]
 mod pugnacious_polygon_moveset;
 pub mod quest;

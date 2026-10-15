@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 use ambition_content_pack::{
     compile_dir, AdvisoryAssets, AssetSource, AssetsUnchecked, CapabilityId, CompileFailure,
-    DirectoryAssets, PreparedContentPack, SchemaRegistry,
+    CompileStage, DirectoryAssets, PreparedContentPack, SchemaRegistration, SchemaRegistry,
 };
 
 /// The schemas and capabilities this tool composes.
@@ -67,6 +67,15 @@ pub struct Invocation {
     pub fingerprint_only: bool,
     /// Print only the files a package needs (`PreparedContentPack::package_inputs`).
     pub package_inputs_only: bool,
+    /// The schemas the game owns, beside the engine's: what its
+    /// `content_pack! { schemas: [..] }` names. A game's check binary passes
+    /// them through [`main_with`]; this binary has none.
+    pub game_schemas: fn() -> Vec<SchemaRegistration>,
+}
+
+/// No game schemas: the engine's composition only.
+fn no_game_schemas() -> Vec<SchemaRegistration> {
+    Vec::new()
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -170,6 +179,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
             list_schemas,
             fingerprint_only,
             package_inputs_only,
+            game_schemas: no_game_schemas,
         });
     }
 
@@ -183,25 +193,35 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
         list_schemas,
         fingerprint_only,
         package_inputs_only,
+        game_schemas: no_game_schemas,
     })
 }
 
 impl Invocation {
     /// The composition this invocation names: the engine's schemas without
-    /// `--without`, plus each `--capability`.
-    pub fn registry(&self) -> SchemaRegistry {
+    /// `--without`, the game's schemas, plus each `--capability`. A game schema
+    /// with an engine schema's id is refused, as the game's own compile
+    /// refuses it.
+    pub fn registry(&self) -> Result<SchemaRegistry, CompileFailure> {
         let without: Vec<&str> = self.without_capabilities.iter().map(String::as_str).collect();
         let mut registry = ambition_engine_schemas::engine_schemas_without(&without);
+        let refused: Vec<_> = (self.game_schemas)()
+            .into_iter()
+            .filter_map(|schema| registry.register(schema).err())
+            .collect();
+        if !refused.is_empty() {
+            return Err(CompileFailure::new(CompileStage::SchemaResolution, refused));
+        }
         for capability in &self.extra_capabilities {
             registry.install_capability(capability.clone());
         }
-        registry
+        Ok(registry)
     }
 
     /// Run it. The registry is built here, so the capabilities named on the
     /// command line and the ones the binary links go through one path.
     pub fn run(&self) -> Result<PreparedContentPack, CompileFailure> {
-        let registry = self.registry();
+        let registry = self.registry()?;
         let assets: Box<dyn AssetSource> = if self.skip_asset_check {
             Box::new(AssetsUnchecked)
         } else {
@@ -219,6 +239,65 @@ impl Invocation {
             }
         };
         compile_dir(&self.pack_root, &registry, assets.as_ref())
+    }
+}
+
+/// The CLI, with `game_schemas` beside the engine's. A game whose pack names
+/// its own schemas has a binary that calls this with them, so its pack is
+/// checked by this one CLI and not by a copy.
+pub fn main_with(game_schemas: fn() -> Vec<SchemaRegistration>) -> std::process::ExitCode {
+    let raw: Vec<String> = std::env::args().skip(1).collect();
+    if raw.iter().any(|a| a == "-h" || a == "--help") {
+        print!("{USAGE}");
+        return std::process::ExitCode::SUCCESS;
+    }
+
+    let mut invocation = match parse_args(raw) {
+        Ok(invocation) => invocation,
+        Err(error) => {
+            eprintln!("ambition_content: {error}\n\n{USAGE}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    invocation.game_schemas = game_schemas;
+
+    if invocation.list_schemas {
+        let registry = match invocation.registry() {
+            Ok(registry) => registry,
+            Err(failure) => {
+                eprint!("{}", failure.render());
+                return std::process::ExitCode::from(1);
+            }
+        };
+        println!("installed schemas:");
+        for schema in registry.schemas() {
+            println!(
+                "  {} {}  (capability `{}`, {:?})\n      {}",
+                schema.id, schema.version, schema.capability, schema.disposition, schema.doc
+            );
+        }
+        println!("\ninstalled capabilities:");
+        for capability in registry.capabilities() {
+            println!("  {capability}");
+        }
+        return std::process::ExitCode::SUCCESS;
+    }
+
+    match invocation.run() {
+        Ok(pack) => {
+            if invocation.fingerprint_only {
+                println!("{}", pack.fingerprint);
+            } else if invocation.package_inputs_only {
+                print!("{}", pack.package_inputs());
+            } else {
+                print!("{}", pack.summary());
+            }
+            std::process::ExitCode::SUCCESS
+        }
+        Err(failure) => {
+            eprint!("{}", failure.render());
+            std::process::ExitCode::from(1)
+        }
     }
 }
 

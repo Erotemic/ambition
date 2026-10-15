@@ -20,10 +20,6 @@ fn shipped_catalog() -> PathBuf {
         .join("../../game/ambition_content/assets/data/character_catalog.ron")
 }
 
-fn shipped_pack() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../game/ambition_content/assets")
-}
-
 struct Sandbox {
     root: PathBuf,
 }
@@ -181,40 +177,9 @@ fn validating_a_character_edit_does_not_rebuild_rust() {
     );
 }
 
-#[test]
-fn the_shipped_pack_has_no_schema_reference_or_conflict_errors() {
-    // The architecture claim about Ambition's own content, run against the real
-    // pack in place: every preset reference resolves, no identity is defined
-    // twice, no display name has two owners, no authored field is unconsumed.
-    //
-    //  assets are ADVISORY here and that is deliberate, not a loophole.
-    // AGENTS.md: binary payloads are git-ignored but present, and a feature
-    // owes only "degrade visibly when a file is absent" — so on a fresh clone
-    // missing art is a documented state. Making it fatal here would contradict
-    // a project rule and the check would get waived. The next test is the one
-    // that proves the strict path still refuses.
-    let output = Command::new(CLI)
-        .arg(shipped_pack())
-        .arg("--advisory-assets")
-        .output()
-        .expect("CLI runs");
-    let text = String::from_utf8_lossy(&output.stdout);
-    let errors = String::from_utf8_lossy(&output.stderr);
-    assert_eq!(
-        output.status.code(),
-        Some(0),
-        "the shipped pack compiles:\n{text}{errors}"
-    );
-    assert!(
-        !text.contains("unknown-preset")
-            && !text.contains("unresolved-reference")
-            && !text.contains("duplicate-identity")
-            && !text.contains("unknown-field")
-            && !text.contains("conflicting-module-contribution"),
-        "the only findings in the shipped pack are about assets:\n{text}"
-    );
-    println!("{text}");
-}
+// `the_shipped_pack_has_no_schema_reference_or_conflict_errors` is in
+// `game/ambition_content_schemas/tests/`: Ambition's pack names Ambition's own
+// schemas, so its check binary (`ambition_content_check`) reads it.
 
 #[test]
 fn the_strict_asset_path_still_refuses_on_real_content() {

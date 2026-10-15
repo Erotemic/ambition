@@ -36,7 +36,7 @@
 | [`session_world`](src/session_world.rs) | Prepared platformer definitions and canonical live session components. |
 | [`sim_core_resources`](src/sim_core_resources.rs) | The engine-generic simulation messages + resource defaults (E5 step 6). |
 | [`sim_identity`](src/sim_identity.rs) | Backend-neutral stable simulation identity maintenance. |
-| [`verdict_census`](src/verdict_census.rs) | `[census] verdicts` — WHAT AUTHORED CONTENT ASKED, AND WHAT IS STUCK. |
+| [`verdict_census`](src/verdict_census.rs) | Diagnostic summary of the existing authored-verdict ring. |
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 
 _32 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._

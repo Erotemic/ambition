@@ -67,9 +67,6 @@
         title_seconds: 2.5,
     ),
     badnik: (
-        // How near Sanic must be for a badnik to keep thinking: 2.4 s of lead
-        // at his fastest tuning (`top_speed: 2000.0`).
-        wake_radius: 4800.0,
         // Upward speed off a stomped badnik: a lively bounce, less than a full
         // jump.
         bounce_speed: 460.0,

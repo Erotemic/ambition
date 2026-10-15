@@ -36,6 +36,8 @@ content_pack = [
     # unconditional edge. See `Q106`.
     "ambition_encounter/content_pack",
     "ambition_audio/content_pack",
+    # The projectile capability owns `projectile_visuals`.
+    "ambition_projectiles/content_pack",
     "ambition_combat/content_pack",
     # The match capability owns `match_rules`.
     "ambition_match/content_pack",

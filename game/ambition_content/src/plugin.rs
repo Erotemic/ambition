@@ -19,11 +19,11 @@ impl Plugin for AmbitionContentPlugin {
         // participate in it (`reload.rs`); this install happens once.
         let pack = crate::pack::select(app.world_mut());
 
-        // Game-authored dormancy policy per actor.
-        super::dormancy::register(app);
-
         // Named projectile presentation used by Ambition content.
         super::projectiles::register(app);
+
+        // Ambition's own tuning (`data/ambition_rules.ron`).
+        super::tuning::register(app);
 
         // What a thrown item does to the body it strikes (the coconut).
         super::items::thrown_impact::register(app);

@@ -68,27 +68,14 @@ impl FlagPole {
 /// standard body carries here.
 const GRAB_BODY_HALF_WIDTH: f32 = ae::DEFAULT_PLAYER_BODY_WIDTH * 0.5;
 
-/// Score for a grab at `height` (`0..=1`). The classic ladder: five bands, top
-/// band worth an order of magnitude more than the bottom.
-///
-/// A pure function of one number, so the reward curve is arguable in a code review
-/// rather than discoverable in a playtest.
+/// Score for a grab at `height` (`0..=1`): the first band of the pack's
+/// `flag.score_bands` that the grab reaches. Admission holds the last band at
+/// 0, so every grab pays.
 pub fn flag_score(height: f32) -> u32 {
-    match height {
-        h if h >= 0.90 => 5000,
-        h if h >= 0.70 => 2000,
-        h if h >= 0.50 => 800,
-        h if h >= 0.25 => 400,
-        _ => 100,
-    }
+    let bands = crate::rules::mary_o_rules().flag.score_bands;
+    bands.iter().find(|band| height >= band.at).unwrap_or(&bands[bands.len() - 1]).score
 }
 
-/// How fast the body slides down the pole, world px per second.
-pub const SLIDE_SPEED: f32 = 220.0;
-/// How far right the body walks off, in world px, before the tally.
-pub const WALK_OFF_PX: f32 = 96.0;
-/// Walking-off speed, world px per second.
-pub const WALK_OFF_SPEED: f32 = 90.0;
 
 /// The four beats. `Idle` is the whole level; the other three are the sequence.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -225,34 +212,34 @@ fn step_phase(
             // this tick, and already sliding.
             Some(FlagDrive {
                 pos: ae::Vec2::new(pole.x, body.y.max(pole.top_y)),
-                vel: ae::Vec2::new(0.0, SLIDE_SPEED),
+                vel: ae::Vec2::new(0.0, crate::rules::mary_o_rules().flag.slide_speed),
                 on_pole: true,
             })
         }
         FlagPhase::Sliding { score } => {
-            let y = body.y + SLIDE_SPEED * dt;
+            let y = body.y + crate::rules::mary_o_rules().flag.slide_speed * dt;
             // The slide ends when her FEET reach the base, not her centre — the
             // pole's base is a ground line.
             if y >= stand_y {
                 seq.phase = FlagPhase::WalkingOff {
                     score,
-                    remaining: WALK_OFF_PX,
+                    remaining: crate::rules::mary_o_rules().flag.walk_off_px,
                 };
                 // Her feet are down: off the pole, and walking from here.
                 return Some(FlagDrive {
                     pos: ae::Vec2::new(pole.x, stand_y),
-                    vel: ae::Vec2::new(WALK_OFF_SPEED, 0.0),
+                    vel: ae::Vec2::new(crate::rules::mary_o_rules().flag.walk_off_speed, 0.0),
                     on_pole: false,
                 });
             }
             Some(FlagDrive {
                 pos: ae::Vec2::new(pole.x, y),
-                vel: ae::Vec2::new(0.0, SLIDE_SPEED),
+                vel: ae::Vec2::new(0.0, crate::rules::mary_o_rules().flag.slide_speed),
                 on_pole: true,
             })
         }
         FlagPhase::WalkingOff { score, remaining } => {
-            let step = WALK_OFF_SPEED * dt;
+            let step = crate::rules::mary_o_rules().flag.walk_off_speed * dt;
             if step >= remaining {
                 seq.phase = FlagPhase::Tallied { score };
                 // she is still WALKING on this tick — it is the stride that
@@ -262,7 +249,7 @@ fn step_phase(
                 // `Tallied`, on the tick she is actually still.
                 return Some(FlagDrive {
                     pos: ae::Vec2::new(body.x + remaining, body.y),
-                    vel: ae::Vec2::new(WALK_OFF_SPEED, 0.0),
+                    vel: ae::Vec2::new(crate::rules::mary_o_rules().flag.walk_off_speed, 0.0),
                     on_pole: false,
                 });
             }
@@ -272,7 +259,7 @@ fn step_phase(
             };
             Some(FlagDrive {
                 pos: ae::Vec2::new(body.x + step, body.y),
-                vel: ae::Vec2::new(WALK_OFF_SPEED, 0.0),
+                vel: ae::Vec2::new(crate::rules::mary_o_rules().flag.walk_off_speed, 0.0),
                 on_pole: false,
             })
         }
@@ -486,7 +473,7 @@ mod tests {
     }
 
     /// The slide is straight down the pole, and the walk-off goes right by exactly
-    /// `WALK_OFF_PX`. Both numbers are the ones the level was built around.
+    /// `flag.walk_off_px`. Both numbers are the ones the level was built around.
     #[test]
     fn the_slide_is_straight_and_the_walk_off_is_exact() {
         let p = pole();
@@ -523,9 +510,10 @@ mod tests {
             );
         }
         assert!(
-            (body.x - walk_start - WALK_OFF_PX).abs() < 0.001,
-            "walked {} px, expected {WALK_OFF_PX}",
-            body.x - walk_start
+            (body.x - walk_start - crate::rules::mary_o_rules().flag.walk_off_px).abs() < 0.001,
+            "walked {} px, expected {}",
+            body.x - walk_start,
+            crate::rules::mary_o_rules().flag.walk_off_px
         );
     }
 

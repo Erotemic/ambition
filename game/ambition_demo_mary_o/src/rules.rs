@@ -8,6 +8,7 @@
 //! compile checks and lowers the file.
 
 use ambition_platformer2d::content::{lowered_rules, rules_schema, SchemaRegistration};
+use ambition_platformer2d::engine_core as ae;
 use serde::Deserialize;
 
 /// The authored FILE kind: the demo's tuning.
@@ -80,6 +81,23 @@ pub struct PowerUps {
     pub wand_speed: f32,
     pub quasar_speed: f32,
     pub quasar_restitution: f32,
+    pub wand_half: (f32, f32),
+    pub beacon_half: (f32, f32),
+    pub quasar_half: (f32, f32),
+}
+
+impl PowerUps {
+    pub fn wand_half(&self) -> ae::Vec2 {
+        ae::Vec2::new(self.wand_half.0, self.wand_half.1)
+    }
+
+    pub fn beacon_half(&self) -> ae::Vec2 {
+        ae::Vec2::new(self.beacon_half.0, self.beacon_half.1)
+    }
+
+    pub fn quasar_half(&self) -> ae::Vec2 {
+        ae::Vec2::new(self.quasar_half.0, self.quasar_half.1)
+    }
 }
 
 /// The flag at the end of a level.
@@ -194,6 +212,15 @@ impl MaryORules {
         ] {
             if !(value.is_finite() && value >= 0.0) {
                 problems.push(format!("`{field}` is {value}; it is finite and not negative"));
+            }
+        }
+        for (field, (x, y)) in [
+            ("power_ups.wand_half", self.power_ups.wand_half),
+            ("power_ups.beacon_half", self.power_ups.beacon_half),
+            ("power_ups.quasar_half", self.power_ups.quasar_half),
+        ] {
+            if !(x.is_finite() && y.is_finite() && x > 0.0 && y > 0.0) {
+                problems.push(format!("`{field}` is ({x}, {y}); a pickup has a size, so both are more than 0"));
             }
         }
         for (field, value) in [
@@ -346,6 +373,20 @@ mod tests {
             Err(failure) => failure.render(),
         };
         assert!(refused.contains("`power_ups.quasar_restitution`"), "the refusal names the field: {refused}");
+
+        // Each pickup's box is the file's, and a box with no size is refused.
+        let half = "wand_half: (12.0, 15.5),";
+        assert_eq!(authored.matches(half).count(), 1, "the probe edits the wand's box");
+        assert_eq!(rules_of(&authored.replace(half, "wand_half: (12.0, 20.0),")).power_ups.wand_half, (12.0, 20.0));
+        std::fs::write(root.join("data/mary_o_rules.ron"), authored.replace(half, "wand_half: (0.0, 15.5),")).unwrap();
+        let refused = match EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None)
+            .with_schemas(|| vec![mary_o_rules_schema()])
+            .compile()
+        {
+            Ok(_) => panic!("a wand with no width was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`power_ups.wand_half`"), "the refusal names the field: {refused}");
         let _ = std::fs::remove_dir_all(&root);
     }
 }

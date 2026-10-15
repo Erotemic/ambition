@@ -141,6 +141,11 @@
         // it bounds away from her like a superstar.
         quasar_speed: 105.0,
         quasar_restitution: 0.86,
+        // Each pickup's half size (px), from its art: the box she touches to
+        // take it, and how far it rises to rest on its block.
+        wand_half: (12.0, 15.5),
+        beacon_half: (12.0, 18.0),
+        quasar_half: (13.0, 13.0),
     ),
     // The flag at the end of a level.
     flag: (

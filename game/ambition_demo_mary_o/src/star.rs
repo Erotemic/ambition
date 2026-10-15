@@ -7,7 +7,6 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::actors::features::empowerment::{Empowered, Empowerment};
 use ambition_platformer2d::characters::equipment::{EquipmentRow, WornEquipment};
-use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PlayerEntity;
 // The tests seat the first player.
 #[cfg(test)]
@@ -21,9 +20,6 @@ pub const POCKET_QUASAR_ID: &str = "pocket_quasar";
 /// The presentation art id the quasar `WorldItem` carries, bound to the generated
 /// prop by the provider through the shared `WorldItemArt` seam.
 pub const QUASAR_SPRITE: &str = "super_mary_o_cosmic_quasar";
-
-/// The quasar's half-extent — a round pickup, sized from the generated prop.
-pub const QUASAR_HALF: ae::Vec2 = ae::Vec2::new(13.0, 13.0);
 
 /// This beat's claim on the encounter layer's priority music tier, mirroring the
 /// death and victory sequences.

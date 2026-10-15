@@ -35,13 +35,6 @@ use crate::provider::MARY_O_CHARACTER_ID;
 /// each change of form, as her pack states it (`data/mary_o_forms.ron`).
 use crate::forms::mary_o_forms;
 
-/// The star wand's half-extent — a small collectible box that pops out of a
-/// bonked ?-block and grows Mary-O when she touches it.
-const STAR_WAND_HALF: ae::Vec2 = ae::Vec2::new(12.0, 15.5);
-
-/// The beacon's half-extent — the second collectible in the chain.
-const CINDER_BEACON_HALF: ae::Vec2 = ae::Vec2::new(12.0, 18.0);
-
 /// The presentation art id the wand `WorldItem` carries. The app binds it to the
 /// generated `super_mary_o_star_wand` sprite in `WorldItemArt`; the render draws
 /// that image, or the cream quad until it is regenerated. Shared here so the spawn
@@ -759,11 +752,11 @@ fn next_rung_toward(target: MaryOPickup, worn: Option<&WornEquipment>) -> Option
 fn quasar_reward() -> PowerReward {
     PowerReward {
         row: crate::star::pocket_quasar(),
-        half: crate::star::QUASAR_HALF,
+        half: crate::rules::mary_o_rules().power_ups.quasar_half(),
         sprite: crate::star::QUASAR_SPRITE,
         motion: rises_from_a_block(
             ItemMotionPlan::bouncer(crate::rules::mary_o_rules().power_ups.quasar_speed, crate::rules::mary_o_rules().power_ups.quasar_restitution),
-            crate::star::QUASAR_HALF.y,
+            crate::rules::mary_o_rules().power_ups.quasar_half().y,
         ),
     }
 }
@@ -794,10 +787,10 @@ fn rises_from_a_block(plan: ItemMotionPlan, half_y: f32) -> ItemMotionPlan {
 fn wand_reward() -> PowerReward {
     PowerReward {
         row: star_wand(),
-        half: STAR_WAND_HALF,
+        half: crate::rules::mary_o_rules().power_ups.wand_half(),
         sprite: STAR_WAND_SPRITE,
         // The wand WALKS and turns at walls, like the mushroom.
-        motion: rises_from_a_block(ItemMotionPlan::walker(crate::rules::mary_o_rules().power_ups.wand_speed), STAR_WAND_HALF.y),
+        motion: rises_from_a_block(ItemMotionPlan::walker(crate::rules::mary_o_rules().power_ups.wand_speed), crate::rules::mary_o_rules().power_ups.wand_half().y),
     }
 }
 
@@ -816,10 +809,10 @@ fn wand_reward() -> PowerReward {
 fn beacon_reward() -> PowerReward {
     PowerReward {
         row: cinder_beacon(),
-        half: CINDER_BEACON_HALF,
+        half: crate::rules::mary_o_rules().power_ups.beacon_half(),
         sprite: CINDER_BEACON_SPRITE,
         // The beacon waits on its block, like the classic flower.
-        motion: rises_from_a_block(ItemMotionPlan::still(), CINDER_BEACON_HALF.y),
+        motion: rises_from_a_block(ItemMotionPlan::still(), crate::rules::mary_o_rules().power_ups.beacon_half().y),
     }
 }
 
@@ -1207,6 +1200,15 @@ mod tests {
                 heard.push(sfx);
             }
         }
+    }
+
+    /// Each pickup a block gives is the size her rules file states.
+    #[test]
+    fn each_pickup_is_the_size_her_rules_state() {
+        let power_ups = crate::rules::mary_o_rules().power_ups;
+        assert_eq!(wand_reward().half, power_ups.wand_half());
+        assert_eq!(beacon_reward().half, power_ups.beacon_half());
+        assert_eq!(quasar_reward().half, power_ups.quasar_half());
     }
 
     #[test]

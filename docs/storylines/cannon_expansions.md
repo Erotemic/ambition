@@ -45,6 +45,27 @@ Sources: `docs/brainstorms/*`, `docs/planning/story-gameplay-progression-draft.m
   spelling LEGALLY DISTINCT, the L's drawn as lambdas), is a pathway into the first
   alternate world. ‹verbatim›
 
+## D — Dimensions
+
+- **D1.** There are **17 named dimensions** (Jon's list, `original_brainstorm.md`):
+  Noodle, Evil/Nazi (Godwin's Castle), Forest/Ninja, Water/Pirate, Science, Math,
+  Fire/Inferno/Lava, Magical/Mary-O, Sanic, Dog, Jungle/Bird/Dinosaur,
+  Techno/Cyberpunk, Pure/Regal, Corrupted, Monster, ??? (the catch-all), Home. ‹verbatim›
+- **D2.** A dimension is **distinct only when no path through space or time joins
+  two portals**. Portals go within a dimension and between them. So the count is
+  disputed: Science insists Math is separate; Math cannot agree it can be identified
+  with Science; mathematicians think their space is infinite, scientists measure. ‹verbatim›
+- **D3.** Some dimensions are **small and finite** — you can see you cannot go
+  anywhere else; others are big. Which are big is a game decision still open. ‹verbatim›
+- **D4.** People have **migrated between dimensions**, so places have odd
+  bedfellows. A **Nazi Embassy** whose existence the town debates is a later idea,
+  after the base town exists. ‹verbatim›
+- **D5.** The central town (the hub, "the crowned jewel") **may live in the Math
+  dimension** (Jon: "Maybe it lives in the Math dimension?"). My proposal on top:
+  Math is finite but unbounded — the town wraps like a torus, the wrap is a
+  discovery, and in-dimension portals make impossible (Escher) architecture
+  playable. Not ruled. ‹synthesis›
+
 ## P — The protagonist
 
 - **P1.** The player is an **AI that wakes into the world without knowing its

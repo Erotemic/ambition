@@ -8,12 +8,15 @@
 // the platform: a `MovingPlatform` that stands still (`speed: 0`), one-way,
 // drawn as the sheet `intro_cart`. The near rail of the cart is drawn in
 // front of each body, so the player wakes IN the cart. Its back end is a
-// ramp: 14 more `MovingPlatform`s that stand still, each a step.
+// ramp: one still `MovingPlatform` that carries the ramp's picture (the
+// sheet's `ramp` row), and a hidden `SurfaceChain` (`Cart ramp`) from the end
+// of the bed to the floor, which a body walks (`walkable_lines`; until
+// 2026-10-15 the ramp was 14 one-way steps of 4).
 //
 // ⚠ The map was changed with the entity tools after this spec made the
 // room. This spec has the cart, the spawn and the landing pad of the map,
-// and it does NOT have the 14 steps of the ramp. The map is the authority:
-// do not make the room again from this spec.
+// and it does NOT have the ramp. The map is the authority: do not make the
+// room again from this spec.
 //
 // Transitions:
 // - Incoming: the door of the hub (sandbox.ldtk, `intro_wake_door`) is one

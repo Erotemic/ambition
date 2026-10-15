@@ -263,3 +263,56 @@ fn a_body_walks_off_a_terrace_down_its_stair_with_no_landing() {
     assert_eq!(landings, 0);
     assert!(scratch.kinematics.pos.x > 950.0 && (feet(&scratch) - 852.0).abs() < 0.5);
 }
+
+/// A ramp that moves (a ridden mount's slope): each tick its points move by
+/// `step` and its velocity says so, as the overlay states it.
+fn moved_ramp(world: &mut World, step: Vec2) {
+    let ramp = world.chains.iter_mut().find(|c| c.name == "ramp").expect("the ramp");
+    for p in &mut ramp.points {
+        *p += step;
+    }
+    ramp.velocity = step;
+}
+
+#[test]
+fn a_body_rides_a_moving_ramp_and_walks_on_it_with_no_tick_in_the_air() {
+    let mut world = test_world();
+    world.chains.push(SurfaceChain::open(
+        "ramp",
+        vec![Vec2::new(400.0, 700.0), Vec2::new(700.0, 550.0), Vec2::new(800.0, 550.0)],
+    ));
+    let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::new(550.0, 560.0), AbilitySet::sandbox_all());
+    for _ in 0..60 {
+        step_scratch(&world, &mut scratch, InputState::default());
+    }
+    assert!(scratch.ground.on_ground, "it settles on the ramp (feet {})", feet(&scratch));
+    let line_at = |world: &World, scratch: &BodyClusterScratch| {
+        crate::walkable_lines::standing_on_line(world, scratch.kinematics.aabb_oriented(DOWN), DOWN)
+    };
+    let start_x = scratch.kinematics.pos.x;
+    // The ramp goes up and to the right, then back down and left; the body
+    // stands still on it, then walks up it.
+    let mut landings = 0;
+    let mut stood_at = None;
+    for (tick, step, input) in (0..210).map(|t| {
+        let step = if t < 60 { Vec2::new(2.0, -1.5) } else if t < 120 { Vec2::new(-1.0, 2.0) } else { Vec2::new(1.0, 0.5) };
+        (t, step, if t < 180 { InputState::default() } else { walk(1.0) })
+    }) {
+        moved_ramp(&mut world, step);
+        let events = step_scratch(&world, &mut scratch, input);
+        if matches!(events.ground_contact, GroundContactTransition::Landed { .. }) {
+            landings += 1;
+        }
+        assert!(scratch.ground.on_ground, "in the air on tick {tick} at {:?}", scratch.kinematics.pos);
+        assert!(line_at(&world, &scratch).is_some(), "off the ramp on tick {tick} at {:?}", scratch.kinematics.pos);
+        if tick == 179 {
+            stood_at = Some(scratch.kinematics.pos.x);
+        }
+    }
+    assert_eq!(landings, 0);
+    // Standing still for 180 ticks it went where the ramp went: 120 to the
+    // right, 60 to the left, 60 to the right.
+    let stood_at = stood_at.expect("tick 179 ran");
+    assert!((stood_at - (start_x + 120.0)).abs() < 0.5, "the body drifted on the ramp: {start_x} -> {stood_at}");
+    assert!(scratch.kinematics.pos.x > stood_at + 20.0, "and then it walked up it");
+}

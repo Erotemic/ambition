@@ -110,6 +110,12 @@ pub struct CharacterMount {
     /// "on its back"; these are ground and no more.
     #[serde(default)]
     pub ledges: Vec<MountBack>,
+    /// A slope of the mount that a body walks while it is ridden (the rump up
+    /// to the shoulders): a line of points `(x, y)` about the mount's centre
+    /// (+y down), from left to right, for a mount facing right, mirrored with
+    /// the side it is drawn facing. Empty = none. It moves with the mount.
+    #[serde(default)]
+    pub slope: Vec<(f32, f32)>,
 }
 
 /// A mount's back as one-way ground, in world units about the mount's centre

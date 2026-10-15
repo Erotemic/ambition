@@ -1704,24 +1704,21 @@
                 // at 1.3 wu/px; 14 wu thick). It goes behind the neck: the giant
                 // is drawn behind a body that stands there.
                 back: Some((left: -14.0, right: 311.0, top: -232.05, thickness: 14.0)),
-                // Where the art has moss, a body can stand. The slope of its back,
-                // from the rump up to the left shoulder, as ten steps (a mount's
-                // ground is flat blocks: a body goes up it in hops), and the level
-                // part of each horn. From the drawing (`giant_art.beast`,
-                // `gnu_horns`), about the body-box centre.
+                // Where the art has moss, a body can stand: the level part of
+                // each horn. From the drawing (`giant_art.beast`, `gnu_horns`),
+                // about the body-box centre.
                 ledges: [
-                    (left: -294.4, right: -266.9, top: -27.0, thickness: 12.0),
-                    (left: -266.9, right: -239.3, top: -39.3, thickness: 12.0),
-                    (left: -239.3, right: -211.8, top: -55.1, thickness: 12.0),
-                    (left: -211.8, right: -184.2, top: -73.3, thickness: 12.0),
-                    (left: -184.2, right: -156.7, top: -93.5, thickness: 12.0),
-                    (left: -156.7, right: -129.1, top: -115.3, thickness: 12.0),
-                    (left: -129.1, right: -101.5, top: -138.6, thickness: 12.0),
-                    (left: -101.5, right: -74.0, top: -163.1, thickness: 12.0),
-                    (left: -74.0, right: -46.4, top: -188.9, thickness: 12.0),
-                    (left: -46.4, right: -18.9, top: -215.7, thickness: 12.0),
                     (left: 28.3, right: 76.3, top: -417.4, thickness: 12.0),
                     (left: 221.4, right: 269.4, top: -417.4, thickness: 12.0),
+                ],
+                // And the slope of its back, from the rump up to the left
+                // shoulder, where the back begins: one line a body walks up
+                // (`walkable_lines`; until 2026-10-15 ten steps a body hopped).
+                // The points are where the steps of the drawing turn.
+                slope: [
+                    (-294.4, -27.0), (-266.9, -39.3), (-239.3, -55.1), (-211.8, -73.3),
+                    (-184.2, -93.5), (-156.7, -115.3), (-129.1, -138.6), (-101.5, -163.1),
+                    (-74.0, -188.9), (-46.4, -215.7), (-14.0, -232.05),
                 ],
                 // Whoever rides it conducts its fists and chooses its rows: in
                 // the arena, the fists are GNU-ton's.

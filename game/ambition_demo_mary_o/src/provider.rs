@@ -618,15 +618,11 @@ mod tests {
         let sfx = ambition_platformer2d::audio::content_schema::lowered_sfx_registry(pack)
             .expect("her pack states her SFX");
         let authorized = sfx.authorized_cue_ids();
-        for id in [
-            COIN_PICKUP_SFX,
-            crate::powerups::SFX_SMALL_TO_BIG,
-            crate::powerups::SFX_BIG_TO_FIRE,
-            crate::powerups::SFX_BIG_TO_SMALL,
-            crate::powerups::SFX_FIRE_TO_BIG,
-            crate::powerups::SFX_FIRE_TO_SMALL,
-            crate::pipe::PIPE_WARP_SFX,
-        ] {
+        let forms = crate::forms::mary_o_forms();
+        for id in [COIN_PICKUP_SFX, crate::pipe::PIPE_WARP_SFX]
+            .into_iter()
+            .chain(forms.cues.iter().map(|cue| cue.cue.as_str()))
+        {
             assert!(
                 authorized.contains(&ambition_platformer2d::sfx::SfxId::from_static(id)),
                 "her code emits `{id}` and her pack does not declare it"

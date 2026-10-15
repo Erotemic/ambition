@@ -3,7 +3,8 @@
 // glob, so its contents do not depend on filesystem order. A line added here
 // is played at the next start, with no Rust build.
 //
-// `mary_o_rules` is the demo's own schema (`src/rules.rs`), which the generic
+// `mary_o_rules` and `mary_o_forms` are the demo's own schemas (`src/rules.rs`,
+// `src/forms.rs`), which the generic
 // content CLI does not link. Validate this tree, or a copy of it, with the
 // demo's check binary (the content CLI with the demo's schemas):
 //
@@ -25,8 +26,11 @@
         (path: "audio/sfx_registry.ron", schema: "sfx_registry", version: 1),
         // The rules of her rooms: the death replay, sized by her death music.
         (path: "data/room_rules.ron", schema: "room_rules", version: 1),
-        // Its tuning: the spark, the plant, the pipe, the shell, the star.
+        // Its tuning: the plant, the pipe, the shell, the star.
         (path: "data/mary_o_rules.ron", schema: "mary_o_rules", version: 1),
+        // Her power ladder: each form, the row she wears on it (the spark is
+        // the cinder beacon's), and the sound of each change of form.
+        (path: "data/mary_o_forms.ron", schema: "mary_o_forms", version: 1),
         // The sheets of her level's construction: pipes, pole, lift, lava.
         (path: "data/prop_sheets.ron", schema: "prop_sheets", version: 1),
         // How her lift is laid on its platform.

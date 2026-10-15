@@ -1,7 +1,7 @@
 //! The `mary_o_rules` schema: the demo's own tuning, as data in its pack
 //! (`assets/data/mary_o_rules.ron`).
 //!
-//! The spark, the snake plant, the pipe, the snake's shell, the star, the
+//! The snake plant, the pipe, the snake's shell, the star, the
 //! coin block, the bridge, the walk and the cosmic form's beats are this
 //! game's policy, so the demo owns the schema and no engine capability reads
 //! it. The pack names it (`content_pack! { schemas: [..] }`), and the pack's
@@ -17,7 +17,6 @@ pub const MARY_O_RULES_SCHEMA: &str = "mary_o_rules";
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MaryORules {
-    pub spark: Spark,
     pub snake_plant: SnakePlant,
     pub pipe: Pipe,
     pub shell: Shell,
@@ -103,19 +102,6 @@ pub struct FlagBand {
     pub score: u32,
 }
 
-/// The spark the fire form throws.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Spark {
-    pub refire_seconds: f32,
-    pub half_extent: f32,
-    pub speed: f32,
-    pub damage: i32,
-    pub gravity: f32,
-    pub bounces: u8,
-    pub lifetime_seconds: f32,
-}
-
 /// The cycle of the snake plant in its pipe.
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -164,13 +150,8 @@ impl MaryORules {
     /// Each value the demo cannot use, named by its field.
     fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
-        let (spark, plant, pipe, shell) = (&self.spark, &self.snake_plant, &self.pipe, &self.shell);
+        let (plant, pipe, shell) = (&self.snake_plant, &self.pipe, &self.shell);
         for (field, value) in [
-            ("spark.refire_seconds", spark.refire_seconds),
-            ("spark.half_extent", spark.half_extent),
-            ("spark.speed", spark.speed),
-            ("spark.gravity", spark.gravity),
-            ("spark.lifetime_seconds", spark.lifetime_seconds),
             ("snake_plant.shy_reach", plant.shy_reach),
             ("snake_plant.harmless_below", plant.harmless_below),
             ("pipe.swallow_seconds", pipe.swallow_seconds),
@@ -216,7 +197,6 @@ impl MaryORules {
             }
         }
         for (field, value) in [
-            ("spark.damage", spark.damage),
             ("shell.enemy_damage", shell.enemy_damage),
             ("shell.player_damage", shell.player_damage),
             ("coins_per_block", self.coins_per_block),
@@ -283,7 +263,7 @@ pub fn mary_o_rules_schema() -> SchemaRegistration {
         MARY_O_RULES_SCHEMA,
         1,
         "mary_o_demo",
-        "The Mary-O demo's tuning: the spark, the snake plant, the pipe, the \
+        "The Mary-O demo's tuning: the snake plant, the pipe, the \
          snake's shell, the star, the coin block, the bridge, the walk and the \
          cosmic form's beats.",
         MaryORules::problems,

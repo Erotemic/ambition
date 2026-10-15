@@ -1,0 +1,96 @@
+// Her power ladder (schema `mary_o_forms`, owned by the demo), bottom rung
+// first. A rung is a form: the catalog row she is drawn as (`character`),
+// the clip that shows her arrive at it from below (`arrival`: Grow or
+// Transform), and the equipment row she wears on it.
+//
+// The ladder is the downgrade chain: a rung's row is armor, and a hit spends
+// it into the row of the rung below (the bottom rung wears none, so a hit
+// there is a real hit). Every form row is in the one slot `slot`, so a new
+// form replaces the old one. A pickup never makes her weaker: a form row at
+// or under the rung she is on pays coins instead.
+//
+// The compiler refuses a bottom rung with a row, a rung over it with no row
+// or no arrival, a character or a row on two rungs, and a cue between
+// characters that are not on the ladder. An edit here is played at the next
+// start, with no Rust build.
+(
+    slot: "mary_o_form",
+    ladder: [
+        // Small: no form row.
+        (character: "mary_o"),
+        // Tall: the star wand is one hit of armor. Her tall sheet and its
+        // taller body are a view of wearing it (`powerups::sync_grown_form`).
+        (character: "mary_o_tall", arrival: Some(Grow), row: Some((id: "star_wand"))),
+        // Fire: the same height as tall, so she arrives by a change of look.
+        // The cinder beacon gives her the spark, labels her run button
+        // `Run / Spark`, and multiplies the spark's damage by 1.5.
+        (
+            character: "mary_o_fire",
+            arrival: Some(Transform),
+            row: Some((
+                id: "cinder_beacon",
+                modifiers: [(param: "damage", op: Mul(1.5), scope: Verb("ranged"))],
+                grants: [
+                    // The spark: a low, fast shot that falls and skips off
+                    // floors, and dies after two bounces or 1.5 s.
+                    Ranged((
+                        style: Bolt,
+                        // Launch speed (px/s).
+                        speed: 300.0,
+                        // Damage before the beacon's x1.5: enough to end a
+                        // snake.
+                        damage: 4,
+                        flight: Some((
+                            // The downward pull that turns a flat shot into a
+                            // skipping arc.
+                            gravity: 900.0,
+                            // Floor skips before it burns out.
+                            bounces: 2,
+                            bounce_on_world_contact: true,
+                            // A spark that finds no floor still expires.
+                            max_lifetime: 1.5,
+                            // Half its size (px): 20 px across a 32 px tile.
+                            // The art draws at this size, so the sprite cannot
+                            // disagree with the hitbox.
+                            half_extent: (10.0, 10.0),
+                            boomerang_return_s: None,
+                        )),
+                        visual: Some("mary_o_spark"),
+                        // Seconds between two sparks. It is not less than the
+                        // bolt's own move (a 0.18 s draw and a 0.20 s settle):
+                        // a second move cannot start while the first plays, so
+                        // a shorter number would never be the gate.
+                        refire_s: 0.4,
+                        // Its rear edge is at the hand she throws it with: her
+                        // near hand in the middle frame of her `shoot` row,
+                        // (27.47, -36.88) px from her feet in the published rig
+                        // of her fire form, as a part of her 64 px height. No
+                        // kick: she slid 4 px for each spark with the generic
+                        // one. `her_spark_is_born_at_her_throwing_hand`
+                        // (`mary_o_it`) holds the muzzle to the rig.
+                        discharge: Some((muzzle: Offset(x: 0.5855, y: -0.0762), recoil: 0.0)),
+                        // The classic rule: two of her sparks on screen.
+                        max_live: Some(2),
+                    )),
+                    // The run button also fires the spark, and its label says
+                    // so.
+                    Technique((
+                        id: ("run"),
+                        slot: Modifier,
+                        display_name: Some("Run / Spark"),
+                        gate: Technique("run"),
+                    )),
+                ],
+            )),
+        ),
+    ],
+    // The sound of each change of form. The direct fire-to-small change is
+    // the large-damage road, though the armor chain spends fire into tall.
+    cues: [
+        (from: "mary_o", to: "mary_o_tall", cue: "mary_o.transform.small_to_big"),
+        (from: "mary_o_tall", to: "mary_o_fire", cue: "mary_o.transform.big_to_fire"),
+        (from: "mary_o_tall", to: "mary_o", cue: "mary_o.revert.big_to_small"),
+        (from: "mary_o_fire", to: "mary_o_tall", cue: "mary_o.revert.fire_to_big"),
+        (from: "mary_o_fire", to: "mary_o", cue: "mary_o.revert.fire_to_small"),
+    ],
+)

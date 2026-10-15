@@ -2,28 +2,6 @@
 // are this game's rules, and no engine capability reads them). An edit here
 // is played at the next start, with no Rust build.
 (
-    // The spark the fire form throws.
-    spark: (
-        // Seconds between two sparks; the body's `RangedRefire` enforces it.
-        // It is not less than the bolt's own move (a 0.18 s draw and a 0.20 s
-        // settle), because a second move cannot start while the first one
-        // plays: a shorter number would never be the gate.
-        refire_seconds: 0.4,
-        // Half the size of a spark (px): the shot is 20 px across a 32 px
-        // tile. The art draws at this size (`ProjectileRenderSize::Body`), so
-        // the sprite cannot disagree with the hitbox.
-        half_extent: 10.0,
-        // Launch speed (px/s).
-        speed: 300.0,
-        // Damage before the beacon's x1.5: enough to end a snake.
-        damage: 4,
-        // The downward pull that turns a flat shot into a skipping arc.
-        gravity: 900.0,
-        // Floor skips before it burns out.
-        bounces: 2,
-        // A spark that finds no floor still expires.
-        lifetime_seconds: 1.5,
-    ),
     // The snake plant in its pipe.
     snake_plant: (
         // One cycle: up, out, down, hidden.

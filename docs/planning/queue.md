@@ -190,22 +190,13 @@ keep their road (`intro_prop_sprite_rows`). How a moving platform drawn as
 a prop sheet is laid on its platform (the shark, the intro's cart and its
 ramp, Mary-O's lift) is each game's `platform_looks.ron`, and a reload
 restates Ambition's looks. Mary-O's pickup art (the wand, the beacon, the
-quasar) is her `world_item_art.ron`. Open, from a census of 2026-10-15: Mary-O's form ladder. Its rungs
-name the star wand and the cinder beacon, which are Rust `EquipmentRow`s
-whose spark grant is built from `mary_o_rules.spark`, so a data ladder could
-not be checked against anything in the pack. The ladder moves with those
-rows (a `mary_o_forms` schema holding the rows and the rungs). Design, read
-2026-10-15 and not started: every type deserializes (`EquipmentRow`,
-`EquipmentGrant`, `RangedActionSpec`, `ActionSpec`). The ladder IS the
-downgrade chain (a rung's row loses into the rung below; every form row
-has the slot `mary_o_form`), so the file states only `slot`, the rungs
-(`character`, `arrival: Grow | Transform`, and a row's `id`, `modifiers`,
-`grants`) and a `cues` list of (from, to, cue); lowering builds each
-`EquipmentRow` with its `on_hit`. It deletes `FORM_LADDER`, `TOP_RUNG`,
-`spark_shot`, `SPARK_MUZZLE`, `mary_o_rules.spark` and
-`power_transition_sfx`; `star_wand()`/`cinder_beacon()` become reads of
-the file, `cosmic.rs` asks the cue list, and `her_spark_leaves_her_hand`
-reads the row's muzzle. Not content:
+quasar) is her `world_item_art.ron`. Her form ladder is her `mary_o_forms.ron` (schema `mary_o_forms`, owned by the
+demo): the rungs, the star wand's and the cinder beacon's rows (the spark is
+the beacon's ranged grant), and the cue of each change of form. The ladder is
+the downgrade chain, so lowering builds each row's armor and slot; admission
+refuses a bottom rung with a row, a rung over it with no row or arrival, a
+spark the projectile road cannot fly, and a cue between characters off the
+ladder. Not content:
 the Mary-O test course. It is a fixture that no level renders, and its
 module says why it stays Rust (an editor drag would make it a different
 test).

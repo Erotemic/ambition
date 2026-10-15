@@ -65,6 +65,12 @@ Sources: `docs/brainstorms/*`, `docs/planning/story-gameplay-progression-draft.m
   Math is finite but unbounded — the town wraps like a torus, the wrap is a
   discovery, and in-dimension portals make impossible (Escher) architecture
   playable. Not ruled. ‹synthesis›
+- **D6.** Jon: "I like the torus, but it can't be a pure torus because there has to
+  be a way to enter it. Although portals can help there. The city can live on a
+  torus glued to something else in the math dimension though." ‹verbatim› My
+  reading: the town is a **punctured torus** — a torus with one hole cut out —
+  joined along that hole to the rest of the Math dimension (a connected sum). The
+  town wraps both ways except at the hole, and the hole is the way in and out. ‹synthesis›
 
 ## P — The protagonist
 

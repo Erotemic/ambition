@@ -312,3 +312,9 @@ codegen-units = 256
 # `scripts/tests/test_sdk_manifest_advice_is_current.py` pins the resolved `ggrs` commit. A
 # deliberate bump edits that constant in the same commit and says what was re-measured.
 bevy_ggrs = { git = "https://github.com/gschup/bevy_ggrs", rev = "f1853823bfb888fcd9d468a136bb81fd6b9ed481" }
+# The touch stick's exclusive systems built a new query state on each run, and a
+# new query state is matched against every archetype (about 1.2% of Android CPU
+# in Mary-O, `docs/planning/engine/performance-and-iteration.md`). This rev keeps
+# the query states between runs; it is offered upstream from Ambition's fork.
+# RETIRE when a virtual_joystick release has it: drop this entry.
+virtual_joystick = { git = "https://github.com/Erotemic/virtual_joystick", rev = "e6a4a3c7b3c22a976a7b57f0a26f7fcc01a7944d" }

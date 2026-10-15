@@ -182,7 +182,9 @@ the app:
   fixed. These are in dependencies, and each upstream fix is a few lines
   (keep the state as a `&mut QueryState`/`&mut SystemState` param, or skip
   the work when there is none):
-  - `virtual_joystick` 2.8: four exclusive systems, about 1.2%;
+  - `virtual_joystick` 2.8: four exclusive systems, about 1.2%. Fixed in
+    Ambition's fork; `Cargo.toml` pins it in `[patch.crates-io]` until a
+    release has it;
   - `bevy_ecs_ldtk` 0.15 `clean_respawn_entities`: about 0.8%. A set
     condition from our side would delay an LDtk respawn by one frame;
   - `bevy_yarnspinner` 0.9 `fetch_resources`: about 0.6%;

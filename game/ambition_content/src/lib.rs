@@ -97,6 +97,8 @@ mod goblin_moveset;
 pub mod input_techniques;
 pub mod intro;
 pub mod items;
+/// The town of the Math dimension (`math.ldtk`) and the gate pair to it.
+pub mod math_town;
 pub mod noodly_temple;
 pub mod primeval;
 /// Test-only: it owns the cross-table invariant no single fighter's module can state — that an

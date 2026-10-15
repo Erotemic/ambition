@@ -1,0 +1,6 @@
+# Written by specs/math_town/make_specs.py. Change the script, not this file.
+# The old "Manifest Office (TBD)" sign stood where Gate 7 stands; the Manifest
+# Office is in the Math dimension now, on the gate square.
+level_id: gate_stack_lower
+deletes:
+  - target: {identifier: DebugLabel, match: {name: gate_stack_manifest_label}}

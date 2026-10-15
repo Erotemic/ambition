@@ -8907,8 +8907,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 [[package]]
 name = "virtual_joystick"
 version = "2.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce37337642964c07d2e639c60dfda4b80625ea62dc935380fb078bf03961dfae"
+source = "git+https://github.com/Erotemic/virtual_joystick?rev=e6a4a3c7b3c22a976a7b57f0a26f7fcc01a7944d#e6a4a3c7b3c22a976a7b57f0a26f7fcc01a7944d"
 dependencies = [
  "bevy",
  "variadics_please 2.0.0",

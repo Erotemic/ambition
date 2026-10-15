@@ -487,6 +487,9 @@ write_metadata() {
         echo "hostname=$(hostname 2>/dev/null || true)"
         echo "uname=$(uname -a 2>/dev/null || true)"
         echo "git_head=$(cd "$repo_root" && git rev-parse --short=12 HEAD 2>/dev/null || true)"
+        # The games the APK installs: `AMBITION_HUB_GAMES` is read when the app is
+        # compiled, so it describes the build only when this run built it.
+        echo "hub_games=${AMBITION_HUB_GAMES:-all}"
         echo "git_status_porcelain_begin"
         (cd "$repo_root" && git status --short 2>/dev/null || true)
         echo "git_status_porcelain_end"
@@ -737,6 +740,15 @@ if report:
             lines.append(line[:240]); n += 1
             if n >= 60: break
     lines.append('```')
+frames = read('frame-census.txt')
+if frames:
+    lines += ['', '## Frame times (`[frame-census]`, the last 12 windows of 5 s)', '```text']
+    lines.extend(x[x.find('[frame-census]'):][:240] for x in frames.splitlines()[-12:])
+    lines.append('```')
+meta = read('metadata.txt')
+for line in meta.splitlines():
+    if line.startswith('hub_games='):
+        lines += ['', f'- hub games: {line.split("=", 1)[1]}']
 stat = read('simpleperf-stat.txt') or read('simpleperf-stat-fallback.txt')
 if stat:
     lines += ['', '## simpleperf stat excerpt', '```text']
@@ -815,6 +827,21 @@ capture_clocks() {
         'for f in gpuclk max_gpuclk devfreq/cur_freq devfreq/max_freq temp; do echo "$f=$(cat /sys/class/kgsl/kgsl-3d0/$f 2>/dev/null)"; done'
 }
 
+# The game's own frame times. CPU time does not show speed: a game that is not
+# capped at the display's rate takes all the CPU it can, slow or fast. The game
+# prints a `[frame-census]` line (frame-time percentiles) each 5 s, and on
+# Android its stderr goes to logcat.
+capture_game_log() {
+    local out_dir="$1" pid
+    pid="$(cat "$out_dir/pid-capture.txt" 2>/dev/null || true)"
+    if [[ -n "$pid" ]]; then
+        run_logged "$out_dir" game-log "${adb_cmd[@]}" logcat -d --pid="$pid"
+    else
+        run_logged "$out_dir" game-log "${adb_cmd[@]}" logcat -d
+    fi
+    grep -a '\[frame-census\]' "$out_dir/game-log.stdout" > "$out_dir/frame-census.txt" 2>/dev/null || true
+}
+
 main() {
     require_tool "$adb_bin"; require_tool python3
     local out_dir; out_dir="$(make_profile_dir "$mode")"
@@ -822,7 +849,7 @@ main() {
     prepare_app "$out_dir"
     case "$mode" in
         prepare) ;;
-        record) capture_clocks "$out_dir" before-record; record_cpu "$out_dir"; capture_clocks "$out_dir" after-record ;;
+        record) capture_clocks "$out_dir" before-record; record_cpu "$out_dir"; capture_clocks "$out_dir" after-record; capture_game_log "$out_dir" ;;
         heap) record_heap "$out_dir" ;;
         stat) run_stat "$out_dir" ;;
         gfxinfo) run_gfxinfo "$out_dir" ;;
@@ -834,6 +861,7 @@ main() {
             run_logged "$out_dir" gfxinfo-after-record "${adb_cmd[@]}" shell dumpsys gfxinfo "$package"
             run_logged "$out_dir" gfxinfo-framestats-after-record "${adb_cmd[@]}" shell dumpsys gfxinfo "$package" framestats
             run_stat "$out_dir"
+            capture_game_log "$out_dir"
             ;;
         *) fail "unknown mode '$mode'" ;;
     esac

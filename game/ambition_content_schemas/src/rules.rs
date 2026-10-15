@@ -208,6 +208,7 @@ mod tests {
                 let_go_over: 90.0,
                 lead_seconds: 0.35,
             },
+            thrown_impacts: [("coconut".to_string(), ThrownImpact { min_speed: 240.0, damage: 2 })].into(),
         }
     }
 
@@ -222,5 +223,9 @@ mod tests {
         no_reach.gnu_ton_duel.reach = 0.0;
         let problems = no_reach.problems();
         assert!(problems.iter().any(|problem| problem.contains("gnu_ton_duel.reach")), "{problems:?}");
+        let mut slow = rules();
+        slow.thrown_impacts.insert("coconut".to_string(), ThrownImpact { min_speed: f32::NAN, damage: 2 });
+        let problems = slow.problems();
+        assert!(problems.iter().any(|problem| problem.contains("thrown_impacts.coconut.min_speed")), "{problems:?}");
     }
 }

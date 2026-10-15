@@ -1691,13 +1691,26 @@ then
     # potato 29 s; one after another they were 362 s, 61% of a publish that
     # rendered one target. Each tier's output is kept in its own log and
     # printed whole, in tier order, when the tier ends.
+    # A tier is skipped when its key holds: no pooled sheet, the plan, the
+    # packer or the tier's own numbers changed since it was packed. It was
+    # 131 s of a publish with nothing to render (measured 2026-10-15). The
+    # key is removed before a tier packs and written only when it ends
+    # well, so a tier cut short is never current.
+    ultrapack_key_dir="$cache_dir/ultrapack"
+    mkdir -p "$ultrapack_key_dir"
+    ultrapack_inputs="$(ultrapack_inputs_key "$sprites_dir" "$renderer_dir/ambition_sprite2d_renderer/data/pack_plan.yaml")"
     ultrapack_logs="$(mktemp -d)"
     ultrapack_pids=()
     ultrapack_names=()
+    ultrapack_keys=()
     finish_ultrapack_tier() {
         local index="$1"
         local tname="${ultrapack_names[index]}"
-        if ! wait "${ultrapack_pids[index]}"; then
+        if [ -z "${ultrapack_pids[index]}" ]; then
+            :
+        elif wait "${ultrapack_pids[index]}"; then
+            printf '%s\n' "${ultrapack_keys[index]}" >"$ultrapack_key_dir/$tname.key"
+        else
             echo "  WARN: ultrapack tier '$tname' failed (non-fatal)" >>"$ultrapack_logs/$tname.log"
         fi
         sed 's/^/  /' "$ultrapack_logs/$tname.log"
@@ -1709,6 +1722,16 @@ then
         if [ "${AMBITION_ULTRAPACK_DEBUG:-0}" = "1" ]; then
             ultrapack_debug=(--debug-views --debug-dir "$pack_debug_root/$tname")
         fi
+        tier_key="$ultrapack_inputs $tier ${ultrapack_debug[*]}"
+        if [ -f "$pack_root/$tname/ultrapack.json" ] \
+            && [ "$(cat "$ultrapack_key_dir/$tname.key" 2>/dev/null)" = "$tier_key" ]; then
+            echo "$tname: current (no pooled sheet, the plan or the packer changed since it was packed)" >"$ultrapack_logs/$tname.log"
+            ultrapack_pids+=("")
+            ultrapack_names+=("$tname")
+            ultrapack_keys+=("$tier_key")
+            continue
+        fi
+        rm -f "$ultrapack_key_dir/$tname.key"
         if [ "$(( ${#ultrapack_pids[@]} - ultrapack_waited ))" -ge "$AMBITION_SPRITE_JOBS" ]; then
             finish_ultrapack_tier "$ultrapack_waited"
             ultrapack_waited=$((ultrapack_waited + 1))
@@ -1720,6 +1743,7 @@ then
             --name ultrapack "${ultrapack_plan[@]}" "${ultrapack_debug[@]}" >"$ultrapack_logs/$tname.log" 2>&1 &
         ultrapack_pids+=("$!")
         ultrapack_names+=("$tname")
+        ultrapack_keys+=("$tier_key")
     done
     while [ "$ultrapack_waited" -lt "${#ultrapack_pids[@]}" ]; do
         finish_ultrapack_tier "$ultrapack_waited"

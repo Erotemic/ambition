@@ -241,3 +241,21 @@ unit_key() {
     printf '%s:%s' "$core_shared_fingerprint" "$(leaf_hash "$1")" \
         | sha256sum | awk '{print $1}'
 }
+
+# The inputs of the Ultrapack tiers: the shared core (it holds the packer and
+# its command), the pack plan `$2`, and the name, size and mtime of each sheet
+# file the tiers pool from the sheet root `$1` (`ultrapack_rendered` reads the
+# top-level `*_spritesheet.yaml` and its pages). A re-render writes a new
+# mtime, so a changed sheet is a changed key; the staging copy keeps mtimes
+# (`cp -a`), so an unchanged sheet keeps its key.
+ultrapack_inputs_key() {
+    local sheets_dir="$1" plan="$2"
+    {
+        printf 'core %s\n' "$core_shared_fingerprint"
+        if [ -f "$plan" ]; then
+            printf 'plan %s\n' "$(sha256sum "$plan" | awk '{print $1}')"
+        fi
+        find "$sheets_dir" -maxdepth 1 -type f -name '*_spritesheet*' \
+            \( -name '*.yaml' -o -name '*.png' \) -printf '%f %s %T@\n' | LC_ALL=C sort
+    } | sha256sum | awk '{print $1}'
+}

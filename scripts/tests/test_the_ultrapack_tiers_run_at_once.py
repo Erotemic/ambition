@@ -23,8 +23,12 @@ def _tier_loop() -> str:
     return text[start:end]
 
 
-def _run(tmp_path: Path, jobs: int, failing: str = "") -> tuple[str, list[tuple[str, float, float]]]:
+def _run(
+    tmp_path: Path, jobs: int, failing: str = "", inputs: str = "inputs-a"
+) -> tuple[str, list[tuple[str, float, float]]]:
     trace = tmp_path / f"trace_{jobs}"
+    trace.unlink(missing_ok=True)
+    pack_root = tmp_path / "packs"
     script = f"""
 set -euo pipefail
 trace={trace}
@@ -34,11 +38,16 @@ run_renderer_python() {{
     sleep 0.4
     echo "$label $started $(date +%s.%N)" >> "$trace"
     echo "packed $label"
-    [ "$label" != "ultrapack-{failing}" ]
+    [ "$label" != "ultrapack-{failing}" ] || return 1
+    local tier="${{label#ultrapack-}}"
+    mkdir -p "$pack_root/$tier" && echo "{{}}" > "$pack_root/$tier/ultrapack.json"
 }}
 ultrapack_tiers=("full 1.0 1 2048" "half 0.5 1 1024" "quarter 0.25 1 512" "potato 0.0625 8 256")
 ultrapack_plan=()
-pack_root=/nowhere
+pack_root={pack_root}
+ultrapack_key_dir={tmp_path / "keys"}
+mkdir -p "$ultrapack_key_dir"
+ultrapack_inputs={inputs}
 pack_debug_root=/nowhere
 sprites_dir=/nowhere
 AMBITION_SPRITE_JOBS={jobs}
@@ -47,7 +56,7 @@ echo after
 """
     out = subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=True).stdout
     spans = []
-    for line in trace.read_text().splitlines():
+    for line in (trace.read_text().splitlines() if trace.exists() else []):
         label, started, ended = line.split()
         spans.append((label, float(started), float(ended)))
     return out, spans
@@ -74,3 +83,27 @@ def test_a_failed_tier_is_named_and_the_others_still_run(tmp_path: Path) -> None
     out, spans = _run(tmp_path, jobs=4, failing="half")
     assert len(spans) == 4, spans
     assert "WARN: ultrapack tier 'half' failed (non-fatal)" in out, out
+
+
+def test_a_tier_whose_inputs_did_not_change_is_not_packed_again(tmp_path: Path) -> None:
+    """The key: a second run over the same inputs packs nothing and prints
+    each tier as current; a changed input packs every tier again."""
+    _, spans = _run(tmp_path, jobs=4)
+    assert len(spans) == 4, spans
+    out, spans = _run(tmp_path, jobs=4)
+    assert spans == [], spans
+    assert out.count(": current (no pooled sheet") == 4, out
+    assert out.rstrip().endswith("after"), out
+    _, spans = _run(tmp_path, jobs=4, inputs="inputs-b")
+    assert len(spans) == 4, spans
+
+
+def test_a_failed_tier_keeps_no_key_and_packs_again(tmp_path: Path) -> None:
+    _run(tmp_path, jobs=4)
+    _, spans = _run(tmp_path, jobs=4, failing="half", inputs="inputs-b")
+    assert len(spans) == 4, spans
+    assert not (tmp_path / "keys" / "half.key").exists()
+    # Control: the tiers that ended well are current on the next run; the
+    # failed one packs again.
+    _, spans = _run(tmp_path, jobs=4, inputs="inputs-b")
+    assert [label for label, _, _ in spans] == ["ultrapack-half"], spans

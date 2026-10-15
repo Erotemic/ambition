@@ -46,7 +46,8 @@ possible without a recompile. Work in this order:
 2. Efficient content preparation: [TEST-LANES](#test-lanes--keep-required-test-lanes-executable)
    item 10 (the sprite publish: `draw-review` and `draw-all` are cached
    since 2026-10-14, `draw-factions` too, the staging root since
-   2026-10-15; left: Ultrapack, 131 s of a 270 s no-change publish).
+   2026-10-15, an unchanged Ultrapack tier since 2026-10-15; left: a sheet
+   edit re-packs every tier, about 131 s).
 3. Pack elegance: admission diagnostics that name the file and the field
    (done 2026-10-15: `FacetSource::parse` gives the field path, ca3bd5d8f);
    [CPU-LADDER](#cpu-ladder--the-brain-owns-the-knobs-smash-owns-the-ladder)
@@ -1062,8 +1063,22 @@ variants. Also found in that regen:
     (poison, staging is the runtime root: red at "old sheet"). Measured on
     the real publish: the copy 9 s (1.6 GB), the swap 3 s; a publish with
     nothing to render 270 s wall, rc 0, the `.ldtk` files unchanged.
-    Left: Ultrapack (131 s, all four tiers re-pack and re-encode every
-    page on every publish).
+    **Built 2026-10-15, the Ultrapack key:** each tier is keyed on the
+    shared core (the packer), the pack plan, its own numbers and the name,
+    size and mtime of each sheet it pools (`ultrapack_inputs_key`), and is
+    skipped when the key holds; the key is removed before a tier packs and
+    written only when it ends well
+    (`test_a_tier_whose_inputs_did_not_change_is_not_packed_again`,
+    `test_a_failed_tier_keeps_no_key_and_packs_again`,
+    `test_the_ultrapack_key_moves_with_a_pooled_sheet_and_the_plan_and_nothing_else`).
+    Measured: a publish whose whole-run fingerprint missed and that pooled
+    no changed sheet (a script edit, an entity or prop target): 135 s wall
+    (was 270 s), the four tiers 0 s, the postcondition passes. A publish
+    with no change at all is the whole-run hit: 37 s. Left: a sheet edit
+    still re-packs all four tiers (about 131 s); the largest phases of a
+    no-render publish are now the tack-on batch's freshness checks (40 s),
+    the staging copy with the fingerprint work (28 s) and the LDtk sprite
+    tilesets (26 s).
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

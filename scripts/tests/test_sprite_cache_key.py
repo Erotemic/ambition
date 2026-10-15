@@ -310,3 +310,37 @@ def test_a_script_that_is_not_a_target_is_keyed_as_a_target_is(renderer: Path) -
     assert script_keys(renderer, record) != after_target, "an edit to the script kept its key"
     record.unlink()
     assert script_keys(renderer, record) != script_keys(renderer, record), "a script with no record matched a key"
+
+
+def ultrapack_key(sheets: Path, plan: Path) -> str:
+    script = f"""
+        set -euo pipefail
+        source {LIB}
+        core_shared_fingerprint=core-a
+        ultrapack_inputs_key {sheets} {plan}
+    """
+    return subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=True).stdout.strip()
+
+
+def test_the_ultrapack_key_moves_with_a_pooled_sheet_and_the_plan_and_nothing_else(tmp_path: Path) -> None:
+    sheets = tmp_path / "sprites"
+    sheets.mkdir()
+    for name in ("alice_spritesheet.yaml", "alice_spritesheet.png", "goblin_spritesheet.png"):
+        (sheets / name).write_text(name)
+    plan = tmp_path / "pack_plan.yaml"
+    plan.write_text("groups: []\n")
+    before = ultrapack_key(sheets, plan)
+    assert ultrapack_key(sheets, plan) == before, "the key is stable"
+
+    # Control: a file the tiers do not pool (a part sheet, a nested sheet).
+    (sheets / "alice_parts.png").write_text("parts")
+    (sheets / "entities").mkdir()
+    (sheets / "entities" / "chest_spritesheet.png").write_text("nested")
+    assert ultrapack_key(sheets, plan) == before
+
+    page = sheets / "goblin_spritesheet.png"
+    page.write_text("goblin, drawn again")
+    assert ultrapack_key(sheets, plan) != before, "a re-rendered page"
+    after_page = ultrapack_key(sheets, plan)
+    plan.write_text("groups: [hall]\n")
+    assert ultrapack_key(sheets, plan) != after_page, "an edit to the plan"

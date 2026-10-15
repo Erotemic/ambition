@@ -38,6 +38,24 @@
     "math_house_tower": (),
     "math_house_shop": (),
     "math_house_arcade": (),
+    "math_house_gable": (),
+    "math_house_flat": (),
+    "math_observatory": (),
+    // The terraces (`targets/props/math_town_terraces.py`): the aqueduct's
+    // spans (its deck is a still platform the room places), the stair (a
+    // still platform under each tread), the passage under the first terrace,
+    // homes in the rock, and trees.
+    "math_aqueduct_span_street": (),
+    "math_aqueduct_span_t1": (),
+    "math_aqueduct_span_t2": (),
+    "math_switchback_stair": (),
+    "math_tunnel_bay": (),
+    "math_tunnel_mouth": (),
+    "math_tunnel_gate": (),
+    "math_cliff_home_wide": (),
+    "math_cliff_home_narrow": (),
+    "math_cypress": (),
+    "math_olive": (),
     // Primeval's palm.
     "coconut_palm": (),
     // The mockingbird's shark, which is also a moving platform.

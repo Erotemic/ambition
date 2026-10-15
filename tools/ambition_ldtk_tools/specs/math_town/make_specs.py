@@ -29,6 +29,7 @@ The engine side of the pair (`GatePortalRegistry` rows) is in
 """
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -59,8 +60,15 @@ HALL, STREET = "math_gate_hall", "math_town_street"
 #: Each room: where it is in the world, and its size.
 ROOMS_AT = {
     HALL: (0, 1600, 768),
-    STREET: (1712, 2400, 1104),
+    STREET: (1712, 3200, 1344),
 }
+
+#: The published sheets, whose body boxes say where each prop's art is in
+#: its frame.
+SPRITES = TOOLS.parents[1] / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
+#: Pixels of a town prop's frame to one world unit (`math_town_facades.PX`,
+#: `math_town_terraces.PX`).
+PROP_PX = 2
 
 
 def solid(name, x, y, w, h):
@@ -196,75 +204,185 @@ def door(zone, name, x, floor, to_room, to_zone):
             f'activation: "Door", target_room: "{to_room}", target_zone: "{to_zone}", bidirectional: true ) ),')
 
 
-#: The house fronts (`targets/props/math_town_facades.py`, two pixels to the
-#: unit): each one's frame height in units, the body box of its sheet in
-#: frame pixels (`body_pixel_bbox` of the published RON), and where its art
-#: draws a place to stand, as (x0, x1, y) in frame units. The numbers are
-#: the art's: change them with it.
-HOUSES = {
-    "math_house_rose": (360, (42, 44, 352, 676), [(21, 197, 22)]),
-    "math_house_dome": (300, (40, 36, 376, 564), [(90, 144, 172)]),
-    "math_house_tower": (480, (32, 49, 273, 911), [(40, 128, 220)]),
-    "math_house_shop": (320, (31, 38, 465, 602), []),
-    "math_house_arcade": (300, (0, 37, 486, 563), []),
+def body_box(kind):
+    """The body box of `kind`'s published sheet in frame pixels, (x, y, w, h):
+    where its art is in its frame."""
+    text = (SPRITES / f"{kind}_spritesheet.ron").read_text()
+    m = re.search(r"body_pixel_bbox: Some\(\(x: (\d+), y: (\d+), w: (\d+), h: (\d+)\)\)", text)
+    if not m:
+        raise SystemExit(f"{kind}: no body_pixel_bbox in its published RON; publish the sprite first")
+    return tuple(int(v) for v in m.groups())
+
+
+def framed(name, kind, fx, fy):
+    """Prop `kind` whose FRAME's top left is at (fx, fy): the prop's box is
+    the art's body box in the frame."""
+    bx, by, bw, bh = body_box(kind)
+    return (f'( type: "Prop", px: [{round(fx + bx / PROP_PX)}, {round(fy + by / PROP_PX)}], '
+            f'size: [{round(bw / PROP_PX)}, {round(bh / PROP_PX)}], fields: ( name: "{name}", kind: "{kind}" ) ),')
+
+
+def standing(name, kind, x, floor):
+    """Prop `kind` with the left of its art at `x` and its art's bottom on
+    `floor`. Returns the entity and the top left of its frame."""
+    bx, by, bw, bh = body_box(kind)
+    fx, fy = x - bx / PROP_PX, floor - (by + bh) / PROP_PX
+    return framed(name, kind, fx, fy), (fx, fy)
+
+
+#: Where each house front's art draws a place to stand, as (x0, x1, y) in
+#: frame units (`targets/props/math_town_facades.py`, the house's margin
+#: included). The numbers are the art's: change them with it.
+HOUSE_WALKS = {
+    "math_house_rose": [(21, 197, 22)],
+    "math_house_dome": [(90, 144, 172)],
+    "math_house_tower": [(40, 128, 220)],
+    "math_house_flat": [(21, 127, 24)],
 }
 
 
 def house(prefix, kind, x, floor):
-    """The front of house `kind` with the left of its body box at `x`,
-    standing on `floor`, and a still one-way platform on each place its art
-    draws to stand on."""
-    _fh, (bx, by, bw, bh), walks = HOUSES[kind]
-    w, h = round(bw / 2), round(bh / 2)
-    top = floor - h
-    e = [f'( type: "Prop", px: [{x}, {top}], size: [{w}, {h}], fields: ( name: "{prefix}", kind: "{kind}" ) ),']
-    for i, (x0, x1, y) in enumerate(walks):
-        wx0 = round(x + x0 - bx / 2)
-        wy = round(top + y - by / 2)
-        e.append(still(f"{prefix}_walk_{i}", wx0, wy, round(x1 - x0), 4))
+    """The front of house `kind` with the left of its art at `x`, standing on
+    `floor`, and a still one-way platform on each place its art draws to
+    stand on."""
+    prop, (fx, fy) = standing(prefix, kind, x, floor)
+    e = [prop]
+    for i, (x0, x1, y) in enumerate(HOUSE_WALKS.get(kind, [])):
+        e.append(still(f"{prefix}_walk_{i}", round(fx + x0), round(fy + y), round(x1 - x0), 4))
     return e
 
 
+#: The street room, from the bottom: the street, the first terrace, the
+#: second, the summit; each cliff's foot; the passage under the first
+#: terrace; the aqueduct's deck.
+STREET_Y, T1, T2, SUMMIT = 1280, 1024, 784, 560
+CLIFF1, CLIFF2, CLIFF3 = 1760, 2400, 2880
+TUNNEL_TOP = STREET_Y - 96
+DECK = SUMMIT
+
+#: The aqueduct (`math_town_terraces`): a span's width, and which span stands
+#: on which ground.
+SPAN_W = 160
+#: The switchback stair (`math_town_terraces`): the left of its frame, every
+#: tread's rise, the runs of the two flights, the landing, and where flight 2
+#: leaves the landing. The numbers are the art's: change them with it.
+STAIR_X = CLIFF1 - 320
+STAIR_RISE, F1_RUN, F2_RUN, STAIR_STEPS = 4, 8, 9, 32
+LANDING_W, F2_X0 = 64, 320 - 32 * 9
+#: The ladders: (name, x, top, bottom). Painted on the `Climbable` layer.
+LADDERS = [
+    ("aqueduct", STAIR_X + 16, DECK - 16, STREET_Y - 128),
+    ("terrace_2", CLIFF2 - 48, T2 - 16, T1),
+    ("summit", CLIFF3 - 48, SUMMIT - 16, T2),
+]
+
+
+def foot(x):
+    """The ground under `x`: the street, the first terrace or the second."""
+    return STREET_Y if x < CLIFF1 else T1 if x < CLIFF2 else T2
+
+
+def stair_treads():
+    """Each tread of the stair as (x0, x1, top) in the world: flight 1 climbs
+    left from the foot of the cliff to the landing, flight 2 climbs right from
+    the landing to the top of the cliff (`math_town_terraces.stair_treads`)."""
+    out = []
+    for j in range(1, STAIR_STEPS + 1):
+        x1 = STAIR_X + 320 - F1_RUN * (j - 1)
+        out.append((x1 - F1_RUN, x1, STREET_Y - STAIR_RISE * j))
+    for j in range(1, STAIR_STEPS + 1):
+        x0 = STAIR_X + F2_X0 + F2_RUN * (j - 1)
+        out.append((x0, x0 + F2_RUN, T1 + 128 - STAIR_RISE * j))
+    return out
+
+
 def street():
-    """The street at the foot of the terraces. Ledges climb the cliff: a
-    switchback to the first terrace, then on to the second."""
+    """The town climbs: the street, a stair to the first terrace, ladders to
+    the second and to the summit, and an aqueduct whose deck crosses the whole
+    town from the summit. The street goes on under the first terrace in a
+    vaulted passage, to a gate that is shut (the long way round, for later)."""
     rid = STREET
     _, w, h = ROOMS_AT[rid]
-    floor = h - 64
-    t1, t2 = floor - 240, floor - 480
-    c1, c2 = 1504, 1904
     e = [
-        solid("street", 0, floor, c1, 64),
-        solid("terrace_1", c1, t1, w - c1, h - t1),
-        solid("terrace_2", c2, t2, w - c2, t1 - t2),
-        solid("east_wall", w - WALL, 0, WALL, t2),
-        f'( type: "PlayerStart", px: [160, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
-        solid("west_wall", 0, 0, WALL, floor),
-        door(f"{rid}_down", "down to the gate hall", 96, floor, HALL, f"{HALL}_up"),
-        wanderer("townsperson_peggy", "npc_peggy", 420, floor),
-        wanderer("townsperson_victor", "npc_victor", 900, floor),
-        wanderer("townsperson_olivia", "npc_olivia", 1660, t1),
-        # The switchback up the face of the first cliff.
-        ledge("stair_1a", c1 - 128, floor - 80, 128),
-        ledge("stair_1b", c1 - 288, floor - 160, 144),
-        ledge("stair_1c", c1 - 128, t1, 128),
-        # And up the second.
-        ledge("stair_2a", c2 - 128, t1 - 80, 128),
-        ledge("stair_2b", c2 - 288, t1 - 160, 144),
-        ledge("stair_2c", c2 - 128, t2, 128),
-        # The houses of the street; their roofs and balconies are a way along
-        # above it.
-        *house("rose_house", "math_house_rose", 192, floor),
-        *house("dome_house", "math_house_dome", 432, floor),
-        *house("tower_house", "math_house_tower", 704, floor),
-        *house("shop_house", "math_house_shop", 912, floor),
-        *house("surveyors_office", "math_house_arcade", 1600, t1),
-        label("street_sign", 180, floor - 300, "Euclid Street (the long way round)", 380),
+        solid("street", 0, STREET_Y, w, h - STREET_Y),
+        solid("terrace_1", CLIFF1, T1, w - CLIFF1, TUNNEL_TOP - T1),
+        solid("terrace_2", CLIFF2, T2, w - CLIFF2, T1 - T2),
+        solid("summit", CLIFF3, SUMMIT, w - CLIFF3, T2 - SUMMIT),
+        solid("west_wall", 0, 0, WALL, STREET_Y),
+        solid("east_wall", w - WALL, 0, WALL, SUMMIT),
+        solid("passage_end", w - WALL, TUNNEL_TOP, WALL, STREET_Y - TUNNEL_TOP),
+        f'( type: "PlayerStart", px: [160, {STREET_Y - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        door(f"{rid}_down", "down to the gate hall", 96, STREET_Y, HALL, f"{HALL}_up"),
+    ]
+    # Furthest back first (the room's scenery draws in the order it is
+    # listed): the aqueduct, behind everything.
+    for i in range(CLIFF3 // SPAN_W):
+        x = i * SPAN_W
+        ground = foot(x + 8)
+        kind = {STREET_Y: "street", T1: "t1", T2: "t2"}[ground]
+        e.append(framed(f"aqueduct_span_{i:02d}", f"math_aqueduct_span_{kind}", x, DECK))
+    e.append(still("aqueduct_deck", WALL, DECK, CLIFF3 - WALL, 4))
+    # The passage under the first terrace, its mouth and its gate.
+    for i in range((w - CLIFF1) // 160):
+        e.append(framed(f"passage_bay_{i}", "math_tunnel_bay", CLIFF1 + i * 160, TUNNEL_TOP))
+    e.append(framed("passage_mouth", "math_tunnel_mouth", CLIFF1 - 16, STREET_Y - 112))
+    e.append(framed("passage_gate", "math_tunnel_gate", w - WALL - 48, TUNNEL_TOP))
+    # Homes in the rock of each cliff.
+    for name, kind, x, y in [
+        ("rock_home_t1_a", "wide", 1960, T1 + 40),
+        ("rock_home_t1_b", "narrow", 2620, T1 + 36),
+        ("rock_home_t2_a", "wide", 2470, T2 + 88),
+        ("rock_home_t2_b", "narrow", 3010, T2 + 72),
+        ("rock_home_summit", "wide", 2960, SUMMIT + 100),
+    ]:
+        e.append(framed(name, f"math_cliff_home_{kind}", x, y))
+    # The stair: its picture, a still platform under each tread and on the
+    # landing.
+    e.append(framed("switchback_stair", "math_switchback_stair", STAIR_X, T1))
+    for i, (x0, x1, top) in enumerate(stair_treads()):
+        e.append(still(f"stair_tread_{i:02d}", x0, top, x1 - x0, STAIR_RISE))
+    e.append(still("stair_landing", STAIR_X, T1 + 128, LANDING_W, 4))
+    # The houses: the street's, then the first terrace's, the surveyor's
+    # office on the second, the observatory on the summit.
+    e += [
+        *house("rose_house", "math_house_rose", 192, STREET_Y),
+        *house("dome_house", "math_house_dome", 432, STREET_Y),
+        *house("tower_house", "math_house_tower", 704, STREET_Y),
+        *house("shop_house", "math_house_shop", 912, STREET_Y),
+        *house("cafe_house", "math_house_gable", CLIFF1 + 48, T1),
+        *house("narrow_house", "math_house_flat", CLIFF1 + 280, T1),
+        *house("surveyors_office", "math_house_arcade", CLIFF2 + 48, T2),
+        *house("observatory", "math_observatory", CLIFF3 + 52, SUMMIT),
+    ]
+    for name, kind, x, ground in [
+        ("cypress_door", "math_cypress", 154, STREET_Y),
+        ("olive_street", "math_olive", 1190, STREET_Y),
+        ("olive_terrace", "math_olive", CLIFF1 + 420, T1),
+        ("cypress_terrace", "math_cypress", CLIFF1 + 520, T1),
+        ("cypress_office", "math_cypress", CLIFF2 + 340, T2),
+    ]:
+        e.append(standing(name, kind, x, ground)[0])
+    # Townsfolk: the Math dimension's own.
+    e += [
+        wanderer("townsperson_peggy", "npc_peggy", 420, STREET_Y),
+        wanderer("townsperson_victor", "npc_victor", 900, STREET_Y),
+        wanderer("townsperson_lovelace", "npc_data_lovelace", 1300, STREET_Y),
+        wanderer("townsperson_erdish", "npc_erdish", 2100, T1),
+        wanderer("townsperson_olivia", "npc_olivia", CLIFF1 + 60, T1),
+        wanderer("surveyor_canter", "npc_georg_canter", CLIFF2 + 120, T2),
+        wanderer("astronomer_hylbert", "npc_davy_hylbert", CLIFF3 + 60, SUMMIT),
+        label("street_sign", 180, STREET_Y - 300, "Euclid Street (the long way round)", 380),
+        label("passage_sign", w - 300, TUNNEL_TOP + 12, "The long way round: shut", 240),
+        label("office_sign", CLIFF2 + 60, T2 - 300, "Surveyor's Office", 240),
+        label("observatory_sign", CLIFF3 + 60, SUMMIT - 270, "Observatory", 200),
     ]
     return rid, room(rid, e, "The town of the Math dimension: the street under the terraces.")
 
 
 ROOMS = (gate_hall, street)
+
+#: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
+PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS]
 
 
 def home_gate_yaml() -> str:
@@ -360,6 +478,11 @@ def main(argv):
                 if code != 0:
                     return code
             code, _ = run("entity", "add", str(gate_path), "--ldtk", str(INTRO_LDTK), "--in-place")
+            if code != 0:
+                return code
+        for room_id, layer, value, (x, y), (w, h) in PAINT:
+            code, _ = run("intgrid", "paint", "--ldtk", str(MATH_LDTK), "--level", room_id, "--layer", layer,
+                          "--value", str(value), "--px", f"{x},{y}", "--size", f"{w},{h}")
             if code != 0:
                 return code
         for world in (MATH_LDTK, INTRO_LDTK):

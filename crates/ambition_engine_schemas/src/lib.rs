@@ -34,6 +34,7 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
         ambition_projectiles::content_schema::motion_techniques_schema(),
         // A prop's sheet belongs with the sprite capability.
         ambition_sprite_sheet::prop_sheets::prop_sheets_schema(),
+        ambition_sprite_sheet::prop_sheets::platform_looks_schema(),
         // Capability schemas remain owned by the capability that can interpret them.
         ambition_items::content_schema::item_catalog_schema(),
         ambition_items::content_schema::held_item_art::held_item_art_schema(),

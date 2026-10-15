@@ -771,6 +771,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         publish: publish_prop_sheets,
     },
     PackDerivedFamily {
+        domain: ambition_sprite_sheet::prop_sheets::PLATFORM_LOOKS_SCHEMA,
+        publish: publish_platform_looks,
+    },
+    PackDerivedFamily {
         domain: ambition_items::content_schema::held_item_art::HELD_ITEM_ART_SCHEMA,
         publish: publish_held_item_art,
     },
@@ -1034,6 +1038,28 @@ fn publish_prop_sheets(
             world.insert_resource(crate::prop_sheets::AmbitionPropSheets(kinds));
         }
         Err(problem) => bevy::log::error!("the reload keeps Ambition's prop sheets: {problem}"),
+    }
+}
+
+/// The platform looks restate Ambition's rows, which the renderer reads each
+/// frame. Another provider's kind is refused, and the reload keeps
+/// Ambition's looks.
+fn publish_platform_looks(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    use ambition_render::rendering::moving_platforms::PlatformLooks;
+    let rows = ambition_sprite_sheet::prop_sheets::lowered_platform_looks(pack).cloned().unwrap_or_default();
+    let previous = world
+        .get_resource::<crate::prop_sheets::AmbitionPlatformLooks>()
+        .map(|owned| owned.0.clone())
+        .unwrap_or_default();
+    let restated = world
+        .get_resource_or_insert_with(PlatformLooks::default)
+        .restate(previous.iter().map(String::as_str), &rows);
+    match restated {
+        Ok(kinds) => world.insert_resource(crate::prop_sheets::AmbitionPlatformLooks(kinds)),
+        Err(problem) => bevy::log::error!("the reload keeps Ambition's platform looks: {problem}"),
     }
 }
 

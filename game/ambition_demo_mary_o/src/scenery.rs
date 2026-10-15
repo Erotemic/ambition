@@ -106,24 +106,12 @@ pub fn register_mary_o_construction_props(app: &mut App) {
         ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(crate::pack::PACK.prepared())
             .expect("the demo's pack states its prop sheets (`data/prop_sheets.ron`)"),
     );
-    // The lift's deck is the full width of its frame and its top is the row a
-    // body stands at. The numbers are the frame's, as its target states them
-    // (`targets/props/super_mary_o_lift.py` in the sprite renderer).
+    // How the lift is laid on its platform: the pack's `platform_looks.ron`.
     {
-        use ambition_platformer2d::render::rendering::moving_platforms::{
-            PlatformLook, PlatformLooksAppExt,
-        };
-        app.register_platform_look(
-            LIFT_SPRITE,
-            PlatformLook {
-                sheet: None,
-                row: "idle".into(),
-                frame_px: [192.0, 72.0],
-                span_px: [0.0, 192.0],
-                top_px: 4.0,
-                faces_right: true,
-                front_row: None,
-            },
+        use ambition_platformer2d::render::rendering::moving_platforms::PlatformLooksAppExt;
+        app.register_platform_look_rows(
+            ambition_platformer2d::sprite_sheet::prop_sheets::lowered_platform_looks(crate::pack::PACK.prepared())
+                .expect("the demo's pack states its platform looks (`data/platform_looks.ron`)"),
         );
     }
     // A loading zone of Mary-O has no picture and no nameplate. Her doors are

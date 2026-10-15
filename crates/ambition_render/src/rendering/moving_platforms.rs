@@ -26,42 +26,17 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 /// How a platform drawn as a sheet (`MovingPlatformState::visual`, a
-/// registered prop sheet kind) looks on it: the row it loops, the span of the
-/// frame (in frame pixels) its width covers, and the frame row (pixels from
-/// the top) its top surface is. The Mockingbird's sharks: the back of the
-/// shark is the platform, so a body stands on the saddle, not on the fin.
-#[derive(Clone, Debug, PartialEq)]
-pub struct PlatformLook {
-    /// The prop sheet this look draws, when it is not the sheet of its own
-    /// kind: a kind that is one part of the picture of another (the ramp of
-    /// the cart is a row of the sheet of the cart).
-    pub sheet: Option<String>,
-    pub row: String,
-    /// The frame `span_px` and `top_px` were measured in: the frame of the
-    /// full-size sheet. A reduced copy of the sheet (a lower quality tier, a
-    /// pack) has a smaller frame, and the platform is drawn at the same size
-    /// from it. Measured 2026-10-10: the placement was read against the frame
-    /// of the copy in use, so a half-size sheet was drawn at twice the size.
-    pub frame_px: [f32; 2],
-    pub span_px: [f32; 2],
-    pub top_px: f32,
-    /// The sheet is drawn facing right (it is flipped to fly left).
-    pub faces_right: bool,
-    /// A second row of the same frame, drawn in front of each body: the near
-    /// side of a thing a body stands IN. The cart of the intro: its near rail
-    /// is this row, so a body on its bed is in the cart and not on it.
-    pub front_row: Option<String>,
-}
+/// registered prop sheet kind) looks on it. A game states its looks in its
+/// pack (`platform_looks`), so the type is the schema's row.
+pub use ambition_sprite_sheet::prop_sheets::PlatformLook;
 
-impl PlatformLook {
-    /// The row of a layer, and the depth it is drawn at: `None` for the front
-    /// layer of a look that has none.
-    fn layer(&self, front: bool) -> Option<(&str, f32)> {
-        if front {
-            self.front_row.as_deref().map(|row| (row, FRONT_LAYER_Z))
-        } else {
-            Some((self.row.as_str(), BACK_LAYER_Z))
-        }
+/// The row of a layer of `look`, and the depth it is drawn at: `None` for the
+/// front layer of a look that has none.
+fn look_layer(look: &PlatformLook, front: bool) -> Option<(&str, f32)> {
+    if front {
+        look.front_row.as_deref().map(|row| (row, FRONT_LAYER_Z))
+    } else {
+        Some((look.row.as_str(), BACK_LAYER_Z))
     }
 }
 
@@ -75,9 +50,34 @@ const FRONT_LAYER_Z: f32 = WORLD_Z_PLAYER + 6.0;
 #[derive(Resource, Default, Clone, Debug)]
 pub struct PlatformLooks(pub std::collections::HashMap<String, PlatformLook>);
 
-/// Register a [`PlatformLook`] from a content plugin's `build`.
+impl PlatformLooks {
+    /// Replace the looks one provider registered from its pack (`previous`,
+    /// the kinds of its last registration) with `rows`, and return the kinds
+    /// it now owns. A kind another provider registered is refused, and
+    /// nothing changes: a reload must not take another provider's look.
+    pub fn restate<'a>(
+        &mut self,
+        previous: impl IntoIterator<Item = &'a str>,
+        rows: &ambition_sprite_sheet::prop_sheets::PlatformLookRows,
+    ) -> Result<Vec<String>, String> {
+        let previous: Vec<&str> = previous.into_iter().collect();
+        let taken: Vec<&String> =
+            rows.keys().filter(|kind| self.0.contains_key(*kind) && !previous.contains(&kind.as_str())).collect();
+        if !taken.is_empty() {
+            return Err(format!("platform look kind(s) {taken:?} belong to another provider"));
+        }
+        self.0.retain(|kind, _| !previous.contains(&kind.as_str()));
+        self.0.extend(rows.iter().map(|(kind, look)| (kind.clone(), look.clone())));
+        Ok(rows.keys().cloned().collect())
+    }
+}
+
+/// Register [`PlatformLook`]s from a content plugin's `build`.
 pub trait PlatformLooksAppExt {
     fn register_platform_look(&mut self, kind: impl Into<String>, look: PlatformLook) -> &mut Self;
+    /// Register each row of a pack's `platform_looks`, and return the kinds,
+    /// for a reload to restate ([`PlatformLooks::restate`]).
+    fn register_platform_look_rows(&mut self, rows: &ambition_sprite_sheet::prop_sheets::PlatformLookRows) -> Vec<String>;
 }
 
 impl PlatformLooksAppExt for App {
@@ -87,6 +87,13 @@ impl PlatformLooksAppExt for App {
             .0
             .insert(kind.into(), look);
         self
+    }
+
+    fn register_platform_look_rows(&mut self, rows: &ambition_sprite_sheet::prop_sheets::PlatformLookRows) -> Vec<String> {
+        for (kind, look) in rows {
+            self.register_platform_look(kind.clone(), look.clone());
+        }
+        rows.keys().cloned().collect()
     }
 }
 
@@ -221,7 +228,7 @@ pub fn sync_moving_platform_visuals(
             commands.entity(entity).despawn();
             continue;
         }
-        let layer = sheet.and_then(|(_, look, _)| look.layer(visual.front));
+        let layer = sheet.and_then(|(_, look, _)| look_layer(look, visual.front));
         if visual.front && layer.is_none() {
             // A front layer of a look that has none now.
             commands.entity(entity).despawn();
@@ -262,7 +269,7 @@ pub fn sync_moving_platform_visuals(
         }
         if let Some((kind, look, asset)) = sheet_of(platform) {
             for front in [false, true] {
-                let Some((_, z)) = look.layer(front).filter(|_| !drawn[index][usize::from(front)]) else {
+                let Some((_, z)) = look_layer(look, front).filter(|_| !drawn[index][usize::from(front)]) else {
                     continue;
                 };
                 let (render_size, anchor) = sheet_geometry(look, platform);

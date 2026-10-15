@@ -249,8 +249,6 @@ impl Plugin for AmbitionBossContentPlugin {
         // data into this App. The same provider fragment serves standalone and
         // multi-game hosts without process-global install order.
         register(app);
-        // The Mockingbird's sky is fought on burning sharks.
-        mockingbird::register_shark_platforms(app);
         // Its one death: the moon. With the other fights' authored kills,
         // after this tick's hits are resolved; the blow lands on the next.
         app.add_systems(

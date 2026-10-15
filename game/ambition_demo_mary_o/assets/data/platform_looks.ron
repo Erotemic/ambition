@@ -1,0 +1,11 @@
+// How a moving platform drawn as a prop sheet is laid on its platform (schema
+// `platform_looks`), by the platform's `visual` kind, in frame pixels of the
+// full-size sheet: `frame_px` the frame, `span_px` the part of its width the
+// platform covers, `top_px` the row a body stands at. An edit here is drawn
+// at the next start, with no Rust build.
+{
+    // The lift: its deck is the full width of its frame. The numbers are the
+    // frame's, as its target states them (`targets/props/super_mary_o_lift.py`
+    // in the sprite renderer).
+    "super_mary_o_lift": (row: "idle", frame_px: (192.0, 72.0), span_px: (0.0, 192.0), top_px: 4.0),
+}

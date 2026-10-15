@@ -1,0 +1,37 @@
+// How a moving platform drawn as a prop sheet is laid on its platform (schema
+// `platform_looks`, owned by the sprite capability), by the platform's
+// `visual` kind. The numbers are frame pixels of the full-size sheet:
+// `frame_px` is the frame, `span_px` the part of its width the platform's
+// width covers (left, right), and `top_px` the row of its top surface.
+// `row` is the row the sheet loops; `front_row` a row drawn in front of each
+// body; `sheet` the sheet when it is not the kind's own; `faces_right`
+// (default true) the way the art faces. The compiler refuses a span or a top
+// outside the frame. An edit here is drawn after a content reload, with no
+// Rust build.
+{
+    // The Mockingbird's burning shark: the platform is its back, behind the
+    // saddle (`burning_flying_shark_spritesheet.ron`: body box 9..194, back
+    // at row 60), from the tail fin to the head.
+    "burning_flying_shark": (row: "idle", frame_px: (217.0, 125.0), span_px: (40.0, 176.0), top_px: 60.0),
+    // The intro's cart: its bed IS the platform. The numbers are the art
+    // module's (`targets/props/intro_cart.py`: `FRAME_SIZE`, `BED_SPAN_PX`,
+    // `BED_TOP_PX`). Its near rail (`front`) is drawn in front of each body,
+    // so a body on the bed is in the cart.
+    "intro_cart": (
+        row: "idle",
+        frame_px: (960.0, 312.0),
+        span_px: (108.0, 636.0),
+        top_px: 126.0,
+        front_row: Some("front"),
+    ),
+    // The first step of the cart's ramp: the row `ramp` of the cart's sheet
+    // (`RAMP_STEP_SPAN_PX`, `RAMP_STEP_TOP_PX`). It starts where the bed
+    // ends, one step under it; the other steps have no picture.
+    "intro_cart_ramp": (
+        sheet: Some("intro_cart"),
+        row: "ramp",
+        frame_px: (960.0, 312.0),
+        span_px: (636.0, 657.0),
+        top_px: 138.0,
+    ),
+}

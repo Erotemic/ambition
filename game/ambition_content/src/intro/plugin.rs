@@ -56,18 +56,6 @@ impl Plugin for IntroPlugin {
                 },
             );
         }
-        // The cart is a platform: its bed is what a body stands on.
-        {
-            use ambition_render::rendering::moving_platforms::PlatformLooksAppExt;
-            app.register_platform_look(
-                super::sprites::INTRO_CART_KIND,
-                super::sprites::intro_cart_platform_look(),
-            );
-            app.register_platform_look(
-                super::sprites::INTRO_CART_RAMP_KIND,
-                super::sprites::intro_cart_ramp_look(),
-            );
-        }
         // The hub has a door to this room and this room has no door back: the
         // zone a body arrives at is a place and not a door, so it has no
         // picture.

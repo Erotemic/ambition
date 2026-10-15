@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Regenerate `music_registry.ron` from published music assets.
+"""Regenerate `music_registry.ron` from scores and published music assets.
 
-Each conventional `audio/music/generated/<cue>/full.ogg` becomes a track unless
-explicitly denied. Off-convention assets use `SPECIAL_ENTRIES`; track-level
+Active scores and published `audio/music/generated/<cue>/full.ogg` files define
+the tracks unless explicitly denied. Off-convention assets use `SPECIAL_ENTRIES`; track-level
 one-shots require explicit score metadata rather than being inferred from
 section loopability.
 
@@ -174,15 +174,15 @@ def _plain_yaml_scalar(raw: str) -> str:
     return value
 
 
-def discover_one_shot_ids() -> set[str]:
-    """Read explicit score-level one-shot declarations without YAML inference."""
+def discover_active_scores() -> dict[str, bool]:
+    """Read score identities and explicit one-shot declarations."""
     # The scores live in the `ambition_music_renderer` SUBMODULE. An uninitialized
     # submodule is an empty directory, and globbing it would quietly yield zero
     # one-shot ids -- rewriting the committed registry to loop every sting again,
     # with a cheerful "wrote ... (72 tracks)" and no warning. The registry is
     # generated-but-committed, so regenerating it from an incomplete checkout must
     # FAIL rather than produce plausible wrong output.
-    scores = sorted(ACTIVE_SCORES_DIR.glob("*.music.yaml"))
+    scores = sorted({*ACTIVE_SCORES_DIR.glob("*.yaml"), *ACTIVE_SCORES_DIR.glob("*.yml")})
     if not scores:
         raise SystemExit(
             f"no scores found under {ACTIVE_SCORES_DIR}.\n"
@@ -191,7 +191,7 @@ def discover_one_shot_ids() -> set[str]:
             "them would silently un-mark every one-shot sting as looping.\n"
             "Run: git submodule update --init tools/ambition_music_renderer"
         )
-    one_shot_ids: set[str] = set()
+    active_scores: dict[str, bool] = {}
     for score_path in scores:
         score_id: str | None = None
         one_shot = False
@@ -207,11 +207,12 @@ def discover_one_shot_ids() -> set[str]:
                         f"{score_path}: one_shot must be true or false, got {value!r}"
                     )
                 one_shot = value == "true"
-        if one_shot:
-            if not score_id:
-                raise ValueError(f"{score_path}: one_shot score has no top-level id")
-            one_shot_ids.add(score_id)
-    return one_shot_ids
+        if not score_id:
+            raise ValueError(f"{score_path}: score has no top-level id")
+        if score_id in active_scores:
+            raise ValueError(f"{score_path}: duplicate score id {score_id}")
+        active_scores[score_id] = one_shot
+    return active_scores
 
 
 def discover_cues() -> list[str]:
@@ -229,14 +230,9 @@ def discover_cues() -> list[str]:
 
 
 def render_registry() -> str:
-    cues = discover_cues()
-    one_shot_ids = discover_one_shot_ids()
-    missing = sorted(one_shot_ids.difference(cues))
-    if missing:
-        raise ValueError(
-            "one-shot score ids have no generated full.ogg registry entry: "
-            + ", ".join(missing)
-        )
+    active = discover_active_scores()
+    cues = sorted({*discover_cues(), *(cue for cue in active if cue not in CLAIMED_DIRS and not is_denied(cue))})
+    one_shot_ids = {cue for cue, one_shot in active.items() if one_shot}
     lines = [
         "// Ambition music registry — radio + room music asset pointers.",
         "//",
@@ -321,10 +317,8 @@ def main() -> int:
 
     # A REMOVAL GUARD, on both paths.
     #
-    # The registry is a projection of `audio/music/generated/<cue>/full.ogg`, and those OGGs are
-    # build artifacts nobody commits. So regenerating on a machine that has not rendered every cue
-    # does not report a difference of opinion about the roster — it deletes real content, and says
-    # "regenerated" while doing it.
+    # Active scores define their tracks. Other tracks depend on published
+    # assets. An incomplete output tree must not remove those tracks.
     #
     # Adding is still free. This generator's own docstring calls registration an
     # invariant rather than a chore, and it stays one — it is REMOVAL that needs

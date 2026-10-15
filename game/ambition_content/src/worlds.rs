@@ -486,10 +486,14 @@ mod tests {
     }
 
     #[test]
-    fn manifest_names_the_four_worlds_and_the_hub_entry() {
+    fn manifest_names_the_five_worlds_and_the_hub_entry() {
         let manifest = world_manifest();
         assert_eq!(manifest.entry_room, "central_hub_complex");
-        assert_eq!(manifest.worlds.len(), 4);
+        assert_eq!(manifest.worlds.len(), 5);
+        assert!(
+            manifest.worlds.iter().any(|world| world.id.as_str() == "world.math_ldtk"),
+            "the Math dimension's world is not in the manifest"
+        );
         assert!(manifest.primary().required);
         assert_eq!(manifest.primary().id.as_str(), "world.sandbox_ldtk");
         for world in &manifest.worlds {

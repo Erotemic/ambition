@@ -211,7 +211,7 @@ mod tests {
     fn app_with_a_ring() -> (App, Entity, Vec<usize>) {
         let asset = ring_asset();
         let slot = asset.spec.clip_slot(["spin"]).expect("the ring has a spin row");
-        let spin: Vec<usize> = (0..12).map(|f| asset.spec.flat_index_at(slot, f)).collect();
+        let spin: Vec<usize> = (0..30).map(|f| asset.spec.flat_index_at(slot, f)).collect();
         let mut app = App::new();
         app.init_resource::<Time>();
         app.init_resource::<ambition_time::ClockState>();
@@ -268,7 +268,7 @@ mod tests {
     #[test]
     fn the_inscription_turns_once_per_opening_and_the_stand_stays_still() {
         let (mut app, ring, spin) = app_with_a_ring();
-        for (progress, frame) in [(0.0, 0), (0.25, 3), (0.5, 6), (0.95, 11)] {
+        for (progress, frame) in [(0.0, 0), (0.25, 7), (0.5, 15), (0.95, 28)] {
             step(
                 &mut app,
                 GatePortalPhase::Opening {

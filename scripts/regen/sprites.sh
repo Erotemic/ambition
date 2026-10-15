@@ -1189,16 +1189,22 @@ source "$repo_root/scripts/lib/sprite_cache_key.sh"
 #
 # Takes the newline-separated install-relative paths the registry declares, and
 # returns non-zero only when NONE of them is on disk.
+#
+# One `sha256sum` for all of a target's files: one for each file (and an
+# `awk` for each) was 18 s of every publish that missed the whole-run
+# fingerprint, for about 2,100 files (measured 2026-10-15; now 5 s). The
+# lines are the same, `<digest> <path>`, so the stored digests stay valid.
 sheet_output_digests() {
-    local records="$1" rel digests=""
+    local records="$1" rel
+    local -a present=()
     [ -n "$records" ] || return 1
     while IFS= read -r rel; do
         [ -n "$rel" ] || continue
         [ -f "$sprites_dir/$rel" ] || continue
-        digests+="$(sha256sum "$sprites_dir/$rel" | awk '{print $1}') $rel"$'\n'
+        present+=("$rel")
     done <<< "$records"
-    [ -n "$digests" ] || return 1
-    printf '%s' "$digests" | sort
+    [ "${#present[@]}" -gt 0 ] || return 1
+    (cd "$sprites_dir" && sha256sum -- "${present[@]}") | sed 's/^\([0-9a-f]*\)  /\1 /' | sort
 }
 
 # Fresh iff the stored key matches AND every published output still hashes to

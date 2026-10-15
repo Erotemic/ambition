@@ -575,6 +575,26 @@ stale view, though it knows what it has pressed since. The fix is an
 efference-copy lead (the body's own commands since the view, through the
 shadow model), not a retuned rung.
 
+Built and measured 2026-10-15, then reverted: the own-motion lead is not
+enough. The perception buffer already holds the live view, so `Perceived`
+was given the live self (`own_now`) and `lead_of` carried this body from
+where it is now over the startup only, and the foe over staleness plus
+startup. With Smash's rows declared for its mode, the George mirror still
+started 0 moves in each repertoire arm (900 to 3600 ticks; the same four
+tests red as without it). A probe of every admission showed why. At
+t=1.483 s the live gap is 65 px and closing at 540 px/s, inside
+`excluded_middle`'s band (0 to 43 px plus slack), but the prediction is
+131 px: the view still shows the FOE walking away, because it turned less
+than 300 ms ago. Five ticks later the view shows its turn and the
+prediction is -81 px: they have crossed. In the mirror both bodies turn
+together, and the time from a turn to the crossing (about 0.37 s) is about
+the reaction time (0.30 s), so the foe's turn is unseen for the whole
+approach. The self term was one error; the other is a turn nobody can see
+in time. A fix must change what the brain does about a foe it cannot yet
+see turning (for example, not overrunning by a reaction's worth of walk
+before it turns), which changes every CPU; it is a policy change to
+measure on the rig, not a correction of the lead.
+
 Whichever survives:
 
 - every game composition must have one unambiguous source;

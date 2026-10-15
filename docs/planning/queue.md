@@ -49,7 +49,8 @@ possible without a recompile. Work in this order:
    staging root).
 3. Pack elegance: admission diagnostics that name the file and the field;
    [CPU-LADDER](#cpu-ladder--the-brain-owns-the-knobs-smash-owns-the-ladder)
-   step 2 (blocked by the George L5 resonance, fighter-brain.md F1).
+   step 2 (blocked by the George L5 resonance, fighter-brain.md F1; the
+   own-motion lead was measured on 2026-10-15 and is not enough).
 4. Each slice states its measured runtime and iteration cost.
 5. Then the 2026-10-09 order below.
 
@@ -1690,6 +1691,11 @@ room and restated by its reload; each brain reads its own room's ladder.
 Witness `each_fighter_takes_the_rung_of_its_own_rooms_ladder`; grid unchanged.
 **Blocked (step 2):** with Smash's rows declared, the George mirror in the demo
 throws no move at rung 5 (18-tick reaction resonance; 325 ms fights). See F1.
+**Measured 2026-10-15:** the own-motion lead (the live self through
+`Perceived`) was built and does not unblock it: still 0 moves in the mirror.
+The other error is the foe's turn, unseen for the whole approach (turn to
+crossing about 0.37 s, reaction 0.30 s). Next: a brain policy for a foe it
+cannot yet see turning, measured on the rig; it changes every CPU. See F1.
 
 ### LANDMARK-CLIP-TIME — a published landmark clip loops or holds as the row it describes
 

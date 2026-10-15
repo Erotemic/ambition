@@ -88,6 +88,8 @@ pub fn require_world_compositing(app: &mut bevy::app::App) {
 
 pub mod actors;
 pub mod ambient_motes;
+/// The light of the time of day over the world of a sunlit room.
+pub mod daylight;
 pub mod window_camera_stack;
 pub mod body_clock;
 pub mod body_cues;

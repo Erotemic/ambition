@@ -174,6 +174,7 @@ pub fn drive_music_director(
                     &base_music_channel,
                     output,
                     candidates,
+                    intent.simple_crossfade_s,
                 );
             }
         }

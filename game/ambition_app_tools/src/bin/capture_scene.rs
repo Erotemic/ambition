@@ -81,6 +81,9 @@ struct SceneCaptureConfig {
     /// what a switch commands (a gate's boot sequence) can be filmed without
     /// a press. A switch is saved state, not a world flag.
     switches: Vec<(String, u64)>,
+    /// The hour of the day to set the clock to, on its sim tick
+    /// (`--hour H[@TICK]`), to photograph a room at a time of day.
+    hour: Option<(f32, u64)>,
     /// Looks to put on bodies, each on its sim tick
     /// (`--wear ID=LOOK[@TICK]`): the first body that wears catalog character
     /// ID wears LOOK from then on, as the conversation's `<<transform>>` asks.
@@ -292,6 +295,9 @@ OPTIONS:
     --flag NAME[@TICK]  record the world flag NAME on sim tick TICK
                         [default: 1]; repeat for more flags. A room that reads
                         its state from a flag is photographed in that state.
+    --hour H[@TICK]     set the time of day to hour H (0 to 24) at sim tick
+                        TICK [default: 2], under the game's day cycle: a
+                        sunlit room's light and a room's music follow it.
     --switch NAME[@TICK]
                         turn the switch NAME on at sim tick TICK [default: 1],
                         as a press would; repeat for more. Films what a switch
@@ -575,6 +581,23 @@ fn record_flags(
             });
             eprintln!("capture_scene: recorded the flag {id} on tick {on_tick}");
         }
+    }
+}
+
+/// `--hour`: set the time of day on its tick, under the game's day cycle. A sim
+/// system that names its tick, as [`record_flags`] is.
+fn set_the_hour(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    cycle: Option<Res<ambition_platformer2d::time::DayCycle>>,
+    clock: Option<ResMut<ambition_platformer2d::time::DayClock>>,
+) {
+    let (Some((hour, on_tick)), Some(cycle), Some(mut clock)) = (config.hour, cycle, clock) else {
+        return;
+    };
+    if tick.get() == on_tick {
+        *clock = ambition_platformer2d::time::DayClock::at_hour(&cycle, hour);
+        eprintln!("capture_scene: set the hour to {hour} at tick {on_tick}");
     }
 }
 
@@ -990,7 +1013,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, turn_on_switches, ask_bodies_to_wear, fire_portal_shots, fire_shots),
+        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, fire_portal_shots, fire_shots),
     );
     if !app.world().resource::<SceneCaptureConfig>().player_holds.is_empty() {
         app.add_systems(
@@ -1206,6 +1229,7 @@ impl SceneCaptureConfig {
         let mut interact_on_arrival = false;
         let mut flags: Vec<(String, u64)> = Vec::new();
         let mut switches: Vec<(String, u64)> = Vec::new();
+        let mut hour: Option<(f32, u64)> = None;
         let mut wears: Vec<(String, String, u64)> = Vec::new();
         let mut portal_shots: Vec<PortalShotAt> = Vec::new();
         let mut shots: Vec<ShotAt> = Vec::new();
@@ -1318,6 +1342,18 @@ impl SceneCaptureConfig {
                         .parse::<f32>()
                         .map_err(|_| format!("--body-warp KIND@SECONDS wants seconds, got '{period}'"))?;
                     body_warp = Some(BodyWarpPreview { warp, period_s });
+                    2
+                }
+                "--hour" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--hour requires an hour".to_string());
+                    };
+                    let (h, tick) = match value.split_once('@') {
+                        Some((h, tick)) => (h, tick.parse::<u64>().map_err(|_| format!("--hour H@TICK wants a sim tick, got '{tick}'"))?),
+                        None => (value.as_str(), 2),
+                    };
+                    let h = h.parse::<f32>().map_err(|_| format!("--hour wants an hour from 0 to 24, got '{h}'"))?;
+                    hour = Some((h, tick));
                     2
                 }
                 "--switch" => {
@@ -1614,6 +1650,7 @@ impl SceneCaptureConfig {
                 interact_on_arrival: false,
                 flags: Vec::new(),
                 switches: Vec::new(),
+                hour: None,
                 wears: Vec::new(),
                 player_at: Vec::new(),
                 player_climbs: false,
@@ -1684,6 +1721,7 @@ impl SceneCaptureConfig {
             interact_on_arrival,
             flags,
             switches,
+            hour,
             wears,
             player_at,
             player_climbs,

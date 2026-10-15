@@ -19,7 +19,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// registry dump does not prove the encoded payload is unchanged. Do not
 /// reuse retired wire discriminants for different operations. Peers with
 /// different schema versions must not exchange rollback state.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 350;
+/// 350 -> 351: `resource.day_clock` (`ambition_time::DayClock`, the time of
+/// day: a day number and the seconds into it) joins the canonical rollback
+/// state. One row is added and one type is encoded.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 351;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

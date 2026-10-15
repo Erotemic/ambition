@@ -16,6 +16,8 @@ pub struct PlayerSchedulePlugin;
 impl Plugin for PlayerSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        // The time of day the clock head turns (still without a `DayCycle`).
+        app.init_resource::<ambition_time::DayClock>();
         // Every player body carries the movement→presentation hand-off the
         // movement phase writes and the presentation phase reads (required so
         // both phase queries always match the player + any clone).
@@ -41,6 +43,9 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_time::time_control::apply_suspended_time_scale_system
                     .run_if(gameplay_suspended),
                 ambition_time::refresh_world_time,
+                // The time of day turns by this step's sim seconds (a game
+                // with no `DayCycle` has no day).
+                ambition_time::advance_day_clock,
                 // Mirror the freshly-snapshotted `WorldTime::sim_dt()` into
                 // the runtime crate's neutral `SimDt` so every downstream
                 // runtime system (gravity / zones / orient-roll) reads scaled

@@ -9,7 +9,7 @@
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
-use ambition_platformer2d_core::snapshot::{put_f32, put_u64, Reader, SnapshotState};
+use ambition_platformer2d_core::snapshot::{put_f32, put_u32, put_u64, Reader, SnapshotState};
 use ambition_platformer2d_core::snapshot_unit_enum;
 
 impl SnapshotState for crate::SimTick {
@@ -18,6 +18,17 @@ impl SnapshotState for crate::SimTick {
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(crate::SimTick(r.u64()?))
+    }
+}
+
+/// The time of day. A rewind takes the hour back with everything else.
+impl SnapshotState for crate::DayClock {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u32(out, self.day);
+        put_f32(out, self.seconds);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::DayClock { day: r.u32()?, seconds: r.f32()? })
     }
 }
 

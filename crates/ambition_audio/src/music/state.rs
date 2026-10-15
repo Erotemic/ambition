@@ -99,4 +99,8 @@ pub struct MusicIntent {
     /// active provider can never play, and so a provider that authored no music
     /// yields deliberate silence rather than a retained previous track.
     pub authority: crate::selection::MusicAuthority,
+    /// Seconds over which a change of simple track crossfades. `0.0` is the
+    /// ordinary swap. The content layer asks for a crossfade when the track
+    /// changes while the place stays the same (the time of day turning).
+    pub simple_crossfade_s: f32,
 }

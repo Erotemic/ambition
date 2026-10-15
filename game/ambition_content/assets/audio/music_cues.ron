@@ -182,9 +182,5 @@
         (room_id: "primeval_ridge", cue_id: "dinosaur_liberators_adaptive", state: "charging"),
         (room_id: "primeval_canopy", cue_id: "dinosaur_liberators_adaptive", state: "blazing"),
         (room_id: "primeval_tyrant_hall", cue_id: "dinosaur_liberators_adaptive", state: "blazing", fight_state: Some("fight")),
-        // The town of the Math dimension: the gate square is busy, the
-        // street to the terraces is calm. One loop, so no room change cuts it.
-        (room_id: "math_gate_hall", cue_id: "shoulders_at_rest", state: "gate_square"),
-        (room_id: "math_town_street", cue_id: "shoulders_at_rest", state: "terraces"),
     ],
 )

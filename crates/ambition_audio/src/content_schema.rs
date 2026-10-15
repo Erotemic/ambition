@@ -168,6 +168,11 @@ impl ContentSchemaHandler for SfxRegistrySchema {
 
 // ── adaptive music cues ──────────────────────────────────────────────────────
 
+/// The phases of the day a room's track can be keyed by: the keys of
+/// `ambition_time::DayPhase` (this crate does not depend on the clock; a test
+/// in the content crate holds the two lists together).
+pub const DAY_PHASE_KEYS: [&str; 4] = ["morning", "day", "evening", "night"];
+
 struct MusicCueCatalogSchema;
 
 impl ContentSchemaHandler for MusicCueCatalogSchema {
@@ -237,6 +242,28 @@ impl ContentSchemaHandler for MusicCueCatalogSchema {
                 facet.content_id_in(ROOM_MUSIC_BINDING_SCHEMA, &binding.room_id),
                 canonical(binding),
             );
+        }
+
+        // The tracks of rooms by the time of day: a known phase, a track, and
+        // one row for one room and phase.
+        let mut seen = std::collections::BTreeSet::new();
+        for row in &authored.room_phase_tracks {
+            if row.room_id.trim().is_empty() || row.track.trim().is_empty() {
+                out.report(facet.diagnostic(
+                    DiagnosticCode::MalformedSource,
+                    format!("a phase track row names no room or no track: {row:?}"),
+                ));
+            } else if !DAY_PHASE_KEYS.contains(&row.phase.as_str()) {
+                out.report(facet.diagnostic(
+                    DiagnosticCode::MalformedSource,
+                    format!("room {:?}: no phase of the day is called {:?} (they are {DAY_PHASE_KEYS:?})", row.room_id, row.phase),
+                ));
+            } else if !seen.insert((row.room_id.as_str(), row.phase.as_str())) {
+                out.report(facet.diagnostic(
+                    DiagnosticCode::MalformedSource,
+                    format!("room {:?} has two tracks for the {}", row.room_id, row.phase),
+                ));
+            }
         }
 
         if !out.failed() {

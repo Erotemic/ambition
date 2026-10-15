@@ -234,6 +234,9 @@ pub struct SessionScopedResources<'w> {
     /// peer, whatever the App ran before it. `Option` because a composition
     /// without the sim clock has none.
     sim_tick: Option<ResMut<'w, ambition_time::SimTick>>,
+    /// The time of day is session-relative, as the tick is: a new session's
+    /// first step begins its first day at the cycle's start hour.
+    day_clock: Option<ResMut<'w, ambition_time::DayClock>>,
     /// The impact freeze holds an absolute expiry on [`ambition_time::SimTick`].
     /// Kept across the reset of the tick, a freeze from the previous session
     /// would hold the new one until that session's tick came round again.
@@ -412,6 +415,7 @@ fn reset(resources: SessionScopedResources) {
         mut live_match_ticks,
         mut match_ordinal,
         sim_tick,
+        day_clock,
         impact_hitstop,
         requested_clock_scale,
         clock_state,
@@ -461,6 +465,9 @@ fn reset(resources: SessionScopedResources) {
     *match_ordinal = ambition_match::seating::SessionMatchOrdinal::default();
     if let Some(mut tick) = sim_tick {
         *tick = ambition_time::SimTick::default();
+    }
+    if let Some(mut clock) = day_clock {
+        *clock = ambition_time::DayClock::default();
     }
     if let Some(mut hitstop) = impact_hitstop {
         *hitstop = ambition_combat::impact_hitstop::ImpactHitstop::default();

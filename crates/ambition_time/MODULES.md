@@ -6,11 +6,12 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`day`](src/day.rs) | The time of day: a world clock that turns through morning, day, evening and night. |
 | [`rollback_registration`](src/rollback_registration.rs) | Domain-owned rollback declarations; the host supplies the backend registrar. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`time_control`](src/time_control/mod.rs) | Time-control authority as data. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

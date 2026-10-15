@@ -16,6 +16,11 @@
 
 pub mod time_control;
 
+/// The time of day: the world clock that turns through morning, day,
+/// evening and night.
+pub mod day;
+pub use day::{advance_day_clock, DayClock, DayCycle, DayPhase};
+
 // Domain-owned rollback declaration; the host supplies the backend registrar.
 mod rollback_registration;
 pub use rollback_registration::register_rollback_state;

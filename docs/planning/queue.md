@@ -1001,7 +1001,20 @@ variants. Also found in that regen:
     the LDtk art, the census, the variants, the vanity card), and no phase
     was timed. `sprites.sh` now prints each top-level phase's wall time,
     slowest first (`test_a_publish_says_where_its_wall_time_went`).
-    Open: cut the largest phase the timing names, and the staging root.
+    **Measured 2026-10-15, a publish that rendered one target (the
+    peer's Math art):** 609 s wall, 21 s of render. The phases: Ultrapack
+    362 s, the variants 77 s, the tack-on batch 57 s, the vanity card
+    56 s, the LDtk tilesets 25 s, the rest under 5 s each. The four
+    ultrapack tiers read the same sheets and write separate roots, and ran
+    one after another (full 126 s, half 116 s, quarter 83 s, potato 29 s;
+    the full tier's time is half PNG encoding, and it peaks at 16.5 GB).
+    **Built:** the tiers run at once under `AMBITION_SPRITE_JOBS`, slowest
+    first, each printed whole in tier order
+    (`test_the_ultrapack_tiers_run_at_once`). Measured: 124 s for the four,
+    and all 670 pages and 4 catalogs are byte-identical to the serial run.
+    So that publish is about 371 s.
+    Open: the variants (77 s) and the vanity card (56 s) rebuild whole on
+    each publish; and the staging root.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

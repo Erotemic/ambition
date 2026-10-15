@@ -15,8 +15,9 @@
 //! It has no ECS and no RNG, so headless sims and tests use the same geometry
 //! as the game.
 //!
-//! Pieces are AABBs, so production use is limited to cardinal floor, wall,
-//! and ceiling portals.
+//! Pieces are AABBs. For a floor, wall or ceiling portal they are exact; for
+//! a portal on a slope each piece is the box that bounds the true (turned)
+//! piece, and the plane and opening tests are exact.
 
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use bevy::math::Vec2;
@@ -68,41 +69,51 @@ pub fn map_aabb(
     ae::Aabb::new(center, half)
 }
 
-/// (Cardinal-only, like the whole AABB piece layer — P3b generalizes.)
+/// The box that bounds the part of `b` on the `dir` side of the line through
+/// `point` (`dir` is the line's normal): exact for a cardinal `dir`.
 pub fn clip_halfspace(b: ae::Aabb, point: Vec2, dir: Vec2) -> Option<ae::Aabb> {
-    let (mut x0, mut y0, mut x1, mut y1) = (b.min.x, b.min.y, b.max.x, b.max.y);
-    if dir.x > 0.5 {
-        x0 = x0.max(point.x);
-    } else if dir.x < -0.5 {
-        x1 = x1.min(point.x);
-    } else if dir.y > 0.5 {
-        y0 = y0.max(point.y);
-    } else if dir.y < -0.5 {
-        y1 = y1.min(point.y);
+    bound_clipped(b, &[(point, dir)])
+}
+
+/// The box that bounds the part of `b` inside the half planes `(point, dir)`
+/// (each keeps `(p - point) . dir >= 0`): the box's corners clipped as a
+/// polygon, then bounded.
+fn bound_clipped(b: ae::Aabb, planes: &[(Vec2, Vec2)]) -> Option<ae::Aabb> {
+    let mut poly = vec![
+        Vec2::new(b.min.x, b.min.y),
+        Vec2::new(b.max.x, b.min.y),
+        Vec2::new(b.max.x, b.max.y),
+        Vec2::new(b.min.x, b.max.y),
+    ];
+    for &(point, dir) in planes {
+        let side = |p: Vec2| (p - point).dot(dir);
+        let mut out = Vec::with_capacity(poly.len() + 2);
+        for i in 0..poly.len() {
+            let (a, c) = (poly[i], poly[(i + 1) % poly.len()]);
+            let (sa, sc) = (side(a), side(c));
+            if sa >= 0.0 {
+                out.push(a);
+            }
+            if (sa >= 0.0) != (sc >= 0.0) {
+                out.push(a + (c - a) * (sa / (sa - sc)));
+            }
+        }
+        poly = out;
+        if poly.is_empty() {
+            return None;
+        }
     }
-    ae::geometry::aabb_from_min_max(x0, y0, x1, y1)
+    let (min, max) = poly.iter().fold((Vec2::splat(f32::MAX), Vec2::splat(f32::MIN)), |(lo, hi), p| (lo.min(*p), hi.max(*p)));
+    ae::geometry::aabb_from_min_max(min.x, min.y, max.x, max.y)
 }
 
 /// Clip `b` laterally to a portal's opening span, so a body wider than the
 /// aperture shows only the slice that fits through.
 fn clip_to_aperture(b: ae::Aabb, ap: &PortalAperture) -> Option<ae::Aabb> {
     let along = ap.frame.tangent();
+    let o = ap.frame.origin;
     let half = ap.half_length;
-    if along.x.abs() > 0.5 {
-        ae::geometry::aabb_from_min_max(
-            b.min.x.max(ap.frame.origin.x - half),
-            b.min.y,
-            b.max.x.min(ap.frame.origin.x + half),
-            b.max.y,
-        )
-    } else {
-        ae::geometry::aabb_from_min_max(
-            b.min.x,
-            b.min.y.max(ap.frame.origin.y - half),
-            b.max.x,
-            b.max.y.min(ap.frame.origin.y + half),
-        )
-    }
+    bound_clipped(b, &[(o - along * half, along), (o + along * half, -along)])
 }
 
 /// A body's representation in one local chart (one side of a portal pair).
@@ -140,23 +151,15 @@ impl BodyPieces {
 }
 
 /// Does `body` straddle `ap`'s plane within the opening? True when the plane
-/// passes through the body's extent AND the body overlaps the aperture span.
+/// passes through the body's extent AND the body overlaps the aperture span,
+/// for a plane of any angle.
 pub fn straddles(body: ae::Aabb, ap: &PortalAperture) -> bool {
-    let half = ap.half_length;
-    let origin = ap.frame.origin;
-    if ap.frame.normal.x.abs() > 0.5 {
-        // Vertical-plane (wall) portal: plane is a vertical line at origin.x.
-        body.min.x < origin.x
-            && body.max.x > origin.x
-            && body.max.y > origin.y - half
-            && body.min.y < origin.y + half
-    } else {
-        // Horizontal-plane (floor / ceiling) portal: plane is a horizontal line.
-        body.min.y < origin.y
-            && body.max.y > origin.y
-            && body.max.x > origin.x - half
-            && body.min.x < origin.x + half
-    }
+    let (n, t) = (ap.frame.normal, ap.frame.tangent());
+    let d = body.center() - ap.frame.origin;
+    let h = body.half_size();
+    let reach = |axis: Vec2| h.x * axis.x.abs() + h.y * axis.y.abs();
+    // The plane cuts the box, and the box reaches the opening along the face.
+    d.dot(n).abs() < reach(n) && d.dot(t).abs() < reach(t) + ap.half_length
 }
 
 /// Decompose `body` against a linked portal pair. Finds the portal whose plane
@@ -225,19 +228,25 @@ pub fn carve_hole(ap: &PortalAperture) -> ae::Aabb {
     carve_hole_with_depth(ap, f32::INFINITY)
 }
 
+/// The box a portal carves out of the boxes of its host:
+/// [`carve_face_with_depth`]'s bounds, which is that face for a cardinal
+/// portal.
 pub fn carve_hole_with_depth(ap: &PortalAperture, host_depth: f32) -> ae::Aabb {
+    carve_face_with_depth(ap, host_depth).bounds()
+}
+
+/// The carve hole turned to the portal's face: the opening along the face,
+/// from [`SURFACE_GRACE`] outside it to the host depth (at most
+/// [`CARVE_DEPTH`]) inside it. A portal on a line cuts this out of the line.
+pub fn carve_face_with_depth(ap: &PortalAperture, host_depth: f32) -> ae::frame::FaceRect {
     let depth = CARVE_DEPTH.min(host_depth.max(0.0));
-    let along = ap.frame.tangent();
-    let open = ap.half_length;
     let n = ap.frame.normal;
-    // Span from `+SURFACE_GRACE` outward of the face to `depth` inward.
-    let through = (SURFACE_GRACE + depth) * 0.5;
-    let center = ap.frame.origin + n * (SURFACE_GRACE * 0.5) - n * (depth * 0.5);
-    let half = Vec2::new(
-        along.x.abs() * open + n.x.abs() * through,
-        along.y.abs() * open + n.y.abs() * through,
-    );
-    ae::Aabb::new(center, half)
+    ae::frame::FaceRect {
+        center: ap.frame.origin + n * (SURFACE_GRACE * 0.5) - n * (depth * 0.5),
+        normal: n,
+        half_along: ap.half_length,
+        half_out: (SURFACE_GRACE + depth) * 0.5,
+    }
 }
 
 #[cfg(test)]

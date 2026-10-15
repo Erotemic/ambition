@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 
 use crate::pieces::{self as pp, MapConvention, PortalFrame};
-use ambition_platformer2d_core::{self as ae, AabbExt};
+use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
 use super::color::PortalChannel;
@@ -141,18 +141,14 @@ pub fn portal_input_warp_flips_horizontal_for_convention(
     mapped.x < -0.5 && mapped.y.abs() < 0.5
 }
 
-/// Does an actor of `size` fit through `portal`? The opening is the portal
-/// extent perpendicular to its normal: a wall portal checks the actor's
-/// height, and a floor or ceiling portal checks its width.
+/// Does an actor of `size` fit through `portal`? The actor's box measured
+/// along the face against the opening: a wall portal checks the actor's
+/// height, a floor or ceiling portal its width, and a portal on a slope the
+/// box's reach along the slope.
 pub fn portal_fits(size: Vec2, portal: &PlacedPortal) -> bool {
-    let normal_is_horizontal = portal.normal.x.abs() >= portal.normal.y.abs();
-    let half = portal.opening_half_extent();
-    let (opening, cross) = if normal_is_horizontal {
-        (half.y * 2.0, size.y)
-    } else {
-        (half.x * 2.0, size.x)
-    };
-    cross <= opening
+    let along = portal.aperture().frame.tangent();
+    let cross = size.x * along.x.abs() + size.y * along.y.abs();
+    cross <= portal.aperture().half_length * 2.0 + 1.0e-3
 }
 
 /// Margin (px) added to a portal's thin face so a body resting on the surface
@@ -214,12 +210,21 @@ pub fn measure_host_depth(occluders: &[ae::Aabb], frame: &PortalFrame, probe_dep
     }
 }
 
-/// The capture box for a portal: the thin face grown by [`TRANSIT_BEGIN_MARGIN`].
+/// The capture region for a portal: the thin face grown by
+/// [`TRANSIT_BEGIN_MARGIN`], turned to the face.
+pub(crate) fn capture_face(portal: &PlacedPortal) -> ae::frame::FaceRect {
+    ae::frame::FaceRect {
+        center: portal.pos,
+        normal: portal.normal.normalize_or_zero(),
+        half_along: portal.aperture().half_length + TRANSIT_BEGIN_MARGIN,
+        half_out: portal.opening_half_thickness() + TRANSIT_BEGIN_MARGIN,
+    }
+}
+
+/// The box that bounds [`capture_face`] (the face itself, for a cardinal
+/// portal).
 pub(crate) fn capture_box(portal: &PlacedPortal) -> ae::Aabb {
-    ae::Aabb::new(
-        portal.pos,
-        portal.opening_half_extent() + Vec2::splat(TRANSIT_BEGIN_MARGIN),
-    )
+    capture_face(portal).bounds()
 }
 
 /// Sized for terminal fall: sim steps are clamped to 1/30 s, and
@@ -233,13 +238,13 @@ pub(crate) const APPROACH_CARVE_REACH: f32 = 96.0;
 /// portal normal: where an inbound body must already see the surface open.
 /// Geometric only, so frame time does not affect it; the caller adds a
 /// "moving into the portal" velocity check.
-pub(crate) fn approach_box(portal: &PlacedPortal) -> ae::Aabb {
-    let capture = capture_box(portal);
-    let n = portal.normal.normalize_or_zero();
-    ae::Aabb::new(
-        capture.center() + n * (APPROACH_CARVE_REACH * 0.5),
-        capture.half_size() + n.abs() * (APPROACH_CARVE_REACH * 0.5),
-    )
+pub(crate) fn approach_face(portal: &PlacedPortal) -> ae::frame::FaceRect {
+    let capture = capture_face(portal);
+    ae::frame::FaceRect {
+        center: capture.center + capture.normal * (APPROACH_CARVE_REACH * 0.5),
+        half_out: capture.half_out + APPROACH_CARVE_REACH * 0.5,
+        ..capture
+    }
 }
 
 /// One step of the transit machine for any body. Pure: from the body geometry,
@@ -505,9 +510,9 @@ pub fn transit_step_with_tuning(
                 let ap = enter.aperture();
                 // Bounded by the measured host depth, so a body behind a thin
                 // wall is not grabbed.
-                let hole = pp::carve_hole_with_depth(&ap, host_depths.depth(enter.channel));
+                let hole = pp::carve_face_with_depth(&ap, host_depths.depth(enter.channel));
                 if pp::front_distance(center, &ap.frame) <= 0.0
-                    && body.strict_intersects(hole)
+                    && hole.strict_intersects(body)
                     && vel.dot(enter.normal) < 0.0
                 {
                     let exit = find_portal(portals, enter.channel.partner())
@@ -548,10 +553,10 @@ pub fn transit_step_with_tuning(
                 // front: the centroid must be on the room side of the plane
                 // (within `TRANSIT_BEGIN_MARGIN`). Otherwise a body behind a
                 // thin wall could reach the capture box through it.
-                let capture = capture_box(enter);
+                let capture = capture_face(enter);
                 let front = pp::front_distance(center, &frame);
                 let entering = front > 0.0 || vel.dot(enter.normal) < 0.0;
-                if front >= -TRANSIT_BEGIN_MARGIN && entering && body.strict_intersects(capture) {
+                if front >= -TRANSIT_BEGIN_MARGIN && entering && capture.strict_intersects(body) {
                     return TransitStep::Begin {
                         channel: enter.channel,
                         portal_pos: enter.pos,
@@ -588,7 +593,7 @@ pub fn transit_step_with_tuning(
             let still_engaged = if t.crossed {
                 pp::straddles(body, &enter.aperture())
             } else {
-                body.strict_intersects(capture_box(&enter))
+                capture_face(&enter).strict_intersects(body)
             };
             if still_engaged {
                 TransitStep::Continue

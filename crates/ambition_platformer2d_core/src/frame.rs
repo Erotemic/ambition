@@ -83,6 +83,76 @@ pub struct PortalAperture {
     pub half_length: f32,
 }
 
+/// A rectangle turned to a portal's face: `half_along` along the face's
+/// tangent and `half_out` along its normal, about `center`. A portal on a
+/// slope has its capture, its approach and its carve as one of these; for a
+/// floor, wall or ceiling portal it is an axis-aligned box, and every test
+/// here gives the box's answer.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FaceRect {
+    pub center: Vec2,
+    /// The face's unit outward normal.
+    pub normal: Vec2,
+    pub half_along: f32,
+    pub half_out: f32,
+}
+
+impl FaceRect {
+    pub fn tangent(&self) -> Vec2 {
+        tangent_of(self.normal)
+    }
+
+    /// The axis-aligned box that bounds it (itself, for a cardinal face).
+    pub fn bounds(&self) -> ambition_geometry::geometry::Aabb {
+        let (t, n) = (self.tangent(), self.normal);
+        let half = Vec2::new(
+            t.x.abs() * self.half_along + n.x.abs() * self.half_out,
+            t.y.abs() * self.half_along + n.y.abs() * self.half_out,
+        );
+        ambition_geometry::geometry::Aabb::new(self.center, half)
+    }
+
+    /// Do it and `aabb` overlap by more than a touch? Separating axes: the
+    /// box's two and the rectangle's two. For a cardinal face this is the
+    /// boxes' `strict_intersects`.
+    pub fn strict_intersects(&self, aabb: ambition_geometry::geometry::Aabb) -> bool {
+        use ambition_geometry::geometry::AabbExt;
+        let (c, h) = (aabb.center(), aabb.half_size());
+        let d = c - self.center;
+        let (t, n) = (self.tangent(), self.normal);
+        let apart = |axis: Vec2, own: f32| {
+            let box_reach = h.x * axis.x.abs() + h.y * axis.y.abs();
+            d.dot(axis).abs() >= box_reach + own
+        };
+        let rect_reach = |axis: Vec2| self.half_along * t.dot(axis).abs() + self.half_out * n.dot(axis).abs();
+        !(apart(Vec2::X, rect_reach(Vec2::X))
+            || apart(Vec2::Y, rect_reach(Vec2::Y))
+            || apart(t, self.half_along)
+            || apart(n, self.half_out))
+    }
+
+    /// The part of the segment `a..b` inside it, as the interval of the
+    /// segment's parameter (`0` at `a`, `1` at `b`), if any.
+    pub fn clip_segment(&self, a: Vec2, b: Vec2) -> Option<(f32, f32)> {
+        let (t, n) = (self.tangent(), self.normal);
+        let (mut lo, mut hi) = (0.0_f32, 1.0_f32);
+        for (axis, half) in [(t, self.half_along), (n, self.half_out)] {
+            let p0 = (a - self.center).dot(axis);
+            let dp = (b - a).dot(axis);
+            if dp.abs() < 1.0e-9 {
+                if p0.abs() > half {
+                    return None;
+                }
+                continue;
+            }
+            let (t0, t1) = ((-half - p0) / dp, (half - p0) / dp);
+            lo = lo.max(t0.min(t1));
+            hi = hi.min(t0.max(t1));
+        }
+        (hi > lo).then_some((lo, hi))
+    }
+}
+
 /// Which linear map glues an aperture pair. The two differ ONLY in the sign
 /// of the along-surface term.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -602,6 +602,51 @@ pub enum Boarding {
 }
 
 impl SurfaceChain {
+    /// This chain with the part inside `hole` cut out (a portal's opening on
+    /// a slope): the pieces that are left, each an open chain with this one's
+    /// name, kind, motion and boarding. A closed loop, a chain with junctions
+    /// or depth lanes is left whole: no portal is opened on one yet.
+    pub fn without(&self, hole: &crate::frame::FaceRect) -> Vec<SurfaceChain> {
+        if self.closed || !self.junctions.is_empty() || !self.depth_lanes.is_empty() || self.points.len() < 2 {
+            return vec![self.clone()];
+        }
+        let mut pieces: Vec<Vec<Vec2>> = Vec::new();
+        let mut current = vec![self.points[0]];
+        let mut cut = false;
+        for pair in self.points.windows(2) {
+            let (a, b) = (pair[0], pair[1]);
+            match hole.clip_segment(a, b) {
+                None => current.push(b),
+                Some((t0, t1)) => {
+                    cut = true;
+                    if t0 > 0.0 {
+                        current.push(a + (b - a) * t0);
+                    }
+                    pieces.push(std::mem::take(&mut current));
+                    if t1 < 1.0 {
+                        current = vec![a + (b - a) * t1, b];
+                    }
+                }
+            }
+        }
+        if !cut {
+            return vec![self.clone()];
+        }
+        pieces.push(current);
+        pieces
+            .into_iter()
+            .filter(|points| points.len() >= 2 && points.windows(2).any(|w| (w[1] - w[0]).length() > 1.0e-3))
+            .map(|points| SurfaceChain {
+                points,
+                junctions: Vec::new(),
+                depth_lanes: Vec::new(),
+                earth: Vec::new(),
+                filled: false,
+                ..self.clone()
+            })
+            .collect()
+    }
+
     pub fn open(name: impl Into<String>, points: Vec<Vec2>) -> Self {
         Self {
             name: name.into(),

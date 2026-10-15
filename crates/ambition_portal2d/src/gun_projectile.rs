@@ -11,7 +11,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_core::cast::{raycast_solids, SolidWorldQuery};
+use ambition_platformer2d_core::cast::{raycast_surfaces, SolidWorldQuery};
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionCommands, SpawnSessionScopedExt};
 
 use super::color::PortalChannel;
@@ -102,6 +102,19 @@ pub fn is_portal_placeable(_hit: Vec2, _normal: Vec2) -> bool {
     true
 }
 
+/// Where an opening of `half` centred near `hit` sits on the segment `a..b`:
+/// `hit`, slid along the segment until the opening is on it, or `None` when
+/// the segment is shorter than the opening.
+pub fn seat_on_segment(hit: Vec2, a: Vec2, b: Vec2, half: f32) -> Option<Vec2> {
+    let len = (b - a).length();
+    if len < half * 2.0 {
+        return None;
+    }
+    let t = (b - a) / len;
+    let along = (hit - a).dot(t).clamp(half, len - half);
+    Some(a + t * along)
+}
+
 /// Outcome of advancing one [`PortalShot`] by `dt`. A pure decision; the Bevy
 /// adapter applies it (spawns, despawns, sfx).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -132,11 +145,19 @@ pub fn step_portal_shot<W: SolidWorldQuery + ?Sized>(
     dt: f32,
 ) -> PortalShotStep {
     let step = (shot.vel * dt).length().max(1.0);
-    if let Some((hit, normal)) = raycast_solids(world.solids, shot.pos, shot.vel, step, true) {
-        if is_portal_placeable(hit, normal) {
+    if let Some(surface) = raycast_surfaces(world.solids, shot.pos, shot.vel, step, true) {
+        let (hit, normal) = (surface.point, surface.normal);
+        // On a line (a slope), the opening must lie on the segment: it slides
+        // along the segment to fit, and a segment shorter than the opening
+        // takes no portal.
+        let seat = match surface.segment {
+            None => Some(hit),
+            Some((a, b)) => seat_on_segment(hit, a, b, crate::types::PORTAL_OPENING_HALF),
+        };
+        if let Some(seat) = seat.filter(|seat| is_portal_placeable(*seat, normal)) {
             return PortalShotStep::Place {
                 channel: shot.channel,
-                pos: hit + normal * 2.0,
+                pos: seat + normal * 2.0,
                 normal,
                 hit,
             };

@@ -1,13 +1,14 @@
 //! The `mary_o_rules` schema: the demo's own tuning, as data in its pack
 //! (`assets/data/mary_o_rules.ron`).
 //!
-//! The spark, the snake plant, the pipe, the snake's shell, the star, the
+//! The snake plant, the pipe, the snake's shell, the star, the
 //! coin block, the bridge, the walk and the cosmic form's beats are this
 //! game's policy, so the demo owns the schema and no engine capability reads
 //! it. The pack names it (`content_pack! { schemas: [..] }`), and the pack's
 //! compile checks and lowers the file.
 
 use ambition_platformer2d::content::{lowered_rules, rules_schema, SchemaRegistration};
+use ambition_platformer2d::engine_core as ae;
 use serde::Deserialize;
 
 /// The authored FILE kind: the demo's tuning.
@@ -17,7 +18,6 @@ pub const MARY_O_RULES_SCHEMA: &str = "mary_o_rules";
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MaryORules {
-    pub spark: Spark,
     pub snake_plant: SnakePlant,
     pub pipe: Pipe,
     pub shell: Shell,
@@ -81,6 +81,23 @@ pub struct PowerUps {
     pub wand_speed: f32,
     pub quasar_speed: f32,
     pub quasar_restitution: f32,
+    pub wand_half: (f32, f32),
+    pub beacon_half: (f32, f32),
+    pub quasar_half: (f32, f32),
+}
+
+impl PowerUps {
+    pub fn wand_half(&self) -> ae::Vec2 {
+        ae::Vec2::new(self.wand_half.0, self.wand_half.1)
+    }
+
+    pub fn beacon_half(&self) -> ae::Vec2 {
+        ae::Vec2::new(self.beacon_half.0, self.beacon_half.1)
+    }
+
+    pub fn quasar_half(&self) -> ae::Vec2 {
+        ae::Vec2::new(self.quasar_half.0, self.quasar_half.1)
+    }
 }
 
 /// The flag at the end of a level.
@@ -101,19 +118,6 @@ pub struct Flag {
 pub struct FlagBand {
     pub at: f32,
     pub score: u32,
-}
-
-/// The spark the fire form throws.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Spark {
-    pub refire_seconds: f32,
-    pub half_extent: f32,
-    pub speed: f32,
-    pub damage: i32,
-    pub gravity: f32,
-    pub bounces: u8,
-    pub lifetime_seconds: f32,
 }
 
 /// The cycle of the snake plant in its pipe.
@@ -164,13 +168,8 @@ impl MaryORules {
     /// Each value the demo cannot use, named by its field.
     fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
-        let (spark, plant, pipe, shell) = (&self.spark, &self.snake_plant, &self.pipe, &self.shell);
+        let (plant, pipe, shell) = (&self.snake_plant, &self.pipe, &self.shell);
         for (field, value) in [
-            ("spark.refire_seconds", spark.refire_seconds),
-            ("spark.half_extent", spark.half_extent),
-            ("spark.speed", spark.speed),
-            ("spark.gravity", spark.gravity),
-            ("spark.lifetime_seconds", spark.lifetime_seconds),
             ("snake_plant.shy_reach", plant.shy_reach),
             ("snake_plant.harmless_below", plant.harmless_below),
             ("pipe.swallow_seconds", pipe.swallow_seconds),
@@ -215,8 +214,16 @@ impl MaryORules {
                 problems.push(format!("`{field}` is {value}; it is finite and not negative"));
             }
         }
+        for (field, (x, y)) in [
+            ("power_ups.wand_half", self.power_ups.wand_half),
+            ("power_ups.beacon_half", self.power_ups.beacon_half),
+            ("power_ups.quasar_half", self.power_ups.quasar_half),
+        ] {
+            if !(x.is_finite() && y.is_finite() && x > 0.0 && y > 0.0) {
+                problems.push(format!("`{field}` is ({x}, {y}); a pickup has a size, so both are more than 0"));
+            }
+        }
         for (field, value) in [
-            ("spark.damage", spark.damage),
             ("shell.enemy_damage", shell.enemy_damage),
             ("shell.player_damage", shell.player_damage),
             ("coins_per_block", self.coins_per_block),
@@ -283,7 +290,7 @@ pub fn mary_o_rules_schema() -> SchemaRegistration {
         MARY_O_RULES_SCHEMA,
         1,
         "mary_o_demo",
-        "The Mary-O demo's tuning: the spark, the snake plant, the pipe, the \
+        "The Mary-O demo's tuning: the snake plant, the pipe, the \
          snake's shell, the star, the coin block, the bridge, the walk and the \
          cosmic form's beats.",
         MaryORules::problems,
@@ -366,6 +373,20 @@ mod tests {
             Err(failure) => failure.render(),
         };
         assert!(refused.contains("`power_ups.quasar_restitution`"), "the refusal names the field: {refused}");
+
+        // Each pickup's box is the file's, and a box with no size is refused.
+        let half = "wand_half: (12.0, 15.5),";
+        assert_eq!(authored.matches(half).count(), 1, "the probe edits the wand's box");
+        assert_eq!(rules_of(&authored.replace(half, "wand_half: (12.0, 20.0),")).power_ups.wand_half, (12.0, 20.0));
+        std::fs::write(root.join("data/mary_o_rules.ron"), authored.replace(half, "wand_half: (0.0, 15.5),")).unwrap();
+        let refused = match EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None)
+            .with_schemas(|| vec![mary_o_rules_schema()])
+            .compile()
+        {
+            Ok(_) => panic!("a wand with no width was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`power_ups.wand_half`"), "the refusal names the field: {refused}");
         let _ = std::fs::remove_dir_all(&root);
     }
 }

@@ -96,6 +96,20 @@ source or the generator is newer than its output — so re-running is cheap and
 Timings on `calculex` (i7-7700HQ, 6 threads): backgrounds ~3.5s, all 998 sprite
 sheets ~175s.
 
+## Coverage checks
+
+Run `python3 scripts/check_regeneration_coverage.py` to check the sprite publish
+plan, the music roster and files, the SFX bank, and generated scenery files.
+Use `--family sprites` (or `music`, `sfx`, `backgrounds`) for one family.
+Use `--plans-only` when runtime assets are absent. This mode checks source
+coverage, not published file presence. The repository tooling tests run this
+mode. The asset umbrella checks published files after regeneration. The music
+script also checks its published files and registry.
+
+Active music scores define registry entries even before a render exists. A
+missing render must fail the coverage check; it must not remove the track from
+the registry.
+
 ## Adding one
 
 Keep the shape the others have, because it is what makes them composable:

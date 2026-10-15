@@ -164,16 +164,21 @@ pub fn toggle_cosmic_form(
         commands
             .entity(body)
             .try_insert(TransformBeatRequested(leave_beat(catalog.as_deref(), authored.as_deref())));
-        crate::powerups::SFX_FIRE_TO_BIG
+        crate::forms::mary_o_forms().top_cue_down()
     } else if crate::powerups::is_her_form(worn.id()) {
         worn.0 = COSMIC_CHARACTER_ID.into();
         commands.entity(body).try_insert((
             TransformBeatRequested(enter_beat(catalog.as_deref(), authored.as_deref())),
             RecharacterizeBody,
         ));
-        crate::powerups::SFX_BIG_TO_FIRE
+        crate::forms::mary_o_forms().top_cue_up()
     } else {
         // A body that is not Mary-O has no such form.
+        return;
+    };
+    // The form borrows the sounds of the top rung of her ladder: arriving at
+    // it, and leaving it for the rung below.
+    let Some(cue) = cue else {
         return;
     };
     sfx.write_for(

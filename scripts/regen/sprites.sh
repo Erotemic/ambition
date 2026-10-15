@@ -71,6 +71,7 @@ force_regen=0
 list_targets=0
 check_toolchain_only=0
 check_only=0
+list_outputs=0
 # `--target` ACCUMULATES.
 target_names=()
 make_gifs=0
@@ -99,6 +100,7 @@ while [ "$#" -gt 0 ]; do
             ;;
         --check-toolchain) check_toolchain_only=1; shift ;;
         --check) check_only=1; shift ;;
+        --list-outputs) list_outputs=1; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
 done
@@ -108,9 +110,9 @@ if [ "$list_targets" -eq 1 ] && [ "${#target_names[@]}" -gt 0 ]; then
     exit 2
 fi
 
-if [ "$check_only" -eq 1 ] && { [ "$list_targets" -eq 1 ] || [ "$force_regen" -eq 1 ] \
+if { [ "$check_only" -eq 1 ] || [ "$list_outputs" -eq 1 ]; } && { [ "$list_targets" -eq 1 ] || [ "$force_regen" -eq 1 ] \
     || [ "$make_gifs" -eq 1 ] || [ "${#target_names[@]}" -gt 0 ]; }; then
-    echo "--check takes no other options" >&2
+    echo "--check and --list-outputs take no other options" >&2
     exit 2
 fi
 
@@ -191,7 +193,7 @@ ldtk_python="$(ambition_select_tool_python "$ldtk_tools_dir" AMBITION_LDTK_PYTHO
 # pirate as "publish roster names an unregistered target". On failure this names
 # the interpreter, why it was chosen, and whether the user's active env would do.
 # `--check` only asks the renderer what it installs; it needs no LDtk tools.
-if [ "$check_only" -eq 1 ]; then
+if [ "$check_only" -eq 1 ] || [ "$list_outputs" -eq 1 ]; then
     ambition_preflight_tool_pythons "$rerun_command" \
         "$renderer_dir" AMBITION_SPRITE_PYTHON 1 \
         || exit 1
@@ -575,7 +577,7 @@ tackon_targets=(
     # names exists only on the machine that once rendered it and is ABSENT from a
     # fresh clone. `character_catalog.ron` names both sheets, so a clone would
     # come up with two catalog rows pointing at files nothing can produce.
-    # `test_every_catalog_character_names_a_sheet_regen_publishes` is what said
+    # `test_authored_assets_have_regeneration_paths` is what said
     # so, and it is the second time this session that a check caught art existing
     # only by accident of local history.
     pointed_polygon
@@ -792,6 +794,23 @@ tackon_targets=(
     spaghetti_event
     synthetic_friend
     trex_enemy
+    chicken
+    chicken_hen
+    owl
+    kiwi
+    emu
+    ostrich
+    ostrich_hen
+    cassowary
+    shoebill
+    european_swallow
+    african_swallow
+    vulture
+    penguin
+    compsognathus
+    dilophosaurus
+    pachycephalosaurus
+    triceratops
     viking_heavy_shieldmaiden
     viking_heavy_warrior
     viking_shieldmaiden
@@ -893,7 +912,8 @@ pirate_targets=(
 )
 
 # render-target-name -> runtime props/ basename
-held_prop_map=(
+canonical_prop_map=(
+    "shrine:shrine"
     "pirate_heavy_axe:axe"
     "throwing_javelin:javelin"
     "coconut:coconut"
@@ -1047,7 +1067,7 @@ for row in "${expected_rows[@]}"; do
     expected_owners+=("${row%%$'\t'*}")
     expected_files+=("${row#*$'\t'}")
 done
-for pair in "${held_prop_map[@]}" "${construction_prop_map[@]}"; do
+for pair in "${canonical_prop_map[@]}" "${construction_prop_map[@]}"; do
     expected_files+=("props/${pair##*:}.png")
     expected_owners+=("${pair%%:*}")
 done
@@ -1058,6 +1078,11 @@ if [ "${#expected_files[@]}" -lt 400 ]; then
     echo "expected-file derivation produced only ${#expected_files[@]} entries" >&2
     echo "— the roster or the renderer registry is broken; refusing to run" >&2
     exit 1
+fi
+
+if [ "$list_outputs" -eq 1 ]; then
+    printf '%s\n' "${expected_files[@]}"
+    exit 0
 fi
 
 if [ "$check_only" -eq 1 ]; then
@@ -1501,6 +1526,8 @@ then
         echo "    (the runtime roots were not replaced; the next run continues $staging_root)" >&2
         exit 1
     fi
+    "$python_bin" "$repo_root/scripts/check_regeneration_coverage.py" \
+        --family sprites --asset-root "$publish_asset_root"
     finish_staging
     exit 0
 fi
@@ -1525,14 +1552,14 @@ phase "tack-on targets (render-publish into $sprites_dir)"
 publish_cached_batch tackons \
     "${config_targets[@]}" "${faction_cues[@]}" "${review_cues[@]}" "${tackon_targets[@]}" "${rig_targets[@]}"
 
-phase "held-item prop canonicals (single-pose → $sprites_dir/props)"
+phase "prop canonicals (single-pose → $sprites_dir/props)"
 # A few props are shown in-game as STATIC held / ground items, which load
 # the single-pose `*_canonical_transparent.png` (not the animated sheet the
 # tack-on publish installs). Copy those canonicals flat into props/ so the
 # runtime asset paths (`sprites/props/<name>.png`) resolve on a fresh clone.
 props_dir="$sprites_dir/props"
 mkdir -p "$props_dir"
-for pair in "${held_prop_map[@]}"; do
+for pair in "${canonical_prop_map[@]}"; do
     src_target="${pair%%:*}"
     dst_name="${pair##*:}"
     canon="$renderer_dir/generated/$src_target/${src_target}_canonical_transparent.png"
@@ -1568,12 +1595,6 @@ phase "wielded-gauntlet prop icons (procedural → $props_dir)"
 # The same call also writes the `polygon_*.png` held-item props from that
 # module's HELD_ITEM_ICON_SPECS, which `HeldItemArt` resolves instead.
 (cd "$renderer_dir" && "$python_bin" -c "from ambition_sprite2d_renderer.targets.icons.item_icons import write_gauntlet_props as w; w('$props_dir')")
-
-phase "heal/save shrine prop (procedural obelisk → $props_dir)"
-# The world heal/save shrine is a free-standing prop (taller than the 64x64
-# icons), an 88x160 obelisk from `item_icons.py::write_shrine_prop`, consumed at
-# runtime by `shrine::sync_shrine_visual`.
-(cd "$renderer_dir" && "$python_bin" -c "from ambition_sprite2d_renderer.targets.icons.item_icons import write_shrine_prop as w; w('$props_dir')")
 
 phase "Mark/Recall world beacon prop (procedural crystal → $props_dir)"
 # The recall beacon is a free-standing 48x112 crystal pillar from
@@ -1840,6 +1861,10 @@ fi
 # phases below read the runtime roots: the LDtk phases write paths of the
 # sheets into tracked files, and those paths must be the runtime ones.
 phase "staging root → runtime roots"
+if ! "$python_bin" "$repo_root/scripts/check_regeneration_coverage.py" \
+    --family sprites --asset-root "$publish_asset_root"; then
+    regen_failures+=("sprite regeneration coverage: required sheets are absent from the plan or output")
+fi
 if [ "${#regen_failures[@]}" -eq 0 ]; then
     finish_staging
     echo "  moved ${staged_root_names[*]} into $asset_root"

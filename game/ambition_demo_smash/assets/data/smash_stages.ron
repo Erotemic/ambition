@@ -34,7 +34,14 @@
     // `protection_seconds`: long enough to fall in, read the stage and
     // choose a landing; short enough that spawn camping is not free.
     // Attacking or leaving the platform ends it early.
-    respawn: (rise: 160.0, protection_seconds: 2.0),
+    //
+    // Each seat comes back at its own point, alternating out from the centre
+    // `seat_spacing` px apart: two 32 px tiles, wider than a standing body,
+    // so two fighters that return on one frame do not overlap (eight seats
+    // stay within 224 px of the centre on a 480 px platform). Each stands on
+    // a `platform` (width, height) under its feet: three body widths across
+    // and thin, so it reads as a ledge to step off and not as stage.
+    respawn: (rise: 160.0, protection_seconds: 2.0, seat_spacing: 64.0, platform: (96.0, 12.0)),
     stages: {
         // A platform surrounded by nothing. A fighter stage is a place you can
         // be knocked off; the empty space is the mechanic. The platform is

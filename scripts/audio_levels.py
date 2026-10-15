@@ -428,7 +428,7 @@ def _eval_id(expr: str, bindings: dict[str, Any], consts: dict[str, str]) -> str
         return m.group(1)
     if expr in bindings and isinstance(bindings[expr], str):
         return bindings[expr]
-    # `SFX_REV_TIERS[0]` and `crate::powerups::SFX_SMALL_TO_BIG`
+    # `SFX_REV_TIERS[0]` and `crate::pipe::PIPE_WARP_SFX`
     m = re.fullmatch(r'(?:[\w:]*::)?([A-Z][A-Z0-9_]*)\s*\[\s*(\d+)\s*\]', expr)
     if m and m.group(1) in consts:
         value = consts[m.group(1)]
@@ -468,7 +468,7 @@ _GLOBAL_CONSTS: dict[str, Any] | None = None
 def global_str_consts() -> dict[str, Any]:
     """Every `const NAME: &str = ".."` in the workspace, by bare name.
 
-    ⚠ providers author ids as `crate::powerups::SFX_SMALL_TO_BIG`, so a
+    ⚠ providers author ids as `crate::pipe::PIPE_WARP_SFX`, so a
     file-local const table resolves nothing and six of Mary-O's nine specs
     vanish from the report without a word. Names are unique enough in practice;
     a collision would only mislabel a row, never change a level.

@@ -15,7 +15,8 @@
 //! her published body rig (`mary_o_v2_fire_body_rig.ron`, solved by the sprite
 //! publisher from the same poses as her frames): the near hand in the middle
 //! frame of `shoot`. The shipped demo does not admit body rigs, so the spark
-//! states its muzzle as numbers (`powerups::SPARK_MUZZLE`). A throw row that is
+//! states its muzzle as numbers (the cinder beacon's `discharge` in
+//! `data/mary_o_forms.ron`). A throw row that is
 //! posed again and leaves the numbers behind fails here.
 
 use bevy::math::Vec2;

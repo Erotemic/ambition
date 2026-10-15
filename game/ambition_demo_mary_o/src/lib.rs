@@ -25,6 +25,7 @@ pub mod cosmic_barrier;
 pub mod death;
 pub mod fire_shader;
 pub mod flag;
+pub mod forms;
 #[cfg(test)]
 mod ldtk_migration_tests;
 pub mod ldtk_vocabulary;

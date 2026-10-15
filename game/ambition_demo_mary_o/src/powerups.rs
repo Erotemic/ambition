@@ -9,9 +9,10 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::characters::brain::action_set::{Discharge, Muzzle, ProjectileFlight, RangedActionSpec};
+#[cfg(test)]
+use ambition_platformer2d::characters::brain::action_set::RangedActionSpec;
 use ambition_platformer2d::characters::equipment::{
-    EquipmentGrant, EquipmentRow, ModifierOp, ModifierScope, OnHit, ParamModifier, WornEquipment,
+    EquipmentRow, WornEquipment,
 };
 
 use crate::ldtk_vocabulary::{MaryOBlockContents, MaryOPickup};
@@ -27,50 +28,18 @@ use ambition_platformer2d::platformer::markers::PlayerEntity;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
+#[cfg(test)]
 use crate::provider::MARY_O_CHARACTER_ID;
 
-/// The worn-character id of the GROWN form: a distinct SHEET
-/// (`mary_o_v2_tall`), not a scaled copy of the small sheet. Wearing it is how
-/// the powerup grows Mary-O; reverting to [`MARY_O_CHARACTER_ID`] shrinks her.
-const TALL_CHARACTER_ID: &str = "mary_o_tall";
-
-/// The worn-character id of the FIRE form (the fire-flower analog). A distinct SHEET
-/// (`mary_o_v2_fire`) with its own fireball pose, tinted the classic white-and-red fire palette
-/// — the SAME height as the grown form, so the spark beacon changes her LOOK + spark loadout
-/// without a size flicker. Wearing the [`CINDER_BEACON_ID`] row selects this; losing the spark
-/// reverts to [`TALL_CHARACTER_ID`] (grown), then a second hit to [`MARY_O_CHARACTER_ID`]
-/// (small).
-const SPARK_CHARACTER_ID: &str = "mary_o_fire";
-
-/// Authored transform/reversion cue ids.  The packed SFX bank provides the
-/// layered clips; Mary-O's provider registry supplies authorization and a tiny
-/// procedural fallback while the bank is unavailable.
-pub const SFX_SMALL_TO_BIG: &str = "mary_o.transform.small_to_big";
-pub const SFX_BIG_TO_FIRE: &str = "mary_o.transform.big_to_fire";
-pub const SFX_BIG_TO_SMALL: &str = "mary_o.revert.big_to_small";
-pub const SFX_FIRE_TO_BIG: &str = "mary_o.revert.fire_to_big";
-pub const SFX_FIRE_TO_SMALL: &str = "mary_o.revert.fire_to_small";
-
-/// The star wand's half-extent — a small collectible box that pops out of a
-/// bonked ?-block and grows Mary-O when she touches it.
-const STAR_WAND_HALF: ae::Vec2 = ae::Vec2::new(12.0, 15.5);
-
-/// The beacon's half-extent — the second collectible in the chain.
-const CINDER_BEACON_HALF: ae::Vec2 = ae::Vec2::new(12.0, 18.0);
+/// Her power ladder: the forms, the rows she wears on them, and the sound of
+/// each change of form, as her pack states it (`data/mary_o_forms.ron`).
+use crate::forms::mary_o_forms;
 
 /// The presentation art id the wand `WorldItem` carries. The app binds it to the
 /// generated `super_mary_o_star_wand` sprite in `WorldItemArt`; the render draws
 /// that image, or the cream quad until it is regenerated. Shared here so the spawn
 /// and the art binding name the exact same key.
 pub const STAR_WAND_SPRITE: &str = "super_mary_o_star_wand";
-
-/// The exclusive slot BOTH power rows occupy. Mary-O has exactly one power state
-/// at a time, so collecting the beacon REPLACES the wand rather than stacking on
-/// top of it. Stacking would silently invert the loss order — the older wand would
-/// be found first by the armor spend, so a hit would shrink her while leaving the
-/// spark, which is backwards. With one slot, the worn row IS her power state and
-/// its `downgrade_to` is the authority on what losing it means.
-pub const FORM_SLOT: &str = "mary_o_form";
 
 /// Row id of the star wand (mushroom-analog).
 pub const STAR_WAND_ID: &str = "star_wand";
@@ -79,105 +48,22 @@ pub const CINDER_BEACON_ID: &str = "cinder_beacon";
 
 /// The star wand: one-hit armor, the classic first powerup's take-a-hit half.
 ///
-/// It is pure A3 [`OnHit::ConsumeAsArmor`] with `downgrade_to: None`: worn, it
-/// absorbs one hit and is spent (removed); the very next read finds no wand and the
-/// hit would reach HP — "big → small on hit", as data, no write-back.
-///
-/// The GROWN look and size are NOT a modifier here: "small and tall have different
-/// sprites", so growing swaps the worn identity to a distinct tall SHEET
-/// ([`TALL_CHARACTER_ID`]) and bumps the body's collider — see [`sync_grown_form`],
-/// which makes the tall form a pure view of *wearing this wand*. So the wand's whole
-/// data effect is the armor; the size is a reactive consequence of possessing it.
+/// Worn, it absorbs one hit and is spent: the very next read finds no wand and
+/// the hit reaches HP. The GROWN look and size are not a modifier: growing
+/// swaps the worn identity to a distinct tall sheet, and [`sync_grown_form`]
+/// makes the tall form a view of wearing this wand. Her pack states the row
+/// (`data/mary_o_forms.ron`); the ladder gives it its armor and its slot.
 pub fn star_wand() -> EquipmentRow {
-    EquipmentRow {
-        id: STAR_WAND_ID.to_string(),
-        modifiers: Vec::new(),
-        grants: Vec::new(),
-        on_hit: Some(OnHit::ConsumeAsArmor { downgrade_to: None }),
-        exclusive_slot: Some(FORM_SLOT.to_string()),
-    }
+    mary_o_forms().row(STAR_WAND_ID).expect("her pack states the star wand on her ladder")
 }
 
-/// The cinder beacon: a ranged verb AND the outer layer of armor.
-///
-/// It grants a bouncing spark ([`EquipmentGrant::Ranged`]), relabels her run
-/// button `Run / Spark` ([`EquipmentGrant::Technique`]), and scales that shot's
-/// damage 1.5x at fire (a `Verb("ranged")`-scoped [`ranged_param::DAMAGE`]
-/// modifier, folded in [`ambition_platformer2d::characters::equipment::resolved_ranged`] at
-/// trigger-resolve).
-///
-/// Crucially it is ALSO armor, and its `downgrade_to` is the [`star_wand`]. That
-/// single field is the whole power-state progression: worn over nothing it is the
-/// spark-powered grown form; a hit spends it and splices the wand into its place,
-/// so she loses the spark and stays tall; the next hit spends the wand and she
-/// shrinks. Two hits, two distinct losses, expressed as data.
-///
-/// [`ranged_param::DAMAGE`]: ambition_platformer2d::characters::equipment::ranged_param::DAMAGE
+/// The cinder beacon: the spark, the `Run / Spark` label, x1.5 spark damage,
+/// and the outer layer of armor. A hit spends it into the [`star_wand`], so she
+/// loses the spark and stays tall; the next hit spends the wand and she
+/// shrinks. Her pack states the row (`data/mary_o_forms.ron`).
 pub fn cinder_beacon() -> EquipmentRow {
-    use ambition_platformer2d::characters::equipment::ranged_param;
-    EquipmentRow {
-        id: CINDER_BEACON_ID.to_string(),
-        modifiers: vec![ParamModifier {
-            param: ranged_param::DAMAGE.to_string(),
-            op: ModifierOp::Mul(1.5),
-            scope: ModifierScope::Verb("ranged".to_string()),
-        }],
-        grants: vec![
-            EquipmentGrant::Ranged(spark_shot()),
-            // The run button also fires the spark now, and its label says so.
-            EquipmentGrant::Technique(crate::movement::run_technique("Run / Spark")),
-        ],
-        on_hit: Some(OnHit::ConsumeAsArmor {
-            downgrade_to: Some(Box::new(star_wand())),
-        }),
-        exclusive_slot: Some(FORM_SLOT.to_string()),
-    }
+    mary_o_forms().row(CINDER_BEACON_ID).expect("her pack states the cinder beacon on her ladder")
 }
-
-/// The spark itself: a low, fast shot that falls and skips off floors, dying
-/// after two bounces or a second and a half — whichever comes first.
-///
-/// Authored entirely as data on the ranged action. The shared projectile stepper
-/// has no idea this shot exists: it reads gravity, a bounce budget, a lifetime and
-/// a visual id off the spec, exactly as it does for every other projectile. That
-/// is the point — a bouncing spark is a set of numbers, not a code path.
-fn spark_shot() -> RangedActionSpec {
-    let spark = crate::rules::mary_o_rules().spark;
-    RangedActionSpec::bolt(spark.speed, spark.damage)
-        .with_flight(
-            ProjectileFlight::arcing(spark.gravity, spark.bounces)
-                .with_lifetime(spark.lifetime_seconds)
-                .with_half_extent(ae::Vec2::new(spark.half_extent, spark.half_extent)),
-        )
-        .with_visual(SPARK_VISUAL)
-        .with_refire(spark.refire_seconds)
-        // The classic rule: two of her sparks on screen at once.
-        .with_max_live(2)
-        // No kick. A ranged action that states no discharge takes the generic
-        // one, which pushes the shooter back; she slid 4 px for each spark.
-        .with_discharge(Discharge {
-            muzzle: SPARK_MUZZLE,
-            recoil: 0.0,
-            ..Discharge::default()
-        })
-}
-
-/// Where a spark is born: its rear edge is at the hand she throws it with.
-///
-/// The hand is her near hand in the middle frame of her `shoot` row: `(27.47,
-/// -36.88)` px from her feet in the published rig of her fire form
-/// (`mary_o_v2_fire_body_rig.ron`). She is 64 px tall, so the hand is `(27.47,
-/// -4.88)` px from her centre, and the spark's centre is `spark.half_extent` (`mary_o_rules.ron`)
-/// more along the throw. A [`Muzzle::Offset`] is a fraction of her height.
-///
-/// The shipped demo admits no body rig, so the hand is stated here and not
-/// asked of the rig. `her_spark_is_born_at_her_throwing_hand` (`mary_o_it`)
-/// compares these numbers with the published rig: pose the row again and it
-/// fails with the new hand.
-pub const SPARK_MUZZLE: Muzzle = Muzzle::Offset {
-    x: 0.5855,
-    y: -0.0762,
-};
 
 /// The projectile-visual id Mary-O registers her spark look under.
 pub const SPARK_VISUAL: &str = "mary_o_spark";
@@ -432,10 +318,7 @@ pub fn refuse_a_weaker_form_pickup(
                 continue;
             }
             let ambition_platformer2d::world_items::WorldItemPayload::Equip(row) = &item.payload;
-            let is_form = row
-                .exclusive_slot
-                .as_deref()
-                .is_some_and(|slot| slot == FORM_SLOT);
+            let is_form = is_form_row(row);
             if !is_form || form_rank(&row.id) > rank {
                 continue;
             }
@@ -697,57 +580,30 @@ enum BlockPayout {
     Coins(i32),
 }
 
-/// One rung of her power ladder: the form row she wears on it (none on the
-/// bottom rung) and the catalog row she is drawn as.
-struct FormRung {
-    row: Option<&'static str>,
-    character: &'static str,
+/// Whether `row` is one of her form rows: a row in her ladder's slot.
+fn is_form_row(row: &EquipmentRow) -> bool {
+    row.exclusive_slot.as_deref().is_some_and(|slot| slot == mary_o_forms().slot)
 }
-
-/// Her power ladder, bottom rung first. A rung's index is its rank.
-///
-/// Every question about her form reads this one list: which rung the worn rows
-/// put her on, which character that rung draws, how far a transformation moves,
-/// and whether a pickup would lower her. A new form is one row here.
-///
-/// The ladder is a Mary-O rule and lives in Mary-O. The engine's exclusive-slot
-/// replacement is correct and general (a new row in a slot replaces the old
-/// one), and "a weaker form may not replace a stronger one" is a statement
-/// about this game's progression, not about equipment.
-const FORM_LADDER: [FormRung; 3] = [
-    FormRung {
-        row: None,
-        character: MARY_O_CHARACTER_ID,
-    },
-    FormRung {
-        row: Some(STAR_WAND_ID),
-        character: TALL_CHARACTER_ID,
-    },
-    FormRung {
-        row: Some(CINDER_BEACON_ID),
-        character: SPARK_CHARACTER_ID,
-    },
-];
-
-/// The top rung. Arriving here is the same-size transformation, not a growth.
-const TOP_RUNG: u8 = (FORM_LADDER.len() - 1) as u8;
 
 /// The rung this equipment row puts her on. A row that is not a form is the
 /// bottom rung.
 fn form_rank(row_id: &str) -> u8 {
-    FORM_LADDER
+    mary_o_forms()
+        .ladder
         .iter()
-        .position(|rung| rung.row == Some(row_id))
+        .position(|rung| rung.row.as_ref().is_some_and(|row| row.id == row_id))
         .unwrap_or(0) as u8
 }
 
 /// The rung she is on now: the highest rung whose row she wears.
 fn worn_form_rank(worn: Option<&WornEquipment>) -> u8 {
-    FORM_LADDER
+    mary_o_forms()
+        .ladder
         .iter()
         .rposition(|rung| {
             rung.row
-                .is_some_and(|row| worn.is_some_and(|worn| worn.wears(row)))
+                .as_ref()
+                .is_some_and(|row| worn.is_some_and(|worn| worn.wears(&row.id)))
         })
         .unwrap_or(0) as u8
 }
@@ -755,18 +611,19 @@ fn worn_form_rank(worn: Option<&WornEquipment>) -> u8 {
 /// Whether `character_id` is one of her forms: a rung of her ladder, or the
 /// form that is off the ladder (`cosmic`).
 pub(crate) fn is_her_form(character_id: &str) -> bool {
-    FORM_LADDER.iter().any(|rung| rung.character == character_id) || crate::cosmic::is_cosmic(character_id)
+    mary_o_forms().ladder.iter().any(|rung| rung.character == character_id) || crate::cosmic::is_cosmic(character_id)
 }
 
 /// The character of the rung her equipment puts her on: the form she has
 /// when no other rule says what she wears.
 pub(crate) fn ladder_character(worn: Option<&WornEquipment>) -> &'static str {
-    FORM_LADDER[worn_form_rank(worn) as usize].character
+    &mary_o_forms().ladder[worn_form_rank(worn) as usize].character
 }
 
 /// The rung a worn-character id draws. An id off the ladder is the bottom rung.
 fn power_tier(character_id: &str) -> u8 {
-    FORM_LADDER
+    mary_o_forms()
+        .ladder
         .iter()
         .position(|rung| rung.character == character_id)
         .unwrap_or(0) as u8
@@ -786,7 +643,7 @@ fn power_tier(character_id: &str) -> u8 {
 /// the game. Reading the rank is what makes that mistake unsayable.
 ///
 /// the quasar is not a form and does not count. `pocket_quasar` wears no
-/// [`FORM_SLOT`], so a small Mary-O carrying one is still small here. That is
+/// form slot, so a small Mary-O carrying one is still small here. That is
 /// the classic behaviour and it falls out of the slot rather than out of a list
 /// of ids this function would otherwise have to exclude.
 pub(crate) fn is_small(worn: Option<&WornEquipment>) -> bool {
@@ -817,11 +674,7 @@ pub(crate) fn is_small(worn: Option<&WornEquipment>) -> bool {
 /// [`refuse_a_weaker_form_pickup`], which runs before the engine's collector;
 /// between them the invariant is true of every road a form item can arrive on.
 fn without_downgrading(reward: PowerReward, worn: Option<&WornEquipment>) -> BlockPayout {
-    let is_form = reward
-        .row
-        .exclusive_slot
-        .as_deref()
-        .is_some_and(|slot| slot == FORM_SLOT);
+    let is_form = is_form_row(&reward.row);
     if is_form && form_rank(&reward.row.id) <= worn_form_rank(worn) {
         return BlockPayout::Coins(crate::rules::mary_o_rules().coins_per_block);
     }
@@ -870,7 +723,7 @@ fn pickup_reward(pickup: MaryOPickup) -> Option<PowerReward> {
 
 /// The next rung on the way to `target`, given the form she is in.
 ///
-/// The pickups stay an explicit match, not a column of [`FORM_LADDER`], because
+/// The pickups stay an explicit match, not a column of her ladder, because
 /// they are not interchangeable: the quasar is not on the ladder at all (any
 /// form takes one), and the top rung REPEATS rather than answering nothing (see
 /// [`beacon_reward`] for why that matters).
@@ -899,11 +752,11 @@ fn next_rung_toward(target: MaryOPickup, worn: Option<&WornEquipment>) -> Option
 fn quasar_reward() -> PowerReward {
     PowerReward {
         row: crate::star::pocket_quasar(),
-        half: crate::star::QUASAR_HALF,
+        half: crate::rules::mary_o_rules().power_ups.quasar_half(),
         sprite: crate::star::QUASAR_SPRITE,
         motion: rises_from_a_block(
             ItemMotionPlan::bouncer(crate::rules::mary_o_rules().power_ups.quasar_speed, crate::rules::mary_o_rules().power_ups.quasar_restitution),
-            crate::star::QUASAR_HALF.y,
+            crate::rules::mary_o_rules().power_ups.quasar_half().y,
         ),
     }
 }
@@ -934,10 +787,10 @@ fn rises_from_a_block(plan: ItemMotionPlan, half_y: f32) -> ItemMotionPlan {
 fn wand_reward() -> PowerReward {
     PowerReward {
         row: star_wand(),
-        half: STAR_WAND_HALF,
+        half: crate::rules::mary_o_rules().power_ups.wand_half(),
         sprite: STAR_WAND_SPRITE,
         // The wand WALKS and turns at walls, like the mushroom.
-        motion: rises_from_a_block(ItemMotionPlan::walker(crate::rules::mary_o_rules().power_ups.wand_speed), STAR_WAND_HALF.y),
+        motion: rises_from_a_block(ItemMotionPlan::walker(crate::rules::mary_o_rules().power_ups.wand_speed), crate::rules::mary_o_rules().power_ups.wand_half().y),
     }
 }
 
@@ -956,10 +809,10 @@ fn wand_reward() -> PowerReward {
 fn beacon_reward() -> PowerReward {
     PowerReward {
         row: cinder_beacon(),
-        half: CINDER_BEACON_HALF,
+        half: crate::rules::mary_o_rules().power_ups.beacon_half(),
         sprite: CINDER_BEACON_SPRITE,
         // The beacon waits on its block, like the classic flower.
-        motion: rises_from_a_block(ItemMotionPlan::still(), CINDER_BEACON_HALF.y),
+        motion: rises_from_a_block(ItemMotionPlan::still(), crate::rules::mary_o_rules().power_ups.beacon_half().y),
     }
 }
 
@@ -1104,13 +957,12 @@ const UNREADABLE_CLIP_SECS: f32 = 0.45;
 /// sheet of the form ARRIVED AT, so this is always resolved against the target.
 fn transition_anim(from_tier: u8, to_tier: u8) -> CharacterAnim {
     if to_tier > from_tier {
-        // Arriving at fire is a same-size palette transformation; arriving at
-        // grown is the silhouette flicker.
-        if to_tier == TOP_RUNG {
-            CharacterAnim::Transform
-        } else {
-            CharacterAnim::Grow
-        }
+        // The rung arrived at says how she arrives (`arrival` in her ladder):
+        // a change of size, or a change of look at the same size.
+        mary_o_forms().ladder[to_tier as usize]
+            .arrival
+            .expect("admission: every rung over the bottom states its arrival")
+            .anim()
     } else if from_tier - to_tier >= 2 {
         CharacterAnim::BigShrink
     } else {
@@ -1142,19 +994,9 @@ pub(crate) fn clip_seconds(
     .unwrap_or(UNREADABLE_CLIP_SECS)
 }
 
-/// The exact authored sound for a form transition.
-///
-/// The direct fire→small edge is used by the large-damage path even though the
-/// ordinary armor chain normally spends fire into big first.
+/// The exact authored sound for a form transition (`cues` in her ladder).
 fn power_transition_sfx(from: &str, to: &str) -> Option<&'static str> {
-    match (from, to) {
-        (MARY_O_CHARACTER_ID, TALL_CHARACTER_ID) => Some(SFX_SMALL_TO_BIG),
-        (TALL_CHARACTER_ID, SPARK_CHARACTER_ID) => Some(SFX_BIG_TO_FIRE),
-        (TALL_CHARACTER_ID, MARY_O_CHARACTER_ID) => Some(SFX_BIG_TO_SMALL),
-        (SPARK_CHARACTER_ID, TALL_CHARACTER_ID) => Some(SFX_FIRE_TO_BIG),
-        (SPARK_CHARACTER_ID, MARY_O_CHARACTER_ID) => Some(SFX_FIRE_TO_SMALL),
-        _ => None,
-    }
+    mary_o_forms().cue(from, to)
 }
 
 /// Re-arm every ?-block when level 1-1 (re)loads, so a cyclic replay pops fresh
@@ -1252,6 +1094,34 @@ impl ambition_platformer2d::actors::session::reset::AttemptScoped for SpentPower
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d::characters::equipment::EquipmentGrant;
+
+    /// The top rung's rank.
+    fn top_rung() -> u8 {
+        mary_o_forms().top()
+    }
+
+    /// The catalog row of the rung of rank `rank` on her ladder.
+    fn character(rank: usize) -> &'static str {
+        &mary_o_forms().ladder[rank].character
+    }
+
+    /// The sound of the change of form from rung `from` to rung `to`.
+    fn cue(from: usize, to: usize) -> &'static str {
+        mary_o_forms().cue(character(from), character(to)).expect("her ladder states this cue")
+    }
+
+    /// The spark: the ranged grant of the cinder beacon.
+    fn spark_shot() -> RangedActionSpec {
+        cinder_beacon()
+            .grants
+            .into_iter()
+            .find_map(|grant| match grant {
+                EquipmentGrant::Ranged(spec) => Some(spec),
+                _ => None,
+            })
+            .expect("the cinder beacon grants the spark")
+    }
     use ambition_platformer2d::characters::equipment::{
         apply_equipment_grants, resolved_ranged, WornEquipment,
     };
@@ -1277,12 +1147,12 @@ mod tests {
         let authored = AuthoredSheets::default();
         let source = include_str!("../assets/data/character_catalog.ron");
         let catalog = CharacterCatalog::from_data(parse_catalog(source));
-        let anim = transition_anim(0, TOP_RUNG);
+        let anim = transition_anim(0, top_rung());
 
         // ⛔ THE PREMISE. A form whose sheet cannot be read answers with
         // `UNREADABLE_CLIP_SECS`, and every assertion below would then be
         // comparing one fallback against another.
-        let authored_beat = clip_seconds(Some(&catalog), Some(&authored), SPARK_CHARACTER_ID, anim);
+        let authored_beat = clip_seconds(Some(&catalog), Some(&authored), character(2), anim);
         assert_ne!(
             authored_beat, UNREADABLE_CLIP_SECS,
             "the spark form's sheet did not resolve at all, so this test is \
@@ -1299,7 +1169,7 @@ mod tests {
         ));
         let small_beat = clip_seconds(Some(&catalog), Some(&authored), MARY_O_CHARACTER_ID, anim);
         let rerouted_beat =
-            clip_seconds(Some(&rerouted), Some(&authored), SPARK_CHARACTER_ID, anim);
+            clip_seconds(Some(&rerouted), Some(&authored), character(2), anim);
         assert_eq!(
             rerouted_beat, small_beat,
             "the spark form's catalog row was pointed at the small form's sheet \
@@ -1315,30 +1185,30 @@ mod tests {
     /// `characters::equipment`, this demo would not compile (the E9 oracle).
     #[test]
     fn every_supported_form_transition_has_its_own_sfx() {
-        assert_eq!(
-            power_transition_sfx(MARY_O_CHARACTER_ID, TALL_CHARACTER_ID),
-            Some(SFX_SMALL_TO_BIG)
-        );
-        assert_eq!(
-            power_transition_sfx(TALL_CHARACTER_ID, SPARK_CHARACTER_ID),
-            Some(SFX_BIG_TO_FIRE)
-        );
-        assert_eq!(
-            power_transition_sfx(TALL_CHARACTER_ID, MARY_O_CHARACTER_ID),
-            Some(SFX_BIG_TO_SMALL)
-        );
-        assert_eq!(
-            power_transition_sfx(SPARK_CHARACTER_ID, TALL_CHARACTER_ID),
-            Some(SFX_FIRE_TO_BIG)
-        );
-        assert_eq!(
-            power_transition_sfx(SPARK_CHARACTER_ID, MARY_O_CHARACTER_ID),
-            Some(SFX_FIRE_TO_SMALL)
-        );
-        assert_eq!(
-            power_transition_sfx(MARY_O_CHARACTER_ID, SPARK_CHARACTER_ID),
-            None
-        );
+        let top = top_rung() as usize;
+        let mut heard = Vec::new();
+        for from in 0..=top {
+            for to in 0..=top {
+                let sfx = power_transition_sfx(character(from), character(to));
+                // She climbs one rung at a time; she can fall any number.
+                if from == to || to > from + 1 {
+                    assert_eq!(sfx, None, "rung {from} to rung {to} is not a change she makes");
+                    continue;
+                }
+                let sfx = sfx.unwrap_or_else(|| panic!("rung {from} to rung {to} plays no sound"));
+                assert!(!heard.contains(&sfx), "`{sfx}` is the sound of two changes");
+                heard.push(sfx);
+            }
+        }
+    }
+
+    /// Each pickup a block gives is the size her rules file states.
+    #[test]
+    fn each_pickup_is_the_size_her_rules_state() {
+        let power_ups = crate::rules::mary_o_rules().power_ups;
+        assert_eq!(wand_reward().half, power_ups.wand_half());
+        assert_eq!(beacon_reward().half, power_ups.beacon_half());
+        assert_eq!(quasar_reward().half, power_ups.quasar_half());
     }
 
     #[test]
@@ -1383,15 +1253,15 @@ mod tests {
 
         // The spark leaves the barrel with folded (x1.5) damage.
         let base = actions.ranged.clone().expect("beacon set a ranged spec");
-        let shot = resolved_ranged(base, &worn, "ranged", RANGED_VERB);
+        let shot = resolved_ranged(base.clone(), &worn, "ranged", RANGED_VERB);
         assert_eq!(shot.damage(), 6, "x1.5 on the beacon's 4-damage spark");
-        assert_eq!(shot.speed(), crate::rules::mary_o_rules().spark.speed, "speed is unmodified");
+        assert_eq!(shot.speed(), base.speed(), "speed is unmodified");
         // The equipment fold must not drop the authored flight/visual — that was a
         // real bug in the variant-by-variant rebuild this replaced.
         let flight = shot.flight.expect("the fold preserves authored flight");
         assert!(flight.gravity > 0.0, "the spark arcs");
         assert!(flight.bounce_on_world_contact, "and skips off floors");
-        assert_eq!(flight.bounces, crate::rules::mary_o_rules().spark.bounces);
+        assert_eq!(Some(flight.bounces), base.flight.map(|flight| flight.bounces));
         assert_eq!(shot.visual.as_deref(), Some(SPARK_VISUAL));
         // Jon asked for the classic TWO on screen. The engine test of the
         // limit passes at any number, so the number is asserted here, and the
@@ -1505,14 +1375,14 @@ mod tests {
     /// ordinary armor spend. Spark-powered -> grown (loses the spark, stays tall)
     /// -> small.
     ///
-    /// The armor chain (`downgrade_to`) and [`FORM_LADDER`] both state the
-    /// order, so the first half walks the chain against the ladder: a rung added
-    /// to one and not the other fails there.
+    /// The ladder builds the armor chain (`downgrade_to`), so the first half
+    /// walks the chain against the ladder: a chain that skips a rung fails
+    /// there.
     #[test]
     fn damage_downgrades_spark_to_grown_then_grown_to_small() {
         let mut worn = WornEquipment::new(vec![cinder_beacon()]);
-        assert_eq!(worn_form_rank(Some(&worn)), TOP_RUNG, "the beacon is the top rung");
-        for rung in (0..TOP_RUNG).rev() {
+        assert_eq!(worn_form_rank(Some(&worn)), top_rung(), "the beacon is the top rung");
+        for rung in (0..top_rung()).rev() {
             assert!(worn.consume_armor().is_some(), "rung {} absorbs a hit", rung + 1);
             assert_eq!(
                 worn_form_rank(Some(&worn)),
@@ -1691,7 +1561,7 @@ mod tests {
         app.update();
         assert_eq!(
             app.world().get::<WornCharacter>(body).unwrap().id(),
-            TALL_CHARACTER_ID,
+            character(1),
             "wearing the wand grows her to the tall SHEET"
         );
 
@@ -1756,7 +1626,7 @@ mod tests {
         app.update();
         assert_eq!(
             app.world().get::<WornCharacter>(body).unwrap().id(),
-            SPARK_CHARACTER_ID,
+            character(2),
             "ONE tick after taking the beacon she is the fire form — not tall, \
              and not tall-then-fire"
         );
@@ -1773,7 +1643,7 @@ mod tests {
         app.update();
         assert_eq!(
             app.world().get::<WornCharacter>(body).unwrap().id(),
-            SPARK_CHARACTER_ID,
+            character(2),
             "holding the wand AND the beacon is the fire form — the beacon is \
              the higher rung and the check has to read it first"
         );
@@ -1820,7 +1690,7 @@ mod tests {
         app.update();
         assert_eq!(
             form(&app),
-            SPARK_CHARACTER_ID,
+            character(2),
             "the beacon shows the DISTINCT fire sheet, not the plain grown one"
         );
 
@@ -1832,7 +1702,7 @@ mod tests {
         app.update();
         assert_eq!(
             form(&app),
-            TALL_CHARACTER_ID,
+            character(1),
             "losing the spark drops the fire sheet back to the grown sheet, \
              not to the small one"
         );
@@ -1898,7 +1768,7 @@ mod tests {
         app.update();
         assert_eq!(
             voiced(&mut app),
-            vec![SfxId::new(SFX_SMALL_TO_BIG)],
+            vec![SfxId::new(cue(0, 1))],
             "growing voices the small->big cue, exactly once"
         );
 
@@ -1909,7 +1779,7 @@ mod tests {
         app.update();
         assert_eq!(
             voiced(&mut app),
-            vec![SfxId::new(SFX_BIG_TO_FIRE)],
+            vec![SfxId::new(cue(1, 2))],
             "gaining fire is its own sound, not the growth chime again"
         );
 
@@ -1921,7 +1791,7 @@ mod tests {
         app.update();
         assert_eq!(
             voiced(&mut app),
-            vec![SfxId::new(SFX_FIRE_TO_BIG)],
+            vec![SfxId::new(cue(2, 1))],
             "losing the beacon voices the fire->big reversion"
         );
 
@@ -1933,7 +1803,7 @@ mod tests {
         app.update();
         assert_eq!(
             voiced(&mut app),
-            vec![SfxId::new(SFX_BIG_TO_SMALL)],
+            vec![SfxId::new(cue(1, 0))],
             "and losing the wand voices the big->small reversion"
         );
 

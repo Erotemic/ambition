@@ -87,4 +87,6 @@ for output in "${required_outputs[@]}"; do
     fi
 done
 
+"$scene_python" "$repo_root/scripts/check_regeneration_coverage.py" --family backgrounds
+
 echo "==> done"

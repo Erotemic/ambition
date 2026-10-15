@@ -66,4 +66,6 @@ fi
 echo "==> pack → crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank"
 "$renderer_py" "$pack_script" --dump
 
+"$renderer_py" "$repo_root/scripts/check_regeneration_coverage.py" --family sfx
+
 echo "==> done"

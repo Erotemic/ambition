@@ -12,9 +12,11 @@ on a torus glued to the rest of the dimension, and the wrap is a later
 discovery (docs/storylines/cannon_expansions.md, D5-D7). These are its first
 rooms:
 
-- `math_gate_hall`: the gate square. Travellers to and from the dimension
-  arrive here, by the gate on the square; colonnade galleries on each side
-  and a walk over the gate. The town's street is through its east edge.
+- `math_gate_hall`: the gate hall, a vaulted undercroft under the street
+  (theme `math_undercroft`). Travellers to and from the dimension arrive by
+  the gate, which stands in its cradle (`gate_cradle`: a plinth with stairs,
+  walked on zero-speed platforms) in the middle of the floor. A door at its
+  east end goes up to the street. Townsfolk wander (`townsfolk_roam`).
 - `math_town_street`: the street at the foot of the terraces. Ledges climb
   the cliff to the first terrace and on to the second.
 
@@ -42,7 +44,7 @@ MATH_LDTK = default_worlds_dir() / "math.ldtk"
 INTRO_LDTK = default_worlds_dir() / "intro.ldtk"
 
 BIOME = "math_town"
-MUSIC = "standing_on_shoulders"
+MUSIC = "shoulders_at_rest"
 BG = "#BFD7EE"
 WALL = 16
 
@@ -56,7 +58,7 @@ HALL, STREET = "math_gate_hall", "math_town_street"
 
 #: Each room: where it is in the world, and its size.
 ROOMS_AT = {
-    HALL: (0, 1600, 896),
+    HALL: (0, 1600, 768),
     STREET: (1712, 2400, 1104),
 }
 
@@ -90,7 +92,7 @@ def gate(ring, portal, zone, x, floor, to_room, to_zone, name):
     ]
 
 
-def room(rid, entities, label_text):
+def room(rid, entities, label_text, theme=BIOME):
     world_x, w, h = ROOMS_AT[rid]
     body = "\n        ".join(entities + [
         f'( type: "CameraZone", px: [0, 0], size: [{w}, {h}], fields: ( id: "{rid}_camera", name: "{rid}_camera", mode: "Default" ) ),',
@@ -106,8 +108,8 @@ def room(rid, entities, label_text):
     px_hei: {h},
     fill_collision: "empty",
     bg_color: "{BG}",
-    biome: "{BIOME}",
-    parallax_theme: "{BIOME}",
+    biome: "{theme}",
+    parallax_theme: "{theme}",
     music_track: "{MUSIC}",
     entities: [
         {body}
@@ -117,35 +119,110 @@ def room(rid, entities, label_text):
 """
 
 
+def wanderer(name, character, x, floor, h=64):
+    """A townsperson who walks about the room and pays the player no mind."""
+    del name  # An NpcSpawn has no name field; the character is its name.
+    return (f'( type: "NpcSpawn", px: [{x}, {floor - h}], size: [32, {h}], fields: ( '
+            f'character_id: "{character}", brain_override: "townsfolk_roam" ) ),')
+
+
+def still(name, x, y, w, h):
+    """A zero-speed one-way platform with no picture: a tread of the
+    cradle's stairs, or its plinth (the cradle prop draws them)."""
+    return (f'( type: "MovingPlatform", px: [{x}, {y}], size: [{w}, {h}], fields: ( id: "{name}", name: "{name}", '
+            f'speed: 0.0, visual: "none", one_way: true ) ),')
+
+
+#: The gate cradle (`targets/props/gate_cradle.py`): its size in world units,
+#: its plinth, and its stairs. The numbers are the art's.
+CRADLE_W, CRADLE_H = 480, 176
+PLINTH_W, PLINTH_H = 288, 48
+STEP_RUN, STEP_RISE = 8, 4
+STEPS = PLINTH_H // STEP_RISE
+
+
+def cradle(prefix, cx, floor):
+    """The cradle centred on `cx`, its plinth's walk, and a tread under each
+    painted step. Returns the entities and the top of the plinth."""
+    x0 = cx - CRADLE_W // 2
+    p0, p1 = cx - PLINTH_W // 2, cx + PLINTH_W // 2
+    top = floor - PLINTH_H
+    e = [f'( type: "Prop", px: [{x0}, {floor - CRADLE_H}], size: [{CRADLE_W}, {CRADLE_H}], fields: ( name: "{prefix} Cradle", kind: "gate_cradle" ) ),',
+         still(f"{prefix}_plinth", p0, top, PLINTH_W, PLINTH_H)]
+    for j in range(1, STEPS + 1):
+        rise = j * STEP_RISE
+        near = (STEPS - j) * STEP_RUN
+        e.append(still(f"{prefix}_step_w{j:02d}", p0 - near - STEP_RUN, floor - rise, STEP_RUN, rise))
+        e.append(still(f"{prefix}_step_e{j:02d}", p1 + near, floor - rise, STEP_RUN, rise))
+    return e, top
+
+
 def gate_hall():
-    """The gate square: the gate in the middle on the floor, a colonnade
-    gallery each side, steps up to them, and a walk over the gate."""
+    """The gate hall: a vaulted undercroft under the street. The gate stands
+    in its cradle in the middle of the floor, with stairs up to its plinth;
+    galleries along the walls; the door up to the town at the east end."""
     rid = HALL
     _, w, h = ROOMS_AT[rid]
     floor = h - 64
-    gx = w // 2 - 96
+    cx = w // 2
+    stand, plinth = cradle("math_gate", cx, floor)
     e = [
         solid("floor", 0, floor, w, 64),
-        solid("west_wall", 0, 0, WALL, floor),
-        solid("east_wall_upper", w - WALL, 0, WALL, floor - 240),
-        f'( type: "PlayerStart", px: [{gx - 120}, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
-        *gate(MATH_RING, MATH_PORTAL, MATH_ZONE, gx, floor, "gate_stack_lower", HOME_ZONE, "to the Home dimension"),
-        # Steps up to the galleries, and the galleries.
-        ledge("west_step", 96, floor - 96, 128),
-        ledge("west_gallery", 176, floor - 192, 400),
-        ledge("east_step", w - 224, floor - 96, 128),
-        ledge("east_gallery", w - 576, floor - 192, 400),
-        # The walk over the gate, from gallery to gallery.
-        ledge("gate_walk", gx - 160, floor - 336, 512),
-        ledge("west_upper", 320, floor - 448, 192),
-        ledge("east_upper", w - 512, floor - 448, 192),
-        edge(f"{rid}_east", "to the town", w - WALL, floor - 240, 240, STREET, f"{STREET}_west"),
-        label("hall_sign_gate", gx - 40, floor - 236, "GATE OF THE MATH DIMENSION", 300),
-        label("hall_sign_axioms", 200, floor - 260, "Arrivals: please declare all axioms", 380),
-        label("hall_sign_infinity", w - 580, floor - 260, "Infinity is not a valid destination", 380),
+        solid("vault", 0, 0, w, 48),
+        solid("west_wall", 0, 48, WALL, floor - 48),
+        solid("east_wall", w - WALL, 48, WALL, floor - 48),
+        f'( type: "PlayerStart", px: [{cx - 330}, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        *stand,
+        *gate(MATH_RING, MATH_PORTAL, MATH_ZONE, cx - 96, plinth, "gate_stack_lower", HOME_ZONE, "to the Home dimension"),
+        # Galleries along the walls, and the ledges up to them.
+        ledge("west_ledge", 336, floor - 96, 96),
+        ledge("west_gallery", 64, floor - 192, 352),
+        ledge("east_ledge", w - 432, floor - 96, 96),
+        ledge("east_gallery", w - 416, floor - 192, 352),
+        door(f"{rid}_up", "up to the town", w - 112, floor, STREET, f"{STREET}_down"),
+        wanderer("traveller_trent", "npc_trent", 220, floor),
+        wanderer("traveller_walter", "npc_walter", 1180, floor),
+        wanderer("porter_beaver", "npc_busy_beaver", 1320, floor, 48),
+        label("hall_sign_gate", cx - 150, floor - 300, "GATE OF THE MATH DIMENSION", 300),
+        label("hall_sign_axioms", 64, floor - 236, "Arrivals: please declare all axioms", 380),
+        label("hall_sign_infinity", w - 444, floor - 236, "Infinity is not a valid destination", 380),
         label("hall_sign_manifest", 40, floor - 40, "<- Manifest Office (closed for recounting)", 420),
     ]
-    return rid, room(rid, e, "The gate square of the Math dimension.")
+    return rid, room(rid, e, "The gate hall under the Math town.", theme="math_undercroft")
+
+
+def door(zone, name, x, floor, to_room, to_zone):
+    return (f'( type: "LoadingZone", px: [{x}, {floor - 96}], size: [48, 96], fields: ( id: "{zone}", name: "{name}", '
+            f'activation: "Door", target_room: "{to_room}", target_zone: "{to_zone}", bidirectional: true ) ),')
+
+
+#: The house fronts (`targets/props/math_town_facades.py`, two pixels to the
+#: unit): each one's frame height in units, the body box of its sheet in
+#: frame pixels (`body_pixel_bbox` of the published RON), and where its art
+#: draws a place to stand, as (x0, x1, y) in frame units. The numbers are
+#: the art's: change them with it.
+HOUSES = {
+    "math_house_rose": (360, (42, 44, 352, 676), [(21, 197, 22)]),
+    "math_house_dome": (300, (40, 36, 376, 564), [(90, 144, 172)]),
+    "math_house_tower": (480, (32, 49, 273, 911), [(40, 128, 220)]),
+    "math_house_shop": (320, (31, 38, 465, 602), []),
+    "math_house_arcade": (300, (0, 37, 486, 563), []),
+}
+
+
+def house(prefix, kind, x, floor):
+    """The front of house `kind` with the left of its body box at `x`,
+    standing on `floor`, and a still one-way platform on each place its art
+    draws to stand on."""
+    _fh, (bx, by, bw, bh), walks = HOUSES[kind]
+    w, h = round(bw / 2), round(bh / 2)
+    top = floor - h
+    e = [f'( type: "Prop", px: [{x}, {top}], size: [{w}, {h}], fields: ( name: "{prefix}", kind: "{kind}" ) ),']
+    for i, (x0, x1, y) in enumerate(walks):
+        wx0 = round(x + x0 - bx / 2)
+        wy = round(top + y - by / 2)
+        e.append(still(f"{prefix}_walk_{i}", wx0, wy, round(x1 - x0), 4))
+    return e
 
 
 def street():
@@ -162,7 +239,11 @@ def street():
         solid("terrace_2", c2, t2, w - c2, t1 - t2),
         solid("east_wall", w - WALL, 0, WALL, t2),
         f'( type: "PlayerStart", px: [160, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
-        edge(f"{rid}_west", "to the gate square", 0, floor - 240, 240, HALL, f"{HALL}_east"),
+        solid("west_wall", 0, 0, WALL, floor),
+        door(f"{rid}_down", "down to the gate hall", 96, floor, HALL, f"{HALL}_up"),
+        wanderer("townsperson_peggy", "npc_peggy", 420, floor),
+        wanderer("townsperson_victor", "npc_victor", 900, floor),
+        wanderer("townsperson_olivia", "npc_olivia", 1660, t1),
         # The switchback up the face of the first cliff.
         ledge("stair_1a", c1 - 128, floor - 80, 128),
         ledge("stair_1b", c1 - 288, floor - 160, 144),
@@ -171,10 +252,13 @@ def street():
         ledge("stair_2a", c2 - 128, t1 - 80, 128),
         ledge("stair_2b", c2 - 288, t1 - 160, 144),
         ledge("stair_2c", c2 - 128, t2, 128),
-        # Balconies and a roof line over the street: a way along above it.
-        ledge("balcony_a", 304, floor - 144, 128),
-        ledge("balcony_b", 560, floor - 224, 144),
-        ledge("roofline", 768, floor - 304, 256),
+        # The houses of the street; their roofs and balconies are a way along
+        # above it.
+        *house("rose_house", "math_house_rose", 192, floor),
+        *house("dome_house", "math_house_dome", 432, floor),
+        *house("tower_house", "math_house_tower", 704, floor),
+        *house("shop_house", "math_house_shop", 912, floor),
+        *house("surveyors_office", "math_house_arcade", 1600, t1),
         label("street_sign", 180, floor - 300, "Euclid Street (the long way round)", 380),
     ]
     return rid, room(rid, e, "The town of the Math dimension: the street under the terraces.")

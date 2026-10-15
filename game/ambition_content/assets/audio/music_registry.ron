@@ -85,6 +85,7 @@
         (id: "scaling_laws", display_name: "Scaling Laws"),
         (id: "series_a_bloodbath", display_name: "Series A Bloodbath"),
         (id: "shareholder_ritual", display_name: "Shareholder Ritual"),
+        (id: "shoulders_at_rest", display_name: "Shoulders at Rest"),
         (id: "smirking_behemoth_boss", display_name: "You Have To Cut The Rope"),
         (id: "solo_soar", display_name: "Solo Soar"),
         (id: "solo_soar_9m08_loud", display_name: "Solo Soar (Loud, 9m)"),

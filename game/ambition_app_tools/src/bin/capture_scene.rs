@@ -77,6 +77,10 @@ struct SceneCaptureConfig {
     /// a state the world gets from a flag (a room's look, a gate) can be
     /// photographed, and a change of it can be filmed.
     flags: Vec<(String, u64)>,
+    /// Switches to turn on, each on its sim tick (`--switch NAME[@TICK]`), so
+    /// what a switch commands (a gate's boot sequence) can be filmed without
+    /// a press. A switch is saved state, not a world flag.
+    switches: Vec<(String, u64)>,
     /// Looks to put on bodies, each on its sim tick
     /// (`--wear ID=LOOK[@TICK]`): the first body that wears catalog character
     /// ID wears LOOK from then on, as the conversation's `<<transform>>` asks.
@@ -288,6 +292,10 @@ OPTIONS:
     --flag NAME[@TICK]  record the world flag NAME on sim tick TICK
                         [default: 1]; repeat for more flags. A room that reads
                         its state from a flag is photographed in that state.
+    --switch NAME[@TICK]
+                        turn the switch NAME on at sim tick TICK [default: 1],
+                        as a press would; repeat for more. Films what a switch
+                        commands, such as a gate portal booting.
     --boss-blow TICK[xHEARTS]
                         take HEARTS [default: 1] of each boss's health on sim
                         tick TICK, as a blow that lands does; repeat for more
@@ -566,6 +574,22 @@ fn record_flags(
                 on: true,
             });
             eprintln!("capture_scene: recorded the flag {id} on tick {on_tick}");
+        }
+    }
+}
+
+/// `--switch`: turn each configured switch on at its tick, in the save, where a
+/// press's toggle writes it. A sim system that names its tick, as
+/// [`record_flags`] is.
+fn turn_on_switches(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    mut save: ResMut<ambition_platformer2d::persistence::save::AmbitionGameSave>,
+) {
+    for (id, on_tick) in &config.switches {
+        if tick.get() == *on_tick {
+            save.data_mut().set_switch(id, true);
+            eprintln!("capture_scene: turned the switch {id} on at tick {on_tick}");
         }
     }
 }
@@ -966,7 +990,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, ask_bodies_to_wear, fire_portal_shots, fire_shots),
+        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, turn_on_switches, ask_bodies_to_wear, fire_portal_shots, fire_shots),
     );
     if !app.world().resource::<SceneCaptureConfig>().player_holds.is_empty() {
         app.add_systems(
@@ -1181,6 +1205,7 @@ impl SceneCaptureConfig {
         let mut player_beside: Option<(String, u64)> = None;
         let mut interact_on_arrival = false;
         let mut flags: Vec<(String, u64)> = Vec::new();
+        let mut switches: Vec<(String, u64)> = Vec::new();
         let mut wears: Vec<(String, String, u64)> = Vec::new();
         let mut portal_shots: Vec<PortalShotAt> = Vec::new();
         let mut shots: Vec<ShotAt> = Vec::new();
@@ -1293,6 +1318,21 @@ impl SceneCaptureConfig {
                         .parse::<f32>()
                         .map_err(|_| format!("--body-warp KIND@SECONDS wants seconds, got '{period}'"))?;
                     body_warp = Some(BodyWarpPreview { warp, period_s });
+                    2
+                }
+                "--switch" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--switch requires a switch id".to_string());
+                    };
+                    switches.push(match value.split_once('@') {
+                        Some((id, tick)) => (
+                            id.to_string(),
+                            tick.parse::<u64>().map_err(|_| {
+                                format!("--switch NAME@TICK wants a sim tick, got '{tick}'")
+                            })?,
+                        ),
+                        None => (value.clone(), 1),
+                    });
                     2
                 }
                 "--flag" => {
@@ -1573,6 +1613,7 @@ impl SceneCaptureConfig {
                 player_beside: None,
                 interact_on_arrival: false,
                 flags: Vec::new(),
+                switches: Vec::new(),
                 wears: Vec::new(),
                 player_at: Vec::new(),
                 player_climbs: false,
@@ -1642,6 +1683,7 @@ impl SceneCaptureConfig {
             player_beside,
             interact_on_arrival,
             flags,
+            switches,
             wears,
             player_at,
             player_climbs,

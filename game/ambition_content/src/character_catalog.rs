@@ -956,7 +956,9 @@ mod tests {
         assert!(profile.smash_sprint_to_close);
     }
 
-    /// Every authored brain preset has at least one character using it.
+    /// Every authored brain preset has at least one user: a character whose
+    /// default brain it is, or a placement in a shipped world that names it
+    /// (`brain_override`, as the Math town's wandering townsfolk do).
     ///
     /// A key whose last user migrates to a `BrainProfile` fails here in the same
     /// change, so no unused row is left behind.
@@ -964,16 +966,36 @@ mod tests {
     fn no_authored_brain_preset_is_reachable_by_nobody() {
         let catalog = shipped_catalog();
         let data = catalog.data();
-        let adopted: std::collections::BTreeSet<&str> = data
+        let mut adopted: std::collections::BTreeSet<String> = data
             .characters
             .values()
-            .map(|entry| entry.default_brain.as_str())
+            .map(|entry| entry.default_brain.clone())
             .collect();
+        for world in crate::worlds::world_manifest().worlds {
+            let Some(path) = world.loose_path else { continue };
+            let Ok(text) = std::fs::read_to_string(&path) else { continue };
+            let json: serde_json::Value = serde_json::from_str(&text).expect("a shipped world is JSON");
+            let mut stack = vec![&json];
+            while let Some(node) = stack.pop() {
+                match node {
+                    serde_json::Value::Object(map) => {
+                        if map.get("__identifier").and_then(|v| v.as_str()) == Some("brain_override") {
+                            if let Some(name) = map.get("__value").and_then(|v| v.as_str()) {
+                                adopted.insert(name.to_string());
+                            }
+                        }
+                        stack.extend(map.values());
+                    }
+                    serde_json::Value::Array(items) => stack.extend(items),
+                    _ => {}
+                }
+            }
+        }
         let orphans: Vec<&str> = data
             .brain_presets
             .keys()
             .map(String::as_str)
-            .filter(|key| !adopted.contains(key))
+            .filter(|key| !adopted.contains(*key))
             .collect();
         assert!(
             orphans.is_empty(),

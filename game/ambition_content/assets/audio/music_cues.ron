@@ -113,6 +113,48 @@
                 (id: "fight", section_id: "song", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.12), (layer_id: "crunch", gain: 1.7), (layer_id: "horn", gain: 2.0), (layer_id: "second", gain: 1.8)]),
             ],
         ),
+        (
+            // The town of the Math dimension: the peaceful relative of the
+            // GNU-ton boss music, standing_on_shoulders. ONE loop of 48 bars
+            // in five layers; a state is a set of layer gains, so a walk from
+            // the gate square to the terraces changes only gains. The
+            // terraces state is a subset of the gate square state.
+            //
+            // The audio is the playback layers of
+            // scores/active/shoulders_at_rest.music.yaml: sums of stems before
+            // the master chain. Measured over the loop at these gains:
+            // terraces -28.2 dB RMS, peak -11.4 dBFS; gate square -27.6 dB,
+            // peak -9.0 dBFS. The lofi room tracks are -27.0 and -29.4 dB.
+            id: "shoulders_at_rest",
+            asset_root: "audio/music/generated/shoulders_at_rest",
+            bpm: 88.0,
+            beats_per_bar: 4.0,
+            relative_volume: 1.0,
+            sections: [
+                (id: "town", duration_beats: 192.0, looped: true, sources: [
+                    (layer_id: "bed", path: "playback/town/town.bed.ogg"),
+                    (layer_id: "tune", path: "playback/town/town.tune.ogg"),
+                    (layer_id: "harp", path: "playback/town/town.harp.ogg"),
+                    (layer_id: "groove", path: "playback/town/town.groove.ogg"),
+                    (layer_id: "comp", path: "playback/town/town.comp.ogg"),
+                ]),
+            ],
+            layers: [
+                // Double bass, electric piano, strings.
+                (id: "bed", slot: 0),
+                // The tune: piano and clarinet.
+                (id: "tune", slot: 1),
+                (id: "harp", slot: 2),
+                // A soft swung drum groove and a quiet hi-hat.
+                (id: "groove", slot: 3),
+                // An acoustic guitar on the off-beats.
+                (id: "comp", slot: 4),
+            ],
+            states: [
+                (id: "terraces", section_id: "town", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "harp", gain: 1.0)]),
+                (id: "gate_square", section_id: "town", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "harp", gain: 1.0), (layer_id: "groove", gain: 1.0), (layer_id: "comp", gain: 1.0)]),
+            ],
+        ),
     ],
     encounter_bindings: [
         (
@@ -140,5 +182,9 @@
         (room_id: "primeval_ridge", cue_id: "dinosaur_liberators_adaptive", state: "charging"),
         (room_id: "primeval_canopy", cue_id: "dinosaur_liberators_adaptive", state: "blazing"),
         (room_id: "primeval_tyrant_hall", cue_id: "dinosaur_liberators_adaptive", state: "blazing", fight_state: Some("fight")),
+        // The town of the Math dimension: the gate square is busy, the
+        // street to the terraces is calm. One loop, so no room change cuts it.
+        (room_id: "math_gate_hall", cue_id: "shoulders_at_rest", state: "gate_square"),
+        (room_id: "math_town_street", cue_id: "shoulders_at_rest", state: "terraces"),
     ],
 )

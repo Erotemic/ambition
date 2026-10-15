@@ -622,6 +622,14 @@ tackon_targets=(
     coconut
     # Scenery of the primeval trail (an LDtk `Prop`).
     coconut_palm
+    # The stand of a dimension gate (an LDtk `Prop`): the Math gate square.
+    gate_cradle
+    # The house fronts of the Math town (LDtk `Prop`s, decoration).
+    math_house_rose
+    math_house_dome
+    math_house_tower
+    math_house_shop
+    math_house_arcade
     # The keys and the doors of the Noodly Temple (`PickupSpawn.sprite`,
     # `LockWall.look`).
     temple_key_marinara

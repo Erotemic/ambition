@@ -10,7 +10,7 @@
     bg_color: "#BFD7EE",
     biome: "math_undercroft",
     parallax_theme: "math_undercroft",
-    music_track: "shoulders_at_rest",
+    music_track: "math_town_day",
     entities: [
         ( type: "Solid", px: [0, 704], size: [1600, 64], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [1600, 48], fields: ( name: "vault" ) ),

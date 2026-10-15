@@ -44,7 +44,7 @@ MATH_LDTK = default_worlds_dir() / "math.ldtk"
 INTRO_LDTK = default_worlds_dir() / "intro.ldtk"
 
 BIOME = "math_town"
-MUSIC = "shoulders_at_rest"
+MUSIC = "math_town_day"
 BG = "#BFD7EE"
 WALL = 16
 

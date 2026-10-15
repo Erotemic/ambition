@@ -30,7 +30,7 @@
 | [`features`](src/features/mod.rs) | The enemy / NPC / boss ECS ACTOR SIMULATION — NOT a feature-toggle layer. |
 | [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
 | [`host`](src/host/mod.rs) | Host vocabulary that machinery reads: windowing/display-mode types consumed by the settings model and menu IR. |
-| [`items`](src/items/mod.rs) | Actor-sim item adapters. |
+| [`items`](src/items/mod.rs) | Item adapters that compose actor simulation with item capabilities. |
 | [`music`](src/music/mod.rs) | Ambition-game music adapters over the `ambition_audio` music core. |
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
 | [`projectile`](src/projectile/mod.rs) | Controlled-body projectile integration around the reusable projectile model. |

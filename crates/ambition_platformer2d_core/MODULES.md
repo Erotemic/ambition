@@ -14,7 +14,7 @@
 | [`collision_semantics`](src/collision_semantics.rs) | Gravity-relative collision classification and geometry shared by actor movement. |
 | [`config`](src/config.rs) | Coordinate transforms and layer/grid constants. |
 | [`confirmed_frame`](src/confirmed_frame.rs) | Host-published boundary between confirmed and speculative simulation frames. |
-| [`content_epoch`](src/content_epoch.rs) | `ContentEpoch` — the app-local activation generation stamp. |
+| [`content_epoch`](src/content_epoch.rs) | Content activation identity and peer-stable content identity. |
 | [`control_frame`](src/control_frame.rs) | Device-agnostic per-frame control vocabulary. |
 | [`frame`](src/frame.rs) | `frame` — the engine-level aperture vocabulary (docs/concepts/movement-collision.md). |
 | [`geo_id`](src/geo_id.rs) | Durable geometry identity — `GeoId`/`GeoFaceRef` (docs/concepts/movement-collision.md). |

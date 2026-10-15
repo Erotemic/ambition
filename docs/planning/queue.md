@@ -41,10 +41,11 @@ possible without a recompile. Work in this order:
 
 1. [CONTENT-AS-DATA](#content-as-data--content-still-written-as-rust):
    move each content fact that is still Rust onto the pack's data and reload
-   road, and delete the Rust copy.
+   road, and delete the Rust copy. Next: the FX sheet facts into the sheet
+   records (its open item 1).
 2. Efficient content preparation: [TEST-LANES](#test-lanes--keep-required-test-lanes-executable)
    item 10 (the sprite publish: `draw-review` and `draw-all` are cached
-   since 2026-10-14; left: `draw-factions` and the entity publish, and a
+   since 2026-10-14, `draw-factions` too; left: the entity publish, and a
    staging root).
 3. Pack elegance: admission diagnostics that name the file and the field;
    [CPU-LADDER](#cpu-ladder--the-brain-owns-the-knobs-smash-owns-the-ladder)
@@ -107,192 +108,69 @@ neither side of it.
 **Owner:** [`engine/fast-iteration-implementation.md`](engine/fast-iteration-implementation.md)
 and the pack of each game.
 
-**Current state (census 2026-10-14):** no embedded data file is the only
-road in a dev build (the 2026-10-11 census still holds). What still costs a
-host relink (7.05 s in M0) and a restart is content written as Rust. A data
-source read off disk costs about 0.4 s and reloads live. The candidates, by
-value for a designer and size of change:
+**Current state (2026-10-14):** a development build reads every pack source
+off disk, and `pack.ron` is the one list of a pack's sources (an edit to it
+compiles nothing: 0.71 s). Content written as Rust costs a host relink
+(7.05 s in M0) and a restart; a data edit reached its test in 0.7 to 2.5 s
+with no compile in each slice below. Each moved fact was held equal to the
+deleted Rust by a temporary test, and its schema refuses a bad value with
+the file and the field named.
 
-1. ✅ 2026-10-14, Ambition's room rules: the death replay, the heavy-hit
-   line and the landing-lag share are the pack source `data/room_rules.ron`
-   (schema `room_rules`, owned by `ambition_combat::room_rules`). The content
-   plugin declares them for Ambition's untagged rooms and a reload restates
-   them; the three Rust declarations in `ambition_app` are deleted.
-   Witnesses: `an_edit_to_the_landing_lag_share_reaches_ambitions_rooms_without_a_build`,
-   `a_rule_deleted_from_the_file_is_no_longer_declared` (both red with the
-   publisher emptied), and the schema's refusals name the file and the field.
-   ✅ 2026-10-14, every other game: Sanic's and Mary-O's death replays and
-   the versus stage's combat rules and heavy line are each game's
-   `data/room_rules.ron`; each plugin declares its pack's rules for its own
-   scope. Deleted: the Rust declarations, the body of
-   `versus_combat_rules`, `VERSUS_DI_MAX_ANGLE` and `DEATH_DWELL` (Mary-O's
-   dwell is sized by her death music; the reason is beside the number in
-   her file, and `death::death_dwell()` reads it). The transcription was
-   equal (a test compared each lowered rule with the Rust first, and went
-   red on one edited value with no compile); each game's tests go red at
-   the pack read with the source line taken out of its `pack.ron`. No game
-   declares a room rule in Rust now.
-2. Smash knockback curve, match body and match economy
-   (`game/ambition_demo_smash/src/lib.rs`): about 40 numbers, with hand
-   sweep tables in their comments.
-   ✅ 2026-10-14, the combat rules and the heavy-hit line: the `room_rules`
-   schema has a `combat` block (every field of `CombatRules`, each required
-   field required, `deny_unknown_fields`, each number checked and named), and
-   Smash's pack states it in `assets/data/room_rules.ron`, with the sweep
-   table beside the percent curve. `SmashRulesPlugin` declares the pack's
-   rules for the `smash` mode; `smash_combat_rules()` reads the pack. Deleted:
-   `SMASH_DI_MAX_ANGLE`, `SMASH_KNOCKBACK_GROWTH`,
-   `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE`, `SMASH_HEAVY_HIT_PERCENT`, the
-   body of `smash_combat_rules`, and the three `SMASH_GROWTH_BASE_*` curve
-   constants, which nothing read (`growth_base: None`). The transcription was
-   bit-equal (a test compared the lowered rules with the Rust before the
-   Rust was deleted). Witness: `smashs_rules_are_its_room_rules_file` (an
-   edit to the file lowers the edit; red when the accessor drifts from the
-   file). An edit is played at the next start: measured 0.74 s from a saved
-   edit to a test reading it, no crate compiled.
-   ✅ 2026-10-14, the match body and the match economy: a `match_rules`
-   schema (owned by `ambition_match`, the field names of `MatchRules`,
-   `deny_unknown_fields`, each number checked and named) and Smash's
-   `assets/data/match_rules.ron` state the stocks, the respawn beat, the
-   percent pool, the countdown and the clock, the ability floor and ceiling,
-   the fighter body (with its shield and footstool) and fighter contact.
-   `apply_smash_match_rules` writes the pack's rules and keeps only what
-   data cannot name (the damage table, the Limit, the item spawns). Deleted:
-   `SMASH_FIGHTER_BODY`, `SMASH_FIGHTER_KIT`, `SMASH_FIGHTER_CEILING`,
-   `STARTING_STOCKS`, `SMASH_TIME_LIMIT_TICKS`, `SMASH_PERCENT_REFERENCE`,
-   `COUNTDOWN_SPEEDUP`, `RESPAWN_INTERVAL_SECONDS` (accessors of the same
-   names, lower case, read the pack). Bit-equal before the deletion (a
-   temporary test, red on one edited value with no compile). Witness:
-   `smashs_match_rules_are_its_match_rules_file` (red, at the roster's
-   body, when the ruleset skips the pack's rules). Open: a live reload for
-   a demo pack (an edit is a restart today).
-   ✅ 2026-10-14, the versus stage's match rules: `assets/data/match_rules.ron`
-   in the versus pack (health rounds, no clock, no stocks, no fighter body,
-   and the duel's verb ceiling with no floor). `versus_roster_from` writes
-   the pack's rules and keeps only the item spawns. Deleted: the Rust
-   ruleset literal and `VERSUS_FIGHTER_KIT` (`versus_fighter_kit()` reads
-   `abilities.permitted`). Equal before the deletion (a temporary test, red
-   on one edited verb with no compile: 0.85 s). Witness:
-   `the_versus_roster_plays_its_match_rules_file` (red, at the ceiling, when
-   the roster skips the pack's rules).
-   ✅ 2026-10-14, a game's own schemas, and the versus rounds: a rule that
-   is the game's policy has a schema the game owns.
-   `content_pack! { root: "assets", schemas: [..] }` compiles the pack
-   against the engine's schemas and the game's, on every route
-   (`prepared()`, the composition's `compile_with`); a game schema with an
-   engine schema's id is refused (`AmbiguousSchemaOwnership`).
-   `content::rules_schema` makes such a schema from a struct and its range
-   check (the parse, the unknown-field refusal and the problems named by
-   field are written once). The versus stage's rounds (wins to take the
-   match, the KO and match-over holds, the countdown and its FIGHT call) are
-   `assets/data/versus_rounds.ron`, schema `versus_rounds`, owned by the app.
-   Deleted: `ROUNDS_TO_WIN`, `KO_HOLD_S`, `MATCH_HOLD_S`, `COUNTDOWN_TICKS`,
-   `FIGHT_CALL_TICKS`. Equal before the deletion (a temporary test, red on
-   one edited value with no compile: 2.49 s from the edit to the red test).
-   Witnesses: `a_pack_compiles_against_the_schemas_its_game_owns` (red,
-   `unknown-schema`, when the compile drops the game's schemas),
-   `the_versus_rounds_are_its_pack_file` (red at "two rounds take the
-   shipped match" with the file at three), `a_rules_file_lowers_and_each_refusal_names_the_file`.
-   The content CLI does not link a game's schema, so such a pack is checked
-   by the game's own test, which reads the tree off disk (the `pack.ron`
-   comment names it).
-3. The GNU-ton duel damage; boss bark cadence and wake radius; the primeval
-   swallow's fetch tuning; Mary-O's castle end and flag.
-   ✅ 2026-10-14, Mary-O: the spark (refire, size, speed, damage, gravity,
-   bounces, lifetime), the snake plant's cycle, the pipe's timings, the
-   snake's shell (stomp bounce, slide, damages, kick grace and its four
-   phase times), the star, the coin block, the bridge's plank beat, the walk
-   throttle and the cosmic form's two beats are the pack's
-   `data/mary_o_rules.ron`, schema `mary_o_rules`, owned by the demo
-   (`src/rules.rs`). Deleted: 31 constants in eight modules. Equal before
-   the deletion (a temporary test, red on one edited value with no compile:
-   0.73 s); a plant cycle shorter than its own rise, time out and fall is
-   refused with the field named. Witness: `mary_os_tuning_is_its_pack_file`
-   (red at the plant's half-out sample when the rise reads another travel).
-   ✅ 2026-10-14, Sanic: the ring monitor, the speed shoes, the ring loss
-   (the invulnerable window and the scatter's nine numbers), the act's
-   score and cards, and the badnik's wake radius and bounce are the pack's
-   `data/sanic_rules.ron`, schema `sanic_rules`, owned by the demo
-   (`src/rules.rs`, on `content::rules_schema`). Deleted: 21 constants
-   (`RING_MONITOR_RINGS`, `SPEED_SHOES_*`, `RING_LOSS_INVULN_S`,
-   `SCATTER*`, `ACT_CLEAR_DWELL`, `ACT_PAR_SECONDS`,
-   `TIME_BONUS_PER_SECOND`, `RING_BONUS`, `ACT_TITLE_SECONDS`,
-   `BADNIK_WAKE_RADIUS`, `BOUNCE_SPEED`). Equal before the deletion (a
-   temporary test, red on one edited value with no compile: 1.15 s); a
-   misspelt field is refused with its line and the expected names. Witness:
-   `sanics_tuning_is_its_pack_file` (red at the score with `act_score`
-   reading another par). The level geometry stays Rust: it is the course,
-   not tuning.
-4. Tables: held and wielded item art, the projectile visual catalog (20
-   looks), the per-sheet VFX table in `ambition_sprite_sheet` (an engine
-   crate: one character's VFX sheet rebuilds 23 crates).
-   ✅ 2026-10-14, the dialogue voiceprints: Ambition's 21 rows are the
-   pack's `data/dialogue_voiceprints.ron`, schema `dialogue_voiceprints`,
-   owned by the audio capability (`ambition_audio`). The catalog moved to
-   `ambition_sfx::voice` beside `SfxId`, so the content compiler checks a
-   file by the rules the runtime resolves it by and links no dialogue UI.
-   Admission refuses a key that two cues claim, and an exact key that hides
-   another cue's alias (that was a Rust test over the Rust table; it names
-   both cues now). A content reload restates the catalog. Deleted: the 21
-   `SfxId` constants, the Rust table, `DialogueVoiceCatalogAppExt` and its
-   re-exports from `ambition_dialog`. An edit reached the test in 0.94 s
-   with no compile. Witnesses: `flagship_exact_and_alias_names_keep_their_authored_voiceprints`
-   (red with Bob's cue edited in the file),
-   `a_candidate_that_changes_only_voiceprints_publishes_the_voice_catalog`
-   (red, at the activation, without the reload row),
-   `a_voiceprint_file_is_refused_for_a_shared_key_and_for_a_hidden_alias`.
-   ✅ 2026-10-14, the projectile looks: Ambition's 27 rows are the pack's
-   `data/projectile_visuals.ron`, schema `projectile_visuals`, owned by the
-   projectile capability (`ambition_projectiles`, feature `content_pack`).
-   Admission refuses a size or burst scale that is not finite or not more
-   than 0, a colour channel out of 0..1, a source that names no file and an
-   empty label, each with the look's id and field. A content reload
-   restates Ambition's rows only (`ProjectileVisualCatalog::restate`); a look
-   another provider registered stays, and an id another provider owns is
-   refused. Deleted: the Rust registrations in `ambition_content`. Equal
-   before the deletion (a temporary test, red on one edited scale with no
-   compile: 0.94 s). Witness:
-   `a_candidate_that_changes_only_projectile_looks_restates_ambitions_rows`
-   (red at the request without the reload row; red at "the withdrawn look
-   is still drawn" when `restate` keeps the previous ids). Open: Mary-O's
-   three looks are still Rust (`provider.rs`).
-5. Demo stages built in Rust (Smash, Twintrack).
-6. Duplicate authority: `ITEM_META` in `ambition_items` is byte-equal to
-   `items.ron` (Q104 scaffolding). Measured 2026-10-14: the engine reads
-   the built-in table through `builtin_item_catalog()` in the bag, the
-   starting bag, the conditions and their tests, and a catalog row falls
-   back to it. Deleting it means the engine's `Item` grid has no names
-   without a game, or an engine data file (`include_str!` in an engine
-   crate: a rebuild of its dependents on each edit). Decide before acting;
-   not a mechanical deletion.
-8. Ambition's own tuning (its wake radius, the bark cadence, the GNU-ton
-   duel): `pack::pack_schemas()` is the one place a game schema of
-   Ambition would register. Blocker: the package guard runs the generic
-   content CLI over Ambition's pack, and the CLI links no game schema, so it
-   would refuse the source (`unknown-schema`). Options: a check binary the
-   game links (the guard's `cargo run` then builds the game crate), or the
-   manifest marks a source as checked by the game and the CLI reports it
-   unchecked. Decide before moving a number.
-7. ✅ 2026-10-14 for every pack: `pack.ron` is the one list of its
-   sources. A development build reads the manifest and each source it
-   declares when the pack compiles (an edit to `pack.ron` compiles nothing:
-   0.71 s, measured); `build.rs` embeds the same list under
-   `static_content`. The per-source constant pairs (about 300 lines in five
-   modules) are deleted. `compile_pack_from(root)` compiles the root's own
-   manifest, and the content watch looks at `pack.ron` and refreshes its
-   list. Witnesses: `a_source_declared_in_the_roots_manifest_is_played_without_a_build`
-   (red with the build's manifest), `a_source_added_to_pack_ron_while_the_game_runs_is_played`
-   (7 frames after the save; red with `pack.ron` unwatched). The demo packs
-   and the versus stage follow: `content_pack! { root: "assets" }` reads the
-   manifest's list, and each crate's `build.rs`
-   (`ambition_content_pack::embed::embed_pack`) embeds it under
-   `static_content`. Witness: `a_rooted_pack_reads_its_manifests_sources_and_names_every_one_it_cannot`
-   (red when the read takes only the first declared source). Item 7 is done.
+Done (the commit messages hold the detail):
+
+- Room rules of every game (`room_rules`: death replay, heavy line, landing
+  lag share, combat block, hostile wake radius). Reload restates them.
+- Smash's and the versus stage's match rules (`match_rules`).
+- A game's own schemas: `content_pack! { schemas: [..] }` and
+  `content::rules_schema`. Versus rounds, Sanic's and Mary-O's tuning
+  (`sanic_rules`, `mary_o_rules`, with Mary-O's castle end and flag).
+- Ambition's own schemas: the crate `ambition_content_schemas` and the
+  binary `ambition_content_check`, which the package guard runs.
+  `ambition_rules`: boss idle bark cadence, GNU-ton duel, African swallow.
+  Reload restates it.
+- Tables: dialogue voiceprints (`dialogue_voiceprints`, reload), projectile
+  looks of Ambition and Mary-O (`projectile_visuals`, reload), held and
+  wielded item art (`held_item_art`, `wielded_item_art`, at the next start).
+
+Open:
+
+1. `fx::FX_SHEETS` in `ambition_sprite_sheet`: 14 rows (10 are Ambition
+   characters' sheets) of target, cue family, residency and fade, read
+   through about 60 `&'static` call sites and a `OnceLock` index. The
+   sheet records are generated by the renderer from each target, and a
+   development build reads them at run time. Plan: the renderer target
+   declares its FX facts and the emitter writes them into the record
+   (`fx: Some((cue_family, residency, fade))`); the index is the records
+   that have them (core sheets first, then by name), still built once per
+   process, so the `&'static` readers do not change. A new character's VFX
+   sheet is then a publish and no Rust edit. Needs a still renderer (not
+   during a publish) and a republish of the 14 sheets.
+2. Demo stages built in Rust (Smash, Twintrack).
+3. Duplicate authority: `ITEM_META` in `ambition_items` equals `items.ron`
+   (Q104 scaffolding). The engine reads it through `builtin_item_catalog()`
+   in the bag, the starting bag and the conditions, and a catalog row falls
+   back to it. Measured 2026-10-14: the one production reader is the
+   owned-items checksum (`minted_horizon.rs`), which needs only an id that
+   every process agrees on; the other readers (about 40) are tests, and the
+   `item_catalog` schema refuses a short file, so the row fallback never
+   runs for a pack. Decided (autonomous-decision-making; Q104 scaffolding,
+   no product change): the checksum keys a slot by its grid index
+   (`Item::index`), the tests read the catalog their App installs (the
+   pack's `items.ron`), `ItemCatalog::meta` has no fallback (a catalog
+   is the pack's rows), and `ITEM_META` and `builtin_item_catalog` are
+   deleted. Measured: the engine's item readers (pickups, chests, damage,
+   persist, checkpoint, held items) run in every composition, and only
+   Ambition installs a catalog; Mary-O, Sanic and Smash read the built-in.
+   So `ItemCatalog::meta` becomes `Option` (a slot the catalog does not
+   name is no item: nothing is granted, nothing is drawn) and each reader
+   handles `None`; a demo that wants items states an `items.ron`.
+4. A live reload for the demo packs' tuning, and for the held and wielded
+   item art (a restart today: no reload family restates them).
 
 Not here: the boss and Mary-O modules' tuning constants. They are on the
 module road (a 0.34 s WASM rebuild and a live reload).
 
-**Next action:** item 2.
+**Next action:** open item 1.
 
 **Blocked by:** nothing.
 
@@ -1114,10 +992,21 @@ variants. Also found in that regen:
     13 above were `gnu_ton_boss` and `mockingbird_boss`, whose cached
     digests named diagnostics the sweep moves; fixed. Of the 17 targets
     not logged as skipped, `gnu_ton_boss` is explained.
-    Open: per-sheet keys for `draw-factions` and the entity publish (they
-    run on every publish that is not a whole-run hit, with the LDtk art,
-    the vanity card, the variants and the atlases: about 10 minutes), and
-    the staging root.
+    **Built 2026-10-14:** `draw-factions` is deleted. The faction lineup's
+    three rows (`faction_cues`) publish in the cached tack-on batch: the
+    publish worker builds a lineup row from the lineup file as discovery
+    does (`read_record._one_target`, the target's `lineup_row`), and its
+    hand-kept list of expected files is deleted (the registry states what
+    each row installs). A batch with a failed target no longer exits 0 and
+    caches its fingerprint: `sprites.sh` adds the batch to
+    `regen_failures`. Witness:
+    `test_a_faction_lineup_row_is_built_by_the_publish_worker_as_discovery_builds_it`.
+    Measured: a full publish after a renderer core change (every target
+    re-rendered) took 3469 s wall and 2290 s of render (tack-ons 2026 s,
+    late targets 261 s), with no faction phase.
+    Open: a per-sheet key for the entity publish (it runs on every publish
+    that is not a whole-run hit, with the LDtk art, the vanity card, the
+    variants and the atlases), and the staging root.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

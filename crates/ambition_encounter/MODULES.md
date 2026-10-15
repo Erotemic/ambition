@@ -12,7 +12,7 @@
 | [`events`](src/events.rs) | `EncounterEvent` — the output stream of the encounter lifecycle reducer and the wave director. |
 | [`lifecycle`](src/lifecycle.rs) | Generic encounter lifecycle authority. |
 | [`mob_seed`](src/mob_seed.rs) | The wave-mob spawn REQUEST vocabulary. |
-| [`music`](src/music.rs) | The single encounter→audio music-intent stream. |
+| [`music`](src/music.rs) | Session-owned encounter music intent. |
 | [`objective`](src/objective.rs) | Generic encounter OBJECTIVES (§5): a small predicate vocabulary over participants, elapsed time, and received signals. |
 | [`occurrence`](src/occurrence.rs) | A live encounter occurrence: one authored encounter in one live room. |
 | [`participants`](src/participants.rs) | Generic encounter PARTICIPANTS (§3): membership as relations, not boss-specific `Vec<Entity>`. |

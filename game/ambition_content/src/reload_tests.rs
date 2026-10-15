@@ -4709,3 +4709,85 @@ fn a_candidate_that_changes_only_ambition_rules_restates_the_tuning() {
     app.update();
     assert_eq!(bark(&app), 9.0, "the activation did not publish the candidate's tuning");
 }
+
+/// A reload that changes only the item art restates Ambition's rows at the
+/// activation: the held art manifest and the over-hand catalog take the edit,
+/// a withdrawn row leaves them, and another provider's row stays.
+#[test]
+fn a_candidate_that_changes_only_item_art_restates_ambitions_rows() {
+    use ambition_platformer2d::platformer::held_item_art::{HeldItemArtAppExt, HeldItemArtEntry, HeldItemArtManifest};
+    use ambition_render::rendering::WieldedItemVisualCatalog;
+
+    let mut app = host_with_the_shipped_cast();
+    crate::items::held_visuals::register(&mut app);
+    crate::items::wielded_visuals::register(&mut app);
+    app.register_held_item_art([HeldItemArtEntry::new(
+        "another_provider_item",
+        "sprites/props/other.png",
+        bevy::math::Vec2::ONE,
+    )]);
+    let live = live_pack(&app);
+    let mut edited = Vec::new();
+    let candidate = std::sync::Arc::new(
+        crate::pack::compile_pack_with(|declared, text| match declared {
+            "data/held_item_art.ron" => {
+                edited.push(declared.to_owned());
+                text.replacen(r#""axe": (path: "sprites/props/axe.png", size: (40.0, 18.0)),"#, r#""axe": (path: "sprites/props/axe.png", size: (44.0, 18.0)),"#, 1)
+                    .replacen(r#""javelin": ("#, r#""javelin_withdrawn": ("#, 1)
+            }
+            "data/wielded_item_art.ron" => {
+                edited.push(declared.to_owned());
+                text.replacen("width_per_wielder_height: 0.9,", "width_per_wielder_height: 1.2,", 1)
+                    .replacen(r#""gun_sword_heavy": ("#, r#""gun_sword_heavy_withdrawn": ("#, 1)
+            }
+            _ => text,
+        })
+        .unwrap_or_else(|failure| panic!("{}", failure.render())),
+    );
+    assert_eq!(edited.len(), 2, "the edit did not reach both item art sources: {edited:?}");
+    let held = |app: &bevy::app::App, id: &str| {
+        app.world()
+            .resource::<HeldItemArtManifest>()
+            .effective()
+            .into_iter()
+            .find(|entry| entry.item_id == id)
+            .map(|entry| entry.size.x)
+    };
+    let wielded = |app: &bevy::app::App, id: &str| {
+        app.world()
+            .resource::<WieldedItemVisualCatalog>()
+            .get(id)
+            .map(|spec| spec.width_per_wielder_height)
+    };
+    assert_eq!(held(&app, "axe"), Some(40.0), "control: generation N draws the axe 40 wide");
+    assert_eq!(wielded(&app, crate::primeval::COCONUT), Some(0.9), "control: generation N's carried coconut");
+
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation).chain(),
+    );
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::clone(&candidate),
+            Some(live.fingerprint),
+        ),
+    );
+    assert!(
+        matches!(outcome, ReloadRequest::Requested { .. }),
+        "an item-art-only candidate was not requested; got {outcome:?}"
+    );
+    assert_eq!(held(&app, "axe"), Some(40.0), "the REQUEST published the art; generation N stays until activation");
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+    assert_eq!(held(&app, "axe"), Some(44.0), "the activation did not publish the candidate's axe");
+    assert_eq!(held(&app, "javelin"), None, "the withdrawn held art is still drawn");
+    assert!(held(&app, "javelin_withdrawn").is_some(), "the renamed held art was not published");
+    assert!(held(&app, "another_provider_item").is_some(), "the reload removed another provider's held art");
+    assert_eq!(wielded(&app, crate::primeval::COCONUT), Some(1.2), "the activation did not publish the candidate's coconut");
+    assert_eq!(wielded(&app, "gun_sword_heavy"), None, "the withdrawn wielded art is still drawn");
+    assert!(wielded(&app, "gun_sword_heavy_withdrawn").is_some(), "the renamed wielded art was not published");
+}

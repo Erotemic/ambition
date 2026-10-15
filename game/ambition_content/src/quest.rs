@@ -200,7 +200,7 @@ mod tests {
     #[test]
     fn grant_pirate_treasure_reward_adds_each_item_listed_in_payout() {
         let mut inventory = OwnedItems::default();
-        let banner = grant_pirate_treasure_reward(&mut inventory, ambition_items::builtin_item_catalog());
+        let banner = grant_pirate_treasure_reward(&mut inventory, ambition_items::test_item_catalog());
         for (item, count) in PIRATE_TREASURE_REWARD {
             assert_eq!(inventory.count(*item), *count);
         }

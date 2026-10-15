@@ -118,6 +118,8 @@ serde = { workspace = true }
 ron = { workspace = true }
 
 [dev-dependencies]
+# `test_item_catalog`: the shipped `items.ron` as a test fixture.
+ambition_items = { path = "../../crates/ambition_items", features = ["content_pack", "test-support"] }
 # The echo fan's wasm parity arm builds the module crate for wasm32 and runs it.
 ambition_extension_sdk = { path = "../../crates/ambition_extension_sdk" }
 ambition_extension_wasm = { path = "../../crates/ambition_extension_wasm" }

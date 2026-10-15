@@ -17,7 +17,11 @@ use ambition_platformer2d::content::EmbeddedPack;
 ///
 /// The George paths in `pack.ron` leave the demo on purpose: the demo selects George's
 /// values from the character-authoring submodule, it does not own them.
-pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! { root: "assets" };
+pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! {
+    root: "assets",
+    // The stages are this demo's own content.
+    schemas: [crate::stages::smash_stages_schema],
+};
 
 /// The body a character plays on as a fighter, as this pack's facet states
 /// it: the other half of `MatchParticipant::body`. The facet's owner

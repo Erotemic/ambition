@@ -306,7 +306,7 @@ pub(crate) fn apply_boss_hit(
         if let (true, Some(ability_id), Some(parent)) =
             (story, boss.config.behavior.reward_ability.as_deref(), &parent)
         {
-            if let Some(item) = items.item_by_dialog_id(ability_id) {
+            if let Some(name) = items.item_by_dialog_id(ability_id).and_then(|item| items.display_name(item)) {
                 drop_ability_pickup(
                     &mut writers.commands,
                     session_scope,
@@ -314,7 +314,7 @@ pub(crate) fn apply_boss_hit(
                     &boss.config.behavior.id,
                     boss.kin.pos,
                     ability_id,
-                    items.display_name(item),
+                    name,
                 );
             }
         }

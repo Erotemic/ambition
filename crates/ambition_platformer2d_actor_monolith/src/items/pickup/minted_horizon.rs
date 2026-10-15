@@ -190,22 +190,24 @@ impl OwnedItemsBaseline {
     /// so hashing a field this resource does not own would make the projection
     /// disagree with what it actually puts back.
     pub fn checksum(&self) -> u64 {
-        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
-        // `to_persisted` rather than a private field walk: it is already THE
-        // stored-quantity view — the durable save's own — and it excludes the
-        // equipped projection for the same reason this checksum must. Reusing it
-        // means the hash and the file can never come to disagree about what a
-        // quantity is.
-        // The BUILT-IN catalog's ids: a checksum has no world to ask, and the
-        // built-in table is the same in every process, so two peers hash the
-        // same bag to the same bytes whatever content each installed.
-        let rows = self.bag.to_persisted(ambition_items::builtin_item_catalog());
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_u64};
+        // The STORED quantities (`count`, the view the save writes), which
+        // leave out the equipped projection for the same reason this checksum
+        // must. Each slot is keyed by its grid index: a checksum has no world
+        // to ask for a catalog, and the index is the same in every process, so
+        // two peers hash the same bag to the same bytes whatever content each
+        // installed.
+        let rows: Vec<(ambition_items::Item, u32)> = ambition_items::Item::ALL
+            .into_iter()
+            .map(|item| (item, self.bag.count(item)))
+            .filter(|(_, count)| *count > 0)
+            .collect();
         let mut bytes = Vec::new();
         put_u64(&mut bytes, self.purse as u32 as u64);
         put_u64(&mut bytes, rows.len() as u64);
-        for row in &rows {
-            put_str(&mut bytes, &row.id);
-            put_u64(&mut bytes, u64::from(row.count));
+        for (item, count) in rows {
+            put_u64(&mut bytes, item.index() as u64);
+            put_u64(&mut bytes, u64::from(count));
         }
         checksum_bytes(&bytes)
     }

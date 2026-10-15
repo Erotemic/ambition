@@ -2,7 +2,7 @@
 // `held_item_art`, owned by the items capability), by held item id: the
 // picture, its size in the world (width, height), and where the hand holds
 // it along its picture (`grip`, 0 at its near end; absent: by its middle).
-// An edit here is drawn at the next start, with no Rust build.
+// A content reload draws an edit here, with no Rust build.
 //
 // A held item with no row is not a silent fallback: it logs an `ERROR` per
 // spawn ("unknown held item art `polygon_bomb`") and draws nothing.

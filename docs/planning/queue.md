@@ -130,7 +130,16 @@ Done (the commit messages hold the detail):
   Reload restates it.
 - Tables: dialogue voiceprints (`dialogue_voiceprints`, reload), projectile
   looks of Ambition and Mary-O (`projectile_visuals`, reload), held and
-  wielded item art (`held_item_art`, `wielded_item_art`, at the next start).
+  wielded item art (`held_item_art`, `wielded_item_art`, reload).
+- The item catalog: the pack's `items.ron` is the one item table
+  (`ITEM_META` and `builtin_item_catalog` are deleted). A slot that the
+  installed catalog does not name is no item: nothing is granted, saved or
+  drawn. Mary-O, Sanic and Smash state no `items.ron`, so they have no
+  items. The owned-items checksum keys a slot by its grid index.
+- Smash's three stages (`smash_stages`, owned by the demo): the shared
+  room, landing point and blast envelope, and each stage's blocks. The
+  geometry constants are deleted, and the select screen's ids must each
+  have a row (refused at admission).
 
 Open:
 
@@ -145,27 +154,10 @@ Open:
    process, so the `&'static` readers do not change. A new character's VFX
    sheet is then a publish and no Rust edit. Needs a still renderer (not
    during a publish) and a republish of the 14 sheets.
-2. Demo stages built in Rust (Smash, Twintrack).
-3. Duplicate authority: `ITEM_META` in `ambition_items` equals `items.ron`
-   (Q104 scaffolding). The engine reads it through `builtin_item_catalog()`
-   in the bag, the starting bag and the conditions, and a catalog row falls
-   back to it. Measured 2026-10-14: the one production reader is the
-   owned-items checksum (`minted_horizon.rs`), which needs only an id that
-   every process agrees on; the other readers (about 40) are tests, and the
-   `item_catalog` schema refuses a short file, so the row fallback never
-   runs for a pack. Decided (autonomous-decision-making; Q104 scaffolding,
-   no product change): the checksum keys a slot by its grid index
-   (`Item::index`), the tests read the catalog their App installs (the
-   pack's `items.ron`), `ItemCatalog::meta` has no fallback (a catalog
-   is the pack's rows), and `ITEM_META` and `builtin_item_catalog` are
-   deleted. Measured: the engine's item readers (pickups, chests, damage,
-   persist, checkpoint, held items) run in every composition, and only
-   Ambition installs a catalog; Mary-O, Sanic and Smash read the built-in.
-   So `ItemCatalog::meta` becomes `Option` (a slot the catalog does not
-   name is no item: nothing is granted, nothing is drawn) and each reader
-   handles `None`; a demo that wants items states an `items.ron`.
-4. A live reload for the demo packs' tuning, and for the held and wielded
-   item art (a restart today: no reload family restates them).
+2. Demo stages built in Rust: Twintrack's plaza (`ambition_demo_twintrack`
+   `lib.rs`, one `World::new`).
+3. A live reload for the demo packs' tuning (a restart today: no reload
+   family restates it).
 
 Not here: the boss and Mary-O modules' tuning constants. They are on the
 module road (a 0.34 s WASM rebuild and a live reload).

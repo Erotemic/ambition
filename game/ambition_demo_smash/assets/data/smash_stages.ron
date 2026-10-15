@@ -1,0 +1,91 @@
+// Smash's stages (schema `smash_stages`, owned by this demo): the room every
+// stage shares and the blocks of each stage. An edit here is played at the
+// next start, with no Rust build. The select screen offers the stages by room
+// id (`SmashStageChoice`), so each of its ids must have a row here.
+//
+// y grows downward: a block above the stage has a smaller y.
+(
+    // The room around the fighting platform: 640 by 480 for the demo's
+    // presentation frame. The fighting stage is its platform; the room bounds
+    // are only a seam between the platform and the blast envelope.
+    size: (640.0, 480.0),
+    // Above the platform. Seating places the fighters; this is only where a
+    // lone visitor lands.
+    spawn: (320.0, 204.0),
+    // Blast margins beyond the room, chosen so the PLATFORM of
+    // `smash_stage`, not the room, has Final Destination proportions:
+    //
+    // * ledge to side blast line = 1.000 platform widths;
+    // * platform surface to ceiling blast line = 1.125 platform widths;
+    // * platform surface to fall blast line = 0.875 platform widths.
+    //
+    // A 480 wide platform centred in a 640 wide room is 80 from each ledge to
+    // the room edge, so the side margin is 400. The surface is at y 300 in a
+    // 480 high room, so a 240 margin puts the ceiling 540 above and the fall
+    // line 420 below. The envelope is 1440 by 960: 3 by 2 platform widths.
+    // Every stage shares it (`test_the_stage_choice_decides_which_stage_the_
+    // match_prepares`). An authored move must stay inside it: Alice's up-B
+    // exit portal rises a fixed height (`an_authored_portal_rise_stays_inside_
+    // the_stage`).
+    blast: (fall: 240.0, side: 400.0, rise: 240.0),
+    stages: {
+        // A platform surrounded by nothing. A fighter stage is a place you can
+        // be knocked off; the empty space is the mechanic. The platform is
+        // fifteen 32 px tiles, or ten standing-body heights: Final
+        // Destination's main platform is about ten Mario heights wide, and the
+        // default standing body is 48 tall. Its top is the stage centre that
+        // a respawn comes back above.
+        "smash_stage": (
+            name: "Smash Stage",
+            blocks: [
+                (name: "smash_platform", kind: Solid, at: (80.0, 300.0), size: (480.0, 32.0)),
+            ],
+        ),
+        // The same flat block, two thirds as wide (ten 32 px tiles), with the
+        // blast envelope unchanged. The unchanged envelope is the design:
+        // scaling the margins with the width would give the same stage at a
+        // smaller size. Measured in platform widths, ledge to side blast line
+        // is 1.750, surface to ceiling 1.688, surface to fall 1.313. Less
+        // ground, same envelope: an edgeguard-and-recovery stage. It is not
+        // tuned. It exists so the ladder rig can compare across geometries,
+        // and it is a separate stage so that numbers recorded on
+        // `smash_stage` keep their meaning.
+        "smash_narrow_stage": (
+            name: "Smash Stage — Narrow",
+            blocks: [
+                (name: "smash_platform", kind: Solid, at: (160.0, 300.0), size: (320.0, 32.0)),
+            ],
+        ),
+        // The main surface plus three drop-through tiers (the engine's one-way
+        // platforms, and both drop gestures: down+jump and guard+down). It is
+        // a second stage, not an edit to the first: the ladder rig's recorded
+        // numbers were taken on `smash_stage`'s flat block.
+        //
+        // The tiers are sized from the fighter's jump arc (apex is
+        // v²/(2·gravity); with gravity 2250, jump 630 and air jump 520 a
+        // single jump rises 88.2 and an air jump taken at the apex 148.3).
+        // The low tiers, 64 above the surface and 148 either side of centre,
+        // are a comfortable single jump (24 headroom). The top tier, 120
+        // above, needs the air jump and leaves 28.
+        // `the_tiers_sit_inside_the_fighters_measured_jump_arc` recomputes
+        // both from the engine constants. Each tier is 168 by 16.
+        //
+        // Known issue: the top tier (y 180 to 196, x 236 to 404) is 10 under
+        // the respawn platforms (a respawning body is put at y 140 with its
+        // platform near y 170). A fighter whose respawn platform expires lands
+        // on the tier, not the stage. Q87 rules that the authored layout
+        // changes (the tier or the respawn point), not the runtime spawn
+        // logic. The flat-versus-platforms comparison in `fighter-brain.md`
+        // used this geometry, so change the geometry and the measurement
+        // together.
+        "smash_platform_stage": (
+            name: "Smash Stage (platforms)",
+            blocks: [
+                (name: "smash_platform", kind: Solid, at: (80.0, 300.0), size: (480.0, 32.0)),
+                (name: "smash_soft_left", kind: OneWay, at: (88.0, 236.0), size: (168.0, 16.0)),
+                (name: "smash_soft_right", kind: OneWay, at: (384.0, 236.0), size: (168.0, 16.0)),
+                (name: "smash_soft_top", kind: OneWay, at: (236.0, 180.0), size: (168.0, 16.0)),
+            ],
+        ),
+    },
+)

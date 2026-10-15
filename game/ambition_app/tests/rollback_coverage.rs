@@ -2159,6 +2159,24 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_items::ItemCatalog",
         "the authored item catalog, lowered from the content pack. It was a process-global          `OnceLock` until 2026-10-01, so this sweep could not see it. The one runtime          writer is the reload transaction, at the same boundary as the fighter ladder:          the publication boundary refuses a foreign timeline and rebases a local one,          so no tick a rewind can reach changed it",
     ),
+    // Ambition's own pack facts. Each is written at composition time and
+    // then only by the reload transaction, at the publication boundary above.
+    (
+        "ambition_content::tuning::AmbitionTuning",
+        "Ambition's own tuning (`ambition_rules.ron`: boss idle bark, GNU-ton duel,          African swallow), lowered from the pack. Inserted at composition time; the          one runtime writer is the reload transaction, at the publication boundary,          so no tick a rewind can reach changed it",
+    ),
+    (
+        "ambition_content::projectiles::AmbitionProjectileLooks",
+        "the projectile look ids Ambition's pack registered, so a reload restates          only its own rows of `ProjectileVisualCatalog` (waived above). Presentation          bookkeeping, written at composition time and at the reload's publication          boundary only",
+    ),
+    (
+        "ambition_content::items::held_visuals::AmbitionHeldItemArt",
+        "the held item art ids Ambition's pack registered, so a reload restates          only its own rows of `HeldItemArtManifest` (waived above). Presentation          bookkeeping, written at composition time and at the reload's publication          boundary only",
+    ),
+    (
+        "ambition_content::items::wielded_visuals::AmbitionWieldedItemArt",
+        "the wielded item art ids Ambition's pack registered, so a reload restates          only its own rows of the over-hand catalog. Presentation bookkeeping, written          at composition time and at the reload's publication boundary only",
+    ),
     // HOW FAST A DRIVEN BODY'S MANA REFILLS, as the composition's statement.
     //
     // ⭐ Inserted once at plugin build, never written by a system. A rewind

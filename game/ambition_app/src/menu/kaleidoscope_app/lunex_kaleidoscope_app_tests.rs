@@ -58,6 +58,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<CachedSystemMenu>();
     app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
+    app.insert_resource(ambition_platformer2d::items::test_item_catalog().clone());
     app.init_resource::<OwnedItems>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>();
@@ -906,6 +907,7 @@ fn real_input_cube_app(
     app.init_resource::<CachedSystemMenu>();
     app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
+    app.insert_resource(ambition_platformer2d::items::test_item_catalog().clone());
     app.init_resource::<OwnedItems>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>();
@@ -1233,7 +1235,7 @@ fn real_inventory_and_settings_value_changes_republish_cube_pages() {
 
     app.world_mut()
         .resource_mut::<OwnedItems>()
-        .grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 1);
+        .grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
     app.update();
     assert_eq!(
         app.world().resource::<PageRepublishCount>().0,
@@ -1401,8 +1403,8 @@ fn bug2_item_equip_click_survives_a_hover_republish() {
     // distinct hover target exist as live controls.
     {
         let mut owned = app.world_mut().resource_mut::<OwnedItems>();
-        owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::Blink, 1);
-        owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::Axe, 1);
+        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Blink, 1);
+        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Axe, 1);
     }
     app.update();
     assert!(
@@ -1845,7 +1847,7 @@ fn release_dispatch_survives_a_control_rebuild_between_press_and_release() {
     let (mut app, _player) = click_app();
     {
         let mut owned = app.world_mut().resource_mut::<OwnedItems>();
-        owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::Blink, 1);
+        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Blink, 1);
     }
     app.world_mut()
         .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
@@ -1908,7 +1910,7 @@ fn press_then_release_equips_an_item() {
     let (mut app, _player) = click_app();
     {
         let mut owned = app.world_mut().resource_mut::<OwnedItems>();
-        owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::Blink, 1);
+        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Blink, 1);
     }
     app.world_mut()
         .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
@@ -1959,7 +1961,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
     let mut owned = OwnedItems::default();
-    owned.grant(ambition_platformer2d::items::builtin_item_catalog(), owned_item, 1);
+    owned.grant(ambition_platformer2d::items::test_item_catalog(), owned_item, 1);
     app.insert_resource(owned);
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>();
@@ -2038,7 +2040,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
         .active = Some(MenuPage::Items);
     let pages = build_inventory_pages(
         &app.world().resource::<OwnedItems>().clone(),
-        ambition_platformer2d::items::builtin_item_catalog(),
+        ambition_platformer2d::items::test_item_catalog(),
         None,
         MenuFocus::Item(owned_item.index()),
         &app.world().resource::<UserSettings>().clone(),
@@ -2314,38 +2316,38 @@ fn menu_confirm_label_resolves_the_focused_item_verb() {
         .position(|&i| i == Item::HealthCell)
         .unwrap();
     assert!(
-        ambition_platformer2d::items::builtin_item_catalog().held_item_id(Item::Axe).is_some(),
+        ambition_platformer2d::items::test_item_catalog().held_item_id(Item::Axe).is_some(),
         "Axe is a held item -> Equip"
     );
     assert!(
-        ambition_platformer2d::items::builtin_item_catalog().held_item_id(Item::HealthCell).is_none(),
+        ambition_platformer2d::items::test_item_catalog().held_item_id(Item::HealthCell).is_none(),
         "HealthCell is a consumable -> Use"
     );
 
     let mut owned = OwnedItems::default();
-    owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::Axe, 1);
-    owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 1);
+    owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Axe, 1);
+    owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
 
     assert_eq!(
-        menu_confirm_label(true, MenuFocus::Item(axe_idx), Some(&owned), ambition_platformer2d::items::builtin_item_catalog()).as_deref(),
+        menu_confirm_label(true, MenuFocus::Item(axe_idx), Some(&owned), ambition_platformer2d::items::test_item_catalog()).as_deref(),
         Some("Equip")
     );
     assert_eq!(
-        menu_confirm_label(true, MenuFocus::Item(cell_idx), Some(&owned), ambition_platformer2d::items::builtin_item_catalog()).as_deref(),
+        menu_confirm_label(true, MenuFocus::Item(cell_idx), Some(&owned), ambition_platformer2d::items::test_item_catalog()).as_deref(),
         Some("Use")
     );
     // A page-turn focus carries no item verb (must NOT mislabel slot 0).
     assert_eq!(
-        menu_confirm_label(true, MenuFocus::EdgeLeft, Some(&owned), ambition_platformer2d::items::builtin_item_catalog()),
+        menu_confirm_label(true, MenuFocus::EdgeLeft, Some(&owned), ambition_platformer2d::items::test_item_catalog()),
         None
     );
     // Closed menu / absent roster / unowned slot -> None.
     assert_eq!(
-        menu_confirm_label(false, MenuFocus::Item(axe_idx), Some(&owned), ambition_platformer2d::items::builtin_item_catalog()),
+        menu_confirm_label(false, MenuFocus::Item(axe_idx), Some(&owned), ambition_platformer2d::items::test_item_catalog()),
         None
     );
     assert_eq!(
-        menu_confirm_label(true, MenuFocus::Item(axe_idx), None, ambition_platformer2d::items::builtin_item_catalog()),
+        menu_confirm_label(true, MenuFocus::Item(axe_idx), None, ambition_platformer2d::items::test_item_catalog()),
         None
     );
     assert_eq!(
@@ -2353,7 +2355,7 @@ fn menu_confirm_label_resolves_the_focused_item_verb() {
             true,
             MenuFocus::Item(cell_idx),
             Some(&OwnedItems::default()),
-            ambition_platformer2d::items::builtin_item_catalog()
+            ambition_platformer2d::items::test_item_catalog()
         ),
         None,
         "an unowned slot has no verb"
@@ -2381,8 +2383,9 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     app.init_state::<GameMode>();
     app.init_resource::<KaleidoscopeCursor>();
     app.init_resource::<ControlPrompt>();
+    app.insert_resource(ambition_platformer2d::items::test_item_catalog().clone());
     let mut owned = OwnedItems::default();
-    owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::Axe, 1);
+    owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Axe, 1);
     app.insert_resource(owned);
     app.insert_resource(ambition_platformer2d::inventory_ui::InventoryUiState {
         visible: true,

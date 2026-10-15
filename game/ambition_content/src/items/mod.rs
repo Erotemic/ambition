@@ -15,9 +15,9 @@
 
 use bevy::prelude::*;
 
-mod held_visuals;
+pub(crate) mod held_visuals;
 pub mod thrown_impact;
-mod wielded_visuals;
+pub(crate) mod wielded_visuals;
 
 /// Installs the starter Ambition item-ownership roster.
 pub struct AmbitionItemRosterPlugin;

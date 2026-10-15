@@ -178,6 +178,7 @@ dependencies = [
  "ambition_demo_pocket",
  "ambition_demo_sanic",
  "ambition_demo_smash",
+ "ambition_items",
  "ambition_menu_kaleidoscope",
  "ambition_platformer2d",
  "ambition_sim_harness",
@@ -579,6 +580,7 @@ dependencies = [
  "ambition_platformer2d",
  "ambition_resource_spec",
  "bevy",
+ "serde",
 ]
 
 [[package]]

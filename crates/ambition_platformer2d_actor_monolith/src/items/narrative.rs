@@ -122,6 +122,7 @@ mod tests {
     #[test]
     fn a_granted_item_lands_in_the_bag() {
         let mut app = App::new();
+        app.insert_resource(ambition_items::test_item_catalog().clone());
         app.init_resource::<OwnedItems>();
         app.add_message::<ItemGrantRequested>();
         app.add_systems(Update, apply_item_grants);
@@ -143,6 +144,7 @@ mod tests {
     #[test]
     fn a_purchase_moves_money_and_goods_together() {
         let mut app = App::new();
+        app.insert_resource(ambition_items::test_item_catalog().clone());
         app.init_resource::<OwnedItems>();
         app.add_message::<ShopTransactionRequested>();
         app.add_systems(Update, apply_shop_transactions);

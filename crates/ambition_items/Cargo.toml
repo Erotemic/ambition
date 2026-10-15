@@ -26,3 +26,6 @@ serde = { workspace = true }
 [features]
 # The authored-content schema this capability owns. See the dependency note.
 content_pack = ["dep:ambition_content_pack"]
+# `test_item_catalog`: Ambition's `items.ron`, a fixture for the tests of the
+# crates that read a catalog.
+test-support = []

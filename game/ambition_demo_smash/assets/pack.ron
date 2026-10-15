@@ -63,5 +63,7 @@
         (path: "data/room_rules.ron", schema: "room_rules", version: 1),
         // The rules of its matches: stocks, clocks, the fighter body, the kit.
         (path: "data/match_rules.ron", schema: "match_rules", version: 1),
+        // Its stages: the room they share and each stage's blocks.
+        (path: "data/smash_stages.ron", schema: "smash_stages", version: 1),
     ],
 )

@@ -454,6 +454,8 @@ serde_json = "1"
 # The binaries moved to the `ambition_app` crate (Stage 20 / A3).
 
 [dev-dependencies]
+# `test_item_catalog`: the shipped `items.ron` as a test fixture.
+ambition_items = { path = "../ambition_items", features = ["test-support"] }
 # Test the encounter/actor schedule composition without a production edge.
 ambition_encounter_features = { path = "../ambition_encounter_features" }
 # The abilities carve took the shared spawn fixtures with it; the puppy-slug gun

@@ -2,7 +2,7 @@
 // `wielded_item_art`, owned by the items capability), by held item id. A
 // hostile body's item is drawn by this table and not by `held_item_art`, so
 // an item a hostile carries with no row here is in its hand and nowhere on
-// screen. An edit here is drawn at the next start, with no Rust build.
+// screen. A content reload draws an edit here, with no Rust build.
 {
     // The coconut in the feet of the bird that carries it. The picture is 54
     // by 48 and the coconut is 18 wide in the world; the bird that carries one

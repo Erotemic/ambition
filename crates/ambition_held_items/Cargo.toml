@@ -28,5 +28,7 @@ ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 bevy = { version = "0.19.1", default-features = false, features = ["bevy_state"] }
 
 [dev-dependencies]
+# `test_item_catalog`: the shipped `items.ron` as a test fixture.
+ambition_items = { path = "../ambition_items", features = ["test-support"] }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_sfx = { path = "../ambition_sfx" }

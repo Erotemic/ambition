@@ -9,10 +9,10 @@
 //! and a decorative `PropSpec` is layered on top, resolved to the matching
 //! `super_mary_o_*` construction sheet.
 //!
-//! The sheets are CONTENT, not carried in any lean asset catalog, so the level
-//! registers them as prop sheets (`register_mary_o_construction_props`) and the
-//! engine loads them with the rest of the art. A headless / `--no-assets` build
-//! loads none.
+//! The sheets are CONTENT, not carried in any lean asset catalog: they are the
+//! rows of the pack's `data/prop_sheets.ron`, which
+//! `register_mary_o_construction_props` registers, and the engine loads them
+//! with the rest of the art. A headless / `--no-assets` build loads none.
 
 use bevy::prelude::*;
 
@@ -46,21 +46,6 @@ pub const GATE_SPRITE: &str = "super_mary_o_gate";
 /// A damage volume whose name starts with this is a pit of lava: the level
 /// draws it as lava (`lava_pools_of`), and not as a ball of fire.
 pub const LAVA_PREFIX: &str = "lava";
-
-/// Every construction-prop kind this level draws, so the loader below can walk
-/// them uniformly.
-const CONSTRUCTION_PROPS: &[&str] = &[
-    PIPE_TOP_SPRITE,
-    PIPE_BODY_SPRITE,
-    POLE_BODY_SPRITE,
-    POLE_TOP_SPRITE,
-    FLAG_SPRITE,
-    LIFT_SPRITE,
-    LAVA_TOP_SPRITE,
-    LAVA_BODY_SPRITE,
-    SWITCH_SPRITE,
-    GATE_SPRITE,
-];
 
 /// A fully transparent block-art override. Applied to the pole/pipe collision
 /// blocks so the shared per-`BlockKind` art draws nothing behind the decorative
@@ -112,20 +97,15 @@ pub fn structure_prop(id: &str, kind: &str, min: ae::Vec2, size: ae::Vec2) -> Pr
     }
 }
 
-/// Register the construction sheets, keyed by the sheet target name (which is
-/// also the `PropSpec.kind` the level authors). They load with the rest of the
-/// art.
+/// Register the construction sheets: the rows of the pack's
+/// `data/prop_sheets.ron`, keyed by the sheet target name (which is also the
+/// `PropSpec.kind` the level authors). They load with the rest of the art.
 pub fn register_mary_o_construction_props(app: &mut App) {
-    use ambition_platformer2d::actors::assets::game_assets::{PropSheetSource, PropSheetsAppExt};
-    for kind in CONSTRUCTION_PROPS {
-        app.register_prop_sheet(
-            *kind,
-            PropSheetSource::SpriteFolder {
-                target: (*kind).to_string(),
-                tuning: ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
-            },
-        );
-    }
+    use ambition_platformer2d::actors::assets::game_assets::PropSheetsAppExt;
+    app.register_prop_sheet_rows(
+        ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(crate::pack::PACK.prepared())
+            .expect("the demo's pack states its prop sheets (`data/prop_sheets.ron`)"),
+    );
     // The lift's deck is the full width of its frame and its top is the row a
     // body stands at. The numbers are the frame's, as its target states them
     // (`targets/props/super_mary_o_lift.py` in the sprite renderer).

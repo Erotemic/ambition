@@ -1,0 +1,40 @@
+// The prop sheets this game draws (schema `prop_sheets`, owned by the sprite
+// capability), by the `kind` a room's prop names. A row loads
+// `<sprite folder>/<kind>_spritesheet.png` with the rest of the art. `scale`
+// multiplies the prop's box to give the size it is drawn at (default 1.0);
+// `frame_sample_inset` trims that many pixels from each frame's edges
+// (default 0). A prop whose kind has no row is not drawn from a sheet. An
+// edit here is drawn at the next start, with no Rust build.
+{
+    // The Noodly Temple's keys, one for each sauce. A key is drawn a little
+    // larger than its box, as a pickup is.
+    "temple_key_marinara": (scale: 1.4),
+    "temple_key_pesto": (scale: 1.4),
+    "temple_key_parmesan": (scale: 1.4),
+    "temple_key_colander": (scale: 1.4),
+    // The doors that the keys open. A door fills the box of its wall.
+    "temple_gate_marinara": (),
+    "temple_gate_pesto": (),
+    "temple_gate_parmesan": (),
+    "temple_gate_colander": (),
+    // The doors that no key opens: the grille of a fight, the gates of the
+    // cistern (by the number of the wheel; `_shut` is a gate its wheel
+    // shuts) and the seal of a bell.
+    "temple_gate_iron": (),
+    "temple_gate_wheel_1": (),
+    "temple_gate_wheel_2": (),
+    "temple_gate_wheel_3": (),
+    "temple_gate_wheel_1_shut": (),
+    "temple_gate_bell": (),
+    // The Math town: the gate's cradle and the house fronts.
+    "gate_cradle": (),
+    "math_house_rose": (),
+    "math_house_dome": (),
+    "math_house_tower": (),
+    "math_house_shop": (),
+    "math_house_arcade": (),
+    // Primeval's palm.
+    "coconut_palm": (),
+    // The mockingbird's shark, which is also a moving platform.
+    "burning_flying_shark": (),
+}

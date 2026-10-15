@@ -13,7 +13,6 @@
 //! both portals boot, so a traveller who went through can come back.
 
 use ambition_platformer2d::world::rooms::GatePortalRegistry;
-use ambition_platformer2d_actor_monolith::assets::game_assets::{PropSheetSource, PropSheetsAppExt};
 use bevy::prelude::*;
 
 /// The `Prop` kind of the stand a gate ring sits in, and its renderer target:
@@ -62,17 +61,6 @@ pub struct MathTownPlugin;
 
 impl Plugin for MathTownPlugin {
     fn build(&self, app: &mut App) {
-        // The cradle and the house fronts are scenery: their sheets load with
-        // the rest of the art.
-        for kind in std::iter::once(GATE_CRADLE_KIND).chain(HOUSE_KINDS) {
-            app.register_prop_sheet(
-                kind,
-                PropSheetSource::SpriteFolder {
-                    target: kind.to_string(),
-                    tuning: ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
-                },
-            );
-        }
         let registry = &mut *app.world_mut().get_resource_or_init::<GatePortalRegistry>();
         for gate in [HOME_GATE, MATH_GATE] {
             // A refusal is a content bug: another portal already claimed the

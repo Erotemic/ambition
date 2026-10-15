@@ -61,11 +61,42 @@ impl PropSheets {
     pub fn iter(&self) -> impl Iterator<Item = (&str, &PropSheetSource)> {
         self.0.iter().map(|(kind, source)| (kind.as_str(), source))
     }
+
+    /// Replace the rows one provider registered from its pack (`previous`,
+    /// the kinds of its last registration) with `rows`, and return the kinds
+    /// it now owns. A kind another provider registered is refused, and
+    /// nothing changes: a reload must not take another provider's look.
+    pub fn restate<'a>(
+        &mut self,
+        previous: impl IntoIterator<Item = &'a str>,
+        rows: &ambition_sprite_sheet::prop_sheets::PropSheetRows,
+    ) -> Result<Vec<String>, String> {
+        let previous: Vec<&str> = previous.into_iter().collect();
+        let taken: Vec<&String> = rows
+            .keys()
+            .filter(|kind| self.0.iter().any(|(known, _)| known == *kind) && !previous.contains(&kind.as_str()))
+            .collect();
+        if !taken.is_empty() {
+            return Err(format!("prop sheet kind(s) {taken:?} belong to another provider"));
+        }
+        self.0.retain(|(kind, _)| !previous.contains(&kind.as_str()));
+        self.0.extend(rows.iter().map(|(kind, row)| (kind.clone(), sprite_folder_row(kind, row))));
+        Ok(rows.keys().cloned().collect())
+    }
+}
+
+/// A pack row's source: the sheet in the sprite folder whose target is the
+/// kind.
+fn sprite_folder_row(kind: &str, row: &ambition_sprite_sheet::prop_sheets::AuthoredPropSheet) -> PropSheetSource {
+    PropSheetSource::SpriteFolder { target: kind.to_string(), tuning: row.tuning() }
 }
 
 /// Register prop sheets from a content plugin's `build`.
 pub trait PropSheetsAppExt {
     fn register_prop_sheet(&mut self, kind: impl Into<String>, source: PropSheetSource) -> &mut Self;
+    /// Register each row of a pack's `prop_sheets`, and return the kinds, for
+    /// a reload to restate ([`PropSheets::restate`]).
+    fn register_prop_sheet_rows(&mut self, rows: &ambition_sprite_sheet::prop_sheets::PropSheetRows) -> Vec<String>;
 }
 
 impl PropSheetsAppExt for App {
@@ -74,6 +105,64 @@ impl PropSheetsAppExt for App {
             .get_resource_or_init::<PropSheets>()
             .register(kind, source);
         self
+    }
+
+    fn register_prop_sheet_rows(&mut self, rows: &ambition_sprite_sheet::prop_sheets::PropSheetRows) -> Vec<String> {
+        for (kind, row) in rows {
+            self.register_prop_sheet(kind.clone(), sprite_folder_row(kind, row));
+        }
+        rows.keys().cloned().collect()
+    }
+}
+
+/// Load the sheets of `kinds` again into the loaded art, after a reload
+/// restated their rows, and forget the sheets of `dropped`. The room the
+/// reload builds draws its props from the new sheets. A world with no loaded
+/// art (a headless one) has nothing to load again.
+pub fn reload_prop_sheets(world: &mut World, dropped: &[String], kinds: &[String]) {
+    let (Some(config), Some(asset_server)) =
+        (world.get_resource::<GameAssetConfig>().cloned(), world.get_resource::<AssetServer>().cloned())
+    else {
+        return;
+    };
+    if !world.contains_resource::<GameAssets>() || !world.contains_resource::<Assets<TextureAtlasLayout>>() {
+        return;
+    }
+    let sheets = world.get_resource::<PropSheets>().cloned().unwrap_or_default();
+    let mut loaded = Vec::new();
+    world.resource_scope(|_, mut layouts: Mut<Assets<TextureAtlasLayout>>| {
+        for (kind, source) in sheets.iter().filter(|(kind, _)| kinds.iter().any(|wanted| wanted == kind)) {
+            let PropSheetSource::SpriteFolder { target, tuning } = source else {
+                continue;
+            };
+            let asset = character_sprites::load_prop_sheet_for_target(
+                &asset_server,
+                &mut layouts,
+                &config.sprite_folder,
+                target,
+                tuning,
+            );
+            loaded.push((kind.to_string(), asset));
+        }
+    });
+    let mut game_assets = world.resource_mut::<GameAssets>();
+    let props = &mut game_assets.characters.props;
+    for kind in dropped {
+        props.remove(kind);
+    }
+    for (kind, asset) in loaded {
+        match asset {
+            Some(asset) => {
+                props.insert(kind, asset);
+            }
+            None => {
+                props.remove(&kind);
+                bevy::log::warn!(
+                    target: "ambition_platformer2d::character_sprites",
+                    "the prop sheet for `{kind}` does not load; it draws as a placeholder"
+                );
+            }
+        }
     }
 }
 

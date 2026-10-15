@@ -69,6 +69,8 @@ pub mod pack;
 pub use pack::{PackCatalogError, PackFrame, PackTarget, ResolvedFrame, SpritePackCatalog};
 
 pub mod portrait;
+// The `prop_sheets` schema: a game's prop sheets, as data in its pack.
+pub mod prop_sheets;
 pub mod sheet_mechanics;
 mod snapshot_impls;
 pub use portrait::{

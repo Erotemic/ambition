@@ -83,6 +83,8 @@
         (path: "data/projectile_visuals.ron", schema: "projectile_visuals", version: 1),
         // The gestures the player fire system asks for by id.
         (path: "data/motion_techniques.ron", schema: "motion_techniques", version: 1),
+        // The prop sheets its rooms name.
+        (path: "data/prop_sheets.ron", schema: "prop_sheets", version: 1),
         // How each held item is drawn on the ground and in the hand.
         (path: "data/held_item_art.ron", schema: "held_item_art", version: 1),
         // How an item is drawn over the hand of the body that wields it.

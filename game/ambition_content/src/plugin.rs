@@ -31,6 +31,9 @@ impl Plugin for AmbitionContentPlugin {
         // Named motion techniques used by the player kit.
         super::input_techniques::register(app);
 
+        // The prop sheets its rooms name (`data/prop_sheets.ron`).
+        super::prop_sheets::register(app);
+
         // App-local authored audio registries.
         super::audio_registries::register(app);
 
@@ -165,8 +168,6 @@ impl Plugin for AmbitionContentPlugin {
         app.add_plugins(crate::intro::IntroPlugin);
         // The primeval trail: the scenery its rooms name.
         app.add_plugins(crate::primeval::PrimevalPlugin);
-        // The Noodly Temple: the sheets of its keys and of its doors.
-        app.add_plugins(crate::noodly_temple::NoodlyTemplePlugin);
         // Ambition's day: the clock's cycle and the light of a sunlit room.
         app.add_plugins(crate::day_cycle::AmbitionDayPlugin);
         // The Math dimension: the gate pair to its town.

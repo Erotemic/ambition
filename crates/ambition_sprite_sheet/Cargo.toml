@@ -22,6 +22,9 @@ static_content = []
 web_served = []
 # Enable authored embedded-core image candidates in the game-asset manifest.
 static_core_assets = ["ambition_asset_manager/static_core_assets"]
+# The `prop_sheets` schema's registration and reader (`prop_sheets.rs`). The
+# row type is always here: the actor layer's loader reads it.
+content_pack = ["dep:ambition_content_pack"]
 
 [dependencies]
 # ECS surface only (Resource / Component / App via prelude) + logging macros.
@@ -58,6 +61,7 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # may load, bake or own character content.
 ambition_characters = { path = "../ambition_characters" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_persistence = { path = "../ambition_persistence" }

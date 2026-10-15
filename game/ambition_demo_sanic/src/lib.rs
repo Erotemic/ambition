@@ -381,35 +381,14 @@ pub fn install_sanic_content(app: &mut App) {
             .audio(provider::SANIC_EXPERIENCE)
             .with_resident_sfx_bank(),
     );
-    // The ring sheet is content, so register it here: it loads the same way
+    // The prop sheets (the ring, the monitors' boxes, the goal post) are the
+    // pack's `data/prop_sheets.ron`. Registered here, they load the same way
     // standalone or hosted (both add `SanicExperiencePlugin`).
     {
-        use ambition_platformer2d::actors::assets::game_assets::{PropSheetSource, PropSheetsAppExt};
-        app.register_prop_sheet(
-            RING_SPRITE_KIND,
-            PropSheetSource::SpriteFolder {
-                target: RING_SPRITE_KIND.to_string(),
-                tuning: ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 2),
-            },
-        );
-        // The monitors' boxes (`monitors::dress_monitors` lays them over the
-        // blocks), and the look that follows each monitor's state.
-        for kind in [monitors::SPEED_BOX_SPRITE, monitors::RING_BOX_SPRITE] {
-            app.register_prop_sheet(
-                kind,
-                PropSheetSource::SpriteFolder {
-                    target: kind.to_string(),
-                    tuning: ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
-                },
-            );
-        }
-        // The goal post of each act, and the side it shows.
-        app.register_prop_sheet(
-            scenery::GOAL_POST_SPRITE,
-            PropSheetSource::SpriteFolder {
-                target: scenery::GOAL_POST_SPRITE.to_string(),
-                tuning: ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
-            },
+        use ambition_platformer2d::actors::assets::game_assets::PropSheetsAppExt;
+        app.register_prop_sheet_rows(
+            ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(pack::PACK.prepared())
+                .expect("the demo's pack states its prop sheets (`data/prop_sheets.ron`)"),
         );
         // Presentation reads sim state and writes render components, in
         // `Update` (Mary-O's `dress_power_blocks` says why not in the sim).

@@ -13,7 +13,6 @@ use ambition_combat::hand::RepertoireQuery;
 use ambition_held_items::{release_carried_item, take_ground_item, GroundItem, ItemCustody, Release, SettledItem};
 use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d_actor_monolith::assets::game_assets::{PropSheetSource, PropSheetsAppExt};
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 use ambition_platformer2d_shared_tangle::schedule::{ActorDecisionSet, GameplayGated, PlayerInputSet, SimScheduleExt};
@@ -166,14 +165,6 @@ pub struct PrimevalPlugin;
 
 impl Plugin for PrimevalPlugin {
     fn build(&self, app: &mut App) {
-        // The palm is scenery: its sheet loads with the rest of the art.
-        app.register_prop_sheet(
-            COCONUT_PALM_KIND,
-            PropSheetSource::SpriteFolder {
-                target: COCONUT_PALM_KIND.to_string(),
-                tuning: ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
-            },
-        );
         let sim = SimScheduleExt::sim_schedule(app);
         app.add_systems(
             sim,

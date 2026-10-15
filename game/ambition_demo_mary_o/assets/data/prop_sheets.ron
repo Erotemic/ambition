@@ -1,0 +1,18 @@
+// The prop sheets this game draws (schema `prop_sheets`), by the `kind` a
+// room's prop names: the level's construction. A row loads
+// `<sprite folder>/<kind>_spritesheet.png` with the rest of the art. `scale`
+// multiplies the prop's box (default 1.0); `frame_sample_inset` trims that
+// many pixels from each frame's edges (default 0). An edit here is drawn at
+// the next start, with no Rust build.
+{
+    "super_mary_o_pipe_top": (),
+    "super_mary_o_pipe_body": (),
+    "super_mary_o_flag_pole_body": (),
+    "super_mary_o_flag_pole_top": (),
+    "super_mary_o_flag": (),
+    "super_mary_o_lift": (),
+    "super_mary_o_lava_top": (),
+    "super_mary_o_lava_body": (),
+    "super_mary_o_switch": (),
+    "super_mary_o_gate": (),
+}

@@ -27,5 +27,7 @@
         // Its tuning: the monitors, the ring scatter, the act's score, the
         // badnik.
         (path: "data/sanic_rules.ron", schema: "sanic_rules", version: 1),
+        // The prop sheets: the ring, the monitors' boxes, the goal post.
+        (path: "data/prop_sheets.ron", schema: "prop_sheets", version: 1),
     ],
 )

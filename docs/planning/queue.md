@@ -181,7 +181,12 @@ roster and stand-ins are `smash_rules.ron`. The player's motion-input
 gestures (`qcf`, `qcf_grace`, `hcf`) are the pack's `motion_techniques.ron`
 (a projectile-capability schema), restated by a content reload. The Sanic
 start line's sign is a `DebugLabel` in `sanic_speedway.ldtk`, read at run
-time. Open, from a census of 2026-10-15: Mary-O's form ladder. Its rungs
+time. The prop sheets a room's props name (the Noodly Temple's keys and
+doors, the Math town's fronts, the palm, the shark; Mary-O's construction;
+Sanic's ring, monitors and goal post) are each game's `prop_sheets.ron` (a
+`prop_sheets` schema owned by the sprite capability); Ambition's reload
+restates its rows and loads their sheets again. The intro's catalog sheets
+keep their road (`intro_prop_sprite_rows`). Open, from a census of 2026-10-15: Mary-O's form ladder. Its rungs
 name the star wand and the cinder beacon, which are Rust `EquipmentRow`s
 whose spark grant is built from `mary_o_rules.spark`, so a data ladder could
 not be checked against anything in the pack. The ladder moves with those

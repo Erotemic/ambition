@@ -1,0 +1,14 @@
+// The prop sheets this game draws (schema `prop_sheets`), by the `kind` a
+// room's prop names. A row loads `<sprite folder>/<kind>_spritesheet.png`
+// with the rest of the art. `scale` multiplies the prop's box (default 1.0);
+// `frame_sample_inset` trims that many pixels from each frame's edges
+// (default 0). An edit here is drawn at the next start, with no Rust build.
+{
+    // The ring: 2 px is trimmed from each edge of its frames.
+    "sanic_ring_prop": (frame_sample_inset: 2),
+    // The monitors (`monitors.rs` puts one over each of their blocks).
+    "sanic_powerup_speed": (),
+    "sanic_powerup_rings": (),
+    // The goal post of each act.
+    "sanic_goal_post": (),
+}

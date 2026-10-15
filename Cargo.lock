@@ -691,6 +691,7 @@ dependencies = [
  "ambition_match",
  "ambition_persistence",
  "ambition_projectiles",
+ "ambition_sprite_sheet",
 ]
 
 [[package]]
@@ -1449,6 +1450,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_characters",
+ "ambition_content_pack",
  "ambition_entity_catalog",
  "ambition_interaction",
  "ambition_persistence",

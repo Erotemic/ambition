@@ -71,17 +71,10 @@ struct MovesetSchema;
 
 impl ContentSchemaHandler for MovesetSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let doc = match EntityCatalogDoc::parse(facet.text) {
+        let doc = match facet.parse::<EntityCatalogDoc>() {
             Ok(doc) => doc,
-            Err(error) => {
-                // Match the ron VARIANT, not the message text — the message is a
-                // rendering detail and pinning it makes the diagnostic depend on
-                // ron's release notes.
-                let code = match error.code {
-                    ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
-                    _ => DiagnosticCode::MalformedSource,
-                };
-                out.report(facet.diagnostic(code, format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };

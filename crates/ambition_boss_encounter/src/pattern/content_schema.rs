@@ -61,14 +61,6 @@ fn canonical<T: std::fmt::Debug>(value: &T) -> String {
     format!("{value:?}")
 }
 
-fn code_for(error: &ron::error::SpannedError) -> DiagnosticCode {
-    // Match the ron variant, not the message text.
-    match error.code {
-        ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
-        _ => DiagnosticCode::MalformedSource,
-    }
-}
-
 // ── one boss encounter ───────────────────────────────────────────────────────
 
 /// One encounter file; there are several, and this family is what the
@@ -85,10 +77,10 @@ pub type BossEncounterBook = std::collections::BTreeMap<String, BossEncounterSpe
 
 impl ContentSchemaHandler for BossEncounterSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let spec: BossEncounterSpec = match ron::from_str(facet.text) {
+        let spec: BossEncounterSpec = match facet.parse() {
             Ok(spec) => spec,
-            Err(error) => {
-                out.report(facet.diagnostic(code_for(&error), format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };
@@ -216,10 +208,10 @@ struct BossSeedLibrarySchema;
 
 impl ContentSchemaHandler for BossSeedLibrarySchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let library = match SeedLibrary::from_ron(facet.text) {
+        let library = match facet.parse::<SeedLibrary>() {
             Ok(library) => library,
-            Err(error) => {
-                out.report(facet.diagnostic(code_for(&error), format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };
@@ -325,10 +317,10 @@ struct BossValidatorBandsSchema;
 
 impl ContentSchemaHandler for BossValidatorBandsSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let bands = match ValidatorBands::from_ron(facet.text) {
+        let bands = match facet.parse::<ValidatorBands>() {
             Ok(bands) => bands,
-            Err(error) => {
-                out.report(facet.diagnostic(code_for(&error), format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };
@@ -407,10 +399,10 @@ struct BossProfilesSchema;
 
 impl ContentSchemaHandler for BossProfilesSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let profiles: BossProfiles = match ron::from_str(facet.text) {
+        let profiles: BossProfiles = match facet.parse() {
             Ok(profiles) => profiles,
-            Err(error) => {
-                out.report(facet.diagnostic(code_for(&error), format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };

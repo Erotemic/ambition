@@ -33,7 +33,6 @@ use ambition_content_pack::{
 };
 
 use super::entry::CharacterCatalogData;
-use super::loader::try_parse_catalog;
 use super::validator::{findings, Finding, FindingKind, PresetTable};
 
 /// The capability that owns every schema in this module.
@@ -84,19 +83,10 @@ struct CharacterCatalogSchema;
 
 impl ContentSchemaHandler for CharacterCatalogSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let catalog = match try_parse_catalog(facet.text) {
+        let catalog = match facet.parse::<CharacterCatalogData>() {
             Ok(catalog) => catalog,
-            Err(error) => {
-                // `deny_unknown_fields` on the catalog types is what makes an
-                // unconsumed authored field reach here at all. Without it a
-                // typo is silently dropped and the mechanic simply never fires
-                // — everything looks authored and nothing happens.
-                let code = if error.contains("Unexpected field") {
-                    DiagnosticCode::UnknownField
-                } else {
-                    DiagnosticCode::MalformedSource
-                };
-                out.report(facet.diagnostic(code, error));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };
@@ -479,7 +469,7 @@ mod tests {
         // The control: the rows as written break no rule in either reader.
         let clean = ROWS.replace("MORE", "");
         assert_eq!(
-            super::super::validator::validate(&try_parse_catalog(&clean).expect("parses")),
+            super::super::validator::validate(&super::super::loader::try_parse_catalog(&clean).expect("parses")),
             Vec::<String>::new()
         );
         compile(&draft("rule_control", &clean), &registry(), &AssetsUnchecked)
@@ -488,7 +478,7 @@ mod tests {
         for (case, from, to, field) in cases {
             let text = ROWS.replacen(from, to, 1).replace("MORE", "");
             assert_ne!(text, clean, "case `{case}` changed nothing");
-            let lines = super::super::validator::validate(&try_parse_catalog(&text).expect("parses"));
+            let lines = super::super::validator::validate(&super::super::loader::try_parse_catalog(&text).expect("parses"));
             assert!(
                 lines.iter().any(|line| line.contains(field)),
                 "the RON reader did not refuse `{case}` at `{field}`: {lines:?}"

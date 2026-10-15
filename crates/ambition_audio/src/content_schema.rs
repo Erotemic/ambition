@@ -44,27 +44,16 @@ fn canonical<T: std::fmt::Debug>(value: &T) -> String {
     format!("{value:?}")
 }
 
-fn code_for(error: &ron::error::SpannedError) -> DiagnosticCode {
-    match error.code {
-        ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
-        _ => DiagnosticCode::MalformedSource,
-    }
-}
-
 // ── music ────────────────────────────────────────────────────────────────────
 
 struct MusicRegistrySchema;
 
 impl ContentSchemaHandler for MusicRegistrySchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let registry: MusicRegistry = match ron::from_str(facet.text) {
+        let registry: MusicRegistry = match facet.parse() {
             Ok(registry) => registry,
-            Err(error) => {
-                out.report(
-                    facet
-                        .diagnostic(code_for(&error), format!("{error}"))
-                        .fix(GENERATED_FIX),
-                );
+            Err(diagnostic) => {
+                out.report(diagnostic.fix(GENERATED_FIX));
                 return;
             }
         };
@@ -123,10 +112,10 @@ struct SfxRegistrySchema;
 
 impl ContentSchemaHandler for SfxRegistrySchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let registry: SfxRegistry = match ron::from_str(facet.text) {
+        let registry: SfxRegistry = match facet.parse() {
             Ok(registry) => registry,
-            Err(error) => {
-                out.report(facet.diagnostic(code_for(&error), format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };
@@ -177,10 +166,10 @@ struct MusicCueCatalogSchema;
 
 impl ContentSchemaHandler for MusicCueCatalogSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let authored: AuthoredMusicCues = match ron::from_str(facet.text) {
+        let authored: AuthoredMusicCues = match facet.parse() {
             Ok(authored) => authored,
-            Err(error) => {
-                out.report(facet.diagnostic(code_for(&error), format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };

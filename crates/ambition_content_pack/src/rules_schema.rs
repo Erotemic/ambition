@@ -67,14 +67,10 @@ where
     T: DeserializeOwned + Debug + Send + Sync + 'static,
 {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let authored = match ron::from_str::<T>(facet.text) {
+        let authored = match facet.parse::<T>() {
             Ok(authored) => authored,
-            Err(error) => {
-                let code = match error.code {
-                    ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
-                    _ => DiagnosticCode::MalformedSource,
-                };
-                out.report(facet.diagnostic(code, format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };

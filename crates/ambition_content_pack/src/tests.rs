@@ -1009,3 +1009,37 @@ fn the_fingerprint_does_not_move_with_the_checkout_path() {
          session compatibility, comparing two builds."
     );
 }
+
+#[test]
+fn a_facet_refusal_names_the_field_path_of_the_bad_value() {
+    #[derive(Debug, serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    #[allow(dead_code)]
+    struct Respawn {
+        seconds: f32,
+    }
+    #[derive(Debug, serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    #[allow(dead_code)]
+    struct Rules {
+        name: String,
+        respawn: Respawn,
+    }
+    let schema = SchemaId::new("rules");
+    let namespace = ModuleNamespace("probe".into());
+    let facet = |text| FacetSource { declared_path: "data/rules.ron", text, schema: &schema, namespace: &namespace };
+
+    let refused = facet("(name: \"a\", respawn: (seconds: \"one\"))").parse::<Rules>().unwrap_err();
+    assert_eq!(refused.source.as_deref(), Some("data/rules.ron"));
+    assert_eq!(refused.field.as_deref(), Some("respawn.seconds"), "a type error names the nested field");
+    assert_eq!(refused.code, DiagnosticCode::MalformedSource);
+
+    let unknown = facet("(name: \"a\", respawn: (secs: 1.0))").parse::<Rules>().unwrap_err();
+    assert_eq!(unknown.code, DiagnosticCode::UnknownField, "the ron variant still picks the code");
+    assert_eq!(unknown.field.as_deref(), Some("respawn.secs"));
+
+    // Control: an error at the top value has no field to name, and a sound
+    // file parses.
+    assert_eq!(facet("[1]").parse::<Rules>().unwrap_err().field, None);
+    assert_eq!(facet("(name: \"a\", respawn: (seconds: 1.5))").parse::<Rules>().unwrap().respawn.seconds, 1.5);
+}

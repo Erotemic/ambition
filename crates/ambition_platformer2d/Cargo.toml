@@ -7,6 +7,9 @@ authors.workspace = true
 description = "Facade crate for composing Ambition-derived platformer games from one engine surface."
 
 [features]
+# Test fixtures of the capabilities, for a game's own tests. A game reaches
+# them through this umbrella, so its dependency list stays the umbrella.
+test-support = ["ambition_items/test-support"]
 # Optional LDtk integration; movement-only games leave it disabled.
 ldtk = ["ambition_platformer2d_provider/ldtk"]
 # The causal inspector, off by default: a game that never opens one must not

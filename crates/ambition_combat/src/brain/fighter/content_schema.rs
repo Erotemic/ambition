@@ -48,17 +48,10 @@ struct FighterBrainLadderSchema;
 
 impl ContentSchemaHandler for FighterBrainLadderSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let ladder = match FighterBrainLadder::from_ron(facet.text) {
+        let ladder = match facet.parse::<FighterBrainLadder>() {
             Ok(ladder) => ladder,
-            Err(error) => {
-                // Match the ron VARIANT, not the message text — the message is a
-                // rendering detail and pinning it makes the diagnostic depend on
-                // ron's release notes.
-                let code = match error.code {
-                    ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
-                    _ => DiagnosticCode::MalformedSource,
-                };
-                out.report(facet.diagnostic(code, format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };

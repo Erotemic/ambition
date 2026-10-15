@@ -184,14 +184,10 @@ struct RoomRulesSchema;
 
 impl ContentSchemaHandler for RoomRulesSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let authored = match ron::from_str::<AuthoredRoomRules>(facet.text) {
+        let authored = match facet.parse::<AuthoredRoomRules>() {
             Ok(authored) => authored,
-            Err(error) => {
-                let code = match error.code {
-                    ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
-                    _ => DiagnosticCode::MalformedSource,
-                };
-                out.report(facet.diagnostic(code, format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };

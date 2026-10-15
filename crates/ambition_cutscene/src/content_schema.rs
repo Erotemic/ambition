@@ -39,14 +39,10 @@ struct CutsceneLibrarySchema;
 
 impl ContentSchemaHandler for CutsceneLibrarySchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let scripts: AuthoredCutscenes = match ron::from_str(facet.text) {
+        let scripts: AuthoredCutscenes = match facet.parse() {
             Ok(scripts) => scripts,
-            Err(error) => {
-                let code = match error.code {
-                    ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
-                    _ => DiagnosticCode::MalformedSource,
-                };
-                out.report(facet.diagnostic(code, format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };

@@ -35,14 +35,10 @@ struct QuestBookSchema;
 
 impl ContentSchemaHandler for QuestBookSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let book: AuthoredQuestBook = match ron::from_str(facet.text) {
+        let book: AuthoredQuestBook = match facet.parse() {
             Ok(book) => book,
-            Err(error) => {
-                let code = match error.code {
-                    ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
-                    _ => DiagnosticCode::MalformedSource,
-                };
-                out.report(facet.diagnostic(code, format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };

@@ -140,14 +140,10 @@ struct MatchRulesSchema;
 
 impl ContentSchemaHandler for MatchRulesSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let authored = match ron::from_str::<AuthoredMatchRules>(facet.text) {
+        let authored = match facet.parse::<AuthoredMatchRules>() {
             Ok(authored) => authored,
-            Err(error) => {
-                let code = match error.code {
-                    ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
-                    _ => DiagnosticCode::MalformedSource,
-                };
-                out.report(facet.diagnostic(code, format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };

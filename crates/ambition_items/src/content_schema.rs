@@ -62,17 +62,10 @@ struct ItemCatalogSchema;
 
 impl ContentSchemaHandler for ItemCatalogSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let rows: Vec<ItemMeta> = match ron::from_str(facet.text) {
+        let rows: Vec<ItemMeta> = match facet.parse() {
             Ok(rows) => rows,
-            Err(error) => {
-                // Match the ron VARIANT, not the message text: the message is a
-                // rendering detail and pinning it makes the diagnostic depend on
-                // ron's release notes.
-                let code = match error.code {
-                    ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
-                    _ => DiagnosticCode::MalformedSource,
-                };
-                out.report(facet.diagnostic(code, format!("{error}")));
+            Err(diagnostic) => {
+                out.report(diagnostic);
                 return;
             }
         };

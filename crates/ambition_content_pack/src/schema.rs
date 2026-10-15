@@ -61,6 +61,39 @@ impl FacetSource<'_> {
         Diagnostic::error(code, CompileStage::FacetValidation, message)
             .in_source(self.declared_path)
     }
+
+    /// Read this facet's RON as `T`. A refusal names the file, the line and
+    /// column, and the field path (`rules.stock_respawn_seconds`).
+    ///
+    /// ron's own error gives only the position, and a position alone does not
+    /// tell an author which value is wrong in a nested record. The path makes
+    /// the refusal readable without the file open.
+    pub fn parse<T: serde::de::DeserializeOwned>(&self) -> Result<T, Diagnostic> {
+        let mut de = match ron::Deserializer::from_str(self.text) {
+            Ok(de) => de,
+            Err(error) => return Err(self.diagnostic(DiagnosticCode::MalformedSource, format!("{error}"))),
+        };
+        let error = match serde_path_to_error::deserialize::<_, T>(&mut de) {
+            Ok(value) => match de.end() {
+                Ok(()) => return Ok(value),
+                Err(error) => de.span_error(error),
+            },
+            Err(error) => {
+                let path = error.path().to_string();
+                let spanned = de.span_error(error.into_inner());
+                // Match the ron VARIANT, not the message text: the message
+                // is a rendering detail of ron.
+                let code = match spanned.code {
+                    ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
+                    _ => DiagnosticCode::MalformedSource,
+                };
+                // `.` is the path of the top value: there is no field to name.
+                let diagnostic = self.diagnostic(code, format!("{spanned}"));
+                return Err(if path == "." { diagnostic } else { diagnostic.at_field(path) });
+            }
+        };
+        Err(self.diagnostic(DiagnosticCode::MalformedSource, format!("{error}")))
+    }
 }
 
 /// One piece of content a handler declares.

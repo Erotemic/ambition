@@ -289,7 +289,7 @@ path = "tests/app_it.rs"
 
 [dev-dependencies]
 # `test_item_catalog`: the shipped `items.ron` as a test fixture.
-ambition_items = { path = "../../crates/ambition_items", features = ["test-support"] }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["test-support"] }
 # ⭐ A TEST DEPENDENCY, NOT A SHIPPED ONE. Pocket is the FOURTH-PROVIDER
 # ARCHITECTURE PROOF — it is deliberately `unlisted` in the launcher (see
 # `shell_host_lifecycle`) and exists to show a provider can compose, register a

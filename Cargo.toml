@@ -117,6 +117,7 @@ resolver = "2"
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 ron = "0.11"
+serde_path_to_error = "0.1"
 thiserror = "2"
 # ⭐ THE CLI ARGUMENT PARSER FOR MODAL TOOL BINARIES (Jon's ruling 2026-09-03).
 # Every new CLI uses this; the hand-rolled `std::env::args()` scanning it

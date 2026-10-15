@@ -77,18 +77,6 @@ pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
 pub const MARY_O_MODE: &str = "mary_o";
 
 
-/// The level clock starts here and counts DOWN. It is the demo's one rule.
-pub const STARTING_TIME: f32 = 400.0;
-
-/// Lives Mary-O starts a run with.
-const STARTING_LIVES: i8 = 3;
-
-/// How long the title card ("WORLD 1-1    MARY-O x3") sits before play reads as normal.
-const INTRO_CARD_SECONDS: f32 = 2.0;
-
-/// How long the flag tally sits on screen before the level loops. "The next
-/// level is the same level": completing the flagpole restarts 1-1, cyclically.
-pub const LEVEL_CYCLE_DWELL: f32 = 2.0;
 
 /// One tile. The whole level is authored on this grid, because the 1-1 grammar IS
 /// a grid grammar: a jump clears a few tiles, a pit is two or three wide.
@@ -1105,8 +1093,8 @@ fn begin_a_lap_on_arrival(
 /// A fresh lap: the flag back to `Idle`, a full clock and the intro card.
 fn start_a_lap(sequence: &mut flag::FlagSequence, level: &mut MaryOLevelState) {
     *sequence = flag::FlagSequence::default();
-    level.time_remaining = STARTING_TIME;
-    level.intro_card = INTRO_CARD_SECONDS;
+    level.time_remaining = crate::rules::mary_o_rules().level.starting_time;
+    level.intro_card = crate::rules::mary_o_rules().level.intro_card_seconds;
     level.tally_dwell = 0.0;
 }
 
@@ -1397,7 +1385,7 @@ fn mary_o_setup(
 /// rather than any teardown code in this crate.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
 pub struct MaryOLevelState {
-    /// Counts DOWN from [`STARTING_TIME`]; clamps at zero.
+    /// Counts DOWN from `level.starting_time` (`mary_o_rules.ron`); clamps at zero.
     pub time_remaining: f32,
     /// Running total across flag grabs. `flag_score` scores ONE grab by
     /// contact height; this accumulates them, so the HUD can show a career
@@ -1414,7 +1402,7 @@ pub struct MaryOLevelState {
     /// slot draws nothing, so the card retires itself.
     pub intro_card: f32,
     /// Seconds the flag tally has been on screen. The level asks to leave on the
-    /// tick this crosses [`LEVEL_CYCLE_DWELL`].
+    /// tick this crosses `level.cycle_dwell_seconds` (`mary_o_rules.ron`).
     ///
     /// ⛔⛔ IT WAS A `Local` AND DESYNCED THE DEMO: a Bevy local is not rollback
     /// state. Measured 2026-08-30 on the demo's own sync-test host: riding the
@@ -1428,10 +1416,10 @@ pub struct MaryOLevelState {
 impl Default for MaryOLevelState {
     fn default() -> Self {
         Self {
-            time_remaining: STARTING_TIME,
+            time_remaining: crate::rules::mary_o_rules().level.starting_time,
             score: 0,
-            lives: STARTING_LIVES,
-            intro_card: INTRO_CARD_SECONDS,
+            lives: crate::rules::mary_o_rules().level.starting_lives,
+            intro_card: crate::rules::mary_o_rules().level.intro_card_seconds,
             tally_dwell: 0.0,
         }
     }
@@ -1887,10 +1875,10 @@ fn spend_lives_on_death(
     // substitute for. no floor and no reset. Not `saturating_sub`: the count is allowed
     // below zero on purpose, and the run carries on with its score.
     level.lives -= 1;
-    level.time_remaining = STARTING_TIME;
+    level.time_remaining = crate::rules::mary_o_rules().level.starting_time;
     // A fresh attempt gets a fresh card — it is how the player reads how many
     // lives that death cost them.
-    level.intro_card = INTRO_CARD_SECONDS;
+    level.intro_card = crate::rules::mary_o_rules().level.intro_card_seconds;
     // And she starts it as small Mary-O. Clearing the worn set is what makes
     // that true: `sync_grown_form` reads it, so emptying it is the whole form
     // revert and writing a size here would be a second authority for her shape.
@@ -2162,7 +2150,7 @@ fn at_mouth(body: ae::Aabb, mouth: ae::Aabb) -> bool {
 
 /// Once the tally has been read, the level goes where its room says.
 ///
-/// The level says WHEN: [`LEVEL_CYCLE_DWELL`] after the tally, it banks the grab
+/// The level says WHEN: `level.cycle_dwell_seconds` (`mary_o_rules.ron`) after the tally, it banks the grab
 /// and asks the mode owner's [`Departure`](ambition_platformer2d::session::Departure)
 /// for `NextRoom`. The engine says HOW, as it does for Sanic: the room's authored
 /// `next_room` (an LDtk level field, so a new area leads somewhere with no line of
@@ -2191,9 +2179,9 @@ fn cycle_level_on_flag_tally(
         level.tally_dwell = 0.0;
         return;
     }
-    let reading_the_tally = level.tally_dwell < LEVEL_CYCLE_DWELL;
+    let reading_the_tally = level.tally_dwell < crate::rules::mary_o_rules().level.cycle_dwell_seconds;
     level.tally_dwell += time.sim_dt();
-    if level.tally_dwell < LEVEL_CYCLE_DWELL {
+    if level.tally_dwell < crate::rules::mary_o_rules().level.cycle_dwell_seconds {
         return;
     }
     if reading_the_tally {
@@ -2850,7 +2838,7 @@ mod tests {
         let mut app = shell(MaryORulesPlugin::hosted(), Some(MARY_O_MODE), 1.0);
         app.update();
         app.update();
-        assert_eq!(remaining(&mut app), Some(STARTING_TIME - 2.0));
+        assert_eq!(remaining(&mut app), Some(crate::rules::mary_o_rules().level.starting_time - 2.0));
 
         // Hosted, in one of Ambition's own rooms: no owner, no clock.
         let mut app = shell(MaryORulesPlugin::hosted(), None, 1.0);
@@ -2860,10 +2848,10 @@ mod tests {
         // Standalone: the demo IS the game, so no mode is needed.
         let mut app = shell(MaryORulesPlugin::global(), None, 1.0);
         app.update();
-        assert_eq!(remaining(&mut app), Some(STARTING_TIME - 1.0));
+        assert_eq!(remaining(&mut app), Some(crate::rules::mary_o_rules().level.starting_time - 1.0));
 
         // The clock clamps at zero rather than running negative.
-        let mut app = shell(MaryORulesPlugin::global(), None, STARTING_TIME * 2.0);
+        let mut app = shell(MaryORulesPlugin::global(), None, crate::rules::mary_o_rules().level.starting_time * 2.0);
         app.update();
         assert_eq!(remaining(&mut app), Some(0.0));
     }
@@ -3492,13 +3480,13 @@ mod tests {
         // ── A death spends exactly one life ──────────────────────────────────
         let mut app = shell(0.0);
         app.update();
-        assert_eq!(level(&mut app).0, STARTING_LIVES, "no death, no cost");
+        assert_eq!(level(&mut app).0, crate::rules::mary_o_rules().level.starting_lives, "no death, no cost");
 
         kill(&mut app);
         app.update();
         assert_eq!(
             level(&mut app).0,
-            STARTING_LIVES - 1,
+            crate::rules::mary_o_rules().level.starting_lives - 1,
             "she died, so a life is spent"
         );
 
@@ -3507,17 +3495,17 @@ mod tests {
         app.update();
         assert_eq!(
             level(&mut app).0,
-            STARTING_LIVES - 1,
+            crate::rules::mary_o_rules().level.starting_lives - 1,
             "a life is spent per death, not per frame after one"
         );
 
         // ── Running out of time is a death, and refills the clock ────────────
-        let mut app = shell(STARTING_TIME * 2.0);
+        let mut app = shell(crate::rules::mary_o_rules().level.starting_time * 2.0);
         app.update();
         let (lives, _, remaining) = level(&mut app);
-        assert_eq!(lives, STARTING_LIVES - 1, "the clock hitting zero kills");
+        assert_eq!(lives, crate::rules::mary_o_rules().level.starting_lives - 1, "the clock hitting zero kills");
         assert_eq!(
-            remaining, STARTING_TIME,
+            remaining, crate::rules::mary_o_rules().level.starting_time,
             "and the clock refills, which is also what disarms the timeout so it \
              cannot spend every remaining life on consecutive frames"
         );
@@ -3538,7 +3526,7 @@ mod tests {
             score, 4200,
             "and the run keeps its score, because nothing ended"
         );
-        assert_eq!(remaining, STARTING_TIME, "on a fresh clock, like any death");
+        assert_eq!(remaining, crate::rules::mary_o_rules().level.starting_time, "on a fresh clock, like any death");
     }
 
     /// A replay's own body reset must not read as a death.
@@ -3574,7 +3562,7 @@ mod tests {
         app.update();
         assert_eq!(
             level_lives(&mut app),
-            STARTING_LIVES,
+            crate::rules::mary_o_rules().level.starting_lives,
             "a fresh level starts on three lives"
         );
 
@@ -3591,7 +3579,7 @@ mod tests {
 
         assert_eq!(
             level_lives(&mut app),
-            STARTING_LIVES,
+            crate::rules::mary_o_rules().level.starting_lives,
             "eight body resets with no death reported must cost NOTHING — under \
              the old counter inference this had already drained and wrapped the \
              lives counter"
@@ -3607,7 +3595,7 @@ mod tests {
     }
 
     /// The level loops: a settled tally rearms the level after a dwell. The
-    /// tally holds for [`LEVEL_CYCLE_DWELL`] before the sequence returns to `Idle`
+    /// tally holds for `level.cycle_dwell_seconds` (`mary_o_rules.ron`) before the sequence returns to `Idle`
     /// and the clock refills — that reset is what the cycle emitter does on the
     /// same line it writes `RoomReplayRequested` (so observing the reset proves the
     /// emit ran), and it must NOT fire early or the tally would never be seen.
@@ -3693,7 +3681,7 @@ mod tests {
                 Vec::new(),
             ),
         );
-        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, LEVEL_CYCLE_DWELL * 0.5));
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, crate::rules::mary_o_rules().level.cycle_dwell_seconds * 0.5));
         app.add_plugins(MaryORulesPlugin::global());
 
         app.update();
@@ -3739,7 +3727,7 @@ mod tests {
             rooms_in_mode(None),
         );
         // Half the dwell per frame: frame 1 arms nothing, frame 2 crosses it.
-        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, LEVEL_CYCLE_DWELL * 0.5));
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, crate::rules::mary_o_rules().level.cycle_dwell_seconds * 0.5));
         app.add_plugins(MaryORulesPlugin::global());
         app.update();
 
@@ -3803,7 +3791,7 @@ mod tests {
         // spent this frame.
         assert_eq!(
             (phase, remaining),
-            (flag::FlagPhase::Idle, STARTING_TIME - LEVEL_CYCLE_DWELL * 0.5),
+            (flag::FlagPhase::Idle, crate::rules::mary_o_rules().level.starting_time - crate::rules::mary_o_rules().level.cycle_dwell_seconds * 0.5),
             "the level's own replay was admitted and the lap did not start again"
         );
 
@@ -3831,7 +3819,7 @@ mod tests {
             app.world_mut(),
             rooms_in_mode(None),
         );
-        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, LEVEL_CYCLE_DWELL));
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, crate::rules::mary_o_rules().level.cycle_dwell_seconds));
         app.add_plugins(MaryORulesPlugin::global());
         app.update();
         {

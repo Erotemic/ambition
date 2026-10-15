@@ -877,7 +877,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     //
     // Everything up to here was reachability. This is the level ENDING: run
     // into the pole, ride the sequence through its slide/walk-off/tally, and
-    // then wait out `LEVEL_CYCLE_DWELL` for the cyclic restart.
+    // then wait out `level.cycle_dwell_seconds` for the cyclic restart.
     let (_, score_before, _) = level(&mut app);
     let mut tallied = false;
     for _ in 0..900 {
@@ -903,7 +903,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
          the replay observable ({away_from_spawn:?} vs {spawn:?})"
     );
 
-    let dwell_frames = (ambition_demo_mary_o::LEVEL_CYCLE_DWELL / (1.0 / 60.0)).ceil() as usize;
+    let dwell_frames = (ambition_demo_mary_o::rules::mary_o_rules().level.cycle_dwell_seconds / (1.0 / 60.0)).ceil() as usize;
     let replayed = drive(&mut app, dwell_frames + 240, |b| {
         if b.pos.distance(spawn) < 64.0 {
             return None;
@@ -924,7 +924,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
          ({score_before} -> {score_end})"
     );
     assert!(
-        (ambition_demo_mary_o::STARTING_TIME - clock_end) < 5.0,
+        (ambition_demo_mary_o::rules::mary_o_rules().level.starting_time - clock_end) < 5.0,
         "and the fresh lap gets a fresh clock (got {clock_end})"
     );
     assert_eq!(

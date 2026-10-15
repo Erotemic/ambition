@@ -371,7 +371,7 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     for _ in 0..600 {
         step(&mut app, hold_right());
         let (_, _, remaining) = level(&mut app);
-        if (remaining - ambition_demo_mary_o::STARTING_TIME).abs() < 0.001 {
+        if (remaining - ambition_demo_mary_o::rules::mary_o_rules().level.starting_time).abs() < 0.001 {
             // The clock refilled: the tally settled and the level cycled.
             return;
         }

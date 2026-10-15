@@ -141,6 +141,29 @@
             victory: 2.0,
         ),
     ),
+    // The level around a run.
+    level: (
+        // The level clock starts here and counts down.
+        starting_time: 400.0,
+        // Lives Mary-O starts a run with.
+        starting_lives: 3,
+        // How long the title card ("WORLD 1-1    MARY-O x3") stays before
+        // play reads as normal.
+        intro_card_seconds: 2.0,
+        // How long the flag tally stays on screen before the level loops.
+        // The next level is the same level: the flagpole restarts 1-1.
+        cycle_dwell_seconds: 2.0,
+    ),
+    // How the power-ups move once they are out of their block.
+    power_ups: (
+        // The wand is slower than she walks, so a player who wants it can
+        // always catch it.
+        wand_speed: 55.0,
+        // The quasar is faster and gives back most of what it lands with:
+        // it bounds away from her like a superstar.
+        quasar_speed: 105.0,
+        quasar_restitution: 0.86,
+    ),
     // The flag at the end of a level.
     flag: (
         // How fast the body slides down the pole, world px per second.

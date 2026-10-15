@@ -195,7 +195,7 @@ fn one_replay_request_is_processed_exactly_once() {
 /// end: `spend_lives_on_death` spends the life and asks for a replay, and the
 /// room actually rebuilds under her.
 ///
-/// The clock is drained rather than waited out — `STARTING_TIME` is 400 in-game
+/// The clock is drained rather than waited out — `level.starting_time` is 400 in-game
 /// seconds and this is a seam proof, not an endurance run. The beat under test
 /// is what the demo does when it reaches zero.
 #[test]
@@ -250,13 +250,13 @@ fn the_level_timeout_actually_replays_the_room() {
         lives_before - 1,
         "running the clock out costs one life"
     );
-    // Refilled to `STARTING_TIME`, then ticking down again — the fresh attempt
+    // Refilled to `level.starting_time`, then ticking down again — the fresh attempt
     // is already running, so this is a proximity check, not equality.
     assert!(
-        (ambition_demo_mary_o::STARTING_TIME - remaining) < 1.0 && remaining > 0.0,
+        (ambition_demo_mary_o::rules::mary_o_rules().level.starting_time - remaining) < 1.0 && remaining > 0.0,
         "and rearms the clock for the fresh attempt (got {remaining}, expected \
          just under {})",
-        ambition_demo_mary_o::STARTING_TIME
+        ambition_demo_mary_o::rules::mary_o_rules().level.starting_time
     );
 
     // The part no existing test reached: the fresh attempt actually starts at spawn.

@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 
-use ambition_demo_mary_o::{MaryOLevelState, MARY_O_MODE, STARTING_TIME};
+use ambition_demo_mary_o::{MaryOLevelState, MARY_O_MODE};
 
 /// How many sim ticks to run before reporting. One second = 60.
 const DEFAULT_TICKS: u32 = 300;
@@ -95,7 +95,8 @@ fn report(app: &mut App, requested: u32) {
     println!("  SimTick         : {tick}");
     match remaining {
         Some(t) => println!(
-            "  level clock     : {t:.1} / {STARTING_TIME:.0}  (mode-scoped; engine owns its teardown)"
+            "  level clock     : {t:.1} / {starting:.0}  (mode-scoped; engine owns its teardown)",
+            starting = ambition_demo_mary_o::rules::mary_o_rules().level.starting_time
         ),
         None => println!("  level clock     : ABSENT — the mode never woke. That is a bug."),
     }

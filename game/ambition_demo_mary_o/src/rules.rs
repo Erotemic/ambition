@@ -28,6 +28,8 @@ pub struct MaryORules {
     pub cosmic: Cosmic,
     pub castle_end: CastleEnd,
     pub flag: Flag,
+    pub level: Level,
+    pub power_ups: PowerUps,
 }
 
 /// The end of a castle: the switch, the bridge, the boss in the lava, the
@@ -60,6 +62,25 @@ pub struct CastleBeats {
     /// The thanks beat is the rescue line and this much more.
     pub thanks_after_line: f32,
     pub victory: f32,
+}
+
+/// The level's clock, lives and the beats around a run.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Level {
+    pub starting_time: f32,
+    pub starting_lives: i8,
+    pub intro_card_seconds: f32,
+    pub cycle_dwell_seconds: f32,
+}
+
+/// How the power-ups move once they are out of their block.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PowerUps {
+    pub wand_speed: f32,
+    pub quasar_speed: f32,
+    pub quasar_restitution: f32,
 }
 
 /// The flag at the end of a level.
@@ -185,6 +206,10 @@ impl MaryORules {
             ("flag.slide_speed", self.flag.slide_speed),
             ("flag.walk_off_px", self.flag.walk_off_px),
             ("flag.walk_off_speed", self.flag.walk_off_speed),
+            ("level.intro_card_seconds", self.level.intro_card_seconds),
+            ("level.cycle_dwell_seconds", self.level.cycle_dwell_seconds),
+            ("power_ups.wand_speed", self.power_ups.wand_speed),
+            ("power_ups.quasar_speed", self.power_ups.quasar_speed),
         ] {
             if !(value.is_finite() && value >= 0.0) {
                 problems.push(format!("`{field}` is {value}; it is finite and not negative"));
@@ -199,6 +224,16 @@ impl MaryORules {
             if value < 0 {
                 problems.push(format!("`{field}` is {value}; it is not negative"));
             }
+        }
+        if !(self.level.starting_time.is_finite() && self.level.starting_time > 0.0) {
+            problems.push(format!("`level.starting_time` is {}; the clock counts down from it, so it is more than 0", self.level.starting_time));
+        }
+        if self.level.starting_lives < 1 {
+            problems.push(format!("`level.starting_lives` is {}; a run starts with at least one life", self.level.starting_lives));
+        }
+        let restitution = self.power_ups.quasar_restitution;
+        if !(0.0..=1.0).contains(&restitution) {
+            problems.push(format!("`power_ups.quasar_restitution` is {restitution}; it is from 0 to 1"));
         }
         if plant.travel_ticks == 0 {
             problems.push("`snake_plant.travel_ticks` is 0; the plant moves by one part in it each tick".to_string());
@@ -311,6 +346,26 @@ mod tests {
         let boxed = "boxed_seconds: 4.0,";
         assert_eq!(authored.matches(boxed).count(), 1, "the probe edits one line of the file");
         assert_eq!(rules_of(&authored.replace(boxed, "boxed_seconds: 6.0,")).shell.boxed_seconds, 6.0);
+
+        // The level clock and the power-ups' motion are the file's: the run
+        // starts on the file's clock, an edit is the next start's value, and
+        // a value the level cannot use is refused with its field named.
+        assert_eq!(crate::MaryOLevelState::default().time_remaining, file.level.starting_time);
+        let clock = "starting_time: 400.0,";
+        assert_eq!(authored.matches(clock).count(), 1, "the probe edits the clock");
+        assert_eq!(rules_of(&authored.replace(clock, "starting_time: 300.0,")).level.starting_time, 300.0);
+        let bounce = "quasar_restitution: 0.86,";
+        assert_eq!(authored.matches(bounce).count(), 1, "the probe edits the quasar");
+        assert_eq!(rules_of(&authored.replace(bounce, "quasar_restitution: 0.5,")).power_ups.quasar_restitution, 0.5);
+        std::fs::write(root.join("data/mary_o_rules.ron"), authored.replace(bounce, "quasar_restitution: 1.5,")).unwrap();
+        let refused = match EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None)
+            .with_schemas(|| vec![mary_o_rules_schema()])
+            .compile()
+        {
+            Ok(_) => panic!("a quasar that gains speed on each bounce was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`power_ups.quasar_restitution`"), "the refusal names the field: {refused}");
         let _ = std::fs::remove_dir_all(&root);
     }
 }

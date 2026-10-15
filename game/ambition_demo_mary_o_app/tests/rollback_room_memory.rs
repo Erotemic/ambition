@@ -9,7 +9,7 @@
 //!
 //! ⛔⛔ A `Local` ON A SIM SYSTEM IS NOT ROLLBACK STATE.
 //! `cycle_level_on_flag_tally` accumulated `dwell` on the SIM clock and compared
-//! it against `LEVEL_CYCLE_DWELL`. First simulation: the threshold crosses at
+//! it against `level.cycle_dwell_seconds`. First simulation: the threshold crosses at
 //! tick N, the level re-arms and records a transition intent. GGRS rewinds the
 //! world — but not the local — and resimulates from a dwell that is already
 //! past the threshold, so the crossing lands on a different tick. One timeline

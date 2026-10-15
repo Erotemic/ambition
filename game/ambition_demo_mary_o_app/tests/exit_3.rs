@@ -14,7 +14,7 @@
 
 use bevy::prelude::*;
 
-use ambition_demo_mary_o::{MaryOLevelState, MARY_O_MODE, STARTING_TIME};
+use ambition_demo_mary_o::{MaryOLevelState, MARY_O_MODE};
 use ambition_demo_mary_o_app::build_demo_app;
 
 /// Seconds per sim tick under `PlatformerEnginePlugins::fixed_tick()`.
@@ -155,7 +155,7 @@ fn the_demos_own_rules_run_because_its_room_claims_its_mode() {
         start - end
     );
     assert_eq!(MARY_O_MODE, "mary_o");
-    assert!(STARTING_TIME > 0.0);
+    assert!(ambition_demo_mary_o::rules::mary_o_rules().level.starting_time > 0.0);
 }
 
 /// ⛔⛤ **A DEMO HOST HAD THE CENSUS REPORTERS AND NOT THE CLOCK THEY TAKE —

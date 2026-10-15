@@ -902,7 +902,7 @@ fn quasar_reward() -> PowerReward {
         half: crate::star::QUASAR_HALF,
         sprite: crate::star::QUASAR_SPRITE,
         motion: rises_from_a_block(
-            ItemMotionPlan::bouncer(QUASAR_SPEED, QUASAR_RESTITUTION),
+            ItemMotionPlan::bouncer(crate::rules::mary_o_rules().power_ups.quasar_speed, crate::rules::mary_o_rules().power_ups.quasar_restitution),
             crate::star::QUASAR_HALF.y,
         ),
     }
@@ -925,13 +925,6 @@ fn rises_from_a_block(plan: ItemMotionPlan, half_y: f32) -> ItemMotionPlan {
     plan.emerging(crate::T * 0.5 + half_y, 0.4)
 }
 
-/// Travel speed of the wand once it is out — slower than she walks, so a player
-/// who wants it can always catch it.
-const WAND_SPEED: f32 = 55.0;
-/// The quasar is faster and gives back most of what it lands with: it is meant
-/// to bound away from you like a superstar.
-const QUASAR_SPEED: f32 = 105.0;
-const QUASAR_RESTITUTION: f32 = 0.86;
 
 /// `small -> wand`, `grown -> beacon`, `spark-powered -> nothing`.
 ///
@@ -944,7 +937,7 @@ fn wand_reward() -> PowerReward {
         half: STAR_WAND_HALF,
         sprite: STAR_WAND_SPRITE,
         // The wand WALKS and turns at walls, like the mushroom.
-        motion: rises_from_a_block(ItemMotionPlan::walker(WAND_SPEED), STAR_WAND_HALF.y),
+        motion: rises_from_a_block(ItemMotionPlan::walker(crate::rules::mary_o_rules().power_ups.wand_speed), STAR_WAND_HALF.y),
     }
 }
 

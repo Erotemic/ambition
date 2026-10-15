@@ -46,8 +46,9 @@ possible without a recompile. Work in this order:
 2. Efficient content preparation: [TEST-LANES](#test-lanes--keep-required-test-lanes-executable)
    item 10 (the sprite publish: `draw-review` and `draw-all` are cached
    since 2026-10-14, `draw-factions` too, the staging root since
-   2026-10-15, an unchanged Ultrapack tier since 2026-10-15; left: a sheet
-   edit re-packs every tier, about 131 s).
+   2026-10-15, an unchanged Ultrapack tier since 2026-10-15, a sheet edit
+   that keeps its frames' sizes is a patch since 2026-10-15; left: an edit
+   that changes a frame's trimmed size re-packs every tier, about 131 s).
 3. Pack elegance: admission diagnostics that name the file and the field
    (done 2026-10-15: `FacetSource::parse` gives the field path, ca3bd5d8f);
    [CPU-LADDER](#cpu-ladder--the-brain-owns-the-knobs-smash-owns-the-ladder)
@@ -196,7 +197,14 @@ the beacon's ranged grant), and the cue of each change of form. The ladder is
 the downgrade chain, so lowering builds each row's armor and slot; admission
 refuses a bottom rung with a row, a rung over it with no row or arrival, a
 spark the projectile road cannot fly, and a cue between characters off the
-ladder. Not content:
+ladder. Mary-O's pickup boxes are `power_ups.*_half` in her rules file, and
+Smash's respawn seats and platform are `respawn` in `smash_stages.ron` (a
+seat spacing not wider than a standing body is refused). The gate portals
+of Ambition's rooms (the intro's gate, the Math gate pair) are its
+`gate_portals.ron`: a `gate_portals` schema of the world capability, whose
+rows live in the world crate and which the engine's schema registry
+registers (the world crate does not link the content pack); a reload
+restates Ambition's rows, and `math_town.rs` is deleted. Not content:
 the Mary-O test course. It is a fixture that no level renders, and its
 module says why it stays Rust (an editor drag would make it a different
 test).
@@ -1110,8 +1118,28 @@ variants. Also found in that regen:
     Measured: a publish whose whole-run fingerprint missed and that pooled
     no changed sheet (a script edit, an entity or prop target): 135 s wall
     (was 270 s), the four tiers 0 s, the postcondition passes. A publish
-    with no change at all is the whole-run hit: 37 s. Left: a sheet edit
-    still re-packs all four tiers (about 131 s); the largest phases of a
+    with no change at all is the whole-run hit: 37 s.
+    **Built 2026-10-15, the Ultrapack patch:** the packer places frames by
+    their trimmed sizes in pool order and by nothing else. So when only
+    some sheets' pixels changed and their frames kept their trimmed sizes
+    (a recolour, a shading pass), a full pack gives the same layout, and
+    each tier draws only the pages that hold those frames again
+    (`pack_tier`, run by `sprites.sh` as `python -m
+    ambition_sprite2d_renderer.authoring.ultrapack --state ..`; the state
+    is each sheet's digest, the frames' sizes and the catalog's digest at
+    the last pack, removed before a write and written last). It is not a
+    flag of the `ultrapack` command: an edit to the CLI moves the shared
+    core key and makes every sheet stale, and the module is outside it.
+    Witness: `test_a_tier_whose_changed_sheets_kept_their_sizes_is_patched_to_the_bytes_of_a_full_pack`
+    (poisons: no clear of the old rect, no offset update, no size check,
+    no catalog check, the state kept during a write; each red). Measured on
+    the full tier with the real sheets: a recolour of one sheet 6.7 s (8 of
+    180 pages), byte-identical to a fresh full pack (124 s); no change
+    1.6 s. A full pack knows an unchanged page by the pixel digest in
+    the state (with the file's size and mtime) and does not decode it:
+    a full-tier pack after a size edit 65 s, was 82 to 86 s (a37183f).
+    Left: an edit that changes a frame's trimmed size still re-packs all
+    four tiers (the full tier about 65 s); the largest phases of a
     no-render publish are now the tack-on batch's freshness checks (40 s),
     the staging copy with the fingerprint work (28 s) and the LDtk sprite
     tilesets (26 s).

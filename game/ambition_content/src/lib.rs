@@ -97,12 +97,13 @@ mod goblin_moveset;
 pub mod input_techniques;
 /// The prop sheets its rooms name: the pack's `data/prop_sheets.ron`.
 pub(crate) mod prop_sheets;
+/// The gate portals its rooms hold: the pack's `data/gate_portals.ron`.
+pub(crate) mod gate_portals;
 pub mod intro;
 /// Ambition's day: its length, its phases, its light.
 pub mod day_cycle;
 pub mod items;
 /// The town of the Math dimension (`math.ldtk`) and the gate pair to it.
-pub mod math_town;
 pub mod primeval;
 /// Test-only: it owns the cross-table invariant no single fighter's module can state — that an
 /// authored burst is heard exactly once.

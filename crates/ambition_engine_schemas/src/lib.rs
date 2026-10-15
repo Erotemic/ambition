@@ -35,6 +35,9 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
         // A prop's sheet belongs with the sprite capability.
         ambition_sprite_sheet::prop_sheets::prop_sheets_schema(),
         ambition_sprite_sheet::prop_sheets::platform_looks_schema(),
+        // A gate portal belongs with the world's rooms. The world IR does not
+        // link the content pack, so its rows are registered here.
+        gate_portals_schema(),
         // Capability schemas remain owned by the capability that can interpret them.
         ambition_items::content_schema::item_catalog_schema(),
         ambition_items::content_schema::held_item_art::held_item_art_schema(),
@@ -62,4 +65,18 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
             .expect("the engine's own schemas are registered once");
     }
     registry
+}
+
+/// The `gate_portals` schema: a game's gate portals, by the loading zone each
+/// one holds (`ambition_platformer2d_world::rooms::GatePortalRows`).
+pub fn gate_portals_schema() -> ambition_content_pack::SchemaRegistration {
+    use ambition_platformer2d_world::rooms::{gate_portal_problems, GatePortalRows, GATE_PORTALS_SCHEMA, WORLD_CAPABILITY};
+    ambition_content_pack::rules_schema::<GatePortalRows>(
+        GATE_PORTALS_SCHEMA,
+        1,
+        WORLD_CAPABILITY,
+        "The gate portals a game's rooms hold, by loading zone: the switch \
+         that boots each portal, and the names of its portal and ring props.",
+        gate_portal_problems,
+    )
 }

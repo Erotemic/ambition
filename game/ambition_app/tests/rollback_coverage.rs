@@ -1536,9 +1536,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // populate would restore an empty registry nothing ever refills.
     (
         "::gate_portal::GatePortalRegistry",
-        "authored portal configuration — switch id and sprite names, written once \
-         by the authoring content plugin. The live phase it used to carry is \
-         rollback state and moved to `GatePortalPhases`",
+        "authored portal configuration — switch id and sprite names, written at \
+         composition time from the pack's `gate_portals.ron` and restated only by \
+         the reload transaction, at its publication boundary. The live phase it \
+         used to carry is rollback state and moved to `GatePortalPhases`",
     ),
     ("::world_manifest::WorldManifest", "authored world manifest"),
     (
@@ -2170,6 +2171,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
         "ambition_content::tuning::AmbitionTuning",
         "Ambition's own tuning (`ambition_rules.ron`: boss idle bark, GNU-ton duel,          African swallow), lowered from the pack. Inserted at composition time; the          one runtime writer is the reload transaction, at the publication boundary,          so no tick a rewind can reach changed it",
+    ),
+    (
+        "ambition_content::gate_portals::AmbitionGatePortals",
+        "the gate portal zones Ambition's pack registered, so a reload restates only          its own rows of `GatePortalRegistry`. Written at composition time and at the          reload's publication boundary only",
     ),
     (
         "ambition_content::prop_sheets::AmbitionPlatformLooks",

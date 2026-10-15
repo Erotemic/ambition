@@ -35,3 +35,6 @@ ambition_match = { path = "../ambition_match", features = ["content_pack"] }
 ambition_projectiles = { path = "../ambition_projectiles", features = ["content_pack"] }
 # The sprite capability owns `prop_sheets`.
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet", features = ["content_pack"] }
+# The world IR owns the gate portal rows; it does not link the content pack,
+# so its schema is registered here.
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }

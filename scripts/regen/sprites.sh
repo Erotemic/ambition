@@ -1739,6 +1739,12 @@ then
     # 131 s of a publish with nothing to render (measured 2026-10-15). The
     # key is removed before a tier packs and written only when it ends
     # well, so a tier cut short is never current.
+    # A tier whose key moved is patched when it can be (`--state`): when
+    # only some sheets' pixels changed and their frames kept their trimmed
+    # sizes, the layout is the same, so only the pages that hold those
+    # frames are drawn again, to the bytes of a full pack. Measured
+    # 2026-10-15 on the full tier: a recolour of one sheet 6.7 s, a full
+    # pack 124 s.
     ultrapack_key_dir="$cache_dir/ultrapack"
     mkdir -p "$ultrapack_key_dir"
     ultrapack_inputs="$(ultrapack_inputs_key "$sprites_dir" "$renderer_dir/ambition_sprite2d_renderer/data/pack_plan.yaml")"
@@ -1779,11 +1785,14 @@ then
             finish_ultrapack_tier "$ultrapack_waited"
             ultrapack_waited=$((ultrapack_waited + 1))
         fi
-        run_renderer_python "ultrapack-$tname" -m ambition_sprite2d_renderer ultrapack \
+        # The module's own entry, not the `ultrapack` command: an edit to
+        # the CLI makes every sheet stale (see `ultrapack.main`).
+        run_renderer_python "ultrapack-$tname" -m ambition_sprite2d_renderer.authoring.ultrapack \
             --from-rendered "$sprites_dir" \
             --out "$pack_root/$tname" \
             --scale "$tscale" --min-frame-px "$tmin" --page-size "$tpage" \
-            --name ultrapack "${ultrapack_plan[@]}" "${ultrapack_debug[@]}" >"$ultrapack_logs/$tname.log" 2>&1 &
+            --name ultrapack "${ultrapack_plan[@]}" "${ultrapack_debug[@]}" \
+            --state "$ultrapack_key_dir/$tname.state.json" >"$ultrapack_logs/$tname.log" 2>&1 &
         ultrapack_pids+=("$!")
         ultrapack_names+=("$tname")
         ultrapack_keys+=("$tier_key")

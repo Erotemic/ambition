@@ -16,10 +16,10 @@
 | [`dialogue`](src/dialogue/mod.rs) | Named Ambition dialogue / cutscene content registration. |
 | [`duel_arena`](src/duel_arena.rs) | Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room mechanics split by kind; this one is a `RoomLoaded` consumer). |
 | [`encounters`](src/encounters.rs) | Content encounter customers on the GENERIC lifecycle (E13). |
+| [`gate_portals`](src/gate_portals.rs) | Ambition's gate portals (the pack's `data/gate_portals.ron`): the intro's gate and the Math gate pair, by the loading zone each one holds. |
 | [`input_techniques`](src/input_techniques.rs) | Ambition's motion techniques: the pack's `data/motion_techniques.ron`. |
 | [`intro`](src/intro/mod.rs) | Intro sequence story content. |
 | [`items`](src/items/mod.rs) | Named Ambition item-roster / default-inventory registration. |
-| [`math_town`](src/math_town.rs) | The town of the Math dimension, and the gate pair that leads to it. |
 | [`moves_are_content`](src/moves_are_content.rs) | Are this provider's move tables content? |
 | [`music`](src/music.rs) | Ambition's adaptive music, handed to the reusable music director. |
 | [`pack`](src/pack.rs) | Ambition's own content pack: the compile that is the load path. |

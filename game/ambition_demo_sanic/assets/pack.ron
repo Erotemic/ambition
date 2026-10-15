@@ -3,10 +3,12 @@
 // list, not a directory glob, so its contents do not depend on filesystem
 // order. A line added here is played at the next start, with no Rust build.
 //
-// `sanic_rules` is the demo's own schema (`src/rules.rs`), which the content
-// CLI does not link. Validate, reading this tree off disk:
+// `sanic_rules` is the demo's own schema (`src/rules.rs`), which the generic
+// content CLI does not link. Validate this tree, or a copy of it, with the
+// demo's check binary (the content CLI with the demo's schemas):
 //
-//     cargo test -p ambition_demo_sanic --lib pack
+//     cargo run -p ambition_demo_sanic --features content_check \
+//         --bin sanic_content_check -- game/ambition_demo_sanic/assets
 (
     id: "ambition_demo_sanic",
     version: "0.1.0",

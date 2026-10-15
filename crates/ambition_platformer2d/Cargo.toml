@@ -29,6 +29,10 @@ capture = ["ambition_render/capture"]
 # `default-features = false` does NOT escape the items capability by leaving a
 # feature off; it links it either way. Whether that is the intended public
 # contract is `Q106` in docs/planning/awaiting-maintainer-decision.md.
+# The content CLI, for a game whose pack names its own schemas: its check
+# binary calls `content::check_pack_main` with them. Off by default: the game
+# itself never links the CLI.
+content_check = ["content_pack", "dep:ambition_content_cli"]
 content_pack = [
     "dep:ambition_content_pack",
     "dep:ambition_engine_schemas",
@@ -200,6 +204,8 @@ ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 # The ONE list of engine-owned schemas, shared with `ambition_content_cli`,
 # which must not link this facade. Optional for the same reason the compiler is.
 ambition_engine_schemas = { path = "../ambition_engine_schemas", optional = true }
+# The content CLI, for a game's pack check binary (`content_check`).
+ambition_content_cli = { path = "../ambition_content_cli", optional = true }
 ambition_combat = { path = "../ambition_combat" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }

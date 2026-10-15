@@ -39,6 +39,7 @@ pub mod shark_ride;
 pub mod sing;
 pub mod smash_pack;
 pub mod spring;
+pub mod rules;
 pub mod stages;
 pub mod tether;
 
@@ -1434,13 +1435,9 @@ fn take_eliminated_fighters_out_of_play(
     }
 }
 
-/// How long the winner card stands before the demo goes back to choosing.
-///
-/// The banner asks for 3.0s; this waits a little longer so players read it.
-const RETURN_TO_SELECT_AFTER: f32 = 4.5;
 
 /// Return to character select after a decided match has shown its winner card
-/// for [`RETURN_TO_SELECT_AFTER`], or at once for a `NoContest`.
+/// for `return_to_select_seconds` (`smash_rules.ron`), or at once for a `NoContest`.
 ///
 /// Leaving the stage cannot be retracted, so this arms only on a confirmed
 /// frame. It reads `StocksMatchSettled` (rollback state, stamped with its
@@ -1516,7 +1513,7 @@ fn return_to_the_select_screen_when_the_match_ends(
         .as_deref()
         .is_none_or(|boundary| boundary.fully_confirmed());
     if ended && confirmed && countdown.is_none() {
-        *countdown = Some(RETURN_TO_SELECT_AFTER);
+        *countdown = Some(crate::rules::smash_rules().return_to_select_seconds);
     }
     let Some(remaining) = countdown.as_mut() else {
         return;

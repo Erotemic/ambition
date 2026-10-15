@@ -162,6 +162,20 @@ written in, so they move with that code, not alone (decided 2026-10-14).
 The boss and Mary-O modules' tuning constants. They are on the
 module road (a 0.34 s WASM rebuild and a live reload).
 
+**Done 2026-10-15:** Smash's respawn rise and protection (`smash_stages`),
+its results-card wait and the admiral's shark (`smash_rules`, a new demo
+schema), and Mary-O's level clock, lives and power-up motion
+(`mary_o_rules`). Each data edit reached its test in 0.7 to 0.8 s with no
+compile. Each demo that owns a schema (Smash, Mary-O, Sanic) has a check
+binary, the content CLI with the demo's schemas
+(`cargo run -p ambition_demo_<game> --features content_check --bin
+<game>_content_check -- <pack>`): the generic CLI refused all three packs
+(no installed capability owns the demo's schema), and Smash's `pack.ron`
+told the author to run it. Open, from a census of 2026-10-15: Mary-O's form
+ladder, the pirate treasure reward, the intro flag chains, the coconut's
+impact, the Smash roster, the motion-input gestures, the Mary-O test
+course and the Sanic start-line sign.
+
 **Next action:** none before priority 2; open item 1 is deferred.
 
 **Blocked by:** nothing.

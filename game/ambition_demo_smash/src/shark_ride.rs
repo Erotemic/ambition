@@ -44,50 +44,12 @@ pub struct Departing {
     pub velocity: ae::Vec2,
 }
 
-/// How close the shark must be before the admiral is aboard.
-///
-/// The summon does not get the position it asks for: `translate_shark_summons`
-/// names the admiral's centre, and `actor_spawn_center_for_collision` keeps the
-/// authored bottom edge when the collision footprint differs. Measured at 62px
-/// for this pair by
-/// `an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons`; this
-/// radius leaves room.
-///
-/// A shark that misses the radius is not refused: it waits out its
-/// reservation and leaves, and the admiral silently loses the up-B.
-///
-/// After D246 (the fly-in), this becomes the "you have arrived" radius.
-const SUMMON_BOARD_RADIUS: f32 = 200.0;
-
-/// How long a summoned shark waits for its summoner before it gives up.
-const SUMMON_BOARD_DEADLINE_S: f32 = 1.0;
-
-/// How much punishment the RECOVERY shark takes before it dies.
-///
-/// It must exceed the largest single hit in the game. Jon's rule: the shark
-/// dies to about three hits (a damage threshold, in effect a health pool).
-/// The authored shark has 6, fair in its own game; the summon overrides it.
-///
-/// The cast's largest hit is George Booul's forward smash: `damage: 21` at
-/// `charge_mult = 1.7`, 36 exactly. 40 clears it: about five typical
-/// connections, or one charged George smash plus a little more.
-/// `a_recovery_mount_cannot_be_deleted_by_one_hit` reads the whole selectable
-/// cast, so a bigger smash trips it.
-pub const SUMMON_SHARK_HEALTH: u32 = 40;
-
 /// The summoned shark's actor id: one string for every shark this move makes.
 ///
 /// It is also a save key: the death path persists a defeated actor as
 /// `enemy_<id>_dead`. Summons decline persisted liveness at construction
 /// (`RespawnPolicy::OnRoomReenter`), which keeps a shared id safe.
 pub const SUMMON_SHARK_ID: &str = "smash_ride_shark";
-
-/// How fast a dismissed shark leaves.
-const DEPART_SPEED: f32 = 1_400.0;
-
-/// How long it flies before it is removed. Generous: it only has to outlast
-/// the time the body takes to leave view.
-const DEPART_SECONDS: f32 = 2.0;
 
 /// Recognise the authored summon-and-ride and ask for the mount.
 ///
@@ -144,8 +106,8 @@ pub fn translate_shark_summons(
                     faction: ambition_platformer2d::vfx::HitSide::Neutral,
                     // Neutral is hittable (`damage_lands` is true for
                     // `Foe | Neutral`), so an opponent can gimp the recovery,
-                    // but it must survive a stray hit. See `SUMMON_SHARK_HEALTH`.
-                    health: Some(SUMMON_SHARK_HEALTH),
+                    // but it must survive a stray hit. See `shark_ride.health` (`smash_rules.ron`).
+                    health: Some(crate::rules::smash_rules().shark_ride.health),
                     // No contact damage in Smash. The authored shark carries
                     // `ContactDamage`, and `Neutral` does not suppress it; it
                     // was quiet only because a neutral body acquires no target.
@@ -159,11 +121,11 @@ pub fn translate_shark_summons(
                         // Generous because the shark appears underfoot: a body
                         // that drifted between summon and board still boards.
                         // D246's fly-in will shrink it to an arrival radius.
-                        board_within: SUMMON_BOARD_RADIUS,
+                        board_within: crate::rules::smash_rules().shark_ride.board_radius,
                         // Short, because the shark appears underfoot: a late
                         // board means something is wrong. D246's fly-in will
                         // need a longer approach budget.
-                        board_deadline_s: SUMMON_BOARD_DEADLINE_S,
+                        board_deadline_s: crate::rules::smash_rules().shark_ride.board_deadline_seconds,
                     }),
                 },
             ),
@@ -246,8 +208,8 @@ pub fn depart_when_riderless(
             event.reason,
         );
         commands.entity(event.mount).insert(Departing {
-            remaining: DEPART_SECONDS,
-            velocity: departure_heading(kin.pos) * DEPART_SPEED,
+            remaining: crate::rules::smash_rules().shark_ride.depart_seconds,
+            velocity: departure_heading(kin.pos) * crate::rules::smash_rules().shark_ride.depart_speed,
         });
     }
 }
@@ -314,8 +276,8 @@ pub fn send_away_a_shark_nobody_boarded(
             event.mount,
         );
         commands.entity(event.mount).insert(Departing {
-            remaining: DEPART_SECONDS,
-            velocity: departure_heading(kin.pos) * DEPART_SPEED,
+            remaining: crate::rules::smash_rules().shark_ride.depart_seconds,
+            velocity: departure_heading(kin.pos) * crate::rules::smash_rules().shark_ride.depart_speed,
         });
     }
 }

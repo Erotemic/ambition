@@ -933,6 +933,7 @@ dependencies = [
  "ambition_character_sprites",
  "ambition_characters",
  "ambition_combat",
+ "ambition_content_cli",
  "ambition_content_pack",
  "ambition_conversation",
  "ambition_cutscene",

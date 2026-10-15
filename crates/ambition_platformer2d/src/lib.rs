@@ -92,6 +92,13 @@ pub mod content {
     /// topology the SDK is supposed to hide. A capability's own schema is added
     /// on top; nobody has to know that the character catalog lives in
     /// `ambition_characters`.
+    /// The content CLI, with a game's own schemas beside the engine's. A game
+    /// whose pack names its own schemas has a check binary that calls this
+    /// with `PACK.game_schemas()`. Without it, the CLI refuses the pack:
+    /// no installed capability owns the game's schema.
+    #[cfg(feature = "content_check")]
+    pub use ambition_content_cli::main_with as check_pack_main;
+
     pub fn engine_schemas() -> ambition_content_pack::SchemaRegistry {
         ambition_engine_schemas::engine_schemas()
     }
@@ -238,6 +245,13 @@ pub mod content {
         pub const fn with_schemas(mut self, schemas: fn() -> Vec<SchemaRegistration>) -> Self {
             self.schemas = schemas;
             self
+        }
+
+        /// The schemas the game itself owns: the list a check binary gives
+        /// the content CLI ([`check_pack_main`]), so the CLI and the game
+        /// read one list.
+        pub fn game_schemas(&self) -> fn() -> Vec<SchemaRegistration> {
+            self.schemas
         }
 
         /// Compile the pack now, without the cache: the road a test takes to
@@ -1640,6 +1654,11 @@ mod content_sdk_tests {
             pack.lowered::<u8>(&SchemaId::new("probe_rounds")).copied()
         };
         assert_eq!(lowered(OWNS.prepared()), Some(3), "the game's schema lowers its file");
+        // A check binary gives the content CLI this list, so the CLI checks
+        // the pack against the schemas the game compiles it with.
+        let ids = |schemas: fn() -> Vec<SchemaRegistration>| schemas().into_iter().map(|s| s.id).collect::<Vec<_>>();
+        assert_eq!(ids(OWNS.game_schemas()), vec![SchemaId::new("probe_rounds")]);
+        assert!(ids(EmbeddedPack::new(MANIFEST, SOURCES).game_schemas()).is_empty());
         // The composition's road: a profile's schemas, plus the game's own.
         let admitted = OWNS
             .compile_with(&engine_schemas())

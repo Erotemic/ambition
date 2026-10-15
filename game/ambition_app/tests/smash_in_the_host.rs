@@ -3075,7 +3075,7 @@ fn exit_match_ends_the_match_as_a_no_contest_and_returns_to_select() {
     // ⭐⭐ AND IT GOES HOME ON THE PRESS. Jon, 2026-08-26: *"skip the no
     // contest presentation for now and just exit to the character select menu
     // immediately."* The budget is what makes this an assertion rather than a
-    // restatement: `RETURN_TO_SELECT_AFTER` is 4.5 SECONDS, so a countdown road
+    // restatement: `return_to_select_seconds` is 4.5 SECONDS, so a countdown road
     // cannot pass a loop this short, and the old behaviour would have.
     const IMMEDIATE: usize = 30;
     let mut frames = 0;

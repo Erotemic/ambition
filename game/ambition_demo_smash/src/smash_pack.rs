@@ -19,8 +19,8 @@ use ambition_platformer2d::content::EmbeddedPack;
 /// values from the character-authoring submodule, it does not own them.
 pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! {
     root: "assets",
-    // The stages are this demo's own content.
-    schemas: [crate::stages::smash_stages_schema],
+    // The stages and the demo's own rules are this demo's content.
+    schemas: [crate::stages::smash_stages_schema, crate::rules::smash_rules_schema],
 };
 
 /// The body a character plays on as a fighter, as this pack's facet states

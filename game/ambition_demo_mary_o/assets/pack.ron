@@ -3,10 +3,12 @@
 // glob, so its contents do not depend on filesystem order. A line added here
 // is played at the next start, with no Rust build.
 //
-// `mary_o_rules` is the demo's own schema (`src/rules.rs`), which the content
-// CLI does not link. Validate, reading this tree off disk:
+// `mary_o_rules` is the demo's own schema (`src/rules.rs`), which the generic
+// content CLI does not link. Validate this tree, or a copy of it, with the
+// demo's check binary (the content CLI with the demo's schemas):
 //
-//     cargo test -p ambition_demo_mary_o --lib pack
+//     cargo run -p ambition_demo_mary_o --features content_check \
+//         --bin mary_o_content_check -- game/ambition_demo_mary_o/assets
 (
     id: "ambition_demo_mary_o",
     version: "0.1.0",

@@ -13,10 +13,12 @@
 // game reads this list (`content_pack! { root: "assets" }`), and a build that
 // embeds the pack embeds it from this list (`build.rs`).
 //
-// Validate without rebuilding Rust:
+// `smash_stages` and `smash_rules` are the demo's own schemas, which the
+// generic content CLI does not link. Validate this tree, or a copy of it,
+// with the demo's check binary (the content CLI with the demo's schemas):
 //
-//     cargo run -p ambition_content_cli --bin ambition_content -- \
-//         game/ambition_demo_smash/assets
+//     cargo run -p ambition_demo_smash --features content_check \
+//         --bin smash_content_check -- game/ambition_demo_smash/assets
 (
     id: "ambition_demo_smash",
     version: "0.1.0",
@@ -65,5 +67,7 @@
         (path: "data/match_rules.ron", schema: "match_rules", version: 1),
         // Its stages: the room they share and each stage's blocks.
         (path: "data/smash_stages.ron", schema: "smash_stages", version: 1),
+        // Its own match flow and the admiral's shark.
+        (path: "data/smash_rules.ron", schema: "smash_rules", version: 1),
     ],
 )

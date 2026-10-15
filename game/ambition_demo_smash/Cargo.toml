@@ -12,6 +12,9 @@ default = []
 # development build reads them off disk and a tuning edit needs no Rust build.
 # Turn it on where there is no source tree to read (web, Android, a bundle).
 static_content = []
+# The pack check binary (`smash_content_check`): the content CLI with this demo's
+# own schemas. Off by default: the demo never links the CLI.
+content_check = ["ambition_platformer2d/content_check"]
 
 [build-dependencies]
 # `build.rs` embeds each source `assets/pack.ron` declares, under
@@ -43,3 +46,13 @@ ambition_resource_spec = { path = "../../crates/ambition_resource_spec" }
 # belongs here rather than on each app that composes it.
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack", "portal"] }
 bevy = { version = "0.19.1", default-features = false }
+
+# Check this demo's pack without a Rust build of the game: the content CLI,
+# with the schemas this demo owns beside the engine's.
+#     cargo run -p ambition_demo_smash --features content_check --bin smash_content_check -- game/ambition_demo_smash/assets
+[[bin]]
+name = "smash_content_check"
+path = "src/bin/smash_content_check.rs"
+required-features = ["content_check"]
+test = false
+bench = false

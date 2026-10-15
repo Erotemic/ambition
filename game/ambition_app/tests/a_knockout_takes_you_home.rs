@@ -24,7 +24,7 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 /// a test. `ShellAbandonRequested` reaches the `abandoned` arm of
 /// `return_to_the_select_screen_when_the_match_ends` and leaves IMMEDIATELY —
 /// no card, no countdown, no confirmed-frame gate. A knockout takes the arm
-/// that waits for `fully_confirmed()`, arms `RETURN_TO_SELECT_AFTER`, and spends
+/// that waits for `fully_confirmed()`, arms `return_to_select_seconds`, and spends
 /// it against `Res<Time>` while the SIM clock is held at zero. Each of those is
 /// a way never to leave, and none of them was covered: the demo's
 /// `a_second_match_on_the_same_stage_counts_in_and_ends` runs updates after the
@@ -121,7 +121,7 @@ fn an_ordinary_knockout_returns_to_the_select_screen_on_its_own() {
          decided"
     );
 
-    // The card is worth `RETURN_TO_SELECT_AFTER` of REAL time; a headless loop
+    // The card is worth `return_to_select_seconds` of REAL time; a headless loop
     // spends that quickly, so this is a ceiling rather than a schedule.
     for _ in 0..4_000 {
         app.update();

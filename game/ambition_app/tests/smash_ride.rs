@@ -739,7 +739,7 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
     //
     // ⛔ TEN DAMAGE IS A MIDDLING HIT, not a worst case: the admiral's own table
     // has several at or above it. At the authored 6 this kills the shark and the
-    // ride ends; at `SUMMON_SHARK_HEALTH` it must not.
+    // ride ends; at `shark_ride.health` it must not.
     {
         let world = app.world_mut();
         let mount = world
@@ -823,7 +823,7 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
     // does NOT get the position it asks for: it names the rider's own centre,
     // and `actor_spawn_center_for_collision` then preserves the authored BOTTOM
     // EDGE, so the shark's centre lands 62px away for a body this size. That is
-    // inside `SUMMON_BOARD_RADIUS` and was inside it by 34px before anybody had
+    // inside `shark_ride.board_radius` and was inside it by 34px before anybody had
     // measured either number — which is the kind of margin that holds until one
     // sprite changes. Pinning the gap makes a placement change say so here
     // rather than in play.
@@ -2031,7 +2031,7 @@ fn a_recovery_mount_cannot_be_deleted_by_one_hit() {
         roster.len()
     );
 
-    let pool = ambition_demo_smash::shark_ride::SUMMON_SHARK_HEALTH;
+    let pool = ambition_demo_smash::rules::smash_rules().shark_ride.health;
     let (damage, who, what) = worst;
     let (ranged_damage, ranged_who, ranged_what) = worst_ranged;
     println!(

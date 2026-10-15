@@ -571,37 +571,86 @@ fn you_can_stand_on_the_giants_shoulders_until_it_bucks() {
     thrown_off_the_back(&mut sim, back, 8);
 }
 
-/// Where the giant's art has moss, a body can stand: each step of the slope of
-/// its back and the level part of each horn is ground, as its shoulders are.
+/// Where the giant's art has moss, a body can stand: the slope of its back
+/// (one line, walked), its shoulders and the level part of each horn.
 #[test]
 fn a_body_stands_where_the_giant_has_moss() {
     let mut sim = arena();
     untouchable_player(&mut sim);
     let s = scene(&mut sim);
     let ground: Vec<ae::Aabb> = s.giant_back.ground(&s.giant, s.giant_unmirrored).collect();
-    assert!(ground.len() > 3, "the giant has its shoulders, the steps of its slope and its horns: {}", ground.len());
-    for ledge in &ground {
-        let spot = ae::Vec2::new((ledge.min.x + ledge.max.x) * 0.5, ledge.min.y - 40.0);
+    assert_eq!(ground.len(), 3, "the giant has its shoulders and two horns");
+    let slope = s.giant_back.slope_line(&s.giant, s.giant_unmirrored).expect("the giant's back has a slope");
+    // The highest point of the slope under a span: where a body over it stands.
+    let slope_under = |left: f32, right: f32| {
+        slope
+            .windows(2)
+            .filter_map(|w| {
+                let (a, b) = (w[0], w[1]);
+                let (u0, u1) = (a.x.max(left), b.x.min(right));
+                (u1 > u0).then(|| {
+                    let at = |x: f32| a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x);
+                    at(u0).min(at(u1))
+                })
+            })
+            .reduce(f32::min)
+    };
+    let spots = ground
+        .iter()
+        .map(|ledge| ae::Vec2::new((ledge.min.x + ledge.max.x) * 0.5, ledge.min.y - 40.0))
+        .chain(slope.windows(2).map(|w| (w[0] + w[1]) * 0.5 - ae::Vec2::new(0.0, 40.0)));
+    for spot in spots {
         place_player(&mut sim, spot);
         for _ in 0..20 {
             sim.step(AgentAction::default());
         }
         let (kin, _) = player(&mut sim);
         let feet = kin.pos.y + kin.size.y * 0.5;
-        // A step of the slope is as wide as the body, so the body is also over
-        // the edge of the step on each side of it: it stands on one of the
-        // ledges that are under it. Which one is the kernel's rule for
-        // one-way ground, not a fact of the giant.
         let (left, right) = (kin.pos.x - kin.size.x * 0.5, kin.pos.x + kin.size.x * 0.5);
-        let stands = ground
+        let on_a_ledge = ground
             .iter()
             .any(|other| other.max.x > left && other.min.x < right && (feet - other.min.y).abs() < 2.0);
+        let on_the_slope = slope_under(left, right).is_some_and(|top| (feet - top).abs() < 2.0);
         assert!(
-            stands,
-            "a body put over the ledge {ledge:?} stands on the giant: feet at {feet}, at x {}",
+            on_a_ledge || on_the_slope,
+            "a body put at {spot:?} stands on the giant: feet at {feet}, at x {}",
             kin.pos.x
         );
     }
+}
+
+/// The slope of the giant's back is walked, not hopped: from the rump up to
+/// the shoulders with no tick in the air (it was ten steps a body hopped).
+#[test]
+fn a_body_walks_up_the_giants_back_to_his_shoulders() {
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    let s = scene(&mut sim);
+    let slope = s.giant_back.slope_line(&s.giant, s.giant_unmirrored).expect("the giant's back has a slope");
+    let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
+    // The low end of the slope is the rump; walk toward the high end.
+    let (low, high) = if slope[0].y > slope[slope.len() - 1].y { (slope[0], slope[slope.len() - 1]) } else { (slope[slope.len() - 1], slope[0]) };
+    let toward = (high.x - low.x).signum();
+    place_player(&mut sim, ae::Vec2::new(low.x + toward * 30.0, low.y - 60.0));
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let mut airborne = 0;
+    for _ in 0..240 {
+        sim.step(AgentAction { move_x: toward, ..AgentAction::default() });
+        let (kin, _) = player(&mut sim);
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&ae::BodyGroundState, PrimaryPlayerOnly>();
+        if !q.iter(world).next().expect("the player").on_ground {
+            airborne += 1;
+        }
+        if (kin.pos.y + kin.size.y * 0.5 - back.min.y).abs() < 2.0 && kin.pos.x > back.min.x && kin.pos.x < back.max.x {
+            assert_eq!(airborne, 0, "the walk up the slope left the ground {airborne} ticks");
+            return;
+        }
+    }
+    let (kin, _) = player(&mut sim);
+    panic!("the body did not reach the giant's shoulders: it is at {:?}, the back at {back:?}", kin.pos);
 }
 
 /// Hit him from the gnu's back and the gnu answers at once: it throws you off.

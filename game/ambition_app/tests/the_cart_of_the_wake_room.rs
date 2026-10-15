@@ -2,11 +2,8 @@
 //!
 //! The cart is not a prop on a platform: its bed IS a platform that stands
 //! still, and the player wakes on it. The back end of the cart is let down as
-//! a ramp. The mover of the player has no slopes: the collision of the ramp
-//! is a row of one-way steps, each 4 under the one before, and a body on the
-//! ground lands on a one-way face that is less than
-//! `ONE_WAY_CROSSING_SLOP` (8) over its feet. So the steps are a ramp to the
-//! body in the two directions. This walks it down and up.
+//! a ramp: a line the player walks (`walkable_lines`), from the end of the bed
+//! to the floor. This walks it down and up, with no tick in the air.
 //!
 //! The numbers are those of the room (`intro.ldtk`, `intro_wake_room`).
 
@@ -65,7 +62,7 @@ fn the_player_wakes_in_the_cart_and_walks_its_ramp_down_and_up() {
     assert!((feet - FLOOR).abs() < 1.0, "past the ramp the player is on the floor ({FLOOR}), not at {feet}");
     assert!(
         biggest_drop < 9.0,
-        "the way down the ramp is steps of 4, and one tick took the feet down {biggest_drop}: the player fell off the bed"
+        "the way down the ramp is a slope, and one tick took the feet down {biggest_drop}: the player fell off the bed"
     );
 
     // And up it again, with no jump.

@@ -47,8 +47,26 @@ is what it keeps to. The lasting attachment comes with lines that move
   fall onto a ramp, a jump up through one, a drop through, a stair passed
   and boarded, a switchback both ways, a terrace edge to a stair down).
 - Moved to it: the gate cradle (one line) and the Math town's switchback
-  (two lines and a parapet). Left: the wake room's cart and the giant's
-  back, which move (phase C).
+  (two lines and a parapet). The wake room's cart stands still, so its ramp
+  is one line too (its first step stays, as the holder of the ramp's
+  picture).
+
+## Built (2026-10-15): lines that move (phase C)
+
+- The room's collision overlay takes lines (`FeatureEcsWorldOverlay::chains`),
+  composed after the room's own by name.
+- A mount states a `slope` (points about its centre, mirrored with its
+  facing); while it is ridden it contributes it as a hidden line. The giant
+  gnu's back is one line from the rump to the shoulders in place of ten
+  steps a body hopped (`gnu_ton_fight::a_body_walks_up_the_giants_back_to_his_shoulders`).
+- A line or block of a mount moves by the displacement the mount made in its
+  last step (`SweepSample`), not by its `vel` (per second: it carried a
+  rider 60 times too far).
+- A body that stood on a moving line is carried by that line's displacement
+  before its own motion; which line it stood on is measured with each line
+  moved back by its displacement (`walkable_lines::stood_on_line`). Kernel
+  test: a body stands still on a ramp that moves both ways and ends where the
+  ramp went, and walks up it, with no tick in the air.
 
 ## The sites that move to it
 
@@ -56,8 +74,8 @@ is what it keeps to. The lasting attachment comes with lines that move
 |---|---|---|
 | The Math town's switchback stair | 64 still one-way platforms | two one-way slope lines and a landing |
 | The gate cradle's stairs | 24 still one-way platforms | a one-way slope line at each end |
-| The cart of the wake room | 14 still one-way platforms | one line (phase C: it moves) |
-| The giant gnu's back | 10 typed ledges a tick | one line from the art (phase C) |
+| The cart of the wake room | 14 still one-way platforms | one line (done; the cart stands still) |
+| The giant gnu's back | 10 typed ledges a tick | one moving line (done) |
 
 ## Portals on angled surfaces (the second track)
 

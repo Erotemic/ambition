@@ -190,17 +190,35 @@ pub struct MountSlot {
 ///
 /// `ledges` are more one-way ground on the same mount (`CharacterMount::ledges`):
 /// the places its art shows that a body can stand. They are ground and no
-/// more: "on its back" is `back`.
+/// more: "on its back" is `back`. `slope` is a line a body walks
+/// (`CharacterMount::slope`), from left to right for a mount facing right.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct BackLedge {
     pub back: ambition_characters::actor::MountBack,
     pub ledges: Vec<ambition_characters::actor::MountBack>,
+    pub slope: Vec<ae::Vec2>,
 }
 
 impl BackLedge {
     /// A back with no other ledge.
     pub fn new(back: ambition_characters::actor::MountBack) -> Self {
-        Self { back, ledges: Vec::new() }
+        Self { back, ledges: Vec::new(), slope: Vec::new() }
+    }
+
+    /// The slope where the mount is drawn, from left to right (mirrored by
+    /// the side it is drawn facing, as the back is), or `None`.
+    pub fn slope_line(&self, mount: &ae::BodyKinematics, unmirrored: bool) -> Option<Vec<ae::Vec2>> {
+        if self.slope.len() < 2 {
+            return None;
+        }
+        let side = ae::mirror_side(mount.facing, unmirrored);
+        let mut points: Vec<ae::Vec2> =
+            self.slope.iter().map(|p| ae::Vec2::new(mount.pos.x + side * p.x, mount.pos.y + p.y)).collect();
+        // A line is one-sided by its winding: a floor runs left to right.
+        if side < 0.0 {
+            points.reverse();
+        }
+        Some(points)
     }
 
     /// The back where the mount is drawn: mirrored by the side it is drawn
@@ -228,21 +246,31 @@ impl BackLedge {
 
 /// The name of a mount's back in its room's collision overlay.
 pub const BACK_BLOCK: &str = "mount_back";
+/// The name of a mount's slope in its room's collision overlay.
+pub const SLOPE_LINE: &str = "mount_slope";
 
 /// Each ridden mount's back is one-way ground in the mount's own live room,
-/// moving with the mount. A collision-overlay contribution: the composition
-/// runs it after the overlay rebuild and before the bodies that collide.
+/// moving with the mount, and its slope a walkable line. A collision-overlay
+/// contribution: the composition runs it after the overlay rebuild and before
+/// the bodies that collide.
+///
+/// The ground moves by the DISPLACEMENT the mount made in its last step (its
+/// `SweepSample`), which is what a body standing on it is carried by: a
+/// surface's velocity is per tick, and a mount's `vel` is per second (it
+/// carried a rider 60 times too far), and a mount that was stopped did not
+/// make the step its velocity asked for.
 pub fn mount_backs_are_ground(
     mounts: Query<(
         &ae::BodyKinematics,
         &BackLedge,
         &MountSlot,
         bevy::prelude::Has<ae::Unmirrored>,
+        Option<&ae::SweepSample>,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays,
 ) {
-    for (mount, back, slot, unmirrored, room) in &mounts {
+    for (mount, back, slot, unmirrored, step, room) in &mounts {
         if slot.rider.is_none() {
             continue;
         }
@@ -250,15 +278,23 @@ pub fn mount_backs_are_ground(
         let Some(mut overlay) = overlays.for_room(room) else {
             continue;
         };
+        let moved = step.map_or(ae::Vec2::ZERO, |step| step.curr - step.prev);
         for aabb in back.ground(mount, unmirrored) {
             overlay.blocks.push(ae::Block {
                 id: ae::GeoId::anon(),
                 name: BACK_BLOCK.to_string(),
                 aabb,
                 kind: ae::BlockKind::OneWay,
-                velocity: mount.vel,
+                velocity: moved,
                 art_color: None,
             });
+        }
+        if let Some(points) = back.slope_line(mount, unmirrored) {
+            let mut line = ae::SurfaceChain::open(SLOPE_LINE, points);
+            line.velocity = moved;
+            // The mount's art draws it.
+            line.hidden = true;
+            overlay.chains.push(line);
         }
     }
 }
@@ -1617,6 +1653,7 @@ where
         std::iter::once(&back.back)
             .chain(back.ledges.iter())
             .flat_map(|b| [b.left, b.right, b.top, b.thickness])
+            .chain(back.slope.iter().flat_map(|p| [p.x, p.y]))
             .fold(0u64, |h, v| h.rotate_left(16) ^ u64::from(v.to_bits()))
     });
     registrar.rollback_component_clone::<Mounted>(OWNER, "mount.mounted");
@@ -2250,7 +2287,9 @@ mod back_tests {
     }
 
     /// ⭐ A ridden mount's back is a one-way block in its own live room's
-    /// overlay, and nowhere else; an unridden mount's back is not ground.
+    /// overlay, and nowhere else; an unridden mount's back is not ground. It
+    /// moves by the step the mount made (its `SweepSample`), not by its `vel`,
+    /// which is per second.
     #[test]
     fn a_ridden_mount_s_back_is_ground_in_its_own_live_room_only() {
         let mut world = bevy::prelude::World::new();
@@ -2262,7 +2301,8 @@ mod back_tests {
         kin.vel = ae::Vec2::new(3.0, -4.0);
         kin.facing = 1.0;
         let rider = world.spawn_empty().id();
-        let ridden = world.spawn((kin, BackLedge::new(GNU), MountSlot { rider: Some(rider) }, InRoomInstance(other))).id();
+        let step = ae::SweepSample { prev: kin.pos - ae::Vec2::new(0.5, -0.25), curr: kin.pos, ..Default::default() };
+        let ridden = world.spawn((kin, step, BackLedge::new(GNU), MountSlot { rider: Some(rider) }, InRoomInstance(other))).id();
         world.spawn((kin, BackLedge::new(GNU), MountSlot { rider: None }, InRoomInstance(other)));
         let mut system = bevy::ecs::system::IntoSystem::into_system(mount_backs_are_ground);
         bevy::ecs::system::System::initialize(&mut system, &mut world);
@@ -2275,6 +2315,6 @@ mod back_tests {
             })
             .collect();
         let expected = BackLedge::new(GNU).aabb(world.get::<ae::BodyKinematics>(ridden).unwrap(), false);
-        assert_eq!(backs, vec![(other, expected, ae::Vec2::new(3.0, -4.0), ae::BlockKind::OneWay)]);
+        assert_eq!(backs, vec![(other, expected, ae::Vec2::new(0.5, -0.25), ae::BlockKind::OneWay)]);
     }
 }

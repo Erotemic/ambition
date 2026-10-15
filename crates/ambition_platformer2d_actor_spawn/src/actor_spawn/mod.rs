@@ -1485,6 +1485,7 @@ pub fn spawn_runtime_minion_into(
             mount.saddle,
             mount.back,
             &mount.ledges,
+            &mount.slope,
             1.0,
             &mount.pilotable_classes,
         );
@@ -1719,6 +1720,7 @@ pub fn spawn_enemy_with_faction_into(
                 mount.saddle,
                 mount.back,
                 &mount.ledges,
+                &mount.slope,
                 definition.vitals.mass.unwrap_or(1.0),
                 &mount.pilotable_classes,
             );
@@ -1868,6 +1870,7 @@ fn attach_mount_role_from(
     saddle: Option<(f32, f32)>,
     back: Option<ambition_characters::actor::MountBack>,
     ledges: &[ambition_characters::actor::MountBack],
+    slope: &[(f32, f32)],
     mass: f32,
     pilotable: &[String],
 ) {
@@ -1895,7 +1898,11 @@ fn attach_mount_role_from(
             ambition_platformer2d_shared_tangle::body::Mass(mass),
         ));
         if let Some(back) = back {
-            scope.insert(ambition_mount::BackLedge { back, ledges: ledges.to_vec() });
+            scope.insert(ambition_mount::BackLedge {
+                back,
+                ledges: ledges.to_vec(),
+                slope: slope.iter().map(|&(x, y)| ae::Vec2::new(x, y)).collect(),
+            });
         }
     }
     if !pilotable.is_empty() {

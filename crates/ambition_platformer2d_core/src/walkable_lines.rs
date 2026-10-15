@@ -68,6 +68,13 @@ fn across(down: Vec2) -> Vec2 {
 /// within `[feet - above, feet + below]` of the body's feet coordinate: one
 /// for each chain, at its highest point under the span.
 pub fn lines_under_feet(world: &World, body: Aabb, down: Vec2, above: f32, below: f32) -> Vec<LineSupport> {
+    lines_under(world, body, down, above, below, false)
+}
+
+/// [`lines_under_feet`], each line measured against `body` moved by the
+/// displacement that line made this tick: which line the body stood on as
+/// the tick began, when the lines that move have already moved.
+fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, with_motion: bool) -> Vec<LineSupport> {
     let mut found: Vec<LineSupport> = Vec::new();
     if world.chains.is_empty() || down == Vec2::ZERO {
         return found;
@@ -75,13 +82,13 @@ pub fn lines_under_feet(world: &World, body: Aabb, down: Vec2, above: f32, below
     let side = across(down);
     let up = -down;
     let min_up = WALK_SLOPE_LIMIT_DEG.to_radians().cos();
-    let centre = body.center();
     let half = body.half_size();
     // The half width of the box across the floor.
     let half_span = half.x * side.x.abs() + half.y * side.y.abs();
-    let (lo, hi) = (centre.dot(side) - half_span, centre.dot(side) + half_span);
-    let feet = body.feet_coord(down);
     for (ci, chain) in world.chains.iter().enumerate() {
+        let centre = body.center() + if with_motion { chain.velocity } else { Vec2::ZERO };
+        let (lo, hi) = (centre.dot(side) - half_span, centre.dot(side) + half_span);
+        let feet = Aabb::new(centre, half).feet_coord(down);
         let mut best: Option<LineSupport> = None;
         for si in 0..chain.segment_count() {
             let (a, b) = chain.segment(si);
@@ -141,6 +148,15 @@ pub fn line_under_feet(world: &World, body: Aabb, down: Vec2, above: f32, below:
 /// ramp the body stands beside) is not under them.
 pub fn standing_on_line(world: &World, body: Aabb, down: Vec2) -> Option<LineSupport> {
     line_under_feet(world, body, down, ON_LINE_EPSILON, crate::collision_semantics::CONTACT_SLOP)
+}
+
+/// [`standing_on_line`] as a tick begins: a line that moved this tick (a
+/// ridden mount's slope) is where the body stood on it once the body is
+/// moved with it.
+pub fn stood_on_line(world: &World, body: Aabb, down: Vec2) -> Option<LineSupport> {
+    lines_under(world, body, down, ON_LINE_EPSILON, crate::collision_semantics::CONTACT_SLOP, true)
+        .into_iter()
+        .min_by(|a, b| a.feet_coord.total_cmp(&b.feet_coord))
 }
 
 /// How far a line may be above the feet of a body that stands on it: the

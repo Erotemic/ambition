@@ -25,6 +25,9 @@ pub struct GatePass {
 #[derive(Component, Default, Clone, Debug)]
 pub struct FeatureEcsWorldOverlay {
     pub blocks: Vec<ae::Block>,
+    /// Lines contributed this tick (a ridden mount's slope): walkable lines
+    /// that move, composed after the room's own chains.
+    pub chains: Vec<ae::SurfaceChain>,
     pub gate_solids: Vec<ae::Block>,
     /// Per-actor openings of `gate_solids`; see [`GatePass`].
     pub gate_passes: Vec<GatePass>,
@@ -57,6 +60,7 @@ impl FeatureEcsWorldOverlay {
     pub fn clear_engine_contributions(&mut self) {
         let Self {
             blocks,
+            chains,
             gate_solids,
             gate_passes,
             portal_carves,
@@ -65,6 +69,7 @@ impl FeatureEcsWorldOverlay {
             water_regions,
         } = self;
         blocks.clear();
+        chains.clear();
         gate_solids.clear();
         gate_passes.clear();
         removed_block_names.clear();
@@ -96,6 +101,7 @@ impl FeatureEcsWorldOverlay {
     pub fn retract_for_room_change(&mut self) {
         let Self {
             blocks,
+            chains,
             gate_solids,
             gate_passes,
             portal_carves,
@@ -104,6 +110,7 @@ impl FeatureEcsWorldOverlay {
             water_regions,
         } = self;
         blocks.clear();
+        chains.clear();
         gate_solids.clear();
         gate_passes.clear();
         // The portal bridge refills this from `PortalCarves` on its next run,

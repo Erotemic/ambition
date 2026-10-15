@@ -287,6 +287,7 @@ impl<'a> RoomCollision<'a> {
     pub fn solids(self) -> Option<Cow<'a, ae::World>> {
         let overlay_empty = self.overlay.map_or(true, |o| {
             o.blocks.is_empty()
+                && o.chains.is_empty()
                 && o.gate_solids.is_empty()
                 && o.portal_carves.is_empty()
                 && o.removed_block_names.is_empty()
@@ -357,6 +358,11 @@ pub fn world_with_sandbox_solids(
     // A gate contributes these instead of mutating the authored base mid-room.
     apply_overlay_subtractions(&mut collision_world, ecs_overlay);
     extend_in_canonical_order(&mut collision_world.blocks, &ecs_overlay.blocks);
+    // Contributed lines after the room's own, by name, so the composed world
+    // does not depend on the order the contributors ran in.
+    let start = collision_world.chains.len();
+    collision_world.chains.extend(ecs_overlay.chains.iter().cloned());
+    collision_world.chains[start..].sort_by(|a, b| a.name.cmp(&b.name));
     // Gate solids (lock walls) are authored-equivalent statics: added alongside
     // the base/platform solids BEFORE the carve so a portal aperture splits them
     // exactly as it would a base wall.

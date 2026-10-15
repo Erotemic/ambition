@@ -285,7 +285,7 @@ pub(super) fn integrate_velocity_clusters(
         .ground
         .on_ground
         .then(|| {
-            crate::walkable_lines::standing_on_line(
+            crate::walkable_lines::stood_on_line(
                 world,
                 clusters.kinematics.aabb_oriented(frame.down()),
                 frame.down(),
@@ -293,6 +293,12 @@ pub(super) fn integrate_velocity_clusters(
         })
         .flatten()
         .map(|line| line.chain);
+    // A line that moves carries what stands on it by the displacement it made
+    // this tick (a ridden mount's slope), before the body's own motion: the
+    // body is where it stood on the line, and walks from there.
+    if let Some(carry) = entry_line.map(|chain| world.chains[chain].velocity).filter(|v| *v != crate::Vec2::ZERO) {
+        clusters.kinematics.pos += carry;
+    }
     sweep(
         clusters,
         side_axis,

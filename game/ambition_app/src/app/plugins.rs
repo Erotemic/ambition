@@ -632,8 +632,8 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             .after(sync_visuals)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
-    // Idle barks fire on a 5-10s cadence while the boss is in an
-    // attacking phase, so the scholar feels alive between strikes.
+    // Idle barks fire on the pack's cadence (`boss_idle_bark`) while the boss
+    // is in an attacking phase, so the scholar feels alive between strikes.
     .add_systems(
         Update,
         ambition_content::bosses::tick_boss_idle_barks

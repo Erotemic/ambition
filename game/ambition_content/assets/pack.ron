@@ -8,9 +8,10 @@
 // never has to carry a header and its existing shape survives migration
 // unchanged.
 //
-// Validate without rebuilding Rust:
+// Validate without rebuilding Rust (the content CLI, with Ambition's own
+// schemas beside the engine's):
 //
-//     cargo run -p ambition_content_cli --bin ambition_content -- \
+//     cargo run -p ambition_content_schemas --bin ambition_content_check -- \
 //         game/ambition_content/assets
 //
 // The binary is built ONCE. After that, editing any file listed below and
@@ -80,6 +81,8 @@
         (path: "data/dialogue_voiceprints.ron", schema: "dialogue_voiceprints", version: 1),
         // The look of each named projectile.
         (path: "data/projectile_visuals.ron", schema: "projectile_visuals", version: 1),
+        // Ambition's own tuning: the idle bark cadence, the GNU-ton duel.
+        (path: "data/ambition_rules.ron", schema: "ambition_rules", version: 1),
         // Nine difficulty rungs.  authored since 2026-07 and read by NOTHING until
         // this line: the engine floor (`for_level`) was consulted instead, so every
         // rung scored moves with the level-9 weight set.

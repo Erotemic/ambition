@@ -20,6 +20,7 @@ use ambition_platformer2d_shared_tangle::schedule::{ActorDecisionSet, GameplayGa
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use ae::AabbExt;
 use bevy::prelude::*;
+use ambition_content_schemas::rules::SwallowFetch;
 
 /// The `Prop` kind of the coconut palm, and its renderer target.
 pub const COCONUT_PALM_KIND: &str = "coconut_palm";
@@ -27,22 +28,6 @@ pub const COCONUT_PALM_KIND: &str = "coconut_palm";
 /// The catalog row of the bird that carries coconuts, and what it carries.
 pub const COCONUT_CARRIER: &str = "african_swallow";
 pub const COCONUT: &str = "coconut";
-
-/// It goes for a coconut at rest no farther from it than this (px).
-pub const FETCH_REACH: f32 = 900.0;
-/// How fast it flies to a coconut, and how fast with one: it is a five ounce
-/// bird (px/s; its own speed is 290).
-pub const FETCH_SPEED: f32 = 250.0;
-pub const LADEN_SPEED: f32 = 185.0;
-/// It carries the coconut this far over its target (px).
-pub const CARRY_OVER: f32 = 150.0;
-/// It lets go within this of the place over its target, side to side, and no
-/// lower over it than `LET_GO_OVER` (px). A coconut that falls that far
-/// arrives faster than the speed it hurts at.
-pub const LET_GO_WITHIN: f32 = 18.0;
-pub const LET_GO_OVER: f32 = 90.0;
-/// It aims where its target will be after this long (s): about the fall.
-pub const LEAD: f32 = 0.35;
 
 /// What a swallow with a coconut does about its target.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -54,13 +39,14 @@ pub enum Laden {
 }
 
 /// What a swallow at `bird` with a coconut does about a target at `target`
-/// that moves at `target_vel` (world units, +Y down).
-pub fn laden(bird: ae::Vec2, target: ae::Vec2, target_vel: ae::Vec2) -> Laden {
-    let over = ae::Vec2::new(target.x + target_vel.x * LEAD, target.y - CARRY_OVER);
-    if (bird.x - over.x).abs() <= LET_GO_WITHIN && target.y - bird.y >= LET_GO_OVER {
+/// that moves at `target_vel` (world units, +Y down), by the pack's
+/// `african_swallow` tuning.
+pub fn laden(fetch: &SwallowFetch, bird: ae::Vec2, target: ae::Vec2, target_vel: ae::Vec2) -> Laden {
+    let over = ae::Vec2::new(target.x + target_vel.x * fetch.lead_seconds, target.y - fetch.carry_over);
+    if (bird.x - over.x).abs() <= fetch.let_go_within && target.y - bird.y >= fetch.let_go_over {
         return Laden::LetGo;
     }
-    Laden::Carry((over - bird).normalize_or_zero() * LADEN_SPEED)
+    Laden::Carry((over - bird).normalize_or_zero() * fetch.laden_speed)
 }
 
 /// An African swallow picks up a coconut and lets it go over what it hunts.
@@ -102,7 +88,9 @@ pub fn swallows_carry_coconuts(
     ids: Query<&SimId>,
     hunted: Query<&ae::BodyKinematics>,
     rooms: LiveRooms,
+    tuning: Res<crate::tuning::AmbitionTuning>,
 ) {
+    let fetch = &tuning.0.african_swallow;
     // In the order of the birds' simulation identities: two birds that go for
     // one coconut are decided the same way after a rewind (which makes new
     // entities).
@@ -126,7 +114,7 @@ pub fn swallows_carry_coconuts(
                 let Some(prey) = target.and_then(|target| target.entity).and_then(|prey| hunted.get(prey).ok()) else {
                     continue;
                 };
-                match laden(kin.pos, prey.pos, prey.vel) {
+                match laden(fetch, kin.pos, prey.pos, prey.vel) {
                     Laden::LetGo => {
                         // From under its feet, with a little of its own way.
                         let from = kin.pos + ae::Vec2::new(0.0, kin.size.y * 0.5 + 8.0);
@@ -151,7 +139,7 @@ pub fn swallows_carry_coconuts(
                     }
                     let far = ground.pos.distance(kin.pos);
                     let name = ids.get(item).map_or("", SimId::as_str);
-                    if far <= FETCH_REACH && nearest.is_none_or(|(best, best_name, _)| (far, name) < (best, best_name)) {
+                    if far <= fetch.fetch_reach && nearest.is_none_or(|(best, best_name, _)| (far, name) < (best, best_name)) {
                         nearest = Some((far, name, item));
                     }
                 }
@@ -165,7 +153,7 @@ pub fn swallows_carry_coconuts(
                 if kin.collision_box(last_step).strict_intersects(ae::Aabb::new(ground.pos, ground.half_extent)) {
                     take_ground_item(&mut commands, bird, &mut repertoire, item, &mut ground, &mut custody);
                 } else {
-                    control.0.velocity_target = ae::WorldVec2((ground.pos - kin.pos).normalize_or_zero() * FETCH_SPEED);
+                    control.0.velocity_target = ae::WorldVec2((ground.pos - kin.pos).normalize_or_zero() * fetch.fetch_speed);
                     control.0.melee_pressed = false;
                     control.0.melee_held = false;
                 }
@@ -198,19 +186,23 @@ impl Plugin for PrimevalPlugin {
 mod tests {
     use super::*;
 
+    fn fetch() -> SwallowFetch {
+        crate::tuning::shipped().african_swallow
+    }
+
     /// A swallow beside its target climbs to the place over it; over it, it
     /// lets go; and it does not let go from so low that the coconut arrives
     /// slower than it hurts at.
     #[test]
     fn a_laden_swallow_goes_over_its_target_and_lets_go_there() {
         let target = ae::Vec2::new(500.0, 400.0);
-        let Laden::Carry(velocity) = laden(ae::Vec2::new(200.0, 380.0), target, ae::Vec2::ZERO) else {
+        let Laden::Carry(velocity) = laden(&fetch(), ae::Vec2::new(200.0, 380.0), target, ae::Vec2::ZERO) else {
             panic!("a swallow beside its target does not let go");
         };
         assert!(velocity.x > 0.0 && velocity.y < 0.0, "it flies toward the target and up, not {velocity:?}");
-        assert!((velocity.length() - LADEN_SPEED).abs() < 1e-3);
-        assert_eq!(laden(ae::Vec2::new(505.0, 400.0 - CARRY_OVER), target, ae::Vec2::ZERO), Laden::LetGo);
-        assert!(matches!(laden(ae::Vec2::new(505.0, 400.0 - LET_GO_OVER + 20.0), target, ae::Vec2::ZERO), Laden::Carry(_)));
+        assert!((velocity.length() - fetch().laden_speed).abs() < 1e-3);
+        assert_eq!(laden(&fetch(), ae::Vec2::new(505.0, 400.0 - fetch().carry_over), target, ae::Vec2::ZERO), Laden::LetGo);
+        assert!(matches!(laden(&fetch(), ae::Vec2::new(505.0, 400.0 - fetch().let_go_over + 20.0), target, ae::Vec2::ZERO), Laden::Carry(_)));
     }
 
     /// The coconut is let go where a walking target will be, not where it is.
@@ -218,18 +210,18 @@ mod tests {
     fn it_leads_a_target_that_moves() {
         let target = ae::Vec2::new(500.0, 400.0);
         let walking = ae::Vec2::new(300.0, 0.0);
-        let over_now = ae::Vec2::new(500.0, 400.0 - CARRY_OVER);
-        assert!(matches!(laden(over_now, target, walking), Laden::Carry(velocity) if velocity.x > 0.0));
-        assert_eq!(laden(over_now + ae::Vec2::new(300.0 * LEAD, 0.0), target, walking), Laden::LetGo);
+        let over_now = ae::Vec2::new(500.0, 400.0 - fetch().carry_over);
+        assert!(matches!(laden(&fetch(), over_now, target, walking), Laden::Carry(velocity) if velocity.x > 0.0));
+        assert_eq!(laden(&fetch(), over_now + ae::Vec2::new(300.0 * fetch().lead_seconds, 0.0), target, walking), Laden::LetGo);
     }
 
     /// The fall from where it lets go is long enough to hurt: the thrown-item
-    /// rule's bar for a coconut is a speed, and a fall of `LET_GO_OVER` at the
+    /// rule's bar for a coconut is a speed, and a fall of `let_go_over` at the
     /// gravity a loose item falls with is faster.
     #[test]
     fn a_coconut_let_go_arrives_faster_than_it_hurts_at() {
         let bar = crate::items::thrown_impact::impact_of(COCONUT).expect("a coconut hurts what it strikes").min_speed;
-        let arrives = (2.0 * ambition_held_items::GROUND_ITEM_GRAVITY * LET_GO_OVER).sqrt();
-        assert!(arrives > bar, "a coconut that falls {LET_GO_OVER} arrives at {arrives}, under its bar of {bar}");
+        let arrives = (2.0 * ambition_held_items::GROUND_ITEM_GRAVITY * fetch().let_go_over).sqrt();
+        assert!(arrives > bar, "a coconut that falls {} arrives at {arrives}, under its bar of {bar}", fetch().let_go_over);
     }
 }

@@ -32,12 +32,12 @@ fn declared_schemas() -> BTreeSet<SchemaId> {
 /// shipped MANIFEST — the file a human edits — against what the compositions
 /// install, which no amount of list-sharing can make true by construction.
 ///
-/// ⚠ THE TWO ARMS BELOW NOW ASK ONE QUESTION. `pack_schemas()` and
-/// `default_registry()` both forward to `ambition_engine_schemas`, so the
-/// registration half is no longer "two sites with no compiler error when you
-/// miss one" — it is one site. Both arms are kept because their MESSAGES name
-/// different consequences a reader still needs (a startup panic versus a tool
-/// refusing a pack the game runs), not because they can disagree.
+/// ⚠ THE TWO ARMS BELOW ASK ONE QUESTION. `pack_schemas()` and the check
+/// binary's composition (the CLI with `ambition_schemas`) both read
+/// `ambition_engine_schemas` and `ambition_content_schemas`, so the
+/// registration half is one site. Both arms are kept because their MESSAGES
+/// name different consequences a reader still needs (a startup panic versus a
+/// tool refusing a pack the game runs), not because they can disagree.
 #[test]
 fn every_schema_the_shipped_pack_declares_is_installed_in_both_compositions() {
     let declared = declared_schemas();
@@ -48,7 +48,11 @@ fn every_schema_the_shipped_pack_declares_is_installed_in_both_compositions() {
     );
 
     let game = ambition_content::pack::pack_schemas();
-    let cli = ambition_content_cli::default_registry();
+    // The composition of `ambition_content_check`, the binary the package
+    // guard runs over this pack.
+    let mut check = ambition_content_cli::parse_args(["assets".to_string()]).expect("a pack directory parses");
+    check.game_schemas = ambition_content_schemas::ambition_schemas;
+    let cli = check.registry().unwrap_or_else(|failure| panic!("{}", failure.render()));
 
     let missing_from_game: Vec<_> = declared
         .iter()
@@ -59,8 +63,9 @@ fn every_schema_the_shipped_pack_declares_is_installed_in_both_compositions() {
         missing_from_game.is_empty(),
         "pack.ron declares {missing_from_game:?}, which the GAME's registry does not install.\n\
          The game panics at startup on its own content. Register the schema in \
-         `ambition_engine_schemas::engine_schemas()` — the ONE list both \
-         compositions forward to."
+         `ambition_engine_schemas::engine_schemas()` (an engine capability's) or \
+         `ambition_content_schemas::ambition_schemas()` (Ambition's own): the \
+         lists both compositions read."
     );
 
     let missing_from_cli: Vec<_> = declared
@@ -71,9 +76,8 @@ fn every_schema_the_shipped_pack_declares_is_installed_in_both_compositions() {
     assert!(
         missing_from_cli.is_empty(),
         "pack.ron declares {missing_from_cli:?}, which the CLI's registry does not install.\n\
-         `ambition_content` would refuse a pack the game runs fine. Register the schema in \
-         `ambition_engine_schemas::engine_schemas()` and link the owning capability \
-         crate there."
+         `ambition_content_check` would refuse a pack the game runs fine. Register the schema in \
+         `ambition_engine_schemas::engine_schemas()` or `ambition_content_schemas::ambition_schemas()`."
     );
 }
 

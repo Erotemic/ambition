@@ -26,13 +26,12 @@ pub struct BossIdleBarkState {
     rotations: HashMap<String, u32>,
 }
 
-const IDLE_BARK_INTERVAL_BASE: f32 = 7.0;
-const IDLE_BARK_INTERVAL_JITTER: f32 = 3.0;
-
-/// Fire idle barks for active bosses on a 5-10s cadence while they are
-/// in an attacking phase. Skips bosses with no voice or no idle lines.
+/// Fire idle barks for active bosses on the cadence of the pack's
+/// `boss_idle_bark` while they are in an attacking phase. Skips bosses with
+/// no voice or no idle lines.
 pub fn tick_boss_idle_barks(
     world_time: Res<ambition_time::WorldTime>,
+    tuning: Res<crate::tuning::AmbitionTuning>,
     characters: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     ecs_bosses: Query<(
         Entity,
@@ -49,6 +48,7 @@ pub fn tick_boss_idle_barks(
     if dt <= 0.0 {
         return;
     }
+    let bark = tuning.0.boss_idle_bark;
     for (entity, feature, health, combat) in &ecs_bosses {
         let boss = feature.as_boss_ref();
         if !health.alive() {
@@ -71,7 +71,7 @@ pub fn tick_boss_idle_barks(
         let timer = state
             .timers
             .entry(key.clone())
-            .or_insert_with(|| jitter_interval(&boss.config.id, 0));
+            .or_insert_with(|| jitter_interval(bark, &boss.config.id, 0));
         *timer -= dt;
         if *timer > 0.0 {
             continue;
@@ -93,21 +93,20 @@ pub fn tick_boss_idle_barks(
         // land at exactly the same offset.
         state
             .timers
-            .insert(key, jitter_interval(&boss.config.id, next_rotation));
+            .insert(key, jitter_interval(bark, &boss.config.id, next_rotation));
     }
 }
 
 /// Cheap deterministic jitter keyed by boss id + counter — avoids
 /// pulling in `rand` for one cadence offset. Returns a value in
-/// `[IDLE_BARK_INTERVAL_BASE - IDLE_BARK_INTERVAL_JITTER,
-///   IDLE_BARK_INTERVAL_BASE + IDLE_BARK_INTERVAL_JITTER]`.
-fn jitter_interval(seed: &str, counter: u32) -> f32 {
+/// `[base - jitter, base + jitter]`.
+fn jitter_interval(bark: ambition_content_schemas::rules::IdleBark, seed: &str, counter: u32) -> f32 {
     let mut hash: u32 = counter.wrapping_mul(2_654_435_761);
     for byte in seed.bytes() {
         hash = hash.wrapping_add(byte as u32).wrapping_mul(16_777_619);
     }
     let unit = (hash >> 8) as f32 / (u32::MAX >> 8) as f32; // 0..=1
-    IDLE_BARK_INTERVAL_BASE + (unit * 2.0 - 1.0) * IDLE_BARK_INTERVAL_JITTER
+    bark.base_seconds + (unit * 2.0 - 1.0) * bark.jitter_seconds
 }
 
 #[cfg(test)]
@@ -143,11 +142,11 @@ mod tests {
 
     #[test]
     fn jitter_interval_stays_within_band() {
+        let bark = crate::tuning::shipped().boss_idle_bark;
         for counter in 0..20 {
-            let v = jitter_interval("GNU-ton", counter);
+            let v = jitter_interval(bark, "GNU-ton", counter);
             assert!(
-                v >= IDLE_BARK_INTERVAL_BASE - IDLE_BARK_INTERVAL_JITTER
-                    && v <= IDLE_BARK_INTERVAL_BASE + IDLE_BARK_INTERVAL_JITTER,
+                v >= bark.base_seconds - bark.jitter_seconds && v <= bark.base_seconds + bark.jitter_seconds,
                 "jitter out of band: counter={counter} v={v}"
             );
         }
@@ -157,8 +156,9 @@ mod tests {
     fn jitter_interval_is_deterministic_per_seed() {
         // Same (seed, counter) always returns the same value — needed
         // so the timer reset doesn't flicker each frame.
-        let a = jitter_interval("GNU-ton", 3);
-        let b = jitter_interval("GNU-ton", 3);
+        let bark = crate::tuning::shipped().boss_idle_bark;
+        let a = jitter_interval(bark, "GNU-ton", 3);
+        let b = jitter_interval(bark, "GNU-ton", 3);
         assert_eq!(a, b);
     }
 }

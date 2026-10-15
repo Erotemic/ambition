@@ -4663,3 +4663,49 @@ fn a_candidate_that_changes_only_projectile_looks_restates_ambitions_rows() {
     assert!(after.get("lasersword_withdrawn").is_some(), "the renamed look was not published");
     assert!(after.get("another_provider_shot").is_some(), "the reload removed another provider's look");
 }
+
+/// A reload that changes only Ambition's own tuning restates it at the
+/// activation: the idle bark cadence and the duel read the new file.
+#[test]
+fn a_candidate_that_changes_only_ambition_rules_restates_the_tuning() {
+    let mut app = host_with_the_shipped_cast();
+    crate::tuning::register(&mut app);
+    let live = live_pack(&app);
+    let mut edited = false;
+    let candidate = std::sync::Arc::new(
+        crate::pack::compile_pack_with(|declared, text| {
+            if declared != "data/ambition_rules.ron" {
+                return text;
+            }
+            edited = true;
+            text.replacen("base_seconds: 7.0,", "base_seconds: 9.0,", 1)
+        })
+        .unwrap_or_else(|failure| panic!("{}", failure.render())),
+    );
+    assert!(edited, "the edit reached no `ambition_rules` source");
+    let bark = |app: &bevy::app::App| app.world().resource::<crate::tuning::AmbitionTuning>().0.boss_idle_bark.base_seconds;
+    assert_eq!(bark(&app), 7.0, "control: generation N barks each 7 s");
+
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation).chain(),
+    );
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::clone(&candidate),
+            Some(live.fingerprint),
+        ),
+    );
+    assert!(
+        matches!(outcome, ReloadRequest::Requested { .. }),
+        "a tuning-only candidate was not requested; got {outcome:?}"
+    );
+    assert_eq!(bark(&app), 7.0, "the REQUEST published the tuning; generation N stays until activation");
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+    assert_eq!(bark(&app), 9.0, "the activation did not publish the candidate's tuning");
+}

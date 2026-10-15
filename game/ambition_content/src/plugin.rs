@@ -22,6 +22,9 @@ impl Plugin for AmbitionContentPlugin {
         // Named projectile presentation used by Ambition content.
         super::projectiles::register(app);
 
+        // Ambition's own tuning (`data/ambition_rules.ron`).
+        super::tuning::register(app);
+
         // What a thrown item does to the body it strikes (the coconut).
         super::items::thrown_impact::register(app);
 

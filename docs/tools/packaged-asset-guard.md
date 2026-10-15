@@ -46,9 +46,12 @@ does not pattern-match those files. It runs the content compiler and takes its
 answer:
 
 ```bash
-cargo run -q -p ambition_content_cli --bin ambition_content -- \
+cargo run -q -p ambition_content_schemas --bin ambition_content_check -- \
     game/ambition_content/assets --no-asset-check --package-inputs
 ```
+
+`ambition_content_check` is the content CLI with Ambition's own schemas
+beside the engine's: the generic binary would refuse `ambition_rules`.
 
 The first run builds the binary; later runs cost milliseconds.
 `AMBITION_CONTENT_BIN` names a built binary to use without cargo. A new schema

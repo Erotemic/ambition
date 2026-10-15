@@ -7,12 +7,17 @@ it.
 
 ```bash
 # build the validator ONCE (~seconds; it links no game and no Bevy renderer)
-cargo build -p ambition_content_cli --bin ambition_content
+cargo build -p ambition_content_schemas --bin ambition_content_check
 
 # thereafter, every edit costs milliseconds
-./target/debug/ambition_content game/ambition_content/assets \
+./target/debug/ambition_content_check game/ambition_content/assets \
     --asset-root crates/ambition_platformer2d_actor_monolith/assets
 ```
+
+`ambition_content_check` is the content CLI with Ambition's own schemas
+(`ambition_rules`) beside the engine's. A pack that names only engine
+schemas can use the generic binary, `cargo run -p ambition_content_cli --bin
+ambition_content -- <pack-dir>`.
 
 ⚠ **pass that `--asset-root`.** Ambition's binary payloads live in the engine's
 asset tree, not beside `pack.ron`, so the pack-root-only default reports every
@@ -108,20 +113,19 @@ impl ContentSchemaHandler for MySchema {
 pub fn my_schema() -> SchemaRegistration { /* id, version, capability, doc, handler */ }
 ```
 
-Then register it in **both** compositions — they are two sites and nothing in
-the compiler makes them agree:
+Then register it in ONE list, which the game and the CLI both read:
 
-* `ambition_platformer2d::content::engine_schemas()` — what the GAME compiles
-  with. Gate the line on the capability's own feature (`#[cfg(feature =
-  "ambition_items")]`) so a composition without the capability does not claim to
-  own its schema.
-* `ambition_content_cli::default_registry()` — what the TOOL validates with, plus
-  a dependency on the owning capability crate with its `content_pack` feature.
+* An engine capability's schema: `ambition_engine_schemas::engine_schemas()`,
+  with a dependency on the owning capability crate and its `content_pack`
+  feature.
+* A schema only Ambition reads: `ambition_content_schemas::ambition_schemas()`
+  (most such schemas are a struct and a range check: `content::rules_schema`).
+* A demo's own schema: its `content_pack! { schemas: [..] }`. The CLI does not
+  link it, so the demo's own test checks that pack.
 
-⚠ Miss the engine side and the game panics at startup on its own content; miss
-the CLI side and `ambition_content` reports a pack the game runs fine as
-`unknown-schema`. `content_pack_registry` in `game/ambition_content/tests/`
-fails on either, and it reads `pack.ron` off disk so it sees what you edited.
+`content_pack_registry` in `game/ambition_content/tests/` fails when
+`pack.ron` names a schema that the game or `ambition_content_check` does not
+install, and it reads `pack.ron` off disk so it sees what you edited.
 
 Two more rules:
 

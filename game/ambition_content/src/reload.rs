@@ -754,6 +754,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         domain: ambition_projectiles::content_schema::PROJECTILE_VISUALS_SCHEMA,
         publish: publish_projectile_looks,
     },
+    PackDerivedFamily {
+        domain: ambition_content_schemas::rules::AMBITION_RULES_SCHEMA,
+        publish: publish_ambition_tuning,
+    },
 ];
 
 /// A family no system of the running game reads: the new pack is selected,
@@ -925,6 +929,19 @@ fn publish_projectile_looks(
     match restated {
         Ok(ids) => world.insert_resource(crate::projectiles::AmbitionProjectileLooks(ids)),
         Err(problem) => bevy::log::error!("the reload keeps Ambition's projectile looks: {problem}"),
+    }
+}
+
+/// Ambition's own tuning is required: its readers have no engine answer to
+/// fall back on. So a candidate without `ambition_rules` keeps generation N's
+/// tuning, and says so.
+fn publish_ambition_tuning(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    match ambition_content_schemas::rules::lowered_ambition_rules(pack) {
+        Some(rules) => world.insert_resource(crate::tuning::AmbitionTuning(rules)),
+        None => bevy::log::error!("the candidate states no `ambition_rules`; the reload keeps Ambition's tuning"),
     }
 }
 

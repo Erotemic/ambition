@@ -125,10 +125,12 @@ fn each_room_places_its_cast_and_its_coconuts() {
 /// high enough to hurt.
 #[test]
 fn an_african_swallow_takes_a_coconut_and_lets_it_go_over_the_player() {
-    use ambition_content::primeval::{COCONUT, COCONUT_CARRIER, LET_GO_OVER};
+    use ambition_content::primeval::{COCONUT, COCONUT_CARRIER};
     use ambition_platformer2d::held_items::{GroundItem, ItemCustody};
 
     let mut sim = room("primeval_rookery");
+    // The tuning this App plays: the bird lets go no lower than this.
+    let least_over = sim.world().resource::<ambition_content::tuning::AmbitionTuning>().0.african_swallow.let_go_over;
     // Each coconut a swallow holds now, and how far over the player the first
     // one to be let go was when it left the bird.
     let mut in_its_feet: Vec<Entity> = Vec::new();
@@ -160,7 +162,7 @@ fn an_african_swallow_takes_a_coconut_and_lets_it_go_over_the_player() {
     }
     assert!(carried, "no African swallow of the rookery took a coconut in 30 s");
     let over = let_go_over.expect("a swallow took a coconut and did not let it go in 30 s");
-    assert!(over >= LET_GO_OVER - 12.0, "the coconut was let go {over} over the player: under {LET_GO_OVER}, it does not hurt");
+    assert!(over >= least_over - 12.0, "the coconut was let go {over} over the player: under {least_over}, it does not hurt");
 }
 
 /// A placed bird hunts: the kiwis and the chickens of the trailhead come for a

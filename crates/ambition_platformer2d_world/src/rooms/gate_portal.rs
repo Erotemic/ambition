@@ -67,8 +67,10 @@ impl GatePortalPhase {
 }
 
 /// One portal's authored configuration. Live phase is integrated separately in
-/// [`GatePortalPhases`].
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// [`GatePortalPhases`]. A game states its portals in its pack, by zone
+/// ([`GATE_PORTALS_SCHEMA`]).
+#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GatePortalConfig {
     /// The switch whose on/off state commands this portal's boot /
     /// shutdown sequence. Read from `save.data().switch(switch_id)`.
@@ -119,7 +121,74 @@ impl std::fmt::Display for GatePortalConflict {
     }
 }
 
+/// The authored FILE kind: a game's gate portals, by the loading zone each
+/// one holds. The engine's schema registry registers it (the world crate
+/// does not link the content pack).
+pub const GATE_PORTALS_SCHEMA: &str = "gate_portals";
+
+/// The content capability that interprets [`GATE_PORTALS_SCHEMA`].
+pub const WORLD_CAPABILITY: &str = "world";
+
+/// A pack's gate portals, by loading zone id.
+pub type GatePortalRows = std::collections::BTreeMap<String, GatePortalConfig>;
+
+/// Each portal row the runtime cannot use, named by its zone and field.
+///
+/// The visuals find a portal's props by name, across rooms, so two portals
+/// that name one prop would draw each other's phase.
+pub fn gate_portal_problems(rows: &GatePortalRows) -> Vec<String> {
+    let mut problems = Vec::new();
+    let mut props: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    for (zone, portal) in rows {
+        if zone.trim().is_empty() {
+            problems.push("a portal's zone id is empty".to_string());
+        }
+        for (field, value) in [
+            ("switch_id", &portal.switch_id),
+            ("portal_sprite_name", &portal.portal_sprite_name),
+            ("ring_sprite_name", &portal.ring_sprite_name),
+        ] {
+            if value.trim().is_empty() {
+                problems.push(format!("`{zone}.{field}` is empty"));
+            }
+        }
+        for (field, name) in [
+            ("portal_sprite_name", &portal.portal_sprite_name),
+            ("ring_sprite_name", &portal.ring_sprite_name),
+        ] {
+            if let Some(other) = props.insert(name.as_str(), zone.as_str()) {
+                problems.push(format!(
+                    "`{zone}.{field}` `{name}` is also a prop of `{other}`; each portal has its own props"
+                ));
+            }
+        }
+    }
+    problems
+}
+
 impl GatePortalRegistry {
+    /// Replace the portals one provider registered (`previous`) with `rows`,
+    /// and return the zones it now holds. A row whose zone another
+    /// provider's portal holds is refused, and nothing changes: a reload
+    /// restates its own rows and no other provider's.
+    pub fn restate<'a>(
+        &mut self,
+        previous: impl IntoIterator<Item = &'a str>,
+        rows: &GatePortalRows,
+    ) -> Result<Vec<String>, String> {
+        let previous: std::collections::BTreeSet<&str> = previous.into_iter().collect();
+        for zone in rows.keys() {
+            if self.portals.contains_key(zone) && !previous.contains(zone.as_str()) {
+                return Err(format!("the gate portal zone `{zone}` is another provider's"));
+            }
+        }
+        self.portals.retain(|zone, _| !previous.contains(zone.as_str()));
+        for (zone, portal) in rows {
+            self.portals.insert(zone.clone(), portal.clone());
+        }
+        Ok(rows.keys().cloned().collect())
+    }
+
     /// Claim a loading zone for a portal. Refuse a conflicting second claim.
     ///
     /// A loading zone is a place, so two portals cannot both hold it. A second
@@ -674,5 +743,56 @@ mod gate_portal_registry_tests {
             .iter()
             .any(|(zone, held)| zone == "cove_gate" && held.switch_id == "gate_switch"));
         assert_eq!(registry.iter().count(), 1);
+    }
+
+    fn row(switch: &str, portal: &str, ring: &str) -> GatePortalConfig {
+        GatePortalConfig {
+            switch_id: switch.into(),
+            portal_sprite_name: portal.into(),
+            ring_sprite_name: ring.into(),
+        }
+    }
+
+    #[test]
+    fn a_portal_row_the_runtime_cannot_use_is_named_by_its_zone_and_field() {
+        let good = GatePortalRows::from([
+            ("a_zone".to_string(), row("a_switch", "A Portal", "A Ring")),
+            ("b_zone".to_string(), row("a_switch", "B Portal", "B Ring")),
+        ]);
+        assert!(gate_portal_problems(&good).is_empty(), "{:?}", gate_portal_problems(&good));
+        let bad = GatePortalRows::from([
+            ("a_zone".to_string(), row("", "A Portal", "A Ring")),
+            ("b_zone".to_string(), row("a_switch", "A Portal", "B Ring")),
+        ]);
+        let problems = gate_portal_problems(&bad);
+        assert!(problems.iter().any(|p| p.starts_with("`a_zone.switch_id` is empty")), "{problems:?}");
+        assert!(
+            problems.iter().any(|p| p.starts_with("`b_zone.portal_sprite_name` `A Portal` is also a prop of `a_zone`")),
+            "{problems:?}"
+        );
+        assert_eq!(problems.len(), 2, "{problems:?}");
+    }
+
+    /// A reload restates one provider's portals, and refuses a zone another
+    /// provider's portal holds without changing anything.
+    #[test]
+    fn a_restate_replaces_its_own_portals_and_no_other_providers() {
+        let mut registry = GatePortalRegistry::default();
+        registry.try_register("theirs", "s", "Their Portal", "Their Ring").unwrap();
+        let first = GatePortalRows::from([
+            ("ours".to_string(), row("s", "P", "R")),
+            ("gone".to_string(), row("s", "P2", "R2")),
+        ]);
+        let held = registry.restate([], &first).expect("new zones");
+        assert_eq!(held, ["gone", "ours"]);
+        let next = GatePortalRows::from([("ours".to_string(), row("t", "P", "R"))]);
+        let held = registry.restate(held.iter().map(String::as_str), &next).expect("its own zones");
+        assert_eq!(held, ["ours"]);
+        assert!(!registry.is_portal("gone") && registry.is_portal("theirs"));
+        assert_eq!(registry.iter().find(|(zone, _)| *zone == "ours").unwrap().1.switch_id, "t");
+        let before = registry.clone();
+        let stolen = GatePortalRows::from([("theirs".to_string(), row("s", "X", "Y"))]);
+        assert!(registry.restate(held.iter().map(String::as_str), &stolen).is_err());
+        assert_eq!(registry, before, "a refused restate changes nothing");
     }
 }

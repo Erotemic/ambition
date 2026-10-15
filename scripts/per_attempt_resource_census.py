@@ -111,6 +111,7 @@ NOT_PER_ATTEMPT = {
     "AmbitionProjectileLooks": "the projectile look ids Ambition's pack registered",
     "AmbitionPropSheets": "the prop sheet kinds Ambition's pack registered",
     "AmbitionPlatformLooks": "the platform look kinds Ambition's pack registered",
+    "AmbitionGatePortals": "the gate portal zones Ambition's pack registered",
     "FlagChains": (
         "authored flag chains (`flag_chains.ron`); the chains fire from the save, "
         "which the death and replay roads restore"

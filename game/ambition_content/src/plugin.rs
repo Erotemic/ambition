@@ -34,6 +34,9 @@ impl Plugin for AmbitionContentPlugin {
         // The prop sheets its rooms name (`data/prop_sheets.ron`).
         super::prop_sheets::register(app);
 
+        // The gate portals its rooms hold (`data/gate_portals.ron`).
+        super::gate_portals::register(app);
+
         // App-local authored audio registries.
         super::audio_registries::register(app);
 
@@ -170,8 +173,6 @@ impl Plugin for AmbitionContentPlugin {
         app.add_plugins(crate::primeval::PrimevalPlugin);
         // Ambition's day: the clock's cycle and the light of a sunlit room.
         app.add_plugins(crate::day_cycle::AmbitionDayPlugin);
-        // The Math dimension: the gate pair to its town.
-        app.add_plugins(crate::math_town::MathTownPlugin);
 
         // Ambition-specific portal adapters; the reusable portal core is installed
         // separately in `add_simulation_plugins`.

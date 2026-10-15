@@ -146,7 +146,6 @@ fn the_intro_rows_are_in_their_registries_before_the_first_tick() {
     // same registries. A plugin that replaced a registry would lose the other's
     // rows, and an install in a system would be missing until the first tick.
     // No `App::finish`: the sim harness drives `App::update` and never runs it.
-    use ambition_platformer2d::world::rooms::GatePortalRegistry;
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -163,10 +162,4 @@ fn the_intro_rows_are_in_their_registries_before_the_first_tick() {
             "the intro cutscene `{cutscene}` is not in the library"
         );
     }
-    assert!(
-        world
-            .resource::<GatePortalRegistry>()
-            .is_portal(super::plugin::INTRO_PORTAL_ZONE_ID),
-        "the intro portal is not registered"
-    );
 }

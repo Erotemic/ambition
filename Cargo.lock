@@ -690,6 +690,7 @@ dependencies = [
  "ambition_items",
  "ambition_match",
  "ambition_persistence",
+ "ambition_platformer2d_world",
  "ambition_projectiles",
  "ambition_sprite_sheet",
 ]

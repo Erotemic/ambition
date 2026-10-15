@@ -775,6 +775,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         publish: publish_platform_looks,
     },
     PackDerivedFamily {
+        domain: ambition_platformer2d::world::rooms::GATE_PORTALS_SCHEMA,
+        publish: publish_gate_portals,
+    },
+    PackDerivedFamily {
         domain: ambition_items::content_schema::held_item_art::HELD_ITEM_ART_SCHEMA,
         publish: publish_held_item_art,
     },
@@ -1060,6 +1064,27 @@ fn publish_platform_looks(
     match restated {
         Ok(kinds) => world.insert_resource(crate::prop_sheets::AmbitionPlatformLooks(kinds)),
         Err(problem) => bevy::log::error!("the reload keeps Ambition's platform looks: {problem}"),
+    }
+}
+
+/// The gate portals restate Ambition's rows of the registry. Another
+/// provider's zone is refused, and the reload keeps Ambition's portals.
+fn publish_gate_portals(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    use ambition_platformer2d::world::rooms::GatePortalRegistry;
+    let rows = crate::gate_portals::lowered_gate_portals(pack);
+    let previous = world
+        .get_resource::<crate::gate_portals::AmbitionGatePortals>()
+        .map(|owned| owned.0.clone())
+        .unwrap_or_default();
+    let restated = world
+        .get_resource_or_insert_with(GatePortalRegistry::default)
+        .restate(previous.iter().map(String::as_str), &rows);
+    match restated {
+        Ok(zones) => world.insert_resource(crate::gate_portals::AmbitionGatePortals(zones)),
+        Err(problem) => bevy::log::error!("the reload keeps Ambition's gate portals: {problem}"),
     }
 }
 

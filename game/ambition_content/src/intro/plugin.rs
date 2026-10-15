@@ -1,8 +1,8 @@
 //! `IntroPlugin`: wires the intro story content into the live sandbox
 //! resources without the sandbox naming the intro.
 //!
-//! The intro's cutscenes, room bindings, raider barks and gate portal join
-//! their registries when the plugin builds. Every contributor adds rows and
+//! The intro's cutscenes, room bindings and raider barks join their
+//! registries when the plugin builds. Every contributor adds rows and
 //! none replaces a registry, so the registries are complete before the first
 //! tick, and the order in which the plugins are added does not matter.
 //! (`Plugin::finish` is not used: an app driven by `App::update` does not run
@@ -10,30 +10,9 @@
 
 use bevy::prelude::*;
 
-// The unified dialog redirect system in the sandbox `dialog` module owns its
-// own scheduling.
-use ambition_platformer2d::world::rooms::GatePortalRegistry;
 use ambition_platformer2d_actor_monolith::assets::game_assets::{PropSheetSource, PropSheetsAppExt};
 
 use super::sprites::intro_prop_sprite_rows;
-
-/// Intro portal IDs. The gate stack room places:
-/// - `LoadingZone` id `intro_portal_zone` (activation: Door) at
-///   the portal frame. Targets `central_hub_complex/intro_wake_door`.
-/// - `Switch` id `intro_portal_switch` next to the gate. Toggles
-///   the portal's boot/shutdown sequence.
-/// - `NpcSpawn` "Interdimensional Gate Portal" — the portal sprite
-///   (hidden while phase == Off).
-/// - `NpcSpawn` "Interdimensional Gate Ring" — the ring sprite
-///   (always visible; rotates during phase == Opening).
-///
-/// The portal's *own* phase (Off / Opening / On / Closing) decides
-/// whether Interact actually fires the transition. The switch only
-/// commands open vs close.
-pub const INTRO_PORTAL_ZONE_ID: &str = "intro_portal_zone";
-pub const INTRO_PORTAL_SWITCH_ID: &str = "intro_portal_switch";
-pub const INTRO_PORTAL_SPRITE_NAME: &str = "Interdimensional Gate Portal";
-pub const INTRO_PORTAL_RING_NAME: &str = "Interdimensional Gate Ring";
 
 /// The landing pad of the wake room: the zone the door of the hub arrives at.
 /// It names no target, so nothing leaves through it.
@@ -110,22 +89,6 @@ impl Plugin for IntroPlugin {
                     >,
                 ),
         );
-        // The intro's rows join the shared registries here. Every contributor
-        // adds rows and none replaces a registry, so the rows are there before
-        // the first tick whatever the plugin order.
-        let world = app.world_mut();
-        // A refusal is a content bug: another portal already claimed this
-        // loading zone. Logged, not panicked, because a missing portal leaves
-        // a recoverable world.
-        if let Err(conflict) = world.get_resource_or_init::<GatePortalRegistry>().try_register(
-            INTRO_PORTAL_ZONE_ID,
-            INTRO_PORTAL_SWITCH_ID,
-            INTRO_PORTAL_SPRITE_NAME,
-            INTRO_PORTAL_RING_NAME,
-        ) {
-            bevy::log::error!("the intro portal was refused: {conflict}");
-        }
-
         // Intro dialog redirects are authored in content, so nothing is registered
         // here. They are `<<if>>` branches in the `.yarn` files (for example
         // `<<if boss_cleared("mockingbird")>>` and

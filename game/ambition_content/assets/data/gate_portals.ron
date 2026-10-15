@@ -1,0 +1,33 @@
+// The gate portals of Ambition's rooms (schema `gate_portals`, owned by the
+// world capability), by the loading zone each one holds. A portal lets a
+// body through its zone only while it is on; its switch boots it and shuts
+// it down. The visuals find its portal and ring props by these names, across
+// rooms, so each portal has its own props.
+//
+// The admission check refuses an empty name and a prop that two portals
+// name. `each_gate_portal_names_what_a_world_file_holds` holds each name to
+// the world files. An edit here is played at the next start, and a content
+// reload restates these rows, with no Rust build.
+{
+    // The intro's gate, at the end of the intro.
+    "intro_portal_zone": (
+        switch_id: "intro_portal_switch",
+        portal_sprite_name: "Interdimensional Gate Portal",
+        ring_sprite_name: "Interdimensional Gate Ring",
+    ),
+    // The Math gate pair is one link with one switch, which stands by the
+    // Home gate: switched on there, both portals boot, so a traveller who
+    // went through can come back. Gate 7 of the Home gate station
+    // (`gate_stack_lower`), to the Math square:
+    "math_gate_home_zone": (
+        switch_id: "math_gate_switch",
+        portal_sprite_name: "Math Gate Portal (Home)",
+        ring_sprite_name: "Math Gate Ring (Home)",
+    ),
+    // The gate on the Math square, back to the Home gate station.
+    "math_gate_return_zone": (
+        switch_id: "math_gate_switch",
+        portal_sprite_name: "Math Gate Portal (Math)",
+        ring_sprite_name: "Math Gate Ring (Math)",
+    ),
+}

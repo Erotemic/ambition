@@ -197,7 +197,14 @@ the beacon's ranged grant), and the cue of each change of form. The ladder is
 the downgrade chain, so lowering builds each row's armor and slot; admission
 refuses a bottom rung with a row, a rung over it with no row or arrival, a
 spark the projectile road cannot fly, and a cue between characters off the
-ladder. Not content:
+ladder. Mary-O's pickup boxes are `power_ups.*_half` in her rules file, and
+Smash's respawn seats and platform are `respawn` in `smash_stages.ron` (a
+seat spacing not wider than a standing body is refused). The gate portals
+of Ambition's rooms (the intro's gate, the Math gate pair) are its
+`gate_portals.ron`: a `gate_portals` schema of the world capability, whose
+rows live in the world crate and which the engine's schema registry
+registers (the world crate does not link the content pack); a reload
+restates Ambition's rows, and `math_town.rs` is deleted. Not content:
 the Mary-O test course. It is a fixture that no level renders, and its
 module says why it stays Rust (an editor drag would make it a different
 test).
@@ -1128,8 +1135,11 @@ variants. Also found in that regen:
     no catalog check, the state kept during a write; each red). Measured on
     the full tier with the real sheets: a recolour of one sheet 6.7 s (8 of
     180 pages), byte-identical to a fresh full pack (124 s); no change
-    1.6 s. Left: an edit that changes a frame's trimmed size still
-    re-packs all four tiers (about 131 s); the largest phases of a
+    1.6 s. A full pack knows an unchanged page by the pixel digest in
+    the state (with the file's size and mtime) and does not decode it:
+    a full-tier pack after a size edit 65 s, was 82 to 86 s (a37183f).
+    Left: an edit that changes a frame's trimmed size still re-packs all
+    four tiers (the full tier about 65 s); the largest phases of a
     no-render publish are now the tack-on batch's freshness checks (40 s),
     the staging copy with the fingerprint work (28 s) and the LDtk sprite
     tilesets (26 s).

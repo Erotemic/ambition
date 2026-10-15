@@ -72,6 +72,9 @@ Sources: `docs/brainstorms/*`, `docs/planning/story-gameplay-progression-draft.m
   joined along that hole to the rest of the Math dimension (a connected sum). The
   town wraps both ways except at the hole, and the hole is the way in and out. ‹synthesis›
 
+- **D7.** The town's wrap is **revealed later, as a discovery**. "It will be a big
+  town. We don't have to completely populate it yet." ‹verbatim›
+
 ## P — The protagonist
 
 - **P1.** The player is an **AI that wakes into the world without knowing its

@@ -652,7 +652,7 @@ mod tests {
     fn item_grant_resolves_known_kinds_and_ignores_bad_input() {
         // The legacy "health_potion" / "healthpotion" alias resolves to HealthCell.
         assert_eq!(
-            item_grant(ambition_items::builtin_item_catalog(), "health_potion", 2.0),
+            item_grant(ambition_items::test_item_catalog(), "health_potion", 2.0),
             Some(ambition_items::ItemGrantRequested {
                 item: Item::HealthCell,
                 count: 2
@@ -661,7 +661,7 @@ mod tests {
         // Loose spelling resolves, and the count is floored: Yarn arithmetic is
         // f32, so "1.9 potions" is valid input.
         assert_eq!(
-            item_grant(ambition_items::builtin_item_catalog(), "HealthPotion", 1.9),
+            item_grant(ambition_items::test_item_catalog(), "HealthPotion", 1.9),
             Some(ambition_items::ItemGrantRequested {
                 item: Item::HealthCell,
                 count: 1
@@ -669,10 +669,10 @@ mod tests {
         );
 
         // Unknown kind asks for nothing.
-        assert_eq!(item_grant(ambition_items::builtin_item_catalog(), "definitely_not_an_item", 5.0), None);
+        assert_eq!(item_grant(ambition_items::test_item_catalog(), "definitely_not_an_item", 5.0), None);
         // Non-positive count asks for nothing.
-        assert_eq!(item_grant(ambition_items::builtin_item_catalog(), "DataChip", 0.0), None);
-        assert_eq!(item_grant(ambition_items::builtin_item_catalog(), "DataChip", -3.0), None);
+        assert_eq!(item_grant(ambition_items::test_item_catalog(), "DataChip", 0.0), None);
+        assert_eq!(item_grant(ambition_items::test_item_catalog(), "DataChip", -3.0), None);
     }
 
     // Inventory does not depend on a save: `inventory.holds` reads `OwnedItems`

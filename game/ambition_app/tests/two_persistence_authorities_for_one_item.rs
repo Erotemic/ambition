@@ -135,7 +135,7 @@ fn saved_count(sim: &Platformer2dSimHarness, item: Item) -> u32 {
         .data()
         .items()
         .iter()
-        .find(|persisted| persisted.id == ambition_platformer2d::items::builtin_item_catalog().dialog_id(item))
+        .find(|persisted| persisted.id == ambition_platformer2d::items::test_item_catalog().dialog_id(item).unwrap())
         .map(|persisted| persisted.count)
         .unwrap_or(0)
 }
@@ -449,7 +449,7 @@ fn a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it() {
         catalog_count(&mut sim, AUTHORED_REWARD_ITEM),
         0,
         "the catalog must start without a `{}`",
-        ambition_platformer2d::items::builtin_item_catalog().dialog_id(AUTHORED_REWARD_ITEM)
+        ambition_platformer2d::items::test_item_catalog().dialog_id(AUTHORED_REWARD_ITEM).unwrap()
     );
 
     // ── the checkpoint FIRST, with empty hands ───────────────────────────────
@@ -509,7 +509,7 @@ fn a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it() {
         "⛔ the object is back on its pedestal, so nothing may still claim it. A \
          `{}` that survives here is a phantom the menu will equip and mint a \
          second real one from",
-        ambition_platformer2d::items::builtin_item_catalog().dialog_id(AUTHORED_REWARD_ITEM)
+        ambition_platformer2d::items::test_item_catalog().dialog_id(AUTHORED_REWARD_ITEM).unwrap()
     );
     assert_eq!(
         still_saved, 0,

@@ -90,8 +90,7 @@ pub enum Item {
 /// content game authors its item flavor/wiring as DATA in `items.ron` (inserted as
 /// the [`ItemCatalog`] resource) — the same "content out of core"
 /// pattern as `boss_profiles.ron` / boss sheets (C6). The `item_catalog` schema maps the
-/// resulting serde error to `DiagnosticCode::UnknownField`. The built-in `ITEM_META` table is
-/// built in Rust rather than deserialized, so this constrains `items.ron` only.
+/// resulting serde error to `DiagnosticCode::UnknownField`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ItemMeta {
@@ -108,9 +107,10 @@ pub struct ItemMeta {
 /// does, and how authoring names it.
 ///
 /// A content game authors its item table in `items.ron` (a `Vec<ItemMeta>` in
-/// grid order) and inserts the catalog as a resource; an authored row REPLACES
-/// the built-in default for that grid slot, and an absent row falls back to the
-/// built-in [`ITEM_META`]. `ItemCatalog::default()` is the built-in table.
+/// grid order, refused unless it names every slot) and inserts the catalog as
+/// a resource. The pack is the one authority (Q104): there is no built-in
+/// table. A slot the catalog does not name is no item: it is not granted,
+/// drawn or saved. `ItemCatalog::default()` names no slot.
 ///
 /// ⭐ APP-LOCAL (2026-10-01). It was a process-global `OnceLock` installed once,
 /// so a running game could not take an `items.ron` edit and two Apps in one
@@ -144,24 +144,22 @@ impl ItemCatalog {
         &self.rows
     }
 
-    /// The row this catalog plays for `item`: the authored one, or the
-    /// built-in default when none is authored for that slot.
-    pub fn meta(&self, item: Item) -> &ItemMeta {
-        self.rows
-            .get(item.index())
-            .unwrap_or_else(|| &ITEM_META[item.index()])
+    /// The row this catalog plays for `item`, or `None` when the catalog does
+    /// not name that slot.
+    pub fn meta(&self, item: Item) -> Option<&ItemMeta> {
+        self.rows.get(item.index())
     }
 
-    pub fn category(&self, item: Item) -> ItemCategory {
-        self.meta(item).category
+    pub fn category(&self, item: Item) -> Option<ItemCategory> {
+        self.meta(item).map(|meta| meta.category)
     }
 
-    pub fn display_name(&self, item: Item) -> &str {
-        self.meta(item).display_name.as_str()
+    pub fn display_name(&self, item: Item) -> Option<&str> {
+        self.meta(item).map(|meta| meta.display_name.as_str())
     }
 
-    pub fn description(&self, item: Item) -> &str {
-        self.meta(item).description.as_str()
+    pub fn description(&self, item: Item) -> Option<&str> {
+        self.meta(item).map(|meta| meta.description.as_str())
     }
 
     /// For [`ItemCategory::Weapon`] items, the `HeldItem` id whose `ActionSet` the
@@ -169,7 +167,7 @@ impl ItemCatalog {
     /// held-item wiring is not built yet. PortalGun equips through its own
     /// `PortalGun` component (handled by the menu), so its row says `None`.
     pub fn held_item_id(&self, item: Item) -> Option<&str> {
-        self.meta(item).held_item_id.as_deref()
+        self.meta(item)?.held_item_id.as_deref()
     }
 
     /// Which catalog slot a world held-item (`GroundItem`/`HeldItemSpec` id)
@@ -180,8 +178,8 @@ impl ItemCatalog {
 
     /// Stable lowercase id for dialogue/authoring, e.g.
     /// `condition("inventory.holds", "portal_gun")`.
-    pub fn dialog_id(&self, item: Item) -> &str {
-        self.meta(item).dialog_id.as_str()
+    pub fn dialog_id(&self, item: Item) -> Option<&str> {
+        self.meta(item).map(|meta| meta.dialog_id.as_str())
     }
 
     /// Normalize a raw authoring string the way the Yarn bindings do
@@ -194,7 +192,7 @@ impl ItemCatalog {
             .filter(|c| c.is_alphanumeric())
             .flat_map(|c| c.to_lowercase())
             .collect();
-        if let Some(found) = Item::ALL.into_iter().find(|item| self.dialog_id(*item) == key) {
+        if let Some(found) = Item::ALL.into_iter().find(|item| self.dialog_id(*item) == Some(key.as_str())) {
             return Some(found);
         }
         // The old 3-kind bag spelled the health consumable "healthpotion"; the
@@ -206,15 +204,20 @@ impl ItemCatalog {
     }
 }
 
-/// The built-in catalog, as one immutable value: what a composition that
-/// inserts no [`ItemCatalog`] plays.
-pub fn builtin_item_catalog() -> &'static ItemCatalog {
-    static BUILTIN: std::sync::OnceLock<ItemCatalog> = std::sync::OnceLock::new();
-    BUILTIN.get_or_init(ItemCatalog::default)
+/// The catalog of a composition that installs none: it names no slot.
+static NO_ITEM_CATALOG: ItemCatalog = ItemCatalog { rows: Vec::new() };
+
+/// Ambition's shipped `items.ron`, for tests of the crates that read a
+/// catalog: a fixture, not a default. Production code reads the App's
+/// catalog ([`ItemCatalogRead`], [`item_catalog`]).
+#[cfg(any(test, feature = "test-support"))]
+pub fn test_item_catalog() -> &'static ItemCatalog {
+    static CATALOG: std::sync::OnceLock<ItemCatalog> = std::sync::OnceLock::new();
+    CATALOG.get_or_init(|| ItemCatalog::from_ron(include_str!("../../../game/ambition_content/assets/data/items.ron")))
 }
 
-/// The item catalog a system reads: the App's, or the built-in table when the
-/// composition inserts none (the meaning "no catalog installed" always had).
+/// The item catalog a system reads: the App's, or a catalog that names no slot
+/// when the composition installs none.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ItemCatalogRead<'w> {
     catalog: Option<bevy::prelude::Res<'w, ItemCatalog>>,
@@ -222,7 +225,7 @@ pub struct ItemCatalogRead<'w> {
 
 impl ItemCatalogRead<'_> {
     pub fn get(&self) -> &ItemCatalog {
-        self.catalog.as_deref().unwrap_or_else(|| builtin_item_catalog())
+        self.catalog.as_deref().unwrap_or(&NO_ITEM_CATALOG)
     }
 
     /// Did the App's catalog change since this system last ran? Only a content
@@ -238,186 +241,8 @@ impl ItemCatalogRead<'_> {
 pub fn item_catalog(world: &bevy::prelude::World) -> &ItemCatalog {
     world
         .get_resource::<ItemCatalog>()
-        .unwrap_or_else(|| builtin_item_catalog())
+        .unwrap_or(&NO_ITEM_CATALOG)
 }
-
-/// One row per [`Item`], in discriminant order — the engine's built-in default
-/// item table. See [`ItemMeta`].
-static ITEM_META: std::sync::LazyLock<[ItemMeta; ITEM_COUNT]> = std::sync::LazyLock::new(|| {
-    use ItemCategory::*;
-    [
-        ItemMeta {
-            display_name: "Portal Gun".into(),
-            description: "Fire a linked blue/orange portal pair. Carries momentum.".into(),
-            category: Weapon,
-            held_item_id: None,
-            dialog_id: "portalgun".into(),
-        },
-        ItemMeta {
-            display_name: "Axe".into(),
-            description: "A heavy pirate axe. Replaces your attack with a cleaving swing.".into(),
-            category: Weapon,
-            held_item_id: Some("axe".into()),
-            dialog_id: "axe".into(),
-        },
-        ItemMeta {
-            display_name: "Javelin".into(),
-            description: "A throwing spear. Using it throws it.".into(),
-            category: Weapon,
-            held_item_id: Some("javelin".into()),
-            dialog_id: "javelin".into(),
-        },
-        ItemMeta {
-            display_name: "Gun-Sword".into(),
-            description: "A laser sword with a gun on it that shoots swords. Fires aimed bolts."
-                .into(),
-            category: Weapon,
-            held_item_id: Some("gun_sword".into()),
-            dialog_id: "gunsword".into(),
-        },
-        ItemMeta {
-            display_name: "Puppy-Slug Gun".into(),
-            description: "Fires friendly puppy slugs that harry your enemies. (planned)".into(),
-            category: Weapon,
-            held_item_id: Some("puppy_slug_gun".into()),
-            dialog_id: "puppysluggun".into(),
-        },
-        ItemMeta {
-            display_name: "Fireball".into(),
-            description: "A thrown bolt of fire. Spends mana.".into(),
-            category: Ability,
-            held_item_id: Some("fireball".into()),
-            dialog_id: "fireball".into(),
-        },
-        ItemMeta {
-            display_name: "Blink".into(),
-            description: "Short-range teleport. Your favorite, and high-skill.".into(),
-            category: Ability,
-            held_item_id: Some("blink".into()),
-            dialog_id: "blink".into(),
-        },
-        ItemMeta {
-            display_name: "Flight".into(),
-            description: "Sustained flight while you have charge.".into(),
-            category: Ability,
-            held_item_id: None,
-            dialog_id: "fly".into(),
-        },
-        ItemMeta {
-            display_name: "Grapple Hook".into(),
-            description: "Pull yourself toward anchor points. (planned)".into(),
-            category: Ability,
-            held_item_id: Some("grapple".into()),
-            dialog_id: "grapple".into(),
-        },
-        ItemMeta {
-            display_name: "Morph Ball".into(),
-            description: "Compress into a ball to fit through gaps only an AI can take.".into(),
-            category: Ability,
-            held_item_id: None,
-            dialog_id: "morphball".into(),
-        },
-        ItemMeta {
-            display_name: "Mark / Recall".into(),
-            description: "Drop marks and recall to them — travel and combat tool. (planned)".into(),
-            category: Ability,
-            held_item_id: Some("mark_recall".into()),
-            dialog_id: "markrecall".into(),
-        },
-        ItemMeta {
-            display_name: "Bubble Shield".into(),
-            description: "Raise a shield bubble; time it to parry.".into(),
-            category: Ability,
-            held_item_id: None,
-            dialog_id: "bubbleshield".into(),
-        },
-        ItemMeta {
-            display_name: "Health Cell".into(),
-            description: "Restores health.".into(),
-            category: Consumable,
-            held_item_id: None,
-            dialog_id: "healthcell".into(),
-        },
-        ItemMeta {
-            display_name: "Mana Cell".into(),
-            description: "Restores mana.".into(),
-            category: Consumable,
-            held_item_id: None,
-            dialog_id: "manacell".into(),
-        },
-        ItemMeta {
-            display_name: "Spare Battery".into(),
-            description: "Reserved ability charge. Does nothing yet.".into(),
-            category: Consumable,
-            held_item_id: None,
-            dialog_id: "sparebattery".into(),
-        },
-        ItemMeta {
-            display_name: "Data Chip".into(),
-            description: "A lore fragment. Does nothing yet.".into(),
-            category: Consumable,
-            held_item_id: None,
-            dialog_id: "datachip".into(),
-        },
-        ItemMeta {
-            display_name: "Bomb".into(),
-            description:
-                "A thrown explosive — it detonates on a short fuse, blasting nearby enemies.".into(),
-            category: Weapon,
-            held_item_id: Some("bomb".into()),
-            dialog_id: "bomb".into(),
-        },
-        ItemMeta {
-            display_name: "Gold Pouch".into(),
-            description: "Loose currency. Spends as money.".into(),
-            category: Consumable,
-            held_item_id: None,
-            dialog_id: "goldpouch".into(),
-        },
-        ItemMeta {
-            display_name: "Map Fragment".into(),
-            description: "A piece of the world map, from Alice and Bob.".into(),
-            category: KeyItem,
-            held_item_id: None,
-            dialog_id: "mapfragment".into(),
-        },
-        ItemMeta {
-            display_name: "Sealed Note".into(),
-            description: "Alice's sealed note — carry it to Bob.".into(),
-            category: KeyItem,
-            held_item_id: None,
-            dialog_id: "sealednote".into(),
-        },
-        ItemMeta {
-            display_name: "Field Survey".into(),
-            description: "Bob's field survey of a nearby zone.".into(),
-            category: KeyItem,
-            held_item_id: None,
-            dialog_id: "fieldsurvey".into(),
-        },
-        ItemMeta {
-            display_name: "Gate Key".into(),
-            description: "Opens a sealed dimension-gate door.".into(),
-            category: KeyItem,
-            held_item_id: None,
-            dialog_id: "gatekey".into(),
-        },
-        ItemMeta {
-            display_name: "Debug Lens".into(),
-            description: "See the seams of the world. For an AI, debug is a sense organ.".into(),
-            category: KeyItem,
-            held_item_id: None,
-            dialog_id: "debuglens".into(),
-        },
-        ItemMeta {
-            display_name: "—".into(),
-            description: "An empty slot, waiting for an item that does not exist yet.".into(),
-            category: Reserved,
-            held_item_id: None,
-            dialog_id: "reservedslot".into(),
-        },
-    ]
-});
 
 impl Item {
     /// All 24 items in grid order. The compile-time length check below pins the
@@ -627,11 +452,15 @@ impl OwnedItems {
     }
 
     /// Add `n` of an item. Unique items (per `catalog`) clamp at 1 so a second
-    /// pickup doesn't inflate a non-stackable slot.
+    /// pickup doesn't inflate a non-stackable slot. A slot the catalog does not
+    /// name is no item, and nothing is granted.
     pub fn grant(&mut self, catalog: &ItemCatalog, item: Item, n: u32) {
+        let Some(category) = catalog.category(item) else {
+            return;
+        };
         let slot = &mut self.counts[item.index()];
         let next = slot.saturating_add(n);
-        *slot = if catalog.category(item).is_unique() {
+        *slot = if category.is_unique() {
             next.min(1)
         } else {
             next
@@ -683,9 +512,8 @@ impl OwnedItems {
             .into_iter()
             .filter_map(|item| {
                 let c = self.stored(item);
-                (c > 0).then(|| {
-                    ambition_persistence::save_data::PersistedItem::new(catalog.dialog_id(item), c)
-                })
+                let id = catalog.dialog_id(item)?;
+                (c > 0).then(|| ambition_persistence::save_data::PersistedItem::new(id, c))
             })
             .collect()
     }

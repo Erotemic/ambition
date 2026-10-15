@@ -357,9 +357,9 @@ pub fn items_spec(
         .map(|item| {
             let owns = owned.has(item);
             let mut node = if owns {
-                InventoryItemNode::new(item.index(), cell_label(items.display_name(item)))
+                InventoryItemNode::new(item.index(), cell_label(items.display_name(item).unwrap_or(crate::menu::effects::UNNAMED_SLOT)))
             } else {
-                InventoryItemNode::unowned(item.index(), cell_label(items.display_name(item)))
+                InventoryItemNode::unowned(item.index(), cell_label(items.display_name(item).unwrap_or(crate::menu::effects::UNNAMED_SLOT)))
             };
             // The description is rendered once, in the detail panel.
             node = node
@@ -460,9 +460,9 @@ fn detail_lines(
     item: Item,
 ) -> Vec<String> {
     let mut lines = Vec::new();
-    lines.extend(wrap_text(items.display_name(item), DETAIL_WRAP_COLS));
+    lines.extend(wrap_text(items.display_name(item).unwrap_or(crate::menu::effects::UNNAMED_SLOT), DETAIL_WRAP_COLS));
     lines.push(String::new());
-    lines.extend(wrap_text(items.description(item), DETAIL_WRAP_COLS));
+    lines.extend(wrap_text(items.description(item).unwrap_or(""), DETAIL_WRAP_COLS));
     // Cap the description so it stays inside the fixed panel (Text3d does not clip
     // to its parent rect — the demo wraps + caps for the same reason).
     lines.truncate(DETAIL_VISIBLE_LINES);

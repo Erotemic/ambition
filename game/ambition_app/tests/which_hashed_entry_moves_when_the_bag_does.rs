@@ -43,7 +43,7 @@ const ROOM: &str = "combat_calibration_lab";
 const LIVE_STEPS: usize = 8;
 
 fn grant_each_tick(mut owned: bevy::prelude::ResMut<OwnedItems>) {
-    owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 1);
+    owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
 }
 
 /// ⛔ THE CONTROL, and it is the same one the row used to separate the VALUE from
@@ -51,7 +51,7 @@ fn grant_each_tick(mut owned: bevy::prelude::ResMut<OwnedItems>) {
 /// identical change detection, and it grants ZERO. If the audit reports the same
 /// divergences here, they are not about the bag.
 fn touch_the_bag_each_tick(mut owned: bevy::prelude::ResMut<OwnedItems>) {
-    owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 0);
+    owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 0);
 }
 
 fn sim_composed_with<M>(
@@ -344,7 +344,7 @@ fn probe_whether_the_saves_snapshot_tracks_its_frame_after_the_window() {
         mut owned: bevy::prelude::ResMut<OwnedItems>,
     ) {
         if tick.0 >= 4 {
-            owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 1);
+            owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
         }
     }
 
@@ -465,7 +465,7 @@ fn the_saves_hashed_snapshot_tracks_the_frames_it_is_compared_at() {
         mut owned: bevy::prelude::ResMut<OwnedItems>,
     ) {
         if tick.0 >= 4 {
-            owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 1);
+            owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
         }
     }
     type Save = ambition_platformer2d::persistence::save::AmbitionGameSave;

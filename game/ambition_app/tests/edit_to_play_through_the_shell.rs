@@ -725,7 +725,7 @@ fn an_item_row_saved_while_the_game_runs_is_played() {
     use ambition_content::content_watch::ContentSourceWatch;
     use ambition_platformer2d::items::{item_catalog, Item};
     let axe = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
-        item_catalog(sim.world()).display_name(Item::Axe).to_string()
+        item_catalog(sim.world()).display_name(Item::Axe).expect("the pack names the axe").to_string()
     };
     let mut sim = common::fixed_60hz_room_sim("proving_grounds");
     for _ in 0..40 {

@@ -171,6 +171,7 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
     app.add_message::<PortalGunEquipped>();
     // The catalog the two systems keep in step. The sibling tests omit it, so
     // only this one can see the slot.
+    app.insert_resource(ambition_items::test_item_catalog().clone());
     app.insert_resource(OwnedItems::default());
     app.add_systems(
         Update,
@@ -215,7 +216,7 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
     // The hand IS the catalog's view of it (I1): no slot to name any more.
     assert_eq!(
         ambition_held_items::item_in_hand(
-            ambition_items::builtin_item_catalog(),
+            ambition_items::test_item_catalog(),
             None,
             app.world().get::<PortalGun>(player),
         ),
@@ -233,7 +234,7 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
     );
     assert_eq!(
         ambition_held_items::item_in_hand(
-            ambition_items::builtin_item_catalog(),
+            ambition_items::test_item_catalog(),
             None,
             app.world().get::<PortalGun>(player),
         ),

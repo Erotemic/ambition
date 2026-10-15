@@ -31,7 +31,7 @@ fn grant_each_tick_from_four(
     mut owned: bevy::prelude::ResMut<OwnedItems>,
 ) {
     if tick.0 >= 4 {
-        owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 1);
+        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
     }
 }
 

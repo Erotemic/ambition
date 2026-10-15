@@ -55,7 +55,7 @@ pub fn holds(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     ConditionOutcome::from_bool(player_hand_holds(world, item), || {
         ambition_platformer2d_shared_tangle::authored_logic::WhyNot::new(
             "inventory.holds",
-            catalog.dialog_id(item),
+            catalog.dialog_id(item).unwrap_or("an item the catalog does not name"),
             "the bag stores none and no player or driven hand wields one",
         )
     })
@@ -108,7 +108,8 @@ mod tests {
     #[test]
     fn the_inventory_domain_reads_the_live_bag_through_loose_spelling() {
         let mut app = App::new();
-        app.insert_resource(OwnedItems::starter(ambition_items::builtin_item_catalog()));
+        app.insert_resource(ambition_items::test_item_catalog().clone());
+        app.insert_resource(OwnedItems::starter(ambition_items::test_item_catalog()));
         let world = app.world();
 
         // The starter bag carries health cells, however the author spells them.
@@ -145,6 +146,7 @@ mod tests {
     #[test]
     fn a_weapon_in_the_players_hand_is_held_with_nothing_in_the_bag() {
         let mut app = App::new();
+        app.insert_resource(ambition_items::test_item_catalog().clone());
         app.insert_resource(OwnedItems::default());
         let spec = ambition_characters::brain::held_item_by_id("gun_sword").unwrap();
         // An enemy wielding one: not the player's.

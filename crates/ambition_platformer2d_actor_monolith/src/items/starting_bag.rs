@@ -184,8 +184,9 @@ mod tests {
     /// left does not reach it.
     #[test]
     fn a_session_begins_with_the_bag_its_experience_declares() {
-        let catalog = ambition_items::builtin_item_catalog();
+        let catalog = ambition_items::test_item_catalog();
         let mut app = App::new();
+        app.insert_resource(ambition_items::test_item_catalog().clone());
         app.insert_resource(OwnedItems::starter(catalog));
         let mut declared = InitialInventories::default();
         declared.declare("with_a_bomb", a_bomb);
@@ -227,8 +228,9 @@ mod tests {
     /// not follow the live bag.
     #[test]
     fn a_composition_with_no_activation_begins_with_the_bag_it_was_built_with() {
-        let catalog = ambition_items::builtin_item_catalog();
+        let catalog = ambition_items::test_item_catalog();
         let mut app = App::new();
+        app.insert_resource(ambition_items::test_item_catalog().clone());
         app.insert_resource(OwnedItems::starter(catalog));
         install_starting_bag(&mut app);
         app.update();

@@ -3,8 +3,9 @@
 
 use super::*;
 
-fn builtin() -> &'static crate::ItemCatalog {
-    crate::builtin_item_catalog()
+/// Ambition's shipped catalog (`items.ron`), the fixture.
+fn shipped() -> &'static crate::ItemCatalog {
+    crate::test_item_catalog()
 }
 
 #[test]
@@ -30,7 +31,7 @@ fn index_and_grid_round_trip_for_every_slot() {
 
 #[test]
 fn item_meta_table_is_index_aligned() {
-    // Refactor 1: ITEM_META rows must line up with the Item discriminants.
+    // The catalog rows must line up with the Item discriminants.
     // A whole-row shift self-consistently passes the dialog round-trip (the
     // moved row carries its own dialog_id), so pin the variant→name mapping
     // by NAME here — referencing each variant directly, not by index.
@@ -61,20 +62,20 @@ fn item_meta_table_is_index_aligned() {
         (Item::ReservedSlot, "—"),
     ];
     for (item, name) in expected {
-        assert_eq!(builtin().display_name(item), name, "row for {item:?} is misaligned");
+        assert_eq!(shipped().display_name(item), Some(name), "row for {item:?} is misaligned");
     }
     // Category + held-item anchors that would also catch a shift.
-    assert_eq!(builtin().category(Item::Fireball), ItemCategory::Ability);
-    assert_eq!(builtin().category(Item::Bomb), ItemCategory::Weapon);
-    assert_eq!(builtin().category(Item::ReservedSlot), ItemCategory::Reserved);
+    assert_eq!(shipped().category(Item::Fireball), Some(ItemCategory::Ability));
+    assert_eq!(shipped().category(Item::Bomb), Some(ItemCategory::Weapon));
+    assert_eq!(shipped().category(Item::ReservedSlot), Some(ItemCategory::Reserved));
 }
 
 #[test]
 fn held_item_ids_round_trip_for_every_wired_item() {
     for item in Item::ALL {
-        if let Some(id) = builtin().held_item_id(item) {
+        if let Some(id) = shipped().held_item_id(item) {
             assert_eq!(
-                builtin().item_by_held_item_id(id),
+                shipped().item_by_held_item_id(id),
                 Some(item),
                 "held_item_id {id} should resolve back to {item:?}"
             );
@@ -83,7 +84,7 @@ fn held_item_ids_round_trip_for_every_wired_item() {
     // The wired set is exactly these nine (everything else is None).
     let wired: Vec<Item> = Item::ALL
         .into_iter()
-        .filter(|i| builtin().held_item_id(*i).is_some())
+        .filter(|i| shipped().held_item_id(*i).is_some())
         .collect();
     assert_eq!(wired.len(), 9, "wired held-items: {wired:?}");
 }
@@ -93,46 +94,46 @@ fn dialog_ids_are_unique_and_round_trip() {
     let mut seen = std::collections::HashSet::new();
     for item in Item::ALL {
         assert!(
-            seen.insert(builtin().dialog_id(item)),
+            seen.insert(shipped().dialog_id(item)),
             "duplicate dialog id {item:?}"
         );
-        assert_eq!(builtin().item_by_dialog_id(builtin().dialog_id(item)), Some(item));
+        assert_eq!(shipped().item_by_dialog_id(shipped().dialog_id(item).unwrap()), Some(item));
     }
     // Loose spellings normalize.
-    assert_eq!(builtin().item_by_dialog_id("Portal Gun"), Some(Item::PortalGun));
-    assert_eq!(builtin().item_by_dialog_id("gun_sword"), Some(Item::GunSword));
-    assert_eq!(builtin().item_by_dialog_id("nonsense"), None);
+    assert_eq!(shipped().item_by_dialog_id("Portal Gun"), Some(Item::PortalGun));
+    assert_eq!(shipped().item_by_dialog_id("gun_sword"), Some(Item::GunSword));
+    assert_eq!(shipped().item_by_dialog_id("nonsense"), None);
 }
 
 #[test]
 fn legacy_health_alias_resolves_to_health_cell() {
     // The old 3-kind bag spelled the health consumable "healthpotion"; the catalog id is
     // "healthcell".
-    assert_eq!(builtin().item_by_dialog_id("healthpotion"), Some(Item::HealthCell));
+    assert_eq!(shipped().item_by_dialog_id("healthpotion"), Some(Item::HealthCell));
     assert_eq!(
-        builtin().item_by_dialog_id("health_potion"),
+        shipped().item_by_dialog_id("health_potion"),
         Some(Item::HealthCell)
     );
-    assert_eq!(builtin().item_by_dialog_id("healthcell"), Some(Item::HealthCell));
+    assert_eq!(shipped().item_by_dialog_id("healthcell"), Some(Item::HealthCell));
     // The other two overlapping items already share their ids — no alias needed.
     assert_eq!(
-        builtin().item_by_dialog_id("sparebattery"),
+        shipped().item_by_dialog_id("sparebattery"),
         Some(Item::SpareBattery)
     );
-    assert_eq!(builtin().item_by_dialog_id("datachip"), Some(Item::DataChip));
+    assert_eq!(shipped().item_by_dialog_id("datachip"), Some(Item::DataChip));
 }
 
 #[test]
 fn grant_clamps_unique_but_stacks_consumables() {
     let mut owned = OwnedItems::default();
     // Unique weapon clamps at 1.
-    owned.grant(builtin(), Item::PortalGun, 5);
+    owned.grant(shipped(), Item::PortalGun, 5);
     assert_eq!(owned.count(Item::PortalGun), 1);
-    owned.grant(builtin(), Item::PortalGun, 3);
+    owned.grant(shipped(), Item::PortalGun, 3);
     assert_eq!(owned.count(Item::PortalGun), 1);
     // Consumable stacks.
-    owned.grant(builtin(), Item::HealthCell, 2);
-    owned.grant(builtin(), Item::HealthCell, 3);
+    owned.grant(shipped(), Item::HealthCell, 2);
+    owned.grant(shipped(), Item::HealthCell, 3);
     assert_eq!(owned.count(Item::HealthCell), 5);
     assert_eq!(owned.take(Item::HealthCell, 4), 4);
     assert_eq!(owned.count(Item::HealthCell), 1);
@@ -167,32 +168,32 @@ fn the_hand_projects_over_the_bag_without_writing_it() {
 #[test]
 fn held_item_ids_point_at_real_specs() {
     // The three wired weapons resolve to a known held-item spec.
-    assert_eq!(builtin().held_item_id(Item::Axe), Some("axe"));
-    assert_eq!(builtin().held_item_id(Item::GunSword), Some("gun_sword"));
+    assert_eq!(shipped().held_item_id(Item::Axe), Some("axe"));
+    assert_eq!(shipped().held_item_id(Item::GunSword), Some("gun_sword"));
     assert!(ambition_characters::brain::held_item_by_id("gun_sword").is_some());
 }
 
 #[test]
 fn held_item_id_round_trips_through_reverse_lookup() {
     for item in Item::ALL {
-        if let Some(id) = builtin().held_item_id(item) {
+        if let Some(id) = shipped().held_item_id(item) {
             assert_eq!(
-                builtin().item_by_held_item_id(id),
+                shipped().item_by_held_item_id(id),
                 Some(item),
                 "ground-item id {id} maps back to its slot"
             );
         }
     }
-    assert_eq!(builtin().item_by_held_item_id("axe"), Some(Item::Axe));
-    assert_eq!(builtin().item_by_held_item_id("gun_sword"), Some(Item::GunSword));
-    assert_eq!(builtin().item_by_held_item_id("nonexistent"), None);
+    assert_eq!(shipped().item_by_held_item_id("axe"), Some(Item::Axe));
+    assert_eq!(shipped().item_by_held_item_id("gun_sword"), Some(Item::GunSword));
+    assert_eq!(shipped().item_by_held_item_id("nonexistent"), None);
 }
 
-/// C1: a content-authored row REPLACES the built-in for that slot — the point of
-/// the override seam. Uses the catalog directly (not the process-global install)
-/// so the test carries no global state.
+/// A catalog is its authored rows (Q104: there is no built-in table). A row is
+/// the item of its slot, and a slot the rows do not reach is no item: nothing
+/// is granted there.
 #[test]
-fn an_authored_item_row_overrides_the_built_in_slot() {
+fn a_catalog_is_its_rows_and_a_slot_it_does_not_name_is_no_item() {
     let ron = r#"[
         (
             display_name: "Warp Cannon",
@@ -203,16 +204,13 @@ fn an_authored_item_row_overrides_the_built_in_slot() {
         ),
     ]"#;
     let catalog = ItemCatalog::from_ron(ron);
-    let over = catalog.meta(Item::PortalGun);
-    assert_eq!(
-        over.display_name, "Warp Cannon",
-        "override display takes effect"
-    );
-    assert_ne!(
-        over.display_name, ITEM_META[0].display_name,
-        "the override differs from the built-in default"
-    );
-    assert_eq!(over.held_item_id.as_deref(), Some("warp_cannon"));
-    // And a slot the authored table does not reach keeps the built-in row.
-    assert_eq!(catalog.meta(Item::Axe), &ITEM_META[Item::Axe.index()]);
+    let row = catalog.meta(Item::PortalGun).expect("the first slot is authored");
+    assert_eq!(row.display_name, "Warp Cannon");
+    assert_eq!(row.held_item_id.as_deref(), Some("warp_cannon"));
+    assert_eq!(catalog.meta(Item::Axe), None, "a slot the rows do not reach is no item");
+    let mut owned = OwnedItems::default();
+    owned.grant(&catalog, Item::Axe, 1);
+    owned.grant(&catalog, Item::PortalGun, 1);
+    assert!(!owned.has(Item::Axe), "an item the catalog does not name is not granted");
+    assert!(owned.has(Item::PortalGun), "control: the authored item is granted");
 }

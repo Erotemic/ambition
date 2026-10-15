@@ -1664,19 +1664,47 @@ then
     if [ -f "$renderer_dir/ambition_sprite2d_renderer/data/pack_plan.yaml" ]; then
         ultrapack_plan=(--pack-plan "ambition_sprite2d_renderer/data/pack_plan.yaml")
     fi
+    # The tiers read the same published sheets and write separate roots, so
+    # they run at once, at most `AMBITION_SPRITE_JOBS` of them, the slowest
+    # first. Measured 2026-10-15: full 126 s, half 116 s, quarter 83 s,
+    # potato 29 s; one after another they were 362 s, 61% of a publish that
+    # rendered one target. Each tier's output is kept in its own log and
+    # printed whole, in tier order, when the tier ends.
+    ultrapack_logs="$(mktemp -d)"
+    ultrapack_pids=()
+    ultrapack_names=()
+    finish_ultrapack_tier() {
+        local index="$1"
+        local tname="${ultrapack_names[index]}"
+        if ! wait "${ultrapack_pids[index]}"; then
+            echo "  WARN: ultrapack tier '$tname' failed (non-fatal)" >>"$ultrapack_logs/$tname.log"
+        fi
+        sed 's/^/  /' "$ultrapack_logs/$tname.log"
+    }
+    ultrapack_waited=0
     for tier in "${ultrapack_tiers[@]}"; do
         read -r tname tscale tmin tpage <<<"$tier"
         ultrapack_debug=()
         if [ "${AMBITION_ULTRAPACK_DEBUG:-0}" = "1" ]; then
             ultrapack_debug=(--debug-views --debug-dir "$pack_debug_root/$tname")
         fi
+        if [ "$(( ${#ultrapack_pids[@]} - ultrapack_waited ))" -ge "$AMBITION_SPRITE_JOBS" ]; then
+            finish_ultrapack_tier "$ultrapack_waited"
+            ultrapack_waited=$((ultrapack_waited + 1))
+        fi
         run_renderer_python "ultrapack-$tname" -m ambition_sprite2d_renderer ultrapack \
             --from-rendered "$sprites_dir" \
             --out "$pack_root/$tname" \
             --scale "$tscale" --min-frame-px "$tmin" --page-size "$tpage" \
-            --name ultrapack "${ultrapack_plan[@]}" "${ultrapack_debug[@]}" 2>&1 | sed 's/^/  /' || \
-            echo "  WARN: ultrapack tier '$tname' failed (non-fatal)"
+            --name ultrapack "${ultrapack_plan[@]}" "${ultrapack_debug[@]}" >"$ultrapack_logs/$tname.log" 2>&1 &
+        ultrapack_pids+=("$!")
+        ultrapack_names+=("$tname")
     done
+    while [ "$ultrapack_waited" -lt "${#ultrapack_pids[@]}" ]; do
+        finish_ultrapack_tier "$ultrapack_waited"
+        ultrapack_waited=$((ultrapack_waited + 1))
+    done
+    rm -rf "$ultrapack_logs"
     echo "  packs installed under $pack_root/{full,half,quarter,potato}/"
     # Postcondition. Two questions, and the second one is why this exists:
     #

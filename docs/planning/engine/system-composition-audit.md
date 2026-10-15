@@ -97,6 +97,10 @@ first, with care:
 - The render sub-app and the GGRS schedules are out of scope (the render app
   keeps its own executor; GGRS is serial already).
 
+One owner of the executor policy: `ambition_app`'s switch is removed or calls
+the shared function. The report says what the switch requested; context
+switches corroborate it and do not prove it.
+
 Done when both arms are recorded. If one composition gains and another loses,
 the host chooses the executor.
 
@@ -116,7 +120,11 @@ one schedule.
 
 Done when the hub runs no foreign game's gameplay, and a lifecycle test passes:
 Ambition, Mary-O, Smash, Mary-O, with a room transition and a replay; the
-second Mary-O behaves as the first.
+second Mary-O behaves as the first. And a two-live-room case: `CurrentRoom::in_scope`
+is true when any live room is in scope, so it decides whether a game's systems
+run, not which actors they touch. Each system still filters its subjects by
+their room, and the test proves that one room's rules do not act on the other
+room's population.
 
 ### S3 — Each game declares the engine capabilities it uses (large)
 

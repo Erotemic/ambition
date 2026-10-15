@@ -496,9 +496,10 @@ fn every_seat_comes_back_to_its_own_point_on_the_platform() {
     for (a, first) in seats.iter().enumerate() {
         for second in seats.iter().skip(a + 1) {
             assert!(
-                (first.x - second.x).abs() >= RESPAWN_SEAT_SPACING_PX - 0.01,
-                "two seats respawn within {RESPAWN_SEAT_SPACING_PX}px of each \
-                 other, which is narrower than a standing body: {first:?} vs {second:?}"
+                (first.x - second.x).abs() >= crate::stages::smash_stages().respawn.seat_spacing - 0.01,
+                "two seats respawn within {}px of each \
+                 other, which is narrower than a standing body: {first:?} vs {second:?}",
+                crate::stages::smash_stages().respawn.seat_spacing
             );
         }
     }
@@ -534,7 +535,7 @@ fn a_respawn_is_above_the_stage_centre() {
     let centre = Vec2::new(400.0, 300.0);
     let respawn = respawn_placement(centre, 0);
     assert!(
-        (respawn.x - centre.x).abs() <= RESPAWN_SEAT_SPACING_PX,
+        (respawn.x - centre.x).abs() <= crate::stages::smash_stages().respawn.seat_spacing,
         "a respawn is within a seat spacing of the centre, not off across the stage"
     );
     assert!(
@@ -1209,7 +1210,7 @@ fn walking_off_the_respawn_platform_ends_the_protection() {
         .entity_mut(fighter)
         .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>()
         .unwrap()
-        .pos = Vec2::new(120.0 + RESPAWN_PLATFORM_SIZE.x * 0.5 + 1.0, 40.0);
+        .pos = Vec2::new(120.0 + crate::respawn_platform_size().x * 0.5 + 1.0, 40.0);
     app.update();
 
     assert!(

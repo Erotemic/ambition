@@ -248,13 +248,6 @@ where
     roster.published_by(SMASH_EXPERIENCE)
 }
 
-/// Horizontal spread between adjacent respawn points, in stage pixels.
-///
-/// Two 32px tiles: wider than a standing body, so two fighters that return on
-/// the same frame do not overlap. Seat `n` sits at most `(n/2 + 0.5)` spacings
-/// from the centre, so eight seats stay within ±224px on a 480px platform.
-const RESPAWN_SEAT_SPACING_PX: f32 = 64.0;
-
 /// Where a fighter comes back; each seat has its own point.
 ///
 /// Seats alternate outward from the centre (0 left, 1 right, 2 further left,
@@ -264,7 +257,7 @@ pub fn respawn_placement(stage_centre: Vec2, seat: usize) -> Vec2 {
     let rank = (seat / 2) as f32 + 0.5;
     let side = if seat % 2 == 0 { -1.0 } else { 1.0 };
     Vec2::new(
-        stage_centre.x + side * rank * RESPAWN_SEAT_SPACING_PX,
+        stage_centre.x + side * rank * crate::stages::smash_stages().respawn.seat_spacing,
         // Toward the sky: this demo is screen-down. A gravity-flipped stocks
         // stage is a question for the engine.
         stage_centre.y - crate::stages::smash_stages().respawn.rise,
@@ -1280,7 +1273,7 @@ fn hold_the_respawn_platforms_of_one_room(
     for (seat, pos) in protected {
         wanted.push((
             respawn_platform_id(seat),
-            Vec2::new(pos.x, pos.y + RESPAWN_PLATFORM_DROP_PX),
+            Vec2::new(pos.x, pos.y + respawn_platform_drop()),
         ));
     }
     // Sort by id so the order depends only on which seats are protected. The
@@ -1305,7 +1298,7 @@ fn hold_the_respawn_platforms_of_one_room(
                 id,
                 "Respawn platform",
                 centre,
-                RESPAWN_PLATFORM_SIZE,
+                respawn_platform_size(),
                 // Stationary: a zero-width sweep at zero speed.
                 0.0,
                 0.0,
@@ -1402,13 +1395,18 @@ fn is_respawn_platform_id(id: &str) -> bool {
     id.starts_with(RESPAWN_PLATFORM_PREFIX)
 }
 
-/// The platform a returning fighter materialises on: three body-widths across
-/// and thin, so it reads as a ledge to step off rather than as stage.
-const RESPAWN_PLATFORM_SIZE: Vec2 = Vec2::new(96.0, 12.0);
+/// The platform a returning fighter materialises on (`respawn.platform` in
+/// `smash_stages.ron`).
+pub fn respawn_platform_size() -> Vec2 {
+    let (width, height) = crate::stages::smash_stages().respawn.platform;
+    Vec2::new(width, height)
+}
 
 /// How far below the fighter's centre the platform's centre sits: half a
 /// standing body plus half the platform, so its top is under the feet.
-const RESPAWN_PLATFORM_DROP_PX: f32 = 24.0 + RESPAWN_PLATFORM_SIZE.y * 0.5;
+fn respawn_platform_drop() -> f32 {
+    24.0 + respawn_platform_size().y * 0.5
+}
 
 /// The freeze a FULL punch is measured against, in seconds.
 ///

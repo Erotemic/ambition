@@ -48,6 +48,10 @@ pub struct Respawn {
     pub rise: f32,
     /// How long the returned fighter cannot be hit, in seconds.
     pub protection_seconds: f32,
+    /// How far apart two seats' respawn points are, in world pixels.
+    pub seat_spacing: f32,
+    /// The size (width, height) of the platform a returning fighter stands on.
+    pub platform: (f32, f32),
 }
 
 /// One stage: its name and its blocks.
@@ -99,6 +103,24 @@ impl SmashStages {
             if !(value.is_finite() && value >= 0.0) {
                 problems.push(format!("`respawn.{field}` must be finite and not negative, not {value}"));
             }
+        }
+        for (field, value) in [
+            ("seat_spacing", self.respawn.seat_spacing),
+            ("platform.0", self.respawn.platform.0),
+            ("platform.1", self.respawn.platform.1),
+        ] {
+            if !positive(value) {
+                problems.push(format!("`respawn.{field}` must be finite and positive, not {value}"));
+            }
+        }
+        // Two fighters that return on one frame stand side by side, so the
+        // seats are more than a standing body apart.
+        let body = ambition_platformer2d::engine_core::DEFAULT_PLAYER_BODY_WIDTH;
+        if self.respawn.seat_spacing <= body {
+            problems.push(format!(
+                "`respawn.seat_spacing` is {}; two fighters that return on one frame would overlap, so it is more than a standing body ({body} px)",
+                self.respawn.seat_spacing
+            ));
         }
         for id in crate::SmashStageChoice::ALL.map(crate::SmashStageChoice::room_id) {
             if !self.stages.contains_key(id) {
@@ -210,19 +232,36 @@ mod tests {
 
         // The respawn is the file's too: an edit is the next start's rise and
         // protection, and a negative clock is refused with its field named.
-        let respawn = "respawn: (rise: 160.0, protection_seconds: 2.0),";
+        let respawn = "respawn: (rise: 160.0, protection_seconds: 2.0, seat_spacing: 64.0, platform: (96.0, 12.0)),";
         assert_eq!(authored.matches(respawn).count(), 1, "the probe edits the respawn");
-        assert_eq!(file.respawn, Respawn { rise: 160.0, protection_seconds: 2.0 });
+        let shipped = Respawn { rise: 160.0, protection_seconds: 2.0, seat_spacing: 64.0, platform: (96.0, 12.0) };
+        assert_eq!(file.respawn, shipped);
         // The runtime places a returning fighter by the file's rise.
         let placed = crate::respawn_placement(bevy::math::Vec2::ZERO, 0);
         assert_eq!(placed.y, -file.respawn.rise, "the respawn point is the file's rise above the centre");
-        let edited = stages_of(&authored.replace(respawn, "respawn: (rise: 96.0, protection_seconds: 3.5),"));
-        assert_eq!(edited.respawn, Respawn { rise: 96.0, protection_seconds: 3.5 });
-        let refused = match compile(&authored.replace(respawn, "respawn: (rise: 160.0, protection_seconds: -1.0),")) {
-            Ok(_) => panic!("a negative respawn protection was admitted"),
-            Err(failure) => failure.render(),
-        };
-        assert!(refused.contains("`respawn.protection_seconds`"), "the refusal names the field: {refused}");
+        // Seat 1 is half a spacing right of the centre, and its platform is
+        // the file's size.
+        assert_eq!(crate::respawn_placement(bevy::math::Vec2::ZERO, 1).x, file.respawn.seat_spacing * 0.5);
+        assert_eq!(crate::respawn_platform_size(), bevy::math::Vec2::new(96.0, 12.0));
+        let edited = stages_of(&authored.replace(
+            respawn,
+            "respawn: (rise: 96.0, protection_seconds: 3.5, seat_spacing: 80.0, platform: (128.0, 10.0)),",
+        ));
+        assert_eq!(
+            edited.respawn,
+            Respawn { rise: 96.0, protection_seconds: 3.5, seat_spacing: 80.0, platform: (128.0, 10.0) }
+        );
+        for (bad, field) in [
+            ("respawn: (rise: 160.0, protection_seconds: -1.0, seat_spacing: 64.0, platform: (96.0, 12.0)),", "`respawn.protection_seconds`"),
+            ("respawn: (rise: 160.0, protection_seconds: 2.0, seat_spacing: 64.0, platform: (96.0, 0.0)),", "`respawn.platform.1`"),
+            ("respawn: (rise: 160.0, protection_seconds: 2.0, seat_spacing: 20.0, platform: (96.0, 12.0)),", "`respawn.seat_spacing`"),
+        ] {
+            let refused = match compile(&authored.replace(respawn, bad)) {
+                Ok(_) => panic!("{field}: the respawn was admitted"),
+                Err(failure) => failure.render(),
+            };
+            assert!(refused.contains(field), "the refusal names the field {field}: {refused}");
+        }
         let _ = std::fs::remove_dir_all(&root);
     }
 }

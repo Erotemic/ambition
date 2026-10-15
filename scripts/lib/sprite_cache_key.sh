@@ -115,6 +115,9 @@ compute_authored_fingerprint() {
     ) | sha256sum | awk '{print $1}'
 }
 
+# The Ultrapack packer, relative to the renderer.
+ultrapack_packer=ambition_sprite2d_renderer/authoring/ultrapack.py
+
 compute_core_shared() {
     # NOTE: each `find` gets its OWN `| sort -z | xargs -0 sha256sum`
     # pipeline. Piping several `find … -print0` from one `{ … }` block
@@ -131,9 +134,13 @@ compute_core_shared() {
         # renders through. These live in subpackages (core/, authoring/,
         # registry/, cli/), NOT at the package top level, so the maxdepth-1
         # find above does not see them.
+        # Not the Ultrapack packer: no target renders through it (only the
+        # `ultrapack` command imports it), so an edit to it must not make
+        # every sheet stale. The Ultrapack tiers key it
+        # (`ultrapack_inputs_key`).
         find ambition_sprite2d_renderer/core ambition_sprite2d_renderer/authoring \
             ambition_sprite2d_renderer/registry ambition_sprite2d_renderer/cli \
-            -type f -name '*.py' -print0 \
+            -type f -name '*.py' ! -path "$ultrapack_packer" -print0 \
             | sort -z | xargs -0 sha256sum
         # Package markers under targets/, and the files under targets/ that
         # the core itself imports: the core runs for every target.
@@ -242,16 +249,18 @@ unit_key() {
         | sha256sum | awk '{print $1}'
 }
 
-# The inputs of the Ultrapack tiers: the shared core (it holds the packer and
-# its command), the pack plan `$2`, and the name, size and mtime of each sheet
-# file the tiers pool from the sheet root `$1` (`ultrapack_rendered` reads the
-# top-level `*_spritesheet.yaml` and its pages). A re-render writes a new
-# mtime, so a changed sheet is a changed key; the staging copy keeps mtimes
-# (`cp -a`), so an unchanged sheet keeps its key.
+# The inputs of the Ultrapack tiers: the shared core (it holds the
+# `ultrapack` command), the packer (which the core leaves out), the pack plan
+# `$2`, and the name, size and mtime of each sheet file the tiers pool from
+# the sheet root `$1` (`ultrapack_rendered` reads the top-level
+# `*_spritesheet.yaml` and its pages). A re-render writes a new mtime, so a
+# changed sheet is a changed key; the staging copy keeps mtimes (`cp -a`), so
+# an unchanged sheet keeps its key.
 ultrapack_inputs_key() {
     local sheets_dir="$1" plan="$2"
     {
         printf 'core %s\n' "$core_shared_fingerprint"
+        printf 'packer %s\n' "$( (cd "$renderer_dir" && sha256sum "$ultrapack_packer" 2>/dev/null) | awk '{print $1}')"
         if [ -f "$plan" ]; then
             printf 'plan %s\n' "$(sha256sum "$plan" | awk '{print $1}')"
         fi

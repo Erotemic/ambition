@@ -853,3 +853,59 @@ it right, (some reference to closed loop cooling, or you know, not destroying
 ecosystems in a rampant rush to build out infrastructure that should have been
 much more intentionally planned).
 
+
+---
+
+With Raman-Nujan maybe we can connect his dreams to the deep dream puppy slugs.
+
+---
+
+Godwin’s Castle is the Nazi Castle in the Nazi dimension.
+
+I want to start making the dimensions.
+
+1. Noodle Dimension
+2. Evil / Nazi Dimension
+3. Forest / Ninja Dimension
+4. Water / Pirate Dimension
+5. Science Dimension
+  - Insists that math is a separate dimension
+6. Math Dimension
+  - Can't agree if they can be identified with the science dimension
+7. Fire / Inferno/Lava Dimension
+8. Magical / Mary-O Dimension
+9. Sanic Dimension
+10. Dog Dimension
+11. Jungle / Bird / Dinosaur Dimension
+- Rawr
+12. Techno / Cyberpunk Dimension
+13. Pure / Regal Dimension
+14. Corrupted Dimension
+15. Monster Dimension
+16. ??? Dimension
+- A catch all for anything we want to put in the game, but don't know where
+  they fit in the 17 we are working with.
+17. Home Dimension
+
+
+The only reason there is a disagreement is because the only way you can
+establish a dimension is a distinct dimension is by determining that you cannot
+traverse space or time in order to get from one portal to another. Portals can
+travel to the same dimension, but also between them.
+
+So a theme / joke we can make is that some characters disagree over the number
+of dimensions. Mathematicians can think their space is infinite, and scientists
+can just look at it empirically.
+
+Some dimensions are small and finite, and you literally can see that you cannot
+go to any other location and they are 100% their own dimension. Other
+dimensions are bigger.
+
+We should decide as a game decision which dimensions are the big ones, and how
+do we evoke that feeling?
+
+
+People will also have migrated between dimensions so there could be several odd
+bedfellows in places. We could even have a Nazi Embassy that people debate if
+they should be letting the Nazis have an embassy. That would be potentially
+funny.

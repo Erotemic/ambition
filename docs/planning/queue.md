@@ -47,7 +47,8 @@ possible without a recompile. Work in this order:
    item 10 (the sprite publish: `draw-review` and `draw-all` are cached
    since 2026-10-14, `draw-factions` too; left: the entity publish, and a
    staging root).
-3. Pack elegance: admission diagnostics that name the file and the field;
+3. Pack elegance: admission diagnostics that name the file and the field
+   (done 2026-10-15: `FacetSource::parse` gives the field path, ca3bd5d8f);
    [CPU-LADDER](#cpu-ladder--the-brain-owns-the-knobs-smash-owns-the-ladder)
    step 2 (blocked by the George L5 resonance, fighter-brain.md F1; the
    own-motion lead was measured on 2026-10-15 and is not enough).

@@ -1,0 +1,20 @@
+// Ambition's worlds (schema `world_manifest`, owned by the world
+// capability): the room a fresh session starts in, and each LDtk world file
+// under `assets/worlds/`. One world file is one dimension; the rooms of
+// every file join one room set.
+//
+// The first world is the primary one: the boot cannot do without it, and
+// the hot reload watches it. The others are optional, so a partial checkout
+// still boots. A world added here is in the next start, with no Rust build;
+// a build without a source tree (`static_map`) embeds each file listed here.
+(
+    entry_room: "central_hub_complex",
+    worlds: [
+        (id: "world.sandbox_ldtk", file: "sandbox.ldtk", required: true),
+        (id: "world.intro_ldtk", file: "intro.ldtk"),
+        (id: "world.cut_rope_ldtk", file: "you_have_to_cut_the_rope.ldtk"),
+        (id: "world.hall_ldtk", file: "hall_of_characters.ldtk"),
+        // The Math dimension: a gate in `gate_stack_lower` is the way in.
+        (id: "world.math_ldtk", file: "math.ldtk"),
+    ],
+)

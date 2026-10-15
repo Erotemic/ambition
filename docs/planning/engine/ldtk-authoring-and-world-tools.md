@@ -68,7 +68,8 @@ The next phase consolidates these into a coherent authoring product.
 7. `tools/ambition_ldtk_tools/specs/*.ron` lag the `.ldtk`. The `.ldtk` is the
    truth. A spec is the input that authored a level; later `entity set-field`
    edits change the world without changing the spec. Read the `.ldtk` (or
-   `static_world_text!`'s embedded copy) to know what the game loads.
+   the embedded copy `build.rs` makes of each world `data/worlds.ron` lists) to
+   know what the game loads.
 
 ## First vertical slice: moving platforms
 

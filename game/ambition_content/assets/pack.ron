@@ -87,6 +87,8 @@
         (path: "data/prop_sheets.ron", schema: "prop_sheets", version: 1),
         // How a platform drawn as a prop sheet is laid on its platform.
         (path: "data/platform_looks.ron", schema: "platform_looks", version: 1),
+        // Its worlds: the room play starts in, and each world file.
+        (path: "data/worlds.ron", schema: "world_manifest", version: 1),
         // The gate portals its rooms hold, by loading zone.
         (path: "data/gate_portals.ron", schema: "gate_portals", version: 1),
         // The dialogue: one Yarn file per zone. A file added here is in the

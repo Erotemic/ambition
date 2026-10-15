@@ -598,7 +598,7 @@ fn every_authored_gate_condition_prepares_against_the_composed_catalog() {
 
     for source in ambition_content::worlds::world_manifest().worlds {
         // ⛔⛔ `embedded_text` IS `None` HERE, AND READING ONLY IT MADE THIS TEST
-        // VACUOUS ON ITS FIRST RUN. `static_world_text!` compiles to `None`
+        // VACUOUS ON ITS FIRST RUN. The embedded world table is empty
         // without the `static_map` feature, which this target does not enable —
         // so every world was skipped and the loop found nothing. The floor
         // assertion below is what said so ("Found []") instead of a green tick.

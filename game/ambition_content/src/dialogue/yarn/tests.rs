@@ -96,3 +96,51 @@ fn every_self_branch_has_a_root_node() {
         }
     }
 }
+
+/// The Yarn files are the pack's `yarn_dialogue` sources: the game loads
+/// exactly the files the manifest lists, in its order, and admission refuses
+/// a title that two nodes use and a node with no end, with the file named.
+#[test]
+fn the_yarn_files_are_the_packs_dialogue_sources() {
+    let manifest = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/pack.ron"))
+        .expect("the manifest is readable");
+    let listed: Vec<&str> = manifest
+        .lines()
+        .filter(|line| line.contains("schema: \"yarn_dialogue\""))
+        .filter_map(|line| line.split('"').nth(1))
+        .collect();
+    assert!(listed.len() >= 7, "the manifest lists the dialogue files: {listed:?}");
+    let loaded: Vec<&str> = yarn_sources().iter().map(|(name, _)| *name).collect();
+    assert_eq!(loaded, listed, "the game loads the files the manifest lists");
+    for (name, text) in yarn_sources() {
+        let on_disk = std::fs::read_to_string(format!("{}/assets/{name}", env!("CARGO_MANIFEST_DIR")))
+            .expect("a listed file is on disk");
+        assert_eq!(*text, on_disk, "`{name}` is the file's text");
+    }
+
+    // A spoken line is in the pack's identity: an edit to it is a new pack.
+    let line = "title: creator_intro";
+    let edited = crate::pack::compile_pack_with(|path, text| {
+        if path != "dialogue/sandbox/intro.yarn" {
+            return text;
+        }
+        let at = text.find(line).expect("the probe edits the creator's first node");
+        let end = at + text[at..].find("===").expect("the node ends");
+        format!("{}Narrator: an added line.\n{}", &text[..end], &text[end..])
+    })
+    .expect("an edited line compiles");
+    assert_ne!(edited.fingerprint, crate::pack::shipped().fingerprint, "a spoken line moved no identity");
+
+    let with = |file: &'static str, edit: fn(String) -> String| {
+        crate::pack::compile_pack_with(move |path, text| if path == file { edit(text) } else { text })
+    };
+    // `symmetry.yarn` takes a title `intro.yarn` already uses.
+    let twice = format!("{:?}", with("dialogue/sandbox/symmetry.yarn", |text| {
+        format!("title: creator_intro\n---\nAgain.\n===\n{text}")
+    })
+    .expect_err("one title on two nodes"));
+    assert!(twice.contains("creator_intro"), "{twice}");
+    let open = format!("{:?}", with("dialogue/sandbox/dojo.yarn", |text| format!("{text}\ntitle: unended\n---\nNo end.\n"))
+        .expect_err("a node with no end"));
+    assert!(open.contains("node `unended`") && open.contains("dialogue/sandbox/dojo.yarn"), "{open}");
+}

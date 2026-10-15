@@ -651,6 +651,12 @@ fn selection_is_replaceable_until_consumed_and_idempotent_after() {
 /// * `content_validation::validate_embedded_content_graph` — offline validation
 ///   of the shipped world (a composition validates its own pack through
 ///   `validate_content_graph`);
+/// * `worlds.rs` — `world_manifest`, read by boot preparation before any App
+///   exists (the loader, the catalog and the hot reload take it by reference);
+/// * `dialogue/yarn.rs` — `yarn_sources`, the boot pack's Yarn files, read
+///   once per process: the Yarn plugin is built before an App selects a pack
+///   (it read the files off disk the same way before they were sources), and
+///   the running project reloads its own files (`content_watch::yarn`);
 ///
 /// A module that `lib.rs` declares under `#[cfg(test)]`, or whose file opens
 /// with `#![cfg(test)]`, is test code and is skipped.
@@ -665,7 +671,9 @@ fn production_code_reaches_the_boot_pack_only_in_the_boot_scoped_roads() {
         ("bosses/mod.rs", 1),
         ("character_catalog.rs", 3),
         ("content_validation.rs", 1),
+        ("dialogue/yarn.rs", 1),
         ("quest.rs", 1),
+        ("worlds.rs", 1),
     ];
 
     fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {

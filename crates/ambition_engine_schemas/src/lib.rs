@@ -38,6 +38,7 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
         // A gate portal belongs with the world's rooms. The world IR does not
         // link the content pack, so its rows are registered here.
         gate_portals_schema(),
+        world_manifest_schema(),
         // Capability schemas remain owned by the capability that can interpret them.
         ambition_items::content_schema::item_catalog_schema(),
         ambition_items::content_schema::held_item_art::held_item_art_schema(),
@@ -78,5 +79,21 @@ pub fn gate_portals_schema() -> ambition_content_pack::SchemaRegistration {
         "The gate portals a game's rooms hold, by loading zone: the switch \
          that boots each portal, and the names of its portal and ring props.",
         gate_portal_problems,
+    )
+}
+
+/// The `world_manifest` schema: a game's world declaration (where play
+/// starts, and each world file), as
+/// `ambition_platformer2d_world::world_manifest::AuthoredWorldManifest`.
+pub fn world_manifest_schema() -> ambition_content_pack::SchemaRegistration {
+    use ambition_platformer2d_world::rooms::WORLD_CAPABILITY;
+    use ambition_platformer2d_world::world_manifest::{world_manifest_problems, AuthoredWorldManifest, WORLD_MANIFEST_SCHEMA};
+    ambition_content_pack::rules_schema::<AuthoredWorldManifest>(
+        WORLD_MANIFEST_SCHEMA,
+        1,
+        WORLD_CAPABILITY,
+        "A game's world declaration: the room a fresh session starts in, and \
+         each world file by its id, the first one required.",
+        world_manifest_problems,
     )
 }

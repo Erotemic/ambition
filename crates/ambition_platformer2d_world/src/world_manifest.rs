@@ -96,6 +96,109 @@ impl WorldManifest {
     }
 }
 
+/// The authored FILE kind: a game's world declaration, as its pack states
+/// it. The engine's schema registry registers it (the world crate does not
+/// link the content pack).
+pub const WORLD_MANIFEST_SCHEMA: &str = "world_manifest";
+
+/// A game's world declaration as authored: where play starts, and each world
+/// file by its id. The game turns it into a [`WorldManifest`] with the roots
+/// it ships its files under ([`AuthoredWorldManifest::manifest`]).
+#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoredWorldManifest {
+    pub entry_room: String,
+    /// The first world is the primary one: boot-critical and hot-reload
+    /// watched.
+    pub worlds: Vec<AuthoredWorld>,
+}
+
+/// One world file as authored.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoredWorld {
+    /// The row's catalog id (`world.*` by convention).
+    pub id: String,
+    /// The file's name in the game's worlds directory.
+    pub file: String,
+    /// A required world aborts the boot when it cannot be read; an optional
+    /// one is skipped with a warning, so a partial checkout still boots.
+    #[serde(default)]
+    pub required: bool,
+}
+
+/// Where a game ships its world files: the loose directory, the Bevy asset
+/// path prefix, the embedded asset path prefix, and the embedded text of a
+/// file when this build carries one.
+pub struct WorldRoots<'a> {
+    pub loose_dir: &'a std::path::Path,
+    pub asset_prefix: &'a str,
+    pub embedded_prefix: &'a str,
+    pub embedded_text: &'a dyn Fn(&str) -> Option<&'static str>,
+}
+
+impl AuthoredWorldManifest {
+    /// The [`WorldManifest`] of this declaration under `roots`.
+    pub fn manifest(&self, roots: &WorldRoots<'_>) -> WorldManifest {
+        WorldManifest {
+            entry_room: self.entry_room.clone(),
+            worlds: self
+                .worlds
+                .iter()
+                .map(|world| WorldSource {
+                    id: AssetId::new(world.id.as_str()),
+                    asset_path: format!("{}{}", roots.asset_prefix, world.file),
+                    loose_path: Some(roots.loose_dir.join(&world.file)),
+                    embedded_text: (roots.embedded_text)(&world.file),
+                    // The embedded registry keys by a `&'static str`; a
+                    // manifest is built a few times per process.
+                    embedded_bevy_path: Some(Box::leak(
+                        format!("{}{}", roots.embedded_prefix, world.file).into_boxed_str(),
+                    )),
+                    required: world.required,
+                })
+                .collect(),
+            ron_rooms: Vec::new(),
+        }
+    }
+}
+
+/// Each value of a world declaration the loader cannot use, named by its
+/// field.
+pub fn world_manifest_problems(manifest: &AuthoredWorldManifest) -> Vec<String> {
+    let mut problems = Vec::new();
+    if manifest.entry_room.trim().is_empty() {
+        problems.push("`entry_room` is empty; a fresh session starts in it".to_string());
+    }
+    match manifest.worlds.first() {
+        None => problems.push("`worlds` is empty; a game with authored rooms ships a world file".to_string()),
+        Some(primary) if !primary.required => problems.push(format!(
+            "`worlds[0].required` is false; `{}` is the primary world, which the boot cannot do without",
+            primary.id
+        )),
+        Some(_) => {}
+    }
+    for (index, world) in manifest.worlds.iter().enumerate() {
+        if world.id.trim().is_empty() {
+            problems.push(format!("`worlds[{index}].id` is empty"));
+        }
+        if !world.file.ends_with(".ldtk") || world.file.contains('/') || world.file.contains('\\') {
+            problems.push(format!(
+                "`worlds[{index}].file` is `{}`; it is the name of a `.ldtk` file in the worlds directory",
+                world.file
+            ));
+        }
+        let earlier = &manifest.worlds[..index];
+        if earlier.iter().any(|other| other.id == world.id) {
+            problems.push(format!("`worlds[{index}].id` `{}` is stated twice", world.id));
+        }
+        if earlier.iter().any(|other| other.file == world.file) {
+            problems.push(format!("`worlds[{index}].file` `{}` is stated twice", world.file));
+        }
+    }
+    problems
+}
+
 /// The Bevy `AssetPath` string the tile-render spine loads for a manifest
 /// row: the embedded copy when this build carries one, else the row's
 /// authored `asset_path` (typically a game-registered asset source on
@@ -249,5 +352,43 @@ mod tests {
             "embedded://worlds/primary.ldtk",
             "a bundle that does not hold this world cannot serve it"
         );
+    }
+
+    fn authored(worlds: &[(&str, &str, bool)]) -> AuthoredWorldManifest {
+        AuthoredWorldManifest {
+            entry_room: "hub".into(),
+            worlds: worlds
+                .iter()
+                .map(|(id, file, required)| AuthoredWorld { id: (*id).into(), file: (*file).into(), required: *required })
+                .collect(),
+        }
+    }
+
+    /// A declaration lowers each row under the game's roots, and a value the
+    /// loader cannot use is named by its field.
+    #[test]
+    fn an_authored_world_declaration_lowers_under_the_games_roots() {
+        let good = authored(&[("world.a", "a.ldtk", true), ("world.b", "b.ldtk", false)]);
+        assert!(world_manifest_problems(&good).is_empty(), "{:?}", world_manifest_problems(&good));
+        let embedded = |file: &str| (file == "b.ldtk").then_some("{}");
+        let manifest = good.manifest(&WorldRoots {
+            loose_dir: std::path::Path::new("/w"),
+            asset_prefix: "game://worlds/",
+            embedded_prefix: "g/worlds/",
+            embedded_text: &embedded,
+        });
+        assert_eq!(manifest.entry_room, "hub");
+        assert_eq!(manifest.primary().asset_path, "game://worlds/a.ldtk");
+        assert_eq!(manifest.primary().loose_path.as_deref(), Some(std::path::Path::new("/w/a.ldtk")));
+        assert!(manifest.primary().required && manifest.primary().embedded_text.is_none());
+        let b = manifest.secondaries().next().unwrap();
+        assert_eq!((b.embedded_text, b.embedded_bevy_path, b.required), (Some("{}"), Some("g/worlds/b.ldtk"), false));
+
+        let bad = authored(&[("world.a", "a.ldtk", false), ("world.a", "dir/b.json", false)]);
+        let problems = world_manifest_problems(&bad);
+        for field in ["`worlds[0].required` is false", "`worlds[1].file` is `dir/b.json`", "`worlds[1].id` `world.a` is stated twice"] {
+            assert!(problems.iter().any(|problem| problem.starts_with(field)), "{field}: {problems:?}");
+        }
+        assert_eq!(problems.len(), 3, "{problems:?}");
     }
 }

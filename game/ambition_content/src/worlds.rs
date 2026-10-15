@@ -9,8 +9,9 @@
 //! run before any App exists (K2a).
 //!
 //! The engine keeps the room kit (`RoomSpec`/`RoomSet`, projection,
-//! validators) and the manifest-driven loader; THIS module declares which
-//! `.ldtk` files exist, where play starts, and how each file is reachable:
+//! validators) and the manifest-driven loader. Which `.ldtk` files exist and
+//! where play starts is the pack's `data/worlds.ron`; THIS module says how
+//! each file is reachable:
 //!
 //! - `loose_path` — the checked-in file under this crate's `assets/worlds/`
 //!   (desktop dev + hot reload; the LDtk python tooling edits these).
@@ -24,105 +25,99 @@
 
 use std::path::Path;
 
-use ambition_asset_manager::AssetId;
-use ambition_platformer2d_world::world_manifest::{WorldManifest, WorldSource};
+use ambition_platformer2d_world::world_manifest::{AuthoredWorldManifest, WorldManifest, WorldRoots, WORLD_MANIFEST_SCHEMA};
 
-macro_rules! static_world_text {
-    ($name:ident, $path:literal) => {
-        #[cfg(feature = "static_map")]
-        const $name: Option<&'static str> = Some(include_str!($path));
-        #[cfg(not(feature = "static_map"))]
-        const $name: Option<&'static str> = None;
-    };
+/// `(file, text)` of each world file `data/worlds.ron` lists, embedded by
+/// `build.rs` under `static_map` (web / Android / bundled builds).
+#[cfg(feature = "static_map")]
+const EMBEDDED_WORLDS: &[(&str, &str)] = include!(concat!(env!("OUT_DIR"), "/worlds_embedded.rs"));
+#[cfg(not(feature = "static_map"))]
+const EMBEDDED_WORLDS: &[(&str, &str)] = &[];
+
+/// The embedded text of the world file `file`, when this build carries one.
+fn embedded_world(file: &str) -> Option<&'static str> {
+    EMBEDDED_WORLDS.iter().find(|(name, _)| *name == file).map(|(_, text)| *text)
 }
-
-static_world_text!(SANDBOX_LDTK_STATIC, "../assets/worlds/sandbox.ldtk");
-static_world_text!(INTRO_LDTK_STATIC, "../assets/worlds/intro.ldtk");
-static_world_text!(
-    CUT_ROPE_LDTK_STATIC,
-    "../assets/worlds/you_have_to_cut_the_rope.ldtk"
-);
-static_world_text!(HALL_LDTK_STATIC, "../assets/worlds/hall_of_characters.ldtk");
-static_world_text!(MATH_LDTK_STATIC, "../assets/worlds/math.ldtk");
 
 /// The intro world's embedded text, when `static_map` baked one in.
 ///
 /// Exposed for the guard that every intro `NpcSpawn` names a character the
-/// catalog knows — read from the SAME constant the manifest ships, so the test
+/// catalog knows — read from the SAME table the manifest ships, so the test
 /// cannot pass against a different copy of the world than the game loads.
 #[cfg(test)]
 pub(crate) fn intro_ldtk_text() -> Option<&'static str> {
-    INTRO_LDTK_STATIC
+    embedded_world("intro.ldtk")
 }
 
-/// The game's world declaration. The first row (sandbox) is boot-critical
-/// and hot-reload-watched; the story side-worlds are tolerated missing so
-/// a partial checkout still boots.
+/// The game's world declaration, as the boot pack states it
+/// (`data/worlds.ron`). It is read before any App exists (boot preparation
+/// hands it to the loader, the catalog and the hot reload), so it is the
+/// process's boot pack and not an App's selection.
 pub fn world_manifest() -> WorldManifest {
+    let authored = ambition_content_pack::lowered_rules::<AuthoredWorldManifest>(crate::pack::shipped(), WORLD_MANIFEST_SCHEMA)
+        .expect("Ambition's pack states its worlds (`data/worlds.ron`)");
     let worlds_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/worlds");
-    let source = |id: &str,
-                  file: &str,
-                  embedded_text: Option<&'static str>,
-                  embedded_bevy_path: &'static str,
-                  required: bool| WorldSource {
-        id: AssetId::new(id),
-        asset_path: format!("game://worlds/{file}"),
-        loose_path: Some(worlds_dir.join(file)),
-        embedded_text,
-        embedded_bevy_path: Some(embedded_bevy_path),
-        required,
-    };
-    WorldManifest {
-        entry_room: "central_hub_complex".to_string(),
-        // No baked ron-rooms shipped yet: generated rooms land here when a bake tool emits them
-        // ( loader is live; see world:ron_room).
-        ron_rooms: Vec::new(),
-        worlds: vec![
-            source(
-                "world.sandbox_ldtk",
-                "sandbox.ldtk",
-                SANDBOX_LDTK_STATIC,
-                "ambition_content/worlds/sandbox.ldtk",
-                true,
-            ),
-            source(
-                "world.intro_ldtk",
-                "intro.ldtk",
-                INTRO_LDTK_STATIC,
-                "ambition_content/worlds/intro.ldtk",
-                false,
-            ),
-            source(
-                "world.cut_rope_ldtk",
-                "you_have_to_cut_the_rope.ldtk",
-                CUT_ROPE_LDTK_STATIC,
-                "ambition_content/worlds/you_have_to_cut_the_rope.ldtk",
-                false,
-            ),
-            source(
-                "world.hall_ldtk",
-                "hall_of_characters.ldtk",
-                HALL_LDTK_STATIC,
-                "ambition_content/worlds/hall_of_characters.ldtk",
-                false,
-            ),
-            // The Math dimension: one world file is one dimension. Its rooms
-            // join the others in one room set; a gate in `gate_stack_lower`
-            // is the way in.
-            source(
-                "world.math_ldtk",
-                "math.ldtk",
-                MATH_LDTK_STATIC,
-                "ambition_content/worlds/math.ldtk",
-                false,
-            ),
-        ],
-    }
+    authored.manifest(&WorldRoots {
+        loose_dir: &worlds_dir,
+        asset_prefix: "game://worlds/",
+        embedded_prefix: "ambition_content/worlds/",
+        embedded_text: &embedded_world,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The world declaration is the pack's `data/worlds.ron`: each row the
+    /// file states is a manifest row in its order, an added world is a row of
+    /// the edited pack, and a declaration the loader cannot use is refused
+    /// at admission with its file and field named.
+    #[test]
+    fn the_worlds_are_the_packs_world_manifest() {
+        let manifest = world_manifest();
+        let authored = ambition_content_pack::lowered_rules::<AuthoredWorldManifest>(crate::pack::shipped(), WORLD_MANIFEST_SCHEMA)
+            .expect("the pack states its worlds");
+        assert_eq!(manifest.entry_room, authored.entry_room);
+        let rows: Vec<(String, String, bool)> = manifest
+            .worlds
+            .iter()
+            .map(|source| (source.id.as_str().to_string(), source.asset_path.clone(), source.required))
+            .collect();
+        let stated: Vec<(String, String, bool)> = authored
+            .worlds
+            .iter()
+            .map(|world| (world.id.clone(), format!("game://worlds/{}", world.file), world.required))
+            .collect();
+        assert_eq!(rows, stated, "the manifest is the file's rows, in order");
+        for source in &manifest.worlds {
+            let path = source.loose_path.as_ref().expect("a loose path");
+            let on_disk = std::fs::read_to_string(path).unwrap_or_else(|_| panic!("`{}` is on disk", source.id.as_str()));
+            // A build that embeds the worlds carries each listed file's text.
+            if cfg!(feature = "static_map") {
+                assert!(source.embedded_text == Some(on_disk.as_str()), "`{}` is embedded as it is on disk", source.id.as_str());
+            } else {
+                assert!(source.embedded_text.is_none(), "`{}`: no build embeds without `static_map`", source.id.as_str());
+            }
+        }
+
+        let last = r#"(id: "world.math_ldtk", file: "math.ldtk"),"#;
+        let with = |replacement: &'static str| {
+            crate::pack::compile_pack_with(move |path, text| {
+                if path != "data/worlds.ron" {
+                    return text;
+                }
+                assert_eq!(text.matches(last).count(), 1, "the probe edits the last world");
+                text.replace(last, replacement)
+            })
+        };
+        let edited = with(r#"(id: "world.math_ldtk", file: "math.ldtk"), (id: "world.next", file: "next.ldtk"),"#)
+            .expect("an added world compiles");
+        let next = ambition_content_pack::lowered_rules::<AuthoredWorldManifest>(&edited, WORLD_MANIFEST_SCHEMA).unwrap();
+        assert_eq!(next.worlds.last().map(|world| world.file.as_str()), Some("next.ldtk"));
+        let refused = format!("{:?}", with(r#"(id: "world.math_ldtk", file: "maps/math.json"),"#).expect_err("not a world file"));
+        assert!(refused.contains("`worlds[4].file` is `maps/math.json`") && refused.contains("data/worlds.ron"), "{refused}");
+    }
 
     /// EVERY SHIPPED `EnemySpawn` CAN BE BUILT — the invariant that stands between the
     /// refusal and a panic in a room nobody tests.

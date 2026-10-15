@@ -36,6 +36,9 @@ static_content = []
 # `build.rs` embeds each source `assets/pack.ron` declares, under
 # `static_content` (`ambition_content_pack::embed`).
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
+# `build.rs` reads the world list (`assets/data/worlds.ron`) under `static_map`.
+ron = { workspace = true }
+serde = { workspace = true }
 
 [dependencies]
 # Ambition's own schemas (`ambition_rules`), beside the engine's. A crate with

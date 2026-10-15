@@ -12,6 +12,10 @@ use bevy::prelude::*;
 #[derive(Clone, Debug)]
 pub struct MapRoomNode {
     pub id: String,
+    /// The world file (dimension) the room belongs to. Each world has its own
+    /// coordinate space, so the map draws only the rooms whose `world` is the
+    /// active room's.
+    pub world: String,
     pub world_min: Vec2,
     pub world_size: Vec2,
 }

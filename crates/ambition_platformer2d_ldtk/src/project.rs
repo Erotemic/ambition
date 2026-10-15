@@ -29,6 +29,12 @@ pub struct ActiveLdtkProject(pub LdtkProject);
 pub struct LdtkLevel {
     pub identifier: String,
     pub iid: String,
+    /// The `WorldSource` id of the world file this level came from. Each
+    /// world file has its own coordinate space, so `world_x`/`world_y` of two
+    /// levels compare only when this is equal. Set by the manifest loader;
+    /// empty for a project parsed alone.
+    #[serde(skip)]
+    pub world_source: String,
     #[serde(rename = "worldX")]
     pub world_x: i32,
     #[serde(rename = "worldY")]
@@ -280,6 +286,7 @@ mod project_lookup_tests {
         LdtkLevel {
             identifier: "L".into(),
             iid: "l".into(),
+            world_source: String::new(),
             world_x: 0,
             world_y: 0,
             px_wid: 100,

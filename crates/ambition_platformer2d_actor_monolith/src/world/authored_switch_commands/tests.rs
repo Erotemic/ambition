@@ -44,6 +44,7 @@ fn project_with_one_switch(on_activate: Option<&str>) -> LdtkProject {
         levels: vec![LdtkLevel {
             identifier: "symmetry_room".into(),
             iid: "level-iid".into(),
+            world_source: String::new(),
             world_x: 0,
             world_y: 0,
             px_wid: 1280,

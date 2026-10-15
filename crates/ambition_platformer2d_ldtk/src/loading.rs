@@ -168,16 +168,20 @@ fn parse_world_text(text: &str, source: &WorldSource) -> Result<LdtkProject, Str
     })
 }
 
-/// Walk the manifest's secondary worlds and append each resolvable one's
-/// levels into `project`. Per row: prefer the catalog's on-disk copy;
-/// fall back to the row's embedded text; skip (secondaries are optional)
-/// when neither is available. Malformed files log a warning and the
-/// primary keeps booting.
+/// Tag `project` (the primary world) with the primary's id, then walk the
+/// manifest's secondary worlds and append each resolvable one's levels,
+/// tagged with that secondary's id ([`LdtkLevel::world_source`]). Per row:
+/// prefer the catalog's on-disk copy; fall back to the row's embedded text;
+/// skip (secondaries are optional) when neither is available. Malformed
+/// files log a warning and the primary keeps booting.
+///
+/// [`LdtkLevel::world_source`]: super::project::LdtkLevel::world_source
 fn merge_secondary_worlds(
     project: &mut LdtkProject,
     catalog: &Platformer2dAssetCatalog,
     manifest: &WorldManifest,
 ) {
+    tag_world_source(project, manifest.primary().id.as_str());
     for source in manifest.secondaries() {
         if let Ok(resolved) = catalog.resolve(&source.id) {
             if let Some(local) = resolved.location.as_local_path() {
@@ -211,7 +215,14 @@ fn merge_secondary_worlds(
     }
 }
 
-fn append_levels(project: &mut LdtkProject, secondary: LdtkProject, source_label: &str) {
+fn tag_world_source(project: &mut LdtkProject, source_id: &str) {
+    for level in &mut project.levels {
+        level.world_source = source_id.to_string();
+    }
+}
+
+fn append_levels(project: &mut LdtkProject, mut secondary: LdtkProject, source_label: &str) {
+    tag_world_source(&mut secondary, source_label);
     let added = secondary.levels.len();
     project.levels.extend(secondary.levels);
     eprintln!("LDtk: merged {added} level(s) from secondary world '{source_label}'");

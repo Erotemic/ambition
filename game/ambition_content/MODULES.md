@@ -16,13 +16,12 @@
 | [`dialogue`](src/dialogue/mod.rs) | Named Ambition dialogue / cutscene content registration. |
 | [`duel_arena`](src/duel_arena.rs) | Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room mechanics split by kind; this one is a `RoomLoaded` consumer). |
 | [`encounters`](src/encounters.rs) | Content encounter customers on the GENERIC lifecycle (E13). |
-| [`input_techniques`](src/input_techniques.rs) | Ambition-owned motion-input technique registrations. |
+| [`input_techniques`](src/input_techniques.rs) | Ambition's motion techniques: the pack's `data/motion_techniques.ron`. |
 | [`intro`](src/intro/mod.rs) | Intro sequence story content. |
 | [`items`](src/items/mod.rs) | Named Ambition item-roster / default-inventory registration. |
 | [`math_town`](src/math_town.rs) | The town of the Math dimension, and the gate pair that leads to it. |
 | [`moves_are_content`](src/moves_are_content.rs) | Are this provider's move tables content? |
 | [`music`](src/music.rs) | Ambition's adaptive music, handed to the reusable music director. |
-| [`noodly_temple`](src/noodly_temple.rs) | The Noodly Temple: the level of the Flying Spaghetti Monster. |
 | [`pack`](src/pack.rs) | Ambition's own content pack: the compile that is the load path. |
 | [`player_robot_lineage`](src/player_robot_lineage.rs) | The player robot's lineage: `robot` (v0), `player_robot_v2` and `player_robot_v3`, three incarnations of one character. |
 | [`player_robot_moveset`](src/player_robot_moveset.rs) | The player robot's actions, and the tests that pin its two move tables. |
@@ -31,6 +30,7 @@
 | [`presentation`](src/presentation/mod.rs) | Content-owned presentation plugins — named Ambition looks layered onto the reusable renderer's PUBLIC seams. |
 | [`primeval`](src/primeval.rs) | The primeval trail: the level of the dinosaurs. |
 | [`projectiles`](src/projectiles.rs) | Ambition's projectile looks: the pack's `data/projectile_visuals.ron`. |
+| [`prop_sheets`](src/prop_sheets.rs) | Ambition's prop sheets (the pack's `data/prop_sheets.ron`) and its platform looks (`data/platform_looks.ron`). |
 | [`provider`](src/provider.rs) | Reusable Ambition gameplay provider. |
 | [`quest`](src/quest.rs) | Ambition's authored quests + their completion payouts. |
 | [`quests`](src/quests/mod.rs) | Named Ambition quest content registration. |

@@ -6,9 +6,10 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`flag_chains`](src/flag_chains.rs) | The `flag_chains` schema: save flags that set other save flags, as data in Ambition's pack (`assets/data/flag_chains.ron`). |
 | [`rules`](src/rules.rs) | The `ambition_rules` schema: Ambition's own tuning, as data in its pack (`assets/data/ambition_rules.ron`). |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

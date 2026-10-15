@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Every gauntlet prop the GAME declares is one the RENDERER actually draws.
 
-`game/ambition_content/src/items/held_visuals.rs` declares
-`GAUNTLET_PROP_IDS`, and each id becomes a `sprites/props/gauntlet_<id>.png`
-entry in the render manifest. The art itself comes from
+The pack's `game/ambition_content/assets/data/held_item_art.ron` declares a
+gauntlet prop as a row whose picture is `sprites/props/gauntlet_<id>.png`,
+and that row is the item's entry in the render manifest. The art itself comes from
 `GAUNTLET_ICON_SPECS` in the `ambition_sprite2d_renderer` submodule. Two
 lists, one fact -- the wielded-gauntlet id vocabulary -- and until this script
 nothing compared them.
@@ -45,39 +45,34 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-HELD_VISUALS = REPO_ROOT / "game/ambition_content/src/items/held_visuals.rs"
+HELD_ITEM_ART = REPO_ROOT / "game/ambition_content/assets/data/held_item_art.ron"
 RENDERER_ROOT = REPO_ROOT / "tools" / "ambition_sprite2d_renderer"
 
 
 def declared_ids() -> list[str]:
-    """The ids `GAUNTLET_PROP_IDS` names, in source order.
+    """The ids of the gauntlet pictures the pack's rows name, in file order.
 
-    Raises when the const is absent or empty. A parser that silently returns
-    `[]` because a refactor renamed the const would make this whole check pass
-    over an empty corpus, which is the way a guard stops being one.
+    Raises when there are none. A parser that silently returns `[]` because
+    the file's shape changed would make this whole check pass over an empty
+    corpus, which is the way a guard stops being one.
     """
-    text = HELD_VISUALS.read_text(encoding="utf-8")
-    match = re.search(
-        r"const GAUNTLET_PROP_IDS:\s*&\[&str\]\s*=\s*&\[(.*?)\];", text, re.S
-    )
-    if match is None:
-        raise SystemExit(
-            f"{HELD_VISUALS.relative_to(REPO_ROOT)}: GAUNTLET_PROP_IDS not found. "
-            "If it was renamed or moved, update this check -- do not delete it: "
-            "the manifest entries it guards are still there."
-        )
+    text = re.sub(r"//[^\n]*", "", HELD_ITEM_ART.read_text(encoding="utf-8"))
     # ⭐ EVERY quoted string, then REJECT the unexpected -- never a pattern that
     # matches the ids I expect. A regex of `[a-z0-9_]+` silently DROPS an id
     # spelled any other way, and a dropped id is one this check then passes over
     # while reporting success: the guard's subject would be the output of a
     # filter whose removals nobody can see.
-    ids = re.findall(r'"([^"]*)"', match.group(1))
+    ids = re.findall(r'"sprites/props/gauntlet_([^"]*)\.png"', text)
     if not ids:
-        raise SystemExit("GAUNTLET_PROP_IDS parsed as EMPTY; the check would be vacuous")
+        raise SystemExit(
+            f"{HELD_ITEM_ART.relative_to(REPO_ROOT)}: no row names a "
+            "`sprites/props/gauntlet_<id>.png` picture. If the gauntlets moved, "
+            "update this check -- do not delete it: the rows it guards are still there."
+        )
     odd = [i for i in ids if not re.fullmatch(r"[a-z0-9_]+", i)]
     if odd:
         raise SystemExit(
-            "GAUNTLET_PROP_IDS holds ids this check cannot match to a filename: "
+            "the gauntlet rows name pictures this check cannot match to an id: "
             + ", ".join(repr(i) for i in odd)
             + "\n  Widen the comparison deliberately rather than letting them "
               "drop out of it."
@@ -146,7 +141,7 @@ def main() -> int:
         print(
             "FAIL: "
             + ", ".join(undrawn)
-            + " -- declared in GAUNTLET_PROP_IDS with no GAUNTLET_ICON_SPECS entry.\n"
+            + " -- named by a held_item_art.ron row with no GAUNTLET_ICON_SPECS entry.\n"
             "  The render manifest points at sprites/props/gauntlet_<id>.png and "
             "nothing will ever write it, so the gauntlet draws as a placeholder.\n"
             "  fix: add the spec in the renderer, or drop the id here.",

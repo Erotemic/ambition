@@ -6,7 +6,7 @@ is that a check which is green at minute zero guards nothing. These tests do
 what the live run cannot:
 
 * run it against the real tree, so a genuine divergence between the game's
-  `GAUNTLET_PROP_IDS` and the renderer's `GAUNTLET_ICON_SPECS` reddens a lane
+  gauntlet rows (`held_item_art.ron`) and the renderer's `GAUNTLET_ICON_SPECS` reddens a lane
   instead of sitting in a script nobody invokes;
 * SKIP rather than pass when the renderer submodule is absent. Exit 3 means
   the declarations went unexamined, and reporting that as success is exactly

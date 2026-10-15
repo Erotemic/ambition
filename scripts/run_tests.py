@@ -2505,8 +2505,8 @@ def coverage_notice(
         notices.append(
             f"\n  ⚠ this was {scope}, which does NOT cover:\n"
             "      - tests behind an OPT-IN #[cfg(feature = \"...\")] — MEASURED\n"
-            "        2026-10-14 by `scripts/feature_gated_tests.py`, 543 tests\n"
-            "        across 32 crates, the largest single omission this\n"
+            "        2026-10-15 by `scripts/feature_gated_tests.py`, 550 tests\n"
+            "        across 33 crates, the largest single omission this\n"
             "        footer names — though the scanner counts `#[cfg(feature)]`\n"
             "        STATICALLY, and a feature another workspace member turns on\n"
             "        IS unified into `--workspace`, so some of them do run\n"

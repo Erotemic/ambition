@@ -102,6 +102,19 @@ NOT_PER_ATTEMPT = {
         "whole route"
     ),
     "SmashRoster": "authored roster",
+    # The ids a provider's pack registered into a shared catalog, so a content
+    # reload restates only that provider's rows. Written at composition and
+    # at the reload's publication boundary; a death does not change the pack.
+    "AmbitionMotionTechniques": "the motion technique ids Ambition's pack registered",
+    "AmbitionHeldItemArt": "the held item art ids Ambition's pack registered",
+    "AmbitionWieldedItemArt": "the wielded item art ids Ambition's pack registered",
+    "AmbitionProjectileLooks": "the projectile look ids Ambition's pack registered",
+    "AmbitionPropSheets": "the prop sheet kinds Ambition's pack registered",
+    "AmbitionPlatformLooks": "the platform look kinds Ambition's pack registered",
+    "FlagChains": (
+        "authored flag chains (`flag_chains.ron`); the chains fire from the save, "
+        "which the death and replay roads restore"
+    ),
     "CutRopeBossArenaState": (
         "presentation, keyed by live room: a replay mints a new live room whose "
         "arena starts uncut, and `reset_cut_rope_boss_arena_on_room_reset` "

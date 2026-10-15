@@ -2,8 +2,8 @@
 """Every held-item prop the RENDERER draws is the one the GAME points at.
 
 The sibling of `check_gauntlet_props_are_rendered.py`, one shelf over and for
-the same reason. `game/ambition_content/src/items/held_visuals.rs` registers
-`HeldItemArtEntry::new(<id>, <path>, <extent>)`; the drawings for the ids the
+the same reason. The pack's `game/ambition_content/assets/data/held_item_art.ron`
+states `"<id>": (path: "<path>", size: ...)` for each held item; the drawings for the ids the
 Projectile Polygon authored come from `HELD_ITEM_ICON_SPECS` in the
 `ambition_sprite2d_renderer` submodule, whose `key` is that same id and whose
 `filename` lands in `sprites/props/`. Two lists, one fact -- which picture a
@@ -56,31 +56,28 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-HELD_VISUALS = REPO_ROOT / "game/ambition_content/src/items/held_visuals.rs"
+HELD_ITEM_ART = REPO_ROOT / "game/ambition_content/assets/data/held_item_art.ron"
 RENDERER_ROOT = REPO_ROOT / "tools" / "ambition_sprite2d_renderer"
 PROP_DIR = "sprites/props/"
 
 
 def registered_art() -> dict[str, str]:
-    """`id -> art path` for every `HeldItemArtEntry::new` literal in the registry.
+    """`id -> art path` for every row of the pack's held item art.
 
-    Raises when the file parses to nothing: a refactor that renames the
-    constructor would otherwise make this check pass over an empty corpus,
-    which is the way a guard stops being one.
+    Raises when the file parses to nothing: a change to the row's shape would
+    otherwise make this check pass over an empty corpus, which is the way a
+    guard stops being one.
     """
-    text = HELD_VISUALS.read_text(encoding="utf-8")
-    # Comments first: this file argues with itself at length, and the prose
-    # quotes both ids and paths. A scan that reads them compares the guard
-    # against its own documentation.
+    text = HELD_ITEM_ART.read_text(encoding="utf-8")
+    # Comments first: the file's prose quotes ids and paths. A scan that
+    # reads them compares the guard against its own documentation.
     text = re.sub(r"//[^\n]*", "", text)
-    pairs = re.findall(
-        r'HeldItemArtEntry::new\(\s*"([^"]+)"\s*,\s*"([^"]+)"', text, re.S
-    )
+    pairs = re.findall(r'"([^"]+)"\s*:\s*\(\s*path:\s*"([^"]+)"', text, re.S)
     if not pairs:
         raise SystemExit(
-            f"{HELD_VISUALS.relative_to(REPO_ROOT)}: no HeldItemArtEntry::new "
-            "literals found. If the constructor was renamed, update this check "
-            "-- do not delete it: the registrations it guards are still there."
+            f"{HELD_ITEM_ART.relative_to(REPO_ROOT)}: no `\"<id>\": (path: ...)` "
+            "rows found. If the row's shape changed, update this check -- do not "
+            "delete it: the rows it guards are still there."
         )
     return dict(pairs)
 

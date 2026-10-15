@@ -262,6 +262,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "GameAssets": (
         "crates/ambition_platformer2d/src/game_assets.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/assets/game_assets/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/character_sprites/rigged.rs",
         "crates/ambition_render/src/rendering/parallax.rs",
@@ -1797,7 +1798,7 @@ ADJUDICATED: dict[str, str] = {
         "two directions are `ambition_items::shop::{buy, sell}` behind one "
         "`ShopTransactionRequested::apply`. The rest: `apply_item_grants` "
         "(narrative), `apply_item_uses` (a menu\'s consumable, from a host "
-        "intent), `grant_pirate_treasure_reward` (quest rewards), "
+        "intent), `grant_quest_completion_rewards` (quest rewards), "
         "`pickup_portal_gun_system`, `throw_held_item_system` (the one gameplay "
         "take), and two wholesale roads — `restore_inventory_from_save` through "
         "`apply_persisted`, and `restore_owned_items_to_checkpoint` through "
@@ -3006,7 +3007,14 @@ ADJUDICATED: dict[str, str] = {
         "roads also call; folding a trial-only switch into it would thread "
         "the trial through the shipped load road, which must stay unchanged "
         "until the trial is adopted. Fold it in then. Measured by "
-        "NamekAmbition, 2026-09-30."
+        "NamekAmbition, 2026-09-30. "
+        "`reload_prop_sheets` (`assets/game_assets/mod.rs`, 2026-10-15) "
+        "writes only `characters.props`, and only the kinds a content "
+        "reload restated from the pack (a sheet loaded again, or a dropped "
+        "kind removed). It runs at the reload's publication boundary, in "
+        "the reload's exclusive world access, before the new session builds "
+        "its room, so no system reads or writes the table at the same time; "
+        "the startup loader is the only other writer of `props`."
     ),
     "PendingMechanicalEdits": (
         "A PER-DOMAIN KEYED LEDGER, REBUILT FROM A SINGLE-BOOL DEFECT ON "

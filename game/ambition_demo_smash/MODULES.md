@@ -18,15 +18,17 @@
 | [`motion`](src/motion.rs) | The smash ruleset's commanded-velocity seam (ADR 0024, authority #4). |
 | [`portal`](src/portal.rs) | The portal recovery, assembled from the portal crate's own parts. |
 | [`riposte`](src/riposte.rs) | The answering cut: a parry's response that hits back. |
+| [`rules`](src/rules.rs) | The `smash_rules` schema: the demo's own match flow and summon tuning, as data in its pack (`assets/data/smash_rules.ron`). |
 | [`select`](src/select.rs) | Pure character-select state for up to four match seats. |
 | [`select_screen`](src/select_screen.rs) | Smash character-select presentation and cursor interaction. |
 | [`shark_ride`](src/shark_ride.rs) | The pirate's up-special: summon a burning flying shark and ride it. |
 | [`sing`](src/sing.rs) | Sing: an area that takes the floor away from whoever stood too close. |
 | [`smash_pack`](src/smash_pack.rs) | The Smash demo's content pack. |
 | [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
+| [`stages`](src/stages.rs) | The `smash_stages` schema: Smash's stages, as data in its pack (`assets/data/smash_stages.ron`). |
 | [`tether`](src/tether.rs) | The tether reel: she throws a line at a ledge and it pulls her to it. |
 
-_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

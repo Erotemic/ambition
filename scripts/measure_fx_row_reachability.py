@@ -12,8 +12,8 @@ hand-guessed either. What CAN be measured is which files name a sheet's rows --
 a sheet whose rows are named only by one character's moveset belongs to that
 character, and the evidence says so rather than the name.
 
-`load_game_assets` loads every sheet in `FX_SHEETS` at boot, in every room. An
-effect is drawn by NAME (`FxId::new(row)`), so a row nothing names is art the
+The engine's effect sheets are `fx::fx_sheets()`: the published records
+that carry `fx` facts. An effect is drawn by NAME (`FxId::new(row)`), so a row nothing names is art the
 running game has no way to ask for. Corpus: every tracked .rs/.ron/.yarn/.json
 EXCEPT the baked sheet manifests themselves (which name every row by
 construction, and would make the answer trivially "all of them").
@@ -22,8 +22,16 @@ import re, subprocess, pathlib, sys, collections
 
 repo = pathlib.Path(subprocess.run(["git","rev-parse","--show-toplevel"],
                                    capture_output=True, text=True).stdout.strip())
-fx_rs = (repo / "crates/ambition_sprite_sheet/src/fx.rs").read_text()
-targets = re.findall(r'target: "([a-z_0-9]+)"', fx_rs)
+# An effect sheet is a renderer target that states its FX facts (`FX = {...}`
+# in its module, written into the sheet record's `fx`); the engine's
+# `fx::fx_sheets()` is the records that have them. The module's stem is the
+# target.
+targets_root = repo / "tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets"
+targets = sorted(
+    module.stem
+    for module in targets_root.rglob("*.py")
+    if re.search(r"^FX = \{", module.read_text(errors="ignore"), re.M)
+)
 sheets = repo / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
 
 tracked = subprocess.run(["git","ls-files"], capture_output=True, text=True,

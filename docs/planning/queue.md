@@ -186,7 +186,10 @@ doors, the Math town's fronts, the palm, the shark; Mary-O's construction;
 Sanic's ring, monitors and goal post) are each game's `prop_sheets.ron` (a
 `prop_sheets` schema owned by the sprite capability); Ambition's reload
 restates its rows and loads their sheets again. The intro's catalog sheets
-keep their road (`intro_prop_sprite_rows`). Open, from a census of 2026-10-15: Mary-O's form ladder. Its rungs
+keep their road (`intro_prop_sprite_rows`). How a moving platform drawn as
+a prop sheet is laid on its platform (the shark, the intro's cart and its
+ramp, Mary-O's lift) is each game's `platform_looks.ron`, and a reload
+restates Ambition's looks. Open, from a census of 2026-10-15: Mary-O's form ladder. Its rungs
 name the star wand and the cinder beacon, which are Rust `EquipmentRow`s
 whose spark grant is built from `mary_o_rules.spark`, so a data ladder could
 not be checked against anything in the pack. The ladder moves with those
@@ -719,6 +722,17 @@ from a fresh run, not from here). Cargo diagnostics are read through
 `scripts/lib/cargo_output.py`, which disables colour and strips ANSI codes, and
 `scripts/tests/test_cargo_diagnostics_are_read_plain.py` holds every script that
 reads cargo output to it.
+
+**The repo tooling job (pytest), 2026-10-15:** 1984 passed, 9 failed. The
+content-as-data slices had left 18 of its reds (two checks parsed Rust that
+is now `held_item_art.ron`, the fx census parsed the deleted `FX_SHEETS`,
+the gated-test count, a ledger row, a lockfile, a patch, unclassified pack-row
+resources); those are repaired. The 9 left come from the day-cycle,
+`capture_scene` and Hunny commits: foreign ordering 82 edges (ceiling 76),
+the level-box read at `ambition_combat/src/extension.rs:90`, the
+multi-writer verdicts for `DayClock`, `ShieldRingsView`, `SlotControls` and
+`AmbitionGameSave` (`capture_scene.rs`), the session-owner census (it
+misses `DayClock`) and the rewind-boundary census (`ShieldRingsView`).
 
 **Open items:**
 

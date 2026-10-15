@@ -25,7 +25,7 @@ patch and not a commit.
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3774,
+-			"pxHei": 3769,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
 +			"pxHei": 915,
@@ -57,7 +57,7 @@ patch and not a commit.
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3774,
+-			"pxHei": 3769,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
 +			"pxHei": 915,
@@ -70,6 +70,38 @@ patch and not a commit.
 -			"tileGridSize": 256,
 +			"tileGridSize": 76,
  			"uid": 104928
+ 		}
+ 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+--- a/game/ambition_map_assets/ambition_content/worlds/math.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/math.ldtk
+@@ -290,8 +290,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -6963,14 +6963,14 @@
+ 			"enumTags": [],
+ 			"identifier": "sprite_player_robot_v3",
+ 			"padding": 0,
+-			"pxHei": 3774,
+-			"pxWid": 4096,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"pxHei": 915,
++			"pxWid": 1216,
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"savedSelections": [],
+ 			"spacing": 0,
+ 			"tags": ["sprite"],
+ 			"tagsSourceEnumUid": null,
+-			"tileGridSize": 256,
++			"tileGridSize": 76,
+ 			"uid": 6852
  		}
  	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
 --- a/game/ambition_map_assets/ambition_content/worlds/sandbox.ldtk
@@ -89,7 +121,7 @@ patch and not a commit.
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3774,
+-			"pxHei": 3769,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
 +			"pxHei": 915,
@@ -121,7 +153,7 @@ patch and not a commit.
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3774,
+-			"pxHei": 3769,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
 +			"pxHei": 915,

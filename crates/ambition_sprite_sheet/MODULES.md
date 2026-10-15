@@ -21,6 +21,7 @@
 | [`game_assets`](src/game_assets/mod.rs) | Game asset wiring for character sheets, entity sprites, and parallax art. |
 | [`pack`](src/pack.rs) | [`SpritePackCatalog`]: the runtime schema for a cross-target *ultrapack*. |
 | [`portrait`](src/portrait.rs) | Runtime vocabulary for separately published dialogue portrait sheets. |
+| [`prop_sheets`](src/prop_sheets.rs) | The `prop_sheets` schema: the prop sheets a game draws, as data in its pack. |
 | [`published_cache`](src/published_cache.rs) | A development build's cache of what it derives from the published sprite tree. |
 | [`published_tree`](src/published_tree.rs) | A development build's read of the published sprite tree. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_sprite_sheet`. |
@@ -29,7 +30,7 @@
 | [`sprite_packs`](src/sprite_packs.rs) | Quality-tiered shared-page sprite packs (ultrapacks) — the runtime side. |
 | [`sprite_tree`](src/sprite_tree.rs) | The published sprite tree: which files the sprite publisher wrote, and the key each one is read by. |
 
-_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_23 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

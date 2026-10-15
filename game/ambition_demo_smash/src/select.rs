@@ -21,83 +21,24 @@ pub const MAX_SMASH_SEATS: usize = 4;
 /// [`SmashSelect::slot_driven_by`].
 pub const MAX_SELECT_SOURCES: usize = MAX_SMASH_SEATS + 1;
 
-/// Ordered fighter IDs requested by the select grid.
-///
-/// Layout derives from this list's length. [`SmashRoster::assemble`] drops IDs
-/// unavailable in the current composition while preserving order. Cross-game
-/// fighters are shared by ID; do not declare duplicate character copies here.
-pub const SMASH_ROSTER: &[&str] = &[
-    // The content catalog's robot v3; the demo does not declare its own copy.
-    "player_robot_v3",
-    // This demo's own, on a sheet nobody else claims.
-    crate::SMASH_GEORGE_BOOUL,
-    // Mary-O's tall form. Both Mary-O ids have identical kits; only the sheet
-    // differs, so no test notices a swap.
-    "mary_o_tall",
-    "sanic",
-    // Ambition's own cast.
-    "npc_pirate_admiral",
-    "npc_ninja_shadow_oni_leader",
-    "npc_alice",
-    "npc_bob",
-    "npc_oiler",
-    "perfect_cellular_automaton",
-    "goblin",
-    "npc_emmy_noether",
-    // Both author their own repertoire (their catalog rows), like every id on
-    // this roster. No
-    // seated fighter falls back to a generic repertoire. `smash_fighter_kit()`
-    // is still live as an ability grant (`lib.rs`).
-    "npc_carl_stargan",
-    "special_patent_clerk",
-    // The scholar of the GNU-ton boss fight, as a fighter: a light fencer
-    // with a quill and a book (his own table, `movesets/gnu_ton.ron`).
-    "npc_gnu_ton",
-    // The mathematician of the hall, as a fighter: light, and his blows are
-    // symbols written at arm's length from him (his own table,
-    // `movesets/ramen_nujan.ron`). His grab is his scarf.
-    "npc_ramen_nujan",
-    // The deliberately simple SVG-rigged humanoid reference fighter. Unlike the
-    // stand-ins below, this is a real character owned by Ambition content.
-    "pointed_polygon",
-    // The ranged one: a beast biped whose neutral special fires from a
-    // head-mounted cannon. The grid's only body-authored projectile kit, so
-    // it tests that a ranged kit survives the same seating, scoring and rules.
-    "projectile_polygon",
-    "pugnacious_polygon",
-    // The four easter eggs, after the archetypes they borrow and before the
-    // stand-ins. Each is a polygon archetype wearing a different person: same
-    // skeleton, clips and frame data under its own move names. The two faceted
-    // ones come first; the two hand-drawn ones follow their archetype (the
-    // Performer after the Director, the Medic after the Officer). Neither
-    // hand-drawn one has gameplay rules for her own specials yet.
-    "director",
-    "performer",
-    "officer",
-    "medic",
-    // The stand-ins, last; see [`STAND_INS`].
-    crate::SMASH_CHARACTER_ID,
-    crate::SMASH_OPPONENT_ID,
-];
+/// The fighter ids the select grid asks for, in grid order: `roster` in the
+/// pack's `data/smash_rules.ron`. [`SmashRoster::assemble`] drops the ids the
+/// composition does not have, in order.
+pub fn smash_roster() -> &'static [String] {
+    &crate::rules::smash_rules().roster
+}
 
-/// Stand-ins: `(the copy, the character it stands in for)`.
-///
-/// This demo declares two rows on the robot lineage's sheets, copies of
-/// characters Ambition's catalog already has. They keep the standalone app
-/// from being a one-portrait grid, and [`SmashRoster::assemble`] drops each
-/// once the real one resolves. This is the only sanctioned duplication;
-/// everything else names the shared id (see [`SMASH_ROSTER`]).
-///
-/// Public so `ambition_app`'s guard ("did every buildable fighter reach the
-/// grid") can tell a fighter dropped by a bug from one that stood down.
-pub const STAND_INS: &[(&str, &str)] = &[
-    (crate::SMASH_CHARACTER_ID, "player_robot_v3"),
-    (crate::SMASH_OPPONENT_ID, "player_robot_v2"),
-];
+/// The demo's copies of characters other packs own: `stand_ins` in
+/// `data/smash_rules.ron`. Public so `ambition_app`'s guard ("did every
+/// buildable fighter reach the grid") can tell a fighter dropped by a bug
+/// from one that stood down.
+pub fn stand_ins() -> &'static [crate::rules::StandIn] {
+    &crate::rules::smash_rules().stand_ins
+}
 
 /// The characters a slot can choose between, in this composition.
 ///
-/// [`SMASH_ROSTER`] filtered to the ids the assembled catalog carries, in
+/// [`smash_roster`] filtered to the ids the assembled catalog carries, in
 /// roster order. Resolved once at `Startup`: the cast is a composition fact.
 ///
 /// The default is this demo's own fighters, not an empty list, so screen tests
@@ -106,7 +47,7 @@ pub const STAND_INS: &[(&str, &str)] = &[
 pub struct SmashRoster(pub Vec<String>);
 
 /// The ids this demo declares itself: the cast of a composition with no other
-/// providers. Both are stand-ins; see [`STAND_INS`].
+/// providers. Both are stand-ins; see [`stand_ins`].
 pub const OWN_FIGHTERS: &[&str] = &[crate::SMASH_CHARACTER_ID, crate::SMASH_OPPONENT_ID];
 
 impl Default for SmashRoster {
@@ -132,7 +73,7 @@ impl SmashRoster {
         self.0.iter().map(String::as_str)
     }
 
-    /// [`SMASH_ROSTER`] ∩ what this composition can seat, in roster order.
+    /// [`smash_roster`] ∩ what this composition can seat, in roster order.
     ///
     /// An id this host cannot seat is dropped, not kept as a hole: a pickable
     /// portrait the match then refuses is worse.
@@ -141,17 +82,17 @@ impl SmashRoster {
     ) -> Self {
         let present = |id: &str| registry.get(id).is_some();
         Self(
-            SMASH_ROSTER
+            smash_roster()
                 .iter()
                 .filter(|id| present(id))
                 .filter(|id| {
                     // A stand-in steps aside once the character it stands in
                     // for is in the composition.
-                    !STAND_INS
+                    !stand_ins()
                         .iter()
-                        .any(|(copy, real)| copy == *id && present(real))
+                        .any(|stand_in| &stand_in.copy == *id && present(&stand_in.stands_in_for))
                 })
-                .map(|id| id.to_string())
+                .cloned()
                 .collect(),
         )
     }

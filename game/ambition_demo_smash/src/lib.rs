@@ -2009,7 +2009,7 @@ fn open_the_sudden_death_round(
     }
 }
 
-/// Who can be picked in this composition: `select::SMASH_ROSTER` filtered to
+/// Who can be picked in this composition: `select::smash_roster()` filtered to
 /// the ids this host can seat.
 fn assemble_the_smash_roster(
     // The seatable authority, not the catalog; see `SmashRoster::assemble`.
@@ -2457,9 +2457,9 @@ pub const SMASH_GEORGE_BOOUL: &str = "smash_george_booul";
 
 // The one fighter this demo adds to the crossover. It wears a shipped sheet
 // that no other catalog claims. The rest of the grid is Ambition's cast and the
-// other demos' protagonists, named by id in `select::SMASH_ROSTER`. The two
+// other demos' protagonists, named by id in `roster` (`smash_rules.ron`). The two
 // robot rows are stand-ins for the lineage the content catalog owns; see
-// `select::STAND_INS`. The rows are in `assets/data/character_catalog.ron`.
+// `stand_ins` (`smash_rules.ron`). The rows are in `assets/data/character_catalog.ron`.
 
 /// Register this demo's content.
 ///

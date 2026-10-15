@@ -2,6 +2,76 @@
 // this demo). The rules every fighting game shares are in `match_rules.ron`.
 // An edit here is played at the next start, with no Rust build.
 (
+    // The fighter ids the select grid asks for, in grid order; the layout
+    // follows the list's length. The grid shows the ids the composition has,
+    // in this order, so a fighter of a pack that is not loaded is left out.
+    // Cross-game fighters are shared by id: do not declare a copy of a
+    // character here (the stand-ins below are the one exception).
+    roster: [
+        // The content catalog's robot v3; the demo does not declare its own
+        // copy.
+        "player_robot_v3",
+        // This demo's own, on a sheet nobody else claims.
+        "smash_george_booul",
+        // Mary-O's tall form. Both Mary-O ids have identical kits; only the
+        // sheet differs, so no test notices a swap.
+        "mary_o_tall",
+        "sanic",
+        // Ambition's own cast.
+        "npc_pirate_admiral",
+        "npc_ninja_shadow_oni_leader",
+        "npc_alice",
+        "npc_bob",
+        "npc_oiler",
+        "perfect_cellular_automaton",
+        "goblin",
+        "npc_emmy_noether",
+        // Both author their own repertoire (their catalog rows), like every
+        // id on this roster: no seated fighter falls back to a generic
+        // repertoire.
+        "npc_carl_stargan",
+        "special_patent_clerk",
+        // The scholar of the GNU-ton boss fight, as a fighter: a light fencer
+        // with a quill and a book (his own table, `movesets/gnu_ton.ron`).
+        "npc_gnu_ton",
+        // The mathematician of the hall, as a fighter: light, and his blows
+        // are symbols written at arm's length from him (his own table,
+        // `movesets/ramen_nujan.ron`). His grab is his scarf.
+        "npc_ramen_nujan",
+        // The deliberately simple SVG-rigged humanoid reference fighter: a
+        // real character owned by Ambition content.
+        "pointed_polygon",
+        // The ranged one: a beast biped whose neutral special fires from a
+        // head-mounted cannon. The grid's only body-authored projectile kit,
+        // so it tests that a ranged kit survives the same seating, scoring
+        // and rules.
+        "projectile_polygon",
+        "pugnacious_polygon",
+        // The four easter eggs, after the archetypes they borrow and before
+        // the stand-ins. Each is a polygon archetype wearing a different
+        // person: same skeleton, clips and frame data under its own move
+        // names. The two faceted ones come first; the two hand-drawn ones
+        // follow their archetype (the Performer after the Director, the Medic
+        // after the Officer). Neither hand-drawn one has gameplay rules for
+        // her own specials yet.
+        "director",
+        "performer",
+        "officer",
+        "medic",
+        // The stand-ins, last; see `stand_ins`.
+        "smash_duelist_a",
+        "smash_duelist_b",
+    ],
+    // The demo declares two rows on the robot lineage's sheets, copies of
+    // characters Ambition's catalog already has. They keep the standalone app
+    // from being a one-portrait grid, and each steps aside once the
+    // character it stands in for is in the composition. `ambition_app`'s
+    // guard ("did every buildable fighter reach the grid") reads this list to
+    // tell a fighter dropped by a bug from one that stood down.
+    stand_ins: [
+        (copy: "smash_duelist_a", stands_in_for: "player_robot_v3"),
+        (copy: "smash_duelist_b", stands_in_for: "player_robot_v2"),
+    ],
     // The results card stays this long before the select screen, in real
     // seconds. The banner asks for 3.0 s; this waits a little longer so the
     // players read it.

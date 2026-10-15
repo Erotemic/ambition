@@ -172,7 +172,7 @@ fn every_id_on_the_smash_wish_list_names_a_real_character() {
         .get_resource::<CharacterCatalog>()
         .expect("the composed host has an assembled character catalog");
 
-    let wish_list = ambition_demo_smash::select::SMASH_ROSTER;
+    let wish_list = ambition_demo_smash::select::smash_roster();
     assert!(
         wish_list.len() >= 8,
         "the wish list has shrunk to {} — Jon sized this grid by hand",
@@ -181,7 +181,7 @@ fn every_id_on_the_smash_wish_list_names_a_real_character() {
 
     let mut absent: Vec<&str> = wish_list
         .iter()
-        .copied()
+        .map(String::as_str)
         .filter(|id| catalog.get(id).is_none())
         .filter(|id| !COMPOSITION_DEPENDENT.contains(id))
         .collect();
@@ -299,7 +299,7 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
 /// techniques, and every one of them is only worth anything if it is selectable.
 #[test]
 fn every_fighter_this_composition_can_build_reaches_the_grid() {
-    use ambition_demo_smash::select::{SmashRoster, SMASH_ROSTER, STAND_INS};
+    use ambition_demo_smash::select::{smash_roster, stand_ins, SmashRoster};
 
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
@@ -311,20 +311,20 @@ fn every_fighter_this_composition_can_build_reaches_the_grid() {
     let offered: Vec<&str> = grid.ids().collect();
 
     let mut missing: Vec<&str> = Vec::new();
-    for id in SMASH_ROSTER {
+    for id in smash_roster().iter().map(String::as_str) {
         // Not buildable in this composition — correctly dropped, and the row
         // beside this one already says why a hole is worse than an absence.
         if registry.get(id).is_none() {
             continue;
         }
         // A stand-in steps aside once the character it stands in for is present.
-        let stood_down = STAND_INS
+        let stood_down = stand_ins()
             .iter()
-            .any(|(copy, real)| copy == id && registry.get(real).is_some());
+            .any(|stand_in| stand_in.copy == id && registry.get(&stand_in.stands_in_for).is_some());
         if stood_down {
             continue;
         }
-        if !offered.contains(id) {
+        if !offered.contains(&id) {
             missing.push(id);
         }
     }
@@ -338,7 +338,7 @@ fn every_fighter_this_composition_can_build_reaches_the_grid() {
 
 #[test]
 fn the_grid_offers_only_named_and_seatable_fighters() {
-    use ambition_demo_smash::select::{SmashRoster, SMASH_ROSTER};
+    use ambition_demo_smash::select::{smash_roster, SmashRoster};
 
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
@@ -356,7 +356,7 @@ fn the_grid_offers_only_named_and_seatable_fighters() {
     );
     for id in grid.ids() {
         assert!(
-            SMASH_ROSTER.contains(&id),
+            smash_roster().iter().any(|named| named == id),
             "`{id}` is on the grid and the roster never named it"
         );
         assert!(

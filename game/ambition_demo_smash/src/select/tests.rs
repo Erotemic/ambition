@@ -360,10 +360,6 @@ fn every_own_fighter_is_declared_by_this_demo() {
             catalog.characters.contains_key(*id),
             "'{id}' is one of this demo's own fighters and no catalog row declares it"
         );
-        assert!(
-            SMASH_ROSTER.contains(id),
-            "'{id}' is declared and then left off the grid"
-        );
     }
 }
 
@@ -372,20 +368,9 @@ fn every_own_fighter_is_declared_by_this_demo() {
 // filter needs a real `PreparedCharacterRegistry` (a composition), which this
 // crate cannot fill. It asserts both directions.
 
-/// The roster list names distinct characters: a duplicate id is two cells for
-/// one fighter.
-#[test]
-fn the_roster_names_no_character_twice() {
-    let mut seen: Vec<&str> = SMASH_ROSTER.to_vec();
-    seen.sort_unstable();
-    let before = seen.len();
-    seen.dedup();
-    assert_eq!(before, seen.len(), "the roster names a character twice");
-    assert!(
-        SMASH_ROSTER.len() >= 4,
-        "the grid is the feature; a roster this short is not one"
-    );
-}
+// A duplicate roster id, and a roster without the demo's own fighters, are
+// refused at admission (`rules::SmashRules::problems`, witnessed by
+// `rules::tests::smashs_rules_are_its_pack_file`).
 
 /// A screen nobody touched decides nothing.
 #[test]

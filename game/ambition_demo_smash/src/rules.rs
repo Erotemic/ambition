@@ -3,9 +3,9 @@
 //!
 //! The match rules every fighting game shares (stocks, clocks, the fighter
 //! body) are the engine's `match_rules`. These are what only this demo has:
-//! the wait before the results card goes back to the select screen, and the
-//! shark the pirate admiral summons. The demo owns the schema and no engine
-//! capability reads it.
+//! the select grid's roster and stand-ins, the wait before the results card
+//! goes back to the select screen, and the shark the pirate admiral summons.
+//! The demo owns the schema and no engine capability reads it.
 
 use ambition_platformer2d::content::{lowered_rules, rules_schema, SchemaRegistration};
 use serde::Deserialize;
@@ -14,13 +14,29 @@ use serde::Deserialize;
 pub const SMASH_RULES_SCHEMA: &str = "smash_rules";
 
 /// The demo's match flow and summon tuning, as its pack states them.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SmashRules {
+    /// The fighter ids the select grid asks for, in grid order. The grid
+    /// shows those the composition has (`SmashRoster::assemble`).
+    pub roster: Vec<String>,
+    /// The demo's copies of characters other packs own: each steps aside
+    /// when the character it stands in for is in the composition.
+    pub stand_ins: Vec<StandIn>,
     /// How long the results card stays before the select screen, in seconds.
     pub return_to_select_seconds: f32,
     /// The shark the admiral's up-B summons.
     pub shark_ride: SharkRide,
+}
+
+/// A copy of a character another pack owns, on this demo's grid.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StandIn {
+    /// The demo's copy (a roster id).
+    pub copy: String,
+    /// The character it stands in for.
+    pub stands_in_for: String,
 }
 
 /// The shark the admiral's up-B summons, and how it leaves.
@@ -55,6 +71,24 @@ impl SmashRules {
                 problems.push(format!("`{field}` is {value}; it is finite and not negative"));
             }
         }
+        let mut seen = std::collections::BTreeSet::new();
+        for (index, id) in self.roster.iter().enumerate() {
+            if !seen.insert(id.as_str()) {
+                problems.push(format!("`roster[{index}]` (`{id}`) is on the roster twice; the grid shows each fighter once"));
+            }
+        }
+        // A composition with no other pack has only the demo's own fighters:
+        // without them on the roster, its grid is empty.
+        for own in crate::select::OWN_FIGHTERS {
+            if !self.roster.iter().any(|id| id == own) {
+                problems.push(format!("`roster` does not name `{own}`, the demo's own fighter"));
+            }
+        }
+        for (index, stand_in) in self.stand_ins.iter().enumerate() {
+            if !self.roster.contains(&stand_in.copy) {
+                problems.push(format!("`stand_ins[{index}].copy` (`{}`) is not on the roster", stand_in.copy));
+            }
+        }
         if ride.health == 0 {
             problems.push("`shark_ride.health` is 0; the shark would die before it can carry anyone".to_string());
         }
@@ -75,8 +109,8 @@ pub fn smash_rules_schema() -> SchemaRegistration {
 }
 
 /// The rules, as the demo's pack states them (`assets/data/smash_rules.ron`).
-pub fn smash_rules() -> SmashRules {
-    *lowered_rules::<SmashRules>(crate::smash_pack::PACK.prepared(), SMASH_RULES_SCHEMA)
+pub fn smash_rules() -> &'static SmashRules {
+    lowered_rules::<SmashRules>(crate::smash_pack::PACK.prepared(), SMASH_RULES_SCHEMA)
         .expect("the demo's pack states its rules (`data/smash_rules.ron`)")
 }
 
@@ -112,11 +146,11 @@ mod tests {
         };
         let rules_of = |text: &str| {
             let prepared = compile(text).unwrap_or_else(|failure| panic!("{}", failure.render()));
-            *lowered_rules::<SmashRules>(&prepared, SMASH_RULES_SCHEMA).expect("the probe pack lowers the rules")
+            lowered_rules::<SmashRules>(&prepared, SMASH_RULES_SCHEMA).expect("the probe pack lowers the rules").clone()
         };
 
         let file = rules_of(&authored);
-        assert_eq!(file, smash_rules(), "the demo plays the file");
+        assert_eq!(&file, smash_rules(), "the demo plays the file");
 
         let health = "health: 40,";
         assert_eq!(authored.matches(health).count(), 1, "the probe edits the shark");
@@ -128,6 +162,23 @@ mod tests {
         };
         assert!(refused.contains("data/smash_rules.ron"), "the refusal names the file: {refused}");
         assert!(refused.contains("`shark_ride.health`"), "the refusal names the field: {refused}");
+
+        // The roster is the file's: an edit is the grid the next start asks
+        // for, and a roster without the demo's own fighter is refused.
+        let last = r#""medic","#;
+        assert_eq!(authored.matches(last).count(), 1, "the probe edits one roster row");
+        let edited = rules_of(&authored.replace(last, r#""medic", "npc_gnu_ton_twin","#));
+        assert_eq!(edited.roster.iter().filter(|id| *id == "npc_gnu_ton_twin").count(), 1);
+        let own = format!("\n        \"{}\",\n", crate::SMASH_OPPONENT_ID);
+        assert_eq!(authored.matches(&own).count(), 1, "the probe removes one roster row");
+        let refused = match compile(&authored.replace(&own, "\n")) {
+            Ok(_) => panic!("a roster without the demo's own fighter was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(
+            refused.contains(&format!("`roster` does not name `{}`", crate::SMASH_OPPONENT_ID)),
+            "the refusal names the fighter: {refused}"
+        );
         let _ = std::fs::remove_dir_all(&root);
     }
 }

@@ -177,8 +177,8 @@ told the author to run it. A quest's payout is its `reward` in
 pirate treasure's Rust constant and a match on that quest's name). The
 intro's flag chains are Ambition's `flag_chains` schema, and the thrown
 items that hurt are `thrown_impacts` in `ambition_rules.ron`. Open, from a
-census of 2026-10-15: Mary-O's form ladder, the Smash roster, the
-motion-input gestures, the Mary-O test course and the Sanic start-line
+census of 2026-10-15 (the Smash roster and stand-ins are `smash_rules.ron`
+since then): Mary-O's form ladder, the motion-input gestures, the Mary-O test course and the Sanic start-line
 sign.
 
 **Next action:** none before priority 2; open item 1 is deferred.

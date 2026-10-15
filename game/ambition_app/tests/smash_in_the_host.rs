@@ -2203,7 +2203,7 @@ fn the_shipped_polygon_carries_both_halves_of_her_ranged_move() {
 
 #[test]
 fn every_smash_roster_id_resolves_in_the_shipped_host() {
-    use ambition_demo_smash::select::SMASH_ROSTER;
+    let roster = ambition_demo_smash::select::smash_roster();
 
     let mut app = shell_host_app();
     settle(&mut app);
@@ -2213,9 +2213,9 @@ fn every_smash_roster_id_resolves_in_the_shipped_host() {
         app.world()
             .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
 
-    let missing: Vec<&str> = SMASH_ROSTER
+    let missing: Vec<&str> = roster
         .iter()
-        .copied()
+        .map(String::as_str)
         .filter(|id| registry.get(id).is_none())
         .collect();
     assert!(
@@ -2231,10 +2231,10 @@ fn every_smash_roster_id_resolves_in_the_shipped_host() {
     // above: an import that resolved to an empty slice would satisfy every
     // assertion here while proving nothing.
     assert!(
-        SMASH_ROSTER.len() >= 8,
+        roster.len() >= 8,
         "the smash roster is down to {} entries, which is fewer than the eight \
          Jon set it at — this check would pass over almost nothing",
-        SMASH_ROSTER.len()
+        roster.len()
     );
 }
 

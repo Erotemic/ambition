@@ -94,11 +94,13 @@ members = [
 ]
 # `dev/bevy_ceiling` is the empty-window frame-time ceiling (its README): a
 # stock Bevy app with none of this workspace in it, so it keeps its own lockfile.
+# `dev/bevy_idle_systems` is the cost of an idle system on each executor, the
+# same kind of outside crate.
 # The Phase-6 external-architecture proof: a consumer game that must live
 # OUTSIDE the workspace so it exercises exactly what a third-party crate
 # would — the `ambition_platformer2d` umbrella via a path dependency, its own lockfile,
 # no workspace dependency table, no policy exemptions.
-exclude = ["fixtures/external_consumer", "dev/bevy_ceiling"]
+exclude = ["fixtures/external_consumer", "dev/bevy_ceiling", "dev/bevy_idle_systems"]
 resolver = "2"
 
 # One version per shared external dependency. Before this table existed, `ron`

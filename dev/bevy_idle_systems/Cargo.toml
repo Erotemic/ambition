@@ -1,0 +1,16 @@
+# What a registered system costs on each Bevy executor when it has no work:
+# the per-system floor that the `[census] systems_ran` count multiplies.
+#
+# Outside the engine workspace (own `[workspace]`, lockfile and `target/`), like
+# `dev/bevy_ceiling`: only `bevy_ecs`, none of Ambition's crates.
+[package]
+name = "bevy_idle_systems"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+# The release the game pins (root Cargo.lock: 0.19.1).
+bevy_ecs = { version = "=0.19.1", default-features = false, features = ["std", "multi_threaded"] }

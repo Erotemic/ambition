@@ -292,15 +292,23 @@ pub const RESOURCE_LIST_ENV: &str = "AMBITION_RESOURCE_LIST";
 /// ```
 ///
 /// Metadata only: one pass over the archetypes and their component names.
-pub fn report_resource_census(census: Res<RuntimeCensus>, archetypes: &Archetypes, components: &Components) {
+pub fn report_resource_census(
+    census: Res<RuntimeCensus>,
+    archetypes: &Archetypes,
+    components: &Components,
+) {
     let Some(at) = census.due() else {
         return;
     };
     let names = resource_type_names(archetypes, components);
-    let mut by_payload: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
-    let mut by_wrapper: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    let mut by_payload: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
+    let mut by_wrapper: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
     for name in &names {
-        *by_payload.entry(payload_crate(name).to_string()).or_default() += 1;
+        *by_payload
+            .entry(payload_crate(name).to_string())
+            .or_default() += 1;
         if let Some(wrapper) = generic_wrapper(name) {
             *by_wrapper.entry(wrapper.to_string()).or_default() += 1;
         }
@@ -336,7 +344,12 @@ pub fn resource_type_names(archetypes: &Archetypes, components: &Components) -> 
         if archetype.is_empty() || !archetype.contains(resource) {
             continue;
         }
-        for id in archetype.components().iter().copied().filter(|id| *id != resource) {
+        for id in archetype
+            .components()
+            .iter()
+            .copied()
+            .filter(|id| *id != resource)
+        {
             if let Some(info) = components.get_info(id) {
                 names.push(info.name().to_string());
             }
@@ -350,7 +363,124 @@ pub fn resource_type_names(archetypes: &Archetypes, components: &Components) -> 
 fn payload_crate(name: &str) -> &str {
     let inner = name.rfind('<').map_or(name, |i| &name[i + 1..]);
     let inner = inner.trim_start_matches(['&', ' ', '(']);
-    inner.split("::").next().unwrap_or(inner).trim_end_matches(['>', ')', ',', ' '])
+    inner
+        .split("::")
+        .next()
+        .unwrap_or(inner)
+        .trim_end_matches(['>', ')', ',', ' '])
+}
+
+/// When set, `[census] systems_ran` also writes one line per registered system
+/// to this path: `ran|idle <schedule> <name>`. Diff two games' lists to see
+/// which systems one composition carries for the other.
+pub const SYSTEM_LIST_ENV: &str = "AMBITION_SYSTEM_LIST";
+
+/// Each schedule's systems' last-run ticks, from one frame to the next.
+#[derive(Default)]
+pub struct SystemRunSnapshot {
+    at: f64,
+    last_run: std::collections::HashMap<String, Vec<bevy::ecs::change_detection::Tick>>,
+}
+
+/// Which registered systems ran in one frame, by schedule and by crate.
+///
+/// ```text
+/// [census] systems_ran t=12.000 registered=3710 ran=812 schedules: Update=401/603 ...
+///   crates: ambition_content=120/400 ...
+/// ```
+///
+/// A system's last-run tick changes when it runs, so this compares the ticks of
+/// the frame after a census sample with those of the sample. A system whose run
+/// condition is false does not run and counts as idle, but its condition was
+/// still evaluated. A schedule that runs more than once a frame counts each of
+/// its systems once. A schedule that is running while this runs (`Main`,
+/// `Last`) is not visible and is not counted.
+///
+/// The crate is the one the system was made for: a generic system counts for
+/// the crate of its innermost type argument, as in `[census] resources`.
+pub fn report_systems_ran_census(
+    census: Res<RuntimeCensus>,
+    schedules: Res<Schedules>,
+    mut armed: Local<Option<SystemRunSnapshot>>,
+) {
+    let ticks_now = |schedules: &Schedules| {
+        let mut out = std::collections::HashMap::new();
+        for (label, schedule) in schedules.iter() {
+            if let Ok(systems) = schedule.systems() {
+                out.insert(
+                    format!("{label:?}"),
+                    systems
+                        .map(|(_key, system)| system.get_last_run())
+                        .collect::<Vec<_>>(),
+                );
+            }
+        }
+        out
+    };
+    let Some(previous) = armed.take() else {
+        if let Some(at) = census.due() {
+            *armed = Some(SystemRunSnapshot {
+                at,
+                last_run: ticks_now(&schedules),
+            });
+        }
+        return;
+    };
+    let mut by_schedule: std::collections::BTreeMap<String, (usize, usize)> = Default::default();
+    let mut by_crate: std::collections::BTreeMap<String, (usize, usize)> = Default::default();
+    let mut lines = Vec::new();
+    for (label, schedule) in schedules.iter() {
+        let label = format!("{label:?}");
+        let (Some(before), Ok(systems)) = (previous.last_run.get(&label), schedule.systems())
+        else {
+            continue;
+        };
+        let systems: Vec<_> = systems.collect();
+        // A schedule rebuilt between the two frames cannot be compared by index.
+        if systems.len() != before.len() {
+            continue;
+        }
+        for ((_key, system), tick) in systems.iter().zip(before) {
+            let ran = system.get_last_run() != *tick;
+            let name = system.name();
+            let name = name.as_ref();
+            for (key, counts) in [
+                (label.clone(), &mut by_schedule),
+                (payload_crate(name).to_string(), &mut by_crate),
+            ] {
+                let entry = counts.entry(key).or_default();
+                entry.0 += usize::from(ran);
+                entry.1 += 1;
+            }
+            lines.push(format!(
+                "{} {label} {name}",
+                if ran { "ran" } else { "idle" }
+            ));
+        }
+    }
+    let (ran, registered) = by_schedule
+        .values()
+        .fold((0, 0), |acc, c| (acc.0 + c.0, acc.1 + c.1));
+    let mut row = format!(
+        "[census] systems_ran t={:.3} registered={registered} ran={ran}",
+        previous.at
+    );
+    for (label, counts) in [("schedules", &by_schedule), ("crates", &by_crate)] {
+        let mut ranked: Vec<_> = counts.iter().collect();
+        ranked.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
+        row.push_str(&format!(" {label}:"));
+        for (name, (ran, registered)) in ranked {
+            row.push_str(&format!(" {name}={ran}/{registered}"));
+        }
+    }
+    eprintln!("{row}");
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Ok(path) = std::env::var(SYSTEM_LIST_ENV) {
+        lines.sort();
+        if let Err(error) = std::fs::write(&path, lines.join("\n") + "\n") {
+            eprintln!("[census] systems_ran could not write {path}: {error}");
+        }
+    }
 }
 
 /// The last path segment of a generic resource's outer type (`Messages`,
@@ -1561,6 +1691,7 @@ impl Plugin for RuntimeCensusPlugin {
                     report_frame_interval_census,
                     report_ecs_census,
                     report_resource_census,
+                    report_systems_ran_census,
                     report_schedule_load_census,
                     report_entity_populations,
                     // The sim schedule exists only after a session activates, so the
@@ -1604,9 +1735,15 @@ mod tests {
     /// A generic resource is made for its payload's crate.
     #[test]
     fn a_resource_is_counted_for_the_crate_it_was_made_for() {
-        assert_eq!(payload_crate("bevy_ecs::message::Messages<ambition_combat::events::HitEvent>"), "ambition_combat");
+        assert_eq!(
+            payload_crate("bevy_ecs::message::Messages<ambition_combat::events::HitEvent>"),
+            "ambition_combat"
+        );
         assert_eq!(payload_crate("ambition_time::WorldTime"), "ambition_time");
-        assert_eq!(generic_wrapper("bevy_ecs::message::Messages<ambition_combat::events::HitEvent>"), Some("Messages"));
+        assert_eq!(
+            generic_wrapper("bevy_ecs::message::Messages<ambition_combat::events::HitEvent>"),
+            Some("Messages")
+        );
         assert_eq!(generic_wrapper("ambition_time::WorldTime"), None);
     }
 
@@ -1626,7 +1763,11 @@ mod tests {
         let body = world.spawn(Body).id();
         world.entity_mut(body).insert(Hurt);
         let after = archetype_split(world.archetypes(), world.components());
-        assert_eq!(after.resource, before.resource + 1, "{before:?} -> {after:?}");
+        assert_eq!(
+            after.resource,
+            before.resource + 1,
+            "{before:?} -> {after:?}"
+        );
         // `(Body)` is left empty when the body gains `Hurt`.
         assert_eq!(after.scene, before.scene + 1, "{before:?} -> {after:?}");
         assert_eq!(after.empty, before.empty + 1, "{before:?} -> {after:?}");

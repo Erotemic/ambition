@@ -129,6 +129,7 @@ pub fn validate_content_graph(
 
     validate_room_links(&rooms, &links, &mut report);
     validate_room_music_tracks(project, music, &mut report);
+    validate_room_phase_tracks(pack, &rooms, music, &mut report);
     validate_npc_dialogue_ids(project, &mut report);
     validate_npc_brain_overrides(project, character_catalog, &mut report);
     validate_quest_conditions(pack, &rooms, music, &mut report);
@@ -176,6 +177,31 @@ fn validate_room_music_tracks(
             .into_iter()
             .map(|warning| format!("room music reference: {warning}")),
     );
+}
+
+/// A room's track by the time of day (`music_cues.ron` `room_phase_tracks`)
+/// names a room of the game and a track of the music registry, as a room's
+/// own `music_track` does.
+fn validate_room_phase_tracks(
+    pack: &ambition_content_pack::PreparedContentPack,
+    rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
+    music: &MusicRegistry,
+    report: &mut ContentValidationReport,
+) {
+    let Some(authored) = ambition_audio::content_schema::lowered_music_cues(pack) else {
+        return;
+    };
+    for row in &authored.room_phase_tracks {
+        if !rooms.iter().any(|room| room.id == row.room_id) {
+            report.extend_errors([format!("room music by the time of day: no room is called {:?}", row.room_id)]);
+        }
+        if !music.tracks.iter().any(|track| track.id == row.track) {
+            report.extend_errors([format!(
+                "room music by the time of day: room {:?} plays unknown track {:?} in the {}",
+                row.room_id, row.track, row.phase
+            )]);
+        }
+    }
 }
 
 fn validate_npc_dialogue_ids(project: &LdtkProject, report: &mut ContentValidationReport) {

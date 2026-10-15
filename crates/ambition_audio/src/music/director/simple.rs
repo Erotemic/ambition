@@ -29,19 +29,22 @@ pub(super) fn apply_simple_music_intent(
     base_music_channel: &AudioChannel<MusicChannel>,
     output: crate::output::AudioOutputMode,
     simple_track_candidates: &[String],
+    crossfade_s: f32,
 ) {
     let target = resolved_simple_track(library, simple_track_candidates);
     let needs_switch = director.last_simple_track.as_deref() != Some(target.as_str())
         || music_state.active_track() != target;
     if needs_switch && library.track(&target).is_some() {
-        info!(target: MUSIC_LOG_TARGET, "simple_music target={}", target);
-        switch_to_music_track(
+        info!(target: MUSIC_LOG_TARGET, "simple_music target={} crossfade_s={}", target, crossfade_s);
+        let crossfade = (crossfade_s > 0.0).then(|| std::time::Duration::from_secs_f32(crossfade_s));
+        crate::library::switch_to_music_track_over(
             library,
             asset_server,
             music_state,
             base_music_channel,
             output,
             &target,
+            crossfade,
         );
         director.last_simple_track = Some(target.clone());
         director.mode = MusicDirectorMode::SimpleTrack;

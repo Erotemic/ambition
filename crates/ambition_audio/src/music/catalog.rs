@@ -3,7 +3,7 @@ use super::*;
 pub use crate::cue_spec::{
     EncounterMusicBinding, MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec,
     MusicLayerSpec, MusicSectionSpec, MusicStateBalanceOverride, MusicStateSpec,
-    RoomMusicBinding,
+    RoomMusicBinding, RoomPhaseTrack,
 };
 
 #[derive(Resource, Clone, Debug, PartialEq)]
@@ -11,6 +11,7 @@ pub struct MusicCueCatalog {
     pub(super) cues: HashMap<String, MusicCueSpec>,
     pub(super) encounter_bindings: Vec<EncounterMusicBinding>,
     pub(super) room_bindings: Vec<RoomMusicBinding>,
+    pub(super) room_phase_tracks: Vec<RoomPhaseTrack>,
 }
 
 impl MusicCueCatalog {
@@ -29,6 +30,7 @@ impl MusicCueCatalog {
             cues,
             encounter_bindings,
             room_bindings: Vec::new(),
+            room_phase_tracks: Vec::new(),
         }
     }
 
@@ -36,6 +38,31 @@ impl MusicCueCatalog {
     pub fn with_room_bindings(mut self, room_bindings: Vec<RoomMusicBinding>) -> Self {
         self.room_bindings = room_bindings;
         self
+    }
+
+    /// The same catalog with the host's tracks of rooms by the time of day.
+    pub fn with_room_phase_tracks(mut self, rows: Vec<RoomPhaseTrack>) -> Self {
+        self.room_phase_tracks = rows;
+        self
+    }
+
+    /// The track room `room_id` plays in the phase of the day named `phase`,
+    /// if the host authored one.
+    pub fn room_phase_track(&self, room_id: &str, phase: &str) -> Option<&str> {
+        self.room_phase_tracks
+            .iter()
+            .find(|row| row.room_id == room_id && row.phase == phase)
+            .map(|row| row.track.as_str())
+    }
+
+    /// Every authored track of a room by the time of day.
+    pub fn room_phase_tracks(&self) -> &[RoomPhaseTrack] {
+        &self.room_phase_tracks
+    }
+
+    /// Whether room `room_id` has any track by the time of day.
+    pub fn room_follows_the_day(&self, room_id: &str) -> bool {
+        self.room_phase_tracks.iter().any(|row| row.room_id == room_id)
     }
 
     /// The host's room -> cue bindings (read by the host's intent-mapping

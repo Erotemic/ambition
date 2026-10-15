@@ -140,6 +140,18 @@ pub struct RoomMusicBinding {
     pub fight_state: Option<String>,
 }
 
+/// The track a room plays in one phase of the day, in place of its own
+/// `music_track`. A phase is a key of the host's day cycle (`"morning"`,
+/// `"day"`, `"evening"`, `"night"` in `ambition_time::DayPhase`). A room with
+/// rows for some phases plays its `music_track` in the others.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RoomPhaseTrack {
+    pub room_id: String,
+    pub phase: String,
+    pub track: String,
+}
+
 /// One state's authored layer-gain overrides (see
 /// [`MusicCueSpec::runtime_balance_overrides`]).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -160,6 +172,9 @@ pub struct AuthoredMusicCues {
     pub encounter_bindings: Vec<EncounterMusicBinding>,
     #[serde(default)]
     pub room_bindings: Vec<RoomMusicBinding>,
+    /// The tracks of rooms by the time of day.
+    #[serde(default)]
+    pub room_phase_tracks: Vec<RoomPhaseTrack>,
 }
 
 /// Every reference in `cues` and `bindings` that names nothing: a state's

@@ -36,6 +36,7 @@ where
     registrar.rollback_resource_canonical::<crate::SimTick>(OWNER, "resource.sim_tick");
     registrar.rollback_resource_canonical::<crate::WorldTime>(OWNER, "resource.world_time");
     registrar.rollback_resource_canonical::<crate::ClockState>(OWNER, "resource.clock_state");
+    registrar.rollback_resource_canonical::<crate::DayClock>(OWNER, "resource.day_clock");
     registrar
         .rollback_component_canonical::<crate::ProperTimeScale>(OWNER, "actor.proper_time_scale");
 }

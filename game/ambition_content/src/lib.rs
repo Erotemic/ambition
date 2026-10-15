@@ -96,6 +96,8 @@ mod emmy_noether_moveset;
 mod goblin_moveset;
 pub mod input_techniques;
 pub mod intro;
+/// Ambition's day: its length, its phases, its light.
+pub mod day_cycle;
 pub mod items;
 /// The town of the Math dimension (`math.ldtk`) and the gate pair to it.
 pub mod math_town;

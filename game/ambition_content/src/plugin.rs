@@ -167,6 +167,8 @@ impl Plugin for AmbitionContentPlugin {
         app.add_plugins(crate::primeval::PrimevalPlugin);
         // The Noodly Temple: the sheets of its keys and of its doors.
         app.add_plugins(crate::noodly_temple::NoodlyTemplePlugin);
+        // Ambition's day: the clock's cycle and the light of a sunlit room.
+        app.add_plugins(crate::day_cycle::AmbitionDayPlugin);
         // The Math dimension: the gate pair to its town.
         app.add_plugins(crate::math_town::MathTownPlugin);
 

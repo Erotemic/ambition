@@ -36,6 +36,11 @@ use ambition_audio::music::{
 /// (large-brute) state. Content tuning — owned here, not by the director.
 pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 
+/// Seconds over which a room's track crossfades when the time of day turns
+/// while the player stays in the room: the town's evening music comes in
+/// under its day music rather than cutting it.
+pub(super) const DAY_PHASE_CROSSFADE_SECONDS: f32 = 6.0;
+
 /// The live room the music plays for (Q150, Q72). There is one audio output.
 /// Of the rooms the participants stand in, it is the one whose music has the
 /// highest authored priority ([`EncounterMusicRequest::priority_of`]: a boss
@@ -129,6 +134,11 @@ pub fn compute_music_intent(
     narrative_music: Option<Res<ambition_conversation::NarrativeMusicRequest>>,
     radio: Option<Res<RadioStationState>>,
     audio_selection: Res<ActiveAudioSelection>,
+    // The time of day: a room with tracks by the phase of the day plays the
+    // phase's (`music_cues.ron` `room_phase_tracks`).
+    day_clock: Option<Res<ambition_time::DayClock>>,
+    day_cycle: Option<Res<ambition_time::DayCycle>>,
+    mut last_heard: Local<Option<String>>,
     mut intent: ResMut<MusicIntent>,
 ) {
     // The music director keys adaptive cues by encounter id; build the id →
@@ -179,8 +189,18 @@ pub fn compute_music_intent(
         ),
         _ => None,
     });
+    // The room's track by the time of day, if the room has one for this phase.
+    let phase = match (day_clock.as_deref(), day_cycle.as_deref()) {
+        (Some(clock), Some(cycle)) if clock.day > 0 => Some(clock.phase(cycle).key()),
+        _ => None,
+    };
+    let phase_track = active_catalog
+        .zip(phase)
+        .and_then(|(catalog, phase)| catalog.room_phase_track(&room_spec.id, phase));
+    let same_place = last_heard.as_deref() == Some(room_spec.id.as_str());
+    *last_heard = Some(room_spec.id.clone());
     let candidates = simple_track_candidates(
-        room.music_track.as_deref(),
+        phase_track.or(room.music_track.as_deref()),
         room.fight_music_track.as_deref(),
         narrative_music.as_deref(),
         radio.as_deref(),
@@ -191,6 +211,9 @@ pub fn compute_music_intent(
     intent.provider_id = audio_selection.provider_id().map(str::to_owned);
     intent.adaptive = adaptive;
     intent.simple_track_candidates = candidates;
+    // Staying in a room whose track follows the day, a change of track is the
+    // day turning: it crossfades. Arriving in a room is the ordinary swap.
+    intent.simple_crossfade_s = if same_place && phase_track.is_some() { DAY_PHASE_CROSSFADE_SECONDS } else { 0.0 };
     // Provider-relative authority: the director may only play tracks this
     // session's provider authored. No selection is ungoverned (frontend); a
     // provider with no music is deliberate silence.

@@ -19,7 +19,8 @@ pub fn music_cue_catalog_from(
     let authored = ambition_audio::content_schema::lowered_music_cues(pack).cloned()?;
     Some(
         MusicCueCatalog::from_parts(authored.cues, authored.encounter_bindings)
-            .with_room_bindings(authored.room_bindings),
+            .with_room_bindings(authored.room_bindings)
+            .with_room_phase_tracks(authored.room_phase_tracks),
     )
 }
 
@@ -49,6 +50,25 @@ mod tests {
     /// claimed otherwise. So "does the provider have adaptive cues" can differ
     /// between generation N and N+1, and a reload's preparation reads the
     /// candidate's answer (`adaptive_cues_ready_for`), not the App's.
+    /// A room's track by the time of day reaches the catalog the intent reads,
+    /// and a phase the clock does not have is refused when the pack compiles.
+    #[test]
+    fn a_rooms_track_by_the_time_of_day_is_read_and_its_phase_checked() {
+        let end = "fight_state: Some(\"fight\")),\n    ],\n)";
+        let row = |phase: &str| {
+            format!(
+                "fight_state: Some(\"fight\")),\n    ],\n    room_phase_tracks: [(room_id: \"math_town_street\", phase: \"{phase}\", track: \"shoulders_at_rest\")],\n)"
+            )
+        };
+        let night: &'static str = Box::leak(row("night").into_boxed_str());
+        let pack = compiled_with(end, night).expect("a row with a phase of the day compiles");
+        let catalog = music_cue_catalog_from(&pack).expect("the pack carries its catalog");
+        assert_eq!(catalog.room_phase_track("math_town_street", "night"), Some("shoulders_at_rest"));
+        assert_eq!(catalog.room_phase_track("math_town_street", "day"), None);
+        let teatime: &'static str = Box::leak(row("teatime").into_boxed_str());
+        assert!(compiled_with(end, teatime).is_err(), "no phase of the day is called teatime");
+    }
+
     #[test]
     fn a_pack_without_its_cue_file_compiles_and_carries_no_catalog() {
         let pack = crate::pack::compile_pack_omitting(&[CUES])

@@ -623,18 +623,33 @@ pub fn switch_to_music_track(
     output: crate::output::AudioOutputMode,
     next_track: &str,
 ) {
+    switch_to_music_track_over(library, asset_server, state, music_channel, output, next_track, None);
+}
+
+/// [`switch_to_music_track`], with the old track fading out and the new one
+/// fading in over `crossfade` together: a change that is part of the same
+/// place (the time of day turning) rather than a cut to another. `None` is
+/// the ordinary swap (a 180 ms fade out, a 220 ms fade in).
+pub fn switch_to_music_track_over(
+    library: &mut AudioLibrary,
+    asset_server: &AssetServer,
+    state: &mut MusicPlaybackState,
+    music_channel: &AudioChannel<MusicChannel>,
+    output: crate::output::AudioOutputMode,
+    next_track: &str,
+    crossfade: Option<Duration>,
+) {
     if library.track(next_track).is_none() {
         warn!("cannot switch to missing music track '{next_track}'");
         return;
     }
     state.begin_track(next_track);
     if output.emits_to_device() {
-        music_channel.stop().fade_out(AudioTween::new(
-            Duration::from_millis(180),
-            AudioEasing::OutPowi(2),
-        ));
+        let fade_out = crossfade.unwrap_or(Duration::from_millis(180));
+        music_channel.stop().fade_out(AudioTween::new(fade_out, AudioEasing::OutPowi(2)));
     }
-    play_music_track(library, asset_server, next_track, music_channel, output);
+    let fade_in = crossfade.unwrap_or(Duration::from_millis(220));
+    play_music_track(library, asset_server, next_track, music_channel, output, fade_in);
 }
 
 pub fn set_radio_track(
@@ -667,13 +682,14 @@ fn play_music_track(
     track_id: &str,
     music_channel: &AudioChannel<MusicChannel>,
     output: crate::output::AudioOutputMode,
+    fade_in: Duration,
 ) {
     let Some((handle, one_shot)) = library.resolve_track(track_id, asset_server) else {
         warn!("cannot play missing music track '{track_id}'");
         return;
     };
     if output.emits_to_device() {
-        let fade = AudioTween::new(Duration::from_millis(220), AudioEasing::InPowi(2));
+        let fade = AudioTween::new(fade_in, AudioEasing::InPowi(2));
         // A sting ends. Looping a three-second fanfare would repeat it until
         // the sequence ends.
         if one_shot {

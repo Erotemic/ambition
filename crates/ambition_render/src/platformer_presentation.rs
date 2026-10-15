@@ -130,6 +130,9 @@ impl Plugin for SessionRoomVisualsPlugin {
             Update,
             crate::rendering::ground_shadows::sync_ground_shadows.after(ambition_sim_view::PresentedPoseSet),
         );
+        // The light of the time of day, over the camera's view (a game that
+        // inserts no `DaylightStyle` has none).
+        app.add_systems(Update, crate::rendering::daylight::light_the_world.after(crate::rendering::camera_follow));
         // The motes of each live room's air, and their motion.
         app.init_resource::<crate::rendering::ambient_motes::AmbientMoteStyles>();
         app.add_systems(

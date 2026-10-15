@@ -137,6 +137,23 @@ pub fn mary_o_authored_catalogs() -> AuthoredCatalogFragments {
     AuthoredCatalogFragments::new(MARY_O_CHARACTER_ID, MARY_O_EXPERIENCE)
 }
 
+/// Declare her pickup art: the rows of her pack's `data/world_item_art.ron`
+/// (the `sprite` id a world item carries, its picture and size). Pure data, so
+/// no render dependency here: the render layer resolves each row into a sprite
+/// through the shared `WorldItem` art seam, in the standalone app and in the
+/// multi-game host alike (this provider is the one seam both share). Until the
+/// publish writes a picture, the render draws the quad.
+pub(crate) fn register_world_item_art(app: &mut App) {
+    use ambition_platformer2d::platformer::world_item_art::{WorldItemArtAppExt, WorldItemArtEntry};
+    let rows = ambition_platformer2d::items::content_schema::world_item_art::lowered_world_item_art(
+        crate::pack::PACK.prepared(),
+    )
+    .expect("the demo's pack states its world item art (`data/world_item_art.ron`)");
+    app.register_world_item_art(rows.iter().map(|(id, art)| {
+        WorldItemArtEntry::new(id.clone(), art.path.clone(), ae::Vec2::new(art.size.0, art.size.1))
+    }));
+}
+
 /// Her shots' looks (the spark, the swallow's coconut, the void lizard's orb):
 /// her pack's `data/projectile_visuals.ron`, under the ids her ranged actions
 /// author. The projectile domain never learns what a spark is.
@@ -161,48 +178,7 @@ impl Plugin for MaryOExperiencePlugin {
         crate::void_look::install(app);
         crate::cosmic_aura::install(app);
         crate::cosmic_barrier::install(app);
-        // Declare the star wand pickup art (pure id → path + size DATA; no render
-        // dependency here). The render layer resolves it into a real sprite through
-        // the shared `WorldItem` art seam, so the ?-block's wand draws as a wand
-        // instead of the cream placeholder quad in BOTH the standalone app and the
-        // multi-game host — this provider is the one seam both share. The flat prop
-        // image is published by scripts/regen/sprites.sh; until then the render falls back
-        // to the quad.
-        {
-            use ambition_platformer2d::platformer::world_item_art::{
-                WorldItemArtAppExt, WorldItemArtEntry,
-            };
-            app.register_world_item_art([
-                WorldItemArtEntry::new(
-                    crate::powerups::STAR_WAND_SPRITE,
-                    format!("sprites/props/{}.png", crate::powerups::STAR_WAND_SPRITE),
-                    // Sized from the generated canonical's opaque bbox (53x69px)
-                    // so the wand is not squashed to the carton's old aspect.
-                    ae::Vec2::new(24.0, 31.0),
-                ),
-                // The second rung of the chain. Same seam, same fallback: until
-                // the prop image is published the render draws the row-tinted
-                // quad, so the pickup is always visible.
-                WorldItemArtEntry::new(
-                    crate::powerups::CINDER_BEACON_SPRITE,
-                    format!(
-                        "sprites/props/{}.png",
-                        crate::powerups::CINDER_BEACON_SPRITE
-                    ),
-                    // Likewise from the beacon's bbox (39x59px) — a lantern is
-                    // taller than it is wide.
-                    ae::Vec2::new(24.0, 36.0),
-                ),
-                // The star. Round, and drawn a touch larger than the other two
-                // because it is the rarest thing in the level and should read as
-                // an event from across a screen.
-                WorldItemArtEntry::new(
-                    crate::star::QUASAR_SPRITE,
-                    format!("sprites/props/{}.png", crate::star::QUASAR_SPRITE),
-                    ae::Vec2::new(28.0, 28.0),
-                ),
-            ]);
-        }
+        register_world_item_art(app);
         register_projectile_looks(app);
         {
             use ambition_platformer2d::audio::catalog::AudioCatalogAppExt;
@@ -459,6 +435,59 @@ mod tests {
             spark_size(&authored.replace(scale, "scale: 2.4,")),
             ProjectileRenderSize::Body { min: 0.0, scale: 2.4 }
         );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Each pickup her code spawns has art, and the art is the pack file's
+    /// row: the registered manifest is the file, an edit is the lowered row,
+    /// and a row drawn at no size is refused with its id named.
+    #[test]
+    fn her_pickups_look_as_her_pack_file_states() {
+        use ambition_platformer2d::content::EmbeddedPack;
+        use ambition_platformer2d::items::content_schema::world_item_art::{
+            lowered_world_item_art, WORLD_ITEM_ART_SCHEMA,
+        };
+        use ambition_platformer2d::platformer::world_item_art::WorldItemArtManifest;
+        let mut app = App::new();
+        register_world_item_art(&mut app);
+        let manifest = app.world().resource::<WorldItemArtManifest>();
+        let shipped = lowered_world_item_art(crate::pack::PACK.prepared()).expect("the pack states its pickup art");
+        for id in [crate::powerups::STAR_WAND_SPRITE, crate::powerups::CINDER_BEACON_SPRITE, crate::star::QUASAR_SPRITE] {
+            let row = shipped.get(id).unwrap_or_else(|| panic!("the pickup `{id}` her code spawns has no row"));
+            let entry = manifest.effective().into_iter().find(|entry| entry.sprite_id == id).expect("registered");
+            assert_eq!(
+                (entry.asset_path.as_str(), entry.size.to_array()),
+                (row.path.as_str(), [row.size.0, row.size.1]),
+                "`{id}` is registered as the file states it"
+            );
+        }
+
+        let authored = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/data/world_item_art.ron"))
+            .expect("the demo's pickup art file is readable");
+        let root = std::env::temp_dir().join(format!("mary_o_pickups_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("data")).unwrap();
+        std::fs::write(
+            root.join("pack.ron"),
+            format!(
+                r#"(id: "mary_o_pickups_probe", version: "0.1.0", namespace: "probe", requires: [],
+                    sources: [(path: "data/world_item_art.ron", schema: "{WORLD_ITEM_ART_SCHEMA}", version: 1)])"#
+            ),
+        )
+        .unwrap();
+        let compiled = |text: &str| {
+            std::fs::write(root.join("data/world_item_art.ron"), text).unwrap();
+            EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None).compile()
+        };
+        let size = "size: (28.0, 28.0)";
+        assert_eq!(authored.matches(size).count(), 1, "the probe edits the quasar's row");
+        let edited = compiled(&authored.replace(size, "size: (32.0, 32.0)")).unwrap_or_else(|failure| panic!("{}", failure.render()));
+        assert_eq!(lowered_world_item_art(&edited).unwrap()[crate::star::QUASAR_SPRITE].size, (32.0, 32.0));
+        let refused = match compiled(&authored.replace(size, "size: (28.0, 0.0)")) {
+            Ok(_) => panic!("a quasar drawn at no height was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`super_mary_o_cosmic_quasar.size`"), "the refusal names the row and field: {refused}");
         let _ = std::fs::remove_dir_all(&root);
     }
 

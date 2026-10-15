@@ -189,7 +189,8 @@ restates its rows and loads their sheets again. The intro's catalog sheets
 keep their road (`intro_prop_sprite_rows`). How a moving platform drawn as
 a prop sheet is laid on its platform (the shark, the intro's cart and its
 ramp, Mary-O's lift) is each game's `platform_looks.ron`, and a reload
-restates Ambition's looks. Open, from a census of 2026-10-15: Mary-O's form ladder. Its rungs
+restates Ambition's looks. Mary-O's pickup art (the wand, the beacon, the
+quasar) is her `world_item_art.ron`. Open, from a census of 2026-10-15: Mary-O's form ladder. Its rungs
 name the star wand and the cinder beacon, which are Rust `EquipmentRow`s
 whose spark grant is built from `mary_o_rules.spark`, so a data ladder could
 not be checked against anything in the pack. The ladder moves with those
@@ -727,12 +728,13 @@ reads cargo output to it.
 content-as-data slices had left 18 of its reds (two checks parsed Rust that
 is now `held_item_art.ron`, the fx census parsed the deleted `FX_SHEETS`,
 the gated-test count, a ledger row, a lockfile, a patch, unclassified pack-row
-resources); those are repaired. The 9 left come from the day-cycle,
-`capture_scene` and Hunny commits: foreign ordering 82 edges (ceiling 76),
-the level-box read at `ambition_combat/src/extension.rs:90`, the
-multi-writer verdicts for `DayClock`, `ShieldRingsView`, `SlotControls` and
-`AmbitionGameSave` (`capture_scene.rs`), the session-owner census (it
-misses `DayClock`) and the rewind-boundary census (`ShieldRingsView`).
+resources); those are repaired. The day-cycle reds were fixed at
+c3eeb32cb (its session). Left, from the `capture_scene` and Hunny commits
+(8c35d4b4b, 1b6dda77c): foreign ordering 81 edges (ceiling 76; capture_scene's
+bubble shield, slot controls and shield rings, and the portal plugin), the
+level-box read at `ambition_combat/src/extension.rs:90`, the multi-writer
+verdicts for `ShieldRingsView` and `SlotControls`, and the rewind-boundary
+census (`ShieldRingsView`).
 
 **Open items:**
 

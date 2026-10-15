@@ -1,0 +1,16 @@
+// How each walk-into world item is drawn (schema `world_item_art`, owned by
+// the items capability), by the `sprite` id the item carries: the picture and
+// its size in the world (width, height). Until the publish writes a picture,
+// the render draws the row-tinted quad, so the pickup is always visible. An
+// edit here is drawn at the next start, with no Rust build.
+{
+    // The star wand. Sized from the generated picture's opaque box (53x69 px),
+    // so the wand keeps its aspect.
+    "super_mary_o_star_wand": (path: "sprites/props/super_mary_o_star_wand.png", size: (24.0, 31.0)),
+    // The cinder beacon, the second rung of the chain: from its box (39x59
+    // px); a lantern is taller than it is wide.
+    "super_mary_o_cinder_beacon": (path: "sprites/props/super_mary_o_cinder_beacon.png", size: (24.0, 36.0)),
+    // The quasar. Round, and drawn a little larger than the other two: it is
+    // the rarest thing in the level and is seen from across a screen.
+    "super_mary_o_cosmic_quasar": (path: "sprites/props/super_mary_o_cosmic_quasar.png", size: (28.0, 28.0)),
+}

@@ -25,6 +25,7 @@
 
 pub mod held_item_art;
 pub mod wielded_item_art;
+pub mod world_item_art;
 
 use std::sync::Arc;
 

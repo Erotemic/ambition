@@ -1022,8 +1022,18 @@ variants. Also found in that regen:
     6 s (`test_the_variant_pass_reads_only_the_page_fields`). The pass keys
     freshness on its own mtime, so the first run after a change to the
     script rebuilds every tier once (569 s, measured).
-    Open: the vanity card (56 s) rebuilds whole on each publish; and the
-    staging root.
+    **Built 2026-10-15, the vanity card:** a renderer script (56 s of SVG
+    rasterizing) that ran on every publish. It is now keyed as a target is
+    (`script_key`: the core, its two scripts, the robot target it imports,
+    and the five files its last run read, recorded by `read_record`) and
+    skipped when the key holds
+    (`test_a_script_that_is_not_a_target_is_keyed_as_a_target_is`).
+    **Measured end to end:** a publish with no target to render and the
+    whole-run fingerprint removed: 231 s wall (was 609 s). Of it, Ultrapack
+    129 s (its full tier; half of that is PNG encoding, and a sheet edit
+    re-packs every page), the tack-on batch's freshness checks 39 s, the
+    LDtk tilesets 25 s, the variants 10 s.
+    Open: the staging root.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

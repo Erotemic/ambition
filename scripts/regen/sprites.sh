@@ -1886,8 +1886,51 @@ fi
 # The exporter is pure PIL over the committed rig JSON (no Blender), and it
 # rewrites the manifest from the same bake, so the two cannot drift.
 phase "director vanity card (part sheet + baked placements → $content_assets_dir/vanity_card_made_this_meme)"
-if ! run_renderer_python "vanity-card" scripts/export_director_vanity_card.py 2>&1 | sed 's/^/  /'; then
-    regen_failures+=("director vanity card: exporter reported a failure")
+# The card is a render of the director's rig: about 56 s of SVG rasterizing,
+# and it ran on every publish (measured 2026-10-15). It is keyed as a target
+# is (`script_key`): the core, its two scripts, the robot target it imports,
+# and the files its last run read, which this run records. A run with the
+# same key and both outputs present is skipped.
+vanity_record="$target_reads_dir/director_vanity_card.reads"
+vanity_key_file="$cache_dir/director_vanity_card.key"
+vanity_dir="$content_assets_dir/vanity_card_made_this_meme"
+vanity_ron="$content_assets_dir/data/vanity_card_made_this_meme.ron"
+vanity_key="$(script_key "$vanity_record" "player_robot_v3" \
+    scripts/export_director_vanity_card.py scripts/render_director_vanity_dialog.py)"
+if [ -d "$vanity_dir" ] && [ -f "$vanity_ron" ] && [ -f "$vanity_key_file" ] \
+    && [ "$(cat "$vanity_key_file")" = "$vanity_key" ]; then
+    echo "  current: no input changed since the last export"
+else
+    rm -f "$vanity_key_file"
+    if run_renderer_python "vanity-card" - "$repo_root" "$vanity_record" "$vanity_dir" "$vanity_ron" \
+        2>&1 <<'PYEOF' | sed 's/^/  /'
+import runpy
+import sys
+from pathlib import Path
+
+from ambition_sprite2d_renderer import read_record
+
+root, record, *outputs = sys.argv[1:]
+renderer = Path.cwd()
+read_record.start(
+    Path(root),
+    [renderer / "ambition_sprite2d_renderer" / "generated", renderer / ".cache", *map(Path, outputs)],
+)
+sys.argv = ["scripts/export_director_vanity_card.py"]
+try:
+    runpy.run_path("scripts/export_director_vanity_card.py", run_name="__main__")
+except SystemExit as done:
+    if done.code not in (None, 0):
+        raise
+read_record.write(Path(record))
+PYEOF
+    then
+        # Keyed again: the record this run wrote is part of the key.
+        script_key "$vanity_record" "player_robot_v3" \
+            scripts/export_director_vanity_card.py scripts/render_director_vanity_dialog.py >"$vanity_key_file"
+    else
+        regen_failures+=("director vanity card: exporter reported a failure")
+    fi
 fi
 
 if ! run_quality_variants; then

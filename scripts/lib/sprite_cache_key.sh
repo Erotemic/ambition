@@ -214,6 +214,29 @@ hash_reads() {
     )
 }
 
+# The key of a renderer script that is not a target (the director vanity
+# card): the shared core, the script files `$3...` (relative to the renderer),
+# each target in the space-separated list `$2` that the scripts import (its
+# files and its reads), and what the script's last run read (the record `$1`,
+# written by `read_record`). A script with no record has never run under one,
+# so its key is one that no stored key can equal.
+script_key() {
+    local record="$1" targets="$2" target
+    shift 2
+    {
+        printf '%s\n' "$core_shared_fingerprint"
+        (cd "$renderer_dir" && sha256sum "$@")
+        for target in $targets; do
+            leaf_hash "$target"
+        done
+        if [ -f "$record" ]; then
+            hash_reads "$record"
+        else
+            printf 'unrecorded %s %s %s\n' "$record" "$(date +%s%N)" "$RANDOM"
+        fi
+    } | sha256sum | awk '{print $1}'
+}
+
 unit_key() {
     printf '%s:%s' "$core_shared_fingerprint" "$(leaf_hash "$1")" \
         | sha256sum | awk '{print $1}'

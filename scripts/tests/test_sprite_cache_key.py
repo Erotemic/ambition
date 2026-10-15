@@ -269,3 +269,44 @@ def test_an_authored_edit_during_the_publish_saves_no_fingerprint(renderer: Path
     call the edit published."""
     run = publish(renderer, f"echo '<!-- edited -->' >> {renderer / PKG / 'data' / 'characters' / 'gamma' / 'gamma.svg'}")
     assert run["saved"] == "none"
+
+
+def script_keys(renderer: Path, record: Path) -> str:
+    """`script_key` of a script that imports target `alpha`, by the library."""
+    script = f"""
+        set -euo pipefail
+        source {LIB}
+        renderer_dir={renderer}
+        repo_root={renderer.parent}
+        target_closures_file={renderer.parent / 'closures.tsv'}
+        target_reads_dir={renderer.parent / 'reads'}
+        core_target_files={PKG}/targets/fam/_shared.py
+        core_shared_fingerprint="$(compute_core_shared)"
+        script_key {record} alpha scripts/card.py
+    """
+    return subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=True).stdout.strip()
+
+
+def test_a_script_that_is_not_a_target_is_keyed_as_a_target_is(renderer: Path) -> None:
+    """The director vanity card is a script, not a target, and it re-rendered
+    on every publish (56 s, measured 2026-10-15). Its key moves with its own
+    file, the target it imports and what it read, and with nothing else."""
+    (renderer / "scripts").mkdir()
+    (renderer / "scripts" / "card.py").write_text("CARD = 1\n")
+    data = f"renderer/{PKG}/data/characters"
+    record = renderer.parent / "reads" / "card.reads"
+    record.write_text(f"f {data}/gamma/gamma.svg\n")
+    before = script_keys(renderer, record)
+    assert script_keys(renderer, record) == before, "control: the key is stable"
+    edit(renderer, "beta.py")
+    assert script_keys(renderer, record) == before, "an edit the script does not read moved its key"
+    (renderer / PKG / "data" / "characters" / "gamma" / "gamma.svg").write_text("<svg>edited</svg>\n")
+    after_read = script_keys(renderer, record)
+    assert after_read != before, "an edit to a file the script read kept its key"
+    edit(renderer, "_rig_a.py")
+    after_target = script_keys(renderer, record)
+    assert after_target != after_read, "an edit to the target the script imports kept its key"
+    (renderer / "scripts" / "card.py").write_text("CARD = 2\n")
+    assert script_keys(renderer, record) != after_target, "an edit to the script kept its key"
+    record.unlink()
+    assert script_keys(renderer, record) != script_keys(renderer, record), "a script with no record matched a key"

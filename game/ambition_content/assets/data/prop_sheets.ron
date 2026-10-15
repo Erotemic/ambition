@@ -26,7 +26,12 @@
     "temple_gate_wheel_3": (),
     "temple_gate_wheel_1_shut": (),
     "temple_gate_bell": (),
-    // The Math town: the gate's cradle and the house fronts.
+    // The Math town. The cradle is the stand a gate ring sits in: a plinth
+    // with stairs at each end (walked on zero-speed one-way platforms the
+    // room places) and two pylons that hold the ring. The house fronts
+    // (`targets/props/math_town_facades.py`) are decoration; a balcony or roof
+    // a body can stand on is a one-way platform the room places where the
+    // art draws it.
     "gate_cradle": (),
     "math_house_rose": (),
     "math_house_dome": (),

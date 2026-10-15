@@ -21,9 +21,6 @@ use ae::AabbExt;
 use bevy::prelude::*;
 use ambition_content_schemas::rules::SwallowFetch;
 
-/// The `Prop` kind of the coconut palm, and its renderer target.
-pub const COCONUT_PALM_KIND: &str = "coconut_palm";
-
 /// The catalog row of the bird that carries coconuts, and what it carries.
 pub const COCONUT_CARRIER: &str = "african_swallow";
 pub const COCONUT: &str = "coconut";

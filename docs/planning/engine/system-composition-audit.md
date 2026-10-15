@@ -4,7 +4,8 @@
 that make a game run only what it uses. **Owners it feeds:**
 [capability and runtime composition](capability-and-runtime-composition.md)
 (profiles), [performance and iteration](performance-and-iteration.md) (Android
-CPU). **Status:** audit measured 2026-10-14; the plan is a draft for Jon.
+CPU). **Status:** audit measured 2026-10-14; plan reviewed 2026-10-14 (S1
+and the S2 inventory approved, then a review).
 
 ## How to measure
 
@@ -69,48 +70,78 @@ VM draws with a software renderer, which takes about 70% of its samples.
 
 ## Plan
 
-Each step names the count that shows it worked. The ratchet is
-`[census] systems_ran` per game: hub Mary-O should come down to standalone
-Mary-O, and standalone Mary-O should come down to what Mary-O uses.
+A smaller `systems_ran` is evidence, not the goal. Each step reports these
+separately: fixed-step CPU time, frame time (median and tail), systems
+registered and run, capabilities installed, the Cargo closure, and the
+composition code the change added. A change that saves CPU by adding a
+registry, a global resource or a dependency edge is not accepted without a
+review. The hub has a frontend that standalone games do not, so its target is
+no foreign game's gameplay running, not standalone's total.
 
 ### S1 — Serialize the fixed schedules in every host (small)
 
-Put `FixedFirst` through `FixedLast` in `serialize_frame_schedules`, or measure
-first with `AMBITION_MAIN_SCHEDULES_SINGLE_THREADED=1` (it already covers
-them) in `scripts/headless_room_frame.sh`. Evidence: finding 5 and the earlier
-headless measurement in `serialize_frame_schedules`'s comment. Done when a
-standalone demo's frame time with and without the change is recorded.
+Put `FixedFirst` through `FixedLast` in `serialize_frame_schedules`. Measure
+first, with care:
+
+- `AMBITION_MAIN_SCHEDULES_SINGLE_THREADED=1` is read only by `ambition_app`.
+  It does not reach a standalone demo, whose host does not use that path. The
+  switch must be in the shared composition (`serialize_frame_schedules`) so
+  one executable runs both arms.
+- Bevy 0.19 cannot say which executor a schedule has. The run reports the
+  executor that the switch installed, per schedule, and the A/B counts context
+  switches, which a serial executor makes fewer of.
+- Same optimized executable, warm-up, repeated runs. Fixed-step time and
+  frame time apart; ticks per frame; simulation state equal in both arms.
+  Headless standalone Mary-O and the hub's Mary-O route, with enemies in the
+  room, then a GPU host and the phone.
+- The render sub-app and the GGRS schedules are out of scope (the render app
+  keeps its own executor; GGRS is serial already).
+
+Done when both arms are recorded. If one composition gains and another loses,
+the host chooses the executor.
 
 ### S2 — A game's own content runs only in its session (medium)
 
-Each game's plugin puts its systems in one set with one run condition: "this
-game's session is active". The condition is evaluated once for the set, so
-a game that is not active costs one check, not its systems (finding 4). The
-shell already knows the active route. Candidates, by count: `ambition_content`,
-`ambition_demo_smash`, `ambition_demo_mary_o`, `ambition_app`'s gameplay
-systems, `ambition_demo_sanic`. Done when, in the hub, no game crate runs
-systems while another game plays.
+Inventory first (`AMBITION_SYSTEM_LIST`): each game-owned system that runs
+while another game plays, in one of five groups: session gameplay (sleeps),
+process services (run always), preparation and activation, retirement, and
+presentation (its own view lifetime). Only the first group is gated.
+
+Use the scope that exists: `in_rules_scope` and `in_base_mode`/`in_mode`
+(`ambition_platformer2d_runtime::mode_scope`), which Mary-O and Sanic already
+use. No new active-game resource. The scope follows the room, not the
+frontend route, so an incoming session can prepare and an outgoing one can
+retire. One set per game per schedule, since a game's systems are in more than
+one schedule.
+
+Done when the hub runs no foreign game's gameplay, and a lifecycle test passes:
+Ambition, Mary-O, Smash, Mary-O, with a room transition and a replay; the
+second Mary-O behaves as the first.
 
 ### S3 — Each game declares the engine capabilities it uses (large)
 
-Extend `Capability` with the features finding 2 names (boss encounters are
-there; add Smash grabs and throws, the Smash moveset, mounts, conversation and
-the others the census shows), and make each demo host build
+Inventory first: for each feature finding 2 names, its consumers and a
+boundary that makes sense as one capability (grabs and throws together; the
+Smash moveset only after the generic actions Mary-O uses are separated out;
+mounts only with their lifecycle duties). Not a list of system switches. Then
+extend `Capability` and make each demo host build
 `PlatformerEnginePlugins::for_profile` with its own profile. In the hub, the
 same capabilities are gated per session, as in S2. This follows the existing
 contract in [capability and runtime composition](capability-and-runtime-composition.md):
 supported absence is a tested profile, not an `Option` sprinkled over systems.
-Done when standalone Mary-O does not register the systems of a capability it
-omits, and its supported-profile tests pass.
+Report not installed and not linked apart. Target three profiles made from the
+same capabilities: a minimal platformer, Mary-O, and a Smash fighter. Done when
+standalone Mary-O does not register the systems of a capability it omits, and
+its supported-profile tests pass, with content that needs an omitted
+capability refused at admission.
 
-### S4 — Gate per feature, at the set, by work (medium, after S2 and S3)
+### S4 — Gate by work, only where it is measured (after S2 and S3)
 
-Inside a capability that a game uses, a system with no work still runs. Group
-each feature's systems in a set behind one cheap condition (an entity with the
-feature's marker exists, or its message queue is not empty). Prefer one set
-condition to one condition per system: the hub registers 286 system
-conditions and 87 set conditions. Done when the ran/registered share falls well under the
-present 75%.
+On a single-threaded schedule an idle system with nothing to match is about as
+cheap as one behind a false condition (`dev/bevy_idle_systems`), so a
+condition on a cheap system saves nothing. Gate only a group whose cost a
+timing shows, with a condition that is cheap and that cannot hide work a
+producer makes later in the same tick. A few gates, not one per system.
 
 ### S5 — Third-party per-frame costs (small, parallel)
 
@@ -127,7 +158,9 @@ owners of those resources; do not mix it with S1-S4.
 
 ## Order
 
-S1 first: it is small and finding 4 says it can be large. Then S2, which has
-the largest effect on the hub, where Android Mary-O runs. S3 is the structural
-change; S4 is the pass after it. Measure frame time on the phone after each
-step with `profile_android.sh`.
+S1 and the S2 inventory first, then a review before any structural change.
+S2 has the largest effect on the hub, where Android Mary-O runs. S3 is the
+structural milestone, and the question it asks of the monolith is "which
+capabilities put work and dependencies on games that did not ask for them".
+S4 is the pass after it. Measure frame time on the phone after each step with
+`profile_android.sh`.

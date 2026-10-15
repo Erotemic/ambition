@@ -1033,66 +1033,10 @@ pub fn announce_body_restarts(
     }
 }
 
-/// Reset a live player back to spawn while preserving the
-/// `BodyAbilities` and raising the [`BodyRestartLatch`].
+/// Facing policy supplied by the caller of `reset_body_clusters`.
 ///
-/// The pose snap is a discrete TRANSIT ([`crate::movement::transit_body`], the
-/// ADR 0024 authority): it also reconciles model-private attachment, so a
-/// riding momentum body or an attached crawler cannot carry a stale surface
-/// identity into the destination room/spawn. A body reset is a full respawn,
-/// so the axis policy's private maneuver state is reset wholesale too.
-///
-/// `air_jumps_default` is the mid-air jump count to restore when the body's own
-/// `BodyAbilities` does not name one. `facing` is the direction the body comes
-/// back looking — see [`ResetFacing`] for why the reset does not decide it.
-///
-/// ```ignore
-/// ae::reset_body_clusters(..);
-/// // reset_body_clusters uses DEFAULT_TUNING for the post-reset dash/jump
-/// // refresh; redo with the live tuning so a F3 live-tuning session sees its
-/// // overridden air_jumps / dash_charge_count immediately after a reset.
-/// ae::refresh_movement_resources_clusters(..);
-/// ```
-///
-/// Every other caller did not, and got default air jumps after a reset with
-/// nothing saying so. An authority that requires a follow-up call is not an
-/// authority — it is a two-step ritual, and the second step is the one people
-/// forget. Now the question is asked at the call site, where the answer is.
-/// Which way a reset body should be looking.
-///
-/// ⛔⛤ **`reset_body_clusters` USED TO HARDCODE `facing = 1.0`, A FACT IT DOES
-/// NOT OWN — MEASURED 2026-09-21.** Where a body comes back is the caller's
-/// answer (that is what `spawn` is for); which way it LOOKS is the same kind of
-/// answer, and the reset was deciding it. In the smash demo's mirror rig the
-/// two seats respawn on opposite sides of stage centre, so the seat that lands
-/// on the RIGHT came back facing away from its opponent: at paired decision
-/// #418 of a `--rungs 6,6 --seeds 1` mirror bout both seats printed `facing=+1`
-/// with their bodies 64px apart at x=288 and x=352, and the returning
-/// right-hand fighter's first aerial resolved `air_back` where its mirror image
-/// got `air_forward` — a different move, with different damage and startup, on
-/// the first swing after every death, decided by nothing but which side of
-/// centre the seat respawns on.
-///
-/// ⚠ 64px is the point: no deadzone or float story reaches that far. The two
-/// bodies' positions mirrored exactly and the facing did not, which is what
-/// says the asymmetry is a hardcode rather than a rounding.
-///
-/// ⛔ **AND THIS IS THE SECOND FIELD, NOT THE FIRST.** `reset_body_clusters`
-/// hardcoded the default body SIZE too, which sent a grown Mary-O who fell in a
-/// pit back small while still wearing the cap (fixed `4e4bd0fd8`, recorded in
-/// `docs/planning/demos/super-mary-o.md`). That repair argued the case at
-/// length two lines above the facing write and then fixed one field. The class
-/// is the point: a reset restores engine-owned state, and anything an
-/// AUTHORITY OUTSIDE THE ENGINE decided is not that.
-///
-/// ⚠ A body's RESOURCES were the third field of this shape: a Smash fighter's
-/// Limit is built EMPTY at seating where a Mana pool starts full, so a reset
-/// that picked one start handed a respawning fighter the wrong one. The reset no
-/// longer picks: every banked resource returns to the start it was DECLARED
-/// with (`ActorResources::reset_to_start`).
-///
-/// The same lesson this function's own doc already records for
-/// `air_jumps_default`: an authority that silently picks is not an authority.
+/// A reset must not assume every actor faces right. `Keep` retains
+/// the current facing; `Toward` selects a nonzero signed direction.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ResetFacing {
     /// Leave the body looking whichever way it already was.
@@ -1111,18 +1055,8 @@ pub fn reset_body_clusters(
     air_jumps_default: u8,
 ) {
     let abilities = clusters.abilities.abilities;
-    // A reset restores the body to its BASE size; it does not redefine what the
-    // base IS. `base_size` is IDENTITY-derived — a worn form, a mount, a boss
-    // phase — and only the authority owning that identity may write it. Hardcoding
-    // the default here silently unmade any identity-driven size on every reset:
-    // a grown Super Mary-O who fell in a pit came back with a SMALL collider while
-    // still wearing the cap and still presenting the tall sprite, and her own
-    // `sync_grown_form` could not repair it because it compares equipment against
-    // `WornCharacter` (which the reset left tall) rather than against the collider.
-    // Hitbox and identity disagreed, invisibly, until the next hit.
-    //
-    // A default-constructed body's `base_size` is already the default player size,
-    // so nothing that never sets an identity size changes behavior.
+    // The base size is derived from the worn identity or form. A reset
+    // restores that size; it must not replace it with the engine default.
     let body = clusters.base_size.base_size;
     let dash_charges = abilities.dash_charge_count();
     let air_jumps = abilities.air_jump_count(air_jumps_default);

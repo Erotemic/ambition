@@ -339,39 +339,12 @@ mod tests {
     }
 }
 
-/// Answer a cut conversation's bark request. (sim)
+/// Resolve the text for a bark requested by the conversation domain.
 ///
-/// the CAST half of the continuity port. `ambition_conversation::rules` decides a
-/// conversation broke and says WHO should speak; this decides WHAT they say,
-/// because that needs the character catalog, the prepared registry and the
-/// `Interactable` → character-id resolution — none of which is about continuity.
-/// Splitting it this way is what removes `conversation`'s only two edges back
-/// into this crate (`docs/planning/engine/actor-monolith-decomposition.md`).
-///
-/// ⛔⛤ **THE CATALOG IS REQUIRED, AND THE `Option` IT REPLACED PROTECTED NOTHING
-/// — `Q111`, ANSWERED 2026-09-13.** This parameter used to read
-/// `Option<bevy::prelude::Res<CharacterCatalog>>`, justified by *"a composition
-/// with no catalog (a demo, a headless fixture) must still break conversations,
-/// and losing an unwritten line is not worth failing over."*
-/// `engine.character-authority-is-app-local` forbids exactly that shape —
-/// *"production code may not … silently substitute an empty catalog, make those
-/// resources optional"* — and **the guard could not see this line**, for two
-/// independent reasons: it sat past the file's first `#[cfg(test)]`, and its
-/// spelling (`Option<bevy::prelude::Res<…>>`) is not one of the two the policy
-/// enumerated. Both are fixed; see the policy's needles.
-///
-/// ⭐⭐ **AND THE JUSTIFICATION WAS FALSE BY A BOUNDARY, NOT BY A COUNT.** This
-/// system is registered by `FeatureInteractionSchedulePlugin`, which
-/// `ambition_platformer2d_runtime`'s plugin group adds — and the SAME group adds
-/// `BrainCommandPlugin`, whose `apply_brain_commands` takes a REQUIRED
-/// `Res<CharacterCatalog>` in the same sim schedule. ⇒ A composition with no
-/// catalog panics there before any bark is spoken. The `Option` described a state
-/// that cannot exist wherever this system runs, and it is the census-of-writers
-/// shape a boundary replaces.
-///
-/// ⚠ An UNAUTHORED bark is still not a failure — `npc_ambient_bark_line`
-/// answering `None` skips the line, which is the part of the old reason that was
-/// always right and is unchanged.
+/// The character catalog is required because this system resolves the
+/// speaker's identity and authored dialogue. A missing authored bark is
+/// valid and produces no speech. Conversation continuity decides when
+/// to request a bark; character runtime decides what it says.
 pub fn speak_conversation_cut_barks(
     mut requests: bevy::prelude::MessageReader<ambition_conversation::ConversationCutBark>,
     speakers: bevy::prelude::Query<(

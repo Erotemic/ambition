@@ -212,28 +212,11 @@ impl Admission {
     }
 }
 
-/// ⛔⛔ FOUR VARIANTS WERE DELETED HERE, 2026-08-30: `DeathReset`,
-/// `ManualReset`, `Replay` and `FullReset`. Nothing recorded any of them — the
-/// commit executor's own comment said so — and a stray one would have returned
-/// `CommitOutcome::Retry` forever, which is a silent stall wearing an
-/// exhaustive match's clothes. Every road that ends a room now records the one
-/// thing a lifecycle boundary actually does: `Transition`. A same-room replay
-/// is a transition to the room you are standing in.
+/// Lifecycle operation recorded at a simulation frame for later commit.
 ///
-/// ⭐ ONE VARIANT IS NOT A MISTAKE. The enum is the vocabulary the pending slot
-/// is about — "one lifecycle operation at a time" — and a new variant is
-/// welcome the day it arrives WITH ITS CONSUMER. It was the four that arrived
-/// without one.
-///
-/// ✔ AND ONE ARRIVED, 2026-08-31: [`LifecycleIntent::ReconstituteRoom`], under
-/// exactly that condition. Unlike the deleted four, something records it
-/// (`admit_room_replay`'s bodyless arm, which until now admitted a replay
-/// without ever taking this slot) and something executes it. It is also not one
-/// of the four coming back: those were in-place resets that a same-room
-/// transition already covers, whereas this one exists because a room rebuild
-/// with NO BODY cannot be described as a crossing at all.
-///
-/// One deferred lifecycle op, stamped with the sim frame that produced it.
+/// A same-room replay with a body is a `Transition`; a bodyless room
+/// rebuild is `ReconstituteRoom`. Every intent variant must have an
+/// admitting producer and a commit executor.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PendingIntent {
     /// The sim frame that recorded this intent (`ConfirmedFrameBoundary::current`

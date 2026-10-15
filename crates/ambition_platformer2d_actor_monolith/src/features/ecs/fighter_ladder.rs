@@ -6,55 +6,16 @@
 
 use ambition_characters::brain::{Brain, StateMachineCfg};
 
-/// Project the game's authored fighter difficulty rung into fighter brains.
+/// Apply each live room's authored difficulty ladder to its fighters.
 ///
-/// The ladder is a rule of the rooms it governs (Q88: the game owns the
-/// mapping from "CPU level N" to the brain's knobs). Each brain reads the
-/// ladder declared for its own live room: Smash's in a Smash room, Ambition's
-/// in an Ambition room. A brain in a room that no game gave a ladder keeps the
-/// profile it was built with, the engine floor.
+/// Rooms without a ladder keep their constructed fighter profile. Update
+/// `FighterState` only when a rung differs, preserving the noise-stream
+/// position. Do not filter on `Added<Brain>`: hidden candidates can become
+/// live after their added tick is no longer visible to this system.
 ///
-/// Rebuild `FighterState` so profile-cached perception and habit fields match the
-/// authored rung, while preserving the fighter's existing noise-stream position.
-/// The projection is idempotent and only rewrites when the rung differs.
-///
-/// ⛔⛤ **IT USED TO FILTER ON `Added<Brain>`, AND THAT DOES NOT COMPOSE WITH A
-/// DISABLING COMPONENT.** A candidate session builds its whole population
-/// behind `InactiveCandidate`, which ordinary queries cannot see, while the
-/// LIVE session keeps running this system every frame. Change detection
-/// compares a component's added tick against the SYSTEM'S last run, so by the
-/// time a candidate is adopted its brains are no longer newly added — and this
-/// is the only production consumer of the authored ladder, so such a
-/// fighter kept `FighterBrainProfile::for_level`, the ENGINE FLOOR, in a game
-/// that authored a ladder. Silent: a floor profile is a valid profile.
-///
-/// ⚠ THE FILTER IS GONE RATHER THAN WIDENED, because there is no tick-based
-/// filter that a disabling component cannot step past. The pass is idempotent
-/// and writes only when the rung differs, so the cost is one profile
-/// comparison per fighter per tick.
-///
-/// ⛔ AND THE READ IS IMMUTABLE ON PURPOSE. `&mut *brain` on every fighter
-/// every tick would mark `Brain` changed for every other change-detection
-/// reader in the schedule, which is a busier thing than the projection it
-/// would be reporting. The mutable borrow is taken only by the fighter that is
-/// actually being rewritten.
-///
-/// ⛔⛤ **IT MUST STAY IN THE SIMULATION SCHEDULE, AND THAT IS A TRANSACTION
-/// CONSTRAINT RATHER THAN A PERFORMANCE ONE.** A 2026-09-19 review raised it:
-/// The content ladder is a declaration that `commit_content_generation`
-/// restates at generation N+1 partway through
-/// `Update` — `.after(AmbitionGameShellSet::Pending)`, `.before(GameplaySessionSet::Providers)`
-/// — and the candidate that owns N+1 is adopted at the far end of that span.
-/// A projection running inside the span would rewrite the LIVE session's
-/// fighters to a generation that is not yet authoritative, which is exactly
-/// the split the reload architecture exists to prevent.
-///
-/// ⇒ It cannot, because this host advances the simulation from `PreUpdate`
-/// (`RunGgrsSystems`) and the whole commit-to-adoption span is inside one
-/// `Update` pass. **Moving this system into `Update` opens the hole**, and so
-/// does moving the advance out of `PreUpdate`. Held by
-/// `reload_publication_is_installed::no_simulation_tick_falls_between_the_generation_commit_and_its_adoption`,
-/// poison-verified by registering this system in `Update` as well.
+/// Keep this projection in the simulation schedule. Running it between
+/// content-generation commit and candidate adoption could apply a new
+/// ladder to fighters in the outgoing session.
 pub fn project_authored_fighter_ladder(
     ladders: crate::session::governing_rules::RulesOf<ambition_characters::brain::fighter::FighterBrainLadder>,
     mut brains: bevy::prelude::Query<(bevy::prelude::Entity, &mut Brain)>,

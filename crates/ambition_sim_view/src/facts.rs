@@ -317,29 +317,9 @@ pub fn rebuild_held_item_view(
     )>,
     landmarks: ambition_combat::body_landmarks::BodyLandmarks,
 ) {
-    // ⛔⛔ THIS READ ONLY `ControlledSubject`, so exactly ONE held item was ever
-    // drawn — in a couch match seat one's drawn weapon was invisible, and in a
-    // CPU-versus-CPU match neither Admiral's gun-sword showed at all. The
-    // argument against that is written twelve lines below for a sibling view:
-    // *"it is plural: a couch-versus match has two driven bodies and neither is
-    // more protected than the other, because a rule that privileges one
-    // participant stops being a rule about bodies."* Same rule, same reason.
-    //
-    // ⛔⛔ AND `With<DrivingParticipant>` WAS STILL THE WRONG POPULATION, which
-    // the plural fix did not go far enough to see: a weapon is visible because a
-    // BODY holds it, not because a human drives that body. The Admiral's side-B
-    // draws `admiral_gun_sword`, which is registered in the IN-HAND art manifest
-    // and nowhere else, so a CPU Admiral's gun-sword was drawn by no road at all
-    // — and a match fighter carries no `ActorDisposition`, so the over-hand road
-    // could not pick it up either.
-    //
-    // ⇒ every holder now, minus the ones the over-hand road claims. See
-    // [`drawn_over_the_hand`] for why that subtraction is a partition and not a
-    // carve-out.
-    //
-    // ⛔ SORTED BY `SimId`, because this is a Vec built in query order and the
-    // consumer spawns one visual per row: unsorted, two held items would swap
-    // draw order between runs.
+    // Include every eligible holder, not only a controlled participant.
+    // Over-hand presentation owns its separate partition. Sort rows by
+    // stable SimId to keep drawing order independent of ECS iteration.
     let mut rows: Vec<_> = bodies
         .iter()
         .filter(|(_, _, _, _, _, disposition, health, _, _)| {

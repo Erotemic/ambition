@@ -834,32 +834,12 @@ impl Plugin for AmbitionGamePresentationPlugin {
     }
 }
 
-/// Warn when a sheet a CHARACTER resolves art by lost its key to a different
-/// grid.
+/// Warn if a character resolves a sheet filename shadowed by another grid.
 ///
-/// ⭐⭐ **§19 (2026-08-22) changed what a shadow MEANS here, and the old reading
-/// is worth stating because it is what this function was written for.** The
-/// registry used to key by `record.target`, so a shadow was a shared RIG
-/// ADAPTER: 18 sheets declare `robot`, 16 declare `toon`, 9 declare `goblin`,
-/// and the check fired ~30 times per Android boot on collisions that were mostly
-/// legitimate. Keyed by FILE ROOT that class is gone — a rig target is not a key
-/// at all, so `robot` and `tech_bro_disruptor` no longer compete.
-///
-/// What a shadow means NOW is narrower and still real: **one sheet FILENAME
-/// exists in two sprite directories publishing different art.** `shrine` is the
-/// only one in the tree today (`sprites/` and `sprites/props/`) and the two files
-/// are byte-identical, so nothing fires. If they ever diverge, a character naming
-/// `shrine` would load one image and crop it with the other's grid — the same
-/// day-long failure a stale May manifest caused on
-/// `pirate_heavy_broadside_bess`.
-///
-/// ⛔ the catalog filter stays for the same reason it was added: the sheet crate
-/// can see that a key was claimed twice and CANNOT see whether anything resolves
-/// art by it. Only a caller with a catalog knows that.
-///
-/// `Option` on both, and that is not defensive padding. A composition may
-/// legitimately reach here with neither — a headless tool, a demo that mounts no
-/// Ambition cast — and the correct behaviour there is to say nothing.
+/// Sheet keys are file roots, not rig target names. A filename collision
+/// matters when the character catalog points to the losing image while
+/// the registry resolves the winning grid. Compositions without a cast
+/// or sheet registry have nothing to check.
 fn report_shadowed_character_sheets(
     registry: Option<bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SheetRegistry>>,
     catalog: Option<

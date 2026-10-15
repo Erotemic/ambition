@@ -3285,30 +3285,10 @@ pub fn translate_authored_capture_effects(
         let ambition_characters::brain::action_set::SpecialActionSpec::Special(key) = spec;
         match key.as_str() {
             ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT => {
-                // ⛔⛔ THIS COMMENT PROMISED A STARTUP CHECK THAT DOES NOT
-                // EXIST — corrected 2026-09-05 after ToothbrushAmbition counted
-                // the callers. It said a params typo "is a STARTUP error, not a
-                // silent default", because the key "registers `check_hydrates`
-                // with the param-schema registry". Nothing does.
-                // `ParamSchemaRegistry` has ZERO production users: `register`
-                // and `validate_all` are called only from
-                // `ambition_entity_catalog`'s own tests, and the type is not
-                // mentioned outside that crate. The registry is never populated
-                // in any shipped build.
-                //
-                // ⇒ SO THIS `Err` ARM IS NOT A LAST RESORT, IT IS THE ONLY
-                // THING between a fighter's bad grab data and a grab that
-                // silently does nothing. The old comment's conditional —
-                // "reaching here means the registration is missing" — was
-                // unconditionally true. The log fires; nothing fails at startup.
-                //
-                // ⚠ NOT KNOWN TO BE FIRING: whether any authored fighter has
-                // params that fail to hydrate was NOT established, so this is a
-                // missing guard rather than a broken grab. ⇒ Making it a real
-                // startup error is O4's business (the installed-technique
-                // catalog), and the first step is smaller than it looks —
-                // something must tell the registry that anything exists at all
-                // before it can answer "`smash.teleprot` does not exist".
+                // This hydration error is reported at use time. The
+                // `ParamSchemaRegistry` is not installed by the shipped
+                // host, so do not assume invalid capture params were
+                // rejected during startup.
                 match params.hydrate::<ambition_entity_catalog::smash_capture::CaptureAttemptParams>() {
                     Ok(p) => attempts.write(super::CaptureAttemptRequested {
                         captor: message.actor,

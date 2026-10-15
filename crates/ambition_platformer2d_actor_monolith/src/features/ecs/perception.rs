@@ -355,48 +355,10 @@ pub fn collect_perception_peers(
         frame,
     ) in &bodies
     {
-        // ⛔⛤ **THE MECHANICAL ROAD HAS NO FALLBACK FROM CANONICAL IDENTITY TO
-        // `Entity`, AND FOR A DAY IT HAD ONE.** This was
-        // `.unwrap_or_else(|| format!("e{}", entity.index()))`, waived on the
-        // reasoning that a shipped composition builds no body carrying neither
-        // identity. That is not an invariant the structure enforces:
-        // `ensure_sim_id` DECLINES — `error!`, `debug_assert!`, `continue` — for a
-        // `BodyKinematics` body with neither `FeatureId` nor `PrimaryPlayer`,
-        // leaving the mint to the spawn site, so a future spawn road or a
-        // downstream composition can put an allocation-order artefact straight
-        // back into peer-mechanical memory. Named by the GPT architecture review
-        // of 2026-09-16, one commit after the measured divergence was repaired.
-        //
-        // **WHY THIS IS THE KEY AND NOT JUST A LABEL.** The id becomes the KEY of
-        // `WorldMemory::actors`, a `BTreeMap<String, RememberedActor>` inside
-        // `PerceptionMemory`, which is registered `rollback_component_canonical`
-        // and therefore compared between peers whole. MEASURED: the same shipped
-        // route perceived the player as `e888` in one host and `e1026` in
-        // another. ⚠ And the checksum is the smaller half — that map's own doc
-        // says it is a `BTreeMap` because *"`last_known_hostile` takes the
-        // `max_by` confidence over these, and two hostiles both in view are both
-        // at confidence `1.0` — so the tie is broken by iteration order"*, so
-        // index-built keys make an NPC chase a different target on each peer.
-        //
-        // ⇒ **SKIPPING IS THE DETERMINISTIC ANSWER AND THE INDEX WAS NOT.** A
-        // body no peer can name is unnameable on BOTH peers, so declining to
-        // perceive it agrees; an index disagrees. `FeatureId` stays FIRST because
-        // that is what hostility and targeting look bodies up by.
-        //
-        // ⚠ `debug_assert` RATHER THAN A PANIC, the same trade
-        // `ensure_sim_id`'s decline states: a fail-closed check here would pause
-        // a working game over a body that is very likely harmless. The `error!`
-        // carries it in release.
-        //
-        // ⛔⛤ **AND THE POPULATION IT FIRES ON WAS NOT ONLY WHAT A TEST
-        // CONSTRUCTS — THAT SENTENCE STOOD HERE FOR A DAY AND THE FIRST FULL APP
-        // RUN REFUTED IT.** `ensure_sim_id` sweeps at the HEAD of the frame and
-        // again at the TAIL; this system runs between them, so a body spawned
-        // mid-frame is unnameable HERE and named by the end of the tick. The
-        // shipped player was exactly that on a route re-entry. Fixed where the
-        // rule points — `PlayerIdentityBundle` mints `SimId::player_slot(slot)`
-        // at construction — so what this assert pins now is the general claim:
-        // nothing reaches perception unnameable, mid-frame arrivals included.
+        // Perception memory is rollback state. Its keys must be stable
+        // across peers: prefer FeatureId, then SimId. Never fall back to
+        // the ECS Entity index, which depends on local allocation order.
+        // Reject an unnamed body and report its missing spawn identity.
         let Some(stable_id) = id
             .map(|f| f.as_str().to_string())
             .or_else(|| sim_id.map(|id| id.as_str().to_string()))

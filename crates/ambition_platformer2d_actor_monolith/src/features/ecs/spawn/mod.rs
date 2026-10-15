@@ -262,52 +262,13 @@ impl<'a> ActorConstructionContext<'a> {
         }
     }
 
-    /// Every authority a ROOM's construction may consult, for a road building
-    /// inside ONE generation — which is every road except a content replacement.
+    /// Supply the complete generation context for an ordinary room build.
     ///
-    /// SEVEN ROADS BUILT THIS CONTEXT BY HAND AND FOUR OF THEM WERE INCOMPLETE. Startup, reset,
-    /// transition, hot reload, provider activation, the exclusive-world rebuild and the neighbour
-    /// prefetch each assembled their own `new(..).with_prepared(..).with_brain_profiles(..)` chain,
-    /// and a road that forgot one link did not fail to compile — it silently constructed rooms
-    /// against an authority it did not have.
-    ///
-    /// so the authorities are PARAMETERS, not opt-in builder calls. A
-    /// caller must say what it has, including saying `None`, and the next
-    /// authority a room may consult is one signature change that breaks every
-    /// road at once instead of seven chances to forget. `Option` still means
-    /// "this composition publishes none" — that is a legal answer and always
-    /// was; what is no longer possible is failing to answer.
-    /// ⛔⛤ **THE CAST AND THE SHEETS ARRIVE AS A `GenerationMechanics`, NOT AS
-    /// TWO LOOSE REGISTRIES, AND THAT IS THE HALF THE PREVIOUS COMMIT COULD NOT
-    /// GUARANTEE.** Promoting the frozen mechanics at activation made it POSSIBLE
-    /// for a rebuild road to use its generation's values; nothing made it
-    /// NECESSARY. Reset and room transition still held `Res<AuthoredSheets>` and
-    /// `Res<PreparedCharacterRegistry>` in their `SystemParam`s, so passing the
-    /// App's registries straight through stayed one edit away and no test could
-    /// see it — a guarantee enforced by discipline, in the two roads that had
-    /// already drifted once.
-    ///
-    /// ⇒ **A road must now state which generation it is building**, including
-    /// stating that it has none. `GenerationMechanics::new(None, ..)` is how a
-    /// fixture says so, and it is a sentence rather than an omission.
-    ///
-    /// ⛔⛤ **AND IT TAKES ONE BINDING, BECAUSE IT USED TO TAKE TWO AND THREE
-    /// PRODUCTION ROADS GOT THEM THE WRONG WAY ROUND — MEASURED 2026-09-16.**
-    /// This was `for_room_construction(.., content, active_binding, ..)`, where
-    /// `active_binding` overrode the expected-live half and `content` stayed the
-    /// INCOMING half every root's `TransactionId` is stamped with. The door
-    /// transition, the reset and the neighbour prefetch all read `content` as
-    /// *"the content THIS ROAD publishes"* — a transition publishes none — and
-    /// answered `content_unstated`, so every root they built named no prepared
-    /// content at all while the boundary half was correct. Their comments each
-    /// argued about the boundary and none about the stamp.
-    ///
-    /// ⇒ The split is now UNSPELLABLE on this road, which is what
-    /// [`ambition_platformer2d_shared_tangle::construction::ConstructionScope::in_generation`] already did one layer down; the
-    /// layer above had reopened it. A replacement says so by name, through
-    /// [`Self::for_content_replacement`].
-    /// `an_ordinary_room_transition_stamps_its_roots_with_the_session_content`
-    /// is the production witness.
+    /// Every caller must state its mechanical inputs, including an explicit
+    /// absence. The cast and sheets come from one `GenerationMechanics`;
+    /// room transitions, resets, and prefetch use the active generation
+    /// for both construction provenance and the publication boundary.
+    /// A content replacement uses `for_content_replacement` instead.
     pub fn for_live_room_construction(
         recipes: &'a crate::construction::ActorConstructionRegistry,
         // WHO EXISTS. Stated here rather than beside the room, because it is one

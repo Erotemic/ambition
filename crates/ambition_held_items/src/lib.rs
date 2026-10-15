@@ -1062,39 +1062,10 @@ pub fn held_spec_for_item(
         .and_then(ambition_characters::brain::held_item_by_id)
 }
 
-/// Resolve a held item's authored spec id back to its spec — the reverse of
-/// [`HeldItemSpec::id`], and the item domain's answer to "what is this thing".
+/// Resolve an item's authored ID through the canonical held-item table.
 ///
-/// the reverse direction is what makes a durable description possible. A
-/// checkpoint that wants to rebuild a runtime-minted instance stores the id and
-/// nothing else (see
-/// the kernel's `items::pickup::minted_horizon`); storing the
-/// resolved spec would put a second authority for *what a javelin is* inside a
-/// snapshot, so the id has to be resolvable from outside.
-///
-/// ⭐⭐ THERE IS ONE REGISTRY NOW, so this is a pass-through and the name is kept
-/// only because callers read better for it.
-///
-/// ⛔⛔ THIS USED TO CONSULT TWO TABLES IN ORDER, and its own doc said
-/// *"Consulting one alone silently loses half the items"* -- a rule that no
-/// upstream crate was able to follow. `axe` and `javelin` were built HERE while
-/// the other 20 ids were rows in `ambition_characters`, and this crate DEPENDS
-/// on that one, so `ambition_combat` and the LDtk construction path could reach
-/// only the narrow half. That cost two real defects: the brandish restore
-/// DELETED a carried axe it could not resolve, and an authored
-/// `GroundItem { held_item: "axe" }` is refused as an unknown id.
-///
-/// ⇒ The fix was not a better resolver, it was DELETING THE SECOND TABLE. Both
-/// were rows, not code -- nothing about an axe or a javelin needed the item
-/// catalog -- so they moved into `ambition_characters`'s table and every
-/// consumer, at any layer, now sees all of them. `gunsword_spec` never needed an
-/// arm here at all: it was already `held_item_by_id("gun_sword")`.
-///
-/// The reverse direction is what makes a durable description possible. A
-/// checkpoint that wants to rebuild a runtime-minted instance stores the id and
-/// nothing else (see the kernel's `items::pickup::minted_horizon`); storing the
-/// resolved spec would put a second authority for *what a javelin is* inside a
-/// snapshot, so the id has to be resolvable from outside.
+/// Durable inventory stores the ID, not a second copy of the spec.
+/// Every caller must resolve the same authored item definition.
 pub fn held_spec_by_id(id: &str) -> Option<HeldItemSpec> {
     ambition_characters::brain::held_item_by_id(id)
 }

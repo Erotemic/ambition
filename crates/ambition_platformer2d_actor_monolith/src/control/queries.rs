@@ -79,47 +79,13 @@ pub fn seat_frame_this_tick(
     }
 }
 
-/// SHAPE THIS SEAT'S FRAME FOR THIS TICK, wherever this composition keeps it.
+/// Shape a seat's input for the current tick in both existing tables.
 ///
-/// READ through the predicate, WRITE to both, and that asymmetry is the
-/// point. Which table holds the tick's input depends on the host
-/// ([`seat_frame_this_tick`]); which table a shaped value must reach does not.
-/// The slot is what the body reads this tick; the raw row is what the next fold
-/// carries into the encoded rollback input. Writing the table that is not
-/// authoritative is harmless — it is overwritten by the authority that owns it —
-/// and writing only one loses a host.
-///
-/// It answered for every host by being written by whichever authority was live, which is what made
-/// it a bus and what made every shaping stage seat zero's.
-///
-/// ⛔⛔ **MIGRATION INFRASTRUCTURE. DO NOT MAKE THIS THE PERMANENT MODEL, AND DO
-/// NOT ADD CLIENTS.** Three systems use it (fast-fall derivation, the app's
-/// reset read, the portal adapter). That is the ceiling until the stages below
-/// exist, and the reason is written into the name of what it writes:
-/// `SeatRawFrames` is documented as the RAW proposal before shaping, and this
-/// function shapes into it. The type stopped describing its contents the day
-/// this was written, which is a bridge admitting it is one.
-///
-/// A shaper reaching for this has to accommodate all three publication
-/// architectures at once — fixed tick, rollback, frame-step — because
-/// `seat_frame_this_tick` decides which representation is authoritative and this
-/// writes every representation to make the hosts agree. That works, and it does
-/// not scale to ten mechanics.
-///
-/// The endpoint is staged rather than dual-written:
-///
-/// ```text
-/// physical sample → SeatInputProposal → (latch / rollback agreement)
-///                 → ConfirmedSeatInput → deterministic derivation
-///                 → EffectiveSlotControls
-/// ```
-///
-/// Each transformation then names ONE stage: device calibration on the proposal
-/// side, anything that must be transmitted as participant input at the agreement
-/// boundary, and derived gestures like double-tap and fast-fall on the
-/// simulation side, from confirmed edges plus rollback-backed history. Build
-/// that when the next input change needs the boundary — not as a rewrite for its
-/// own sake, and not one client later than that.
+/// `seat_frame_this_tick` selects the current read authority. The slot
+/// table feeds this tick; the raw table feeds later rollback folding.
+/// Dual writing is migration infrastructure, not an input-model API
+/// to extend. A future confirmed-input stage should own gesture
+/// derivation without writing into the raw input proposal.
 pub fn shape_seat_frame(
     latches: Option<&ambition_characters::control::SlotControlLatches>,
     rollback: Option<&ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>,

@@ -110,43 +110,12 @@ pub enum RoomResetReason {
     Manual,
 }
 
-/// A SAME-ROOM REPLAY HAS BEEN ADMITTED.
+/// A room replay admitted into the lifecycle commit slot.
 ///
-/// ✔ ONE TRANSACTION, EITHER SHAPE. This message is written only after the
-/// operation OWNS the one pending-commit slot, and the room WILL be rebuilt.
-/// [`Self::subject`] says who takes part, not whether anything happened:
-///
-/// * `Some(subject)` — a body replays the room it is standing in, recorded as
-///   `LifecycleIntent::Transition`.
-/// * `None` — the room is rebuilt with NOBODY IN IT, recorded as
-///   `LifecycleIntent::ReconstituteRoom`. Not a degraded replay: no body is
-///   carried through and none is placed on arrival, which is the whole content
-///   of the operation.
-///
-/// ⛔⛔ IT WAS NOT ALWAYS SO, and the shape of the old defect is worth keeping.
-/// Until v146 the `None` arm constructed its own `Admission::Admitted`, recorded
-/// NOTHING, logged *"clearing the attempt, not rebuilding"* and wrote this
-/// message anyway — so every consequence below ran for an operation that had
-/// never acquired lifecycle ownership. Fixed under queue row D-REPLAY-NOSUBJECT
-/// by giving a bodyless rebuild an intent it could actually record.
-/// ⛔ the fix was NOT to make the `None` arm silent: the reachable case is a
-/// headless or tooling composition in the frame before `ControlledSubject`
-/// resolves, and a replay that does nothing at all there is what made
-/// D-SFX-RESET-RED take five wrong hypotheses to find.
-///
-/// ⭐ THIS IS THE SIGNAL EVERY REPLAY CONSEQUENCE HANGS OFF. Exactly one system
-/// writes it — `runtime::sandbox_reset::admit_room_replay` — and only after the
-/// operation has been accepted. Reset gravity here, clear a content cycle here,
-/// retire the previous attempt's residue here; do NOT do any of it on
-/// `RoomReplayRequested`, which is the ASK and can be refused.
-///
-/// ⛔⛔ IT WAS `RoomReplayAdmitted`, AND THE NAME WAS THE BUG. A message
-/// called "reset the room's features" invites a listener to reset something the
-/// moment it sees one, and the ask was what it saw: the avatar, gravity, hit
-/// events, a boss arena's heavy-object cycle and the attempt's dropped loot were
-/// all reset before anything had checked whether the replay could be described,
-/// let alone admitted. When it could not, the world had been half-reset for an
-/// operation that never happened.
+/// `Some(subject)` records a transition carrying that body; `None`
+/// records a bodyless room reconstitution. Both are admitted operations.
+/// Replay consequences listen to this event, never to a request that
+/// may still be refused. `admit_room_replay` is the sole producer.
 #[derive(Message, Clone, Debug, PartialEq, Eq)]
 pub struct RoomReplayAdmitted {
     /// Why the room is being replayed. Policy differs by it: a death preserves

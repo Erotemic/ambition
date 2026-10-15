@@ -1958,41 +1958,10 @@ pub(super) fn attack_kit_of(
     use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::brain::attack_kit::{AttackBinding, AttackCandidate, AttackVerb};
 
-    // ENUMERATE THE PRESSES, ASK WHAT EACH ONE REACHES.
-    //
-    // this listed `moveset.moves` — every move the body owns, whether or not
-    // any input can invoke it — and the candidate carried no way to invoke the
-    // one that won. Two failures in one line: a
-    // move with no binding (a buff, a summon, an on-hit technique) could be
-    // SCORED and then come out as a generic swing, and the winner's identity had
-    // nowhere to travel.
-    //
-    // Asking the moveset's OWN resolver — `move_for_attack`, the same function
-    // `trigger_moveset_moves` calls — makes the kit executable by construction:
-    // every candidate is a move some press reaches, and the press is the
-    // candidate. The chain falls back (`attack_air_up` → `attack_up` →
-    // `attack_air` → `attack`), so a body that authors only a base attack yields
-    // that move once and a body with the full directional set yields each.
-    //
-    // ⛔⛔ **THIS COMMENT NAMED THE WRONG FUNCTION FOR AS LONG AS THE KIT
-    // EXISTED, AND THE WHOLE JUSTIFICATION ABOVE RESTED ON IT.** It said
-    // `move_for_directional_verb` was "the same function `trigger_moveset_moves`
-    // calls". It is not: the press road calls `move_for_attack(base, dir,
-    // grounded, RUNNING)`, and `move_for_directional_verb` is that function's
-    // fallback with the running branch skipped. So the kit resolved every press
-    // as though the body were standing still.
-    //
-    // ⇒ Measured 2026-09-10 across the shipped roster: EIGHTEEN OF EIGHTEEN
-    // fighters author a dash attack and not one was reachable from the kit. And
-    // the sharper half is not the absence — it is the MISLABEL. While the body
-    // runs, the brain scored `jab`'s frame data, issued the attack press, and
-    // `trigger_moveset_moves` performed `{base}_dash` instead: a candidate whose
-    // `move_id` and `frames` describe a different move than the one the press
-    // produces. The kit was "executable by construction" and wrong anyway.
-    //
-    // The POSTURE is the body's real one, never a choice: a brain that could
-    // claim `Grounded` while airborne would pick a move its body cannot perform,
-    // which is the no-cheat contract's whole subject.
+    // Offer only attacks reachable by the same press resolver used at
+    // execution. Include the body's actual running and grounded state;
+    // otherwise the AI can score a move different from the one it plays.
+    // Carry the resolved press with each candidate.
     let mut kit: Vec<AttackCandidate> = Vec::new();
     for (verb, verb_name) in [
         (AttackVerb::Basic, ambition_combat::moveset::ATTACK_VERB),

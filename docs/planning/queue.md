@@ -174,10 +174,12 @@ binary, the content CLI with the demo's schemas
 (no installed capability owns the demo's schema), and Smash's `pack.ron`
 told the author to run it. A quest's payout is its `reward` in
 `quests.ron`, checked against the item catalog at admission (it was the
-pirate treasure's Rust constant and a match on that quest's name). Open,
-from a census of 2026-10-15: Mary-O's form ladder, the intro flag chains,
-the coconut's impact, the Smash roster, the motion-input gestures, the
-Mary-O test course and the Sanic start-line sign.
+pirate treasure's Rust constant and a match on that quest's name). The
+intro's flag chains are Ambition's `flag_chains` schema, and the thrown
+items that hurt are `thrown_impacts` in `ambition_rules.ron`. Open, from a
+census of 2026-10-15: Mary-O's form ladder, the Smash roster, the
+motion-input gestures, the Mary-O test course and the Sanic start-line
+sign.
 
 **Next action:** none before priority 2; open item 1 is deferred.
 

@@ -7,7 +7,7 @@ use ambition_content_schemas::rules::{lowered_ambition_rules, AmbitionRules};
 use bevy::prelude::{App, Resource};
 
 /// The tuning the selected pack states.
-#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+#[derive(Resource, Clone, Debug, PartialEq)]
 pub struct AmbitionTuning(pub AmbitionRules);
 
 /// The tuning of the shipped pack, for a unit test with no App.

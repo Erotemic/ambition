@@ -2,9 +2,10 @@
 //!
 //! The engine's item step says which bodies an item reached and how fast
 //! (`ItemStruckBody`); what that does is the game's rule. Ambition's rule is
-//! this table: an item with a row here hurts what it strikes at or above the
-//! row's speed, and bounces off it. An item with no row lands and hurts
-//! nobody (the javelin and the axe, today).
+//! `thrown_impacts` in its tuning (`data/ambition_rules.ron`): an item with a
+//! row hurts what it strikes at or above the row's speed, and bounces off it.
+//! An item with no row lands and hurts nobody (the javelin and the axe,
+//! today).
 //!
 //! The rule keeps no state. A struck body is not a wall (the item step does
 //! not stop the item on it), so the item's own velocity is what says "this
@@ -20,14 +21,7 @@ use ambition_platformer2d::item::{GroundItem, ItemCustody, ItemStruckBody};
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 use bevy::prelude::*;
 
-/// What one kind of thrown item does to a body.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ThrownImpact {
-    /// At or above this speed the item hurts what it strikes. It is above the
-    /// speed the rebound leaves, so one arrival is one blow.
-    pub min_speed: f32,
-    pub damage: i32,
-}
+use ambition_content_schemas::rules::ThrownImpact;
 
 /// The fraction of its velocity an item keeps, reversed, when it strikes, and
 /// the most of its own bar that the rebound may be: however fast it arrived,
@@ -42,17 +36,6 @@ fn rebound(vel: ae::Vec2, impact: ThrownImpact) -> ae::Vec2 {
     -vel.normalize_or_zero() * speed
 }
 
-/// Ambition's thrown items that hurt, by held-item id. A tilt throw ahead
-/// leaves the hand at about 480 and a smash throw at about 820 (the held-items
-/// throw launch); a fall of a body's height arrives at about 370.
-const IMPACTS: &[(&str, ThrownImpact)] =
-    &[("coconut", ThrownImpact { min_speed: 240.0, damage: 2 })];
-
-/// The impact of the item `id`, if it has one.
-pub fn impact_of(id: &str) -> Option<ThrownImpact> {
-    IMPACTS.iter().find(|(item, _)| *item == id).map(|(_, impact)| *impact)
-}
-
 /// Each loose item that reached a body fast enough hurts it and bounces off.
 ///
 /// The victims are the bodies the item step's swept path entered. They are not
@@ -64,6 +47,7 @@ pub fn impact_of(id: &str) -> Option<ThrownImpact> {
 /// ⚠ BODIES ONLY. A boss is not a body to the hit road (`HitTarget::Feature`),
 /// so a coconut does not hurt one yet.
 pub fn thrown_items_strike(
+    tuning: Res<crate::tuning::AmbitionTuning>,
     mut hits: MessageWriter<HitEvent>,
     mut items: Query<(Entity, &mut GroundItem, &ItemCustody, &ItemStruckBody)>,
     bodies: Query<&BodyHealth>,
@@ -73,7 +57,7 @@ pub fn thrown_items_strike(
         if !custody.in_world() {
             continue;
         }
-        let Some(impact) = impact_of(&item.spec.id) else {
+        let Some(impact) = tuning.0.thrown_impacts.get(&item.spec.id).copied() else {
             continue;
         };
         if struck.impact_speed < impact.min_speed {
@@ -127,7 +111,7 @@ mod tests {
         // The blow is spent when the rebound is slower than the bar: otherwise
         // the item strikes the same body again on the next tick. A throw is
         // about 410; a long fall is as fast as you like.
-        for (id, impact) in IMPACTS {
+        for (id, impact) in &crate::tuning::shipped().thrown_impacts {
             for speed in [impact.min_speed, 410.0, 900.0, 5000.0] {
                 let left = rebound(ae::Vec2::new(0.6 * speed, 0.8 * speed), *impact);
                 assert!(left.length() < impact.min_speed, "`{id}` arrives at {speed} and leaves at {}: it strikes twice", left.length());
@@ -143,6 +127,7 @@ mod tests {
     fn the_blow_lands_on_the_bodies_the_item_struck_and_no_other() {
         use bevy::ecs::system::RunSystemOnce;
         let mut world = World::new();
+        world.insert_resource(crate::tuning::AmbitionTuning(crate::tuning::shipped()));
         world.init_resource::<Messages<HitEvent>>();
         let health = || BodyHealth::new(ambition_characters::actor::Health::new(10));
         let at = ae::Vec2::new(100.0, 100.0);
@@ -164,9 +149,31 @@ mod tests {
         assert_eq!(victims, vec![HitTarget::Body(crossed)], "the struck body, and not {beside:?} under the item");
     }
 
+    /// The impacts are the pack's rows: the coconut hurts and the javelin
+    /// has no row, an edit is the lowered row, and a row that cannot hurt is
+    /// refused at admission with its field named.
     #[test]
-    fn a_coconut_hurts_and_a_javelin_has_no_row() {
-        assert_eq!(impact_of("coconut").map(|i| i.damage), Some(2));
-        assert_eq!(impact_of("javelin"), None);
+    fn the_thrown_impacts_are_the_packs_rows() {
+        use ambition_content_schemas::rules::lowered_ambition_rules;
+        let shipped = crate::tuning::shipped();
+        assert_eq!(shipped.thrown_impacts.get("coconut").map(|impact| impact.damage), Some(2));
+        assert_eq!(shipped.thrown_impacts.get("javelin"), None);
+
+        let row = r#""coconut": (min_speed: 240.0, damage: 2),"#;
+        let with = |replacement: &'static str| {
+            crate::pack::compile_pack_with(move |path, text| {
+                if path != "data/ambition_rules.ron" {
+                    return text;
+                }
+                assert_eq!(text.matches(row).count(), 1, "the probe edits one row");
+                text.replace(row, replacement)
+            })
+        };
+        let edited = with(r#""coconut": (min_speed: 240.0, damage: 3),"#).expect("an edited row compiles");
+        let rules = lowered_ambition_rules(&edited).expect("the edited pack lowers its tuning");
+        assert_eq!(rules.thrown_impacts.get("coconut").map(|impact| impact.damage), Some(3));
+
+        let refused = format!("{:?}", with(r#""coconut": (min_speed: 240.0, damage: 0),"#).expect_err("a row that cannot hurt"));
+        assert!(refused.contains("`thrown_impacts.coconut.damage`"), "{refused}");
     }
 }

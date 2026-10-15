@@ -220,7 +220,7 @@ mod tests {
     /// gravity a loose item falls with is faster.
     #[test]
     fn a_coconut_let_go_arrives_faster_than_it_hurts_at() {
-        let bar = crate::items::thrown_impact::impact_of(COCONUT).expect("a coconut hurts what it strikes").min_speed;
+        let bar = crate::tuning::shipped().thrown_impacts.get(COCONUT).expect("a coconut hurts what it strikes").min_speed;
         let arrives = (2.0 * ambition_held_items::GROUND_ITEM_GRAVITY * fetch().let_go_over).sqrt();
         assert!(arrives > bar, "a coconut that falls {} arrives at {arrives}, under its bar of {bar}", fetch().let_go_over);
     }

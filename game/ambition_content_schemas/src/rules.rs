@@ -8,12 +8,24 @@ use serde::Deserialize;
 pub const AMBITION_RULES_SCHEMA: &str = "ambition_rules";
 
 /// Ambition's own tuning.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AmbitionRules {
     pub boss_idle_bark: IdleBark,
     pub gnu_ton_duel: GnuTonDuelRules,
     pub african_swallow: SwallowFetch,
+    /// The thrown items that hurt the body they strike, by held-item id. An
+    /// item with no row lands and hurts nobody.
+    pub thrown_impacts: std::collections::BTreeMap<String, ThrownImpact>,
+}
+
+/// What one kind of thrown item does to a body it strikes.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ThrownImpact {
+    /// At or above this speed (px/s) the item hurts what it strikes.
+    pub min_speed: f32,
+    pub damage: i32,
 }
 
 /// What an African swallow does with a coconut (`primeval`): it fetches one
@@ -83,6 +95,17 @@ impl AmbitionRules {
     /// Each value the game cannot use, named by its field.
     fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
+        for (id, impact) in &self.thrown_impacts {
+            if !(impact.min_speed.is_finite() && impact.min_speed > 0.0) {
+                problems.push(format!(
+                    "`thrown_impacts.{id}.min_speed` is {}; it is a finite speed more than 0",
+                    impact.min_speed
+                ));
+            }
+            if impact.damage < 1 {
+                problems.push(format!("`thrown_impacts.{id}.damage` is {}; a row that hurts deals at least 1", impact.damage));
+            }
+        }
         let bark = self.boss_idle_bark;
         if !(bark.base_seconds.is_finite() && bark.jitter_seconds.is_finite() && bark.jitter_seconds >= 0.0) {
             problems.push(format!(
@@ -157,7 +180,7 @@ pub fn ambition_rules_schema() -> SchemaRegistration {
 /// The tuning the pack states, or `None` when it has no `ambition_rules`
 /// source.
 pub fn lowered_ambition_rules(pack: &PreparedContentPack) -> Option<AmbitionRules> {
-    lowered_rules::<AmbitionRules>(pack, AMBITION_RULES_SCHEMA).copied()
+    lowered_rules::<AmbitionRules>(pack, AMBITION_RULES_SCHEMA).cloned()
 }
 
 #[cfg(test)]

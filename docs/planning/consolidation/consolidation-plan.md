@@ -141,15 +141,15 @@ session into the next; the count is not the goal.
 
 ### Scope and current authority
 
-Source explicitly groups **29** App resources as gameplay-session or
+Source explicitly groups **30** App resources as gameplay-session or
 activated-generation state (46 until the checkpoint family and the room memories
 left on 2026-10-07; on 2026-10-08, 38 until the session clock left, 36 until the
 door countdown left, 35 until the switch queue left, 34 until the encounter
 view left and 33 until the four checkpoint baselines left):
 
-<!-- session-owner-census: SessionScopedResources=28 SessionMechanics=1 -->
+<!-- session-owner-census: SessionScopedResources=29 SessionMechanics=1 -->
 <!-- session-root-family: SessionCheckpointState=6 -->
-- `SessionScopedResources` (**28**) in `actor_monolith/src/session/teardown.rs`;
+- `SessionScopedResources` (**29**) in `actor_monolith/src/session/teardown.rs`;
 - (`SessionOwnedCheckpointState`, the third bundle of six, is DELETED: its values are
   components of the session root, `SessionCheckpointState` (6) in
   `actor_monolith/src/session/checkpoint.rs`, and no reset runs for them.)
@@ -240,7 +240,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 29 values. Work owner by owner:
+Do not begin by moving all 30 values. Work owner by owner:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only

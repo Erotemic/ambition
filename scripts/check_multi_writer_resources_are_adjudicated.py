@@ -256,6 +256,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/shrine.rs",
         "crates/ambition_platformer2d_runtime/src/module_save_road.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
         "game/ambition_content/src/bosses/cut_rope/mod.rs",
         "game/ambition_content/src/encounters.rs",
         "game/ambition_content/src/quest.rs",
@@ -674,6 +675,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_platformer2d_actor_monolith/src/time/time_control/mod.rs",
         "crates/ambition_time/src/time_control/mod.rs",
+    ),
+    "DayClock": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_time/src/day.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
     ),
     "RequestedClockScale": (
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
@@ -2306,6 +2312,16 @@ ADJUDICATED: dict[str, str] = {
         "POISON-VERIFIED: with the reset not registered, "
         "`shell_host_lifecycle::what_a_session_spawned_and_cycled_does_not_reach_the_next_session` "
         "fails on this row on 31 frames, ticks 0 to 30."
+    ),
+    "DayClock": (
+        "CORRECT — ONE IN-SESSION OWNER FILE PLUS THE SESSION BOUNDARY, the shape "
+        "of `WorldTime`. `advance_day_clock` (`ambition_time/src/day.rs`) turns "
+        "the time of day by each tick's sim seconds; `SessionScopedResources::reset` "
+        "(`session/teardown.rs`) returns it to unset at the session edge, so the "
+        "next session starts at the game's `DayCycle::start_hour` as a fresh host "
+        "does. The third file is `game/ambition_app_tools/src/bin/capture_scene.rs`, "
+        "a standalone `[[bin]]` whose `--hour` sets the clock once on one tick for "
+        "a capture; it never coexists with the game. Adjudicated 2026-10-15."
     ),
     "WorldTime": (
         "CORRECT — ONE IN-SESSION OWNER FILE PLUS THE SESSION BOUNDARY, the shape "

@@ -43,9 +43,6 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_time::time_control::apply_suspended_time_scale_system
                     .run_if(gameplay_suspended),
                 ambition_time::refresh_world_time,
-                // The time of day turns by this step's sim seconds (a game
-                // with no `DayCycle` has no day).
-                ambition_time::advance_day_clock,
                 // Mirror the freshly-snapshotted `WorldTime::sim_dt()` into
                 // the runtime crate's neutral `SimDt` so every downstream
                 // runtime system (gravity / zones / orient-roll) reads scaled
@@ -55,6 +52,14 @@ impl Plugin for PlayerSchedulePlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::SimClockHead),
+        );
+        // The time of day turns by this step's sim seconds (a game with no
+        // `DayCycle` has no day), once the step's time is published.
+        app.add_systems(
+            sim,
+            ambition_time::advance_day_clock
+                .in_set(ambition_platformer2d_shared_tangle::schedule::SimClockHead)
+                .after(ambition_platformer2d_actor_monolith::SimDtMirrored),
         );
 
         // Consume clock requests after every producer in the frame. `WorldTime` is still

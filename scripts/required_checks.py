@@ -170,6 +170,7 @@ MODULE_ARMS = (
     "a_loaded_module_keeps_session_state",
     "fsm_fight",
     "gnu_ton_fight",
+    "hunny_fight",
     "mockingbird_fight",
     "the_behemoth_shoots_from_its_eyes",
     "trex_fight",

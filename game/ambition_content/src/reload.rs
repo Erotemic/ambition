@@ -758,6 +758,14 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         domain: ambition_content_schemas::rules::AMBITION_RULES_SCHEMA,
         publish: publish_ambition_tuning,
     },
+    PackDerivedFamily {
+        domain: ambition_items::content_schema::held_item_art::HELD_ITEM_ART_SCHEMA,
+        publish: publish_held_item_art,
+    },
+    PackDerivedFamily {
+        domain: ambition_items::content_schema::wielded_item_art::WIELDED_ITEM_ART_SCHEMA,
+        publish: publish_wielded_item_art,
+    },
 ];
 
 /// A family no system of the running game reads: the new pack is selected,
@@ -929,6 +937,52 @@ fn publish_projectile_looks(
     match restated {
         Ok(ids) => world.insert_resource(crate::projectiles::AmbitionProjectileLooks(ids)),
         Err(problem) => bevy::log::error!("the reload keeps Ambition's projectile looks: {problem}"),
+    }
+}
+
+/// The held item art restates Ambition's rows of the render manifest, and the
+/// render layer resolves the changed manifest into new handles. A composition
+/// that draws no item art has no record, so nothing is published there.
+fn publish_held_item_art(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    use ambition_platformer2d::platformer::held_item_art::HeldItemArtManifest;
+    let Some(previous) = world.get_resource::<crate::items::held_visuals::AmbitionHeldItemArt>().cloned() else {
+        return;
+    };
+    let entries = if ambition_items::content_schema::held_item_art::lowered_held_item_art(pack).is_some() {
+        crate::items::held_visuals::entries(pack)
+    } else {
+        Vec::new()
+    };
+    let ids = world
+        .get_resource_or_insert_with(HeldItemArtManifest::default)
+        .restate(previous.0.iter().map(String::as_str), entries);
+    world.insert_resource(crate::items::held_visuals::AmbitionHeldItemArt(ids));
+}
+
+/// The wielded item art restates Ambition's rows of the over-hand catalog,
+/// which the renderer reads each frame. A composition that draws no item art
+/// has no record, so nothing is published there.
+fn publish_wielded_item_art(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    let Some(previous) = world.get_resource::<crate::items::wielded_visuals::AmbitionWieldedItemArt>().cloned() else {
+        return;
+    };
+    let specs = if ambition_items::content_schema::wielded_item_art::lowered_wielded_item_art(pack).is_some() {
+        crate::items::wielded_visuals::specs(pack)
+    } else {
+        Default::default()
+    };
+    let restated = world
+        .get_resource_or_insert_with(ambition_render::rendering::WieldedItemVisualCatalog::default)
+        .restate(previous.0.iter().map(String::as_str), specs);
+    match restated {
+        Ok(ids) => world.insert_resource(crate::items::wielded_visuals::AmbitionWieldedItemArt(ids)),
+        Err(problem) => bevy::log::error!("the reload keeps Ambition's wielded item art: {problem}"),
     }
 }
 

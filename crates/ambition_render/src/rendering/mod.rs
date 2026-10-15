@@ -333,8 +333,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     .run_if(session_presentation_is_ready),
             )
             // Resolve each provider's held-item art (`HeldItemArtManifest`) into
-            // loaded `HeldItemArt` handles.
-            .add_systems(Startup, item_visuals::build_held_item_art)
+            // loaded `HeldItemArt` handles. A content reload restates the
+            // manifest, so the handles are resolved again when it changes.
+            .add_systems(Update, item_visuals::resolve_held_item_art_when_the_manifest_changes())
             // Resolve each provider's walk-into pickup art
             // (`WorldItemArtManifest`) into loaded `WorldItemArt` handles.
             .add_systems(Startup, item_visuals::build_world_item_art)

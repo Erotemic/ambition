@@ -10,15 +10,19 @@
 
 use ambition_platformer2d_shared_tangle::held_item_art::{HeldItemArtAppExt, HeldItemArtEntry};
 use bevy::math::Vec2;
-use bevy::prelude::App;
+use bevy::prelude::{App, Resource};
 
-/// Contribute the selected pack's held item art to the render manifest.
-pub(super) fn register(app: &mut App) {
-    let pack = crate::pack::select(app.world_mut());
-    let rows = ambition_items::content_schema::held_item_art::lowered_held_item_art(&pack)
+/// The held item art ids Ambition's pack registered: the rows a reload
+/// restates, and no other provider's. A composition that draws no item art
+/// has no record, and a reload restates nothing there.
+#[derive(Resource, Clone, Debug, Default)]
+pub(crate) struct AmbitionHeldItemArt(pub(crate) Vec<String>);
+
+/// The manifest entries `pack` states.
+pub(crate) fn entries(pack: &ambition_content_pack::PreparedContentPack) -> Vec<HeldItemArtEntry> {
+    let rows = ambition_items::content_schema::held_item_art::lowered_held_item_art(pack)
         .expect("Ambition's pack states its held item art (`data/held_item_art.ron`)");
-    let entries: Vec<HeldItemArtEntry> = rows
-        .iter()
+    rows.iter()
         .map(|(id, art)| {
             let entry = HeldItemArtEntry::new(id.clone(), art.path.clone(), Vec2::new(art.size.0, art.size.1));
             match art.grip {
@@ -26,8 +30,16 @@ pub(super) fn register(app: &mut App) {
                 None => entry,
             }
         })
-        .collect();
+        .collect()
+}
+
+/// Contribute the selected pack's held item art to the render manifest.
+pub(crate) fn register(app: &mut App) {
+    let pack = crate::pack::select(app.world_mut());
+    let entries = entries(&pack);
+    let ids = entries.iter().map(|entry| entry.item_id.clone()).collect();
     app.register_held_item_art(entries);
+    app.insert_resource(AmbitionHeldItemArt(ids));
 }
 
 #[cfg(test)]

@@ -90,6 +90,24 @@ impl HeldItemArtManifest {
         winners.into_values().collect()
     }
 
+    /// Replace the entries one provider stated (`previous`, the ids it
+    /// registered) with `entries`, as a content reload does: an id it no
+    /// longer states is withdrawn, and the others take their new art. The ids
+    /// it registered now are returned, for the next reload. The new entries go
+    /// last, so they win over another provider's entry for the same id, as
+    /// they did when this provider registered last.
+    pub fn restate<'a>(
+        &mut self,
+        previous: impl IntoIterator<Item = &'a str>,
+        entries: Vec<HeldItemArtEntry>,
+    ) -> Vec<String> {
+        let previous: Vec<&str> = previous.into_iter().collect();
+        self.0.retain(|entry| !previous.contains(&entry.item_id.as_str()));
+        let ids = entries.iter().map(|entry| entry.item_id.clone()).collect();
+        self.0.extend(entries);
+        ids
+    }
+
     /// The art ids this manifest binds. Slots index [`Self::effective`].
     pub fn item_ids(&self) -> Resolver<HeldItemSprite> {
         Resolver::new(

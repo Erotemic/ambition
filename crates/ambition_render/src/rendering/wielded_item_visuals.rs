@@ -64,6 +64,33 @@ impl WieldedItemVisualCatalog {
         self.specs.get(item_id)
     }
 
+    /// Replace the specs one provider stated (`previous`, the ids it
+    /// registered) with `specs`, as a content reload does: an id it no longer
+    /// states is withdrawn, and the others take their new spec. The ids it
+    /// registered now are returned, for the next reload. Nothing changes if a
+    /// spec is not valid or another provider registered its id: the startup
+    /// registration refuses both loudly, and a reload keeps the running art.
+    pub fn restate<'a>(
+        &mut self,
+        previous: impl IntoIterator<Item = &'a str>,
+        specs: BTreeMap<String, WieldedItemVisualSpec>,
+    ) -> Result<Vec<String>, String> {
+        let previous: Vec<&str> = previous.into_iter().collect();
+        for (item_id, spec) in &specs {
+            spec.validate()
+                .map_err(|message| format!("invalid wielded-item visual {item_id:?}: {message}"))?;
+            if self.specs.contains_key(item_id) && !previous.contains(&item_id.as_str()) {
+                return Err(format!("wielded-item visual {item_id:?} belongs to another provider"));
+            }
+        }
+        for item_id in previous {
+            self.specs.remove(item_id);
+        }
+        let ids = specs.keys().cloned().collect();
+        self.specs.extend(specs);
+        Ok(ids)
+    }
+
     fn register(&mut self, item_id: String, spec: WieldedItemVisualSpec) {
         assert!(
             !item_id.trim().is_empty(),

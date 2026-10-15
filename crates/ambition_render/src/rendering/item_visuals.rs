@@ -227,33 +227,40 @@ pub struct HeldItemArt(pub ArtBindings<HeldItemSprite>);
 
 /// Resolve every provider-contributed
 /// [`HeldItemArtEntry`](ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtEntry)
-/// (`id -> path + size` data) into loaded image handles at startup, filling
+/// (`id -> path + size` data) into loaded image handles, filling
 /// [`HeldItemArt`]. The render half of the contribution seam: games declare
 /// art without a render dependency, and the `AssetServer` work is here, so a
-/// multi-game host's merged manifest binds every provider's items. No manifest
-/// gives an empty map (every item draws the quad fallback).
+/// multi-game host's merged manifest binds every provider's items. It runs
+/// when the manifest is added or changed (a content reload restates it). No
+/// manifest gives no `HeldItemArt`, and every item draws the quad fallback.
 pub fn build_held_item_art(
     mut commands: Commands,
     assets: Res<AssetServer>,
-    manifest: Option<Res<ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtManifest>>,
+    manifest: Res<ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtManifest>,
 ) {
-    let art = match manifest {
-        Some(manifest) => HeldItemArt(ArtBindings::new(
-            manifest.item_ids(),
-            manifest.effective().into_iter().map(|entry| {
-                (
-                    ambition_sprite_sheet::game_assets::load_sheet_image(
-                        &assets,
-                        "held-item",
-                        entry.asset_path.clone(),
-                    ),
-                    Vec2::new(entry.size.x, entry.size.y),
-                )
-            }),
-        )),
-        None => HeldItemArt::default(),
-    };
-    commands.insert_resource(art);
+    commands.insert_resource(HeldItemArt(ArtBindings::new(
+        manifest.item_ids(),
+        manifest.effective().into_iter().map(|entry| {
+            (
+                ambition_sprite_sheet::game_assets::load_sheet_image(
+                    &assets,
+                    "held-item",
+                    entry.asset_path.clone(),
+                ),
+                Vec2::new(entry.size.x, entry.size.y),
+            )
+        }),
+    )));
+}
+
+/// [`build_held_item_art`] as the render plugin schedules it: in `Update`,
+/// when the manifest is added or changed, and before its readers.
+pub(super) fn resolve_held_item_art_when_the_manifest_changes()
+-> bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::ScheduleSystem> {
+    build_held_item_art
+        .run_if(resource_exists_and_changed::<ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtManifest>)
+        .before(sync_ground_item_visuals)
+        .before(report_unloadable_item_art)
 }
 
 pub fn sync_ground_item_visuals(
@@ -669,6 +676,30 @@ mod tests {
     use super::*;
     use bevy::asset::{AssetApp, AssetPlugin};
     use std::time::{Duration, Instant};
+
+    /// A content reload restates the held art manifest, and the next frame
+    /// draws the new art: the handles are resolved again, not only at startup.
+    #[test]
+    fn a_changed_held_art_manifest_is_resolved_again() {
+        use ambition_platformer2d_shared_tangle::held_item_art::{HeldItemArtAppExt, HeldItemArtEntry, HeldItemArtManifest};
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(AssetPlugin::default())
+            .init_asset::<Image>()
+            .add_systems(Update, resolve_held_item_art_when_the_manifest_changes());
+        let axe = |width: f32| HeldItemArtEntry::new("axe", "sprites/props/axe.png", Vec2::new(width, 18.0));
+        app.register_held_item_art([axe(40.0)]);
+        let drawn = |app: &App| app.world().get_resource::<HeldItemArt>().and_then(|art| art.0.get("axe")).map(|(_, size)| size.x);
+        app.update();
+        assert_eq!(drawn(&app), Some(40.0), "control: the first manifest is resolved");
+        let ids = app
+            .world_mut()
+            .resource_mut::<HeldItemArtManifest>()
+            .restate(["axe"], vec![axe(44.0)]);
+        assert_eq!(ids, ["axe"]);
+        app.update();
+        assert_eq!(drawn(&app), Some(44.0), "the restated manifest was not resolved again");
+    }
 
     #[test]
     fn missing_image_asset_reaches_the_failed_art_resource() {

@@ -130,7 +130,7 @@ Done (the commit messages hold the detail):
   Reload restates it.
 - Tables: dialogue voiceprints (`dialogue_voiceprints`, reload), projectile
   looks of Ambition and Mary-O (`projectile_visuals`, reload), held and
-  wielded item art (`held_item_art`, `wielded_item_art`, at the next start).
+  wielded item art (`held_item_art`, `wielded_item_art`, reload).
 - The item catalog: the pack's `items.ron` is the one item table
   (`ITEM_META` and `builtin_item_catalog` are deleted). A slot that the
   installed catalog does not name is no item: nothing is granted, saved or
@@ -151,8 +151,8 @@ Open:
    sheet is then a publish and no Rust edit. Needs a still renderer (not
    during a publish) and a republish of the 14 sheets.
 2. Demo stages built in Rust (Smash, Twintrack).
-3. A live reload for the demo packs' tuning, and for the held and wielded
-   item art (a restart today: no reload family restates them).
+3. A live reload for the demo packs' tuning (a restart today: no reload
+   family restates it).
 
 Not here: the boss and Mary-O modules' tuning constants. They are on the
 module road (a 0.34 s WASM rebuild and a live reload).

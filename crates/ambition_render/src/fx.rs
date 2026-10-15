@@ -80,7 +80,7 @@ fn note_effect_miss(fx: FxId) {
             target: "crate::fx",
             "{fx} is not a row on any of the {} shipped FX sheets, so it draws a generic \
              particle burst instead of art; check the authored `Vfx {{ effect }}` id",
-            ambition_sprite_sheet::fx::FX_SHEETS.len(),
+            ambition_sprite_sheet::fx::fx_sheets().len(),
         );
     }
 }

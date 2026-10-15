@@ -740,7 +740,7 @@ pub fn build_prop_sprite_asset(
 
 /// Decode the effect sheets the ENGINE itself draws at boot — the
 /// [`FxResidency::Core`](ambition_sprite_sheet::fx::FxResidency) entries of
-/// [`ambition_sprite_sheet::fx::FX_SHEETS`], with no content, catalog or LDtk
+/// [`ambition_sprite_sheet::fx::fx_sheets`], with no content, catalog or LDtk
 /// prop involved.
 ///
 /// this is the registration that did not exist. `spawn_effect` reaches

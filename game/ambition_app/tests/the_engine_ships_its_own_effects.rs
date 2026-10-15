@@ -12,7 +12,7 @@
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 use ambition_platformer2d::characters::load_demand::CharacterLoadDemand;
 use ambition_platformer2d::render::fx::resolve_drawable;
-use ambition_platformer2d::sprite_sheet::fx::{core_fx_targets, FX_SHEETS};
+use ambition_platformer2d::sprite_sheet::fx::{core_fx_targets, fx_sheets};
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 use ambition_platformer2d::vfx::FxId;
 use bevy::prelude::*;
@@ -59,7 +59,7 @@ fn effects_draw_from_engine_shipped_sheets_with_no_game_registering_them() {
         "the core FX sheets decoded at boot, and only those"
     );
     assert!(
-        FX_SHEETS.len() > assets.fx.len(),
+        fx_sheets().len() > assets.fx.len(),
         "NON-VACUITY: some sheets are character-owned, or the seam below tests nothing"
     );
 

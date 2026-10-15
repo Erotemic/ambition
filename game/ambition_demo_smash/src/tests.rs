@@ -116,7 +116,7 @@ fn the_respawn_platform_lives_exactly_as_long_as_the_grant() {
                 ..Default::default()
             },
             ambition_platformer2d::actor::RespawnGrace {
-                remaining: RESPAWN_PROTECTION_SECONDS,
+                remaining: crate::stages::smash_stages().respawn.protection_seconds,
             },
         ))
         .id();
@@ -168,7 +168,7 @@ fn each_respawn_platform_is_in_its_fighters_own_live_room() {
                 ..Default::default()
             },
             ambition_platformer2d::actor::RespawnGrace {
-                remaining: RESPAWN_PROTECTION_SECONDS,
+                remaining: crate::stages::smash_stages().respawn.protection_seconds,
             },
             InRoomInstance(room),
         ));
@@ -1190,7 +1190,7 @@ fn walking_off_the_respawn_platform_ends_the_protection() {
                 ..Default::default()
             },
             ambition_platformer2d::actor::RespawnGrace {
-                remaining: RESPAWN_PROTECTION_SECONDS,
+                remaining: crate::stages::smash_stages().respawn.protection_seconds,
             },
         ))
         .id();
@@ -1248,7 +1248,7 @@ fn falling_toward_the_respawn_platform_keeps_the_protection() {
                 ..Default::default()
             },
             ambition_platformer2d::actor::RespawnGrace {
-                remaining: RESPAWN_PROTECTION_SECONDS,
+                remaining: crate::stages::smash_stages().respawn.protection_seconds,
             },
         ))
         .id();
@@ -1291,7 +1291,7 @@ fn the_respawn_platform_stays_where_it_was_placed() {
                 ..Default::default()
             },
             ambition_platformer2d::actor::RespawnGrace {
-                remaining: RESPAWN_PROTECTION_SECONDS,
+                remaining: crate::stages::smash_stages().respawn.protection_seconds,
             },
         ))
         .id();

@@ -50,12 +50,6 @@ pub const SMASH_MODE: &str = "smash";
 /// this stage's own provider.
 pub const SMASH_DUELIST_BRAIN: &str = "duelist";
 
-/// Where a respawning fighter comes back, above the stage centre.
-///
-/// Above, not at the spawn point: a fighter that reappears on the floor can
-/// reappear inside the opponent that knocked it off.
-pub const RESPAWN_HEIGHT_PX: f32 = 160.0;
-
 /// The one fighter on this grid whose up-B summons a mount.
 pub const SMASH_SHARK_RIDER: &str = "npc_pirate_admiral";
 
@@ -272,7 +266,7 @@ pub fn respawn_placement(stage_centre: Vec2, seat: usize) -> Vec2 {
         stage_centre.x + side * rank * RESPAWN_SEAT_SPACING_PX,
         // Toward the sky: this demo is screen-down. A gravity-flipped stocks
         // stage is a question for the engine.
-        stage_centre.y - RESPAWN_HEIGHT_PX,
+        stage_centre.y - crate::stages::smash_stages().respawn.rise,
     )
 }
 
@@ -1231,7 +1225,7 @@ fn place_respawning_fighters(
         commands
             .entity(event.body)
             .try_insert(ambition_platformer2d::actor::RespawnGrace {
-                remaining: RESPAWN_PROTECTION_SECONDS,
+                remaining: crate::stages::smash_stages().respawn.protection_seconds,
             });
     }
 }
@@ -1420,13 +1414,6 @@ const RESPAWN_PLATFORM_DROP_PX: f32 = 24.0 + RESPAWN_PLATFORM_SIZE.y * 0.5;
 /// Measured: `hitlag_duration` scales with damage, and this is what a heavy
 /// connect produces under this stage's feel. A lower value saturates on jabs.
 const HUD_PUNCH_REFERENCE_HITLAG: f32 = 0.12;
-
-/// How long a returning fighter cannot be hit, in seconds.
-///
-/// Long enough to fall in, read the stage and choose a landing; short enough
-/// that spawn camping is not free. Attacking or leaving the platform ends it
-/// early.
-const RESPAWN_PROTECTION_SECONDS: f32 = 2.0;
 
 /// Take an eliminated fighter out of play.
 ///

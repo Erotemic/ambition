@@ -28,6 +28,13 @@
     // exit portal rises a fixed height (`an_authored_portal_rise_stays_inside_
     // the_stage`).
     blast: (fall: 240.0, side: 400.0, rise: 240.0),
+    // A knocked-out fighter comes back `rise` above the stage centre, not
+    // at the spawn point: a fighter that appears on the floor can appear
+    // inside the opponent that knocked it off. Then it cannot be hit for
+    // `protection_seconds`: long enough to fall in, read the stage and
+    // choose a landing; short enough that spawn camping is not free.
+    // Attacking or leaving the platform ends it early.
+    respawn: (rise: 160.0, protection_seconds: 2.0),
     stages: {
         // A platform surrounded by nothing. A fighter stage is a place you can
         // be knocked off; the empty space is the mechanic. The platform is

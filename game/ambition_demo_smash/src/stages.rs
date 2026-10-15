@@ -25,6 +25,8 @@ pub struct SmashStages {
     pub spawn: (f32, f32),
     /// How far beyond the room each blast line is.
     pub blast: BlastMargins,
+    /// Where and how a knocked-out fighter comes back.
+    pub respawn: Respawn,
     /// Each stage by room id.
     pub stages: BTreeMap<String, StageRoom>,
 }
@@ -36,6 +38,16 @@ pub struct BlastMargins {
     pub fall: f32,
     pub side: f32,
     pub rise: f32,
+}
+
+/// Where and how a knocked-out fighter comes back, on every stage.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Respawn {
+    /// How far above the stage centre the fighter appears, in world pixels.
+    pub rise: f32,
+    /// How long the returned fighter cannot be hit, in seconds.
+    pub protection_seconds: f32,
 }
 
 /// One stage: its name and its blocks.
@@ -81,6 +93,11 @@ impl SmashStages {
         for (field, margin) in [("fall", self.blast.fall), ("side", self.blast.side), ("rise", self.blast.rise)] {
             if !positive(margin) {
                 problems.push(format!("`blast.{field}` must be finite and positive, not {margin}"));
+            }
+        }
+        for (field, value) in [("rise", self.respawn.rise), ("protection_seconds", self.respawn.protection_seconds)] {
+            if !(value.is_finite() && value >= 0.0) {
+                problems.push(format!("`respawn.{field}` must be finite and not negative, not {value}"));
             }
         }
         for id in crate::SmashStageChoice::ALL.map(crate::SmashStageChoice::room_id) {
@@ -190,6 +207,22 @@ mod tests {
         };
         assert!(refused.contains("data/smash_stages.ron"), "the refusal names the file: {refused}");
         assert!(refused.contains("`stages` has no `smash_narrow_stage`"), "the refusal names the field: {refused}");
+
+        // The respawn is the file's too: an edit is the next start's rise and
+        // protection, and a negative clock is refused with its field named.
+        let respawn = "respawn: (rise: 160.0, protection_seconds: 2.0),";
+        assert_eq!(authored.matches(respawn).count(), 1, "the probe edits the respawn");
+        assert_eq!(file.respawn, Respawn { rise: 160.0, protection_seconds: 2.0 });
+        // The runtime places a returning fighter by the file's rise.
+        let placed = crate::respawn_placement(bevy::math::Vec2::ZERO, 0);
+        assert_eq!(placed.y, -file.respawn.rise, "the respawn point is the file's rise above the centre");
+        let edited = stages_of(&authored.replace(respawn, "respawn: (rise: 96.0, protection_seconds: 3.5),"));
+        assert_eq!(edited.respawn, Respawn { rise: 96.0, protection_seconds: 3.5 });
+        let refused = match compile(&authored.replace(respawn, "respawn: (rise: 160.0, protection_seconds: -1.0),")) {
+            Ok(_) => panic!("a negative respawn protection was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`respawn.protection_seconds`"), "the refusal names the field: {refused}");
         let _ = std::fs::remove_dir_all(&root);
     }
 }

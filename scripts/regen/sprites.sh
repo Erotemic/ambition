@@ -44,7 +44,11 @@ worlds_dir="$content_assets_dir/worlds"
 character_catalog="$content_assets_dir/data/character_catalog.ron"
 sandbox_ldtk="$worlds_dir/sandbox.ldtk"
 hall_ldtk="$worlds_dir/hall_of_characters.ldtk"
-sprites_dir="$repo_root/crates/ambition_platformer2d_actor_monolith/assets/sprites"
+asset_root="$repo_root/crates/ambition_platformer2d_actor_monolith/assets"
+# Where the phases write. A full publish points these at its staging root
+# (`scripts/lib/sprite_staging.sh`) and back at `asset_root` after the swap.
+publish_asset_root="$asset_root"
+sprites_dir="$asset_root/sprites"
 entities_dir="$sprites_dir/entities"
 
 # shellcheck disable=SC1091
@@ -1117,6 +1121,17 @@ fingerprint_file="$cache_dir/regen-fingerprint"
 # What each target's last render read: `publish-many` records it under this
 # variable, and both keys hash it (`leaf_hash`, `compute_fingerprint`).
 target_reads_dir="$cache_dir/reads"
+# On the same file system as `asset_root`, so the swap is a rename.
+staging_root="$cache_dir/publish_staging"
+# shellcheck source=../lib/sprite_staging.sh
+source "$repo_root/scripts/lib/sprite_staging.sh"
+
+# Point the phases at the staging root, or back at the runtime roots.
+use_publish_root() {
+    publish_asset_root="$1"
+    sprites_dir="$1/sprites"
+    entities_dir="$sprites_dir/entities"
+}
 
 
 
@@ -1415,7 +1430,7 @@ run_quality_variants() {
         return 0
     fi
     "$python_bin" "$repo_root/scripts/generate_visual_quality_variants.py" \
-        --asset-root "$repo_root/crates/ambition_platformer2d_actor_monolith/assets" \
+        --asset-root "$publish_asset_root" \
         --sprites-only 2>&1 | sed 's/^/  /'
 }
 
@@ -1452,6 +1467,10 @@ if ! sprite_cache_key_prepare; then
 fi
 core_shared_fingerprint="$(compute_core_shared)"
 
+phase "staging root: copy of the runtime roots → $staging_root"
+begin_staging
+use_publish_root "$staging_root"
+
 cached_fingerprint=""
 if [ -f "$fingerprint_file" ]; then
     cached_fingerprint="$(cat "$fingerprint_file")"
@@ -1473,8 +1492,10 @@ then
     if ! run_quality_variants; then
         echo "" >&2
         echo "==> regen FAILED — quality variants: generator reported a failure" >&2
+        echo "    (the runtime roots were not replaced; the next run continues $staging_root)" >&2
         exit 1
     fi
+    finish_staging
     exit 0
 fi
 
@@ -1484,10 +1505,10 @@ phase "validate sprite character configs"
 run_renderer_python validate-configs -m ambition_sprite2d_renderer validate-configs
 
 phase "entity sprites → $entities_dir"
-# `$sprites_dir`, not `$entities_dir`: the target's own `install` hook adds the
-# `entities/` leg now. Passing the subdirectory here as well would nest it
-# (`sprites/entities/entities/`) — see the note in `regen_one_target`.
-run_renderer_python publish-entities -m ambition_sprite2d_renderer publish entities --dest-root "$sprites_dir"
+# Through the per-sheet cache, as every other target: the registry declares
+# the 47 textures it installs under `entities/`, so their digests key it. It
+# rendered all of them on every publish before (measured 2026-10-15).
+publish_cached_batch entities entities
 
 phase "tack-on targets (render-publish into $sprites_dir)"
 # `tackon_targets` in the publish roster is every registered module target
@@ -1614,7 +1635,7 @@ run_renderer_python portrait-gallery -m ambition_sprite2d_renderer portrait-gall
 phase "Publish boundary: sweeping diagnostics out of runtime roots:"
 if command -v "$python_bin" >/dev/null 2>&1; then
     "$python_bin" "$repo_root/scripts/sweep_runtime_diagnostics.py" \
-        --repo-root "$repo_root" 2>&1 | sed 's/^/  /' || true
+        --repo-root "$repo_root" --asset-root "$publish_asset_root" 2>&1 | sed 's/^/  /' || true
 else
     echo "  (skipped — no python interpreter)"
 fi
@@ -1637,7 +1658,7 @@ fi
 #   AMBITION_ULTRAPACK=0        skip the pack step entirely (fast dev regen)
 #   AMBITION_ULTRAPACK_DEBUG=1  also emit per-page diagnostics into staging
 phase "Ultrapack: shared-page atlases per quality tier → runtime pack root:"
-pack_root="$repo_root/crates/ambition_platformer2d_actor_monolith/assets/sprite_packs"
+pack_root="$publish_asset_root/sprite_packs"
 pack_debug_root="$repo_root/target/ambition_publish/diagnostics/packs"
 if [ "${AMBITION_ULTRAPACK:-1}" = "0" ]; then
     echo "  (skipped — AMBITION_ULTRAPACK=0)"
@@ -1779,6 +1800,23 @@ PYEOF
 else
     echo "  (skipped — sprite renderer not importable from $python_bin)"
 fi
+
+if ! run_quality_variants; then
+    regen_failures+=("quality variants: generator reported a failure")
+fi
+
+# --- Swap the staged roots into place -------------------------------------
+# Only a set that every sprite phase passed replaces the runtime roots. The
+# phases below read the runtime roots: the LDtk phases write paths of the
+# sheets into tracked files, and those paths must be the runtime ones.
+phase "staging root → runtime roots"
+if [ "${#regen_failures[@]}" -eq 0 ]; then
+    finish_staging
+    echo "  moved ${staged_root_names[*]} into $asset_root"
+else
+    echo "  NOT replaced: a phase failed (see the verdict); the next run continues $staging_root" >&2
+fi
+use_publish_root "$asset_root"
 
 # --- Hall-of-Characters sprite census ------------------------------------
 # Quick check of which catalog entries the Hall will render vs fall
@@ -1933,10 +1971,6 @@ PYEOF
     fi
 fi
 
-if ! run_quality_variants; then
-    regen_failures+=("quality variants: generator reported a failure")
-fi
-
 # --- Verdict --------------------------------------------------------------
 # Every stage has now run. Fail here, once, for anything any of them recorded —
 # and leave the fingerprint uncached so the next run re-renders rather than
@@ -1950,6 +1984,9 @@ if [ "${#regen_failures[@]}" -gt 0 ]; then
         echo "    $failure" >&2
     done
     echo "    (fingerprint not cached; the next run re-renders)" >&2
+    if [ -d "$staging_root" ]; then
+        echo "    (the runtime roots were not replaced; the next run continues $staging_root)" >&2
+    fi
     exit 1
 fi
 

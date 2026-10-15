@@ -24,14 +24,10 @@ import argparse
 import shutil
 from pathlib import Path
 
-# Runtime sprite roots relative to the repo root. Mirrors
-# asset_publish::RUNTIME_SPRITE_ROOTS.
-RUNTIME_SPRITE_ROOTS = (
-    "crates/ambition_platformer2d_actor_monolith/assets/sprites",
-    "crates/ambition_platformer2d_actor_monolith/assets/sprites_0_5x",
-    "crates/ambition_platformer2d_actor_monolith/assets/sprites_0_25x",
-    "crates/ambition_platformer2d_actor_monolith/assets/sprites_potato",
-)
+# The directory of the runtime sprite roots, relative to the repo root, and
+# the roots in it. Mirrors asset_publish::RUNTIME_SPRITE_ROOTS.
+ASSET_ROOT = "crates/ambition_platformer2d_actor_monolith/assets"
+RUNTIME_SPRITE_ROOTS = ("sprites", "sprites_0_5x", "sprites_0_25x", "sprites_potato")
 
 # Filename suffixes that mark a visual diagnostic. Mirrors DIAGNOSTIC_SUFFIXES
 # in classify.rs.
@@ -93,6 +89,13 @@ def main() -> None:
         help="Diagnostics staging base (default: <repo>/target/ambition_publish/diagnostics).",
     )
     parser.add_argument(
+        "--asset-root",
+        type=Path,
+        default=None,
+        help="Directory of the runtime sprite roots (default: the repo's). "
+        "A sprite publish passes its staging root.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Report what would move without touching the filesystem.",
@@ -102,10 +105,12 @@ def main() -> None:
     repo_root: Path = args.repo_root
     dest_base: Path = args.dest or (repo_root / "target/ambition_publish/diagnostics")
 
+    asset_root: Path = args.asset_root or (repo_root / ASSET_ROOT)
+
     total = 0
-    for rel_root in RUNTIME_SPRITE_ROOTS:
-        root = repo_root / rel_root
-        root_name = Path(rel_root).name
+    for root_name in RUNTIME_SPRITE_ROOTS:
+        root = asset_root / root_name
+        rel_root = str(root)
         moved = sweep_root(root, dest_base / root_name, dry_run=args.dry_run)
         total += len(moved)
         if moved:

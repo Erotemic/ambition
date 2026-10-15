@@ -45,8 +45,8 @@ possible without a recompile. Work in this order:
    the demo packs) is deferred: see there.
 2. Efficient content preparation: [TEST-LANES](#test-lanes--keep-required-test-lanes-executable)
    item 10 (the sprite publish: `draw-review` and `draw-all` are cached
-   since 2026-10-14, `draw-factions` too; left: the entity publish, and a
-   staging root).
+   since 2026-10-14, `draw-factions` too, the staging root since
+   2026-10-15; left: Ultrapack, 131 s of a 270 s no-change publish).
 3. Pack elegance: admission diagnostics that name the file and the field
    (done 2026-10-15: `FacetSource::parse` gives the field path, ca3bd5d8f);
    [CPU-LADDER](#cpu-ladder--the-brain-owns-the-knobs-smash-owns-the-ladder)
@@ -1035,7 +1035,21 @@ variants. Also found in that regen:
     129 s (its full tier; half of that is PNG encoding, and a sheet edit
     re-packs every page), the tack-on batch's freshness checks 39 s, the
     LDtk tilesets 25 s, the variants 10 s.
-    Open: the staging root.
+    **Built 2026-10-15, the staging root:** a full publish writes into a
+    copy of the five runtime roots (`sprites`, the three tiers,
+    `sprite_packs`) under the renderer's `.cache/publish_staging`, and moves
+    the copy into place only when every sprite phase passed
+    (`scripts/lib/sprite_staging.sh`). A stopped or failed run leaves the
+    last whole set, and the next run continues the copy (the per-sheet keys
+    hash the files on disk, so the targets it published stay fresh). The
+    LDtk phases run after the swap: they write sheet paths into tracked
+    files. The entity textures go through the per-sheet cache too.
+    Witness: `test_a_stopped_run_leaves_the_runtime_roots_whole_and_the_next_run_continues`
+    (poison, staging is the runtime root: red at "old sheet"). Measured on
+    the real publish: the copy 9 s (1.6 GB), the swap 3 s; a publish with
+    nothing to render 270 s wall, rc 0, the `.ldtk` files unchanged.
+    Left: Ultrapack (131 s, all four tiers re-pack and re-encode every
+    page on every publish).
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

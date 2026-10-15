@@ -106,9 +106,8 @@ fn every_snake_wears_the_shell_state_its_brain_promises() {
 /// each authored enemy is a body that rule reaches, and the far ones sleep.
 #[test]
 fn every_authored_enemy_sleeps_when_she_is_far() {
-    use ambition_platformer2d::actors::features::ecs::dormancy::{
-        wake_radius, Dormant, DormancyRule,
-    };
+    use ambition_platformer2d::actors::features::ecs::dormancy::{wake_radius, Dormant};
+    use ambition_platformer2d::combat::dormancy_rule::DormancyRule;
     use ambition_platformer2d::characters::actor::limb::Limb;
     use ambition_platformer2d::characters::control::DrivingParticipant;
     use ambition_platformer2d::combat::components::EncounterMob;
@@ -124,7 +123,7 @@ fn every_authored_enemy_sleeps_when_she_is_far() {
         .get_resource::<DeclaredRules<DormancyRule>>()
         .and_then(|rules| rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(ambition_demo_mary_o::MARY_O_MODE))))
         .expect("Mary-O states a dormancy rule for her rooms");
-    assert_eq!(rule.hostile_wake_radius, ambition_demo_mary_o::MARY_O_WAKE_RADIUS);
+    assert_eq!(rule.hostile_wake_radius, ambition_demo_mary_o::pack::room_rules().dormancy.expect("her rooms state a wake radius").hostile_wake_radius);
 
     let mut eyes = app
         .world_mut()

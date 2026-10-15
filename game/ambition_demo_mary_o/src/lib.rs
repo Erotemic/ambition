@@ -76,24 +76,6 @@ pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
 /// in a room that is not Mary-O's.
 pub const MARY_O_MODE: &str = "mary_o";
 
-/// How close an observer must be for a Mary-O enemy to keep thinking, in world units.
-///
-/// One distance for the snake and the AI Slop. They share a level and a job,
-/// patrol until somebody arrives.
-///
-/// DERIVED from the view presets, not chosen by feel. A wake radius below
-/// the half-width of the view a player selected pops an actor into frame already
-/// moving. The five presets are 640/800/960/1120/1600 world units wide, so the
-/// half-widths are 320/400/480/560/800. `Cinematic`'s 560 is the widest that
-/// is a PLAY choice; 720 clears it by 160 — five tiles at this level's `T` — so a
-/// patroller has settled onto its column well before it is visible.
-///
-/// `Debug`'s 1600 is deliberately not covered. A developer at twice the
-/// gameplay view is looking for exactly this kind of thing, and sizing content for
-/// that zoom would leave the policy culling nothing.
-///
-/// The near pair is awake; everything from the third column out sleeps until she comes for it.
-pub const MARY_O_WAKE_RADIUS: f32 = 720.0;
 
 /// The level clock starts here and counts DOWN. It is the demo's one rule.
 pub const STARTING_TIME: f32 = 400.0;
@@ -1538,12 +1520,6 @@ impl Plugin for MaryORulesPlugin {
             let scope = self.scope;
             // Her death replay is the pack's (`assets/data/room_rules.ron`).
             ambition_platformer2d::combat::room_rules::declare_room_rules(app, scope, crate::pack::room_rules());
-            app.declare_rules(
-                scope,
-                ambition_platformer2d::actors::features::ecs::dormancy::DormancyRule {
-                    hostile_wake_radius: MARY_O_WAKE_RADIUS,
-                },
-            );
             // The modifier runs, whichever body she drives. The cinder beacon
             // relabels the same slot while she wears it (see `run_technique`).
             app.declare_rules(

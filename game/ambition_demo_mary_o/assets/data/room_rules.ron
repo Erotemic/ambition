@@ -8,4 +8,16 @@
     // cue exists to land. If the score's tempo or bar count changes, this
     // number changes with it.
     replay_level_after_death_s: Some(3.2),
+    // How near she must be for an enemy to keep thinking. It clears the
+    // half-width of the widest view a player can select, so no enemy comes
+    // into frame already moving: the presets are 640/800/960/1120/1600 wide,
+    // `Cinematic`'s 560 half-width is the widest PLAY choice, and 720 clears
+    // it by 160 (five tiles). `Debug`'s 800 is not cleared on purpose: content
+    // sized for that zoom would let the rule sleep nothing.
+    // (`the_wake_radius_clears_the_widest_playable_view` reads the presets.)
+    // Her enemies patrol, and none is worth a brain on the far side of the
+    // level. A kicked shell still slides when it is far: dormancy sleeps the
+    // brain, and the shell's slide writes the body's velocity on another
+    // channel.
+    hostile_wake_radius: Some(720.0),
 )

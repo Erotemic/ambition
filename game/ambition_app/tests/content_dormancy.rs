@@ -34,7 +34,9 @@ const ROOMS: [&str; 4] = [
 ];
 
 /// Far beyond Ambition's wake radius from any observer in these rooms.
-const FAR: f32 = 10.0 * ambition_content::dormancy::AMBITION_WAKE_RADIUS;
+fn far() -> f32 {
+    10.0 * ambition_platformer2d::combat::room_rules::lowered_room_rules(ambition_content::pack::shipped()).and_then(|rules| rules.dormancy).expect("Ambition's rooms state a wake radius").hostile_wake_radius
+}
 
 #[derive(Default)]
 struct Verdicts {
@@ -67,7 +69,7 @@ fn judge(room: &str, out: &mut Verdicts) {
     >();
     let mut staged = Vec::new();
     for (entity, id, faction, is_mob, is_mount, is_limb, mut body) in q.iter_mut(world) {
-        body.pos.x += FAR;
+        body.pos.x += far();
         let sleeps = *faction == ActorFaction::Enemy && !is_mob && !is_mount && !is_limb;
         let name = format!(
             "{room}/{} ({faction:?})",

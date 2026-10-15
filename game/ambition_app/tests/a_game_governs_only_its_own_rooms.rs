@@ -15,7 +15,7 @@
 //! one plugin's `build`, checked over the composed host where all of them are
 //! visible at once.
 
-use ambition_platformer2d::actors::features::ecs::dormancy::DormancyRule;
+use ambition_platformer2d::combat::dormancy_rule::DormancyRule;
 use ambition_platformer2d::combat::death_rules::DeathRules;
 use ambition_platformer2d::combat::scoped_rules::{DeclaredRules, RulesScope};
 use bevy::prelude::*;
@@ -175,14 +175,14 @@ fn each_game_sleeps_its_hostiles_at_its_own_distance_in_its_own_rooms() {
     let radius = |mode: Option<&str>| rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)).map(|rule| rule.hostile_wake_radius);
 
     for (mode, expected) in [
-        (None, Some(ambition_content::dormancy::AMBITION_WAKE_RADIUS)),
+        (None, Some(ambition_platformer2d::combat::room_rules::lowered_room_rules(ambition_content::pack::shipped()).and_then(|rules| rules.dormancy).expect("Ambition's rooms state a wake radius").hostile_wake_radius)),
         (
             Some(ambition_demo_sanic::SANIC_MODE),
-            Some(ambition_demo_sanic::rules::sanic_rules().badnik.wake_radius),
+            Some(ambition_demo_sanic::pack::room_rules().dormancy.expect("his rooms state a wake radius").hostile_wake_radius),
         ),
         (
             Some(ambition_demo_mary_o::MARY_O_MODE),
-            Some(ambition_demo_mary_o::MARY_O_WAKE_RADIUS),
+            Some(ambition_demo_mary_o::pack::room_rules().dormancy.expect("her rooms state a wake radius").hostile_wake_radius),
         ),
         (Some(ambition_demo_smash::SMASH_MODE), None),
     ] {

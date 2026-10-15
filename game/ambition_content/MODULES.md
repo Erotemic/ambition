@@ -13,7 +13,6 @@
 | [`content_validation`](src/content_validation.rs) | Cross-content validation for authored sandbox data. |
 | [`content_watch`](src/content_watch.rs) | ⭐ THE RUNNING GAME PLAYS A CONTENT EDIT (fast-iteration I3 step 4: "file watching calls the same request path"). |
 | [`dialogue`](src/dialogue/mod.rs) | Named Ambition dialogue / cutscene content registration. |
-| [`dormancy`](src/dormancy.rs) | Ambition's dormancy rule: how near an observer must be for a hostile to keep thinking. |
 | [`duel_arena`](src/duel_arena.rs) | Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room mechanics split by kind; this one is a `RoomLoaded` consumer). |
 | [`encounters`](src/encounters.rs) | Content encounter customers on the GENERIC lifecycle (E13). |
 | [`input_techniques`](src/input_techniques.rs) | Ambition-owned motion-input technique registrations. |

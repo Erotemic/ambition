@@ -4496,6 +4496,33 @@ fn an_edit_to_the_landing_lag_share_reaches_ambitions_rooms_without_a_build() {
     assert_eq!(untagged::<DeathRules>(app.world()), death_before, "a rule the edit did not touch moved");
 }
 
+/// An edit to the wake radius reaches Ambition's rooms at the activation: how
+/// near an observer must be for a hostile to keep thinking is data. The
+/// landing-lag share is in the same file and is not edited: it is the control.
+#[test]
+fn an_edit_to_the_wake_radius_reaches_ambitions_rooms_without_a_build() {
+    use ambition_combat::dormancy_rule::DormancyRule;
+    use ambition_combat::landing_lag::LandingLagRules;
+    let mut app = host_with_the_shipped_room_rules();
+    assert_eq!(
+        untagged::<DormancyRule>(app.world()),
+        Some(DormancyRule { hostile_wake_radius: 2560.0 }),
+        "the premise: the shipped radius governs Ambition's rooms"
+    );
+
+    reload_to(
+        &mut app,
+        pack_with_room_rules(|text| text.replacen("hostile_wake_radius: Some(2560.0)", "hostile_wake_radius: Some(3000.0)", 1)),
+    );
+
+    assert_eq!(
+        untagged::<DormancyRule>(app.world()),
+        Some(DormancyRule { hostile_wake_radius: 3000.0 }),
+        "the route activated and the wake radius stayed at generation N"
+    );
+    assert_eq!(untagged::<LandingLagRules>(app.world()), Some(LandingLagRules::scaled_by(0.25)), "a rule the edit did not touch moved");
+}
+
 /// Absent in the candidate means remove: a rule deleted from the file is no
 /// longer declared, and the engine's undeclared answer applies. A road that
 /// only inserts would keep the old heavy line.

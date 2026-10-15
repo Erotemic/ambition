@@ -19,9 +19,6 @@ impl Plugin for AmbitionContentPlugin {
         // participate in it (`reload.rs`); this install happens once.
         let pack = crate::pack::select(app.world_mut());
 
-        // Game-authored dormancy policy per actor.
-        super::dormancy::register(app);
-
         // Named projectile presentation used by Ambition content.
         super::projectiles::register(app);
 

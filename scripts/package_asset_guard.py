@@ -513,7 +513,10 @@ def scan_manifest_declarations(
         for source in sorted(game_root.glob("*/src/**/*.rs")):
             rel_source = source_relative_path(repo, source)
             parts = source.relative_to(game_root).parts
-            if "tests" in parts or source.name in {"tests.rs"}:
+            # A `*_tests.rs` file is a `#[cfg(test)]` module in a file of its own
+            # (`#[path = "..._tests.rs"]` or `mod ..._tests;`): its own text
+            # carries no `#[cfg(test)]` for the cut below to find.
+            if "tests" in parts or source.name == "tests.rs" or source.name.endswith("_tests.rs"):
                 continue
             text = source.read_text(encoding="utf8")
             # Inline unit-test fixtures often use realistic field names with

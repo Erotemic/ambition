@@ -100,4 +100,64 @@
         // flight is her own, and this is the stop the form shortens.
         hit_stop_max_seconds: 0.02,
     ),
+    // The end of a castle.
+    castle_end: (
+        // How fast the switch goes down under her, in world px per second.
+        press_speed: 150.0,
+        // Seconds from one row of the gate to the next while it opens.
+        gate_step_seconds: 0.14,
+        // How long his thanks stay, in seconds. It needs no button: a level
+        // that waits for a button at its end can hold a player who does not
+        // know which.
+        rescue_line_seconds: 4.0,
+        // She stops this far from him, in world px.
+        stand_before_him: 76.0,
+        // How fast she comes down from the switch to the floor, in world px
+        // per second.
+        step_down_speed: 240.0,
+        // The score of a castle.
+        switch_score: 5000,
+        // How fast the lava takes a boss down, in world px per second.
+        sink_speed: 46.0,
+        // Ticks from one splash of the lava about a boss to the next.
+        splash_ticks: 7,
+        // A boss is dead when its top is this far under the top of the lava.
+        sunk_under: 6.0,
+        // With no lava under it, a boss is dead this far under the floor.
+        fallen_under: 96.0,
+        // A boss that is alive this long after its bridge is gone did not
+        // fall (a post held it). The void takes it where it is.
+        boss_fall_limit_seconds: 4.0,
+        // The seconds of each beat that ends on time. The bridge, the boss's
+        // fall and her walk end on a fact of the world.
+        beats: (
+            pressed: 0.6,
+            charges: 1.1,
+            aftermath: 1.0,
+            gate_opens: 1.0,
+            // The thanks are the rescue line and this much more.
+            thanks_after_line: 0.9,
+            // The level waits, so the player has the time of the victory.
+            victory: 2.0,
+        ),
+    ),
+    // The flag at the end of a level.
+    flag: (
+        // How fast the body slides down the pole, world px per second.
+        slide_speed: 220.0,
+        // How far right the body walks off, in world px, before the tally.
+        walk_off_px: 96.0,
+        // Walking-off speed, world px per second.
+        walk_off_speed: 90.0,
+        // The classic ladder, by the grab's height on the pole: five bands,
+        // the top worth an order of magnitude more than the bottom. Exactly
+        // five, so the list is written in parentheses.
+        score_bands: (
+            (at: 0.9, score: 5000),
+            (at: 0.7, score: 2000),
+            (at: 0.5, score: 800),
+            (at: 0.25, score: 400),
+            (at: 0.0, score: 100),
+        ),
+    ),
 )

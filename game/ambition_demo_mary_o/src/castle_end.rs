@@ -41,8 +41,6 @@ const PRESSED_ROW: &str = "pressed";
 pub const SWITCH_ART_PX: f32 = 48.0;
 /// How far the button goes down, in world px: the difference of its two rows.
 const PRESS_DROP: f32 = 15.0;
-/// How fast it goes down, in world px per second.
-const PRESS_SPEED: f32 = 150.0;
 
 /// The name of the block that is the gate of a castle.
 pub const GOAL_GATE: &str = "goal_gate";
@@ -51,8 +49,6 @@ pub const GATE_ART: &str = "goal_gate_art";
 /// The rows of the sheet of the gate, from down to up in the wall. The gate
 /// that is down is the `idle` row: the engine draws no prop without one.
 const GATE_ROWS: [&str; 6] = ["idle", "rise_1", "rise_2", "rise_3", "rise_4", "open"];
-/// Seconds from one row of the gate to the next while it opens.
-const GATE_STEP_SECONDS: f32 = 0.14;
 
 /// The cutscene in which the one she saved thanks her.
 pub const RESCUE_CUTSCENE: &str = "mary_o_castle_rescue";
@@ -60,24 +56,7 @@ pub const RESCUE_CUTSCENE: &str = "mary_o_castle_rescue";
 pub const RESCUED_CHARACTER_ID: &str = "mary_o_robot";
 /// What he says.
 pub const RESCUE_LINE: &str = "ROBOT:  \"Thank you, Mary-O. You saved me.\"";
-/// How long his line stays, in seconds. It needs no button: a level that
-/// waits for a button at its end can hold a player who does not know which.
-const RESCUE_LINE_SECONDS: f32 = 4.0;
-/// She stops this far from him, in world px.
-const STAND_BEFORE_HIM: f32 = 76.0;
-/// How fast she comes down from the switch to the floor, in world px per second.
-const STEP_DOWN_SPEED: f32 = 240.0;
-/// The score of a castle.
-const SWITCH_SCORE: u32 = 5000;
 
-/// How fast the lava takes a boss down, in world px per second.
-const SINK_SPEED: f32 = 46.0;
-/// Ticks from one splash of the lava about a boss to the next.
-const SPLASH_TICKS: u64 = 7;
-/// A boss is dead when its top is this far under the top of the lava.
-const SUNK_UNDER: f32 = 6.0;
-/// With no lava under it, a boss is dead this far under the floor.
-const FALLEN_UNDER: f32 = 96.0;
 
 /// The beats of the end of a castle, in their sequence.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -106,14 +85,16 @@ impl CastleBeat {
     /// The seconds of a beat that ends on time. A beat with `None` ends on a
     /// fact of the world ([`CastleFacts`]).
     fn seconds(self) -> Option<f32> {
+        let castle = crate::rules::mary_o_rules().castle_end;
+        let beats = castle.beats;
         match self {
-            Self::Pressed => Some(0.6),
-            Self::Charges => Some(1.1),
+            Self::Pressed => Some(beats.pressed),
+            Self::Charges => Some(beats.charges),
             Self::BridgeFalls | Self::BossFalls | Self::Walks => None,
-            Self::Aftermath => Some(1.0),
-            Self::GateOpens => Some(1.0),
-            Self::Thanks => Some(RESCUE_LINE_SECONDS + 0.9),
-            Self::Victory => Some(2.0),
+            Self::Aftermath => Some(beats.aftermath),
+            Self::GateOpens => Some(beats.gate_opens),
+            Self::Thanks => Some(castle.rescue_line_seconds + beats.thanks_after_line),
+            Self::Victory => Some(beats.victory),
         }
     }
 
@@ -142,9 +123,6 @@ impl CastleBeat {
     }
 }
 
-/// A boss that is alive this long after its bridge is gone did not fall (a
-/// post held it). The void takes it where it is.
-const BOSS_FALL_LIMIT: f32 = 4.0;
 
 /// The switch of a castle, and where the end of the castle takes her.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -230,7 +208,7 @@ fn step_beat(
                 return None;
             }
             seq.phase = FlagPhase::Castle {
-                score: SWITCH_SCORE,
+                score: crate::rules::mary_o_rules().castle_end.switch_score,
                 beat: CastleBeat::Pressed,
                 since: 0.0,
             };
@@ -250,24 +228,24 @@ fn step_beat(
     };
     let done = match beat {
         CastleBeat::Pressed => {
-            drive.pos.y = on_button((since * PRESS_SPEED).min(PRESS_DROP));
+            drive.pos.y = on_button((since * crate::rules::mary_o_rules().castle_end.press_speed).min(PRESS_DROP));
             false
         }
         CastleBeat::BridgeFalls => !facts.planks_left,
         CastleBeat::BossFalls => !facts.boss_left,
         CastleBeat::Walks => {
             let floor = switch.max.y - body.half.y;
-            let x = (body.pos.x + crate::flag::WALK_OFF_SPEED * dt).min(goal.stand_x.max(body.pos.x));
+            let x = (body.pos.x + crate::rules::mary_o_rules().flag.walk_off_speed * dt).min(goal.stand_x.max(body.pos.x));
             // Off the button when her middle is past its edge.
             let y = if x < switch.max.x {
                 body.pos.y
             } else {
-                (body.pos.y + STEP_DOWN_SPEED * dt).min(floor)
+                (body.pos.y + crate::rules::mary_o_rules().castle_end.step_down_speed * dt).min(floor)
             };
             let arrived = x >= goal.stand_x && y >= floor;
             drive.pos = ae::Vec2::new(x, y);
             if !arrived {
-                drive.vel = ae::Vec2::new(crate::flag::WALK_OFF_SPEED, 0.0);
+                drive.vel = ae::Vec2::new(crate::rules::mary_o_rules().flag.walk_off_speed, 0.0);
             }
             arrived
         }
@@ -306,7 +284,7 @@ fn rescue_script() -> CutsceneScript {
             CutsceneBeat::Wait { seconds: 0.4 },
             CutsceneBeat::Banner {
                 text: RESCUE_LINE.to_string(),
-                seconds: RESCUE_LINE_SECONDS,
+                seconds: crate::rules::mary_o_rules().castle_end.rescue_line_seconds,
             },
         ],
     )
@@ -421,7 +399,7 @@ pub fn run_castle_ending(
     let goal = CastleGoal {
         switch,
         // With nobody past the gate, she walks off as she does from a pole.
-        stand_x: he_is_at.map_or(switch.max.x + crate::flag::WALK_OFF_PX, |x| x - STAND_BEFORE_HIM),
+        stand_x: he_is_at.map_or(switch.max.x + crate::rules::mary_o_rules().flag.walk_off_px, |x| x - crate::rules::mary_o_rules().castle_end.stand_before_him),
     };
     let stomper = Stomper {
         pos: kin.pos,
@@ -494,7 +472,7 @@ pub fn charges_go_off_on_the_bridge(
 /// goes down at a fixed speed, with a splash each few ticks, and dies when it
 /// is under: the lava is drawn over a body, so it is seen to go in, and its
 /// death is one large splash. With no lava under it, it dies a few tiles
-/// under the floor. One that did not fall dies [`BOSS_FALL_LIMIT`] after its
+/// under the floor. One that did not fall dies `castle_end.boss_fall_limit_seconds` after its
 /// bridge is gone. So the switch is a sure end of the boss, also when a post
 /// held it up.
 #[allow(clippy::type_complexity)]
@@ -516,7 +494,7 @@ pub fn the_lava_takes_the_boss(
         .and_then(|rooms| rooms.spec_of(body))
         .map(crate::scenery::lava_pools_of)
         .unwrap_or_default();
-    let out_of_time = beat > CastleBeat::BossFalls || (beat == CastleBeat::BossFalls && since > BOSS_FALL_LIMIT);
+    let out_of_time = beat > CastleBeat::BossFalls || (beat == CastleBeat::BossFalls && since > crate::rules::mary_o_rules().castle_end.boss_fall_limit_seconds);
     let room = live.of(body);
     // The base of the switch is the line of the floor.
     let floor = switch.max.y;
@@ -538,8 +516,8 @@ pub fn the_lava_takes_the_boss(
                 // In the lava: down at a fixed speed, and no way to the side.
                 // The lava holds the speed; the step moves the body.
                 let at = kin.pos;
-                ae::movement::constrain_body_pose(&mut kin, None, at, ae::Vec2::new(0.0, SINK_SPEED));
-                if tick.as_ref().is_some_and(|tick| tick.get() % SPLASH_TICKS == 0) {
+                ae::movement::constrain_body_pose(&mut kin, None, at, ae::Vec2::new(0.0, crate::rules::mary_o_rules().castle_end.sink_speed));
+                if tick.as_ref().is_some_and(|tick| tick.get() % crate::rules::mary_o_rules().castle_end.splash_ticks == 0) {
                     vfx.for_room(room).write(VfxMessage::Burst {
                         pos: ae::Vec2::new(kin.pos.x, pool.min.y),
                         count: 10,
@@ -548,9 +526,9 @@ pub fn the_lava_takes_the_boss(
                         kind: ParticleKind::Shard,
                     });
                 }
-                (top > pool.min.y + SUNK_UNDER).then_some(ae::Vec2::new(kin.pos.x, pool.min.y))
+                (top > pool.min.y + crate::rules::mary_o_rules().castle_end.sunk_under).then_some(ae::Vec2::new(kin.pos.x, pool.min.y))
             }
-            None if top > floor + FALLEN_UNDER => Some(kin.pos),
+            None if top > floor + crate::rules::mary_o_rules().castle_end.fallen_under => Some(kin.pos),
             _ => None,
         };
         let Some(at) = dies_at else {
@@ -630,7 +608,7 @@ fn gate_row(sequence: &FlagSequence) -> &'static str {
         FlagPhase::Castle {
             beat: CastleBeat::GateOpens,
             since,
-        .. } => (1 + (since / GATE_STEP_SECONDS) as usize).min(last),
+        .. } => (1 + (since / crate::rules::mary_o_rules().castle_end.gate_step_seconds) as usize).min(last),
         FlagPhase::Castle { .. } | FlagPhase::Tallied { .. } => last,
         _ => 0,
     };

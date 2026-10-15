@@ -15,7 +15,7 @@ use super::primitives::{
     block_color, feature_color, feature_z, spawn_world_label, EntityArt, BlockVisual, FeatureVisual,
     LockWallVisual, PropVisual, RoomVisual,
 };
-use ambition_platformer2d_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
+use ambition_platformer2d_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
@@ -319,8 +319,8 @@ pub fn spawn_room_visuals(
             commands.entity(sign).insert(legend);
         }
     }
-    for prop in &spec.props {
-        spawn_room_prop(commands, session_scope, world, prop, assets);
+    for (index, prop) in spec.props.iter().enumerate() {
+        spawn_room_prop(commands, session_scope, world, prop, index, assets);
     }
 }
 
@@ -421,8 +421,19 @@ pub(crate) fn prop_sprite_bundle(
     (sprite, anchor, animator)
 }
 
-/// Spawn the visual entity for one [`PropSpec`]. Falls back to a coloured
-/// rectangle when the prop's `kind` is unknown or its asset has not loaded.
+/// Where the scenery of a room draws: behind the actors of the playable plane
+/// (`feature_z(Actor)`) and over the limb trail (`WORLD_Z_DUMMY + 0.5`). The
+/// room's scenery draws in the order the room lists it, the first furthest
+/// back, so two pieces that overlap (a house before an aqueduct) always draw
+/// the same way round.
+const SCENERY_Z_BACK: f32 = WORLD_Z_DUMMY + 0.55;
+const SCENERY_Z_FRONT: f32 = WORLD_Z_DUMMY + 0.95;
+/// The z step between pieces of scenery listed one after the other.
+const SCENERY_Z_STEP: f32 = 1.0 / 4096.0;
+
+/// Spawn the visual entity for one [`PropSpec`], the `index`th the room
+/// lists. Falls back to a coloured rectangle when the prop's `kind` is
+/// unknown or its asset has not loaded.
 ///
 /// Always inserts `RoomVisual` (so the room swap despawns it) and
 /// `PropVisual { id, kind, name, size }` (for the prop-anim tick, debug
@@ -433,17 +444,15 @@ pub fn spawn_room_prop(
     session_scope: SessionSpawnScope,
     world: &ae::World,
     prop: &PropSpec,
+    index: usize,
     assets: Option<&GameAssets>,
 ) {
-    // Decorative props use the actor placeholder kind for their z/colour
-    // fallback; only the z is read. A dedicated neutral kind would be cleaner.
-    let kind = FeatureVisualKind::Actor;
     // Built world draws in front, so a body inside it is hidden; scenery sits
-    // behind the cast.
+    // behind the cast, in the room's order.
     let z = if prop.draw.occludes_bodies() {
         WORLD_Z_PLAYER + super::BODY_DEPTH_BAND
     } else {
-        feature_z(kind)
+        (SCENERY_Z_BACK + SCENERY_Z_STEP * index as f32).min(SCENERY_Z_FRONT)
     };
     let translation = world_to_bevy(world, prop.pos, z);
     let collision = BVec2::new(prop.size.x, prop.size.y);

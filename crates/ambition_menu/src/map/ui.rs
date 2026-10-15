@@ -212,6 +212,19 @@ pub fn sync_map_menu(
     let Some(active_id) = room.spec().map(|spec| spec.id.clone()) else {
         return;
     };
+    // Only the rooms of the active room's world: each world file has its own
+    // coordinates, so rooms of two worlds can overlap. When the active room is
+    // not on the map, no world is known and no room is drawn.
+    let active_world = map
+        .rooms
+        .iter()
+        .find(|node| node.id == active_id)
+        .map(|node| node.world.as_str());
+    let rooms: Vec<&MapRoomNode> = map
+        .rooms
+        .iter()
+        .filter(|node| Some(node.world.as_str()) == active_world)
+        .collect();
     if let Ok(mut visibility) = roots.single_mut() {
         *visibility = if map.open {
             Visibility::Visible
@@ -229,8 +242,11 @@ pub fn sync_map_menu(
     if let Ok(mut text) = status.single_mut() {
         **text = format!(
             "{} of {} rooms visited — {} active   |   zoom {:.2}x   (+ / − adjust, 0 reset)",
-            map.visited.len(),
-            map.rooms.len(),
+            rooms
+                .iter()
+                .filter(|node| map.visited.contains(&node.id))
+                .count(),
+            rooms.len(),
             active_id,
             map.zoom,
         );
@@ -242,9 +258,6 @@ pub fn sync_map_menu(
         for (entity, _, _, _, _, _) in &boxes {
             commands.entity(entity).despawn();
         }
-        return;
-    }
-    if map.rooms.is_empty() {
         return;
     }
 
@@ -264,7 +277,7 @@ pub fn sync_map_menu(
         compute_canvas_visuals(
             &mut desired,
             MapRoomBoxKind::Map,
-            &map.rooms,
+            &rooms,
             &map.visited,
             &active_id,
             MAP_PANEL_WIDTH - MAP_PADDING * 2.0,
@@ -277,7 +290,7 @@ pub fn sync_map_menu(
         compute_canvas_visuals(
             &mut desired,
             MapRoomBoxKind::Minimap,
-            &map.rooms,
+            &rooms,
             &map.visited,
             &active_id,
             MINIMAP_WIDTH - MINIMAP_PADDING * 2.0,
@@ -451,7 +464,7 @@ enum MapLabelStyle {
 fn compute_canvas_visuals(
     desired: &mut HashMap<(MapRoomBoxKind, String), RoomVisual>,
     kind: MapRoomBoxKind,
-    rooms: &[MapRoomNode],
+    rooms: &[&MapRoomNode],
     visited: &BTreeSet<String>,
     active: &str,
     canvas_w: f32,

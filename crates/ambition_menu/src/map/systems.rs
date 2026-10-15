@@ -97,6 +97,7 @@ pub fn populate_map_rooms(
     for level in &project.0.levels {
         map.rooms.push(MapRoomNode {
             id: level.identifier.clone(),
+            world: level.world_source.clone(),
             world_min: Vec2::new(level.world_x as f32, level.world_y as f32),
             world_size: Vec2::new(level.px_wid as f32, level.px_hei as f32),
         });

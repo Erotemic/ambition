@@ -323,6 +323,21 @@ fn a_new_game_records_the_room_the_player_is_already_standing_in() {
 /// `lab` is live beside it as a second room. The primary body stands in
 /// `body_in`. The map is open over both rooms.
 fn map_over_two_rooms(lab_live: bool, body_in: &str) -> bevy::prelude::App {
+    map_over_rooms(
+        &[("hall", "", 0.0), ("lab", "", 640.0)],
+        lab_live.then_some("lab"),
+        body_in,
+    )
+}
+
+/// Rooms `(id, world, x)`, each 640x480 at `(x, 0)`. The first room is live at
+/// the activation room; `second_live` is live beside it. The primary body
+/// stands in `body_in`. The map is open over every room.
+fn map_over_rooms(
+    nodes: &[(&str, &str, f32)],
+    second_live: Option<&str>,
+    body_in: &str,
+) -> bevy::prelude::App {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         spawn_live_room, ActiveSessionScope, InRoomInstance, LiveRoomInstance,
     };
@@ -341,26 +356,36 @@ fn map_over_two_rooms(lab_live: bool, body_in: &str) -> bevy::prelude::App {
         );
         RoomSpec::new(id, world)
     };
-    let rooms = RoomSet::from_parts_or_panic("hall", vec![room("hall"), room("lab")], Vec::new());
-    let lab = rooms.definition_by_id("lab").expect("lab is authored");
-    insert_room_set(app.world_mut(), rooms);
-    let lab_room = LiveRoomInstance::from_ordinal(1);
-    if lab_live {
-        spawn_live_room(app.world_mut(), lab_room, lab);
+    let rooms = RoomSet::from_parts_or_panic(
+        nodes[0].0,
+        nodes.iter().map(|(id, _, _)| room(id)).collect(),
+        Vec::new(),
+    );
+    let second_room = LiveRoomInstance::from_ordinal(1);
+    if let Some(second) = second_live {
+        let definition = rooms.definition_by_id(second).expect("authored");
+        insert_room_set(app.world_mut(), rooms);
+        spawn_live_room(app.world_mut(), second_room, definition);
+    } else {
+        insert_room_set(app.world_mut(), rooms);
     }
-    let body_room = if body_in == "lab" { lab_room } else { LiveRoomInstance::ACTIVATION };
+    let body_room = if Some(body_in) == second_live {
+        second_room
+    } else {
+        LiveRoomInstance::ACTIVATION
+    };
     app.world_mut().spawn((
         ambition_platformer2d_shared_tangle::body::PrimaryBody,
         InRoomInstance(body_room),
     ));
     app.insert_resource(super::MapMenuState {
         open: true,
-        rooms: ["hall", "lab"]
+        rooms: nodes
             .iter()
-            .enumerate()
-            .map(|(i, id)| super::MapRoomNode {
+            .map(|(id, world, x)| super::MapRoomNode {
                 id: id.to_string(),
-                world_min: Vec2::new(640.0 * i as f32, 0.0),
+                world: world.to_string(),
+                world_min: Vec2::new(*x, 0.0),
                 world_size: Vec2::new(640.0, 480.0),
             })
             .collect(),
@@ -428,4 +453,34 @@ fn the_map_shows_the_primary_bodys_room_while_two_rooms_are_live() {
     let (status, boxes) = shown_active(&mut two);
     assert!(status.contains("hall active"), "after the crossing: {status}");
     assert_eq!(boxes, vec!["hall"], "after the crossing, the boxes were not redrawn");
+}
+
+/// Two world files, each its own coordinate space: `gate` of world `math`
+/// sits at the same coordinates as `hall` of world `sandbox`. The map shows
+/// only the active room's world, so the two never draw on top of each other.
+#[test]
+fn the_map_shows_only_the_rooms_of_the_active_rooms_world() {
+    let nodes = [
+        ("hall", "sandbox", 0.0),
+        ("lab", "sandbox", 640.0),
+        ("gate", "math", 0.0),
+    ];
+    let drawn = |app: &mut bevy::prelude::App| {
+        let mut ids: Vec<String> = app
+            .world_mut()
+            .query::<&super::ui::MapRoomBox>()
+            .iter(app.world())
+            .map(|room_box| room_box.room_id.clone())
+            .collect();
+        ids.sort();
+        ids
+    };
+
+    let mut sandbox = map_over_rooms(&nodes, None, "hall");
+    assert_eq!(drawn(&mut sandbox), vec!["hall", "lab"], "in the sandbox world");
+    let (status, _) = shown_active(&mut sandbox);
+    assert!(status.contains("of 2 rooms"), "the count is of one world: {status}");
+
+    let mut math = map_over_rooms(&nodes, Some("gate"), "gate");
+    assert_eq!(drawn(&mut math), vec!["gate"], "in the math world");
 }

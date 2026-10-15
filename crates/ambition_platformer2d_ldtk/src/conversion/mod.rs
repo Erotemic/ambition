@@ -1082,6 +1082,7 @@ mod tests {
             json_version: "1.5.3".into(),
             levels: vec![LdtkLevel {
                 iid: "level-iid".into(),
+                world_source: String::new(),
                 identifier: "registry_lab".into(),
                 world_x: 0,
                 world_y: 0,

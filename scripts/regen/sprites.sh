@@ -636,6 +636,22 @@ tackon_targets=(
     math_house_tower
     math_house_shop
     math_house_arcade
+    math_house_gable
+    math_house_flat
+    math_observatory
+    # The terraces of the Math town: the aqueduct, the stair, the passage
+    # under the first terrace, homes in the rock, trees (LDtk `Prop`s).
+    math_aqueduct_span_street
+    math_aqueduct_span_t1
+    math_aqueduct_span_t2
+    math_switchback_stair
+    math_tunnel_bay
+    math_tunnel_mouth
+    math_tunnel_gate
+    math_cliff_home_wide
+    math_cliff_home_narrow
+    math_cypress
+    math_olive
     # The keys and the doors of the Noodly Temple (`PickupSpawn.sprite`,
     # `LockWall.look`).
     temple_key_marinara

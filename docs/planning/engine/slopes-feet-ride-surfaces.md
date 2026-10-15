@@ -1,10 +1,59 @@
 # Slopes: a body keeps its support (proposed 2026-10-11, Jon asked for it)
 
-Not built, and DEFERRED (Jon, 2026-10-11): after the rest of the work on
-GNU-ton. Until then the giant's back and the cart's ramp stay steps. A
-proposal for a slope mechanic in the movement kernel. Jon: "It
-needs to be a smooth ride when we have walkable slopes. We need to find the
-elegant solution."
+IN PROGRESS (2026-10-15). It was deferred on 2026-10-11 until after the
+GNU-ton work; Jon lifted that on 2026-10-15, when the Math town's stair was
+built of 64 invisible treads: "we now have several instances of ramps,
+gnutons back, the cart ramp, and now the stairs in math town. we should make
+sure that our physics implementation of them is not hacky and elegantly mix
+game play on ramps efficient and smooth. or more generally angled platforms
+and walls. this also means we also need to make portals work on angled
+surfaces." The first proposal was for a slope mechanic in the movement
+kernel; Jon on 2026-10-11: "It needs to be a smooth ride when we have
+walkable slopes. We need to find the elegant solution."
+
+## The defaults this work takes (2026-10-15; feel is Jon's, each is a knob)
+
+- The foot span is the width of the box (the proposal's default, below).
+  The picture is put down onto the surface under its middle.
+- A walker's speed on a slope is its speed ACROSS the floor: up or down a
+  ramp it covers the same ground per second as on the flat.
+- A segment steeper than a walker's limit (default 50 degrees) is not ground
+  for it. Below the limit it does not slide.
+- At a crest a walking body stays on the ground (it is held down onto the
+  surface on the far side within its limit). A jump leaves it. The momentum
+  rider keeps its own launch rule.
+- A stair is a slope: the art draws the steps, the body rides one line.
+
+## The sites that move to it
+
+| Site | Today | After |
+|---|---|---|
+| The Math town's switchback stair | 64 still one-way platforms | two one-way slope lines and a landing |
+| The gate cradle's stairs | 24 still one-way platforms | a one-way slope line at each end |
+| The cart of the wake room | 14 still one-way platforms | one line (phase C: it moves) |
+| The giant gnu's back | 10 typed ledges a tick | one line from the art (phase C) |
+
+## Portals on angled surfaces (the second track)
+
+Read from the code, 2026-10-15 (an audit; not run). The frame math is
+general already (`frame.rs`: points and velocities map through any normal,
+and Alice's up-B tilts a portal 32 degrees in free air). What is cardinal:
+
+- A portal's host: the gun's ray (`gun_projectile.rs` -> `raycast_solids`)
+  hits only boxes and gives a face normal; it can not hit a chain. The LDtk
+  `Portal` takes only up/down/left/right.
+- `portal_fits` rounds the normal to an axis.
+- The piece layer (`ambition_portal2d/src/pieces.rs`): `map_aabb`,
+  `clip_halfspace`, `clip_to_aperture`, `straddles` and the carve all pick
+  one axis.
+- The extents and the capture box are boxes round a tilted face
+  (`types.rs`); the view cone's source and the compositor are exact only
+  for cardinal portals.
+
+The order: (P1) the ray hits chains and gives their normal, the LDtk portal
+takes an angle, `portal_fits` measures along the tangent; (P2) the pieces
+are clipped by half planes of any normal and a carve on a chain cuts an
+interval of it; (P3) the capture and the view are exact for a tilted face.
 
 ## What is true today (read from the code, 2026-10-11; not run)
 

@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import re
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -259,6 +260,11 @@ class Atom:  # None, true, false, bare idents
         self.text = text
 
 
+# The tokens that can change the nesting of a RON value: a string or comment
+# (skipped whole, so the brackets in them do not count), a bracket, a comma.
+_SKIP_TOKEN = re.compile(r'"(?:[^"\\]|\\.)*"|//[^\n]*|[\[\](){}]|,')
+
+
 class RonParser:
     def __init__(self, text: str):
         self.s = text
@@ -274,6 +280,104 @@ class RonParser:
                 f"trailing RON at offset {self.i}: {self.s[self.i : self.i + 40]!r}"
             )
         return value
+
+    def _skip_value(self) -> None:
+        """Move past one value without building it: the regex jumps from one
+        bracket, string, comment or comma to the next, so a large value (the
+        rows of a sheet) costs a scan and no objects."""
+        depth = 0
+        while True:
+            match = _SKIP_TOKEN.search(self.s, self.i)
+            if match is None:
+                self.i = self.n
+                return
+            token = match.group()
+            if token in ("(", "[", "{"):
+                depth += 1
+            elif token in (")", "]", "}"):
+                if depth == 0:
+                    self.i = match.start()
+                    return
+                depth -= 1
+            elif token == "," and depth == 0:
+                self.i = match.start()
+                return
+            self.i = match.end()
+
+    def record_fields(self, wanted: frozenset[str]) -> list[Struct]:
+        """Each record of a sheet record file (one record or a list of them),
+        with only the `wanted` fields: the other fields are skipped, not
+        built."""
+        self._ws()
+        listed = self.s[self.i] == "["
+        if listed:
+            self.i += 1
+        records: list[Struct] = []
+        while True:
+            self._ws()
+            if self.i >= self.n or self.s[self.i] == "]":
+                return records
+            assert self.s[self.i] == "(", f"record expected '(' at {self.i}"
+            self.i += 1
+            fields: list[tuple[str, object]] = []
+            while True:
+                self._ws()
+                if self.s[self.i] == ")":
+                    self.i += 1
+                    break
+                start = self.i
+                while self.s[self.i].isalnum() or self.s[self.i] == "_":
+                    self.i += 1
+                key = self.s[start : self.i]
+                self._ws()
+                assert self.s[self.i] == ":", f"struct expected ':' at {self.i}"
+                self.i += 1
+                if key in wanted:
+                    fields.append((key, self._value()))
+                else:
+                    self._skip_value()
+                self._ws()
+                if self.s[self.i] == ",":
+                    self.i += 1
+            records.append(Struct(fields))
+            if not listed:
+                return records
+            self._ws()
+            if self.i < self.n and self.s[self.i] == ",":
+                self.i += 1
+
+    def top_field(self, name: str) -> object:
+        """The value of field `name` of the top-level struct, or None.
+
+        The fields before it are parsed and dropped, and the fields after it
+        are not read. A part flipbook states `pages` before its `parts`, and
+        the 166 published flipbooks are 66 MB: reading each whole only to
+        learn its pages cost most of the variant pass (measured 2026-10-15).
+        """
+        self._ws()
+        if self.i >= self.n or self.s[self.i] != "(":
+            return None
+        self.i += 1
+        self._ws()
+        if not self._looks_like_struct():
+            return None
+        while True:
+            self._ws()
+            if self.s[self.i] == ")":
+                return None
+            start = self.i
+            while self.s[self.i].isalnum() or self.s[self.i] == "_":
+                self.i += 1
+            key = self.s[start : self.i]
+            self._ws()
+            assert self.s[self.i] == ":", f"struct expected ':' at {self.i}"
+            self.i += 1
+            value = self._value()
+            if key == name:
+                return value
+            self._ws()
+            if self.s[self.i] == ",":
+                self.i += 1
 
     def _ws(self) -> None:
         while self.i < self.n:
@@ -1127,8 +1231,7 @@ def part_flipbook_claims(src: Path) -> dict[Path, list[Path]]:
     whole (see the module docstring)."""
     claims: dict[Path, list[Path]] = {}
     for ron in sorted(src.rglob("*_parts.ron")):
-        root = RonParser(ron.read_text()).parse()
-        pages = root.get("pages") if isinstance(root, Struct) else None
+        pages = RonParser(ron.read_text()).top_field("pages")
         if not isinstance(pages, List_):
             continue
         claims[ron] = [ron.parent / item.value for item in pages.items if isinstance(item, Str)]
@@ -1546,13 +1649,14 @@ def generate_sprite_variants(
             )
         )
 
+    all_flipbooks = part_flipbook_claims(src)
     flipbooks = {
         ron: pages
-        for ron, pages in part_flipbook_claims(src).items()
+        for ron, pages in all_flipbooks.items()
         if selects(ron.name.removesuffix("_parts.ron"), selectors)
     }
     flipbook_pngs = {
-        page.resolve() for pages in part_flipbook_claims(src).values() for page in pages
+        page.resolve() for pages in all_flipbooks.values() for page in pages
     }
     portraits = {
         ron: png
@@ -1679,11 +1783,21 @@ def generate_sprite_variants(
     verify_published_sheets(asset_root, units, tiers)
 
 
+_PAGE_FIELDS = frozenset(("pages", "images", "image"))
+
+
 def page_filenames_safe(ron: Path) -> list[str]:
+    # Only the page fields are built. The full parse of every record file of
+    # four roots, to read two or three strings each, was most of a variant
+    # pass that had nothing to build (measured 2026-10-15).
     try:
-        records = RonParser(ron.read_text()).parse()
+        text = ron.read_text()
+        records = List_(RonParser(text).record_fields(_PAGE_FIELDS))
     except Exception:
-        return []
+        try:
+            records = RonParser(text).parse()
+        except Exception:
+            return []
     if isinstance(records, Struct):
         records = List_([records])
     if not isinstance(records, List_):

@@ -1013,8 +1013,17 @@ variants. Also found in that regen:
     (`test_the_ultrapack_tiers_run_at_once`). Measured: 124 s for the four,
     and all 670 pages and 4 catalogs are byte-identical to the serial run.
     So that publish is about 371 s.
-    Open: the variants (77 s) and the vanity card (56 s) rebuild whole on
-    each publish; and the staging root.
+    **Built 2026-10-15, the variants:** with nothing to build, the pass
+    took 72 s, nearly all of it a Python RON parse of every record and part
+    flipbook of four roots (and of the 66 MB of flipbooks twice) to read
+    their page names. Now it builds only the page fields
+    (`RonParser.record_fields`, `top_field`; equal to the full parse on all
+    2762 record files and 664 flipbooks), and the claims are read once:
+    6 s (`test_the_variant_pass_reads_only_the_page_fields`). The pass keys
+    freshness on its own mtime, so the first run after a change to the
+    script rebuilds every tier once (569 s, measured).
+    Open: the vanity card (56 s) rebuilds whole on each publish; and the
+    staging root.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

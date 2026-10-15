@@ -156,7 +156,9 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
 
 /// `SurfaceChain`: a rideable surface polyline (momentum locomotion). Fields:
 /// `points` (semicolon `x,y` pairs, level-local, as for KinematicPath) and
-/// optional `closed: bool` (a loop; the closing segment is implicit). One-sided
+/// optional `closed: bool` (a loop; the closing segment is implicit), `fill`,
+/// `visual: "none"` (not drawn: the room's art draws it), and `boarding: "up"`
+/// (a walker steps onto it from other ground only holding up). One-sided
 /// by winding: author floors left→right. The engine validator runs at
 /// conversion, so inverted joins, degenerate segments, and self-intersections
 /// fail here and not as physics bugs in play.
@@ -174,6 +176,14 @@ pub(super) fn convert_surface_chain(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
     };
     // `fill`: the chain is the top of the ground, drawn filled beneath.
     chain.filled = field_bool(entity, "fill").unwrap_or(false);
+    // `visual: "none"`: the room's art draws it (a stair's steps).
+    chain.hidden = field_string(entity, "visual").is_some_and(|visual| visual == "none");
+    // `boarding: "up"`: a walking body steps onto it from other ground only
+    // while it holds up (a stair beside a street).
+    chain.boarding = match field_string(entity, "boarding").as_deref() {
+        Some("up") => ae::Boarding::Up,
+        _ => ae::Boarding::Auto,
+    };
     let problems = chain.validate();
     if !problems.is_empty() {
         return Err(problems.join("; "));

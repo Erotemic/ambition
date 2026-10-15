@@ -529,9 +529,10 @@ pub struct SurfaceFrame {
 /// - `velocity` is the chain's own per-frame motion (a moving surface's
 ///   `last_delta`, like [`Block::velocity`]); contact carry falls out of the
 ///   contact frame, not a special case.
-/// - Chains are collision geometry ONLY for bodies that opt in (the
-///   surface-momentum motion model). The axis-swept AABB path never sees
-///   them — AABB stays the protected fast path.
+/// - The surface-momentum rider rides a chain on its law. A walking (axis
+///   swept) body stands on a segment within its slope limit as a one-way
+///   floor and passes the rest (`crate::walkable_lines`); its box never
+///   sweeps against a chain.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SurfaceChain {
     pub name: String,
@@ -577,6 +578,27 @@ pub struct SurfaceChain {
     /// overhangs, caves and all, where [`Self::filled`] can only fill DOWN.
     #[serde(default)]
     pub earth: Vec<Vec<Vec2>>,
+    /// The chain is not drawn: the art of the room draws what it is (a
+    /// stair's steps, a ramp of planks). Presentation only.
+    #[serde(default)]
+    pub hidden: bool,
+    /// How a walking body that stands on other ground steps onto this line
+    /// where the two meet (`crate::walkable_lines`).
+    #[serde(default)]
+    pub boarding: Boarding,
+}
+
+/// How a walking body standing on other ground steps onto a line where they
+/// meet. A body that falls onto a line lands on it either way, and a body on
+/// a line keeps to it while it goes on.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum Boarding {
+    /// It walks onto it: a ramp, a hill, a ramp up to a plinth.
+    #[default]
+    Auto,
+    /// Only while it holds up: a stair beside a street, so the street can be
+    /// walked past the foot of the stair.
+    Up,
 }
 
 impl SurfaceChain {
@@ -591,6 +613,8 @@ impl SurfaceChain {
             velocity: Vec2::ZERO,
             filled: false,
             earth: Vec::new(),
+            hidden: false,
+            boarding: Boarding::Auto,
         }
     }
 
@@ -605,6 +629,8 @@ impl SurfaceChain {
             velocity: Vec2::ZERO,
             filled: false,
             earth: Vec::new(),
+            hidden: false,
+            boarding: Boarding::Auto,
         }
     }
 
@@ -917,9 +943,10 @@ pub struct World {
     /// simulator only queries `climbable_at`, never iterates this list
     /// directly.
     pub climbable_regions: Vec<ClimbableRegion>,
-    /// Rideable surface chains. EMPTY for
-    /// every AABB-only room — the zero-chain case takes the existing fast
-    /// paths untouched; only surface-momentum bodies ever read this list.
+    /// Rideable surface chains. EMPTY for every room with no slope, and the
+    /// zero-chain case returns at once. The surface-momentum rider rides them;
+    /// a walking body stands on the ones within its slope limit, as one-way
+    /// floors (`walkable_lines`).
     pub chains: Vec<SurfaceChain>,
     /// How far past `size` a body may travel on each axis before the world
     /// declares it gone. See [`WorldEdgeMargins`].

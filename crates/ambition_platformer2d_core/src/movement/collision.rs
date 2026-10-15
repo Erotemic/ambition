@@ -681,12 +681,13 @@ fn resolve_axis_repair(
 /// AABB-only variant of [`standing_on_one_way`]. Cluster-aware
 /// callers pass the oriented body AABB directly. Gravity-relative: the body
 /// rests on the one-way's anti-gravity support face, so drop-through detection
-/// flips with gravity like the landing sweep already does.
+/// flips with gravity like the landing sweep already does. A walkable line
+/// (`walkable_lines`) is one-way too, so standing on one counts.
 pub fn standing_on_one_way_aabb(world: &World, body: Aabb, gravity_dir: Vec2) -> bool {
     world.blocks.iter().any(|block| {
         matches!(block.kind, BlockKind::OneWay)
             && surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, false)
-    })
+    }) || crate::walkable_lines::standing_on_line(world, body, gravity_dir).is_some()
 }
 
 /// IS THIS BODY STANDING ON THE BRINK — supported where it is, but not if it

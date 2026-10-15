@@ -34,6 +34,7 @@ mod snapshot_impls;
 #[cfg(test)]
 pub(crate) mod test_support;
 pub mod surface_loop;
+pub mod walkable_lines;
 pub mod world;
 
 // Public mechanics surface.
@@ -125,7 +126,7 @@ pub use player_state::{
 };
 pub use surface_loop::{AttachedLoop, LoopResolution, LoopRoute};
 pub use world::{
-    BlinkWallTier, Block, BlockKind, ClimbableContact, ClimbableKind, ClimbableRegion,
+    BlinkWallTier, Block, BlockKind, Boarding, ClimbableContact, ClimbableKind, ClimbableRegion,
     ClimbableSpec, RoomGeometry, SurfaceChain, SurfaceFrame, SurfaceJunction, SurfaceKind,
     SurfacePort, WaterContact, WaterKind, WaterRegion, WaterVolumeSpec, World,
 };

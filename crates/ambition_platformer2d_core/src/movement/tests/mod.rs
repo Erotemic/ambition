@@ -65,6 +65,7 @@ mod hazard_footprint;
 mod hazard_sweep;
 mod jump_squat;
 mod ledge_grab;
+mod slopes;
 mod step_box_world_reads;
 mod stopping;
 mod submerged;

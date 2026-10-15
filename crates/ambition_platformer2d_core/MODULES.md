@@ -34,9 +34,10 @@
 | [`snapshot`](src/snapshot.rs) | Backend-neutral deterministic snapshot vocabulary. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`surface_loop`](src/surface_loop.rs) | Attached loops: a full 360° loop a runner enters from a floor and leaves onto the same floor, as one authored fact. |
+| [`walkable_lines`](src/walkable_lines.rs) | A body that walks stands on a slope: the room's surface lines are ground for the ordinary (axis-swept) body too, as one-way floors. |
 | [`world`](src/world.rs) | Generated sandbox room data. |
 
-_29 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

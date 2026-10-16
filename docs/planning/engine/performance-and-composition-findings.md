@@ -50,7 +50,8 @@ Mary-O, so a phone profile cannot miss it (`profile_android.sh` records it).
 | rigged part slots and label colours written only on a change (F26) | done 10-16 | ~136 slot `Transform`/`Sprite` writes a frame, which woke propagation and extraction |
 | LDtk respawn clean with a kept query state (F25) | done 10-16, replaces D5 | 1.04% of phone samples |
 | ~9.4k allocations a frame with no system owner (old item 7) | resolved: tracing spans of the `trace` feature (F27) | none in the APK |
-| P1/S2b: foreign games and capabilities while Mary-O plays | open; largest measured lever (F28) | ~300 systems |
+| UI, HUD, touch and sprite writes only on a change (F29) | done 10-16 | text re-layout 3.2 → 0.2 a frame; all changes −18% |
+| P1/S2b: foreign games and capabilities while Mary-O plays | open; the largest remaining lever (F28, F30) | ~300 systems, ~150 of them each tick |
 | P5 read-models per frame | open | the `ambition_sim_view` rebuilds are ~0.9% of phone samples |
 | F19 live-room lookups | open | `room_instance.rs:172` and `room_graph.rs` ~1.9% |
 | repertoire re-fold in the hub | open, small | 1.3% of phone samples; 0.04 re-folds a frame on the desktop, so room loads and power-ups, not steady state |
@@ -108,6 +109,34 @@ frame is ~9 µs a run, so ~3-5 ms a frame. S2b step 1 (`AMBITION_HUB_GAMES`)
 removes `ambition_content`'s at build time; the shipped app needs them dormant
 at run time instead (P1/S2: a game's systems in its own schedules, run only
 while its route is live), so the hub can still switch games.
+
+### F29 — UI and sprites marked changed each frame, hub with Mary-O
+
+MEASURED (desktop probe, hub Mary-O route, before → after, a frame): touch
+control `Node`s 20 → 0, HUD `Text` 3 → 0 and `Node` 2 → 0, Bevy text
+re-layout (`ComputedTextBlock`, `TextLayoutInfo`) 3.2 → 0.2, rigged part
+slots 407 → 0, label colours 35 → 3.7, all value changes 2,449 → 2,003. Two
+causes: writes without a compare, and helpers that take `&mut T`. A `&mut T`
+made from a `Mut<T>` marks the value changed before the helper compares; the
+HUD's `set_text_if_changed` did that. A helper that may not write takes the
+`Mut`. On the phone `bevy_ui` layout and text were 1.9% of the main thread;
+not yet measured there after the fix. Left: `virtual_joystick`'s `update_ui`
+(2 `Node` a frame), private in the fork (`Erotemic/virtual_joystick`).
+
+The ~18-a-frame changes of body components (`ActorRoll`, `PogoTargetVolumes`,
+`RangedRefire` and 10 more) have no `Changed<>` reader: they cost nothing
+downstream and are left.
+
+### F30 — The GGRS tick runs other games' systems, twice a frame on the phone
+
+MEASURED (`AMBITION_SYSTEM_LIST`, desktop, hub Mary-O route): 612 systems ran
+in `GgrsSchedule`; ~150 belong to other games or unused capabilities (Smash
+35, boss encounters 34, `ambition_content` 30, portals 17, conversation 15,
+mounts 7, encounters 9). At 30 fps the hub runs ~2 ticks a frame. REASONED
+cost on the phone: GGRS framework-only time (10.2% of samples) over ~1.1 M
+system runs in 30 s is ~4.6 µs a run, so the ~150 cost ~1.4 ms a frame, ~2 ms
+with the frame schedules' foreign systems. A faster frame also runs fewer
+ticks per frame, which is the larger effect.
 
 ## Summary (2026-10-16)
 
@@ -199,7 +228,8 @@ while its route is live), so the hub can still switch games.
    each capability's) in schedules that the hub runs only while that game's
    route is live; a proposal with the measured system counts first (F28).
 2. A phone run with `AMBITION_BOOT_ROUTE=mary_o_gameplay` to measure F25-F26.
-3. Yarn `fetch_resources` and `bevy_light`: upstream fixes or a fork (Jon).
+3. Fork edits, for Jon: Yarn `fetch_resources` (keep its `SystemState`),
+   `virtual_joystick::update_ui` (compare before write); `bevy_light` open.
 4. P5 and F19 in the hub; the repertoire re-fold at room load.
 5. D12, small, when the rest allows.
 

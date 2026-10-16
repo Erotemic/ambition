@@ -18,6 +18,37 @@ Each claim is **MEASURED** (a run, a census, a profile, or a read of source)
 or **REASONED** (inferred). A number here has the run that made it; run it
 again before you quote it.
 
+## Summary (2026-10-16)
+
+- **One thread is the limit.** On the phone the main thread is 82% busy, the
+  render thread 25%, each of 4 pool workers 8-9% (F11). 62% of the main
+  thread is framework work outside any system body: per-system scheduling,
+  access checks, archetype updates, allocation (F0, F11). The cost follows how
+  many systems run, not what they do; no system body of ours is over 1.4%.
+  Levers: fewer systems per game (P1), a serial executor (P2, A/B on the
+  desktop running).
+- **Input lookups are 74% of a standalone frame's allocations** (19.2k a
+  frame, F13): leafwing rebuilds every action pair on each call though we
+  resolve no clashes, and boxes each lookup. Fix in a fork (P11).
+- **Change detection is defeated.** About 30 components of every body are
+  marked changed every tick whether they change or not (F20), and several
+  resources too; one no-op `&mut` re-folded Mary-O's whole repertoire every
+  tick (F15). The common style re-derives every tick (F16). The new change
+  counter names each such write by source line. Levers: P12, then P5.
+- **Presentation entities in immediate mode** (F21): despawn all and spawn
+  all, every frame. Three loops found, all fixed.
+- **Composition:** standalone Mary-O and Sanic run ~170 systems a frame for
+  capabilities they do not use (P1; D3, D4 for Jon).
+- **Fixed tonight, no behaviour change, each verified by the probe or a
+  test:** Mary-O's star re-fold (F15), Sanic's gravity visuals (F18), the
+  hub's per-frame parallax respawn and its cause in `first_room_art.rs`
+  (F17), the hub's wielded-item overlays (F21; pixel-identical capture).
+- **Instrumentation:** `perf_probe` (allocations per span, churn and value
+  changes per source line; `profile_desktop.sh --perf-probe`) and the phone
+  symbolizer's `--ours` and thread table. Both are one switch and one
+  directory to remove.
+- **For Jon:** D1-D11 below. None is done.
+
 ## How to answer a cost question
 
 | Question | Tool |
@@ -504,7 +535,7 @@ MEASURED (probe churn): three presentation systems despawned all their
 entities and spawned them again every frame: gravity-zone visuals (Sanic,
 fixed), the parallax refresh (hub, F17, fixed at its cause), and wielded-item
 overlays (`wielded_item_visuals.rs:139`, hub, 1.000 a frame; rewritten to
-update in place, verification run pending). A code search for the same shape
+update in place; verified: no churn, pixel-identical capture). A code search for the same shape
 (despawn every entity of a marker, then spawn) also finds
 `item_visuals.rs`, `projectile_visuals.rs`, `mark_beacon.rs`, `hud/declared.rs`
 and the portal presentation (`visuals.rs`, `gun_visuals.rs`, `far_side.rs`);
@@ -530,13 +561,13 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | --- | --- | --- | --- | --- |
 | P1 | Per-game engine profiles: `BossCatalog` always present (empty); ledgers under Dialogue; grabs, mounts, match stocks as group members with capabilities; extension lowering installed by the capability that owns the phase; demo hosts call `for_profile` | about 115 systems a tick in Mary-O and Sanic | large | no, except decisions D3, D4 |
 | P2 | One executor policy (`apply_executor_policy`), called by every foundation including the windowed demos, covering `Fixed*` and `StateTransition`; A/B first | the multi-threaded executor cost of every frame and fixed system in the windowed demos | small | no |
-| P3 | Hub: gate each game's session gameplay by its scope (S2); install Ambition, physics debris and 3D lighting only for the games that use them (S2b); move shared techniques out of `ambition_demo_smash` | 82+ foreign systems while one game plays, 72 hub-only systems | medium | no |
-| P4 | Interned identities: an integer handle per body, made when its `SimId` is minted; read-model keys by `Entity` | String clones and sorts in 5+ per-tick systems | medium | no |
-| P5 | Read-models built once per drawn frame, by change | repeat builds on slow frames; builds in headless hosts | medium | D2 |
-| P6 | Change-driven systems: the two whole-world queries, input bindings, room isolation (F14) | full scans per tick; 444-2,773 allocations a frame in room isolation | small | no |
+| P11 | Leafwing fork (F13): no clash work under `PressAll`, pairs of pressed actions only otherwise; lookups without boxing; upstream PRs | 19-32k allocations a frame, ~75% of a standalone frame's | small | no |
 | P12 | Derive on change, not every tick (F15, F16, F20): first writes that mark only real changes (the cluster step, the resources of F20), then the four systems; the change detector (`changes_by_site.csv`) finds the next ones and verifies each | per-tick re-derivations and false changes that wake change filters | small each | no |
 | P13 | One keyed-reconcile helper for presentation entities (F21), and the remaining immediate-mode systems moved onto it | per-frame despawn and spawn of presentation entities | small-medium | no |
-| P11 | Leafwing fork (F13): no clash work under `PressAll`, pairs of pressed actions only otherwise; lookups without boxing; upstream PRs | 19-32k allocations a frame, ~75% of a standalone frame's | small | no |
+| P3 | Hub: gate each game's session gameplay by its scope (S2); install Ambition, physics debris and 3D lighting only for the games that use them (S2b); move shared techniques out of `ambition_demo_smash` | 82+ foreign systems while one game plays, 72 hub-only systems | medium | no |
+| P6 | Change-driven systems: the two whole-world queries, input bindings, room isolation (F14) | full scans per tick; 444-2,773 allocations a frame in room isolation | small | no |
+| P4 | Interned identities: an integer handle per body, made when its `SimId` is minted; read-model keys by `Entity` | String clones and sorts in 5+ per-tick systems | medium | no |
+| P5 | Read-models built once per drawn frame, by change | repeat builds on slow frames; builds in headless hosts | medium | D2 |
 | P7 | Plumbing: one gizmo trail group, Bevy debug gizmos off in shipping, developer tools only in developer builds, Kira channels | ~80 systems | small-medium | D6, D9 |
 | P8 | Upstream query-state fixes (LDtk, Yarn, bevy_light, GGRS) | ~2% of phone CPU | small each | D5 (only for the LDtk workaround) |
 | P10 | Phone render scale: a reduced main render target, scaled to the surface (`quality.rs:190` has no phone path) | fragments, when the GPU is the limit; not the limit today (F11) | medium | D10 |

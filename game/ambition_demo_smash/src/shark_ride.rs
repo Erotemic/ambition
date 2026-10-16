@@ -195,6 +195,7 @@ pub fn depart_when_riderless(
     mut commands: Commands,
     mut left: MessageReader<RiderDismounted>,
     departs: Query<&ae::BodyKinematics, With<ambition_platformer2d::mount::MountSlot>>,
+    stage: crate::StageCentre,
 ) {
     for event in left.read() {
         let Ok(kin) = departs.get(event.mount) else {
@@ -209,7 +210,7 @@ pub fn depart_when_riderless(
         );
         commands.entity(event.mount).insert(Departing {
             remaining: crate::rules::smash_rules().shark_ride.depart_seconds,
-            velocity: departure_heading(kin.pos) * crate::rules::smash_rules().shark_ride.depart_speed,
+            velocity: departure_heading(kin.pos, stage.of(event.mount)) * crate::rules::smash_rules().shark_ride.depart_speed,
         });
     }
 }
@@ -260,6 +261,7 @@ pub fn send_away_a_shark_nobody_boarded(
     mut refused: MessageReader<ambition_platformer2d::mount::RideRefused>,
     // Not `With<MountSlot>`: a refused mount never got one.
     bodies: Query<&ae::BodyKinematics>,
+    stage: crate::StageCentre,
 ) {
     for event in refused.read() {
         let Ok(kin) = bodies.get(event.mount) else {
@@ -277,7 +279,7 @@ pub fn send_away_a_shark_nobody_boarded(
         );
         commands.entity(event.mount).insert(Departing {
             remaining: crate::rules::smash_rules().shark_ride.depart_seconds,
-            velocity: departure_heading(kin.pos) * crate::rules::smash_rules().shark_ride.depart_speed,
+            velocity: departure_heading(kin.pos, stage.of(event.mount)) * crate::rules::smash_rules().shark_ride.depart_speed,
         });
     }
 }
@@ -313,8 +315,8 @@ pub fn dissolve_the_ride_when_the_shark_dies(
 
 /// Which way is out: horizontal, toward the nearer side of the stage (the sim
 /// reading of "the nearest off-screen position").
-fn departure_heading(pos: ae::Vec2) -> ae::Vec2 {
-    let centre_x = crate::stage_centre().x;
+fn departure_heading(pos: ae::Vec2, centre: ae::Vec2) -> ae::Vec2 {
+    let centre_x = centre.x;
     // On the centre line, leave right: `signum(0.0)` is zero, and a shark
     // with no direction hovers until its clock runs out.
     let side = if pos.x < centre_x { -1.0 } else { 1.0 };

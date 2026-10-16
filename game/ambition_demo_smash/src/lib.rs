@@ -342,12 +342,37 @@ pub fn smash_platform_stage() -> RoomSpec {
     smash_stage_room(SMASH_PLATFORM_STAGE_ROOM_ID)
 }
 
-/// The top centre of [`smash_stage`]'s main platform: a respawn comes back
-/// above it.
+/// The top centre of [`smash_stage`]'s main platform. The tools and tests
+/// that measure on the flat stage read it; a match reads [`StageCentre`].
 pub fn stage_centre() -> Vec2 {
-    let room = smash_stage();
-    let platform = room.world.blocks[0].aabb;
-    Vec2::new(room.world.size.x / 2.0, platform.min.y)
+    stage_centre_of(&smash_stage().world)
+}
+
+/// The top centre of a stage's main platform (its first block): a respawn
+/// comes back above it.
+pub fn stage_centre_of(world: &ae::World) -> Vec2 {
+    let platform = world.blocks[0].aabb;
+    Vec2::new((platform.min.x + platform.max.x) / 2.0, platform.min.y)
+}
+
+/// The centre of the stage a body is on: [`stage_centre_of`] its own live
+/// room. Each stage row puts its platform where it likes, so a match does not
+/// read the flat stage's centre.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct StageCentre<'w, 's> {
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<'w, 's, ae::RoomGeometry>,
+}
+
+impl StageCentre<'_, '_> {
+    /// The centre of the stage `body` is on. Panics when the body is in no
+    /// live room: a fighter on no stage has no place to come back to.
+    pub fn of(&self, body: bevy::prelude::Entity) -> Vec2 {
+        let geometry = self
+            .rooms
+            .of(body)
+            .unwrap_or_else(|| panic!("body {body:?} is in no live room, so it has no stage centre"));
+        stage_centre_of(&geometry.0)
+    }
 }
 
 /// What the match announces when it ends.
@@ -1183,6 +1208,7 @@ fn place_respawning_fighters(
         // playback knows which strike boxes to despawn.
         Option<&mut ambition_platformer2d::combat::moveset::MovePlayback>,
     )>,
+    stage: StageCentre,
 ) {
     // D192: the cue is the interval elapsing. Eliminated fighters never get a
     // pending respawn, so the engine decides who returns; this decides where.
@@ -1195,7 +1221,8 @@ fn place_respawning_fighters(
         let mut clusters = item.as_clusters_mut();
         // The reset zeroes velocity, so the fighter does not keep flying
         // toward the blast zone it just left.
-        let placement = respawn_placement(stage_centre(), seat);
+        let centre = stage.of(event.body);
+        let placement = respawn_placement(centre, seat);
         ambition_platformer2d::engine_core::reset_body_clusters(
             &mut model,
             &mut clusters,
@@ -1206,7 +1233,7 @@ fn place_respawning_fighters(
             // Centre, not the opponent: this system places one body, and with
             // four seats "the opponent" has no single direction.
             ambition_platformer2d::engine_core::ResetFacing::Toward(
-                stage_centre().x - placement.x,
+                centre.x - placement.x,
             ),
             // The engine's default air game. A stage that tunes it passes its
             // own number here.

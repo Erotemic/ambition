@@ -296,9 +296,16 @@ is done without a yes.
 - **D3 — Standalone Mary-O and Sanic without Dialogue.** Both have
   `fallback_dialogue` rows. No standalone build installs a dialogue presenter
   today (only `ambition_app` installs the Yarn bridge), so those lines are
-  never shown there now. Refuse such rows at admission, or ignore them? First
-  check that talking to an NPC cannot leave `GameMode::Dialogue` with nothing to
-  return it to `Playing` (REASONED risk).
+  never shown there now. Refuse such rows at admission, or ignore them?
+  REASONED (code read): a standalone game can enter `GameMode::Dialogue` and
+  not leave it. `DialogSimStatePlugin` is installed, its `DialogueNodeIndex` is
+  unpopulated, so `entry_node` opens every non-self conversation
+  (`ambition_dialog/src/context.rs:122`), and `interact.rs:395` sets
+  `Dialogue`; the only system that returns to `Playing` is
+  `sync_dialogue_game_mode`, which only `ambition_app` installs. Today the rows
+  with dialogue are Hall characters (`tier: MainHall`), and the standalone
+  level actors are hostile, so no reached path is known. Omitting Dialogue from
+  the standalone profile (C2/C7) removes the path.
 - **D4 — Smash moveset and grabs out of standalone Mary-O and Sanic.** Their
   own movesets author attacks and `smash.capture_attempt/pummel/throw`, so this
   means moving their fighter kits out of the standalone packs (the hub keeps

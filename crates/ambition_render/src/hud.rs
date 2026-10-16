@@ -406,12 +406,18 @@ pub fn update_player_hud(
             } else {
                 0.0
             };
-            node.width = Val::Percent(hp_frac * 100.0);
+            let width = Val::Percent(hp_frac * 100.0);
+            if node.width != width {
+                node.width = width;
+            }
         }
     }
     for (mut node, of, seat) in &mut fills.p1() {
         if let Some(facts) = facts_of(of, seat) {
-            node.width = Val::Percent(facts.mana.map_or(0.0, |mana| mana.fraction()) * 100.0);
+            let width = Val::Percent(facts.mana.map_or(0.0, |mana| mana.fraction()) * 100.0);
+            if node.width != width {
+                node.width = width;
+            }
         }
     }
     for (mut text, of, seat) in &mut labels.p0() {
@@ -457,9 +463,12 @@ pub fn update_player_hud(
     }
 }
 
-fn set_text_if_changed(text: &mut Text, next: String) {
+/// Write `next` only when it differs. It takes the `Mut` itself: a `&mut Text`
+/// made from a `Mut<Text>` marks the text changed before any compare, and a
+/// changed `Text` is measured and laid out again.
+fn set_text_if_changed(text: &mut Mut<Text>, next: String) {
     if text.as_str() != next.as_str() {
-        **text = next;
+        text.0 = next;
     }
 }
 

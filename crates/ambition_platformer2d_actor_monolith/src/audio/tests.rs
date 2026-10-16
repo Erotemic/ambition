@@ -484,7 +484,7 @@ fn a_revised_music_registry_replaces_the_track_table() {
     };
     let mut assets = Assets::<KiraAudioSource>::default();
     let mut library = AudioLibrary::new(&mut assets, &sfx, &before, None, None, None);
-    library.revise_music_tracks(&after, None);
+    library.revise_provider_tracks(Some(&before), Some(&after));
 
     assert_eq!(library.track_count(), 3);
     assert!(library.track("dropped").is_none());

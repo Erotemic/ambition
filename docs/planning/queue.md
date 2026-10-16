@@ -190,12 +190,18 @@ Open:
    `an_edit_to_the_music_is_the_providers_music_from_the_next_session` (red
    with the catalog not published) and
    `a_provider_reload_revises_its_own_tracks_only` (red with a dropped track
-   kept, and with an unchanged track resolved again). Read, not run or
-   fixed: Ambition's own audio reload revises the whole track table through the
-   asset catalog, which was built at start, so a changed `asset_path` of an
-   existing Ambition track resolves to its old path.
-   Remainder: the cast, move tables, Mary-O's ladder and her pickup art
-   (`world_item_art`), and publication into a live demo session. Each
+   kept, and with an unchanged track resolved again). Ambition's own audio
+   reload revised the whole track table through the asset catalog, which was
+   built at start, so a moved Ambition track kept playing its old file
+   (`a_reload_that_moves_a_tracks_file_plays_the_new_file`, red before the
+   fix). It now publishes through the same `publish_revised_audio`; its only
+   own step is the host's SFX registry copy. `revise_music_tracks` is
+   deleted.
+   Mary-O's ladder (`mary_o_forms`) is read where it is used, so it joined
+   her live list (read, by a search for every reader; no reader at start).
+   Remainder: the cast, move tables, Mary-O's pickup art (`world_item_art`:
+   `build_world_item_art` resolves the manifest once, so it needs a restate
+   and a render rebuild), and publication into a live demo session. Each
    needs a restater (the cast is a registry of prepared characters, so its
    restater is I2/I3 scale) or its reader moved to read at use.
 

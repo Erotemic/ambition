@@ -128,9 +128,19 @@ pub fn publish_provider_audio(
     let Some(registry) = world.get_resource::<AudioCatalogRegistry>() else {
         return Ok(());
     };
-    #[cfg(feature = "kira")]
-    let previous_music = registry.music_for(provider).cloned();
     let revised = registry.with_replaced(provider, music, sfx)?;
+    publish_revised_audio(world, provider, revised);
+    Ok(())
+}
+
+/// Publish `revised`, a catalog in which only `provider`'s fragment changed
+/// ([`AudioCatalogRegistry::with_replaced`]): the active selection, the
+/// provider's own tracks in the library, and the catalog.
+pub fn publish_revised_audio(world: &mut bevy::prelude::World, provider: &str, revised: AudioCatalogRegistry) {
+    #[cfg(feature = "kira")]
+    let previous_music = world
+        .get_resource::<AudioCatalogRegistry>()
+        .and_then(|registry| registry.music_for(provider).cloned());
     let bank_ids = world
         .get_resource::<SfxBankRegistry>()
         .map(|banks| banks.ids_for(provider))
@@ -143,7 +153,6 @@ pub fn publish_provider_audio(
         library.revise_provider_tracks(previous_music.as_ref(), revised.music_for(provider));
     }
     world.insert_resource(revised);
-    Ok(())
 }
 
 impl AudioCatalogRegistry {

@@ -3985,6 +3985,55 @@ fn a_candidate_that_edits_a_providers_audio_activates_and_publishes_it() {
     assert_eq!(first_frequency(&app), before + 1.0, "the edited cue was not published");
 }
 
+/// A track whose file moves is played from its new file after the reload,
+/// and a track the edit did not touch keeps the path it had.
+#[cfg(feature = "audio")]
+#[test]
+fn a_reload_that_moves_a_tracks_file_plays_the_new_file() {
+    let mut app = app_playing_gameplay();
+    let base = ambition_content::pack::selected(app.world())
+        .expect("a selection")
+        .fingerprint;
+    let path_of = |app: &bevy::prelude::App, id: &str| {
+        app.world()
+            .get_resource::<ambition_platformer2d::audio::library::AudioLibrary>()
+            .expect("the gameplay app plays audio")
+            .track(id)
+            .map(|track| track.asset_path().to_string())
+    };
+    let untouched = path_of(&app, "first_goblin_tune_v2_radio");
+    assert!(untouched.is_some(), "the premise: the library holds the untouched track");
+    let mut edited = false;
+    let candidate = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_with(|declared, text| {
+            if declared == "audio/music_registry.ron" {
+                let out = text.replacen(
+                    "asset_path: Some(\"audio/music/generated/lofi_study_loop/full.ogg\"),",
+                    "asset_path: Some(\"audio/music/generated/lofi_study_loop/moved.ogg\"),",
+                    1,
+                );
+                edited = out != text;
+                return out;
+            }
+            text
+        })
+        .expect("compiles"),
+    );
+    assert!(edited, "the music registry no longer states the moved track");
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
+    );
+    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
+    step_until_the_generation_settles(&mut app);
+    assert_eq!(
+        path_of(&app, "original_lofi_loop").as_deref(),
+        Some("audio/music/generated/lofi_study_loop/moved.ogg"),
+        "the moved track is played from its old file"
+    );
+    assert_eq!(path_of(&app, "first_goblin_tune_v2_radio"), untouched, "an untouched track changed its path");
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // I2/I3: the adaptive music catalog takes part in a reload.
 // ─────────────────────────────────────────────────────────────────────────────

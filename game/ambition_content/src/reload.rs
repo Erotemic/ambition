@@ -567,37 +567,14 @@ fn publish_audio(
     audio: ambition_audio::catalog::AudioCatalogRegistry,
 ) {
     let provider = crate::AMBITION_CONTENT_PROVIDER;
+    // Ambition is the host: its SFX registry copy is the one the host built
+    // its library from. A hosted demo's reload does not write it.
     if let Some(sfx) = audio.sfx_for(provider).cloned() {
         if world.contains_resource::<ambition_audio::spec::SfxRegistry>() {
             world.insert_resource(sfx);
         }
     }
-    let bank_ids = world
-        .get_resource::<ambition_audio::catalog::SfxBankRegistry>()
-        .map(|banks| banks.ids_for(provider))
-        .unwrap_or_default();
-    if let Some(mut selection) =
-        world.get_resource_mut::<ambition_audio::selection::ActiveAudioSelection>()
-    {
-        selection.revise_provider(provider, audio.music_for(provider), audio.sfx_for(provider), bank_ids);
-    }
-    #[cfg(feature = "audio")]
-    if let Ok(music) = audio.combined_music_registry(crate::AMBITION_CONTENT_PROVIDER) {
-        let catalog = world
-            .get_resource::<ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>()
-            .cloned();
-        if let Some(mut library) = world.get_resource_mut::<ambition_audio::library::AudioLibrary>() {
-            let resolve = |id: &str| {
-                catalog.as_ref().and_then(|catalog| {
-                    catalog.path_for(
-                        &ambition_platformer2d::asset_manager::platformer_assets::ids::music_track(id),
-                    )
-                })
-            };
-            library.revise_music_tracks(&music, Some(&resolve));
-        }
-    }
-    world.insert_resource(audio);
+    ambition_audio::catalog::publish_revised_audio(world, provider, audio);
 }
 
 /// The character catalog a candidate publishes with its cast, or `None` when

@@ -1146,11 +1146,12 @@ pub struct MaryODemoContentPlugin;
 /// the new [`provider::MaryOExperiencePlugin`] (shell-activation construction).
 pub fn install_mary_o_content(app: &mut App) {
     register_mary_o_cast(app);
-    // A build that reads her pack off disk plays an edit to her tuning from
-    // the next session. Her ladder, cast and audio are read here, once.
+    // A build that reads her pack off disk plays an edit to her tuning and
+    // her ladder from the next session: both are read where they are used.
+    // Her cast is read here, once.
     app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin {
         pack: &pack::PACK,
-        live: &[rules::MARY_O_RULES_SCHEMA],
+        live: &[rules::MARY_O_RULES_SCHEMA, forms::MARY_O_FORMS_SCHEMA],
         restated: Vec::new(),
     });
     // Seventeen placements, thirty-four actors, and only the prefixed half carried `SnakeShell` /

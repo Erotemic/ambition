@@ -94,6 +94,14 @@ no foreign game's gameplay running, not standalone's total.
 
 ### S1 — Serialize the fixed schedules in every host (small)
 
+**Measured 2026-10-16** ([findings](performance-and-composition-findings.md),
+F22 and F23): the shared switch exists (`AMBITION_SCHEDULE_EXECUTOR`,
+`apply_executor_policy`, `scripts/executor_ab.sh`). Standalone Mary-O: a
+fixed tick took 10.7 ms in parallel and 1.7 ms serial; the hub gains about 3%,
+its simulation being serial already. The default for the standalone games is
+decision D12 there. Context switches and simulation-state equality were not
+measured.
+
 Put `FixedFirst` through `FixedLast` in `serialize_frame_schedules`. Measure
 first, with care:
 

@@ -13,8 +13,6 @@ use crate::{SanicActPhase, SanicActState};
 
 /// The sheet of the goal post, and the name of its prop.
 pub const GOAL_POST_SPRITE: &str = "sanic_goal_post";
-/// How tall the post stands, in world units. Sanic is 48.
-pub const GOAL_POST_HEIGHT: f32 = 84.0;
 
 /// The rows of the sheet: it turns over once, then shows its other side.
 const SPIN_ROW: &str = "spin";
@@ -70,7 +68,7 @@ pub fn dress_goal(room: &mut RoomSpec) {
         return;
     };
     let frame = ae::Vec2::new(record.frame_width as f32, record.frame_height as f32);
-    let scale = GOAL_POST_HEIGHT / body.h as f32;
+    let scale = crate::rules::sanic_rules().act.goal_post_height / body.h as f32;
     let (foot, centre_x) = (
         (body.y + body.h) as f32,
         body.x as f32 + body.w as f32 * 0.5,

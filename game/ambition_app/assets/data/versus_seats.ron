@@ -1,0 +1,13 @@
+// Who the versus stage seats (schema `versus_seats`, owned by the app:
+// seating is this stage's policy). An edit here is played from the next
+// match, with no Rust build.
+(
+    // Seat n plays fighters[n % 2]: the two duelists of this pack's
+    // catalog, one long-reach and one close-range. The first is also the
+    // stage's catalog default, read when the stage is composed.
+    fighters: ["arena_duelist_long", "arena_duelist_close"],
+    // A CPU seat's brain profile, a row of this pack's catalog.
+    cpu_brain: "versus_duelist",
+    // Seats alternate sides, so seat 0 and seat 2 are partners in a 2v2.
+    teams: ["blue", "red"],
+)

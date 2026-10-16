@@ -69,6 +69,15 @@
         ring_bonus: 100,
         // How long the name of an act is on the screen when the act begins.
         title_seconds: 2.5,
+        // How far before each course's right edge its goal line sits, in px.
+        // A longer act needs no second number.
+        goal_from_end: 400.0,
+        // After the goal the course brakes him: this share of his speed goes
+        // each second. He crosses at about 1100 px/s with 400 px left; 9 stops
+        // him in about 120 px (4 coasted about 370 px).
+        outro_brake_per_second: 9.0,
+        // How tall the goal post stands, in world units. Sanic is 48.
+        goal_post_height: 84.0,
     ),
     badnik: (
         // Upward speed off a stomped badnik: a lively bounce, less than a full

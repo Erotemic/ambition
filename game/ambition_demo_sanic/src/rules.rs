@@ -77,6 +77,14 @@ pub struct Act {
     pub time_bonus_per_second: i32,
     pub ring_bonus: i32,
     pub title_seconds: f32,
+    /// How far before a course's right edge its goal line sits, in px. Each
+    /// act's goal is this far from its own end.
+    pub goal_from_end: f32,
+    /// How fast the course brakes him after the goal: the share of his speed
+    /// taken off each second.
+    pub outro_brake_per_second: f32,
+    /// How tall the goal post stands, in world units.
+    pub goal_post_height: f32,
 }
 
 /// When a badnik thinks, and how a stomp throws Sanic off it.
@@ -131,6 +139,9 @@ impl SanicRules {
             ("act.clear_dwell", act.clear_dwell),
             ("act.par_seconds", act.par_seconds),
             ("act.title_seconds", act.title_seconds),
+            ("act.goal_from_end", act.goal_from_end),
+            ("act.outro_brake_per_second", act.outro_brake_per_second),
+            ("act.goal_post_height", act.goal_post_height),
             ("badnik.bounce_speed", self.badnik.bounce_speed),
             ("stomp.band", self.stomp.band),
             ("super_form.beat_seconds", self.super_form.beat_seconds),
@@ -252,6 +263,12 @@ mod tests {
         assert_eq!(authored.matches(title).count(), 1, "the probe renames one act");
         let renamed = rules_of(&authored.replace(title, r#"title: "COVE EXPRESSWAY""#));
         assert_eq!(renamed.acts[1].title, "COVE EXPRESSWAY");
+        // The goal line is the file's distance from each course's end.
+        let goal = "goal_from_end: 400.0,";
+        assert_eq!(authored.matches(goal).count(), 1, "the probe moves the goal");
+        let nearer = rules_of(&authored.replace(goal, "goal_from_end: 300.0,"));
+        let course = crate::sanic_speedway().world;
+        assert_eq!(crate::goal_x_with(&nearer.act, &course), course.size.x - 300.0, "the goal line is not the file's");
         // The score the demo pays is the file's par and bonuses.
         assert_eq!(
             crate::act_score(0.0, 3),

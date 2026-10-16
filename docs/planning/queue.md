@@ -275,7 +275,11 @@ Open:
    clock scale and cosmic arrive beat are in `mary_o_rules.ron`. Ambition's
    day (length, phase hours, start hour, daylight veil) is `day` in
    `ambition_rules.ron`, and a content reload restates it. Sanic's act
-   titles and numbers are `acts` in `sanic_rules.ron`. Mary-O's castle
+   titles and numbers are `acts` in `sanic_rules.ron`; his goal line's
+   distance from each course's end, the outro brake and the goal post's
+   height are `act.goal_from_end`, `act.outro_brake_per_second` and
+   `act.goal_post_height` there (the goal line is witnessed through
+   `goal_x_with`; the brake and the post are each one read of the row). Mary-O's castle
    rescue is a `cutscene_library` file in her pack (`data/cutscenes/castle.ron`),
    restated at a reload (`EmbeddedPackReloadPlugin::cutscenes`). The
    character Ambition starts the player as is `starting_character` in
@@ -283,8 +287,9 @@ Open:
    are `symmetry_attunement` there (the switches' test checks the level
    against them). A
    respawn and a departing shark read the centre of the body's live room
-   (`StageCentre`), not the flat stage's. Still flat-only:
-   `smash_tool ladder-rig --scenarios` (refuses other stages).
+   (`StageCentre`), not the flat stage's. `smash_tool ladder-rig
+   --scenarios` hangs a ledge fixture on the live stage's main platform (it
+   refused every stage but Flat); one seed on Narrow ran to the end in 207 s.
    The speedway's floor and pit numbers are now `speedway_oracle`, read by
    tests only. The Smirking Behemoth's victory NPC (name, box, dialogue
    node) is `cut_rope_victory` in `ambition_rules.ron`; the Yarn file still
@@ -295,10 +300,18 @@ Open:
    reads the edit. The versus stage's room (size, seating point, blast
    lines, blocks) is `versus_arena`, a schema the app owns, in the versus
    pack; its blocks and Smash's stage blocks are one engine shape,
-   `AuthoredBlock` (Smash's own `StageBlock` is deleted). The versus pack has
-   no live reload yet, so an edit is played at the next start. Left: the
-   versus pack's live reload, the versus fighter list (`FIGHTERS`), and
-   Ambition's seat count (waits on Q153).
+   `AuthoredBlock` (Smash's own `StageBlock` is deleted); an edit reached its
+   test in 0.82 s with no compile. The versus pack now reloads like a demo's:
+   the stage reads its room, rounds and match rules where it uses them, and
+   its room rules have a restater (`register_versus_cast`), so an edit is
+   played from the next match; `every_schema_of_the_versus_pack_reloads_between_matches`
+   names a schema that would cost a restart (red, naming `versus_arena`, with
+   it off the list). Who the stage seats (the fighters in seat order, the
+   CPU seats' brain profile, the team names) is `versus_seats` there
+   (`FIGHTERS` and `VERSUS_CPU_BRAIN` deleted); witness
+   `the_versus_seats_are_its_pack_file` (red with the teams written in Rust).
+   The first fighter is also the stage's catalog default, read when the stage
+   is composed. Left: Ambition's seat count (waits on Q153).
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is

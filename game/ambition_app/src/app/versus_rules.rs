@@ -17,8 +17,10 @@ use ambition_platformer2d::versus_match::{seat_placement, MatchSeat};
 
 mod arena;
 mod rounds;
+mod seats;
 pub use arena::{versus_arena_in, versus_arena_schema, VersusArena, VERSUS_ARENA_SCHEMA};
 pub use rounds::{versus_rounds, versus_rounds_schema, VersusRounds, VERSUS_ROUNDS_SCHEMA};
+pub use seats::{versus_seats, versus_seats_in, versus_seats_schema, VersusSeats, VERSUS_SEATS_SCHEMA};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MatchPhase {

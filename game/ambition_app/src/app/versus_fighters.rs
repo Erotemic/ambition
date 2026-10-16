@@ -13,14 +13,38 @@ pub static PACK: ambition_platformer2d::content::EmbeddedPack =
     ambition_platformer2d::content_pack! {
         root: "assets",
         // The rules of its rounds and its room are the stage's own.
-        schemas: [super::versus_rules::versus_rounds_schema, super::versus_rules::versus_arena_schema],
+        schemas: [
+            super::versus_rules::versus_rounds_schema,
+            super::versus_rules::versus_arena_schema,
+            super::versus_rules::versus_seats_schema,
+        ],
     };
 
 /// Register the duelists: the catalog fragment and every row as a character,
 /// with its move table. `default_character` is this experience's catalog
 /// default.
 pub fn register_versus_cast(app: &mut bevy::prelude::App, default_character: &str) {
+    use ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin;
+
     PACK.cast(VERSUS_PROVIDER, Some(default_character)).register(app);
+    // A build that reads the pack off disk plays an edit to these from the
+    // next match: the stage reads its room, its rounds and its match rules
+    // where it uses them, and states its room rules again at the
+    // publication. `register` above gives the cast its own restater.
+    app.add_plugins(EmbeddedPackReloadPlugin {
+        pack: &PACK,
+        live: &[
+            super::versus_rules::VERSUS_ARENA_SCHEMA,
+            super::versus_rules::VERSUS_ROUNDS_SCHEMA,
+            super::versus_rules::VERSUS_SEATS_SCHEMA,
+            ambition_platformer2d::versus_match::match_rules::MATCH_RULES_SCHEMA,
+        ],
+        restated: Vec::new(),
+    });
+    app.add_plugins(EmbeddedPackReloadPlugin::room_rules(
+        &PACK,
+        ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(super::versus::VERSUS_EXPERIENCE),
+    ));
 }
 
 /// THE STAGE'S CEILING: the verbs a duelist may use here, as the pack's
@@ -46,6 +70,23 @@ pub const VERSUS_PROVIDER: &str = super::versus::VERSUS_EXPERIENCE;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every schema of the versus pack takes part in its live reload: each
+    /// is read where it is used or stated again at the publication. A schema
+    /// added to the pack with neither is named here, before its edit is
+    /// refused at run time.
+    #[test]
+    fn every_schema_of_the_versus_pack_reloads_between_matches() {
+        let mut app = bevy::prelude::App::new();
+        app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
+        app.add_plugins(ambition_platformer2d::load::AmbitionLoadPlugin);
+        crate::app::versus::compose_versus_experience(&mut app);
+        let unwatched = app
+            .world()
+            .resource::<ambition_platformer2d::content::live_reload::EmbeddedPackWatches>()
+            .unwatched(&PACK);
+        assert!(unwatched.is_empty(), "these schemas cost a restart: {unwatched:?}");
+    }
     use ambition_platformer2d::entity_catalog::{AttackDir, MovesetContract};
 
     #[test]

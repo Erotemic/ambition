@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v352
+ggrs-rollback-schema-v353
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -412,6 +412,7 @@ mount.slot	component-clone	MountSlot	bevy_ggrs clone snapshot; entity SET remapp
 player.blink_camera_state	component-clone	PlayerBlinkCameraState	bevy_ggrs clone snapshot; not in the session checksum
 player.projectile_state	component-canonical	PlayerProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 player.safety_state	component-canonical	PlayerSafetyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+portal.backside	component-clone	PortalBackside	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 portal.emission	component-clone	PortalEmission	bevy_ggrs clone snapshot; not in the session checksum
 portal.gun	component-clone	PortalGun	bevy_ggrs clone snapshot; not in the session checksum
 portal.gun_pickup	component-clone	PortalGunPickup	bevy_ggrs clone snapshot; not in the session checksum

@@ -28,7 +28,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 
 use crate::pieces::PortalAperture;
 use crate::rooms::PortalsByRoom;
-use crate::transit::FreePortalBody;
+use crate::transit::{FreePortalBody, PortalBackside};
 use crate::types::{find_portal, PlacedPortal};
 
 /// How a body that cuts `opening`'s plane past one of its ends moves back,
@@ -40,11 +40,15 @@ use crate::types::{find_portal, PlacedPortal};
 ///
 /// How it got past the end says what it is against:
 ///
-/// - it did not cut the plane before (it came at the plane from one side):
-///   the host beyond the end, so the part past the end goes back to the side
-///   it came from, along the normal;
-/// - it cut the plane before (it slid along it): the end of the opening, so
-///   it goes back along the face, no further past the end than it was.
+/// - it did not cut the plane before and came at it from the front: the
+///   host beyond the end, so the part past the end goes back out along the
+///   normal (from behind it is at the back of the portal: the host's
+///   business, and [`PortalBackside`]'s);
+/// - it cut the plane within the opening before (it slid along it): the end
+///   of the opening, so it goes back along the face to the end;
+/// - it cut the plane past the end before (a box standing into a slope
+///   beside the opening, or one the snag holds on the host): the part past
+///   the end goes no deeper into the side it was not on.
 pub fn snag_push(body: ae::Aabb, came_from: Option<ae::Aabb>, opening: &PortalAperture) -> Option<(Vec2, Vec2)> {
     let came_from = came_from?;
     let h = opening.half_length;
@@ -63,26 +67,64 @@ pub fn snag_push(body: ae::Aabb, came_from: Option<ae::Aabb>, opening: &PortalAp
             continue;
         }
         return match cut(&before) {
-            // It came at the plane from one side: the part past the end goes
-            // back to that side.
+            // It came at the plane from the front: the part past the end goes
+            // back out. From behind it is at the back of the portal, which is
+            // the host's (`PortalBackside`).
             None => {
                 let beyond = clip(&here, |p| side * p.x - h);
-                if before.iter().all(|p| p.y >= 0.0) {
-                    let deep = beyond.iter().map(|p| -p.y).fold(0.0, f32::max);
-                    (deep > 0.0).then_some((normal * deep, normal))
-                } else {
-                    let high = beyond.iter().map(|p| p.y).fold(0.0, f32::max);
-                    (high > 0.0).then_some((-normal * high, -normal))
+                if !before.iter().all(|p| p.y >= 0.0) {
+                    return None;
                 }
+                let deep = beyond.iter().map(|p| -p.y).fold(0.0, f32::max);
+                (deep > 0.0).then_some((normal * deep, normal))
             }
-            // It slid along the plane: back to the end, or to where it was.
-            Some(was) => {
-                let allowed = past(was).max(0.0);
-                (over > allowed).then(|| (-tangent * side * (over - allowed), -tangent * side))
+            // It slid along the plane, from within the opening: back to the
+            // end.
+            Some(was) if past(was) <= 0.0 => Some((-tangent * side * over, -tangent * side)),
+            // It cut the plane past the end already (its feet stand into a
+            // slope beside the opening; the snag holds it on the host): the
+            // part past the end goes no deeper into the side it is not on.
+            Some(_) => {
+                let beyond_now = clip(&here, |p| side * p.x - h);
+                let beyond_was = clip(&before, |p| side * p.x - h);
+                let depth = |poly: &[Vec2]| poly.iter().map(|p| -p.y).fold(0.0, f32::max);
+                let height = |poly: &[Vec2]| poly.iter().map(|p| p.y).fold(0.0, f32::max);
+                if height(&beyond_was) >= depth(&beyond_was) {
+                    let more = depth(&beyond_now) - depth(&beyond_was);
+                    (more > NO_WORSE).then_some((normal * more, normal))
+                } else {
+                    let more = height(&beyond_now) - height(&beyond_was);
+                    (more > NO_WORSE).then_some((-normal * more, -normal))
+                }
             }
         };
     }
     None
+}
+
+/// How much (px) a part past an end may go deeper in a step before it is
+/// held: float noise, not motion.
+const NO_WORSE: f32 = 1.0e-3;
+
+/// How far (px) where a body cuts a plane may run past an end and still go
+/// through: float noise, not a body part.
+const FITS_SLACK: f32 = 0.5;
+
+/// Does `body`, as it is, go through `opening` whole? True when it does not
+/// cut the opening's plane (it is on one side of it), or cuts it within the
+/// opening. A body that cuts the plane past an end is snagged there, part
+/// through and part around, and is not taken through (the transit asks
+/// this before every transfer).
+pub fn fits_through(body: ae::Aabb, opening: &PortalAperture) -> bool {
+    let h = opening.half_length + FITS_SLACK;
+    cut(&corners(body, opening)).is_none_or(|(t0, t1)| t0 >= -h && t1 <= h)
+}
+
+/// Does `body` cut `opening`'s plane over the opening (not only past its
+/// ends)?
+pub(crate) fn cuts_opening(body: ae::Aabb, opening: &PortalAperture) -> bool {
+    let h = opening.half_length;
+    cut(&corners(body, opening)).is_some_and(|(t0, t1)| t1 > -h && t0 < h)
 }
 
 /// The box's corners in the opening's own axes: along its face, and out of
@@ -153,20 +195,23 @@ fn openings_near<'a>(all: &'a [PlacedPortal], at: Vec2, size: Vec2) -> impl Iter
 /// across it.
 pub fn snag_straddlers(
     portals: Query<(Entity, &PlacedPortal)>,
-    mut bodies: Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>)>,
+    mut bodies: Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>, Option<&PortalBackside>)>,
     live: LiveRooms,
 ) {
     let by_room = PortalsByRoom::collect(&portals, &live);
     if by_room.is_empty() {
         return;
     }
-    for (entity, mut kin, mut sweep) in &mut bodies {
+    for (entity, mut kin, mut sweep, backside) in &mut bodies {
         let all = by_room.in_room(live.of(entity));
         if all.is_empty() {
             continue;
         }
         let body = kin.collision_box(sweep.as_deref());
         for portal in openings_near(all, body.center(), body.half_size() * 2.0) {
+            if backside.is_some_and(|back| back.of_pair(portal.channel)) {
+                continue;
+            }
             let body = kin.collision_box(sweep.as_deref());
             // The step's start, when the record is of this step.
             let came_from = sweep
@@ -185,20 +230,23 @@ pub fn snag_straddlers(
 /// [`snag_straddlers`] for free bodies `B` (a thrown item).
 pub fn snag_free_straddlers<B: FreePortalBody>(
     portals: Query<(Entity, &PlacedPortal)>,
-    mut bodies: Query<(Entity, &mut B, Option<&B::Presence>)>,
+    mut bodies: Query<(Entity, &mut B, Option<&B::Presence>, Option<&PortalBackside>)>,
     live: LiveRooms,
 ) {
     let by_room = PortalsByRoom::collect(&portals, &live);
     if by_room.is_empty() {
         return;
     }
-    for (entity, mut body, presence) in &mut bodies {
+    for (entity, mut body, presence, backside) in &mut bodies {
         let all = by_room.in_room(live.of(entity));
         if all.is_empty() || !B::present(presence) {
             continue;
         }
         let half = body.half_extent();
         for portal in openings_near(all, body.pos(), half * 2.0) {
+            if backside.is_some_and(|back| back.of_pair(portal.channel)) {
+                continue;
+            }
             let (pos, vel) = (body.pos(), body.vel());
             // Its last step moves with it, so a second portal reads the step
             // from where this one left it.

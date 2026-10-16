@@ -456,7 +456,11 @@ fn swept_crossing_step(
         // aperture over a still body gives a nonzero segment and transits it
         // (the "scoop").
         let rel_prev = enter.frame().from_local(enter.prev_frame().to_local(prev.pos));
-        if plane_crossing(rel_prev, center, enter).is_some() {
+        // Whole, or not at all: a body that still cuts the plane past an end
+        // is snagged there, not taken (`crate::snag`).
+        if plane_crossing(rel_prev, center, enter).is_some()
+            && crate::snag::fits_through(ae::Aabb::new(center, size * 0.5), &enter.aperture())
+        {
             // Carry the velocity that caused the crossing: the live `vel` if
             // it still points into the portal, else the previous sample (the
             // integrator may have stopped the body at the carve bottom).
@@ -526,6 +530,7 @@ pub fn transit_step_with_tuning(
                 if pp::front_distance(center, &ap.frame) <= 0.0
                     && hole.strict_intersects(body)
                     && enter.relative_velocity(center, vel).dot(enter.normal) < 0.0
+                    && crate::snag::fits_through(body, &ap)
                 {
                     let exit = find_portal(portals, enter.channel.partner())
                         .expect("partner checked above");
@@ -585,7 +590,12 @@ pub fn transit_step_with_tuning(
             let ef = enter.frame();
             // The centroid crossing the plane triggers the transfer. Gameplay
             // sees no discontinuity because queries use the portal pieces.
-            if !t.crossed && pp::front_distance(center, &ef) <= 0.0 {
+            // Whole, or not at all (`crate::snag`): a body that cuts the plane
+            // past an end stays straddling until it fits.
+            if !t.crossed
+                && pp::front_distance(center, &ef) <= 0.0
+                && crate::snag::fits_through(body, &enter.aperture())
+            {
                 return transfer_step(center, vel, enter, exit, gravity_dir, tuning);
             }
             // Swept re-crossing while the post-transfer latch clears. On a fast

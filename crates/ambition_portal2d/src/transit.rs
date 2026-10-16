@@ -26,6 +26,73 @@ pub struct BodyTeleported {
     pub body: Entity,
 }
 
+/// A body on the back of a pair: it cuts the plane of one of the pair's
+/// openings from behind (its centre behind the plane), as a body that comes
+/// up through a one-way platform does. A crossing is begun only from a
+/// portal's face, so while it has this the pair does not begin its
+/// crossing, open its hole for it, snag it, or take it: it must be wholly
+/// past the plane first, and then it is on one side or the other like any
+/// body (Jon 2026-10-16).
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PortalBackside {
+    /// The channel of the opening whose plane it cuts from behind.
+    pub channel: PortalChannel,
+}
+
+impl PortalBackside {
+    /// Is `channel` one end of the pair this body is on the back of?
+    pub fn of_pair(self, channel: PortalChannel) -> bool {
+        channel == self.channel || channel == self.channel.partner()
+    }
+}
+
+/// The portals of `all` a body on the back of `backside` may use: all but
+/// that pair.
+pub(crate) fn usable_portals(all: &[PlacedPortal], backside: Option<PortalBackside>) -> std::borrow::Cow<'_, [PlacedPortal]> {
+    match backside {
+        Some(back) => std::borrow::Cow::Owned(all.iter().filter(|p| !back.of_pair(p.channel)).cloned().collect()),
+        None => std::borrow::Cow::Borrowed(all),
+    }
+}
+
+/// Keep `entity`'s [`PortalBackside`] true after its step: a body not
+/// crossing that cuts a paired opening's plane with its centre behind it is
+/// on its back; it stays so while it cuts that plane, and is not once it is
+/// past it.
+pub(crate) fn update_backside(
+    commands: &mut Commands,
+    entity: Entity,
+    backside: Option<PortalBackside>,
+    crossing: bool,
+    all: &[PlacedPortal],
+    body: ae::Aabb,
+) {
+    let now = if crossing {
+        None
+    } else if let Some(back) = backside.filter(|back| {
+        find_portal(all, back.channel).is_some_and(|p| crate::snag::cuts_opening(body, &p.aperture()))
+    }) {
+        Some(back)
+    } else {
+        all.iter()
+            .filter(|p| find_portal(all, p.channel.partner()).is_some())
+            .find(|p| {
+                pp::front_distance(body.center(), &p.frame()) < 0.0 && crate::snag::cuts_opening(body, &p.aperture())
+            })
+            .map(|p| PortalBackside { channel: p.channel })
+    };
+    match (backside, now) {
+        (Some(was), Some(now)) if was == now => {}
+        (_, Some(now)) => {
+            commands.entity(entity).insert(now);
+        }
+        (Some(_), None) => {
+            commands.entity(entity).remove::<PortalBackside>();
+        }
+        (None, None) => {}
+    }
+}
+
 /// Per-body transit state. A body is mid-transit while any part of it
 /// straddles a portal plane. It transfers to the exit when the centroid
 /// crosses, and transit ends when the body fully clears the plane.
@@ -68,7 +135,7 @@ pub fn publish_portal_carves(
     portals: Query<(Entity, &PlacedPortal)>,
     // The record of a body's last step has its DOWN: the core has no frame
     // of a body, and it asks the box the body has.
-    bodies: Query<(Entity, &BodyKinematics, Option<&ae::SweepSample>)>,
+    bodies: Query<(Entity, &BodyKinematics, Option<&ae::SweepSample>, Option<&PortalBackside>)>,
     transits: Query<(Entity, &PortalTransit)>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     host_depths: Option<Res<PortalHostDepthsByRoom>>,
@@ -105,10 +172,14 @@ pub fn publish_portal_carves(
 
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
-    for (body_entity, kin, record) in &bodies {
+    for (body_entity, kin, record, backside) in &bodies {
         let room = live.of(body_entity);
         let body = kin.collision_box(record);
         for p in by_room.in_room(room) {
+            // A body on the back of a pair does not open it.
+            if backside.is_some_and(|back| back.of_pair(p.channel)) {
+                continue;
+            }
             if body_opens(p, body, kin.pos, kin.vel, depths.in_room(room).depth(p.channel)) {
                 let PortalCarves { holes, faces } = &mut *carves;
                 carve(room, p.channel, holes, faces);
@@ -156,7 +227,7 @@ fn body_opens(p: &PlacedPortal, body: ae::Aabb, center: Vec2, vel: Vec2, depth: 
 /// portal it straddles open.
 pub fn publish_free_body_carves<B: FreePortalBody>(
     portals: Query<(Entity, &PlacedPortal)>,
-    bodies: Query<(Entity, &B, Option<&PortalTransit>, Option<&B::Presence>)>,
+    bodies: Query<(Entity, &B, Option<&PortalTransit>, Option<&B::Presence>, Option<&PortalBackside>)>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     host_depths: Option<Res<PortalHostDepthsByRoom>>,
     mut carves: ResMut<PortalCarves>,
@@ -167,7 +238,7 @@ pub fn publish_free_body_carves<B: FreePortalBody>(
     }
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
-    for (entity, body, transit, presence) in &bodies {
+    for (entity, body, transit, presence, backside) in &bodies {
         if !B::present(presence) {
             continue;
         }
@@ -177,6 +248,9 @@ pub fn publish_free_body_carves<B: FreePortalBody>(
         // A body that straddles a pair is at both of its ends.
         let straddling = transit.map(|t| t.straddling);
         for p in all {
+            if backside.is_some_and(|back| back.of_pair(p.channel)) {
+                continue;
+            }
             let opens = straddling.is_some_and(|c| c == p.channel || c.partner() == p.channel)
                 || body_opens(p, aabb, body.pos(), body.vel(), depths.in_room(room).depth(p.channel));
             if !opens || find_portal(all, p.channel.partner()).is_none() {
@@ -259,6 +333,7 @@ pub fn portal_transit(
             Option<&mut ActorRoll>,
             Option<&PortalTransitCooldown>,
             Option<&ae::SweepSample>,
+            Option<&PortalBackside>,
         ),
     >,
     // `GravityCtx::dir_for(aabb)` owns "which way is down for this body":
@@ -280,7 +355,7 @@ pub fn portal_transit(
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
 
-    for (entity, mut kin, mut transit, mut roll, cooldown, record) in &mut bodies {
+    for (entity, mut kin, mut transit, mut roll, cooldown, record, backside) in &mut bodies {
         if transit.is_none() && by_room.is_empty() {
             continue;
         }
@@ -310,6 +385,8 @@ pub fn portal_transit(
         // The size of the box the body has: its collision box, turned as its
         // last step turned it. The core has no frame of a body.
         let size = kin.collision_box(record).half_size() * 2.0;
+        let backside = backside.copied();
+        let usable = usable_portals(all, backside);
         let step = transit_step_with_tuning(
             kin.pos,
             size,
@@ -317,7 +394,7 @@ pub fn portal_transit(
             sweep,
             transit.as_deref().copied(),
             cooldown_pair,
-            all,
+            &usable,
             gravity_dir,
             depths.in_room(room),
             &tuning,
@@ -332,6 +409,8 @@ pub fn portal_transit(
             kin.vel.x,
             kin.vel.y
         );
+        let crossing = transit.is_some() || !matches!(step, TransitStep::Idle);
+        update_backside(&mut commands, entity, backside, crossing, all, kin.collision_box(record));
         match step {
             TransitStep::Idle | TransitStep::Continue => {}
             TransitStep::Begin {
@@ -492,6 +571,7 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
         Option<&mut ActorRoll>,
         Option<&PortalTransitCooldown>,
         Option<&B::Presence>,
+        Option<&PortalBackside>,
     )>,
     // A free body crosses only a pair of its own live room (OW1).
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
@@ -506,7 +586,7 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
     let tick = tick.map_or(0, |tick| tick.get());
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
-    for (entity, mut body, mut transit, mut roll, cooldown, presence) in &mut bodies {
+    for (entity, mut body, mut transit, mut roll, cooldown, presence, backside) in &mut bodies {
         if transit.is_none() && by_room.is_empty() {
             continue;
         }
@@ -528,6 +608,8 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
             .last_step()
             .filter(|(_, to)| *to == pos)
             .map(|(from, _)| SweptSample { pos: from, vel });
+        let backside = backside.copied();
+        let usable = usable_portals(all, backside);
         let step = transit_step_with_tuning(
             pos,
             half * 2.0,
@@ -535,7 +617,7 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
             sweep,
             transit.as_deref().copied(),
             cooldown.map(|c| c.pair),
-            all,
+            &usable,
             gravity_dir,
             depths.in_room(room),
             &tuning,
@@ -549,6 +631,8 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
             vel.x,
             vel.y
         );
+        let crossing = transit.is_some() || !matches!(step, TransitStep::Idle);
+        update_backside(&mut commands, entity, backside, crossing, all, ae::Aabb::new(pos, half));
         match step {
             TransitStep::Idle | TransitStep::Continue => {}
             TransitStep::Begin { channel, portal_pos } => {

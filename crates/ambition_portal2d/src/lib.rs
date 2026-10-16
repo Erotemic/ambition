@@ -74,7 +74,7 @@ pub use transit::{
     portal_transit, portal_transit_free_bodies, publish_free_body_carves, publish_portal_carves,
     reconcile_transited_bodies,
     tick_portal_cooldowns, BodyTeleported, FreePortalBody, PortalBodyTransited, PortalCarves,
-    PortalEmission, PortalInputWarp, PortalTransit,
+    PortalBackside, PortalEmission, PortalInputWarp, PortalTransit,
 };
 pub use tuning::{
     propose_editable_portal_tuning, publish_editable_portal_tuning, EditablePortalTuning,
@@ -100,7 +100,7 @@ mod turned_body_tests;
 #[cfg(test)]
 mod body_contract_tests;
 mod snag;
-pub use snag::{snag_free_straddlers, snag_push, snag_straddlers};
+pub use snag::{fits_through, snag_free_straddlers, snag_push, snag_straddlers};
 pub use rollback_registration::{
     register_portal_gun_rollback_state, register_portal_rollback_state, register_rollback_state,
 };

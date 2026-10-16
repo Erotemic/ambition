@@ -151,6 +151,11 @@ pub struct PortalViewer {
     /// body corners, so partial cover yields a partial (smoothly blended)
     /// window instead of a binary popping one.
     pub half_size: Vec2,
+    /// The pair whose opening the observer cuts from behind
+    /// ([`ambition_portal2d::PortalBackside`]), if any. It is on the back of
+    /// that pair, and the pair's windows stay shut for it until it is wholly
+    /// past the plane, as the pair will not take it until then.
+    pub on_back_of: Option<ambition_portal2d::PortalChannel>,
     /// Solid AABBs for the line-of-sight test — a portal whose aperture is
     /// occluded from `eye` renders no window. The host syncs these from its
     /// collision world (only the blocks that block sight).

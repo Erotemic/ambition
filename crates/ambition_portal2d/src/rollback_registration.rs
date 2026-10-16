@@ -46,6 +46,11 @@ where
         "resource.portal_frame_history",
     );
     registrar.rollback_component_clone::<crate::PortalTransit>(OWNER, "portal.transit");
+    // Whether a body is on the back of a pair decides whether the pair may
+    // take it, so a rewind restores it with the body.
+    registrar.rollback_component_clone_probed::<crate::PortalBackside>(OWNER, "portal.backside", |back| {
+        look_probe(back.channel)
+    });
     registrar.rollback_component_clone::<crate::PlacedPortal>(OWNER, "portal.placed");
     // A portal's link and its look are part of the portal: a rewind across a
     // pair's close re-creates its ends, and an end with no link pairs with

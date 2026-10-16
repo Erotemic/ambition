@@ -202,6 +202,27 @@ would go through and part around, it snags on the ends, like a rope.
   (40 px, body edge to the opening), fading with the distance, so where a body came out eases
   out as it walks away.
 
+## Crossings begin from the face (2026-10-16)
+
+Jon's frames (`screenshots/frame-step`, ticks 4786-4824): the robot came up through E's slope
+from behind, stood with its feet behind the plane past the opening's lower end, and was taken
+at tick 4824, its centre 0.1 px past the plane. Three rules now:
+
+- **The back of a pair** (`PortalBackside`, rollback-registered, schema v353). A body not
+  crossing that cuts a paired opening's plane with its centre behind it is on the back of
+  that pair, as a body coming up through a one-way platform is. While it is, the pair does
+  not begin its crossing, open its hole for it, snag it, take it, or show it a window. It
+  is cleared once the body is wholly past the plane. So a floor portal on a one-way platform
+  can be jumped up through, and then fallen through once cleared (measured on E: rising through
+  stays `Idle`; rising past it, it begins at tick 42 and lands through at 60).
+- **Whole, or not at all** (`fits_through`): every transfer (centre crossing, rescue, sweep)
+  asks that where the body cuts the plane is in the opening.
+- **The snag's no-worse rule** now holds the part past an end on its side: it may go no deeper
+  into the side it is not on (it could sink before, which is how tick 4824 happened).
+
+Frame 4810 drew only the robot's feet: the crossing it began from behind cut the sprite at the
+seam. A body on the back has no crossing and is drawn whole (measured in the capture).
+
 ## Open
 
 - **The robot's launch on the wall and slope pairs.** Hands-off, the kernel's air stop

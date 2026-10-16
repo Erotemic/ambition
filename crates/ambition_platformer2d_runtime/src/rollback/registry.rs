@@ -26,7 +26,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// view's age is drawn from its noise stream), and the brain's checksum
 /// projection carries that age. Two builds on either side play different
 /// CPUs from the same inputs.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 352;
+/// 352 -> 353: `portal.backside` (`PortalBackside`, a body on the back of a
+/// portal pair) joins the rollback state, and portal transit changes with it:
+/// a crossing begins only from a portal's face, and a body that cuts a
+/// portal's plane past an end of its opening is snagged and not taken.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 353;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

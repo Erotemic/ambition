@@ -303,6 +303,7 @@ fn a_portals_frame_draws_under_the_exit_slice_and_the_window_and_over_the_world(
                 eye: Vec2::new(460.0, 300.0), // left of the left face
                 forward: Vec2::ZERO,
                 half_size: Vec2::new(12.0, 20.0),
+                on_back_of: None,
                 occluders: Vec::new(),
             }));
         }

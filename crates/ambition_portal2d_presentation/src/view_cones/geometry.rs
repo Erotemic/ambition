@@ -825,6 +825,12 @@ pub(crate) fn compute_cone(
     let Some(v) = viewer.filter(|v| v.present) else {
         return closed(min);
     };
+    // On the back of this pair (it came at an opening from behind, as up
+    // through a one-way platform): no window until it is wholly past the
+    // plane (Jon 2026-10-16).
+    if v.on_back_of.is_some_and(|c| c == portal.channel || c == portal.channel.partner()) {
+        return closed(min);
+    }
     // The picture is ONE chart: the chart of the side the viewer's centre is
     // on. A body that straddles a pair has corners on both sides, and each
     // such corner is an eye that can admit a window; but the window of the

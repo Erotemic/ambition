@@ -53,7 +53,11 @@ mod host_adapter {
             (Entity, &ambition_sim_view::LocalViewId, &ambition_sim_view::ResolvedViewSubject),
             With<ambition_sim_view::LocalView>,
         >,
-        bodies: Query<(&BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+        bodies: Query<(
+            &BodyKinematics,
+            Option<&ambition_platformer2d_core::SweepSample>,
+            Option<&ambition_portal2d::PortalBackside>,
+        )>,
         viewers: Option<ResMut<PortalViewers>>,
     ) {
         use ambition_platformer2d_core::AabbExt;
@@ -74,7 +78,7 @@ mod host_adapter {
             let Some(body) = body else {
                 continue;
             };
-            let (Ok((kin, last_step)), Some(room)) = (bodies.get(body), rooms.room_of(body)) else {
+            let (Ok((kin, last_step, backside)), Some(room)) = (bodies.get(body), rooms.room_of(body)) else {
                 continue;
             };
             let Some(world) = rooms.in_room(room) else {
@@ -96,6 +100,7 @@ mod host_adapter {
                 // four corners.
                 half_size: kin.collision_box(last_step).half_size(),
                 room: Some(room),
+                on_back_of: backside.map(|back| back.channel),
                 occluders,
             });
         }

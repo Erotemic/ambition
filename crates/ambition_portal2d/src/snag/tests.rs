@@ -6,7 +6,7 @@ use ambition_platformer2d_core::{self as ae, BodyKinematics, SweepSample};
 
 use super::snag_push;
 use crate::color::{PortalChannel, PortalGunColor};
-use crate::transit::FreePortalBody;
+use crate::transit::{FreePortalBody, PortalTransit};
 use crate::types::PlacedPortal;
 
 const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
@@ -176,4 +176,61 @@ fn a_body_walking_past_an_end_in_a_slope_opening_meets_its_side() {
     assert!((push.length() - (t1 - 46.0)).abs() < 1e-3, "back to the end: {push:?}");
     assert!((against + up_the_slope).length() < 1e-3, "held back down the slope: {against:?}");
     assert!(push.dot(normal).abs() < 1e-3, "not lifted across the face: {push:?}");
+}
+
+/// Its centre is past the plane, and it still cuts the plane past an end:
+/// the pair does not take it until it fits.
+#[test]
+fn a_body_that_cuts_the_plane_past_an_end_is_not_taken() {
+    use crate::placement::{transit_step_with_tuning, TransitStep};
+    let portals = [floor(), exit()];
+    let straddling = Some(PortalTransit { straddling: BLUE, crossed: false });
+    let step = |x: f32| {
+        transit_step_with_tuning(
+            Vec2::new(x, 302.0),
+            BODY * 2.0,
+            Vec2::new(0.0, 100.0),
+            None,
+            straddling,
+            None,
+            &portals,
+            Vec2::new(0.0, 1.0),
+            &crate::types::PortalHostDepths::default(),
+            &crate::PortalTuning::default(),
+        )
+    };
+    assert!(matches!(step(0.0), TransitStep::Transfer { .. }), "control: within the opening it is taken");
+    assert!(matches!(step(28.0), TransitStep::Continue), "past the end it was taken: {:?}", step(28.0));
+}
+
+/// A body that comes up through a slope from behind, as through a one-way
+/// platform (Jon 2026-10-16), is on the back of the pair: the pair does not
+/// begin its crossing, and once it is wholly past the plane it is not.
+#[test]
+fn a_body_that_comes_at_an_opening_from_behind_is_on_its_back() {
+    let mut app = App::new();
+    app.init_resource::<crate::PortalTuning>();
+    app.add_message::<crate::PortalBodyEntered>();
+    app.add_message::<crate::PortalBodyTransited>();
+    app.add_systems(Update, crate::portal_transit);
+    app.world_mut().spawn(floor());
+    app.world_mut().spawn(exit());
+    // Rising from under the floor portal (behind it), through it.
+    let kin = |y: f32| BodyKinematics { pos: Vec2::new(0.0, y), vel: Vec2::new(0.0, -200.0), size: BODY * 2.0, facing: 1.0 };
+    let body = app.world_mut().spawn(kin(312.0)).id();
+    app.update();
+    assert_eq!(
+        app.world().get::<crate::PortalBackside>(body).copied(),
+        Some(crate::PortalBackside { channel: BLUE }),
+        "its centre behind the plane, cutting it: on the back"
+    );
+    // Its centre now in front, its feet still behind: no crossing begins.
+    *app.world_mut().get_mut::<BodyKinematics>(body).unwrap() = kin(292.0);
+    app.update();
+    assert!(app.world().get::<PortalTransit>(body).is_none(), "a crossing began from behind");
+    assert!(app.world().get::<crate::PortalBackside>(body).is_some(), "still on the back while it cuts the plane");
+    // Wholly past the plane: an ordinary body again.
+    *app.world_mut().get_mut::<BodyKinematics>(body).unwrap() = kin(270.0);
+    app.update();
+    assert!(app.world().get::<crate::PortalBackside>(body).is_none(), "past the plane, it is on no back");
 }

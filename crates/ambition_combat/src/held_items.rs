@@ -90,12 +90,21 @@ pub fn move_brandished_item_probe(item: &MoveBrandishedItem) -> u64 {
 /// confiscate the pickup on the next tick.
 pub fn brandish_the_playing_move_s_weapon(
     mut commands: Commands,
-    bodies: Query<(
-        Entity,
-        Option<&crate::moveset::MovePlayback>,
-        Option<&HeldItem>,
-        Option<&MoveBrandishedItem>,
-    )>,
+    // Only a body with a playing move or a brandished item can change (the
+    // `(None, None)` arm does nothing): with no filter the query visited every
+    // entity of the world each tick.
+    bodies: Query<
+        (
+            Entity,
+            Option<&crate::moveset::MovePlayback>,
+            Option<&HeldItem>,
+            Option<&MoveBrandishedItem>,
+        ),
+        bevy::ecs::query::Or<(
+            bevy::ecs::query::With<crate::moveset::MovePlayback>,
+            bevy::ecs::query::With<MoveBrandishedItem>,
+        )>,
+    >,
     // The swap changes the hand, so it re-derives the repertoire from the hand it
     // leaves behind — a put-back removal is invisible to any `Changed` filter.
     mut repertoires: Query<crate::hand::RepertoireQuery>,

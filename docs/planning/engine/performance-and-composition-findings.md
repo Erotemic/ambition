@@ -252,7 +252,8 @@ world each tick (the hub census counts about 8000 entities, 1300 live). A body
 they can act on has `WornCharacter` or `BodyWalletShield`, and `MovePlayback` or
 `MoveBrandishedItem`; the filters `Or<(With<WornCharacter>,
 With<BodyWalletShield>)>` and `Or<(With<MovePlayback>, With<MoveBrandishedItem>)>`
-keep what they do and drop the walk. Eight other queries in the scan have no
+keep what they do and drop the walk (both applied 2026-10-16; the
+wallet-shield, held-item, Mary-O and Sanic tests pass). Eight other queries in the scan have no
 required component but are only used with `get(entity)`, which costs nothing.
 `project_prepared_character_definitions` (`character_runtime/presentation.rs`)
 walks every body only on the tick the registry changes.
@@ -529,6 +530,15 @@ queries (`roots`, and `stamps` over every entity with `InRoomInstance`), with
 the bodies inlined. About 208 parameter declarations in `crates/` and `game/`
 take `LiveRooms` or `LiveRoomOf` (git grep), so the cost is paid once per run
 of each of those systems.
+
+The same holds for the two room-spec parameters of
+`ambition_platformer2d_world/src/rooms/room_graph.rs`: `LiveRoomSpecs` (its
+derive line, 0.51%; it embeds `LiveRooms`) and `SoleLiveRoomSpec` (0.32%).
+Together the room-lookup parameters are ~2.2% of phone samples. Users by a
+`git grep` of parameter declarations: `LiveRooms` ~120, `LiveRoomSpecs` ~90,
+`LiveRoomOf` ~72, `SoleLiveRoom` ~17, `SoleLiveRoomSpec` 5. (The next phone
+line of ours, `touch_input/virtual_device.rs:50`, 0.46%, is the touch button's
+`decompose`, called by leafwing's clash pass; it went with F13.)
 
 Reading (REASONED): the live-room set is one or two values that change on a
 room transition. A resource kept by one system (the live rooms in order, and

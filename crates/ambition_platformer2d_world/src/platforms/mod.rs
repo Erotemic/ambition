@@ -227,6 +227,44 @@ pub struct MovingPlatformSpec {
     /// of striking its underside. Its climb is held to [`MAX_ONE_WAY_CLIMB`].
     #[serde(default)]
     pub one_way: bool,
+    /// It is a plank, not a box: a line across its width through its centre,
+    /// which may turn ([`PlatformTurn`]). A body stands on it as on any line
+    /// (`walkable_lines`), and a portal on it rides it.
+    #[serde(default)]
+    pub line: Option<PlatformTurn>,
+}
+
+/// How a plank platform turns about its centre.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum PlatformTurn {
+    /// It keeps level.
+    #[default]
+    Level,
+    /// It turns round and round, `deg_per_s` (`+` turns its right end down).
+    Spin { deg_per_s: f32 },
+    /// It tilts to `deg` each way and back, once every `period_s`.
+    Swing { deg: f32, period_s: f32 },
+}
+
+impl PlatformTurn {
+    /// Its angle (radians) `t` seconds into its turning.
+    pub fn angle_at(self, t: f32) -> f32 {
+        match self {
+            Self::Level => 0.0,
+            Self::Spin { deg_per_s } => deg_per_s.to_radians() * t,
+            Self::Swing { deg, period_s } => deg.to_radians() * (std::f32::consts::TAU * t / period_s.max(0.05)).sin(),
+        }
+    }
+}
+
+/// A plank platform's turning ([`MovingPlatformSpec::line`]): how it turns,
+/// how long it has turned, and its angle now and its change this tick.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Plank {
+    pub turn: PlatformTurn,
+    pub turned_s: f32,
+    pub angle: f32,
+    pub last_turn: f32,
 }
 
 impl MovingPlatformSpec {
@@ -245,7 +283,14 @@ impl MovingPlatformSpec {
             motion,
             visual: None,
             one_way: false,
+            line: None,
         }
+    }
+
+    /// Make it a plank that turns so ([`Self::line`]).
+    pub fn with_line(mut self, line: Option<PlatformTurn>) -> Self {
+        self.line = line;
+        self
     }
 
     /// Draw it as `visual` (a registered prop sheet kind).
@@ -261,7 +306,7 @@ impl MovingPlatformSpec {
     }
 
     pub fn resolve(self, paths: &[KinematicPathSpec]) -> Result<MovingPlatformState, String> {
-        let (visual, one_way) = (self.visual.clone(), self.one_way);
+        let (visual, one_way, line) = (self.visual.clone(), self.one_way, self.line);
         if one_way {
             let climb = match &self.motion {
                 MovingPlatformMotionSpec::VerticalLoop { speed, .. } | MovingPlatformMotionSpec::Lift { speed, .. } => {
@@ -285,6 +330,7 @@ impl MovingPlatformSpec {
         self.resolve_motion(paths).map(|mut state| {
             state.visual = visual;
             state.one_way = one_way;
+            state.plank = line.map(|turn| Plank { turn, ..Plank::default() });
             state
         })
     }
@@ -389,6 +435,10 @@ pub struct MovingPlatformState {
     /// One-way (`MovingPlatformSpec::one_way`).
     #[serde(default)]
     pub one_way: bool,
+    /// A plank, and its turning (`MovingPlatformSpec::line`): it collides as a
+    /// line ([`Self::as_collision_line`]), not a box.
+    #[serde(default)]
+    pub plank: Option<Plank>,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -508,6 +558,7 @@ impl MovingPlatformState {
             last_delta: ae::Vec2::ZERO,
             visual: None,
             one_way: false,
+            plank: None,
         }
     }
 
@@ -546,6 +597,7 @@ impl MovingPlatformState {
             last_delta: ae::Vec2::ZERO,
             visual: None,
             one_way: false,
+            plank: None,
         }
     }
 
@@ -569,6 +621,7 @@ impl MovingPlatformState {
             last_delta: ae::Vec2::ZERO,
             visual: None,
             one_way: false,
+            plank: None,
         }
     }
 
@@ -605,6 +658,7 @@ impl MovingPlatformState {
             last_delta: ae::Vec2::ZERO,
             visual: None,
             one_way: false,
+            plank: None,
         }
     }
 
@@ -632,6 +686,7 @@ impl MovingPlatformState {
             last_delta: ae::Vec2::ZERO,
             visual: None,
             one_way: false,
+            plank: None,
         }
     }
 
@@ -664,6 +719,7 @@ impl MovingPlatformState {
             last_delta: ae::Vec2::ZERO,
             visual: None,
             one_way: false,
+            plank: None,
         }
     }
 
@@ -865,7 +921,34 @@ impl MovingPlatformState {
             }
         }
         self.last_delta = carried.unwrap_or(self.pos - old);
+        if let Some(plank) = &mut self.plank {
+            plank.turned_s += dt;
+            let angle = plank.turn.angle_at(plank.turned_s);
+            plank.last_turn = angle - plank.angle;
+            plank.angle = angle;
+        }
         self.last_delta
+    }
+
+    /// A plank's collision: the line across its width through its centre, at
+    /// its angle, carrying what stands on it by this tick's move and turn.
+    /// `None` for a box platform.
+    pub fn as_collision_line(&self) -> Option<ae::SurfaceChain> {
+        let plank = self.plank?;
+        let (sin, cos) = plank.angle.sin_cos();
+        let half = ae::Vec2::new(cos, sin) * (self.size.x * 0.5);
+        let mut line = ae::SurfaceChain::open(self.id.clone(), vec![self.pos - half, self.pos + half]);
+        line.velocity = self.last_delta;
+        line.turn = plank.last_turn;
+        line.pivot = self.pos;
+        // The platform's visual draws it.
+        line.hidden = true;
+        Some(line)
+    }
+
+    /// A plank's angle now (radians); zero for a box.
+    pub fn angle(&self) -> f32 {
+        self.plank.map_or(0.0, |plank| plank.angle)
     }
 
     pub fn aabb(&self) -> ae::Aabb {
@@ -1127,11 +1210,16 @@ pub fn world_with_moving_platforms(
     platforms: &[MovingPlatformState],
 ) -> ae::World {
     let mut collision_world = world.clone();
+    // A box platform is a block; a plank is a line.
     collision_world.blocks.extend(
         platforms
             .iter()
+            .filter(|platform| platform.plank.is_none())
             .map(MovingPlatformState::as_collision_block),
     );
+    collision_world
+        .chains
+        .extend(platforms.iter().filter_map(MovingPlatformState::as_collision_line));
     collision_world
 }
 

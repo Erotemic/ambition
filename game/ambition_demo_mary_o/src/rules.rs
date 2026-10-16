@@ -40,7 +40,6 @@ pub struct MaryORules {
 pub struct CastleEnd {
     pub press_speed: f32,
     pub gate_step_seconds: f32,
-    pub rescue_line_seconds: f32,
     pub stand_before_him: f32,
     pub step_down_speed: f32,
     pub switch_score: u32,
@@ -196,7 +195,6 @@ impl MaryORules {
             ("cosmic.hit_stop_max_seconds", self.cosmic.hit_stop_max_seconds),
             ("castle_end.press_speed", self.castle_end.press_speed),
             ("castle_end.gate_step_seconds", self.castle_end.gate_step_seconds),
-            ("castle_end.rescue_line_seconds", self.castle_end.rescue_line_seconds),
             ("castle_end.stand_before_him", self.castle_end.stand_before_him),
             ("castle_end.step_down_speed", self.castle_end.step_down_speed),
             ("castle_end.sink_speed", self.castle_end.sink_speed),

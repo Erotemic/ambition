@@ -14,7 +14,7 @@
 use bevy::prelude::*;
 
 use ambition_demo_mary_o::castle_end::{
-    room_switch, CastleBeat, GOAL_GATE, RESCUED_CHARACTER_ID, RESCUE_CUTSCENE, RESCUE_LINE,
+    room_switch, rescue_line, CastleBeat, GOAL_GATE, RESCUED_CHARACTER_ID, RESCUE_CUTSCENE,
 };
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
@@ -144,7 +144,7 @@ fn the_switch_drops_the_boss_and_the_robot_thanks_her_before_the_level_goes() {
             use CastleBeat::*;
             assert_eq!(seen, [Pressed, Charges, BridgeFalls, BossFalls, Aftermath, GateOpens, Walks, Thanks, Victory]);
             let (line_frame, text) = heard.expect("the level went and the robot did not say his line");
-            assert_eq!(text, RESCUE_LINE);
+            assert_eq!(text, rescue_line(), "the line on the screen is not the pack's rescue banner");
             let pressed_at = pressed_at.expect("a beat was seen");
             assert!(
                 line_frame - pressed_at > 240,

@@ -91,10 +91,6 @@
         press_speed: 150.0,
         // Seconds from one row of the gate to the next while it opens.
         gate_step_seconds: 0.14,
-        // How long his thanks stay, in seconds. It needs no button: a level
-        // that waits for a button at its end can hold a player who does not
-        // know which.
-        rescue_line_seconds: 4.0,
         // She stops this far from him, in world px.
         stand_before_him: 76.0,
         // How fast she comes down from the switch to the floor, in world px

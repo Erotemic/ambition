@@ -146,6 +146,20 @@ impl EmbeddedPackReloadPlugin {
         })
     }
 
+    /// The pack's `cutscene_library`, inserted once at start, restated at each
+    /// publication that changes it. Another provider's scripts stay.
+    pub fn cutscenes(pack: &'static EmbeddedPack) -> Self {
+        use crate::cutscene::content_schema::{lowered_cutscenes, CUTSCENE_LIBRARY_SCHEMA};
+        use crate::cutscene::CutsceneLibrary;
+        let scripts = |pack: &PreparedContentPack| lowered_cutscenes(pack).cloned().unwrap_or_default();
+        let owned = scripts(pack.prepared()).into_iter().map(|script| script.id).collect();
+        Self::owning_rows(pack, CUTSCENE_LIBRARY_SCHEMA, owned, move |world, owned, pack| {
+            world
+                .get_resource_or_insert_with(CutsceneLibrary::default)
+                .restate(owned.iter().map(String::as_str), &scripts(pack))
+        })
+    }
+
     /// The pack's `music_registry` and `sfx_registry`, registered once at
     /// start as `provider`'s audio fragment, published again at each
     /// publication that changes them (`publish_provider_audio`).
@@ -923,6 +937,47 @@ mod tests {
         // `probe_new` is the pack's since the first publication.
         save_and_look(&mut app, &file, r#"{ "probe_prop": () }"#);
         assert_eq!(kinds(&app), ["foreign_prop", "probe_prop"], "a row the pack added and then dropped is gone");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// An edit to the pack's cutscenes is the library's from the next
+    /// session: the pack's scripts change, are added and are dropped, another
+    /// provider's script stays, and an edit that takes its id is refused.
+    #[test]
+    fn an_edit_to_the_cutscenes_restates_only_the_packs_scripts() {
+        use crate::cutscene::{CutsceneBeat, CutsceneLibrary, CutsceneScript};
+
+        let (pack, root) = pack_with(
+            "owned_cutscenes",
+            "data/cutscenes.ron",
+            "cutscene_library",
+            r#"[(id: "probe_scene", beats: [Wait(seconds: 0.5)])]"#,
+        );
+        let mut app = App::new();
+        app.init_resource::<CutsceneLibrary>();
+        {
+            let mut library = app.world_mut().resource_mut::<CutsceneLibrary>();
+            library.insert(CutsceneScript::new("probe_scene", vec![CutsceneBeat::Wait { seconds: 0.5 }]));
+            library.insert(CutsceneScript::new("foreign_scene", vec![CutsceneBeat::Wait { seconds: 1.0 }]));
+        }
+        app.add_plugins(EmbeddedPackReloadPlugin::cutscenes(pack));
+        let ids = |app: &App| app.world().resource::<CutsceneLibrary>().scripts.keys().cloned().collect::<Vec<_>>();
+        let wait = |app: &App, id: &str| match app.world().resource::<CutsceneLibrary>().get(id).map(|script| script.beats[0].clone()) {
+            Some(CutsceneBeat::Wait { seconds }) => Some(seconds),
+            _ => None,
+        };
+        let file = root.join("data/cutscenes.ron");
+
+        save_and_look(&mut app, &file, r#"[(id: "probe_scene", beats: [Wait(seconds: 0.75)]), (id: "probe_new", beats: [Wait(seconds: 0.1)])]"#);
+        assert_eq!(ids(&app), ["foreign_scene", "probe_new", "probe_scene"]);
+        assert_eq!(wait(&app, "probe_scene"), Some(0.75), "the script is the saved file's");
+
+        save_and_look(&mut app, &file, r#"[(id: "probe_scene", beats: [Wait(seconds: 0.2)]), (id: "foreign_scene", beats: [Wait(seconds: 0.2)])]"#);
+        assert_eq!(wait(&app, "foreign_scene"), Some(1.0), "another provider's script is not taken");
+        assert_eq!(wait(&app, "probe_scene"), Some(0.75), "a refused edit keeps the pack's scripts");
+
+        save_and_look(&mut app, &file, r#"[(id: "probe_scene", beats: [Wait(seconds: 0.75)])]"#);
+        assert_eq!(ids(&app), ["foreign_scene", "probe_scene"], "a script the pack added and then dropped is gone");
         let _ = std::fs::remove_dir_all(root);
     }
 

@@ -409,6 +409,32 @@ impl CutsceneLibrary {
     pub fn get(&self, id: &str) -> Option<&CutsceneScript> {
         self.scripts.get(id)
     }
+
+    /// State one provider's scripts again: remove the `previous` ids it owned
+    /// and insert `scripts`. A script id another provider holds is refused,
+    /// and nothing changes. Returns the ids the provider owns now.
+    pub fn restate<'a>(
+        &mut self,
+        previous: impl IntoIterator<Item = &'a str>,
+        scripts: &[CutsceneScript],
+    ) -> Result<Vec<String>, String> {
+        let previous: Vec<&str> = previous.into_iter().collect();
+        let taken: Vec<&str> = scripts
+            .iter()
+            .map(|script| script.id.as_str())
+            .filter(|id| self.scripts.contains_key(*id) && !previous.contains(id))
+            .collect();
+        if !taken.is_empty() {
+            return Err(format!("cutscene id(s) {taken:?} belong to another provider"));
+        }
+        for id in previous {
+            self.scripts.remove(id);
+        }
+        for script in scripts {
+            self.insert(script.clone());
+        }
+        Ok(scripts.iter().map(|script| script.id.clone()).collect())
+    }
 }
 
 /// The cutscene TRIGGER channel — a presentation-neutral request queue.

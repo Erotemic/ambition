@@ -50,12 +50,11 @@ pub const GATE_ART: &str = "goal_gate_art";
 /// that is down is the `idle` row: the engine draws no prop without one.
 const GATE_ROWS: [&str; 6] = ["idle", "rise_1", "rise_2", "rise_3", "rise_4", "open"];
 
-/// The cutscene in which the one she saved thanks her.
+/// The cutscene in which the one she saved thanks her: a script of the pack's
+/// `data/cutscenes/castle.ron`.
 pub const RESCUE_CUTSCENE: &str = "mary_o_castle_rescue";
 /// The character of the catalog that waits past the gate.
 pub const RESCUED_CHARACTER_ID: &str = "mary_o_robot";
-/// What he says.
-pub const RESCUE_LINE: &str = "ROBOT:  \"Thank you, Mary-O. You saved me.\"";
 
 
 /// The beats of the end of a castle, in their sequence.
@@ -93,7 +92,7 @@ impl CastleBeat {
             Self::BridgeFalls | Self::BossFalls | Self::Walks => None,
             Self::Aftermath => Some(beats.aftermath),
             Self::GateOpens => Some(beats.gate_opens),
-            Self::Thanks => Some(castle.rescue_line_seconds + beats.thanks_after_line),
+            Self::Thanks => Some(rescue_line_seconds() + beats.thanks_after_line),
             Self::Victory => Some(beats.victory),
         }
     }
@@ -277,24 +276,57 @@ fn block_named(room: &RoomSpec, name: &str) -> Option<ae::Aabb> {
         .map(|block| block.aabb)
 }
 
-fn rescue_script() -> CutsceneScript {
-    CutsceneScript::new(
-        RESCUE_CUTSCENE,
-        vec![
-            CutsceneBeat::Wait { seconds: 0.4 },
-            CutsceneBeat::Banner {
-                text: RESCUE_LINE.to_string(),
-                seconds: crate::rules::mary_o_rules().castle_end.rescue_line_seconds,
-            },
-        ],
-    )
+/// The pack's cutscenes (`data/cutscenes/*.ron`).
+pub fn cutscenes() -> &'static [CutsceneScript] {
+    ambition_platformer2d::cutscene::content_schema::lowered_cutscenes(crate::pack::PACK.prepared())
+        .map(Vec::as_slice)
+        .unwrap_or_default()
 }
 
-/// Put the cutscene of the rescue in the library of the app, one time, when
-/// the app is built: a provider gives the library the rows of its own ids.
+/// The script of the rescue, as the pack states it.
+pub fn rescue_script() -> &'static CutsceneScript {
+    cutscenes()
+        .iter()
+        .find(|script| script.id == RESCUE_CUTSCENE)
+        .unwrap_or_else(|| panic!("the pack's cutscenes have no `{RESCUE_CUTSCENE}`"))
+}
+
+/// What he says: the banner of the rescue.
+pub fn rescue_line() -> &'static str {
+    rescue_script()
+        .beats
+        .iter()
+        .find_map(|beat| match beat {
+            CutsceneBeat::Banner { text, .. } => Some(text.as_str()),
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("`{RESCUE_CUTSCENE}` shows no banner, so he says nothing"))
+}
+
+/// How long his line is on the screen: the banners of the rescue.
+fn rescue_line_seconds() -> f32 {
+    rescue_script()
+        .beats
+        .iter()
+        .map(|beat| match beat {
+            CutsceneBeat::Banner { seconds, .. } => *seconds,
+            _ => 0.0,
+        })
+        .sum()
+}
+
+/// Put the pack's cutscenes in the library of the app, one time, when the app
+/// is built: a provider gives the library the rows of its own ids.
 pub fn install(app: &mut App) {
     app.init_resource::<CutsceneLibrary>();
-    app.world_mut().resource_mut::<CutsceneLibrary>().insert(rescue_script());
+    let mut library = app.world_mut().resource_mut::<CutsceneLibrary>();
+    for script in cutscenes() {
+        library.insert(script.clone());
+    }
+    drop(library);
+    // A build that reads the pack off disk plays an edit to a cutscene from
+    // the next session.
+    app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::cutscenes(&crate::pack::PACK));
     app.add_message::<FxRequest>();
     app.add_message::<FireworksRequest>();
 }

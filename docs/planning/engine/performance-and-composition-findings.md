@@ -399,6 +399,42 @@ despawns and 2.000 `PresentedForView` inserts (`parallax.rs:623`) per frame;
 also 1.000 `WieldedItemVisual` spawn per frame. A steady rate of exactly one
 per frame is a loop, not a load.
 
+Cause (MEASURED with the change counter, `probe/basement_enemies_v2`):
+`GameAssets` was marked changed on 593 of 593 frames, by a caller inside
+`Option::as_deref_mut`. `refresh_parallax_layers_on_quality_change`
+(`parallax.rs:325`) despawns every parallax layer when `GameAssets` is changed,
+and `present_live_room_parallax` spawns them again. The writer:
+`prepare_first_room_art_system` (`ambition_app/src/app/world_flow/first_room_art.rs`)
+took `GameAssets`, the atlas layouts and the character load states through
+`as_deref_mut()` every frame, also with no session to prepare. Fixed (it
+returns before the borrows when every published session is answered).
+Verified (`probe/basement_enemies_v3`): `GameAssets` changed on 0 frames, no
+parallax spawn or despawn.
+
+### F18 — Other steady churn of ours (probe)
+
+MEASURED (probe churn, per frame at idle):
+
+- Sanic: `gravity_visuals.rs:29` despawns and respawns every gravity-zone
+  visual every frame (1.43 each way); it runs in `Update` with no condition.
+- Mary-O: `rigged.rs:923` spawns rig part slots and despawns as many, ~1.4 a
+  frame each.
+- Every game: `lifecycle/session.rs:316` and `:326` insert
+  `SessionScopedEntity` and then `InRoomInstance` as two inserts after each
+  session spawn (4-8 a frame each): three archetype moves per spawn instead of
+  one. Fix: one bundle in the spawn.
+- Outside our code: `FixedMainScheduleOrder` removed and inserted per fixed
+  tick (Bevy), `bevy_ggrs` reinserts `Session`, `PlayerInputs` and
+  `FixedTimestepData` every frame.
+
+### F17 — The hub respawns a room's parallax every frame
+
+MEASURED (probe churn, hub `basement_enemies`, 595 frames): exactly 1.000
+`PresentedRoomParallax` root spawn, 2.000 parallax layer spawns, 2.000 layer
+despawns and 2.000 `PresentedForView` inserts (`parallax.rs:623`) per frame;
+also 1.000 `WieldedItemVisual` spawn per frame. A steady rate of exactly one
+per frame is a loop, not a load.
+
 Reading (REASONED, to confirm with the change detector of F15):
 `refresh_parallax_layers_on_quality_change` (`parallax.rs:325`) despawns every
 parallax layer and every `PresentedRoomParallax` when `GameAssets` is changed;
@@ -462,6 +498,25 @@ Verified with it (MEASURED): the `star.rs` fix (F15) works. After it,
 `ActionSet` and `ActorMoveset` were changed 17 times in 561 frames (loading),
 and `reconcile_effective_repertoire` has no allocations left.
 
+### F21 — Presentation entities drawn in immediate mode
+
+MEASURED (probe churn): three presentation systems despawned all their
+entities and spawned them again every frame: gravity-zone visuals (Sanic,
+fixed), the parallax refresh (hub, F17, fixed at its cause), and wielded-item
+overlays (`wielded_item_visuals.rs:139`, hub, 1.000 a frame; rewritten to
+update in place, verification run pending). A code search for the same shape
+(despawn every entity of a marker, then spawn) also finds
+`item_visuals.rs`, `projectile_visuals.rs`, `mark_beacon.rs`, `hud/declared.rs`
+and the portal presentation (`visuals.rs`, `gun_visuals.rs`, `far_side.rs`);
+not all of them run every frame.
+
+Reading (REASONED): this is immediate-mode drawing written with retained
+entities. Each frame pays two archetype moves per entity, new render
+entities and extraction state, and change marks for everything downstream.
+The elegant pattern is one shared helper: keyed reconcile (key → entity:
+update in place, spawn the new, despawn the gone), as the gravity and wielded
+systems now do by hand.
+
 ### Not a lever (keep out of this run)
 
 Session-scoped App globals (C03: 30 counted plus 19 uncounted instances) are
@@ -480,6 +535,7 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | P5 | Read-models built once per drawn frame, by change | repeat builds on slow frames; builds in headless hosts | medium | D2 |
 | P6 | Change-driven systems: the two whole-world queries, input bindings, room isolation (F14) | full scans per tick; 444-2,773 allocations a frame in room isolation | small | no |
 | P12 | Derive on change, not every tick (F15, F16, F20): first writes that mark only real changes (the cluster step, the resources of F20), then the four systems; the change detector (`changes_by_site.csv`) finds the next ones and verifies each | per-tick re-derivations and false changes that wake change filters | small each | no |
+| P13 | One keyed-reconcile helper for presentation entities (F21), and the remaining immediate-mode systems moved onto it | per-frame despawn and spawn of presentation entities | small-medium | no |
 | P11 | Leafwing fork (F13): no clash work under `PressAll`, pairs of pressed actions only otherwise; lookups without boxing; upstream PRs | 19-32k allocations a frame, ~75% of a standalone frame's | small | no |
 | P7 | Plumbing: one gizmo trail group, Bevy debug gizmos off in shipping, developer tools only in developer builds, Kira channels | ~80 systems | small-medium | D6, D9 |
 | P8 | Upstream query-state fixes (LDtk, Yarn, bevy_light, GGRS) | ~2% of phone CPU | small each | D5 (only for the LDtk workaround) |

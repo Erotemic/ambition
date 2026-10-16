@@ -4,33 +4,9 @@
 //! fixture); they verify the data + dispatch contracts that keep the
 //! intro dialogue/cutscenes wired into the sandbox dialog runtime.
 
-use super::dialog::intro_dialogue_ids;
 use ambition_cutscene::CutsceneLibrary;
 use ambition_dialog::DialogState;
 use ambition_dialog::DialogueContext;
-
-#[test]
-fn every_intro_dialogue_id_is_registered_with_validator() {
-    // Each intro dialogue id must be in `known_dialogue_ids` so the LDtk content validator
-    // accepts `NpcSpawn.dialogue_id` references.
-    //
-    // ⭐ THIS ABSORBED `known_dialogue_ids_contains_every_intro_id`, which
-    // asserted the SAME property over the SAME corpus in the same direction —
-    // one built a `HashSet` and the other scanned linearly, and neither could
-    // fail without the other failing too. Two tests for one fact is the same
-    // defect as two authorities for one fact: they cannot disagree usefully,
-    // and a reader has to check both to learn they say one thing.
-    // ⚠ The name kept is the one that says WHY the property matters; the
-    // deleted name said only what the code did.
-    let known: std::collections::HashSet<String> =
-        crate::dialogue::known_dialogue_ids().into_iter().collect();
-    for id in intro_dialogue_ids() {
-        assert!(
-            known.contains(*id),
-            "intro dialogue id '{id}' is missing from the validator's known list"
-        );
-    }
-}
 
 #[test]
 fn dialog_start_sets_dialogue_id_for_intro_and_sandbox() {

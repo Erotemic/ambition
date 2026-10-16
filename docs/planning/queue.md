@@ -1112,6 +1112,13 @@ variants. Also found in that regen:
     key equivalence is a test against the bash function
     (`test_the_python_unit_key_is_the_bash_unit_key`; poison: no duplicate
     removal, red on `hero`).
+    **Built 2026-10-15, the staging mirror:** the swap keeps the set it
+    replaces (`.cache/publish_mirror`, 1.7 GB), and the next run makes its
+    staged copy from it with `rsync --delete`: 0.69 s on the real roots,
+    was 41 s for the full copy in the same day's publish
+    (`test_the_next_run_starts_from_the_set_the_swap_replaced`; poisons: no
+    mirror kept, mirror not used, no `--delete`, each red on its own
+    assertion).
     **Built 2026-10-15, the staging root:** a full publish writes into a
     copy of the five runtime roots (`sprites`, the three tiers,
     `sprite_packs`) under the renderer's `.cache/publish_staging`, and moves

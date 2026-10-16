@@ -1146,6 +1146,12 @@ pub struct MaryODemoContentPlugin;
 /// the new [`provider::MaryOExperiencePlugin`] (shell-activation construction).
 pub fn install_mary_o_content(app: &mut App) {
     register_mary_o_cast(app);
+    // A build that reads her pack off disk plays an edit to her tuning from
+    // the next session. Her ladder, cast and audio are read here, once.
+    app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin {
+        pack: &pack::PACK,
+        live: &[rules::MARY_O_RULES_SCHEMA],
+    });
     // Seventeen placements, thirty-four actors, and only the prefixed half carried `SnakeShell` /
     // `AiSlop`, so half of 1-1's enemies were un-stompable lookalikes. The ids differed, so the
     // construction plan's duplicate-id check could not see it.

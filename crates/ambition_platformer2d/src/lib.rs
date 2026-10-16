@@ -128,6 +128,14 @@ pub mod content {
         /// with the engine's. See [`Self::with_schemas`].
         schemas: fn() -> Vec<SchemaRegistration>,
         compiled: std::sync::OnceLock<PreparedContentPack>,
+        /// The generation a live reload published ([`live_reload`]), when
+        /// one did. It replaces `compiled` for every later read.
+        ///
+        /// Each published generation is leaked on purpose: a reader holds a
+        /// `&'static` borrow of a lowered row (`smash_rules()`), so an old
+        /// generation must stay valid. Only a build that reads its pack off
+        /// disk publishes, and only once for each saved edit.
+        live: std::sync::RwLock<Option<&'static PreparedContentPack>>,
     }
 
     /// No schemas of the game's own.
@@ -217,6 +225,7 @@ pub mod content {
                 texts: PackTexts::Embedded { manifest_ron, sources },
                 schemas: no_schemas,
                 compiled: std::sync::OnceLock::new(),
+                live: std::sync::RwLock::new(None),
             }
         }
 
@@ -231,6 +240,7 @@ pub mod content {
                 texts: PackTexts::Rooted { root, embedded },
                 schemas: no_schemas,
                 compiled: std::sync::OnceLock::new(),
+                live: std::sync::RwLock::new(None),
             }
         }
 
@@ -327,17 +337,38 @@ pub mod content {
             })
         }
 
-        /// The compiled pack, compiled once.
+        /// The compiled pack: compiled once, or the generation a live reload
+        /// published last ([`live_reload`]).
         ///
         /// # Panics
         ///
         /// When the pack does not compile. Content a game ships and cannot
         /// load is a build fault, and the refusal says which file and why.
         pub fn prepared(&self) -> &PreparedContentPack {
+            if let Some(live) = *self.live.read().unwrap_or_else(std::sync::PoisonError::into_inner) {
+                return live;
+            }
             self.compiled.get_or_init(|| {
                 self.compile()
                     .unwrap_or_else(|failure| panic!("an embedded content pack does not compile:\n{failure}"))
             })
+        }
+
+        /// The directory the pack is read from when the build reads it off
+        /// disk, or `None` when the build embedded its texts. Only such a pack
+        /// can change while the game runs.
+        pub fn root_on_disk(&self) -> Option<&'static str> {
+            match self.texts {
+                PackTexts::Rooted { root, embedded: None } => Some(root),
+                _ => None,
+            }
+        }
+
+        /// Make `generation` the pack every later [`Self::prepared`] reads.
+        /// Only [`live_reload`] calls it, between two sessions.
+        fn publish(&self, generation: PreparedContentPack) {
+            let leaked: &'static PreparedContentPack = Box::leak(Box::new(generation));
+            *self.live.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(leaked);
         }
 
         /// The move table this pack authors for `character`.
@@ -452,6 +483,8 @@ pub mod content {
             }
         }
     }
+
+    pub mod live_reload;
 
     /// A pack's cast, ready to register. See [`EmbeddedPack::cast`].
     pub struct PackCast {

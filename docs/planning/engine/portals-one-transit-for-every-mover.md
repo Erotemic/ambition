@@ -271,8 +271,13 @@ the crossing frame.
   17–21, c146's top end = the ledge top, y 208). Its feet graze the capture face, the body
   opens the hole, the carve takes the ledge's top from under it, it sinks 0.6 px into the
   opening, and the snag's no-worse rule pushes it 2.3–4.5 px back and stops it: a fall and a
-  land every two ticks. Proposed: a body opens a portal only when its span along the face
-  fits the opening (the snag's rule: only a body that can pass whole goes through).
+  land every two ticks. Now a body opens a portal, and begins a transit, only when it is in
+  line with the opening (`snag::in_line_with`: its span along the face within the opening);
+  measured: it walks off the ledge at full speed when its back edge passes the corner, and
+  lands once. Open (Jon 2026-10-16): a hole open only for the bodies it was opened for, so a
+  body standing on the lintel keeps its floor while another passes. The integrator already
+  takes walls per body (`solids_for`, as gate passes do); the work is the callers of
+  `solids()` that act for a body (body-mode clearance, held items) and an owner per hole.
 - **Two ends that face each other** show a picture in a picture; one level of recursion leaves
   a strip at the far edge that the next frame shows as a window.
 

@@ -35,7 +35,12 @@ pub fn project_wallet_shields(
     // rule was the rule of no room, and no wallet shielded anywhere.
     rule: crate::session::governing_rules::RulesOf<WalletShieldRule>,
     cast: ambition_characters::prepared::SessionCast,
-    bodies: Query<(Entity, Option<&WornCharacter>, Has<BodyWalletShield>)>,
+    // Only a body that wears a character or has the shield can change: with no
+    // filter the query visited every entity of the world each tick.
+    bodies: Query<
+        (Entity, Option<&WornCharacter>, Has<BodyWalletShield>),
+        Or<(With<WornCharacter>, With<BodyWalletShield>)>,
+    >,
 ) {
     for (entity, worn, shielded) in &bodies {
         // The character first: most bodies wear no shield, and the room

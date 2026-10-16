@@ -1159,9 +1159,14 @@ fn install_room_capture(app: &mut App) {
             force_screen_effects,
             force_look_depth,
             force_camera_zoom,
+            // Before every presentation system that reads the camera: with no
+            // order, a serial executor ran the motes and the daylight veil
+            // against the camera before this pin, and drew them off the frame.
             apply_capture_snapshot
                 .after(camera_follow)
-                .before(sync_parallax_layers),
+                .before(sync_parallax_layers)
+                .before(ambition_platformer2d::render::rendering::ambient_motes::drift_room_motes)
+                .before(ambition_platformer2d::render::rendering::daylight::light_the_world),
             request_capture.after(sync_parallax_layers),
             adopt_menu_camera,
             finish_after_capture,

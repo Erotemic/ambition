@@ -50,7 +50,7 @@ pub fn build_demo_app_loading(files: Vec<std::path::PathBuf>) -> App {
 
 fn build_demo_app_on(mut app: App, home_route: &str) -> App {
     ambition_platformer2d::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(engine_plugins());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     compose_mary_o_shell(&mut app, home_route);
     // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
@@ -148,7 +148,7 @@ pub fn build_windowed_demo_app_entering(
     app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(
         entry_room.to_string(),
     ));
-    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(engine_plugins());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     // Visible and headless hosts share one provider/shell/session lifecycle.
     // The provider installs Mary-O's content definitions before the shared asset
@@ -292,4 +292,13 @@ impl From<RenderMode> for ambition_platformer2d::app::Display {
             RenderMode::OffscreenGpu => Self::Offscreen,
         }
     }
+}
+
+/// The engine this game runs on: everything but named boss encounters. Its one
+/// boss, the Void Lizard, is an enemy body with a brain, not an engine boss
+/// encounter (the omission of the witnessed `encounters-without-named-bosses`
+/// profile). Both host builders in this file use it.
+fn engine_plugins() -> ambition_platformer2d::engine::PlatformerEnginePlugins {
+    ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick()
+        .without(ambition_platformer2d::runtime::profile::Capability::BossEncounters)
 }

@@ -32,6 +32,8 @@ mod glyphs;
 pub mod layout;
 #[cfg(feature = "input")]
 mod local_seats;
+#[cfg(feature = "input")]
+pub mod press_all_action_update;
 mod menu;
 mod motion_input;
 pub mod participant;
@@ -199,7 +201,9 @@ pub fn install_provider_action_road(app: &mut bevy::prelude::App) {
             leafwing_input_manager::systems::tick_action_state::<ProviderAction>
                 .in_set(leafwing_input_manager::plugin::InputManagerSystem::Tick)
                 .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
-            leafwing_input_manager::systems::update_action_state::<ProviderAction>
+            // Leafwing's update without its clash pass where the pass does
+            // nothing (`press_all_action_update`); the same result.
+            press_all_action_update::update_action_state_press_all::<ProviderAction>
                 .in_set(leafwing_input_manager::plugin::InputManagerSystem::Update),
         ),
     );

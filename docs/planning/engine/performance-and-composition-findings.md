@@ -38,7 +38,11 @@ cpufreq logs; p50 per 5 s window):
 | Mary-O 1-1 in the hub | 24-33 ms | 17 ms at entry, 23-33 ms during play, 36-46 ms in 1-2 |
 
 The first morning run recorded the hub room only (Mary-O started after the
-recording window). `AMBITION_BOOT_ROUTE=mary_o_gameplay` now boots the hub in
+recording window). ⚠ Every phone profile up to 2026-10-16 is of an
+INCREMENTAL `android-profile` build: `build_for_android.sh` did not set
+`CARGO_INCREMENTAL=0` (fixed 10-16, after a link failure). Incremental makes
+smaller codegen units and less inlining than the shipped build, so the
+framework shares below may be high; the next run is the first like-shipped one. `AMBITION_BOOT_ROUTE=mary_o_gameplay` now boots the hub in
 Mary-O, so a phone profile cannot miss it (`profile_android.sh` records it).
 
 **Reconciliation:**

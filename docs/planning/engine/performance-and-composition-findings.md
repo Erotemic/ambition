@@ -975,7 +975,8 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
   sheet on disk without a `hit_soft` row (two tests). `ambition_combat` 740 pass;
   the monolith 1,406 pass, 1 fails, not from this run:
   `held_item_steps…sit_where_they_say` finds two systems in
-  `HeldItemStep::Physics` (`right_ground_items`, added in 2479a4c37). The runtime
+  `HeldItemStep::Physics` (`right_ground_items`, added in 2479a4c37). At 12:33Z
+  the test expects two, and it passes (MEASURED). The runtime
   crate (executor policy) 83 pass; `ambition_platformer2d` 10 pass.
 - 12:30Z The executor arms' one picture difference traced (F22): the motes
   read the camera before `capture_scene` pinned it under a serial order. The

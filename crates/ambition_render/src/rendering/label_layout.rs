@@ -591,7 +591,7 @@ pub fn layout_world_labels(
             let opacity = label.owner_opacity;
             label.rendered_opacity = opacity;
             *visibility = visibility_for(opacity);
-            *text_color = TextColor(with_opacity(label.text_color, opacity));
+            text_color.set_if_neq(TextColor(with_opacity(label.text_color, opacity)));
             paint_outlines(&mut outline_colors, children, &label, opacity);
         }
         return;
@@ -707,7 +707,7 @@ fn apply_view_layout(
             // Unplaceable. Hide it at once; the ease is only for the subject fade.
             label.rendered_opacity = 0.0;
             *visibility = Visibility::Hidden;
-            *text_color = TextColor(with_opacity(label.text_color, 0.0));
+            text_color.set_if_neq(TextColor(with_opacity(label.text_color, 0.0)));
             paint_outlines(outline_colors, children, &label, 0.0);
             continue;
         };
@@ -722,7 +722,7 @@ fn apply_view_layout(
         };
         label.rendered_opacity = opacity;
         *visibility = visibility_for(opacity);
-        *text_color = TextColor(with_opacity(label.text_color, opacity));
+        text_color.set_if_neq(TextColor(with_opacity(label.text_color, opacity)));
         paint_outlines(outline_colors, children, &label, opacity);
     }
 }
@@ -757,7 +757,7 @@ fn paint_outlines(
     };
     for child in children.iter() {
         if let Ok(mut color) = outline_colors.get_mut(child) {
-            *color = TextColor(with_opacity(outline, opacity));
+            color.set_if_neq(TextColor(with_opacity(outline, opacity)));
         }
     }
 }

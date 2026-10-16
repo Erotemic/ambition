@@ -187,6 +187,8 @@ pub struct FrameCensus {
     window_started_at: Instant,
     window_frames_ms: Vec<f64>,
     spikes_logged: usize,
+    /// Archetype count at the last summary, to print the growth per window.
+    last_archetypes: usize,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -199,6 +201,7 @@ impl Default for FrameCensus {
             window_started_at: now,
             window_frames_ms: Vec::new(),
             spikes_logged: 0,
+            last_archetypes: 0,
         }
     }
 }
@@ -231,8 +234,16 @@ impl FrameCensus {
 
 /// Per-frame tick for [`FrameCensus`]. Register in `Last` so it sees the whole
 /// frame, including render extract/queue work.
+///
+/// Each summary also gives the main world's archetype and entity counts. Each
+/// new archetype makes every query of every system match it once, so a count
+/// that grows during play is a cost that grows during play.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn report_frame_census(mut census: ResMut<FrameCensus>) {
+pub fn report_frame_census(
+    mut census: ResMut<FrameCensus>,
+    archetypes: &bevy::ecs::archetype::Archetypes,
+    entities: &bevy::ecs::entity::Entities,
+) {
     let now = Instant::now();
     // The first observation has no predecessor to subtract, and the interval
     // from app construction to frame one is startup, not a frame time —
@@ -267,13 +278,18 @@ pub fn report_frame_census(mut census: ResMut<FrameCensus>) {
     let mut sorted = core::mem::take(&mut census.window_frames_ms);
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
     let count = sorted.len();
+    let archetype_count = archetypes.len();
+    let new_archetypes = archetype_count.saturating_sub(census.last_archetypes);
+    census.last_archetypes = archetype_count;
     eprintln!(
         "[frame-census] {window_start:8.3}s-{at:.3}s frames={count} \
-         p50={:.1}ms p95={:.1}ms p99={:.1}ms max={:.1}ms",
+         p50={:.1}ms p95={:.1}ms p99={:.1}ms max={:.1}ms \
+         archetypes={archetype_count} (+{new_archetypes}) entities={}",
         FrameCensus::percentile(&sorted, 0.50),
         FrameCensus::percentile(&sorted, 0.95),
         FrameCensus::percentile(&sorted, 0.99),
         sorted.last().copied().unwrap_or(0.0),
+        entities.count_spawned(),
     );
     census.window_started_at = now;
 }

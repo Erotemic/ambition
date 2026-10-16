@@ -38,6 +38,11 @@ stack holds it, so a system's row includes the framework and allocator time
 under it. ``--under NAME`` (repeatable) prints the share of samples whose stack, inlined
 frames included, passes through a function whose name contains NAME: the
 inclusive cost of that function, framework and allocator time included.
+``--callers-of NAME`` (repeatable) answers "which of our lines lead into
+NAME": for each sample whose stack passes through a function containing NAME,
+it walks from that frame toward the root and gives the sample to the first
+line of ours; with no line of ours (work queued as commands, for example), to
+the first framework function above NAME, marked ``(not ours)``.
 A thread is named by its id too: a thread made with
 ``std::thread::spawn`` and no name has its parent's name (Bevy's render thread
 is a second ``android_main``).
@@ -293,6 +298,30 @@ def under_table(profile: Path, library: Path, patterns: List[str], thread: str |
     return {f"under {pattern}": share for pattern, share in hits.items()}
 
 
+def callers_table(profile: Path, library: Path, pattern: str, thread: str | None = None) -> Dict[str, float]:
+    """For the samples under a function containing PATTERN: the first line of
+    ours from that frame toward the root, or the first other function above it."""
+    paths = sample_paths(profile, thread)
+    if paths is None:
+        raise SystemExit(f"--callers-of needs {profile.name}/simpleperf-device-samples.txt")
+    offsets = sorted({m.group(1) for _s, frames in paths for f in frames if (m := APP.search(f))})
+    frames_at = inline_frames(library, offsets)
+    by_caller: Dict[str, float] = defaultdict(float)
+    for share, frames in paths:
+        # Inlined frames innermost first, then each caller: leaf to root.
+        chain = [frame for f in reversed(frames) if (m := APP.search(f)) for frame in frames_at.get(m.group(1), [])]
+        hit = next((i for i, (function, _place) in enumerate(chain) if pattern in function), None)
+        if hit is None:
+            continue
+        above = chain[hit + 1:]
+        caller = our_line(above)
+        if caller is None:
+            other = next((function for function, _place in above if pattern not in function), "(root)")
+            caller = f"(not ours) {other[:110]}"
+        by_caller[caller] += share
+    return by_caller
+
+
 def inclusive_table(profile: Path, library: Path, thread: str | None = None) -> Dict[str, float]:
     """Each function of ours: the share of samples with it anywhere on the stack."""
     paths = sample_paths(profile, thread)
@@ -387,6 +416,8 @@ def main() -> None:
                         help="add a table of our functions by inclusive share (framework time under them included)")
     parser.add_argument("--under", action="append", default=[],
                         help="share of samples whose stack passes through a function containing this name (repeatable)")
+    parser.add_argument("--callers-of", action="append", default=[],
+                        help="for samples under a function containing this name: the first line of ours above it (repeatable)")
     args = parser.parse_args()
     tables = []
     for profile in args.profiles:
@@ -410,6 +441,8 @@ def main() -> None:
             show("our functions by inclusive share", inclusive_table(profile, library, args.thread), args.top)
         if args.under:
             show("inclusive share under a function", under_table(profile, library, args.under, args.thread), len(args.under))
+        for pattern in args.callers_of:
+            show(f"lines of ours that lead into {pattern}", callers_table(profile, library, pattern, args.thread), args.top)
     if len(tables) > 1:
         base_name, base_fn, base_crate, _ = tables[0]
         for profile, by_function, by_crate, _ in tables[1:]:

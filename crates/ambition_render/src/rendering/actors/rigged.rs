@@ -1272,13 +1272,23 @@ pub fn drive_rigged_presentations(
         if root_sprite.image != atlas.image {
             root_sprite.image = atlas.image.clone();
         }
-        root_sprite.texture_atlas = atlas.layout.clone().map(|layout| TextureAtlas {
+        // Written only when it differs: an unchanged root is not extracted again.
+        let texture_atlas = atlas.layout.clone().map(|layout| TextureAtlas {
             layout,
             index: impostor.cell as usize,
         });
-        root_sprite.rect = None;
-        root_sprite.custom_size = Some(size);
-        root_anchor.0 = anchor;
+        if root_sprite.texture_atlas != texture_atlas {
+            root_sprite.texture_atlas = texture_atlas;
+        }
+        if root_sprite.rect.is_some() {
+            root_sprite.rect = None;
+        }
+        if root_sprite.custom_size != Some(size) {
+            root_sprite.custom_size = Some(size);
+        }
+        if root_anchor.0 != anchor {
+            root_anchor.0 = anchor;
+        }
         let frame = FrameInSprite {
             min: Vec2::splat(margin) / atlas.cell_size(),
             max: (Vec2::splat(margin) + flipbook.frame_size.as_vec2()) / atlas.cell_size(),
@@ -1417,23 +1427,35 @@ fn write_slots(presentation: &RiggedPresentation, draws: &[PartDraw], slots: &mu
         if sprite.image != *page {
             sprite.image = page.clone();
         }
-        sprite.rect = Some(Rect::new(
+        // Each field is written only when it differs. A slot that shows the
+        // same part at the same place as last frame stays unchanged, so its
+        // sprite is not extracted again and its transform is not propagated.
+        let rect = Some(Rect::new(
             part.rect.min.x as f32,
             part.rect.min.y as f32,
             part.rect.max.x as f32,
             part.rect.max.y as f32,
         ));
-        sprite.custom_size = Some(part.size);
+        if sprite.rect != rect {
+            sprite.rect = rect;
+        }
+        if sprite.custom_size != Some(part.size) {
+            sprite.custom_size = Some(part.size);
+        }
         let color = color_of(draw);
         if sprite.color != color {
             sprite.color = color;
         }
-        slot_anchor.0 = part.anchor();
+        if slot_anchor.0 != part.anchor() {
+            slot_anchor.0 = part.anchor();
+        }
         // The scale in the transform, not the quad: a mirrored draw
         // (`scale.x < 0`) mirrors about its pivot, then turns.
-        *transform = Transform::from_translation(local.extend(index as f32 * SLOT_DEPTH_STEP))
-            .with_rotation(Quat::from_rotation_z(-draw.rotation))
-            .with_scale(draw.scale.extend(1.0));
+        transform.set_if_neq(
+            Transform::from_translation(local.extend(index as f32 * SLOT_DEPTH_STEP))
+                .with_rotation(Quat::from_rotation_z(-draw.rotation))
+                .with_scale(draw.scale.extend(1.0)),
+        );
         visibility.set_if_neq(Visibility::Inherited);
     }
 }

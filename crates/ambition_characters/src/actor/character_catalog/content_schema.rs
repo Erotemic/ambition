@@ -139,8 +139,12 @@ fn declare(facet: &FacetSource<'_>, catalog: &CharacterCatalogData, out: &mut Fa
         // so a missing-asset check would pass on the one value that is
         // certainly wrong.
         let portrait = entry.portrait.as_ref();
+        let spritesheet = entry.spritesheet();
+        let spritesheet = Some(&spritesheet).filter(|_| !entry.manifest.trim().is_empty());
         for (field, path) in [
-            ("spritesheet", Some(&entry.spritesheet)),
+            // The image path comes from `manifest`, so a missing image names
+            // the field the author wrote.
+            ("manifest", spritesheet),
             ("manifest", Some(&entry.manifest)),
             ("portrait.image", portrait.map(|portrait| &portrait.image)),
             ("portrait.manifest", portrait.map(|portrait| &portrait.manifest)),
@@ -216,7 +220,7 @@ fn declare(facet: &FacetSource<'_>, catalog: &CharacterCatalogData, out: &mut Fa
                     format!("character `{character}` has an empty `{field}`"),
                 );
                 match field {
-                    "spritesheet" | "manifest" => {
+                    "manifest" => {
                         diagnostic.fix("point it at a sheet, or remove the character")
                     }
                     "display_name" => diagnostic,
@@ -301,7 +305,6 @@ mod tests {
         characters: {
             "mole": (
                 display_name: "Mole",
-                spritesheet: "mole.png",
                 manifest: "mole.ron",
                 tier: MainHall,
                 body_kind: Standard,
@@ -356,13 +359,13 @@ mod tests {
             action_set_presets: { "striker_swipe": (move_style: Walk) },
             characters: {
                 "mole": (
-                    display_name: "Mole", spritesheet: "mole.png", manifest: "mole.ron",
+                    display_name: "Mole", manifest: "mole.ron",
                     tier: MainHall, body_kind: Standard, composition: None,
                     default_brain: "peaceful", default_action_set: "striker_swipe", tags: [],
                     MORE
                 ),
                 "vole": (
-                    display_name: "Vole", spritesheet: "vole.png", manifest: "vole.ron",
+                    display_name: "Vole", manifest: "vole.ron",
                     tier: MainHall, body_kind: Standard, composition: None,
                     default_brain: "peaceful", default_action_set: "striker_swipe", tags: [],
                 ),
@@ -372,7 +375,7 @@ mod tests {
         let cases: &[(&str, &str, &str, &str)] = &[
             ("empty_name", r#""Mole""#, r#""""#, "display_name"),
             ("shared_name", r#""Mole""#, r#""Vole""#, "display_name"),
-            ("empty_sheet", r#""mole.png""#, r#""""#, "spritesheet"),
+            ("manifest_not_ron", r#""mole.ron""#, r#""mole.json""#, "manifest"),
             ("empty_manifest", r#""mole.ron""#, r#""""#, "manifest"),
             (
                 "partial_portrait",
@@ -578,11 +581,17 @@ mod tests {
         );
     }
 
+    /// The sheet image path comes from `manifest`, so a missing image is
+    /// refused at the field the author wrote, and names the image path.
     #[test]
     fn a_missing_sprite_sheet_is_refused_and_names_the_character() {
         let draft = draft("missing_sheet", SMALL_CATALOG);
+        // Control: the manifest and the image it gives are both present.
+        compile(&draft, &registry(), &FixedAssets::new(["mole.ron", "mole.png"]))
+            .expect("the image path is the manifest path with `.png`");
         let failure = compile(&draft, &registry(), &FixedAssets::new(["mole.ron"]))
             .expect_err("mole.png is absent");
+        assert!(failure.render().contains("mole.png"), "{}", failure.render());
         assert_eq!(failure.stage, CompileStage::ReferenceResolution);
         let diagnostic = failure
             .diagnostics
@@ -593,7 +602,24 @@ mod tests {
             diagnostic.subject.as_ref().map(ToString::to_string),
             Some("test:character/mole".to_string())
         );
-        assert_eq!(diagnostic.field.as_deref(), Some("spritesheet"));
+        assert_eq!(diagnostic.field.as_deref(), Some("manifest"));
+    }
+
+    /// A row states its sheet one time, as `manifest`. A row that also states
+    /// the image path is refused at that field, so a pack written for the
+    /// old schema hears about it at admission.
+    #[test]
+    fn a_row_that_states_its_sheet_image_too_is_refused() {
+        let draft = draft(
+            "stated_sheet",
+            &SMALL_CATALOG.replace(
+                r#"manifest: "mole.ron","#,
+                r#"spritesheet: "mole.png", manifest: "mole.ron","#,
+            ),
+        );
+        let failure = compile(&draft, &registry(), &AssetsUnchecked).expect_err("refused");
+        assert!(failure.has(DiagnosticCode::UnknownField), "{:?}", failure.codes());
+        assert!(failure.render().contains("spritesheet"), "{}", failure.render());
     }
 
     #[test]
@@ -602,7 +628,6 @@ mod tests {
             r#""mole": ("#,
             r#""vole": (
                 display_name: "Mole",
-                spritesheet: "mole.png",
                 manifest: "mole.ron",
                 tier: MainHall,
                 body_kind: Standard,

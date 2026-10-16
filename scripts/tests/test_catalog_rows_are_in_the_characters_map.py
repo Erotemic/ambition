@@ -1,6 +1,6 @@
 """Character-shaped catalog rows must live in the `characters` map exactly once.
 
-The test recognizes character rows by structure (`display_name`, `spritesheet`,
+The test recognizes character rows by structure (`display_name`, `manifest`,
 etc.) rather than by a hand-maintained id list, so newly added characters are
 covered automatically and cannot be misplaced into another keyed map."""
 
@@ -69,7 +69,7 @@ def _misplaced_rows(text: str) -> tuple[list[str], int]:
     for match in _ROW.finditer(text):
         body = _row_body(text, match.end() - 1)
         # The two fields that make a row a CHARACTER rather than a preset.
-        if "display_name:" not in body or "spritesheet:" not in body:
+        if "display_name:" not in body or "manifest:" not in body:
             continue
         home = next(
             (name for name, start, end in spans if start <= match.start() < end),
@@ -113,7 +113,7 @@ def test_the_scan_would_notice_a_row_in_the_wrong_map():
     planted = (
         '        "npc_probe": (\n'
         '            display_name: "Probe",\n'
-        '            spritesheet: "sprites/probe_spritesheet.png",\n'
+        '            manifest: "sprites/probe_spritesheet.ron",\n'
         "        ),\n"
     )
     misplaced, _ = _misplaced_rows(text[:cursor] + planted + text[cursor:])

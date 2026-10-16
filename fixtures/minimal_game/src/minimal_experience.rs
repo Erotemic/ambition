@@ -27,7 +27,6 @@ pub const MINIMAL_ROSTER_RON: &str = r#"(
     characters: {
         "minimal_walker": (
             display_name: "Walker",
-            spritesheet: "minimal_walker.png",
             manifest: "minimal_walker_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,

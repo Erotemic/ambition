@@ -1481,6 +1481,23 @@ stand-in may keep an incomplete kit.)
 stand-in's hand-written verb list, is content in the form every fighter
 authors (owner document, closed slices).
 
+✅ 2026-10-15, the sheet image path. Each catalog row stated
+`spritesheet: "sprites/<stem>_spritesheet.png"` beside
+`manifest: "sprites/<stem>_spritesheet.ron"`: 187 rows in 8 authored RONs,
+and every one agreed. The renderer writes the two files as one product, so
+the image path is now `CharacterCatalogEntry::spritesheet()`, the manifest
+path with `.png`. The field is deleted. Admission refuses a row that still
+states it (`UnknownField`, `a_row_that_states_its_sheet_image_too_is_refused`)
+and a manifest path that does not end in `.ron`. A missing image is refused
+at `manifest`, the field the author wrote. The pairing guard
+`test_sheet_and_manifest_are_the_same_character.py` is deleted: two stems in
+one row cannot be written now. The Python readers (Hall inspectors, catalog
+publish, renderer actor sidecar) and the two row writers
+(`codegen_character_catalog.py`, `character_notes.py`) were moved too. The
+SDK consumer fixture was the one row whose two paths did not agree
+(`outlander.png` beside `outlander_spritesheet.ron`); its image is now
+`outlander_spritesheet.png`.
+
 **Next implementation:** search for a new duplicated authored/runtime value
 with the owner document's two questions (A1). For each one found, choose one
 authoring owner and make every runtime representation a projection or admitted

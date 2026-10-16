@@ -17,7 +17,6 @@
     characters: {
         "pocket_runner": (
             display_name: "Pocket Runner",
-            spritesheet: "sprites/mary_o_v2_spritesheet.png",
             manifest: "sprites/mary_o_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,

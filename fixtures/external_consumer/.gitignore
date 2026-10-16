@@ -5,7 +5,7 @@ Cargo.lock
 # rather than committed because this repo does not commit binary or generated
 # assets — and generating it is what makes "a consumer owns its art" a fact the
 # fixture can exercise instead of a claim about plumbing.
-/assets/sprites/outlander.png
+/assets/sprites/outlander_spritesheet.png
 
 # The release artifact, built by scripts/package_outlander.py.
 /dist

@@ -15,7 +15,6 @@ const SANIC_MOMENTUM_FIXTURE: &str = r#"(
     characters: {
         "sanic": (
             display_name: "Sanic",
-            spritesheet: "sprites/sanic_spritesheet.png",
             manifest: "sprites/sanic_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1373,7 +1372,6 @@ fn catalog_granting_melee(id: &str) -> CharacterCatalog {
             characters: {{
                 "{id}": (
                     display_name: "Catalog Says Brawler",
-                    spritesheet: "sprites/robot_spritesheet.png",
                     manifest: "sprites/robot_spritesheet.ron",
                     tier: Basement,
                     body_kind: Standard,
@@ -1727,7 +1725,6 @@ fn catalog_granting_melee_and_ranged(id: &str) -> CharacterCatalog {
             characters: {{
                 "{id}": (
                     display_name: "Catalog Says Gunbrawler",
-                    spritesheet: "sprites/robot_spritesheet.png",
                     manifest: "sprites/robot_spritesheet.ron",
                     tier: Basement,
                     body_kind: Standard,

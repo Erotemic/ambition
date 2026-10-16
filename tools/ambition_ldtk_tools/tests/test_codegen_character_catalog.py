@@ -81,7 +81,8 @@ def test_render_entry_produces_well_formed_ron():
     # Should contain canonical fields.
     assert '"npc_agent_swarm":' in out
     assert 'display_name: "Agent Swarm"' in out
-    assert 'spritesheet: "sprites/agent_swarm_spritesheet.png"' in out
+    # The sheet image path comes from `manifest`; a row does not state it.
+    assert "spritesheet:" not in out
     assert 'manifest: "sprites/agent_swarm_spritesheet.ron"' in out
     assert "tier: MainHall" in out
     assert "body_kind: Standard" in out

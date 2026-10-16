@@ -159,7 +159,7 @@ mod tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "alpha": (
-                display_name: "Alpha", spritesheet: "alpha.png", manifest: "alpha.ron",
+                display_name: "Alpha", manifest: "alpha.ron",
                 tier: MainHall, body_kind: Standard, composition: None,
                 default_brain: "idle", default_action_set: "peaceful", tags: [],
             ),
@@ -170,7 +170,7 @@ mod tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "beta": (
-                display_name: "Beta", spritesheet: "beta.png", manifest: "beta.ron",
+                display_name: "Beta", manifest: "beta.ron",
                 tier: MainHall, body_kind: Standard, composition: None,
                 default_brain: "idle", default_action_set: "peaceful", tags: [],
             ),

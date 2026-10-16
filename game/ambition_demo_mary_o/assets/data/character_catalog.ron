@@ -138,7 +138,6 @@
     characters: {
         "mary_o": (
             display_name: "Mary-O",
-            spritesheet: "sprites/mary_o_v2_spritesheet.png",
             manifest: "sprites/mary_o_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -181,7 +180,6 @@
         // her look and size, never her moveset.
         "mary_o_tall": (
             display_name: "Mary-O (Tall)",
-            spritesheet: "sprites/mary_o_v2_tall_spritesheet.png",
             manifest: "sprites/mary_o_v2_tall_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -211,7 +209,6 @@
         // form's kit.
         "mary_o_fire": (
             display_name: "Mary-O (Fire)",
-            spritesheet: "sprites/mary_o_v2_fire_spritesheet.png",
             manifest: "sprites/mary_o_v2_fire_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -241,7 +238,6 @@
         // grown forms.
         "mary_o_cosmic": (
             display_name: "Eternal Cosmic Mary-O",
-            spritesheet: "sprites/mary_o_v2_cosmic_spritesheet.png",
             manifest: "sprites/mary_o_v2_cosmic_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -274,7 +270,6 @@
         // shell drives.
         "solid_snake": (
             display_name: "Solid Snake",
-            spritesheet: "sprites/solid_snake_spritesheet.png",
             manifest: "sprites/solid_snake_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -307,7 +302,6 @@
         // display-name uniqueness holds when the demo is hosted.
         "ai_slop": (
             display_name: "AI Slop",
-            spritesheet: "sprites/ai_slop_spritesheet.png",
             manifest: "sprites/ai_slop_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -339,7 +333,6 @@
         // rule makes its head safe, so a stomp on it is a hit.
         "snake_plant": (
             display_name: "Snake Plant",
-            spritesheet: "sprites/snake_plant_spritesheet.png",
             manifest: "sprites/snake_plant_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -365,7 +358,6 @@
         // dives); `swallow.rs` asks for the drop.
         "laden_swallow": (
             display_name: "Laden Swallow",
-            spritesheet: "sprites/african_swallow_spritesheet.png",
             manifest: "sprites/african_swallow_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -388,7 +380,6 @@
         // no rule makes its top safe (`void_star.rs`).
         "void_star": (
             display_name: "Void Star",
-            spritesheet: "sprites/void_star_spritesheet.png",
             manifest: "sprites/void_star_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -412,7 +403,6 @@
         // bridge because the level puts a post at each end.
         "void_lizard": (
             display_name: "Void Lizard",
-            spritesheet: "sprites/void_lizard_spritesheet.png",
             manifest: "sprites/void_lizard_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
@@ -442,7 +432,6 @@
         // the cutscene at the end of the castle.
         "mary_o_robot": (
             display_name: "Rescued Robot",
-            spritesheet: "sprites/player_robot_v3_spritesheet.png",
             manifest: "sprites/player_robot_v3_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -468,7 +457,6 @@
         // diving, at full effort.
         "npc_snakes_on_a_cartesian_plane": (
             display_name: "Snakes on a Cartesian Plane",
-            spritesheet: "sprites/snakes_on_a_cartesian_plane_spritesheet.png",
             manifest: "sprites/snakes_on_a_cartesian_plane_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -491,7 +479,6 @@
         ),
         "npc_snakes_on_a_paper_plane": (
             display_name: "Snakes on a Paper Plane",
-            spritesheet: "sprites/snakes_on_a_paper_plane_spritesheet.png",
             manifest: "sprites/snakes_on_a_paper_plane_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,

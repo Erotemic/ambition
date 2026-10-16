@@ -564,7 +564,6 @@
         // and catalog symmetrical so Phase 6 can delete the registry.
         "npc_companion_dog": (
             display_name: "Companion Dog",
-            spritesheet: "sprites/companion_dog_spritesheet.png",
             manifest: "sprites/companion_dog_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -597,7 +596,6 @@
         // tall the dog is at the shoulder: Honey is the smallest (35 lb): short legs and a stout body.
         "npc_dog_honey": (
             display_name: "Honey",
-            spritesheet: "sprites/dog_honey_spritesheet.png",
             manifest: "sprites/dog_honey_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -624,7 +622,6 @@
         // tall the dog is at the shoulder: Roadie is the biggest (50 lb).
         "npc_dog_roadie": (
             display_name: "Roadie",
-            spritesheet: "sprites/dog_roadie_spritesheet.png",
             manifest: "sprites/dog_roadie_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -651,7 +648,6 @@
         // tall the dog is at the shoulder: Bezoar is taller than Honey and shorter than Roadie (40 lb): lanky, with a slim body.
         "npc_dog_bezoar": (
             display_name: "Bezoar",
-            spritesheet: "sprites/dog_bezoar_spritesheet.png",
             manifest: "sprites/dog_bezoar_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -673,7 +669,6 @@
         ),
         "npc_busy_beaver": (
             display_name: "Busy Beaver",
-            spritesheet: "sprites/busy_beaver_spritesheet.png",
             manifest: "sprites/busy_beaver_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -696,7 +691,6 @@
         ),
         "npc_charley_beagle_svg": (
             display_name: "Charley Beagle",
-            spritesheet: "sprites/charley_beagle_svg_spritesheet.png",
             manifest: "sprites/charley_beagle_svg_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -719,7 +713,6 @@
         ),
         "npc_niels_boar": (
             display_name: "Niels Boar",
-            spritesheet: "sprites/niels_boar_spritesheet.png",
             manifest: "sprites/niels_boar_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -747,7 +740,6 @@
         // merged catalog; characters are shared by ID, not owned per provider.
         "npc_vera_ruin": (
             display_name: "Vera Ruin",
-            spritesheet: "sprites/vera_ruin_spritesheet.png",
             manifest: "sprites/vera_ruin_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -771,7 +763,6 @@
         "player_robot_v3": (
             sprite_tuning: Some((collision_scale: 1.35, frame_sample_inset: 1)),
             display_name: "Player Robot v3",
-            spritesheet: "sprites/player_robot_v3_spritesheet.png",
             manifest: "sprites/player_robot_v3_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -835,7 +826,6 @@
             // This art is drawn three-quarter on: the hand nearer the viewer
             // trails the body, and the far hand is on the side it faces.
             gesture_hand: Far,
-            spritesheet: "sprites/robot_spritesheet.png",
             manifest: "sprites/robot_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -882,7 +872,6 @@
         "goblin": (
             sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
             display_name: "Goblin",
-            spritesheet: "sprites/goblin_spritesheet.png",
             manifest: "sprites/goblin_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -905,7 +894,6 @@
         "sandbag": (
             sprite_tuning: Some((collision_scale: 1.38, frame_sample_inset: 1)),
             display_name: "Sandbag",
-            spritesheet: "sprites/sandbag_spritesheet.png",
             manifest: "sprites/sandbag_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -951,7 +939,6 @@
         "sandbag_infinite": (
             sprite_tuning: Some((collision_scale: 1.38, frame_sample_inset: 1)),
             display_name: "Infinite Sandbag",
-            spritesheet: "sprites/sandbag_spritesheet.png",
             manifest: "sprites/sandbag_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -991,7 +978,6 @@
         "npc_general": (
             sprite_tuning: Some((collision_scale: 1.15, frame_sample_inset: 2)),
             display_name: "General",
-            spritesheet: "sprites/absurd_general_spritesheet.png",
             manifest: "sprites/absurd_general_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1030,7 +1016,6 @@
         "npc_goblin_brute": (
             sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
             display_name: "Goblin Brute",
-            spritesheet: "sprites/goblin_brute_hammer_spritesheet.png",
             manifest: "sprites/goblin_brute_hammer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1065,7 +1050,6 @@
         "npc_goblin_cantina_chieftain": (
             sprite_tuning: Some((collision_scale: 1.16, frame_sample_inset: 1)),
             display_name: "Fretjaw, Cantina Chieftain",
-            spritesheet: "sprites/goblin_cantina_chieftain_spritesheet.png",
             manifest: "sprites/goblin_cantina_chieftain_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1083,7 +1067,6 @@
         "npc_pulse_voyager_captain": (
             sprite_tuning: Some((collision_scale: 1.2, frame_sample_inset: 1)),
             display_name: "Captain Pulse",
-            spritesheet: "sprites/pulse_voyager_captain_spritesheet.png",
             manifest: "sprites/pulse_voyager_captain_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1103,7 +1086,6 @@
         "npc_tech_bro_disruptor": (
             sprite_tuning: Some((collision_scale: 1.2, frame_sample_inset: 1)),
             display_name: "Chadwick Disruptor III",
-            spritesheet: "sprites/tech_bro_disruptor_spritesheet.png",
             manifest: "sprites/tech_bro_disruptor_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1125,7 +1107,6 @@
         "npc_emmy_noether": (
             sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
             display_name: "Emmy Ethereal",
-            spritesheet: "sprites/noether_spritesheet.png",
             manifest: "sprites/noether_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1172,7 +1153,6 @@
         "npc_pirate_admiral": (
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Pirate Admiral",
-            spritesheet: "sprites/pirate_admiral_spritesheet.png",
             manifest: "sprites/pirate_admiral_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1211,7 +1191,6 @@
         "npc_pirate_raider": (
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Pirate Raider",
-            spritesheet: "sprites/pirate_raider_spritesheet.png",
             manifest: "sprites/pirate_raider_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1250,7 +1229,6 @@
         "npc_pirate_quartermaster": (
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Pirate Quartermaster",
-            spritesheet: "sprites/pirate_quartermaster_spritesheet.png",
             manifest: "sprites/pirate_quartermaster_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1278,7 +1256,6 @@
         "npc_pirate_lookout": (
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Pirate Lookout",
-            spritesheet: "sprites/pirate_lookout_spritesheet.png",
             manifest: "sprites/pirate_lookout_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1306,7 +1283,6 @@
         "npc_pirate_navigator": (
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Pirate Navigator",
-            spritesheet: "sprites/pirate_navigator_spritesheet.png",
             manifest: "sprites/pirate_navigator_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1342,7 +1318,6 @@
             display_name: "Stochastic Parrot",
             // v2, the SVG-rigged scarlet macaw (renderer f0ada62), with the same
             // twelve rows as the v1 sheet it replaces.
-            spritesheet: "sprites/stochastic_parrot_v2_spritesheet.png",
             manifest: "sprites/stochastic_parrot_v2_spritesheet.ron",
             tier: MainHall,
             // Floating = gravity-free, so the lively Aerial brain flies it.
@@ -1408,7 +1383,6 @@
         "perfect_cellular_automaton": (
             sprite_tuning: Some((collision_scale: 1.12, frame_sample_inset: 1)),
             display_name: "Perfect Cellular Automaton",
-            spritesheet: "sprites/perfect_cellular_automaton_spritesheet.png",
             manifest: "sprites/perfect_cellular_automaton_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -1459,7 +1433,6 @@
         "imperfect_cellular_automaton": (
             sprite_tuning: Some((collision_scale: 1.12, frame_sample_inset: 1)),
             display_name: "Imperfect Cellular Automaton",
-            spritesheet: "sprites/imperfect_cellular_automaton_spritesheet.png",
             manifest: "sprites/imperfect_cellular_automaton_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -1502,7 +1475,6 @@
         "npc_pirate_heavy_broadside_bess": (
             sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),
             display_name: "Broadside Bess",
-            spritesheet: "sprites/pirate_heavy_broadside_bess_spritesheet.png",
             manifest: "sprites/pirate_heavy_broadside_bess_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
@@ -1535,7 +1507,6 @@
         "npc_pirate_heavy_iron_mary": (
             sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),
             display_name: "Iron Mary",
-            spritesheet: "sprites/pirate_heavy_iron_mary_spritesheet.png",
             manifest: "sprites/pirate_heavy_iron_mary_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
@@ -1579,7 +1550,6 @@
         "npc_pirate_heavy_salt_annet": (
             sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),
             display_name: "Salt Annet",
-            spritesheet: "sprites/pirate_heavy_salt_annet_spritesheet.png",
             manifest: "sprites/pirate_heavy_salt_annet_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
@@ -1614,7 +1584,6 @@
         "npc_burning_flying_shark": (
             sprite_tuning: Some((collision_scale: 0.8, frame_sample_inset: 1)),
             display_name: "Burning Flying Shark",
-            spritesheet: "sprites/burning_flying_shark_spritesheet.png",
             manifest: "sprites/burning_flying_shark_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -1669,7 +1638,6 @@
             // The name of the giant is the whole giant's (`npc_giant_gnu_whole`):
             // two rows do not share one.
             display_name: "Giant GNU (body)",
-            spritesheet: "sprites/gnu_ton_boss/giant_gnu_spritesheet.png",
             manifest: "sprites/gnu_ton_boss/giant_gnu_spritesheet.ron",
             tier: Giant,
             body_kind: Wide,
@@ -1755,7 +1723,6 @@
         "npc_giant_gnu_hands": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Giant GNU Hand",
-            spritesheet: "sprites/gnu_ton_boss/giant_gnu_fist_spritesheet.png",
             manifest: "sprites/gnu_ton_boss/giant_gnu_fist_spritesheet.ron",
             // Its face is the pair of hands the generator still draws for it.
             portrait: Some((
@@ -1795,7 +1762,6 @@
         "npc_giant_gnu_whole": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Giant GNU",
-            spritesheet: "sprites/gnu_ton_boss/giant_gnu_spritesheet.png",
             manifest: "sprites/gnu_ton_boss/giant_gnu_spritesheet.ron",
             tier: Giant,
             body_kind: Wide,
@@ -1819,7 +1785,6 @@
         "npc_puppy_slug": (
             sprite_tuning: Some((collision_scale: 1.4, frame_sample_inset: 1)),
             display_name: "Puppy Slug",
-            spritesheet: "sprites/puppy_slug_spritesheet.png",
             manifest: "sprites/puppy_slug_spritesheet.ron",
             tier: MainHall,
             body_kind: Crawler,
@@ -1858,7 +1823,6 @@
         // ===== Ninja dojo.
         "npc_ninja_shadow_oni_leader": (
             display_name: "Shadow Oni Leader",
-            spritesheet: "sprites/ninja_shadow_oni_leader_spritesheet.png",
             manifest: "sprites/ninja_shadow_oni_leader_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1882,7 +1846,6 @@
         ),
         "npc_ninja_shadow_duelist": (
             display_name: "Shadow Duelist",
-            spritesheet: "sprites/ninja_shadow_duelist_spritesheet.png",
             manifest: "sprites/ninja_shadow_duelist_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1904,7 +1867,6 @@
         "npc_architect": (
             sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
             display_name: "Architect NPC",
-            spritesheet: "sprites/architect_spritesheet.png",
             manifest: "sprites/architect_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1931,7 +1893,6 @@
             // than they are: taller than the player (Jon, 2026-10-10).
             sprite_tuning: Some((collision_scale: 1.9, frame_sample_inset: 1)),
             display_name: "Kernel Guide NPC",
-            spritesheet: "sprites/kernel_guide_spritesheet.png",
             manifest: "sprites/kernel_guide_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1965,7 +1926,6 @@
         "npc_vault_keeper": (
             sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
             display_name: "Vault Keeper NPC",
-            spritesheet: "sprites/vault_keeper_spritesheet.png",
             manifest: "sprites/vault_keeper_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -1985,7 +1945,6 @@
         "npc_merchant_prototype": (
             sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
             display_name: "Merchant Prototype NPC",
-            spritesheet: "sprites/merchant_prototype_spritesheet.png",
             manifest: "sprites/merchant_prototype_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2009,7 +1968,6 @@
         // dedicated sheets ship.
         "npc_alice": (
             display_name: "Alice",
-            spritesheet: "sprites/alice_spritesheet.png",
             manifest: "sprites/alice_spritesheet.ron",
             portrait: None,
             tier: MainHall,
@@ -2034,7 +1992,6 @@
         ),
         "npc_bob": (
             display_name: "Bob",
-            spritesheet: "sprites/bob_spritesheet.png",
             manifest: "sprites/bob_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2058,7 +2015,6 @@
         ),
         "npc_creator": (
             display_name: "Creator",
-            spritesheet: "sprites/creator_spritesheet.png",
             manifest: "sprites/creator_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2078,7 +2034,6 @@
         ),
         "npc_oiler": (
             display_name: "Oiler",
-            spritesheet: "sprites/oiler_spritesheet.png",
             manifest: "sprites/oiler_spritesheet.ron",
             portrait: None,
             tier: MainHall,
@@ -2110,7 +2065,6 @@
         ),
         "npc_gate_janitor": (
             display_name: "Gate Janitor",
-            spritesheet: "sprites/kernel_guide_spritesheet.png",
             manifest: "sprites/kernel_guide_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2130,7 +2084,6 @@
         ),
         "npc_manifest_clerk": (
             display_name: "Manifest Clerk",
-            spritesheet: "sprites/architect_spritesheet.png",
             manifest: "sprites/architect_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2150,7 +2103,6 @@
         ),
         "npc_news_board": (
             display_name: "News Board",
-            spritesheet: "sprites/news_board_spritesheet.png",
             manifest: "sprites/news_board_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2165,7 +2117,6 @@
         ),
         "npc_erdish": (
             display_name: "Erdish",
-            spritesheet: "sprites/erdish_spritesheet.png",
             manifest: "sprites/erdish_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2185,7 +2136,6 @@
         ),
         "npc_lab_raider": (
             display_name: "Lab Raider",
-            spritesheet: "sprites/goblin_spritesheet.png",
             manifest: "sprites/goblin_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2213,7 +2163,6 @@
         ),
         "npc_salvage_guard": (
             display_name: "Salvage Guard",
-            spritesheet: "sprites/goblin_spritesheet.png",
             manifest: "sprites/goblin_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2252,7 +2201,6 @@
         // === auto-generated entries (Phase 3 codegen) ===
         "npc_agent_swarm": (
             display_name: "Agent Swarm",
-            spritesheet: "sprites/agent_swarm_spritesheet.png",
             manifest: "sprites/agent_swarm_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2269,7 +2217,6 @@
         ),
         "npc_ai_slop": (
             display_name: "Ai Slop",
-            spritesheet: "sprites/ai_slop_spritesheet.png",
             manifest: "sprites/ai_slop_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2300,7 +2247,6 @@
         ),
         "npc_bear_mauler": (
             display_name: "Bear Mauler",
-            spritesheet: "sprites/bear_mauler_spritesheet.png",
             manifest: "sprites/bear_mauler_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -2324,7 +2270,6 @@
         ),
         "npc_boss": (
             display_name: "Boss",
-            spritesheet: "sprites/boss_spritesheet.png",
             manifest: "sprites/boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -2348,7 +2293,6 @@
         ),
         "npc_colonial_statesman": (
             display_name: "Colonial Statesman",
-            spritesheet: "sprites/colonial_statesman_spritesheet.png",
             manifest: "sprites/colonial_statesman_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2368,7 +2312,6 @@
         ),
         "npc_craig": (
             display_name: "Craig",
-            spritesheet: "sprites/craig_spritesheet.png",
             manifest: "sprites/craig_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2388,7 +2331,6 @@
         ),
         "npc_dark_lord": (
             display_name: "Dark Lord",
-            spritesheet: "sprites/dark_lord_spritesheet.png",
             manifest: "sprites/dark_lord_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -2413,7 +2355,6 @@
         ),
         "npc_eve": (
             display_name: "Eve",
-            spritesheet: "sprites/eve_spritesheet.png",
             manifest: "sprites/eve_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2433,7 +2374,6 @@
         ),
         "npc_raid_enforcer": (
             display_name: "Raid Enforcer",
-            spritesheet: "sprites/raid_enforcer_spritesheet.png",
             manifest: "sprites/raid_enforcer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2452,7 +2392,6 @@
         ),
         "npc_flying_spaghetti_monster_boss": (
             display_name: "Flying Spaghetti Monster Boss",
-            spritesheet: "sprites/flying_spaghetti_monster_boss_spritesheet.png",
             manifest: "sprites/flying_spaghetti_monster_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -2479,7 +2418,6 @@
         // Aerial policy flies it; two blows end it.
         "npc_fsm_noodling": (
             display_name: "Noodling",
-            spritesheet: "sprites/fsm_noodling_spritesheet.png",
             manifest: "sprites/fsm_noodling_spritesheet.ron",
             tier: Basement,
             body_kind: Floating,
@@ -2505,7 +2443,6 @@
         ),
         "npc_galwah": (
             display_name: "Galwah",
-            spritesheet: "sprites/galwah_spritesheet.png",
             manifest: "sprites/galwah_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2525,7 +2462,6 @@
         ),
         "npc_general_hero": (
             display_name: "General Hero",
-            spritesheet: "sprites/general_hero_spritesheet.png",
             manifest: "sprites/general_hero_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2545,7 +2481,6 @@
         ),
         "npc_ghoul_skulker": (
             display_name: "Ghoul Skulker",
-            spritesheet: "sprites/ghoul_skulker_spritesheet.png",
             manifest: "sprites/ghoul_skulker_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2564,7 +2499,6 @@
         ),
         "npc_girdle": (
             display_name: "Girdle",
-            spritesheet: "sprites/girdle_spritesheet.png",
             manifest: "sprites/girdle_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2584,7 +2518,6 @@
         ),
         "npc_gnu_ton_boss": (
             display_name: "Gnu Ton Boss",
-            spritesheet: "sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.png",
             manifest: "sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -2605,7 +2538,6 @@
         // Sandbox kamikaze mite (the exploding-mite archetype); spawn name "Exploding Mite".
         "npc_exploding_mite": (
             display_name: "Exploding Mite",
-            spritesheet: "sprites/exploding_mite_spritesheet.png",
             manifest: "sprites/exploding_mite_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2640,7 +2572,6 @@
         // Sandbox splitter mite (the dividing-mite archetype); spawn name "Dividing Mite".
         "npc_dividing_mite": (
             display_name: "Dividing Mite",
-            spritesheet: "sprites/dividing_mite_spritesheet.png",
             manifest: "sprites/dividing_mite_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2675,7 +2606,6 @@
         ),
         "npc_hand_saint": (
             display_name: "Hand Saint",
-            spritesheet: "sprites/hand_saint_spritesheet.png",
             manifest: "sprites/hand_saint_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
@@ -2699,7 +2629,6 @@
         ),
         "npc_helpful_liar": (
             display_name: "Helpful Liar",
-            spritesheet: "sprites/helpful_liar_spritesheet.png",
             manifest: "sprites/helpful_liar_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2716,7 +2645,6 @@
         ),
         "npc_judy": (
             display_name: "Judy",
-            spritesheet: "sprites/judy_spritesheet.png",
             manifest: "sprites/judy_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2736,7 +2664,6 @@
         ),
         "npc_mallory": (
             display_name: "Mallory",
-            spritesheet: "sprites/mallory_spritesheet.png",
             manifest: "sprites/mallory_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2756,7 +2683,6 @@
         ),
         "npc_mantis_lancer": (
             display_name: "Mantis Lancer",
-            spritesheet: "sprites/mantis_lancer_spritesheet.png",
             manifest: "sprites/mantis_lancer_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -2780,7 +2706,6 @@
         ),
         "npc_mockingbird_boss": (
             display_name: "Mockingbird Boss",
-            spritesheet: "sprites/mockingbird_boss_v2_spritesheet.png",
             manifest: "sprites/mockingbird_boss_v2_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -2805,7 +2730,6 @@
         ),
         "npc_ninja_heavy": (
             display_name: "Ninja Heavy",
-            spritesheet: "sprites/ninja_heavy_spritesheet.png",
             manifest: "sprites/ninja_heavy_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
@@ -2831,7 +2755,6 @@
         ),
         "npc_olivia": (
             display_name: "Olivia",
-            spritesheet: "sprites/olivia_spritesheet.png",
             manifest: "sprites/olivia_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2851,7 +2774,6 @@
         ),
         "npc_peggy": (
             display_name: "Peggy",
-            spritesheet: "sprites/peggy_spritesheet.png",
             manifest: "sprites/peggy_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2871,7 +2793,6 @@
         ),
         "npc_pirate_cutlass_viper": (
             display_name: "Pirate Cutlass Viper",
-            spritesheet: "sprites/pirate_cutlass_viper_spritesheet.png",
             manifest: "sprites/pirate_cutlass_viper_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2903,7 +2824,6 @@
         // name is not a character; it's an authoring shorthand.
         "npc_president_portrait": (
             display_name: "President Portrait",
-            spritesheet: "sprites/president_portrait_spritesheet.png",
             manifest: "sprites/president_portrait_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2918,7 +2838,6 @@
         ),
         "npc_puppy_slug_variant2": (
             display_name: "Puppy Slug Variant2",
-            spritesheet: "sprites/puppy_slug_variant2_spritesheet.png",
             manifest: "sprites/puppy_slug_variant2_spritesheet.ron",
             tier: MainHall,
             body_kind: Crawler,
@@ -2941,7 +2860,6 @@
         ),
         "npc_raptor_stalker": (
             display_name: "Raptor Stalker",
-            spritesheet: "sprites/raptor_stalker_spritesheet.png",
             manifest: "sprites/raptor_stalker_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -2986,7 +2904,6 @@
         // entries when the publisher is fixed to install them.
         "npc_smart_house": (
             display_name: "Smart House",
-            spritesheet: "sprites/smart_house_spritesheet.png",
             manifest: "sprites/smart_house_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -3011,7 +2928,6 @@
         ),
         "npc_spaghetti_event": (
             display_name: "Spaghetti Event",
-            spritesheet: "sprites/spaghetti_event_spritesheet.png",
             manifest: "sprites/spaghetti_event_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3035,7 +2951,6 @@
         ),
         "npc_sybil": (
             display_name: "Sybil",
-            spritesheet: "sprites/sybil_spritesheet.png",
             manifest: "sprites/sybil_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3055,7 +2970,6 @@
         ),
         "npc_synthetic_friend": (
             display_name: "Synthetic Friend",
-            spritesheet: "sprites/synthetic_friend_spritesheet.png",
             manifest: "sprites/synthetic_friend_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3072,7 +2986,6 @@
         ),
         "npc_trent": (
             display_name: "Trent",
-            spritesheet: "sprites/trent_spritesheet.png",
             manifest: "sprites/trent_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3092,7 +3005,6 @@
         ),
         "npc_trex_enemy": (
             display_name: "Trex Enemy",
-            spritesheet: "sprites/trex_enemy_spritesheet.png",
             manifest: "sprites/trex_enemy_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -3116,7 +3028,6 @@
         ),
         "npc_trudy": (
             display_name: "Trudy",
-            spritesheet: "sprites/trudy_spritesheet.png",
             manifest: "sprites/trudy_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3136,7 +3047,6 @@
         ),
         "npc_victor": (
             display_name: "Victor",
-            spritesheet: "sprites/victor_spritesheet.png",
             manifest: "sprites/victor_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3156,7 +3066,6 @@
         ),
         "npc_viking_heavy_shieldmaiden": (
             display_name: "Viking Heavy Shieldmaiden",
-            spritesheet: "sprites/viking_heavy_shieldmaiden_spritesheet.png",
             manifest: "sprites/viking_heavy_shieldmaiden_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
@@ -3182,7 +3091,6 @@
         ),
         "npc_viking_heavy_warrior": (
             display_name: "Viking Heavy Warrior",
-            spritesheet: "sprites/viking_heavy_warrior_spritesheet.png",
             manifest: "sprites/viking_heavy_warrior_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
@@ -3208,7 +3116,6 @@
         ),
         "npc_viking_shieldmaiden": (
             display_name: "Viking Shieldmaiden",
-            spritesheet: "sprites/viking_shieldmaiden_spritesheet.png",
             manifest: "sprites/viking_shieldmaiden_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3227,7 +3134,6 @@
         ),
         "npc_viking_warrior": (
             display_name: "Viking Warrior",
-            spritesheet: "sprites/viking_warrior_spritesheet.png",
             manifest: "sprites/viking_warrior_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3246,7 +3152,6 @@
         ),
         "npc_walter": (
             display_name: "Walter",
-            spritesheet: "sprites/walter_spritesheet.png",
             manifest: "sprites/walter_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3266,7 +3171,6 @@
         ),
         "npc_weird_hermit": (
             display_name: "Weird Hermit",
-            spritesheet: "sprites/weird_hermit_spritesheet.png",
             manifest: "sprites/weird_hermit_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3295,7 +3199,6 @@
         "willson": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Willson",
-            spritesheet: "sprites/willson_spritesheet.png",
             manifest: "sprites/willson_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3320,7 +3223,6 @@
         ),
         "npc_ramen_nujan": (
             display_name: "Ramen-nujan",
-            spritesheet: "sprites/ramen_nujan_spritesheet.png",
             manifest: "sprites/ramen_nujan_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3346,7 +3248,6 @@
         ),
         "npc_pipi_tau": (
             display_name: "Pipi Tau",
-            spritesheet: "sprites/pipi_tau_spritesheet.png",
             manifest: "sprites/pipi_tau_spritesheet.ron",
             portrait: None,
             tier: MainHall,
@@ -3365,7 +3266,6 @@
         ),
         "npc_jeff_hinter": (
             display_name: "Jeff Hinter",
-            spritesheet: "sprites/jeff_hinter_spritesheet.png",
             manifest: "sprites/jeff_hinter_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3383,7 +3283,6 @@
         ),
         "npc_jeff_hinter_armored": (
             display_name: "Jeff Hinter (Armored)",
-            spritesheet: "sprites/jeff_hinter_armored_spritesheet.png",
             manifest: "sprites/jeff_hinter_armored_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3403,7 +3302,6 @@
         ),
         "npc_davy_hylbert": (
             display_name: "Davy Hylbert",
-            spritesheet: "sprites/davy_hylbert_spritesheet.png",
             manifest: "sprites/davy_hylbert_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3421,7 +3319,6 @@
         ),
         "npc_leblanc": (
             display_name: "Madam LeBlanc",
-            spritesheet: "sprites/m_leblanc_spritesheet.png",
             manifest: "sprites/m_leblanc_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3439,7 +3336,6 @@
         ),
         "npc_fascist_enforcer": (
             display_name: "Fascist Enforcer",
-            spritesheet: "sprites/fascist_enforcer_spritesheet.png",
             manifest: "sprites/fascist_enforcer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3468,7 +3364,6 @@
         ),
         "npc_puppy_slug_velvet": (
             display_name: "Velvet Puppy Slug",
-            spritesheet: "sprites/puppy_slug_velvet_spritesheet.png",
             manifest: "sprites/puppy_slug_velvet_spritesheet.ron",
             tier: MainHall,
             body_kind: Crawler,
@@ -3490,7 +3385,6 @@
         ),
         "player_robot_fable": (
             display_name: "Player Robot (Fable)",
-            spritesheet: "sprites/player_robot_fable_spritesheet.png",
             manifest: "sprites/player_robot_fable_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3505,7 +3399,6 @@
         ),
         "npc_smirking_behemoth_boss": (
             display_name: "Smirking Behemoth",
-            spritesheet: "sprites/smirking_behemoth_boss_spritesheet.png",
             manifest: "sprites/smirking_behemoth_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -3531,7 +3424,6 @@
         // Basement-tier bodies.
         "npc_carl_runga": (
             display_name: "Carl Runga",
-            spritesheet: "sprites/carl_runga_spritesheet.png",
             manifest: "sprites/carl_runga_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3550,7 +3442,6 @@
         ),
         "npc_martin_cutta": (
             display_name: "Martin Cutta",
-            spritesheet: "sprites/martin_cutta_spritesheet.png",
             manifest: "sprites/martin_cutta_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3569,7 +3460,6 @@
         ),
         "npc_anne_druid": (
             display_name: "Anne Druid",
-            spritesheet: "sprites/anne_druid_spritesheet.png",
             manifest: "sprites/anne_druid_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3597,7 +3487,6 @@
         ),
         "npc_richard_duckling": (
             display_name: "Richard Duckling",
-            spritesheet: "sprites/richard_duckling_spritesheet.png",
             manifest: "sprites/richard_duckling_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3626,7 +3515,6 @@
         ),
         "npc_le_beast": (
             display_name: "Le Beast",
-            spritesheet: "sprites/le_beast_spritesheet.png",
             manifest: "sprites/le_beast_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
@@ -3650,7 +3538,6 @@
         ),
         "npc_hypatia_prime": (
             display_name: "Hypatia Prime",
-            spritesheet: "sprites/hypatia_prime_spritesheet.png",
             manifest: "sprites/hypatia_prime_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3669,7 +3556,6 @@
         ),
         "npc_marie_curry": (
             display_name: "Marie Curry",
-            spritesheet: "sprites/marie_curry_spritesheet.png",
             manifest: "sprites/marie_curry_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3697,7 +3583,6 @@
         ),
         "npc_joseph_furrier": (
             display_name: "Joseph Furrier",
-            spritesheet: "sprites/joseph_furrier_spritesheet.png",
             manifest: "sprites/joseph_furrier_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3722,7 +3607,6 @@
         ),
         "npc_admiral_grass_hopper": (
             display_name: "Admiral Grass Hopper",
-            spritesheet: "sprites/admiral_grass_hopper_spritesheet.png",
             manifest: "sprites/admiral_grass_hopper_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3750,7 +3634,6 @@
         ),
         "npc_python_goras": (
             display_name: "Python Goras",
-            spritesheet: "sprites/python_goras_spritesheet.png",
             manifest: "sprites/python_goras_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3781,7 +3664,6 @@
         ),
         "npc_leib_knives": (
             display_name: "Gottfried Leib-Knives",
-            spritesheet: "sprites/leib_knives_spritesheet.png",
             manifest: "sprites/leib_knives_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3805,7 +3687,6 @@
         ),
         "npc_georg_canter": (
             display_name: "Georg Canter",
-            spritesheet: "sprites/georg_canter_spritesheet.png",
             manifest: "sprites/georg_canter_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3829,7 +3710,6 @@
         ),
         "npc_paul_diracula": (
             display_name: "Paul Diracula",
-            spritesheet: "sprites/paul_diracula_spritesheet.png",
             manifest: "sprites/paul_diracula_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3861,7 +3741,6 @@
             // The far hand is the hand the `shoot` and `interact` rows reach
             // with: the Robot V1 art, drawn three-quarter on.
             gesture_hand: Far,
-            spritesheet: "sprites/player_robot_v2_spritesheet.png",
             manifest: "sprites/player_robot_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3913,7 +3792,6 @@
         ),
         "pointed_polygon": (
             display_name: "Pointed Polygon",
-            spritesheet: "sprites/pointed_polygon_spritesheet.png",
             manifest: "sprites/pointed_polygon_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3954,7 +3832,6 @@
         ),
         "pugnacious_polygon": (
             display_name: "Pugnacious Polygon",
-            spritesheet: "sprites/pugnacious_polygon_spritesheet.png",
             manifest: "sprites/pugnacious_polygon_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3985,7 +3862,6 @@
         ),
         "projectile_polygon": (
             display_name: "Projectile Polygon",
-            spritesheet: "sprites/projectile_polygon_spritesheet.png",
             manifest: "sprites/projectile_polygon_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4019,7 +3895,6 @@
         // nothing in the game depends on either being selected.
         "director": (
             display_name: "The Director",
-            spritesheet: "sprites/director_spritesheet.png",
             manifest: "sprites/director_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4053,7 +3928,6 @@
         ),
         "officer": (
             display_name: "The Officer",
-            spritesheet: "sprites/officer_spritesheet.png",
             manifest: "sprites/officer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4089,7 +3963,6 @@
         ),
         "medic": (
             display_name: "The Medic",
-            spritesheet: "sprites/medic_spritesheet.png",
             manifest: "sprites/medic_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4128,7 +4001,6 @@
         ),
         "performer": (
             display_name: "The Performer",
-            spritesheet: "sprites/performer_spritesheet.png",
             manifest: "sprites/performer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4168,7 +4040,6 @@
         ),
         "special_patent_clerk": (
             display_name: "Patent Clerk",
-            spritesheet: "sprites/patent_clerk_spritesheet.png",
             manifest: "sprites/patent_clerk_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4209,7 +4080,6 @@
         ),
         "npc_gnu_ton": (
             display_name: "GNU-ton",
-            spritesheet: "sprites/gnu_ton_scholar_fighter_spritesheet.png",
             manifest: "sprites/gnu_ton_scholar_fighter_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4245,7 +4115,6 @@
         ),
         "npc_carl_stargan": (
             display_name: "Carl Stargan",
-            spritesheet: "sprites/carl_stargan_spritesheet.png",
             manifest: "sprites/carl_stargan_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4281,7 +4150,6 @@
         ),
         "npc_data_lovelace": (
             display_name: "Data Lovelace",
-            spritesheet: "sprites/data_lovelace_spritesheet.png",
             manifest: "sprites/data_lovelace_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,  // renderer calls this silhouette "Slim"; gameplay body class is Standard
@@ -4299,7 +4167,6 @@
         ),
         "npc_neil_ongras_turfson": (
             display_name: "Neil onGras Turfson",
-            spritesheet: "sprites/neil_ongras_turfson_spritesheet.png",
             manifest: "sprites/neil_ongras_turfson_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4317,7 +4184,6 @@
         ),
         "npc_paradox_barber": (
             display_name: "The Paradox Barber",
-            spritesheet: "sprites/paradox_barber_spritesheet.png",
             manifest: "sprites/paradox_barber_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,  // renderer calls this silhouette "Slim"; gameplay body class is Standard
@@ -4335,7 +4201,6 @@
         ),
         "npc_mami_marzakhani": (
             display_name: "Mami Marzakhani",
-            spritesheet: "sprites/mami_marzakhani_spritesheet.png",
             manifest: "sprites/mami_marzakhani_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4353,7 +4218,6 @@
         ),
         "npc_genghis_can": (
             display_name: "Genghis Can",
-            spritesheet: "sprites/genghis_can_spritesheet.png",
             manifest: "sprites/genghis_can_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4371,7 +4235,6 @@
         ),
         "npc_genghis_cant": (
             display_name: "Genghis Can't",
-            spritesheet: "sprites/genghis_cant_spritesheet.png",
             manifest: "sprites/genghis_cant_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4389,7 +4252,6 @@
         ),
         "npc_yuclid": (
             display_name: "Yuclid",
-            spritesheet: "sprites/yuclid_spritesheet.png",
             manifest: "sprites/yuclid_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
@@ -4406,7 +4268,6 @@
         ),
         "npc_hunny_horror_boss": (
             display_name: "Hunny Horror",
-            spritesheet: "sprites/hunny_horror_boss_spritesheet.png",
             manifest: "sprites/hunny_horror_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -4449,7 +4310,6 @@
         "chicken": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Game Chicken",
-            spritesheet: "sprites/chicken_spritesheet.png",
             manifest: "sprites/chicken_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4479,7 +4339,6 @@
         "chicken_hen": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Game Hen",
-            spritesheet: "sprites/chicken_hen_spritesheet.png",
             manifest: "sprites/chicken_hen_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4512,7 +4371,6 @@
         "owl": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Ontology Owl",
-            spritesheet: "sprites/owl_spritesheet.png",
             manifest: "sprites/owl_spritesheet.ron",
             tier: MainHall,
             // Floating = no gravity, so the Aerial policy flies it.
@@ -4545,7 +4403,6 @@
         "kiwi": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Kiwi Solver",
-            spritesheet: "sprites/kiwi_spritesheet.png",
             manifest: "sprites/kiwi_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4575,7 +4432,6 @@
         "emu": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Emu-lator",
-            spritesheet: "sprites/emu_spritesheet.png",
             manifest: "sprites/emu_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4606,7 +4462,6 @@
         "ostrich": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Ostrich Algorithm",
-            spritesheet: "sprites/ostrich_spritesheet.png",
             manifest: "sprites/ostrich_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4635,7 +4490,6 @@
         "ostrich_hen": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Ostrich Algorithm (Hen)",
-            spritesheet: "sprites/ostrich_hen_spritesheet.png",
             manifest: "sprites/ostrich_hen_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4665,7 +4519,6 @@
         "cassowary": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Cassowary Solver",
-            spritesheet: "sprites/cassowary_spritesheet.png",
             manifest: "sprites/cassowary_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4696,7 +4549,6 @@
         "shoebill": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Lazy Shoebill",
-            spritesheet: "sprites/shoebill_spritesheet.png",
             manifest: "sprites/shoebill_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4726,7 +4578,6 @@
         "european_swallow": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "European Swallow",
-            spritesheet: "sprites/european_swallow_spritesheet.png",
             manifest: "sprites/european_swallow_spritesheet.ron",
             tier: MainHall,
             // Floating = no gravity, so the Aerial policy flies it.
@@ -4761,7 +4612,6 @@
         "african_swallow": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "African Swallow",
-            spritesheet: "sprites/african_swallow_spritesheet.png",
             manifest: "sprites/african_swallow_spritesheet.ron",
             tier: MainHall,
             // Floating = no gravity, so the Aerial policy flies it.
@@ -4792,7 +4642,6 @@
         "vulture": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Vulture Capitalist",
-            spritesheet: "sprites/vulture_spritesheet.png",
             manifest: "sprites/vulture_spritesheet.ron",
             tier: MainHall,
             // Floating = no gravity, so the Aerial policy flies it.
@@ -4826,7 +4675,6 @@
         "penguin": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Open-Source Penguin",
-            spritesheet: "sprites/penguin_spritesheet.png",
             manifest: "sprites/penguin_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4858,7 +4706,6 @@
         "compsognathus": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "CompSci-gnathus",
-            spritesheet: "sprites/compsognathus_spritesheet.png",
             manifest: "sprites/compsognathus_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4889,7 +4736,6 @@
         "dilophosaurus": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Dial-up Dilophosaurus",
-            spritesheet: "sprites/dilophosaurus_spritesheet.png",
             manifest: "sprites/dilophosaurus_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4920,7 +4766,6 @@
         "pachycephalosaurus": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Patchy-cephalosaurus",
-            spritesheet: "sprites/pachycephalosaurus_spritesheet.png",
             manifest: "sprites/pachycephalosaurus_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4951,7 +4796,6 @@
         "triceratops": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Try-ceratops",
-            spritesheet: "sprites/triceratops_spritesheet.png",
             manifest: "sprites/triceratops_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4985,7 +4829,6 @@
         // place in the hall (at the END of the catalog: see the flock above).
         "npc_wolfenstein_boss": (
             display_name: "Wolfenstein",
-            spritesheet: "sprites/wolfenstein_spritesheet.png",
             manifest: "sprites/wolfenstein_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,

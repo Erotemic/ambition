@@ -283,7 +283,6 @@ def render_catalog_row(
     row = [
         f'        "{notes.character_id}": (',
         f"            display_name: {_ron_string(notes.display_name)},",
-        f'            spritesheet: "sprites/{target}_spritesheet.png",',
         f'            manifest: "sprites/{target}_spritesheet.ron",',
         "            tier: MainHall,",
         "            body_kind: Standard,",

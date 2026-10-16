@@ -94,7 +94,6 @@
             // new. Distinct from the content catalog's "Player Robot v3",
             // because the assembled catalog refuses two rows sharing a name.
             display_name: "Robot v3",
-            spritesheet: "sprites/player_robot_v3_spritesheet.png",
             manifest: "sprites/player_robot_v3_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -115,7 +114,6 @@
             display_name: "Robot v2",
             // The far hand is the hand the `shoot` row reaches with.
             gesture_hand: Far,
-            spritesheet: "sprites/player_robot_v2_spritesheet.png",
             manifest: "sprites/player_robot_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -129,7 +127,6 @@
         ),
         "smash_george_booul": (
             display_name: "George Booul",
-            spritesheet: "sprites/george_booul_spritesheet.png",
             manifest: "sprites/george_booul_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,

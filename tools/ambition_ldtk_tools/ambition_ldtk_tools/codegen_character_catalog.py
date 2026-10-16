@@ -323,7 +323,6 @@ def read_existing_ids(catalog_path: Path) -> set[str]:
 def render_entry(character_id: str, target: str, category: str) -> str:
     tpl = CATEGORY_TEMPLATE[category]
     display = display_name_of(target)
-    sprite = f"sprites/{target}_spritesheet.png"
     manifest = f"sprites/{target}_spritesheet.ron"
     tags = tpl["tags"] + (
         [f"renderer:{target}"] if target != character_id.removeprefix("npc_") else []
@@ -332,7 +331,6 @@ def render_entry(character_id: str, target: str, category: str) -> str:
     return (
         f'        "{character_id}": (\n'
         f'            display_name: "{display}",\n'
-        f'            spritesheet: "{sprite}",\n'
         f'            manifest: "{manifest}",\n'
         f"            tier: {tpl['tier']},\n"
         f"            body_kind: {tpl['body']},\n"

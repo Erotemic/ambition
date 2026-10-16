@@ -28,7 +28,7 @@ const HEIGHT: u32 = 48;
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    let out = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites/outlander.png");
+    let out = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites/outlander_spritesheet.png");
     if let Some(parent) = out.parent() {
         std::fs::create_dir_all(parent).expect("the consumer's own sprite folder");
     }

@@ -619,17 +619,17 @@ mod tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "npc_puppy_slug": (
-                display_name: "Puppy Slug", spritesheet: "x.png", manifest: "x_spritesheet.ron",
+                display_name: "Puppy Slug", manifest: "x_spritesheet.ron",
                 tier: MainHall, body_kind: Crawler, composition: None,
                 default_brain: "wanderer_puppy_slug", default_action_set: "peaceful", tags: [],
             ),
             "npc_brute": (
-                display_name: "Brute", spritesheet: "x.png", manifest: "x_spritesheet.ron",
+                display_name: "Brute", manifest: "x_spritesheet.ron",
                 tier: MainHall, body_kind: Standard, composition: None,
                 default_brain: "melee_brute_striker", default_action_set: "peaceful", tags: [],
             ),
             "npc_patroller": (
-                display_name: "Patroller", spritesheet: "x.png", manifest: "x_spritesheet.ron",
+                display_name: "Patroller", manifest: "x_spritesheet.ron",
                 tier: MainHall, body_kind: Standard, composition: None,
                 default_brain: "patrol_peaceful", default_action_set: "peaceful", tags: [],
             ),

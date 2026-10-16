@@ -462,7 +462,6 @@ fn a_catalog_row_with_no_definition_is_prepared_with_its_providers_declarations(
         characters: {
             "villager": (
                 display_name: "Villager",
-                spritesheet: "sprites/villager.png",
                 manifest: "sprites/villager.ron",
                 tier: MainHall, body_kind: Standard, composition: None,
                 default_action_set: "peaceful",

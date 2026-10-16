@@ -211,7 +211,6 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
         characters: {
             "outlander_wanderer": (
                 display_name: "Wanderer",
-                spritesheet: "sprites/robot_spritesheet.png",
                 manifest: "sprites/robot_spritesheet.ron",
                 tier: Basement,
                 body_kind: Standard,
@@ -348,7 +347,7 @@ fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
         "the registry returned somebody else's sheet"
     );
     assert_eq!(
-        record.image, "game://sprites/outlander.png",
+        record.image, "game://sprites/outlander_spritesheet.png",
         "the record's image path lost its source, which is the OTHER half of \
          owning your art and would put the engine's tree back in charge"
     );
@@ -382,7 +381,7 @@ fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
 
 /// The art this crate owns is a real image, and the engine reaches it.
 ///
-/// U1 made a consumer able to ADDRESS its art (`game://sprites/outlander.png`
+/// U1 made a consumer able to ADDRESS its art (`game://sprites/outlander_spritesheet.png`
 /// survives catalog assembly) and DESCRIBE it (`register_character_sheet_ron`).
 /// Neither of those decodes a byte, so "a consumer's character renders from
 /// consumer-owned art" stayed a statement about plumbing — and this repo does
@@ -397,7 +396,7 @@ fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
 /// in two places is how art and metadata drift apart in the first place.
 #[test]
 fn the_consumers_own_art_is_a_real_png_matching_the_sheet_it_authored() {
-    let png = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites/outlander.png");
+    let png = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites/outlander_spritesheet.png");
     let bytes = std::fs::read(&png)
         .unwrap_or_else(|error| panic!("build.rs did not generate {}: {error}", png.display()));
 
@@ -468,9 +467,9 @@ fn the_engine_reads_the_consumers_generated_art_through_its_own_source() {
     };
 
     assert!(
-        read("sprites/outlander.png"),
+        read("sprites/outlander_spritesheet.png"),
         "the consumer's own generated sprite did not resolve through its own \
-         asset source — the catalog row names `game://sprites/outlander.png`, so \
+         asset source — the catalog row names `game://sprites/outlander_spritesheet.png`, so \
          this is the exact path a character load takes"
     );
 }

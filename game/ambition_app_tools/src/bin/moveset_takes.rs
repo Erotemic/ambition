@@ -230,8 +230,8 @@ fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
                     .characters
                     .iter()
                     .filter_map(|(id, entry)| {
-                        let base = entry
-                            .spritesheet
+                        let sheet = entry.spritesheet();
+                        let base = sheet
                             .rsplit('/')
                             .next()?
                             .trim_end_matches(".png")

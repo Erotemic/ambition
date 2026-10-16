@@ -20,7 +20,6 @@
         "sanic": (
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Sanic",
-            spritesheet: "sprites/sanic_spritesheet.png",
             manifest: "sprites/sanic_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -81,7 +80,6 @@
         "super_sanic": (
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Super Sanic",
-            spritesheet: "sprites/super_sanic_spritesheet.png",
             manifest: "sprites/super_sanic_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -130,7 +128,6 @@
         // catalog rejects duplicate display names across providers.
         "sanic_badnik": (
             display_name: "Sanic Badnik",
-            spritesheet: "sprites/ai_slop_spritesheet.png",
             manifest: "sprites/ai_slop_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -181,7 +178,6 @@
         // The Helpful Liar, on its wheel: the fast one. It is as tall as Sanic nearly.
         "sanic_badnik_liar": (
             display_name: "Liar Badnik",
-            spritesheet: "sprites/helpful_liar_spritesheet.png",
             manifest: "sprites/helpful_liar_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -217,7 +213,6 @@
         // The Spaghetti Event: low and wide, a little faster than the slop.
         "sanic_badnik_noodle": (
             display_name: "Noodle Badnik",
-            spritesheet: "sprites/spaghetti_event_spritesheet.png",
             manifest: "sprites/spaghetti_event_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -253,7 +248,6 @@
         // The Synthetic Friend, with its arms out: a walker of Sanic's height nearly.
         "sanic_badnik_friend": (
             display_name: "Friend Badnik",
-            spritesheet: "sprites/synthetic_friend_spritesheet.png",
             manifest: "sprites/synthetic_friend_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -289,7 +283,6 @@
         // The Agent Swarm: slow. Its sheet's body is the cloud and the air under it, so a body on the ground is in it.
         "sanic_badnik_swarm": (
             display_name: "Swarm Badnik",
-            spritesheet: "sprites/agent_swarm_spritesheet.png",
             manifest: "sprites/agent_swarm_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -325,7 +318,6 @@
         // The Hand Saint: the heavy one. It is taller than Sanic and the slowest.
         "sanic_badnik_saint": (
             display_name: "Saint Badnik",
-            spritesheet: "sprites/hand_saint_spritesheet.png",
             manifest: "sprites/hand_saint_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,

@@ -1,7 +1,7 @@
 //! A third party's character is DRAWN, from art the third party owns.
 //!
 //! Every other link was proved separately and none of them draws anything: the
-//! catalog can name `game://sprites/outlander.png`, the provider can describe
+//! catalog can name `game://sprites/outlander_spritesheet.png`, the provider can describe
 //! the sheet, the collision box comes from that sheet, the asset source reads
 //! the file, and `build.rs` makes the file real. A chain of five green tests
 //! still permits "and the character renders as a placeholder rectangle", which
@@ -110,7 +110,7 @@ fn the_consumers_character_draws_from_the_consumers_own_art() {
         path.source()
     );
     assert!(
-        path.path().ends_with("outlander.png"),
+        path.path().ends_with("outlander_spritesheet.png"),
         "the character draws `{}`, not the art this crate generated",
         path.path().display()
     );

@@ -40,7 +40,6 @@
         "arena_duelist_long": (
             sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
             display_name: "Long Guard",
-            spritesheet: "sprites/robot_spritesheet.png",
             manifest: "sprites/robot_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
@@ -135,7 +134,6 @@
         // to do anything, and is rewarded for being there.
         "arena_duelist_close": (
             display_name: "Close Guard",
-            spritesheet: "sprites/mary_o_v2_spritesheet.png",
             manifest: "sprites/mary_o_v2_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,

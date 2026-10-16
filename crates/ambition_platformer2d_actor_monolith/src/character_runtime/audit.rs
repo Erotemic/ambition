@@ -285,7 +285,7 @@ pub fn audit_character_authority_parity(world: &World) -> Vec<CharacterAuthority
             // convention, and a row that stores the target verbatim is agreeing
             // in the plainest way there is — neither should be reported.
             if catalog_target == Some(registry_sheet)
-                || entry.spritesheet == registry_sheet
+                || entry.spritesheet() == registry_sheet
                 || entry.manifest == registry_sheet
             {
                 continue;
@@ -299,7 +299,7 @@ pub fn audit_character_authority_parity(world: &World) -> Vec<CharacterAuthority
                 // conflict in the first place.
                 catalog_sheet: catalog_target
                     .map(str::to_owned)
-                    .unwrap_or_else(|| entry.spritesheet.clone()),
+                    .unwrap_or_else(|| entry.spritesheet()),
             });
         }
     }
@@ -361,7 +361,6 @@ mod authority_parity_tests {
     characters: {
         "mary_o": (
             display_name: "Mary-O",
-            spritesheet: "catalog_sheet.png",
             manifest: "catalog_sheet.ron",
             tier: MainHall,
             body_kind: Standard,

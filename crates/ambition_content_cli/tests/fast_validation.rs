@@ -98,7 +98,6 @@ fn validating_a_character_edit_does_not_rebuild_rust() {
         r#"characters: {
         "npc_test_newcomer": (
             display_name: "Test Newcomer",
-            spritesheet: "sprites/goblin_spritesheet.png",
             manifest: "sprites/goblin_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,

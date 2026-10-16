@@ -616,7 +616,7 @@ fn character_json(
         "provider": prepared.provider,
         "on_smash_grid": on_grid,
         "description": catalog.map(|e| e.gameplay_description.clone()),
-        "spritesheet": catalog.map(|e| e.spritesheet.clone()),
+        "spritesheet": catalog.map(|e| e.spritesheet()),
         // `portrait` is the authored logical target. `portrait_art` is the
         // resolved still frame the shipped select screen would draw, including
         // its crop inside the independently published portrait sheet.

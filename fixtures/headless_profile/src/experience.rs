@@ -30,7 +30,6 @@ pub const ROSTER_RON: &str = r#"(
     characters: {
         "headless_walker": (
             display_name: "Walker",
-            spritesheet: "headless_walker.png",
             manifest: "headless_walker_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,

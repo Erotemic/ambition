@@ -1384,7 +1384,6 @@ mod content_sdk_tests {
         characters: {
             "newcomer": (
                 display_name: "Newcomer",
-                spritesheet: "newcomer.png",
                 manifest: "newcomer.ron",
                 tier: MainHall,
                 body_kind: Standard,

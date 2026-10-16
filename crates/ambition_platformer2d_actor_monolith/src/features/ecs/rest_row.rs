@@ -72,7 +72,6 @@ mod tests {
             format!(
                 r#""{name}": (
                     display_name: "{name}",
-                    spritesheet: "sprites/{name}.png",
                     manifest: "sprites/{name}.ron",
                     tier: MainHall,
                     body_kind: Standard,

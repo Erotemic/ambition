@@ -1198,7 +1198,6 @@ mod live_quality_apply {
                     characters: {
                         "goblin": (
                             display_name: "Fallback Goblin",
-                            spritesheet: "sprites/goblin_spritesheet.png",
                             manifest: "sprites/a_target_nobody_baked.ron",
                             tier: MainHall, body_kind: Standard, composition: None,
                             default_brain: "stand_still", default_action_set: "peaceful",

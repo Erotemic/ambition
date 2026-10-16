@@ -16,7 +16,6 @@ fn catalog() -> CharacterCatalog {
             characters: {
                 "good_dog": (
                     display_name: "Good Dog",
-                    spritesheet: "sprites/dog.png",
                     manifest: "sprites/dog.ron",
                     tier: MainHall,
                     body_kind: Standard,
@@ -27,7 +26,6 @@ fn catalog() -> CharacterCatalog {
                 ),
                 "shopkeeper": (
                     display_name: "Shopkeeper",
-                    spritesheet: "sprites/shop.png",
                     manifest: "sprites/shop.ron",
                     tier: MainHall,
                     body_kind: Standard,

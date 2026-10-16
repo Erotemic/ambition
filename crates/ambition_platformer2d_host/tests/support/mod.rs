@@ -27,7 +27,6 @@ const FIXTURE_CATALOG_RON: &str = r#"(
     characters: {
         "player": (
             display_name: "Fixture Player",
-            spritesheet: "sprites/fixture.png",
             manifest: "sprites/fixture.ron",
             tier: MainHall,
             body_kind: Standard,

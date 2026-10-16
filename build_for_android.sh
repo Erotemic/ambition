@@ -849,6 +849,14 @@ case "$RUST_PROFILE" in
     release) CARGO_NDK_ARGS+=(--release) ;;
     *) CARGO_NDK_ARGS+=(--profile "$RUST_PROFILE") ;;
 esac
+# No incremental build for an optimized profile, as `run_game.sh` does.
+# `.cargo/config.toml` turns incremental on for every profile, and on an
+# optimized one it breaks the link (`undefined hidden symbol ... .llvm.<hash>`)
+# and makes smaller codegen units than the shipped build. Only the environment
+# turns it off. A caller's `CARGO_INCREMENTAL` still wins.
+if [[ "$RUST_PROFILE" != debug && -z "${CARGO_INCREMENTAL:-}" ]]; then
+    export CARGO_INCREMENTAL=0
+fi
 if [[ "$USE_DEFAULT_FEATURES" != true ]]; then
     CARGO_NDK_ARGS+=(--no-default-features)
 fi

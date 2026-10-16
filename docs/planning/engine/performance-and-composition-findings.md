@@ -725,8 +725,10 @@ is worth one Tracy look.
 
 MEASURED (phone, all-games profile, main thread,
 `symbolize_android_profile.py --inclusive --thread 8529`): under
-`integrate_sim_bodies` (2.21% inclusive) a `clone` takes 1.76%, with
-`world_with_sandbox_solids` 0.58% and `world_with_moving_platforms` 0.56%.
+`integrate_sim_bodies` (2.21% inclusive), `world_with_sandbox_solids` takes
+0.58% (`world_with_moving_platforms`, 0.56%, is inside it). A generic
+`clone` frame at 1.76% sits beside `integrate_body`, but the name is too
+generic (and identical code is folded) to say what it copies.
 Source read: `RoomCollision::solids`
 (`ambition_platformer2d_world/src/collision.rs`) borrows the authored world
 only when the room has no moving platform and an empty overlay; otherwise it
@@ -758,7 +760,7 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | P2 | One executor policy (`apply_executor_policy`), called by every foundation including the windowed demos, covering `Fixed*` and `StateTransition`. Switch and A/B done (F22, F23): a standalone tick ~6× cheaper, the hub +3%; the default is D12 | the multi-threaded executor cost of every frame and fixed system in the windowed demos | small | no |
 | P11 | DONE for the clash pass, in-repo (F13): `press_all_action_update`; an upstream PR for the pass and the boxed lookups remains | 19-32k allocations a frame, ~80% of a standalone frame's | small | no |
 | P12 | Derive on change, not every tick (F15, F16, F20): first writes that mark only real changes (the cluster step, the resources of F20), then the four systems; the change detector (`changes_by_site.csv`) finds the next ones and verifies each | per-tick re-derivations and false changes that wake change filters | small each | no |
-| P14 | One composed collision world per room per tick, shared; then a layered view with no copy (F24) | ~2.3% of phone CPU in the body step alone, plus each other composer | medium | no |
+| P14 | One composed collision world per room per tick, shared; then a layered view with no copy (F24) | ~0.6% of phone CPU in the body step, plus each other composer | medium | no |
 | P13 | One keyed-reconcile helper for presentation entities (F21), and the remaining immediate-mode systems moved onto it | per-frame despawn and spawn of presentation entities | small-medium | no |
 | P3 | Hub: gate each game's session gameplay by its scope (S2); install Ambition, physics debris and 3D lighting only for the games that use them (S2b); move shared techniques out of `ambition_demo_smash` | 82+ foreign systems while one game plays, 72 hub-only systems | medium | no |
 | P6 | Change-driven systems: the two whole-world queries, input bindings, room isolation (F14) | full scans per tick; 444-2,773 allocations a frame in room isolation | small | no |

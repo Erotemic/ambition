@@ -1549,8 +1549,9 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
         "::day::DayCycle",
         "authored day cycle — a game's day length and where its phases begin, \
-         inserted once by the game's content plugin and never written. The time \
-         of day itself is rollback state: `resource.day_clock`",
+         inserted by the game's content plugin and restated only at a content \
+         reload's publication boundary. The time of day itself is rollback \
+         state: `resource.day_clock`",
     ),
     (
         "::project::ActiveLdtkProject",

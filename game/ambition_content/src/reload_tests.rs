@@ -4679,6 +4679,7 @@ fn a_candidate_that_changes_only_ambition_rules_restates_the_tuning() {
             }
             edited = true;
             text.replacen("base_seconds: 7.0,", "base_seconds: 9.0,", 1)
+                .replacen("length_seconds: 1440.0,", "length_seconds: 720.0,", 1)
         })
         .unwrap_or_else(|failure| panic!("{}", failure.render())),
     );
@@ -4708,6 +4709,11 @@ fn a_candidate_that_changes_only_ambition_rules_restates_the_tuning() {
         .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
     app.update();
     assert_eq!(bark(&app), 9.0, "the activation did not publish the candidate's tuning");
+    assert_eq!(
+        app.world().get_resource::<ambition_time::DayCycle>().map(|day| day.day_length_s),
+        Some(720.0),
+        "the activation did not publish the candidate's day"
+    );
 }
 
 /// A reload that changes only the item art restates Ambition's rows at the

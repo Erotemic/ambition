@@ -272,7 +272,9 @@ Open:
    `rebound_cap`). GNU-ton's duel book box and overhead scales are
    `gnu_ton_duel` rows (`book`, `overhead_rise`, `overhead_grow`). Sanic's
    super-form beat is `super_form` in `sanic_rules.ron`; Mary-O's step-up
-   clock scale and cosmic arrive beat are in `mary_o_rules.ron`. A
+   clock scale and cosmic arrive beat are in `mary_o_rules.ron`. Ambition's
+   day (length, phase hours, start hour, daylight veil) is `day` in
+   `ambition_rules.ron`, and a content reload restates it. A
    respawn and a departing shark read the centre of the body's live room
    (`StageCentre`), not the flat stage's. Still flat-only:
    `ladder_rig --scenarios` (refuses other stages).
@@ -281,8 +283,7 @@ Open:
    - `game/ambition_content/src/bosses/cut_rope/mod.rs:44`
      `CUT_ROPE_VICTORY_NPC_NAME`, also the speaker in
      `assets/dialogue/sandbox/kernel.yarn`.
-   - Level facts and tables: the day clock and its light
-     (`game/ambition_content/src/day_cycle.rs:16,28`), Sanic's act titles
+   - Level facts and tables: Sanic's act titles
      (`act_title()`), the duel arena's spawn table
      (`game/ambition_content/src/duel_arena.rs:43,68-90`), the castle's
      rescue scene (`castle_end.rs:44,280-289`), the Noether banner and

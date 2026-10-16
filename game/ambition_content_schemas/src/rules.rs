@@ -17,6 +17,24 @@ pub struct AmbitionRules {
     /// The thrown items that hurt the body they strike, by held-item id. An
     /// item with no row lands and hurts nobody.
     pub thrown_impacts: std::collections::BTreeMap<String, ThrownImpact>,
+    pub day: Day,
+}
+
+/// Ambition's day: how long it is, the hour each phase begins at, the hour a
+/// session begins at, and the light over a sunlit room by the hour.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Day {
+    /// Sim seconds in one whole day.
+    pub length_seconds: f32,
+    pub morning_at: f32,
+    pub day_at: f32,
+    pub evening_at: f32,
+    pub night_at: f32,
+    pub start_hour: f32,
+    /// The veil over a sunlit room: (hour, (r, g, b, a)) in sRGB, in the
+    /// order of the hours. Between two keys the veil blends.
+    pub daylight: Vec<(f32, (f32, f32, f32, f32))>,
 }
 
 /// What one kind of thrown item does to a body it strikes.
@@ -174,6 +192,39 @@ impl AmbitionRules {
                 problems.push(format!("`gnu_ton_duel.{field}` is {value}; it is finite and more than 0"));
             }
         }
+        let day = &self.day;
+        if !(day.length_seconds.is_finite() && day.length_seconds > 0.0) {
+            problems.push(format!("`day.length_seconds` is {}; a day lasts a while", day.length_seconds));
+        }
+        let hours = [
+            ("morning_at", day.morning_at),
+            ("day_at", day.day_at),
+            ("evening_at", day.evening_at),
+            ("night_at", day.night_at),
+            ("start_hour", day.start_hour),
+        ];
+        for (field, hour) in hours {
+            if !(hour.is_finite() && (0.0..24.0).contains(&hour)) {
+                problems.push(format!("`day.{field}` is {hour}; it is an hour from 0 to under 24"));
+            }
+        }
+        if !(day.morning_at < day.day_at && day.day_at < day.evening_at && day.evening_at < day.night_at) {
+            problems.push(format!(
+                "`day`'s phases begin at {}, {}, {} and {}; morning, day, evening and night begin in that order",
+                day.morning_at, day.day_at, day.evening_at, day.night_at
+            ));
+        }
+        for (index, (hour, (r, g, b, a))) in day.daylight.iter().enumerate() {
+            if !(hour.is_finite() && (0.0..=24.0).contains(hour)) || index > 0 && *hour <= day.daylight[index - 1].0 {
+                problems.push(format!("`day.daylight[{index}]` is at hour {hour}; the keys are hours from 0 to 24, each after the one before"));
+            }
+            if ![r, g, b, a].iter().all(|c| c.is_finite() && (0.0..=1.0).contains(*c)) {
+                problems.push(format!("`day.daylight[{index}]`'s colour is {:?}; each part is from 0 to 1", (r, g, b, a)));
+            }
+        }
+        if day.daylight.is_empty() {
+            problems.push("`day.daylight` is empty; a sunlit room has a veil at every hour".to_string());
+        }
         let bird = self.african_swallow;
         for (field, value) in [
             ("fetch_reach", bird.fetch_reach),
@@ -261,6 +312,15 @@ mod tests {
                 ThrownImpact { min_speed: 240.0, damage: 2, rebound: 0.3, rebound_cap: 0.8 },
             )]
             .into(),
+            day: Day {
+                length_seconds: 1440.0,
+                morning_at: 5.0,
+                day_at: 10.0,
+                evening_at: 17.0,
+                night_at: 21.0,
+                start_hour: 8.0,
+                daylight: vec![(0.0, (0.05, 0.08, 0.26, 0.86)), (10.0, (1.0, 1.0, 1.0, 0.0))],
+            },
         }
     }
 

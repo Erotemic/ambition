@@ -273,20 +273,36 @@ Sanic act 1:
 | `dev::trace::actor_oob::record_actor_oob_frame_system` (a developer trace) | 196 | — |
 
 The input number is the same in both games: it does not depend on the scene.
-Cause (MEASURED, source read): `leafwing-input-manager` 0.21
-`CentralInputStore::pressed` and `button_value` (`src/user_input/updating.rs:111-140`)
-box a clone of the binding for each lookup, to use it as a hash key (the
-source says `// PERF: surely there's a way to avoid cloning here`).
-`InputMap::process_actions` asks both for every binding of every action of
-every seat, and the system runs twice a frame (frame and fixed loop: 1156
-calls in 578 frames).
+The hub makes 31,942 a frame (26.6k a call). Two causes in
+`leafwing-input-manager` 0.21, both run twice a frame (frame and fixed loop):
 
-Reading (REASONED): the fix keeps behaviour exactly: look up without
-boxing (`hashbrown::Equivalent` on a borrowed `&dyn Buttonlike`), in a
-workspace fork with an upstream PR, as for `bevy_ggrs`. A second, independent
-lever: a seat with no device does not need its map evaluated. The probe counts
+- MEASURED (source read), the larger by the count per call: `InputMap::handle_clashes`
+  calls `get_clashes`, which calls `possible_clashes()` on every call
+  (`src/clashing_inputs.rs:190-232`): every pair of button actions, each
+  binding decomposed into new `Vec`s. The comment there says "cached"; it is
+  not. Our host chooses `ClashStrategy::PressAll` for chord-free maps
+  (`ambition_platformer2d_host/src/lib.rs:373`), and under `PressAll` a clash
+  removes nothing, so all of this work has no effect for us.
+- MEASURED (source read): `CentralInputStore::pressed` and `button_value`
+  (`src/user_input/updating.rs:111-140`) box a clone of the binding for each
+  lookup, to use it as a hash key (`// PERF: surely there's a way to avoid
+  cloning here`).
+
+Reading (REASONED): both fixes keep behaviour exactly, in a workspace fork with
+upstream PRs, as for `bevy_ggrs`: return early from `handle_clashes` under
+`PressAll`, and otherwise pair only the actions that are pressed; look up
+without boxing (`hashbrown::Equivalent` on `&dyn Buttonlike`). The probe counts
 allocations; their time on the phone is inside the 5.2% of `mimalloc` and the
 3.1% of `alloc`.
+
+Caveat on the per-frame numbers (MEASURED): the Mary-O probe run was taken
+while the VM was loaded, at about 14 fixed ticks a frame against about 1.6 at
+idle, so the per-frame numbers of fixed-step systems are high; the per-call
+numbers (`allocs_per_call` in the CSV) are the ones to compare. Other per-call
+numbers of ours: `reconcile_effective_repertoire` ~40, `gate_body_control`
+~20, `record_actor_oob_frame_system` 13, `integrate_sim_bodies` 9.6. Sanic:
+`prepare_assets<HitFlashMaterial>` ~1,070 a frame (133 KB), so a hit-flash
+material is changed every frame (`hit_flash.rs:431` is a `get_mut` site).
 
 ### F14 — Room isolation re-derives every room mask every frame
 
@@ -345,6 +361,22 @@ both the gate and the prompt read. Under rollback a cached value must be
 rollback state or derived from inputs that a restore marks changed; check
 each cache against that before it lands. Together with F15 this is P12.
 
+### F18 — Other steady churn of ours (probe)
+
+MEASURED (probe churn, per frame at idle):
+
+- Sanic: `gravity_visuals.rs:29` despawns and respawns every gravity-zone
+  visual every frame (1.43 each way); it runs in `Update` with no condition.
+- Mary-O: `rigged.rs:923` spawns rig part slots and despawns as many, ~1.4 a
+  frame each.
+- Every game: `lifecycle/session.rs:316` and `:326` insert
+  `SessionScopedEntity` and then `InRoomInstance` as two inserts after each
+  session spawn (4-8 a frame each): three archetype moves per spawn instead of
+  one. Fix: one bundle in the spawn.
+- Outside our code: `FixedMainScheduleOrder` removed and inserted per fixed
+  tick (Bevy), `bevy_ggrs` reinserts `Session`, `PlayerInputs` and
+  `FixedTimestepData` every frame.
+
 ### F17 — The hub respawns a room's parallax every frame
 
 MEASURED (probe churn, hub `basement_enemies`, 595 frames): exactly 1.000
@@ -381,7 +413,7 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | P5 | Read-models built once per drawn frame, by change | repeat builds on slow frames; builds in headless hosts | medium | D2 |
 | P6 | Change-driven systems: the two whole-world queries, input bindings, room isolation (F14) | full scans per tick; 444-2,773 allocations a frame in room isolation | small | no |
 | P12 | Derive on change, not every tick (F15, F16): the four systems, then the change detector finds the next ones | per-tick re-derivations and false changes that wake change filters | small each | no |
-| P11 | Input lookups without boxing (F13): fix `CentralInputStore` in a workspace fork of `leafwing-input-manager`, upstream PR | 19,222 allocations a frame, ~75% of a standalone frame's | small | no |
+| P11 | Leafwing fork (F13): no clash work under `PressAll`, pairs of pressed actions only otherwise; lookups without boxing; upstream PRs | 19-32k allocations a frame, ~75% of a standalone frame's | small | no |
 | P7 | Plumbing: one gizmo trail group, Bevy debug gizmos off in shipping, developer tools only in developer builds, Kira channels | ~80 systems | small-medium | D6, D9 |
 | P8 | Upstream query-state fixes (LDtk, Yarn, bevy_light, GGRS) | ~2% of phone CPU | small each | D5 (only for the LDtk workaround) |
 | P10 | Phone render scale: a reduced main render target, scaled to the surface (`quality.rs:190` has no phone path) | fragments, when the GPU is the limit; not the limit today (F11) | medium | D10 |

@@ -556,7 +556,9 @@ of each of those systems.
 The same holds for the two room-spec parameters of
 `ambition_platformer2d_world/src/rooms/room_graph.rs`: `LiveRoomSpecs` (its
 derive line, 0.51%; it embeds `LiveRooms`) and `SoleLiveRoomSpec` (0.32%).
-Together the room-lookup parameters are ~2.2% of phone samples. Users by a
+Together the room-lookup parameters are ~2.2% of phone samples. All
+parameter fetches together (`get_param`, inclusive, main thread of the
+all-games run) are 3.59%. Users by a
 `git grep` of parameter declarations: `LiveRooms` ~120, `LiveRoomSpecs` ~90,
 `LiveRoomOf` ~72, `SoleLiveRoom` ~17, `SoleLiveRoomSpec` 5. (The next phone
 line of ours, `crates/ambition_touch_input/src/virtual_device.rs:50`, 0.46%, is the touch button's

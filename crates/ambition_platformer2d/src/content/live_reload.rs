@@ -120,6 +120,32 @@ impl EmbeddedPackReloadPlugin {
         })
     }
 
+    /// The pack's `music_registry` and `sfx_registry`, registered once at
+    /// start as `provider`'s audio fragment, published again at each
+    /// publication that changes them (`publish_provider_audio`).
+    pub fn audio(pack: &'static EmbeddedPack, provider: &'static str) -> Self {
+        use crate::audio::content_schema::{
+            lowered_music_registry, lowered_sfx_registry, MUSIC_REGISTRY_SCHEMA, SFX_REGISTRY_SCHEMA,
+        };
+        let publish = move |world: &mut World, pack: &PreparedContentPack| {
+            let music = lowered_music_registry(pack).cloned();
+            let sfx = lowered_sfx_registry(pack).cloned();
+            if let Err(problem) = crate::audio::catalog::publish_provider_audio(world, provider, music, sfx) {
+                error!("the reload of `{}` keeps the audio of `{provider}`: {problem}", pack.id.0);
+            }
+        };
+        // Each restater publishes both registries, so an edit to both runs
+        // the same publication twice, with the same result. A registry the
+        // pack does not state has no restater.
+        let stated = &pack.prepared().schemas;
+        let restated = [MUSIC_REGISTRY_SCHEMA, SFX_REGISTRY_SCHEMA]
+            .into_iter()
+            .filter(|schema| stated.keys().any(|stated| stated.0 == *schema))
+            .map(|schema| Restater::new(schema, publish))
+            .collect();
+        Self { pack, live: &[], restated }
+    }
+
     /// A restater for rows this pack shares a catalog with other providers
     /// in: it remembers the ids the pack owns (`owned`, from the start), so a
     /// restatement replaces only those. On a refusal (an id of another
@@ -610,6 +636,51 @@ mod tests {
         save_and_look(&mut app, &file, r#"{ "probe_prop": () }"#);
         assert_eq!(kinds(&app), ["foreign_prop", "probe_prop"], "a row the pack added and then dropped is gone");
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// ⭐ An edit to the pack's music is the provider's music in the audio
+    /// catalog from the next session, and another provider's music stays.
+    #[test]
+    fn an_edit_to_the_music_is_the_providers_music_from_the_next_session() {
+        use crate::audio::catalog::{AudioCatalogAppExt, AudioCatalogRegistry};
+        use crate::audio::content_schema::lowered_music_registry;
+
+        let (pack, root) = pack_with(
+            "audio",
+            "data/music_registry.ron",
+            "music_registry",
+            r#"(default_track: "probe_theme", tracks: [(id: "probe_theme", display_name: "Probe Theme")])"#,
+        );
+        let (host, host_root) = pack_with(
+            "audio_host",
+            "data/music_registry.ron",
+            "music_registry",
+            r#"(default_track: "host_theme", tracks: [(id: "host_theme", display_name: "Host Theme")])"#,
+        );
+        let mut app = App::new();
+        app.init_resource::<crate::actor::ActiveSessionScope>();
+        app.register_audio_catalog_fragment(pack.audio("probe"));
+        app.register_audio_catalog_fragment(host.audio("host"));
+        app.add_plugins(EmbeddedPackReloadPlugin::audio(pack, "probe"));
+        let host_music = app.world().resource::<AudioCatalogRegistry>().music_for("host").cloned();
+        app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().begin();
+
+        save_and_look(
+            &mut app,
+            &root.join("data/music_registry.ron"),
+            r#"(default_track: "probe_theme", tracks: [(id: "probe_theme", display_name: "Probe Theme"), (id: "probe_sting", display_name: "Probe Sting", one_shot: true)])"#,
+        );
+        let tracks = |app: &App| app.world().resource::<AudioCatalogRegistry>().music_for("probe").map(|music| music.tracks.len());
+        assert_eq!(tracks(&app), Some(1), "the live session keeps its music");
+
+        app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().clear();
+        app.update();
+        let authority = EmbeddedPack::rooted(pack.root_on_disk().unwrap(), None).compile().unwrap();
+        let catalog = app.world().resource::<AudioCatalogRegistry>();
+        assert_eq!(catalog.music_for("probe"), lowered_music_registry(&authority), "the provider's music is the saved file's");
+        assert_eq!(catalog.music_for("host").cloned(), host_music, "another provider's music stays");
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(host_root);
     }
 
     /// A host of two demos watches both packs, and a second add of one pack

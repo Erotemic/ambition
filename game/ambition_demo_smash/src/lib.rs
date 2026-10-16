@@ -2496,6 +2496,7 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             .audio(SMASH_EXPERIENCE)
             .with_resident_sfx_bank(),
     );
+    app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::audio(&crate::smash_pack::PACK, SMASH_EXPERIENCE));
 }
 
 /// Which stage the next match is played on.

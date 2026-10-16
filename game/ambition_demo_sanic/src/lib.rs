@@ -388,6 +388,7 @@ pub fn install_sanic_content(app: &mut App) {
             .audio(provider::SANIC_EXPERIENCE)
             .with_resident_sfx_bank(),
     );
+    app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::audio(&pack::PACK, provider::SANIC_EXPERIENCE));
     // The prop sheets (the ring, the monitors' boxes, the goal post) are the
     // pack's `data/prop_sheets.ron`. Registered here, they load the same way
     // standalone or hosted (both add `SanicExperiencePlugin`).

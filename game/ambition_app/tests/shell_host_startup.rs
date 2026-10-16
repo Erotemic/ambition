@@ -454,3 +454,29 @@ fn f1_toggles_the_debug_mode_with_no_gameplay_session() {
         "the second press must undo the first"
     );
 }
+
+/// The cards go in front of the route the host was composed to boot into
+/// (`AMBITION_BOOT_ROUTE`), and do not replace it: a host booting into a game
+/// reaches that game after the run-in, not the launcher.
+#[test]
+fn the_startup_run_in_hands_off_to_the_composed_boot_route() {
+    use ambition_platformer2d::game_shell::{
+        ShellCompletionPolicy, ShellHostConfiguration, ShellHostSpec, ShellRouteCatalog, ShellRouteId,
+    };
+
+    let boot = ambition_demo_mary_o::provider::MARY_O_GAMEPLAY_ROUTE;
+    let mut app = startup_app();
+    app.world_mut().resource_mut::<ShellHostConfiguration>().spec =
+        Some(ShellHostSpec::new(boot, shell_host::AMBITION_LAUNCHER_ROUTE));
+    shell_host::compose_ambition_startup_sequence(&mut app);
+
+    let world = app.world();
+    let startup = world
+        .resource::<ShellRouteCatalog>()
+        .get(&ShellRouteId::from(shell_host::AMBITION_STARTUP_ROUTE))
+        .expect("the startup route is registered");
+    assert_eq!(startup.on_complete, ShellCompletionPolicy::GoTo(boot.into()));
+    let spec = world.resource::<ShellHostConfiguration>().spec.as_ref().expect("a host spec");
+    assert_eq!(spec.initial_route.as_str(), shell_host::AMBITION_STARTUP_ROUTE);
+    assert_eq!(spec.home_route.as_str(), shell_host::AMBITION_LAUNCHER_ROUTE);
+}

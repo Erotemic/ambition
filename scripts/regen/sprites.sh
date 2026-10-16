@@ -1454,9 +1454,11 @@ run_quality_variants() {
         echo "  (skipped — AMBITION_QUALITY_VARIANTS=0)"
         return 0
     fi
+    # On the job cap's processes: after a full re-render the pass was 554 s
+    # on one, and 98 s on six (measured 2026-10-15), the same files.
     "$python_bin" "$repo_root/scripts/generate_visual_quality_variants.py" \
         --asset-root "$publish_asset_root" \
-        --sprites-only 2>&1 | sed 's/^/  /'
+        --sprites-only --jobs "$AMBITION_SPRITE_JOBS" 2>&1 | sed 's/^/  /'
 }
 
 # `--check`, second half: are the published sheets older than the renderer?

@@ -53,7 +53,7 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6363,14 +6363,14 @@
+@@ -6437,14 +6437,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
@@ -85,11 +85,11 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6963,14 +6963,14 @@
+@@ -7037,14 +7037,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3774,
+-			"pxHei": 3769,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
 +			"pxHei": 915,
@@ -117,7 +117,7 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6963,14 +6963,14 @@
+@@ -7185,14 +7185,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,

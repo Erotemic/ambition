@@ -1719,6 +1719,8 @@ fn carves_by_room(holes: &[Option<usize>]) -> [usize; 2] {
                 )
             })
             .collect(),
+        // The subject is the box carve; a line room's carve is the face's.
+        faces: Vec::new(),
     });
     app.add_systems(Update, crate::portal::bridge_portal_carves);
     app.update();

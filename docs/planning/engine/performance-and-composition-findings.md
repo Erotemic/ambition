@@ -593,6 +593,14 @@ are marked changed a frame. Of ours:
   animation), the HUD's `Visibility` (`hud/declared.rs:784`, 30 a frame),
   ambient motes, hit-flash overlays (`hit_flash.rs:416`, fixed since).
 
+Readers today (MEASURED, `git grep` for `Changed<T>`, `Ref<T>` and
+`is_changed` per component): none for `BodyLifeStats`,
+`ResolvedTechniqueEdges`, `BodyMelee`, `RangedRefire`, `AttackGestureState`,
+`ResolvedAttackGesture`, `PogoTargetVolumes`, `BodyAnimFacts`,
+`PresentedPose`, `BodyPoseView`, `DamageableVolumes`, `ActorRoll`,
+`BodyHealth`; three for `BodyKinematics`, one for `ActionSet`. So the per-body
+false changes cost nothing now; the resource false changes did (F15, F17).
+
 Reading (REASONED): a false change costs little by itself. It matters
 because it makes change detection useless: no `Changed<Body…>` filter, and no
 read-model "built by change" (P5, P12), can skip a body while all of its state

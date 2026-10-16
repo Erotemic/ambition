@@ -277,13 +277,6 @@ pub fn portal_box(normal: Vec2, half_length: f32, half_thickness: f32) -> Vec2 {
     along.abs() * half_length + n.abs() * half_thickness
 }
 
-/// How far out of the exit portal (along its normal) to place a body so it
-/// clears the face and does not re-enter: the body's half-size projected on
-/// the normal, plus the portal thickness and a small margin.
-pub(crate) fn portal_exit_clearance(half_size: Vec2, exit_normal: Vec2) -> f32 {
-    half_size.dot(exit_normal.abs()) + PORTAL_THICKNESS_HALF + 3.0
-}
-
 /// Per-actor cooldown after a portal jump, so the actor does not Begin into
 /// the pair it just crossed. A different pair can be entered at once
 /// (chained-portal rooms). Inserted on teleport and ticked down by

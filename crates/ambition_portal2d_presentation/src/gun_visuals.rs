@@ -359,6 +359,7 @@ mod tests {
                 pos: Vec2::new(498.0, 300.0),
                 size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
+                body: Entity::PLACEHOLDER,
             },
             PortalGun::default(),
             PortalTransit {

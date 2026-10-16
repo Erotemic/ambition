@@ -70,7 +70,8 @@ pub use placement::{
     transit_step, transit_step_with_tuning, SweptSample, TransitStep,
 };
 pub use transit::{
-    portal_teleport_free_bodies, portal_transit, publish_portal_carves, reconcile_transited_bodies,
+    portal_transit, portal_transit_free_bodies, publish_free_body_carves, publish_portal_carves,
+    reconcile_transited_bodies,
     tick_portal_cooldowns, BodyTeleported, FreePortalBody, PortalBodyTransited, PortalCarves,
     PortalEmission, PortalInputWarp, PortalTransit,
 };

@@ -63,6 +63,7 @@ fn spawn_body(app: &mut App, sprite: Sprite, transiting: bool) -> Entity {
         pos: Vec2::new(498.0, 300.0),
         size: Vec2::new(24.0, 40.0),
         facing: 1.0,
+        body: Entity::PLACEHOLDER,
     };
     let frame = PortalWorldFrame { size: WORLD };
     let translation = frame.to_render(kin.pos, 20.0);
@@ -96,16 +97,23 @@ fn piece_materials(app: &mut App) -> Vec<PortalClipMaterial> {
         .collect()
 }
 
-/// Mid-transit with a loaded texture: the real sprite is hidden and both
-/// charts draw as clip-material pieces — `here` clipped at the entry
-/// plane, `through` at the exit plane — so the body never draws its sunk
-/// slice over the far side of the thin wall and nothing pops at the
-/// centroid snap.
+/// Mid-transit with a loaded texture: both charts draw as clip-material
+/// pieces — `here` clipped at the entry plane, `through` at the exit plane
+/// — so the body never draws its sunk slice over the far side of the thin
+/// wall and nothing pops at the centroid snap. The real sprite shows on the
+/// frame the pieces are made (a piece is not drawn on its first frame) and
+/// is hidden from the next on.
 #[test]
 fn transit_replaces_sprite_with_two_clipped_pieces() {
     let mut app = test_app();
     let sprite = loaded_sprite(&mut app);
     let body = spawn_body(&mut app, sprite, true);
+    app.update();
+    assert_eq!(
+        *app.world().get::<Visibility>(body).expect("visibility"),
+        Visibility::Inherited,
+        "the frame the pieces are made, the real sprite still shows"
+    );
     app.update();
 
     assert_eq!(
@@ -227,14 +235,14 @@ fn no_transit_keeps_real_sprite_visible() {
     assert_eq!(count, 0);
 }
 
-/// Texture not loaded: fall back to the pre-clipping behavior — visible
-/// real sprite plus one unclipped whole-sprite exit copy just below the
-/// view window band.
+/// Texture not loaded and no stated size, so no frame to cut by: fall back
+/// to the pre-clipping behavior — visible real sprite plus one unclipped
+/// whole-sprite exit copy just below the view window band. (A sprite with a
+/// stated size is cut without its image: it samples the whole texture.)
 #[test]
 fn missing_texture_falls_back_to_sprite_copy() {
     let mut app = test_app();
-    let mut sprite = Sprite::from_image(Handle::default());
-    sprite.custom_size = Some(Vec2::new(48.0, 48.0));
+    let sprite = Sprite::from_image(Handle::default());
     let body = spawn_body(&mut app, sprite, true);
     app.update();
 

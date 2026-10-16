@@ -699,6 +699,9 @@ tackon_targets=(
     pirate_heavy_axe
     throwing_javelin
     coconut
+    # The seam gauge: a plate of a measured grid the seam lab throws through
+    # portals (scripts/portal_seam_lab.py).
+    seam_gauge
     # The Iron Trooper's chain gun (`evil_heavy`).
     evil_chain_gun
     # Scenery of the primeval trail (an LDtk `Prop`).
@@ -1041,6 +1044,7 @@ canonical_prop_map=(
     "throwing_javelin:javelin"
     "evil_chain_gun:evil_chain_gun"
     "coconut:coconut"
+    "seam_gauge:seam_gauge"
     "pool_noodle:pool_noodle"
     "lasersword_with_guns:gunsword"
     "portal_gun_blue:portal_gun_blue"

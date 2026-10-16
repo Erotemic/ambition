@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_portal2d::{
-    clear_portals_on_reset, portal_fire_system, portal_teleport_free_bodies,
+    clear_portals_on_reset, portal_fire_system, portal_transit_free_bodies, publish_free_body_carves,
     publish_portal_carves, PortalSet,
 };
 
@@ -190,11 +190,19 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
         );
 
-        // Thrown items travel through portal pairs: portal core moves the
-        // `GroundItem` body itself, after the actors' transit.
+        // Thrown items travel through portal pairs by the machine every body
+        // uses: they open the portal they reach, straddle it and cross when
+        // their centre does. Portal core moves the `GroundItem` body itself.
         app.add_systems(
             sim,
-            portal_teleport_free_bodies::<ambition_held_items::GroundItem>
+            publish_free_body_carves::<ambition_held_items::GroundItem>
+                .in_set(PortalSet::Carves)
+                .after(publish_portal_carves)
+                .before(bridge_portal_carves),
+        );
+        app.add_systems(
+            sim,
+            portal_transit_free_bodies::<ambition_held_items::GroundItem>
                 .in_set(GameplayGated)
                 .in_set(PortalSet::Transit)
                 .after(ambition_portal2d::reconcile_transited_bodies),

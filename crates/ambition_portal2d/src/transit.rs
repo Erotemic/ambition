@@ -15,7 +15,7 @@ use super::color::PortalChannel;
 use super::placement::{transit_step_with_tuning, SweptSample, TransitStep, TRANSIT_BEGIN_MARGIN};
 use super::tuning::PortalTuning;
 use super::rooms::{PortalHostDepthsByRoom, PortalRoom, PortalsByRoom};
-use super::types::{find_portal, portal_exit_clearance, PlacedPortal, PortalTransitCooldown};
+use super::types::{find_portal, PlacedPortal, PortalTransitCooldown};
 
 /// A body's position just moved to a portal exit (the centroid crossed).
 /// Carries the entity so a consumer can filter to one body (e.g. the locally
@@ -74,8 +74,6 @@ pub fn publish_portal_carves(
     host_depths: Option<Res<PortalHostDepthsByRoom>>,
     mut carves: ResMut<PortalCarves>,
 ) {
-    use super::placement::{approach_face, capture_face, portal_fits};
-
     carves.holes.clear();
     carves.faces.clear();
     let by_room = PortalsByRoom::collect(&portals, &live);
@@ -110,37 +108,83 @@ pub fn publish_portal_carves(
     for (body_entity, kin, record) in &bodies {
         let room = live.of(body_entity);
         let body = kin.collision_box(record);
-        let size = body.half_size() * 2.0;
         for p in by_room.in_room(room) {
-            if !portal_fits(size, p) {
-                continue;
-            }
-            let ap = p.aperture();
-            let front = pp::front_distance(kin.pos, &ap.frame);
-            // Front side only: in the opening now, or approaching fast enough
-            // to cross this frame. Otherwise a body behind a thin wall could
-            // open a hole through it without transiting.
-            // Moving into it relative to its surface: a portal that moves or
-            // turns onto a still body opens for it.
-            let into = p.relative_velocity(kin.pos, kin.vel).dot(p.normal) < 0.0;
-            let frontal = front >= -TRANSIT_BEGIN_MARGIN
-                && (capture_face(p).strict_intersects(body)
-                    || (into && approach_face(p).strict_intersects(body)));
-            // Fast crossing that skipped Begin: keep the hole open while the
-            // body is inside the carve volume, bounded by the host depth.
-            let hole = pp::carve_face_with_depth(&ap, depths.in_room(room).depth(p.channel));
-            let falling_through = into && hole.strict_intersects(body);
-            if frontal || falling_through {
+            if body_opens(p, body, kin.pos, kin.vel, depths.in_room(room).depth(p.channel)) {
                 let PortalCarves { holes, faces } = &mut *carves;
                 carve(room, p.channel, holes, faces);
             }
         }
     }
-    // Latch: keep a straddled portal open through the centroid crossing, in
-    // the straddling body's room.
+    // Latch: a body that straddles a pair is at both of its ends, so both
+    // stay open through the crossing, in the straddling body's room. With
+    // only the end it entered open, a body the pair took this tick and that
+    // moves later in the tick (a shot) met the closed exit's wall.
     for (body_entity, t) in &transits {
         let PortalCarves { holes, faces } = &mut *carves;
         carve(live.of(body_entity), t.straddling, holes, faces);
+        carve(live.of(body_entity), t.straddling.partner(), holes, faces);
+    }
+}
+
+/// Does a body (its box, its centre and its velocity) open `p`? The one rule
+/// for every body that moves: in the opening from the front, approaching it,
+/// or inside its hole falling through. "Approaching" and "falling" are
+/// relative to the portal's surface, so a portal that moves or turns onto a
+/// still body opens for it. `depth` bounds the hole by the host's thickness.
+fn body_opens(p: &PlacedPortal, body: ae::Aabb, center: Vec2, vel: Vec2, depth: f32) -> bool {
+    use super::placement::{approach_face, capture_face, portal_fits};
+    if !portal_fits(body.half_size() * 2.0, p) {
+        return false;
+    }
+    let ap = p.aperture();
+    let front = pp::front_distance(center, &ap.frame);
+    let into = p.relative_velocity(center, vel).dot(p.normal) < 0.0;
+    // Front side only: in the opening now, or approaching fast enough to
+    // cross this frame. Otherwise a body behind a thin wall could open a hole
+    // through it without transiting.
+    let frontal = front >= -TRANSIT_BEGIN_MARGIN
+        && (capture_face(p).strict_intersects(body) || (into && approach_face(p).strict_intersects(body)));
+    // A fast crossing that skipped Begin keeps the hole open while the body
+    // is inside the carve volume, bounded by the host's thickness.
+    let falling_through = into && pp::carve_face_with_depth(&ap, depth).strict_intersects(body);
+    frontal || falling_through
+}
+
+/// The carves free bodies `B` open, added to the ones
+/// [`publish_portal_carves`] published this frame (it runs first): a thrown
+/// item opens a portal by the same rule a kernel body does, and keeps the
+/// portal it straddles open.
+pub fn publish_free_body_carves<B: FreePortalBody>(
+    portals: Query<(Entity, &PlacedPortal)>,
+    bodies: Query<(Entity, &B, Option<&PortalTransit>)>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    host_depths: Option<Res<PortalHostDepthsByRoom>>,
+    mut carves: ResMut<PortalCarves>,
+) {
+    let by_room = PortalsByRoom::collect(&portals, &live);
+    if by_room.is_empty() {
+        return;
+    }
+    let default_depths = PortalHostDepthsByRoom::default();
+    let depths = host_depths.as_deref().unwrap_or(&default_depths);
+    for (entity, body, transit) in &bodies {
+        let room = live.of(entity);
+        let all = by_room.in_room(room);
+        let aabb = ae::Aabb::new(body.pos(), body.half_extent());
+        // A body that straddles a pair is at both of its ends.
+        let straddling = transit.map(|t| t.straddling);
+        for p in all {
+            let opens = straddling.is_some_and(|c| c == p.channel || c.partner() == p.channel)
+                || body_opens(p, aabb, body.pos(), body.vel(), depths.in_room(room).depth(p.channel));
+            if !opens || find_portal(all, p.channel.partner()).is_none() {
+                continue;
+            }
+            let face = pp::carve_face_with_depth(&p.aperture(), f32::INFINITY);
+            if !carves.faces.contains(&(room, face)) {
+                carves.holes.push((room, face.bounds()));
+                carves.faces.push((room, face));
+            }
+        }
     }
 }
 
@@ -375,59 +419,113 @@ pub struct PortalEmission {
     pub timer: f32,
 }
 
-/// A free in-flight body that travels through portal pairs: a thrown axe, a
-/// javelin. Its owner implements this on the component that IS the body, so
-/// portal core moves the body itself and never names the owner's type or
-/// holds a copy of it. A resting body (`vel == ZERO`) never transits.
+/// A free body that moves on its own (a thrown axe, a javelin, a dropped
+/// item): it straddles a portal and crosses it when its centre does, as every
+/// body does. Its owner implements this on the component that IS the body,
+/// so portal core moves the body itself and never names the owner's type or
+/// holds a copy of it.
 pub trait FreePortalBody: Component<Mutability = bevy::ecs::component::Mutable> {
     /// World position of the body's centre.
     fn pos(&self) -> Vec2;
-    /// Current velocity. `ZERO` means resting.
+    /// Current velocity.
     fn vel(&self) -> Vec2;
-    /// Half-extent of the body's box, for the portal overlap test and the exit
-    /// clearance.
+    /// Half-extent of the body's box.
     fn half_extent(&self) -> Vec2;
-    /// Put the body where the exit portal sends it.
+    /// Put the body where the exit portal sends it, moving as it sends it.
     fn emerge(&mut self, pos: Vec2, vel: Vec2);
 }
 
-/// Moving `B` bodies travel through every placed portal pair (gun-fired,
-/// authored, or link-authored), keeping momentum through the rotation. A body
-/// must move into the face (`vel · normal < 0`) to transit. A teleported body
-/// is placed clear of the exit portal so it does not re-enter at once.
+/// Free bodies `B` travel through every placed portal pair by the one transit
+/// machine ([`transit_step_with_tuning`]) every body uses. A body that enters
+/// an opening straddles it ([`PortalTransit`]); the pair takes it when its
+/// centre crosses, to the image of its centre, keeping its velocity relative
+/// to the surfaces it crosses; and the pair it crossed is latched by a
+/// [`PortalTransitCooldown`]. Nothing teleports from the face of a portal.
 ///
 /// A composition that has both portals and the body type registers
-/// `portal_teleport_free_bodies::<B>` in [`crate::PortalSet::Transit`].
-pub fn portal_teleport_free_bodies<B: FreePortalBody>(
+/// `portal_transit_free_bodies::<B>` in [`crate::PortalSet::Transit`] and
+/// [`publish_free_body_carves::<B>`] in [`crate::PortalSet::Carves`].
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+pub fn portal_transit_free_bodies<B: FreePortalBody>(
+    mut commands: Commands,
     portals: Query<(Entity, &PlacedPortal)>,
-    mut bodies: Query<(Entity, &mut B)>,
+    mut bodies: Query<(Entity, &mut B, Option<&mut PortalTransit>, Option<&PortalTransitCooldown>)>,
     // A free body crosses only a pair of its own live room (OW1).
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-    // The session's map convention, from the resource that owns it.
+    gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     tuning: Res<crate::tuning::PortalTuning>,
+    host_depths: Option<Res<PortalHostDepthsByRoom>>,
+    mut entered: MessageWriter<super::messages::PortalBodyEntered>,
+    mut transited: MessageWriter<PortalBodyTransited>,
 ) {
-    let convention = tuning.convention.map_convention();
     let by_room = PortalsByRoom::collect(&portals, &live);
     if by_room.is_empty() {
         return;
     }
-    for (entity, mut body) in &mut bodies {
-        let (pos, vel, half_extent) = (body.pos(), body.vel(), body.half_extent());
-        let all = by_room.in_room(live.of(entity));
-        let body_aabb = ae::Aabb::new(pos, half_extent);
-        for enter in all {
-            let Some(exit) = find_portal(all, enter.channel.partner()) else {
-                continue;
-            };
-            // Moving into it relative to its surface, as a kernel body does.
-            if enter.relative_velocity(pos, vel).dot(enter.normal) < 0.0
-                && enter.opening_face().strict_intersects(body_aabb)
-            {
-                // It keeps its velocity relative to the surface it crosses.
-                let exit_vel = ae::frame::map_velocity(&enter.frame(), &exit.frame(), convention, pos, vel);
-                let clearance = portal_exit_clearance(half_extent, exit.normal);
-                body.emerge(exit.pos + exit.normal * clearance, exit_vel);
-                break;
+    let default_depths = PortalHostDepthsByRoom::default();
+    let depths = host_depths.as_deref().unwrap_or(&default_depths);
+    for (entity, mut body, mut transit, cooldown) in &mut bodies {
+        let room = live.of(entity);
+        let (pos, vel, half) = (body.pos(), body.vel(), body.half_extent());
+        let gravity_dir = gravity.dir_for(room, ae::Aabb::new(pos, half));
+        let step = transit_step_with_tuning(
+            pos,
+            half * 2.0,
+            vel,
+            None,
+            transit.as_deref().copied(),
+            cooldown.map(|c| c.pair),
+            by_room.in_room(room),
+            gravity_dir,
+            depths.in_room(room),
+            &tuning,
+        );
+        // A measurement trace (`RUST_LOG=ambition_portal::transit_trace=debug`).
+        bevy::log::debug!(
+            target: "ambition_portal::transit_trace",
+            "free body={entity:?} at={:.1},{:.1} vel={:.1},{:.1} step={step:?}",
+            pos.x,
+            pos.y,
+            vel.x,
+            vel.y
+        );
+        match step {
+            TransitStep::Idle | TransitStep::Continue => {}
+            TransitStep::Begin { channel, portal_pos } => {
+                commands.entity(entity).insert(PortalTransit { straddling: channel, crossed: false });
+                entered.write(super::messages::PortalBodyEntered { pos: portal_pos });
+            }
+            TransitStep::Transfer {
+                pos,
+                vel,
+                facing_flip,
+                input_warp,
+                enter_normal,
+                exit_normal,
+                exit_channel,
+                exit_pos,
+                ..
+            } => {
+                body.emerge(pos, vel);
+                commands.entity(entity).insert(PortalTransitCooldown {
+                    remaining: tuning.teleport_cooldown_s,
+                    pair: exit_channel,
+                });
+                if let Some(t) = transit.as_deref_mut() {
+                    t.crossed = true;
+                    t.straddling = exit_channel;
+                }
+                transited.write(PortalBodyTransited {
+                    body: entity,
+                    enter_normal,
+                    exit_normal,
+                    facing_flip,
+                    input_warp,
+                    exit_pos,
+                });
+            }
+            TransitStep::Clear => {
+                commands.entity(entity).remove::<PortalTransit>();
             }
         }
     }

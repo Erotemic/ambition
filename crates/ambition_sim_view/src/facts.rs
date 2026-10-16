@@ -404,6 +404,10 @@ pub struct GroundItemsView(pub Vec<GroundItemFact>);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GroundItemFact {
+    /// The item this row draws: its visual is linked to it
+    /// (`GroundItemVisual`), so a fact of the item that is not on the row (it
+    /// straddles a portal) reaches the visual.
+    pub item: bevy::prelude::Entity,
     pub pos: ae::Vec2,
     pub half_extent: ae::Vec2,
     pub item_id: String,
@@ -434,6 +438,7 @@ pub fn rebuild_ground_items_view(
             .iter()
             .filter(|(_, _, custody)| custody.in_world())
             .map(|(item, ground, _)| GroundItemFact {
+                item,
                 pos: ground.pos,
                 half_extent: ground.half_extent,
                 item_id: ground.spec.id.clone(),

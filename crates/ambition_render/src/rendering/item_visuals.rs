@@ -212,9 +212,16 @@ pub fn report_unloadable_item_art(
     poll_art_watch(&assets, "held item art", &mut watch.held, &mut failed.held);
 }
 
-/// Marks a sprite entity visualizing a [`GroundItem`].
+/// The z of a ground item: over a portal's frame and its window, as a body
+/// is, so an item that crosses a portal is not covered by the portal's line
+/// of light at the seam (measured with the seam gauge: at 8.0, under the
+/// frame's 9.3, half the gauge was hidden as it crossed), and an item in
+/// front of a window is not covered by the window. Under the bodies.
+const GROUND_ITEM_Z: f32 = ambition_platformer2d_core::config::WORLD_Z_DUMMY - 0.2;
+
+/// Marks a sprite entity visualizing a [`GroundItem`]: the item it draws.
 #[derive(Component)]
-pub struct GroundItemVisual;
+pub struct GroundItemVisual(pub Entity);
 
 /// Loaded held and inventory item art, resolved from every provider's
 /// [`HeldItemArtManifest`](ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtManifest):
@@ -297,7 +304,7 @@ pub fn sync_ground_item_visuals(
         };
         let session_scope = session_scope.in_room(Some(room));
         let translation =
-            ambition_platformer2d_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
+            ambition_platformer2d_core::config::world_to_bevy(&world.0, ground.pos, GROUND_ITEM_Z);
         let bound = resolve_art(
             art.as_deref().map(|art| &art.0),
             failed_art.as_deref().map(|failed| &failed.held),
@@ -319,7 +326,7 @@ pub fn sync_ground_item_visuals(
         commands.spawn_session_scoped(
             session_scope,
             (
-                GroundItemVisual,
+                GroundItemVisual(ground.item),
                 sprite,
                 Transform::from_translation(translation),
                 Name::new("Ground item visual"),

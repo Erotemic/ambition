@@ -13,6 +13,9 @@
     // The coconut (renderer target `coconut`): a thing to throw, and what the
     // African swallow carries.
     "coconut": (path: "sprites/props/coconut.png", size: (18.0, 15.0)),
+    // The seam gauge (renderer target `seam_gauge`): a plate of a measured
+    // grid the seam lab throws through portals.
+    "seam_gauge": (path: "sprites/props/seam_gauge.png", size: (40.0, 40.0)),
     // The pool noodle (renderer target `pool_noodle`): a long foam tube to hit
     // with. It lies by the pools of the Noodly Temple. The hand holds it near
     // its near end, so it points out of the hand and turns about the hand

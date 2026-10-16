@@ -101,6 +101,44 @@ pub(crate) fn add_portal_clip_material_plugin(app: &mut App) {
     }
     embedded_asset!(app, "shaders/portal_clip.wgsl");
     app.add_plugins(Material2dPlugin::<PortalClipMaterial>::default());
+    app.add_systems(Startup, warm_the_clip_material);
+}
+
+/// The unit quad every clipped piece is drawn with, made at startup with
+/// the warm-up below: a mesh made on the frame of the first cut was not
+/// drawn on that frame.
+#[derive(Resource, Clone)]
+pub struct PortalPieceQuad(pub Handle<Mesh>);
+
+/// A clear quad of the clip material, drawn for the whole run, so its
+/// pipeline is compiled before the first piece needs it. A pipeline is
+/// compiled the first time something is drawn with it, in the background:
+/// until then nothing with it is drawn. The first body that crossed a portal
+/// in a session was hidden whole on the frame it was first cut, and its
+/// pieces were not drawn (measured with the seam lab: one frame with none of
+/// the gauge, on the first crossing of each run and on no later one).
+fn warm_the_clip_material(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<PortalClipMaterial>>,
+) {
+    let quad = meshes.add(Rectangle::default());
+    commands.insert_resource(PortalPieceQuad(quad.clone()));
+    commands.spawn((
+        Mesh2d(quad),
+        MeshMaterial2d(materials.add(PortalClipMaterial {
+            uv_rect: Vec4::new(0.0, 0.0, 1.0, 1.0),
+            control: Vec4::ZERO,
+            tint: Vec4::ZERO,
+            clip0: CLIP_PLANE_OFF,
+            clip1: CLIP_PLANE_OFF,
+            clip2: CLIP_PLANE_OFF,
+            color_texture: Handle::default(),
+        })),
+        Transform::default(),
+        bevy::camera::visibility::NoFrustumCulling,
+        Name::new("Portal clip material warm-up"),
+    ));
 }
 
 /// An engine-space half-plane (point + outward normal) as the shader's

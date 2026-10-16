@@ -209,7 +209,7 @@ pub use primitives::{
 };
 // Game-supplied art map for walk-into world items: the renderer owns the
 // seam, and each game fills it with its own pickup images.
-pub use item_visuals::WorldItemArt;
+pub use item_visuals::{sync_ground_item_visuals, GroundItemVisual, WorldItemArt};
 pub use wielded_item_visuals::{
     WieldedItemVisualAppExt, WieldedItemVisualCatalog, WieldedItemVisualSpec,
 };

@@ -7,7 +7,7 @@
 
 #![cfg(not(any(feature = "static_content", target_arch = "wasm32", target_os = "android")))]
 
-use ambition_sprite_sheet::baked_sheet_rons::{current, publish_sheet_generation, sheet_rons};
+use ambition_sprite_sheet::baked_sheet_rons::{current, publish_sheet_generation, sheet_rons, SheetTexts};
 use ambition_sprite_sheet::character::sheets::{baked_sheet_mechanics_digest, record_for_sheet_key};
 
 const SHEET: &str = "player_robot_v3";
@@ -47,7 +47,7 @@ fn a_published_sheet_table_is_read_whole_and_a_broken_one_is_refused() {
             }
         })
         .collect();
-    let id = publish_sheet_generation(edited).unwrap_or_else(|refused| panic!("{refused}"));
+    let id = publish_sheet_generation(SheetTexts { sheets: edited, ..SheetTexts::current() }).unwrap_or_else(|refused| panic!("{refused}"));
     assert_eq!(id, first.id() + 1, "a publication is the next generation");
     assert_eq!(current().id(), id);
     assert!(sheet_rons().iter().any(|(key, text)| *key == SHEET && text.contains("collision_scale: 2.5,")), "the table is not the published one");
@@ -59,8 +59,22 @@ fn a_published_sheet_table_is_read_whole_and_a_broken_one_is_refused() {
         .iter()
         .map(|(key, text)| if *key == SHEET { (*key, "[ (target: ") } else { (*key, *text) })
         .collect();
-    let refused = publish_sheet_generation(broken).expect_err("a sheet table that does not parse was published");
+    let refused = publish_sheet_generation(SheetTexts { sheets: broken, ..SheetTexts::current() }).expect_err("a sheet table that does not parse was published");
     assert!(refused.0.iter().any(|(file, _)| file == SHEET), "the refusal names the file: {refused}");
     assert_eq!(current().id(), id, "a refused table changed the generation");
     assert_eq!(collision_scale_in_index(), 2.5, "a refused table changed the records");
+
+    // A body rig is a part of the generation: an edited rig is what a reader
+    // reads, and a rig that does not parse refuses the table.
+    let rig_of = |target: &str| ambition_sprite_sheet::baked_body_rigs::baked_body_rig(target);
+    let (target, text) = *current().body_rigs().first().expect("the premise: this checkout publishes a body rig");
+    assert_eq!(rig_of(target), Some(text), "control: a reader reads the current generation's rig");
+    let edited_rig = kept(format!("{text}\n// edited\n"));
+    let rigs = |text: &'static str| current().body_rigs().iter().map(|(name, was)| (*name, if *name == target { text } else { *was })).collect();
+    let id = publish_sheet_generation(SheetTexts { body_rigs: rigs(edited_rig), ..SheetTexts::current() }).unwrap_or_else(|refused| panic!("{refused}"));
+    assert_eq!(rig_of(target), Some(edited_rig), "the body rig is not the published generation's");
+    let refused = publish_sheet_generation(SheetTexts { body_rigs: rigs("( schema_version: "), ..SheetTexts::current() })
+        .expect_err("a body rig that does not parse was published");
+    assert!(refused.0.iter().any(|(file, _)| *file == format!("{target}_body_rig.ron")), "the refusal names the rig: {refused}");
+    assert_eq!((current().id(), rig_of(target)), (id, Some(edited_rig)), "a refused rig changed the generation");
 }

@@ -3,7 +3,8 @@
 //!
 //! A build that reads its sprite tree off disk (no `embedded_sprites`) adds
 //! [`SpriteSheetReloadPlugin`]. The plugin looks at each sheet manifest
-//! (`*_spritesheet.ron`) and at each page image of those sheets. One look at
+//! (`*_spritesheet.ron`), each body rig (`*_body_rig.ron`) and each page image
+//! of those sheets. One look at
 //! the published tree costs about 100 ms in a debug build (measured
 //! 2026-10-16), so a background thread looks, once a second, and a frame only
 //! takes the changes it found.
@@ -13,21 +14,23 @@
 //! - A changed page image changes only pixels, so it is loaded again at once
 //!   (`AssetServer::reload`), also inside a session. Bevy loads again only an
 //!   image that is loaded.
-//! - A changed sheet manifest changes records that simulation reads too
-//!   (body sizes, hurtboxes, attack volumes, a boss's size), so it waits for
+//! - A changed sheet manifest or body rig changes records that simulation
+//!   reads too (body sizes, hurtboxes, attack volumes, a boss's size, hurt
+//!   parts), so it waits for
 //!   the end of the session, as a restated content schema does. Nothing is
 //!   published while a route prepares a session. The look that saw the
 //!   change reads the whole sheet table again and parses it (about a second
 //!   in a debug build, off the frame); the end of the session publishes it as
 //!   one generation
 //!   (`baked_sheet_rons::publish_sheet_generation`), the `SheetRegistry`
-//!   resource is stated again, each resident character realization is
+//!   resource is stated again, each cast made from the sheets is stated
+//!   again ([`SheetDerivedRestaters`]), each resident character realization is
 //!   retired so that the next session builds it from the new records, and
 //!   the pages of each changed sheet are loaded again.
 //! - A table with a file that does not parse is refused, with each file
 //!   named, and the running table stays.
 //!
-//! Not on this road yet: part flipbooks, body rigs, landmarks, portraits,
+//! Not on this road yet: part flipbooks, landmarks, portraits,
 //! the pack catalogs and the prop sheets a running room drew. Each has its
 //! own process cache (see `docs/planning/engine/content-generation-and-reload.md`).
 
@@ -244,9 +247,15 @@ fn modified(path: &Path) -> Option<SystemTime> {
     std::fs::metadata(path).and_then(|metadata| metadata.modified()).ok()
 }
 
+/// Each sheet manifest and each body rig, the files a sheet generation is read
+/// from. A rig is keyed by its file name, so no rig key is a manifest key.
 fn stamped_manifests(owner: &Path) -> Vec<(String, PathBuf, Option<SystemTime>)> {
+    let rigs = sheet_table::body_rig_files_under(owner)
+        .into_iter()
+        .map(|(target, path)| (format!("{target}{}", sheet_table::BODY_RIG_SUFFIX), path));
     sheet_table::sheet_files_under(owner)
         .into_iter()
+        .chain(rigs)
         .map(|(key, path)| {
             let seen = modified(&path);
             (key, path, seen)

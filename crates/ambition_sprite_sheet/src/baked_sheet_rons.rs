@@ -6,11 +6,13 @@
 //! wasm, Android), so those builds do not read the tree at run time; read from
 //! the tree in a development build.
 //!
-//! The table and everything parsed from it (the record index, the file-root
-//! registry, the mechanics digest) are one [`SheetGeneration`]. A development
-//! build can publish a new one ([`publish_sheet_generation`]); each reader
-//! then reads the new table and the records parsed from it together, so no
-//! reader can see a record of one generation beside the text of another.
+//! The table, everything parsed from it (the record index, the file-root
+//! registry, the mechanics digest) and the body rigs published beside the
+//! sheets ([`crate::baked_body_rigs`]) are one [`SheetGeneration`]. A
+//! development build can publish a new one ([`publish_sheet_generation`]);
+//! each reader then reads the new table and the records parsed from it
+//! together, so no reader can see a record of one generation beside the text
+//! of another.
 
 use std::sync::{OnceLock, RwLock};
 
@@ -22,6 +24,8 @@ pub struct SheetGeneration {
     /// 0 for the table the process read first; each publication adds 1.
     id: u64,
     rons: Vec<(&'static str, &'static str)>,
+    /// `(target, ron_text)` sorted by target.
+    body_rigs: Vec<(&'static str, &'static str)>,
     /// Keyed by file root ([`crate::index_baked_table`]); its map is the
     /// record index.
     registry: crate::SheetRegistry,
@@ -29,13 +33,15 @@ pub struct SheetGeneration {
 }
 
 impl SheetGeneration {
-    fn new(id: u64, rons: Vec<(&'static str, &'static str)>) -> Self {
-        let registry = crate::SheetRegistry::from_baked_table(&rons);
-        Self { id, rons, registry, digest: OnceLock::new() }
+    /// The first table is not checked: a stale or broken publish is named
+    /// where a reader parses it, as before generations existed.
+    fn new(id: u64, texts: SheetTexts) -> Self {
+        let registry = crate::SheetRegistry::from_baked_table(&texts.sheets);
+        Self { id, rons: texts.sheets, body_rigs: texts.body_rigs, registry, digest: OnceLock::new() }
     }
 
     fn of(id: u64, prepared: PreparedSheetTable) -> Self {
-        Self { id, rons: prepared.rons, registry: prepared.registry, digest: OnceLock::new() }
+        Self { id, rons: prepared.texts.sheets, body_rigs: prepared.texts.body_rigs, registry: prepared.registry, digest: OnceLock::new() }
     }
 
     /// Which generation this is: 0 for the table the process read first.
@@ -46,6 +52,11 @@ impl SheetGeneration {
     /// Every sheet manifest, as `(key, ron_text)` sorted by key.
     pub fn rons(&self) -> &[(&'static str, &'static str)] {
         &self.rons
+    }
+
+    /// Every body rig, as `(target, ron_text)` sorted by target.
+    pub fn body_rigs(&self) -> &[(&'static str, &'static str)] {
+        &self.body_rigs
     }
 
     /// The records, keyed by file root.
@@ -76,14 +87,31 @@ pub fn sheet_rons() -> &'static [(&'static str, &'static str)] {
     current().rons()
 }
 
-fn first_table() -> Vec<(&'static str, &'static str)> {
+fn first_table() -> SheetTexts {
     #[cfg(embedded_sprites)]
     {
-        BAKED_SHEET_RONS.to_vec()
+        SheetTexts { sheets: BAKED_SHEET_RONS.to_vec(), body_rigs: crate::baked_body_rigs::BAKED_BODY_RIGS.to_vec() }
     }
     #[cfg(not(embedded_sprites))]
     {
         read_sheet_table_under(crate::published_tree::owner())
+    }
+}
+
+/// The texts of one sheet generation.
+#[derive(Clone, Debug, Default)]
+pub struct SheetTexts {
+    /// Every sheet manifest, as `(key, ron_text)` sorted by key.
+    pub sheets: Vec<(&'static str, &'static str)>,
+    /// Every body rig, as `(target, ron_text)` sorted by target.
+    pub body_rigs: Vec<(&'static str, &'static str)>,
+}
+
+impl SheetTexts {
+    /// The texts of the current generation, to edit.
+    pub fn current() -> Self {
+        let generation = current();
+        Self { sheets: generation.rons().to_vec(), body_rigs: generation.body_rigs().to_vec() }
     }
 }
 
@@ -106,18 +134,27 @@ impl std::fmt::Display for SheetTableRefused {
 /// table costs about a second in a debug build, so a caller can prepare it
 /// off the frame and publish it later.
 pub struct PreparedSheetTable {
-    rons: Vec<(&'static str, &'static str)>,
+    texts: SheetTexts,
     registry: crate::SheetRegistry,
 }
 
-/// Parse and check `rons`. A table with a file that does not parse is
-/// refused, with each such file named.
-pub fn prepare_sheet_table(rons: Vec<(&'static str, &'static str)>) -> Result<PreparedSheetTable, SheetTableRefused> {
-    let mut index = crate::index_baked_table(&rons);
-    if !index.failed.is_empty() {
-        return Err(SheetTableRefused(std::mem::take(&mut index.failed)));
+/// Parse and check `texts`. A table with a sheet that does not parse, or a
+/// body rig that does not parse or prepare, is refused, with each such file
+/// named: a reader of a rig panics on a rig it cannot read.
+pub fn prepare_sheet_table(texts: SheetTexts) -> Result<PreparedSheetTable, SheetTableRefused> {
+    let mut index = crate::index_baked_table(&texts.sheets);
+    let mut failed = std::mem::take(&mut index.failed);
+    for (target, text) in &texts.body_rigs {
+        let checked = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
+            .and_then(|rig| rig.prepare().map(drop).map_err(|error| format!("{error:?}")));
+        if let Err(error) = checked {
+            failed.push((format!("{target}_body_rig.ron"), error));
+        }
     }
-    Ok(PreparedSheetTable { rons, registry: crate::SheetRegistry::from_index(index) })
+    if !failed.is_empty() {
+        return Err(SheetTableRefused(failed));
+    }
+    Ok(PreparedSheetTable { texts, registry: crate::SheetRegistry::from_index(index) })
 }
 
 /// Make `prepared` the sheet table every reader reads, with the records
@@ -138,8 +175,8 @@ pub fn publish_prepared_sheet_table(prepared: PreparedSheetTable) -> u64 {
 /// Prepare `rons` and publish it ([`prepare_sheet_table`],
 /// [`publish_prepared_sheet_table`]). A refused table leaves the readers on
 /// the generation they had.
-pub fn publish_sheet_generation(rons: Vec<(&'static str, &'static str)>) -> Result<u64, SheetTableRefused> {
-    prepare_sheet_table(rons).map(publish_prepared_sheet_table)
+pub fn publish_sheet_generation(texts: SheetTexts) -> Result<u64, SheetTableRefused> {
+    prepare_sheet_table(texts).map(publish_prepared_sheet_table)
 }
 
 fn current_first_id() -> u64 {
@@ -166,16 +203,28 @@ pub fn sheet_files_under(owner: &std::path::Path) -> Vec<(String, std::path::Pat
     crate::sprite_tree::sheet_manifests(owner)
 }
 
-/// The sheet table of the tree under `owner`, read now. Empty in a build that
+/// Each body rig file of the tree under `owner`, keyed by its target, sorted
+/// by target.
+pub fn body_rig_files_under(owner: &std::path::Path) -> Vec<(String, std::path::PathBuf)> {
+    crate::sprite_tree::companions(owner, BODY_RIG_SUFFIX, false)
+}
+
+/// The suffix of a body rig file after its target.
+pub const BODY_RIG_SUFFIX: &str = "_body_rig.ron";
+
+/// The texts of the tree under `owner`, read now. Empty in a build that
 /// embeds its sprites.
-pub fn read_sheet_table_under(owner: &std::path::Path) -> Vec<(&'static str, &'static str)> {
+pub fn read_sheet_table_under(owner: &std::path::Path) -> SheetTexts {
     #[cfg(embedded_sprites)]
     {
         let _ = owner;
-        Vec::new()
+        SheetTexts::default()
     }
     #[cfg(not(embedded_sprites))]
     {
-        crate::published_tree::texts(sheet_files_under(owner))
+        SheetTexts {
+            sheets: crate::published_tree::texts(sheet_files_under(owner)),
+            body_rigs: crate::published_tree::texts(body_rig_files_under(owner)),
+        }
     }
 }

@@ -534,7 +534,14 @@ registered); the shipped composition's casts are each named by
 `each_cast_of_the_shipped_composition_is_stated_again_with_the_sheets`
 (app_it; red with Ambition's restater removed). Ambition's restater has no
 behaviour witness of its own: it stages the live catalog's cast as a facet
-edit does (`stage_cast_from_catalog`). Not yet on the road: part flipbooks, body rigs,
+edit does (`stage_cast_from_catalog`). The body rigs published beside the
+sheets (`*_body_rig.ron`) are a part of the same generation since
+2026-10-16: the watch looks at them, a rig that does not parse or prepare
+refuses the table with the rig named (a reader of a rig panics on one it
+cannot read), and the cast restaters state each cast's rig again (witnesses
+`sheet_generation` and `sheet_derived_cast`, red with the rig table kept in
+its own `OnceLock`, with no rig check, and with the rigs not watched). Not
+yet on the road: part flipbooks,
 landmarks, portraits, pack catalogs, the prop sheets a room drew, and a body
 already bound at the same tier (the generation key above). The retire and
 the page reload have no witness of their own.

@@ -259,6 +259,20 @@ the crossing frame.
   have it, show the left of the screen unchanged across the crossing.
 - **A strip at the screen edge** on the crossing frame: the exit window's capture does not
   reach the new edge of the screen for one frame (black at `high` in the capture).
+- **The seam sliver** (Jon's frames 7→8 at c146/c147): the near-portal window was a
+  trapezoid whose side rays stopped at ~86.6° (far corners at a 1e5 clamp, world-size deep;
+  `WindowShape` capped turns at 1.55 rad), so a wedge beside the face past each end of the
+  opening was never the far side's, and it changed sides at the crossing (measured: 1–2 px
+  at the ends, ~11 px 155 px above). Now a window is pulled flush with the face as the
+  body's edge closes the last 24 px to the opening (`ConePlan::flush`, by position, not
+  time); past `MAX_TURN` a side's near end goes out along the face, so flush is the whole
+  half-plane. Unverified in the game.
+- **A ledge flush with an opening's end drops the body standing on it** (Jon's frames
+  17–21, c146's top end = the ledge top, y 208). Its feet graze the capture face, the body
+  opens the hole, the carve takes the ledge's top from under it, it sinks 0.6 px into the
+  opening, and the snag's no-worse rule pushes it 2.3–4.5 px back and stops it: a fall and a
+  land every two ticks. Proposed: a body opens a portal only when its span along the face
+  fits the opening (the snag's rule: only a body that can pass whole goes through).
 - **Two ends that face each other** show a picture in a picture; one level of recursion leaves
   a strip at the far edge that the next frame shows as a window.
 

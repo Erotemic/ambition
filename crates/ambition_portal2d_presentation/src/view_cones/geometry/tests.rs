@@ -1288,3 +1288,40 @@ fn the_end_a_body_crossed_into_takes_over_even_when_the_eye_cannot_tell() {
     assert!(super::takes_over(&viewer(Some(right.channel)), right.channel, &left));
     assert!(!super::takes_over(&viewer(Some(right.channel)), left.channel, &right), "only the end it crossed into");
 }
+
+#[test]
+fn a_viewer_at_the_opening_sees_the_whole_half_plane_past_its_ends() {
+    // A wall portal facing +x; the viewer's body is at the opening. What is
+    // behind the face, past the ends of the opening too, is the far side's:
+    // a sliver beside the face changed sides at each crossing (Jon
+    // 2026-10-16).
+    let enter = placed(PortalGunColor::BLUE.channel(), Vec2::new(500.0, 400.0), Vec2::X);
+    let exit = placed(PortalGunColor::ORANGE.channel(), Vec2::new(756.0, 400.0), Vec2::NEG_X);
+    let viewer = PortalViewer {
+        observer: None,
+        room: None,
+        present: true,
+        eye: Vec2::new(503.0, 410.0),
+        forward: Vec2::NEG_X,
+        half_size: Vec2::new(15.0, 24.0),
+        on_back_of: None,
+        crossed_into: None,
+        occluders: Vec::new(),
+    };
+    let (clip_min, clip_max) = (Vec2::ZERO, Vec2::new(1000.0, 800.0));
+    let reach = (clip_max - clip_min).length();
+    let plan = compute_cone(&enter, &exit, &dynamic_config(), Some(&viewer), Vec2::new(4000.0, 1200.0), MapConvention::Reflection);
+    assert_eq!(plan.flush, 1.0, "premise: the body is at the opening");
+    let (a, b) = (enter.aperture(), exit.aperture());
+    let shape = WindowShape::of(&blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &a, &b, MapConvention::Reflection), &a, reach);
+    let area = |shape: WindowShape| {
+        let poly = clip_polygon_to_rect(&shape.cone(&a, &b, MapConvention::Reflection).entry_quad, clip_min, clip_max);
+        let n = poly.len();
+        (0..n).map(|i| poly[i].perp_dot(poly[(i + 1) % n])).sum::<f32>().abs() * 0.5
+    };
+    let half_plane = 500.0 * 800.0;
+    assert!(half_plane - area(shape) > 100.0, "premise: the cone's shape alone leaves a sliver");
+    assert!((area(shape.flushed(plan.flush, reach)) - half_plane).abs() < 1.0, "flush: {}", area(shape.flushed(plan.flush, reach)));
+    // Short of the opening it is the cone's shape, untouched.
+    assert_eq!(shape.flushed(0.0, reach), shape);
+}

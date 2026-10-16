@@ -240,31 +240,43 @@ pub fn ambition_startup_duration() -> std::time::Duration {
         .sum()
 }
 
-/// Compose the optional startup vanity screens in front of the launcher.
+/// Compose the optional startup vanity screens in front of the route the host
+/// boots into: the launcher, or the route `AMBITION_BOOT_ROUTE` names.
 ///
 /// The HOST chooses this frontend presentation policy — `--direct` and the
 /// rendered-ownership tests simply don't compose it and boot straight to the
 /// launcher. It is a list of cards, each auto-advancing on its own timing and
 /// each skippable with confirm (Enter / South); on completion it routes to the
-/// launcher. No gameplay session exists during startup: it is a plain shell
-/// experience, not a gameplay route, so the simulation stays asleep and the
-/// launcher owns exactly one frontend authority once the last card hands off.
+/// host's initial route. No gameplay session exists during startup: it is a
+/// plain shell experience, not a gameplay route, so the simulation stays
+/// asleep and the next route owns exactly one frontend authority once the last
+/// card hands off.
 ///
 /// Adding another card is one more entry in `segments` — no new state.
 ///
 /// Uses the existing shell SEQUENCE mechanism (no new state machine): a
 /// `ShellSequenceCatalog` entry keyed by the startup experience, a route whose
-/// `on_complete` is `GoTo(launcher)`, and the startup route as the initial one.
+/// `on_complete` is `GoTo(` the composed initial route `)`, and the startup
+/// route as the initial one. Call it after the shell host is composed: it
+/// reads the initial route from there.
 pub fn compose_ambition_startup_sequence(app: &mut App) {
     use ambition_platformer2d::game_shell::{
         ShellExperienceId, ShellSequenceCatalog, ShellSequenceSpec,
     };
 
+    // The route the host was composed to boot into: the cards go in front of
+    // it, and do not replace it.
+    let after_startup = app
+        .world()
+        .resource::<ShellHostConfiguration>()
+        .spec
+        .as_ref()
+        .map_or_else(|| AMBITION_LAUNCHER_ROUTE.into(), |spec| spec.initial_route.clone());
     app.world_mut()
         .resource_mut::<ShellRouteCatalog>()
         .register(
             ShellRouteSpec::new(AMBITION_STARTUP_ROUTE, AMBITION_STARTUP_EXPERIENCE)
-                .on_complete(ShellCompletionPolicy::GoTo(AMBITION_LAUNCHER_ROUTE.into())),
+                .on_complete(ShellCompletionPolicy::GoTo(after_startup)),
         );
     app.world_mut()
         .resource_mut::<ShellSequenceCatalog>()
@@ -274,8 +286,8 @@ pub fn compose_ambition_startup_sequence(app: &mut App) {
                 segments: ambition_startup_segments(),
             },
         );
-    // Boot into the startup card; home stays the launcher, so the startup's
-    // completion AND any later QuitToHome both resolve to the launcher.
+    // Boot into the startup card; home stays the launcher, so any later
+    // QuitToHome resolves to the launcher.
     app.world_mut()
         .resource_mut::<ShellHostConfiguration>()
         .spec = Some(ShellHostSpec::new(

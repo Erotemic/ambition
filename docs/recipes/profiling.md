@@ -885,6 +885,7 @@ AMBITION_BOOT_ROUTE=mary_o_gameplay AMBITION_AUTOPLAY=mary_o \
   scripts/profile_android.sh all --profile-build --launch --warmup 25 --duration 30 --name all-maryo-auto
 ```
 
+The startup cards play first (about 6 s), then the hub goes to the boot route.
 On the desktop: `AMBITION_AUTOPLAY=mary_o capture_scene --route mary_o_gameplay ...`.
 The autopilot builds its graphs on the async compute pool (worker threads,
 not the main thread): read the main thread with `--thread`.

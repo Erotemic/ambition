@@ -407,22 +407,6 @@ both the gate and the prompt read. Under rollback a cached value must be
 rollback state or derived from inputs that a restore marks changed; check
 each cache against that before it lands. Together with F15 this is P12.
 
-### F18 — Other steady churn of ours (probe)
-
-MEASURED (probe churn, per frame at idle):
-
-- Sanic: `gravity_visuals.rs:29` despawns and respawns every gravity-zone
-  visual every frame (1.43 each way); it runs in `Update` with no condition.
-- Mary-O: `rigged.rs:923` spawns rig part slots and despawns as many, ~1.4 a
-  frame each.
-- Every game: `lifecycle/session.rs:316` and `:326` insert
-  `SessionScopedEntity` and then `InRoomInstance` as two inserts after each
-  session spawn (4-8 a frame each): three archetype moves per spawn instead of
-  one. Fix: one bundle in the spawn.
-- Outside our code: `FixedMainScheduleOrder` removed and inserted per fixed
-  tick (Bevy), `bevy_ggrs` reinserts `Session`, `PlayerInputs` and
-  `FixedTimestepData` every frame.
-
 ### F17 — The hub respawns a room's parallax every frame
 
 MEASURED (probe churn, hub `basement_enemies`, 595 frames): exactly 1.000
@@ -448,7 +432,11 @@ parallax spawn or despawn.
 MEASURED (probe churn, per frame at idle):
 
 - Sanic: `gravity_visuals.rs:29` despawns and respawns every gravity-zone
-  visual every frame (1.43 each way); it runs in `Update` with no condition.
+  visual every frame (1.43 each way in the first probe run); it runs in
+  `Update` with no condition. Fixed; verified by a unit test (an unchanged
+  zone keeps its entities). The later Sanic runs, before and after the fix,
+  had no live gravity zone at the captured point, so the probe cannot show
+  the difference.
 - Mary-O: `rigged.rs:923` spawns rig part slots and despawns as many, ~1.4 a
   frame each.
 - Every game: `lifecycle/session.rs:316` and `:326` insert
@@ -458,24 +446,6 @@ MEASURED (probe churn, per frame at idle):
 - Outside our code: `FixedMainScheduleOrder` removed and inserted per fixed
   tick (Bevy), `bevy_ggrs` reinserts `Session`, `PlayerInputs` and
   `FixedTimestepData` every frame.
-
-### F17 — The hub respawns a room's parallax every frame
-
-MEASURED (probe churn, hub `basement_enemies`, 595 frames): exactly 1.000
-`PresentedRoomParallax` root spawn, 2.000 parallax layer spawns, 2.000 layer
-despawns and 2.000 `PresentedForView` inserts (`parallax.rs:623`) per frame;
-also 1.000 `WieldedItemVisual` spawn per frame. A steady rate of exactly one
-per frame is a loop, not a load.
-
-Reading (REASONED, to confirm with the change detector of F15):
-`refresh_parallax_layers_on_quality_change` (`parallax.rs:325`) despawns every
-parallax layer and every `PresentedRoomParallax` when `GameAssets` is changed;
-`present_live_room_parallax` spawns them again on the next frame. So
-`GameAssets` is most likely marked changed every frame. A candidate writer:
-`ensure_active_room_parallax_theme` (`parallax.rs:458`) calls
-`ensure_parallax_layers_for_room` through `ResMut<GameAssets>` for a live room
-whose theme is not resident and not marked "without art". The comment at
-`parallax.rs:481` already names this risk for the resident case.
 
 ### F19 — A widely shared system parameter is a per-system cost
 
@@ -525,6 +495,18 @@ read-model "built by change" (P5, P12), can skip a body while all of its state
 is marked changed every tick. So the order is: first make writes mark only
 real changes (pass `Mut<T>` into the step, or compare before writing), then
 the change-driven read-models pay. The detector verifies each step.
+
+Sanic act 1 (MEASURED, `probe/sanic_act1_v2`, 561 frames idle): ~1,200
+values changed a frame; 79 components and resources of ours are changed on
+about every frame. Among them the portal presentation takes `Assets<Mesh>`,
+`Assets<Image>` and `Assets<ColorMaterial>` through `&mut` every frame
+(`ambition_portal2d_presentation/src/view_cones.rs:1035-1037`) in a game with
+no portals: a composition cost (P1) and a false change. Also every frame: the
+input-system resources (`SeatControlFrameModes`, `SeatRawFrames`,
+`MenuInputState`, ...), the camera read-models, the music and audio state,
+the lifecycle resources of the provider (`ShellRouteHolds`,
+`PreparedPlatformerSessions`, ...), the two trace buffers, and all the
+narrative and host-intent ledgers.
 
 Verified with it (MEASURED): the `star.rs` fix (F15) works. After it,
 `ActionSet` and `ActorMoveset` were changed 17 times in 561 frames (loading),

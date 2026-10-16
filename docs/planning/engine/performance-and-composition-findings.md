@@ -391,6 +391,14 @@ is on would remove the re-uploads and the draws of idle overlays. The comment
 there explains why the overlay asserts `Visible` (portal compositing), so this
 needs a check of the portal path first.
 
+Open (MEASURED, `probe/basement_enemies_pressall`): after the fix, ~9.4k of
+the hub's 15.3k allocations a frame are on schedule spans, not on a system:
+`GgrsSchedule` 3,877, `Update` 3,067, `PostUpdate` 1,558, `PreUpdate` 857. In
+standalone Mary-O (parallel executor) the same work is on system spans.
+REASONED: this is work between systems under the single-threaded executor,
+most likely the application of each system's commands; the probe does not
+yet put a span on it. Next probe step: a span around command application.
+
 ### F14 — Room isolation re-derives every room mask every frame
 
 MEASURED (source read; allocations from F13). `isolate_live_rooms`

@@ -60,10 +60,9 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // CC6 host attachment: attribute placed portals to the identified
         // face they sit on, then re-derive each hosted aperture's frame from
         // its host every frame (§5-P2 step 2). Runs at the FRONT of
-        // `PortalSet::Frame`, before the crate's link/evict chain
-        // (eviction must see the post-move apertures + their frame deltas),
-        // and `Transit` is ordered after the platform sync via the encounter
-        // schedule's chain, so the aperture reads this frame's host pose.
+        // `PortalSet::Pose`, after the platforms advance and before the link
+        // chain, the carves and every body's integration, so all of them read
+        // this tick's host pose.
         app.add_systems(
             sim,
             (
@@ -71,7 +70,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 crate::portal::host_adapter::refresh_hosted_portal_frames,
             )
                 .chain()
-                .in_set(PortalSet::Frame)
+                .in_set(PortalSet::Pose)
                 .before(ambition_portal2d::PortalLinkResolution),
         );
         app.add_systems(
@@ -206,8 +205,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             sim,
             ambition_portal2d::evict_free_straddlers_on_portal_change::<ambition_held_items::GroundItem>
                 .in_set(PortalSet::Frame)
-                .after(ambition_portal2d::equalize_pair_apertures)
-                .before(ambition_portal2d::evict_straddlers_on_portal_change),
+                .before(ambition_portal2d::PortalHistoryAdvance),
         );
         app.add_systems(
             sim,

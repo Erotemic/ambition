@@ -1,7 +1,8 @@
 //! Portal simulation assembly and schedule placement.
 //!
 //! Required ordering:
-//! - Carves publish after gravity-zone collection and before core simulation.
+//! - Pose (hosted apertures, links) after the moving platforms advance, then Carves, both
+//!   before bodies integrate.
 //! - Input warp runs after interaction input and before the primary frame is committed to
 //!   `SlotControls`.
 //! - Frame (link resolution, straddler eviction) is a pose-dependent carry: it
@@ -48,14 +49,24 @@ impl Plugin for PortalSchedulePlugin {
                 .in_set(PortalSet::Transited),
         );
 
-        // Carves publish after gravity-zone collection and before core
-        // simulation.
+        // Pose: the hosts have moved this tick (the platforms advance first),
+        // and no body has integrated against them yet. Each hosted aperture
+        // takes its host's pose here, and the carves are cut from that pose,
+        // so the hole a body integrates into, the plane it crosses and the
+        // host are one pose.
+        app.configure_sets(
+            sim,
+            PortalSet::Pose
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate)
+                .after(ambition_platformer2d_shared_tangle::schedule::MovingPlatformsAdvanced)
+                .run_if(gameplay_allowed),
+        );
         app.configure_sets(
             sim,
             PortalSet::Carves
-                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .after(ambition_platformer2d_shared_tangle::gravity::GravityZonesCollected)
-                .before(Platformer2dSimulationPhase::CoreSimulation),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate)
+                .after(PortalSet::Pose)
+                .after(ambition_platformer2d_shared_tangle::gravity::GravityZonesCollected),
         );
 
         // InputWarp: input rewrite in the player-input phase, after

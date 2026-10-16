@@ -1254,7 +1254,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             (
                 crate::avatar::rescue_falling_bodies,
-                crate::avatar::advance_moving_platforms,
+                crate::avatar::advance_moving_platforms
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::MovingPlatformsAdvanced),
                 snapshot_body_contact,
             )
                 .chain()

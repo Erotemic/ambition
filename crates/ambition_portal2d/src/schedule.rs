@@ -11,8 +11,15 @@ use bevy::prelude::*;
 /// behavior; otherwise use the app-level sets.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum PortalSet {
-    /// Publish portal collision carves (the host orders this against any
-    /// early-world snapshot it needs, e.g. a gravity-zone snapshot).
+    /// This tick's apertures: each hosted portal takes its host's pose, then
+    /// links resolve and each pair's opening is equalised. A host places it
+    /// after its moving hosts advance and before anything collides with or
+    /// crosses an aperture, so the carve, the collision world and the
+    /// crossing all see one pose. [`PortalSet::Carves`] follows it.
+    Pose,
+    /// Publish portal collision carves, after [`PortalSet::Pose`] (the host
+    /// also orders this against any early-world snapshot it needs, e.g. a
+    /// gravity-zone snapshot).
     Carves,
     /// Input rewrites that happen before the host input frame is synced.
     InputWarp,
@@ -28,11 +35,10 @@ pub enum PortalSet {
     RoomReset,
     /// Temporary ability suppression while crossing a portal aperture.
     TransitGuards,
-    /// This tick's portal frames: link resolution, aperture equalisation, and
-    /// eviction of bodies straddling a plane that moved or closed. Eviction
-    /// moves bodies, so a host places this set with its other carries, before
-    /// anything reads the tick's travelled path. [`PortalSet::Transit`] follows
-    /// it.
+    /// Eviction of bodies straddling a plane that moved or closed since the
+    /// last tick. Eviction moves bodies, so a host places this set with its
+    /// other carries, before anything reads the tick's travelled path.
+    /// [`PortalSet::Transit`] follows it.
     Frame,
     /// PlacedPortal cooldown, body transit, item transit, and actor roll updates.
     Transit,

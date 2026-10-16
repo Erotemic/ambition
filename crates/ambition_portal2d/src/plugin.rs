@@ -173,6 +173,7 @@ impl Plugin for PortalSimulationPlugin {
             crate::forget_portal_frames_on_activation
                 .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate),
         );
+        app.configure_sets(sim, PortalSet::Pose.before(PortalSet::Carves));
         app.configure_sets(sim, PortalSet::Frame.before(PortalSet::Transit));
         app.configure_sets(
             sim,
@@ -183,15 +184,21 @@ impl Plugin for PortalSimulationPlugin {
         app.add_systems(
             sim,
             (
-                // Link ids to channel pairs, then equalize each pair's opening.
-                // First, so transit, carve, and eviction see the results.
+                // Link ids to channel pairs, then equalize each pair's opening,
+                // with the tick's pose: the carve, eviction and transit see the
+                // results.
                 crate::resolve_portal_links.in_set(crate::PortalLinkResolution),
                 crate::equalize_pair_apertures,
-                // A portal that moved or closed under a straddling body pushes
-                // it clear, before transit runs.
-                crate::evict_straddlers_on_portal_change,
             )
                 .chain()
+                .in_set(PortalSet::Pose),
+        );
+        // A portal that moved or closed under a straddling body pushes it
+        // clear, before transit runs.
+        app.add_systems(
+            sim,
+            crate::evict_straddlers_on_portal_change
+                .in_set(crate::PortalHistoryAdvance)
                 .in_set(PortalSet::Frame),
         );
         app.add_systems(

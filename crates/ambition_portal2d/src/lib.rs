@@ -58,7 +58,7 @@ pub use gun_projectile::{
 };
 pub use lifecycle::clear_portals_on_reset;
 pub use link::{
-    equalize_pair_apertures, link_hash, resolve_portal_links, PortalLink, PortalLinkResolution, LINK_CHANNEL_FIRST, UNRESOLVED_LINK_CHANNEL,
+    equalize_pair_apertures, link_hash, resolve_portal_links, PortalHistoryAdvance, PortalLink, PortalLinkResolution, LINK_CHANNEL_FIRST, UNRESOLVED_LINK_CHANNEL,
 };
 pub use messages::{
     ClearPortals, DropPortalGun, FirePortalGun, PickUpPortalGun, PortalBodyEntered,

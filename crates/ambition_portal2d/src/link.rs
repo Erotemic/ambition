@@ -82,14 +82,20 @@ fn link_channel(index: u8) -> PortalChannel {
 
 /// The set [`resolve_portal_links`] runs in.
 ///
-/// Link resolution runs first in `PortalSet::Frame`, and everything after it
+/// Link resolution runs first in `PortalSet::Pose`, and everything after it
 /// reads the result. A host adapter that must publish portal frames before
-/// resolution needs this boundary inside `PortalSet::Frame`.
+/// resolution needs this boundary inside `PortalSet::Pose`.
 ///
 /// It has one member. Adding `equalize_pair_apertures` would also force
 /// adapters to run before equalization, which no one requires.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PortalLinkResolution;
+
+/// The set in which the portal frame history moves on to this tick (the
+/// kernel bodies' eviction, [`evict_straddlers_on_portal_change`](crate::evict_straddlers_on_portal_change)).
+/// A free-body eviction reads the history before it: it runs `.before` this set.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PortalHistoryAdvance;
 
 /// One portal of a link group.
 struct Member {

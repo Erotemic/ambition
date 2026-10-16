@@ -954,13 +954,13 @@ mod host_adapter {
                     .before(apply_portal_camera_continuity),
             );
             // Items and shots that straddle a portal are cut at the seam:
-            // their visuals are made this frame, and cut this frame.
+            // their visuals are made this frame (the sprite authorities), and
+            // cut this frame (the presentation follows observation).
             app.add_systems(
                 Update,
                 publish_transiting_drawn_bodies
-                    .after(ambition_render::rendering::sync_ground_item_visuals)
-                    .after(ambition_render::rendering::projectile_visuals::sync_projectile_visuals)
-                    .before(ambition_portal2d_presentation::sync_portal_body_pieces)
+                    .after(ambition_render::rendering::SpriteVisualSync)
+                    .in_set(PortalObservationSet)
                     .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
             );
         }

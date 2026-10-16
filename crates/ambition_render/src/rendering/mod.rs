@@ -349,7 +349,11 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             .add_systems(
                 Update,
                 (
-                    item_visuals::sync_ground_item_visuals.after(actors::sync_visuals),
+                    // It decides a sprite's visibility (a straddling item is
+                    // drawn by its portal pieces), so it is a sprite authority.
+                    item_visuals::sync_ground_item_visuals
+                        .after(actors::sync_visuals)
+                        .in_set(SpriteVisualSync),
                     item_visuals::sync_world_item_visuals.after(actors::sync_visuals),
                     // Despawn any authored block the collision overlay removes this
                     // frame (a broken brick, a gate-dropped wall): the render half of

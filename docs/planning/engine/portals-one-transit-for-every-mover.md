@@ -172,12 +172,14 @@ A source review of S1-S4 found these. Each has a test in `ambition_portal2d`
 - **Closing planes are taken in a fixed order** (room, then channel), not hash-map order.
 - **Host depth is the host's.** Measured through moving blocks where they are; a portal on a
   bare line (a plank) has depth 0, so the rescue does not take a body under the plank.
+- **One host pose a tick** (`PortalSet::Pose`). The platforms advance
+  (`MovingPlatformsAdvanced`), the hosted apertures take their pose, the links resolve, the
+  carves are cut, and then the bodies integrate. Before, the carve was cut from the last
+  tick's pose: on F it lagged the plank by 0.54 px and 0.4° (`a_moving_portal_is_carved_where_it_is`).
+  The lab after it (`low`): every pair crossed, gauge dip 0.88-0.995, shot 0.92-0.985.
 
 ## Open
 
-- **One host pose for the carve and the transit.** The carve publishes before the platforms
-  move, and the hosted frames refresh after the bodies integrate, so a moving plank's hole
-  lags its portal by a tick.
 - **The robot's launch on the wall and slope pairs.** Hands-off, the kernel's air stop
   assist (3750 px/s²) stops a 150 px/s launch in about 3 px. The lab should hold the move
   toward the portal, or aim from a measured flight.

@@ -287,6 +287,13 @@ pub enum WorldPrepSet {
     ContactDamage,
 }
 
+/// The set the moving platforms advance in, inside
+/// [`WorldPrepSet::BeforeIntegrate`]: after it, every platform has this
+/// tick's pose. A reader of a host's pose for this tick (a portal riding a
+/// plank) runs after it. One member, so `.after` waits for nothing else.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct MovingPlatformsAdvanced;
+
 /// Public schedule labels for held-item and ground-item simulation.
 /// The set `rebuild_feature_ecs_world_overlay` runs in, so a consumer can order
 /// against a NAME instead of against a function in the actor kernel.

@@ -510,53 +510,37 @@ fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
     );
 }
 
-/// Repacking a sheet does not redraw it.
-///
-/// The ultrapack builds its own [`SheetRecord`] from atlas rects and cannot know
-/// the drawn facing. The base manifest's facing must be carried onto it, as the
-/// caller carries `tuning`. Both west-drawn characters are packed at all four
-/// tiers.
-///
-/// A tree with no regen output has no pack. The `has_baked_packs` build-script
-/// cfg then marks the test `ignored` with a reason, not failed.
+/// A packed target keeps the facing its artwork was drawn in, and the pack
+/// cannot know it: the record a pack synthesizes takes it from the target's
+/// base manifest. The shipped pack holds only the groups a runtime reader
+/// loads, so the pack here is a catalog of one frame of a left-drawn sheet.
 #[test]
-#[cfg_attr(
-    not(has_baked_packs),
-    ignore = "this tree has no ultrapack (regen output is gitignored) — run ./scripts/regen/sprites.sh"
-)]
 fn a_packed_target_keeps_the_facing_its_artwork_was_drawn_in() {
-    for target in ["patent_clerk", "carl_stargan"] {
-        let base = record_for_sheet_key(target)
-            .unwrap_or_else(|| panic!("{target}'s sheet is baked into the sheet table"));
-        // Premise: without it the checks below pass vacuously.
-        assert!(
-            base.authored_faces_left,
-            "{target}'s base manifest must declare its left-drawn artwork"
-        );
+    let target = "patent_clerk";
+    let base = record_for_sheet_key(target)
+        .unwrap_or_else(|| panic!("{target}'s sheet is baked into the sheet table"));
+    // Premise: without it the check below passes vacuously.
+    assert!(base.authored_faces_left, "{target}'s base manifest must declare its left-drawn artwork");
+    let catalog = crate::SpritePackCatalog::parse(&format!(
+        r#"{{"page_size": 256, "scale": 1.0, "pages": ["ultrapack_0.png"], "targets": {{"{target}": {{"idle": [
+            {{"index": 0, "page": 0, "x": 0, "y": 0, "w": 40, "h": 60, "off": [0, 0], "src": [64, 64], "duration_ms": 100}}
+        ]}}}}}}"#
+    ))
+    .expect("the fixture catalog parses");
+    let spec = super::pack_spec_in(&catalog, target, &DEFAULT_TUNING).expect("the packed target has an idle row");
+    assert!(spec.authored_faces_left(), "the pack dropped {target}'s drawn facing");
+    // Control: a target drawn facing right packs facing right.
+    let right = catalog_with(&catalog, "news_board");
+    let spec = super::pack_spec_in(&right, "news_board", &DEFAULT_TUNING).expect("the packed target has an idle row");
+    assert!(!spec.authored_faces_left(), "a right-drawn sheet was packed as left-drawn");
+}
 
-        let mut tiers_checked = 0usize;
-        for scale in [
-            super::super::TextureResolutionScale::Full,
-            super::super::TextureResolutionScale::Half,
-            super::super::TextureResolutionScale::Quarter,
-            super::super::TextureResolutionScale::Potato,
-        ] {
-            let Some((tier, spec)) = try_load_pack_spec_for_target(target, &DEFAULT_TUNING, scale)
-                .map(|(spec, tier)| (tier, spec))
-            else {
-                continue;
-            };
-            tiers_checked += 1;
-            assert!(
-                spec.authored_faces_left(),
-                "the {tier} pack dropped {target}'s drawn facing"
-            );
-        }
-        assert!(
-            tiers_checked > 0,
-            "no baked pack tier resolved {target}, so this proved nothing"
-        );
-    }
+fn catalog_with(catalog: &crate::SpritePackCatalog, target: &str) -> crate::SpritePackCatalog {
+    let mut renamed = catalog.clone();
+    let entry = renamed.targets.values().next().cloned().expect("the fixture packs one target");
+    renamed.targets.clear();
+    renamed.targets.insert(target.to_string(), entry);
+    renamed
 }
 
 /// A character's gameplay body must not depend on the graphics setting.

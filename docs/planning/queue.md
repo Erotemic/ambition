@@ -1886,12 +1886,13 @@ the publish scripts. Plan:
 **Ruling:** Q82, Q83 (2026-10-04).
 
 **Current state:** full quality is the bare `sprites/` root and the reduced
-tiers are suffixed siblings; the packager ships every file, including the
-98.8% of the 449 MB ultrapack that no runtime road reaches.
+tiers are suffixed siblings. ✅ 2026-10-15, the ultrapack's runtime product
+is cut by runtime unit: only the pack-plan groups a runtime reader loads ship
+(`runtime_groups`), 1.8 MB, was 695 MB; the whole pack is a source in the
+renderer's cache (owner page).
 
 **Next action:** audit the listed path builders, then move to
-`<root>/{full,half,quarter,potato}/` in one change; then cut the ultrapack's
-runtime product by runtime unit.
+`<root>/{full,half,quarter,potato}/` in one change.
 
 **Acceptance:** every tier is a named directory; the packager selects roots
 and has no new exclusion; the packaged ultrapack holds only reachable pages;

@@ -1723,6 +1723,11 @@ then
     # frames are drawn again, to the bytes of a full pack. Measured
     # 2026-10-15 on the full tier: a recolour of one sheet 6.7 s, a full
     # pack 124 s.
+    # Each tier reads its sheets and encodes its pages on threads (`--jobs`;
+    # the bytes do not change). The threads of the four tiers are at most
+    # `AMBITION_SPRITE_JOBS` in all, and the two slowest tiers get two each.
+    # Measured 2026-10-15, the four at once: 82 s on 2/2/1/1 threads, was
+    # 130 s on one each; the quarter tier is then the slowest.
     ultrapack_key_dir="$cache_dir/ultrapack"
     mkdir -p "$ultrapack_key_dir"
     ultrapack_inputs="$(ultrapack_inputs_key "$sprites_dir" "$renderer_dir/ambition_sprite2d_renderer/data/pack_plan.yaml")"
@@ -1763,6 +1768,10 @@ then
             finish_ultrapack_tier "$ultrapack_waited"
             ultrapack_waited=$((ultrapack_waited + 1))
         fi
+        case "$tname" in
+            full | half) ultrapack_threads=$(( 2 * AMBITION_SPRITE_JOBS / 6 )) ;;
+            *) ultrapack_threads=$(( AMBITION_SPRITE_JOBS / 6 )) ;;
+        esac
         # The module's own entry, not the `ultrapack` command: an edit to
         # the CLI makes every sheet stale (see `ultrapack.main`).
         run_renderer_python "ultrapack-$tname" -m ambition_sprite2d_renderer.authoring.ultrapack \
@@ -1770,7 +1779,8 @@ then
             --out "$pack_root/$tname" \
             --scale "$tscale" --min-frame-px "$tmin" --page-size "$tpage" \
             --name ultrapack "${ultrapack_plan[@]}" "${ultrapack_debug[@]}" \
-            --state "$ultrapack_key_dir/$tname.state.json" >"$ultrapack_logs/$tname.log" 2>&1 &
+            --state "$ultrapack_key_dir/$tname.state.json" \
+            --jobs "$(( ultrapack_threads > 1 ? ultrapack_threads : 1 ))" >"$ultrapack_logs/$tname.log" 2>&1 &
         ultrapack_pids+=("$!")
         ultrapack_names+=("$tname")
         ultrapack_keys+=("$tier_key")

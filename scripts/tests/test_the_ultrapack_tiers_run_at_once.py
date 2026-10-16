@@ -35,6 +35,9 @@ trace={trace}
 run_renderer_python() {{
     local label="$1"
     local started; started="$(date +%s.%N)"
+    local arg threads=""
+    for arg in "$@"; do [ "${{previous-}}" != --jobs ] || threads="$arg"; previous="$arg"; done
+    echo "$label $threads" >> "$trace.jobs"
     sleep 0.4
     echo "$label $started $(date +%s.%N)" >> "$trace"
     echo "packed $label"
@@ -107,3 +110,20 @@ def test_a_failed_tier_keeps_no_key_and_packs_again(tmp_path: Path) -> None:
     # failed one packs again.
     _, spans = _run(tmp_path, jobs=4, inputs="inputs-b")
     assert [label for label, _, _ in spans] == ["ultrapack-half"], spans
+
+
+def _threads(tmp_path: Path, jobs: int) -> dict[str, int]:
+    # A run of its own: the keys of an earlier run make every tier current.
+    root = tmp_path / f"cap_{jobs}"
+    root.mkdir()
+    _run(root, jobs=jobs)
+    lines = (root / f"trace_{jobs}.jobs").read_text().split("\n")
+    return {label.removeprefix("ultrapack-"): int(n) for label, n in (line.split() for line in lines if line)}
+
+
+def test_the_threads_of_the_tiers_are_within_the_job_cap(tmp_path: Path) -> None:
+    """Each tier reads and encodes on threads (`--jobs`). At once, the four
+    tiers' threads are at most the cap, and the two slowest get the most."""
+    assert _threads(tmp_path, 6) == {"full": 2, "half": 2, "quarter": 1, "potato": 1}
+    # Control: under a cap of 2, two tiers run at once, on one thread each.
+    assert _threads(tmp_path, 2) == {"full": 1, "half": 1, "quarter": 1, "potato": 1}

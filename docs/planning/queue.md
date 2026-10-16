@@ -47,8 +47,9 @@ possible without a recompile. Work in this order:
    item 10 (the sprite publish: `draw-review` and `draw-all` are cached
    since 2026-10-14, `draw-factions` too, the staging root since
    2026-10-15, an unchanged Ultrapack tier since 2026-10-15, a sheet edit
-   that keeps its frames' sizes is a patch since 2026-10-15; left: an edit
-   that changes a frame's trimmed size re-packs every tier, about 131 s).
+   that keeps its frames' sizes is a patch since 2026-10-15; an edit that
+   changes a frame's trimmed size re-packs every tier: 74 s in a publish
+   since the tiers read and encode on threads, was 131 s).
 3. Pack elegance: admission diagnostics that name the file and the field
    (done 2026-10-15: `FacetSource::parse` gives the field path, ca3bd5d8f);
    [CPU-LADDER](#cpu-ladder--the-brain-owns-the-knobs-smash-owns-the-ladder)
@@ -1123,6 +1124,11 @@ variants. Also found in that regen:
     sidecar for a manifest of one sheet. It now reads only the sheets it
     registers: 1.66 s, was 24.8 s, byte-identical (renderer 38bbe7e,
     `test_the_curated_manifest_reads_only_the_sidecars_it_registers`).
+    **Built 2026-10-15, Ultrapack threads:** each tier reads its sheets and
+    encodes its pages on threads, the same bytes (renderer 40258ae); the
+    four tiers' threads are at most `AMBITION_SPRITE_JOBS` (2/2/1/1). The
+    four at once: 82 s, was 130 s; 74 s in a real publish (126 s wall for
+    the publish).
     **Built 2026-10-15, the staging root:** a full publish writes into a
     copy of the five runtime roots (`sprites`, the three tiers,
     `sprite_packs`) under the renderer's `.cache/publish_staging`, and moves

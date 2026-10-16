@@ -60,6 +60,42 @@ extension lowering 32/34. About 170 systems a frame (17%).
 
 ## Findings
 
+### F0 — A third of the phone's CPU is the executor's work for each system, outside any system
+
+MEASURED (phone, `android-all-maryo-1-1`, every sample's full call chain,
+`symbolize_android_profile.py --ours`). 32.2% of all app samples are in the
+schedule executor with no system body on the stack: per system, before or
+after it runs. By innermost frame: access checks over component bitsets
+(`bevy_ecs/query/access.rs` with `fixedbitset`, about 2.9%), the
+`TypeId` test that finds apply-deferred points (`system/system.rs` and
+`executor/mod.rs`, about 2.5%), archetype-cache updates
+(`update_archetypes_unsafe_world_cell`, `query/state.rs`), parameter
+validation (`function_system.rs`), and allocation in the executor. A further
+44.8% has no frame of ours at all: the render world, the GPU driver
+(`vulkan.adreno.so`), the kernel, and the task pool.
+
+What it means (REASONED): this cost grows with the number of systems that run
+each frame (about 1000) and, for the access checks, with the number of
+component and resource types the world has registered (about 1900 and 1400).
+It does not depend on what the systems do. So the levers are: fewer systems
+installed (P1, P3), fewer and coarser systems where many small ones do one
+job (the ten narrative ledgers), a set run condition that skips a whole
+feature group when it has no work (a skipped system pays none of the per-system
+work above), and fewer registered types (291 message types, 330 GGRS snapshot
+resources).
+
+Lines of ours that do take time (each under 1.5%): `room_instance.rs:172`
+(1.4%), `room_graph.rs:432` and `:471`, `clip_material.rs:107`,
+`ambition_entity_catalog/src/lib.rs:1563`, `touch_input/virtual_device.rs:50`,
+`wallet_shield.rs:40`, `held_items.rs:108`, `hand.rs:63`.
+
+**Mary-O only, against every game (phone, one run each).** MEASURED: with
+`AMBITION_HUB_GAMES=mary_o` the app used 41.7 s of CPU in 30 s, against
+49.9 s with every game (-17%), and 38% fewer context switches. Frame time was
+not better in this pair (p50 41-69 ms against 24-46 ms), but the pair is
+confounded: other commits (97ff2541e, 11130fb49), one run each, and the place
+in the level. Clocks were at their maximum and thermal status 0 in both.
+
 ### F1 — The hosts install everything; the capability profiles can omit five things
 
 MEASURED. Both demo hosts build `PlatformerEnginePlugins::fixed_tick()`
@@ -117,8 +153,18 @@ key `HashMap`s by `String`, per body per tick.
 
 ### F7 — Two systems visit every entity every tick
 
-MEASURED (source). `project_wallet_shields` and
-`brandish_the_playing_move_s_weapon` have queries with no required component.
+MEASURED (source). `project_wallet_shields`
+(`actor_monolith/src/features/wallet_shield.rs:38`) and
+`brandish_the_playing_move_s_weapon` (`ambition_combat/src/held_items.rs:93`)
+iterate a query with no required component, so they visit every entity in the
+world each tick (the hub census counts about 8000 entities, 1300 live). A body
+they can act on has `WornCharacter` or `BodyWalletShield`, and `MovePlayback` or
+`MoveBrandishedItem`; the filters `Or<(With<WornCharacter>,
+With<BodyWalletShield>)>` and `Or<(With<MovePlayback>, With<MoveBrandishedItem>)>`
+keep what they do and drop the walk. Eight other queries in the scan have no
+required component but are only used with `get(entity)`, which costs nothing.
+`character_runtime/presentation.rs:261` walks every body only on the tick the
+registry changes.
 
 ### F8 — Plumbing that scales with what is registered, not with what is used
 
@@ -201,5 +247,8 @@ is done without a yes.
   under 0.25%, so they could not name a system. `symbolize_android_profile.py`
   picks the library of the sampled build (it took the first of two installs),
   and has `--lines` and `--ours` (commit 1e1ca6525's parent).
+- 05:30Z phone: the sample dump of the baseline (Jon) gives F0; the
+  Mary-O-only run gives -17% CPU. Jon cannot run the phone again tonight; the
+  rest of the run measures on the headless desktop.
 - In progress: the `perf_probe` feature (allocations per span, churn per
   source line).

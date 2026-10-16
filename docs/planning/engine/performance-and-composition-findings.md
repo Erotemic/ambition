@@ -342,7 +342,7 @@ The hub makes 31,942 a frame (26.6k a call). Two causes in
   (`src/clashing_inputs.rs:190-232`): every pair of button actions, each
   binding decomposed into new `Vec`s. The comment there says "cached"; it is
   not. Our host chooses `ClashStrategy::PressAll` for chord-free maps
-  (`ambition_platformer2d_host/src/lib.rs:373`), and under `PressAll` a clash
+  (`ambition_platformer2d_host/src/lib.rs:379`), and under `PressAll` a clash
   removes nothing, so all of this work has no effect for us.
 - MEASURED (source read): `CentralInputStore::pressed` and `button_value`
   (`src/user_input/updating.rs:111-140`) box a clone of the binding for each

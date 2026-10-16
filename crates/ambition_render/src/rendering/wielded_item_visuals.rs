@@ -135,7 +135,21 @@ impl WieldedItemVisualAppExt for App {
 #[derive(Component)]
 pub struct WieldedItemVisual;
 
-/// Rebuild the provider-authored wielded-item overlays from the sim read model.
+/// Which wielded item a drawn overlay shows: its holder, its live room and its
+/// item. An overlay is updated in place while its key stays the same.
+type DrawnKey = (
+    ambition_sim_view::ItemHolder,
+    ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    String,
+);
+
+/// Keep the provider-authored wielded-item overlays equal to the sim read model.
+///
+/// An overlay whose holder, room and item stay the same is updated in place;
+/// one whose row is gone is despawned. Despawning and spawning every overlay
+/// every frame gave the same picture and two archetype moves per overlay per
+/// frame (perf_probe, hub).
+#[allow(clippy::too_many_arguments)]
 pub fn sync_wielded_item_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -148,17 +162,20 @@ pub fn sync_wielded_item_visuals(
     wielded_items: Res<HostileWieldedItemsView>,
     // The hand of the pose each wielder draws (`posed_hand`).
     hands: super::posed_hand::PosedHands,
-    existing: Query<Entity, With<WieldedItemVisual>>,
+    mut existing: Query<(Entity, &mut Sprite, &mut Anchor, &mut Transform), With<WieldedItemVisual>>,
     mut textures: Local<BTreeMap<String, Handle<Image>>>,
+    mut drawn: Local<Vec<(DrawnKey, Entity)>>,
 ) {
-    for entity in &existing {
-        commands.entity(entity).despawn();
-    }
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
+        for (entity, ..) in &existing {
+            commands.entity(entity).despawn();
+        }
+        drawn.clear();
         return;
     };
+    let mut kept: Vec<(DrawnKey, Entity)> = Vec::new();
 
     for fact in &wielded_items.0 {
         let Some(spec) = catalog.get(&fact.item_id) else {
@@ -211,21 +228,54 @@ pub fn sync_wielded_item_visuals(
             }
         }
 
-        commands.spawn_session_scoped(
-            session_scope.in_room(Some(room)),
-            (
-                sprite,
-                Anchor(Vec2::new(anchor_x_norm, anchor_y_norm)),
-                Transform {
-                    translation,
-                    rotation: Quat::from_rotation_z(bevy_angle),
-                    scale: Vec3::ONE,
-                },
-                WieldedItemVisual,
-                Name::new(spec.entity_name.clone()),
-            ),
-        );
+        let anchor = Anchor(Vec2::new(anchor_x_norm, anchor_y_norm));
+        let transform = Transform {
+            translation,
+            rotation: Quat::from_rotation_z(bevy_angle),
+            scale: Vec3::ONE,
+        };
+        let key: DrawnKey = (fact.holder.clone(), room, fact.item_id.clone());
+        let reused = drawn
+            .iter()
+            .position(|(drawn_key, _)| *drawn_key == key)
+            .map(|at| drawn.swap_remove(at).1)
+            .filter(|entity| existing.contains(*entity));
+        if let Some(entity) = reused {
+            if let Ok((_, mut drawn_sprite, mut drawn_anchor, mut drawn_transform)) = existing.get_mut(entity) {
+                // Write only a change: each write marks the component changed.
+                if drawn_sprite.image != sprite.image
+                    || drawn_sprite.custom_size != sprite.custom_size
+                    || drawn_sprite.rect != sprite.rect
+                    || drawn_sprite.flip_y != sprite.flip_y
+                {
+                    *drawn_sprite = sprite;
+                }
+                if *drawn_anchor != anchor {
+                    *drawn_anchor = anchor;
+                }
+                if *drawn_transform != transform {
+                    *drawn_transform = transform;
+                }
+            }
+            kept.push((key, entity));
+            continue;
+        }
+        let entity = commands
+            .spawn_session_scoped(
+                session_scope.in_room(Some(room)),
+                (sprite, anchor, transform, WieldedItemVisual, Name::new(spec.entity_name.clone())),
+            )
+            .id();
+        kept.push((key, entity));
     }
+    // Every overlay that no row kept: its row is gone, or a second row had the
+    // same key.
+    for (entity, ..) in &existing {
+        if !kept.iter().any(|(_, kept_entity)| *kept_entity == entity) {
+            commands.entity(entity).despawn();
+        }
+    }
+    *drawn = kept;
 }
 
 /// Convert world-space aim deltas (+Y down) to a Bevy Z rotation (+Y up).

@@ -365,6 +365,7 @@ fn a_window_that_closed_when_the_viewer_crossed_is_the_far_pane() {
             forward: Vec2::ZERO,
             room: Some(LiveRoomInstance::ACTIVATION),
             half_size: Vec2::splat(12.0),
+            crossed_into: None,
             occluders: vec![wall],
             ..default()
         }));

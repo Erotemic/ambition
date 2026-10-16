@@ -223,7 +223,33 @@ at tick 4824, its centre 0.1 px past the plane. Three rules now:
 Frame 4810 drew only the robot's feet: the crossing it began from behind cut the sprite at the
 seam. A body on the back has no crossing and is drawn whole (measured in the capture).
 
+## A crossing hands the window over whole (2026-10-16)
+
+Jon's frame-step capture (ticks 10555-10585, the looping corridor c146/c147: two ends that
+face each other across 256 px of floor). On the crossing frame the exit window eased in from
+nothing, so the real scene past the exit showed for frames before the picture of where the
+body had been came back. Two causes:
+
+- The takeover asked the eye whether it came through (`came_through`: behind the partner's
+  plane). Ends that face each other leave the eye in front of both after a crossing, so it
+  said no. The window of the end the body crossed into (`PortalViewer::crossed_into`, from
+  the sim's `PortalTransit`) takes over now.
+- A window that takes over eased in from its partner's blend. It is the picture of where the
+  viewer just was, which was drawn whole, so it takes over whole (`eased_blend`).
+
+Measured (`capture_scene portal_lab player`, `high`): the exit window covers the corridor on
+the crossing frame.
+
 ## Open
+
+- **The background through a window is not the background after a crossing** (measured:
+  through c146's window it sits ~70 px from the real background after the jump, so the
+  left of the screen jumps). The world (floor, walls) lines up. Not yet traced: the capture's
+  parallax anchor, or what the window shows where the capture is clear.
+- **A strip at the screen edge** on the crossing frame: the exit window's capture does not
+  reach the new edge of the screen for one frame (black at `high` in the capture).
+- **Two ends that face each other** show a picture in a picture; one level of recursion leaves
+  a strip at the far edge that the next frame shows as a window.
 
 - **The robot's launch on the wall and slope pairs.** Hands-off, the kernel's air stop
   assist (3750 px/s²) stops a 150 px/s launch in about 3 px. The lab should hold the move

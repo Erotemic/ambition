@@ -57,6 +57,7 @@ mod host_adapter {
             &BodyKinematics,
             Option<&ambition_platformer2d_core::SweepSample>,
             Option<&ambition_portal2d::PortalBackside>,
+            Option<&ambition_portal2d::PortalTransit>,
         )>,
         viewers: Option<ResMut<PortalViewers>>,
     ) {
@@ -78,7 +79,7 @@ mod host_adapter {
             let Some(body) = body else {
                 continue;
             };
-            let (Ok((kin, last_step, backside)), Some(room)) = (bodies.get(body), rooms.room_of(body)) else {
+            let (Ok((kin, last_step, backside, transit)), Some(room)) = (bodies.get(body), rooms.room_of(body)) else {
                 continue;
             };
             let Some(world) = rooms.in_room(room) else {
@@ -101,6 +102,7 @@ mod host_adapter {
                 half_size: kin.collision_box(last_step).half_size(),
                 room: Some(room),
                 on_back_of: backside.map(|back| back.channel),
+                crossed_into: transit.filter(|t| t.crossed).map(|t| t.straddling),
                 occluders,
             });
         }

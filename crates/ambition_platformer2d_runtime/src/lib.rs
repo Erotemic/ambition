@@ -725,7 +725,7 @@ pub fn add_headless_foundation(app: &mut App) {
     app.add_plugins(bevy::image::ImagePlugin::default());
     app.add_plugins(bevy::transform::TransformPlugin);
     app.add_plugins(bevy::state::app::StatesPlugin);
-    serialize_frame_schedules(app);
+    apply_executor_policy(app, ExecutorPolicy::FrameSerial);
     init_engine_states(app);
 }
 
@@ -756,6 +756,68 @@ pub fn serialize_frame_schedules(app: &mut App) {
     app.edit_schedule(Last, |s| {
         s.set_executor(SingleThreadedExecutor::new());
     });
+}
+
+/// How the main-world schedules of an App are executed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExecutorPolicy {
+    /// Bevy's default: the multi-threaded executor.
+    Parallel,
+    /// `First`..`Last` serial ([`serialize_frame_schedules`]); the fixed
+    /// schedules multi-threaded.
+    FrameSerial,
+    /// [`Self::FrameSerial`], and also `StateTransition`, `SpawnScene` and
+    /// `FixedFirst`..`FixedLast`.
+    Serial,
+}
+
+/// MEASUREMENT SWITCH for the executor A/B (findings page, P2): `parallel`,
+/// `frame-serial` or `serial` replaces the caller's default policy. Remove it
+/// with the decision.
+pub const EXECUTOR_POLICY_ENV: &str = "AMBITION_SCHEDULE_EXECUTOR";
+
+/// Set the executor of the main-world schedules: `default`, or the policy that
+/// [`EXECUTOR_POLICY_ENV`] names. Call it after the plugins that make the
+/// schedules. The render sub-app is not changed.
+pub fn apply_executor_policy(app: &mut App, default: ExecutorPolicy) {
+    let requested = std::env::var(EXECUTOR_POLICY_ENV).ok();
+    let policy = match requested.as_deref() {
+        None => default,
+        Some("parallel") => ExecutorPolicy::Parallel,
+        Some("frame-serial") => ExecutorPolicy::FrameSerial,
+        Some("serial") => ExecutorPolicy::Serial,
+        Some(other) => {
+            eprintln!("[census] config {EXECUTOR_POLICY_ENV}={other} is not parallel|frame-serial|serial; using {default:?}");
+            default
+        }
+    };
+    if requested.is_some() {
+        eprintln!("[census] config executor_policy={policy:?} default={default:?}");
+    }
+    match policy {
+        ExecutorPolicy::Parallel => {}
+        ExecutorPolicy::FrameSerial => serialize_frame_schedules(app),
+        ExecutorPolicy::Serial => {
+            use bevy::app::{FixedFirst, FixedLast, FixedPostUpdate, FixedPreUpdate, SpawnScene};
+            use bevy::ecs::schedule::{ScheduleLabel, SingleThreadedExecutor};
+            use bevy::state::state::StateTransition;
+            serialize_frame_schedules(app);
+            let labels: [bevy::ecs::intern::Interned<dyn ScheduleLabel>; 7] = [
+                StateTransition.intern(),
+                SpawnScene.intern(),
+                FixedFirst.intern(),
+                FixedPreUpdate.intern(),
+                FixedUpdate.intern(),
+                FixedPostUpdate.intern(),
+                FixedLast.intern(),
+            ];
+            for label in labels {
+                app.edit_schedule(label, |s| {
+                    s.set_executor(SingleThreadedExecutor::new());
+                });
+            }
+        }
+    }
 }
 
 pub use session_world::{

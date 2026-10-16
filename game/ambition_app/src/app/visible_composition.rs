@@ -104,7 +104,10 @@ pub fn compose_ambition_visible_game(
     // schedules; this only serializes main-world dispatch. On wasm the same
     // call is not an optimization but a necessity: one thread, so the
     // multithreaded executor's bookkeeping is pure overhead.
-    ambition_platformer2d::runtime::serialize_frame_schedules(app);
+    ambition_platformer2d::runtime::apply_executor_policy(
+        app,
+        ambition_platformer2d::runtime::ExecutorPolicy::FrameSerial,
+    );
 
     {
         // NOT GATED ON `dev_tools`, AND THE SAME HOST ON EVERY PLATFORM.

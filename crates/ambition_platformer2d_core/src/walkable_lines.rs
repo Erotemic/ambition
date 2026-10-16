@@ -86,7 +86,14 @@ fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, wi
     // The half width of the box across the floor.
     let half_span = half.x * side.x.abs() + half.y * side.y.abs();
     for (ci, chain) in world.chains.iter().enumerate() {
-        let centre = body.center() + if with_motion { chain.velocity } else { Vec2::ZERO };
+        // Where the body would be had it moved with this line: the motion of
+        // the line at its feet.
+        let centre = if with_motion && chain.moves() {
+            let feet_point = body.center() + down * (body.feet_coord(down) - body.center().dot(down));
+            body.center() + (chain.carried(feet_point) - feet_point)
+        } else {
+            body.center()
+        };
         let (lo, hi) = (centre.dot(side) - half_span, centre.dot(side) + half_span);
         let feet = Aabb::new(centre, half).feet_coord(down);
         let mut best: Option<LineSupport> = None;
@@ -115,7 +122,11 @@ fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, wi
             let (p0, p1) = (at(u0), at(u1));
             let point = if p0.dot(down) <= p1.dot(down) { p0 } else { p1 };
             let coord = point.dot(down);
-            if coord < feet - above || coord > feet + below {
+            // A line that turned moved its points across the body's width by
+            // different amounts: the body, carried by the motion at the middle
+            // of its feet, is off its support by up to that much.
+            let turned = if with_motion { chain.turn.abs() * half_span * 2.0 } else { 0.0 };
+            if coord < feet - above - turned || coord > feet + below + turned {
                 continue;
             }
             if best.is_none_or(|known| coord < known.feet_coord) {

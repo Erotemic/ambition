@@ -72,15 +72,24 @@ pub enum PortalHost {
     /// along the normal (the gun places a portal 2 px out from the wall), so
     /// each re-derivation keeps the placement pose.
     Face { face: ae::GeoFaceRef, lift: f32 },
+    /// The aperture rides the line named `line` (a plank platform, a slope
+    /// that moves), `along` its length from its first point, `lift` out along
+    /// its normal: it moves with the line and turns as it turns.
+    Line { line: String, along: f32, lift: f32 },
 }
 
 impl PortalHost {
-    /// The face and lift of a hosted portal.
+    /// The face and lift of a portal hosted on a face.
     pub fn face(&self) -> Option<(&ae::GeoFaceRef, f32)> {
         match self {
             Self::Face { face, lift } => Some((face, *lift)),
-            Self::Unattributed | Self::Static => None,
+            Self::Unattributed | Self::Static | Self::Line { .. } => None,
         }
+    }
+
+    /// Does the aperture ride something (a face or a line)?
+    pub fn is_hosted(&self) -> bool {
+        matches!(self, Self::Face { .. } | Self::Line { .. })
     }
 }
 
@@ -103,7 +112,7 @@ impl PlacedPortal {
     /// The aperture displacement this frame (the relative sweep term). Zero
     /// for unhosted portals.
     pub fn frame_delta(&self) -> Vec2 {
-        if self.host.face().is_some() {
+        if self.host.is_hosted() {
             self.pos - self.prev_pos
         } else {
             Vec2::ZERO
@@ -132,6 +141,18 @@ impl PlacedPortal {
             Some(partner) if partner < own - 1e-3 => portal_half_extent_with_length(self.normal, partner),
             _ => self.authored_half_extent,
         }
+    }
+
+    /// Turn the portal to face `normal` (its host turned), keeping the
+    /// length and thickness of its authored opening.
+    pub fn turn_to(&mut self, normal: Vec2) {
+        let old = self.normal.normalize_or_zero();
+        let along = portal_opening_half(old, self.authored_half_extent);
+        let thick = self.authored_half_extent.dot(old.abs()) - 2.0 * along * old.x.abs() * old.y.abs();
+        let n = normal.normalize_or_zero();
+        let t = Vec2::new(-n.y, n.x);
+        self.normal = n;
+        self.authored_half_extent = t.abs() * along + n.abs() * thick;
     }
 
     /// The half-thickness of the opening across the face: the authored one

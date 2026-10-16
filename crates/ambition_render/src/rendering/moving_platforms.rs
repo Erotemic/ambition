@@ -251,6 +251,9 @@ pub fn sync_moving_platform_visuals(
             }
             _ => {
                 transform.translation = world_to_bevy(&world.0, platform.pos, BACK_LAYER_Z);
+                // A plank turns; world +y is down and Bevy's is up, so the
+                // turn is mirrored.
+                transform.rotation = Quat::from_rotation_z(-platform.angle());
                 sprite.custom_size = Some(Vec2::new(platform.size.x, platform.size.y));
             }
         }
@@ -310,7 +313,8 @@ pub fn sync_moving_platform_visuals(
                     &world.0,
                     platform.pos,
                     BACK_LAYER_Z,
-                )),
+                ))
+                .with_rotation(Quat::from_rotation_z(-platform.angle())),
                 Name::new(format!("Moving platform {index}: {}", platform.name)),
                 MovingPlatformVisual { index, sheet: None, front: false },
                 RoomVisual,

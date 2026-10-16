@@ -563,10 +563,13 @@
             "left",
             "right"
           ],
+          "patterns": [
+            "^-?[0-9]+(\\.[0-9]+)?$"
+          ],
           "on_invalid": "refused",
           "default": "up",
           "sample": "up",
-          "note": "the surface the portal sits ON \u2014 up = floor, down = ceiling"
+          "note": "the surface the portal sits ON \u2014 up = floor, down = ceiling; or, for a portal on a slope, its normal in degrees from up toward the right (\"-30\")"
         }
       ]
     },

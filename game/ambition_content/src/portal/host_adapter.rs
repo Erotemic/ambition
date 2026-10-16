@@ -88,6 +88,8 @@ pub fn attach_portal_hosts(
                 let lift = (portal.pos - anchor.origin).dot(portal.normal);
                 Some(PortalHost::Face { face, lift })
             })
+            // Or it sits on a line (a slope, a plank platform), which it rides.
+            .or_else(|| attribute_line(view, &portal))
             .unwrap_or(PortalHost::Static);
         portal.host = host;
     }
@@ -103,12 +105,29 @@ pub fn refresh_hosted_portal_frames(
     time: Option<Res<ambition_time::WorldTime>>,
     mut portals: Query<(Entity, &mut PlacedPortal)>,
 ) {
-    if !portals.iter().any(|(_, p)| p.host.face().is_some()) {
+    if !portals.iter().any(|(_, p)| p.host.is_hosted()) {
         return;
     }
     let mut surfaces = SurfacesByRoom::new(&collision);
     let dt = time.as_deref().map(|t| t.sim_dt()).unwrap_or(0.0);
     for (entity, mut portal) in &mut portals {
+        // A portal on a line moves with it and turns as it turns.
+        if let PortalHost::Line { line, along, lift } = portal.host.clone() {
+            let Some(view) = surfaces.of(live.of(entity)) else {
+                continue;
+            };
+            let Some((point, normal)) = point_on_line(view, &line, along) else {
+                // The line left the world: the portal closes with it.
+                commands.entity(entity).despawn();
+                continue;
+            };
+            let new_pos = point + normal * lift;
+            portal.prev_pos = portal.pos;
+            portal.vel = if dt > 0.0 { (new_pos - portal.pos) / dt } else { Vec2::ZERO };
+            portal.pos = new_pos;
+            portal.turn_to(normal);
+            continue;
+        }
         let Some((host, lift)) = portal.host.face().map(|(face, lift)| (face.clone(), lift)) else {
             continue;
         };
@@ -134,4 +153,55 @@ pub fn refresh_hosted_portal_frames(
             Vec2::ZERO
         };
     }
+}
+
+/// The line a portal sits on, if it sits on one that faces its way: a
+/// segment whose normal is the portal's, with the portal over it within the
+/// attribution reach. Named by the line's name and how far along it the
+/// portal is.
+fn attribute_line(view: &ae::World, portal: &PlacedPortal) -> Option<PortalHost> {
+    for chain in &view.chains {
+        let mut start = 0.0;
+        for i in 0..chain.segment_count() {
+            let (a, b) = chain.segment(i);
+            let t = b - a;
+            let len = t.length();
+            if len <= 1.0e-4 {
+                continue;
+            }
+            let n = Vec2::new(t.y, -t.x) / len;
+            let lift = (portal.pos - a).dot(n);
+            let along = (portal.pos - a).dot(t) / len;
+            if n.dot(portal.normal) > 0.99
+                && (0.0..=len).contains(&along)
+                && (-HOST_ATTRIBUTE_REACH..=HOST_ATTRIBUTE_REACH).contains(&lift)
+            {
+                return Some(PortalHost::Line { line: chain.name.clone(), along: start + along, lift });
+            }
+            start += len;
+        }
+    }
+    None
+}
+
+/// The point `along` the length of the line named `line`, and its normal
+/// there.
+fn point_on_line(view: &ae::World, line: &str, along: f32) -> Option<(Vec2, Vec2)> {
+    let chain = view.chains.iter().find(|chain| chain.name == line)?;
+    let count = chain.segment_count();
+    let mut left = along;
+    for i in 0..count {
+        let (a, b) = chain.segment(i);
+        let t = b - a;
+        let len = t.length();
+        if len <= 1.0e-4 {
+            continue;
+        }
+        if left <= len || i + 1 == count {
+            let n = Vec2::new(t.y, -t.x) / len;
+            return Some((a + t * (left.clamp(0.0, len) / len), n));
+        }
+        left -= len;
+    }
+    None
 }

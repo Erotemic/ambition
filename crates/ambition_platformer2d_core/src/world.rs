@@ -586,6 +586,14 @@ pub struct SurfaceChain {
     /// where the two meet (`crate::walkable_lines`).
     #[serde(default)]
     pub boarding: Boarding,
+    /// How far the line turned this tick (radians, `+` turns `+x` toward
+    /// `+y`), about `pivot`, after it moved by `velocity`: a turning
+    /// platform. Zero for a line that does not turn.
+    #[serde(default)]
+    pub turn: f32,
+    /// The point it turned about, where it is now.
+    #[serde(default)]
+    pub pivot: Vec2,
 }
 
 /// How a walking body standing on other ground steps onto a line where they
@@ -602,6 +610,24 @@ pub enum Boarding {
 }
 
 impl SurfaceChain {
+    /// Where the point of the line that was at `p` a tick ago is now: moved by
+    /// `velocity`, then turned by `turn` about `pivot`. What a body standing
+    /// on it at `p` is carried to.
+    pub fn carried(&self, p: Vec2) -> Vec2 {
+        let moved = p + self.velocity;
+        if self.turn == 0.0 {
+            return moved;
+        }
+        let (sin, cos) = self.turn.sin_cos();
+        let r = moved - self.pivot;
+        self.pivot + Vec2::new(r.x * cos - r.y * sin, r.x * sin + r.y * cos)
+    }
+
+    /// Does the line move this tick?
+    pub fn moves(&self) -> bool {
+        self.velocity != Vec2::ZERO || self.turn != 0.0
+    }
+
     /// This chain with the part inside `hole` cut out (a portal's opening on
     /// a slope): the pieces that are left, each an open chain with this one's
     /// name, kind, motion and boarding. A closed loop, a chain with junctions
@@ -660,6 +686,8 @@ impl SurfaceChain {
             earth: Vec::new(),
             hidden: false,
             boarding: Boarding::Auto,
+            turn: 0.0,
+            pivot: Vec2::ZERO,
         }
     }
 
@@ -676,6 +704,8 @@ impl SurfaceChain {
             earth: Vec::new(),
             hidden: false,
             boarding: Boarding::Auto,
+            turn: 0.0,
+            pivot: Vec2::ZERO,
         }
     }
 

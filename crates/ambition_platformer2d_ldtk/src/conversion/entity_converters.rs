@@ -1100,8 +1100,29 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
             motion,
         )
         .with_visual(visual)
-        .with_one_way(field_bool(entity, "one_way").unwrap_or(false)),
+        .with_one_way(field_bool(entity, "one_way").unwrap_or(false))
+        .with_line(plank_turn(entity)?),
     ))
+}
+
+/// A plank platform (`line: true`): a line across the box's width, which
+/// turns by `spin` (degrees a second) or swings `swing` degrees each way once
+/// every `swing_period` seconds (default 3).
+fn plank_turn(entity: &LdtkEntityInstance) -> Result<Option<ambition_platformer2d_world::platforms::PlatformTurn>, String> {
+    use ambition_platformer2d_world::platforms::PlatformTurn;
+    let (spin, swing) = (field_f32(entity, "spin").filter(|v| *v != 0.0), field_f32(entity, "swing").filter(|v| *v != 0.0));
+    if !field_bool(entity, "line").unwrap_or(false) {
+        if spin.is_some() || swing.is_some() {
+            return Err("a MovingPlatform turns only as a line: set `line: true`".to_string());
+        }
+        return Ok(None);
+    }
+    Ok(Some(match (spin, swing) {
+        (Some(deg_per_s), None) => PlatformTurn::Spin { deg_per_s },
+        (None, Some(deg)) => PlatformTurn::Swing { deg, period_s: field_f32(entity, "swing_period").unwrap_or(3.0) },
+        (None, None) => PlatformTurn::Level,
+        (Some(_), Some(_)) => return Err("a MovingPlatform spins or swings, not both".to_string()),
+    }))
 }
 
 pub(super) fn convert_camera_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {

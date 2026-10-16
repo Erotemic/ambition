@@ -689,3 +689,17 @@ fn fitting_a_slanted_opening_measures_the_body_along_the_slope() {
     assert!(portal_fits(Vec2::new(28.0, 46.0), &p));
     assert!(!portal_fits(Vec2::new(80.0, 80.0), &p));
 }
+
+/// A portal whose host turns keeps its opening: the same length and
+/// thickness at any angle.
+#[test]
+fn a_portal_that_turns_keeps_its_opening() {
+    let mut p = floor(PURPLE, Vec2::ZERO);
+    let (along, thick) = (p.aperture().half_length, p.opening_half_thickness());
+    for degrees in [10.0_f32, 37.0, 90.0, 135.0, 200.0, 359.0] {
+        let a = degrees.to_radians();
+        p.turn_to(Vec2::new(a.sin(), -a.cos()));
+        assert!((p.aperture().half_length - along).abs() < 1.0e-3, "{degrees}: {}", p.aperture().half_length);
+        assert!((p.opening_half_thickness() - thick).abs() < 1.0e-3, "{degrees}: {}", p.opening_half_thickness());
+    }
+}

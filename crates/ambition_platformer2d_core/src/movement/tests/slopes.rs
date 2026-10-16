@@ -316,3 +316,40 @@ fn a_body_rides_a_moving_ramp_and_walks_on_it_with_no_tick_in_the_air() {
     assert!((stood_at - (start_x + 120.0)).abs() < 0.5, "the body drifted on the ramp: {start_x} -> {stood_at}");
     assert!(scratch.kinematics.pos.x > stood_at + 20.0, "and then it walked up it");
 }
+
+/// A plank that swings 25 degrees each way about its middle: a body standing
+/// off its middle is carried round with it, stays on it and never lands.
+#[test]
+fn a_body_rides_a_swinging_plank() {
+    let mut world = test_world();
+    let pivot = Vec2::new(600.0, 600.0);
+    let plank = |angle: f32| {
+        let (s, c) = angle.sin_cos();
+        let half = Vec2::new(c, s) * 150.0;
+        vec![pivot - half, pivot + half]
+    };
+    world.chains.push(SurfaceChain::open("plank", plank(0.0)));
+    let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::new(660.0, 560.0), AbilitySet::sandbox_all());
+    for _ in 0..30 {
+        step_scratch(&world, &mut scratch, InputState::default());
+    }
+    assert!(scratch.ground.on_ground);
+    let along = scratch.kinematics.pos.x - pivot.x;
+    let mut angle = 0.0_f32;
+    let mut landings = 0;
+    for tick in 1..=240 {
+        let next = 25.0_f32.to_radians() * (std::f32::consts::TAU * tick as f32 / 240.0).sin();
+        let line = world.chains.iter_mut().find(|c| c.name == "plank").expect("the plank");
+        line.points = plank(next);
+        line.turn = next - angle;
+        line.pivot = pivot;
+        angle = next;
+        if matches!(step_scratch(&world, &mut scratch, InputState::default()).ground_contact, GroundContactTransition::Landed { .. }) {
+            landings += 1;
+        }
+        assert!(scratch.ground.on_ground, "off the plank on tick {tick} at {:?}", scratch.kinematics.pos);
+    }
+    assert_eq!(landings, 0);
+    // Back level, the body is where it stood along the plank.
+    assert!((scratch.kinematics.pos.x - pivot.x - along).abs() < 2.0, "it slid along the plank: {} -> {}", along, scratch.kinematics.pos.x - pivot.x);
+}

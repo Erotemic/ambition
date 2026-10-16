@@ -99,6 +99,18 @@ takes an angle, `portal_fits` measures along the tangent; (P2) the pieces
 are clipped by half planes of any normal and a carve on a chain cuts an
 interval of it; (P3) the capture and the view are exact for a tilted face.
 
+Built 2026-10-15: P1 and P2, and the capture of P3. `FaceRect` (core
+`frame`) is the face-turned rectangle every capture, approach, carve and
+free-body test uses (it is the old box for a cardinal portal, so those are
+unchanged); the pieces are the boxes that bound the turned pieces. A portal
+rides a line (`PortalHost::Line`): a slope, or a plank platform
+(`MovingPlatform` with `line: true`, which may `spin` or `swing` and
+collides as a turning line). The portal lab's right bay has three stations
+for it: E (slope to wall), F (a sweeping, swinging plank to the floor), G
+(a spinning plank to the shelf); a body goes through each (filmed). Left:
+the see-through window's source for a turned face is still the box that
+bounds it (`view.rs`).
+
 ## What is true today (read from the code, 2026-10-11; not run)
 
 - An ordinary body (the axis-swept model: the player, each NPC, each mount)

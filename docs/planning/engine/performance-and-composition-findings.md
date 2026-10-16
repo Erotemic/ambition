@@ -67,6 +67,12 @@ again before you quote it.
   After the table, the leafwing fix (F13): all allocations a frame Mary-O
   23,407 → 4,128, hub 46,949 → 15,257. The large remaining items: the serial executor for the
   standalone games (D12, needs a yes), then P1 and P12.
+- **Time, desktop** (MEASURED, `scripts/executor_ab.sh`, 3 interleaved
+  repetitions, the same script early in the night and at the end; the box's
+  load differed, so read the direction, not the digit). Main-schedule time
+  per drawn frame: Mary-O today's policy 14.1 → 12.6 ms (−11%), with
+  `serial` (D12) 8.3 → 7.0 ms; hub today's policy 13.4 → 12.4 ms (−7%), with
+  `serial` 12.5 → 10.9 ms.
 - **What tonight's fixes held on the phone** (MEASURED, the all-games phone
   profile of 10-16, `symbolize_android_profile.py --under NAME`, inclusive
   share of all process CPU samples): `handle_clashes` 3.14%,

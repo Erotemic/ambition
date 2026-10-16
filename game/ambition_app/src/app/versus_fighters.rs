@@ -13,7 +13,11 @@ pub static PACK: ambition_platformer2d::content::EmbeddedPack =
     ambition_platformer2d::content_pack! {
         root: "assets",
         // The rules of its rounds and its room are the stage's own.
-        schemas: [super::versus_rules::versus_rounds_schema, super::versus_rules::versus_arena_schema],
+        schemas: [
+            super::versus_rules::versus_rounds_schema,
+            super::versus_rules::versus_arena_schema,
+            super::versus_rules::versus_seats_schema,
+        ],
     };
 
 /// Register the duelists: the catalog fragment and every row as a character,
@@ -32,6 +36,7 @@ pub fn register_versus_cast(app: &mut bevy::prelude::App, default_character: &st
         live: &[
             super::versus_rules::VERSUS_ARENA_SCHEMA,
             super::versus_rules::VERSUS_ROUNDS_SCHEMA,
+            super::versus_rules::VERSUS_SEATS_SCHEMA,
             ambition_platformer2d::versus_match::match_rules::MATCH_RULES_SCHEMA,
         ],
         restated: Vec::new(),

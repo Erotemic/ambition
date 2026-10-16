@@ -32,8 +32,6 @@ pub const VERSUS_EXPERIENCE: &str = "ambition_versus";
 pub const VERSUS_GAMEPLAY_ROUTE: &str = "versus_gameplay";
 pub const VERSUS_ROOM_ID: &str = "versus_arena";
 
-/// The arena fighters; their character definitions share art ids with the demos.
-const FIGHTERS: [&str; 2] = ["arena_duelist_long", "arena_duelist_close"];
 
 /// The arena: the versus pack's room (`data/versus_arena.ron`). Crossing a
 /// blast line produces `ResetCause::LeftTheWorld`, which the versus rules
@@ -56,27 +54,16 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
     // `for_match`: no home body. The comment this replaces described the
     // old contract exactly — *"the body a human seat takes over"* — and that
     // takeover is the fork that has been deleted. Every fighter is built by the
-    // match now; `FIGHTERS[0]` remains as this experience's catalog default.
+    // match now; the first seated fighter remains as this experience's
+    // catalog default.
     PreparedPlatformerSource::for_match(
         VERSUS_EXPERIENCE,
         RoomSet::from_parts_or_panic(VERSUS_ROOM_ID, vec![room], Vec::new()),
         geometry,
-        StartingCharacter::new(FIGHTERS[0]),
+        StartingCharacter::new(super::versus_rules::versus_seats().fighter(0)),
     )
 }
 
-/// The roster seated when the stage begins.
-///
-/// Seat 0 adopts the session's existing human body. Additional connected
-/// controllers receive human seats; remaining seats are CPUs. The roster is fixed
-/// at stage entry so device changes cannot mutate a running match.
-///
-/// `seat_for` alternates arena sides, and teams follow the same parity. `MatchTeam`
-/// is authoritative for team damage because human fighters otherwise share the
-/// same player faction. Up to four seats are supported.
-///
-/// The versus experience owns and registers the CPU archetype requested here.
-pub const VERSUS_CPU_BRAIN: &str = "versus_duelist";
 
 // its body half went nowhere because nothing read it. `max_health`,
 // `run_speed`, `melee`, `move_style` and `respawn` stopped being read the day a
@@ -93,6 +80,22 @@ pub fn versus_roster(local_players: usize) -> MatchParticipantRoster {
 
 /// The same, in a stated seating lifecycle.
 pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> MatchParticipantRoster {
+    versus_roster_seating(super::versus_rules::versus_seats(), local_players, seating)
+}
+
+/// The roster that `seats` (the pack's `versus_seats.ron`) gives.
+///
+/// Seat 0 adopts the session's existing human body. Additional connected
+/// controllers receive human seats; remaining seats are CPUs that play the
+/// pack's `cpu_brain`. Seat `n` plays `fighters[n % len]` on `teams[n % len]`.
+/// `MatchTeam` is authoritative for team damage because human fighters
+/// otherwise share the same player faction. The roster is fixed at stage
+/// entry so device changes cannot mutate a running match.
+pub(crate) fn versus_roster_seating(
+    seats_row: &super::versus_rules::VersusSeats,
+    local_players: usize,
+    seating: RosterSeating,
+) -> MatchParticipantRoster {
     // Two seats minimum (there is always an opponent, human or not) and four
     // maximum (the arena is one screen wide, and `SlotControls` holds four).
     let seats = local_players.clamp(2, MAX_VERSUS_SEATS);
@@ -110,12 +113,12 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
                 }
             } else {
                 ControllerBinding::Cpu {
-                    brain_profile: Some(VERSUS_CPU_BRAIN.into()),
+                    brain_profile: Some(seats_row.cpu_brain.clone().into()),
                 }
             };
-            MatchParticipant::new(FIGHTERS[seat % FIGHTERS.len()])
+            MatchParticipant::new(seats_row.fighter(seat))
                 .driven_by(controller)
-                .on_team(if seat % 2 == 0 { "blue" } else { "red" })
+                .on_team(seats_row.team(seat))
         })
         .collect();
     MatchParticipantRoster {
@@ -496,7 +499,8 @@ pub fn versus_room_rules() -> ambition_platformer2d::combat::room_rules::RoomRul
 /// Register the versus experience: a launcher entry, a route, and the stage.
 pub fn compose_versus_experience(app: &mut App) {
     // The duelists are the stage's content pack: their rows and move tables.
-    super::versus_fighters::register_versus_cast(app, FIGHTERS[0]);
+    let default_character = super::versus_rules::versus_seats().fighter(0);
+    super::versus_fighters::register_versus_cast(app, default_character);
     // no archetype fragment. A CPU seat's `brain_profile` resolves against
     // this experience's published `autonomous_profiles` (see the note where
     // `VERSUS_ROSTER_RON` used to be), which is the authority a controller
@@ -508,7 +512,7 @@ pub fn compose_versus_experience(app: &mut App) {
         "Versus",
         "Two characters from two providers, fighting",
         "Prepare Versus",
-        AuthoredCatalogFragments::new(FIGHTERS[0], VERSUS_EXPERIENCE),
+        AuthoredCatalogFragments::new(default_character, VERSUS_EXPERIENCE),
     )
     // The look of its launcher row.
     .with_launcher_look("eclipse")
@@ -1107,17 +1111,18 @@ mod roster_topology_tests {
         let roster = app.world().resource::<MatchParticipantRoster>();
         assert!(
             !roster.seating.may_seat(),
-            "a roster naming brain profile `{VERSUS_CPU_BRAIN}`, which this \
+            "a roster naming brain profile `{}`, which this \
              composition's BrainProfileRegistry does not publish, was activated \
              anyway. Seating will refuse it every tick and the stage will never \
-             open"
+             open",
+            crate::app::versus_rules::versus_seats().cpu_brain
         );
 
         // and the SAME roster activates once the composition can answer for it,
         // or the refusal above would pass against a route that never activates.
         // assembled from the stage's OWN catalog, not a hand-built table:
         // that file is what a shipped composition registers, so this half also
-        // asserts `VERSUS_CPU_BRAIN` is actually in it — the exact thing that was
+        // asserts the seats' `cpu_brain` is actually in it — the exact thing that was
         // false when the stage named `medium_striker`.
         //
         // Same claim, one authority over: a CPU seat's controller question is answered by published
@@ -1126,7 +1131,7 @@ mod roster_topology_tests {
         // published here is what a shipped versus route publishes: it is what
         // turns an authored profile into a resolvable `versus::versus_duelist`
         // (cite-ok: an authored key, not a path).
-        crate::app::versus_fighters::register_versus_cast(&mut app, FIGHTERS[0]);
+        crate::app::versus_fighters::register_versus_cast(&mut app, crate::app::versus_rules::versus_seats().fighter(0));
         app.update();
         assert!(
             app.world()

@@ -28,5 +28,7 @@
         (path: "data/versus_rounds.ron", schema: "versus_rounds", version: 1),
         // Its room: the size, the seating point, the blast lines, the blocks.
         (path: "data/versus_arena.ron", schema: "versus_arena", version: 1),
+        // Who it seats: the fighters, the CPU seats' brain, the teams.
+        (path: "data/versus_seats.ron", schema: "versus_seats", version: 1),
     ],
 )

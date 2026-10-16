@@ -301,8 +301,12 @@ Open:
    its room rules have a restater (`register_versus_cast`), so an edit is
    played from the next match; `every_schema_of_the_versus_pack_reloads_between_matches`
    names a schema that would cost a restart (red, naming `versus_arena`, with
-   it off the list). Left: the versus fighter list (`FIGHTERS`), and
-   Ambition's seat count (waits on Q153).
+   it off the list). Who the stage seats (the fighters in seat order, the
+   CPU seats' brain profile, the team names) is `versus_seats` there
+   (`FIGHTERS` and `VERSUS_CPU_BRAIN` deleted); witness
+   `the_versus_seats_are_its_pack_file` (red with the teams written in Rust).
+   The first fighter is also the stage's catalog default, read when the stage
+   is composed. Left: Ambition's seat count (waits on Q153).
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is

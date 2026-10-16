@@ -978,3 +978,7 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
   `held_item_steps…sit_where_they_say` finds two systems in
   `HeldItemStep::Physics` (`right_ground_items`, added in 2479a4c37). The runtime
   crate (executor policy) 83 pass; `ambition_platformer2d` 10 pass.
+- 12:30Z The executor arms' one picture difference traced (F22): the motes
+  read the camera before `capture_scene` pinned it under a serial order. The
+  capture tool now orders its pin first; all three arms are pixel-identical;
+  `capture_scene`'s tests pass (7).

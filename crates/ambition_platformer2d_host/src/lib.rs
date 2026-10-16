@@ -326,6 +326,12 @@ impl Plugin for HostInputBindingsPlugin {
                     .before(Platformer2dSimulationPhase::CoreSimulation),
             );
 
+        // Leafwing's action update without its clash pass where the pass does
+        // nothing (`ClashStrategy::PressAll`): three quarters of a standalone
+        // frame's allocations. Same result for every strategy.
+        ambition_input::press_all_action_update::install_press_all_action_update::<
+            Platformer2dInputActionMonolith,
+        >(app);
         // The roster-driven seating pair installs ITSELF: both systems live in the
         // monolith and its ordering against `InputSet::Collect` is that crate's
         // fact, not this composition's.

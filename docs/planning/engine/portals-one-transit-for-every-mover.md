@@ -242,10 +242,18 @@ the crossing frame.
 
 ## Open
 
-- **The background through a window is not the background after a crossing** (measured:
-  through c146's window it sits ~70 px from the real background after the jump, so the
-  left of the screen jumps). The world (floor, walls) lines up. Not yet traced: the capture's
-  parallax anchor, or what the window shows where the capture is clear.
+- **The foreground parallax layer** (z 45, in front of the play) was copied into every
+  capture, so a window drew it twice: the far side's copy inside, the near side's over it.
+  Captures draw the backdrop only now (`seen_through_a_portal`). The foreground's place is
+  the camera's place in the room, so a 256 px camera jump through a pair moves it ~49 px:
+  still a pop at a crossing, and not yet decided (ease the parallax camera across a portal
+  jump, or leave it).
+- **`capture_scene` cannot measure a crossing's background.** It pins its camera to a
+  player snapshot after `camera_follow` and without the portal camera continuity, so at the
+  c146/c147 crossing its camera moved 226.4 px, not 256: every backdrop patch is 66 screen
+  px off, at every depth. The host view now samples the pinned camera (the window anchors
+  agree with the frame), but the continuity is still the game's alone. Jon's frames, which
+  have it, show the left of the screen unchanged across the crossing.
 - **A strip at the screen edge** on the crossing frame: the exit window's capture does not
   reach the new edge of the screen for one frame (black at `high` in the capture).
 - **Two ends that face each other** show a picture in a picture; one level of recursion leaves

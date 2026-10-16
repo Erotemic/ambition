@@ -2638,3 +2638,21 @@ fn the_act_clock_counts_hundredths_and_each_act_has_a_title() {
     assert_eq!(numbers, [1, 2, 3]);
     assert_eq!(act_title("somewhere_else"), None);
 }
+
+/// ⭐ Every schema of the demo's pack takes part in its live reload: a host
+/// that composes the demo watches the pack, and each schema is read where it
+/// is used or stated again at the publication. A schema added to the pack
+/// with neither is named here, before its edit is refused at run time.
+#[test]
+fn every_schema_of_the_pack_reloads_between_sessions() {
+    use bevy::prelude::*;
+    let mut app = App::new();
+    app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
+    app.add_plugins(ambition_platformer2d::load::AmbitionLoadPlugin);
+    app.add_plugins(crate::provider::SanicExperiencePlugin);
+    let unwatched = app
+        .world()
+        .resource::<ambition_platformer2d::content::live_reload::EmbeddedPackWatches>()
+        .unwatched(&crate::pack::PACK);
+    assert!(unwatched.is_empty(), "these schemas cost a restart: {unwatched:?}");
+}

@@ -208,19 +208,26 @@ Open:
    `the_pickup_art_restater_restates_the_packs_entries` (red with the
    previous ids not withdrawn) and `a_changed_world_art_manifest_is_resolved_again`
    (red with the art resolved only when the manifest is added).
-   Each demo's move tables and fighter facets (`moveset`, `smash_fighter`):
-   `PackCast::register` adds `EmbeddedPackReloadPlugin::cast_facets`, which
-   defines every character of the pack's catalog again through the
-   registration's own road (`cast_definitions`), stages each and activates
-   one cast revision (`activate_staged_revision`: a refused revision keeps
-   the last good cast). Witness
-   `an_edit_to_a_move_table_is_played_by_the_next_sessions_cast` (compared
-   with the saved file's move; red with no activation; with no restater it
-   is red too, but at the watch lookup, not at the publication assertion).
-   Remainder: the character catalog itself (a row added, changed or
-   dropped: the catalog registry and the retirement of a dropped row, as
-   Ambition's `candidate_character_catalog` does), and publication into a
-   live demo session. Each
+   Each demo's cast (`character_catalog`, `moveset`, `smash_fighter`):
+   `PackCast::register` adds `EmbeddedPackReloadPlugin::cast`, which builds
+   the catalog fragment again (`cast_fragment`) and replaces it in the
+   registry, defines every character again through the registration's own
+   road (`cast_definitions`), stages each, and admits and publishes one
+   revision with its catalog (`take_admitted_revision_with_catalog`,
+   `publish_admitted_revision`); a row the pack drops is retired, and a
+   refused revision keeps the last good cast and catalog. Witness
+   `an_edit_to_the_cast_is_played_by_the_next_sessions_cast` (a move edit
+   compared with the saved file; a row added, then dropped); red with no
+   activation, with nothing retired, and with the catalog not restated.
+   With no restater it is red too, but at the watch lookup.
+   With this, every schema of the three demo packs takes part, and each
+   demo guards it: `every_schema_of_the_pack_reloads_between_sessions`
+   builds the demo's experience and names each schema its watch does not
+   publish (`EmbeddedPackWatches::unwatched`; red, naming the schema, with
+   Smash's audio restater removed and with Mary-O's ladder off her list).
+   Remainder: publication into a live demo session (at a rollback
+   boundary, as Ambition's road does), so an edit need not wait for the
+   session to end. Each
    needs a restater (the cast is a registry of prepared characters, so its
    restater is I2/I3 scale) or its reader moved to read at use.
 

@@ -1457,3 +1457,21 @@ fn smashs_match_rules_are_its_match_rules_file() {
     assert_eq!(edited.body.map(|body| body.turnaround_time), Some(0.1));
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// ⭐ Every schema of the demo's pack takes part in its live reload: a host
+/// that composes the demo watches the pack, and each schema is read where it
+/// is used or stated again at the publication. A schema added to the pack
+/// with neither is named here, before its edit is refused at run time.
+#[test]
+fn every_schema_of_the_pack_reloads_between_sessions() {
+    use bevy::prelude::*;
+    let mut app = App::new();
+    app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
+    app.add_plugins(ambition_platformer2d::load::AmbitionLoadPlugin);
+    app.add_plugins(crate::SmashExperiencePlugin);
+    let unwatched = app
+        .world()
+        .resource::<ambition_platformer2d::content::live_reload::EmbeddedPackWatches>()
+        .unwatched(&crate::smash_pack::PACK);
+    assert!(unwatched.is_empty(), "these schemas cost a restart: {unwatched:?}");
+}

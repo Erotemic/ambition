@@ -160,55 +160,39 @@ impl EmbeddedPackReloadPlugin {
         })
     }
 
-    /// The pack's move tables and platform-fighter facets, folded into each
-    /// character's definition once at start (`PackCast::register`). At each
-    /// publication that changes them, every character of the pack's catalog
-    /// is defined again (`cast_definitions`, the registration's road), staged
-    /// and activated as one cast revision: a refused revision changes nothing
-    /// and keeps the last good cast. The catalog itself does not take part,
-    /// so an edit to a row is refused and costs a restart.
-    pub fn cast_facets(
-        pack: &'static EmbeddedPack,
-        provider: String,
-        carried: Vec<(String, crate::engine_core::CarriedComponent)>,
-    ) -> Self {
+    /// The pack's cast: its character catalog, and the move tables and
+    /// platform-fighter facets folded into each character's definition once
+    /// at start (`PackCast::register`). At each publication that changes one
+    /// of them, the fragment is built again and replaced in the catalog
+    /// registry, every character of the new catalog is defined again
+    /// (`cast_definitions`, the registration's road) and staged, and the cast
+    /// is admitted and published as one revision with its catalog. A row the
+    /// pack no longer states is retired. A refused revision changes nothing
+    /// and keeps the last good cast and catalog.
+    pub fn cast(reload: CastReload) -> Self {
+        use ambition_characters::actor::character_catalog::CHARACTER_CATALOG_SCHEMA;
         use ambition_characters::moveset_content_schema::MOVESET_SCHEMA;
         use ambition_characters::smash_fighter::SMASH_FIGHTER_SCHEMA;
 
+        let pack = reload.pack;
+        // The rows this pack's cast builds, so a row it drops is retired.
+        let built: Vec<String> = ambition_characters::actor::character_catalog::lowered_catalog(pack.prepared())
+            .map(|catalog| catalog.characters.keys().cloned().collect())
+            .unwrap_or_default();
+        let built = std::sync::Mutex::new(built);
         let restage = std::sync::Arc::new(move |world: &mut World, pack: &PreparedContentPack| {
-            use ambition_characters::prepared::{activate_staged_revision, stage_character_revision_in, CharacterBindings};
-            // An absent table is reported, not taken as empty: a revision
-            // admitted against the wrong table would refuse or admit the
-            // wrong moves.
-            let Some(support) = world
-                .get_resource::<crate::combat::technique::InstalledTechniques>()
-                .map(|installed| installed.0.clone())
-            else {
-                error!("the reload of `{}` keeps its cast: this App installs no technique table", pack.id.0);
-                return;
-            };
-            let Some(catalog) = ambition_characters::actor::character_catalog::lowered_catalog(pack) else {
-                error!("the reload of `{}` keeps its cast: the pack states no cast", pack.id.0);
-                return;
-            };
-            let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(world).admit;
-            for definition in super::cast_definitions(pack, catalog, &provider, &carried, rigs_admitted) {
-                let bindings = crate::actors::character_runtime::definition::with_engine_vocabularies(
-                    CharacterBindings::default(),
-                );
-                if let Err(problem) = stage_character_revision_in(world, definition, &bindings) {
-                    error!("the reload of `{}` cannot stage a character: {problem}", pack.id.0);
-                }
+            let mut built = built.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            match reload.restage(world, pack, &built) {
+                Ok(Some(now)) => *built = now,
+                Ok(None) => {}
+                Err(problem) => error!("the reload of `{}` keeps its cast: {problem}", pack.id.0),
             }
-            // A refusal is reported by the activation, and the last good cast
-            // stays.
-            activate_staged_revision(world, &support);
         });
-        // Each restater stages the whole cast, so an edit to both families
-        // activates once and then finds the cast unchanged. A family the pack
+        // Each restater stages the whole cast, so an edit to two families
+        // publishes once and then finds the cast unchanged. A family the pack
         // does not state has no restater.
         let stated = &pack.prepared().schemas;
-        let restated = [MOVESET_SCHEMA, SMASH_FIGHTER_SCHEMA]
+        let restated = [CHARACTER_CATALOG_SCHEMA, MOVESET_SCHEMA, SMASH_FIGHTER_SCHEMA]
             .into_iter()
             .filter(|schema| stated.keys().any(|stated| stated.0 == *schema))
             .map(|schema| Restater { schema, restate: restage.clone() })
@@ -237,6 +221,73 @@ impl EmbeddedPackReloadPlugin {
                     Err(problem) => error!("the reload of `{}` keeps its `{schema}` rows: {problem}", pack.id.0),
                 }
             })],
+        }
+    }
+}
+
+/// What a pack's cast was registered from (`PackCast`), so a reload builds
+/// it again the same way.
+pub struct CastReload {
+    pub pack: &'static EmbeddedPack,
+    pub provider: String,
+    pub default_character: Option<String>,
+    pub actor_default_abilities: Option<crate::engine_core::AbilitySet>,
+    pub carried: Vec<(String, crate::engine_core::CarriedComponent)>,
+}
+
+impl CastReload {
+    /// Stage and publish the cast `pack` states. `built` are the rows the
+    /// last publication built. Returns the rows built now, or `None` when the
+    /// cast did not change.
+    fn restage(&self, world: &mut World, pack: &PreparedContentPack, built: &[String]) -> Result<Option<Vec<String>>, String> {
+        use ambition_characters::actor::character_catalog::{lowered_catalog, CharacterCatalogRegistry};
+        use ambition_characters::prepared::{
+            publish_admitted_revision, stage_character_revision_in, take_admitted_revision_with_catalog,
+            CandidateCatalog, CharacterBindings, RevisionAdmission, StagedCastRevision,
+        };
+
+        // An absent table is reported, not taken as empty: a revision
+        // admitted against the wrong table would refuse or admit the wrong
+        // moves.
+        let support = world
+            .get_resource::<crate::combat::technique::InstalledTechniques>()
+            .map(|installed| installed.0.clone())
+            .ok_or("this App installs no technique table")?;
+        let catalog = lowered_catalog(pack).ok_or("the pack states no cast")?;
+        if let Some((character, _)) = self.carried.iter().find(|(character, _)| !catalog.characters.contains_key(character)) {
+            return Err(format!("the pack states no character `{character}`, which the game's bodies carry state for"));
+        }
+        let fragment = super::cast_fragment(pack, &self.provider, self.default_character.as_deref(), self.actor_default_abilities)?;
+        let (registry, assembled) = world
+            .get_resource::<CharacterCatalogRegistry>()
+            .ok_or("this App registers no character catalog")?
+            .with_replaced(fragment)
+            .map_err(|error| error.to_string())?;
+        let now: Vec<String> = catalog.characters.keys().cloned().collect();
+        let retired = built
+            .iter()
+            .filter(|id| !now.contains(id))
+            .map(|id| ambition_entity_catalog::CharacterId::new(id.as_str()))
+            .collect();
+        let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(world).admit;
+        for definition in super::cast_definitions(pack, catalog, &self.provider, &self.carried, rigs_admitted) {
+            let bindings = crate::actors::character_runtime::definition::with_engine_vocabularies(CharacterBindings::default());
+            if let Err(problem) = stage_character_revision_in(world, definition, &bindings) {
+                // Nothing of this revision stays staged for a later one.
+                world.remove_resource::<StagedCastRevision>();
+                return Err(format!("a character cannot be staged: {problem}"));
+            }
+        }
+        match take_admitted_revision_with_catalog(world, &support, &CandidateCatalog { registry, assembled, retired }) {
+            RevisionAdmission::Admitted(admitted) => {
+                publish_admitted_revision(world, admitted);
+                Ok(Some(now))
+            }
+            RevisionAdmission::Unchanged { .. } | RevisionAdmission::NothingStaged => Ok(None),
+            RevisionAdmission::Refused { refusals, .. } => Err(format!(
+                "the cast revision is refused: {}",
+                refusals.iter().map(|refusal| refusal.detail.as_str()).collect::<Vec<_>>().join("; ")
+            )),
         }
     }
 }
@@ -299,6 +350,19 @@ impl EmbeddedPackWatches {
     /// The watch of `pack`, when the pack is read off disk.
     pub fn of(&self, pack: &'static EmbeddedPack) -> Option<&EmbeddedPackWatch> {
         self.0.iter().find(|watch| std::ptr::eq(watch.pack, pack))
+    }
+
+    /// The schemas `pack` states that its watch does not publish: an edit to
+    /// one is refused and costs a restart. Each, when the pack is not
+    /// watched.
+    pub fn unwatched(&self, pack: &'static EmbeddedPack) -> Vec<String> {
+        let watched: Vec<&str> = self.of(pack).map(|watch| watch.schemas().collect()).unwrap_or_default();
+        pack.prepared()
+            .schemas
+            .keys()
+            .map(|schema| schema.0.clone())
+            .filter(|schema| !watched.contains(&schema.as_str()))
+            .collect()
     }
 }
 
@@ -786,11 +850,13 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
     }
 
-    /// ⭐ An edit to a character's move table is the move the next session's
-    /// cast plays: the cast revision is staged, activated between sessions,
-    /// and the published definition carries the saved file's move.
+    /// ⭐ An edit to a character's move table, or to the cast's catalog, is
+    /// what the next session's cast plays: the cast revision is staged and
+    /// published between sessions with its catalog, the published definition
+    /// carries the saved file's move, an added row is a character, and a
+    /// dropped row is retired.
     #[test]
-    fn an_edit_to_a_move_table_is_played_by_the_next_sessions_cast() {
+    fn an_edit_to_the_cast_is_played_by_the_next_sessions_cast() {
         use ambition_characters::prepared::{close_preparation_barrier_admitting, PreparedCharacterRegistry};
 
         let root = std::env::temp_dir().join(format!("live_reload_cast_{}", std::process::id()));
@@ -859,6 +925,50 @@ mod tests {
             "the next session's cast plays the saved file"
         );
         assert_eq!(jab(&app), Some(0.5));
+
+        // A row added to the catalog is a character of the next session's
+        // cast and of the catalog; a row dropped again is retired from both.
+        let cast_with = |rival: bool| {
+            let rival = if rival {
+                r#""rival": (
+                    display_name: "Rival", manifest: "rival.ron", tier: MainHall,
+                    body_kind: Standard, composition: None, default_brain: "stand_still",
+                    default_action_set: "peaceful", tags: [],
+                ),"#
+            } else {
+                ""
+            };
+            format!(
+                r#"(
+                    brain_presets: {{ "stand_still": StandStill }},
+                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                    characters: {{
+                        "newcomer": (
+                            display_name: "Newcomer", manifest: "newcomer.ron", tier: MainHall,
+                            body_kind: Standard, composition: None, default_brain: "stand_still",
+                            default_action_set: "peaceful", tags: [],
+                        ),
+                        {rival}
+                    }},
+                )"#
+            )
+        };
+        let rival = |app: &App| {
+            (
+                app.world().resource::<PreparedCharacterRegistry>().get("rival").is_some(),
+                app.world()
+                    .resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
+                    .data()
+                    .characters
+                    .contains_key("rival"),
+            )
+        };
+        assert_eq!(rival(&app), (false, false), "the premise: no rival yet");
+        save_and_look(&mut app, &root.join("data/cast.ron"), &cast_with(true));
+        assert_eq!(rival(&app), (true, true), "an added row is a character of the cast and of the catalog");
+        save_and_look(&mut app, &root.join("data/cast.ron"), &cast_with(false));
+        assert_eq!(rival(&app), (false, false), "a dropped row is retired from the cast and the catalog");
+        assert_eq!(jab(&app), Some(0.5), "the other character keeps its moves");
         let _ = std::fs::remove_dir_all(root);
     }
 

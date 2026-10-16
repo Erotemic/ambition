@@ -427,9 +427,9 @@ whether the prior scene is unchanged, recovered or stopped.
   demo's `room_rules`, through `restate_room_rules`; the prop sheets,
   platform looks, projectile looks and pickup art, restating only the
   pack's own rows; the music and SFX, through `publish_provider_audio`; the
-  move tables and fighter facets, as one cast revision). A change to any
-  other schema of a demo pack (its character catalog) is refused and costs
-  a restart. Open: publication into a live demo session
+  cast, as one revision with its catalog). Every schema of the three demo
+  packs takes part; a schema a demo reads at start with no restater is
+  refused and costs a restart. Open: publication into a live demo session
   at a rollback boundary, as Ambition's road does.
 - Measure source read, changed-section preparation, candidate construction,
   activation, scenario reset and first observed behavior separately (M0).

@@ -34,7 +34,7 @@ pub use camera_continuity::{
     camera_roll_for_portal_transit, PortalCameraContinuityCamera, PortalCameraContinuityConfig,
     PortalCameraContinuityFocus, PortalCameraContinuityHostView, PortalCameraContinuitySelection,
     PortalCameraContinuityState, PortalCameraTransit, PortalCameraTransitMode,
-    PortalCameraTransitRule, PortalObserverViews,
+    PortalCameraTransitRule, PortalObserverViews, PortalParallaxCarry,
 };
 pub use clip_material::{
     clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial,

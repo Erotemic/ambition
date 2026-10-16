@@ -95,6 +95,7 @@ impl Plugin for PortalPresentationPlugin {
         app.init_resource::<crate::PortalCameraTransitRule>();
         app.init_resource::<PortalCameraContinuityConfig>();
         app.init_resource::<PortalCameraContinuityState>();
+        app.init_resource::<crate::PortalParallaxCarry>();
         app.init_resource::<PortalCameraContinuityHostView>();
         app.init_resource::<crate::PortalObserverViews>();
 

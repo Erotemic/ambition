@@ -245,9 +245,12 @@ the crossing frame.
 - **The foreground parallax layer** (z 45, in front of the play) was copied into every
   capture, so a window drew it twice: the far side's copy inside, the near side's over it.
   Captures draw the backdrop only now (`seen_through_a_portal`). The foreground's place is
-  the camera's place in the room, so a 256 px camera jump through a pair moves it ~49 px:
-  still a pop at a crossing, and not yet decided (ease the parallax camera across a portal
-  jump, or leave it).
+  the camera's place in the room, so a 256 px camera jump through a pair moved it ~49 px
+  (Jon's lamp). The camera continuity now adds each crossing's move to
+  `PortalParallaxCarry`; the foreground is placed from the camera less the carry, which
+  eases to nothing (rate 3/s). Measured: on the crossing frame the foreground's screen
+  offset moves 0.88 px, as on every frame of the walk, and then eases ~49 px to its place.
+  Open: ease by the camera's travel rather than by time, so a still camera never slides it.
 - **`capture_scene` cannot measure a crossing's background.** It pins its camera to a
   player snapshot after `camera_follow` and without the portal camera continuity, so at the
   c146/c147 crossing its camera moved 226.4 px, not 256: every backdrop patch is 66 screen

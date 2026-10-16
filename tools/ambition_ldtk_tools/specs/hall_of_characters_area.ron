@@ -2987,6 +2987,60 @@
                 48,
             ],
             fields: (
+                character_id: "npc_evil_heavy",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_evil_heavy",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1584,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_evil_failed_prototype",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_evil_failed_prototype",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1712,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_evil_attack_hound",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_evil_attack_hound",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1840,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
                 character_id: "sanic",
                 prompt: "Inspect",
                 dialogue_id: "hall_sanic",
@@ -2997,7 +3051,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1968,
                 160,
             ],
             size: [

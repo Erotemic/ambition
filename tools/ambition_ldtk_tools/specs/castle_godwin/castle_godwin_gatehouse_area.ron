@@ -25,6 +25,8 @@
         ( type: "EnemySpawn", px: [640, 568], size: [32, 72], fields: ( name: "castle_godwin_gatehouse_soldier_1", brain: "combatant", character_id: "npc_fascist_enforcer", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [980, 472], size: [32, 72], fields: ( name: "castle_godwin_gatehouse_soldier_2", brain: "combatant", character_id: "npc_fascist_enforcer", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [1320, 632], size: [32, 72], fields: ( name: "castle_godwin_gatehouse_soldier_3", brain: "combatant", character_id: "npc_fascist_enforcer", respawn: "OnRoomReenter" ) ),
+        ( type: "EnemySpawn", px: [1000, 654], size: [52, 50], fields: ( name: "castle_godwin_gatehouse_hound_1", brain: "combatant", character_id: "npc_evil_attack_hound", respawn: "OnRoomReenter" ) ),
+        ( type: "EnemySpawn", px: [1180, 654], size: [52, 50], fields: ( name: "castle_godwin_gatehouse_hound_2", brain: "combatant", character_id: "npc_evil_attack_hound", respawn: "OnRoomReenter" ) ),
         ( type: "CameraZone", px: [0, 0], size: [1600, 768], fields: ( id: "castle_godwin_gatehouse_camera", name: "castle_godwin_gatehouse_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [70, 40], size: [900, 24], fields: ( name: "castle_godwin_gatehouse_label", text: "Castle Godwin: the gatehouse.", category: "Custom" ) ),
     ],

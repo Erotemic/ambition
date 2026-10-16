@@ -27,6 +27,9 @@
     "gun_sword": (path: "sprites/props/gunsword.png", size: (54.0, 14.0), grip: Some(0.19)),
     "gun_sword_heavy": (path: "sprites/props/gunsword.png", size: (54.0, 14.0), grip: Some(0.19)),
     "admiral_gun_sword": (path: "sprites/props/gunsword.png", size: (54.0, 14.0), grip: Some(0.19)),
+    // The Iron Trooper's chain gun (renderer target `evil_chain_gun`): the
+    // pistol grip is 41 of the picture's 168 pixels from its butt.
+    "evil_chain_gun": (path: "sprites/props/evil_chain_gun.png", size: (54.0, 22.5), grip: Some(0.24)),
     // The Polygon's held items, each with its own drawing
     // (`item_icons.py::HELD_ITEM_ICON_SPECS`; `scripts/regen/sprites.sh`
     // installs them, and each `key` there is the id here). The bomb and the

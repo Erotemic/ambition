@@ -85,6 +85,10 @@ BOSS_BOX = (60, 100)
 #: The soldier of the regime, and his box (183 cm).
 SOLDIER = "npc_fascist_enforcer"
 SOLDIER_BOX = (32, 72)
+#: The regime's other fighters: the Iron Trooper with his chain gun (205 cm)
+#: and the lab's Failed Prototypes, which come in packs. Each its box.
+HEAVY, PROTOTYPE, HOUND = "npc_evil_heavy", "npc_evil_failed_prototype", "npc_evil_attack_hound"
+BOX = {SOLDIER: SOLDIER_BOX, HEAVY: (36, 80), PROTOTYPE: (32, 40), HOUND: (52, 50)}
 
 SPRITES = TOOLS.parents[1] / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
 #: Pixels of a castle prop's frame to one world unit (`castle_godwin.PX`).
@@ -123,11 +127,18 @@ def gate(ring, portal, zone, x, floor, to_room, to_zone, name):
     ]
 
 
-def soldier(room, n, x, feet_y):
-    """A soldier of the regime whose feet are at `feet_y`."""
-    w, h = SOLDIER_BOX
-    return (f'( type: "EnemySpawn", px: [{x}, {feet_y - h}], size: [{w}, {h}], fields: ( name: "{room}_soldier_{n}", '
-            f'brain: "combatant", character_id: "{SOLDIER}", respawn: "OnRoomReenter" ) ),')
+def soldier(room, n, x, feet_y, character=SOLDIER):
+    """A fighter of the regime (a soldier unless `character` says) whose
+    feet are at `feet_y`."""
+    w, h = BOX[character]
+    kind = {SOLDIER: "soldier", HEAVY: "heavy", PROTOTYPE: "prototype", HOUND: "hound"}[character]
+    return (f'( type: "EnemySpawn", px: [{x}, {feet_y - h}], size: [{w}, {h}], fields: ( name: "{room}_{kind}_{n}", '
+            f'brain: "combatant", character_id: "{character}", respawn: "OnRoomReenter" ) ),')
+
+
+def pack(room, x, feet_y, size=3, gap=44):
+    """A pack of Failed Prototypes, side by side from `x`."""
+    return [soldier(room, i + 1, x + i * gap, feet_y, PROTOTYPE) for i in range(size)]
 
 
 def body_box(kind):
@@ -238,6 +249,9 @@ def gatehouse():
         soldier(rid, 1, 640, floor - 64),
         soldier(rid, 2, 980, floor - 160),
         soldier(rid, 3, 1320, floor),
+        # The guard dogs of the gate.
+        soldier(rid, 1, 1000, floor, HOUND),
+        soldier(rid, 2, 1180, floor, HOUND),
     ]
     return rid, castle(rid, e, "Castle Godwin: the gatehouse.")
 
@@ -262,6 +276,11 @@ def barracks():
         soldier(rid, 3, 1300, floor),
         soldier(rid, 4, 1760, floor - 112),
         soldier(rid, 5, 2200, floor),
+        soldier(rid, 1, 700, floor, HOUND),
+        # The far end of the barracks: the lab's door is near, and a pack got
+        # out; an Iron Trooper holds the way to the tower.
+        *pack(rid, 1840, floor),
+        soldier(rid, 1, 2300, floor, HEAVY),
     ]
     return rid, castle(rid, e, "Castle Godwin: the barracks.")
 
@@ -289,7 +308,9 @@ def tower():
             e.append(soldier(rid, n, x + 128, y))
         y -= 176
         k += 1
-    e.append(soldier(rid, n + 1, w - 260, top_floor))
+    # The top of the tower: an Iron Trooper, and a pack on the first ledge.
+    e.append(soldier(rid, 1, w - 260, top_floor, HEAVY))
+    e += pack(rid, 200, floor - 176)
     return rid, castle(rid, e, "Castle Godwin: the tower.")
 
 
@@ -355,9 +376,9 @@ def muster_waves():
     cy = floor - SOLDIER_BOX[1] // 2
     gy = floor - 192 - SOLDIER_BOX[1] // 2
     return [
-        ("wave 1 — the guard", [(900, cy), (1200, cy)]),
-        ("wave 2 — the galleries", [(600, gy), (w - 600, gy), (1500, cy)]),
-        ("wave 3 — the muster", [(700, cy), (w // 2, floor - 48 - SOLDIER_BOX[1] // 2), (1300, cy), (w - 600, gy)]),
+        ("wave 1 — the guard and its dog", [(900, cy), (1200, cy)]),
+        ("wave 2 — the galleries, and a pack", [(600, gy), (w - 600, gy), (1500, cy)]),
+        ("wave 3 — the muster, and the Iron Trooper", [(700, cy), (w // 2, floor - 48 - SOLDIER_BOX[1] // 2), (1300, cy), (w - 600, gy)]),
     ]
 
 

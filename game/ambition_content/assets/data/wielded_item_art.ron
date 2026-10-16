@@ -27,6 +27,16 @@
         z_bias: 0.7,
         name: "Pirate gun-sword",
     ),
+    // The Iron Trooper's chain gun, at his hip: the picture is 168 by 70, the
+    // pistol grip at (41, 53); about 54 wide for a wielder 79 tall.
+    "evil_chain_gun": (
+        path: "sprites/props/evil_chain_gun.png",
+        source: (x: 0.0, y: 0.0, w: 168.0, h: 70.0),
+        grip: (41.0, 53.0),
+        width_per_wielder_height: 0.68,
+        z_bias: 0.7,
+        name: "Chain gun",
+    ),
     "gun_sword_heavy": (
         path: "sprites/lasersword_with_guns_spritesheet.png",
         source: (x: 118.0, y: 0.0, w: 177.0, h: 46.0),

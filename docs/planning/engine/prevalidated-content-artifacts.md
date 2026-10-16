@@ -1,9 +1,16 @@
 # Prevalidated content artifacts and fast runtime admission
 
-**Priority:** Low. This is a candidate improvement, not selected execution work.
-**Promote when:** A measured startup, reload, or content-loading cost justifies it, or a release/mod packaging customer needs a portable prepared artifact.
+**Priority:** Deferred; outside the execution queue.
+**Value test, after authorization:** A measured startup, reload, or content-loading cost justifies it, or a release/mod packaging customer needs a portable prepared artifact. A measurement alone does not authorize implementation.
 **Scope:** Content validation, preparation, and artifact admission. Do not change simulation authority or the asset residency model.
 **Source baseline:** Ambition snapshot `102cbf1`, 2026-10-16. Recheck paths and behavior against the implementation HEAD before work starts.
+
+**Execution gate (maintainer ruling, 2026-10-16):** Do not implement, prototype, benchmark, add dependencies, add a crate, or schedule any work from this document unless one of these conditions is true:
+
+1. The maintainer explicitly asks to implement **this specific proposal**.
+2. All other work in the `docs/planning/` engineering queue is finished. There must be literally no other work left to select. A blocked, paused, or temporarily unassigned queue item does not count as finished.
+
+Before case 2, check the current [`docs/planning/queue.md`](../queue.md) and its linked open work. Do not use a measurement, an adjacent task, or a promising experiment as permission to start. Research and planning edits alone do not authorize code, tool, content, or test changes. The work slices below are a record of possible future work, **not** an autonomous work order.
 
 ## Goal and decision
 
@@ -59,6 +66,20 @@ The current 64-bit semantic `ContentFingerprint` tracks content identity. It is 
 
 A cached result is valid only for the checks it performed. For example, strict file-existence checks do not certify future GPU uploads or that an audio device can play a file. A content graph checked against one LDtk project and character catalog does not certify a different project or catalog.
 
+## Reuse existing Rust packages, not a new serialization stack
+
+These are **candidates to assess after the execution gate opens**, not approved new dependencies. Check the actual workspace and locks at that time. The 2026-10-16 source snapshot already has `serde` 1.x, `bincode` 1.3.3, `blake3` 1.8.7, and `sha2` 0.10.9 in `Cargo.lock`. Use the existing `ContentArtifact` and schema-owned validators first.
+
+| Option | Useful role | Caution |
+| --- | --- | --- |
+| **Existing** [`serde`](https://docs.rs/serde/latest/serde/), [`bincode` 1.x](https://docs.rs/bincode/1.3.3/bincode/) | Encode typed, schema-owned prepared sections without inventing a new codec. | An explicitly versioned outer envelope and stable data schema are still required. Serialized Rust structs are not automatically a durable file format. |
+| **Existing** [`blake3`](https://docs.rs/blake3/latest/blake3/) or [`sha2`](https://docs.rs/sha2/latest/sha2/) | Hash exact source bytes, dependencies, and artifact sections. | A hash stored by the untrusted pack itself is **not** proof that the owning validators ran. The expected digest must come from a trusted build or cache context. |
+| [`postcard` 1.x](https://docs.rs/postcard/latest/postcard/) | Small Serde binary encoding with a documented stable wire format. | Compare it to existing `bincode` on real domain data; avoid adding a second format without a measured benefit. |
+| [`rkyv` 0.8](https://docs.rs/rkyv/latest/rkyv/) | Archived data with possible zero-copy reads and built-in byte validation. | Higher complexity and separate archive layout/version rules. Use checked access and bounds for untrusted bytes, not `access_unchecked`. Never equate byte validity with content semantics or certificate trust. |
+| [`zstd`](https://docs.rs/zstd/latest/zstd/) | Optional compression when release artifact size or I/O is material. | Decode and allocation also cost time. Set strict decoded-size limits; do not add compression by default. |
+
+The default candidate is **existing domain codecs + Serde/bincode + an existing hash crate**. Compare `postcard` or `rkyv` only against a reproducible baseline with real prepared data and explicit compatibility checks. The goal is faster admission, not a new generic cache or package manager.
+
 ## Representation and ownership
 
 1. **One validator implementation.** Keep schema validators with their capability owners. Both the source compiler and the prevalidated path must agree on accepted semantics. Do not create a second "quick validator" with looser rules.
@@ -74,7 +95,7 @@ A cached result is valid only for the checks it performed. For example, strict f
 
 ### V0 — Measure before changing data flow
 
-Add narrowly scoped timing spans and a repeatable report for:
+**This is not authorized until the execution gate opens.** Add narrowly scoped timing spans and a repeatable report for:
 
 - pack source I/O, manifest parsing, schema lookup, facet checks, reference resolution, aggregation, canonicalization, and lowering;
 - LDtk JSON load, each validation call, room conversion, cross-content graph checks, and any repeated conversion;
@@ -139,4 +160,4 @@ Only if measurements justify it, cache prepared sections by exact dependency set
 - How should publisher trust work for optional third-party packs? No signing service is needed for the first local/release implementation.
 - When are cross-content dependencies captured: during pack compilation, world preparation, or the existing candidate gate? Preserve one owner for each rule.
 
-**Priority rule:** Do not schedule V2-V4 without a measured benefit or a packaging customer. The independent V1 cleanup can proceed if it removes a proved duplicate check. Only `docs/planning/queue.md` selects execution work.
+**Priority rule:** V0 through V4, **including the V1 duplicate-LDtk cleanup**, stay deferred. A measured cost, a release need, or a seemingly safe cleanup does not authorize work. Only an explicit maintainer request for this proposal or literal exhaustion of all other `docs/planning` queue work can authorize implementation. After authorization, require evidence before selecting later stages.

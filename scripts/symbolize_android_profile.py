@@ -28,10 +28,13 @@ be another function's; a ``file:line`` of ours is still where the call is.
 It needs ``llvm-symbolizer`` (any version; ``llvm-symbolizer-18`` is tried
 too). Shares are of all samples of the app's process, all threads.
 
-``--thread NAME`` keeps only the samples of the threads with that name in the
-``--ours`` table (shares stay of the whole process). With the sample dump, a
-table of threads is printed: each thread's share, and how much of one core it
-used over the recording (about 100% = that thread is saturated).
+``--thread NAME_OR_TID`` keeps only the samples of the threads with that name,
+or of that thread id, in the ``--ours`` table (shares stay of the whole
+process). With the sample dump, a table of threads is printed: each thread's
+share, and how much of one core it used over the recording (about 100% = that
+thread is saturated). A thread is named by its id too: a thread made with
+``std::thread::spawn`` and no name has its parent's name (Bevy's render thread
+is a second ``android_main``).
 """
 
 from __future__ import annotations
@@ -185,6 +188,7 @@ def sample_paths(profile: Path, thread: str | None = None) -> List[Tuple[float, 
     weights: List[float] = []
     stacks: List[List[str]] = []
     threads: List[str] = []
+    tids: List[str] = []
     vaddr = None
     for line in dump.read_text(errors="replace").splitlines():
         text = line.strip()
@@ -192,9 +196,12 @@ def sample_paths(profile: Path, thread: str | None = None) -> List[Tuple[float, 
             weights.append(1.0)
             stacks.append([])
             threads.append("")
+            tids.append("")
             vaddr = None
         elif not stacks:
             continue
+        elif text.startswith("thread_id:"):
+            tids[-1] = text.split(":", 1)[1].strip()
         elif text.startswith("thread_name:"):
             threads[-1] = text.split(":", 1)[1].strip()
         elif text.startswith("event_count:"):
@@ -207,7 +214,7 @@ def sample_paths(profile: Path, thread: str | None = None) -> List[Tuple[float, 
             vaddr = None
     total = sum(weights) or 1.0
     return [(100.0 * w / total, list(reversed(frames)))
-            for w, frames, name in zip(weights, stacks, threads) if thread is None or name == thread]
+            for w, frames, name, tid in zip(weights, stacks, threads, tids) if thread in (None, name, tid)]
 
 
 def thread_table(profile: Path) -> Dict[str, float] | None:
@@ -217,13 +224,15 @@ def thread_table(profile: Path) -> Dict[str, float] | None:
         return None
     busy: Dict[str, float] = defaultdict(float)
     first = last = None
-    name, count = "", 0.0
+    name, tid, count = "", "", 0.0
     for line in dump.read_text(errors="replace").splitlines():
         text = line.strip()
         if text == "sample:":
             if name:
-                busy[name] += count
-            name, count = "", 0.0
+                busy[f"{name} (tid {tid})"] += count
+            name, tid, count = "", "", 0.0
+        elif text.startswith("thread_id:"):
+            tid = text.split(":", 1)[1].strip()
         elif text.startswith("time:"):
             when = int(text.split(":", 1)[1])
             first = when if first is None else first
@@ -233,11 +242,11 @@ def thread_table(profile: Path) -> Dict[str, float] | None:
         elif text.startswith("event_count:"):
             count = float(text.split(":", 1)[1])
     if name:
-        busy[name] += count
+        busy[f"{name} (tid {tid})"] += count
     total = sum(busy.values()) or 1.0
     wall = max(1, (last or 0) - (first or 0))
     print(f"recorded {wall / 1e9:.1f} s of wall time")
-    return {f"{k} (busy {100.0 * v / wall:.0f}% of one core)": 100.0 * v / total for k, v in busy.items()}
+    return {f"{k}, busy {100.0 * v / wall:.0f}% of one core": 100.0 * v / total for k, v in busy.items()}
 
 
 def ours_table(profile: Path, library: Path, thread: str | None = None) -> Dict[str, float]:
@@ -330,7 +339,7 @@ def main() -> None:
     parser.add_argument("--top", type=int, default=30)
     parser.add_argument("--lines", action="store_true", help="add a table by source line (innermost frame)")
     parser.add_argument("--ours", action="store_true", help="add a table by the first line of ours on each sample's stack")
-    parser.add_argument("--thread", help="the --ours table counts only the samples of this thread name")
+    parser.add_argument("--thread", help="the --ours table counts only the samples of this thread name or id")
     args = parser.parse_args()
     tables = []
     for profile in args.profiles:

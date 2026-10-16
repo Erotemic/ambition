@@ -345,6 +345,24 @@ both the gate and the prompt read. Under rollback a cached value must be
 rollback state or derived from inputs that a restore marks changed; check
 each cache against that before it lands. Together with F15 this is P12.
 
+### F17 — The hub respawns a room's parallax every frame
+
+MEASURED (probe churn, hub `basement_enemies`, 595 frames): exactly 1.000
+`PresentedRoomParallax` root spawn, 2.000 parallax layer spawns, 2.000 layer
+despawns and 2.000 `PresentedForView` inserts (`parallax.rs:623`) per frame;
+also 1.000 `WieldedItemVisual` spawn per frame. A steady rate of exactly one
+per frame is a loop, not a load.
+
+Reading (REASONED, to confirm with the change detector of F15):
+`refresh_parallax_layers_on_quality_change` (`parallax.rs:325`) despawns every
+parallax layer and every `PresentedRoomParallax` when `GameAssets` is changed;
+`present_live_room_parallax` spawns them again on the next frame. So
+`GameAssets` is most likely marked changed every frame. A candidate writer:
+`ensure_active_room_parallax_theme` (`parallax.rs:458`) calls
+`ensure_parallax_layers_for_room` through `ResMut<GameAssets>` for a live room
+whose theme is not resident and not marked "without art". The comment at
+`parallax.rs:481` already names this risk for the resident case.
+
 ### Not a lever (keep out of this run)
 
 Session-scoped App globals (C03: 30 counted plus 19 uncounted instances) are

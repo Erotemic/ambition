@@ -34,7 +34,8 @@ again before you quote it.
 - **Input was 82% of a standalone frame's allocations** (19.2k a frame,
   F13): leafwing rebuilt every action pair on each call though we resolve no
   clashes. Fixed in this repo: allocations a frame Mary-O 23,407 → 4,128,
-  hub 46,949 → 15,257 (pixel-identical capture).
+  hub 46,949 → 15,257 (pixel-identical capture). On the phone the pass was
+  4.5% of all CPU samples (~8% of the main thread).
 - **Change detection is defeated.** About 30 components of every body are
   marked changed every tick whether they change or not (F20), and several
   resources too; one no-op `&mut` re-folded Mary-O's whole repertoire every
@@ -82,6 +83,7 @@ again before you quote it.
 | Which Bevy system takes the time (desktop)? | `scripts/profile_desktop.sh` → `tracy_summary.md` |
 | Where does the phone spend its CPU? | `scripts/profile_android.sh all ...`, then `scripts/symbolize_android_profile.py DIR` |
 | Which line of OURS caused framework time (phone)? | `symbolize_android_profile.py DIR --ours` (needs `simpleperf-device-samples.txt`, which a profile made after 2026-10-16 has) |
+| How much phone CPU passes through one function (inclusive)? | `symbolize_android_profile.py DIR --under NAME` (repeatable; with `--thread TID`) |
 | Which thread is saturated, and what does it do (phone)? | the `threads` table of `symbolize_android_profile.py DIR` (busy % of one core, by thread id), then `--ours --thread TID` |
 | Which system allocates, and which code makes archetype churn? | `profile_desktop.sh --perf-probe` → `alloc_by_span.csv`, `churn_by_site.csv` (recipe `profiling.md` §1d) |
 | Which code marks a component or resource changed every frame (wakes every `Changed<T>` reader)? | the same run → `changes_by_site.csv` |
@@ -363,7 +365,13 @@ compares the two on held keys. Verified (MEASURED, `probe/mary_o_1_1_pressall`):
 all allocations of a standalone Mary-O frame 23,407 → 4,128; the input update
 19,222 → 178. The hub (`probe/basement_enemies_pressall`, what the phone
 runs): 46,949 → 15,257, the input update 31,942 → 258, the capture
-pixel-identical. Tests: `ambition_input` 152, Mary-O 95, Sanic 42. Left for an
+pixel-identical.
+
+On the phone (MEASURED, the existing profiles, `symbolize_android_profile.py
+--under handle_clashes`): 4.5% of all process samples in the Mary-O-only run
+(3.1% with every game) were inside `handle_clashes`, about 8% of the
+saturated main thread. REASONED: that is the CPU this fix removes on the
+phone; a new phone run will measure it. Tests: `ambition_input` 152, Mary-O 95, Sanic 42. Left for an
 upstream PR: skip the pass in `process_actions` itself, and look up without
 boxing (`hashbrown::Equivalent` on `&dyn Buttonlike`). The probe counts
 allocations; their time on the phone is inside the 5.2% of `mimalloc` and the

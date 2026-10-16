@@ -32,7 +32,10 @@ too). Shares are of all samples of the app's process, all threads.
 or of that thread id, in the ``--ours`` table (shares stay of the whole
 process). With the sample dump, a table of threads is printed: each thread's
 share, and how much of one core it used over the recording (about 100% = that
-thread is saturated). A thread is named by its id too: a thread made with
+thread is saturated). ``--under NAME`` (repeatable) prints the share of samples whose stack, inlined
+frames included, passes through a function whose name contains NAME: the
+inclusive cost of that function, framework and allocator time included.
+A thread is named by its id too: a thread made with
 ``std::thread::spawn`` and no name has its parent's name (Bevy's render thread
 is a second ``android_main``).
 """
@@ -271,6 +274,22 @@ def ours_table(profile: Path, library: Path, thread: str | None = None) -> Dict[
     return by_line
 
 
+def under_table(profile: Path, library: Path, patterns: List[str], thread: str | None = None) -> Dict[str, float]:
+    """Per pattern, the share of samples with a frame whose function name contains it."""
+    paths = sample_paths(profile, thread)
+    if paths is None:
+        raise SystemExit(f"--under needs {profile.name}/simpleperf-device-samples.txt")
+    offsets = sorted({m.group(1) for _s, frames in paths for f in frames if (m := APP.search(f))})
+    frames_at = inline_frames(library, offsets)
+    hits: Dict[str, float] = {pattern: 0.0 for pattern in patterns}
+    for share, frames in paths:
+        names = {function for f in frames if (m := APP.search(f)) for function, _place in frames_at.get(m.group(1), [])}
+        for pattern in patterns:
+            if any(pattern in name for name in names):
+                hits[pattern] += share
+    return {f"under {pattern}": share for pattern, share in hits.items()}
+
+
 def short(name: str) -> str:
     """A function name without its generic arguments and hash."""
     name = re.sub(r"::h[0-9a-f]{16}$", "", name)
@@ -339,7 +358,9 @@ def main() -> None:
     parser.add_argument("--top", type=int, default=30)
     parser.add_argument("--lines", action="store_true", help="add a table by source line (innermost frame)")
     parser.add_argument("--ours", action="store_true", help="add a table by the first line of ours on each sample's stack")
-    parser.add_argument("--thread", help="the --ours table counts only the samples of this thread name or id")
+    parser.add_argument("--thread", help="the --ours and --under tables count only the samples of this thread name or id")
+    parser.add_argument("--under", action="append", default=[],
+                        help="share of samples whose stack passes through a function containing this name (repeatable)")
     args = parser.parse_args()
     tables = []
     for profile in args.profiles:
@@ -359,6 +380,8 @@ def main() -> None:
             where = f", thread {args.thread}" if args.thread else ""
             show(f"lines of ours on the stack (framework time included{where})",
                  ours_table(profile, library, args.thread), args.top)
+        if args.under:
+            show("inclusive share under a function", under_table(profile, library, args.under, args.thread), len(args.under))
     if len(tables) > 1:
         base_name, base_fn, base_crate, _ = tables[0]
         for profile, by_function, by_crate, _ in tables[1:]:

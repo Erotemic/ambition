@@ -105,14 +105,16 @@ again before you quote it.
 1. A phone run of the Mary-O-only hub (`profile_android.sh`, as 10-16) to
    measure tonight's fixes where they matter; compare with
    `android-maryo-only-1-1b` by `--thread` and `--under`.
-2. D12: a yes for the serial executor in the standalone games (F22).
-3. P1 C1: the boss and wielded extension phases installed by their owning
+2. The ambient motes drawn only under the parallel executor (F22): a likely
+   bug in the hub as shipped, and a precondition of D12.
+3. D12: a yes for the serial executor in the standalone games (F22).
+4. P1 C1: the boss and wielded extension phases installed by their owning
    capability (~49 systems a frame in Mary-O and Sanic), then C2-C6.
-4. P12: the body step marks only real changes (F20); then the change-driven
+5. P12: the body step marks only real changes (F20); then the change-driven
    read-models (P5) can skip.
-5. F19: the live-room lookups as one resource, not ~280 query parameters.
-6. F24: one composed collision world per room per tick, then a layered view.
-7. The hub's ~9.4k allocations a frame with no system owner (F13, open).
+6. F19: the live-room lookups as one resource, not ~280 query parameters.
+7. F24: one composed collision world per room per tick, then a layered view.
+8. The hub's ~9.4k allocations a frame with no system owner (F13, open).
 
 ## How to answer a cost question
 
@@ -705,11 +707,16 @@ order, so no new order is possible. Check of that (MEASURED, the hub A/B
 captures, `capture_scene` steps deterministically, 1,200 frames): the player
 ends at the same point in every run of every arm; `serial` and `frame-serial`
 captures are pixel-identical; `parallel` differs from both in 218 of 921,600
-pixels, the same 218 in each of its three runs: small scattered dots
-(REASONED from the picture: motes or particles; the motes' seeding is
-deterministic, so the cause is still open). The player and the rest of the
-frame are the same. So the executor changes the order some presentation
-system sees, not the game, as far as these captures show. Recommendation: make `Serial` the default
+pixels, the same 218 in each of its three runs. All 218 are brighter in
+`parallel`: glowing ember dots (the room's ambient motes, by their look) that
+are drawn under `parallel` and are not in the frame under `frame-serial` or
+`serial`. The player and the rest of the frame are the same. So the executor
+changes what one presentation path shows, and under the hub's shipped policy
+(`frame-serial`) the motes appear to be missing (REASONED; the motes' seeding
+is deterministic, so the cause is an order dependence still to find, in
+`present_room_motes`/`drift_room_motes` or what they read). Before D12 lands,
+find it: under `serial` the standalone games would lose their motes the same
+way. Recommendation: make `Serial` the default
 of every foundation, then remove the switch; check `room_replay` under it
 first. Not done: it is a one-line default.
 
@@ -896,8 +903,9 @@ another reason:
   Mary-O's integration tests (95, the room-replay tests among them) and
   Sanic's (42). It changes how every standalone game
   runs, so it should land with a play test, and the switch is then removed.
-  The one visible difference measured in the hub was 218 pixels of small
-  dots (F22).
+  ⚠ Precondition: in the hub capture the ambient motes are drawn only under
+  the parallel executor (F22); find that order dependence first, or the
+  standalone games lose their motes.
 - **D13 — withdrawn.** The leafwing clash pass is skipped in this repo with
   no fork (F13). An upstream PR (skip the pass under `PressAll` in
   `process_actions`; lookups without boxing) is an outward action for Jon.

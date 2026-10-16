@@ -40,7 +40,7 @@ mod reset_tests {
     //! authored level portals — a reset must never wipe level-placed portals.
     use super::*;
     use crate::color::{PortalChannel, PortalChannelColor, PortalGunColor};
-    use crate::types::{portal_half_extent, PlacedPortal};
+    use crate::types::PlacedPortal;
     use bevy::math::Vec2;
 
     fn portal(channel: PortalChannel) -> PlacedPortal {
@@ -49,7 +49,7 @@ mod reset_tests {
             channel,
             Vec2::new(0.0, 0.0),
             normal,
-            portal_half_extent(normal),
+            crate::PORTAL_OPENING_HALF,
         )
     }
 

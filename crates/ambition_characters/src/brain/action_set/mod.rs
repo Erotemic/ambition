@@ -567,6 +567,24 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
+        // The Iron Trooper's chain gun (Castle Godwin): fast rounds from the
+        // hand, a short refire. The same shot as his action set
+        // (`evil_chain_gun` in the character catalog), as the heavy pirate's
+        // gun-sword is.
+        items.insert(
+            "evil_chain_gun",
+            HeldItemSpec {
+                id: "evil_chain_gun".into(),
+                melee: None,
+                ranged: Some(
+                    RangedActionSpec::pistol(620.0, 3)
+                        .with_visual("pistol_round")
+                        .with_muzzle(Muzzle::Hand { ahead: 40.0 })
+                        .with_refire(0.18),
+                ),
+                use_behavior: HeldUseBehavior::Auto,
+            },
+        );
         items
     });
 

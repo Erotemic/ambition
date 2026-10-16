@@ -1,13 +1,12 @@
 use super::*;
 use crate::color::{PortalChannelColor, PortalGunColor};
-use crate::types::portal_half_extent;
 
 fn floor_portal(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
     PlacedPortal::fixed(
         channel,
         pos,
         Vec2::new(0.0, -1.0),
-        portal_half_extent(Vec2::new(0.0, -1.0)),
+        crate::PORTAL_OPENING_HALF,
     )
 }
 

@@ -6,7 +6,7 @@ use ambition_platformer2d_core::AabbExt;
 fn frame(pos: Vec2, normal: Vec2) -> PortalAperture {
     PortalAperture {
         frame: PortalFrame::fixed(pos, normal),
-        half_length: crate::types::portal_opening_half(normal, crate::portal_half_extent(normal)),
+        half_length: crate::PORTAL_OPENING_HALF,
     }
 }
 fn floor(pos: Vec2) -> PortalAperture {

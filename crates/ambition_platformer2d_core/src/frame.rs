@@ -38,20 +38,37 @@ pub struct PortalFrame {
     pub origin: Vec2,
     /// Unit outward normal, pointing into the room.
     pub normal: Vec2,
-    /// The aperture's own motion (px/s). ZERO for static portals; a moving
-    /// host publishes its authoritative mover velocity here (CC6) — never a
-    /// finite difference of positions.
+    /// The aperture's own motion: the velocity (px/s) of its point at
+    /// `pivot`. ZERO for static portals; a moving host publishes its
+    /// authoritative mover velocity here (CC6) — never a finite difference of
+    /// positions.
     pub velocity: Vec2,
+    /// How fast it turns about `pivot` (rad/s; `+` turns `+x` toward `+y`,
+    /// as [`crate::SurfaceChain::carried`] turns). Zero unless its host turns
+    /// (a plank platform).
+    pub spin: f32,
+    /// The point it turns about. Any point when `spin` is zero.
+    pub pivot: Vec2,
 }
 
 impl PortalFrame {
-    /// A static frame (velocity zero) — the common constructor today.
+    /// A static frame (no motion) — the common constructor today.
     pub fn fixed(origin: Vec2, normal: Vec2) -> Self {
         Self {
             origin,
             normal,
             velocity: Vec2::ZERO,
+            spin: 0.0,
+            pivot: origin,
         }
+    }
+
+    /// The velocity of the aperture's surface at `p`: its motion and its turn
+    /// (`velocity + spin × (p − pivot)`). What a body crossing at `p` moves
+    /// relative to.
+    pub fn velocity_at(&self, p: Vec2) -> Vec2 {
+        let r = p - self.pivot;
+        self.velocity + self.spin * Vec2::new(-r.y, r.x)
     }
 
     /// The derived along-surface tangent ([`tangent_of`]).
@@ -194,11 +211,13 @@ pub fn map_point(a: &PortalFrame, b: &PortalFrame, convention: MapConvention, p:
     b.origin + map_vec_between(p - a.origin, a.normal, b.normal, convention)
 }
 
-/// Galilean velocity composition — THE moving-portal rule (CC6):
-/// `v_out = R(v − a.velocity) + b.velocity`. For static frames (velocity
-/// zero) this is exactly [`map_vec`].
-pub fn map_velocity(a: &PortalFrame, b: &PortalFrame, convention: MapConvention, v: Vec2) -> Vec2 {
-    map_vec(a, b, convention, v - a.velocity) + b.velocity
+/// THE moving-portal rule (CC6): a body crossing at `p` keeps its velocity
+/// relative to the surface it crosses. `v_out = R(v − a.velocity_at(p)) +
+/// b.velocity_at(p′)`, where `p′` is `p` mapped to `b`, so a portal that
+/// moves or turns gives what crosses it its surface's motion at that point.
+/// For static frames this is exactly [`map_vec`].
+pub fn map_velocity(a: &PortalFrame, b: &PortalFrame, convention: MapConvention, p: Vec2, v: Vec2) -> Vec2 {
+    map_vec(a, b, convention, v - a.velocity_at(p)) + b.velocity_at(map_point(a, b, convention, p))
 }
 
 #[cfg(test)]

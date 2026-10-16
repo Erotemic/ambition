@@ -19,7 +19,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_core::{BodyKinematics, SweepSample};
 
 use crate::color::{PortalChannel, PortalGunColor};
-use crate::types::{portal_half_extent, portal_half_extent_with_length, PlacedPortal};
+use crate::types::PlacedPortal;
 
 const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
 const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::ORANGE);
@@ -49,7 +49,7 @@ fn wall(channel: PortalChannel, opening: f32) -> PlacedPortal {
         channel,
         Vec2::new(x, 200.0),
         normal,
-        portal_half_extent_with_length(normal, opening * 0.5),
+        opening * 0.5,
     )
 }
 
@@ -162,7 +162,7 @@ fn after_the_floor_closes(size: Vec2, down: Vec2) -> Vec2 {
     let normal = Vec2::new(0.0, -1.0);
     let closing = app
         .world_mut()
-        .spawn(PlacedPortal::fixed(BLUE, Vec2::new(500.0, 300.0), normal, portal_half_extent(normal)))
+        .spawn(PlacedPortal::fixed(BLUE, Vec2::new(500.0, 300.0), normal, crate::PORTAL_OPENING_HALF))
         .id();
     let body = BodyKinematics {
         pos: Vec2::new(500.0, 285.0),

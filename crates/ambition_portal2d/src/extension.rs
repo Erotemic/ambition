@@ -23,7 +23,7 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use ambition_portal_port::{HeldPortalPairPort, LightLinePort};
 use bevy::prelude::*;
 
-use crate::{link_hash, portal_half_extent_with_length, PlacedPortal, PortalChannel, PortalChannelColor, PortalLink, PortalLook};
+use crate::{link_hash, PlacedPortal, PortalChannel, PortalChannelColor, PortalLink, PortalLook};
 
 /// Install the held pair and the lines of light in `boss_conduct`.
 pub fn install_for_boss_conduct(app: &mut App) {
@@ -224,15 +224,10 @@ fn lower_held_portal_pairs(
                 if let Ok((_, _, mut portal, mut look)) = portals.get_mut(*end) {
                     let at = ae::Vec2::from(asked.at);
                     let normal = ae::Vec2::from(asked.normal);
-                    if portal.pos != at {
-                        portal.pos = at;
-                        portal.prev_pos = at;
-                    }
-                    // A turn that is asked is a jump, not a host's motion:
-                    // `prev_normal` moves with it, so eviction sees it.
-                    if portal.normal != normal {
-                        portal.normal = normal;
-                        portal.prev_normal = normal;
+                    // A place or turn that is asked is a jump, not a host's
+                    // motion: the tick starts there, so eviction sees it.
+                    if portal.pos != at || portal.normal != normal {
+                        portal.place_at(at, normal);
                     }
                     if portal.half_length != asked.half_length {
                         portal.half_length = asked.half_length;
@@ -269,7 +264,7 @@ fn lower_held_portal_pairs(
                             crate::UNRESOLVED_LINK_CHANNEL,
                             ae::Vec2::from(end.at),
                             normal,
-                            portal_half_extent_with_length(normal, end.half_length),
+                            end.half_length,
                         ),
                         link,
                         PortalLook(PortalChannel::Authored(PortalChannelColor::Indexed(pair.looks[index]))),

@@ -677,6 +677,8 @@ tackon_targets=(
     pirate_heavy_axe
     throwing_javelin
     coconut
+    # The Iron Trooper's chain gun (`evil_heavy`).
+    evil_chain_gun
     # Scenery of the primeval trail (an LDtk `Prop`).
     coconut_palm
     # The stand of a dimension gate (an LDtk `Prop`): the Math gate square.
@@ -686,6 +688,21 @@ tackon_targets=(
     castle_godwin_entrance
     castle_godwin_sign
     evil_thorn_bush
+    # The set dressing of the castle's rooms (`castle_godwin_dressing`).
+    castle_guard_post
+    castle_wanted_poster
+    castle_propaganda_poster_a
+    castle_propaganda_poster_b
+    castle_propaganda_poster_c
+    castle_searchlight
+    castle_bunk_bed
+    castle_locker_row
+    castle_mess_table
+    castle_rally_podium
+    castle_tesla_coil
+    castle_specimen_vat
+    castle_operating_table
+    castle_iron_throne
     # The house fronts of the Math town (LDtk `Prop`s, decoration).
     math_house_rose
     math_house_dome
@@ -957,6 +974,13 @@ tackon_targets=(
     fascist_enforcer
     # The boss of Godwin Castle (`npc_wolfenstein_boss`), on the person rig.
     wolfenstein
+    # The troops of Godwin Castle, on the person rig: the iron trooper (his
+    # chain gun is the held prop `evil_chain_gun`) and the lab's failed
+    # prototypes of Wolfenstein.
+    evil_heavy
+    evil_failed_prototype
+    # The guard dog of Godwin Castle: the house dog parts, its own clips.
+    evil_attack_hound
     # The General (`npc_general`): an SVG rig, not a preset of the toon
     # template any more.
     absurd_general
@@ -993,6 +1017,7 @@ canonical_prop_map=(
     "shrine:shrine"
     "pirate_heavy_axe:axe"
     "throwing_javelin:javelin"
+    "evil_chain_gun:evil_chain_gun"
     "coconut:coconut"
     "pool_noodle:pool_noodle"
     "lasersword_with_guns:gunsword"

@@ -6,8 +6,7 @@
 //! skips collision for the tick (so it neither explodes on the entry face nor
 //! double-tests a hit).
 
-use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
+use ambition_platformer2d_core as ae;
 use ambition_portal2d::{find_portal, PlacedPortal};
 
 /// Margin (px) past the exit face so a transited shot clears the thin portal
@@ -30,21 +29,20 @@ pub fn try_projectile_portal_transit(
     portals: &[PlacedPortal],
     convention: ambition_portal2d::pieces::MapConvention,
 ) -> bool {
-    if kin.vel == ae::Vec2::ZERO {
-        return false;
-    }
     let half = kin.size * 0.5;
     let body = ae::Aabb::new(kin.pos, half);
     for enter in portals {
-        // Heading away from (or parallel to) this portal's face → not entering.
-        if kin.vel.dot(enter.normal) >= 0.0 {
+        // Heading away from (or parallel to) this portal's surface → not
+        // entering.
+        if enter.relative_velocity(kin.pos, kin.vel).dot(enter.normal) >= 0.0 {
             continue;
         }
         let Some(exit) = find_portal(portals, enter.channel.partner()) else {
             continue;
         };
-        if body.strict_intersects(ae::Aabb::new(enter.pos, enter.opening_half_extent())) {
-            kin.vel = portal_transform_velocity(kin.vel, enter.normal, exit.normal, convention);
+        if enter.opening_face().strict_intersects(body) {
+            // It keeps its velocity relative to the surface it crosses.
+            kin.vel = ae::frame::map_velocity(&enter.frame(), &exit.frame(), convention, kin.pos, kin.vel);
             let clearance = half.dot(exit.normal.abs()) + PROJECTILE_EXIT_MARGIN;
             kin.pos = exit.pos + exit.normal * clearance;
             return true;
@@ -69,7 +67,7 @@ mod tests {
     }
 
     fn portal(channel: PortalChannel, pos: ae::Vec2, normal: ae::Vec2) -> PlacedPortal {
-        PlacedPortal::fixed(channel, pos, normal, ae::Vec2::new(6.0, 40.0))
+        PlacedPortal::fixed(channel, pos, normal, 40.0)
     }
 
     // Physical convention: a portal's `normal` points OUT of the wall into the

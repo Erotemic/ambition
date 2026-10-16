@@ -601,7 +601,7 @@ mod bridge_meets_compositor_tests {
             PortalChannel::Authored(PortalChannelColor::Purple),
             ambition_platformer2d_core::Vec2::new(500.0, 300.0),
             ambition_platformer2d_core::Vec2::new(-1.0, 0.0),
-            ambition_platformer2d_core::Vec2::new(9.0, 46.0),
+            46.0,
         )
     }
 

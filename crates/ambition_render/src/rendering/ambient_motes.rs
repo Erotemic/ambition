@@ -103,6 +103,10 @@ impl Default for AmbientMoteStyles {
                 (T::EvilForest, MoteStyle::new(24, 2.5, 10.0, 8.0, 0.2, 1.6, 3.4, 0.7, 0.55, 1.4, 0.4)),
                 // Sparks of the braziers of Castle Godwin.
                 (T::CastleGodwin, MoteStyle::new(16, 2.0, 12.0, 6.0, 0.2, 1.6, 3.4, 0.7, 0.6, 1.6, 0.4)),
+                // Sparks from the coils of the lab: few, quick, and they flicker.
+                (T::CastleGodwinLab, MoteStyle::new(14, 4.0, 6.0, 10.0, 0.2, 1.4, 3.0, 0.8, 0.6, 2.4, 0.5)),
+                // Ash in the throne room, slow, going up.
+                (T::CastleGodwinThrone, MoteStyle::new(18, 1.5, 8.0, 5.0, 0.15, 1.6, 3.4, 0.6, 0.5, 1.0, 0.3)),
                 // Embers of a dark light that go up and flicker.
                 (T::Starless, MoteStyle::new(26, 3.0, 12.0, 8.0, 0.2, 1.8, 3.8, 0.75, 0.6, 1.6, 0.4)),
                 // Sparks that go up fast from the fire under the floor.

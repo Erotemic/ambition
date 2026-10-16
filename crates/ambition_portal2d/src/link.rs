@@ -253,6 +253,8 @@ mod aperture_partner_tests {
             partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,
+            spin: 0.0,
+            pivot: Vec2::ZERO,
             prev_pos: Vec2::new(x, 0.0),
         }
     }

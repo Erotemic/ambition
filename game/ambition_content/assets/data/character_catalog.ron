@@ -459,6 +459,27 @@
         // exchange, not the stage). The move's own recovery is the cadence, so
         // the weapon has no recharge: a recharge would refuse a shot the move was
         // already accepted to fire. He has no swing of his own.
+        // The Iron Trooper's chain gun (the held item `evil_chain_gun`): fast
+        // rounds from the gun at his hip, a short refire, and a butt-first
+        // smash with it when you are close.
+        "evil_chain_gun": (
+            move_style: WalkHeavy,
+            melee: Some(Swipe(windup_s: 0.34, active_s: 0.10, recover_s: 0.40, damage: 2, reach_px: 46.0)),
+            ranged: Some(Weapon((
+                style: Pistol,
+                speed: 620.0,
+                damage: 3,
+                visual: Some("pistol_round"),
+                refire_s: 0.18,
+                aim_assist: Some((max_angle_rad: 0.35, max_range: 520.0)),
+                discharge: Some((muzzle: Hand(ahead: 40.0))),
+            ))),
+        ),
+        // The Attack Hound's bite: quick, and it reaches with the lunge.
+        "evil_hound_bite": (
+            move_style: Walk,
+            melee: Some(Bite(windup_s: 0.18, active_s: 0.10, recover_s: 0.30, damage: 1, reach_px: 52.0)),
+        ),
         "officer_sidearm": (
             move_style: Walk,
             ranged: Some(Weapon((
@@ -4844,6 +4865,102 @@
             hall: ["They sewed a wolf to the order. The order did not ask the wolf.", "Papers? I ATE the papers.", "AWOOOOO. Sorry. Every time."],
         ),
         hall_dialogue_id: Some("hall_npc_wolfenstein_boss"),
+        ),
+        // The Iron Trooper: the regime's heavy, in riveted plate, with a chain
+        // gun (a held item, not his drawing). He stands back and fires; close
+        // in, he smashes with the gun.
+        "npc_evil_heavy": (
+            display_name: "Iron Trooper",
+            manifest: "sprites/evil_heavy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 205 cm.
+            standing_height: Some(79.4),
+            composition: None,
+            default_action_set: "evil_chain_gun",
+            held_item: Some("evil_chain_gun"),
+            locomotion: Some((run_speed: 170.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.7, amount: 1)),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 900.0,
+                attack_range: 480.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.7,
+                shares_sightings: true,
+            )),
+            max_health: Some(10),
+            mass: Some(6.0),
+            tags: ["enemy", "evil", "heavy"],
+        barks: (
+            on_hit: ["Plate holds.", "Iron. All the way down."],
+            idle: ["*the barrels turn, slowly*", "Quota: unmet."],
+            hall: ["Twelve layers of rivets and one layer of orders.", "I do not argue. The gun argues."],
+        ),
+        hall_dialogue_id: Some("hall_npc_evil_heavy"),
+        ),
+        // A Failed Prototype: what the castle's lab made on the way to
+        // Wolfenstein. Small stitched wolf-men that come in packs; one is weak,
+        // three are not.
+        "npc_evil_failed_prototype": (
+            display_name: "Failed Prototype",
+            manifest: "sprites/evil_failed_prototype_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // About 102 cm as it crouches (130 cm if it stood up).
+            standing_height: Some(39.5),
+            composition: None,
+            default_action_set: "striker_swipe",
+            locomotion: Some((run_speed: 330.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 720.0,
+                attack_range: 40.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                shares_sightings: true,
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "evil", "monster", "minion"],
+        barks: (
+            on_hit: ["Yip!", "*a wet whimper*"],
+            idle: ["*it scratches the stitches*", "Seven. Seven. Number seven."],
+            hall: ["They said I was number seven. Number eight never came out.", "AWOO. No. Wrong. Again: awoo."],
+        ),
+        hall_dialogue_id: Some("hall_npc_evil_failed_prototype"),
+        ),
+        // The Attack Hound: the regime's guard dog, drawn on the house dogs'
+        // rig, with a spiked collar and the regime's tag. Fast and low; it
+        // comes with the soldiers. Its height (the whole drawing, ears
+        // included, as the house dogs count it) keeps it low beside them.
+        "npc_evil_attack_hound": (
+            display_name: "Attack Hound",
+            manifest: "sprites/evil_attack_hound_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(50.0),
+            composition: None,
+            default_action_set: "evil_hound_bite",
+            locomotion: Some((run_speed: 380.0, move_style: Walk, baseline_free_flight: Some(false))),
+            abilities: Some([Walk, Jump]),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 820.0,
+                attack_range: 52.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                shares_sightings: true,
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "evil", "animal", "dog", "quadruped"],
+        barks: (
+            on_hit: ["*a yelp*", "Grrrk!"],
+            idle: ["*a low growl*", "Rrrrr."],
+            hall: ["GRRRR. *it will not be petted*", "Woof. (Papers.)"],
+        ),
+        hall_dialogue_id: Some("hall_npc_evil_attack_hound"),
         ),
     },
 )

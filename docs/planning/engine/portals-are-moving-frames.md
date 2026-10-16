@@ -1,9 +1,39 @@
 # Portals are moving frames - an engine plan
 
-**Status:** PLANNED 2026-10-15. Jon asked for this after the 10-15 portal lab playtest of the
-spinning and swinging plank portals: "is there a refactor that gives us a more elegant and
-correct design? how much extra processing power does a portal with a position and angle that
-can actually change cost? do we need to special case the static portals to make them faster?"
+**Status:** BUILT 2026-10-15, phases 1–5 (see "What landed"). Jon asked for this after the
+10-15 portal lab playtest of the spinning and swinging plank portals: "is there a refactor that
+gives us a more elegant and correct design? how much extra processing power does a portal with a
+position and angle that can actually change cost? do we need to special case the static portals
+to make them faster?" Then: "implement the portal plan".
+
+## What landed (2026-10-15)
+
+- **The motion is the host's, published (CC6).** `PortalFrame` carries `velocity`, `spin` and
+  `pivot`, and `velocity_at(p)` gives the surface velocity at a point. `PlacedPortal` carries the
+  same three fields, as its host refresh writes them: a face gives its velocity, and a line (a
+  plank) gives its velocity and its turn about its pivot.
+- **The start pose replaces the epoch.** `prev_pos`/`prev_normal` hold the pose at the start of
+  the tick. The host refresh sets them for every portal each tick, and `place_at` (an owner)
+  sets them to the new pose. Eviction asks whether a portal started this tick where it ended the
+  last tick. That is exact, and needs no counter that would have to be deterministic across
+  rollback.
+- **Transit happens in the portal's frame.** The swept start sample is
+  `frame().from_local(prev_frame().to_local(p))`. "Moving into it" means
+  `relative_velocity(p, v)`, in transit, carve, rescue, free bodies and projectiles.
+  `ae::frame::map_velocity(a, b, convention, p, v)` is the one exit-velocity rule, so a still
+  body that a plank turns into is taken, and leaves at the plank's surface speed at that point.
+  Projectiles and free bodies use the same rule and `opening_face()`, not a box.
+- **Hosts are read in place.** `RoomCollision::host_surfaces()` resolves a face or a line by its
+  id or name without copying the room. The handles are ids, not indices, because ids survive
+  rollback and reload. Host depth gathers a room's solids once for all of its portals.
+- **Captures turn with the map.** `CaptureCameraFrame` has an `axis`, and the camera turns, so the
+  texture is the view's size at every angle. The diagonal square and the quarter-turn case are
+  gone. A rig keeps the capture its texture holds (`captured`), and the window samples that
+  capture until the next one. A capture is due early when the held picture no longer covers the
+  window by more than 2% of its shorter side (`STALE_CAPTURE_SLACK`). Slots stay the budget, and
+  the bypass for moving pairs is gone.
+- **`PlacedPortal::fixed` takes a half-length.** The box decoding (`portal_half_extent*`,
+  `portal_shape_of_box`, `portal_opening_half`) is deleted.
 
 ## The answer, short
 

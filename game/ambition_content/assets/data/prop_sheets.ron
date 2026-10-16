@@ -62,6 +62,27 @@
     "castle_godwin_entrance": (),
     "castle_godwin_sign": (),
     "evil_thorn_bush": (),
+    // The dressing of Castle Godwin's rooms
+    // (`targets/props/castle_godwin_dressing.py`), all decoration: the guard
+    // post, posters (a wanted robot and the regime's three), a searchlight,
+    // a bunk bed (its mattresses are where the barracks' one-way bunks are),
+    // lockers, a mess table, the rally podium; in the lab Tesla coils and
+    // specimen vats (both play their `idle` rows) and the operating table;
+    // and Wolfenstein's iron throne.
+    "castle_guard_post": (),
+    "castle_wanted_poster": (),
+    "castle_propaganda_poster_a": (),
+    "castle_propaganda_poster_b": (),
+    "castle_propaganda_poster_c": (),
+    "castle_searchlight": (),
+    "castle_bunk_bed": (),
+    "castle_locker_row": (),
+    "castle_mess_table": (),
+    "castle_rally_podium": (),
+    "castle_tesla_coil": (),
+    "castle_specimen_vat": (),
+    "castle_operating_table": (),
+    "castle_iron_throne": (),
     // Primeval's palm.
     "coconut_palm": (),
     // The mockingbird's shark, which is also a moving platform.

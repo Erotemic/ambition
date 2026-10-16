@@ -117,7 +117,7 @@ fn a_shot_at_a_portal_of_live_room_one(room: ambition_platformer2d_shared_tangle
         (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0)),
     ] {
         app.world_mut().spawn((
-            PlacedPortal::fixed(channel, pos, normal, ae::Vec2::new(6.0, 40.0)),
+            PlacedPortal::fixed(channel, pos, normal, 40.0),
             InRoomInstance(second),
         ));
     }

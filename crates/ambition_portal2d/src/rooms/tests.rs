@@ -8,7 +8,6 @@ use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, RoomInstanc
 
 use crate::color::{PortalChannel, PortalChannelColor, PortalGunColor};
 use crate::link::{link_hash, resolve_portal_links, PortalLink};
-use crate::types::portal_half_extent;
 
 const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
 const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::ORANGE);
@@ -31,7 +30,7 @@ fn wall(channel: PortalChannel) -> PlacedPortal {
     } else {
         (380.0, Vec2::new(-1.0, 0.0))
     };
-    PlacedPortal::fixed(channel, Vec2::new(x, 200.0), normal, portal_half_extent(Vec2::new(1.0, 0.0)))
+    PlacedPortal::fixed(channel, Vec2::new(x, 200.0), normal, crate::PORTAL_OPENING_HALF)
 }
 
 /// A body at the blue portal, moving into it.
@@ -123,7 +122,7 @@ fn a_closing_portal_evicts_only_the_bodies_of_its_room() {
     let (mut app, live) = two_rooms();
     app.init_resource::<crate::PortalFrameHistory>();
     app.add_systems(Update, crate::evict_straddlers_on_portal_change);
-    let floor = |pos| PlacedPortal::fixed(BLUE, pos, Vec2::new(0.0, -1.0), portal_half_extent(Vec2::new(0.0, -1.0)));
+    let floor = |pos| PlacedPortal::fixed(BLUE, pos, Vec2::new(0.0, -1.0), crate::PORTAL_OPENING_HALF);
     let closing = app.world_mut().spawn((floor(Vec2::new(500.0, 300.0)), InRoomInstance(live[1]))).id();
     // #0 has its own blue elsewhere, which does not move.
     app.world_mut().spawn((floor(Vec2::new(100.0, 300.0)), InRoomInstance(live[0])));
@@ -158,7 +157,7 @@ fn one_link_in_two_rooms_is_a_pair_in_each() {
             PortalChannel::Authored(PortalChannelColor::Indexed(0)),
             Vec2::new(x, 300.0),
             Vec2::new(0.0, -1.0),
-            portal_half_extent(Vec2::new(0.0, -1.0)),
+            crate::PORTAL_OPENING_HALF,
         )
     };
     let ends = live.map(|room| {

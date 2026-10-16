@@ -5,7 +5,7 @@
 use bevy::prelude::*;
 
 use ambition_portal2d::{
-    portal_half_extent, PlacedPortal, PortalChannel, PortalGunColor,
+    PlacedPortal, PortalChannel, PortalGunColor,
 };
 use ambition_projectiles::ProjectileGameplay;
 
@@ -58,13 +58,13 @@ fn place_wall_pair(app: &mut App) {
         BLUE,
         Vec2::new(20.0, 200.0),
         Vec2::new(1.0, 0.0),
-        portal_half_extent(Vec2::new(1.0, 0.0)),
+        ambition_portal2d::PORTAL_OPENING_HALF,
     ));
     app.world_mut().spawn(PlacedPortal::fixed(
         ORANGE,
         Vec2::new(380.0, 200.0),
         Vec2::new(-1.0, 0.0),
-        portal_half_extent(Vec2::new(1.0, 0.0)),
+        ambition_portal2d::PORTAL_OPENING_HALF,
     ));
 }
 

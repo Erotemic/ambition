@@ -14,7 +14,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d::platformer::lifecycle::{SessionCommands, SpawnSessionScopedExt};
 use ambition_portal2d::{
-    portal_half_extent, step_portal_shot, PlacedPortal, PortalChannel, PortalShot, PortalShotStep,
+    step_portal_shot, PlacedPortal, PortalChannel, PortalShot, PortalShotStep,
     PortalShotWorld,
 };
 
@@ -117,7 +117,7 @@ pub fn portal_projectile_step(
                     winner.channel,
                     winner.pos,
                     winner.normal,
-                    portal_half_extent(winner.normal),
+                    ambition_portal2d::PORTAL_OPENING_HALF,
                 ),
                 Name::new(format!("Portal: {}", winner.channel.name())),
                 // One portal per channel per room: a derived identity, so the same

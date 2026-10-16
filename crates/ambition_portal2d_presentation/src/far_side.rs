@@ -308,7 +308,7 @@ mod tests {
             PortalChannel::Authored(PortalChannelColor::Purple),
             Vec2::new(500.0, 300.0),
             Vec2::new(-1.0, 0.0),
-            Vec2::new(9.0, 46.0),
+            46.0,
         )
     }
 
@@ -362,7 +362,7 @@ mod tests {
             PortalChannel::Authored(PortalChannelColor::Yellow),
             Vec2::new(532.0, 300.0),
             Vec2::new(1.0, 0.0),
-            Vec2::new(9.0, 46.0),
+            46.0,
         ));
         spawn_viewer(&mut app, Vec2::new(400.0, 300.0));
 

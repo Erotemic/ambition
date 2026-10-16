@@ -8,13 +8,13 @@ fn thin_wall_pair() -> (PlacedPortal, PlacedPortal) {
         PortalChannel::Authored(PortalChannelColor::Purple),
         Vec2::new(500.0, 300.0),
         Vec2::new(-1.0, 0.0),
-        Vec2::new(9.0, 46.0),
+        46.0,
     );
     let right = PlacedPortal::fixed(
         PortalChannel::Authored(PortalChannelColor::Yellow),
         Vec2::new(532.0, 300.0),
         Vec2::new(1.0, 0.0),
-        Vec2::new(9.0, 46.0),
+        46.0,
     );
     (left, right)
 }
@@ -128,13 +128,13 @@ fn same_plane_pair_still_orders_by_proximity() {
         PortalChannel::Authored(PortalChannelColor::Purple),
         Vec2::new(254.0, 880.0),
         up,
-        Vec2::new(46.0, 9.0),
+        46.0,
     );
     let b = PlacedPortal::fixed(
         PortalChannel::Authored(PortalChannelColor::Yellow),
         Vec2::new(554.0, 880.0),
         up,
-        Vec2::new(46.0, 9.0),
+        46.0,
     );
     let eye = Vec2::new(300.0, 840.0);
     assert!(

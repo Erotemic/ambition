@@ -8,7 +8,6 @@ use bevy::prelude::*;
 
 use crate::pieces::{self as pp, MapConvention, PortalFrame};
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
 use super::color::PortalChannel;
 use super::transit::PortalTransit;
@@ -301,20 +300,22 @@ fn transfer_step(
     let convention = tuning.convention.map_convention();
     let ef = enter.frame();
     let xf = exit.frame();
-    // Galilean composition: v_out = map(v − v_enter) + v_exit. Static portals
-    // have zero velocities.
-    let mut vel_out =
-        portal_transform_velocity(vel - ef.velocity, enter.normal, exit.normal, convention)
-            + xf.velocity;
+    let exit_pos = pp::map_point(center, &ef, &xf, convention);
+    // The body keeps its velocity relative to the surface it crosses: its
+    // velocity relative to the entry's surface at `center`, mapped, plus the
+    // exit's surface velocity where it comes out. A portal that moves or
+    // turns gives what crosses it its motion there; static portals have none.
+    let mut vel_out = ae::frame::map_velocity(&ef, &xf, convention, center, vel);
     // Floor the exit speed along the exit normal so a slow walk-in still
-    // emerges. The floor applies in the exit aperture's rest frame.
-    let rel_out = vel_out - xf.velocity;
+    // emerges. The floor applies in the exit surface's rest frame.
+    let exit_surface = xf.velocity_at(exit_pos);
+    let rel_out = vel_out - exit_surface;
     if rel_out.dot(exit.normal) < tuning.min_exit_speed {
         let tangential = rel_out - rel_out.dot(exit.normal) * exit.normal;
-        vel_out = tangential + exit.normal * tuning.min_exit_speed + xf.velocity;
+        vel_out = tangential + exit.normal * tuning.min_exit_speed + exit_surface;
     }
     TransitStep::Transfer {
-        pos: pp::map_point(center, &ef, &xf, convention),
+        pos: exit_pos,
         vel: vel_out,
         // The body takes the on-screen turn (a tumble for floor/ceiling, none
         // for wall↔wall). `update_actor_roll` then eases it back upright. The
@@ -417,11 +418,13 @@ fn swept_crossing_step(
         if !portal_fits(size, enter) {
             continue;
         }
-        // Relative sweep: shift the body's start sample by the aperture's
-        // frame displacement, then test against the aperture's end-of-frame
-        // plane. A moving aperture over a still body gives a nonzero segment
-        // and transits it (the "scoop").
-        let rel_prev = prev.pos + enter.frame_delta();
+        // Relative sweep, in the aperture's own frame: the body's start
+        // sample, where it stood relative to the aperture at the start of the
+        // tick, is carried as the aperture moved and turned, then tested
+        // against the aperture's end-of-tick plane. A moving or turning
+        // aperture over a still body gives a nonzero segment and transits it
+        // (the "scoop").
+        let rel_prev = enter.frame().from_local(enter.prev_frame().to_local(prev.pos));
         let rel_seg = center - rel_prev;
         if rel_seg.length_squared() <= 1e-6 {
             continue;
@@ -442,7 +445,7 @@ fn swept_crossing_step(
             // Carry the velocity that caused the crossing: the live `vel` if
             // it still points into the portal, else the previous sample (the
             // integrator may have stopped the body at the carve bottom).
-            let carried = if vel.dot(enter.normal) < 0.0 {
+            let carried = if enter.relative_velocity(center, vel).dot(enter.normal) < 0.0 {
                 vel
             } else {
                 prev.vel
@@ -507,7 +510,7 @@ pub fn transit_step_with_tuning(
                 let hole = pp::carve_face_with_depth(&ap, host_depths.depth(enter.channel));
                 if pp::front_distance(center, &ap.frame) <= 0.0
                     && hole.strict_intersects(body)
-                    && vel.dot(enter.normal) < 0.0
+                    && enter.relative_velocity(center, vel).dot(enter.normal) < 0.0
                 {
                     let exit = find_portal(portals, enter.channel.partner())
                         .expect("partner checked above");
@@ -549,7 +552,7 @@ pub fn transit_step_with_tuning(
                 // thin wall could reach the capture box through it.
                 let capture = capture_face(enter);
                 let front = pp::front_distance(center, &frame);
-                let entering = front > 0.0 || vel.dot(enter.normal) < 0.0;
+                let entering = front > 0.0 || enter.relative_velocity(center, vel).dot(enter.normal) < 0.0;
                 if front >= -TRANSIT_BEGIN_MARGIN && entering && capture.strict_intersects(body) {
                     return TransitStep::Begin {
                         channel: enter.channel,

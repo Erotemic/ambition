@@ -1030,6 +1030,33 @@ Madam LeBlanc: The academy would not read work under my name. So I sent it under
     Madam LeBlanc: A prime p with 2p plus 1 prime as well. Try eleven if you want an example.
 ===
 
+title: hall_npc_evil_attack_hound
+---
+Attack Hound: GRRRRRR.
+-> Good dog?
+    Attack Hound: *it shows every tooth it has*
+-> Can I see the tag?
+    Attack Hound: *the tag has the regime's mark on it, and the dog will not let you closer*
+===
+
+title: hall_npc_evil_heavy
+---
+Iron Trooper: State your business. Slowly. The barrels are already turning.
+-> Is it heavy?
+    Iron Trooper: The plate is heavy. The gun is heavy. The orders are the lightest thing I carry.
+-> What is under the helmet?
+    Iron Trooper: Another helmet.
+===
+
+title: hall_npc_evil_failed_prototype
+---
+Failed Prototype: Yip! Yip yip. Seven!
+-> Seven?
+    Failed Prototype: Number seven. Seven was almost good. Eight was Wolfenstein.
+-> Are you all right?
+    Failed Prototype: *it licks a stitch and does not answer*
+===
+
 title: hall_npc_wolfenstein_boss
 ---
 Wolfenstein: AWOOOOOOO.

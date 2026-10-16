@@ -85,6 +85,10 @@ BOSS_BOX = (60, 100)
 #: The soldier of the regime, and his box (183 cm).
 SOLDIER = "npc_fascist_enforcer"
 SOLDIER_BOX = (32, 72)
+#: The regime's other fighters: the Iron Trooper with his chain gun (205 cm)
+#: and the lab's Failed Prototypes, which come in packs. Each its box.
+HEAVY, PROTOTYPE, HOUND = "npc_evil_heavy", "npc_evil_failed_prototype", "npc_evil_attack_hound"
+BOX = {SOLDIER: SOLDIER_BOX, HEAVY: (36, 80), PROTOTYPE: (32, 40), HOUND: (52, 50)}
 
 SPRITES = TOOLS.parents[1] / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
 #: Pixels of a castle prop's frame to one world unit (`castle_godwin.PX`).
@@ -123,11 +127,18 @@ def gate(ring, portal, zone, x, floor, to_room, to_zone, name):
     ]
 
 
-def soldier(room, n, x, feet_y):
-    """A soldier of the regime whose feet are at `feet_y`."""
-    w, h = SOLDIER_BOX
-    return (f'( type: "EnemySpawn", px: [{x}, {feet_y - h}], size: [{w}, {h}], fields: ( name: "{room}_soldier_{n}", '
-            f'brain: "combatant", character_id: "{SOLDIER}", respawn: "OnRoomReenter" ) ),')
+def soldier(room, n, x, feet_y, character=SOLDIER):
+    """A fighter of the regime (a soldier unless `character` says) whose
+    feet are at `feet_y`."""
+    w, h = BOX[character]
+    kind = {SOLDIER: "soldier", HEAVY: "heavy", PROTOTYPE: "prototype", HOUND: "hound"}[character]
+    return (f'( type: "EnemySpawn", px: [{x}, {feet_y - h}], size: [{w}, {h}], fields: ( name: "{room}_{kind}_{n}", '
+            f'brain: "combatant", character_id: "{character}", respawn: "OnRoomReenter" ) ),')
+
+
+def pack(room, x, feet_y, size=3, gap=44):
+    """A pack of Failed Prototypes, side by side from `x`."""
+    return [soldier(room, i + 1, x + i * gap, feet_y, PROTOTYPE) for i in range(size)]
 
 
 def body_box(kind):
@@ -175,8 +186,8 @@ def room(rid, entities, label_text, theme, music, bg):
 """
 
 
-def castle(rid, entities, label_text):
-    return room(rid, entities, label_text, CASTLE_THEME, CASTLE_MUSIC, CASTLE_BG)
+def castle(rid, entities, label_text, theme=CASTLE_THEME):
+    return room(rid, entities, label_text, theme, CASTLE_MUSIC, CASTLE_BG)
 
 
 def shell(rid, ground=64, ceiling=48):
@@ -232,12 +243,21 @@ def gatehouse():
     e += [
         door(f"{rid}_west", "out to the forest", 64, floor, FOREST, f"{FOREST}_castle_door"),
         door(f"{rid}_east", "on to the barracks", w - 112, floor, BARRACKS, f"{BARRACKS}_west"),
+        # The guard post at the gate, the posters, a searchlight at the far door.
+        standing("guard_post", "castle_guard_post", 200, floor),
+        standing("wanted_robot", "castle_wanted_poster", 420, floor - 150),
+        standing("poster_obey", "castle_propaganda_poster_a", 830, floor - 170),
+        standing("poster_papers", "castle_propaganda_poster_c", 1110, floor - 150),
+        standing("searchlight_gate", "castle_searchlight", 1380, floor),
         solid("dais", 560, floor - 64, 192, 64),
         ledge("gallery_west", 880, floor - 160, 224),
         ledge("gallery_east", 1200, floor - 256, 192),
         soldier(rid, 1, 640, floor - 64),
         soldier(rid, 2, 980, floor - 160),
         soldier(rid, 3, 1320, floor),
+        # The guard dogs of the gate.
+        soldier(rid, 1, 1000, floor, HOUND),
+        soldier(rid, 2, 1180, floor, HOUND),
     ]
     return rid, castle(rid, e, "Castle Godwin: the gatehouse.")
 
@@ -252,8 +272,18 @@ def barracks():
         door(f"{rid}_west", "back to the gatehouse", 64, floor, GATEHOUSE, f"{GATEHOUSE}_east"),
         door(f"{rid}_east", "up the tower", w - 112, floor, TOWER, f"{TOWER}_foot"),
     ]
+    # The bunks: each bed's picture under its two one-way mattresses.
     for i, x in enumerate((360, 1000, 1640)):
-        e += [ledge(f"bunk_{i}_low", x, floor - 112, 224), ledge(f"bunk_{i}_high", x, floor - 224, 224)]
+        e += [standing(f"bunk_bed_{i}", "castle_bunk_bed", x, floor),
+              ledge(f"bunk_{i}_low", x, floor - 112, 224), ledge(f"bunk_{i}_high", x, floor - 224, 224)]
+    e += [
+        standing("lockers_west", "castle_locker_row", 180, floor),
+        standing("mess_table", "castle_mess_table", 1250, floor),
+        standing("lockers_east", "castle_locker_row", 1900, floor),
+        standing("poster_order", "castle_propaganda_poster_b", 880, floor - 260),
+        standing("wanted_barracks", "castle_wanted_poster", 2060, floor - 150),
+        standing("poster_obey_barracks", "castle_propaganda_poster_a", 2420, floor - 170),
+    ]
     for i, x in enumerate((760, 1400, 2040)):
         e.append(solid(f"pillar_{i}", x, 48, 64, floor - 208))
     e += [
@@ -262,6 +292,11 @@ def barracks():
         soldier(rid, 3, 1300, floor),
         soldier(rid, 4, 1760, floor - 112),
         soldier(rid, 5, 2200, floor),
+        soldier(rid, 1, 700, floor, HOUND),
+        # The far end of the barracks: the lab's door is near, and a pack got
+        # out; an Iron Trooper holds the way to the tower.
+        *pack(rid, 1840, floor),
+        soldier(rid, 1, 2300, floor, HEAVY),
     ]
     return rid, castle(rid, e, "Castle Godwin: the barracks.")
 
@@ -289,8 +324,16 @@ def tower():
             e.append(soldier(rid, n, x + 128, y))
         y -= 176
         k += 1
-    e.append(soldier(rid, n + 1, w - 260, top_floor))
-    return rid, castle(rid, e, "Castle Godwin: the tower.")
+    # The lab on the floor of the tower: the vats the prototypes came out of,
+    # the coils; the operating table on the top floor.
+    e += [standing(f"vat_{i}", "castle_specimen_vat", x, floor) for i, x in enumerate((300, 400, 500))]
+    e += [standing(f"coil_{i}", "castle_tesla_coil", x, floor) for i, x in enumerate((640, 860))]
+    e.append(standing("operating_table", "castle_operating_table", w - 380, top_floor))
+    # The top of the tower: an Iron Trooper, and a pack on the first ledge.
+    e.append(soldier(rid, 1, w - 260, top_floor, HEAVY))
+    e += pack(rid, 200, floor - 176)
+    # The tower is the castle's lab: where the prototypes were made.
+    return rid, castle(rid, e, "Castle Godwin: the lab tower.", theme="castle_godwin_lab")
 
 
 def lever(name, label_text, prompt, x, floor, action="ResetEncounter", target=""):
@@ -319,6 +362,12 @@ def great_hall():
         ledge("gallery_west", 448, floor - 192, 320),
         ledge("gallery_east", w - 768, floor - 192, 320),
         solid("dais", w // 2 - 160, floor - 48, 320, 48),
+        # The rally: the podium on the dais, searchlights at its sides, posters.
+        standing("rally_podium", "castle_rally_podium", w // 2 - 64, floor - 48),
+        standing("searchlight_west", "castle_searchlight", w // 2 - 260, floor),
+        standing("searchlight_east", "castle_searchlight", w // 2 + 196, floor),
+        standing("poster_hall_obey", "castle_propaganda_poster_a", 560, floor - 300),
+        standing("poster_hall_order", "castle_propaganda_poster_b", w - 620, floor - 300),
         ledge("balcony", w // 2 - 192, floor - 352, 384),
     ]
     return rid, castle(rid, e, "Castle Godwin: the great hall.")
@@ -337,11 +386,16 @@ def throne():
         ledge("gallery_west", 416, floor - 160, 256),
         ledge("gallery_east", w - 672, floor - 160, 256),
         ledge("high_gallery", w // 2 - 160, floor - 320, 320),
+        # The throne under the wolf's head, coils at its sides.
+        standing("coil_throne_west", "castle_tesla_coil", w - 470, floor),
+        standing("iron_throne", "castle_iron_throne", w - 360, floor),
+        standing("coil_throne_east", "castle_tesla_coil", w - 160, floor),
+        standing("wanted_throne", "castle_wanted_poster", 200, floor - 150),
         (f'( type: "BossSpawn", px: [{w - 520}, {floor - bh}], size: [{bw}, {bh}], fields: ( name: "{BOSS_NAME}", '
          f'brain: "{BOSS_BRAIN}", encounter_id: "{BOSS_ENCOUNTER}" ) ),'),
     ]
     # A boss arena's camera frames the fight (`Encounter`), as the other arenas do.
-    text = castle(rid, e, "Castle Godwin: the throne room of Wolfenstein.")
+    text = castle(rid, e, "Castle Godwin: the throne room of Wolfenstein.", theme="castle_godwin_throne")
     return rid, text.replace(f'id: "{rid}_camera", name: "{rid}_camera", mode: "Default"', f'id: "{rid}_camera", name: "{rid}_camera", mode: "Encounter"')
 
 
@@ -355,9 +409,9 @@ def muster_waves():
     cy = floor - SOLDIER_BOX[1] // 2
     gy = floor - 192 - SOLDIER_BOX[1] // 2
     return [
-        ("wave 1 — the guard", [(900, cy), (1200, cy)]),
-        ("wave 2 — the galleries", [(600, gy), (w - 600, gy), (1500, cy)]),
-        ("wave 3 — the muster", [(700, cy), (w // 2, floor - 48 - SOLDIER_BOX[1] // 2), (1300, cy), (w - 600, gy)]),
+        ("wave 1 — the guard and its dog", [(900, cy), (1200, cy)]),
+        ("wave 2 — the galleries, and a pack", [(600, gy), (w - 600, gy), (1500, cy)]),
+        ("wave 3 — the muster, and the Iron Trooper", [(700, cy), (w // 2, floor - 48 - SOLDIER_BOX[1] // 2), (1300, cy), (w - 600, gy)]),
     ]
 
 

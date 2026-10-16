@@ -137,7 +137,13 @@ pub fn open_authored_portal_pairs(
             (exit, down, entrance_channel.partner()),
         ] {
             let spawned = commands.spawn((
-                ambition_platformer2d::portal::PlacedPortal::fixed(channel, pos, normal, half),
+                {
+                    // The authored box is a floor's: its width is the
+                    // opening's length, its height the thickness.
+                    let mut portal = ambition_platformer2d::portal::PlacedPortal::fixed(channel, pos, normal, half.x);
+                    portal.half_thickness = half.y;
+                    portal
+                },
                 MovePlacedPortal {
                     remaining_s: params.lifetime_s,
                     close_on_transit: params.close_on_transit,
@@ -487,7 +493,7 @@ mod tests {
         // The near end is about to expire; the far end has seconds left.
         for (remaining_s, chan) in [(1.0 / 120.0, channel), (5.0, channel.partner())] {
             app.world_mut().spawn((
-                PlacedPortal::fixed(chan, ae::Vec2::ZERO, ae::Vec2::new(0.0, -1.0), ae::Vec2::ONE),
+                PlacedPortal::fixed(chan, ae::Vec2::ZERO, ae::Vec2::new(0.0, -1.0), 1.0),
                 MovePlacedPortal {
                     remaining_s,
                     close_on_transit: false,
@@ -547,7 +553,7 @@ mod tests {
             (ae::Vec2::new(0.0, -40.0), channel.partner()),
         ] {
             app.world_mut().spawn((
-                PlacedPortal::fixed(chan, pos, ae::Vec2::new(0.0, -1.0), ae::Vec2::splat(12.0)),
+                PlacedPortal::fixed(chan, pos, ae::Vec2::new(0.0, -1.0), 12.0),
                 MovePlacedPortal {
                     // Long enough that nothing here can expire.
                     remaining_s: 60.0,

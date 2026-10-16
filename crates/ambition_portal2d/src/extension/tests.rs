@@ -305,12 +305,12 @@ fn each_body_has_the_lines_its_entry_asks_for_this_tick() {
 
 /// The first end of `holder`'s pair: its normal, its opening as placed, and
 /// its look.
-fn first_end(app: &mut App, holder: Entity) -> (ae::Vec2, ae::Vec2, crate::PortalLook) {
+fn first_end(app: &mut App, holder: Entity) -> (ae::Vec2, f32, crate::PortalLook) {
     let world = app.world_mut();
     let record = world.get::<HeldPortalPairs>(holder).expect("a held pair").0[0].clone();
     let portal = world.get::<PlacedPortal>(record.ends[0]).expect("its first end");
     let look = *world.get::<crate::PortalLook>(record.ends[0]).expect("its look");
-    (portal.normal, portal.opening_half_extent(), look)
+    (portal.normal, portal.opening_half_length(), look)
 }
 
 /// ⛔ EACH REQUEST IS THE WHOLE OF ITS PAIR. A module that turns its held
@@ -329,7 +329,7 @@ fn a_held_pair_takes_the_normal_the_opening_and_the_look_it_is_asked_for() {
     let indexed = |look: u8| crate::PortalLook(PortalChannel::Authored(PortalChannelColor::Indexed(look)));
     assert_eq!(
         first_end(&mut app, holder),
-        (ae::Vec2::new(0.0, -1.0), portal_half_extent_with_length(ae::Vec2::new(0.0, -1.0), 65.0), indexed(24)),
+        (ae::Vec2::new(0.0, -1.0), 65.0, indexed(24)),
         "control: the pair is made as first asked"
     );
 
@@ -337,7 +337,7 @@ fn a_held_pair_takes_the_normal_the_opening_and_the_look_it_is_asked_for() {
     app.world_mut().run_schedule(Sim);
     assert_eq!(
         first_end(&mut app, holder),
-        (ae::Vec2::new(1.0, 0.0), portal_half_extent_with_length(ae::Vec2::new(1.0, 0.0), 40.0), indexed(26)),
+        (ae::Vec2::new(1.0, 0.0), 40.0, indexed(26)),
         "a turned, narrower request turns and narrows the held pair"
     );
     assert_eq!(app.world().get::<HeldPortalPairs>(holder).unwrap().0[0].ends, ends, "the same two portals");

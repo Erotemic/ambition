@@ -646,7 +646,7 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | # | Proposal | Removes | Size | Behaviour change |
 | --- | --- | --- | --- | --- |
 | P1 | Per-game engine profiles: `BossCatalog` always present (empty); ledgers under Dialogue; grabs, mounts, match stocks as group members with capabilities; extension lowering installed by the capability that owns the phase; demo hosts call `for_profile` | about 115 systems a tick in Mary-O and Sanic | large | no, except decisions D3, D4 |
-| P2 | One executor policy (`apply_executor_policy`), called by every foundation including the windowed demos, covering `Fixed*` and `StateTransition`; A/B first | the multi-threaded executor cost of every frame and fixed system in the windowed demos | small | no |
+| P2 | One executor policy (`apply_executor_policy`), called by every foundation including the windowed demos, covering `Fixed*` and `StateTransition`. Switch and A/B done (F22, F23): a standalone tick ~6× cheaper, the hub +3%; the default is D12 | the multi-threaded executor cost of every frame and fixed system in the windowed demos | small | no |
 | P11 | Leafwing fork (F13): no clash work under `PressAll`, pairs of pressed actions only otherwise; lookups without boxing; upstream PRs | 19-32k allocations a frame, ~75% of a standalone frame's | small | no |
 | P12 | Derive on change, not every tick (F15, F16, F20): first writes that mark only real changes (the cluster step, the resources of F20), then the four systems; the change detector (`changes_by_site.csv`) finds the next ones and verifies each | per-tick re-derivations and false changes that wake change filters | small each | no |
 | P13 | One keyed-reconcile helper for presentation entities (F21), and the remaining immediate-mode systems moved onto it | per-frame despawn and spawn of presentation entities | small-medium | no |
@@ -802,8 +802,8 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
 - 05:30Z phone: the sample dump of the baseline (Jon) gives F0; the
   Mary-O-only run gives -17% CPU. Jon cannot run the phone again tonight; the
   rest of the run measures on the headless desktop.
-- In progress: the `perf_probe` feature (allocations per span, churn per
-  source line).
+- 05:30Z an agent starts the `perf_probe` feature (allocations per span,
+  churn per source line).
 - 05:40Z P1/P2 plans written (an agent's code read); F1/F2/F3 corrected (bosses
   can already be omitted; twelve ledgers; the windowed demos never serialize).
 - 05:58Z `symbolize_android_profile.py`: a threads table and `--thread`. F11:
@@ -822,4 +822,9 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
   A/B: standalone Mary-O (F22) and hub (F23); switch committed, defaults
   unchanged. Sanic change census. Read-before-write fixes for the SFX
   authorizer, the narrative and host-intent ledger prunes and the trail gizmo
-  bands, verification run building.
+  bands, verified with the change counter (F20).
+- 09:56Z Room isolation walks only when a mask can be stale (F14); HUD,
+  feature-visual and hit-flash writes only of a change (F20); seat bindings
+  projected only on a change; Mary-O and Sanic hosts without named boss
+  encounters (F1: −13 and −11 systems a frame). Before/after table in the
+  summary. Remaining large items need a yes (D12, D13) or are P1's C1.

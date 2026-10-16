@@ -928,6 +928,7 @@ pub fn test_boss_catalog() -> &'static BossCatalog {
             include_str!("../../../game/ambition_content/assets/data/boss_encounters/mode_collapse_boss.ron"),
             include_str!("../../../game/ambition_content/assets/data/boss_encounters/hunny_horror_boss.ron"),
             include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_boss.ron"),
         ];
         let fragment = BossCatalogFragment::from_ron(
             "ambition-test",
@@ -964,6 +965,7 @@ mod tests {
             include_str!("../../../game/ambition_content/assets/data/boss_encounters/mode_collapse_boss.ron"),
             include_str!("../../../game/ambition_content/assets/data/boss_encounters/hunny_horror_boss.ron"),
             include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_boss.ron"),
         ];
         BossCatalogFragment::from_ron(
             provider,
@@ -1132,7 +1134,7 @@ mod tests {
             .collect();
         assert_eq!(
             (worn == BossSheetSpec::unauthored(), (size.x, size.y), catalog.sheets.len(), copies),
-            (true, (80.0, 80.0), 8, Vec::<&String>::new()),
+            (true, (80.0, 80.0), 9, Vec::<&String>::new()),
             "(an empty catalog gives the unauthored layout, its size for a 50 x 80 body, the \
              authored sheets read, the authored sheets equal to the unauthored layout)"
         );

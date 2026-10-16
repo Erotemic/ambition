@@ -59,6 +59,7 @@ fn ambition_boss_catalog() -> ambition_boss_encounter::BossCatalog {
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/mode_collapse_boss.ron"),
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/hunny_horror_boss.ron"),
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
+        include_str!("../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_boss.ron"),
     ];
     let fragment = ambition_boss_encounter::BossCatalogFragment::from_ron(
         "geometry-debug",

@@ -1025,7 +1025,11 @@ variants. Also found in that regen:
     re-packs). A change to the shared core re-renders every sheet: 56 min
     (tack-ons 2255 s of render, the variants 575 s before they built on
     six processes).
-    **Left:** a frame size change re-packs all four tiers.
+    **Left:** a frame size change re-packs all four tiers. A focused
+    publish (`sprites.sh --target NAME`, 22 s for `mallory`: its render and
+    its tiers) writes in place and packs no Ultrapack, so the one prop that
+    draws from a pack (`intro_cart`, `intro_prop_sprite_rows`) shows its
+    old art until the next full publish, whose pack key sees the sheet.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

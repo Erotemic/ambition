@@ -75,4 +75,10 @@
         // jump.
         bounce_speed: 460.0,
     ),
+    stomp: (
+        // How near (px) the feet of a falling Sanic must be to the top of a
+        // badnik or a monitor for the touch to be a landing on it. One rule
+        // for both: a jump that breaks a monitor also squashes a badnik.
+        band: 16.0,
+    ),
 )

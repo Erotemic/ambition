@@ -30,9 +30,6 @@ pub const BADNIK_BRAIN_KEY: &str = "sanic_badnik";
 
 
 
-/// Vertical tolerance (px) for "feet on the badnik's head".
-const STOMP_BAND: f32 = 16.0;
-
 /// The defeat rule. A player descending onto a badnik's head bounces and
 /// squashes it. A rolling player squashes it on any overlap and keeps its
 /// speed. A super player squashes it on any overlap. A side touch while not
@@ -107,7 +104,7 @@ pub fn defeat_badniks(
             let overlap_x = p.min.x < g.max.x && p.max.x > g.min.x;
             let overlap_y = p.min.y < g.max.y && p.max.y > g.min.y;
             let feet = p.max.y;
-            let stomp = falling && overlap_x && feet >= g.min.y - STOMP_BAND && feet <= g.min.y + STOMP_BAND;
+            let stomp = falling && overlap_x && crate::rules::feet_on_top(feet, g.min.y);
             let roll = (*rolling || *harms) && overlap_x && overlap_y;
             (stomp || roll).then_some((*player, stomp && !*rolling))
         });

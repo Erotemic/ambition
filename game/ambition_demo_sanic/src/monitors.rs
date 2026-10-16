@@ -173,9 +173,6 @@ pub fn dress_monitor_boxes(
 }
 
 
-/// Vertical tolerance (px) for "feet on the monitor's lid".
-const STOMP_BAND: f32 = 16.0;
-
 /// Which monitors (and breakable walls) are broken this run. A Vec, not a HashSet: the overlay
 /// iterates it every frame, and the sim determinism contract bans std-hash
 /// iteration order.
@@ -307,8 +304,7 @@ pub fn break_monitor_boxes(
             let overlap_x = p.min.x < b.max.x && p.max.x > b.min.x;
             let overlap_y = p.min.y < b.max.y && p.max.y > b.min.y;
             let feet = p.max.y;
-            let stomp =
-                falling && overlap_x && feet >= b.min.y - STOMP_BAND && feet <= b.min.y + STOMP_BAND;
+            let stomp = falling && overlap_x && crate::rules::feet_on_top(feet, b.min.y);
             let roll = rolling && overlap_x && overlap_y;
             if !(stomp || roll) {
                 continue;

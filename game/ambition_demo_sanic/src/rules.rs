@@ -21,6 +21,7 @@ pub struct SanicRules {
     pub ring_loss: RingLoss,
     pub act: Act,
     pub badnik: Badnik,
+    pub stomp: Stomp,
 }
 
 /// What a ring monitor holds.
@@ -74,6 +75,13 @@ pub struct Badnik {
     pub bounce_speed: f32,
 }
 
+/// What counts as landing on a badnik's head or a monitor's lid.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Stomp {
+    pub band: f32,
+}
+
 impl SanicRules {
     /// Each value the demo cannot use, named by its field.
     fn problems(&self) -> Vec<String> {
@@ -103,6 +111,7 @@ impl SanicRules {
             ("act.par_seconds", act.par_seconds),
             ("act.title_seconds", act.title_seconds),
             ("badnik.bounce_speed", self.badnik.bounce_speed),
+            ("stomp.band", self.stomp.band),
         ] {
             amount(field, value);
         }
@@ -135,9 +144,18 @@ pub fn sanic_rules_schema() -> SchemaRegistration {
         1,
         "sanic_demo",
         "The Sanic demo's tuning: the ring monitor, the speed shoes, the ring \
-         scatter, the act's score and cards, the badnik's wake radius and bounce.",
+         scatter, the act's score and cards, the badnik's bounce, and what counts \
+         as a landing on a badnik or a monitor.",
         SanicRules::problems,
     )
+}
+
+/// True when feet at `feet` land on a top at `top` (screen +y is down): within
+/// `stomp.band` of it on either side. The badnik's head and the monitor's lid
+/// use this one rule.
+pub fn feet_on_top(feet: f32, top: f32) -> bool {
+    let band = sanic_rules().stomp.band;
+    feet >= top - band && feet <= top + band
 }
 
 /// The demo's tuning, as its pack states it (`assets/data/sanic_rules.ron`).
@@ -149,6 +167,19 @@ pub fn sanic_rules() -> SanicRules {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A landing on a badnik or a monitor is the band the rules state, on both
+    /// sides of the top: the badnik and the monitor ask `feet_on_top`, and no
+    /// Rust names the band.
+    #[test]
+    fn a_landing_is_the_stomp_band_the_rules_state() {
+        let band = sanic_rules().stomp.band;
+        let top = 400.0;
+        assert!(feet_on_top(top - band, top), "feet {band} px above the top are not a landing");
+        assert!(feet_on_top(top + band, top), "feet {band} px into the top are not a landing");
+        assert!(!feet_on_top(top - band - 0.5, top), "feet above the band ({band} px) are a landing");
+        assert!(!feet_on_top(top + band + 0.5, top), "feet below the band ({band} px) are a landing");
+    }
 
     /// The demo plays its pack's `sanic_rules.ron`, and an edit to the file
     /// is the rule the next start plays: no Rust names these numbers.

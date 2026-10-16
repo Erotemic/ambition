@@ -717,8 +717,20 @@ pub fn sync_parallax_layers(
         (Without<Camera>, Without<PortalCaptureParallaxLayerVisual>),
     >,
     time: Option<Res<Time>>,
+    #[cfg(feature = "portal_render")] parallax_carry: Option<
+        Res<ambition_portal2d_presentation::PortalParallaxCarry>,
+    >,
 ) {
     let elapsed_s = time.map_or(0.0, |time| time.elapsed_secs());
+    // Where the foreground is placed from: the camera less what portals have
+    // carried it and the foreground has not followed yet (render space, y up).
+    #[cfg(feature = "portal_render")]
+    let carried = parallax_carry.map_or(Vec2::ZERO, |carry| {
+        let world = carry.at(elapsed_s);
+        Vec2::new(world.x, -world.y)
+    });
+    #[cfg(not(feature = "portal_render"))]
+    let carried = Vec2::ZERO;
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, ..)| view));
 
     // Where each view's camera stands, and how much of the world it shows.
@@ -786,7 +798,8 @@ pub fn sync_parallax_layers(
         if layer.travel != travel {
             layer.travel = travel;
         }
-        sync_parallax_transform_to_camera(&mut transform, &layer, camera_xy);
+        let placed_from = if seen_through_a_portal(&layer) { camera_xy } else { camera_xy - carried };
+        sync_parallax_transform_from(&mut transform, &layer, camera_xy, placed_from);
         if let Some(wrap) = wrap {
             transform.translation.x += wrapped_scroll_x(wrap.slot, wrap.speed_px_s, elapsed_s, panel_size.x);
         }
@@ -887,21 +900,30 @@ fn seen_through_a_portal(layer: &ParallaxLayerVisual) -> bool {
     layer.z < FOREGROUND_PARALLAX_Z
 }
 
-fn sync_parallax_transform_to_camera(
+fn sync_parallax_transform_to_camera(transform: &mut Transform, layer: &ParallaxLayerVisual, camera_xy: Vec2) {
+    sync_parallax_transform_from(transform, layer, camera_xy, camera_xy);
+}
+
+/// A panel over the camera at `camera_xy`, slid as a camera at `placed_from`
+/// slides it. The two differ only for the foreground just after a portal
+/// carried the camera ([`ambition_portal2d_presentation::PortalParallaxCarry`]).
+fn sync_parallax_transform_from(
     transform: &mut Transform,
     layer: &ParallaxLayerVisual,
     camera_xy: Vec2,
+    placed_from: Vec2,
 ) {
+    let camera_xy_for_slide = placed_from;
     // `camera_xy` is centred (−size/2 ..= +size/2), so add 0.5 after dividing by
     // the full `world_size`. Without it the clamp flattens the left half of the
     // room to 0 and the backdrop stops moving there.
     let tx = if layer.world_size.x > 1.0 {
-        (camera_xy.x / layer.world_size.x + 0.5).clamp(0.0, 1.0)
+        (camera_xy_for_slide.x / layer.world_size.x + 0.5).clamp(0.0, 1.0)
     } else {
         0.5
     };
     let ty = if layer.world_size.y > 1.0 {
-        (camera_xy.y / layer.world_size.y + 0.5).clamp(0.0, 1.0)
+        (camera_xy_for_slide.y / layer.world_size.y + 0.5).clamp(0.0, 1.0)
     } else {
         0.5
     };

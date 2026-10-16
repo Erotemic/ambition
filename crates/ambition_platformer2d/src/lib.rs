@@ -549,68 +549,83 @@ pub mod content {
         /// Register the catalog and every character in it.
         pub fn register(self, app: &mut bevy::prelude::App) {
             use ambition_characters::actor::character_catalog::CharacterCatalogAppExt;
-            use ambition_characters::actor::definition::CharacterDefinition;
             use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
 
             let pack = self.pack.prepared();
             let catalog = self.fragment.catalog();
-            let rigs_admitted =
-                ambition_characters::actor::BodyRigAdmission::of(app.world()).admit;
-            let characters: Vec<_> = catalog
-                .characters
-                .iter()
-                .map(|(id, row)| {
-                    let scale = ambition_character_sprites::posed_body_world_per_pixel(catalog, id);
-                    let hurtboxes = ambition_character_sprites::posed_body_inset_hurtboxes(catalog, id);
-                    // Only where the composition admits rigs: see
-                    // `BodyRigAdmission` for why the answer is read here.
-                    let body_rig = rigs_admitted
-                        .then(|| ambition_character_sprites::published_body_rig(catalog, id))
-                        .flatten();
-                    (id.clone(), row.display_name.clone(), scale, hurtboxes, body_rig)
-                })
-                .collect();
             // A carried component for a character the pack does not state
             // would be carried by nobody, and the game would lose its state
             // without a word.
             for (character, carried) in &self.carried {
                 assert!(
-                    characters.iter().any(|(id, ..)| id == character),
+                    catalog.characters.contains_key(character),
                     "the embedded pack `{}` states no character `{character}` to carry `{}`",
                     pack.id.0,
                     carried.type_name(),
                 );
             }
+            let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(app.world()).admit;
+            let definitions = cast_definitions(pack, catalog, &self.provider, &self.carried, rigs_admitted);
             app.register_character_catalog_fragment(self.fragment);
-            for (id, display_name, posed_body_scale, inset_hurtboxes, body_rig) in characters {
+            for definition in definitions {
+                app.register_character(definition);
+            }
+            // A build that reads the pack off disk plays an edit to a move
+            // table or a fighter facet from the next session.
+            app.add_plugins(live_reload::EmbeddedPackReloadPlugin::cast_facets(
+                self.pack,
+                self.provider,
+                self.carried,
+            ));
+        }
+    }
+
+    /// Each character `catalog` states, defined from what `pack` says about
+    /// it and from nothing else: its catalog row (name, sheet, ability
+    /// grants, feel, health) and every character facet the pack authors for
+    /// it (its move table, its platform-fighter weight), each folded by the
+    /// capability that owns it. The one definition road for a registration
+    /// and a reload.
+    fn cast_definitions(
+        pack: &PreparedContentPack,
+        catalog: &ambition_characters::actor::character_catalog::CharacterCatalogData,
+        provider: &str,
+        carried: &[(String, ambition_platformer2d_core::CarriedComponent)],
+        rigs_admitted: bool,
+    ) -> Vec<ambition_characters::actor::definition::CharacterDefinition> {
+        use ambition_characters::actor::definition::CharacterDefinition;
+
+        catalog
+            .characters
+            .iter()
+            .map(|(id, row)| {
                 // The sheet, the grants, the feel, the health, the gait, the
                 // contact damage and the policy come from the catalog row at
                 // preparation, so the definition names only what the row
                 // cannot say.
-                let mut definition =
-                    CharacterDefinition::new(id.clone(), display_name, self.provider.clone());
-                for (_, carried) in self.carried.iter().filter(|(character, _)| *character == id) {
+                let mut definition = CharacterDefinition::new(id.clone(), row.display_name.clone(), provider.to_string());
+                for (_, carried) in carried.iter().filter(|(character, _)| character == id) {
                     definition = definition.carrying(*carried);
                 }
                 // The scale is asked of the baked sheet once, here, and the
                 // body is built with it (`BodySource::SpriteAuthored`).
-                if let Some(world_per_pixel) = posed_body_scale {
+                if let Some(world_per_pixel) = ambition_character_sprites::posed_body_world_per_pixel(catalog, id) {
                     definition = definition.with_sprite_authored_body(world_per_pixel);
                 }
                 // Built on that body, so it too is asked of the sheet here.
-                if let Some(doc) = inset_hurtboxes {
+                if let Some(doc) = ambition_character_sprites::posed_body_inset_hurtboxes(catalog, id) {
                     definition = definition.with_hurtboxes(doc);
                 }
-                if let Some(rig) = body_rig {
+                // Only where the composition admits rigs: see
+                // `BodyRigAdmission` for why the answer is read here.
+                if let Some(rig) = rigs_admitted.then(|| ambition_character_sprites::published_body_rig(catalog, id)).flatten() {
                     definition = definition.with_body_rig(rig);
                 }
                 // The move table and every other facet the pack authors for
                 // this character, each folded by the capability that owns it.
-                let definition =
-                    ambition_characters::pack_facets::fold_character_facets(pack, definition);
-                app.register_character(definition);
-            }
-        }
+                ambition_characters::pack_facets::fold_character_facets(pack, definition)
+            })
+            .collect()
     }
 }
 

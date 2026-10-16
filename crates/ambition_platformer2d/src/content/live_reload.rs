@@ -160,6 +160,62 @@ impl EmbeddedPackReloadPlugin {
         })
     }
 
+    /// The pack's move tables and platform-fighter facets, folded into each
+    /// character's definition once at start (`PackCast::register`). At each
+    /// publication that changes them, every character of the pack's catalog
+    /// is defined again (`cast_definitions`, the registration's road), staged
+    /// and activated as one cast revision: a refused revision changes nothing
+    /// and keeps the last good cast. The catalog itself does not take part,
+    /// so an edit to a row is refused and costs a restart.
+    pub fn cast_facets(
+        pack: &'static EmbeddedPack,
+        provider: String,
+        carried: Vec<(String, crate::engine_core::CarriedComponent)>,
+    ) -> Self {
+        use ambition_characters::moveset_content_schema::MOVESET_SCHEMA;
+        use ambition_characters::smash_fighter::SMASH_FIGHTER_SCHEMA;
+
+        let restage = std::sync::Arc::new(move |world: &mut World, pack: &PreparedContentPack| {
+            use ambition_characters::prepared::{activate_staged_revision, stage_character_revision_in, CharacterBindings};
+            // An absent table is reported, not taken as empty: a revision
+            // admitted against the wrong table would refuse or admit the
+            // wrong moves.
+            let Some(support) = world
+                .get_resource::<crate::combat::technique::InstalledTechniques>()
+                .map(|installed| installed.0.clone())
+            else {
+                error!("the reload of `{}` keeps its cast: this App installs no technique table", pack.id.0);
+                return;
+            };
+            let Some(catalog) = ambition_characters::actor::character_catalog::lowered_catalog(pack) else {
+                error!("the reload of `{}` keeps its cast: the pack states no cast", pack.id.0);
+                return;
+            };
+            let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(world).admit;
+            for definition in super::cast_definitions(pack, catalog, &provider, &carried, rigs_admitted) {
+                let bindings = crate::actors::character_runtime::definition::with_engine_vocabularies(
+                    CharacterBindings::default(),
+                );
+                if let Err(problem) = stage_character_revision_in(world, definition, &bindings) {
+                    error!("the reload of `{}` cannot stage a character: {problem}", pack.id.0);
+                }
+            }
+            // A refusal is reported by the activation, and the last good cast
+            // stays.
+            activate_staged_revision(world, &support);
+        });
+        // Each restater stages the whole cast, so an edit to both families
+        // activates once and then finds the cast unchanged. A family the pack
+        // does not state has no restater.
+        let stated = &pack.prepared().schemas;
+        let restated = [MOVESET_SCHEMA, SMASH_FIGHTER_SCHEMA]
+            .into_iter()
+            .filter(|schema| stated.keys().any(|stated| stated.0 == *schema))
+            .map(|schema| Restater { schema, restate: restage.clone() })
+            .collect();
+        Self { pack, live: &[], restated }
+    }
+
     /// A restater for rows this pack shares a catalog with other providers
     /// in: it remembers the ids the pack owns (`owned`, from the start), so a
     /// restatement replaces only those. On a refusal (an id of another
@@ -727,6 +783,82 @@ mod tests {
             [WorldItemArtEntry::new("host_key", "sprites/props/key.png", bevy::math::Vec2::new(16.0, 16.0)), authority[0].clone()],
             "the pack's entries are the saved file's, and another provider's stays"
         );
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// ⭐ An edit to a character's move table is the move the next session's
+    /// cast plays: the cast revision is staged, activated between sessions,
+    /// and the published definition carries the saved file's move.
+    #[test]
+    fn an_edit_to_a_move_table_is_played_by_the_next_sessions_cast() {
+        use ambition_characters::prepared::{close_preparation_barrier_admitting, PreparedCharacterRegistry};
+
+        let root = std::env::temp_dir().join(format!("live_reload_cast_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("data")).unwrap();
+        std::fs::write(
+            root.join("pack.ron"),
+            r#"(id: "live_reload_probe", version: "0.1.0", namespace: "probe", requires: [], sources: [
+                (path: "data/cast.ron", schema: "character_catalog", version: 1),
+                (path: "data/newcomer.ron", schema: "moveset", version: 1),
+            ])"#,
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("data/cast.ron"),
+            r#"(
+                brain_presets: { "stand_still": StandStill },
+                action_set_presets: { "peaceful": (move_style: Walk) },
+                characters: {
+                    "newcomer": (
+                        display_name: "Newcomer", manifest: "newcomer.ron", tier: MainHall,
+                        body_kind: Standard, composition: None, default_brain: "stand_still",
+                        default_action_set: "peaceful", tags: [],
+                    ),
+                },
+            )"#,
+        )
+        .unwrap();
+        let moves = |duration: f32| {
+            format!(
+                r#"(schema_version: 1, entities: [(id: "newcomer", contracts: (moveset: Some((
+                    verbs: {{ "attack": "newcomer_jab" }},
+                    moves: [(id: "newcomer_jab", clip: (clip: "jab"), duration_s: {duration},
+                        windows: [(start_s: 0.0, end_s: {duration}, tag: Recovery, volumes: [])])],
+                ))))])"#
+            )
+        };
+        std::fs::write(root.join("data/newcomer.ron"), moves(0.25)).unwrap();
+        let leaked_root: &'static str = Box::leak(root.to_string_lossy().into_owned().into_boxed_str());
+        let pack: &'static EmbeddedPack = Box::leak(Box::new(EmbeddedPack::rooted(leaked_root, None)));
+
+        let mut app = App::new();
+        app.init_resource::<crate::actor::ActiveSessionScope>();
+        app.init_resource::<crate::combat::technique::InstalledTechniques>();
+        pack.cast("probe", None).register(&mut app);
+        close_preparation_barrier_admitting(app.world_mut(), &Default::default());
+        let jab = |app: &App| {
+            app.world()
+                .resource::<PreparedCharacterRegistry>()
+                .get("newcomer")
+                .and_then(|newcomer| newcomer.kit.projectable_moveset().cloned())
+                .and_then(|moves| moves.move_by_id("newcomer_jab").map(|jab| jab.duration_s))
+        };
+        assert_eq!(jab(&app), Some(0.25), "the premise: the cast plays the file as it was at start");
+        app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().begin();
+
+        save_and_look(&mut app, &root.join("data/newcomer.ron"), &moves(0.5));
+        assert_eq!(jab(&app), Some(0.25), "the live session keeps its cast");
+
+        app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().clear();
+        app.update();
+        let authority = EmbeddedPack::rooted(leaked_root, None);
+        assert_eq!(
+            jab(&app),
+            authority.moveset("newcomer").move_by_id("newcomer_jab").map(|jab| jab.duration_s),
+            "the next session's cast plays the saved file"
+        );
+        assert_eq!(jab(&app), Some(0.5));
         let _ = std::fs::remove_dir_all(root);
     }
 

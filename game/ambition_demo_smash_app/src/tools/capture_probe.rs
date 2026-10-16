@@ -87,11 +87,8 @@ pub struct CaptureProbeArgs {
     /// Which fighter takes the second seat (default: the demo's other stand-in).
     #[arg(long, value_name = "ID")]
     pub opponent: Option<String>,
-    /// Load an authored difficulty ladder from a `.ron` and install it.
-    ///
-    /// Without this, the probe measures the engine floor, not the shipped
-    /// game: `build_demo_app` declares no fighter ladder, so every rung
-    /// carries `UtilityWeights::default()` (the level-9 row).
+    /// Load a difficulty ladder from a `.ron` and play it in place of the
+    /// rows of Smash's pack (`data/fighter_brain_ladder.ron`).
     #[arg(long, value_name = "PATH")]
     pub ladder: Option<String>,
 }
@@ -127,10 +124,9 @@ pub fn run(args: CaptureProbeArgs) {
     println!(
         "[capture_probe] ladder: {}",
         if authored_ladder.is_some() {
-            "the AUTHORED rows"
+            "the rows of the --ladder file"
         } else {
-            "⛔ the ENGINE FLOOR — every rung carries UtilityWeights::default(), \
-             which IS the level-9 row. NOT the shipped fighter."
+            "the rows of Smash's pack (`data/fighter_brain_ladder.ron`)"
         }
     );
     let ticks = (seconds * 60.0) as u32;

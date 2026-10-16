@@ -50,8 +50,8 @@ possible without a recompile. Work in this order:
 3. Pack elegance: admission diagnostics that name the file and the field
    (done 2026-10-15: `FacetSource::parse` gives the field path, ca3bd5d8f);
    [CPU-LADDER](#cpu-ladder--the-brain-owns-the-knobs-smash-owns-the-ladder)
-   step 2 (blocked by the George L5 resonance, fighter-brain.md F1; the
-   own-motion lead was measured on 2026-10-15 and is not enough).
+   step 2 (done 2026-10-16: a reaction spread broke the George L5
+   resonance; Smash declares its ladder rows from its pack); step 3 next.
 4. Each slice states its measured runtime and iteration cost.
 5. Then the 2026-10-09 order below.
 
@@ -1857,6 +1857,13 @@ throws no move at rung 5 (18-tick reaction resonance; 325 ms fights). See F1.
 The other error is the foe's turn, unseen for the whole approach (turn to
 crossing about 0.37 s, reaction 0.30 s). Next: a brain policy for a foe it
 cannot yet see turning, measured on the rig; it changes every CPU. See F1.
+**Built 2026-10-16 (step 2):** the block is fixed by a reaction spread (each
+decision reacts in the delay ± one sixth of it, drawn from the seat's own
+stream), measured on the seeded rig: the George rung-5 mirror went from 0%
+and 480 s stalemates on all 16 seeds to 54 s bouts, and every rung pair of
+George's ladder is ordered (16:0, 16:0, 14:2, 16:0). Smash's pack names the
+ladder file and the demo declares and restates its rows. **Next (step 3):**
+the floor becomes one level-free default. See F1.
 
 ### LANDMARK-CLIP-TIME — a published landmark clip loops or holds as the row it describes
 

@@ -377,6 +377,28 @@ fn a_warm_buffer_shows_the_world_exactly_delay_ticks_late() {
     assert_eq!(d.buffered(), 4);
 }
 
+/// A reaction moves around the profile's delay by at most the spread, and the
+/// buffer holds enough views for the slowest one.
+#[test]
+fn a_reaction_moves_the_view_by_at_most_the_spread() {
+    let mut d = DelayedPerception::new(18);
+    assert_eq!(d.spread_ticks(), 3);
+    for t in 0..40 {
+        d.observe(view_at_time(t as f32));
+    }
+    assert_eq!(d.buffered(), 22, "delay plus spread plus the live view");
+    let seen = |d: &DelayedPerception| d.perceive().map(|v| v.sim_time);
+    assert_eq!(seen(&d), Some(21.0), "before the first reaction, the mean delay");
+    d.react(-1.0);
+    assert_eq!(seen(&d), Some(24.0), "the quickest reaction");
+    d.react(1.0);
+    assert_eq!(seen(&d), Some(18.0), "the slowest reaction");
+    d.react(0.0);
+    assert_eq!(seen(&d), Some(21.0));
+    d.react(7.0);
+    assert_eq!(d.age_ticks(), 21, "a sample out of range is clamped");
+}
+
 /// A brain spawned mid-fight reacts more slowly than its profile for a few ticks — it never gets a
 /// same-tick perceive→act cheat at the exact moment a fight begins, which is the moment FB4's
 /// humanity check is watching.

@@ -314,6 +314,18 @@ fn the_directors_revision_rises_when_the_stick_is_released_after_the_press() {
             .map(|(entity, _)| entity)
             .expect("the match seats a first fighter")
     };
+    // The other seat is a CPU, and a strike from it in the window reads as a
+    // sideways teleport. The subject is the aim of a teleport nobody aimed, so
+    // the other seat thinks nothing.
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        let others: Vec<Entity> = q.iter(world).filter(|(_, seat)| seat.0 != 0).map(|(entity, _)| entity).collect();
+        assert!(!others.is_empty(), "the match seats a second fighter");
+        for other in others {
+            world.entity_mut(other).remove::<ambition_platformer2d::characters::brain::Brain>();
+        }
+    }
     let position = |app: &App| -> ambition_platformer2d::engine_core::Vec2 {
         app.world()
             .get::<ambition_platformer2d::engine_core::BodyKinematics>(director)

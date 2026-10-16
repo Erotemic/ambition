@@ -20,18 +20,11 @@ pub mod roll_probe;
 pub mod select_walkthrough;
 pub mod stage_diagram;
 
-/// Declare `ladder` for the demo's Smash rooms: a tool's `--ladder FILE` arm.
-/// The demo declares none of its own, so its fighters otherwise fight on the
-/// engine floor.
+/// Govern the demo's Smash rooms with `ladder`: a tool's `--ladder FILE` arm.
+/// It replaces the rows Smash's pack declares (`data/fighter_brain_ladder.ron`).
 pub(crate) fn declare_smash_ladder(app: &mut bevy::prelude::App, ladder: ambition_platformer2d::characters::brain::fighter::FighterBrainLadder) {
-    use ambition_platformer2d::combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
-    app.declare_rules(RulesScope::Mode(ambition_demo_smash::SMASH_MODE), ladder);
-}
-
-/// Whether a fighter ladder governs the demo's Smash rooms.
-pub(crate) fn smash_ladder_is_declared(app: &bevy::prelude::App) -> bool {
-    use ambition_platformer2d::combat::scoped_rules::{ActiveRoom, DeclaredRules};
-    app.world()
-        .get_resource::<DeclaredRules<ambition_platformer2d::characters::brain::fighter::FighterBrainLadder>>()
-        .is_some_and(|rules| rules.governing(ActiveRoom::Mode(ambition_demo_smash::SMASH_MODE)).is_some())
+    use ambition_platformer2d::combat::scoped_rules::{DeclaredRules, RulesScope};
+    app.world_mut()
+        .get_resource_or_insert_with(DeclaredRules::<ambition_platformer2d::characters::brain::fighter::FighterBrainLadder>::default)
+        .restate(RulesScope::Mode(ambition_demo_smash::SMASH_MODE), Some(ladder));
 }

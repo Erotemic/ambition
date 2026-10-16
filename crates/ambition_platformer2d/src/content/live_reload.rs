@@ -86,6 +86,26 @@ impl EmbeddedPackReloadPlugin {
 }
 
 impl EmbeddedPackReloadPlugin {
+    /// The pack's `fighter_brain_ladder`, declared in `scope` once at start,
+    /// stated again at each publication that changes it. A pack that no
+    /// longer states a ladder removes the declaration: its fighters then play
+    /// the engine floor.
+    pub fn fighter_ladder(pack: &'static EmbeddedPack, scope: crate::combat::scoped_rules::RulesScope) -> Self {
+        use crate::combat::brain::fighter::content_schema::{lowered_fighter_brain_ladder, FIGHTER_BRAIN_LADDER_SCHEMA};
+        use crate::combat::scoped_rules::DeclaredRules;
+        Self {
+            pack,
+            live: &[],
+            restated: vec![Restater::new(FIGHTER_BRAIN_LADDER_SCHEMA, move |world, pack| {
+                world
+                    .get_resource_or_insert_with(DeclaredRules::<crate::characters::brain::fighter::FighterBrainLadder>::default)
+                    .restate(scope, lowered_fighter_brain_ladder(pack).cloned());
+            })],
+        }
+    }
+}
+
+impl EmbeddedPackReloadPlugin {
     /// The pack's `prop_sheets`, registered once at start
     /// (`register_prop_sheet_rows`), restated at each publication that
     /// changes them; their sheets are loaded again.
@@ -764,6 +784,39 @@ mod tests {
 
         save_and_look(&mut app, &root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))");
         assert_eq!(heavy_line(&app), Some(30));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// The ladder restater a demo gives states the scope's ladder again: the
+    /// next session's fighters in that mode play the saved rows.
+    #[test]
+    fn the_ladder_restater_states_the_scopes_ladder_again() {
+        use crate::characters::brain::fighter::FighterBrainLadder;
+        use crate::combat::brain::fighter::content_schema::lowered_fighter_brain_ladder;
+        use crate::combat::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
+
+        let shipped = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../game/ambition_content/assets/data/fighter_brain_ladder.ron"),
+        )
+        .unwrap();
+        assert!(shipped.contains("reaction_ms: 500.0"), "the probe edits the first rung's reaction");
+        let (pack, root) = pack_with("ladder_restater", "data/fighter_brain_ladder.ron", "fighter_brain_ladder", &shipped);
+        let scope = RulesScope::Mode("probe_mode");
+        let mut app = App::new();
+        app.add_plugins(EmbeddedPackReloadPlugin::fighter_ladder(pack, scope));
+        let mut declared = DeclaredRules::<FighterBrainLadder>::default();
+        declared.declare(scope, lowered_fighter_brain_ladder(pack.prepared()).cloned().expect("the probe states a ladder"));
+        app.insert_resource(declared);
+        let first_rung = |app: &App| {
+            app.world()
+                .resource::<DeclaredRules<FighterBrainLadder>>()
+                .governing(ActiveRoom::live(Some("probe_mode")))
+                .and_then(|ladder| ladder.level(1).map(|rung| rung.reaction_ms))
+        };
+        assert_eq!(first_rung(&app), Some(500.0));
+
+        save_and_look(&mut app, &root.join("data/fighter_brain_ladder.ron"), &shipped.replacen("reaction_ms: 500.0", "reaction_ms: 499.0", 1));
+        assert_eq!(first_rung(&app), Some(499.0));
         let _ = std::fs::remove_dir_all(root);
     }
 

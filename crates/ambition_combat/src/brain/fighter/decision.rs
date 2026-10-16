@@ -171,6 +171,13 @@ pub fn tick_fighter(
 
     if state.ticks_until_decision == 0 {
         state.ticks_until_decision = cfg.interval();
+        // Each decision reacts in its own time (`REACTION_SPREAD`). The draw is
+        // from the seat's own stream, so two seats of one character do not
+        // vary together. A delay too short to spread draws nothing.
+        if state.perception.spread_ticks() > 0 {
+            let sample = next_signed_unit(&mut state.noise);
+            state.perception.react(sample);
+        }
         decide(cfg, state, snapshot, &mut frame);
     }
 
@@ -592,7 +599,7 @@ fn decide(
         // IDENTICAL ticks across 600 ticks and 24 presses.
         //
         // ⛔⛤ **AND IT SILENTLY VOIDED THE PER-SEAT COGNITION STREAM.** This site
-        // is that stream's ONLY consumer in the tree, so at rung 9 the per-seat
+        // was then that stream's ONLY consumer in the tree, so at rung 9 the per-seat
         // seed had no observable effect at all — the reflection
         // `two_participants_of_one_character_do_not_share_a_stream` exists to
         // prevent, unreachable at the shipped rung.

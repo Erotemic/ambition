@@ -25,20 +25,15 @@ const DEFAULT_SEEDS: usize = 3;
 
 /// Name the ladder before printing any numbers.
 ///
-/// The rungs resolve through `FighterBrainProfile::for_level` (the engine
-/// floor), because this demo ships no ladder of its own (`fighter-brain.md`
-/// §4: games and demos ship their own rows). The floor turns
-/// `rollout_depth: 12` on at level 6 and above, so the level column
-/// confounds depth with reaction, APM, noise, and read weight. With an
-/// authored ladder that sets depth 0 on every rung, the same column would be
-/// a clean reaction/APM/noise sweep.
+/// The rungs are the rows of Smash's pack (`data/fighter_brain_ladder.ron`,
+/// the file the shipped game names too). They set `rollout_depth: 0` on every
+/// rung, so the level column is a reaction/APM/noise/weights sweep.
 fn announce_which_ladder_is_under_test() {
     println!(
-        "[ladder_probe] LADDER: engine floor (`FighterBrainProfile::for_level`) — \
-         this demo authors no ladder of its own. Rungs therefore gain \
-         `rollout_depth: 12` at level >= 6, so the level column confounds depth \
-         with reaction/APM/noise/read-weight. The forced-depth A/B below is the \
-         only clean depth comparison here."
+        "[ladder_probe] LADDER: Smash's pack (`data/fighter_brain_ladder.ron`) — \
+         every rung has rollout depth 0, so the level column is a \
+         reaction/APM/noise/weights sweep. The A/B below changes only the depth \
+         of the declared rows."
     );
 }
 
@@ -61,9 +56,9 @@ pub fn run(args: LadderProbeArgs) {
         report(&run_seeds(level, None, seeds));
     }
 
-    // The A/B for FB6e's question. The level column confounds depth with
-    // every other rung change; level 5 -> 6 changes five things at once. This
-    // varies only `rollout_depth` on one level-9 profile.
+    // The A/B for FB6e's question: is the L3 rollout worth its cost? The
+    // ladder rolls out on no rung, so this varies only `rollout_depth` (and
+    // its candidate width) on one level-9 profile.
     println!("[ladder_probe] --- same level 9 profile, ONLY rollout_depth varied ---");
     for depth in [0u32, 12] {
         report(&run_seeds(9, Some(depth), seeds));
@@ -370,12 +365,24 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
     let mut death_x: Option<f32> = None;
     let mut first_loss = None;
     let mut eliminated = None;
-    let mut depth_applied = forced_depth.is_none();
+    // The depth goes into the declared rows: the ladder projection states each
+    // live profile again from its rung, so a write onto a live brain is
+    // reverted in one tick.
+    if let Some(depth) = forced_depth {
+        let mut ladder = ambition_demo_smash::smash_pack::fighter_ladder();
+        // A depth with no candidates rolls nothing out; 4 is the floor's width.
+        for rung in ladder.rungs_mut() {
+            rung.rollout_depth = depth;
+            rung.rollout_k = if depth == 0 { 0 } else { 4 };
+        }
+        super::declare_smash_ladder(&mut app, ladder);
+    }
+    let mut depth_played = forced_depth.is_none();
     let mut seed_applied = false;
     for tick in 0..TICKS {
         app.update();
-        if !depth_applied {
-            depth_applied = force_depth(&mut app, forced_depth.unwrap());
+        if !depth_played {
+            depth_played = plays_depth(&mut app, forced_depth.unwrap());
         }
         if !seed_applied {
             seed_applied = force_noise_seed(&mut app, noise_seed);
@@ -426,9 +433,9 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
         lost = ambition_demo_smash::starting_stocks();
     }
     assert!(
-        depth_applied,
-        "the depth override never found a fighter brain to apply to; \
-         this run measured the DEFAULT profile and its number is a lie"
+        depth_played,
+        "no fighter brain played the forced rollout depth; this run measured \
+         another profile and its number is a lie"
     );
     assert!(
         seed_applied,
@@ -450,6 +457,15 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
 
 /// Overwrite the execution-noise stream on every fighter brain present, so
 /// one configuration can run under several.
+/// Whether a live fighter brain plays rollout `depth`.
+fn plays_depth(app: &mut App, depth: u32) -> bool {
+    let world = app.world_mut();
+    let mut brains = world.query::<&Brain>();
+    brains.iter(world).any(|brain| {
+        matches!(brain, Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) if cfg.profile.rollout_depth == depth)
+    })
+}
+
 fn force_noise_seed(app: &mut App, seed: u64) -> bool {
     let world = app.world_mut();
     let mut q = world.query::<&mut Brain>();
@@ -463,18 +479,4 @@ fn force_noise_seed(app: &mut App, seed: u64) -> bool {
     found
 }
 
-fn force_depth(app: &mut App, depth: u32) -> bool {
-    let world = app.world_mut();
-    let mut q = world.query::<&mut Brain>();
-    let mut found = false;
-    for mut brain in q.iter_mut(world) {
-        if let Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) = &mut *brain {
-            cfg.profile.rollout_depth = depth;
-            if depth == 0 {
-                cfg.profile.rollout_k = 0;
-            }
-            found = true;
-        }
-    }
-    found
-}
+

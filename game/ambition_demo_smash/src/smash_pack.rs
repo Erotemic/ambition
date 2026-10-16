@@ -31,6 +31,14 @@ pub fn fighter_body(character: &str) -> Option<ambition_platformer2d::engine_cor
     fighter_body_in(PACK.prepared(), character)
 }
 
+/// What "CPU level N" means in Smash's rooms, as its pack states it
+/// (`data/fighter_brain_ladder.ron`).
+pub fn fighter_ladder() -> ambition_platformer2d::characters::brain::fighter::FighterBrainLadder {
+    ambition_platformer2d::combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(PACK.prepared())
+        .cloned()
+        .expect("Smash's pack states its CPU ladder (`data/fighter_brain_ladder.ron`)")
+}
+
 /// The rules of Smash's matches, as its pack states them
 /// (`assets/data/match_rules.ron`): stocks, clocks, the percent pool, the
 /// fighter body, the ability floor and ceiling, fighter contact.

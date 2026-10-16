@@ -1474,19 +1474,41 @@ impl<'a> Perceived<'a> {
 /// ticks, never faster.
 ///
 /// Shipped difficulty rows never use it — §1.3: *"Level 9 = small numbers, never zero."*
+///
+/// The delay is a MEAN, not a constant. The brain calls [`Self::react`] at each
+/// decision, and the view it reads is then up to one [`REACTION_SPREAD`]th of
+/// the delay older or younger. A person does not react in the same time twice.
 #[derive(Clone, Debug, Default)]
 pub struct DelayedPerception {
-    /// Oldest first. Length is capped at `delay_ticks + 1`.
+    /// Oldest first. Length is capped at `delay_ticks + spread_ticks() + 1`.
     buf: std::collections::VecDeque<WorldView>,
     delay_ticks: usize,
+    /// How old the view that `perceive` returns is, in ticks. Set by
+    /// [`Self::react`]; `delay_ticks` until the first call.
+    age_ticks: usize,
 }
+
+/// A reaction varies by up to one sixth of its delay in each direction.
+///
+/// ⛔ A CONSTANT REACTION LOCKS TWO CPUS INTO PHASE. Measured 2026-10-16 with
+/// Smash's authored rows declared for its mode: the George mirror at rung 5
+/// (18 ticks) walked through itself on the same orbit for the whole bout and
+/// started no move, because each body turned at the moment the other's turn
+/// was still out of its view (`fighter-brain.md` F1). With this spread, the two
+/// seats draw from their own noise streams, the orbit breaks, and the same
+/// repertoire tests start their moves.
+///
+/// ⚠ The spread is in whole ticks (`delay_ticks / 6`), so a delay under six
+/// ticks gets none. No shipped rung is under nine.
+pub const REACTION_SPREAD: usize = 6;
 
 impl DelayedPerception {
     /// A buffer that shows the world `delay_ticks` ticks late.
     pub fn new(delay_ticks: usize) -> Self {
         Self {
-            buf: std::collections::VecDeque::with_capacity(delay_ticks + 1),
+            buf: std::collections::VecDeque::with_capacity(delay_ticks + delay_ticks / REACTION_SPREAD + 1),
             delay_ticks,
+            age_ticks: delay_ticks,
         }
     }
 
@@ -1501,21 +1523,42 @@ impl DelayedPerception {
         Self::new(ticks)
     }
 
-    /// How many ticks late this buffer shows the world.
+    /// How many ticks late this buffer shows the world, on average.
     pub fn delay_ticks(&self) -> usize {
         self.delay_ticks
+    }
+
+    /// How far a reaction can move from `delay_ticks`, in each direction.
+    pub fn spread_ticks(&self) -> usize {
+        self.delay_ticks / REACTION_SPREAD
+    }
+
+    /// How many ticks late the view that `perceive` returns is.
+    pub fn age_ticks(&self) -> usize {
+        self.age_ticks
+    }
+
+    /// Choose how late the reads until the next call see the world. `sample` is
+    /// in `[-1, 1]`; the age is `delay_ticks` moved by `sample` times the spread.
+    ///
+    /// The brain owns the noise, so the brain draws the sample. This keeps every
+    /// random draw in the one stream that rollback restores.
+    pub fn react(&mut self, sample: f32) {
+        let spread = self.spread_ticks() as f32;
+        let age = self.delay_ticks as f32 + (sample.clamp(-1.0, 1.0) * spread).round();
+        self.age_ticks = age.max(0.0) as usize;
     }
 
     /// Feed this tick's live view. Call exactly once per sim tick, from the
     /// gameplay layer — the brain never calls it.
     pub fn observe(&mut self, view: WorldView) {
         self.buf.push_back(view);
-        while self.buf.len() > self.delay_ticks + 1 {
+        while self.buf.len() > self.delay_ticks + self.spread_ticks() + 1 {
             self.buf.pop_front();
         }
     }
 
-    /// What the brain is allowed to read: the view from `delay_ticks` ticks ago,
+    /// What the brain is allowed to read: the view from `age_ticks` ticks ago,
     /// or the oldest one held if the buffer has not filled yet. `None` only before
     /// the first `observe`.
     ///
@@ -1533,7 +1576,12 @@ impl DelayedPerception {
         // `delay_ticks` old, so a number derived from the configuration would
         // overstate the lag for exactly the few ticks after a spawn or a room
         // change.
-        let front = self.buf.front()?;
+        let front = self
+            .buf
+            .len()
+            .checked_sub(self.age_ticks + 1)
+            .and_then(|at| self.buf.get(at))
+            .or(self.buf.front())?;
         let staleness_s = self
             .buf
             .back()
@@ -1544,14 +1592,14 @@ impl DelayedPerception {
         })
     }
 
-    /// Ticks currently buffered. `delay_ticks + 1` once warm.
+    /// Ticks currently buffered. `delay_ticks + spread_ticks() + 1` once full.
     pub fn buffered(&self) -> usize {
         self.buf.len()
     }
 
-    /// True once `perceive()` is returning a view exactly `delay_ticks` old.
+    /// True once `perceive()` is returning a view exactly `age_ticks` old.
     pub fn warm(&self) -> bool {
-        self.buf.len() == self.delay_ticks + 1
+        self.buf.len() > self.age_ticks
     }
 
     /// Drop every buffered view (respawn, room change, match reset). The brain

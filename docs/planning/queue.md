@@ -1860,39 +1860,22 @@ by an ordinary route and by `measure_perception_density.sh`.
 **Acceptance:** in the room `kept` tracks population until the budget caps it,
 and the census, frame time and camera framing are readable from one run.
 
-### LDTK-SEMANTIC-DIFF — review content diffs by meaning, and find the rewrite
+### LDTK-SEMANTIC-DIFF — review content diffs by meaning, and find the rewrite — ✅ DONE 2026-10-15
 
 **Owner:** `tools/ambition_ldtk_tools` (`edit/semantic_diff.py`). Plan:
 [`engine/authoring-and-tools.md`](engine/authoring-and-tools.md#content-diffs-need-domain-aware-comparison-q62-q78).
+Ruling: Q62 and Q78 (2026-10-04) are engineering tasks.
 
-**Ruling:** Q62 and Q78 (2026-10-04) are engineering and evidence tasks, not
-maintainer choices.
-
-**Current state:** the comparison is done: `diff semantic` (file or
-`REV:PATH`), `diff range` and `diff normalize`, with verdict, per-level
-summary, ambiguities and a noise section (tests:
-`tests/test_semantic_diff.py`). It prints the per-level summary for the
-post-fix rewrite commits `576a8fd`, `c6df2b7` and `056079f`. `48f8e26` is not
-in this clone, so `48f8e26 → cb7062a` is not re-measured. LDtk files still
-rewrite far beyond their edits after `54d99e7fb` and `2e69e81b9`; the writer
-is not identified.
-
-**Measured 2026-10-08:** each whole-file writer ran twice on an unchanged
-copy. `compact`, `policy fix`, `asset editor-art` and `repair` write the same
-bytes on a second run. The rewriter was `generate hall-of-characters`, through
-`area create --replace-existing`: it allocated every iid and uid again, so each
-regen renumbered 145 iids and 5 uids (139 of them runtime ids of entities with
-no `id` field). Fixed: a replaced level carries the iid, uid and seed of the
-level, each layer's iid, and each entity's iid matched by type and position
-(`carry_identities`), and a built entity sits on its policy layer
-(`place_on_policy_layers`). A regen of the committed hall now writes it byte
-for byte (`tests/test_area_regen_keeps_identities.py`; poisons red).
-`camera auto-cover --create` writes the same bytes on a second run. Not
-measured: the spec-driven `entity` writers (move, set-field) and `level clone`
-(which mints fresh ids by design).
-
-**Acceptance:** a second run of each writer on its own output changes no
-byte.
+**Receipt:** the comparison is `diff semantic` (file or `REV:PATH`), `diff
+range` and `diff normalize` (`tests/test_semantic_diff.py`). The rewriter was
+`generate hall-of-characters`, which renumbered 145 iids and 5 uids on each
+regen; a replaced level now carries its identities
+(`tests/test_area_regen_keeps_identities.py`). A second run of each writer on
+its own output changes no byte: `compact`, `policy fix`, `asset editor-art`,
+`repair`, `camera auto-cover --create`, the Hall regen (2026-10-08), and
+`entity move` and `entity set-field` (2026-10-15, on a copy of
+`sandbox.ldtk`: the first run changed only the lines it was asked to, 3 and
+2). `level clone` mints new ids by design.
 
 ### ASSET-PRODUCT-LAYOUT — runtime roots by tier; editor products apart
 
@@ -1903,12 +1886,13 @@ the publish scripts. Plan:
 **Ruling:** Q82, Q83 (2026-10-04).
 
 **Current state:** full quality is the bare `sprites/` root and the reduced
-tiers are suffixed siblings; the packager ships every file, including the
-98.8% of the 449 MB ultrapack that no runtime road reaches.
+tiers are suffixed siblings. ✅ 2026-10-15, the ultrapack's runtime product
+is cut by runtime unit: only the pack-plan groups a runtime reader loads ship
+(`runtime_groups`), 1.8 MB, was 695 MB; the whole pack is a source in the
+renderer's cache (owner page).
 
 **Next action:** audit the listed path builders, then move to
-`<root>/{full,half,quarter,potato}/` in one change; then cut the ultrapack's
-runtime product by runtime unit.
+`<root>/{full,half,quarter,potato}/` in one change.
 
 **Acceptance:** every tier is a named directory; the packager selects roots
 and has no new exclusion; the packaged ultrapack holds only reachable pages;

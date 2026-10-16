@@ -599,11 +599,21 @@ pub fn try_load_pack_spec_for_target(
     scale: super::TextureResolutionScale,
 ) -> Option<(CharacterSheetSpec, &'static str)> {
     let (tier, catalog) = crate::sprite_packs::catalog_for_scale(scale)?;
+    pack_spec_in(catalog, target, tuning).map(|spec| (spec, tier))
+}
+
+/// The spec of `target` as `catalog` packs it, with what the pack cannot
+/// know taken from the target's base manifest.
+pub(crate) fn pack_spec_in(
+    catalog: &crate::SpritePackCatalog,
+    target: &str,
+    tuning: &SheetTuning,
+) -> Option<CharacterSheetSpec> {
     let mut record = catalog.to_sheet_record(target)?;
     // A pack is storage for the same drawing, so inherit the drawing's facing
     // from the base manifest, as the caller inherits `tuning`. The synthesized
     // record cannot know it. Without this, a left-drawn sheet (Patent Clerk)
-    // faces backward on the ultrapack path, which most devices use.
+    // faces backward on the ultrapack path.
     record.authored_faces_left = record_for_sheet_key(target)
         .map(|base| base.authored_faces_left)
         .unwrap_or(false);
@@ -611,7 +621,7 @@ pub fn try_load_pack_spec_for_target(
     // for the pack's copy of the drawing.
     record.column_tile = record_for_sheet_key(target).and_then(|base| base.column_tile);
     let spec = spec_from_record(&record, tuning);
-    spec.maps(CharacterAnim::Idle).then_some((spec, tier))
+    spec.maps(CharacterAnim::Idle).then_some(spec)
 }
 
 pub fn try_load_spec_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> {

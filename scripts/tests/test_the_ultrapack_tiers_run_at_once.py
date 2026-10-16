@@ -43,11 +43,14 @@ run_renderer_python() {{
     echo "packed $label"
     [ "$label" != "ultrapack-{failing}" ] || return 1
     local tier="${{label#ultrapack-}}"
-    mkdir -p "$pack_root/$tier" && echo "{{}}" > "$pack_root/$tier/ultrapack.json"
+    mkdir -p "$pack_root/$tier" "$pack_source_root/$tier"
+    echo "{{}}" > "$pack_root/$tier/ultrapack.json"
+    echo "{{}}" > "$pack_source_root/$tier/ultrapack.json"
 }}
 ultrapack_tiers=("full 1.0 1 2048" "half 0.5 1 1024" "quarter 0.25 1 512" "potato 0.0625 8 256")
 ultrapack_plan=()
 pack_root={pack_root}
+pack_source_root={tmp_path / "source"}
 ultrapack_key_dir={tmp_path / "keys"}
 mkdir -p "$ultrapack_key_dir"
 ultrapack_inputs={inputs}

@@ -1704,6 +1704,12 @@ fi
 #   AMBITION_ULTRAPACK_DEBUG=1  also emit per-page diagnostics into staging
 phase "Ultrapack: shared-page atlases per quality tier → runtime pack root:"
 pack_root="$publish_asset_root/sprite_packs"
+# The whole pack is a source, kept beside the cache: the game reads only the
+# groups a runtime reader loads (the plan's `runtime_groups`), and those
+# pages are what each tier writes to `$pack_root` (`--runtime-out`). The
+# packager ships every file of the runtime roots, and it shipped 695 MB of
+# pages for 5.4 MB that a reader can reach (measured 2026-10-15).
+pack_source_root="$cache_dir/ultrapack_source"
 pack_debug_root="$repo_root/target/ambition_publish/diagnostics/packs"
 if [ "${AMBITION_ULTRAPACK:-1}" = "0" ]; then
     echo "  (skipped — AMBITION_ULTRAPACK=0)"
@@ -1780,6 +1786,7 @@ then
         fi
         tier_key="$ultrapack_inputs $tier ${ultrapack_debug[*]}"
         if [ -f "$pack_root/$tname/ultrapack.json" ] \
+            && [ -f "$pack_source_root/$tname/ultrapack.json" ] \
             && [ "$(cat "$ultrapack_key_dir/$tname.key" 2>/dev/null)" = "$tier_key" ]; then
             echo "$tname: current (no pooled sheet, the plan or the packer changed since it was packed)" >"$ultrapack_logs/$tname.log"
             ultrapack_pids+=("")
@@ -1800,7 +1807,7 @@ then
         # the CLI makes every sheet stale (see `ultrapack.main`).
         run_renderer_python "ultrapack-$tname" -m ambition_sprite2d_renderer.authoring.ultrapack \
             --from-rendered "$sprites_dir" \
-            --out "$pack_root/$tname" \
+            --out "$pack_source_root/$tname" --runtime-out "$pack_root/$tname" \
             --scale "$tscale" --min-frame-px "$tmin" --page-size "$tpage" \
             --name ultrapack "${ultrapack_plan[@]}" "${ultrapack_debug[@]}" \
             --state "$ultrapack_key_dir/$tname.state.json" \
@@ -1832,7 +1839,7 @@ then
     # the sheets a pack does NOT cover are reported, not failed: ultrapack
     # skips manifests with no standard frame rows (bespoke targets, which it
     # names on stderr as it goes), and that set is content, not a defect.
-    if ! "$python_bin" - "$pack_root" "$sprites_dir" <<'PYEOF'
+    if ! "$python_bin" - "$pack_source_root" "$sprites_dir" "$pack_root" <<'PYEOF'
 import json, sys
 from pathlib import Path
 root = Path(sys.argv[1])
@@ -1875,12 +1882,35 @@ for tier, s in sorted(sets.items()):
         age = (newest_sheet - stamps[tier]) / 3600.0
         print(f"  ERROR: tier '{tier}' catalog is {age:.1f}h older than the newest "
               f"published sheet — the pack is stale", file=sys.stderr)
+# The runtime product: each tier's catalog names targets of the source and
+# pages that exist, and the tiers ship one set.
+runtime_root = Path(sys.argv[3])
+runtime_sets = {}
+for tier in sets:
+    cat = runtime_root / tier / "ultrapack.json"
+    if not cat.exists():
+        bad = True
+        print(f"  ERROR: tier '{tier}' has no runtime product ({cat})", file=sys.stderr)
+        continue
+    doc = json.loads(cat.read_text())
+    runtime_sets[tier] = set(doc["targets"])
+    absent = [page for page in doc["pages"] if not (runtime_root / tier / page).is_file()]
+    stray = sorted(runtime_sets[tier] - sets[tier])
+    if absent or stray:
+        bad = True
+        print(f"  ERROR: tier '{tier}' runtime product names {len(absent)} absent page(s) "
+              f"and {len(stray)} target(s) the source does not pack: {(absent + stray)[:5]}",
+              file=sys.stderr)
+if len({frozenset(s) for s in runtime_sets.values()}) > 1:
+    bad = True
+    print("  ERROR: the tiers' runtime products name different targets", file=sys.stderr)
 if bad:
     sys.exit(1)
 unpacked = sorted(rendered - ref)
 note = f"; {len(unpacked)} sheet(s) not pooled: {', '.join(unpacked)}" if unpacked else ""
 print(f"  ok: {len(sets)} tiers x {len(ref)} targets — identical, current with "
-      f"{len(rendered)} published sheet(s){note}")
+      f"{len(rendered)} published sheet(s){note}; the runtime product ships "
+      f"{len(next(iter(runtime_sets.values()), ()))} of them")
 PYEOF
     then
         regen_failures+=("ultrapack postcondition: tier coverage disagrees or is stale")

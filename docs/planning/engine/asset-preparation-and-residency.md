@@ -158,6 +158,18 @@ runtime boundary is what splits.
   (`load_sprite_pages`, `used_pages`); it is the PACKAGE that carries all of
   it, because the packager ships every file. Split the runtime product by
   runtime unit (pages per target or target group), not the source pack.
+  **Built 2026-10-15:** the runtime unit is a pack-plan group. The plan
+  names the groups a runtime reader loads (`runtime_groups: [intro]` in the
+  renderer's `data/pack_plan.yaml`). Each tier packs the whole pack into the
+  renderer's `.cache/ultrapack_source/<tier>/`, and writes the pages of
+  those groups, renumbered from 0, with a catalog of their targets, to
+  `sprite_packs/<tier>/` (`write_runtime_product`, `--runtime-out`). The
+  shipped packs went from 695 MB to 1.8 MB, and the reachability measure
+  finds every shipped page reachable. Witnesses:
+  `test_the_runtime_product_is_the_runtime_groups_pages_and_the_same_pixels`
+  (renderer; poisons: no renumbering, no group filter), and the publish's
+  pack postcondition, which checks the source against the sheets and the
+  runtime product against the source.
 
 ### Quality is a presentation policy (Q84)
 

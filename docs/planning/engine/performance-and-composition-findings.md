@@ -25,8 +25,9 @@ again before you quote it.
   thread is framework work outside any system body: per-system scheduling,
   access checks, archetype updates, allocation (F0, F11). The cost follows how
   many systems run, not what they do; no system body of ours is over 1.4%.
-  Levers: fewer systems per game (P1), a serial executor (P2, A/B on the
-  desktop running).
+  Levers: fewer systems per game (P1), a serial executor (P2: MEASURED on
+  the desktop, a standalone tick is ~6× cheaper and the main thread does 23%
+  less work per second while drawing 32% more frames, F22).
 - **Input lookups are 74% of a standalone frame's allocations** (19.2k a
   frame, F13): leafwing rebuilds every action pair on each call though we
   resolve no clashes, and boxes each lookup. Fix in a fork (P11).
@@ -547,6 +548,37 @@ entities and extraction state, and change marks for everything downstream.
 The elegant pattern is one shared helper: keyed reconcile (key → entity:
 update in place, spawn the new, despawn the gone), as the gravity and wielded
 systems now do by hand.
+
+### F22 — The serial executor makes a standalone tick about 6× cheaper
+
+MEASURED (desktop VM, standalone Mary-O 1-1 offscreen, `capture_mary_o
+--warmup 1200`, profiling build, 3 interleaved repetitions per arm, medians;
+`scripts/executor_ab.sh`, `scripts/executor_ab_report.py`; the switch is
+`AMBITION_SCHEDULE_EXECUTOR`, `apply_executor_policy` in
+`ambition_platformer2d_runtime/src/lib.rs`):
+
+| arm | sim wall per tick | main schedules, ms per second | frames per second | process CPU, s |
+| --- | ---: | ---: | ---: | ---: |
+| `parallel` (the windowed demos today) | 10.70 | 968 | 68.5 | 103.0 |
+| `frame-serial` (`First`..`Last` serial; the hub's frame policy) | 10.78 | 918 | 73.1 | 99.4 |
+| `serial` (also `Fixed*`, `StateTransition`, `SpawnScene`) | 1.68 | 745 | 90.1 | 96.6 |
+
+The spread between repetitions is small (sim per tick 1.67-1.76 serial,
+10.52-10.72 parallel). Process CPU is mostly software rendering on this VM
+(llvmpipe), so the schedule times are the measure. Serializing only the frame
+schedules does almost nothing for a standalone game: its simulation is in
+`FixedUpdate` (501 systems), which stays multi-threaded.
+
+Reading (REASONED): with ~500 small systems in `FixedUpdate`, the
+multi-threaded executor's per-system dispatch costs more than the systems.
+The phone shows the same shape (F11: main thread saturated, pool idle). The
+hub's simulation is in `GgrsSchedule`, which the rollback crate already runs
+serially, so this is a standalone-game lever (Mary-O, Sanic, Smash). The
+single-threaded executor runs systems in a valid order of the declared
+constraints; the multi-threaded one already may run unordered systems in any
+order, so no new order is possible. Recommendation: make `Serial` the default
+of every foundation, then remove the switch; check `room_replay` under it
+first. Not done: it is a one-line default.
 
 ### Not a lever (keep out of this run)
 

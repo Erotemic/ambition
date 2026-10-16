@@ -295,9 +295,13 @@ Open:
    reads the edit. The versus stage's room (size, seating point, blast
    lines, blocks) is `versus_arena`, a schema the app owns, in the versus
    pack; its blocks and Smash's stage blocks are one engine shape,
-   `AuthoredBlock` (Smash's own `StageBlock` is deleted). The versus pack has
-   no live reload yet, so an edit is played at the next start. Left: the
-   versus pack's live reload, the versus fighter list (`FIGHTERS`), and
+   `AuthoredBlock` (Smash's own `StageBlock` is deleted); an edit reached its
+   test in 0.82 s with no compile. The versus pack now reloads like a demo's:
+   the stage reads its room, rounds and match rules where it uses them, and
+   its room rules have a restater (`register_versus_cast`), so an edit is
+   played from the next match; `every_schema_of_the_versus_pack_reloads_between_matches`
+   names a schema that would cost a restart (red, naming `versus_arena`, with
+   it off the list). Left: the versus fighter list (`FIGHTERS`), and
    Ambition's seat count (waits on Q153).
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin

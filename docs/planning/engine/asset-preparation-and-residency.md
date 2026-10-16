@@ -160,16 +160,18 @@ runtime boundary is what splits.
   runtime unit (pages per target or target group), not the source pack.
   **Built 2026-10-15:** the runtime unit is a pack-plan group. The plan
   names the groups a runtime reader loads (`runtime_groups: [intro]` in the
-  renderer's `data/pack_plan.yaml`). Each tier packs the whole pack into the
-  renderer's `.cache/ultrapack_source/<tier>/`, and writes the pages of
-  those groups, renumbered from 0, with a catalog of their targets, to
-  `sprite_packs/<tier>/` (`write_runtime_product`, `--runtime-out`). The
-  shipped packs went from 695 MB to 1.8 MB, and the reachability measure
-  finds every shipped page reachable. Witnesses:
-  `test_the_runtime_product_is_the_runtime_groups_pages_and_the_same_pixels`
-  (renderer; poisons: no renumbering, no group filter), and the publish's
-  pack postcondition, which checks the source against the sheets and the
-  runtime product against the source.
+  renderer's `data/pack_plan.yaml`). Each tier packs only those groups into
+  `sprite_packs/<tier>/` (`--runtime-only`). A group packs onto pages of its
+  own, so these are the pages the whole pack gave it: on the published
+  sheets the full tier's page and catalog are byte-identical to the ones the
+  earlier road cut out of a whole pack, and the full tier packs in 1.1 s
+  (the whole pack was 126 s). The shipped packs went from 695 MB to 1.8 MB,
+  and the reachability measure finds every shipped page reachable.
+  Witnesses:
+  `test_the_runtime_groups_packed_alone_are_their_pages_in_the_whole_pack`
+  (renderer; poison: the stems ignored), and the publish's pack
+  postcondition, which refuses a tier that packs a target of no runtime
+  group or leaves out a runtime-group target with a published sheet.
 
 ### Quality is a presentation policy (Q84)
 

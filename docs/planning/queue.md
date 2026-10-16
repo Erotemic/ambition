@@ -1031,7 +1031,10 @@ variants. Also found in that regen:
     gets its modules at its next render, so the first full publish after
     the change renders every sheet once. The cost of a core edit after
     that is not measured yet.
-    **Left:** a frame size change re-packs all four tiers. A focused
+    The tiers pack only the runtime groups since 2026-10-15 (the full tier
+    1.1 s, was 126 s; the same bytes), so a frame size change outside them
+    re-packs nothing (the tier runs, finds no runtime sheet changed, and
+    keeps its pages). **Left:** a focused
     publish (`sprites.sh --target NAME`, 22 s for `mallory`: its render and
     its tiers) writes in place and packs no Ultrapack, so the one prop that
     draws from a pack (`intro_cart`, `intro_prop_sprite_rows`) shows its

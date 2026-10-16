@@ -561,7 +561,7 @@ pub struct FrameRect {
 
 /// Resource looked up by sprite target id. Populated at startup by
 /// [`init_sheet_registry`].
-#[derive(Resource, Debug, Default)]
+#[derive(Resource, Debug, Default, Clone)]
 pub struct SheetRegistry {
     sheets: HashMap<String, SheetRecord>,
     /// Targets a later record took from an earlier one with a DIFFERENT frame
@@ -682,7 +682,11 @@ impl SheetRegistry {
     /// Pure (no Bevy `App`). The host crate owns the baked table and passes it
     /// in, so this crate stays content-free.
     pub fn from_baked_table(table: &[(&str, &str)]) -> Self {
-        let index = index_baked_table(table);
+        Self::from_index(index_baked_table(table))
+    }
+
+    /// The registry of a parsed table, with its parse reported in the log.
+    pub(crate) fn from_index(index: BakedIndex) -> Self {
         let registry = Self {
             sheets: index.sheets,
             shadowed: index.shadowed,
@@ -817,14 +821,15 @@ fn quality_variant_marker(file_root: &str) -> Option<&'static str> {
 /// This is headless-friendly and keeps render/tooling callers from depending on
 /// the actor crate just to inspect generated sprite metadata.
 pub fn baked_sheet_registry() -> SheetRegistry {
-    SheetRegistry::from_baked_table(baked_sheet_rons::sheet_rons())
+    // A copy of the current generation's registry: the table is parsed once
+    // for each generation, not again for each caller.
+    baked_sheet_rons::current().registry().clone()
 }
 
-/// The baked registry, built once. Construction reads it, so a headless and a
-/// visible build size a body from the same sheet.
+/// The baked registry of the current sheet generation. Construction reads it,
+/// so a headless and a visible build size a body from the same sheet.
 pub fn shared_baked_sheet_registry() -> &'static SheetRegistry {
-    static REGISTRY: std::sync::OnceLock<SheetRegistry> = std::sync::OnceLock::new();
-    REGISTRY.get_or_init(baked_sheet_registry)
+    baked_sheet_rons::current().registry()
 }
 
 /// Bevy plugin that installs and populates the baked character sheet registry.

@@ -1096,6 +1096,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "developer file watch over each demo pack's sources: modification times on disk, the staged generation and the last refusal, read and written only in Update by `look_at_the_pack_sources` and `publish_the_staged_pack_between_sessions`, which run no simulation; a publication inside a session goes through `mechanical_mutation_boundary`, which rebases a local timeline and waits for any other. Rewinding it would stage a generation it already published",
     ),
     (
+        "ambition_platformer2d::content::sprite_reload::SpriteSheetWatch",
+        "developer file watch over the published sprite tree: modification times on disk, the parsed sheet table that waits and the last refusal, read and written only in Update by `take_what_the_watch_found` and `publish_the_staged_sheets_between_sessions`, which run no simulation; it publishes a sheet generation only where no session is live and no route prepares one. Rewinding it would stage a table it already published",
+    ),
+    (
         "ambition_app::app::movement_defaults_watch::MovementDefaultsWatch",
         "developer file watch: the modification time of the movement defaults on disk and a write count, read and written only in Update by `watch_movement_defaults`, which runs no simulation; the tuning it writes goes to `EditableMovementTuning` and reaches the simulation only through the admitted developer-edit proposal. Rewinding it would write a saved file again",
     ),

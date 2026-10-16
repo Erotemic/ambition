@@ -445,37 +445,35 @@ pub fn warm_record_index() {
     let _ = record_index();
 }
 
-/// Process-wide index of every baked [`SheetRecord`], keyed by
+/// Index of every baked [`SheetRecord`], keyed by
 /// [`crate::index_baked_table`]'s rule (file root; a packed atlas keys each
-/// record by its own target). [`crate::SheetRegistry`] calls the same rule, so
-/// the two cannot disagree.
-///
-/// An immutable asset cache derived once from the sheet table
-/// (`baked_sheet_rons::sheet_rons`, fixed for the process), so a
-/// process-global `OnceLock` is correct. It is
-/// not a content registry, so it has no `install_*` seam (see
+/// record by its own target): the current sheet generation's registry
+/// ([`crate::baked_sheet_rons::current`]), so the index and the table it was
+/// parsed from are always of one generation. It is not a content registry,
+/// so it has no `install_*` seam (see
 /// `docs/architecture/engine-architecture.md`).
 fn record_index() -> &'static HashMap<String, SheetRecord> {
-    static INDEX: OnceLock<HashMap<String, SheetRecord>> = OnceLock::new();
-    INDEX.get_or_init(|| crate::index_baked_table(crate::baked_sheet_rons::sheet_rons()).sheets)
+    &crate::baked_sheet_rons::current().registry().sheets
 }
 
 /// The digest of the mechanical projection of every baked sheet record, in
 /// key order ([`crate::sheet_mechanics`]): the identity of the body metrics,
-/// boxes and row timings this build compiles in. Computed once, on first ask.
+/// boxes and row timings of the current sheet generation. Computed once for
+/// each generation, on first ask.
 ///
 /// Not in the content fingerprint: whether a difference here refuses a peer
 /// session is `Q157`, and its default in force is to leave it out. Ruling (a)
 /// is one section beside `characters.baked-landmarks` in the provider's
 /// `prepare_platformer_content`.
 pub fn baked_sheet_mechanics_digest() -> &'static str {
-    static DIGEST: OnceLock<String> = OnceLock::new();
-    DIGEST.get_or_init(|| {
-        let index = record_index();
-        let mut keys: Vec<&String> = index.keys().collect();
-        keys.sort_unstable();
-        crate::sheet_mechanics::sheet_mechanics_digest(keys.into_iter().map(|key| &index[key]))
-    })
+    crate::baked_sheet_rons::current().mechanics_digest()
+}
+
+/// The digest of the mechanical projection of `index`, in key order.
+pub(crate) fn mechanics_digest_of(index: &HashMap<String, SheetRecord>) -> String {
+    let mut keys: Vec<&String> = index.keys().collect();
+    keys.sort_unstable();
+    crate::sheet_mechanics::sheet_mechanics_digest(keys.into_iter().map(|key| &index[key]))
 }
 
 /// Every baked sheet key ([`SheetRecord::key`]), sorted: the names a

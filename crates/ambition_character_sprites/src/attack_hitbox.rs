@@ -27,8 +27,7 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_core as ae;
 use ambition_sprite_sheet::character::catalog_join;
 use ambition_sprite_sheet::character::sheets;
-use ambition_sprite_sheet::{FrameToBody, SheetRecord, SheetRegistry, baked_sheet_rons, frame_at};
-use std::sync::OnceLock;
+use ambition_sprite_sheet::{FrameToBody, SheetRecord, SheetRegistry, frame_at};
 
 /// The player's sprite manifest file root. Both `robot` (enemy) and
 /// `player_robot_v3` author `target: "robot"`, so the target-keyed registry
@@ -38,17 +37,12 @@ const PLAYER_FILE_ROOT: &str = "player_robot_v3";
 const PLAYER_CHARACTER_ID: &str = "player_robot_v3";
 
 /// Baked sheets keyed by file root (not `record.target`), so the
-/// player's `player_robot_v3` stays distinct from the enemy `robot`. Built
-/// once, lazily.
-///
-/// §5 classification (per the old restructuring blueprint, folded into
-/// `docs/architecture/engine-architecture.md`): immutable asset cache —
-/// derived once from the sheet table (`baked_sheet_rons::sheet_rons`), pure and
-/// override-free. Correctly a process-global `OnceLock`; not a content
-/// registry, so it has no `install_*` seam.
+/// player's `player_robot_v3` stays distinct from the enemy `robot`: the
+/// current sheet generation's registry, so an attack volume and the body it
+/// sizes are read from one generation. Not a content registry, so it has no
+/// `install_*` seam.
 fn file_root_registry() -> &'static SheetRegistry {
-    static REG: OnceLock<SheetRegistry> = OnceLock::new();
-    REG.get_or_init(|| SheetRegistry::from_baked_table(baked_sheet_rons::sheet_rons()))
+    ambition_sprite_sheet::shared_baked_sheet_registry()
 }
 
 /// Build the file-root index NOW, so the first attack does not.

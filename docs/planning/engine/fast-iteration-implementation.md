@@ -368,6 +368,9 @@ reader caches decoded rigs. A running process does not automatically see
 edited sprite text merely because no Rust build is needed. That is a
 **separate live-iteration capability gap**, not a failed compile-closure
 migration. Refer to the [sprite reload owner](content-generation-and-reload.md#sprite-source-identity-and-live-presentation-refresh).
+Since 2026-10-16 the sheet manifests and their page images are on a live
+road (`content::sprite_reload`): a page image at once, a manifest from the
+next session; the part flipbooks, rigs and landmarks are not yet.
 
 Do not disable caching per frame as a shortcut. A typed, fingerprinted
 candidate should validate/prepare changed sprite products once and publish

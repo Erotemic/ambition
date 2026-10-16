@@ -467,6 +467,67 @@ or require explicit, inspectable pack overlay precedence; do not let file
 traversal order or sort ties decide the winner. Add a two-source collision
 fixture for both manifests and companions (including quality tiers).
 
+**Measured 2026-10-16 (the read chain in a development build).** A
+sprite edit reaches a freshly started development build with no compile:
+the tree is read off disk (`published_tree::owner()`, the monolith's
+`assets/`). A PNG edit reaches a running game only under the opt-in
+`dev_hot_reload` feature (`bevy/file_watcher`, off in `desktop_dev`;
+nothing calls `AssetServer::reload`). A sheet text edit does not reach a
+running game at all. The caches that hold it for the life of the process:
+
+- Text: `baked_sheet_rons::sheet_rons` (sheets), `baked_body_rigs`,
+  `baked_part_flipbooks` (the file list), `baked_portrait_rons`,
+  `sprite_packs`.
+- Parsed: the record index (`character::sheets::record_index`) and its
+  mechanics digest, `attack_hitbox`'s `SheetRegistry`,
+  `shared_baked_sheet_registry`, the landmark tables and their digest
+  (`baked_landmarks`), the decoded rig cache (`character::rigged`), the fx
+  and portrait indexes, the pack catalogs; and the `SheetRegistry` and
+  `PortraitSheetRegistry` resources, filled once at `Startup`.
+- Binding: a bound body rebinds only when its quality tier changes
+  (`upgrade_actor_sprites`, `bind_worn_character_presentation` and the two
+  tier refresh systems), and `materialize_declared_character_sprite` skips a
+  sheet that is ready at the active tier. Part-drawn bodies rebind on a new
+  flipbook `Arc` (`bind_rigged_presentations`), but its `posed_by_target`
+  local is never cleared.
+
+The same cached records feed simulation: posed body geometry and inset
+hurtboxes, body seeds and collision sizes (`catalog_join`), attack
+volumes (`attack_hitbox`), a boss's size
+(`boss_sprite_metrics_from_registry`), landmarks, and the content
+fingerprint (`landmarks_digest`). So a live sheet edit is not a
+presentation-only change. The road it needs: one sprite generation that
+publishes every cache above together (each `OnceLock` becomes a published
+`&'static` generation, as `EmbeddedPack::prepared` is), published only when
+no session is live (as the demo packs' restated schemas are), plus a
+generation key beside `BoundSpriteQuality` so that a bound body rebinds at
+the same tier, and `AssetServer::reload` of the changed pages.
+
+**Landed 2026-10-16, the sheet manifests.** The sheet text, the record index,
+the file-root registry and the mechanics digest are one published generation
+(`baked_sheet_rons::{current, publish_sheet_generation}`; witness
+`ambition_sprite_sheet --test sheet_generation`, red at "the record index is
+not the published table's" with the index kept in its own `OnceLock`).
+`content::sprite_reload::SpriteSheetReloadPlugin` (installed by
+`ambition_app` where content is read off disk) watches each manifest and each
+page image from a background thread (one look at the published tree is about
+100 ms in a debug build, so a frame does not pay it). A changed page image is
+loaded again at once. A changed manifest makes the same thread read the whole
+table again and parse it (`prepare_sheet_table`, median 913 ms in a debug
+build); the parsed table waits for the end of the session, then it is
+published whole (`publish_prepared_sheet_table` plus the resource clone,
+median 18 ms on the frame), the `SheetRegistry` resource is stated
+again, each resident character realization is retired so that the next
+session builds it from the new records, and the changed sheets' pages are
+loaded again. A table with a file that does not parse is refused with the
+file named. Witness `ambition_platformer2d --features content_pack --test
+sprite_sheet_reload` (red at "an edit was published inside a session" with
+the session gate removed, and at the `SheetRegistry` assertion with the
+resource not stated again). Not yet on the road: part flipbooks, body rigs,
+landmarks, portraits, pack catalogs, the prop sheets a room drew, and a body
+already bound at the same tier (the generation key above). The retire and
+the page reload have no witness of their own.
+
 **Future live path:** the source scanner reports the changed logical key
 and a canonical source fingerprint. Preparation decodes the changed sheet,
 landmarks, part frames/flipbooks and dependent rig/atlas descriptions into

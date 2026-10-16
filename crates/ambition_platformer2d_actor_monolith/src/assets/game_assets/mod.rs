@@ -115,11 +115,28 @@ impl PropSheetsAppExt for App {
     }
 }
 
+/// Restate one provider's rows (`previous` are the kinds it owned), load
+/// their sheets again and forget the sheets of the kinds it dropped. Returns
+/// the kinds it owns now; on a refusal (a kind of another provider) nothing
+/// changes. Each content reload that restates prop sheets calls this.
+pub fn restate_prop_sheet_rows(
+    world: &mut World,
+    previous: &[String],
+    rows: &ambition_sprite_sheet::prop_sheets::PropSheetRows,
+) -> Result<Vec<String>, String> {
+    let kinds = world
+        .get_resource_or_insert_with(PropSheets::default)
+        .restate(previous.iter().map(String::as_str), rows)?;
+    let dropped: Vec<String> = previous.iter().filter(|kind| !kinds.contains(kind)).cloned().collect();
+    reload_prop_sheets(world, &dropped, &kinds);
+    Ok(kinds)
+}
+
 /// Load the sheets of `kinds` again into the loaded art, after a reload
 /// restated their rows, and forget the sheets of `dropped`. The room the
 /// reload builds draws its props from the new sheets. A world with no loaded
 /// art (a headless one) has nothing to load again.
-pub fn reload_prop_sheets(world: &mut World, dropped: &[String], kinds: &[String]) {
+fn reload_prop_sheets(world: &mut World, dropped: &[String], kinds: &[String]) {
     let (Some(config), Some(asset_server)) =
         (world.get_resource::<GameAssetConfig>().cloned(), world.get_resource::<AssetServer>().cloned())
     else {

@@ -106,6 +106,7 @@ pub fn register_mary_o_construction_props(app: &mut App) {
         ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(crate::pack::PACK.prepared())
             .expect("the demo's pack states its prop sheets (`data/prop_sheets.ron`)"),
     );
+    app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::prop_sheets(&crate::pack::PACK));
     // How the lift is laid on its platform: the pack's `platform_looks.ron`.
     {
         use ambition_platformer2d::render::rendering::moving_platforms::PlatformLooksAppExt;
@@ -113,6 +114,7 @@ pub fn register_mary_o_construction_props(app: &mut App) {
             ambition_platformer2d::sprite_sheet::prop_sheets::lowered_platform_looks(crate::pack::PACK.prepared())
                 .expect("the demo's pack states its platform looks (`data/platform_looks.ron`)"),
         );
+        app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::platform_looks(&crate::pack::PACK));
     }
     // A loading zone of Mary-O has no picture and no nameplate. Her doors are
     // pipes and poles; a zone is the sky of a level that is a secret, or the

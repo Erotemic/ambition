@@ -397,6 +397,7 @@ pub fn install_sanic_content(app: &mut App) {
             ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(pack::PACK.prepared())
                 .expect("the demo's pack states its prop sheets (`data/prop_sheets.ron`)"),
         );
+        app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::prop_sheets(&pack::PACK));
         // Presentation reads sim state and writes render components, in
         // `Update` (Mary-O's `dress_power_blocks` says why not in the sim).
         app.add_systems(

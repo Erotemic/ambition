@@ -13,8 +13,10 @@
 //! - A pack that does not compile is refused, with the file and the field
 //!   named, and the running pack stays.
 //! - A save that changes no content publishes nothing.
-//! - The game names the schemas it reads where it uses them (`live`). A change
-//!   to another schema is refused: the game read that schema once when it
+//! - The game names the schemas it reads where it uses them (`live`), and the
+//!   schemas it read once at start but can state again (`restated`: each with
+//!   the function that states it again from the new generation). A change to
+//!   another schema is refused: the game read that schema once when it
 //!   started (its cast, its move tables, its audio), so a publication would
 //!   give a mix of two generations. Restart to play that edit.
 //! - The staged pack is published only when no session is live and no route
@@ -37,12 +39,53 @@ const POLL_FRAMES: u32 = 20;
 /// Watch `pack`'s files and publish each admitted edit between sessions.
 ///
 /// `live` are the schemas the game reads where it uses them, each through
-/// `pack.prepared()` at that time. With an embedded pack it adds nothing. A
-/// host of several demos adds one for each pack; a second add of one pack is
-/// ignored.
+/// `pack.prepared()` at that time. `restated` are the schemas it read once at
+/// start, each with the function that states it again. With an embedded pack
+/// it adds nothing.
+///
+/// Add it where the game reads the pack: a second add of one pack adds its
+/// schemas to the same watch, so the code that reads a schema at start can
+/// give its restater beside that read. A host of several demos watches each
+/// pack.
+#[derive(Clone)]
 pub struct EmbeddedPackReloadPlugin {
     pub pack: &'static EmbeddedPack,
     pub live: &'static [&'static str],
+    pub restated: Vec<Restater>,
+}
+
+/// A schema the game read once at start, and how to state it again.
+#[derive(Clone)]
+pub struct Restater {
+    pub schema: &'static str,
+    /// States the schema again from the published generation. It runs
+    /// between two sessions, after the publication, when the schema changed.
+    pub restate: std::sync::Arc<dyn Fn(&mut World, &PreparedContentPack) + Send + Sync>,
+}
+
+impl EmbeddedPackReloadPlugin {
+    /// The pack's `room_rules`, declared in `scope` once at start
+    /// (`declare_room_rules`), stated again at each publication that changes
+    /// them.
+    pub fn room_rules(pack: &'static EmbeddedPack, scope: crate::combat::scoped_rules::RulesScope) -> Self {
+        use crate::combat::room_rules::{lowered_room_rules, restate_room_rules, ROOM_RULES_SCHEMA};
+        Self {
+            pack,
+            live: &[],
+            restated: vec![Restater::new(ROOM_RULES_SCHEMA, move |world, pack| {
+                restate_room_rules(world, scope, lowered_room_rules(pack));
+            })],
+        }
+    }
+}
+
+impl Restater {
+    pub fn new(
+        schema: &'static str,
+        restate: impl Fn(&mut World, &PreparedContentPack) + Send + Sync + 'static,
+    ) -> Self {
+        Self { schema, restate: std::sync::Arc::new(restate) }
+    }
 }
 
 impl Plugin for EmbeddedPackReloadPlugin {
@@ -53,7 +96,7 @@ impl Plugin for EmbeddedPackReloadPlugin {
         // A name the pack does not state is a typo, and it would refuse each
         // edit to the schema it meant.
         let pack = self.pack.prepared();
-        for schema in self.live {
+        for schema in self.live.iter().chain(self.restated.iter().map(|restater| &restater.schema)) {
             assert!(
                 pack.schemas.keys().any(|stated| stated.0 == *schema),
                 "the live schema `{schema}` is not a schema of the pack `{}`; it states {:?}",
@@ -68,8 +111,16 @@ impl Plugin for EmbeddedPackReloadPlugin {
             );
         }
         let mut watches = app.world_mut().resource_mut::<EmbeddedPackWatches>();
-        if watches.0.iter().all(|watch| !std::ptr::eq(watch.pack, self.pack)) {
-            watches.0.push(EmbeddedPackWatch::new(self.pack, self.live, root.into()));
+        match watches.0.iter_mut().find(|watch| std::ptr::eq(watch.pack, self.pack)) {
+            Some(watch) => {
+                for schema in self.live {
+                    if !watch.live.contains(schema) {
+                        watch.live.push(schema);
+                    }
+                }
+                watch.restated.extend(self.restated.iter().cloned());
+            }
+            None => watches.0.push(EmbeddedPackWatch::new(self.clone(), root.into())),
         }
     }
 
@@ -92,7 +143,8 @@ impl EmbeddedPackWatches {
 /// What the watch of one pack saw and did. Public for tests and the inspector.
 pub struct EmbeddedPackWatch {
     pack: &'static EmbeddedPack,
-    live: &'static [&'static str],
+    live: Vec<&'static str>,
+    restated: Vec<Restater>,
     root: std::path::PathBuf,
     files: Vec<(String, Option<std::time::SystemTime>)>,
     frames_until_poll: u32,
@@ -104,14 +156,24 @@ pub struct EmbeddedPackWatch {
 }
 
 impl EmbeddedPackWatch {
-    fn new(pack: &'static EmbeddedPack, live: &'static [&'static str], root: std::path::PathBuf) -> Self {
+    fn new(plugin: EmbeddedPackReloadPlugin, root: std::path::PathBuf) -> Self {
         let files = stamped(&root, watched_files(&root));
-        Self { pack, live, root, files, frames_until_poll: POLL_FRAMES, staged: None, published: 0, refused: None }
+        let EmbeddedPackReloadPlugin { pack, live, restated } = plugin;
+        Self { pack, live: live.to_vec(), restated, root, files, frames_until_poll: POLL_FRAMES, staged: None, published: 0, refused: None }
     }
 
     /// Look at the files at the next update.
     pub fn poll_now(&mut self) {
         self.frames_until_poll = 0;
+    }
+
+    fn takes_part(&self, schema: &str) -> bool {
+        self.live.contains(&schema) || self.restated.iter().any(|restater| restater.schema == schema)
+    }
+
+    /// The schemas this watch publishes: the live ones and the restated ones.
+    pub fn schemas(&self) -> impl Iterator<Item = &'static str> + '_ {
+        self.live.iter().copied().chain(self.restated.iter().map(|restater| restater.schema))
     }
 
     /// An admitted change waits for the end of the session.
@@ -188,7 +250,7 @@ fn look_at(watch: &mut EmbeddedPackWatch) {
     let read_at_start: Vec<String> = changed_domains(running, &candidate)
         .into_iter()
         .map(|schema| schema.0)
-        .filter(|schema| !watch.live.contains(&schema.as_str()))
+        .filter(|schema| !watch.takes_part(schema))
         .collect();
     if !read_at_start.is_empty() {
         let why = format!(
@@ -208,23 +270,35 @@ fn look_at(watch: &mut EmbeddedPackWatch) {
 
 /// Publish the staged generation when no session is live and none is being
 /// prepared.
-fn publish_the_staged_pack_between_sessions(
-    mut watches: ResMut<EmbeddedPackWatches>,
-    scope: Option<Res<crate::actor::ActiveSessionScope>>,
-    router: Option<Res<crate::game_shell::ShellRouter>>,
-) {
-    let in_a_session = scope.is_some_and(|scope| scope.current().is_some());
-    let preparing = router.is_some_and(|router| router.pending.is_some());
+fn publish_the_staged_pack_between_sessions(world: &mut World) {
+    let in_a_session = world
+        .get_resource::<crate::actor::ActiveSessionScope>()
+        .is_some_and(|scope| scope.current().is_some());
+    let preparing = world
+        .get_resource::<crate::game_shell::ShellRouter>()
+        .is_some_and(|router| router.pending.is_some());
     if in_a_session || preparing {
         return;
     }
-    for watch in &mut watches.0 {
+    let mut to_restate = Vec::new();
+    for watch in &mut world.resource_mut::<EmbeddedPackWatches>().0 {
         let Some(generation) = watch.staged.take() else {
             continue;
         };
+        let changed = changed_domains(watch.pack.prepared(), &generation);
         info!("the pack `{}` is published again from its files", generation.id.0);
         watch.pack.publish(generation);
         watch.published += 1;
+        to_restate.extend(
+            watch
+                .restated
+                .iter()
+                .filter(|restater| changed.iter().any(|schema| schema.0 == restater.schema))
+                .map(|restater| (watch.pack, restater.restate.clone())),
+        );
+    }
+    for (pack, restate) in to_restate {
+        restate(world, pack.prepared());
     }
 }
 
@@ -253,7 +327,7 @@ mod tests {
     fn app_watching(pack: &'static EmbeddedPack, live: &'static [&'static str]) -> App {
         let mut app = App::new();
         app.init_resource::<crate::actor::ActiveSessionScope>();
-        app.add_plugins(EmbeddedPackReloadPlugin { pack, live });
+        app.add_plugins(EmbeddedPackReloadPlugin { pack, live, restated: Vec::new() });
         app
     }
 
@@ -334,6 +408,67 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
     }
 
+    /// What the probe's restater stated last.
+    #[derive(Resource, Default)]
+    struct Restated(Vec<crate::combat::room_rules::RoomRules>);
+
+    fn restate_probe(world: &mut World, pack: &PreparedContentPack) {
+        world.get_resource_or_insert_with(Restated::default).0.push(heavy(pack));
+    }
+
+    /// ⭐ A schema the game read once at start is stated again from the
+    /// published generation, between sessions and not before.
+    #[test]
+    fn a_restated_schema_is_stated_again_from_the_published_generation() {
+        let (pack, root) = pack_with_rules("restated", "(heavy_hit_damage: Some(12))");
+        let mut app = App::new();
+        app.init_resource::<crate::actor::ActiveSessionScope>();
+        app.add_plugins(EmbeddedPackReloadPlugin {
+            pack,
+            live: &[],
+            restated: vec![Restater::new("room_rules", restate_probe)],
+        });
+        app.init_resource::<Restated>();
+        app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().begin();
+
+        save_and_look(&mut app, &root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))");
+        assert!(app.world().resource::<Restated>().0.is_empty(), "nothing is stated again while a session is live");
+        assert!(watch_of(&app, pack).is_staged(), "the edit is admitted: {:?}", watch_of(&app, pack).refused);
+
+        app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().clear();
+        app.update();
+        let authority = EmbeddedPack::rooted(pack.root_on_disk().unwrap(), None).compile().unwrap();
+        assert_eq!(app.world().resource::<Restated>().0, vec![heavy(&authority)], "stated once, from the saved file");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// The room-rules restater a demo gives states the scope's rules again:
+    /// the next room of that mode is governed by the saved file.
+    #[test]
+    fn the_room_rules_restater_states_the_scopes_rules_again() {
+        use crate::combat::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
+        use crate::combat::strike_weight::StrikeWeightRules;
+
+        let (pack, root) = pack_with_rules("room_rules_restater", "(heavy_hit_damage: Some(12))");
+        let scope = RulesScope::Mode("probe_mode");
+        let mut app = App::new();
+        app.add_plugins(EmbeddedPackReloadPlugin::room_rules(pack, scope));
+        let mut declared = DeclaredRules::<StrikeWeightRules>::default();
+        declared.declare(scope, heavy(pack.prepared()).strike_weight.expect("the probe states a heavy line"));
+        app.insert_resource(declared);
+        let heavy_line = |app: &App| {
+            app.world()
+                .resource::<DeclaredRules<StrikeWeightRules>>()
+                .governing(ActiveRoom::live(Some("probe_mode")))
+                .map(|rules| rules.heavy_at_damage)
+        };
+        assert_eq!(heavy_line(&app), Some(12));
+
+        save_and_look(&mut app, &root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))");
+        assert_eq!(heavy_line(&app), Some(30));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
     /// A host of two demos watches both packs, and a second add of one pack
     /// does not watch it twice.
     #[test]
@@ -341,11 +476,17 @@ mod tests {
         let (first, first_root) = pack_with_rules("first", "(heavy_hit_damage: Some(12))");
         let (second, second_root) = pack_with_rules("second", "(heavy_hit_damage: Some(12))");
         let mut app = app_watching(first, &["room_rules"]);
-        app.add_plugins(EmbeddedPackReloadPlugin { pack: first, live: &["room_rules"] });
-        app.add_plugins(EmbeddedPackReloadPlugin { pack: second, live: &["room_rules"] });
+        app.add_plugins(EmbeddedPackReloadPlugin {
+            pack: first,
+            live: &["room_rules"],
+            restated: vec![Restater::new("room_rules", restate_probe)],
+        });
+        app.add_plugins(EmbeddedPackReloadPlugin { pack: second, live: &["room_rules"], restated: Vec::new() });
         let watches = app.world().resource::<EmbeddedPackWatches>();
         assert_eq!(watches.0.len(), 2);
-        assert!(watches.of(first).is_some() && watches.of(second).is_some());
+        let schemas: Vec<_> = watches.of(first).expect("the first pack is watched").schemas().collect();
+        assert_eq!(schemas, ["room_rules", "room_rules"], "the second add gives its restater to the same watch");
+        assert!(watches.of(second).is_some());
         let _ = std::fs::remove_dir_all(first_root);
         let _ = std::fs::remove_dir_all(second_root);
     }

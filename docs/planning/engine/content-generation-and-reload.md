@@ -422,9 +422,11 @@ whether the prior scene is unchanged, recovered or stopped.
   session-admission question: the session then has no body to drive.
 - A demo pack reloads in a running demo between sessions, for the schemas
   the demo reads where it uses them
-  (`ambition_platformer2d::content::live_reload`, 2026-10-16). A change to
-  any other schema of a demo pack (its cast, move tables, audio, room rules,
-  Mary-O's ladder) is refused and costs a restart. Open: publication into a
+  (`ambition_platformer2d::content::live_reload`, 2026-10-16), and for the
+  schemas it read once at start and states again at the publication (each
+  demo's `room_rules`, through `restate_room_rules`). A change to any other
+  schema of a demo pack (its cast, move tables, audio, Mary-O's ladder) is
+  refused and costs a restart. Open: publication into a
   live demo session at a rollback boundary, as Ambition's road does.
 - Measure source read, changed-section preparation, candidate construction,
   activation, scenario reset and first observed behavior separately (M0).

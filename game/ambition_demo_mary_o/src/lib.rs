@@ -1151,6 +1151,7 @@ pub fn install_mary_o_content(app: &mut App) {
     app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin {
         pack: &pack::PACK,
         live: &[rules::MARY_O_RULES_SCHEMA],
+        restated: Vec::new(),
     });
     // Seventeen placements, thirty-four actors, and only the prefixed half carried `SnakeShell` /
     // `AiSlop`, so half of 1-1's enemies were un-stompable lookalikes. The ids differed, so the
@@ -1515,6 +1516,7 @@ impl Plugin for MaryORulesPlugin {
             let scope = self.scope;
             // Her death replay is the pack's (`assets/data/room_rules.ron`).
             ambition_platformer2d::combat::room_rules::declare_room_rules(app, scope, crate::pack::room_rules());
+            app.add_plugins(crate::pack::room_rules_reload(scope));
             // The modifier runs, whichever body she drives. The cinder beacon
             // relabels the same slot while she wears it (see `run_technique`).
             app.declare_rules(

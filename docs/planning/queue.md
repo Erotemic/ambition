@@ -165,9 +165,15 @@ Open:
    dedupe), each red under its poison at its own assertion; each demo's lane
    reddens with a typo in its list. Cost: a save is seen within 20 frames,
    and the compile is 7.7 ms (Smash), 6.3 ms (Mary-O), 4.2 ms (Sanic).
-   Remainder: the schemas a demo reads once at start (cast, move tables,
-   audio, room rules, Mary-O's ladder) and publication into a live demo
-   session. Each needs its reader moved to read at use, or the I2/I3 road.
+   The same day: a schema the game read once at start takes part when the
+   game gives a `Restater` beside that read; each demo's `room_rules` does
+   (`EmbeddedPackReloadPlugin::room_rules`, through `restate_room_rules`),
+   witnessed by `the_room_rules_restater_states_the_scopes_rules_again` and
+   `a_restated_schema_is_stated_again_from_the_published_generation`.
+   Remainder: the cast, move tables, audio and Mary-O's ladder, and
+   publication into a live demo session. Each needs a restater (the cast is
+   a registry of prepared characters, so its restater is I2/I3 scale) or
+   its reader moved to read at use.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is
@@ -230,9 +236,8 @@ the Mary-O test course. It is a fixture that no level renders, and its
 module says why it stays Rust (an editor drag would make it a different
 test).
 
-**Next action:** the remainder of open item 1, one schema at a time: a
-reader that reads once at start moves to read at use, and its schema joins
-the demo's live list.
+**Next action:** the remainder of open item 1, one schema at a time: give a
+reader that reads once at start a `Restater`, or move it to read at use.
 
 **Blocked by:** nothing.
 

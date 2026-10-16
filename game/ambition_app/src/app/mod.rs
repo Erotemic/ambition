@@ -30,6 +30,7 @@ mod hud;
 #[cfg(not(feature = "static_content"))]
 pub mod movement_defaults_watch;
 pub mod hub_games;
+mod ldtk_clean;
 mod phases;
 mod player_tick;
 mod plugins;

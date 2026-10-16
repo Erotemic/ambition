@@ -222,8 +222,9 @@ pub fn add_ldtk_runtime_plugin(app: &mut App) {
     // `Platformer2dStartupAssets` includes a typed LDtk handle, so the LDtk
     // asset type and loader must be initialized before bevy_asset_loader
     // allocates collection handles. Keep this before `init_collection`.
-    app.add_plugins(LdtkPlugin)
-        .init_collection::<loading::Platformer2dStartupAssets>()
+    app.add_plugins(LdtkPlugin);
+    super::ldtk_clean::install(app);
+    app.init_collection::<loading::Platformer2dStartupAssets>()
         .add_plugins(ldtk_world::AmbitionLdtkRegistrationPlugin)
         .add_systems(
             Startup,

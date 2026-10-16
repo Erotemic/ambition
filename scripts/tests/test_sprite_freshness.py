@@ -50,7 +50,7 @@ renderer_dir={tree['renderer']}
 cache_dir={tree['cache']}
 target_reads_dir=$cache_dir/reads
 target_closures_file=$cache_dir/target_closures.tsv
-core_shared_fingerprint=core123
+unit_core_fingerprint=core123
 source {REPO}/scripts/lib/sprite_cache_key.sh
 unit_key {target}
 """

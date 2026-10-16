@@ -75,8 +75,7 @@ const OUTLANDER_CATALOG_RON: &str = r#"(
     characters: {
         "outlander_wanderer": (
             display_name: "Outlander",
-            spritesheet: "game://sprites/outlander.png",
-            manifest: "outlander_spritesheet.ron",
+            manifest: "game://sprites/outlander_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,
@@ -99,7 +98,7 @@ const OUTLANDER_CATALOG_RON: &str = r#"(
 pub const OUTLANDER_SHEET_RON: &str = r#"[
 (
     target: "outlander",
-    image: "game://sprites/outlander.png",
+    image: "game://sprites/outlander_spritesheet.png",
     label_width: 0,
     frame_width: 32,
     frame_height: 48,
@@ -585,7 +584,7 @@ pub fn smoke_windowed_app(frames: usize) -> Result<OutlanderSmokeReport, String>
     let own_sprite_loaded = app
         .world()
         .resource::<AssetServer>()
-        .get_handle::<Image>("game://sprites/outlander.png")
+        .get_handle::<Image>("game://sprites/outlander_spritesheet.png")
         .is_some_and(|handle| app.world().resource::<AssetServer>().is_loaded(&handle));
     let failed_loads = std::mem::take(&mut app.world_mut().resource_mut::<FailedLoads>().0);
     Ok(OutlanderSmokeReport {

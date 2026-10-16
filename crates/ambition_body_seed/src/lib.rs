@@ -1170,7 +1170,7 @@ mod tests {
             action_set_presets: { "peaceful": (move_style: Walk) },
             characters: {
                 "tin_man": (
-                    display_name: "Tin Man", spritesheet: "tin.png",
+                    display_name: "Tin Man", 
                     manifest: "tin_spritesheet.ron", tier: MainHall,
                     body_kind: Standard, composition: None,
                     default_brain: "idle", default_action_set: "peaceful",
@@ -1178,7 +1178,7 @@ mod tests {
                     barks: (),
                 ),
                 "ogre": (
-                    display_name: "Ogre", spritesheet: "ogre.png",
+                    display_name: "Ogre", 
                     manifest: "ogre_spritesheet.ron", tier: MainHall,
                     body_kind: Standard, composition: None,
                     default_brain: "idle", default_action_set: "peaceful",

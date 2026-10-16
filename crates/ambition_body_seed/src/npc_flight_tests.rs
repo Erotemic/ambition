@@ -369,7 +369,7 @@ fn a_floating_catalog_row_is_a_silhouette_not_a_flight_answer() {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "drifter": (
-                display_name: "Drifter", spritesheet: "drifter.png",
+                display_name: "Drifter", 
                 manifest: "drifter_spritesheet.ron", tier: MainHall,
                 body_kind: Floating, composition: None,
                 default_brain: "idle", default_action_set: "peaceful",

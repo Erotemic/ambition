@@ -3,7 +3,6 @@
 (
     id: "npc_george_booul",
     display_name: "George Boo'l",
-    spritesheet: "sprites/george_booul_spritesheet.png",
     manifest: "sprites/george_booul_spritesheet.ron",
     portrait: None,
     tier: MainHall,

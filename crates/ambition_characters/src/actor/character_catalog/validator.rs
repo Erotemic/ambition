@@ -108,13 +108,18 @@ pub(crate) fn findings<'a>(catalog: &'a CharacterCatalogData) -> Vec<Finding<'a>
                 },
             );
         }
-        for (field, value) in [
-            ("spritesheet", &entry.spritesheet),
-            ("manifest", &entry.manifest),
-        ] {
-            if value.trim().is_empty() {
-                push(field, FindingKind::Empty);
-            }
+        if entry.manifest.trim().is_empty() {
+            push("manifest", FindingKind::Empty);
+        } else if !entry.manifest.ends_with(".ron") {
+            // The sheet image path is the manifest path with `.png` in place
+            // of `.ron`; another suffix gives no image path.
+            push(
+                "manifest",
+                FindingKind::OutOfRange {
+                    rule: "a sheet manifest path ends in `.ron`; the sheet image is the \
+                           same path with `.png`",
+                },
+            );
         }
         // A portrait is optional, and a PARTIAL one is not: a half-authored
         // portrait shows as a missing texture.
@@ -321,7 +326,6 @@ mod tests {
                 characters: {
                     "alpha": (
                         display_name: "Alpha",
-                        spritesheet: "alpha.png",
                         manifest: "alpha.ron",
                         portrait: Some((
                             image: "",
@@ -352,12 +356,12 @@ mod tests {
                 action_set_presets: { "peaceful": (move_style: Walk) },
                 characters: {
                     "alpha": (
-                        display_name: "Shared", spritesheet: "alpha.png", manifest: "alpha.ron",
+                        display_name: "Shared", manifest: "alpha.ron",
                         tier: MainHall, body_kind: Standard, composition: None,
                         default_brain: "idle", default_action_set: "peaceful", tags: [],
                     ),
                     "beta": (
-                        display_name: "Shared", spritesheet: "beta.png", manifest: "beta.ron",
+                        display_name: "Shared", manifest: "beta.ron",
                         tier: MainHall, body_kind: Standard, composition: None,
                         default_brain: "idle", default_action_set: "peaceful", tags: [],
                     ),

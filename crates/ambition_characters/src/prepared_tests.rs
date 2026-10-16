@@ -617,7 +617,6 @@ fn a_catalog_rows_grants_fold_into_the_prepared_abilities() {
         characters: {
             "runner": (
                 display_name: "Runner",
-                spritesheet: "sprites/x.png",
                 manifest: "sprites/x.ron",
                 tier: MainHall,
                 body_kind: Standard,
@@ -673,7 +672,6 @@ fn a_catalog_rows_sheet_and_sizing_fold_into_the_prepared_character() {
         characters: {
             "row_art": (
                 display_name: "Row Art",
-                spritesheet: "sprites/row_art_spritesheet.png",
                 manifest: "sprites/row_art_spritesheet.ron",
                 tier: MainHall,
                 body_kind: Standard,
@@ -727,7 +725,6 @@ fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
         characters: {
             "floater": (
                 display_name: "Floater",
-                spritesheet: "sprites/x.png",
                 manifest: "sprites/x.ron",
                 tier: MainHall,
                 body_kind: Floating,
@@ -2991,7 +2988,6 @@ mod catalog_revision {
             characters: {{
                 "runner": (
                     display_name: "Runner",
-                    spritesheet: "sprites/x.png",
                     manifest: "sprites/x.ron",
                     tier: MainHall,
                     body_kind: Standard,

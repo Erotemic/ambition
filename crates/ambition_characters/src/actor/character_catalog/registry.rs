@@ -731,7 +731,7 @@ mod tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "alpha": (
-                display_name: "Alpha", spritesheet: "a.png", manifest: "a.ron",
+                display_name: "Alpha", manifest: "a.ron",
                 tier: MainHall, body_kind: Standard, composition: None,
                 default_brain: "idle", default_action_set: "peaceful", tags: [],
             ),
@@ -742,7 +742,7 @@ mod tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "beta": (
-                display_name: "Beta", spritesheet: "b.png", manifest: "b.ron",
+                display_name: "Beta", manifest: "b.ron",
                 tier: MainHall, body_kind: Standard, composition: None,
                 default_brain: "idle", default_action_set: "peaceful", tags: [],
             ),
@@ -847,7 +847,7 @@ mod tests {
                     action_set_presets: {{ "peaceful": (move_style: Walk) }},
                     characters: {{
                         "alpha": (
-                            display_name: "Alpha", spritesheet: "a.png", manifest: "a.ron",
+                            display_name: "Alpha", manifest: "a.ron",
                             tier: MainHall, body_kind: Standard, composition: None,
                             default_brain: "idle", default_action_set: "peaceful", tags: [],
                             barks: ( on_hit: ["{line}"] ),

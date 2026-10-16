@@ -6,8 +6,8 @@ import struct
 from ambition_ldtk_tools.inspect_hall_portraits import classify, portrait_paths
 
 
-def _entry(path="sprites/alice_spritesheet.png"):
-    return {"spritesheet": path, "portrait": None, "hall_dialogue_id": "hall"}
+def _entry(path="sprites/alice_spritesheet.ron"):
+    return {"manifest": path, "portrait": None, "hall_dialogue_id": "hall"}
 
 
 def _write_manifest(path: Path) -> None:
@@ -41,7 +41,7 @@ def _write_png_header(path: Path, width: int = 256, height: int = 320) -> None:
 
 def test_portrait_paths_derive_from_nested_gameplay_sheet(tmp_path):
     image, manifest = portrait_paths(
-        _entry("sprites/gnu_ton_boss/giant_gnu_spritesheet.png"), tmp_path
+        _entry("sprites/gnu_ton_boss/giant_gnu_spritesheet.ron"), tmp_path
     )
     assert image == tmp_path / "gnu_ton_boss" / "giant_gnu_portraits.png"
     assert manifest == tmp_path / "gnu_ton_boss" / "giant_gnu_portraits.ron"

@@ -873,7 +873,7 @@ fn report_shadowed_character_sheets(
         // pair (catalog entry, ShadowedTarget) can answer. A character whose
         // sheet WON the key is fine; it is the loser that loads one image and
         // crops it with the winner's grid.
-        let names_the_loser = std::path::Path::new(&entry.spritesheet)
+        let names_the_loser = std::path::Path::new(&entry.spritesheet())
             .file_name()
             .and_then(|name| name.to_str())
             .is_some_and(|name| {

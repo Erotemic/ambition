@@ -27,7 +27,7 @@ Today the renderer has three publish patterns:
     mockingbird_boss_sprite_generator.py) with their own paths.
 
 This script bridges the first two patterns into one driver: the
-catalog's `spritesheet:` field is the on-disk path; from it we
+catalog's `manifest:` field gives the on-disk sheet path; from it we
 derive the renderer target name. Bespoke one-offs still need their
 own invocation (we list them explicitly so they're easy to find).
 
@@ -180,10 +180,12 @@ def load_catalog_targets(catalog_path: Path) -> Iterable[tuple[str, str, bool]]:
 
     data = ron_load(catalog_path.read_text())
     for cid, entry in data["characters"].items():
-        target = renderer_target_for_catalog_entry(entry["spritesheet"])
+        # The sheet image is the manifest path with `.png` in place of `.ron`.
+        sheet = entry["manifest"].removesuffix(".ron") + ".png"
+        target = renderer_target_for_catalog_entry(sheet)
         if target is None:
             continue
-        yield cid, target, is_subdir_target(target, entry["spritesheet"])
+        yield cid, target, is_subdir_target(target, sheet)
 
 
 def main(argv: list[str] | None = None) -> int:

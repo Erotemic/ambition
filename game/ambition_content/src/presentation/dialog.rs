@@ -1100,7 +1100,6 @@ mod tests {
                 characters: {
                     "npc_alice": (
                         display_name: "Alice",
-                        spritesheet: "sprites/alice_spritesheet.png",
                         manifest: "sprites/alice_spritesheet.ron",
                         portrait: Some((
                             image: "sprites/alice_portraits.png",

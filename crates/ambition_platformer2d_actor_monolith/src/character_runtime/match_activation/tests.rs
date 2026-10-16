@@ -1674,7 +1674,7 @@ fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
         },
         characters: {
             "inheritor": (
-                display_name: "Inheritor", spritesheet: "a.png", manifest: "a.ron",
+                display_name: "Inheritor", manifest: "a.ron",
                 tier: Basement, body_kind: Standard, composition: None,
                 default_brain: "stand_still", default_action_set: "brawler", tags: [],
             ),

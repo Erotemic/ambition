@@ -2573,7 +2573,6 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
                     characters: {
                         "kernel_guide": (
                             display_name: "Kernel Guide",
-                            spritesheet: "sprites/kernel_guide_spritesheet.png",
                             manifest: "sprites/kernel_guide_spritesheet.ron",
                             tier: MainHall, body_kind: Standard, composition: None,
                             default_brain: "stand_still", default_action_set: "peaceful",
@@ -3100,13 +3099,13 @@ fn a_struck_body_barks_as_the_character_it_is_wearing() {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "old_form": (
-                display_name: "Old", spritesheet: "o.png", manifest: "o_spritesheet.ron",
+                display_name: "Old", manifest: "o_spritesheet.ron",
                 tier: MainHall, body_kind: Standard, composition: None,
                 default_brain: "idle", default_action_set: "peaceful", tags: [],
                 barks: ( on_hit: ["the old form's line"] ),
             ),
             "new_form": (
-                display_name: "New", spritesheet: "n.png", manifest: "n_spritesheet.ron",
+                display_name: "New", manifest: "n_spritesheet.ron",
                 tier: MainHall, body_kind: Standard, composition: None,
                 default_brain: "idle", default_action_set: "peaceful", tags: [],
                 barks: ( on_hit: ["the new form's line"] ),

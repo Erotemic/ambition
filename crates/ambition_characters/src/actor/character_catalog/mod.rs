@@ -103,13 +103,13 @@ impl CharacterCatalog {
     /// Resolve the independently published portrait product for a stable
     /// character id. Explicit catalog metadata may override the conventional
     /// sibling paths, but ordinary characters derive them from
-    /// `<stem>_spritesheet.png` without a second hand-maintained registry.
+    /// `<stem>_spritesheet.ron` without a second hand-maintained registry.
     pub fn portrait_ref(&self, id: &str) -> Option<CharacterPortraitRef> {
         let entry = self.get(id)?;
         if let Some(portrait) = &entry.portrait {
             return Some(portrait.clone());
         }
-        let stem = entry.spritesheet.strip_suffix("_spritesheet.png")?;
+        let stem = entry.manifest.strip_suffix("_spritesheet.ron")?;
         Some(CharacterPortraitRef {
             image: format!("{stem}_portraits.png"),
             manifest: format!("{stem}_portraits.ron"),
@@ -424,7 +424,6 @@ mod tests {
                 characters: {{
                     "npc_sample": (
                         display_name: "Sample",
-                        spritesheet: "sprites/sample_spritesheet.png",
                         manifest: "sprites/sample_spritesheet.ron",
                         portrait: {portrait},
                         tier: MainHall,
@@ -458,7 +457,7 @@ mod tests {
         let row = |id: &str, feel: &str| {
             format!(
                 r#""{id}": (
-                    display_name: "{id}", spritesheet: "{id}.png", manifest: "{id}.ron",
+                    display_name: "{id}", manifest: "{id}.ron",
                     tier: MainHall, body_kind: Standard, composition: None,
                     default_brain: "idle", default_action_set: "peaceful", tags: [],
                     {feel}
@@ -518,7 +517,7 @@ mod tests {
                     action_set_presets: {{ "peaceful": (move_style: Walk) }},
                     characters: {{
                         "alpha": (
-                            display_name: "Alpha", spritesheet: "a.png", manifest: "a.ron",
+                            display_name: "Alpha", manifest: "a.ron",
                             tier: MainHall, body_kind: Standard, composition: None,
                             default_brain: "idle", default_action_set: "peaceful", tags: [],
                             {gait}
@@ -558,7 +557,7 @@ mod tests {
                     action_set_presets: {{ "peaceful": (move_style: Walk) }},
                     characters: {{
                         "alpha": (
-                            display_name: "Alpha", spritesheet: "a.png", manifest: "a.ron",
+                            display_name: "Alpha", manifest: "a.ron",
                             tier: MainHall, body_kind: Standard, composition: None,
                             default_brain: "idle", default_action_set: "peaceful", tags: [],
                             {policy}
@@ -592,7 +591,7 @@ mod tests {
                     action_set_presets: {{ "peaceful": (move_style: Walk) }},
                     characters: {{
                         "alpha": (
-                            display_name: "Alpha", spritesheet: "a.png", manifest: "a.ron",
+                            display_name: "Alpha", manifest: "a.ron",
                             tier: MainHall, body_kind: Standard, composition: None,
                             default_brain: "idle", default_action_set: "peaceful", tags: [],
                             provoked_profile: Some("{policy}"),
@@ -684,7 +683,6 @@ mod tests {
                 characters: {
                     "npc_authored": (
                         display_name: "Authored",
-                        spritesheet: "sprites/authored_spritesheet.png",
                         manifest: "sprites/authored_spritesheet.ron",
                         tier: MainHall,
                         body_kind: Standard,
@@ -727,7 +725,6 @@ mod tests {
                 characters: {
                     "npc_only_fallback": (
                         display_name: "Only Fallback",
-                        spritesheet: "sprites/of_spritesheet.png",
                         manifest: "sprites/of_spritesheet.ron",
                         tier: MainHall, body_kind: Standard, composition: None,
                         default_brain: "idle", default_action_set: "peaceful", tags: [],
@@ -736,7 +733,6 @@ mod tests {
                     ),
                     "npc_pool_wins": (
                         display_name: "Pool Wins",
-                        spritesheet: "sprites/pw_spritesheet.png",
                         manifest: "sprites/pw_spritesheet.ron",
                         tier: MainHall, body_kind: Standard, composition: None,
                         default_brain: "idle", default_action_set: "peaceful", tags: [],
@@ -745,7 +741,6 @@ mod tests {
                     ),
                     "npc_mute": (
                         display_name: "Mute",
-                        spritesheet: "sprites/m_spritesheet.png",
                         manifest: "sprites/m_spritesheet.ron",
                         tier: MainHall, body_kind: Standard, composition: None,
                         default_brain: "idle", default_action_set: "peaceful", tags: [],
@@ -859,7 +854,7 @@ mod tests {
         fn character(id: &str, default_brain: &str) -> String {
             format!(
                 r#""{id}": (
-                    display_name: "{id}", spritesheet: "x.png", manifest: "x_spritesheet.ron",
+                    display_name: "{id}", manifest: "x_spritesheet.ron",
                     tier: MainHall, body_kind: Standard, composition: None,
                     default_brain: "{default_brain}", default_action_set: "peaceful", tags: [],
                 )"#

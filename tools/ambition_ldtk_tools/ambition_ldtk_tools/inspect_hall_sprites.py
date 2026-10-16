@@ -122,7 +122,8 @@ def classify(character_id: str, catalog: dict, sprites_dir: Path) -> tuple[str, 
             )
         return ("no_catalog", "character_id not in catalog or provider Hall entries")
     entry = catalog["characters"][character_id]
-    spritesheet = entry["spritesheet"]
+    # The sheet image is the manifest path with `.png` in place of `.ron`.
+    spritesheet = entry["manifest"].removesuffix(".ron") + ".png"
     png_path = sprites_dir / spritesheet.removeprefix("sprites/")
     manifest = find_manifest_path(spritesheet, sprites_dir)
     if manifest is None:

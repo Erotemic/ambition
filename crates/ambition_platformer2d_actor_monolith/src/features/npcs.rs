@@ -268,7 +268,7 @@ mod tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "voice": (
-                display_name: "Voice", spritesheet: "voice.png",
+                display_name: "Voice", 
                 manifest: "voice_spritesheet.ron", tier: MainHall,
                 body_kind: Standard, composition: None,
                 default_brain: "idle", default_action_set: "peaceful", tags: [],
@@ -285,7 +285,7 @@ mod tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "voice": (
-                display_name: "Voice", spritesheet: "voice.png",
+                display_name: "Voice", 
                 manifest: "voice_spritesheet.ron", tier: MainHall,
                 body_kind: Standard, composition: None,
                 default_brain: "idle", default_action_set: "peaceful", tags: [],
@@ -397,7 +397,7 @@ mod default_profile_tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "npc_puppy_slug": (
-                display_name: "Puppy Slug", spritesheet: "x.png", manifest: "x_spritesheet.ron",
+                display_name: "Puppy Slug", manifest: "x_spritesheet.ron",
                 tier: MainHall, body_kind: Crawler, composition: None,
                 default_brain: "wanderer_puppy_slug", default_action_set: "peaceful", tags: [],
             ),

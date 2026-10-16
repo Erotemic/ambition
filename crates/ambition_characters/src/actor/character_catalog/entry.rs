@@ -584,11 +584,10 @@ pub struct CharacterCatalogEntry {
     pub provider: String,
     /// Human-facing label (UI, dialogue, debug overlays).
     pub display_name: String,
-    /// Sprite-sheet image path, relative to the sandbox asset root.
-    pub spritesheet: String,
     /// Sprite-sheet RON manifest path, relative to the sandbox asset
     /// root. Today the manifest carries grid/frame info; future
-    /// catalog work moves animation timing here too.
+    /// catalog work moves animation timing here too. The sheet image is
+    /// [`Self::spritesheet`], which this path gives.
     pub manifest: String,
     /// Optional close-up portrait sheet. This presentation asset is
     /// deliberately independent of the gameplay sprite sheet.
@@ -917,6 +916,15 @@ pub enum PosedBodyScale {
 }
 
 impl CharacterCatalogEntry {
+    /// The sprite-sheet image path: the manifest path with `.png` in place of
+    /// `.ron`. The renderer writes the image and its manifest as one product,
+    /// so the catalog states the path one time. Admission refuses a manifest
+    /// path that does not end in `.ron`.
+    pub fn spritesheet(&self) -> String {
+        let stem = self.manifest.strip_suffix(".ron").unwrap_or(&self.manifest);
+        format!("{stem}.png")
+    }
+
     /// The sheet-manifest record key for this character: the manifest filename root (e.g.
     /// `sprites/pirate_admiral_spritesheet.ron` -> `pirate_admiral`). Multiple catalog ids that <!-- cite-ok: an asset path relative to the content assets root, not a repo path -->
     /// point at the SAME `manifest` path share one generated sheet (texture + record both);

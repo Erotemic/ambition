@@ -38,7 +38,8 @@ fn measured_bodies() -> Vec<(String, f32, f32)> {
     let mut rows: Vec<(String, f32, f32)> = catalog
         .iter()
         .filter_map(|(id, entry)| {
-            let target = sheet_target(&entry.spritesheet)?;
+            let sheet = entry.spritesheet();
+            let target = sheet_target(&sheet)?;
             let geometry = posed_body_geometry(target, CharacterAnim::Idle, 1.0)?;
             Some((id.clone(), geometry.collision.x, geometry.collision.y))
         })

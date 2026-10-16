@@ -205,7 +205,8 @@ fn all_character_sprite_filenames_from_data(
     let mut out: Vec<(String, String, Option<String>)> =
         Vec::with_capacity(catalog.characters.len());
     for (cid, entry) in &catalog.characters {
-        let sheet = entry.spritesheet.as_str();
+        let sheet = entry.spritesheet();
+        let sheet = sheet.as_str();
         if ambition_asset_manager::platformer_assets::is_source_qualified(sheet) {
             out.push((cid.clone(), sheet.to_string(), Some(sheet.to_string())));
             continue;
@@ -924,8 +925,8 @@ mod sprite_body_collision_tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "alpha": (
-                display_name: "Alpha", spritesheet: "sprites/alpha.png",
-                manifest: "alpha.ron", tier: MainHall, body_kind: Standard,
+                display_name: "Alpha", 
+                manifest: "sprites/alpha.ron", tier: MainHall, body_kind: Standard,
                 composition: None, default_brain: "idle",
                 default_action_set: "peaceful", tags: [],
             ),
@@ -937,8 +938,8 @@ mod sprite_body_collision_tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "beta": (
-                display_name: "Beta", spritesheet: "sprites/beta.png",
-                manifest: "beta.ron", tier: MainHall, body_kind: Standard,
+                display_name: "Beta", 
+                manifest: "sprites/beta.ron", tier: MainHall, body_kind: Standard,
                 composition: None, default_brain: "idle",
                 default_action_set: "peaceful", tags: [],
             ),
@@ -984,7 +985,7 @@ mod sprite_body_collision_tests {
             },
             characters: {
                 "outlander": (
-                    display_name: "Outlander", spritesheet: "game://sprites/outlander.png",
+                    display_name: "Outlander", 
                     manifest: "game://sprites/outlander.ron", tier: MainHall,
                     body_kind: Standard, composition: None, default_brain: "idle",
                     default_action_set: "peaceful", tags: [],
@@ -1101,7 +1102,6 @@ mod sprite_body_collision_tests {
                     characters: {
                         "hero": (
                             display_name: "Hero",
-                            spritesheet: "sprites/hero_spritesheet.png",
                             manifest: "sprites/hero_spritesheet.ron",
                             tier: MainHall, body_kind: Standard, composition: None,
                             default_brain: "stand_still", default_action_set: "peaceful",

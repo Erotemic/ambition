@@ -121,6 +121,8 @@ fn currency_pickup_credits_the_player_wallet() {
 fn collecting_an_ability_pickup_grants_it_to_the_catalog() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
+    // The pickup's ability id names an item through the App's item catalog.
+    app.insert_resource(ambition_items::test_item_catalog().clone());
     app.insert_resource(ambition_items::OwnedItems::default());
     app.add_message::<PlayerHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();

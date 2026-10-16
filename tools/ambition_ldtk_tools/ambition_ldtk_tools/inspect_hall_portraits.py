@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Validate default dialog portraits for Hall-of-Characters catalog rows.
 
-Portrait paths normally derive from the gameplay spritesheet path:
-``sprites/<stem>_spritesheet.png`` becomes
+Portrait paths normally derive from the gameplay sheet manifest path:
+``sprites/<stem>_spritesheet.ron`` becomes
 ``sprites/<stem>_portraits.{png,ron}``. An explicit ``portrait`` block may
 replace that convention for exceptional products.
 """
@@ -48,10 +48,10 @@ def portrait_paths(entry: dict[str, Any], sprites_dir: Path) -> tuple[Path, Path
                 sprites_dir / image.removeprefix("sprites/"),
                 sprites_dir / manifest.removeprefix("sprites/"),
             )
-    spritesheet = entry.get("spritesheet")
-    if not isinstance(spritesheet, str) or not spritesheet.endswith("_spritesheet.png"):
+    manifest = entry.get("manifest")
+    if not isinstance(manifest, str) or not manifest.endswith("_spritesheet.ron"):
         return None
-    base = spritesheet[: -len("_spritesheet.png")]
+    base = manifest[: -len("_spritesheet.ron")]
     return (
         sprites_dir / f"{base.removeprefix('sprites/')}_portraits.png",
         sprites_dir / f"{base.removeprefix('sprites/')}_portraits.ron",
@@ -61,7 +61,7 @@ def portrait_paths(entry: dict[str, Any], sprites_dir: Path) -> tuple[Path, Path
 def classify(entry: dict[str, Any], sprites_dir: Path) -> tuple[str, str]:
     paths = portrait_paths(entry, sprites_dir)
     if paths is None:
-        return ("no_contract", "spritesheet path cannot derive a portrait product")
+        return ("no_contract", "manifest path cannot derive a portrait product")
     image_path, manifest_path = paths
     if not image_path.exists():
         return ("no_png", f"missing {image_path}")

@@ -279,7 +279,6 @@ pub const MINIMAL_CHARACTER_ROSTER_RON: &str = r#"(
     characters: {
         "my_hero": (
             display_name: "My Hero",
-            spritesheet: "my_hero.png",
             manifest: "my_hero_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,

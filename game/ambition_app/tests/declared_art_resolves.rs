@@ -294,7 +294,7 @@ fn every_catalog_character_names_a_spritesheet_that_exists() {
         .expect("the composed host has an assembled character catalog");
     let mut missing: Vec<String> = catalog
         .iter()
-        .filter(|(_, entry)| !resolves(&entry.spritesheet, &roots))
+        .filter(|(_, entry)| !resolves(&entry.spritesheet(), &roots))
         .map(|(id, _)| id.clone())
         .collect();
     missing.sort();

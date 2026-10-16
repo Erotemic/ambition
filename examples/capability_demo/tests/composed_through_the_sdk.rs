@@ -33,7 +33,6 @@ const ROSTER: &str = r#"(
     characters: {
         "pulse_walker": (
             display_name: "Walker",
-            spritesheet: "minimal_walker.png",
             manifest: "minimal_walker_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,

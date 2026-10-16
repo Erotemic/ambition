@@ -290,8 +290,17 @@ Steps that remain as rules:
   `BossVolumeContext` uses the catalog only for animation keys of
   sprite-frame-derived boxes. An arm needs the art and an edit to an animation
   key that the boss plays.
-- Demo packs do not reload in a running demo; the reload road is
-  `ambition_content::reload` and serves the Ambition pack only.
+- A demo pack reloads in a running demo (2026-10-16):
+  `ambition_platformer2d::content::live_reload` watches the pack's files,
+  compiles an edit (Smash 7.7 ms, Mary-O 6.3 ms, Sanic 4.2 ms), and
+  publishes it when no session is live and no route prepares one. Only the
+  schemas the demo reads where it uses them take part (Smash: `smash_rules`,
+  `smash_stages`, `match_rules`; Mary-O: `mary_o_rules`; Sanic:
+  `sanic_rules`); an edit to another schema is refused and costs a restart.
+  Each published generation is leaked (a reader holds `&'static` rows), about
+  0.3 MB of source for Smash for each saved edit, in a build that reads
+  off disk only. Open: the other schemas of a demo pack, which a demo reads
+  once at start, and publication into a live session.
 - The quest book takes part as session-derived state (2026-10-07): witnesses
   `a_quest_edit_is_played_from_the_next_session_with_the_players_progress`,
   `a_refused_candidate_leaves_the_quest_book_at_the_live_generation` and

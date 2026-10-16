@@ -1,0 +1,400 @@
+//! ⭐ A RUNNING DEMO PLAYS AN EDIT TO ITS OWN PACK, with no Rust build and no
+//! restart.
+//!
+//! A game whose [`EmbeddedPack`] is read off disk (a build without the crate's
+//! `static_content` feature) adds [`EmbeddedPackReloadPlugin`]. The plugin
+//! looks at `pack.ron` and at each source it declares. When a file changes, it
+//! compiles the pack again from disk and stages the result. Between two
+//! sessions it publishes the staged generation, and every later
+//! [`EmbeddedPack::prepared`] reads it.
+//!
+//! The rules of the road:
+//!
+//! - A pack that does not compile is refused, with the file and the field
+//!   named, and the running pack stays.
+//! - A save that changes no content publishes nothing.
+//! - The game names the schemas it reads where it uses them (`live`). A change
+//!   to another schema is refused: the game read that schema once when it
+//!   started (its cast, its move tables, its audio), so a publication would
+//!   give a mix of two generations. Restart to play that edit.
+//! - The staged pack is published only when no session is live and no route
+//!   is preparing one. A session reads one generation from its preparation to
+//!   its end, so a rollback cannot read two.
+//!
+//! Ambition's own pack has a fuller road (`ambition_content::reload`): it
+//! publishes into a live session at a rollback boundary. This road is for the
+//! demo packs, whose rules are read through a `static`.
+
+use bevy::prelude::*;
+
+use super::{changed_domains, EmbeddedPack, PreparedContentPack};
+
+/// Frames between two looks at the files. A stat per file is cheap, and a
+/// third of a second is less than the time to change from an editor to the
+/// game.
+const POLL_FRAMES: u32 = 20;
+
+/// Watch `pack`'s files and publish each admitted edit between sessions.
+///
+/// `live` are the schemas the game reads where it uses them, each through
+/// `pack.prepared()` at that time. With an embedded pack it adds nothing. A
+/// host of several demos adds one for each pack; a second add of one pack is
+/// ignored.
+pub struct EmbeddedPackReloadPlugin {
+    pub pack: &'static EmbeddedPack,
+    pub live: &'static [&'static str],
+}
+
+impl Plugin for EmbeddedPackReloadPlugin {
+    fn build(&self, app: &mut App) {
+        let Some(root) = self.pack.root_on_disk() else {
+            return;
+        };
+        // A name the pack does not state is a typo, and it would refuse each
+        // edit to the schema it meant.
+        let pack = self.pack.prepared();
+        for schema in self.live {
+            assert!(
+                pack.schemas.keys().any(|stated| stated.0 == *schema),
+                "the live schema `{schema}` is not a schema of the pack `{}`; it states {:?}",
+                pack.id.0,
+                pack.schemas.keys().map(|stated| stated.0.as_str()).collect::<Vec<_>>(),
+            );
+        }
+        if !app.world().contains_resource::<EmbeddedPackWatches>() {
+            app.init_resource::<EmbeddedPackWatches>().add_systems(
+                Update,
+                (look_at_the_pack_sources, publish_the_staged_pack_between_sessions).chain(),
+            );
+        }
+        let mut watches = app.world_mut().resource_mut::<EmbeddedPackWatches>();
+        if watches.0.iter().all(|watch| !std::ptr::eq(watch.pack, self.pack)) {
+            watches.0.push(EmbeddedPackWatch::new(self.pack, self.live, root.into()));
+        }
+    }
+
+    fn is_unique(&self) -> bool {
+        false
+    }
+}
+
+/// One watch for each pack read off disk.
+#[derive(Resource, Default)]
+pub struct EmbeddedPackWatches(pub Vec<EmbeddedPackWatch>);
+
+impl EmbeddedPackWatches {
+    /// The watch of `pack`, when the pack is read off disk.
+    pub fn of(&self, pack: &'static EmbeddedPack) -> Option<&EmbeddedPackWatch> {
+        self.0.iter().find(|watch| std::ptr::eq(watch.pack, pack))
+    }
+}
+
+/// What the watch of one pack saw and did. Public for tests and the inspector.
+pub struct EmbeddedPackWatch {
+    pack: &'static EmbeddedPack,
+    live: &'static [&'static str],
+    root: std::path::PathBuf,
+    files: Vec<(String, Option<std::time::SystemTime>)>,
+    frames_until_poll: u32,
+    staged: Option<PreparedContentPack>,
+    /// Generations this watch published.
+    pub published: u32,
+    /// Why the last change was refused, while no later change was admitted.
+    pub refused: Option<String>,
+}
+
+impl EmbeddedPackWatch {
+    fn new(pack: &'static EmbeddedPack, live: &'static [&'static str], root: std::path::PathBuf) -> Self {
+        let files = stamped(&root, watched_files(&root));
+        Self { pack, live, root, files, frames_until_poll: POLL_FRAMES, staged: None, published: 0, refused: None }
+    }
+
+    /// Look at the files at the next update.
+    pub fn poll_now(&mut self) {
+        self.frames_until_poll = 0;
+    }
+
+    /// An admitted change waits for the end of the session.
+    pub fn is_staged(&self) -> bool {
+        self.staged.is_some()
+    }
+}
+
+/// The manifest and each source it declares.
+fn watched_files(root: &std::path::Path) -> Vec<String> {
+    let declared = std::fs::read_to_string(root.join("pack.ron"))
+        .map(|manifest| ambition_content_pack::embed::declared_paths(&manifest))
+        .unwrap_or_default();
+    std::iter::once("pack.ron".to_string()).chain(declared).collect()
+}
+
+fn stamped(root: &std::path::Path, files: Vec<String>) -> Vec<(String, Option<std::time::SystemTime>)> {
+    files
+        .into_iter()
+        .map(|path| {
+            let seen = modified(&root.join(&path));
+            (path, seen)
+        })
+        .collect()
+}
+
+fn modified(path: &std::path::Path) -> Option<std::time::SystemTime> {
+    std::fs::metadata(path).and_then(|m| m.modified()).ok()
+}
+
+fn look_at_the_pack_sources(mut watches: ResMut<EmbeddedPackWatches>) {
+    for watch in &mut watches.0 {
+        look_at(watch);
+    }
+}
+
+/// On a changed file, compile the pack from disk and stage it or refuse it.
+fn look_at(watch: &mut EmbeddedPackWatch) {
+    if watch.frames_until_poll > 0 {
+        watch.frames_until_poll -= 1;
+        return;
+    }
+    watch.frames_until_poll = POLL_FRAMES;
+    let mut changed = false;
+    for (path, seen) in &mut watch.files {
+        let now = modified(&watch.root.join(path.as_str()));
+        if now != *seen {
+            *seen = now;
+            changed = true;
+        }
+    }
+    if !changed {
+        return;
+    }
+    // The manifest can name other files now. Each is looked at from here on.
+    watch.files = stamped(&watch.root, watched_files(&watch.root));
+    let candidate = match watch.pack.compile() {
+        Ok(candidate) => candidate,
+        Err(failure) => {
+            let why = format!("the pack `{}` does not compile; the running pack stays:\n{failure}", watch.root.display());
+            error!("{why}");
+            watch.staged = None;
+            watch.refused = Some(why);
+            return;
+        }
+    };
+    let running = watch.pack.prepared();
+    if candidate.fingerprint == running.fingerprint {
+        // A save with no change, or an edit put back before it was published.
+        watch.staged = None;
+        watch.refused = None;
+        return;
+    }
+    let read_at_start: Vec<String> = changed_domains(running, &candidate)
+        .into_iter()
+        .map(|schema| schema.0)
+        .filter(|schema| !watch.live.contains(&schema.as_str()))
+        .collect();
+    if !read_at_start.is_empty() {
+        let why = format!(
+            "the edit to the pack `{}` changes {read_at_start:?}, which the game reads only when it \
+             starts; restart the game to play it. The running pack stays.",
+            running.id.0
+        );
+        warn!("{why}");
+        watch.staged = None;
+        watch.refused = Some(why);
+        return;
+    }
+    info!("the edit to the pack `{}` is admitted; it is played from the next session", running.id.0);
+    watch.staged = Some(candidate);
+    watch.refused = None;
+}
+
+/// Publish the staged generation when no session is live and none is being
+/// prepared.
+fn publish_the_staged_pack_between_sessions(
+    mut watches: ResMut<EmbeddedPackWatches>,
+    scope: Option<Res<crate::actor::ActiveSessionScope>>,
+    router: Option<Res<crate::game_shell::ShellRouter>>,
+) {
+    let in_a_session = scope.is_some_and(|scope| scope.current().is_some());
+    let preparing = router.is_some_and(|router| router.pending.is_some());
+    if in_a_session || preparing {
+        return;
+    }
+    for watch in &mut watches.0 {
+        let Some(generation) = watch.staged.take() else {
+            continue;
+        };
+        info!("the pack `{}` is published again from its files", generation.id.0);
+        watch.pack.publish(generation);
+        watch.published += 1;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::combat::room_rules::lowered_room_rules;
+
+    /// A pack in a new directory with one `room_rules` source. Leaked, as a
+    /// game's `static` is.
+    fn pack_with_rules(name: &str, rules: &str) -> (&'static EmbeddedPack, std::path::PathBuf) {
+        let root = std::env::temp_dir().join(format!("live_reload_{name}_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("data")).unwrap();
+        std::fs::write(
+            root.join("pack.ron"),
+            r#"(id: "live_reload_probe", version: "0.1.0", namespace: "probe", requires: [],
+                sources: [(path: "data/room_rules.ron", schema: "room_rules", version: 1)])"#,
+        )
+        .unwrap();
+        std::fs::write(root.join("data/room_rules.ron"), rules).unwrap();
+        let leaked_root: &'static str = Box::leak(root.to_string_lossy().into_owned().into_boxed_str());
+        (Box::leak(Box::new(EmbeddedPack::rooted(leaked_root, None))), root)
+    }
+
+    fn app_watching(pack: &'static EmbeddedPack, live: &'static [&'static str]) -> App {
+        let mut app = App::new();
+        app.init_resource::<crate::actor::ActiveSessionScope>();
+        app.add_plugins(EmbeddedPackReloadPlugin { pack, live });
+        app
+    }
+
+    fn watch_of<'a>(app: &'a App, pack: &'static EmbeddedPack) -> &'a EmbeddedPackWatch {
+        app.world().resource::<EmbeddedPackWatches>().of(pack).expect("the probe pack is read off disk")
+    }
+
+    /// Save `text` and let the watch look at it. The file's time is moved on
+    /// by one second, so a file system with coarse times sees the change.
+    fn save_and_look(app: &mut App, file: &std::path::Path, text: &str) {
+        std::fs::write(file, text).unwrap();
+        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(1);
+        std::fs::File::options().write(true).open(file).unwrap().set_modified(later).unwrap();
+        for watch in &mut app.world_mut().resource_mut::<EmbeddedPackWatches>().0 {
+            watch.poll_now();
+        }
+        app.update();
+    }
+
+    fn heavy(pack: &PreparedContentPack) -> crate::combat::room_rules::RoomRules {
+        *lowered_room_rules(pack).expect("the probe pack states room rules")
+    }
+
+    /// ⭐ An edit to a live schema is staged while a session is live, and is
+    /// what the pack reads from the end of that session. The value read is
+    /// the value a new compile of the saved files gives.
+    #[test]
+    fn an_edit_to_a_live_schema_is_played_from_the_next_session() {
+        let (pack, root) = pack_with_rules("next_session", "(heavy_hit_damage: Some(12))");
+        let mut app = app_watching(pack, &["room_rules"]);
+        let before = heavy(pack.prepared());
+        app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().begin();
+
+        save_and_look(&mut app, &root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))");
+        let watch = watch_of(&app, pack);
+        assert_eq!(watch.published, 0, "nothing is published while a session is live");
+        assert_eq!(heavy(pack.prepared()), before, "the live session reads the generation it began with");
+        assert!(watch.is_staged(), "the edit is admitted: {:?}", watch.refused);
+
+        app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().clear();
+        app.update();
+        let authority = EmbeddedPack::rooted(pack.root_on_disk().unwrap(), None).compile().unwrap();
+        assert_eq!(watch_of(&app, pack).published, 1);
+        assert_eq!(heavy(pack.prepared()), heavy(&authority), "the pack reads the saved file");
+        assert_ne!(heavy(pack.prepared()), before);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// A route that is preparing its session holds the publication: the
+    /// session it prepares reads one generation from its preparation on.
+    #[test]
+    fn a_route_that_is_preparing_holds_the_publication() {
+        use crate::game_shell::{PendingShellRoute, ShellActivationId, ShellRouteId, ShellRouter};
+
+        let (pack, root) = pack_with_rules("preparing", "(heavy_hit_damage: Some(12))");
+        let mut app = app_watching(pack, &["room_rules"]);
+        let before = heavy(pack.prepared());
+        let mut router = ShellRouter::default();
+        router.pending = Some(PendingShellRoute {
+            reserved_activation: ShellActivationId(1),
+            route_id: ShellRouteId::new("match"),
+            push_history: false,
+            barrier: crate::load::LoadBarrierRef::new("load", "barrier"),
+            requires_prepared_session: true,
+            terminal_reported: false,
+            request: None,
+        });
+        app.insert_resource(router);
+
+        save_and_look(&mut app, &root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))");
+        assert_eq!(watch_of(&app, pack).published, 0, "nothing is published while a route prepares");
+        assert_eq!(heavy(pack.prepared()), before);
+
+        app.world_mut().resource_mut::<ShellRouter>().pending = None;
+        app.update();
+        assert_eq!(watch_of(&app, pack).published, 1);
+        assert_ne!(heavy(pack.prepared()), before);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// A host of two demos watches both packs, and a second add of one pack
+    /// does not watch it twice.
+    #[test]
+    fn each_pack_is_watched_once() {
+        let (first, first_root) = pack_with_rules("first", "(heavy_hit_damage: Some(12))");
+        let (second, second_root) = pack_with_rules("second", "(heavy_hit_damage: Some(12))");
+        let mut app = app_watching(first, &["room_rules"]);
+        app.add_plugins(EmbeddedPackReloadPlugin { pack: first, live: &["room_rules"] });
+        app.add_plugins(EmbeddedPackReloadPlugin { pack: second, live: &["room_rules"] });
+        let watches = app.world().resource::<EmbeddedPackWatches>();
+        assert_eq!(watches.0.len(), 2);
+        assert!(watches.of(first).is_some() && watches.of(second).is_some());
+        let _ = std::fs::remove_dir_all(first_root);
+        let _ = std::fs::remove_dir_all(second_root);
+    }
+
+    /// A live schema the pack does not state is refused when the plugin is
+    /// added.
+    #[test]
+    #[should_panic(expected = "the live schema `room_rulez` is not a schema of the pack")]
+    fn a_live_schema_the_pack_does_not_state_is_refused() {
+        let (pack, _root) = pack_with_rules("typo", "(heavy_hit_damage: Some(12))");
+        let _ = app_watching(pack, &["room_rulez"]);
+    }
+
+    /// The control: the same edit to a schema the game reads only when it
+    /// starts is refused, and nothing is published.
+    #[test]
+    fn an_edit_to_a_schema_read_at_start_is_refused() {
+        let (pack, root) = pack_with_rules("read_at_start", "(heavy_hit_damage: Some(12))");
+        let mut app = app_watching(pack, &[]);
+        let before = heavy(pack.prepared());
+
+        save_and_look(&mut app, &root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))");
+        app.update();
+        let watch = watch_of(&app, pack);
+        let why = watch.refused.as_deref().expect("the edit is refused");
+        assert!(why.contains("room_rules") && why.contains("restart"), "{why}");
+        assert_eq!(watch.published, 0);
+        assert_eq!(heavy(pack.prepared()), before);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// A value the schema refuses is refused with its field named, and a save
+    /// that puts the text back publishes nothing.
+    #[test]
+    fn a_refused_value_names_its_field_and_an_unchanged_save_publishes_nothing() {
+        let (pack, root) = pack_with_rules("refused", "(heavy_hit_damage: Some(12))");
+        let mut app = app_watching(pack, &["room_rules"]);
+        let file = root.join("data/room_rules.ron");
+        let before = heavy(pack.prepared());
+
+        save_and_look(&mut app, &file, "(heavy_hit_damage: Some(0))");
+        let why = watch_of(&app, pack).refused.clone().expect("a damage of 0 is refused");
+        assert!(why.contains("heavy_hit_damage") && why.contains("room_rules.ron"), "{why}");
+
+        save_and_look(&mut app, &file, "(heavy_hit_damage: Some(12))");
+        app.update();
+        let watch = watch_of(&app, pack);
+        assert!(!watch.is_staged() && watch.refused.is_none() && watch.published == 0);
+        assert_eq!(heavy(pack.prepared()), before);
+        let _ = std::fs::remove_dir_all(root);
+    }
+}

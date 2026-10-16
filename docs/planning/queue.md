@@ -41,8 +41,8 @@ possible without a recompile. Work in this order:
 
 1. [CONTENT-AS-DATA](#content-as-data--content-still-written-as-rust):
    move each content fact that is still Rust onto the pack's data and reload
-   road, and delete the Rust copy. Its one open item (a live reload for
-   the demo packs) is deferred: see there.
+   road, and delete the Rust copy. A live reload for the demo packs' tuning
+   is done (2026-10-16); its remainder is listed there.
 2. Efficient content preparation: [TEST-LANES](#test-lanes--keep-required-test-lanes-executable)
    item 10, converged 2026-10-15: a publish with nothing to render is 54 s
    (was about 1 hour); a frame that changes size costs its render and 74 s
@@ -149,12 +149,25 @@ Done (the commit messages hold the detail):
 
 Open:
 
-1. A live reload for the demo packs' tuning. Today an edit reaches the
-   next start with no compile (a development build reads the pack from
-   disk; measured 1.9 s to a test for `smash_stages`). A live reload needs
-   the reload road (`ambition_content::reload`, about 2400 lines, game
-   crate) lifted into the engine so that a demo's `EmbeddedPack` takes
-   part: I2/I3 scale. Deferred 2026-10-14 behind priority 2.
+1. ✅ 2026-10-16 **A live reload for the demo packs' tuning.** The deferral
+   waited on priority 2, which converged on 2026-10-15. The Ambition road
+   was not lifted: a demo reads its rules through `PACK.prepared()`, so the
+   engine's `EmbeddedPack` now holds a published generation, and
+   `content::live_reload::EmbeddedPackReloadPlugin` watches the pack's files,
+   compiles an edit, and publishes it when no session is live and no route
+   prepares one. A session reads one generation from its preparation to its
+   end, so a rollback cannot read two. Each demo names the schemas it reads
+   where it uses them (Smash `smash_rules`, `smash_stages`, `match_rules`;
+   Mary-O `mary_o_rules`; Sanic `sanic_rules`); an edit to another schema is
+   refused with "restart", and a name the pack does not state panics when the
+   plugin is added. Witnesses in `live_reload.rs`, one for each arm (the
+   session, the preparing route, the live list, the publication, the
+   dedupe), each red under its poison at its own assertion; each demo's lane
+   reddens with a typo in its list. Cost: a save is seen within 20 frames,
+   and the compile is 7.7 ms (Smash), 6.3 ms (Mary-O), 4.2 ms (Sanic).
+   Remainder: the schemas a demo reads once at start (cast, move tables,
+   audio, room rules, Mary-O's ladder) and publication into a live demo
+   session. Each needs its reader moved to read at use, or the I2/I3 road.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is
@@ -217,7 +230,9 @@ the Mary-O test course. It is a fixture that no level renders, and its
 module says why it stays Rust (an editor drag would make it a different
 test).
 
-**Next action:** none before priority 2; open item 1 is deferred.
+**Next action:** the remainder of open item 1, one schema at a time: a
+reader that reads once at start moves to read at use, and its schema joins
+the demo's live list.
 
 **Blocked by:** nothing.
 

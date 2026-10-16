@@ -2473,6 +2473,17 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
     crate::smash_pack::PACK
         .cast(SMASH_EXPERIENCE, Some(SMASH_CHARACTER_ID))
         .register(app);
+    // A build that reads the pack off disk plays an edit to these from the
+    // next match. The cast, its facets, the room rules and the audio are read
+    // here, once.
+    app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin {
+        pack: &crate::smash_pack::PACK,
+        live: &[
+            crate::rules::SMASH_RULES_SCHEMA,
+            crate::stages::SMASH_STAGES_SCHEMA,
+            ambition_platformer2d::versus_match::match_rules::MATCH_RULES_SCHEMA,
+        ],
+    });
     // The pack states the music; it states no procedural SFX, because the
     // fighters' moves name bank cues.
     app.register_audio_catalog_fragment(

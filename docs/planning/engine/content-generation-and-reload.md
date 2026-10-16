@@ -420,7 +420,12 @@ whether the prior scene is unchanged, recovered or stopped.
 - **The home body of an unprepared starting id.** `session::setup` still builds
   the home body (an empty kit, named after the id, reported). Refusing it is a
   session-admission question: the session then has no body to drive.
-- Demo packs do not reload in a running demo.
+- A demo pack reloads in a running demo between sessions, for the schemas
+  the demo reads where it uses them
+  (`ambition_platformer2d::content::live_reload`, 2026-10-16). A change to
+  any other schema of a demo pack (its cast, move tables, audio, room rules,
+  Mary-O's ladder) is refused and costs a restart. Open: publication into a
+  live demo session at a rollback boundary, as Ambition's road does.
 - Measure source read, changed-section preparation, candidate construction,
   activation, scenario reset and first observed behavior separately (M0).
   Fixtures FI1-FI4 in [acceptance](fast-iteration-acceptance.md).

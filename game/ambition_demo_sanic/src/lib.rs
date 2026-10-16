@@ -374,6 +374,12 @@ pub fn install_sanic_content(app: &mut App) {
         .cast(provider::SANIC_EXPERIENCE, Some(SANIC_CHARACTER_ID))
         .with_actor_default_abilities(ambition_platformer2d::engine_core::AbilitySet::classic_actor())
         .register(app);
+    // A build that reads his pack off disk plays an edit to his tuning from
+    // the next session. His cast, audio and prop sheets are read here, once.
+    app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin {
+        pack: &pack::PACK,
+        live: &[rules::SANIC_RULES_SCHEMA],
+    });
     // His pack states his music and his SFX, his own Dash and Jump among
     // them. His moves name bank cues as well.
     app.register_audio_catalog_fragment(

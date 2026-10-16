@@ -81,7 +81,8 @@ again before you quote it.
   per drawn frame: Mary-O today's policy 14.1 → 12.6 ms (−11%), with
   `serial` (D12) 8.3 → 7.0 ms; hub today's policy 13.4 → 12.4 ms (−7%), with
   `serial` 12.5 → 10.9 ms. Standalone Sanic at the end only (2 repetitions):
-  simulation 7.39 ms per tick today, 3.03 ms with `serial`.
+  simulation 7.39 ms per tick today, 3.03 ms with `serial`; main-schedule
+  time per drawn frame 9.8 → 7.8 ms.
 - **What tonight's fixes held on the phone** (MEASURED, the all-games phone
   profile of 10-16, `symbolize_android_profile.py --under NAME`, inclusive
   share of all process CPU samples): `handle_clashes` 3.14%,

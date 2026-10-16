@@ -106,10 +106,10 @@ MEASURED (phone, `android-all-maryo-1-1`, every sample's full call chain,
 `symbolize_android_profile.py --ours`). 32.2% of all app samples are in the
 schedule executor with no system body on the stack: per system, before or
 after it runs. By innermost frame: access checks over component bitsets
-(`bevy_ecs/query/access.rs` with `fixedbitset`, about 2.9%), the
-`TypeId` test that finds apply-deferred points (`system/system.rs` and
-`executor/mod.rs`, about 2.5%), archetype-cache updates
-(`update_archetypes_unsafe_world_cell`, `query/state.rs`), parameter
+(`bevy_ecs/query/access.rs` with `fixedbitset`, about 2.9%), the <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
+`TypeId` test that finds apply-deferred points (`system/system.rs` and <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
+`executor/mod.rs`, about 2.5%), archetype-cache updates <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
+(`update_archetypes_unsafe_world_cell`, `query/state.rs`), parameter <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
 validation (`function_system.rs`), and allocation in the executor. A further
 44.8% has no frame of ours at all: the render world, the GPU driver
 (`vulkan.adreno.so`), the kernel, and the task pool.
@@ -125,8 +125,8 @@ work above), and fewer registered types (291 message types, 330 GGRS snapshot
 resources).
 
 Lines of ours that do take time (each under 1.5%): `room_instance.rs:172`
-(1.4%), `room_graph.rs:432` and `:471`, `clip_material.rs:107`,
-`ambition_entity_catalog/src/lib.rs:1563`, `touch_input/virtual_device.rs:50`,
+(1.4%), `room_graph.rs:432` and `:471`, `clip_material.rs:145`,
+`ambition_entity_catalog/src/lib.rs:1563`, `crates/ambition_touch_input/src/virtual_device.rs:50`,
 `wallet_shield.rs:40`, `held_items.rs:108`, `hand.rs:63`.
 
 **Mary-O only, against every game (phone, one run each).** MEASURED: with
@@ -158,7 +158,7 @@ until its fighter kit does (D4).
 
 ### F2 — Twelve narrative ledgers run in every game
 
-MEASURED. `NarrativeInputPlugin<M>` (`ambition_conversation/src/ledger.rs:242`)
+MEASURED. `NarrativeInputPlugin<M>` (`ambition_conversation/src/ledger.rs:247`)
 adds three systems per payload; twelve payloads (two in `ambition_conversation`,
 seven in `actor_monolith/src/features/mod.rs:1491-1497`, three in
 `ambition_content`) make 36 systems; a standalone game runs nine (27). The seven
@@ -174,11 +174,11 @@ MEASURED. `serialize_frame_schedules`
 an idle system costs about 0.016 us on the single-threaded executor and 1.7-12 us
 on the multi-threaded one. The executor policy has a second owner
 (`game/ambition_app/src/app/plugins.rs:355`, an env switch the demos never reach).
-Worse: the windowed demo hosts never call the policy at all.
-`install_windowed_foundation` (`ambition_platformer2d/src/app.rs:1726-1810`)
-does not call `serialize_frame_schedules`; its callers are the headless
-foundation and `visible_composition.rs:107` only. So windowed Mary-O, Sanic and
-Smash run `First`..`Last` and `Fixed*` on the multi-threaded executor. Bevy
+Worse: the windowed demo hosts did not call the policy at all; only the
+headless foundation and `game/ambition_app/src/app/visible_composition.rs`
+did. So windowed Mary-O, Sanic and Smash run `First`..`Last` and `Fixed*` on
+the multi-threaded executor. Since 2026-10-16 all three foundations call
+`apply_executor_policy`, with unchanged defaults (F22, D12). Bevy
 itself runs `Main`, `FixedMain` and `RunFixedMainLoop` serially; the rollback
 crate serializes `GgrsSchedule` only, not `SaveWorld`/`LoadWorld`/`ReadInputs`/
 `AdvanceWorld`.
@@ -220,7 +220,7 @@ they can act on has `WornCharacter` or `BodyWalletShield`, and `MovePlayback` or
 With<BodyWalletShield>)>` and `Or<(With<MovePlayback>, With<MoveBrandishedItem>)>`
 keep what they do and drop the walk. Eight other queries in the scan have no
 required component but are only used with `get(entity)`, which costs nothing.
-`character_runtime/presentation.rs:261` walks every body only on the tick the
+`character_runtime/presentation.rs:274` walks every body only on the tick the
 registry changes.
 
 ### F8 — Plumbing that scales with what is registered, not with what is used
@@ -281,12 +281,12 @@ thread, which submits and presents, is idle three quarters of the time.
 
 ### F12 — No catch-up limit of ours on the fixed step
 
-MEASURED (code read). The hub's GGRS loop (`bevy_ggrs` `schedule_systems.rs:55`)
+MEASURED (code read). The hub's GGRS loop (`bevy_ggrs` `schedule_systems.rs:55`) <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
 runs `while accumulator >= 1/60 s` on `Time::delta()`; the standalone games use
 Bevy's `FixedUpdate`. Neither has a limit of ours; only Bevy's `Time<Virtual>`
 `max_delta` (250 ms) applies, so one slow frame can run up to 15 ticks. The
 offline GGRS session uses `check_distance: 0`, which skips every save
-(`ggrs` `sync_test_session.rs:155`).
+(`ggrs` `sync_test_session.rs:155`). <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
 
 Reading (REASONED): with p50 frames of 24-46 ms on the phone, a frame runs
 1.5-2.8 ticks on average, and the read-models of `FeatureViewSync` are rebuilt
@@ -364,7 +364,7 @@ and rebuilds each `RenderLayers` with several clones (`in_room_band`,
 `without_room_layers`). The result changes only when the live-room set or its
 order changes, or when an entity or child is new. The room bands are layers
 256-511 and the local-view band starts at 1024; Bevy's `RenderLayers` keeps one
-`u64` inline (`bevy_camera` `render_layers.rs:23`), so each mask with a room
+`u64` inline (`bevy_camera` `render_layers.rs:23`), so each mask with a room <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
 layer is on the heap, and each clone of it allocates. Sanic: 2,773
 allocations a frame; Mary-O: 444.
 
@@ -485,10 +485,10 @@ are marked changed a frame. Of ours:
   `RangedRefire`, `AttackGestureState`, `ResolvedAttackGesture`,
   `PogoTargetVolumes`, `BodyAnimFacts`, `PresentedPose`, `BodyPoseView`.
 - Resources changed every frame by our code: `ActiveAudioSelection`
-  (`character_runtime/presentation.rs:100`, F16), `GizmoConfigStore`
+  (`character_runtime/presentation.rs:113`, F16), `GizmoConfigStore`
   (`avatar/trail.rs:677`), `CameraShakeState`, `FinishZoomState`
   (`camera_ease.rs`), `SeatControlFrameModes`, the narrative ledgers
-  (`ledger.rs:223`) in a game with no dialogue, and two developer-tool
+  (`ledger.rs:228`) in a game with no dialogue, and two developer-tool
   resources (`EditablePlayerStats`, `PlayerStatsSyncSnapshot`).
 - Rendering: rig part slots (`rigged.rs:1426-1434`, ~148 a frame:
   animation), the HUD's `Visibility` (`hud/declared.rs:784`, 30 a frame),
@@ -522,7 +522,7 @@ and `reconcile_effective_repertoire` has no allocations left.
 MEASURED (probe churn): three presentation systems despawned all their
 entities and spawned them again every frame: gravity-zone visuals (Sanic,
 fixed), the parallax refresh (hub, F17, fixed at its cause), and wielded-item
-overlays (`wielded_item_visuals.rs:139`, hub, 1.000 a frame; rewritten to
+overlays (`wielded_item_visuals.rs:153`, hub, 1.000 a frame; rewritten to
 update in place; verified: no churn, pixel-identical capture). A code search for the same shape
 (despawn every entity of a marker, then spawn) also finds
 `item_visuals.rs`, `projectile_visuals.rs`, `mark_beacon.rs`, `hud/declared.rs`

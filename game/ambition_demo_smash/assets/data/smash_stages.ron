@@ -1,7 +1,7 @@
 // Smash's stages (schema `smash_stages`, owned by this demo): the room every
 // stage shares and the blocks of each stage. An edit here is played at the
-// next start, with no Rust build. The select screen offers the stages by room
-// id (`SmashStageChoice`), so each of its ids must have a row here.
+// next start, with no Rust build. The select screen offers the stages that
+// `offered` names, so a new stage is a row here and its id in `offered`.
 //
 // y grows downward: a block above the stage has a smaller y.
 (
@@ -42,6 +42,9 @@
     // a `platform` (width, height) under its feet: three body widths across
     // and thin, so it reads as a ledge to step off and not as stage.
     respawn: (rise: 160.0, protection_seconds: 2.0, seat_spacing: 64.0, platform: (96.0, 12.0)),
+    // The stages the select screen offers, in the order its stage button walks
+    // them. The first is the default: the stage recorded measurements used.
+    offered: ["smash_stage", "smash_platform_stage", "smash_narrow_stage"],
     stages: {
         // A platform surrounded by nothing. A fighter stage is a place you can
         // be knocked off; the empty space is the mechanic. The platform is
@@ -51,6 +54,8 @@
         // a respawn comes back above.
         "smash_stage": (
             name: "Smash Stage",
+            // What the stage button shows.
+            label: "Flat",
             blocks: [
                 (name: "smash_platform", kind: Solid, at: (80.0, 300.0), size: (480.0, 32.0)),
             ],
@@ -66,6 +71,7 @@
         // `smash_stage` keep their meaning.
         "smash_narrow_stage": (
             name: "Smash Stage — Narrow",
+            label: "Narrow",
             blocks: [
                 (name: "smash_platform", kind: Solid, at: (160.0, 300.0), size: (320.0, 32.0)),
             ],
@@ -94,6 +100,7 @@
         // together.
         "smash_platform_stage": (
             name: "Smash Stage (platforms)",
+            label: "Platforms",
             blocks: [
                 (name: "smash_platform", kind: Solid, at: (80.0, 300.0), size: (480.0, 32.0)),
                 (name: "smash_soft_left", kind: OneWay, at: (88.0, 236.0), size: (168.0, 16.0)),

@@ -259,12 +259,13 @@ Open:
    `SMASH_STAGE_TRACK` (deleted; the registry's `default_track`), and
    Sanic's stomp band (two Rust copies; now `stomp.band`, read by one
    predicate for the badnik's head and the monitor's lid).
+   Smash's offered stages, their order and their button labels are
+   `offered` and `label` in `smash_stages.ron`; `SmashStageChoice` is a
+   choice from that list, so a new stage is a row with no Rust edit. Still
+   flat-only: `stage_centre()` (every respawn uses the flat stage's centre)
+   and `ladder_rig --scenarios` (refuses other stages).
    The speedway's floor and pit numbers are now `speedway_oracle`, read by
    tests only. Left, most valuable first:
-   - Smash's stage list and labels (`game/ambition_demo_smash/src/lib.rs:2582`
-     `SmashStageChoice::ALL`, `label()`, room ids at `lib.rs:268-274`): the
-     rows are in `smash_stages.ron` with other names; a new stage is a Rust
-     edit (27 readers).
    - `game/ambition_content/src/bosses/cut_rope/mod.rs:44`
      `CUT_ROPE_VICTORY_NPC_NAME`, also the speaker in
      `assets/dialogue/sandbox/kernel.yarn`.

@@ -866,8 +866,9 @@ fn prepared_world_for(
 /// assertion and make the others unreachable.
 #[test]
 fn the_stage_choice_decides_which_stage_the_match_prepares() {
-    let flat = prepared_world_for(crate::SmashStageChoice::Flat);
-    let platforms = prepared_world_for(crate::SmashStageChoice::Platforms);
+    use crate::SmashStageChoice as Stage;
+    let flat = prepared_world_for(Stage::of(crate::SMASH_STAGE_ROOM_ID));
+    let platforms = prepared_world_for(Stage::of(crate::SMASH_PLATFORM_STAGE_ROOM_ID));
 
     assert_eq!(
         flat.geometry().0.blocks.len(),
@@ -879,7 +880,7 @@ fn the_stage_choice_decides_which_stage_the_match_prepares() {
         4,
         "the platforms choice prepared a stage without its three tiers"
     );
-    let narrow = prepared_world_for(crate::SmashStageChoice::Narrow);
+    let narrow = prepared_world_for(Stage::of(crate::SMASH_NARROW_STAGE_ROOM_ID));
     assert_eq!(
         narrow.geometry().0.blocks.len(),
         1,
@@ -910,55 +911,41 @@ fn the_stage_choice_decides_which_stage_the_match_prepares() {
     }
 
     // The default is still the stage recorded measurements used.
-    assert_eq!(crate::SmashStageChoice::default(), crate::SmashStageChoice::Flat);
-    // The stage button's cycle returns to its start after a full lap; a
-    // fourth stage breaks this line.
-    assert_eq!(
-        crate::SmashStageChoice::Flat.next().next().next(),
-        crate::SmashStageChoice::Flat,
-        "the stage cycle does not return to its start in three steps"
-    );
-    assert_ne!(
-        crate::SmashStageChoice::Flat.next().next(),
-        crate::SmashStageChoice::Flat,
-        "the cycle closed early — a stage is unreachable from the button"
-    );
+    assert_eq!(Stage::default(), Stage::of(crate::SMASH_STAGE_ROOM_ID));
 }
 
-/// Every stage is reachable by the cycle and by its own name.
-///
-/// `next()` and `ladder_rig --stage` both read `ALL`, so a variant missing from
-/// `ALL` is authored and unreachable. The compiler catches a new variant in
-/// `room_id` and `label` (exhaustive matches) but not a missing `ALL` entry.
-/// An associated-const compile-time check does not work: the block is never
-/// evaluated. So this is a runtime count: the exhaustive `match` forces a new
-/// variant to be considered, and the length comparison forces it into `ALL`.
+/// The stages the select screen offers, their labels and their order are the
+/// pack's `smash_stages.ron`, and the prepared match holds each of them.
 #[test]
-fn all_lists_every_variant() {
-    // Exhaustive: a new variant fails to compile here, in the test that says
-    // to add it to `ALL`.
-    fn counted(stage: crate::SmashStageChoice) -> usize {
-        match stage {
-            crate::SmashStageChoice::Flat
-            | crate::SmashStageChoice::Platforms
-            | crate::SmashStageChoice::Narrow => 1,
-        }
-    }
-    let total: usize = [
-        crate::SmashStageChoice::Flat,
-        crate::SmashStageChoice::Platforms,
-        crate::SmashStageChoice::Narrow,
-    ]
-    .into_iter()
-    .map(counted)
-    .sum();
+fn the_offered_stages_are_the_stages_file() {
+    let offered = crate::stages::smash_stages().offered.clone();
     assert_eq!(
-        total,
-        crate::SmashStageChoice::ALL.len(),
-        "a stage is matched above but missing from ALL — `next()` and `--stage` \
-         both read ALL, so it would be authored and unreachable"
+        crate::SmashStageChoice::all().iter().map(|stage| stage.room_id().to_string()).collect::<Vec<_>>(),
+        offered,
+        "the select screen does not offer the file's `offered` list in its order"
     );
+    for stage in crate::SmashStageChoice::all() {
+        assert_eq!(stage.label(), crate::stages::smash_stages().stages[stage.room_id()].label);
+        let blocks = |world: &crate::ae::World| {
+            world.blocks.iter().map(|block| (block.name.clone(), block.aabb.min, block.aabb.max)).collect::<Vec<_>>()
+        };
+        let prepared = prepared_world_for(stage);
+        assert_eq!(
+            blocks(&prepared.geometry().0),
+            blocks(&crate::smash_stage_room(stage.room_id()).world),
+            "the match prepared for `{}` does not start on its row",
+            stage.room_id()
+        );
+    }
 
+    // A stage the file adds and offers: `smashs_stages_are_its_pack_file`.
+}
+
+/// Every stock count is in `ALL`, so the button reaches it. The compiler
+/// catches a new variant in an exhaustive `match` but not a missing `ALL`
+/// entry, so this is a runtime count.
+#[test]
+fn all_lists_every_stock_count() {
     fn counted_stocks(count: crate::SmashStockChoice) -> usize {
         match count {
             crate::SmashStockChoice::One
@@ -985,7 +972,7 @@ fn all_lists_every_variant() {
 fn every_stage_is_reachable_by_the_cycle_and_names_itself_uniquely() {
     use std::collections::BTreeSet;
 
-    let all = crate::SmashStageChoice::ALL;
+    let all = crate::SmashStageChoice::all();
     assert!(all.len() >= 3, "the stage-breadth checkpoint wants several");
 
     // Distinct labels, or `--stage <name>` is ambiguous; distinct room ids,

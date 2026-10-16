@@ -478,14 +478,14 @@ fn the_stage_button_cycles_the_stage_the_match_will_prepare() {
 
     assert_eq!(
         *app.world().resource::<SmashStageChoice>(),
-        SmashStageChoice::Flat,
+        SmashStageChoice::of(ambition_demo_smash::SMASH_STAGE_ROOM_ID),
         "the default is the stage every recorded measurement was taken on"
     );
 
     click(&mut app, 0, layout.stage_button());
     assert_eq!(
         *app.world().resource::<SmashStageChoice>(),
-        SmashStageChoice::Platforms,
+        SmashStageChoice::of(ambition_demo_smash::SMASH_PLATFORM_STAGE_ROOM_ID),
         "pressing the stage button did not change the stage"
     );
 
@@ -502,13 +502,13 @@ fn the_stage_button_cycles_the_stage_the_match_will_prepare() {
     click(&mut app, 0, layout.stage_button());
     assert_eq!(
         *app.world().resource::<SmashStageChoice>(),
-        SmashStageChoice::Narrow,
+        SmashStageChoice::of(ambition_demo_smash::SMASH_NARROW_STAGE_ROOM_ID),
         "the third stage is not reachable from the button"
     );
     click(&mut app, 0, layout.stage_button());
     assert_eq!(
         *app.world().resource::<SmashStageChoice>(),
-        SmashStageChoice::Flat,
+        SmashStageChoice::of(ambition_demo_smash::SMASH_STAGE_ROOM_ID),
         "the stage cycle does not return to its start"
     );
 }

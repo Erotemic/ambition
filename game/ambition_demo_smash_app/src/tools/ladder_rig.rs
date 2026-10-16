@@ -16,7 +16,7 @@
 //!   (the seat null control).
 //! - `--stage <name>` selects the layout, spelled as the select screen's stage
 //!   button (`flat`, `platforms`, `narrow`). It resolves through
-//!   `SmashStageChoice::ALL`. The layout changes lethality, so compare runs
+//!   `SmashStageChoice::all()`. The layout changes lethality, so compare runs
 //!   only on the same stage.
 //! - `--no-rollout` sets `rollout_depth`/`rollout_k` to zero on every fighter.
 //!   Rollout is already off below level 6, so the bottom rungs must be
@@ -605,18 +605,18 @@ fn report_which_fighters_are_in_play() {
 /// this, and the header prints `label()`, the same string as the game's
 /// stage button. So the header cannot disagree with the run.
 fn resolved_stage() -> ambition_demo_smash::SmashStageChoice {
-    // Resolve from `SmashStageChoice::ALL`, not from string literals, so a new
-    // stage is reachable by its button label with no edit here.
+    // Resolve from `SmashStageChoice::all()`, not from string literals, so a
+    // new stage is reachable by its button label with no edit here.
     let asked = args().stage.trim().to_ascii_lowercase();
     if asked.is_empty() {
         // No `--stage`: use the demo's own default, so the rig follows it.
         return ambition_demo_smash::SmashStageChoice::default();
     }
-    ambition_demo_smash::SmashStageChoice::ALL
+    ambition_demo_smash::SmashStageChoice::all()
         .into_iter()
         .find(|stage| stage.label().to_ascii_lowercase() == asked)
         .unwrap_or_else(|| {
-            let known: Vec<String> = ambition_demo_smash::SmashStageChoice::ALL
+            let known: Vec<String> = ambition_demo_smash::SmashStageChoice::all()
                 .iter()
                 .map(|stage| format!("`{}`", stage.label().to_ascii_lowercase()))
                 .collect();
@@ -828,7 +828,7 @@ fn run_scenarios(seeds: usize) {
     // from the session's `RoomGeometry` (as `stage_bounds()` does); it is not
     // done yet.
     let stage = resolved_stage();
-    if stage != ambition_demo_smash::SmashStageChoice::Flat {
+    if stage.room_id() != ambition_demo_smash::SMASH_STAGE_ROOM_ID {
         panic!(
             "--scenarios cannot run on `{}`: the ledge-hang fixtures anchor to \
              Flat's platform regardless of --stage, so every hang would be \

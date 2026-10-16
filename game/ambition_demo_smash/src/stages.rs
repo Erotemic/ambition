@@ -4,8 +4,8 @@
 //! The pack states the room every stage shares (its size, the place a lone
 //! visitor lands and the blast margins) and the blocks of each stage. A stage
 //! is a game's content, so the demo owns the schema and no engine capability
-//! reads it. The Rust names only which stages the select screen offers
-//! ([`SmashStageChoice`](crate::SmashStageChoice)).
+//! reads it. The select screen offers the stages `offered` names
+//! ([`SmashStageChoice`](crate::SmashStageChoice)), so no Rust names a stage.
 
 use std::collections::BTreeMap;
 
@@ -27,6 +27,9 @@ pub struct SmashStages {
     pub blast: BlastMargins,
     /// Where and how a knocked-out fighter comes back.
     pub respawn: Respawn,
+    /// The room ids the select screen offers, in its cycle order. The first
+    /// is the default.
+    pub offered: Vec<String>,
     /// Each stage by room id.
     pub stages: BTreeMap<String, StageRoom>,
 }
@@ -54,11 +57,13 @@ pub struct Respawn {
     pub platform: (f32, f32),
 }
 
-/// One stage: its name and its blocks.
+/// One stage: its name, its button label and its blocks.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StageRoom {
     pub name: String,
+    /// What the select screen's stage button shows.
+    pub label: String,
     pub blocks: Vec<StageBlock>,
 }
 
@@ -122,9 +127,22 @@ impl SmashStages {
                 self.respawn.seat_spacing
             ));
         }
-        for id in crate::SmashStageChoice::ALL.map(crate::SmashStageChoice::room_id) {
-            if !self.stages.contains_key(id) {
-                problems.push(format!("`stages` has no `{id}`, which the select screen offers"));
+        if self.offered.is_empty() {
+            problems.push("`offered` is empty; the select screen offers at least one stage".to_string());
+        }
+        let mut labels = std::collections::BTreeSet::new();
+        for (index, id) in self.offered.iter().enumerate() {
+            if self.offered[..index].contains(id) {
+                problems.push(format!("`offered[{index}]` repeats `{id}`; the stage button would visit it twice"));
+            }
+            match self.stages.get(id) {
+                None => problems.push(format!("`offered[{index}]` is `{id}`, and `stages` has no `{id}`")),
+                // `ladder_rig --stage <label>` finds a stage by its label.
+                Some(stage) if !labels.insert(stage.label.to_ascii_lowercase()) => problems.push(format!(
+                    "`stages.{id}.label` is `{}`, which another offered stage shows",
+                    stage.label
+                )),
+                Some(_) => {}
             }
         }
         for (id, stage) in &self.stages {
@@ -229,6 +247,29 @@ mod tests {
         };
         assert!(refused.contains("data/smash_stages.ron"), "the refusal names the file: {refused}");
         assert!(refused.contains("`stages` has no `smash_narrow_stage`"), "the refusal names the field: {refused}");
+
+        // A new stage is a row and its id in `offered`: it is in the select
+        // screen's cycle with its own label, and no Rust names it.
+        let offered = r#"offered: ["smash_stage", "smash_platform_stage", "smash_narrow_stage"],"#;
+        assert_eq!(authored.matches(offered).count(), 1, "the probe edits the offered list");
+        let probe = r#"    stages: {
+        "probe_stage": (name: "Probe", label: "Probe", blocks: [
+            (name: "probe_platform", kind: Solid, at: (80.0, 300.0), size: (480.0, 32.0)),
+        ]),"#;
+        let fourth = authored
+            .replace(offered, r#"offered: ["smash_stage", "smash_platform_stage", "smash_narrow_stage", "probe_stage"],"#)
+            .replacen("    stages: {", probe, 1);
+        let more = stages_of(&fourth);
+        assert_eq!(more.offered.last().map(String::as_str), Some("probe_stage"));
+        assert_eq!(more.stages["probe_stage"].label, "Probe");
+        assert_eq!(crate::stage_room(&more, "probe_stage").world.blocks[0].name, "probe_platform");
+        // Two offered stages that show one label are one `--stage` name.
+        let twins = authored.replace(r#"label: "Narrow","#, r#"label: "Flat","#);
+        let refused = match compile(&twins) {
+            Ok(_) => panic!("two offered stages with one label were admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`stages.smash_narrow_stage.label` is `Flat`"), "the refusal names the field: {refused}");
 
         // The respawn is the file's too: an edit is the next start's rise and
         // protection, and a negative clock is refused with its field named.

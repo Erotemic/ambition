@@ -264,6 +264,9 @@ pub fn respawn_placement(stage_centre: Vec2, seat: usize) -> Vec2 {
     )
 }
 
+// The room ids of three rows of `smash_stages.ron`. The tools and the tests
+// name a stage by them; the select screen and the match read `offered`.
+
 /// Stable room id for the stage.
 pub const SMASH_STAGE_ROOM_ID: &str = "smash_stage";
 
@@ -2507,22 +2510,22 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
     app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::audio(&crate::smash_pack::PACK, SMASH_EXPERIENCE));
 }
 
-/// Which stage the next match is played on.
+/// Which stage the next match is played on: one of the room ids the pack's
+/// `smash_stages.ron` offers.
 ///
 /// A resource because the preparation source (`PlatformerExperienceAuthoring::
 /// install`) may read the provider's own resources; no engine change needed.
 ///
-/// Defaults to the flat [`smash_stage`].
-#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum SmashStageChoice {
-    /// The original single-surface stage. Older recorded spacing, recovery and
-    /// edgeguard numbers were measured here.
-    #[default]
-    Flat,
-    /// [`smash_platform_stage`] — the same floor with three drop-through tiers.
-    Platforms,
-    /// [`smash_narrow_stage`] — two thirds the ground, the same blast envelope.
-    Narrow,
+/// Defaults to the first offered stage.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SmashStageChoice {
+    room: &'static str,
+}
+
+impl Default for SmashStageChoice {
+    fn default() -> Self {
+        Self::all()[0]
+    }
 }
 
 /// How many stocks this match gives each fighter.
@@ -2566,45 +2569,45 @@ impl SmashStockChoice {
         let here = Self::ALL
             .iter()
             .position(|count| *count == self)
-            .expect("every variant is in ALL — asserted by `all_lists_every_variant`");
+            .expect("every variant is in ALL — asserted by `all_lists_every_stock_count`");
         Self::ALL[(here + 1) % Self::ALL.len()]
     }
 }
 
 impl SmashStageChoice {
-    /// Every stage, in cycle order.
+    /// Every offered stage, in cycle order (`offered` in `smash_stages.ron`).
     ///
-    /// Consumers (the select button, `ladder_rig --stage`) resolve through this
-    /// list, so a new variant reaches all of them.
-    pub const ALL: [Self; 3] = [Self::Flat, Self::Platforms, Self::Narrow];
+    /// Consumers (the select button, `ladder_rig --stage`, the prepared match)
+    /// resolve through this list, so a new row reaches all of them.
+    pub fn all() -> Vec<Self> {
+        crate::stages::smash_stages().offered.iter().map(|room| Self { room: room.as_str() }).collect()
+    }
+
+    /// The offered stage `room_id`, or `None` when the pack does not offer it.
+    pub fn find(room_id: &str) -> Option<Self> {
+        Self::all().into_iter().find(|stage| stage.room == room_id)
+    }
+
+    /// The offered stage `room_id`. Panics when the pack does not offer it.
+    pub fn of(room_id: &str) -> Self {
+        Self::find(room_id).unwrap_or_else(|| panic!("`smash_stages.ron` does not offer `{room_id}`"))
+    }
 
     /// The room this choice starts in.
     pub fn room_id(self) -> &'static str {
-        match self {
-            SmashStageChoice::Flat => SMASH_STAGE_ROOM_ID,
-            SmashStageChoice::Platforms => SMASH_PLATFORM_STAGE_ROOM_ID,
-            SmashStageChoice::Narrow => SMASH_NARROW_STAGE_ROOM_ID,
-        }
+        self.room
     }
 
-    /// What a stage button would show.
+    /// What a stage button shows.
     pub fn label(self) -> &'static str {
-        match self {
-            SmashStageChoice::Flat => "Flat",
-            SmashStageChoice::Platforms => "Platforms",
-            SmashStageChoice::Narrow => "Narrow",
-        }
+        &crate::stages::smash_stages().stages[self.room].label
     }
 
     /// The next stage in the cycle, for a single button that walks them.
-    ///
-    /// Derived from [`Self::ALL`], so the cycle order has one authority.
     pub fn next(self) -> Self {
-        let here = Self::ALL
-            .iter()
-            .position(|stage| *stage == self)
-            .expect("every variant is in ALL — asserted by `all_lists_every_variant`");
-        Self::ALL[(here + 1) % Self::ALL.len()]
+        let all = Self::all();
+        let here = all.iter().position(|stage| *stage == self).expect("a choice is made from `all`");
+        all[(here + 1) % all.len()]
     }
 }
 
@@ -2620,7 +2623,7 @@ fn smash_prepared_session_world(
     use ambition_platformer2d::runtime::demo_fixture::{RoomSet, StartingCharacter};
 
     let choice = *choice;
-    let rooms = vec![smash_stage(), smash_platform_stage(), smash_narrow_stage()];
+    let rooms: Vec<RoomSpec> = SmashStageChoice::all().into_iter().map(|stage| smash_stage_room(stage.room_id())).collect();
     let started = rooms
         .iter()
         .find(|room| room.id == choice.room_id())

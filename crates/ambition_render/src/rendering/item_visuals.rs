@@ -328,7 +328,7 @@ pub fn sync_ground_item_visuals(
             (
                 GroundItemVisual(ground.item),
                 sprite,
-                Transform::from_translation(translation),
+                Transform::from_translation(translation).with_rotation(Quat::from_rotation_z(ground.roll)),
                 Name::new("Ground item visual"),
             ),
         );

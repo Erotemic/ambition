@@ -13,7 +13,6 @@
 | [`extension`](src/extension.rs) | The projectile domain's extension request adapter. |
 | [`kind`](src/kind.rs) | Named projectile kinds + their authored stat tables (Ambition's basic kit). |
 | [`materialize`](src/materialize.rs) | Projectile request → ECS materialization. |
-| [`portal_transit`](src/portal_transit.rs) | The core ([`try_projectile_portal_transit`]) is pure + deterministic — no Bevy, no RNG — so the transit geometry (does it cross? where does it pop out? which way does momentum rotate?) is headless-testable. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_projectiles`. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`spawn`](src/spawn.rs) | Cooldown + resource-meter gating for spawning new projectiles. |
@@ -21,7 +20,7 @@
 | [`state`](src/state.rs) | Per-player projectile controller state: charge machine, motion-input buffer, and tracked unlocks. |
 | [`visual`](src/visual.rs) | Projectile visual identity — an open, content-owned art registry. |
 
-_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

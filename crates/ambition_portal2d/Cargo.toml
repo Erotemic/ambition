@@ -44,7 +44,7 @@ ambition_extension_host = { path = "../ambition_extension_host" }
 ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 ambition_portal_port = { path = "../ambition_portal_port" }
 
-[dev-dependencies]
-# The extension host reads the logical tick and gameplay time; the adapter's
-# tests in a tiny App give it both.
+# The sim tick (`SimTick`), which the transit trace names. The extension
+# host reads the logical tick and gameplay time too; the adapter's tests in
+# a tiny App give it both.
 ambition_time = { path = "../ambition_time" }

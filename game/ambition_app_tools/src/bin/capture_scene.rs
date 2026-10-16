@@ -91,10 +91,11 @@ struct SceneCaptureConfig {
     /// character with a transform is photographed, and its change filmed.
     wears: Vec<(String, String, u64)>,
     /// Put the primary player at a world point on a sim tick
-    /// (`--player-at X,Y[@TICK]`), at rest, one time for each use of the
-    /// option: a body that stands in a portal's plane can be photographed
-    /// there, and a walk through it can be filmed step by step.
-    player_at: Vec<(Vec2, u64)>,
+    /// (`--player-at X,Y[@TICK][:VX,VY]`), at rest or launched, one time for
+    /// each use of the option: a body that stands in a portal's plane can be
+    /// photographed there, a walk through it can be filmed step by step, and
+    /// the seam lab launches the robot through a pair.
+    player_at: Vec<(Vec2, u64, Vec2)>,
     /// A `--player-at` placement also puts the body in the climbing mode
     /// (`--player-climbs`). No capture key reaches the simulation, so a body
     /// on a ladder is photographed with no body that climbs onto it. The mode
@@ -318,9 +319,10 @@ OPTIONS:
                         tick TICK, as a blow that lands does; repeat for more
                         blows. What a boss does when it is hurt is
                         photographed with no player that swings.
-    --player-at X,Y[@TICK]
+    --player-at X,Y[@TICK][:VX,VY]
                         put the player at world X,Y (its centre) on sim tick
-                        TICK [default: 60], at rest; repeat for more places
+                        TICK [default: 60], at rest or moving at VX,VY px/s;
+                        repeat for more places
     --player-climbs     a --player-at placement also puts the body in the
                         climbing mode, to photograph it on a ladder; give a
                         point in a climbable region
@@ -777,7 +779,7 @@ fn hold_player_controls(
 const PLAYER_CLIMBS_HOLD_TICKS: u64 = 3;
 
 /// `--player-at`: put the primary player at the configured point on its tick,
-/// at rest, through the motion authority (ADR 0024). A sim system that names
+/// at rest or launched, through the motion authority (ADR 0024). A sim system that names
 /// its tick, as [`place_player_beside`] is.
 fn place_player_at(
     config: Res<SceneCaptureConfig>,
@@ -792,8 +794,8 @@ fn place_player_at(
     // and that contact is one tick behind a placement.
     let hold = if config.player_climbs { PLAYER_CLIMBS_HOLD_TICKS } else { 0 };
     let now = tick.get();
-    let Some((at, arrival)) =
-        config.player_at.iter().copied().find(|(_, arrival)| (*arrival..=*arrival + hold).contains(&now))
+    let Some((at, arrival, vel)) =
+        config.player_at.iter().copied().find(|(_, arrival, _)| (*arrival..=*arrival + hold).contains(&now))
     else {
         return;
     };
@@ -801,7 +803,12 @@ fn place_player_at(
         return;
     };
     let mut clusters = clusters.as_clusters_mut();
-    ae::movement::transit_body(&mut model, &mut clusters, ae::Vec2::new(at.x, at.y), ae::movement::TransitVelocity::Zero);
+    let launch = if vel == Vec2::ZERO {
+        ae::movement::TransitVelocity::Zero
+    } else {
+        ae::movement::TransitVelocity::Set(ae::Vec2::new(vel.x, vel.y))
+    };
+    ae::movement::transit_body(&mut model, &mut clusters, ae::Vec2::new(at.x, at.y), launch);
     if config.player_climbs {
         // The climbing shape is the standing shape, so the mode is set with no
         // change of the body's size.
@@ -1344,7 +1351,7 @@ impl SceneCaptureConfig {
         let mut portal_effect_off = false;
         let mut tick_per_frame = false;
         let mut guards: Vec<GuardAt> = Vec::new();
-        let mut player_at: Vec<(Vec2, u64)> = Vec::new();
+        let mut player_at: Vec<(Vec2, u64, Vec2)> = Vec::new();
         let mut player_climbs = false;
         let mut player_holds: Vec<(HeldControls, u64)> = Vec::new();
         let mut body_warp = None;
@@ -1527,20 +1534,33 @@ impl SceneCaptureConfig {
                     2
                 }
                 "--player-at" => {
-                    let bad = |value: &str| format!("--player-at wants X,Y[@TICK], got '{value}'");
+                    let bad = |value: &str| format!("--player-at wants X,Y[@TICK][:VX,VY], got '{value}'");
                     let Some(value) = args.get(i + 1) else {
-                        return Err("--player-at requires X,Y[@TICK]".to_string());
+                        return Err("--player-at requires X,Y[@TICK][:VX,VY]".to_string());
                     };
-                    let (point, tick) = match value.split_once('@') {
+                    let (place, vel) = match value.split_once(':') {
+                        Some((place, vel)) => {
+                            let (vx, vy) = vel.split_once(',').ok_or_else(|| bad(value))?;
+                            (
+                                place,
+                                Vec2::new(
+                                    vx.trim().parse().map_err(|_| bad(value))?,
+                                    vy.trim().parse().map_err(|_| bad(value))?,
+                                ),
+                            )
+                        }
+                        None => (value.as_str(), Vec2::ZERO),
+                    };
+                    let (point, tick) = match place.split_once('@') {
                         Some((point, tick)) => (point, tick.parse::<u64>().map_err(|_| bad(value))?),
-                        None => (value.as_str(), DEFAULT_ARRIVAL_TICK),
+                        None => (place, DEFAULT_ARRIVAL_TICK),
                     };
                     let (x, y) = point.split_once(',').ok_or_else(|| bad(value))?;
                     let at = Vec2::new(
                         x.trim().parse().map_err(|_| bad(value))?,
                         y.trim().parse().map_err(|_| bad(value))?,
                     );
-                    player_at.push((at, tick));
+                    player_at.push((at, tick, vel));
                     2
                 }
                 "--player-climbs" => {

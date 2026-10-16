@@ -136,6 +136,9 @@ pub fn sync_portal_body_pieces(
             &Sprite,
             Option<&Anchor>,
             &Transform,
+            // The portal hides this body already (the far-side compositor
+            // draws it by its pieces).
+            Has<crate::source_visibility::PortalSourceHidden>,
         ),
         With<PortalSceneBody>,
     >,
@@ -151,7 +154,7 @@ pub fn sync_portal_body_pieces(
     }
     let drawn_before = std::mem::take(&mut *drawn_last_frame);
     let by_room = frames.portals_by_room(portals.iter());
-    for (source_body, kin, transit, roll, sprite, source_anchor, source_transform) in &body_visuals {
+    for (source_body, kin, transit, roll, sprite, source_anchor, source_transform, portal_hidden) in &body_visuals {
         // Outside transit the real character sprite shows whole; the pieces are a
         // transit-only replacement. Withdraw the reason instead of writing
         // `Visibility`, so the far-side compositor's hide is not overruled:
@@ -205,7 +208,10 @@ pub fn sync_portal_body_pieces(
         // own sprite is hidden only once its pieces were drawn the frame
         // before; until then it shows, whole. Cut on the frame it first
         // crossed, the first body of a session vanished for that frame
-        // (measured with the seam lab, every pair, every speed).
+        // (measured with the seam lab, every pair, every speed). A body the
+        // portal hides already is drawn by pieces now (the far-side
+        // compositor's), and stays hidden.
+        let pieces_were_drawn = drawn_before.contains(&kin.body) || portal_hidden;
         let through = pieces.through;
         let (enter, exit) = match through {
             Some(through) => (through.enter, through.exit),
@@ -315,7 +321,7 @@ pub fn sync_portal_body_pieces(
 
                 // The pieces ARE the body this frame — the whole real sprite would
                 // re-add the sunk slice (the pop this path exists to remove).
-                if drawn_before.contains(&kin.body) {
+                if pieces_were_drawn {
                     commands
                         .entity(source_body)
                         .insert(crate::source_visibility::PortalTransitHidden);
@@ -324,7 +330,7 @@ pub fn sync_portal_body_pieces(
                 drew_clipped = true;
             }
         }
-        trace(match (drew_clipped, through.is_some(), drawn_before.contains(&kin.body)) {
+        trace(match (drew_clipped, through.is_some(), pieces_were_drawn) {
             (true, _, false) => "pieces made: the body shows whole",
             (true, true, true) => "cut",
             (true, false, true) => "near piece only: nothing has crossed",

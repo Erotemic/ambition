@@ -39,6 +39,18 @@
         label: "apple",
         expiry_vfx: None,
     ),
+    // The seam gauge (renderer target `seam_gauge`) as a shot: the portal
+    // seam lab fires it through portal pairs (`capture_scene --shot`).
+    "seam_gauge": (
+        source: Image(
+            path: "sprites/props/seam_gauge.png",
+        ),
+        size: FixedWidth(28.0),
+        rotation: VelocityAligned,
+        debug_tint: (1.0, 0.0, 1.0, 1.0),
+        label: "seam gauge",
+        expiry_vfx: None,
+    ),
     // The arrow of the plain ranged styles (`RangedStyle::default_visual`).
     "arrow": (
         source: Sheet(

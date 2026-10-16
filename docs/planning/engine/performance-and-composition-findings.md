@@ -406,17 +406,16 @@ compares the two on held keys. Verified (MEASURED, `probe/mary_o_1_1_pressall`):
 all allocations of a standalone Mary-O frame 23,407 → 4,128; the input update
 19,222 → 178. The hub (`probe/basement_enemies_pressall`, what the phone
 runs): 46,949 → 15,257, the input update 31,942 → 258, the capture
-pixel-identical.
+pixel-identical. Tests: `ambition_input` 152, Mary-O 95, Sanic 42. Left for
+an upstream PR: skip the pass in `process_actions` itself, and look up
+without boxing (`hashbrown::Equivalent` on `&dyn Buttonlike`).
 
 On the phone (MEASURED, the existing profiles, `symbolize_android_profile.py
 --under handle_clashes`): 4.5% of all process samples in the Mary-O-only run
 (3.1% with every game) were inside `handle_clashes`, about 8% of the
 saturated main thread. REASONED: that is the CPU this fix removes on the
-phone; a new phone run will measure it. Tests: `ambition_input` 152, Mary-O 95, Sanic 42. Left for an
-upstream PR: skip the pass in `process_actions` itself, and look up without
-boxing (`hashbrown::Equivalent` on `&dyn Buttonlike`). The probe counts
-allocations; their time on the phone is inside the 5.2% of `mimalloc` and the
-3.1% of `alloc`.
+phone; a new phone run will measure it. The probe counts allocations; their
+time on the phone is inside the 5.2% of `mimalloc` and the 3.1% of `alloc`.
 
 Idle re-runs (MEASURED, `probe/mary_o_1_1_v2`, `probe/basement_enemies_v2`):
 standalone Mary-O makes 26.0k allocations a frame in all spans, 19.2k of them

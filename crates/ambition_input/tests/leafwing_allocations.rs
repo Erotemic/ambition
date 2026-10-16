@@ -10,7 +10,6 @@
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use ambition_input::Platformer2dInputActionMonolith as Action;
 use ambition_input::{BindingRecipe, PresetId};
@@ -22,15 +21,17 @@ use leafwing_input_manager::user_input::updating::CentralInputStore;
 
 struct Counting;
 
-static ALLOCS: AtomicU64 = AtomicU64::new(0);
+// Per thread: only the thread that measures counts, and two tests on two
+// threads cannot add to each other's count.
 thread_local! {
     static COUNTING: Cell<bool> = const { Cell::new(false) };
+    static ALLOCS: Cell<u64> = const { Cell::new(0) };
 }
 
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         if COUNTING.with(Cell::get) {
-            ALLOCS.fetch_add(1, Ordering::Relaxed);
+            ALLOCS.with(|n| n.set(n.get() + 1));
         }
         unsafe { System.alloc(layout) }
     }
@@ -39,7 +40,7 @@ unsafe impl GlobalAlloc for Counting {
     }
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, size: usize) -> *mut u8 {
         if COUNTING.with(Cell::get) {
-            ALLOCS.fetch_add(1, Ordering::Relaxed);
+            ALLOCS.with(|n| n.set(n.get() + 1));
         }
         unsafe { System.realloc(ptr, layout, size) }
     }
@@ -49,11 +50,11 @@ unsafe impl GlobalAlloc for Counting {
 static GLOBAL: Counting = Counting;
 
 fn count<R>(f: impl FnOnce() -> R) -> (u64, R) {
-    ALLOCS.store(0, Ordering::Relaxed);
+    ALLOCS.with(|n| n.set(0));
     COUNTING.with(|c| c.set(true));
     let result = f();
     COUNTING.with(|c| c.set(false));
-    (ALLOCS.load(Ordering::Relaxed), result)
+    (ALLOCS.with(Cell::get), result)
 }
 
 #[test]

@@ -5,7 +5,8 @@ what keeps Mary-O and Sanic from paying for Ambition. **Asked by:** Jon,
 2026-10-15/16 ("optimize by finding more elegant patterns, instead of chasing
 milliseconds"; "run [approximations] by me first"; "Mary-O and Sanic [must] not
 get bogged down by everything else that is in Ambition"). **Status:** an 8-hour
-run started 2026-10-16T04:40Z; this page is its live record.
+run started 2026-10-16T04:40Z; from 13:30Z the target is the hub with Mary-O
+("Hub first" below). This page is the live record.
 
 **Related pages (they own their plans; this page ranks across them):**
 [system-composition-audit](system-composition-audit.md) (S1-S6),
@@ -17,6 +18,96 @@ run started 2026-10-16T04:40Z; this page is its live record.
 Each claim is **MEASURED** (a run, a census, a profile, or a read of source)
 or **REASONED** (inferred). A number here has the run that made it; run it
 again before you quote it.
+
+## Hub first (2026-10-16, from 13:30Z)
+
+**Target, from Jon:** the four-game app with Mary-O active, on the phone
+("It needs to run fast when I open up the main 4 game app and play maryo").
+Standalone Mary-O is a baseline for diagnosis only. D12 is approved at low
+priority. Priority order: P12/P13, then P1/S2/S2b/P3, P5, F19, the hub's frame
+executor, D12, the phone render scale. No tick-rate cut, no physics rewrite,
+no quality cut in place of a fix.
+
+**The phone after last night's fixes** (MEASURED, `android-all-maryo-1-1-morning`
+and `-morning3`, build `f66b3a8aa`, all fixes in it, no throttling in the
+cpufreq logs; p50 per 5 s window):
+
+| scene | last night (`android-all-maryo-1-1`) | this morning |
+| --- | ---: | ---: |
+| hub room (`hub_clean`) | 35-45 ms | 13-17 ms |
+| Mary-O 1-1 in the hub | 24-33 ms | 17 ms at entry, 23-33 ms during play, 36-46 ms in 1-2 |
+
+The first morning run recorded the hub room only (Mary-O started after the
+recording window). `AMBITION_BOOT_ROUTE=mary_o_gameplay` now boots the hub in
+Mary-O, so a phone profile cannot miss it (`profile_android.sh` records it).
+
+**Reconciliation:**
+
+| item | state | hub effect |
+| --- | --- | --- |
+| leafwing clash pass (F13) | done | the hub's input allocations 31,942 → 258 a frame |
+| star re-fold, parallax respawn, room isolation, SFX, HUD, seat bindings (F14-F21) | done | measured on the hub probe; not alone on the phone |
+| rigged part slots and label colours written only on a change (F26) | done 10-16 | ~136 slot `Transform`/`Sprite` writes a frame, which woke propagation and extraction |
+| LDtk respawn clean with a kept query state (F25) | done 10-16, replaces D5 | 1.04% of phone samples |
+| ~9.4k allocations a frame with no system owner (old item 7) | resolved: tracing spans of the `trace` feature (F27) | none in the APK |
+| P1/S2b: foreign games and capabilities while Mary-O plays | open; largest measured lever (F28) | ~300 systems |
+| P5 read-models per frame | open | the `ambition_sim_view` rebuilds are ~0.9% of phone samples |
+| F19 live-room lookups | open | `room_instance.rs:172` and `room_graph.rs` ~1.9% |
+| repertoire re-fold in the hub | open, small | 1.3% of phone samples; 0.04 re-folds a frame on the desktop, so room loads and power-ups, not steady state |
+| D12 | approved, low priority | none in the hub (its simulation is GGRS, serial already) |
+
+**Objection to the order, from the code and the phone:** the remaining P12
+items are small on the phone; the cost is in how many systems run and in
+third-party systems (F25, F28). So P1/S2b goes before the rest of P12.
+Repeat allocations are no longer the main cost: the hub with Mary-O makes
+~4,900 a frame of its own (desktop probe, without the probe and the spans),
+near standalone Mary-O's 4,128.
+
+### F25 — Where the phone's main thread goes, hub with Mary-O
+
+MEASURED (`android-all-maryo-1-1-morning3`, main thread tid 28006, 83% busy):
+50% of all samples are the main thread; 30% are main-thread samples with no
+frame of ours (framework only). Of these, by the system they are in
+(`scripts` helpers in the run log): the executor's own loop
+(`is_apply_deferred`, `try_run_schedule`, `run_schedule`) ~6.6%, `avian2d`
+2.0%, `bevy_ui` layout and text 1.8%, LDtk `clean_respawn_entities` 1.04%,
+Yarn `fetch_resources` 0.77%, `bevy_light` directional-light visibility
+0.49%, transforms and visibility ~1.2%. Rollback: the shipped one-player
+session is a sync test with `check_distance: 0`, so GGRS saves nothing per
+tick; `SaveWorld`'s 1,146 systems do not run each tick. The archetype count
+does not grow during idle play (2,049 after 15 s, desktop, new
+`[frame-census]` columns); each query that is made new each run matches all of
+them, which is the cost of the LDtk, Yarn and `bevy_light` systems. LDtk is
+fixed (`app::ldtk_clean`). Yarn's system and set are private to the crate: an
+upstream fix (keep the `SystemState`) or a fork, for Jon.
+
+### F26 — Rigged part slots were written every frame
+
+MEASURED (desktop probe, hub Mary-O route, 893 frames): `write_slots` wrote
+each slot's `rect`, `custom_size`, anchor and `Transform` each frame, ~136
+entities, with no change; the impostor root did the same. That gave 232
+`TransformTreeChanged` and 151 `GlobalTransform` changes a frame and sprite
+re-extraction. Now each field is written only when it differs.
+
+### F27 — The schedule-level allocations are tracing spans
+
+MEASURED (`AMBITION_PERF_PROBE_TRACE`, hub Mary-O route): of ~9,550
+allocations a frame inside schedule spans with no system span, 3,660 are the
+`name` field format and 3,400 are `Span::new` (one span per system run), 1,500
+the capture tool's loop. Only a build with Bevy's `trace` feature (probe,
+Tracy) makes them; tracing is 0.2% of the phone profile.
+
+### F28 — Foreign systems that run while Mary-O plays in the hub
+
+MEASURED (`[census] systems_ran`, desktop, hub Mary-O route; 1,599 of 2,110
+registered run): `ambition_content` 81, `ambition_demo_smash` 49, portals 39,
+`ambition_boss_encounter` 32, `bevy_pbr`+`bevy_light` 33, `avian2d` 20,
+`bevy_egui` 16, conversation and Yarn ~23, `ambition_demo_sanic` 4: ~300.
+REASONED cost on the phone: ~20 ms of framework time over ~2,200 system runs a
+frame is ~9 µs a run, so ~3-5 ms a frame. S2b step 1 (`AMBITION_HUB_GAMES`)
+removes `ambition_content`'s at build time; the shipped app needs them dormant
+at run time instead (P1/S2: a game's systems in its own schedules, run only
+while its route is live), so the hub can still switch games.
 
 ## Summary (2026-10-16)
 
@@ -104,18 +195,13 @@ again before you quote it.
 
 ## Next, in order
 
-1. A phone run of the Mary-O-only hub (`profile_android.sh`, as 10-16) to
-   measure tonight's fixes where they matter; compare with
-   `android-maryo-only-1-1b` by `--thread` and `--under`.
-2. D12: a yes for the serial executor in the standalone games (F22); `serial`,
-   not `frame-serial`, because the saving is in the `Fixed*` schedules.
-3. P1 C1: the boss and wielded extension phases installed by their owning
-   capability (~49 systems a frame in Mary-O and Sanic), then C2-C6.
-4. P12: the body step marks only real changes (F20); then the change-driven
-   read-models (P5) can skip.
-5. F19: the live-room lookups as one resource, not ~280 query parameters.
-6. F24: one composed collision world per room per tick, then a layered view.
-7. The hub's ~9.4k allocations a frame with no system owner (F13, open).
+1. P1/S2: the active game's systems only. A game's session systems (and
+   each capability's) in schedules that the hub runs only while that game's
+   route is live; a proposal with the measured system counts first (F28).
+2. A phone run with `AMBITION_BOOT_ROUTE=mary_o_gameplay` to measure F25-F26.
+3. Yarn `fetch_resources` and `bevy_light`: upstream fixes or a fork (Jon).
+4. P5 and F19 in the hub; the repertoire re-fold at room load.
+5. D12, small, when the rest allows.
 
 ## How to answer a cost question
 
@@ -241,7 +327,7 @@ MEASURED. `serialize_frame_schedules`
 `Fixed*`. Standalone games simulate in `FixedUpdate`. `dev/bevy_idle_systems`:
 an idle system costs about 0.016 us on the single-threaded executor and 1.7-12 us
 on the multi-threaded one. The executor policy has a second owner
-(`game/ambition_app/src/app/plugins.rs:355`, an env switch the demos never reach).
+(`game/ambition_app/src/app/plugins.rs:356`, an env switch the demos never reach).
 Worse: the windowed demo hosts did not call the policy at all; only the
 headless foundation and `game/ambition_app/src/app/visible_composition.rs`
 did. So windowed Mary-O, Sanic and Smash run `First`..`Last` and `Fixed*` on

@@ -28,6 +28,7 @@
 pub mod alloc;
 pub mod changes;
 pub mod churn;
+pub mod traces;
 
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -50,7 +51,13 @@ pub const SKIP_ENV: &str = "AMBITION_PERF_PROBE_SKIP_FRAMES";
 const TOP: usize = 10;
 
 /// The `LogPlugin::custom_layer` that feeds [`CountingAlloc`] the span stack.
+///
+/// It also reads [`traces::TRACE_ENV`]: the log plugin builds before the first
+/// span, so each span label is checked against the patterns.
 pub fn log_layer(_app: &mut App) -> Option<bevy::log::BoxedLayer> {
+    if let Some((patterns, every)) = traces::configure_from_env() {
+        eprintln!("[census] config t=0.000 perf_probe_trace={} every={every}", patterns.join("|"));
+    }
     Some(Box::new(SpanStackLayer))
 }
 
@@ -341,6 +348,23 @@ fn write_csvs(
         );
     }
     write_atomically(dir.join("changes_by_site.csv"), &text);
+
+    // Whole run, not from the baseline: a capture is rare, and it stands for
+    // `every` allocations.
+    let (chains, every) = traces::snapshot();
+    if !chains.is_empty() {
+        let frames = now.frames.max(1);
+        let mut text = String::from("captures,est_allocs_per_frame,chain\n");
+        for (chain, count) in chains {
+            let _ = writeln!(
+                text,
+                "{count},{:.1},{}",
+                (count * every) as f64 / frames as f64,
+                csv_field(&chain)
+            );
+        }
+        write_atomically(dir.join("alloc_traces.csv"), &text);
+    }
 }
 
 #[cfg(test)]

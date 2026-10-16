@@ -88,9 +88,11 @@ fn current_slot() -> u32 {
 
 #[inline]
 fn record(bytes: usize) {
-    let counters = &COUNTERS[current_slot() as usize];
+    let slot = current_slot();
+    let counters = &COUNTERS[slot as usize];
     counters.allocs.fetch_add(1, Relaxed);
     counters.bytes.fetch_add(bytes as u64, Relaxed);
+    super::traces::on_alloc(slot);
 }
 
 /// A global allocator that counts each allocation into the active span.
@@ -197,6 +199,7 @@ impl Labels {
         debug_assert!(slot >= FIRST_LABEL);
         self.names.push(label.to_owned());
         self.slot_of.insert(label.to_owned(), slot);
+        super::traces::note_label(slot, label);
         slot
     }
 }

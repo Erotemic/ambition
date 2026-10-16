@@ -299,9 +299,10 @@ Steps that remain as rules:
   `sanic_rules`), and the schemas a demo registered once at start, which a
   restater states again at the publication: each demo's `room_rules`, its
   `music_registry` and `sfx_registry`, and `prop_sheets`, `platform_looks`,
-  `projectile_visuals`, `world_item_art`, `moveset` and `smash_fighter`
-  (a cast revision, activated between sessions); an edit to another schema
-  (the character catalog) is refused and costs a restart.
+  `projectile_visuals`, `world_item_art`, and the cast (`character_catalog`,
+  `moveset`, `smash_fighter`: one cast revision with its catalog). Every
+  schema of the three demo packs takes part; a schema a future demo reads
+  at start and gives no restater is refused and costs a restart.
   Each published generation is leaked (a reader holds `&'static` rows), about
   0.3 MB of source for Smash for each saved edit, in a build that reads
   off disk only. Open: the other schemas of a demo pack, which a demo reads

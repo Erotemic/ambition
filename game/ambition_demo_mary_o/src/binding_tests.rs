@@ -232,3 +232,21 @@ fn a_carried_component_for_a_character_the_pack_does_not_state_is_refused() {
         .carrying::<crate::snake::SnakeShell>("solid_snak")
         .register(&mut app);
 }
+
+/// ⭐ Every schema of the demo's pack takes part in its live reload: a host
+/// that composes the demo watches the pack, and each schema is read where it
+/// is used or stated again at the publication. A schema added to the pack
+/// with neither is named here, before its edit is refused at run time.
+#[test]
+fn every_schema_of_the_pack_reloads_between_sessions() {
+    use bevy::prelude::*;
+    let mut app = App::new();
+    app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
+    app.add_plugins(ambition_platformer2d::load::AmbitionLoadPlugin);
+    app.add_plugins(crate::provider::MaryOExperiencePlugin);
+    let unwatched = app
+        .world()
+        .resource::<ambition_platformer2d::content::live_reload::EmbeddedPackWatches>()
+        .unwatched(&crate::pack::PACK);
+    assert!(unwatched.is_empty(), "these schemas cost a restart: {unwatched:?}");
+}

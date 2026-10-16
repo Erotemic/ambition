@@ -464,31 +464,48 @@ pub mod content {
             provider: &str,
             default_character: Option<&str>,
         ) -> PackCast {
-            use ambition_characters::actor::character_catalog::{
-                lowered_catalog, CharacterCatalogFragment,
-            };
+            use ambition_characters::actor::character_catalog::lowered_catalog;
             let pack = self.prepared();
-            let catalog = lowered_catalog(pack).unwrap_or_else(|| {
-                panic!(
-                    "the embedded pack `{}` states no cast: declare a `character_catalog` \
-                     source in its manifest",
-                    pack.id.0
-                )
-            });
-            let fragment = CharacterCatalogFragment::from_prepared(
-                format!("{}:character_catalog", pack.id.0),
-                provider,
-                default_character,
-                catalog.clone(),
-            )
-            .unwrap_or_else(|error| panic!("the embedded pack `{}`: {error}", pack.id.0));
+            assert!(
+                lowered_catalog(pack).is_some(),
+                "the embedded pack `{}` states no cast: declare a `character_catalog` \
+                 source in its manifest",
+                pack.id.0
+            );
+            let fragment = cast_fragment(pack, provider, default_character, None)
+                .unwrap_or_else(|error| panic!("the embedded pack `{}`: {error}", pack.id.0));
             PackCast {
                 pack: self,
                 provider: provider.to_string(),
+                default_character: default_character.map(str::to_string),
+                actor_default_abilities: None,
                 fragment,
                 carried: Vec::new(),
             }
         }
+    }
+
+    /// The catalog fragment `pack`'s cast registers as `provider`: the one
+    /// road for a registration and a reload.
+    fn cast_fragment(
+        pack: &PreparedContentPack,
+        provider: &str,
+        default_character: Option<&str>,
+        actor_default_abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    ) -> Result<ambition_characters::actor::character_catalog::CharacterCatalogFragment, String> {
+        use ambition_characters::actor::character_catalog::{lowered_catalog, CharacterCatalogFragment};
+        let catalog = lowered_catalog(pack).ok_or_else(|| "the pack states no cast".to_string())?;
+        let fragment = CharacterCatalogFragment::from_prepared(
+            format!("{}:character_catalog", pack.id.0),
+            provider,
+            default_character,
+            catalog.clone(),
+        )
+        .map_err(|error| error.to_string())?;
+        Ok(match actor_default_abilities {
+            Some(abilities) => fragment.with_actor_default_abilities(abilities),
+            None => fragment,
+        })
     }
 
     pub mod live_reload;
@@ -515,6 +532,9 @@ pub mod content {
     pub struct PackCast {
         pack: &'static EmbeddedPack,
         provider: String,
+        /// What the fragment was built from, so a reload builds it again.
+        default_character: Option<String>,
+        actor_default_abilities: Option<ambition_platformer2d_core::AbilitySet>,
         fragment: ambition_characters::actor::character_catalog::CharacterCatalogFragment,
         /// What each named character's bodies carry. See [`Self::carrying`].
         carried: Vec<(String, ambition_platformer2d_core::CarriedComponent)>,
@@ -528,6 +548,7 @@ pub mod content {
             abilities: ambition_platformer2d_core::AbilitySet,
         ) -> Self {
             self.fragment = self.fragment.with_actor_default_abilities(abilities);
+            self.actor_default_abilities = Some(abilities);
             self
         }
 
@@ -570,13 +591,15 @@ pub mod content {
             for definition in definitions {
                 app.register_character(definition);
             }
-            // A build that reads the pack off disk plays an edit to a move
-            // table or a fighter facet from the next session.
-            app.add_plugins(live_reload::EmbeddedPackReloadPlugin::cast_facets(
-                self.pack,
-                self.provider,
-                self.carried,
-            ));
+            // A build that reads the pack off disk plays an edit to the
+            // cast, a move table or a fighter facet from the next session.
+            app.add_plugins(live_reload::EmbeddedPackReloadPlugin::cast(live_reload::CastReload {
+                pack: self.pack,
+                provider: self.provider,
+                default_character: self.default_character,
+                actor_default_abilities: self.actor_default_abilities,
+                carried: self.carried,
+            }));
         }
     }
 

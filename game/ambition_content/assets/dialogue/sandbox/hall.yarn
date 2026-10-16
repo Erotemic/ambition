@@ -1030,6 +1030,17 @@ Madam LeBlanc: The academy would not read work under my name. So I sent it under
     Madam LeBlanc: A prime p with 2p plus 1 prime as well. Try eleven if you want an example.
 ===
 
+title: hall_npc_wolfenstein_boss
+---
+Wolfenstein: AWOOOOOOO.
+-> What are you?
+    Wolfenstein: Monster from the neck down. Wolf from the neck up. Regime all the way through.
+-> Who sewed you together?
+    Wolfenstein: The Castle's doctors. They wanted a soldier who never sleeps. They got one who never stops howling.
+-> Why the armband?
+    Wolfenstein: It came with the coat. The coat came with the orders. I ate the orders.
+===
+
 title: hall_npc_fascist_enforcer
 ---
 Fascist Enforcer: Papers.

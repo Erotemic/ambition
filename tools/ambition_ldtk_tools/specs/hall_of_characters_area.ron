@@ -3249,6 +3249,24 @@
         (
             type: "NpcSpawn",
             px: [
+                744,
+                3216,
+            ],
+            size: [
+                48,
+                80,
+            ],
+            fields: (
+                character_id: "npc_wolfenstein_boss",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_wolfenstein_boss",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
                 488,
                 4064,
             ],

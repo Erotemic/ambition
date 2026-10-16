@@ -477,7 +477,9 @@ review_cues=(
     # roster below.
     # raid_enforcer is NOT here any more: its config is the main one
     # (configs/raid_enforcer.yaml), a runtime config target above.
-    merchant_prototype fascist_enforcer
+    # fascist_enforcer is NOT here any more -- he is a person of the shared
+    # rig (`targets/characters/fascist_enforcer.py`), in `tackon_targets`.
+    merchant_prototype
     # Named characters whose YAML manifests already live in $sprites_dir.
     # bob is NOT here any more -- see `tackon_targets`, the same move as oiler.
     # The cryptography crew but for Alice are NOT here any more -- they are
@@ -630,6 +632,11 @@ tackon_targets=(
     coconut_palm
     # The stand of a dimension gate (an LDtk `Prop`): the Math gate square.
     gate_cradle
+    # Castle Godwin of the Evil dimension: its entrance and the thorns at
+    # its foot, and its sign at the road (LDtk `Prop`s).
+    castle_godwin_entrance
+    castle_godwin_sign
+    evil_thorn_bush
     # The house fronts of the Math town (LDtk `Prop`s, decoration).
     math_house_rose
     math_house_dome
@@ -896,6 +903,11 @@ tackon_targets=(
     yuclid
     # The roaming dog of the central hub basement (`npc_companion_dog`).
     companion_dog
+    # The soldier of the Evil dimension (`npc_fascist_enforcer`), redrawn on
+    # the person rig (2026-10-15); its review config is deleted.
+    fascist_enforcer
+    # The boss of Godwin Castle (`npc_wolfenstein_boss`), on the person rig.
+    wolfenstein
     # The General (`npc_general`): an SVG rig, not a preset of the toon
     # template any more.
     absurd_general

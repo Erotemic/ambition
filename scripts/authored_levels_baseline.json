@@ -1,4 +1,12 @@
 {
+  "evil.ldtk": [
+    "castle_godwin_barracks",
+    "castle_godwin_gatehouse",
+    "castle_godwin_great_hall",
+    "castle_godwin_throne",
+    "castle_godwin_tower",
+    "evil_gate_forest"
+  ],
   "hall_of_characters.ldtk": [
     "hall_of_characters"
   ],

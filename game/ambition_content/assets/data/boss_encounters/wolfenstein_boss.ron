@@ -1,0 +1,21 @@
+// Boss encounter spec — Wolfenstein, the boss of Castle Godwin in the Evil
+// dimension: Frankenstein's monster with the head of a mad wolf, and the
+// armband of the regime.
+//
+// Behaviour lives in `assets/data/boss_profiles.ron` (a pattern of the
+// generic strikes: the claw sweep, the hammer slam, the howl).
+//
+// Music: `raid_enforcer_theme` is a placeholder until he has his own cue.
+(
+    id: "wolfenstein_boss",
+    name: "Wolfenstein",
+    max_hp: 40,
+    phase1_to_transition_hp: 0.6,
+    phase2_to_enrage_hp: 0.25,
+    intro_seconds: 2.2,
+    transition_seconds: 1.8,
+    music_intro: "raid_enforcer_theme",
+    music_phase1: "raid_enforcer_theme",
+    music_phase2: "raid_enforcer_theme",
+    music_enrage: "raid_enforcer_theme",
+)

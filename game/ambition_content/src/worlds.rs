@@ -101,7 +101,7 @@ mod tests {
             }
         }
 
-        let last = r#"(id: "world.math_ldtk", file: "math.ldtk"),"#;
+        let last = r#"(id: "world.evil_ldtk", file: "evil.ldtk"),"#;
         let with = |replacement: &'static str| {
             crate::pack::compile_pack_with(move |path, text| {
                 if path != "data/worlds.ron" {
@@ -111,12 +111,12 @@ mod tests {
                 text.replace(last, replacement)
             })
         };
-        let edited = with(r#"(id: "world.math_ldtk", file: "math.ldtk"), (id: "world.next", file: "next.ldtk"),"#)
+        let edited = with(r#"(id: "world.evil_ldtk", file: "evil.ldtk"), (id: "world.next", file: "next.ldtk"),"#)
             .expect("an added world compiles");
         let next = ambition_content_pack::lowered_rules::<AuthoredWorldManifest>(&edited, WORLD_MANIFEST_SCHEMA).unwrap();
         assert_eq!(next.worlds.last().map(|world| world.file.as_str()), Some("next.ldtk"));
-        let refused = format!("{:?}", with(r#"(id: "world.math_ldtk", file: "maps/math.json"),"#).expect_err("not a world file"));
-        assert!(refused.contains("`worlds[4].file` is `maps/math.json`") && refused.contains("data/worlds.ron"), "{refused}");
+        let refused = format!("{:?}", with(r#"(id: "world.evil_ldtk", file: "maps/evil.json"),"#).expect_err("not a world file"));
+        assert!(refused.contains("`worlds[5].file` is `maps/evil.json`") && refused.contains("data/worlds.ron"), "{refused}");
     }
 
     /// EVERY SHIPPED `EnemySpawn` CAN BE BUILT — the invariant that stands between the
@@ -481,14 +481,13 @@ mod tests {
     }
 
     #[test]
-    fn manifest_names_the_five_worlds_and_the_hub_entry() {
+    fn manifest_names_the_six_worlds_and_the_hub_entry() {
         let manifest = world_manifest();
         assert_eq!(manifest.entry_room, "central_hub_complex");
-        assert_eq!(manifest.worlds.len(), 5);
-        assert!(
-            manifest.worlds.iter().any(|world| world.id.as_str() == "world.math_ldtk"),
-            "the Math dimension's world is not in the manifest"
-        );
+        assert_eq!(manifest.worlds.len(), 6);
+        for (id, what) in [("world.math_ldtk", "the Math dimension"), ("world.evil_ldtk", "the Evil dimension")] {
+            assert!(manifest.worlds.iter().any(|world| world.id.as_str() == id), "{what}'s world is not in the manifest");
+        }
         assert!(manifest.primary().required);
         assert_eq!(manifest.primary().id.as_str(), "world.sandbox_ldtk");
         for world in &manifest.worlds {

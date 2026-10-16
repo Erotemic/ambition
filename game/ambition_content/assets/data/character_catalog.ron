@@ -3446,9 +3446,21 @@
             // 183 cm.
             standing_height: Some(70.8),
             composition: None,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            tags: ["enemy"],
+            // The soldier of the Evil dimension: he fights with his fists and
+            // his boots (Castle Godwin). In the hall he stands still; that is
+            // the hall's placement, not what he is able to do.
+            default_action_set: "striker_swipe",
+            locomotion: Some((run_speed: 260.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.6, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 640.0,
+                attack_range: 50.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.9,
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "evil", "minion"],
         barks: (
             hall: ["Papers.", "The order authorizes itself.", "If it is wrong, I will have obeyed correctly."],
         ),
@@ -4965,6 +4977,30 @@
             hall: ["Try. Catch. Finally. Three horns, in that order.", "You may throw what you like. I catch everything."],
         ),
         hall_dialogue_id: Some("hall_triceratops"),
+        ),
+        // ===== THE EVIL DIMENSION (Jon, 2026-10-15). Wolfenstein, the boss of
+        // Castle Godwin: Frankenstein's monster with the head of Insanity Wolf,
+        // and the armband of the regime. His fight is `wolfenstein_boss`
+        // (`data/boss_profiles.ron`); this row is his body, his parts and his
+        // place in the hall (at the END of the catalog: see the flock above).
+        "npc_wolfenstein_boss": (
+            display_name: "Wolfenstein",
+            spritesheet: "sprites/wolfenstein_spritesheet.png",
+            manifest: "sprites/wolfenstein_spritesheet.ron",
+            tier: Basement,
+            body_kind: Standard,
+            // 240 cm.
+            standing_height: Some(93.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "evil", "monster", "wolf"],
+        barks: (
+            on_hit: ["AWOOO-- what.", "Stitches hold. STITCHES HOLD."],
+            idle: ["*a howl that goes on too long*", "Bolts tight. Teeth out."],
+            hall: ["They sewed a wolf to the order. The order did not ask the wolf.", "Papers? I ATE the papers.", "AWOOOOO. Sorry. Every time."],
+        ),
+        hall_dialogue_id: Some("hall_npc_wolfenstein_boss"),
         ),
     },
 )

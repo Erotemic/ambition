@@ -8,7 +8,7 @@
 (
     default_track: "super_smash_siblings_theme",
     tracks: [
-        // What plays on the stage (`SMASH_STAGE_TRACK`).
+        // What plays on the stage: the default.
         (id: "super_smash_siblings_theme", display_name: "Super Smash Siblings"),
         // What plays over the character select (`SMASH_SELECT_TRACK`).
         (id: "super_smash_siblings_character_select", display_name: "Choose Your Fighter"),

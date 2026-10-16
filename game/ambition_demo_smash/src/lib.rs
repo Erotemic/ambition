@@ -905,9 +905,6 @@ pub const SMASH_ANNOUNCE_HUD_SLOT: &str = "smash_announce";
 /// roster, so a fresh clone can produce it.
 pub const STOCK_ICON_ASSET: &str = "sprites/hud_stock_icon.png";
 
-/// What plays on the stage: the default track of the pack's
-/// `audio/music_registry.ron`.
-pub const SMASH_STAGE_TRACK: &str = "super_smash_siblings_theme";
 /// What plays over the character select, in a host whose frontend audio
 /// this demo owns. The pack declares it either way.
 pub const SMASH_SELECT_TRACK: &str = "super_smash_siblings_character_select";

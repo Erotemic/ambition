@@ -255,7 +255,8 @@ Open:
    Sanic's badnik (her boss gauge read a Rust copy; `EmbeddedPack::display_name`),
    Sanic's scattered ring size (`ring_loss.ring_size`), his FINISH signs
    (derived from each course; the highway's stood at the speedway's floor
-   height), and `GOAL_X`/`LEVEL_WIDTH` (deleted; the course's own width).
+   height), `GOAL_X`/`LEVEL_WIDTH` (deleted; the course's own width), and Smash's
+   `SMASH_STAGE_TRACK` (deleted; the registry's `default_track`).
    The speedway's floor and pit numbers are now `speedway_oracle`, read by
    tests only. Left, most valuable first:
    - Smash's stage list and labels (`game/ambition_demo_smash/src/lib.rs:2582`
@@ -265,8 +266,6 @@ Open:
    - `game/ambition_content/src/bosses/cut_rope/mod.rs:44`
      `CUT_ROPE_VICTORY_NPC_NAME`, also the speaker in
      `assets/dialogue/sandbox/kernel.yarn`.
-   - `game/ambition_demo_smash/src/lib.rs:910` `SMASH_STAGE_TRACK`, the
-     music registry's `default_track` (a test pin only).
    - Rules beside their data siblings: the Limit fill
      (`game/ambition_demo_smash/src/limit.rs:30`), blast feel
      (`bomb.rs:32`, `mine.rs:23`), spring arm/rearm (`spring.rs:121,205`),

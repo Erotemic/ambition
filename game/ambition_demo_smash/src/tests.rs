@@ -1403,13 +1403,13 @@ fn the_tiers_sit_inside_the_fighters_measured_jump_arc() {
     );
 }
 
-/// Every track Smash's code names is one its pack declares, and the stage's
-/// track is the default. A track the pack does not declare is silence.
+/// Every track Smash's code names is one its pack declares. A track the pack
+/// does not declare is silence. The stage plays the registry's default, which
+/// admission refuses when the registry does not declare it.
 #[test]
 fn every_track_its_code_names_is_declared_by_its_pack() {
     let audio = crate::smash_pack::PACK.audio(crate::SMASH_EXPERIENCE);
     let music = audio.music().expect("the pack states its music");
-    assert_eq!(music.default_track, crate::SMASH_STAGE_TRACK);
     assert!(
         music.track(crate::SMASH_SELECT_TRACK).is_some(),
         "Smash plays `{}` over its select screen and its pack does not declare it",

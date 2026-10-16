@@ -339,8 +339,10 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             // manifest, so the handles are resolved again when it changes.
             .add_systems(Update, item_visuals::resolve_held_item_art_when_the_manifest_changes())
             // Resolve each provider's walk-into pickup art
-            // (`WorldItemArtManifest`) into loaded `WorldItemArt` handles.
-            .add_systems(Startup, item_visuals::build_world_item_art)
+            // (`WorldItemArtManifest`) into loaded `WorldItemArt` handles. A
+            // content reload restates the manifest, so the handles are
+            // resolved again when it changes.
+            .add_systems(Update, item_visuals::resolve_world_item_art_when_the_manifest_changes())
             // Not session-gated: an art file that failed to load is a fact about
             // the build, and should be reported without waiting for a session.
             .add_systems(Update, item_visuals::report_unloadable_item_art)

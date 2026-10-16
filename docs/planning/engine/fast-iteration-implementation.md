@@ -298,9 +298,9 @@ Steps that remain as rules:
   `smash_stages`, `match_rules`; Mary-O: `mary_o_rules`, `mary_o_forms`; Sanic:
   `sanic_rules`), and the schemas a demo registered once at start, which a
   restater states again at the publication: each demo's `room_rules`, its
-  `music_registry` and `sfx_registry`, and `prop_sheets`, `platform_looks`
-  and `projectile_visuals`; an edit to another schema is refused and costs
-  a restart.
+  `music_registry` and `sfx_registry`, and `prop_sheets`, `platform_looks`,
+  `projectile_visuals` and `world_item_art`; an edit to another schema (the
+  cast, the move tables) is refused and costs a restart.
   Each published generation is leaked (a reader holds `&'static` rows), about
   0.3 MB of source for Smash for each saved edit, in a build that reads
   off disk only. Open: the other schemas of a demo pack, which a demo reads

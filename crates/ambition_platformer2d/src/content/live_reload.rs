@@ -146,6 +146,20 @@ impl EmbeddedPackReloadPlugin {
         Self { pack, live: &[], restated }
     }
 
+    /// The pack's `world_item_art`, registered once at start
+    /// (`register_world_item_art`), restated at each publication that changes
+    /// it; the render layer resolves the changed manifest again.
+    pub fn world_item_art(pack: &'static EmbeddedPack) -> Self {
+        use crate::items::content_schema::world_item_art::WORLD_ITEM_ART_SCHEMA;
+        use crate::platformer::world_item_art::WorldItemArtManifest;
+        let owned = super::world_item_art_entries(pack.prepared()).into_iter().map(|entry| entry.sprite_id).collect();
+        Self::owning_rows(pack, WORLD_ITEM_ART_SCHEMA, owned, |world, owned, pack| {
+            Ok(world
+                .get_resource_or_insert_with(WorldItemArtManifest::default)
+                .restate(owned.iter().map(String::as_str), super::world_item_art_entries(pack)))
+        })
+    }
+
     /// A restater for rows this pack shares a catalog with other providers
     /// in: it remembers the ids the pack owns (`owned`, from the start), so a
     /// restatement replaces only those. On a refusal (an id of another
@@ -681,6 +695,39 @@ mod tests {
         assert_eq!(catalog.music_for("host").cloned(), host_music, "another provider's music stays");
         let _ = std::fs::remove_dir_all(root);
         let _ = std::fs::remove_dir_all(host_root);
+    }
+
+    /// The pickup-art restater replaces the pack's entries in the manifest
+    /// with the saved file's, and keeps another provider's.
+    #[test]
+    fn the_pickup_art_restater_restates_the_packs_entries() {
+        use crate::platformer::world_item_art::{WorldItemArtAppExt, WorldItemArtEntry, WorldItemArtManifest};
+
+        let (pack, root) = pack_with(
+            "world_item_art",
+            "data/world_item_art.ron",
+            "world_item_art",
+            r#"{ "probe_wand": (path: "sprites/props/probe_wand.png", size: (24.0, 31.0)), "probe_orb": (path: "sprites/props/probe_orb.png", size: (8.0, 8.0)) }"#,
+        );
+        let mut app = App::new();
+        app.register_world_item_art(pack.world_item_art());
+        app.register_world_item_art([WorldItemArtEntry::new("host_key", "sprites/props/key.png", bevy::math::Vec2::new(16.0, 16.0))]);
+        app.add_plugins(EmbeddedPackReloadPlugin::world_item_art(pack));
+
+        save_and_look(
+            &mut app,
+            &root.join("data/world_item_art.ron"),
+            r#"{ "probe_wand": (path: "sprites/props/probe_wand.png", size: (30.0, 31.0)) }"#,
+        );
+        let effective: Vec<WorldItemArtEntry> =
+            app.world().resource::<WorldItemArtManifest>().effective().into_iter().cloned().collect();
+        let authority = super::super::world_item_art_entries(&EmbeddedPack::rooted(pack.root_on_disk().unwrap(), None).compile().unwrap());
+        assert_eq!(
+            effective,
+            [WorldItemArtEntry::new("host_key", "sprites/props/key.png", bevy::math::Vec2::new(16.0, 16.0)), authority[0].clone()],
+            "the pack's entries are the saved file's, and another provider's stays"
+        );
+        let _ = std::fs::remove_dir_all(root);
     }
 
     /// A host of two demos watches both packs, and a second add of one pack

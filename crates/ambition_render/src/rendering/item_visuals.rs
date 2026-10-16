@@ -381,6 +381,16 @@ pub fn build_world_item_art(
     commands.insert_resource(art);
 }
 
+/// [`build_world_item_art`] as the render plugin schedules it: in `Update`,
+/// when the manifest is added or changed, and before its readers.
+pub(super) fn resolve_world_item_art_when_the_manifest_changes()
+-> bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::ScheduleSystem> {
+    build_world_item_art
+        .run_if(resource_exists_and_changed::<ambition_platformer2d_shared_tangle::world_item_art::WorldItemArtManifest>)
+        .before(sync_world_item_visuals)
+        .before(report_unloadable_item_art)
+}
+
 /// A sprite per walk-into world item: the real image when its `sprite` id is
 /// bound in [`WorldItemArt`], otherwise a quad tinted by the row it grants
 /// (star wand gold, cinder beacon ember, unknown magenta). Rebuilt each frame
@@ -706,6 +716,30 @@ mod tests {
         assert_eq!(ids, ["axe"]);
         app.update();
         assert_eq!(drawn(&app), Some(44.0), "the restated manifest was not resolved again");
+    }
+
+    /// A content reload restates a provider's pickup art, and the render
+    /// draws the new art: the handles are resolved again, not only at startup.
+    #[test]
+    fn a_changed_world_art_manifest_is_resolved_again() {
+        use ambition_platformer2d_shared_tangle::world_item_art::{WorldItemArtAppExt, WorldItemArtEntry, WorldItemArtManifest};
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(AssetPlugin::default())
+            .init_asset::<Image>()
+            .add_systems(Update, resolve_world_item_art_when_the_manifest_changes());
+        let wand = |width: f32| WorldItemArtEntry::new("wand", "sprites/props/wand.png", Vec2::new(width, 18.0));
+        app.register_world_item_art([wand(24.0)]);
+        let drawn = |app: &App| app.world().get_resource::<WorldItemArt>().and_then(|art| art.0.get("wand")).map(|(_, size)| size.x);
+        app.update();
+        assert_eq!(drawn(&app), Some(24.0), "control: the first manifest is resolved");
+        let ids = app
+            .world_mut()
+            .resource_mut::<WorldItemArtManifest>()
+            .restate(["wand"], vec![wand(32.0)]);
+        assert_eq!(ids, ["wand"]);
+        app.update();
+        assert_eq!(drawn(&app), Some(32.0), "the restated manifest was not resolved again");
     }
 
     #[test]

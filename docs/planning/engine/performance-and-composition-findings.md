@@ -302,7 +302,14 @@ numbers (`allocs_per_call` in the CSV) are the ones to compare. Other per-call
 numbers of ours: `reconcile_effective_repertoire` ~40, `gate_body_control`
 ~20, `record_actor_oob_frame_system` 13, `integrate_sim_bodies` 9.6. Sanic:
 `prepare_assets<HitFlashMaterial>` ~1,070 a frame (133 KB), so a hit-flash
-material is changed every frame (`hit_flash.rs:431` is a `get_mut` site).
+material is changed every frame. The write is already guarded
+(`hit_flash.rs:416-437`, write only a change); the material changes because
+each overlay follows its body's animation frame (`uv_rect`) also at intensity
+0, and overlays live as long as their bodies and stay `Visible`. REASONED: an
+overlay at intensity 0 draws nothing; tracking the frame only while a flash
+is on would remove the re-uploads and the draws of idle overlays. The comment
+there explains why the overlay asserts `Visible` (portal compositing), so this
+needs a check of the portal path first.
 
 ### F14 — Room isolation re-derives every room mask every frame
 
@@ -394,6 +401,22 @@ parallax layer and every `PresentedRoomParallax` when `GameAssets` is changed;
 `ensure_parallax_layers_for_room` through `ResMut<GameAssets>` for a live room
 whose theme is not resident and not marked "without art". The comment at
 `parallax.rs:481` already names this risk for the resident case.
+
+### F19 — A widely shared system parameter is a per-system cost
+
+MEASURED (phone, `--ours --thread`): the largest line of ours on the main
+thread, 1.36% of the process, is `lifecycle/room_instance.rs:172`, the
+`#[derive(SystemParam)]` of `LiveRooms`: the fetch and validation of its two
+queries (`roots`, and `stamps` over every entity with `InRoomInstance`), with
+the bodies inlined. About 208 parameter declarations in `crates/` and `game/`
+take `LiveRooms` or `LiveRoomOf` (git grep), so the cost is paid once per run
+of each of those systems.
+
+Reading (REASONED): the live-room set is one or two values that change on a
+room transition. A resource kept by one system (the live rooms in order, and
+each band) is a cheaper parameter than a query: no archetype matching and no
+per-run query validation. A system that asks for the room of its own entities
+can carry `Option<&InRoomInstance>` in its own query. Measure one system first.
 
 ### Not a lever (keep out of this run)
 

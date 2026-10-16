@@ -51,7 +51,9 @@ again before you quote it.
   changes per source line; `profile_desktop.sh --perf-probe`) and the phone
   symbolizer's `--ours` and thread table. Both are one switch and one
   directory to remove.
-- **For Jon:** D1-D11 below. None is done.
+- **For Jon:** D1-D13 below. None is done. D12 (serial executor default for
+  the standalone games) and D13 (leafwing fork) change no behaviour and are
+  ready.
 
 ## How to answer a cost question
 
@@ -714,6 +716,22 @@ is done without a yes.
   the game keeps real time; above it, the game slows down instead of dropping
   more frames. Visible under load only.
 
+Two items are ready and change no behaviour, but each needs a yes for
+another reason:
+
+- **D12 — `Serial` as the default executor of the windowed demos** (F22).
+  One line in `install_windowed_foundation`. Mary-O's 208 tests pass with
+  `AMBITION_SCHEDULE_EXECUTOR=serial`. It changes how every standalone game
+  runs, so it should land with a play test, and the switch is then removed.
+- **D13 — A leafwing fork under Erotemic** (P11, F13), like
+  `virtual_joystick`: a GitHub fork is an outward action. The patch:
+  `InputMap::handle_clashes` returns at once under `ClashStrategy::PressAll`;
+  otherwise `get_clashes` pairs only actions that `updated_actions` has
+  pressed, not `possible_clashes()` of all actions; and
+  `CentralInputStore::pressed`/`button_value` look up without a boxed clone.
+  Then `[patch.crates-io] leafwing-input-manager = { git = ..., rev = ... }`,
+  and an upstream PR.
+
 ## A second opinion, weighed (GPT, 2026-10-16)
 
 Jon passed on GPT's diagnosis. Its points against this page's evidence:
@@ -758,3 +776,9 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
   re-folds the repertoire every tick (F15); gravity-zone visuals are no
   longer respawned every frame (F18). Next: the hub run with the change
   counter, to confirm F17.
+- 09:13Z F17 cause found with the change counter and fixed (`first_room_art.rs`);
+  wielded-item overlays updated in place (pixel-identical capture). Executor
+  A/B: standalone Mary-O (F22) and hub (F23); switch committed, defaults
+  unchanged. Sanic change census. Read-before-write fixes for the SFX
+  authorizer, the narrative and host-intent ledger prunes and the trail gizmo
+  bands, verification run building.

@@ -86,6 +86,24 @@ impl WorldItemArtManifest {
         winners.into_values().collect()
     }
 
+    /// Replace the entries one provider stated (`previous`, the ids it
+    /// registered) with `entries`, as a content reload does: an id it no
+    /// longer states is withdrawn, and the others take their new art. The ids
+    /// it registered now are returned, for the next reload. The new entries go
+    /// last, so they win over another provider's entry for the same id, as
+    /// they did when this provider registered last.
+    pub fn restate<'a>(
+        &mut self,
+        previous: impl IntoIterator<Item = &'a str>,
+        entries: Vec<WorldItemArtEntry>,
+    ) -> Vec<String> {
+        let previous: Vec<&str> = previous.into_iter().collect();
+        self.0.retain(|entry| !previous.contains(&entry.sprite_id.as_str()));
+        let ids = entries.iter().map(|entry| entry.sprite_id.clone()).collect();
+        self.0.extend(entries);
+        ids
+    }
+
     /// The art ids this manifest binds. Slots index [`Self::effective`].
     pub fn sprite_ids(&self) -> Resolver<WorldItemSprite> {
         Resolver::new(

@@ -199,9 +199,17 @@ Open:
    deleted.
    Mary-O's ladder (`mary_o_forms`) is read where it is used, so it joined
    her live list (read, by a search for every reader; no reader at start).
-   Remainder: the cast, move tables, Mary-O's pickup art (`world_item_art`:
-   `build_world_item_art` resolves the manifest once, so it needs a restate
-   and a render rebuild), and publication into a live demo session. Each
+   Her pickup art (`world_item_art`) has a restater
+   (`EmbeddedPackReloadPlugin::world_item_art`, one lowering with her
+   registration: `EmbeddedPack::world_item_art`), and the render layer now
+   resolves the pickup art when its manifest changes, as it does for held
+   art (`resolve_world_item_art_when_the_manifest_changes`; it was a
+   `Startup` system). Witnesses
+   `the_pickup_art_restater_restates_the_packs_entries` (red with the
+   previous ids not withdrawn) and `a_changed_world_art_manifest_is_resolved_again`
+   (red with the art resolved only when the manifest is added).
+   Remainder: the cast and move tables (the cast is a registry of prepared
+   characters: I2/I3 scale), and publication into a live demo session. Each
    needs a restater (the cast is a registry of prepared characters, so its
    restater is I2/I3 scale) or its reader moved to read at use.
 

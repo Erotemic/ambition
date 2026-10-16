@@ -144,14 +144,13 @@ pub fn mary_o_authored_catalogs() -> AuthoredCatalogFragments {
 /// multi-game host alike (this provider is the one seam both share). Until the
 /// publish writes a picture, the render draws the quad.
 pub(crate) fn register_world_item_art(app: &mut App) {
-    use ambition_platformer2d::platformer::world_item_art::{WorldItemArtAppExt, WorldItemArtEntry};
-    let rows = ambition_platformer2d::items::content_schema::world_item_art::lowered_world_item_art(
-        crate::pack::PACK.prepared(),
-    )
-    .expect("the demo's pack states its world item art (`data/world_item_art.ron`)");
-    app.register_world_item_art(rows.iter().map(|(id, art)| {
-        WorldItemArtEntry::new(id.clone(), art.path.clone(), ae::Vec2::new(art.size.0, art.size.1))
-    }));
+    use ambition_platformer2d::platformer::world_item_art::WorldItemArtAppExt;
+    let entries = crate::pack::PACK.world_item_art();
+    assert!(!entries.is_empty(), "the demo's pack states its world item art (`data/world_item_art.ron`)");
+    app.register_world_item_art(entries);
+    app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::world_item_art(
+        &crate::pack::PACK,
+    ));
 }
 
 /// Her shots' looks (the spark, the swallow's coconut, the void lizard's orb):

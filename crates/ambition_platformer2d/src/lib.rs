@@ -417,6 +417,13 @@ pub mod content {
             .unwrap_or_else(|error| panic!("the embedded pack `{}`: {error}", pack.id.0))
         }
 
+        /// The walk-into pickup art this pack states (`world_item_art`), as
+        /// entries to register with `register_world_item_art`. A pack that
+        /// states none gives none.
+        pub fn world_item_art(&self) -> Vec<crate::platformer::world_item_art::WorldItemArtEntry> {
+            world_item_art_entries(self.prepared())
+        }
+
         /// The art-to-world scale at which [`Self::cast`] builds `character`'s
         /// body, for anything else that must agree with it (a level that sizes
         /// a gap to a body, a test that measures one).
@@ -485,6 +492,24 @@ pub mod content {
     }
 
     pub mod live_reload;
+
+    /// The `world_item_art` rows of `pack`, as the entries the render layer
+    /// resolves: the one lowering for a registration and a reload.
+    pub fn world_item_art_entries(pack: &PreparedContentPack) -> Vec<crate::platformer::world_item_art::WorldItemArtEntry> {
+        ambition_items::content_schema::world_item_art::lowered_world_item_art(pack)
+            .map(|rows| {
+                rows.iter()
+                    .map(|(id, art)| {
+                        crate::platformer::world_item_art::WorldItemArtEntry::new(
+                            id.clone(),
+                            art.path.clone(),
+                            bevy::math::Vec2::new(art.size.0, art.size.1),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
 
     /// A pack's cast, ready to register. See [`EmbeddedPack::cast`].
     pub struct PackCast {

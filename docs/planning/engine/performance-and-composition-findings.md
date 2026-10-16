@@ -105,8 +105,9 @@ again before you quote it.
 1. A phone run of the Mary-O-only hub (`profile_android.sh`, as 10-16) to
    measure tonight's fixes where they matter; compare with
    `android-maryo-only-1-1b` by `--thread` and `--under`.
-2. The ambient motes drawn only under the parallel executor (F22): a likely
-   bug in the hub as shipped, and a precondition of D12.
+2. `capture_scene`: order `apply_capture_snapshot` before the presentation
+   systems that read the camera (F22: its captures drop the motes under a
+   serial executor).
 3. D12: a yes for the serial executor in the standalone games (F22).
 4. P1 C1: the boss and wielded extension phases installed by their owning
    capability (~49 systems a frame in Mary-O and Sanic), then C2-C6.
@@ -708,26 +709,18 @@ captures, `capture_scene` steps deterministically, 1,200 frames): the player
 ends at the same point in every run of every arm; `serial` and `frame-serial`
 captures are pixel-identical; `parallel` differs from both in 218 of 921,600
 pixels, the same 218 in each of its three runs. All 218 are brighter in
-`parallel`: glowing ember dots (the room's ambient motes, by their look) that
-are drawn under `parallel` and are not in the frame under `frame-serial` or
-`serial`. The player and the rest of the frame are the same. So the executor
-changes what one presentation path shows, and under the hub's shipped policy
-(`frame-serial`) the motes appear to be missing (REASONED; the motes' seeding
-is deterministic, so the cause is an order dependence still to find, in
-`present_room_motes`/`drift_room_motes` or what they read). Before D12 lands,
-find it: under `serial` the standalone games would lose their motes the same
-way.
-Five consecutive frames after 600 (MEASURED, `capture_scene ... --frames 5`
-under each arm): `parallel` shows 166-199 mote pixels a frame, moving from
-frame to frame; `frame-serial` shows none in any frame. Not the candidate barrier (`InactiveCandidate`): the render systems spawn
-with `SessionSpawnScope::scoped`, which is published. Not tonight's
-room-isolation gate either: the first hub A/B, before that change, has the
-same 218 pixels. Not the camera choice either (MEASURED): `drift_room_motes` places motes
-around `cameras.iter().next()`, the first `MainCamera` of 11 cameras; with
-the query restricted to cameras that present a view, `frame-serial` still
-drew no mote (experiment, not kept). Cause open; next look: whether the
-motes exist and what their `Sprite` alpha and `ViewVisibility` are under
-each executor. Recommendation: make `Serial` the default
+`parallel`: the room's ember motes, drawn under `parallel` and off the frame
+under `frame-serial` and `serial`. Cause (MEASURED with temporary logging in
+`drift_room_motes`, not kept): the motes read the camera at y = +290 under
+`parallel` and at y = −290 under `frame-serial`, every frame. The other
+writer of the camera is the capture tool itself: `apply_capture_snapshot`
+(`game/ambition_app_tools/src/bin/capture_scene.rs`) pins the camera with no
+order against `drift_room_motes`, so under `parallel` it runs first and under
+the serial orders after. So this is an artifact of `capture_scene`, not of
+the game: in the game only `camera_follow` writes the camera, and the motes
+run after it. The rest of the frame and the player are the same in every
+arm. Fix for captures: order `apply_capture_snapshot` before the presentation
+systems that read the camera. Recommendation: make `Serial` the default
 of every foundation, then remove the switch; check `room_replay` under it
 first. Not done: it is a one-line default.
 
@@ -914,9 +907,8 @@ another reason:
   Mary-O's integration tests (95, the room-replay tests among them) and
   Sanic's (42). It changes how every standalone game
   runs, so it should land with a play test, and the switch is then removed.
-  ⚠ Precondition: in the hub capture the ambient motes are drawn only under
-  the parallel executor (F22); find that order dependence first, or the
-  standalone games lose their motes.
+  The one visible difference in the hub captures was the ambient motes, an
+  ordering artifact of `capture_scene`'s camera pin, not of the game (F22).
 - **D13 — withdrawn.** The leafwing clash pass is skipped in this repo with
   no fork (F13). An upstream PR (skip the pass under `PressAll` in
   `process_actions`; lookups without boxing) is an outward action for Jon.

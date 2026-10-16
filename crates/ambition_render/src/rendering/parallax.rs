@@ -831,6 +831,10 @@ pub fn sync_portal_capture_parallax_layers(
             commands.entity(entity).despawn();
             continue;
         };
+        if !seen_through_a_portal(source_layer) {
+            commands.entity(entity).despawn();
+            continue;
+        }
         let Ok((_, rig)) = rigs.get(copy.rig) else {
             commands.entity(entity).despawn();
             continue;
@@ -845,7 +849,7 @@ pub fn sync_portal_capture_parallax_layers(
 
     for (rig_entity, rig) in &rigs {
         for (source_entity, source_sprite, source_layer) in &sources {
-            if live.contains(&(rig_entity, source_entity)) {
+            if live.contains(&(rig_entity, source_entity)) || !seen_through_a_portal(source_layer) {
                 continue;
             }
             let mut transform = Transform::default();
@@ -871,6 +875,16 @@ pub fn sync_portal_capture_parallax_layers(
             );
         }
     }
+}
+
+/// Is a panel part of what a portal shows? The backdrop is behind the play, on
+/// both sides of a portal, so a capture draws the far side's. The foreground
+/// is between the eye and the play: it is in front of the portal, not through
+/// it, and the main camera draws it over the window already. A capture that
+/// drew it too showed it twice, and the far side's copy jumped to the near
+/// side's at a crossing.
+fn seen_through_a_portal(layer: &ParallaxLayerVisual) -> bool {
+    layer.z < FOREGROUND_PARALLAX_Z
 }
 
 fn sync_parallax_transform_to_camera(
@@ -912,6 +926,21 @@ mod tests {
         app.add_systems(Update, sync_portal_capture_parallax_layers);
 
         app.update();
+    }
+
+    /// A portal shows the far side's backdrop, and not the foreground: the
+    /// foreground is between the eye and the portal.
+    #[test]
+    fn a_portal_capture_draws_the_backdrop_and_not_the_foreground() {
+        let layer = |z| ParallaxLayerVisual {
+            factor: Vec2::ONE,
+            z,
+            panel_scale: 1.0,
+            travel: Vec2::ZERO,
+            world_size: Vec2::ONE,
+        };
+        assert!(seen_through_a_portal(&layer(-15.0)), "the nearest backdrop layer");
+        assert!(!seen_through_a_portal(&layer(FOREGROUND_PARALLAX_Z)), "the foreground");
     }
 
     #[test]

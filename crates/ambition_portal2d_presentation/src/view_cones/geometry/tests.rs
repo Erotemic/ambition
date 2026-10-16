@@ -336,6 +336,7 @@ fn full_half_plane_render_clips_to_the_full_active_frame_at_the_aperture() {
         forward: Vec2::ZERO,
         half_size: Vec2::new(15.0, 24.0),
         on_back_of: None,
+        crossed_into: None,
         occluders: Vec::new(),
     };
     let clip_min = Vec2::new(-96.55, 626.10);
@@ -415,10 +416,10 @@ fn full_half_plane_render_clips_to_the_full_active_frame_at_the_aperture() {
 /// Each window of a moving viewer has the ease: no plan is `immediate`, in
 /// the aperture also (a viewer that drops beside a portal must not see a
 /// snap). A viewer that has just crossed a pair arrives at the far end, and
-/// the far window goes on from the blend of the near one, so the picture
+/// the far window takes the place of where it was, whole, so the picture
 /// does not change at the crossing.
 #[test]
-fn a_window_eases_each_time_and_takes_its_partners_blend_at_a_crossing() {
+fn a_window_eases_each_time_and_takes_over_whole_at_a_crossing() {
     let world = Vec2::new(1600.0, 900.0);
     let enter = placed(
         PortalGunColor::BLUE.channel(),
@@ -440,6 +441,7 @@ fn a_window_eases_each_time_and_takes_its_partners_blend_at_a_crossing() {
         forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         on_back_of: None,
+        crossed_into: None,
         occluders: Vec::new(),
     };
 
@@ -466,11 +468,11 @@ fn a_window_eases_each_time_and_takes_its_partners_blend_at_a_crossing() {
     assert!(!came_through(enter.pos + enter.normal * 3.0, &enter));
     assert!(came_through(enter.pos - enter.normal * 3.0, &enter));
 
-    // A window that was closed and takes a viewer goes on from its partner's
-    // blend, with the ease from there.
-    assert_eq!(eased_blend(0.0, &plan, 0.8, 0.0), 0.8, "the crossing changed the picture");
-    let next = eased_blend(0.0, &plan, 0.8, 0.25);
-    assert!(next > 0.8 && next < 1.0, "{next}");
+    // A window that was closed and takes a viewer is the picture of where the
+    // viewer just was, which was drawn whole: it takes over whole, at once,
+    // not easing in from its partner's blend (Jon 2026-10-16).
+    assert_eq!(eased_blend(0.0, &plan, 0.8, 0.0), 1.0, "the crossing changed the picture");
+    assert_eq!(eased_blend(0.0, &plan, 0.8, 0.25), 1.0);
     // So does one whose plan has half a view, as at the door of a thin wall.
     let half = ConePlan { target: 0.5, ..plan };
     assert_eq!(eased_blend(0.0, &half, 0.74, 0.0), 0.74, "a window with half a view opened from nothing");
@@ -551,6 +553,7 @@ fn near_doorway_view_cone_opens_only_inside_the_proximity_band() {
             forward: Vec2::ZERO,
             half_size: Vec2::ZERO,
             on_back_of: None,
+            crossed_into: None,
             occluders: Vec::new(),
         };
         let plan = compute_cone(
@@ -629,6 +632,7 @@ fn blocked_los_hides_near_portal_cone_inside_preview_range() {
         forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         on_back_of: None,
+        crossed_into: None,
         occluders: vec![blocker],
     };
 
@@ -675,6 +679,7 @@ fn exact_mode_uses_los_geometry_without_bounded_preview() {
         forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         on_back_of: None,
+        crossed_into: None,
         occluders: Vec::new(),
     };
 
@@ -730,6 +735,7 @@ fn positive_half_plane_max_lateral_keeps_bounded_diagnostic_mode() {
         forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         on_back_of: None,
+        crossed_into: None,
         occluders: Vec::new(),
     };
 
@@ -771,6 +777,7 @@ fn off_axis_near_plane_viewer_does_not_get_half_plane_preview() {
         forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         on_back_of: None,
+        crossed_into: None,
         occluders: Vec::new(),
     };
     let off_axis_viewer = PortalViewer {
@@ -783,6 +790,7 @@ fn off_axis_near_plane_viewer_does_not_get_half_plane_preview() {
         forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         on_back_of: None,
+        crossed_into: None,
         occluders: Vec::new(),
     };
 
@@ -841,6 +849,7 @@ fn partial_los_reduces_window_growth() {
         forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         on_back_of: None,
+        crossed_into: None,
         occluders: vec![left_blocker, right_blocker],
     };
     let clear_viewer = PortalViewer {
@@ -851,6 +860,7 @@ fn partial_los_reduces_window_growth() {
         forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         on_back_of: None,
+        crossed_into: None,
         occluders: Vec::new(),
     };
 
@@ -911,6 +921,7 @@ fn thin_wall_far_side_portal_stays_closed_for_a_near_side_viewer() {
         forward: Vec2::ZERO,
         half_size: Vec2::new(15.0, 24.0),
         on_back_of: None,
+        crossed_into: None,
         occluders: vec![wall],
     };
     // The far portal's own cone: enter = far, exit = near.
@@ -972,6 +983,7 @@ fn window_depth_clips_to_the_host_wall_thickness() {
         forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         on_back_of: None,
+        crossed_into: None,
         occluders: vec![wall],
     };
     let plan = compute_cone(
@@ -1033,6 +1045,7 @@ fn a_door_through_a_thin_wall_takes_over_the_half_plane_as_each_pair_does() {
             forward: Vec2::ZERO,
             half_size: Vec2::ZERO,
             on_back_of: None,
+            crossed_into: None,
             occluders: vec![wall],
         };
         let plan = compute_cone(&near, &far, config, Some(&viewer), world, MapConvention::Reflection);
@@ -1147,6 +1160,7 @@ fn just_behind_doorway_still_contributes_to_half_plane() {
         forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         on_back_of: None,
+        crossed_into: None,
         occluders: Vec::new(),
     };
 
@@ -1253,4 +1267,24 @@ fn a_viewer_on_the_back_of_a_pair_has_none_of_its_windows() {
         let shut = compute_cone(&floor, &partner, &config, Some(&viewer(Some(back))), world, MapConvention::Reflection);
         assert_eq!(shut.target, 0.0, "on the back of {back:?}: no window");
     }
+}
+
+/// Two ends that face each other across open space (a corridor that loops,
+/// `portal_lab`'s c146/c147): after a crossing the eye is in front of both,
+/// so the eye cannot tell that it came through. The sim's crossing can: the
+/// end the body crossed into takes over.
+#[test]
+fn the_end_a_body_crossed_into_takes_over_even_when_the_eye_cannot_tell() {
+    let left = placed(PortalGunColor::BLUE.channel(), Vec2::new(500.0, 400.0), Vec2::new(1.0, 0.0));
+    let right = placed(PortalGunColor::ORANGE.channel(), Vec2::new(756.0, 400.0), Vec2::new(-1.0, 0.0));
+    let viewer = |crossed_into| PortalViewer {
+        present: true,
+        eye: Vec2::new(754.0, 400.0),
+        half_size: Vec2::new(12.0, 20.0),
+        crossed_into,
+        ..Default::default()
+    };
+    assert!(!super::takes_over(&viewer(None), right.channel, &left), "premise: the eye is in front of both");
+    assert!(super::takes_over(&viewer(Some(right.channel)), right.channel, &left));
+    assert!(!super::takes_over(&viewer(Some(right.channel)), left.channel, &right), "only the end it crossed into");
 }

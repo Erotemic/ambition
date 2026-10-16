@@ -156,6 +156,11 @@ pub struct PortalViewer {
     /// that pair, and the pair's windows stay shut for it until it is wholly
     /// past the plane, as the pair will not take it until then.
     pub on_back_of: Option<ambition_portal2d::PortalChannel>,
+    /// The portal the observer's body has crossed into and still straddles
+    /// (the sim's crossing, `PortalTransit` once crossed), if any. That
+    /// portal's window takes over from its partner's at once: where the
+    /// observer just was is drawn by it, on the frame the body is moved.
+    pub crossed_into: Option<ambition_portal2d::PortalChannel>,
     /// Solid AABBs for the line-of-sight test — a portal whose aperture is
     /// occluded from `eye` renders no window. The host syncs these from its
     /// collision world (only the blocks that block sight).
@@ -990,7 +995,7 @@ mod mesh;
 // `view_cones::<item>` paths stay valid.
 mod debug;
 pub use debug::*;
-use geometry::{came_through, eased_blend, pair_looks_at_itself, 
+use geometry::{eased_blend, takes_over, pair_looks_at_itself, 
     aperture_los_rays, aperture_visibility_fraction, capture_dims, compute_cone, cone_render,
     inset_viewer_corners, visibility_route_summary, ApertureLosRay, ConeRender, RebuildKey,
     WindowShape,
@@ -1179,7 +1184,7 @@ pub fn sync_portal_view_cones(
         // window opens with an ease and closes with one.
         // A window that takes its viewer from its partner goes on from the
         // partner's blend.
-        let taken_over = if viewer.is_some_and(|viewer| came_through(viewer.eye, &partner)) {
+        let taken_over = if viewer.is_some_and(|viewer| takes_over(viewer, portal.channel, &partner)) {
             blend_before(rig.room, rig.channel.partner())
         } else {
             0.0
@@ -1375,7 +1380,7 @@ pub fn sync_portal_view_cones(
         let plan = compute_cone(portal, &partner, &config, viewer, frame.size, convention);
         // A rig that is built again goes on from the blend it had. A window
         // that is new opens with the ease, from nothing or from its partner.
-        let taken_over = if viewer.is_some_and(|viewer| came_through(viewer.eye, &partner)) {
+        let taken_over = if viewer.is_some_and(|viewer| takes_over(viewer, portal.channel, &partner)) {
             blend_before(placement.room, portal.channel.partner())
         } else {
             0.0

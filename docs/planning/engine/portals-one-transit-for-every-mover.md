@@ -223,7 +223,41 @@ at tick 4824, its centre 0.1 px past the plane. Three rules now:
 Frame 4810 drew only the robot's feet: the crossing it began from behind cut the sprite at the
 seam. A body on the back has no crossing and is drawn whole (measured in the capture).
 
+## A crossing hands the window over whole (2026-10-16)
+
+Jon's frame-step capture (ticks 10555-10585, the looping corridor c146/c147: two ends that
+face each other across 256 px of floor). On the crossing frame the exit window eased in from
+nothing, so the real scene past the exit showed for frames before the picture of where the
+body had been came back. Two causes:
+
+- The takeover asked the eye whether it came through (`came_through`: behind the partner's
+  plane). Ends that face each other leave the eye in front of both after a crossing, so it
+  said no. The window of the end the body crossed into (`PortalViewer::crossed_into`, from
+  the sim's `PortalTransit`) takes over now.
+- A window that takes over eased in from its partner's blend. It is the picture of where the
+  viewer just was, which was drawn whole, so it takes over whole (`eased_blend`).
+
+Measured (`capture_scene portal_lab player`, `high`): the exit window covers the corridor on
+the crossing frame.
+
 ## Open
+
+- **The foreground parallax layer** (z 45, in front of the play) was copied into every
+  capture, so a window drew it twice: the far side's copy inside, the near side's over it.
+  Captures draw the backdrop only now (`seen_through_a_portal`). The foreground's place is
+  the camera's place in the room, so a 256 px camera jump through a pair moves it ~49 px:
+  still a pop at a crossing, and not yet decided (ease the parallax camera across a portal
+  jump, or leave it).
+- **`capture_scene` cannot measure a crossing's background.** It pins its camera to a
+  player snapshot after `camera_follow` and without the portal camera continuity, so at the
+  c146/c147 crossing its camera moved 226.4 px, not 256: every backdrop patch is 66 screen
+  px off, at every depth. The host view now samples the pinned camera (the window anchors
+  agree with the frame), but the continuity is still the game's alone. Jon's frames, which
+  have it, show the left of the screen unchanged across the crossing.
+- **A strip at the screen edge** on the crossing frame: the exit window's capture does not
+  reach the new edge of the screen for one frame (black at `high` in the capture).
+- **Two ends that face each other** show a picture in a picture; one level of recursion leaves
+  a strip at the far edge that the next frame shows as a window.
 
 - **The robot's launch on the wall and slope pairs.** Hands-off, the kernel's air stop
   assist (3750 px/s²) stops a 150 px/s launch in about 3 px. The lab should hold the move

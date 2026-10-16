@@ -385,6 +385,15 @@ pub(crate) struct ConePlan {
 /// two corners of the body are past the plane when the centre crosses, and a
 /// rule that waited for the whole view opened the far window from nothing:
 /// the picture was the bare world for some frames at each crossing.
+/// Does the window of `portal` take its viewer over from `partner`'s? When
+/// the viewer's body crossed into `portal` (the sim says so), or its eye is
+/// behind `partner` (a crossing the eye shows: two ends that face each other
+/// across open space leave the eye in front of both, so the eye alone cannot
+/// tell).
+pub(crate) fn takes_over(viewer: &PortalViewer, portal: ambition_portal2d::PortalChannel, partner: &PlacedPortal) -> bool {
+    viewer.crossed_into == Some(portal) || came_through(viewer.eye, partner)
+}
+
 pub(crate) fn came_through(eye: Vec2, partner: &PlacedPortal) -> bool {
     (eye - partner.pos).dot(partner.normal) < 0.0
 }
@@ -524,8 +533,13 @@ pub(crate) fn eased_blend(before: f32, plan: &ConePlan, taken_over: f32, step: f
     if plan.immediate {
         return plan.target;
     }
-    let from = if before <= 0.0 { taken_over } else { before };
-    let next = from + (plan.target - from) * step.clamp(0.0, 1.0);
+    // A window that takes its viewer over from its partner is the picture of
+    // where the viewer just was, which was drawn whole: it takes its place
+    // whole on that frame, not easing in (Jon 2026-10-16).
+    if before <= 0.0 && taken_over > 0.0 {
+        return plan.target.max(taken_over);
+    }
+    let next = before + (plan.target - before) * step.clamp(0.0, 1.0);
     if plan.target <= 0.0 && next < BLEND_SHUT {
         0.0
     } else {

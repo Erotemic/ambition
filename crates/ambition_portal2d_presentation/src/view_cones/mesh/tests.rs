@@ -28,6 +28,7 @@ fn viewer_at(x: f32) -> PortalViewer {
         forward: Vec2::ZERO,
         half_size: Vec2::new(12.0, 20.0),
         on_back_of: None,
+        crossed_into: None,
         occluders: Vec::new(),
     }
 }
@@ -152,6 +153,7 @@ fn same_plane_pair_still_orders_by_proximity() {
         forward: Vec2::ZERO,
         half_size: Vec2::new(12.0, 20.0),
         on_back_of: None,
+        crossed_into: None,
         occluders: Vec::new(),
     };
     let (za, _) = pane_z(&config, Some(&v), &a, &b, None);

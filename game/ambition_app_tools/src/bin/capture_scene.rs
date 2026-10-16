@@ -2441,6 +2441,7 @@ fn apply_capture_snapshot(
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     mut cameras: Query<(&mut Transform, &mut Projection), With<MainCamera>>,
+    host_view: Option<ResMut<ambition_platformer2d::portal_presentation::PortalCameraContinuityHostView>>,
 ) {
     let active_spec = room_set.spec();
     let (base_view_w, base_view_h) = user_settings.video.camera_zoom.base_view();
@@ -2515,6 +2516,15 @@ fn apply_capture_snapshot(
     let y = world.0.size.y * 0.5 - snapshot.center_world.y;
     for mut view_state in &mut view_states {
         *view_state = CameraViewState::from(&snapshot);
+    }
+    // The portal windows read where the camera is from the host view, which
+    // `camera_follow` sampled before this pin. A window drawn for the follow
+    // camera's centre shows its far side's backdrop for the wrong eye (29 px
+    // off on the c146/c147 corridor, 2026-10-16), so the pin is the sample.
+    if let Some(mut host_view) = host_view {
+        if host_view.initialized {
+            host_view.current_center_world = snapshot.center_world;
+        }
     }
 
     for (mut transform, mut projection) in &mut cameras {

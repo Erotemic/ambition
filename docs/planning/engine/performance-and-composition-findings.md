@@ -245,8 +245,8 @@ key `HashMap`s by `String`, per body per tick.
 ### F7 — Two systems visit every entity every tick
 
 MEASURED (source). `project_wallet_shields`
-(`actor_monolith/src/features/wallet_shield.rs:38`) and
-`brandish_the_playing_move_s_weapon` (`ambition_combat/src/held_items.rs:93`)
+(`actor_monolith/src/features/wallet_shield.rs:32`) and
+`brandish_the_playing_move_s_weapon` (`ambition_combat/src/held_items.rs:91`)
 iterate a query with no required component, so they visit every entity in the
 world each tick (the hub census counts about 8000 entities, 1300 live). A body
 they can act on has `WornCharacter` or `BodyWalletShield`, and `MovePlayback` or
@@ -537,7 +537,7 @@ derive line, 0.51%; it embeds `LiveRooms`) and `SoleLiveRoomSpec` (0.32%).
 Together the room-lookup parameters are ~2.2% of phone samples. Users by a
 `git grep` of parameter declarations: `LiveRooms` ~120, `LiveRoomSpecs` ~90,
 `LiveRoomOf` ~72, `SoleLiveRoom` ~17, `SoleLiveRoomSpec` 5. (The next phone
-line of ours, `touch_input/virtual_device.rs:50`, 0.46%, is the touch button's
+line of ours, `crates/ambition_touch_input/src/virtual_device.rs:50`, 0.46%, is the touch button's
 `decompose`, called by leafwing's clash pass; it went with F13.)
 
 Reading (REASONED): the live-room set is one or two values that change on a

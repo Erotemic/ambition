@@ -956,4 +956,4 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
   the monolith 1,406 pass, 1 fails, not from this run:
   `held_item_steps…sit_where_they_say` finds two systems in
   `HeldItemStep::Physics` (`right_ground_items`, added in 2479a4c37). The runtime
-  crate (executor policy) 83 pass.
+  crate (executor policy) 83 pass; `ambition_platformer2d` 10 pass.

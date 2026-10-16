@@ -327,7 +327,7 @@ MEASURED. `serialize_frame_schedules`
 `Fixed*`. Standalone games simulate in `FixedUpdate`. `dev/bevy_idle_systems`:
 an idle system costs about 0.016 us on the single-threaded executor and 1.7-12 us
 on the multi-threaded one. The executor policy has a second owner
-(`game/ambition_app/src/app/plugins.rs:355`, an env switch the demos never reach).
+(`game/ambition_app/src/app/plugins.rs:356`, an env switch the demos never reach).
 Worse: the windowed demo hosts did not call the policy at all; only the
 headless foundation and `game/ambition_app/src/app/visible_composition.rs`
 did. So windowed Mary-O, Sanic and Smash run `First`..`Last` and `Fixed*` on

@@ -398,6 +398,7 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
                 down: graph.frame.down,
                 dt: 1.0 / 60.0,
                 wall,
+                approach: None,
             };
             let (input, progress) = follow_leg(&current, phase, &facts);
             // A player walks at the top speed; the leg slows the stick
@@ -579,7 +580,7 @@ pub fn fight(
             }
         }
         if let Some((current, phase)) = leg {
-            let facts = LegFacts { feet, vel: kinematics.vel, on_ground, side: graph.frame.side, down: graph.frame.down, dt: 1.0 / 60.0, wall };
+            let facts = LegFacts { feet, vel: kinematics.vel, on_ground, side: graph.frame.side, down: graph.frame.down, dt: 1.0 / 60.0, wall, approach: None };
             let (input, progress) = follow_leg(&current, phase, &facts);
             press.axis = input.axis;
             press.up = input.up;

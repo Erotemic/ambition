@@ -14,6 +14,7 @@ mod enemy_quad_matches_its_box;
 mod mary_o_it_sync;
 mod the_sky_of_1_1_leads_to_the_warp_room;
 
+mod autoplay;
 mod course_playthrough;
 mod only_run_and_jump;
 mod death_reset_timing;

@@ -7,6 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`ai_slop`](src/ai_slop.rs) | Mary-O's AI Slop — the plain stompable walker, authored as pure content. |
+| [`autoplay`](src/autoplay.rs) | Mary-O plays herself, for unattended profiling: `AMBITION_AUTOPLAY=mary_o`. |
 | [`bricks`](src/bricks.rs) | Mary-O's breakable bricks — the SECOND consumer of the reactive-block primitive. |
 | [`castle_end`](src/castle_end.rs) | The end of a castle: a switch, the fall of the bridge, a gate, and who waits past it. |
 | [`cosmic`](src/cosmic.rs) | Eternal Cosmic Mary-O: her ultimate form. |
@@ -39,7 +40,7 @@
 | [`void_look`](src/void_look.rs) | The field of the void about each void thing of Mary-O: the Void Star, the Void Lizard, and the orb the Void Lizard throws. |
 | [`void_star`](src/void_star.rs) | The Void Star: the enemy that no stomp can hurt. |
 
-_32 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_33 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

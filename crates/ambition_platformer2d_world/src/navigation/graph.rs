@@ -96,6 +96,13 @@ pub struct NavGraph {
     pub half: Vec2,
     /// The body's top speed along a surface, for the cost of a walk.
     pub run_speed: f32,
+    /// The body's braking on a surface with no stick (px/s²), measured in
+    /// the kernel. A follower lets go of the stick when its slide would take
+    /// it to the point it stops on (`LegFacts::brake`). Zero: not measured.
+    pub braking: f32,
+    /// The speed of the body's first step from rest at a full press (a dash
+    /// is at speed on its first step).
+    pub start_speed: f32,
     /// The highest the body's feet rise in a jump, and the farthest its
     /// leading edge goes in one. What an author sizes a room by.
     pub apex_rise: f32,
@@ -147,6 +154,8 @@ impl NavGraph {
             frame: nav,
             half,
             run_speed: envelope.takeoff_speed.max(1.0),
+            braking: envelope.braking(),
+            start_speed: envelope.start_speed,
             apex_rise: apex,
             jump_reach,
             out: vec![Vec::new(); surfaces.len()],
@@ -364,6 +373,7 @@ impl NavGraph {
                 down: self.frame.down,
                 dt,
                 wall: body.wall.on_wall.then_some(body.wall.wall_normal_x.signum()),
+                approach: None,
             };
             let (input, progress) = follow_leg(leg, phase, &facts);
             match progress {
@@ -388,6 +398,19 @@ impl NavGraph {
         (None, MAX_LEG_STEPS + 3)
     }
 
+    /// How this body stops on a point ([`ae::navigation::ApproachLaw`]):
+    /// `None` when the body does not slow with no stick.
+    pub fn approach_law(&self) -> Option<ae::navigation::ApproachLaw> {
+        if self.braking <= 0.0 {
+            return None;
+        }
+        // From rest, a full press moves the body one step at its start speed
+        // and then slides it: nearer than that, it creeps.
+        let dash = self.start_speed.abs();
+        let creep_band = dash / 60.0 + dash * dash / (2.0 * self.braking);
+        Some(ae::navigation::ApproachLaw { braking: self.braking, creep_band })
+    }
+
     /// The surface the feet point `feet` stands on.
     pub fn surface_at(&self, feet: Vec2) -> Option<usize> {
         let (along, below) = (self.frame.along(feet), self.frame.below(feet));
@@ -401,6 +424,30 @@ impl NavGraph {
             })
             .min_by(|(_, a), (_, b)| (a.clamp(along) - along).abs().total_cmp(&(b.clamp(along) - along).abs()))
             .map(|(index, _)| index)
+    }
+
+    /// Where a body in the air at `feet` should come down, when no leg
+    /// steers it (a leg failed in the air: a foe struck it, a block broke
+    /// under it). The surface point nearest the body that is below its feet,
+    /// or at most `rise` above them (what an air jump the owner can still
+    /// spend gains), with a lean toward `toward` (its goal). `None`: no
+    /// surface is there.
+    pub fn landing_in_reach(&self, feet: Vec2, rise: f32, toward: Vec2) -> Option<Vec2> {
+        let (along, below) = (self.frame.along(feet), self.frame.below(feet));
+        let goal_along = self.frame.along(toward);
+        (0..self.surfaces.len())
+            .filter(|index| self.surfaces[*index].top >= below - rise)
+            .map(|index| {
+                let surface = &self.surfaces[index];
+                let at = surface.clamp(along);
+                // The way along to the surface, the fall to it, and a lean
+                // toward the goal: the nearest landing first, and of two as
+                // near, the one on the way.
+                let cost = (at - along).abs() + (surface.top - below).abs() * 0.25 + (at - goal_along).abs() * 0.05;
+                (self.frame.point(at, surface.top), cost)
+            })
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|(point, _)| point)
     }
 
     /// The feet point at `along` on `surface`, kept on the surface.

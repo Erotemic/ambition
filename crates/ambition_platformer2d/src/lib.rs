@@ -15,6 +15,7 @@ pub mod demo_shell;
 #[cfg(feature = "ambition_render")]
 pub mod game_assets;
 pub mod prelude;
+pub mod autopilot;
 pub mod scripted_input;
 pub mod session;
 

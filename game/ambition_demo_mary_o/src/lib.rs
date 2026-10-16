@@ -15,6 +15,7 @@
 //! What lives here is the LEVEL and the RULES.
 
 pub mod ai_slop;
+pub mod autoplay;
 #[cfg(test)]
 mod binding_tests;
 pub mod bricks;
@@ -1483,6 +1484,15 @@ impl Plugin for MaryORulesPlugin {
             ambition_platformer2d::extension::ExtensionAppExt::add_extension_module(app, module);
         }
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
+
+        // `AMBITION_AUTOPLAY=mary_o`: this game's policy, run only when a host
+        // selected it (`scripted_input::install_autoplay`).
+        app.add_systems(
+            bevy::prelude::Update,
+            autoplay::play_mary_o
+                .in_set(ambition_platformer2d::scripted_input::AutoplayPolicy)
+                .run_if(ambition_platformer2d::scripted_input::autoplay_is(autoplay::AUTOPLAY_GAME)),
+        );
 
         // declared HERE as well as engine-side, because a channel's EMITTER
         // owes its existence: a composition that installs this demo without the

@@ -352,6 +352,12 @@ impl<'a> RoomCollision<'a> {
 
     /// The bare authored geometry, no overlay. For metadata / bounds / layout
     /// reads only — never for collision. Prefer `solids()` / `carves_only()`.
+    /// The room's collision overlay (contributed solids, gate solids,
+    /// carves), when it has one.
+    pub fn overlay(self) -> Option<&'a FeatureEcsWorldOverlay> {
+        self.overlay
+    }
+
     pub fn base(self) -> &'a ae::World {
         &self.geometry.0
     }

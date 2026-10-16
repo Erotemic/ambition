@@ -170,6 +170,7 @@ pub fn compose_ambition_visible_game(
             }
             None => super::shell_host::compose_ambition_shell_host(app),
         }
+        ambition_platformer2d::scripted_input::install_autoplay_from_env(app);
     } else {
         super::shell_host::compose_ambition_shell_host_booting_to(
             app,

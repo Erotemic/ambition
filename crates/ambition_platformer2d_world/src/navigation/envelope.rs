@@ -85,6 +85,12 @@ pub struct TraversalEnvelope {
     /// The double jump rollout: jump pressed on the takeoff step and held,
     /// and pressed again on the first step the body falls.
     pub air_jump: Vec<ArcSample>,
+    /// How far the body slides on its floor when it lets go of the stick at
+    /// `takeoff_speed`. With [`Self::braking`], a follower knows when to let
+    /// go to stop on a point.
+    pub stop_distance: f32,
+    /// The body's speed after its first step from rest at a full press.
+    pub start_speed: f32,
 }
 
 impl TraversalEnvelope {
@@ -135,10 +141,15 @@ impl TraversalEnvelope {
             );
         }
         let mut speed = 0.0_f32;
+        let mut start_speed = None;
         let mut settled = 0;
         for _ in 0..probe.max_run_up_steps {
             step(&mut runner, &run_world, frame, probe.dt, run_input(false, false));
             let now = runner.kinematics.vel.dot(side);
+            // The first step on the floor: a body placed above it falls first.
+            if runner.ground.on_ground && start_speed.is_none() {
+                start_speed = Some(now);
+            }
             settled = if runner.ground.on_ground && (now - speed).abs() < 1e-3 { settled + 1 } else { 0 };
             speed = now;
             if settled >= 3 {
@@ -148,6 +159,19 @@ impl TraversalEnvelope {
         if !runner.ground.on_ground {
             return None;
         }
+
+        // Let go at top speed on the long floor, and measure the slide.
+        let stop_distance = {
+            let mut body = runner.clone();
+            let from = (body.kinematics.pos - origin).dot(side);
+            for _ in 0..probe.max_run_up_steps {
+                step(&mut body, &run_world, frame, probe.dt, InputState::default());
+                if body.kinematics.vel.dot(side).abs() < ae::navigation::REST_SPEED {
+                    break;
+                }
+            }
+            ((body.kinematics.pos - origin).dot(side) - from).max(0.0)
+        };
 
         // Cut the floor at the leading edge and roll out each verb from there.
         let edge = (runner.kinematics.pos - origin).dot(side) + half_along;
@@ -179,7 +203,20 @@ impl TraversalEnvelope {
             jump: rollout(true, false),
             drop: rollout(false, false),
             air_jump: rollout(true, true),
+            stop_distance,
+            start_speed: start_speed.unwrap_or(speed),
         })
+    }
+
+    /// The body's braking on its floor with no stick (px/s²), from the slide
+    /// at top speed: `v² / 2d`. Zero when it does not slow (no friction) or
+    /// does not run.
+    pub fn braking(&self) -> f32 {
+        if self.stop_distance > 0.0 && self.takeoff_speed.abs() > ae::navigation::REST_SPEED {
+            self.takeoff_speed * self.takeoff_speed / (2.0 * self.stop_distance)
+        } else {
+            0.0
+        }
     }
 
     /// The highest the feet rise above the takeoff surface in the jump.

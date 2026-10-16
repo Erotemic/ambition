@@ -75,6 +75,12 @@ impl Fixture {
     /// as a brain does: ask for the next leg when it has none, follow it with
     /// `follow_leg`, at a walk when the leg does not ask for full speed.
     fn travel(&self, from: Vec2, goal: Vec2) -> Result<usize, String> {
+        self.travel_by(from, goal, None)
+    }
+
+    /// [`Self::travel`] with an approach law: the body runs at its top speed
+    /// and stops by its braking, as a player's seat does.
+    fn travel_by(&self, from: Vec2, goal: Vec2, approach: Option<ae::navigation::ApproachLaw>) -> Result<usize, String> {
         let mut body = self.body.clone();
         let half = self.graph.half;
         {
@@ -102,6 +108,7 @@ impl Fixture {
                     down: Vec2::Y,
                     dt: DT,
                     wall: body.wall.on_wall.then_some(body.wall.wall_normal_x.signum()),
+                    approach,
                 };
                 let (step_input, progress) = follow_leg(&current, phase, &facts);
                 input = step_input;
@@ -151,6 +158,38 @@ fn a_body_that_follows_the_advice_arrives() {
     fixture.travel(fixture.middle("perch"), fixture.middle("ledge")).expect("perch to ledge");
     assert_eq!(fixture.graph.next(start, fixture.middle("shelf")), NavNext::Unreachable);
     assert_eq!(fixture.graph.next(fixture.middle("cellar"), fixture.middle("floor")), NavNext::Unreachable);
+}
+
+/// A body that runs at its top speed and lets go of the stick by its own
+/// measured braking (a player's seat driven by navigation) comes to rest on
+/// each leg's start and arrives, as a body at a walk does.
+#[test]
+fn a_body_that_runs_and_brakes_by_its_measured_law_arrives() {
+    let fixture = Fixture::new();
+    let law = fixture.graph.approach_law().expect("the walker slows with no stick: it has a braking");
+    assert!(law.braking > 0.0 && law.creep_band > 0.0, "{law:?}");
+    let start = fixture.middle("floor") - Vec2::X * 500.0;
+    for goal in ["perch", "ledge", "cellar"] {
+        fixture
+            .travel_by(start, fixture.middle(goal), Some(law))
+            .unwrap_or_else(|why| panic!("floor to {goal} at a run: {why}"));
+    }
+}
+
+/// A body in the air with no leg comes down where a surface is: the one
+/// under it, and a higher one only within the rise it is given.
+#[test]
+fn a_body_in_the_air_is_given_a_landing_in_reach() {
+    let fixture = Fixture::new();
+    let floor = fixture.middle("floor");
+    let over_the_floor = floor - Vec2::Y * 40.0;
+    let landing = fixture.graph.landing_in_reach(over_the_floor, 0.0, floor).expect("the floor is under it");
+    assert_eq!(fixture.graph.surface_at(landing), Some(fixture.surface("floor")));
+    // A surface above the feet is no landing with no rise to spend.
+    let perch = fixture.middle("perch");
+    let under_the_perch = perch + Vec2::Y * 30.0;
+    let landing = fixture.graph.landing_in_reach(under_the_perch, 0.0, perch);
+    assert_ne!(landing.and_then(|at| fixture.graph.surface_at(at)), Some(fixture.surface("perch")));
 }
 
 #[test]

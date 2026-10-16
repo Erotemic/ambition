@@ -65,6 +65,9 @@ fn build_demo_app_on(mut app: App, home_route: &str) -> App {
 fn compose_mary_o_shell(app: &mut App, home_route: &str) {
     use ambition_demo_mary_o::{MaryOExperiencePlugin, MARY_O_GAMEPLAY_ROUTE};
 
+    // `AMBITION_AUTOPLAY=mary_o`: she plays herself.
+    ambition_platformer2d::scripted_input::install_autoplay_from_env(app);
+
     // The shell, the load coordinator, the loading presentation, the frontend
     // audio context and the two route registrations — the seven steps every
     // host of a platformer provider performs in the same order, none of which

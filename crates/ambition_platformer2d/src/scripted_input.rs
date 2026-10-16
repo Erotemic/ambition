@@ -94,6 +94,60 @@ pub fn drive_the_local_participant(app: &mut App) {
     app.add_systems(Last, observe_delivered_controls);
 }
 
+/// The env var that names the game whose player plays itself, by its hub game
+/// id: `AMBITION_AUTOPLAY=mary_o`. For unattended profiling and soak runs.
+///
+/// A host calls [`install_autoplay_from_env`]. Each game owns its policy: a system in
+/// [`AutoplayPolicy`] gated by [`autoplay_is`] with its own id, which writes
+/// the [`crate::autopilot::AutopilotOrder`]: a goal the autopilot goes to by
+/// navigation, or a press of the game's own. A game with no policy is not
+/// driven.
+pub const AUTOPLAY_ENV: &str = "AMBITION_AUTOPLAY";
+
+/// The game [`AUTOPLAY_ENV`] names, if any: read at run time, or, for a build
+/// with no environment at run time (an APK), at compile time. Every host
+/// reads it here.
+pub fn autoplay_from_env() -> Option<String> {
+    std::env::var(AUTOPLAY_ENV)
+        .ok()
+        .or_else(|| option_env!("AMBITION_AUTOPLAY").map(str::to_owned))
+        .map(|game| game.trim().to_owned())
+        .filter(|game| !game.is_empty())
+}
+
+/// [`install_autoplay`] for the game [`autoplay_from_env`] names, if any.
+pub fn install_autoplay_from_env(app: &mut App) {
+    if let Some(game) = autoplay_from_env() {
+        eprintln!("[census] config autoplay={game}");
+        install_autoplay(app, game);
+    }
+}
+
+/// The game the scripted participant plays, from [`AUTOPLAY_ENV`].
+#[derive(Resource, Clone, Debug, PartialEq, Eq)]
+pub struct Autoplay(pub String);
+
+/// Where a game's autoplay policy runs: each frame, before the script is
+/// written into the seat.
+#[derive(bevy::ecs::schedule::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct AutoplayPolicy;
+
+/// Run condition of a game's autoplay policy: true while [`Autoplay`] names `game`.
+pub fn autoplay_is(game: &'static str) -> impl Fn(Option<Res<Autoplay>>) -> bool + Clone {
+    move |autoplay: Option<Res<Autoplay>>| autoplay.is_some_and(|autoplay| autoplay.0 == game)
+}
+
+/// Let `game`'s autoplay policy drive the local participant. While it runs,
+/// the script owns the primary seat: device and touch input are not read.
+pub fn install_autoplay(app: &mut App, game: impl Into<String>) {
+    drive_the_local_participant(app);
+    app.insert_resource(Autoplay(game.into()));
+    app.configure_sets(Update, AutoplayPolicy.before(write_scripted_controls));
+    // A policy gives a goal; the autopilot goes there by navigation.
+    crate::autopilot::install(app);
+    app.configure_sets(Update, crate::autopilot::AutopilotDrive.before(write_scripted_controls));
+}
+
 /// Set what the local participant is holding from here on.
 pub fn hold(app: &mut App, frame: ControlFrame) {
     app.world_mut().resource_mut::<ScriptedControls>().0 = frame;

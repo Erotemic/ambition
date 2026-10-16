@@ -30,6 +30,22 @@ pub const LAND_TOLERANCE: f32 = 6.0;
 pub const FLIGHT_CLEARANCE: f32 = 32.0;
 /// The most waypoints one [`NavAdvice`] holds.
 pub const NAV_WAYPOINTS: usize = 8;
+/// A stick that moves a body on its floor below its top speed and starts no
+/// dash: above the kernel's run threshold (0.1), below its dash threshold
+/// (0.5). For the last part of an approach.
+pub const CREEP_STICK: f32 = 0.3;
+
+/// How a body comes to rest on a point, measured in the kernel (the
+/// traversal envelope). A follower that has it runs to the point at its top
+/// speed and lets go of the stick when its slide would take it there.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ApproachLaw {
+    /// The body's braking on its floor with no stick (px/s²).
+    pub braking: f32,
+    /// Nearer than this to the point, a press from rest would run past it (a
+    /// press from rest is a dash, at speed on its first step): creep instead.
+    pub creep_band: f32,
+}
 
 /// How a leg moves the body.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -121,6 +137,10 @@ pub struct LegFacts {
     /// The wall the body touches, as the side its face points to along
     /// `side` (`1.0`: away from it is `+side`), or `None`.
     pub wall: Option<f32>,
+    /// How the body stops on a point, when its follower knows: then an
+    /// approach is at the body's top speed, and stops by braking. `None`: the
+    /// approach is a fraction of the follower's own walk (a brain's pace).
+    pub approach: Option<ApproachLaw>,
 }
 
 /// The input of one step of a leg.
@@ -185,9 +205,23 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                 };
                 return (LegInput::default(), progress);
             }
+            let going = LegProgress::Going(LegPhase::Approach);
+            if let Some(law) = facts.approach {
+                // Run, and let go when the slide reaches the point.
+                let toward = (speed * offset.signum()).max(0.0);
+                let slide = toward * toward / (2.0 * law.braking.max(1.0));
+                let axis = if slide >= offset.abs() - ARRIVE_TOLERANCE * 0.5 {
+                    0.0
+                } else if offset.abs() <= law.creep_band {
+                    offset.signum() * CREEP_STICK
+                } else {
+                    offset.signum()
+                };
+                return (LegInput { axis, full_speed: true, ..Default::default() }, going);
+            }
             // Slower near the point, so the body stops in the tolerance.
             let axis = offset.signum() * (offset.abs() / 32.0).clamp(0.3, 1.0);
-            (LegInput { axis, ..Default::default() }, LegProgress::Going(LegPhase::Approach))
+            (LegInput { axis, ..Default::default() }, going)
         }
         LegPhase::Commit => {
             let run = (leg.takeoff - leg.start).dot(facts.side);
@@ -638,7 +672,29 @@ mod tests {
     use super::*;
 
     fn facts(feet: Vec2, vel: Vec2, on_ground: bool) -> LegFacts {
-        LegFacts { feet, vel, on_ground, side: Vec2::X, down: Vec2::Y, dt: 1.0 / 60.0, wall: None }
+        LegFacts { feet, vel, on_ground, side: Vec2::X, down: Vec2::Y, dt: 1.0 / 60.0, wall: None, approach: None }
+    }
+
+    /// With an approach law, the approach runs at full speed, lets go where
+    /// the body's slide ends at the point, and creeps where a press from rest
+    /// would run past it.
+    #[test]
+    fn an_approach_by_law_runs_lets_go_and_creeps() {
+        let leg = NavLeg { kind: NavLegKind::Walk, land: Vec2::new(400.0, 0.0), ..Default::default() };
+        let law = ApproachLaw { braking: 1000.0, creep_band: 50.0 };
+        let at = |x: f32, speed: f32| LegFacts { approach: Some(law), ..facts(Vec2::new(x, 0.0), Vec2::new(speed, 0.0), true) };
+        let axis = |x: f32, speed: f32| {
+            let (input, _) = follow_leg(&leg, LegPhase::Approach, &at(x, speed));
+            assert!(input.full_speed, "an approach by law is in parts of the top speed");
+            input.axis
+        };
+        assert_eq!(axis(0.0, 0.0), 1.0, "far and at rest: run");
+        // 500 px/s slides 125 px at 1000 px/s²: from 100 px it lets go.
+        assert_eq!(axis(300.0, 500.0), 0.0, "the slide reaches the point: let go");
+        assert_eq!(axis(100.0, 500.0), 1.0, "the slide falls short: run on");
+        assert_eq!(axis(370.0, 0.0), CREEP_STICK, "near and at rest: creep, no dash");
+        // Past the point, it turns back.
+        assert!(axis(420.0, 0.0) < 0.0);
     }
 
     #[test]

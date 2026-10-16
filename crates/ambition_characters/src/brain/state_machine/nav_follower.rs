@@ -50,6 +50,8 @@ impl DriveFollower for NavFollower {
                 down: frame.to_world(ae::Vec2::Y),
                 dt: snapshot.dt,
                 wall: snapshot.side_contact_normal,
+                // A brain walks to the start of a leg at its own pace.
+                approach: None,
             },
             walk_speed: pace(false),
             // The advisor answers the goal it read at the start of the tick.

@@ -12,7 +12,7 @@
 | [`character_catalog`](src/character_catalog.rs) | Ambition's character-catalog data and the cast it registers. |
 | [`content_validation`](src/content_validation.rs) | Cross-content validation for authored sandbox data. |
 | [`content_watch`](src/content_watch.rs) | ⭐ THE RUNNING GAME PLAYS A CONTENT EDIT (fast-iteration I3 step 4: "file watching calls the same request path"). |
-| [`day_cycle`](src/day_cycle.rs) | Ambition's day: how long it is, where its phases begin, and how its light looks under the sky. |
+| [`day_cycle`](src/day_cycle.rs) | Ambition's day, as its pack states it (`day` in `data/ambition_rules.ron`): how long it is, where its phases begin, and how its light looks under the sky. |
 | [`dialogue`](src/dialogue/mod.rs) | Named Ambition dialogue / cutscene content registration. |
 | [`duel_arena`](src/duel_arena.rs) | Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room mechanics split by kind; this one is a `RoomLoaded` consumer). |
 | [`encounters`](src/encounters.rs) | Content encounter customers on the GENERIC lifecycle (E13). |

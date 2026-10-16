@@ -20,7 +20,7 @@ def _focused_pack_block() -> str:
     text = REGEN.read_text()
     focused = text.index('if [ "${#target_names[@]}" -gt 0 ]; then\n    validate_sprite_targets')
     start = text.index('    if [ "${AMBITION_ULTRAPACK:-1}" != "0" ]; then', focused)
-    end = text.index("    print_regen_timings\n    exit 0\n", start)
+    end = text.index('    echo "==> staging root → runtime roots"', start)
     return text[start:end]
 
 
@@ -40,7 +40,7 @@ def test_a_focused_publish_packs_each_tier_of_the_runtime_groups(tmp_path: Path)
 set -euo pipefail
 run_renderer_python() {{ echo "$*" >> {calls}; echo "packed $1"; }}
 renderer_dir={tmp_path / "renderer"}
-asset_root={tmp_path / "assets"}
+publish_asset_root={tmp_path / "assets"}
 sprites_dir={tmp_path / "assets" / "sprites"}
 ultrapack_plan=(--pack-plan plan.yaml)
 {_tier_table()}
@@ -57,3 +57,18 @@ ultrapack_plan=(--pack-plan plan.yaml)
     # The next full publish must run each tier again, not trust an old key.
     assert not list(keys.glob("*.key")), list(keys.glob("*.key"))
     assert "packed ultrapack-full" in out, out
+
+
+def test_a_focused_publish_writes_the_staging_root_and_swaps_it_in() -> None:
+    """A focused run wrote the runtime roots in place, so one that stopped
+    part way left a mixed set. It stages as a full publish does."""
+    text = REGEN.read_text()
+    focused = text.index('if [ "${#target_names[@]}" -gt 0 ]; then\n    validate_sprite_targets')
+    end = text.index("    print_regen_timings\n    exit 0\n", focused)
+    block = text[focused:end]
+    begin = block.index('    begin_staging\n    use_publish_root "$staging_root"\n')
+    for writer in ('regen_one_target "$one"', "generate_visual_quality_variants.py", "--runtime-only"):
+        assert begin < block.index(writer) < block.index("    finish_staging\n"), writer
+    assert '--asset-root "$publish_asset_root"' in block
+    assert '--out "$publish_asset_root/sprite_packs/$tname"' in block
+    assert block.index("    finish_staging\n") < block.index('    use_publish_root "$asset_root"\n')

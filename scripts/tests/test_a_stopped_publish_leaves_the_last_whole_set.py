@@ -113,7 +113,7 @@ def test_the_publish_swaps_after_the_sprite_phases_and_before_the_ldtk_phases() 
         assert begin < text.index(writer) < swap, writer
     assert '--asset-root "$publish_asset_root"' in text
     assert 'pack_root="$publish_asset_root/sprite_packs"' in text
-    assert 'mirror_root="$cache_dir/publish_mirror"' in text
+    assert 'mirror_root="$renderer_dir/.cache/publish_mirror"' in text
     # The LDtk phases write sheet paths into tracked files: they read the
     # runtime roots, after the swap.
     for reader in ('phase "LDtk editor-icon atlas:"', 'phase "LDtk sprite tilesets:"'):

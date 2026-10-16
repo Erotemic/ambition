@@ -3,8 +3,8 @@
 //!
 //! A build that reads its sprite tree off disk (no `embedded_sprites`) adds
 //! [`SpriteSheetReloadPlugin`]. The plugin looks at each sheet manifest
-//! (`*_spritesheet.ron`), each body rig (`*_body_rig.ron`) and each page image
-//! of those sheets. One look at
+//! (`*_spritesheet.ron`), each body rig (`*_body_rig.ron`), each part flipbook
+//! (`*_parts.ron`) and each page image of those sheets and flipbooks. One look at
 //! the published tree costs about 100 ms in a debug build (measured
 //! 2026-10-16), so a background thread looks, once a second, and a frame only
 //! takes the changes it found.
@@ -30,7 +30,7 @@
 //! - A table with a file that does not parse is refused, with each file
 //!   named, and the running table stays.
 //!
-//! Not on this road yet: part flipbooks, landmarks, portraits,
+//! Not on this road yet: portraits,
 //! the pack catalogs and the prop sheets a running room drew. Each has its
 //! own process cache (see `docs/planning/engine/content-generation-and-reload.md`).
 
@@ -247,15 +247,19 @@ fn modified(path: &Path) -> Option<SystemTime> {
     std::fs::metadata(path).and_then(|metadata| metadata.modified()).ok()
 }
 
-/// Each sheet manifest and each body rig, the files a sheet generation is read
-/// from. A rig is keyed by its file name, so no rig key is a manifest key.
+/// Each sheet manifest, body rig and part flipbook, the files a sheet
+/// generation is read from. A rig or a flipbook is keyed by its file name, so
+/// no such key is a manifest key.
 fn stamped_manifests(owner: &Path) -> Vec<(String, PathBuf, Option<SystemTime>)> {
+    use ambition_sprite_sheet::baked_part_flipbooks::{part_flipbook_files_under, PART_FLIPBOOK_SUFFIX};
     let rigs = sheet_table::body_rig_files_under(owner)
         .into_iter()
         .map(|(target, path)| (format!("{target}{}", sheet_table::BODY_RIG_SUFFIX), path));
+    let flipbooks = part_flipbook_files_under(owner).into_iter().map(|(key, path)| (format!("{key}{PART_FLIPBOOK_SUFFIX}"), path));
     sheet_table::sheet_files_under(owner)
         .into_iter()
         .chain(rigs)
+        .chain(flipbooks)
         .map(|(key, path)| {
             let seen = modified(&path);
             (key, path, seen)
@@ -276,9 +280,28 @@ fn stamped(paths: Vec<PathBuf>) -> Vec<(PathBuf, Option<SystemTime>)> {
 /// Each page image the current sheet generation names for these manifests:
 /// a page file is beside its manifest.
 fn pages_of(manifests: &[(String, PathBuf, Option<SystemTime>)]) -> Vec<PathBuf> {
+    use ambition_sprite_sheet::baked_part_flipbooks::PART_FLIPBOOK_SUFFIX;
+    // Each folder is listed once: about 160 flipbooks share a few folders.
+    let mut listed: std::collections::HashMap<PathBuf, Vec<PathBuf>> = std::collections::HashMap::new();
     let registry = sheet_table::current().registry();
     let mut pages = BTreeSet::new();
     for (key, path, _) in manifests {
+        // A flipbook's atlas pages are beside it, named after it
+        // (`<target>_parts.png`, `<target>_parts_1.png`).
+        let flipbook = path.file_name().and_then(|name| name.to_str()).and_then(|name| name.strip_suffix(PART_FLIPBOOK_SUFFIX));
+        if let (Some(target), Some(dir)) = (flipbook, path.parent()) {
+            let prefix = format!("{target}_parts");
+            let files = listed
+                .entry(dir.to_path_buf())
+                .or_insert_with(|| std::fs::read_dir(dir).into_iter().flatten().flatten().map(|entry| entry.path()).collect());
+            let pages_here = files.iter().cloned().filter(|page| {
+                page.file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with(&prefix) && name.ends_with(".png"))
+            });
+            pages.extend(pages_here);
+            continue;
+        }
         let (Some(record), Some(dir)) = (registry.get(key), path.parent()) else {
             continue;
         };

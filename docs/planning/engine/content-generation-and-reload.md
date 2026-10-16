@@ -540,8 +540,18 @@ sheets (`*_body_rig.ron`) are a part of the same generation since
 refuses the table with the rig named (a reader of a rig panics on one it
 cannot read), and the cast restaters state each cast's rig again (witnesses
 `sheet_generation` and `sheet_derived_cast`, red with the rig table kept in
-its own `OnceLock`, with no rig check, and with the rigs not watched). Not
-yet on the road: part flipbooks,
+its own `OnceLock`, with no rig check, and with the rigs not watched). The
+part flipbooks (`*_parts.ron`, each quality tier too) and the landmark tables
+projected from them are a part of it as well
+(`baked_part_flipbooks::PartTables`): the preparation decodes each
+full-resolution table off the frame (a table whose file kept its
+modification time is taken from the current generation), refuses one that
+does not decode with the file named, and projects the landmarks again when a
+flipbook changed; the watch reloads an edited flipbook's atlas pages
+(`<target>_parts*.png`) at once. The old generation drops its decoded tables
+at the publication. Witness: the flipbook arm of `sprite_sheet_reload`. A
+tier table is not decoded at the preparation, so a broken one is still found
+where a sheet realizes it. Not yet on the road:
 landmarks, portraits, pack catalogs, the prop sheets a room drew, and a body
 already bound at the same tier (the generation key above). The retire and
 the page reload have no witness of their own.

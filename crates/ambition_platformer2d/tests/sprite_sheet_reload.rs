@@ -84,6 +84,48 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     assert!(watch.refused.as_deref().is_some_and(|why| why.contains(PROBE)), "the refusal does not name the sheet: {:?}", watch.refused);
     assert_eq!(current().id(), first + 1, "a broken sheet was published");
     assert_eq!(collision_scale(&app), (2.25, 2.25), "a broken sheet changed the running sheets");
+
+    // A part flipbook is a part of the generation: its decoded table and the
+    // landmarks projected from it are the saved file's. A real flipbook that
+    // tracks a hand, under the probe's name.
+    use ambition_sprite_sheet::baked_landmarks::{body_landmarks, landmarks_digest};
+    use ambition_sprite_sheet::character::rigged::RiggedSpriteAsset;
+    let shipped = ambition_sprite_sheet::baked_sheet_rons::published_tree_owner()
+        .expect("a development build reads its sprite tree")
+        .join("assets/sprites/hand_saint_parts.ron");
+    let flipbook_text = std::fs::read_to_string(shipped).expect("the hand saint publishes a flipbook").replace("target: \"hand_saint\"", &format!("target: \"{PROBE}\""));
+    let flipbook = sprites.join(format!("{PROBE}_parts.ron"));
+    // The feet are read from the decoded table, the frame height by the
+    // landmarks.
+    let feet = |x: &str| {
+        flipbook_text
+            .replace("feet_pixel: (104.0, 199.0)", &format!("feet_pixel: ({x}, 199.0)"))
+            .replace("frame_size: (232, 208)", if x == "104.0" { "frame_size: (232, 208)" } else { "frame_size: (232, 216)" })
+    };
+    assert_eq!(flipbook_text.matches("frame_size: (232, 208)").count(), 1, "the probe edits one frame size");
+    std::fs::write(&flipbook, feet("104.0")).unwrap();
+    std::fs::write(&manifest, sheet_text("2.25")).unwrap();
+    look(&mut app);
+    app.update();
+    assert_eq!(app.world().resource::<SpriteSheetWatch>().refused, None);
+    let feet_x = || RiggedSpriteAsset::baked(PROBE).map(|table| table.feet_pixel.x);
+    assert_eq!(feet_x(), Some(104.0), "an added flipbook is not decoded from the published generation");
+    assert!(body_landmarks(PROBE).is_some(), "the added flipbook's landmarks are not projected");
+    let digest = landmarks_digest().to_owned();
+
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&flipbook, feet("120.0")).unwrap();
+    look(&mut app);
+    app.update();
+    assert_eq!(feet_x(), Some(120.0), "the decoded flipbook is not the saved file");
+    assert_ne!(landmarks_digest(), digest, "the landmarks are not projected from the saved flipbook");
+
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&flipbook, "( schema_version: 3, target: ").unwrap();
+    look(&mut app);
+    let refused = app.world().resource::<SpriteSheetWatch>().refused.clone();
+    assert!(refused.as_deref().is_some_and(|why| why.contains(&format!("{PROBE}_parts.ron"))), "the refusal does not name the flipbook: {refused:?}");
+    assert_eq!(feet_x(), Some(120.0), "a broken flipbook changed the running one");
     let _ = std::fs::remove_dir_all(&owner);
 }
 

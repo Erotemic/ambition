@@ -26,6 +26,7 @@ pub struct SheetGeneration {
     rons: Vec<(&'static str, &'static str)>,
     /// `(target, ron_text)` sorted by target.
     body_rigs: Vec<(&'static str, &'static str)>,
+    part_tables: crate::baked_part_flipbooks::PartTables,
     /// Keyed by file root ([`crate::index_baked_table`]); its map is the
     /// record index.
     registry: crate::SheetRegistry,
@@ -37,11 +38,19 @@ impl SheetGeneration {
     /// where a reader parses it, as before generations existed.
     fn new(id: u64, texts: SheetTexts) -> Self {
         let registry = crate::SheetRegistry::from_baked_table(&texts.sheets);
-        Self { id, rons: texts.sheets, body_rigs: texts.body_rigs, registry, digest: OnceLock::new() }
+        let part_tables = crate::baked_part_flipbooks::PartTables::new(texts.part_flipbooks);
+        Self { id, rons: texts.sheets, body_rigs: texts.body_rigs, part_tables, registry, digest: OnceLock::new() }
     }
 
     fn of(id: u64, prepared: PreparedSheetTable) -> Self {
-        Self { id, rons: prepared.texts.sheets, body_rigs: prepared.texts.body_rigs, registry: prepared.registry, digest: OnceLock::new() }
+        Self {
+            id,
+            rons: prepared.texts.sheets,
+            body_rigs: prepared.texts.body_rigs,
+            part_tables: prepared.part_tables,
+            registry: prepared.registry,
+            digest: OnceLock::new(),
+        }
     }
 
     /// Which generation this is: 0 for the table the process read first.
@@ -57,6 +66,11 @@ impl SheetGeneration {
     /// Every body rig, as `(target, ron_text)` sorted by target.
     pub fn body_rigs(&self) -> &[(&'static str, &'static str)] {
         &self.body_rigs
+    }
+
+    /// The part flipbooks and what is derived from them.
+    pub fn part_tables(&self) -> &crate::baked_part_flipbooks::PartTables {
+        &self.part_tables
     }
 
     /// The records, keyed by file root.
@@ -90,7 +104,11 @@ pub fn sheet_rons() -> &'static [(&'static str, &'static str)] {
 fn first_table() -> SheetTexts {
     #[cfg(embedded_sprites)]
     {
-        SheetTexts { sheets: BAKED_SHEET_RONS.to_vec(), body_rigs: crate::baked_body_rigs::BAKED_BODY_RIGS.to_vec() }
+        SheetTexts {
+            sheets: BAKED_SHEET_RONS.to_vec(),
+            body_rigs: crate::baked_body_rigs::BAKED_BODY_RIGS.to_vec(),
+            part_flipbooks: crate::baked_part_flipbooks::first_rows(),
+        }
     }
     #[cfg(not(embedded_sprites))]
     {
@@ -105,13 +123,20 @@ pub struct SheetTexts {
     pub sheets: Vec<(&'static str, &'static str)>,
     /// Every body rig, as `(target, ron_text)` sorted by target.
     pub body_rigs: Vec<(&'static str, &'static str)>,
+    /// Every part flipbook, sorted by key. Named, not read: a flipbook is
+    /// read where it is decoded.
+    pub part_flipbooks: Vec<crate::baked_part_flipbooks::PartFlipbookRow>,
 }
 
 impl SheetTexts {
     /// The texts of the current generation, to edit.
     pub fn current() -> Self {
         let generation = current();
-        Self { sheets: generation.rons().to_vec(), body_rigs: generation.body_rigs().to_vec() }
+        Self {
+            sheets: generation.rons().to_vec(),
+            body_rigs: generation.body_rigs().to_vec(),
+            part_flipbooks: generation.part_tables().rows().to_vec(),
+        }
     }
 }
 
@@ -136,11 +161,15 @@ impl std::fmt::Display for SheetTableRefused {
 pub struct PreparedSheetTable {
     texts: SheetTexts,
     registry: crate::SheetRegistry,
+    part_tables: crate::baked_part_flipbooks::PartTables,
 }
 
-/// Parse and check `texts`. A table with a sheet that does not parse, or a
-/// body rig that does not parse or prepare, is refused, with each such file
-/// named: a reader of a rig panics on a rig it cannot read.
+/// Parse and check `texts`. A table with a sheet that does not parse, a body
+/// rig that does not parse or prepare, or a full-resolution part flipbook
+/// that does not decode, is refused, with each such file named: a reader of a
+/// rig or a flipbook panics on one it cannot read. Each flipbook is decoded
+/// and the landmarks are projected here, off the frame; a flipbook whose file
+/// did not change is taken from the current generation.
 pub fn prepare_sheet_table(texts: SheetTexts) -> Result<PreparedSheetTable, SheetTableRefused> {
     let mut index = crate::index_baked_table(&texts.sheets);
     let mut failed = std::mem::take(&mut index.failed);
@@ -154,7 +183,9 @@ pub fn prepare_sheet_table(texts: SheetTexts) -> Result<PreparedSheetTable, Shee
     if !failed.is_empty() {
         return Err(SheetTableRefused(failed));
     }
-    Ok(PreparedSheetTable { texts, registry: crate::SheetRegistry::from_index(index) })
+    let part_tables = crate::baked_part_flipbooks::PartTables::prepared(texts.part_flipbooks.clone(), current().part_tables())
+        .map_err(SheetTableRefused)?;
+    Ok(PreparedSheetTable { texts, registry: crate::SheetRegistry::from_index(index), part_tables })
 }
 
 /// Make `prepared` the sheet table every reader reads, with the records
@@ -168,6 +199,11 @@ pub fn publish_prepared_sheet_table(prepared: PreparedSheetTable) -> u64 {
     let mut live = LIVE.write().unwrap_or_else(std::sync::PoisonError::into_inner);
     let previous = live.map(SheetGeneration::id).unwrap_or_else(|| current_first_id());
     let generation: &'static SheetGeneration = Box::leak(Box::new(SheetGeneration::of(previous + 1, prepared)));
+    // The old generation is kept, but not its decoded flipbooks: a reader
+    // that still holds it decodes again, and each publication would else keep
+    // every decoded table of the generations before it.
+    let old = live.unwrap_or_else(|| FIRST.get_or_init(|| SheetGeneration::new(0, first_table())));
+    old.part_tables().forget_decoded();
     *live = Some(generation);
     generation.id
 }
@@ -225,6 +261,7 @@ pub fn read_sheet_table_under(owner: &std::path::Path) -> SheetTexts {
         SheetTexts {
             sheets: crate::published_tree::texts(sheet_files_under(owner)),
             body_rigs: crate::published_tree::texts(body_rig_files_under(owner)),
+            part_flipbooks: crate::baked_part_flipbooks::rows_under(owner),
         }
     }
 }

@@ -6,14 +6,17 @@
 //!
 //! Where there is no source tree (`static_content`, wasm, Android), `build.rs`
 //! projects the tables and embeds them. A development build projects them
-//! from the published tree the first time one is asked for.
+//! from the published tree the first time one is asked for. The tables are a
+//! part of the current sheet generation
+//! ([`crate::baked_part_flipbooks::PartTables`]), so a development build
+//! projects them again when it publishes an edited flipbook.
 //!
 //! ⚠ A landmark is a SIMULATION input (a pet mark, a muzzle), and no world
 //! resource holds this table. Its identity reaches the content fingerprint as
 //! [`landmarks_digest`]; see `MechanicalRegistries::baked_landmarks` in the
 //! platformer provider.
 
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 use ambition_characters::actor::landmarks::{BodyLandmarkTable, Landmark, LandmarkClip, LandmarkFrame};
 use bevy::math::Vec2;
@@ -25,43 +28,35 @@ include!(concat!(env!("OUT_DIR"), "/baked_landmarks.rs"));
 
 /// Every landmark table, as `(target, bincode)` sorted by target.
 pub fn landmarks() -> &'static [(&'static str, &'static [u8])] {
-    #[cfg(embedded_sprites)]
-    {
-        BAKED_LANDMARKS
-    }
-    #[cfg(not(embedded_sprites))]
-    {
-        &projected().0
-    }
+    &crate::baked_sheet_rons::current().part_tables().landmarks().0
 }
 
 /// The identity of [`landmarks`]: `landmark_tables_digest` over the tables
 /// in order.
 pub fn landmarks_digest() -> &'static str {
-    #[cfg(embedded_sprites)]
-    {
-        BAKED_LANDMARKS_DIGEST
-    }
-    #[cfg(not(embedded_sprites))]
-    {
-        &projected().1
-    }
+    &crate::baked_sheet_rons::current().part_tables().landmarks().1
 }
 
-/// A development build's landmark tables and their digest, projected once
-/// per process.
+/// The landmark tables of the flipbooks `rows` and their digest: in an
+/// embedded build the tables `build.rs` projected (its rows cannot change).
+#[cfg(embedded_sprites)]
+pub(crate) fn project_rows(rows: &[crate::baked_part_flipbooks::PartFlipbookRow]) -> crate::baked_part_flipbooks::Landmarks {
+    let _ = rows;
+    (BAKED_LANDMARKS.to_vec(), BAKED_LANDMARKS_DIGEST.to_owned())
+}
+
+/// The landmark tables of the flipbooks `rows` and their digest.
 ///
 /// The projection parses every full-resolution flipbook, so it is kept in the
 /// development cache (`published_cache`) under the key of all those files: a
 /// run after the first reads one small file.
 #[cfg(not(embedded_sprites))]
-fn projected() -> &'static (Vec<(&'static str, &'static [u8])>, String) {
-    static PROJECTED: OnceLock<(Vec<(&'static str, &'static [u8])>, String)> = OnceLock::new();
-    PROJECTED.get_or_init(|| {
+pub(crate) fn project_rows(rows: &[crate::baked_part_flipbooks::PartFlipbookRow]) -> crate::baked_part_flipbooks::Landmarks {
+    {
         use crate::baked_part_flipbooks::BakedPartFlipbook;
         use std::path::{Path, PathBuf};
         // The full-resolution files the flipbook table names.
-        let full: Vec<(String, PathBuf)> = crate::baked_part_flipbooks::part_flipbooks()
+        let full: Vec<(String, PathBuf)> = rows
             .iter()
             .filter(|(key, _, _)| !key.contains('.'))
             .filter_map(|(key, table, _)| match table {
@@ -92,7 +87,7 @@ fn projected() -> &'static (Vec<(&'static str, &'static [u8])>, String) {
             .map(|(key, bytes)| (crate::published_tree::kept(key), &*Box::leak(bytes.into_boxed_slice())))
             .collect();
         (tables, digest)
-    })
+    }
 }
 
 /// The landmark tables of the published full-resolution flipbooks `full`
@@ -177,10 +172,11 @@ pub fn landmark_table(baked: BakedLandmarks) -> BodyLandmarkTable {
 /// When an embedded table does not decode. `build.rs` wrote it with the same
 /// schema, so that is a build defect and not a content error.
 pub fn body_landmarks(target: &str) -> Option<Arc<BodyLandmarkTable>> {
-    static DECODED: OnceLock<Vec<OnceLock<Arc<BodyLandmarkTable>>>> = OnceLock::new();
-    let tables = landmarks();
+    // The tables and their decode slots of one generation.
+    let parts = crate::baked_sheet_rons::current().part_tables();
+    let tables = &parts.landmarks().0;
     let index = tables.binary_search_by(|(name, _)| (*name).cmp(target)).ok()?;
-    let decoded = DECODED.get_or_init(|| tables.iter().map(|_| OnceLock::new()).collect());
+    let decoded = parts.decoded_landmarks();
     Some(
         decoded[index]
             .get_or_init(|| {

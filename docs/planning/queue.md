@@ -1542,10 +1542,12 @@ and `floor_slam`, `full_body_pulse` and `side_sweep` author no telegraph.
 The roster pin moved from 3/5 to 4/6 to record it. Fix: give `side_sweep` a
 recovery the player can punish in Enrage, then lower the pin.
 
-**Also open in `app_it`:** `a_dog_sent_for_an_item_in_another_live_room_goes_through_the_door`
-fails at its control: a roaming dog with no errand came within 192 px of the
-door, and the control wants more than 200 (roam or hub-layout drift; owner
-not found).
+**Closed 2026-10-16:** `a_dog_sent_for_an_item_in_another_live_room_goes_through_the_door`
+failed at its control because the control measured a distance (more than
+200 px from the door's middle) and the roaming dog now climbs the ledge over
+the door to 192 px. It never went into the door's zone. The control now asks
+what the door acts on: the dog's box never overlaps the door's zone, and the
+dog stays in the hub.
 
 ### BAKED-SHEET-IDENTITY — a body's collision box is outside the content identity
 

@@ -407,23 +407,33 @@ const FAR_FROM_THE_DOOR: ae::Vec2 = ae::Vec2::new(150.0, 1920.0);
 /// Blink's custody and the dog's room stamp.
 ///
 /// The control is the same start with no errand: over the same time the
-/// roaming dog never comes near the door, so the errand is what took it
-/// there.
+/// roaming dog never goes into the door's zone and stays in the hub, so the
+/// errand is what took it through.
 #[test]
 fn a_dog_sent_for_an_item_in_another_live_room_goes_through_the_door() {
     let (mut roaming, dog, _blink, hub, _alices_room) = the_blink_next_door();
     let door = crate::two_players_two_live_rooms::door_of(&mut roaming, HUB, NEXT_DOOR).aabb;
-    let door_at = ae::Vec2::new((door.min.x + door.max.x) * 0.5, (door.min.y + door.max.y) * 0.5);
     put_the_dog_at(&mut roaming, dog, FAR_FROM_THE_DOOR);
-    let mut nearest = f32::INFINITY;
-    for _ in 0..PATIENCE {
+    // The door acts on a body in its zone, so the control asks for that and
+    // not for a distance: the roaming dog climbs the ledge over the door
+    // (192 px from its middle since the hub got the Evil gate), and it
+    // never goes in.
+    let mut in_the_door = None;
+    for tick in 0..PATIENCE {
         roaming.step(base());
-        let dog_at = roaming.world().get::<ae::BodyKinematics>(dog).expect("the dog").pos;
-        nearest = nearest.min(dog_at.distance(door_at));
+        let body = *roaming.world().get::<ae::BodyKinematics>(dog).expect("the dog");
+        let (half, near) = (body.size * 0.5, body.pos);
+        let overlaps = near.x + half.x > door.min.x
+            && near.x - half.x < door.max.x
+            && near.y + half.y > door.min.y
+            && near.y - half.y < door.max.y;
+        if overlaps && in_the_door.is_none() {
+            in_the_door = Some((tick, near));
+        }
     }
     assert!(
-        nearest > 200.0 && room_of(&roaming, dog) == Some(hub),
-        "control: the roaming dog came within {nearest:.0} px of the door with no errand"
+        in_the_door.is_none() && room_of(&roaming, dog) == Some(hub),
+        "control: the roaming dog went into the door's zone with no errand: {in_the_door:?}"
     );
 
     let (mut sim, dog, blink, _hub, alices_room) = the_blink_next_door();

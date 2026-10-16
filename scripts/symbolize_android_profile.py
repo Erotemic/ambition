@@ -32,7 +32,10 @@ too). Shares are of all samples of the app's process, all threads.
 or of that thread id, in the ``--ours`` table (shares stay of the whole
 process). With the sample dump, a table of threads is printed: each thread's
 share, and how much of one core it used over the recording (about 100% = that
-thread is saturated). ``--under NAME`` (repeatable) prints the share of samples whose stack, inlined
+thread is saturated). ``--inclusive`` prints our functions (a frame whose file is in ``crates/`` or
+``game/``) by inclusive share: each function counted once per sample whose
+stack holds it, so a system's row includes the framework and allocator time
+under it. ``--under NAME`` (repeatable) prints the share of samples whose stack, inlined
 frames included, passes through a function whose name contains NAME: the
 inclusive cost of that function, framework and allocator time included.
 A thread is named by its id too: a thread made with
@@ -290,6 +293,27 @@ def under_table(profile: Path, library: Path, patterns: List[str], thread: str |
     return {f"under {pattern}": share for pattern, share in hits.items()}
 
 
+def inclusive_table(profile: Path, library: Path, thread: str | None = None) -> Dict[str, float]:
+    """Each function of ours: the share of samples with it anywhere on the stack."""
+    paths = sample_paths(profile, thread)
+    if paths is None:
+        raise SystemExit(f"--inclusive needs {profile.name}/simpleperf-device-samples.txt")
+    offsets = sorted({m.group(1) for _s, frames in paths for f in frames if (m := APP.search(f))})
+    frames_at = inline_frames(library, offsets)
+    by_function: Dict[str, float] = defaultdict(float)
+    for share, frames in paths:
+        ours = {
+            short(function)
+            for f in frames
+            if (m := APP.search(f))
+            for function, place in frames_at.get(m.group(1), [])
+            if OURS.search(place)
+        }
+        for function in ours:
+            by_function[function] += share
+    return by_function
+
+
 def short(name: str) -> str:
     """A function name without its generic arguments and hash."""
     name = re.sub(r"::h[0-9a-f]{16}$", "", name)
@@ -359,6 +383,8 @@ def main() -> None:
     parser.add_argument("--lines", action="store_true", help="add a table by source line (innermost frame)")
     parser.add_argument("--ours", action="store_true", help="add a table by the first line of ours on each sample's stack")
     parser.add_argument("--thread", help="the --ours and --under tables count only the samples of this thread name or id")
+    parser.add_argument("--inclusive", action="store_true",
+                        help="add a table of our functions by inclusive share (framework time under them included)")
     parser.add_argument("--under", action="append", default=[],
                         help="share of samples whose stack passes through a function containing this name (repeatable)")
     args = parser.parse_args()
@@ -380,6 +406,8 @@ def main() -> None:
             where = f", thread {args.thread}" if args.thread else ""
             show(f"lines of ours on the stack (framework time included{where})",
                  ours_table(profile, library, args.thread), args.top)
+        if args.inclusive:
+            show("our functions by inclusive share", inclusive_table(profile, library, args.thread), args.top)
         if args.under:
             show("inclusive share under a function", under_table(profile, library, args.under, args.thread), len(args.under))
     if len(tables) > 1:

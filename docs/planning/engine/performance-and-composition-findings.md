@@ -101,7 +101,8 @@ again before you quote it.
 4. P12: the body step marks only real changes (F20); then the change-driven
    read-models (P5) can skip.
 5. F19: the live-room lookups as one resource, not ~280 query parameters.
-6. The hub's ~9.4k allocations a frame with no system owner (F13, open).
+6. F24: one composed collision world per room per tick, then a layered view.
+7. The hub's ~9.4k allocations a frame with no system owner (F13, open).
 
 ## How to answer a cost question
 
@@ -111,6 +112,7 @@ again before you quote it.
 | Which Bevy system takes the time (desktop)? | `scripts/profile_desktop.sh` → `tracy_summary.md` |
 | Where does the phone spend its CPU? | `scripts/profile_android.sh all ...`, then `scripts/symbolize_android_profile.py DIR` |
 | Which line of OURS caused framework time (phone)? | `symbolize_android_profile.py DIR --ours` (needs `simpleperf-device-samples.txt`, which a profile made after 2026-10-16 has) |
+| Which functions of ours cost the most, framework time under them included (phone)? | `symbolize_android_profile.py DIR --inclusive [--thread TID]` |
 | How much phone CPU passes through one function (inclusive)? | `symbolize_android_profile.py DIR --under NAME` (repeatable; with `--thread TID`) |
 | Which thread is saturated, and what does it do (phone)? | the `threads` table of `symbolize_android_profile.py DIR` (busy % of one core, by thread id), then `--ours --thread TID` |
 | Which system allocates, and which code makes archetype churn? | `profile_desktop.sh --perf-probe` → `alloc_by_span.csv`, `churn_by_site.csv` (recipe `profiling.md` §1d) |
@@ -717,6 +719,28 @@ re-derivations (P12, P13), and input (P11). The executor switch (P2) is the
 standalone games' lever. `StateTransition` at ~0.8 ms a frame for 16 systems
 is worth one Tracy look.
 
+### F24 — The collision world is copied whole, by each system that asks
+
+MEASURED (phone, all-games profile, main thread,
+`symbolize_android_profile.py --inclusive --thread 8529`): under
+`integrate_sim_bodies` (2.21% inclusive) a `clone` takes 1.76%, with
+`world_with_sandbox_solids` 0.58% and `world_with_moving_platforms` 0.56%.
+Source read: `RoomCollision::solids`
+(`ambition_platformer2d_world/src/collision.rs`) borrows the authored world
+only when the room has no moving platform and an empty overlay; otherwise it
+builds a new `ae::World`: a copy of the whole room, then the platforms, the
+overlay's blocks, lines, gate solids, water and portal carves. The body step
+does it once per room per step (`ComposedRooms`); about twenty other systems
+(`git grep` of `.solids()`: brains' traversal, body modes, damage, held items,
+boss ticks, pets, the traces, ...) each compose their own when they run.
+
+Reading (REASONED): two steps, each without behaviour change. First, one
+composed world per room per tick, kept on the room root and rebuilt when its
+geometry, platforms or overlay changed, which every reader borrows. Then a
+layered view (the authored world plus the dynamic parts, read in place) so
+that nothing copies the room at all; `HostSurfaces` already reads two
+sources in place this way.
+
 ### Not a lever (keep out of this run)
 
 Session-scoped App globals (C03: 30 counted plus 19 uncounted instances) are
@@ -732,6 +756,7 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | P2 | One executor policy (`apply_executor_policy`), called by every foundation including the windowed demos, covering `Fixed*` and `StateTransition`. Switch and A/B done (F22, F23): a standalone tick ~6× cheaper, the hub +3%; the default is D12 | the multi-threaded executor cost of every frame and fixed system in the windowed demos | small | no |
 | P11 | DONE for the clash pass, in-repo (F13): `press_all_action_update`; an upstream PR for the pass and the boxed lookups remains | 19-32k allocations a frame, ~80% of a standalone frame's | small | no |
 | P12 | Derive on change, not every tick (F15, F16, F20): first writes that mark only real changes (the cluster step, the resources of F20), then the four systems; the change detector (`changes_by_site.csv`) finds the next ones and verifies each | per-tick re-derivations and false changes that wake change filters | small each | no |
+| P14 | One composed collision world per room per tick, shared; then a layered view with no copy (F24) | ~2.3% of phone CPU in the body step alone, plus each other composer | medium | no |
 | P13 | One keyed-reconcile helper for presentation entities (F21), and the remaining immediate-mode systems moved onto it | per-frame despawn and spawn of presentation entities | small-medium | no |
 | P3 | Hub: gate each game's session gameplay by its scope (S2); install Ambition, physics debris and 3D lighting only for the games that use them (S2b); move shared techniques out of `ambition_demo_smash` | 82+ foreign systems while one game plays, 72 hub-only systems | medium | no |
 | P6 | Change-driven systems: the two whole-world queries, input bindings, room isolation (F14) | full scans per tick; 444-2,773 allocations a frame in room isolation | small | no |

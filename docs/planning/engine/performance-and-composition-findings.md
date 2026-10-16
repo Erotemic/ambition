@@ -136,7 +136,7 @@ in the level. Clocks were at their maximum and thermal status 0 in both.
 MEASURED. Both demo hosts build `PlatformerEnginePlugins::fixed_tick()`
 (`game/ambition_demo_mary_o_app/src/lib.rs:45,143`,
 `game/ambition_demo_sanic_app/src/lib.rs:28,121`); no host calls `for_profile`.
-`Capability` has five variants (`profile.rs:32`). Grabs and throws, the Smash
+`Capability` has five variants (`crates/ambition_platformer2d_runtime/src/profile.rs:32`). Grabs and throws, the Smash
 moveset, mounts and match stocks are installed inside `CombatSchedulePlugin`
 (`ambition_platformer2d_runtime/src/combat_schedule.rs`, mounts at `:776`),
 where a plugin group cannot disable them. Boss encounters CAN be omitted
@@ -437,7 +437,7 @@ MEASURED (probe churn, per frame at idle):
   zone keeps its entities). The later Sanic runs, before and after the fix,
   had no live gravity zone at the captured point, so the probe cannot show
   the difference.
-- Mary-O: `rigged.rs:923` spawns rig part slots and despawns as many, ~1.4 a
+- Mary-O: `crates/ambition_render/src/rendering/actors/rigged.rs:923` spawns rig part slots and despawns as many, ~1.4 a
   frame each.
 - Every game: `lifecycle/session.rs:316` and `:326` insert
   `SessionScopedEntity` and then `InRoomInstance` as two inserts after each
@@ -584,7 +584,7 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | P5 | Read-models built once per drawn frame, by change | repeat builds on slow frames; builds in headless hosts | medium | D2 |
 | P7 | Plumbing: one gizmo trail group, Bevy debug gizmos off in shipping, developer tools only in developer builds, Kira channels | ~80 systems | small-medium | D6, D9 |
 | P8 | Upstream query-state fixes (LDtk, Yarn, bevy_light, GGRS) | ~2% of phone CPU | small each | D5 (only for the LDtk workaround) |
-| P10 | Phone render scale: a reduced main render target, scaled to the surface (`quality.rs:190` has no phone path) | fragments, when the GPU is the limit; not the limit today (F11) | medium | D10 |
+| P10 | Phone render scale: a reduced main render target, scaled to the surface (`crates/ambition_render/src/quality.rs:190` has no phone path) | fragments, when the GPU is the limit; not the limit today (F11) | medium | D10 |
 | P9 | Content to data: held items, the item enum, Ambition-only item systems | Ambition work in other games; engine edits for content | large | D7 |
 
 ## Implementation plans
@@ -693,7 +693,7 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
 | --- | --- | --- |
 | Mary-O pays for Ambition's capabilities; install less, not faster | F0, F1, P1 | agrees; MEASURED (-17% CPU with only Mary-O in the hub; 170 unused systems a frame in standalone Mary-O) |
 | Read-models rebuilt per tick, so slow frames repeat them | P5, D2, F12 | agrees; REASONED (no limit of ours on catch-up, F12) |
-| Phones have no reduced render target | P10, D10 | true (`quality.rs:190`); not the limit of today's runs: the main thread is the limit and the render thread is idle 75% of the time (F11) |
+| Phones have no reduced render target | P10, D10 | true (`crates/ambition_render/src/quality.rs:190`); not the limit of today's runs: the main thread is the limit and the render thread is idle 75% of the time (F11) |
 | Transparent overdraw (5.3x on the HD 630) | journal 2026-08-29 | a GPU cost on a desktop iGPU; not measured on the phone; same reasoning as P10 |
 | Effects composite bodies off-screen | — | agrees it is not a steady cost (direct part drawing since 10-05); spikes only; not measured here |
 | Asset upload stalls cause the worst drops | — | plausible for p95; the phone runs did not separate spikes from the steady cost |

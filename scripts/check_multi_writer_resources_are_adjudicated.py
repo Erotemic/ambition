@@ -503,16 +503,16 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "ActiveAudioSelection": (
         "crates/ambition_audio/src/bank_asset.rs",
+        "crates/ambition_audio/src/catalog.rs",
         "crates/ambition_game_shell/src/session.rs",
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs",
-        "game/ambition_content/src/reload.rs",
     ),
     "AudioLibrary": (
+        "crates/ambition_audio/src/catalog.rs",
         "crates/ambition_audio/src/library.rs",
         "crates/ambition_audio/src/music/director/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
-        "game/ambition_content/src/reload.rs",
     ),
     "CharacterLoadDemand": (
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
@@ -1137,16 +1137,19 @@ ADJUDICATED: dict[str, str] = {
         "and four readers that warm it. ⚠ The census cannot see this: `&mut` is "
         "all a `SystemParam` signature carries, and the director threads one "
         "through four call layers to reach `switch_to_music_track`, whose only "
-        "library call is the resolve. ⚠ RESTATED 2026-10-01: \"nothing adds, "
-        "removes or reorders a track\" stopped being true with the audio "
-        "reload (`8e3cd091f`). `AudioLibrary::revise_music_tracks` replaces the "
-        "track table, and its one caller is `publish_audio` "
-        "(`game/ambition_content/src/reload.rs`), on the reload's commit path: "
-        "one write per published generation, from the same RON catalogue the "
-        "table was built from. It keeps the cached handle of a track whose id "
-        "and path did not change, so it does not conflict with the lazy "
-        "fill above. Still one authority, the catalogue, and now two "
-        "moments it is read: startup and a reload's commit."
+        "library call is the resolve. ⚠ RESTATED 2026-10-16: \"nothing adds, "
+        "removes or reorders a track\" is not true since the audio reload. "
+        "`AudioLibrary::revise_provider_tracks` replaces ONE provider's "
+        "tracks, and its one caller is `publish_revised_audio` "
+        "(`crates/ambition_audio/src/catalog.rs`), which Ambition's reload "
+        "commit (`publish_audio`) and a demo pack's publication between "
+        "sessions (`publish_provider_audio`) both call: one write per "
+        "published generation of each provider, from that provider's RON "
+        "catalogue. Another provider's track, and an unchanged track with the "
+        "path the host resolved, are kept, and a track whose file did not "
+        "move keeps its cached handle, so it does not conflict with the lazy "
+        "fill above. Still one authority, the catalogue, read at two "
+        "moments: startup and a publication."
     ),
     "MapMenuState": (
         "ONE OWNER — `ambition_menu::map` — AND ONE WRITE FROM OUTSIDE IT THAT "
@@ -3281,9 +3284,11 @@ ADJUDICATED: dict[str, str] = {
         "(`crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs:58`) "
         "documents itself as \"Idempotent by construction: ... merges by "
         "union\" and no-ops when `selection.current()` is `None`. Measured "
-        "by CalculexAmbition, 2026-09-18. ⭐ ADDED 2026-10-01: "
-        "`publish_audio` (`game/ambition_content/src/reload.rs`) calls "
-        "`revise_provider` on a reload's commit. It is provider-keyed like "
+        "by CalculexAmbition, 2026-09-18. ⭐ ADDED 2026-10-01, MOVED "
+        "2026-10-16: `publish_revised_audio` "
+        "(`crates/ambition_audio/src/catalog.rs`) calls `revise_provider` on "
+        "Ambition's reload commit and on a demo pack's publication between "
+        "sessions. It is provider-keyed like "
         "`refresh_provider_sfx_ids`. It neither sets nor clears `current`; it "
         "replaces the provider's registries inside it, and leaves a frontend "
         "context's music as its profile chose. It exists because the new "

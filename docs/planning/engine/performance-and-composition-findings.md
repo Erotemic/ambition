@@ -241,8 +241,8 @@ they can act on has `WornCharacter` or `BodyWalletShield`, and `MovePlayback` or
 With<BodyWalletShield>)>` and `Or<(With<MovePlayback>, With<MoveBrandishedItem>)>`
 keep what they do and drop the walk. Eight other queries in the scan have no
 required component but are only used with `get(entity)`, which costs nothing.
-`character_runtime/presentation.rs:274` walks every body only on the tick the
-registry changes.
+`project_prepared_character_definitions` (`character_runtime/presentation.rs`)
+walks every body only on the tick the registry changes.
 
 ### F8 — Plumbing that scales with what is registered, not with what is used
 
@@ -512,11 +512,12 @@ are marked changed a frame. Of ours:
   (`character_runtime/presentation.rs:113`, F16), `GizmoConfigStore`
   (`avatar/trail.rs:677`), `CameraShakeState`, `FinishZoomState`
   (`camera_ease.rs`), `SeatControlFrameModes`, the narrative ledgers
-  (`ledger.rs:228`) in a game with no dialogue, and two developer-tool
+  (`prune_narrative_inputs` and `release_narrative_inputs`, both fixed since)
+  in a game with no dialogue, and two developer-tool
   resources (`EditablePlayerStats`, `PlayerStatsSyncSnapshot`).
 - Rendering: rig part slots (`rigged.rs:1426-1434`, ~148 a frame:
   animation), the HUD's `Visibility` (`hud/declared.rs:784`, 30 a frame),
-  ambient motes, hit-flash overlays (`hit_flash.rs:415`).
+  ambient motes, hit-flash overlays (`hit_flash.rs:416`, fixed since).
 
 Reading (REASONED): a false change costs little by itself. It matters
 because it makes change detection useless: no `Changed<Body…>` filter, and no

@@ -125,6 +125,39 @@ fn host_carried_motion_does_not_evict_a_straddler() {
     assert_eq!(before, after, "host-carried motion is not a close");
 }
 
+/// A portal on a turning host (a spinning plank) turns a little every tick.
+/// The host turned it, so a body standing in it stays: before `prev_normal`,
+/// every tick read as a new plane and shoved the body out, and nobody could
+/// enter a portal on a plank. An owner turning it (no `prev_normal`) still
+/// evicts.
+#[test]
+fn a_host_turn_does_not_evict_but_an_owner_turn_does() {
+    let turned = Vec2::new(0.1, -1.0).normalize();
+    for host_turned in [true, false] {
+        let mut app = app();
+        let portal = app
+            .world_mut()
+            .spawn(floor_portal(BLUE, Vec2::new(100.0, 300.0)))
+            .id();
+        let body = straddling_body(&mut app, Vec2::new(100.0, 290.0));
+        app.update(); // history primes
+        {
+            let mut p = app.world_mut().get_mut::<PlacedPortal>(portal).unwrap();
+            if host_turned {
+                p.prev_normal = p.normal;
+            }
+            p.turn_to(turned);
+            if !host_turned {
+                p.prev_normal = p.normal;
+            }
+        }
+        let before = app.world().get::<BodyKinematics>(body).unwrap().pos;
+        app.update();
+        let after = app.world().get::<BodyKinematics>(body).unwrap().pos;
+        assert_eq!(before == after, host_turned, "host_turned={host_turned}: {before:?} -> {after:?}");
+    }
+}
+
 /// A session activation forgets the frames of the last session. The body
 /// stands where the last session's portal was, and the new session has no
 /// portal there. The control is the same frame with no activation: the body

@@ -310,7 +310,7 @@ fn first_end(app: &mut App, holder: Entity) -> (ae::Vec2, ae::Vec2, crate::Porta
     let record = world.get::<HeldPortalPairs>(holder).expect("a held pair").0[0].clone();
     let portal = world.get::<PlacedPortal>(record.ends[0]).expect("its first end");
     let look = *world.get::<crate::PortalLook>(record.ends[0]).expect("its look");
-    (portal.normal, portal.authored_half_extent, look)
+    (portal.normal, portal.opening_half_extent(), look)
 }
 
 /// ⛔ EACH REQUEST IS THE WHOLE OF ITS PAIR. A module that turns its held

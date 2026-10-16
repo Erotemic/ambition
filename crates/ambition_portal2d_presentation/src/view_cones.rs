@@ -877,10 +877,15 @@ fn portal_capture_camera_frame(
     // clipped to this same host rect, so every mapped vertex lands inside.
     let rect = ae::Aabb::new(host_view.current_center_world, host_view.visible_view * 0.5);
     let mapped = ambition_portal2d::pieces::map_aabb(rect, &enter.frame, &exit.frame, convention);
-    Some(geometry::CaptureCameraFrame {
-        center: mapped.center(),
-        size: mapped.half_size() * 2.0,
-    })
+    // A pair that is not a quarter turn apart (a portal on a slope, or on a
+    // platform that turns) maps the view to a turned rect, whose bounding box
+    // changes size with the angle: its capture texture was made again each
+    // frame. A square as wide as the view's diagonal bounds the turned view
+    // at every angle, so the capture keeps one size while the portal turns.
+    let along = ambition_portal2d::pieces::portal_map_vec(Vec2::X, enter.frame.normal, exit.frame.normal, convention);
+    let quarter_turn = along.x.abs() < 1.0e-3 || along.y.abs() < 1.0e-3;
+    let size = if quarter_turn { mapped.half_size() * 2.0 } else { Vec2::splat(host_view.visible_view.length().ceil()) };
+    Some(geometry::CaptureCameraFrame { center: mapped.center(), size })
 }
 
 mod geometry;
@@ -1147,11 +1152,18 @@ pub fn sync_portal_view_cones(
                 // shows a stale window mid-crossing on a throttled tier.
                 let at_seam =
                     portal_at_seam(viewer, portal.pos) || portal_at_seam(viewer, partner.pos);
+                // A pair whose portal moved or turned this tick (on a moving
+                // or turning host) refreshes every frame too: a throttled
+                // capture of a moving view lags behind the window.
+                let moving = [&portal, &partner].iter().any(|p| {
+                    p.frame_delta() != Vec2::ZERO || p.prev_normal != p.normal
+                });
                 let refresh_due = at_seam
+                    || moving
                     || now_s - rig.last_capture_update_s >= effective.min_refresh_interval_s;
                 let has_active_slot = active_captures < effective.max_active_captures;
                 let has_update_slot = updates_this_frame < effective.max_updates_per_frame;
-                cam.is_active = refresh_due && (at_seam || (has_active_slot && has_update_slot));
+                cam.is_active = refresh_due && (at_seam || moving || (has_active_slot && has_update_slot));
                 if cam.is_active {
                     active_captures += 1;
                     updates_this_frame += 1;

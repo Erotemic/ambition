@@ -25,7 +25,7 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 
 use crate::color::{PortalChannel, PortalChannelColor};
-use crate::types::{portal_opening_half, stable_portal_order, PlacedPortal};
+use crate::types::{stable_portal_order, PlacedPortal};
 
 /// A portal authored with an explicit link id (the hash of the LDtk `link`
 /// field). Two portals with the same id are a pair. [`resolve_portal_links`]
@@ -225,7 +225,7 @@ pub fn equalize_pair_apertures(
     );
     for (entity, mut p) in portals.iter_mut() {
         let partner = crate::find_portal(by_room.in_room(live.of(entity)), p.channel.partner())
-            .map(|partner| portal_opening_half(partner.normal, partner.authored_half_extent));
+            .map(|partner| partner.half_length);
         if p.partner_opening_half != partner {
             p.partner_opening_half = partner;
         }
@@ -247,8 +247,9 @@ mod aperture_partner_tests {
             channel,
             pos: Vec2::new(x, 0.0),
             normal: Vec2::new(0.0, 1.0),
-            // Normal is +Y, so the OPENING runs along x.
-            authored_half_extent: Vec2::new(opening, PORTAL_THICKNESS_HALF),
+            prev_normal: Vec2::new(0.0, 1.0),
+            half_length: opening,
+            half_thickness: PORTAL_THICKNESS_HALF,
             partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,

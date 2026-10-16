@@ -22,18 +22,23 @@ pub struct PlacedPortal {
     /// refresh re-derives it from [`Self::host`] each frame. For an unhosted
     /// portal it is the fixed placement value.
     pub pos: Vec2,
-    /// Unit surface normal, pointing out of the host surface into the room.
-    /// Current collision/render helpers are cardinal-first; future APIs should
-    /// make the tangent/aperture basis explicit for non-axis-aligned portals.
+    /// Unit surface normal, pointing out of the host surface into the room,
+    /// at any angle. The opening runs along its tangent.
     pub normal: Vec2,
-    /// Half-extent of the portal's overlap region, as its owner placed it.
-    /// The opening that transit, carve and drawing use is
-    /// [`Self::opening_half_extent`]: a pair opens the smaller of its two
-    /// openings, and nothing writes that minimum back here.
-    pub authored_half_extent: Vec2,
+    /// `normal` at the start of this frame, as its host turned it: equal to
+    /// `normal` unless the host turned the portal this tick (a plank that
+    /// turns). Anything else that sets `normal` sets this too, so a turn by
+    /// the host is told apart from a jump (eviction).
+    pub prev_normal: Vec2,
+    /// The opening as its owner placed it: half its length along the face,
+    /// and half its thickness across it. The opening that transit, carve and
+    /// drawing use is [`Self::opening_half_length`]: a pair opens the
+    /// smaller of its two openings, and nothing writes that back here.
+    pub half_length: f32,
+    pub half_thickness: f32,
     /// The authored opening half-length of this portal's partner, or `None`
     /// when it has no partner. `equalize_pair_apertures` derives it each
-    /// frame from the two authored extents. It is not authored.
+    /// frame from the two authored lengths. It is not authored.
     pub partner_opening_half: Option<f32>,
     /// The face this aperture rides, if any. A hosted portal closes when its
     /// face disappears.
@@ -96,12 +101,18 @@ impl PortalHost {
 impl PlacedPortal {
     /// A portal placed at a fixed pose. The host adapter then decides whether
     /// it rides a face.
+    /// `half_extent` is the axis-aligned box of the opening for `normal`
+    /// ([`portal_half_extent_with_length`]); its length and thickness are
+    /// read back from it.
     pub fn fixed(channel: PortalChannel, pos: Vec2, normal: Vec2, half_extent: Vec2) -> Self {
+        let (half_length, half_thickness) = portal_shape_of_box(normal, half_extent);
         Self {
             channel,
             pos,
             normal,
-            authored_half_extent: half_extent,
+            prev_normal: normal,
+            half_length,
+            half_thickness,
             partner_opening_half: None,
             host: PortalHost::Unattributed,
             vel: Vec2::ZERO,
@@ -131,46 +142,39 @@ impl PlacedPortal {
         }
     }
 
-    /// The half-extent of the opening this frame: the authored one, made
-    /// shorter along the surface (centered) to the partner's opening when
-    /// the partner's is smaller. The thickness does not change, so transit
-    /// stays an isometry.
-    pub fn opening_half_extent(&self) -> Vec2 {
-        let own = portal_opening_half(self.normal, self.authored_half_extent);
+    /// The half-length of the opening this frame: the authored one, made
+    /// shorter (centered) to the partner's when the partner's is smaller, so
+    /// the two ends of a pair are always one size. The thickness does not
+    /// change, so transit stays an isometry.
+    pub fn opening_half_length(&self) -> f32 {
         match self.partner_opening_half {
-            Some(partner) if partner < own - 1e-3 => portal_half_extent_with_length(self.normal, partner),
-            _ => self.authored_half_extent,
+            Some(partner) => self.half_length.min(partner),
+            None => self.half_length,
         }
     }
 
-    /// Turn the portal to face `normal` (its host turned), keeping the
-    /// length and thickness of its authored opening.
-    pub fn turn_to(&mut self, normal: Vec2) {
-        let old = self.normal.normalize_or_zero();
-        let along = portal_opening_half(old, self.authored_half_extent);
-        let thick = self.authored_half_extent.dot(old.abs()) - 2.0 * along * old.x.abs() * old.y.abs();
-        let n = normal.normalize_or_zero();
-        let t = Vec2::new(-n.y, n.x);
-        self.normal = n;
-        self.authored_half_extent = t.abs() * along + n.abs() * thick;
+    /// The half-thickness of the opening across the face.
+    pub fn opening_half_thickness(&self) -> f32 {
+        self.half_thickness
     }
 
-    /// The half-thickness of the opening across the face: the authored one
-    /// (for a slanted face, its box's share along the normal less the
-    /// opening's).
-    pub fn opening_half_thickness(&self) -> f32 {
-        let n = self.normal.normalize_or_zero();
-        let along = portal_opening_half(self.normal, self.opening_half_extent());
-        self.opening_half_extent().dot(n.abs()) - 2.0 * along * n.x.abs() * n.y.abs()
+    /// The axis-aligned box that bounds the opening this frame (the opening
+    /// itself, for a floor, wall or ceiling portal). For a reader that wants
+    /// a box; the turned opening is [`Self::aperture`].
+    pub fn opening_half_extent(&self) -> Vec2 {
+        portal_box(self.normal, self.opening_half_length(), self.half_thickness)
+    }
+
+    /// Turn the portal to face `normal` (its host turned it): its opening
+    /// keeps its length and thickness.
+    pub fn turn_to(&mut self, normal: Vec2) {
+        self.normal = normal.normalize_or_zero();
     }
 
     /// Frame and opening extent, used by the piece decomposition, straddle
     /// test, carve, and portal-aware casts.
     pub fn aperture(&self) -> PortalAperture {
-        PortalAperture {
-            frame: self.frame(),
-            half_length: portal_opening_half(self.normal, self.opening_half_extent()),
-        }
+        PortalAperture { frame: self.frame(), half_length: self.opening_half_length() }
     }
 }
 
@@ -250,12 +254,35 @@ pub fn portal_half_extent_with_length(normal: Vec2, along_half: f32) -> Vec2 {
 }
 
 /// The along-surface half-length (opening size) of an oriented half-extent —
-/// the inverse of [`portal_half_extent_with_length`]. For a slanted normal the
-/// box bounds the turned face, and the thickness's share of the box along the
-/// face is taken back out.
+/// the inverse of [`portal_half_extent_with_length`].
 pub fn portal_opening_half(normal: Vec2, half_extent: Vec2) -> f32 {
+    portal_shape_of_box(normal, half_extent).0
+}
+
+/// The box `(x, y)` half-extents of an opening of `half_length` along the
+/// face of `normal` and `half_thickness` across it: the box that bounds it.
+pub fn portal_box(normal: Vec2, half_length: f32, half_thickness: f32) -> Vec2 {
     let n = normal.normalize_or_zero();
-    half_extent.dot(Vec2::new(-n.y, n.x).abs()) - 2.0 * PORTAL_THICKNESS_HALF * n.x.abs() * n.y.abs()
+    let along = Vec2::new(-n.y, n.x);
+    along.abs() * half_length + n.abs() * half_thickness
+}
+
+/// The `(half_length, half_thickness)` of the opening whose bounding box for
+/// `normal` is `half_extent`: the inverse of [`portal_box`]. Exact for a
+/// box made by it; for a cardinal normal it reads the two sides.
+pub fn portal_shape_of_box(normal: Vec2, half_extent: Vec2) -> (f32, f32) {
+    let n = normal.normalize_or_zero();
+    let (a, b) = (n.y.abs(), n.x.abs());
+    // half_extent.x = a*L + b*T, half_extent.y = b*L + a*T.
+    let det = a * a - b * b;
+    if det.abs() < 1.0e-4 {
+        // At 45 degrees the two are one sum: keep the standard thickness.
+        let t = PORTAL_THICKNESS_HALF.min(half_extent.x / (a + b).max(1.0e-4));
+        return ((half_extent.x - b * t) / a.max(1.0e-4), t);
+    }
+    let l = (a * half_extent.x - b * half_extent.y) / det;
+    let t = (a * half_extent.y - b * half_extent.x) / det;
+    (l, t)
 }
 
 /// How far out of the exit portal (along its normal) to place a body so it
@@ -305,7 +332,9 @@ mod find_portal_determinism_tests {
             channel,
             pos: Vec2::new(x, y),
             normal: Vec2::new(0.0, 1.0),
-            authored_half_extent: Vec2::new(PORTAL_OPENING_HALF, PORTAL_THICKNESS_HALF),
+            prev_normal: Vec2::new(0.0, 1.0),
+            half_length: PORTAL_OPENING_HALF,
+            half_thickness: PORTAL_THICKNESS_HALF,
             partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,
@@ -362,7 +391,9 @@ mod stable_order_tests {
             channel: PortalChannelColor::Purple.channel(),
             pos: Vec2::new(x, y),
             normal: Vec2::new(0.0, 1.0),
-            authored_half_extent: Vec2::new(PORTAL_OPENING_HALF, PORTAL_THICKNESS_HALF),
+            prev_normal: Vec2::new(0.0, 1.0),
+            half_length: PORTAL_OPENING_HALF,
+            half_thickness: PORTAL_THICKNESS_HALF,
             partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,

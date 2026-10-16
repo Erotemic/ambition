@@ -224,16 +224,18 @@ fn lower_held_portal_pairs(
                 if let Ok((_, _, mut portal, mut look)) = portals.get_mut(*end) {
                     let at = ae::Vec2::from(asked.at);
                     let normal = ae::Vec2::from(asked.normal);
-                    let half = portal_half_extent_with_length(normal, asked.half_length);
                     if portal.pos != at {
                         portal.pos = at;
                         portal.prev_pos = at;
                     }
+                    // A turn that is asked is a jump, not a host's motion:
+                    // `prev_normal` moves with it, so eviction sees it.
                     if portal.normal != normal {
                         portal.normal = normal;
+                        portal.prev_normal = normal;
                     }
-                    if portal.authored_half_extent != half {
-                        portal.authored_half_extent = half;
+                    if portal.half_length != asked.half_length {
+                        portal.half_length = asked.half_length;
                     }
                     let want = PortalLook(PortalChannel::Authored(PortalChannelColor::Indexed(pair.looks[index])));
                     if *look != want {

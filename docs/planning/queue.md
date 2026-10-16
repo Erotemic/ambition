@@ -1007,7 +1007,9 @@ variants. Also found in that regen:
     - Ultrapack: a tier is skipped when its inputs hold, patched when only
       pixels changed (6.7 s), and otherwise packed on threads within the
       job cap (the four tiers 82 s, was 362 s one after another).
-    - The variants read only page fields (6 s, was 72 s); the LDtk
+    - The variants read only page fields (6 s, was 72 s) and build on the
+      job cap's processes (a full rebuild 102 s in a publish, was 554 s on
+      one; the same files); the LDtk
       manifest reads only the sheets it registers (1.7 s, was 25 s), for
       each world in `worlds.ron`.
     - A run with a cargo job names a stale sprite set and its remedy in a
@@ -1016,9 +1018,9 @@ variants. Also found in that regen:
     to render, 54 s; a recolour of one sheet, its render plus about 7 s of
     packing; a frame that changes size, its render plus 74 s (every tier
     re-packs). A change to the shared core re-renders every sheet: 56 min
-    (tack-ons 2255 s of render, the variants 575 s).
-    **Left:** the variants after a full re-render (575 s, one process);
-    a frame size change re-packs all four tiers.
+    (tack-ons 2255 s of render, the variants 575 s before they built on
+    six processes).
+    **Left:** a frame size change re-packs all four tiers.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

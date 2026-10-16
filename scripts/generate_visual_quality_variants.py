@@ -40,6 +40,7 @@ and decodes its page PNGs once for all three tiers instead of three times.
     --tier 0_5x         only that quality tier (repeatable)
     --force             rebuild even when the outputs are newer than the source
     --clean             delete each selected tier root first (whole-tier only)
+    --jobs N            build on N processes [default: 1]
 
 Without ``--force`` a sheet is rebuilt only when its authored RON, one of its
 page PNGs, or this script is newer than the variant it already published. An
@@ -51,6 +52,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import multiprocessing
 import re
 import time
 from contextlib import contextmanager
@@ -138,6 +140,19 @@ class PhaseClock:
             if unit is not None:
                 self.units[unit] = self.units.get(unit, 0.0) + elapsed
                 self.unit_phase[unit] = name
+
+    def state(self) -> tuple:
+        return (self.seconds, self.calls, self.units, self.unit_phase)
+
+    def merge(self, state: tuple) -> None:
+        """Add the phases another process timed (a worker's `state()`)."""
+        seconds, calls, units, unit_phase = state
+        for name, value in seconds.items():
+            self.seconds[name] = self.seconds.get(name, 0.0) + value
+            self.calls[name] = self.calls.get(name, 0) + calls[name]
+        for unit, value in units.items():
+            self.units[unit] = self.units.get(unit, 0.0) + value
+        self.unit_phase.update(unit_phase)
 
     def report(self, *, top: int = 10) -> None:
         if not self.seconds:
@@ -1605,6 +1620,112 @@ def verify_published_sheets(
     raise SystemExit("\n".join(lines))
 
 
+def _variant_task(task: tuple, asset_root: Path, src: Path, force: bool, clock: PhaseClock) -> dict:
+    """Do one task of `generate_sprite_variants`; return `{suffix: (sheets
+    built, sheets current, loose images built)}`."""
+    kind, subject, tiers = task
+    counts = {variant.suffix: [0, 0, 0] for variant in tiers}
+    if kind in ("source", "sheet"):
+        unit = subject
+        source: SheetSource | None = None
+        stamp = _input_stamp((unit.ron,) + unit.pages)
+        try:
+            for variant in tiers:
+                dst_root = asset_root / f"sprites_{variant.suffix}"
+                ron_dst = dst_root / unit.rel
+                if not force and _published_and_current(ron_dst, stamp):
+                    counts[variant.suffix][1] += 1
+                    continue
+                # the phases are DISJOINT — nesting the parse inside the build
+                # would bill its seconds to both, and a phase table that sums to
+                # more than the run is a table nobody can reason from.
+                if unit.target is not None:
+                    with clock.phase("source-render", unit=unit.stem):
+                        publish_source_quality_target(unit.target, variant, dst_root)
+                else:
+                    if source is None:
+                        with clock.phase("sheet parse + decode", unit=unit.stem):
+                            source = SheetSource.load(unit.ron)
+                            source.pages  # decode here so this phase owns the cost
+                    with clock.phase("frame-local fallback", unit=unit.stem):
+                        build_sheet_variant(source, ron_dst, variant)
+                counts[variant.suffix][0] += 1
+        finally:
+            if source is not None:
+                source.close()
+    elif kind == "flipbook":
+        ron, pages = subject
+        stamp = _input_stamp((ron, *pages))
+        for variant in tiers:
+            ron_dst = asset_root / f"sprites_{variant.suffix}" / ron.relative_to(src)
+            if not force and _published_and_current(ron_dst, stamp):
+                continue
+            with clock.phase("part flipbook", unit=ron.stem):
+                build_parts_variant(ron, ron_dst, variant)
+    elif kind == "portrait":
+        ron, png = subject
+        stamp = _input_stamp((ron, png))
+        for variant in tiers:
+            ron_dst = asset_root / f"sprites_{variant.suffix}" / ron.relative_to(src)
+            outputs = (_mtime(ron_dst), _mtime(ron_dst.parent / png.name))
+            if not force and all(m is not None and m >= stamp for m in outputs):
+                continue
+            with clock.phase("portrait", unit=ron.stem):
+                build_portrait_variant(ron, png, ron_dst, variant)
+    else:
+        png = subject
+        rel = png.relative_to(src)
+        stamp = _input_stamp((png,))
+        for variant in tiers:
+            dst = asset_root / f"sprites_{variant.suffix}" / rel
+            dst_mtime = _mtime(dst)
+            if not force and dst_mtime is not None and dst_mtime >= stamp:
+                continue
+            # Loose props/icons still load as standalone images. A future prop
+            # atlas should be added at this seam and reuse the renderer packer,
+            # but character-sheet variants above must remain pre-pack frame
+            # generation, not post-pack atlas resizing.
+            with clock.phase("loose png", unit=rel.as_posix()):
+                resize_png(
+                    png,
+                    dst,
+                    variant.nominal_scale,
+                    min_px=variant.min_frame_px,
+                    resampling=resampling_for_variant(variant),
+                )
+            counts[variant.suffix][2] += 1
+    return {suffix: tuple(values) for suffix, values in counts.items()}
+
+
+#: The work of one `_run_tasks` call, for the forked workers to index.
+_TASKS: tuple = ()
+
+
+def _forked_task(index: int) -> tuple:
+    tasks, asset_root, src, force = _TASKS
+    clock = PhaseClock()
+    counts = _variant_task(tasks[index], asset_root, src, force, clock)
+    return clock.state(), counts
+
+
+def _run_tasks(tasks: list[tuple], asset_root: Path, src: Path, force: bool, jobs: int, clock: PhaseClock):
+    """Yield `(clock state or None, counts)` for each task, on `jobs` processes.
+
+    The workers are forked, so they have the tasks (and the targets the
+    tasks name) without pickling them, and each times its own phases."""
+    global _TASKS
+    if jobs <= 1 or len(tasks) <= 1:
+        for task in tasks:
+            yield None, _variant_task(task, asset_root, src, force, clock)
+        return
+    _TASKS = (tasks, asset_root, src, force)
+    try:
+        with multiprocessing.get_context("fork").Pool(processes=jobs) as pool:
+            yield from pool.imap_unordered(_forked_task, range(len(tasks)), chunksize=1)
+    finally:
+        _TASKS = ()
+
+
 def generate_sprite_variants(
     asset_root: Path,
     *,
@@ -1613,6 +1734,7 @@ def generate_sprite_variants(
     force: bool = False,
     clean: bool = False,
     clock: PhaseClock | None = None,
+    jobs: int = 1,
 ) -> None:
     """Publish each selected sheet into each selected tier.
 
@@ -1689,78 +1811,30 @@ def generate_sprite_variants(
             if tier_root.exists():
                 shutil.rmtree(tier_root)
 
+    # Each task writes only its own files: one sheet in one tier when the
+    # tier renders from source (a tier render of `alice` is 45 s), or one
+    # sheet, part flipbook, portrait set or loose image in each tier. So the
+    # tasks run on `jobs` processes, the source renders first. Measured
+    # 2026-10-15 after a full re-render: 554 s on one process.
+    tasks: list[tuple] = []
+    for unit in units:
+        if unit.target is not None:
+            tasks.extend(("source", unit, (variant,)) for variant in tiers)
+    tasks.extend(("sheet", unit, tiers) for unit in units if unit.target is None)
+    tasks.extend(("flipbook", (ron, pages), tiers) for ron, pages in flipbooks.items())
+    tasks.extend(("portrait", (ron, png), tiers) for ron, png in portraits.items())
+    tasks.extend(("loose", png, tiers) for png in loose_srcs)
+
     built = {variant.suffix: 0 for variant in tiers}
     skipped = {variant.suffix: 0 for variant in tiers}
-
-    for unit in units:
-        source: SheetSource | None = None
-        stamp = _input_stamp((unit.ron,) + unit.pages)
-        try:
-            for variant in tiers:
-                dst_root = asset_root / f"sprites_{variant.suffix}"
-                ron_dst = dst_root / unit.rel
-                if not force and _published_and_current(ron_dst, stamp):
-                    skipped[variant.suffix] += 1
-                    continue
-                # the phases are DISJOINT — nesting the parse inside the build
-                # would bill its seconds to both, and a phase table that sums to
-                # more than the run is a table nobody can reason from.
-                if unit.target is not None:
-                    with clock.phase("source-render", unit=unit.stem):
-                        publish_source_quality_target(unit.target, variant, dst_root)
-                else:
-                    if source is None:
-                        with clock.phase("sheet parse + decode", unit=unit.stem):
-                            source = SheetSource.load(unit.ron)
-                            source.pages  # decode here so this phase owns the cost
-                    with clock.phase("frame-local fallback", unit=unit.stem):
-                        build_sheet_variant(source, ron_dst, variant)
-                built[variant.suffix] += 1
-        finally:
-            if source is not None:
-                source.close()
-
-    for ron, pages in flipbooks.items():
-        stamp = _input_stamp((ron, *pages))
-        for variant in tiers:
-            ron_dst = asset_root / f"sprites_{variant.suffix}" / ron.relative_to(src)
-            if not force and _published_and_current(ron_dst, stamp):
-                continue
-            with clock.phase("part flipbook", unit=ron.stem):
-                build_parts_variant(ron, ron_dst, variant)
-
-    for ron, png in portraits.items():
-        stamp = _input_stamp((ron, png))
-        for variant in tiers:
-            ron_dst = asset_root / f"sprites_{variant.suffix}" / ron.relative_to(src)
-            outputs = (_mtime(ron_dst), _mtime(ron_dst.parent / png.name))
-            if not force and all(m is not None and m >= stamp for m in outputs):
-                continue
-            with clock.phase("portrait", unit=ron.stem):
-                build_portrait_variant(ron, png, ron_dst, variant)
-
     loose_built = {variant.suffix: 0 for variant in tiers}
-    for png in loose_srcs:
-        rel = png.relative_to(src)
-        stamp = _input_stamp((png,))
-        for variant in tiers:
-            dst = asset_root / f"sprites_{variant.suffix}" / rel
-            dst_mtime = _mtime(dst)
-            if not force and dst_mtime is not None and dst_mtime >= stamp:
-                continue
-            # Loose props/icons still load as standalone images. A future prop
-            # atlas should be added at this seam and reuse the renderer packer,
-            # but character-sheet variants above must remain pre-pack frame
-            # generation, not post-pack atlas resizing.
-            with clock.phase("loose png", unit=rel.as_posix()):
-                resize_png(
-                    png,
-                    dst,
-                    variant.nominal_scale,
-                    min_px=variant.min_frame_px,
-                    resampling=resampling_for_variant(variant),
-                )
-            loose_built[variant.suffix] += 1
+    for clock_state, counts in _run_tasks(tasks, asset_root, src, force, jobs, clock):
+        if clock_state is not None:
+            clock.merge(clock_state)
+        for suffix, (sheet_built, sheet_skipped, loose) in counts.items():
+            built[suffix] += sheet_built
+            skipped[suffix] += sheet_skipped
+            loose_built[suffix] += loose
 
     pruned = {variant.suffix: 0 for variant in tiers}
     if not selectors:
@@ -1920,6 +1994,7 @@ def main() -> None:
         action="store_true",
         help="delete each selected tier root first (whole tiers only)",
     )
+    parser.add_argument("--jobs", type=int, default=1, help="build on N processes")
     args = parser.parse_args()
 
     if args.sprites_only and args.backgrounds_only:
@@ -1944,6 +2019,7 @@ def main() -> None:
             force=args.force,
             clean=args.clean,
             clock=clock,
+            jobs=args.jobs,
         )
     if not args.sprites_only:
         generate_parallax_variants(

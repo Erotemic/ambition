@@ -76,6 +76,12 @@
     // seconds. The banner asks for 3.0 s; this waits a little longer so the
     // players read it.
     return_to_select_seconds: 4.5,
+    // Seconds one press burns off a sleep (the Performer's song, the Shadow
+    // Oni's seal: every sleep shares it). Against a mash of about ten presses
+    // a second, a sleep decays at about 1.0 + 10 * 0.05 = 1.5 times the clock,
+    // so a 1.4 s song holds a struggling fighter for about 0.93 s: the mash
+    // buys back a third and cannot beat the clock.
+    sleep_mash_seconds: 0.05,
     // The shark the pirate admiral's up-B summons.
     shark_ride: (
         // The shark takes its summoner on when it comes this near (px). A

@@ -25,6 +25,8 @@ pub struct SmashRules {
     pub stand_ins: Vec<StandIn>,
     /// How long the results card stays before the select screen, in seconds.
     pub return_to_select_seconds: f32,
+    /// Seconds one press burns off a sleep.
+    pub sleep_mash_seconds: f32,
     /// The shark the admiral's up-B summons.
     pub shark_ride: SharkRide,
     /// The Limit every seat holds, and what fills it.
@@ -64,6 +66,7 @@ impl SmashRules {
         let ride = &self.shark_ride;
         for (field, value) in [
             ("return_to_select_seconds", self.return_to_select_seconds),
+            ("sleep_mash_seconds", self.sleep_mash_seconds),
             ("shark_ride.board_radius", ride.board_radius),
             ("shark_ride.board_deadline_seconds", ride.board_deadline_seconds),
             ("shark_ride.depart_speed", ride.depart_speed),

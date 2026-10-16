@@ -65,18 +65,6 @@ pub fn apply_authored_sleep(
     }
 }
 
-/// Seconds one credited press burns off a sleep.
-///
-/// Chosen against a human mash rate of about ten presses a second: mashing
-/// decays a sleep at about `1.0 + 10 * 0.05 = 1.5x`, so a 1.4s song holds a
-/// struggling fighter for about 0.93s. The mash buys back a third and cannot
-/// beat the clock.
-///
-/// A ruleset constant, not an authored field: the two shipped sleeps (the
-/// Performer's song, the Shadow Oni's seal) want the same escape rate. Make it
-/// per-move when a move needs a different rate.
-const MASH_SECONDS: f32 = 0.05;
-
 /// A sleeping fighter's press buys back time: the counterplay for the longest
 /// disable in the game.
 ///
@@ -96,6 +84,8 @@ pub fn mash_out_of_sleep(
         &ambition_platformer2d::characters::control::ActorControl,
     )>,
 ) {
+    // A ruleset rate, not a move's: every sleep shares one escape.
+    let mash = crate::rules::smash_rules().sleep_mash_seconds;
     for (mut combat, control) in &mut sleepers {
         // Read before write: an awake body must not take a change-detection
         // write to rollback state every tick.
@@ -112,7 +102,7 @@ pub fn mash_out_of_sleep(
             || frame.grab_pressed
             || frame.projectile_pressed;
         if pressed {
-            combat.sleep_timer = (combat.sleep_timer - MASH_SECONDS).max(0.0);
+            combat.sleep_timer = (combat.sleep_timer - mash).max(0.0);
         }
     }
 }
@@ -259,6 +249,13 @@ mod tests {
             slept(&app, masher),
             slept(&app, still),
         );
+        // Each press bought back the rules' `sleep_mash_seconds`.
+        let bought = slept(&app, still) - slept(&app, masher);
+        let rule = crate::rules::smash_rules().sleep_mash_seconds;
+        assert!(
+            (bought - 10.0 * rule).abs() < 1e-4,
+            "ten presses bought back {bought}s, not ten of the rules' {rule}s",
+        );
         // It does not delete the punish: ten presses off a 1.4s song leave
         // most of it.
         assert!(
@@ -302,7 +299,7 @@ mod tests {
 
     /// A fighter who is not asleep takes no write.
     ///
-    /// The value cannot show this: `(0.0 - 0.05).max(0.0)` is `0.0` either
+    /// The value cannot show this: `(0.0 - mash).max(0.0)` is `0.0` either
     /// way. An unguarded version writes rollback state on every body every
     /// tick. So this observes the write (`Changed<BodyCombat>`), after a
     /// baseline tick, because insertion marks it changed.

@@ -52,8 +52,7 @@ const RUNG_DEFAULT: u8 = 9;
 ///
 /// ⛔⛔ AND THE VALID SET IS THE PUBLISHED POLICIES, NOT THE LADDER'S RANGE —
 /// TWO VOCABULARIES, AND THE WIDER ONE IS THE WRONG ONE TO VALIDATE AGAINST.
-/// `FighterBrainProfile::for_level` clamps to 1..=9, so every rung in that
-/// range is a real ladder rung. But `smash_roster_at_levels` names a seat's
+/// The ladder has nine rungs, so every level in 1..=9 is a real ladder rung. But `smash_roster_at_levels` names a seat's
 /// brain `"{SMASH_DUELIST_BRAIN}_l{level}"`, and the smash experience publishes
 /// only FIVE of them. Measured 2026-09-10: a sweep asked for rung 8, every seat
 /// was refused, and all three fighters came back `0 of 3600 ticks (decided on

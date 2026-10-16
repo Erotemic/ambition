@@ -86,7 +86,7 @@ fn lower_policy(
         CharacterBrainTemplate::Fighter => {
             let level = policy.fighter_level;
             let cfg = ambition_characters::brain::fighter::FighterCfg::new(
-                ambition_characters::brain::fighter::FighterBrainProfile::for_level(level),
+                ambition_characters::brain::fighter::FighterBrainProfile::engine_default(level),
             );
             let state = ambition_characters::brain::fighter::FighterState::new(
                 &cfg,

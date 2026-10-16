@@ -33,3 +33,26 @@ pub mod rollout;
 pub mod scenarios;
 
 pub use decision::tick_fighter;
+
+/// The shipped ladder (`game/ambition_content/assets/data/fighter_brain_ladder.ron`),
+/// for the tests that make a claim about the rungs a player meets. The
+/// engine's default is one profile at every level, so a rung-order claim made
+/// of it would be vacuous.
+#[cfg(test)]
+pub(crate) fn shipped_ladder() -> &'static ambition_characters::brain::fighter::FighterBrainLadder {
+    static LADDER: std::sync::OnceLock<ambition_characters::brain::fighter::FighterBrainLadder> =
+        std::sync::OnceLock::new();
+    LADDER.get_or_init(|| {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../game/ambition_content/assets/data/fighter_brain_ladder.ron");
+        let text = std::fs::read_to_string(&path).unwrap_or_else(|err| panic!("{}: {err}", path.display()));
+        ambition_characters::brain::fighter::FighterBrainLadder::from_ron(&text)
+            .unwrap_or_else(|err| panic!("{}: {err}", path.display()))
+    })
+}
+
+/// One rung of [`shipped_ladder`].
+#[cfg(test)]
+pub(crate) fn shipped_rung(level: u8) -> ambition_characters::brain::fighter::FighterBrainProfile {
+    *shipped_ladder().level(level).expect("the shipped ladder has nine rungs")
+}

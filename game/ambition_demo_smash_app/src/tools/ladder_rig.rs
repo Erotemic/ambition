@@ -2302,7 +2302,7 @@ mod tests {
         use ambition_platformer2d::characters::brain::fighter::{
             FighterBrainProfile, UtilityWeights,
         };
-        let authored = FighterBrainProfile::for_level(6);
+        let authored = FighterBrainProfile::engine_default(6);
         let authored_kill = authored.utility_weights.kill_potential;
         // Non-vacuity: doubling zero is zero.
         assert_ne!(

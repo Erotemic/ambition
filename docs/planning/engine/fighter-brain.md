@@ -471,10 +471,11 @@ Measurements can describe the wrong one unless the run names the source.
 
 Since 2026-10-16, `ambition_demo_smash_app` plays the rows of Smash's pack
 (`data/fighter_brain_ladder.ron`, the file the shipped game's pack names
-too). A room that no game gives a ladder plays the engine floor, where every
-rung has the same utility weights (v1). `the_ladder_the_demo_runs.rs` pins
-both facts. A rig record from before 2026-10-16 taken without `--ladder`
-measured the floor.
+too); `the_ladder_the_demo_runs.rs` pins it. A room that no game gives a
+ladder plays `FighterBrainProfile::engine_default`: one profile at every
+level, with no rollout. A rig record from before 2026-10-16 taken without
+`--ladder` measured the old level curve (`for_level`, deleted), which armed
+the rollout at levels 6 to 9.
 
 Q88 (2026-10-03) decided which authority remains: the brain owns the knobs,
 and Smash content owns the ladder (see F1). Every calibration receipt names
@@ -641,9 +642,18 @@ a save restates them between sessions
 (`EmbeddedPackReloadPlugin::fighter_ladder`). The tools' `--ladder FILE`
 replaces those rows (a second declaration of one scope panics). Witnesses:
 `the_demo_app_runs_its_fighters_on_smashs_ladder` (compared with the file)
-and `the_ladder_restater_states_the_scopes_ladder_again`. Next, step 3: the
-engine floor becomes one level-free default profile (`for_level` and its
-production fallback sites).
+and `the_ladder_restater_states_the_scopes_ladder_again`.
+
+✅ Step 3 built (2026-10-16): `FighterBrainProfile::for_level`, the level
+curve, is deleted. A room with no ladder plays
+`FighterBrainProfile::engine_default(level)`: one profile at every level (the
+old curve's middle: 325 ms, 270 APM, noise 0.275, no rollout); the level is a
+label, so a ladder declared later finds the rung. The tests that make a claim
+about the rungs a player meets (press-rate order, jitter order, the
+evaluation report) read the shipped ladder file; `evaluation::report` takes
+the ladder it walks. Witness: `the_engine_default_is_one_profile_at_every_level`.
+No shipped composition played the curve: each declares a ladder for its
+fighters' rooms. F1 is complete.
 
 Whichever survives:
 

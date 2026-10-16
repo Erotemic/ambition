@@ -7,8 +7,8 @@ use super::*;
 #[test]
 fn one_seed_is_one_report() {
     assert_eq!(
-        report(0x5EED),
-        report(0x5EED),
+        report(crate::brain::fighter::shipped_ladder(), 0x5EED),
+        report(crate::brain::fighter::shipped_ladder(), 0x5EED),
         "the evaluation rig is not deterministic, so no measurement taken with \
          it can attribute a change to the thing being calibrated"
     );
@@ -21,7 +21,7 @@ fn one_seed_is_one_report() {
 /// those as though it had exercised them.
 #[test]
 fn the_report_covers_every_scenario_the_suite_names() {
-    let rows = report(0x5EED);
+    let rows = report(crate::brain::fighter::shipped_ladder(), 0x5EED);
     for scenario in suite() {
         assert!(
             rows.iter().any(|row| row.scenario == scenario.name),
@@ -40,7 +40,7 @@ fn the_report_covers_every_scenario_the_suite_names() {
 /// if a future change empties the kit again.
 #[test]
 fn no_rung_presses_faster_than_its_profile_allows() {
-    let rows = report(0x5EED);
+    let rows = report(crate::brain::fighter::shipped_ladder(), 0x5EED);
     assert!(
         rows.iter().any(|row| row.apm > 0.0),
         "the rig produced no presses at all, so a within-cap result means only \
@@ -78,7 +78,7 @@ fn no_rung_presses_faster_than_its_profile_allows() {
 /// stop pressing too.
 #[test]
 fn every_scenario_the_kit_can_answer_produces_a_press() {
-    let rows = report(0x5EED);
+    let rows = report(crate::brain::fighter::shipped_ladder(), 0x5EED);
     // ⚠ NAMED, NOT A THRESHOLD. Each of these cannot press for a reason that
     // is the KIT's, so a count would go quiet the day a fixture stopped
     // pressing for a reason that is the brain's.
@@ -180,7 +180,7 @@ fn every_scenario_the_kit_can_answer_produces_a_press() {
 /// Re-run `probe_ladder_census` before quoting these.
 #[test]
 fn the_ladder_is_ordered_by_press_rate() {
-    let rows = report(0x5EED);
+    let rows = report(crate::brain::fighter::shipped_ladder(), 0x5EED);
     let mean_apm = |level: u8| -> f32 {
         let of: Vec<&ScenarioOutcome> = rows.iter().filter(|row| row.level == level).collect();
         of.iter().map(|row| row.apm).sum::<f32>() / of.len() as f32
@@ -242,7 +242,7 @@ fn probe_what_separates_the_rungs() {
     for arm in 0..4 {
         let mut curve = Vec::new();
         for level in 1..=9u8 {
-            let mut profile = FighterBrainProfile::for_level(level);
+            let mut profile = crate::brain::fighter::shipped_rung(level);
             match arm {
                 1 => profile.execution_noise = 0.0,
                 2 => {
@@ -269,7 +269,7 @@ fn probe_what_separates_the_rungs() {
 #[test]
 #[ignore = "PROBE, print-only: reports the ladder census"]
 fn probe_ladder_census() {
-    let rows = report(0x5EED);
+    let rows = report(crate::brain::fighter::shipped_ladder(), 0x5EED);
     for level in 1..=9u8 {
         let of: Vec<&ScenarioOutcome> = rows.iter().filter(|r| r.level == level).collect();
         let apm: f32 = of.iter().map(|r| r.apm).sum::<f32>() / of.len() as f32;

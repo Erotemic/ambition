@@ -29,7 +29,7 @@ fn a_fighter_in_the_host_runs_on_the_authored_rung_not_the_engine_floor() {
     // are in the world.
     sim.step(crate::common::base());
 
-    let floor = FighterBrainProfile::for_level(LEVEL);
+    let floor = FighterBrainProfile::engine_default(LEVEL);
     let authored = {
         let world = sim.world_mut();
         // Ambition's own rooms have no mode tag, and the host's first room is one.

@@ -454,7 +454,7 @@ fn every_authored_rung_can_actually_jitter_a_press_at_every_interval() {
     let mut unreachable = Vec::new();
     for interval in 1..=10u32 {
         for level in 1..=9u8 {
-            let noise = FighterBrainProfile::for_level(level).execution_noise;
+            let noise = crate::brain::fighter::shipped_rung(level).execution_noise;
             if noise <= 0.0 {
                 continue;
             }
@@ -491,10 +491,10 @@ fn every_authored_rung_can_actually_jitter_a_press_at_every_interval() {
     // claims; the arm above is the second. Expected jitter is `span / 2`, so a
     // ladder that made a lower rung crisper than a higher one would pass the
     // reachability check and still contradict the design.
-    let interval = FighterCfg::new(FighterBrainProfile::for_level(1)).interval() as f32;
+    let interval = FighterCfg::new(crate::brain::fighter::shipped_rung(1)).interval() as f32;
     let mut previous = f32::INFINITY;
     for level in 1..=9u8 {
-        let expected = FighterBrainProfile::for_level(level).execution_noise * interval / 2.0;
+        let expected = crate::brain::fighter::shipped_rung(level).execution_noise * interval / 2.0;
         assert!(
             expected < previous,
             "rung {level}'s expected jitter ({expected} ticks) is not smaller \
@@ -533,7 +533,7 @@ fn a_different_stream_makes_a_different_fighter_wherever_the_jitter_is_reachable
 
     let mut covered = Vec::new();
     for level in 1..=9u8 {
-        let profile = FighterBrainProfile::for_level(level);
+        let profile = crate::brain::fighter::shipped_rung(level);
         // ⚠ REACHABILITY IS NOW "the noise is not zero", because the
         // quantization is probabilistic: `P(jitter >= 1) = span / 2`. This
         // condition used to be `(noise * interval).round() == 0`, which excluded
@@ -1529,7 +1529,8 @@ fn a_body_below_the_stage_asks_to_rise() {
 /// level placed below the stage fails to recover at **l1 and l6** and succeeds at
 /// **l3, l5, l9**. l1 is unsurprising — the slowest reaction and the most
 /// execution noise. **l6 is a REGRESSION**, and it is exactly the level where
-/// `for_level` switches `rollout_depth`/`rollout_k` on (`level >= 6`), while l9
+/// the old level curve (`for_level`, deleted 2026-10-16) switched
+/// `rollout_depth`/`rollout_k` on (`level >= 6`), while l9
 /// carries the same rollout with a better reaction and less noise and recovers.
 ///
 /// So: is the DECISION different at l6, or does l6 still ask to rise and lose the
@@ -1537,7 +1538,7 @@ fn a_body_below_the_stage_asks_to_rise() {
 #[test]
 fn every_published_level_below_the_stage_asks_to_rise() {
     for level in [1u8, 3, 5, 6, 9] {
-        let mut cfg = FighterCfg::new(FighterBrainProfile::for_level(level));
+        let mut cfg = FighterCfg::new(crate::brain::fighter::shipped_rung(level));
         cfg.decision_interval_ticks = 1;
         let mut state = FighterState::new(&cfg, 0x5EED);
         let snapshot = BrainSnapshot::idle();
@@ -1832,7 +1833,7 @@ fn the_decision_of_a_reflected_scene_is_the_reflected_decision() {
     ];
     let mut profiles = vec![("immediate", immediate_profile())];
     for level in [3, 6, 9] {
-        let mut profile = FighterBrainProfile::for_level(level);
+        let mut profile = crate::brain::fighter::shipped_rung(level);
         // The execution stream is a per-seat fact. Q49 allows it only as a
         // modelled asymmetry, so this test removes it.
         profile.execution_noise = 0.0;

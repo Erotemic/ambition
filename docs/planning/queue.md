@@ -50,8 +50,9 @@ possible without a recompile. Work in this order:
 3. Pack elegance: admission diagnostics that name the file and the field
    (done 2026-10-15: `FacetSource::parse` gives the field path, ca3bd5d8f);
    [CPU-LADDER](#cpu-ladder--the-brain-owns-the-knobs-smash-owns-the-ladder)
-   step 2 (done 2026-10-16: a reaction spread broke the George L5
-   resonance; Smash declares its ladder rows from its pack); step 3 next.
+   steps 2 and 3 (done 2026-10-16: a reaction spread broke the George L5
+   resonance; Smash declares its ladder rows from its pack; the engine's
+   level curve is one level-free default).
 4. Each slice states its measured runtime and iteration cost.
 5. Then the 2026-10-09 order below.
 
@@ -1864,6 +1865,12 @@ and 480 s stalemates on all 16 seeds to 54 s bouts, and every rung pair of
 George's ladder is ordered (16:0, 16:0, 14:2, 16:0). Smash's pack names the
 ladder file and the demo declares and restates its rows. **Next (step 3):**
 the floor becomes one level-free default. See F1.
+**Built 2026-10-16 (step 3):** `for_level` is deleted; a room with no ladder
+plays `FighterBrainProfile::engine_default`, one profile at every level. The
+acceptance holds: Smash's content owns the ladder, another game builds the
+brain with no ladder and inherits no curve, and the one inert field
+(`read_weight`) was removed under Q90 on 2026-10-08.
+CPU-LADDER is done.
 
 ### LANDMARK-CLIP-TIME — a published landmark clip loops or holds as the row it describes
 

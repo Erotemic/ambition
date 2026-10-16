@@ -107,7 +107,7 @@ mod a_seat_keeps_its_brain_and_an_unseated_rider_gets_one_back {
 
     fn fighter_brain() -> Brain {
         let cfg = ambition_characters::brain::fighter::FighterCfg::new(
-            ambition_characters::brain::fighter::FighterBrainProfile::for_level(9),
+            ambition_characters::brain::fighter::FighterBrainProfile::engine_default(9),
         );
         let state = ambition_characters::brain::fighter::FighterState::new(&cfg, 0xABCD_1234);
         Brain::StateMachine(StateMachineCfg::Fighter {

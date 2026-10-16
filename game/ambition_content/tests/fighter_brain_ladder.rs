@@ -55,9 +55,8 @@ fn the_whole_shipped_ladder_plays_without_l3() {
 /// Every one of them parses `LADDER_RON` itself, so they were green for as long
 /// as the file was well-formed — including the entire period when
 /// `fighter_brain_ladder.ron` was authored content that nothing in the running
-/// game had ever read, and `FighterBrainProfile::for_level` (which documents
-/// itself as the floor a game overrides) was consulted at both production call
-/// sites instead.
+/// game had ever read, and the engine's level curve (then the floor a game
+/// overrides) was consulted at both production call sites instead.
 ///
 /// so this test asks the only question the others cannot: is it in the
 /// pack? It reads the prepared pack rather than the file, so it fails if the
@@ -86,7 +85,7 @@ fn the_prepared_pack_lowers_the_shipped_ladder() {
     );
     // the property the floor gets wrong, asserted on what the game will read.
     let l1 = lowered.level(1).expect("level 1 is authored");
-    let floor = ambition_characters::brain::fighter::FighterBrainProfile::for_level(1);
+    let floor = ambition_characters::brain::fighter::FighterBrainProfile::engine_default(1);
     assert!(
         l1.utility_weights.kill_potential < floor.utility_weights.kill_potential,
         "the lowered level-1 rung values a kill move as highly as the engine floor \

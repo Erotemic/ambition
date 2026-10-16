@@ -87,7 +87,7 @@ mod ladder_projection_tests {
 
     fn fighter_brain(level: u8) -> Brain {
         let cfg = ambition_characters::brain::fighter::FighterCfg::new(
-            ambition_characters::brain::fighter::FighterBrainProfile::for_level(level),
+            ambition_characters::brain::fighter::FighterBrainProfile::engine_default(level),
         );
         let state =
             ambition_characters::brain::fighter::FighterState::new(&cfg, CONSTRUCTED_STREAM);
@@ -123,7 +123,7 @@ mod ladder_projection_tests {
         );
         app.add_systems(Update, project_authored_fighter_ladder);
 
-        let floor = ambition_characters::brain::fighter::FighterBrainProfile::for_level(1);
+        let floor = ambition_characters::brain::fighter::FighterBrainProfile::engine_default(1);
         let entity = app.world_mut().spawn(fighter_brain(1)).id();
         app.update();
 
@@ -175,7 +175,7 @@ mod ladder_projection_tests {
         assert_eq!(apm(on_stage), 30.0, "the fighter on the Smash stage did not take Smash's ladder");
         assert_eq!(
             profile_of(app.world().get::<Brain>(nowhere).expect("brain")),
-            ambition_characters::brain::fighter::FighterBrainProfile::for_level(1),
+            ambition_characters::brain::fighter::FighterBrainProfile::engine_default(1),
             "a fighter in no live room took a ladder that governs no room it is in"
         );
     }
@@ -189,7 +189,7 @@ mod ladder_projection_tests {
         app.update();
         assert_eq!(
             profile_of(app.world().get::<Brain>(entity).expect("brain")),
-            ambition_characters::brain::fighter::FighterBrainProfile::for_level(1),
+            ambition_characters::brain::fighter::FighterBrainProfile::engine_default(1),
             "a game that shipped no rows had its fighter rewritten anyway"
         );
     }
@@ -339,7 +339,7 @@ mod ladder_projection_tests {
         // survived" is only saying that nothing ran.
         assert_ne!(
             profile_of(brain),
-            ambition_characters::brain::fighter::FighterBrainProfile::for_level(1),
+            ambition_characters::brain::fighter::FighterBrainProfile::engine_default(1),
             "the ladder did not project, so this test is not observing the rebuild \
              it exists to constrain"
         );
@@ -362,9 +362,8 @@ mod ladder_projection_tests {
     /// session, for every frame the candidate stays hidden. By the time the
     /// candidate is adopted its brains are no longer "added" relative to a
     /// system that has run since, so the one production consumer of
-    /// the authored ladder never sees them and the fighter keeps
-    /// `FighterBrainProfile::for_level`, the ENGINE FLOOR, in a game that
-    /// authored a ladder.
+    /// the authored ladder never sees them and the fighter keeps the engine's
+    /// default profile in a game that authored a ladder.
     ///
     /// ⚠ **LATENT ON THE SHIPPED SMASH DUEL AND THAT IS NOT A DEFENCE.**
     /// Measured 2026-09-19: the projection fires exactly twice in
@@ -421,7 +420,7 @@ mod ladder_projection_tests {
         publish_candidate_session(app.world_mut(), entity, scope);
         app.update();
 
-        let floor = ambition_characters::brain::fighter::FighterBrainProfile::for_level(1);
+        let floor = ambition_characters::brain::fighter::FighterBrainProfile::engine_default(1);
         assert_ne!(
             profile_of(app.world().get::<Brain>(entity).expect("brain")),
             floor,
@@ -445,7 +444,7 @@ mod ladder_projection_tests {
         app.update();
         assert_eq!(
             profile_of(app.world().get::<Brain>(entity).expect("brain")),
-            ambition_characters::brain::fighter::FighterBrainProfile::for_level(7),
+            ambition_characters::brain::fighter::FighterBrainProfile::engine_default(7),
             "level 7 is not in the two-rung fixture and must keep the floor"
         );
     }

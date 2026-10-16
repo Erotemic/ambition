@@ -70,7 +70,10 @@ again before you quote it.
   | value changes from our code | 1,575 → 1,379 | 994 → 956 |
 
   After the table, the leafwing fix (F13): all allocations a frame Mary-O
-  23,407 → 4,128, hub 46,949 → 15,257. The large remaining items: the serial executor for the
+  23,407 → 4,128, hub 46,949 → 15,257. Sanic act 1 over the whole night
+  (`probe/sanic_act1_v2` → `probe/sanic_act1_final`): all allocations 24,034
+  → 3,492 (−85%), in our systems 1,942 → 692, value changes from our code
+  682 → 503. The large remaining items: the serial executor for the
   standalone games (D12, needs a yes), then P1 and P12.
 - **Time, desktop** (MEASURED, `scripts/executor_ab.sh`, 3 interleaved
   repetitions, the same script early in the night and at the end; the box's

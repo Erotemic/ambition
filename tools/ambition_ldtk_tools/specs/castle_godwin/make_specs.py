@@ -186,8 +186,8 @@ def room(rid, entities, label_text, theme, music, bg):
 """
 
 
-def castle(rid, entities, label_text):
-    return room(rid, entities, label_text, CASTLE_THEME, CASTLE_MUSIC, CASTLE_BG)
+def castle(rid, entities, label_text, theme=CASTLE_THEME):
+    return room(rid, entities, label_text, theme, CASTLE_MUSIC, CASTLE_BG)
 
 
 def shell(rid, ground=64, ceiling=48):
@@ -243,6 +243,12 @@ def gatehouse():
     e += [
         door(f"{rid}_west", "out to the forest", 64, floor, FOREST, f"{FOREST}_castle_door"),
         door(f"{rid}_east", "on to the barracks", w - 112, floor, BARRACKS, f"{BARRACKS}_west"),
+        # The guard post at the gate, the posters, a searchlight at the far door.
+        standing("guard_post", "castle_guard_post", 200, floor),
+        standing("wanted_robot", "castle_wanted_poster", 420, floor - 150),
+        standing("poster_obey", "castle_propaganda_poster_a", 830, floor - 170),
+        standing("poster_papers", "castle_propaganda_poster_c", 1110, floor - 150),
+        standing("searchlight_gate", "castle_searchlight", 1380, floor),
         solid("dais", 560, floor - 64, 192, 64),
         ledge("gallery_west", 880, floor - 160, 224),
         ledge("gallery_east", 1200, floor - 256, 192),
@@ -266,8 +272,18 @@ def barracks():
         door(f"{rid}_west", "back to the gatehouse", 64, floor, GATEHOUSE, f"{GATEHOUSE}_east"),
         door(f"{rid}_east", "up the tower", w - 112, floor, TOWER, f"{TOWER}_foot"),
     ]
+    # The bunks: each bed's picture under its two one-way mattresses.
     for i, x in enumerate((360, 1000, 1640)):
-        e += [ledge(f"bunk_{i}_low", x, floor - 112, 224), ledge(f"bunk_{i}_high", x, floor - 224, 224)]
+        e += [standing(f"bunk_bed_{i}", "castle_bunk_bed", x, floor),
+              ledge(f"bunk_{i}_low", x, floor - 112, 224), ledge(f"bunk_{i}_high", x, floor - 224, 224)]
+    e += [
+        standing("lockers_west", "castle_locker_row", 180, floor),
+        standing("mess_table", "castle_mess_table", 1250, floor),
+        standing("lockers_east", "castle_locker_row", 1900, floor),
+        standing("poster_order", "castle_propaganda_poster_b", 880, floor - 260),
+        standing("wanted_barracks", "castle_wanted_poster", 2060, floor - 150),
+        standing("poster_obey_barracks", "castle_propaganda_poster_a", 2420, floor - 170),
+    ]
     for i, x in enumerate((760, 1400, 2040)):
         e.append(solid(f"pillar_{i}", x, 48, 64, floor - 208))
     e += [
@@ -308,10 +324,16 @@ def tower():
             e.append(soldier(rid, n, x + 128, y))
         y -= 176
         k += 1
+    # The lab on the floor of the tower: the vats the prototypes came out of,
+    # the coils; the operating table on the top floor.
+    e += [standing(f"vat_{i}", "castle_specimen_vat", x, floor) for i, x in enumerate((300, 400, 500))]
+    e += [standing(f"coil_{i}", "castle_tesla_coil", x, floor) for i, x in enumerate((640, 860))]
+    e.append(standing("operating_table", "castle_operating_table", w - 380, top_floor))
     # The top of the tower: an Iron Trooper, and a pack on the first ledge.
     e.append(soldier(rid, 1, w - 260, top_floor, HEAVY))
     e += pack(rid, 200, floor - 176)
-    return rid, castle(rid, e, "Castle Godwin: the tower.")
+    # The tower is the castle's lab: where the prototypes were made.
+    return rid, castle(rid, e, "Castle Godwin: the lab tower.", theme="castle_godwin_lab")
 
 
 def lever(name, label_text, prompt, x, floor, action="ResetEncounter", target=""):
@@ -340,6 +362,12 @@ def great_hall():
         ledge("gallery_west", 448, floor - 192, 320),
         ledge("gallery_east", w - 768, floor - 192, 320),
         solid("dais", w // 2 - 160, floor - 48, 320, 48),
+        # The rally: the podium on the dais, searchlights at its sides, posters.
+        standing("rally_podium", "castle_rally_podium", w // 2 - 64, floor - 48),
+        standing("searchlight_west", "castle_searchlight", w // 2 - 260, floor),
+        standing("searchlight_east", "castle_searchlight", w // 2 + 196, floor),
+        standing("poster_hall_obey", "castle_propaganda_poster_a", 560, floor - 300),
+        standing("poster_hall_order", "castle_propaganda_poster_b", w - 620, floor - 300),
         ledge("balcony", w // 2 - 192, floor - 352, 384),
     ]
     return rid, castle(rid, e, "Castle Godwin: the great hall.")
@@ -358,11 +386,16 @@ def throne():
         ledge("gallery_west", 416, floor - 160, 256),
         ledge("gallery_east", w - 672, floor - 160, 256),
         ledge("high_gallery", w // 2 - 160, floor - 320, 320),
+        # The throne under the wolf's head, coils at its sides.
+        standing("coil_throne_west", "castle_tesla_coil", w - 470, floor),
+        standing("iron_throne", "castle_iron_throne", w - 360, floor),
+        standing("coil_throne_east", "castle_tesla_coil", w - 160, floor),
+        standing("wanted_throne", "castle_wanted_poster", 200, floor - 150),
         (f'( type: "BossSpawn", px: [{w - 520}, {floor - bh}], size: [{bw}, {bh}], fields: ( name: "{BOSS_NAME}", '
          f'brain: "{BOSS_BRAIN}", encounter_id: "{BOSS_ENCOUNTER}" ) ),'),
     ]
     # A boss arena's camera frames the fight (`Encounter`), as the other arenas do.
-    text = castle(rid, e, "Castle Godwin: the throne room of Wolfenstein.")
+    text = castle(rid, e, "Castle Godwin: the throne room of Wolfenstein.", theme="castle_godwin_throne")
     return rid, text.replace(f'id: "{rid}_camera", name: "{rid}_camera", mode: "Default"', f'id: "{rid}_camera", name: "{rid}_camera", mode: "Encounter"')
 
 

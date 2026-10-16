@@ -210,6 +210,12 @@ pub enum ParallaxTheme {
     /// Inside Castle Godwin: halls of cold blue-grey blocks, red banners with
     /// the mark of the regime, braziers.
     CastleGodwin,
+    /// The lab of Castle Godwin: vats lit green with failed prototypes in
+    /// them, cables and pipes, Tesla coils, a slot in the roof to the storm.
+    CastleGodwinLab,
+    /// Wolfenstein's throne room: pointed arches, a great round window with a
+    /// red moon, a carved wolf's head, red curtains, iron chandeliers.
+    CastleGodwinThrone,
     /// Mary-O's land in the colours of a magical girl: round hills, a far
     /// castle, a rainbow and a crescent moon in a pink sky. The rooms of
     /// Mary-O name it.
@@ -269,6 +275,8 @@ impl ParallaxTheme {
         Self::MathUndercroft,
         Self::EvilForest,
         Self::CastleGodwin,
+        Self::CastleGodwinLab,
+        Self::CastleGodwinThrone,
         Self::Starlight,
         Self::Stardune,
         Self::Starless,
@@ -298,6 +306,8 @@ impl ParallaxTheme {
             Self::MathUndercroft => "math_undercroft",
             Self::EvilForest => "evil_forest",
             Self::CastleGodwin => "castle_godwin",
+            Self::CastleGodwinLab => "castle_godwin_lab",
+            Self::CastleGodwinThrone => "castle_godwin_throne",
             Self::Starlight => "starlight",
             Self::Stardune => "stardune",
             Self::Starless => "starless",
@@ -395,6 +405,8 @@ impl ParallaxTheme {
             "math_undercroft" | "math_gate_hall" => Some(Self::MathUndercroft),
             "evil_forest" | "evil" => Some(Self::EvilForest),
             "castle_godwin" => Some(Self::CastleGodwin),
+            "castle_godwin_lab" => Some(Self::CastleGodwinLab),
+            "castle_godwin_throne" => Some(Self::CastleGodwinThrone),
             "starlight" | "magical_girl" | "magical" => Some(Self::Starlight),
             "stardune" | "star_dunes" => Some(Self::Stardune),
             "starless" | "dark_magical_girl" => Some(Self::Starless),

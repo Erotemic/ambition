@@ -701,7 +701,13 @@ hub's simulation is in `GgrsSchedule`, which the rollback crate already runs
 serially, so this is a standalone-game lever (Mary-O, Sanic, Smash). The
 single-threaded executor runs systems in a valid order of the declared
 constraints; the multi-threaded one already may run unordered systems in any
-order, so no new order is possible. Recommendation: make `Serial` the default
+order, so no new order is possible. Check of that (MEASURED, the hub A/B
+captures, `capture_scene` steps deterministically, 1,200 frames): the player
+ends at the same point in every run of every arm; `serial` and `frame-serial`
+captures are pixel-identical; `parallel` differs from both in 218 of 921,600
+pixels, the same 218 in each of its three runs, all of them ambient motes
+(an order-ambiguous presentation system). So the executor changes which
+order such a system sees, not the game. Recommendation: make `Serial` the default
 of every foundation, then remove the switch; check `room_replay` under it
 first. Not done: it is a one-line default.
 
@@ -888,6 +894,8 @@ another reason:
   Mary-O's integration tests (95, the room-replay tests among them) and
   Sanic's (42). It changes how every standalone game
   runs, so it should land with a play test, and the switch is then removed.
+  The one visible difference measured in the hub was the ambient motes'
+  placement (F22).
 - **D13 — withdrawn.** The leafwing clash pass is skipped in this repo with
   no fork (F13). An upstream PR (skip the pass under `PressAll` in
   `process_actions`; lookups without boxing) is an outward action for Jon.

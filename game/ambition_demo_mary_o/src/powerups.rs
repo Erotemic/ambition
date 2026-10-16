@@ -936,7 +936,7 @@ fn transform_beat_policy(
     // reversion does not: she was just hit, and slowing the world on a hit takes
     // the recovery away from the player instead of giving it.
     let clock_scale = if to_tier > from_tier {
-        STEP_UP_CLOCK_SCALE
+        crate::rules::mary_o_rules().step_up_clock_scale
     } else {
         1.0
     };
@@ -947,8 +947,6 @@ fn transform_beat_policy(
         untouchable: true,
     }
 }
-
-const STEP_UP_CLOCK_SCALE: f32 = 0.6;
 
 /// Fallback beat length for a form whose sheet cannot be read at all.
 const UNREADABLE_CLIP_SECS: f32 = 0.45;
@@ -1176,6 +1174,18 @@ mod tests {
              and its beat did not follow. Something is still deriving the sheet \
              from the character id instead of asking where it is authored"
         );
+    }
+
+    /// A step up a rung asks for the rules' `step_up_clock_scale` and lasts
+    /// its clip stretched by it; a step down asks for nothing.
+    #[test]
+    fn a_step_up_slows_the_clock_by_the_rules_and_a_step_down_does_not() {
+        let scale = crate::rules::mary_o_rules().step_up_clock_scale;
+        let up = transform_beat_policy(None, None, character(1), 0, 1);
+        assert_eq!(up.clock_scale, scale, "a step up does not ask for the rules' `step_up_clock_scale`");
+        assert!((up.duration - UNREADABLE_CLIP_SECS / scale).abs() < 1e-5, "the beat does not cover its clip at the slowed clock");
+        let down = transform_beat_policy(None, None, MARY_O_CHARACTER_ID, 1, 0);
+        assert_eq!(down.clock_scale, 1.0, "a step down slows the world on a hit");
     }
 
     /// The star wand absorbs one hit and is then spent — the A3 armor half of

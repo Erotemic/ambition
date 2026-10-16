@@ -25,6 +25,7 @@ pub struct MaryORules {
     pub coins_per_block: i32,
     pub plank_ticks: u64,
     pub walk_throttle: f32,
+    pub step_up_clock_scale: f32,
     pub cosmic: Cosmic,
     pub castle_end: CastleEnd,
     pub flag: Flag,
@@ -161,6 +162,7 @@ pub struct Shell {
 #[serde(deny_unknown_fields)]
 pub struct Cosmic {
     pub leave_hold_seconds: f32,
+    pub arrive_beat_seconds: f32,
     pub hit_stop_max_seconds: f32,
 }
 
@@ -168,6 +170,10 @@ impl MaryORules {
     /// Each value the demo cannot use, named by its field.
     fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
+        let scale = self.step_up_clock_scale;
+        if !(scale.is_finite() && scale > 0.0 && scale <= 1.0) {
+            problems.push(format!("`step_up_clock_scale` is {scale}; a beat slows the clock or leaves it, so it is more than 0 and at most 1"));
+        }
         let (plant, pipe, shell) = (&self.snake_plant, &self.pipe, &self.shell);
         for (field, value) in [
             ("snake_plant.shy_reach", plant.shy_reach),
@@ -186,6 +192,7 @@ impl MaryORules {
             ("star_seconds", self.star_seconds),
             ("walk_throttle", self.walk_throttle),
             ("cosmic.leave_hold_seconds", self.cosmic.leave_hold_seconds),
+            ("cosmic.arrive_beat_seconds", self.cosmic.arrive_beat_seconds),
             ("cosmic.hit_stop_max_seconds", self.cosmic.hit_stop_max_seconds),
             ("castle_end.press_speed", self.castle_end.press_speed),
             ("castle_end.gate_step_seconds", self.castle_end.gate_step_seconds),

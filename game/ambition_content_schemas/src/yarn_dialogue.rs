@@ -19,11 +19,14 @@ use ambition_content_pack::{
 /// The authored FILE kind: one Yarn file.
 pub const YARN_DIALOGUE_SCHEMA: &str = "yarn_dialogue";
 
-/// One Yarn file: its path as the manifest declares it, and its text.
+/// One Yarn file: its path as the manifest declares it, its text, and the
+/// title of each of its nodes in file order, as admission read them. A
+/// reader that needs the node ids reads `titles`, so the ids have one parse.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct YarnFile {
     pub path: String,
     pub text: String,
+    pub titles: Vec<String>,
 }
 
 /// Every Yarn file of a pack, in manifest order.
@@ -83,10 +86,15 @@ impl ContentSchemaHandler for YarnDialogue {
         // title, in one file or in two, are one identity defined twice. The
         // canonical form is the node's text: the pack's identity is built from
         // it, so an edit to a spoken line is a new pack.
-        for (title, text) in nodes.iter().filter(|(title, _)| !title.is_empty()) {
+        let named: Vec<&(String, String)> = nodes.iter().filter(|(title, _)| !title.is_empty()).collect();
+        for (title, text) in &named {
             out.define(facet.content_id_in(YARN_DIALOGUE_SCHEMA, title.clone()), text.clone());
         }
-        out.lower(YarnFile { path: facet.declared_path.to_string(), text: facet.text.to_string() });
+        out.lower(YarnFile {
+            path: facet.declared_path.to_string(),
+            text: facet.text.to_string(),
+            titles: named.iter().map(|(title, _)| title.clone()).collect(),
+        });
     }
 
     fn aggregate(&self, fragments: &[LoweredFragment<'_>], out: &mut AggregateOutcome) -> Aggregation {

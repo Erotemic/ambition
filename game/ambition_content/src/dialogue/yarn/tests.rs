@@ -83,12 +83,12 @@ fn the_player_pedestal_has_a_self_branch_because_the_default_character_is_the_pl
 /// a dialogue that does not exist is dead content.
 #[test]
 fn every_self_branch_has_a_root_node() {
-    for (name, source) in yarn_sources() {
-        let titles: Vec<&str> = yarn_title_ids(source).collect();
-        for title in &titles {
+    for file in yarn_files() {
+        let (name, titles) = (&file.path, &file.titles);
+        for title in titles {
             if let Some(root) = title.strip_suffix("__self") {
                 assert!(
-                    titles.contains(&root),
+                    titles.iter().any(|other| other == root),
                     "{name}: `{title}` is a self branch of `{root}`, which has no \
                      `title:` node in the same file",
                 );

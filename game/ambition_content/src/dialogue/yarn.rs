@@ -48,13 +48,17 @@ pub fn executable_regions(text: &str) -> Vec<(usize, &str)> {
 /// pack's `yarn_dialogue` sources, in manifest order. The name is the path
 /// the manifest declares.
 pub fn yarn_sources() -> &'static [(&'static str, &'static str)] {
-    use ambition_content_schemas::yarn_dialogue::{YarnFiles, YARN_DIALOGUE_SCHEMA};
     static SOURCES: std::sync::OnceLock<Vec<(&'static str, &'static str)>> = std::sync::OnceLock::new();
-    SOURCES.get_or_init(|| {
-        ambition_content_pack::lowered_rules::<YarnFiles>(crate::pack::shipped(), YARN_DIALOGUE_SCHEMA)
-            .map(|files| files.iter().map(|file| (file.path.as_str(), file.text.as_str())).collect())
-            .unwrap_or_default()
-    })
+    SOURCES.get_or_init(|| yarn_files().iter().map(|file| (file.path.as_str(), file.text.as_str())).collect())
+}
+
+/// The pack's Yarn files as admission lowered them: each file's path, text
+/// and node titles.
+pub fn yarn_files() -> &'static [ambition_content_schemas::yarn_dialogue::YarnFile] {
+    use ambition_content_schemas::yarn_dialogue::{YarnFiles, YARN_DIALOGUE_SCHEMA};
+    ambition_content_pack::lowered_rules::<YarnFiles>(crate::pack::shipped(), YARN_DIALOGUE_SCHEMA)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
 }
 
 /// Registers Yarn Spinner with the game's dialogue set as IN-MEMORY sources
@@ -68,13 +72,6 @@ pub fn yarn_spinner_plugin() -> bevy_yarnspinner::prelude::YarnSpinnerPlugin {
             .iter()
             .map(|(name, text)| YarnFileSource::InMemory(YarnFile::new(*name, *text))),
     )
-}
-
-fn yarn_title_ids(source: &'static str) -> impl Iterator<Item = &'static str> {
-    source.lines().filter_map(|line| {
-        let title = line.strip_prefix("title:")?.trim();
-        (!title.is_empty()).then_some(title)
-    })
 }
 
 /// The flags a `<<command "world.set_flag" "<id>" true>>` in the game's Yarn
@@ -105,10 +102,10 @@ pub fn dialogue_set_flags() -> Vec<String> {
 /// (`DialogueNodeIndex::entry_node`), so the root of a `root__1` title is not
 /// an id that can start unless a node is titled `root` too.
 pub fn known_dialogue_ids() -> Vec<String> {
-    let mut ids: Vec<String> = Vec::new();
-    for (_, source) in yarn_sources() {
-        ids.extend(yarn_title_ids(source).map(str::to_string));
-    }
+    // The titles admission read (`yarn_dialogue`), not a second scan of the
+    // text: a scan that disagreed with admission on one line would accept an
+    // id that no node has, or refuse one that a node has.
+    let mut ids: Vec<String> = yarn_files().iter().flat_map(|file| file.titles.iter().cloned()).collect();
     ids.sort_unstable();
     ids.dedup();
     ids

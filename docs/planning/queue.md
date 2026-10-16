@@ -1034,11 +1034,13 @@ variants. Also found in that regen:
     The tiers pack only the runtime groups since 2026-10-15 (the full tier
     1.1 s, was 126 s; the same bytes), so a frame size change outside them
     re-packs nothing (the tier runs, finds no runtime sheet changed, and
-    keeps its pages). **Left:** a focused
-    publish (`sprites.sh --target NAME`, 22 s for `mallory`: its render and
-    its tiers) writes in place and packs no Ultrapack, so the one prop that
-    draws from a pack (`intro_cart`, `intro_prop_sprite_rows`) shows its
-    old art until the next full publish, whose pack key sees the sheet.
+    keeps its pages). A focused publish (`sprites.sh --target NAME`, 22 s
+    for `mallory`: its render and its tiers) packs the runtime groups too,
+    so the one prop that draws from a pack (`intro_cart`,
+    `intro_prop_sprite_rows`) shows its new art at once
+    (`test_a_focused_publish_packs_the_runtime_groups.py`). **Left:** a
+    focused publish writes the runtime roots in place, not through the
+    staging root.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

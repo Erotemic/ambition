@@ -422,6 +422,27 @@ if [ "$list_targets" -eq 1 ]; then
     exit 0
 fi
 
+# Ultrapack tiers. tier: <name> <scale> <min_frame_px> <page_size>
+#
+# Page size scales DOWN with the tier: shrunk frames pack many-per-page,
+# and MaxRects degrades badly with thousands of tiny rects in one big page
+# (potato @ 2048² takes minutes). A smaller page keeps frames-per-page
+# bounded — potato @ 256² packs in ~10s — and a potato atlas has no reason
+# to be 2048². Uniform page size still holds WITHIN each pack.
+ultrapack_tiers=(
+    "full 1.0 1 2048"
+    "half 0.5 1 1024"
+    "quarter 0.25 1 512"
+    "potato 0.0625 8 256"
+)
+# PackPlan (locality groups): authored in the renderer's data dir (NOT
+# configs/, which is reserved for CharacterJob YAMLs globbed by draw-all);
+# quality-independent, so the same plan applies to every tier.
+ultrapack_plan=()
+if [ -f "$renderer_dir/ambition_sprite2d_renderer/data/pack_plan.yaml" ]; then
+    ultrapack_plan=(--pack-plan "ambition_sprite2d_renderer/data/pack_plan.yaml")
+fi
+
 if [ "${#target_names[@]}" -gt 0 ]; then
     validate_sprite_targets
     for one in "${target_names[@]}"; do
@@ -444,6 +465,34 @@ if [ "${#target_names[@]}" -gt 0 ]; then
             echo "==> regen FAILED — quality variants: generator reported a failure" >&2
             exit 1
         fi
+    fi
+    # The packs hold the frames of the runtime groups (`intro_cart` draws
+    # from them). A focused run did not pack, so a focused publish of a
+    # runtime-group target left its pack on the old art until the next full
+    # publish. A tier packs only the runtime groups, in about a second. The
+    # tier keys are removed: the next full publish runs each tier again.
+    if [ "${AMBITION_ULTRAPACK:-1}" != "0" ]; then
+        echo "==> Ultrapack runtime groups"
+        mkdir -p "$renderer_dir/.cache/ultrapack"
+        tier_log="$(mktemp "${TMPDIR:-/tmp}/sprite-ultrapack.XXXXXX")"
+        for tier in "${ultrapack_tiers[@]}"; do
+            read -r tname tscale tmin tpage <<<"$tier"
+            rm -f "$renderer_dir/.cache/ultrapack/$tname.key"
+            if ! run_renderer_python "ultrapack-$tname" -m ambition_sprite2d_renderer.authoring.ultrapack \
+                --from-rendered "$sprites_dir" \
+                --out "$asset_root/sprite_packs/$tname" --runtime-only \
+                --scale "$tscale" --min-frame-px "$tmin" --page-size "$tpage" \
+                --name ultrapack "${ultrapack_plan[@]}" \
+                --state "$renderer_dir/.cache/ultrapack/$tname.state.json" \
+                --jobs 1 >"$tier_log" 2>&1; then
+                sed 's/^/  /' "$tier_log" >&2
+                rm -f "$tier_log"
+                echo "==> regen FAILED — Ultrapack tier '$tname'" >&2
+                exit 1
+            fi
+            sed -n '1s/^/  /p' "$tier_log"
+        done
+        rm -f "$tier_log"
     fi
     print_regen_timings
     exit 0
@@ -1706,26 +1755,6 @@ if [ "${AMBITION_ULTRAPACK:-1}" = "0" ]; then
 elif command -v "$python_bin" >/dev/null 2>&1 && \
     "$python_bin" -c 'import ambition_sprite2d_renderer' >/dev/null 2>&1
 then
-    # tier: <name> <scale> <min_frame_px> <page_size>
-    #
-    # Page size scales DOWN with the tier: shrunk frames pack many-per-page,
-    # and MaxRects degrades badly with thousands of tiny rects in one big page
-    # (potato @ 2048² takes minutes). A smaller page keeps frames-per-page
-    # bounded — potato @ 256² packs in ~10s — and a potato atlas has no reason
-    # to be 2048². Uniform page size still holds WITHIN each pack.
-    ultrapack_tiers=(
-        "full 1.0 1 2048"
-        "half 0.5 1 1024"
-        "quarter 0.25 1 512"
-        "potato 0.0625 8 256"
-    )
-    # PackPlan (locality groups): authored in the renderer's data dir (NOT
-    # configs/, which is reserved for CharacterJob YAMLs globbed by draw-all);
-    # quality-independent, so the same plan applies to every tier.
-    ultrapack_plan=()
-    if [ -f "$renderer_dir/ambition_sprite2d_renderer/data/pack_plan.yaml" ]; then
-        ultrapack_plan=(--pack-plan "ambition_sprite2d_renderer/data/pack_plan.yaml")
-    fi
     # The tiers read the same published sheets and write separate roots, so
     # they run at once, at most `AMBITION_SPRITE_JOBS` of them, the slowest
     # first. Measured 2026-10-15: full 126 s, half 116 s, quarter 83 s,

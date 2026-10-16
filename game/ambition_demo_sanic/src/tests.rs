@@ -2654,6 +2654,10 @@ fn the_act_clock_counts_hundredths_and_each_act_has_a_title() {
         .collect();
     assert_eq!(numbers, [1, 2, 3]);
     assert_eq!(act_title("somewhere_else"), None);
+    // Each card shows the name the rules' `acts` give its room.
+    for (index, act) in crate::rules::sanic_rules().acts.iter().enumerate() {
+        assert_eq!(act_title(&act.room), Some((act.title.as_str(), index as u8 + 1)), "the card of `{}` is not the rules'", act.room);
+    }
 }
 
 /// ⭐ Every schema of the demo's pack takes part in its live reload: a host

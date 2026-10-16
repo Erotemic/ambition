@@ -81,6 +81,13 @@
         // for both: a jump that breaks a monitor also squashes a badnik.
         band: 16.0,
     ),
+    // The acts, in their order (the first is Act 1), and the name each title
+    // card shows. Which act follows which is the levels' `next_room`.
+    acts: [
+        (room: "sanic_speedway", title: "SKYBRIDGE SPEEDWAY"),
+        (room: "sanic_highway", title: "COVE HIGHWAY"),
+        (room: "sanic_darkness", title: "ECLIPSE CIRCUIT"),
+    ],
     super_form: (
         // The beat he holds when he becomes super: shorter and lighter than
         // Mary-O's, so it does not stop a run. Wall-clock seconds, and the

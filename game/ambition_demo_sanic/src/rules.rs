@@ -13,7 +13,7 @@ use serde::Deserialize;
 pub const SANIC_RULES_SCHEMA: &str = "sanic_rules";
 
 /// The demo's tuning, as its pack states it.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SanicRules {
     pub ring_monitor: RingMonitor,
@@ -23,6 +23,16 @@ pub struct SanicRules {
     pub badnik: Badnik,
     pub stomp: Stomp,
     pub super_form: SuperForm,
+    /// The acts, in their order: the first is Act 1.
+    pub acts: Vec<ActTitle>,
+}
+
+/// One act: its room and the name its title card shows.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActTitle {
+    pub room: String,
+    pub title: String,
 }
 
 /// What a ring monitor holds.
@@ -140,6 +150,17 @@ impl SanicRules {
         if !(scale.is_finite() && scale > 0.0 && scale <= 1.0) {
             problems.push(format!("`super_form.beat_clock_scale` is {scale}; a beat slows the clock or leaves it, so it is more than 0 and at most 1"));
         }
+        if self.acts.is_empty() {
+            problems.push("`acts` is empty; the demo has at least one act".to_string());
+        }
+        for (index, act) in self.acts.iter().enumerate() {
+            if act.title.trim().is_empty() {
+                problems.push(format!("`acts[{index}].title` is empty; a title card names its act"));
+            }
+            if self.acts[..index].iter().any(|before| before.room == act.room) {
+                problems.push(format!("`acts[{index}].room` repeats `{}`; one room is one act", act.room));
+            }
+        }
         if loss.ring_size <= 0.0 {
             problems.push(format!("`ring_loss.ring_size` is {}; a ring has a size", loss.ring_size));
         }
@@ -175,8 +196,8 @@ pub fn feet_on_top(feet: f32, top: f32) -> bool {
 }
 
 /// The demo's tuning, as its pack states it (`assets/data/sanic_rules.ron`).
-pub fn sanic_rules() -> SanicRules {
-    *lowered_rules::<SanicRules>(crate::pack::PACK.prepared(), SANIC_RULES_SCHEMA)
+pub fn sanic_rules() -> &'static SanicRules {
+    lowered_rules::<SanicRules>(crate::pack::PACK.prepared(), SANIC_RULES_SCHEMA)
         .expect("the demo's pack states its tuning (`data/sanic_rules.ron`)")
 }
 
@@ -221,11 +242,16 @@ mod tests {
             let pack = EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None)
                 .with_schemas(|| vec![sanic_rules_schema()]);
             let prepared = pack.compile().unwrap_or_else(|failure| panic!("{}", failure.render()));
-            *lowered_rules::<SanicRules>(&prepared, SANIC_RULES_SCHEMA).expect("the probe pack lowers the tuning")
+            lowered_rules::<SanicRules>(&prepared, SANIC_RULES_SCHEMA).expect("the probe pack lowers the tuning").clone()
         };
 
         let file = rules_of(&authored);
-        assert_eq!(file, sanic_rules(), "the demo plays the file");
+        assert_eq!(&file, sanic_rules(), "the demo plays the file");
+        // The acts are the file's: a renamed act is the title its card shows.
+        let title = r#"title: "COVE HIGHWAY""#;
+        assert_eq!(authored.matches(title).count(), 1, "the probe renames one act");
+        let renamed = rules_of(&authored.replace(title, r#"title: "COVE EXPRESSWAY""#));
+        assert_eq!(renamed.acts[1].title, "COVE EXPRESSWAY");
         // The score the demo pays is the file's par and bonuses.
         assert_eq!(
             crate::act_score(0.0, 3),

@@ -1381,15 +1381,12 @@ pub fn act_clock_text(seconds: f32) -> String {
     format!("{}:{:02}.{:02}", hundredths / 6000, hundredths / 100 % 60, hundredths % 100)
 }
 
-/// The name of an act and its number, by its room. `None` for a room that
-/// is not an act.
+/// The name of an act and its number, by its room (`acts` in the pack's
+/// `sanic_rules.ron`). `None` for a room that is not an act.
 pub fn act_title(room_id: &str) -> Option<(&'static str, u8)> {
-    match room_id {
-        SPEEDWAY_ROOM_ID => Some(("SKYBRIDGE SPEEDWAY", 1)),
-        HIGHWAY_ROOM_ID => Some(("COVE HIGHWAY", 2)),
-        DARKNESS_ROOM_ID => Some(("ECLIPSE CIRCUIT", 3)),
-        _ => None,
-    }
+    let acts = &crate::rules::sanic_rules().acts;
+    let index = acts.iter().position(|act| act.room == room_id)?;
+    Some((acts[index].title.as_str(), index as u8 + 1))
 }
 
 /// After the goal, the course drives him, not the player.

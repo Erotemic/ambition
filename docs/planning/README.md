@@ -105,6 +105,8 @@ links to.
   — capability and plugin composition.
 - [`engine/system-composition-audit.md`](engine/system-composition-audit.md)
   — which systems each game runs, and the plan to run only what it uses.
+- [`engine/performance-and-composition-findings.md`](engine/performance-and-composition-findings.md)
+  — CPU cost on weak devices and composition: findings, ranked proposals, decisions for Jon.
 - [`engine/public-sdk-1.0.md`](engine/public-sdk-1.0.md) — public SDK scope.
 - [`engine/prepared-definition-field-census.md`](engine/prepared-definition-field-census.md)
   — A6 per-field reader census.
@@ -175,6 +177,9 @@ links to.
 - [`engine/slopes-feet-ride-surfaces.md`](engine/slopes-feet-ride-surfaces.md)
   A proposal (2026-10-11): a body on the ground keeps a support that
   lasts; its shape says how it sits on it. Not built; one decision open.
+- [`engine/portals-one-transit-for-every-mover.md`](engine/portals-one-transit-for-every-mover.md)
+  Nothing teleports: props and projectiles straddle and cross as bodies
+  do, and a seam lab (a gauge prop, a scenario matrix) measures it.
 - [`engine/portals-are-moving-frames.md`](engine/portals-are-moving-frames.md)
   A portal is a rigid frame that moves: its host's published motion,
   transit in its own frame, captures that are drawn where they were taken.

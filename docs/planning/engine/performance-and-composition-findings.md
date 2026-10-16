@@ -105,17 +105,14 @@ again before you quote it.
 1. A phone run of the Mary-O-only hub (`profile_android.sh`, as 10-16) to
    measure tonight's fixes where they matter; compare with
    `android-maryo-only-1-1b` by `--thread` and `--under`.
-2. `capture_scene`: order `apply_capture_snapshot` before the presentation
-   systems that read the camera (F22: its captures drop the motes under a
-   serial executor).
-3. D12: a yes for the serial executor in the standalone games (F22).
-4. P1 C1: the boss and wielded extension phases installed by their owning
+2. D12: a yes for the serial executor in the standalone games (F22).
+3. P1 C1: the boss and wielded extension phases installed by their owning
    capability (~49 systems a frame in Mary-O and Sanic), then C2-C6.
-5. P12: the body step marks only real changes (F20); then the change-driven
+4. P12: the body step marks only real changes (F20); then the change-driven
    read-models (P5) can skip.
-6. F19: the live-room lookups as one resource, not ~280 query parameters.
-7. F24: one composed collision world per room per tick, then a layered view.
-8. The hub's ~9.4k allocations a frame with no system owner (F13, open).
+5. F19: the live-room lookups as one resource, not ~280 query parameters.
+6. F24: one composed collision world per room per tick, then a layered view.
+7. The hub's ~9.4k allocations a frame with no system owner (F13, open).
 
 ## How to answer a cost question
 
@@ -719,8 +716,10 @@ order against `drift_room_motes`, so under `parallel` it runs first and under
 the serial orders after. So this is an artifact of `capture_scene`, not of
 the game: in the game only `camera_follow` writes the camera, and the motes
 run after it. The rest of the frame and the player are the same in every
-arm. Fix for captures: order `apply_capture_snapshot` before the presentation
-systems that read the camera. Recommendation: make `Serial` the default
+arm. Fixed for captures (2026-10-16): `apply_capture_snapshot` now runs before
+`drift_room_motes` and `light_the_world`; the `parallel` and `frame-serial`
+hub captures are then pixel-identical (MEASURED). So the three executor
+policies give the same picture. Recommendation: make `Serial` the default
 of every foundation, then remove the switch; check `room_replay` under it
 first. Not done: it is a one-line default.
 

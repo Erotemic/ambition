@@ -25,9 +25,12 @@ again before you quote it.
   thread is framework work outside any system body: per-system scheduling,
   access checks, archetype updates, allocation (F0, F11). The cost follows how
   many systems run, not what they do; no system body of ours is over 1.4%.
-  Levers: fewer systems per game (P1), a serial executor (P2: MEASURED on
-  the desktop, a standalone tick is ~6× cheaper and the main thread does 23%
-  less work per second while drawing 32% more frames, F22).
+  Levers: fewer systems per game (P1), a serial executor for the
+  standalone games (P2: MEASURED on the desktop, a standalone tick is ~6×
+  cheaper and the main thread does 23% less work per second while drawing
+  32% more frames, F22). In the hub (what the phone runs) the simulation is
+  already serial and only ~15% of the main thread; the frame phases are the
+  rest (F23).
 - **Input lookups are 74% of a standalone frame's allocations** (19.2k a
   frame, F13): leafwing rebuilds every action pair on each call though we
   resolve no clashes, and boxes each lookup. Fix in a fork (P11).
@@ -561,6 +564,32 @@ constraints; the multi-threaded one already may run unordered systems in any
 order, so no new order is possible. Recommendation: make `Serial` the default
 of every foundation, then remove the switch; check `room_replay` under it
 first. Not done: it is a one-line default.
+
+### F23 — In the hub the executor is not the lever; the frame phases are
+
+MEASURED (hub `basement_enemies`, `capture_scene`, same method as F22,
+`CAPTURE="capture_scene basement_enemies 0,0 {png} 1280x720" scripts/executor_ab.sh`):
+
+| arm | sim wall per tick | main schedules, ms per second | frames per second |
+| --- | ---: | ---: | ---: |
+| `parallel` | 1.84 | 946 | 57.6 |
+| `frame-serial` (the hub today) | 1.90 | 847 | 63.2 |
+| `serial` | 1.93 | 823 | 66.1 |
+
+The hub's simulation runs in `GgrsSchedule`, which the rollback crate already
+runs serially, so it costs ~1.9 ms a tick in every arm, and `serial` adds only
+3% less main-thread time over today. Main-thread time per second of the hub
+today, by phase: `RunFixedMainLoop` 227 ms (the simulation is ~120 of it),
+`Update` 193, `PreUpdate` 190, outside any schedule 159, `PostUpdate` 137,
+`StateTransition` 53 (16 systems: about 0.8 ms a frame), `Last` 19,
+`SpawnScene` 18. Standalone Mary-O (F22, parallel) is the opposite shape:
+`RunFixedMainLoop` 673 of 968.
+
+Reading (REASONED): the phone runs the hub app, so for the phone the levers
+are the frame phases: fewer systems in them (P1, P3), the false changes and
+re-derivations (P12, P13), and input (P11). The executor switch (P2) is the
+standalone games' lever. `StateTransition` at ~0.8 ms a frame for 16 systems
+is worth one Tracy look.
 
 ### Not a lever (keep out of this run)
 

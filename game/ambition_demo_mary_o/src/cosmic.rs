@@ -46,14 +46,17 @@ pub const TRANSFORM_TECHNIQUE_ID: &str = "transform";
 /// (`mary_o_v2_cosmic.LEAVE_ROW` of the sprite renderer). No other thing plays
 /// that clip on the form: she is not hurt in it.
 const LEAVE_ANIM: CharacterAnim = CharacterAnim::Shrink;
-/// The beat of the form she comes back to: short, and with no clip. A clip of
-/// that form is the clip of a hit, and she was not hit.
-const ARRIVE_BEAT: TransformBeatPolicy = TransformBeatPolicy {
-    duration: 0.2,
-    anim: CharacterAnim::Idle,
-    clock_scale: 1.0,
-    untouchable: true,
-};
+/// The beat of the form she comes back to: `cosmic.arrive_beat_seconds` long,
+/// and with no clip. A clip of that form is the clip of a hit, and she was not
+/// hit.
+fn arrive_beat() -> TransformBeatPolicy {
+    TransformBeatPolicy {
+        duration: crate::rules::mary_o_rules().cosmic.arrive_beat_seconds,
+        anim: CharacterAnim::Idle,
+        clock_scale: 1.0,
+        untouchable: true,
+    }
+}
 
 /// The owner of the form's claim on the music.
 const COSMIC_MUSIC_OWNER: &str = "mary_o_cosmic";
@@ -211,7 +214,7 @@ pub fn come_back_from_the_form(
         worn.0 = crate::powerups::ladder_character(equipment).into();
         commands
             .entity(body)
-            .try_insert((TransformBeatRequested(ARRIVE_BEAT), RecharacterizeBody));
+            .try_insert((TransformBeatRequested(arrive_beat()), RecharacterizeBody));
     }
 }
 
@@ -320,6 +323,15 @@ pub fn play_cosmic_music(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The beat of the form she comes back to is the rules'
+    /// `cosmic.arrive_beat_seconds`, with no clip and no slow-down.
+    #[test]
+    fn the_arrive_beat_is_the_rules_file() {
+        let beat = arrive_beat();
+        assert_eq!(beat.duration, crate::rules::mary_o_rules().cosmic.arrive_beat_seconds, "the arrive beat is not the rules'");
+        assert_eq!((beat.anim, beat.clock_scale), (CharacterAnim::Idle, 1.0));
+    }
 
     /// The form lends one verb and no other: a form that lent `fly` would
     /// take the Utility control from its own way out.

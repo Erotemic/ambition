@@ -29,6 +29,15 @@
         overhead: -30.0,
         at_the_player: 24.0,
         least_half_height: 30.0,
+        // A move over his head is drawn higher and taller on the giant: its
+        // middle's height times `overhead_rise`, its half height times
+        // `overhead_grow`.
+        overhead_rise: 1.6,
+        overhead_grow: 1.5,
+        // A move that calls the fist of his giant out of a portal is a blow
+        // of his book here (the giant under him has its own punch): this box
+        // about his body, in the fighter's units, before `reach`.
+        book: (offset: (42.0, -4.0), half_extents: (30.0, 24.0)),
     ),
     // What an African swallow does with a coconut: it fetches one at rest,
     // carries it over what it hunts, and lets it go there.
@@ -61,4 +70,32 @@
     thrown_impacts: {
         "coconut": (min_speed: 240.0, damage: 2, rebound: 0.3, rebound_cap: 0.8),
     },
+    // Ambition's day: 24 minutes of play (an hour of the day a minute), and a
+    // session begins at 8 in the morning. Each phase begins at its hour and
+    // lasts until the next one begins. The music of a room by the time of day
+    // is in `music_cues.ron` (`room_phase_tracks`).
+    day: (
+        length_seconds: 1440.0,
+        morning_at: 5.0,
+        day_at: 10.0,
+        evening_at: 17.0,
+        night_at: 21.0,
+        start_hour: 8.0,
+        // The veil over a sunlit room by the hour, (r, g, b, a) in sRGB: clear
+        // from 10 to 16, gold at 7:30, violet at dawn and dusk, deep blue at
+        // night. The veil is blended in linear light, which darkens much less
+        // than its alpha reads in sRGB: 0.86 takes a white wall to about a
+        // third of its brightness (measured in a capture at 22:00).
+        daylight: [
+            (0.0, (0.05, 0.08, 0.26, 0.86)),
+            (4.5, (0.05, 0.08, 0.26, 0.86)),
+            (6.0, (0.32, 0.26, 0.52, 0.55)),
+            (7.5, (1.0, 0.72, 0.42, 0.20)),
+            (10.0, (1.0, 1.0, 1.0, 0.0)),
+            (16.0, (1.0, 1.0, 1.0, 0.0)),
+            (18.0, (1.0, 0.48, 0.12, 0.32)),
+            (19.5, (0.45, 0.20, 0.42, 0.58)),
+            (21.0, (0.06, 0.09, 0.28, 0.82)),
+        ],
+    ),
 )

@@ -32,13 +32,12 @@ static START_ROOM: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new(
 /// photographing a later act without finishing the ones before it. Call before
 /// building the app; the first call wins.
 pub fn start_at_act(act: u32) -> Result<(), String> {
-    let room = match act {
-        1 => SPEEDWAY_ROOM_ID,
-        2 => crate::HIGHWAY_ROOM_ID,
-        3 => crate::DARKNESS_ROOM_ID,
-        other => return Err(format!("Sanic has acts 1, 2, and 3, not {other}")),
-    };
-    let _ = START_ROOM.set(room);
+    let acts = &crate::rules::sanic_rules().acts;
+    let room = act
+        .checked_sub(1)
+        .and_then(|index| acts.get(index as usize))
+        .ok_or_else(|| format!("Sanic has acts 1 to {}, not {act}", acts.len()))?;
+    let _ = START_ROOM.set(room.room.as_str());
     Ok(())
 }
 

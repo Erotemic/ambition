@@ -69,11 +69,18 @@
     // Walking is 60% of her run speed. Her catalog row owns the absolute cap;
     // this is only the walk-to-run ratio.
     walk_throttle: 0.6,
+    // A step up a rung asks the world to run at this rate while her change
+    // plays: a moment to savour. A step down asks for nothing: she was just
+    // hit, and a slow world would take her recovery away.
+    step_up_clock_scale: 0.6,
     // The beats of the cosmic form.
     cosmic: (
         // The last frame of her way out stays this long before she is the
         // form she comes back to; the beat is this much longer than the row.
         leave_hold_seconds: 0.2,
+        // The beat of the form she comes back to: short, and with no clip (a
+        // clip of that form is the clip of a hit, and she was not hit).
+        arrive_beat_seconds: 0.2,
         // The longest hit stop her own body takes in the form: the stop of a
         // flight is her own, and this is the stop the form shortens.
         hit_stop_max_seconds: 0.02,

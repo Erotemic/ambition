@@ -1005,7 +1005,13 @@ fn publish_ambition_tuning(
     pack: &ambition_content_pack::PreparedContentPack,
 ) {
     match ambition_content_schemas::rules::lowered_ambition_rules(pack) {
-        Some(rules) => world.insert_resource(crate::tuning::AmbitionTuning(rules)),
+        Some(rules) => {
+            // The day is part of the tuning: its clock and its light follow
+            // the file at the same boundary.
+            world.insert_resource(crate::day_cycle::day_cycle(&rules.day));
+            world.insert_resource(crate::day_cycle::daylight(&rules.day));
+            world.insert_resource(crate::tuning::AmbitionTuning(rules));
+        }
         None => bevy::log::error!("the candidate states no `ambition_rules`; the reload keeps Ambition's tuning"),
     }
 }

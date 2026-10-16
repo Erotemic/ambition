@@ -84,6 +84,19 @@ again before you quote it.
   done. D12 (serial executor default for the standalone games) changes no
   behaviour and is ready.
 
+## Next, in order
+
+1. A phone run of the Mary-O-only hub (`profile_android.sh`, as 10-16) to
+   measure tonight's fixes where they matter; compare with
+   `android-maryo-only-1-1b` by `--thread` and `--under`.
+2. D12: a yes for the serial executor in the standalone games (F22).
+3. P1 C1: the boss and wielded extension phases installed by their owning
+   capability (~49 systems a frame in Mary-O and Sanic), then C2-C6.
+4. P12: the body step marks only real changes (F20); then the change-driven
+   read-models (P5) can skip.
+5. F19: the live-room lookups as one resource, not ~280 query parameters.
+6. The hub's ~9.4k allocations a frame with no system owner (F13, open).
+
 ## How to answer a cost question
 
 | Question | Tool |

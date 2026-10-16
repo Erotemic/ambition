@@ -269,7 +269,8 @@ Open:
    `sleep_mash_seconds` there; the stocks button's counts are
    `stock_choices` there (`SmashStockChoice` is a count from that list).
    A thrown item's rebound is its `thrown_impacts` row's (`rebound`,
-   `rebound_cap`). A
+   `rebound_cap`). GNU-ton's duel book box and overhead scales are
+   `gnu_ton_duel` rows (`book`, `overhead_rise`, `overhead_grow`). A
    respawn and a departing shark read the centre of the body's live room
    (`StageCentre`), not the flat stage's. Still flat-only:
    `ladder_rig --scenarios` (refuses other stages).
@@ -278,8 +279,7 @@ Open:
    - `game/ambition_content/src/bosses/cut_rope/mod.rs:44`
      `CUT_ROPE_VICTORY_NPC_NAME`, also the speaker in
      `assets/dialogue/sandbox/kernel.yarn`.
-   - Rules beside their data siblings: the
-     GNU-ton book box (`bosses/gnu_ton/duel.rs:62`), Mary-O's and Sanic's
+   - Rules beside their data siblings: Mary-O's and Sanic's
      transform beats (`powerups.rs:951,954`, `cosmic.rs:53`,
      `ambition_demo_sanic/src/lib.rs` `SUPER_FORM_BEAT`).
    - Level facts and tables: the day clock and its light

@@ -29,6 +29,15 @@
         overhead: -30.0,
         at_the_player: 24.0,
         least_half_height: 30.0,
+        // A move over his head is drawn higher and taller on the giant: its
+        // middle's height times `overhead_rise`, its half height times
+        // `overhead_grow`.
+        overhead_rise: 1.6,
+        overhead_grow: 1.5,
+        // A move that calls the fist of his giant out of a portal is a blow
+        // of his book here (the giant under him has its own punch): this box
+        // about his body, in the fighter's units, before `reach`.
+        book: (offset: (42.0, -4.0), half_extents: (30.0, 24.0)),
     ),
     // What an African swallow does with a coconut: it fetches one at rest,
     // carries it over what it hunts, and lets it go there.

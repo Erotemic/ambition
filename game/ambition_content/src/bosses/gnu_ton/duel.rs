@@ -57,9 +57,6 @@ pub struct GnuTonDuel {
 /// boss fight the giant is under him and has its own punch, so a move that
 /// calls the fist is a blow of his book here.
 pub(super) const CALLED_FIST: &str = "gnu_fist_";
-/// The reach of his book, about his body, in the fighter's units: where the
-/// blow is, and its half size.
-const BOOK: ((f32, f32), (f32, f32)) = ((42.0, -4.0), (30.0, 24.0));
 
 /// A move of the fighter's table, made for the main game and for his body, by
 /// the pack's `gnu_ton_duel` (`data/ambition_rules.ron`).
@@ -72,7 +69,7 @@ fn duel_spec(spec: &MoveSpec, tuning: &GnuTonDuelRules) -> MoveSpec {
     if spec.events.len() != events {
         for volume in spec.windows.iter_mut().flat_map(|window| &mut window.volumes) {
             if let VolumeShape::Rect { offset, half_extents } = &mut volume.shape {
-                (*offset, *half_extents) = BOOK;
+                (*offset, *half_extents) = (tuning.book.offset, tuning.book.half_extents);
             }
             // The fist was the picture of the blow; the book's is his stroke.
             volume.vfx = Some(ambition_entity_catalog::authoring::SLASH_ARC_VFX.to_string());
@@ -88,8 +85,8 @@ fn duel_spec(spec: &MoveSpec, tuning: &GnuTonDuelRules) -> MoveSpec {
                 offset.0 *= tuning.reach;
                 half_extents.0 *= tuning.reach;
                 if offset.1 <= tuning.overhead {
-                    offset.1 *= 1.6;
-                    half_extents.1 *= 1.5;
+                    offset.1 *= tuning.overhead_rise;
+                    half_extents.1 *= tuning.overhead_grow;
                 } else {
                     offset.1 = tuning.at_the_player;
                     half_extents.1 = (half_extents.1 * tuning.reach).max(tuning.least_half_height);
@@ -260,5 +257,60 @@ mod tests {
         };
         assert_eq!(damages(None), vec![1, 2], "the shipped file: light moves deal 1 heart, heavy ones 2");
         assert_eq!(damages(Some("heavy: (hearts: 5, launch: 1.7),")), vec![1, 5], "the edited file is what his heavy moves deal");
+    }
+
+    /// A move that calls the fist of his giant strikes with the pack's `book`
+    /// box, at the duel's `reach`: an edit to the box in
+    /// `data/ambition_rules.ron` is the blow, with no Rust build.
+    #[test]
+    fn the_book_is_the_pack_files_box() {
+        const BOOK: &str = "book: (offset: (42.0, -4.0), half_extents: (30.0, 24.0)),";
+        const RISE: &str = "overhead_rise: 1.6,";
+        let widths = |edit: Option<(&'static str, &'static str)>| {
+            let pack = crate::pack::compile_pack_with(|path, text| match edit {
+                Some((from, to)) if path == "data/ambition_rules.ron" => {
+                    assert_eq!(text.matches(from).count(), 1, "the edit anchor");
+                    text.replace(from, to)
+                }
+                _ => text,
+            })
+            .unwrap_or_else(|failure| panic!("{}", failure.render()));
+            let tuning = ambition_content_schemas::rules::lowered_ambition_rules(&pack).expect("the pack states its tuning");
+            let specs = duel_specs(&crate::pack::SelectedContentPack(std::sync::Arc::new(pack)), &tuning.gnu_ton_duel);
+            let boxes = specs
+                .iter()
+                .flat_map(|spec| &spec.windows)
+                .flat_map(|window| &window.volumes)
+                .filter_map(|volume| match volume.shape {
+                    VolumeShape::Rect { offset, half_extents } => Some((offset, half_extents.0)),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            (boxes, tuning.gnu_ton_duel.reach)
+        };
+        let near = |(a, b): (f32, f32), (c, d): (f32, f32)| (a - c).abs() < 1e-3 && (b - d).abs() < 1e-3;
+        let (shipped, reach) = widths(None);
+        let (edited, _) = widths(Some((BOOK, "book: (offset: (50.0, -4.0), half_extents: (36.0, 24.0)),")));
+        let flat = |boxes: Vec<((f32, f32), f32)>| boxes.into_iter().map(|(offset, half)| (offset.0, half)).collect::<Vec<_>>();
+        let (lifted, _) = widths(Some((RISE, "overhead_rise: 2.0,")));
+        // A blow over his head rises by the file's `overhead_rise`.
+        let rose = shipped
+            .iter()
+            .zip(&lifted)
+            .filter(|((before, _), (after, _))| (after.1 - before.1 * 2.0 / 1.6).abs() < 1e-3 && before.1 != 0.0)
+            .count();
+        assert!(rose > 0, "no blow over his head rose by the edited `overhead_rise`");
+        let (shipped, edited) = (flat(shipped), flat(edited));
+        assert_eq!(shipped.len(), edited.len(), "the edit changed which volumes the duel makes");
+        let mut books = 0;
+        for (before, after) in shipped.iter().zip(&edited) {
+            if near(*before, (42.0 * reach, 30.0 * reach)) {
+                books += 1;
+                assert!(near(*after, (50.0 * reach, 36.0 * reach)), "a book blow became {after:?}, not the edited box at reach {reach}");
+            } else {
+                assert!(near(*before, *after), "a volume that is not the book moved from {before:?} to {after:?}");
+            }
+        }
+        assert!(books > 0, "no duel move strikes with the book, so this test proves nothing");
     }
 }

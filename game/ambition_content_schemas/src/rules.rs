@@ -85,6 +85,21 @@ pub struct GnuTonDuelRules {
     pub at_the_player: f32,
     /// A volume that is put down is at least this tall, as a half height.
     pub least_half_height: f32,
+    /// A volume over his head is moved up by this (its middle's height is
+    /// multiplied), and its half height grows by `overhead_grow`.
+    pub overhead_rise: f32,
+    pub overhead_grow: f32,
+    /// The reach of his book about his body, in the fighter's units: a move
+    /// that calls the fist of his giant strikes here instead.
+    pub book: DuelVolume,
+}
+
+/// A box about a body: its middle's offset and its half size.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DuelVolume {
+    pub offset: (f32, f32),
+    pub half_extents: (f32, f32),
 }
 
 /// A duel move's effect in the main game.
@@ -147,7 +162,14 @@ impl AmbitionRules {
                 ));
             }
         }
-        for (field, value) in [("reach", duel.reach), ("least_half_height", duel.least_half_height)] {
+        for (field, value) in [
+            ("reach", duel.reach),
+            ("least_half_height", duel.least_half_height),
+            ("overhead_rise", duel.overhead_rise),
+            ("overhead_grow", duel.overhead_grow),
+            ("book.half_extents.0", duel.book.half_extents.0),
+            ("book.half_extents.1", duel.book.half_extents.1),
+        ] {
             if !(value.is_finite() && value > 0.0) {
                 problems.push(format!("`gnu_ton_duel.{field}` is {value}; it is finite and more than 0"));
             }
@@ -173,7 +195,12 @@ impl AmbitionRules {
                 bird.let_go_over, bird.carry_over
             ));
         }
-        for (field, value) in [("overhead", duel.overhead), ("at_the_player", duel.at_the_player)] {
+        for (field, value) in [
+            ("overhead", duel.overhead),
+            ("at_the_player", duel.at_the_player),
+            ("book.offset.0", duel.book.offset.0),
+            ("book.offset.1", duel.book.offset.1),
+        ] {
             if !value.is_finite() {
                 problems.push(format!("`gnu_ton_duel.{field}` is {value}; it is a finite height"));
             }
@@ -216,6 +243,9 @@ mod tests {
                 overhead: -30.0,
                 at_the_player: 24.0,
                 least_half_height: 30.0,
+                overhead_rise: 1.6,
+                overhead_grow: 1.5,
+                book: DuelVolume { offset: (42.0, -4.0), half_extents: (30.0, 24.0) },
             },
             african_swallow: SwallowFetch {
                 fetch_reach: 900.0,

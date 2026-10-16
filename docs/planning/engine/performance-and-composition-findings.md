@@ -615,3 +615,10 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
   the main thread is the limit (a first table summed it with the render
   thread, which has the same name; now split by thread id). F12: no catch-up
   limit. GPT's diagnosis weighed.
+- 07:41Z `perf_probe` committed (6f14f4eb7): allocations per span, churn and
+  value changes per source line. Findings F13-F20 from its runs (desktop,
+  standalone Mary-O and Sanic, hub `basement_enemies`). Fixes with no
+  behaviour change, verified by the probe or a test: Mary-O's star no longer
+  re-folds the repertoire every tick (F15); gravity-zone visuals are no
+  longer respawned every frame (F18). Next: the hub run with the change
+  counter, to confirm F17.

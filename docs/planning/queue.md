@@ -392,8 +392,9 @@ and a control.
    --player-holds right@150 --player-holds none@210`). A held item through
    an attack, both facings: the player robot's blade is behind it in the
    wind-up and raised in front in the swing, in the posed hand, and the
-   left-facing swing is its mirror (`--player-holds attack@100 ...
-   left@140 ... attack@160`, stride 3). Not seen: front idle ↔ combat.
+   left-facing swing is its mirror
+   (`--player-holds attack@100 ... left@140 ... attack@160`, stride 3).
+   Not seen: front idle ↔ combat.
 4. **Done 2026-10-13:** the posed hand's root is never the feature's
    stand-in (`UnclaimedBodyPlaceholder`, which carries the feature's id in
    a transition and draws no parts): the root query excludes it.
@@ -834,6 +835,19 @@ bubble shield, slot controls and shield rings, and the portal plugin), the
 level-box read at `ambition_combat/src/extension.rs:90`, the multi-writer
 verdicts for `ShieldRingsView` and `SlotControls`, and the rewind-boundary
 census (`ShieldRingsView`).
+
+**Re-run 2026-10-16:** 1865 passed, 4 failed. The demo live-reload slices
+had added three reds (a `none-arm:` row for the reload's optional
+`ActiveSessionScope` read, the feature-gated test count, and the audio
+reload's writer that moved to `ambition_audio/src/catalog.rs`); those are
+repaired, and so are four others' (the hall's cast prose, 158 placements;
+the two sub-workspace lockfiles, after `ambition_portal2d` took
+`ambition_time`; a severed sentence; four ambiguous citations). Left, none
+from these slices: foreign ordering 84 edges (ceiling 76), the multi-writer
+baseline (`capture_scene`'s `ShieldRingsView`, `PortalEffectSelection`,
+`SlotControls`), the level-box reads at `ambition_combat/src/extension.rs:90`
+and `ambition_platformer2d_actor_monolith/src/projectile/systems.rs:902`, and
+the rewind-boundary census.
 
 **Open items:**
 

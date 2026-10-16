@@ -450,6 +450,11 @@ impl EmbeddedPackWatch {
         self.frames_until_poll = 0;
     }
 
+    /// The pack this watch reads.
+    pub fn pack(&self) -> &'static EmbeddedPack {
+        self.pack
+    }
+
     fn takes_part(&self, schema: &str) -> bool {
         self.live.contains(&schema) || self.restated.iter().any(|restater| restater.schema == schema)
     }

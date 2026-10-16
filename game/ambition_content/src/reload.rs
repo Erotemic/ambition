@@ -647,6 +647,29 @@ fn stage_cast_from_catalog(
     Ok(())
 }
 
+/// Define the live cast again from the selected pack and the sheet records
+/// now published, and publish it if a definition changed. A sheet publication
+/// calls it where no session is live.
+#[cfg(not(feature = "static_content"))]
+fn restate_the_cast_from_the_sheets(world: &mut bevy::ecs::world::World) {
+    use ambition_characters::prepared::{activate_staged_revision, RevisionOutcome};
+    let (Some(pack), Some(live), Some(support)) = (
+        world.get_resource::<crate::pack::SelectedContentPack>().map(|selected| selected.0.clone()),
+        world.get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>().cloned(),
+        world.get_resource::<ambition_combat::technique::InstalledTechniques>().map(|installed| installed.0.clone()),
+    ) else {
+        return;
+    };
+    if let Err(reason) = stage_cast_from_catalog(world, &pack, &live) {
+        world.remove_resource::<ambition_characters::prepared::StagedCastRevision>();
+        bevy::prelude::error!("the sheets changed and the cast keeps its definitions: {reason}");
+        return;
+    }
+    if let RevisionOutcome::Refused { refusals } = activate_staged_revision(world, &support) {
+        bevy::prelude::error!("the sheets changed and the cast revision is refused: {refusals:?}");
+    }
+}
+
 /// The boss catalog a candidate publishes, or `None` when it changes no boss
 /// domain. Built from the App's registry with Ambition's fragment replaced, so
 /// a candidate that does not assemble is refused before anything is staged.
@@ -1989,6 +2012,12 @@ pub fn register(app: &mut bevy::prelude::App) {
     #[cfg(not(feature = "static_content"))]
     {
         app.insert_resource(crate::content_watch::ContentSourceWatch::new(crate::pack::source_root()));
+        // The cast reads its body scale, hurtboxes and rigs from the sheets.
+        ambition_platformer2d::content::sprite_reload::restate_with_the_sheets(
+            app,
+            "the Ambition cast",
+            restate_the_cast_from_the_sheets,
+        );
         app.add_systems(
             bevy::prelude::Update,
             crate::content_watch::watch_content_sources

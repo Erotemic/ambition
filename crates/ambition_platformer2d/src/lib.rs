@@ -621,13 +621,23 @@ pub mod content {
             }
             // A build that reads the pack off disk plays an edit to the
             // cast, a move table or a fighter facet from the next session.
-            app.add_plugins(live_reload::EmbeddedPackReloadPlugin::cast(live_reload::CastReload {
+            let reload = live_reload::EmbeddedPackReloadPlugin::cast(live_reload::CastReload {
                 pack: self.pack,
                 provider: self.provider,
                 default_character: self.default_character,
                 actor_default_abilities: self.actor_default_abilities,
                 carried: self.carried,
-            }));
+            });
+            // The definitions read their body scale, hurtboxes and rig from
+            // the sheets, so a sheet edit states the cast again too. Each
+            // restater stages the whole cast, so one is enough.
+            if let Some(restater) = reload.restated.first() {
+                let (restate, embedded) = (restater.restate.clone(), self.pack);
+                sprite_reload::restate_with_the_sheets(app, format!("the cast of `{}`", pack.id.0), move |world| {
+                    restate(world, embedded.prepared())
+                });
+            }
+            app.add_plugins(reload);
         }
     }
 

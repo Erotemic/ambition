@@ -71,6 +71,30 @@ impl Plugin for SpriteSheetReloadPlugin {
     }
 }
 
+/// What a composition derived from the sheet records when it prepared, and
+/// how to state it again: a cast's body scale, inset hurtboxes and rig are
+/// read from its sheets once, when its definitions are made. Each runs at the
+/// publication of a sheet generation, before a frame can build a body, so no
+/// body is built from the new records and a scale of the old ones.
+#[derive(Resource, Default, Clone)]
+pub struct SheetDerivedRestaters(Vec<(String, Arc<dyn Fn(&mut World) + Send + Sync>)>);
+
+impl SheetDerivedRestaters {
+    /// The names of the restaters, in the order they run.
+    pub fn names(&self) -> impl Iterator<Item = &str> {
+        self.0.iter().map(|(name, _)| name.as_str())
+    }
+}
+
+/// Run `restate` at each publication of a sheet generation (see
+/// [`SheetDerivedRestaters`]). `name` says what it states again.
+pub fn restate_with_the_sheets(app: &mut App, name: impl Into<String>, restate: impl Fn(&mut World) + Send + Sync + 'static) {
+    app.world_mut()
+        .get_resource_or_insert_with(SheetDerivedRestaters::default)
+        .0
+        .push((name.into(), Arc::new(restate)));
+}
+
 /// What one look found.
 #[derive(Default)]
 struct Found {
@@ -318,6 +342,11 @@ fn publish_the_staged_sheets_between_sessions(world: &mut World) {
     let generation = sheet_table::publish_prepared_sheet_table(table);
     info!(target: "ambition_platformer2d::sprites", "sprite sheet generation {generation} published; changed: {staged:?}");
     world.insert_resource(ambition_sprite_sheet::baked_sheet_registry());
+    let restaters = world.get_resource::<SheetDerivedRestaters>().cloned().unwrap_or_default();
+    for (name, restate) in &restaters.0 {
+        info!(target: "ambition_platformer2d::sprites", "restating `{name}` from sheet generation {generation}");
+        restate(world);
+    }
     if let Some(mut assets) = world.get_resource_mut::<ambition_sprite_sheet::game_assets::GameAssets>() {
         assets.characters.retire_realizations_except(&BTreeSet::new());
     }

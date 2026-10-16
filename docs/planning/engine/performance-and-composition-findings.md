@@ -306,6 +306,45 @@ only when `LiveRoomInstance` changed or a room was added or removed; else walk
 only `Added<InRoomInstance>` roots and `Changed<Children>`. A second, smaller
 lever: put the room bands in layers below 64, so a mask fits inline.
 
+### F15 — A `&mut` that writes nothing wakes every change filter downstream
+
+MEASURED (probe: `reconcile_effective_repertoire` ran 901 times in 901 ticks
+of Mary-O, 596 allocations a frame; it is not in Sanic's list; source read).
+Mary-O's `begin_star_power` (`game/ambition_demo_mary_o/src/star.rs:62`) calls
+`worn.unequip(POCKET_QUASAR_ID)` on `Mut<WornEquipment>` every tick. The
+`&mut` call marks `WornEquipment` changed whether or not a row is removed, so
+the change-filtered `reconcile_effective_repertoire` re-folds the whole
+repertoire every tick and writes `ActionSet` and `ActorMoveset`, which marks
+those changed for each of their readers. Fix (no behaviour change): test
+`wears` first, through `Deref`.
+
+Reading (REASONED): this is a class, not one bug. Bevy marks a component
+changed on `DerefMut`, not on a different value. The general answer is a
+detector, not a code search: the probe reports, per component type, the
+entities marked changed per frame; a component changed on every frame for
+every entity is either a per-frame value (expected) or this bug.
+
+### F16 — The common style: re-derive every tick, idempotently
+
+MEASURED (probe allocations, source read). Four of the top allocators of ours
+re-derive, every tick, a value whose inputs change rarely, and say so as a
+virtue ("idempotent by construction", "running every tick can only add"):
+
+| system | re-derives each tick | inputs change when |
+| --- | --- | --- |
+| `isolate_live_rooms` (F14) | every room entity's `RenderLayers` | the live-room set changes, an entity is new |
+| `reconcile_effective_repertoire` (F15) | the repertoire, after a false change | equipment, identity, held item change |
+| `gate_body_control` (`avatar/starting_character.rs:631`) | each body's action scheme (`derive_action_scheme`); the control prompt derives it again | abilities, moveset, action set, techniques change |
+| `authorize_staged_character_presentation_sources` (`character_runtime/presentation.rs:54`) | each staged provider's SFX authorization, with catalog clones; its `ResMut` write marks the selection changed every tick | the cast, a bank or a catalog arrives |
+
+Reading (REASONED): the style is robust (no missed update, no order bug,
+rollback replays it) and its cost is per tick per body. The elegant pattern is
+derive on change: a run condition (`resource_changed`, `any_with_component`),
+a `Changed<T>` filter, or one cached component (`DerivedActionScheme`) that
+both the gate and the prompt read. Under rollback a cached value must be
+rollback state or derived from inputs that a restore marks changed; check
+each cache against that before it lands. Together with F15 this is P12.
+
 ### Not a lever (keep out of this run)
 
 Session-scoped App globals (C03: 30 counted plus 19 uncounted instances) are
@@ -323,6 +362,7 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | P4 | Interned identities: an integer handle per body, made when its `SimId` is minted; read-model keys by `Entity` | String clones and sorts in 5+ per-tick systems | medium | no |
 | P5 | Read-models built once per drawn frame, by change | repeat builds on slow frames; builds in headless hosts | medium | D2 |
 | P6 | Change-driven systems: the two whole-world queries, input bindings, room isolation (F14) | full scans per tick; 444-2,773 allocations a frame in room isolation | small | no |
+| P12 | Derive on change, not every tick (F15, F16): the four systems, then the change detector finds the next ones | per-tick re-derivations and false changes that wake change filters | small each | no |
 | P11 | Input lookups without boxing (F13): fix `CentralInputStore` in a workspace fork of `leafwing-input-manager`, upstream PR | 19,222 allocations a frame, ~75% of a standalone frame's | small | no |
 | P7 | Plumbing: one gizmo trail group, Bevy debug gizmos off in shipping, developer tools only in developer builds, Kira channels | ~80 systems | small-medium | D6, D9 |
 | P8 | Upstream query-state fixes (LDtk, Yarn, bevy_light, GGRS) | ~2% of phone CPU | small each | D5 (only for the LDtk workaround) |

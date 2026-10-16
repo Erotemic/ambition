@@ -44,12 +44,9 @@ possible without a recompile. Work in this order:
    road, and delete the Rust copy. Its one open item (a live reload for
    the demo packs) is deferred: see there.
 2. Efficient content preparation: [TEST-LANES](#test-lanes--keep-required-test-lanes-executable)
-   item 10 (the sprite publish: `draw-review` and `draw-all` are cached
-   since 2026-10-14, `draw-factions` too, the staging root since
-   2026-10-15, an unchanged Ultrapack tier since 2026-10-15, a sheet edit
-   that keeps its frames' sizes is a patch since 2026-10-15; an edit that
-   changes a frame's trimmed size re-packs every tier: 74 s in a publish
-   since the tiers read and encode on threads, was 131 s).
+   item 10, converged 2026-10-15: a publish with nothing to render is 54 s
+   (was about 1 hour); a frame that changes size costs its render and 74 s
+   of packing.
 3. Pack elegance: admission diagnostics that name the file and the field
    (done 2026-10-15: `FacetSource::parse` gives the field path, ca3bd5d8f);
    [CPU-LADDER](#cpu-ladder--the-brain-owns-the-knobs-smash-owns-the-ladder)
@@ -993,204 +990,35 @@ variants. Also found in that regen:
   moved by +256 and 4 by +3, with their auto-layer tiles. These are editor
   visuals; why the atlas moved is not measured, and the change was not
   committed (Q62: a delta needs a domain-aware reading first).
-10. **A sprite publish writes in place, so a cut-short publish is a mixed
-    asset set (measured 2026-10-13).** A merge that moves the renderer
-    pointer makes the local sheets stale, and two app_it arms read them
-    (the transform beat, the drawn playthrough). The republish took about
-    1 hour (render cost 3546 s). A run stopped part way left `sandbag`'s
-    part flipbook naming a clip (`blink_in`) that its realized sheet does
-    not have, and app_it reported it as a red arm of the code. It also
-    rewrites the four tileset heights in the map submodule's `.ldtk`
-    files. Next: publish into a staging root and move it into place only
-    when the run ends, so a stopped run leaves the last whole set; and
-    let a lane name a stale or mixed sprite set as NOT RUN with its
-    remedy, not as a failure.
-    **Built 2026-10-13, the cost:** the per-sheet key read every
-    `targets/**/_*.py` helper as shared, so one family's rig made all 271
-    sheets stale. Now a sheet's key is the shared core (with what the core
-    imports) and the files the registry says the target is made of, with
-    their imports (`scripts/lib/sprite_target_closure.py`,
-    `scripts/lib/sprite_cache_key.sh`). Measured on the real renderer: an
-    edit to `_person_rig.py` moves 30 keys (was 271), one to
-    `crypto_crew.py` moves the 11 crew (was 0: no key had it), one to a
-    helper the core imports moves 271. Four kinds of file that no key read
-    are now read: a module whose target name is not its file name, a config
-    target's config, a helper package's by-name modules, and a shared
-    module with no underscore. The first publish after this change renders
-    every sheet once.
-    **Built 2026-10-13, the reading:** a run with a cargo job asks
-    `sprites.sh --check` once (2.6 s). When the set is stale, a failed
-    job prints the reason and the remedy, and its lane-ledger row carries
-    `environment`. The verdict stays FAILED and is not NOT RUN: another
-    failure in the same job can be real
-    (`test_a_failed_cargo_job_on_a_stale_sprite_set_says_so`).
-    **Measured end to end, 2026-10-13:** the first publish under the new
-    key rendered all (3671 s). Then one comment in `crypto_crew.py`: the
-    crew's 11 sheets re-rendered and 115 were skipped, but 74
-    portrait-less props and effects re-rendered as well. The freshness test
-    required a portrait row, which a prop never has, so every prop
-    re-rendered on every publish; that condition is removed, and the same
-    edit then published 13 and skipped 184. The 11 crew are among the 13;
-    the other two are not identified, because `publish-many --quiet` names
-    no target. Of the 201 batch targets (`tackon_targets` and the rigs),
-    17 were not logged as skipped: the crew and `absurd_general`,
-    `dog_bezoar`, `dog_honey`, `dog_roadie`, `gnu_ton_boss`, `sandbag`
-    (some may not be registered). The batch line now names its stale
-    targets, so the next publish answers it. The tack-on batch still took 230 s
-    (231 s before): the crew's rigged sheets are its cost, so the fix
-    saves renders and little time. Of a full
-    publish, the cached batches are 1904 s (tack-ons 1646, late targets
-    258) and the uncached draw phases 1764 s (`draw-review` 916,
-    `draw-all` 716, `draw-factions` 132). Those three re-render on every
-    publish that is not a whole-run cache hit, so a family edit still
-    costs about 29 minutes there.
-    **Built 2026-10-14:** `draw-review` and `draw-all` are deleted: their
-    targets publish in the cached batch (the runtime adapter configs and
-    the review cues), and the five `configs/review/` files that shadowed a
-    `configs/` file are deleted. The first full publish took 2413 s of
-    render (was 3671 s); `publish-many` starts the slowest targets first
-    (`.cache/publish_seconds.json`). The key reads what each render
-    recorded (REVIEW-1014 item 1). The two unidentified re-renders of the
-    13 above were `gnu_ton_boss` and `mockingbird_boss`, whose cached
-    digests named diagnostics the sweep moves; fixed. Of the 17 targets
-    not logged as skipped, `gnu_ton_boss` is explained.
-    **Built 2026-10-14:** `draw-factions` is deleted. The faction lineup's
-    three rows (`faction_cues`) publish in the cached tack-on batch: the
-    publish worker builds a lineup row from the lineup file as discovery
-    does (`read_record._one_target`, the target's `lineup_row`), and its
-    hand-kept list of expected files is deleted (the registry states what
-    each row installs). A batch with a failed target no longer exits 0 and
-    caches its fingerprint: `sprites.sh` adds the batch to
-    `regen_failures`. Witness:
-    `test_a_faction_lineup_row_is_built_by_the_publish_worker_as_discovery_builds_it`.
-    Measured: a full publish after a renderer core change (every target
-    re-rendered) took 3469 s wall and 2290 s of render (tack-ons 2026 s,
-    late targets 261 s), with no faction phase.
-    **Measured 2026-10-14 (a renderer core change, 3 workers beside cargo):**
-    5474 s wall, 4299 s of render (tack-ons 4036 s, late targets 260 s,
-    the entity publish 2 s). So the entity publish needs no key. About
-    1175 s of wall time is outside the renderer subprocesses (the atlases,
-    the LDtk art, the census, the variants, the vanity card), and no phase
-    was timed. `sprites.sh` now prints each top-level phase's wall time,
-    slowest first (`test_a_publish_says_where_its_wall_time_went`).
-    **Measured 2026-10-15, a publish that rendered one target (the
-    peer's Math art):** 609 s wall, 21 s of render. The phases: Ultrapack
-    362 s, the variants 77 s, the tack-on batch 57 s, the vanity card
-    56 s, the LDtk tilesets 25 s, the rest under 5 s each. The four
-    ultrapack tiers read the same sheets and write separate roots, and ran
-    one after another (full 126 s, half 116 s, quarter 83 s, potato 29 s;
-    the full tier's time is half PNG encoding, and it peaks at 16.5 GB).
-    **Built:** the tiers run at once under `AMBITION_SPRITE_JOBS`, slowest
-    first, each printed whole in tier order
-    (`test_the_ultrapack_tiers_run_at_once`). Measured: 124 s for the four,
-    and all 670 pages and 4 catalogs are byte-identical to the serial run.
-    So that publish is about 371 s.
-    **Built 2026-10-15, the variants:** with nothing to build, the pass
-    took 72 s, nearly all of it a Python RON parse of every record and part
-    flipbook of four roots (and of the 66 MB of flipbooks twice) to read
-    their page names. Now it builds only the page fields
-    (`RonParser.record_fields`, `top_field`; equal to the full parse on all
-    2762 record files and 664 flipbooks), and the claims are read once:
-    6 s (`test_the_variant_pass_reads_only_the_page_fields`). The pass keys
-    freshness on its own mtime, so the first run after a change to the
-    script rebuilds every tier once (569 s, measured).
-    **Built 2026-10-15, the vanity card:** a renderer script (56 s of SVG
-    rasterizing) that ran on every publish. It is now keyed as a target is
-    (`script_key`: the core, its two scripts, the robot target it imports,
-    and the five files its last run read, recorded by `read_record`) and
-    skipped when the key holds
-    (`test_a_script_that_is_not_a_target_is_keyed_as_a_target_is`).
-    **Measured end to end:** a publish with no target to render and the
-    whole-run fingerprint removed: 231 s wall (was 609 s). Of it, Ultrapack
-    129 s (its full tier; half of that is PNG encoding, and a sheet edit
-    re-packs every page), the tack-on batch's freshness checks 39 s, the
-    LDtk tilesets 25 s, the variants 10 s.
-    **Built 2026-10-15, one freshness process per batch:**
-    `scripts/lib/sprite_freshness.py` gives each target's key (the bytes of
-    `unit_key`) and its output digests with each file hashed once. On the
-    240 registered cached targets: 6.2 s for the batch, was 24.9 s, and the
-    same 233 skips (control: the old bash function on the same tree). The
-    key equivalence is a test against the bash function
-    (`test_the_python_unit_key_is_the_bash_unit_key`; poison: no duplicate
-    removal, red on `hero`).
-    **Built 2026-10-15, the staging mirror:** the swap keeps the set it
-    replaces (`.cache/publish_mirror`, 1.7 GB), and the next run makes its
-    staged copy from it with `rsync --delete`: 0.69 s on the real roots,
-    was 41 s for the full copy in the same day's publish
-    (`test_the_next_run_starts_from_the_set_the_swap_replaced`; poisons: no
-    mirror kept, mirror not used, no `--delete`, each red on its own
-    assertion).
-    **Built 2026-10-15, the LDtk manifest:** it read every sheet's YAML
-    sidecar for a manifest of one sheet. It now reads only the sheets it
-    registers: 1.66 s, was 24.8 s, byte-identical (renderer 38bbe7e,
-    `test_the_curated_manifest_reads_only_the_sidecars_it_registers`).
-    **Built 2026-10-15, Ultrapack threads:** each tier reads its sheets and
-    encodes its pages on threads, the same bytes (renderer 40258ae); the
-    four tiers' threads are at most `AMBITION_SPRITE_JOBS` (2/2/1/1). The
-    four at once: 82 s, was 130 s; 74 s in a real publish (126 s wall for
-    the publish).
-    **Measured end to end 2026-10-15, after the slices above:** a publish
-    with nothing to render is 54 s wall (was 231 s). No phase is over 8 s:
-    the quality variants 8 s, the tack-on freshness 6 s, the staging copy,
-    the portrait gallery and the LDtk editor art 5 s each.
-    **Built 2026-10-15, the staging root:** a full publish writes into a
-    copy of the five runtime roots (`sprites`, the three tiers,
-    `sprite_packs`) under the renderer's `.cache/publish_staging`, and moves
-    the copy into place only when every sprite phase passed
-    (`scripts/lib/sprite_staging.sh`). A stopped or failed run leaves the
-    last whole set, and the next run continues the copy (the per-sheet keys
-    hash the files on disk, so the targets it published stay fresh). The
-    LDtk phases run after the swap: they write sheet paths into tracked
-    files. The entity textures go through the per-sheet cache too.
-    Witness: `test_a_stopped_run_leaves_the_runtime_roots_whole_and_the_next_run_continues`
-    (poison, staging is the runtime root: red at "old sheet"). Measured on
-    the real publish: the copy 9 s (1.6 GB), the swap 3 s; a publish with
-    nothing to render 270 s wall, rc 0, the `.ldtk` files unchanged.
-    **Built 2026-10-15, the Ultrapack key:** each tier is keyed on the
-    shared core (the packer), the pack plan, its own numbers and the name,
-    size and mtime of each sheet it pools (`ultrapack_inputs_key`), and is
-    skipped when the key holds; the key is removed before a tier packs and
-    written only when it ends well
-    (`test_a_tier_whose_inputs_did_not_change_is_not_packed_again`,
-    `test_a_failed_tier_keeps_no_key_and_packs_again`,
-    `test_the_ultrapack_key_moves_with_a_pooled_sheet_and_the_plan_and_nothing_else`).
-    Measured: a publish whose whole-run fingerprint missed and that pooled
-    no changed sheet (a script edit, an entity or prop target): 135 s wall
-    (was 270 s), the four tiers 0 s, the postcondition passes. A publish
-    with no change at all is the whole-run hit: 37 s.
-    **Built 2026-10-15, the Ultrapack patch:** the packer places frames by
-    their trimmed sizes in pool order and by nothing else. So when only
-    some sheets' pixels changed and their frames kept their trimmed sizes
-    (a recolour, a shading pass), a full pack gives the same layout, and
-    each tier draws only the pages that hold those frames again
-    (`pack_tier`, run by `sprites.sh` as `python -m
-    ambition_sprite2d_renderer.authoring.ultrapack --state ..`; the state
-    is each sheet's digest, the frames' sizes and the catalog's digest at
-    the last pack, removed before a write and written last). It is not a
-    flag of the `ultrapack` command: an edit to the CLI moves the shared
-    core key and makes every sheet stale, and the module is outside it.
-    Witness: `test_a_tier_whose_changed_sheets_kept_their_sizes_is_patched_to_the_bytes_of_a_full_pack`
-    (poisons: no clear of the old rect, no offset update, no size check,
-    no catalog check, the state kept during a write; each red). Measured on
-    the full tier with the real sheets: a recolour of one sheet 6.7 s (8 of
-    180 pages), byte-identical to a fresh full pack (124 s); no change
-    1.6 s. A full pack knows an unchanged page by the pixel digest in
-    the state (with the file's size and mtime) and does not decode it:
-    a full-tier pack after a size edit 65 s, was 82 to 86 s (a37183f).
-    Left: an edit that changes a frame's trimmed size still re-packs all
-    four tiers (the full tier about 65 s); the largest phases of a
-    no-render publish are now the tack-on batch's freshness checks (40 s),
-    the staging copy with the fingerprint work (28 s) and the LDtk sprite
-    tilesets (26 s).
-    **Measured 2026-10-15, a full re-render** (the shared core's file list
-    changed, a2aebe9f8, so every sheet was stale): 55 min 50 s wall, rc 0.
-    Phases: tack-on targets 2255 s, the reduced-resolution variants 575 s
-    (245 sheets built, 23 current), the target batch 274 s, Ultrapack 99 s
-    (four tiers), staging 29 s, LDtk tilesets 26 s, the swap 3 s. The
-    renderer's page keep (7230c1f: a page with the same pixels is not
-    written again) is not measured by this run: every sheet was rendered
-    again, and the log counts the files a tier writes, not the pages it
-    kept.
+10. **The sprite publish costs in proportion to what changed (converged
+    2026-10-15).** It was a 1-hour publish that wrote the runtime roots in
+    place, so a stopped run left a mixed set that app_it reported as a code
+    defect (2026-10-13). Built, each with its witness in the commit:
+    - A staging root swapped in only when every sprite phase passed
+      (`scripts/lib/sprite_staging.sh`), made from the set the last swap
+      replaced (`.cache/publish_mirror`, `rsync --delete`: 0.7 s, was 41 s).
+    - A per-sheet key: the shared core, the files the registry says a
+      target is made of, and the files its last render opened
+      (`read_record.py`, `scripts/lib/sprite_cache_key.sh`). One process
+      judges a batch (`scripts/lib/sprite_freshness.py`, 6 s for 240
+      targets, the bytes of the bash key).
+    - `draw-review`, `draw-all` and `draw-factions` deleted: their targets
+      publish in the cached batch. The vanity card is keyed as a target.
+    - Ultrapack: a tier is skipped when its inputs hold, patched when only
+      pixels changed (6.7 s), and otherwise packed on threads within the
+      job cap (the four tiers 82 s, was 362 s one after another).
+    - The variants read only page fields (6 s, was 72 s); the LDtk
+      manifest reads only the sheets it registers (1.7 s, was 25 s), for
+      each world in `worlds.ron`.
+    - A run with a cargo job names a stale sprite set and its remedy in a
+      failed job's lane-ledger row (`environment`).
+    **Measured 2026-10-15:** no change, 37 s (the whole-run hit); nothing
+    to render, 54 s; a recolour of one sheet, its render plus about 7 s of
+    packing; a frame that changes size, its render plus 74 s (every tier
+    re-packs). A change to the shared core re-renders every sheet: 56 min
+    (tack-ons 2255 s of render, the variants 575 s).
+    **Left:** the variants after a full re-render (575 s, one process);
+    a frame size change re-packs all four tiers.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

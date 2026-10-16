@@ -123,16 +123,21 @@ pub fn apply_touch_control_placement(
             TouchSurface::ActionCluster => placement.action_cluster,
             TouchSurface::MenuRow => placement.menu_row,
         };
-        let Some(rect) = rect else {
+        // Compare before write, here and below: this runs each frame, and a
+        // changed `Node` makes the UI lay out again.
+        let mut next = node.clone();
+        match rect {
             // No footprint published: the controls are hidden. Use
             // `Display::None`, not a zero rect. A zero-size node still lays
             // out, and its absolute children (stick art, glyphs, labels) would
             // draw at the screen's top-left corner.
-            node.display = Display::None;
-            continue;
-        };
-        node.display = Display::Flex;
-        set_node_rect(&mut node, rect.min, rect.size());
+            None => next.display = Display::None,
+            Some(rect) => {
+                next.display = Display::Flex;
+                set_node_rect(&mut next, rect.min, rect.size());
+            }
+        }
+        node.set_if_neq(next);
     }
 
     let scale = placement.action_scale;
@@ -142,11 +147,13 @@ pub fn apply_touch_control_placement(
             // Menu-row buttons are laid out by flex inside a fixed-size row.
             continue;
         };
-        node.left = Val::Px(spec.left * scale);
-        node.top = Val::Px(spec.top * scale);
-        node.width = Val::Px(spec.size * scale);
-        node.height = Val::Px(spec.size * scale);
-        node.border_radius = BorderRadius::all(Val::Px(spec.size * 0.5 * scale));
+        let mut next = node.clone();
+        next.left = Val::Px(spec.left * scale);
+        next.top = Val::Px(spec.top * scale);
+        next.width = Val::Px(spec.size * scale);
+        next.height = Val::Px(spec.size * scale);
+        next.border_radius = BorderRadius::all(Val::Px(spec.size * 0.5 * scale));
+        node.set_if_neq(next);
     }
     for (mut font, label) in &mut labels {
         let Some(spec) = layout.iter().find(|spec| spec.action == label.0) else {
@@ -465,8 +472,14 @@ fn position_frame_axis_glyphs(
                 ambition_geometry::LocalAxes::from_vec(glyph.local_axis),
             )
             .vec();
-        node.left = Val::Px(center.x + on_input.x * radius - 7.0);
-        node.top = Val::Px(center.y + on_input.y * radius - 13.0);
+        // Written only when it differs: the glyphs move only when the
+        // gravity frame or the mode changes, and a changed `Node` lays out the UI.
+        let left = Val::Px(center.x + on_input.x * radius - 7.0);
+        let top = Val::Px(center.y + on_input.y * radius - 13.0);
+        if node.left != left || node.top != top {
+            node.left = left;
+            node.top = top;
+        }
     }
 }
 

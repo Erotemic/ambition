@@ -757,7 +757,9 @@ fn drop_presentation(commands: &mut Commands, root: Entity, owner: Option<Entity
 
 /// The root's baked frame: the page its animator draws from and the frame's
 /// atlas index.
-fn draw_baked_frame(sprite: &mut Sprite, animator: &CharacterAnimator) {
+/// `sprite` is the `Mut` itself, so a frame that is already drawn leaves the
+/// sprite unchanged.
+fn draw_baked_frame(sprite: &mut Mut<Sprite>, animator: &CharacterAnimator) {
     let page = animator
         .pages
         .get(animator.current_page() as usize)
@@ -766,10 +768,13 @@ fn draw_baked_frame(sprite: &mut Sprite, animator: &CharacterAnimator) {
         if sprite.image != page.texture {
             sprite.image = page.texture.clone();
         }
-        sprite.texture_atlas = Some(TextureAtlas {
+        let texture_atlas = Some(TextureAtlas {
             layout: page.layout.clone(),
             index: animator.atlas_index(),
         });
+        if sprite.texture_atlas != texture_atlas {
+            sprite.texture_atlas = texture_atlas;
+        }
     }
 }
 
@@ -1482,7 +1487,9 @@ fn drive_direct_presentation(
     presentation: &mut RiggedPresentation,
     draws: &[PartDraw],
     frame_opacity: f32,
-    root_sprite: &mut Sprite,
+    // The `Mut` itself: it is only read here, but for the image, which is
+    // compared first, so an unchanged root stays unchanged.
+    root_sprite: &mut Mut<Sprite>,
     place: Transform,
     root_visible: bool,
     owner_visibility: &mut Mut<Visibility>,

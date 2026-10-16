@@ -247,10 +247,12 @@ pub fn animate_shrine_visuals(
     }
 }
 
+/// `atlas_layouts` is the `ResMut` itself: it is dereferenced only when a
+/// layout is added, so the cached path does not mark the asset store changed.
 fn shrine_visual_source(
     asset_server: &AssetServer,
     sheet_registry: Option<&SheetRegistry>,
-    atlas_layouts: &mut Assets<TextureAtlasLayout>,
+    atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
     cache: &mut Option<ShrineVisualSource>,
 ) -> ShrineVisualSource {
     if let Some(source) = cache.as_ref() {

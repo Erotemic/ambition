@@ -261,9 +261,10 @@ Open:
    predicate for the badnik's head and the monitor's lid).
    Smash's offered stages, their order and their button labels are
    `offered` and `label` in `smash_stages.ron`; `SmashStageChoice` is a
-   choice from that list, so a new stage is a row with no Rust edit. Still
-   flat-only: `stage_centre()` (every respawn uses the flat stage's centre)
-   and `ladder_rig --scenarios` (refuses other stages).
+   choice from that list, so a new stage is a row with no Rust edit. A
+   respawn and a departing shark read the centre of the body's live room
+   (`StageCentre`), not the flat stage's. Still flat-only:
+   `ladder_rig --scenarios` (refuses other stages).
    The speedway's floor and pit numbers are now `speedway_oracle`, read by
    tests only. Left, most valuable first:
    - `game/ambition_content/src/bosses/cut_rope/mod.rs:44`

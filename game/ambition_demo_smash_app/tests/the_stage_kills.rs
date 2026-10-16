@@ -292,6 +292,66 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
     }
 }
 
+/// A knocked-out fighter comes back above the platform of the stage it is on,
+/// not above the flat stage's. A stage row puts its main platform where it
+/// likes, so the respawn reads the live room. The probe moves the live room's
+/// main platform 128 px right, past seat 1's 32 px tolerance.
+#[test]
+fn a_respawn_is_above_the_live_stages_platform() {
+    use ambition_platformer2d::actor::{BodyKinematics, MatchSeat, PendingRespawn};
+    use ambition_platformer2d::engine_core::{RoomGeometry, Vec2};
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    decide_a_two_player_match(&mut app);
+    for _ in 0..240 {
+        app.update();
+    }
+    const SHIFT: f32 = 128.0;
+    let moved = {
+        let world = app.world_mut();
+        let mut rooms = world.query::<&mut RoomGeometry>();
+        let mut rooms: Vec<_> = rooms.iter_mut(world).collect();
+        assert_eq!(rooms.len(), 1, "a match plays in one live room");
+        let platform = &mut rooms[0].0.blocks[0].aabb;
+        platform.min.x += SHIFT;
+        platform.max.x += SHIFT;
+        ambition_demo_smash::stage_centre_of(&rooms[0].0)
+    };
+    assert_eq!(moved.x, ambition_demo_smash::stage_centre().x + SHIFT, "the probe did not move the platform");
+
+    let launched = {
+        let world = app.world_mut();
+        let mut query = world.query::<(bevy::prelude::Entity, &MatchSeat, &mut BodyKinematics)>();
+        let (entity, _, mut kin) = query.iter_mut(world).find(|(_, seat, _)| seat.0 == 1).expect("the match seats a second fighter");
+        kin.vel = Vec2::new(2_400.0, -200.0);
+        entity
+    };
+    let mut pending = false;
+    for _ in 0..600 {
+        app.update();
+        let now = app.world().get::<PendingRespawn>(launched).is_some();
+        if pending && !now {
+            break;
+        }
+        pending |= now;
+    }
+    assert!(pending, "the launched fighter was never knocked out, so this test proves nothing");
+    let respawn = ambition_demo_smash::respawn_placement(moved, 1);
+    let kin = app.world().get::<BodyKinematics>(launched).expect("the fighter still has a body");
+    assert!(
+        (kin.pos.x - respawn.x).abs() < 32.0,
+        "the fighter came back at x={}, not above the live platform (seat 1 at x={}); \
+         the flat stage's seat 1 is at x={}",
+        kin.pos.x,
+        respawn.x,
+        ambition_demo_smash::respawn_placement(ambition_demo_smash::stage_centre(), 1).x
+    );
+    assert_eq!(kin.facing, (moved.x - respawn.x).signum(), "the fighter came back facing away from the live centre");
+}
+
 /// The fighter brain closes the distance and lands a hit.
 ///
 /// The first test that puts the brain on a body against an opponent;

@@ -368,10 +368,13 @@ order changes, or when an entity or child is new. The room bands are layers
 layer is on the heap, and each clone of it allocates. Sanic: 2,773
 allocations a frame; Mary-O: 444.
 
-Reading (REASONED): change-driven, with no behaviour change: walk all roots
-only when `LiveRoomInstance` changed or a room was added or removed; else walk
-only `Added<InRoomInstance>` roots and `Changed<Children>`. A second, smaller
-lever: put the room bands in layers below 64, so a mask fits inline.
+Fixed (2026-10-16): the walk runs only when a mask can be stale (the
+live-room set or its order changed; a stamp, a child or a `PresentedForView`
+is new or changed; a mask was removed; or, while rooms are banded, another
+system wrote a mask). Verified (MEASURED): allocations a frame Mary-O 443 →
+7.6, Sanic 1,118 → 2.0, hub 274 → 19; the hub capture is pixel-identical; the
+seven view-isolation tests pass. A second, smaller lever is left: put the room
+bands in layers below 64, so a mask fits inline.
 
 ### F15 — A `&mut` that writes nothing wakes every change filter downstream
 
@@ -512,6 +515,14 @@ input-system resources (`SeatControlFrameModes`, `SeatRawFrames`,
 the lifecycle resources of the provider (`ShellRouteHolds`,
 `PreparedPlatformerSessions`, ...), the two trace buffers, and all the
 narrative and host-intent ledgers.
+
+Fixed with read-before-write, verified with the counter (MEASURED,
+`probe/mary_o_1_1_v3`): `ActiveAudioSelection` (the SFX authorizer now runs
+only when one of its inputs changed; its ~200 allocations a frame are gone),
+`GizmoConfigStore` (trail bands), the host-intent ledgers (prune). The
+narrative ledgers had a second every-frame writer, the release
+(`ambition_conversation/src/ledger.rs:194`), now fixed the same way (covered
+by the conversation tests).
 
 Verified with it (MEASURED): the `star.rs` fix (F15) works. After it,
 `ActionSet` and `ActorMoveset` were changed 17 times in 561 frames (loading),

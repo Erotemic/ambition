@@ -228,6 +228,17 @@ pub fn isolate_live_rooms(
     per_view: Query<(), With<ambition_sim_view::PresentedForView>>,
     children: Query<&Children>,
     mut layers: Query<&mut RenderLayers>,
+    // What can make a room mask stale; see the gate before the walk.
+    restamped: Query<
+        (),
+        Or<(
+            Changed<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            Changed<Children>,
+            Added<ambition_sim_view::PresentedForView>,
+        )>,
+    >,
+    mut unlayered: RemovedComponents<RenderLayers>,
+    mut walked_for: Local<Option<Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>>>,
 ) {
     // In instance order, so a room keeps its band while the rooms around it
     // stay live.
@@ -235,6 +246,10 @@ pub fn isolate_live_rooms(
         ambition_platformer2d_shared_tangle::camera_layers::live_room_band(rooms.iter().copied(), room)
     };
 
+    let banding = rooms.iter().nth(1).is_some();
+    // Before this run writes any mask: a write of this run would read as changed.
+    // `iter_mut` hands out `Mut` and marks nothing until a write.
+    let relayered = banding && layers.iter_mut().any(|layer| layer.is_changed());
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, _)| view));
     for (camera, link) in &cameras {
         let wanted = on_hand
@@ -265,7 +280,23 @@ pub fn isolate_live_rooms(
         }
     }
 
-    let banding = rooms.iter().nth(1).is_some();
+    // ⭐ WALK ONLY WHEN A MASK CAN BE STALE. The walk visits every entity of
+    // every room, and its masks change only when: the live-room set or its
+    // order changes; an entity gets a stamp, a child, or a `PresentedForView`;
+    // a mask is removed; or, while rooms are banded, another system writes a
+    // mask (with one live room no other system writes a room band). This
+    // system's own writes are not changes on its next run. Walking every
+    // frame gave the same masks (perf_probe: 444-2,773 allocations a frame).
+    let live: Vec<_> = rooms.iter().copied().collect();
+    let removed = unlayered.read().count() > 0;
+    if walked_for.as_ref() == Some(&live)
+        && !removed
+        && restamped.is_empty()
+        && !relayered
+    {
+        return;
+    }
+    *walked_for = Some(live);
     for (root, stamp) in &stamped {
         let wanted = band(stamp.0).or(banding.then_some(RETIRED_ROOM_RENDER_LAYER));
         let mut pending: Vec<Entity> = vec![root];

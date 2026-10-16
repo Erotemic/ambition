@@ -659,16 +659,16 @@ const ROOM_TRAIL_GROUPS: usize = 4;
 /// because a draw reads the config store and this writes it.
 pub fn band_the_room_trail_gizmos(mut store: ResMut<bevy::gizmos::config::GizmoConfigStore>) {
     fn band<G: bevy::gizmos::config::GizmoConfigGroup>(
-        store: &mut bevy::gizmos::config::GizmoConfigStore,
+        store: &mut ResMut<bevy::gizmos::config::GizmoConfigStore>,
         position: usize,
     ) {
         // `with`, not the const `layer`, which panics past the first word of
         // layers, where the room bands are.
         let layers = bevy::camera::visibility::RenderLayers::none()
             .with(ambition_platformer2d_shared_tangle::camera_layers::live_room_render_layer(position));
-        let (config, _) = store.config_mut::<G>();
-        if config.render_layers != layers {
-            config.render_layers = layers;
+        // Read first: `config_mut` marks the store changed every frame.
+        if store.config::<G>().0.render_layers != layers {
+            store.config_mut::<G>().0.render_layers = layers;
         }
     }
     band::<RoomTrailGizmos0>(&mut store, 0);

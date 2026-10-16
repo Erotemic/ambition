@@ -191,6 +191,11 @@ pub fn release_narrative_inputs<M: Message + Clone>(
     mut ledger: ResMut<NarrativeInputLedger<M>>,
     mut messages: ResMut<Messages<M>>,
 ) {
+    // An empty ledger releases nothing. Read first: `&mut` marks the ledger
+    // changed for every reader, also when nothing is released.
+    if ledger.depth() == 0 {
+        return;
+    }
     let released = ledger.release(
         tick.map(|tick| tick.0),
         conversation.as_deref().and_then(ActiveConversation::instance),
@@ -217,6 +222,11 @@ pub fn prune_narrative_inputs<M: Message + Clone>(
         // here to age out.
         return;
     };
+    // An empty ledger has nothing to prune. Read first: `&mut` marks the ledger
+    // changed for every reader, also when nothing is removed.
+    if ledger.depth() == 0 {
+        return;
+    }
     let prediction_distance = boundary.map_or(0, |boundary| {
         u64::try_from(boundary.current.saturating_sub(boundary.confirmed)).unwrap_or(0)
     });

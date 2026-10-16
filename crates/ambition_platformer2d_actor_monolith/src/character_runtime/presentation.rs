@@ -63,6 +63,19 @@ pub fn authorize_staged_character_presentation_sources(
     let (Some(states), Some(mut selection)) = (states, selection) else {
         return;
     };
+    // Only when an input changed. The merge is a union, so a run with the same
+    // inputs adds nothing; and each run wrote `selection` through `&mut`, which
+    // marked it changed for every reader on every frame. This system's own
+    // writes do not count as changes on its next run.
+    let changed = |resource: Option<bool>| resource.unwrap_or(false);
+    if !(states.is_changed()
+        || registry.is_changed()
+        || selection.is_changed()
+        || changed(audio_catalog.as_ref().map(|catalog| catalog.is_changed()))
+        || changed(bank_ids.as_ref().map(|banks| banks.is_changed())))
+    {
+        return;
+    }
     // No session owns the speakers yet (a frontend route, or startup before the
     // gameplay session commits). Authorizing into nothing is a silent no-op inside
     // `authorize_sfx_source` anyway; returning here says so out loud.

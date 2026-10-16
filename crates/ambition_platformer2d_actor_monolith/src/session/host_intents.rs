@@ -173,6 +173,11 @@ pub fn prune_host_intents<M: Message + Clone>(
     boundary: Option<Res<ConfirmedFrameBoundary>>,
     mut ledger: ResMut<HostIntentLedger<M>>,
 ) {
+    // An empty ledger has nothing to prune. Read first: `&mut` marks the ledger
+    // changed for every reader, also when nothing is removed.
+    if ledger.depth() == 0 {
+        return;
+    }
     let now = tick.map_or(0, |tick| tick.0);
     let prediction_distance = boundary.map_or(0, |boundary| {
         u64::try_from(boundary.current.saturating_sub(boundary.confirmed)).unwrap_or(0)

@@ -42,7 +42,7 @@ fn a_moving_portal_is_carved_where_it_is() {
         let here = pieces::carve_face_with_depth(&p.aperture(), f32::INFINITY);
         let carves = sim.world().resource::<PortalCarves>();
         // Its carve, by where it is: within a few px of the plane's centre.
-        let Some((_, face)) = carves.faces.iter().find(|(_, face)| face.center.distance(here.center) < 12.0) else {
+        let Some(face) = carves.holes.iter().map(|hole| &hole.face).find(|face| face.center.distance(here.center) < 12.0) else {
             continue;
         };
         carved_ticks += 1;

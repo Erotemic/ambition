@@ -13,7 +13,7 @@ use ambition_portal2d::{host_material_depth, PlacedPortal, PortalCarves, PortalH
 
 /// Copy this frame's portal-owned carves into the host collision overlay.
 ///
-/// The copy clears and refills `portal_carves` so a frame with no transiting body re-seals the
+/// The copy clears and refills `portal_holes` so a frame with no transiting body re-seals the
 /// host wall, exactly as the old in-core write did.
 ///
 /// ⭐ EACH CARVE GOES TO THE LIVE ROOM IT WAS CUT IN (OW1 cut 7l), and every
@@ -26,24 +26,18 @@ pub fn bridge_portal_carves(
     mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
     for mut overlay in overlays.each() {
-        overlay.portal_carves.clear();
-        overlay.portal_line_carves.clear();
+        overlay.portal_holes.clear();
     }
-    for (room, hole) in &carves.holes {
-        let stamp = room.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+    // Each hole is open for the bodies that opened it, and for no other.
+    for hole in &carves.holes {
+        let stamp = hole.room.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
         let Some(mut overlay) = overlays.for_room(stamp.as_ref()) else {
             continue;
         };
-        overlay.portal_carves.push(*hole);
-    }
-    // The same holes turned to their faces cut a portal's opening out of the
-    // room's lines (a portal on a slope).
-    for (room, face) in &carves.faces {
-        let stamp = room.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
-        let Some(mut overlay) = overlays.for_room(stamp.as_ref()) else {
-            continue;
-        };
-        overlay.portal_line_carves.push(*face);
+        overlay.portal_holes.push(ambition_platformer2d_shared_tangle::feature_overlay::PortalHolePass {
+            face: hole.face,
+            bodies: hole.open_for.clone(),
+        });
     }
 }
 

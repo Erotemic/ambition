@@ -106,7 +106,8 @@ pub fn integrate_boss_bodies(
         room,
     ) in &mut bosses
     {
-        let Some(feature_world) = collision.room(room).and_then(|room| room.solids()) else {
+        // The walls as this body meets them: a portal hole it opened is open.
+        let Some(feature_world) = collision.room(room).and_then(|room| room.solids_for(entity)) else {
             continue;
         };
         let mut em = cq.as_actor_mut();

@@ -274,10 +274,14 @@ the crossing frame.
   land every two ticks. Now a body opens a portal, and begins a transit, only when it is in
   line with the opening (`snag::in_line_with`: its span along the face within the opening);
   measured: it walks off the ledge at full speed when its back edge passes the corner, and
-  lands once. Open (Jon 2026-10-16): a hole open only for the bodies it was opened for, so a
-  body standing on the lintel keeps its floor while another passes. The integrator already
-  takes walls per body (`solids_for`, as gate passes do); the work is the callers of
-  `solids()` that act for a body (body-mode clearance, held items) and an owner per hole.
+  lands once.
+- **A hole is open only for the bodies that opened it** (Jon 2026-10-16), so a body standing
+  on the lintel keeps its floor while another passes. `PortalCarves` holes carry `open_for`;
+  the overlay's `portal_holes` (`PortalHolePass`) are cut only in the walls a body meets
+  (`ComposedRooms::solids_for`, `RoomCollision::solids_for`, `as_met_by`), as gate passes
+  are; a shot meets the holes it opened (`ProjectileCollisionWorld::holes_for`), an item
+  its own (`SolidsByRoom::met_by`). Readers that name no body (raycasts, the brain, nav)
+  see the host whole.
 - **Two ends that face each other** show a picture in a picture; one level of recursion leaves
   a strip at the far edge that the next frame shows as a window.
 

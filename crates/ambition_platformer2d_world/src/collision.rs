@@ -13,10 +13,10 @@
 //! rebuild side that PRODUCES the overlay (querying breakables, pogo volumes,
 //! and gates) stays actor-side; only the CONSUMPTION side is here.
 //!
-//! `world_with_sandbox_solids` adds moving-platform + ECS-overlay solids and
-//! carves portal apertures; `world_with_portal_carves` carves only the apertures
-//! (borrowing when none are active, for the projectile path);
-//! `world_with_gate_solids_and_carves` is the projectile view.
+//! `world_with_sandbox_solids` adds moving-platform + ECS-overlay solids;
+//! `world_with_gate_solids_and_carves` is the projectile view. A portal's hole
+//! is open only for the bodies that opened it, so it is cut only in the walls
+//! a body meets ([`ComposedRooms::solids_for`], [`RoomCollision::solids_for`]).
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::geometry::subtract_aabb;
@@ -115,11 +115,6 @@ impl CollisionWorld<'_, '_> {
         self.room(None)?.solids()
     }
 
-    /// [`RoomCollision::carves_only`] of the sole live room.
-    pub fn carves_only(&self) -> Option<Cow<'_, ae::World>> {
-        self.room(None)?.carves_only()
-    }
-
     /// [`RoomCollision::hostable_surfaces`] of the sole live room.
     pub fn hostable_surfaces(&self) -> Option<Cow<'_, ae::World>> {
         self.room(None)?.hostable_surfaces()
@@ -198,23 +193,24 @@ pub struct ComposedRooms<'a> {
 
 impl<'a> ComposedRooms<'a> {
     /// [`Self::solids`] as `subject` meets them: without the gate solids that
-    /// are open for it ([`GatePass`], Q54). With no gate open for the subject,
-    /// which is every tick of a room with no per-actor gate, these are the
-    /// same composed walls, borrowed.
+    /// are open for it ([`GatePass`], Q54), and with the portal holes open for
+    /// it cut ([`PortalHolePass`]). With neither, which is every tick a body is
+    /// not at a gate or a portal, these are the same composed walls, borrowed.
     ///
     /// [`GatePass`]: ambition_platformer2d_shared_tangle::feature_overlay::GatePass
+    /// [`PortalHolePass`]: ambition_platformer2d_shared_tangle::feature_overlay::PortalHolePass
     pub fn solids_for(
         &mut self,
         collision: &'a CollisionWorld<'_, '_>,
         room: Option<&InRoomInstance>,
         subject: bevy_ecs::entity::Entity,
     ) -> Option<Cow<'_, ae::World>> {
-        let open = collision
+        let (open, holes) = collision
             .room(room)
-            .map(|room| room.gates_open_for(subject))
+            .map(|room| (room.gates_open_for(subject), room.holes_open_for(subject)))
             .unwrap_or_default();
         let walls = self.solids(collision, room)?;
-        Some(without_gates(walls, &open))
+        Some(as_met_by(walls, &open, &holes))
     }
 
     /// The walls of the live room `room` names, as [`CollisionWorld::room`]
@@ -243,6 +239,31 @@ pub struct RoomCollision<'a> {
     geometry: &'a ae::RoomGeometry,
     platforms: &'a [MovingPlatformState],
     overlay: Option<&'a FeatureEcsWorldOverlay>,
+}
+
+/// `walls` as a body meets them: without the gate solids named in `open`
+/// ([`RoomCollision::gates_open_for`]) and with `holes` cut
+/// ([`RoomCollision::holes_open_for`]). With neither, which is the common case,
+/// these are `walls`, borrowed.
+pub fn as_met_by<'w>(walls: &'w ae::World, open: &[&str], holes: &[&ae::frame::FaceRect]) -> Cow<'w, ae::World> {
+    let walls = without_gates(walls, open);
+    if holes.is_empty() {
+        return walls;
+    }
+    let mut walls = walls.into_owned();
+    cut_portal_holes(&mut walls, holes);
+    Cow::Owned(walls)
+}
+
+/// Cut portal holes out of `world`: each hole's box out of the boxes, and its
+/// face out of the lines (a portal on a slope), so a body can sink into a
+/// portal through the surface it stood on.
+pub fn cut_portal_holes(world: &mut ae::World, holes: &[&ae::frame::FaceRect]) {
+    let boxes: Vec<ae::Aabb> = holes.iter().map(|face| face.bounds()).collect();
+    carve_portal_apertures(&mut world.blocks, &boxes);
+    for hole in holes {
+        world.chains = world.chains.iter().flat_map(|chain| chain.without(hole)).collect();
+    }
 }
 
 /// `walls` without the gate solids named in `open`: the walls a body meets when
@@ -289,8 +310,6 @@ impl<'a> RoomCollision<'a> {
             o.blocks.is_empty()
                 && o.chains.is_empty()
                 && o.gate_solids.is_empty()
-                && o.portal_carves.is_empty()
-                && o.portal_line_carves.is_empty()
                 && o.removed_block_names.is_empty()
                 && o.climbable_carves.is_empty()
                 && o.water_regions.is_empty()
@@ -313,12 +332,33 @@ impl<'a> RoomCollision<'a> {
         )))
     }
 
-    /// The room with ONLY portal apertures carved — moving platforms and ECS
-    /// solids omitted. Projectiles pass through moving platforms, so they read
-    /// this. Borrows when no carves are active (the common case).
-    pub fn carves_only(self) -> Option<Cow<'a, ae::World>> {
-        let carves = self.overlay.map_or(&[][..], |o| &o.portal_carves[..]);
-        Some(world_with_portal_carves(&self.geometry.0, carves))
+    /// [`Self::solids`] as `subject` meets them ([`as_met_by`]): the gates
+    /// open for it passed, the portal holes open for it cut.
+    pub fn solids_for(self, subject: bevy_ecs::entity::Entity) -> Option<Cow<'a, ae::World>> {
+        let walls = self.solids()?;
+        let (open, holes) = (self.gates_open_for(subject), self.holes_open_for(subject));
+        if open.is_empty() && holes.is_empty() {
+            return Some(walls);
+        }
+        Some(Cow::Owned(as_met_by(&walls, &open, &holes).into_owned()))
+    }
+
+    /// The portal holes open for `subject` this tick: the ones it opened
+    /// ([`PortalHolePass`]). For every other body, and every reader that names
+    /// no body, the host is whole.
+    ///
+    /// [`PortalHolePass`]: ambition_platformer2d_shared_tangle::feature_overlay::PortalHolePass
+    pub fn holes_open_for(&self, subject: bevy_ecs::entity::Entity) -> Vec<&'a ae::frame::FaceRect> {
+        self.overlay
+            .map(|overlay| {
+                overlay
+                    .portal_holes
+                    .iter()
+                    .filter(|hole| hole.bodies.contains(&subject))
+                    .map(|hole| &hole.face)
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     /// The surfaces a portal may ANCHOR to: authored geometry plus moving
@@ -351,7 +391,7 @@ impl<'a> RoomCollision<'a> {
     }
 
     /// The bare authored geometry, no overlay. For metadata / bounds / layout
-    /// reads only — never for collision. Prefer `solids()` / `carves_only()`.
+    /// reads only — never for collision. Prefer `solids()` / `solids_for()`.
     /// The room's collision overlay (contributed solids, gate solids,
     /// carves), when it has one.
     pub fn overlay(self) -> Option<&'a FeatureEcsWorldOverlay> {
@@ -413,13 +453,8 @@ pub fn world_with_sandbox_solids(
     let start = collision_world.chains.len();
     collision_world.chains.extend(ecs_overlay.chains.iter().cloned());
     collision_world.chains[start..].sort_by(|a, b| a.name.cmp(&b.name));
-    // A portal on a line opens a gap in it, so a body can sink into the
-    // portal through the line it stood on.
-    for hole in &ecs_overlay.portal_line_carves {
-        collision_world.chains = collision_world.chains.iter().flat_map(|chain| chain.without(hole)).collect();
-    }
     // Gate solids (lock walls) are authored-equivalent statics: added alongside
-    // the base/platform solids BEFORE the carve so a portal aperture splits them
+    // the base/platform solids, so a portal's hole (`as_met_by`) splits them
     // exactly as it would a base wall.
     extend_in_canonical_order(&mut collision_world.blocks, &ecs_overlay.gate_solids);
     // Additive liquid folds in alongside the base water regions. This keeps the
@@ -428,12 +463,8 @@ pub fn world_with_sandbox_solids(
     collision_world
         .water_regions
         .extend(ecs_overlay.water_regions.iter().cloned());
-    // Carve portal apertures out of the host surface so a body can sink into a
-    // portal (the "feet in, feet out" transit). Only the solid host kinds are
-    // carved; the portal rim and surrounding geometry stay solid.
-    if !ecs_overlay.portal_carves.is_empty() {
-        carve_portal_apertures(&mut collision_world.blocks, &ecs_overlay.portal_carves);
-    }
+    // Portal holes are not cut here: a hole is open only for the bodies that
+    // opened it (`as_met_by`).
     collision_world
 }
 
@@ -861,6 +892,58 @@ mod collision_world_tests {
             app.world().resource::<Probe>().0,
             vec![vec!["floor".to_string()], both.clone(), both],
             "the gate is open for the first body only"
+        );
+    }
+
+    /// A portal's hole is open only for the bodies that opened it (Jon
+    /// 2026-10-16): the floor under a hole is cut from the walls the opener
+    /// meets, and whole in the walls of every other body and of a reader that
+    /// names no body. A body standing beside the opening keeps its floor.
+    #[test]
+    fn a_portal_hole_is_open_only_for_the_bodies_that_opened_it() {
+        #[derive(Resource, Default, Debug)]
+        struct Probe(Vec<bool>);
+        #[derive(Resource)]
+        struct Bodies([bevy_ecs::entity::Entity; 2]);
+        // Is the floor solid under the hole, for each body and then for no body?
+        fn probe(world: CollisionWorld, bodies: bevy_ecs::prelude::Res<Bodies>, mut out: ResMut<Probe>) {
+            let mut composed = ComposedRooms::default();
+            let under = ae::Aabb::new(ae::Vec2::new(200.0, 385.0), ae::Vec2::new(4.0, 4.0));
+            let solid = |walls: &ae::World| walls.blocks.iter().any(|block| block.aabb.strict_intersects(under));
+            let mut seen: Vec<bool> =
+                bodies.0.iter().map(|body| solid(&composed.solids_for(&world, None, *body).expect("one live room"))).collect();
+            seen.push(solid(composed.solids(&world, None).expect("one live room")));
+            let room = world.room(None).expect("one live room");
+            seen.push(solid(&room.solids_for(bodies.0[0]).expect("one live room")));
+            out.0 = seen;
+        }
+        let mut app = App::new();
+        app.init_resource::<Probe>();
+        let floor = ae::Block::solid("floor", ae::Vec2::new(0.0, 380.0), ae::Vec2::new(400.0, 20.0));
+        a_live_room(&mut app, LiveRoomInstance::ACTIVATION, vec![floor]);
+        let bodies = [app.world_mut().spawn_empty().id(), app.world_mut().spawn_empty().id()];
+        app.insert_resource(Bodies(bodies));
+        app.add_systems(Update, probe);
+        app.update();
+        assert_eq!(app.world().resource::<Probe>().0, vec![true; 4], "no hole: the floor is whole for all");
+
+        let mut overlay = app.world_mut().query::<&mut FeatureEcsWorldOverlay>();
+        overlay.single_mut(app.world_mut()).expect("one overlay").portal_holes.push(
+            ambition_platformer2d_shared_tangle::feature_overlay::PortalHolePass {
+                face: ae::frame::FaceRect {
+                    center: ae::Vec2::new(200.0, 400.0),
+                    normal: ae::Vec2::new(0.0, -1.0),
+                    half_along: 30.0,
+                    half_out: 38.0,
+                },
+                bodies: vec![bodies[0]],
+            },
+        );
+        app.update();
+        assert_eq!(
+            app.world().resource::<Probe>().0,
+            vec![false, true, true, false],
+            "the hole is open for the first body only"
         );
     }
 

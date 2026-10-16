@@ -100,7 +100,7 @@ fn carve_rooms(body_room: usize) -> Vec<PortalRoom> {
     }
     app.world_mut().spawn((into_blue(), InRoomInstance(live[body_room])));
     app.update();
-    app.world().resource::<crate::PortalCarves>().holes.iter().map(|(room, _)| *room).collect()
+    app.world().resource::<crate::PortalCarves>().holes.iter().map(|hole| hole.room).collect()
 }
 
 /// A carve is cut for a body of the pair's own room, and names that room. A

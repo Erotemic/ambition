@@ -61,9 +61,10 @@ pub struct ProjectileCollisionWorld<'w, 's> {
 
 impl ProjectileCollisionWorld<'_, '_> {
     /// The room world with gate solids (lock walls) and live objects' contributed
-    /// surfaces added, and only the portal apertures carved out. Projectiles still
-    /// pass through moving platforms, and a shot can sink into a portal opening
-    /// and transit. Borrowed (no clone) when there is no gate, object or carve.
+    /// surfaces added. Projectiles still pass through moving platforms. A
+    /// portal's hole is open only for the bodies that opened it, so it is not
+    /// cut here: a shot meets the holes it opened ([`Self::holes_for`]).
+    /// Borrowed (no clone) when there is no gate or object.
     ///
     /// Contributed object surfaces take part in projectile collision (ruling Q96).
     /// When a contributor supplies both a surface and a damageable volume, the
@@ -88,10 +89,26 @@ impl ProjectileCollisionWorld<'_, '_> {
                 &geometry.0,
                 &overlay.gate_solids,
                 &overlay.blocks,
-                &overlay.portal_carves,
+                &[],
                 &overlay.removed_block_names,
             ),
         )
+    }
+
+    /// The portal holes open for `shot` in the live room `room` names: the
+    /// ones it opened, so it sinks into a portal opening and transits.
+    pub fn holes_for(&self, room: Option<LiveRoomInstance>, shot: Entity) -> Vec<ae::frame::FaceRect> {
+        let mut matching = self
+            .rooms
+            .iter()
+            .filter(|(live, ..)| room.is_none() || live.copied() == room);
+        let Some((_, _, overlay)) = matching.next() else {
+            return Vec::new();
+        };
+        if matching.next().is_some() {
+            return Vec::new();
+        }
+        overlay.portal_holes.iter().filter(|hole| hole.bodies.contains(&shot)).map(|hole| hole.face).collect()
     }
 
     /// The live room a shot flies in: its own stamp, else its firer's room.

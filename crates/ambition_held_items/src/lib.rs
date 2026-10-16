@@ -524,7 +524,7 @@ pub fn carry_or_wake_settled_items(
         if !custody.in_world() {
             continue;
         }
-        let Some(world) = solids.of(live.of(entity)) else {
+        let Some(world) = solids.met_by(&world, live.of(entity), entity) else {
             continue;
         };
         // A thin band just past the item's own footprint: what it would rest ON.
@@ -629,7 +629,7 @@ pub fn ground_item_physics(
             continue;
         }
         let room = live.of(entity);
-        let Some(world) = solids.of(room) else {
+        let Some(world) = solids.met_by(&world, room, entity) else {
             continue;
         };
         // Free bodies resolve gravity by the body-overlap rule, not the center
@@ -769,9 +769,20 @@ impl<'a> SolidsByRoom<'a> {
         Self(built)
     }
 
-    /// The solids of `room`, `None` when it is no live room.
-    fn of(&self, room: Option<LiveRoomInstance>) -> Option<&ae::World> {
-        self.0.iter().find(|(seen, _)| *seen == room).and_then(|(_, solids)| solids.as_deref())
+    /// The solids of `room` as `item` meets them: with the portal holes it
+    /// opened cut, as a body's are. `None` when it is no live room.
+    fn met_by(
+        &self,
+        collision: &ambition_platformer2d_world::collision::CollisionWorld,
+        room: Option<LiveRoomInstance>,
+        item: Entity,
+    ) -> Option<std::borrow::Cow<'_, ae::World>> {
+        let walls = self.0.iter().find(|(seen, _)| *seen == room).and_then(|(_, solids)| solids.as_deref())?;
+        let holes = collision
+            .room(room.map(InRoomInstance).as_ref())
+            .map(|room| room.holes_open_for(item))
+            .unwrap_or_default();
+        Some(ambition_platformer2d_world::collision::as_met_by(walls, &[], &holes))
     }
 }
 

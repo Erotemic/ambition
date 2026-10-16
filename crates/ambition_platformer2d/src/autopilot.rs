@@ -514,7 +514,9 @@ fn geometry_signature(
                 fold_box(block.aabb);
             }
         }
-        for carve in overlay.portal_carves.iter().chain(&overlay.climbable_carves) {
+        // Not the portal holes: a hole is open only for the bodies that opened
+        // it, and the graph is of the walls as a body meets them otherwise.
+        for carve in &overlay.climbable_carves {
             fold_box(*carve);
         }
         overlay.removed_block_names.hash(&mut hasher);

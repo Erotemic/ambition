@@ -529,14 +529,30 @@ impl SeatBindings {
 ///
 /// Runs in `InputSet::ResolveActions`, after any remap and before prompts
 /// draw. A quiet frame does not touch the resource, so `is_changed()` fires
-/// only on a real rebind.
+/// only on a real rebind. It projects only when a map or a participant was
+/// added, changed or removed: the projection allocates every binding's label,
+/// and a quiet frame gave the same projection.
 pub fn publish_seat_bindings(
     participants: Query<(
         &InputParticipant,
         &InputMap<Platformer2dInputActionMonolith>,
     )>,
+    changed: Query<
+        (),
+        Or<(
+            Changed<InputParticipant>,
+            Changed<InputMap<Platformer2dInputActionMonolith>>,
+        )>,
+    >,
+    mut removed_maps: RemovedComponents<InputMap<Platformer2dInputActionMonolith>>,
+    mut removed_participants: RemovedComponents<InputParticipant>,
     mut bindings: ResMut<SeatBindings>,
 ) {
+    // Read both every frame, so a removal is not seen late.
+    let removed = removed_maps.read().count() + removed_participants.read().count() > 0;
+    if changed.is_empty() && !removed && !bindings.is_added() {
+        return;
+    }
     let mut next: BTreeMap<u8, ActionBindings> = BTreeMap::new();
     for (participant, map) in &participants {
         next.insert(participant.id.slot(), ActionBindings::from_map(map));

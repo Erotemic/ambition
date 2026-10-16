@@ -67,6 +67,15 @@ again before you quote it.
   After the table, the leafwing fix (F13): all allocations a frame Mary-O
   23,407 → 4,128, hub 46,949 → 15,257. The large remaining items: the serial executor for the
   standalone games (D12, needs a yes), then P1 and P12.
+- **What tonight's fixes held on the phone** (MEASURED, the all-games phone
+  profile of 10-16, `symbolize_android_profile.py --under NAME`, inclusive
+  share of all process CPU samples): `handle_clashes` 3.14%,
+  `reconcile_effective_repertoire` (the star's false change) 1.43%,
+  `isolate_live_rooms` 0.47%, the SFX authorizer 0.40%,
+  `publish_seat_bindings` 0.22%, the HUD 0.13%, the rest under 0.1% each:
+  about 6.2% of all samples, ~11% of the main thread. The first two are gone;
+  the others now run only on a change. REASONED until a new phone run
+  measures it.
 - **Instrumentation:** `perf_probe` (allocations per span, churn and value
   changes per source line; `profile_desktop.sh --perf-probe`) and the phone
   symbolizer's `--ours` and thread table. Both are one switch and one
@@ -403,9 +412,13 @@ Open (MEASURED, `probe/basement_enemies_pressall`): after the fix, ~9.4k of
 the hub's 15.3k allocations a frame are on schedule spans, not on a system:
 `GgrsSchedule` 3,877, `Update` 3,067, `PostUpdate` 1,558, `PreUpdate` 857. In
 standalone Mary-O (parallel executor) the same work is on system spans.
-REASONED: this is work between systems under the single-threaded executor,
-most likely the application of each system's commands; the probe does not
-yet put a span on it. Next probe step: a span around command application.
+REASONED: not command application (Bevy gives it a per-system
+`system_commands` span). More likely an attribution gap of `capture_scene`: a
+system built before the log subscriber exists keeps a dead span (Bevy makes
+the span when the system is added), so its allocations fall to the schedule's
+span; `capture_scene` adds `LogPlugin` in its build hook, after Bevy's plugins
+and some of ours. Next probe step: install the subscriber before any plugin
+in `capture_scene`, as the demo hosts do.
 
 ### F14 — Room isolation re-derives every room mask every frame
 

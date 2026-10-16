@@ -296,7 +296,13 @@ without boxing (`hashbrown::Equivalent` on `&dyn Buttonlike`). The probe counts
 allocations; their time on the phone is inside the 5.2% of `mimalloc` and the
 3.1% of `alloc`.
 
-Caveat on the per-frame numbers (MEASURED): the Mary-O probe run was taken
+Idle re-runs (MEASURED, `probe/mary_o_1_1_v2`, `probe/basement_enemies_v2`):
+standalone Mary-O makes 26.0k allocations a frame in all spans, 19.2k of them
+in `update_action_state` (74%); the hub makes 61.4k, 31.9k in it (67% without
+the probe's own 13.4k). `gate_body_control` makes 189 a call,
+`authorize_staged_character_presentation_sources` 202.
+
+Caveat on the per-frame numbers (MEASURED): the first Mary-O probe run was taken
 while the VM was loaded, at about 14 fixed ticks a frame against about 1.6 at
 idle, so the per-frame numbers of fixed-step systems are high; the per-call
 numbers (`allocs_per_call` in the CSV) are the ones to compare. Other per-call

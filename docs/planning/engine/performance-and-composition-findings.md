@@ -906,7 +906,8 @@ another reason:
   Sanic's (42). Standalone Sanic, same binary, 2 reps per arm (MEASURED,
   12:35Z): 7.39 ms of simulation per tick parallel, 3.03 ms serial; main
   thread 940 → 889 ms per second; wall time 14.7 → 12.3 s for the same
-  capture. It changes how every standalone game
+  capture. `frame-serial` (12:37Z, 2 reps) gives 7.18 ms: the saving is all
+  in the `Fixed*` schedules, which only `serial` changes. It changes how every standalone game
   runs, so it should land with a play test, and the switch is then removed.
   The one visible difference in the hub captures was the ambient motes, an
   ordering artifact of `capture_scene`'s camera pin, not of the game (F22).

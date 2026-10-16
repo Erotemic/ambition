@@ -215,15 +215,25 @@ fn sync_void_fields(
     let in_budget = quality.is_none_or(|quality| quality.budget.shaders.draws_screen_shaders());
     for (entity, camera, camera_at, camera_layers, current) in &mut cameras {
         let next = camera
-            .logical_viewport_size()
+            .logical_viewport_rect()
             .filter(|_| in_budget)
-            .and_then(|view_px| {
+            .and_then(|view_rect| {
+                let view_px = view_rect.size();
                 // One thing with a radius, as this camera sees it.
+                //
+                // ⛔ `world_to_viewport` gives a place in the TARGET: it adds
+                // the top left of the view. The sources are in the view, so
+                // it is taken away here. With it left in, a camera with bars
+                // at its sides had the field one bar to the side of each void
+                // thing, and the field went across the screen at another
+                // speed than the thing (Jon, 2026-10-16: "the void shader lags
+                // behind the void entity"). A capture has no bars and did not
+                // show it.
                 let in_view = |at: &GlobalTransform, radius: f32, strength: f32| {
                     let middle = at.translation();
                     let middle_px = camera.world_to_viewport(camera_at, middle).ok()?;
                     let edge_px = camera.world_to_viewport(camera_at, middle + Vec3::X * radius).ok()?;
-                    source_in_view(view_px, middle_px, middle_px.distance(edge_px), strength)
+                    source_in_view(view_px, middle_px - view_rect.min, middle_px.distance(edge_px), strength)
                 };
                 let seen = auras
                     .iter()
@@ -281,6 +291,27 @@ mod tests {
             entity.insert(layers);
         }
         entity.id()
+    }
+
+    /// ⭐ A camera that draws to a part of its target (a window with bars at
+    /// its sides) has the field of a thing at the middle of its view at the
+    /// middle of the view, not one bar to the side.
+    #[test]
+    fn a_thing_at_the_middle_of_a_view_with_bars_is_a_source_at_the_middle() {
+        let mut world = World::new();
+        let entity = camera(&mut world, None);
+        let mut camera = world.get_mut::<Camera>(entity).unwrap();
+        camera.computed.clip_from_view = Mat4::orthographic_rh(-220.0, 220.0, -180.0, 180.0, -1000.0, 1000.0);
+        camera.viewport = Some(bevy::camera::Viewport {
+            physical_position: UVec2::new(100, 0),
+            physical_size: UVec2::new(440, 360),
+            ..default()
+        });
+        at_the_middle(&mut world, AURA, None);
+        world.run_system_once(sync_void_fields).unwrap();
+        let field = world.get::<VoidFieldSettings>(entity).expect("the aura is in the view");
+        assert_eq!(field.sources[0].truncate().truncate(), Vec2::splat(0.5), "{field:?}");
+        assert_eq!(field.view, Vec4::new(100.0 / 640.0, 0.0, 440.0 / 640.0, 1.0));
     }
 
     fn at_the_middle(world: &mut World, thing: impl Bundle, layers: Option<RenderLayers>) {

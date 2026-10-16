@@ -865,6 +865,16 @@ baseline (`capture_scene`'s `ShieldRingsView`, `PortalEffectSelection`,
 and `ambition_platformer2d_actor_monolith/src/projectile/systems.rs:902`, and
 the rewind-boundary census.
 
+**Re-run 2026-10-16, later:** 1844 passed, 8 failed. Two were from the
+CPU-LADDER and live-reload slices: the rollback codec shape (the brain's
+checksum projection gained the reaction age, and the schema version had not
+moved; now v352) and a multi-writer verdict that named the renamed rebase.
+Both are repaired (3a0daf768). Two are new and not from these slices: an
+unadjudicated test-side static (`crates/ambition_input/tests/leafwing_allocations.rs`
+`ALLOCS`, b20c5fa86) and the presence-filter corpus, which no longer yields
+`MovePlayback` (the boss encounter's `tick.rs` changed); its session was
+told. The four above remain.
+
 **Open items:**
 
 1. **The compile-cost ratchet reports and does not fail the gate** (re-measured 2026-10-09: 8 findings, 0 gating, exit 0). Since `a614327fe` (2026-09-25, Jon: "line-count should not be a gate") only PATH and GONE gate; the size and seconds rows are reports. The critical path of 15 crates is banked (2026-10-09, `--adopt-wins`). The carve was `d56c46de9`, which removed `ambition_items`'s dead dependency on `ambition_combat`; the old 16-crate chain went through that edge. Two `--adopt-wins` defects found on the way are fixed: a held row kept its old `depth` (path 15 beside a row of depth 16), and `carried_from` dropped the older commit of a chain (`scripts/tests/test_compile_ratchet.py`, each arm red under its poison). Still open: the baseline disagrees with itself in three places (`ambition_geometry`, the monolith, `ambition_platformer2d_core`). The held numbers are from `11ef33c5b5a5`, and their table rows were already different, so no adopt can repair this; only a deliberate re-freeze can. Reported: the monolith's largest unit (100,742 → 132,359 lines). ⛔ Do not re-freeze with `--update` as bookkeeping: it banks the regressions, and that is a judgement to state in its own commit.

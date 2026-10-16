@@ -359,13 +359,30 @@ impl Plugin for EmbeddedPackReloadPlugin {
                 }
                 watch.restated.extend(self.restated.iter().cloned());
             }
-            None => watches.0.push(EmbeddedPackWatch::new(self.clone(), root.into())),
+            None => {
+                acknowledge("watching", pack, "");
+                watches.0.push(EmbeddedPackWatch::new(self.clone(), root.into()));
+            }
         }
     }
 
     fn is_unique(&self) -> bool {
         false
     }
+}
+
+/// The host's acknowledgment of a generation, one line on stdout, for a
+/// person and for `scripts/iteration_record.py`, which times an edit to the
+/// acknowledgment of the generation it made (fast-iteration I0). The line
+/// names the generation by its fingerprint, so a recorder can refuse an old
+/// acknowledgment as the answer to a new edit.
+fn acknowledge(event: &str, generation: &PreparedContentPack, detail: &str) {
+    println!(
+        "[live-reload] event={event} pack={} generation={}{}{detail}",
+        generation.id.0,
+        generation.fingerprint.hex(),
+        if detail.is_empty() { "" } else { " " },
+    );
 }
 
 /// One watch for each pack read off disk.
@@ -482,11 +499,15 @@ fn look_at(watch: &mut EmbeddedPackWatch) {
     }
     // The manifest can name other files now. Each is looked at from here on.
     watch.files = stamped(&watch.root, watched_files(&watch.root));
-    let candidate = match watch.pack.compile() {
+    let compiling = std::time::Instant::now();
+    let compiled = watch.pack.compile();
+    let prepare_ms = compiling.elapsed().as_secs_f64() * 1000.0;
+    let candidate = match compiled {
         Ok(candidate) => candidate,
         Err(failure) => {
             let why = format!("the pack `{}` does not compile; the running pack stays:\n{failure}", watch.root.display());
             error!("{why}");
+            acknowledge("refused", watch.pack.prepared(), &format!("prepare_ms={prepare_ms:.1}"));
             watch.staged = None;
             watch.refused = Some(why);
             return;
@@ -511,11 +532,13 @@ fn look_at(watch: &mut EmbeddedPackWatch) {
             running.id.0
         );
         warn!("{why}");
+        acknowledge("refused", running, &format!("prepare_ms={prepare_ms:.1}"));
         watch.staged = None;
         watch.refused = Some(why);
         return;
     }
     info!("the edit to the pack `{}` is admitted; it is played from the next session", running.id.0);
+    acknowledge("staged", &candidate, &format!("prepare_ms={prepare_ms:.1}"));
     watch.staged = Some(candidate);
     watch.refused = None;
 }
@@ -533,6 +556,7 @@ fn publish_the_staged_pack_between_sessions(world: &mut World) {
     }
     let in_session = if in_a_session { in_session_publication(world) } else { InSession::NotInOne };
     let mut to_restate = Vec::new();
+    let mut published = Vec::new();
     let mut rebase = false;
     for watch in &mut world.resource_mut::<EmbeddedPackWatches>().0 {
         let Some(staged) = watch.staged.as_ref() else {
@@ -555,6 +579,7 @@ fn publish_the_staged_pack_between_sessions(world: &mut World) {
         };
         info!("the pack `{}` is published again from its files", generation.id.0);
         watch.pack.publish(generation);
+        published.push(watch.pack);
         watch.published += 1;
         to_restate.extend(
             watch
@@ -573,6 +598,10 @@ fn publish_the_staged_pack_between_sessions(world: &mut World) {
     }
     #[cfg(not(feature = "rollback"))]
     let _ = rebase;
+    // After the restaters and the rebase: from here the generation is played.
+    for pack in published {
+        acknowledge("published", pack.prepared(), "");
+    }
 }
 
 /// What a live session allows a publication of live schemas to do.

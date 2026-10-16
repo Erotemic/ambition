@@ -457,6 +457,70 @@ if [ -f "$renderer_dir/ambition_sprite2d_renderer/data/pack_plan.yaml" ]; then
     ultrapack_plan=(--pack-plan "ambition_sprite2d_renderer/data/pack_plan.yaml")
 fi
 
+# render-target-name -> runtime props/ basename
+canonical_prop_map=(
+    "shrine:shrine"
+    "pirate_heavy_axe:axe"
+    "throwing_javelin:javelin"
+    "evil_chain_gun:evil_chain_gun"
+    "coconut:coconut"
+    "seam_gauge:seam_gauge"
+    "pool_noodle:pool_noodle"
+    "lasersword_with_guns:gunsword"
+    "portal_gun_blue:portal_gun_blue"
+    "portal_gun_orange:portal_gun_orange"
+    "super_mary_o_star_wand:super_mary_o_star_wand"
+    "super_mary_o_cinder_beacon:super_mary_o_cinder_beacon"
+    "super_mary_o_cosmic_quasar:super_mary_o_cosmic_quasar"
+)
+
+construction_prop_map=(
+    "super_mary_o_pipe_body:mary_o_pipe_body"
+    "super_mary_o_pipe_top:mary_o_pipe_top"
+    "super_mary_o_flag_pole_body:mary_o_flag_pole_body"
+    "super_mary_o_flag_pole_top:mary_o_flag_pole_top"
+    "super_mary_o_flag:mary_o_flag"
+)
+
+# A few props are shown in-game as STATIC held / ground items, which load
+# the single-pose `*_canonical_transparent.png` (not the animated sheet the
+# tack-on publish installs). They are copied flat into props/ so the runtime
+# asset paths (`sprites/props/<name>.png`) resolve on a fresh clone.
+#
+# The Mary-O construction pieces are level-construction sprites rather than
+# held items. Their transparent fixed canvases are kept: seam coordinates and
+# attachment anchors are part of the authoring contract, so they must never be
+# auto-cropped here.
+#
+# With target names, only the props of those targets are copied: a focused run
+# installs the runtime files of what it published, as a full run does. It did
+# not, so `--target seam_gauge` published the sheet and left
+# `props/seam_gauge.png` missing, which the game's art check reported as a
+# code defect (2026-10-16).
+copy_prop_canonicals() {
+    local only=("$@")
+    local pair src_target dst_name canon wanted one
+    mkdir -p "$sprites_dir/props"
+    for pair in "${canonical_prop_map[@]}" "${construction_prop_map[@]}"; do
+        src_target="${pair%%:*}"
+        dst_name="${pair##*:}"
+        if [ "${#only[@]}" -gt 0 ]; then
+            wanted=0
+            for one in "${only[@]}"; do
+                [ "$one" = "$src_target" ] && wanted=1
+            done
+            [ "$wanted" -eq 1 ] || continue
+        fi
+        canon="$renderer_dir/generated/$src_target/${src_target}_canonical_transparent.png"
+        if [ -f "$canon" ]; then
+            cp "$canon" "$sprites_dir/props/${dst_name}.png"
+            echo "    $src_target -> props/${dst_name}.png"
+        else
+            echo "    warning: missing $canon (prop not rendered)" >&2
+        fi
+    done
+}
+
 if [ "${#target_names[@]}" -gt 0 ]; then
     validate_sprite_targets
     # Into the staging root, as a full publish writes: a focused run that
@@ -467,6 +531,7 @@ if [ "${#target_names[@]}" -gt 0 ]; then
     for one in "${target_names[@]}"; do
         regen_one_target "$one"
     done
+    copy_prop_canonicals "${target_names[@]}"
     # ⛔ A FOCUSED run used to exit here, publishing the full-resolution sheet
     # and leaving the Low / Medium / Potato tiers on the previous art — the
     # player robot's new rows shipped to 1x only, and a quality setting decided
@@ -1037,30 +1102,6 @@ pirate_targets=(
     pirate_heavy
 )
 
-# render-target-name -> runtime props/ basename
-canonical_prop_map=(
-    "shrine:shrine"
-    "pirate_heavy_axe:axe"
-    "throwing_javelin:javelin"
-    "evil_chain_gun:evil_chain_gun"
-    "coconut:coconut"
-    "seam_gauge:seam_gauge"
-    "pool_noodle:pool_noodle"
-    "lasersword_with_guns:gunsword"
-    "portal_gun_blue:portal_gun_blue"
-    "portal_gun_orange:portal_gun_orange"
-    "super_mary_o_star_wand:super_mary_o_star_wand"
-    "super_mary_o_cinder_beacon:super_mary_o_cinder_beacon"
-    "super_mary_o_cosmic_quasar:super_mary_o_cosmic_quasar"
-)
-
-construction_prop_map=(
-    "super_mary_o_pipe_body:mary_o_pipe_body"
-    "super_mary_o_pipe_top:mary_o_pipe_top"
-    "super_mary_o_flag_pole_body:mary_o_flag_pole_body"
-    "super_mary_o_flag_pole_top:mary_o_flag_pole_top"
-    "super_mary_o_flag:mary_o_flag"
-)
 
 # The runtime sheets authored as CharacterJob configs: the renderer's
 # `RUNTIME_ADAPTER_CONFIG_STEMS`, as registered target names. Not every
@@ -1650,39 +1691,8 @@ publish_cached_batch tackons \
     "${config_targets[@]}" "${faction_cues[@]}" "${review_cues[@]}" "${tackon_targets[@]}" "${rig_targets[@]}"
 
 phase "prop canonicals (single-pose → $sprites_dir/props)"
-# A few props are shown in-game as STATIC held / ground items, which load
-# the single-pose `*_canonical_transparent.png` (not the animated sheet the
-# tack-on publish installs). Copy those canonicals flat into props/ so the
-# runtime asset paths (`sprites/props/<name>.png`) resolve on a fresh clone.
 props_dir="$sprites_dir/props"
-mkdir -p "$props_dir"
-for pair in "${canonical_prop_map[@]}"; do
-    src_target="${pair%%:*}"
-    dst_name="${pair##*:}"
-    canon="$renderer_dir/generated/$src_target/${src_target}_canonical_transparent.png"
-    if [ -f "$canon" ]; then
-        cp "$canon" "$props_dir/${dst_name}.png"
-        echo "    $src_target -> props/${dst_name}.png"
-    else
-        echo "    warning: missing $canon (held-item prop not rendered)" >&2
-    fi
-done
-
-phase "Mary-O construction-piece canonicals (fixed canvas → $props_dir)"
-# These are level-construction sprites rather than held items. Keep their
-# transparent fixed canvases: seam coordinates and attachment anchors are part
-# of the authoring contract, so they must never be auto-cropped here.
-for pair in "${construction_prop_map[@]}"; do
-    src_target="${pair%%:*}"
-    dst_name="${pair##*:}"
-    canon="$renderer_dir/generated/$src_target/${src_target}_canonical_transparent.png"
-    if [ -f "$canon" ]; then
-        cp "$canon" "$props_dir/${dst_name}.png"
-        echo "    $src_target -> props/${dst_name}.png"
-    else
-        echo "    warning: missing $canon (Mary-O construction prop not rendered)" >&2
-    fi
-done
+copy_prop_canonicals
 
 phase "wielded-gauntlet prop icons (procedural → $props_dir)"
 # The abstract wielded gauntlets (shockwave/volley/beam/vortex/sentry/dive/

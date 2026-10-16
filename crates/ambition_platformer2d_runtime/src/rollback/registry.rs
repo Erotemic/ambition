@@ -22,7 +22,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 350 -> 351: `resource.day_clock` (`ambition_time::DayClock`, the time of
 /// day: a day number and the seconds into it) joins the canonical rollback
 /// state. One row is added and one type is encoded.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 351;
+/// 351 -> 352: a fighter brain's reaction varies at each decision (the
+/// view's age is drawn from its noise stream), and the brain's checksum
+/// projection carries that age. Two builds on either side play different
+/// CPUs from the same inputs.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 352;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

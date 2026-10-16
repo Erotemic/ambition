@@ -2551,29 +2551,33 @@ impl Default for SmashStageChoice {
     }
 }
 
-/// How many stocks this match gives each fighter.
+/// How many stocks this match gives each fighter: one of `stock_choices` in
+/// the pack's `smash_rules.ron`.
 ///
 /// Feeds `MatchRules::stocks`, which the engine pairs with
 /// `DeathPolicy::Unbounded`. Defaults to [`starting_stocks()`].
-#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum SmashStockChoice {
-    /// One stock: no room to learn the matchup inside the match.
-    One,
-    /// [`starting_stocks()`]: the count every ladder number was measured at.
-    #[default]
-    Three,
-    /// Five: an early mistake is recoverable.
-    Five,
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SmashStockChoice(u32);
+
+impl Default for SmashStockChoice {
+    fn default() -> Self {
+        Self(starting_stocks())
+    }
 }
 
 impl SmashStockChoice {
+    /// The choice of `count` stocks. Panics when the rules do not offer it.
+    pub fn of(count: u32) -> Self {
+        assert!(
+            crate::rules::smash_rules().stock_choices.contains(&count),
+            "`smash_rules.ron` does not offer {count} stocks"
+        );
+        Self(count)
+    }
+
     /// The count this choice gives each fighter.
     pub fn count(self) -> u32 {
-        match self {
-            SmashStockChoice::One => 1,
-            SmashStockChoice::Three => starting_stocks(),
-            SmashStockChoice::Five => 5,
-        }
+        self.0
     }
 
     /// What the stocks button shows: derived from [`Self::count`], so the
@@ -2582,18 +2586,16 @@ impl SmashStockChoice {
         self.count().to_string()
     }
 
-    /// Every count, in cycle order.
-    pub const ALL: [Self; 3] = [Self::One, Self::Three, Self::Five];
+    /// Every count, in cycle order (`stock_choices`).
+    pub fn all() -> Vec<Self> {
+        crate::rules::smash_rules().stock_choices.iter().copied().map(Self).collect()
+    }
 
     /// The next count in the cycle, for a single button that walks them.
-    ///
-    /// Derived from [`Self::ALL`], so the cycle order has one authority.
     pub fn next(self) -> Self {
-        let here = Self::ALL
-            .iter()
-            .position(|count| *count == self)
-            .expect("every variant is in ALL — asserted by `all_lists_every_stock_count`");
-        Self::ALL[(here + 1) % Self::ALL.len()]
+        let all = Self::all();
+        let here = all.iter().position(|count| *count == self).expect("a choice is made from `all`");
+        all[(here + 1) % all.len()]
     }
 }
 

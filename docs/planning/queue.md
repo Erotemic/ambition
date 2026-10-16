@@ -265,7 +265,9 @@ Open:
    bomb's and the mine's blast knockback and the spring's arm and re-arm
    delays are fields of the move's params (`knockback`, `arm_s`, `rearm_s`),
    refused at admission when out of range. Smash's Limit fill is `limit`
-   in `smash_rules.ron` (it was the engine preset `JONS_BASELINE`). A
+   in `smash_rules.ron` (it was the engine preset `JONS_BASELINE`), and the sleep mash is
+   `sleep_mash_seconds` there; the stocks button's counts are
+   `stock_choices` there (`SmashStockChoice` is a count from that list). A
    respawn and a departing shark read the centre of the body's live room
    (`StageCentre`), not the flat stage's. Still flat-only:
    `ladder_rig --scenarios` (refuses other stages).
@@ -274,8 +276,7 @@ Open:
    - `game/ambition_content/src/bosses/cut_rope/mod.rs:44`
      `CUT_ROPE_VICTORY_NPC_NAME`, also the speaker in
      `assets/dialogue/sandbox/kernel.yarn`.
-   - Rules beside their data siblings: sing mash (`sing.rs:78`), the stock choices 1 and 5
-     (`lib.rs:2550,2552`), thrown rebound
+   - Rules beside their data siblings: thrown rebound
      (`game/ambition_content/src/items/thrown_impact.rs:29-30`), the
      GNU-ton book box (`bosses/gnu_ton/duel.rs:62`), Mary-O's and Sanic's
      transform beats (`powerups.rs:951,954`, `cosmic.rs:53`,

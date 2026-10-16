@@ -27,6 +27,9 @@ pub struct SmashRules {
     pub return_to_select_seconds: f32,
     /// Seconds one press burns off a sleep.
     pub sleep_mash_seconds: f32,
+    /// The stock counts the select screen's stocks button offers, in the
+    /// order it walks them.
+    pub stock_choices: Vec<u32>,
     /// The shark the admiral's up-B summons.
     pub shark_ride: SharkRide,
     /// The Limit every seat holds, and what fills it.
@@ -96,6 +99,17 @@ impl SmashRules {
         }
         if ride.health == 0 {
             problems.push("`shark_ride.health` is 0; the shark would die before it can carry anyone".to_string());
+        }
+        if self.stock_choices.is_empty() {
+            problems.push("`stock_choices` is empty; the stocks button offers at least one count".to_string());
+        }
+        for (index, count) in self.stock_choices.iter().enumerate() {
+            if *count == 0 {
+                problems.push(format!("`stock_choices[{index}]` is 0; a fighter with no stock is out before the match starts"));
+            }
+            if self.stock_choices[..index].contains(count) {
+                problems.push(format!("`stock_choices[{index}]` repeats {count}; the stocks button would offer it twice"));
+            }
         }
         problems.extend(self.limit.problems().into_iter().map(|problem| format!("`limit`: {problem}")));
         problems
@@ -167,6 +181,15 @@ mod tests {
             Err(failure) => failure.render(),
         };
         assert!(refused.contains("`limit`: on_block is -1"), "the refusal names the field: {refused}");
+        // The stocks button's counts are the file's, and a repeat is refused.
+        let choices = "stock_choices: [1, 3, 5],";
+        assert_eq!(authored.matches(choices).count(), 1, "the probe edits the stock choices");
+        assert_eq!(rules_of(&authored.replace(choices, "stock_choices: [1, 3, 5, 7],")).stock_choices, vec![1, 3, 5, 7]);
+        let refused = match compile(&authored.replace(choices, "stock_choices: [1, 3, 3],")) {
+            Ok(_) => panic!("a stocks button that offers one count twice was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`stock_choices[2]` repeats 3"), "the refusal names the field: {refused}");
 
         let health = "health: 40,";
         assert_eq!(authored.matches(health).count(), 1, "the probe edits the shark");

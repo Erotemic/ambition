@@ -287,8 +287,9 @@ Open:
    are `symmetry_attunement` there (the switches' test checks the level
    against them). A
    respawn and a departing shark read the centre of the body's live room
-   (`StageCentre`), not the flat stage's. Still flat-only:
-   `smash_tool ladder-rig --scenarios` (refuses other stages).
+   (`StageCentre`), not the flat stage's. `smash_tool ladder-rig
+   --scenarios` hangs a ledge fixture on the live stage's main platform (it
+   refused every stage but Flat); one seed on Narrow ran to the end in 207 s.
    The speedway's floor and pit numbers are now `speedway_oracle`, read by
    tests only. The Smirking Behemoth's victory NPC (name, box, dialogue
    node) is `cut_rope_victory` in `ambition_rules.ron`; the Yarn file still

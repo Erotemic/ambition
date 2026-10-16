@@ -816,29 +816,6 @@ fn noise_stream(seed: u64, seat: usize, swap_streams: bool) -> u64 {
 /// Scenarios requiring velocity, phases, projectiles, or other explicit state are
 /// skipped using `Scenario::unreproduced_by_placement`.
 fn run_scenarios(seeds: usize) {
-    // The ledge-hang fixture is anchored to Flat's platform whatever `--stage`
-    // says, so this mode refuses other stages.
-    //
-    // `place_at` reads `smash_stage().world.blocks[0].aabb` (always Flat,
-    // `x = 80..560`) and installs `LedgeGrabState::hanging` on that contact.
-    // On Narrow (`x = 160..480`) the fighter would hang in mid-air.
-    //
-    // Refuse, do not filter: dropping ledge-hang scenarios would change the
-    // suite's population without saying so. The repair is to derive the anchor
-    // from the session's `RoomGeometry` (as `stage_bounds()` does); it is not
-    // done yet.
-    let stage = resolved_stage();
-    if stage.room_id() != ambition_demo_smash::SMASH_STAGE_ROOM_ID {
-        panic!(
-            "--scenarios cannot run on `{}`: the ledge-hang fixtures anchor to \
-             Flat's platform regardless of --stage, so every hang would be \
-             staged against the wrong ledge. Run them on `flat`, or repair \
-             `place_at` to derive the ledge from the session's RoomGeometry \
-             first. ⚠ Distrust any non-Flat scenario numbers recorded before \
-             this refusal existed.",
-            stage.label(),
-        );
-    }
     let suite = ambition_platformer2d::combat::brain::fighter::scenarios::suite();
     let playable: Vec<_> = suite
         .iter()
@@ -1647,13 +1624,19 @@ fn place_at(
     // Arrange the hang after `transit_body`, which clears `ledge_grab`
     // (`reconcile_transit`).
     //
-    // The anchor is the top corner of `smash_stage().world.blocks[0]` on the
-    // side the fixture placed the body. This is Flat's platform; see
-    // `run_scenarios`.
+    // The anchor is the top corner of the live stage's main platform (its
+    // first block, as `smash_stages.ron` states it) on the side the fixture
+    // placed the body. The live room, not Flat: on another stage a hang at
+    // Flat's ledge would be in the air.
     if let Some((me_hangs, foe_hangs)) = ledge_hangs {
         use ambition_platformer2d::engine_core::ledge_grab::{LedgeContact, LedgeGrabState};
         use ambition_platformer2d::engine_core::AabbExt as _;
-        let platform = ambition_demo_smash::smash_stage().world.blocks[0].aabb;
+        let Some(platform) =
+            ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<ae::RoomGeometry>(app.world())
+                .and_then(|geometry| geometry.0.blocks.first().map(|block| block.aabb))
+        else {
+            return false;
+        };
         let centre = platform.center();
         let world = app.world_mut();
         let mut q = world.query::<(

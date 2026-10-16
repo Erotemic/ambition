@@ -31,9 +31,10 @@ again before you quote it.
   32% more frames, F22). In the hub (what the phone runs) the simulation is
   already serial and only ~15% of the main thread; the frame phases are the
   rest (F23).
-- **Input lookups are 74% of a standalone frame's allocations** (19.2k a
-  frame, F13): leafwing rebuilds every action pair on each call though we
-  resolve no clashes, and boxes each lookup. Fix in a fork (P11).
+- **Input was 82% of a standalone frame's allocations** (19.2k a frame,
+  F13): leafwing rebuilt every action pair on each call though we resolve no
+  clashes. Fixed in this repo: allocations a frame Mary-O 23,407 → 4,128,
+  hub 46,949 → 15,257 (pixel-identical capture).
 - **Change detection is defeated.** About 30 components of every body are
   marked changed every tick whether they change or not (F20), and several
   resources too; one no-op `&mut` re-folded Mary-O's whole repertoire every
@@ -58,19 +59,20 @@ again before you quote it.
   | --- | ---: | ---: |
   | allocations in our systems | 2,218 → 1,156 (−48%) | 2,328 → 1,743 (−25%) |
   | all allocations | 24,772 → 23,407 | 47,478 → 46,949 |
-  | of which leafwing input (D13, not yet) | 19,222 | 31,942 |
+  | of which leafwing input (fixed after this table, F13) | 19,222 | 31,942 |
   | archetype churn from our code | 10.3 → 7.2 | 22.2 → 7.2 (−68%) |
   | value changes from our code | 1,575 → 1,379 | 994 → 956 |
 
-  The large remaining items need a yes: the leafwing fork (D13) and the
-  serial executor for the standalone games (D12); then P1 and P12.
+  After the table, the leafwing fix (F13): all allocations a frame Mary-O
+  23,407 → 4,128, hub 46,949 → 15,257. The large remaining items: the serial executor for the
+  standalone games (D12, needs a yes), then P1 and P12.
 - **Instrumentation:** `perf_probe` (allocations per span, churn and value
   changes per source line; `profile_desktop.sh --perf-probe`) and the phone
   symbolizer's `--ours` and thread table. Both are one switch and one
   directory to remove.
-- **For Jon:** D1-D13 below. None is done. D12 (serial executor default for
-  the standalone games) and D13 (leafwing fork) change no behaviour and are
-  ready.
+- **For Jon:** D1-D12 below (D13 withdrawn: fixed without a fork). None is
+  done. D12 (serial executor default for the standalone games) changes no
+  behaviour and is ready.
 
 ## How to answer a cost question
 
@@ -347,10 +349,23 @@ The hub makes 31,942 a frame (26.6k a call). Two causes in
   lookup, to use it as a hash key (`// PERF: surely there's a way to avoid
   cloning here`).
 
-Reading (REASONED): both fixes keep behaviour exactly, in a workspace fork with
-upstream PRs, as for `bevy_ggrs`: return early from `handle_clashes` under
-`PressAll`, and otherwise pair only the actions that are pressed; look up
-without boxing (`hashbrown::Equivalent` on `&dyn Buttonlike`). The probe counts
+Split (MEASURED, `crates/ambition_input/tests/leafwing_allocations.rs`, the
+game's own seat map): one `process_actions` call makes 9,611 allocations (the
+probe's per-call figure exactly), and 9,522 of them (99.1%) are
+`handle_clashes`. The boxed lookups are the other ~90.
+
+Fixed in this repo, with no fork (2026-10-16):
+`ambition_input::press_all_action_update` removes leafwing's two
+`update_action_state` systems (`App::remove_systems_in_set`) and adds one that
+skips the clash pass under `PressAll` and calls `process_actions` under any
+other strategy; the first half of `process_actions` is copied, and a test
+compares the two on held keys. Verified (MEASURED, `probe/mary_o_1_1_pressall`):
+all allocations of a standalone Mary-O frame 23,407 → 4,128; the input update
+19,222 → 178. The hub (`probe/basement_enemies_pressall`, what the phone
+runs): 46,949 → 15,257, the input update 31,942 → 258, the capture
+pixel-identical. Tests: `ambition_input` 152, Mary-O 95, Sanic 42. Left for an
+upstream PR: skip the pass in `process_actions` itself, and look up without
+boxing (`hashbrown::Equivalent` on `&dyn Buttonlike`). The probe counts
 allocations; their time on the phone is inside the 5.2% of `mimalloc` and the
 3.1% of `alloc`.
 
@@ -648,7 +663,7 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | --- | --- | --- | --- | --- |
 | P1 | Per-game engine profiles: `BossCatalog` always present (empty); ledgers under Dialogue; grabs, mounts, match stocks as group members with capabilities; extension lowering installed by the capability that owns the phase; demo hosts call `for_profile` | about 115 systems a tick in Mary-O and Sanic | large | no, except decisions D3, D4 |
 | P2 | One executor policy (`apply_executor_policy`), called by every foundation including the windowed demos, covering `Fixed*` and `StateTransition`. Switch and A/B done (F22, F23): a standalone tick ~6× cheaper, the hub +3%; the default is D12 | the multi-threaded executor cost of every frame and fixed system in the windowed demos | small | no |
-| P11 | Leafwing fork (F13): no clash work under `PressAll`, pairs of pressed actions only otherwise; lookups without boxing; upstream PRs | 19-32k allocations a frame, ~75% of a standalone frame's | small | no |
+| P11 | DONE for the clash pass, in-repo (F13): `press_all_action_update`; an upstream PR for the pass and the boxed lookups remains | 19-32k allocations a frame, ~80% of a standalone frame's | small | no |
 | P12 | Derive on change, not every tick (F15, F16, F20): first writes that mark only real changes (the cluster step, the resources of F20), then the four systems; the change detector (`changes_by_site.csv`) finds the next ones and verifies each | per-tick re-derivations and false changes that wake change filters | small each | no |
 | P13 | One keyed-reconcile helper for presentation entities (F21), and the remaining immediate-mode systems moved onto it | per-frame despawn and spawn of presentation entities | small-medium | no |
 | P3 | Hub: gate each game's session gameplay by its scope (S2); install Ambition, physics debris and 3D lighting only for the games that use them (S2b); move shared techniques out of `ambition_demo_smash` | 82+ foreign systems while one game plays, 72 hub-only systems | medium | no |
@@ -765,14 +780,9 @@ another reason:
   One line in `install_windowed_foundation`. Mary-O's 208 tests pass with
   `AMBITION_SCHEDULE_EXECUTOR=serial`. It changes how every standalone game
   runs, so it should land with a play test, and the switch is then removed.
-- **D13 — A leafwing fork under Erotemic** (P11, F13), like
-  `virtual_joystick`: a GitHub fork is an outward action. The patch:
-  `InputMap::handle_clashes` returns at once under `ClashStrategy::PressAll`;
-  otherwise `get_clashes` pairs only actions that `updated_actions` has
-  pressed, not `possible_clashes()` of all actions; and
-  `CentralInputStore::pressed`/`button_value` look up without a boxed clone.
-  Then `[patch.crates-io] leafwing-input-manager = { git = ..., rev = ... }`,
-  and an upstream PR.
+- **D13 — withdrawn.** The leafwing clash pass is skipped in this repo with
+  no fork (F13). An upstream PR (skip the pass under `PressAll` in
+  `process_actions`; lookups without boxing) is an outward action for Jon.
 
 ## A second opinion, weighed (GPT, 2026-10-16)
 
@@ -828,4 +838,4 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
   feature-visual and hit-flash writes only of a change (F20); seat bindings
   projected only on a change; Mary-O and Sanic hosts without named boss
   encounters (F1: −13 and −11 systems a frame). Before/after table in the
-  summary. Remaining large items need a yes (D12, D13) or are P1's C1.
+  summary. Remaining large items need a yes (D12) or are P1's C1.

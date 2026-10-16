@@ -613,9 +613,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             TechniqueOffer {
                 owner: "ambition_demo_smash::spring",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<
-                        ambition_platformer2d::entity_catalog::smash_spring::PlaceSpringParams,
-                    >,
+                    ambition_platformer2d::entity_catalog::smash_spring::check_place_spring_params,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -701,9 +699,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                     TechniqueOffer {
                         owner: "ambition_demo_smash::mine",
                         params: TechniqueParams::Checked(
-                            check_hydrates::<
-                                ambition_platformer2d::entity_catalog::smash_mine::PlaceMineParams,
-                            >,
+                            ambition_platformer2d::entity_catalog::smash_mine::check_place_mine_params,
                         ),
                         references: NestedReferences::HeldItems(
                             ambition_platformer2d::entity_catalog::smash_mine::mine_held_item_refs,
@@ -804,7 +800,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             TechniqueOffer {
                 owner: "ambition_demo_smash::bomb",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::entity_catalog::smash_bomb::DropBombParams>,
+                    ambition_platformer2d::entity_catalog::smash_bomb::check_drop_bomb_params,
                 ),
                 references: NestedReferences::HeldItems(
                     ambition_platformer2d::entity_catalog::smash_bomb::bomb_held_item_refs,

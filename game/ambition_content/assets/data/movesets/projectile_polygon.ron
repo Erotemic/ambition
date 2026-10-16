@@ -669,6 +669,9 @@
                                                 8.0,
                                             ],
                                             "item_id": "polygon_mine",
+                                            // Under the bomb's: a mine is armed in advance and
+                                            // goes off on somebody else's mistake.
+                                            "knockback": 1.7,
                                             "offset": [
                                                 -18.0,
                                                 14.0,
@@ -1564,6 +1567,11 @@
                                             ],
                                             "impact_speed": 260.0,
                                             "item_id": "polygon_bomb",
+                                            // A feel multiplier (shockwave 1.3, beam 1.1, boss
+                                            // blast 1.6). Above the boss's: a bomb you see and
+                                            // hear for four seconds hits harder than a hazard
+                                            // with no warning.
+                                            "knockback": 2.0,
                                             "offset": [
                                                 -16.0,
                                                 14.0,

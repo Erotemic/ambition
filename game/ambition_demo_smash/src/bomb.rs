@@ -25,12 +25,6 @@ use ambition_platformer2d::characters::brain::ActorActionMessage;
 use ambition_platformer2d::entity_catalog::smash_bomb::{DropBombParams, DROP_BOMB};
 use ambition_platformer2d::engine_core as ae;
 
-/// How hard a detonation throws what it catches, as the feel multiplier
-/// `DamageBoxEffect::knockback` is (shockwave 1.3, beam 1.1, boss blast 1.6).
-/// Above the boss's: a bomb you can see and hear for four seconds should hit
-/// harder than an unannounced hazard.
-const BLAST_FEEL_SCALE: f32 = 2.0;
-
 /// A ground item with a fuse.
 ///
 /// Rollback state: a restore without the fuse gives a different explosion.
@@ -44,6 +38,8 @@ pub struct LiveBomb {
     pub blast_radius: f32,
     /// At or above this speed, contact IS the detonation.
     pub impact_speed: f32,
+    /// How hard the blast throws (`DropBombParams::knockback`).
+    pub knockback: f32,
 }
 
 // No owner handle: a live bomb changes hands, so the blast is attributed to
@@ -104,6 +100,7 @@ pub fn translate_bomb_drops(
                     damage: params.damage,
                     blast_radius: params.blast_radius,
                     impact_speed: params.impact_speed,
+                    knockback: params.knockback,
                 },
             ))
             .id();
@@ -175,7 +172,7 @@ pub fn burn_fuses_and_answer_impacts(
                     // A feel multiplier, not a launch speed (see
                     // `spawn_damage_box`). Its own number, not derived from the
                     // radius: reach and launch are different facts.
-                    knockback: BLAST_FEEL_SCALE,
+                    knockback: bomb.knockback,
                     lifetime_s: 0.08,
                     name: Some("bomb blast"),
                 },

@@ -29,6 +29,19 @@ pub struct DropBombParams {
     pub half_extents: (f32, f32),
     /// Where it appears, body-local (`+x` toward facing, `+y` gravity-down).
     pub offset: (f32, f32),
+    /// How hard the blast throws what it catches: the feel multiplier
+    /// `DamageBoxEffect::knockback` is, not a launch speed.
+    pub knockback: f32,
+}
+
+/// The domain rule for a bomb's params, not only "serde can build it".
+pub fn check_drop_bomb_params(params: &ParamValue) -> Result<(), String> {
+    let typed: DropBombParams = params.hydrate().map_err(|error| error.to_string())?;
+    if typed.knockback.is_finite() && typed.knockback > 0.0 {
+        Ok(())
+    } else {
+        Err(format!("knockback {} throws nobody: a blast throws with a finite, positive feel multiplier", typed.knockback))
+    }
 }
 
 /// Return the held-item id referenced by a bomb payload.

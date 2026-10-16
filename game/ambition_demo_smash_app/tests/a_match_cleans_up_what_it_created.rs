@@ -88,6 +88,7 @@ fn nothing_a_match_created_survives_into_the_next_one() {
                             item_id: "polygon_mine".to_string(),
                             offset: (0.0, 0.0),
                             half_extents: (6.0, 6.0),
+                            knockback: 1.7,
                         },
                     )
                     .expect("mine params serialize"),

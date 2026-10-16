@@ -43,6 +43,10 @@ fn params() -> PlaceSpringParams {
         lifetime_s: 8.0,
         uses: 3,
         offset: (0.0, 18.0),
+        // Not the shipped 0.3 and 0.25, so a plate that kept a Rust delay
+        // fails `the_plate_keeps_the_delays_its_move_authored`.
+        arm_s: 0.28,
+        rearm_s: 0.2,
     }
 }
 
@@ -85,8 +89,8 @@ fn the_plate_lands_where_the_move_asked_and_throws_who_steps_on_it() {
     // The plate is at the dropper's position plus the offset,
     // `(0, -200) + (0, 18)`, not at the world origin.
     let walker = body(&mut app, 0, ae::Vec2::new(0.0, -182.0));
-    // Past the arming delay: the plate is inert for 0.30s so its dropper can
-    // step off (see `PlacedSpring::arm_s`).
+    // Past the arming delay: the plate is inert for `arm_s` so its dropper
+    // can step off (see `PlacedSpring::arm_s`).
     for _ in 0..20 {
         app.update();
     }
@@ -154,7 +158,7 @@ fn the_plate_is_taken_away_when_its_uses_run_out() {
     let mut app = app();
     let engineer = body(&mut app, 1, ae::Vec2::new(0.0, 0.0));
     drop_plate(&mut app, engineer);
-    // Long enough for three launches at a 0.25s re-arm.
+    // Long enough for three launches at the fixture's re-arm.
     for _ in 0..(3.0 * 60.0) as usize {
         app.world_mut()
             .entity_mut(engineer)
@@ -169,6 +173,44 @@ fn the_plate_is_taken_away_when_its_uses_run_out() {
         }
     }
     panic!("the plate outlived its three uses");
+}
+
+/// The arming and re-arm delays are the move's (`PlaceSpringParams`), not the
+/// ruleset's: a plate lands with the authored `arm_s`, and a launch re-arms it
+/// for the authored `rearm_s`.
+#[test]
+fn the_plate_keeps_the_delays_its_move_authored() {
+    let mut app = app();
+    let engineer = body(&mut app, 1, ae::Vec2::new(0.0, -200.0));
+    drop_plate(&mut app, engineer);
+    let landed = plates(&mut app)[0].clone();
+    // The arming clock ran one tick on the tick it landed.
+    assert!(
+        (landed.arm_s - (params().arm_s - 1.0 / 60.0)).abs() < 1e-4,
+        "the plate landed arming for {}s, not the authored {}s",
+        landed.arm_s,
+        params().arm_s
+    );
+    app.world_mut().entity_mut(engineer).insert(ae::BodyKinematics {
+        pos: ae::Vec2::new(600.0, -200.0),
+        facing: 1.0,
+        ..Default::default()
+    });
+    let _walker = body(&mut app, 0, ae::Vec2::new(0.0, -182.0));
+    for _ in 0..20 {
+        app.update();
+        if plates(&mut app)[0].uses_left < params().uses {
+            break;
+        }
+    }
+    let fired = plates(&mut app)[0].clone();
+    assert_eq!(fired.uses_left, params().uses - 1, "the plate never fired, so this test proves nothing");
+    assert!(
+        fired.rearm_s > 0.0 && (fired.rearm_s - params().rearm_s).abs() < 0.02,
+        "the launch re-armed the plate for {}s, not the authored {}s",
+        fired.rearm_s,
+        params().rearm_s
+    );
 }
 
 /// The launch replaces the arriving velocity. Other fixtures start at rest,
@@ -245,6 +287,7 @@ fn two_fighters_on_one_plate_launch_the_same_one_in_either_spawn_order() {
             remaining_s: 8.0,
             uses_left: 1,
             rearm_s: 0.0,
+            rearm_delay_s: 0.25,
             arm_s: 0.0,
         });
         app.update();

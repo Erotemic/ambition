@@ -38,6 +38,8 @@ pub struct PlacedSpring {
     /// all its uses in three frames. With it, "three uses" means three separate
     /// launches.
     pub rearm_s: f32,
+    /// What a launch sets `rearm_s` to (`PlaceSpringParams::rearm_s`).
+    pub rearm_delay_s: f32,
     /// Seconds before it will answer anybody, counted from the moment it lands.
     ///
     /// The plate lands 18px below the dropper's feet and the contact tolerance
@@ -117,8 +119,8 @@ pub fn drop_authored_springs(
                     remaining_s: params.lifetime_s,
                     uses_left: params.uses,
                     rearm_s: 0.0,
-                    // Long enough for the engineer to step off his own plate.
-                    arm_s: 0.30,
+                    rearm_delay_s: params.rearm_s,
+                    arm_s: params.arm_s,
                 },
             ))
             .id();
@@ -202,7 +204,7 @@ pub fn fire_and_expire_springs(
             // plate would throw a fast-falling body less far than a walking one.
             crate::motion::command_body_velocity(&mut kin, spring.launch, "plate fired");
             spring.uses_left = spring.uses_left.saturating_sub(1);
-            spring.rearm_s = 0.25;
+            spring.rearm_s = spring.rearm_delay_s;
             info!(
                 target: "ambition::moves",
                 "plate fired: seat={seat} {} use(s) left", spring.uses_left

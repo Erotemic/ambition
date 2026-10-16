@@ -197,8 +197,11 @@ Open:
    fix). It now publishes through the same `publish_revised_audio`; its only
    own step is the host's SFX registry copy. `revise_music_tracks` is
    deleted.
-   Remainder: the cast, move tables, Mary-O's ladder and her pickup art
-   (`world_item_art`), and publication into a live demo session. Each
+   Mary-O's ladder (`mary_o_forms`) is read where it is used, so it joined
+   her live list (read, by a search for every reader; no reader at start).
+   Remainder: the cast, move tables, Mary-O's pickup art (`world_item_art`:
+   `build_world_item_art` resolves the manifest once, so it needs a restate
+   and a render rebuild), and publication into a live demo session. Each
    needs a restater (the cast is a registry of prepared characters, so its
    restater is I2/I3 scale) or its reader moved to read at use.
 

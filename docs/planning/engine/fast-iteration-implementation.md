@@ -295,7 +295,7 @@ Steps that remain as rules:
   compiles an edit (Smash 7.7 ms, Mary-O 6.3 ms, Sanic 4.2 ms), and
   publishes it when no session is live and no route prepares one. Only the
   schemas the demo reads where it uses them take part (Smash: `smash_rules`,
-  `smash_stages`, `match_rules`; Mary-O: `mary_o_rules`; Sanic:
+  `smash_stages`, `match_rules`; Mary-O: `mary_o_rules`, `mary_o_forms`; Sanic:
   `sanic_rules`), and the schemas a demo registered once at start, which a
   restater states again at the publication: each demo's `room_rules`, its
   `music_registry` and `sfx_registry`, and `prop_sheets`, `platform_looks`

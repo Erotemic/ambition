@@ -1718,6 +1718,11 @@ impl Plugin for RuntimeCensusPlugin {
             app.insert_resource(SchedulePhaseCensus::new(names));
         }
 
+        #[cfg(feature = "perf_probe")]
+        if enabled {
+            app.add_plugins(crate::perf_probe::PerfProbePlugin);
+        }
+
         if enabled {
             let census = app.world().resource::<RuntimeCensus>();
             eprintln!(

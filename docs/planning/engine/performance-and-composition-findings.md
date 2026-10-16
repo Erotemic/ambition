@@ -27,7 +27,8 @@ again before you quote it.
 | Where does the phone spend its CPU? | `scripts/profile_android.sh all ...`, then `scripts/symbolize_android_profile.py DIR` |
 | Which line of OURS caused framework time (phone)? | `symbolize_android_profile.py DIR --ours` (needs `simpleperf-device-samples.txt`, which a profile made after 2026-10-16 has) |
 | Which thread is saturated, and what does it do (phone)? | the `threads` table of `symbolize_android_profile.py DIR` (busy % of one core, by thread id), then `--ours --thread TID` |
-| Which system allocates, and which code makes archetype churn? | the `perf_probe` feature (in progress, see the run log) |
+| Which system allocates, and which code makes archetype churn? | `profile_desktop.sh --perf-probe` → `alloc_by_span.csv`, `churn_by_site.csv` (recipe `profiling.md` §1d) |
+| Which code marks a component or resource changed every frame (wakes every `Changed<T>` reader)? | the same run → `changes_by_site.csv` |
 
 ## Measured baseline
 
@@ -273,20 +274,43 @@ Sanic act 1:
 | `dev::trace::actor_oob::record_actor_oob_frame_system` (a developer trace) | 196 | — |
 
 The input number is the same in both games: it does not depend on the scene.
-Cause (MEASURED, source read): `leafwing-input-manager` 0.21
-`CentralInputStore::pressed` and `button_value` (`src/user_input/updating.rs:111-140`)
-box a clone of the binding for each lookup, to use it as a hash key (the
-source says `// PERF: surely there's a way to avoid cloning here`).
-`InputMap::process_actions` asks both for every binding of every action of
-every seat, and the system runs twice a frame (frame and fixed loop: 1156
-calls in 578 frames).
+The hub makes 31,942 a frame (26.6k a call). Two causes in
+`leafwing-input-manager` 0.21, both run twice a frame (frame and fixed loop):
 
-Reading (REASONED): the fix keeps behaviour exactly: look up without
-boxing (`hashbrown::Equivalent` on a borrowed `&dyn Buttonlike`), in a
-workspace fork with an upstream PR, as for `bevy_ggrs`. A second, independent
-lever: a seat with no device does not need its map evaluated. The probe counts
+- MEASURED (source read), the larger by the count per call: `InputMap::handle_clashes`
+  calls `get_clashes`, which calls `possible_clashes()` on every call
+  (`src/clashing_inputs.rs:190-232`): every pair of button actions, each
+  binding decomposed into new `Vec`s. The comment there says "cached"; it is
+  not. Our host chooses `ClashStrategy::PressAll` for chord-free maps
+  (`ambition_platformer2d_host/src/lib.rs:373`), and under `PressAll` a clash
+  removes nothing, so all of this work has no effect for us.
+- MEASURED (source read): `CentralInputStore::pressed` and `button_value`
+  (`src/user_input/updating.rs:111-140`) box a clone of the binding for each
+  lookup, to use it as a hash key (`// PERF: surely there's a way to avoid
+  cloning here`).
+
+Reading (REASONED): both fixes keep behaviour exactly, in a workspace fork with
+upstream PRs, as for `bevy_ggrs`: return early from `handle_clashes` under
+`PressAll`, and otherwise pair only the actions that are pressed; look up
+without boxing (`hashbrown::Equivalent` on `&dyn Buttonlike`). The probe counts
 allocations; their time on the phone is inside the 5.2% of `mimalloc` and the
 3.1% of `alloc`.
+
+Caveat on the per-frame numbers (MEASURED): the Mary-O probe run was taken
+while the VM was loaded, at about 14 fixed ticks a frame against about 1.6 at
+idle, so the per-frame numbers of fixed-step systems are high; the per-call
+numbers (`allocs_per_call` in the CSV) are the ones to compare. Other per-call
+numbers of ours: `reconcile_effective_repertoire` ~40, `gate_body_control`
+~20, `record_actor_oob_frame_system` 13, `integrate_sim_bodies` 9.6. Sanic:
+`prepare_assets<HitFlashMaterial>` ~1,070 a frame (133 KB), so a hit-flash
+material is changed every frame. The write is already guarded
+(`hit_flash.rs:416-437`, write only a change); the material changes because
+each overlay follows its body's animation frame (`uv_rect`) also at intensity
+0, and overlays live as long as their bodies and stay `Visible`. REASONED: an
+overlay at intensity 0 draws nothing; tracking the frame only while a flash
+is on would remove the re-uploads and the draws of idle overlays. The comment
+there explains why the overlay asserts `Visible` (portal compositing), so this
+needs a check of the portal path first.
 
 ### F14 — Room isolation re-derives every room mask every frame
 
@@ -345,6 +369,22 @@ both the gate and the prompt read. Under rollback a cached value must be
 rollback state or derived from inputs that a restore marks changed; check
 each cache against that before it lands. Together with F15 this is P12.
 
+### F18 — Other steady churn of ours (probe)
+
+MEASURED (probe churn, per frame at idle):
+
+- Sanic: `gravity_visuals.rs:29` despawns and respawns every gravity-zone
+  visual every frame (1.43 each way); it runs in `Update` with no condition.
+- Mary-O: `rigged.rs:923` spawns rig part slots and despawns as many, ~1.4 a
+  frame each.
+- Every game: `lifecycle/session.rs:316` and `:326` insert
+  `SessionScopedEntity` and then `InRoomInstance` as two inserts after each
+  session spawn (4-8 a frame each): three archetype moves per spawn instead of
+  one. Fix: one bundle in the spawn.
+- Outside our code: `FixedMainScheduleOrder` removed and inserted per fixed
+  tick (Bevy), `bevy_ggrs` reinserts `Session`, `PlayerInputs` and
+  `FixedTimestepData` every frame.
+
 ### F17 — The hub respawns a room's parallax every frame
 
 MEASURED (probe churn, hub `basement_enemies`, 595 frames): exactly 1.000
@@ -363,6 +403,59 @@ parallax layer and every `PresentedRoomParallax` when `GameAssets` is changed;
 whose theme is not resident and not marked "without art". The comment at
 `parallax.rs:481` already names this risk for the resident case.
 
+### F19 — A widely shared system parameter is a per-system cost
+
+MEASURED (phone, `--ours --thread`): the largest line of ours on the main
+thread, 1.36% of the process, is `lifecycle/room_instance.rs:172`, the
+`#[derive(SystemParam)]` of `LiveRooms`: the fetch and validation of its two
+queries (`roots`, and `stamps` over every entity with `InRoomInstance`), with
+the bodies inlined. About 208 parameter declarations in `crates/` and `game/`
+take `LiveRooms` or `LiveRoomOf` (git grep), so the cost is paid once per run
+of each of those systems.
+
+Reading (REASONED): the live-room set is one or two values that change on a
+room transition. A resource kept by one system (the live rooms in order, and
+each band) is a cheaper parameter than a query: no archetype matching and no
+per-run query validation. A system that asks for the room of its own entities
+can carry `Option<&InRoomInstance>` in its own query. Measure one system first.
+
+### F20 — Every body's whole state is marked changed every tick
+
+MEASURED (probe `changes_by_site.csv`, standalone Mary-O 1-1, 561 frames
+after warm-up, `scratchpad/probe/mary_o_1_1_v2`). About 2,300 component values
+are marked changed a frame. Of ours:
+
+- ~30 simulation components of each of the ~17 bodies, every frame
+  (`BodyKinematics`, `BodyHealth`, `BodyLedgeState`, `BodyDodgeState`,
+  `BodyRestartLatch`, ... at `actor_clusters.rs:170-198`, and
+  `update.rs:1508-1543`). Cause (source read): `as_actor_mut`
+  (`actor_clusters.rs:163`) takes `&mut` of each cluster through `Mut<T>`,
+  which marks it changed whether or not the step writes it.
+- More per-body writes each frame: `BodyLifeStats` (`features/mod.rs:280`),
+  `ResolvedTechniqueEdges` (`starting_character.rs:705`), `BodyMelee`,
+  `RangedRefire`, `AttackGestureState`, `ResolvedAttackGesture`,
+  `PogoTargetVolumes`, `BodyAnimFacts`, `PresentedPose`, `BodyPoseView`.
+- Resources changed every frame by our code: `ActiveAudioSelection`
+  (`character_runtime/presentation.rs:100`, F16), `GizmoConfigStore`
+  (`avatar/trail.rs:677`), `CameraShakeState`, `FinishZoomState`
+  (`camera_ease.rs`), `SeatControlFrameModes`, the narrative ledgers
+  (`ledger.rs:223`) in a game with no dialogue, and two developer-tool
+  resources (`EditablePlayerStats`, `PlayerStatsSyncSnapshot`).
+- Rendering: rig part slots (`rigged.rs:1426-1434`, ~148 a frame:
+  animation), the HUD's `Visibility` (`hud/declared.rs:784`, 30 a frame),
+  ambient motes, hit-flash overlays (`hit_flash.rs:415`).
+
+Reading (REASONED): a false change costs little by itself. It matters
+because it makes change detection useless: no `Changed<Body…>` filter, and no
+read-model "built by change" (P5, P12), can skip a body while all of its state
+is marked changed every tick. So the order is: first make writes mark only
+real changes (pass `Mut<T>` into the step, or compare before writing), then
+the change-driven read-models pay. The detector verifies each step.
+
+Verified with it (MEASURED): the `star.rs` fix (F15) works. After it,
+`ActionSet` and `ActorMoveset` were changed 17 times in 561 frames (loading),
+and `reconcile_effective_repertoire` has no allocations left.
+
 ### Not a lever (keep out of this run)
 
 Session-scoped App globals (C03: 30 counted plus 19 uncounted instances) are
@@ -380,8 +473,8 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | P4 | Interned identities: an integer handle per body, made when its `SimId` is minted; read-model keys by `Entity` | String clones and sorts in 5+ per-tick systems | medium | no |
 | P5 | Read-models built once per drawn frame, by change | repeat builds on slow frames; builds in headless hosts | medium | D2 |
 | P6 | Change-driven systems: the two whole-world queries, input bindings, room isolation (F14) | full scans per tick; 444-2,773 allocations a frame in room isolation | small | no |
-| P12 | Derive on change, not every tick (F15, F16): the four systems, then the change detector finds the next ones | per-tick re-derivations and false changes that wake change filters | small each | no |
-| P11 | Input lookups without boxing (F13): fix `CentralInputStore` in a workspace fork of `leafwing-input-manager`, upstream PR | 19,222 allocations a frame, ~75% of a standalone frame's | small | no |
+| P12 | Derive on change, not every tick (F15, F16, F20): first writes that mark only real changes (the cluster step, the resources of F20), then the four systems; the change detector (`changes_by_site.csv`) finds the next ones and verifies each | per-tick re-derivations and false changes that wake change filters | small each | no |
+| P11 | Leafwing fork (F13): no clash work under `PressAll`, pairs of pressed actions only otherwise; lookups without boxing; upstream PRs | 19-32k allocations a frame, ~75% of a standalone frame's | small | no |
 | P7 | Plumbing: one gizmo trail group, Bevy debug gizmos off in shipping, developer tools only in developer builds, Kira channels | ~80 systems | small-medium | D6, D9 |
 | P8 | Upstream query-state fixes (LDtk, Yarn, bevy_light, GGRS) | ~2% of phone CPU | small each | D5 (only for the LDtk workaround) |
 | P10 | Phone render scale: a reduced main render target, scaled to the surface (`quality.rs:190` has no phone path) | fragments, when the GPU is the limit; not the limit today (F11) | medium | D10 |

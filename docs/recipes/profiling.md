@@ -18,6 +18,9 @@ that summary points somewhere specific.
 | Where did startup time go? | `[startup]` phase logger (always on) | text, agent-readable |
 | Which native function is hot, and during which part of my session? | same bundle, `timeline.md` + `perf_windows/` | text, agent-readable |
 | Which *Bevy system* is hot? | same bundle, `tracy_summary.md` | text, agent-readable |
+| Which system/span allocates, how often, how many bytes per frame? | `profile_desktop.sh --perf-probe` → `alloc_by_span.csv` (§1d) | CSV, agent-readable |
+| Which code causes archetype churn (spawn, despawn, insert, remove)? | `profile_desktop.sh --perf-probe` → `churn_by_site.csv` (§1d) | CSV, agent-readable |
+| Which code marks a component or resource changed every frame (wakes `Changed<T>` readers)? | `profile_desktop.sh --perf-probe` → `changes_by_site.csv` (§1d) | CSV, agent-readable |
 | Which *phase of the frame* owns the time — with no profiler, on any platform? | `[census] phases` → `schedule_phases.csv` | CSV, agent-readable |
 | Did the profiler cost more than the game? | same bundle, "Observer effect" | text, agent-readable |
 | Which *render pass* is hot, on CPU and GPU? | same bundle, `render_diagnostics.csv` | CSV, agent-readable |
@@ -373,6 +376,87 @@ Code: [`ambition_dev_tools::runtime_census`](../../crates/ambition_dev_tools/src
 [`ambition_render::runtime_census`](../../crates/ambition_render/src/runtime_census.rs)
 (cameras, targets, portals, render passes).
 
+## 1d. Allocations and archetype churn: `perf_probe`
+
+Tracy tells you how long a system takes. Two framework costs come from how our
+code uses Bevy, and a time profile cannot attribute them: allocations
+(`mimalloc` / `alloc` frames in a phone profile) and archetype moves
+(`bevy_ecs` frames). The `perf_probe` cargo feature counts both and gives each
+count an owner:
+
+- **Allocations per span.** A wrapping global allocator counts each
+  allocation into the innermost `tracing` span that is entered on its thread.
+  Bevy's `trace` feature puts each system in a span, so each system gets a
+  row. `(perf_probe)` is the probe's own work; `(no span)` is work outside
+  every span (asset and render threads, the runner).
+- **Churn per source line.** Observers count each spawn, despawn, component
+  insert and component remove, keyed by the component set and the caller
+  (`track_location`). Each one is an archetype move.
+- **Changes per source line.** Once a frame, each component value (resources
+  too) that was changed and not added, keyed by the component and the caller
+  of its last change. A `&mut` access that writes nothing still counts, and it
+  wakes each `Changed<T>` filter and `resource_changed` condition that reads
+  it. A row near the population of its component every frame is a per-frame
+  value or such a write; the site tells which.
+
+```bash
+./scripts/profile_desktop.sh --perf-probe --headless          # the shared host
+AMBITION_PROFILE_CENSUS=1 AMBITION_PERF_PROBE_DIR=/tmp/probe \
+  cargo run --profile profiling -p ambition_demo_mary_o_app \
+  --features capture,perf_probe --bin capture_mary_o -- /tmp/probe/shot.png --warmup 600
+```
+
+Each census sample prints two rows for the last window, and, when
+`AMBITION_PERF_PROBE_DIR` is set, writes the ranked whole-run tables there:
+
+```text
+[census] alloc t=12.000 frames=60 allocs_per_frame=2410.3 bytes_per_frame=301122 labels=3110 counted=yes top="bevy_render::view::check_visibility 210.0/f 18000B/f | ..."
+[census] churn t=12.000 frames=60 spawn_per_frame=4.00 insert_per_frame=12.00 remove_per_frame=12.00 despawn_per_frame=4.00 top="insert Hitstop @ crates/x/src/y.rs:88 1.00/f | ..."
+```
+
+| file | columns |
+|---|---|
+| `alloc_by_span.csv` | `span, calls, allocs, bytes, allocs_per_frame, bytes_per_frame, allocs_per_call, frames` |
+| `churn_by_site.csv` | `event, components, site, count, per_frame, frames` |
+| `changes_by_site.csv` | `component, site, count, per_frame, frames` |
+
+For a fixed-step system read `allocs_per_call`: a slow frame runs more fixed
+steps, so the per-frame count of a sim system follows the frame rate. Set
+`AMBITION_PERF_PROBE_SKIP_FRAMES=N` to start the CSV totals after frame N
+and leave out loading. `counted=no` means the binary has no counting
+allocator (see below). Read counts only: the probe adds cost to each
+allocation and each archetype move, so a `perf_probe` build has no valid frame
+times.
+
+**A churn site names the first frame without `#[track_caller]`.** A spawn
+inside a helper (`spawn_session_scoped`, `with_children`) shows the helper's
+line. Put `#[track_caller]` on the helper to see its caller instead. Bevy's own
+`with_children` shows `related_methods.rs`; read the components column to find
+the owner.
+
+**Attribute work inside a system.** Put a span around it. The span gets its
+own row, and its allocations leave the row of the system:
+
+```rust
+let _span = bevy::log::info_span!("rebuild_nav_graph").entered();
+```
+
+The row is `<crate>: rebuild_nav_graph`. The same span shows in Tracy. A span
+that is entered each frame costs about as much as a Tracy zone; remove it when
+the question is answered.
+
+**Feed a new binary.** A binary needs two lines, both under
+`#[cfg(feature = "perf_probe")]`: a `CountingAlloc` global allocator around
+its usual allocator (see `game/ambition_app/src/lib.rs`), and
+`perf_probe::log_layer` as the `custom_layer` of its `LogPlugin` (see
+`install_windowed_foundation`). `ambition_app`, `capture_scene`, and the Mary-O
+and Sanic shells have both.
+
+**Remove the probe.** Delete `crates/ambition_dev_tools/src/perf_probe/`, then
+every line that names `perf_probe` (`rg perf_probe`): the feature lines in the
+manifests, the allocator declarations, the `custom_layer` lines, and the
+`--perf-probe` option. A build without the feature already compiles none of it.
+
 ## 2a. cargo flamegraph (no-GUI flame graph SVG)
 
 For a "give me a flame graph as a file" workflow that doesn't need
@@ -463,7 +547,8 @@ game starts to see T=0, which is exactly the coordination the script removes.
 
 - Anything in non-Bevy threads unless instrumented manually with
   `tracing` macros.
-- Allocation profiling (use `dhat` / `heaptrack` separately).
+- Allocations. Use `--features perf_probe` (§1d) for counts per system, or
+  `heaptrack` / Android heapprofd (§2c) for call stacks.
 
 ### Cost
 
@@ -723,6 +808,7 @@ present/absent column. The rest:
 | `tracy_summary.md`, `tracy_zones.csv` | per-Bevy-system and per-render-pass zones, ranked |
 | `tracy_zone_windows.csv` | the same zones bucketed into time windows (needs a `tracy-csvexport` with `--unwrap`) |
 | `tracy.trace` | the raw trace, if you do want the GUI |
+| `alloc_by_span.csv`, `churn_by_site.csv`, `changes_by_site.csv` | `--perf-probe` only: allocations per span, structural changes and value changes per source line (§1d) |
 | `perf_windows/`, `perf_report.txt`, `perf-report-by-dso.txt` | the native profile |
 | `game-stderr-stamped.txt` | the game's whole log, stamped with seconds since launch |
 

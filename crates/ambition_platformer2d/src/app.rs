@@ -1748,6 +1748,12 @@ pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display)
             close_when_requested: window,
             ..Default::default()
         });
+    // The probe's span stack rides on the log subscriber (`perf_probe::log_layer`).
+    #[cfg(feature = "perf_probe")]
+    let plugins = plugins.set(bevy::log::LogPlugin {
+        custom_layer: ambition_dev_tools::perf_probe::log_layer,
+        ..Default::default()
+    });
 
     match display {
         Display::Window => app.add_plugins(plugins),

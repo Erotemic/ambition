@@ -14,9 +14,21 @@
 // desktop bin, the headless drivers, AND the Android shared library that `build_for_android.sh`
 // asks for (a bin-local declaration never reaches
 // the shared library). Opt out by building without `mimalloc_alloc`.
-#[cfg(all(feature = "mimalloc_alloc", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "mimalloc_alloc", not(feature = "perf_probe"), not(target_arch = "wasm32")))]
 #[global_allocator]
 static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+// `perf_probe` counts allocations per span around the same allocator.
+#[cfg(all(feature = "perf_probe", feature = "mimalloc_alloc", not(target_arch = "wasm32")))]
+#[global_allocator]
+static GLOBAL_ALLOCATOR: ambition_platformer2d::dev_tools::perf_probe::CountingAlloc<
+    mimalloc::MiMalloc,
+> = ambition_platformer2d::dev_tools::perf_probe::CountingAlloc::new(mimalloc::MiMalloc);
+#[cfg(all(feature = "perf_probe", not(feature = "mimalloc_alloc")))]
+#[global_allocator]
+static GLOBAL_ALLOCATOR: ambition_platformer2d::dev_tools::perf_probe::CountingAlloc<
+    std::alloc::System,
+> = ambition_platformer2d::dev_tools::perf_probe::CountingAlloc::new(std::alloc::System);
 
 /// The LDtk nouns THIS composition understands.
 ///

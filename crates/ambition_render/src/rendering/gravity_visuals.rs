@@ -15,8 +15,21 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 #[derive(Component)]
 pub struct GravityZoneVisual;
 
+/// What one zone draws: its live room, a tinted fill, and a brighter band on
+/// the edge gravity pulls toward.
+#[derive(Clone, PartialEq)]
+pub struct ZoneDraw {
+    room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    fill: (Color, Vec2, Vec3),
+    band: (Color, Vec2, Vec3),
+}
+
 /// Draw each gravity zone as a translucent tinted region so the player can see
 /// where gravity changes (violet = up, teal = down/other).
+///
+/// The visuals are spawned again only when what the zones draw changed, or a
+/// visual is gone (a room or session teardown took it). Spawning them every
+/// frame gave the same picture and two archetype moves per visual per frame.
 pub fn sync_gravity_zone_visual(
     mut commands: Commands,
     // Each zone is drawn in its own live room, by that room's geometry.
@@ -24,21 +37,23 @@ pub fn sync_gravity_zone_visual(
     active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<GravityZoneVisual>>,
     zones: Query<(Entity, &GravityZone)>,
+    mut drawn: Local<Vec<ZoneDraw>>,
 ) {
-    for entity in &visuals {
-        commands.entity(entity).despawn();
-    }
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
+        for entity in &visuals {
+            commands.entity(entity).despawn();
+        }
+        drawn.clear();
         return;
     };
+    let mut wanted = Vec::new();
     for (entity, zone) in &zones {
         // A zone whose live room cannot be told is not drawn.
         let Some((room, world)) = rooms.room_of(entity).and_then(|room| Some((room, rooms.in_room(room)?))) else {
             continue;
         };
-        let session_scope = session_scope.in_room(Some(room));
         let color = if zone.dir.y < 0.0 {
             Color::srgba(0.62, 0.40, 0.95, 0.16) // up = violet
         } else {
@@ -47,15 +62,6 @@ pub fn sync_gravity_zone_visual(
         let center = (zone.aabb.min + zone.aabb.max) * 0.5;
         let size = zone.aabb.max - zone.aabb.min;
         let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, center, 7.5);
-        commands.spawn_session_scoped(
-            session_scope,
-            (
-                GravityZoneVisual,
-                Sprite::from_color(color, size),
-                Transform::from_translation(translation),
-                Name::new("Gravity zone visual"),
-            ),
-        );
         // A brighter band on the edge gravity pulls toward, so the zone shows a
         // direction: you can see which way you will fall before stepping in.
         let band_color = if zone.dir.y < 0.0 {
@@ -72,16 +78,40 @@ pub fn sync_gravity_zone_visual(
         );
         let band_translation =
             ambition_platformer2d_core::config::world_to_bevy(&world.0, band_center, 7.6);
+        wanted.push(ZoneDraw {
+            room,
+            fill: (color, Vec2::new(size.x, size.y), translation),
+            band: (band_color, Vec2::new(band_size.x, band_size.y), band_translation),
+        });
+    }
+    if *drawn == wanted && visuals.iter().count() == 2 * wanted.len() {
+        return;
+    }
+    for entity in &visuals {
+        commands.entity(entity).despawn();
+    }
+    for draw in &wanted {
+        let session_scope = session_scope.in_room(Some(draw.room));
         commands.spawn_session_scoped(
             session_scope,
             (
                 GravityZoneVisual,
-                Sprite::from_color(band_color, band_size),
-                Transform::from_translation(band_translation),
+                Sprite::from_color(draw.fill.0, draw.fill.1),
+                Transform::from_translation(draw.fill.2),
+                Name::new("Gravity zone visual"),
+            ),
+        );
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                GravityZoneVisual,
+                Sprite::from_color(draw.band.0, draw.band.1),
+                Transform::from_translation(draw.band.2),
                 Name::new("Gravity zone direction band"),
             ),
         );
     }
+    *drawn = wanted;
 }
 
 #[cfg(test)]
@@ -131,5 +161,33 @@ mod tests {
             vec![(Some(LiveRoomInstance::ACTIVATION.ordinal()), flipped(big)), (Some(second.ordinal()), flipped(small))],
             "(room, position) of each zone visual: each must be placed by its zone's live room and stamped with it"
         );
+    }
+
+    /// An unchanged zone keeps its visuals: a second frame spawns nothing new.
+    #[test]
+    fn an_unchanged_zone_keeps_its_visuals() {
+        let world = ae::World::new("gravity room", ae::Vec2::new(800.0, 600.0), ae::Vec2::new(40.0, 40.0), Vec::new());
+        let mut app = App::new();
+        insert_live_room_component(app.world_mut(), RoomGeometry(world));
+        app.world_mut().spawn((
+            GravityZone {
+                aabb: ambition_platformer2d_core::Aabb::new(ae::Vec2::new(100.0, 200.0), ae::Vec2::new(20.0, 20.0)),
+                dir: ae::Vec2::new(0.0, -1.0),
+            },
+            InRoomInstance(LiveRoomInstance::ACTIVATION),
+        ));
+        app.add_systems(Update, sync_gravity_zone_visual);
+        let visuals = |app: &mut App| {
+            let world = app.world_mut();
+            let mut q = world.query_filtered::<Entity, With<GravityZoneVisual>>();
+            let mut found: Vec<Entity> = q.iter(world).collect();
+            found.sort();
+            found
+        };
+        app.update();
+        let first = visuals(&mut app);
+        assert_eq!(first.len(), 2, "a zone draws a fill and a band");
+        app.update();
+        assert_eq!(visuals(&mut app), first, "the same entities draw an unchanged zone");
     }
 }

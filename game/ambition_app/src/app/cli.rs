@@ -411,8 +411,9 @@ pub fn run_shared_host_headless_in_room(
         // zones — and per-system timing is the measurement a machine with no
         // GPU still has. Gated on the profiling feature, so the no-window tests
         // keep their silent composition. Added through the compose hook because
-        // the builder finishes the plugins before it returns.
-        #[cfg(feature = "profile")]
+        // the builder finishes the plugins before it returns. `perf_probe` needs
+        // the subscriber for the same reason.
+        #[cfg(any(feature = "profile", feature = "perf_probe"))]
         app.add_plugins(ambition_log_plugin());
     });
     super::shell_host::compose_ambition_startup_sequence(&mut app);
@@ -899,6 +900,9 @@ pub(crate) fn ambition_task_pool_plugin() -> bevy::app::TaskPoolPlugin {
 pub(crate) fn ambition_log_plugin() -> bevy::log::LogPlugin {
     bevy::log::LogPlugin {
         filter: resolved_log_filter(),
+        // The probe's span stack rides on this subscriber.
+        #[cfg(feature = "perf_probe")]
+        custom_layer: ambition_platformer2d::dev_tools::perf_probe::log_layer,
         ..bevy::log::LogPlugin::default()
     }
 }

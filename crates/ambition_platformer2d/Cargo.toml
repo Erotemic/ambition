@@ -146,6 +146,8 @@ wasm_modules = ["ambition_platformer2d_runtime/wasm_modules", "dep:ambition_exte
 physics_debris = ["ambition_platformer2d_actor_monolith/physics_debris"]
 frame_pacing = ["ambition_platformer2d_actor_monolith/frame_pacing"]
 profile = ["ambition_platformer2d_actor_monolith/profile"]
+# Allocation and archetype-churn attribution: `ambition_dev_tools::perf_probe`.
+perf_probe = ["ambition_dev_tools/perf_probe"]
 portal_ldtk = ["ambition_platformer2d_actor_monolith/portal_ldtk"]
 input = [
     "ambition_platformer2d_actor_monolith/input",

@@ -509,7 +509,7 @@ are marked changed a frame. Of ours:
   `RangedRefire`, `AttackGestureState`, `ResolvedAttackGesture`,
   `PogoTargetVolumes`, `BodyAnimFacts`, `PresentedPose`, `BodyPoseView`.
 - Resources changed every frame by our code: `ActiveAudioSelection`
-  (`character_runtime/presentation.rs:113`, F16), `GizmoConfigStore`
+  (`authorize_staged_character_presentation_sources`, F16, fixed since), `GizmoConfigStore`
   (`avatar/trail.rs:677`), `CameraShakeState`, `FinishZoomState`
   (`camera_ease.rs`), `SeatControlFrameModes`, the narrative ledgers
   (`prune_narrative_inputs` and `release_narrative_inputs`, both fixed since)

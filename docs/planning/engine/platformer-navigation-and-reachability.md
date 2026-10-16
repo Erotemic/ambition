@@ -355,6 +355,34 @@ Not modelled, each a seam:
 - a gravity frame that is not axis-aligned;
 - `WhyNot`: an unreachable goal is `NavNext::Unreachable` with no reason.
 
+## A player's seat that navigation drives (2026-10-16)
+
+Customer: unattended profiling of a game in the hub (Jon, 2026-10-16: an
+`AMBITION_AUTOPLAY=<game>` option for every game; "Let's add what we need to
+navigation. No hacks, only elegant - efficient ... and correct design").
+
+| Part | Where |
+| --- | --- |
+| One follower | `ae::navigation::RouteFollower`: goal, leg, phase, clock, misses; `needs_route()` says when it reads a route answer. A brain's `NavFollower` is it, with `DriveFollower` (advice in, `ActorControlFrame` out). |
+| One cache | `world::navigation::cache`: `NavGraphKey` (geometry and exits stamp, tuning, abilities, size, base size, frame), `NavGraphCache`. The advisor's `RoomNavigation` wraps it. |
+| The autopilot | `ambition_platformer2d::autopilot`: an input source outside the timeline. Graphs built on the async compute pool; a no-allocation signature of the geometry gates a rebuild; a leg under way survives a geometry change; another room or form drops the graph. |
+| Approach by law | `ae::navigation::ApproachLaw`, from the envelope's measured slide (`stop_distance`, `start_speed`): run, let go where the slide ends, creep (`CREEP_STICK`) inside the band a dash from rest overruns. |
+| Recovery | `NavGraph::landing_in_reach`: a body in the air with no leg comes down on the nearest surface in reach, spending an air jump if it has one. |
+
+Measured on standalone Mary-O (cosmic form): 1-1 with no death, 1-2 with
+one; the test course to its pole on frame 220 (`mary_o_it autoplay`, which
+also asserts that the autopilot had a graph and was going). Found on the
+way: a stick of 0.077 is under the kernel's run threshold (0.1) and does not
+move a body; the cosmic form at 620 px/s ran off a hop's ledge when the
+approach was a fraction of top speed.
+
+OPEN: a surface that moves (1-3 stops on a moving platform: a body on one
+stands on no surface of the graph and waits). Design, not built: boarding,
+riding and alighting legs, timed against the platform's deterministic motion
+and rolled out in the kernel with the platform at its predicted positions.
+OPEN: graph build cost on the phone (8,205 rollouts for 1-2); baking graphs at
+content build stays the direction.
+
 ## The cross-room slices: a character fetches an item from another room (design, 2026-10-09)
 
 The queue's NAVIGATION row asks for a character that sees an item in another

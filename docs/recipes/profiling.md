@@ -876,6 +876,19 @@ scripts/profile_android.sh heap --no-launch --duration 30 --heap-sampling-interv
 
 ## Quick recipes
 
+**An unattended phone profile of one game in the hub.** The hub boots into the
+game, and the game plays itself by navigation (both read at compile time for
+an APK):
+
+```bash
+AMBITION_BOOT_ROUTE=mary_o_gameplay AMBITION_AUTOPLAY=mary_o \
+  scripts/profile_android.sh all --profile-build --launch --warmup 25 --duration 30 --name all-maryo-auto
+```
+
+On the desktop: `AMBITION_AUTOPLAY=mary_o capture_scene --route mary_o_gameplay ...`.
+The autopilot builds its graphs on the async compute pool (worker threads,
+not the main thread): read the main thread with `--thread`.
+
 **"Why is startup slow?"** Default build → check the `[startup]`
 lines in stderr. If a single phase dominates, add finer phase marks
 inside it.

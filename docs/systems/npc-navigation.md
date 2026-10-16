@@ -141,10 +141,37 @@ A test can read the graph: `RoomNavigation::graphs()` (a resource of the
 session) gives each `NavGraph`, with its `surfaces`, its `links`, the body's
 `apex_rise`, and `reachable_from(surface)`.
 
+## A player's seat that navigation drives (autoplay)
+
+`AMBITION_AUTOPLAY=<game>` makes the player's own body go where the game's
+policy says, by the same graphs and the same follower as a brain, through the
+player's seat (`ambition_platformer2d::autopilot`). It is for unattended
+profiling and soak runs. A game writes an `AutopilotOrder` each frame in its
+policy (`scripted_input::AutoplayPolicy`, gated by `autoplay_is(<its id>)`):
+`Idle`, `Press(frame)` for a press of its own, or `GoTo(NavGoal::Stand(point))`.
+Mary-O's policy (`ambition_demo_mary_o::autoplay`) takes the cosmic form and
+goes to the foot of the pole or the top of a castle's switch.
+
+A player differs from a brain in three ways, each a part of navigation:
+
+- It runs at its top speed and stops by its own braking (`ApproachLaw`,
+  measured in the kernel). A brain walks to a leg's start at its pace.
+- When a leg ends in the air (a foe's touch, a block that breaks), it comes
+  down where it can (`NavGraph::landing_in_reach`), with an air jump if it
+  has one.
+- The graph covers what it collides with that does not move (contributed and
+  gate solids too, less the blocks taken out) and avoids the room's overlap
+  exits.
+
+The log says what the autopilot does (`[autopilot] status=...`, and a line
+for each death and each stall, with the leg). A surface that moves is not in
+the graph yet: a body on a moving platform waits on it.
+
 ## Validation
 
 ```bash
 cargo test -p ambition_platformer2d_world --lib navigation
 cargo test -p ambition_characters --lib roam
 cargo test -p ambition_app --features rl_sim --test app_it companion_dog
+cargo test -p ambition_demo_mary_o_app --test mary_o_it autoplay
 ```

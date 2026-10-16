@@ -372,7 +372,27 @@ pub(crate) struct ConePlan {
     /// its face. It goes at once: it would draw its image of the viewer's own
     /// side over that side.
     pub(crate) cut: bool,
+    /// How far the drawn window goes on to the whole half-plane behind the
+    /// face, 0.0 to 1.0 ([`flush_with_the_face`]): 1.0 when the viewer
+    /// touches the opening.
+    pub(crate) flush: f32,
     pub(crate) debug: ConePlanDebug,
+}
+
+/// How far (world px, body edge to the opening) a viewer pulls its window
+/// flush with the face: the side rays turn the last way onto the plane, so
+/// the picture behind the face is all the far side's.
+const FLUSH_REACH: f32 = 24.0;
+
+/// How far a viewer whose body edge is `edge_distance` from the opening
+/// pulls its window flush with the face ([`ConePlan::flush`]). It goes with
+/// where the viewer is, not with time: the windows of a pair are flush on
+/// both sides of a crossing, and the crossing frame changes one whole
+/// half-plane for the other. A window short of the half-plane left a sliver
+/// beside the face past each end of the opening, and the sliver changed sides
+/// at the crossing (Jon 2026-10-16).
+pub(crate) fn flush_with_the_face(edge_distance: f32) -> f32 {
+    smooth01(1.0 - edge_distance.max(0.0) / FLUSH_REACH)
 }
 
 /// Whether a viewer at `eye` has come through the pair to `partner`'s other
@@ -456,8 +476,13 @@ pub(crate) struct WindowShape {
 impl WindowShape {
     /// Shut: no depth, its rays straight back from the aperture's ends.
     pub(crate) const SHUT: Self = Self { depth: 0.0, lo: 0.0, hi: 0.0 };
-    /// The steepest side ray, short of parallel to the face.
+    /// The steepest side ray a cone's shape has, short of parallel to the
+    /// face.
     const MAX_TURN: f32 = 1.55;
+    /// A side ray on the face: the window is flush with it ([`Self::flushed`]).
+    /// Past [`Self::MAX_TURN`] the ray's near end goes out along the face too,
+    /// so at this turn the window is the whole half-plane behind the face.
+    const FLUSH_TURN: f32 = std::f32::consts::FRAC_PI_2 - 1.0e-3;
 
     /// Drawn with no area: a window with this shape is not drawn.
     pub(crate) fn is_shut(&self) -> bool {
@@ -473,9 +498,18 @@ impl WindowShape {
         let d = depth.max(1.0e-3);
         Self {
             depth: depth.min(reach),
-            lo: ((local[3].x + h) / d).atan(),
-            hi: ((local[2].x - h) / d).atan(),
+            lo: ((local[3].x + h) / d).atan().clamp(-Self::MAX_TURN, Self::MAX_TURN),
+            hi: ((local[2].x - h) / d).atan().clamp(-Self::MAX_TURN, Self::MAX_TURN),
         }
+    }
+
+    /// This shape `k` of the way to the whole half-plane behind the face,
+    /// `reach` deep ([`ConePlan::flush`]). A shut window stays shut.
+    pub(crate) fn flushed(self, k: f32, reach: f32) -> Self {
+        if self.is_shut() || k <= 0.0 {
+            return self;
+        }
+        self.eased_toward(Self { depth: reach, lo: -Self::FLUSH_TURN, hi: Self::FLUSH_TURN }, k)
     }
 
     /// `k` of the way from this shape to `to` (an exponential ease, by frame).
@@ -497,13 +531,19 @@ impl WindowShape {
     ) -> ViewCone {
         let (o, t, n, h) = (enter.frame.origin, enter.frame.tangent(), enter.frame.normal, enter.half_length);
         let far = |turn: f32, from: f32| {
-            (from + turn.clamp(-Self::MAX_TURN, Self::MAX_TURN).tan() * self.depth)
+            (from + turn.clamp(-Self::FLUSH_TURN, Self::FLUSH_TURN).tan() * self.depth)
                 .clamp(-RAY_LATERAL_CLAMP, RAY_LATERAL_CLAMP)
+        };
+        // How far a side's near end goes out along the face past the
+        // aperture's end: none up to `MAX_TURN`, the window's depth (the
+        // view's diagonal at most) at `FLUSH_TURN`.
+        let along = |outward: f32| {
+            self.depth * smooth01((outward - Self::MAX_TURN) / (Self::FLUSH_TURN - Self::MAX_TURN))
         };
         ambition_portal2d::cone_from_entry_quad(
             [
-                o - t * h,
-                o + t * h,
+                o - t * (h + along(-self.lo)),
+                o + t * (h + along(self.hi)),
                 o + t * far(self.hi, h) - n * self.depth,
                 o + t * far(self.lo, -h) - n * self.depth,
             ],
@@ -805,6 +845,7 @@ pub(crate) fn compute_cone(
             target: 0.0,
             immediate: false,
             cut: false,
+            flush: 0.0,
             debug: ConePlanDebug::default(),
         }
     };
@@ -819,6 +860,7 @@ pub(crate) fn compute_cone(
                 target: 1.0,
                 immediate: true,
                 cut: false,
+                flush: 0.0,
                 debug: ConePlanDebug::default(),
             };
         }
@@ -834,6 +876,7 @@ pub(crate) fn compute_cone(
         target: 0.0,
         immediate: false,
         cut: false,
+        flush: 0.0,
         debug: ConePlanDebug::default(),
     };
     let Some(v) = viewer.filter(|v| v.present) else {
@@ -1073,6 +1116,7 @@ pub(crate) fn compute_cone(
         target: target * config.viewer_blend.clamp(0.0, 1.0),
         immediate: false,
         cut: false,
+        flush: flush_with_the_face(edge_distance),
         debug,
     }
 }

@@ -1227,7 +1227,10 @@ pub fn sync_portal_view_cones(
             }
             continue;
         }
-        let cone = rig.shown.cone(&enter, &exit, convention);
+        // Drawn flush with the face as the viewer reaches the opening, by
+        // where it is (`flush_with_the_face`), as far as the window is open.
+        let opened = if plan.target > 0.0 { (rig.blend / plan.target).clamp(0.0, 1.0) } else { 0.0 };
+        let cone = rig.shown.flushed(plan.flush * opened, reach).cone(&enter, &exit, convention);
         let render = cone_render(
             &cone,
             &enter,
@@ -1403,7 +1406,8 @@ pub fn sync_portal_view_cones(
         } else {
             ease_window(WindowShape::SHUT, want, step, time.delta_secs(), &enter, &exit, convention, clip_min, clip_max)
         };
-        let cone = (!shown.is_shut()).then(|| shown.cone(&enter, &exit, convention));
+        let opened = if plan.target > 0.0 { (blend / plan.target).clamp(0.0, 1.0) } else { 0.0 };
+        let cone = (!shown.is_shut()).then(|| shown.flushed(plan.flush * opened, reach).cone(&enter, &exit, convention));
         let (z, pane_dominant) = pane_z(&config, viewer, portal, &partner, None);
         let render = cone.as_ref().and_then(|cone| {
             cone_render(

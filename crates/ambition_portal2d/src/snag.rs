@@ -221,6 +221,17 @@ pub fn snag_straddlers(
             let Some((push, against)) = snag_push(body, came_from, &portal.aperture()) else {
                 continue;
             };
+            // A measurement trace (`RUST_LOG=ambition_portal::transit_trace=debug`).
+            bevy::log::debug!(
+                target: "ambition_portal::transit_trace",
+                "snag body={entity} box={:?}..{:?} from={:?} push={push:?} against={against:?} portal={:?} half={} vel={:?}",
+                body.min,
+                body.max,
+                came_from.map(|b| b.center()),
+                portal.pos,
+                portal.opening_half_length(),
+                kin.vel
+            );
             ambition_platformer2d_core::movement::carry_body(&mut kin, sweep.as_deref_mut(), push);
             kin.vel = stop_into(portal, kin.pos, kin.vel, against);
         }

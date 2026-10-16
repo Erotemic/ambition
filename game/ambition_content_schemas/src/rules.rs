@@ -26,6 +26,12 @@ pub struct ThrownImpact {
     /// At or above this speed (px/s) the item hurts what it strikes.
     pub min_speed: f32,
     pub damage: i32,
+    /// The fraction of its speed the item keeps, reversed, when it strikes.
+    pub rebound: f32,
+    /// The most of `min_speed` the rebound may be. Under 1, so however fast
+    /// the item arrived, it leaves under the bar and does not strike the same
+    /// body on the next tick.
+    pub rebound_cap: f32,
 }
 
 /// What an African swallow does with a coconut (`primeval`): it fetches one
@@ -104,6 +110,18 @@ impl AmbitionRules {
             }
             if impact.damage < 1 {
                 problems.push(format!("`thrown_impacts.{id}.damage` is {}; a row that hurts deals at least 1", impact.damage));
+            }
+            if !(impact.rebound.is_finite() && (0.0..=1.0).contains(&impact.rebound)) {
+                problems.push(format!(
+                    "`thrown_impacts.{id}.rebound` is {}; it is the fraction of its speed the item keeps, 0 to 1",
+                    impact.rebound
+                ));
+            }
+            if !(impact.rebound_cap.is_finite() && (0.0..1.0).contains(&impact.rebound_cap)) {
+                problems.push(format!(
+                    "`thrown_impacts.{id}.rebound_cap` is {}; at 1 or more the rebound can reach the bar and strike the same body again",
+                    impact.rebound_cap
+                ));
             }
         }
         let bark = self.boss_idle_bark;
@@ -208,7 +226,11 @@ mod tests {
                 let_go_over: 90.0,
                 lead_seconds: 0.35,
             },
-            thrown_impacts: [("coconut".to_string(), ThrownImpact { min_speed: 240.0, damage: 2 })].into(),
+            thrown_impacts: [(
+                "coconut".to_string(),
+                ThrownImpact { min_speed: 240.0, damage: 2, rebound: 0.3, rebound_cap: 0.8 },
+            )]
+            .into(),
         }
     }
 
@@ -224,8 +246,15 @@ mod tests {
         let problems = no_reach.problems();
         assert!(problems.iter().any(|problem| problem.contains("gnu_ton_duel.reach")), "{problems:?}");
         let mut slow = rules();
-        slow.thrown_impacts.insert("coconut".to_string(), ThrownImpact { min_speed: f32::NAN, damage: 2 });
+        slow.thrown_impacts.insert(
+            "coconut".to_string(),
+            ThrownImpact { min_speed: f32::NAN, damage: 2, rebound: 0.3, rebound_cap: 0.8 },
+        );
         let problems = slow.problems();
         assert!(problems.iter().any(|problem| problem.contains("thrown_impacts.coconut.min_speed")), "{problems:?}");
+        let mut strikes_twice = rules();
+        strikes_twice.thrown_impacts.get_mut("coconut").unwrap().rebound_cap = 1.0;
+        let problems = strikes_twice.problems();
+        assert!(problems.iter().any(|problem| problem.contains("thrown_impacts.coconut.rebound_cap")), "{problems:?}");
     }
 }

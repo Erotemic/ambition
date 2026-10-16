@@ -23,16 +23,10 @@ use bevy::prelude::*;
 
 use ambition_content_schemas::rules::ThrownImpact;
 
-/// The fraction of its velocity an item keeps, reversed, when it strikes, and
-/// the most of its own bar that the rebound may be: however fast it arrived,
-/// it leaves under the bar.
-const REBOUND: f32 = 0.3;
-const REBOUND_UNDER_THE_BAR: f32 = 0.8;
-
-/// The velocity an item leaves a body with: back the way it came, slower than
-/// its bar.
+/// The velocity an item leaves a body with: back the way it came, its row's
+/// `rebound` of its speed, and under its bar (`rebound_cap`).
 fn rebound(vel: ae::Vec2, impact: ThrownImpact) -> ae::Vec2 {
-    let speed = (vel.length() * REBOUND).min(impact.min_speed * REBOUND_UNDER_THE_BAR);
+    let speed = (vel.length() * impact.rebound).min(impact.min_speed * impact.rebound_cap);
     -vel.normalize_or_zero() * speed
 }
 
@@ -116,6 +110,9 @@ mod tests {
                 let left = rebound(ae::Vec2::new(0.6 * speed, 0.8 * speed), *impact);
                 assert!(left.length() < impact.min_speed, "`{id}` arrives at {speed} and leaves at {}: it strikes twice", left.length());
                 assert!(left.x < 0.0 && left.y < 0.0, "`{id}` goes back the way it came, not {left:?}");
+                // The row's numbers, not a rule of the code's own.
+                let expected = (speed * impact.rebound).min(impact.min_speed * impact.rebound_cap);
+                assert!((left.length() - expected).abs() < 1e-2, "`{id}` arrives at {speed} and leaves at {}, not its row's {expected}", left.length());
             }
         }
     }
@@ -159,7 +156,7 @@ mod tests {
         assert_eq!(shipped.thrown_impacts.get("coconut").map(|impact| impact.damage), Some(2));
         assert_eq!(shipped.thrown_impacts.get("javelin"), None);
 
-        let row = r#""coconut": (min_speed: 240.0, damage: 2),"#;
+        let row = r#""coconut": (min_speed: 240.0, damage: 2, rebound: 0.3, rebound_cap: 0.8),"#;
         let with = |replacement: &'static str| {
             crate::pack::compile_pack_with(move |path, text| {
                 if path != "data/ambition_rules.ron" {
@@ -169,11 +166,12 @@ mod tests {
                 text.replace(row, replacement)
             })
         };
-        let edited = with(r#""coconut": (min_speed: 240.0, damage: 3),"#).expect("an edited row compiles");
+        let edited = with(r#""coconut": (min_speed: 240.0, damage: 3, rebound: 0.5, rebound_cap: 0.8),"#).expect("an edited row compiles");
         let rules = lowered_ambition_rules(&edited).expect("the edited pack lowers its tuning");
         assert_eq!(rules.thrown_impacts.get("coconut").map(|impact| impact.damage), Some(3));
+        assert_eq!(rules.thrown_impacts.get("coconut").map(|impact| impact.rebound), Some(0.5), "the rebound is the row's");
 
-        let refused = format!("{:?}", with(r#""coconut": (min_speed: 240.0, damage: 0),"#).expect_err("a row that cannot hurt"));
+        let refused = format!("{:?}", with(r#""coconut": (min_speed: 240.0, damage: 0, rebound: 0.3, rebound_cap: 0.8),"#).expect_err("a row that cannot hurt"));
         assert!(refused.contains("`thrown_impacts.coconut.damage`"), "{refused}");
     }
 }

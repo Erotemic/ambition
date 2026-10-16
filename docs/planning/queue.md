@@ -267,7 +267,9 @@ Open:
    refused at admission when out of range. Smash's Limit fill is `limit`
    in `smash_rules.ron` (it was the engine preset `JONS_BASELINE`), and the sleep mash is
    `sleep_mash_seconds` there; the stocks button's counts are
-   `stock_choices` there (`SmashStockChoice` is a count from that list). A
+   `stock_choices` there (`SmashStockChoice` is a count from that list).
+   A thrown item's rebound is its `thrown_impacts` row's (`rebound`,
+   `rebound_cap`). A
    respawn and a departing shark read the centre of the body's live room
    (`StageCentre`), not the flat stage's. Still flat-only:
    `ladder_rig --scenarios` (refuses other stages).
@@ -276,8 +278,7 @@ Open:
    - `game/ambition_content/src/bosses/cut_rope/mod.rs:44`
      `CUT_ROPE_VICTORY_NPC_NAME`, also the speaker in
      `assets/dialogue/sandbox/kernel.yarn`.
-   - Rules beside their data siblings: thrown rebound
-     (`game/ambition_content/src/items/thrown_impact.rs:29-30`), the
+   - Rules beside their data siblings: the
      GNU-ton book box (`bosses/gnu_ton/duel.rs:62`), Mary-O's and Sanic's
      transform beats (`powerups.rs:951,954`, `cosmic.rs:53`,
      `ambition_demo_sanic/src/lib.rs` `SUPER_FORM_BEAT`).

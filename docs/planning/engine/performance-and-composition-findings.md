@@ -50,6 +50,20 @@ again before you quote it.
   room isolation walking only when a mask can be stale (F14: 443 → 7.6
   allocations a frame in Mary-O, 1,118 → 2.0 in Sanic), and read-before-write
   for the SFX authorizer, the ledgers and the trail gizmo bands (F20).
+- **Before → after tonight** (MEASURED, `perf_probe`, idle, per frame,
+  without the probe's and the census's own work; `probe/*_v2` against
+  `probe/*_final`):
+
+  | | Mary-O | hub `basement_enemies` |
+  | --- | ---: | ---: |
+  | allocations in our systems | 2,218 → 1,156 (−48%) | 2,328 → 1,743 (−25%) |
+  | all allocations | 24,772 → 23,407 | 47,478 → 46,949 |
+  | of which leafwing input (D13, not yet) | 19,222 | 31,942 |
+  | archetype churn from our code | 10.3 → 7.2 | 22.2 → 7.2 (−68%) |
+  | value changes from our code | 1,575 → 1,379 | 994 → 956 |
+
+  The large remaining items need a yes: the leafwing fork (D13) and the
+  serial executor for the standalone games (D12); then P1 and P12.
 - **Instrumentation:** `perf_probe` (allocations per span, churn and value
   changes per source line; `profile_desktop.sh --perf-probe`) and the phone
   symbolizer's `--ours` and thread table. Both are one switch and one

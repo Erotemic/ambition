@@ -175,6 +175,10 @@ links to.
 - [`engine/slopes-feet-ride-surfaces.md`](engine/slopes-feet-ride-surfaces.md)
   A proposal (2026-10-11): a body on the ground keeps a support that
   lasts; its shape says how it sits on it. Not built; one decision open.
+- [`engine/portals-are-moving-frames.md`](engine/portals-are-moving-frames.md)
+  A plan (2026-10-15): a portal is a rigid frame that moves (pose pair,
+  placement epoch, transit in its frame, registered captures). Measured
+  costs; not built; one decision open.
 - [`engine/collision-and-ccd.md`](engine/collision-and-ccd.md)
 - [`engine/kinematic-world-objects.md`](engine/kinematic-world-objects.md)
 - [`engine/platformer-navigation-and-reachability.md`](engine/platformer-navigation-and-reachability.md)

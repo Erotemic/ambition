@@ -1043,9 +1043,9 @@ variants. Also found in that regen:
     for `mallory`: its render and its tiers) packs the runtime groups too,
     so the one prop that draws from a pack (`intro_cart`,
     `intro_prop_sprite_rows`) shows its new art at once
-    (`test_a_focused_publish_packs_the_runtime_groups.py`). **Left:** a
-    focused publish writes the runtime roots in place, not through the
-    staging root.
+    (`test_a_focused_publish_packs_the_runtime_groups.py`), and it writes
+    through the staging root as a full publish does (8.3 s for
+    `intro_cart`, 2026-10-16).
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

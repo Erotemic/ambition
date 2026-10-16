@@ -422,6 +422,20 @@ if [ "$list_targets" -eq 1 ]; then
     exit 0
 fi
 
+# The staging root, on the same file system as `asset_root`, so the swap is
+# a rename. A focused publish and a full one both write into it.
+staging_root="$renderer_dir/.cache/publish_staging"
+mirror_root="$renderer_dir/.cache/publish_mirror"
+# shellcheck source=../lib/sprite_staging.sh
+source "$repo_root/scripts/lib/sprite_staging.sh"
+
+# Point the phases at the staging root, or back at the runtime roots.
+use_publish_root() {
+    publish_asset_root="$1"
+    sprites_dir="$1/sprites"
+    entities_dir="$sprites_dir/entities"
+}
+
 # Ultrapack tiers. tier: <name> <scale> <min_frame_px> <page_size>
 #
 # Page size scales DOWN with the tier: shrunk frames pack many-per-page,
@@ -445,6 +459,11 @@ fi
 
 if [ "${#target_names[@]}" -gt 0 ]; then
     validate_sprite_targets
+    # Into the staging root, as a full publish writes: a focused run that
+    # stops part way leaves the runtime roots as the last whole set, and
+    # the next run continues the staged copy.
+    begin_staging
+    use_publish_root "$staging_root"
     for one in "${target_names[@]}"; do
         regen_one_target "$one"
     done
@@ -460,7 +479,7 @@ if [ "${#target_names[@]}" -gt 0 ]; then
         done
         echo "==> reduced-resolution quality variants: ${target_names[*]}"
         if ! "$python_bin" "$repo_root/scripts/generate_visual_quality_variants.py" \
-            --asset-root "$repo_root/crates/ambition_platformer2d_actor_monolith/assets" \
+            --asset-root "$publish_asset_root" \
             --sprites-only --force "${variant_targets[@]}" 2>&1 | sed 's/^/  /'; then
             echo "==> regen FAILED — quality variants: generator reported a failure" >&2
             exit 1
@@ -480,7 +499,7 @@ if [ "${#target_names[@]}" -gt 0 ]; then
             rm -f "$renderer_dir/.cache/ultrapack/$tname.key"
             if ! run_renderer_python "ultrapack-$tname" -m ambition_sprite2d_renderer.authoring.ultrapack \
                 --from-rendered "$sprites_dir" \
-                --out "$asset_root/sprite_packs/$tname" --runtime-only \
+                --out "$publish_asset_root/sprite_packs/$tname" --runtime-only \
                 --scale "$tscale" --min-frame-px "$tmin" --page-size "$tpage" \
                 --name ultrapack "${ultrapack_plan[@]}" \
                 --state "$renderer_dir/.cache/ultrapack/$tname.state.json" \
@@ -494,6 +513,9 @@ if [ "${#target_names[@]}" -gt 0 ]; then
         done
         rm -f "$tier_log"
     fi
+    echo "==> staging root → runtime roots"
+    finish_staging
+    use_publish_root "$asset_root"
     print_regen_timings
     exit 0
 fi
@@ -1248,18 +1270,6 @@ fingerprint_file="$cache_dir/regen-fingerprint"
 # What each target's last render read: `publish-many` records it under this
 # variable, and both keys hash it (`leaf_hash`, `compute_fingerprint`).
 target_reads_dir="$cache_dir/reads"
-# On the same file system as `asset_root`, so the swap is a rename.
-staging_root="$cache_dir/publish_staging"
-mirror_root="$cache_dir/publish_mirror"
-# shellcheck source=../lib/sprite_staging.sh
-source "$repo_root/scripts/lib/sprite_staging.sh"
-
-# Point the phases at the staging root, or back at the runtime roots.
-use_publish_root() {
-    publish_asset_root="$1"
-    sprites_dir="$1/sprites"
-    entities_dir="$sprites_dir/entities"
-}
 
 
 

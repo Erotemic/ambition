@@ -1223,7 +1223,7 @@ all_outputs_present() {
 # --- Per-sheet cache ------------------------------------------------------
 # The global cache commits only after a fully successful run. Per-sheet keys
 # allow an interrupted run to resume without rebuilding current targets. The
-# key (`compute_core_shared`, `leaf_hash`, `unit_key`) is in
+# key (`compute_unit_core`, `leaf_hash`, `unit_key`) is in
 # `scripts/lib/sprite_cache_key.sh`, so its tests call the functions this
 # script calls.
 sheets_cache_dir="$cache_dir/sheets"
@@ -1349,7 +1349,7 @@ publish_cached_batch() {
     if ! freshness="$(
         cd "$renderer_dir" && "$python_bin" "$repo_root/scripts/lib/sprite_freshness.py" \
             --repo-root "$repo_root" --cache-dir "$cache_dir" --sprites-dir "$sprites_dir" \
-            --core "$core_shared_fingerprint" --installs "$installs_tsv" --portraits "$portraits_tsv" \
+            --core "$unit_core_fingerprint" --installs "$installs_tsv" --portraits "$portraits_tsv" \
             "${freshness_flags[@]}" "${candidates[@]}"
     )"; then
         echo "  warning: could not judge the freshness of batch '$label'; republishing it" >&2
@@ -1505,6 +1505,7 @@ if ! sprite_cache_key_prepare; then
     exit 1
 fi
 core_shared_fingerprint="$(compute_core_shared)"
+unit_core_fingerprint="$(compute_unit_core)"
 
 phase "staging root: copy of the runtime roots → $staging_root"
 begin_staging

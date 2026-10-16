@@ -19,9 +19,10 @@ sprite_cache_key_prepare() {
 # --- Per-sheet cache ------------------------------------------------------
 # The global cache commits only after a fully successful run. Per-sheet keys
 # allow an interrupted run to resume without rebuilding current targets. Each
-# key combines the shared renderer core with the files of that target: a core
-# change invalidates every target, a change to a target's files only the
-# targets that read them.
+# key combines the recorder (`compute_unit_core`) with the files of that
+# target: the files of its static import closure and the files its last render
+# read and imported. A change to a file makes stale only the targets that
+# import or read it.
 #
 # ⭐ A TARGET'S FILES ARE WHAT IT IMPORTS, NOT WHAT ITS NAME MATCHES
 # (`scripts/lib/sprite_target_closure.py`). Every `targets/**/_*.py` helper
@@ -34,8 +35,9 @@ sprite_cache_key_prepare() {
 # underscore (`targets/super_mary_o_common.py`).
 #
 # Requires, set by the caller: `renderer_dir`, `repo_root`, `python_bin`,
-# `core_target_files` (from `sprite_cache_key_prepare`), `target_closures_file`
-# and `target_reads_dir`; and, for `compute_fingerprint`, the function
+# `core_target_files` (from `sprite_cache_key_prepare`), `target_closures_file`,
+# `target_reads_dir`, `core_shared_fingerprint` and `unit_core_fingerprint`;
+# and, for `compute_fingerprint`, the function
 # `renderer_capability_fingerprint`.
 
 # The key of the whole publish: the authored inputs
@@ -244,8 +246,24 @@ script_key() {
     } | sha256sum | awk '{print $1}'
 }
 
+# The shared part of a sheet's key: the recorder alone.
+#
+# ⛔ THE WHOLE RENDERER CORE WAS IN EVERY SHEET'S KEY. An edit to any of its
+# 68 files made every sheet stale: 56 min of renders (measured 2026-10-15).
+# Ten sampled renders each imported 15 to 69 of those files, and 35 of the
+# files were imported by none of them. A record now lists each renderer
+# module that its render's process imported (`read_record.py`), and that
+# process imports only its target's module, so the record holds the code that
+# ran. The recorder decides what a record holds, so an edit to it makes every
+# sheet stale. The Ultrapack and script keys keep the whole core
+# (`compute_core_shared`): their code is not recorded.
+compute_unit_core() {
+    (cd "$renderer_dir" && sha256sum ambition_sprite2d_renderer/read_record.py) \
+        | sha256sum | awk '{print $1}'
+}
+
 unit_key() {
-    printf '%s:%s' "$core_shared_fingerprint" "$(leaf_hash "$1")" \
+    printf '%s:%s' "$unit_core_fingerprint" "$(leaf_hash "$1")" \
         | sha256sum | awk '{print $1}'
 }
 

@@ -24,6 +24,7 @@ def renderer(tmp_path: Path) -> Path:
     root = tmp_path / "renderer"
     for rel, text in {
         f"{PKG}/__init__.py": "",
+        f"{PKG}/read_record.py": "RECORD = 1\n",
         f"{PKG}/core/__init__.py": "",
         f"{PKG}/core/draw.py": "from ..targets.fam import _shared\n",
         f"{PKG}/authoring/__init__.py": "",
@@ -48,16 +49,18 @@ def renderer(tmp_path: Path) -> Path:
         f"alpha\t{fam}/alpha.py\nalpha\t{fam}/_rig_a.py\nbeta\t{fam}/beta.py\nbeta\t{fam}/_rig_b.py\n"
         f"gamma\t{fam}/gamma.py\n"
     )
-    # What each target's last render read, relative to the repository (here
-    # `tmp_path`). Alpha and beta both draw the villain's art, as
-    # `gnu_ton_scholar_fighter` draws `gnu_ton_scholar_villain.svg`.
+    # What each target's last render read and imported, relative to the
+    # repository (here `tmp_path`). Alpha and beta both draw the villain's art,
+    # as `gnu_ton_scholar_fighter` draws `gnu_ton_scholar_villain.svg`, and
+    # both draw through the core; gamma does not.
     data = f"renderer/{PKG}/data/characters"
+    core = f"f renderer/{PKG}/core/draw.py\nf renderer/{PKG}/targets/fam/_shared.py\n"
     reads = tmp_path / "reads"
     reads.mkdir()
     (reads / "alpha.reads").write_text(
-        f"f {data}/alpha/alpha.svg\nf {data}/villain/villain.svg\n"
+        f"f {data}/alpha/alpha.svg\nf {data}/villain/villain.svg\n{core}"
     )
-    (reads / "beta.reads").write_text(f"f {data}/villain/villain.svg\n")
+    (reads / "beta.reads").write_text(f"f {data}/villain/villain.svg\n{core}")
     (reads / "gamma.reads").write_text(f"f {data}/gamma/gamma.svg\nd {data}/gamma\n")
     return root
 
@@ -71,8 +74,7 @@ def keys(renderer: Path) -> dict[str, str]:
         repo_root={renderer.parent}
         target_closures_file={renderer.parent / 'closures.tsv'}
         target_reads_dir={renderer.parent / 'reads'}
-        core_target_files={PKG}/targets/fam/_shared.py
-        core_shared_fingerprint="$(compute_core_shared)"
+        unit_core_fingerprint="$(compute_unit_core)"
         for name in alpha beta gamma; do printf '%s %s\\n' "$name" "$(unit_key "$name")"; done
     """
     out = subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=True).stdout
@@ -101,12 +103,28 @@ def test_an_edit_to_a_target_module_makes_it_stale(renderer: Path) -> None:
     assert after["beta"] != before["beta"] and after["alpha"] == before["alpha"]
 
 
-def test_an_edit_to_a_helper_the_core_imports_makes_every_target_stale(renderer: Path) -> None:
-    """The control: the core runs for every target."""
+def test_an_edit_to_a_core_module_makes_stale_only_the_targets_that_imported_it(renderer: Path) -> None:
+    """The defect: the whole core was in every key, so an edit to any of its
+    68 files re-rendered every sheet (56 min, measured 2026-10-15)."""
     before = keys(renderer)
-    edit(renderer, "_shared.py")
+    draw = renderer / PKG / "core" / "draw.py"
+    draw.write_text(draw.read_text() + "# edited\n")
     after = keys(renderer)
-    assert after["alpha"] != before["alpha"] and after["beta"] != before["beta"]
+    assert after["alpha"] != before["alpha"] and after["beta"] != before["beta"], (
+        "an edit to a module that alpha and beta imported kept their keys"
+    )
+    assert after["gamma"] == before["gamma"], "an edit to a module gamma did not import made it stale"
+    edit(renderer, "_shared.py")
+    again = keys(renderer)
+    assert again["alpha"] != after["alpha"] and again["gamma"] == after["gamma"]
+
+
+def test_an_edit_to_the_recorder_makes_every_target_stale(renderer: Path) -> None:
+    """The recorder decides what a record holds, so every key moves with it."""
+    before = keys(renderer)
+    (renderer / PKG / "read_record.py").write_text("RECORD = 2\n")
+    after = keys(renderer)
+    assert all(after[name] != before[name] for name in before), (before, after)
 
 
 def edit_art(renderer: Path, character: str) -> None:
@@ -362,6 +380,6 @@ def test_an_edit_to_the_packer_moves_the_ultrapack_key_and_no_sheet_key(renderer
     (renderer / PKG / "authoring" / "ultrapack.py").write_text("PAGE = 2\n")
     assert keys(renderer) == sheet_keys
     assert ultrapack_key(sheets, plan, renderer) != packer_key
-    # Control: an edit to another core module moves every sheet key.
-    (renderer / PKG / "authoring" / "sheet.py").write_text("S = 2\n")
-    assert all(keys(renderer)[name] != sheet_keys[name] for name in sheet_keys)
+    # Control: an edit to a core module that alpha imported moves its key.
+    (renderer / PKG / "core" / "draw.py").write_text("D = 2\n")
+    assert keys(renderer)["alpha"] != sheet_keys["alpha"]

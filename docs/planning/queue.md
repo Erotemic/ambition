@@ -1002,9 +1002,10 @@ variants. Also found in that regen:
     - A staging root swapped in only when every sprite phase passed
       (`scripts/lib/sprite_staging.sh`), made from the set the last swap
       replaced (`.cache/publish_mirror`, `rsync --delete`: 0.7 s, was 41 s).
-    - A per-sheet key: the shared core, the files the registry says a
-      target is made of, and the files its last render opened
-      (`read_record.py`, `scripts/lib/sprite_cache_key.sh`). One process
+    - A per-sheet key: the recorder, the files the registry says a
+      target is made of, and the files its last render opened and the
+      renderer modules it imported (`read_record.py`,
+      `scripts/lib/sprite_cache_key.sh`). One process
       judges a batch (`scripts/lib/sprite_freshness.py`, 6 s for 240
       targets, the bytes of the bash key).
     - `draw-review`, `draw-all` and `draw-factions` deleted: their targets
@@ -1022,9 +1023,14 @@ variants. Also found in that regen:
     **Measured 2026-10-15:** no change, 37 s (the whole-run hit); nothing
     to render, 54 s; a recolour of one sheet, its render plus about 7 s of
     packing; a frame that changes size, its render plus 74 s (every tier
-    re-packs). A change to the shared core re-renders every sheet: 56 min
+    re-packs). A change to the shared core re-rendered every sheet: 56 min
     (tack-ons 2255 s of render, the variants 575 s before they built on
-    six processes).
+    six processes). Since 2026-10-15 a sheet's key holds the modules its
+    render imported, not the whole core (68 files): ten sampled renders
+    imported 15 to 69 of them, and 35 were imported by none. Each record
+    gets its modules at its next render, so the first full publish after
+    the change renders every sheet once. The cost of a core edit after
+    that is not measured yet.
     **Left:** a frame size change re-packs all four tiers. A focused
     publish (`sprites.sh --target NAME`, 22 s for `mallory`: its render and
     its tiers) writes in place and packs no Ultrapack, so the one prop that

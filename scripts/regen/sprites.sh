@@ -1723,6 +1723,11 @@ then
     # frames are drawn again, to the bytes of a full pack. Measured
     # 2026-10-15 on the full tier: a recolour of one sheet 6.7 s, a full
     # pack 124 s.
+    # Each tier reads its sheets and encodes its pages on threads (`--jobs`;
+    # the bytes do not change). The threads of the four tiers are at most
+    # `AMBITION_SPRITE_JOBS` in all, and the two slowest tiers get two each.
+    # Measured 2026-10-15, the four at once: 82 s on 2/2/1/1 threads, was
+    # 130 s on one each; the quarter tier is then the slowest.
     ultrapack_key_dir="$cache_dir/ultrapack"
     mkdir -p "$ultrapack_key_dir"
     ultrapack_inputs="$(ultrapack_inputs_key "$sprites_dir" "$renderer_dir/ambition_sprite2d_renderer/data/pack_plan.yaml")"
@@ -1763,6 +1768,10 @@ then
             finish_ultrapack_tier "$ultrapack_waited"
             ultrapack_waited=$((ultrapack_waited + 1))
         fi
+        case "$tname" in
+            full | half) ultrapack_threads=$(( 2 * AMBITION_SPRITE_JOBS / 6 )) ;;
+            *) ultrapack_threads=$(( AMBITION_SPRITE_JOBS / 6 )) ;;
+        esac
         # The module's own entry, not the `ultrapack` command: an edit to
         # the CLI makes every sheet stale (see `ultrapack.main`).
         run_renderer_python "ultrapack-$tname" -m ambition_sprite2d_renderer.authoring.ultrapack \
@@ -1770,7 +1779,8 @@ then
             --out "$pack_root/$tname" \
             --scale "$tscale" --min-frame-px "$tmin" --page-size "$tpage" \
             --name ultrapack "${ultrapack_plan[@]}" "${ultrapack_debug[@]}" \
-            --state "$ultrapack_key_dir/$tname.state.json" >"$ultrapack_logs/$tname.log" 2>&1 &
+            --state "$ultrapack_key_dir/$tname.state.json" \
+            --jobs "$(( ultrapack_threads > 1 ? ultrapack_threads : 1 ))" >"$ultrapack_logs/$tname.log" 2>&1 &
         ultrapack_pids+=("$!")
         ultrapack_names+=("$tname")
         ultrapack_keys+=("$tier_key")
@@ -1924,6 +1934,12 @@ fi
 # .ldtk when something actually changed). Default is the curated entity map
 # (a minimal diff); pass --all-sheets by hand to register every sheet for
 # browsing in the editor.
+# The `file:` of each world row in the pack's `worlds.ron`.
+ldtk_world_files() {
+    sed -n 's/^[[:space:]]*(id:.*file:[[:space:]]*"\([^"]*\)".*/\1/p' \
+        "$content_assets_dir/data/worlds.ron"
+}
+
 phase "LDtk sprite tilesets:"
 sprite_manifest="$sprites_dir/ldtk_sprite_manifest.json"
 if ambition_python_exists "$python_bin" && \
@@ -1933,12 +1949,14 @@ if ambition_python_exists "$python_bin" && \
 then
     run_renderer_python ldtk-manifest -m ambition_sprite2d_renderer \
         ldtk-manifest --out "$sprite_manifest" 2>&1 | sed 's/^/  /' || true
-    # hall_of_characters carries the same PlayerStart icon wiring as the other
-    # three; leaving it out let its tileset def drift onto a sheet name the
-    # renderer had stopped publishing. Pruning drops the def that repointing
-    # orphans, so no world keeps naming a PNG that no longer ships.
-    for world in sandbox intro you_have_to_cut_the_rope hall_of_characters; do
-        ldtk_path="$worlds_dir/$world.ldtk"
+    # Each world carries the same PlayerStart icon wiring. A world left out
+    # of this loop keeps a tileset def that drifts onto a sheet name the
+    # renderer stopped publishing (the hall did, and then the Math world was
+    # left out of a hand list). So the worlds are the pack's own list,
+    # `worlds.ron`. Pruning drops the def that repointing orphans, so no
+    # world keeps naming a PNG that no longer ships.
+    for world in $(ldtk_world_files); do
+        ldtk_path="$worlds_dir/$world"
         [ -f "$ldtk_path" ] || continue
         "$ldtk_python" \
             -m ambition_ldtk_tools.edit.visual_manifest apply-manifest \

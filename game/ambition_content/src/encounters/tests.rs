@@ -13,7 +13,7 @@
 //! regenerate, an editor session, or a careless merge is exactly what this
 //! defends against, and none of those touch a fixture.
 
-use super::{KERNEL_SIGNALS, SYMMETRY_ATTUNEMENT_ID};
+use super::SYMMETRY_ATTUNEMENT_ID;
 
 /// THE SANDBOX WORLD SAYS WHAT EACH KERNEL FACE DOES — in the level, not in
 /// Rust.
@@ -21,7 +21,7 @@ use super::{KERNEL_SIGNALS, SYMMETRY_ATTUNEMENT_ID};
 /// and it says it in the vocabulary the shared contract publishes: a command
 /// id, a prepared `encounter:` reference, and the signal key the encounter's own
 /// objective is built from. The last of those is checked against
-/// [`KERNEL_SIGNALS`] rather than a literal list, so a world and an objective
+/// the pack's `symmetry_attunement.signals` rather than a literal list, so a world and an objective
 /// that drift apart fail here rather than in a playthrough.
 #[test]
 fn the_sandbox_world_authors_what_each_kernel_switch_does() {
@@ -65,7 +65,9 @@ fn the_sandbox_world_authors_what_each_kernel_switch_does() {
         "sandbox.ldtk authors only {switches} Switch(es); this test is about them"
     );
 
-    let expected: Vec<(String, String)> = KERNEL_SIGNALS
+    let expected: Vec<(String, String)> = crate::tuning::shipped()
+        .symmetry_attunement
+        .signals
         .iter()
         .map(|signal| {
             (
@@ -109,5 +111,34 @@ fn the_chamber_starts_the_attunement_in_its_world_file() {
             "symmetry_room".to_string(),
             format!("encounter.start encounter:{SYMMETRY_ATTUNEMENT_ID}")
         )]
+    );
+}
+
+/// The attunement's win condition is the pack's `symmetry_attunement.signals`,
+/// not a list of the code's own: a pack that names two signals gets a puzzle
+/// of those two.
+#[test]
+fn the_attunement_completes_on_the_signals_the_pack_names() {
+    use ambition_encounter::{Encounter, EncounterObjective, Objective};
+    use bevy::ecs::system::RunSystemOnce as _;
+    let mut rules = crate::tuning::shipped();
+    rules.symmetry_attunement.signals = vec!["probe_a".to_string(), "probe_b".to_string()];
+    let mut world = bevy::prelude::World::new();
+    world.insert_resource(crate::tuning::AmbitionTuning(rules));
+    world.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    world.run_system_once(super::spawn_symmetry_attunement).expect("the spawn runs");
+    let mut found = world.query::<(&Encounter, &EncounterObjective)>();
+    let objectives: Vec<Objective> = found
+        .iter(&world)
+        .filter(|(encounter, _)| encounter.id == SYMMETRY_ATTUNEMENT_ID)
+        .map(|(_, objective)| objective.win.clone())
+        .collect();
+    assert_eq!(
+        objectives,
+        vec![Objective::All(vec![
+            Objective::ReceiveSignal("probe_a".to_string()),
+            Objective::ReceiveSignal("probe_b".to_string()),
+        ])],
+        "the attunement does not complete on the pack's signals"
     );
 }

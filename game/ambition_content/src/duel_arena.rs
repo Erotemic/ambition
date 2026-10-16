@@ -12,7 +12,7 @@
 //! Two entry points, both producing plain [`SpawnActorRequest`]s the engine's
 //! request applier resolves (grudges cross-wired once the batch's entities
 //! exist):
-//! - [`register_duel_content_staging`] — the duel-arena room stages the fight
+//! - [`register_duel_content_staging`] — the pack's arena room stages the fight
 //!   as part of room CONSTRUCTION, through the engine's
 //!   [`RoomContentStagingRegistry`] seam. Registered staging (not a
 //!   `RoomLoaded` consumer) is what makes the fighters part of the room's
@@ -26,104 +26,59 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use ambition_characters::actor::ActorFaction;
+use ambition_content_schemas::rules::Duel;
 use ambition_platformer2d::actor::{
     RoomContentStagingRegistry, SpawnActorKind, SpawnActorRequest,
 };
 
-/// Feature id of the duel's PCA fighter.
-pub const DUEL_PCA_ID: &str = "duel_pca";
-/// Feature id of the duel's robot fighter.
-pub const DUEL_ROBOT_ID: &str = "duel_robot";
+/// The registration's owner and source in the room staging registry. A
+/// content reload restates the stager under the same pair.
+const STAGING_OWNER: &str = "ambition_content";
+const STAGING_SOURCE: &str = "duel_arena";
 
-/// Level id of the spectator duel arena room (authored in `sandbox.ldtk`).
-pub const DUEL_ARENA_ROOM_ID: &str = "duel_arena";
-
-/// How far ahead of the room's player-arrival point the duel is centered, so
-/// the fight sits on-screen the moment the player enters.
-const DUEL_ARENA_OFFSET_X: f32 = 360.0;
-
-/// The two fighter spawn requests for a PCA-vs-robot duel centered at `center`.
-/// Both spawn as plain `Npc`s holding a mutual grudge (each names the other's
-/// id in `grudge_against`); the engine's request applier cross-wires the
-/// grudges once both entities exist. The grudge — not a hostile faction — is
-/// what makes them fight: it drives relational targeting AND authorizes
-/// same-faction damage (`damage_lands`).
-/// The PCA's character id — the body the duel's first fighter IS, rather than an
-/// archetype wearing its face.
-pub const DUEL_PCA_CHARACTER: &str = "perfect_cellular_automaton";
-
-pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
-    [
-        SpawnActorRequest {
-            id: DUEL_PCA_ID.to_string(),
-            // A LABEL, and nothing downstream reads it. This asked to be kept in
-            // sync with the catalog `display_name` under a MUST, on the ground
-            // that the sheet and the authored hitbox both resolved from it.
-            // ⭐ MEASURED FALSE (2026-08-31), twice over: a request naming a
-            // `character` reaches `ActorClusterSeed::new_character_in`, which
-            // takes `display_name` off the CHARACTER's blueprint and is never
-            // handed this string; and the sheet binder + hitbox resolver both
-            // key on the worn character, which `character` below states.
-            // Pinned by `a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests`.
-            name: "Perfect Cellular Automaton".to_string(),
-            pos: center + ae::Vec2::new(-75.0, 0.0),
-            half_size: ae::Vec2::new(14.0, 23.0),
+/// The fighter spawn requests for the pack's duel centered at `center`. Each
+/// fighter spawns as a plain `Npc` that names its foe in `grudge_against`;
+/// the engine's request applier cross-wires the grudges once all entities
+/// exist. The grudge, not a hostile faction, is what makes them fight: it
+/// drives relational targeting and lets a same-faction hit land
+/// (`damage_lands`).
+pub fn duel_spawn_requests(duel: &Duel, center: ae::Vec2) -> Vec<SpawnActorRequest> {
+    duel.fighters
+        .iter()
+        .map(|fighter| SpawnActorRequest {
+            id: fighter.id.clone(),
+            // A label that nothing downstream reads: a request that names a
+            // character takes its shown name, its sheet and its hitbox from
+            // that character (pinned by
+            // `a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests`).
+            name: fighter.id.clone(),
+            pos: center + ae::Vec2::new(fighter.offset.0, fighter.offset.1),
+            half_size: ae::Vec2::new(fighter.half_size.0, fighter.half_size.1),
             faction: ActorFaction::Npc,
-            grudge_against: Some(DUEL_ROBOT_ID.to_string()),
+            grudge_against: Some(fighter.grudge_against.clone()),
             kind: SpawnActorKind::Enemy {
-                brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
-                    "cellular_automaton_fighter".to_string(),
-                ),
-                // Use the authored PCA character definition; the custom brain remains
-                // responsible for deciding when to enact its defensive abilities.
-                character: ambition_entity_catalog::CharacterId::from(DUEL_PCA_CHARACTER),
+                brain: ambition_entity_catalog::placements::CharacterBrain::Custom(fighter.brain.clone()),
+                character: ambition_entity_catalog::CharacterId::from(fighter.character.as_str()),
             },
-        },
-        SpawnActorRequest {
-            id: DUEL_ROBOT_ID.to_string(),
-            // The duellist is the player's PREVIOUS build, not its current one.
-            // As above: a label, superseded by the `character` this request
-            // names, which is what actually decides both art and hitbox.
-            name: "Player Robot v2".to_string(),
-            pos: center + ae::Vec2::new(75.0, 0.0),
-            half_size: ae::Vec2::new(14.0, 23.0),
-            faction: ActorFaction::Npc,
-            grudge_against: Some(DUEL_PCA_ID.to_string()),
-            kind: SpawnActorKind::Enemy {
-                brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
-                    "player_robot".to_string(),
-                ),
-                // THE CHARACTER, so the exhibition robot is the robot. It
-                // was `None`, which sent this body down the archetype road and
-                // built it from `player_robot`'s eighty-line row — the row whose
-                // body half now lives on the lineage. The brain key
-                // stays only as the fallback for a composition that has not
-                // registered the lineage.
-                character: ambition_entity_catalog::CharacterId::from("player_robot_v2"),
-            },
-        },
-    ]
+        })
+        .collect()
 }
 
-/// Register the duel as the arena room's content staging: whenever the room's
-/// contents are staged — activation, transition, reset, hot-reload, and a
-/// snapshot restore staging the room — the exhibition fight stages with them,
-/// so the pair is already battling the instant the player walks in. A pure
-/// function of the `RoomSpec`, which is what lets a restore preflight predict
-/// the fighters' identities without touching the world.
-pub fn register_duel_content_staging(registry: &mut RoomContentStagingRegistry) {
+/// Register the pack's duel as the arena room's content staging: whenever
+/// the room's contents are staged (activation, transition, reset, hot
+/// reload, and a snapshot restore that stages the room), the fight stages
+/// with them, so the pair already fights when the player walks in. The
+/// stager is a pure function of the `RoomSpec` and the duel it holds, so a
+/// restore preflight can predict the fighters' identities without the world.
+/// A content reload calls this again with the new duel.
+pub fn register_duel_content_staging(registry: &mut RoomContentStagingRegistry, duel: &Duel) {
+    let staged = duel.clone();
     registry
-        .register(
-            DUEL_ARENA_ROOM_ID,
-            "ambition_content",
-            "duel_arena",
-            "duel-staging.v1",
-            |spec| {
-                let center = spec.world.spawn + ae::Vec2::new(DUEL_ARENA_OFFSET_X, 0.0);
-                duel_spawn_requests(center).to_vec()
-            },
-        )
-        .expect("duel staging registration is unique");
+        .restate(duel.room.clone(), STAGING_OWNER, STAGING_SOURCE, "duel-staging.v1", move |spec| {
+            let center = spec.world.spawn + ae::Vec2::new(staged.arena_offset_x, 0.0);
+            duel_spawn_requests(&staged, center)
+        })
+        .expect("the duel's staging identity is not empty");
 }
 
 /// `<<duel>>` — stage the spectator duel beside the player, anywhere. The
@@ -140,6 +95,7 @@ fn cmd_duel(
     // this presentation-side command — so a rewind past the duel deleted the
     // request and the duellists never appeared.
     mut spawns: ambition_conversation::NarrativeInputWriter<SpawnActorRequest>,
+    tuning: Res<crate::tuning::AmbitionTuning>,
 ) {
     let Some(kin) = player.iter().next() else {
         warn!("<<duel>>: no player to center the duel on; ignoring");
@@ -148,8 +104,9 @@ fn cmd_duel(
     // Stage the duel off to the side the player faces; the mutual grudge
     // (carried on the requests, cross-wired at spawn) makes the pair target
     // each other regardless of where the observer stands.
-    let center = kin.pos + ae::Vec2::new(kin.facing.signum() * 220.0, 0.0);
-    for request in duel_spawn_requests(center) {
+    let duel = &tuning.0.duel;
+    let center = kin.pos + ae::Vec2::new(kin.facing.signum() * duel.beside_player_x, 0.0);
+    for request in duel_spawn_requests(duel, center) {
         spawns.write(request);
     }
 }

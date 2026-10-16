@@ -118,10 +118,12 @@ impl Plugin for AmbitionContentPlugin {
 
         // Spectator duel staging is room-construction content.
         app.init_resource::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>();
+        let duel = app.world().resource::<super::tuning::AmbitionTuning>().0.duel.clone();
         super::duel_arena::register_duel_content_staging(
             &mut app
                 .world_mut()
                 .resource_mut::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>(),
+            &duel,
         );
         #[cfg(feature = "ui")]
         {

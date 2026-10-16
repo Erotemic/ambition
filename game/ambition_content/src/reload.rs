@@ -586,16 +586,26 @@ fn candidate_character_catalog(
     pack: &ambition_content_pack::PreparedContentPack,
 ) -> Result<Option<ambition_characters::prepared::CandidateCatalog>, String> {
     use ambition_characters::actor::character_catalog as cc;
+    // The provider's default character is the fragment's too, so a candidate
+    // that only starts the player as another row also states the catalog.
+    let starting = |pack: &ambition_content_pack::PreparedContentPack| {
+        ambition_content_schemas::rules::lowered_ambition_rules(pack).map(|rules| rules.starting_character.clone())
+    };
     let changes_catalog = crate::pack::selected(world).is_some_and(|active| {
         ambition_content_pack::changed_domains(active, pack)
             .iter()
             .any(|schema| schema.0 == cc::CHARACTER_CATALOG_SCHEMA)
+            || starting(&active) != starting(pack)
     });
     if !changes_catalog {
         return Ok(None);
     }
     let data = cc::lowered_catalog(pack).ok_or("the pack carries no lowered character catalog")?;
-    let fragment = crate::character_catalog::catalog_fragment(data.clone()).map_err(|e| e.to_string())?;
+    let starting = ambition_content_schemas::rules::lowered_ambition_rules(pack)
+        .ok_or("the pack carries no lowered `ambition_rules`")?
+        .starting_character
+        .clone();
+    let fragment = crate::character_catalog::catalog_fragment(data.clone(), &starting).map_err(|e| e.to_string())?;
     let registry = world
         .get_resource::<cc::CharacterCatalogRegistry>()
         .ok_or("this App registers no character catalog")?;
@@ -1010,6 +1020,14 @@ fn publish_ambition_tuning(
             // the file at the same boundary.
             world.insert_resource(crate::day_cycle::day_cycle(&rules.day));
             world.insert_resource(crate::day_cycle::daylight(&rules.day));
+            // The arena room stages the new duel the next time its
+            // contents are staged.
+            crate::duel_arena::register_duel_content_staging(
+                &mut world.get_resource_or_insert_with(
+                    ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default,
+                ),
+                &rules.duel,
+            );
             world.insert_resource(crate::tuning::AmbitionTuning(rules));
         }
         None => bevy::log::error!("the candidate states no `ambition_rules`; the reload keeps Ambition's tuning"),

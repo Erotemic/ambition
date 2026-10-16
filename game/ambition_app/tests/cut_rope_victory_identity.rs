@@ -152,3 +152,51 @@ fn the_cut_rope_victory_npc_is_a_damageable_body_with_a_stable_identity() {
         census.first_unidentified
     );
 }
+
+/// The victory NPC is the pack's `cut_rope_victory` row: its name, its box
+/// and its dialogue node are what `ambition_rules.ron` states. The row is
+/// edited in the live tuning before the spawn, so a Rust copy of any field
+/// shows the shipped value and fails here.
+#[test]
+fn the_victory_npc_is_the_packs_cut_rope_victory_row() {
+    use ambition_platformer2d::combat::components::{ActorInteraction, CenteredAabb, FeatureName};
+    use ambition_platformer2d::interaction::InteractionKind;
+
+    let mut sim = cut_rope_sim();
+    let edited = {
+        let world = sim.world_mut();
+        let mut tuning = world.resource_mut::<ambition_content::tuning::AmbitionTuning>();
+        let row = &mut tuning.0.cut_rope_victory;
+        assert_ne!(row.name, "The Knot Admirer", "the probe changes the name");
+        row.name = "The Knot Admirer".to_string();
+        row.dialogue = "probe_victory_node".to_string();
+        row.width += 6.0;
+        row.height += 10.0;
+        row.clone()
+    };
+    let ids = boss_placement_ids(sim.world_mut());
+    assert!(!ids.is_empty(), "the cut-rope room published no boss placement");
+    {
+        let world = sim.world_mut();
+        let mut save = world.resource_mut::<AmbitionGameSave>();
+        for id in &ids {
+            save.data_mut().set_boss(id.clone(), PersistedEncounterState::Cleared);
+        }
+    }
+    sim.step_n(AgentAction::default(), 30);
+
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<(&FeatureName, &CenteredAabb, &ActorInteraction), With<ambition_content::bosses::SmirkingBehemothVictoryNpc>>();
+    let npcs: Vec<_> = q.iter(world).map(|(name, aabb, talk)| (name.0.clone(), aabb.half_size, talk.interactable.kind.clone())).collect();
+    assert!(!npcs.is_empty(), "the victory NPC never spawned, so this test measured nothing");
+    for (name, half_size, kind) in npcs {
+        assert_eq!(name, edited.name, "the NPC shows a name that is not the row's");
+        assert_eq!(half_size * 2.0, Vec2::new(edited.width, edited.height), "the NPC's box is not the row's");
+        match kind {
+            InteractionKind::Npc { dialogue_id, .. } => {
+                assert_eq!(dialogue_id.as_deref(), Some(edited.dialogue.as_str()), "the NPC starts a dialogue that is not the row's")
+            }
+            other => panic!("the victory NPC is not an NPC to talk to: {other:?}"),
+        }
+    }
+}

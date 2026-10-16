@@ -1,0 +1,25 @@
+// The versus stage's room (schema `versus_arena`, owned by the app: the
+// room is this stage's content). An edit here is the room the next start
+// builds, with no Rust build.
+(
+    name: "Versus Arena",
+    size: (960.0, 540.0),
+    // The centre of the main platform, a little above its top: seating
+    // places the fighters symmetrically about this point.
+    spawn: (480.0, 376.0),
+    // Leaving the room past a line is a defeat. The side line is looser
+    // than the floor: a sideways launch is one a fighter can act on, so it
+    // is given further to recover. There is no line above the room.
+    blast: (fall: 96.0, side: 160.0, rise: None),
+    blocks: [
+        // The main platform. Seating spreads the fighters up to 144 px each
+        // side of the centre, so 480 px holds a four-seat 2v2 with room to
+        // spare.
+        (name: "arena_platform_main", kind: Solid, at: (240.0, 400.0), size: (480.0, 40.0)),
+        // Recovery ledges. Solid, not one-way: a fighter thrown out sideways
+        // needs something to catch, and a ledge they fall back through is not
+        // a second chance.
+        (name: "arena_platform_left", kind: Solid, at: (96.0, 304.0), size: (128.0, 20.0)),
+        (name: "arena_platform_right", kind: Solid, at: (736.0, 304.0), size: (128.0, 20.0)),
+    ],
+)

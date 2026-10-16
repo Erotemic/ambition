@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 
 use ambition_platformer2d::content::{lowered_rules, rules_schema, SchemaRegistration};
+use ambition_platformer2d::engine_core::{AuthoredBlock, BlockKind};
 use serde::Deserialize;
 
 /// The authored FILE kind: Smash's stages.
@@ -64,28 +65,8 @@ pub struct StageRoom {
     pub name: String,
     /// What the select screen's stage button shows.
     pub label: String,
-    pub blocks: Vec<StageBlock>,
-}
-
-/// One block of a stage. The first block is the main platform.
-#[derive(Clone, Debug, PartialEq, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct StageBlock {
-    pub name: String,
-    pub kind: StageBlockKind,
-    /// The top-left corner (y grows down).
-    pub at: (f32, f32),
-    /// (width, height).
-    pub size: (f32, f32),
-}
-
-/// What a body does when it meets a block.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
-pub enum StageBlockKind {
-    /// Stops a body from every side.
-    Solid,
-    /// Holds a body that lands from above; a body can drop through it.
-    OneWay,
+    /// The first block is the main platform.
+    pub blocks: Vec<AuthoredBlock>,
 }
 
 impl SmashStages {
@@ -148,23 +129,14 @@ impl SmashStages {
         for (id, stage) in &self.stages {
             match stage.blocks.first() {
                 None => problems.push(format!("`stages.{id}` has no blocks")),
-                Some(main) if main.kind != StageBlockKind::Solid => {
+                Some(main) if main.kind != BlockKind::Solid => {
                     problems.push(format!("`stages.{id}.blocks[0]` is the main platform and must be `Solid`"));
                 }
                 Some(_) => {}
             }
             for (index, block) in stage.blocks.iter().enumerate() {
-                if !positive(block.size.0) || !positive(block.size.1) {
-                    problems.push(format!(
-                        "`stages.{id}.blocks[{index}]` (`{}`) `size` must be finite and positive, not {:?}",
-                        block.name, block.size
-                    ));
-                }
-                if !block.at.0.is_finite() || !block.at.1.is_finite() {
-                    problems.push(format!(
-                        "`stages.{id}.blocks[{index}]` (`{}`) `at` must be finite, not {:?}",
-                        block.name, block.at
-                    ));
+                for problem in block.problems() {
+                    problems.push(format!("`stages.{id}.blocks[{index}]` (`{}`) {problem}", block.name));
                 }
             }
         }
@@ -252,13 +224,18 @@ mod tests {
         // screen's cycle with its own label, and no Rust names it.
         let offered = r#"offered: ["smash_stage", "smash_platform_stage", "smash_narrow_stage"],"#;
         assert_eq!(authored.matches(offered).count(), 1, "the probe edits the offered list");
-        let probe = r#"    stages: {
-        "probe_stage": (name: "Probe", label: "Probe", blocks: [
-            (name: "probe_platform", kind: Solid, at: (80.0, 300.0), size: (480.0, 32.0)),
-        ]),"#;
+        // One literal on each line: the repository's line scanners strip a
+        // literal only when it closes on its own line.
+        let probe = [
+            r#"    stages: {"#,
+            r#"        "probe_stage": (name: "Probe", label: "Probe", blocks: ["#,
+            r#"            (name: "probe_platform", kind: Solid, at: (80.0, 300.0), size: (480.0, 32.0)),"#,
+            r#"        ]),"#,
+        ]
+        .join("\n");
         let fourth = authored
             .replace(offered, r#"offered: ["smash_stage", "smash_platform_stage", "smash_narrow_stage", "probe_stage"],"#)
-            .replacen("    stages: {", probe, 1);
+            .replacen("    stages: {", &probe, 1);
         let more = stages_of(&fourth);
         assert_eq!(more.offered.last().map(String::as_str), Some("probe_stage"));
         assert_eq!(more.stages["probe_stage"].label, "Probe");

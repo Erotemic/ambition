@@ -2327,7 +2327,7 @@ fn a_fighter_picked_in_smash_does_not_follow_the_player_into_ambition() {
     let controlled = primary_player_character(&mut app);
     assert_eq!(
         controlled.as_deref(),
-        Some(ambition_content::character_catalog::DEFAULT_CHARACTER),
+        Some(ambition_content::character_catalog::starting_character(ambition_content::pack::shipped()).as_str()),
         "the body Ambition constructed is wearing {controlled:?} — the fighter \
          the Smash lobby picked, not the character Ambition's provider starts \
          with"

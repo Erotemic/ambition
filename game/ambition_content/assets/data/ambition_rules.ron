@@ -70,6 +70,19 @@
     thrown_impacts: {
         "coconut": (min_speed: 240.0, damage: 2, rebound: 0.3, rebound_cap: 0.8),
     },
+    // The character a player starts as, a row of `character_catalog.ron`:
+    // the current robot. Which row the game starts on is its choice, so it is
+    // stated here and not on the row.
+    starting_character: "player_robot_v3",
+    // The Noether attunement in the Noether Chamber: it completes when each
+    // signal came in. The chamber's four kernel switches send them (their
+    // `on_activate` lines in sandbox.ldtk): flip the gravity through every
+    // face and every symmetry is visited.
+    symmetry_attunement: (
+        signals: ["gravity_down", "gravity_left", "gravity_up", "gravity_right"],
+        banner: "NOETHER ATTUNEMENT — every symmetry conserved",
+        banner_seconds: 4.0,
+    ),
     // Ambition's day: 24 minutes of play (an hour of the day a minute), and a
     // session begins at 8 in the morning. Each phase begins at its hour and
     // lasts until the next one begins. The music of a room by the time of day
@@ -96,6 +109,29 @@
             (18.0, (1.0, 0.48, 0.12, 0.32)),
             (19.5, (0.45, 0.20, 0.42, 0.58)),
             (21.0, (0.06, 0.09, 0.28, 0.82)),
+        ],
+    ),
+    // The NPC that comes out of the Smirking Behemoth when it dies. Its
+    // lines are `smirking_behemoth_victory_npc` in
+    // `dialogue/sandbox/kernel.yarn`, which writes the speaker's name again.
+    cut_rope_victory: (
+        name: "The Rope Appreciator",
+        dialogue: "smirking_behemoth_victory_npc",
+        width: 28.0,
+        height: 48.0,
+    ),
+    // The spectator duel in the basement: the PCA against the player's
+    // previous build. The arena room stages it, and `<<duel>>` stages it
+    // beside the player.
+    duel: (
+        room: "duel_arena",
+        arena_offset_x: 360.0,
+        beside_player_x: 220.0,
+        fighters: [
+            (id: "duel_pca", character: "perfect_cellular_automaton", brain: "cellular_automaton_fighter",
+             offset: (-75.0, 0.0), half_size: (14.0, 23.0), grudge_against: "duel_robot"),
+            (id: "duel_robot", character: "player_robot_v2", brain: "player_robot",
+             offset: (75.0, 0.0), half_size: (14.0, 23.0), grudge_against: "duel_pca"),
         ],
     ),
 )

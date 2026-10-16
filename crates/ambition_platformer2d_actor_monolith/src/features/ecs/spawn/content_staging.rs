@@ -174,6 +174,30 @@ impl RoomContentStagingRegistry {
         Ok(())
     }
 
+    /// Replace the stager that `owner` registered from `source`, in whichever
+    /// room it was registered for. A content reload uses this when the data
+    /// that the stager reads changes, so the next staging of the room reads
+    /// the new data. With no earlier registration, this is a registration.
+    pub fn restate(
+        &mut self,
+        room_id: impl Into<String>,
+        owner: impl Into<String>,
+        source: impl Into<String>,
+        schema_id: impl Into<String>,
+        stager: impl Fn(&RoomSpec) -> Vec<SpawnActorRequest> + Send + Sync + 'static,
+    ) -> Result<(), RoomContentStagingRegistrationError> {
+        let owner = owner.into();
+        let source = source.into();
+        let mut candidate = self.clone();
+        candidate
+            .stagers
+            .retain(|entry| !(entry.meta.owner == owner && entry.meta.source == source));
+        // On a refusal, the registry keeps the earlier stager.
+        candidate.register(room_id, owner, source, schema_id, stager)?;
+        *self = candidate;
+        Ok(())
+    }
+
     pub fn schema_descriptors(&self) -> Vec<(String, String, String, String)> {
         self.stagers
             .iter()
@@ -400,5 +424,26 @@ mod tests {
             RoomContentStagingRegistrationError::DuplicateSource { .. }
         ));
         assert_eq!(registry.deterministic_dump(), before);
+    }
+
+    /// A restated stager replaces the owner's earlier one, also when it moves
+    /// to another room, and leaves another owner's stager in its room.
+    #[test]
+    fn a_restated_stager_replaces_only_its_owners_source() {
+        let room = |id: &str| RoomSpec::new(id, ae::World::new(id, ae::Vec2::new(128.0, 128.0), ae::Vec2::ZERO, vec![]));
+        let ids = |registry: &RoomContentStagingRegistry, id: &str| registry.staged_ids_for(&room(id));
+        let mut registry = RoomContentStagingRegistry::default();
+        registry.register("arena", "game", "duel", "fixture.v1", |_| vec![request("old")]).unwrap();
+        registry.register("arena", "other", "duel", "fixture.v1", |_| vec![request("theirs")]).unwrap();
+        registry.restate("arena", "game", "duel", "fixture.v1", |_| vec![request("new")]).unwrap();
+        assert_eq!(ids(&registry, "arena"), ["new", "theirs"]);
+        registry.restate("hall", "game", "duel", "fixture.v1", |_| vec![request("moved")]).unwrap();
+        assert_eq!(ids(&registry, "arena"), ["theirs"]);
+        assert_eq!(ids(&registry, "hall"), ["moved"]);
+        let before = registry.deterministic_dump();
+        registry
+            .restate("hall", "game", "duel", "", |_| vec![request("refused")])
+            .expect_err("an empty schema id is refused");
+        assert_eq!(registry.deterministic_dump(), before, "a refused restate keeps the earlier stager");
     }
 }

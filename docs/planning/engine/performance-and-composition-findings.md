@@ -717,9 +717,8 @@ the serial orders after. So this is an artifact of `capture_scene`, not of
 the game: in the game only `camera_follow` writes the camera, and the motes
 run after it. The rest of the frame and the player are the same in every
 arm. Fixed for captures (2026-10-16): `apply_capture_snapshot` now runs before
-`drift_room_motes` and `light_the_world`; the `parallel` and `frame-serial`
-hub captures are then pixel-identical (MEASURED). So the three executor
-policies give the same picture. Recommendation: make `Serial` the default
+`drift_room_motes` and `light_the_world`; the `parallel`, `frame-serial`
+and `serial` hub captures (600 frames) are then pixel-identical (MEASURED). Recommendation: make `Serial` the default
 of every foundation, then remove the switch; check `room_replay` under it
 first. Not done: it is a one-line default.
 

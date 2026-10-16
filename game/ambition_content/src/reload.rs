@@ -1393,29 +1393,6 @@ pub(crate) fn rebasable_local_timeline(world: &bevy::ecs::world::World) -> bool 
     ambition_platformer2d::rollback::locally_rebasable_timeline(world)
 }
 
-/// Stop the local timeline so the session owner rebases it onto the generation
-/// just published.
-///
-/// Call this in the same exclusive step as the publication. A frame between
-/// them would resimulate new content on the old timeline (the `Q118` desync).
-/// Releasing ownership is enough: `maintain_local_session` starts a new
-/// session next frame with the same policy and seating.
-fn rebase_local_timeline_onto_the_new_generation(world: &mut bevy::ecs::world::World) {
-    if !rebasable_local_timeline(world) || !ambition_platformer2d::rollback::session_is_active(world)
-    {
-        return;
-    }
-    ambition_platformer2d::rollback::stop_session(world);
-    world
-        .resource_mut::<ambition_platformer2d::rollback::local_session::LocalSessionOwnership>()
-        .release();
-    bevy::log::info!(
-        target: "ambition_content::reload",
-        "the published generation stopped the local rollback baseline; the session \
-         owner will rebase it onto the new content"
-    );
-}
-
 fn publication_boundary(world: &bevy::ecs::world::World) -> PublicationBoundary {
     use ambition_platformer2d::rollback::MechanicalMutationBoundary;
 
@@ -2207,7 +2184,7 @@ pub fn break_the_publication_lease_when_the_boundary_closes(
         ),
         // Admission let the generation past a healthy timeline only because
         // this host may rebase it. If an `External`/P2P or `Caller`-owned
-        // session replaced it, `rebase_local_timeline_onto_the_new_generation`
+        // session replaced it, `rebase_local_timeline_onto_published_content`
         // correctly does nothing, and publishing would desync. Ownership and
         // health are one enum value, so no caller can check only half.
         PublicationBoundary::ForeignTimeline => {
@@ -2415,8 +2392,8 @@ pub fn commit_content_generation(
                     // a speculating timeline desyncs the sync-test canary
                     // (`Q118`); stopping the baseline makes the next session
                     // start on the live generation. See
-                    // `rebase_local_timeline_onto_the_new_generation`.
-                    rebase_local_timeline_onto_the_new_generation(world);
+                    // `rebase_local_timeline_onto_published_content`.
+                    ambition_platformer2d::rollback::rebase_local_timeline_onto_published_content(world);
                 });
             }
             // Every way the request can end without activating. Listed, not

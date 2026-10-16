@@ -309,36 +309,6 @@ impl AudioLibrary {
         }
     }
 
-    /// Replace the music track table with `music_registry`'s tracks, for a
-    /// content reload. A track whose id and asset path did not change keeps its
-    /// loaded handle; any other track loads on first use, as at startup.
-    pub fn revise_music_tracks(
-        &mut self,
-        music_registry: &MusicRegistry,
-        resolve_track_path: Option<&dyn Fn(&str) -> Option<String>>,
-    ) {
-        let previous = std::mem::take(&mut self.music_tracks);
-        self.music_tracks = music_registry
-            .tracks
-            .iter()
-            .map(|track| {
-                let asset_path = resolve_track_path
-                    .and_then(|resolve| resolve(&track.id))
-                    .unwrap_or_else(|| track.resolved_asset_path());
-                let handle = previous
-                    .iter()
-                    .find(|old| old.id == track.id && old.source.asset_path == asset_path)
-                    .and_then(|old| old.source.handle.clone());
-                MusicTrackRuntime {
-                    id: track.id.clone(),
-                    display_name: track.display_name.clone(),
-                    one_shot: track.one_shot,
-                    source: TrackSource { asset_path, handle },
-                }
-            })
-            .collect();
-    }
-
     /// Replace one provider's tracks, for a reload of that provider's pack:
     /// `previous` is the music the provider stated before, `next` what it
     /// states now. A track of another provider is kept as it is, and so is a
@@ -355,13 +325,20 @@ impl AudioLibrary {
             if previous.contains(track) && self.track(&track.id).is_some() {
                 continue;
             }
+            let asset_path = track.resolved_asset_path();
+            let known = self.music_tracks.iter_mut().find(|known| known.id == track.id);
+            // A track whose file did not move keeps its loaded handle.
+            let handle = known
+                .as_ref()
+                .filter(|known| known.source.asset_path == asset_path)
+                .and_then(|known| known.source.handle.clone());
             let runtime = MusicTrackRuntime {
                 id: track.id.clone(),
                 display_name: track.display_name.clone(),
                 one_shot: track.one_shot,
-                source: TrackSource { asset_path: track.resolved_asset_path(), handle: None },
+                source: TrackSource { asset_path, handle },
             };
-            match self.music_tracks.iter_mut().find(|known| known.id == track.id) {
+            match known {
                 Some(known) => *known = runtime,
                 None => self.music_tracks.push(runtime),
             }

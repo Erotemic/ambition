@@ -1119,6 +1119,10 @@ variants. Also found in that regen:
     (`test_the_next_run_starts_from_the_set_the_swap_replaced`; poisons: no
     mirror kept, mirror not used, no `--delete`, each red on its own
     assertion).
+    **Built 2026-10-15, the LDtk manifest:** it read every sheet's YAML
+    sidecar for a manifest of one sheet. It now reads only the sheets it
+    registers: 1.66 s, was 24.8 s, byte-identical (renderer 38bbe7e,
+    `test_the_curated_manifest_reads_only_the_sidecars_it_registers`).
     **Built 2026-10-15, the staging root:** a full publish writes into a
     copy of the five runtime roots (`sprites`, the three tiers,
     `sprite_packs`) under the renderer's `.cache/publish_staging`, and moves

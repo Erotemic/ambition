@@ -73,7 +73,7 @@ pub use placement::{
 pub use transit::{
     portal_transit, portal_transit_free_bodies, publish_free_body_carves, publish_portal_carves,
     reconcile_transited_bodies,
-    tick_portal_cooldowns, BodyTeleported, FreePortalBody, PortalBodyTransited, PortalCarves,
+    tick_portal_cooldowns, BodyTeleported, FreePortalBody, PortalBodyTransited, PortalCarves, PortalHole,
     PortalBackside, PortalEmission, PortalInputWarp, PortalTransit,
 };
 pub use tuning::{

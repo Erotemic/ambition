@@ -22,6 +22,18 @@ pub struct GatePass {
     pub bodies: Vec<bevy::prelude::Entity>,
 }
 
+/// A portal's hole, open for the bodies that opened it (Jon 2026-10-16).
+/// The host stays whole for every other body and every reader that names no
+/// body: a body standing on the host beside the opening keeps its floor while
+/// another goes through. The hole is `face`: its box out of the room's boxes,
+/// and its face out of the room's lines (a portal on a slope).
+#[derive(Clone, Debug, PartialEq)]
+pub struct PortalHolePass {
+    pub face: ae::frame::FaceRect,
+    /// The bodies the hole is open for, in entity order.
+    pub bodies: Vec<bevy::prelude::Entity>,
+}
+
 #[derive(Component, Default, Clone, Debug)]
 pub struct FeatureEcsWorldOverlay {
     pub blocks: Vec<ae::Block>,
@@ -31,11 +43,9 @@ pub struct FeatureEcsWorldOverlay {
     pub gate_solids: Vec<ae::Block>,
     /// Per-actor openings of `gate_solids`; see [`GatePass`].
     pub gate_passes: Vec<GatePass>,
-    pub portal_carves: Vec<ae::Aabb>,
-    /// The openings of portals on lines (a portal on a slope), cut out of the
-    /// room's lines this tick. Owned by the portal bridge with
-    /// `portal_carves`.
-    pub portal_line_carves: Vec<ae::frame::FaceRect>,
+    /// Portal holes open this tick, each for its bodies; see
+    /// [`PortalHolePass`]. Owned by the portal bridge.
+    pub portal_holes: Vec<PortalHolePass>,
     pub removed_block_names: Vec<String>,
     pub climbable_carves: Vec<ae::Aabb>,
     pub water_regions: Vec<ae::WaterRegion>,
@@ -47,7 +57,7 @@ impl FeatureEcsWorldOverlay {
     ///
     /// ⭐⭐ THE DESTRUCTURE HAS NO `..`, AND THAT IS THE WHOLE POINT. This overlay
     /// has TWO owners over DISJOINT field sets: `rebuild_feature_ecs_world_overlay`
-    /// clears five of six, and `portal_carves` is cleared and refilled every frame
+    /// clears five of six, and `portal_holes` is cleared and refilled every frame
     /// by the portal bridge from the portal-owned `PortalCarves` — so a frame with
     /// no transiting body re-seals the host wall. Both halves are correct and
     /// single-authority today.
@@ -67,8 +77,7 @@ impl FeatureEcsWorldOverlay {
             chains,
             gate_solids,
             gate_passes,
-            portal_carves,
-            portal_line_carves,
+            portal_holes,
             removed_block_names,
             climbable_carves,
             water_regions,
@@ -83,7 +92,7 @@ impl FeatureEcsWorldOverlay {
         // ⛔ NOT OURS. The portal bridge (`bridge_portal_carves`) clears and
         // refills these every frame; clearing them here would race that and
         // blink the aperture depending on system order.
-        let _ = (portal_carves, portal_line_carves);
+        let _ = portal_holes;
     }
 
     /// Retract every contribution, from both owners, when the active room
@@ -109,8 +118,7 @@ impl FeatureEcsWorldOverlay {
             chains,
             gate_solids,
             gate_passes,
-            portal_carves,
-            portal_line_carves,
+            portal_holes,
             removed_block_names,
             climbable_carves,
             water_regions,
@@ -121,8 +129,7 @@ impl FeatureEcsWorldOverlay {
         gate_passes.clear();
         // The portal bridge refills this from `PortalCarves` on its next run,
         // as it does every frame.
-        portal_carves.clear();
-        portal_line_carves.clear();
+        portal_holes.clear();
         removed_block_names.clear();
         climbable_carves.clear();
         water_regions.clear();

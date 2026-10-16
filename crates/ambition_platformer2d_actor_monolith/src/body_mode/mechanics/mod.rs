@@ -20,6 +20,7 @@ pub fn update_body_mode(
     // Driven bodies, gated by their effective abilities; no `PlayerEntity`
     // identity filter.
     mut bodies: Query<(
+        Entity,
         &ambition_characters::control::DrivingParticipant,
         &mut ambition_platformer2d_core::BodyKinematics,
         &ambition_platformer2d_core::BodyBaseSize,
@@ -45,6 +46,7 @@ pub fn update_body_mode(
     // nothing to clear.
     let mut composed = ambition_platformer2d_world::collision::ComposedRooms::default();
     for (
+        entity,
         driver,
         mut kinematics,
         base_size,
@@ -58,7 +60,8 @@ pub fn update_body_mode(
         (abilities, flight, resolved_frame, room),
     ) in &mut bodies
     {
-        let Some(collision) = composed.solids(&world, room) else {
+        // The walls as this body meets them: a portal hole it is in is open.
+        let Some(collision) = composed.solids_for(&world, room, entity) else {
             continue;
         };
         // `DrivingParticipant` is the control-authority filter.

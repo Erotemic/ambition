@@ -1806,18 +1806,21 @@ fn carves_by_room(holes: &[Option<usize>]) -> [usize; 2] {
             .spawn((RoomInstanceRoot, room, FeatureEcsWorldOverlay::default()))
             .id()
     });
+    let body = app.world_mut().spawn_empty().id();
     app.insert_resource(PortalCarves {
         holes: holes
             .iter()
-            .map(|room| {
-                (
-                    room.map(|room| live[room]),
-                    ae::Aabb::new(Vec2::new(200.0, 390.0), Vec2::new(24.0, 10.0)),
-                )
+            .map(|room| ambition_portal2d::PortalHole {
+                room: room.map(|room| live[room]),
+                face: ae::frame::FaceRect {
+                    center: Vec2::new(200.0, 390.0),
+                    normal: Vec2::new(0.0, -1.0),
+                    half_along: 24.0,
+                    half_out: 10.0,
+                },
+                open_for: vec![body],
             })
             .collect(),
-        // The subject is the box carve; a line room's carve is the face's.
-        faces: Vec::new(),
     });
     app.add_systems(Update, crate::portal::bridge_portal_carves);
     app.update();
@@ -1825,7 +1828,7 @@ fn carves_by_room(holes: &[Option<usize>]) -> [usize; 2] {
         app.world()
             .get::<FeatureEcsWorldOverlay>(root)
             .expect("the root keeps its overlay")
-            .portal_carves
+            .portal_holes
             .len()
     })
 }

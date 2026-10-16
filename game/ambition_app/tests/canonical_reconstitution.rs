@@ -646,7 +646,7 @@ fn overlay_geometry(sim: &Platformer2dSimHarness) -> BTreeSet<String> {
     let mut pieces = BTreeSet::new();
     pieces.extend(overlay.blocks.iter().map(|b| aabb("block", &b.aabb)));
     pieces.extend(overlay.gate_solids.iter().map(|b| aabb("gate", &b.aabb)));
-    pieces.extend(overlay.portal_carves.iter().map(|a| aabb("portal carve", a)));
+    pieces.extend(overlay.portal_holes.iter().map(|hole| aabb("portal hole", &hole.face.bounds())));
     pieces.extend(overlay.climbable_carves.iter().map(|a| aabb("climb carve", a)));
     pieces.extend(overlay.water_regions.iter().map(|w| aabb("water", &w.aabb)));
     pieces.extend(

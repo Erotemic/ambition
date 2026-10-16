@@ -106,19 +106,44 @@ pub struct PortalTransit {
     pub crossed: bool,
 }
 
-/// Output of [`publish_portal_carves`]: the aperture rectangles to carve out of
-/// the host surface this frame, in publish order, each with the live room of
-/// its portal. A host bridge copies each into that room's collision overlay in
-/// the same frame and order. Portal core owns the geometry; the host owns how
-/// a carve changes its collision.
+/// Output of [`publish_portal_carves`]: the holes open this frame, in publish
+/// order, each with the live room of its portal and the bodies it is open
+/// for. A host bridge copies each into that room's collision overlay in the
+/// same frame and order. Portal core owns the geometry; the host owns how a
+/// hole changes its collision.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct PortalCarves {
-    /// Aperture rectangles to carve this frame, in publish order, by room:
-    /// out of the room's boxes.
-    pub holes: Vec<(PortalRoom, ae::Aabb)>,
-    /// The same holes turned to their faces: out of the room's lines (a
-    /// portal on a slope). For a cardinal portal each is its box.
-    pub faces: Vec<(PortalRoom, ae::frame::FaceRect)>,
+    pub holes: Vec<PortalHole>,
+}
+
+/// One portal's hole this frame: out of the host's boxes (`face.bounds()`)
+/// and out of its lines (a portal on a slope), for the bodies that opened it
+/// only (Jon 2026-10-16). The host stays whole for every other body: a body
+/// standing on the host beside the opening keeps its floor while another
+/// goes through.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PortalHole {
+    pub room: PortalRoom,
+    pub face: ae::frame::FaceRect,
+    /// The bodies it is open for, in entity order.
+    pub open_for: Vec<Entity>,
+}
+
+impl PortalCarves {
+    /// Open `face` in `room` for `body`: one hole per face, open for each
+    /// body that opened it.
+    fn open(&mut self, room: PortalRoom, face: ae::frame::FaceRect, body: Entity) {
+        let hole = match self.holes.iter().position(|h| h.room == room && h.face == face) {
+            Some(i) => &mut self.holes[i],
+            None => {
+                self.holes.push(PortalHole { room, face, open_for: Vec::new() });
+                self.holes.last_mut().expect("just pushed")
+            }
+        };
+        if let Err(at) = hole.open_for.binary_search(&body) {
+            hole.open_for.insert(at, body);
+        }
+    }
 }
 
 /// Publish apertures that must be carved from host collision this frame.
@@ -142,21 +167,13 @@ pub fn publish_portal_carves(
     mut carves: ResMut<PortalCarves>,
 ) {
     carves.holes.clear();
-    carves.faces.clear();
     let by_room = PortalsByRoom::collect(&portals, &live);
     if by_room.is_empty() {
         return;
     }
-    // Carve each channel of each room once, and only if its partner is placed
-    // in that room: a lone portal must not open a hole.
-    let mut carved: Vec<(PortalRoom, PortalChannel)> = Vec::new();
-    let mut carve = |room: PortalRoom,
-                     channel: PortalChannel,
-                     holes: &mut Vec<(PortalRoom, ae::Aabb)>,
-                     faces: &mut Vec<(PortalRoom, ae::frame::FaceRect)>| {
-        if carved.contains(&(room, channel)) {
-            return;
-        }
+    // A channel of a room opens only if its partner is placed in that room: a
+    // lone portal must not open a hole.
+    let carve = |room: PortalRoom, channel: PortalChannel, body: Entity, carves: &mut PortalCarves| {
         let all = by_room.in_room(room);
         let Some(enter) = find_portal(all, channel) else {
             return;
@@ -164,10 +181,7 @@ pub fn publish_portal_carves(
         if find_portal(all, channel.partner()).is_none() {
             return;
         }
-        let face = pp::carve_face_with_depth(&enter.aperture(), f32::INFINITY);
-        holes.push((room, face.bounds()));
-        faces.push((room, face));
-        carved.push((room, channel));
+        carves.open(room, pp::carve_face_with_depth(&enter.aperture(), f32::INFINITY), body);
     };
 
     let default_depths = PortalHostDepthsByRoom::default();
@@ -181,8 +195,7 @@ pub fn publish_portal_carves(
                 continue;
             }
             if body_opens(p, body, kin.pos, kin.vel, depths.in_room(room).depth(p.channel)) {
-                let PortalCarves { holes, faces } = &mut *carves;
-                carve(room, p.channel, holes, faces);
+                carve(room, p.channel, body_entity, &mut carves);
             }
         }
     }
@@ -191,9 +204,8 @@ pub fn publish_portal_carves(
     // only the end it entered open, a body the pair took this tick and that
     // moves later in the tick (a shot) met the closed exit's wall.
     for (body_entity, t) in &transits {
-        let PortalCarves { holes, faces } = &mut *carves;
-        carve(live.of(body_entity), t.straddling, holes, faces);
-        carve(live.of(body_entity), t.straddling.partner(), holes, faces);
+        carve(live.of(body_entity), t.straddling, body_entity, &mut carves);
+        carve(live.of(body_entity), t.straddling.partner(), body_entity, &mut carves);
     }
 }
 
@@ -260,11 +272,7 @@ pub fn publish_free_body_carves<B: FreePortalBody>(
             if !opens || find_portal(all, p.channel.partner()).is_none() {
                 continue;
             }
-            let face = pp::carve_face_with_depth(&p.aperture(), f32::INFINITY);
-            if !carves.faces.contains(&(room, face)) {
-                carves.holes.push((room, face.bounds()));
-                carves.faces.push((room, face));
-            }
+            carves.open(room, pp::carve_face_with_depth(&p.aperture(), f32::INFINITY), entity);
         }
     }
 }

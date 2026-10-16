@@ -149,15 +149,23 @@ struct SolidBlock {
 ///
 /// `BlinkWall` joins `Solid`, per the invariant's own wording. One-ways never do:
 /// overlapping a one-way is explicitly legal (§6.1 "Explicitly legal").
-fn solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
+fn solid_blocks(sim: &Platformer2dSimHarness, subject: Option<ambition_platformer2d::bevy::prelude::Entity>) -> Vec<SolidBlock> {
     let Some(room) = ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
         RoomGeometry,
     >(sim.world()) else {
         return Vec::new();
     };
+    // The holes open for the subject: a hole is open only for the bodies that
+    // opened it, so it is a carve for that body alone.
     let carves: Vec<ae::Aabb> = ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::FeatureEcsWorldOverlay>(sim
         .world())
-        .map(|o| o.portal_carves.clone())
+        .map(|o| {
+            o.portal_holes
+                .iter()
+                .filter(|hole| subject.is_some_and(|s| hole.bodies.contains(&s)))
+                .map(|hole| hole.face.bounds())
+                .collect()
+        })
         .unwrap_or_default();
     let composed =
         ambition_platformer2d::world::collision::world_with_portal_carves(&room.0, &carves);
@@ -642,11 +650,11 @@ fn run_episode(
         let pressed_down = action.move_y > 0.35;
         let obs = sim.step(action);
         ran += 1;
-        let blocks = solid_blocks(&sim);
+        let subject = player_entity(&mut sim);
+        let blocks = solid_blocks(&sim, subject);
         let authored = authored_solid_blocks(&sim);
         let platforms = one_ways(&sim);
         let body = player_body(&mut sim);
-        let subject = player_entity(&mut sim);
         let carve = straddled_carve(&mut sim);
         let remaps = class_b_remaps(&sim, subject);
         let room_zones = zones.get(&obs.active_room).unwrap_or(&empty);
@@ -900,7 +908,8 @@ fn trace_oob_under_town_pipes() {
         if (90..=105).contains(&tick) {
             let dx = px - prev.0;
             // Probe the left edge at this y (where the classifier flagged a Solid).
-            let left_solid = point_in_solid(&solid_blocks(&sim), 8.0, py);
+            let subject = player_entity(&mut sim);
+            let left_solid = point_in_solid(&solid_blocks(&sim, subject), 8.0, py);
             eprintln!(
                 "tick {tick}: pos=({px:.0},{py:.0}) dx={dx:+.0} left_edge_solid@y={left_solid} room={}",
                 obs.active_room
@@ -1501,7 +1510,8 @@ fn measure_how_many_frames_end_with_a_body_overlapping_solid() {
                 continue;
             }
             let (half_w, half_h) = (w * 0.5, h * 0.5);
-            let blocks = solid_blocks(&sim);
+            let subject = player_entity(&mut sim);
+            let blocks = solid_blocks(&sim, subject);
             let mut deepest = 0.0f32;
             for b in &blocks {
                 let a = b.aabb;

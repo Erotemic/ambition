@@ -131,6 +131,9 @@ impl Plugin for HeldItemSimulationPlugin {
                 ground_item_physics
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                     .in_set(HeldItemStep::Physics),
+                right_ground_items
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                    .in_set(HeldItemStep::Physics),
                 // RESIDENCY FOLLOWS CUSTODY. Last in the chain, so it sees the
                 // custody this tick actually settled on — the release derive
                 // above ran first, the pickup and the throw wrote directly. And
@@ -316,8 +319,11 @@ impl bevy::ecs::entity::MapEntities for ItemCustody {
 /// because there was no narrower road to take. The attribute does not hide the
 /// fields (motion writes `pos` and `vel` every tick and still does); it removes
 /// the ability of another crate to ASSEMBLE one.
+///
+/// It is turned by what turns a body (a portal pair that turns what it
+/// carries) and rights itself as a body does: the `ActorRoll` it requires.
 #[derive(Component, Clone, Debug)]
-#[require(ItemCustody)]
+#[require(ItemCustody, ambition_platformer2d_shared_tangle::orientation::ActorRoll)]
 #[non_exhaustive]
 pub struct GroundItem {
     pub spec: HeldItemSpec,
@@ -532,6 +538,26 @@ pub fn carry_or_wake_settled_items(
 
 /// Integrate in-world ground items under gravity and settle them when they'd
 /// enter a solid / one-way surface. [`SettledItem`] items are skipped.
+/// Each ground item in the world that a portal pair turned rights itself, at
+/// the rate an actor does (`ease_roll`), resting or flying: the pair hands it
+/// over turned, and it does not snap upright. Upright is the screen's, as an
+/// item has always been drawn, under any gravity.
+pub fn right_ground_items(
+    time: Res<ambition_time::WorldTime>,
+    mut grounds: Query<(&ItemCustody, &mut ambition_platformer2d_shared_tangle::orientation::ActorRoll), With<GroundItem>>,
+) {
+    use ambition_platformer2d_shared_tangle::orientation::{ease_roll, ACTOR_ROLL_SPEED};
+    let dt = time.sim_dt();
+    if dt <= 0.0 {
+        return;
+    }
+    for (custody, mut roll) in &mut grounds {
+        if custody.in_world() && roll.angle != 0.0 {
+            roll.angle = ease_roll(roll.angle, 0.0, ACTOR_ROLL_SPEED * dt);
+        }
+    }
+}
+
 pub fn ground_item_physics(
     time: Res<ambition_time::WorldTime>,
     world: ambition_platformer2d_world::collision::CollisionWorld,

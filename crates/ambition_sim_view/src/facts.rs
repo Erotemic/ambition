@@ -414,6 +414,9 @@ pub struct GroundItemFact {
     /// The live room of the thing this row draws (`LiveRooms::of`). The
     /// visual is placed by that room's geometry and stamped with it.
     pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    /// The item's turn (`ActorRoll`, render-space radians): a portal pair
+    /// that turns what it carries turns it.
+    pub roll: f32,
 }
 
 /// only items that are IN THE WORLD. A picked-up item is no longer
@@ -430,19 +433,21 @@ pub fn rebuild_ground_items_view(
         bevy::prelude::Entity,
         &ambition_held_items::GroundItem,
         &ambition_held_items::ItemCustody,
+        Option<&ambition_platformer2d_shared_tangle::orientation::ActorRoll>,
     )>,
 ) {
     view.0.clear();
     view.0.extend(
         grounds
             .iter()
-            .filter(|(_, _, custody)| custody.in_world())
-            .map(|(item, ground, _)| GroundItemFact {
+            .filter(|(_, _, custody, _)| custody.in_world())
+            .map(|(item, ground, _, roll)| GroundItemFact {
                 item,
                 pos: ground.pos,
                 half_extent: ground.half_extent,
                 item_id: ground.spec.id.clone(),
                 room: live.of(item),
+                roll: roll.map_or(0.0, |roll| roll.angle),
             }),
     );
 }

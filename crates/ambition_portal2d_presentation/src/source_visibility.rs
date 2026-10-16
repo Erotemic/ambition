@@ -59,8 +59,9 @@ impl PortalSourceHidden {
 /// `&mut Visibility` over entities with a body marker, so a dependant with one
 /// too would be matched by both queries (B0001).
 ///
-/// The release is different. A body always has a per-frame visibility owner,
-/// so releasing a body's claim asserts no value. A dependant may have none: the
+/// The release is different. A body usually has a per-frame visibility owner,
+/// so releasing a body's claim restores only a hide nothing wrote over (a
+/// shot's visual has no such owner). A dependant may have none: the
 /// hit-flash overlay stays `Visible` and only moves its transform. So the
 /// resolver restores what it hid, and this marker records that it did.
 #[derive(Component, Debug, Clone, Copy)]
@@ -155,12 +156,18 @@ pub fn resolve_portal_source_visibility(
                     commands.entity(entity).insert(PortalSourceHidden { wrote });
                 }
             }
-        } else if ours.is_some() {
-            // Release the claim without asserting a value. Other owners hide this
-            // body too (morph-ball and submerged presentation). This resolver runs
-            // late in `PortalPresentationSet`, after `sync_visuals` and the other
-            // writers have set this frame's value, so leaving it keeps their
-            // answer. Every body population this reaches has a per-frame owner.
+        } else if let Some(marker) = ours {
+            // Release the claim. Other owners hide this body too (morph-ball and
+            // submerged presentation). This resolver runs late in
+            // `PortalPresentationSet`, after `sync_visuals` and the other writers
+            // have set this frame's value, so a value written since our hide is
+            // their answer and is kept. A hide nothing wrote over is restored: a
+            // shot's visual has no per-frame owner, and stayed hidden for the
+            // rest of its flight after it crossed (measured with the seam lab,
+            // every pair).
+            if *visibility == Visibility::Hidden && marker.wrote == Some(visibility.last_changed()) {
+                *visibility = Visibility::Inherited;
+            }
             commands.entity(entity).remove::<PortalSourceHidden>();
         }
     }

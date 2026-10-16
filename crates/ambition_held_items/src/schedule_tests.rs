@@ -103,10 +103,12 @@ fn the_steps_are_a_chain_and_each_holds_exactly_its_systems() {
                 pair[1]
             );
         }
-        // One system per step, three in Residency (residency, the whereabouts
-        // ledger, the authored-occurrence projection); the portal arming, when
-        // the feature is on, is a direct member of CoreHeldItems and of no step.
-        let expected = [1usize, 1, 1, 1, 1, 1, 3];
+        // One system per step, two in Physics (the motion, and the righting of
+        // an item a portal turned), three in Residency (residency, the
+        // whereabouts ledger, the authored-occurrence projection); the portal
+        // arming, when the feature is on, is a direct member of CoreHeldItems
+        // and of no step.
+        let expected = [1usize, 1, 1, 1, 1, 2, 3];
         for (step, expected) in STEPS.iter().zip(expected) {
             assert_eq!(
                 direct_system_members(graph, *step),

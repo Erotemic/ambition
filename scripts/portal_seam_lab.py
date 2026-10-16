@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""The portal seam lab: throw the seam gauge through portal pairs and measure
+"""The portal seam lab: send the seam gauge through portal pairs and measure
 how seamless each crossing looks.
 
-The gauge (held item `seam_gauge`) is a plate of pure magenta and pure blue
-cells, colours nothing else in the lab uses. Each scenario throws it into one
-end of a `portal_lab` pair at a speed and films every frame with both ends of
-the pair in the shot. For each frame the lab counts the gauge's pixels and
+The gauge is a plate of pure magenta and pure blue cells, colours nothing
+else in the lab uses. It is sent as each kind of mover: thrown as a ground
+item (`gauge`, the held item `seam_gauge`) and fired as a shot (`shot`, the
+projectile look `seam_gauge`, at the plain shot's 300 px/s). The robot
+(`robot`, the player launched at the entry) is measured by its difference
+from a clean plate, the first frame, filmed before it arrives. Each scenario
+sends it into one end of a `portal_lab` pair and films every frame with both
+ends of the pair in the shot. For each frame the lab counts the gauge's pixels and
 finds their centre. A crossing that looks seamless keeps the count steady (the
 gauge is drawn whole, split across the pair while it straddles) and moves the
 centre only as far as the gauge's speed explains. Reported per scenario:
@@ -25,7 +29,7 @@ It films with the view windows off (`--portal-effect off`) unless asked
 measures how the gauge itself is drawn. Not part of the default test suite:
 it films with the real render stack.
 
-    python3 scripts/portal_seam_lab.py [--cases A,B] [--speeds slow,fast] [--out DIR] [--jobs 6]
+    python3 scripts/portal_seam_lab.py [--cases A,B] [--movers gauge,shot] [--speeds slow,fast] [--out DIR] [--jobs 6]
 
 Writes `DIR/report.md`, `DIR/report.json` and a contact sheet per scenario.
 """
@@ -34,6 +38,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -68,6 +73,13 @@ CASES = [
 ]
 
 SPEEDS = {"slow": 150.0, "medium": 400.0, "fast": 900.0}
+MOVERS = ("gauge", "shot", "robot")
+# The movement kernel's gravity (`movement::tuning::GRAVITY`), for the robot's aim.
+ROBOT_GRAVITY = 2250.0
+# Frames filmed before the robot arrives: the first is the clean plate.
+PLATE_FRAMES = 2
+# The plain shot's speed (`capture_scene --shot`); a shot has one speed.
+SHOT_SPEED = 300.0
 START_OFF = 110.0  # px in front of the entry
 # `ambition_held_items::GROUND_ITEM_GRAVITY` (px/s^2, down).
 ITEM_GRAVITY = 1400.0
@@ -77,23 +89,45 @@ FRAMES_AFTER = 36
 # Where the player waits, out of every shot.
 PLAYER_AWAY = (1700.0, 300.0)
 
-# A gauge pixel: pure magenta or pure blue, give or take the filtering of
-# the sprite (measured 2026-10-15: the gauge's cells land at 224 and up; a
-# purple portal glow lands near 192-208 with some green).
-HIGH, LOW = 215, 25
+# A gauge pixel: magenta, blue, or a blend of the two (a cell edge, a
+# turned gauge's filtered texels), with next to no green. Measured
+# 2026-10-16: a whole gauge counts within 3% from frame to frame (counting
+# only pure cells, 8%); a purple portal glow carries 32+ green, and two
+# pixels of D's glow pass.
+def is_gauge(r: int, g: int, b: int) -> bool:
+    return g < 24 and b > 110 and r <= b + 12
 
 
-def run_case(case: Case, speed_name: str, out: Path, windows: bool = False) -> dict:
-    speed = SPEEDS[speed_name]
-    folder = out / f"{case.name}_{speed_name}"
+def folder_name(case: Case, mover: str, speed_name: str) -> str:
+    if mover == "gauge":
+        return f"{case.name}_{speed_name}"
+    if mover == "robot":
+        return f"{case.name}_robot_{speed_name}"
+    return f"{case.name}_{mover}"
+
+
+def run_case(case: Case, mover: str, speed_name: str, out: Path, windows: bool = False) -> dict:
+    folder = out / folder_name(case, mover, speed_name)
     folder.mkdir(parents=True, exist_ok=True)
     nx, ny = case.normal
     start = (case.entry[0] + nx * START_OFF, case.entry[1] + ny * START_OFF)
-    # Aimed to arrive at the entry's centre after `t`, under the item's
-    # gravity: v = d / t - g t / 2, so a throw at a wall portal arcs into the
-    # opening instead of falling short of it.
-    t = START_OFF / speed
-    vel = (-nx * START_OFF / t, -ny * START_OFF / t - ITEM_GRAVITY * t / 2.0)
+    if mover == "gauge":
+        # Aimed to arrive at the entry's centre after `t`, under the item's
+        # gravity: v = d / t - g t / 2, so a throw at a wall portal arcs into
+        # the opening instead of falling short of it.
+        t = START_OFF / SPEEDS[speed_name]
+        vel = (-nx * START_OFF / t, -ny * START_OFF / t - ITEM_GRAVITY * t / 2.0)
+        send = ["--item", f"{THROW_TICK}:{start[0]:.1f},{start[1]:.1f}:{vel[0]:.1f},{vel[1]:.1f}:seam_gauge"]
+    elif mover == "shot":
+        # A shot flies straight, with no gravity: aimed along the normal.
+        t = START_OFF / SHOT_SPEED
+        send = ["--shot", f"{THROW_TICK}:{start[0]:.1f},{start[1]:.1f}:{-nx:.3f},{-ny:.3f}:seam_gauge"]
+    else:
+        # The robot is launched as the gauge is thrown, under its own gravity.
+        t = START_OFF / SPEEDS[speed_name]
+        vel = (-nx * START_OFF / t, -ny * START_OFF / t - ROBOT_GRAVITY * t / 2.0)
+        send = ["--player-at", f"{start[0]:.1f},{start[1]:.1f}@{THROW_TICK}:{vel[0]:.1f},{vel[1]:.1f}"]
+    warmup = THROW_TICK - PLATE_FRAMES if mover == "robot" else THROW_TICK
     cmd = [
         str(CAPTURE),
         "portal_lab",
@@ -101,8 +135,8 @@ def run_case(case: Case, speed_name: str, out: Path, windows: bool = False) -> d
         str(folder / "f.png"),
         f"{case.size[0]}x{case.size[1]}",
         "--player-at", f"{PLAYER_AWAY[0]},{PLAYER_AWAY[1]}@30",
-        "--item", f"{THROW_TICK}:{start[0]:.1f},{start[1]:.1f}:{vel[0]:.1f},{vel[1]:.1f}:seam_gauge",
-        "--warmup", str(THROW_TICK),
+        *send,
+        "--warmup", str(warmup),
         # One sim tick a shot, the same each run.
         "--frames", str(int(t * 60) + FRAMES_AFTER),
         "--tick-per-frame",
@@ -111,14 +145,17 @@ def run_case(case: Case, speed_name: str, out: Path, windows: bool = False) -> d
     ]
     env = dict(
         os.environ,
-        AMBITION_QUALITY_PROFILE=os.environ.get("AMBITION_QUALITY_PROFILE", "high"),
+        # `low`: no bloom. At `high`, bloom spreads a lamp's or a portal
+        # line's light over the gauge's colours, and it measured as a dip (F
+        # and G: 0.26-0.83 at `high`, 0.97-0.98 at `low`, 2026-10-16).
+        AMBITION_QUALITY_PROFILE=os.environ.get("AMBITION_QUALITY_PROFILE", "low"),
         # The sim's transit steps and what the cutter drew, beside each film.
         RUST_LOG="ambition_portal::transit_trace=debug,ambition_portal::piece_trace=debug,"
         "ambition_platformer2d::portal=info,warn",
     )
     with open(folder / "run.log", "w") as log:
         code = subprocess.run(cmd, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=900).returncode
-    return measure(case, speed_name, folder, code)
+    return measure(case, mover, speed_name, folder, code)
 
 
 def gauge_pixels(path: Path):
@@ -130,38 +167,65 @@ def gauge_pixels(path: Path):
     count, sx, sy = 0, 0.0, 0.0
     for y in range(h):
         for x in range(w):
-            r, g, b = data[x, y]
-            if g < LOW and b > HIGH and (r > HIGH or r < LOW):
+            if is_gauge(*data[x, y]):
                 count += 1
                 sx += x
                 sy += y
     return count, ((sx / count, sy / count) if count else None)
 
 
-def first_crossing(log: str) -> tuple[int, int] | None:
-    """The ticks (counted from the item's first one) of the first crossing:
-    the item's first `Begin` and the `Clear` after it, from the sim's
-    transit trace (one line per tick)."""
-    steps = [line.split("step=", 1)[1] for line in log.splitlines() if "free body=" in line and "step=" in line]
-    begin = next((i for i, step in enumerate(steps) if step.startswith("Begin")), None)
-    if begin is None:
-        return None
-    clear = next((i for i, step in enumerate(steps) if i > begin and step.startswith("Clear")), len(steps) - 1)
-    return begin, clear
+def plate_pixels(path: Path, plate: Path) -> tuple[int, None]:
+    """Pixels that differ from the clean plate: the robot, and whatever else
+    changed (a portal's line of light shimmers, a little)."""
+    from PIL import Image, ImageChops
+
+    diff = ImageChops.difference(Image.open(path).convert("RGB"), Image.open(plate).convert("RGB"))
+    return sum(1 for r, g, b in diff.getdata() if max(r, g, b) > 48), None
 
 
-def measure(case: Case, speed_name: str, folder: Path, code: int) -> dict:
+def first_crossing(log: str, mover: str) -> tuple[int, int] | None:
+    """The sim ticks of the first crossing: the mover's first `Begin` and the
+    `Clear` after it, from the sim's transit trace (one line per body per
+    tick, each naming its tick). The mover is the first body of its kind
+    (`free` for a ground item, `kernel` for a shot and the robot) that begins
+    a crossing."""
+    kind = "free body=" if mover == "gauge" else "kernel body="
+    by_body: dict[str, list[tuple[int, str]]] = {}
+    for line in log.splitlines():
+        found = re.search(r"tick=(\d+) " + kind + r"(\S+) .*step=(.*)", line)
+        if found:
+            by_body.setdefault(found.group(2), []).append((int(found.group(1)), found.group(3)))
+    for steps in by_body.values():
+        begin = next((tick for tick, step in steps if step.startswith("Begin")), None)
+        if begin is not None:
+            clear = next((tick for tick, step in steps if tick > begin and step.startswith("Clear")), steps[-1][0])
+            return begin, clear
+    return None
+
+
+def frames_by_tick(log: str) -> dict[int, int]:
+    """The film's frame of each sim tick (`capture_scene: shot N at sim tick T`)."""
+    return {int(t): int(n) for n, t in re.findall(r"capture_scene: shot (\d+) at sim tick (\d+)", log)}
+
+
+def measure(case: Case, mover: str, speed_name: str, folder: Path, code: int) -> dict:
     frames = sorted(folder.glob("f.*.png"))
-    seen = [gauge_pixels(f) for f in frames]
+    if mover == "robot":
+        seen = [plate_pixels(f, frames[0]) for f in frames] if frames else []
+    else:
+        seen = [gauge_pixels(f) for f in frames]
     counts = [c for c, _ in seen]
     log = (folder / "run.log").read_text(errors="replace")
-    # The film starts before the throw: frame `f0` is the item's first tick.
-    f0 = next((i for i, c in enumerate(counts) if c > 0), None)
-    crossing = first_crossing(log)
+    # The film starts before the throw: frame `f0` is the mover's first tick,
+    # the first frame with a good part of a gauge (a few pixels of a glow
+    # can pass the colour test).
+    f0 = next((i for i, c in enumerate(counts) if c > 0.2 * max(counts)), None)
+    crossing = first_crossing(log, mover)
     result = {
         "case": case.name,
         "what": case.what,
-        "speed": speed_name,
+        "mover": mover,
+        "speed": f"{SHOT_SPEED:.0f} px/s" if mover == "shot" else speed_name,
         "exit_code": code,
         "frames": len(frames),
         "crossed": crossing is not None,
@@ -169,8 +233,13 @@ def measure(case: Case, speed_name: str, folder: Path, code: int) -> dict:
         "fallback_frames": log.count("fallback: whole, copied"),
         "counts": counts,
     }
-    if f0 is not None and crossing is not None:
-        begin, clear = (f0 + crossing[0], min(f0 + crossing[1] + 1, len(counts) - 1))
+    frame_of = frames_by_tick(log)
+    if crossing is not None:
+        # The frame of the first tick at or after each.
+        at = lambda tick: next((frame_of[t] for t in sorted(frame_of) if t >= tick), None)
+        crossing = (at(crossing[0]), at(crossing[1]))
+    if f0 is not None and crossing is not None and None not in crossing:
+        begin, clear = crossing[0], min(crossing[1], len(counts) - 1)
         approach = [c for c in counts[f0:begin] if c > 0] or [counts[begin]]
         whole = sorted(approach)[len(approach) // 2]
         window = counts[begin:clear + 1]
@@ -213,12 +282,12 @@ def report(results: list[dict], out: Path) -> None:
         "while it crossed, against the whole gauge on its way in (1.0 is seamless). `fallback`:",
         "frames the cutter could not cut the sprite and drew it whole and copied.",
         "",
-        "| case | pair | speed | crossed | vanished | dip | double | fallback |",
-        "|---|---|---|---|---|---|---|---|",
+        "| case | pair | mover | speed | crossed | vanished | dip | double | fallback |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for r in results:
         lines.append(
-            f"| {r['case']} | {r['what']} | {r['speed']} | {'yes' if r['crossed'] else 'NO'} "
+            f"| {r['case']} | {r['what']} | {r['mover']} | {r['speed']} | {'yes' if r['crossed'] else 'NO'} "
             f"| {r.get('vanished', '-')} | {r.get('dip', '-')} | {r.get('double', '-')} | {r['fallback_frames']} |"
         )
     (out / "report.md").write_text("\n".join(lines) + "\n")
@@ -229,7 +298,8 @@ def report(results: list[dict], out: Path) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--cases", default=",".join(c.name for c in CASES))
-    ap.add_argument("--speeds", default=",".join(SPEEDS))
+    ap.add_argument("--speeds", default=",".join(SPEEDS), help="the gauge's throw speeds (a shot has one)")
+    ap.add_argument("--movers", default=",".join(MOVERS))
     ap.add_argument("--out", default=str(REPO / "untracked" / "portal_seam_lab"))
     ap.add_argument("--jobs", type=int, default=6)
     ap.add_argument("--windows", action="store_true", help="film with the view windows (a window that sees the gauge shows it again)")
@@ -242,12 +312,19 @@ def main() -> int:
     speeds = args.speeds.split(",")
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    jobs = [(c, s) for c in CASES if c.name in wanted for s in speeds]
+    movers = args.movers.split(",")
+    jobs = [
+        (c, m, s)
+        for c in CASES
+        if c.name in wanted
+        for m in movers
+        for s in (speeds[:1] if m == "shot" else speeds)
+    ]
     if args.measure_only:
-        results = [measure(c, s, out / f"{c.name}_{s}", 0) for c, s in jobs]
+        results = [measure(c, m, s, out / folder_name(c, m, s), 0) for c, m, s in jobs]
     else:
         with ThreadPoolExecutor(max_workers=min(args.jobs, 6)) as pool:
-            results = list(pool.map(lambda job: run_case(job[0], job[1], out, args.windows), jobs))
+            results = list(pool.map(lambda job: run_case(*job, out, args.windows), jobs))
     report(results, out)
     return 0
 

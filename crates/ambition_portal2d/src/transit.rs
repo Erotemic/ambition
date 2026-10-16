@@ -269,7 +269,10 @@ pub fn portal_transit(
     mut transited: MessageWriter<PortalBodyTransited>,
     // Optional: a minimal test app may not have it. Diagnostic only.
     mut class_b: Option<ResMut<ClassBRemapLog>>,
+    // The measurement trace names its tick; a minimal app may not count.
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
+    let tick = tick.map_or(0, |tick| tick.get());
     let by_room = PortalsByRoom::collect(&portals, &live);
     if by_room.is_empty() {
         return;
@@ -307,6 +310,16 @@ pub fn portal_transit(
             gravity_dir,
             depths.in_room(room),
             &tuning,
+        );
+        // A measurement trace (`RUST_LOG=ambition_portal::transit_trace=debug`,
+        // read by `scripts/portal_seam_lab.py`), as a free body's.
+        bevy::log::debug!(
+            target: "ambition_portal::transit_trace",
+            "tick={tick} kernel body={entity:?} at={:.1},{:.1} vel={:.1},{:.1} step={step:?}",
+            kin.pos.x,
+            kin.pos.y,
+            kin.vel.x,
+            kin.vel.y
         );
         match step {
             TransitStep::Idle | TransitStep::Continue => {}
@@ -449,7 +462,13 @@ pub trait FreePortalBody: Component<Mutability = bevy::ecs::component::Mutable> 
 pub fn portal_transit_free_bodies<B: FreePortalBody>(
     mut commands: Commands,
     portals: Query<(Entity, &PlacedPortal)>,
-    mut bodies: Query<(Entity, &mut B, Option<&mut PortalTransit>, Option<&PortalTransitCooldown>)>,
+    mut bodies: Query<(
+        Entity,
+        &mut B,
+        Option<&mut PortalTransit>,
+        Option<&mut ActorRoll>,
+        Option<&PortalTransitCooldown>,
+    )>,
     // A free body crosses only a pair of its own live room (OW1).
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
@@ -457,14 +476,16 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
     host_depths: Option<Res<PortalHostDepthsByRoom>>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     mut transited: MessageWriter<PortalBodyTransited>,
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let by_room = PortalsByRoom::collect(&portals, &live);
     if by_room.is_empty() {
         return;
     }
+    let tick = tick.map_or(0, |tick| tick.get());
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
-    for (entity, mut body, mut transit, cooldown) in &mut bodies {
+    for (entity, mut body, mut transit, mut roll, cooldown) in &mut bodies {
         let room = live.of(entity);
         let (pos, vel, half) = (body.pos(), body.vel(), body.half_extent());
         let gravity_dir = gravity.dir_for(room, ae::Aabb::new(pos, half));
@@ -483,7 +504,7 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
         // A measurement trace (`RUST_LOG=ambition_portal::transit_trace=debug`).
         bevy::log::debug!(
             target: "ambition_portal::transit_trace",
-            "free body={entity:?} at={:.1},{:.1} vel={:.1},{:.1} step={step:?}",
+            "tick={tick} free body={entity:?} at={:.1},{:.1} vel={:.1},{:.1} step={step:?}",
             pos.x,
             pos.y,
             vel.x,
@@ -498,15 +519,21 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
             TransitStep::Transfer {
                 pos,
                 vel,
+                roll_delta,
                 facing_flip,
                 input_warp,
                 enter_normal,
                 exit_normal,
                 exit_channel,
                 exit_pos,
-                ..
             } => {
                 body.emerge(pos, vel);
+                // Turned as the pair turns it, as a kernel body is: its image
+                // on the far side is drawn turned, and the body must be the
+                // image it was drawn as, not snap upright.
+                if let Some(roll) = roll.as_deref_mut() {
+                    roll.angle += roll_delta;
+                }
                 commands.entity(entity).insert(PortalTransitCooldown {
                     remaining: tuning.teleport_cooldown_s,
                     pair: exit_channel,

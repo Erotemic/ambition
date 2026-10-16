@@ -47,7 +47,7 @@ pub struct SurfaceUpright {
 
 /// Reorientation rate easing `angle` toward gravity-upright (rad/s). Visible but
 /// quick — a 180° flip rights itself in ~0.4s as the body arcs.
-const ACTOR_ROLL_SPEED: f32 = 8.0;
+pub const ACTOR_ROLL_SPEED: f32 = 8.0;
 
 /// Surface-tracking rate while riding (rad/s). The ground angle IS the pose, so
 /// tracking must outrun the tightest authored curvature at top speed — a full
@@ -81,21 +81,21 @@ pub fn update_actor_roll(
                 ACTOR_ROLL_SPEED,
             ),
         };
-        let max_step = rate * dt;
-        // Shortest signed difference, wrapped to (-π, π], so righting always
-        // takes the short way around.
-        let mut diff = (target - roll.angle).rem_euclid(std::f32::consts::TAU);
-        if diff > std::f32::consts::PI {
-            diff -= std::f32::consts::TAU;
-        }
-        if diff.abs() <= max_step {
-            roll.angle = target;
-        } else {
-            roll.angle += max_step * diff.signum();
-        }
-        // Keep the stored angle bounded so repeated flips don't grow it.
-        roll.angle = roll.angle.rem_euclid(std::f32::consts::TAU);
+        roll.angle = ease_roll(roll.angle, target, rate * dt);
     }
+}
+
+/// `angle` turned toward `target` by at most `max_step`, the short way
+/// around, kept in `[0, 2π)` so repeated flips don't grow it. The righting
+/// step every rolled body takes: an actor ([`update_actor_roll`]) and a free
+/// body (a thrown item a portal turned).
+pub fn ease_roll(angle: f32, target: f32, max_step: f32) -> f32 {
+    let mut diff = (target - angle).rem_euclid(std::f32::consts::TAU);
+    if diff > std::f32::consts::PI {
+        diff -= std::f32::consts::TAU;
+    }
+    let angle = if diff.abs() <= max_step { target } else { angle + max_step * diff.signum() };
+    angle.rem_euclid(std::f32::consts::TAU)
 }
 
 #[cfg(test)]

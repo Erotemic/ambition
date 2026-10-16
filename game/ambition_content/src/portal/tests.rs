@@ -334,6 +334,49 @@ fn in_flight_ground_item_travels_through_the_portal_pair() {
     );
 }
 
+/// A pair that turns what it carries turns a thrown item too, as it turns a
+/// body: its far-side image is drawn turned while it straddles, and the item
+/// must come out as that image, not snap upright (measured in the seam lab:
+/// a 45-degree snap on the spinning plank, G).
+#[test]
+fn a_thrown_item_comes_out_turned_as_the_pair_turns_it() {
+    use ambition_held_items::GroundItem;
+    use ambition_platformer2d_shared_tangle::orientation::ActorRoll;
+    let mut app = App::new();
+    app.init_resource::<ambition_portal2d::PortalTuning>();
+    app.add_message::<ambition_portal2d::PortalBodyEntered>();
+    app.add_message::<ambition_portal2d::PortalBodyTransited>();
+    app.add_systems(Update, portal_transit_free_bodies::<GroundItem>);
+    // A floor portal (facing up) and a wall portal (facing right): the pair
+    // turns what falls in by a quarter.
+    app.world_mut().spawn(PlacedPortal::fixed(
+        BLUE,
+        Vec2::new(100.0, 300.0),
+        Vec2::new(0.0, -1.0),
+        ambition_portal2d::PORTAL_OPENING_HALF,
+    ));
+    app.world_mut().spawn(PlacedPortal::fixed(
+        ORANGE,
+        Vec2::new(400.0, 200.0),
+        Vec2::new(1.0, 0.0),
+        ambition_portal2d::PORTAL_OPENING_HALF,
+    ));
+    let item = app
+        .world_mut()
+        .spawn(GroundItem::released(
+            ambition_held_items::axe_spec(),
+            Vec2::new(100.0, 300.0),
+            Vec2::new(0.0, 300.0),
+            Vec2::splat(12.0),
+        ))
+        .id();
+    app.update();
+    let g = app.world().get::<GroundItem>(item).unwrap();
+    assert!(g.pos.x > 390.0, "the item came out of the wall portal, pos={:?}", g.pos);
+    let roll = app.world().get::<ActorRoll>(item).expect("a ground item has a roll").angle;
+    assert!(roll.cos().abs() < 1e-3, "turned a quarter, as the pair turns it: roll={roll}");
+}
+
 #[test]
 fn portal_fit_gate_keys_on_the_opening_perpendicular_to_the_normal() {
     let wall = PlacedPortal::fixed(

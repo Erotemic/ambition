@@ -74,9 +74,9 @@ impl AmbitionPreparedWorld {
     }
 }
 
-pub fn ambition_authored_catalogs() -> AuthoredCatalogFragments {
+pub fn ambition_authored_catalogs(pack: &ambition_content_pack::PreparedContentPack) -> AuthoredCatalogFragments {
     AuthoredCatalogFragments::new(
-        crate::character_catalog::DEFAULT_CHARACTER,
+        crate::character_catalog::starting_character(pack),
         crate::AMBITION_CONTENT_PROVIDER,
     )
     .with_music()
@@ -126,7 +126,7 @@ impl Plugin for AmbitionExperiencePlugin {
             self.config.label.clone(),
             self.config.description.clone(),
             "Prepare Ambition",
-            ambition_authored_catalogs(),
+            ambition_authored_catalogs(&crate::pack::select(app.world_mut())),
         )
         // Desktop keeps ordinary framing; touch-primary sessions get
         // occlusion-aware soft framing so the controlled body does not live

@@ -18,6 +18,72 @@ pub struct AmbitionRules {
     /// item with no row lands and hurts nobody.
     pub thrown_impacts: std::collections::BTreeMap<String, ThrownImpact>,
     pub day: Day,
+    /// The character a player starts as: a row of the pack's catalog.
+    pub starting_character: String,
+    pub symmetry_attunement: SymmetryAttunement,
+    pub cut_rope_victory: VictoryNpc,
+    pub duel: Duel,
+}
+
+/// The spectator duel: fighters that hold a grudge against each other. The
+/// arena room stages them each time its contents are staged, and the
+/// `<<duel>>` dialogue command stages them beside the player.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Duel {
+    /// The level id of the arena room.
+    pub room: String,
+    /// The duel's centre in the arena: this far right of where the player
+    /// arrives, in px, so the fight is on the screen at once.
+    pub arena_offset_x: f32,
+    /// The duel's centre for `<<duel>>`: this far in front of the player, in px.
+    pub beside_player_x: f32,
+    pub fighters: Vec<DuelFighter>,
+}
+
+/// One fighter of the spectator duel.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DuelFighter {
+    /// Its feature id, unique in the room.
+    pub id: String,
+    /// The character it is: a row of the pack's catalog. Its art, its
+    /// hitbox and its shown name come from that row.
+    pub character: String,
+    /// The custom brain that decides its moves.
+    pub brain: String,
+    /// Its position from the duel's centre, and its half size, in px.
+    pub offset: (f32, f32),
+    pub half_size: (f32, f32),
+    /// The id of the fighter it fights. The grudge, not a hostile faction,
+    /// makes the pair fight, so neither aims at the player.
+    pub grudge_against: String,
+}
+
+/// The NPC that comes out of the Smirking Behemoth when it dies.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VictoryNpc {
+    /// The name it shows. The speaker of its dialogue is written in the
+    /// Yarn file, so an edit here does not change that text.
+    pub name: String,
+    /// The dialogue node it starts when the player talks to it.
+    pub dialogue: String,
+    /// Its box, in px. Its feet stand on the bottom of the boss's box.
+    pub width: f32,
+    pub height: f32,
+}
+
+/// The Noether attunement: the signals that complete it, and its banner.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SymmetryAttunement {
+    /// The puzzle completes when each of these signals came in. The level's
+    /// switches send them (`encounter.signal encounter:symmetry_attunement <signal>`).
+    pub signals: Vec<String>,
+    /// The banner when it completes, and how long it stays (seconds).
+    pub banner: String,
+    pub banner_seconds: f32,
 }
 
 /// Ambition's day: how long it is, the hour each phase begins at, the hour a
@@ -192,6 +258,71 @@ impl AmbitionRules {
                 problems.push(format!("`gnu_ton_duel.{field}` is {value}; it is finite and more than 0"));
             }
         }
+        if self.starting_character.trim().is_empty() {
+            problems.push("`starting_character` is empty; a player starts as a character of the catalog".to_string());
+        }
+        let attunement = &self.symmetry_attunement;
+        if attunement.signals.is_empty() {
+            problems.push("`symmetry_attunement.signals` is empty; the puzzle would complete when it starts".to_string());
+        }
+        for (index, signal) in attunement.signals.iter().enumerate() {
+            if signal.trim().is_empty() || signal.contains(char::is_whitespace) {
+                problems.push(format!("`symmetry_attunement.signals[{index}]` is `{signal}`; a signal is one word"));
+            }
+            if attunement.signals[..index].contains(signal) {
+                problems.push(format!("`symmetry_attunement.signals[{index}]` repeats `{signal}`"));
+            }
+        }
+        if !(attunement.banner_seconds.is_finite() && attunement.banner_seconds > 0.0) {
+            problems.push(format!("`symmetry_attunement.banner_seconds` is {}; a banner stays a while", attunement.banner_seconds));
+        }
+        let victory = &self.cut_rope_victory;
+        if victory.name.trim().is_empty() {
+            problems.push("`cut_rope_victory.name` is empty; the NPC shows a name".to_string());
+        }
+        if victory.dialogue.trim().is_empty() || victory.dialogue.contains(char::is_whitespace) {
+            problems.push(format!("`cut_rope_victory.dialogue` is `{}`; a dialogue node is one word", victory.dialogue));
+        }
+        for (field, value) in [("width", victory.width), ("height", victory.height)] {
+            if !(value.is_finite() && value > 0.0) {
+                problems.push(format!("`cut_rope_victory.{field}` is {value}; it is finite and more than 0"));
+            }
+        }
+        let spectator = &self.duel;
+        if spectator.room.trim().is_empty() {
+            problems.push("`duel.room` is empty; the duel is staged in a room".to_string());
+        }
+        for (field, value) in [("arena_offset_x", spectator.arena_offset_x), ("beside_player_x", spectator.beside_player_x)] {
+            if !value.is_finite() {
+                problems.push(format!("`duel.{field}` is {value}; it is finite"));
+            }
+        }
+        if spectator.fighters.len() < 2 {
+            problems.push(format!("`duel.fighters` has {} fighters; a duel has two or more", spectator.fighters.len()));
+        }
+        for (index, fighter) in spectator.fighters.iter().enumerate() {
+            for (field, value) in [("id", &fighter.id), ("character", &fighter.character), ("brain", &fighter.brain)] {
+                if value.trim().is_empty() {
+                    problems.push(format!("`duel.fighters[{index}].{field}` is empty"));
+                }
+            }
+            if spectator.fighters[..index].iter().any(|other| other.id == fighter.id) {
+                problems.push(format!("`duel.fighters[{index}].id` repeats `{}`", fighter.id));
+            }
+            if fighter.grudge_against == fighter.id || !spectator.fighters.iter().any(|other| other.id == fighter.grudge_against) {
+                problems.push(format!(
+                    "`duel.fighters[{index}].grudge_against` is `{}`; it names another fighter of the duel",
+                    fighter.grudge_against
+                ));
+            }
+            if !(fighter.offset.0.is_finite() && fighter.offset.1.is_finite()) {
+                problems.push(format!("`duel.fighters[{index}].offset` is {:?}; it is finite", fighter.offset));
+            }
+            let (w, h) = fighter.half_size;
+            if !(w.is_finite() && w > 0.0 && h.is_finite() && h > 0.0) {
+                problems.push(format!("`duel.fighters[{index}].half_size` is {:?}; each is finite and more than 0", fighter.half_size));
+            }
+        }
         let day = &self.day;
         if !(day.length_seconds.is_finite() && day.length_seconds > 0.0) {
             problems.push(format!("`day.length_seconds` is {}; a day lasts a while", day.length_seconds));
@@ -321,6 +452,33 @@ mod tests {
                 start_hour: 8.0,
                 daylight: vec![(0.0, (0.05, 0.08, 0.26, 0.86)), (10.0, (1.0, 1.0, 1.0, 0.0))],
             },
+            starting_character: "player_robot_v3".to_string(),
+            symmetry_attunement: SymmetryAttunement {
+                signals: vec!["gravity_down".to_string()],
+                banner: "done".to_string(),
+                banner_seconds: 4.0,
+            },
+            cut_rope_victory: VictoryNpc {
+                name: "The Rope Appreciator".to_string(),
+                dialogue: "smirking_behemoth_victory_npc".to_string(),
+                width: 28.0,
+                height: 48.0,
+            },
+            duel: Duel {
+                room: "duel_arena".to_string(),
+                arena_offset_x: 360.0,
+                beside_player_x: 220.0,
+                fighters: [("a", "b"), ("b", "a")]
+                    .map(|(id, foe)| DuelFighter {
+                        id: id.to_string(),
+                        character: "fixture".to_string(),
+                        brain: "fixture".to_string(),
+                        offset: (0.0, 0.0),
+                        half_size: (14.0, 23.0),
+                        grudge_against: foe.to_string(),
+                    })
+                    .to_vec(),
+            },
         }
     }
 
@@ -346,5 +504,13 @@ mod tests {
         strikes_twice.thrown_impacts.get_mut("coconut").unwrap().rebound_cap = 1.0;
         let problems = strikes_twice.problems();
         assert!(problems.iter().any(|problem| problem.contains("thrown_impacts.coconut.rebound_cap")), "{problems:?}");
+        let mut flat = rules();
+        flat.cut_rope_victory.height = 0.0;
+        let problems = flat.problems();
+        assert!(problems.iter().any(|problem| problem.contains("cut_rope_victory.height")), "{problems:?}");
+        let mut alone = rules();
+        alone.duel.fighters[1].grudge_against = "b".to_string();
+        let problems = alone.problems();
+        assert!(problems.iter().any(|problem| problem.contains("duel.fighters[1].grudge_against")), "{problems:?}");
     }
 }

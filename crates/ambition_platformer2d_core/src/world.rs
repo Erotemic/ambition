@@ -77,6 +77,49 @@ impl BlockKind {
     }
 }
 
+/// A block as a content file states it: a name, a kind, the top-left
+/// corner (y grows down) and the size. A game that states a room as data
+/// (a fighting stage) writes its blocks in this shape.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoredBlock {
+    pub name: String,
+    pub kind: BlockKind,
+    pub at: (f32, f32),
+    /// (width, height).
+    pub size: (f32, f32),
+}
+
+impl AuthoredBlock {
+    /// The room's block. Its geometry id is anonymous, as for each block a
+    /// fixture constructor makes.
+    pub fn block(&self) -> Block {
+        Block {
+            id: crate::geo_id::GeoId::anon(),
+            name: self.name.clone(),
+            aabb: aabb_from_min_size(Vec2::new(self.at.0, self.at.1), Vec2::new(self.size.0, self.size.1)),
+            kind: self.kind,
+            velocity: Vec2::ZERO,
+            art_color: None,
+        }
+    }
+
+    /// Each value a room cannot be built from, named by its field.
+    pub fn problems(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        if self.name.trim().is_empty() {
+            problems.push("`name` is empty".to_string());
+        }
+        if !(self.size.0.is_finite() && self.size.0 > 0.0 && self.size.1.is_finite() && self.size.1 > 0.0) {
+            problems.push(format!("`size` must be finite and positive, not {:?}", self.size));
+        }
+        if !(self.at.0.is_finite() && self.at.1.is_finite()) {
+            problems.push(format!("`at` must be finite, not {:?}", self.at));
+        }
+        problems
+    }
+}
+
 /// One piece of generated room geometry.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Block {

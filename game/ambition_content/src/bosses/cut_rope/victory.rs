@@ -24,6 +24,7 @@ pub fn spawn_cut_rope_victory_npc(
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
+    tuning: Res<crate::tuning::AmbitionTuning>,
     mut released: MessageReader<ambition_boss_encounter::PayloadReleased>,
     existing: Query<(Entity, &FeatureId), With<SmirkingBehemothVictoryNpc>>,
     bosses: Query<(Entity, &FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
@@ -87,19 +88,17 @@ pub fn spawn_cut_rope_victory_npc(
             continue;
         }
         let boss_bottom_y = boss_aabb.center.y + boss_aabb.half_size.y;
-        let spawn_pos = ae::Vec2::new(boss.kin.pos.x, boss_bottom_y - CUT_ROPE_VICTORY_NPC_H * 0.5);
+        let npc = &tuning.0.cut_rope_victory;
+        let spawn_pos = ae::Vec2::new(boss.kin.pos.x, boss_bottom_y - npc.height * 0.5);
         spawn_victory_npc_entity(
             &mut commands,
             session_scope.in_room(Some(room)),
             &character_catalog,
             &authored_sheets,
+            npc,
             spawn_pos,
         );
     }
-}
-
-fn victory_npc_size() -> ae::Vec2 {
-    ae::Vec2::new(CUT_ROPE_VICTORY_NPC_W, CUT_ROPE_VICTORY_NPC_H)
 }
 
 fn spawn_victory_npc_entity(
@@ -107,9 +106,10 @@ fn spawn_victory_npc_entity(
     session_scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    npc: &ambition_content_schemas::rules::VictoryNpc,
     pos: ae::Vec2,
 ) {
-    let size = victory_npc_size();
+    let size = ae::Vec2::new(npc.width, npc.height);
     let aabb = ae::Aabb::new(pos, size * 0.5);
     let interactable = ambition_interaction::Interactable {
         id: CUT_ROPE_VICTORY_NPC_ID.to_string(),
@@ -117,7 +117,7 @@ fn spawn_victory_npc_entity(
         aabb,
         kind: ambition_interaction::InteractionKind::Npc {
             character_id: None,
-            dialogue_id: Some(CUT_ROPE_VICTORY_NPC_DIALOGUE_ID.to_string()),
+            dialogue_id: Some(npc.dialogue.clone()),
             patrol_radius: 0.0,
             patrol_path_id: None,
             brain_override: None,
@@ -134,7 +134,7 @@ fn spawn_victory_npc_entity(
             // one — see the flight rule in `new_peaceful_npc_in`.
             None,
             CUT_ROPE_VICTORY_NPC_ID,
-            CUT_ROPE_VICTORY_NPC_NAME,
+            &npc.name,
             aabb,
             &interactable,
             &[],
@@ -165,7 +165,7 @@ fn spawn_victory_npc_entity(
             EnemyActorBundle {
                 base: FeatureRenderedBundle::new(
                     CUT_ROPE_VICTORY_NPC_ID,
-                    CUT_ROPE_VICTORY_NPC_NAME,
+                    &npc.name,
                     CenteredAabb::from_aabb(aabb),
                 ),
                 disposition,

@@ -29,7 +29,7 @@ pub use cut_rope::{
     reset_cut_rope_boss_attempt, spawn_cut_rope_victory_npc,
     sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_flavor, CutRopeBossArenaState,
     CutRopeHeavyObjectCycle, CutRopeRoomReplayRequested, PendingCutRopeRoomReplay,
-    SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID,
+    SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID,
     CUT_ROPE_VICTORY_NPC_ID,
 };
 pub use gnu_ton::gate_gnu_ton_arena_ladder;

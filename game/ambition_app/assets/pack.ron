@@ -26,5 +26,7 @@
         // The rules of its rounds: the wins that take the match, the holds,
         // the countdown.
         (path: "data/versus_rounds.ron", schema: "versus_rounds", version: 1),
+        // Its room: the size, the seating point, the blast lines, the blocks.
+        (path: "data/versus_arena.ron", schema: "versus_arena", version: 1),
     ],
 )

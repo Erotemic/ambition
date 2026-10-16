@@ -277,22 +277,28 @@ Open:
    `ambition_rules.ron`, and a content reload restates it. Sanic's act
    titles and numbers are `acts` in `sanic_rules.ron`. Mary-O's castle
    rescue is a `cutscene_library` file in her pack (`data/cutscenes/castle.ron`),
-   restated at a reload (`EmbeddedPackReloadPlugin::cutscenes`). A
+   restated at a reload (`EmbeddedPackReloadPlugin::cutscenes`). The
+   character Ambition starts the player as is `starting_character` in
+   `ambition_rules.ron`, and the Noether attunement's signals and banner
+   are `symmetry_attunement` there (the switches' test checks the level
+   against them). A
    respawn and a departing shark read the centre of the body's live room
    (`StageCentre`), not the flat stage's. Still flat-only:
-   `ladder_rig --scenarios` (refuses other stages).
+   `smash_tool ladder-rig --scenarios` (refuses other stages).
    The speedway's floor and pit numbers are now `speedway_oracle`, read by
-   tests only. Left, most valuable first:
-   - `game/ambition_content/src/bosses/cut_rope/mod.rs:44`
-     `CUT_ROPE_VICTORY_NPC_NAME`, also the speaker in
-     `assets/dialogue/sandbox/kernel.yarn`.
-   - Level facts and tables: the duel arena's spawn table
-     (`game/ambition_content/src/duel_arena.rs:43,68-90`; its staging
-     closure is given only the `RoomSpec`, so a data row needs the room to
-     author the pair, as LDtk placements with a grudge field, or the
-     staging seam to be given the tuning), the Noether banner and kernel
-     signals (`encounters.rs:41,107`), Ambition's default character and
-     seat count.
+   tests only. The Smirking Behemoth's victory NPC (name, box, dialogue
+   node) is `cut_rope_victory` in `ambition_rules.ron`; the Yarn file still
+   writes the speaker's name in its lines. The spectator duel (room, centre,
+   fighters and their grudges) is `duel` there: the arena's stager holds a
+   copy of the row, and a content reload restates it
+   (`RoomContentStagingRegistry::restate`), so the next staging of the room
+   reads the edit. The versus stage's room (size, seating point, blast
+   lines, blocks) is `versus_arena`, a schema the app owns, in the versus
+   pack; its blocks and Smash's stage blocks are one engine shape,
+   `AuthoredBlock` (Smash's own `StageBlock` is deleted). The versus pack has
+   no live reload yet, so an edit is played at the next start. Left: the
+   versus pack's live reload, the versus fighter list (`FIGHTERS`), and
+   Ambition's seat count (waits on Q153).
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is

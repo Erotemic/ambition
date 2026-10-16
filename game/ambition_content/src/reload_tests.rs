@@ -4665,11 +4665,31 @@ fn a_candidate_that_changes_only_projectile_looks_restates_ambitions_rows() {
 }
 
 /// A reload that changes only Ambition's own tuning restates it at the
-/// activation: the idle bark cadence and the duel read the new file.
+/// activation: the idle bark cadence, the day and the GNU-ton duel read the
+/// new file, and the arena room stages the new spectator duel.
 #[test]
 fn a_candidate_that_changes_only_ambition_rules_restates_the_tuning() {
+    use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
+
     let mut app = host_with_the_shipped_cast();
     crate::tuning::register(&mut app);
+    let duel = app.world().resource::<crate::tuning::AmbitionTuning>().0.duel.clone();
+    let mut registry = RoomContentStagingRegistry::default();
+    crate::duel_arena::register_duel_content_staging(&mut registry, &duel);
+    app.insert_resource(registry);
+    let arena = ambition_platformer2d_world::rooms::RoomSpec::new(
+        duel.room.clone(),
+        ambition_platformer2d_core::World::new(&duel.room, ambition_platformer2d_core::Vec2::new(640.0, 360.0), ambition_platformer2d_core::Vec2::ZERO, vec![]),
+    );
+    let staged = |app: &bevy::app::App| {
+        app.world()
+            .resource::<RoomContentStagingRegistry>()
+            .requests_for(&arena)
+            .into_iter()
+            .map(|request| (request.id, request.pos.x, request.grudge_against))
+            .collect::<Vec<_>>()
+    };
+    let shipped = staged(&app);
     let live = live_pack(&app);
     let mut edited = false;
     let candidate = std::sync::Arc::new(
@@ -4680,6 +4700,8 @@ fn a_candidate_that_changes_only_ambition_rules_restates_the_tuning() {
             edited = true;
             text.replacen("base_seconds: 7.0,", "base_seconds: 9.0,", 1)
                 .replacen("length_seconds: 1440.0,", "length_seconds: 720.0,", 1)
+                .replacen("arena_offset_x: 360.0,", "arena_offset_x: 400.0,", 1)
+                .replace(r#""duel_robot""#, r#""duel_robot_mk2""#)
         })
         .unwrap_or_else(|failure| panic!("{}", failure.render())),
     );
@@ -4714,6 +4736,17 @@ fn a_candidate_that_changes_only_ambition_rules_restates_the_tuning() {
         Some(720.0),
         "the activation did not publish the candidate's day"
     );
+    // The arena's centre moved 40 px and the robot has a new id; the PCA
+    // holds its grudge against the new id.
+    let expected: Vec<_> = shipped
+        .iter()
+        .map(|(id, x, foe)| {
+            let renamed = |id: &str| if id == "duel_robot" { "duel_robot_mk2".to_string() } else { id.to_string() };
+            (renamed(id), x + 40.0, foe.as_deref().map(renamed))
+        })
+        .collect();
+    assert!(shipped.iter().any(|(id, ..)| id == "duel_robot"), "control: the shipped duel stages the robot: {shipped:?}");
+    assert_eq!(staged(&app), expected, "the activation did not restate the arena's duel");
 }
 
 /// A reload that changes only the item art restates Ambition's rows at the

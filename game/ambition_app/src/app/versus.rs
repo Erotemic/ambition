@@ -35,52 +35,17 @@ pub const VERSUS_ROOM_ID: &str = "versus_arena";
 /// The arena fighters; their character definitions share art ids with the demos.
 const FIGHTERS: [&str; 2] = ["arena_duelist_long", "arena_duelist_close"];
 
-/// Open arena with recovery platforms and authored blast margins. Crossing a
-/// blast margin produces `ResetCause::LeftTheWorld`, which the versus rules score
-/// as a fighter death. No ceiling blast zone is currently authored.
+/// The arena: the versus pack's room (`data/versus_arena.ron`). Crossing a
+/// blast line produces `ResetCause::LeftTheWorld`, which the versus rules
+/// score as a fighter death.
 fn versus_arena() -> RoomSpec {
-    let size = ae::Vec2::new(960.0, 540.0);
-    let platform_top = 400.0;
-    // Seating spreads fighters up to ±144px about the centre, so a 480-wide
-    // main platform holds a full four-seat 2v2 with room either side.
-    let main_half_width = 240.0;
-    let world = ae::World::new(
-        "Versus Arena",
-        size,
-        // Spawn at the centre of the main platform: seating places fighters
-        // symmetrically about this point, so it IS the middle of the stage.
-        ae::Vec2::new(size.x * 0.5, platform_top - 24.0),
-        vec![
-            ae::Block::solid(
-                "arena_platform_main",
-                ae::Vec2::new(size.x * 0.5 - main_half_width, platform_top),
-                ae::Vec2::new(main_half_width * 2.0, 40.0),
-            ),
-            // Recovery ledges. Solid rather than one-way: a fighter thrown out
-            // sideways needs something to catch, and a platform they can fall
-            // straight back through is not a second chance.
-            ae::Block::solid(
-                "arena_platform_left",
-                ae::Vec2::new(96.0, platform_top - 96.0),
-                ae::Vec2::new(128.0, 20.0),
-            ),
-            ae::Block::solid(
-                "arena_platform_right",
-                ae::Vec2::new(size.x - 224.0, platform_top - 96.0),
-                ae::Vec2::new(128.0, 20.0),
-            ),
-        ],
-    )
-    .with_fall_out_margin(96.0)
-    // The SIDE blast zone, which is where a platform fighter actually loses
-    // most of its stocks. Without it a fighter thrown off the left edge only
-    // dies once its arc happens to carry it below the stage, which reads as the
-    // throw not having worked. 160px is deliberately looser than the 96px
-    // floor: you are given further to recover from a horizontal launch than
-    // from a straight drop, because a horizontal launch is the one you can act
-    // on.
-    .with_side_out_margin(160.0);
-    let mut room = RoomSpec::new(VERSUS_ROOM_ID, world);
+    versus_arena_of(super::versus_fighters::PACK.prepared())
+}
+
+/// The arena as `pack` states it.
+pub(crate) fn versus_arena_of(pack: &ambition_platformer2d::content::PreparedContentPack) -> RoomSpec {
+    let arena = super::versus_rules::versus_arena_in(pack).expect("the versus pack states its room (`data/versus_arena.ron`)");
+    let mut room = RoomSpec::new(VERSUS_ROOM_ID, arena.world());
     room.metadata.mode = Some(VERSUS_EXPERIENCE.to_owned());
     room
 }

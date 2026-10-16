@@ -291,17 +291,7 @@ pub fn stage_room(stages: &crate::stages::SmashStages, id: &str) -> RoomSpec {
         .stages
         .get(id)
         .unwrap_or_else(|| panic!("the pack's admission refuses a `smash_stages` file with no `{id}`"));
-    let blocks = stage
-        .blocks
-        .iter()
-        .map(|block| {
-            let (at, size) = (Vec2::new(block.at.0, block.at.1), Vec2::new(block.size.0, block.size.1));
-            match block.kind {
-                crate::stages::StageBlockKind::Solid => ae::Block::solid(block.name.clone(), at, size),
-                crate::stages::StageBlockKind::OneWay => ae::Block::one_way(block.name.clone(), at, size),
-            }
-        })
-        .collect();
+    let blocks = stage.blocks.iter().map(ae::AuthoredBlock::block).collect();
     let mut world = ae::World::new(
         stage.name.clone(),
         Vec2::new(stages.size.0, stages.size.1),

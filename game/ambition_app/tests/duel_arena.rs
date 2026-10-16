@@ -18,7 +18,6 @@ use ambition_app::AmbitionSim;
 use ambition_app::{
     AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
-use ambition_content::duel_arena::{DUEL_PCA_ID, DUEL_ROBOT_ID};
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::combat::components::FeatureId;
@@ -26,6 +25,11 @@ use ambition_platformer2d::engine_core::{
     BodyAbilities, BodyBlinkState, BodyFlightState, BodyKinematics, BodyShieldState,
 };
 use bevy::prelude::World;
+
+// The shipped duel's fighters (`duel` in `ambition_rules.ron`). These tests
+// are about how the PCA and the robot fight, so they name those two rows.
+const DUEL_PCA_ID: &str = "duel_pca";
+const DUEL_ROBOT_ID: &str = "duel_robot";
 
 /// Per-fighter behavior tally accumulated over the bout, plus spatial extent and
 /// HP bookkeeping — the evidence that the fighter played a real game rather than

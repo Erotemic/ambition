@@ -65,7 +65,7 @@ fn every_catalog_hall_dialogue_id_has_a_yarn_node() {
 #[test]
 fn the_player_pedestal_has_a_self_branch_because_the_default_character_is_the_player() {
     assert_eq!(
-        crate::character_catalog::DEFAULT_CHARACTER,
+        crate::character_catalog::shipped_starting_character(),
         "player_robot_v3",
         "this guard assumes the default worn character is the current incarnation",
     );

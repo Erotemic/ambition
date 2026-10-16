@@ -32,19 +32,6 @@ pub const SYMMETRY_ATTUNEMENT_ID: &str = "symmetry_attunement";
 /// Save flag remembering a completed attunement across save/load.
 pub const SYMMETRY_ATTUNEMENT_FLAG: &str = "symmetry_attunement_complete";
 
-/// The four kernel-face facts the puzzle's win condition is made of.
-///
-/// what survived is an encounter stating its own win condition, which is
-/// legitimate and is a different sentence from *"this switch does that"*: the
-/// puzzle is complete when all four symmetries have been visited, and only the
-/// puzzle knows that.
-const KERNEL_SIGNALS: [&str; 4] = [
-    "gravity_down",
-    "gravity_left",
-    "gravity_up",
-    "gravity_right",
-];
-
 /// Spawn the attunement authority once: the generic component set and nothing else — no waves, no
 /// participants, no bespoke state.
 ///
@@ -57,6 +44,7 @@ pub fn spawn_symmetry_attunement(
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands,
     existing: Query<&Encounter>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
+    tuning: Res<crate::tuning::AmbitionTuning>,
 ) {
     let Some(scope) = commands.spawn_scope() else {
         return;
@@ -79,9 +67,13 @@ pub fn spawn_symmetry_attunement(
         ambition_platformer2d_shared_tangle::sim_id::SimId::encounter(SYMMETRY_ATTUNEMENT_ID),
         lifecycle,
         EncounterObjective::win(Objective::All(
-            KERNEL_SIGNALS
+            // The puzzle's win condition is `symmetry_attunement.signals`.
+            tuning
+                .0
+                .symmetry_attunement
+                .signals
                 .iter()
-                .map(|signal| Objective::ReceiveSignal((*signal).to_string()))
+                .map(|signal| Objective::ReceiveSignal(signal.clone()))
                 .collect(),
         )),
         EncounterParticipants::default(),
@@ -98,14 +90,16 @@ pub fn celebrate_symmetry_attunement(
         ambition_combat::events::GameplayBannerRequested,
     >,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
+    tuning: Res<crate::tuning::AmbitionTuning>,
 ) {
+    let attunement = &tuning.0.symmetry_attunement;
     for msg in events.read() {
         if msg.encounter == SYMMETRY_ATTUNEMENT_ID && matches!(msg.event, EncounterEvent::Completed)
         {
             banners.write(
                 ambition_combat::events::GameplayBannerRequested::new(
-                    "NOETHER ATTUNEMENT — every symmetry conserved".to_string(),
-                    4.0,
+                    attunement.banner.clone(),
+                    attunement.banner_seconds,
                 ),
             );
             save.data_mut().set_flag(SYMMETRY_ATTUNEMENT_FLAG, true);

@@ -39,11 +39,7 @@ use ambition_vfx::{FireworksRequest, FxRequest, ParticleKind, VfxMessage, VfxWri
 
 pub const CUT_ROPE_BOSS_ID: &str = "smirking_behemoth_boss";
 pub const CUT_ROPE_VICTORY_NPC_ID: &str = "smirking_behemoth_victory_npc";
-pub const CUT_ROPE_VICTORY_NPC_DIALOGUE_ID: &str = "smirking_behemoth_victory_npc";
 const CUT_ROPE_ROOM_ID: &str = "you_have_to_cut_the_rope";
-const CUT_ROPE_VICTORY_NPC_NAME: &str = "The Rope Appreciator";
-const CUT_ROPE_VICTORY_NPC_W: f32 = 28.0;
-const CUT_ROPE_VICTORY_NPC_H: f32 = 48.0;
 const ROPE_KIND: &str = "cut_rope_rope";
 const ANVIL_KIND: &str = "cut_rope_anvil";
 const PIANO_KIND: &str = "cut_rope_piano";

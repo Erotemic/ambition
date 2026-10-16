@@ -12,8 +12,8 @@
 pub static PACK: ambition_platformer2d::content::EmbeddedPack =
     ambition_platformer2d::content_pack! {
         root: "assets",
-        // The rules of its rounds are the stage's own policy.
-        schemas: [super::versus_rules::versus_rounds_schema],
+        // The rules of its rounds and its room are the stage's own.
+        schemas: [super::versus_rules::versus_rounds_schema, super::versus_rules::versus_arena_schema],
     };
 
 /// Register the duelists: the catalog fragment and every row as a character,

@@ -126,7 +126,7 @@ pub use player_state::{
 };
 pub use surface_loop::{AttachedLoop, LoopResolution, LoopRoute};
 pub use world::{
-    BlinkWallTier, Block, BlockKind, Boarding, ClimbableContact, ClimbableKind, ClimbableRegion,
+    AuthoredBlock, BlinkWallTier, Block, BlockKind, Boarding, ClimbableContact, ClimbableKind, ClimbableRegion,
     ClimbableSpec, RoomGeometry, SurfaceChain, SurfaceFrame, SurfaceJunction, SurfaceKind,
     SurfacePort, WaterContact, WaterKind, WaterRegion, WaterVolumeSpec, World,
 };

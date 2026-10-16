@@ -48,7 +48,8 @@ pub fn register(app: &mut bevy::prelude::App) {
     let pack = crate::pack::select(app.world_mut());
     let catalog = catalog_of(&pack).data().clone();
     app.register_character_catalog_fragment(
-        catalog_fragment(catalog).expect("the prepared catalog carries this provider's default character"),
+        catalog_fragment(catalog, &starting_character(&pack))
+            .expect("the prepared catalog carries this provider's default character"),
     );
 }
 
@@ -57,6 +58,7 @@ pub fn register(app: &mut bevy::prelude::App) {
 /// (`crate::reload`).
 pub fn catalog_fragment(
     catalog: ambition_characters::actor::character_catalog::CharacterCatalogData,
+    starting_character: &str,
 ) -> Result<
     ambition_characters::actor::character_catalog::CharacterCatalogFragment,
     ambition_characters::actor::character_catalog::CharacterCatalogAssemblyError,
@@ -65,7 +67,7 @@ pub fn catalog_fragment(
     Ok(CharacterCatalogFragment::from_prepared(
         CATALOG_SOURCE_PATH,
         crate::AMBITION_CONTENT_PROVIDER,
-        Some(DEFAULT_CHARACTER),
+        Some(starting_character),
         catalog,
     )?
     // What an Ambition character that states no verbs can do as an actor.
@@ -165,11 +167,24 @@ pub fn buildable_definitions(
     out
 }
 
-/// The character this provider starts the player as: the current robot.
+/// The character this provider starts the player as: `starting_character` in
+/// the pack's `ambition_rules.ron`.
 ///
 /// A composition fact, not a row fact: which row a provider treats as its
 /// default is the provider's choice (see `CharacterCatalogFragment::from_prepared`).
-pub const DEFAULT_CHARACTER: &str = "player_robot_v3";
+pub fn starting_character(pack: &ambition_content_pack::PreparedContentPack) -> String {
+    ambition_content_schemas::rules::lowered_ambition_rules(pack)
+        .expect("Ambition's pack states its tuning (`data/ambition_rules.ron`)")
+        .starting_character
+        .clone()
+}
+
+/// The character the SHIPPED pack starts the player as (test-only: a
+/// composition reads its own selected pack).
+#[cfg(test)]
+pub fn shipped_starting_character() -> String {
+    starting_character(crate::pack::shipped())
+}
 
 /// The rows of the SHIPPED pack's catalog that state how their body moves.
 fn shipped_rows_with_a_body() -> impl Iterator<Item = &'static str> {
@@ -1212,6 +1227,31 @@ mod tests {
         }
     }
 
+    /// The character the provider starts the player as is the pack's
+    /// `starting_character`: a pack that names another row publishes it.
+    #[test]
+    fn the_provider_starts_the_player_as_the_packs_starting_character() {
+        const STARTING: &str = r#"starting_character: "player_robot_v3","#;
+        let edited = crate::pack::compile_pack_with(|path, text| {
+            if path != "data/ambition_rules.ron" {
+                return text;
+            }
+            assert_eq!(text.matches(STARTING).count(), 1, "the probe edits the starting character");
+            text.replace(STARTING, r#"starting_character: "player_robot_v2","#)
+        })
+        .unwrap_or_else(|failure| panic!("{}", failure.render()));
+        let mut app = bevy::prelude::App::new();
+        crate::pack::select_pack(&mut app, std::sync::Arc::new(edited)).expect("the first selection is admitted");
+        register(&mut app);
+        assert_eq!(
+            app.world()
+                .resource::<ambition_characters::actor::character_catalog::CharacterCatalogDefaults>()
+                .for_provider(crate::AMBITION_CONTENT_PROVIDER),
+            Some("player_robot_v2"),
+            "the provider does not start the player as the pack's `starting_character`"
+        );
+    }
+
     #[test]
     fn the_provider_starts_the_player_as_the_current_robot() {
         // There is no generic `player`; each incarnation is its own character
@@ -1225,10 +1265,8 @@ mod tests {
             Some("player_robot_v3"),
             "the App-local fragment publishes the provider default"
         );
-        assert_eq!(
-            StartingCharacter::default().effective_id(DEFAULT_CHARACTER),
-            DEFAULT_CHARACTER
-        );
+        let starting = shipped_starting_character();
+        assert_eq!(StartingCharacter::default().effective_id(&starting), starting);
     }
 }
 
@@ -1362,7 +1400,7 @@ mod assembled_provider_tests {
         use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
         let mut app = bevy::prelude::App::new();
         app.register_character(ambition_platformer2d::character::CharacterDefinition::new(
-            crate::character_catalog::DEFAULT_CHARACTER,
+            crate::character_catalog::shipped_starting_character(),
             "Somebody Else",
             "foreign_provider",
         ));

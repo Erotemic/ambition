@@ -19,7 +19,7 @@
 #[cfg(test)]
 pub fn lineage() -> Vec<String> {
     let catalog = crate::character_catalog::shipped_catalog();
-    let mut chain = vec![crate::character_catalog::DEFAULT_CHARACTER.to_string()];
+    let mut chain = vec![crate::character_catalog::shipped_starting_character()];
     while let Some(previous) = catalog
         .get(chain.last().expect("the chain starts non-empty"))
         .unwrap_or_else(|| panic!("the lineage names `{}`, which has no row", chain.last().unwrap()))

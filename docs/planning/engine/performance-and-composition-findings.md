@@ -288,6 +288,24 @@ lever: a seat with no device does not need its map evaluated. The probe counts
 allocations; their time on the phone is inside the 5.2% of `mimalloc` and the
 3.1% of `alloc`.
 
+### F14 — Room isolation re-derives every room mask every frame
+
+MEASURED (source read; allocations from F13). `isolate_live_rooms`
+(`ambition_render/src/rendering/view_isolation.rs:216`) walks the subtree of
+every entity stamped `InRoomInstance` each frame, with a new `Vec` per root,
+and rebuilds each `RenderLayers` with several clones (`in_room_band`,
+`without_room_layers`). The result changes only when the live-room set or its
+order changes, or when an entity or child is new. The room bands are layers
+256-511 and the local-view band starts at 1024; Bevy's `RenderLayers` keeps one
+`u64` inline (`bevy_camera` `render_layers.rs:23`), so each mask with a room
+layer is on the heap, and each clone of it allocates. Sanic: 2,773
+allocations a frame; Mary-O: 444.
+
+Reading (REASONED): change-driven, with no behaviour change: walk all roots
+only when `LiveRoomInstance` changed or a room was added or removed; else walk
+only `Added<InRoomInstance>` roots and `Changed<Children>`. A second, smaller
+lever: put the room bands in layers below 64, so a mask fits inline.
+
 ### Not a lever (keep out of this run)
 
 Session-scoped App globals (C03: 30 counted plus 19 uncounted instances) are
@@ -304,7 +322,8 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | P3 | Hub: gate each game's session gameplay by its scope (S2); install Ambition, physics debris and 3D lighting only for the games that use them (S2b); move shared techniques out of `ambition_demo_smash` | 82+ foreign systems while one game plays, 72 hub-only systems | medium | no |
 | P4 | Interned identities: an integer handle per body, made when its `SimId` is minted; read-model keys by `Entity` | String clones and sorts in 5+ per-tick systems | medium | no |
 | P5 | Read-models built once per drawn frame, by change | repeat builds on slow frames; builds in headless hosts | medium | D2 |
-| P6 | Change-driven systems: the two whole-world queries, input bindings | full scans per tick, ~30 allocations a frame | small | no |
+| P6 | Change-driven systems: the two whole-world queries, input bindings, room isolation (F14) | full scans per tick; 444-2,773 allocations a frame in room isolation | small | no |
+| P11 | Input lookups without boxing (F13): fix `CentralInputStore` in a workspace fork of `leafwing-input-manager`, upstream PR | 19,222 allocations a frame, ~75% of a standalone frame's | small | no |
 | P7 | Plumbing: one gizmo trail group, Bevy debug gizmos off in shipping, developer tools only in developer builds, Kira channels | ~80 systems | small-medium | D6, D9 |
 | P8 | Upstream query-state fixes (LDtk, Yarn, bevy_light, GGRS) | ~2% of phone CPU | small each | D5 (only for the LDtk workaround) |
 | P10 | Phone render scale: a reduced main render target, scaled to the surface (`quality.rs:190` has no phone path) | fragments, when the GPU is the limit; not the limit today (F11) | medium | D10 |

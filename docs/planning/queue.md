@@ -80,7 +80,7 @@ Correctness interrupts from the 2026-10-14 review:
 
 Correctness interrupts from the 2026-10-13 review:
 [REVIEW-1013](#review-1013---frame-and-acceptance-gaps-from-the-2026-10-13-review)
-(items 1, 2 and 4 done; 3 open).
+(all four items done; item 3 seen 2026-10-15).
 
 Correctness interrupts from the 2026-10-12 review:
 [REVIEW-1012](#review-1012---feedback-and-adapter-contracts-from-the-2026-10-12-review)
@@ -308,11 +308,16 @@ and a control.
 2. **Done 2026-10-13 (ToothbrushArtAgent):** the real Hall conversation
    puts the armor on Jeff Hinter by key presses
    (`the_armor_choice_of_his_hall_conversation_puts_the_armor_on_him`).
-3. **Open, unclaimed:** visual acceptance in the running game. Front rows
-   were seen at ultra for idle and for a held conversation; not seen:
-   front idle ↔ walk or combat. A held item on a real published sheet,
-   both facings, through an attack (`capture_scene --wear ID=LOOK[@TICK]`
-   photographs a look).
+3. **Done 2026-10-15 (seen, ultra):** front idle ↔ walk: Mallory as the
+   player in `central_hub_complex` faces the viewer at rest, turns to
+   profile while she walks, and faces the viewer again when she stops
+   (`AMBITION_QUALITY_PROFILE=ultra capture_scene central_hub_complex
+   player OUT.png 960x540 --character npc_mallory --frames 6 --stride 30
+   --player-holds right@150 --player-holds none@210`). A held item through
+   an attack, both facings: the player robot's blade is behind it in the
+   wind-up and raised in front in the swing, in the posed hand, and the
+   left-facing swing is its mirror (`--player-holds attack@100 ...
+   left@140 ... attack@160`, stride 3). Not seen: front idle ↔ combat.
 4. **Done 2026-10-13:** the posed hand's root is never the feature's
    stand-in (`UnclaimedBodyPlaceholder`, which carries the feature's id in
    a transition and draws no parts): the root query excludes it.
@@ -1020,7 +1025,11 @@ variants. Also found in that regen:
     re-packs). A change to the shared core re-renders every sheet: 56 min
     (tack-ons 2255 s of render, the variants 575 s before they built on
     six processes).
-    **Left:** a frame size change re-packs all four tiers.
+    **Left:** a frame size change re-packs all four tiers. A focused
+    publish (`sprites.sh --target NAME`, 22 s for `mallory`: its render and
+    its tiers) writes in place and packs no Ultrapack, so the one prop that
+    draws from a pack (`intro_cart`, `intro_prop_sprite_rows`) shows its
+    old art until the next full publish, whose pack key sees the sheet.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a
@@ -1186,10 +1195,14 @@ second authoring source.
   Hall dialogue with no node made the id valid, and the spawn started nothing.
   The Yarn titles are the one source now; the catalog's ids are checked
   against them (`a_hall_dialogue_the_catalog_names_with_no_node_is_refused`,
-  red with the fold put back; the control is `hall_player`). Open: the ids
-  still come from `yarn_title_ids`, a `title:` line scan beside the Yarn
-  compiler. The compiler is an optional dependency (`ui`), so replacing the
-  scan is a dependency decision.
+  red with the fold put back; the control is `hall_player`). ✅ 2026-10-15,
+  the title scan: the ids came from `yarn_title_ids`, a `title:` line scan
+  beside the pack's admission, which reads each node since the Yarn files
+  became `yarn_dialogue` sources. Admission lowers each file's titles
+  (`YarnFile::titles`), the validator and the Yarn tests read them, and the
+  scan is deleted (the same 287 ids on the shipped files; poison: no titles
+  lowered, red at `hub_guide` in `central_hub_main`). The Yarn compiler
+  still compiles the files when the game loads them.
 - LDtk/world cross-reference rules in `content_validation.rs` repeat rules that
   a world owner already checks. ✅ 2026-10-03, the LoadingZone target rule:
   `validate_ldtk_room_links` refused every zone without both targets, which <!-- cite-ok: the function's name on 2026-10-03; it is `validate_room_links` now -->

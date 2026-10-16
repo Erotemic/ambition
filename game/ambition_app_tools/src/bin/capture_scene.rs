@@ -112,6 +112,17 @@ struct SceneCaptureConfig {
     /// Shots to fire, each on its sim tick (`--shot`), so the look of a
     /// projectile is photographed with no body that fires it.
     shots: Vec<ShotAt>,
+    /// Items to throw, each on its sim tick (`--item`), so a prop crossing a
+    /// portal is filmed at the speed and the place a scenario wants.
+    items: Vec<ItemAt>,
+    /// Draw portals with their body pieces only, no view windows
+    /// (`--portal-effect off`), so a body crossing a portal is measured as it
+    /// is drawn and not again in a window that sees it.
+    portal_effect_off: bool,
+    /// Advance exactly one sim tick each frame (`--tick-per-frame`), so a
+    /// film is the same each run and its shots are a known number of ticks
+    /// apart, whatever the time a frame takes to write.
+    tick_per_frame: bool,
     /// Bubble shields to draw, each at a place (`--guard`), so the look of a
     /// guard in a state is photographed with no body that holds one.
     guards: Vec<GuardAt>,
@@ -335,6 +346,18 @@ OPTIONS:
                         and flight); any other id flies straight on the body
                         of a plain ranged shot; `-` is a shot that names no
                         look. The player owns the shot.
+    --tick-per-frame    advance exactly one sim tick each frame, and hold the
+                        clock while a shot is read back: shots are --stride
+                        ticks apart and a film is the same each run (each
+                        shot logs its sim tick)
+    --portal-effect off|cones
+                        draw portals with body pieces only (`off`), no view
+                        windows, or with the windows (`cones`, the default)
+    --item TICK:X,Y:VX,VY:ID
+                        throw held item ID into the world on sim tick TICK at
+                        world X,Y with velocity VX,VY (px/s), as a hand
+                        releases one; repeat for more. `seam_gauge` is the
+                        plate the seam lab measures portals with.
     --guard X,Y:INTEGRITY[:parry|:hit|:blow@PHASE]
                         draw a bubble shield at world X,Y, INTEGRITY whole
                         (1 to 0); `parry` draws it in a parry, `hit` gives it
@@ -487,7 +510,11 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
     // because tests build several Apps per process and the tracing subscriber
     // is process-global. A capture builds one App and exits. Added after the
     // group, so it applies to both capture modes.
-    app.add_plugins(bevy::log::LogPlugin::default());
+    app.add_plugins(bevy::log::LogPlugin {
+        #[cfg(feature = "perf_probe")]
+        custom_layer: ambition_platformer2d::dev_tools::perf_probe::log_layer,
+        ..Default::default()
+    });
     app.insert_resource(config.clone());
     if let Some(preview) = config.body_warp {
         app.insert_resource(preview);
@@ -926,6 +953,74 @@ impl ShotAt {
     }
 }
 
+/// One sim tick of wall time (`SIM_TICK_HZ`).
+fn one_tick() -> std::time::Duration {
+    std::time::Duration::from_secs_f64(1.0 / ambition_platformer2d::runtime::SIM_TICK_HZ)
+}
+
+/// `--tick-per-frame`: a frame is one sim tick, and the clock stands still
+/// while a shot is read back (a readback takes frames), so the shots of a
+/// film are `--stride` ticks apart, exactly.
+fn pace_the_clock_by_the_shots(
+    runtime: Res<SceneCaptureRuntime>,
+    mut strategy: ResMut<bevy::time::TimeUpdateStrategy>,
+) {
+    let step = if runtime.requested && !runtime.completed { std::time::Duration::ZERO } else { one_tick() };
+    *strategy = bevy::time::TimeUpdateStrategy::ManualDuration(step);
+}
+
+/// `--item TICK:X,Y:VX,VY:ID`: a held item, thrown into the world at a place
+/// with a velocity on a sim tick.
+#[derive(Clone, Debug)]
+struct ItemAt {
+    tick: u64,
+    at: Vec2,
+    vel: Vec2,
+    id: String,
+}
+
+impl ItemAt {
+    fn parse(value: &str) -> Result<Self, String> {
+        let bad = || format!("--item wants TICK:X,Y:VX,VY:ID, got '{value}'");
+        let pair = |text: &str| -> Option<Vec2> {
+            let (x, y) = text.split_once(',')?;
+            Some(Vec2::new(x.trim().parse().ok()?, y.trim().parse().ok()?))
+        };
+        let parts: Vec<&str> = value.split(':').collect();
+        let [tick, at, vel, id] = parts.as_slice() else {
+            return Err(bad());
+        };
+        Ok(Self {
+            tick: tick.parse().map_err(|_| bad())?,
+            at: pair(at).ok_or_else(bad)?,
+            vel: pair(vel).ok_or_else(bad)?,
+            id: id.to_string(),
+        })
+    }
+}
+
+/// `--item`: throw each configured item on its tick, released as a hand
+/// releases one (a free body under its own physics).
+fn throw_items(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    mut commands: Commands,
+) {
+    use ambition_platformer2d::engine_core::Vec2 as V;
+    use ambition_platformer2d::held_items::GroundItem;
+    for item in config.items.iter().filter(|item| item.tick == tick.get()) {
+        let Some(spec) = ambition_platformer2d::character::held_item_by_id(&item.id) else {
+            eprintln!("capture_scene: --item names no held item '{}'", item.id);
+            continue;
+        };
+        commands.spawn((
+            GroundItem::released(spec, V::new(item.at.x, item.at.y), V::new(item.vel.x, item.vel.y), V::splat(20.0)),
+            ambition_platformer2d::item::ItemCustody::InWorld,
+            Name::new(format!("Capture item: {}", item.id)),
+        ));
+    }
+}
+
 /// `--shot`: fire each configured shot on its tick, through the projectile
 /// domain's own request, as a body that fires does. The primary player owns
 /// it (a shot does not touch its owner). A sim system that names its tick, as
@@ -1007,13 +1102,22 @@ fn fire_portal_shots(
 
 /// The systems a room capture adds on top of [`build_capture_app`].
 fn install_room_capture(app: &mut App) {
+    if app.world().resource::<SceneCaptureConfig>().tick_per_frame {
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(one_tick()));
+        app.add_systems(Last, pace_the_clock_by_the_shots);
+    }
+    if app.world().resource::<SceneCaptureConfig>().portal_effect_off {
+        app.add_systems(Update, |mut selection: ResMut<ambition_platformer2d::portal_presentation::PortalEffectSelection>| {
+            selection.active = ambition_platformer2d::portal_presentation::PortalVisualEffect::Off;
+        });
+    }
     let sim = app.sim_schedule();
     // Sim systems: each writes rollback state (health, a body's position, a
     // seat's interact buffer), and a write from outside the rewinding
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, fire_portal_shots, fire_shots),
+        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, fire_portal_shots, fire_shots, throw_items),
     );
     if !app.world().resource::<SceneCaptureConfig>().player_holds.is_empty() {
         app.add_systems(
@@ -1233,6 +1337,9 @@ impl SceneCaptureConfig {
         let mut wears: Vec<(String, String, u64)> = Vec::new();
         let mut portal_shots: Vec<PortalShotAt> = Vec::new();
         let mut shots: Vec<ShotAt> = Vec::new();
+        let mut items: Vec<ItemAt> = Vec::new();
+        let mut portal_effect_off = false;
+        let mut tick_per_frame = false;
         let mut guards: Vec<GuardAt> = Vec::new();
         let mut player_at: Vec<(Vec2, u64)> = Vec::new();
         let mut player_climbs = false;
@@ -1473,6 +1580,25 @@ impl SceneCaptureConfig {
                     shots.push(ShotAt::parse(value)?);
                     2
                 }
+                "--tick-per-frame" => {
+                    tick_per_frame = true;
+                    1
+                }
+                "--portal-effect" => {
+                    match args.get(i + 1).map(String::as_str) {
+                        Some("off") => portal_effect_off = true,
+                        Some("cones") => portal_effect_off = false,
+                        _ => return Err("--portal-effect wants off or cones".to_string()),
+                    }
+                    2
+                }
+                "--item" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--item requires TICK:X,Y:VX,VY:ID".to_string());
+                    };
+                    items.push(ItemAt::parse(value)?);
+                    2
+                }
                 "--player-beside" => {
                     let Some(value) = args.get(i + 1) else {
                         return Err("--player-beside requires a catalog id".to_string());
@@ -1657,6 +1783,9 @@ impl SceneCaptureConfig {
                 player_holds: Vec::new(),
                 portal_shots: Vec::new(),
                 shots: Vec::new(),
+                items: Vec::new(),
+                portal_effect_off: false,
+                tick_per_frame: false,
                 guards: Vec::new(),
                 body_warp: None,
                 dev_overlays,
@@ -1728,6 +1857,9 @@ impl SceneCaptureConfig {
             player_holds,
             portal_shots,
             shots,
+            items,
+            portal_effect_off,
+            tick_per_frame,
             guards,
             body_warp,
             route: None,
@@ -2600,6 +2732,7 @@ fn request_capture(
     art_states: Option<Res<CharacterLoadStates>>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
     mut glass: Glass,
+    sim_tick: Option<Res<ambition_platformer2d::time::SimTick>>,
 ) {
     if runtime.requested || runtime.completed {
         if runtime.requested {
@@ -2741,8 +2874,11 @@ fn request_capture(
         .spawn(Readback::texture(target.image.clone()))
         .observe(save_readback_to_disk);
     runtime.requested = true;
+    // The sim tick of the shot, so a film lines up with a sim trace.
     eprintln!(
-        "capture_scene: texture readback requested -> {}",
+        "capture_scene: shot {} at sim tick {} -> {}",
+        runtime.shot,
+        sim_tick.map_or(0, |tick| tick.get()),
         config.output.display()
     );
 }

@@ -764,12 +764,6 @@ pub fn step_projectiles(
     // Each live room's projectile world, composed once per tick the first
     // time a shot in it asks.
     let mut composed: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Option<std::borrow::Cow<'_, ae::World>>)> = Vec::new();
-    // Without the portal capability there are no apertures to thread, so the
-    // list is empty by construction and the transit check below is skipped.
-    #[cfg(feature = "portal")]
-    let portals_by_room = carved.portals_by_room();
-    #[cfg(feature = "portal")]
-    let portal_convention = carved.portal_convention();
     let tick = trace.current_tick();
 
     // Collect + sort by the GLOBAL spawn sequence (a single deterministic order
@@ -897,18 +891,17 @@ pub fn step_projectiles(
             continue;
         }
 
-        // Portal transit: thread the aperture instead of hitting the wall.
-        #[cfg(feature = "portal")]
-        if !portals_by_room.is_empty()
-            && ambition_projectiles::try_projectile_portal_transit(
-                &mut kin,
-                // Only the portals of the shot's own live room (OW1).
-                portals_by_room.in_room(shot_room),
-                portal_convention,
-            )
-        {
-            continue;
-        }
+        // A shot crosses a portal as every body does (`portal_transit`): it
+        // straddles the opening and the pair takes it when its centre
+        // crosses. Its leg is its sweep, so a fast shot that crossed a plane
+        // this tick is taken through it, not stopped on the wall behind.
+        commands.entity(proj_entity).insert(ae::SweepSample {
+            prev: leg_start,
+            curr: kin.pos,
+            vel: kin.vel,
+            half: kin.size * 0.5,
+            down: ae::Vec2::ZERO,
+        });
 
         // ⛔⛔ **ONE OBSTRUCTION MODEL, AND IT IS THE RESPONSE'S OWN.** The
         // world branch swept this shot's BOX against the blocks its own

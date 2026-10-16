@@ -429,6 +429,12 @@ pub fn sprite_frame_basis(
             Vec4::new(min.x / tex.x, min.y / tex.y, max.x / tex.x, max.y / tex.y),
             max - min,
         )
+    } else if let Some(size) = sprite.custom_size {
+        // A whole-image sprite drawn at a stated size samples the whole
+        // texture, so its basis needs no main-world image: an image kept for
+        // the render world only (a prop's art) has none, and its sprite was
+        // not cut at a portal's seam but drawn whole and copied whole.
+        return Some(SpriteFrameBasis { uv_rect: Vec4::new(0.0, 0.0, 1.0, 1.0), size });
     } else {
         let image = images.get(&sprite.image)?;
         let texture_size = image.texture_descriptor.size;

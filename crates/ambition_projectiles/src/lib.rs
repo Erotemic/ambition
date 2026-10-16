@@ -16,8 +16,6 @@ pub mod entity;
 pub mod extension;
 pub mod kind;
 pub mod materialize;
-#[cfg(feature = "portal")]
-pub mod portal_transit;
 mod snapshot_impls;
 pub mod spawn;
 pub mod spawn_request;
@@ -57,8 +55,6 @@ pub use ambition_input::{
     MotionDirection, MotionInputBuffer, MotionSample, MotionTechnique, MotionTechniqueAppExt,
     MotionTechniqueCatalog,
 };
-#[cfg(feature = "portal")]
-pub use portal_transit::try_projectile_portal_transit;
 
 // Domain-owned rollback declaration; the host supplies the backend registrar.
 mod rollback_registration;

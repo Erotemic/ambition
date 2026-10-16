@@ -60,6 +60,42 @@ extension lowering 32/34. About 170 systems a frame (17%).
 
 ## Findings
 
+### F0 — A third of the phone's CPU is the executor's work for each system, outside any system
+
+MEASURED (phone, `android-all-maryo-1-1`, every sample's full call chain,
+`symbolize_android_profile.py --ours`). 32.2% of all app samples are in the
+schedule executor with no system body on the stack: per system, before or
+after it runs. By innermost frame: access checks over component bitsets
+(`bevy_ecs/query/access.rs` with `fixedbitset`, about 2.9%), the
+`TypeId` test that finds apply-deferred points (`system/system.rs` and
+`executor/mod.rs`, about 2.5%), archetype-cache updates
+(`update_archetypes_unsafe_world_cell`, `query/state.rs`), parameter
+validation (`function_system.rs`), and allocation in the executor. A further
+44.8% has no frame of ours at all: the render world, the GPU driver
+(`vulkan.adreno.so`), the kernel, and the task pool.
+
+What it means (REASONED): this cost grows with the number of systems that run
+each frame (about 1000) and, for the access checks, with the number of
+component and resource types the world has registered (about 1900 and 1400).
+It does not depend on what the systems do. So the levers are: fewer systems
+installed (P1, P3), fewer and coarser systems where many small ones do one
+job (the ten narrative ledgers), a set run condition that skips a whole
+feature group when it has no work (a skipped system pays none of the per-system
+work above), and fewer registered types (291 message types, 330 GGRS snapshot
+resources).
+
+Lines of ours that do take time (each under 1.5%): `room_instance.rs:172`
+(1.4%), `room_graph.rs:432` and `:471`, `clip_material.rs:107`,
+`ambition_entity_catalog/src/lib.rs:1563`, `touch_input/virtual_device.rs:50`,
+`wallet_shield.rs:40`, `held_items.rs:108`, `hand.rs:63`.
+
+**Mary-O only, against every game (phone, one run each).** MEASURED: with
+`AMBITION_HUB_GAMES=mary_o` the app used 41.7 s of CPU in 30 s, against
+49.9 s with every game (-17%), and 38% fewer context switches. Frame time was
+not better in this pair (p50 41-69 ms against 24-46 ms), but the pair is
+confounded: other commits (97ff2541e, 11130fb49), one run each, and the place
+in the level. Clocks were at their maximum and thermal status 0 in both.
+
 ### F1 — The hosts install everything; the capability profiles can omit five things
 
 MEASURED. Both demo hosts build `PlatformerEnginePlugins::fixed_tick()`
@@ -68,16 +104,25 @@ MEASURED. Both demo hosts build `PlatformerEnginePlugins::fixed_tick()`
 `Capability` has five variants (`profile.rs:32`). Grabs and throws, the Smash
 moveset, mounts and match stocks are installed inside `CombatSchedulePlugin`
 (`ambition_platformer2d_runtime/src/combat_schedule.rs`, mounts at `:776`),
-where a plugin group cannot disable them. Boss encounters cannot be omitted:
-`demo_fixture::simulation_world` and `PlatformerAssetsPlugin` need
-`Res<BossCatalog>`, which only `BossEncounterSimulationPlugin` makes.
+where a plugin group cannot disable them. Boss encounters CAN be omitted
+already: `BossCatalog` is core state (`runtime/src/sim_core_resources.rs:194-203`)
+and the `encounters-without-named-bosses` profile is witnessed; the demo hosts
+simply do not ask. `BossEncounterSimulationPlugin` initializes the catalog a
+second time (`boss_encounter/src/lib.rs:132`), and the run condition at
+`actor_monolith/src/features/mod.rs:1094-1102` tests a resource that is now
+always there. The extension phases `technique_execution` and `boss_conduct`
+(about 29 systems) and `wielded_use`/`module_entity_tick` (about 20) are core,
+whatever the profile. Mary-O's and Sanic's own movesets author
+`smash.capture_attempt/pummel/throw`, so Grabs cannot leave a standalone game
+until its fighter kit does (D4).
 
-### F2 — Ten narrative ledgers run in every game
+### F2 — Twelve narrative ledgers run in every game
 
 MEASURED. `NarrativeInputPlugin<M>` (`ambition_conversation/src/ledger.rs:242`)
-adds three systems per payload; ten payloads (two in `ambition_conversation`,
-seven in `actor_monolith/src/features/mod.rs:1491-1497`, one in
-`ambition_content`) make 30 systems. The eight outside `ConversationPlugin` are
+adds three systems per payload; twelve payloads (two in `ambition_conversation`,
+seven in `actor_monolith/src/features/mod.rs:1491-1497`, three in
+`ambition_content`) make 36 systems; a standalone game runs nine (27). The seven
+monolith ones and the ten outside `ConversationPlugin` are
 not removed by `Capability::Dialogue`. Every writer is in `ambition_conversation`
 or `ambition_content`.
 
@@ -89,6 +134,14 @@ MEASURED. `serialize_frame_schedules`
 an idle system costs about 0.016 us on the single-threaded executor and 1.7-12 us
 on the multi-threaded one. The executor policy has a second owner
 (`game/ambition_app/src/app/plugins.rs:355`, an env switch the demos never reach).
+Worse: the windowed demo hosts never call the policy at all.
+`install_windowed_foundation` (`ambition_platformer2d/src/app.rs:1726-1810`)
+does not call `serialize_frame_schedules`; its callers are the headless
+foundation and `visible_composition.rs:107` only. So windowed Mary-O, Sanic and
+Smash run `First`..`Last` and `Fixed*` on the multi-threaded executor. Bevy
+itself runs `Main`, `FixedMain` and `RunFixedMainLoop` serially; the rollback
+crate serializes `GgrsSchedule` only, not `SaveWorld`/`LoadWorld`/`ReadInputs`/
+`AdvanceWorld`.
 
 ### F4 — In the hub, each game runs the other games' gameplay
 
@@ -117,8 +170,18 @@ key `HashMap`s by `String`, per body per tick.
 
 ### F7 — Two systems visit every entity every tick
 
-MEASURED (source). `project_wallet_shields` and
-`brandish_the_playing_move_s_weapon` have queries with no required component.
+MEASURED (source). `project_wallet_shields`
+(`actor_monolith/src/features/wallet_shield.rs:38`) and
+`brandish_the_playing_move_s_weapon` (`ambition_combat/src/held_items.rs:93`)
+iterate a query with no required component, so they visit every entity in the
+world each tick (the hub census counts about 8000 entities, 1300 live). A body
+they can act on has `WornCharacter` or `BodyWalletShield`, and `MovePlayback` or
+`MoveBrandishedItem`; the filters `Or<(With<WornCharacter>,
+With<BodyWalletShield>)>` and `Or<(With<MovePlayback>, With<MoveBrandishedItem>)>`
+keep what they do and drop the walk. Eight other queries in the scan have no
+required component but are only used with `get(entity)`, which costs nothing.
+`character_runtime/presentation.rs:261` walks every body only on the tick the
+registry changes.
 
 ### F8 — Plumbing that scales with what is registered, not with what is used
 
@@ -156,7 +219,7 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | # | Proposal | Removes | Size | Behaviour change |
 | --- | --- | --- | --- | --- |
 | P1 | Per-game engine profiles: `BossCatalog` always present (empty); ledgers under Dialogue; grabs, mounts, match stocks as group members with capabilities; extension lowering installed by the capability that owns the phase; demo hosts call `for_profile` | about 115 systems a tick in Mary-O and Sanic | large | no, except decisions D3, D4 |
-| P2 | Serialize the `Fixed*` schedules in the one executor policy (S1), A/B first | the multi-threaded executor cost of ~500 idle fixed systems | small | no |
+| P2 | One executor policy (`apply_executor_policy`), called by every foundation including the windowed demos, covering `Fixed*` and `StateTransition`; A/B first | the multi-threaded executor cost of every frame and fixed system in the windowed demos | small | no |
 | P3 | Hub: gate each game's session gameplay by its scope (S2); install Ambition, physics debris and 3D lighting only for the games that use them (S2b); move shared techniques out of `ambition_demo_smash` | 82+ foreign systems while one game plays, 72 hub-only systems | medium | no |
 | P4 | Interned identities: an integer handle per body, made when its `SimId` is minted; read-model keys by `Entity` | String clones and sorts in 5+ per-tick systems | medium | no |
 | P5 | Read-models built once per drawn frame, by change | repeat builds on slow frames; builds in headless hosts | medium | D2 |
@@ -164,6 +227,59 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | P7 | Plumbing: one gizmo trail group, Bevy debug gizmos off in shipping, developer tools only in developer builds, Kira channels | ~80 systems | small-medium | D6, D9 |
 | P8 | Upstream query-state fixes (LDtk, Yarn, bevy_light, GGRS) | ~2% of phone CPU | small each | D5 (only for the LDtk workaround) |
 | P9 | Content to data: held items, the item enum, Ambition-only item systems | Ambition work in other games; engine edits for content | large | D7 |
+
+## Implementation plans
+
+### P2 — one executor policy (one commit, an A/B, one commit)
+
+- Rename `serialize_frame_schedules` to `apply_executor_policy(app)`
+  (`runtime/src/lib.rs:741`), the only place that sets a main-world executor.
+  It serializes each schedule that exists: `First`, `PreUpdate`,
+  `StateTransition`, `Update`, `SpawnScene`, `PostUpdate`, `Last` and
+  `FixedFirst`..`FixedLast`. It leaves the render sub-app and Bevy's own serial
+  schedules alone; the GGRS schedules stay with the rollback crate (measure
+  `SaveWorld`/`LoadWorld` in the same run).
+- Call it from `install_windowed_foundation` as well; delete the second owner
+  (`ambition_app/src/app/plugins.rs:348-374`); fix the false comment at
+  `combat_schedule.rs:985`.
+- A/B: one variable, `AMBITION_SCHEDULE_EXECUTOR` = `frame-serial` (today) |
+  `serial` | `parallel`, read once, logged once, deleted after the decision.
+  Standalone Mary-O needs a committed tick-only binary (`build_demo_app()`,
+  `--ticks N`) so `[census] phases` is not dominated by rendering; 3+
+  interleaved repetitions per arm; equal `AMBITION_SYSTEM_LIST` per arm; the
+  `room_replay` test under each arm for equal state.
+
+### P1 — per-game engine profiles (ordered commits, each green)
+
+`supported_profiles.rs` iterates `SUPPORTED_PROFILES` and `Capability::ALL`, so
+each new capability gets the step test, the not-installed probe and the
+session-edge check from the existing harness.
+
+1. **C1 Extension phases by owner.** `technique_execution` and `boss_conduct`
+   into `BossExtensionPhasesPlugin`; `wielded_use` and `module_entity_tick` into
+   `WieldedExtensionPhasesPlugin` (`extension_composition.rs:32-205`); install
+   order inside each phase kept. Delete the second `BossCatalog` init; gate
+   `drive_boss_animators` on the registry. Test: no port of an omitted phase is
+   offered; a `boss_conduct` module is refused at admission. About 29 + 20
+   systems.
+2. **C2 Dialogue owns the ledgers and the dialog view.** The seven monolith
+   ledgers into `NarrativePayloadLedgersPlugin`; `rebuild_dialog_view` out of
+   `SimViewPlugin` into `DialogViewPlugin`. About 22 systems (only for a game
+   that omits dialogue, D3).
+3. **C3 Mounts.** `MountsPlugin` takes `combat_schedule.rs:776-800` and
+   `install_mount_pose_systems`; the mount ports in the boss phases are
+   installed only with mounts, decided by the composition root. 7 systems.
+4. **C4 Match stocks.** `StocksMatchPlugin` takes `features/mod.rs:925-975` and
+   the finish zoom; the Smash and versus rules assert it. 7 systems.
+5. **C5 Grabs.** `CapturePlugin` takes `combat_schedule.rs:525-672`; the control
+   gate chain splits on two capture-owned sets (same order). 14 systems, only
+   after D4.
+6. **C6 Game profiles.** A profile `platformer-without-bosses-mounts-stocks`;
+   each game exports `ENGINE_PROFILE`; the Mary-O and Sanic hosts call
+   `for_profile`; pack admission compiles against the schemas of the profile.
+   About 55-85 systems a tick per standalone game; re-measure.
+7. **C7** after D3 and D4: Dialogue, Grabs and the Smash moveset leave the
+   standalone profiles.
 
 ## Decisions for Jon
 
@@ -177,10 +293,16 @@ is done without a yes.
   tick-rate plan's P0 items.
 - **D2 — Read-models per drawn frame.** RL, headless and trace readers must ask
   for them.
-- **D3 — Standalone Mary-O without Dialogue.** Her rows with
-  `fallback_dialogue`: refuse at admission, or ignore?
-- **D4 — Smash moveset out of standalone Mary-O and Sanic.** Then a standalone
-  game cannot grant attack.
+- **D3 — Standalone Mary-O and Sanic without Dialogue.** Both have
+  `fallback_dialogue` rows. No standalone build installs a dialogue presenter
+  today (only `ambition_app` installs the Yarn bridge), so those lines are
+  never shown there now. Refuse such rows at admission, or ignore them? First
+  check that talking to an NPC cannot leave `GameMode::Dialogue` with nothing to
+  return it to `Playing` (REASONED risk).
+- **D4 — Smash moveset and grabs out of standalone Mary-O and Sanic.** Their
+  own movesets author attacks and `smash.capture_attempt/pummel/throw`, so this
+  means moving their fighter kits out of the standalone packs (the hub keeps
+  them).
 - **D5 — LDtk respawn one frame late** (a set condition) instead of waiting for
   the upstream fix.
 - **D6 — Kira dynamic channels.** Changes how music layers crossfade.
@@ -201,5 +323,8 @@ is done without a yes.
   under 0.25%, so they could not name a system. `symbolize_android_profile.py`
   picks the library of the sampled build (it took the first of two installs),
   and has `--lines` and `--ours` (commit 1e1ca6525's parent).
+- 05:30Z phone: the sample dump of the baseline (Jon) gives F0; the
+  Mary-O-only run gives -17% CPU. Jon cannot run the phone again tonight; the
+  rest of the run measures on the headless desktop.
 - In progress: the `perf_probe` feature (allocations per span, churn per
   source line).

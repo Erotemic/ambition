@@ -295,7 +295,7 @@ pub struct PortalCompositingCandidate {
 /// presentation never reads a live host body component and the two sides never
 /// have to agree on which type owns a pose. This is the same host-publishes-
 /// facts shape as [`PortalCameraContinuityHostView`], applied to bodies.
-#[derive(Component, Clone, Copy, Debug, Default)]
+#[derive(Component, Clone, Copy, Debug)]
 pub struct PortalBodyView {
     /// Body centre in engine world coordinates (top-left origin, y-down).
     pub pos: Vec2,
@@ -307,6 +307,10 @@ pub struct PortalBodyView {
     pub size: Vec2,
     /// Facing sign: `>= 0.0` faces +x. Only the sign is read.
     pub facing: f32,
+    /// The sim body the visual draws (the visual itself, when it is its own
+    /// body). What the piece builder keeps its frame-to-frame state by: a
+    /// visual may be made again each frame (a ground item's is).
+    pub body: Entity,
 }
 
 /// Host seam: this visual's body is straddling a portal plane right now.

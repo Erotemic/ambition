@@ -292,8 +292,11 @@ fn in_flight_ground_item_travels_through_the_portal_pair() {
     let mut app = App::new();
     // The map convention is the session's, and the teleport reads it from here.
     app.init_resource::<ambition_portal2d::PortalTuning>();
-    // Portal core moves the item's own body.
-    app.add_systems(Update, portal_teleport_free_bodies::<GroundItem>);
+    // Portal core moves the item's own body, by the machine every body
+    // uses: it raises what a body's crossing raises.
+    app.add_message::<ambition_portal2d::PortalBodyEntered>();
+    app.add_message::<ambition_portal2d::PortalBodyTransited>();
+    app.add_systems(Update, portal_transit_free_bodies::<GroundItem>);
     // Blue portal facing right at x=20, orange facing left at x=380.
     app.world_mut().spawn(PlacedPortal::fixed(
         BLUE,
@@ -928,7 +931,9 @@ fn portal_carve_is_transient_and_pair_gated() {
             .is_empty(),
         "a placed pair with no body transiting stays solid (no walk-in pocket)"
     );
-    // A body transiting the blue portal carves EXACTLY that portal.
+    // A body transiting the blue portal carves that pair: it straddles the
+    // pair, so it is at both of its ends (a shot the pair takes this tick
+    // and that moves later in the tick must not meet the exit's wall).
     let _ = blue;
     app.world_mut().spawn(PortalTransit {
         straddling: BLUE,
@@ -940,8 +945,8 @@ fn portal_carve_is_transient_and_pair_gated() {
             .resource::<ambition_portal2d::PortalCarves>()
             .holes
             .len(),
-        1,
-        "only the portal a body is passing through is carved"
+        2,
+        "the pair a body is passing through is carved, both its ends"
     );
 }
 

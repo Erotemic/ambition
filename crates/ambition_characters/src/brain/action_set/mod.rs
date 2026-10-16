@@ -546,6 +546,17 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::ThrowOnUse,
             },
         );
+        // The seam gauge: a plate of a measured grid, thrown through portals
+        // to measure how seamless they are (`scripts/portal_seam_lab.py`).
+        items.insert(
+            "seam_gauge",
+            HeldItemSpec {
+                id: "seam_gauge".into(),
+                melee: None,
+                ranged: None,
+                use_behavior: HeldUseBehavior::ThrowOnUse,
+            },
+        );
         // A pool noodle: a long tube of foam, as an item of a platform
         // fighter is. It is quick and it reaches far; it does not hurt much
         // and it sends what it hits a long way. Its swing is the swing of

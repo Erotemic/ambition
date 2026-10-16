@@ -165,7 +165,7 @@ mod host_adapter {
         >,
     ) {
         for (entity, kin, last_step, transit, shown_in_transit) in &bodies {
-            commands.entity(entity).try_insert(body_view(kin, last_step));
+            commands.entity(entity).try_insert(body_view(entity, kin, last_step));
             // Whether it straddles a portal, for the piece builder.
             match transit {
                 Some(transit) => {
@@ -180,7 +180,7 @@ mod host_adapter {
     }
 
     /// The pose facts of one body, for [`PortalBodyView`].
-    fn body_view(kin: &BodyKinematics, last_step: Option<&ambition_platformer2d_core::SweepSample>) -> PortalBodyView {
+    fn body_view(body: Entity, kin: &BodyKinematics, last_step: Option<&ambition_platformer2d_core::SweepSample>) -> PortalBodyView {
         use ambition_platformer2d_core::AabbExt;
         PortalBodyView {
             pos: kin.pos,
@@ -188,6 +188,7 @@ mod host_adapter {
             // the portal core transits.
             size: kin.collision_box(last_step).half_size() * 2.0,
             facing: kin.facing,
+            body,
         }
     }
 
@@ -233,10 +234,10 @@ mod host_adapter {
                 .iter()
                 .find(|(body, id, ..)| id.0 == feature.id && live.of(*body) == room);
             match body {
-                Some((_, _, kin, last_step, transit)) => {
+                Some((body, _, kin, last_step, transit)) => {
                     commands.entity(visual).try_insert((
                         PortalSceneBody,
-                        body_view(kin, last_step),
+                        body_view(body, kin, last_step),
                         PortalTransitView { straddling: transit.straddling },
                     ));
                 }
@@ -244,6 +245,54 @@ mod host_adapter {
                     commands.entity(visual).remove::<PortalTransitView>();
                 }
                 None => {}
+            }
+        }
+    }
+
+    /// Each item and each shot that straddles a portal is cut at the seam,
+    /// as a body is: the facts the piece builder cuts by go onto the visual
+    /// that draws it. An item's visual is linked to its item
+    /// (`GroundItemVisual`, made again each frame from the item's row), and
+    /// a shot's to its shot (`VisualProjectile`). The transit fact goes when
+    /// the transit ends.
+    #[allow(clippy::type_complexity)]
+    pub fn publish_transiting_drawn_bodies(
+        mut commands: Commands,
+        transits: Query<&ambition_portal2d::PortalTransit>,
+        items: Res<ambition_sim_view::GroundItemsView>,
+        shots: Query<(&BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+        item_visuals: Query<(Entity, &ambition_render::rendering::GroundItemVisual, Has<PortalTransitView>)>,
+        shot_visuals: Query<(Entity, &ambition_render::rendering::projectile_visuals::VisualProjectile, Has<PortalTransitView>)>,
+    ) {
+        for (visual, link, shown_in_transit) in &item_visuals {
+            let row = items.0.iter().find(|row| row.item == link.0);
+            match (row, transits.get(link.0)) {
+                (Some(row), Ok(transit)) => {
+                    commands.entity(visual).try_insert((
+                        PortalSceneBody,
+                        PortalBodyView { pos: row.pos, size: row.half_extent * 2.0, facing: 1.0, body: link.0 },
+                        PortalTransitView { straddling: transit.straddling },
+                    ));
+                }
+                _ if shown_in_transit => {
+                    commands.entity(visual).remove::<PortalTransitView>();
+                }
+                _ => {}
+            }
+        }
+        for (visual, link, shown_in_transit) in &shot_visuals {
+            match (shots.get(link.0), transits.get(link.0)) {
+                (Ok((kin, last_step)), Ok(transit)) => {
+                    commands.entity(visual).try_insert((
+                        PortalSceneBody,
+                        body_view(link.0, kin, last_step),
+                        PortalTransitView { straddling: transit.straddling },
+                    ));
+                }
+                _ if shown_in_transit => {
+                    commands.entity(visual).remove::<PortalTransitView>();
+                }
+                _ => {}
             }
         }
     }
@@ -903,6 +952,16 @@ mod host_adapter {
                 )
                     .in_set(PortalObservationSet)
                     .before(apply_portal_camera_continuity),
+            );
+            // Items and shots that straddle a portal are cut at the seam:
+            // their visuals are made this frame, and cut this frame.
+            app.add_systems(
+                Update,
+                publish_transiting_drawn_bodies
+                    .after(ambition_render::rendering::sync_ground_item_visuals)
+                    .after(ambition_render::rendering::projectile_visuals::sync_projectile_visuals)
+                    .before(ambition_portal2d_presentation::sync_portal_body_pieces)
+                    .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
             );
         }
     }

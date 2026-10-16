@@ -124,6 +124,9 @@ pub fn sync_portal_body_pieces(
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut clip_materials: Option<ResMut<Assets<PortalClipMaterial>>>,
     mut unit_mesh: Local<Option<Handle<Mesh>>>,
+    piece_quad: Option<Res<crate::clip_material::PortalPieceQuad>>,
+    // The bodies whose pieces were drawn last frame (`PortalBodyView::body`).
+    mut drawn_last_frame: Local<Vec<Entity>>,
     body_visuals: Query<
         (
             Entity,
@@ -146,6 +149,7 @@ pub fn sync_portal_body_pieces(
     for entity in &pieces {
         commands.entity(entity).despawn();
     }
+    let drawn_before = std::mem::take(&mut *drawn_last_frame);
     let by_room = frames.portals_by_room(portals.iter());
     for (source_body, kin, transit, roll, sprite, source_anchor, source_transform) in &body_visuals {
         // Outside transit the real character sprite shows whole; the pieces are a
@@ -180,11 +184,33 @@ pub fn sync_portal_body_pieces(
             Some((enter_portal.aperture(), exit_portal.aperture())),
             convention,
         );
-        let Some(through) = pieces.through else {
-            // Touching a portal but nothing has crossed the plane yet.
-            continue;
+        // A measurement trace (`RUST_LOG=ambition_portal::piece_trace=debug`,
+        // read by `scripts/portal_seam_lab.py`): what each straddling visual
+        // was drawn as this frame.
+        let trace = |outcome: &str| {
+            bevy::log::debug!(
+                target: "ambition_portal::piece_trace",
+                "piece body={:?} at={:.1},{:.1} straddling={} {}",
+                source_body,
+                kin.pos.x,
+                kin.pos.y,
+                transit.straddling.name(),
+                outcome
+            );
         };
-        let (enter, exit) = (through.enter, through.exit);
+        // A body that straddles is drawn by its pieces from the frame it
+        // touches the portal, while nothing has crossed yet: then the near
+        // piece is all of it. A piece is not drawn on the frame it is first
+        // made (its material is not ready for the renderer), so the body's
+        // own sprite is hidden only once its pieces were drawn the frame
+        // before; until then it shows, whole. Cut on the frame it first
+        // crossed, the first body of a session vanished for that frame
+        // (measured with the seam lab, every pair, every speed).
+        let through = pieces.through;
+        let (enter, exit) = match through {
+            Some(through) => (through.enter, through.exit),
+            None => (enter_portal.aperture(), exit_portal.aperture()),
+        };
         // The roll the host states, and for a body with none stated, the roll
         // its sprite is drawn with.
         let base_roll = roll.map_or_else(|| source_transform.rotation.to_euler(EulerRot::ZYX).0, |r| r.angle);
@@ -227,9 +253,10 @@ pub fn sync_portal_body_pieces(
             (images.as_deref(), layouts.as_deref(), meshes.as_deref_mut(), clip_materials.as_deref_mut())
         {
             if let Some(basis) = sprite_frame_basis(sprite, layouts, images) {
-                let mesh = unit_mesh
-                    .get_or_insert_with(|| meshes.add(Rectangle::default()))
-                    .clone();
+                let mesh = match piece_quad.as_deref() {
+                    Some(quad) => quad.0.clone(),
+                    None => unit_mesh.get_or_insert_with(|| meshes.add(Rectangle::default())).clone(),
+                };
                 let tint = crate::piece_tint(sprite);
                 let flip_flag = |flip: bool| Vec4::new(if flip { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0);
 
@@ -288,14 +315,24 @@ pub fn sync_portal_body_pieces(
 
                 // The pieces ARE the body this frame — the whole real sprite would
                 // re-add the sunk slice (the pop this path exists to remove).
-                commands
-                    .entity(source_body)
-                    .insert(crate::source_visibility::PortalTransitHidden);
+                if drawn_before.contains(&kin.body) {
+                    commands
+                        .entity(source_body)
+                        .insert(crate::source_visibility::PortalTransitHidden);
+                }
+                drawn_last_frame.push(kin.body);
                 drew_clipped = true;
             }
         }
+        trace(match (drew_clipped, through.is_some(), drawn_before.contains(&kin.body)) {
+            (true, _, false) => "pieces made: the body shows whole",
+            (true, true, true) => "cut",
+            (true, false, true) => "near piece only: nothing has crossed",
+            (false, true, _) => "fallback: whole, copied",
+            (false, false, _) => "whole: nothing has crossed",
+        });
 
-        if !drew_clipped {
+        if !drew_clipped && through.is_some() {
             // Fallback (texture not loaded / headless host): visible real sprite +
             // unclipped whole-sprite exit copy, just BELOW the view window — an
             // open window captures the copy on the far side (one seamless body)

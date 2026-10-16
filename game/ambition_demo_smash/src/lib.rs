@@ -117,7 +117,7 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
     roster.rules.move_damage =
         Some(ambition_platformer2d::characters::smash_fighter::FIGHTER_DAMAGE);
     // The Limit is the match's resource: every seat is built holding it, empty.
-    roster.rules.resources = vec![crate::limit::SMASH_LIMIT.declaration()];
+    roster.rules.resources = vec![crate::limit::smash_limit().declaration()];
     // No items for now (Jon's call). The machinery (`MatchItemSpawns`, the
     // spawner, the weighted table) is built and tested; only this declaration
     // is absent. The previous table: a drop every 8s at three points above the
@@ -453,7 +453,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             // Only the seats hold a Limit slot, so the fill reaches no other body.
             app.declare_rules(
                 ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
-                crate::limit::SmashLimitFill(crate::limit::SMASH_LIMIT),
+                crate::limit::SmashLimitFill(crate::limit::smash_limit()),
             );
             // A viewer-dependent cone is undefined with no primary player, and
             // seamless camera transit is a single-camera effect. The portal
@@ -613,9 +613,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             TechniqueOffer {
                 owner: "ambition_demo_smash::spring",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<
-                        ambition_platformer2d::entity_catalog::smash_spring::PlaceSpringParams,
-                    >,
+                    ambition_platformer2d::entity_catalog::smash_spring::check_place_spring_params,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -701,9 +699,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                     TechniqueOffer {
                         owner: "ambition_demo_smash::mine",
                         params: TechniqueParams::Checked(
-                            check_hydrates::<
-                                ambition_platformer2d::entity_catalog::smash_mine::PlaceMineParams,
-                            >,
+                            ambition_platformer2d::entity_catalog::smash_mine::check_place_mine_params,
                         ),
                         references: NestedReferences::HeldItems(
                             ambition_platformer2d::entity_catalog::smash_mine::mine_held_item_refs,
@@ -804,7 +800,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             TechniqueOffer {
                 owner: "ambition_demo_smash::bomb",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::entity_catalog::smash_bomb::DropBombParams>,
+                    ambition_platformer2d::entity_catalog::smash_bomb::check_drop_bomb_params,
                 ),
                 references: NestedReferences::HeldItems(
                     ambition_platformer2d::entity_catalog::smash_bomb::bomb_held_item_refs,
@@ -2555,29 +2551,33 @@ impl Default for SmashStageChoice {
     }
 }
 
-/// How many stocks this match gives each fighter.
+/// How many stocks this match gives each fighter: one of `stock_choices` in
+/// the pack's `smash_rules.ron`.
 ///
 /// Feeds `MatchRules::stocks`, which the engine pairs with
 /// `DeathPolicy::Unbounded`. Defaults to [`starting_stocks()`].
-#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum SmashStockChoice {
-    /// One stock: no room to learn the matchup inside the match.
-    One,
-    /// [`starting_stocks()`]: the count every ladder number was measured at.
-    #[default]
-    Three,
-    /// Five: an early mistake is recoverable.
-    Five,
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SmashStockChoice(u32);
+
+impl Default for SmashStockChoice {
+    fn default() -> Self {
+        Self(starting_stocks())
+    }
 }
 
 impl SmashStockChoice {
+    /// The choice of `count` stocks. Panics when the rules do not offer it.
+    pub fn of(count: u32) -> Self {
+        assert!(
+            crate::rules::smash_rules().stock_choices.contains(&count),
+            "`smash_rules.ron` does not offer {count} stocks"
+        );
+        Self(count)
+    }
+
     /// The count this choice gives each fighter.
     pub fn count(self) -> u32 {
-        match self {
-            SmashStockChoice::One => 1,
-            SmashStockChoice::Three => starting_stocks(),
-            SmashStockChoice::Five => 5,
-        }
+        self.0
     }
 
     /// What the stocks button shows: derived from [`Self::count`], so the
@@ -2586,18 +2586,16 @@ impl SmashStockChoice {
         self.count().to_string()
     }
 
-    /// Every count, in cycle order.
-    pub const ALL: [Self; 3] = [Self::One, Self::Three, Self::Five];
+    /// Every count, in cycle order (`stock_choices`).
+    pub fn all() -> Vec<Self> {
+        crate::rules::smash_rules().stock_choices.iter().copied().map(Self).collect()
+    }
 
     /// The next count in the cycle, for a single button that walks them.
-    ///
-    /// Derived from [`Self::ALL`], so the cycle order has one authority.
     pub fn next(self) -> Self {
-        let here = Self::ALL
-            .iter()
-            .position(|count| *count == self)
-            .expect("every variant is in ALL — asserted by `all_lists_every_stock_count`");
-        Self::ALL[(here + 1) % Self::ALL.len()]
+        let all = Self::all();
+        let here = all.iter().position(|count| *count == self).expect("a choice is made from `all`");
+        all[(here + 1) % all.len()]
     }
 }
 

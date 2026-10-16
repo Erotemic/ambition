@@ -33,6 +33,8 @@ fn a_bomb(app: &mut App, fuse_s: f32, vel: ae::Vec2) -> Entity {
                 damage: 12,
                 blast_radius: 60.0,
                 impact_speed: 300.0,
+                // Not the shipped 2.0: see `the_blast_throws_with_the_bombs_knockback`.
+                knockback: 1.35,
             },
         ))
         .id()
@@ -55,6 +57,28 @@ fn run(app: &mut App, ticks: usize) -> usize {
             .count();
     }
     blasts
+}
+
+/// The blast throws with the knockback its move authored
+/// (`DropBombParams::knockback`, carried on the bomb), not a ruleset constant.
+#[test]
+fn the_blast_throws_with_the_bombs_knockback() {
+    let mut app = app();
+    a_bomb(&mut app, 0.05, ae::Vec2::ZERO);
+    let mut thrown = Vec::new();
+    for _ in 0..10 {
+        app.update();
+        thrown.extend(
+            app.world_mut()
+                .resource_mut::<Messages<ambition_platformer2d::vfx::EffectRequest>>()
+                .drain()
+                .filter_map(|request| match request.effect {
+                    ambition_platformer2d::vfx::Effect::DamageBox(blast) => Some(blast.knockback),
+                    _ => None,
+                }),
+        );
+    }
+    assert_eq!(thrown, vec![1.35], "the blast did not throw with the bomb's authored knockback");
 }
 
 #[test]

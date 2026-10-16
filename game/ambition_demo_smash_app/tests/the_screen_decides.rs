@@ -694,7 +694,7 @@ fn the_stocks_button_sets_the_count_the_published_match_is_played_at() {
 
     assert_eq!(
         *app.world().resource::<SmashStockChoice>(),
-        SmashStockChoice::Three,
+        SmashStockChoice::of(3),
         "the default is the count every recorded ladder number was measured at"
     );
 
@@ -702,13 +702,13 @@ fn the_stocks_button_sets_the_count_the_published_match_is_played_at() {
     click(&mut app, 0, layout.stocks_button());
     assert_eq!(
         *app.world().resource::<SmashStockChoice>(),
-        SmashStockChoice::Five,
+        SmashStockChoice::of(5),
         "pressing the stocks button did not change the count"
     );
     click(&mut app, 0, layout.stocks_button());
     assert_eq!(
         *app.world().resource::<SmashStockChoice>(),
-        SmashStockChoice::One,
+        SmashStockChoice::of(1),
         "the stocks button latched instead of cycling"
     );
     assert!(
@@ -722,12 +722,12 @@ fn the_stocks_button_sets_the_count_the_published_match_is_played_at() {
     click(&mut app, 1, layout.stocks_button());
     assert_eq!(
         *app.world().resource::<SmashStockChoice>(),
-        SmashStockChoice::Three,
+        SmashStockChoice::of(3),
         "only seat zero could change the count — the player-one-centric shape"
     );
     click(&mut app, 1, layout.stocks_button());
     click(&mut app, 1, layout.stocks_button());
-    assert_eq!(*app.world().resource::<SmashStockChoice>(), SmashStockChoice::One);
+    assert_eq!(*app.world().resource::<SmashStockChoice>(), SmashStockChoice::of(1));
 
     // Seat the two players and start.
     click(&mut app, 0, layout.role_button(0));

@@ -17,11 +17,6 @@ use ambition_platformer2d::characters::brain::ActorActionMessage;
 use ambition_platformer2d::entity_catalog::smash_mine::{PlaceMineParams, PLACE_MINE};
 use ambition_platformer2d::engine_core as ae;
 
-/// How hard the mine throws what it catches, as the feel multiplier
-/// `DamageBoxEffect::knockback` is. Under the bomb's 2.0: a mine is armed in
-/// advance and triggers on someone else's mistake.
-const BLAST_FEEL_SCALE: f32 = 1.7;
-
 /// A mine somebody placed, and the two facts that are not the object's own.
 ///
 /// Rollback state: a restore without the arming clock could answer a press
@@ -36,6 +31,8 @@ pub struct PlacedMine {
     pub damage: i32,
     /// How far the blast reaches.
     pub blast_radius: f32,
+    /// How hard the blast throws (`PlaceMineParams::knockback`).
+    pub knockback: f32,
 }
 
 impl PlacedMine {
@@ -157,7 +154,7 @@ pub fn place_or_detonate_authored_mines(
                         damage: mine.damage,
                         // A feel multiplier, not a launch speed (see
                         // `spawn_damage_box`: values such as 1.0 or 1.6).
-                        knockback: BLAST_FEEL_SCALE,
+                        knockback: mine.knockback,
                         lifetime_s: 0.08,
                         name: Some("mine blast"),
                     },
@@ -196,6 +193,7 @@ pub fn place_or_detonate_authored_mines(
                     arm_s: params.arm_s,
                     damage: params.damage,
                     blast_radius: params.blast_radius,
+                    knockback: params.knockback,
                 },
             ))
             .id();

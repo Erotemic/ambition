@@ -25,6 +25,22 @@ pub struct PlaceMineParams {
     pub half_extents: (f32, f32),
     /// Where it appears, body-local (`+x` toward facing, `+y` gravity-down).
     pub offset: (f32, f32),
+    /// How hard the blast throws what it catches: the feel multiplier
+    /// `DamageBoxEffect::knockback` is, not a launch speed.
+    pub knockback: f32,
+}
+
+/// The domain rule for a mine's params, not only "serde can build it".
+pub fn check_place_mine_params(params: &crate::ParamValue) -> Result<(), String> {
+    let typed: PlaceMineParams = params.hydrate().map_err(|error| error.to_string())?;
+    let mut problems = Vec::new();
+    if !(typed.knockback.is_finite() && typed.knockback > 0.0) {
+        problems.push(format!("knockback {} throws nobody: a blast throws with a finite, positive feel multiplier", typed.knockback));
+    }
+    if !(typed.arm_s.is_finite() && typed.arm_s >= 0.0) {
+        problems.push(format!("arm_s {} is not a delay: it is finite and not negative", typed.arm_s));
+    }
+    if problems.is_empty() { Ok(()) } else { Err(problems.join("; ")) }
 }
 
 /// Return the held-item id referenced by a mine payload.

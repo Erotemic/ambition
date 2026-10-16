@@ -941,31 +941,35 @@ fn the_offered_stages_are_the_stages_file() {
     // A stage the file adds and offers: `smashs_stages_are_its_pack_file`.
 }
 
-/// Every stock count is in `ALL`, so the button reaches it. The compiler
-/// catches a new variant in an exhaustive `match` but not a missing `ALL`
-/// entry, so this is a runtime count.
+/// The stocks button offers the rules' `stock_choices`, in their order, and
+/// the match's own count (`stocks` in match_rules.ron) is one of them: the
+/// button starts there.
 #[test]
-fn all_lists_every_stock_count() {
-    fn counted_stocks(count: crate::SmashStockChoice) -> usize {
-        match count {
-            crate::SmashStockChoice::One
-            | crate::SmashStockChoice::Three
-            | crate::SmashStockChoice::Five => 1,
-        }
-    }
-    let stock_total: usize = [
-        crate::SmashStockChoice::One,
-        crate::SmashStockChoice::Three,
-        crate::SmashStockChoice::Five,
-    ]
-    .into_iter()
-    .map(counted_stocks)
-    .sum();
+fn the_stock_choices_are_the_rules_file() {
+    let offered = &crate::rules::smash_rules().stock_choices;
     assert_eq!(
-        stock_total,
-        crate::SmashStockChoice::ALL.len(),
-        "a stock count is matched above but missing from ALL"
+        crate::SmashStockChoice::all().iter().map(|choice| choice.count()).collect::<Vec<_>>(),
+        *offered,
+        "the stocks button does not offer the rules' `stock_choices` in their order"
     );
+    assert!(
+        offered.contains(&crate::starting_stocks()),
+        "match_rules.ron starts a match on {} stocks, which `stock_choices` {offered:?} does not offer",
+        crate::starting_stocks()
+    );
+    assert_eq!(crate::SmashStockChoice::default().count(), crate::starting_stocks());
+    // A lap of the button visits each count once and comes back.
+    let mut walk = crate::SmashStockChoice::default();
+    let mut seen = Vec::new();
+    for _ in 0..offered.len() {
+        seen.push(walk.count());
+        walk = walk.next();
+    }
+    assert_eq!(walk, crate::SmashStockChoice::default(), "the stocks button does not come back after a lap");
+    seen.sort();
+    let mut sorted = offered.clone();
+    sorted.sort();
+    assert_eq!(seen, sorted, "the stocks button cannot reach every count");
 }
 
 #[test]

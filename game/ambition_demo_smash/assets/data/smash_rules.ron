@@ -76,6 +76,17 @@
     // seconds. The banner asks for 3.0 s; this waits a little longer so the
     // players read it.
     return_to_select_seconds: 4.5,
+    // Seconds one press burns off a sleep (the Performer's song, the Shadow
+    // Oni's seal: every sleep shares it). Against a mash of about ten presses
+    // a second, a sleep decays at about 1.0 + 10 * 0.05 = 1.5 times the clock,
+    // so a 1.4 s song holds a struggling fighter for about 0.93 s: the mash
+    // buys back a third and cannot beat the clock.
+    sleep_mash_seconds: 0.05,
+    // The stock counts the stocks button offers, in the order it walks them.
+    // A match starts on `stocks` in match_rules.ron (3: every ladder number
+    // was measured there), so that count is one of these. One leaves no room
+    // to learn the matchup; five makes an early mistake recoverable.
+    stock_choices: [1, 3, 5],
     // The shark the pirate admiral's up-B summons.
     shark_ride: (
         // The shark takes its summoner on when it comes this near (px). A
@@ -97,5 +108,25 @@
         // How long it flies before it is removed. Generous: it only has to
         // outlast the time the body takes to leave view.
         depart_seconds: 2.0,
+    ),
+    // The Limit: the meter every seat holds, empty at the start and after a
+    // respawn, and what fills it. Each source is independent; 0 turns one off.
+    limit: (
+        // The ceiling. A move that spends the Limit costs this much
+        // (`bivalence`'s `costs`).
+        cap: 60.0,
+        // One point every 2 seconds, whatever anybody does.
+        per_second: 0.5,
+        // Each hit a fighter lands, and each point of its damage.
+        on_damage_dealt: 1.0,
+        per_damage_dealt: 0.1,
+        // Each hit a fighter takes, and each point of its damage: twice what
+        // landing it pays, so the fighter who is behind fills faster.
+        on_damage_taken: 2.0,
+        per_damage_taken: 0.2,
+        // Each strike blocked: one landed hit's worth.
+        on_block: 1.0,
+        // No drain: a fighter keeps the meter it earned until it spends it.
+        decay_per_second: 0.0,
     ),
 )

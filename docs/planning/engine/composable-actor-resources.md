@@ -62,7 +62,7 @@ component.
   are atomic over every term. A term naming a resource the body does not hold is
   unaffordable; a body with no bank is refused unless the price is empty.
 - **Limit:** Smash declares it in `MatchRules::resources`
-  (`SMASH_LIMIT.declaration()`, capacity 60, starts empty). Seat preparation
+  (`smash_limit().declaration()`: the `limit` of `smash_rules.ron`, capacity 60, starts empty). Seat preparation
   builds `ActorResources::declared(&rules.resources)`
   (`ambition_match/src/prepared.rs`). Limit fill systems and `smash.fill_meter`
   reach the slot by name, so a body with no Limit gains nothing.

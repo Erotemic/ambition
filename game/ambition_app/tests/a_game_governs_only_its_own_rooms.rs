@@ -273,7 +273,7 @@ fn only_smash_rooms_name_prompts_by_button() {
 /// all three in the next game.
 #[test]
 fn smashs_presentation_and_limit_govern_only_smash_rooms() {
-    use ambition_demo_smash::limit::{SmashLimitFill, SMASH_LIMIT};
+    use ambition_demo_smash::limit::{smash_limit, SmashLimitFill};
     use ambition_platformer2d::portal_presentation::{PortalCameraTransitMode, PortalViewConeMode};
 
     fn table<T: Copy + std::fmt::Debug + Send + Sync + 'static>(app: &App) -> &DeclaredRules<T> {
@@ -284,7 +284,7 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms() {
 
     let app = compose_the_shipped_host();
     let smash = Some(ambition_demo_smash::SMASH_MODE);
-    assert_eq!(table::<SmashLimitFill>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)), Some(SmashLimitFill(SMASH_LIMIT)));
+    assert_eq!(table::<SmashLimitFill>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)), Some(SmashLimitFill(smash_limit())));
     assert_eq!(
         table::<PortalCameraTransitMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)),
         Some(PortalCameraTransitMode::Pop)

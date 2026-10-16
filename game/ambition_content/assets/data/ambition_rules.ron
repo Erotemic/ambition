@@ -55,8 +55,10 @@
     // bounce off it. An item with no row lands and hurts nobody (the javelin
     // and the axe). A tilt throw ahead leaves the hand at about 480 px/s and a
     // smash throw at about 820; a fall of a body's height arrives at about
-    // 370.
+    // 370. `rebound` is the fraction of its speed an item keeps, reversed,
+    // when it strikes; `rebound_cap` is the most of `min_speed` the rebound
+    // may be, so the item leaves under its bar and the blow is spent.
     thrown_impacts: {
-        "coconut": (min_speed: 240.0, damage: 2),
+        "coconut": (min_speed: 240.0, damage: 2, rebound: 0.3, rebound_cap: 0.8),
     },
 )

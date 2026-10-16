@@ -1793,6 +1793,9 @@
                                     kind: Effect((
                                         key: "smash.place_spring",
                                         params: ({
+                                            // Long enough for the dropper to step off his
+                                            // own plate.
+                                            "arm_s": 0.3,
                                             "half_extents": [
                                                 26.0,
                                                 8.0,
@@ -1806,6 +1809,7 @@
                                                 0.0,
                                                 18.0,
                                             ],
+                                            "rearm_s": 0.25,
                                             "uses": 1,
                                             "vfx": "oil_slick",
                                         }),

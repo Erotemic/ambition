@@ -25,9 +25,12 @@ fn limit_of(bank: &mut ActorResources) -> Option<&mut ResourceLevel> {
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct SmashLimitFill(pub LimitMeterFill);
 
-/// This ruleset's Limit. Its declaration is also the match's seat resource, so
-/// a seat is built with the meter this rule fills.
-pub const SMASH_LIMIT: LimitMeterFill = LimitMeterFill::JONS_BASELINE;
+/// This ruleset's Limit, as `limit` in the pack's `smash_rules.ron` states
+/// it. Its declaration is also the match's seat resource, so a seat is built
+/// with the meter this rule fills.
+pub fn smash_limit() -> LimitMeterFill {
+    crate::rules::smash_rules().limit
+}
 
 /// Fill every seated fighter's meter from the clock and from the hits that
 /// landed this tick.

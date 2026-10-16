@@ -716,7 +716,15 @@ changes what one presentation path shows, and under the hub's shipped policy
 is deterministic, so the cause is an order dependence still to find, in
 `present_room_motes`/`drift_room_motes` or what they read). Before D12 lands,
 find it: under `serial` the standalone games would lose their motes the same
-way. Recommendation: make `Serial` the default
+way.
+Five consecutive frames after 600 (MEASURED, `capture_scene ... --frames 5`
+under each arm): `parallel` shows 166-199 mote pixels a frame, moving from
+frame to frame; `frame-serial` shows none in any frame. A lead (REASONED, not
+checked): `spawn_session_scoped` gives a candidate session's spawns an
+`InactiveCandidate` barrier (`hide_candidate_session_entity`,
+`ambition_platformer2d_shared_tangle/src/construction/mod.rs`), lifted once
+when the session activates; motes spawned on the far side of that moment, by
+an order the executor decides, may keep it. Recommendation: make `Serial` the default
 of every foundation, then remove the switch; check `room_replay` under it
 first. Not done: it is a one-line default.
 

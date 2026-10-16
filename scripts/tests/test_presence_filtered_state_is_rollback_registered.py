@@ -220,7 +220,10 @@ def test_the_comment_strip_removes_four_real_names_from_this_corpus():
     REGISTERED — so prose promotes a component into a census that then correctly
     says nothing is owed about it. (`ActorConfig` was a fifth, prose-only in
     `shared_tangle/src/body.rs:4`, until the residency claim began filtering
-    `With<ActorConfig>` in code: a real site now, so the strip no longer moves it.)
+    `With<ActorConfig>` in code: a real site now, so the strip no longer moves it.
+    `MovePlayback` went the same way at e7f672239: `combat/src/held_items.rs`
+    filters `With<MovePlayback>` in code, so three names remain and none of
+    them is a defined component in a registering crate.)
     ⇒ That is the failure direction to worry about, stated precisely: prose cannot
     currently invent an OWED subject here, but it can inflate the population a
     planning page quotes, and the day one of those names is unregistered it would
@@ -248,17 +251,15 @@ def test_the_comment_strip_removes_four_real_names_from_this_corpus():
         "Camera2d",
         "FrameTimeGraph",
         "HomingDash",
-        "MovePlayback",
     ], sorted(with_comments - without)
     assert not (without - with_comments), "stripping comments cannot ADD a site"
-    # ⭐ THE BOUNDARY, ASSERTED RATHER THAN ASSUMED. One of the four IS a defined
-    # component in a registering crate, so prose does move the population; the
-    # verdict survives only because it is already registered. If it stops
-    # being registered, prose alone would invent an owed subject — and this is
-    # the arm that says so.
+    # ⭐ THE BOUNDARY, ASSERTED RATHER THAN ASSUMED. A name that only prose
+    # carries and that IS a defined component in a registering crate would move
+    # the population, and if it were unregistered prose alone would invent an
+    # owed subject. None does today; this arm says so when one appears.
     defs = set(guard.component_definitions(guard.registering_crates()))
     promoted = sorted((with_comments - without) & defs)
-    assert promoted == ["MovePlayback"], promoted
+    assert promoted == [], promoted
     registered = guard.registered_type_names()
     assert all(name in registered for name in promoted), [
         name for name in promoted if name not in registered

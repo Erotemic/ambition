@@ -296,9 +296,11 @@ Steps that remain as rules:
   publishes it when no session is live and no route prepares one. Only the
   schemas the demo reads where it uses them take part (Smash: `smash_rules`,
   `smash_stages`, `match_rules`; Mary-O: `mary_o_rules`; Sanic:
-  `sanic_rules`), and each demo's `room_rules`, which the demo declared once
-  at start and a restater states again at the publication; an edit to
-  another schema is refused and costs a restart.
+  `sanic_rules`), and the schemas a demo registered once at start, which a
+  restater states again at the publication: each demo's `room_rules`, its
+  `music_registry` and `sfx_registry`, and `prop_sheets`, `platform_looks`
+  and `projectile_visuals`; an edit to another schema is refused and costs
+  a restart.
   Each published generation is leaked (a reader holds `&'static` rows), about
   0.3 MB of source for Smash for each saved edit, in a build that reads
   off disk only. Open: the other schemas of a demo pack, which a demo reads

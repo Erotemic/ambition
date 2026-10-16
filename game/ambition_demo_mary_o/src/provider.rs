@@ -164,6 +164,7 @@ fn register_projectile_looks(app: &mut App) {
     for (id, art) in looks {
         app.register_projectile_visual(id.clone(), art.clone());
     }
+    app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::projectile_looks(&crate::pack::PACK));
 }
 
 pub struct MaryOExperiencePlugin;
@@ -190,6 +191,7 @@ impl Plugin for MaryOExperiencePlugin {
                     .audio(MARY_O_EXPERIENCE)
                     .with_resident_sfx_bank(),
             );
+            app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::audio(&crate::pack::PACK, MARY_O_EXPERIENCE));
         }
         PlatformerExperienceAuthoring::new(
             MARY_O_EXPERIENCE,

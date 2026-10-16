@@ -112,6 +112,40 @@ pub struct AudioCatalogRegistry {
     fragments: BTreeMap<String, AudioCatalogFragment>,
 }
 
+/// Publish `provider`'s new music and SFX, for a reload of that provider's
+/// pack between sessions: the catalog, the active selection
+/// ([`crate::selection::ActiveAudioSelection::revise_provider`]) and, where
+/// the App plays audio, the provider's tracks in the library. Another
+/// provider's audio, and the host's SFX registry copy, are not changed. On a
+/// refusal (the music names a track id another provider owns) nothing
+/// changes.
+pub fn publish_provider_audio(
+    world: &mut bevy::prelude::World,
+    provider: &str,
+    music: Option<MusicRegistry>,
+    sfx: Option<SfxRegistry>,
+) -> Result<(), AudioCatalogError> {
+    let Some(registry) = world.get_resource::<AudioCatalogRegistry>() else {
+        return Ok(());
+    };
+    #[cfg(feature = "kira")]
+    let previous_music = registry.music_for(provider).cloned();
+    let revised = registry.with_replaced(provider, music, sfx)?;
+    let bank_ids = world
+        .get_resource::<SfxBankRegistry>()
+        .map(|banks| banks.ids_for(provider))
+        .unwrap_or_default();
+    if let Some(mut selection) = world.get_resource_mut::<crate::selection::ActiveAudioSelection>() {
+        selection.revise_provider(provider, revised.music_for(provider), revised.sfx_for(provider), bank_ids);
+    }
+    #[cfg(feature = "kira")]
+    if let Some(mut library) = world.get_resource_mut::<crate::library::AudioLibrary>() {
+        library.revise_provider_tracks(previous_music.as_ref(), revised.music_for(provider));
+    }
+    world.insert_resource(revised);
+    Ok(())
+}
+
 impl AudioCatalogRegistry {
     pub fn register(&mut self, fragment: AudioCatalogFragment) -> Result<(), AudioCatalogError> {
         fragment.validate()?;

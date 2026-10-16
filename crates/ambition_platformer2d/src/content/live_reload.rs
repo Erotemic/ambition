@@ -79,6 +79,98 @@ impl EmbeddedPackReloadPlugin {
     }
 }
 
+impl EmbeddedPackReloadPlugin {
+    /// The pack's `prop_sheets`, registered once at start
+    /// (`register_prop_sheet_rows`), restated at each publication that
+    /// changes them; their sheets are loaded again.
+    pub fn prop_sheets(pack: &'static EmbeddedPack) -> Self {
+        use crate::sprite_sheet::prop_sheets::{lowered_prop_sheets, PROP_SHEETS_SCHEMA};
+        let rows = |pack: &PreparedContentPack| lowered_prop_sheets(pack).cloned().unwrap_or_default();
+        Self::owning_rows(pack, PROP_SHEETS_SCHEMA, rows(pack.prepared()).into_keys().collect(), move |world, owned, pack| {
+            crate::actors::assets::game_assets::restate_prop_sheet_rows(world, owned, &rows(pack))
+        })
+    }
+
+    /// The pack's `platform_looks`, registered once at start
+    /// (`register_platform_look_rows`), restated at each publication that
+    /// changes them.
+    #[cfg(feature = "ambition_render")]
+    pub fn platform_looks(pack: &'static EmbeddedPack) -> Self {
+        use crate::render::rendering::moving_platforms::PlatformLooks;
+        use crate::sprite_sheet::prop_sheets::{lowered_platform_looks, PLATFORM_LOOKS_SCHEMA};
+        let rows = |pack: &PreparedContentPack| lowered_platform_looks(pack).cloned().unwrap_or_default();
+        Self::owning_rows(pack, PLATFORM_LOOKS_SCHEMA, rows(pack.prepared()).into_keys().collect(), move |world, owned, pack| {
+            world
+                .get_resource_or_insert_with(PlatformLooks::default)
+                .restate(owned.iter().map(String::as_str), &rows(pack))
+        })
+    }
+
+    /// The pack's `projectile_visuals`, registered once at start
+    /// (`register_projectile_visual`), restated at each publication that
+    /// changes them.
+    pub fn projectile_looks(pack: &'static EmbeddedPack) -> Self {
+        use crate::projectiles::content_schema::{lowered_projectile_looks, PROJECTILE_VISUALS_SCHEMA};
+        use crate::projectiles::ProjectileVisualCatalog;
+        let rows = |pack: &PreparedContentPack| lowered_projectile_looks(pack).cloned().unwrap_or_default();
+        Self::owning_rows(pack, PROJECTILE_VISUALS_SCHEMA, rows(pack.prepared()).into_keys().collect(), move |world, owned, pack| {
+            world
+                .get_resource_or_insert_with(ProjectileVisualCatalog::default)
+                .restate(owned.iter().map(String::as_str), &rows(pack))
+        })
+    }
+
+    /// The pack's `music_registry` and `sfx_registry`, registered once at
+    /// start as `provider`'s audio fragment, published again at each
+    /// publication that changes them (`publish_provider_audio`).
+    pub fn audio(pack: &'static EmbeddedPack, provider: &'static str) -> Self {
+        use crate::audio::content_schema::{
+            lowered_music_registry, lowered_sfx_registry, MUSIC_REGISTRY_SCHEMA, SFX_REGISTRY_SCHEMA,
+        };
+        let publish = move |world: &mut World, pack: &PreparedContentPack| {
+            let music = lowered_music_registry(pack).cloned();
+            let sfx = lowered_sfx_registry(pack).cloned();
+            if let Err(problem) = crate::audio::catalog::publish_provider_audio(world, provider, music, sfx) {
+                error!("the reload of `{}` keeps the audio of `{provider}`: {problem}", pack.id.0);
+            }
+        };
+        // Each restater publishes both registries, so an edit to both runs
+        // the same publication twice, with the same result. A registry the
+        // pack does not state has no restater.
+        let stated = &pack.prepared().schemas;
+        let restated = [MUSIC_REGISTRY_SCHEMA, SFX_REGISTRY_SCHEMA]
+            .into_iter()
+            .filter(|schema| stated.keys().any(|stated| stated.0 == *schema))
+            .map(|schema| Restater::new(schema, publish))
+            .collect();
+        Self { pack, live: &[], restated }
+    }
+
+    /// A restater for rows this pack shares a catalog with other providers
+    /// in: it remembers the ids the pack owns (`owned`, from the start), so a
+    /// restatement replaces only those. On a refusal (an id of another
+    /// provider) the catalog keeps the pack's rows, as Ambition's reload does.
+    fn owning_rows(
+        pack: &'static EmbeddedPack,
+        schema: &'static str,
+        owned: Vec<String>,
+        restate: impl Fn(&mut World, &[String], &PreparedContentPack) -> Result<Vec<String>, String> + Send + Sync + 'static,
+    ) -> Self {
+        let owned = std::sync::Mutex::new(owned);
+        Self {
+            pack,
+            live: &[],
+            restated: vec![Restater::new(schema, move |world, pack| {
+                let mut owned = owned.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                match restate(world, &owned, pack) {
+                    Ok(now) => *owned = now,
+                    Err(problem) => error!("the reload of `{}` keeps its `{schema}` rows: {problem}", pack.id.0),
+                }
+            })],
+        }
+    }
+}
+
 impl Restater {
     pub fn new(
         schema: &'static str,
@@ -467,6 +559,128 @@ mod tests {
         save_and_look(&mut app, &root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))");
         assert_eq!(heavy_line(&app), Some(30));
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// A pack in a new directory with one source of `schema` at `path`.
+    fn pack_with(name: &str, path: &str, schema: &str, text: &str) -> (&'static EmbeddedPack, std::path::PathBuf) {
+        let root = std::env::temp_dir().join(format!("live_reload_{name}_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("data")).unwrap();
+        std::fs::write(
+            root.join("pack.ron"),
+            format!(
+                r#"(id: "live_reload_probe", version: "0.1.0", namespace: "probe", requires: [],
+                    sources: [(path: "{path}", schema: "{schema}", version: 1)])"#
+            ),
+        )
+        .unwrap();
+        std::fs::write(root.join(path), text).unwrap();
+        let leaked_root: &'static str = Box::leak(root.to_string_lossy().into_owned().into_boxed_str());
+        (Box::leak(Box::new(EmbeddedPack::rooted(leaked_root, None))), root)
+    }
+
+    /// ⭐ Rows a pack shares a catalog with: a publication replaces the
+    /// pack's own rows (changed, added, dropped) and keeps another
+    /// provider's; an edit that takes another provider's id keeps the pack's
+    /// rows.
+    #[test]
+    fn a_pack_restates_only_its_own_rows_of_a_shared_catalog() {
+        use crate::actors::assets::game_assets::{PropSheets, PropSheetsAppExt};
+        use crate::sprite_sheet::prop_sheets::lowered_prop_sheets;
+
+        let rows_of = |pack: &PreparedContentPack| lowered_prop_sheets(pack).cloned().unwrap_or_default();
+        let (pack, root) = pack_with(
+            "owned_rows",
+            "data/prop_sheets.ron",
+            "prop_sheets",
+            r#"{ "probe_prop": (frame_sample_inset: 2), "probe_other": () }"#,
+        );
+        let mut app = App::new();
+        app.register_prop_sheet_rows(&rows_of(pack.prepared()));
+        let (foreign, foreign_root) = pack_with("owned_rows_foreign", "data/prop_sheets.ron", "prop_sheets", r#"{ "foreign_prop": () }"#);
+        app.register_prop_sheet_rows(&rows_of(foreign.prepared()));
+        let _ = std::fs::remove_dir_all(foreign_root);
+        app.add_plugins(EmbeddedPackReloadPlugin::prop_sheets(pack));
+        let kinds = |app: &App| {
+            let mut kinds: Vec<String> =
+                app.world().resource::<PropSheets>().iter().map(|(kind, _)| kind.to_string()).collect();
+            kinds.sort();
+            kinds
+        };
+        let source_of = |app: &App, kind: &str| {
+            app.world().resource::<PropSheets>().iter().find(|(known, _)| *known == kind).map(|(_, source)| format!("{source:?}"))
+        };
+        let file = root.join("data/prop_sheets.ron");
+
+        save_and_look(&mut app, &file, r#"{ "probe_prop": (frame_sample_inset: 5), "probe_new": () }"#);
+        assert_eq!(kinds(&app), ["foreign_prop", "probe_new", "probe_prop"]);
+        let mut authority = App::new();
+        authority.register_prop_sheet_rows(&rows_of(&EmbeddedPack::rooted(pack.root_on_disk().unwrap(), None).compile().unwrap()));
+        assert_eq!(source_of(&app, "probe_prop"), source_of(&authority, "probe_prop"), "the row is the saved file's");
+        assert_ne!(source_of(&app, "probe_prop"), source_of(&{
+            let mut before = App::new();
+            before.register_prop_sheet_rows(&rows_of(&{
+                let (old, old_root) = pack_with("owned_rows_before", "data/prop_sheets.ron", "prop_sheets", r#"{ "probe_prop": (frame_sample_inset: 2) }"#);
+                let compiled = old.compile().unwrap();
+                let _ = std::fs::remove_dir_all(old_root);
+                compiled
+            }));
+            before
+        }, "probe_prop"), "the edit changed the row");
+
+        save_and_look(&mut app, &file, r#"{ "probe_prop": (), "foreign_prop": () }"#);
+        assert_eq!(kinds(&app), ["foreign_prop", "probe_new", "probe_prop"], "another provider's id is not taken");
+        assert_eq!(source_of(&app, "probe_prop"), source_of(&authority, "probe_prop"), "the pack's rows are kept");
+
+        // `probe_new` is the pack's since the first publication.
+        save_and_look(&mut app, &file, r#"{ "probe_prop": () }"#);
+        assert_eq!(kinds(&app), ["foreign_prop", "probe_prop"], "a row the pack added and then dropped is gone");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// ⭐ An edit to the pack's music is the provider's music in the audio
+    /// catalog from the next session, and another provider's music stays.
+    #[test]
+    fn an_edit_to_the_music_is_the_providers_music_from_the_next_session() {
+        use crate::audio::catalog::{AudioCatalogAppExt, AudioCatalogRegistry};
+        use crate::audio::content_schema::lowered_music_registry;
+
+        let (pack, root) = pack_with(
+            "audio",
+            "data/music_registry.ron",
+            "music_registry",
+            r#"(default_track: "probe_theme", tracks: [(id: "probe_theme", display_name: "Probe Theme")])"#,
+        );
+        let (host, host_root) = pack_with(
+            "audio_host",
+            "data/music_registry.ron",
+            "music_registry",
+            r#"(default_track: "host_theme", tracks: [(id: "host_theme", display_name: "Host Theme")])"#,
+        );
+        let mut app = App::new();
+        app.init_resource::<crate::actor::ActiveSessionScope>();
+        app.register_audio_catalog_fragment(pack.audio("probe"));
+        app.register_audio_catalog_fragment(host.audio("host"));
+        app.add_plugins(EmbeddedPackReloadPlugin::audio(pack, "probe"));
+        let host_music = app.world().resource::<AudioCatalogRegistry>().music_for("host").cloned();
+        app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().begin();
+
+        save_and_look(
+            &mut app,
+            &root.join("data/music_registry.ron"),
+            r#"(default_track: "probe_theme", tracks: [(id: "probe_theme", display_name: "Probe Theme"), (id: "probe_sting", display_name: "Probe Sting", one_shot: true)])"#,
+        );
+        let tracks = |app: &App| app.world().resource::<AudioCatalogRegistry>().music_for("probe").map(|music| music.tracks.len());
+        assert_eq!(tracks(&app), Some(1), "the live session keeps its music");
+
+        app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().clear();
+        app.update();
+        let authority = EmbeddedPack::rooted(pack.root_on_disk().unwrap(), None).compile().unwrap();
+        let catalog = app.world().resource::<AudioCatalogRegistry>();
+        assert_eq!(catalog.music_for("probe"), lowered_music_registry(&authority), "the provider's music is the saved file's");
+        assert_eq!(catalog.music_for("host").cloned(), host_music, "another provider's music stays");
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(host_root);
     }
 
     /// A host of two demos watches both packs, and a second add of one pack

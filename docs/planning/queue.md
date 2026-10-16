@@ -170,10 +170,34 @@ Open:
    (`EmbeddedPackReloadPlugin::room_rules`, through `restate_room_rules`),
    witnessed by `the_room_rules_restater_states_the_scopes_rules_again` and
    `a_restated_schema_is_stated_again_from_the_published_generation`.
-   Remainder: the cast, move tables, audio and Mary-O's ladder, and
-   publication into a live demo session. Each needs a restater (the cast is
-   a registry of prepared characters, so its restater is I2/I3 scale) or
-   its reader moved to read at use.
+   Then the presentation tables a pack shares with other providers:
+   `prop_sheets` (Mary-O, Sanic; their sheets are loaded again),
+   `platform_looks` and `projectile_visuals` (Mary-O). A restater remembers
+   the ids its pack owns and replaces only those
+   (`EmbeddedPackReloadPlugin::owning_rows`); Ambition's reload and the
+   demos share `restate_prop_sheet_rows`. Witness
+   `a_pack_restates_only_its_own_rows_of_a_shared_catalog` (changed, added,
+   dropped, and another provider's id refused; red with the owned ids not
+   updated and with the previous ids ignored). The platform-look and
+   projectile-look restaters have no witness of their own: each is one
+   `restate` call on a catalog that Ambition's reload witnesses.
+   Then each demo's audio (`EmbeddedPackReloadPlugin::audio`, through
+   `ambition_audio::catalog::publish_provider_audio`): the provider's
+   fragment in the catalog, the active selection, and the provider's own
+   tracks in the library (`AudioLibrary::revise_provider_tracks`: another
+   provider's track, and an unchanged track with the path the host resolved,
+   are kept). Witnesses
+   `an_edit_to_the_music_is_the_providers_music_from_the_next_session` (red
+   with the catalog not published) and
+   `a_provider_reload_revises_its_own_tracks_only` (red with a dropped track
+   kept, and with an unchanged track resolved again). Read, not run or
+   fixed: Ambition's own audio reload revises the whole track table through the
+   asset catalog, which was built at start, so a changed `asset_path` of an
+   existing Ambition track resolves to its old path.
+   Remainder: the cast, move tables, Mary-O's ladder and her pickup art
+   (`world_item_art`), and publication into a live demo session. Each
+   needs a restater (the cast is a registry of prepared characters, so its
+   restater is I2/I3 scale) or its reader moved to read at use.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is

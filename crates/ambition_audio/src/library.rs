@@ -339,6 +339,35 @@ impl AudioLibrary {
             .collect();
     }
 
+    /// Replace one provider's tracks, for a reload of that provider's pack:
+    /// `previous` is the music the provider stated before, `next` what it
+    /// states now. A track of another provider is kept as it is, and so is a
+    /// track the provider did not change (with the path the host resolved
+    /// for it). A changed or new track takes its own path
+    /// ([`crate::spec::MusicTrack::resolved_asset_path`]) and loads on first
+    /// use; a dropped track is removed.
+    pub fn revise_provider_tracks(&mut self, previous: Option<&MusicRegistry>, next: Option<&MusicRegistry>) {
+        let previous: &[crate::spec::MusicTrack] = previous.map_or(&[], |music| &music.tracks);
+        let next: &[crate::spec::MusicTrack] = next.map_or(&[], |music| &music.tracks);
+        self.music_tracks
+            .retain(|track| !previous.iter().any(|old| old.id == track.id) || next.iter().any(|new| new.id == track.id));
+        for track in next {
+            if previous.contains(track) && self.track(&track.id).is_some() {
+                continue;
+            }
+            let runtime = MusicTrackRuntime {
+                id: track.id.clone(),
+                display_name: track.display_name.clone(),
+                one_shot: track.one_shot,
+                source: TrackSource { asset_path: track.resolved_asset_path(), handle: None },
+            };
+            match self.music_tracks.iter_mut().find(|known| known.id == track.id) {
+                Some(known) => *known = runtime,
+                None => self.music_tracks.push(runtime),
+            }
+        }
+    }
+
     pub fn sfx_handle(&self, cue: SoundCue) -> Handle<KiraAudioSource> {
         self.sfx
             .get(&cue)
@@ -697,5 +726,68 @@ fn play_music_track(
         } else {
             music_channel.play(handle).looped().fade_in(fade);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::spec::MusicTrack;
+
+    fn track(id: &str, asset_path: Option<&str>) -> MusicTrack {
+        MusicTrack { id: id.into(), display_name: id.into(), asset_path: asset_path.map(Into::into), one_shot: false }
+    }
+
+    fn music(tracks: Vec<MusicTrack>) -> MusicRegistry {
+        MusicRegistry { default_track: tracks[0].id.clone(), tracks }
+    }
+
+    fn library(tracks: &[(&str, &str)]) -> AudioLibrary {
+        AudioLibrary {
+            sfx: HashMap::new(),
+            fallback_sfx: Handle::default(),
+            music_tracks: tracks
+                .iter()
+                .map(|(id, path)| MusicTrackRuntime {
+                    id: id.to_string(),
+                    display_name: id.to_string(),
+                    one_shot: false,
+                    source: TrackSource { asset_path: path.to_string(), handle: None },
+                })
+                .collect(),
+        }
+    }
+
+    fn paths(library: &AudioLibrary) -> Vec<(String, String)> {
+        let mut paths: Vec<_> =
+            library.music_tracks.iter().map(|track| (track.id.clone(), track.asset_path().to_string())).collect();
+        paths.sort();
+        paths
+    }
+
+    /// ⭐ A reload of one provider's music changes its tracks and no other
+    /// provider's, and keeps the host's path for a track it did not change.
+    #[test]
+    fn a_provider_reload_revises_its_own_tracks_only() {
+        let before = music(vec![track("kept", None), track("moved", None), track("dropped", None)]);
+        let after = music(vec![track("kept", None), track("moved", Some("audio/other.ogg")), track("added", None)]);
+        let mut library = library(&[
+            ("host_theme", "host/theme.ogg"),
+            ("kept", "catalog/kept.ogg"),
+            ("moved", "catalog/moved.ogg"),
+            ("dropped", "catalog/dropped.ogg"),
+        ]);
+
+        library.revise_provider_tracks(Some(&before), Some(&after));
+
+        assert_eq!(
+            paths(&library),
+            [
+                ("added".to_string(), "audio/music/generated/added/full.ogg".to_string()),
+                ("host_theme".to_string(), "host/theme.ogg".to_string()),
+                ("kept".to_string(), "catalog/kept.ogg".to_string()),
+                ("moved".to_string(), "audio/other.ogg".to_string()),
+            ]
+        );
     }
 }

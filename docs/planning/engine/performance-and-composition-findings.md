@@ -952,4 +952,7 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
   this run: the system-count ceiling (3,505 against 3,500; the leafwing
   replacement removes two systems and adds two), `EmbeddedPackWatches` not in
   the rollback ledger (two tests; the content live-reload work), and the FX
-  sheet on disk without a `hit_soft` row (two tests).
+  sheet on disk without a `hit_soft` row (two tests). `ambition_combat` 740 pass;
+  the monolith 1,406 pass, 1 fails, not from this run:
+  `held_item_steps…sit_where_they_say` finds two systems in
+  `HeldItemStep::Physics` (`right_ground_items`, added in 2479a4c37).

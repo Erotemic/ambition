@@ -1129,6 +1129,10 @@ variants. Also found in that regen:
     four tiers' threads are at most `AMBITION_SPRITE_JOBS` (2/2/1/1). The
     four at once: 82 s, was 130 s; 74 s in a real publish (126 s wall for
     the publish).
+    **Measured end to end 2026-10-15, after the slices above:** a publish
+    with nothing to render is 54 s wall (was 231 s). No phase is over 8 s:
+    the quality variants 8 s, the tack-on freshness 6 s, the staging copy,
+    the portrait gallery and the LDtk editor art 5 s each.
     **Built 2026-10-15, the staging root:** a full publish writes into a
     copy of the five runtime roots (`sprites`, the three tiers,
     `sprite_packs`) under the renderer's `.cache/publish_staging`, and moves

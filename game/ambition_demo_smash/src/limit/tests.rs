@@ -561,7 +561,7 @@ fn a_meter_fills_by_the_rule_of_its_own_live_room() {
     app.add_message::<ResolvedBodyHit>();
     app.add_message::<BlockedBodyHit>();
     app.insert_resource(ambition_platformer2d::time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
-    app.declare_rules(RulesScope::Mode("smash"), SmashLimitFill(SMASH_LIMIT));
+    app.declare_rules(RulesScope::Mode("smash"), SmashLimitFill(smash_limit()));
     app.add_systems(Update, fill_limit_meters);
     app.world_mut().spawn((
         SessionRoot(SessionScopeId(1)),
@@ -578,7 +578,7 @@ fn a_meter_fills_by_the_rule_of_its_own_live_room() {
         app.world_mut()
             .spawn((
                 ambition_platformer2d::actor::MatchSeat(index),
-                bank(&[SMASH_LIMIT.declaration()]),
+                bank(&[smash_limit().declaration()]),
                 InRoomInstance(room),
             ))
             .id()

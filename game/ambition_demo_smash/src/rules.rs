@@ -27,6 +27,8 @@ pub struct SmashRules {
     pub return_to_select_seconds: f32,
     /// The shark the admiral's up-B summons.
     pub shark_ride: SharkRide,
+    /// The Limit every seat holds, and what fills it.
+    pub limit: ambition_platformer2d::entity_catalog::smash_limit::LimitMeterFill,
 }
 
 /// A copy of a character another pack owns, on this demo's grid.
@@ -92,6 +94,7 @@ impl SmashRules {
         if ride.health == 0 {
             problems.push("`shark_ride.health` is 0; the shark would die before it can carry anyone".to_string());
         }
+        problems.extend(self.limit.problems().into_iter().map(|problem| format!("`limit`: {problem}")));
         problems
     }
 }
@@ -151,6 +154,16 @@ mod tests {
 
         let file = rules_of(&authored);
         assert_eq!(&file, smash_rules(), "the demo plays the file");
+        // The Limit the seats hold and fill is the file's `limit`.
+        assert_eq!(crate::limit::smash_limit(), file.limit, "the match plays a Limit that is not the file's");
+        let cap = "cap: 60.0,";
+        assert_eq!(authored.matches(cap).count(), 1, "the probe edits the Limit");
+        assert_eq!(rules_of(&authored.replace(cap, "cap: 80.0,")).limit.cap, 80.0);
+        let refused = match compile(&authored.replace("on_block: 1.0,", "on_block: -1.0,")) {
+            Ok(_) => panic!("a Limit that a block drains was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`limit`: on_block is -1"), "the refusal names the field: {refused}");
 
         let health = "health: 40,";
         assert_eq!(authored.matches(health).count(), 1, "the probe edits the shark");

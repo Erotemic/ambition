@@ -98,4 +98,24 @@
         // outlast the time the body takes to leave view.
         depart_seconds: 2.0,
     ),
+    // The Limit: the meter every seat holds, empty at the start and after a
+    // respawn, and what fills it. Each source is independent; 0 turns one off.
+    limit: (
+        // The ceiling. A move that spends the Limit costs this much
+        // (`bivalence`'s `costs`).
+        cap: 60.0,
+        // One point every 2 seconds, whatever anybody does.
+        per_second: 0.5,
+        // Each hit a fighter lands, and each point of its damage.
+        on_damage_dealt: 1.0,
+        per_damage_dealt: 0.1,
+        // Each hit a fighter takes, and each point of its damage: twice what
+        // landing it pays, so the fighter who is behind fills faster.
+        on_damage_taken: 2.0,
+        per_damage_taken: 0.2,
+        // Each strike blocked: one landed hit's worth.
+        on_block: 1.0,
+        // No drain: a fighter keeps the meter it earned until it spends it.
+        decay_per_second: 0.0,
+    ),
 )

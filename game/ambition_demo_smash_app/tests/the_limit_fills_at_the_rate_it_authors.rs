@@ -192,7 +192,7 @@ fn the_platformers_mana_regen_does_not_reach_a_fighters_limit() {
         !caps.is_empty()
             && caps
                 .iter()
-                .all(|cap| *cap == Some(ambition_demo_smash::limit::SMASH_LIMIT.cap)),
+                .all(|cap| *cap == Some(ambition_demo_smash::limit::smash_limit().cap)),
         "a seat does not hold the match's Limit at its cap: {caps:?}",
     );
 
@@ -349,7 +349,7 @@ fn the_stage_governs_its_own_rooms_and_writes_no_one_elses_configuration() {
 
     assert_eq!(
         governing::<SmashLimitFill>(&mut app),
-        Some(SmashLimitFill(ambition_demo_smash::limit::SMASH_LIMIT)),
+        Some(SmashLimitFill(ambition_demo_smash::limit::smash_limit())),
         "on the Smash stage the room reads no Limit rule, so the meter never \
          fills and the move priced at the cap is unreachable"
     );

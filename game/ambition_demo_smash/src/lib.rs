@@ -117,7 +117,7 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
     roster.rules.move_damage =
         Some(ambition_platformer2d::characters::smash_fighter::FIGHTER_DAMAGE);
     // The Limit is the match's resource: every seat is built holding it, empty.
-    roster.rules.resources = vec![crate::limit::SMASH_LIMIT.declaration()];
+    roster.rules.resources = vec![crate::limit::smash_limit().declaration()];
     // No items for now (Jon's call). The machinery (`MatchItemSpawns`, the
     // spawner, the weighted table) is built and tested; only this declaration
     // is absent. The previous table: a drop every 8s at three points above the
@@ -453,7 +453,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             // Only the seats hold a Limit slot, so the fill reaches no other body.
             app.declare_rules(
                 ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
-                crate::limit::SmashLimitFill(crate::limit::SMASH_LIMIT),
+                crate::limit::SmashLimitFill(crate::limit::smash_limit()),
             );
             // A viewer-dependent cone is undefined with no primary player, and
             // seamless camera transit is a single-camera effect. The portal

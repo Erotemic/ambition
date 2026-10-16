@@ -41,7 +41,7 @@ I5 -> M2 -> I8 measured runtime/snapshot optimizations -> I9 cost evidence
 
 | Packet | State |
 | --- | --- |
-| I0 | Open: no iteration recorder with the M0 schema |
+| I0 | Recorder for the pack-data loop (`scripts/iteration_record.py`, 2026-10-16); Rust-edit loops are `compile_cost.py`'s |
 | I1 | Pure authoring moved; independent fixture `fixtures/content_builder` |
 | I2 | Every data source of the Ambition pack and the demo packs is read off disk |
 | I3 | Data reload is implemented for the participating families; open items below |
@@ -83,7 +83,22 @@ you add a helper.
 
 **Acceptance:** timing rows correlate edited input, admitted generation,
 observed behavior and build or link events. A missing tool is recorded as
-unavailable. **Poison:** skip the load of the new artifact or feed an old host
+unavailable.
+
+**Built 2026-10-16 for the pack-data loop:** a host that reloads a pack
+prints one acknowledgment line per event with the generation's fingerprint
+(`content::live_reload`: watching, staged with the compile time, published
+after the restaters, refused). `scripts/iteration_record.py` starts a named,
+already built host, writes a real edit, and times it to the published
+acknowledgment of a new generation; each revert must give back the starting
+generation, and a save with no change must publish nothing. It writes M0 rows
+to `target/iteration_reports/<stamp>/records.jsonl`. It refuses the run for a
+host that loads nothing, answers with the running generation, refuses the
+edit, or publishes a generation it did not stage (the poison: the host
+acknowledged a publication and did not publish; refused). Witnesses:
+`scripts/tests/test_iteration_record.py`, one fake-host defect for each
+refusal. Not measured yet: the observed behaviour (`first_observed_result_seconds`
+is null), and the loops that compile (`compile_cost.py` owns them). **Poison:** skip the load of the new artifact or feed an old host
 acknowledgment; the helper refuses the run. Make its metadata command fail; the
 closure report fails instead of reporting zero dependencies.
 

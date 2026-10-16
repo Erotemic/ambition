@@ -14,6 +14,14 @@ pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! {
     schemas: [crate::rules::mary_o_rules_schema, crate::forms::mary_o_forms_schema],
 };
 
+/// A build that reads the pack off disk states the room rules in `scope`
+/// again when an edit to them is published between sessions.
+pub fn room_rules_reload(
+    scope: ambition_platformer2d::combat::scoped_rules::RulesScope,
+) -> ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin {
+    ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::room_rules(&PACK, scope)
+}
+
 /// The rules of the demo's rooms, as its pack states them
 /// (`assets/data/room_rules.ron`). An edit to the file is played at the next
 /// start, with no Rust build.

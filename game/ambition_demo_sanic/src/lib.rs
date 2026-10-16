@@ -379,6 +379,7 @@ pub fn install_sanic_content(app: &mut App) {
     app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin {
         pack: &pack::PACK,
         live: &[rules::SANIC_RULES_SCHEMA],
+        restated: Vec::new(),
     });
     // His pack states his music and his SFX, his own Dash and Jump among
     // them. His moves name bank cues as well.
@@ -657,6 +658,7 @@ impl Plugin for SanicRulesPlugin {
             use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
             let scope = self.scope;
             ambition_platformer2d::combat::room_rules::declare_room_rules(app, scope, crate::pack::room_rules());
+            app.add_plugins(crate::pack::room_rules_reload(scope));
             // Whoever the player drives here can spin dash and transform.
             app.declare_rules(
                 scope,

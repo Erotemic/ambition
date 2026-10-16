@@ -400,6 +400,10 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
                 smash_room_rules(),
             );
+            app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::room_rules(
+                &crate::smash_pack::PACK,
+                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+            ));
             // Name prompts by button. A Smash Attack slot hosts a dozen moves
             // chosen by direction and posture, so naming the move would change
             // as the body moves. Rooms of other games keep naming the move.
@@ -2483,6 +2487,7 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             crate::stages::SMASH_STAGES_SCHEMA,
             ambition_platformer2d::versus_match::match_rules::MATCH_RULES_SCHEMA,
         ],
+        restated: Vec::new(),
     });
     // The pack states the music; it states no procedural SFX, because the
     // fighters' moves name bank cues.

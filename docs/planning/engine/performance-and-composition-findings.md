@@ -106,7 +106,8 @@ again before you quote it.
 1. A phone run of the Mary-O-only hub (`profile_android.sh`, as 10-16) to
    measure tonight's fixes where they matter; compare with
    `android-maryo-only-1-1b` by `--thread` and `--under`.
-2. D12: a yes for the serial executor in the standalone games (F22).
+2. D12: a yes for the serial executor in the standalone games (F22); `serial`,
+   not `frame-serial`, because the saving is in the `Fixed*` schedules.
 3. P1 C1: the boss and wielded extension phases installed by their owning
    capability (~49 systems a frame in Mary-O and Sanic), then C2-C6.
 4. P12: the body step marks only real changes (F20); then the change-driven

@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_core::{BodyKinematics, SweepSample};
+use ambition_platformer2d_core::{AabbExt, BodyKinematics, SweepSample};
 
 use crate::color::{PortalChannel, PortalGunColor};
 use crate::placement::{transit_step_with_tuning, TransitStep};
@@ -282,4 +282,19 @@ fn a_leg_ends_where_its_centre_enters_a_paired_opening() {
     let beside = Vec2::new(0.0, 200.0 + HALF + 30.0);
     assert_eq!(crate::first_portal_crossing(beside + Vec2::new(40.0, 0.0), beside, size, &[blue.clone(), orange]), None);
     assert_eq!(crate::first_portal_crossing(Vec2::new(40.0, 200.0), Vec2::new(0.0, 200.0), size, &[blue]), None);
+}
+
+#[test]
+fn a_body_beside_an_opening_does_not_open_it() {
+    // A wall portal facing +x whose top end is a ledge's top (y up from the
+    // end is past it): a body standing on the ledge, its feet on the end and
+    // its box over the face, is beside the opening, not in line with it.
+    let p = PlacedPortal::fixed(BLUE, Vec2::new(100.0, 248.0), Vec2::new(1.0, 0.0), 40.0);
+    let top_end = 248.0 - 40.0;
+    let half = Vec2::new(15.0, 24.0);
+    let on_the_ledge = ambition_platformer2d_core::Aabb::new(Vec2::new(98.0, top_end - half.y + 0.6), half);
+    assert!(!crate::transit::body_opens(&p, on_the_ledge, on_the_ledge.center(), Vec2::new(138.0, 37.5), 60.0));
+    // In line with it, coming in from the front, it opens.
+    let in_line = ambition_platformer2d_core::Aabb::new(Vec2::new(110.0, 260.0), half);
+    assert!(crate::transit::body_opens(&p, in_line, in_line.center(), Vec2::new(-138.0, 0.0), 60.0));
 }

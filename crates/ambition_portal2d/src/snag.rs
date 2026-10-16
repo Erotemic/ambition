@@ -120,6 +120,16 @@ pub fn fits_through(body: ae::Aabb, opening: &PortalAperture) -> bool {
     cut(&corners(body, opening)).is_none_or(|(t0, t1)| t0 >= -h && t1 <= h)
 }
 
+/// Is `body` in line with `opening`: does all of it lie within the opening's
+/// span along its face? Only a body in line can pass whole, so only one in
+/// line opens the hole ([`crate::transit`]): a body beside the opening, as
+/// one standing on a ledge whose top is the opening's end, leaves the host
+/// whole under it.
+pub fn in_line_with(body: ae::Aabb, opening: &PortalAperture) -> bool {
+    let h = opening.half_length + FITS_SLACK;
+    corners(body, opening).iter().all(|p| p.x.abs() <= h)
+}
+
 /// Does `body` cut `opening`'s plane over the opening (not only past its
 /// ends)?
 pub(crate) fn cuts_opening(body: ae::Aabb, opening: &PortalAperture) -> bool {

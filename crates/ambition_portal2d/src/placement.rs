@@ -569,11 +569,17 @@ pub fn transit_step_with_tuning(
                 // Begin when the leading face reaches the opening from the
                 // front: the centroid must be on the room side of the plane
                 // (within `TRANSIT_BEGIN_MARGIN`). Otherwise a body behind a
-                // thin wall could reach the capture box through it.
+                // thin wall could reach the capture box through it. And in
+                // line with the opening, as for its hole (`body_opens`): a body
+                // beside it, past an end, is not going through.
                 let capture = capture_face(enter);
                 let front = pp::front_distance(center, &frame);
                 let entering = front > 0.0 || enter.relative_velocity(center, vel).dot(enter.normal) < 0.0;
-                if front >= -TRANSIT_BEGIN_MARGIN && entering && capture.strict_intersects(body) {
+                if front >= -TRANSIT_BEGIN_MARGIN
+                    && entering
+                    && crate::snag::in_line_with(body, &enter.aperture())
+                    && capture.strict_intersects(body)
+                {
                     return TransitStep::Begin {
                         channel: enter.channel,
                         portal_pos: enter.pos,

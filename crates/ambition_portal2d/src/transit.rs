@@ -198,11 +198,14 @@ pub fn publish_portal_carves(
 }
 
 /// Does a body (its box, its centre and its velocity) open `p`? The one rule
-/// for every body that moves: in the opening from the front, approaching it,
-/// or inside its hole falling through. "Approaching" and "falling" are
+/// for every body that moves: in line with the opening and in it from the
+/// front or approaching it, or inside its hole falling through. A body not in
+/// line with the opening (part of it past an end) could not pass whole: the
+/// snag would hold it, so it opens nothing (Jon 2026-10-16: a robot on a
+/// ledge whose top is the opening's end lost the ledge to the hole). "Approaching" and "falling" are
 /// relative to the portal's surface, so a portal that moves or turns onto a
 /// still body opens for it. `depth` bounds the hole by the host's thickness.
-fn body_opens(p: &PlacedPortal, body: ae::Aabb, center: Vec2, vel: Vec2, depth: f32) -> bool {
+pub(crate) fn body_opens(p: &PlacedPortal, body: ae::Aabb, center: Vec2, vel: Vec2, depth: f32) -> bool {
     use super::placement::{approach_face, capture_face, portal_fits};
     if !portal_fits(body.half_size() * 2.0, p) {
         return false;
@@ -214,6 +217,7 @@ fn body_opens(p: &PlacedPortal, body: ae::Aabb, center: Vec2, vel: Vec2, depth: 
     // cross this frame. Otherwise a body behind a thin wall could open a hole
     // through it without transiting.
     let frontal = front >= -TRANSIT_BEGIN_MARGIN
+        && crate::snag::in_line_with(body, &ap)
         && (capture_face(p).strict_intersects(body) || (into && approach_face(p).strict_intersects(body)));
     // A fast crossing that skipped Begin keeps the hole open while the body
     // is inside the carve volume, bounded by the host's thickness.

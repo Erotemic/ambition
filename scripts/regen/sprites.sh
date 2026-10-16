@@ -1924,6 +1924,12 @@ fi
 # .ldtk when something actually changed). Default is the curated entity map
 # (a minimal diff); pass --all-sheets by hand to register every sheet for
 # browsing in the editor.
+# The `file:` of each world row in the pack's `worlds.ron`.
+ldtk_world_files() {
+    sed -n 's/^[[:space:]]*(id:.*file:[[:space:]]*"\([^"]*\)".*/\1/p' \
+        "$content_assets_dir/data/worlds.ron"
+}
+
 phase "LDtk sprite tilesets:"
 sprite_manifest="$sprites_dir/ldtk_sprite_manifest.json"
 if ambition_python_exists "$python_bin" && \
@@ -1933,12 +1939,14 @@ if ambition_python_exists "$python_bin" && \
 then
     run_renderer_python ldtk-manifest -m ambition_sprite2d_renderer \
         ldtk-manifest --out "$sprite_manifest" 2>&1 | sed 's/^/  /' || true
-    # hall_of_characters carries the same PlayerStart icon wiring as the other
-    # three; leaving it out let its tileset def drift onto a sheet name the
-    # renderer had stopped publishing. Pruning drops the def that repointing
-    # orphans, so no world keeps naming a PNG that no longer ships.
-    for world in sandbox intro you_have_to_cut_the_rope hall_of_characters; do
-        ldtk_path="$worlds_dir/$world.ldtk"
+    # Each world carries the same PlayerStart icon wiring. A world left out
+    # of this loop keeps a tileset def that drifts onto a sheet name the
+    # renderer stopped publishing (the hall did, and then the Math world was
+    # left out of a hand list). So the worlds are the pack's own list,
+    # `worlds.ron`. Pruning drops the def that repointing orphans, so no
+    # world keeps naming a PNG that no longer ships.
+    for world in $(ldtk_world_files); do
+        ldtk_path="$worlds_dir/$world"
         [ -f "$ldtk_path" ] || continue
         "$ldtk_python" \
             -m ambition_ldtk_tools.edit.visual_manifest apply-manifest \

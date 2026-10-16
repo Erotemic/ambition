@@ -1,0 +1,22 @@
+// Mary-O's cutscenes, schema `cutscene_library` (owned by the cutscene
+// capability, `ambition_cutscene::content_schema`). An edit here is played at
+// the next start, with no Rust build.
+[
+    // At the end of a castle, past the gate, the one she saved thanks her.
+    // The castle's `Thanks` beat lasts as long as the banner here, then
+    // `castle_end.beats.thanks_after_line` in mary_o_rules.ron. The line needs
+    // no button: a level that waits for a button at its end can hold a player
+    // who does not know which.
+    (
+        id: "mary_o_castle_rescue",
+        beats: [
+            Wait(
+                seconds: 0.4,
+            ),
+            Banner(
+                text: "ROBOT:  \"Thank you, Mary-O. You saved me.\"",
+                seconds: 4.0,
+            ),
+        ],
+    ),
+]

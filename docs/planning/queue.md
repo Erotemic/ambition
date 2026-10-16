@@ -275,7 +275,9 @@ Open:
    clock scale and cosmic arrive beat are in `mary_o_rules.ron`. Ambition's
    day (length, phase hours, start hour, daylight veil) is `day` in
    `ambition_rules.ron`, and a content reload restates it. Sanic's act
-   titles and numbers are `acts` in `sanic_rules.ron`. A
+   titles and numbers are `acts` in `sanic_rules.ron`. Mary-O's castle
+   rescue is a `cutscene_library` file in her pack (`data/cutscenes/castle.ron`),
+   restated at a reload (`EmbeddedPackReloadPlugin::cutscenes`). A
    respawn and a departing shark read the centre of the body's live room
    (`StageCentre`), not the flat stage's. Still flat-only:
    `ladder_rig --scenarios` (refuses other stages).
@@ -285,10 +287,12 @@ Open:
      `CUT_ROPE_VICTORY_NPC_NAME`, also the speaker in
      `assets/dialogue/sandbox/kernel.yarn`.
    - Level facts and tables: the duel arena's spawn table
-     (`game/ambition_content/src/duel_arena.rs:43,68-90`), the castle's
-     rescue scene (`castle_end.rs:44,280-289`), the Noether banner and
-     kernel signals (`encounters.rs:41,107`), Ambition's default character
-     and seat count.
+     (`game/ambition_content/src/duel_arena.rs:43,68-90`; its staging
+     closure is given only the `RoomSpec`, so a data row needs the room to
+     author the pair, as LDtk placements with a grudge field, or the
+     staging seam to be given the tuning), the Noether banner and kernel
+     signals (`encounters.rs:41,107`), Ambition's default character and
+     seat count.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is

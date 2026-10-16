@@ -56,3 +56,7 @@ ambition_input = { path = "../ambition_input", features = ["input"] }
 leafwing-input-manager = "0.21"
 bevy = { version = "0.19.1", default-features = false, features = ["bevy_state"] }
 bevy_math = "0.19.1"
+
+[dev-dependencies]
+# The boss fixture reads Ambition's encounter files from its pack manifest.
+ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["test-support"] }

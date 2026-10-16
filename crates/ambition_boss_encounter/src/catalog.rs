@@ -915,27 +915,47 @@ impl BossCatalogAppExt for App {
     }
 }
 
+/// Ambition's boss encounter files, in the order its `pack.ron` states them.
+/// The pack manifest is the one list of these files. Four hand-kept copies of
+/// it in tests did not get a new boss, and 112 tests failed on a fixture that
+/// refused the boss's profile.
+#[cfg(any(test, feature = "test-support"))]
+pub fn ambition_encounter_sources() -> Vec<String> {
+    #[derive(serde::Deserialize)]
+    struct Manifest {
+        sources: Vec<Source>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Source {
+        path: String,
+        schema: String,
+    }
+    let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../game/ambition_content/assets");
+    let text = std::fs::read_to_string(assets.join("pack.ron")).expect("Ambition's pack.ron");
+    let manifest: Manifest = ron::from_str(&text).expect("Ambition's pack.ron parses");
+    manifest
+        .sources
+        .into_iter()
+        .filter(|source| source.schema == "boss_encounter")
+        .map(|source| {
+            std::fs::read_to_string(assets.join(&source.path))
+                .unwrap_or_else(|error| panic!("{}: {error}", source.path))
+        })
+        .collect()
+}
+
 #[cfg(any(test, feature = "test-support"))]
 pub fn test_boss_catalog() -> &'static BossCatalog {
     static CATALOG: std::sync::LazyLock<BossCatalog> = std::sync::LazyLock::new(|| {
-        let encounters: &[&str] = &[
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/clockwork_warden.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/mockingbird.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/gnu_ton_rider.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/smirking_behemoth_boss.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/trex_boss.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/mode_collapse_boss.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/hunny_horror_boss.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_boss.ron"),
-        ];
+        let sources = ambition_encounter_sources();
+        let encounters: Vec<&str> = sources.iter().map(String::as_str).collect();
         let fragment = BossCatalogFragment::from_ron(
             "ambition-test",
             Some("clockwork_warden"),
             Some("gradient_sentinel"),
             include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
-            encounters,
+            &encounters,
             include_str!("../../../game/ambition_content/assets/data/boss_sheets.ron"),
             BossArtKeys::from_ron(include_str!(
                 "../../../game/ambition_content/assets/data/boss_art_keys.ron"
@@ -955,24 +975,14 @@ mod tests {
     use super::*;
 
     fn fragment(provider: &str) -> BossCatalogFragment {
-        let encounters: &[&str] = &[
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/clockwork_warden.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/mockingbird.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/gnu_ton_rider.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/smirking_behemoth_boss.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/trex_boss.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/mode_collapse_boss.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/hunny_horror_boss.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
-            include_str!("../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_boss.ron"),
-        ];
+        let sources = ambition_encounter_sources();
+        let encounters: Vec<&str> = sources.iter().map(String::as_str).collect();
         BossCatalogFragment::from_ron(
             provider,
             Some("clockwork_warden"),
             Some("gradient_sentinel"),
             include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
-            encounters,
+            &encounters,
             include_str!("../../../game/ambition_content/assets/data/boss_sheets.ron"),
             BossArtKeys::from_ron(include_str!(
                 "../../../game/ambition_content/assets/data/boss_art_keys.ron"

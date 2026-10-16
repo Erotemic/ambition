@@ -49,24 +49,14 @@ use image::{Rgba, RgbaImage};
 use ambition_persistence::settings::video::{CameraAspectPolicy, CameraFramingPreset};
 
 fn ambition_boss_catalog() -> ambition_boss_encounter::BossCatalog {
-    const ENCOUNTERS: &[&str] = &[
-        include_str!("../../../game/ambition_content/assets/data/boss_encounters/clockwork_warden.ron"),
-        include_str!("../../../game/ambition_content/assets/data/boss_encounters/mockingbird.ron"),
-        include_str!("../../../game/ambition_content/assets/data/boss_encounters/gnu_ton_rider.ron"),
-        include_str!("../../../game/ambition_content/assets/data/boss_encounters/smirking_behemoth_boss.ron"),
-        include_str!("../../../game/ambition_content/assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
-        include_str!("../../../game/ambition_content/assets/data/boss_encounters/trex_boss.ron"),
-        include_str!("../../../game/ambition_content/assets/data/boss_encounters/mode_collapse_boss.ron"),
-        include_str!("../../../game/ambition_content/assets/data/boss_encounters/hunny_horror_boss.ron"),
-        include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
-        include_str!("../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_boss.ron"),
-    ];
+    let sources = ambition_boss_encounter::ambition_encounter_sources();
+    let encounters: Vec<&str> = sources.iter().map(String::as_str).collect();
     let fragment = ambition_boss_encounter::BossCatalogFragment::from_ron(
         "geometry-debug",
         Some("clockwork_warden"),
         Some("gradient_sentinel"),
         include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
-        ENCOUNTERS,
+        &encounters,
         include_str!("../../../game/ambition_content/assets/data/boss_sheets.ron"),
         ambition_boss_encounter::BossArtKeys::from_ron(include_str!(
             "../../../game/ambition_content/assets/data/boss_art_keys.ron"

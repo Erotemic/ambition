@@ -1214,6 +1214,13 @@ second authoring source.
   scan is deleted (the same 287 ids on the shipped files; poison: no titles
   lowered, red at `hub_guide` in `central_hub_main`). The Yarn compiler
   still compiles the files when the game loads them.
+- ✅ 2026-10-15, the boss encounter files in tests. Four test fixtures kept
+  their own `include_str!` list of Ambition's encounter files. A new boss
+  (`wolfenstein_boss`) was in `pack.ron` and in none of them, so the boss
+  fixture refused its profile (`MissingEncounter`) and 112 monolith tests
+  failed. `ambition_boss_encounter::ambition_encounter_sources` (test
+  support) reads the files that `pack.ron` states, and the four lists are
+  deleted (poison: one manifest row left out, the same `MissingEncounter`).
 - LDtk/world cross-reference rules in `content_validation.rs` repeat rules that
   a world owner already checks. ✅ 2026-10-03, the LoadingZone target rule:
   `validate_ldtk_room_links` refused every zone without both targets, which <!-- cite-ok: the function's name on 2026-10-03; it is `validate_room_links` now -->

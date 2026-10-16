@@ -247,6 +247,43 @@ Open:
    needs a restater (the cast is a registry of prepared characters, so its
    restater is I2/I3 scale) or its reader moved to read at use.
 
+2. **A census of content still written as Rust in the game crates
+   (2026-10-16).** About 485 declarations in `game/ambition_demo_{smash,mary_o,sanic}/src`
+   and `game/ambition_content/src` (not the WASM modules, not test modules);
+   about 450 are structural (UI layout, render depth, ids, derived
+   geometry). Done from it: the shown names of Mary-O's nine enemies and
+   Sanic's badnik (her boss gauge read a Rust copy; `EmbeddedPack::display_name`),
+   Sanic's scattered ring size (`ring_loss.ring_size`), his FINISH signs
+   (derived from each course; the highway's stood at the speedway's floor
+   height), and `GOAL_X`/`LEVEL_WIDTH` (deleted; the course's own width).
+   The speedway's floor and pit numbers are now `speedway_oracle`, read by
+   tests only. Left, most valuable first:
+   - Smash's stage list and labels (`game/ambition_demo_smash/src/lib.rs:2582`
+     `SmashStageChoice::ALL`, `label()`, room ids at `lib.rs:268-274`): the
+     rows are in `smash_stages.ron` with other names; a new stage is a Rust
+     edit (27 readers).
+   - `game/ambition_content/src/bosses/cut_rope/mod.rs:44`
+     `CUT_ROPE_VICTORY_NPC_NAME`, also the speaker in
+     `assets/dialogue/sandbox/kernel.yarn`.
+   - `game/ambition_demo_smash/src/lib.rs:910` `SMASH_STAGE_TRACK`, the
+     music registry's `default_track` (a test pin only).
+   - Rules beside their data siblings: the Limit fill
+     (`game/ambition_demo_smash/src/limit.rs:30`), blast feel
+     (`bomb.rs:32`, `mine.rs:23`), spring arm/rearm (`spring.rs:121,205`),
+     sing mash (`sing.rs:78`), the stock choices 1 and 5
+     (`lib.rs:2550,2552`), thrown rebound
+     (`game/ambition_content/src/items/thrown_impact.rs:29-30`), the
+     GNU-ton book box (`bosses/gnu_ton/duel.rs:62`), Mary-O's and Sanic's
+     transform beats (`powerups.rs:951,954`, `cosmic.rs:53`,
+     `ambition_demo_sanic/src/lib.rs` `SUPER_FORM_BEAT`).
+   - Level facts and tables: the day clock and its light
+     (`game/ambition_content/src/day_cycle.rs:16,28`), Sanic's act titles
+     (`act_title()`), the duel arena's spawn table
+     (`game/ambition_content/src/duel_arena.rs:43,68-90`), the castle's
+     rescue scene (`castle_end.rs:44,280-289`), the Noether banner and
+     kernel signals (`encounters.rs:41,107`), Ambition's default character
+     and seat count.
+
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is
 written in, so they move with that code, not alone (decided 2026-10-14).

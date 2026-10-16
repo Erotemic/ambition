@@ -1,9 +1,7 @@
 use ambition_platformer2d::engine_core as ae;
 
-use crate::{
-    sanic_speedway, FLOOR_TOP, LOOP_CLOSURE_POINT_INDEX, LOOP_ENTRY_POINT_INDEX, LOOP_SEGMENTS,
-    PIT_FLOOR_Y, PIT_LEFT_X, PIT_RIGHT_X,
-};
+use crate::speedway_oracle::{FLOOR_TOP, PIT_FLOOR_Y, PIT_LEFT_X, PIT_RIGHT_X};
+use crate::{sanic_speedway, LOOP_CLOSURE_POINT_INDEX, LOOP_ENTRY_POINT_INDEX, LOOP_SEGMENTS};
 
 /// The rig gravity every momentum test in this crate uses (60 Hz, y-down).
 const GRAVITY: f32 = 1450.0;

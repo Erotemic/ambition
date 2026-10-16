@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 
-use ambition_demo_sanic::FLOOR_TOP;
+use ambition_demo_sanic::speedway_oracle::FLOOR_TOP;
 use ambition_demo_sanic_app::build_demo_app;
 use ambition_platformer2d::actor::ActorFaction;
 use ambition_platformer2d::combat::actor_tuning::ActorConfig;

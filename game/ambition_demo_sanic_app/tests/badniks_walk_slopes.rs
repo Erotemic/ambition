@@ -6,7 +6,7 @@
 //! (`slope_factor: 0`, a walker, not a ball) and its profile turns where
 //! `ground_ends_ahead` says its ground runs out.
 
-use ambition_demo_sanic::{PIT_LEFT_X, FLOOR_TOP};
+use ambition_demo_sanic::speedway_oracle::{FLOOR_TOP, PIT_LEFT_X};
 use ambition_demo_sanic_app::build_demo_app;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
@@ -145,7 +145,7 @@ fn gate_the_pit(
         overlay.gate_solids.push(ae::Block::solid(
             BRIDGE,
             Vec2::new(PIT_LEFT_X, FLOOR_TOP),
-            Vec2::new(ambition_demo_sanic::PIT_RIGHT_X - PIT_LEFT_X, 32.0),
+            Vec2::new(ambition_demo_sanic::speedway_oracle::PIT_RIGHT_X - PIT_LEFT_X, 32.0),
         ));
         if let Some(badnik) = pass.0 {
             overlay.gate_passes.push(ambition_platformer2d::world::GatePass {
@@ -183,7 +183,7 @@ fn walk_the_bridge(marker_open_for_the_badnik: bool) -> Vec<Vec2> {
         ae::movement::transit_body(
             &mut model,
             &mut clusters,
-            Vec2::new((PIT_LEFT_X + ambition_demo_sanic::PIT_RIGHT_X) / 2.0, 600.0),
+            Vec2::new((PIT_LEFT_X + ambition_demo_sanic::speedway_oracle::PIT_RIGHT_X) / 2.0, 600.0),
             ae::movement::TransitVelocity::Zero,
         );
     }
@@ -209,13 +209,13 @@ fn walk_the_bridge(marker_open_for_the_badnik: bool) -> Vec<Vec2> {
 #[test]
 fn a_gate_open_for_a_badnik_does_not_change_the_ground_it_plans_on() {
     let closed = walk_the_bridge(false);
-    let start = (PIT_LEFT_X + ambition_demo_sanic::PIT_RIGHT_X) / 2.0;
+    let start = (PIT_LEFT_X + ambition_demo_sanic::speedway_oracle::PIT_RIGHT_X) / 2.0;
     let left = closed.iter().map(|p| p.x).fold(f32::MAX, f32::min);
     let right = closed.iter().map(|p| p.x).fold(f32::MIN, f32::max);
     let lowest = closed.iter().map(|p| p.y).fold(f32::MIN, f32::max);
     assert!(
         left >= PIT_LEFT_X
-            && right <= ambition_demo_sanic::PIT_RIGHT_X
+            && right <= ambition_demo_sanic::speedway_oracle::PIT_RIGHT_X
             && left < start - 40.0
             && right > start + 40.0
             && lowest < FLOOR_TOP,

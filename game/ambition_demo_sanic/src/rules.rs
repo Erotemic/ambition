@@ -53,6 +53,7 @@ pub struct RingLoss {
     pub restitution: f32,
     pub lock_seconds: f32,
     pub life_seconds: f32,
+    pub ring_size: f32,
 }
 
 /// The act's clock, score and cards.
@@ -97,6 +98,7 @@ impl SanicRules {
             ("ring_loss.restitution", loss.restitution),
             ("ring_loss.lock_seconds", loss.lock_seconds),
             ("ring_loss.life_seconds", loss.life_seconds),
+            ("ring_loss.ring_size", loss.ring_size),
             ("act.clear_dwell", act.clear_dwell),
             ("act.par_seconds", act.par_seconds),
             ("act.title_seconds", act.title_seconds),
@@ -112,6 +114,9 @@ impl SanicRules {
             if value < 0 {
                 problems.push(format!("`{field}` is {value}; it is not negative"));
             }
+        }
+        if loss.ring_size <= 0.0 {
+            problems.push(format!("`ring_loss.ring_size` is {}; a ring has a size", loss.ring_size));
         }
         if loss.rings_per_shell == 0 && loss.max_scattered > 0 {
             problems.push(

@@ -80,16 +80,20 @@ pub const LOOP_FOREGROUND_SEGMENTS_PER_SIDE: usize = ae::LoopResolution::STANDAR
 /// Index of the route's final floor-level runout point.
 pub const LOOP_EXIT_POINT_INDEX: usize = LOOP_CLOSURE_POINT_INDEX + LOOP_RUNOUT_SEGMENTS;
 
-/// Course dimensions, mirrored by `tools/author_speedway_ldtk.py` (the level
-/// generator) — the oracles anchor on these.
-pub const LEVEL_WIDTH: f32 = 6400.0;
-pub const FLOOR_TOP: f32 = 672.0;
-/// The spike pit: the west ground ends at the left lip, the east ground starts
-/// at the right lip, and a bed of spikes lines its painted floor.
-/// Falling in is a hit, not a reset; it is shallower than a jump is high.
-pub const PIT_LEFT_X: f32 = 4000.0;
-pub const PIT_RIGHT_X: f32 = 4256.0;
-pub const PIT_FLOOR_Y: f32 = 784.0;
+
+/// The speedway's floor and spike pit, as `tools/author_speedway_ldtk.py`
+/// (the level's generator) writes them: the oracles the tests check the level
+/// file against. The game reads the level, never these.
+pub mod speedway_oracle {
+    /// The top of the speedway's flat ground.
+    pub const FLOOR_TOP: f32 = 672.0;
+    /// The spike pit: the west ground ends at the left lip, the east ground
+    /// starts at the right lip, and a bed of spikes lines its painted floor.
+    /// Falling in is a hit, not a reset; it is shallower than a jump is high.
+    pub const PIT_LEFT_X: f32 = 4000.0;
+    pub const PIT_RIGHT_X: f32 = 4256.0;
+    pub const PIT_FLOOR_Y: f32 = 784.0;
+}
 
 /// The LDtk world this demo ships, a separate file from Ambition's worlds.
 /// A development build reads it off disk, so an edit costs a restart and no
@@ -110,13 +114,6 @@ pub const SUPER_SANIC_CHARACTER_ID: &str = "super_sanic";
 /// square so the round sprite is not stretched.
 pub const RING_SPRITE_KIND: &str = "sanic_ring_prop";
 
-/// A ring's square side, in world units — for the rings the level places AND
-/// the ones a hit scatters. The speedway's author script writes the same number
-/// (`RING_SIZE` in `tools/author_speedway_ldtk.py`) and
-/// `every_ring_the_speedway_places_is_the_size_a_hit_scatters` holds the two
-/// together: the level's were authored 30 while a scatter made 18, so a ring
-/// changed size when you dropped it.
-pub const RING_SIZE: f32 = 18.0;
 
 /// A ring placement: one of the `currency:1` pickups the author script lays down
 /// (named `ring`). The demo tags these with the animated sprite and the tests
@@ -228,12 +225,7 @@ pub fn sanic_speedway() -> RoomSpec {
             "LOOP".to_string(),
             ae::Vec2::new(loop_top.x, loop_top.y - 36.0),
         ),
-        (
-            "finish".to_string(),
-            "FINISH".to_string(),
-            // Derived from `GOAL_X`, so the sign and the trigger cannot drift.
-            ae::Vec2::new(GOAL_X, FLOOR_TOP - 300.0),
-        ),
+        ("finish".to_string(), "FINISH".to_string(), finish_sign(&room.world)),
     ];
     room.debug_labels.extend(signs.into_iter().map(|(id, text, position)| {
         ambition_platformer2d::world::rooms::Authored::new(
@@ -273,7 +265,7 @@ pub fn sanic_highway() -> RoomSpec {
         .into_iter()
         .find(|room| room.id == HIGHWAY_ROOM_ID)
         .expect("the world file authors the sanic_highway area");
-    let finish = ae::Vec2::new(goal_x_of(&room.world), FLOOR_TOP - 300.0);
+    let finish = finish_sign(&room.world);
     room.debug_labels = vec![ambition_platformer2d::world::rooms::Authored::new(
         "sanic_highway_finish",
         "FINISH",
@@ -1206,7 +1198,7 @@ pub fn scatter_rings_on_hit(
             let angle = std::f32::consts::TAU * t;
             let speed = loss.burst_speed * loss.inner_shell_scale.powi(shell as i32);
             let vel = ae::Vec2::new(angle.cos(), angle.sin()) * speed;
-            let size = ae::Vec2::splat(RING_SIZE);
+            let size = ae::Vec2::splat(loss.ring_size);
             let seq = counter.next();
             let ring_id = ambition_platformer2d::platformer::sim_id::SimId::spawned(player_id, seq);
             let authored = ambition_platformer2d::world::rooms::Authored {
@@ -1347,19 +1339,23 @@ fn ring_step(
 // The goal — what an act is for.
 // ---------------------------------------------------------------------------
 
-/// World x of the goal line.
-///
-/// Kept inside the player's reachable horizontal extent rather than at the
-/// level's visual edge.
-pub const GOAL_X: f32 = LEVEL_WIDTH - GOAL_FROM_END;
-
 /// How far before a course's right edge its goal line sits. Every act's goal
 /// is this far from its own end, so a longer act needs no second constant.
 pub const GOAL_FROM_END: f32 = 400.0;
 
-/// The goal line of the course `world` lays out.
+/// The goal line of the course `world` lays out. It is inside the player's
+/// reachable horizontal extent, not at the level's visual edge.
 pub fn goal_x_of(world: &ae::World) -> f32 {
     world.size.x - GOAL_FROM_END
+}
+
+/// Where an act's FINISH sign stands: over its goal line, 300 px above the
+/// ground there. Derived from the course, so the sign and the trigger cannot
+/// drift, and a course with other ground has its sign over that ground.
+fn finish_sign(world: &ae::World) -> ae::Vec2 {
+    let x = goal_x_of(world);
+    let ground = scenery::ground_at(world, x).unwrap_or(world.size.y);
+    ae::Vec2::new(x, ground - 300.0)
 }
 
 /// The act's score, from the numbers captured at the clear.
@@ -1395,7 +1391,7 @@ pub fn act_title(room_id: &str) -> Option<(&'static str, u8)> {
 
 /// After the goal, the course drives him, not the player.
 ///
-/// `GOAL_X` is 400px from the right edge. Without this he crosses at speed,
+/// The goal line is `GOAL_FROM_END` (400 px) from the right edge. Without this he crosses at speed,
 /// runs out of level, and dies during his results card.
 ///
 /// Zero the control, not the velocity: he rides the surface-momentum kernel,

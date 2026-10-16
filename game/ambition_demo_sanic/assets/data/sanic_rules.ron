@@ -49,6 +49,10 @@
         // How long (s) a scattered ring exists: short enough that a big spray
         // is never fully recoverable.
         life_seconds: 4.2,
+        // A scattered ring's square side (px). The rings the levels place are
+        // this size too (their author scripts write it), so a ring keeps its
+        // size when it is dropped.
+        ring_size: 18.0,
     ),
     act: (
         // How long the results card holds before the act restarts.

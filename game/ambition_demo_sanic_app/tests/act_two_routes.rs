@@ -79,7 +79,7 @@ fn arrive_in_act_two() -> App {
     }
     for _ in 0..2400 {
         let x = pos(&mut app).x;
-        let jump = x > ambition_demo_sanic::PIT_LEFT_X - 220.0 && x < ambition_demo_sanic::PIT_RIGHT_X;
+        let jump = x > ambition_demo_sanic::speedway_oracle::PIT_LEFT_X - 220.0 && x < ambition_demo_sanic::speedway_oracle::PIT_RIGHT_X;
         press(&mut app, stick(1.0, jump, false, false));
         app.update();
         if matches!(act(&mut app).phase, SanicActPhase::Cleared { .. }) {

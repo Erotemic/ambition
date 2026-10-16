@@ -247,7 +247,7 @@ fn the_three_acts_connect_and_clear() {
 
     // Act 1. It asks for a jump at its pit, as its own completion proof does.
     run_to_clear(&mut app, "Act 1", 2400, |x| {
-        x > ambition_demo_sanic::PIT_LEFT_X - 220.0 && x < ambition_demo_sanic::PIT_RIGHT_X
+        x > ambition_demo_sanic::speedway_oracle::PIT_LEFT_X - 220.0 && x < ambition_demo_sanic::speedway_oracle::PIT_RIGHT_X
     });
     arrive_in(&mut app, HIGHWAY_ROOM_ID);
     let arrived = act(&mut app);

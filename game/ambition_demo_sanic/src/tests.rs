@@ -2,6 +2,8 @@
 
 mod speedway_oracles;
 
+use crate::speedway_oracle::{FLOOR_TOP, PIT_FLOOR_Y, PIT_LEFT_X, PIT_RIGHT_X};
+
 /// The painted floor under `x`: the top-most `terrain:` chain with a floor
 /// segment (authored left to right) spanning it. Act 1's ground is painted, so
 /// its chains are named by the tracer; a test finds one by where it is.
@@ -1472,9 +1474,10 @@ fn the_highway_is_act_two_and_every_loop_on_it_is_attached_data() {
         Some(HIGHWAY_MUSIC_TRACK)
     );
     assert!(
-        room.world.size.x > 2.0 * LEVEL_WIDTH,
-        "Act 2 is the bigger course: {} wide against the speedway's {LEVEL_WIDTH}",
-        room.world.size.x
+        room.world.size.x > 2.0 * sanic_speedway().world.size.x,
+        "Act 2 is the bigger course: {} wide against the speedway's {}",
+        room.world.size.x,
+        sanic_speedway().world.size.x
     );
     // Each loop attaches to the PAINTED floor under it: loops A and D to the
     // ground (`terrain:`), loop B to the sky bridge (`track:`).
@@ -1672,7 +1675,7 @@ fn every_ring_the_highway_places_is_the_size_a_hit_scatters() {
     );
     assert!(sizes
         .iter()
-        .all(|size| (*size - ae::Vec2::splat(RING_SIZE)).abs().max_element() < 0.01));
+        .all(|size| (*size - ae::Vec2::splat(crate::rules::sanic_rules().ring_loss.ring_size)).abs().max_element() < 0.01));
 }
 
 #[test]
@@ -1689,11 +1692,12 @@ fn every_ring_the_speedway_places_is_the_size_a_hit_scatters() {
         "the premise: a field of rings; got {}",
         sizes.len()
     );
+    let scattered = crate::rules::sanic_rules().ring_loss.ring_size;
     for size in sizes {
         assert!(
-            (size - ae::Vec2::splat(RING_SIZE)).abs().max_element() < 0.01,
-            "a placed ring is {size:?} and a scattered one is {RING_SIZE}x{RING_SIZE}, \
-             so a ring changes size when it is dropped"
+            (size - ae::Vec2::splat(scattered)).abs().max_element() < 0.01,
+            "a placed ring is {size:?} and a scattered one is {scattered}x{scattered} \
+             (`ring_loss.ring_size`), so a ring changes size when it is dropped"
         );
     }
 }
@@ -1786,6 +1790,18 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
         dropped(&mut app),
         7,
         "which scatter as real pickups, so they can be run back down"
+    );
+    // Each is the size the rules state (`ring_loss.ring_size`), which is the
+    // size the levels place a ring at.
+    let ring_size = crate::rules::sanic_rules().ring_loss.ring_size;
+    let mut sizes = app
+        .world_mut()
+        .query_filtered::<&ae::CenteredAabb, bevy::prelude::With<crate::ScatteredRing>>();
+    let sizes: Vec<ae::Vec2> = sizes.iter(app.world()).map(|aabb| aabb.half_size * 2.0).collect();
+    assert_eq!(sizes.len(), 7);
+    assert!(
+        sizes.iter().all(|size| (*size - ae::Vec2::splat(ring_size)).abs().max_element() < 0.01),
+        "a scattered ring is not the `ring_loss.ring_size` ({ring_size}) the rules state: {sizes:?}"
     );
 
     // The no-currency lethal path is pinned in the shared resolver tests; this

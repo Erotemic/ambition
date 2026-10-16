@@ -4,7 +4,8 @@
 //! kill only at zero rings, and preserve the super-form exemption. Each case also
 //! proves the body reached the strip so missing geometry cannot pass vacuously.
 
-use ambition_demo_sanic::{PIT_LEFT_X, SUPER_SANIC_CHARACTER_ID};
+use ambition_demo_sanic::speedway_oracle::PIT_LEFT_X;
+use ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID;
 use ambition_demo_sanic_app::build_demo_app;
 use ambition_platformer2d::characters::actor::{BodyHealth, BodyWallet, WornCharacter};
 use ambition_platformer2d::engine_core as ae;

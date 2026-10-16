@@ -3,7 +3,7 @@
 //! This is Sanic's completion proof, and it exists because nothing else could
 //! give it. The goal, the results capture, and the act cycle each have focused
 //! coverage, but all of that is reachable only if a player can physically get
-//! to `GOAL_X` — and Sanic rides the momentum kernel, so his position is derived
+//! to the goal line — and Sanic rides the momentum kernel, so his position is derived
 //! from his surface parameter rather than set. You cannot teleport him to the
 //! goal to check; the only way to know the finish line is reachable is to run
 //! there.
@@ -19,12 +19,22 @@
 //! The SKIP is gone with the guard — a skipped proof is a silent pass, which is what let this
 //! rot.
 
-use ambition_demo_sanic::{SanicActPhase, SanicActState, GOAL_X};
+use ambition_demo_sanic::{SanicActPhase, SanicActState};
 use ambition_demo_sanic_app::build_demo_app;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use bevy::prelude::*;
+
+/// Act 1's course, as the level file lays it out.
+fn course() -> ae::World {
+    ambition_demo_sanic::sanic_speedway().world
+}
+
+/// Act 1's goal line, from its course.
+fn goal_x() -> f32 {
+    ambition_demo_sanic::goal_x_of(&course())
+}
 
 fn player_x(app: &mut App) -> f32 {
     let mut query = app
@@ -85,8 +95,9 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
 
     let start = player_x(&mut app);
     assert!(
-        start < GOAL_X,
-        "the act starts before its goal ({start} vs {GOAL_X})"
+        start < goal_x(),
+        "the act starts before its goal ({start} vs {})",
+        goal_x()
     );
 
     // Hold right, and JUMP on the approach to the authored pit.
@@ -99,7 +110,7 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
         frame
     };
     let approaching_pit = |x: f32| {
-        x > ambition_demo_sanic::PIT_LEFT_X - 220.0 && x < ambition_demo_sanic::PIT_RIGHT_X
+        x > ambition_demo_sanic::speedway_oracle::PIT_LEFT_X - 220.0 && x < ambition_demo_sanic::speedway_oracle::PIT_RIGHT_X
     };
 
     // 40 seconds of sim at 60Hz.
@@ -121,11 +132,12 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
     let (frame, time, rings) = cleared.unwrap_or_else(|| {
         panic!(
             "played for 40s and never cleared the act; furthest x reached was \
-             {max_x:.0} of a goal at {GOAL_X}. If the furthest point is SHORT of \
+             {max_x:.0} of a goal at {}. If the furthest point is SHORT of \
              the goal, the goal is somewhere the body cannot go — which is how \
              this shipped: the runnable extent tops out near {} and the goal sat \
              past it, so the act was uncompletable.",
-            ambition_demo_sanic::LEVEL_WIDTH - 270.0
+            goal_x(),
+            course().size.x - 270.0
         )
     });
 
@@ -149,7 +161,7 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
 
 /// He must survive his own results card.
 ///
-/// Room-replay triage §1: `GOAL_X` sits 400px from the right edge and clearing
+/// Room-replay triage §1: the goal line sits 400px from the right edge and clearing
 /// the act neither braked him nor closed the course, so he crossed the line at
 /// speed, ran out of level, and died well inside the four-second dwell his own
 /// card was still counting down.
@@ -174,7 +186,7 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
         frame
     };
     let approaching_pit = |x: f32| {
-        x > ambition_demo_sanic::PIT_LEFT_X - 220.0 && x < ambition_demo_sanic::PIT_RIGHT_X
+        x > ambition_demo_sanic::speedway_oracle::PIT_LEFT_X - 220.0 && x < ambition_demo_sanic::speedway_oracle::PIT_RIGHT_X
     };
 
     let mut cleared = false;
@@ -201,10 +213,11 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
         furthest_back = furthest_back.min(player_x(&mut app));
     }
     assert!(
-        furthest_back > GOAL_X - 400.0,
+        furthest_back > goal_x() - 400.0,
         "he ended up at x={furthest_back:.0} during his own {}s results card, \
-         from a goal at {GOAL_X} — he ran off the end of the course, died, and \
+         from a goal at {} — he ran off the end of the course, died, and \
          is replaying the act while the card still shows his time",
         ambition_demo_sanic::rules::sanic_rules().act.clear_dwell,
+        goal_x(),
     );
 }

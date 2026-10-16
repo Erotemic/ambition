@@ -157,7 +157,7 @@ resources).
 Lines of ours that do take time (each under 1.5%): `room_instance.rs:172`
 (1.4%), `room_graph.rs:432` and `:471`, `clip_material.rs:145`,
 `ambition_entity_catalog/src/lib.rs:1563`, `crates/ambition_touch_input/src/virtual_device.rs:50`,
-`wallet_shield.rs:40`, `held_items.rs:108`, `hand.rs:63`.
+`wallet_shield.rs:45`, `held_items.rs:108`, `hand.rs:63`.
 
 **Mary-O only, against every game (phone, one run each).** MEASURED: with
 `AMBITION_HUB_GAMES=mary_o` the app used 41.7 s of CPU in 30 s, against

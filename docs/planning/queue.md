@@ -80,7 +80,7 @@ Correctness interrupts from the 2026-10-14 review:
 
 Correctness interrupts from the 2026-10-13 review:
 [REVIEW-1013](#review-1013---frame-and-acceptance-gaps-from-the-2026-10-13-review)
-(items 1, 2 and 4 done; 3 open).
+(all four items done; item 3 seen 2026-10-15).
 
 Correctness interrupts from the 2026-10-12 review:
 [REVIEW-1012](#review-1012---feedback-and-adapter-contracts-from-the-2026-10-12-review)
@@ -308,11 +308,16 @@ and a control.
 2. **Done 2026-10-13 (ToothbrushArtAgent):** the real Hall conversation
    puts the armor on Jeff Hinter by key presses
    (`the_armor_choice_of_his_hall_conversation_puts_the_armor_on_him`).
-3. **Open, unclaimed:** visual acceptance in the running game. Front rows
-   were seen at ultra for idle and for a held conversation; not seen:
-   front idle ↔ walk or combat. A held item on a real published sheet,
-   both facings, through an attack (`capture_scene --wear ID=LOOK[@TICK]`
-   photographs a look).
+3. **Done 2026-10-15 (seen, ultra):** front idle ↔ walk: Mallory as the
+   player in `central_hub_complex` faces the viewer at rest, turns to
+   profile while she walks, and faces the viewer again when she stops
+   (`AMBITION_QUALITY_PROFILE=ultra capture_scene central_hub_complex
+   player OUT.png 960x540 --character npc_mallory --frames 6 --stride 30
+   --player-holds right@150 --player-holds none@210`). A held item through
+   an attack, both facings: the player robot's blade is behind it in the
+   wind-up and raised in front in the swing, in the posed hand, and the
+   left-facing swing is its mirror (`--player-holds attack@100 ...
+   left@140 ... attack@160`, stride 3). Not seen: front idle ↔ combat.
 4. **Done 2026-10-13:** the posed hand's root is never the feature's
    stand-in (`UnclaimedBodyPlaceholder`, which carries the feature's id in
    a transition and draws no parts): the root query excludes it.

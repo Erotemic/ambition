@@ -275,7 +275,11 @@ Open:
    clock scale and cosmic arrive beat are in `mary_o_rules.ron`. Ambition's
    day (length, phase hours, start hour, daylight veil) is `day` in
    `ambition_rules.ron`, and a content reload restates it. Sanic's act
-   titles and numbers are `acts` in `sanic_rules.ron`. Mary-O's castle
+   titles and numbers are `acts` in `sanic_rules.ron`; his goal line's
+   distance from each course's end, the outro brake and the goal post's
+   height are `act.goal_from_end`, `act.outro_brake_per_second` and
+   `act.goal_post_height` there (the goal line is witnessed through
+   `goal_x_with`; the brake and the post are each one read of the row). Mary-O's castle
    rescue is a `cutscene_library` file in her pack (`data/cutscenes/castle.ron`),
    restated at a reload (`EmbeddedPackReloadPlugin::cutscenes`). The
    character Ambition starts the player as is `starting_character` in

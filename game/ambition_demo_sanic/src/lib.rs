@@ -1342,14 +1342,15 @@ fn ring_step(
 // The goal — what an act is for.
 // ---------------------------------------------------------------------------
 
-/// How far before a course's right edge its goal line sits. Every act's goal
-/// is this far from its own end, so a longer act needs no second constant.
-pub const GOAL_FROM_END: f32 = 400.0;
-
 /// The goal line of the course `world` lays out. It is inside the player's
 /// reachable horizontal extent, not at the level's visual edge.
 pub fn goal_x_of(world: &ae::World) -> f32 {
-    world.size.x - GOAL_FROM_END
+    goal_x_with(&crate::rules::sanic_rules().act, world)
+}
+
+/// The goal line of `world` under the act rules `act`.
+pub fn goal_x_with(act: &crate::rules::Act, world: &ae::World) -> f32 {
+    world.size.x - act.goal_from_end
 }
 
 /// Where an act's FINISH sign stands: over its goal line, 300 px above the
@@ -1391,7 +1392,7 @@ pub fn act_title(room_id: &str) -> Option<(&'static str, u8)> {
 
 /// After the goal, the course drives him, not the player.
 ///
-/// The goal line is `GOAL_FROM_END` (400 px) from the right edge. Without this he crosses at speed,
+/// The goal line is `act.goal_from_end` (400 px) from the right edge. Without this he crosses at speed,
 /// runs out of level, and dies during his results card.
 ///
 /// Zero the control, not the velocity: he rides the surface-momentum kernel,
@@ -1447,10 +1448,9 @@ fn take_the_controls_at_the_goal(
     let Ok(mut motion) = models.get_mut(entity) else {
         return;
     };
-    // Exponential decay at rate k coasts about v/k px. He crosses at ~1100
-    // px/s with 400px left; k=9 stops him in ~120px (k=4 coasted ~370px).
-    const BRAKE_PER_SECOND: f32 = 9.0;
-    let keep = (1.0 - BRAKE_PER_SECOND * time.sim_dt()).clamp(0.0, 1.0);
+    // The rate is `act.outro_brake_per_second` in his rules file.
+    let brake = crate::rules::sanic_rules().act.outro_brake_per_second;
+    let keep = (1.0 - brake * time.sim_dt()).clamp(0.0, 1.0);
     if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *motion {
         // A brake has no airborne answer (the kinematic velocity below
         // handles that), so ignore the `false` return.

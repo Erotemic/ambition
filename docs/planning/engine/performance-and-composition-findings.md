@@ -902,7 +902,10 @@ another reason:
   One line in `install_windowed_foundation`. With
   `AMBITION_SCHEDULE_EXECUTOR=serial` these pass: Mary-O's game crate (208),
   Mary-O's integration tests (95, the room-replay tests among them) and
-  Sanic's (42). It changes how every standalone game
+  Sanic's (42). Standalone Sanic, same binary, 2 reps per arm (MEASURED,
+  12:35Z): 7.39 ms of simulation per tick parallel, 3.03 ms serial; main
+  thread 940 → 889 ms per second; wall time 14.7 → 12.3 s for the same
+  capture. It changes how every standalone game
   runs, so it should land with a play test, and the switch is then removed.
   The one visible difference in the hub captures was the ambient motes, an
   ordering artifact of `capture_scene`'s camera pin, not of the game (F22).
@@ -982,3 +985,6 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
   read the camera before `capture_scene` pinned it under a serial order. The
   capture tool now orders its pin first; all three arms are pixel-identical;
   `capture_scene`'s tests pass (7).
+- 12:35Z Standalone Sanic executor A/B (`capture_sanic`, 2 reps, parallel
+  vs serial): simulation 7.39 → 3.03 ms per tick, the same direction as
+  Mary-O. D12 now has a measurement for both standalone games.

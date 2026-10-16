@@ -105,6 +105,10 @@ pub fn add_simulation_plugins(app: &mut App) {
     // A saved movement-defaults edit is played by a running development build.
     #[cfg(not(feature = "static_content"))]
     super::movement_defaults_watch::register(app);
+    // A saved sprite sheet edit is played by a running development build: a
+    // page image at once, a sheet manifest from the next session.
+    #[cfg(not(feature = "static_content"))]
+    app.add_plugins(ambition_platformer2d::content::sprite_reload::SpriteSheetReloadPlugin::default());
 
     // Yarn dialogue stack: compile `.yarn`, bridge runner events into sandbox
     // state, and register the commands / functions / markup used by content.

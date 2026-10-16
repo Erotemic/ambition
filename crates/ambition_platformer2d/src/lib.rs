@@ -536,6 +536,7 @@ pub mod content {
     }
 
     pub mod live_reload;
+    pub mod sprite_reload;
 
     /// The `world_item_art` rows of `pack`, as the entries the render layer
     /// resolves: the one lowering for a registration and a reload.

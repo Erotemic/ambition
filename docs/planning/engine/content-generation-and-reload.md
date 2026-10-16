@@ -501,8 +501,32 @@ publishes every cache above together (each `OnceLock` becomes a published
 `&'static` generation, as `EmbeddedPack::prepared` is), published only when
 no session is live (as the demo packs' restated schemas are), plus a
 generation key beside `BoundSpriteQuality` so that a bound body rebinds at
-the same tier, and `AssetServer::reload` of the changed pages. Until then
-"the next start" is the honest claim for a sheet edit.
+the same tier, and `AssetServer::reload` of the changed pages.
+
+**Landed 2026-10-16, the sheet manifests.** The sheet text, the record index,
+the file-root registry and the mechanics digest are one published generation
+(`baked_sheet_rons::{current, publish_sheet_generation}`; witness
+`ambition_sprite_sheet --test sheet_generation`, red at "the record index is
+not the published table's" with the index kept in its own `OnceLock`).
+`content::sprite_reload::SpriteSheetReloadPlugin` (installed by
+`ambition_app` where content is read off disk) watches each manifest and each
+page image from a background thread (one look at the published tree is about
+100 ms in a debug build, so a frame does not pay it). A changed page image is
+loaded again at once. A changed manifest makes the same thread read the whole
+table again and parse it (`prepare_sheet_table`, median 913 ms in a debug
+build); the parsed table waits for the end of the session, then it is
+published whole (`publish_prepared_sheet_table` plus the resource clone,
+median 18 ms on the frame), the `SheetRegistry` resource is stated
+again, each resident character realization is retired so that the next
+session builds it from the new records, and the changed sheets' pages are
+loaded again. A table with a file that does not parse is refused with the
+file named. Witness `ambition_platformer2d --features content_pack --test
+sprite_sheet_reload` (red at "an edit was published inside a session" with
+the session gate removed, and at the `SheetRegistry` assertion with the
+resource not stated again). Not yet on the road: part flipbooks, body rigs,
+landmarks, portraits, pack catalogs, the prop sheets a room drew, and a body
+already bound at the same tier (the generation key above). The retire and
+the page reload have no witness of their own.
 
 **Future live path:** the source scanner reports the changed logical key
 and a canonical source fingerprint. Preparation decodes the changed sheet,

@@ -2,8 +2,9 @@
 //!
 //! A build without `cfg(embedded_sprites)` embeds no sprite file (`build.rs`),
 //! so each `baked_*` table is read from the tree in the source tree the first
-//! time it is asked for, and kept for the life of the process. An edit to the
-//! tree is seen after a restart, with no crate compiled.
+//! time it is asked for. An edit to the tree is seen after a restart, with no
+//! crate compiled; the sheet manifests can also be published again while the
+//! game runs (`baked_sheet_rons::publish_sheet_generation`).
 
 use std::path::{Path, PathBuf};
 

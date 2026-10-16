@@ -614,7 +614,10 @@ not part of this row.
    (`OffscreenGpu`, as WA7 uses it), and `capture_scene --portal-shot`
    opens a pair in a real room.
 3. **IN7, live sprite refresh (P2).** The launcher theme is the provider's
-   (done). Live sprite refresh stays behind the prepared-generation boundary ([I3](engine/fast-iteration-implementation.md#i3---coordinated-generation-publication-and-local-reload)).
+   (done). Since 2026-10-16 a running development build plays an edited sheet
+   manifest from the next session and an edited page image at once
+   (`content::sprite_reload`; the road and what is not on it yet are in
+   [the sprite reload owner](engine/content-generation-and-reload.md#sprite-source-identity-and-live-presentation-refresh)).
 
 **Acceptance:** each open item is exposed by a failing engine-level
 fixture before repair, and the fix changes the owning domain.

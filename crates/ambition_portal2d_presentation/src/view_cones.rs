@@ -138,6 +138,11 @@ pub struct PortalViewer {
     pub observer: Option<Entity>,
     /// The controlled character's eye position (body center), world space.
     pub eye: Vec2,
+    /// The way the observer faces, in world space (unit), or zero for an eye
+    /// that faces no way. Apertures don't open to observers that turn away:
+    /// a window opens for an aperture ahead, above or below, never for one
+    /// wholly behind.
+    pub forward: Vec2,
     /// The live room the eye is in. Near and far are relative to an eye, so a
     /// window or a far-side composite is made only in this room; `None` is a
     /// room that cannot be told.
@@ -696,9 +701,8 @@ pub struct PortalViewRig {
     /// approaches the 4-corner visibility fraction at `blend_rate`/s and is
     /// shaped by a smoothstep before use, so opening/closing feels smooth.
     blend: f32,
-    /// The cones of the last plan that was open (its minimum and its wedge):
-    /// what a window that eases shut is drawn from, after its plan is closed.
-    last_open: Option<(ViewCone, ViewCone)>,
+    /// The shape the window is drawn with, eased toward its plan's.
+    shown: WindowShape,
     /// Keep-alive for the offscreen target (also referenced by the camera's
     /// `RenderTarget` and the window material; held here so the rig owns its
     /// asset lifetime explicitly).
@@ -860,6 +864,73 @@ fn portal_window_clip_rect(
     }
 }
 
+/// How fast a window's drawn area may change, in views per second: it opens
+/// over at least a few tenths of a second, never in a frame (measured: an
+/// ease in shape alone still grew one by a quarter of the view per frame).
+const MAX_WINDOW_AREA_RATE: f32 = 2.5;
+
+/// The window `shape` draws through `enter`, clipped to the view, as a
+/// fraction of the view.
+fn drawn_area(
+    shape: WindowShape,
+    enter: &PortalAperture,
+    exit: &PortalAperture,
+    convention: ambition_portal2d::pieces::MapConvention,
+    clip_min: Vec2,
+    clip_max: Vec2,
+) -> f32 {
+    if shape.is_shut() {
+        return 0.0;
+    }
+    let view = ((clip_max.x - clip_min.x) * (clip_max.y - clip_min.y)).max(1.0);
+    let quad = shape.cone(enter, exit, convention).entry_quad;
+    polygon_area(&geometry::clip_polygon_to_rect(&quad, clip_min, clip_max)) / view
+}
+
+/// `shown` eased toward `want` by `step`, held so its drawn area changes by
+/// no more than [`MAX_WINDOW_AREA_RATE`] over `dt`.
+#[allow(clippy::too_many_arguments)]
+fn ease_window(
+    shown: WindowShape,
+    want: WindowShape,
+    step: f32,
+    dt: f32,
+    enter: &PortalAperture,
+    exit: &PortalAperture,
+    convention: ambition_portal2d::pieces::MapConvention,
+    clip_min: Vec2,
+    clip_max: Vec2,
+) -> WindowShape {
+    let area = |shape| drawn_area(shape, enter, exit, convention, clip_min, clip_max);
+    let limit = MAX_WINDOW_AREA_RATE * dt;
+    let from = area(shown);
+    let full = shown.eased_toward(want, step);
+    if (area(full) - from).abs() <= limit {
+        return full;
+    }
+    let (mut lo, mut hi) = (0.0_f32, step);
+    for _ in 0..10 {
+        let mid = (lo + hi) * 0.5;
+        if (area(shown.eased_toward(want, mid)) - from).abs() <= limit {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    shown.eased_toward(want, lo)
+}
+
+/// The area of a simple polygon (shoelace).
+fn polygon_area(poly: &[Vec2]) -> f32 {
+    let n = poly.len();
+    (0..n).map(|i| poly[i].perp_dot(poly[(i + 1) % n])).sum::<f32>().abs() * 0.5
+}
+
+/// The mean of a polygon's vertices.
+fn polygon_mean(poly: &[Vec2]) -> Vec2 {
+    poly.iter().copied().sum::<Vec2>() / poly.len().max(1) as f32
+}
+
 /// How much of a held capture may fall outside the window before the capture
 /// is due early: a sliver at the view's edge, as a fraction of the capture's
 /// shorter side.
@@ -910,6 +981,7 @@ pub use debug::*;
 use geometry::{came_through, eased_blend, pair_looks_at_itself, 
     aperture_los_rays, aperture_visibility_fraction, capture_dims, compute_cone, cone_render,
     inset_viewer_corners, visibility_route_summary, ApertureLosRay, ConeRender, RebuildKey,
+    WindowShape,
 };
 pub(crate) use mesh::pane_dominance;
 use mesh::{apply_mesh, make_mesh, pane_z, placeholder_mesh, smooth01};
@@ -1101,28 +1173,44 @@ pub fn sync_portal_view_cones(
             0.0
         };
         rig.blend = eased_blend(rig.blend, &plan, taken_over, step);
-        if plan.target > 0.0 {
-            rig.last_open = Some((plan.min, plan.wedge));
-        }
-        // A window whose plan is closed and that is not shut yet eases shut
-        // on the cones it had.
-        let Some((min, wedge)) = rig.last_open.filter(|_| rig.blend > 0.0) else {
-            rig.blend = 0.0;
-            rig.last_open = None;
+        // The shape the window is drawn with eases toward the plan's, in the
+        // portal's own frame ([`WindowShape`]); a closed plan eases it shut
+        // into the aperture. A crossing hands the window to its partner at
+        // once (the cut), and the partner that takes it starts where it was.
+        let reach = (clip_max - clip_min).length();
+        let want = if plan.target > 0.0 && rig.blend > 0.0 {
+            WindowShape::of(
+                &blend_cones(&plan.min, &plan.wedge, smooth01(rig.blend), &enter, &exit, convention),
+                &enter,
+                reach,
+            )
+        } else {
+            WindowShape::SHUT
+        };
+        rig.shown = if plan.cut {
+            WindowShape::SHUT
+        } else if rig.shown.is_shut() && taken_over > 0.0 {
+            want
+        } else {
+            ease_window(rig.shown, want, step, time.delta_secs(), &enter, &exit, convention, clip_min, clip_max)
+        };
+        if rig.shown.is_shut() {
+            rig.shown = WindowShape::SHUT;
+            bevy::log::debug!(
+                target: "ambition_portal::cone_trace",
+                "cone t={:.4} ch={} blend=0.0000 target={:.4} area=0.00000 x=0.0 y=0.0 cut={}",
+                now_s,
+                rig.channel.name(),
+                plan.target,
+                u8::from(plan.cut)
+            );
             cam.is_active = false;
             if let Ok((_, mut vis)) = cones.get_mut(rig.cone) {
                 *vis = Visibility::Hidden;
             }
             continue;
-        };
-        let cone = blend_cones(
-            &min,
-            &wedge,
-            smooth01(rig.blend),
-            &enter,
-            &exit,
-            convention,
-        );
+        }
+        let cone = rig.shown.cone(&enter, &exit, convention);
         let render = cone_render(
             &cone,
             &enter,
@@ -1135,6 +1223,29 @@ pub fn sync_portal_view_cones(
             capture_frame,
             convention,
         );
+        // A measurement trace (`RUST_LOG=ambition_portal::cone_trace=debug`,
+        // read by `scripts/portal_cone_trace.py`): each window's drawn area,
+        // as a fraction of the view, and where it is, each frame.
+        if bevy::log::tracing::enabled!(target: "ambition_portal::cone_trace", bevy::log::Level::DEBUG) {
+            let view_area = ((clip_max.x - clip_min.x) * (clip_max.y - clip_min.y)).max(1.0);
+            let (area, at) = render.as_ref().map_or((0.0, Vec2::ZERO), |r| {
+                (polygon_area(&r.entry_poly_world) / view_area, polygon_mean(&r.entry_poly_world))
+            });
+            bevy::log::debug!(
+                target: "ambition_portal::cone_trace",
+                "cone t={:.4} ch={} blend={:.4} target={:.4} area={:.5} x={:.1} y={:.1} cut={} view={:.1},{:.1}",
+                now_s,
+                rig.channel.name(),
+                rig.blend,
+                plan.target,
+                area,
+                at.x,
+                at.y,
+                u8::from(plan.cut),
+                (clip_min.x + clip_max.x) * 0.5,
+                (clip_min.y + clip_max.y) * 0.5
+            );
+        }
         match render {
             Some(mut r) => {
                 // The portal (or its partner) you are crossing always refreshes,
@@ -1258,18 +1369,24 @@ pub fn sync_portal_view_cones(
             0.0
         };
         let blend = eased_blend(blend_before(placement.room, portal.channel), &plan, taken_over, step);
-        let cone = if plan.target > 0.0 && blend > 0.0 {
-            Some(blend_cones(
-                &plan.min,
-                &plan.wedge,
-                smooth01(blend),
+        let reach = (clip_max - clip_min).length();
+        let want = if plan.target > 0.0 && blend > 0.0 {
+            WindowShape::of(
+                &blend_cones(&plan.min, &plan.wedge, smooth01(blend), &enter, &exit, convention),
                 &enter,
-                &exit,
-                convention,
-            ))
+                reach,
+            )
         } else {
-            None
+            WindowShape::SHUT
         };
+        // A new window opens out of its aperture; one that takes its viewer
+        // from its partner starts where the partner was.
+        let shown = if taken_over > 0.0 {
+            want
+        } else {
+            ease_window(WindowShape::SHUT, want, step, time.delta_secs(), &enter, &exit, convention, clip_min, clip_max)
+        };
+        let cone = (!shown.is_shut()).then(|| shown.cone(&enter, &exit, convention));
         let (z, pane_dominant) = pane_z(&config, viewer, portal, &partner, None);
         let render = cone.as_ref().and_then(|cone| {
             cone_render(
@@ -1400,7 +1517,7 @@ pub fn sync_portal_view_cones(
                     .truncate(),
                 rebuild,
                 blend,
-                last_open: (plan.target > 0.0).then_some((plan.min, plan.wedge)),
+                shown,
                 _image: image,
                 mesh,
                 cone: cone_entity,

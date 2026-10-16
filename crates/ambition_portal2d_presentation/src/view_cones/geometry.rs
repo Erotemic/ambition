@@ -427,6 +427,96 @@ const BLEND_SHUT: f32 = 0.01;
 /// - A window that is `cut` goes at once.
 ///
 /// `step` is the part of the way to the target that one frame goes.
+/// The shape a window is drawn with, in its portal's own frame: how deep its
+/// far edge is behind the face, and the turn of each side ray from straight
+/// back (radians, toward `+tangent`). The near edge is the aperture.
+///
+/// A window eases in these, not in its corners: a far corner sits at a ray
+/// clamp a hundred thousand pixels out, so a corner eased by a sixth in one
+/// frame swept most of the screen (measured: a window at blend 0.17 already
+/// covered 74% of the view). In depth and angles it opens out of its
+/// aperture, turns and deepens a little each frame, and shuts back into it;
+/// and it stays on its portal when the portal moves or turns.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct WindowShape {
+    pub(crate) depth: f32,
+    pub(crate) lo: f32,
+    pub(crate) hi: f32,
+}
+
+impl WindowShape {
+    /// Shut: no depth, its rays straight back from the aperture's ends.
+    pub(crate) const SHUT: Self = Self { depth: 0.0, lo: 0.0, hi: 0.0 };
+    /// The steepest side ray, short of parallel to the face.
+    const MAX_TURN: f32 = 1.55;
+
+    /// Drawn with no area: a window with this shape is not drawn.
+    pub(crate) fn is_shut(&self) -> bool {
+        self.depth < 0.5
+    }
+
+    /// The shape of `cone`, its depth held to `reach`: a far edge past the
+    /// view's diagonal is off the view, so a deeper one draws the same.
+    pub(crate) fn of(cone: &ViewCone, enter: &PortalAperture, reach: f32) -> Self {
+        let local = cone.entry_quad.map(|p| enter.frame.to_local(p));
+        let h = enter.half_length;
+        let depth = (-local[2].y).max(-local[3].y).max(0.0);
+        let d = depth.max(1.0e-3);
+        Self {
+            depth: depth.min(reach),
+            lo: ((local[3].x + h) / d).atan(),
+            hi: ((local[2].x - h) / d).atan(),
+        }
+    }
+
+    /// `k` of the way from this shape to `to` (an exponential ease, by frame).
+    pub(crate) fn eased_toward(self, to: Self, k: f32) -> Self {
+        let k = k.clamp(0.0, 1.0);
+        Self {
+            depth: self.depth + (to.depth - self.depth) * k,
+            lo: self.lo + (to.lo - self.lo) * k,
+            hi: self.hi + (to.hi - self.hi) * k,
+        }
+    }
+
+    /// The cone this shape draws through `enter` now.
+    pub(crate) fn cone(
+        &self,
+        enter: &PortalAperture,
+        exit: &PortalAperture,
+        convention: ambition_portal2d::pieces::MapConvention,
+    ) -> ViewCone {
+        let (o, t, n, h) = (enter.frame.origin, enter.frame.tangent(), enter.frame.normal, enter.half_length);
+        let far = |turn: f32, from: f32| {
+            (from + turn.clamp(-Self::MAX_TURN, Self::MAX_TURN).tan() * self.depth)
+                .clamp(-RAY_LATERAL_CLAMP, RAY_LATERAL_CLAMP)
+        };
+        ambition_portal2d::cone_from_entry_quad(
+            [
+                o - t * h,
+                o + t * h,
+                o + t * far(self.hi, h) - n * self.depth,
+                o + t * far(self.lo, -h) - n * self.depth,
+            ],
+            enter,
+            exit,
+            convention,
+        )
+    }
+}
+
+/// Is all of the opening behind the way `v` faces? An eye that faces no
+/// way has nothing behind it.
+pub(crate) fn behind_the_viewer(v: &PortalViewer, aperture: &PortalAperture) -> bool {
+    if v.forward == Vec2::ZERO {
+        return false;
+    }
+    let half = aperture.frame.tangent() * aperture.half_length;
+    [aperture.frame.origin - half, aperture.frame.origin + half]
+        .iter()
+        .all(|end| (*end - v.eye).dot(v.forward) < 0.0)
+}
+
 pub(crate) fn eased_blend(before: f32, plan: &ConePlan, taken_over: f32, step: f32) -> f32 {
     if plan.cut {
         return 0.0;
@@ -749,7 +839,20 @@ pub(crate) fn compute_cone(
     // centre crosses, before its position is the far one) still has that
     // face's window, or the picture would show one frame with no window.
     if (v.eye - enter.frame.origin).dot(enter.frame.normal) < -BEHIND_FACE_TOLERANCE {
-        return ConePlan { cut: true, ..closed(min) };
+        // Behind its face. Through the opening, that is a crossing: the
+        // window changes over to its partner at once (the cut). Past the
+        // face's plane beside the opening (a slope's plane extended, a plank
+        // that swings by) nothing crossed, and the window eases shut.
+        let along = (v.eye - enter.frame.origin).dot(enter.frame.tangent()).abs();
+        let crossed = along <= enter.half_length + v.half_size.max_element();
+        return ConePlan { cut: crossed, ..closed(min) };
+    }
+    // Apertures don't open to observers that turn away (Jon 2026-10-15): an
+    // aperture ahead, above or below has a window, and one wholly behind the
+    // observer's back has none. Turning round eases the windows behind shut
+    // and the ones ahead open.
+    if behind_the_viewer(v, &enter) {
+        return closed(min);
     }
     let corners = inset_viewer_corners(v.eye, v.half_size);
     let mut eyes: Vec<Vec2> = Vec::with_capacity(corners.len() * 3);

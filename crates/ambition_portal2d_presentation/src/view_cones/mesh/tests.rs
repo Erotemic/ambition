@@ -25,6 +25,7 @@ fn viewer_at(x: f32) -> PortalViewer {
         room: None,
         present: true,
         eye: Vec2::new(x, 300.0),
+        forward: Vec2::ZERO,
         half_size: Vec2::new(12.0, 20.0),
         occluders: Vec::new(),
     }
@@ -147,6 +148,7 @@ fn same_plane_pair_still_orders_by_proximity() {
         room: None,
         present: true,
         eye,
+        forward: Vec2::ZERO,
         half_size: Vec2::new(12.0, 20.0),
         occluders: Vec::new(),
     };

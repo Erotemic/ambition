@@ -56,6 +56,7 @@ fn capture_room_bands(two_rooms: bool) -> Vec<Vec<usize>> {
     app.insert_resource(PortalViewers::one(PortalViewer {
         present: true,
         eye: Vec2::new(300.0, 300.0),
+        forward: Vec2::ZERO,
         room: Some(room),
         half_size: Vec2::splat(12.0),
         ..default()
@@ -164,6 +165,7 @@ fn two_rooms_with_eyes(eyes: &[(LiveRoomInstance, Option<Vec2>)]) -> App {
             present: true,
             observer,
             eye: Vec2::new(300.0, 300.0),
+            forward: Vec2::ZERO,
             room: Some(*room),
             half_size: Vec2::splat(12.0),
             ..default()
@@ -360,6 +362,7 @@ fn a_window_that_closed_when_the_viewer_crossed_is_the_far_pane() {
         app.insert_resource(PortalViewers::one(PortalViewer {
             present: true,
             eye: Vec2::new(eye_x, 300.0),
+            forward: Vec2::ZERO,
             room: Some(LiveRoomInstance::ACTIVATION),
             half_size: Vec2::splat(12.0),
             occluders: vec![wall],

@@ -333,6 +333,7 @@ fn full_half_plane_render_clips_to_the_full_active_frame_at_the_aperture() {
         room: None,
         present: true,
         eye: Vec2::new(303.45, 875.5),
+        forward: Vec2::ZERO,
         half_size: Vec2::new(15.0, 24.0),
         occluders: Vec::new(),
     };
@@ -435,6 +436,7 @@ fn a_window_eases_each_time_and_takes_its_partners_blend_at_a_crossing() {
         room: None,
         present: true,
         eye: enter.pos + enter.normal * 0.5,
+        forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         occluders: Vec::new(),
     };
@@ -451,6 +453,7 @@ fn a_window_eases_each_time_and_takes_its_partners_blend_at_a_crossing() {
     assert_eq!(plan.target, 1.0);
     let approaching = PortalViewer {
         eye: enter.pos + enter.normal * (config.half_plane_preview_full_distance + 40.0),
+        forward: Vec2::ZERO,
         ..viewer.clone()
     };
     let eased = compute_cone(&enter, &exit, &config, Some(&approaching), world, MapConvention::Reflection);
@@ -486,6 +489,7 @@ fn a_window_eases_each_time_and_takes_its_partners_blend_at_a_crossing() {
     // window would draw its image of the near side over the near side.
     let straddling = PortalViewer {
         eye: exit.pos - exit.normal * 6.0,
+        forward: Vec2::ZERO,
         half_size: Vec2::new(12.0, 20.0),
         ..viewer.clone()
     };
@@ -542,6 +546,7 @@ fn near_doorway_view_cone_opens_only_inside_the_proximity_band() {
             room: None,
             present: true,
             eye: enter.pos + enter.normal * dist,
+            forward: Vec2::ZERO,
             half_size: Vec2::ZERO,
             occluders: Vec::new(),
         };
@@ -618,6 +623,7 @@ fn blocked_los_hides_near_portal_cone_inside_preview_range() {
             + enter.normal
                 * (config.half_plane_preview_full_distance
                     + config.half_plane_preview_blend_distance * 0.5),
+        forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         occluders: vec![blocker],
     };
@@ -662,6 +668,7 @@ fn exact_mode_uses_los_geometry_without_bounded_preview() {
         room: None,
         present: true,
         eye: enter.pos + enter.normal * 60.0,
+        forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         occluders: Vec::new(),
     };
@@ -715,6 +722,7 @@ fn positive_half_plane_max_lateral_keeps_bounded_diagnostic_mode() {
         room: None,
         present: true,
         eye: enter.pos + enter.normal * (config.half_plane_preview_full_distance * 0.5),
+        forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         occluders: Vec::new(),
     };
@@ -754,6 +762,7 @@ fn off_axis_near_plane_viewer_does_not_get_half_plane_preview() {
         room: None,
         present: true,
         eye: enter.pos + enter.normal * (config.half_plane_preview_full_distance * 0.5),
+        forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         occluders: Vec::new(),
     };
@@ -764,6 +773,7 @@ fn off_axis_near_plane_viewer_does_not_get_half_plane_preview() {
         eye: enter.pos
             + Vec2::X * 500.0
             + enter.normal * (config.half_plane_preview_full_distance * 0.5),
+        forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         occluders: Vec::new(),
     };
@@ -820,6 +830,7 @@ fn partial_los_reduces_window_growth() {
         room: None,
         present: true,
         eye,
+        forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         occluders: vec![left_blocker, right_blocker],
     };
@@ -828,6 +839,7 @@ fn partial_los_reduces_window_growth() {
         room: None,
         present: true,
         eye,
+        forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         occluders: Vec::new(),
     };
@@ -886,6 +898,7 @@ fn thin_wall_far_side_portal_stays_closed_for_a_near_side_viewer() {
         room: None,
         present: true,
         eye: Vec2::new(400.0, 450.0),
+        forward: Vec2::ZERO,
         half_size: Vec2::new(15.0, 24.0),
         occluders: vec![wall],
     };
@@ -945,6 +958,7 @@ fn window_depth_clips_to_the_host_wall_thickness() {
         room: None,
         present: true,
         eye: Vec2::new(400.0, 450.0),
+        forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         occluders: vec![wall],
     };
@@ -1004,6 +1018,7 @@ fn a_door_through_a_thin_wall_takes_over_the_half_plane_as_each_pair_does() {
             room: None,
             present: true,
             eye: near.pos + near.normal * 0.5, // standing in the aperture
+            forward: Vec2::ZERO,
             half_size: Vec2::ZERO,
             occluders: vec![wall],
         };
@@ -1116,6 +1131,7 @@ fn just_behind_doorway_still_contributes_to_half_plane() {
         room: None,
         present: true,
         eye: enter.pos - enter.normal * 0.5,
+        forward: Vec2::ZERO,
         half_size: Vec2::ZERO,
         occluders: Vec::new(),
     };
@@ -1155,4 +1171,37 @@ fn just_behind_doorway_still_contributes_to_half_plane() {
         far_span > far_depth,
         "bounded just-behind doorway preview should still be wider than a 45-degree cone: far_span={far_span}, far_depth={far_depth}",
     );
+}
+
+/// Apertures don't open to observers that turn away. A wall portal ahead of
+/// a viewer facing it opens; the same viewer turned round has it wholly
+/// behind, and its plan closes (with the ease, not a cut). A floor portal the
+/// viewer stands over opens whichever way it faces: part of it is ahead.
+#[test]
+fn apertures_do_not_open_to_observers_that_turn_away() {
+    let world = Vec2::new(2000.0, 1000.0);
+    let config = dynamic_config();
+    let wall = placed(PortalGunColor::BLUE.channel(), Vec2::new(500.0, 400.0), Vec2::new(-1.0, 0.0));
+    let partner = placed(PortalGunColor::ORANGE.channel(), Vec2::new(900.0, 400.0), Vec2::new(1.0, 0.0));
+    let facing = |forward: Vec2, eye: Vec2| PortalViewer {
+        present: true,
+        eye,
+        forward,
+        half_size: Vec2::new(12.0, 20.0),
+        ..Default::default()
+    };
+    let eye = Vec2::new(440.0, 400.0);
+    let ahead = compute_cone(&wall, &partner, &config, Some(&facing(Vec2::X, eye)), world, MapConvention::Reflection);
+    assert!(ahead.target > 0.0, "facing the portal: {}", ahead.target);
+    let away = compute_cone(&wall, &partner, &config, Some(&facing(-Vec2::X, eye)), world, MapConvention::Reflection);
+    assert_eq!(away.target, 0.0, "turned away: no window");
+    assert!(!away.cut && !away.immediate, "it eases shut");
+
+    let floor = placed(PortalGunColor::BLUE.channel(), Vec2::new(500.0, 400.0), Vec2::new(0.0, -1.0));
+    let floor_partner = placed(PortalGunColor::ORANGE.channel(), Vec2::new(900.0, 400.0), Vec2::new(0.0, -1.0));
+    let above = Vec2::new(510.0, 340.0);
+    for forward in [Vec2::X, -Vec2::X] {
+        let plan = compute_cone(&floor, &floor_partner, &config, Some(&facing(forward, above)), world, MapConvention::Reflection);
+        assert!(plan.target > 0.0, "a portal underfoot opens facing {forward:?}");
+    }
 }

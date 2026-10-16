@@ -21,6 +21,10 @@ that summary points somewhere specific.
 | Which system/span allocates, how often, how many bytes per frame? | `profile_desktop.sh --perf-probe` → `alloc_by_span.csv` (§1d) | CSV, agent-readable |
 | Which code causes archetype churn (spawn, despawn, insert, remove)? | `profile_desktop.sh --perf-probe` → `churn_by_site.csv` (§1d) | CSV, agent-readable |
 | Which code marks a component or resource changed every frame (wakes `Changed<T>` readers)? | `profile_desktop.sh --perf-probe` → `changes_by_site.csv` (§1d) | CSV, agent-readable |
+| Phone: which thread is saturated, and what does it do? | `scripts/profile_android.sh`, then `scripts/symbolize_android_profile.py DIR` (thread table by id) and `--ours --thread TID` | text, agent-readable |
+| Phone: which functions of ours cost the most, framework and allocator time under them included? | `symbolize_android_profile.py DIR --inclusive [--thread TID]` | text, agent-readable |
+| Phone: how much CPU passes through one function? | `symbolize_android_profile.py DIR --under NAME` (repeatable) | text, agent-readable |
+| Does a serial executor help this game? | `scripts/executor_ab.sh` + `scripts/executor_ab_report.py` (A/B switch `AMBITION_SCHEDULE_EXECUTOR`) | text, agent-readable |
 | Which *phase of the frame* owns the time — with no profiler, on any platform? | `[census] phases` → `schedule_phases.csv` | CSV, agent-readable |
 | Did the profiler cost more than the game? | same bundle, "Observer effect" | text, agent-readable |
 | Which *render pass* is hot, on CPU and GPU? | same bundle, `render_diagnostics.csv` | CSV, agent-readable |

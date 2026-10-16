@@ -21,7 +21,7 @@ use super::snapshot::BrainSnapshot;
 
 pub mod nav_follower;
 pub mod roam;
-pub use nav_follower::{Followed, NavFollower};
+pub use nav_follower::{DriveFollower, Followed, NavFollower};
 pub use roam::{RoamCfg, RoamState};
 
 // ===== Top-level state-machine variant =====

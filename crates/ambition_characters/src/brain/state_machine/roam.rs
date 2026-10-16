@@ -14,7 +14,7 @@
 use ambition_platformer2d_core as ae;
 use ae::navigation::mix;
 
-use super::nav_follower::{Followed, NavFollower};
+use super::nav_follower::{DriveFollower, Followed, NavFollower};
 use super::BrainSnapshot;
 use crate::actor::control::ActorControlFrame;
 
@@ -192,7 +192,7 @@ mod tests {
     /// misses went back to zero, and the follower never gave up.
     #[test]
     fn a_follower_that_lands_on_another_surface_counts_a_miss_and_gives_up_after_three() {
-        use super::super::nav_follower::{Followed, NavFollower};
+        use super::super::nav_follower::{DriveFollower, Followed, NavFollower};
         // `THERE` is on a surface from x 360 to 440. The other surface of
         // that height is under x 100.
         let leg = NavLeg {

@@ -478,6 +478,161 @@ pub fn mix(seed: u64) -> u64 {
     z ^ (z >> 31)
 }
 
+/// A leg is given up when it takes this much longer than its walk (s).
+pub const LEG_TIME_MARGIN_S: f32 = 6.0;
+/// A goal is given up after this many legs failed in a row.
+pub const MISSES_PER_GOAL: u8 = 3;
+
+/// Follow a route to a place: the part of navigation that each body that
+/// navigates has in common, a brain's body or a body an autopilot drives.
+///
+/// Its owner says where to go ([`Self::go_to`]). The follower holds the goal,
+/// takes the next leg from a route answer, follows the leg with
+/// [`follow_leg`] (the rule the graph was checked with), and says what input
+/// the body gets. It is plain state: a brain keeps it in its rewound state.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct RouteFollower {
+    /// The place the body is going to: a feet point.
+    pub goal: Option<Vec2>,
+    /// The leg the body is on, and where in it.
+    pub leg: Option<NavLeg>,
+    pub phase: LegPhase,
+    /// The time (s) when the leg is given up, on the owner's clock.
+    pub until: f32,
+    /// The legs that failed in a row on the way to this goal.
+    pub misses: u8,
+}
+
+/// What one step of a [`RouteFollower`] came to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Followed {
+    /// No goal. No input.
+    Idle,
+    /// On the way. The input is this step's (none while the body waits for a
+    /// route answer).
+    Going,
+    /// The body stands at the goal. The goal is dropped.
+    Arrived,
+    /// No route, or the legs failed. The goal is dropped.
+    GaveUp,
+}
+
+/// What a [`RouteFollower`] reads in one step.
+#[derive(Clone, Copy, Debug)]
+pub struct FollowFacts {
+    /// The owner's clock (s), for the time a leg may take.
+    pub now: f32,
+    /// The body's state, as [`follow_leg`] reads it.
+    pub leg: LegFacts,
+    /// The body's walk speed (px/s), for the time a leg may take.
+    pub walk_speed: f32,
+    /// The route answer, and the goal it answers. Read only when the
+    /// follower has no leg: see [`RouteFollower::needs_route`].
+    pub answer: Option<(Vec2, NavNext)>,
+}
+
+/// One step of a [`RouteFollower`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FollowStep {
+    pub followed: Followed,
+    /// The input of the leg the body is on, and that leg.
+    pub input: Option<(LegInput, NavLeg)>,
+}
+
+impl RouteFollower {
+    /// Go to `goal`. A leg in progress is dropped: call this for a new place,
+    /// not each step for the same one.
+    pub fn go_to(&mut self, goal: Vec2) {
+        *self = Self { goal: Some(goal), ..Self::default() };
+    }
+
+    pub fn stop(&mut self) {
+        *self = Self::default();
+    }
+
+    /// The body is past the start of a leg: in its run-up or in the air. Its
+    /// owner does not take the body from the follower now.
+    pub fn committed(&self) -> bool {
+        self.leg.is_some() && self.phase != LegPhase::Approach
+    }
+
+    /// The goal a route answer is wanted for in this step, if the follower
+    /// will read one: it has a goal and no leg. An owner that plans on demand
+    /// plans only then.
+    pub fn needs_route(&self) -> Option<Vec2> {
+        if self.leg.is_some() || self.misses >= MISSES_PER_GOAL {
+            return None;
+        }
+        self.goal
+    }
+
+    /// One step.
+    pub fn step(&mut self, facts: &FollowFacts) -> FollowStep {
+        let going = |input| FollowStep { followed: Followed::Going, input };
+        if let Some(leg) = self.leg {
+            if facts.now > self.until {
+                self.leg = None;
+                self.misses = self.misses.saturating_add(1);
+                return going(None);
+            }
+            let (input, progress) = follow_leg(&leg, self.phase, &facts.leg);
+            match progress {
+                LegProgress::Going(phase) => self.phase = phase,
+                LegProgress::Arrived => {
+                    self.leg = None;
+                    self.misses = 0;
+                }
+                LegProgress::Failed => {
+                    self.leg = None;
+                    self.misses = self.misses.saturating_add(1);
+                }
+            }
+            return going(Some((input, leg)));
+        }
+        let Some(goal) = self.goal else {
+            return FollowStep { followed: Followed::Idle, input: None };
+        };
+        if self.misses >= MISSES_PER_GOAL {
+            self.stop();
+            return FollowStep { followed: Followed::GaveUp, input: None };
+        }
+        // An answer to another goal is stale: wait for one to this goal.
+        let next = match facts.answer {
+            Some((answered, next)) if answered == goal => next,
+            _ => return going(None),
+        };
+        match next {
+            NavNext::Arrived => {
+                self.stop();
+                FollowStep { followed: Followed::Arrived, input: None }
+            }
+            NavNext::Leg(leg) => {
+                let side = facts.leg.side;
+                let walk = (approach_point(&leg) - facts.leg.feet).dot(side).abs() / facts.walk_speed.max(1.0);
+                self.leg = Some(leg);
+                self.phase = LegPhase::Approach;
+                self.until = facts.now + walk + LEG_TIME_MARGIN_S;
+                going(None)
+            }
+            NavNext::Unreachable => {
+                self.stop();
+                FollowStep { followed: Followed::GaveUp, input: None }
+            }
+            // In the air, or on no surface the graph knows: wait to land.
+            NavNext::Unknown => going(None),
+        }
+    }
+}
+
+/// The point a body walks to before a leg commits.
+pub fn approach_point(leg: &NavLeg) -> Vec2 {
+    if leg.kind == NavLegKind::Walk {
+        leg.land
+    } else {
+        leg.start
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

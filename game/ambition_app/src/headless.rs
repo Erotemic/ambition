@@ -125,8 +125,8 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     // zones — no per-system timings at all, which is the whole reason to
     // profile the sim on a machine with no GPU. Profiling builds only, so a
     // test process that steps several headless Apps still installs nothing
-    // process-global.
-    #[cfg(feature = "profile")]
+    // process-global. `perf_probe` needs the subscriber for the same reason.
+    #[cfg(any(feature = "profile", feature = "perf_probe"))]
     app.add_plugins(crate::app::cli::ambition_log_plugin());
 
     // inserted BEFORE the plugin builds: it is what stops

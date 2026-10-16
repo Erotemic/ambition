@@ -110,6 +110,11 @@ CSV_NAMES = {
     # difference goes negative on a parallel phase.
     "phases_cpu": "schedule_phases_cpu.csv",
     "config": "census_config.csv",
+    # `perf_probe` windows. The game writes the ranked whole-run tables itself
+    # (`alloc_by_span.csv`, `churn_by_site.csv`), so these names must differ.
+    "alloc": "alloc_windows.csv",
+    "churn": "churn_windows.csv",
+    "changes": "changes_windows.csv",
 }
 
 

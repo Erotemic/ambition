@@ -27,6 +27,9 @@ static_content = ["ambition_demo_sanic/static_content"]
 # links an encoder.
 capture = ["visible", "ambition_platformer2d/capture"]
 visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "ambition_platformer2d/portal_render", "input", "dep:bevy_kira_audio"]
+# Allocation and archetype-churn attribution: `ambition_dev_tools::perf_probe`.
+# Wraps the global allocator (see `src/lib.rs`).
+perf_probe = ["ambition_platformer2d/perf_probe"]
 # Folded into `visible` above so the windowed binary is interactive; also usable alone for the
 # headless `tests/standard_input_path.rs` proof.
 input = ["ambition_platformer2d/input"]

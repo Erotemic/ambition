@@ -2,6 +2,14 @@
 
 use bevy::prelude::*;
 
+// `perf_probe` counts allocations per tracing span. Declared in the lib so
+// every binary of this package gets it.
+#[cfg(feature = "perf_probe")]
+#[global_allocator]
+static GLOBAL_ALLOCATOR: ambition_platformer2d::dev_tools::perf_probe::CountingAlloc<
+    std::alloc::System,
+> = ambition_platformer2d::dev_tools::perf_probe::CountingAlloc::new(std::alloc::System);
+
 /// Assemble the demo: foundation + the engine group + the host group + the Sanic
 /// experience under a standalone shell host. Zero engine edits, zero
 /// `ambition_app`.

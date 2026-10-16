@@ -27,6 +27,9 @@ pub mod persistence;
 pub mod perception_extent;
 pub mod population_cap;
 pub mod profiling;
+/// Profiling-only allocation and archetype-churn attribution (`perf_probe` feature).
+#[cfg(feature = "perf_probe")]
+pub mod perf_probe;
 /// The profiling-only workload censuses and the shared census clock they sample on.
 pub mod runtime_census;
 pub mod sim_plugin;

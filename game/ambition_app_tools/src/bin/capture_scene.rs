@@ -479,6 +479,20 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
         // what `--direct` and every `--start-room` alias mean).
         config.route.is_some(),
         |app| {
+            // The engine's log, which every windowless host disables.
+            //
+            // `build_visible_app` drops `LogPlugin` for `NoWindow` and
+            // `OffscreenGpu` because tests build several Apps per process and
+            // the tracing subscriber is process-global. A capture builds one
+            // App and exits. Added in the hook, before the simulation plugins
+            // build: Bevy makes a system's span when the system is added, and a
+            // span made before the subscriber exists stays off, so Tracy and
+            // `perf_probe` would not see that system.
+            app.add_plugins(bevy::log::LogPlugin {
+                #[cfg(feature = "perf_probe")]
+                custom_layer: ambition_platformer2d::dev_tools::perf_probe::log_layer,
+                ..Default::default()
+            });
             if config.route.is_none() {
                 app.insert_resource(StartRoomOverride(config.room_id.clone()));
                 // Refuse an unknown room: otherwise the capture silently
@@ -504,17 +518,6 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
             ),
         ),
     );
-    // The engine's log, which every windowless host disables.
-    //
-    // `build_visible_app` drops `LogPlugin` for `NoWindow` and `OffscreenGpu`
-    // because tests build several Apps per process and the tracing subscriber
-    // is process-global. A capture builds one App and exits. Added after the
-    // group, so it applies to both capture modes.
-    app.add_plugins(bevy::log::LogPlugin {
-        #[cfg(feature = "perf_probe")]
-        custom_layer: ambition_platformer2d::dev_tools::perf_probe::log_layer,
-        ..Default::default()
-    });
     app.insert_resource(config.clone());
     if let Some(preview) = config.body_warp {
         app.insert_resource(preview);

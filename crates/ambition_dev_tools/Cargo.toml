@@ -9,6 +9,13 @@ description = "Reusable developer-tooling STATE + logic (E1d): the DeveloperTool
 [lib]
 crate-type = ["rlib"]
 
+[features]
+# Profiling only: allocation counts per tracing span and archetype churn per
+# source location (`perf_probe` module). `trace` puts each system in a span,
+# `track_location` gives each structural change its caller, and `debug` gives
+# systems and components their names. Off removes the module.
+perf_probe = ["bevy/trace", "bevy/track_location", "bevy/debug"]
+
 [dependencies]
 # Body* clusters + MovementTuning + refresh helpers + Vec2 (the reflected
 # editable resources mirror these engine value types).

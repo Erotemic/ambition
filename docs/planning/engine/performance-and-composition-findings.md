@@ -27,7 +27,8 @@ again before you quote it.
 | Where does the phone spend its CPU? | `scripts/profile_android.sh all ...`, then `scripts/symbolize_android_profile.py DIR` |
 | Which line of OURS caused framework time (phone)? | `symbolize_android_profile.py DIR --ours` (needs `simpleperf-device-samples.txt`, which a profile made after 2026-10-16 has) |
 | Which thread is saturated, and what does it do (phone)? | the `threads` table of `symbolize_android_profile.py DIR` (busy % of one core, by thread id), then `--ours --thread TID` |
-| Which system allocates, and which code makes archetype churn? | the `perf_probe` feature (in progress, see the run log) |
+| Which system allocates, and which code makes archetype churn? | `profile_desktop.sh --perf-probe` → `alloc_by_span.csv`, `churn_by_site.csv` (recipe `profiling.md` §1d) |
+| Which code marks a component or resource changed every frame (wakes every `Changed<T>` reader)? | the same run → `changes_by_site.csv` |
 
 ## Measured baseline
 
@@ -418,6 +419,43 @@ each band) is a cheaper parameter than a query: no archetype matching and no
 per-run query validation. A system that asks for the room of its own entities
 can carry `Option<&InRoomInstance>` in its own query. Measure one system first.
 
+### F20 — Every body's whole state is marked changed every tick
+
+MEASURED (probe `changes_by_site.csv`, standalone Mary-O 1-1, 561 frames
+after warm-up, `scratchpad/probe/mary_o_1_1_v2`). About 2,300 component values
+are marked changed a frame. Of ours:
+
+- ~30 simulation components of each of the ~17 bodies, every frame
+  (`BodyKinematics`, `BodyHealth`, `BodyLedgeState`, `BodyDodgeState`,
+  `BodyRestartLatch`, ... at `actor_clusters.rs:170-198`, and
+  `update.rs:1508-1543`). Cause (source read): `as_actor_mut`
+  (`actor_clusters.rs:163`) takes `&mut` of each cluster through `Mut<T>`,
+  which marks it changed whether or not the step writes it.
+- More per-body writes each frame: `BodyLifeStats` (`features/mod.rs:280`),
+  `ResolvedTechniqueEdges` (`starting_character.rs:705`), `BodyMelee`,
+  `RangedRefire`, `AttackGestureState`, `ResolvedAttackGesture`,
+  `PogoTargetVolumes`, `BodyAnimFacts`, `PresentedPose`, `BodyPoseView`.
+- Resources changed every frame by our code: `ActiveAudioSelection`
+  (`character_runtime/presentation.rs:100`, F16), `GizmoConfigStore`
+  (`avatar/trail.rs:677`), `CameraShakeState`, `FinishZoomState`
+  (`camera_ease.rs`), `SeatControlFrameModes`, the narrative ledgers
+  (`ledger.rs:223`) in a game with no dialogue, and two developer-tool
+  resources (`EditablePlayerStats`, `PlayerStatsSyncSnapshot`).
+- Rendering: rig part slots (`rigged.rs:1426-1434`, ~148 a frame:
+  animation), the HUD's `Visibility` (`hud/declared.rs:784`, 30 a frame),
+  ambient motes, hit-flash overlays (`hit_flash.rs:415`).
+
+Reading (REASONED): a false change costs little by itself. It matters
+because it makes change detection useless: no `Changed<Body…>` filter, and no
+read-model "built by change" (P5, P12), can skip a body while all of its state
+is marked changed every tick. So the order is: first make writes mark only
+real changes (pass `Mut<T>` into the step, or compare before writing), then
+the change-driven read-models pay. The detector verifies each step.
+
+Verified with it (MEASURED): the `star.rs` fix (F15) works. After it,
+`ActionSet` and `ActorMoveset` were changed 17 times in 561 frames (loading),
+and `reconcile_effective_repertoire` has no allocations left.
+
 ### Not a lever (keep out of this run)
 
 Session-scoped App globals (C03: 30 counted plus 19 uncounted instances) are
@@ -435,7 +473,7 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | P4 | Interned identities: an integer handle per body, made when its `SimId` is minted; read-model keys by `Entity` | String clones and sorts in 5+ per-tick systems | medium | no |
 | P5 | Read-models built once per drawn frame, by change | repeat builds on slow frames; builds in headless hosts | medium | D2 |
 | P6 | Change-driven systems: the two whole-world queries, input bindings, room isolation (F14) | full scans per tick; 444-2,773 allocations a frame in room isolation | small | no |
-| P12 | Derive on change, not every tick (F15, F16): the four systems, then the change detector finds the next ones | per-tick re-derivations and false changes that wake change filters | small each | no |
+| P12 | Derive on change, not every tick (F15, F16, F20): first writes that mark only real changes (the cluster step, the resources of F20), then the four systems; the change detector (`changes_by_site.csv`) finds the next ones and verifies each | per-tick re-derivations and false changes that wake change filters | small each | no |
 | P11 | Leafwing fork (F13): no clash work under `PressAll`, pairs of pressed actions only otherwise; lookups without boxing; upstream PRs | 19-32k allocations a frame, ~75% of a standalone frame's | small | no |
 | P7 | Plumbing: one gizmo trail group, Bevy debug gizmos off in shipping, developer tools only in developer builds, Kira channels | ~80 systems | small-medium | D6, D9 |
 | P8 | Upstream query-state fixes (LDtk, Yarn, bevy_light, GGRS) | ~2% of phone CPU | small each | D5 (only for the LDtk workaround) |

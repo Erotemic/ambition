@@ -65,6 +65,9 @@ build_profile="profiling"
 # `--features profile` turns on bevy/trace + bevy/trace_tracy, which is what
 # makes per-Bevy-system zones and per-render-pass diagnostics exist at all.
 want_tracy="yes"
+# `--perf-probe` adds the `perf_probe` cargo feature: allocations per system and
+# archetype churn per source line (`alloc_by_span.csv`, `churn_by_site.csv`), and value changes per source line (`changes_by_site.csv`).
+want_perf_probe="no"
 census="yes"
 census_hz="1"
 headless="no"
@@ -146,6 +149,11 @@ Build selection:
                            names which one it measured.
   --no-tracy              Do not add --features profile. Drops per-Bevy-system
                            zones and Bevy's render-pass diagnostics.
+  --perf-probe            Also add --features perf_probe: allocations per Bevy
+                           system / tracing span and archetype churn per source
+                           line, written to alloc_by_span.csv and
+                           churn_by_site.csv and changes_by_site.csv. Its counters slow every
+                           allocation, so do not read frame times from it.
 
 Smash match (a real round, not the character-select menu):
   --smash                 Profile a LIVE Smash match instead of whatever
@@ -271,6 +279,7 @@ while [[ $# -gt 0 ]]; do
         --build-profile=*) build_profile="${1#--build-profile=}" ;;
         --dev-build|--dev-profile) build_profile="dev" ;;
         --no-tracy) want_tracy="no" ;;
+        --perf-probe) want_perf_probe="yes" ;;
         --headless) headless="yes" ;;
         --smash|--smash-match) workload="smash-match" ;;
         --smash-fighters) shift; [[ $# -gt 0 ]] || fail "--smash-fighters requires a value"; is_positive_int "$1" || fail "--smash-fighters must be positive"; workload="smash-match"; smash_fighters="$1" ;;
@@ -367,6 +376,7 @@ build_effective_run_args() {
     split_run_args "${run_args[@]+"${run_args[@]}"}"
     effective_run_args=("$build_profile")
     if [[ "$want_tracy" == "yes" ]]; then effective_run_args+=(--features profile); fi
+    if [[ "$want_perf_probe" == "yes" ]]; then effective_run_args+=(--features perf_probe); fi
     if [[ -n "$cargo_jobs" ]]; then effective_run_args+=(--jobs "$cargo_jobs"); fi
     local extra_game_args=()
     if [[ "$workload" == "smash-match" ]]; then
@@ -1201,6 +1211,7 @@ run_instrumented_launch() {
 
     local tracy_pid=""
     tracy_pid="$(start_tracy_capture "$out_dir")"
+    if [[ "$want_perf_probe" == "yes" ]]; then export AMBITION_PERF_PROBE_DIR="$out_dir"; fi
 
     local heartbeat_pid=""
     # ⛔ A CLOSED WINDOW IS NOT AN EXITED PROCESS. On 2026-09-01 the game's last

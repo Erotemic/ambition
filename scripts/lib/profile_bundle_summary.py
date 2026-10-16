@@ -1053,6 +1053,39 @@ def build_summary(bundle: Bundle) -> str:
     else:
         lines += ["UNAVAILABLE — no Tracy artifacts in this bundle.", ""]
 
+    # ── perf_probe: allocations and archetype churn ─────────────────────
+    allocs = bundle.rows("alloc_by_span.csv")
+    churn = bundle.rows("churn_by_site.csv")
+    changes = bundle.rows("changes_by_site.csv")
+    if allocs or churn or changes:
+        section(lines, "Allocations and archetype churn (perf_probe)")
+        lines += [
+            "Counts, not times: a `perf_probe` build slows every allocation, so read",
+            "frame times from a build without it. Per frame = total / frames since the",
+            "first sample after `AMBITION_PERF_PROBE_SKIP_FRAMES` frames.",
+            "",
+        ]
+    if allocs:
+        frames = allocs[0].get("frames", "?")
+        lines += [f"Top allocating spans ({frames} frames; full table `alloc_by_span.csv`):", "",
+                  "| span | allocs/frame | bytes/frame | calls |", "| --- | ---: | ---: | ---: |"]
+        for row in allocs[:10]:
+            lines.append(f"| `{row['span']}` | {row['allocs_per_frame']} | {row['bytes_per_frame']} "
+                         f"| {row['calls']} |")
+        lines.append("")
+    if churn:
+        lines += ["Top archetype churn sites (full table `churn_by_site.csv`):", "",
+                  "| event | components | site | per frame |", "| --- | --- | --- | ---: |"]
+        for row in churn[:10]:
+            lines.append(f"| {row['event']} | `{row['components']}` | `{row['site']}` | {row['per_frame']} |")
+        lines.append("")
+    if changes:
+        lines += ["Top value-change sites, each wakes the `Changed<T>` readers (full table `changes_by_site.csv`):", "",
+                  "| component | site | per frame |", "| --- | --- | ---: |"]
+        for row in changes[:10]:
+            lines.append(f"| `{row['component']}` | `{row['site']}` | {row['per_frame']} |")
+        lines.append("")
+
     # ── Frame phase breakdown ────────────────────────────────────────────
     section(lines, "Which phase of the frame owned the time")
     phases = bundle.rows("schedule_phases.csv")
@@ -1572,6 +1605,9 @@ def build_summary(bundle: Bundle) -> str:
         ("tracy_summary.md / tracy_zones.csv", "per-Bevy-system and per-render-pass zones"),
         ("tracy_zone_windows.csv", "the same zones bucketed into time windows"),
         ("tracy.trace", "the raw Tracy trace, for the GUI"),
+        ("alloc_by_span.csv", "perf_probe: allocations per Bevy system / tracing span"),
+        ("churn_by_site.csv", "perf_probe: spawns, despawns, inserts, removes per source line"),
+        ("changes_by_site.csv", "perf_probe: component and resource values marked changed, per source line"),
         ("perf_windows/", "one flat perf report per time slice"),
         ("perf_report.txt", "whole-run flat perf report"),
         ("perf-report-by-dso.txt", "which shared object owned the CPU"),

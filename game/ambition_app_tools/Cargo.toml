@@ -46,6 +46,8 @@ causal = ["ambition_app/causal"]
 # that profiles a live Smash match would fail at cargo with "package
 # `ambition_app_tools` does not have feature `profile`".
 profile = ["ambition_app/profile"]
+# Forwarded for the same reason as `profile`: `profile_desktop.sh --perf-probe`.
+perf_probe = ["ambition_app/perf_probe"]
 
 [dependencies]
 # The pure move/entity value vocabulary and its authoring primitives.

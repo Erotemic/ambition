@@ -180,6 +180,9 @@ bevy_ui_menu = ["ambition_platformer2d/bevy_ui_menu"]
 kaleidoscope_menu = ["ambition_platformer2d/kaleidoscope_menu", "dep:ambition_menu_kaleidoscope"]
 frame_pacing = ["ambition_platformer2d/frame_pacing", "dep:bevy_framepace"]
 profile = ["ambition_platformer2d/profile"]
+# Allocation and archetype-churn attribution: `ambition_dev_tools::perf_probe`.
+# Wraps the global allocator (see `src/lib.rs`). Never in a shipped build.
+perf_probe = ["ambition_platformer2d/perf_probe"]
 
 [build-dependencies]
 # `build.rs` embeds each source `assets/pack.ron` declares, under

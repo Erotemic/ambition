@@ -62,7 +62,9 @@ pub fn begin_star_power(
     mut players: Query<(Entity, &mut WornEquipment), With<PlayerEntity>>,
 ) {
     for (body, mut worn) in &mut players {
-        if worn.unequip(POCKET_QUASAR_ID).is_some() {
+        // Read first: `unequip` takes `&mut`, which marks `WornEquipment`
+        // changed on every tick, and each change re-folds the repertoire.
+        if worn.wears(POCKET_QUASAR_ID) && worn.unequip(POCKET_QUASAR_ID).is_some() {
             commands.entity(body).try_insert(Empowered::for_seconds(
                 COSMIC_QUASAR_SUPER_STATE,
                 crate::rules::mary_o_rules().star_seconds,

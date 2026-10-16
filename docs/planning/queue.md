@@ -1527,6 +1527,21 @@ facets) is not yet measured.
 each migrated fact, and production consumers cannot bypass its preparation or
 projection boundary.
 
+### WOLFENSTEIN-FAIRNESS — the Evil dimension's boss breaks a §3 rule
+
+**Owner:** the boss author ([`boss-design.md`](engine/boss-design.md) §3).
+
+**Finding (2026-10-15, `content_it` `boss_fight_validator`):** Wolfenstein's
+`side_sweep` gives an Enrage punish window of 0 ticks against a floor of 12,
+and `floor_slam`, `full_body_pulse` and `side_sweep` author no telegraph.
+The roster pin moved from 3/5 to 4/6 to record it. Fix: give `side_sweep` a
+recovery the player can punish in Enrage, then lower the pin.
+
+**Also open in `app_it`:** `a_dog_sent_for_an_item_in_another_live_room_goes_through_the_door`
+fails at its control: a roaming dog with no errand came within 192 px of the
+door, and the control wants more than 200 (roam or hub-layout drift; owner
+not found).
+
 ### BAKED-SHEET-IDENTITY — a body's collision box is outside the content identity
 
 **Owner:** `ambition_sprite_sheet` (the baked sheet index) and

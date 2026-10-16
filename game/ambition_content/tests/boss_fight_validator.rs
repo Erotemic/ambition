@@ -138,6 +138,10 @@ fn the_shipped_roster_against_section_threes_rules() {
 /// The Exploding Gradient's deletion (2026-10-14, the Hunny Horror took its
 /// door) took two errors and its rule-5 warning with it (5/6 → 3/5). The Hunny Horror authors a pose and a cue for every move, each
 /// its own, and a Rest after every Strike: it adds nothing.
+/// Wolfenstein (2026-10-15, the Evil dimension) adds one error and one
+/// warning (3/5 → 4/6): its `side_sweep` gives an Enrage punish window of 0
+/// ticks against a floor of 12, and three of its attacks author no
+/// telegraph. That is a finding for the fight, recorded in the queue.
 ///
 /// The eighth warning: the smirking behemoth never demands a `WalkOut`. Its kit is a beam,
 /// a sweep, a slam and a nova — every one answered by jumping or dashing. A player
@@ -145,5 +149,5 @@ fn the_shipped_roster_against_section_threes_rules() {
 ///
 /// Rule 1 (telegraph proportionality) fires nowhere, which corrects BD4 §7's
 /// (`sweep`, `dash_through`), whose floor is 20 ticks, not a heavy's 30.
-const EXPECTED_ERRORS: usize = 3;
-const EXPECTED_WARNINGS: usize = 5;
+const EXPECTED_ERRORS: usize = 4;
+const EXPECTED_WARNINGS: usize = 6;

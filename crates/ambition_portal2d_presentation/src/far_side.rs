@@ -620,6 +620,7 @@ mod tests {
                     present: true,
                     room: Some(other),
                     eye: Vec2::new(x, 300.0),
+                    forward: Vec2::ZERO,
                     ..default()
                 });
                 assert!(published, "the other room has no eye yet");
@@ -733,6 +734,7 @@ mod tests {
             present: false,
             room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
             eye: Vec2::new(400.0, 300.0),
+            forward: Vec2::ZERO,
             ..default()
         }));
         let body = spawn_candidate(&mut app, Vec2::new(505.0, 300.0), Vec2::new(24.0, 24.0));

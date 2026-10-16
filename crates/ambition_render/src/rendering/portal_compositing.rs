@@ -626,6 +626,7 @@ mod bridge_meets_compositor_tests {
             present: true,
             // Well in front of the pane, so a body at high x is far-side.
             eye: ambition_platformer2d_core::Vec2::new(400.0, 300.0),
+            forward: Vec2::ZERO,
             room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
             ..default()
         }));

@@ -234,6 +234,18 @@ pub fn copy_roll(enter: &PortalFrame, exit: &PortalFrame, convention: MapConvent
 
 /// Build a [`ViewCone`] from its four entry-side corners. Every cone
 /// constructor uses this, so the display map is defined in one place.
+/// The cone whose entry trapezoid is `entry_quad` (near edge first, then the
+/// far edge from the `+tangent` end): its corners through the pair map and
+/// the bounds of those.
+pub fn cone_from_entry_quad(
+    entry_quad: [Vec2; 4],
+    enter: &PortalAperture,
+    exit: &PortalAperture,
+    convention: MapConvention,
+) -> ViewCone {
+    from_entry_quad(entry_quad, enter, exit, convention)
+}
+
 fn from_entry_quad(
     entry_quad: [Vec2; 4],
     enter: &PortalAperture,

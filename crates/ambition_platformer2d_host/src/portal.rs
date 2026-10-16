@@ -83,10 +83,15 @@ mod host_adapter {
             let mut occluders = Vec::new();
             world.0.for_each_solid_aabb(false, &mut |aabb| occluders.push(aabb));
             // A second view of a room that has an eye is refused there.
+            // The way the body faces: its side, under the down of its last
+            // step, by its facing.
+            let down = last_step.map(|s| s.down).filter(|d| *d != Vec2::ZERO).unwrap_or(Vec2::new(0.0, 1.0));
+            let forward = Vec2::new(down.y, -down.x) * kin.facing.signum();
             viewers.publish(PortalViewer {
                 present: true,
                 observer,
                 eye: kin.pos,
+                forward,
                 // The box the body has: the line of sight is tested from its
                 // four corners.
                 half_size: kin.collision_box(last_step).half_size(),

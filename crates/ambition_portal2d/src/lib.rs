@@ -82,7 +82,7 @@ pub use types::{
     find_portal, portal_box,
     PlacedPortal, PortalHost, PortalHostDepths, PortalLook, PortalTransitCooldown, MIN_EXIT_SPEED, PORTAL_OPENING_HALF, PORTAL_VISUAL_THICKNESS, stable_portal_order};
 pub use view::{
-    aperture_wedge, aperture_wedge_multi, blend_cones, copy_roll, copy_transform,
+    aperture_wedge, aperture_wedge_multi, blend_cones, cone_from_entry_quad, copy_roll, copy_transform,
     copy_transform_for_convention, map_viewpoint_frame, view_cone, view_point, visible_cone,
     window_eye, PortalCopyTransform, PortalViewMap, PortalViewpointFrame, ViewCone,
 };

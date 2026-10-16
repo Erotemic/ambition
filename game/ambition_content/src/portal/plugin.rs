@@ -200,6 +200,15 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .after(publish_portal_carves)
                 .before(bridge_portal_carves),
         );
+        // A plane that closes under a thrown item pushes it clear, as it
+        // pushes a kernel body, before the history moves on.
+        app.add_systems(
+            sim,
+            ambition_portal2d::evict_free_straddlers_on_portal_change::<ambition_held_items::GroundItem>
+                .in_set(PortalSet::Frame)
+                .after(ambition_portal2d::equalize_pair_apertures)
+                .before(ambition_portal2d::evict_straddlers_on_portal_change),
+        );
         app.add_systems(
             sim,
             portal_transit_free_bodies::<ambition_held_items::GroundItem>

@@ -89,28 +89,84 @@ pub fn evict_straddlers_on_portal_change(
     // Keyed by live room and channel (OW1): two rooms can each hold a portal
     // of one channel. Keyed by channel alone, the two overwrote each other and
     // read as a portal that moved.
-    let current: HashMap<(PortalRoom, PortalChannel), (PortalAperture, PortalFrame)> = portals
+    let current = current_frames(&portals, &live);
+    for (room, plane) in closing_planes(&history, &current) {
+        evict_for_plane(plane, room, &mut bodies, &live);
+    }
+    history.0 = current.into_iter().map(|(c, (ap, _))| (c, ap)).collect();
+}
+
+/// The same eviction for free bodies `B` (a thrown item): a plane that closes
+/// under one pushes it clear as it pushes a kernel body. Runs before
+/// [`evict_straddlers_on_portal_change`], which then moves the history on.
+pub fn evict_free_straddlers_on_portal_change<B: crate::FreePortalBody>(
+    history: Res<PortalFrameHistory>,
+    portals: Query<(Entity, &PlacedPortal)>,
+    mut bodies: Query<(Entity, &mut B, Option<&B::Presence>)>,
+    live: LiveRooms,
+) {
+    if history.0.is_empty() {
+        return;
+    }
+    let current = current_frames(&portals, &live);
+    for (room, plane) in closing_planes(&history, &current) {
+        for (entity, mut body, presence) in &mut bodies {
+            if live.of(entity) != room || !B::present(presence) {
+                continue;
+            }
+            let aabb = ae::Aabb::new(body.pos(), body.half_extent());
+            if let Some(push) = eviction_push(aabb, body.pos(), &plane) {
+                let (pos, vel) = (body.pos() + push, body.vel());
+                body.emerge(pos, vel);
+            }
+        }
+    }
+}
+
+type CurrentFrames = HashMap<(PortalRoom, PortalChannel), (PortalAperture, PortalFrame)>;
+
+fn current_frames(portals: &Query<(Entity, &PlacedPortal)>, live: &LiveRooms) -> CurrentFrames {
+    portals
         .iter()
         .map(|(entity, p)| ((live.of(entity), p.channel), (p.aperture(), p.prev_frame())))
+        .collect()
+}
+
+/// The planes that closed since last frame, in a fixed order (room, then
+/// channel): a body straddling two of them is pushed by each in the same
+/// order on every host and every resimulation.
+///
+/// A plane is unchanged if a portal of the same channel started this tick
+/// where it ended the last: whatever its host did since (moved it, turned
+/// it) is the motion of one plane. Otherwise it was placed again or closed,
+/// and its old plane is closing.
+fn closing_planes(history: &PortalFrameHistory, current: &CurrentFrames) -> Vec<(PortalRoom, PortalAperture)> {
+    let mut closing: Vec<_> = history
+        .0
+        .iter()
+        .filter(|(key, old)| {
+            !current.get(*key).is_some_and(|(_, start)| {
+                start.origin.distance(old.frame.origin) < 1.0e-3
+                    && start.normal.distance(old.frame.normal) < 1.0e-4
+            })
+        })
+        .map(|(key, old)| (*key, *old))
         .collect();
+    closing.sort_by_key(|(key, _)| *key);
+    closing.into_iter().map(|((room, _), plane)| (room, plane)).collect()
+}
 
-    for (key, old) in history.0.iter() {
-        // The plane is unchanged if a portal of the same channel started this
-        // tick where it ended the last: whatever its host did since (moved it,
-        // turned it) is the motion of one plane. Otherwise it was placed again
-        // or closed, and its old plane is closing.
-        let unchanged = current.get(key).is_some_and(|(_, start)| {
-            start.origin.distance(old.frame.origin) < 1.0e-3
-                && start.normal.distance(old.frame.normal) < 1.0e-4
-        });
-        if unchanged {
-            continue;
-        }
-        // Only a body of the portal's own room can straddle it.
-        evict_for_plane(*old, key.0, &mut bodies, &live);
+/// How far a body straddling `plane` moves so its trailing edge clears it
+/// on its centroid's side; `None` when it does not straddle it.
+fn eviction_push(body: ae::Aabb, center: ae::Vec2, plane: &PortalAperture) -> Option<ae::Vec2> {
+    if !pp::straddles(body, plane) {
+        return None;
     }
-
-    history.0 = current.into_iter().map(|(c, (ap, _))| (c, ap)).collect();
+    let n = plane.frame.normal;
+    let d = pp::front_distance(center, &plane.frame);
+    let half_n = body.half_size().dot(n.abs());
+    let (push, dir) = if d >= 0.0 { (half_n - d + EVICT_MARGIN, n) } else { (half_n + d + EVICT_MARGIN, -n) };
+    (push > 0.0).then_some(dir * push)
 }
 
 /// Shove every body of `room` straddling `plane` to the side its centroid is
@@ -121,31 +177,16 @@ fn evict_for_plane(
     bodies: &mut Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>)>,
     live: &LiveRooms,
 ) {
-    let n = plane.frame.normal;
     for (entity, mut kin, mut sweep) in bodies.iter_mut() {
         if live.of(entity) != room {
             continue;
         }
         // The box the body has: turned as its last step turned it.
         let body = kin.collision_box(sweep.as_deref());
-        if !pp::straddles(body, &plane) {
-            continue;
-        }
-        // Push so the trailing edge clears the plane on the centroid's side.
-        let d = pp::front_distance(kin.pos, &plane.frame);
-        let half_n = body.half_size().dot(n.abs());
         // Position authority (ADR 0024): the closing portal moves the body
         // clear of the plane.
-        if d >= 0.0 {
-            let push = half_n - d + EVICT_MARGIN;
-            if push > 0.0 {
-                ambition_platformer2d_core::movement::carry_body(&mut kin, sweep.as_deref_mut(), n * push);
-            }
-        } else {
-            let push = half_n + d + EVICT_MARGIN;
-            if push > 0.0 {
-                ambition_platformer2d_core::movement::carry_body(&mut kin, sweep.as_deref_mut(), -n * push);
-            }
+        if let Some(push) = eviction_push(body, kin.pos, &plane) {
+            ambition_platformer2d_core::movement::carry_body(&mut kin, sweep.as_deref_mut(), push);
         }
     }
 }

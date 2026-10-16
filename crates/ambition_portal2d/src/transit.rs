@@ -156,7 +156,7 @@ fn body_opens(p: &PlacedPortal, body: ae::Aabb, center: Vec2, vel: Vec2, depth: 
 /// portal it straddles open.
 pub fn publish_free_body_carves<B: FreePortalBody>(
     portals: Query<(Entity, &PlacedPortal)>,
-    bodies: Query<(Entity, &B, Option<&PortalTransit>)>,
+    bodies: Query<(Entity, &B, Option<&PortalTransit>, Option<&B::Presence>)>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     host_depths: Option<Res<PortalHostDepthsByRoom>>,
     mut carves: ResMut<PortalCarves>,
@@ -167,7 +167,10 @@ pub fn publish_free_body_carves<B: FreePortalBody>(
     }
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
-    for (entity, body, transit) in &bodies {
+    for (entity, body, transit, presence) in &bodies {
+        if !B::present(presence) {
+            continue;
+        }
         let room = live.of(entity);
         let all = by_room.in_room(room);
         let aabb = ae::Aabb::new(body.pos(), body.half_extent());
@@ -274,15 +277,23 @@ pub fn portal_transit(
 ) {
     let tick = tick.map_or(0, |tick| tick.get());
     let by_room = PortalsByRoom::collect(&portals, &live);
-    if by_room.is_empty() {
-        return;
-    }
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
 
     for (entity, mut kin, mut transit, mut roll, cooldown, record) in &mut bodies {
+        if transit.is_none() && by_room.is_empty() {
+            continue;
+        }
         let room = live.of(entity);
         let all = by_room.in_room(room);
+        // No portal in the body's room: nothing to cross, and a straddle of a
+        // pair that closed ends here (the machine's `Clear`, without asking it).
+        if all.is_empty() {
+            if transit.is_some() {
+                commands.entity(entity).remove::<PortalTransit>();
+            }
+            continue;
+        }
         // Per body, not once for all: `placement::wall_to_wall` classifies each
         // aperture as wall or floor/ceiling relative to this body's down.
         let gravity_dir = gravity.dir_for(room, ambition_platformer2d_core::Aabb::new(
@@ -361,10 +372,10 @@ pub fn portal_transit(
                     remaining: tuning.teleport_cooldown_s,
                     pair: exit_channel,
                 });
-                if let Some(t) = transit.as_deref_mut() {
-                    t.crossed = true;
-                    t.straddling = exit_channel;
-                }
+                // The body straddles the exit now, however it got here: a
+                // rescue or a swept crossing that skipped `Begin` is drawn cut
+                // at the exit as a straddle is, until it clears.
+                set_crossed(&mut commands, entity, transit.as_deref_mut(), exit_channel);
                 // Ambition adapters read this event for the exit cue (at
                 // `exit_pos`), the trace message, and the player input bits
                 // (`PortalEmission`, `PortalInputWarp`).
@@ -446,6 +457,18 @@ pub trait FreePortalBody: Component<Mutability = bevy::ecs::component::Mutable> 
     fn half_extent(&self) -> Vec2;
     /// Put the body where the exit portal sends it, moving as it sends it.
     fn emerge(&mut self, pos: Vec2, vel: Vec2);
+    /// The body's last step of its own motion, `(from, to)`: the segment a
+    /// fast body crosses a plane on between two samples. `None` once it was
+    /// put somewhere else (`to` is no longer [`pos`](Self::pos)) or did not
+    /// move.
+    fn last_step(&self) -> Option<(Vec2, Vec2)> {
+        None
+    }
+    /// The component that says whether the body is in the world.
+    type Presence: Component;
+    /// A body something else holds is not a free body: it opens no portal,
+    /// crosses none, and straddles none.
+    fn present(presence: Option<&Self::Presence>) -> bool;
 }
 
 /// Free bodies `B` travel through every placed portal pair by the one transit
@@ -468,6 +491,7 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
         Option<&mut PortalTransit>,
         Option<&mut ActorRoll>,
         Option<&PortalTransitCooldown>,
+        Option<&B::Presence>,
     )>,
     // A free body crosses only a pair of its own live room (OW1).
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
@@ -479,24 +503,39 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
     tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let by_room = PortalsByRoom::collect(&portals, &live);
-    if by_room.is_empty() {
-        return;
-    }
     let tick = tick.map_or(0, |tick| tick.get());
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
-    for (entity, mut body, mut transit, mut roll, cooldown) in &mut bodies {
+    for (entity, mut body, mut transit, mut roll, cooldown, presence) in &mut bodies {
+        if transit.is_none() && by_room.is_empty() {
+            continue;
+        }
         let room = live.of(entity);
+        let all = by_room.in_room(room);
+        // A held body, or one with no portal in its room, straddles nothing:
+        // a straddle it had ends here, so it is released clear of any pair.
+        if !B::present(presence) || all.is_empty() {
+            if transit.is_some() {
+                commands.entity(entity).remove::<PortalTransit>();
+            }
+            continue;
+        }
         let (pos, vel, half) = (body.pos(), body.vel(), body.half_extent());
         let gravity_dir = gravity.dir_for(room, ae::Aabb::new(pos, half));
+        // Its last step, while it still ends where the body is: a fast throw
+        // that crossed a plane between two samples is taken through it.
+        let sweep = body
+            .last_step()
+            .filter(|(_, to)| *to == pos)
+            .map(|(from, _)| SweptSample { pos: from, vel });
         let step = transit_step_with_tuning(
             pos,
             half * 2.0,
             vel,
-            None,
+            sweep,
             transit.as_deref().copied(),
             cooldown.map(|c| c.pair),
-            by_room.in_room(room),
+            all,
             gravity_dir,
             depths.in_room(room),
             &tuning,
@@ -538,10 +577,10 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
                     remaining: tuning.teleport_cooldown_s,
                     pair: exit_channel,
                 });
-                if let Some(t) = transit.as_deref_mut() {
-                    t.crossed = true;
-                    t.straddling = exit_channel;
-                }
+                // The body straddles the exit now, however it got here: a
+                // rescue or a swept crossing that skipped `Begin` is drawn cut
+                // at the exit as a straddle is, until it clears.
+                set_crossed(&mut commands, entity, transit.as_deref_mut(), exit_channel);
                 transited.write(PortalBodyTransited {
                     body: entity,
                     enter_normal,
@@ -554,6 +593,25 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
             TransitStep::Clear => {
                 commands.entity(entity).remove::<PortalTransit>();
             }
+        }
+    }
+}
+
+/// After a transfer the body straddles the exit, crossed: updated in place,
+/// or established when the crossing skipped `Begin`.
+fn set_crossed(
+    commands: &mut Commands,
+    entity: Entity,
+    transit: Option<&mut PortalTransit>,
+    exit_channel: PortalChannel,
+) {
+    match transit {
+        Some(t) => {
+            t.crossed = true;
+            t.straddling = exit_channel;
+        }
+        None => {
+            commands.entity(entity).insert(PortalTransit { straddling: exit_channel, crossed: true });
         }
     }
 }

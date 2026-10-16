@@ -40,7 +40,8 @@ pub mod view;
 
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use eviction::{
-    evict_straddlers_on_portal_change, forget_portal_frames_on_activation, PortalFrameHistory,
+    evict_free_straddlers_on_portal_change, evict_straddlers_on_portal_change,
+    forget_portal_frames_on_activation, PortalFrameHistory,
 };
 pub use gun::{portal_guns_active_toggle_system, portal_toggle_system, OwnedPortalGunPair, PortalGun};
 pub use gun_construction::{
@@ -64,7 +65,7 @@ pub use messages::{
     PortalFireIntent, PortalGunEquipped, PortalShotFired, TogglePortalGun, TogglePortalGunsActive,
 };
 pub use placement::{
-    measure_host_depth, portal_facing_flips_for_convention, portal_fits,
+    first_portal_crossing, host_material_depth, measure_host_depth, portal_facing_flips_for_convention, portal_fits,
     portal_input_warp_flips_horizontal_for_convention, portal_transit_roll,
     raycast_through_portals, raycast_through_portals_tuned, somersault_roll_for_convention,
     transit_step, transit_step_with_tuning, SweptSample, TransitStep,
@@ -96,6 +97,8 @@ pub use schedule::PortalSet;
 mod rollback_registration;
 #[cfg(test)]
 mod turned_body_tests;
+#[cfg(test)]
+mod body_contract_tests;
 pub use rollback_registration::{
     register_portal_gun_rollback_state, register_portal_rollback_state, register_rollback_state,
 };

@@ -30,7 +30,7 @@ use bevy::prelude::Color;
 /// second gun with [`for_pair`](Self::for_pair).
 ///
 /// All gun ends are gun-owned, so they despawn together when their gun is gone.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PortalGunColor {
     pub slot: u8,
 }
@@ -94,7 +94,7 @@ impl PortalGunColor {
 /// An authored or runtime channel-pair color. LDtk test rooms place these pairs
 /// (Purple↔Yellow, Teal↔Red, Green↔Magenta, Cyan↔Rose) so linked portals are
 /// easy to see. Authored pairs are not gun-owned, so they persist without a gun.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 pub enum PortalChannelColor {
     Purple,
     Yellow,
@@ -220,7 +220,7 @@ impl PortalChannelColor {
 /// The pair-linking identity the transit and pairing core uses. Two portals
 /// pair iff their channels are partners ([`partner`](Self::partner)), so
 /// several independent pairs can exist at once.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PortalChannel {
     /// The gun's pair (Blue/Orange).
     Gun(PortalGunColor),

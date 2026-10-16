@@ -205,6 +205,7 @@ fn attack_while_holding(
         pos: Vec2::new(100.0, 100.0),
         vel: Vec2::ZERO,
         half_extent: Vec2::splat(PICKUP_HALF),
+        step: None,
     });
 
     // Tick 1: the press is spent picking the weapon up (and is consumed, so it
@@ -306,6 +307,7 @@ fn attack_picks_up_axe_and_grants_its_swing_then_throw_restores() {
         pos: Vec2::new(100.0, 100.0),
         vel: Vec2::ZERO,
         half_extent: Vec2::splat(PICKUP_HALF),
+        step: None,
     });
     // Player starts with no melee.
     assert!(app
@@ -386,6 +388,7 @@ fn gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt() {
         pos: Vec2::new(100.0, 100.0),
         vel: Vec2::ZERO,
         half_extent: Vec2::splat(PICKUP_HALF),
+        step: None,
     });
 
     // Attack picks up the gun-sword (commands flush after the tick, so the
@@ -424,6 +427,7 @@ fn pickup_consumes_the_attack_press() {
         pos: Vec2::new(100.0, 100.0),
         vel: Vec2::ZERO,
         half_extent: Vec2::splat(PICKUP_HALF),
+        step: None,
     });
     set_control(&mut app, player, true, false);
     app.update();
@@ -477,6 +481,7 @@ fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
         pos: Vec2::new(100.0, 100.0),
         vel: Vec2::ZERO,
         half_extent: Vec2::splat(PICKUP_HALF),
+        step: None,
     });
     // Drive an Attack on the body's own semantic control frame.
     app.world_mut()
@@ -631,6 +636,7 @@ fn thrown_item_arcs_and_settles_on_the_floor() {
             pos: Vec2::new(200.0, 200.0),
             vel: Vec2::new(120.0, -200.0), // forward + up
             half_extent: Vec2::splat(PICKUP_HALF),
+            step: None,
         })
         .id();
     for _ in 0..120 {
@@ -661,6 +667,7 @@ fn javelin_is_thrown_on_plain_attack_use() {
         pos: Vec2::new(100.0, 100.0),
         vel: Vec2::ZERO,
         half_extent: Vec2::splat(PICKUP_HALF),
+        step: None,
     });
 
     // First Attack picks up the javelin (commands flush after the tick, so
@@ -720,6 +727,7 @@ fn a_thrown_item_is_the_same_object_that_was_picked_up() {
                 pos: Vec2::new(100.0, 100.0),
                 vel: Vec2::ZERO,
                 half_extent: Vec2::splat(PICKUP_HALF),
+                step: None,
             },
             authored.clone(),
         ))
@@ -795,6 +803,7 @@ fn a_grab_press_while_holding_drops_the_item_where_the_body_stands() {
                 pos: STANDING,
                 vel: Vec2::ZERO,
                 half_extent: Vec2::splat(PICKUP_HALF),
+                step: None,
             })
             .id();
 
@@ -953,6 +962,7 @@ fn an_item_stowed_from_the_menu_returns_to_the_world_and_can_be_taken_again() {
                 pos: Vec2::new(100.0, 100.0),
                 vel: Vec2::ZERO,
                 half_extent: Vec2::splat(PICKUP_HALF),
+                step: None,
             },
             authored.clone(),
         ))
@@ -1030,6 +1040,7 @@ fn room_scoped_item(app: &mut App, pos: Vec2) -> Entity {
                 pos,
                 vel: Vec2::ZERO,
                 half_extent: Vec2::splat(18.0),
+                step: None,
             },
             ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity,
         ))
@@ -1223,6 +1234,7 @@ fn a_settled_item_wakes_when_its_support_goes_away() {
             pos: Vec2::new(200.0, 300.0),
             vel: Vec2::new(0.0, 0.0),
             half_extent: Vec2::splat(PICKUP_HALF),
+            step: None,
         })
         .id();
     for _ in 0..120 {
@@ -1306,6 +1318,7 @@ fn a_settled_item_rides_the_platform_it_landed_on() {
                 pos: Vec2::new(200.0, 300.0),
                 vel: Vec2::ZERO,
                 half_extent: Vec2::splat(PICKUP_HALF),
+                step: None,
             })
             .id();
         // Let it fall and settle first: an item still in flight is carried by
@@ -1382,6 +1395,7 @@ fn a_blocked_step_publishes_the_speed_it_was_stopped_at() {
             pos: Vec2::new(280.0, 100.0),
             vel: thrown,
             half_extent: Vec2::splat(PICKUP_HALF),
+            step: None,
         })
         .id();
 
@@ -1437,6 +1451,7 @@ fn a_brandished_move_weapon_does_not_orphan_the_item_in_custody() {
                 pos: Vec2::ZERO,
                 vel: Vec2::ZERO,
                 half_extent: Vec2::splat(18.0),
+                step: None,
             },
             ItemCustody::Held { holder: body },
         ))
@@ -1540,6 +1555,7 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
             pos: Vec2::new(200.0, 200.0),
             vel: Vec2::new(600.0, 0.0),
             half_extent: Vec2::splat(PICKUP_HALF),
+            step: None,
         })
         .id();
     // ⛔ CAUGHT ON THE TICK IT HAPPENS. The strike is republished every tick and
@@ -1580,6 +1596,7 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
             pos: Vec2::new(200.0, 200.0),
             vel: Vec2::new(600.0, 0.0),
             half_extent: Vec2::splat(PICKUP_HALF),
+            step: None,
         })
         .id();
     app.update();
@@ -1611,6 +1628,7 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
             pos: Vec2::new(200.0, 200.0),
             vel: Vec2::new(600.0, 0.0),
             half_extent: Vec2::splat(PICKUP_HALF),
+            step: None,
         })
         .id();
     app.update();
@@ -1641,6 +1659,7 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
             pos: Vec2::new(200.0, 200.0),
             vel: Vec2::new(6000.0, 0.0),
             half_extent: Vec2::splat(PICKUP_HALF),
+            step: None,
         })
         .id();
     app.update();
@@ -1703,6 +1722,7 @@ fn an_item_stopped_by_a_wall_does_not_strike_the_body_behind_it() {
                 pos: Vec2::new(200.0, 200.0),
                 vel: Vec2::new(6000.0, 0.0),
                 half_extent: Vec2::splat(PICKUP_HALF),
+                step: None,
             })
             .id();
         app.update();
@@ -1934,6 +1954,7 @@ fn each_item_put_down_is_placed_in_its_own_live_room() {
                     pos: Vec2::new(100.0, 100.0),
                     vel: Vec2::ZERO,
                     half_extent: Vec2::new(8.0, 8.0),
+                    step: None,
                 },
                 ItemCustody::InWorld,
                 RoomScopedEntity,
@@ -2006,6 +2027,7 @@ fn an_item_falls_onto_the_floor_of_its_own_live_room() {
                 pos: Vec2::new(200.0, 200.0),
                 vel: Vec2::ZERO,
                 half_extent: Vec2::splat(PICKUP_HALF),
+                step: None,
             },
             InRoomInstance(live[1]),
         ))
@@ -2040,6 +2062,7 @@ fn a_flying_item_strikes_only_a_body_of_its_own_live_room() {
                     pos: Vec2::new(200.0, 200.0),
                     vel: Vec2::new(600.0, 0.0),
                     half_extent: Vec2::splat(PICKUP_HALF),
+                    step: None,
                 },
                 InRoomInstance(live[1]),
             ))
@@ -2073,6 +2096,7 @@ fn a_settled_item_rides_the_platform_of_its_own_live_room() {
                 pos: Vec2::new(200.0, 380.0 - PICKUP_HALF),
                 vel: Vec2::ZERO,
                 half_extent: Vec2::splat(PICKUP_HALF),
+                step: None,
             },
             SettledItem { impact_speed: 0.0 },
             InRoomInstance(live[1]),
@@ -2128,6 +2152,7 @@ fn picks_up_at(offset: Vec2, down: Option<Vec2>) -> bool {
         pos: REACH_AT + offset,
         vel: Vec2::ZERO,
         half_extent: Vec2::splat(PICKUP_HALF),
+        step: None,
     });
     set_control(&mut app, player, true, false);
     app.update();
@@ -2201,6 +2226,7 @@ fn a_throw_goes_the_way_the_stick_points_and_a_flick_throws_harder() {
                 pos: Vec2::new(100.0, 100.0),
                 vel: Vec2::ZERO,
                 half_extent: Vec2::splat(PICKUP_HALF),
+                step: None,
             })
             .id();
         set_control(&mut app, player, true, false);

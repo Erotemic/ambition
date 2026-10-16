@@ -255,6 +255,39 @@ Reading (REASONED): with p50 frames of 24-46 ms on the phone, a frame runs
 on each tick (P5). A lower catch-up limit trades real time for frame time (the
 game slows down under load): D11.
 
+### F13 — Three quarters of a standalone frame's allocations are input lookups
+
+MEASURED (`perf_probe`, desktop debug, 578 frames, allocations per tracing
+span; scratchpad `probe/`). Allocations per frame, standalone Mary-O 1-1 /
+Sanic act 1:
+
+| span | Mary-O | Sanic |
+| --- | --- | --- |
+| `leafwing_input_manager::systems::update_action_state` | 19,222 | 19,222 |
+| multi-threaded executor | 2,293 | 2,116 |
+| `view_isolation::isolate_live_rooms` | 444 | 2,773 |
+| `bevy_render::render_asset::prepare_assets` | — | 1,064 |
+| `hand::reconcile_effective_repertoire` | 596 | — |
+| `starting_character::gate_body_control` | 295 | 123 |
+| `authorize_staged_character_presentation_sources` | 203 | 210 |
+| `dev::trace::actor_oob::record_actor_oob_frame_system` (a developer trace) | 196 | — |
+
+The input number is the same in both games: it does not depend on the scene.
+Cause (MEASURED, source read): `leafwing-input-manager` 0.21
+`CentralInputStore::pressed` and `button_value` (`src/user_input/updating.rs:111-140`)
+box a clone of the binding for each lookup, to use it as a hash key (the
+source says `// PERF: surely there's a way to avoid cloning here`).
+`InputMap::process_actions` asks both for every binding of every action of
+every seat, and the system runs twice a frame (frame and fixed loop: 1156
+calls in 578 frames).
+
+Reading (REASONED): the fix keeps behaviour exactly: look up without
+boxing (`hashbrown::Equivalent` on a borrowed `&dyn Buttonlike`), in a
+workspace fork with an upstream PR, as for `bevy_ggrs`. A second, independent
+lever: a seat with no device does not need its map evaluated. The probe counts
+allocations; their time on the phone is inside the 5.2% of `mimalloc` and the
+3.1% of `alloc`.
+
 ### Not a lever (keep out of this run)
 
 Session-scoped App globals (C03: 30 counted plus 19 uncounted instances) are

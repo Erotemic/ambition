@@ -208,8 +208,19 @@ Open:
    `the_pickup_art_restater_restates_the_packs_entries` (red with the
    previous ids not withdrawn) and `a_changed_world_art_manifest_is_resolved_again`
    (red with the art resolved only when the manifest is added).
-   Remainder: the cast and move tables (the cast is a registry of prepared
-   characters: I2/I3 scale), and publication into a live demo session. Each
+   Each demo's move tables and fighter facets (`moveset`, `smash_fighter`):
+   `PackCast::register` adds `EmbeddedPackReloadPlugin::cast_facets`, which
+   defines every character of the pack's catalog again through the
+   registration's own road (`cast_definitions`), stages each and activates
+   one cast revision (`activate_staged_revision`: a refused revision keeps
+   the last good cast). Witness
+   `an_edit_to_a_move_table_is_played_by_the_next_sessions_cast` (compared
+   with the saved file's move; red with no activation; with no restater it
+   is red too, but at the watch lookup, not at the publication assertion).
+   Remainder: the character catalog itself (a row added, changed or
+   dropped: the catalog registry and the retirement of a dropped row, as
+   Ambition's `candidate_character_catalog` does), and publication into a
+   live demo session. Each
    needs a restater (the cast is a registry of prepared characters, so its
    restater is I2/I3 scale) or its reader moved to read at use.
 

@@ -413,13 +413,14 @@ Open (MEASURED, `probe/basement_enemies_pressall`): after the fix, ~9.4k of
 the hub's 15.3k allocations a frame are on schedule spans, not on a system:
 `GgrsSchedule` 3,877, `Update` 3,067, `PostUpdate` 1,558, `PreUpdate` 857. In
 standalone Mary-O (parallel executor) the same work is on system spans.
-REASONED: not command application (Bevy gives it a per-system
-`system_commands` span). More likely an attribution gap of `capture_scene`: a
-system built before the log subscriber exists keeps a dead span (Bevy makes
-the span when the system is added), so its allocations fall to the schedule's
-span; `capture_scene` adds `LogPlugin` in its build hook, after Bevy's plugins
-and some of ours. Next probe step: install the subscriber before any plugin
-in `capture_scene`, as the demo hosts do.
+Two explanations are ruled out (MEASURED, source read): command
+application has its own `(commands)` rows (Bevy enters `system_commands` in
+`CommandQueue::apply`), and only Bevy's `DefaultPlugins` are built before
+`capture_scene` installs the subscriber, so no system of ours has a dead span.
+REASONED, left: observers and component hooks, which run with no system span
+(the hub spawns and inserts more than Mary-O), and the executor. Next probe
+step: a span in the probe's own observer path, or a Tracy look at
+`GgrsSchedule`.
 
 ### F14 — Room isolation re-derives every room mask every frame
 

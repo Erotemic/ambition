@@ -14,6 +14,7 @@
         "flying_spaghetti_monster_boss": "flying_spaghetti_monster_boss_spritesheet.png",
         "trex_boss": "trex_enemy_spritesheet.png",
         "hunny_horror_boss": "hunny_horror_boss_spritesheet.png",
+        "wolfenstein_boss": "wolfenstein_spritesheet.png",
     },
     special_animation_rows: {
         "overfit_volley": ["spike_halo", "eye_beam"],

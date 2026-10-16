@@ -57,6 +57,34 @@
             ],
         ),
     ],
+    // Castle Godwin of the Evil dimension (`tools/ambition_ldtk_tools/specs/castle_godwin/`):
+    // the muster of the great hall. `make_specs.py` prints these places.
+    "castle_godwin_muster": [
+        (
+            label: "wave 1 — the guard",
+            mobs: [
+                (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (900.0, 796.0), size: (32.0, 72.0), delay: 0.0),
+                (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (1200.0, 796.0), size: (32.0, 72.0), delay: 0.5),
+            ],
+        ),
+        (
+            label: "wave 2 — the galleries",
+            mobs: [
+                (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (600.0, 604.0), size: (32.0, 72.0), delay: 0.0),
+                (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (1320.0, 604.0), size: (32.0, 72.0), delay: 0.4),
+                (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (1500.0, 796.0), size: (32.0, 72.0), delay: 1.2),
+            ],
+        ),
+        (
+            label: "wave 3 — the muster",
+            mobs: [
+                (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (700.0, 796.0), size: (32.0, 72.0), delay: 0.0),
+                (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (960.0, 748.0), size: (32.0, 72.0), delay: 0.6),
+                (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (1300.0, 796.0), size: (32.0, 72.0), delay: 1.0),
+                (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (1320.0, 604.0), size: (32.0, 72.0), delay: 1.6),
+            ],
+        ),
+    ],
     // The Noodly Temple (`tools/ambition_ldtk_tools/specs/noodly_temple/`).
     // Each of its two fights shuts its room and opens a grille at its end
     // (`encounter.cleared`). Coordinates are in the room; the floor of each

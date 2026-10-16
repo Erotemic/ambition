@@ -1,0 +1,35 @@
+# Written by specs/castle_godwin/make_specs.py. Change the script, not this file.
+# The gate to the Evil dimension, on a shelf high in the central hub.
+level_id: central_hub_main
+entities:
+  - type: Solid
+    px: [1408, 400]
+    size: [384, 32]
+    fields: {name: evil_gate_shelf}
+  - type: Prop
+    px: [1440, 208]
+    size: [192, 192]
+    fields: {name: "Evil Gate Ring (Home)", kind: gate_ring}
+  - type: Prop
+    px: [1440, 208]
+    size: [192, 192]
+    fields: {name: "Evil Gate Portal (Home)", kind: gate_portal}
+  - type: LoadingZone
+    px: [1488, 208]
+    size: [96, 192]
+    fields:
+      id: evil_gate_home_zone
+      name: to the Evil dimension
+      activation: Door
+      target_room: evil_gate_forest
+      target_zone: evil_gate_return_zone
+      bidirectional: false
+  - type: Switch
+    px: [1680, 368]
+    size: [24, 32]
+    fields:
+      id: evil_gate_switch
+      name: evil_gate_switch
+      prompt: Power the gate
+      action: ResetEncounter
+      target_encounter: ""

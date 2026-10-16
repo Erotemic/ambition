@@ -30,4 +30,18 @@
         portal_sprite_name: "Math Gate Portal (Math)",
         ring_sprite_name: "Math Gate Ring (Math)",
     ),
+    // The Evil gate pair, one link with one switch, which stands by the hub
+    // gate. The gate on a shelf high in the central hub, to the forest of
+    // the Evil dimension:
+    "evil_gate_home_zone": (
+        switch_id: "evil_gate_switch",
+        portal_sprite_name: "Evil Gate Portal (Home)",
+        ring_sprite_name: "Evil Gate Ring (Home)",
+    ),
+    // The gate in the forest by Castle Godwin, back to the central hub.
+    "evil_gate_return_zone": (
+        switch_id: "evil_gate_switch",
+        portal_sprite_name: "Evil Gate Portal (Evil)",
+        ring_sprite_name: "Evil Gate Ring (Evil)",
+    ),
 }

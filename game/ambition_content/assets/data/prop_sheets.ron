@@ -56,6 +56,12 @@
     "math_cliff_home_narrow": (),
     "math_cypress": (),
     "math_olive": (),
+    // Castle Godwin of the Evil dimension (`targets/props/castle_godwin.py`):
+    // the front of the castle (the room's door is put over its doorway), the
+    // sign at the road, and the thorns at its foot. All are decoration.
+    "castle_godwin_entrance": (),
+    "castle_godwin_sign": (),
+    "evil_thorn_bush": (),
     // Primeval's palm.
     "coconut_palm": (),
     // The mockingbird's shark, which is also a moving platform.

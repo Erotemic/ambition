@@ -60,7 +60,7 @@ pub use behavior::{BossBehaviorProfileExt, BossProfileRegistry, LimbMotion, Limb
 // The boss data model — the authoritative components + the borrow views the per-tick systems
 // mutate/read.
 #[cfg(any(test, feature = "test-support"))]
-pub use catalog::test_boss_catalog;
+pub use catalog::{ambition_encounter_sources, test_boss_catalog};
 pub use catalog::{
     BossArtKeys, BossBirthKit, BossCatalog, BossCatalogAppExt, BossCatalogAssemblyError,
     BossCatalogFragment, BossCatalogRegistry,

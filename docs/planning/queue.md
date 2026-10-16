@@ -1029,8 +1029,13 @@ variants. Also found in that regen:
     render imported, not the whole core (68 files): ten sampled renders
     imported 15 to 69 of them, and 35 were imported by none. Each record
     gets its modules at its next render, so the first full publish after
-    the change renders every sheet once. The cost of a core edit after
-    that is not measured yet.
+    the change rendered every sheet once (44 min 20 s, 2026-10-16). Then,
+    of the 68 core files, 21 make no sheet stale, 15 make at most 10, 5 at
+    most 100, 14 more than 100 and 13 all 294 (`core/draw.py`,
+    `registry/discovery.py`, `authoring/actor_contract.py` and the package
+    markers among them); the mean is 107 sheets, was 294. Measured: a
+    comment added to `authoring/faction_lineup.py` re-rendered 4 sheets, a
+    publish of 3 min 37 s (was a full publish).
     The tiers pack only the runtime groups since 2026-10-15 (the full tier
     1.1 s, was 126 s; the same bytes), so a frame size change outside them
     re-packs nothing (the tier runs, finds no runtime sheet changed, and
@@ -1214,6 +1219,13 @@ second authoring source.
   scan is deleted (the same 287 ids on the shipped files; poison: no titles
   lowered, red at `hub_guide` in `central_hub_main`). The Yarn compiler
   still compiles the files when the game loads them.
+- ✅ 2026-10-15, the boss encounter files in tests. Four test fixtures kept
+  their own `include_str!` list of Ambition's encounter files. A new boss
+  (`wolfenstein_boss`) was in `pack.ron` and in none of them, so the boss
+  fixture refused its profile (`MissingEncounter`) and 112 monolith tests
+  failed. `ambition_boss_encounter::ambition_encounter_sources` (test
+  support) reads the files that `pack.ron` states, and the four lists are
+  deleted (poison: one manifest row left out, the same `MissingEncounter`).
 - LDtk/world cross-reference rules in `content_validation.rs` repeat rules that
   a world owner already checks. ✅ 2026-10-03, the LoadingZone target rule:
   `validate_ldtk_room_links` refused every zone without both targets, which <!-- cite-ok: the function's name on 2026-10-03; it is `validate_room_links` now -->
@@ -1519,6 +1531,21 @@ facets) is not yet measured.
 **Acceptance:** the owner document can name one authoritative authored value for
 each migrated fact, and production consumers cannot bypass its preparation or
 projection boundary.
+
+### WOLFENSTEIN-FAIRNESS — the Evil dimension's boss breaks a §3 rule
+
+**Owner:** the boss author ([`boss-design.md`](engine/boss-design.md) §3).
+
+**Finding (2026-10-15, `content_it` `boss_fight_validator`):** Wolfenstein's
+`side_sweep` gives an Enrage punish window of 0 ticks against a floor of 12,
+and `floor_slam`, `full_body_pulse` and `side_sweep` author no telegraph.
+The roster pin moved from 3/5 to 4/6 to record it. Fix: give `side_sweep` a
+recovery the player can punish in Enrage, then lower the pin.
+
+**Also open in `app_it`:** `a_dog_sent_for_an_item_in_another_live_room_goes_through_the_door`
+fails at its control: a roaming dog with no errand came within 192 px of the
+door, and the control wants more than 200 (roam or hub-layout drift; owner
+not found).
 
 ### BAKED-SHEET-IDENTITY — a body's collision box is outside the content identity
 

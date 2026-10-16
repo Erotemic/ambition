@@ -20,7 +20,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 /// The eight boss sheets Ambition ships, and the file each one draws from.
-const EXPECTED_SHEETS: [(&str, &str); 8] = [
+const EXPECTED_SHEETS: [(&str, &str); 9] = [
     (
         "flying_spaghetti_monster_boss",
         "flying_spaghetti_monster_boss_spritesheet.png",
@@ -40,6 +40,8 @@ const EXPECTED_SHEETS: [(&str, &str); 8] = [
         "smirking_behemoth_boss_spritesheet.png",
     ),
     ("trex_boss", "trex_enemy_spritesheet.png"),
+    // Wolfenstein wears his character's sheet.
+    ("wolfenstein_boss", "wolfenstein_spritesheet.png"),
 ];
 
 /// The nineteen content specials that telegraph, and the sprite rows each one
@@ -189,7 +191,7 @@ fn each_attack_plays_exactly_this_row_and_samples_exactly_this_row() {
 }
 
 #[test]
-fn the_boss_sheet_filenames_are_exactly_these_eight() {
+fn the_boss_sheet_filenames_are_exactly_these() {
     let catalog = ambition_content::bosses::shipped_boss_catalog();
     let got: BTreeMap<&str, &str> = catalog.sprite_filenames().collect();
     let want: BTreeMap<&str, &str> = EXPECTED_SHEETS.iter().copied().collect();

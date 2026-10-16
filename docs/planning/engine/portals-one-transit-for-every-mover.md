@@ -178,6 +178,30 @@ A source review of S1-S4 found these. Each has a test in `ambition_portal2d`
   tick's pose: on F it lagged the plank by 0.54 px and 0.4° (`a_moving_portal_is_carved_where_it_is`).
   The lab after it (`low`): every pair crossed, gauge dip 0.88-0.995, shot 0.92-0.985.
 
+## The snag, and a cone that eases out behind you (2026-10-16)
+
+Jon: a body completes a crossing only if all of it passes through the opening; where part
+would go through and part around, it snags on the ends, like a rope.
+
+- **The rule** (`snag.rs`): a body that straddles a portal cuts the portal's plane along one
+  segment, and that segment must be in the opening. Past an end the plane is the host, from
+  either side, before the body's centre crosses and after (the exit's plane is the same seam).
+  A body that came at the plane from one side goes back to it along the normal; one that slid
+  along the plane goes back to the end. It is a no-worse rule: a box that already cut the plane
+  past an end (its feet standing into a slope beside the opening) is held where it was, not
+  pushed, so the kernel's feet rule on slopes does not jitter.
+- **Where:** `PortalSet::Frame`, after eviction and before transit, for kernel bodies
+  (`snag_straddlers`) and free bodies (`snag_free_straddlers`). A body is read whether or not it
+  straddles yet: one step can take it across the plane.
+- **Measured on E:** the robot sunk in the slope's opening and walking right is held at the end
+  (x stays at 2974.9 while it holds right), and goes through only when it fits. Walking up the
+  slope past the end is unchanged. The lab is unchanged on every pair.
+- **Later:** the rule is for a box. A physics body answers the same question with its own
+  contact against the plane beyond the ends.
+- **Cones:** a viewer turned away from a portal keeps its window within `turned_away_reach`
+  (40 px, body edge to the opening), fading with the distance, so where a body came out eases
+  out as it walks away.
+
 ## Open
 
 - **The robot's launch on the wall and slope pairs.** Hands-off, the kernel's air stop

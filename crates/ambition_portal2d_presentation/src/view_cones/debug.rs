@@ -250,6 +250,7 @@ fn portal_view_cone_debug_dump_text(
         "  half_plane_preview_blend_distance: {:.3}",
         config.half_plane_preview_blend_distance
     );
+    let _ = writeln!(out, "  turned_away_reach: {:.3}", config.turned_away_reach);
     let _ = writeln!(
         out,
         "  half_plane_preview_max_lateral: {:.3}",

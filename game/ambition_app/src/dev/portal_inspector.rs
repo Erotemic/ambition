@@ -437,6 +437,14 @@ mod enabled {
                             );
                             f32_row(
                                 ui,
+                                "turned_away_reach",
+                                &mut config.turned_away_reach,
+                                1.0,
+                                "world px",
+                                "Body-edge distance within which a viewer turned away from a portal keeps its window, fading out with the distance. 0.0 closes it at once.",
+                            );
+                            f32_row(
+                                ui,
                                 "half_plane_preview_max_lateral",
                                 &mut config.half_plane_preview_max_lateral,
                                 1.0,

@@ -568,6 +568,12 @@ pub struct PortalViewConeConfig {
     /// over which the view window opens from nothing to raw LOS geometry and
     /// eases toward the half-plane preview.
     pub half_plane_preview_blend_distance: f32,
+    /// How close (body edge to the opening, world px) a viewer turned away
+    /// from a portal still has its window. Inside it the window fades with
+    /// the distance, so a body that comes out of a portal and walks away
+    /// from it sees where it was ease out rather than vanish. `0.0` closes a
+    /// turned-away window at once.
+    pub turned_away_reach: f32,
     /// Maximum lateral reach of the half-plane preview behind the portal face
     /// (world px). `0.0` asks the renderer for a full-view half-plane that is
     /// clipped by the active camera frame.
@@ -647,6 +653,7 @@ impl Default for PortalViewConeConfig {
             half_plane_preview_full_distance: 1.0,
             half_plane_preview_blend_distance: 120.0,
             half_plane_preview_max_lateral: 0.0,
+            turned_away_reach: 40.0,
             z_proximity_span: 0.35,
             blend_rate: 10.0,
             min_depth: 22.0,

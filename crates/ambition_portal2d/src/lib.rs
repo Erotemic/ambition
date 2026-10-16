@@ -99,6 +99,8 @@ mod rollback_registration;
 mod turned_body_tests;
 #[cfg(test)]
 mod body_contract_tests;
+mod snag;
+pub use snag::{snag_free_straddlers, snag_push, snag_straddlers};
 pub use rollback_registration::{
     register_portal_gun_rollback_state, register_portal_rollback_state, register_rollback_state,
 };

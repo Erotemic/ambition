@@ -851,9 +851,21 @@ pub(crate) fn compute_cone(
     // aperture ahead, above or below has a window, and one wholly behind the
     // observer's back has none. Turning round eases the windows behind shut
     // and the ones ahead open.
-    if behind_the_viewer(v, &enter) {
-        return closed(min);
-    }
+    //
+    // Except very close on its front side (Jon 2026-10-16): a body that has
+    // just come out of a portal faces away from it, and where it was must
+    // ease out as it walks away, not vanish. Within `turned_away_reach` the
+    // window stays, fading with the distance.
+    let turned_away = if behind_the_viewer(v, &enter) {
+        let reach = config.turned_away_reach;
+        let gap = body_edge_distance_to_aperture(v, &enter);
+        if reach <= 0.0 || gap >= reach {
+            return closed(min);
+        }
+        smooth01(1.0 - gap.max(0.0) / reach)
+    } else {
+        1.0
+    };
     let corners = inset_viewer_corners(v.eye, v.half_size);
     let mut eyes: Vec<Vec2> = Vec::with_capacity(corners.len() * 3);
     let mut coverage: f32 = 0.0;
@@ -956,7 +968,7 @@ pub(crate) fn compute_cone(
     };
     let edge_distance = body_edge_distance_to_aperture(v, faced);
     let proximity_alpha = preview_proximity_alpha(edge_distance, config);
-    let target = los_target * proximity_alpha;
+    let target = los_target * proximity_alpha * turned_away;
     if target <= 0.0 {
         return closed(min);
     }

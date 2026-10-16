@@ -207,6 +207,13 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::Frame)
                 .before(ambition_portal2d::PortalHistoryAdvance),
         );
+        // It goes through an opening whole, as a kernel body does.
+        app.add_systems(
+            sim,
+            ambition_portal2d::snag_free_straddlers::<ambition_held_items::GroundItem>
+                .in_set(PortalSet::Frame)
+                .after(ambition_portal2d::PortalHistoryAdvance),
+        );
         app.add_systems(
             sim,
             portal_transit_free_bodies::<ambition_held_items::GroundItem>

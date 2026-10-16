@@ -201,6 +201,14 @@ impl Plugin for PortalSimulationPlugin {
                 .in_set(crate::PortalHistoryAdvance)
                 .in_set(PortalSet::Frame),
         );
+        // A body that straddles an opening with part of it past an end is
+        // held by the host there: it goes through whole or not at all.
+        app.add_systems(
+            sim,
+            crate::snag_straddlers
+                .after(crate::PortalHistoryAdvance)
+                .in_set(PortalSet::Frame),
+        );
         app.add_systems(
             sim,
             (

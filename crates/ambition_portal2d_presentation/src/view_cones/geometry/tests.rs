@@ -1197,6 +1197,17 @@ fn apertures_do_not_open_to_observers_that_turn_away() {
     assert_eq!(away.target, 0.0, "turned away: no window");
     assert!(!away.cut && !away.immediate, "it eases shut");
 
+    // Very close on its front side, turned away (a body that just came out
+    // of it): the window stays, and fades as the body walks away.
+    let away_at = |gap: f32| {
+        let eye = Vec2::new(500.0 - 12.0 - gap, 400.0);
+        compute_cone(&wall, &partner, &config, Some(&facing(-Vec2::X, eye)), world, MapConvention::Reflection).target
+    };
+    let (touching, near, at_reach) = (away_at(1.0), away_at(config.turned_away_reach * 0.5), away_at(config.turned_away_reach));
+    assert!(touching > 0.0, "just out of the portal, turned away: the window is still there");
+    assert!(touching > near && near > 0.0, "it fades with the distance: {touching} > {near} > 0");
+    assert_eq!(at_reach, 0.0, "past the reach it is shut");
+
     let floor = placed(PortalGunColor::BLUE.channel(), Vec2::new(500.0, 400.0), Vec2::new(0.0, -1.0));
     let floor_partner = placed(PortalGunColor::ORANGE.channel(), Vec2::new(900.0, 400.0), Vec2::new(0.0, -1.0));
     let above = Vec2::new(510.0, 340.0);

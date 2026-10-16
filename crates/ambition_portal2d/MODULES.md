@@ -7,7 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`color`](src/color.rs) | Portal pair-linking identity. |
-| [`eviction`](src/eviction.rs) | Straddle eviction: the only pushout the portal mechanic performs. |
+| [`eviction`](src/eviction.rs) | Straddle eviction: a pushout for a plane that moved or closed under a body. |
 | [`extension`](src/extension.rs) | The portal domain's extension request adapters: a module's HELD pair of portals ([`HeldPortalPairPort`]), and its lines of light that are no portal ([`LightLinePort`]). |
 | [`gun`](src/gun.rs) | Compatibility state for Ambition's held portal gun. |
 | [`gun_construction`](src/gun_construction.rs) | Transactional construction owned by the optional portal-gun capability. |
@@ -23,12 +23,13 @@
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_portal2d`. |
 | [`rooms`](src/rooms.rs) | Which live room a portal is in, and the portals of each live room (OW1). |
 | [`schedule`](src/schedule.rs) | The portal-owned [`PortalSet`] schedule labels (carves, input warp, weapon, transit, room-reset ordering). |
+| [`snag`](src/snag.rs) | The snag: a body passes through an opening only as a whole. |
 | [`transit`](src/transit.rs) | Portal-specific transit systems: drive every body and in-flight item through a placed portal pair via the shared [`super::placement::transit_step`] aperture machine, plus the carve / input / ability-suppression guards that make a crossing feel right. |
 | [`tuning`](src/tuning.rs) | Runtime-tunable portal feel and convention policy. |
 | [`types`](src/types.rs) | Shared portal types, geometry constants, and small helpers used across the portal submodules (placement, transit, presentation, …). |
 | [`view`](src/view.rs) | Pure through-portal view geometry. |
 
-_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

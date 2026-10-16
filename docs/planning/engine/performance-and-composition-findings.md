@@ -945,3 +945,11 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
   projected only on a change; Mary-O and Sanic hosts without named boss
   encounters (F1: −13 and −11 systems a frame). Before/after table in the
   summary. Remaining large items need a yes (D12) or are P1's C1.
+- 11:37Z Leafwing's clash pass skipped in-repo (F13; Mary-O −82%, Sanic −85%,
+  hub −68% of allocations a frame); F7 filters; `--inclusive` and `--under`
+  in the phone symbolizer; F24 (collision world copies). End-of-run check,
+  `cargo test -p ambition_app --test app_it`: 1,250 pass, 5 fail, none from
+  this run: the system-count ceiling (3,505 against 3,500; the leafwing
+  replacement removes two systems and adds two), `EmbeddedPackWatches` not in
+  the rollback ledger (two tests; the content live-reload work), and the FX
+  sheet on disk without a `hit_soft` row (two tests).

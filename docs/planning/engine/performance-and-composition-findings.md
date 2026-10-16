@@ -169,7 +169,11 @@ second time (`boss_encounter/src/lib.rs:132`), and the run condition at
 `actor_monolith/src/features/mod.rs:1094-1102` tests a resource that is now
 always there. The extension phases `technique_execution` and `boss_conduct`
 (about 29 systems) and `wielded_use`/`module_entity_tick` (about 20) are core,
-whatever the profile. Mary-O's and Sanic's own movesets author
+whatever the profile. Since 2026-10-16 the Mary-O and Sanic hosts build the
+engine without `Capability::BossEncounters` (their integration tests pass:
+95 and 42). MEASURED: systems run a frame Mary-O 1,079 → 1,066, Sanic 1,086
+→ 1,075; the rest of the boss systems are in the core extension phases (C1).
+Mary-O's and Sanic's own movesets author
 `smash.capture_attempt/pummel/throw`, so Grabs cannot leave a standalone game
 until its fighter kit does (D4).
 

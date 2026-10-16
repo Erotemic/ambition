@@ -33,7 +33,7 @@ pub fn build_demo_app() -> App {
 pub fn build_demo_app_with_home(home_route: &str) -> App {
     let mut app = App::new();
     ambition_platformer2d::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(engine_plugins());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     // TODO(sanic-demo-trail-toggle): `PlatformerHostPlugins` currently carries
     // the sandbox's B-key trail debug affordance. Move that behind an explicit
@@ -126,7 +126,7 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
     // to `bin/capture_sanic.rs`, the consumer that calls `run()`.
     ambition_platformer2d::app::install_windowed_foundation(&mut app, "Sanic", render.into());
     ambition_platformer2d::engine::init_engine_states(&mut app);
-    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(engine_plugins());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     // TODO(sanic-demo-trail-toggle): `PlatformerHostPlugins` currently carries
     // the sandbox's B-key trail debug affordance. Move that behind an explicit
@@ -400,4 +400,13 @@ mod tests {
             );
         }
     }
+}
+
+/// The engine this game runs on: everything but named boss encounters, which
+/// it does not author (the omission of the witnessed
+/// `encounters-without-named-bosses` profile). Both host builders in this file
+/// use it.
+fn engine_plugins() -> ambition_platformer2d::engine::PlatformerEnginePlugins {
+    ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick()
+        .without(ambition_platformer2d::runtime::profile::Capability::BossEncounters)
 }

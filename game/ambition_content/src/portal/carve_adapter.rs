@@ -8,8 +8,8 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_core::cast::SolidWorldQuery;
-use ambition_platformer2d_core::RoomGeometry;
-use ambition_portal2d::{measure_host_depth, PlacedPortal, PortalCarves, PortalHostDepthsByRoom};
+use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRooms};
+use ambition_portal2d::{host_material_depth, PlacedPortal, PortalCarves, PortalHost, PortalHostDepthsByRoom};
 
 /// Copy this frame's portal-owned carves into the host collision overlay.
 ///
@@ -51,10 +51,15 @@ pub fn bridge_portal_carves(
 /// publish it into the portal-owned [`PortalHostDepthsByRoom`] seam. Portal core
 /// bounds the transit rescue and the carve engagement by these depths — the
 /// geometric guard that stops a THIN wall's aperture volume from reaching the
-/// open room behind it (walk-through / wrong-side entry). The base
-/// [`RoomGeometry`] is the honest source: portal carves must not open
-/// sight/entry through their own hole, and moving-platform overlays are not
-/// portal hosts.
+/// open room behind it (walk-through / wrong-side entry). The surfaces a
+/// portal may ride are the honest source: authored geometry and moving
+/// platforms, uncarved (a carve must not open entry through its own hole).
+/// A portal on a moving block is measured through that block where it is.
+///
+/// A portal on a line (a plank, a slope) with no solid behind it has nothing
+/// behind it: depth zero, so the rescue never takes a body that is under a
+/// plank and moving away from the portal on top of it. A portal placed in
+/// the open keeps the probe depth.
 ///
 /// ⭐ EACH PORTAL IS MEASURED IN ITS OWN LIVE ROOM (OW1 cut 7l). This read the
 /// sole live room, so while two rooms were live it did not run, and the
@@ -62,7 +67,8 @@ pub fn bridge_portal_carves(
 /// portal's room, so two rooms that each hold a portal of one channel keep
 /// two depths. A portal in no live room gets no depth.
 pub fn sync_portal_host_depths(
-    world: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<RoomGeometry>,
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
+    live: LiveRooms,
     portals: Query<(Entity, &PlacedPortal)>,
     mut depths: ResMut<PortalHostDepthsByRoom>,
 ) {
@@ -71,24 +77,28 @@ pub fn sync_portal_host_depths(
     let mut solids_by_room: Vec<(ambition_portal2d::PortalRoom, Vec<ambition_platformer2d_core::Aabb>)> =
         Vec::new();
     for (entity, portal) in &portals {
-        let Some(geometry) = world.of(entity) else {
-            continue;
-        };
-        let room = world.room_of(entity);
+        let room = live.of(entity);
         let index = match solids_by_room.iter().position(|(seen, _)| *seen == room) {
             Some(index) => index,
             None => {
+                let Some(surfaces) = collision
+                    .room(room.map(InRoomInstance).as_ref())
+                    .and_then(|room| room.hostable_surfaces())
+                else {
+                    continue;
+                };
                 let mut solids = Vec::new();
-                geometry.0.for_each_solid_aabb(false, &mut |aabb| solids.push(aabb));
+                surfaces.for_each_solid_aabb(true, &mut |aabb| solids.push(aabb));
                 solids_by_room.push((room, solids));
                 solids_by_room.len() - 1
             }
         };
-        let depth = measure_host_depth(
-            &solids_by_room[index].1,
-            &portal.frame(),
-            ambition_portal2d::pieces::CARVE_DEPTH,
-        );
+        let probe = ambition_portal2d::pieces::CARVE_DEPTH;
+        let found = host_material_depth(&solids_by_room[index].1, &portal.frame(), probe);
+        let depth = match portal.host {
+            PortalHost::Line { .. } => found.unwrap_or(0.0),
+            _ => found.unwrap_or(probe),
+        };
         depths.push(room, portal.channel, depth);
     }
 }

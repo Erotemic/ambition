@@ -95,13 +95,29 @@ fn a_shot_does_not_reach_a_body_in_another_live_room() {
     assert_eq!(health, max, "a shot hit a body in another live room");
 }
 
-/// The x of a shot stamped `room` after one tick. It flies +x into the blue
-/// of a portal pair in live room #1, with live room #0 beside it.
+/// The portal transit every body crosses by, after the stepper, as the
+/// schedule runs them: the stepper records the shot's leg and the transit
+/// takes the shot through a plane its centre crossed.
+#[cfg(feature = "portal")]
+fn with_the_portal_transit(app: &mut App) {
+    app.init_resource::<ambition_portal2d::PortalTuning>();
+    app.add_message::<ambition_portal2d::PortalBodyEntered>();
+    app.add_message::<ambition_portal2d::PortalBodyTransited>();
+    app.add_systems(
+        Update,
+        ambition_portal2d::portal_transit.after(crate::projectile::step_projectiles),
+    );
+}
+
+/// The x of a shot stamped `room` after two ticks. It flies +x into the blue
+/// of a portal pair in live room #1, with live room #0 beside it, and
+/// crosses the blue's plane on the second.
 #[cfg(feature = "portal")]
 fn a_shot_at_a_portal_of_live_room_one(room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance) -> f32 {
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
     use ambition_portal2d::{PlacedPortal, PortalChannel, PortalGunColor};
     let mut app = open_lane_app();
+    with_the_portal_transit(&mut app);
     let second = LiveRoomInstance::ACTIVATION.next();
     let empty = ae::World::new("second", ae::Vec2::new(2000.0, 2000.0), ae::Vec2::new(200.0, 200.0), vec![]);
     app.world_mut().spawn((
@@ -123,9 +139,60 @@ fn a_shot_at_a_portal_of_live_room_one(room: ambition_platformer2d_shared_tangle
     }
     let shot = spawn_owned_shot(&mut app, shooter, ae::Vec2::new(590.0, 200.0));
     app.world_mut().entity_mut(shot).insert(InRoomInstance(room));
+    for _ in 0..2 {
+        advance_time(&mut app, 0.016);
+        app.update();
+    }
+    app.world().get::<ae::BodyKinematics>(shot).expect("the shot is alive").pos.x
+}
+
+/// A body 16 px behind a wall portal's plane (the far side of a thin host),
+/// and a shot that crosses the plane in one leg. Answer whether the body is
+/// hit. With `portals` false the same leg is a control in the open.
+#[cfg(feature = "portal")]
+fn a_body_behind_a_portal_is_hit(portals: bool) -> bool {
+    use ambition_combat::events::{HitEvent, HitTarget};
+    use ambition_portal2d::{PlacedPortal, PortalChannel, PortalGunColor};
+
+    #[derive(bevy::prelude::Resource, Default)]
+    struct Struck(Vec<HitTarget>);
+    fn record(mut reader: bevy::prelude::MessageReader<HitEvent>, mut seen: bevy::prelude::ResMut<Struck>) {
+        seen.0.extend(reader.read().map(|event| event.target));
+    }
+
+    let mut app = open_lane_app();
+    with_the_portal_transit(&mut app);
+    app.init_resource::<Struck>();
+    app.add_systems(Update, record.after(crate::projectile::step_projectiles));
+    let shooter = crate::projectile::tests::primary_player_entity(&mut app);
+    // Its left edge is at 616.
+    let target = spawn_boss(&mut app, "behind", ae::Vec2::new(630.0, 200.0), ae::Vec2::new(14.0, 23.0));
+    if portals {
+        for (channel, pos, normal) in [
+            (PortalChannel::Gun(PortalGunColor::BLUE), ae::Vec2::new(600.0, 200.0), ae::Vec2::new(-1.0, 0.0)),
+            (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0)),
+        ] {
+            app.world_mut().spawn(PlacedPortal::fixed(channel, pos, normal, 40.0));
+        }
+    }
+    // One leg of 24 px, 590 to 614: its centre crosses the plane at 600, and
+    // its 12 px half reaches 626 at the end, past the body's edge.
+    let shot = spawn_owned_shot(&mut app, shooter, ae::Vec2::new(590.0, 200.0));
+    app.world_mut().get_mut::<ae::BodyKinematics>(shot).unwrap().vel = ae::Vec2::new(1500.0, 0.0);
     advance_time(&mut app, 0.016);
     app.update();
-    app.world().get::<ae::BodyKinematics>(shot).expect("the shot is alive").pos.x
+    app.world().resource::<Struck>().0.contains(&HitTarget::Feature(target))
+}
+
+/// A shot that enters a portal is the pair's from the plane on: the rest of
+/// its leg is not in the room it left, so a body behind the portal there is
+/// not reached. Before, the stepper resolved the whole leg in that room and
+/// the transit took the shot a tick later.
+#[cfg(feature = "portal")]
+#[test]
+fn a_shot_that_enters_a_portal_does_not_reach_a_body_behind_it() {
+    assert!(a_body_behind_a_portal_is_hit(false), "control: the leg in the open reaches the body");
+    assert!(!a_body_behind_a_portal_is_hit(true), "the shot reached a body behind the portal it entered");
 }
 
 /// OW1: a shot threads only the portals of its own live room. The pair is in

@@ -153,11 +153,34 @@ Shot (the gauge's look, 300 px/s) and robot, `low` (least / most):
 plane). "(plate)": the plank moves, so the clean plate does not hold and the numbers are
 not of the robot.
 
+## Review fixes (2026-10-16)
+
+A source review of S1-S4 found these. Each has a test in `ambition_portal2d`
+(`body_contract_tests.rs`), the projectile tests or the content portal tests.
+
+- **A shot's leg ends at a portal.** The stepper resolved walls and bodies along the whole
+  leg in the room the shot was leaving, and the transit took it a tick later. Contacts now
+  stop where its centre enters a paired opening (`first_portal_crossing`).
+- **A held item is not a free body.** `FreePortalBody::Presence` says whether the body is in
+  the world. A held item opens, crosses and straddles nothing, and its straddle ends.
+- **A crossing that skipped `Begin` straddles the exit**, so it is drawn cut as every
+  crossing is.
+- **A straddle ends when the last pair closes.** The transit returned early with no portal
+  placed, so `PortalTransit` stayed and kept withholding wall verbs.
+- **A free body has a sweep** (`FreePortalBody::last_step`; a ground item records the step
+  it moved), **and a closing plane pushes it clear** (`evict_free_straddlers_on_portal_change`).
+- **Closing planes are taken in a fixed order** (room, then channel), not hash-map order.
+- **Host depth is the host's.** Measured through moving blocks where they are; a portal on a
+  bare line (a plank) has depth 0, so the rescue does not take a body under the plank.
+
 ## Open
 
-- **The robot's launch on the wall and slope pairs.** The aim assumes plain ballistic flight
-  at the kernel's gravity, and the robot's air movement is not that. The lab should aim
-  from a measured flight, or carry the robot by its own movement.
+- **One host pose for the carve and the transit.** The carve publishes before the platforms
+  move, and the hosted frames refresh after the bodies integrate, so a moving plank's hole
+  lags its portal by a tick.
+- **The robot's launch on the wall and slope pairs.** Hands-off, the kernel's air stop
+  assist (3750 px/s²) stops a 150 px/s launch in about 3 px. The lab should hold the move
+  toward the portal, or aim from a measured flight.
 - **A measure of the robot on a moving pair.** It needs a plate that moves with the plank,
   or a robot drawn in colours of its own.
 - **The wall pairs (B, the door) lose up to 12% of the gauge.** It is less than before, and

@@ -1842,3 +1842,53 @@ fn each_carve_goes_to_the_live_room_it_was_cut_in() {
     assert_eq!(carves_by_room(&[Some(0), Some(1), Some(1)]), [1, 2], "each room keeps its own carves");
     assert_eq!(carves_by_room(&[None]), [0, 0], "a carve in no live room is not written");
 }
+
+/// The host a portal at `at` (facing up) attaches to on `platform`, and the
+/// depth the adapter measures behind it.
+fn host_and_depth(
+    platform: ambition_platformer2d_world::platforms::MovingPlatformState,
+    at: Vec2,
+) -> (PortalHost, f32) {
+    use crate::portal::carve_adapter::sync_portal_host_depths;
+    use crate::portal::host_adapter::{attach_portal_hosts, refresh_hosted_portal_frames};
+    use ambition_platformer2d_world::collision::MovingPlatformSet;
+
+    let mut app = App::new();
+    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        RoomGeometry(ae::World::new("hosts", Vec2::new(2000.0, 1000.0), Vec2::ZERO, vec![])),
+    );
+    ambition_platformer2d::session::insert_live_room_component(app.world_mut(), MovingPlatformSet(vec![platform]));
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
+    app.init_resource::<PortalHostDepthsByRoom>();
+    app.add_systems(
+        Update,
+        (attach_portal_hosts, refresh_hosted_portal_frames, sync_portal_host_depths).chain(),
+    );
+    let portal = app.world_mut().spawn(PlacedPortal::fixed(PURPLE, at, Vec2::new(0.0, -1.0), 30.0)).id();
+    app.update();
+    let host = app.world().get::<PlacedPortal>(portal).expect("the portal stays on its host").host.clone();
+    let depth = app.world().resource::<PortalHostDepthsByRoom>().0.iter().map(|(_, d)| d.depth(PURPLE)).find(|d| d.is_finite());
+    (host, depth.expect("the portal is measured"))
+}
+
+/// The rescue reaches as deep as the host is: a portal on a moving block is
+/// measured through that block where it is, and a portal on a plank (a line
+/// with open air under it) has nothing behind it. Before, both read the
+/// authored room only, found nothing, and took the 60 px probe, so a body
+/// under the plank moving away from its portal was taken through it.
+#[test]
+fn a_portal_is_as_deep_as_the_host_it_rides() {
+    use ambition_platformer2d_world::platforms::{MovingPlatformState, Plank};
+    // A block 20 tall with its top at y = 490; the portal 2 px proud of it.
+    let block = MovingPlatformState::from_authored(Vec2::new(400.0, 500.0), Vec2::new(120.0, 20.0), 0.0, 0.0);
+    let (host, depth) = host_and_depth(block, Vec2::new(400.0, 488.0));
+    assert!(matches!(host, PortalHost::Face { .. }), "{host:?}");
+    assert!((depth - 22.0).abs() < 1.0, "through the block from 2 px proud: {depth}");
+
+    let mut plank = MovingPlatformState::from_authored(Vec2::new(400.0, 500.0), Vec2::new(200.0, 8.0), 0.0, 0.0);
+    plank.plank = Some(Plank::default());
+    let (host, depth) = host_and_depth(plank, Vec2::new(440.0, 500.0));
+    assert!(matches!(host, PortalHost::Line { .. }), "{host:?}");
+    assert_eq!(depth, 0.0, "nothing is behind a plank");
+}

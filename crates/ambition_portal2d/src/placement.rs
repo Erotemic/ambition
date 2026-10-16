@@ -177,9 +177,13 @@ fn ray_interval(origin: Vec2, dir: Vec2, aabb: ae::Aabb) -> Option<(f32, f32)> {
 /// the carve, and the view-window depth use it, so a thin wall's aperture
 /// volume ends where the wall ends.
 pub fn measure_host_depth(occluders: &[ae::Aabb], frame: &PortalFrame, probe_depth: f32) -> f32 {
-    if occluders.is_empty() {
-        return probe_depth;
-    }
+    host_material_depth(occluders, frame, probe_depth).unwrap_or(probe_depth)
+}
+
+/// [`measure_host_depth`], `None` when no solid starts at the face: what is
+/// behind the face is not known from these occluders (a portal on a line, or
+/// one placed in the open).
+pub fn host_material_depth(occluders: &[ae::Aabb], frame: &PortalFrame, probe_depth: f32) -> Option<f32> {
     let dir = -frame.normal;
     let mut intervals: Vec<(f32, f32)> = occluders
         .iter()
@@ -202,11 +206,7 @@ pub fn measure_host_depth(occluders: &[ae::Aabb], frame: &PortalFrame, probe_dep
             break;
         }
     }
-    if found {
-        depth.min(probe_depth)
-    } else {
-        probe_depth
-    }
+    found.then(|| depth.min(probe_depth))
 }
 
 /// The capture region for a portal: the thin face grown by
@@ -389,6 +389,37 @@ pub fn transit_step(
     )
 }
 
+/// Where along `from -> to` a centre crosses `enter`'s plane front to behind
+/// through its opening, as a fraction of the segment: the crossing every
+/// swept transfer is made of.
+fn plane_crossing(from: Vec2, to: Vec2, enter: &PlacedPortal) -> Option<f32> {
+    if (to - from).length_squared() <= 1e-6 {
+        return None;
+    }
+    let ap = enter.aperture();
+    let f0 = pp::front_distance(from, &ap.frame);
+    let f1 = pp::front_distance(to, &ap.frame);
+    if f0 <= 0.0 || f1 > 0.0 {
+        return None;
+    }
+    let t = f0 / (f0 - f1);
+    let at = from + (to - from) * t;
+    let offset = (at - ap.frame.origin).dot(ap.frame.tangent()).abs();
+    (offset <= ap.half_length + TRANSIT_BEGIN_MARGIN).then_some(t)
+}
+
+/// The first point of `from -> to` where a body's centre enters a paired
+/// portal it fits: the fraction of the segment still in the room it left.
+/// Past it the body is the pair's to carry, so whatever it would touch on
+/// the far side of the plane, in the room it left, it does not touch.
+pub fn first_portal_crossing(from: Vec2, to: Vec2, size: Vec2, portals: &[PlacedPortal]) -> Option<f32> {
+    portals
+        .iter()
+        .filter(|enter| find_portal(portals, enter.channel.partner()).is_some() && portal_fits(size, enter))
+        .filter_map(|enter| plane_crossing(from, to, enter))
+        .min_by(f32::total_cmp)
+}
+
 /// The swept (CCD) crossing scan used by two arms of
 /// [`transit_step_with_tuning`]. If the prev→now segment crossed a paired
 /// portal's plane front→behind through its opening, build its Transfer.
@@ -425,23 +456,7 @@ fn swept_crossing_step(
         // aperture over a still body gives a nonzero segment and transits it
         // (the "scoop").
         let rel_prev = enter.frame().from_local(enter.prev_frame().to_local(prev.pos));
-        let rel_seg = center - rel_prev;
-        if rel_seg.length_squared() <= 1e-6 {
-            continue;
-        }
-        let ap = enter.aperture();
-        let f0 = pp::front_distance(rel_prev, &ap.frame);
-        let f1 = pp::front_distance(center, &ap.frame);
-        // Crossed the plane INTO the wall this step.
-        if f0 <= 0.0 || f1 > 0.0 {
-            continue;
-        }
-        // Where along the (relative) segment the plane was crossed, and
-        // whether that point is within the opening.
-        let t = f0 / (f0 - f1);
-        let at = rel_prev + rel_seg * t;
-        let offset = (at - ap.frame.origin).dot(ap.frame.tangent()).abs();
-        if offset <= ap.half_length + TRANSIT_BEGIN_MARGIN {
+        if plane_crossing(rel_prev, center, enter).is_some() {
             // Carry the velocity that caused the crossing: the live `vel` if
             // it still points into the portal, else the previous sample (the
             // integrator may have stopped the body at the carve bottom).

@@ -330,6 +330,10 @@ pub struct GroundItem {
     pub pos: Vec2,
     pub vel: Vec2,
     pub half_extent: Vec2,
+    /// The last step `ground_item_physics` moved it, `(from, to)`: the
+    /// segment a portal sweeps (`FreePortalBody::last_step`). `None` once it
+    /// rests or is held.
+    step: Option<(Vec2, Vec2)>,
 }
 
 /// A thrown item is a free body that travels through portal pairs, moved
@@ -348,6 +352,13 @@ impl ambition_portal2d::FreePortalBody for GroundItem {
     fn emerge(&mut self, pos: Vec2, vel: Vec2) {
         self.pos = pos;
         self.vel = vel;
+    }
+    fn last_step(&self) -> Option<(Vec2, Vec2)> {
+        self.step
+    }
+    type Presence = ItemCustody;
+    fn present(custody: Option<&ItemCustody>) -> bool {
+        custody.is_none_or(ItemCustody::in_world)
     }
 }
 
@@ -368,6 +379,7 @@ impl GroundItem {
             pos,
             vel: Vec2::ZERO,
             half_extent,
+            step: None,
         }
     }
 
@@ -382,6 +394,7 @@ impl GroundItem {
             pos,
             vel,
             half_extent,
+            step: None,
         }
     }
 }
@@ -610,6 +623,9 @@ pub fn ground_item_physics(
         // ZERO`, because "resting" and "in a hand" are different states that
         // happen to share a velocity, and only one of them may be stepped.
         if !custody.in_world() {
+            if item.step.is_some() {
+                item.step = None;
+            }
             continue;
         }
         let room = live.of(entity);
@@ -719,10 +735,12 @@ pub fn ground_item_physics(
             // `SettledItem::impact_speed`.
             let impact_speed = item.vel.length();
             item.vel = Vec2::ZERO;
+            item.step = None;
             commands
                 .entity(entity)
                 .try_insert(SettledItem { impact_speed });
         } else {
+            item.step = Some((item.pos, next));
             item.pos = next;
         }
     }

@@ -764,6 +764,9 @@ pub fn step_projectiles(
     // Each live room's projectile world, composed once per tick the first
     // time a shot in it asks.
     let mut composed: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Option<std::borrow::Cow<'_, ae::World>>)> = Vec::new();
+    // The pairs a shot's leg can enter, by live room.
+    #[cfg(feature = "portal")]
+    let portals_by_room = carved.portals_by_room();
     let tick = trace.current_tick();
 
     // Collect + sort by the GLOBAL spawn sequence (a single deterministic order
@@ -924,6 +927,21 @@ pub fn step_projectiles(
         // descending onto that support face?" is a fact about the leg the shot
         // just travelled, so the filter cannot be built before the leg exists.
         // Nothing between the old site and this one used it.
+        // ⭐ THE LEG ENDS AT A PORTAL. Where the shot's centre enters a paired
+        // opening, the pair takes it (`portal_transit`, next tick's step), so
+        // the rest of the leg is not in this room: a wall or a body behind the
+        // portal, in the room the shot is leaving, is not reached. Every
+        // contact below is measured along `contact_end`, not the endpoint.
+        #[cfg(feature = "portal")]
+        let contact_end = ambition_portal2d::first_portal_crossing(
+            leg_start,
+            kin.pos,
+            kin.size,
+            portals_by_room.in_room(shot_room),
+        )
+        .map_or(kin.pos, |t| leg_start + (kin.pos - leg_start) * t);
+        #[cfg(not(feature = "portal"))]
+        let contact_end = kin.pos;
         let shot_bounces = game.bounces_remaining;
         let shot_velocity = kin.vel;
         // The shot's box where the leg BEGAN — the directional one-way rule asks
@@ -951,7 +969,7 @@ pub fn step_projectiles(
         // The shot's obstruction policy decides whether one-way
         // surfaces count. Carry the selected collider through contact
         // ordering, pull-back, and resolution instead of reselecting it.
-        let travel_leg = kin.pos - leg_start;
+        let travel_leg = contact_end - leg_start;
         let blocked_at: Option<ae::cast::WorldSweepHit<'_>> = if travel_leg == ae::Vec2::ZERO {
             None
         } else {
@@ -1064,7 +1082,7 @@ pub fn step_projectiles(
             // disagree with "whom it reached first"; a big body slightly further
             // out is touched before a small one dead ahead.
             let shot_half = kin.size * 0.5;
-            let leg = kin.pos - leg_start;
+            let leg = contact_end - leg_start;
             // ⛔⛔ **THE FEATURE CANDIDATE IS RESOLVED HERE, BESIDE THE BODIES,
             // BECAUSE THEY ARE COMPETING FOR THE SAME CONTACT.** It used to be
             // computed after this whole block had `continue`d away on a body

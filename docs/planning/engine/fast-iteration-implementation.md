@@ -564,6 +564,18 @@ before you add a port.
     read one global `PrimaryPlayer` and no room; since 2026-10-12 it reads
     each player of the badnik's live room
     (`badnik::tests::each_player_of_the_badniks_room_squashes_it_and_no_other`).
+    Blocked 2026-10-16 by data: the badnik's bounce speed and the stomp band
+    are now pack data (`badnik.bounce_speed` and `stomp.band` in
+    `sanic_rules.ron`, read by the badnik and the monitors through
+    `rules::feet_on_top`). A module's `schemas` are its own state; no port
+    gives a module its pack's rules. So a port today would move these two
+    facts from the pack into module constants, which the content-as-data
+    rule forbids. The badnik stays native until a module can read its
+    provider's rules through a port. The snake shells read Mary-O's
+    `stomp` rule through the modules crate, but their own timers and
+    speeds are Rust in `snake.rs`, and they need module-owned per-body
+    state (box timer, slide speed, kick grace) and wall contact, which no
+    port gives either.
   - Measured 2026-10-11 (the case before C1-C2): the demo behaviour still in Rust
     is contact rules and techniques, not brains. Mary-O's plant, snake
     shells and AI Slop, and Sanic's badnik, decide what a touch does (a

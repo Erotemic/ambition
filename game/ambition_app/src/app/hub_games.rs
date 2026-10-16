@@ -34,3 +34,21 @@ pub fn selection() -> Option<&'static [String]> {
         })
         .as_deref()
 }
+
+/// The env var that names the route the hub boots into in place of the
+/// launcher, for example `mary_o_gameplay`. Unset means the launcher.
+///
+/// It is a measurement and test input: a profile of the hub with one game
+/// live starts in that game, so the recording window cannot miss it. The
+/// hub still installs every game it is given. As for [`HUB_GAMES_ENV`], an
+/// APK reads the value at build time.
+pub const BOOT_ROUTE_ENV: &str = "AMBITION_BOOT_ROUTE";
+
+/// The route [`BOOT_ROUTE_ENV`] names, if any.
+pub fn boot_route() -> Option<String> {
+    std::env::var(BOOT_ROUTE_ENV)
+        .ok()
+        .or_else(|| option_env!("AMBITION_BOOT_ROUTE").map(str::to_owned))
+        .map(|route| route.trim().to_owned())
+        .filter(|route| !route.is_empty())
+}

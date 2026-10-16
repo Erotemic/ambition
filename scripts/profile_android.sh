@@ -490,6 +490,9 @@ write_metadata() {
         # The games the APK installs: `AMBITION_HUB_GAMES` is read when the app is
         # compiled, so it describes the build only when this run built it.
         echo "hub_games=${AMBITION_HUB_GAMES:-all}"
+        # `AMBITION_BOOT_ROUTE=mary_o_gameplay` boots the hub into that game, so
+        # the recording window is in the game. Also read at compile time.
+        echo "boot_route=${AMBITION_BOOT_ROUTE:-launcher}"
         echo "git_status_porcelain_begin"
         (cd "$repo_root" && git status --short 2>/dev/null || true)
         echo "git_status_porcelain_end"

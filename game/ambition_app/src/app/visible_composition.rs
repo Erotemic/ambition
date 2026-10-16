@@ -163,7 +163,13 @@ pub fn compose_ambition_visible_game(
     // host whose initial route is the gameplay route*, the recipe
     // `ambition_demo_sanic_app` already proves.
     if spec.shell_hosted {
-        super::shell_host::compose_ambition_shell_host(app);
+        match super::hub_games::boot_route() {
+            Some(route) => {
+                eprintln!("[census] config boot_route={route}");
+                super::shell_host::compose_ambition_shell_host_booting_to(app, &route);
+            }
+            None => super::shell_host::compose_ambition_shell_host(app),
+        }
     } else {
         super::shell_host::compose_ambition_shell_host_booting_to(
             app,

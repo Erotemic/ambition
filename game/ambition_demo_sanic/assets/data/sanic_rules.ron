@@ -81,4 +81,11 @@
         // for both: a jump that breaks a monitor also squashes a badnik.
         band: 16.0,
     ),
+    super_form: (
+        // The beat he holds when he becomes super: shorter and lighter than
+        // Mary-O's, so it does not stop a run. Wall-clock seconds, and the
+        // clock scale it asks for while it runs.
+        beat_seconds: 0.35,
+        beat_clock_scale: 0.5,
+    ),
 )

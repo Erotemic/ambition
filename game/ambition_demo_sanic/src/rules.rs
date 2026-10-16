@@ -22,6 +22,7 @@ pub struct SanicRules {
     pub act: Act,
     pub badnik: Badnik,
     pub stomp: Stomp,
+    pub super_form: SuperForm,
 }
 
 /// What a ring monitor holds.
@@ -75,6 +76,16 @@ pub struct Badnik {
     pub bounce_speed: f32,
 }
 
+/// The beat Sanic holds when he becomes super.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SuperForm {
+    /// How long the beat holds (wall-clock seconds).
+    pub beat_seconds: f32,
+    /// The clock scale the beat asks for while it runs. 1.0 asks for none.
+    pub beat_clock_scale: f32,
+}
+
 /// What counts as landing on a badnik's head or a monitor's lid.
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -112,6 +123,7 @@ impl SanicRules {
             ("act.title_seconds", act.title_seconds),
             ("badnik.bounce_speed", self.badnik.bounce_speed),
             ("stomp.band", self.stomp.band),
+            ("super_form.beat_seconds", self.super_form.beat_seconds),
         ] {
             amount(field, value);
         }
@@ -123,6 +135,10 @@ impl SanicRules {
             if value < 0 {
                 problems.push(format!("`{field}` is {value}; it is not negative"));
             }
+        }
+        let scale = self.super_form.beat_clock_scale;
+        if !(scale.is_finite() && scale > 0.0 && scale <= 1.0) {
+            problems.push(format!("`super_form.beat_clock_scale` is {scale}; a beat slows the clock or leaves it, so it is more than 0 and at most 1"));
         }
         if loss.ring_size <= 0.0 {
             problems.push(format!("`ring_loss.ring_size` is {}; a ring has a size", loss.ring_size));

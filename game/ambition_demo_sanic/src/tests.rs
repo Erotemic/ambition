@@ -2673,3 +2673,14 @@ fn every_schema_of_the_pack_reloads_between_sessions() {
         .unwatched(&crate::pack::PACK);
     assert!(unwatched.is_empty(), "these schemas cost a restart: {unwatched:?}");
 }
+
+/// The beat Sanic holds when he becomes super is `super_form` in his rules
+/// file: its length and its slow-down.
+#[test]
+fn the_super_form_beat_is_the_rules_file() {
+    let form = crate::rules::sanic_rules().super_form;
+    let beat = crate::super_form_beat();
+    assert_eq!(beat.duration, form.beat_seconds, "the beat is not the rules' `super_form.beat_seconds`");
+    assert_eq!(beat.clock_scale, form.beat_clock_scale, "the beat is not the rules' `super_form.beat_clock_scale`");
+    assert!(beat.untouchable, "he can be hit while he transforms");
+}

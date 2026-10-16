@@ -914,15 +914,18 @@ const SUPER_SPARKLE_RADIUS: f32 = 15.0;
 /// hover around the body rather than pooling at the feet.
 const SUPER_SPARKLE_RISE: f32 = 8.0;
 
-/// Sanic's transformation beat: shorter and lighter than Mary-O's so it does
-/// not interrupt the speed-focused demo.
-const SUPER_FORM_BEAT: ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy =
+/// Sanic's transformation beat: its length and its slow-down are `super_form`
+/// in the pack's `sanic_rules.ron`. He holds his taunt and cannot be touched
+/// while it runs.
+fn super_form_beat() -> ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy {
+    let form = crate::rules::sanic_rules().super_form;
     ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy {
-        duration: 0.35,
+        duration: form.beat_seconds,
         anim: ambition_platformer2d::sprite_sheet::character::CharacterAnim::Taunt,
-        clock_scale: 0.5,
+        clock_scale: form.beat_clock_scale,
         untouchable: true,
-    };
+    }
+}
 
 /// Present the super form from the worn identity each simulation frame.
 ///
@@ -994,7 +997,7 @@ fn sync_super_form_traits(
             if let Some(body) = body {
                 commands.entity(body).try_insert(
                     ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested(
-                        SUPER_FORM_BEAT,
+                        super_form_beat(),
                     ),
                 );
             }

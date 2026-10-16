@@ -82,6 +82,15 @@ pub(crate) fn prepare_first_room_art_system(
         .collect();
     jobs.by_load.retain(|load_id, _| live.contains(load_id));
     jobs.answered.retain(|load_id| live.contains(load_id));
+    // Nothing to prepare: return before the `&mut` borrows below. Each one marks
+    // its resource changed, and a changed `GameAssets` makes the parallax
+    // refresh despawn and respawn every layer on the next frame.
+    if sessions
+        .published()
+        .all(|(transaction, _)| jobs.answered.contains(&transaction.barrier.load_id))
+    {
+        return;
+    }
 
     let (
         Some(assets),

@@ -236,26 +236,15 @@ pub struct LadderRigArgs {
     /// "this rung is weaker" from "this rung is patient".
     #[arg(long, value_name = "SECONDS")]
     pub seconds: Option<usize>,
-    /// Load an authored difficulty ladder from a `.ron` file and install it, so
-    /// the rig measures that ladder instead of the engine floor.
-    ///
-    /// Use this to measure the shipped fighter.
-    ///
-    /// Without it, the rig measures the engine floor: the demo app installs no
-    /// fighter ladder, so `profile_for_level` falls back to
-    /// `FighterBrainProfile::for_level`. The floor gives every rung the level-9
-    /// weights (`UtilityWeights::default()` is `v1()`) and turns rollout on at
-    /// level 6; the authored ladder disables rollout on all rows.
+    /// Load a difficulty ladder from a `.ron` file and play it in place of the
+    /// rows of Smash's pack (`data/fighter_brain_ladder.ron`, the file the
+    /// shipped game names too).
     ///
     /// `project_authored_fighter_ladder` rewrites live profiles that differ
     /// from their rung on every tick. So the tuning flags (`--weight`, `--apm`,
     /// `--noise`, `--reaction-ms`) are written into the rows this flag reads,
     /// not into live brains. See `ProfileOverride`.
     ///
-    /// Point it at `game/ambition_content/assets/data/fighter_brain_ladder.ron`
-    /// to measure what a player fights. Reading a file is a measurement-tool
-    /// choice. Whether the demo app composes `ambition_content` is a product
-    /// decision (`awaiting-maintainer-decision.md`).
     #[arg(long, value_name = "PATH")]
     pub ladder: Option<String>,
     /// Print one line per bout beneath each row, not just the medians.
@@ -355,9 +344,8 @@ pub fn run(cli: LadderRigArgs) {
 /// rewrites any `cfg.profile` that differs from its rung. So an override
 /// written onto a live brain is reverted within one tick on the ladder road.
 ///
-/// With a ladder installed, the override goes into the rows before the
-/// resource is inserted, so the projection carries it. With no ladder, the
-/// floor owns the profile and the override goes onto the live brains.
+/// So the override goes into the rows before they are declared, and the
+/// projection carries it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct ProfileOverride<'a> {
     weights: Option<ambition_platformer2d::characters::brain::fighter::UtilityWeights>,
@@ -437,19 +425,24 @@ impl<'a> ProfileOverride<'a> {
     }
 }
 
-fn authored_ladder() -> Option<ambition_platformer2d::characters::brain::fighter::FighterBrainLadder> {
+/// The rows this run plays: `--ladder FILE`, or Smash's pack's rows.
+fn ladder_in_play() -> ambition_platformer2d::characters::brain::fighter::FighterBrainLadder {
     use ambition_platformer2d::characters::brain::fighter::FighterBrainLadder;
-    let path = args().ladder.as_deref()?;
-    let text = std::fs::read_to_string(path).unwrap_or_else(|err| {
-        eprintln!("[ladder_rig] --ladder {path}: {err}");
-        std::process::exit(2);
-    });
-    let mut ladder = FighterBrainLadder::from_ron(&text).unwrap_or_else(|err| {
-        eprintln!("[ladder_rig] --ladder {path} did not parse: {err}");
-        std::process::exit(2);
-    });
-    // Put the override into the rows, not onto live brains: with this resource
-    // installed, the projection owns `cfg.profile`. See `ProfileOverride`.
+    let mut ladder = match args().ladder.as_deref() {
+        None => ambition_demo_smash::smash_pack::fighter_ladder(),
+        Some(path) => {
+            let text = std::fs::read_to_string(path).unwrap_or_else(|err| {
+                eprintln!("[ladder_rig] --ladder {path}: {err}");
+                std::process::exit(2);
+            });
+            FighterBrainLadder::from_ron(&text).unwrap_or_else(|err| {
+                eprintln!("[ladder_rig] --ladder {path} did not parse: {err}");
+                std::process::exit(2);
+            })
+        }
+    };
+    // Put the override into the rows, not onto live brains: the projection
+    // owns `cfg.profile`. See `ProfileOverride`.
     if let Some(over) = ProfileOverride::from_args() {
         for rung in ladder.rungs_mut() {
             over.apply(rung);
@@ -467,7 +460,7 @@ fn authored_ladder() -> Option<ambition_platformer2d::characters::brain::fighter
             );
         }
     }
-    Some(ladder)
+    ladder
 }
 
 /// A short, stable digest of the ladder file's bytes, so two runs can be shown
@@ -494,10 +487,7 @@ fn ladder_digest() -> Option<String> {
 /// Prints all rungs, not only the pair under test, so the log also serves a
 /// later arm.
 fn ladder_rungs_summary() -> Vec<String> {
-    let Some(ladder) = authored_ladder() else {
-        return Vec::new();
-    };
-    ladder
+    ladder_in_play()
         .rungs()
         .iter()
         .map(|rung| {
@@ -708,47 +698,29 @@ fn report_what_this_run_could_report() {
 fn report_which_ladder_is_in_play() {
     report_which_clock_is_in_play();
     report_which_fighters_are_in_play();
-    let mut app = build_demo_app();
-    if let Some(ladder) = authored_ladder() {
-        super::declare_smash_ladder(&mut app, ladder);
-    }
-    app.update();
-    let authored = super::smash_ladder_is_declared(&app);
-    if authored {
-        // Print the path, a digest of the parsed text, and every rung, so two
-        // arms that differ only by file have different logs. The digest covers the
-        // bytes, because paths get reused and edited in place.
-        let rungs = ladder_rungs_summary();
-        // Say whether the rows below are still the file's. The override goes
-        // into the rows (`ProfileOverride`), so the printed rungs can differ from
-        // the bytes the digest covers.
-        println!(
-            "[ladder_rig] ladder: the rows from `{}` (digest {}) — \
-             it is declared for the Smash rooms.{}",
-            args().ladder.as_deref().unwrap_or("<none>"),
-            ladder_digest().unwrap_or_else(|| "n/a".to_string()),
-            match ProfileOverride::from_args() {
-                None => " Authored, unmodified.".to_string(),
-                Some(over) => format!(
-                    " ⚠ MODIFIED BY THIS RUN before installing: {over:?}. The digest is the \
-                     FILE's and does NOT cover these changes — two runs agreeing on it did \
-                     not necessarily measure the same rungs. The rungs below are what ran."
-                ),
-            },
-        );
-        for line in rungs {
-            println!("[ladder_rig]   {line}");
-        }
-    } else {
-        println!(
-            "[ladder_rig] ⛔ ladder: the ENGINE FLOOR — no fighter ladder governs the Smash rooms, so \
-             every rung carries the floor's `UtilityWeights::default()` (== v1, the level-9 row) \
-             and differs in reaction/APM/noise. ⛔⛔ AND THE FLOOR SWITCHES THE L3 ROLLOUT ON \
-             AT RUNGS 6-9 (`rollout_depth: 12`), WHICH THE SHIPPED LADDER SETS TO 0 ON ALL NINE — \
-             so the top rungs here run a search no player ever meets, and the habit read and the \
-             Dodge/Shield suppression become live with it. This is NOT the ladder the shipped game \
-             gives its fighters."
-        );
+    // Print the source, a digest of the file, and every rung, so two arms that
+    // differ only by file have different logs. The digest covers the bytes,
+    // because paths get reused and edited in place.
+    let rungs = ladder_rungs_summary();
+    // Say whether the rows below are still the file's. The override goes into
+    // the rows (`ProfileOverride`), so the printed rungs can differ from the
+    // bytes the digest covers.
+    println!(
+        "[ladder_rig] ladder: the rows from `{}` (digest {}) — \
+         they govern the Smash rooms.{}",
+        args().ladder.as_deref().unwrap_or("Smash's pack (`data/fighter_brain_ladder.ron`)"),
+        ladder_digest().unwrap_or_else(|| "n/a".to_string()),
+        match ProfileOverride::from_args() {
+            None => " Authored, unmodified.".to_string(),
+            Some(over) => format!(
+                " ⚠ MODIFIED BY THIS RUN before installing: {over:?}. The digest is the \
+                 FILE's and does NOT cover these changes — two runs agreeing on it did \
+                 not necessarily measure the same rungs. The rungs below are what ran."
+            ),
+        },
+    );
+    for line in rungs {
+        println!("[ladder_rig]   {line}");
     }
 }
 
@@ -838,29 +810,6 @@ fn noise_stream(seed: u64, seat: usize, swap_streams: bool) -> u64 {
     // seat on, hence the `+ 1`.
     let stream_of = seat ^ usize::from(swap_streams);
     seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ (stream_of as u64 + 1)
-}
-
-/// Apply this run's [`ProfileOverride`] to every live fighter — the floor road.
-///
-/// One function for every flag, because it is one decision: this run
-/// measures a modified profile.
-///
-/// It writes the live cfg, not the published policy. That is intended for
-/// a sweep. It is correct only where the floor owns the profile. With an
-/// declared ladder, the override belongs in the rows (see
-/// `ProfileOverride`).
-fn force_profile(app: &mut bevy::app::App, over: ProfileOverride) -> bool {
-    use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
-    let world = app.world_mut();
-    let mut q = world.query::<&mut Brain>();
-    let mut found = false;
-    for mut brain in q.iter_mut(world) {
-        if let Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) = &mut *brain {
-            over.apply(&mut cfg.profile);
-            found = true;
-        }
-    }
-    found
 }
 
 /// Run rung pairs through scenarios reproducible by body placement alone.
@@ -1769,9 +1718,7 @@ fn run_bout_at(
     // Insert before the warm-up updates: `project_authored_fighter_ladder`
     // applies rows to brains with `Added<Brain>`, so a later ladder never
     // reaches them.
-    if let Some(ladder) = authored_ladder() {
-        super::declare_smash_ladder(&mut app, ladder);
-    }
+    super::declare_smash_ladder(&mut app, ladder_in_play());
     // Insert before the route: the preparation source reads this resource once,
     // when the match is requested.
     app.world_mut()
@@ -1812,21 +1759,11 @@ fn run_bout_at(
     // Apply the seed to the live `FighterState` after seating, when the brain and
     // its noise stream exist.
     let mut seeded = false;
-    let overrides = ProfileOverride::from_args();
-    // Who owns `cfg.profile` for this run: the installed ladder, or the floor.
-    let ladder_owns_profile = args().ladder.is_some();
     let mut placed = start.is_none();
     for tick in 0..ticks() {
         app.update();
         if !seeded {
             seeded = force_noise_seed(&mut app, seed, mirror == Mirror::Noise);
-            if seeded {
-                // Floor road only: with a ladder installed, the rows already carry the
-                // override (see `ProfileOverride`). Only when the caller asked.
-                if let Some(over) = overrides.filter(|_| !ladder_owns_profile) {
-                    force_profile(&mut app, over);
-                }
-            }
         }
         if !placed {
             if let Some(scenario) = start.as_ref() {
@@ -2365,7 +2302,7 @@ mod tests {
         use ambition_platformer2d::characters::brain::fighter::{
             FighterBrainProfile, UtilityWeights,
         };
-        let authored = FighterBrainProfile::for_level(6);
+        let authored = FighterBrainProfile::engine_default(6);
         let authored_kill = authored.utility_weights.kill_potential;
         // Non-vacuity: doubling zero is zero.
         assert_ne!(

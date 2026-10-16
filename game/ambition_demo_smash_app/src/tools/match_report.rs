@@ -118,12 +118,8 @@ pub struct MatchReportArgs {
     /// How many runs to average over. Zero is treated as one, as it always was.
     #[arg(long, default_value_t = 1)]
     pub runs: usize,
-    /// Load an authored difficulty ladder from a `.ron` and install it.
-    ///
-    /// Without it, this reports the engine floor, not the shipped game:
-    /// `build_demo_app` declares no fighter ladder, so every seat
-    /// carries `UtilityWeights::default()` (the level-9 row) at level-5
-    /// reaction, APM, and noise.
+    /// Load a difficulty ladder from a `.ron` and play it in place of the
+    /// rows of Smash's pack (`data/fighter_brain_ladder.ron`).
     #[arg(long, value_name = "PATH")]
     pub ladder: Option<String>,
 }
@@ -156,11 +152,9 @@ pub fn run(args: MatchReportArgs) {
     println!(
         "match_report: ladder: {}",
         if authored_ladder.is_some() {
-            "the AUTHORED rows"
+            "the rows of the --ladder file"
         } else {
-            "⛔ the ENGINE FLOOR — no --ladder given, so every seat carries \
-             UtilityWeights::default() (== the level-9 row) at level-5 reaction/APM. \
-             NOT the shipped fighter."
+            "the rows of Smash's pack (`data/fighter_brain_ladder.ron`)"
         }
     );
     let all: Vec<Vec<Tally>> = (0..runs)

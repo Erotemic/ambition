@@ -117,19 +117,13 @@ fn the_whole_ladder_degrades_gracefully_without_l3() {
 
 /// A game that shipped rows gets ITS rows, not the engine's floor.
 ///
-///  this is the rule that was written down and not enforced.
-/// `FighterBrainProfile::for_level`'s own doc says a game shipping nine rows
-/// means the floor "is never consulted" — and both production call sites
-/// consulted it anyway, because a doc comment on the losing source cannot
-/// arbitrate. Ambition ships `fighter_brain_ladder.ron` and had never read a row
-/// of it.
+/// The rule was once a doc comment on the losing source, and both production
+/// call sites consulted the floor anyway: Ambition shipped
+/// `fighter_brain_ladder.ron` and had never read a row of it.
 ///
-///  the numbers here are the ones that were actually wrong in the game, not
-/// invented ones: `for_level` gives EVERY rung `UtilityWeights::default()`, and
-/// `default()` is `v1()` — which is the authored level 9 verbatim. So a level-1
-/// CPU priced a smash exactly as a level-9 did, and the ladder's whole second
-/// axis (*"not noticing which move hits harder IS a difficulty statement"*) did
-/// not exist in the shipped game.
+/// The numbers are the ones that were wrong in the game: the floor gives
+/// `UtilityWeights::default()`, which is `v1()`, the authored level 9 verbatim.
+/// So a level-1 CPU priced a smash exactly as a level-9 did.
 #[test]
 fn a_shipped_ladder_beats_the_engine_floor() {
     use super::profile_for_level;
@@ -140,7 +134,7 @@ fn a_shipped_ladder_beats_the_engine_floor() {
     let floor = profile_for_level(1, None);
     assert_eq!(
         floor,
-        FighterBrainProfile::for_level(1),
+        FighterBrainProfile::engine_default(1),
         "with no ladder the engine floor is what a level means"
     );
 
@@ -168,66 +162,33 @@ fn a_shipped_ladder_beats_the_engine_floor() {
     // `problems()` is where a malformed ladder is reported, at load, all at once.
     assert_eq!(
         profile_for_level(200, Some(&ladder)),
-        FighterBrainProfile::for_level(200),
+        FighterBrainProfile::engine_default(200),
         "an unauthored level falls back to the floor"
     );
 }
 
-/// ⭐⭐ THE FORK, PINNED: the two authorities disagree, and nothing at the call
-/// site says which one answered.
+/// The engine's default is one profile at every level, and the game's ladder
+/// answers wherever it is declared.
 ///
-/// ⛔ `profile_for_level` is `ladder.level(n)` else `FighterBrainProfile::for_level(n)`
-/// — **two answers to "what does rung N mean", both shipping.** A composition that
-/// declares a ladder for a room gets the game's rows there; one that does not
-/// gets the floor, silently, with a profile that looks exactly as authoritative.
-///
-/// ⇒ **Four separate defects on 2026-09-04 were symptoms of this one fork**
-/// (`docs/planning/engine/fighter-brain.md`): a rig measured the floor's weights
-/// while its header claimed the authored ladder; `UtilityWeights::default()` turned
-/// out to BE the level-9 row so every rung scored identically; the floor arms the
-/// L3 rollout at level 6 while the shipped rows disable it everywhere; and the
-/// rollout's `Dodge`/`Shield` suppression was characterised at length before
-/// anyone noticed no player could reach it.
-///
-/// ⚠ **This test does not argue the floor should go.** It exists so the DISAGREEMENT
-/// is a fact in the test suite rather than a discovery each time: the floor is a
-/// real requirement (a demo with no authored content still runs), and its cost is
-/// that a caller cannot tell which authority answered.
+/// The default was a level curve (`for_level`), and four defects on 2026-09-04
+/// came from a curve that disagreed with the shipped rows while carrying no
+/// provenance: it armed the L3 rollout at level 6, where no shipped rung does
+/// (`docs/planning/engine/fighter-brain.md` F1). A level-free default has no
+/// curve to disagree with, and like every shipped rung it runs no rollout.
 #[test]
-fn the_floor_and_an_authored_ladder_disagree_and_the_caller_cannot_tell() {
-    // ⭐ The module's own fixture ladder, which mirrors the shipped one on the
-    // field that caused the most trouble: `rollout_depth: 0` on every rung.
-    // Using it rather than a hand-built row keeps this test honest if the
-    // fixture is ever retuned.
+fn the_engine_default_is_one_profile_at_every_level() {
+    let one = FighterBrainProfile { level: 1, ..profile_for_level(1, None) };
+    for level in 1..=9u8 {
+        let default = profile_for_level(level, None);
+        assert_eq!(default.level, level, "the level is kept as a label, so a later ladder finds the rung");
+        assert_eq!(FighterBrainProfile { level: 1, ..default }, one, "level {level} has its own knobs");
+        assert!(!default.uses_rollouts(), "the default runs the L3 rollout at level {level}");
+    }
     let ladder = ladder();
-    let floor = profile_for_level(6, None);
-    let shipped = profile_for_level(6, Some(&ladder));
-
-    // ⛔ The floor arms the L3 rollout at level 6. The authored row does not.
-    assert!(
-        floor.uses_rollouts(),
-        "the floor stopped arming the rollout at level 6 — if that is deliberate, \
-         this test and the four findings it records need re-deriving, because \
-         they all turn on the floor and the shipped rows disagreeing HERE"
-    );
-    assert!(
-        !shipped.uses_rollouts(),
-        "the authored row's zeroed rollout fields did not survive the lookup"
-    );
-    assert_ne!(
-        floor, shipped,
-        "the two authorities agreed, which would make this fork harmless — and \
-         if they now agree by construction, the four findings this test records \
-         are no longer reachable and it should be deleted rather than kept"
-    );
-
-    // ⭐ THE POINT: both are `FighterBrainProfile` and carry no provenance. A
-    // caller holding one cannot ask which authority produced it, which is why
-    // every one of those four findings needed an instrument change to see.
     assert_eq!(
-        floor.level, shipped.level,
-        "both answers claim the same rung — that is the whole hazard, and if the \
-         level ever disagreed a caller would at least have a signal"
+        profile_for_level(6, Some(&ladder)),
+        *ladder.level(6).expect("the fixture has nine rungs"),
+        "a declared ladder answers for its rung"
     );
 }
 
@@ -241,7 +202,7 @@ fn every_rung_builds_its_habit_model_with_the_one_decay() {
     use crate::brain::fighter::{FighterCfg, FighterState};
 
     let authored = FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses");
-    let mut rungs: Vec<FighterBrainProfile> = (1..=9u8).map(FighterBrainProfile::for_level).collect();
+    let mut rungs: Vec<FighterBrainProfile> = (1..=9u8).map(FighterBrainProfile::engine_default).collect();
     rungs.extend(authored.rungs().iter().cloned());
     for profile in rungs {
         let level = profile.level;

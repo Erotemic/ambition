@@ -469,14 +469,17 @@ reproduction.
 The repository has carried both an authored ladder and an engine/default floor.
 Measurements can describe the wrong one unless the run names the source.
 
-`ambition_demo_smash_app` does not install the authored ladder, so its rig
-measures the engine floor, where every rung has the same utility weights (v1).
-`the_ladder_the_demo_runs.rs` pins both facts; update this section when either
-changes.
+Since 2026-10-16, `ambition_demo_smash_app` plays the rows of Smash's pack
+(`data/fighter_brain_ladder.ron`, the file the shipped game's pack names
+too); `the_ladder_the_demo_runs.rs` pins it. A room that no game gives a
+ladder plays `FighterBrainProfile::engine_default`: one profile at every
+level, with no rollout. A rig record from before 2026-10-16 taken without
+`--ladder` measured the old level curve (`for_level`, deleted), which armed
+the rollout at levels 6 to 9.
 
 Q88 (2026-10-03) decided which authority remains: the brain owns the knobs,
-and Smash content owns the ladder (see F1). Until the demo installs one, every
-calibration receipt must name the ladder source explicitly.
+and Smash content owns the ladder (see F1). Every calibration receipt names
+its ladder source; the rig prints it.
 
 ### `read_weight` is deleted (Q90, 2026-10-08)
 
@@ -594,6 +597,63 @@ in time. A fix must change what the brain does about a foe it cannot yet
 see turning (for example, not overrunning by a reaction's worth of walk
 before it turns), which changes every CPU; it is a policy change to
 measure on the rig, not a correction of the lead.
+
+✅ Unblocked 2026-10-16: a reaction is a mean, not a constant. At each
+decision the brain draws a sample from its own noise stream and
+`DelayedPerception::react` sets the view's age to the delay plus up to one
+`REACTION_SPREAD`th (one sixth) of it in each direction. The two seats of a
+mirror draw from different streams, so the orbit breaks. Witness: with the
+shipped rows declared for Smash's mode, the four repertoire tests in
+`the_repertoire_gets_used.rs` pass; with the spread poisoned off
+(`REACTION_SPREAD = 1000`) the same four fail. Rig, George mirror, 16 paired
+seeds, shipped ladder, before (no spread, the stream shifted by the same
+draw) and after:
+
+| rung pair | before: bout length, dealt% | after: bout length, dealt% |
+|---|---|---|
+| 5 v 5 | >480 s on every seed, 0% | 54.5 s, 184% |
+| 9 v 9 | >480 s median, 210% | 50.0 s, 254% |
+| 1 v 1 | 51.7 s, 105% | 56.8 s, 80% |
+| 3 > 1 | 12:4 (p 0.077) | 16:0 (p 3e-5) |
+| 5 > 3 | 15:1, >480 s median | 16:0, 45 s |
+| 6 > 5 | 15:1 | 14:2 (p 0.004) |
+| 9 > 6 | 16:0 | 16:0 |
+
+The stand-in duelist (`smash_duelist_a`, which had no resonance) is the
+control, and it pays a cost: its ladder stays ordered in each pair but
+separates less, 15:1, 14:2, 11:5, 13:3 before and 14:2, 12:4, 9:7, 12:4
+after (53 against 47 of 64 seeds won by the higher rung). Its mirrors kept
+their pace (5 v 5: 63 s to 81 s; 9 v 9: 74 s to 90 s). A spread of one or
+two ticks at rung 5 was not measured; it could keep more of the order.
+
+⚠ The single-bout mirror grid (`every_fighter_on_the_grid_can_fight_its_mirror`)
+cannot measure this change. A control that only shifts the noise stream by one
+draw per decision moved single bouts by two to four times (George 279% to
+71%, Alice 145% to 199%), as far as the spread did. Read the seeded rig.
+
+⚠ Where the spread is wider than half the decision interval (rungs 1 to 4),
+one decision's view can be older than the previous decision's view. No
+witness shows harm from this; a monotone variant was not measured.
+
+✅ Step 2 built (2026-10-16): Smash's pack names the ladder file
+(`../../ambition_content/assets/data/fighter_brain_ladder.ron`, so the two
+packs read one file). The demo declares its rows for `Mode(SMASH_MODE)`, and
+a save restates them between sessions
+(`EmbeddedPackReloadPlugin::fighter_ladder`). The tools' `--ladder FILE`
+replaces those rows (a second declaration of one scope panics). Witnesses:
+`the_demo_app_runs_its_fighters_on_smashs_ladder` (compared with the file)
+and `the_ladder_restater_states_the_scopes_ladder_again`.
+
+✅ Step 3 built (2026-10-16): `FighterBrainProfile::for_level`, the level
+curve, is deleted. A room with no ladder plays
+`FighterBrainProfile::engine_default(level)`: one profile at every level (the
+old curve's middle: 325 ms, 270 APM, noise 0.275, no rollout); the level is a
+label, so a ladder declared later finds the rung. The tests that make a claim
+about the rungs a player meets (press-rate order, jitter order, the
+evaluation report) read the shipped ladder file; `evaluation::report` takes
+the ladder it walks. Witness: `the_engine_default_is_one_profile_at_every_level`.
+No shipped composition played the curve: each declares a ladder for its
+fighters' rooms. F1 is complete.
 
 Whichever survives:
 

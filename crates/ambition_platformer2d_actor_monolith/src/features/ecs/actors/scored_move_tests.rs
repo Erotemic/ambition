@@ -113,7 +113,7 @@ fn jab_and_uptilt() -> MovesetContract {
 }
 
 fn fighter_brain() -> Brain {
-    let cfg = FighterCfg::new(FighterBrainProfile::for_level(8));
+    let cfg = FighterCfg::new(FighterBrainProfile::engine_default(8));
     let state = FighterState::new(&cfg, 0x5F37_7A11);
     Brain::StateMachine(StateMachineCfg::Fighter {
         cfg: Box::new(cfg),
@@ -541,7 +541,9 @@ fn a_guard_ignoring_move_is_what_answers_a_raised_shield() {
             wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
         },
     ];
-    let profile = FighterBrainProfile::for_level(8);
+    // The subject is the rollout, so the profile states one; no shipped rung
+    // and not the engine default runs it.
+    let profile = FighterBrainProfile { rollout_depth: 12, rollout_k: 4, ..FighterBrainProfile::engine_default(8) };
 
     for (read, expected) in [
         (Choice::Shield, "unblockable"),
@@ -569,7 +571,7 @@ fn a_guard_ignoring_move_is_what_answers_a_raised_shield() {
             6,
             None,
         )
-        .expect("a level-8 fighter rolls out");
+        .expect("a profile with a rollout rolls out");
         assert_eq!(
             refined.move_id.as_deref(),
             Some(expected),

@@ -175,7 +175,7 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             decision_interval_ticks,
         } => {
             let mut cfg = crate::brain::fighter::FighterCfg::new(
-                crate::brain::fighter::FighterBrainProfile::for_level(*level),
+                crate::brain::fighter::FighterBrainProfile::engine_default(*level),
             );
             cfg.decision_interval_ticks = *decision_interval_ticks;
             let state = crate::brain::fighter::FighterState::new(

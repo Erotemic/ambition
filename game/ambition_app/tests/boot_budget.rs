@@ -28,8 +28,11 @@ const BOOT_MEGAPIXEL_BUDGET: f64 = 40.0;
 /// Measured 3401 on 2026-10-10 (five boss-conduct adapters and a thrown-item
 /// system joined; `no_system_is_registered_twice_in_one_schedule` was green),
 /// and the ceiling moved to 3500: it is the blunt guard against a doubled
-/// plugin, which is about 750 systems.
-const SYSTEM_COUNT_BUDGET: usize = 3500;
+/// plugin, which is about 750 systems. Measured 3505 on 2026-10-16 (the demo
+/// packs' live reload, the pickup-art resolve and peer slices joined;
+/// `no_system_is_registered_twice_in_one_schedule` was green), and the ceiling
+/// moved to 3600.
+const SYSTEM_COUNT_BUDGET: usize = 3600;
 
 /// Boot the shipped shell composition and let asset loading settle.
 ///

@@ -404,6 +404,17 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 &crate::smash_pack::PACK,
                 ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
             ));
+            // What "CPU level N" means in Smash's rooms is Smash's (Q88). In
+            // the shipped game this narrower scope wins over Ambition's
+            // every-room declaration of the same file.
+            app.declare_rules(
+                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                crate::smash_pack::fighter_ladder(),
+            );
+            app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::fighter_ladder(
+                &crate::smash_pack::PACK,
+                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+            ));
             // Name prompts by button. A Smash Attack slot hosts a dozen moves
             // chosen by direction and posture, so naming the move would change
             // as the body moves. Rooms of other games keep naming the move.

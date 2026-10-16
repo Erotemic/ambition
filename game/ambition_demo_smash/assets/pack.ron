@@ -69,5 +69,12 @@
         (path: "data/smash_stages.ron", schema: "smash_stages", version: 1),
         // Its own match flow and the admiral's shark.
         (path: "data/smash_rules.ron", schema: "smash_rules", version: 1),
+        // Its CPU difficulty ladder: what "CPU level N" means in its rooms.
+        // The shipped game's pack names the same file, so there is one ladder.
+        (
+            path: "../../ambition_content/assets/data/fighter_brain_ladder.ron",
+            schema: "fighter_brain_ladder",
+            version: 1,
+        ),
     ],
 )

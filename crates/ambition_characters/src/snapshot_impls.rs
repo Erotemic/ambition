@@ -480,10 +480,12 @@ impl SnapshotCursor for crate::brain::Brain {
             // it would put every observed actor's full state into the checksum
             // of every fighter that can see them — quadratic, and a duplicate of
             // truth the population sweep already covers. Its DEPTH is a config,
-            // not state.
+            // not state. The AGE the last reaction chose is state: it decides
+            // which view each read until the next decision sees.
             Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) => {
                 put_u8(out, 3);
                 put_u32(out, state.ticks_until_decision);
+                put_u32(out, state.perception.age_ticks() as u32);
                 put_u32(out, state.apm.presses);
                 put_u32(out, state.apm.elapsed_ticks);
                 match state.pending_press {

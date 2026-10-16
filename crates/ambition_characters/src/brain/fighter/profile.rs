@@ -45,37 +45,23 @@ impl FighterBrainProfile {
         DelayedPerception::from_reaction_ms(self.reaction_ms, tick_hz)
     }
 
-    /// The engine's default rung for a level, so a catalog row can say
-    /// `Fighter { level: 5 }` and get a brain.
+    /// The engine's profile for a fighter in a room that no game gave a
+    /// ladder: ONE profile at every level. `level` is kept as a label, so a
+    /// ladder declared later finds the rung.
     ///
-    /// this is a FLOOR, not the ladder. A game that cares ships its own nine
-    /// rows (`FighterBrainLadder::from_ron`) and this is never consulted; what it
-    /// exists for is that authoring a fighter should not require authoring a
-    /// difficulty curve first. Before it, the rig was unreachable from content at
-    /// all — which is a worse default than an imperfect one.
-    ///
-    /// The shape follows §1.3: reaction shrinks and APM grows with level, and
-    /// level 9 is small numbers, never zero — a frame-perfect CPU is not a
-    /// hard opponent, it is a different game.
-    pub fn for_level(level: u8) -> Self {
-        let level = level.clamp(1, 9);
-        let t = (level - 1) as f32 / 8.0;
+    /// What "CPU level N" means is a game's decision (Q88): Smash's pack states
+    /// nine rows, and another game must not inherit them as a hidden curve.
+    /// The values are the middle of the human range §1.3 names (reaction 500 ms
+    /// to 150 ms, APM 120 to 420), never zero, and with no L3 rollout, which no
+    /// shipped rung runs.
+    pub fn engine_default(level: u8) -> Self {
         Self {
-            level,
-            // 500ms at level 1 down to 150ms at level 9 — the two numbers §1.3
-            // names, linearly between.
-            reaction_ms: 500.0 - t * 350.0,
-            // A human ceiling. 120 APM is a relaxed player, 420 is a very fast
-            // one; nothing here approaches a machine's.
-            apm_cap: 120.0 + t * 300.0,
-            // Execution noise SHRINKS with level but never reaches zero, for the
-            // same reason reaction does not.
-            execution_noise: 0.45 - t * 0.35,
-            // L3 is an upgrade, not a dependency (§1): the lower rungs act on
-            // L2's scores alone, which is also what keeps a four-fighter match
-            // affordable.
-            rollout_depth: if level >= 6 { 12 } else { 0 },
-            rollout_k: if level >= 6 { 4 } else { 0 },
+            level: level.clamp(1, 9),
+            reaction_ms: 325.0,
+            apm_cap: 270.0,
+            execution_noise: 0.275,
+            rollout_depth: 0,
+            rollout_k: 0,
             utility_weights: UtilityWeights::default(),
         }
     }
@@ -87,20 +73,17 @@ impl FighterBrainProfile {
     }
 }
 
-/// The one place a level becomes a profile.
+/// The one place a level becomes a profile: the game's rung when its ladder
+/// has one, else [`FighterBrainProfile::engine_default`].
 ///
-/// the engine's rule was written in a doc comment and consulted nowhere, so
-/// it did not hold. [`FighterBrainProfile::for_level`] says of itself: *"this
-/// is a FLOOR, not the ladder. A game that cares ships its own nine rows
-/// (`FighterBrainLadder::from_ron`) and this is never consulted."* Ambition ships
-/// the nine rows, and both production call sites called the floor anyway —
-/// because a rule about which of two sources wins cannot be enforced by the
-/// source that loses. This function IS the rule.
+/// A rule about which of two sources wins cannot be enforced by the source
+/// that loses, so the rule is this function and not a doc comment on the
+/// default.
 pub fn profile_for_level(level: u8, ladder: Option<&FighterBrainLadder>) -> FighterBrainProfile {
     ladder
         .and_then(|ladder| ladder.level(level))
         .cloned()
-        .unwrap_or_else(|| FighterBrainProfile::for_level(level))
+        .unwrap_or_else(|| FighterBrainProfile::engine_default(level))
 }
 
 /// A game's ladder: nine rows, level 1 through 9.
@@ -109,7 +92,7 @@ pub fn profile_for_level(level: u8, ladder: Option<&FighterBrainLadder>) -> Figh
 /// (`DeclaredRules<FighterBrainLadder>`, read per brain by
 /// `project_authored_fighter_ladder`): one binary hosts several games, and each
 /// game's CPUs fight on that game's rows (Q88). A room that no game gave a
-/// ladder keeps [`FighterBrainProfile::for_level`], the engine floor.
+/// ladder keeps [`FighterBrainProfile::engine_default`].
 ///
 /// Config, not state. A rewind restores a brain; it never rebuilds the ladder
 /// that brain was constructed from, so this is deliberately not rollback state.

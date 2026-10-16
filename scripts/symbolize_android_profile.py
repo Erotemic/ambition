@@ -2,6 +2,8 @@
 """Name the samples of an Android profile, on a host that has no simpleperf.
 
     python3 scripts/symbolize_android_profile.py PROFILE_DIR [PROFILE_DIR ...] [--top N]
+    python3 scripts/symbolize_android_profile.py PROFILE_DIR --lines   # by source line
+    python3 scripts/symbolize_android_profile.py PROFILE_DIR --ours    # by OUR source line
 
 A profile from ``scripts/profile_android.sh`` has the device's report
 (``simpleperf-device-basic.txt``: each sampled address and its share), and,
@@ -11,6 +13,17 @@ unstripped library with the same build id. This script names each app address
 with ``llvm-symbolizer`` against that library, adds the shares up by function
 and by crate, and prints a table for each profile, and a table of the change
 between the first profile and each other one.
+
+``--lines`` adds a table by source line: the innermost (inlined) frame of each
+sampled address, as ``file:line``. ``--ours`` adds the table that says which of
+OUR lines caused the time, framework time included: for each sample of the
+device's call graph (``simpleperf-device-callgraph.txt``) it walks from the
+sampled frame toward the root, inlined frames included, and gives the sample's
+share to the first frame whose file is in this repository (``crates/`` or
+``game/``). Time in ``bevy_ecs``, ``alloc`` or ``core`` is then counted on the
+line of ours that called it. A sample with no frame of ours is ``(no frame of
+ours)``. The release build folds identical functions, so a function NAME can
+be another function's; a ``file:line`` of ours is still where the call is.
 
 It needs ``llvm-symbolizer`` (any version; ``llvm-symbolizer-18`` is tried
 too). Shares are of all samples of the app's process, all threads.
@@ -28,6 +41,10 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 LINE = re.compile(r"^\s*([0-9.]+)%\s+(\S+)\s+(.*?)\s*$")
+#: A frame of the call graph report and of the basic report.
+APP_PATH = re.compile(r"(/data/app/\S*libambition_app\.so)")
+#: A source file of this repository, as the library's line table names it.
+OURS = re.compile(r"(?:^|/)((?:crates|game)/[^:]+\.rs):(\d+)")
 APP = re.compile(r"libambition_app\.so\[\+([0-9a-f]+)\]")
 
 
@@ -40,9 +57,21 @@ def symbolizer() -> str:
 
 
 def app_library(profile: Path) -> Path:
+    """The unstripped library of the build that was sampled.
+
+    `symfs/` can hold the libraries of more than one install (the device keeps
+    one path per install); the samples name the device path of theirs, and the
+    library under `symfs/` at that path is the one with the same build."""
     found = sorted(profile.glob("symfs/**/libambition_app.so"))
     if not found:
         sys.exit(f"{profile}: no symfs/**/libambition_app.so (was the profile made with symfs on?)")
+    report = (profile / "simpleperf-device-basic.txt").read_text(errors="replace")
+    sampled = {m.group(1) for m in APP_PATH.finditer(report)}
+    for library in found:
+        if any(str(library).endswith(path) for path in sampled):
+            return library
+    if len(found) > 1:
+        sys.exit(f"{profile}: {len(found)} libraries under symfs/ and none at the sampled path {sorted(sampled)}")
     return found[0]
 
 
@@ -70,6 +99,125 @@ def name_addresses(library: Path, offsets: List[str]) -> Dict[str, str]:
     )
     names = [line for i, line in enumerate(proc.stdout.splitlines()) if i % 2 == 0]
     return {offset: (name or "??") for offset, name in zip(offsets, names)}
+
+
+def inline_frames(library: Path, offsets: List[str]) -> Dict[str, List[Tuple[str, str]]]:
+    """Each address's frames, innermost (inlined) first, as ``(function, file:line)``."""
+    if not offsets:
+        return {}
+    proc = subprocess.run(
+        [symbolizer(), f"--obj={library}", "--functions=linkage", "--inlines", "--demangle"],
+        input="\n".join(f"0x{offset}" for offset in offsets) + "\n",
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    blocks = proc.stdout.strip("\n").split("\n\n")
+    out = {}
+    for offset, block in zip(offsets, blocks):
+        lines = block.splitlines()
+        out[offset] = [(lines[i], lines[i + 1] if i + 1 < len(lines) else "??") for i in range(0, len(lines) - 1, 2)]
+    return out
+
+
+def our_line(frames: List[Tuple[str, str]]) -> str | None:
+    """The first frame of an address (innermost first) whose file is ours."""
+    for _function, place in frames:
+        match = OURS.search(place)
+        if match:
+            return f"{match.group(1)}:{match.group(2)}"
+    return None
+
+
+def call_paths(profile: Path) -> List[Tuple[float, List[str]]]:
+    """``(self share, frames root first)`` of each node of the device's call graph.
+
+    The report prints each thread's tree under `__start_thread`; a node's share
+    is of its parent, and its self share is what its children do not take."""
+    text = (profile / "simpleperf-device-callgraph.txt").read_text(errors="replace").splitlines()
+    heads = [i for i, line in enumerate(text) if re.match(r"^\d+\.\d+%\s+\d+\.\d+%", line)]
+    paths: List[Tuple[float, List[str]]] = []
+    for k, head in enumerate(heads):
+        if not text[head].rstrip().endswith("__start_thread"):
+            continue
+        body = text[head + 1 : heads[k + 1] if k + 1 < len(heads) else len(text)]
+        total = float(text[head].split("%")[0])
+        root = {"col": -1, "share": total, "frames": [], "kids": 0.0}
+        stack, nodes = [root], [root]
+        for line in body:
+            # A branch is `|--N%-- frame`; the last branch of a node is `--N%-- frame`.
+            match = re.search(r"(?:\|)?--(\d+\.\d+)%-- (.*)$", line)
+            if match:
+                col = match.start(1) - 2
+                while len(stack) > 1 and stack[-1]["col"] >= col:
+                    stack.pop()
+                parent = stack[-1]
+                node = {"col": col, "share": parent["share"] * float(match.group(1)) / 100.0,
+                        "frames": parent["frames"] + [match.group(2).strip()], "kids": 0.0}
+                parent["kids"] += node["share"]
+                stack.append(node)
+                nodes.append(node)
+                continue
+            frame = line.strip().lstrip("|").strip()
+            if frame.startswith("-- "):
+                frame = frame[3:]
+            if frame and "[hit in function]" not in frame and not set(frame) <= set("|- "):
+                stack[-1]["frames"].append(frame)
+        paths += [(max(0.0, n["share"] - n["kids"]), n["frames"]) for n in nodes if n["frames"]]
+    return paths
+
+
+def sample_paths(profile: Path) -> List[Tuple[float, List[str]]] | None:
+    """``(share, frames root first)`` of each sample, from the device's
+    ``simpleperf report-sample --show-callchain`` dump, or None without one.
+
+    Each sample is a block that starts with ``sample:``; its own frame is the
+    first ``vaddr_in_file``/``file`` pair, and its callers follow
+    ``callchain:``, innermost first."""
+    dump = profile / "simpleperf-device-samples.txt"
+    if not dump.is_file() or dump.stat().st_size == 0:
+        return None
+    weights: List[float] = []
+    stacks: List[List[str]] = []
+    vaddr = None
+    for line in dump.read_text(errors="replace").splitlines():
+        text = line.strip()
+        if text == "sample:":
+            weights.append(1.0)
+            stacks.append([])
+            vaddr = None
+        elif not stacks:
+            continue
+        elif text.startswith("event_count:"):
+            weights[-1] = float(text.split(":", 1)[1])
+        elif text.startswith("vaddr_in_file:"):
+            vaddr = int(text.split(":", 1)[1].strip(), 16)
+        elif text.startswith("file:") and vaddr is not None:
+            path = text.split(":", 1)[1].strip()
+            stacks[-1].append(f"libambition_app.so[+{vaddr:x}]" if path.endswith("libambition_app.so") else path)
+            vaddr = None
+    total = sum(weights) or 1.0
+    return [(100.0 * w / total, list(reversed(frames))) for w, frames in zip(weights, stacks)]
+
+
+def ours_table(profile: Path, library: Path) -> Dict[str, float]:
+    """Each sample's self share on the first line of ours from its frame toward the root."""
+    paths = sample_paths(profile)
+    if paths is None:
+        print(f"note: {profile.name} has no simpleperf-device-samples.txt; the -g report drops "
+              "branches under 0.25%, so most time lands on a frame near the root")
+        paths = call_paths(profile)
+    offsets = sorted({m.group(1) for _s, frames in paths for f in frames if (m := APP.search(f))})
+    frames_at = inline_frames(library, offsets)
+    by_line: Dict[str, float] = defaultdict(float)
+    for share, frames in paths:
+        line = None
+        for frame in reversed(frames):
+            match = APP.search(frame)
+            if match and (line := our_line(frames_at.get(match.group(1), []))):
+                break
+        by_line[line or "(no frame of ours)"] += share
+    return by_line
 
 
 def short(name: str) -> str:
@@ -101,14 +249,16 @@ def crate(name: str) -> str:
     return "(other)"
 
 
-def table(profile: Path) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
+def table(profile: Path, lines: bool = False):
     rows = samples(profile)
     library = app_library(profile)
     offsets = sorted({m.group(1) for _s, _d, symbol in rows if (m := APP.search(symbol))})
     names = name_addresses(library, offsets)
+    frames_at = inline_frames(library, offsets) if lines else {}
     by_function: Dict[str, float] = defaultdict(float)
     by_crate: Dict[str, float] = defaultdict(float)
     by_object: Dict[str, float] = defaultdict(float)
+    by_line: Dict[str, float] = defaultdict(float)
     for share, dso, symbol in rows:
         match = APP.search(symbol)
         obj = Path(dso).name if dso.startswith("/") else dso
@@ -117,9 +267,13 @@ def table(profile: Path) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, 
             name = names.get(match.group(1), "??")
             by_function[short(name)] += share
             by_crate[crate(name)] += share
+            if lines:
+                frames = frames_at.get(match.group(1), [])
+                place = frames[0][1] if frames else "??"
+                by_line[re.sub(r"^.*?/((?:crates|game|src|library)/)", r"\1", place)] += share
         else:
             by_function[f"[{obj}] {symbol[:60]}"] += share
-    return by_function, by_crate, by_object
+    return by_function, by_crate, by_object, by_line, library
 
 
 def show(title: str, values: Dict[str, float], top: int) -> None:
@@ -132,15 +286,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("profiles", nargs="+", type=Path)
     parser.add_argument("--top", type=int, default=30)
+    parser.add_argument("--lines", action="store_true", help="add a table by source line (innermost frame)")
+    parser.add_argument("--ours", action="store_true", help="add a table by the first line of ours on each sample's stack")
     args = parser.parse_args()
     tables = []
     for profile in args.profiles:
-        by_function, by_crate, by_object = table(profile)
+        by_function, by_crate, by_object, by_line, library = table(profile, args.lines)
         tables.append((profile, by_function, by_crate, by_object))
         print(f"\n## {profile.name}")
+        print(f"library: {library}")
         show("shared objects", by_object, 12)
         show("crates of the app", by_crate, 20)
         show("functions", by_function, args.top)
+        if args.lines:
+            show("source lines (innermost frame)", by_line, args.top)
+        if args.ours:
+            show("lines of ours on the stack (framework time included)", ours_table(profile, library), args.top)
     if len(tables) > 1:
         base_name, base_fn, base_crate, _ = tables[0]
         for profile, by_function, by_crate, _ in tables[1:]:

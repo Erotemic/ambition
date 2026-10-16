@@ -523,6 +523,19 @@ try_device_report() {
     return "$status"
 }
 
+try_device_sample_dump() {
+    local out_dir="$1" name="simpleperf-device-samples"
+    local out_file="$out_dir/$name.txt" err_file="$out_dir/$name.stderr" status_file="$out_dir/$name.status"
+    echo "$(quote_cmd "${adb_cmd[@]}" shell simpleperf report-sample --show-callchain -i "$device_perf")" > "$out_dir/$name.command.txt"
+    log "generating $name with $((report_timeout * 4))s timeout"
+    set +e
+    timeout --kill-after=5s "$((report_timeout * 4))s" "${adb_cmd[@]}" shell simpleperf report-sample --show-callchain -i "$device_perf" > "$out_file" 2> >(tee "$err_file" >&2)
+    local status=$?
+    set -e
+    echo "$status" > "$status_file"
+    return "$status"
+}
+
 try_host_report() {
     local out_dir="$1" name="$2"; shift 2
     command -v simpleperf >/dev/null 2>&1 || { echo "127" > "$out_dir/$name.status"; echo "host simpleperf not found" > "$out_dir/$name.stderr"; return 0; }
@@ -550,6 +563,10 @@ write_reports() {
     try_device_report "$out_dir" simpleperf-device-flat-comm-dso-symbol --sort comm,dso,symbol --percent-limit 0.25 || try_device_report "$out_dir" simpleperf-device-flat-comm-dso-symbol --sort comm,dso,symbol || true
     try_device_report "$out_dir" simpleperf-device-flat-dso-symbol --sort dso,symbol --percent-limit 0.25 || try_device_report "$out_dir" simpleperf-device-flat-dso-symbol --sort dso,symbol || true
     try_device_report "$out_dir" simpleperf-device-basic || true
+    # Every sample with its whole call chain. The `-g` reports above drop each
+    # branch under 0.25%, and a system is that small, so they can not say which
+    # system a sample was in; `symbolize_android_profile.py --ours` reads this.
+    try_device_sample_dump "$out_dir" || true
 
     # Host-side simpleperf can use host symbols/symfs if available.
     try_host_report "$out_dir" simpleperf-host-callgraph -g --percent-limit 0.25 || true

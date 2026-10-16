@@ -722,16 +722,12 @@ under each arm): `parallel` shows 166-199 mote pixels a frame, moving from
 frame to frame; `frame-serial` shows none in any frame. Not the candidate barrier (`InactiveCandidate`): the render systems spawn
 with `SessionSpawnScope::scoped`, which is published. Not tonight's
 room-isolation gate either: the first hub A/B, before that change, has the
-same 218 pixels. Leading cause (REASONED, from source and the census):
-`drift_room_motes` (`ambition_render/src/rendering/ambient_motes.rs`) places
-every mote around `cameras.iter().next()`, the FIRST entity with
-`MainCamera`; the hub has 11 cameras (`[census] views`) and several systems
-spawn `MainCamera` entities (per view, parallax, knockout, split screen), so
-the first one is arbitrary and can follow spawn order, which the executor
-changes. Motes placed around a camera that does not draw the room are off
-screen. Fix direction: place motes per view, around the camera that presents
-it (`PresentsView`), as the parallax panels do; check `daylight.rs`, which
-reads `MainCamera` the same way. Recommendation: make `Serial` the default
+same 218 pixels. Not the camera choice either (MEASURED): `drift_room_motes` places motes
+around `cameras.iter().next()`, the first `MainCamera` of 11 cameras; with
+the query restricted to cameras that present a view, `frame-serial` still
+drew no mote (experiment, not kept). Cause open; next look: whether the
+motes exist and what their `Sprite` alpha and `ViewVisibility` are under
+each executor. Recommendation: make `Serial` the default
 of every foundation, then remove the switch; check `room_replay` under it
 first. Not done: it is a one-line default.
 

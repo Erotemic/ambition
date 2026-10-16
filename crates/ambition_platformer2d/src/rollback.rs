@@ -52,6 +52,25 @@ pub use ambition_platformer2d_rollback_ggrs::{
 /// mechanical-edit admission does, and a second copy of it is how those two came
 /// to disagree — see [`mechanical_mutation_boundary`].
 pub use ambition_platformer2d_rollback_ggrs::local_session::locally_rebasable_timeline;
+
+/// Stop the local timeline so the session owner rebases it onto content just
+/// published, and say so. Each content publication into a live session calls
+/// this, in the same exclusive step as the publication: a frame between them
+/// would resimulate new content on the old timeline (the `Q118` desync).
+/// Releasing ownership is enough: `maintain_local_session` starts a new session
+/// next frame with the same policy and seating. It does nothing to a timeline
+/// this host may not rebase, or to none.
+pub fn rebase_local_timeline_onto_published_content(world: &mut bevy::ecs::world::World) {
+    if !locally_rebasable_timeline(world) || !session_is_active(world) {
+        return;
+    }
+    stop_session(world);
+    world.resource_mut::<local_session::LocalSessionOwnership>().release();
+    bevy::log::info!(
+        "published content stopped the local rollback baseline; the session owner \
+         will rebase it onto the new content"
+    );
+}
 pub use ambition_platformer2d_runtime::rollback::{
     RollbackEntryKind, RollbackRegistrationDescriptor, RollbackRegistry,
 };

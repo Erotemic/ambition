@@ -155,7 +155,7 @@ decision on the first is recorded below this list:
   current `ActorMoveset`). A publication cannot sit across a timeline:
   admission refuses a foreign or unhealthy one (`publication_boundary`), and a
   rebasable local timeline is stopped in the same step as the publication
-  (`rebase_local_timeline_onto_the_new_generation`), so no snapshot taken before
+  (`rebase_local_timeline_onto_published_content`), so no snapshot taken before
   it is resimulated after it. The pin would matter to a host that rolls back
   across a reload, which the reload refuses today. The cost is the registration
   change; the benefit is a guard on a road that is closed.

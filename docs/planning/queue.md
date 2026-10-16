@@ -225,9 +225,24 @@ Open:
    builds the demo's experience and names each schema its watch does not
    publish (`EmbeddedPackWatches::unwatched`; red, naming the schema, with
    Smash's audio restater removed and with Mary-O's ladder off her list).
-   Remainder: publication into a live demo session (at a rollback
-   boundary, as Ambition's road does), so an edit need not wait for the
-   session to end. Each
+   Then publication into a live demo session, for a change to schemas the
+   demo reads where it uses them: the one authority on mechanical mutation
+   around rollback (`mechanical_mutation_boundary`) decides it. With no
+   timeline it is published at once; with a timeline this host owns it is
+   published and the timeline is rebased in the same step
+   (`rollback::rebase_local_timeline_onto_published_content`, moved out of
+   Ambition's reload, which calls it too); with a foreign or unhealthy one
+   it waits for the session's end. A restated schema always waits for the
+   session's end. Without the facade's `rollback` feature the crate cannot
+   ask the timeline, so a live session keeps its pack. Witnesses
+   `an_edit_to_a_live_schema_reaches_a_live_session_only_where_the_timeline_allows`
+   (red with no timeline made to wait) and the restated arms (red with a
+   restated schema published in a session). The foreign and unhealthy arms
+   have no witness of their own here: they are the boundary's own answers,
+   which its owner tests.
+   Remainder: a restated schema inside a live session (the session's
+   bodies were built from the cast; that is Ambition's I2/I3 road with a
+   session handoff). Each
    needs a restater (the cast is a registry of prepared characters, so its
    restater is I2/I3 scale) or its reader moved to read at use.
 

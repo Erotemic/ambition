@@ -3651,7 +3651,7 @@ fn a_healthy_timeline_this_host_maintains_going_live_mid_flight_still_publishes(
 /// Admission lets a generation past a healthy timeline only because this host
 /// may rebase it. Here the request is admitted against a `LocalMaintainer`
 /// session and an `External`/P2P session replaces it before the commit.
-/// `rebase_local_timeline_onto_the_new_generation` correctly does nothing to a
+/// `ambition_platformer2d::rollback::rebase_local_timeline_onto_published_content` correctly does nothing to a
 /// foreign timeline, so publishing would desync. The lease must cancel.
 #[test]
 fn losing_the_permission_to_rebase_mid_flight_cancels_the_pending_generation() {

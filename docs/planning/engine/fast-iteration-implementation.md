@@ -235,7 +235,7 @@ and publishes both at the activation boundary
 | Part | Where | Witness |
 | --- | --- | --- |
 | File watch on every declared source | `ambition_content::content_watch` (off-disk builds) | `edit_to_play_through_the_shell::a_content_file_saved_while_the_game_runs_is_played` |
-| Saved edit under a local timeline | `reload::rebase_local_timeline_onto_the_new_generation` (a restatement; the route's re-activation already ends the session) | `edit_to_play_through_the_shell::a_content_file_saved_under_a_local_timeline_rebases_it` |
+| Saved edit under a local timeline | `rollback::rebase_local_timeline_onto_published_content` (a restatement; the route's re-activation already ends the session) | `edit_to_play_through_the_shell::a_content_file_saved_under_a_local_timeline_rebases_it` |
 | Boss profiles and encounters: candidate catalog admitted at request time against `BossCatalogRegistry::with_replaced`; frozen by the preparation (`PendingGenerationInputs::bosses`) | `reload::BOSS_DOMAINS`; `BossConfig::seed` (`BossSeed`) is resolved at construction from the carried catalog, and `update_boss_encounters` reads HP, phase triggers, outro and music from it | `edit_to_play_through_the_shell::a_boss_tuning_saved_while_the_game_runs_is_played` |
 | Character catalog: the whole cast is staged again from the candidate catalog; a change to which characters are built is refused | `ambition_characters::prepared::admit_staged_revision_with_catalog`; `PendingGenerationInputs::catalog` (`candidate_catalog_for`) | `a_character_row_saved_while_the_game_runs_is_played`; `a_catalog_tag_saved_while_the_game_runs_is_built_from_the_candidate_catalog` |
 | Frozen session cast: one owner, installed at adoption and removed at teardown; readers use `SessionCast` (the frozen cast while a session runs, the published cast when none does) | `ambition_characters::session_cast::{ActiveSessionCast, SessionCast}` | `a_reader_is_given_the_running_sessions_cast`; `the_frozen_cast_retires_with_its_own_session`; `developer_edits_under_rollback::publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same` |
@@ -293,8 +293,10 @@ Steps that remain as rules:
 - A demo pack reloads in a running demo (2026-10-16):
   `ambition_platformer2d::content::live_reload` watches the pack's files,
   compiles an edit (Smash 7.7 ms, Mary-O 6.3 ms, Sanic 4.2 ms), and
-  publishes it when no session is live and no route prepares one. Only the
-  schemas the demo reads where it uses them take part (Smash: `smash_rules`,
+  publishes it when no route prepares a session: between sessions, or inside
+  one for a change to schemas read at use where the rollback timeline allows
+  it (`mechanical_mutation_boundary`; a timeline this host owns is rebased in
+  the same step). The schemas the demo reads where it uses them (Smash: `smash_rules`,
   `smash_stages`, `match_rules`; Mary-O: `mary_o_rules`, `mary_o_forms`; Sanic:
   `sanic_rules`), and the schemas a demo registered once at start, which a
   restater states again at the publication: each demo's `room_rules`, its
@@ -305,8 +307,7 @@ Steps that remain as rules:
   at start and gives no restater is refused and costs a restart.
   Each published generation is leaked (a reader holds `&'static` rows), about
   0.3 MB of source for Smash for each saved edit, in a build that reads
-  off disk only. Open: the other schemas of a demo pack, which a demo reads
-  once at start, and publication into a live session.
+  off disk only. Open: a restated schema inside a live session.
 - The quest book takes part as session-derived state (2026-10-07): witnesses
   `a_quest_edit_is_played_from_the_next_session_with_the_players_progress`,
   `a_refused_candidate_leaves_the_quest_book_at_the_live_generation` and

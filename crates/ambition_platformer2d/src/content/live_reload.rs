@@ -19,9 +19,14 @@
 //!   another schema is refused: the game read that schema once when it
 //!   started (its cast, its move tables, its audio), so a publication would
 //!   give a mix of two generations. Restart to play that edit.
-//! - The staged pack is published only when no session is live and no route
-//!   is preparing one. A session reads one generation from its preparation to
-//!   its end, so a rollback cannot read two.
+//! - Nothing is published while a route is preparing a session. Between
+//!   sessions each admitted change is published. Inside a session only a
+//!   change to `live` schemas is, and only where the rollback timeline allows
+//!   it (`mechanical_mutation_boundary`): with no timeline at once, with a
+//!   timeline this host owns at once and the timeline is rebased in the same
+//!   step, and with any other timeline at the session's end. A restated
+//!   schema waits for the session's end: the session's bodies and rows were
+//!   built from it.
 //!
 //! Ambition's own pack has a fuller road (`ambition_content::reload`): it
 //! publishes into a live session at a rollback boundary. This road is for the
@@ -36,7 +41,8 @@ use super::{changed_domains, EmbeddedPack, PreparedContentPack};
 /// game.
 const POLL_FRAMES: u32 = 20;
 
-/// Watch `pack`'s files and publish each admitted edit between sessions.
+/// Watch `pack`'s files and publish each admitted edit (see the module's
+/// rules for when).
 ///
 /// `live` are the schemas the game reads where it uses them, each through
 /// `pack.prepared()` at that time. `restated` are the schemas it read once at
@@ -494,8 +500,7 @@ fn look_at(watch: &mut EmbeddedPackWatch) {
     watch.refused = None;
 }
 
-/// Publish the staged generation when no session is live and none is being
-/// prepared.
+/// Publish each staged generation the moment allows (see the module's rules).
 fn publish_the_staged_pack_between_sessions(world: &mut World) {
     let in_a_session = world
         .get_resource::<crate::actor::ActiveSessionScope>()
@@ -503,15 +508,31 @@ fn publish_the_staged_pack_between_sessions(world: &mut World) {
     let preparing = world
         .get_resource::<crate::game_shell::ShellRouter>()
         .is_some_and(|router| router.pending.is_some());
-    if in_a_session || preparing {
+    if preparing {
         return;
     }
+    let in_session = if in_a_session { in_session_publication(world) } else { InSession::NotInOne };
     let mut to_restate = Vec::new();
+    let mut rebase = false;
     for watch in &mut world.resource_mut::<EmbeddedPackWatches>().0 {
+        let Some(staged) = watch.staged.as_ref() else {
+            continue;
+        };
+        let changed = changed_domains(watch.pack.prepared(), staged);
+        // Inside a session, only a change to schemas the game reads where it
+        // uses them, and only where the timeline allows it. A restated schema
+        // (the cast, the tables a start registered) waits for the session's
+        // end: the session's bodies and rows were built from it.
+        let only_live = changed.iter().all(|schema| watch.live.contains(&schema.0.as_str()));
+        match in_session {
+            InSession::NotInOne => {}
+            InSession::Publish if only_live => {}
+            InSession::PublishAndRebase if only_live => rebase = true,
+            _ => continue,
+        }
         let Some(generation) = watch.staged.take() else {
             continue;
         };
-        let changed = changed_domains(watch.pack.prepared(), &generation);
         info!("the pack `{}` is published again from its files", generation.id.0);
         watch.pack.publish(generation);
         watch.published += 1;
@@ -526,6 +547,48 @@ fn publish_the_staged_pack_between_sessions(world: &mut World) {
     for (pack, restate) in to_restate {
         restate(world, pack.prepared());
     }
+    #[cfg(feature = "rollback")]
+    if rebase {
+        crate::rollback::rebase_local_timeline_onto_published_content(world);
+    }
+    #[cfg(not(feature = "rollback"))]
+    let _ = rebase;
+}
+
+/// What a live session allows a publication of live schemas to do.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum InSession {
+    /// No session is live.
+    NotInOne,
+    /// No rollback timeline speculates, so no history can read two
+    /// generations.
+    Publish,
+    /// This host owns the rollback timeline: publish, and rebase the timeline
+    /// in the same step.
+    PublishAndRebase,
+    /// A timeline that peers own, or one that recorded a divergence: wait for
+    /// the session's end.
+    Wait,
+}
+
+/// The rollback timeline's answer, from the one authority on mechanical
+/// mutation around rollback (`mechanical_mutation_boundary`).
+#[cfg(feature = "rollback")]
+fn in_session_publication(world: &World) -> InSession {
+    use crate::rollback::MechanicalMutationBoundary;
+    match crate::rollback::mechanical_mutation_boundary(world) {
+        MechanicalMutationBoundary::NoTimeline => InSession::Publish,
+        MechanicalMutationBoundary::LocallyRebasable => InSession::PublishAndRebase,
+        MechanicalMutationBoundary::ForeignTimeline | MechanicalMutationBoundary::Unhealthy(_) => InSession::Wait,
+    }
+}
+
+/// Without the `rollback` feature this crate cannot ask the timeline, and
+/// another crate of the App can still run one, so a live session keeps its
+/// pack until it ends.
+#[cfg(not(feature = "rollback"))]
+fn in_session_publication(_world: &World) -> InSession {
+    InSession::Wait
 }
 
 #[cfg(test)]
@@ -577,27 +640,36 @@ mod tests {
         *lowered_room_rules(pack).expect("the probe pack states room rules")
     }
 
-    /// ⭐ An edit to a live schema is staged while a session is live, and is
-    /// what the pack reads from the end of that session. The value read is
-    /// the value a new compile of the saved files gives.
+    /// ⭐ An edit to a live schema reaches a live session only where the
+    /// timeline allows it. With no rollback timeline (the `rollback` feature
+    /// can ask) it is published at once, and the value read is the value a
+    /// new compile of the saved files gives. Without the feature this crate
+    /// cannot ask, so the session keeps its pack until it ends.
     #[test]
-    fn an_edit_to_a_live_schema_is_played_from_the_next_session() {
+    fn an_edit_to_a_live_schema_reaches_a_live_session_only_where_the_timeline_allows() {
         let (pack, root) = pack_with_rules("next_session", "(heavy_hit_damage: Some(12))");
         let mut app = app_watching(pack, &["room_rules"]);
         let before = heavy(pack.prepared());
         app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().begin();
 
         save_and_look(&mut app, &root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))");
-        let watch = watch_of(&app, pack);
-        assert_eq!(watch.published, 0, "nothing is published while a session is live");
-        assert_eq!(heavy(pack.prepared()), before, "the live session reads the generation it began with");
-        assert!(watch.is_staged(), "the edit is admitted: {:?}", watch.refused);
-
-        app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().clear();
-        app.update();
         let authority = EmbeddedPack::rooted(pack.root_on_disk().unwrap(), None).compile().unwrap();
-        assert_eq!(watch_of(&app, pack).published, 1);
-        assert_eq!(heavy(pack.prepared()), heavy(&authority), "the pack reads the saved file");
+        #[cfg(feature = "rollback")]
+        {
+            assert_eq!(watch_of(&app, pack).published, 1, "with no timeline, the live session takes the edit at once");
+            assert_eq!(heavy(pack.prepared()), heavy(&authority), "the pack reads the saved file");
+        }
+        #[cfg(not(feature = "rollback"))]
+        {
+            let watch = watch_of(&app, pack);
+            assert_eq!(watch.published, 0, "nothing is published while a session is live");
+            assert_eq!(heavy(pack.prepared()), before, "the live session reads the generation it began with");
+            assert!(watch.is_staged(), "the edit is admitted: {:?}", watch.refused);
+            app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().clear();
+            app.update();
+            assert_eq!(watch_of(&app, pack).published, 1);
+            assert_eq!(heavy(pack.prepared()), heavy(&authority), "the pack reads the saved file");
+        }
         assert_ne!(heavy(pack.prepared()), before);
         let _ = std::fs::remove_dir_all(root);
     }

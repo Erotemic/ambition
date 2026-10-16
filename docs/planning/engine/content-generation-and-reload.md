@@ -429,8 +429,10 @@ whether the prior scene is unchanged, recovered or stopped.
   pack's own rows; the music and SFX, through `publish_provider_audio`; the
   cast, as one revision with its catalog). Every schema of the three demo
   packs takes part; a schema a demo reads at start with no restater is
-  refused and costs a restart. Open: publication into a live demo session
-  at a rollback boundary, as Ambition's road does.
+  refused and costs a restart. A change to schemas read at use reaches a
+  live demo session where the rollback timeline allows it (no timeline: at
+  once; a timeline this host owns: at once, with a rebase; otherwise at the
+  session's end). Open: a restated schema inside a live session.
 - Measure source read, changed-section preparation, candidate construction,
   activation, scenario reset and first observed behavior separately (M0).
   Fixtures FI1-FI4 in [acceptance](fast-iteration-acceptance.md).

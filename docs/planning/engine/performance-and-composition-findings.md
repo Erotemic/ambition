@@ -26,7 +26,7 @@ again before you quote it.
 | Which Bevy system takes the time (desktop)? | `scripts/profile_desktop.sh` → `tracy_summary.md` |
 | Where does the phone spend its CPU? | `scripts/profile_android.sh all ...`, then `scripts/symbolize_android_profile.py DIR` |
 | Which line of OURS caused framework time (phone)? | `symbolize_android_profile.py DIR --ours` (needs `simpleperf-device-samples.txt`, which a profile made after 2026-10-16 has) |
-| Which thread is saturated, and what does it do (phone)? | the `threads` table of `symbolize_android_profile.py DIR` (busy % of one core), then `--ours --thread android_main` |
+| Which thread is saturated, and what does it do (phone)? | the `threads` table of `symbolize_android_profile.py DIR` (busy % of one core, by thread id), then `--ours --thread TID` |
 | Which system allocates, and which code makes archetype churn? | the `perf_probe` feature (in progress, see the run log) |
 
 ## Measured baseline
@@ -209,29 +209,37 @@ Ambition items), the closed `ambition_items::Item` enum and `icon_path`,
 `gun_*` modules in the generic `ambition_portal2d`, `BUILTIN_STRIKE_KEYS` with a
 second list of the same 11 keys, the invented `gradient_sentinel` boss.
 
-### F11 — One thread is the limit: the main thread is saturated, the pool is idle
+### F11 — The main thread is the limit; the pool and the render thread are not
 
-MEASURED (both phone runs, `--thread`, 30 s each). `android_main` is busy
-about 100% of one core for the whole recording (107% / 109%; the excess is
-sampling error). The compute task pool, seven workers, is busy 34-37% of ONE
-core in total. In the Mary-O-only run, of all process samples:
+MEASURED (both phone runs, the `threads` table and `--thread TID`, 30 s each).
+Busy, as a share of one core over the recording (Mary-O-only / all games):
 
-- 34.9% are on the main thread under `app.run()` (`ambition_app/src/app/cli.rs:273`)
-  with no system of ours below them: access bitset tests (`all`), `as_ref`/`as_mut`,
-  `update_archetypes_unsafe_world_cell` (1.7%), `is_apply_deferred` (1.1%),
-  mimalloc, `run_without_applying_deferred`.
-- 17.0% are on the main thread with no frame of ours: kernel 4.8%, the Adreno
-  Vulkan driver 3.3%, libc 1.3%.
-- The largest system body of ours on the main thread is 1.4%
-  (`lifecycle/room_instance.rs:172`); the rest are each under 0.6%.
+| thread | busy |
+| --- | --- |
+| main (`android_main`) | 82% / 83% |
+| Bevy render thread (also named `android_main`: an unnamed `std::thread` has its parent's name) | 25% / 26% |
+| compute task pool, 4 workers | 8-9% each |
 
-Reading (REASONED): the multi-threaded executor does its scheduling on the
-main thread and hands the pool little work; the frame waits on the main
-thread, not on total CPU or on the GPU. Because the main thread is on-CPU all
-the time, GPU fill rate is not the limit of these runs (a thread that waits on
-the GPU is off-CPU and is not sampled). This is the strongest support for P2
-(serial schedules move no work to other threads, but remove the scheduling
-work) and for P1 (fewer systems, less scheduling).
+On the main thread (56.5% of the process samples in the Mary-O-only run):
+
+- 34.9 points (62% of the thread) are under `app.run()`
+  (`ambition_app/src/app/cli.rs:273`) with no system of ours below them:
+  access bitset tests, `update_archetypes_unsafe_world_cell`,
+  `is_apply_deferred`, `run_without_applying_deferred`, mimalloc, and Bevy's
+  own systems.
+- The rest is in system bodies of ours, spread thin: the largest is 1.4 points
+  (`lifecycle/room_instance.rs:172`), all others under 0.6.
+
+The render thread (17.1%) has no frame of ours: kernel, the Adreno Vulkan
+driver, wgpu.
+
+Reading (REASONED): the frame waits on the main thread. It is on-CPU 82% of
+the time; the off-CPU rest is most likely the multi-threaded executor waiting
+for its tasks, because the render thread is busy only a quarter of the time.
+The pool does little: the parallel executor buys almost no parallel work and
+costs the scheduling. This is the strongest support for P2 (serial schedules)
+and P1 (fewer systems). The GPU is not the limit of these runs: the render
+thread, which submits and presents, is idle three quarters of the time.
 
 ### F12 — No catch-up limit of ours on the fixed step
 
@@ -361,8 +369,8 @@ is done without a yes.
 - **D9 — The per-room gizmo trail with two or more live rooms:** rebuild on
   retained gizmos, or drop.
 - **D10 — Phone render scale** (P10): a lower internal resolution on the low
-  tiers. Visible. Worth it only when a phone run shows the main thread off-CPU
-  (waiting on the GPU); today it is on-CPU 100% (F11).
+  tiers. Visible. Worth it only when a phone run shows the render thread or
+  the GPU as the limit; today the main thread is (F11).
 - **D11 — A catch-up limit** of N ticks per drawn frame (F12): below the limit
   the game keeps real time; above it, the game slows down instead of dropping
   more frames. Visible under load only.
@@ -375,7 +383,7 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
 | --- | --- | --- |
 | Mary-O pays for Ambition's capabilities; install less, not faster | F0, F1, P1 | agrees; MEASURED (-17% CPU with only Mary-O in the hub; 170 unused systems a frame in standalone Mary-O) |
 | Read-models rebuilt per tick, so slow frames repeat them | P5, D2, F12 | agrees; REASONED (no limit of ours on catch-up, F12) |
-| Phones have no reduced render target | P10, D10 | true (`quality.rs:190`); not the limit of today's runs: the main thread is on-CPU 100% (F11) |
+| Phones have no reduced render target | P10, D10 | true (`quality.rs:190`); not the limit of today's runs: the main thread is the limit and the render thread is idle 75% of the time (F11) |
 | Transparent overdraw (5.3x on the HD 630) | journal 2026-08-29 | a GPU cost on a desktop iGPU; not measured on the phone; same reasoning as P10 |
 | Effects composite bodies off-screen | — | agrees it is not a steady cost (direct part drawing since 10-05); spikes only; not measured here |
 | Asset upload stalls cause the worst drops | — | plausible for p95; the phone runs did not separate spikes from the steady cost |
@@ -401,4 +409,6 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
 - 05:40Z P1/P2 plans written (an agent's code read); F1/F2/F3 corrected (bosses
   can already be omitted; twelve ledgers; the windowed demos never serialize).
 - 05:58Z `symbolize_android_profile.py`: a threads table and `--thread`. F11:
-  the main thread is the limit. F12: no catch-up limit. GPT's diagnosis weighed.
+  the main thread is the limit (a first table summed it with the render
+  thread, which has the same name; now split by thread id). F12: no catch-up
+  limit. GPT's diagnosis weighed.

@@ -27,6 +27,11 @@ be another function's; a ``file:line`` of ours is still where the call is.
 
 It needs ``llvm-symbolizer`` (any version; ``llvm-symbolizer-18`` is tried
 too). Shares are of all samples of the app's process, all threads.
+
+``--thread NAME`` keeps only the samples of the threads with that name in the
+``--ours`` table (shares stay of the whole process). With the sample dump, a
+table of threads is printed: each thread's share, and how much of one core it
+used over the recording (about 100% = that thread is saturated).
 """
 
 from __future__ import annotations
@@ -167,7 +172,7 @@ def call_paths(profile: Path) -> List[Tuple[float, List[str]]]:
     return paths
 
 
-def sample_paths(profile: Path) -> List[Tuple[float, List[str]]] | None:
+def sample_paths(profile: Path, thread: str | None = None) -> List[Tuple[float, List[str]]] | None:
     """``(share, frames root first)`` of each sample, from the device's
     ``simpleperf report-sample --show-callchain`` dump, or None without one.
 
@@ -179,15 +184,19 @@ def sample_paths(profile: Path) -> List[Tuple[float, List[str]]] | None:
         return None
     weights: List[float] = []
     stacks: List[List[str]] = []
+    threads: List[str] = []
     vaddr = None
     for line in dump.read_text(errors="replace").splitlines():
         text = line.strip()
         if text == "sample:":
             weights.append(1.0)
             stacks.append([])
+            threads.append("")
             vaddr = None
         elif not stacks:
             continue
+        elif text.startswith("thread_name:"):
+            threads[-1] = text.split(":", 1)[1].strip()
         elif text.startswith("event_count:"):
             weights[-1] = float(text.split(":", 1)[1])
         elif text.startswith("vaddr_in_file:"):
@@ -197,13 +206,46 @@ def sample_paths(profile: Path) -> List[Tuple[float, List[str]]] | None:
             stacks[-1].append(f"libambition_app.so[+{vaddr:x}]" if path.endswith("libambition_app.so") else path)
             vaddr = None
     total = sum(weights) or 1.0
-    return [(100.0 * w / total, list(reversed(frames))) for w, frames in zip(weights, stacks)]
+    return [(100.0 * w / total, list(reversed(frames)))
+            for w, frames, name in zip(weights, stacks, threads) if thread is None or name == thread]
 
 
-def ours_table(profile: Path, library: Path) -> Dict[str, float]:
+def thread_table(profile: Path) -> Dict[str, float] | None:
+    """Per thread name: ``share% (busy% of one core)``, from the sample dump."""
+    dump = profile / "simpleperf-device-samples.txt"
+    if not dump.is_file() or dump.stat().st_size == 0:
+        return None
+    busy: Dict[str, float] = defaultdict(float)
+    first = last = None
+    name, count = "", 0.0
+    for line in dump.read_text(errors="replace").splitlines():
+        text = line.strip()
+        if text == "sample:":
+            if name:
+                busy[name] += count
+            name, count = "", 0.0
+        elif text.startswith("time:"):
+            when = int(text.split(":", 1)[1])
+            first = when if first is None else first
+            last = when
+        elif text.startswith("thread_name:"):
+            name = text.split(":", 1)[1].strip()
+        elif text.startswith("event_count:"):
+            count = float(text.split(":", 1)[1])
+    if name:
+        busy[name] += count
+    total = sum(busy.values()) or 1.0
+    wall = max(1, (last or 0) - (first or 0))
+    print(f"recorded {wall / 1e9:.1f} s of wall time")
+    return {f"{k} (busy {100.0 * v / wall:.0f}% of one core)": 100.0 * v / total for k, v in busy.items()}
+
+
+def ours_table(profile: Path, library: Path, thread: str | None = None) -> Dict[str, float]:
     """Each sample's self share on the first line of ours from its frame toward the root."""
-    paths = sample_paths(profile)
+    paths = sample_paths(profile, thread)
     if paths is None:
+        if thread:
+            raise SystemExit(f"--thread needs {profile.name}/simpleperf-device-samples.txt")
         print(f"note: {profile.name} has no simpleperf-device-samples.txt; the -g report drops "
               "branches under 0.25%, so most time lands on a frame near the root")
         paths = call_paths(profile)
@@ -288,6 +330,7 @@ def main() -> None:
     parser.add_argument("--top", type=int, default=30)
     parser.add_argument("--lines", action="store_true", help="add a table by source line (innermost frame)")
     parser.add_argument("--ours", action="store_true", help="add a table by the first line of ours on each sample's stack")
+    parser.add_argument("--thread", help="the --ours table counts only the samples of this thread name")
     args = parser.parse_args()
     tables = []
     for profile in args.profiles:
@@ -295,13 +338,18 @@ def main() -> None:
         tables.append((profile, by_function, by_crate, by_object))
         print(f"\n## {profile.name}")
         print(f"library: {library}")
+        threads = thread_table(profile)
+        if threads:
+            show("threads", threads, 12)
         show("shared objects", by_object, 12)
         show("crates of the app", by_crate, 20)
         show("functions", by_function, args.top)
         if args.lines:
             show("source lines (innermost frame)", by_line, args.top)
         if args.ours:
-            show("lines of ours on the stack (framework time included)", ours_table(profile, library), args.top)
+            where = f", thread {args.thread}" if args.thread else ""
+            show(f"lines of ours on the stack (framework time included{where})",
+                 ours_table(profile, library, args.thread), args.top)
     if len(tables) > 1:
         base_name, base_fn, base_crate, _ = tables[0]
         for profile, by_function, by_crate, _ in tables[1:]:

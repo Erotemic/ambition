@@ -160,11 +160,7 @@ impl PortalGlow {
 
 /// The length of a portal's opening in px: its extent along its wall.
 pub fn opening_length(portal: &PlacedPortal) -> f32 {
-    let n = portal.normal.normalize_or_zero();
-    let along = Vec2::new(-n.y, n.x);
-    let opening = portal.opening_half_extent();
-    let half = along.x.abs() * opening.x + along.y.abs() * opening.y;
-    (half * 2.0).max(PORTAL_VISUAL_THICKNESS)
+    (portal.opening_half_length() * 2.0).max(PORTAL_VISUAL_THICKNESS)
 }
 
 /// The quad that draws an opening of `length` at `pos` with `normal`: its long

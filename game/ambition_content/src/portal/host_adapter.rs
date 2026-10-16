@@ -125,6 +125,7 @@ pub fn refresh_hosted_portal_frames(
             portal.prev_pos = portal.pos;
             portal.vel = if dt > 0.0 { (new_pos - portal.pos) / dt } else { Vec2::ZERO };
             portal.pos = new_pos;
+            portal.prev_normal = portal.normal;
             portal.turn_to(normal);
             continue;
         }

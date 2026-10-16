@@ -1,5 +1,5 @@
 use super::*;
-use crate::types::{portal_half_extent, portal_half_extent_with_length};
+use crate::types::portal_half_extent;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
 
@@ -83,17 +83,17 @@ fn wrong_arity_link_is_closed() {
 /// The opening of `entity` this frame (its half-length along the surface).
 fn opening(app: &App, entity: Entity) -> f32 {
     let p = app.world().get::<PlacedPortal>(entity).unwrap();
-    portal_opening_half(p.normal, p.opening_half_extent())
+    p.opening_half_length()
 }
 
 fn authored(app: &App, entity: Entity) -> f32 {
     let p = app.world().get::<PlacedPortal>(entity).unwrap();
-    portal_opening_half(p.normal, p.authored_half_extent)
+    p.half_length
 }
 
 fn set_authored(app: &mut App, entity: Entity, half: f32) {
     let mut p = app.world_mut().get_mut::<PlacedPortal>(entity).unwrap();
-    p.authored_half_extent = portal_half_extent_with_length(p.normal, half);
+    p.half_length = half;
 }
 
 /// ⭐ THE EFFECTIVE OPENING IS DERIVED; THE AUTHORED ONE IS KEPT. An 80 end
@@ -105,9 +105,9 @@ fn a_pair_opens_its_smaller_end_and_opens_wide_again_when_it_grows() {
     for wide_first in [true, false] {
         let mut app = app();
         let mut big = floor(Vec2::new(100.0, 300.0));
-        big.authored_half_extent = portal_half_extent_with_length(big.normal, 80.0);
+        big.half_length = 80.0;
         let mut small = floor(Vec2::new(500.0, 300.0));
-        small.authored_half_extent = portal_half_extent_with_length(small.normal, 30.0);
+        small.half_length = 30.0;
         let (a, b) = if wide_first {
             let a = app.world_mut().spawn((PortalLink(link_hash("d")), big)).id();
             (a, app.world_mut().spawn((PortalLink(link_hash("d")), small)).id())
@@ -132,6 +132,32 @@ fn a_pair_opens_its_smaller_end_and_opens_wide_again_when_it_grows() {
         app.update();
         assert!((opening(&app, a) - 60.0).abs() < 1e-3, "{}", opening(&app, a));
     }
+}
+
+/// A pair is one size whatever its ends face. A portal on a slope and one on
+/// a wall, each placed with the standard opening, open to the same length:
+/// the slope's opening was read from its axis-aligned box, which is longer
+/// and thicker than the opening for any normal that is not a quarter turn.
+#[test]
+fn a_slope_portal_and_a_wall_portal_open_to_one_length() {
+    let mut app = app();
+    let slope = Vec2::new(-(30f32.to_radians().sin()), -(30f32.to_radians().cos()));
+    let wall = Vec2::new(-1.0, 0.0);
+    let channel = PortalChannel::Authored(PortalChannelColor::Indexed(0));
+    let a = app
+        .world_mut()
+        .spawn((PortalLink(link_hash("e")), PlacedPortal::fixed(channel, Vec2::new(100.0, 300.0), slope, portal_half_extent(slope))))
+        .id();
+    let b = app
+        .world_mut()
+        .spawn((PortalLink(link_hash("e")), PlacedPortal::fixed(channel, Vec2::new(500.0, 300.0), wall, portal_half_extent(wall))))
+        .id();
+    app.update();
+    let (oa, ob) = (opening(&app, a), opening(&app, b));
+    assert!((oa - crate::types::PORTAL_OPENING_HALF).abs() < 1e-3, "slope opens the standard length: {oa}");
+    assert!((oa - ob).abs() < 1e-3, "one size: slope {oa}, wall {ob}");
+    let thick = app.world().get::<PlacedPortal>(a).unwrap().opening_half_thickness();
+    assert!((thick - crate::types::PORTAL_THICKNESS_HALF).abs() < 1e-3, "slope keeps the standard thickness: {thick}");
 }
 
 /// A link name whose hash sorts below `than`'s: a group that came later and

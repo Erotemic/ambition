@@ -89,18 +89,22 @@ pub fn evict_straddlers_on_portal_change(
     // Keyed by live room and channel (OW1): two rooms can each hold a portal
     // of one channel. Keyed by channel alone, the two overwrote each other and
     // read as a portal that moved.
-    let current: HashMap<(PortalRoom, PortalChannel), (PortalAperture, Vec2)> = portals
+    let current: HashMap<(PortalRoom, PortalChannel), (PortalAperture, Vec2, Vec2)> = portals
         .iter()
-        .map(|(entity, p)| ((live.of(entity), p.channel), (p.aperture(), p.frame_delta())))
+        .map(|(entity, p)| ((live.of(entity), p.channel), (p.aperture(), p.frame_delta(), p.prev_normal)))
         .collect();
 
     for (key, old) in history.0.iter() {
         // The plane is unchanged only if a portal of the same channel still
         // sits at the same pos + normal (host-carried motion included);
         // otherwise its old plane is closing.
-        let unchanged = current.get(key).is_some_and(|(now, delta)| {
+        // A portal its host moved and turned this tick has not jumped: its
+        // place and normal are the last tick's, moved by the host. Anything
+        // else (placed again, turned by its owner, closed) is a new plane.
+        let unchanged = current.get(key).is_some_and(|(now, delta, prev_normal)| {
             now.frame.origin.distance(old.frame.origin + *delta) < 1.0
-                && now.frame.normal == old.frame.normal
+                && (now.frame.normal == old.frame.normal
+                    || prev_normal.distance(old.frame.normal) < 1.0e-4)
         });
         if unchanged {
             continue;
@@ -109,7 +113,7 @@ pub fn evict_straddlers_on_portal_change(
         evict_for_plane(*old, key.0, &mut bodies, &live);
     }
 
-    history.0 = current.into_iter().map(|(c, (ap, _))| (c, ap)).collect();
+    history.0 = current.into_iter().map(|(c, (ap, _, _))| (c, ap)).collect();
 }
 
 /// Shove every body of `room` straddling `plane` to the side its centroid is

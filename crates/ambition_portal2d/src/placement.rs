@@ -221,12 +221,6 @@ pub(crate) fn capture_face(portal: &PlacedPortal) -> ae::frame::FaceRect {
     }
 }
 
-/// The box that bounds [`capture_face`] (the face itself, for a cardinal
-/// portal).
-pub(crate) fn capture_box(portal: &PlacedPortal) -> ae::Aabb {
-    capture_face(portal).bounds()
-}
-
 /// Sized for terminal fall: sim steps are clamped to 1/30 s, and
 /// `MAX_FALL_SPEED` (1900 px/s) is about 63 px per step. A faster body may see
 /// the carve closed for one frame; the rescue in `transit_step` still

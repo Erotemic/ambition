@@ -18,8 +18,6 @@ use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 pub use ambition_demo_mary_o_modules::laden_swallow::BRAIN_KEY as LADEN_SWALLOW_BRAIN_KEY;
 /// The catalog id. The sheet is the African swallow's.
 pub const LADEN_SWALLOW_CHARACTER_ID: &str = "laden_swallow";
-/// The display name of its row.
-pub const LADEN_SWALLOW_DISPLAY_NAME: &str = "Laden Swallow";
 /// The `ProjectileVisualId` its coconut authors (`provider.rs` registers it).
 pub const COCONUT_VISUAL: &str = "mary_o_coconut";
 

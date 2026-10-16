@@ -25,12 +25,6 @@ use ambition_platformer2d::actor::ActorFaction;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 
-/// The catalog `display_name` the badnik renders from; every LDtk enemy spawn
-/// is rebranded to this name in [`crate::sanic_speedway`] so the sprite
-/// resolves (the row points at the published `ai_slop` sheet under a
-/// demo-owned name — see `assets/data/character_catalog.ron`).
-pub const BADNIK_DISPLAY_NAME: &str = "Sanic Badnik";
-
 /// The roster brain key the LDtk `EnemySpawn` entities reference.
 pub const BADNIK_BRAIN_KEY: &str = "sanic_badnik";
 

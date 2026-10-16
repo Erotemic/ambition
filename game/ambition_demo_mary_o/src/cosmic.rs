@@ -37,8 +37,6 @@ use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 /// The catalog id of the form.
 pub const COSMIC_CHARACTER_ID: &str = "mary_o_cosmic";
-/// The display name of its row.
-pub const COSMIC_DISPLAY_NAME: &str = "Eternal Cosmic Mary-O";
 
 /// The id of the form's control in the action scheme, and so the word on the
 /// control: `ActionSpec::display` title-cases it to "Transform".

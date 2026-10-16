@@ -459,6 +459,32 @@ pub mod content {
         ///
         /// When the pack has no `character_catalog` source, or `default_character`
         /// names no row in it.
+        /// The name `character` is shown by, as this pack's cast states it
+        /// (`display_name`). A game names a character's HUD label, sheet or
+        /// placement by it; reading it here keeps the cast its one author.
+        ///
+        /// # Panics
+        ///
+        /// When the pack's cast has no row `character`. The message names the
+        /// rows it has.
+        pub fn display_name(&self, character: &str) -> String {
+            use ambition_characters::actor::character_catalog::lowered_catalog;
+            let pack = self.prepared();
+            let catalog = lowered_catalog(pack)
+                .unwrap_or_else(|| panic!("the embedded pack `{}` states no cast", pack.id.0));
+            catalog
+                .characters
+                .get(character)
+                .map(|row| row.display_name.clone())
+                .unwrap_or_else(|| {
+                    panic!(
+                        "the embedded pack `{}` casts no `{character}`; it casts {:?}",
+                        pack.id.0,
+                        catalog.characters.keys().collect::<Vec<_>>()
+                    )
+                })
+        }
+
         pub fn cast(
             &'static self,
             provider: &str,

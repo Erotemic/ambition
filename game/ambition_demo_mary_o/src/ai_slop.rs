@@ -15,10 +15,6 @@
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 
-/// The catalog `display_name` an AI Slop renders from, and the name every AI Slop
-/// spawn carries so its `ai_slop` sheet resolves.
-pub const AI_SLOP_DISPLAY_NAME: &str = "AI Slop";
-
 /// The roster brain key the AI Slop archetype is filed under, namespaced so it
 /// never collides with a host provider's roster. The squash module binds it.
 pub use ambition_demo_mary_o_modules::squash::AI_SLOP_BRAIN_KEY;

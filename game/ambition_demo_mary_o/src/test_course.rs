@@ -124,7 +124,7 @@ pub fn test_course() -> RoomSpec {
     room.enemy_spawns
         .push(ambition_platformer2d::world::rooms::Authored::new(
             "course_snake",
-            crate::snake::SNAKE_DISPLAY_NAME,
+            crate::pack::PACK.display_name("solid_snake"),
             ae::Aabb::new(
                 ae::Vec2::new(COURSE_SNAKE_COLUMN * T, ground_top - T),
                 ae::Vec2::new(14.0, 16.0),

@@ -11,5 +11,3 @@
 pub const VOID_STAR_BRAIN_KEY: &str = "mary_o_void_star";
 /// The catalog id, and the sheet target.
 pub const VOID_STAR_CHARACTER_ID: &str = "void_star";
-/// The display name of its row.
-pub const VOID_STAR_DISPLAY_NAME: &str = "Void Star";

@@ -22,10 +22,6 @@ use ambition_platformer2d::sprite_sheet::character::{ActorAnimOverride, Characte
 
 use crate::stomp::{player_touch, PlayerTouch};
 
-/// The catalog `display_name` a snake renders from, and the name every snake
-/// spawn carries so its `solid_snake` sheet resolves.
-pub const SNAKE_DISPLAY_NAME: &str = "Solid Snake";
-
 /// The roster brain key the snake archetype is filed under, namespaced so it
 /// never collides with a host provider's roster.
 pub const SNAKE_BRAIN_KEY: &str = "mary_o_snake";

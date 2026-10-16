@@ -255,8 +255,9 @@ fn sanic_speedway_composes_through_the_umbrella() {
             "the enemy spawn `{name}` names no badnik of the cast"
         );
     }
-    assert_eq!(names[0], badnik::BADNIK_DISPLAY_NAME);
-    assert!(names.iter().any(|name| *name != badnik::BADNIK_DISPLAY_NAME), "the act has more than one kind of badnik");
+    let badnik = crate::pack::PACK.display_name("sanic_badnik");
+    assert_eq!(names[0], badnik);
+    assert!(names.iter().any(|name| *name != badnik), "the act has more than one kind of badnik");
     assert_eq!(
         room.metadata.visual_profile.parallax_theme.as_deref(),
         Some("skybridge"),

@@ -10,9 +10,7 @@ use bevy::prelude::App;
 use ambition_platformer2d::platformer::binding::BindingLedger;
 use ambition_platformer2d::platformer::world_item_art::{WorldItemArtManifest, WorldItemSpriteRef};
 
-use crate::ai_slop::AI_SLOP_DISPLAY_NAME;
 use crate::powerups::{CINDER_BEACON_SPRITE, STAR_WAND_SPRITE};
-use crate::snake::SNAKE_DISPLAY_NAME;
 
 /// The prepared cast Mary-O actually registers — the SAME registrations the
 /// app installs, which is the point: a cast assembled specially for this test
@@ -127,16 +125,19 @@ fn mary_o_binds_every_ref_it_declares() {
 /// so a rename on either side fails here rather than at runtime.
 #[test]
 fn every_authored_enemy_is_named_something_that_has_a_sheet() {
-    let published = [
-        SNAKE_DISPLAY_NAME,
-        AI_SLOP_DISPLAY_NAME,
-        crate::plane::PAPER_PLANE_DISPLAY_NAME,
-        crate::plane::CARTESIAN_PLANE_DISPLAY_NAME,
-        crate::plant::SNAKE_PLANT_DISPLAY_NAME,
-        crate::swallow::LADEN_SWALLOW_DISPLAY_NAME,
-        crate::void_lizard::VOID_LIZARD_DISPLAY_NAME,
-        crate::void_star::VOID_STAR_DISPLAY_NAME,
-    ];
+    let published: Vec<String> = [
+        "solid_snake",
+        "ai_slop",
+        "npc_snakes_on_a_paper_plane",
+        "npc_snakes_on_a_cartesian_plane",
+        "snake_plant",
+        "laden_swallow",
+        "void_lizard",
+        "void_star",
+    ]
+    .into_iter()
+    .map(|character| crate::pack::PACK.display_name(character))
+    .collect();
     for (room_id, room) in [
         ("1-1", crate::level_1_1()),
         ("1-2", crate::level_1_2::level_1_2()),
@@ -145,7 +146,7 @@ fn every_authored_enemy_is_named_something_that_has_a_sheet() {
             .enemy_spawns
             .iter()
             .map(|spawn| spawn.name.as_str())
-            .filter(|name| !published.contains(name))
+            .filter(|name| !published.iter().any(|published| published == name))
             .collect();
         assert!(
             unnamed.is_empty(),

@@ -22,8 +22,6 @@ pub use ambition_demo_mary_o_modules::void_lizard::BRAIN_KEY as VOID_LIZARD_BRAI
 pub use ambition_demo_mary_o_modules::void_lizard::SIGHT;
 /// The catalog id, and the sheet target.
 pub const VOID_LIZARD_CHARACTER_ID: &str = "void_lizard";
-/// The display name of its row.
-pub const VOID_LIZARD_DISPLAY_NAME: &str = "Void Lizard";
 /// The `ProjectileVisualId` its orb authors (`provider.rs` registers it).
 pub const VOID_ORB_VISUAL: &str = "mary_o_void_orb";
 

@@ -296,10 +296,13 @@ fn publish_mary_o_readouts(
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     // The boss she fights, when she is near one that is alive.
+    // The name is the body's own (`ActorIdentity`, from her catalog's
+    // `display_name`), so a rename in the catalog reaches the HUD.
     bodies: bevy::prelude::Query<(
         &ambition_platformer2d::combat::actor_tuning::ActorConfig,
         &ambition_platformer2d::characters::actor::BodyHealth,
         &ambition_platformer2d::engine_core::BodyKinematics,
+        &ambition_platformer2d::actor::ActorIdentity,
     )>,
     her: bevy::prelude::Query<
         &ambition_platformer2d::engine_core::BodyKinematics,
@@ -311,17 +314,17 @@ fn publish_mary_o_readouts(
         return;
     };
     let boss = her.single().ok().and_then(|her| {
-        bodies.iter().find(|(config, health, kin)| {
+        bodies.iter().find(|(config, health, kin, _)| {
             crate::void_lizard::is_void_lizard_brain(&config.brain)
                 && health.alive()
                 && (kin.pos.x - her.pos.x).abs() <= crate::void_lizard::SIGHT
         })
     });
     match boss {
-        Some((_, health, _)) => readouts.set(
+        Some((_, health, _, identity)) => readouts.set(
             BOSS_HUD_SLOT,
             ambition_platformer2d::presentation::HudReadout::gauge(
-                crate::void_lizard::VOID_LIZARD_DISPLAY_NAME.to_uppercase(),
+                identity.name.to_uppercase(),
                 format!("{}/{}", health.health.current, health.health.max),
                 health.health.current as f32 / (health.health.max.max(1)) as f32,
             ),

@@ -238,3 +238,54 @@ fn the_bridge_and_its_boss_are_there_for_a_body_that_comes_from_the_last_level()
         feet[0]
     );
 }
+
+/// The boss gauge names the lizard as her cast does.
+///
+/// The name was a Rust constant beside the catalog row, so a rename in
+/// `character_catalog.ron` left the gauge on the old name. The gauge now reads
+/// the body's own name, which the cast gives it.
+#[test]
+fn the_boss_gauge_names_the_boss_as_the_cast_does() {
+    use ambition_platformer2d::presentation::{HudReadouts, HudSlotId};
+
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(CASTLE.to_string()));
+    for _ in 0..600 {
+        app.update();
+        let world = app.world_mut();
+        let mut players = world.query_filtered::<Entity, With<PrimaryPlayer>>();
+        if players.iter(world).next().is_some() {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+    let lizard = {
+        let world = app.world_mut();
+        let mut bodies = world.query::<(&ambition_platformer2d::combat::actor_tuning::ActorConfig, &ae::BodyKinematics)>();
+        bodies
+            .iter(world)
+            .find(|(config, _)| ambition_demo_mary_o::void_lizard::is_void_lizard_brain(&config.brain))
+            .map(|(_, kin)| kin.pos)
+            .expect("the castle has its Void Lizard")
+    };
+    // Beside it, inside its sight: the gauge shows.
+    let gauge = (0..60).find_map(|_| {
+        {
+            let world = app.world_mut();
+            let mut bodies = world.query_filtered::<&mut ae::BodyKinematics, With<PrimaryPlayer>>();
+            let mut body = bodies.iter_mut(world).next().expect("her body");
+            body.pos = ae::Vec2::new(lizard.x - 40.0, lizard.y);
+            body.vel = ae::Vec2::ZERO;
+        }
+        app.update();
+        app.world()
+            .resource::<HudReadouts>()
+            .get(&HudSlotId::from(ambition_demo_mary_o::provider::BOSS_HUD_SLOT))
+            .map(|readout| readout.text())
+    });
+    let named = ambition_demo_mary_o::pack::PACK.display_name("void_lizard").to_uppercase();
+    let gauge = gauge.expect("no boss gauge came up beside the Void Lizard");
+    assert!(gauge.starts_with(&format!("{named} ")), "the boss gauge reads {gauge:?}, not the cast's name {named:?}");
+}

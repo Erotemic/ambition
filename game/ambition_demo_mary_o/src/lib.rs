@@ -2333,7 +2333,7 @@ mod tests {
         let snake = catalog
             .get("solid_snake")
             .expect("Solid Snake is a catalog row");
-        assert_eq!(snake.display_name, snake::SNAKE_DISPLAY_NAME);
+        assert_eq!(snake.display_name, pack::PACK.display_name("solid_snake"), "the installed row is the pack's");
         assert!(
             ambition_platformer2d::actors::character_sprites::sheet_for_character_id_in(
                 &Default::default(),
@@ -2346,7 +2346,7 @@ mod tests {
         // AI Slop is the SECOND enemy: the plain stomp-and-die walker. Same guard —
         // its `ai_slop` sheet spec must resolve, or it renders as a goblin too.
         let ai_slop_row = catalog.get("ai_slop").expect("AI Slop is a catalog row");
-        assert_eq!(ai_slop_row.display_name, ai_slop::AI_SLOP_DISPLAY_NAME);
+        assert_eq!(ai_slop_row.display_name, pack::PACK.display_name("ai_slop"), "the installed row is the pack's");
         assert!(
             ambition_platformer2d::actors::character_sprites::sheet_for_character_id_in(
                 &Default::default(),

@@ -390,7 +390,7 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
 #[test]
 fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
     use ambition_demo_mary_o::snake::{
-        SnakeShell, SNAKE_BRAIN_KEY, SNAKE_DISPLAY_NAME, SNAKE_SHEET_TARGET,
+        SnakeShell, SNAKE_BRAIN_KEY, SNAKE_SHEET_TARGET,
     };
 
     let mut app = build_demo_app();
@@ -408,7 +408,7 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
     app.world_mut()
         .write_message(ambition_platformer2d::actor::SpawnActorRequest {
             id: "scripted_snake".to_string(),
-            name: SNAKE_DISPLAY_NAME.to_string(),
+            name: ambition_demo_mary_o::pack::PACK.display_name("solid_snake"),
             pos: Vec2::new(600.0, 300.0),
             half_size: Vec2::new(14.0, 16.0),
             faction: ambition_platformer2d::actor::ActorFaction::Enemy,

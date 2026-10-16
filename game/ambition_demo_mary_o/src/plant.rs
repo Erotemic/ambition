@@ -26,8 +26,6 @@ use crate::ldtk_vocabulary::{pipe_of, MaryOPipeMouth};
 pub const SNAKE_PLANT_BRAIN_KEY: &str = "mary_o_snake_plant";
 /// The catalog id, and the sheet target.
 pub const SNAKE_PLANT_CHARACTER_ID: &str = "snake_plant";
-/// The display name of its row.
-pub const SNAKE_PLANT_DISPLAY_NAME: &str = "Snake Plant";
 
 /// How far out of its pipe a plant is, from 0 (hidden) to 1 (all the way
 /// out). Rollback state.

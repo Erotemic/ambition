@@ -43,10 +43,13 @@ again before you quote it.
   all, every frame. Three loops found, all fixed.
 - **Composition:** standalone Mary-O and Sanic run ~170 systems a frame for
   capabilities they do not use (P1; D3, D4 for Jon).
-- **Fixed tonight, no behaviour change, each verified by the probe or a
-  test:** Mary-O's star re-fold (F15), Sanic's gravity visuals (F18), the
-  hub's per-frame parallax respawn and its cause in `first_room_art.rs`
-  (F17), the hub's wielded-item overlays (F21; pixel-identical capture).
+- **Fixed tonight, no behaviour change, each verified by the probe, a
+  pixel-identical hub capture, or a test:** Mary-O's star re-fold (F15),
+  Sanic's gravity visuals (F18), the hub's per-frame parallax respawn and its
+  cause in `first_room_art.rs` (F17), the hub's wielded-item overlays (F21),
+  room isolation walking only when a mask can be stale (F14: 443 → 7.6
+  allocations a frame in Mary-O, 1,118 → 2.0 in Sanic), and read-before-write
+  for the SFX authorizer, the ledgers and the trail gizmo bands (F20).
 - **Instrumentation:** `perf_probe` (allocations per span, churn and value
   changes per source line; `profile_desktop.sh --perf-probe`) and the phone
   symbolizer's `--ours` and thread table. Both are one switch and one
@@ -523,6 +526,15 @@ only when one of its inputs changed; its ~200 allocations a frame are gone),
 narrative ledgers had a second every-frame writer, the release
 (`ambition_conversation/src/ledger.rs:194`), now fixed the same way (covered
 by the conversation tests).
+
+Write-only-a-change in the presentation (MEASURED, `probe/mary_o_1_1_v5`
+against `_v4`): the HUD helpers `set_shown`/`set_hidden` took
+`&mut Visibility`, and a `Mut` coerced to it at the call is marked changed
+before the helper's test runs, so every HUD node changed every frame; now
+generic over the `Mut`. The feature visuals (`actors/mod.rs`) and the
+hit-flash overlays now use `set_if_neq`. Per frame: `Visibility` changes 74 →
+1, transforms propagated (`GlobalTransform`) 224 → 182, all value changes
+2,216 → 2,017. The hub capture is pixel-identical.
 
 Verified with it (MEASURED): the `star.rs` fix (F15) works. After it,
 `ActionSet` and `ActorMoveset` were changed 17 times in 561 frames (loading),

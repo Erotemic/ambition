@@ -845,15 +845,18 @@ fn set_px(value: &mut Val, px: f32) {
     }
 }
 
-fn set_shown(visibility: &mut Visibility) {
-    if *visibility != Visibility::Inherited {
-        *visibility = Visibility::Inherited;
+// Generic over the `Mut`, not `&mut Visibility`: a `Mut` coerced to
+// `&mut Visibility` at the call is marked changed before the test below runs,
+// so every HUD node was changed every frame.
+fn set_shown<V: std::ops::DerefMut<Target = Visibility>>(visibility: &mut V) {
+    if **visibility != Visibility::Inherited {
+        **visibility = Visibility::Inherited;
     }
 }
 
-fn set_hidden(visibility: &mut Visibility) {
-    if *visibility != Visibility::Hidden {
-        *visibility = Visibility::Hidden;
+fn set_hidden<V: std::ops::DerefMut<Target = Visibility>>(visibility: &mut V) {
+    if **visibility != Visibility::Hidden {
+        **visibility = Visibility::Hidden;
     }
 }
 

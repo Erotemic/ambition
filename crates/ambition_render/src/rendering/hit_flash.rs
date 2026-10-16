@@ -412,7 +412,8 @@ pub fn sync_hit_flash_overlays(
         if *overlay_visibility != Visibility::Visible {
             *overlay_visibility = Visibility::Visible;
         }
-        *overlay_transform = overlay_transform_from_source(source_transform, anchor, render_size);
+        // Write only a change: a written `Transform` is propagated and extracted again.
+        overlay_transform.set_if_neq(overlay_transform_from_source(source_transform, anchor, render_size));
         // Read before writing, and write only a change. `Assets::get_mut` marks
         // the asset modified, so the material is re-uploaded to the GPU that
         // frame. Overlays live forever, so an unconditional `get_mut` would

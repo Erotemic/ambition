@@ -528,8 +528,10 @@ pub fn sync_visuals(
     }
 
     for (entity, visual, mut transform, mut sprite, mut visibility) in &mut feature_query {
+        // Each write below is of a change only: a written component is marked
+        // changed, and a changed `Transform` is propagated and extracted again.
         let Some(view) = feature_views.get(&visual.id) else {
-            *visibility = Visibility::Hidden;
+            visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
         // The visual is stamped with its room (or is in the sole live room).
@@ -541,13 +543,15 @@ pub fn sync_visuals(
         // is the body centre plus the sheet's per-pose art offset, if any.
         let draw_pos = presented_features.presented(&visual.id, view.pos)
             + view.sprite_offset.unwrap_or(ae::Vec2::ZERO);
-        transform.translation = world_to_bevy(&world.0, draw_pos, feature_z_in_plane(view.kind, view.depth_plane));
+        let mut placed = *transform;
+        placed.translation = world_to_bevy(&world.0, draw_pos, feature_z_in_plane(view.kind, view.depth_plane));
         // Surface-walking enemies (PuppySlug) rotate the sprite so
         // its authored "up" axis aligns with the surface normal —
         // the slug crawls along walls / ceilings with its body
         // visibly clinging to them. All other actors stay axis-
         // aligned (rotation_rad = 0).
-        transform.rotation = Quat::from_rotation_z(view.rotation_rad);
+        placed.rotation = Quat::from_rotation_z(view.rotation_rad);
+        transform.set_if_neq(placed);
 
         // State-aware sprite swap for breakables and chests. Pickups are
         // chosen at spawn time and never change kind. Enemies are animated
@@ -564,27 +568,35 @@ pub fn sync_visuals(
 
         if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
             // Bare colored rectangle (no entity sprite available, no atlas).
-            sprite.custom_size = Some(BVec2::new(view.size.x, view.size.y));
-            sprite.color = if matches!(view.kind, FeatureVisualKind::Switch) && view.switch_on {
+            let size = Some(BVec2::new(view.size.x, view.size.y));
+            let color = if matches!(view.kind, FeatureVisualKind::Switch) && view.switch_on {
                 switch_on_color()
             } else {
                 feature_color(view.kind, view.fighting, view.flash)
             };
+            if sprite.custom_size != size || sprite.color != color {
+                sprite.custom_size = size;
+                sprite.color = color;
+            }
         } else if sprite.texture_atlas.is_none() {
             // Textured single-image entity sprite. Keep author size; tint
             // for hit-flash, otherwise white.
-            sprite.custom_size = Some(BVec2::new(view.size.x, view.size.y));
-            sprite.color = if view.flash {
+            let size = Some(BVec2::new(view.size.x, view.size.y));
+            let color = if view.flash {
                 Color::srgba(1.0, 0.55, 0.55, 1.0)
             } else {
                 Color::WHITE
             };
+            if sprite.custom_size != size || sprite.color != color {
+                sprite.custom_size = size;
+                sprite.color = color;
+            }
         }
-        *visibility = if view.visible {
+        visibility.set_if_neq(if view.visible {
             Visibility::Visible
         } else {
             Visibility::Hidden
-        };
+        });
     }
 }
 

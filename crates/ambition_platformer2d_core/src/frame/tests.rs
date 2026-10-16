@@ -115,20 +115,48 @@ fn galilean_velocity_composition() {
         origin: Vec2::ZERO,
         normal: UP,
         velocity: Vec2::new(0.0, 50.0),
+        spin: 0.0,
+        pivot: Vec2::ZERO,
     };
     let b = PortalFrame {
         origin: Vec2::new(500.0, 0.0),
         normal: UP,
         velocity: Vec2::new(30.0, 0.0),
+        spin: 0.0,
+        pivot: Vec2::new(500.0, 0.0),
     };
-    let v_out = map_velocity(&a, &b, MapConvention::Reflection, Vec2::new(0.0, 50.0));
+    let v_out = map_velocity(&a, &b, MapConvention::Reflection, Vec2::ZERO, Vec2::new(0.0, 50.0));
     assert_eq!(v_out, Vec2::new(30.0, 0.0));
     // Static frames: composition degenerates to the plain map.
     let sa = floor_at(0.0, 0.0);
     let sb = floor_at(500.0, 0.0);
     let v = Vec2::new(80.0, 200.0);
     assert_eq!(
-        map_velocity(&sa, &sb, MapConvention::Reflection, v),
+        map_velocity(&sa, &sb, MapConvention::Reflection, Vec2::ZERO, v),
         map_vec(&sa, &sb, MapConvention::Reflection, v)
+    );
+}
+
+/// A portal that turns gives what crosses it the turn of its surface where it
+/// crosses: `spin × r` about its pivot, on top of the plain map. Out of a
+/// spinning exit 10 px along from its pivot, a body leaves with that point's
+/// surface velocity added.
+#[test]
+fn a_spinning_exit_adds_its_surface_velocity_where_the_body_leaves() {
+    let a = floor_at(0.0, 0.0);
+    let b = PortalFrame { spin: 2.0, ..floor_at(500.0, 0.0) };
+    let p = Vec2::new(10.0, 0.0);
+    let v = Vec2::new(0.0, 50.0);
+    let out = map_point(&a, &b, MapConvention::Reflection, p);
+    assert_eq!(out, Vec2::new(510.0, 0.0));
+    // spin × r at r = (10, 0): 2 · (−0, 10) = (0, 20).
+    assert_eq!(
+        map_velocity(&a, &b, MapConvention::Reflection, p, v),
+        map_vec(&a, &b, MapConvention::Reflection, v) + Vec2::new(0.0, 20.0)
+    );
+    // At the pivot the turn adds nothing.
+    assert_eq!(
+        map_velocity(&a, &b, MapConvention::Reflection, Vec2::ZERO, v),
+        map_vec(&a, &b, MapConvention::Reflection, v)
     );
 }

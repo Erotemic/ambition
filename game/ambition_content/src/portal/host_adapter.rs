@@ -95,8 +95,14 @@ pub fn attach_portal_hosts(
     }
 }
 
-/// Re-derive each hosted aperture frame from its current host face, in the
-/// portal's own live room (OW1). A portal in no live room keeps its frame
+/// Start each portal's tick where the last ended, then move each hosted
+/// aperture with its host face or line, in the portal's own live room (OW1).
+///
+/// Every portal's start pose (`prev_pos`, `prev_normal`) is its pose now, and
+/// its motion is none. A hosted portal then takes its host's pose and the
+/// motion its host published (CC6): a face's velocity, or a line's velocity
+/// and turn about its pivot. The host is looked up where it is, by its id or
+/// name, and the room is not copied. A portal in no live room keeps its frame
 /// while two rooms are live.
 pub fn refresh_hosted_portal_frames(
     mut commands: Commands,
@@ -105,54 +111,52 @@ pub fn refresh_hosted_portal_frames(
     time: Option<Res<ambition_time::WorldTime>>,
     mut portals: Query<(Entity, &mut PlacedPortal)>,
 ) {
-    if !portals.iter().any(|(_, p)| p.host.is_hosted()) {
-        return;
-    }
-    let mut surfaces = SurfacesByRoom::new(&collision);
     let dt = time.as_deref().map(|t| t.sim_dt()).unwrap_or(0.0);
+    // A host's motion is published per tick; the frame map wants it per second.
+    let per_second = if dt > 0.0 { 1.0 / dt } else { 0.0 };
     for (entity, mut portal) in &mut portals {
-        // A portal on a line moves with it and turns as it turns.
-        if let PortalHost::Line { line, along, lift } = portal.host.clone() {
-            let Some(view) = surfaces.of(live.of(entity)) else {
-                continue;
-            };
-            let Some((point, normal)) = point_on_line(view, &line, along) else {
-                // The line left the world: the portal closes with it.
-                commands.entity(entity).despawn();
-                continue;
-            };
-            let new_pos = point + normal * lift;
-            portal.prev_pos = portal.pos;
-            portal.vel = if dt > 0.0 { (new_pos - portal.pos) / dt } else { Vec2::ZERO };
-            portal.pos = new_pos;
-            portal.prev_normal = portal.normal;
-            portal.turn_to(normal);
+        let pos = portal.pos;
+        let normal = portal.normal;
+        portal.prev_pos = pos;
+        portal.prev_normal = normal;
+        portal.vel = Vec2::ZERO;
+        portal.spin = 0.0;
+        portal.pivot = pos;
+        if !portal.host.is_hosted() {
             continue;
         }
-        let Some((host, lift)) = portal.host.face().map(|(face, lift)| (face.clone(), lift)) else {
+        let Some(room) = collision.room(live.of(entity).map(InRoomInstance).as_ref()) else {
             continue;
         };
-        let Some(view) = surfaces.of(live.of(entity)) else {
-            continue;
+        let surfaces = room.host_surfaces();
+        // The host's pose for the portal now, and its motion: velocity of the
+        // point at `pivot`, turn about it. `None` when the host is gone.
+        let moved = match &portal.host {
+            // A portal on a line moves with it and turns as it turns.
+            PortalHost::Line { line, along, lift } => surfaces.line(line).and_then(|chain| {
+                let (point, normal) = point_on_line(&chain, *along)?;
+                Some((point + normal * *lift, normal, chain.velocity, chain.turn, chain.pivot))
+            }),
+            PortalHost::Face { face, lift } => surfaces.resolve_face(face).map(|anchor| {
+                // The host block's `velocity` is the kernels' surface_velocity
+                // convention: the authoritative PER-TICK displacement the mover
+                // published (never finite-differenced from our own positions).
+                let at = anchor.origin + normal * *lift;
+                (at, normal, anchor.velocity, 0.0, at)
+            }),
+            PortalHost::Unattributed | PortalHost::Static => continue,
         };
-        let Some(anchor) = view.resolve_face(&host) else {
-            // The host face left the world: the portal closes with its wall.
-            // Eviction sees the vanished plane and clears any straddler.
+        let Some((at, facing, shift, turn, pivot)) = moved else {
+            // The host left the world: the portal closes with it. Eviction
+            // sees the vanished plane and clears any straddler.
             commands.entity(entity).despawn();
             continue;
         };
-        let new_pos = anchor.origin + portal.normal * lift;
-        portal.prev_pos = portal.pos;
-        portal.pos = new_pos;
-        // The host block's `velocity` is the kernels' surface_velocity
-        // convention: the authoritative PER-TICK displacement the mover
-        // published (never finite-differenced from our own positions).
-        // The frame map wants px/s.
-        portal.vel = if dt > 0.0 {
-            anchor.velocity / dt
-        } else {
-            Vec2::ZERO
-        };
+        portal.pos = at;
+        portal.turn_to(facing);
+        portal.vel = shift * per_second;
+        portal.spin = turn * per_second;
+        portal.pivot = pivot;
     }
 }
 
@@ -185,10 +189,8 @@ fn attribute_line(view: &ae::World, portal: &PlacedPortal) -> Option<PortalHost>
     None
 }
 
-/// The point `along` the length of the line named `line`, and its normal
-/// there.
-fn point_on_line(view: &ae::World, line: &str, along: f32) -> Option<(Vec2, Vec2)> {
-    let chain = view.chains.iter().find(|chain| chain.name == line)?;
+/// The point `along` the length of `chain`, and its normal there.
+fn point_on_line(chain: &ae::SurfaceChain, along: f32) -> Option<(Vec2, Vec2)> {
     let count = chain.segment_count();
     let mut left = along;
     for i in 0..count {

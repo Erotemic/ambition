@@ -8,7 +8,7 @@ use ambition_characters::control::{DrivingParticipant, PlayerSlot, SeatRawFrames
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal2d::{
-    portal_half_extent, BodyTeleported, PlacedPortal, PortalChannel, PortalConvention,
+    BodyTeleported, PlacedPortal, PortalChannel, PortalConvention,
     PortalEmission, PortalGunColor, PortalInputWarp, PortalTuning,
 };
 
@@ -58,7 +58,7 @@ fn same_wall_pair_app(who: Body) -> (App, Entity) {
             PortalChannel::Gun(color),
             Vec2::new(20.0, y),
             Vec2::new(1.0, 0.0),
-            portal_half_extent(Vec2::new(1.0, 0.0)),
+            ambition_portal2d::PORTAL_OPENING_HALF,
         ));
     }
     let mut body = app.world_mut().spawn(BodyKinematics {

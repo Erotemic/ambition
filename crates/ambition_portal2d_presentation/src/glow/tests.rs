@@ -12,7 +12,7 @@ fn purple_at(x: f32) -> PlacedPortal {
         PortalChannel::Authored(PortalChannelColor::Purple),
         Vec2::new(x, 300.0),
         Vec2::new(-1.0, 0.0),
-        Vec2::new(9.0, 46.0),
+        46.0,
     )
 }
 
@@ -21,7 +21,7 @@ fn yellow_at(x: f32) -> PlacedPortal {
         PortalChannel::Authored(PortalChannelColor::Yellow),
         Vec2::new(x, 300.0),
         Vec2::new(1.0, 0.0),
-        Vec2::new(9.0, 46.0),
+        46.0,
     )
 }
 

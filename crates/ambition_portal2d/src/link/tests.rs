@@ -1,5 +1,4 @@
 use super::*;
-use crate::types::portal_half_extent;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
 
@@ -8,7 +7,7 @@ fn floor(pos: Vec2) -> PlacedPortal {
         PortalChannel::Authored(PortalChannelColor::Indexed(0)),
         pos,
         Vec2::new(0.0, -1.0),
-        portal_half_extent(Vec2::new(0.0, -1.0)),
+        crate::PORTAL_OPENING_HALF,
     )
 }
 
@@ -146,11 +145,11 @@ fn a_slope_portal_and_a_wall_portal_open_to_one_length() {
     let channel = PortalChannel::Authored(PortalChannelColor::Indexed(0));
     let a = app
         .world_mut()
-        .spawn((PortalLink(link_hash("e")), PlacedPortal::fixed(channel, Vec2::new(100.0, 300.0), slope, portal_half_extent(slope))))
+        .spawn((PortalLink(link_hash("e")), PlacedPortal::fixed(channel, Vec2::new(100.0, 300.0), slope, crate::PORTAL_OPENING_HALF)))
         .id();
     let b = app
         .world_mut()
-        .spawn((PortalLink(link_hash("e")), PlacedPortal::fixed(channel, Vec2::new(500.0, 300.0), wall, portal_half_extent(wall))))
+        .spawn((PortalLink(link_hash("e")), PlacedPortal::fixed(channel, Vec2::new(500.0, 300.0), wall, crate::PORTAL_OPENING_HALF)))
         .id();
     app.update();
     let (oa, ob) = (opening(&app, a), opening(&app, b));

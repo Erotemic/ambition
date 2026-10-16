@@ -114,6 +114,20 @@ pub struct Block {
 }
 
 impl Block {
+    /// The live anchor of `face_ref` on this block (see
+    /// [`World::resolve_face`]); its id is not checked.
+    pub fn face_anchor(&self, face_ref: &crate::GeoFaceRef) -> Option<FaceAnchor> {
+        let normal = face_ref.face.normal()?;
+        let (center, half) = face_geometry(self.aabb, face_ref.face)?;
+        let tangent = crate::frame::tangent_of(normal);
+        let along = face_ref.along.clamp(-half, half);
+        Some(FaceAnchor {
+            origin: center + tangent * along,
+            normal,
+            velocity: self.velocity,
+        })
+    }
+
     /// A total order over blocks that does not depend on which system added a
     /// block first: the durable identity, then the name, then the rectangle.
     ///
@@ -1151,16 +1165,7 @@ impl World {
     /// the host geometry is gone from this view or the face is not an AABB
     /// face (chains carry no `GeoId` yet).
     pub fn resolve_face(&self, face_ref: &crate::GeoFaceRef) -> Option<FaceAnchor> {
-        let block = self.block_by_id(&face_ref.geo)?;
-        let normal = face_ref.face.normal()?;
-        let (center, half) = face_geometry(block.aabb, face_ref.face)?;
-        let tangent = crate::frame::tangent_of(normal);
-        let along = face_ref.along.clamp(-half, half);
-        Some(FaceAnchor {
-            origin: center + tangent * along,
-            normal,
-            velocity: block.velocity,
-        })
+        self.block_by_id(&face_ref.geo)?.face_anchor(face_ref)
     }
 
     /// Anonymous (fixture/derived) blocks are skipped: only durably-identified geometry can host.

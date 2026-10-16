@@ -67,19 +67,28 @@ pub fn sync_portal_host_depths(
     mut depths: ResMut<PortalHostDepthsByRoom>,
 ) {
     depths.0.clear();
+    // The solids of each room, gathered once for all its portals.
+    let mut solids_by_room: Vec<(ambition_portal2d::PortalRoom, Vec<ambition_platformer2d_core::Aabb>)> =
+        Vec::new();
     for (entity, portal) in &portals {
         let Some(geometry) = world.of(entity) else {
             continue;
         };
-        let mut solids: Vec<ambition_platformer2d_core::Aabb> = Vec::new();
-        geometry
-            .0
-            .for_each_solid_aabb(false, &mut |aabb| solids.push(aabb));
+        let room = world.room_of(entity);
+        let index = match solids_by_room.iter().position(|(seen, _)| *seen == room) {
+            Some(index) => index,
+            None => {
+                let mut solids = Vec::new();
+                geometry.0.for_each_solid_aabb(false, &mut |aabb| solids.push(aabb));
+                solids_by_room.push((room, solids));
+                solids_by_room.len() - 1
+            }
+        };
         let depth = measure_host_depth(
-            &solids,
+            &solids_by_room[index].1,
             &portal.frame(),
             ambition_portal2d::pieces::CARVE_DEPTH,
         );
-        depths.push(world.room_of(entity), portal.channel, depth);
+        depths.push(room, portal.channel, depth);
     }
 }

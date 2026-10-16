@@ -13,13 +13,13 @@ fn thin_wall_pair() -> (PlacedPortal, PlacedPortal) {
         ambition_portal2d::PortalChannel::Authored(PortalChannelColor::Purple),
         Vec2::new(500.0, 300.0),
         Vec2::new(-1.0, 0.0),
-        Vec2::new(9.0, 46.0),
+        46.0,
     );
     let right = PlacedPortal::fixed(
         ambition_portal2d::PortalChannel::Authored(PortalChannelColor::Yellow),
         Vec2::new(532.0, 300.0),
         Vec2::new(1.0, 0.0),
-        Vec2::new(9.0, 46.0),
+        46.0,
     );
     (left, right)
 }

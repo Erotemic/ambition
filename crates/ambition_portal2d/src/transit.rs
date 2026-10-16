@@ -10,7 +10,6 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
 use ambition_platformer2d_shared_tangle::orientation::ActorRoll;
-use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
 use super::color::PortalChannel;
 use super::placement::{transit_step_with_tuning, SweptSample, TransitStep, TRANSIT_BEGIN_MARGIN};
@@ -121,13 +120,16 @@ pub fn publish_portal_carves(
             // Front side only: in the opening now, or approaching fast enough
             // to cross this frame. Otherwise a body behind a thin wall could
             // open a hole through it without transiting.
+            // Moving into it relative to its surface: a portal that moves or
+            // turns onto a still body opens for it.
+            let into = p.relative_velocity(kin.pos, kin.vel).dot(p.normal) < 0.0;
             let frontal = front >= -TRANSIT_BEGIN_MARGIN
                 && (capture_face(p).strict_intersects(body)
-                    || (kin.vel.dot(p.normal) < 0.0 && approach_face(p).strict_intersects(body)));
+                    || (into && approach_face(p).strict_intersects(body)));
             // Fast crossing that skipped Begin: keep the hole open while the
             // body is inside the carve volume, bounded by the host depth.
             let hole = pp::carve_face_with_depth(&ap, depths.in_room(room).depth(p.channel));
-            let falling_through = kin.vel.dot(p.normal) < 0.0 && hole.strict_intersects(body);
+            let falling_through = into && hole.strict_intersects(body);
             if frontal || falling_through {
                 let PortalCarves { holes, faces } = &mut *carves;
                 carve(room, p.channel, holes, faces);
@@ -411,26 +413,18 @@ pub fn portal_teleport_free_bodies<B: FreePortalBody>(
     }
     for (entity, mut body) in &mut bodies {
         let (pos, vel, half_extent) = (body.pos(), body.vel(), body.half_extent());
-        if vel == Vec2::ZERO {
-            continue;
-        }
         let all = by_room.in_room(live.of(entity));
         let body_aabb = ae::Aabb::new(pos, half_extent);
         for enter in all {
             let Some(exit) = find_portal(all, enter.channel.partner()) else {
                 continue;
             };
-            if vel.dot(enter.normal) < 0.0
-                && (ae::frame::FaceRect {
-                    center: enter.pos,
-                    normal: enter.normal.normalize_or_zero(),
-                    half_along: enter.aperture().half_length,
-                    half_out: enter.opening_half_thickness(),
-                })
-                .strict_intersects(body_aabb)
+            // Moving into it relative to its surface, as a kernel body does.
+            if enter.relative_velocity(pos, vel).dot(enter.normal) < 0.0
+                && enter.opening_face().strict_intersects(body_aabb)
             {
-                // Rotation preserves speed, so momentum carries through.
-                let exit_vel = portal_transform_velocity(vel, enter.normal, exit.normal, convention);
+                // It keeps its velocity relative to the surface it crosses.
+                let exit_vel = ae::frame::map_velocity(&enter.frame(), &exit.frame(), convention, pos, vel);
                 let clearance = portal_exit_clearance(half_extent, exit.normal);
                 body.emerge(exit.pos + exit.normal * clearance, exit_vel);
                 break;

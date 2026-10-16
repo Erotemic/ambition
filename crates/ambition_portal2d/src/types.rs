@@ -25,10 +25,13 @@ pub struct PlacedPortal {
     /// Unit surface normal, pointing out of the host surface into the room,
     /// at any angle. The opening runs along its tangent.
     pub normal: Vec2,
-    /// `normal` at the start of this frame, as its host turned it: equal to
-    /// `normal` unless the host turned the portal this tick (a plank that
-    /// turns). Anything else that sets `normal` sets this too, so a turn by
-    /// the host is told apart from a jump (eviction).
+    /// The pose (`pos`, `normal`) at the start of this tick, before its host
+    /// moved it. The host refresh sets it for every portal each tick, and
+    /// anything that places a portal sets it to the new pose. So a portal
+    /// whose start pose is not the last tick's end pose was placed again
+    /// (eviction), and `prev → now` is the host's rigid motion this tick
+    /// (the relative swept transit trigger).
+    pub prev_pos: Vec2,
     pub prev_normal: Vec2,
     /// The opening as its owner placed it: half its length along the face,
     /// and half its thickness across it. The opening that transit, carve and
@@ -43,14 +46,13 @@ pub struct PlacedPortal {
     /// The face this aperture rides, if any. A hosted portal closes when its
     /// face disappears.
     pub host: PortalHost,
-    /// The aperture velocity in px/s (`PortalFrame::velocity`, used by the
-    /// Galilean transfer map). Zero for unhosted portals; the host refresh
-    /// derives it from the host block velocity.
+    /// The host's motion of the aperture, as the host published it (CC6,
+    /// never a difference of positions): the velocity in px/s of its point at
+    /// `pivot`, and its turn about `pivot` in rad/s
+    /// ([`PortalFrame::velocity_at`]). Zero for unhosted portals.
     pub vel: Vec2,
-    /// `pos` at the start of this frame. `pos - prev_pos` is the frame
-    /// displacement that the relative swept transit trigger subtracts. Set by
-    /// the host refresh; equal to `pos` for unhosted portals.
-    pub prev_pos: Vec2,
+    pub spin: f32,
+    pub pivot: Vec2,
 }
 
 /// The channel whose colours draw a portal, when that is not the channel that
@@ -99,13 +101,12 @@ impl PortalHost {
 }
 
 impl PlacedPortal {
-    /// A portal placed at a fixed pose. The host adapter then decides whether
+    /// A portal placed at a fixed pose, its opening `half_length` long each
+    /// way along the face ([`PORTAL_OPENING_HALF`] is the standard) and the
+    /// standard thickness across it. The host adapter then decides whether
     /// it rides a face.
-    /// `half_extent` is the axis-aligned box of the opening for `normal`
-    /// ([`portal_half_extent_with_length`]); its length and thickness are
-    /// read back from it.
-    pub fn fixed(channel: PortalChannel, pos: Vec2, normal: Vec2, half_extent: Vec2) -> Self {
-        let (half_length, half_thickness) = portal_shape_of_box(normal, half_extent);
+    pub fn fixed(channel: PortalChannel, pos: Vec2, normal: Vec2, half_length: f32) -> Self {
+        let half_thickness = PORTAL_THICKNESS_HALF;
         Self {
             channel,
             pos,
@@ -116,30 +117,66 @@ impl PlacedPortal {
             partner_opening_half: None,
             host: PortalHost::Unattributed,
             vel: Vec2::ZERO,
+            spin: 0.0,
+            pivot: pos,
             prev_pos: pos,
         }
     }
 
-    /// The aperture displacement this frame (the relative sweep term). Zero
-    /// for unhosted portals.
-    pub fn frame_delta(&self) -> Vec2 {
-        if self.host.is_hosted() {
-            self.pos - self.prev_pos
-        } else {
-            Vec2::ZERO
-        }
+    /// Place it at a new pose, as its owner does (not its host): the tick
+    /// starts there, so eviction sees a new plane and transit no motion.
+    pub fn place_at(&mut self, pos: Vec2, normal: Vec2) {
+        self.pos = pos;
+        self.normal = normal.normalize_or_zero();
+        self.prev_pos = self.pos;
+        self.prev_normal = self.normal;
+        self.vel = Vec2::ZERO;
+        self.spin = 0.0;
+        self.pivot = pos;
+    }
+
+    /// Did its host move or turn it this tick?
+    pub fn moved_this_tick(&self) -> bool {
+        self.pos != self.prev_pos || self.normal != self.prev_normal
     }
 }
 
 impl PlacedPortal {
     /// The geometry frame this portal gives the portal map: origin, normal,
-    /// and velocity.
+    /// and motion.
     pub fn frame(&self) -> PortalFrame {
         PortalFrame {
             origin: self.pos,
             normal: self.normal,
             velocity: self.vel,
+            spin: self.spin,
+            pivot: self.pivot,
         }
+    }
+
+    /// `v` (of a body at `p`) relative to this portal's surface there: what
+    /// says whether the body moves into the portal, and what it keeps when it
+    /// crosses. A still body that a moving portal sweeps onto moves into it.
+    pub fn relative_velocity(&self, p: Vec2, v: Vec2) -> Vec2 {
+        v - self.frame().velocity_at(p)
+    }
+
+    /// The opening this frame, turned to its face: the opening length along
+    /// it and the thickness across it.
+    pub fn opening_face(&self) -> ae::frame::FaceRect {
+        ae::frame::FaceRect {
+            center: self.pos,
+            normal: self.normal.normalize_or_zero(),
+            half_along: self.opening_half_length(),
+            half_out: self.half_thickness,
+        }
+    }
+
+    /// The frame at the start of this tick, before its host moved it. A
+    /// point fixed to the aperture is at `frame().from_local(l)` where it was
+    /// at `prev_frame().from_local(l)`.
+    pub fn prev_frame(&self) -> PortalFrame {
+        PortalFrame { origin: self.prev_pos, normal: self.prev_normal, ..self.frame() }
     }
 
     /// The half-length of the opening this frame: the authored one, made
@@ -217,7 +254,7 @@ pub fn stable_portal_order(a: &PlacedPortal, b: &PlacedPortal) -> std::cmp::Orde
 /// `PORTAL_OPENING_HALF * 2` long along the surface, and thin across it. The
 /// drawn face and the capture box both use these, so the warp happens at the
 /// visible face.
-pub(crate) const PORTAL_OPENING_HALF: f32 = 46.0;
+pub const PORTAL_OPENING_HALF: f32 = 46.0;
 /// Standard through-surface half-thickness, exposed so the aperture-equalizer
 /// can rebuild a half-extent from a new along-length.
 pub(crate) const PORTAL_THICKNESS_HALF: f32 = 9.0;
@@ -232,57 +269,12 @@ pub const MIN_EXIT_SPEED: f32 = 220.0;
 /// the player warps at the drawn face.
 pub const PORTAL_VISUAL_THICKNESS: f32 = PORTAL_THICKNESS_HALF * 2.0;
 
-/// AABB half-extent for a portal on a surface with the given `normal`:
-/// `PORTAL_OPENING_HALF` along the surface and `PORTAL_THICKNESS_HALF` through
-/// it. A slanted normal gives the axis-aligned box that bounds the tilted face.
-///
-/// FIXME(portal-api): keep this helper for Ambition's AABB world, but do not
-/// make bounding boxes the only public representation of slanted portals.
-pub fn portal_half_extent(normal: Vec2) -> Vec2 {
-    portal_half_extent_with_length(normal, PORTAL_OPENING_HALF)
-}
-
-/// [`portal_half_extent`] with an explicit along-surface half-length (e.g. the authored LDtk
-/// box), keeping the standard through-surface thickness.
-pub fn portal_half_extent_with_length(normal: Vec2, along_half: f32) -> Vec2 {
-    let n = normal.normalize_or_zero();
-    let along = Vec2::new(-n.y, n.x);
-    Vec2::new(
-        along.x.abs() * along_half + n.x.abs() * PORTAL_THICKNESS_HALF,
-        along.y.abs() * along_half + n.y.abs() * PORTAL_THICKNESS_HALF,
-    )
-}
-
-/// The along-surface half-length (opening size) of an oriented half-extent —
-/// the inverse of [`portal_half_extent_with_length`].
-pub fn portal_opening_half(normal: Vec2, half_extent: Vec2) -> f32 {
-    portal_shape_of_box(normal, half_extent).0
-}
-
 /// The box `(x, y)` half-extents of an opening of `half_length` along the
 /// face of `normal` and `half_thickness` across it: the box that bounds it.
 pub fn portal_box(normal: Vec2, half_length: f32, half_thickness: f32) -> Vec2 {
     let n = normal.normalize_or_zero();
     let along = Vec2::new(-n.y, n.x);
     along.abs() * half_length + n.abs() * half_thickness
-}
-
-/// The `(half_length, half_thickness)` of the opening whose bounding box for
-/// `normal` is `half_extent`: the inverse of [`portal_box`]. Exact for a
-/// box made by it; for a cardinal normal it reads the two sides.
-pub fn portal_shape_of_box(normal: Vec2, half_extent: Vec2) -> (f32, f32) {
-    let n = normal.normalize_or_zero();
-    let (a, b) = (n.y.abs(), n.x.abs());
-    // half_extent.x = a*L + b*T, half_extent.y = b*L + a*T.
-    let det = a * a - b * b;
-    if det.abs() < 1.0e-4 {
-        // At 45 degrees the two are one sum: keep the standard thickness.
-        let t = PORTAL_THICKNESS_HALF.min(half_extent.x / (a + b).max(1.0e-4));
-        return ((half_extent.x - b * t) / a.max(1.0e-4), t);
-    }
-    let l = (a * half_extent.x - b * half_extent.y) / det;
-    let t = (a * half_extent.y - b * half_extent.x) / det;
-    (l, t)
 }
 
 /// How far out of the exit portal (along its normal) to place a body so it
@@ -338,6 +330,8 @@ mod find_portal_determinism_tests {
             partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,
+            spin: 0.0,
+            pivot: Vec2::ZERO,
             prev_pos: Vec2::new(x, y),
         }
     }
@@ -397,6 +391,8 @@ mod stable_order_tests {
             partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,
+            spin: 0.0,
+            pivot: Vec2::ZERO,
             prev_pos: Vec2::new(x, y),
         }
     }

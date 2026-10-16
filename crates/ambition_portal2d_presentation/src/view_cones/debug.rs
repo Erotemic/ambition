@@ -595,19 +595,19 @@ fn portal_view_cone_debug_dump_text(
                     let clip = source_clip_debug(
                         plan.wedge.source.min,
                         plan.wedge.source.max,
-                        render.source_min,
-                        render.source_max,
+                        render.capture.bounds().0,
+                        render.capture.bounds().1,
                     );
                     let _ = writeln!(
                         out,
                         "  render.source_rect: {} -> {}",
-                        fmt_vec2(render.source_min),
-                        fmt_vec2(render.source_max)
+                        fmt_vec2(render.capture.bounds().0),
+                        fmt_vec2(render.capture.bounds().1)
                     );
                     let _ = writeln!(
                         out,
-                        "  render.source_size: {}",
-                        fmt_vec2(render.source_size)
+                        "  render.capture.size: {}",
+                        fmt_vec2(render.capture.size)
                     );
                     let _ = writeln!(
                         out,
@@ -640,11 +640,11 @@ fn portal_view_cone_debug_dump_text(
                         fmt_vec2(clip.source_clip_loss_fraction)
                     );
                     let texels_per_world = Vec2::new(
-                        rebuild.tex.x as f32 / render.source_size.x.max(1.0),
-                        rebuild.tex.y as f32 / render.source_size.y.max(1.0),
+                        rebuild.tex.x as f32 / render.capture.size.x.max(1.0),
+                        rebuild.tex.y as f32 / render.capture.size.y.max(1.0),
                     );
                     let texture_aspect = rebuild.tex.x as f32 / (rebuild.tex.y as f32).max(1.0);
-                    let source_aspect = render.source_size.x / render.source_size.y.max(1.0);
+                    let source_aspect = render.capture.size.x / render.capture.size.y.max(1.0);
                     let _ = writeln!(out, "  render.texture_aspect: {:.3}", texture_aspect);
                     let _ = writeln!(out, "  render.source_aspect: {:.3}", source_aspect);
                     let _ = writeln!(
@@ -653,7 +653,7 @@ fn portal_view_cone_debug_dump_text(
                         fmt_vec2(texels_per_world)
                     );
                     let _ = writeln!(out, "  render.centroid: {}", fmt_vec3(render.centroid));
-                    let _ = writeln!(out, "  render.cam_center: {}", fmt_vec3(render.cam_center));
+                    let _ = writeln!(out, "  render.capture: center {} axis {}", fmt_vec2(render.capture.center), fmt_vec2(render.capture.axis));
                     let _ = writeln!(out, "  render.vertex_count: {}", render.positions.len());
                     let _ = writeln!(out, "  render.index_count: {}", render.indices.len());
                     let _ = writeln!(
@@ -996,8 +996,8 @@ pub fn selected_portal_view_cone_debug_rows(
                 let clip = source_clip_debug(
                     plan.wedge.source.min,
                     plan.wedge.source.max,
-                    render.source_min,
-                    render.source_max,
+                    render.capture.bounds().0,
+                    render.capture.bounds().1,
                 );
                 rows.push(PortalViewConeDebugRow::new(
                     format!("selected_pair.{name}.render.present"),
@@ -1006,8 +1006,8 @@ pub fn selected_portal_view_cone_debug_rows(
                     "True when final mesh/camera render data exists for this portal.",
                 ));
                 rows.push(PortalViewConeDebugRow::new(
-                    format!("selected_pair.{name}.render.source_size"),
-                    fmt_vec2(render.source_size),
+                    format!("selected_pair.{name}.render.capture.size"),
+                    fmt_vec2(render.capture.size),
                     "world px",
                     "Final source rect size used by mesh UVs and capture-camera scaling.",
                 ));
@@ -1363,6 +1363,8 @@ mod compositing_report_tests {
             partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,
+            spin: 0.0,
+            pivot: Vec2::ZERO,
             prev_pos: Vec2::new(100.0, 300.0),
         }
     }

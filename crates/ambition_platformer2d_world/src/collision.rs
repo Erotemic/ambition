@@ -333,6 +333,13 @@ impl<'a> RoomCollision<'a> {
     ///   a surface an aperture should outlive.
     ///
     /// No consumer outside this module builds a collision world itself.
+    /// The surfaces a portal rides, to look up the one face or line a
+    /// hosted portal is on each tick: the same surfaces as
+    /// [`Self::hostable_surfaces`], read in place instead of copied together.
+    pub fn host_surfaces(self) -> HostSurfaces<'a> {
+        HostSurfaces { authored: &self.geometry.0, platforms: self.platforms }
+    }
+
     pub fn hostable_surfaces(self) -> Option<Cow<'a, ae::World>> {
         if self.platforms.is_empty() {
             return Some(Cow::Borrowed(&self.geometry.0));
@@ -347,6 +354,42 @@ impl<'a> RoomCollision<'a> {
     /// reads only — never for collision. Prefer `solids()` / `carves_only()`.
     pub fn base(self) -> &'a ae::World {
         &self.geometry.0
+    }
+}
+
+/// [`RoomCollision::host_surfaces`]: the authored world and the moving
+/// platforms, uncarved, read where they are.
+#[derive(Clone, Copy)]
+pub struct HostSurfaces<'a> {
+    authored: &'a ae::World,
+    platforms: &'a [MovingPlatformState],
+}
+
+impl<'a> HostSurfaces<'a> {
+    /// Where the face `face_ref` names is now: on an authored block or on a
+    /// moving platform.
+    pub fn resolve_face(&self, face_ref: &ae::GeoFaceRef) -> Option<ae::world::FaceAnchor> {
+        if let Some(anchor) = self.authored.resolve_face(face_ref) {
+            return Some(anchor);
+        }
+        self.platforms
+            .iter()
+            .filter(|platform| platform.plank.is_none())
+            .map(MovingPlatformState::as_collision_block)
+            .find(|block| block.id == face_ref.geo)
+            .and_then(|block| block.face_anchor(face_ref))
+    }
+
+    /// The line named `name`: an authored one, or a plank platform's.
+    pub fn line(&self, name: &str) -> Option<Cow<'a, ae::SurfaceChain>> {
+        if let Some(chain) = self.authored.chains.iter().find(|chain| chain.name == name) {
+            return Some(Cow::Borrowed(chain));
+        }
+        self.platforms
+            .iter()
+            .find(|platform| platform.id == name)
+            .and_then(MovingPlatformState::as_collision_line)
+            .map(Cow::Owned)
     }
 }
 

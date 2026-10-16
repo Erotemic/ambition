@@ -706,6 +706,9 @@ pub struct PortalViewRig {
     mesh: Handle<Mesh>,
     cone: Entity,
     last_capture_update_s: f32,
+    /// The capture its texture holds, where it was taken: what the window
+    /// samples until the next one. `None` before the first.
+    captured: Option<geometry::CaptureCameraFrame>,
     /// Sticky pairwise pane-dominance winner (see [`mesh::pane_z`]): keeps the
     /// two overlapping panes of a thin-wall pair from swapping draw order with
     /// sub-pixel eye jitter around the material midpoint.
@@ -857,6 +860,11 @@ fn portal_window_clip_rect(
     }
 }
 
+/// How much of a held capture may fall outside the window before the capture
+/// is due early: a sliver at the view's edge, as a fraction of the capture's
+/// shorter side.
+const STALE_CAPTURE_SLACK: f32 = 0.02;
+
 fn portal_capture_camera_frame(
     config: &PortalViewConeConfig,
     host_view: Option<&PortalCameraContinuityHostView>,
@@ -875,17 +883,21 @@ fn portal_capture_camera_frame(
     // cone vertices fell outside the capture rect and the window smeared.
     // `map_aabb` is exact for cardinal portals, and the mesh's entry polygon is
     // clipped to this same host rect, so every mapped vertex lands inside.
-    let rect = ae::Aabb::new(host_view.current_center_world, host_view.visible_view * 0.5);
-    let mapped = ambition_portal2d::pieces::map_aabb(rect, &enter.frame, &exit.frame, convention);
-    // A pair that is not a quarter turn apart (a portal on a slope, or on a
-    // platform that turns) maps the view to a turned rect, whose bounding box
-    // changes size with the angle: its capture texture was made again each
-    // frame. A square as wide as the view's diagonal bounds the turned view
-    // at every angle, so the capture keeps one size while the portal turns.
-    let along = ambition_portal2d::pieces::portal_map_vec(Vec2::X, enter.frame.normal, exit.frame.normal, convention);
-    let quarter_turn = along.x.abs() < 1.0e-3 || along.y.abs() < 1.0e-3;
-    let size = if quarter_turn { mapped.half_size() * 2.0 } else { Vec2::splat(host_view.visible_view.length().ceil()) };
-    Some(geometry::CaptureCameraFrame { center: mapped.center(), size })
+    //
+    // The map turns the view's rect (a portal on a slope, or on a platform
+    // that turns, by any angle): the capture camera turns with it, so it
+    // frames the view's rect exactly and its texture is the view's size at
+    // every angle. A box around the turned rect changed size with the angle,
+    // and the texture was made again each frame.
+    let center = ambition_portal2d::pieces::map_point(
+        host_view.current_center_world,
+        &enter.frame,
+        &exit.frame,
+        convention,
+    );
+    let axis = ambition_portal2d::pieces::portal_map_vec(Vec2::X, enter.frame.normal, exit.frame.normal, convention)
+        .normalize_or(Vec2::X);
+    Some(geometry::CaptureCameraFrame { center, size: host_view.visible_view, axis })
 }
 
 mod geometry;
@@ -1124,11 +1136,53 @@ pub fn sync_portal_view_cones(
             convention,
         );
         match render {
-            Some(r) => {
+            Some(mut r) => {
+                // The portal (or its partner) you are crossing always refreshes,
+                // bypassing the slot cap + refresh interval, so the seam never
+                // shows a stale window mid-crossing on a throttled tier.
+                let at_seam =
+                    portal_at_seam(viewer, portal.pos) || portal_at_seam(viewer, partner.pos);
+                // The capture the texture holds no longer covers the window
+                // (the portals or the view moved since it was taken), beyond
+                // a sliver at the view's edge: it is due before its interval.
+                let slack = r.capture.size.min_element() * STALE_CAPTURE_SLACK;
+                let uncovered = rig.captured.is_none_or(|held| {
+                    r.mapped_source_vertices.iter().any(|m| held.overhang(*m) > slack)
+                });
+                let refresh_due = at_seam
+                    || uncovered
+                    || now_s - rig.last_capture_update_s >= effective.min_refresh_interval_s;
+                let has_active_slot = active_captures < effective.max_active_captures;
+                let has_update_slot = updates_this_frame < effective.max_updates_per_frame;
+                cam.is_active = refresh_due && (at_seam || (has_active_slot && has_update_slot));
+                // The window samples the capture its texture holds: the one
+                // taken now, or the last one, where it was taken. So a
+                // capture that waits is an older picture in its place, not
+                // a picture that slides with the window.
+                let shown = match rig.captured {
+                    Some(held) if !cam.is_active => held,
+                    _ => r.capture,
+                };
+                if shown != r.capture {
+                    r.uvs = r.mapped_source_vertices.iter().map(|m| shown.uv(*m)).collect();
+                }
                 if let Some(mut mesh) = meshes.get_mut(&rig.mesh) {
                     apply_mesh(&mut mesh, &r);
                 }
-                cam_tf.translation = r.cam_center;
+                if cam.is_active {
+                    active_captures += 1;
+                    updates_this_frame += 1;
+                    rig.last_capture_update_s = now_s;
+                    rig.captured = Some(r.capture);
+                    cam_tf.translation = frame.to_render(r.capture.center, 0.0);
+                    cam_tf.rotation = r.capture.render_rotation();
+                    if let Projection::Orthographic(o) = &mut *proj {
+                        o.scaling_mode = ScalingMode::Fixed {
+                            width: r.capture.size.x,
+                            height: r.capture.size.y,
+                        };
+                    }
+                }
                 rig.parallax_anchor = frame
                     .to_render(
                         portal_parallax_anchor_world(
@@ -1137,38 +1191,10 @@ pub fn sync_portal_view_cones(
                             &exit,
                             convention,
                         )
-                        .unwrap_or_else(|| (r.source_min + r.source_max) * 0.5),
+                        .unwrap_or(r.capture.center),
                         0.0,
                     )
                     .truncate();
-                if let Projection::Orthographic(o) = &mut *proj {
-                    o.scaling_mode = ScalingMode::Fixed {
-                        width: r.source_size.x,
-                        height: r.source_size.y,
-                    };
-                }
-                // The portal (or its partner) you are crossing always refreshes,
-                // bypassing the slot cap + refresh interval, so the seam never
-                // shows a stale window mid-crossing on a throttled tier.
-                let at_seam =
-                    portal_at_seam(viewer, portal.pos) || portal_at_seam(viewer, partner.pos);
-                // A pair whose portal moved or turned this tick (on a moving
-                // or turning host) refreshes every frame too: a throttled
-                // capture of a moving view lags behind the window.
-                let moving = [&portal, &partner].iter().any(|p| {
-                    p.frame_delta() != Vec2::ZERO || p.prev_normal != p.normal
-                });
-                let refresh_due = at_seam
-                    || moving
-                    || now_s - rig.last_capture_update_s >= effective.min_refresh_interval_s;
-                let has_active_slot = active_captures < effective.max_active_captures;
-                let has_update_slot = updates_this_frame < effective.max_updates_per_frame;
-                cam.is_active = refresh_due && (at_seam || moving || (has_active_slot && has_update_slot));
-                if cam.is_active {
-                    active_captures += 1;
-                    updates_this_frame += 1;
-                    rig.last_capture_update_s = now_s;
-                }
                 if let Ok((mut ctf, mut vis)) = cones.get_mut(rig.cone) {
                     ctf.translation = r.centroid;
                     *vis = Visibility::Inherited;
@@ -1301,11 +1327,12 @@ pub fn sync_portal_view_cones(
             .id();
         let (cam_tf, requested_active, scaling) = match &render {
             Some(r) => (
-                Transform::from_translation(r.cam_center),
+                Transform::from_translation(frame.to_render(r.capture.center, 0.0))
+                    .with_rotation(r.capture.render_rotation()),
                 true,
                 ScalingMode::Fixed {
-                    width: r.source_size.x,
-                    height: r.source_size.y,
+                    width: r.capture.size.x,
+                    height: r.capture.size.y,
                 },
             ),
             None => (
@@ -1366,7 +1393,7 @@ pub fn sync_portal_view_cones(
                             &exit,
                             convention,
                         )
-                        .or_else(|| render.as_ref().map(|r| (r.source_min + r.source_max) * 0.5))
+                        .or_else(|| render.as_ref().map(|r| r.capture.center))
                         .unwrap_or(exit.frame.origin),
                         0.0,
                     )
@@ -1378,6 +1405,7 @@ pub fn sync_portal_view_cones(
                 mesh,
                 cone: cone_entity,
                 last_capture_update_s: if active { now_s } else { f32::NEG_INFINITY },
+                captured: render.as_ref().filter(|_| active).map(|r| r.capture),
                 pane_dominant,
             },
             Name::new(format!("Portal view capture ({})", portal.channel.name())),

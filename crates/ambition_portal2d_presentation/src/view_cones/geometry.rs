@@ -62,27 +62,74 @@ pub(crate) fn capture_dims(
 
 /// Per-frame render data for the (world-clipped) window polygon: fan-mesh
 /// positions + UVs + indices, the mesh world translation, and the capture
-/// camera's center + framed size.
+/// camera's frame.
 pub(crate) struct ConeRender {
     pub(crate) positions: Vec<[f32; 3]>,
     pub(crate) uvs: Vec<[f32; 2]>,
     pub(crate) indices: Vec<u32>,
     pub(crate) centroid: Vec3,
-    pub(crate) cam_center: Vec3,
     /// Entry-side world polygon after clipping to the active portal view rect.
     pub(crate) entry_poly_world: Vec<Vec2>,
     /// Source-side world vertices after mapping `entry_poly_world` through the portal pair.
     pub(crate) mapped_source_vertices: Vec<Vec2>,
-    pub(crate) source_min: Vec2,
-    pub(crate) source_max: Vec2,
-    pub(crate) source_size: Vec2,
+    /// The capture this frame wants: what the window's UVs are into, when
+    /// the capture is taken this frame.
+    pub(crate) capture: CaptureCameraFrame,
 }
 
-/// Destination-side camera frame for snapshot-driven capture.
+/// Destination-side camera frame for a capture: the world rect it frames,
+/// turned so its `+x` runs along `axis`. A capture of a pair the portal map
+/// turns is turned with it, so it is the view's size at every angle.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct CaptureCameraFrame {
     pub(crate) center: Vec2,
     pub(crate) size: Vec2,
+    /// Its `+x` in the world (unit). Its `+y` (texture down) is
+    /// [`Self::down`].
+    pub(crate) axis: Vec2,
+}
+
+impl CaptureCameraFrame {
+    /// The axis-aligned rect from `min` to `max`.
+    pub(crate) fn aligned(min: Vec2, max: Vec2) -> Self {
+        Self { center: (min + max) * 0.5, size: max - min, axis: Vec2::X }
+    }
+
+    /// Its `+y` in the world: texture down.
+    pub(crate) fn down(&self) -> Vec2 {
+        Vec2::new(-self.axis.y, self.axis.x)
+    }
+
+    /// The texture coordinate of world point `s`, flip-free: world y-down and
+    /// texture v-down agree (the render y-flip cancels between camera and
+    /// capture).
+    pub(crate) fn uv(&self, s: Vec2) -> [f32; 2] {
+        let d = s - self.center;
+        let size = self.size.max(Vec2::splat(1e-6));
+        [
+            (d.dot(self.axis) / size.x + 0.5).clamp(0.0, 1.0),
+            (d.dot(self.down()) / size.y + 0.5).clamp(0.0, 1.0),
+        ]
+    }
+
+    /// How far world point `s` lies outside it (world px; zero inside).
+    pub(crate) fn overhang(&self, s: Vec2) -> f32 {
+        let d = s - self.center;
+        let local = Vec2::new(d.dot(self.axis).abs(), d.dot(self.down()).abs());
+        (local - self.size * 0.5).max(Vec2::ZERO).max_element()
+    }
+
+    /// The axis-aligned bounds of the rect it frames, as `(min, max)`.
+    pub(crate) fn bounds(&self) -> (Vec2, Vec2) {
+        let half = self.axis.abs() * self.size.x * 0.5 + self.down().abs() * self.size.y * 0.5;
+        (self.center - half, self.center + half)
+    }
+
+    /// The camera's turn in the render frame (y up), where its `+x` runs
+    /// along `axis`.
+    pub(crate) fn render_rotation(&self) -> Quat {
+        Quat::from_rotation_z(f32::atan2(-self.axis.y, self.axis.x))
+    }
 }
 
 /// Sutherland–Hodgman clip of a convex polygon to an axis-aligned rect. The
@@ -895,16 +942,6 @@ pub(crate) fn compute_cone(
     }
 }
 
-/// Per-vertex UVs for the window mesh: each mapped source vertex normalized
-/// inside the source rect. World y-down and texture v-down agree (the render
-/// y-flip cancels between camera and capture), so this is flip-free.
-pub(crate) fn vertex_uv(s: Vec2, source_min: Vec2, source_size: Vec2) -> [f32; 2] {
-    [
-        ((s.x - source_min.x) / source_size.x.max(1e-6)).clamp(0.0, 1.0),
-        ((s.y - source_min.y) / source_size.y.max(1e-6)).clamp(0.0, 1.0),
-    ]
-}
-
 /// Resolve a blended window cone into renderable data: clip the entry quad to
 /// the WORLD rect (the wedge's only honest bound — it may legitimately reach
 /// the half-plane), map each clipped vertex through the body map, and frame
@@ -938,18 +975,15 @@ pub(crate) fn cone_render(
         .iter()
         .map(|p| ambition_portal2d::pieces::map_point(*p, &enter.frame, &exit.frame, convention))
         .collect();
-    let (mut smin, mut smax) = (mapped[0], mapped[0]);
-    for m in &mapped[1..] {
-        smin = smin.min(*m);
-        smax = smax.max(*m);
-    }
-    if let Some(capture_frame) = capture_frame {
-        let half = capture_frame.size.max(Vec2::splat(1.0)) * 0.5;
-        smin = capture_frame.center - half;
-        smax = capture_frame.center + half;
-    }
-    let source_size = smax - smin;
-    if source_size.x < 1.0 || source_size.y < 1.0 {
+    let capture = capture_frame.unwrap_or_else(|| {
+        let (mut smin, mut smax) = (mapped[0], mapped[0]);
+        for m in &mapped[1..] {
+            smin = smin.min(*m);
+            smax = smax.max(*m);
+        }
+        CaptureCameraFrame::aligned(smin, smax)
+    });
+    if capture.size.x < 1.0 || capture.size.y < 1.0 {
         return None;
     }
     let render_poly: Vec<Vec2> = poly
@@ -961,10 +995,7 @@ pub(crate) fn cone_render(
         .iter()
         .map(|p| [p.x - centroid.x, p.y - centroid.y, 0.0])
         .collect();
-    let uvs: Vec<[f32; 2]> = mapped
-        .iter()
-        .map(|m| vertex_uv(*m, smin, source_size))
-        .collect();
+    let uvs: Vec<[f32; 2]> = mapped.iter().map(|m| capture.uv(*m)).collect();
     // Fan triangulation (the clipped polygon stays convex).
     let indices: Vec<u32> = (1..poly.len() as u32 - 1)
         .flat_map(|i| [0, i, i + 1])
@@ -974,12 +1005,9 @@ pub(crate) fn cone_render(
         uvs,
         indices,
         centroid: centroid.extend(z),
-        cam_center: frame.to_render((smin + smax) * 0.5, 0.0),
         entry_poly_world: poly,
         mapped_source_vertices: mapped,
-        source_min: smin,
-        source_max: smax,
-        source_size,
+        capture,
     })
 }
 

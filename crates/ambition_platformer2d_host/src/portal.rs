@@ -983,7 +983,7 @@ mod tests {
     #[test]
     fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
         use super::host_adapter::tag_portal_scene_bodies;
-        use ambition_portal2d::{portal_half_extent, PlacedPortal, PortalChannel, PortalGunColor, PortalTransit};
+        use ambition_portal2d::{PlacedPortal, PortalChannel, PortalGunColor, PortalTransit};
         use ambition_portal2d_presentation::{sync_portal_body_pieces, PortalBodyPiece};
         use ambition_render::rendering::PlayerVisual;
         let blue = PortalChannel::Gun(PortalGunColor::BLUE);
@@ -1006,9 +1006,9 @@ mod tests {
         // A floor pair, so a body standing on the blue portal straddles its plane.
         let floor = Vec2::new(0.0, -1.0);
         app.world_mut()
-            .spawn(PlacedPortal::fixed(blue, Vec2::new(200.0, 300.0), floor, portal_half_extent(floor)));
+            .spawn(PlacedPortal::fixed(blue, Vec2::new(200.0, 300.0), floor, ambition_portal2d::PORTAL_OPENING_HALF));
         app.world_mut()
-            .spawn(PlacedPortal::fixed(orange, Vec2::new(300.0, 300.0), floor, portal_half_extent(floor)));
+            .spawn(PlacedPortal::fixed(orange, Vec2::new(300.0, 300.0), floor, ambition_portal2d::PORTAL_OPENING_HALF));
         // Its feet are below the plane (y 275..315, plane 300).
         let player = app
             .world_mut()

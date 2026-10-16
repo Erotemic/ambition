@@ -78,7 +78,7 @@ fn a_body_under_sideways_gravity_carries_no_run_from_a_fall_along_its_own_down()
 #[test]
 fn portal_schedule_plugin_carries_a_fling_for_any_game() {
     use ambition_platformer2d_shared_tangle::schedule::{GameMode, SimScheduleExt};
-    use ambition_portal2d::{portal_half_extent, PlacedPortal, PortalChannel, PortalGunColor};
+    use ambition_portal2d::{PlacedPortal, PortalChannel, PortalGunColor};
 
     let mut app = App::new();
     app.set_sim_schedule(Update);
@@ -95,7 +95,7 @@ fn portal_schedule_plugin_carries_a_fling_for_any_game() {
             PortalChannel::Gun(color),
             pos,
             normal,
-            portal_half_extent(normal),
+            ambition_portal2d::PORTAL_OPENING_HALF,
         ));
     }
     let mut frame = ResolvedMotionFrame::default();

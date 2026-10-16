@@ -1,13 +1,12 @@
 use super::*;
 use crate::color::{PortalChannel, PortalChannelColor};
-use crate::types::portal_half_extent;
 
 fn floor(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
     PlacedPortal::fixed(
         channel,
         pos,
         Vec2::new(0.0, -1.0),
-        portal_half_extent(Vec2::new(0.0, -1.0)),
+        crate::PORTAL_OPENING_HALF,
     )
 }
 
@@ -67,6 +66,49 @@ fn a_moving_portal_scoops_a_stationary_body() {
             );
         }
         other => panic!("expected the scoop to Transfer, got {other:?}"),
+    }
+}
+
+/// A portal that turns in place (a plank spinning about the portal's
+/// center) sweeps its far end into a still body. Its center does not move, so
+/// a sweep that only follows the portal's travel saw no motion and the body
+/// was left behind the plank. In the portal's own frame the body crossed the
+/// plane, and it leaves with the surface's speed at that point, `spin × r`.
+#[test]
+fn a_turning_portal_scoops_a_still_body_and_gives_it_its_surface_speed() {
+    let turn: f32 = -0.2; // this tick; its right end rises
+    let dt = 1.0 / 60.0;
+    let mut enter = hosted_moving(floor(PURPLE, Vec2::new(100.0, 300.0)), Vec2::ZERO, Vec2::ZERO);
+    let (sin, cos) = turn.sin_cos();
+    enter.turn_to(Vec2::new(sin, -cos));
+    enter.spin = turn / dt;
+    enter.pivot = enter.pos;
+    let exit = floor(YELLOW, Vec2::new(500.0, 600.0));
+    let portals = [enter.clone(), exit];
+    // 30 px along the plank and 2 px above it at the start of the tick.
+    let center = Vec2::new(130.0, 298.0);
+    let step = transit_step_with_tuning(
+        center,
+        Vec2::new(8.0, 8.0),
+        Vec2::ZERO,
+        Some(SweptSample { pos: center, vel: Vec2::ZERO }),
+        None,
+        None,
+        &portals,
+        Vec2::new(0.0, 1.0),
+        &super::super::types::PortalHostDepths::default(),
+        &PortalTuning::default(),
+    );
+    match step {
+        TransitStep::Transfer { vel, .. } => {
+            let surface = enter.frame().velocity_at(center).length();
+            assert!(vel.dot(Vec2::new(0.0, -1.0)) > 0.0, "out of the exit face: {vel:?}");
+            assert!(
+                (vel.length() - surface).abs() < 1.0,
+                "leaves at the surface speed {surface}: {vel:?}"
+            );
+        }
+        other => panic!("expected the turning plank to take the body, got {other:?}"),
     }
 }
 
@@ -204,7 +246,7 @@ fn rescue_transfers_a_deep_crossing_inside_the_carve_even_on_cooldown() {
 }
 
 fn wall_portal(channel: PortalChannel, pos: Vec2, normal: Vec2) -> PlacedPortal {
-    PlacedPortal::fixed(channel, pos, normal, portal_half_extent(normal))
+    PlacedPortal::fixed(channel, pos, normal, crate::PORTAL_OPENING_HALF)
 }
 
 /// Thin-wall guard: with the host wall measured at 24 px, the rescue volume
@@ -333,7 +375,7 @@ fn ceiling(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
         channel,
         pos,
         Vec2::new(0.0, 1.0),
-        portal_half_extent(Vec2::new(0.0, 1.0)),
+        crate::PORTAL_OPENING_HALF,
     )
 }
 
@@ -625,7 +667,7 @@ fn a_transit_takes_its_convention_from_tuning() {
 fn on_a_slope(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
     let a = 30.0_f32.to_radians();
     let normal = Vec2::new(a.sin(), -a.cos());
-    PlacedPortal::fixed(channel, pos, normal, portal_half_extent(normal))
+    PlacedPortal::fixed(channel, pos, normal, crate::PORTAL_OPENING_HALF)
 }
 
 /// The opening of a slanted portal is as long as a level one's, and the
@@ -652,7 +694,7 @@ fn a_slanted_portal_opens_as_wide_as_a_level_one_and_captures_on_its_face() {
 #[test]
 fn a_body_goes_through_a_portal_on_a_slope() {
     let enter = on_a_slope(PURPLE, Vec2::new(500.0, 500.0));
-    let exit = PlacedPortal::fixed(YELLOW, Vec2::new(900.0, 300.0), Vec2::new(-1.0, 0.0), portal_half_extent(Vec2::new(-1.0, 0.0)));
+    let exit = PlacedPortal::fixed(YELLOW, Vec2::new(900.0, 300.0), Vec2::new(-1.0, 0.0), crate::PORTAL_OPENING_HALF);
     let portals = vec![enter.clone(), exit.clone()];
     let size = Vec2::new(28.0, 46.0);
     let down = Vec2::new(0.0, 1.0);

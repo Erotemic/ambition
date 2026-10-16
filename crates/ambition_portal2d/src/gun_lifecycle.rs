@@ -54,14 +54,13 @@ pub fn despawn_orphaned_portals(
 mod tests {
     use super::*;
     use crate::color::{PortalChannel, PortalChannelColor, PortalGunColor};
-    use crate::types::portal_half_extent;
 
     fn floor_portal(channel: PortalChannel, x: f32) -> PlacedPortal {
         PlacedPortal::fixed(
             channel,
             Vec2::new(x, 300.0),
             Vec2::new(0.0, -1.0),
-            portal_half_extent(Vec2::new(0.0, -1.0)),
+            crate::PORTAL_OPENING_HALF,
         )
     }
 

@@ -23,15 +23,32 @@ fn cone_uvs_are_flip_free_in_world_space() {
         Vec2::new(140.0, 70.0),
         Vec2::new(60.0, 70.0),
     ];
-    let size = source.max - source.min;
     let uvs: Vec<[f32; 2]> = quad
         .iter()
-        .map(|q| vertex_uv(*q, source.min, size))
+        .map(|q| CaptureCameraFrame::aligned(source.min, source.max).uv(*q))
         .collect();
     assert_eq!(uvs[0], [0.0, 0.0]);
     assert_eq!(uvs[1], [1.0, 0.0]);
     assert_eq!(uvs[2], [1.0, 1.0]);
     assert_eq!(uvs[3], [0.0, 1.0]);
+}
+
+/// A capture turned with the portal map frames the turned rect itself: its
+/// corners are the texture's corners, its `+x` along `axis` and its texture
+/// down a quarter turn on. A point outside it overhangs by its distance out.
+#[test]
+fn a_turned_capture_maps_its_own_corners_to_the_texture_corners() {
+    let axis = Vec2::new(30f32.to_radians().cos(), 30f32.to_radians().sin());
+    let frame = CaptureCameraFrame { center: Vec2::new(200.0, 100.0), size: Vec2::new(80.0, 40.0), axis };
+    let down = frame.down();
+    let corner = |sx: f32, sy: f32| frame.center + axis * 40.0 * sx + down * 20.0 * sy;
+    let close = |a: [f32; 2], b: [f32; 2]| (a[0] - b[0]).abs() < 1e-4 && (a[1] - b[1]).abs() < 1e-4;
+    assert!(close(frame.uv(corner(-1.0, -1.0)), [0.0, 0.0]));
+    assert!(close(frame.uv(corner(1.0, -1.0)), [1.0, 0.0]));
+    assert!(close(frame.uv(corner(1.0, 1.0)), [1.0, 1.0]));
+    assert!(close(frame.uv(corner(-1.0, 1.0)), [0.0, 1.0]));
+    assert!(frame.overhang(corner(0.5, 0.5)) == 0.0);
+    assert!((frame.overhang(frame.center + axis * 50.0) - 10.0).abs() < 1e-4);
 }
 
 /// The UVs cover the unit square's bounds, rotated per the view map — pinned
@@ -47,11 +64,10 @@ fn cone_uvs_rotate_with_the_view_map() {
         half_length: 46.0,
     };
     let cone = view_cone(&enter, &exit, 120.0, 0.25, MapConvention::Reflection);
-    let size = cone.source.max - cone.source.min;
     let uvs: Vec<[f32; 2]> = cone
         .source_quad
         .iter()
-        .map(|q| vertex_uv(*q, cone.source.min, size))
+        .map(|q| CaptureCameraFrame::aligned(cone.source.min, cone.source.max).uv(*q))
         .collect();
     for uv in &uvs {
         assert!((0.0..=1.0).contains(&uv[0]) && (0.0..=1.0).contains(&uv[1]));
@@ -235,7 +251,7 @@ fn placed(channel: ambition_portal2d::PortalChannel, pos: Vec2, normal: Vec2) ->
         channel,
         pos,
         normal,
-        ambition_portal2d::portal_half_extent(normal),
+        ambition_portal2d::PORTAL_OPENING_HALF,
     )
 }
 

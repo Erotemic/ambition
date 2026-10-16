@@ -343,13 +343,13 @@ mod tests {
             PortalChannel::Authored(ambition_portal2d::PortalChannelColor::Purple),
             Vec2::new(500.0, 300.0),
             Vec2::new(-1.0, 0.0),
-            Vec2::new(9.0, 46.0),
+            46.0,
         );
         let right = PlacedPortal::fixed(
             PortalChannel::Authored(ambition_portal2d::PortalChannelColor::Yellow),
             Vec2::new(532.0, 300.0),
             Vec2::new(1.0, 0.0),
-            Vec2::new(9.0, 46.0),
+            46.0,
         );
         app.world_mut().spawn(left.clone());
         app.world_mut().spawn(right);

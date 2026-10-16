@@ -44,14 +44,19 @@ again before you quote it.
 - **Presentation entities in immediate mode** (F21): despawn all and spawn
   all, every frame. Three loops found, all fixed.
 - **Composition:** standalone Mary-O and Sanic run ~170 systems a frame for
-  capabilities they do not use (P1; D3, D4 for Jon).
+  capabilities they do not use (P1; D3, D4 for Jon). Both hosts now build the
+  engine without named boss encounters (−13 and −11 systems a frame); most
+  of the rest is in the core extension phases (C1).
 - **Fixed tonight, no behaviour change, each verified by the probe, a
   pixel-identical hub capture, or a test:** Mary-O's star re-fold (F15),
   Sanic's gravity visuals (F18), the hub's per-frame parallax respawn and its
   cause in `first_room_art.rs` (F17), the hub's wielded-item overlays (F21),
   room isolation walking only when a mask can be stale (F14: 443 → 7.6
-  allocations a frame in Mary-O, 1,118 → 2.0 in Sanic), and read-before-write
-  for the SFX authorizer, the ledgers and the trail gizmo bands (F20).
+  allocations a frame in Mary-O, 1,118 → 2.0 in Sanic), read-before-write
+  for the SFX authorizer, the ledgers and the trail gizmo bands (F20), HUD,
+  feature-visual and hit-flash writes only of a change (F20), seat bindings
+  projected only on a change, the two whole-world queries filtered (F7), and
+  leafwing's clash pass skipped under `PressAll` (F13).
 - **Before → after tonight** (MEASURED, `perf_probe`, idle, per frame,
   without the probe's and the census's own work; `probe/*_v2` against
   `probe/*_final`):
@@ -83,9 +88,11 @@ again before you quote it.
   the others now run only on a change. REASONED until a new phone run
   measures it.
 - **Instrumentation:** `perf_probe` (allocations per span, churn and value
-  changes per source line; `profile_desktop.sh --perf-probe`) and the phone
-  symbolizer's `--ours` and thread table. Both are one switch and one
-  directory to remove.
+  changes per source line; `profile_desktop.sh --perf-probe`); the phone
+  symbolizer's thread table, `--thread`, `--ours`, `--inclusive` and
+  `--under`; the executor A/B switch (`AMBITION_SCHEDULE_EXECUTOR`,
+  `scripts/executor_ab.sh`, to remove with D12). Each is one switch, one
+  directory or one script to remove.
 - **For Jon:** D1-D12 below (D13 withdrawn: fixed without a fork). None is
   done. D12 (serial executor default for the standalone games) changes no
   behaviour and is ready.

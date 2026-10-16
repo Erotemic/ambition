@@ -1029,8 +1029,13 @@ variants. Also found in that regen:
     render imported, not the whole core (68 files): ten sampled renders
     imported 15 to 69 of them, and 35 were imported by none. Each record
     gets its modules at its next render, so the first full publish after
-    the change renders every sheet once. The cost of a core edit after
-    that is not measured yet.
+    the change rendered every sheet once (44 min 20 s, 2026-10-16). Then,
+    of the 68 core files, 21 make no sheet stale, 15 make at most 10, 5 at
+    most 100, 14 more than 100 and 13 all 294 (`core/draw.py`,
+    `registry/discovery.py`, `authoring/actor_contract.py` and the package
+    markers among them); the mean is 107 sheets, was 294. Measured: a
+    comment added to `authoring/faction_lineup.py` re-rendered 4 sheets, a
+    publish of 3 min 37 s (was a full publish).
     The tiers pack only the runtime groups since 2026-10-15 (the full tier
     1.1 s, was 126 s; the same bytes), so a frame size change outside them
     re-packs nothing (the tier runs, finds no runtime sheet changed, and

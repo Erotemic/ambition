@@ -20,7 +20,7 @@ use std::collections::BTreeMap;
 
 use ambition_platformer2d_core as ae;
 use ae::navigation::{ErrandSight, NavAdvice, NavNext};
-use ambition_platformer2d_world::navigation::NavGraph;
+use ambition_platformer2d_world::navigation::{NavGraph, NavGraphCache, NavGraphKey};
 use bevy::prelude::{Entity, Query, ResMut, Resource};
 
 /// How far beside its target a body stands, past its own width (px).
@@ -49,29 +49,21 @@ impl NavigationAdvice {
     }
 }
 
-/// What a graph is a function of.
-#[derive(Clone, Copy, PartialEq)]
-struct GraphKey {
-    /// The room's authored geometry, as a number ([`geometry_stamp`]).
-    room: u64,
-    spec: ae::movement::MotionModelSpec,
-    abilities: ae::AbilitySet,
-    size: ae::Vec2,
-    /// The whole frame, and not its net acceleration: the graph is built from
-    /// which way is down, from the gravity a jump law can scale, and from the
-    /// external acceleration it cannot. Two frames with one sum are two rooms
-    /// to a body (found in review, 2026-10-09: the key held the sum, so the
-    /// body that asked first gave its graph to the other).
-    frame: ae::MotionFrame,
-}
-
-/// The surface graphs in use: a derived cache, never rollback state.
-#[derive(Resource, Default)]
+/// The surface graphs in use: a derived cache, never rollback state. Each
+/// graph is built whole on first use, so it is the same on each peer and
+/// after each rewind.
+#[derive(Resource)]
 pub struct RoomNavigation {
-    graphs: Vec<(GraphKey, Option<NavGraph>)>,
+    graphs: NavGraphCache,
     /// The graphs a body was advised from this tick. For instruments: a
     /// graph that is kept and not in use is no fact about the room now.
-    in_use: Vec<GraphKey>,
+    in_use: Vec<NavGraphKey>,
+}
+
+impl Default for RoomNavigation {
+    fn default() -> Self {
+        Self { graphs: NavGraphCache::with_capacity(GRAPHS_KEPT), in_use: Vec::new() }
+    }
 }
 
 impl RoomNavigation {
@@ -89,16 +81,17 @@ impl RoomNavigation {
         self.graphs
             .iter()
             .filter(|(key, _)| self.in_use.contains(key))
-            .filter_map(|(_, graph)| graph.as_ref())
+            .filter_map(|(_, graph)| graph)
     }
 
     /// The graphs that were built. For tests and instruments.
     pub fn graphs(&self) -> impl Iterator<Item = &NavGraph> {
-        self.graphs.iter().filter_map(|(_, graph)| graph.as_ref())
+        self.graphs.iter().filter_map(|(_, graph)| graph)
     }
 
     /// The graph for a body of this tuning, in this room and this motion
     /// frame: kept, or built whole now. `None`: the body has no graph there.
+    /// A body no slot drives crosses no room by a zone: its graph has no exits.
     fn graph_of(
         &mut self,
         world: &ae::World,
@@ -108,57 +101,12 @@ impl RoomNavigation {
         base_size: ae::BodyBaseSize,
         frame: ae::MotionFrame,
     ) -> Option<&NavGraph> {
-        let key = GraphKey { room: geometry_stamp(world), spec, abilities, size, frame };
+        let key = NavGraphKey::new(world, &[], spec, abilities, size, base_size, frame);
         if !self.in_use.contains(&key) {
             self.in_use.push(key);
         }
-        self.graph(key, || {
-            // The body's tuning with no history: a graph is not a fact about
-            // what this body was doing when it was first asked for.
-            let mut body = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
-            ae::movement::switch_motion_model(&mut body.model, spec);
-            body.kinematics.size = size;
-            body.base_size = base_size;
-            NavGraph::build(world, &body, frame)
-        })
+        self.graphs.get_or_build(key, || NavGraph::build(world, &key.probe_body(), frame))
     }
-
-    fn graph(&mut self, key: GraphKey, build: impl FnOnce() -> Option<NavGraph>) -> Option<&NavGraph> {
-        let index = match self.graphs.iter().position(|(known, _)| *known == key) {
-            Some(index) => index,
-            None => {
-                if self.graphs.len() >= GRAPHS_KEPT {
-                    self.graphs.remove(0);
-                }
-                self.graphs.push((key, build()));
-                self.graphs.len() - 1
-            }
-        };
-        self.graphs[index].1.as_ref()
-    }
-}
-
-/// One number for the geometry a graph is built from: each block's box, and
-/// what the graph reads of its kind (a support, a wall, a hazard, a one-way
-/// surface, a block that moves). Two rooms with the same blocks have the same
-/// graph.
-fn geometry_stamp(world: &ae::World) -> u64 {
-    use ae::collision_semantics::{is_full_collision_surface, is_support_surface};
-    let mut stamp = ae::navigation::mix(world.blocks.len() as u64);
-    let mut fold = |value: u64| stamp = ae::navigation::mix(stamp ^ value);
-    fold(((world.size.x.to_bits() as u64) << 32) | world.size.y.to_bits() as u64);
-    for block in &world.blocks {
-        fold(((block.aabb.min.x.to_bits() as u64) << 32) | block.aabb.min.y.to_bits() as u64);
-        fold(((block.aabb.max.x.to_bits() as u64) << 32) | block.aabb.max.y.to_bits() as u64);
-        fold(
-            u64::from(is_support_surface(block.kind))
-                | u64::from(is_full_collision_surface(block.kind)) << 1
-                | u64::from(block.kind == ae::BlockKind::Hazard) << 2
-                | u64::from(block.kind == ae::BlockKind::OneWay) << 3
-                | u64::from(block.velocity != ae::Vec2::ZERO) << 4,
-        );
-    }
-    stamp
 }
 
 /// OBSERVE: write this tick's [`NavAdvice`] for each body whose brain

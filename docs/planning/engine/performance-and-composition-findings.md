@@ -883,8 +883,10 @@ Two items are ready and change no behaviour, but each needs a yes for
 another reason:
 
 - **D12 — `Serial` as the default executor of the windowed demos** (F22).
-  One line in `install_windowed_foundation`. Mary-O's 208 tests pass with
-  `AMBITION_SCHEDULE_EXECUTOR=serial`. It changes how every standalone game
+  One line in `install_windowed_foundation`. With
+  `AMBITION_SCHEDULE_EXECUTOR=serial` these pass: Mary-O's game crate (208),
+  Mary-O's integration tests (95, the room-replay tests among them) and
+  Sanic's (42). It changes how every standalone game
   runs, so it should land with a play test, and the switch is then removed.
 - **D13 — withdrawn.** The leafwing clash pass is skipped in this repo with
   no fork (F13). An upstream PR (skip the pass under `PressAll` in

@@ -598,7 +598,8 @@ mod held_item_steps {
                 (HeldItemStep::Use, 1),
                 (HeldItemStep::Throw, 1),
                 (HeldItemStep::Settle, 1),
-                (HeldItemStep::Physics, 1),
+                // The step and the roll easing (`right_ground_items`).
+                (HeldItemStep::Physics, 2),
                 (HeldItemStep::Residency, 3),
             ] {
                 assert_eq!(

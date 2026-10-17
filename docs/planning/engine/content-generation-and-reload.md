@@ -568,8 +568,11 @@ not watched). The effect sheets and the authored effect index
 (`fx::fx_sheets`, `fx::authored_effects`) are built from each generation's
 own records (they were filled once from the first records, so a published
 effect row's timing was not the index's; witness: the effect arm of
-`sheet_generation`, red with the index in its own `OnceLock`). Not yet on
-the road:
+`sheet_generation`, red with the index in its own `OnceLock`). A part-drawn
+body's posed parts (its tracks bound to its body rig) are bound again at each
+change of the assets, so a body realized from a new generation is not posed
+with the old rig (`a_new_flipbook_binds_its_own_posed_parts`, red with the
+cache kept). Not yet on the road:
 the prop sheets a room drew, and a body
 already bound at the same tier (the generation key above). The retire and
 the page reload have no witness of their own.

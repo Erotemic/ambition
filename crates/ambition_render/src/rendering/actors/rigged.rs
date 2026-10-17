@@ -691,6 +691,10 @@ pub fn bind_rigged_presentations(
     }
     if assets.is_changed() {
         by_sheet.clear();
+        // The posed parts are bound from the pages and the body rig: a sheet
+        // generation publishes both again and retires every realization, so
+        // a change of the assets binds them again too.
+        posed_by_target.clear();
         for sheet in assets.characters.ready_sheets() {
             if let Some(pages) = &sheet.rigged {
                 // By the sheet's key: a generator's sheets share a `target`.

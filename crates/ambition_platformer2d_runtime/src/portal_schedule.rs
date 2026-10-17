@@ -131,6 +131,13 @@ impl Plugin for PortalSchedulePlugin {
                 .run_if(gameplay_allowed),
         );
 
+        // Passages: where each pair and each body in transit is this tick, for
+        // combat to cut its volumes by. After the transit, before combat.
+        app.configure_sets(
+            sim,
+            PortalSet::Passages.in_set(Platformer2dSimulationPhase::PlayerSimulation),
+        );
+
         // Transit: teleports run after body + ground-item integration so this
         // frame's integrated body positions are what cross the portal. Body
         // integration completes in `WorldPrep`; `PlayerSimulation` runs after

@@ -194,6 +194,22 @@ impl CombatVolume {
         }
     }
 
+    /// The volume's outline as world points, counter-clockwise, for every
+    /// shape that is a polygon. A circle is not one: `None`.
+    pub fn polygon(&self) -> Option<Vec<Vec2>> {
+        match self {
+            CombatVolume::Aabb(a) => Some(vec![
+                Vec2::new(a.min.x, a.min.y),
+                Vec2::new(a.max.x, a.min.y),
+                Vec2::new(a.max.x, a.max.y),
+                Vec2::new(a.min.x, a.max.y),
+            ]),
+            CombatVolume::Obb { center, half, rotation } => Some(obb_corners(*center, *half, *rotation)),
+            CombatVolume::Circle { .. } => None,
+            CombatVolume::Convex { points, .. } => Some(convex_hull(points)),
+        }
+    }
+
     /// Translate the whole volume by `delta`.
     pub fn translated(&self, delta: Vec2) -> Self {
         match self {

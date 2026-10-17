@@ -103,6 +103,13 @@ where
         "derived.portal_carves",
         "rebuilt from placed portals and transit occupancy each frame",
     );
+    registrar.declare_rollback_derived_resource::<
+        ambition_platformer2d_shared_tangle::portal_passages::PortalPassages,
+    >(
+        OWNER,
+        "derived.portal_passages",
+        "rebuilt from placed portals and transit occupancy each frame",
+    );
     registrar.declare_rollback_derived_resource::<crate::PortalHostDepthsByRoom>(
         OWNER,
         "derived.portal_host_depths",

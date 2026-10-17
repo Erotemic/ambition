@@ -220,5 +220,7 @@ pub fn map_velocity(a: &PortalFrame, b: &PortalFrame, convention: MapConvention,
     map_vec(a, b, convention, v - a.velocity_at(p)) + b.velocity_at(map_point(a, b, convention, p))
 }
 
+pub mod thread;
+
 #[cfg(test)]
 mod tests;

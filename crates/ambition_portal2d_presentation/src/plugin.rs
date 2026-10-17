@@ -17,7 +17,7 @@ use crate::visuals;
 use crate::PortalDebugOverlay;
 use crate::{
     PortalAimHint, PortalCameraContinuityConfig, PortalCameraContinuityHostView,
-    PortalCameraContinuitySelection, PortalCameraContinuityState, PortalEffectSelection,
+    PortalCameraContinuitySelection, PortalEffectSelection,
 };
 
 /// The one schedule label every portal visual runs in. Hosts order this set
@@ -94,7 +94,6 @@ impl Plugin for PortalPresentationPlugin {
         app.init_resource::<PortalCameraContinuitySelection>();
         app.init_resource::<crate::PortalCameraTransitRule>();
         app.init_resource::<PortalCameraContinuityConfig>();
-        app.init_resource::<PortalCameraContinuityState>();
         app.init_resource::<crate::PortalParallaxCarry>();
         app.init_resource::<PortalCameraContinuityHostView>();
         app.init_resource::<crate::PortalObserverViews>();

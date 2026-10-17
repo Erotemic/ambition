@@ -35,9 +35,10 @@ pub use ambition_sim_view::CameraViewState;
 
 #[cfg(feature = "portal_render")]
 #[derive(SystemParam)]
-pub struct PortalCameraContinuityParams<'w> {
+pub struct PortalCameraContinuityParams<'w, 's> {
     transit: ambition_portal2d_presentation::PortalCameraTransit<'w>,
-    state: Option<ResMut<'w, ambition_portal2d_presentation::PortalCameraContinuityState>>,
+    /// Each view's own anchor.
+    states: Query<'w, 's, &'static mut ambition_portal2d_presentation::PortalCameraContinuityState>,
     host_view: Option<ResMut<'w, ambition_portal2d_presentation::PortalCameraContinuityHostView>>,
     /// The same sample for each view: a through-portal window is clipped to
     /// the camera that draws it, and is captured for that camera.
@@ -54,32 +55,23 @@ pub struct PortalCameraContinuityParams<'w> {
 #[cfg(feature = "portal_render")]
 pub fn publish_portal_camera_clamp(
     transit: ambition_portal2d_presentation::PortalCameraTransit,
-    state: Option<Res<ambition_portal2d_presentation::PortalCameraContinuityState>>,
-    // One row per local view. The portal facts describe the world, so every
-    // view of that world gets them.
+    // One row per local view, with the view's own anchor.
     mut views: Query<
         (
-            Entity,
             &ResolvedCameraSnapshot,
             &mut CameraPresentationInputs,
+            Option<&ambition_portal2d_presentation::PortalCameraContinuityState>,
         ),
         With<LocalView>,
     >,
 ) {
     let enabled =
         transit.mode() == Some(ambition_portal2d_presentation::PortalCameraTransitMode::Continuous);
-    let clamp_center = enabled
-        .then(|| state.as_deref().and_then(|s| s.clamp_padding_center_world))
-        .flatten();
-    let crossing = enabled
-        .then(|| {
-            state
-                .as_deref()
-                .filter(|s| s.active_weight() > 0.0)
-                .map(|s| s.roll_radians)
-        })
-        .flatten();
-    for (_, resolved, mut presentation) in &mut views {
+    for (resolved, mut presentation, state) in &mut views {
+        let clamp_center = enabled.then(|| state.and_then(|s| s.clamp_padding_center_world)).flatten();
+        let crossing = enabled
+            .then(|| state.filter(|s| s.active_weight() > 0.0).map(|s| s.roll_radians))
+            .flatten();
         presentation.extra_clamp_center_world = clamp_center;
         presentation.chart_transit = crossing.map(|chart_roll_radians| CameraChartTransit {
             chart_roll_radians,
@@ -191,9 +183,9 @@ pub fn camera_follow(
         #[cfg(feature = "portal_render")]
         let _ = &mut presentation; // written pre-resolve by publish_portal_camera_clamp
 
-        // Portal camera continuity is still one global for the process.
-        // `PortalCameraContinuityState` and `HostView` are `Resource`s, so with
-        // two cameras the last writer wins.
+        // Portal camera continuity: this view's own anchor. The one
+        // `HostView` resource is the last camera's sample; each view's own is
+        // in `PortalObserverViews`.
         #[cfg(feature = "portal_render")]
         {
             let portal_continuity_enabled = portal_continuity.transit.mode()
@@ -202,7 +194,7 @@ pub fn camera_follow(
             let portal_clamp_padding_still_needed =
                 (ordinary_center_world - snapshot.unpadded_center_world).length() > 0.5;
 
-            if let Some(portal_state) = portal_continuity.state.as_deref_mut() {
+            if let Ok(mut portal_state) = portal_continuity.states.get_mut(view_entity) {
                 if portal_continuity_enabled {
                     let weight = portal_state.active_weight();
                     if weight > 0.0 {
@@ -243,7 +235,7 @@ pub fn camera_follow(
                     snapshot.active_camera_zone.clone(),
                 );
             }
-            if let Some(portal_state) = portal_continuity.state.as_deref_mut() {
+            if let Ok(mut portal_state) = portal_continuity.states.get_mut(view_entity) {
                 portal_state.last_host_camera_world = Some(snapshot.center_world);
             }
         }

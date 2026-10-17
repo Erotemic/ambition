@@ -283,16 +283,30 @@ impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
                     .in_set(DIALOGUE),
             )
             .add_systems(Update, prune_narrative_inputs::<M>.in_set(DIALOGUE))
-            .add_systems(
+            .add_systems(Update, forget_narrative_inputs_on_activation::<M>.in_set(NarrativeLedgersForget));
+        // One condition for every ledger's forget, asked once a frame: each
+        // forget has work only on the frame a session activates. A condition
+        // on each one was asked once for each ledger (twelve in the hub).
+        if !app.world().contains_resource::<NarrativeLedgersForgetConfigured>() {
+            use bevy::ecs::schedule::common_conditions::{on_message, resource_exists};
+            use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated;
+            app.init_resource::<NarrativeLedgersForgetConfigured>().configure_sets(
                 Update,
-                forget_narrative_inputs_on_activation::<M>
+                NarrativeLedgersForget
                     .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate)
-                    .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
-                        Messages<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>,
-                    >),
+                    .run_if(resource_exists::<Messages<SessionScopeActivated>>.and(on_message::<SessionScopeActivated>)),
             );
+        }
     }
 }
+
+/// Every ledger's [`forget_narrative_inputs_on_activation`].
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct NarrativeLedgersForget;
+
+/// The forget set has its condition.
+#[derive(Resource, Default)]
+struct NarrativeLedgersForgetConfigured;
 
 /// The set of the dialogue capability's per-tick work.
 const DIALOGUE: ambition_platformer2d_shared_tangle::capability::CapabilitySet =
@@ -318,6 +332,46 @@ fn forget_narrative_inputs_on_activation<M: Message + Clone>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every ledger forgets its records on the frame a session activates, and
+    /// on no other frame. The forgets of all ledgers share one condition.
+    #[test]
+    fn each_ledger_forgets_on_activation_and_the_forgets_share_one_condition() {
+        use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated;
+        use bevy::ecs::schedule::{Schedules, SystemSet as _};
+
+        #[derive(Message, Clone, Debug)]
+        struct Other(u32);
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<SessionScopeActivated>();
+        app.add_plugins((NarrativeInputPlugin::<Spoke>::default(), NarrativeInputPlugin::<Other>::default()));
+        // Before the first update: building the schedule moves the
+        // conditions out of its graph.
+        {
+            let schedules = app.world().resource::<Schedules>();
+            let graph = schedules.get(Update).expect("the Update schedule").graph();
+            let set = graph.system_sets.get_key(NarrativeLedgersForget.intern()).expect("the forget set");
+            let conditions = graph.system_sets.get_conditions(set).map_or(0, <[_]>::len);
+            assert_eq!(conditions, 1, "the forget set asks {conditions} conditions, not one");
+        }
+        app.world_mut().resource_mut::<NarrativeInputLedger<Spoke>>().record(instance("chat", 5), u64::MAX, Spoke(1));
+        app.world_mut().resource_mut::<NarrativeInputLedger<Other>>().record(instance("chat", 5), u64::MAX, Other(1));
+        app.update();
+        app.update();
+        let depths = |app: &App| {
+            (
+                app.world().resource::<NarrativeInputLedger<Spoke>>().depth(),
+                app.world().resource::<NarrativeInputLedger<Other>>().depth(),
+            )
+        };
+        assert_eq!(depths(&app), (1, 1), "a ledger forgot its records with no session activated");
+
+        app.world_mut().write_message(SessionScopeActivated(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1)));
+        app.update();
+        assert_eq!(depths(&app), (0, 0), "a ledger kept its records past a session's activation");
+    }
 
     #[derive(Message, Clone, Debug, PartialEq, Eq)]
     struct Spoke(u32);

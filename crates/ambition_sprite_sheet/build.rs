@@ -82,16 +82,16 @@ fn main() {
     println!("cargo:rerun-if-changed={}", owner.join("assets/sprite_packs").display());
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    write_text_table(&sprite_tree::sheet_manifests(&owner), &out_dir, "BAKED_SHEET_RONS", "baked_sheet_rons.rs");
+    write_text_table(&sprite_tree::sheet_manifests(&owner).expect_one_for_each_key(), &out_dir, "BAKED_SHEET_RONS", "baked_sheet_rons.rs");
     write_text_table(&sprite_tree::portrait_manifests(&owner), &out_dir, "BAKED_PORTRAIT_RONS", "baked_portrait_rons.rs");
     write_text_table(&sprite_tree::pack_catalogs(&owner), &out_dir, "BAKED_PACK_CATALOGS", "baked_pack_catalogs.rs");
     write_text_table(
-        &sprite_tree::companions(&owner, "_body_rig.ron", false),
+        &sprite_tree::companions(&owner, "_body_rig.ron", false).expect_one_for_each_key(),
         &out_dir,
         "BAKED_BODY_RIGS",
         "baked_body_rigs.rs",
     );
-    bake_part_flipbooks(&sprite_tree::companions(&owner, "_parts.ron", true), &out_dir);
+    bake_part_flipbooks(&sprite_tree::companions(&owner, "_parts.ron", true).expect_one_for_each_key(), &out_dir);
 }
 
 /// Each published part-flipbook draw table, parsed here and embedded as

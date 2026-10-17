@@ -189,6 +189,26 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     assert_eq!(feet_x(), Some(120.0), "a broken flipbook changed the running one");
     std::fs::write(&flipbook, feet("120.0")).unwrap();
 
+    // A second file of one key refuses the table with both files named, and
+    // the watch keeps looking: the scan once stopped the watch thread there,
+    // so each later edit was not seen. Its removal is seen, also while the
+    // first file of the key did not change.
+    let second = sprites.join("copy").join(format!("{PROBE}_spritesheet.ron"));
+    look(&mut app);
+    let before = current().id();
+    std::fs::create_dir_all(second.parent().unwrap()).unwrap();
+    std::fs::write(&second, sheet_text("4.0")).unwrap();
+    look(&mut app);
+    let refused = app.world().resource::<SpriteSheetWatch>().refused.clone().unwrap_or_default();
+    assert!(
+        [&manifest, &second].iter().all(|file| refused.contains(&file.display().to_string())),
+        "the refusal does not name both files of the key: {refused}"
+    );
+    assert_eq!((current().id(), collision_scale(&app)), (before, (2.25, 2.25)), "a second file of one key changed the running sheets");
+    std::fs::remove_dir_all(second.parent().unwrap()).unwrap();
+    look(&mut app);
+    assert_eq!(app.world().resource::<SpriteSheetWatch>().refused, None, "the removal of the second file was not seen");
+
     // A portrait manifest and a sprite pack catalog are parts of it too: the
     // `PortraitSheetRegistry` resource is stated again with the generation.
     use ambition_sprite_sheet::portrait::{available_portrait_targets, PortraitSheetRegistry};
@@ -266,8 +286,8 @@ fn measure_one_look_at_the_published_tree() {
     let mut samples = Vec::new();
     for _ in 0..7 {
         let start = std::time::Instant::now();
-        let table = ambition_sprite_sheet::baked_sheet_rons::read_sheet_table_under(owner);
-        let table = ambition_sprite_sheet::baked_sheet_rons::prepare_sheet_table(table).expect("the published tree parses");
+        let table = ambition_sprite_sheet::baked_sheet_rons::read_sheet_table_under(owner).and_then(ambition_sprite_sheet::baked_sheet_rons::prepare_sheet_table);
+        let table = table.expect("the published tree parses");
         samples.push(start.elapsed().as_secs_f64() * 1000.0);
         prepared.push(table);
     }
@@ -293,8 +313,8 @@ fn measure_one_look_at_the_published_tree() {
     let mut samples = Vec::new();
     for _ in 0..7 {
         let start = std::time::Instant::now();
-        let table = ambition_sprite_sheet::baked_sheet_rons::read_sheet_table_under(owner);
-        let table = ambition_sprite_sheet::baked_sheet_rons::prepare_sheet_table(table).expect("the published tree parses");
+        let table = ambition_sprite_sheet::baked_sheet_rons::read_sheet_table_under(owner).and_then(ambition_sprite_sheet::baked_sheet_rons::prepare_sheet_table);
+        let table = table.expect("the published tree parses");
         samples.push(start.elapsed().as_secs_f64() * 1000.0);
         std::hint::black_box(table);
     }

@@ -97,16 +97,17 @@ pub const PART_FLIPBOOK_SUFFIX: &str = "_parts.ron";
 
 /// Each part flipbook file of the tree under `owner` and of its quality
 /// tiers, keyed as the table keys it, sorted by key.
-pub fn part_flipbook_files_under(owner: &std::path::Path) -> Vec<(String, std::path::PathBuf)> {
+pub fn part_flipbook_files_under(owner: &std::path::Path) -> crate::sprite_tree::KeyedFiles {
     crate::sprite_tree::companions(owner, PART_FLIPBOOK_SUFFIX, true)
 }
 
-/// The flipbooks of the tree under `owner`. The files are named and not read:
-/// a table is read when a sheet realizes it (`BakedPartFlipbook::File`).
+/// The rows of the flipbook `files`, one for each key. The files are named
+/// and not read: a table is read when a sheet realizes it
+/// (`BakedPartFlipbook::File`).
 #[cfg(not(embedded_sprites))]
-pub(crate) fn rows_under(owner: &std::path::Path) -> Vec<PartFlipbookRow> {
+pub(crate) fn rows_of(files: Vec<(String, std::path::PathBuf)>) -> Vec<PartFlipbookRow> {
     use crate::published_tree::kept;
-    part_flipbook_files_under(owner)
+    files
         .into_iter()
         .map(|(key, path)| {
             let file = kept(path.display().to_string());

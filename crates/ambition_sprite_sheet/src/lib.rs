@@ -776,15 +776,64 @@ impl BakedIndex {
 /// Do not skip quality variants. `build.rs` bakes them as `<root>.0_5x`,
 /// `.0_25x`, and `.potato`, which are distinct keys.
 pub(crate) fn index_baked_table(table: &[(&str, &str)]) -> BakedIndex {
-    let mut index = BakedIndex::default();
+    let (parsed, failed, _) = parse_sheet_files(table, None);
+    index_parsed(table, &parsed, failed)
+}
+
+/// The records of each sheet file of `table`, keyed by file root, each file
+/// that does not parse with its error, and how many files were parsed. A file
+/// whose text is the text `previous` (a table and its parsed files) holds for
+/// the same root is not parsed again: a publication then parses only what
+/// changed.
+pub(crate) fn parse_sheet_files(
+    table: &[(&str, &str)],
+    previous: Option<(&[(&'static str, &'static str)], &HashMap<String, Vec<SheetRecord>>)>,
+) -> (HashMap<String, Vec<SheetRecord>>, Vec<(String, String)>, usize) {
+    let mut parsed = HashMap::new();
+    let mut failed = Vec::new();
+    let mut parsed_now = 0;
     for (file_root, text) in table {
-        match ron::from_str::<Vec<SheetRecord>>(text) {
-            Ok(records) if records.is_empty() => {}
-            Ok(records) if records.len() == 1 => {
+        let kept = previous.and_then(|(rons, files)| {
+            let at = rons.binary_search_by(|(root, _)| (*root).cmp(file_root)).ok()?;
+            (rons[at].1 == *text).then(|| files.get(*file_root)).flatten()
+        });
+        match kept {
+            Some(records) => {
+                parsed.insert((*file_root).to_owned(), records.clone());
+            }
+            None => match {
+                parsed_now += 1;
+                ron::from_str::<Vec<SheetRecord>>(text)
+            } {
+                Ok(records) => {
+                    parsed.insert((*file_root).to_owned(), records);
+                }
+                Err(err) => failed.push(((*file_root).to_owned(), err.to_string())),
+            },
+        }
+    }
+    (parsed, failed, parsed_now)
+}
+
+/// The index of the parsed files of `table`, in the table's order: a later
+/// record of one key shadows an earlier one, as the table orders them.
+pub(crate) fn index_parsed(
+    table: &[(&str, &str)],
+    parsed: &HashMap<String, Vec<SheetRecord>>,
+    failed: Vec<(String, String)>,
+) -> BakedIndex {
+    let mut index = BakedIndex { failed, ..BakedIndex::default() };
+    for (file_root, _) in table {
+        let Some(records) = parsed.get(*file_root).cloned() else {
+            continue;
+        };
+        match records {
+            records if records.is_empty() => {}
+            records if records.len() == 1 => {
                 let record = records.into_iter().next().expect("len checked");
                 index.insert((*file_root).to_owned(), record);
             }
-            Ok(records) => {
+            records => {
                 index.ambiguous_roots.push(AmbiguousFileRoot {
                     file_root: (*file_root).to_owned(),
                     targets: records.iter().map(|r| r.target.clone()).collect(),
@@ -801,9 +850,6 @@ pub(crate) fn index_baked_table(table: &[(&str, &str)]) -> BakedIndex {
                     index.insert(key, record);
                 }
             }
-            Err(err) => index
-                .failed
-                .push(((*file_root).to_owned(), err.to_string())),
         }
     }
     index

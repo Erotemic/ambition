@@ -64,6 +64,27 @@ fn a_published_sheet_table_is_read_whole_and_a_broken_one_is_refused() {
     assert_eq!(current().id(), id, "a refused table changed the generation");
     assert_eq!(collision_scale_in_index(), 2.5, "a refused table changed the records");
 
+    // A preparation parses only the sheet files whose text changed.
+    use ambition_sprite_sheet::baked_sheet_rons::prepare_sheet_table;
+    let unchanged = prepare_sheet_table(SheetTexts::current()).unwrap_or_else(|refused| panic!("{refused}"));
+    assert_eq!(unchanged.parsed_now(), 0, "an unchanged table was parsed again");
+    let one_edited: Vec<(&'static str, &'static str)> = sheet_rons()
+        .iter()
+        .map(|(key, text)| if *key == SHEET { (*key, kept(format!("{text}\n// edited\n"))) } else { (*key, *text) })
+        .collect();
+    let one = prepare_sheet_table(SheetTexts { sheets: one_edited, ..SheetTexts::current() }).unwrap_or_else(|refused| panic!("{refused}"));
+    assert_eq!(one.parsed_now(), 1, "a table with one edited sheet parsed {} of {} files", one.parsed_now(), sheet_rons().len());
+
+    // A read of the tree keeps only the texts that changed: each other text
+    // is the current generation's own (a text read is kept for the life of
+    // the process). The published `SHEET` differs from its file on disk.
+    let owner = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../ambition_platformer2d_actor_monolith"));
+    let read = ambition_sprite_sheet::baked_sheet_rons::read_sheet_table_under(owner);
+    let held: std::collections::HashMap<&str, &str> = sheet_rons().iter().copied().collect();
+    let new_texts: Vec<&str> = read.sheets.iter().filter(|(key, text)| held.get(key).is_none_or(|was| !std::ptr::eq(*was, *text))).map(|(key, _)| *key).collect();
+    assert!(new_texts == [SHEET], "a read of the tree kept a new text for {} files: {:?}", new_texts.len(), &new_texts[..new_texts.len().min(3)]);
+    assert_eq!(read.sheets.len(), sheet_rons().len(), "control: the read is the whole table");
+
     // The effect index is built from the records of its generation: an
     // edited effect row is what the index says.
     use ambition_sprite_sheet::fx::{authored_effect, fx_sheets};

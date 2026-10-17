@@ -518,8 +518,16 @@ only where no report is possible (witness `sprite_watch_reports`: one look in
 three quiet seconds, and one look for one save; red with the reports off, at
 "the watch looked while no file changed"). A changed page image is
 loaded again at once. A changed manifest makes the same thread read the whole
-table again and parse it (`prepare_sheet_table`, median 913 ms in a debug
-build); the parsed table waits for the end of the session, then it is
+table again (`prepare_sheet_table`). The preparation parses only the sheet
+files whose text changed and checks only the changed rigs; each other file's
+records and texts are the current generation's (a text read is kept for the
+life of the process, so a read keeps only what changed). Witness: the
+`parsed_now` and text arms of `sheet_generation` (0 files parsed for an
+unchanged table and 1 for one edit, red at 1220 with no carry-over; red at
+"a read of the tree kept a new text for 1220 files" with no reuse). Measured
+2026-10-16 in a debug build, a loaded box (`sprite_sheet_reload --ignored`):
+one read and preparation with the flipbooks decoded, median 1136 ms (2.1 s
+before the carry-over); from an undecoded generation, 2229 ms. The parsed table waits for the end of the session, then it is
 published whole (`publish_prepared_sheet_table` plus the resource clone,
 median 18 ms on the frame), the `SheetRegistry` resource is stated
 again, each resident character realization is retired so that the next

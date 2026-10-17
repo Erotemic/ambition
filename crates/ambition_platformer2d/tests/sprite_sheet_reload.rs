@@ -224,4 +224,19 @@ fn measure_one_look_at_the_published_tree() {
     }
     samples.sort_by(f64::total_cmp);
     println!("publish on the frame: median {:.2} ms, range {:.2}-{:.2} ms (7 samples)", samples[3], samples[0], samples[6]);
+    // A running game has decoded its flipbooks (the warm-up), so a
+    // preparation takes each unchanged table from the current generation.
+    for target in ambition_sprite_sheet::baked_part_flipbooks::baked_part_flipbook_targets() {
+        let _ = ambition_sprite_sheet::character::rigged::RiggedSpriteAsset::baked(target);
+    }
+    let mut samples = Vec::new();
+    for _ in 0..7 {
+        let start = std::time::Instant::now();
+        let table = ambition_sprite_sheet::baked_sheet_rons::read_sheet_table_under(owner);
+        let table = ambition_sprite_sheet::baked_sheet_rons::prepare_sheet_table(table).expect("the published tree parses");
+        samples.push(start.elapsed().as_secs_f64() * 1000.0);
+        std::hint::black_box(table);
+    }
+    samples.sort_by(f64::total_cmp);
+    println!("read and parse the table, flipbooks decoded: median {:.2} ms, range {:.2}-{:.2} ms (7 samples)", samples[3], samples[0], samples[6]);
 }

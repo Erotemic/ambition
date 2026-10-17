@@ -64,6 +64,51 @@ fn a_published_sheet_table_is_read_whole_and_a_broken_one_is_refused() {
     assert_eq!(current().id(), id, "a refused table changed the generation");
     assert_eq!(collision_scale_in_index(), 2.5, "a refused table changed the records");
 
+    // A preparation parses only the sheet files whose text changed.
+    use ambition_sprite_sheet::baked_sheet_rons::prepare_sheet_table;
+    let unchanged = prepare_sheet_table(SheetTexts::current()).unwrap_or_else(|refused| panic!("{refused}"));
+    assert_eq!(unchanged.parsed_now(), 0, "an unchanged table was parsed again");
+    let one_edited: Vec<(&'static str, &'static str)> = sheet_rons()
+        .iter()
+        .map(|(key, text)| if *key == SHEET { (*key, kept(format!("{text}\n// edited\n"))) } else { (*key, *text) })
+        .collect();
+    let one = prepare_sheet_table(SheetTexts { sheets: one_edited, ..SheetTexts::current() }).unwrap_or_else(|refused| panic!("{refused}"));
+    assert_eq!(one.parsed_now(), 1, "a table with one edited sheet parsed {} of {} files", one.parsed_now(), sheet_rons().len());
+
+    // What a table changes for simulation and the casts: an edit to where
+    // frames are drawn from changes nothing; an edit to a record's mechanics,
+    // a body rig or a portrait manifest does.
+    assert!(!unchanged.changes_mechanics_of(current()), "control: an unchanged table changes mechanics");
+    let with_sheet = |edit: &dyn Fn(&str) -> String| -> Vec<(&'static str, &'static str)> {
+        sheet_rons().iter().map(|(key, text)| if *key == SHEET { (*key, kept(edit(text))) } else { (*key, *text) }).collect()
+    };
+    let label = with_sheet(&|text| {
+        assert_eq!(text.matches("label_width: ").count(), 1, "the probe edits the label band of `{SHEET}`");
+        let at = text.find("label_width: ").unwrap() + "label_width: ".len();
+        let end = at + text[at..].find(',').unwrap();
+        format!("{}{}{}", &text[..at], text[at..end].parse::<u32>().unwrap() + 4, &text[end..])
+    });
+    let prepare = |texts: SheetTexts| prepare_sheet_table(texts).unwrap_or_else(|refused| panic!("{refused}"));
+    assert!(!prepare(SheetTexts { sheets: label, ..SheetTexts::current() }).changes_mechanics_of(current()), "a change of the label band changes mechanics");
+    let scale = with_sheet(&|text| text.replace("collision_scale: 2.5,", "collision_scale: 3.5,"));
+    assert!(prepare(SheetTexts { sheets: scale, ..SheetTexts::current() }).changes_mechanics_of(current()), "a change of the collision scale changes no mechanics");
+    let mut rigs = current().body_rigs().to_vec();
+    rigs[0].1 = kept(format!("{}\n", rigs[0].1));
+    assert!(prepare(SheetTexts { body_rigs: rigs, ..SheetTexts::current() }).changes_mechanics_of(current()), "a change of a body rig changes no mechanics");
+    let mut portraits = current().portrait_rons().to_vec();
+    portraits[0].1 = kept(format!("{}\n", portraits[0].1));
+    assert!(prepare(SheetTexts { portraits, ..SheetTexts::current() }).changes_mechanics_of(current()), "a change of a portrait manifest changes no mechanics");
+
+    // A read of the tree keeps only the texts that changed: each other text
+    // is the current generation's own (a text read is kept for the life of
+    // the process). The published `SHEET` differs from its file on disk.
+    let owner = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../ambition_platformer2d_actor_monolith"));
+    let read = ambition_sprite_sheet::baked_sheet_rons::read_sheet_table_under(owner);
+    let held: std::collections::HashMap<&str, &str> = sheet_rons().iter().copied().collect();
+    let new_texts: Vec<&str> = read.sheets.iter().filter(|(key, text)| held.get(key).is_none_or(|was| !std::ptr::eq(*was, *text))).map(|(key, _)| *key).collect();
+    assert!(new_texts == [SHEET], "a read of the tree kept a new text for {} files: {:?}", new_texts.len(), &new_texts[..new_texts.len().min(3)]);
+    assert_eq!(read.sheets.len(), sheet_rons().len(), "control: the read is the whole table");
+
     // The effect index is built from the records of its generation: an
     // edited effect row is what the index says.
     use ambition_sprite_sheet::fx::{authored_effect, fx_sheets};
@@ -105,4 +150,28 @@ fn a_published_sheet_table_is_read_whole_and_a_broken_one_is_refused() {
         .expect_err("a body rig that does not parse was published");
     assert!(refused.0.iter().any(|(file, _)| *file == format!("{target}_body_rig.ron")), "the refusal names the rig: {refused}");
     assert_eq!((current().id(), rig_of(target)), (id, Some(edited_rig)), "a refused rig changed the generation");
+
+    // A resident realization made before a publication is stale, as one of
+    // another tier is: its frame rects can be the old ones. The residency
+    // convergence makes a worn one again in place.
+    use ambition_persistence::settings::TextureResolutionScale;
+    use ambition_sprite_sheet::character::{sheets::SheetTuning, CharacterSpriteAsset, CharacterSpriteAssets};
+    let realization = || CharacterSpriteAsset {
+        texture: Default::default(),
+        layout: Default::default(),
+        spec: ambition_sprite_sheet::character::sheets::try_load_spec_for_target(SHEET, &SheetTuning::new(1.0, 1)).expect("the player's sheet has a spec"),
+        pages: Vec::new(),
+        requested_tier: TextureResolutionScale::Full,
+        resolved_tier: TextureResolutionScale::Full,
+        rigged: None,
+    };
+    let mut sprites = CharacterSpriteAssets::default();
+    sprites.declare(SHEET);
+    sprites.publish(SHEET, realization());
+    let stale = |sprites: &CharacterSpriteAssets| sprites.stale_realizations(TextureResolutionScale::Full);
+    assert!(stale(&sprites).is_empty(), "control: a realization of the current generation is stale");
+    publish_sheet_generation(SheetTexts::current()).unwrap_or_else(|refused| panic!("{refused}"));
+    assert_eq!(stale(&sprites), [(SHEET.to_owned(), SHEET.to_owned())], "a realization of an older sheet generation is not stale");
+    sprites.publish(SHEET, realization());
+    assert!(stale(&sprites).is_empty(), "a realization made again is still stale");
 }

@@ -1480,6 +1480,17 @@ impl Plugin for MaryORulesPlugin {
         // The enemy brains that are modules (the Void Lizard): they act on a
         // body whose placement authors their brain key, so they need no rules
         // scope.
+        // The squash module reads her stomp rules from the published pack at
+        // each invocation, so an edit to `stomp` reaches it with the pack. A
+        // composition with no extension host admits no module, so it needs no
+        // port.
+        if ambition_platformer2d::extension::ExtensionAppExt::has_extension_host(app) {
+            ambition_platformer2d::extension::ExtensionAppExt::install_extension_observation::<
+                ambition_demo_mary_o_modules::rules::StompRulesPort,
+            >(app, ambition_platformer2d::extension::sdk::phases::BODY_CONTACT, "ambition_demo_mary_o", |_, _| {
+                Some(rules::mary_o_rules().stomp.observed())
+            });
+        }
         for module in ambition_demo_mary_o_modules::modules() {
             ambition_platformer2d::extension::ExtensionAppExt::add_extension_module(app, module);
         }

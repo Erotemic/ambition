@@ -258,9 +258,7 @@ pub fn bind_worn_character_presentation(
                 },
                 // Without it the quality binder later in this same chain would see an unstamped
                 // body and immediately rebuild what was just built.
-                BoundSpriteQuality {
-                    scale: asset.resolved_tier,
-                },
+                BoundSpriteQuality::of(asset),
             ));
         } else {
             // No sheet for this identity yet: draw the colored rectangle and
@@ -617,12 +615,15 @@ fn state_aware_entity_sprite(view: &ambition_sim_view::FeatureView) -> Option<En
     }
 }
 
-/// Which quality tier the presentation on this entity was built from.
+/// Which realization the presentation on this entity was built from: its
+/// quality tier and its atlas layout.
 ///
 /// Spawned entities keep their cached image/atlas handles until a render system
 /// overwrites them, so this is the only record of which art generation a body
 /// shows. Binders compare it with the realization, not the setting: stamping
 /// from the setting marks a body converged while it still draws old pixels.
+/// Each realization adds its own layout, so a sheet generation that realizes
+/// a sheet again at the same tier (new frame rects) binds the body again too.
 ///
 /// It stores the resolved tier, not
 /// [`requested_tier`](ambition_sprite_sheet::character::CharacterSpriteAsset::requested_tier).
@@ -632,6 +633,20 @@ fn state_aware_entity_sprite(view: &ambition_sim_view::FeatureView) -> Option<En
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BoundSpriteQuality {
     pub scale: TextureResolutionScale,
+    pub realization: bevy::asset::AssetId<TextureAtlasLayout>,
+}
+
+impl BoundSpriteQuality {
+    /// The stamp of a presentation built from `asset`.
+    pub fn of(asset: &ambition_sprite_sheet::character::CharacterSpriteAsset) -> Self {
+        Self { scale: asset.resolved_tier, realization: asset.layout.id() }
+    }
+
+    /// A stamp of the tier alone, for a presentation built from no
+    /// realization.
+    pub fn of_tier(scale: TextureResolutionScale) -> Self {
+        Self { scale, realization: bevy::asset::AssetId::default() }
+    }
 }
 
 /// Which character's art an actor's sprite was bound from.
@@ -774,7 +789,7 @@ pub fn upgrade_actor_sprites(
         // art of the character it wears now. A body bound before
         // `BoundActorArt` existed has none, and is bound again one time.
         let art_bound = bound_art.map(|art| art.0.as_str()) == art_identity;
-        if kind_bound && art_bound && bound_quality.is_some_and(|q| q.scale == character_asset.resolved_tier) {
+        if kind_bound && art_bound && bound_quality.is_some_and(|q| *q == BoundSpriteQuality::of(character_asset)) {
             continue;
         }
         // Android loads assets out of the APK asynchronously, and missing or
@@ -854,9 +869,7 @@ pub fn upgrade_actor_sprites(
             anchor,
             animator,
             BoundFeatureKind::new(view.kind, collision),
-            BoundSpriteQuality {
-                scale: character_asset.resolved_tier,
-            },
+            BoundSpriteQuality::of(character_asset),
             BoundActorArt(art_identity.unwrap_or_default().to_string()),
         ));
     }
@@ -906,7 +919,7 @@ pub fn refresh_player_sprites_for_resident_quality(
         }
         // Cheapest first: a body already built from this realization's tier is
         // current, and that is almost every body on almost every frame.
-        if bound_quality.is_some_and(|q| q.scale == asset.resolved_tier) {
+        if bound_quality.is_some_and(|q| *q == BoundSpriteQuality::of(asset)) {
             continue;
         }
         if !realization_is_ready(&asset_server, &images, asset) {
@@ -934,9 +947,7 @@ pub fn refresh_player_sprites_for_resident_quality(
             anchor,
             animator,
             baseline,
-            BoundSpriteQuality {
-                scale: asset.resolved_tier,
-            },
+            BoundSpriteQuality::of(asset),
         ));
     }
 }
@@ -966,7 +977,7 @@ pub fn refresh_prop_sprites_on_game_assets_change(
         let Some(asset) = assets.characters.prop_asset_for_kind(&prop.kind) else {
             continue;
         };
-        if bound_quality.is_some_and(|q| q.scale == asset.resolved_tier) {
+        if bound_quality.is_some_and(|q| *q == BoundSpriteQuality::of(asset)) {
             continue;
         }
         if !realization_is_ready(&asset_server, &images, asset) {
@@ -976,9 +987,7 @@ pub fn refresh_prop_sprites_on_game_assets_change(
             crate::rendering::world::prop_sprite_bundle(prop.draw, prop.flip_y, asset, prop.size);
         commands.entity(entity).insert((
             bundle,
-            BoundSpriteQuality {
-                scale: asset.resolved_tier,
-            },
+            BoundSpriteQuality::of(asset),
         ));
     }
 }

@@ -132,6 +132,49 @@ pub fn restate_prop_sheet_rows(
     Ok(kinds)
 }
 
+/// Load again each prop sheet made from a sheet of `targets`, after a sheet
+/// generation is published: a prop's realization holds the frame rects of
+/// the records it was made from. A `Catalog` row holds its own spec, so it
+/// does not follow the sheet generation.
+pub fn reload_prop_sheets_of_targets(world: &mut World, targets: &std::collections::BTreeSet<String>) {
+    let Some(sheets) = world.get_resource::<PropSheets>() else {
+        return;
+    };
+    let kinds: Vec<String> = sheets
+        .iter()
+        .filter(|(_, source)| matches!(source, PropSheetSource::SpriteFolder { target, .. } if targets.contains(target)))
+        .map(|(kind, _)| kind.to_owned())
+        .collect();
+    if !kinds.is_empty() {
+        reload_prop_sheets(world, &[], &kinds);
+    }
+}
+
+/// Make again each resident effect sheet of `targets`, at the tier it was made
+/// at, after a sheet generation is published: an effect drawn after it reads
+/// the frame rects of the new records.
+pub fn reload_fx_sheets_of_targets(world: &mut World, targets: &std::collections::BTreeSet<String>) {
+    let Some(asset_server) = world.get_resource::<AssetServer>().cloned() else {
+        return;
+    };
+    if !world.contains_resource::<GameAssets>() || !world.contains_resource::<Assets<TextureAtlasLayout>>() {
+        return;
+    }
+    world.resource_scope(|world, mut layouts: Mut<Assets<TextureAtlasLayout>>| {
+        let fx = &mut world.resource_mut::<GameAssets>().into_inner().fx;
+        let stale: Vec<(&'static str, ambition_persistence::settings::TextureResolutionScale)> = fx
+            .targets()
+            .into_iter()
+            .filter(|target| targets.contains(*target))
+            .filter_map(|target| fx.get(target).map(|asset| (target, asset.requested_tier)))
+            .collect();
+        for (target, tier) in stale {
+            fx.remove(target);
+            character_sprites::ensure_fx_sheet_loaded(fx, target, &asset_server, &mut layouts, tier);
+        }
+    });
+}
+
 /// Load the sheets of `kinds` again into the loaded art, after a reload
 /// restated their rows, and forget the sheets of `dropped`. The room the
 /// reload builds draws its props from the new sheets. A world with no loaded

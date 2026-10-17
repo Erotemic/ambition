@@ -575,8 +575,15 @@ before you add a port.
     `rules::feet_on_top`). A module's `schemas` are its own state; no port
     gives a module its pack's rules. So a port today would move these two
     facts from the pack into module constants, which the content-as-data
-    rule forbids. The badnik stays native until a module can read its
-    provider's rules through a port. The snake shells read Mary-O's
+    rule forbids. Since 2026-10-16 a module can read its provider's rules:
+    the provider owns an observation port whose value is the rows the
+    module reads, and answers it from its published pack at each invocation
+    (`mary_o.rules.stomp`, `ambition_demo_mary_o_modules::rules`, answered
+    by the Mary-O plugin from `stomp` in `mary_o_rules.ron`; the squash
+    module's `BOUNCE_SPEED` and the modules crate's `STOMP_BAND` are
+    deleted, and the shell reads the same `stomp.bounce_speed`). The badnik
+    can take the same road for its two facts; its toucher facts above still
+    block it. The snake shells read Mary-O's
     `stomp` rule through the modules crate, but their own timers and
     speeds are Rust in `snake.rs`, and they need module-owned per-body
     state (box timer, slide speed, kick grace) and wall contact, which no

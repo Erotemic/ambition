@@ -10,10 +10,6 @@
 //! Mary-O runs under screen gravity, so `+y` is DOWN: the player's feet are
 //! its `max[1]`, and a body's head is its `min[1]`.
 
-/// Vertical tolerance (px) for "feet on its head": the band within which the
-/// player's feet count as landing on top rather than hitting a side.
-pub const STOMP_BAND: f32 = 16.0;
-
 /// A box by its corners.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Bounds {
@@ -35,7 +31,7 @@ impl Bounds {
 /// Which face of a body the player is touching.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PlayerTouch {
-    /// Feet within [`STOMP_BAND`] of the head while not moving upward: coming
+    /// Feet within the stomp band of the head while not moving upward: coming
     /// down onto it, or already resting on it. Resting counts: a body under
     /// the player's feet must never hurt them.
     Top,
@@ -44,14 +40,16 @@ pub enum PlayerTouch {
 }
 
 /// Classify the player's contact with one body, or `None` if they are apart.
-pub fn player_touch(body: Bounds, player: Bounds, player_vel: [f32; 2]) -> Option<PlayerTouch> {
+/// `band` is the vertical tolerance (px) for "feet on its head": `stomp.band`
+/// in her pack ([`crate::rules::StompRules`]).
+pub fn player_touch(body: Bounds, player: Bounds, player_vel: [f32; 2], band: f32) -> Option<PlayerTouch> {
     let overlap_x = player.min[0] < body.max[0] && player.max[0] > body.min[0];
     if !overlap_x {
         return None;
     }
     let feet = player.max[1];
     // The band is penetration tolerance, not reach: the player's feet must
-    // have reached the head plane. Allowing `head - STOMP_BAND` classified a
+    // have reached the head plane. Allowing `head - band` classified a
     // player hovering up to sixteen pixels above an enemy as a stomp.
     //
     // Her feet on the same ground sat 9.48 below its head, inside 16, and
@@ -59,7 +57,7 @@ pub fn player_touch(body: Bounds, player: Bounds, player_vel: [f32; 2]) -> Optio
     // of this kind uses: feet above the enemy's middle is a stomp, below it
     // is a hit. That is independent of height, so a shorter enemy can not
     // reopen this.
-    let band = STOMP_BAND.min((body.max[1] - body.min[1]) * 0.5);
+    let band = band.min((body.max[1] - body.min[1]) * 0.5);
     let on_head = feet >= body.min[1] && feet <= body.min[1] + band;
     // Falling onto the head, or standing on it (`vel.y == 0`), is a stomp.
     // Rising INTO it from below is not: that is a hit.

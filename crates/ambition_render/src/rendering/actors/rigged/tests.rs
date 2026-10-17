@@ -140,9 +140,7 @@ fn app_anchored(admit: bool, sheet: CharacterSpriteAsset, anchor: Anchor) -> (Ap
             animator,
             Transform::default(),
             Visibility::Inherited,
-            BoundSpriteQuality {
-                scale: TextureResolutionScale::Full,
-            },
+            BoundSpriteQuality::of_tier(TextureResolutionScale::Full),
         ))
         .id();
     (app, root)
@@ -283,6 +281,23 @@ fn a_rigged_root_draws_its_impostor_from_parts_in_reusable_slots() {
         assert!(close(*at, *want), "mirrored: a part moved to {at:?} from {want:?}");
     }
     assert!(close(app.world().get::<Anchor>(root).unwrap().0, Vec2::new(-anchor.x, anchor.y)));
+}
+
+/// A new flipbook for the same sheet (a published sheet generation realizes
+/// the sheet again) binds its own posed parts, not the ones the old flipbook
+/// bound: they are made from the flipbook's tracks and the body rig, and a
+/// publication can change both.
+#[test]
+fn a_new_flipbook_binds_its_own_posed_parts() {
+    let (mut app, root) = app(true);
+    settle(&mut app);
+    let posed = |app: &App| app.world().get::<RiggedPresentation>(owner(app, root)).unwrap().posed.clone();
+    let first = posed(&app).expect("the premise: the raider publishes a body rig, so its parts are posed");
+    let sheet = with_pages(raider(true), || ready_page(&mut app));
+    app.world_mut().resource_mut::<GameAssets>().characters.publish("raider", sheet);
+    settle(&mut app);
+    let second = posed(&app).expect("the new flipbook's parts are posed");
+    assert!(!Arc::ptr_eq(&first, &second), "the new flipbook was bound with the posed parts of the old one");
 }
 
 #[test]

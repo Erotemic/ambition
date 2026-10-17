@@ -317,8 +317,10 @@ pub fn materialize_declared_character_sprite(
         // and the renderer rebinds once the new texture is loaded. Retiring
         // first turned every in-use body into the placeholder rectangle for as
         // long as the ration took to reach it -- 129 frames at Full (2026-09-03).
-        ambition_sprite_sheet::character::CharacterSheetState::Ready(asset) => {
-            if asset.requested_tier == character_sprite_tier(quality) {
+        ambition_sprite_sheet::character::CharacterSheetState::Ready(_) => {
+            // A realization of an older sheet generation is made again in
+            // place too: its frame rects can be the old ones.
+            if sprites.is_current_realization(token, character_sprite_tier(quality)) {
                 return SpriteMaterialization::Ready;
             }
             match sprites.declared_id(token) {

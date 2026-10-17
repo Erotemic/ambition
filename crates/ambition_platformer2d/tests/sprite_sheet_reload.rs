@@ -1,7 +1,8 @@
 //! A running game plays an edit to a sprite sheet from the next session: a
 //! changed manifest waits while a session is live, is published as one sheet
-//! generation when it ends, and states the `SheetRegistry` resource again; a
-//! manifest that does not parse is refused and the running sheets stay.
+//! generation when it ends, and states the `SheetRegistry` resource again; an
+//! edit to where frames are drawn from only is played at once; a manifest
+//! that does not parse is refused and the running sheets stay.
 //!
 //! Its own test binary: a publication changes what every reader of the
 //! process reads, and this one publishes a probe tree of one sheet.
@@ -23,7 +24,7 @@ fn sheet_text(collision_scale: &str) -> String {
     frame_width: 32,
     frame_height: 32,
     tuning: Some((collision_scale: {collision_scale}, frame_sample_inset: 0)),
-    rows: [],
+    rows: [(animation: "idle", row_index: 0, frame_count: 1, duration_ms: 100, duration_secs: 0.1, rects: [(x: 0, y: 0, w: 32, h: 32)])],
     start: 0.0,
     end: 1.0,
 )]"#
@@ -76,13 +77,73 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     assert_eq!(collision_scale(&app), (2.25, 2.25), "the generation or the SheetRegistry resource is not the edited sheet");
     assert_eq!(app.world().resource::<SpriteSheetWatch>().published, 1);
 
+    // An edit to where frames are drawn from only (here the label band; a
+    // repack moves rects and pages) is played at once, also inside a
+    // session: its pages are loaded again at once, so the old rects would
+    // cut the new pixels. An edit to a record that simulation reads waits.
+    let session = |app: &mut App, live: bool| {
+        let mut scope = app.world_mut().resource_mut::<ambition_platformer2d::actor::ActiveSessionScope>();
+        if live { scope.begin(); } else { scope.clear(); }
+    };
+    let label_width = |app: &App| {
+        let of = |registry: &ambition_sprite_sheet::SheetRegistry| registry.get(PROBE).map(|record| record.label_width);
+        (of(current().registry()), of(app.world().resource::<ambition_sprite_sheet::SheetRegistry>()))
+    };
+    // A prop drawn from the sheet holds the frame rects of the records it was
+    // made from, so the publication makes it again.
+    use ambition_platformer2d::actors::assets::game_assets::{reload_prop_sheets_of_targets, PropSheetsAppExt, PropSheetSource};
+    app.add_plugins(bevy::asset::AssetPlugin::default());
+    app.init_asset::<Image>();
+    app.init_asset::<bevy::image::TextureAtlasLayout>();
+    app.insert_resource(ambition_sprite_sheet::game_assets::GameAssetConfig::default());
+    app.insert_resource(ambition_sprite_sheet::game_assets::GameAssets::default());
+    app.register_prop_sheet("probe_prop", PropSheetSource::SpriteFolder { target: PROBE.to_owned(), tuning: Default::default() });
+    reload_prop_sheets_of_targets(app.world_mut(), &[PROBE.to_owned()].into());
+    let prop_layout = |app: &App| app.world().resource::<ambition_sprite_sheet::game_assets::GameAssets>().characters.props.get("probe_prop").map(|asset| asset.layout.id());
+    let first_prop = prop_layout(&app);
+    assert!(first_prop.is_some(), "the premise: the prop is made from the probe sheet");
+    // So does an effect sheet: an effect drawn later reads its rects.
+    {
+        let world = app.world_mut();
+        let asset_server = world.resource::<AssetServer>().clone();
+        world.resource_scope(|world, mut layouts: Mut<Assets<bevy::image::TextureAtlasLayout>>| {
+            let fx = &mut world.resource_mut::<ambition_sprite_sheet::game_assets::GameAssets>().into_inner().fx;
+            let made = ambition_platformer2d::actors::character_sprites::ensure_fx_sheet_loaded(fx, PROBE, &asset_server, &mut layouts, Default::default());
+            assert!(made, "the premise: an effect sheet is made from the probe sheet");
+        });
+    }
+    let fx_layout = |app: &App| app.world().resource::<ambition_sprite_sheet::game_assets::GameAssets>().fx.get(PROBE).map(|asset| asset.layout.id());
+    let first_fx = fx_layout(&app);
+    session(&mut app, true);
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&manifest, sheet_text("2.25").replace("label_width: 0", "label_width: 8")).unwrap();
+    look(&mut app);
+    assert!(prop_layout(&app).is_some_and(|layout| Some(layout) != first_prop), "the prop keeps the realization of the old records");
+    assert!(fx_layout(&app).is_some_and(|layout| Some(layout) != first_fx), "the effect sheet keeps the realization of the old records");
+    assert_eq!(current().id(), first + 2, "an edit to where frames are drawn from waited for the end of the session");
+    assert_eq!(label_width(&app), (Some(8), Some(8)), "the generation or the SheetRegistry resource is not the edited sheet");
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&manifest, sheet_text("3.0").replace("label_width: 0", "label_width: 8")).unwrap();
+    look(&mut app);
+    assert_eq!((current().id(), collision_scale(&app)), (first + 2, (2.25, 2.25)), "control: an edit to a record simulation reads was published inside a session");
+    // The table is read whole: a later edit that takes the mechanical change
+    // back is a change of the label band alone, and is played at once.
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&manifest, sheet_text("2.25")).unwrap();
+    look(&mut app);
+    assert_eq!((current().id(), label_width(&app), collision_scale(&app)), (first + 3, (Some(0), Some(0)), (2.25, 2.25)));
+    assert!(!app.world().resource::<SpriteSheetWatch>().is_staged(), "the superseded edit is still staged");
+    session(&mut app, false);
+    app.update();
+    assert_eq!((current().id(), app.world().resource::<SpriteSheetWatch>().published), (first + 3, 3));
+
     // A manifest that does not parse is refused; the running sheets stay.
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&manifest, "[ (target: ").unwrap();
     look(&mut app);
     let watch = app.world().resource::<SpriteSheetWatch>();
     assert!(watch.refused.as_deref().is_some_and(|why| why.contains(PROBE)), "the refusal does not name the sheet: {:?}", watch.refused);
-    assert_eq!(current().id(), first + 1, "a broken sheet was published");
+    assert_eq!(current().id(), first + 3, "a broken sheet was published");
     assert_eq!(collision_scale(&app), (2.25, 2.25), "a broken sheet changed the running sheets");
 
     // A part flipbook is a part of the generation: its decoded table and the
@@ -224,4 +285,19 @@ fn measure_one_look_at_the_published_tree() {
     }
     samples.sort_by(f64::total_cmp);
     println!("publish on the frame: median {:.2} ms, range {:.2}-{:.2} ms (7 samples)", samples[3], samples[0], samples[6]);
+    // A running game has decoded its flipbooks (the warm-up), so a
+    // preparation takes each unchanged table from the current generation.
+    for target in ambition_sprite_sheet::baked_part_flipbooks::baked_part_flipbook_targets() {
+        let _ = ambition_sprite_sheet::character::rigged::RiggedSpriteAsset::baked(target);
+    }
+    let mut samples = Vec::new();
+    for _ in 0..7 {
+        let start = std::time::Instant::now();
+        let table = ambition_sprite_sheet::baked_sheet_rons::read_sheet_table_under(owner);
+        let table = ambition_sprite_sheet::baked_sheet_rons::prepare_sheet_table(table).expect("the published tree parses");
+        samples.push(start.elapsed().as_secs_f64() * 1000.0);
+        std::hint::black_box(table);
+    }
+    samples.sort_by(f64::total_cmp);
+    println!("read and parse the table, flipbooks decoded: median {:.2} ms, range {:.2}-{:.2} ms (7 samples)", samples[3], samples[0], samples[6]);
 }

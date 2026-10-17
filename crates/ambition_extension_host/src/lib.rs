@@ -218,6 +218,12 @@ pub fn admit_world(world: &mut World) {
 
 /// Install ports and declare modules.
 pub trait ExtensionAppExt {
+    /// The composition adds the host ([`ExtensionHostPlugin`]): a port can be
+    /// installed. A game plugin that also runs in a composition with no host
+    /// installs its ports only where this holds; its modules are then not
+    /// admitted either.
+    fn has_extension_host(&self) -> bool;
+
     /// Install trigger port `P` in `phase`, with the adapter system that
     /// queues its invocations. The system runs in `ExtensionSet::Collect`.
     fn install_extension_trigger<P: Port, M>(
@@ -365,6 +371,10 @@ fn offer<P: Port>(role: PortRole, phase: Phase, owner: &'static str) -> PortOffe
 }
 
 impl ExtensionAppExt for App {
+    fn has_extension_host(&self) -> bool {
+        self.world().contains_resource::<ExtensionSchedule>()
+    }
+
     fn install_extension_trigger<P: Port, M>(
         &mut self,
         phase: Phase,

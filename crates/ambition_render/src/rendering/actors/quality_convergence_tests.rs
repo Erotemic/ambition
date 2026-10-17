@@ -351,6 +351,74 @@ fn the_player_body_converges_to_the_new_tier_and_the_old_image_dies() {
     );
 }
 
+/// The same pages with new frame rects: a sheet generation that moved a
+/// sheet's rects realizes it again at the same tier, from the same page path
+/// (so the same image handle), with its own atlas layout.
+fn the_same_pages_with_new_rects(app: &mut App, was: &CharacterSpriteAsset) -> CharacterSpriteAsset {
+    let layout = app
+        .world_mut()
+        .resource_mut::<Assets<bevy::image::TextureAtlasLayout>>()
+        .add(bevy::image::TextureAtlasLayout::new_empty(bevy::math::UVec2::splat(256)));
+    CharacterSpriteAsset {
+        layout: layout.clone(),
+        pages: vec![CharacterSpritePage { texture: was.texture.clone(), layout }],
+        ..was.clone()
+    }
+}
+
+fn atlas_layout(app: &App, body: Entity) -> Option<AssetId<bevy::image::TextureAtlasLayout>> {
+    app.world().get::<Sprite>(body).and_then(|sprite| sprite.texture_atlas.as_ref()).map(|atlas| atlas.layout.id())
+}
+
+/// A body bound to a realization binds again to the next one at the same
+/// tier: the actor binder and the controlled body's refresh both compare the
+/// realization, not only its tier.
+#[test]
+fn a_body_binds_again_to_a_new_realization_at_the_same_tier() {
+    let mut app = asset_app();
+    app.insert_resource(quality(VisualQualityProfile::Medium));
+    let half = a_pending_realization(&mut app, TextureResolutionScale::Half);
+    the_image_lands(&mut app, &half);
+    let mut assets = GameAssets::default();
+    assets.characters.publish(ACTOR_CHARACTER, half.clone());
+    assets.characters.publish(PLAYER_ID, half.clone());
+    app.insert_resource(assets);
+    app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(ACTOR_ID.to_string(), a_feature_view())]));
+    app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
+        ACTOR_ID.to_string(),
+        ambition_sim_view::ActorRenderView {
+            sprite_character_id: Some(ACTOR_CHARACTER.to_string()),
+            name: ACTOR_NAME.to_string(),
+            is_sandbag: false,
+            render_size: None,
+            dream_seed: None,
+            geometry: ambition_sim_view::PoseGeometry::Settled,
+        },
+    )]));
+    app.insert_resource(ambition_sim_view::BossRenderIndex::default());
+    app.add_systems(Update, (super::upgrade_actor_sprites, super::refresh_player_sprites_for_resident_quality));
+    let actor = app.world_mut().spawn(FeatureVisual { id: ACTOR_ID.to_string() }).id();
+    let player = app
+        .world_mut()
+        .spawn((PlayerVisual, ambition_sim_view::BodyPoseView::default(), PlayerSpriteCharacter { id: PLAYER_ID.to_string() }))
+        .id();
+    app.update();
+    let old = Some(half.layout.id());
+    assert_eq!((atlas_layout(&app, actor), atlas_layout(&app, player)), (old, old), "the premise: both bodies are bound to the first realization");
+
+    let moved = the_same_pages_with_new_rects(&mut app, &half);
+    let mut assets = app.world_mut().resource_mut::<GameAssets>();
+    assets.characters.publish(ACTOR_CHARACTER, moved.clone());
+    assets.characters.publish(PLAYER_ID, moved.clone());
+    app.update();
+    let new = Some(moved.layout.id());
+    assert_eq!(
+        (atlas_layout(&app, actor), atlas_layout(&app, player)),
+        (new, new),
+        "a body keeps the frame rects of a realization of the same tier that was replaced"
+    );
+}
+
 /// A profile change that keeps the tier must not rebind the sprite.
 ///
 /// `Low` and `Medium` use the same `Half` pixels. A binder keyed on the

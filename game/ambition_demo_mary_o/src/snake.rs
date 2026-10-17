@@ -409,7 +409,7 @@ pub fn run_snake_shells(
                 ae::movement::set_jump_velocity(
                     &mut player.vel,
                     ae::DEFAULT_GRAVITY_DIR,
-                    crate::rules::mary_o_rules().shell.stomp_bounce_speed,
+                    crate::rules::mary_o_rules().stomp.bounce_speed,
                 );
                 stomper = Some(player_entity);
             }

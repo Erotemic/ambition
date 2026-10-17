@@ -560,7 +560,9 @@ pub fn demand_worn_character_sheets(
 ///
 /// The transition is three moves and no new machinery:
 ///
-/// 1. compare each resident realization's TIER against the active one;
+/// 1. compare each resident realization's TIER against the active one, and its
+///    sheet generation against the current one (a sheet publication is the
+///    same convergence: `content::sprite_reload`);
 /// 2. re-demand the stale ones a body is WEARING, without retiring them: the
 ///    materializer re-realizes a `Ready`-at-another-tier sheet in place and the
 ///    renderer rebinds each body once the new texture is loaded, so no body is
@@ -645,8 +647,9 @@ pub fn converge_character_residency_to_active_quality(
     }
     bevy::log::info!(
         target: "ambition_platformer2d::character_sprites",
-        "quality transition to {active:?}: re-demanded {} in use (kept drawable until \
-         re-realized), retired {} unworn",
+        "realizations stale at {active:?} or sheet generation {}: re-demanded {} in use \
+         (kept drawable until re-realized), retired {} unworn",
+        ambition_sprite_sheet::baked_sheet_rons::current().id(),
         re_demanded.len(),
         retired.len(),
     );

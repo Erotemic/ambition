@@ -20,15 +20,11 @@ use ambition_extension_sdk::{
     ModuleDescriptor, ModuleKey, Port, TriggerBinding, API_VERSION,
 };
 
+use crate::rules::{StompRules, StompRulesPort};
 use crate::stomp::{player_touch, Bounds, PlayerTouch};
 
 /// The brain key of an AI Slop placement.
 pub const AI_SLOP_BRAIN_KEY: &str = "mary_o_ai_slop";
-
-/// Upward speed off a squashed mob: a lively hop, a touch under a full jump,
-/// so that a stomp reads as a bounce and not a jump again. The snake's is the
-/// same, so a bounce off either enemy feels the same.
-pub const BOUNCE_SPEED: f32 = 430.0;
 
 /// The low, tan dust of a squash.
 const DUST: (u32, f32, [f32; 4]) = (12, 130.0, [0.80, 0.68, 0.48, 1.0]);
@@ -38,7 +34,9 @@ fn entry(selector: &'static str) -> EntryDescriptor {
         key: selector.into(),
         phase: BODY_CONTACT,
         trigger: TriggerBinding { port: BodyContactPort::KEY, selector: selector.into() },
-        reads: Vec::new(),
+        // The band and the bounce are her pack's (`stomp`), the snake's too,
+        // so a bounce off either enemy feels the same.
+        reads: vec![StompRulesPort::KEY],
         writes: Vec::new(),
         requests: vec![ContactBouncePort::KEY, BurstPort::KEY, BodyDefeatPort::KEY],
         after: Vec::new(),
@@ -62,20 +60,21 @@ pub fn module() -> ModuleDescriptor {
 }
 
 /// The first toucher (in identity order) that is on the mob's head, if any.
-pub fn stomper(contact: &BodyContact) -> Option<usize> {
+pub fn stomper(contact: &BodyContact, rules: StompRules) -> Option<usize> {
     let body = Bounds::of(contact.body.position, contact.body.size);
     contact
         .touchers
         .iter()
-        .position(|t| player_touch(body, Bounds::of(t.position, t.size), t.velocity) == Some(PlayerTouch::Top))
+        .position(|t| player_touch(body, Bounds::of(t.position, t.size), t.velocity, rules.band) == Some(PlayerTouch::Top))
 }
 
 fn squash(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let contact: BodyContact = inv.trigger::<BodyContactPort>()?.clone();
-    let Some(stomper) = stomper(&contact) else {
+    let rules = *inv.observe::<StompRulesPort>()?;
+    let Some(stomper) = stomper(&contact, rules) else {
         return Ok(());
     };
-    inv.submit::<ContactBouncePort>(ContactBounce { toucher: stomper as u32, speed: BOUNCE_SPEED, pogo_cue: true })?;
+    inv.submit::<ContactBouncePort>(ContactBounce { toucher: stomper as u32, speed: rules.bounce_speed, pogo_cue: true })?;
     let (count, speed, color) = DUST;
     inv.submit::<BurstPort>(Burst { at: contact.body.position, count, speed, color, kind: "dust".into() })?;
     inv.submit::<BodyDefeatPort>(BodyDefeat)
@@ -102,11 +101,13 @@ mod tests {
     #[test]
     fn a_falling_or_resting_player_on_the_head_stomps_and_a_rising_one_does_not() {
         let contact = |touchers: Vec<ContactBody>| BodyContact { body: mob(), touchers };
-        assert_eq!(stomper(&contact(vec![on_head(100.0, 120.0)])), Some(0), "falling onto it");
-        assert_eq!(stomper(&contact(vec![on_head(100.0, 0.0)])), Some(0), "at rest on it");
-        assert_eq!(stomper(&contact(vec![on_head(100.0, -80.0)])), None, "rising into it");
+        // A band wider than half the mob: the half rules.
+        let stomper_of = |contact: &BodyContact| stomper(contact, StompRules { band: 16.0, bounce_speed: 430.0 });
+        assert_eq!(stomper_of(&contact(vec![on_head(100.0, 120.0)])), Some(0), "falling onto it");
+        assert_eq!(stomper_of(&contact(vec![on_head(100.0, 0.0)])), Some(0), "at rest on it");
+        assert_eq!(stomper_of(&contact(vec![on_head(100.0, -80.0)])), None, "rising into it");
         let beside = ContactBody { position: [120.0, 100.0], size: [28.0, 40.0], velocity: [0.0, 0.0] };
-        assert_eq!(stomper(&contact(vec![beside])), None, "beside it");
-        assert_eq!(stomper(&contact(vec![beside, on_head(95.0, 60.0)])), Some(1), "the toucher on the head, not the first");
+        assert_eq!(stomper_of(&contact(vec![beside])), None, "beside it");
+        assert_eq!(stomper_of(&contact(vec![beside, on_head(95.0, 60.0)])), Some(1), "the toucher on the head, not the first");
     }
 }

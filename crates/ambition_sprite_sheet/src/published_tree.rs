@@ -23,10 +23,25 @@ pub(crate) fn kept(text: String) -> &'static str {
 /// out with a warning: the publisher wrote the list, so it is a file removed
 /// while the game started.
 pub(crate) fn texts(entries: Vec<(String, PathBuf)>) -> Vec<(&'static str, &'static str)> {
+    texts_reusing(entries, &[])
+}
+
+/// [`texts`], taking the `(key, text)` of `previous` for each
+/// file whose text is the same: a text is kept for the life of the process,
+/// so a read of an unchanged tree keeps nothing more.
+pub(crate) fn texts_reusing(
+    entries: Vec<(String, PathBuf)>,
+    previous: &[(&'static str, &'static str)],
+) -> Vec<(&'static str, &'static str)> {
+    let previous: std::collections::HashMap<&str, (&'static str, &'static str)> =
+        previous.iter().map(|row| (row.0, *row)).collect();
     entries
         .into_iter()
         .filter_map(|(key, path)| match std::fs::read_to_string(&path) {
-            Ok(text) => Some((kept(key), kept(text))),
+            Ok(text) => Some(match previous.get(key.as_str()) {
+                Some(row) if row.1 == text => *row,
+                _ => (kept(key), kept(text)),
+            }),
             Err(error) => {
                 tracing::warn!(target: "ambition_platformer2d::sprites", "{}: {error}", path.display());
                 None

@@ -603,8 +603,10 @@ not compared), and `a_body_binds_again_to_a_new_realization_at_the_same_tier`
 sheet (`PropSheetSource::SpriteFolder`) are made again at the publication
 (`reload_prop_sheets_of_targets`), and the prop binder binds each prop again
 to its new realization (the prop arm of `sprite_sheet_reload`, red with the
-reload removed). Not yet on the road: a `Catalog` prop row (it holds its own
-spec) and the effect sheets (`FxSheetAssets`). The page reload has no witness of its
+reload removed). Each resident effect sheet of a changed sheet is made again
+too, at its tier (`reload_fx_sheets_of_targets`; an effect is drawn from the
+set when it spawns): the effect arm, red with the reload removed. Not yet on
+the road: a `Catalog` prop row (it holds its own spec). The page reload has no witness of its
 own.
 
 **Future live path:** the source scanner reports the changed logical key

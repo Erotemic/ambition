@@ -150,6 +150,31 @@ pub fn reload_prop_sheets_of_targets(world: &mut World, targets: &std::collectio
     }
 }
 
+/// Make again each resident effect sheet of `targets`, at the tier it was made
+/// at, after a sheet generation is published: an effect drawn after it reads
+/// the frame rects of the new records.
+pub fn reload_fx_sheets_of_targets(world: &mut World, targets: &std::collections::BTreeSet<String>) {
+    let Some(asset_server) = world.get_resource::<AssetServer>().cloned() else {
+        return;
+    };
+    if !world.contains_resource::<GameAssets>() || !world.contains_resource::<Assets<TextureAtlasLayout>>() {
+        return;
+    }
+    world.resource_scope(|world, mut layouts: Mut<Assets<TextureAtlasLayout>>| {
+        let fx = &mut world.resource_mut::<GameAssets>().into_inner().fx;
+        let stale: Vec<(&'static str, ambition_persistence::settings::TextureResolutionScale)> = fx
+            .targets()
+            .into_iter()
+            .filter(|target| targets.contains(*target))
+            .filter_map(|target| fx.get(target).map(|asset| (target, asset.requested_tier)))
+            .collect();
+        for (target, tier) in stale {
+            fx.remove(target);
+            character_sprites::ensure_fx_sheet_loaded(fx, target, &asset_server, &mut layouts, tier);
+        }
+    });
+}
+
 /// Load the sheets of `kinds` again into the loaded art, after a reload
 /// restated their rows, and forget the sheets of `dropped`. The room the
 /// reload builds draws its props from the new sheets. A world with no loaded

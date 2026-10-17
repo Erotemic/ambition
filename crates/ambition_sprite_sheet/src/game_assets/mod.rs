@@ -625,6 +625,12 @@ impl FxSheetAssets {
         self.sheets.contains_key(target)
     }
 
+    /// Forget the realization of `target`, so that the next ensure makes it
+    /// again.
+    pub fn remove(&mut self, target: &str) -> Option<CharacterSpriteAsset> {
+        self.sheets.remove(target)
+    }
+
     pub fn get(&self, target: &str) -> Option<&CharacterSpriteAsset> {
         self.sheets.get(target)
     }

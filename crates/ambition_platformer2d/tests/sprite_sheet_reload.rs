@@ -102,11 +102,24 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     let prop_layout = |app: &App| app.world().resource::<ambition_sprite_sheet::game_assets::GameAssets>().characters.props.get("probe_prop").map(|asset| asset.layout.id());
     let first_prop = prop_layout(&app);
     assert!(first_prop.is_some(), "the premise: the prop is made from the probe sheet");
+    // So does an effect sheet: an effect drawn later reads its rects.
+    {
+        let world = app.world_mut();
+        let asset_server = world.resource::<AssetServer>().clone();
+        world.resource_scope(|world, mut layouts: Mut<Assets<bevy::image::TextureAtlasLayout>>| {
+            let fx = &mut world.resource_mut::<ambition_sprite_sheet::game_assets::GameAssets>().into_inner().fx;
+            let made = ambition_platformer2d::actors::character_sprites::ensure_fx_sheet_loaded(fx, PROBE, &asset_server, &mut layouts, Default::default());
+            assert!(made, "the premise: an effect sheet is made from the probe sheet");
+        });
+    }
+    let fx_layout = |app: &App| app.world().resource::<ambition_sprite_sheet::game_assets::GameAssets>().fx.get(PROBE).map(|asset| asset.layout.id());
+    let first_fx = fx_layout(&app);
     session(&mut app, true);
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&manifest, sheet_text("2.25").replace("label_width: 0", "label_width: 8")).unwrap();
     look(&mut app);
     assert!(prop_layout(&app).is_some_and(|layout| Some(layout) != first_prop), "the prop keeps the realization of the old records");
+    assert!(fx_layout(&app).is_some_and(|layout| Some(layout) != first_fx), "the effect sheet keeps the realization of the old records");
     assert_eq!(current().id(), first + 2, "an edit to where frames are drawn from waited for the end of the session");
     assert_eq!(label_width(&app), (Some(8), Some(8)), "the generation or the SheetRegistry resource is not the edited sheet");
     std::thread::sleep(std::time::Duration::from_millis(20));

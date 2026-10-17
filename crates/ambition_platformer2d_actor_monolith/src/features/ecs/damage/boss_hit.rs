@@ -10,7 +10,6 @@
 use super::super::ae;
 use super::super::damage_drops::{drop_ability_pickup, drop_currency_coin, drop_health_pickup};
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource};
-use ambition_combat::util::midpoint;
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
@@ -155,11 +154,11 @@ pub(crate) fn apply_boss_hit(
         if let Some(hit_aabb) = damageable
             .volumes
             .iter()
-            .find(|part| event.volume.intersects(part))
+            .find(|part| event.meets(part))
         {
             combat.hit_flash = 0.18;
             combat.note_struck();
-            let impact = midpoint(event.volume.center(), hit_aabb.center());
+            let impact = event.impact_on(hit_aabb.center(), hit_aabb);
             // CM8: an honest strike clang + spark even though this puzzle boss
             // takes no HP from the hit.
             // A13: the authored strike sound is the ATTACKER's cue; the hurt fallback is
@@ -190,7 +189,7 @@ pub(crate) fn apply_boss_hit(
     let Some(hit_aabb) = damageable
         .volumes
         .iter()
-        .find(|part| event.volume.intersects(part))
+        .find(|part| event.meets(part))
     else {
         return false;
     };
@@ -237,7 +236,7 @@ pub(crate) fn apply_boss_hit(
                 pos: boss.kin.pos,
             });
     }
-    let impact = midpoint(event.volume.center(), hit_aabb.center());
+    let impact = event.impact_on(hit_aabb.center(), hit_aabb);
     // CM8: THE one victim-side reaction (strike sound over the boss's own hurt
     // spray); the killed branch layers its death drama on top.
     // A13: attacker's cue vs victim's fallback, resolved before the borrows.

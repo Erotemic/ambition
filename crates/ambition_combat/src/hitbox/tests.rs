@@ -3011,3 +3011,48 @@ fn a_body_half_through_a_portal_is_hit_at_its_far_end() {
     app.update();
     assert_eq!(struck(&app, victim), 1);
 }
+
+/// A feature (a boss, a breakable) is hit by the strike where it is: through
+/// the pair, and not in the floor under the opening.
+#[test]
+fn a_strike_into_a_portal_reaches_a_feature_at_its_partner() {
+    let mut app = portal_strike_app(Some(floor_to_ceiling()));
+    let owner = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(0.0, -60.0));
+    strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, 60.0) }, ae::Vec2::new(10.0, 15.0));
+    app.update();
+    let hits = app.world().resource::<CapturedHits>();
+    let [feature] = hits.unresolved_feature_hits()[..] else { panic!("{:?}", hits.0) };
+    let part = |at: ae::Vec2| ae::CombatVolume::aabb(ae::Aabb::new(at, ae::Vec2::splat(4.0)));
+    assert!(feature.meets(&part(ae::Vec2::new(500.0, -200.0 + 10.0))), "under the ceiling");
+    assert!(!feature.meets(&part(ae::Vec2::new(0.0, 10.0))), "in the floor under the opening");
+    assert!(feature.meets_aabb(ae::Aabb::new(ae::Vec2::new(0.0, -10.0), ae::Vec2::splat(4.0))), "over the floor");
+}
+
+/// Two pairs one after another: down into the floor, out of a ceiling, down
+/// into a second floor and out of a second ceiling. With one hop the second
+/// opening is solid to the strike; where the room's rules compose them, the
+/// strike hurts under the second ceiling.
+#[test]
+fn a_strike_through_two_chained_pairs_hurts_where_the_room_lets_it_reach() {
+    use ae::frame::thread::PieceBudget;
+    use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+    let ap = |x: f32, y: f32, ny: f32| PortalAperture {
+        frame: PortalFrame::fixed(ae::Vec2::new(x, y), ae::Vec2::new(0.0, ny)),
+        half_length: 40.0,
+    };
+    for (budget, hurts) in [(PieceBudget::SINGLE_HOP, false), (PieceBudget::COMPOSED, true)] {
+        let mut passages = ambition_platformer2d_shared_tangle::portal_passages::PortalPassages::new(MapConvention::Reflection);
+        passages.add_pair(None, (ap(0.0, 0.0, -1.0), ap(500.0, -200.0, 1.0)));
+        passages.add_pair(None, (ap(500.0, -170.0, -1.0), ap(900.0, -200.0, 1.0)));
+        passages.set_budget(None, Some(budget));
+        let mut app = portal_strike_app(Some(passages));
+        let owner = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(0.0, -60.0));
+        // Its top 10 under the second ceiling.
+        let far = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(900.0, -170.0));
+        // From the owner's middle down to 60 under the floor: out of the
+        // first ceiling down past the second floor, 30 through that.
+        strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, 70.0) }, ae::Vec2::new(10.0, 50.0));
+        app.update();
+        assert_eq!(struck(&app, far), usize::from(hurts), "{budget:?}");
+    }
+}

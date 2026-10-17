@@ -1131,6 +1131,7 @@ pub(crate) fn integrate_actor_body(
             em.health.current().max(1),
         );
         hit_events.write(HitEvent {
+            pieces: Vec::new(),
             strike_sfx: None,
             volume: em.aabb().into(),
             damage: em.health.current().max(1),
@@ -1163,6 +1164,7 @@ pub(crate) fn integrate_actor_body(
     // past the margin.
     if em.health.alive() && move_events.reset == Some(ae::ResetCause::LeftTheWorld) {
         hit_events.write(HitEvent {
+            pieces: Vec::new(),
             strike_sfx: None,
             volume: em.aabb().into(),
             damage: em.health.current().max(1),

@@ -21,7 +21,7 @@ use ambition_combat::components::{
     ActorDisposition, BreakableFeature, CenteredAabb, FeatureId, FeatureName,
 };
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
-use ambition_combat::util::{approximately_same_aabb, midpoint};
+use ambition_combat::util::approximately_same_aabb;
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
@@ -777,8 +777,8 @@ pub fn apply_feature_hit_events(
             if target_is_ignored(&event.ignored_targets, prefix, id.as_str()) {
                 continue;
             }
-            if !ambition_combat::hitbox::strike_reaches_victim(
-                &event.volume,
+            if !ambition_combat::hitbox::hit_reaches_victim(
+                &event,
                 victim_volumes.get(actor_entity).ok(),
                 aabb,
             ) {
@@ -1053,12 +1053,12 @@ pub fn apply_feature_hit_events(
             if feature.breakable.pogo_refresh {
                 continue;
             }
-            if !event.volume.intersects_aabb(aabb.aabb()) {
+            if !event.meets_aabb(aabb.aabb()) {
                 continue;
             }
             let broke = feature.breakable.apply_damage(event.damage.max(1));
             breakable_keys.push(format!("breakable:{}", id.as_str()));
-            let impact = midpoint(event.volume.center(), aabb.center);
+            let impact = event.impact_on(aabb.center, &ambition_platformer2d_core::CombatVolume::aabb(aabb.aabb()));
             // CM8 on a prop: a breakable has no `HurtFeedback` of its own (no
             // spray, no debris — breaking already has its own FX), so it only
             // borrows the ATTACK's half of the rule. An attack that authored a

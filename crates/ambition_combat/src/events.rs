@@ -569,6 +569,11 @@ pub struct HitEvent {
     /// or convex) hitbox; the common case is still an axis-aligned box
     /// (`Aabb` converts via `.into()`).
     pub volume: ae::CombatVolume,
+    /// Where `volume` is when a portal pair cut it
+    /// (`docs/planning/engine/portals-a-body-in-two-places.md`): its pieces,
+    /// a part of it carried through a pair among them. Empty: `volume` is
+    /// whole, where it is. Ask [`Self::meets`], not `volume`.
+    pub pieces: Vec<ae::frame::thread::VolumePiece>,
     /// Damage to apply.
     pub damage: i32,
     /// Who or what dealt the hit.
@@ -616,6 +621,31 @@ pub struct HitEvent {
 }
 
 impl HitEvent {
+    /// Does the hit reach `part`, where its volume is?
+    pub fn meets(&self, part: &ae::CombatVolume) -> bool {
+        self.piece_meeting(part).is_some() || (self.pieces.is_empty() && self.volume.intersects(part))
+    }
+
+    /// Does the hit reach the box `part`?
+    pub fn meets_aabb(&self, part: ae::Aabb) -> bool {
+        if self.pieces.is_empty() {
+            return self.volume.intersects_aabb(part);
+        }
+        self.meets(&ae::CombatVolume::aabb(part))
+    }
+
+    /// Where the hit touches `part` (which it [`Self::meets`]): between the
+    /// part and the piece of the hit that reaches it.
+    pub fn impact_on(&self, part_center: ae::Vec2, part: &ae::CombatVolume) -> ae::Vec2 {
+        let from = self.piece_meeting(part).map_or(self.volume.center(), |piece| piece.center());
+        (from + part_center) * 0.5
+    }
+
+    fn piece_meeting(&self, part: &ae::CombatVolume) -> Option<&ae::frame::thread::VolumePiece> {
+        let whole = ae::frame::thread::VolumePiece::whole(part.clone());
+        self.pieces.iter().find(|piece| piece.meets(&whole))
+    }
+
     /// The live room this hit is in: its own [`Self::room`], else its
     /// attacker's, else the sole live room. A hit that names no victim
     /// reaches only bodies of this room. Every consumer asks this one rule.

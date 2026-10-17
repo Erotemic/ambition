@@ -631,6 +631,7 @@ pub(crate) fn emit_landing_splash(
     vfx: &mut VfxWriter,
 ) {
     feature_damage.write(HitEvent {
+        pieces: Vec::new(),
         strike_sfx: None,
         volume: ae::Aabb::new(pos, ae::Vec2::splat(half)).into(),
         damage,
@@ -1423,6 +1424,7 @@ pub fn step_projectiles(
                     (victim_body.center().y + contact_center.y) * 0.5,
                 );
                 feature_damage.write(HitEvent {
+                    pieces: Vec::new(),
                     strike_sfx: None,
                     volume: contact_box.into(),
                     damage: game.damage.max(1),
@@ -1521,6 +1523,7 @@ pub fn step_projectiles(
                     ae::Aabb::new(at + inward * 0.5, feature_half)
                 };
                 let direct = HitEvent {
+                    pieces: Vec::new(),
                     strike_sfx: None,
                     volume: feature_contact_box.into(),
                     damage: game.damage.max(1),

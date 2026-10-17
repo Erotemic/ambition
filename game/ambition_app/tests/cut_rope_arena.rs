@@ -61,6 +61,7 @@ fn rope_pos(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::engine_c
 fn slash(sim: &mut Platformer2dSimHarness, at: ambition_platformer2d::engine_core::Vec2) {
     use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
     sim.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
         volume: ambition_platformer2d::engine_core::Aabb::new(
             at,
             ambition_platformer2d::engine_core::Vec2::splat(24.0),

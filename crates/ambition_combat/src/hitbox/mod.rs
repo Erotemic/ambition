@@ -282,6 +282,23 @@ fn resolved_hitbox_knockback_magnitude(
 ///
 /// Component absence falls back to the coarse body box. A present component with no volumes means
 /// intangible and must not fall back.
+/// [`strike_reaches_victim`] for a hit: by its pieces where a portal pair cut
+/// it ([`crate::events::HitEvent::meets`]).
+pub fn hit_reaches_victim(
+    event: &crate::events::HitEvent,
+    victim_damageable: Option<&super::components::DamageableVolumes>,
+    victim_aabb: &super::components::CenteredAabb,
+) -> bool {
+    if event.pieces.is_empty() {
+        return strike_reaches_victim(&event.volume, victim_damageable, victim_aabb);
+    }
+    match victim_damageable {
+        Some(published) if published.intangible() => false,
+        Some(published) if published.published() => published.volumes.iter().any(|part| event.meets(part)),
+        _ => event.meets_aabb(victim_aabb.aabb()),
+    }
+}
+
 pub fn strike_reaches_victim(
     world_volume: &ambition_platformer2d_core::CombatVolume,
     victim_damageable: Option<&super::components::DamageableVolumes>,
@@ -728,7 +745,6 @@ pub fn apply_hitbox_damage(
     passages: Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
 ) {
     use ambition_platformer2d_core::frame::thread::VolumePiece;
-    let convention = passages.as_deref().map(|p| p.convention()).unwrap_or_default();
     // Each victim's pieces, cut once a tick.
     let mut victim_pieces: std::collections::HashMap<Entity, Vec<VolumePiece>> = std::collections::HashMap::new();
     // ⭐⭐ THE PULSE'S LEDGER, collected here and written to every sibling after
@@ -838,6 +854,10 @@ pub fn apply_hitbox_damage(
             None => vec![VolumePiece::whole(volume.clone())],
         };
         let pieces = strike_pieces(&world_volume);
+        // What a feature (a boss, a breakable) is hit by: the pieces, when a
+        // pair cut the strike; else the volume, whole.
+        let cut = pieces.len() != 1 || !pieces[0].bounds.is_empty();
+        let feature_pieces = || if cut { pieces.clone() } else { Vec::new() };
         if let Some(source_kind) = melee_source {
             let owner_grudge = attacker.grudge(hitbox.owner);
 
@@ -938,11 +958,10 @@ pub fn apply_hitbox_damage(
                 };
                 // The strike's own chart into the victim's own: through the pair
                 // the strike piece was carried by, back through the victim's.
-                let to_victim = |p: ae::Vec2| victim_piece.uncarry(strike_piece.carry(p, convention), convention);
-                let to_victim_dir =
-                    |v: ae::Vec2| victim_piece.uncarry_dir(strike_piece.carry_dir(v, convention), convention);
-                let from_victim = |p: ae::Vec2| strike_piece.uncarry(victim_piece.carry(p, convention), convention);
-                let through = strike_piece.carried.is_some() || victim_piece.carried.is_some();
+                let to_victim = |p: ae::Vec2| victim_piece.uncarry(strike_piece.carry(p));
+                let to_victim_dir = |v: ae::Vec2| victim_piece.uncarry_dir(strike_piece.carry_dir(v));
+                let from_victim = |p: ae::Vec2| strike_piece.uncarry(victim_piece.carry(p));
+                let through = strike_piece.is_carried() || victim_piece.is_carried();
                 // Where they touch: in the chart they meet in.
                 let impact = if through {
                     midpoint(strike_piece.center(), victim_piece.center())
@@ -1141,6 +1160,7 @@ pub fn apply_hitbox_damage(
                         }),
                 });
                 out.hit_events.write(HitEvent {
+                    pieces: Vec::new(),
                     strike_sfx: hitbox.strike_sfx,
                     volume: world_volume.clone(),
                     // the DAMAGE stales with the launch. A move worn out that
@@ -1195,6 +1215,7 @@ pub fn apply_hitbox_damage(
             // `MovePlayback.hit_targets`, which is the only record.
             {
                 out.hit_events.write(HitEvent {
+                    pieces: feature_pieces(),
                     strike_sfx: hitbox.strike_sfx,
                     volume: world_volume.clone(),
                     damage: hitbox.damage.max(damage_floor(hitbox.damage)),
@@ -1222,6 +1243,7 @@ pub fn apply_hitbox_damage(
                         pos: world_volume.center(),
                     });
                     out.hit_events.write(HitEvent {
+                        pieces: feature_pieces(),
                         strike_sfx: hitbox.strike_sfx,
                         volume: world_volume.clone(),
                         damage: hitbox.damage.max(damage_floor(hitbox.damage)),

@@ -164,6 +164,7 @@ fn lower_strikes(
         };
         let center = volume.center();
         hits.write(crate::events::HitEvent {
+            pieces: Vec::new(),
             strike_sfx: None,
             volume,
             damage: strike.damage,

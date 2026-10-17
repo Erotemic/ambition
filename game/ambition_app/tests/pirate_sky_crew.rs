@@ -104,6 +104,7 @@ fn defeat(sim: &mut ambition_app::Platformer2dSimHarness, bodies: &[(Entity, ae:
     for (entity, pos) in bodies {
         let volume: ae::CombatVolume = ae::Aabb::new(*pos, ae::Vec2::new(48.0, 48.0)).into();
         sim.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
             strike_sfx: None,
             volume,
             damage: 9_999,

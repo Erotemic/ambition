@@ -725,6 +725,7 @@ mod pending_hit_checksum_tests {
             attacker_id: attacker.map(SimId::placement),
             victim_id: victim.map(SimId::placement),
             event: HitEvent {
+                pieces: Vec::new(),
                 volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 8.0)).into(),
                 damage: 0,
                 source: HitSource::Melee,

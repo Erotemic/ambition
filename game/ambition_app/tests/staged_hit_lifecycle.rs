@@ -63,6 +63,7 @@ fn stage_a_hit_from_inside_the_frame(
     };
     pending.0.push(StagedPlayerHit {
         event: HitEvent {
+            pieces: Vec::new(),
             strike_sfx: None,
             volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)).into(),
             damage: DAMAGE,

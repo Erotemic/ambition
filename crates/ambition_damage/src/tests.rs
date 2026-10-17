@@ -1085,6 +1085,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
     let other_body = app.world_mut().spawn_empty().id();
     let volume: ae::CombatVolume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)).into();
     app.world_mut().write_message(FeatureHitEvent {
+        pieces: Vec::new(),
         strike_sfx: None,
         volume: volume.clone(),
         damage: 3,
@@ -1098,6 +1099,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
             attacker_move_instance: None,
     });
     app.world_mut().write_message(FeatureHitEvent {
+        pieces: Vec::new(),
         strike_sfx: None,
         volume: volume.clone(),
         damage: 3,
@@ -1111,6 +1113,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
             attacker_move_instance: None,
     });
     app.world_mut().write_message(FeatureHitEvent {
+        pieces: Vec::new(),
         strike_sfx: None,
         volume,
         damage: 3,
@@ -1147,6 +1150,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
 fn a_lifecycle_boundary_voids_staged_player_hits() {
     fn staged_hit() -> FeatureHitEvent {
         FeatureHitEvent {
+            pieces: Vec::new(),
             strike_sfx: None,
             volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)).into(),
             damage: 1,

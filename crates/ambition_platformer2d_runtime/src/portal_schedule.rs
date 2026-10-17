@@ -152,6 +152,27 @@ impl Plugin for PortalSchedulePlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Crossing)
                 .run_if(gameplay_allowed),
         );
+
+        // The sets that act on portals sleep in rooms whose game uses none
+        // (`Capability::Portals`). The publishers (`Carves`, `Passages`), the
+        // orphan cleanup and the reset are not in it: they write an empty
+        // answer there, not the last one of a room with portals.
+        {
+            use ambition_platformer2d_shared_tangle::capability::{Capability, CapabilitySet};
+            app.configure_sets(
+                sim,
+                (
+                    PortalSet::Pose,
+                    PortalSet::InputAdapter,
+                    PortalSet::InputWarp,
+                    PortalSet::WeaponAndProjectiles,
+                    PortalSet::TransitGuards,
+                    PortalSet::Frame,
+                    PortalSet::Transit,
+                )
+                    .in_set(CapabilitySet(Capability::Portals)),
+            );
+        }
     }
 }
 

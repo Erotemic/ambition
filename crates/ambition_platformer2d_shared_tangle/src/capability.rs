@@ -33,16 +33,22 @@ pub enum Capability {
     /// combat techniques the runtime installs (teleport, trapdoor, pogo
     /// bounce) are not in it: platformers use them.
     FighterSpecials,
+    /// Portals: their pose, input warp, gun and shots, transit guards,
+    /// eviction and transit. What they publish for other systems (the carves,
+    /// the passages) and their cleanup are not in it, so a room with no portal
+    /// still publishes an empty answer.
+    Portals,
 }
 
 impl Capability {
-    pub const ALL: [Capability; 6] = [
+    pub const ALL: [Capability; 7] = [
         Capability::Cutscenes,
         Capability::Dialogue,
         Capability::BossEncounters,
         Capability::HeldUse,
         Capability::Inventory,
         Capability::FighterSpecials,
+        Capability::Portals,
     ];
 
     /// The capabilities a composition can leave out of the engine group (the
@@ -63,6 +69,7 @@ impl Capability {
             Capability::HeldUse => "held-use",
             Capability::Inventory => "inventory",
             Capability::FighterSpecials => "fighter-specials",
+            Capability::Portals => "portals",
         }
     }
 
@@ -85,7 +92,8 @@ impl Capability {
             Capability::Dialogue
             | Capability::HeldUse
             | Capability::Inventory
-            | Capability::FighterSpecials => None,
+            | Capability::FighterSpecials
+            | Capability::Portals => None,
         }
     }
 

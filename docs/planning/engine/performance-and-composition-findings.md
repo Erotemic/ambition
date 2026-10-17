@@ -234,6 +234,41 @@ ledgers' `forget_narrative_inputs_on_activation` 9, developer-tool
 errands, challenges, wear, summons, fighter ladder, barks and boss bodies
 (~20). No `bevy_light` system.
 
+**The hub with Mary-O playing (2026-10-17, profiling `capture_scene --route
+mary_o_gameplay --warmup 600`, `perf_probe` build, which keeps system
+names).** MEASURED: 1,403 of 2,081 of our systems ran in one frame. Foreign
+to her: portals 38 (19 in `GgrsSchedule`, 19 presentation in `Update`),
+Ambition's content 64 (portal adapters, the cut-rope boss, room looks,
+deep-dream and sauce overlays, the vanity card), Smash 15, developer tools
+16, boss encounters 8, mounts 7.
+
+**Portals sleep where the room's game uses none (2026-10-17).**
+`Capability::Portals`: the portal sets that act (`Pose`, `InputAdapter`,
+`InputWarp`, `WeaponAndProjectiles`, `TransitGuards`, `Frame`, `Transit`)
+are in its `CapabilitySet`. The publishers (`Carves`, `Passages`), the
+orphan cleanup and the reset stay outside it, so a room with no portal
+publishes an empty answer, not the last answer of a room with portals.
+Mary-O and Sanic declare no portals; Smash keeps them (`portal.rs`). With
+two live rooms there is no one governing room, and the set runs. Witness
+`portals_sleep_in_mary_os_rooms_and_run_in_ambitions` (`app_it`, build-time
+over the composed shipped host): red at "Mary-O's rooms use portals"
+without her declaration, and at "the portal transit is not in the portals'
+capability set" without the set membership. The 19 portal presentation
+systems in `Update` are not gated yet: they despawn visuals, so each needs
+the same publish-or-clean reading first.
+
+**Hub frame by system (2026-10-17, `basement_enemies`, the same build,
+`time_by_span.csv`).** MEASURED: Avian's transform propagation before each
+fixed step ran with avian paused (`mark_dirty_trees` 245 µs,
+`propagate_parent_transforms` 76 µs, `sync_simple_transforms` 62 µs a
+step); it now sleeps while avian is paused (witness
+`the_propagation_before_physics_sleeps_while_avian_is_paused`). The
+desktop-only costs (pack and content watchers ~300 µs a frame as a spike
+every 20 frames, the FPS graph, the traces) are not on the phone. Left for
+the phone: `ProcessLdtkApi` ~0.55 ms a frame (P8), Yarn's
+`fetch_resources` 120 µs (fork item), and `check_entities_needing_specialization`
+35-44 µs for each of four materials.
+
 ## Summary (2026-10-16)
 
 - **One thread is the limit.** On the phone the main thread is 82% busy, the

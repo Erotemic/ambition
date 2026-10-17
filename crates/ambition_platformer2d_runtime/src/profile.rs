@@ -68,6 +68,8 @@ impl CapabilityComposition for Capability {
             // Not a unit of the engine group (not in `Capability::REMOVABLE`):
             // a game crate installs it, so the group has nothing to leave out.
             Capability::FighterSpecials => group,
+            // Not a unit either: the `portal` cargo feature decides it.
+            Capability::Portals => group,
         }
     }
 
@@ -99,6 +101,12 @@ impl CapabilityComposition for Capability {
             }
             // The engine group never installs it (see `omit`).
             Capability::FighterSpecials => false,
+            Capability::Portals => {
+                #[cfg(feature = "portal")]
+                return app.is_plugin_added::<crate::portal_schedule::PortalSchedulePlugin>();
+                #[cfg(not(feature = "portal"))]
+                return false;
+            }
         }
     }
 }

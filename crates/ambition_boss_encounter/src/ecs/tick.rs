@@ -196,7 +196,18 @@ pub fn trigger_boss_attack_moves(
         // grants the full kit, and the hitbox carries the possessor's
         // effective faction (stamped in `advance_move_playback`), so it hits
         // the boss's former allies, not the controlling player.
-        if let Some(spec) = moveset.0.move_by_id(&profile.move_id()) {
+        // The move baked for this step's beat; the profile's first beat when
+        // the step names no other (a possession press, a `Cycle` boss).
+        let beat = ambition_characters::brain::boss_pattern::beat_move_id(
+            profile,
+            attack_intent.telegraph_s,
+            attack_intent.strike_s,
+        );
+        if let Some(spec) = moveset
+            .0
+            .move_by_id(&beat)
+            .or_else(|| moveset.0.move_by_id(&profile.move_id()))
+        {
             // Telegraph edge: `t0 = 0` plays the windup through the move, so
             // the projected telegraph read-model and a bound clip follow one
             // timeline. Strike or possession edge: `t0 = tel` starts at the

@@ -705,6 +705,7 @@ fn a_lured_boss(app: &mut App, current_hp: i32) -> (Entity, ambition_characters:
             ambition_characters::brain::BossAttackIntent {
                 telegraph_profile: Some(wanted.clone()),
                 active_profile: Some(wanted),
+                ..Default::default()
             },
             ambition_characters::control::CommandedMove {
                 target: ae::Vec2::new(300.0, 0.0),

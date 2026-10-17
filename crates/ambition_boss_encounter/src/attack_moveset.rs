@@ -20,8 +20,9 @@ pub const BOSS_STRIKE_KNOCKBACK: f32 = 1.25;
 /// `t0 = 0`; one millisecond is inside the first sim tick of any windup.
 pub const TELEGRAPH_EDGE_S: f32 = 0.001;
 
-/// Build the boss's data-driven attack moveset from its capability
-/// repertoire: one move per authored strike profile, so every boss strike runs
+/// Build the boss's data-driven attack moveset from its authored beats
+/// (`BossPatternCfg::beats`): one move per beat, so each pattern step plays at
+/// its own authored windup and strike lengths, and every boss strike runs
 /// through the same moveset runtime as an actor's swing:
 ///
 /// - A content-technique `Special(key)` profile → a move whose single window
@@ -37,46 +38,31 @@ pub const TELEGRAPH_EDGE_S: f32 = 0.001;
 ///   Sprite-frame-tracking geometry is not used; the static volumes
 ///   approximate it.
 ///
-/// Keyed by [`BossAttackProfile::move_id`]; `trigger_boss_attack_moves`
-/// resolves the active profile via `move_by_id`, not an input verb. `None` if
-/// the boss authors no strike.
+/// Keyed by each beat's `move_id`; `trigger_boss_attack_moves` resolves the
+/// step's beat via `move_by_id`, not an input verb. `None` if the boss authors
+/// no strike.
 pub fn boss_attack_moveset(
-    capability: &ambition_characters::brain::BossCapability,
+    beats: &[ambition_characters::brain::boss_pattern::BossBeat],
     behavior: &BossBehaviorProfile,
     combat_size: ambition_platformer2d_core::Vec2,
-    telegraph_windows: &[(
-        ambition_characters::brain::BossAttackProfile,
-        f32,
-        Option<ambition_characters::brain::boss_pattern::TelegraphSpec>,
-    )],
 ) -> Option<ambition_combat::moveset::ActorMoveset> {
     use ambition_entity_catalog::{
         ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
         MovesetContract, VolumeShape, WindowTag,
     };
     use ambition_platformer2d_core::AabbExt;
-    let telegraph_for = |profile: &ambition_characters::brain::BossAttackProfile| -> (
-        f32,
-        Option<&ambition_characters::brain::boss_pattern::TelegraphSpec>,
-    ) {
-        telegraph_windows
-            .iter()
-            .find(|(p, _, _)| p == profile)
-            .map(|(_, t, spec)| (t.max(0.0), spec.as_ref()))
-            .unwrap_or((0.0, None))
-    };
-    let moves: Vec<MoveSpec> = capability
-        .specials
+    let moves: Vec<MoveSpec> = beats
         .iter()
-        .filter_map(|(profile, strike_s)| {
-            let strike_s = strike_s.max(0.05);
+        .filter_map(|beat| {
+            let profile = &beat.profile;
+            let strike_s = beat.strike_s.max(0.05);
             // The move spans the whole telegraph→strike as one timeline: its
             // Active window opens at `tel` and closes at `tel + strike`. A
             // move started at `t0 = tel` (strike edge / possession) is live
             // immediately; one started at `t0 = 0` plays the telegraph first.
             // The projected `active_elapsed` includes the telegraph offset
             // because it reads the move's own clock `t`.
-            let (tel, telegraph_spec) = telegraph_for(profile);
+            let (tel, telegraph_spec) = (beat.telegraph_s.max(0.0), beat.telegraph.as_ref());
             let active_start = tel;
             let active_end = tel + strike_s;
             // Anticipation as move data: the authored telegraph cue/vfx fire
@@ -156,7 +142,7 @@ pub fn boss_attack_moveset(
             Some(MoveSpec {
                 // A boss move's label is its title-cased id.
                 display_name: None,
-                id: profile.move_id(),
+                id: beat.move_id.clone(),
                 clip: ClipBinding {
                     clip: "attack".to_string(),
                     fallbacks: vec!["idle".to_string()],

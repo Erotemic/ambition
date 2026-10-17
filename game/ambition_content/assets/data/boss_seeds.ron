@@ -11,9 +11,10 @@
         skill_tested: "Leave the floor on the tell, and land somewhere useful.",
         fair_counters: [Jump, Blink],
         threat: Medium,
-        telegraph: (min_s: 0.50, max_s: 1.00),
+        telegraph: (min_s: 0.50, max_s: 1.10),
         active: (min_s: 0.35, max_s: 3.30),
         instances: [
+            "wolf_hammer", // Wolfenstein: both fists into the floor; a shock runs it both ways, and his fists stick
             "trex_tail_whip", // the T-rex: the tail coils, then sweeps low behind him
             "trex_stomp",     // the T-rex: he rears and stamps, and a shock runs the floor both ways
             "side_sweep",           // two arms, boss-relative left+right
@@ -51,9 +52,11 @@
         skill_tested: "Read the wind-up's aim, then walk or dash out of it — and be greedy enough to come back before it recovers.",
         fair_counters: [WalkOut, Dash],
         threat: Heavy,
-        telegraph: (min_s: 0.75, max_s: 1.40),
+        telegraph: (min_s: 0.50, max_s: 1.40),
         active: (min_s: 0.35, max_s: 2.00),
         instances: [
+            "wolf_rake", // Wolfenstein: the claws across in front of him, two blows, a step on each
+            "wolf_rake_thrice", // Wolfenstein, unleashed: three blows, the last one high
             "trex_bite",      // the T-rex: the head rears, then snaps down to your height as he lunges a stride
             "trex_snap_up",   // the T-rex: the head thrown up at the ledge you stand on
             "trex_double_bite", // the T-rex: one clack of teeth, then the bite twice; the second catches a dodge back
@@ -102,6 +105,7 @@
         telegraph: (min_s: 0.55, max_s: 1.20),
         active: (min_s: 0.45, max_s: 0.50),
         instances: [
+            "wolf_howl", // Wolfenstein: a ring that pushes you off him; unleashed, it calls the pack
             "full_body_pulse", // 0.70 × 0.70 body-relative, centered
             "buck",            // GNU-ton's gnu throws whoever stands on its back
             "noodly_pulse",    // the FSM: a ring of noodles flung out from the bell
@@ -173,6 +177,7 @@
         telegraph: (min_s: 0.70, max_s: 1.40),
         active: (min_s: 0.28, max_s: 4.20),
         instances: [
+            "wolf_galvanize", // Wolfenstein: sparks mark three places, one under you; lightning strikes them, then he goes flat
             "apple_rain",     // GNU-ton; a 2.2s spawn window at 0.35s cadence
             "overfit_volley", // five sampled ghosts, then five tracking shots
             "overflow_flood", // a falling wall with ONE gap (78px half-width)
@@ -270,9 +275,11 @@
         skill_tested: "Commit to a side before the boss does; do not chase.",
         fair_counters: [Jump, Dash, WalkOut],
         threat: Medium,
-        telegraph: (min_s: 0.80, max_s: 1.10),
+        telegraph: (min_s: 0.55, max_s: 1.10),
         active: (min_s: 0.50, max_s: 2.00),
         instances: [
+            "wolf_lunge", // Wolfenstein: low, then a bite across most of the room; he skids
+            "wolf_bound", // Wolfenstein, unleashed: a lunge into the wall behind you, a kick off it and back; he lands winded
             "trex_charge",    // the T-rex: a roar and a scrape, then the hall at a run into the wall, and the stun
             "mockingbird_dive", // the Mockingbird: across the sky at where you were, a bite at the end, then winded (the punish)
             "mockingbird_double_dive", // the Mockingbird, wounded: the dive turns at the end of its first bite and comes again

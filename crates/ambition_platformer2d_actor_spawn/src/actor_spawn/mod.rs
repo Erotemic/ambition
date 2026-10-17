@@ -1110,9 +1110,9 @@ pub fn spawn_boss_with_overrides_into(
         macro_tuning: boss.config.behavior.macro_tuning,
     };
     let boss_capability = ambition_characters::brain::BossCapability::from_cfg(&brain_cfg);
-    // First-seen telegraph window per profile — lets each strike move span the whole
-    // telegraph→strike as one timeline (E53).
-    let boss_telegraph_windows = brain_cfg.telegraph_windows();
+    // Every authored beat: one move each, so each step plays at its own lengths and
+    // each move spans the whole telegraph→strike as one timeline (E53).
+    let boss_beats = brain_cfg.beats();
     // Captured before the scratch is consumed (`into_components` below), for the
     // boss attack moveset: each strike profile → a geometry / special move.
     let boss_attack_behavior = boss.config.behavior.clone();
@@ -1178,14 +1178,13 @@ pub fn spawn_boss_with_overrides_into(
         ActorAggression::hostile(),
     ));
     // Data-driven attack MOVESET: EVERY boss strike — geometry AND content-technique
-    // special — runs through the SHARED moveset runtime (one move per profile), so the
+    // special — runs through the SHARED moveset runtime (one move per authored beat), so the
     // boss's melee/special path is the actor's, retiring both `sync_boss_strike_hitboxes`
-    // and `dispatch_boss_special` (§A1). Built from the capability repertoire.
+    // and `dispatch_boss_special` (§A1). Built from the authored beats.
     let boss_attack_moves = ambition_boss_encounter::attack_moveset::boss_attack_moveset(
-        &boss_capability,
+        &boss_beats,
         &boss_attack_behavior,
         boss_attack_combat_size,
-        &boss_telegraph_windows,
     );
     // The Attack and Special a possessor fires, declared so that the boss's scheme,
     // its prompt and its control gate know the verbs it owns. See

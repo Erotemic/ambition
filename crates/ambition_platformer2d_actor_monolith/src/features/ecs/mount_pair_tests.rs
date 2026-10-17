@@ -1361,10 +1361,9 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
             .collect(),
     };
     let moveset = ambition_boss_encounter::attack_moveset::boss_attack_moveset(
-        &capability,
+        &ambition_characters::brain::boss_pattern::BossBeat::of_capability(&capability, &[]),
         &profile.behavior,
         ae::Vec2::new(54.0, 96.0),
-        &[],
     )
     .expect("the rider's authored strikes build a moveset");
     let (boss_encounter, _hp) = ambition_boss_encounter::test_support::test_boss_status_with(

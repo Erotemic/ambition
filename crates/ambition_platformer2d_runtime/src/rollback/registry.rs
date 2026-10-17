@@ -41,7 +41,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// a body in line with the opening, and a shot's contacts end only where that
 /// crossing takes it; a glued pair carries what is in front of the far end by
 /// its exact turned region, every corner mapped.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 355;
+/// 355 -> 356: `boss.attack_intent` (`BossAttackIntent`) carries the authored
+/// windup and strike lengths of the step's beat (two `f32`s), and a boss
+/// bakes one move for each distinct beat. Each pattern step plays at its own
+/// lengths; before, a move kept the lengths of its first occurrence.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 356;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

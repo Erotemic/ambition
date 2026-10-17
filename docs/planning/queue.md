@@ -1741,10 +1741,34 @@ projection boundary.
 **Owner:** the boss author ([`boss-design.md`](engine/boss-design.md) §3).
 
 **Finding (2026-10-15, `content_it` `boss_fight_validator`):** Wolfenstein's
-`side_sweep` gives an Enrage punish window of 0 ticks against a floor of 12,
-and `floor_slam`, `full_body_pulse` and `side_sweep` author no telegraph.
-The roster pin moved from 3/5 to 4/6 to record it. Fix: give `side_sweep` a
-recovery the player can punish in Enrage, then lower the pin.
+`side_sweep` gave an Enrage punish window of 0 ticks against a floor of 12,
+and `floor_slam`, `full_body_pulse` and `side_sweep` authored no telegraph.
+The roster pin moved from 3/5 to 4/6 to record it.
+
+**Closed 2026-10-17:** his fight is conducted now
+(`ambition_content_modules::wolfenstein`, "the leash" in
+[`bosses.md`](game/bosses.md)). Every move has its own pose and cue and a Rest
+after its Strike. The pin is back at 3/5. Receipt:
+`game/ambition_app/tests/wolfenstein_fight.rs`.
+
+### BOSS-DRAMATIC-PATTERNS — a boss's `intro` and `transition` steps never run
+
+**Owner:** `ambition_boss_encounter` (the pattern tick) and the boss authors.
+
+**Finding (2026-10-17, read):** `tick_boss_pattern` runs a pattern only in
+Phase1, Phase2 and Enrage (`is_attacking`), and `between_phases` says a boss
+in its transition "runs no move". So the `intro` and `transition` patterns of
+every `Scripted` boss are data that decides nothing. Seven bosses author
+strikes in their intro (the T-rex's bite, the Hunny Horror's swipe, the FSM's
+pulse and more), and the validator still counts those beats. A conducted boss
+plays its own intro and transition (the Hunny Horror's roar, Wolfenstein's
+wake-up and lightning).
+
+**Decision owed:** delete `intro` and `transition` from `Scripted` (the
+encounter and the conductor own the dramatic beats), or run them as authored.
+Do not leave a field that decides nothing.
+
+### DOG-THROUGH-THE-DOOR — a roaming dog's door test measured a distance
 
 **Closed 2026-10-16:** `a_dog_sent_for_an_item_in_another_live_room_goes_through_the_door`
 failed at its control because the control measured a distance (more than

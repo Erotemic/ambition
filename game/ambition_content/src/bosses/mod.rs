@@ -19,6 +19,7 @@ pub mod hall;
 pub mod hunny;
 pub mod mockingbird;
 pub mod specials;
+pub mod wolfenstein;
 #[cfg(feature = "ui")]
 pub mod yarn;
 
@@ -155,6 +156,7 @@ pub fn boss_catalog_fragment_from(
     .with_birth_kit(trex::TREX_ID, trex::birth)
     .with_birth_kit(hunny::HUNNY_ID, hunny::birth)
     .with_birth_kit(mockingbird::MOCKINGBIRD_ID, mockingbird::birth)
+    .with_birth_kit(wolfenstein::WOLFENSTEIN_ID, wolfenstein::birth)
     .with_birth_kit(cut_rope::CUT_ROPE_BOSS_ID, cut_rope::birth);
     Ok(fragment)
 }

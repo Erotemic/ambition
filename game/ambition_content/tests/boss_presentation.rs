@@ -44,9 +44,9 @@ const EXPECTED_SHEETS: [(&str, &str); 9] = [
     ("wolfenstein_boss", "wolfenstein_spritesheet.png"),
 ];
 
-/// The nineteen content specials that telegraph, and the sprite rows each one
+/// The content specials that telegraph, and the sprite rows each one
 /// asks for. The first key is the canonical runtime key.
-const EXPECTED_TELEGRAPHS: [(&str, &[&str]); 31] = [
+const EXPECTED_TELEGRAPHS: [(&str, &[&str]); 38] = [
     ("eye_beam", &["eye_beam", "spike_halo"]),
     ("gradient_cascade", &["spike_halo"]),
     ("hunny_balloon", &["float"]),
@@ -78,6 +78,13 @@ const EXPECTED_TELEGRAPHS: [(&str, &[&str]); 31] = [
     ("trex_snap_up", &["snap_up"]),
     ("trex_stomp", &["stomp"]),
     ("trex_tail_whip", &["tail_swipe"]),
+    ("wolf_bound", &["attack_side"]),
+    ("wolf_galvanize", &["attack_up"]),
+    ("wolf_hammer", &["attack_down"]),
+    ("wolf_howl", &["taunt"]),
+    ("wolf_lunge", &["attack_side"]),
+    ("wolf_rake", &["slash"]),
+    ("wolf_rake_thrice", &["slash"]),
 ];
 
 /// The sheet rows each geometry strike asks for, for each of the engine's

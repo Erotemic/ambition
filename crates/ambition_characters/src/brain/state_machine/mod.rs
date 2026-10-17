@@ -10,9 +10,9 @@
 //! resolve the same `frame.melee_pressed=true` into different
 //! concrete attacks depending on the entity's action set.
 //!
-//! No template encodes a "telegraph" explicitly. The brain emits
-//! `melee_pressed = true` and the ActionSet's attack spec carries
-//! its own windup → active → recover animation timing.
+//! Melee attacks get their windup and recovery from the ActionSet. A ranged
+//! controller can instead hold an aim warning and a fire request for a set
+//! time; the body's weapon still decides when each shot is possible.
 
 use ambition_platformer2d_core as ae;
 
@@ -586,6 +586,8 @@ pub struct SkirmisherCfg {
     /// offset and never move around the target. Range ~0.4 to 1.2
     /// reads as a slow orbit that takes 5-15s to circle.
     pub orbit_drift_rad_s: f32,
+    /// Optional controller volley; the body's ranged action owns the shot cadence.
+    pub ranged_volley: Option<super::RangedVolley>,
 }
 
 impl SkirmisherCfg {
@@ -596,7 +598,20 @@ impl SkirmisherCfg {
         strafe_speed: 85.0,
         fire_cooldown_s: 0.8,
         orbit_drift_rad_s: 0.6,
+        ranged_volley: None,
     };
+}
+
+/// A controller's volley phase. Timers use simulation delta time only.
+/// The firing direction is fixed when the windup begins. The player can dodge
+/// the stream by leaving that lane.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum RangedVolleyPhase {
+    #[default]
+    Ready,
+    Windup { remaining: f32, aim: ae::Vec2 },
+    Firing { remaining: f32, aim: ae::Vec2 },
+    Recovery { remaining: f32 },
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -615,6 +630,78 @@ pub struct SkirmisherState {
     /// spreads a squadron of shark-riders around the player (above / below / left / right)
     /// instead of stacking them all at the same offset axis.
     pub orbit_phase: f32,
+    /// The stage of the controller's ranged volley, if it has one.
+    pub volley_phase: RangedVolleyPhase,
+}
+
+/// Advance a volley against a living target. Only this function owns its clock;
+/// the body still decides whether each fire attempt is accepted.
+fn tick_ranged_volley(
+    volley: super::RangedVolley,
+    state: &mut SkirmisherState,
+    dt: f32,
+    aim: ae::Vec2,
+    out: &mut crate::actor::control::ActorControlFrame,
+) {
+    use crate::actor::ai::CharacterAiMode as Mode;
+    use RangedVolleyPhase as Phase;
+    // A volley commits in place. The first aim pose is also its warning.
+    out.velocity_target = ae::WorldVec2::ZERO;
+    out.locomotion = ae::LocalAxes::ZERO;
+    match state.volley_phase {
+        Phase::Ready => {
+            if state.cooldown_remaining > 0.0 {
+                // The initial per-body delay has not elapsed. The caller
+                // supplies ordinary approach movement in this state.
+                return;
+            }
+            state.volley_phase = Phase::Windup {
+                remaining: volley.windup_s.max(0.0),
+                aim,
+            };
+            state.mode = Mode::Telegraph;
+            out.ranged_aim_held = true;
+        }
+        Phase::Windup { remaining, aim } => {
+            let remaining = (remaining - dt).max(0.0);
+            if remaining > 0.0 {
+                state.volley_phase = Phase::Windup { remaining, aim };
+                state.mode = Mode::Telegraph;
+                out.ranged_aim_held = true;
+            } else {
+                // The lane was locked when the warning began. The first shot
+                // cannot track a player who dodged during the warning.
+                state.volley_phase = Phase::Firing {
+                    remaining: volley.firing_s.max(0.0),
+                    aim,
+                };
+                state.mode = Mode::Attack;
+                out.ranged_aim_held = true;
+                out.fire = Some(crate::actor::control::ActorFireRequest::world_space(aim));
+            }
+        }
+        Phase::Firing { remaining, aim } => {
+            let remaining = remaining - dt;
+            if remaining > 0.0 {
+                state.volley_phase = Phase::Firing { remaining, aim };
+                state.mode = Mode::Attack;
+                out.ranged_aim_held = true;
+                out.fire = Some(crate::actor::control::ActorFireRequest::world_space(aim));
+            } else {
+                state.volley_phase = Phase::Recovery { remaining: volley.recovery_s.max(0.0) };
+                state.mode = Mode::Recover;
+            }
+        }
+        Phase::Recovery { remaining } => {
+            let remaining = (remaining - dt).max(0.0);
+            state.volley_phase = if remaining > 0.0 {
+                Phase::Recovery { remaining }
+            } else {
+                Phase::Ready
+            };
+            state.mode = Mode::Recover;
+        }
+    }
 }
 
 fn tick_skirmisher(
@@ -630,18 +717,34 @@ fn tick_skirmisher(
     state.cooldown_remaining = (state.cooldown_remaining - snapshot.dt).max(0.0);
     // The per-actor initial phase (seeded at spawn) keeps a squadron spread out around the
     // player.
-    state.orbit_phase += cfg.orbit_drift_rad_s * snapshot.dt;
-    if state.orbit_phase > std::f32::consts::TAU {
-        state.orbit_phase -= std::f32::consts::TAU;
-    }
-    if !snapshot.target_alive {
-        skirmisher_idle(cfg, state, snapshot, out);
-        return;
-    }
+    state.orbit_phase = (state.orbit_phase + cfg.orbit_drift_rad_s * snapshot.dt)
+        .rem_euclid(std::f32::consts::TAU);
     let to_target_raw = snapshot.target_pos - snapshot.actor_pos;
     let to_target_local = snapshot.target_delta_local();
     let raw_dist = to_target_raw.length();
-    if raw_dist > cfg.aggro_radius {
+    let engaged = cfg.aggressiveness > 0.0
+        && snapshot.target_alive
+        && raw_dist <= cfg.aggro_radius;
+    if !engaged {
+        // An interrupted windup or burst cannot resume without a new warning.
+        // Keep the remaining recovery when the target leaves the room.
+        if let Some(volley) = cfg.ranged_volley {
+            match state.volley_phase {
+                RangedVolleyPhase::Windup { .. } | RangedVolleyPhase::Firing { .. } => {
+                    state.volley_phase = RangedVolleyPhase::Recovery {
+                        remaining: volley.recovery_s.max(0.0),
+                    };
+                }
+                RangedVolleyPhase::Recovery { remaining } => {
+                    state.volley_phase = if remaining > snapshot.dt {
+                        RangedVolleyPhase::Recovery { remaining: remaining - snapshot.dt }
+                    } else {
+                        RangedVolleyPhase::Ready
+                    };
+                }
+                RangedVolleyPhase::Ready => {}
+            }
+        }
         skirmisher_idle(cfg, state, snapshot, out);
         return;
     }
@@ -682,6 +785,34 @@ fn tick_skirmisher(
     let speed_scale = (approach_dist / 24.0).min(1.0);
     out.velocity_target = ae::WorldVec2(approach_dir * cfg.strafe_speed * speed_scale);
     out.velocity_target = apply_flying_separation(out.velocity_target, cfg.strafe_speed, snapshot);
+    if !snapshot.actor_aerial {
+        // Grounded movement consumes the local locomotion throttle, not the
+        // free-flight velocity. Both are projections of the same orbit choice.
+        let local = snapshot.acceleration_frame().to_local(out.velocity_target.vec());
+        out.locomotion = snapshot.locomotion_for(ae::LocalAxes::new(local.x, 0.0));
+        out.velocity_target = ae::WorldVec2::ZERO;
+    }
+    if let Some(volley) = cfg.ranged_volley {
+        let approaching = matches!(state.volley_phase, RangedVolleyPhase::Ready)
+            && state.cooldown_remaining > 0.0;
+        let approach_frame = *out;
+        tick_ranged_volley(volley, state, snapshot.dt, aim_dir, out);
+        if approaching {
+            out.locomotion = approach_frame.locomotion;
+            out.velocity_target = approach_frame.velocity_target;
+        }
+        let committed_aim = match state.volley_phase {
+            RangedVolleyPhase::Windup { aim, .. } | RangedVolleyPhase::Firing { aim, .. } => {
+                Some(aim)
+            }
+            _ => None,
+        };
+        if let Some(aim) = committed_aim {
+            let local_aim = snapshot.acceleration_frame().to_local(aim);
+            out.facing = snapshot.face_toward(local_aim.x);
+        }
+        return;
+    }
     // Fire at the actual target when the cooldown timer is clear.
     // ActionSet supplies the concrete projectile (speed, damage);
     // brain just emits dir.

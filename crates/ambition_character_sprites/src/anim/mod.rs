@@ -750,6 +750,8 @@ pub struct ActorAnimState {
     pub dash_startup: bool,
     pub landing: Option<bool>,
     pub shooting: bool,
+    /// A ranged aim held by this body's controller.
+    pub aiming: bool,
     /// Persistent curled ball (`BodyAnimFacts::rolling`) — the same read the
     /// player overlays, so a brain-driven body that curls up shows its ball.
     pub rolling: bool,
@@ -821,6 +823,7 @@ pub fn pick_actor_anim(
     v.dash_startup = state.dash_startup;
     v.landing = state.landing;
     v.shooting = state.shooting;
+    v.aiming = state.aiming;
     v.rolling = state.rolling;
     v.held = state.held;
     if state.aerial {

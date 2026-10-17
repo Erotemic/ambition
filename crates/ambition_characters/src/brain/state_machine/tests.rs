@@ -408,6 +408,160 @@ fn melee_brute_attack_gate_respects_each_phase_timer() {
     assert!(out.melee_pressed, "all timers clear → should attack");
 }
 
+
+/// Drive the same headless state-machine entry point that production uses.
+/// A large dt makes phase boundaries easy to inspect without frame rounding.
+#[test]
+fn skirmisher_volley_warns_fires_and_cools_without_extra_shots() {
+    use crate::actor::ai::CharacterAiMode as Mode;
+    let cfg = SkirmisherCfg {
+        ranged_volley: Some(super::super::RangedVolley {
+            windup_s: 0.5,
+            firing_s: 0.75,
+            recovery_s: 1.5,
+        }),
+        ..SkirmisherCfg::RANGER_DEFAULT
+    };
+    let mut sm = StateMachineCfg::Skirmisher {
+        cfg,
+        state: SkirmisherState::default(),
+    };
+    let mut s = snap_at(0.0, 160.0);
+    s.dt = 0.25;
+    let tick = |sm: &mut StateMachineCfg, s: &BrainSnapshot| {
+        let mut out = crate::actor::control::ActorControlFrame::neutral();
+        tick_simple_state_machine(sm, s, &mut out);
+        let (mode, phase) = match sm {
+            StateMachineCfg::Skirmisher { state, .. } => (state.mode, state.volley_phase),
+            _ => unreachable!(),
+        };
+        (out, mode, phase)
+    };
+
+    let (warn, mode, phase) = tick(&mut sm, &s);
+    assert_eq!(mode, Mode::Telegraph);
+    assert!(matches!(phase, RangedVolleyPhase::Windup { .. }));
+    assert!(warn.ranged_aim_held);
+    assert!(warn.fire.is_none());
+    assert_eq!(warn.locomotion, ae::LocalAxes::ZERO);
+
+    let (warn, mode, _) = tick(&mut sm, &s);
+    assert_eq!(mode, Mode::Telegraph);
+    assert!(warn.ranged_aim_held);
+    assert!(warn.fire.is_none());
+
+    let (first, mode, phase) = tick(&mut sm, &s);
+    assert_eq!(mode, Mode::Attack);
+    assert!(first.fire.is_some());
+    assert!(matches!(phase, RangedVolleyPhase::Firing { .. }));
+    for _ in 0..2 {
+        let (held, mode, _) = tick(&mut sm, &s);
+        assert_eq!(mode, Mode::Attack);
+        assert!(held.ranged_aim_held);
+        assert!(held.fire.is_some(), "fire intent is held; the weapon gates refire");
+    }
+    let (cool, mode, phase) = tick(&mut sm, &s);
+    assert_eq!(mode, Mode::Recover);
+    assert!(matches!(phase, RangedVolleyPhase::Recovery { .. }));
+    assert!(!cool.ranged_aim_held);
+    assert!(cool.fire.is_none());
+    for _ in 0..6 {
+        let (cool, _, _) = tick(&mut sm, &s);
+        assert!(!cool.ranged_aim_held);
+        assert!(cool.fire.is_none(), "cooling must offer a real approach window");
+    }
+    let (next, mode, _) = tick(&mut sm, &s);
+    assert_eq!(mode, Mode::Telegraph);
+    assert!(next.ranged_aim_held);
+    assert!(next.fire.is_none(), "a new volley always starts with a warning");
+}
+
+#[test]
+fn skirmisher_volley_locks_firing_lane_and_does_not_retarget() {
+    let mut sm = StateMachineCfg::Skirmisher {
+        cfg: SkirmisherCfg {
+            ranged_volley: Some(super::super::RangedVolley {
+                windup_s: 0.5,
+                firing_s: 1.0,
+                recovery_s: 0.5,
+            }),
+            ..SkirmisherCfg::RANGER_DEFAULT
+        },
+        state: SkirmisherState::default(),
+    };
+    let mut s = snap_at(0.0, 130.0);
+    s.dt = 0.25;
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    tick_simple_state_machine(&mut sm, &s, &mut out);
+    assert!(out.ranged_aim_held);
+    // The foe runs behind the trooper DURING the warning. Both the first
+    // shot and the later rounds must keep the original lane.
+    s.target_pos = ae::Vec2::new(-130.0, 0.0);
+    tick_simple_state_machine(&mut sm, &s, &mut out);
+    assert!(out.ranged_aim_held);
+    assert_eq!(out.facing, 1.0);
+    tick_simple_state_machine(&mut sm, &s, &mut out);
+    let first_dir = out.fire.expect("firing began").dir;
+    assert!(first_dir.x > 0.0);
+    assert_eq!(out.facing, 1.0);
+    tick_simple_state_machine(&mut sm, &s, &mut out);
+    assert_eq!(out.fire.expect("sustained fire").dir, first_dir);
+    assert_eq!(out.facing, 1.0);
+}
+
+#[test]
+fn skirmisher_volley_never_resumes_without_a_new_warning_after_target_loss() {
+    let mut sm = StateMachineCfg::Skirmisher {
+        cfg: SkirmisherCfg {
+            ranged_volley: Some(super::super::RangedVolley {
+                windup_s: 0.5,
+                firing_s: 1.0,
+                recovery_s: 0.5,
+            }),
+            ..SkirmisherCfg::RANGER_DEFAULT
+        },
+        state: SkirmisherState::default(),
+    };
+    let mut s = snap_at(0.0, 130.0);
+    s.dt = 0.25;
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    for _ in 0..3 {
+        tick_simple_state_machine(&mut sm, &s, &mut out);
+    }
+    assert!(out.fire.is_some());
+    s.target_alive = false;
+    tick_simple_state_machine(&mut sm, &s, &mut out);
+    assert!(out.fire.is_none());
+    if let StateMachineCfg::Skirmisher { state, .. } = &sm {
+        assert!(matches!(state.volley_phase, RangedVolleyPhase::Recovery { .. }));
+    }
+    s.target_alive = true;
+    for _ in 0..2 {
+        tick_simple_state_machine(&mut sm, &s, &mut out);
+        assert!(out.fire.is_none());
+    }
+    tick_simple_state_machine(&mut sm, &s, &mut out);
+    assert!(out.ranged_aim_held, "a new target gets a new telegraph");
+    assert!(out.fire.is_none());
+}
+
+#[test]
+fn skirmisher_uses_ground_locomotion_but_keeps_air_orbit_velocity() {
+    let cfg = SkirmisherCfg::RANGER_DEFAULT;
+    let mut sm = StateMachineCfg::Skirmisher { cfg, state: SkirmisherState::default() };
+    let s = snap_at(0.0, 240.0);
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    tick_simple_state_machine(&mut sm, &s, &mut out);
+    assert!(out.locomotion.x > 0.0, "grounded skirmishers need run intent");
+    assert_eq!(out.velocity_target, ae::WorldVec2::ZERO);
+
+    let mut flying = s;
+    flying.actor_aerial = true;
+    tick_simple_state_machine(&mut sm, &flying, &mut out);
+    assert_ne!(out.velocity_target, ae::WorldVec2::ZERO);
+    assert_eq!(out.locomotion, ae::LocalAxes::ZERO);
+}
+
 #[test]
 fn skirmisher_holds_standoff_then_fires() {
     let cfg = SkirmisherCfg::RANGER_DEFAULT;

@@ -10,6 +10,19 @@
 
 use super::CharacterBrainTemplate;
 
+/// A firing cycle chosen by a controller. The held weapon owns the shot rate.
+/// The controller only chooses how long it aims, shoots, and cools.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RangedVolley {
+    /// Seconds of warning before the first shot.
+    pub windup_s: f32,
+    /// Seconds in which the controller holds the fire intent.
+    pub firing_s: f32,
+    /// Seconds after a volley before the next windup.
+    pub recovery_s: f32,
+}
+
 /// A developer's standing override of what every AUTHORED actor's brain is.
 ///
 /// ⭐⭐ THE INVERSION D33 ASKED FOR: *the sim reads a SESSION-OWNED override that
@@ -183,6 +196,10 @@ pub struct BrainProfile {
     /// Unauthored is `0.0`: no floor. The engine holds no pacing number of its own.
     #[serde(default)]
     pub attack_cooldown_s: f32,
+    /// Optional volley timing for a ranged skirmisher. The weapon still gates
+    /// every shot with its own `refire_s`. Other templates ignore this policy.
+    #[serde(default)]
+    pub ranged_volley: Option<RangedVolley>,
     /// This driver CALLS OUT what it sees to allies that share sightings too,
     /// and hears theirs: a foe one of them sees becomes a remembered sighting
     /// for every ally within the caller's view (see
@@ -213,6 +230,7 @@ impl Default for BrainProfile {
             smash_duelist: false,
             provoke_forced_brute_min_aggro: None,
             attack_cooldown_s: 0.0,
+            ranged_volley: None,
             shares_sightings: false,
         }
     }
@@ -258,6 +276,22 @@ mod tests {
         assert_eq!(profile.fighter_level, 5, "the middle rung, not rung zero");
         assert_eq!(profile.patrol_effort, 0.5, "the runtime's old hard-code");
         assert_eq!(profile.chase_effort, 1.0);
+    }
+
+    #[test]
+    fn volley_is_opt_in_and_round_trips_through_a_brain_profile() {
+        let plain: BrainProfile = ron::from_str("(template: Skirmisher)").unwrap();
+        assert_eq!(plain.ranged_volley, None);
+        let authored: BrainProfile = ron::from_str(
+            "(template: Skirmisher, ranged_volley: Some((windup_s: 0.55, firing_s: 0.78, recovery_s: 1.45)))"
+        ).unwrap();
+        assert_eq!(authored.ranged_volley, Some(RangedVolley {
+            windup_s: 0.55,
+            firing_s: 0.78,
+            recovery_s: 1.45,
+        }));
+        let parsed: BrainProfile = ron::from_str(&ron::to_string(&authored).unwrap()).unwrap();
+        assert_eq!(parsed, authored);
     }
 
     /// An authored value beats the default, so the test above is not

@@ -1060,6 +1060,11 @@ pub(crate) fn integrate_actor_body(
     // `ActorControlFrame`'s own rule now, because the HOME road applies the
     // identical one and two copies would drift.
     let brain_frame = brain_frame.damped_by_move_motion(move_motion_scale);
+    // The same animation fact that a charging player publishes: the body
+    // displays a held aim pose before the first shot, not a false muzzle flash.
+    if let Some(anim) = anim.as_deref_mut() {
+        anim.aim_anim_active = brain_frame.ranged_aim_held;
+    }
     let previous_pos = em.kin.pos;
     let shark_charge_vec = brain_frame.velocity_target.vec();
     // Respawn blink: `em.update` revives a dead body in place; apply the revive

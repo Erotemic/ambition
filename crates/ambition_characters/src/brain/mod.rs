@@ -46,7 +46,7 @@ pub use boss_pattern::{
 #[allow(unused_imports)]
 pub use player::tick_player_brain;
 pub use profile::AuthoredBrainOverride;
-pub use profile::BrainProfile;
+pub use profile::{BrainProfile, RangedVolley};
 #[allow(unused_imports)]
 // ⛔ THE DATA ONLY. `CrowdingSignal`, `ObservationFrame`, `SpecificAction` and
 // `TerrainAwareness` went with the behaviour to `ambition_platformer2d::combat::brain::smash`

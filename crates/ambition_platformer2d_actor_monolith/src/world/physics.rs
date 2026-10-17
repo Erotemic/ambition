@@ -183,6 +183,13 @@ fn pause_physics_when_no_debris_exists(
     }
 }
 
+/// Avian steps: it is not paused.
+#[cfg(feature = "physics_debris")]
+fn physics_is_running(physics_time: Res<Time<avian2d::schedule::Physics>>) -> bool {
+    use avian2d::schedule::PhysicsTime as _;
+    !physics_time.is_paused()
+}
+
 #[cfg(feature = "physics_debris")]
 pub struct AmbitionPhysicsPlugin;
 
@@ -212,6 +219,17 @@ impl Plugin for AmbitionPhysicsPlugin {
             .init_resource::<avian2d::dynamics::solver::SolverDiagnostics>()
             .init_resource::<avian2d::spatial_query::SpatialQueryDiagnostics>()
             .init_resource::<avian2d::collider_tree::ColliderTreeDiagnostics>()
+            // Avian propagates every entity's transform before each fixed
+            // step so that its bodies start from current transforms. While
+            // it is paused it steps nothing, so the propagation is for no
+            // reader. MEASURED (hub `basement_enemies`, profiling build with
+            // the probe): ~0.4 ms a frame, debris or not. The pause below
+            // clears in `Update`, so the first fixed step after debris
+            // appears propagates again before avian steps.
+            .configure_sets(
+                FixedPostUpdate,
+                avian2d::physics_transform::PhysicsTransformSystems::Propagate.run_if(physics_is_running),
+            )
             .add_systems(
                 Update,
                 (
@@ -599,6 +617,47 @@ mod tests {
             "(the pieces' distance after 30 steps in one live room, in two live rooms) = \
              ({one_room}, {two_rooms}); in one room they push apart, in two they stay 1.0 apart"
         );
+    }
+
+    /// While avian is paused, its transform propagation before each fixed
+    /// step does not run; debris wakes it.
+    ///
+    /// ⚠ Built only with the `physics_debris` feature, as the plugin is.
+    #[cfg(feature = "physics_debris")]
+    #[test]
+    fn the_propagation_before_physics_sleeps_while_avian_is_paused() {
+        #[derive(Resource, Default)]
+        struct Runs(u32);
+        let mut app = App::new();
+        app.add_plugins((
+            bevy::MinimalPlugins,
+            bevy::transform::TransformPlugin,
+            bevy::asset::AssetPlugin::default(),
+            bevy::mesh::MeshPlugin,
+            AmbitionPhysicsPlugin,
+        ));
+        // One fixed step for each update.
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            std::time::Duration::from_secs_f64(1.0 / 64.0),
+        ));
+        app.init_resource::<Runs>();
+        app.add_systems(
+            FixedPostUpdate,
+            (|mut runs: ResMut<Runs>| runs.0 += 1)
+                .in_set(avian2d::physics_transform::PhysicsTransformSystems::Propagate),
+        );
+        app.finish();
+        app.cleanup();
+        for _ in 0..10 {
+            app.update();
+        }
+        assert_eq!(app.world().resource::<Runs>().0, 0, "the propagation ran while avian was paused");
+
+        app.world_mut().spawn((PhysicsDebris { lifetime: 10.0 }, Transform::default()));
+        for _ in 0..10 {
+            app.update();
+        }
+        assert!(app.world().resource::<Runs>().0 > 0, "debris did not wake the propagation");
     }
 
     /// ⚠ This witness is built only with the `physics_debris` feature, as

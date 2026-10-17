@@ -252,7 +252,16 @@ Open:
 
 Jon: "really polish the Wolfenstein boss fight ... beef up the boss
 animations, and really plan an excellent metroidvania / hollow knight style
-patterned boss." This section is the plan. Nothing in it is built yet.
+patterned boss." This section is the plan.
+
+**Built (2026-10-17):** slices 1 and 2. Each pattern step plays at its own
+authored lengths, for every boss (`073f40c5f`). The conductor
+(`ambition_content_modules::wolfenstein`) performs every move below on his
+current rows, the pattern is `Select` arms on where you stand, and the
+validator has no finding for him. Receipts:
+`game/ambition_app/tests/wolfenstein_fight.rs`. Not yet: the throne (he wakes
+standing where he spawns), the coils' part in the enrage, his own rows, effect
+sheets and sounds (all borrowed).
 
 **Jon's rulings (2026-10-17):** "I want this to be a bipedal boss": he stays upright the whole fight (no fight on
 all fours). He wakes on the throne. He gets his own music cue: a stiff march
@@ -265,12 +274,12 @@ rows come before the rig and art passes.
 per strike. Known defects:
 
 - His `intro` and `transition` patterns never run: the pattern ticks only in
-  Phase1, Phase2 and Enrage (`ambition_boss_encounter` `ecs/tick.rs`). This
-  is true for every boss.
-- A move keeps the telegraph and strike lengths of its FIRST occurrence
-  (`telegraph_windows`, `special_repertoire` in `boss_pattern/mod.rs`, baked in
-  `attack_moveset.rs`). The faster phase 2 and enrage timings do nothing. This
-  is true for every boss.
+  Phase1, Phase2 and Enrage, and a transition "runs no move" by contract
+  (`between_phases`). This is true for every boss: BOSS-DRAMATIC-PATTERNS in
+  `queue.md`. His conductor plays his wake-up and his transition.
+- A move kept the telegraph and strike lengths of its FIRST occurrence, so
+  the faster phase 2 and enrage timings did nothing, for every boss. Fixed:
+  one move per authored beat (`BossPatternCfg::beats`).
 - The windup and the strike draw the same row. The 0.72 s `slash` row plays
   out in the 0.95 s windup, so the swing shows before the hit.
 - `attack_side` and `attack_up` never show: three rows name `SideSweep`, and
@@ -354,10 +363,9 @@ The hit volumes come from his art, in sheet pixels, as the Hunny Horror's do.
 
 ### Slices, in order
 
-1. **Engine:** the intro and transition patterns run; each step's own
-   telegraph and strike length holds. Both are for every boss. A headless test
-   for each.
-2. **Conductor** (`ambition_content_modules::wolfenstein`) with the phase 1
+1. ✔ **Engine:** each step's own telegraph and strike length holds, for
+   every boss. (The intro and transition patterns: BOSS-DRAMATIC-PATTERNS.)
+2. ✔ **Conductor** (`ambition_content_modules::wolfenstein`) with the phase 1
    moves on the rows he has now, and `game/ambition_app/tests/wolfenstein_fight.rs`.
    The fight is playable from here.
 3. **Rig:** per-key easing and squash and stretch in the person rig.

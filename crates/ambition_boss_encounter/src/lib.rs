@@ -128,6 +128,11 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
         use bevy::prelude::IntoScheduleConfigs;
 
         let sim = app.sim_schedule();
+        // The per-tick boss work runs only where the active room's game uses
+        // named bosses. The checkpoint bookkeeping below is not per-tick work.
+        let boss_capability = ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+            ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters,
+        );
 
         app.init_resource::<BossCatalog>();
         app.init_resource::<BossEncounterRegistry>();
@@ -167,7 +172,8 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
                 update_encounter_progress,
             )
                 .chain()
-                .in_set(ProgressionSet::BossAdvance),
+                .in_set(ProgressionSet::BossAdvance)
+                .in_set(boss_capability),
         );
         // The registry fills from the LDtk project + save once (its `initialized`
         // short-circuit; the reset flow flips it back). It was registered by the
@@ -177,7 +183,8 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
         app.add_systems(
             sim,
             populate_boss_encounter_registry
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression)
+                .in_set(boss_capability),
         );
         app.add_systems(
             sim,
@@ -188,7 +195,8 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
                 boss_phase_transition_feedback,
             )
                 .chain()
-                .in_set(ProgressionSet::BossHazards),
+                .in_set(ProgressionSet::BossHazards)
+                .in_set(boss_capability),
         );
     }
 }

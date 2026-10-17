@@ -14,7 +14,8 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhase, SimScheduleExt as _,
 };
-use ambition_platformer2d_actor_monolith::session::governing_rules::CurrentRoom;
+use ambition_platformer2d_actor_monolith::session::governing_rules::{CurrentRoom, GoverningRules};
+use ambition_platformer2d_shared_tangle::capability::{Capability, CapabilitySet, UsedCapabilities};
 
 /// Run condition: the active room belongs to the game mode `name`.
 ///
@@ -84,6 +85,18 @@ impl ScopedSystemsAppExt for App {
             self.configure_sets(schedule, RulesScopeSet(scope).run_if(in_rules_scope(scope)));
         }
         self.add_systems(schedule, systems.in_set(RulesScopeSet(scope)))
+    }
+}
+
+/// Run condition: the active room uses `capability`: its game's declared
+/// [`UsedCapabilities`] name it, or its game declared none. With no session,
+/// only a whole-process declaration governs, so a capability runs unless the
+/// binary's one game left it out.
+pub fn room_uses(
+    capability: Capability,
+) -> impl FnMut(GoverningRules<UsedCapabilities>) -> bool + Clone {
+    move |rules: GoverningRules<UsedCapabilities>| {
+        rules.get().is_none_or(|used| used.uses(capability))
     }
 }
 
@@ -355,6 +368,17 @@ impl Plugin for ModeScopePlugin {
     fn build(&self, app: &mut App) {
         configure_mode_owner_sets(app);
         let sim = app.sim_schedule();
+        use bevy::ecs::schedule::ScheduleLabel as _;
+        // Each capability's systems run where the active room uses it. A set
+        // with no members in a schedule costs nothing there.
+        for schedule in [sim, PreUpdate.intern(), Update.intern(), PostUpdate.intern()] {
+            for capability in Capability::ALL {
+                app.configure_sets(
+                    schedule,
+                    CapabilitySet(capability).run_if(room_uses(capability)),
+                );
+            }
+        }
         app.add_systems(sim, follow_mode_owner_rooms.in_set(ModeOwnerStep::Placed));
         app.add_systems(
             sim,

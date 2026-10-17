@@ -21,7 +21,7 @@ use bevy::time::{Fixed, Time, TimeUpdateStrategy};
 
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_runtime::profile::{
-    Capability, EngineProfile, HostFace, SUPPORTED_PROFILES,
+    Capability, CapabilityComposition as _, EngineProfile, HostFace, SUPPORTED_PROFILES,
 };
 use ambition_platformer2d_runtime::{
     add_headless_foundation, PlatformerEnginePlugins, SimTick, SimulationHost,

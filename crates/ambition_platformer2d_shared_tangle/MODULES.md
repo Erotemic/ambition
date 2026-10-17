@@ -13,6 +13,7 @@
 | [`body`](src/body.rs) | Unified body kinematics for every controllable platformer body. |
 | [`camera_ease`](src/camera_ease.rs) | Smoothed camera scale + world-target state with tunable ease rates, plus the per-body [`PlayerBlinkCameraState`] the arrival ease reads. |
 | [`camera_layers`](src/camera_layers.rs) | Shared presentation-camera markers and render-layer reservations. |
+| [`capability`](src/capability.rs) | The engine's removable capabilities, and the sets their systems run in. |
 | [`class_b`](src/class_b.rs) | Per-frame ledger for discontinuous Class-B body remaps. |
 | [`construction`](src/construction/mod.rs) | Content-free construction planning and explicit spawn provenance. |
 | [`developer_hotkeys`](src/developer_hotkeys.rs) | Canonical keyboard deck for developer-only host actions. |
@@ -42,7 +43,7 @@
 | [`world_item_art`](src/world_item_art.rs) | Provider-contributed art declarations for walk-into world items. |
 | [`world_log`](src/world_log.rs) | Coarse `[game-mode]` / `[world-event]` logging. |
 
-_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

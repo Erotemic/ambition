@@ -653,6 +653,13 @@ impl Plugin for SanicRulesPlugin {
             let scope = self.scope;
             ambition_platformer2d::combat::room_rules::declare_room_rules(app, scope, crate::pack::room_rules());
             app.add_plugins(crate::pack::room_rules_reload(scope));
+            // No named boss encounters in Sanic's rooms (his badniks are enemy bodies), so the
+            // engine's boss work sleeps there.
+            app.declare_rules(
+                scope,
+                ambition_platformer2d::platformer::capability::UsedCapabilities::ALL
+                    .without(ambition_platformer2d::platformer::capability::Capability::BossEncounters),
+            );
             // Whoever the player drives here can spin dash and transform.
             app.declare_rules(
                 scope,

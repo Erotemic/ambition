@@ -23,13 +23,17 @@
 //!   calls two Failed Prototypes when none are left.
 //! - The galvanize: hands on his bolts; sparks mark three places (one under
 //!   you); lightning strikes them. Then he is flat until his next tell.
+//! - The arc lash: a hand on a bolt, the other pointing at you; the line he
+//!   points along is marked, and the current goes down it. It answers a
+//!   player on a gallery or in the air.
 //!
 //! Before his first move he is dead where he stands, and the coils wake him.
 //! Between the phases lightning strikes him, he shakes, and he howls.
 //!
 //! Every volume is measured from his art (the renderer's `wolfenstein`), in
-//! sheet pixels from the frame's top left, and carried into the world by
-//! [`PX`] about the middle of his body box, which is his position.
+//! the renderer's own frame pixels (its 320 px frame; the sheet publishes it
+//! larger) from the frame's top left, and carried into the world by [`PX`]
+//! about the middle of his body box, which is his position.
 
 use ambition_boss_special_port::{
     BossConduct, BossConductPort, BossSummon, BossSummonPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort,
@@ -48,12 +52,12 @@ use bevy_math::Vec2;
 /// The behaviour id of the boss it conducts.
 pub const WOLFENSTEIN_ID: &str = "wolfenstein_boss";
 
-/// World units per sheet pixel: the 320 px frame is drawn at the sheet's
-/// `collision_scale` 2.01 times his 100-unit body box.
-pub const PX: f32 = 2.01 * 100.0 / 320.0;
-/// The middle of his body box (`body_pixel_bbox` 131, 81, 41 x 159), in sheet
-/// pixels: his position.
-const BODY_CENTRE: Vec2 = Vec2::new(151.5, 160.5);
+/// World units per frame pixel: his body box is 165 frame pixels tall and
+/// 100 units in the world.
+pub const PX: f32 = 100.0 / 165.0;
+/// The middle of his body box (129, 75, 45 x 165 frame pixels): his
+/// position.
+const BODY_CENTRE: Vec2 = Vec2::new(151.5, 157.5);
 
 /// A sheet point (pixels, art facing right) as an offset from his position,
 /// unflipped.
@@ -78,12 +82,12 @@ fn body_half() -> f32 {
 }
 /// The bolts in his neck, standing.
 fn bolts() -> Vec2 {
-    art(151.0, 92.0)
+    art(156.0, 112.0)
 }
 
 /// His body. It hurts to touch only while a move is live.
 pub fn trunk() -> (Vec2, Vec2) {
-    art_box(131.0, 81.0, 172.0, 240.0)
+    art_box(129.0, 75.0, 174.0, 240.0)
 }
 const TRUNK_DAMAGE: i32 = 1;
 const TRUNK_KNOCKBACK: f32 = 1.2;
@@ -96,15 +100,15 @@ const WALK_SPEED_UNLEASHED: f32 = 120.0;
 /// He stops this far (position to you) to rake.
 const STANDOFF: f32 = 46.0;
 
-/// The rake: the claws across in front of him, from his shoulder to a
-/// standing player's knees (`slash` frames 3-6).
+/// The rake: where his claw tips go across in front of him (`rake_a`
+/// frames 1-3, `rake_b` 1-3), from his shoulder to a standing player's knees.
 pub fn rake_box() -> (Vec2, Vec2) {
-    art_box(160.0, 90.0, 238.0, 222.0)
+    art_box(165.0, 95.0, 262.0, 225.0)
 }
-/// The high last blow of three (`attack_up` frames 3-5): over his head and
-/// in front, down to a standing player's head.
+/// The high last blow of three (`rake_c` frames 4-6): both claws down in
+/// front of him from over his head.
 pub fn overhead_box() -> (Vec2, Vec2) {
-    art_box(140.0, 30.0, 226.0, 190.0)
+    art_box(160.0, 100.0, 298.0, 235.0)
 }
 const RAKE_DAMAGE: i32 = 1;
 const RAKE_KNOCKBACK: f32 = 1.2;
@@ -115,14 +119,14 @@ const BLOW_AT: [f32; 3] = [0.0, 0.3, 0.6];
 const BLOW_S: f32 = 0.3;
 const RAKE_STEP: f32 = 22.0;
 
-/// The hammer: both fists into the floor in front of him (`attack_down`
-/// frames 5-7).
+/// The hammer: both fists into the floor in front of him (`hammer_slam`
+/// frames 1-3).
 pub fn fists_box() -> (Vec2, Vec2) {
-    art_box(160.0, 186.0, 236.0, 242.0)
+    art_box(190.0, 190.0, 252.0, 242.0)
 }
 /// Where the fists meet the floor: the shocks start here.
 fn fists_x() -> f32 {
-    art(205.0, 0.0).x
+    art(232.0, 0.0).x
 }
 const HAMMER_DAMAGE: i32 = 2;
 const HAMMER_KNOCKBACK: f32 = 1.6;
@@ -137,10 +141,9 @@ const SHOCK_LIFETIME_S: f32 = 4.0;
 const STUCK_S: f32 = 0.7;
 const PULL_S: f32 = 0.25;
 
-/// The lunge: his whole body low and forward, jaws first (`attack_side`
-/// frames 3-5).
+/// The lunge: his whole body long and low, claws and jaws first (`lunge`).
 pub fn lunge_box() -> (Vec2, Vec2) {
-    art_box(150.0, 96.0, 246.0, 240.0)
+    art_box(150.0, 92.0, 305.0, 228.0)
 }
 const LUNGE_DAMAGE: i32 = 2;
 const LUNGE_KNOCKBACK: f32 = 1.5;
@@ -163,7 +166,7 @@ const WINDED_S: f32 = 1.6;
 
 /// The howl: a ring round him that pushes you off.
 pub fn howl_box() -> (Vec2, Vec2) {
-    art_box(30.0, 60.0, 273.0, 242.0)
+    art_box(20.0, 55.0, 283.0, 242.0)
 }
 const HOWL_DAMAGE: i32 = 1;
 const HOWL_KNOCKBACK: f32 = 2.2;
@@ -173,6 +176,20 @@ const PACK: u32 = 2;
 const PACK_CHARACTER: &str = "npc_evil_failed_prototype";
 const PACK_HALF: [f32; 2] = [18.0, 20.0];
 const PACK_HEALTH: u32 = 3;
+
+/// The arc lash: out of the bolts in his neck (his arm points the way), along
+/// the line he aims at you, this far; a run of boxes along it (held boxes 5
+/// and up).
+const LASH_REACH: f32 = 460.0;
+const LASH_BOXES: u32 = 9;
+const LASH_HALF: f32 = 16.0;
+const LASH_DAMAGE: i32 = 1;
+const LASH_KNOCKBACK: f32 = 1.3;
+/// The aim follows you through the tell until this part of it, then holds:
+/// the dodge is a read of the line, not a guess.
+const LASH_LOCK: f32 = 0.7;
+/// It aims no lower than level and no higher than this far up.
+const LASH_UP_MAX_DEG: f32 = 80.0;
 
 /// The galvanize: three marks, one under you and one each side; lightning
 /// strikes each from the ceiling (held boxes 2-4).
@@ -224,11 +241,12 @@ pub enum Move {
     Bound,
     Howl,
     Galvanize,
+    Lash,
 }
 
 impl Move {
-    pub const ALL: [Move; 7] =
-        [Move::Rake, Move::RakeThrice, Move::Hammer, Move::Lunge, Move::Bound, Move::Howl, Move::Galvanize];
+    pub const ALL: [Move; 8] =
+        [Move::Rake, Move::RakeThrice, Move::Hammer, Move::Lunge, Move::Bound, Move::Howl, Move::Galvanize, Move::Lash];
 
     pub fn key(self) -> &'static str {
         match self {
@@ -239,6 +257,7 @@ impl Move {
             Move::Bound => "wolf_bound",
             Move::Howl => "wolf_howl",
             Move::Galvanize => "wolf_galvanize",
+            Move::Lash => "wolf_lash",
         }
     }
 
@@ -265,7 +284,7 @@ impl Move {
 
 record! {
     /// The conductor's memory, on the monster.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "wolfenstein.conductor", 1);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "wolfenstein.conductor", 2);
     /// The room, measured once.
     1 hall_known: bool,
     2 hall_floor: f32,
@@ -320,6 +339,13 @@ record! {
     34 rearing: Option<f32>,
     /// How many times a howl has called the pack.
     35 pack_calls: u32,
+    /// The lash's aim (a unit direction, unflipped by side: world) and its
+    /// generation; where it leaves his hand.
+    36 lash_dx: f32,
+    37 lash_dy: f32,
+    38 lash_generation: u32,
+    /// Coming up out of a rake: seconds into it.
+    39 recover: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -397,7 +423,12 @@ impl Conductor {
 
     /// He stands still in a window or a story beat: no walk, no move of his own.
     fn holding_still(&self) -> bool {
-        self.skid.is_some() || self.stuck.is_some() || self.winded.is_some() || self.flat.is_some() || self.rearing.is_some()
+        self.skid.is_some()
+            || self.stuck.is_some()
+            || self.winded.is_some()
+            || self.flat.is_some()
+            || self.rearing.is_some()
+            || self.recover.is_some()
     }
 }
 
@@ -552,6 +583,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     c.skid = None;
                     c.stuck = None;
                     c.winded = None;
+                    c.recover = None;
                     if c.flat.take().is_some() {
                         // The coils jolt him back up.
                         play(inv, SFX_ARC, neck(at, side))?;
@@ -611,6 +643,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     c.flat = Some(0.0);
                     play(inv, SFX_SPUTTER, neck(at, side))?;
                 }
+                Move::Rake | Move::RakeThrice => c.recover = Some(0.0),
                 _ => {}
             }
         }
@@ -819,6 +852,53 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
     }
 
+    // ── The lash: the aim through the tell, the current down the line ──
+    if let Some(Part { mv: Move::Lash, striking, t, dur }) = part {
+        let hand = neck(pos, side);
+        if !striking && t <= dur * LASH_LOCK {
+            // At you, no lower than level, no higher than steep.
+            let to = target - hand;
+            let ahead = (to.x * side).max(1.0);
+            let up = (-to.y).max(0.0);
+            let ang = up.atan2(ahead).min(LASH_UP_MAX_DEG.to_radians());
+            c.lash_dx = ang.cos() * side;
+            c.lash_dy = -ang.sin();
+        }
+        let dir = Vec2::new(c.lash_dx, c.lash_dy);
+        if !striking && t > dur * 0.35 && c.ticks % 3 == 0 {
+            // The line he will throw it down, marked in sparks.
+            for k in 1..=4 {
+                let along = LASH_REACH * k as f32 / 5.0 + ((c.ticks / 3) % 5) as f32 * 8.0;
+                burst(inv, hand + dir * along, 2, 60.0, ARC, "spark")?;
+            }
+        }
+        if striking {
+            if t < dt * 1.5 {
+                c.lash_generation = c.lash_generation.wrapping_add(1);
+                play(inv, SFX_BOLT, hand)?;
+                shake(inv, SHAKE_HOWL)?;
+            }
+            if t < BOLT_S {
+                for k in 0..LASH_BOXES {
+                    let along = LASH_REACH * (k as f32 + 0.5) / LASH_BOXES as f32;
+                    let at = hand + dir * along;
+                    inv.submit::<HeldDamageBoxPort>(HeldDamageBox {
+                        slot: 5 + k,
+                        generation: c.lash_generation,
+                        center: at.into(),
+                        half_extent: [LASH_HALF, LASH_HALF],
+                        damage: LASH_DAMAGE,
+                        knockback: LASH_KNOCKBACK,
+                        lifetime_s: BOLT_S,
+                    })?;
+                    if (c.ticks + k) % 2 == 0 {
+                        burst(inv, at, 4, 150.0, ARC, "spark")?;
+                    }
+                }
+            }
+        }
+    }
+
     // ── The shocks roll the floor ──
     for (slot, wave, dir) in [(0u32, &mut c.shock_left, -1.0f32), (1, &mut c.shock_right, 1.0)] {
         let Some(x) = wave.as_mut() else {
@@ -848,7 +928,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
 
     // ── The windows run out ──
-    for (state, length) in [(&mut c.skid, SKID_S), (&mut c.stuck, STUCK_S + PULL_S), (&mut c.winded, WINDED_S)] {
+    for (state, length) in
+        [(&mut c.skid, SKID_S), (&mut c.stuck, STUCK_S + PULL_S), (&mut c.winded, WINDED_S), (&mut c.recover, RECOVER_S)]
+    {
         if let Some(t) = state.as_mut() {
             *t += dt;
             if *t >= length {
@@ -893,9 +975,13 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 
 /// He shakes in the lightning this long between two phases, then howls.
 const REAR_SHAKE_S: f32 = 0.9;
+/// He comes up out of a rake over this long (`rake_recover`).
+const RECOVER_S: f32 = 0.48;
 
-/// The row he is drawn with: the live move's, its tell frames filling the
-/// telegraph and the rest the strike; his windows; walking or idling.
+/// The row he is drawn with: each phase of a move has its own row (the
+/// tell, the strike, the hold or the recovery), so the strike's frames play
+/// in the strike; then his windows; then walking (on all fours, unleashed)
+/// or idling.
 ///
 /// Every row is his sheet's (`wolfenstein.py`): `(name, frame, seconds per
 /// frame)`, and the time is `frame * seconds per frame` into the row.
@@ -903,76 +989,88 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
     let at = |name, frame: f32, fd: f32| (name, frame * fd, false);
     // Frames `from..to` of a row across `u` (0-1) of a part.
     let span = |name, from: f32, to: f32, fd: f32, u: f32| at(name, from + u.clamp(0.0, 0.999) * (to - from), fd);
+    // A tell: the row through its frames over the first part of the tell,
+    // then its last frames held (each tell row ends in its trembling hold).
+    let tell = |name, frames: f32, fd: f32, u: f32| {
+        let k = (u / 0.7).min(1.0);
+        span(name, 0.0, frames, fd, k)
+    };
     if let Some(t) = c.rearing {
         if t < REAR_SHAKE_S {
-            // He shakes in the lightning.
-            return at("hit", 1.0 + ((t / 0.06) as u32 % 3) as f32, 0.095);
+            return ("shock", t, true);
         }
-        return span("taunt", 4.0, 12.0, 0.1, (t - REAR_SHAKE_S) / 0.8);
+        return span("howl", 0.0, 12.0, 0.07, (t - REAR_SHAKE_S) / 0.84);
     }
     if !c.woke {
-        // Dead where he stands, until the coils wake him: slumped, then the
-        // jolt, then the howl.
+        // Dead where he stands, until the coils wake him: the jolt, and he
+        // stands up into himself.
         let t = c.clock;
         return if t < INTRO_DEAD_S {
-            at("death", 1.0, 0.12)
-        } else if t < INTRO_DEAD_S + 0.4 {
-            span("hit", 0.0, 5.0, 0.095, (t - INTRO_DEAD_S) / 0.4)
-        } else if t < INTRO_DEAD_S + 0.4 + INTRO_HOWL_S {
-            span("taunt", 0.0, 12.0, 0.1, (t - INTRO_DEAD_S - 0.4) / INTRO_HOWL_S)
+            at("flatline", 0.0, 0.11)
+        } else if t < INTRO_DEAD_S + INTRO_WAKE_S {
+            span("awaken", 0.0, 14.0, 0.07, (t - INTRO_DEAD_S) / INTRO_WAKE_S)
         } else {
             ("idle", t, true)
         };
     }
     let u = |p: Part| p.t / p.dur;
     match part {
-        Some(p @ Part { mv: Move::Rake | Move::RakeThrice, striking: false, .. }) => span("slash", 0.0, 3.0, 0.08, u(p)),
+        Some(p @ Part { mv: Move::Rake | Move::RakeThrice, striking: false, .. }) => tell("rake_tell", 8.0, 0.08, u(p)),
         Some(Part { mv: mv @ (Move::Rake | Move::RakeThrice), striking: true, t, .. }) => {
             let blow = BLOW_AT.iter().take(mv.blows()).filter(|at| t >= **at).count().max(1);
             let into = (t - BLOW_AT[blow - 1]) / BLOW_S;
-            // The blows swing alternately across and up; the last of three is
-            // high.
-            if blow % 2 == 1 && !(mv == Move::RakeThrice && blow == 3) {
-                span("slash", 3.0, 9.0, 0.08, into)
-            } else {
-                span("attack_up", 3.0, 8.0, 0.08, into)
+            match blow {
+                1 => span("rake_a", 0.0, 6.0, 0.05, into),
+                2 => span("rake_b", 0.0, 6.0, 0.05, into),
+                _ => span("rake_c", 0.0, 8.0, 0.055, into),
             }
         }
-        Some(p @ Part { mv: Move::Hammer, striking: false, .. }) => span("attack_down", 0.0, 5.0, 0.085, u(p)),
-        Some(p @ Part { mv: Move::Hammer, .. }) => span("attack_down", 5.0, 7.5, 0.085, u(p) * 2.0),
-        Some(p @ Part { mv: Move::Lunge | Move::Bound, striking: false, .. }) => {
-            // Low, gathered: the landing crouch held.
-            span("land_hard", 1.0, 3.0, 0.09, u(p))
-        }
-        Some(p @ Part { mv: Move::Lunge, .. }) => span("attack_side", 3.0, 6.0, 0.08, u(p)),
-        Some(p @ Part { mv: Move::Bound, .. }) => {
+        Some(p @ Part { mv: Move::Hammer, striking: false, .. }) => tell("hammer_tell", 10.0, 0.1, u(p)),
+        Some(p @ Part { mv: Move::Hammer, .. }) => span("hammer_slam", 0.0, 6.0, 0.05, u(p)),
+        Some(p @ Part { mv: Move::Lunge | Move::Bound, striking: false, .. }) => tell("lunge_tell", 8.0, 0.09, u(p)),
+        Some(Part { mv: Move::Lunge, t, .. }) => ("lunge", t, true),
+        Some(p @ Part { mv: Move::Bound, t, .. }) => {
             let u = u(p);
             if u < BOUND_ON_WALL {
-                span("jump", 1.0, 4.0, 0.1, u / BOUND_ON_WALL)
+                span("bound_rise", 0.0, 6.0, 0.06, u / BOUND_ON_WALL)
             } else if u < BOUND_OFF_WALL {
-                at("fall", 0.0, 0.1)
+                span("bound_wall", 0.0, 4.0, 0.07, (u - BOUND_ON_WALL) / (BOUND_OFF_WALL - BOUND_ON_WALL))
             } else {
-                at("attack_side", 4.0, 0.08)
+                ("bound_dive", t, true)
             }
         }
-        Some(p @ Part { mv: Move::Howl, striking: false, .. }) => span("taunt", 0.0, 4.0, 0.1, u(p)),
-        Some(p @ Part { mv: Move::Howl, .. }) => span("taunt", 4.0, 12.0, 0.1, u(p)),
-        // Hands up to his bolts, shaking with the charge.
-        Some(Part { mv: Move::Galvanize, t, .. }) => at("attack_up", 3.0 + ((t / 0.05) as u32 % 2) as f32, 0.08),
+        Some(p @ Part { mv: Move::Howl, striking: false, .. }) => tell("howl_tell", 8.0, 0.1, u(p)),
+        Some(Part { mv: Move::Howl, t, .. }) => ("howl", t, true),
+        Some(p @ Part { mv: Move::Galvanize, striking: false, t, .. }) => {
+            // He takes hold of his bolts; then the charge shakes him, faster.
+            if u(p) < 0.3 {
+                span("galvanize_tell", 0.0, 3.0, 0.06, u(p) / 0.3)
+            } else {
+                at("galvanize_tell", 3.0 + ((t / 0.05) as u32 % 7) as f32, 0.06)
+            }
+        }
+        Some(p @ Part { mv: Move::Galvanize, .. }) => span("galvanize", 0.0, 8.0, 0.06, u(p)),
+        Some(p @ Part { mv: Move::Lash, striking: false, .. }) => tell("lash_tell", 8.0, 0.08, u(p)),
+        Some(p @ Part { mv: Move::Lash, .. }) => span("lash", 0.0, 6.0, 0.06, u(p)),
         None => {
             if let Some(t) = c.skid {
-                span("land_hard", 3.0, 6.0, 0.09, t / SKID_S)
+                span("lunge_skid", 0.0, 8.0, 0.05, t / SKID_S)
             } else if let Some(t) = c.stuck {
                 if t < STUCK_S {
-                    at("attack_down", 7.0, 0.085)
+                    ("hammer_stuck", t, true)
                 } else {
-                    span("attack_down", 8.0, 10.0, 0.085, (t - STUCK_S) / PULL_S)
+                    span("hammer_pull", 0.0, 6.0, 0.06, (t - STUCK_S) / PULL_S)
                 }
             } else if let Some(t) = c.winded {
-                span("land_hard", 1.0, 6.0, 0.09, t / WINDED_S)
-            } else if c.flat.is_some() {
-                // His charge spent: slumped, head down.
-                at("death", 1.0, 0.12)
+                ("winded", t, true)
+            } else if let Some(t) = c.recover {
+                span("rake_recover", 0.0, 6.0, 0.08, t / RECOVER_S)
+            } else if let Some(t) = c.flat {
+                // His charge spent: down on his hands, his head hung.
+                ("flatline", t, true)
+            } else if walking && c.unleashed {
+                // Unleashed, he stalks on all fours.
+                ("prowl", c.clock, true)
             } else if walking {
                 ("walk", c.clock, true)
             } else {
@@ -982,11 +1080,11 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
     }
 }
 
-/// Before his first move, he is dead this long, then the coils jolt him
-/// (0.4 s) and he howls. The boss wakes when his room does, so the three fill
-/// his encounter's `intro_seconds` (2.2).
-const INTRO_DEAD_S: f32 = 1.0;
-const INTRO_HOWL_S: f32 = 0.8;
+/// Before his first move, he is dead this long, then the coils jolt him and
+/// he stands up into himself (`awaken`). The boss wakes when his room does,
+/// so the two fill his encounter's `intro_seconds` (2.2).
+const INTRO_DEAD_S: f32 = 1.1;
+const INTRO_WAKE_S: f32 = 0.98;
 
 #[cfg(test)]
 mod tests {

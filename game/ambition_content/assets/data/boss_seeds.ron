@@ -249,6 +249,7 @@
         telegraph: (min_s: 0.55, max_s: 0.90),
         active: (min_s: 0.22, max_s: 0.50),
         instances: [
+            "wolf_lash", // Wolfenstein: a hand on a bolt, the other points; current down the line he aims at you
             "eye_beam", // smirking behemoth; 780px/s shot, 1 damage
             "noodly_grasp", // the FSM: one noodle reaches along a line and drags whoever is at its tip into the bell
         ],

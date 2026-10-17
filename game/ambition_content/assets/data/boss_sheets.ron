@@ -379,30 +379,36 @@
         parts: Some("npc_hunny_horror_boss"),
     ),
     // Wolfenstein wears his character's sheet (`wolfenstein`), every row in
-    // PNG order: idle->Rest, walk and run->DashEcho, jump/fall/land_hard->Rest,
-    // hit->Hit, death->Death, taunt (the howl)->SpikeHalo, slash (the claw
-    // sweep), attack_side (the bite) and attack_up->SideSweep, attack_down
-    // (the two-fist hammer)->FloorSlam. A boss anim plays the FIRST row that
-    // names it.
+    // PNG order. His conductor draws his rows by name (each phase of a move
+    // has its own); these anims are what the engine draws when it draws him:
+    // idle->Rest, walk, prowl and run->DashEcho, hit->Hit, death->Death,
+    // taunt->SpikeHalo, the first rake blow->SideSweep, the hammer->FloorSlam,
+    // the rest Rest. A boss anim plays the FIRST row that names it.
     //
     // The sheet publishes his body box, so the body box places him and the
-    // frame's centre is the centre of his body: the 320 px frame has his body
-    // (159 px, feet at y 240) in its middle, with empty space under the feet.
-    // The frame is drawn `collision_scale` x the body box's height: 320/159
-    // makes the 159 px body the 100 units of his body box.
+    // frame's centre is the centre of his body. The renderer publishes him at
+    // the game's texel density (`authoring/texel_density.py`): a 660 px frame
+    // with his body 340 px of it. The frame is drawn `collision_scale` x the
+    // body box's height: 660/340.3 (the ratio of his 320-pixel lengths,
+    // 320/165, whatever the density) makes the body the 100 units of his
+    // body box.
     // `feet_anchor_y` is the frame's own foot, for a draw with no body box.
     "wolfenstein_boss": (
         label_width: 100,
-        frame_width: 320,
-        frame_height: 320,
+        frame_width: 660,
+        frame_height: 660,
         rows: [
             (Rest, (
-                frame_count: 8,
-                duration_secs: 0.16,
+                frame_count: 16,
+                duration_secs: 0.09,
             )),
             (DashEcho, (
-                frame_count: 8,
-                duration_secs: 0.125,
+                frame_count: 12,
+                duration_secs: 0.1,
+            )),
+            (DashEcho, (
+                frame_count: 12,
+                duration_secs: 0.07,
             )),
             (DashEcho, (
                 frame_count: 8,
@@ -417,39 +423,127 @@
                 duration_secs: 0.1,
             )),
             (Rest, (
+                frame_count: 8,
+                duration_secs: 0.07,
+            )),
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.08,
+            )),
+            (SideSweep, (
                 frame_count: 6,
+                duration_secs: 0.05,
+            )),
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.05,
+            )),
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.055,
+            )),
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.08,
+            )),
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.1,
+            )),
+            (FloorSlam, (
+                frame_count: 6,
+                duration_secs: 0.05,
+            )),
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.08,
+            )),
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.06,
+            )),
+            (Rest, (
+                frame_count: 8,
                 duration_secs: 0.09,
             )),
-            (Hit, (
-                frame_count: 5,
-                duration_secs: 0.095,
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.06,
             )),
-            (Death, (
-                frame_count: 10,
-                duration_secs: 0.12,
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.05,
+            )),
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.06,
+            )),
+            (Rest, (
+                frame_count: 4,
+                duration_secs: 0.07,
+            )),
+            (Rest, (
+                frame_count: 4,
+                duration_secs: 0.06,
+            )),
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.09,
+            )),
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.1,
+            )),
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.07,
             )),
             (SpikeHalo, (
                 frame_count: 12,
                 duration_secs: 0.1,
             )),
-            (SideSweep, (
-                frame_count: 9,
-                duration_secs: 0.08,
-            )),
-            (SideSweep, (
-                frame_count: 8,
-                duration_secs: 0.08,
-            )),
-            (SideSweep, (
-                frame_count: 8,
-                duration_secs: 0.08,
-            )),
-            (FloorSlam, (
+            (Rest, (
                 frame_count: 10,
-                duration_secs: 0.085,
+                duration_secs: 0.06,
+            )),
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.06,
+            )),
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.08,
+            )),
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.06,
+            )),
+            (Rest, (
+                frame_count: 16,
+                duration_secs: 0.11,
+            )),
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.05,
+            )),
+            (Rest, (
+                frame_count: 14,
+                duration_secs: 0.07,
+            )),
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.05,
+            )),
+            (Hit, (
+                frame_count: 6,
+                duration_secs: 0.06,
+            )),
+            (Death, (
+                frame_count: 18,
+                duration_secs: 0.09,
             )),
         ],
-        collision_scale: 2.01,
+        collision_scale: 1.939,
         feet_anchor_y: -0.25,
         frame_sample_inset: 1,
         body_centered: false,

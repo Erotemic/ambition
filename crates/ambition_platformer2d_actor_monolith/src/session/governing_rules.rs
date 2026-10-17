@@ -11,13 +11,18 @@ use ambition_combat::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
 /// run exactly where its rules govern.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct CurrentRoom<'w, 's> {
-    // The one-live-room read: a rule scope governs THE live room.
-    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec<'w, 's>>,
-    live: LiveRuleRooms<'w, 's>,
+    // The session's room set: a live room's mode is on its spec.
+    rooms: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<'w, 's, ambition_platformer2d_world::rooms::RoomSet>>,
+    // Each room root, with the live room it is and the definition it seats.
+    // One query: the run conditions of every game's systems fetch this each
+    // frame, and a parameter costs on each fetch (F19).
     roots: Query<
         'w,
         's,
-        &'static ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        (
+            Option<&'static ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+            Option<&'static ambition_platformer2d_world::rooms::LiveRoomDefinition>,
+        ),
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
 }
@@ -27,9 +32,12 @@ impl CurrentRoom<'_, '_> {
     /// two live rooms it is `NoRoom`. A reader with a subject asks
     /// [`RulesOf`] instead.
     pub fn get(&self) -> ActiveRoom<'_> {
-        self.rooms.as_ref().map_or(ActiveRoom::NoRoom, |rooms| {
-            ActiveRoom::live(rooms.spec().metadata.mode.as_deref())
-        })
+        // The one root that seats a definition, as `SoleLiveRoomSpec` reads it.
+        let mut seated = self.roots.iter().filter_map(|(_, definition)| definition);
+        match (seated.next(), seated.next()) {
+            (Some(definition), None) => self.mode_of(Some(definition)),
+            _ => ActiveRoom::NoRoom,
+        }
     }
 
     /// Whether `scope` governs ANY live room, or the absence of a room when
@@ -38,11 +46,20 @@ impl CurrentRoom<'_, '_> {
     /// keys its work by its subject's room (OW1). With one live room this is
     /// the same answer as before.
     pub fn in_scope(&self, scope: RulesScope) -> bool {
-        let mut live = self.roots.iter().peekable();
+        let mut live = self.roots.iter().filter(|(live, _)| live.is_some()).peekable();
         if live.peek().is_none() {
             return scope.governs(self.get());
         }
-        live.any(|room| scope.governs(self.live.of(*room)))
+        live.any(|(_, definition)| scope.governs(self.mode_of(definition)))
+    }
+
+    /// A live room's reading from the definition its root seats; `NoRoom`
+    /// with no definition or no room set.
+    fn mode_of(&self, definition: Option<&ambition_platformer2d_world::rooms::LiveRoomDefinition>) -> ActiveRoom<'_> {
+        match (self.rooms.as_ref(), definition) {
+            (Some(rooms), Some(definition)) => ActiveRoom::live(rooms.spec(*definition).metadata.mode.as_deref()),
+            _ => ActiveRoom::NoRoom,
+        }
     }
 }
 

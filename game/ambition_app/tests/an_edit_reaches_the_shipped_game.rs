@@ -5263,3 +5263,30 @@ fn a_candidate_without_a_quest_file_starts_the_next_session_with_no_quests() {
     assert!(registry.initialized, "the new session never populated its registry");
     assert!(registry.quests.is_empty(), "the new session kept quests the candidate does not declare");
 }
+
+/// Each cast of the shipped composition reads its body scale, hurtboxes and
+/// rig from its sheets when it is defined, so each is stated again at a sheet
+/// publication. A cast without a restater keeps a scale of the old records
+/// while its bodies are built from the new ones. The road itself:
+/// `ambition_platformer2d --features content_pack --test sheet_derived_cast`.
+#[test]
+fn each_cast_of_the_shipped_composition_is_stated_again_with_the_sheets() {
+    use ambition_platformer2d::characters::actor::character_catalog::CHARACTER_CATALOG_SCHEMA;
+    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut expected = vec!["the Ambition cast".to_string()];
+    expected.extend(
+        app.world()
+            .resource::<ambition_platformer2d::content::live_reload::EmbeddedPackWatches>()
+            .0
+            .iter()
+            .map(|watch| watch.pack().prepared())
+            .filter(|pack| pack.schemas.keys().any(|schema| schema.0 == CHARACTER_CATALOG_SCHEMA))
+            .map(|pack| format!("the cast of `{}`", pack.id.0)),
+    );
+    assert!(expected.len() > 2, "the premise: the shipped composition watches the demo casts: {expected:?}");
+    let restaters = app.world().resource::<ambition_platformer2d::content::sprite_reload::SheetDerivedRestaters>();
+    let names: Vec<&str> = restaters.names().collect();
+    for cast in &expected {
+        assert!(names.contains(&cast.as_str()), "{cast} is not stated again at a sheet publication; restated: {names:?}");
+    }
+}

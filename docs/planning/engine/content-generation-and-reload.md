@@ -523,7 +523,18 @@ loaded again. A table with a file that does not parse is refused with the
 file named. Witness `ambition_platformer2d --features content_pack --test
 sprite_sheet_reload` (red at "an edit was published inside a session" with
 the session gate removed, and at the `SheetRegistry` assertion with the
-resource not stated again). Not yet on the road: part flipbooks, body rigs,
+resource not stated again). A cast reads its body scale, inset hurtboxes and
+rig from its sheets when its definitions are made, so the publication also
+states again each cast registered in `sprite_reload::SheetDerivedRestaters`
+(each `PackCast`, and Ambition's cast from its content watch), before a frame
+can build a body. Witness `ambition_platformer2d --features content_pack
+--test sheet_derived_cast` (red at "the cast keeps a body scale made from
+sheet generation 1", 2.0 kept against 4.0, with the pack cast's restater not
+registered); the shipped composition's casts are each named by
+`each_cast_of_the_shipped_composition_is_stated_again_with_the_sheets`
+(app_it; red with Ambition's restater removed). Ambition's restater has no
+behaviour witness of its own: it stages the live catalog's cast as a facet
+edit does (`stage_cast_from_catalog`). Not yet on the road: part flipbooks, body rigs,
 landmarks, portraits, pack catalogs, the prop sheets a room drew, and a body
 already bound at the same tier (the generation key above). The retire and
 the page reload have no witness of their own.

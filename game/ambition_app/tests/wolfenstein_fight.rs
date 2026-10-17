@@ -267,3 +267,37 @@ fn unleashed_he_bounds_off_the_wall_and_his_howl_calls_the_pack() {
     }
     panic!("no howl called the pack; last: {:?}", wolf(&mut sim));
 }
+
+/// A player on a gallery over his head is answered by the arc lash: he
+/// aims along the line to them, and the current goes down it.
+#[test]
+fn a_player_on_a_gallery_is_answered_by_the_arc_lash() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    let hall = wolf(&mut sim).view.hall.expect("room");
+    // `gallery_east` (`castle_godwin_throne_area.ron`): 1248-1504 wide, its top
+    // 160 over the floor; the room's west wall is 16 thick.
+    let room_x = hall.left - 16.0;
+    let (kin, _) = player(&mut sim);
+    let on_gallery = ae::Vec2::new(room_x + 1376.0, hall.floor - 160.0 - kin.size.y * 0.5 - 1.0);
+    let mut lashed = false;
+    for _ in 0..60 * 60 {
+        place_player(&mut sim, on_gallery);
+        sim.step(AgentAction::default());
+        if matches!(wolf(&mut sim).view.performing, Some((Move::Lash, false))) {
+            lashed = true;
+            break;
+        }
+    }
+    assert!(lashed, "he never answered a player above him with the lash; last: {:?}", wolf(&mut sim));
+    untouchable_player(&mut sim, false);
+    let (_, before) = player(&mut sim);
+    for _ in 0..90 {
+        place_player(&mut sim, on_gallery);
+        sim.step(AgentAction::default());
+        if player(&mut sim).1 < before {
+            return;
+        }
+    }
+    panic!("the lash missed a player standing still on the gallery; last: {:?}", wolf(&mut sim));
+}

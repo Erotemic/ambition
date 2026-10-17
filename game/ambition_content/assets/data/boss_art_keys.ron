@@ -74,13 +74,14 @@
         "mockingbird_strafe": ["thrust"],
         "mockingbird_lightsabers": ["slash"],
         // Wolfenstein's conducted moves: his module draws them, row by row.
-        "wolf_rake": ["slash"],
-        "wolf_rake_thrice": ["slash"],
-        "wolf_hammer": ["attack_down"],
-        "wolf_lunge": ["attack_side"],
-        "wolf_bound": ["attack_side"],
-        "wolf_howl": ["taunt"],
-        "wolf_galvanize": ["attack_up"],
+        "wolf_rake": ["rake_a"],
+        "wolf_rake_thrice": ["rake_a"],
+        "wolf_hammer": ["hammer_slam"],
+        "wolf_lunge": ["lunge"],
+        "wolf_bound": ["bound_dive"],
+        "wolf_howl": ["howl"],
+        "wolf_galvanize": ["galvanize"],
+        "wolf_lash": ["lash"],
     },
     // The sheet rows each geometry strike claims. The first row is the
     // canonical runtime key; the others are row-name aliases, so a

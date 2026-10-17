@@ -263,8 +263,10 @@ validator has no finding for him. Receipts:
 standing where he spawns), the coils' part in the enrage, his own rows, effect
 sheets and sounds (all borrowed).
 
-**Jon's rulings (2026-10-17):** "I want this to be a bipedal boss": he stays upright the whole fight (no fight on
-all fours). He wakes on the throne. He gets his own music cue: a stiff march
+**Jon's rulings (2026-10-17):** first "I want this to be a bipedal boss";
+then, after GPT concept sheets: "we can get rid of the no-all-4's rule, some
+of these all 4s concepts are good". He fights upright and goes down on all
+fours to stalk, to gather a pounce and when he is spent. He wakes on the throne. He gets his own music cue: a stiff march
 in phase 1 that detunes into a howling theremin theme in phase 2, both in
 enrage. Playable first: the engine fixes and the conductor on his current
 rows come before the rig and art passes.
@@ -288,6 +290,22 @@ per strike. Known defects:
   `side_sweep` reaches 15 px past his body.
 - WOLFENSTEIN-FAIRNESS (`queue.md`): the enrage sweep has no punish window and
   no move has a telegraph identity.
+
+**The look (Jon, the same day):** the Frankenstein half must read: "make
+the whole body a lot more muscular, think lurch from The Addams family,
+probably bigger though ... big green hands"; "a full coat ... I'm okay with
+the coat being open or ripped to show chest and abs"; "he needs to have the
+armband"; the head bigger, in proportion; a hand pose for each attack; the
+slash trails drawn from the claw tips. The lightning plays off the bolts in
+his neck. Art is hand authored; particles and shaders may add light and pop,
+cheaply, and the fight must work with them off.
+
+**Concept sheets (GPT, sent by Jon):** red-white trails for physical blows,
+blue for current. Move ideas not yet built: a radial burst, a finger-gun
+shot (the arc lash is its first form), summoned stitched hounds (the Attack
+Hound exists), a storm of falling sparks (enrage), an electric ground ring
+off the hammer, a fake death in the last phase, a reanimation surge, a
+final-phase lunge chain.
 
 ### The fight's shape
 

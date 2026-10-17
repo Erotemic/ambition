@@ -56,12 +56,20 @@ RATCHET = {
     # (272 rows, 1826 frames): 10 pages of 4096 px, and a part page of
     # 2176 x 1903. MEASURED in `moveset_render`: the game loads the part page
     # and none of the 10. No page is over 4096 px.
-    "sprites": (16236, 77, 16, 7),
+    # 2026-10-17: 77 -> 79. One sheet that grew, deliberately: `wolfenstein`
+    # is published at the game's texel density (3.4 px a world unit,
+    # `authoring/texel_density.py`) with 36 rows of 660 x 660 frames: two pages
+    # (4094 x 4004, 4088 x 3245) where it was one of 1587 x 1310. His boss
+    # sheet names his parts (`parts: Some`), so where rigged sprites are
+    # admitted he is drawn from the part page (2176 x 1810): reasoned from
+    # `boss_sheets.ron`, not measured.
+    "sprites": (16236, 79, 16, 7),
     # 2026-10-11: 24 -> 25 over 2048 px: the same new fighter's half tier
     # (2176 x 1689).
     # 2026-10-13: 25 -> 28: the half tier of the same sheet is three pages
     # (4096 x 4068, 4096 x 4013, 4094 x 1689).
-    "sprites_0_5x": (8118, 28, 7, 0),
+    # 2026-10-17: 28 -> 29: the same sheet's half tier (3071 x 2455).
+    "sprites_0_5x": (8118, 29, 7, 0),
     # 2026-10-13: 9 -> 10: its quarter tier is one page of 3648 x 2816.
     "sprites_0_25x": (4059, 10, 0, 0),
     # 2026-10-13: worst side 1015 -> 1024: the potato page of the same sheet.

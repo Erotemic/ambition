@@ -277,6 +277,11 @@ pub fn advance_moving_platforms(
 ) {
     let sim_dt = world_time.sim_dt();
     for (root, mut platforms) in &mut rooms {
+        // Not through `&mut` when there is nothing to move: a write marks the
+        // set changed, and the shared composed walls are keyed by its change.
+        if platforms.0.is_empty() {
+            continue;
+        }
         let room = live.of(root);
         for platform in platforms.0.iter_mut() {
             if platform.is_lift() {

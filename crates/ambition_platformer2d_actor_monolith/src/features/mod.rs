@@ -1247,6 +1247,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),
         );
+        // The walls every reader of a tick shares (F24, P14).
+        app.init_resource::<ambition_platformer2d_world::collision::ComposedSolids>();
         // ⭐ THE LOCAL TAIL KEEPS ITS CHAIN AND HANGS OFF THE LAST PUBLISHED SET,
         // so the four-step contract is unchanged end to end: capture holds, then
         // mount steering, then platforms, then the contact snapshot.
@@ -1256,6 +1258,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 crate::avatar::rescue_falling_bodies,
                 crate::avatar::advance_moving_platforms
                     .in_set(ambition_platformer2d_shared_tangle::schedule::MovingPlatformsAdvanced),
+                // The platforms moved: free the walls composed from where they were.
+                ambition_platformer2d_world::collision::retire_stale_composed_solids,
                 snapshot_body_contact,
             )
                 .chain()

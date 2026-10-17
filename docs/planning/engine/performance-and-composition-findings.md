@@ -291,6 +291,8 @@ game's systems into its `RulesScopeSet` (P18); S2b for 3D lighting.
 Updated 2026-10-17. Each one helps every game, not only Mary-O.
 
 1. P14: one composed collision world for each room each tick (F24, F33).
+   Step 1 done 2026-10-17 (six compositions a frame in 1-2 → one); step 2,
+   the layered view, is next.
 2. P12 and P5: derive on change, and build the read-models once for each
    presented frame, not each tick (F16, F20). The largest multiplier.
 3. P1/S2 and P18: the rest of dormancy (F31) and the conditions of F34.
@@ -957,6 +959,27 @@ geometry, platforms or overlay changed, which every reader borrows. Then a
 layered view (the authored world plus the dynamic parts, read in place) so
 that nothing copies the room at all; `HostSurfaces` already reads two
 sources in place this way.
+
+**Step 1 done (2026-10-17).** `ComposedSolids` (`collision.rs`) keeps the
+composed walls of each room in a few places; every reader of
+`RoomCollision::solids` borrows them. A place is keyed by the change ticks of
+the room's geometry and platforms, and by the contents of the overlay
+(`FeatureEcsWorldOverlay::composes_like`): the overlay is cleared and filled
+again each tick, so its change tick always moves. A reader whose key no place
+holds composes its own, so the retire (`retire_stale_composed_solids`, after
+the platforms advance) changes only how many readers share, never what one
+collides with. `advance_moving_platforms` no longer marks an empty set
+changed. MEASURED (debug, `mary_o_it` in 1-2, holding right and jumping, the
+cache removed and put back in one run, 3 × 200 frames each, the box loaded by
+a parallel `app_it`): compositions a frame 5.7-6.0 → 1.0; frame time 15.1 →
+13.2, 15.2 → 13.1, 15.2 → 15.2 ms. In 1-1 there are none (no platforms, an
+empty overlay: the borrow fast path). Witness
+`the_readers_of_a_tick_share_one_composed_world_and_a_write_composes_again`
+(red with no place kept, and red at "a reader after the write collides with
+the old overlay" with the overlay left out of the key). Left: the one
+composition a tick in a room with moving platforms (step 2, the layered
+view), and the projectile view (`world_with_gate_solids_and_carves`) and
+`hostable_surfaces`, which compose apart.
 
 ### Not a lever (keep out of this run)
 

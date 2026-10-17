@@ -23,9 +23,12 @@ use ambition_platformer2d_core::geometry::subtract_aabb;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::feature_overlay::{FeatureEcsWorldOverlay, PortalGlue};
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
-use bevy_ecs::prelude::{Component, Query, With};
+use bevy_ecs::change_detection::{DetectChanges, Ref};
+use bevy_ecs::change_detection::Tick;
+use bevy_ecs::prelude::{Component, Query, Res, ResMut, Resource, With};
 use bevy_ecs::system::SystemParam;
 use std::borrow::Cow;
+use std::sync::OnceLock;
 
 use crate::platforms::{world_with_moving_platforms, MovingPlatformState};
 
@@ -88,13 +91,125 @@ pub struct CollisionWorld<'w, 's> {
         'w,
         's,
         (
+            bevy_ecs::entity::Entity,
             Option<&'static LiveRoomInstance>,
-            &'static ae::RoomGeometry,
-            Option<&'static MovingPlatformSet>,
-            Option<&'static FeatureEcsWorldOverlay>,
+            Ref<'static, ae::RoomGeometry>,
+            Option<Ref<'static, MovingPlatformSet>>,
+            Option<Ref<'static, FeatureEcsWorldOverlay>>,
         ),
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
+    /// The walls composed so far this tick, which every reader shares. Absent
+    /// in an App that does not install it: each reader then composes its own.
+    composed: Option<Res<'w, ComposedSolids>>,
+}
+
+/// What a room's composed walls are made from: the change tick of its
+/// geometry and of its moving platforms. A write to either gives another key.
+/// The overlay is compared by its contents
+/// ([`FeatureEcsWorldOverlay::composes_like`]), because it is filled again
+/// each tick. So walls kept under a key and an overlay are the walls those
+/// parts compose to now.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SolidsKey {
+    root: bevy_ecs::entity::Entity,
+    geometry: Tick,
+    platforms: Option<Tick>,
+}
+
+impl SolidsKey {
+    fn of(root: bevy_ecs::entity::Entity, geometry: &Ref<ae::RoomGeometry>, platforms: Option<&Ref<MovingPlatformSet>>) -> Self {
+        Self { root, geometry: geometry.last_changed(), platforms: platforms.map(DetectChanges::last_changed) }
+    }
+}
+
+/// One kept composition: its key, the overlay it was composed with, and the
+/// walls.
+type KeptSolids = (SolidsKey, FeatureEcsWorldOverlay, ae::World);
+
+fn kept_for<'k>(kept: &'k KeptSolids, key: SolidsKey, overlay: &FeatureEcsWorldOverlay) -> Option<&'k ae::World> {
+    (kept.0 == key && kept.1.composes_like(overlay)).then_some(&kept.2)
+}
+
+/// How many composed worlds are kept at once: a few rooms, each in a few
+/// states in one tick. A reader that finds no free place composes its own, as
+/// a reader with no cache does.
+const COMPOSED_PLACES: usize = 8;
+
+/// The composed walls of each live room ([`RoomCollision::solids`]), composed
+/// once for each state of the room's parts and borrowed by every reader. About
+/// twenty systems read the walls each tick; each composed a copy of the whole
+/// room before (`performance-and-composition-findings.md`, F24, P14).
+///
+/// A reader fills a free place; [`retire_stale_composed_solids`] frees the
+/// places whose parts were written since. A place is used only under its own
+/// key, so where the retire runs changes only how many readers share a world,
+/// never what a reader collides with.
+#[derive(Resource, Default)]
+pub struct ComposedSolids {
+    places: [OnceLock<KeptSolids>; COMPOSED_PLACES],
+}
+
+impl ComposedSolids {
+    /// The walls kept under `key` and `overlay`, composed by `compose` into
+    /// a free place when none are. `None` when every place holds others.
+    fn get_or_compose(&self, key: SolidsKey, overlay: &FeatureEcsWorldOverlay, compose: impl Fn() -> ae::World) -> Option<&ae::World> {
+        if let Some(world) = self.places.iter().find_map(|place| kept_for(place.get()?, key, overlay)) {
+            return Some(world);
+        }
+        for place in &self.places {
+            if place.get().is_none() {
+                // Two readers can race for one place; the loser goes on.
+                let _ = place.set((key, overlay.clone(), compose()));
+            }
+            if let Some(world) = place.get().and_then(|kept| kept_for(kept, key, overlay)) {
+                return Some(world);
+            }
+        }
+        None
+    }
+
+    /// How many places hold composed walls.
+    pub fn kept(&self) -> usize {
+        self.places.iter().filter(|place| place.get().is_some()).count()
+    }
+}
+
+/// Free each place whose room's parts were written since its walls were
+/// composed, and keep the others.
+#[allow(clippy::type_complexity)]
+pub fn retire_stale_composed_solids(
+    composed: Option<ResMut<ComposedSolids>>,
+    rooms: Query<
+        (
+            bevy_ecs::entity::Entity,
+            Ref<ae::RoomGeometry>,
+            Option<Ref<MovingPlatformSet>>,
+            Option<Ref<FeatureEcsWorldOverlay>>,
+        ),
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
+) {
+    let Some(mut composed) = composed else {
+        return;
+    };
+    let empty = FeatureEcsWorldOverlay::default();
+    let current: Vec<(SolidsKey, &FeatureEcsWorldOverlay)> = rooms
+        .iter()
+        .map(|(root, geometry, platforms, overlay)| {
+            (SolidsKey::of(root, &geometry, platforms.as_ref()), overlay.map_or(&empty, Ref::into_inner))
+        })
+        .collect();
+    let live = |kept: &KeptSolids| current.iter().any(|(key, overlay)| kept_for(kept, *key, overlay).is_some());
+    // Read first: in a tick with nothing stale the resource is not written.
+    if composed.places.iter().all(|place| place.get().is_none_or(live)) {
+        return;
+    }
+    for place in &mut composed.places {
+        if place.get().is_some_and(|kept| !live(kept)) {
+            place.take();
+        }
+    }
 }
 
 impl CollisionWorld<'_, '_> {
@@ -107,7 +222,7 @@ impl CollisionWorld<'_, '_> {
     /// sessions can each have a room with one ordinal until the identity is
     /// per session (OW1 cut 5); that is ambiguous, and so is `None`.
     pub fn room(&self, room: Option<&InRoomInstance>) -> Option<RoomCollision<'_>> {
-        room_of(self.rooms.iter(), room)
+        room_of(self.rooms.iter(), room, self.composed.as_deref())
     }
 
     /// [`RoomCollision::solids`] of the sole live room.
@@ -142,40 +257,46 @@ pub fn with_room_in_world<R>(
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >()?;
     let rooms = state.query_manual(world);
-    let parts = rooms.iter().map(|(root, geometry)| {
-        (
+    let parts = rooms.iter().filter_map(|(root, _)| {
+        let entity = world.entity(root);
+        Some((
+            root,
             world.get::<LiveRoomInstance>(root),
-            geometry,
-            world.get::<MovingPlatformSet>(root),
-            world.get::<FeatureEcsWorldOverlay>(root),
-        )
+            entity.get_ref::<ae::RoomGeometry>()?,
+            entity.get_ref::<MovingPlatformSet>(),
+            entity.get_ref::<FeatureEcsWorldOverlay>(),
+        ))
     });
-    room_of(parts, room).map(read)
+    room_of(parts, room, world.get_resource::<ComposedSolids>()).map(read)
 }
 
 fn room_of<'a>(
     rooms: impl Iterator<
         Item = (
+            bevy_ecs::entity::Entity,
             Option<&'a LiveRoomInstance>,
-            &'a ae::RoomGeometry,
-            Option<&'a MovingPlatformSet>,
-            Option<&'a FeatureEcsWorldOverlay>,
+            Ref<'a, ae::RoomGeometry>,
+            Option<Ref<'a, MovingPlatformSet>>,
+            Option<Ref<'a, FeatureEcsWorldOverlay>>,
         ),
     >,
     room: Option<&InRoomInstance>,
+    composed: Option<&'a ComposedSolids>,
 ) -> Option<RoomCollision<'a>> {
-    let mut matching = rooms.filter(|(live, ..)| match room {
+    let mut matching = rooms.filter(|(_, live, ..)| match room {
         Some(room) => live.copied() == Some(room.0),
         None => true,
     });
-    let (_, geometry, platforms, overlay) = matching.next()?;
+    let (root, _, geometry, platforms, overlay) = matching.next()?;
     if matching.next().is_some() {
         return None;
     }
+    let key = SolidsKey::of(root, &geometry, platforms.as_ref());
     Some(RoomCollision {
-        geometry,
-        platforms: platforms.map_or(&[][..], |platforms| &platforms.0),
-        overlay,
+        geometry: geometry.into_inner(),
+        platforms: platforms.map_or(&[][..], |platforms| &platforms.into_inner().0),
+        overlay: overlay.map(Ref::into_inner),
+        composed: composed.map(|composed| (composed, key)),
     })
 }
 
@@ -239,6 +360,8 @@ pub struct RoomCollision<'a> {
     geometry: &'a ae::RoomGeometry,
     platforms: &'a [MovingPlatformState],
     overlay: Option<&'a FeatureEcsWorldOverlay>,
+    /// The shared composed walls and this room's key in them.
+    composed: Option<(&'a ComposedSolids, SolidsKey)>,
 }
 
 /// `walls` as a body meets them: without the gate solids named in `open`
@@ -434,19 +557,16 @@ impl<'a> RoomCollision<'a> {
         if self.platforms.is_empty() && overlay_empty {
             return Some(Cow::Borrowed(&self.geometry.0));
         }
-        let default_overlay;
-        let overlay = match self.overlay {
-            Some(o) => o,
-            None => {
-                default_overlay = FeatureEcsWorldOverlay::default();
-                &default_overlay
-            }
+        let compose = || {
+            let default_overlay = FeatureEcsWorldOverlay::default();
+            world_with_sandbox_solids(&self.geometry.0, self.platforms, self.overlay.unwrap_or(&default_overlay))
         };
-        Some(Cow::Owned(world_with_sandbox_solids(
-            &self.geometry.0,
-            self.platforms,
-            overlay,
-        )))
+        let empty = FeatureEcsWorldOverlay::default();
+        let overlay = self.overlay.unwrap_or(&empty);
+        if let Some(shared) = self.composed.and_then(|(composed, key)| composed.get_or_compose(key, overlay, compose)) {
+            return Some(Cow::Borrowed(shared));
+        }
+        Some(Cow::Owned(compose()))
     }
 
     /// [`Self::solids`] as `subject` meets them ([`as_met_by`]): the gates
@@ -904,6 +1024,69 @@ mod collision_world_tests {
         });
         // A non-empty overlay forces an owned composite: base + the ECS solid.
         assert_eq!(run(&mut app), Some((true, 2)));
+    }
+
+    /// Where each reader's composed walls are kept (`None`: composed for that
+    /// reader alone), and how many blocks they hold.
+    #[derive(Resource, Default, Debug)]
+    struct SharedProbe(Vec<(Option<usize>, usize)>);
+
+    fn probe_shared(world: CollisionWorld, mut out: ResMut<SharedProbe>) {
+        if let Some(walls) = world.solids() {
+            let kept = match &walls {
+                Cow::Borrowed(kept) => Some(*kept as *const ae::World as usize),
+                Cow::Owned(_) => None,
+            };
+            out.0.push((kept, walls.blocks.len()));
+        }
+    }
+
+    fn ecs_solid(name: &str) -> ae::Block {
+        ae::Block::solid(name, ae::Vec2::new(100.0, 100.0), ae::Vec2::new(10.0, 10.0))
+    }
+
+    /// The readers of one tick share one composed world (F24, P14); a write to
+    /// the room's overlay gives the next reader walls composed from it, and
+    /// the retire frees the walls of the old overlay.
+    #[test]
+    fn the_readers_of_a_tick_share_one_composed_world_and_a_write_composes_again() {
+        let mut app = App::new();
+        app.init_resource::<SharedProbe>();
+        app.init_resource::<ComposedSolids>();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), room_one_block());
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(),
+            FeatureEcsWorldOverlay { blocks: vec![ecs_solid("crate")], ..Default::default() },
+        );
+        use bevy_ecs::schedule::IntoScheduleConfigs;
+        app.add_systems(Update, (retire_stale_composed_solids, probe_shared, probe_shared).chain());
+        app.update();
+        let first = std::mem::take(&mut app.world_mut().resource_mut::<SharedProbe>().0);
+        assert_eq!(first.len(), 2);
+        assert_eq!(first[0].1, 2, "the premise: base + the ECS solid");
+        assert!(first[0].0.is_some() && first[0].0 == first[1].0, "two readers of one tick composed two worlds: {first:?}");
+
+        app.update();
+        let still = std::mem::take(&mut app.world_mut().resource_mut::<SharedProbe>().0);
+        assert_eq!(still[0].0, first[0].0, "walls of unchanged parts were composed again the next tick");
+
+        let mut overlay = app.world_mut().query::<&mut FeatureEcsWorldOverlay>();
+        // The overlay is cleared and filled again each tick: the same contents
+        // are the same walls.
+        {
+            let mut refilled = overlay.single_mut(app.world_mut()).unwrap();
+            refilled.clear_engine_contributions();
+            refilled.blocks.push(ecs_solid("crate"));
+        }
+        app.update();
+        let refilled = std::mem::take(&mut app.world_mut().resource_mut::<SharedProbe>().0);
+        assert_eq!(refilled[0].0, first[0].0, "an overlay filled again with the same contents was composed again");
+        overlay.single_mut(app.world_mut()).unwrap().blocks.push(ecs_solid("barrel"));
+        app.update();
+        let after = std::mem::take(&mut app.world_mut().resource_mut::<SharedProbe>().0);
+        assert_eq!((after[0].1, after[1].1), (3, 3), "a reader after the write collides with the old overlay");
+        assert!(after[0].0.is_some() && after[0].0 == after[1].0, "the readers after the write do not share: {after:?}");
+        assert_eq!(app.world().resource::<ComposedSolids>().kept(), 1, "the walls of the old overlay are kept");
     }
 
     fn gate_wall() -> ae::Block {

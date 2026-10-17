@@ -316,7 +316,8 @@ nothing new.
 
 Cost control: a body is partitioned only if its bounds meet an aperture's slab (broad
 phase over the room's apertures, a handful); the worklist runs for those bodies only;
-scratch buffers are reused per system; candidates are sorted vectors, not hash maps.
+scratch buffers are reused (built: per thread, so each system's calls share them);
+candidates are sorted vectors, not hash maps.
 
 ### Benchmarks to take (before and after each stage)
 
@@ -326,26 +327,26 @@ facing itself). Time per tick and allocations per tick, release, on this machine
 the phone (`profile_android.sh`).
 
 Measured (release, this machine, 2026-10-17; `partition_cost` and
-`glue_cost`, ignored tests; not on the phone):
+`glue_cost`, ignored tests, and `partition_allocations`. Not on the phone: this
+machine has no adb and no phone attached, so `profile_android.sh` waits for one):
 
 | case | per call |
 |---|---|
-| partition: no portals | 0.04 µs |
-| partition: one pair, not reached | 0.05 µs |
-| partition: straddling one pair | 0.85 µs |
-| partition: a giant across four pairs (10 pieces) | 12.9 µs |
-| partition: an arm through two pairs | 2.0 µs |
-| partition: a pair facing itself (budget 4) | 7.9 µs |
+| partition: no portals | 0.05 µs, 2 allocations |
+| partition: one pair, not reached | 0.05 µs, 1 |
+| partition: straddling one pair | 0.40 µs, 7 (was 0.85 µs, 36) |
+| partition: a giant across four pairs (10 pieces) | 5.3 µs, 30 (was 12.9 µs, 572) |
+| partition: an arm through two pairs | 0.81 µs, 11 (was 2.0 µs, 89) |
+| partition: a pair facing itself (budget 4) | 3.3 µs, 33 (was 7.9 µs, 371) |
 | glue, 100 / 1 000 / 5 000 blocks, per straddler | 0.9 / 1.5 / 1.4 µs (was 18.6 / 205 / 1 287; the pair moved to the first row so every size has the same neighbourhood) |
 | a world's clone (any size) | 40 ns |
 
-Allocations per call (`partition_allocations`, its own test binary with a
-counting allocator): no portals 2; one pair, not reached 2; straddling one pair
-36; a giant across four pairs 572; an arm through two pairs 89; a pair facing
-itself 371. The cases with no portal reached allocate only the result. The
-"scratch buffers reused per system" of the cost control above was not built:
-a straddler's allocations are the clip polygons of its pieces, and at these
-times it was not worth the restructure.
+Allocations per call are counted by `partition_allocations` (its own test
+binary, with a counting allocator). The "was" figures are before the scratch
+buffers: every emptiness test cloned its piece and allocated a polygon per
+plane. Now a piece is tested in the thread's kept buffers and only the pieces
+of the result are built, so what is left is the result (each piece's planes
+and path) and a convex hull's outline.
 
 ## Roadmap (each stage reviewed before the next)
 

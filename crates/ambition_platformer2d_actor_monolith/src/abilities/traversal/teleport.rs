@@ -277,6 +277,15 @@ fn ambush_arrival(
 /// ⛔ IT RUNS WHERE EVERY OTHER `ActorActionMessage` CONSUMER RUNS, so a
 /// teleport authored on a move's timeline fires on the frame the move says and
 /// not a phase later.
+/// Whether `message` asks for the teleport special.
+fn is_teleport(message: &ActorActionMessage) -> bool {
+    let ActionRequest::Special { spec, .. } = &message.request else {
+        return false;
+    };
+    let SpecialActionSpec::Special(key) = spec;
+    key.as_str() == TELEPORT
+}
+
 pub fn apply_authored_teleports(
     world: ambition_platformer2d_world::collision::CollisionWorld,
     mut actions: MessageReader<ActorActionMessage>,
@@ -323,8 +332,13 @@ pub fn apply_authored_teleports(
 ) {
     let mut collision = ambition_platformer2d_world::collision::ComposedRooms::default();
     // Drained first: the mutable body pass below cannot borrow the reader and
-    // the candidate query at the same time.
-    let requests: Vec<ActorActionMessage> = actions.read().cloned().collect();
+    // the candidate query at the same time. Only the teleports are kept, and a
+    // tick with none gathers no candidates: each brain sends its actions on
+    // each tick.
+    let requests: Vec<ActorActionMessage> = actions.read().filter(|message| is_teleport(message)).cloned().collect();
+    if requests.is_empty() {
+        return;
+    }
     let candidates: Vec<FoeCandidate> = set
         .p1()
         .iter()

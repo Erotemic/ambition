@@ -643,15 +643,33 @@ fn default_robot_scanlines() -> f32 {
 /// every game in a 4:3 view with bars beside it: fewer pixels to draw, so a
 /// slow device can choose it. This is the viewport, not the zoom
 /// ([`CameraAspectPolicy`] sets how the world fits the view).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GameplayViewShape {
-    #[default]
     GameShape,
     FourByThree,
 }
 
+/// A settings file with no view shape (a fresh install, or one written before
+/// the setting) reads this platform's default.
+impl Default for GameplayViewShape {
+    fn default() -> Self {
+        Self::default_for(cfg!(target_os = "android"))
+    }
+}
+
 impl GameplayViewShape {
     pub const ALL: [Self; 2] = [Self::GameShape, Self::FourByThree];
+
+    /// The default on a phone is 4:3 for every game (Jon, 2026-10-17): fewer
+    /// pixels on the device least able to draw them. A desktop plays each game
+    /// in its own shape.
+    pub fn default_for(android: bool) -> Self {
+        if android {
+            Self::FourByThree
+        } else {
+            Self::GameShape
+        }
+    }
 
     pub fn label(self) -> &'static str {
         match self {

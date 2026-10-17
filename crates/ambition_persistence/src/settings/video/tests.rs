@@ -557,3 +557,17 @@ fn the_previous_default_was_wider_than_the_readability_target() {
         combat_ratio * 100.0,
     );
 }
+
+/// A phone plays every game in 4:3 by default, a desktop each game in its own
+/// shape; the build's default is its platform's, and a settings file with no
+/// view shape reads it.
+#[test]
+fn the_view_shape_defaults_to_four_by_three_on_android() {
+    assert_eq!(GameplayViewShape::default_for(true), GameplayViewShape::FourByThree);
+    assert_eq!(GameplayViewShape::default_for(false), GameplayViewShape::GameShape, "control: a desktop plays each game in its own shape");
+    let platform = GameplayViewShape::default_for(cfg!(target_os = "android"));
+    assert_eq!(GameplayViewShape::default(), platform);
+    assert_eq!(VideoSettings::default().view_shape, platform);
+    let old: VideoSettings = ron::from_str("()").expect("an empty video section parses");
+    assert_eq!(old.view_shape, platform, "a settings file written before the setting reads the platform's default");
+}

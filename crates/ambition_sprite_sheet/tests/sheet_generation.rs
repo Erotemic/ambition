@@ -64,6 +64,34 @@ fn a_published_sheet_table_is_read_whole_and_a_broken_one_is_refused() {
     assert_eq!(current().id(), id, "a refused table changed the generation");
     assert_eq!(collision_scale_in_index(), 2.5, "a refused table changed the records");
 
+    // The effect index is built from the records of its generation: an
+    // edited effect row is what the index says.
+    use ambition_sprite_sheet::fx::{authored_effect, fx_sheets};
+    let fx_target = fx_sheets().first().expect("the premise: this checkout publishes an effect sheet").target;
+    let (fx_key, fx_text) = *sheet_rons().iter().find(|(key, _)| *key == fx_target).expect("the effect sheet is in the table");
+    let effect = authored_effect(record_for_sheet_key(fx_target).unwrap().rows[0].animation.as_str()).expect("the effect sheet's first row is an effect").clone();
+    let duration = format!("duration_secs: {:?}", effect.duration_secs);
+    let mut edited_fx = None;
+    let sheets: Vec<(&'static str, &'static str)> = sheet_rons()
+        .iter()
+        .map(|(key, text)| {
+            if *key == fx_key {
+                // The first row's timing; the row is found by its name.
+                let at = text.find(&format!("\"{}\"", effect.name)).expect("the row is named in its sheet");
+                let offset = at + text[at..].find(&duration).expect("the row states its duration");
+                let edited = kept(format!("{}duration_secs: 0.25{}", &text[..offset], &text[offset + duration.len()..]));
+                edited_fx = Some(edited);
+                (*key, edited)
+            } else {
+                (*key, *text)
+            }
+        })
+        .collect();
+    assert_ne!(effect.duration_secs, 0.25, "the premise: the edit changes the row");
+    assert!(edited_fx.is_some() && fx_text.len() > 0);
+    publish_sheet_generation(SheetTexts { sheets, ..SheetTexts::current() }).unwrap_or_else(|refused| panic!("{refused}"));
+    assert_eq!(authored_effect(effect.name).map(|effect| effect.duration_secs), Some(0.25), "the effect index is not the published generation's");
+
     // A body rig is a part of the generation: an edited rig is what a reader
     // reads, and a rig that does not parse refuses the table.
     let rig_of = |target: &str| ambition_sprite_sheet::baked_body_rigs::baked_body_rig(target);

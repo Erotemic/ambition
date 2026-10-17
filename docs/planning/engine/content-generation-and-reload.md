@@ -564,7 +564,12 @@ not parse or validate refuses the table with the file named, the
 portrait vocabulary a cast is prepared against is the generation's (the
 portrait and catalog arms of `sprite_sheet_reload`; red with the resource
 not stated again, with no portrait or catalog check, and with the catalogs
-not watched). Not yet on the road:
+not watched). The effect sheets and the authored effect index
+(`fx::fx_sheets`, `fx::authored_effects`) are built from each generation's
+own records (they were filled once from the first records, so a published
+effect row's timing was not the index's; witness: the effect arm of
+`sheet_generation`, red with the index in its own `OnceLock`). Not yet on
+the road:
 the prop sheets a room drew, and a body
 already bound at the same tier (the generation key above). The retire and
 the page reload have no witness of their own.

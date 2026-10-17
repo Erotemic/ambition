@@ -33,6 +33,8 @@ pub struct SheetGeneration {
     /// `(tier, json_text)` sorted by tier.
     pack_catalog_texts: Vec<(&'static str, &'static str)>,
     pack_catalogs: OnceLock<std::collections::HashMap<&'static str, crate::SpritePackCatalog>>,
+    fx_sheets: OnceLock<Vec<crate::fx::FxSheet>>,
+    authored_effects: OnceLock<std::collections::BTreeMap<&'static str, crate::fx::AuthoredEffect>>,
     /// Keyed by file root ([`crate::index_baked_table`]); its map is the
     /// record index.
     registry: crate::SheetRegistry,
@@ -54,6 +56,8 @@ impl SheetGeneration {
             portraits: OnceLock::new(),
             pack_catalog_texts: texts.pack_catalogs,
             pack_catalogs: OnceLock::new(),
+            fx_sheets: OnceLock::new(),
+            authored_effects: OnceLock::new(),
             registry,
             digest: OnceLock::new(),
         }
@@ -69,6 +73,8 @@ impl SheetGeneration {
             portraits: OnceLock::from(prepared.portraits),
             pack_catalog_texts: prepared.texts.pack_catalogs,
             pack_catalogs: OnceLock::from(prepared.pack_catalogs),
+            fx_sheets: OnceLock::new(),
+            authored_effects: OnceLock::new(),
             registry: prepared.registry,
             digest: OnceLock::new(),
         }
@@ -108,6 +114,17 @@ impl SheetGeneration {
     /// tier that does not parse or validate is disabled.
     pub fn pack_catalogs(&self) -> &std::collections::HashMap<&'static str, crate::SpritePackCatalog> {
         self.pack_catalogs.get_or_init(|| crate::sprite_packs::catalogs_of(&self.pack_catalog_texts))
+    }
+
+    /// The effect sheets of this generation's records, built on the first ask.
+    pub fn fx_sheets(&'static self) -> &'static [crate::fx::FxSheet] {
+        self.fx_sheets.get_or_init(|| crate::fx::fx_sheets_of(&self.registry.sheets))
+    }
+
+    /// The authored effects of this generation's records, built on the first
+    /// ask.
+    pub fn authored_effects(&'static self) -> &'static std::collections::BTreeMap<&'static str, crate::fx::AuthoredEffect> {
+        self.authored_effects.get_or_init(|| crate::fx::authored_effects_of(self.fx_sheets(), &self.registry.sheets))
     }
 
     /// The part flipbooks and what is derived from them.

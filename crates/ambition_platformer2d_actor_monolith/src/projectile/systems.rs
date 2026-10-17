@@ -901,42 +901,24 @@ pub fn step_projectiles(
 
         // ⭐ THE LEG ENDS AT A PORTAL, AND GOES ON AT ITS PARTNER. Where the
         // shot's centre enters a paired opening, the pair takes it
-        // (`portal_transit`, next tick's step), so the rest of the leg is not
+        // (`portal_transit`, after this step), so the rest of the leg is not
         // in this room: a wall or a body behind the portal, in the room the
-        // shot is leaving, is not reached. Every contact below is measured
-        // along `contact_end`, not the endpoint. The rest of the leg is swept
-        // at the exit, where the pair puts it: what is in front of the exit
-        // stops it there (a wall a shot's last step would carry it through).
-        // The stop is kept where the pair takes it from, behind the entry,
-        // so the pair puts the shot at the stop.
+        // shot is leaving, is not reached. The step ends there, just past the
+        // plane: the pair puts the shot at the exit, and its next step sweeps
+        // the far side from the plane, walls and bodies alike. The rest of
+        // this step is the next one's, not skipped (a step carried whole to
+        // the far end passed a body inside it).
         #[cfg(feature = "portal")]
-        let crossing = ambition_portal2d::first_portal_crossing_through(
+        let contact_end = match ambition_portal2d::first_portal_crossing_through(
             leg_start,
             kin.pos,
             kin.size,
             portals_by_room.in_room(shot_room),
             carved.backside_of(proj_entity),
-        );
-        #[cfg(feature = "portal")]
-        let contact_end = match crossing {
-            Some((t, enter, exit)) => {
+        ) {
+            Some((t, enter, _)) => {
                 let at = leg_start + (kin.pos - leg_start) * t;
-                let bounces = game.bounces_remaining;
-                if let Some(stop) = ambition_portal2d::rest_of_step_stop(
-                    leg_start,
-                    kin.pos,
-                    kin.size,
-                    t,
-                    &enter,
-                    &exit,
-                    carved.portal_convention(),
-                    collision_world,
-                    |block, travel, shot_box| {
-                        ambition_projectiles::block_obstructs_shot(shot_world_hit, bounces, travel, shot_box, gravity_dir, block)
-                    },
-                ) {
-                    kin.pos = stop;
-                }
+                kin.pos = at - enter.frame.normal * 0.01;
                 at
             }
             None => kin.pos,

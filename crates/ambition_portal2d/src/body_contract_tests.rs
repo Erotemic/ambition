@@ -437,35 +437,3 @@ fn a_body_the_portals_move_whole_meets_only_its_own_side() {
     );
 }
 
-/// A shot whose step crosses a portal is swept on at the exit for the rest of
-/// the step (finding B of the review of 15d0cf99c, gap 1): a wall just in front
-/// of the exit stops it there, and it is not put past the wall.
-#[test]
-fn the_rest_of_a_step_through_a_portal_stops_at_a_wall_in_front_of_the_exit() {
-    use ambition_platformer2d_core::frame::{MapConvention, PortalAperture, PortalFrame};
-    let enter = PortalAperture { frame: PortalFrame::fixed(Vec2::new(20.0, 200.0), Vec2::new(1.0, 0.0)), half_length: HALF };
-    let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(380.0, 200.0), Vec2::new(-1.0, 0.0)), half_length: HALF };
-    // 20 into the blue wall: 20 out of the orange one, to x = 360.
-    let (from, to, size) = (Vec2::new(30.0, 200.0), Vec2::new(0.0, 200.0), Vec2::splat(4.0));
-    let t = 1.0 / 3.0;
-    let wall = |x: f32| {
-        ambition_platformer2d_core::World::new(
-            "rest",
-            Vec2::new(400.0, 400.0),
-            Vec2::ZERO,
-            vec![ambition_platformer2d_core::Block::solid("wall", Vec2::new(x, 150.0), Vec2::new(4.0, 100.0))],
-        )
-    };
-    let stop = |world: &ambition_platformer2d_core::World| {
-        crate::rest_of_step_stop(from, to, size, t, &enter, &exit, MapConvention::Reflection, world, |_, _, _| true)
-    };
-    // A wall 8 in front of the exit (its face at x = 372): the shot's box
-    // (half 2) stops with its centre at 374, 6 out of the exit, which the
-    // pair takes from 6 into the entry, x = 14.
-    let stopped = stop(&wall(368.0)).expect("the wall stops it");
-    assert!((stopped - Vec2::new(14.0, 200.0)).length() < 1e-3, "{stopped:?}");
-    // A wall past where the step ends does not.
-    assert_eq!(stop(&wall(340.0)), None);
-    // Nor does the exit's own host behind its plane.
-    assert_eq!(stop(&wall(380.0)), None);
-}

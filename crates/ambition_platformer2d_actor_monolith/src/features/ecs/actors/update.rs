@@ -1264,6 +1264,9 @@ pub fn snapshot_body_contact(
     passages: Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
 ) {
     snapshot.clear();
+    // Each grounded body's box, and the parts of it a pair carries elsewhere.
+    let mut boxes: Vec<(bevy::prelude::Entity, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, ae::Aabb, ae::Vec2)> =
+        Vec::new();
     for (entity, kinematics, ground, frame, contact) in &bodies {
         if !ground.on_ground {
             continue;
@@ -1272,31 +1275,66 @@ pub fn snapshot_body_contact(
         let contact_box = kinematics.aabb_oriented(frame.down());
         // its ENTRY velocity — this pass runs before any body resolves its
         // controller, which is the whole point of a common snapshot.
-        let pieces = passages
-            .as_deref()
-            .filter(|passages| passages.straddled_by(entity).is_some())
-            .map(|passages| passages.pieces(&ae::CombatVolume::aabb(contact_box), Some(entity), kinematics.pos, room))
-            .filter(|pieces| pieces.len() > 1 || pieces.iter().any(|piece| !piece.bounds.is_empty()));
-        let Some(pieces) = pieces else {
-            snapshot.push(entity, room, contact_box, kinematics.vel, contact.resistance);
+        snapshot.push(entity, room, contact_box, kinematics.vel, contact.resistance);
+        boxes.push((entity, room, contact_box, kinematics.vel));
+        let Some(passages) = passages.as_deref().filter(|passages| passages.straddled_by(entity).is_some()) else {
             continue;
         };
-        snapshot.push(entity, room, contact_box, kinematics.vel, contact.resistance);
-        for piece in pieces.iter().filter(|piece| piece.is_carried()) {
+        for piece in passages
+            .pieces(&ae::CombatVolume::aabb(contact_box), Some(entity), kinematics.pos, room)
+            .iter()
+            .filter(|piece| piece.is_carried())
+        {
             // The part of the box the pair carries, as a box (exact for a
             // floor, wall or ceiling pair, which keeps boxes boxes).
-            let Some(region) = piece.region() else {
+            let Some(part) = piece.region().and_then(|region| bounding_box(&region)) else {
                 continue;
             };
-            let (lo, hi) = region
-                .iter()
-                .fold((ae::Vec2::splat(f32::MAX), ae::Vec2::splat(f32::MIN)), |(lo, hi), p| (lo.min(*p), hi.max(*p)));
-            let Some(part) = ae::geometry::aabb_from_min_max(lo.x, lo.y, hi.x, hi.y) else {
-                continue;
-            };
-            snapshot.push_part(entity, room, part, piece.carry_dir(kinematics.vel));
+            let velocity = piece.carry_dir(kinematics.vel);
+            snapshot.push_part(entity, room, part, velocity);
+            boxes.push((entity, room, part, velocity));
         }
     }
+    // A body in a pair meets what is at its far end: each other box in front
+    // of the exit and inside its opening, mapped back through the pair.
+    let Some(passages) = passages.as_deref() else {
+        return;
+    };
+    for (entity, _, ground, ..) in &bodies {
+        let Some(link) = passages.straddled_by(entity).filter(|_| ground.on_ground) else {
+            continue;
+        };
+        let back = ae::frame::Iso2::through(&link.exit.frame, &link.enter.frame, passages.convention());
+        let [behind, lo, hi] = ae::frame::thread::opening(&link.exit);
+        let slab = [behind.flipped(), lo, hi];
+        let room = rooms.of(entity);
+        for (other, other_room, other_box, velocity) in &boxes {
+            if *other == entity || *other_room != room {
+                continue;
+            }
+            let outline = vec![
+                other_box.min,
+                ae::Vec2::new(other_box.max.x, other_box.min.y),
+                other_box.max,
+                ae::Vec2::new(other_box.min.x, other_box.max.y),
+            ];
+            let Some(there) = ae::frame::thread::clip_convex(outline, &slab) else {
+                continue;
+            };
+            let mapped: Vec<ae::Vec2> = there.iter().map(|p| back.point(*p)).collect();
+            if let Some(part) = bounding_box(&mapped) {
+                snapshot.push_seen_by(entity, part, back.vec(*velocity));
+            }
+        }
+    }
+}
+
+/// The box around `points`.
+fn bounding_box(points: &[ae::Vec2]) -> Option<ae::Aabb> {
+    let (lo, hi) = points
+        .iter()
+        .fold((ae::Vec2::splat(f32::MAX), ae::Vec2::splat(f32::MIN)), |(lo, hi), p| (lo.min(*p), hi.max(*p)));
+    ae::geometry::aabb_from_min_max(lo.x, lo.y, hi.x, hi.y)
 }
 
 /// PHASE — integrate sim bodies. The ONE scheduled movement phase for every

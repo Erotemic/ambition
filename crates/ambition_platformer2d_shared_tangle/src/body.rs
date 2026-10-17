@@ -127,11 +127,15 @@ pub struct BodyContactSnapshot {
         ambition_platformer2d_core::movement::BodyContactBlocker,
         f32,
     )>,
+    /// What only one body meets: a body at the far end of the pair it is in,
+    /// mapped back to where that body's own box is (`push_seen_by`).
+    seen_by: Vec<(Entity, ambition_platformer2d_core::movement::BodyContactBlocker)>,
 }
 
 impl BodyContactSnapshot {
     pub fn clear(&mut self) {
         self.bodies.clear();
+        self.seen_by.clear();
     }
 
     /// the VELOCITY is not decoration. It is what lets two bodies closing
@@ -174,6 +178,18 @@ impl BodyContactSnapshot {
         ));
     }
 
+    /// A blocker only `body` meets: another body at the far end of the pair
+    /// `body` is in, mapped back into `body`'s chart, as the walls there are
+    /// (`docs/planning/engine/portals-a-body-in-two-places.md`).
+    pub fn push_seen_by(
+        &mut self,
+        body: Entity,
+        part: ambition_platformer2d_core::Aabb,
+        velocity: ambition_platformer2d_core::Vec2,
+    ) {
+        self.seen_by.push((body, ambition_platformer2d_core::movement::BodyContactBlocker::new(part, velocity)));
+    }
+
     pub fn is_empty(&self) -> bool {
         self.bodies.is_empty()
     }
@@ -213,6 +229,7 @@ impl BodyContactSnapshot {
                 .filter(|(other, other_room, ..)| *other != body && *other_room == room)
                 .map(|(_, _, blocker, _)| *blocker),
         );
+        out.extend(self.seen_by.iter().filter(|(seer, _)| *seer == body).map(|(_, blocker)| *blocker));
         // this body's own snapshot velocity travels with the field, so
         // both halves of a contacting pair divide one gap by the same two
         // numbers. See `constrain_motion`.
@@ -427,6 +444,13 @@ mod body_contact_room_tests {
         let field = snapshot.field_for(a, &mut own);
         assert_eq!(field.own_entry_velocity, Vec2::new(5.0, 0.0));
         assert_eq!(field.blockers.len(), 1, "a body met its own far part");
+        // What `a` meets at its far end, mapped back, `a` alone meets.
+        let mapped = Aabb::new(Vec2::new(110.0, 100.0), Vec2::new(8.0, 16.0));
+        snapshot.push_seen_by(a, mapped, Vec2::ZERO);
+        let mut own = Vec::new();
+        assert!(snapshot.field_for(a, &mut own).blockers.iter().any(|blocker| blocker.aabb == mapped));
+        let mut other = Vec::new();
+        assert!(!snapshot.field_for(b, &mut other).blockers.iter().any(|blocker| blocker.aabb == mapped));
     }
 
     /// OW1 cut 4: two bodies at one local position in two live rooms do not

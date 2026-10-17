@@ -132,6 +132,24 @@ pub fn restate_prop_sheet_rows(
     Ok(kinds)
 }
 
+/// Load again each prop sheet made from a sheet of `targets`, after a sheet
+/// generation is published: a prop's realization holds the frame rects of
+/// the records it was made from. A `Catalog` row holds its own spec, so it
+/// does not follow the sheet generation.
+pub fn reload_prop_sheets_of_targets(world: &mut World, targets: &std::collections::BTreeSet<String>) {
+    let Some(sheets) = world.get_resource::<PropSheets>() else {
+        return;
+    };
+    let kinds: Vec<String> = sheets
+        .iter()
+        .filter(|(_, source)| matches!(source, PropSheetSource::SpriteFolder { target, .. } if targets.contains(target)))
+        .map(|(kind, _)| kind.to_owned())
+        .collect();
+    if !kinds.is_empty() {
+        reload_prop_sheets(world, &[], &kinds);
+    }
+}
+
 /// Load the sheets of `kinds` again into the loaded art, after a reload
 /// restated their rows, and forget the sheets of `dropped`. The room the
 /// reload builds draws its props from the new sheets. A world with no loaded

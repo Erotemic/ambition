@@ -30,13 +30,14 @@
 //!   resource is stated again, each cast made from the sheets is stated again
 //!   where the mechanics changed ([`SheetDerivedRestaters`]), each resident
 //!   character realization is stale (a worn one is made again in place and
-//!   its body binds again; the others are retired), and the pages of each
-//!   changed sheet are loaded again.
+//!   its body binds again; the others are retired), each prop sheet made
+//!   from a changed sheet is made again, and the pages of each changed sheet
+//!   are loaded again.
 //! - A table with a file that does not parse is refused, with each file
 //!   named, and the running table stays.
 //!
 //! Portrait manifests and sprite pack catalogs are on it too. Not on this road
-//! yet: the prop sheets a running room drew (see
+//! yet: a prop row of the asset catalog and the effect sheets (see
 //! `docs/planning/engine/content-generation-and-reload.md`).
 
 use std::collections::BTreeSet;
@@ -514,6 +515,7 @@ fn publish_the_staged_sheets(world: &mut World) {
         info!(target: "ambition_platformer2d::sprites", "restating `{name}` from sheet generation {generation}");
         restate(world);
     }
+    crate::actors::assets::game_assets::reload_prop_sheets_of_targets(world, &staged);
     // Each resident realization is now of an older generation: the residency
     // convergence makes a worn one again in place (its body keeps drawing
     // until the new one is ready, then binds again) and retires the others

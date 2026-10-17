@@ -599,9 +599,12 @@ realization at the same tier. Witnesses: the in-session arm of
 none), the mechanics arms of `sheet_generation` (each comparison red when
 removed, except the landmarks), its staleness arm (red with the generation
 not compared), and `a_body_binds_again_to_a_new_realization_at_the_same_tier`
-(red with the tier alone stamped). Not yet on the road: the prop sheets a
-room drew (`CharacterSpriteAssets::props` is not retired or made again) and
-the effect sheets (`FxSheetAssets`). The page reload has no witness of its
+(red with the tier alone stamped). The prop sheets made from a changed
+sheet (`PropSheetSource::SpriteFolder`) are made again at the publication
+(`reload_prop_sheets_of_targets`), and the prop binder binds each prop again
+to its new realization (the prop arm of `sprite_sheet_reload`, red with the
+reload removed). Not yet on the road: a `Catalog` prop row (it holds its own
+spec) and the effect sheets (`FxSheetAssets`). The page reload has no witness of its
 own.
 
 **Future live path:** the source scanner reports the changed logical key

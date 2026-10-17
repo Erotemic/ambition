@@ -24,7 +24,7 @@ fn sheet_text(collision_scale: &str) -> String {
     frame_width: 32,
     frame_height: 32,
     tuning: Some((collision_scale: {collision_scale}, frame_sample_inset: 0)),
-    rows: [],
+    rows: [(animation: "idle", row_index: 0, frame_count: 1, duration_ms: 100, duration_secs: 0.1, rects: [(x: 0, y: 0, w: 32, h: 32)])],
     start: 0.0,
     end: 1.0,
 )]"#
@@ -89,10 +89,24 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
         let of = |registry: &ambition_sprite_sheet::SheetRegistry| registry.get(PROBE).map(|record| record.label_width);
         (of(current().registry()), of(app.world().resource::<ambition_sprite_sheet::SheetRegistry>()))
     };
+    // A prop drawn from the sheet holds the frame rects of the records it was
+    // made from, so the publication makes it again.
+    use ambition_platformer2d::actors::assets::game_assets::{reload_prop_sheets_of_targets, PropSheetsAppExt, PropSheetSource};
+    app.add_plugins(bevy::asset::AssetPlugin::default());
+    app.init_asset::<Image>();
+    app.init_asset::<bevy::image::TextureAtlasLayout>();
+    app.insert_resource(ambition_sprite_sheet::game_assets::GameAssetConfig::default());
+    app.insert_resource(ambition_sprite_sheet::game_assets::GameAssets::default());
+    app.register_prop_sheet("probe_prop", PropSheetSource::SpriteFolder { target: PROBE.to_owned(), tuning: Default::default() });
+    reload_prop_sheets_of_targets(app.world_mut(), &[PROBE.to_owned()].into());
+    let prop_layout = |app: &App| app.world().resource::<ambition_sprite_sheet::game_assets::GameAssets>().characters.props.get("probe_prop").map(|asset| asset.layout.id());
+    let first_prop = prop_layout(&app);
+    assert!(first_prop.is_some(), "the premise: the prop is made from the probe sheet");
     session(&mut app, true);
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&manifest, sheet_text("2.25").replace("label_width: 0", "label_width: 8")).unwrap();
     look(&mut app);
+    assert!(prop_layout(&app).is_some_and(|layout| Some(layout) != first_prop), "the prop keeps the realization of the old records");
     assert_eq!(current().id(), first + 2, "an edit to where frames are drawn from waited for the end of the session");
     assert_eq!(label_width(&app), (Some(8), Some(8)), "the generation or the SheetRegistry resource is not the edited sheet");
     std::thread::sleep(std::time::Duration::from_millis(20));

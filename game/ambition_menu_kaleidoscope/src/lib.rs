@@ -1436,4 +1436,7 @@ mod tonemapping_tests;
 mod page;
 mod reconcile;
 pub use page::RenderedNode;
+// A host that knows when the cube rests puts these layout sets to sleep
+// (lunex lays out only the cube).
+pub use bevy_lunex::UiSystems;
 use page::{apply_dynamic_text, render_page_model};

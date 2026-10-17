@@ -212,6 +212,19 @@ fn cube_render_needed(
     target > 0.0 || amount > 0.08
 }
 
+/// Lunex lays out only the cube, so its layout sets sleep while the cube
+/// rests, as the cube's own render sets do. About 28 systems a frame stop in
+/// play. A layout change made while they sleep is still a change at their next
+/// run, so the first frame of an open lays it out.
+#[cfg(feature = "kaleidoscope_menu")]
+fn sleep_lunex_while_the_cube_rests(app: &mut App) {
+    use ambition_menu_kaleidoscope::UiSystems;
+    for set in [UiSystems::PreCompute, UiSystems::Compute, UiSystems::PostCompute] {
+        app.configure_sets(Update, set.clone().run_if(kaleidoscope_render_needed))
+            .configure_sets(PostUpdate, set.run_if(kaleidoscope_render_needed));
+    }
+}
+
 #[cfg(feature = "kaleidoscope_menu")]
 /// Peak opacity of the readability dim-scrim (black) when the cube is fully open.
 /// The game runs the cube as an Option-1 overlay (cube camera clears `None`, so the
@@ -279,6 +292,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
         PreUpdate,
         KaleidoscopeRenderPre.run_if(kaleidoscope_render_needed),
     );
+    sleep_lunex_while_the_cube_rests(app);
     // registered beside the systems that WRITE it — nav and the pointer-release
     // observer both publish here, so a composition that installs either without
     // the message panics on an uninitialised `MessageWriter`. The fix for that

@@ -2304,6 +2304,36 @@ fn render_set_is_gated_off_under_the_grid_backend() {
     );
 }
 
+/// Lunex's layout sets run while the cube is open and sleep while it rests,
+/// in both schedules lunex uses. The control: the same sets run with the cube
+/// open.
+#[test]
+fn lunex_sleeps_while_the_cube_rests() {
+    use ambition_menu_kaleidoscope::UiSystems;
+    #[derive(Resource, Default)]
+    struct Runs(u32);
+    fn count_run(mut runs: ResMut<Runs>) {
+        runs.0 += 1;
+    }
+    let runs = |menu_visible: bool| {
+        let mut app = App::new();
+        app.init_resource::<Runs>();
+        app.insert_resource(InventoryUiBackend::LunexKaleidoscope);
+        let mut ui_state = ambition_platformer2d::inventory_ui::InventoryUiState::default();
+        ui_state.visible = menu_visible;
+        app.insert_resource(ui_state);
+        for set in [UiSystems::PreCompute, UiSystems::Compute, UiSystems::PostCompute] {
+            app.add_systems(Update, count_run.in_set(set.clone()));
+            app.add_systems(PostUpdate, count_run.in_set(set));
+        }
+        sleep_lunex_while_the_cube_rests(&mut app);
+        app.update();
+        app.world().resource::<Runs>().0
+    };
+    assert_eq!(runs(true), 6, "control: with the cube open each lunex set runs in both schedules");
+    assert_eq!(runs(false), 0, "a lunex set ran while the cube rests");
+}
+
 /// Gate 6: the focused inventory item's verb resolves correctly
 /// — the pure decision the provider publishes. A HELD item focus → "Equip"; a
 /// consumable → "Use"; a page-turn / closed menu / absent roster / unowned slot →

@@ -270,10 +270,15 @@ pub fn as_met_by<'w>(
 /// pair. The body meets the far side with the part of it that is past the
 /// plane.
 ///
-/// Boxes are bounded by boxes, as the hole is: exact for a floor, wall or
-/// ceiling pair. A one-way block that the pair turns on its side has no box
-/// that says it, and is left out; a line with lanes or junctions, or a closed
-/// one, is left out as the hole leaves it whole.
+/// Each block is cut by the exit's region exactly (the region is turned with
+/// a portal on a slope) and every corner of the cut is mapped. A cut whose
+/// image is a box (a floor, wall or ceiling pair) is that box. The world's
+/// solids are boxes, so an image a pair turns has no exact solid: it is put
+/// as the box that bounds it, which is solid wherever the true image is and
+/// a little more (conservative, never less). A one-way block that the pair
+/// turns on its side has no kind that says it, and is left out; a line with
+/// lanes or junctions, or a closed one, is left out as the hole leaves it
+/// whole. The entry's side is cut by the hole's box, as the hole is.
 pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
     use ae::frame::{map_point, map_vec, FaceRect};
     let (enter, exit) = (&glue.enter, &glue.exit);
@@ -294,18 +299,13 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
     let back_dir = |v: ae::Vec2| map_vec(&exit.frame, &enter.frame, glue.convention, v);
     // What is in front of the exit, read before the entry's side is cut: in a
     // thin wall the two regions share space.
-    let region = before.bounds();
+    let region = ae::frame::thread::face_rect_planes(&before);
     let mut blocks: Vec<ae::Block> = Vec::new();
     for block in &world.blocks {
-        let (lo, hi) = (block.aabb.min.max(region.min), block.aabb.max.min(region.max));
-        if lo.x >= hi.x || lo.y >= hi.y {
-            continue;
-        }
         let Some(kind) = carried_kind(block.kind, back_dir) else {
             continue;
         };
-        let (a, b) = (back(lo), back(hi));
-        let Some(aabb) = ae::geometry::aabb_from_min_max(a.x.min(b.x), a.y.min(b.y), a.x.max(b.x), a.y.max(b.y)) else {
+        let Some(aabb) = carried_box(block.aabb, &region, back) else {
             continue;
         };
         blocks.push(ae::Block { aabb, kind, velocity: back_dir(block.velocity), ..block.clone() });
@@ -329,6 +329,28 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
     world.blocks.extend(blocks);
     world.blocks.sort_by(ae::Block::canonical_cmp);
     world.chains.extend(chains);
+}
+
+/// The part of `aabb` inside `region` (exactly, a convex cut), mapped by
+/// `back`: the box it is when the map keeps boxes boxes, else the box that
+/// bounds it. `None` when no area of it is inside.
+fn carried_box(
+    aabb: ae::Aabb,
+    region: &[ae::frame::thread::HalfPlane],
+    back: impl Fn(ae::Vec2) -> ae::Vec2,
+) -> Option<ae::Aabb> {
+    let outline = vec![
+        aabb.min,
+        ae::Vec2::new(aabb.max.x, aabb.min.y),
+        aabb.max,
+        ae::Vec2::new(aabb.min.x, aabb.max.y),
+    ];
+    let cut = ae::frame::thread::clip_convex(outline, region)?;
+    let mapped: Vec<ae::Vec2> = cut.into_iter().map(back).collect();
+    let (lo, hi) = mapped
+        .iter()
+        .fold((ae::Vec2::splat(f32::MAX), ae::Vec2::splat(f32::MIN)), |(lo, hi), p| (lo.min(*p), hi.max(*p)));
+    ae::geometry::aabb_from_min_max(lo.x, lo.y, hi.x, hi.y)
 }
 
 /// A block's kind carried through a pair whose map of directions is `dir`:
@@ -1090,6 +1112,81 @@ mod collision_world_tests {
         assert!(solid_at(&met, 40.0, 310.0));
         // For a body in no pair, nothing changed.
         assert!(solid_at(&walls, 120.0, 310.0) && !solid_at(&walls, 90.0, 330.0) || solid_at(&walls, 90.0, 330.0));
+    }
+
+    /// A pair that turns what it carries by 45°: a square in front of the
+    /// exit is a diamond behind the entry. The world's solids are boxes, so
+    /// it is the box that bounds the diamond: solid wherever the diamond is,
+    /// never a sliver. Mapping two opposite corners and boxing them (the
+    /// first glue, review of 15d0cf99c) gave a box of no width: the two
+    /// corners of a square turned by 45° share an x. And a block inside the
+    /// box that bounds the turned region, but outside the region, is not
+    /// carried.
+    #[test]
+    fn a_square_through_a_pair_that_turns_it_by_45_degrees_is_solid_where_it_is() {
+        use ae::frame::{map_point, MapConvention, PortalAperture, PortalFrame};
+        let s = std::f32::consts::FRAC_1_SQRT_2;
+        let glue = PortalGlue {
+            enter: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), ae::Vec2::new(0.0, -1.0)), half_length: 60.0 },
+            exit: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, 200.0), ae::Vec2::new(s, -s)), half_length: 60.0 },
+            convention: MapConvention::Reflection,
+            depth: 60.0,
+        };
+        // In front of the exit, well inside its region.
+        let inside = ae::Vec2::new(500.0, 200.0) + ae::Vec2::new(s, -s) * 30.0;
+        let square = ae::Block::solid("square", inside - ae::Vec2::splat(8.0), ae::Vec2::splat(16.0));
+        // In the box that bounds the turned region, out of the region.
+        let corner = ae::Block::solid("corner", ae::Vec2::new(578.0, 228.0), ae::Vec2::splat(4.0));
+        let walls = ae::World::new("glue", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, vec![square.clone(), corner]);
+        let met = as_met_by(&walls, &[], &[], &[&glue]);
+        let carried: Vec<&ae::Block> = met.blocks.iter().filter(|b| b.name == "square").collect();
+        let square_at = carried.iter().find(|b| b.aabb.max.y > 300.0).expect("the square is carried behind the entry");
+        let size = square_at.aabb.max - square_at.aabb.min;
+        assert!(size.x > 16.0 && size.y > 16.0, "the carried square has the area of a turned square: {size:?}");
+        let back = |p: ae::Vec2| map_point(&glue.exit.frame, &glue.enter.frame, glue.convention, p);
+        for c in [square.aabb.min, square.aabb.max, ae::Vec2::new(square.aabb.min.x, square.aabb.max.y), ae::Vec2::new(square.aabb.max.x, square.aabb.min.y)] {
+            let p = back(c);
+            assert!(
+                p.x >= square_at.aabb.min.x - 1e-3 && p.x <= square_at.aabb.max.x + 1e-3 && p.y >= square_at.aabb.min.y - 1e-3 && p.y <= square_at.aabb.max.y + 1e-3,
+                "the carried box holds the turned square's corner {p:?}: {:?}",
+                square_at.aabb
+            );
+        }
+        assert_eq!(met.blocks.iter().filter(|b| b.name == "corner").count(), 1, "a block out of the turned region is not carried");
+    }
+
+    /// What a glued world costs to make (review of 15d0cf99c, finding D):
+    /// `cargo test --release -p ambition_platformer2d_world glue_cost -- --ignored --nocapture`.
+    /// A measurement, not a check.
+    #[test]
+    #[ignore]
+    fn glue_cost() {
+        use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+        for n in [100usize, 1000, 5000] {
+            let blocks: Vec<ae::Block> = (0..n)
+                .map(|i| ae::Block::solid(format!("b{i}"), ae::Vec2::new((i % 100) as f32 * 32.0, (i / 100) as f32 * 32.0), ae::Vec2::splat(16.0)))
+                .collect();
+            let walls = ae::World::new("cost", ae::Vec2::new(3200.0, 3200.0), ae::Vec2::ZERO, blocks);
+            let glue = PortalGlue {
+                enter: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(400.0, 400.0), ae::Vec2::new(0.0, -1.0)), half_length: 48.0 },
+                exit: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0)), half_length: 48.0 },
+                convention: MapConvention::Reflection,
+                depth: 60.0,
+            };
+            let reps = 200;
+            let start = std::time::Instant::now();
+            let mut kept = 0;
+            for _ in 0..reps {
+                kept += as_met_by(&walls, &[], &[], &[&glue]).blocks.len();
+            }
+            let glued = start.elapsed() / reps;
+            let start = std::time::Instant::now();
+            for _ in 0..reps {
+                kept += as_met_by(&walls, &[], &[], &[]).blocks.len();
+            }
+            let plain = start.elapsed() / reps;
+            eprintln!("blocks={n}: glued {glued:?} per body per tick, unglued {plain:?} ({kept})");
+        }
     }
 
     /// OW1 cut 3d: a reader in live room #1 collides with #1's walls, and

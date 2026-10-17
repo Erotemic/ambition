@@ -724,13 +724,16 @@ pub fn sync_parallax_layers(
     let elapsed_s = time.map_or(0.0, |time| time.elapsed_secs());
     // Where the foreground is placed from: the camera less what portals have
     // carried it and the foreground has not followed yet (render space, y up).
+    // Each view's own: a crossing in one view does not move another's.
     #[cfg(feature = "portal_render")]
-    let carried = parallax_carry.map_or(Vec2::ZERO, |carry| {
-        let world = carry.at(elapsed_s);
-        Vec2::new(world.x, -world.y)
-    });
+    let carried = |view: Option<Entity>| {
+        parallax_carry.as_deref().map_or(Vec2::ZERO, |carry| {
+            let world = carry.at(view, elapsed_s);
+            Vec2::new(world.x, -world.y)
+        })
+    };
     #[cfg(not(feature = "portal_render"))]
-    let carried = Vec2::ZERO;
+    let carried = |_view: Option<Entity>| Vec2::ZERO;
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, ..)| view));
 
     // Where each view's camera stands, and how much of the world it shows.
@@ -767,8 +770,8 @@ pub fn sync_parallax_layers(
     }
 
     for (mut transform, mut sprite, mut visibility, mut layer, key, stamp, wrap) in &mut layers {
-        let resolved = on_hand
-            .drawn_for(key.copied())
+        let drawn_for = on_hand.drawn_for(key.copied());
+        let resolved = drawn_for
             .and_then(|view| drawn_by.get(&view).copied())
             // A room's panel is drawn only by a view that frames that room: a view
             // of another live room declines it (V4c).
@@ -798,7 +801,7 @@ pub fn sync_parallax_layers(
         if layer.travel != travel {
             layer.travel = travel;
         }
-        let placed_from = if seen_through_a_portal(&layer) { camera_xy } else { camera_xy - carried };
+        let placed_from = if seen_through_a_portal(&layer) { camera_xy } else { camera_xy - carried(drawn_for) };
         sync_parallax_transform_from(&mut transform, &layer, camera_xy, placed_from);
         if let Some(wrap) = wrap {
             transform.translation.x += wrapped_scroll_x(wrap.slot, wrap.speed_px_s, elapsed_s, panel_size.x);

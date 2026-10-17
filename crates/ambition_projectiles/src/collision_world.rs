@@ -57,6 +57,10 @@ pub struct ProjectileCollisionWorld<'w, 's> {
     // without the portal plugin has no tuning.
     #[cfg(feature = "portal")]
     tuning: Option<Res<'w, ambition_portal2d::PortalTuning>>,
+    /// The pair each shot is on the back of: it does not take the shot, so
+    /// the shot's leg does not end at it (`first_portal_crossing`).
+    #[cfg(feature = "portal")]
+    backsides: Query<'w, 's, &'static ambition_portal2d::PortalBackside>,
 }
 
 impl ProjectileCollisionWorld<'_, '_> {
@@ -93,6 +97,12 @@ impl ProjectileCollisionWorld<'_, '_> {
                 &overlay.removed_block_names,
             ),
         )
+    }
+
+    /// The pair `shot` is on the back of, if any.
+    #[cfg(feature = "portal")]
+    pub fn backside_of(&self, shot: Entity) -> Option<ambition_portal2d::PortalBackside> {
+        self.backsides.get(shot).ok().copied()
     }
 
     /// The portal holes open for `shot` in the live room `room` names: the

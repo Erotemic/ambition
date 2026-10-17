@@ -222,6 +222,21 @@ fn box_outline(b: crate::Aabb) -> Vec<Vec2> {
 
 /// The convex polygon `outline` cut by every half plane, or `None` when no
 /// area is left.
+pub fn clip_convex(outline: Vec<Vec2>, planes: &[HalfPlane]) -> Option<Vec<Vec2>> {
+    cut(outline, planes)
+}
+
+/// The half planes whose common part is `rect`.
+pub fn face_rect_planes(rect: &super::FaceRect) -> [HalfPlane; 4] {
+    let (t, n) = (rect.tangent(), rect.normal);
+    [
+        HalfPlane { point: rect.center - n * rect.half_out, inward: n },
+        HalfPlane { point: rect.center + n * rect.half_out, inward: -n },
+        HalfPlane { point: rect.center - t * rect.half_along, inward: t },
+        HalfPlane { point: rect.center + t * rect.half_along, inward: -t },
+    ]
+}
+
 fn cut(mut outline: Vec<Vec2>, planes: &[HalfPlane]) -> Option<Vec<Vec2>> {
     for plane in planes {
         let mut kept = Vec::with_capacity(outline.len() + 2);

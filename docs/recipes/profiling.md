@@ -876,9 +876,17 @@ scripts/profile_android.sh heap --no-launch --duration 30 --heap-sampling-interv
 
 ## Quick recipes
 
-**An unattended phone profile of one game in the hub.** The hub boots into the
-game, and the game plays itself by navigation (both read at compile time for
-an APK):
+**An unattended phone profile of one game in the hub.** One command:
+
+```bash
+scripts/autoprofile_android.sh            # Ambition: a tour of the world by its doors
+scripts/autoprofile_android.sh mary_o     # Mary-O: the cosmic form, to each goal
+```
+
+It is the recipe below with the game's boot route and autoplay set; any
+further argument goes to `profile_android.sh`. The hub boots into the game,
+and the game plays itself by navigation (both read at compile time for an
+APK):
 
 ```bash
 AMBITION_BOOT_ROUTE=mary_o_gameplay AMBITION_AUTOPLAY=mary_o \

@@ -405,6 +405,50 @@ the phone: `ProcessLdtkApi` ~0.55 ms a frame (P8), Yarn's
 `fetch_resources` 120 µs (fork item), and `check_entities_needing_specialization`
 35-44 µs for each of four materials.
 
+### F38 — What 1-2's simulation costs, measured on the desktop (2026-10-17)
+
+The review asked for 1-2's simulation cost on the phone (P2). No device is on
+this machine, so the same question was asked on the desktop:
+`capture_mary_o --room mary_o_1_X --warmup 300 --walk 900`, profiling build
+with `perf_probe`, `AMBITION_PROFILE_CENSUS=1`, 1-1, 1-2 and 1-3 in one
+session (the box loaded by a parallel `app_it` in each run, so read the
+ratios, not the absolute times).
+
+MEASURED, per tick, 1-2 against 1-3: our simulation systems grow by ~390 µs.
+`integrate_sim_bodies` is 243 of it (420 against 145 µs a call); the
+developer trace recorders are 79 (already off on Android); then
+`rebuild_feature_view_index` 18, and no other system more than 5. In
+`Update`, `dress_power_blocks` was 143 µs a frame in 1-2 (23 in 1-1): it
+decoded the name of each of the 332 blocks each frame.
+
+MEASURED (temporary spans inside `integrate_sim_bodies`, removed): 1-2
+steps 26 actor bodies a tick at 13.2 µs each (342 µs); 1-3 steps 20 at 8.6
+µs (173 µs). The walls of each body (`solids_for`) are ~1 µs; the player's
+step is 8 µs. 1-2's actors are 20 walkers (15 AI Slop, 5 snakes); 1-3's are
+mostly plants and flyers. So 1-2 is dear because it has many walking bodies,
+and each one runs a full kernel step on each tick.
+
+A RECORDED NEGATIVE: six block queries of the kernel (one-way support, the
+brink probe, the two hazard tests, rebound, the supporting block) scan each
+block of the room. Moved onto the room's index (`Layered::near`) with a
+witness that each answer equals the scan's, `integrate_sim_bodies` in 1-2
+went 420 → 412 µs a call: noise. The change was reverted. The terrain is
+already merged into rectangles (`merge_intgrid_rects`), so a scan is short.
+
+The lever (not built): Mary-O's `hostile_wake_radius` (720 px) sleeps a far
+hostile's BRAIN, and its body still steps (`dormancy.rs`: "body physics
+continues"). In a level 7,680 px wide most of the 26 bodies are dormant and
+at rest. A body at rest whose step is a fixed point need not step. It must
+be exact: `ActorMut::update` also advances health, timers, the hit flash and
+what a body carries, so the rule needs its own design and a witness that a
+skipped tick and a stepped tick give the same components, under rollback.
+
+Done: `dress_power_blocks` does its work only when a block, its art or the
+spent set changed (witness `the_dresser_follows_each_of_its_inputs_and_nothing_else`,
+red at its own assertion with each arm removed). MEASURED (the same capture,
+after): in 1-2, 142.7 → 7.1 µs a frame and 354 → 3 allocations a frame; in
+1-1, 22.9 → 9.3 µs (the "before" on a loaded box).
+
 ## Summary (2026-10-16)
 
 - **One thread is the limit.** On the phone the main thread is 82% busy, the
@@ -1400,6 +1444,21 @@ Jon passed on GPT's diagnosis. Its points against this page's evidence:
 | Single-threaded executor for the standalone fixed step | P2 | agrees, and wider: the windowed demos run every schedule multi-threaded (F3), and F11 shows why it matters |
 | Keep 60 Hz for now | D1 | agrees; D1 stays Jon's call |
 | Do not rewrite movement, broadphase or AI | — | agrees; no system body of ours is over 1.4% on the main thread (F11) |
+
+## A code review of the slices, acted on (GPT, 2026-10-17)
+
+Jon passed on a review of the 10-16/17 slices. Each finding, with what was
+done:
+
+| Finding | Done |
+| --- | --- |
+| P0: the navigation graph key left out world inputs that the kernel reads (`1564bae`) | `geometry_stamp` folds the whole `World` through a serializer (11.5 µs a 400-block room, release; once for each world in a run). `144281d79`; witness `each_part_of_the_world_the_kernel_reads_moves_the_stamp` |
+| P1: terrain mesh invalidation followed only blocks that came or went (`fd40043`) | Also a block's rectangle, the keep-out, the decor density, a picture's size (in the chunk stamp) and a part's picture handle. `407864224`; witness `the_skin_follows_each_of_its_inputs_changed_in_place` (one registered system: a `run_system_once` system sees each filter as changed) |
+| P1: the incremental sprite check trusted a first generation it never checked (`0dc21f5`) | `SheetGeneration::rigs_checked`; an unchanged rig is taken unchecked only from a checked generation. `ba91ba1da` |
+| P2: retired debris took budget places and kept Avian awake (`83bc8a8`); colliders built with debris off | `7aabe0e84` |
+| P3: capability dormancy read THE room, so two live rooms ran every capability | `GoverningRules::any_live_room_uses`. `876c0aea5`; witness `a_capability_sleeps_while_no_live_room_uses_it` |
+| P3: navigation first-build latency | Not changed: only the autopilot builds a graph today, on the async compute pool; no Mary-O body navigates. P17 (baked graphs) stays the direction |
+| P2: profile the Mary-O 1-2 simulation on the phone | No device on this machine; measured on the desktop instead (F38): many walking bodies, each a full kernel step; the dormant-at-rest lever is recorded there |
 
 ## Run log (2026-10-16)
 

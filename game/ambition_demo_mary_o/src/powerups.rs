@@ -1019,10 +1019,15 @@ pub fn dress_power_blocks(
     rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     blocks: Query<(
         Entity,
-        &ambition_platformer2d::render::rendering::BlockVisual,
-        Option<&ambition_platformer2d::render::rendering::EntityArt>,
+        Ref<ambition_platformer2d::render::rendering::BlockVisual>,
+        Option<Ref<ambition_platformer2d::render::rendering::EntityArt>>,
     )>,
 ) {
+    // The look of a block is a function of its name, its art and the spent
+    // set. With none of them changed, the answer of the last run holds: 1-2
+    // has 332 blocks, and to decode each name each frame was 140 µs a frame
+    // (desktop, `perf_probe`).
+    let all = spent.is_changed();
     // ⛔ NOT THROUGH `content`, WHICH IS FEATURE-GATED. `EntitySprite` is sprite
     // vocabulary — `ambition_sprite_sheet::game_assets` — and the SDK re-exports
     // that crate UNGATED, two hundred lines from the gated `content` module that
@@ -1032,6 +1037,10 @@ pub fn dress_power_blocks(
     use ambition_platformer2d::render::rendering::EntityArt;
     use ambition_platformer2d::sprite_sheet::game_assets::EntitySprite;
     for (entity, visual, art) in &blocks {
+        if !all && !visual.is_changed() && !art.as_ref().is_some_and(|art| art.is_changed()) {
+            continue;
+        }
+        let art = art.as_deref();
         // the block's own NAME says what it is. This asked two index tables whether the id
         // matched a constant column; a block the author dragged answered neither, so it drew as
         // plain masonry however clearly it was marked a ?-block.
@@ -2850,6 +2859,43 @@ mod block_dressing_tests {
             "a brick that gave up its quasar still wears masonry, so the player cannot \
              tell which bricks they have already emptied (Jon, 2026-08-19)"
         );
+    }
+
+    /// The dresser does its work only when a block, its art or the spent set
+    /// changed. Each of the three is witnessed alone: a block spent on a later
+    /// frame, a block that comes later, and art that another writer changes.
+    #[test]
+    fn the_dresser_follows_each_of_its_inputs_and_nothing_else() {
+        let mut app = App::new();
+        app.init_resource::<SpentPowerBlocks>();
+        ambition_platformer2d::session::insert_live_room_component(
+            app.world_mut(),
+            ambition_platformer2d::world::FeatureEcsWorldOverlay::default(),
+        );
+        app.add_systems(Update, dress_power_blocks);
+        let quasar = MaryOBlockContents::Always(MaryOPickup::Quasar);
+        let question = block(&mut app, "q", MaryOBlock::new(MaryOBlockLook::Question, quasar));
+        app.update();
+        app.update();
+        assert_eq!(art(&app, question), Some(EntitySprite::BonusBlockTile), "the premise: it is dressed");
+
+        // Spent on a later frame.
+        app.world_mut()
+            .resource_mut::<SpentPowerBlocks>()
+            .in_room_mut(LiveRoomInstance::ACTIVATION)
+            .spend(ae::GeoId::placement(ae::PlacementId::new("q".to_string()), 0));
+        app.update();
+        assert_eq!(art(&app, question), Some(EntitySprite::SpentBlockTile), "a block spent on a later frame");
+
+        // A block that comes later.
+        let later = block(&mut app, "q_later", MaryOBlock::new(MaryOBlockLook::Question, quasar));
+        app.update();
+        assert_eq!(art(&app, later), Some(EntitySprite::BonusBlockTile), "a block that comes later");
+
+        // Art that another writer changes.
+        app.world_mut().entity_mut(later).insert(EntityArt(EntitySprite::BridgePlankTile));
+        app.update();
+        assert_eq!(art(&app, later), Some(EntitySprite::BonusBlockTile), "art that another writer changed");
     }
 }
 

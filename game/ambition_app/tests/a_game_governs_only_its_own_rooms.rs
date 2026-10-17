@@ -494,3 +494,74 @@ fn encounters_sleep_in_mary_os_and_sanics_rooms_and_run_in_ambitions() {
         assert!(!inside.iter().any(|name| name == awake), "{awake} sleeps with the encounters");
     }
 }
+
+/// What a game declares it does not use, its maps do not author. Each map
+/// entity that needs a capability is compared with the declaration of the game
+/// whose worlds hold it. Sanic declared no portals while his Act 3 rifts are
+/// portals, and the rift slept (`three_acts`).
+#[test]
+fn a_game_declares_each_capability_its_maps_author() {
+    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::platformer::capability::{Capability, UsedCapabilities};
+
+    // The map entities whose work is a capability's.
+    const NEEDS: [(&str, Capability); 4] = [
+        ("Portal", Capability::Portals),
+        ("PortalGunSpawn", Capability::Portals),
+        ("EncounterTrigger", Capability::Encounters),
+        ("BossSpawn", Capability::BossEncounters),
+    ];
+    fn authored(game: &str) -> std::collections::BTreeSet<String> {
+        let worlds = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../ambition_map_assets")
+            .join(game)
+            .join("worlds");
+        let mut found = std::collections::BTreeSet::new();
+        let mut files = 0;
+        for file in std::fs::read_dir(&worlds).unwrap_or_else(|error| panic!("{}: {error}", worlds.display())) {
+            let path = file.expect("a world file").path();
+            if path.extension().and_then(|ext| ext.to_str()) != Some("ldtk") {
+                continue;
+            }
+            files += 1;
+            let project: serde_json::Value =
+                serde_json::from_str(&std::fs::read_to_string(&path).expect("the world reads")).expect("the world parses");
+            assert_ne!(project["externalLevels"], serde_json::Value::Bool(true), "{}: levels in other files", path.display());
+            for level in project["levels"].as_array().into_iter().flatten() {
+                for layer in level["layerInstances"].as_array().into_iter().flatten() {
+                    for entity in layer["entityInstances"].as_array().into_iter().flatten() {
+                        found.insert(entity["__identifier"].as_str().unwrap_or_default().to_owned());
+                    }
+                }
+            }
+        }
+        assert!(files > 0, "the premise: {game} has worlds");
+        found
+    }
+
+    let app = compose_the_shipped_host();
+    let rules = app
+        .world()
+        .get_resource::<DeclaredRules<UsedCapabilities>>()
+        .expect("the shipped host's games declare the capabilities they use");
+    let mut checked = 0;
+    for (game, mode) in [
+        ("ambition_demo_mary_o", ambition_demo_mary_o::MARY_O_MODE),
+        ("ambition_demo_sanic", ambition_demo_sanic::SANIC_MODE),
+    ] {
+        let found = authored(game);
+        assert!(!found.is_empty(), "the premise: {game}'s maps hold entities");
+
+        for (entity, capability) in NEEDS {
+            if found.contains(entity) {
+                checked += 1;
+                assert!(
+                    rules.governing(ActiveRoom::live(Some(mode))).is_none_or(|used| used.uses(capability)),
+                    "{game}'s maps author {entity}, but its rooms do not use {}",
+                    capability.name()
+                );
+            }
+        }
+    }
+    assert!(checked > 0, "the premise: some game's maps author an entity that needs a capability");
+}

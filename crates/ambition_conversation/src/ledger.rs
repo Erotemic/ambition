@@ -287,26 +287,33 @@ impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
         // One condition for every ledger's forget, asked once a frame: each
         // forget has work only on the frame a session activates. A condition
         // on each one was asked once for each ledger (twelve in the hub).
-        if !app.world().contains_resource::<NarrativeLedgersForgetConfigured>() {
-            use bevy::ecs::schedule::common_conditions::{on_message, resource_exists};
-            use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated;
-            app.init_resource::<NarrativeLedgersForgetConfigured>().configure_sets(
-                Update,
-                NarrativeLedgersForget
-                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate)
-                    .run_if(resource_exists::<Messages<SessionScopeActivated>>.and_then(on_message::<SessionScopeActivated>)),
-            );
+        if !app.is_plugin_added::<NarrativeLedgersForgetPlugin>() {
+            app.add_plugins(NarrativeLedgersForgetPlugin);
         }
+    }
+}
+
+/// Gives the forget set its one condition. Added once, by the first ledger:
+/// a plugin and not a marker resource, which would be world state that a
+/// rewind does not restore.
+struct NarrativeLedgersForgetPlugin;
+
+impl Plugin for NarrativeLedgersForgetPlugin {
+    fn build(&self, app: &mut App) {
+        use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated;
+        use bevy::ecs::schedule::common_conditions::{on_message, resource_exists};
+        app.configure_sets(
+            Update,
+            NarrativeLedgersForget
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate)
+                .run_if(resource_exists::<Messages<SessionScopeActivated>>.and_then(on_message::<SessionScopeActivated>)),
+        );
     }
 }
 
 /// Every ledger's [`forget_narrative_inputs_on_activation`].
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct NarrativeLedgersForget;
-
-/// The forget set has its condition.
-#[derive(Resource, Default)]
-struct NarrativeLedgersForgetConfigured;
 
 /// The set of the dialogue capability's per-tick work.
 const DIALOGUE: ambition_platformer2d_shared_tangle::capability::CapabilitySet =

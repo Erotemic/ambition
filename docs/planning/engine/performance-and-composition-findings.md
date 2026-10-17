@@ -109,6 +109,24 @@ their rows of 1.000 a frame are gone from `changes_by_site.csv`. The
 content watchers (`watch_content_sources` 81 µs) are not in the phone build
 (`static_content`).
 
+### F36 — The hub's Mary-O route, after the dormancy slices (2026-10-17)
+
+MEASURED (probe, profiling `capture_scene --route mary_o_gameplay`, ~580
+frames): systems run 1,452 a frame, 425 in the GGRS tick. Avian stepped on
+~63% of frames: combat debris (an impact, a ragdoll, a broken block) wakes
+it for its lifetime, and while awake it cost ~2.6 ms a frame. Of that,
+616 µs was `block_on_optimize_trees`: avian clones the debris tree into an
+async task and waits on it. It now optimizes in place on the main thread
+(no spatial query runs during the step): `run_physics_schedule` 1,537 →
+805 µs a frame (witness `avian_optimizes_its_trees_in_place_on_this_thread`).
+Yarn's `fetch_resources` (146 µs) and `continue_runtime` (38 µs) ran with no
+dialogue; its public `YarnSpinnerSystemSet` now sleeps where the room's game
+uses none, once its project is compiled (witness
+`yarn_sleeps_in_rooms_whose_game_uses_no_dialogue`). Not a fork edit after
+all. Left on this route: the solver's six substeps (383 µs while awake; a
+visual change for cosmetic debris), the rigged presentation (145 µs), the
+body step (144 µs), and the render world, which is most of the frame.
+
 ### F25 — Where the phone's main thread goes, hub with Mary-O
 
 MEASURED (`android-all-maryo-1-1-morning3`, main thread tid 28006, 83% busy):
@@ -433,7 +451,8 @@ Updated 2026-10-17. Each one helps every game, not only Mary-O.
 4. P15: render primitives apart from simulation objects (F32 is the first).
 5. P16: a repeat-allocation pass from `alloc_traces.csv`.
 6. P4: interned identities. P17: baked navigation graphs.
-7. Fork edits, for Jon: Yarn `fetch_resources` (keep its `SystemState`),
+7. Fork edits, for Jon: Yarn `fetch_resources` (keep its `SystemState`;
+   it now sleeps outside dialogue rooms, F36),
    `virtual_joystick::update_ui` (compare before write); `bevy_light` open.
 8. D12: done 2026-10-17 (F22).
 

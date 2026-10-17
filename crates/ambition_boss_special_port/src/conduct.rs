@@ -453,6 +453,11 @@ pub struct MountLimb {
     pub lost_health: i32,
     /// The rider holds its pose.
     pub held: bool,
+    /// Where it touches something solid, when it does: a held limb is
+    /// stopped by what it meets, on its own side or through a portal pair it
+    /// reaches into, and this is where (in the world, at the far end when it
+    /// is through). `None`: it touches nothing.
+    pub contact: Option<[f32; 2]>,
 }
 
 /// The mount a boss rides, at the read cut.
@@ -470,7 +475,7 @@ pub struct MountView {
 }
 
 impl Port for MountViewPort {
-    const KEY: PortKey = PortKey::new("ambition.boss.mount", 1);
+    const KEY: PortKey = PortKey::new("ambition.boss.mount", 2);
     const ROLE: PortRole = PortRole::Observation;
     type Value = MountView;
 
@@ -494,6 +499,7 @@ impl Port for MountViewPort {
             wire::put_vec2(out, limb.home_offset);
             wire::put_i32(out, limb.lost_health);
             wire::put_bool(out, limb.held);
+            wire::put_opt(out, limb.contact, wire::put_vec2);
         }
     }
 
@@ -515,6 +521,7 @@ impl Port for MountViewPort {
                 home_offset: r.vec2()?,
                 lost_health: r.i32()?,
                 held: r.bool()?,
+                contact: r.opt(|r| r.vec2())?,
             });
         }
         Ok(MountView { position, velocity, size, facing, unmirrored, back, hall, limbs })
@@ -854,6 +861,7 @@ mod tests {
             home_offset: [-270.0, -70.0],
             lost_health: 3,
             held: true,
+            contact: Some([700.0, 1050.0]),
         };
         let view = MountView {
             position: [900.0, 1040.0],
@@ -863,7 +871,7 @@ mod tests {
             unmirrored: true,
             back: Some([692.0, 1030.25, 1069.0, 1044.25]),
             hall: Some(RoomHall { floor: 1250.0, left: 48.0, right: 1800.0 }),
-            limbs: vec![fist.clone(), MountLimb { slot: "hand_right".into(), held: false, lost_health: 0, ..fist }],
+            limbs: vec![fist.clone(), MountLimb { slot: "hand_right".into(), held: false, lost_health: 0, contact: None, ..fist }],
         };
         assert_eq!(round::<MountViewPort>(&view), view);
         let bare = MountView { back: None, hall: None, limbs: Vec::new(), ..view };

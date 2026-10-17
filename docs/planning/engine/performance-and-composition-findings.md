@@ -153,7 +153,15 @@ from `time_by_span.csv`). After the two slices below, systems run 1,446 →
 - `bevy_pbr` 169 µs and the OIT resolve bind group 130 µs with no 3D camera
   active: the cube is the only 3D, and OIT is added inside
   `CorePipelinePlugin`, so neither can be left out from a plugin group. A
-  fork or upstream item; the probe's software GPU inflates both.
+  fork or upstream item; the probe's software GPU inflates both. Bevy's GPU
+  mesh preprocessing is ~185 µs of this (`write_batched_instance_buffers`
+  109 µs, counted under `bevy_render`; `collect_meshes_for_gpu_building` 54;
+  `extract_meshes_for_gpu_building` 22), a fixed task-pool fan-out each frame. The phone does not pay it: Bevy turns
+  GPU preprocessing off for Adreno 730 and older, and the profiled Pixel 5
+  is an Adreno 620. A desktop can turn it off with `PbrPlugin {
+  use_gpu_instance_buffer_builder: false }`, but only in builds whose
+  feature set includes `bevy_pbr` (`set` panics on a plugin the group does
+  not hold), so it is not done.
 - The FPS frame-time graph, ~180 µs (its material is re-uploaded each
   frame): on by Jon's choice (2026-08-31, `dev/fps_overlay.rs`).
 - `virtual_joystick` writes the stick's `Node`s each frame (the `JoystickFixed`

@@ -457,6 +457,20 @@ red at its own assertion with each arm removed). MEASURED (the same capture,
 after): in 1-2, 142.7 → 7.1 µs a frame and 354 → 3 allocations a frame; in
 1-1, 22.9 → 9.3 µs (the "before" on a loaded box).
 
+Done: a rigged body drawn directly that no view shows is hidden and not
+posed (`drive_rigged_presentations`, `seen_by_a_view`: the active
+orthographic cameras on the body's layers, with a 256-unit margin for the
+part reach and the camera's last-frame place). A body read as one image, or
+whose parts a reader asked for, is posed wherever it is; with no camera every
+body is posed. This is the "culling/bounds" rule that
+`semantic-part-rendering-and-ragdolls.md` asked for, for the direct road.
+Witness `a_body_no_view_shows_is_not_posed_until_a_view_shows_it` (red at its
+own assertion with no cull, with the body hidden and still posed, with the
+layers ignored, with a cull when no view exists, and with a view that never
+shows it). MEASURED (same capture, idle box, frames 24-26 ms in both):
+`drive_rigged_presentations` in 1-2 172.7 → 97.7 µs a frame, in 1-1 129.8
+→ 104.3 µs.
+
 ## Summary (2026-10-16)
 
 - **One thread is the limit.** On the phone the main thread is 82% busy, the

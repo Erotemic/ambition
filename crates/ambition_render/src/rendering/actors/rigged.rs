@@ -622,6 +622,54 @@ type RootShows = (
     Has<ChildOf>,
 );
 
+/// How far past a body's quad its parts can reach, and the camera can move
+/// in the frame after its view was measured (world units). A view's area and
+/// place are those of the last frame (`camera_system` and the transform
+/// propagation run in `PostUpdate`).
+const VIEW_MARGIN: f32 = 256.0;
+
+/// The cameras, for what each one shows. A part slot is not a camera; the
+/// filter says so, because the slots' layers are written beside this read.
+type Views<'w, 's> = Query<
+    'w,
+    's,
+    (&'static Camera, &'static Projection, &'static GlobalTransform, Option<&'static RenderLayers>),
+    (Without<RiggedImpostorCamera>, Without<RiggedPartSlot>),
+>;
+
+/// What each active orthographic camera that is not an impostor camera
+/// shows: its area in the world, and its layers. A perspective camera does
+/// not draw the world's sprites.
+fn world_views(views: &Views) -> Vec<(Rect, RenderLayers)> {
+    views
+        .iter()
+        .filter(|(camera, ..)| camera.is_active)
+        .filter_map(|(_, projection, transform, layers)| {
+            let Projection::Orthographic(ortho) = projection else {
+                return None;
+            };
+            let area = ortho.area;
+            let corners = [area.min, Vec2::new(area.max.x, area.min.y), area.max, Vec2::new(area.min.x, area.max.y)]
+                .map(|corner| transform.transform_point(corner.extend(0.0)).truncate());
+            let shown = corners.iter().fold(Rect::from_corners(corners[0], corners[0]), |rect, corner| rect.union_point(*corner));
+            Some((shown, layers.cloned().unwrap_or_default()))
+        })
+        .collect()
+}
+
+/// Whether a view shows the body of a top-level root at `transform`. With no
+/// view (a host with no camera, a test) every body is shown.
+fn seen_by_a_view(views: &[(Rect, RenderLayers)], transform: &Transform, sprite: &Sprite, layers: Option<&RenderLayers>) -> bool {
+    if views.is_empty() {
+        return true;
+    }
+    let reach = sprite.custom_size.map_or(0.0, |size| size.max_element()) + VIEW_MARGIN;
+    let body = Rect::from_center_half_size(transform.translation.truncate(), Vec2::splat(reach));
+    let default_layers = RenderLayers::default();
+    let layers = layers.unwrap_or(&default_layers);
+    views.iter().any(|(shown, view_layers)| view_layers.intersects(layers) && !shown.intersect(body).is_empty())
+}
+
 /// Whether a root is shown. ⛔ A top-level root's own `Visibility` is this
 /// frame's answer; its `InheritedVisibility` is last frame's (propagation runs
 /// in `PostUpdate`), so parts that followed it appeared a frame after the body
@@ -982,6 +1030,9 @@ pub fn drive_rigged_presentations(
         Without<RiggedPartSlot>,
     >,
     mut cameras: Query<&mut Camera, With<RiggedImpostorCamera>>,
+    // The views that draw the world. A body that none of them shows is not
+    // posed (`seen_by_a_view`).
+    views: Views,
     mut roots: Roots,
     mut slots: Slots,
     mut too_large: Local<HashSet<String>>,
@@ -1122,6 +1173,7 @@ pub fn drive_rigged_presentations(
     // The bodies drawn into their page this frame: if the page renders, their
     // cells hold this frame's draws under its new generation.
     let mut drawn_into: Vec<(Entity, usize, usize)> = Vec::new();
+    let views = world_views(&views);
     for (owner, &RiggedPresentationOf(root), mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
         let Ok((
             animator,
@@ -1130,7 +1182,7 @@ pub fn drive_rigged_presentations(
             color_shift,
             root_transform,
             root_visibility,
-            _,
+            root_layers,
             pose,
             frame_in_sprite,
             performed,
@@ -1139,6 +1191,19 @@ pub fn drive_rigged_presentations(
         else {
             continue;
         };
+        // A body drawn directly that no view shows is hidden and not posed:
+        // its parts keep the last frame they drew, and the frame a view shows
+        // it again poses it before it is drawn. A body read as one image, or
+        // whose parts a reader asked for, is posed wherever it is.
+        let parented = root_visibility.2;
+        if presentation.impostor.is_none()
+            && asked.is_none()
+            && !parented
+            && !seen_by_a_view(&views, root_transform, &root_sprite, root_layers)
+        {
+            owner_visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        }
         let flipbook = presentation.pages.flipbook.clone();
         // `None` for a baked clip of a hybrid: `check_rows` at attach makes
         // sure that every other row has draws. A tweened clip draws the frame

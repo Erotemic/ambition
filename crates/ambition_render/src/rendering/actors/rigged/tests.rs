@@ -1660,3 +1660,62 @@ fn the_driver_answers_each_reader_with_its_own_tracks() {
     settle(&mut app);
     assert_eq!(counts(&app), (0, in_b, in_both), "the others keep their answers when one forgets");
 }
+
+/// A body drawn directly that no view shows is hidden and not posed; the
+/// frame a view shows it, it is posed and shown before it is drawn. A view
+/// on other layers does not show it, and with no view at all (a host with no
+/// camera) every body is posed.
+#[test]
+fn a_body_no_view_shows_is_not_posed_until_a_view_shows_it() {
+    let (flipbook, mut app, root) = robot();
+    app.insert_resource(Composite(false));
+    let owner = owner(&app, root);
+    let clip = flipbook.clip("run").expect("a run clip");
+    assert!(clip.frame_count() > 1, "the premise: the run clip has two frames");
+    let at = |frame: usize| -> Vec<Vec2> {
+        flipbook.frame("run", frame).unwrap().iter().map(|draw| Vec2::new(draw.at.x, -draw.at.y)).collect()
+    };
+    assert_ne!(at(0), at(1), "the premise: two frames of the run differ");
+    let drawn = |app: &App| -> Vec<Vec2> { slots(app, owner).iter().filter(|(_, shown)| *shown).map(|(at, _)| *at).collect() };
+    let shown = |app: &App| *app.world().get::<Visibility>(owner).unwrap() != Visibility::Hidden;
+
+    // Out of its composited hold, onto the direct road.
+    for _ in 0..=COMPOSED_HOLD_FRAMES {
+        app.update();
+    }
+    assert!(app.world().get::<RiggedPresentation>(owner).unwrap().impostor.is_none(), "the premise: drawn directly");
+
+    // No view: posed.
+    pin_clip(&mut app, root, "run", 0);
+    app.update();
+    assert!(shown(&app), "with no view the body is shown");
+    let first = drawn(&app);
+
+    // A view far away, on the body's layer: hidden, and not posed.
+    let view = |x: f32| {
+        (
+            Camera::default(),
+            Projection::Orthographic(OrthographicProjection {
+                area: Rect::new(-320.0, -180.0, 320.0, 180.0),
+                ..OrthographicProjection::default_2d()
+            }),
+            GlobalTransform::from_translation(Vec3::new(x, 0.0, 0.0)),
+        )
+    };
+    let camera = app.world_mut().spawn(view(10_000.0)).id();
+    pin_clip(&mut app, root, "run", 1);
+    app.update();
+    assert!(!shown(&app), "a body no view shows is hidden");
+    assert_eq!(drawn(&app), first, "a body no view shows is not posed");
+
+    // A view on another layer over the body does not show it.
+    app.world_mut().spawn(view(0.0)).insert(RenderLayers::layer(7));
+    app.update();
+    assert!(!shown(&app), "a view on other layers does not show the body");
+
+    // The view comes over the body: posed and shown in that frame.
+    *app.world_mut().get_mut::<GlobalTransform>(camera).unwrap() = GlobalTransform::IDENTITY;
+    app.update();
+    assert!(shown(&app), "the frame a view shows the body, it is shown");
+    assert_ne!(drawn(&app), first, "the frame a view shows the body, it is posed");
+}

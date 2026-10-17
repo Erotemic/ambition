@@ -226,21 +226,13 @@ pub fn sync_map_menu(
         .filter(|node| Some(node.world.as_str()) == active_world)
         .collect();
     if let Ok(mut visibility) = roots.single_mut() {
-        *visibility = if map.open {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
+        visibility.set_if_neq(if map.open { Visibility::Visible } else { Visibility::Hidden });
     }
     if let Ok(mut visibility) = minimap_roots.single_mut() {
-        *visibility = if map.minimap_enabled {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
+        visibility.set_if_neq(if map.minimap_enabled { Visibility::Visible } else { Visibility::Hidden });
     }
     if let Ok(mut text) = status.single_mut() {
-        **text = format!(
+        text.set_if_neq(Text(format!(
             "{} of {} rooms visited — {} active   |   zoom {:.2}x   (+ / − adjust, 0 reset)",
             rooms
                 .iter()
@@ -249,7 +241,7 @@ pub fn sync_map_menu(
             rooms.len(),
             active_id,
             map.zoom,
-        );
+        )));
     }
 
     if !map.open && !map.minimap_enabled {

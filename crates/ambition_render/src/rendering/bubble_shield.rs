@@ -310,10 +310,10 @@ pub fn sync_bubble_shield_visual(
             if *look != shown {
                 *look = shown;
             }
-            *vis = Visibility::Visible;
+            vis.set_if_neq(Visibility::Visible);
             assigned += 1;
         } else {
-            *vis = Visibility::Hidden;
+            vis.set_if_neq(Visibility::Hidden);
         }
     }
 

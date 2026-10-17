@@ -87,7 +87,25 @@ archetypes: `enforce_session_contract` 31.8 → 8.9 µs, `maintain_local_session
 `release_departed_experience_state` runs only on a frame that wrote the
 router. Witnesses `an_idle_frame_does_not_run_the_pending_step`,
 `the_live_root_is_read_through_the_kept_query_and_a_later_root_is_found`,
-`the_shell_releases_on_a_departure_and_an_idle_frame_writes_no_scope`. The
+`the_shell_releases_on_a_departure_and_an_idle_frame_writes_no_scope`.
+
+The same pattern outside exclusive systems: `publish_shell_ui_cues` called
+`ActiveUiCues::sync` through `ResMut` each frame, so the cues were marked
+changed each frame (`changes_by_site.csv`: 1.000 a frame) and
+`rebuild_control_prompt`, which derives on change, derived each frame
+(44 µs). `ActiveUiCues::sync_marked` marks them only when they changed; the
+shell, Smash's select screen and the kaleidoscope call it (witness
+`a_cue_published_again_unchanged_does_not_mark_the_cues_changed`).
+MEASURED (the same probe after): `rebuild_control_prompt` 44.2 → 12.5 µs.
+`prepare_room_plates` found each live and neighbouring room's architecture
+pieces each frame to compare them (34 µs); it now returns at once while the
+live rooms, the room set and the plate count are as it left them and no
+plate draws (witness `a_quiet_frame_prepares_no_plates`): 34.5 → 3.7 µs.
+`release_departed_experience_state` 18.5 → 0 µs (its condition 1.9 µs).
+The debug HUD and quest panel text, the map's status text and visibility,
+the deep-dream overlay and the shield bubbles wrote each frame with no
+compare (a changed `Text` is laid out again); they use `set_if_neq`, and
+their rows of 1.000 a frame are gone from `changes_by_site.csv`. The
 content watchers (`watch_content_sources` 81 µs) are not in the phone build
 (`static_content`).
 
@@ -185,7 +203,8 @@ frame 1,602 → 1,444; in the GGRS tick 615 → 470. Smash 49 → 15, held items
 → 0, abilities 24 → 3, boss encounters 34 → 9, conversation 42 → 13,
 `ambition_content` 62 → 47. MEASURED (phone, `android-all-maryo-dormant`
 against `-auto`): 1-1 median 22-30 → 20-25 ms; 1-2 unchanged (33-36 ms).
-Left: portals, mounts, cutscenes, inventory and encounters as capabilities;
+Left (portals, mounts and encounters done below): cutscenes and inventory are
+used by Mary-O;
 Ambition's hub room and the presentation systems; standalone builds that
 compose only what they declare (P1).
 
@@ -271,7 +290,11 @@ deep-dream and sauce overlays, the vanity card), Smash 15, developer tools
 are in its `CapabilitySet`. The publishers (`Carves`, `Passages`), the
 orphan cleanup and the reset stay outside it, so a room with no portal
 publishes an empty answer, not the last answer of a room with portals.
-Mary-O and Sanic declare no portals; Smash keeps them (`portal.rs`). With
+Mary-O declares no portals; Sanic and Smash keep them (`portal.rs`; Sanic's
+Act 3 rifts are portals: declared without them, the rift slept and
+`three_acts` went red, 2026-10-17). `a_game_declares_each_capability_its_maps_author`
+now compares each game's declaration with the entities its LDtk worlds hold
+(red, naming Sanic's `Portal`, with the old declaration). With
 two live rooms there is no one governing room, and the set runs. Witness
 `portals_sleep_in_mary_os_rooms_and_run_in_ambitions` (`app_it`, build-time
 over the composed shipped host): red at "Mary-O's rooms use portals"
@@ -290,6 +313,15 @@ a boss body, and they now join it (witness
 mount crate's seven systems, through its sets; Mary-O and Sanic declare no
 mounts, Ambition and Smash keep them (witness
 `mounts_sleep_in_mary_os_rooms_and_run_in_ambitions`, red at each half).
+
+**Wave encounters sleep too (2026-10-17).** `Capability::Encounters`: the
+lifecycle reducer and the cleared list, the occurrence projection, the wave
+driver, its effects and cleanup, the lock walls and the reward chests (nine
+systems). Mary-O and Sanic declare no encounters (their maps hold no
+encounter entity); Smash keeps them undeclared. The switch drain, the switch
+index and the banners stay awake. `UsedCapabilities` is a `u16`. Witness
+`encounters_sleep_in_mary_os_and_sanics_rooms_and_run_in_ambitions`, red at
+each half.
 
 **Hub frame by system (2026-10-17, `basement_enemies`, the same build,
 `time_by_span.csv`).** MEASURED: Avian's transform propagation before each

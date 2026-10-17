@@ -13,7 +13,7 @@ so it is what these tests pin.
 
 ⭐ THE MEGABYTES ARE MACHINE-LOCAL AND ARE NOT ASSERTED HERE. `sprite_packs/`
 is gitignored generated output and a worktree symlinks the main checkout's
-copies. Every test below runs on fixtures or on committed Rust.
+copies. Every test below runs on fixtures or on committed pack data.
 """
 
 from __future__ import annotations
@@ -42,28 +42,23 @@ def load():
     return module
 
 
-# The real tuple shape, copied from `intro_prop_sprite_rows()` rather than
-# recalled: a 4-tuple whose last element is `Some("target")` or `None`.
+# The real row shape of a pack's `data/prop_sheets.ron`: a row asks for the
+# pack with `packed: true`, and names its record with `sheet` when the record
+# is not its kind.
 ROWS = """
-        (
-            "intro_cart",
-            "intro_cart_spritesheet.png",
-            intro_sheet("intro_cart", t),
-            Some("intro_cart"),
-        ),
-        (
-            "lab_power_core",
-            "creator_lab_props_spritesheet.png",
-            intro_sheet("power_core", t),
-            None,
-        ),
+    // "commented_out": (packed: true),
+    "intro_cart": (frame_sample_inset: 2, packed: true),
+    "lab_power_core": (sheet: Some("power_core"), frame_sample_inset: 2),
+    "lab_packed_vat": (sheet: Some("genesis_vat"), packed: true),
 """
 
 
-def test_it_reads_the_opt_in_rows_and_ignores_the_none_rows():
+def test_it_reads_the_opt_in_rows_and_ignores_the_other_rows():
     found = load().opted_in_targets(ROWS)
-    assert found == {"intro_cart"}, (
-        "a `None` row uses its per-target sheet and must not count as pack reach"
+    assert found == {"intro_cart", "genesis_vat"}, (
+        "a row with no `packed: true` uses its own sheet and must not count as "
+        "pack reach; a packed row asks for the record it names; a comment is "
+        "no row"
     )
 
 
@@ -72,12 +67,10 @@ def test_the_real_table_still_parses():
     protects against a regex that matches nothing; this catches the day the
     table changes shape, which is the event that would trigger it."""
     module = load()
-    if not module.PROP_ROWS.exists():
-        pytest.skip("the intro prop table is absent")
-    found = module.opted_in_targets(module.PROP_ROWS.read_text())
+    found = module.opted_in_targets(module.read_prop_rows())
     assert found, (
-        "no pack opt-in row parsed from the committed table — the regex is "
-        "stale, and the census would report the whole pack unreachable"
+        "no pack opt-in row parsed from the committed prop sheet files — the "
+        "regex is stale, and the census would report the whole pack unreachable"
     )
 
 
@@ -120,10 +113,10 @@ def test_it_refuses_when_no_opt_in_row_parses(tmp_path, monkeypatch, capsys):
     (packs / "ultrapack.json").write_text(
         json.dumps({"pages": ["ultrapack_0.png"], "targets": {"cart": {}}})
     )
-    rows = tmp_path / "sprites.rs"
+    rows = tmp_path / "prop_sheets.ron"
     rows.write_text("rows that the regex cannot read")
     monkeypatch.setattr(module, "PACKS", tmp_path / "sprite_packs")
-    monkeypatch.setattr(module, "PROP_ROWS", rows)
+    monkeypatch.setattr(module, "prop_sheet_files", lambda: [rows])
 
     code = module.main([])
     out = capsys.readouterr().out

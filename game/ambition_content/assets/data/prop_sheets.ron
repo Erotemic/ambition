@@ -1,10 +1,12 @@
 // The prop sheets this game draws (schema `prop_sheets`, owned by the sprite
-// capability), by the `kind` a room's prop names. A row loads
-// `<sprite folder>/<kind>_spritesheet.png` with the rest of the art. `scale`
-// multiplies the prop's box to give the size it is drawn at (default 1.0);
-// `frame_sample_inset` trims that many pixels from each frame's edges
-// (default 0). A prop whose kind has no row is not drawn from a sheet. An
-// edit here is drawn at the next start, with no Rust build.
+// capability), by the `kind` a room's prop names. A row draws the sheet
+// record `sheet` (default: the record of its kind) from that record's page,
+// with the rest of the art. `scale` multiplies the prop's box to give the
+// size it is drawn at (default 1.0); `frame_sample_inset` trims that many
+// pixels from each frame's edges (default 0); `packed: true` draws it from
+// the shared sprite pack first, at the quality tier of the game. A prop whose
+// kind has no row is not drawn from a sheet. An edit here is drawn at the next
+// start or content reload, with no Rust build.
 {
     // The Noodly Temple's keys, one for each sauce. A key is drawn a little
     // larger than its box, as a pickup is.
@@ -87,4 +89,21 @@
     "coconut_palm": (),
     // The mockingbird's shark, which is also a moving platform.
     "burning_flying_shark": (),
+    // The intro rooms. The cart of the wake room is drawn from the shared
+    // sprite pack first (`packed`), at the quality tier of the game. A row's
+    // `sheet` names its record where the record is not its kind: the creator
+    // lab's props are records of one sheet.
+    "intro_cart": (frame_sample_inset: 2, packed: true),
+    "lab_genesis_vat": (sheet: Some("genesis_vat"), frame_sample_inset: 2),
+    "lab_neural_console": (sheet: Some("neural_console"), frame_sample_inset: 2),
+    "lab_power_core": (sheet: Some("power_core"), frame_sample_inset: 2),
+    "lab_repair_cradle": (sheet: Some("repair_cradle"), frame_sample_inset: 2),
+    "lab_resonance_coil": (sheet: Some("resonance_coil"), frame_sample_inset: 2),
+    // The cut-rope arena.
+    "cut_rope_rope": (frame_sample_inset: 2),
+    "cut_rope_anvil": (frame_sample_inset: 2),
+    "cut_rope_piano": (frame_sample_inset: 2),
+    // The interdimensional gate: its ring and its portal surface.
+    "gate_ring": (sheet: Some("interdimensional_gate_ring"), frame_sample_inset: 2),
+    "gate_portal": (sheet: Some("interdimensional_gate_portal"), frame_sample_inset: 2),
 }

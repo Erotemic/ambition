@@ -159,7 +159,7 @@ def pack_tree(tmp_path, target):
 
 
 def a_target_a_prop_row_asks_the_pack_for():
-    rows = packager.measure_pack_reachability.PROP_ROWS.read_text()
+    rows = packager.measure_pack_reachability.read_prop_rows()
     targets = packager.measure_pack_reachability.opted_in_targets(rows)
     assert targets, "no prop row asks for the pack, so the reach rule has nothing to keep"
     return sorted(targets)[0]

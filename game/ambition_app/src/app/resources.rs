@@ -142,18 +142,12 @@ pub fn init_sandbox_resources(app: &mut App) {
         .cloned()
         .unwrap_or_default();
     let sandbox_catalog =
-        ambition_platformer2d::actors::assets::platformer_assets::build_sandbox_catalog_with(
+        ambition_platformer2d::actors::assets::platformer_assets::build_platformer2d_asset_catalog(
             &asset_config,
             &character_catalog,
             &boss_catalog,
             &music_registry,
             &world_manifest,
-            |manifest| {
-                ambition_content::intro::sprites::extend_with_intro_sprite_entries(
-                    manifest,
-                    &asset_config.sprite_folder,
-                );
-            },
         );
     #[cfg(feature = "audio")]
     let sfx_bank_asset_path = sandbox_catalog

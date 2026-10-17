@@ -903,7 +903,9 @@ pub fn load_prop_sheet_for_target(
     tuning: &sheets::SheetTuning,
 ) -> Option<CharacterSpriteAsset> {
     let spec = sheets::try_load_spec_for_target(target, tuning)?;
-    let page0_path = format!("{sprite_folder}/{target}_spritesheet.png");
+    // The record's own page: a record can share a page image with others (the
+    // creator lab's props are one sheet).
+    let page0_path = format!("{sprite_folder}/{}", spec.page_images.first()?);
     // Base resolution only, and the stamp says so on BOTH halves: this path
     // never consults a quality budget, so nothing was asked for beyond `Full`
     // and nothing but the authored PNG was loaded.

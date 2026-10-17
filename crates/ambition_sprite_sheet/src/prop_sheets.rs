@@ -21,7 +21,7 @@ pub const PROP_SHEETS_SCHEMA: &str = "prop_sheets";
 pub const SPRITES_CAPABILITY: &str = "sprites";
 
 /// How one prop kind's sheet is drawn.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthoredPropSheet {
     /// The prop's box is multiplied by this to give the size it is drawn at.
@@ -30,6 +30,16 @@ pub struct AuthoredPropSheet {
     /// Pixels trimmed from each edge of a frame when it is sampled.
     #[serde(default)]
     pub frame_sample_inset: u32,
+    /// The sheet record the prop draws (its target). `None`: the record of
+    /// the prop's own kind. A record can share its page image with others
+    /// (the creator lab's props are one sheet).
+    #[serde(default)]
+    pub sheet: Option<String>,
+    /// Draw from the shared sprite pack of the sheet first, at the quality
+    /// tier of the game, and from the sheet's own page when the pack does
+    /// not have it.
+    #[serde(default)]
+    pub packed: bool,
 }
 
 fn one() -> f32 {
@@ -40,6 +50,11 @@ impl AuthoredPropSheet {
     /// The tuning the sheet loader reads.
     pub fn tuning(&self) -> SheetTuning {
         SheetTuning::new(self.scale, self.frame_sample_inset)
+    }
+
+    /// The sheet record the prop of `kind` draws.
+    pub fn target<'a>(&'a self, kind: &'a str) -> &'a str {
+        self.sheet.as_deref().unwrap_or(kind)
     }
 }
 
@@ -53,6 +68,9 @@ fn problems(rows: &PropSheetRows) -> Vec<String> {
     for (kind, row) in rows {
         if kind.trim().is_empty() || kind.contains('/') {
             problems.push(format!("`{kind}` is not a sheet target; it is a name with no `/`"));
+        }
+        if row.sheet.as_deref().is_some_and(|sheet| sheet.trim().is_empty() || sheet.contains('/')) {
+            problems.push(format!("`{kind}.sheet` is {:?}; it is a sheet target, a name with no `/`", row.sheet));
         }
         if !(row.scale.is_finite() && row.scale > 0.0) {
             problems.push(format!("`{kind}.scale` is {}; it is finite and more than 0", row.scale));
@@ -178,17 +196,19 @@ mod tests {
 
     #[test]
     fn a_row_the_loader_cannot_draw_is_named_by_its_kind_and_field() {
-        let row = |scale| AuthoredPropSheet { scale, frame_sample_inset: 0 };
+        let row = |scale| AuthoredPropSheet { scale, frame_sample_inset: 0, sheet: None, packed: false };
         let good = PropSheetRows::from([("coconut_palm".to_string(), row(1.4))]);
         assert!(problems(&good).is_empty(), "{:?}", problems(&good));
         let bad = PropSheetRows::from([
             ("coconut_palm".to_string(), row(0.0)),
             ("props/palm".to_string(), row(1.0)),
+            ("lab_vat".to_string(), AuthoredPropSheet { sheet: Some("lab/vat".into()), ..row(1.0) }),
         ]);
         let problems = problems(&bad);
         assert!(problems.iter().any(|problem| problem.starts_with("`coconut_palm.scale` is 0")), "{problems:?}");
         assert!(problems.iter().any(|problem| problem.starts_with("`props/palm` is not a sheet target")), "{problems:?}");
-        assert_eq!(problems.len(), 2, "{problems:?}");
+        assert!(problems.iter().any(|problem| problem.starts_with("`lab_vat.sheet`")), "{problems:?}");
+        assert_eq!(problems.len(), 3, "{problems:?}");
     }
 
     #[test]

@@ -112,6 +112,7 @@ mod tests {
                     exit: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(600.0, 100.0), ae::Vec2::Y), half_length: 30.0 },
                     convention: MapConvention::Reflection,
                     depth: 60.0,
+                    dt: 0.0,
                 },
                 bodies: vec![limb],
             });

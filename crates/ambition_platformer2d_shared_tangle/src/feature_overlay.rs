@@ -44,6 +44,10 @@ pub struct PortalGlue {
     pub exit: ae::frame::PortalAperture,
     pub convention: ae::frame::MapConvention,
     pub depth: f32,
+    /// The tick the glue is for (seconds): what is carried moves by its own
+    /// displacement and by the pair's own motion over it (a moving or
+    /// turning portal). Zero: the pair's motion is not added.
+    pub dt: f32,
 }
 
 /// A [`PortalGlue`], for the bodies in the pair (in entity order).

@@ -205,27 +205,39 @@ the path.
 
 ### Consumers (one geometry, separate algorithms)
 
-- Combat: `apply_hitbox_damage` tests strike pieces × hurt pieces (today) over the
-  worklist output; dedupe stays per hitbox × victim; source and knockback are carried
-  by the composed `Iso2` (today for one hop). Feature hits take the pieces too
-  (`HitEvent` carries the strike's pieces, not one volume).
-- Collision (G2): no glued world. A body's step asks the room's broad phase per piece:
-  each piece's swept primitive is mapped into its room, queried against that room's
-  solids (Parry shape casts on the clipped convex shape), and the contact (point,
-  normal, time) is mapped back by the inverse `Iso2` into the body's chart; the step
-  takes the earliest. Rigid bodies take the contact as they do now. Articulated bodies
-  (an arm) route a contact to the limb that owns the piece; until limbs have joints, a
-  held limb takes no contact (today's rule, stated). Moving portals: the piece's map
-  uses the frames' velocities (`map_velocity`) for relative velocity.
-- Transit: unchanged authority — a body is moved by the transfer rule; pieces describe
-  where its parts are, they do not move it.
-- Drawing (G4): every piece of a visual is drawn by a clipped quad with the piece's
-  `Iso2` and bounds (the clip material carries the bounds; 4 planes today, a few more
-  later, or the piece is split). Pooled quads per visual, reused frame to frame instead
-  of spawned and despawned; one material per piece set. Room and view isolation as
-  today (`InRoomInstance`, `PresentedForView`).
+As proposed, then as built where it differs.
 
-### As built (G1-G5)
+- Combat: `apply_hitbox_damage` tests strike pieces × hurt pieces over the
+  worklist output; dedupe stays per hitbox × victim; source and knockback are
+  carried by the composed `Iso2`. Feature hits take the pieces too
+  (`HitEvent::pieces`). Built so (G2).
+- Collision. Proposed: no glued world; a body's step asks the room's broad
+  phase per piece (Parry casts of the clipped shape), and maps the contact
+  back by the inverse `Iso2`. Built (G3): the step keeps its one world, and in
+  a pair that world is the room's shared lists with a layer of its own (the
+  hole, and the far side mapped back by the inverse `Iso2`), found through the
+  room's grid. It answers the same question (what does each part of the body
+  meet, where) with no second collision path in the kernel and no copy of the
+  room; a turned solid is its exact outline. Moving portals: the layer is
+  made again each tick from the pair's pose, so what is carried is where the
+  pair puts it that tick; a carried block's own motion (a per-tick
+  displacement) and the pair's own motion over the tick are both carried
+  (`PortalGlue::dt`, the sim tick, with `frame::map_velocity`): a body
+  standing on a far-side floor through a moving pair rides it as the pair
+  shows it.
+- Articulated bodies. Proposed: a contact is routed to the limb that owns the
+  piece. Built (G6): a held limb is swept from its last pose to its new one
+  through the world it meets and stops at the first contact; its owner reads
+  where (`ambition.boss.mount`'s `contact`). One limb is one body, so the
+  piece's owner is the limb.
+- Transit: unchanged authority — a body is moved by the transfer rule; pieces
+  describe where its parts are, they do not move it.
+- Drawing (G4): every piece of a visual is drawn by a clipped quad with the
+  piece's `Iso2` and the planes that cut it (up to six). Pooled quads
+  (`ClipQuadPool`), reused frame to frame; room and view isolation as before
+  (`InRoomInstance`, `PresentedForView`).
+
+### As built (G1-G6)
 
 - **G1** `frame::Iso2` (in `frame.rs`), `frame::thread::{partition, PortalLink,
   PieceBudget, Partition, Refusal}`. The worklist as above; a piece carried
@@ -327,7 +339,13 @@ Measured (release, this machine, 2026-10-17; `partition_cost` and
 | glue, 100 / 1 000 / 5 000 blocks, per straddler | 0.9 / 1.5 / 1.4 µs (was 18.6 / 205 / 1 287; the pair moved to the first row so every size has the same neighbourhood) |
 | a world's clone (any size) | 40 ns |
 
-Allocations were not counted.
+Allocations per call (`partition_allocations`, its own test binary with a
+counting allocator): no portals 2; one pair, not reached 2; straddling one pair
+36; a giant across four pairs 572; an arm through two pairs 89; a pair facing
+itself 371. The cases with no portal reached allocate only the result. The
+"scratch buffers reused per system" of the cost control above was not built:
+a straddler's allocations are the clip polygons of its pieces, and at these
+times it was not worth the restructure.
 
 ## Roadmap (each stage reviewed before the next)
 

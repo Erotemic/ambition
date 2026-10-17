@@ -5,7 +5,8 @@
 // Behaviour lives in `assets/data/boss_profiles.ron` (a pattern of the
 // generic strikes: the claw sweep, the hammer slam, the howl).
 //
-// Music: `raid_enforcer_theme` is a placeholder until he has his own cue.
+// Music: his own adaptive cue, `galvanic_march`, bound to his phases in
+// `assets/audio/music_cues.ron` (`boss_bindings`). No simple track per phase.
 (
     id: "wolfenstein_boss",
     name: "Wolfenstein",
@@ -14,8 +15,8 @@
     phase2_to_enrage_hp: 0.25,
     intro_seconds: 2.2,
     transition_seconds: 1.8,
-    music_intro: "raid_enforcer_theme",
-    music_phase1: "raid_enforcer_theme",
-    music_phase2: "raid_enforcer_theme",
-    music_enrage: "raid_enforcer_theme",
+    music_intro: "",
+    music_phase1: "",
+    music_phase2: "",
+    music_enrage: "",
 )

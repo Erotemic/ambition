@@ -1,9 +1,9 @@
 use super::*;
 
 pub use crate::cue_spec::{
-    EncounterMusicBinding, MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec,
-    MusicLayerSpec, MusicSectionSpec, MusicStateBalanceOverride, MusicStateSpec,
-    RoomMusicBinding, RoomPhaseTrack,
+    BossMusicBinding, BossPhaseState, EncounterMusicBinding, MusicCueSpec, MusicLayerGainSpec,
+    MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec, MusicStateBalanceOverride, MusicStateSpec,
+    RoomMusicBinding, RoomPhaseTrack, BOSS_PHASE_KEYS,
 };
 
 #[derive(Resource, Clone, Debug, PartialEq)]
@@ -11,6 +11,7 @@ pub struct MusicCueCatalog {
     pub(super) cues: HashMap<String, MusicCueSpec>,
     pub(super) encounter_bindings: Vec<EncounterMusicBinding>,
     pub(super) room_bindings: Vec<RoomMusicBinding>,
+    pub(super) boss_bindings: Vec<BossMusicBinding>,
     pub(super) room_phase_tracks: Vec<RoomPhaseTrack>,
 }
 
@@ -30,8 +31,21 @@ impl MusicCueCatalog {
             cues,
             encounter_bindings,
             room_bindings: Vec::new(),
+            boss_bindings: Vec::new(),
             room_phase_tracks: Vec::new(),
         }
+    }
+
+    /// The same catalog with the host's boss -> cue bindings.
+    pub fn with_boss_bindings(mut self, boss_bindings: Vec<BossMusicBinding>) -> Self {
+        self.boss_bindings = boss_bindings;
+        self
+    }
+
+    /// The host's boss -> cue bindings (read by the host's intent-mapping
+    /// adapter).
+    pub fn boss_bindings(&self) -> &[BossMusicBinding] {
+        &self.boss_bindings
     }
 
     /// The same catalog with the host's room -> cue bindings.
@@ -103,7 +117,7 @@ impl MusicCueCatalog {
         // In id order, so one catalog gives one report.
         let mut cues: Vec<&MusicCueSpec> = self.cues.values().collect();
         cues.sort_by(|a, b| a.id.cmp(&b.id));
-        crate::cue_spec::cue_reference_errors(cues, &self.encounter_bindings, &self.room_bindings)
+        crate::cue_spec::cue_reference_errors(cues, &self.encounter_bindings, &self.room_bindings, &self.boss_bindings)
     }
 
     /// Find the binding that maps an encounter id to its adaptive

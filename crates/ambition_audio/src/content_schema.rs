@@ -35,6 +35,8 @@ pub const MUSIC_CUE_SCHEMA: &str = "music_cue";
 pub const ENCOUNTER_MUSIC_BINDING_SCHEMA: &str = "encounter_music_binding";
 /// One room's binding to a cue.
 pub const ROOM_MUSIC_BINDING_SCHEMA: &str = "room_music_binding";
+/// One boss's binding to a cue.
+pub const BOSS_MUSIC_BINDING_SCHEMA: &str = "boss_music_binding";
 
 pub const MUSIC_REGISTRY_VERSION: SchemaVersion = SchemaVersion(1);
 pub const MUSIC_CUE_CATALOG_VERSION: SchemaVersion = SchemaVersion(1);
@@ -180,6 +182,7 @@ impl ContentSchemaHandler for MusicCueCatalogSchema {
             &authored.cues,
             &authored.encounter_bindings,
             &authored.room_bindings,
+            &authored.boss_bindings,
         ) {
             out.report(facet.diagnostic(DiagnosticCode::MalformedSource, message));
         }
@@ -229,6 +232,19 @@ impl ContentSchemaHandler for MusicCueCatalogSchema {
             }
             out.define(
                 facet.content_id_in(ROOM_MUSIC_BINDING_SCHEMA, &binding.room_id),
+                canonical(binding),
+            );
+        }
+        for binding in &authored.boss_bindings {
+            if binding.boss_id.trim().is_empty() {
+                out.report(facet.diagnostic(
+                    DiagnosticCode::MalformedSource,
+                    format!("a binding to cue {:?} names no boss", binding.cue_id),
+                ));
+                continue;
+            }
+            out.define(
+                facet.content_id_in(BOSS_MUSIC_BINDING_SCHEMA, &binding.boss_id),
                 canonical(binding),
             );
         }

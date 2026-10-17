@@ -326,8 +326,14 @@ Open:
    **The census of 2026-10-17** (610 declarations and about 160 literal
    sites in the five game crates, tests and the WASM modules left out;
    about 45 sites already read a pack and about 490 are structural or test
-   oracles) left 25 findings. In the order a designer would iterate them:
-   Smash's seating jab (`smash_seating_melee`, `lib.rs`), the power-up rise
+   oracles) left 25 findings. Done from it: Smash's seating jab, the swing a
+   kitless fighter is seated with, is `seating_melee` in `smash_rules.ron`
+   (it copied the duelists' catalog swipe, and its comment named another
+   source); `smash_seating_melee` reads the row when a match seats, and
+   admission refuses a swing with no time, negative damage or no reach. An
+   edit reached its test in 0.82-1.28 s with no compile; the one seating
+   call has no behaviour witness of its own. Left, in the order a designer
+   would iterate them: the power-up rise
    (`powerups.rs`, `emerging(.., 0.4)`), Mary-O's sky zone rise
    (`SKY_ZONE_RISE`), the blast and bolt active times (`lifetime_s` in
    `bomb.rs`, `mine.rs`, `mark.rs`, `bolt.rs`), the dropped portal gun

@@ -960,26 +960,16 @@ pub fn smash_combat_rules() -> ambition_platformer2d::combat::rules::CombatRules
         .expect("Smash's `data/room_rules.ron` states a `combat` block")
 }
 
-/// The kit this experience gives a fighter that authors none.
+/// The kit this experience gives a fighter that authors none: the
+/// `seating_melee` of `smash_rules.ron`, read when a match seats its roster.
 ///
 /// A roster-preparation policy, not a combat rule: `CombatRules` does
 /// not own a kit. Many of Ambition's cast author `default_action_set:
 /// "peaceful"`; seating one in an arena adapts it into a fighter.
 /// `roster_seeded` folds this into the seat's `ActionSet` at seating time, so
 /// the body has one move authority and nothing reads a fallback.
-///
-/// The numbers copy the exploration provoke: 0.22 / 0.08 / 0.26, 4 damage,
-/// 34 reach.
 pub fn smash_seating_melee() -> ambition_platformer2d::character::MeleeActionSpec {
-    ambition_platformer2d::character::MeleeActionSpec::Swipe(
-        ambition_platformer2d::character::SwipeSpec {
-            windup_s: 0.22,
-            active_s: 0.08,
-            damage: 4,
-            reach_px: 34.0,
-            recover_s: 0.26,
-        },
-    )
+    rules::smash_rules().seating_melee
 }
 
 /// One fighter panel's face: the page, and which frame of it to draw.

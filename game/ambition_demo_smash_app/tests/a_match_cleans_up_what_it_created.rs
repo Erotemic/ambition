@@ -89,6 +89,7 @@ fn nothing_a_match_created_survives_into_the_next_one() {
                             offset: (0.0, 0.0),
                             half_extents: (6.0, 6.0),
                             knockback: 1.7,
+                            blast_s: 0.08,
                         },
                     )
                     .expect("mine params serialize"),

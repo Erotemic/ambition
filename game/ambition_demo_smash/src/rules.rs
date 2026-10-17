@@ -30,6 +30,9 @@ pub struct SmashRules {
     /// The stock counts the select screen's stocks button offers, in the
     /// order it walks them.
     pub stock_choices: Vec<u32>,
+    /// The swing a fighter that authors no kit is seated with
+    /// ([`crate::smash_seating_melee`]).
+    pub seating_melee: ambition_platformer2d::character::MeleeActionSpec,
     /// The shark the admiral's up-B summons.
     pub shark_ride: SharkRide,
     /// The Limit every seat holds, and what fills it.
@@ -111,6 +114,16 @@ impl SmashRules {
                 problems.push(format!("`stock_choices[{index}]` repeats {count}; the stocks button would offer it twice"));
             }
         }
+        let melee = self.seating_melee;
+        if !(melee.total_duration_s().is_finite() && melee.total_duration_s() > 0.0) {
+            problems.push(format!("`seating_melee` lasts {} s; a swing takes some time", melee.total_duration_s()));
+        }
+        if melee.damage() < 0 {
+            problems.push(format!("`seating_melee` deals {} damage; it is not negative", melee.damage()));
+        }
+        if !(melee.reach_px().is_finite() && melee.reach_px() > 0.0) {
+            problems.push(format!("`seating_melee` reaches {} px; a swing reaches past the body", melee.reach_px()));
+        }
         problems.extend(self.limit.problems().into_iter().map(|problem| format!("`limit`: {problem}")));
         problems
     }
@@ -122,8 +135,8 @@ pub fn smash_rules_schema() -> SchemaRegistration {
         SMASH_RULES_SCHEMA,
         1,
         "smash_demo",
-        "Smash's own match flow and summon tuning: the results card's wait and \
-         the admiral's shark.",
+        "Smash's own match flow and summon tuning: the results card's wait, \
+         the kitless fighter's swing and the admiral's shark.",
         SmashRules::problems,
     )
 }
@@ -190,6 +203,18 @@ mod tests {
             Err(failure) => failure.render(),
         };
         assert!(refused.contains("`stock_choices[2]` repeats 3"), "the refusal names the field: {refused}");
+
+        // The swing a kitless fighter is seated with is the file's, and one
+        // that reaches nothing is refused.
+        assert_eq!(crate::smash_seating_melee(), file.seating_melee, "a kitless seat swings a melee that is not the file's");
+        let reach = "reach_px: 34.0))";
+        assert_eq!(authored.matches(reach).count(), 1, "the probe edits the seating swing");
+        assert_eq!(rules_of(&authored.replace(reach, "reach_px: 40.0))")).seating_melee.reach_px(), 40.0);
+        let refused = match compile(&authored.replace(reach, "reach_px: 0.0))")) {
+            Ok(_) => panic!("a seating swing that reaches nothing was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`seating_melee` reaches 0 px"), "the refusal names the field: {refused}");
 
         let health = "health: 40,";
         assert_eq!(authored.matches(health).count(), 1, "the probe edits the shark");

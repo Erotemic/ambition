@@ -2511,6 +2511,7 @@ mod bolt_domain_rules {
             lifetime_s: 3.0,
             self_launch: 0.0,
             offset: (18.0, 0.0),
+            hit_s: 0.06,
         }
     }
 
@@ -2542,6 +2543,14 @@ mod bolt_domain_rules {
             said.contains("trail_vfx"),
             "the refusal must name the field: {said}"
         );
+    }
+
+    #[test]
+    fn a_bolt_whose_hit_is_never_live_is_refused() {
+        for bad in [0.0, -0.06, f32::NAN] {
+            let said = refusal_for(|p| p.hit_s = bad);
+            assert!(said.contains("hit_s"), "a hit live for {bad} s was not refused by name: {said}");
+        }
     }
 
     #[test]

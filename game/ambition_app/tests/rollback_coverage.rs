@@ -2042,10 +2042,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the authored encounter wave timelines, keyed by trigger id. ⚠ THIS ROW'S          REASON WAS RESTATED 2026-09-12 AND THE OLD ONE IS INSTRUCTIVE: it said          \"inserted ONCE at plugin build and never taken mutably anywhere in the          workspace\", a census of writers, and that census stopped being true the day          `encounter_waves` became the generation transaction's third participating          family. The exclusion survives on the BOUNDARY instead — `reload::admit_candidate`          refuses to publish while a rollback timeline is speculating, so the one          runtime writer cannot run inside a window a rewind can cross. A waiver          justified by counting writers rots when somebody adds one; a waiver          justified by a mechanism does not. ⚠ it appeared in this sweep the day it          stopped being a process-global `OnceLock` — which is the sweep working: a          value nobody owned was invisible to it, and an App resource is not",
     ),
     (
-        "ambition_demo_sanic::ball_dash::BallDashTuning",
-        "authored dash numbers. Every production reference is `Res<>`; nothing          takes it mutably anywhere in the workspace, so it cannot differ between          two timelines of one session",
-    ),
-    (
         "ambition_demo_mary_o::quasar_shader::QuasarShaderInstalled",
         "a marker inserted during PLUGIN BUILD to make the shader install          idempotent. Composition state, written once before any frame runs",
     ),

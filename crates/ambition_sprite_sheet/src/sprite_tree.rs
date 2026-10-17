@@ -67,42 +67,75 @@ pub fn sheet_key(root: &str, path: &Path) -> String {
     }
 }
 
-/// `entries`, sorted by key.
+/// The files of one kind in the tree, sorted by key, and a refusal for each
+/// key that two files give.
 ///
 /// ⛔ A key that two files give is refused, and the refusal names both files.
 /// The companion scan kept the first file of a key, and the sheet scan kept
-/// both: the order of the scan chose which file a key was read from.
-fn one_file_for_each_key(mut entries: Vec<(String, PathBuf)>, what: &str) -> Vec<(String, PathBuf)> {
+/// both: the order of the scan chose which file a key was read from. The scan
+/// itself does not stop: a running game reads the tree again on each edit,
+/// and its watch must refuse the table and keep the running sheets. Each
+/// reader decides with [`KeyedFiles::one_for_each_key`].
+pub struct KeyedFiles {
+    /// Every file found, sorted by key. A key that two files give is here
+    /// twice, so a watch sees the second file come and go.
+    pub files: Vec<(String, PathBuf)>,
+    /// `(key, why)` for each key that two files give, with both files named.
+    pub refused: Vec<(String, String)>,
+}
+
+impl KeyedFiles {
+    /// The files, one for each key, or the refusal of each key that two
+    /// files give.
+    pub fn one_for_each_key(self) -> Result<Vec<(String, PathBuf)>, Vec<(String, String)>> {
+        if self.refused.is_empty() {
+            Ok(self.files)
+        } else {
+            Err(self.refused)
+        }
+    }
+
+    /// The files, for a reader that has no table to keep (the build, a
+    /// test): it stops at a refusal.
+    pub fn expect_one_for_each_key(self) -> Vec<(String, PathBuf)> {
+        self.one_for_each_key().unwrap_or_else(|refused| {
+            let each: Vec<String> = refused.iter().map(|(key, why)| format!("{key}: {why}")).collect();
+            panic!("the publisher must write one file for each key: {}", each.join("; "))
+        })
+    }
+}
+
+fn keyed(mut entries: Vec<(String, PathBuf)>, what: &str) -> KeyedFiles {
     entries.sort();
-    let collisions: Vec<String> = entries
+    let refused = entries
         .windows(2)
         .filter(|pair| pair[0].0 == pair[1].0)
-        .map(|pair| format!("`{}`: {} and {}", pair[0].0, pair[0].1.display(), pair[1].1.display()))
+        .map(|pair| {
+            (
+                format!("{what} key `{}`", pair[0].0),
+                format!("two published files give it: {} and {}", pair[0].1.display(), pair[1].1.display()),
+            )
+        })
         .collect();
-    assert!(
-        collisions.is_empty(),
-        "two published files give one {what} key; the publisher must write one: {}",
-        collisions.join("; ")
-    );
-    entries
+    KeyedFiles { files: entries, refused }
 }
 
 /// Every `*_spritesheet.ron`, keyed by [`sheet_key`], sorted by key. A key
 /// that two files give is refused.
-pub fn sheet_manifests(owner: &Path) -> Vec<(String, PathBuf)> {
+pub fn sheet_manifests(owner: &Path) -> KeyedFiles {
     let entries: Vec<(String, PathBuf)> = sprite_dirs(owner)
         .iter()
         .flat_map(|dir| dir_and_children(dir))
         .flat_map(|dir| files_ending(&dir, "_spritesheet.ron"))
         .map(|(root, path)| (sheet_key(&root, &path), path))
         .collect();
-    one_file_for_each_key(entries, "sprite sheet")
+    keyed(entries, "sprite sheet")
 }
 
 /// Every `<target><suffix>` file of `sprites/` (and, with `tiers`, of each
 /// tier folder), keyed `<target>` or `<target>.<marker>`, sorted by key. A key
 /// that two files give is refused.
-pub fn companions(owner: &Path, suffix: &str, tiers: bool) -> Vec<(String, PathBuf)> {
+pub fn companions(owner: &Path, suffix: &str, tiers: bool) -> KeyedFiles {
     let mut roots = vec![(owner.join("assets/sprites"), None)];
     if tiers {
         roots.extend(TIERS.iter().map(|(dir, marker)| (owner.join("assets").join(dir), Some(*marker))));
@@ -119,7 +152,7 @@ pub fn companions(owner: &Path, suffix: &str, tiers: bool) -> Vec<(String, PathB
             }
         }
     }
-    one_file_for_each_key(entries, suffix)
+    keyed(entries, suffix)
 }
 
 /// Every `*_portraits.ron` under `sprites/` and each quality tier, at any
@@ -227,9 +260,11 @@ mod tests {
         owner
     }
 
-    fn refusal(scan: impl FnOnce() -> Vec<(String, PathBuf)> + std::panic::UnwindSafe) -> String {
-        let payload = std::panic::catch_unwind(scan).expect_err("the scan refuses the tree");
-        payload.downcast_ref::<String>().cloned().unwrap_or_default()
+    /// The refusal of a scan, which still lists each file it found.
+    fn refusal(scan: KeyedFiles, files: usize) -> String {
+        assert_eq!(scan.files.len(), files, "the scan lists each file it found");
+        let refused = scan.one_for_each_key().expect_err("the scan refuses the tree");
+        refused.iter().map(|(key, why)| format!("{key}: {why}")).collect::<Vec<_>>().join("; ")
     }
 
     /// Q84: each quality tier's portrait manifest is in the tree, under its
@@ -250,7 +285,7 @@ mod tests {
     fn a_key_that_two_files_give_is_refused() {
         // The control: one file of each key, in `sprites/` and in a tier.
         let owner = tree("one", &["sprites/hero/hero_parts.ron", "sprites_0_5x/hero_parts.ron"]);
-        let keys: Vec<String> = companions(&owner, "_parts.ron", true).into_iter().map(|(key, _)| key).collect();
+        let keys: Vec<String> = companions(&owner, "_parts.ron", true).expect_one_for_each_key().into_iter().map(|(key, _)| key).collect();
         assert_eq!(keys, ["hero", "hero.0_5x"]);
 
         for (name, files) in [
@@ -258,7 +293,7 @@ mod tests {
             ("tier", ["sprites_0_5x/hero_parts.ron", "sprites_0_5x/boss/hero_parts.ron"]),
         ] {
             let owner = tree(name, &files);
-            let message = refusal(|| companions(&owner, "_parts.ron", true));
+            let message = refusal(companions(&owner, "_parts.ron", true), 2);
             assert!(
                 files.iter().all(|file| message.contains(&owner.join("assets").join(file).display().to_string())),
                 "{name}: the refusal names both files: {message}"
@@ -267,7 +302,7 @@ mod tests {
 
         let files = ["sprites/a/hero_spritesheet.ron", "sprites/b/hero_spritesheet.ron"];
         let owner = tree("sheets", &files);
-        let message = refusal(|| sheet_manifests(&owner));
+        let message = refusal(sheet_manifests(&owner), 2);
         assert!(message.contains("`hero`"), "the sheet scan refuses it too: {message}");
     }
 }

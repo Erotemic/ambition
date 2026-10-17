@@ -773,9 +773,10 @@ struct PowerReward {
 
 /// How far and how long a reward takes to climb out of the block that produced
 /// it. It spawns INSIDE and rises to rest on the top face, so the distance is
-/// half a block plus its own half-height.
-fn rises_from_a_block(plan: ItemMotionPlan, half_y: f32) -> ItemMotionPlan {
-    plan.emerging(crate::T * 0.5 + half_y, 0.4)
+/// half a block plus its own half-height. The time is the rules'
+/// `power_ups.rise_seconds`.
+pub(crate) fn rises_from_a_block(plan: ItemMotionPlan, half_y: f32) -> ItemMotionPlan {
+    plan.emerging(crate::T * 0.5 + half_y, crate::rules::mary_o_rules().power_ups.rise_seconds)
 }
 
 

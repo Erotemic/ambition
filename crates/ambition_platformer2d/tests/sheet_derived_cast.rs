@@ -101,7 +101,7 @@ fn a_sheet_edit_states_again_the_body_scale_of_the_cast_made_from_it() {
     )
     .unwrap();
     // The process starts on the probe tree, as a game starts on its own.
-    publish_sheet_generation(read_sheet_table_under(&owner)).unwrap_or_else(|refused| panic!("{refused}"));
+    read_sheet_table_under(&owner).and_then(publish_sheet_generation).unwrap_or_else(|refused| panic!("{refused}"));
     let leaked_root: &'static str = Box::leak(root.to_string_lossy().into_owned().into_boxed_str());
     let pack: &'static EmbeddedPack = Box::leak(Box::new(EmbeddedPack::rooted(leaked_root, None)));
 

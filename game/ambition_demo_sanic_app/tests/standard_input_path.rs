@@ -339,7 +339,7 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
     use ambition_platformer2d::actor::MotionModel;
     use ambition_platformer2d::engine_core::BodyMode;
     use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
-    use ambition_demo_sanic::ball_dash::{BallDash, BallDashTuning, Rolling};
+    use ambition_demo_sanic::ball_dash::{spin_dash_tuning, BallDash, Rolling};
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
     install_synthetic_ball_dash_keyboard(&mut app);
@@ -352,7 +352,7 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
     // must request DashStartup (or a sheet fallback from that row), rather than freezing on
     // idle. Stop as soon as the state proves a launchable charge; an arbitrary post-charge
     // delay would test charge decay, not release.
-    let tuning = BallDashTuning::default();
+    let tuning = spin_dash_tuning();
     let mut max_charge = 0.0_f32;
     let mut slot_saw_attack = false;
     let mut saw_crouching = false;

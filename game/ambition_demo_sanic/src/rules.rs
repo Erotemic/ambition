@@ -23,6 +23,8 @@ pub struct SanicRules {
     pub badnik: Badnik,
     pub stomp: Stomp,
     pub super_form: SuperForm,
+    /// The spin dash: the rev, the launch and the roll.
+    pub spin_dash: crate::ball_dash::BallDashTuning,
     /// The acts, in their order: the first is Act 1.
     pub acts: Vec<ActTitle>,
 }
@@ -145,6 +147,9 @@ impl SanicRules {
             ("badnik.bounce_speed", self.badnik.bounce_speed),
             ("stomp.band", self.stomp.band),
             ("super_form.beat_seconds", self.super_form.beat_seconds),
+            ("spin_dash.decay_per_s", self.spin_dash.decay_per_s),
+            ("spin_dash.exit_speed", self.spin_dash.exit_speed),
+            ("spin_dash.contact_grace_s", self.spin_dash.contact_grace_s),
         ] {
             amount(field, value);
         }
@@ -160,6 +165,33 @@ impl SanicRules {
         let scale = self.super_form.beat_clock_scale;
         if !(scale.is_finite() && scale > 0.0 && scale <= 1.0) {
             problems.push(format!("`super_form.beat_clock_scale` is {scale}; a beat slows the clock or leaves it, so it is more than 0 and at most 1"));
+        }
+        let dash = &self.spin_dash;
+        for (field, value) in [
+            ("spin_dash.rev_per_tap", dash.rev_per_tap),
+            ("spin_dash.launch_speed", dash.launch_speed),
+            ("spin_dash.ball_side", dash.ball_side),
+        ] {
+            if !(value.is_finite() && value > 0.0) {
+                problems.push(format!("`{field}` is {value}; it is finite and more than 0"));
+            }
+        }
+        // A charge and a stick deflection are each a share of a whole.
+        for (field, value) in [
+            ("spin_dash.min_launch_charge", dash.min_launch_charge),
+            ("spin_dash.crouch_threshold", dash.crouch_threshold),
+            ("spin_dash.rev_tiers[0]", dash.rev_tiers[0]),
+            ("spin_dash.rev_tiers[1]", dash.rev_tiers[1]),
+        ] {
+            if !(value.is_finite() && value > 0.0 && value <= 1.0) {
+                problems.push(format!("`{field}` is {value}; it is more than 0 and at most 1"));
+            }
+        }
+        if dash.rev_tiers[0] > dash.rev_tiers[1] {
+            problems.push(format!(
+                "`spin_dash.rev_tiers` is {:?}; the rev climbs, so the second tier starts at or before the third",
+                dash.rev_tiers
+            ));
         }
         if self.acts.is_empty() {
             problems.push("`acts` is empty; the demo has at least one act".to_string());
@@ -192,8 +224,8 @@ pub fn sanic_rules_schema() -> SchemaRegistration {
         1,
         "sanic_demo",
         "The Sanic demo's tuning: the ring monitor, the speed shoes, the ring \
-         scatter, the act's score and cards, the badnik's bounce, and what counts \
-         as a landing on a badnik or a monitor.",
+         scatter, the act's score and cards, the badnik's bounce, the spin dash, \
+         and what counts as a landing on a badnik or a monitor.",
         SanicRules::problems,
     )
 }
@@ -274,6 +306,19 @@ mod tests {
             crate::act_score(0.0, 3),
             (file.act.par_seconds * file.act.time_bonus_per_second as f32) as i32 + 3 * file.act.ring_bonus,
         );
+
+        // The spin dash is the file's, and a value it cannot use is refused at
+        // admission with its field named.
+        let launch = "launch_speed: 1600.0,";
+        assert_eq!(authored.matches(launch).count(), 1, "the probe edits one launch speed");
+        assert_eq!(rules_of(&authored.replace(launch, "launch_speed: 1800.0,")).spin_dash.launch_speed, 1800.0);
+        let side = "ball_side: 24.0,";
+        assert_eq!(authored.matches(side).count(), 1, "the probe edits one ball side");
+        std::fs::write(root.join("data/sanic_rules.ron"), authored.replace(side, "ball_side: 0.0,")).unwrap();
+        let pack = EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None)
+            .with_schemas(|| vec![sanic_rules_schema()]);
+        let refusal = pack.compile().err().map(|failure| failure.render()).unwrap_or_default();
+        assert!(refusal.contains("spin_dash.ball_side"), "a ball with no size is not refused by its field: {refusal}");
 
         let par = "par_seconds: 30.0,";
         assert_eq!(authored.matches(par).count(), 1, "the probe edits one line of the file");

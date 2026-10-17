@@ -156,18 +156,23 @@ impl Scanner {
             }
         }
         // A file can be added or removed, so the list is read again each look.
+        // A file is compared by its path too: a second file of one key can
+        // come and go while the first stays.
         let now = stamped_manifests(&self.owner);
         found.manifests = now
             .iter()
-            .filter(|(key, _, seen)| !self.manifests.iter().any(|(was, _, before)| was == key && before == seen))
+            .filter(|(key, path, seen)| !self.manifests.iter().any(|(was, at, before)| was == key && at == path && before == seen))
             .map(|(key, ..)| key.clone())
             .collect();
         found.manifests.extend(
-            self.manifests.iter().filter(|(was, ..)| !now.iter().any(|(key, ..)| key == was)).map(|(was, ..)| was.clone()),
+            self.manifests
+                .iter()
+                .filter(|(was, at, _)| !now.iter().any(|(key, path, _)| key == was && path == at))
+                .map(|(was, ..)| was.clone()),
         );
         self.manifests = now;
         if !found.manifests.is_empty() {
-            let table = sheet_table::prepare_sheet_table(sheet_table::read_sheet_table_under(&self.owner));
+            let table = sheet_table::read_sheet_table_under(&self.owner).and_then(sheet_table::prepare_sheet_table);
             found.changes_mechanics = table.as_ref().is_ok_and(|table| table.changes_mechanics_of(sheet_table::current()));
             found.table = Some(table);
         }
@@ -363,14 +368,18 @@ fn modified(path: &Path) -> Option<SystemTime> {
 /// no such key is a manifest key.
 fn stamped_manifests(owner: &Path) -> Vec<(String, PathBuf, Option<SystemTime>)> {
     use ambition_sprite_sheet::baked_part_flipbooks::{part_flipbook_files_under, PART_FLIPBOOK_SUFFIX};
+    // Each file, also a second file of one key: the watch sees it come, and
+    // the read refuses the table, and sees it go.
     let rigs = sheet_table::body_rig_files_under(owner)
+        .files
         .into_iter()
         .map(|(target, path)| (format!("{target}{}", sheet_table::BODY_RIG_SUFFIX), path));
-    let flipbooks = part_flipbook_files_under(owner).into_iter().map(|(key, path)| (format!("{key}{PART_FLIPBOOK_SUFFIX}"), path));
+    let flipbooks = part_flipbook_files_under(owner).files.into_iter().map(|(key, path)| (format!("{key}{PART_FLIPBOOK_SUFFIX}"), path));
     // A portrait is keyed by its path under `assets/` and a catalog by its
     // tier's: neither is a manifest key.
     let catalogs = sheet_table::pack_catalog_files_under(owner).into_iter().map(|(tier, path)| (format!("sprite_packs/{tier}/ultrapack.json"), path));
     sheet_table::sheet_files_under(owner)
+        .files
         .into_iter()
         .chain(rigs)
         .chain(flipbooks)
@@ -473,7 +482,7 @@ fn take_what_the_watch_found(watch: Option<ResMut<SpriteSheetWatch>>, asset_serv
             // The table is read whole, so a broken one replaces any change
             // staged before it.
             Some(Err(refused)) => {
-                let why = format!("the sprite sheets do not parse; the running sheets stay:\n{refused}");
+                let why = format!("the sprite sheets are refused; the running sheets stay:\n{refused}");
                 error!(target: "ambition_platformer2d::sprites", "{why}");
                 watch.staged.clear();
                 watch.candidate = None;

@@ -183,9 +183,11 @@ fn first_table() -> SheetTexts {
             pack_catalogs: crate::sprite_packs::baked::BAKED_PACK_CATALOGS.to_vec(),
         }
     }
+    // The process has no sheets to keep yet, so a refused first table stops
+    // it, with each file named.
     #[cfg(not(embedded_sprites))]
     {
-        read_texts_under(crate::published_tree::owner(), None)
+        read_texts_under(crate::published_tree::owner(), None).unwrap_or_else(|refused| panic!("{refused}"))
     }
 }
 
@@ -236,14 +238,14 @@ impl SheetTexts {
     }
 }
 
-/// Why a sheet table was not published: each file that does not parse, with
-/// its error.
+/// Why a sheet table was not published: each file that does not parse, and
+/// each key that two files give, with its error.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SheetTableRefused(pub Vec<(String, String)>);
 
 impl std::fmt::Display for SheetTableRefused {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} sheet file(s) do not parse:", self.0.len())?;
+        write!(f, "{} sheet file(s) are refused:", self.0.len())?;
         for (file, error) in &self.0 {
             write!(f, "\n  {file}: {error}")?;
         }
@@ -370,9 +372,11 @@ pub fn published_tree_owner() -> Option<&'static std::path::Path> {
     }
 }
 
+pub use crate::sprite_tree::KeyedFiles;
+
 /// Each sheet manifest file of the tree under `owner`, keyed as the table
 /// keys it, sorted by key.
-pub fn sheet_files_under(owner: &std::path::Path) -> Vec<(String, std::path::PathBuf)> {
+pub fn sheet_files_under(owner: &std::path::Path) -> KeyedFiles {
     crate::sprite_tree::sheet_manifests(owner)
 }
 
@@ -384,7 +388,7 @@ pub fn sprite_dirs_under(owner: &std::path::Path) -> Vec<std::path::PathBuf> {
 
 /// Each body rig file of the tree under `owner`, keyed by its target, sorted
 /// by target.
-pub fn body_rig_files_under(owner: &std::path::Path) -> Vec<(String, std::path::PathBuf)> {
+pub fn body_rig_files_under(owner: &std::path::Path) -> KeyedFiles {
     crate::sprite_tree::companions(owner, BODY_RIG_SUFFIX, false)
 }
 
@@ -394,30 +398,43 @@ pub const BODY_RIG_SUFFIX: &str = "_body_rig.ron";
 /// The texts of the tree under `owner`, read now. Empty in a build that
 /// embeds its sprites. A text the current generation holds unchanged is that
 /// generation's: each text is kept for the life of the process, so a read
-/// keeps only what changed.
-pub fn read_sheet_table_under(owner: &std::path::Path) -> SheetTexts {
+/// keeps only what changed. A key that two files give refuses the table,
+/// with both files named.
+pub fn read_sheet_table_under(owner: &std::path::Path) -> Result<SheetTexts, SheetTableRefused> {
     read_texts_under(owner, Some(current()))
 }
 
 /// The texts of the tree under `owner`, taking each unchanged text from
 /// `previous`. The first generation has none to take from.
 #[cfg_attr(embedded_sprites, allow(unused_variables))]
-fn read_texts_under(owner: &std::path::Path, previous: Option<&SheetGeneration>) -> SheetTexts {
+fn read_texts_under(owner: &std::path::Path, previous: Option<&SheetGeneration>) -> Result<SheetTexts, SheetTableRefused> {
     #[cfg(embedded_sprites)]
     {
-        SheetTexts::default()
+        Ok(SheetTexts::default())
     }
     #[cfg(not(embedded_sprites))]
     {
         use crate::published_tree::texts_reusing;
         let was = |of: fn(&SheetGeneration) -> &[(&'static str, &'static str)]| previous.map(of).unwrap_or_default();
-        SheetTexts {
-            sheets: texts_reusing(sheet_files_under(owner), was(SheetGeneration::rons)),
-            body_rigs: texts_reusing(body_rig_files_under(owner), was(SheetGeneration::body_rigs)),
-            part_flipbooks: crate::baked_part_flipbooks::rows_under(owner),
+        // A portrait is keyed by its path and a catalog by its tier's
+        // folder, so no two of their files can give one key.
+        let mut refused = Vec::new();
+        let mut one_for_each_key = |files: KeyedFiles| files.one_for_each_key().unwrap_or_else(|mut why| {
+            refused.append(&mut why);
+            Vec::new()
+        });
+        let (sheets, rigs) = (one_for_each_key(sheet_files_under(owner)), one_for_each_key(body_rig_files_under(owner)));
+        let flipbooks = one_for_each_key(crate::baked_part_flipbooks::part_flipbook_files_under(owner));
+        if !refused.is_empty() {
+            return Err(SheetTableRefused(refused));
+        }
+        Ok(SheetTexts {
+            sheets: texts_reusing(sheets, was(SheetGeneration::rons)),
+            body_rigs: texts_reusing(rigs, was(SheetGeneration::body_rigs)),
+            part_flipbooks: crate::baked_part_flipbooks::rows_of(flipbooks),
             portraits: texts_reusing(portrait_files_under(owner), was(SheetGeneration::portrait_rons)),
             pack_catalogs: texts_reusing(pack_catalog_files_under(owner), was(SheetGeneration::pack_catalog_texts)),
-        }
+        })
     }
 }
 

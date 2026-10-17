@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn the_embedded_tables_are_the_tables_a_development_build_projects() {
         let tree = crate::published_tree::owner();
-        let (tables, digest) = project(crate::published_tree::texts(crate::sprite_tree::companions(tree, "_parts.ron", false)));
+        let (tables, digest) = project(crate::published_tree::texts(crate::sprite_tree::companions(tree, "_parts.ron", false).expect_one_for_each_key()));
         assert!(tables.len() >= 10, "only {} projected tables: the tree is not published", tables.len());
         assert_eq!(landmarks(), tables.as_slice(), "the embedded landmark tables are not the projected ones");
         assert_eq!(landmarks_digest(), digest, "the embedded digest is not the projected one");

@@ -103,7 +103,7 @@ fn a_published_sheet_table_is_read_whole_and_a_broken_one_is_refused() {
     // is the current generation's own (a text read is kept for the life of
     // the process). The published `SHEET` differs from its file on disk.
     let owner = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../ambition_platformer2d_actor_monolith"));
-    let read = ambition_sprite_sheet::baked_sheet_rons::read_sheet_table_under(owner);
+    let read = ambition_sprite_sheet::baked_sheet_rons::read_sheet_table_under(owner).expect("the published tree has one file for each key");
     let held: std::collections::HashMap<&str, &str> = sheet_rons().iter().copied().collect();
     let new_texts: Vec<&str> = read.sheets.iter().filter(|(key, text)| held.get(key).is_none_or(|was| !std::ptr::eq(*was, *text))).map(|(key, _)| *key).collect();
     assert!(new_texts == [SHEET], "a read of the tree kept a new text for {} files: {:?}", new_texts.len(), &new_texts[..new_texts.len().min(3)]);

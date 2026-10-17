@@ -33,6 +33,8 @@ pub struct PlacedMine {
     pub blast_radius: f32,
     /// How hard the blast throws (`PlaceMineParams::knockback`).
     pub knockback: f32,
+    /// How long the blast stays live (`PlaceMineParams::blast_s`).
+    pub blast_s: f32,
 }
 
 impl PlacedMine {
@@ -155,7 +157,7 @@ pub fn place_or_detonate_authored_mines(
                         // A feel multiplier, not a launch speed (see
                         // `spawn_damage_box`: values such as 1.0 or 1.6).
                         knockback: mine.knockback,
-                        lifetime_s: 0.08,
+                        lifetime_s: mine.blast_s,
                         name: Some("mine blast"),
                     },
                 ),
@@ -194,6 +196,7 @@ pub fn place_or_detonate_authored_mines(
                     damage: params.damage,
                     blast_radius: params.blast_radius,
                     knockback: params.knockback,
+                    blast_s: params.blast_s,
                 },
             ))
             .id();

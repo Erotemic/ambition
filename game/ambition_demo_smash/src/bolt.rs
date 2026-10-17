@@ -42,6 +42,8 @@ pub struct SteeredBolt {
     pub radius: f32,
     pub damage: i32,
     pub knockback: f32,
+    /// How long its hit stays live (`SteeredBoltParams::hit_s`).
+    pub hit_s: f32,
     /// How hard it throws the caster when it comes home.
     pub self_launch: f32,
     /// Has this bolt got clear of its caster yet?
@@ -127,6 +129,7 @@ pub fn fire_authored_bolts(
                     radius: params.radius,
                     damage: params.damage,
                     knockback: params.knockback,
+                    hit_s: params.hit_s,
                     self_launch: params.self_launch,
                     // It starts inside him, by construction.
                     clear_of_caster: false,
@@ -301,7 +304,7 @@ pub fn steer_and_fly_bolts(
                             half_extent: ae::Vec2::splat(bolt.radius),
                             damage: bolt.damage,
                             knockback: bolt.knockback,
-                            lifetime_s: 0.06,
+                            lifetime_s: bolt.hit_s,
                             name: Some("bolt"),
                         },
                     ),

@@ -33,8 +33,10 @@ fn a_bomb(app: &mut App, fuse_s: f32, vel: ae::Vec2) -> Entity {
                 damage: 12,
                 blast_radius: 60.0,
                 impact_speed: 300.0,
-                // Not the shipped 2.0: see `the_blast_throws_with_the_bombs_knockback`.
+                // Not the shipped 2.0 and 0.08: see
+                // `the_blast_throws_with_the_bombs_knockback`.
                 knockback: 1.35,
+                blast_s: 0.3,
             },
         ))
         .id()
@@ -59,8 +61,9 @@ fn run(app: &mut App, ticks: usize) -> usize {
     blasts
 }
 
-/// The blast throws with the knockback its move authored
-/// (`DropBombParams::knockback`, carried on the bomb), not a ruleset constant.
+/// The blast throws with the knockback its move authored and is live for the
+/// time it authored (`DropBombParams::knockback` and `blast_s`, carried on
+/// the bomb), not ruleset constants.
 #[test]
 fn the_blast_throws_with_the_bombs_knockback() {
     let mut app = app();
@@ -73,12 +76,12 @@ fn the_blast_throws_with_the_bombs_knockback() {
                 .resource_mut::<Messages<ambition_platformer2d::vfx::EffectRequest>>()
                 .drain()
                 .filter_map(|request| match request.effect {
-                    ambition_platformer2d::vfx::Effect::DamageBox(blast) => Some(blast.knockback),
+                    ambition_platformer2d::vfx::Effect::DamageBox(blast) => Some((blast.knockback, blast.lifetime_s)),
                     _ => None,
                 }),
         );
     }
-    assert_eq!(thrown, vec![1.35], "the blast did not throw with the bomb's authored knockback");
+    assert_eq!(thrown, vec![(1.35, 0.3)], "the blast did not throw with the bomb's authored knockback and live time");
 }
 
 #[test]

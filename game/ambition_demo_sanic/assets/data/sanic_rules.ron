@@ -97,6 +97,38 @@
         (room: "sanic_highway", title: "COVE HIGHWAY"),
         (room: "sanic_darkness", title: "ECLIPSE CIRCUIT"),
     ],
+    // The spin dash: crouch, tap the attack to rev, let go to launch, roll
+    // until he slows.
+    spin_dash: (
+        // Charge added per rev tap. One tap clears the launch floor; three
+        // reach full.
+        rev_per_tap: 0.4,
+        // Charge bled off per second while crouched. Holding forever must not
+        // guarantee a full launch: the rev is a rhythm, not a timer.
+        decay_per_s: 0.55,
+        // Launch speed (px/s) at a full charge. A full rev outruns the top
+        // speed cap (the launch writes the surface speed, which the kernel
+        // allows above the cap), so a spin dash clears the loop: a radius-180
+        // loop under 2250 gravity needs about 1300 px/s at the bottom, plus a
+        // margin for drag before the loop.
+        launch_speed: 1600.0,
+        // Below this charge a crouch release is only standing up.
+        min_launch_charge: 0.3,
+        // The side (px) of the balled-up body box. Sanic stands 24 wide.
+        ball_side: 24.0,
+        // The roll ends when his speed falls below this (px/s): he stands up
+        // when he stops, not when a timer says so.
+        exit_speed: 90.0,
+        // How far down (0 to 1) the stick must be to read as a crouch.
+        crouch_threshold: 0.5,
+        // How long (s) an armed rev survives a lost ride contact: block seams
+        // and ramp lips lose it for a tick.
+        contact_grace_s: 0.12,
+        // The charges at which the rev sound climbs to its second and third
+        // tier. With 0.4 a tap, the three taps (0.4, 0.8, 1.0) each sound a
+        // tier.
+        rev_tiers: (0.5, 0.85),
+    ),
     super_form: (
         // The beat he holds when he becomes super: shorter and lighter than
         // Mary-O's, so it does not stop a run. Wall-clock seconds, and the

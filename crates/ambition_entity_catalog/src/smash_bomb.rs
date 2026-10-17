@@ -32,16 +32,21 @@ pub struct DropBombParams {
     /// How hard the blast throws what it catches: the feel multiplier
     /// `DamageBoxEffect::knockback` is, not a launch speed.
     pub knockback: f32,
+    /// How long the blast stays live, in seconds: long enough to meet each
+    /// body it covers, short enough that a body that walks in later is not
+    /// caught by it.
+    pub blast_s: f32,
 }
 
 /// The domain rule for a bomb's params, not only "serde can build it".
 pub fn check_drop_bomb_params(params: &ParamValue) -> Result<(), String> {
     let typed: DropBombParams = params.hydrate().map_err(|error| error.to_string())?;
-    if typed.knockback.is_finite() && typed.knockback > 0.0 {
-        Ok(())
-    } else {
-        Err(format!("knockback {} throws nobody: a blast throws with a finite, positive feel multiplier", typed.knockback))
+    let mut problems = Vec::new();
+    if !(typed.knockback.is_finite() && typed.knockback > 0.0) {
+        problems.push(format!("knockback {} throws nobody: a blast throws with a finite, positive feel multiplier", typed.knockback));
     }
+    problems.extend(crate::smash_mine::blast_problem(typed.blast_s));
+    if problems.is_empty() { Ok(()) } else { Err(problems.join("; ")) }
 }
 
 /// Return the held-item id referenced by a bomb payload.

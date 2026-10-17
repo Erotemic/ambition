@@ -152,12 +152,13 @@ pub const SFX_RING: &str = "world.coin.pickup";
 /// is a pure emit when it lands.
 pub const SFX_RING_LOSS: &str = "sanic.ring_loss";
 
-/// Pick the rev tier from the post-tap charge (`0..=1`): the three buckets land
-/// on the three natural tap counts (`rev_per_tap` 0.4 → ~0.4, ~0.8, 1.0).
+/// Pick the rev tier from the post-tap charge (`0..=1`) at the rules'
+/// `spin_dash.rev_tiers`.
 pub fn rev_tier_id(charge: f32) -> &'static str {
-    if charge < 0.5 {
+    let [second, third] = ball_dash::spin_dash_tuning().rev_tiers;
+    if charge < second {
         SFX_REV_TIERS[0]
-    } else if charge < 0.85 {
+    } else if charge < third {
         SFX_REV_TIERS[1]
     } else {
         SFX_REV_TIERS[2]
@@ -693,7 +694,6 @@ impl Plugin for SanicRulesPlugin {
         }
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
-        app.init_resource::<ball_dash::BallDashTuning>();
         // Sanic's half of a body reset (round boundary, respawn, and so on).
         // Not mode-gated: it fires only on `BodyRestarted` and touches only
         // Sanic's components, so it is inert for other bodies, and a gate would

@@ -35,6 +35,8 @@ pub struct SteeredBoltParams {
     pub self_launch: f32,
     /// Where it appears, body-local (`+x` toward facing, `+y` gravity-down).
     pub offset: (f32, f32),
+    /// How long its hit stays live where it reaches somebody, in seconds.
+    pub hit_s: f32,
 }
 
 impl SteeredBoltParams {
@@ -61,6 +63,9 @@ impl SteeredBoltParams {
                  projectile wearing a steering move's startup",
                 self.turn_rate_deg
             ));
+        }
+        if !(self.hit_s.is_finite() && self.hit_s > 0.0) {
+            out.push(format!("`hit_s` is {}, so the bolt's hit is never live", self.hit_s));
         }
         out
     }

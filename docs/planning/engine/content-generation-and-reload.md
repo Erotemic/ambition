@@ -563,8 +563,13 @@ does not decode with the file named, and projects the landmarks again when a
 flipbook changed; the watch reloads an edited flipbook's atlas pages
 (`<target>_parts*.png`) at once. The old generation drops its decoded tables
 at the publication. Witness: the flipbook arm of `sprite_sheet_reload`. A
-tier table is not decoded at the preparation, so a broken one is still found
-where a sheet realizes it. The portrait manifests (`*_portraits.ron`) and
+tier table is decoded where a sheet realizes at that tier, and that reader
+panics on one that does not decode; so the preparation decodes each tier
+table whose file changed since the current generation read it, and refuses
+one that does not decode with its path under `assets/` named (2026-10-17;
+the tier arm, red with the tier tables not checked). An unchanged tier table
+costs a stat: the preparation median did not move (2412 and 2046 ms
+before, 2140 and 2008 ms after, two runs of seven samples each). The portrait manifests (`*_portraits.ron`) and
 the sprite pack catalogs (`sprite_packs/<tier>/ultrapack.json`) are parts of
 the generation too: a manifest that does not parse or a catalog that does
 not parse or validate refuses the table with the file named, the
@@ -608,7 +613,16 @@ too, at its tier (`reload_fx_sheets_of_targets`; an effect is drawn from the
 set when it spawns): the effect arm, red with the reload removed. The
 intro's props were the last prop rows with their own spec (a `Catalog` source
 and a Rust table); they are pack rows since 2026-10-16. The page reload has no witness of its
-own.
+own. A sheet, rig or flipbook key that two files give (a sheet copied into
+a second folder, as one does while editing) refuses the table with both
+files named, and the watch keeps looking (2026-10-17). The scan stopped at
+such a key with a panic, which the build wants and the watch thread did
+not survive: the thread ended without a word, so each later edit was not
+seen. The scan now lists each file and each key two files give
+(`sprite_tree::KeyedFiles`); `build.rs` and the first table stop at a
+refusal, the generation read refuses the table, and the watch compares each
+file by its path too, so the second file's removal is seen while the first
+did not change. Witness: the second-file arm of `sprite_sheet_reload`.
 
 **Future live path:** the source scanner reports the changed logical key
 and a canonical source fingerprint. Preparation decodes the changed sheet,

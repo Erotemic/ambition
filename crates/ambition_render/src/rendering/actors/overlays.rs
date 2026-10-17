@@ -93,9 +93,17 @@ pub fn manage_gradient_lane_visual(
     else {
         return;
     };
+    // The bosses that draw a lane this frame. Most frames have none and show
+    // none, and then there is nothing to do: the room of each feature sprite
+    // was looked up each frame for no boss.
+    let laned: Vec<&str> = boss_frames.iter().filter(|(_, frame)| frame.hazard_lane.is_some()).map(|(id, _)| id).collect();
+    if laned.is_empty() && visuals.is_empty() {
+        return;
+    }
     let room_of_boss: std::collections::HashMap<&str, ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> =
         sprites
             .iter()
+            .filter(|(_, sprite)| laned.contains(&sprite.id.as_str()))
             .filter_map(|(entity, sprite)| Some((sprite.id.as_str(), rooms.room_of(entity)?)))
             .collect();
     let mut active: std::collections::HashMap<

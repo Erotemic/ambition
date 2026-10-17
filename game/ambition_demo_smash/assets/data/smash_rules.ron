@@ -87,6 +87,11 @@
     // was measured there), so that count is one of these. One leaves no room
     // to learn the matchup; five makes an early mistake recoverable.
     stock_choices: [1, 3, 5],
+    // The swing a fighter that authors no kit is seated with. Many of
+    // Ambition's cast are peaceful; seated in the arena, each throws this. It
+    // is the duelists' swipe (character_catalog.ron, `duelist`): a hit must
+    // launch, or a fighter cannot knock anybody off anything.
+    seating_melee: Swipe((windup_s: 0.22, active_s: 0.08, recover_s: 0.26, damage: 4, reach_px: 34.0)),
     // The shark the pirate admiral's up-B summons.
     shark_ride: (
         // The shark takes its summoner on when it comes this near (px). A

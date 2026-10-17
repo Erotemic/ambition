@@ -45,9 +45,10 @@ fn params() -> PlaceMineParams {
         blast_radius: 52.0,
         half_extents: (8.0, 8.0),
         offset: (-18.0, 14.0),
-        // Not the shipped 1.7, so a blast on a Rust constant fails
+        // Not the shipped 1.7 and 0.08, so a blast on a Rust constant fails
         // `the_blast_is_authored_as_a_hazard_and_not_as_an_inert_side`.
         knockback: 1.45,
+        blast_s: 0.3,
     }
 }
 
@@ -91,16 +92,17 @@ fn the_blast_is_authored_as_a_hazard_and_not_as_an_inert_side() {
     app.update();
     let messages = app.world().resource::<Messages<EffectRequest>>();
     let mut cursor = messages.get_cursor();
-    let found: Vec<(ambition_platformer2d::vfx::HitSide, f32)> = cursor
+    let found: Vec<(ambition_platformer2d::vfx::HitSide, f32, f32)> = cursor
         .read(messages)
         .filter_map(|request| match &request.effect {
-            Effect::DamageBox(b) if b.name == Some("mine blast") => Some((b.faction, b.knockback)),
+            Effect::DamageBox(b) if b.name == Some("mine blast") => Some((b.faction, b.knockback, b.lifetime_s)),
             _ => None,
         })
         .collect();
     assert_eq!(found.len(), 1, "the armed mine did not answer at all");
-    let sides: Vec<_> = found.iter().map(|(side, _)| *side).collect();
+    let sides: Vec<_> = found.iter().map(|(side, ..)| *side).collect();
     assert_eq!(found[0].1, params().knockback, "the blast throws with {}, not the move's authored knockback", found[0].1);
+    assert_eq!(found[0].2, params().blast_s, "the blast is live for {} s, not the move's authored time", found[0].2);
     assert_eq!(
         sides[0],
         ambition_platformer2d::vfx::HitSide::Environment,

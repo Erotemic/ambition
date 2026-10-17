@@ -1333,11 +1333,13 @@ fn rules_plugin_registers_its_mandatory_sfx_message_channel() {
 
 #[test]
 fn rev_tier_climbs_with_charge() {
-    // The three buckets land on the three natural tap counts (rev_per_tap 0.4).
+    // Each tier starts at the charge the rules' `spin_dash.rev_tiers` state.
+    let [second, third] = crate::ball_dash::spin_dash_tuning().rev_tiers;
     assert_eq!(rev_tier_id(0.0), SFX_REV_TIERS[0]);
-    assert_eq!(rev_tier_id(0.4), SFX_REV_TIERS[0]);
-    assert_eq!(rev_tier_id(0.6), SFX_REV_TIERS[1]);
-    assert_eq!(rev_tier_id(0.8), SFX_REV_TIERS[1]);
+    assert_eq!(rev_tier_id(second - 0.01), SFX_REV_TIERS[0]);
+    assert_eq!(rev_tier_id(second), SFX_REV_TIERS[1]);
+    assert_eq!(rev_tier_id(third - 0.01), SFX_REV_TIERS[1]);
+    assert_eq!(rev_tier_id(third), SFX_REV_TIERS[2]);
     assert_eq!(rev_tier_id(1.0), SFX_REV_TIERS[2]);
     // Monotonic: never steps down as charge rises.
     let mut prev = 0usize;

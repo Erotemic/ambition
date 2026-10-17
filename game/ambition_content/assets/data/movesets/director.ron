@@ -125,6 +125,8 @@
                                                 key: "smash.mark_body",
                                                 params: ({
                                                     "blast_radius": 44.0,
+                                                    // As a bomb's blast.
+                                                    "blast_s": 0.08,
                                                     "damage": 6,
                                                     "fuse_s": 1.4,
                                                     "knockback": 1.2,
@@ -474,6 +476,9 @@
                                         key: "smash.steered_bolt",
                                         params: ({
                                             "damage": 8,
+                                            // A hit that lands where the bolt is spent:
+                                            // shorter than a blast, as the bolt is small.
+                                            "hit_s": 0.06,
                                             "knockback": 1.6,
                                             "lifetime_s": 2.2,
                                             "offset": [

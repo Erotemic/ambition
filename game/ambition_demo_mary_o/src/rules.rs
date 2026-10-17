@@ -85,6 +85,8 @@ pub struct PowerUps {
     pub wand_half: (f32, f32),
     pub beacon_half: (f32, f32),
     pub quasar_half: (f32, f32),
+    /// How long a pickup takes to climb out of its block, in seconds.
+    pub rise_seconds: f32,
 }
 
 impl PowerUps {
@@ -231,6 +233,7 @@ impl MaryORules {
             ("level.cycle_dwell_seconds", self.level.cycle_dwell_seconds),
             ("power_ups.wand_speed", self.power_ups.wand_speed),
             ("power_ups.quasar_speed", self.power_ups.quasar_speed),
+            ("power_ups.rise_seconds", self.power_ups.rise_seconds),
         ] {
             if !(value.is_finite() && value >= 0.0) {
                 problems.push(format!("`{field}` is {value}; it is finite and not negative"));
@@ -409,6 +412,24 @@ mod tests {
             Err(failure) => failure.render(),
         };
         assert!(refused.contains("`power_ups.wand_half`"), "the refusal names the field: {refused}");
+
+        // A reward climbs out of its block for the file's time, and a rise
+        // that runs backwards is refused.
+        let still = ambition_platformer2d::world_items::ItemMotionPlan::still();
+        let rise = crate::powerups::rises_from_a_block(still, 0.0).emerge.map(|emerge| emerge.seconds);
+        assert_eq!(rise, Some(file.power_ups.rise_seconds), "a reward rises for a time that is not the file's");
+        let seconds = "rise_seconds: 0.4,";
+        assert_eq!(authored.matches(seconds).count(), 1, "the probe edits the rise");
+        assert_eq!(rules_of(&authored.replace(seconds, "rise_seconds: 0.6,")).power_ups.rise_seconds, 0.6);
+        std::fs::write(root.join("data/mary_o_rules.ron"), authored.replace(seconds, "rise_seconds: -0.4,")).unwrap();
+        let refused = match EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None)
+            .with_schemas(|| vec![mary_o_rules_schema()])
+            .compile()
+        {
+            Ok(_) => panic!("a rise that runs backwards was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`power_ups.rise_seconds`"), "the refusal names the field: {refused}");
         let _ = std::fs::remove_dir_all(&root);
     }
 }

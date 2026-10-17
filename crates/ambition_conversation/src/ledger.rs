@@ -277,9 +277,12 @@ impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
                     // input stamped for tick N+1 is acted on in the step that
                     // IS tick N+1, not in the one after it.
                     .after(ambition_platformer2d_shared_tangle::schedule::SimClockHead)
-                    .before(Platformer2dSimulationPhase::CoreSimulation),
+                    .before(Platformer2dSimulationPhase::CoreSimulation)
+                    // A narrative input comes from a conversation: where the
+                    // room's game has none, the ledger has nothing to release.
+                    .in_set(DIALOGUE),
             )
-            .add_systems(Update, prune_narrative_inputs::<M>)
+            .add_systems(Update, prune_narrative_inputs::<M>.in_set(DIALOGUE))
             .add_systems(
                 Update,
                 forget_narrative_inputs_on_activation::<M>
@@ -290,6 +293,12 @@ impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
             );
     }
 }
+
+/// The set of the dialogue capability's per-tick work.
+const DIALOGUE: ambition_platformer2d_shared_tangle::capability::CapabilitySet =
+    ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+        ambition_platformer2d_shared_tangle::capability::Capability::Dialogue,
+    );
 
 /// Forget every record when a gameplay session activates.
 ///

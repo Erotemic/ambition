@@ -20,6 +20,13 @@ use super::ui_bridge::{
 /// Cross-domain order is expressed through the shared feature-interaction schedule sets.
 pub struct ConversationPlugin;
 
+/// The set of the dialogue capability's per-tick work: it runs only where the
+/// active room's game uses dialogue.
+const DIALOGUE: ambition_platformer2d_shared_tangle::capability::CapabilitySet =
+    ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+        ambition_platformer2d_shared_tangle::capability::Capability::Dialogue,
+    );
+
 impl Plugin for ConversationPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
@@ -47,21 +54,28 @@ impl Plugin for ConversationPlugin {
                 project_the_dialog_ui_from_the_conversation,
                 publish_the_narrative_end,
             )
-                .chain(),
+                .chain()
+                .in_set(DIALOGUE),
         );
 
         // Simulation systems join the shared feature-interaction phases they depend on.
         app.add_systems(
             sim,
-            close_conversation_on_narrative_end.in_set(FeatureInteractionSet::NarrativeIntake),
+            close_conversation_on_narrative_end
+                .in_set(FeatureInteractionSet::NarrativeIntake)
+                .in_set(DIALOGUE),
         );
         app.add_systems(
             sim,
-            break_dialogue_on_hit_or_separation.in_set(FeatureInteractionSet::Continuity),
+            break_dialogue_on_hit_or_separation
+                .in_set(FeatureInteractionSet::Continuity)
+                .in_set(DIALOGUE),
         );
         app.add_systems(
             sim,
-            project_conversation_hold.in_set(FeatureInteractionSet::HoldProjection),
+            project_conversation_hold
+                .in_set(FeatureInteractionSet::HoldProjection)
+                .in_set(DIALOGUE),
         );
     }
 }

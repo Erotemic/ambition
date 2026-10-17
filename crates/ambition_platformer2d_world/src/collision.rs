@@ -326,6 +326,25 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
             continue;
         }
         let Some(kind) = carried_kind(block.kind, back_dir) else {
+            // A one-way block the pair turns off upright is its floor: its
+            // top, carried as a one-way line, which is a floor at any angle
+            // a walker stands on and passed where it is steeper.
+            if block.kind == ae::BlockKind::OneWay {
+                let top = (block.aabb.min, ae::Vec2::new(block.aabb.max.x, block.aabb.min.y));
+                if let Some((t0, t1)) = before.clip_segment(top.0, top.1) {
+                    let (a, b) = (top.0 + (top.1 - top.0) * t0, top.0 + (top.1 - top.0) * t1);
+                    let (a, b) = (back(a), back(b));
+                    // Wound so its outward normal is the block's up, carried.
+                    let up = back_dir(-ae::Vec2::Y);
+                    let t = b - a;
+                    let (a, b) = if ae::Vec2::new(t.y, -t.x).dot(up) >= 0.0 { (a, b) } else { (b, a) };
+                    chains.push(ae::SurfaceChain {
+                        velocity: back_dir(block.velocity),
+                        hidden: true,
+                        ..ae::SurfaceChain::open(block.name.clone(), vec![a, b])
+                    });
+                }
+            }
             continue;
         };
         let Some(aabb) = carried_box(block.aabb, &region, back) else {
@@ -1247,6 +1266,34 @@ mod collision_world_tests {
         assert!(!probe(centre + ae::Vec2::new(10.0, 10.0)), "solid in a corner of the box around it");
         assert_eq!(met.blocks.iter().filter(|b| b.name == "square").count(), 1, "and not as a box too (the one is the square where it is)");
         assert_eq!(met.blocks.iter().filter(|b| b.name == "corner").count(), 1, "a block out of the turned region is not carried");
+    }
+
+    /// A one-way platform a pair turns off upright is carried as its top: a
+    /// one-way line facing where its up is carried (a floor pair to a 30°
+    /// slope portal tilts it 30°).
+    #[test]
+    fn a_one_way_platform_a_pair_turns_is_carried_as_its_top() {
+        use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+        let n = ae::Vec2::new(30f32.to_radians().sin(), -30f32.to_radians().cos());
+        let glue = PortalGlue {
+            enter: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), ae::Vec2::new(0.0, -1.0)), half_length: 60.0 },
+            exit: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, 200.0), n), half_length: 60.0 },
+            convention: MapConvention::Reflection,
+            depth: 60.0,
+        };
+        let ledge_at = ae::Vec2::new(500.0, 200.0) + n * 30.0;
+        let mut ledge = ae::Block::solid("ledge", ledge_at - ae::Vec2::new(20.0, 0.0), ae::Vec2::new(40.0, 6.0));
+        ledge.kind = ae::BlockKind::OneWay;
+        let walls = ae::World::new("glue", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, vec![ledge]);
+        let met = as_met_by(&walls, &[], &[], &[&glue]);
+        let line = met.chains.iter().find(|c| c.name == "ledge").expect("the ledge's top is carried");
+        assert_eq!(line.kind, ae::SurfaceKind::Ground);
+        let (a, b) = (line.points[0], line.points[1]);
+        let normal = ae::Vec2::new((b - a).y, -(b - a).x).normalize();
+        // Its up goes in at the entry floor as straight up, turned by the pair.
+        let up = ae::frame::map_vec(&glue.exit.frame, &glue.enter.frame, glue.convention, -ae::Vec2::Y);
+        assert!((normal - up).length() < 1e-4, "{normal:?} vs {up:?}");
+        assert_eq!(met.blocks.iter().filter(|b| b.name == "ledge").count(), 1, "the ledge itself, where it is");
     }
 
     /// What a glued world costs to make (review of 15d0cf99c, finding D):

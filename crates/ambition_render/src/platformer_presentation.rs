@@ -56,8 +56,7 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.add_systems(
             Update,
             (
-                crate::rendering::terrain_skin::skin_terrain_surfaces,
-                crate::rendering::terrain_skin::unskin_blocks_that_get_art,
+                crate::rendering::terrain_skin::lay_room_terrain,
                 crate::rendering::terrain_skin::dress_themed_doors,
                 crate::rendering::terrain_skin::dress_themed_fixtures,
             )

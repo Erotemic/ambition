@@ -65,21 +65,228 @@ the shapes and all their half planes share a point.
 
 ## State (2026-10-16)
 
-Stages 1-6 landed. Stage 5: a held body (`PoseOwnedExternally`) is in the pair
-it reaches into from a portal's front while it reaches into it; the transit,
-the snag and the eviction do not move it. Stage 6: `PortalCarves::glues` →
-the overlay's `portal_glues` → `as_met_by` glues each pair a body is in
-(`glue_portal_pair`), CARVE_DEPTH deep, as the hole is.
+Stages 1-7 landed (`6e9045068`, `15d0cf99c`, `bc9c56af6`); the audit fixes below
+in `049a9081e`.
+
+- Stage 5: a held body (`PoseOwnedExternally`) is in the pair it reaches into from a
+  portal's front while it reaches into it; the transit, the snag and the eviction do
+  not move it.
+- Stage 6: `PortalCarves::glues` → the overlay's `portal_glues` → `as_met_by` glues
+  each pair a body is in (`glue_portal_pair`), CARVE_DEPTH deep, as the hole is.
+- Stage 7: the giant draws the whole arm; the fist is posed under the near line
+  (`arms::fist_depth`); the giant's visual is cut by the pair its fist is in
+  (`PortalHostReach`); the fist carries its damage box (`ambition.boss.limb_strike`).
+
+## Audit of the review of `15d0cf99c` (2026-10-16)
+
+| | Finding | Status | Evidence | Gap left | Superseded by the general model? |
+|---|---|---|---|---|---|
+| A | Glue maps two corners of a box and boxes them; selects by the box of a turned region | **Fixed** (049a9081e) | `collision.rs` `glue_portal_pair`/`carried_box`: exact convex cut by the turned region (`frame::thread::face_rect_planes`, `clip_convex`), every corner mapped. Test `a_square_through_a_pair_that_turns_it_by_45_degrees_is_solid_where_it_is` (passes; that it fails on the old code is REASONED: the two corners of a square turned 45° share an x) | The world's solids are boxes: a turned image is put as its bounding box — conservative, more solid than the truth. A one-way block turned on its side is left out (no kind says it). The entry side is cut by the hole's box (the old hole approximation). Water and climbables are not carried. | Yes: piece queries (below) test the true clipped convex shape; no world is built. |
+| B | A shot's leg ends at a crossing the transit may refuse | **Fixed** (049a9081e) | `placement::swept_crossing` is the one swept crossing: `swept_crossing_step` and `first_portal_crossing` both use it (paired, fits, a moving portal's scoop, backside pair excluded via `ProjectileCollisionWorld::backside_of`). It also exposed that the transit asked "fits whole" where the step ENDS (a fast body past the plane fits trivially) — now where the centre crosses; and the rescue took a body beside the opening — now only one in line (`snag::in_line_with`). Test `a_shots_leg_ends_only_where_the_transit_takes_it`. | (1) After the crossing the rest of the leg is swept in neither room this tick; next tick the shot is put at the mapped end — a wall just in front of the exit inside that remainder can be tunnelled (REASONED, not reproduced). (2) Cooldown: neither the swept crossing nor the leg cut asks it (they agree). (3) Contacts before the crossing are ordered by the leg; the crossing is a cut at its fraction, so a wall before the plane is met first. | Partly: the leg cut stays; the remainder becomes a second sweep in the exit room (stage G2). |
+| C | `PortalParallaxCarry` is one global | **Fixed** (049a9081e) | Per view: `carry(view, by, now)`/`at(view, now)`; the continuity carries the views whose `ResolvedViewSubject` is the body that crossed, and maps only their eased targets; `parallax.rs` reads the layer's own view. Test `a_crossing_in_one_view_carries_no_other_views_foreground`. | `PortalCameraContinuityState` is still one focus (`focus_bodies.iter().next()`): two views crossing at once are not both continued. | No (presentation ownership, separate). |
+| D | Glue rebuilds the room per straddler | **Measured, still present** | `glue_cost` (ignored test, release, this machine): 20 µs/body/tick at 100 blocks, 245 µs at 1 000, 1.7 ms at 5 000; unglued 5 ns (borrowed). The per-body hole (`as_met_by` with holes) already cloned the room the same way. | Linear in the room per straddler per tick. Not a correctness bug; on Android it is several times this (REASONED). | Yes: stage G2 queries the room's broad phase through the piece; no copy. |
+| E | `thread_volume` stops at the first pair | **Still present** | `frame/thread.rs` `thread_volume` returns at the first opening; `cut_through` cuts one pair; a through piece is not cut again; `PortalPassages::straddled_by` and `PortalTransit` hold one pair per body. | One volume across two pairs is cut by the first only; nothing chains (A→B then C→D). | Yes: the worklist partitioner (G1). |
+
+The repairs the review found already made (held items, transfer straddle state,
+transit outliving its pair, item eviction, free-body sweeps, eviction order,
+moving-host poses) keep their tests; nothing above touched them.
+
+## GNU-ton's punch: what it does and does not do
+
+Does:
+- ONE pair, one hop. The fist's body is posed under the near line; it is in the pair
+  (`PortalTransit`, held rule) while it reaches into it.
+- Damage: the fist's box (`LimbStrike`, `FollowOwner` of the fist) is cut by the pair
+  (`apply_hitbox_damage` over `PortalPassages::pieces`); it hurts under the far line
+  and not in the giant (test `the_punch_hurts_under_the_far_line_through_the_pair`).
+- Drawing: the giant's whole picture is cut by the pair (here: in front, deeper than
+  the fist, beside the opening; through: under the opening to the fist's depth).
+- A body under the far line half through the pair is hit at both ends (combat stage 4).
+
+Does not:
+- Several pairs at once, or a chain (finding E): a second pair in the arm's way is not
+  cut. The drawing has one through piece.
+- Physical contact: the fist is posed, so nothing pushes it and it pushes nothing; it
+  lands where its keys say, not on what is under the far line. The giant does not
+  collide through the pair.
+- Feature hits: a player's strike through a pair onto a BOSS or a breakable tests the
+  strike whole (`HitEvent::volume`), so it does not reach through.
+- The near line is fixed to the giant each tick; a giant that moved during a strike
+  would re-place it (held bodies are not evicted, so the fist is not pushed out).
+
+## The general model (proposal for review — not authorized for implementation)
+
+Invariant: a portal transforms where the parts of an object are; it never makes a
+second object. One logical body (health, brain, inventory, authority) owns any finite
+number of portal-connected PIECES.
+
+### Data
+
+A piece, built from today's `VolumePiece`:
+
+```rust
+struct PortalPiece {
+    shape: ShapeRef,            // the body's primitive (a CombatVolume part, a box, a sprite quad)
+    room: Option<LiveRoomInstance>,
+    to_piece: Iso2,             // root chart → this piece's chart: orthogonal 2x2 (det ±1) + translation
+    bounds: SmallVec<[HalfPlane; 6]>, // in the piece's chart: the part of the shape that is here
+    path: SmallVec<[PortalHop; 4]>,   // the openings crossed, in order (entry channel, exit channel)
+}
+```
+
+- `Iso2` composes as matrices; a reflection stays a reflection (`MapConvention::
+  Reflection` has det −1). `frame::map_point/map_vec` are its two-frame case today.
+- Pieces are values, rebuilt per tick from rollback state (portals, poses, transits);
+  they are derived state like `PortalPassages`, never rollback state themselves.
+- Nonconvex shapes are lists of convex primitives (`CombatVolume::{Aabb, Obb, Circle,
+  Convex}`, a body box, a sprite quad); each primitive is cut on its own. Bounds stay
+  half planes, so a cut circle stays a circle (today's rule).
+
+### The cut (one hop)
+
+For a convex primitive C coming from the front of an aperture (frame o, n, t, half h):
+
+- here: C ∩ {front}
+- beside: C ∩ {behind} ∩ {past an end} (two pieces at most) — in free air it passed
+  beside the slit; on a host it is in the host
+- through: Iso(C) ∩ {front of exit} ∩ {exit's span}, carried to the exit's room
+
+"Crosses" means the shape has area behind the plane inside the span (the slab rule,
+today's `reaches_through`), not that it touches the infinite line. Grazing: area below
+`EPS` is no crossing. Endpoints: the span is closed; a primitive across an end is cut at
+the end lines (the beside pieces). Bodies never straddle an end (the snag holds them);
+volumes may, and the slab rule says where each part is. "From the front" is the root
+rule (today: the owner's centre, or the straddle state); a primitive whose root is
+behind is not cut by that aperture.
+
+### Many hops (the worklist)
+
+```
+work = [(primitive, Iso2::IDENTITY, bounds = [], path = [])]
+while let Some(piece) = work.pop_front():           // FIFO: stable order
+    candidates = apertures in piece.room whose bounds meet piece (broad phase), sorted by (room, channel)
+    first = the candidate the piece reaches through from its front, nearest the root along the path  // deterministic
+    if none: emit piece; continue
+    if path.len() == max_hops or emitted+queued == max_pieces: budget(piece, first); continue
+    emit here/beside parts (bounds += cut planes)
+    push through part: to_piece = Iso(first) ∘ to_piece, bounds mapped + exit planes, path + hop
+```
+
+- Four pairs at once (scenario A): the first cut splits off one through piece; the
+  here part is pushed back and cut by the next aperture, and so on — one through piece
+  per pair, order by channel.
+- A chain (scenario B): the through piece of A→B is in B's room and is cut by C→D;
+  `to_piece = T_CD ∘ T_AB`.
+- Invariants (pure tests): at each cut, the sibling parts tile the cut piece's source
+  region (union = it, interiors disjoint, areas sum); `to_piece` of a chain equals the
+  composed maps; area is preserved by every `Iso2`; the result is independent of the
+  order apertures were inserted (sorted candidates); termination under the budget.
+- Cycles: occurrences, not one partition. Re-entering an aperture with a different
+  composed transform is a new occurrence; the source-space tiling holds per cut, not
+  across the whole tree. Termination is by `max_hops` and `max_pieces`, never by
+  detecting "the same" piece.
+
+### Failure contract (budget exceeded)
+
+Never drop collision-relevant geometry and play on. The aperture the over-budget piece
+would cross is SOLID for that piece: the piece is clipped at the plane (its through part
+is not made), and the body's motion is held there as the snag holds a body past an end
+(collision); a combat volume simply does not reach further (it is not a body). A dynamic
+portal is refused at placement when the room's declared policy cannot admit the network
+it would make (e.g. a pair whose exit faces its own entry within `max_hops`); authored
+networks are checked when the room is built. Each refusal logs once with the body and
+the path.
+
+### Consumers (one geometry, separate algorithms)
+
+- Combat: `apply_hitbox_damage` tests strike pieces × hurt pieces (today) over the
+  worklist output; dedupe stays per hitbox × victim; source and knockback are carried
+  by the composed `Iso2` (today for one hop). Feature hits take the pieces too
+  (`HitEvent` carries the strike's pieces, not one volume).
+- Collision (G2): no glued world. A body's step asks the room's broad phase per piece:
+  each piece's swept primitive is mapped into its room, queried against that room's
+  solids (Parry shape casts on the clipped convex shape), and the contact (point,
+  normal, time) is mapped back by the inverse `Iso2` into the body's chart; the step
+  takes the earliest. Rigid bodies take the contact as they do now. Articulated bodies
+  (an arm) route a contact to the limb that owns the piece; until limbs have joints, a
+  held limb takes no contact (today's rule, stated). Moving portals: the piece's map
+  uses the frames' velocities (`map_velocity`) for relative velocity.
+- Transit: unchanged authority — a body is moved by the transfer rule; pieces describe
+  where its parts are, they do not move it.
+- Drawing (G4): every piece of a visual is drawn by a clipped quad with the piece's
+  `Iso2` and bounds (the clip material carries the bounds; 4 planes today, a few more
+  later, or the piece is split). Pooled quads per visual, reused frame to frame instead
+  of spawned and despawned; one material per piece set. Room and view isolation as
+  today (`InRoomInstance`, `PresentedForView`).
+
+### Policy (portal geometry modes)
+
+Owned by the game's rules for a room (`DeclaredRules`/room rules), overridable per
+body or per ability by a component; never by a graphics quality setting.
+
+- No portals: the portal plugins are not installed; no system runs, no resource exists.
+- `TransferOnly`: the transit and its snag; no pieces, no glue, no cut drawing — a body
+  is in one place, moved at the crossing. Cheapest.
+- `SingleHop`: the worklist with `max_hops = 1` (today's behaviour).
+- `Composed { max_hops, max_pieces_per_body }`: the full worklist.
+
+Mixing: a body's own policy wins for its pieces; a room's policy is the default for
+bodies in it; a pair across two rooms with different policies uses the lower of the
+two for crossings through it (a `TransferOnly` room does not grow pieces from a
+`Composed` body's visit — the body is transferred whole at that pair). Everything is
+a pure function of rollback state and the policy, so it is deterministic and saves
+nothing new.
+
+Cost control: a body is partitioned only if its bounds meet an aperture's slab (broad
+phase over the room's apertures, a handful); the worklist runs for those bodies only;
+scratch buffers are reused per system; candidates are sorted vectors, not hash maps.
+
+### Benchmarks to take (before and after each stage)
+
+No portals near; one stationary pair (no straddler); one body straddling one pair;
+a giant straddling four pairs; an arm through two pairs in sequence; a cycle (a pair
+facing itself). Time per tick and allocations per tick, release, on this machine and on
+the phone (`profile_android.sh`).
+
+## Roadmap (each stage reviewed before the next)
+
+- **G0 (done)**: audit fixes A-C; D measured.
+- **G1 — pure partitioner** (core, no ECS): `Iso2`, the worklist over convex
+  primitives, the budget. Tests: the tiling invariants above, the 45° glue case, four
+  simultaneous pairs, the two-pair chain (`T_CD ∘ T_AB`), a reflection pair, insertion
+  order independence, grazing and endpoint cases, a cycle that stops at its budget.
+  Benchmarks: the list above, pure.
+- **G2 — combat on the partitioner**: `thread_volume`/`cut_through` become the
+  worklist with `SingleHop` (behaviour unchanged, tests unchanged), then `Composed`
+  where the policy says. `HitEvent` carries pieces for feature hits. GNU-ton's punch is
+  the acceptance case, plus a strike through two chained pairs.
+- **G3 — collision by queries**: replace `glue_portal_pair` with per-piece broad-phase
+  queries; delete the per-body world copy (and the per-body hole copy with it: a hole is
+  a piece query that ignores the host inside the opening). Acceptance: the stage-6 tests,
+  the 45° case exact (not conservative), the cost benchmarks flat in room size. Risk:
+  the kernel's step is built on a `World`; this stage needs a query trait the kernel
+  steps against (`SolidWorldQuery` exists in `cast`).
+- **G4 — drawing by pieces**: pooled clip quads per visual, N pieces; the host-picture
+  reach becomes the general rule (a limb's pieces cut its host's picture).
+- **G5 — policy**: the modes as room rules and body overrides; admission checks for
+  dynamic portals; the failure contract's snag at an over-budget aperture.
+- **G6 — articulation**: contacts routed to limbs with joints (separate design).
+
+Risks: the kernel's world-shaped collision (G3) is the largest change; rollback cost of
+derived pieces must stay off the snapshot (derived, rebuilt); drawing more than one
+through piece raises render cost — pooled quads and the broad phase keep it to bodies
+that cut a portal.
 
 ## Open
 
-- Projectiles test a sweep, not a volume; a shot past a portal plane already transits
-  itself, so they come last.
+- Projectiles test a sweep, not a volume; after a crossing the rest of the leg is not
+  swept in the exit room this tick (finding B gap 1).
 - Body-to-body contact (standing on a body) is not portal-aware.
 - Feature hits (bosses, breakables, the feature-side actor fold) still test the
   strike whole (`HitEvent::volume`).
 - A volume placed in the world (`HitboxAnchor::World`) is cut by what it reaches
-  through from its own centre; a box held on a limb past the plane (GNU-ton's
-  fist) needs to say what it is attached to.
-- The glue carries blocks and open lines; water, climbable regions and a
-  one-way block a pair turns on its side are not carried.
+  through from its own centre; a limb's box says what it is attached to by riding the
+  limb (`LimbStrike`).
+- The glue carries blocks and open lines; water, climbable regions and a one-way
+  block a pair turns on its side are not carried; a turned block is its bounding box.
+- The camera continuity follows one focus (finding C gap).

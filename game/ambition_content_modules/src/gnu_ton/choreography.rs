@@ -584,9 +584,24 @@ pub mod arms {
     /// on the back. By the shoulder it was too low: a player's two jumps took
     /// it into the far line with about 31 of rise left (REASONED from the
     /// jump's numbers, 2026-10-11).
-    pub const NEAR_LINE: Vec2 = Vec2::new(369.9, -299.6);
-    /// Half the length of each line of the punch's pair.
-    pub const PUNCH_HALF: f32 = 65.0;
+    ///
+    /// Its opening starts past the root of the arm (the drawing's
+    /// `PUNCH_LINE`): what is under the opening is the arm that went in, and
+    /// the game cuts the giant there and draws it at the far line.
+    pub const NEAR_LINE: Vec2 = Vec2::new(414.1, -299.6);
+    /// Half the length of each line of the punch's pair: the giant makes his
+    /// portals as big as his fist needs (Jon 2026-10-16).
+    pub const PUNCH_HALF: f32 = 84.0;
+    /// World units of one design unit of the drawing (`giant_art.py`).
+    const DESIGN: f32 = 0.641;
+    /// Where the wrist is under the line in the drawing's keys of the punch
+    /// (`_P_BACK`, `_P_DOWN`, `_P_UP`), and how far past it the fist's middle
+    /// is, in design units; the length of the row `punch_hold`.
+    const WRIST_BACK: f32 = -155.0;
+    const WRIST_DOWN: f32 = 94.0;
+    const WRIST_UP: f32 = -125.0;
+    const FIST_PAST_WRIST: f32 = 56.0;
+    const HOLD_ROW: f32 = 0.28;
     /// The far line is this far over the middle of the fist that came out of it.
     /// With the fist on the floor the line is 145 over the floor: a player's
     /// two jumps from the floor reach it.
@@ -904,6 +919,32 @@ pub mod arms {
 
     /// A fist that is on its arm: the giant's picture has it.
     pub const NO_FIST: rows::Pin = (&["none"], 0.0, false);
+
+    /// How far under the near line the middle of the right fist is (world
+    /// units, less than 0: over it) while its arm goes down into the line,
+    /// comes back up out of it, or stays in it; `None` otherwise. The giant's
+    /// rows draw the arm by the same keys, so the fist's body is where its
+    /// picture is, and the pair carries both through.
+    pub fn fist_depth(cue: &Cue) -> Option<f32> {
+        if cue.mv != Move::PortalPunch || !cue.striking {
+            return None;
+        }
+        let wrist = if cue.t < STRIKE {
+            let u = (cue.t / STRIKE / 0.8).min(1.0);
+            WRIST_BACK + (WRIST_DOWN - WRIST_BACK) * u * u * u
+        } else if cue.dur - cue.t > RECOVER {
+            let phase = ((cue.t - STRIKE) / HOLD_ROW).min(1.0);
+            WRIST_DOWN - 12.0 * (std::f32::consts::TAU * phase).sin().abs()
+        } else {
+            let phase = (RECOVER - (cue.dur - cue.t)) / RECOVER;
+            if phase >= 0.45 {
+                return None;
+            }
+            let u = (phase / 0.45).clamp(0.0, 1.0);
+            WRIST_DOWN + (WRIST_UP - WRIST_DOWN) * u * u * (3.0 - 2.0 * u)
+        };
+        Some((wrist + FIST_PAST_WRIST) * DESIGN)
+    }
 }
 
 pub mod eureka {

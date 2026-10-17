@@ -21,21 +21,18 @@ Status of each: OPEN. The content comes first.
 
 ### 1. The fist does not go through the portal. Two drawings pretend it does
 
-- The giant's sheet draws the arm going INTO the near line (rows
-  `punch_*`, cut at the line). The fist's sheet draws a fore arm and a fist
-  coming OUT of the far line (rows `through_*`, cut at its frame's top).
-  The conductor pins the two rows at the same times. They agree because
-  both read `giant_art.punch_keys`, and because the conductor's times
-  (`arms::STRIKE`, `RECOVER`) are copies of the rows' lengths.
-- The fist's body is put under the far line by the conductor. Its damage is
-  a box there.
-- **Should be:** one arm, one animation, and the ENGINE cuts it at the near
-  line and draws the rest at the far line, as it does for a body that is in
-  a pair (the transit pieces of `ambition_portal2d_presentation`). Then an
-  arm can go through a pair at any place and any angle, the far side can
-  not be out of step, and a damage box that is mapped through the pair
-  hurts where the fist is seen. This needs: a limb that is part of its
-  host's picture, a held damage box that a portal maps, and angled portals.
+**PAID 2026-10-16** (Jon: "use real portals to handle phase1 of gnuton's
+giant's punches"; `docs/planning/engine/portals-a-body-in-two-places.md`).
+The giant's rows draw the whole arm, uncut, and the fist's body is posed
+under the NEAR line by the same keys (`arms::fist_depth`). The fist is held
+(`PoseOwnedExternally`), so the pair takes it in and does not move it; the
+giant's visual is cut by the pair its fist is in (`PortalHostReach`: under
+the opening and as deep as the fist), and its damage box rides the fist
+(`ambition.boss.limb_strike`), so it hurts at the far line. The pair is wider
+(84 a side) and starts past the arm's root, so nothing else of the giant is
+under the opening. The fist's rows `through_*` are no longer drawn in the
+fight; a fist on its arm has no trail (`LimbBond` version 2, `start: None`).
+Phase 2 keeps its look-only lines.
 
 ### 2. A module can not open a portal
 

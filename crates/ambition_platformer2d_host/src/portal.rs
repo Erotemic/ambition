@@ -256,6 +256,75 @@ mod host_adapter {
         }
     }
 
+    /// A limb in a portal pair carries its host's picture in: a giant's arm
+    /// is drawn by the giant, and the limb that goes through is its fist
+    /// (`docs/planning/engine/portals-a-body-in-two-places.md`). The host's
+    /// visual is cut by the limb's pair, as deep past the plane as the limb
+    /// reaches and a limb's depth more ([`PortalHostReach`]): under the
+    /// opening and that deep, the picture is at the far end; the rest of it is
+    /// where it is. When no limb of it is in a pair, the facts go.
+    ///
+    /// [`PortalHostReach`]: ambition_portal2d_presentation::PortalHostReach
+    pub fn publish_threaded_host_pictures(
+        mut commands: Commands,
+        live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+        limbs: Query<(
+            Entity,
+            &ambition_characters::actor::Limb,
+            &BodyKinematics,
+            Option<&ambition_platformer2d_core::SweepSample>,
+            &ambition_portal2d::PortalTransit,
+        )>,
+        hosts: Query<(&ambition_combat::FeatureId, &BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+        portals: Query<(Entity, &ambition_portal2d::PlacedPortal)>,
+        visuals: Query<
+            (Entity, &ambition_render::rendering::FeatureVisual, Has<ambition_portal2d_presentation::PortalHostReach>),
+            Without<PlayerVisual>,
+        >,
+    ) {
+        use ambition_platformer2d_core::AabbExt;
+        let by_room = ambition_portal2d::PortalsByRoom::collect(&portals, &live);
+        // Each host a limb carries in: its id, its room, the pair, and how deep.
+        let mut carried: Vec<(String, ambition_portal2d::PortalRoom, Entity, ambition_portal2d::PortalChannel, f32)> = Vec::new();
+        for (limb, of, kin, step, transit) in &limbs {
+            let room = live.of(limb);
+            let Some(portal) = ambition_portal2d::find_portal(by_room.in_room(room), transit.straddling) else {
+                continue;
+            };
+            let Ok((id, _, _)) = hosts.get(of.of) else {
+                continue;
+            };
+            let frame = portal.aperture().frame;
+            let body = kin.collision_box(step);
+            let corners = [body.min, body.max, Vec2::new(body.min.x, body.max.y), Vec2::new(body.max.x, body.min.y)];
+            let deepest = corners.iter().map(|c| -(*c - frame.origin).dot(frame.normal)).fold(0.0_f32, f32::max);
+            let thickness = body.half_size().x * frame.normal.x.abs() + body.half_size().y * frame.normal.y.abs();
+            carried.push((id.0.clone(), room, of.of, transit.straddling, deepest + 2.0 * thickness));
+        }
+        for (visual, feature, has_reach) in &visuals {
+            let room = live.of(visual);
+            match carried.iter().find(|(id, r, ..)| *id == feature.id && *r == room) {
+                Some((_, _, host, straddling, reach)) => {
+                    let Ok((_, kin, step)) = hosts.get(*host) else {
+                        continue;
+                    };
+                    commands.entity(visual).try_insert((
+                        PortalSceneBody,
+                        body_view(*host, kin, step),
+                        PortalTransitView { straddling: *straddling },
+                        ambition_portal2d_presentation::PortalHostReach(*reach),
+                    ));
+                }
+                None if has_reach => {
+                    commands
+                        .entity(visual)
+                        .remove::<(PortalTransitView, ambition_portal2d_presentation::PortalHostReach)>();
+                }
+                None => {}
+            }
+        }
+    }
+
     /// Each item and each shot that straddles a portal is cut at the seam,
     /// as a body is: the facts the piece builder cuts by go onto the visual
     /// that draws it. An item's visual is linked to its item
@@ -423,7 +492,10 @@ mod host_adapter {
         state: Option<ResMut<PortalCameraContinuityState>>,
         // THE EASING STATE OF EVERY LOCAL VIEW. A portal maps the world, so every observer
         // of that world has to carry its own smoothed target through the same map
-        mut view_ease: Query<&mut CameraEaseState, With<ambition_sim_view::LocalView>>,
+        mut view_ease: Query<
+            (Entity, &mut CameraEaseState, Option<&ambition_sim_view::ResolvedViewSubject>),
+            With<ambition_sim_view::LocalView>,
+        >,
         mut transited: MessageReader<ambition_portal2d::PortalBodyTransited>,
         gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
         focus: Query<(), With<PortalCameraContinuityFocus>>,
@@ -713,7 +785,16 @@ mod host_adapter {
                 );
             }
 
-            for mut camera_state in &mut view_ease {
+            // The views that follow the body that crossed: their cameras move
+            // through the pair, and no other view's does (review of
+            // 15d0cf99c, finding C). A view whose subject is not resolved is
+            // the one view of a host that names none.
+            let mut moved_views: Vec<Option<Entity>> = Vec::new();
+            for (view, mut camera_state, subject) in &mut view_ease {
+                if subject.and_then(|s| s.0).is_some_and(|s| s != ev.body) {
+                    continue;
+                }
+                moved_views.push(Some(view));
                 if camera_state.target_initialized {
                     camera_state.live_target_world = ambition_portal2d::pieces::map_point(
                         camera_state.live_target_world,
@@ -727,10 +808,16 @@ mod host_adapter {
             // The camera moves through the pair on this frame; the foreground
             // does not jump with it.
             if let Some(carry) = parallax_carry.as_deref_mut() {
-                carry.carry(
-                    desired_camera_world - previous_host_camera_world,
-                    time.as_deref().map_or(0.0, Time::elapsed_secs),
-                );
+                if moved_views.is_empty() {
+                    moved_views.push(None);
+                }
+                for view in moved_views {
+                    carry.carry(
+                        view,
+                        desired_camera_world - previous_host_camera_world,
+                        time.as_deref().map_or(0.0, Time::elapsed_secs),
+                    );
+                }
             }
             if config.debug_log {
                 bevy::log::info!(
@@ -961,8 +1048,9 @@ mod host_adapter {
                         )
                             .chain(),
                         // Each other body that crosses: its facts go onto the
-                        // visual that draws it.
-                        publish_transiting_feature_bodies,
+                        // visual that draws it. A host whose limb is in a pair
+                        // after: its facts stand.
+                        (publish_transiting_feature_bodies, publish_threaded_host_pictures).chain(),
                     )
                         .in_set(PortalObservationSet)
                         .run_if(

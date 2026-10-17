@@ -408,15 +408,45 @@ fn plane_crossing(from: Vec2, to: Vec2, enter: &PlacedPortal) -> Option<f32> {
     (offset <= ap.half_length + TRANSIT_BEGIN_MARGIN).then_some(t)
 }
 
+/// Does a body of `size` that moved `from -> to` cross `enter` and get taken
+/// by it, and where along the step (a fraction)? THE swept crossing: the
+/// transit takes a body by it ([`swept_crossing_step`]), and a shot's
+/// contacts stop where it says ([`first_portal_crossing`]), so the two can
+/// not disagree. The step's start is carried with the aperture as it moved
+/// and turned this tick (a moving portal's scoop); the centre crosses the
+/// plane front to behind through the opening; and the body fits through the
+/// opening whole where its centre crosses (`crate::snag`: a body that cuts
+/// the plane past an end is snagged, not taken). Asked where the step ends,
+/// a fast body is wholly past the plane there and fits trivially, though its
+/// box went through the host beside the opening.
+pub(crate) fn swept_crossing(from: Vec2, to: Vec2, size: Vec2, enter: &PlacedPortal, portals: &[PlacedPortal]) -> Option<f32> {
+    find_portal(portals, enter.channel.partner())?;
+    if !portal_fits(size, enter) {
+        return None;
+    }
+    let rel_from = enter.frame().from_local(enter.prev_frame().to_local(from));
+    let t = plane_crossing(rel_from, to, enter)?;
+    let at = rel_from + (to - rel_from) * t;
+    crate::snag::fits_through(ae::Aabb::new(at, size * 0.5), &enter.aperture()).then_some(t)
+}
+
 /// The first point of `from -> to` where a body's centre enters a paired
-/// portal it fits: the fraction of the segment still in the room it left.
-/// Past it the body is the pair's to carry, so whatever it would touch on
-/// the far side of the plane, in the room it left, it does not touch.
-pub fn first_portal_crossing(from: Vec2, to: Vec2, size: Vec2, portals: &[PlacedPortal]) -> Option<f32> {
-    portals
+/// portal that takes it ([`swept_crossing`]): the fraction of the segment
+/// still in the room it left. Past it the body is the pair's to carry, so
+/// whatever it would touch on the far side of the plane, in the room it
+/// left, it does not touch. A body on the back of a pair (`backside`) is not
+/// taken by it.
+pub fn first_portal_crossing(
+    from: Vec2,
+    to: Vec2,
+    size: Vec2,
+    portals: &[PlacedPortal],
+    backside: Option<crate::PortalBackside>,
+) -> Option<f32> {
+    let usable = crate::transit::usable_portals(portals, backside);
+    usable
         .iter()
-        .filter(|enter| find_portal(portals, enter.channel.partner()).is_some() && portal_fits(size, enter))
-        .filter_map(|enter| plane_crossing(from, to, enter))
+        .filter_map(|enter| swept_crossing(from, to, size, enter, &usable))
         .min_by(f32::total_cmp)
 }
 
@@ -446,21 +476,10 @@ fn swept_crossing_step(
         let Some(exit) = find_portal(portals, enter.channel.partner()) else {
             continue;
         };
-        if !portal_fits(size, enter) {
-            continue;
-        }
-        // Relative sweep, in the aperture's own frame: the body's start
-        // sample, where it stood relative to the aperture at the start of the
-        // tick, is carried as the aperture moved and turned, then tested
-        // against the aperture's end-of-tick plane. A moving or turning
-        // aperture over a still body gives a nonzero segment and transits it
-        // (the "scoop").
-        let rel_prev = enter.frame().from_local(enter.prev_frame().to_local(prev.pos));
-        // Whole, or not at all: a body that still cuts the plane past an end
-        // is snagged there, not taken (`crate::snag`).
-        if plane_crossing(rel_prev, center, enter).is_some()
-            && crate::snag::fits_through(ae::Aabb::new(center, size * 0.5), &enter.aperture())
-        {
+        // Relative sweep, in the aperture's own frame (a moving or turning
+        // aperture over a still body gives a nonzero segment and transits
+        // it: the "scoop"), whole or not at all: [`swept_crossing`].
+        if swept_crossing(prev.pos, center, size, enter, portals).is_some() {
             // Carry the velocity that caused the crossing: the live `vel` if
             // it still points into the portal, else the previous sample (the
             // integrator may have stopped the body at the carve bottom).
@@ -527,10 +546,13 @@ pub fn transit_step_with_tuning(
                 // Bounded by the measured host depth, so a body behind a thin
                 // wall is not grabbed.
                 let hole = pp::carve_face_with_depth(&ap, host_depths.depth(enter.channel));
+                // In line with the opening: only a body that came through it
+                // is in its hole whole (one beside it went through the host,
+                // and is not taken; one past the plane fits trivially).
                 if pp::front_distance(center, &ap.frame) <= 0.0
                     && hole.strict_intersects(body)
                     && enter.relative_velocity(center, vel).dot(enter.normal) < 0.0
-                    && crate::snag::fits_through(body, &ap)
+                    && crate::snag::in_line_with(body, &ap)
                 {
                     let exit = find_portal(portals, enter.channel.partner())
                         .expect("partner checked above");

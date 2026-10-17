@@ -317,7 +317,7 @@ pub fn bond_limbs(
             continue;
         };
         asked.push(limb);
-        let start = ae::Vec2::from(bond.start);
+        let start = bond.start.map(ae::Vec2::from);
         if starts.get(limb).ok().map(|(_, now)| now.0) != Some(start) {
             commands.entity(limb).try_insert(LimbBondStart(start));
         }
@@ -917,14 +917,14 @@ mod limb_bond_tests {
                 invocation: Default::default(),
                 occurrence: None,
                 entry: "test::gnu/conduct".into(),
-                value: LimbBond { slot: (*slot).into(), start: *start },
+                value: LimbBond { slot: (*slot).into(), start: Some(*start) },
             })
             .collect();
         world.run_system_once_with(bond_limbs, requests).unwrap();
     }
 
     fn start(world: &World, limb: Entity) -> Option<ae::Vec2> {
-        world.get::<LimbBondStart>(limb).map(|start| start.0)
+        world.get::<LimbBondStart>(limb).and_then(|start| start.0)
     }
 
     /// ⭐ A LIMB'S BOND START IS THE ONE ASKED FOR THIS TICK. Each fist has the

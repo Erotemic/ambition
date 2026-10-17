@@ -196,9 +196,12 @@ pub struct Limb {
 /// The view of the limb carries it (`FeatureView::limb_host`), so each limb
 /// has its own start and two live rooms do not share one.
 ///
+/// `None`: the limb has no bond. It is on its arm, which its host draws (a
+/// fist on a giant's arm, through a portal or not).
+///
 /// Derived: the game writes it again each tick from its own rollback state.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct LimbBondStart(pub ae::Vec2);
+pub struct LimbBondStart(pub Option<ae::Vec2>);
 
 /// Remembers the move currently driving limbs so `melee_pressed` fires only on
 /// the active-window onset.

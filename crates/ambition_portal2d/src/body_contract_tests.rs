@@ -277,11 +277,11 @@ fn a_leg_ends_where_its_centre_enters_a_paired_opening() {
     let blue = PlacedPortal::fixed(BLUE, Vec2::new(20.0, 200.0), Vec2::new(1.0, 0.0), HALF);
     let orange = PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 200.0), Vec2::new(-1.0, 0.0), HALF);
     let size = Vec2::splat(16.0);
-    let t = crate::first_portal_crossing(Vec2::new(40.0, 200.0), Vec2::new(0.0, 200.0), size, &[blue.clone(), orange.clone()]);
+    let t = crate::first_portal_crossing(Vec2::new(40.0, 200.0), Vec2::new(0.0, 200.0), size, &[blue.clone(), orange.clone()], None);
     assert!(t.is_some_and(|t| (t - 0.5).abs() < 1e-4), "{t:?}");
     let beside = Vec2::new(0.0, 200.0 + HALF + 30.0);
-    assert_eq!(crate::first_portal_crossing(beside + Vec2::new(40.0, 0.0), beside, size, &[blue.clone(), orange]), None);
-    assert_eq!(crate::first_portal_crossing(Vec2::new(40.0, 200.0), Vec2::new(0.0, 200.0), size, &[blue]), None);
+    assert_eq!(crate::first_portal_crossing(beside + Vec2::new(40.0, 0.0), beside, size, &[blue.clone(), orange], None), None);
+    assert_eq!(crate::first_portal_crossing(Vec2::new(40.0, 200.0), Vec2::new(0.0, 200.0), size, &[blue], None), None);
 }
 
 #[test]
@@ -354,4 +354,43 @@ fn a_posed_body_is_in_the_pair_it_reaches_into_and_is_not_moved() {
     app.world_mut().get_mut::<BodyKinematics>(body).unwrap().vel = Vec2::new(-300.0, 0.0);
     app.update();
     assert!(app.world().get::<BodyKinematics>(body).unwrap().pos.x > 300.0, "control: the body was not taken");
+}
+
+/// A shot's contacts stop where the transit takes it, and nowhere else (review
+/// of 15d0cf99c, finding B): one crossing ([`crate::placement::swept_crossing`])
+/// decides both. A shot whose centre crosses inside the opening but whose box
+/// still cuts the plane past an end is not taken, so its leg is not cut short
+/// (it would skip the wall beside the opening and stay in its room); the same
+/// leg through the middle is cut where the transit takes it.
+#[test]
+fn a_shots_leg_ends_only_where_the_transit_takes_it() {
+    use crate::placement::SweptSample;
+    let blue = PlacedPortal::fixed(BLUE, Vec2::new(20.0, 200.0), Vec2::new(1.0, 0.0), HALF);
+    let orange = PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 200.0), Vec2::new(-1.0, 0.0), HALF);
+    let portals = [blue, orange];
+    let size = Vec2::splat(16.0);
+    let vel = Vec2::new(-2400.0, 0.0);
+    let taken = |from: Vec2, to: Vec2| {
+        matches!(
+            transit_step_with_tuning(
+                to,
+                size,
+                vel,
+                Some(SweptSample { pos: from, vel }),
+                None,
+                None,
+                &portals,
+                Vec2::new(0.0, 1.0),
+                &PortalHostDepths::default(),
+                &PortalTuning::default(),
+            ),
+            TransitStep::Transfer { .. }
+        )
+    };
+    for (y, through) in [(200.0, true), (200.0 + HALF - 2.0, false)] {
+        let (from, to) = (Vec2::new(40.0, y), Vec2::new(0.0, y));
+        let leg = crate::first_portal_crossing(from, to, size, &portals, None);
+        assert_eq!(leg.is_some(), through, "the leg at y {y} ends at the plane: {leg:?}");
+        assert_eq!(taken(from, to), through, "the transit takes the shot at y {y}");
+    }
 }

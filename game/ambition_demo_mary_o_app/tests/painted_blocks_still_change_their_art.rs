@@ -510,7 +510,7 @@ fn live_room(world: &World) -> ambition_platformer2d::platformer::lifecycle::Liv
 /// were in, and its hidden block is painted: it has no skin.
 #[test]
 fn a_used_up_brick_in_a_skinned_room_wears_the_spent_plate_and_no_skin() {
-    use ambition_platformer2d::render::rendering::terrain_skin::TerrainTrim;
+    use ambition_platformer2d::render::rendering::terrain_skin::RoomTerrain;
 
     const SKY_LEVEL: &str = "mary_o_1_3";
     let mut app = build_windowed_demo_app_entering(
@@ -533,14 +533,14 @@ fn a_used_up_brick_in_a_skinned_room_wears_the_spent_plate_and_no_skin() {
         .find(|block| block_look_of(&block.name) == Some(MaryOBlockLook::Brick))
         .expect("1-3 authors a brick");
 
+    /// The quads of the skin of its room that the block's visual has now.
     fn skin_pieces(app: &mut App, geo_id: &ae::GeoId) -> usize {
-        let mut blocks = app.world_mut().query::<(&BlockVisual, Option<&Children>)>();
-        let children: Vec<Entity> = blocks
-            .iter(app.world())
-            .find(|(visual, _)| &visual.geo_id == geo_id)
-            .and_then(|(_, children)| children.map(|children| children.iter().collect()))
-            .unwrap_or_default();
-        children.into_iter().filter(|child| app.world().entity(*child).contains::<TerrainTrim>()).count()
+        let mut blocks = app.world_mut().query::<(Entity, &BlockVisual)>();
+        let Some(block) = blocks.iter(app.world()).find(|(_, visual)| &visual.geo_id == geo_id).map(|(entity, _)| entity) else {
+            return 0;
+        };
+        let mut rooms = app.world_mut().query::<&RoomTerrain>();
+        rooms.iter(app.world()).map(|terrain| terrain.quads_of(block).count()).sum()
     }
     // The art of a skin is published, and git does not hold it. A checkout
     // with no published terrain skins has no skin to probe.

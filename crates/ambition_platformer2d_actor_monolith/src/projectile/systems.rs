@@ -942,6 +942,7 @@ pub fn step_projectiles(
             kin.pos,
             kin.size,
             portals_by_room.in_room(shot_room),
+            carved.backside_of(proj_entity),
         )
         .map_or(kin.pos, |t| leg_start + (kin.pos - leg_start) * t);
         #[cfg(not(feature = "portal"))]

@@ -205,6 +205,7 @@ pub fn composite_far_side_bodies(
                     clip0,
                     clip1,
                     clip2,
+                    clip3: CLIP_PLANE_OFF,
                     color_texture: look.image.clone(),
                 })),
                 clip_piece_transform(&base, look.anchor, look.size),

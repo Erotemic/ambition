@@ -36,7 +36,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// through a portal pair hurts at its far end, a body half through is hit at
 /// both, a held body is threaded and not moved by a pair, and a body in a
 /// pair collides with what is in front of its far end.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 354;
+/// 354 -> 355: a swept portal crossing takes a body only if it fits the
+/// opening where its centre crosses (not where its step ends), the rescue only
+/// a body in line with the opening, and a shot's contacts end only where that
+/// crossing takes it; a glued pair carries what is in front of the far end by
+/// its exact turned region, every corner mapped.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 355;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

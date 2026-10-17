@@ -104,7 +104,7 @@ pub fn spawn_room_visuals(
     let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::named_by_room_metadata(&spec.metadata)
         .filter(|_| spec.metadata.visual_profile.palette.is_none() || !looks_are_drawn);
     spawn_surface_chain_visuals(commands, session_scope, world, theme);
-    if theme.is_some() {
+    if let Some(theme) = theme {
         // Where the decor of the skin must not stand: on a thing of the play.
         let rect = |aabb: &ae::Aabb| {
             let (centre, half) = (aabb.center(), aabb.half_size());
@@ -134,12 +134,17 @@ pub fn spawn_room_visuals(
                 })
                 .map(|block| rect(&block.aabb)),
         );
+        // The terrain of the room: where its decor must not stand, and the
+        // meshes of its skin, which are its children.
         commands.spawn_session_scoped(
             session_scope,
             (
                 super::terrain_skin::TerrainKeepOut(keep_out),
+                super::terrain_skin::RoomTerrain::new(theme, BVec2::new(world.size.x, world.size.y)),
+                Transform::default(),
+                Visibility::default(),
                 RoomVisual,
-                Name::new("Terrain decor keep-out"),
+                Name::new("Terrain of the room"),
             ),
         );
     }

@@ -715,9 +715,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                     TechniqueOffer {
                         owner: "ambition_demo_smash::mark",
                         params: TechniqueParams::Checked(
-                            check_hydrates::<
-                                ambition_platformer2d::entity_catalog::smash_mark::MarkBodyParams,
-                            >,
+                            ambition_platformer2d::entity_catalog::smash_mark::check_mark_body_params,
                         ),
                         references: NestedReferences::None,
                         delivery: TechniqueDelivery::OnHit,

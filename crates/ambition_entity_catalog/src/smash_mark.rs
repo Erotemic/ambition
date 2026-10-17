@@ -21,6 +21,16 @@ pub struct MarkBodyParams {
     /// Knockback feel multiplier, not a launch speed: values such as 1.0 or 1.6.
     /// The mine's own comment records the units error this field invites.
     pub knockback: f32,
+    /// How long the blast stays live, in seconds: long enough to meet each
+    /// body it covers, short enough that a body that walks in later is not
+    /// caught by it.
+    pub blast_s: f32,
+}
+
+/// The domain rule for a mark's params, not only "serde can build it".
+pub fn check_mark_body_params(params: &ParamValue) -> Result<(), String> {
+    let typed: MarkBodyParams = params.hydrate().map_err(|error| error.to_string())?;
+    crate::smash_mine::blast_problem(typed.blast_s).map_or(Ok(()), Err)
 }
 
 /// Attach the mark payload to every damaging volume of a move.

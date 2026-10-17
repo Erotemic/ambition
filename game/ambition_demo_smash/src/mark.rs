@@ -40,6 +40,8 @@ pub struct BodyMark {
     pub damage: i32,
     pub blast_radius: f32,
     pub knockback: f32,
+    /// How long the blast stays live (`MarkBodyParams::blast_s`).
+    pub blast_s: f32,
     /// The seat credited with the detonation: whoever landed the marking strike,
     /// or whoever refreshed it last.
     ///
@@ -52,12 +54,10 @@ pub struct BodyMark {
     pub attacker_seat: usize,
 }
 
-/// How long a credit stand-in outlives the detonation it was spawned for.
-///
-/// The blast's own lifetime is 0.08s; this is comfortably past it, so every
+/// How long a credit stand-in outlives the blast it was spawned for, so every
 /// contact the blast makes can still resolve the attacker to a seat. Ticked on
 /// the sim clock by the same system that spawns it.
-pub const SEAT_CREDIT_STAND_IN_S: f32 = 0.25;
+pub const SEAT_CREDIT_MARGIN_S: f32 = 0.17;
 
 /// A seat's credit, standing in for a body that has left the match.
 ///
@@ -137,6 +137,7 @@ pub fn apply_authored_body_marks(
                 damage: params.damage,
                 blast_radius: params.blast_radius,
                 knockback: params.knockback,
+                blast_s: params.blast_s,
                 attacker_seat: seat.0,
             });
         }
@@ -210,7 +211,7 @@ pub fn detonate_body_marks(
                 let stand_in = commands
                     .spawn((
                         SeatCreditStandIn {
-                            remaining_s: SEAT_CREDIT_STAND_IN_S,
+                            remaining_s: mark.blast_s + SEAT_CREDIT_MARGIN_S,
                         },
                         Name::new("Seat credit stand-in"),
                     ))
@@ -231,7 +232,7 @@ pub fn detonate_body_marks(
                     half_extent: ambition_platformer2d::engine_core::Vec2::splat(mark.blast_radius),
                     damage: mark.damage,
                     knockback: mark.knockback,
-                    lifetime_s: 0.08,
+                    lifetime_s: mark.blast_s,
                     name: Some("mark detonation"),
                 },
             ),

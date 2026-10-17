@@ -40,6 +40,8 @@ pub struct LiveBomb {
     pub impact_speed: f32,
     /// How hard the blast throws (`DropBombParams::knockback`).
     pub knockback: f32,
+    /// How long the blast stays live (`DropBombParams::blast_s`).
+    pub blast_s: f32,
 }
 
 // No owner handle: a live bomb changes hands, so the blast is attributed to
@@ -101,6 +103,7 @@ pub fn translate_bomb_drops(
                     blast_radius: params.blast_radius,
                     impact_speed: params.impact_speed,
                     knockback: params.knockback,
+                    blast_s: params.blast_s,
                 },
             ))
             .id();
@@ -173,7 +176,7 @@ pub fn burn_fuses_and_answer_impacts(
                     // `spawn_damage_box`). Its own number, not derived from the
                     // radius: reach and launch are different facts.
                     knockback: bomb.knockback,
-                    lifetime_s: 0.08,
+                    lifetime_s: bomb.blast_s,
                     name: Some("bomb blast"),
                 },
             ),

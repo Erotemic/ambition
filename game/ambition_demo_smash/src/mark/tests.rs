@@ -54,6 +54,9 @@ fn params(fuse_s: f32) -> MarkBodyParams {
         damage: 6,
         blast_radius: 44.0,
         knockback: 1.2,
+        // Not the shipped 0.08: see
+        // `the_blast_is_credited_to_the_fighter_who_landed_the_mark`.
+        blast_s: 0.3,
     }
 }
 
@@ -80,12 +83,14 @@ fn land_a_marking_hit(app: &mut App, owner: Entity, victim: Entity, fuse_s: f32)
 ///
 /// A count and the last blast, not a `Vec`: `per_attempt_resource_census`
 /// flags any `Resource` holding a collection, test modules included. The
-/// assertions need only how many, where the last was, and who owned it.
+/// assertions need only how many, where the last was, who owned it, and how
+/// long it was live.
 #[derive(Resource, Default)]
 struct CapturedBlasts {
     count: usize,
     last: ae::Vec2,
     last_owner: Option<Entity>,
+    last_lifetime_s: f32,
 }
 
 fn capture_blasts(
@@ -97,6 +102,7 @@ fn capture_blasts(
             cap.count += 1;
             cap.last = b.center;
             cap.last_owner = Some(request.owner);
+            cap.last_lifetime_s = b.lifetime_s;
         }
     }
 }
@@ -301,6 +307,8 @@ fn the_blast_is_credited_to_the_fighter_who_landed_the_mark() {
         "the blast is owned by the marked body, so the victim is their own \
          attacker and any bystander it KOs is credited to them"
     );
+    let live = app.world().resource::<CapturedBlasts>().last_lifetime_s;
+    assert_eq!(live, params(0.05).blast_s, "the blast is live for {live} s, not the mark's authored time");
 }
 
 /// The last striker owns the blast: the refresh replaces the mark, so the
@@ -483,8 +491,10 @@ fn a_blast_whose_attacker_has_left_the_match_is_credited_to_their_seat_not_the_v
         "a credit stand-in must not be a PARTICIPANT, or the match counts a \
          fighter who is out"
     );
-    // It leaves once the blast can no longer land.
-    for _ in 0..20 {
+    // It leaves once the blast can no longer land: the blast's own time and
+    // the margin, counted from the detonation.
+    let stays = ((params(0.1).blast_s + SEAT_CREDIT_MARGIN_S) / DT).ceil() as usize;
+    for _ in 0..stays {
         app.update();
     }
     assert!(

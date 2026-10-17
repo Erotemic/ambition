@@ -335,10 +335,15 @@ Open:
    call has no behaviour witness of its own. Mary-O's power-up rise is
    `power_ups.rise_seconds` in `mary_o_rules.ron` (each reward's rise reads
    it; a negative rise is refused; with 0.6 saved, a reader that kept a
-   compiled 0.4 is red). Left, in the order a designer would iterate them:
-   Mary-O's sky zone rise
-   (`SKY_ZONE_RISE`), the blast and bolt active times (`lifetime_s` in
-   `bomb.rs`, `mine.rs`, `mark.rs`, `bolt.rs`), the dropped portal gun
+   compiled 0.4 is red). How long a Smash blast is live (the bomb's, the
+   mine's and the mark's) and the bolt's hit are `blast_s` and `hit_s` in
+   each move's params (four Rust literals deleted); admission refuses a
+   time that is never live, and the mark's seat-credit stand-in lasts the
+   blast's own time and a margin (it was a 0.25 that had to stay above the
+   0.08 by hand). Each reader's arm builds a time that is not the shipped
+   one and reads it off the damage box (each red with its reader on a
+   compiled time). Left, in the order a designer would iterate them:
+   Mary-O's sky zone rise (`SKY_ZONE_RISE`), the dropped portal gun
    (`portal/inventory_adapter.rs`), the cut-rope boss's heavy objects and
    spark rate, the quest banner's 3.0 s (`quest.rs`), then the shown text of
    each demo's banners, cards and HUD (no text file exists), the select

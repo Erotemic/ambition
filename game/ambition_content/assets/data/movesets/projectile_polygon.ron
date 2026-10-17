@@ -663,6 +663,8 @@
                                         params: ({
                                             "arm_s": 1.2,
                                             "blast_radius": 52.0,
+                                            // As the bomb's blast.
+                                            "blast_s": 0.08,
                                             "damage": 10,
                                             "half_extents": [
                                                 8.0,
@@ -1559,6 +1561,9 @@
                                         key: "smash.drop_bomb",
                                         params: ({
                                             "blast_radius": 56.0,
+                                            // Live for about five ticks: it meets each body
+                                            // it covers, and one that walks in later is safe.
+                                            "blast_s": 0.08,
                                             "damage": 12,
                                             "fuse_s": 4.0,
                                             "half_extents": [

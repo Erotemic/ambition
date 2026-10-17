@@ -52,6 +52,9 @@ fn params() -> SteeredBoltParams {
         knockback: 90.0,
         self_launch: 640.0,
         offset: (18.0, -10.0),
+        // Not the shipped 0.06: see
+        // `the_bolt_damages_somebody_else_and_is_spent`.
+        hit_s: 0.3,
     }
 }
 
@@ -198,14 +201,15 @@ fn the_bolt_damages_somebody_else_and_is_spent() {
     app.update();
     let messages = app.world().resource::<Messages<EffectRequest>>();
     let mut cursor = messages.get_cursor();
-    assert_eq!(
-        cursor
-            .read(messages)
-            .filter(|r| matches!(&r.effect, Effect::DamageBox(b) if b.name == Some("bolt")))
-            .count(),
-        1,
-        "the bolt reached a foe and did nothing"
-    );
+    let hits: Vec<f32> = cursor
+        .read(messages)
+        .filter_map(|r| match &r.effect {
+            Effect::DamageBox(b) if b.name == Some("bolt") => Some(b.lifetime_s),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(hits.len(), 1, "the bolt reached a foe and did nothing");
+    assert_eq!(hits[0], params().hit_s, "the bolt's hit is live for {} s, not its authored time", hits[0]);
     assert!(bolts(&mut app).is_empty(), "the bolt was not spent");
     assert!(
         app.world()
@@ -274,6 +278,7 @@ fn a_bolt_touching_both_prefers_the_rival_in_either_spawn_order() {
             radius: 10.0,
             damage: 8,
             knockback: 90.0,
+            hit_s: 0.06,
             self_launch: 640.0,
             // It has left him, so the jacket is legal this tick and both
             // outcomes are available.

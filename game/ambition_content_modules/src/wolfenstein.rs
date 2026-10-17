@@ -40,8 +40,8 @@ use ambition_boss_special_port::{
     Pose,
 };
 use ambition_combat_port::{
-    BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort,
-    RidingHitbox, RidingHitboxPort, RidingKnockback,
+    BodySound, BodySoundPort, BoltEnd, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort,
+    Lightning, LightningAura, LightningAuraPort, LightningPort, RidingHitbox, RidingHitboxPort, RidingKnockback,
 };
 use ambition_extension_sdk::{
     phases::BOSS_CONDUCT, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
@@ -84,6 +84,11 @@ fn body_half() -> f32 {
 fn bolts() -> Vec2 {
     art(156.0, 112.0)
 }
+/// The far bolt, behind his neck from the near one: the gap the current
+/// jumps.
+const FAR_BOLT: Vec2 = Vec2::new(-15.0, 3.0);
+/// The ellipse of his aura round his body box, about its middle.
+const AURA_HALF: Vec2 = Vec2::new(34.0, 56.0);
 
 /// His body. It hurts to touch only while a move is live.
 pub fn trunk() -> (Vec2, Vec2) {
@@ -451,6 +456,8 @@ pub fn module() -> ModuleDescriptor {
                 ConductedPosePort::KEY,
                 DrawnRowPort::KEY,
                 BurstPort::KEY,
+                LightningPort::KEY,
+                LightningAuraPort::KEY,
                 CameraShakePort::KEY,
                 BossSummonPort::KEY,
                 RidingHitboxPort::KEY,
@@ -509,16 +516,41 @@ fn riding(
     })
 }
 
-/// A lightning strike from the ceiling to the floor at `x`: sparks down its
-/// length, so it reads from across the room.
-fn lightning(inv: &mut Invocation<'_>, hall: Hall, x: f32, ceiling: f32) -> Result<(), Fault> {
-    let steps = 6;
-    for i in 0..=steps {
-        let y = ceiling + (hall.floor - ceiling) * i as f32 / steps as f32;
-        burst(inv, Vec2::new(x, y), 5, 160.0, ARC, "spark")?;
-    }
-    burst(inv, Vec2::new(x, hall.floor - 4.0), 16, 300.0, SPARK, "spark")
+/// A lightning strike from the ceiling at `x` down to `land`, and the sparks
+/// where it lands.
+fn lightning(inv: &mut Invocation<'_>, x: f32, ceiling: f32, land: Vec2) -> Result<(), Fault> {
+    let key = format!("strike@{}", x.round() as i32);
+    bolt(inv, &key, BoltEnd::World([x, ceiling]), BoltEnd::World(land.into()), "strike", STRIKE_HOLD_S)?;
+    burst(inv, land, 16, 300.0, SPARK, "spark")
 }
+const STRIKE_HOLD_S: f32 = 0.24;
+
+/// A bolt of `look` from `from` to `to`, held `hold` seconds; asked again
+/// under the same `key`, the same bolt held on.
+fn bolt(inv: &mut Invocation<'_>, key: &str, from: BoltEnd, to: BoltEnd, look: &str, hold: f32) -> Result<(), Fault> {
+    inv.submit::<LightningPort>(Lightning { key: key.into(), from, to, look: look.into(), glow: None, hold_s: hold })
+}
+
+/// The current jumping between his neck bolts, for `hold` seconds.
+fn neck_arc(inv: &mut Invocation<'_>, side: f32, hold: f32) -> Result<(), Fault> {
+    let near = Vec2::new(bolts().x * side, bolts().y);
+    let far = near + Vec2::new(FAR_BOLT.x * side, FAR_BOLT.y);
+    bolt(inv, "neck", BoltEnd::Body(near.into()), BoltEnd::Body(far.into()), "spark_gap", hold)
+}
+
+/// Lightning crawling over his whole body, for `hold` seconds.
+fn aura(inv: &mut Invocation<'_>, scale: f32, hold: f32) -> Result<(), Fault> {
+    inv.submit::<LightningAuraPort>(LightningAura {
+        key: "aura".into(),
+        center: [0.0, 0.0],
+        half: (AURA_HALF * scale).into(),
+        look: "aura".into(),
+        glow: None,
+        hold_s: hold,
+    })
+}
+/// A held effect is asked again each tick for a little longer than a tick.
+const HOLD_S: f32 = 0.06;
 
 fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let wolf: BossConduct = inv.trigger::<BossConductPort>()?.clone();
@@ -661,10 +693,18 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             c.flat = None;
             c.unleashed = true;
             play(inv, SFX_BOLT, neck(at, side))?;
-            lightning(inv, hall, at.x, ceiling)?;
+            lightning(inv, at.x, ceiling, neck(at, side))?;
             shake(inv, SHAKE_BOLT)?;
         }
         let t = c.rearing.map_or(0.0, |t| t + dt);
+        if t < REAR_SHAKE_S {
+            // The bolt holds in his neck while he shakes in it.
+            // Both ends ride him, so it stays upright as he staggers.
+            let near = Vec2::new(bolts().x * side, bolts().y);
+            let sky = Vec2::new(near.x, ceiling - at.y);
+            bolt(inv, "rearing", BoltEnd::Body(sky.into()), BoltEnd::Body(near.into()), "strike", HOLD_S)?;
+            aura(inv, 1.1, HOLD_S)?;
+        }
         if t >= REAR_SHAKE_S && t - dt < REAR_SHAKE_S {
             play(inv, SFX_HOWL, neck(at, side))?;
             burst(inv, neck(at, side), 24, 300.0, RING, "spark")?;
@@ -805,7 +845,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 play(inv, SFX_BOLT, neck(pos, side))?;
                 shake(inv, SHAKE_BOLT)?;
                 for x in c.marks() {
-                    lightning(inv, hall, x, ceiling)?;
+                    lightning(inv, x, ceiling, Vec2::new(x, hall.floor - 2.0))?;
                 }
             }
             _ => {}
@@ -837,6 +877,13 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             // And on his bolts, as the charge builds.
             burst(inv, neck(pos, side), 2, 120.0, ARC, "spark")?;
         }
+        if !striking {
+            // The charge builds in his neck, then all over him.
+            neck_arc(inv, side, HOLD_S)?;
+            if t > 0.35 {
+                aura(inv, 0.85 + 0.3 * (t / 1.2).min(1.0), HOLD_S)?;
+            }
+        }
         if striking && t < BOLT_S {
             for (slot, x) in c.marks().into_iter().enumerate() {
                 inv.submit::<HeldDamageBoxPort>(HeldDamageBox {
@@ -865,6 +912,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             c.lash_dy = -ang.sin();
         }
         let dir = Vec2::new(c.lash_dx, c.lash_dy);
+        if !striking {
+            neck_arc(inv, side, HOLD_S)?;
+        }
         if !striking && t > dur * 0.35 && c.ticks % 3 == 0 {
             // The line he will throw it down, marked in sparks.
             for k in 1..=4 {
@@ -879,6 +929,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 shake(inv, SHAKE_HOWL)?;
             }
             if t < BOLT_S {
+                let near = Vec2::new(bolts().x * side, bolts().y);
+                let end = hand + dir * LASH_REACH;
+                bolt(inv, "lash", BoltEnd::Body(near.into()), BoltEnd::World(end.into()), "force", HOLD_S)?;
                 for k in 0..LASH_BOXES {
                     let along = LASH_REACH * (k as f32 + 0.5) / LASH_BOXES as f32;
                     let at = hand + dir * along;
@@ -891,8 +944,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                         knockback: LASH_KNOCKBACK,
                         lifetime_s: BOLT_S,
                     })?;
-                    if (c.ticks + k) % 2 == 0 {
-                        burst(inv, at, 4, 150.0, ARC, "spark")?;
+                    if (c.ticks + k) % 4 == 0 {
+                        burst(inv, at, 2, 150.0, ARC, "spark")?;
                     }
                 }
             }
@@ -944,11 +997,21 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let sputter = (*t / 0.45).floor() != ((*t - dt) / 0.45).floor();
         if sputter {
             burst(inv, neck(pos, side), 4, 90.0, SPARK, "spark")?;
+            neck_arc(inv, side, 0.08)?;
         }
     }
     if !c.woke && c.ticks % 5 == 0 {
         // Dead where he stands: the charge creeps into his bolts.
         burst(inv, neck(pos, side), 2, 80.0, ARC, "spark")?;
+        if c.ticks % 40 == 0 {
+            neck_arc(inv, side, 0.1)?;
+        }
+    }
+    let charging = matches!(part, Some(Part { mv: Move::Galvanize, striking: false, .. }));
+    if c.unleashed && !charging && c.rearing.is_none() {
+        // Unleashed, the current never leaves him (a charge or the
+        // transition asks for its own).
+        aura(inv, 1.0, HOLD_S)?;
     }
 
     // ── His body hurts to touch while a move is live ──

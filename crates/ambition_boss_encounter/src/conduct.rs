@@ -714,6 +714,68 @@ pub fn lower_bursts(
     }
 }
 
+/// Lower `ambition.feedback.lightning` into `VfxMessage::Lightning`: a body
+/// end follows the asking body, and the lease key is scoped to it.
+pub fn lower_lightning(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+) {
+    use ambition_combat_port::{BoltEnd, LightningPort};
+    use ambition_vfx::{LightningEnd, LightningKey, LightningLook};
+    for submitted in outbox.drain::<LightningPort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
+        let bolt = submitted.value;
+        let Some(mut look) = LightningLook::named(&bolt.look) else {
+            warn!("extension entry {} asked for lightning that looks {:?}; refused", submitted.entry, bolt.look);
+            continue;
+        };
+        if let Some(glow) = bolt.glow {
+            look = look.tinted(glow);
+        }
+        let owner = submitted.scope;
+        let end = |end: BoltEnd| match end {
+            BoltEnd::World(at) => LightningEnd::World(ae::Vec2::from(at)),
+            BoltEnd::Body(offset) => LightningEnd::Body { owner, offset: ae::Vec2::from(offset) },
+        };
+        vfx.for_room(rooms.of(owner)).write(ambition_vfx::vfx::VfxMessage::Lightning {
+            key: LightningKey::scoped(Some(owner), &bolt.key),
+            from: end(bolt.from),
+            to: end(bolt.to),
+            look,
+            hold: bolt.hold_s,
+        });
+    }
+}
+
+/// Lower `ambition.feedback.lightning_aura` into `VfxMessage::LightningAura`
+/// on the asking body.
+pub fn lower_lightning_auras(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+) {
+    use ambition_vfx::{LightningKey, LightningLook};
+    for submitted in outbox.drain::<ambition_combat_port::LightningAuraPort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
+        let aura = submitted.value;
+        let Some(mut look) = LightningLook::named(&aura.look) else {
+            warn!("extension entry {} asked for an aura that looks {:?}; refused", submitted.entry, aura.look);
+            continue;
+        };
+        if let Some(glow) = aura.glow {
+            look = look.tinted(glow);
+        }
+        let owner = submitted.scope;
+        vfx.for_room(rooms.of(owner)).write(ambition_vfx::vfx::VfxMessage::LightningAura {
+            key: LightningKey::scoped(Some(owner), &aura.key),
+            owner,
+            center: ae::Vec2::from(aura.center),
+            half: ae::Vec2::from(aura.half),
+            look,
+            hold: aura.hold_s,
+        });
+    }
+}
+
 /// A conducted boss's camera shakes, as the boss phase change asks for its
 /// own: an intent the presentation applies on the confirmed frame.
 pub fn lower_camera_shakes(

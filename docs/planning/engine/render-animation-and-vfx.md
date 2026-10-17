@@ -175,6 +175,37 @@ When a semantic source needs a persistent particle/emitter representation:
 
 Do not create this abstraction without a current persistent source.
 
+**First customer (2026-10-17): procedural lightning.** Jon asked for an
+engine that can do procedural lightning: "a force lightning sort of feel" and
+"a DBZ super saiyin 2 power lightning that can be a sort of power up aura".
+It is built as a LEASE, not a reconciled component:
+
+- `VfxMessage::Lightning` (a bolt between two ends) and
+  `VfxMessage::LightningAura` (arcs over a body), in `ambition_vfx::lightning`;
+- the module ports `ambition.feedback.lightning` / `lightning_aura`, offered
+  in `boss_conduct`;
+- a producer re-asks under a key each tick, which renews the effect and moves
+  its ends; when it stops, the effect fades. A rewind that re-asks rebuilds
+  it. Nothing is in rollback.
+
+`ambition_render::lightning` builds the geometry on the CPU each flicker (a
+jagged trunk with forks, or arcs round an ellipse). It is a vertex-coloured
+mesh drawn with additive blending, and the shader draws no shape. Quality:
+
+- with no screen-shader budget, or on Android, only the white core is drawn,
+  with no halo, forks, aura or contact light;
+- the fork and arc counts follow the particle `spawn_rate_scale`.
+
+A bolt is a tell, so its core is drawn on every device. The first user is
+Wolfenstein: ceiling strikes, the arc lash, neck-bolt crackle and his
+unleashed aura.
+
+Open:
+- portal compositing of bolts;
+- the ports in `wielded_use` / a character's power-up state (Empowered), so a
+  player can wear the aura;
+- coils arcing into him at the throne.
+
 ### R4 — optional rich provider, only after a capability failure
 
 Reopen a provider spike only when a named effect cannot be expressed reasonably

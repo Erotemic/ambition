@@ -20,8 +20,10 @@ use bevy::prelude::*;
 use ambition_geometry as ae;
 
 pub mod fx;
+pub mod lightning;
 pub mod vfx;
 pub use fx::FxId;
+pub use lightning::{LightningEnd, LightningKey, LightningLook};
 pub use vfx::{
     FireworksRequest, FxPose, FxRequest, HitBurst, HurtFeedback, ImpactMaterial, ParticleKind, VfxForRoom, VfxInRoom, VfxMessage,
     VfxWriter,

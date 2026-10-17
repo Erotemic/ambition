@@ -401,6 +401,27 @@ pub enum VfxMessage {
         color: [f32; 4],
         seconds: f32,
     },
+    /// A bolt of lightning between two ends, LEASED by `key` for `hold`
+    /// seconds: the same key written again renews it and moves its ends. See
+    /// [`crate::lightning`].
+    Lightning {
+        key: crate::lightning::LightningKey,
+        from: crate::lightning::LightningEnd,
+        to: crate::lightning::LightningEnd,
+        look: crate::lightning::LightningLook,
+        hold: f32,
+    },
+    /// Arcs of lightning crawling over `owner` (an ellipse of `half` about
+    /// `center`, offsets from where the body is drawn), LEASED by `key` for
+    /// `hold` seconds. See [`crate::lightning`].
+    LightningAura {
+        key: crate::lightning::LightningKey,
+        owner: Entity,
+        center: ae::Vec2,
+        half: ae::Vec2,
+        look: crate::lightning::LightningLook,
+        hold: f32,
+    },
     /// The body with this feature id plays its short bark pose. Emitted with an
     /// ambient bark's speech bubble. The pose's timer belongs to presentation,
     /// so a rewind cannot leave it on the simulated body.

@@ -155,6 +155,25 @@ impl BodyContactSnapshot {
         ));
     }
 
+    /// One more part of a body already pushed ([`Self::push`]): a part of it
+    /// a portal pair carries elsewhere. Others meet it there; the body's own
+    /// field is from its first entry.
+    pub fn push_part(
+        &mut self,
+        body: Entity,
+        room: Option<crate::lifecycle::LiveRoomInstance>,
+        part: ambition_platformer2d_core::Aabb,
+        velocity: ambition_platformer2d_core::Vec2,
+    ) {
+        let resistance = self.bodies.iter().find(|(b, ..)| *b == body).map_or(0.0, |(.., r)| *r);
+        self.bodies.push((
+            body,
+            room,
+            ambition_platformer2d_core::movement::BodyContactBlocker::new(part, velocity),
+            resistance,
+        ));
+    }
+
     pub fn is_empty(&self) -> bool {
         self.bodies.is_empty()
     }
@@ -387,6 +406,27 @@ mod body_contact_room_tests {
         let mut scratch = Vec::new();
         let _ = snapshot.field_for(a, &mut scratch);
         scratch.len()
+    }
+
+    /// A body half through a portal pair blocks others where its far part is
+    /// too (`push_part`), and its own field is its whole box's: it does not
+    /// meet its own far part.
+    #[test]
+    fn a_body_in_a_pair_blocks_others_at_its_far_part_and_not_itself() {
+        let mut snapshot = BodyContactSnapshot::default();
+        let mut world = World::new();
+        let (a, b) = (world.spawn_empty().id(), world.spawn_empty().id());
+        snapshot.push(a, None, Aabb::new(Vec2::new(100.0, 100.0), Vec2::new(8.0, 16.0)), Vec2::new(5.0, 0.0), 0.85);
+        let far = Aabb::new(Vec2::new(600.0, 100.0), Vec2::new(4.0, 16.0));
+        snapshot.push_part(a, None, far, Vec2::new(-5.0, 0.0));
+        snapshot.push(b, None, Aabb::new(Vec2::new(620.0, 100.0), Vec2::new(8.0, 16.0)), Vec2::ZERO, 0.85);
+        let mut scratch = Vec::new();
+        let field = snapshot.field_for(b, &mut scratch);
+        assert!(field.blockers.iter().any(|blocker| blocker.aabb == far), "the far part is not in the way");
+        let mut own = Vec::new();
+        let field = snapshot.field_for(a, &mut own);
+        assert_eq!(field.own_entry_velocity, Vec2::new(5.0, 0.0));
+        assert_eq!(field.blockers.len(), 1, "a body met its own far part");
     }
 
     /// OW1 cut 4: two bodies at one local position in two live rooms do not

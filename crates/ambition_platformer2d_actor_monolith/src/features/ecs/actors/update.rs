@@ -1245,6 +1245,11 @@ pub(crate) fn integrate_actor_body(
 /// All bodies resolve against the same entry poses, avoiding query-order
 /// dependence. Airborne bodies are excluded; standing on another body is handled
 /// by footstool semantics. The snapshot is cleared every tick before republishing.
+///
+/// A body in a portal pair is in two places
+/// (`docs/planning/engine/portals-a-body-in-two-places.md`): it blocks with
+/// each of its pieces, the part through the pair where it is, at the far
+/// end, moving as the pair carries it. Its own entry is its whole box, first.
 pub fn snapshot_body_contact(
     mut snapshot: ResMut<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
     bodies: Query<(
@@ -1255,21 +1260,42 @@ pub fn snapshot_body_contact(
         &ambition_platformer2d_shared_tangle::body::BodyContact,
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // Last tick's pairs and straddlers: where each body is as this tick begins.
+    passages: Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
 ) {
     snapshot.clear();
     for (entity, kinematics, ground, frame, contact) in &bodies {
         if !ground.on_ground {
             continue;
         }
-        snapshot.push(
-            entity,
-            rooms.of(entity),
-            kinematics.aabb_oriented(frame.down()),
-            // its ENTRY velocity — this pass runs before any body resolves its
-            // controller, which is the whole point of a common snapshot.
-            kinematics.vel,
-            contact.resistance,
-        );
+        let room = rooms.of(entity);
+        let contact_box = kinematics.aabb_oriented(frame.down());
+        // its ENTRY velocity — this pass runs before any body resolves its
+        // controller, which is the whole point of a common snapshot.
+        let pieces = passages
+            .as_deref()
+            .filter(|passages| passages.straddled_by(entity).is_some())
+            .map(|passages| passages.pieces(&ae::CombatVolume::aabb(contact_box), Some(entity), kinematics.pos, room))
+            .filter(|pieces| pieces.len() > 1 || pieces.iter().any(|piece| !piece.bounds.is_empty()));
+        let Some(pieces) = pieces else {
+            snapshot.push(entity, room, contact_box, kinematics.vel, contact.resistance);
+            continue;
+        };
+        snapshot.push(entity, room, contact_box, kinematics.vel, contact.resistance);
+        for piece in pieces.iter().filter(|piece| piece.is_carried()) {
+            // The part of the box the pair carries, as a box (exact for a
+            // floor, wall or ceiling pair, which keeps boxes boxes).
+            let Some(region) = piece.region() else {
+                continue;
+            };
+            let (lo, hi) = region
+                .iter()
+                .fold((ae::Vec2::splat(f32::MAX), ae::Vec2::splat(f32::MIN)), |(lo, hi), p| (lo.min(*p), hi.max(*p)));
+            let Some(part) = ae::geometry::aabb_from_min_max(lo.x, lo.y, hi.x, hi.y) else {
+                continue;
+            };
+            snapshot.push_part(entity, room, part, piece.carry_dir(kinematics.vel));
+        }
     }
 }
 

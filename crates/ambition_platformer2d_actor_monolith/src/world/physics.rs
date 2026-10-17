@@ -199,6 +199,17 @@ impl Plugin for AmbitionPhysicsPlugin {
         app.insert_resource(PhysicsSandboxSettings::default())
             .insert_resource(Gravity(BVec2::new(0.0, -SANDBOX_GRAVITY)))
             .add_plugins(PhysicsPlugins::default().with_collision_hooks::<OneRoomContacts>())
+            // The trees avian optimizes each step hold the debris, a few dozen
+            // pieces. Its default clones the tree into an async task and then
+            // waits on it; on the serial executor that wait was ~0.6 ms a frame
+            // while debris lived (hub, Mary-O route), more than the work. In
+            // place on this thread is safe: nothing here asks a spatial query
+            // during the step (the one hook filters pairs by room stamp).
+            .insert_resource(avian2d::collider_tree::ColliderTreeOptimization {
+                optimize_in_place: true,
+                use_async_tasks: false,
+                ..Default::default()
+            })
             // ⛔⛔ AVIAN REGISTERS THESE IN `Plugin::finish`, AND `App::update()`
             // NEVER CALLS `finish()` — only `App::run()` does. So every
             // composition driven by an update loop (the whole test suite, the
@@ -658,6 +669,34 @@ mod tests {
             app.update();
         }
         assert!(app.world().resource::<Runs>().0 > 0, "debris did not wake the propagation");
+    }
+
+    /// Avian optimizes its debris trees in place on this thread, not in an
+    /// async task the step then waits on (~0.6 ms a frame, hub Mary-O route).
+    /// Checked after the plugins finish and a step with debris, so a default
+    /// put back by avian's own plugin would show.
+    #[cfg(feature = "physics_debris")]
+    #[test]
+    fn avian_optimizes_its_trees_in_place_on_this_thread() {
+        let mut app = App::new();
+        app.add_plugins((
+            bevy::MinimalPlugins,
+            bevy::transform::TransformPlugin,
+            bevy::asset::AssetPlugin::default(),
+            bevy::mesh::MeshPlugin,
+            AmbitionPhysicsPlugin,
+        ));
+        app.finish();
+        app.cleanup();
+        app.world_mut().spawn((PhysicsDebris { lifetime: 10.0 }, Transform::default()));
+        for _ in 0..3 {
+            app.update();
+        }
+        let settings = app.world().resource::<avian2d::collider_tree::ColliderTreeOptimization>();
+        assert!(
+            settings.optimize_in_place && !settings.use_async_tasks,
+            "avian optimizes its trees in an async task the step waits on: {settings:?}"
+        );
     }
 
     /// ⚠ This witness is built only with the `physics_debris` feature, as

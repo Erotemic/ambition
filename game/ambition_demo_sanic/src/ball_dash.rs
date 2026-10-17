@@ -8,47 +8,45 @@
 use ambition_platformer2d::engine_core as ae;
 use bevy::prelude::*;
 
-/// Feel knobs. A `Resource` so a future act can retune per-zone without a
-/// component write, and so a test can build an extreme one.
-#[derive(Resource, Clone, Copy, Debug)]
+/// Feel knobs: the `spin_dash` row of the demo's rules
+/// (`assets/data/sanic_rules.ron`, where each value says why it is that
+/// value). The systems read it where they use it ([`spin_dash_tuning`]), so
+/// an edit to the file reaches the game with no build.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BallDashTuning {
-    /// Charge added per rev tap. One tap clears the launch floor; three reach full.
+    /// Charge added per rev tap.
     pub rev_per_tap: f32,
-    /// Charge bled off per second while crouched. Holding forever must not
-    /// guarantee a max launch — the rev is a rhythm, not a timer.
+    /// Charge bled off per second while crouched.
     pub decay_per_s: f32,
-    /// Launch speed (px/s) at `charge == 1.0`. A full rev must outrun the
-    /// momentum top-speed cap (the launch writes `v_t` directly, which the
-    /// kernel allows above the cap), so a spin dash clears the loop: a
-    /// radius-180 loop under 2250 gravity needs ~1300 px/s at the bottom,
-    /// plus margin for drag before the loop.
+    /// Launch speed (px/s) at `charge == 1.0`.
     pub launch_speed: f32,
     /// Below this charge a crouch-release is just standing up.
     pub min_launch_charge: f32,
-    /// The balled-up body box. Square, so the kernel's circle proxy is exact.
-    pub ball_size: ae::Vec2,
-    /// Roll ends when tangential speed falls below this. Sanic stands up when he
-    /// stops, not when a timer says so.
+    /// The side of the balled-up body box. One side, so the box is square
+    /// and the kernel's circle proxy is exact.
+    pub ball_side: f32,
+    /// Roll ends when tangential speed falls below this (px/s).
     pub exit_speed: f32,
     /// `locomotion.y` past this reads as a crouch (local down is `+y`).
     pub crouch_threshold: f32,
-    /// Grace after losing a ride contact while a rev is already armed.
+    /// Grace (s) after losing a ride contact while a rev is already armed.
     pub contact_grace_s: f32,
+    /// The charges at which the rev sound climbs to its second and to its
+    /// third tier ([`crate::rev_tier_id`]).
+    pub rev_tiers: [f32; 2],
 }
 
-impl Default for BallDashTuning {
-    fn default() -> Self {
-        Self {
-            rev_per_tap: 0.4,
-            decay_per_s: 0.55,
-            launch_speed: 1600.0,
-            min_launch_charge: 0.3,
-            ball_size: ae::Vec2::new(24.0, 24.0),
-            exit_speed: 90.0,
-            crouch_threshold: 0.5,
-            contact_grace_s: 0.12,
-        }
+impl BallDashTuning {
+    /// The balled-up body box.
+    pub fn ball_size(&self) -> ae::Vec2 {
+        ae::Vec2::splat(self.ball_side)
     }
+}
+
+/// The spin dash tuning the demo plays: its pack's `spin_dash` row.
+pub fn spin_dash_tuning() -> &'static BallDashTuning {
+    &crate::rules::sanic_rules().spin_dash
 }
 
 /// Per-body charge state. Attached to whichever body is being driven; a possessed
@@ -86,7 +84,6 @@ pub struct BallDashInput {
 /// possession handoff cannot replay a stale rev edge.
 pub fn capture_ball_dash_input(
     subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
-    tuning: Res<BallDashTuning>,
     mut bodies: Query<
         (
             Entity,
@@ -100,6 +97,7 @@ pub fn capture_ball_dash_input(
     >,
 ) {
     let controlled = subject.and_then(|subject| subject.0);
+    let tuning = spin_dash_tuning();
     for (entity, control, techniques, motion, ground, mut input) in &mut bodies {
         *input = if Some(entity) == controlled {
             let grounded_at_capture = ground.on_ground
@@ -213,7 +211,6 @@ pub fn ball_dash_step(
 pub fn tick_ball_dash(
     mut commands: Commands,
     time: Res<ambition_platformer2d::time::WorldTime>,
-    tuning: Res<BallDashTuning>,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut bodies: Query<(
         Entity,
@@ -228,6 +225,7 @@ pub fn tick_ball_dash(
         Option<&mut ambition_platformer2d::characters::actor::BodyAnimFacts>,
     )>,
 ) {
+    let tuning = spin_dash_tuning();
     for (entity, input, resolved_frame, mut motion, mut kin, mut state, rolling, mut anim) in
         &mut bodies
     {
@@ -252,7 +250,7 @@ pub fn tick_ball_dash(
             input.crouch_released,
             input.rev_pressed,
             time.sim_dt(),
-            &tuning,
+            tuning,
         ) {
             BallDashStep::Idle => {}
             BallDashStep::Charging(charge) => {
@@ -300,7 +298,7 @@ pub fn tick_ball_dash(
                 );
                 if rolling.is_none() {
                     commands.entity(entity).insert(Rolling);
-                    kin.size = tuning.ball_size;
+                    kin.size = tuning.ball_size();
                 }
             }
         }
@@ -321,8 +319,8 @@ pub fn tick_rolling(
         ),
         With<Rolling>,
     >,
-    tuning: Res<BallDashTuning>,
 ) {
+    let tuning = spin_dash_tuning();
     for (entity, motion, mut kin, base) in &mut bodies {
         let ambition_platformer2d::actor::MotionModel::SurfaceMomentum(m) = motion else {
             continue;

@@ -312,6 +312,29 @@ Open:
    `the_versus_seats_are_its_pack_file` (red with the teams written in Rust).
    The first fighter is also the stage's catalog default, read when the stage
    is composed. Left: Ambition's seat count (waits on Q153).
+   Sanic's spin dash (the rev, the launch, the roll and the rev sound's
+   tiers) is `spin_dash` in `sanic_rules.ron` (2026-10-17); its systems read
+   the row where they use it, so a saved edit is played as a live schema,
+   and `BallDashTuning::default()` and its resource are deleted. Admission
+   refuses a ball with no size, a charge or a stick share outside 0 to 1,
+   and tiers that step down. An edit reached its test in 0.95-1.59 s with no
+   compile. The readers have a check by an edited file, not a standing
+   test: with `launch_speed: 1650` saved, a system that kept a compiled 1600
+   fails `releasing_one_rev_writes_its_launch_speed_into_v_t` (640 against
+   660); with the shipped file it passes, so the check needs the edit.
+
+   **The census of 2026-10-17** (610 declarations and about 160 literal
+   sites in the five game crates, tests and the WASM modules left out;
+   about 45 sites already read a pack and about 490 are structural or test
+   oracles) left 25 findings. In the order a designer would iterate them:
+   Smash's seating jab (`smash_seating_melee`, `lib.rs`), the power-up rise
+   (`powerups.rs`, `emerging(.., 0.4)`), Mary-O's sky zone rise
+   (`SKY_ZONE_RISE`), the blast and bolt active times (`lifetime_s` in
+   `bomb.rs`, `mine.rs`, `mark.rs`, `bolt.rs`), the dropped portal gun
+   (`portal/inventory_adapter.rs`), the cut-rope boss's heavy objects and
+   spark rate, the quest banner's 3.0 s (`quest.rs`), then the shown text of
+   each demo's banners, cards and HUD (no text file exists), the select
+   cursor's feel, and the effect looks last.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is

@@ -1,10 +1,18 @@
 use super::*;
 
+/// A fixture tuning, not the shipped one: these arms check the charge
+/// machine's arithmetic, which an edit to the rules file must not change.
 fn tuning() -> BallDashTuning {
     BallDashTuning {
         rev_per_tap: 0.4,
         decay_per_s: 0.0, // isolate the rev arithmetic; decay has its own test
-        ..Default::default()
+        launch_speed: 1600.0,
+        min_launch_charge: 0.3,
+        ball_side: 24.0,
+        exit_speed: 90.0,
+        crouch_threshold: 0.5,
+        contact_grace_s: 0.12,
+        rev_tiers: [0.5, 0.85],
     }
 }
 
@@ -167,10 +175,7 @@ use ambition_platformer2d::engine_core::movement::{MotionModel, SurfaceMomentumM
 
 fn body_app() -> (App, Entity) {
     let mut app = App::new();
-    app.insert_resource(BallDashTuning {
-        decay_per_s: 0.0,
-        ..Default::default()
-    });
+    // A default world time steps no time, so the charge does not decay.
     app.insert_resource(ambition_platformer2d::time::WorldTime::default());
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_systems(bevy::app::Update, (tick_ball_dash, tick_rolling).chain());
@@ -236,7 +241,6 @@ fn spin_dash_rev_comes_from_the_sanctioned_technique_edge_not_raw_melee() {
     use ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges;
 
     let mut app = App::new();
-    app.insert_resource(BallDashTuning::default());
     // Reproduce the flat-floor seam: the generic ground cluster still reports
     // support while the momentum state has transiently fallen back to Airborne.
     let motion = MotionModel::SurfaceMomentum(SurfaceMomentumMotion::new(Default::default()));
@@ -352,7 +356,7 @@ fn pre_compaction_floor_contact_arms_and_releases_after_detach() {
         momentum.state = SurfaceMotion::Airborne;
     }
     app.update();
-    assert_eq!(app.world().get::<BallDash>(e).unwrap().charge, 0.4);
+    assert_eq!(app.world().get::<BallDash>(e).unwrap().charge, spin_dash_tuning().rev_per_tap);
 
     set_ball_dash_input_with_contact(&mut app, e, false, false, false);
     app.update();
@@ -363,7 +367,7 @@ fn pre_compaction_floor_contact_arms_and_releases_after_detach() {
     );
     assert!(
         app.world().get::<ae::BodyKinematics>(e).unwrap().vel.x
-            >= 0.4 * BallDashTuning::default().launch_speed,
+            >= spin_dash_tuning().rev_per_tap * spin_dash_tuning().launch_speed,
         "the airborne release writes the charged speed into world velocity"
     );
 }
@@ -386,14 +390,14 @@ fn releasing_one_rev_writes_its_launch_speed_into_v_t() {
     let (mut app, e) = body_app();
     set_ball_dash_input(&mut app, e, true, true);
     app.update(); // one X edge is enough for a small launch
-    assert_eq!(app.world().get::<BallDash>(e).unwrap().charge, 0.4);
+    assert_eq!(app.world().get::<BallDash>(e).unwrap().charge, spin_dash_tuning().rev_per_tap);
     assert!(app.world().get::<Rolling>(e).is_none(), "not yet");
 
     set_ball_dash_input(&mut app, e, false, false);
     app.update();
 
-    let t = BallDashTuning::default();
-    assert_eq!(v_t(&app, e), 0.4 * t.launch_speed);
+    let t = spin_dash_tuning();
+    assert_eq!(v_t(&app, e), t.rev_per_tap * t.launch_speed);
     assert!(app.world().get::<Rolling>(e).is_some(), "he is a ball now");
 }
 
@@ -428,7 +432,7 @@ fn facing_decides_the_launch_direction() {
     app.update(); // full charge
     set_ball_dash_input(&mut app, e, false, false);
     app.update();
-    assert_eq!(v_t(&app, e), -BallDashTuning::default().launch_speed);
+    assert_eq!(v_t(&app, e), -spin_dash_tuning().launch_speed);
 }
 
 /// The hurtbox-resize seam. Rolling shrinks the live body box (the kernel's
@@ -450,7 +454,7 @@ fn rolling_narrows_the_body_and_standing_up_restores_it() {
     app.update();
 
     let ball = app.world().get::<ae::BodyKinematics>(e).unwrap().size;
-    assert_eq!(ball, BallDashTuning::default().ball_size);
+    assert_eq!(ball, spin_dash_tuning().ball_size());
     let re_templated = ae::Vec2::new(30.0, 44.0);
     app.world_mut()
         .get_mut::<ae::BodyBaseSize>(e)

@@ -489,7 +489,7 @@ running game at all. The caches that hold it for the life of the process:
   tier refresh systems), and `materialize_declared_character_sprite` skips a
   sheet that is ready at the active tier. Part-drawn bodies rebind on a new
   flipbook `Arc` (`bind_rigged_presentations`), but its `posed_by_target`
-  local is never cleared.
+  local is never cleared. (Both fixed 2026-10-16: see below.)
 
 The same cached records feed simulation: posed body geometry and inset
 hurtboxes, body seeds and collision sizes (`catalog_join`), attack
@@ -580,10 +580,29 @@ effect row's timing was not the index's; witness: the effect arm of
 body's posed parts (its tracks bound to its body rig) are bound again at each
 change of the assets, so a body realized from a new generation is not posed
 with the old rig (`a_new_flipbook_binds_its_own_posed_parts`, red with the
-cache kept). Not yet on the road:
-the prop sheets a room drew, and a body
-already bound at the same tier (the generation key above). The retire and
-the page reload have no witness of their own.
+cache kept). A table that changes only where frames are drawn from (the
+pages, the rects, the label band: a repack) is published at once, also
+inside a session (2026-10-16): the watch loads a changed page again at once,
+so the old rects cut the new pixels until the session ended. The look decides
+it off the frame (`PreparedSheetTable::changes_mechanics_of`: the mechanical
+projection of the records, the landmarks, the body rigs and the portrait
+manifests, each compared with the live generation); such a table states no
+cast again. Each resident realization records the sheet generation it was
+made from, and one of an older generation is stale as one of another tier
+is (`CharacterSpriteAssets::is_current_realization`), so the residency
+convergence makes a worn one again in place and retires the others (the
+publication's retire of every realization is deleted). Each binder stamps
+the realization it bound (`BoundSpriteQuality::of`: the tier and the atlas
+layout, which each realization adds anew), so a body binds again to a new
+realization at the same tier. Witnesses: the in-session arm of
+`sprite_sheet_reload` (red with every table judged mechanical, and with
+none), the mechanics arms of `sheet_generation` (each comparison red when
+removed, except the landmarks), its staleness arm (red with the generation
+not compared), and `a_body_binds_again_to_a_new_realization_at_the_same_tier`
+(red with the tier alone stamped). Not yet on the road: the prop sheets a
+room drew (`CharacterSpriteAssets::props` is not retired or made again) and
+the effect sheets (`FxSheetAssets`). The page reload has no witness of its
+own.
 
 **Future live path:** the source scanner reports the changed logical key
 and a canonical source fingerprint. Preparation decodes the changed sheet,

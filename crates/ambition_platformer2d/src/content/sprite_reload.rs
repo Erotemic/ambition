@@ -16,19 +16,22 @@
 //! - A changed page image changes only pixels, so it is loaded again at once
 //!   (`AssetServer::reload`), also inside a session. Bevy loads again only an
 //!   image that is loaded.
-//! - A changed sheet manifest or body rig changes records that simulation
-//!   reads too (body sizes, hurtboxes, attack volumes, a boss's size, hurt
-//!   parts), so it waits for
-//!   the end of the session, as a restated content schema does. Nothing is
-//!   published while a route prepares a session. The look that saw the
-//!   change reads the whole sheet table again and parses it (about a second
-//!   in a debug build, off the frame); the end of the session publishes it as
-//!   one generation
-//!   (`baked_sheet_rons::publish_sheet_generation`), the `SheetRegistry`
-//!   resource is stated again, each cast made from the sheets is stated
-//!   again ([`SheetDerivedRestaters`]), each resident character realization is
-//!   retired so that the next session builds it from the new records, and
-//!   the pages of each changed sheet are loaded again.
+//! - A changed sheet manifest or body rig is read whole and parsed by the
+//!   look that saw it (about a second in a debug build, off the frame). A
+//!   table that changes only where frames are drawn from (pages, rects; a
+//!   repack) is published at once, also inside a session: its new pages are
+//!   loaded at once, so its old rects would cut the new pixels. A table that
+//!   changes records simulation or a cast reads (body sizes, hurtboxes,
+//!   attack volumes, a boss's size, hurt parts, landmarks, portrait names;
+//!   `PreparedSheetTable::changes_mechanics_of`) waits for the end of the
+//!   session, as a restated content schema does. Nothing is published while
+//!   a route prepares a session. A publication is one generation
+//!   (`baked_sheet_rons::publish_prepared_sheet_table`): the `SheetRegistry`
+//!   resource is stated again, each cast made from the sheets is stated again
+//!   where the mechanics changed ([`SheetDerivedRestaters`]), each resident
+//!   character realization is stale (a worn one is made again in place and
+//!   its body binds again; the others are retired), and the pages of each
+//!   changed sheet are loaded again.
 //! - A table with a file that does not parse is refused, with each file
 //!   named, and the running table stays.
 //!
@@ -73,7 +76,7 @@ impl Plugin for SpriteSheetReloadPlugin {
             watch.look_in_the_background();
         }
         app.insert_resource(watch);
-        app.add_systems(Update, (take_what_the_watch_found, publish_the_staged_sheets_between_sessions).chain());
+        app.add_systems(Update, (take_what_the_watch_found, publish_the_staged_sheets).chain());
     }
 }
 
@@ -109,6 +112,10 @@ struct Found {
     /// The whole table, read again and parsed, when a manifest changed. The
     /// parse costs about a second in a debug build, so the look does it.
     table: Option<Result<sheet_table::PreparedSheetTable, sheet_table::SheetTableRefused>>,
+    /// Whether the table changes a fact that simulation or a cast reads
+    /// (`PreparedSheetTable::changes_mechanics_of`). The digest of the
+    /// records is a cost in proportion to the table, so the look finds it.
+    changes_mechanics: bool,
     /// The changed page images.
     pages: Vec<PathBuf>,
 }
@@ -159,7 +166,9 @@ impl Scanner {
         );
         self.manifests = now;
         if !found.manifests.is_empty() {
-            found.table = Some(sheet_table::prepare_sheet_table(sheet_table::read_sheet_table_under(&self.owner)));
+            let table = sheet_table::prepare_sheet_table(sheet_table::read_sheet_table_under(&self.owner));
+            found.changes_mechanics = table.as_ref().is_ok_and(|table| table.changes_mechanics_of(sheet_table::current()));
+            found.table = Some(table);
         }
         found
     }
@@ -183,10 +192,13 @@ pub struct SpriteSheetWatch {
     scanner: Arc<Mutex<Scanner>>,
     /// What the looks found and no frame took yet.
     found: Arc<Mutex<Vec<Found>>>,
-    /// The keys of the changed manifests, waiting for the end of the session.
+    /// The keys of the changed manifests, waiting for their publication.
     staged: BTreeSet<String>,
-    /// The table to publish at the end of the session.
+    /// The table to publish: at once where it changes only where frames are
+    /// drawn from, else at the end of the session.
     candidate: Option<sheet_table::PreparedSheetTable>,
+    /// Whether `candidate` changes a fact that simulation or a cast reads.
+    candidate_changes_mechanics: bool,
     /// Sheet generations this watch published.
     pub published: u32,
     /// Page images this watch loaded again.
@@ -205,6 +217,7 @@ impl SpriteSheetWatch {
             found: Arc::default(),
             staged: BTreeSet::new(),
             candidate: None,
+            candidate_changes_mechanics: false,
             published: 0,
             reloaded_pages: 0,
             refused: None,
@@ -252,7 +265,7 @@ impl SpriteSheetWatch {
         self.scanner.lock().unwrap_or_else(PoisonError::into_inner).looks
     }
 
-    /// A changed sheet table waits for the end of the session.
+    /// A changed sheet table waits for its publication.
     pub fn is_staged(&self) -> bool {
         self.candidate.is_some()
     }
@@ -449,9 +462,11 @@ fn take_what_the_watch_found(watch: Option<ResMut<SpriteSheetWatch>>, asset_serv
         match look.table {
             None => {}
             Some(Ok(table)) => {
-                info!(target: "ambition_platformer2d::sprites", "sprite sheets changed: {:?}; they are played from the next session", look.manifests);
+                let when = if look.changes_mechanics { "from the next session" } else { "at once (only where frames are drawn from changed)" };
+                info!(target: "ambition_platformer2d::sprites", "sprite sheets changed: {:?}; they are played {when}", look.manifests);
                 watch.staged.extend(look.manifests);
                 watch.candidate = Some(table);
+                watch.candidate_changes_mechanics = look.changes_mechanics;
                 watch.refused = None;
             }
             // The table is read whole, so a broken one replaces any change
@@ -467,15 +482,16 @@ fn take_what_the_watch_found(watch: Option<ResMut<SpriteSheetWatch>>, asset_serv
     }
 }
 
-/// Publish a staged sheet table where no session is live and no route
-/// prepares one.
-fn publish_the_staged_sheets_between_sessions(world: &mut World) {
-    if !world.get_resource::<SpriteSheetWatch>().is_some_and(SpriteSheetWatch::is_staged) {
+/// Publish a staged sheet table where no route prepares a session: a table
+/// that changes only where frames are drawn from at once, and any other table
+/// where no session is live.
+fn publish_the_staged_sheets(world: &mut World) {
+    let Some(changes_mechanics) = world.get_resource::<SpriteSheetWatch>().filter(|watch| watch.is_staged()).map(|watch| watch.candidate_changes_mechanics) else {
         return;
-    }
+    };
     let in_a_session = world.get_resource::<crate::actor::ActiveSessionScope>().is_some_and(|scope| scope.current().is_some());
     let preparing = world.get_resource::<crate::game_shell::ShellRouter>().is_some_and(|router| router.pending.is_some());
-    if in_a_session || preparing {
+    if (in_a_session && changes_mechanics) || preparing {
         return;
     }
     let (table, staged) = {
@@ -491,14 +507,17 @@ fn publish_the_staged_sheets_between_sessions(world: &mut World) {
     if world.contains_resource::<ambition_sprite_sheet::portrait::PortraitSheetRegistry>() {
         world.insert_resource(ambition_sprite_sheet::portrait::baked_portrait_registry());
     }
-    let restaters = world.get_resource::<SheetDerivedRestaters>().cloned().unwrap_or_default();
+    // A restater reads only facts `changes_mechanics_of` compares, so a
+    // table that changes none of them leaves each cast as it is.
+    let restaters = if changes_mechanics { world.get_resource::<SheetDerivedRestaters>().cloned().unwrap_or_default() } else { SheetDerivedRestaters::default() };
     for (name, restate) in &restaters.0 {
         info!(target: "ambition_platformer2d::sprites", "restating `{name}` from sheet generation {generation}");
         restate(world);
     }
-    if let Some(mut assets) = world.get_resource_mut::<ambition_sprite_sheet::game_assets::GameAssets>() {
-        assets.characters.retire_realizations_except(&BTreeSet::new());
-    }
+    // Each resident realization is now of an older generation: the residency
+    // convergence makes a worn one again in place (its body keeps drawing
+    // until the new one is ready, then binds again) and retires the others
+    // (`converge_character_residency_to_active_quality`).
     let paths: Vec<String> = {
         let watch = world.resource::<SpriteSheetWatch>();
         let mut scanner = watch.scanner.lock().unwrap_or_else(PoisonError::into_inner);

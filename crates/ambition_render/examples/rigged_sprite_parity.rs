@@ -215,9 +215,7 @@ fn capture_all(
         animator,
         Transform::from_xyz(at.x, at.y, 0.0),
         Visibility::Inherited,
-        BoundSpriteQuality {
-            scale: TextureResolutionScale::Full,
-        },
+        BoundSpriteQuality::of_tier(TextureResolutionScale::Full),
     ));
     let rows: Vec<(String, usize, f32)> = ambition_sprite_sheet::character::sheets::record_for_sheet_key(target)
         .expect("a baked sheet record")

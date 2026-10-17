@@ -140,9 +140,7 @@ fn app_anchored(admit: bool, sheet: CharacterSpriteAsset, anchor: Anchor) -> (Ap
             animator,
             Transform::default(),
             Visibility::Inherited,
-            BoundSpriteQuality {
-                scale: TextureResolutionScale::Full,
-            },
+            BoundSpriteQuality::of_tier(TextureResolutionScale::Full),
         ))
         .id();
     (app, root)

@@ -264,6 +264,20 @@ impl PreparedSheetTable {
     pub fn parsed_now(&self) -> usize {
         self.parsed_now
     }
+
+    /// Whether this table changes a fact that simulation or a cast reads
+    /// from `live`: the mechanical projection of a record (body boxes,
+    /// hurtboxes, attack volumes, frame timing, tuning; see
+    /// [`crate::sheet_mechanics`]), the landmarks, a body rig, or a portrait
+    /// manifest (a cast is prepared against the portrait names). A table that
+    /// changes none of them changes only where frames are drawn from (pages,
+    /// rects, pixels) and the pack catalogs.
+    pub fn changes_mechanics_of(&self, live: &SheetGeneration) -> bool {
+        self.texts.body_rigs != live.body_rigs
+            || self.texts.portraits != live.portrait_rons
+            || self.part_tables.landmarks().1 != live.part_tables().landmarks().1
+            || crate::character::sheets::mechanics_digest_of(&self.registry.sheets) != live.mechanics_digest()
+    }
 }
 
 /// Parse and check `texts`. A table with a sheet that does not parse, a body

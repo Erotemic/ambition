@@ -284,16 +284,14 @@ pub fn bind_boss_part_animators(
         let Some(sheet) = assets.characters.sheet(id) else {
             continue;
         };
-        if bound.is_some_and(|bound| bound.scale == sheet.resolved_tier) {
+        if bound.is_some_and(|bound| *bound == super::BoundSpriteQuality::of(sheet)) {
             continue;
         }
         let mut animator = CharacterAnimator::new(sheet);
         animator.ensure_render_basis(basis.render_size, basis.feet_anchor);
         commands.entity(entity).try_insert((
             animator,
-            super::BoundSpriteQuality {
-                scale: sheet.resolved_tier,
-            },
+            super::BoundSpriteQuality::of(sheet),
         ));
     }
 }

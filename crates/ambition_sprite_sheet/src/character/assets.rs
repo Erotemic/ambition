@@ -102,6 +102,10 @@ pub struct CharacterSpriteAssets {
     /// [`super::rigged::RiggedSpriteAdmission`], mirrored here by the character
     /// runtime so the decode reads it where it already reads this table.
     parts_admitted: bool,
+    /// The sheet generation each resident realization was made from
+    /// (`baked_sheet_rons::current`). A realization of an older generation is
+    /// stale as one of another tier is: its frame rects can be the old ones.
+    realized_under: HashMap<String, u64>,
 }
 
 impl CharacterSpriteAssets {
@@ -150,6 +154,7 @@ impl CharacterSpriteAssets {
     /// by its id.
     pub fn publish(&mut self, character_id: &str, asset: CharacterSpriteAsset) {
         self.retired.remove(character_id);
+        self.realized_under.insert(character_id.to_string(), crate::baked_sheet_rons::current().id());
         self.sheets.insert(character_id.to_string(), asset);
     }
 
@@ -186,15 +191,16 @@ impl CharacterSpriteAssets {
         self.declared.get(token).map(String::as_str)
     }
 
-    /// Resident realizations whose requested tier is not `active`, as
-    /// `(token, character id)` pairs. A quality transition acts on these.
+    /// Resident realizations whose requested tier is not `active`, or that
+    /// were made from an older sheet generation, as `(token, character id)`
+    /// pairs. A quality transition and a sheet publication act on these.
     /// Compare `requested_tier`, not [`CharacterSpriteAsset::resolved_tier`]: a
     /// sheet with no baked variant answers `Half` with full-resolution pixels,
     /// and its resolved tier would stay stale forever.
     pub fn stale_realizations(&self, active: TextureResolutionScale) -> Vec<(String, String)> {
         self.sheets
             .iter()
-            .filter(|(_, asset)| asset.requested_tier != active)
+            .filter(|(token, _)| !self.is_current_realization(token, active))
             .filter_map(|(token, _)| {
                 self.declared
                     .get(token)
@@ -265,11 +271,21 @@ impl CharacterSpriteAssets {
                 ids.insert(id.clone());
             }
             // Record the tier it held, not the requested tier.
+            self.realized_under.remove(&token);
             if let Some(asset) = self.sheets.remove(&token) {
                 self.retired.insert(token, asset.resolved_tier);
             }
         }
         ids
+    }
+
+    /// Whether `token` has a realization requested at `tier` and made from
+    /// the sheet generation every reader reads now. Any other resident
+    /// realization is stale ([`Self::stale_realizations`]), and a demand
+    /// makes it again.
+    pub fn is_current_realization(&self, token: &str, tier: TextureResolutionScale) -> bool {
+        self.sheets.get(token).is_some_and(|asset| asset.requested_tier == tier)
+            && self.realized_under.get(token) == Some(&crate::baked_sheet_rons::current().id())
     }
 
     /// The main lookup, by character id.

@@ -329,9 +329,7 @@ fn run(target: &str, actors: usize, rigged: bool, frames: usize, views: Option<u
             animator,
             Transform::from_xyz(at.x, at.y, index as f32 * 0.01),
             Visibility::Inherited,
-            BoundSpriteQuality {
-                scale: TextureResolutionScale::Full,
-            },
+            BoundSpriteQuality::of_tier(TextureResolutionScale::Full),
         ));
     }
     // Warm up: bind, and let every pose come round once.

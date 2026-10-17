@@ -14,6 +14,7 @@
 | [`fx`](src/fx.rs) | Procedural visual effects for the sandbox. |
 | [`gameplay_surround`](src/gameplay_surround.rs) | Fills the display area that the gameplay camera does not cover. |
 | [`hud`](src/hud.rs) | Always-on player HUD: health, mana, and money meters (visible build). |
+| [`lightning`](src/lightning/mod.rs) | Procedural lightning: bolts between two ends and auras on bodies, drawn from [`VfxMessage::Lightning`] and [`VfxMessage::LightningAura`] rows. |
 | [`mesh2d_late_meshes`](src/mesh2d_late_meshes.rs) | A 2D mesh whose GPU mesh arrives late is specialized when it arrives. |
 | [`platformer_presentation`](src/platformer_presentation.rs) | Generic platformer room presentation. |
 | [`quality`](src/quality.rs) | Live resolved visual-quality resource. |
@@ -24,7 +25,7 @@
 | [`ui_fonts`](src/ui_fonts.rs) | UI font loading for the presentation layer. |
 | [`void_field`](src/void_field.rs) | The field of the void: the picture loses its colour, and a part of its light, near each void thing. |
 
-_17 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_18 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

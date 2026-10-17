@@ -292,12 +292,32 @@ fn a_player_on_a_gallery_is_answered_by_the_arc_lash() {
     assert!(lashed, "he never answered a player above him with the lash; last: {:?}", wolf(&mut sim));
     untouchable_player(&mut sim, false);
     let (_, before) = player(&mut sim);
+    let mut bolt_seen = false;
     for _ in 0..90 {
         place_player(&mut sim, on_gallery);
         sim.step(AgentAction::default());
+        bolt_seen |= asks_for_force_lightning(&mut sim);
         if player(&mut sim).1 < before {
+            assert!(bolt_seen, "the lash hurt with no bolt drawn down its line");
             return;
         }
     }
     panic!("the lash missed a player standing still on the gallery; last: {:?}", wolf(&mut sim));
+}
+
+/// Whether this tick asked for a bolt of force lightning out of a body (the
+/// lash's look: from his neck, down the line).
+fn asks_for_force_lightning(sim: &mut Platformer2dSimHarness) -> bool {
+    use ambition_platformer2d::vfx::vfx::{VfxInRoom, VfxMessage};
+    use ambition_platformer2d::vfx::{LightningEnd, LightningLook};
+    let Some(mut messages) = sim.world_mut().get_resource_mut::<Messages<VfxInRoom>>() else {
+        return false;
+    };
+    let asked = messages.drain().any(|row| {
+        matches!(
+            row.vfx,
+            VfxMessage::Lightning { from: LightningEnd::Body { .. }, look, .. } if look == LightningLook::FORCE
+        )
+    });
+    asked
 }

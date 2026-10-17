@@ -483,6 +483,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // flash is (not there).
         #[cfg(not(target_os = "android"))]
         app.add_plugins(crate::bubble_shield_fx::BubbleShieldFxPlugin);
+        // Procedural lightning: bolts and auras (its core on every device).
+        app.add_plugins(crate::lightning::LightningPlugin);
         // Place the content-owned overlay seam: after the character animator
         // (overlays mirror its new frame), before the hit-flash mirror (the
         // silhouette reads sprite state that overlays may tint). The set carries

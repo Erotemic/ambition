@@ -117,6 +117,16 @@ pub fn install_conduct(app: &mut App) {
         "ambition_boss_encounter",
         crate::conduct::lower_bursts,
     );
+    app.install_extension_request::<ambition_combat_port::LightningPort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::lower_lightning,
+    );
+    app.install_extension_request::<ambition_combat_port::LightningAuraPort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::lower_lightning_auras,
+    );
     app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>();
     app.install_extension_request::<ambition_combat_port::CameraShakePort, _>(
         BOSS_CONDUCT,

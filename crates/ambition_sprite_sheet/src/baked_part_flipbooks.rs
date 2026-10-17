@@ -137,13 +137,19 @@ pub struct PartTables {
     /// file had before it was read.
     parsed: std::sync::Mutex<std::collections::HashMap<String, (RiggedSpriteAsset, Option<std::time::SystemTime>)>>,
     landmarks: std::sync::OnceLock<Landmarks>,
+    /// The modification time of each quality tier's table file when this
+    /// generation read its rows. A sheet decodes a tier table where it
+    /// realizes at that tier, and panics on one that does not decode, so the
+    /// next preparation checks each tier table whose file changed since.
+    tiers_seen: std::collections::HashMap<&'static str, Option<std::time::SystemTime>>,
     decoded_landmarks: std::sync::OnceLock<Vec<std::sync::OnceLock<std::sync::Arc<ambition_characters::actor::landmarks::BodyLandmarkTable>>>>,
 }
 
 impl PartTables {
     /// Tables decoded when first asked for.
     pub(crate) fn new(rows: Vec<PartFlipbookRow>) -> Self {
-        Self { rows, parsed: Default::default(), landmarks: Default::default(), decoded_landmarks: Default::default() }
+        let tiers_seen = rows.iter().filter(|(key, ..)| key.contains('.')).map(|(key, table, _)| (*key, modified(*table))).collect();
+        Self { rows, parsed: Default::default(), landmarks: Default::default(), tiers_seen, decoded_landmarks: Default::default() }
     }
 
     /// Every flipbook, as `(key, table, file)` sorted by key.
@@ -154,8 +160,10 @@ impl PartTables {
     /// Decode each full-resolution table of `rows`, and project the
     /// landmarks, so that a publication is checked before it is played and
     /// costs the frame nothing. A table whose file did not change since
-    /// `previous` decoded it is taken from `previous`. A table that does not
-    /// decode is returned with its file named and its error.
+    /// `previous` decoded it is taken from `previous`. Each tier table whose
+    /// file changed since `previous` read it is decoded to check it, and not
+    /// kept: a sheet decodes it where it realizes at that tier. A table that
+    /// does not decode is returned with its file named and its error.
     pub(crate) fn prepared(rows: Vec<PartFlipbookRow>, previous: &Self) -> Result<Self, Vec<(String, String)>> {
         let tables = Self::new(rows);
         let old = previous.parsed.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -180,6 +188,17 @@ impl PartTables {
             }
         }
         drop(old);
+        for (key, table, file) in tables.rows.iter().filter(|(key, ..)| key.contains('.')) {
+            let seen = tables.tiers_seen.get(key).copied().flatten();
+            if seen.is_some() && previous.tiers_seen.get(key) == Some(&seen) {
+                continue;
+            }
+            if let Err(error) = table.decode() {
+                // By its path under `assets/`: a tier table has the file name
+                // of its full-resolution table.
+                failed.push((file.split_once("/assets/").map_or(*file, |(_, under)| under).to_owned(), error.to_string()));
+            }
+        }
         if !failed.is_empty() {
             return Err(failed);
         }

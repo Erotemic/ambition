@@ -154,7 +154,7 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     let shipped = ambition_sprite_sheet::baked_sheet_rons::published_tree_owner()
         .expect("a development build reads its sprite tree")
         .join("assets/sprites/hand_saint_parts.ron");
-    let flipbook_text = std::fs::read_to_string(shipped).expect("the hand saint publishes a flipbook").replace("target: \"hand_saint\"", &format!("target: \"{PROBE}\""));
+    let flipbook_text = std::fs::read_to_string(&shipped).expect("the hand saint publishes a flipbook").replace("target: \"hand_saint\"", &format!("target: \"{PROBE}\""));
     let flipbook = sprites.join(format!("{PROBE}_parts.ron"));
     // The feet are read from the decoded table, the frame height by the
     // landmarks.
@@ -208,6 +208,30 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     std::fs::remove_dir_all(second.parent().unwrap()).unwrap();
     look(&mut app);
     assert_eq!(app.world().resource::<SpriteSheetWatch>().refused, None, "the removal of the second file was not seen");
+
+    // A quality tier's table is decoded where a sheet realizes at that tier,
+    // which panics on one that does not decode, so a changed tier table is
+    // checked before it is played. The control: the shipped tier table of
+    // the same flipbook, under the probe's name, is played.
+    let tier_text = std::fs::read_to_string(shipped.parent().unwrap().parent().unwrap().join("sprites_0_5x/hand_saint_parts.ron"))
+        .expect("the hand saint publishes a tier flipbook")
+        .replace("target: \"hand_saint\"", &format!("target: \"{PROBE}\""));
+    let tier = owner.join(format!("assets/sprites_0_5x/{PROBE}_parts.ron"));
+    std::fs::create_dir_all(tier.parent().unwrap()).unwrap();
+    std::fs::write(&tier, &tier_text).unwrap();
+    look(&mut app);
+    assert_eq!(app.world().resource::<SpriteSheetWatch>().refused, None, "control: a tier table that decodes is refused");
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&tier, "( schema_version: 3, target: ").unwrap();
+    look(&mut app);
+    let refused = app.world().resource::<SpriteSheetWatch>().refused.clone();
+    assert!(
+        refused.as_deref().is_some_and(|why| why.contains(&format!("sprites_0_5x/{PROBE}_parts.ron"))),
+        "the refusal does not name the tier flipbook: {refused:?}"
+    );
+    std::fs::remove_file(&tier).unwrap();
+    look(&mut app);
+    assert_eq!(app.world().resource::<SpriteSheetWatch>().refused, None, "the removal of the tier table was not seen");
 
     // A portrait manifest and a sprite pack catalog are parts of it too: the
     // `PortraitSheetRegistry` resource is stated again with the generation.

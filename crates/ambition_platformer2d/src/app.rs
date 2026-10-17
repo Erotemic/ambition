@@ -1813,9 +1813,7 @@ pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display)
     // Rule 4: after Bevy's StatesPlugin exists, before the sim plugins whose
     // run conditions read the state.
     crate::engine::init_engine_states(app);
-    // Today's policy for the windowed demos (Bevy's default), unless the
-    // executor A/B switch names another.
-    crate::runtime::apply_executor_policy(app, crate::runtime::ExecutorPolicy::Parallel);
+    crate::runtime::serialize_main_schedules(app);
 }
 
 /// Declaration-time refusals that no consumer crate can reach.

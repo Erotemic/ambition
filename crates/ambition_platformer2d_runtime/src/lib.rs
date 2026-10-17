@@ -60,6 +60,8 @@ mod sim_core_resources;
 pub mod sim_identity;
 #[cfg(test)]
 mod sim_identity_tests;
+#[cfg(test)]
+mod executor_tests;
 pub mod world_gating;
 
 // Re-export the shared finalization seam without moving its ownership up the dependency graph.
@@ -728,98 +730,48 @@ pub fn add_headless_foundation(app: &mut App) {
     app.add_plugins(bevy::image::ImagePlugin::default());
     app.add_plugins(bevy::transform::TransformPlugin);
     app.add_plugins(bevy::state::app::StatesPlugin);
-    apply_executor_policy(app, ExecutorPolicy::FrameSerial);
+    serialize_main_schedules(app);
     init_engine_states(app);
 }
 
-/// Run the main-world frame schedules serially instead of on the
-/// multithreaded executor.
+/// Run every main-world schedule on the single-threaded executor: the frame
+/// schedules (`First`..`Last`), `StateTransition`, `SpawnScene` and the fixed
+/// ones (`FixedFirst`..`FixedLast`). Call it after the plugins that make the
+/// schedules. The render sub-app keeps its own executors.
 ///
-/// Profiling (headless boss room, 3600 ticks) measured ~1.5M voluntary
-/// context switches per run — hundreds per tick — with gameplay systems at
-/// <2% of CPU while executor bookkeeping + thread parking took ~40%+. With
-/// system bodies this small, cross-thread dispatch costs far more than it
-/// buys; rollback backends likewise own deterministic execution policy for
-/// their concrete simulation schedules.
-pub fn serialize_frame_schedules(app: &mut App) {
-    use bevy::app::{First, Last, PostUpdate, PreUpdate, Update};
-    use bevy::ecs::schedule::SingleThreadedExecutor;
-    app.edit_schedule(First, |s| {
-        s.set_executor(SingleThreadedExecutor::new());
-    });
-    app.edit_schedule(PreUpdate, |s| {
-        s.set_executor(SingleThreadedExecutor::new());
-    });
-    app.edit_schedule(Update, |s| {
-        s.set_executor(SingleThreadedExecutor::new());
-    });
-    app.edit_schedule(PostUpdate, |s| {
-        s.set_executor(SingleThreadedExecutor::new());
-    });
-    app.edit_schedule(Last, |s| {
-        s.set_executor(SingleThreadedExecutor::new());
-    });
-}
-
-/// How the main-world schedules of an App are executed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ExecutorPolicy {
-    /// Bevy's default: the multi-threaded executor.
-    Parallel,
-    /// `First`..`Last` serial ([`serialize_frame_schedules`]); the fixed
-    /// schedules multi-threaded.
-    FrameSerial,
-    /// [`Self::FrameSerial`], and also `StateTransition`, `SpawnScene` and
-    /// `FixedFirst`..`FixedLast`.
-    Serial,
-}
-
-/// MEASUREMENT SWITCH for the executor A/B (findings page, P2): `parallel`,
-/// `frame-serial` or `serial` replaces the caller's default policy. Remove it
-/// with the decision.
-pub const EXECUTOR_POLICY_ENV: &str = "AMBITION_SCHEDULE_EXECUTOR";
-
-/// Set the executor of the main-world schedules: `default`, or the policy that
-/// [`EXECUTOR_POLICY_ENV`] names. Call it after the plugins that make the
-/// schedules. The render sub-app is not changed.
-pub fn apply_executor_policy(app: &mut App, default: ExecutorPolicy) {
-    let requested = std::env::var(EXECUTOR_POLICY_ENV).ok();
-    let policy = match requested.as_deref() {
-        None => default,
-        Some("parallel") => ExecutorPolicy::Parallel,
-        Some("frame-serial") => ExecutorPolicy::FrameSerial,
-        Some("serial") => ExecutorPolicy::Serial,
-        Some(other) => {
-            eprintln!("[census] config {EXECUTOR_POLICY_ENV}={other} is not parallel|frame-serial|serial; using {default:?}");
-            default
-        }
+/// The systems are small, so dispatch to other threads costs more than it
+/// buys. MEASURED (findings F22, profiling build, standalone Mary-O 1-1):
+/// a simulation tick 10.70 ms on the multi-threaded executor, 1.68 ms on this
+/// one. A headless boss room had ~1.5M voluntary context switches a run on
+/// it. The single-threaded executor runs the systems in an order the declared
+/// constraints allow, and the multi-threaded one can already run unordered
+/// systems in any order, so this gives no new order. On wasm there is one
+/// thread, and this removes overhead only. Rollback backends set the executor
+/// of their own simulation schedules.
+pub fn serialize_main_schedules(app: &mut App) {
+    use bevy::app::{
+        First, FixedFirst, FixedLast, FixedPostUpdate, FixedPreUpdate, Last, PostUpdate, PreUpdate, SpawnScene, Update,
     };
-    if requested.is_some() {
-        eprintln!("[census] config executor_policy={policy:?} default={default:?}");
-    }
-    match policy {
-        ExecutorPolicy::Parallel => {}
-        ExecutorPolicy::FrameSerial => serialize_frame_schedules(app),
-        ExecutorPolicy::Serial => {
-            use bevy::app::{FixedFirst, FixedLast, FixedPostUpdate, FixedPreUpdate, SpawnScene};
-            use bevy::ecs::schedule::{ScheduleLabel, SingleThreadedExecutor};
-            use bevy::state::state::StateTransition;
-            serialize_frame_schedules(app);
-            let labels: [bevy::ecs::intern::Interned<dyn ScheduleLabel>; 7] = [
-                StateTransition.intern(),
-                SpawnScene.intern(),
-                FixedFirst.intern(),
-                FixedPreUpdate.intern(),
-                FixedUpdate.intern(),
-                FixedPostUpdate.intern(),
-                FixedLast.intern(),
-            ];
-            for label in labels {
-                app.edit_schedule(label, |s| {
-                    s.set_executor(SingleThreadedExecutor::new());
-                });
-            }
-        }
+    use bevy::ecs::schedule::{ScheduleLabel, SingleThreadedExecutor};
+    use bevy::state::state::StateTransition;
+    let labels: [bevy::ecs::intern::Interned<dyn ScheduleLabel>; 12] = [
+        First.intern(),
+        PreUpdate.intern(),
+        StateTransition.intern(),
+        Update.intern(),
+        SpawnScene.intern(),
+        PostUpdate.intern(),
+        Last.intern(),
+        FixedFirst.intern(),
+        FixedPreUpdate.intern(),
+        FixedUpdate.intern(),
+        FixedPostUpdate.intern(),
+        FixedLast.intern(),
+    ];
+    for label in labels {
+        app.edit_schedule(label, |s| {
+            s.set_executor(SingleThreadedExecutor::new());
+        });
     }
 }
 

@@ -59,7 +59,7 @@ Mary-O, so a phone profile cannot miss it (`profile_android.sh` records it).
 | P5 read-models per frame | open | the `ambition_sim_view` rebuilds are ~0.9% of phone samples |
 | F19 live-room lookups | open | `room_instance.rs:172` and `room_graph.rs` ~1.9% |
 | repertoire re-fold in the hub | open, small | 1.3% of phone samples; 0.04 re-folds a frame on the desktop, so room loads and power-ups, not steady state |
-| D12 | approved, low priority | none in the hub (its simulation is GGRS, serial already) |
+| D12 | done 2026-10-17: `serialize_main_schedules` in every foundation, the switch deleted | none in the hub (its simulation is GGRS, serial already) |
 
 **Objection to the order, from the code and the phone:** the remaining P12
 items are small on the phone; the cost is in how many systems run and in
@@ -334,7 +334,7 @@ Updated 2026-10-17. Each one helps every game, not only Mary-O.
 6. P4: interned identities. P17: baked navigation graphs.
 7. Fork edits, for Jon: Yarn `fetch_resources` (keep its `SystemState`),
    `virtual_joystick::update_ui` (compare before write); `bevy_light` open.
-8. D12, small, when the rest allows.
+8. D12: done 2026-10-17 (F22).
 
 ## How to answer a cost question
 
@@ -956,7 +956,26 @@ arm. Fixed for captures (2026-10-16): `apply_capture_snapshot` now runs before
 `drift_room_motes` and `light_the_world`; the `parallel`, `frame-serial`
 and `serial` hub captures (600 frames) are then pixel-identical (MEASURED). Recommendation: make `Serial` the default
 of every foundation, then remove the switch; check `room_replay` under it
-first. Not done: it is a one-line default.
+first.
+
+**Done 2026-10-17 (D12).** `serialize_main_schedules`
+(`ambition_platformer2d_runtime`) is the one executor policy, called by the
+headless, windowed and hub foundations. Deleted with it: `ExecutorPolicy`,
+`apply_executor_policy`, the switch `AMBITION_SCHEDULE_EXECUTOR`,
+`scripts/executor_ab.sh` and its report, and `ambition_app`'s second switch
+`AMBITION_MAIN_SCHEDULES_SINGLE_THREADED`. The tables above are the record of
+the A/B. MEASURED after it (profiling build, `capture_mary_o --warmup 600`
+with `perf_probe`, 1-1, before and after interleaved, two runs each;
+`time_by_span.csv`): `FixedUpdate` 12.66 and 12.51 → 4.31 and 4.13 ms a
+tick, the whole frame 41.6 and 37.9 → 22.8 and 23.1 ms. The probe's spans
+add to every system run, so the probe-free ratio of the table above (6×) is
+the better number. Witness `every_main_schedule_runs_its_systems_on_the_calling_thread`
+(`ambition_platformer2d_runtime`): it can tell the executors apart only with
+`bevy/multi_threaded`, which only the visible builds have; with it, the
+witness is red at "320 of 320 probe runs of First were on another thread"
+without the call, and a headless build prints NOT RUN. So the earlier
+"Mary-O's and Sanic's tests pass with the switch at `serial`" was vacuous:
+their headless builds ran one thread in every arm.
 
 ### F23 — In the hub the executor is not the lever; the frame phases are
 
@@ -1041,7 +1060,7 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | # | Proposal | Removes | Size | Behaviour change |
 | --- | --- | --- | --- | --- |
 | P1 | Per-game engine profiles: `BossCatalog` always present (empty); ledgers under Dialogue; grabs, mounts, match stocks as group members with capabilities; extension lowering installed by the capability that owns the phase; demo hosts call `for_profile` | about 115 systems a tick in Mary-O and Sanic | large | no, except decisions D3, D4 |
-| P2 | One executor policy (`apply_executor_policy`), called by every foundation including the windowed demos, covering `Fixed*` and `StateTransition`. Switch and A/B done (F22, F23): a standalone tick ~6× cheaper for Mary-O and ~2.4× for Sanic, the hub +3%; the default is D12 | the multi-threaded executor cost of every frame and fixed system in the windowed demos | small | no |
+| P2 | DONE 2026-10-17: one executor policy (`serialize_main_schedules`), called by every foundation including the windowed demos, covering `Fixed*` and `StateTransition` (F22, F23): a standalone tick ~6× cheaper for Mary-O and ~2.4× for Sanic, the hub +3% | the multi-threaded executor cost of every frame and fixed system in the windowed demos | small | no |
 | P11 | DONE for the clash pass, in-repo (F13): `press_all_action_update`; an upstream PR for the pass and the boxed lookups remains | 19-32k allocations a frame, ~80% of a standalone frame's | small | no |
 | P12 | Derive on change, not every tick (F15, F16, F20): first writes that mark only real changes (the cluster step, the resources of F20), then the four systems; the change detector (`changes_by_site.csv`) finds the next ones and verifies each | per-tick re-derivations and false changes that wake change filters | small each | no |
 | P14 | One composed collision world per room per tick, shared; then a layered view with no copy (F24) | ~0.6% of phone CPU in the body step, plus each other composer | medium | no |
@@ -1061,7 +1080,7 @@ Rollback costs about 0% offline (`check_distance: 0`).
 
 ## Implementation plans
 
-### P2 — one executor policy (one commit, an A/B, one commit)
+### P2 — one executor policy (one commit, an A/B, one commit) — DONE 2026-10-17
 
 - Rename `serialize_frame_schedules` to `apply_executor_policy(app)`
   (`runtime/src/lib.rs:741`), the only place that sets a main-world executor.

@@ -97,17 +97,9 @@ pub fn compose_ambition_visible_game(
 ) {
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
     ambition_platformer2d::runtime::init_engine_states(app);
-    // Main-world frame schedules run serially: headless measurement showed
-    // gameplay bodies at <2% of CPU vs ~40% executor bookkeeping + thread
-    // parking (3.7x wall, 32x fewer context switches — see
-    // serialize_frame_schedules). The render sub-app keeps its own parallel
-    // schedules; this only serializes main-world dispatch. On wasm the same
-    // call is not an optimization but a necessity: one thread, so the
-    // multithreaded executor's bookkeeping is pure overhead.
-    ambition_platformer2d::runtime::apply_executor_policy(
-        app,
-        ambition_platformer2d::runtime::ExecutorPolicy::FrameSerial,
-    );
+    // Every main-world schedule runs serially (`serialize_main_schedules`
+    // says why). The render sub-app keeps its own parallel schedules.
+    ambition_platformer2d::runtime::serialize_main_schedules(app);
 
     {
         // NOT GATED ON `dev_tools`, AND THE SAME HOST ON EVERY PLATFORM.

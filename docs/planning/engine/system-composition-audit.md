@@ -53,13 +53,12 @@ All counts are measured, without the census's own systems. The hub is
    system on the single-threaded executor. On the multi-threaded executor,
    1.7 us each in a schedule of 100 systems that conflict, and 12 us each in
    a schedule of 1000. A system skipped by a false run condition costs 0.04 us.
-5. **The main-world frame schedules are single-threaded; the fixed schedules
-   are not.** Reasoned from code: `serialize_frame_schedules` sets `First`
-   through `Last`, and `bevy_ggrs`'s schedules are set by the rollback crate.
-   The `Fixed*` schedules keep Bevy's default executor. Standalone Mary-O runs
-   its simulation in `FixedUpdate` (494 of 597 systems ran), and a `perf`
-   sample shows `multi_threaded::tick_executor` in that run. The hub's
-   simulation is in `GgrsSchedule`, which is single-threaded.
+5. **Every main-world schedule is single-threaded (S1, done 2026-10-17).**
+   `serialize_main_schedules` sets `First` through `Last`, `StateTransition`,
+   `SpawnScene` and `FixedFirst` through `FixedLast`, in every foundation;
+   `bevy_ggrs`'s schedules are set by the rollback crate. Before it, the
+   `Fixed*` schedules kept Bevy's multi-threaded executor, and standalone
+   Mary-O runs its simulation in `FixedUpdate`.
 6. **Archetypes are not the lever.** Measured: the counts are flat in play,
    and archetype matching is mostly the per-run check of each system (see
    `docs/recipes/profiling.md`). Fewer systems running reduces it; fewer
@@ -92,7 +91,12 @@ registry, a global resource or a dependency edge is not accepted without a
 review. The hub has a frontend that standalone games do not, so its target is
 no foreign game's gameplay running, not standalone's total.
 
-### S1 — Serialize the fixed schedules in every host (small)
+### S1 — Serialize the fixed schedules in every host (small) — DONE 2026-10-17
+
+Decision D12 (approved): `serialize_main_schedules` is the one policy of
+every foundation. The A/B switch (`AMBITION_SCHEDULE_EXECUTOR`,
+`apply_executor_policy`, `scripts/executor_ab.sh`) is deleted with the
+decision; F22 keeps its measurements. The record below is history.
 
 **Measured 2026-10-16** ([findings](performance-and-composition-findings.md),
 F22 and F23): the shared switch exists (`AMBITION_SCHEDULE_EXECUTOR`,

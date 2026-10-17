@@ -46,11 +46,17 @@ impl CurrentRoom<'_, '_> {
     /// keys its work by its subject's room (OW1). With one live room this is
     /// the same answer as before.
     pub fn in_scope(&self, scope: RulesScope) -> bool {
+        self.any_live(|room| scope.governs(room))
+    }
+
+    /// Whether `test` holds for ANY live room, or for the absence of a room
+    /// when none is live.
+    pub fn any_live(&self, mut test: impl FnMut(ActiveRoom<'_>) -> bool) -> bool {
         let mut live = self.roots.iter().filter(|(live, _)| live.is_some()).peekable();
         if live.peek().is_none() {
-            return scope.governs(self.get());
+            return test(self.get());
         }
-        live.any(|(_, definition)| scope.governs(self.mode_of(definition)))
+        live.any(|(_, definition)| test(self.mode_of(definition)))
     }
 
     /// A live room's reading from the definition its root seats; `NoRoom`
@@ -121,6 +127,18 @@ impl<T: Clone + std::fmt::Debug + Send + Sync + 'static> GoverningRules<'_, '_, 
     /// The rules in force for `room` ([`LiveRuleRooms::of`] names a live one).
     pub fn in_room(&self, room: ActiveRoom<'_>) -> Option<T> {
         self.declared.as_ref()?.governing(room)
+    }
+}
+
+impl GoverningRules<'_, '_, ambition_platformer2d_shared_tangle::capability::UsedCapabilities> {
+    /// Whether ANY live room uses `capability`: its game's declaration names
+    /// it, or its game declared none. With no live room, the reading of
+    /// [`Self::get`]. The question a capability's gate asks: with two live
+    /// rooms there is no one governing room, and a gate that read THE room
+    /// ran each capability that neither room uses. A system that works on
+    /// each entity still keys its work by the entity's room (OW1).
+    pub fn any_live_room_uses(&self, capability: ambition_platformer2d_shared_tangle::capability::Capability) -> bool {
+        self.room.any_live(|room| self.in_room(room).is_none_or(|used| used.uses(capability)))
     }
 }
 

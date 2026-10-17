@@ -88,16 +88,14 @@ impl ScopedSystemsAppExt for App {
     }
 }
 
-/// Run condition: the active room uses `capability`: its game's declared
+/// Run condition: a live room uses `capability`: its game's declared
 /// [`UsedCapabilities`] name it, or its game declared none. With no session,
 /// only a whole-process declaration governs, so a capability runs unless the
 /// binary's one game left it out.
 pub fn room_uses(
     capability: Capability,
 ) -> impl FnMut(GoverningRules<UsedCapabilities>) -> bool + Clone {
-    move |rules: GoverningRules<UsedCapabilities>| {
-        rules.get().is_none_or(|used| used.uses(capability))
-    }
+    move |rules: GoverningRules<UsedCapabilities>| rules.any_live_room_uses(capability)
 }
 
 /// Run condition: a live session is in Ambition's OWN base mode — an active room

@@ -260,7 +260,7 @@ game's room is served there, and a rewind restores what the condition reads:
   `AMBITION_RULES` (the untagged rooms).
 - `CapabilitySet(capability)` (`shared_tangle::capability`): a capability's
   per-tick systems. `ModeScopePlugin` gives each set `room_uses(capability)`:
-  the room's game declared `UsedCapabilities` naming it, or declared none.
+  a live room's game declared `UsedCapabilities` naming it, or declared none.
   Mary-O and Sanic declare no boss encounters, dialogue, held use or fighter
   specials; Smash declares no boss encounters or dialogue.
 
@@ -361,7 +361,11 @@ Act 3 rifts are portals: declared without them, the rift slept and
 `three_acts` went red, 2026-10-17). `a_game_declares_each_capability_its_maps_author`
 now compares each game's declaration with the entities its LDtk worlds hold
 (red, naming Sanic's `Portal`, with the old declaration). With
-two live rooms there is no one governing room, and the set runs. Witness
+two live rooms the set runs while ANY live room uses the capability
+(`GoverningRules::any_live_room_uses`, the reading `CurrentRoom::in_scope`
+gives game scopes); it ran in each two-room frame before, because THE room
+read as none (review P3, 2026-10-17; witness
+`a_capability_sleeps_while_no_live_room_uses_it`). Witness
 `portals_sleep_in_mary_os_rooms_and_run_in_ambitions` (`app_it`, build-time
 over the composed shipped host): red at "Mary-O's rooms use portals"
 without her declaration, and at "the portal transit is not in the portals'

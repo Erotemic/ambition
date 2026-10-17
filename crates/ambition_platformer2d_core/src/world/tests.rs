@@ -422,3 +422,48 @@ fn climbable_spec_defaults_match_design_intent() {
         spec.strafe_factor
     );
 }
+
+/// The body sweep asks the room's index for the blocks near the swept box
+/// (`Layered::near`); it finds what a scan of every block finds.
+#[test]
+fn the_indexed_body_sweep_finds_what_a_scan_finds() {
+    let mut seed = 0x2545_f491_u32;
+    let mut next = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 17;
+        seed ^= seed << 5;
+        (seed % 10_000) as f32 / 10.0
+    };
+    let blocks: Vec<Block> = (0..600)
+        .map(|i| {
+            let size = Vec2::new(4.0 + next() * 0.3, 4.0 + next() * 0.2);
+            Block::solid(format!("b{i}"), Vec2::new(next(), next()), size)
+        })
+        .collect();
+    let world = World::new("index", Vec2::new(1000.0, 1000.0), Vec2::ZERO, blocks.clone());
+    let mut hits = 0;
+    for _ in 0..400 {
+        let body = Aabb::new(Vec2::new(next(), next()), Vec2::new(4.0 + next() * 0.02, 8.0 + next() * 0.02));
+        let delta = Vec2::new(next() - 500.0, next() - 500.0) * 0.3;
+        let indexed = world.first_body_sweep(body, delta, |_| true).map(|hit| (hit.block.name.clone(), hit.time_of_impact));
+        // The scan: every block, the same order of ties.
+        let mut best: Option<(String, f32, Vec2, crate::GeoId)> = None;
+        for block in &blocks {
+            let Some(hit) = body.sweep_hit(delta, block.aabb) else { continue };
+            let better = best.as_ref().is_none_or(|(_, t, c, id)| {
+                hit.time_of_impact
+                    .total_cmp(t)
+                    .then_with(|| block.aabb.center().x.total_cmp(&c.x))
+                    .then_with(|| block.aabb.center().y.total_cmp(&c.y))
+                    .then_with(|| block.id.cmp(id))
+                    .is_lt()
+            });
+            if better {
+                best = Some((block.name.clone(), hit.time_of_impact, block.aabb.center(), block.id.clone()));
+            }
+        }
+        hits += usize::from(indexed.is_some());
+        assert_eq!(indexed, best.map(|(name, t, ..)| (name, t)));
+    }
+    assert!(hits > 100, "the premise: most sweeps hit something ({hits})");
+}

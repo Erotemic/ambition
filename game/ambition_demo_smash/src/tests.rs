@@ -1372,7 +1372,7 @@ fn the_tiers_sit_inside_the_fighters_measured_jump_arc() {
     // pack's `smash_stages.ron` places them.
     let stage = crate::smash_platform_stage();
     let floor_top = stage.world.blocks[0].aabb.min.y;
-    let rises: Vec<f32> = stage.world.blocks[1..].iter().map(|tier| floor_top - tier.aabb.min.y).collect();
+    let rises: Vec<f32> = stage.world.blocks.iter().skip(1).map(|tier| floor_top - tier.aabb.min.y).collect();
     let low = rises.iter().copied().fold(f32::INFINITY, f32::min);
     let high = rises.iter().copied().fold(f32::NEG_INFINITY, f32::max);
     assert_eq!(rises.len(), 3, "the platformed stage has three tiers");

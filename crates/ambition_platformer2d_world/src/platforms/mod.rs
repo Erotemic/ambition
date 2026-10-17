@@ -1209,9 +1209,10 @@ pub fn world_with_moving_platforms(
     world: &ae::World,
     platforms: &[MovingPlatformState],
 ) -> ae::World {
+    // The room's lists are shared, and the platforms are a layer over them.
     let mut collision_world = world.clone();
     // A box platform is a block; a plank is a line.
-    collision_world.blocks.extend(
+    collision_world.blocks.add_all(
         platforms
             .iter()
             .filter(|platform| platform.plank.is_none())
@@ -1219,7 +1220,7 @@ pub fn world_with_moving_platforms(
     );
     collision_world
         .chains
-        .extend(platforms.iter().filter_map(MovingPlatformState::as_collision_line));
+        .add_all(platforms.iter().filter_map(MovingPlatformState::as_collision_line));
     collision_world
 }
 

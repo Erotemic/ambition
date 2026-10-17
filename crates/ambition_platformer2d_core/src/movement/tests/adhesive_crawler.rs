@@ -61,10 +61,10 @@ fn shaft(extra: Vec<Block>) -> World {
         name: "vertical_shaft (measured)".to_string(),
         size,
         spawn: Vec2::new(502.0, size.y - WALL - 24.0),
-        blocks,
+        blocks: blocks.into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     }
 }

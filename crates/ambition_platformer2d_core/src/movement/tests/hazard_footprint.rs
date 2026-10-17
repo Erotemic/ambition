@@ -34,10 +34,10 @@ pub(super) fn room(hazard: Option<Aabb>) -> World {
         name: "hazard footprint".to_string(),
         size,
         spawn: size * 0.5,
-        blocks,
+        blocks: blocks.into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     }
 }

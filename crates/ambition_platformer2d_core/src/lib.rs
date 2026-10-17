@@ -19,6 +19,7 @@ pub mod geo_id;
 pub mod hit_response;
 pub mod input_stream;
 pub mod kinematic_path;
+pub mod layered;
 pub mod ledge_grab;
 pub mod motion_codec;
 pub mod motion_quality;
@@ -30,6 +31,7 @@ pub mod rollback_registration;
 pub mod sim_random;
 pub mod rollback_kind;
 pub mod snapshot;
+pub mod solid_lines;
 mod snapshot_impls;
 #[cfg(test)]
 pub(crate) mod test_support;

@@ -44,14 +44,14 @@ fn open_world() -> ae::World {
         name: "morph_ball test world".to_string(),
         size: Vec2::new(w, h),
         spawn: Vec2::new(210.0, h - 80.0),
-        blocks: vec![ae::Block::solid(
+        blocks: (vec![ae::Block::solid(
             "floor",
             Vec2::new(0.0, h - 16.0),
             Vec2::new(w, 16.0),
-        )],
+        )]).into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     }
 }

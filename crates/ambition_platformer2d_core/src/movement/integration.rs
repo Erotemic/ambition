@@ -433,6 +433,27 @@ pub(super) fn integrate_velocity_clusters(
         }
     }
 
+    // A SOLID OUTLINE IS SOLID. What a portal pair carries of a block it
+    // turns is that block's true shape (`SurfaceKind::Solid`), which a box
+    // cannot be: a body that ends its sweeps in one is put out the shortest
+    // way and loses the speed it had into it; put out upward, it stands
+    // (`crate::solid_lines`). A world with no outline, which is every world
+    // but a body's in a turning pair, finds none.
+    {
+        let g = frame.down();
+        let body = clusters.kinematics.aabb_oriented(g);
+        if let Some((moved, normal)) = crate::solid_lines::put_out_of_solid_lines(world, body) {
+            clusters.kinematics.pos += moved;
+            let into = clusters.kinematics.vel.dot(normal);
+            if into < 0.0 {
+                clusters.kinematics.vel -= normal * into;
+            }
+            if normal.dot(-g) >= crate::walkable_lines::WALK_SLOPE_LIMIT_DEG.to_radians().cos() {
+                clusters.ground.on_ground = true;
+            }
+        }
+    }
+
     // Emergent platform riding, and every body gets it because every body is
     // swept here: a grounded body resting on a MOVING solid is carried
     // by that solid's gravity-perpendicular velocity (toward a support the

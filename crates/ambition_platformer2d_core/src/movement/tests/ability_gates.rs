@@ -984,13 +984,13 @@ fn a_body_teeters_only_on_the_brink_it_is_facing() {
         name: "teeter".to_string(),
         size: crate::Vec2::new(800.0, 600.0),
         spawn: crate::Vec2::new(400.0, 100.0),
-        blocks: vec![Block::solid(
+        blocks: (vec![Block::solid(
             "ledge",
             crate::Vec2::new(300.0, 300.0),
             crate::Vec2::new(200.0, 40.0),
-        )],
+        )]).into(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
         water_regions: Vec::new(),
     };

@@ -506,6 +506,11 @@ pub struct ClimbableContact {
 pub enum SurfaceKind {
     /// A rideable ground surface (slopes, hills, loop tracks).
     Ground,
+    /// A closed convex outline that is solid inside: what a portal pair
+    /// carries of a block when it turns it (`glue_portal_pair`), which a box
+    /// cannot be. Its edges that face up are ground as any line's are; a body
+    /// in it is put out the shortest way (`crate::solid_lines`).
+    Solid,
 }
 
 /// One endpoint/vertex participating in a [`SurfaceJunction`].
@@ -764,6 +769,16 @@ impl SurfaceChain {
             turn: 0.0,
             pivot: Vec2::ZERO,
         }
+    }
+
+    /// A solid convex outline ([`SurfaceKind::Solid`]), wound so each edge's
+    /// outward normal (`(t.y, -t.x)`) points out of it.
+    pub fn solid(name: impl Into<String>, mut points: Vec<Vec2>) -> Self {
+        let twice_area: f32 = (0..points.len()).map(|i| points[i].perp_dot(points[(i + 1) % points.len()])).sum();
+        if twice_area < 0.0 {
+            points.reverse();
+        }
+        Self { kind: SurfaceKind::Solid, hidden: true, ..Self::closed_loop(name, points) }
     }
 
     pub fn segment_count(&self) -> usize {
@@ -1050,6 +1065,18 @@ fn segments_cross(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> bool {
     (d1 * d2 < 0.0) && (d3 * d4 < 0.0)
 }
 
+impl crate::layered::Spatial for Block {
+    fn spatial_bounds(&self) -> Aabb {
+        self.aabb
+    }
+}
+
+impl crate::layered::Spatial for SurfaceChain {
+    fn spatial_bounds(&self) -> Aabb {
+        crate::layered::bounds_of(&self.points)
+    }
+}
+
 /// Complete generated room spec.
 ///
 /// Engine-side `World` carries only simulation primitives: blocks,
@@ -1064,7 +1091,10 @@ pub struct World {
     pub name: String,
     pub size: Vec2,
     pub spawn: Vec2,
-    pub blocks: Vec<Block>,
+    /// One shared list for the room, and a layer per world over it
+    /// ([`crate::layered::Layered`]): what a body in a portal pair meets is
+    /// the room's world with a few blocks hidden and a few added.
+    pub blocks: crate::layered::Layered<Block>,
     /// Source-agnostic water regions. Authoring may come from LDtk
     /// entities, an LDtk IntGrid water layer, or generated content.
     /// Movement only reads this list (via `water_at`), never the
@@ -1079,7 +1109,7 @@ pub struct World {
     /// zero-chain case returns at once. The surface-momentum rider rides them;
     /// a walking body stands on the ones within its slope limit, as one-way
     /// floors (`walkable_lines`).
-    pub chains: Vec<SurfaceChain>,
+    pub chains: crate::layered::Layered<SurfaceChain>,
     /// How far past `size` a body may travel on each axis before the world
     /// declares it gone. See [`WorldEdgeMargins`].
     #[serde(default)]
@@ -1249,10 +1279,10 @@ impl World {
             name: name.into(),
             size,
             spawn,
-            blocks,
+            blocks: blocks.into(),
             water_regions: Vec::new(),
             climbable_regions: Vec::new(),
-            chains: Vec::new(),
+            chains: (Vec::new()).into(),
             edges: WorldEdgeMargins::default(),
         }
     }
@@ -1310,7 +1340,7 @@ impl World {
     /// so every authoring source (LDtk entity, generated IR, native RON room)
     /// flows through one entry point.
     pub fn with_chains(mut self, chains: Vec<SurfaceChain>) -> Self {
-        self.chains = chains;
+        self.chains = (chains).into();
         self
     }
 
@@ -1471,7 +1501,15 @@ impl World {
         F: FnMut(&Block) -> bool,
     {
         let mut best: Option<SweepHit<'_>> = None;
-        for block in &self.blocks {
+        // Only the blocks the swept box can reach (the room's index,
+        // `Layered::near`): a superset of every block it can hit, so the
+        // answer is the scan's.
+        let moved = body.translated(delta);
+        let reach = Aabb::new(
+            (body.min.min(moved.min) + body.max.max(moved.max)) * 0.5,
+            (body.max.max(moved.max) - body.min.min(moved.min)) * 0.5 + Vec2::splat(1.0),
+        );
+        for block in self.blocks.near(reach) {
             if !predicate(block) {
                 continue;
             }

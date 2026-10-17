@@ -39,7 +39,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
     };
     use ambition_persistence::settings::gameplay::Difficulty;
     use ambition_persistence::settings::video::{
-        CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
+        CameraAspectPolicy, CameraFramingPreset, GameplayViewShape, ColorblindMode, FlashIntensity, FramePaceCap,
         SerializableDisplayMode, VisualQualityProfile, VsyncMode,
     };
 
@@ -77,6 +77,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::CameraFraming => {
             cyc!(settings.video.camera_framing, CameraFramingPreset)
         }
+        SettingsOptionId::ViewShape => cyc!(settings.video.view_shape, GameplayViewShape),
         SettingsOptionId::Flashes => cyc!(settings.video.flashes, FlashIntensity),
         SettingsOptionId::Colorblind => cyc!(settings.video.colorblind, ColorblindMode),
         SettingsOptionId::ShowFps => tog!(settings.video.show_fps),

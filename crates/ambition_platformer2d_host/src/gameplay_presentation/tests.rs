@@ -1091,3 +1091,43 @@ mod two_views_one_host {
         }
     }
 }
+
+/// The view shape the player chooses narrows a full-bleed game to 4:3: the
+/// main camera renders 1440x1080 of a 2400x1080 display, centred on desktop
+/// and pinned to the top on touch. The control: with each game's own shape,
+/// the same game renders the whole display. A game that declares 4:3 keeps
+/// its own fit.
+#[test]
+fn the_players_view_shape_narrows_a_full_bleed_game_to_four_by_three() {
+    use ambition_persistence::settings::{GameplayViewShape, UserSettings};
+    let viewport = |profiles: GameplayPresentationProfiles, environment, shape| {
+        let mut app = host_app(ae::Vec2::new(2400.0, 1080.0), 1.0, profiles, environment);
+        let mut settings = UserSettings::default();
+        settings.video.view_shape = shape;
+        app.insert_resource(settings);
+        app.update();
+        main_camera_viewport(&mut app).map(|viewport| (viewport.physical_position, viewport.physical_size))
+    };
+    let full_bleed = GameplayPresentationProfiles::default();
+    assert_eq!(
+        viewport(full_bleed, PresentationEnvironment::Desktop, GameplayViewShape::GameShape),
+        None,
+        "control: a full-bleed game renders the whole display"
+    );
+    assert_eq!(
+        viewport(full_bleed, PresentationEnvironment::Desktop, GameplayViewShape::FourByThree),
+        Some((bevy::math::UVec2::new(480, 0), bevy::math::UVec2::new(1440, 1080))),
+        "a full-bleed game in the player's 4:3 renders a centred 4:3 rectangle"
+    );
+    assert_eq!(
+        viewport(full_bleed, PresentationEnvironment::TouchPrimary, GameplayViewShape::FourByThree)
+            .map(|(position, size)| (position.y, size)),
+        Some((0, bevy::math::UVec2::new(1440, 1080))),
+        "on touch the 4:3 rectangle is pinned to the top"
+    );
+    assert_eq!(
+        viewport(profiles::fixed_four_by_three(), PresentationEnvironment::TouchPrimary, GameplayViewShape::FourByThree),
+        viewport(profiles::fixed_four_by_three(), PresentationEnvironment::TouchPrimary, GameplayViewShape::GameShape),
+        "a game that declares 4:3 is drawn as it declares"
+    );
+}

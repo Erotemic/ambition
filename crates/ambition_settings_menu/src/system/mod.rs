@@ -469,6 +469,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::CameraZoom,
             SettingsOptionId::CameraAspect,
             SettingsOptionId::CameraFraming,
+            SettingsOptionId::ViewShape,
             SettingsOptionId::Flashes,
             SettingsOptionId::Colorblind,
             SettingsOptionId::ShowFps,

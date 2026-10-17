@@ -11,7 +11,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     use ambition_persistence::settings::gameplay::Difficulty;
     use ambition_persistence::settings::video::{
         CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
-        VisualQualityProfile, VsyncMode,
+        GameplayViewShape, VisualQualityProfile, VsyncMode,
     };
 
     let v = &settings.video;
@@ -70,6 +70,17 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                     i,
                     n,
                     "Where the player sits within the camera frame.",
+                )
+            },
+            {
+                let (i, n) = enum_index(&GameplayViewShape::ALL, v.view_shape);
+                cycle(
+                    SettingsOptionId::ViewShape,
+                    "View Shape",
+                    v.view_shape.label(),
+                    i,
+                    n,
+                    "Play every game in a 4:3 view with bars beside it: fewer pixels to draw on a slow device.",
                 )
             },
             {

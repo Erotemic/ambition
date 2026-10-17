@@ -42,6 +42,7 @@ const ALL_SETTINGS_OPTION_IDS: &[SettingsOptionId] = &[
     SettingsOptionId::CameraZoom,
     SettingsOptionId::CameraAspect,
     SettingsOptionId::CameraFraming,
+    SettingsOptionId::ViewShape,
     SettingsOptionId::Flashes,
     SettingsOptionId::Colorblind,
     SettingsOptionId::ShowFps,
@@ -111,6 +112,7 @@ fn assert_all_settings_option_ids_listed(id: SettingsOptionId) {
         | SettingsOptionId::CameraZoom
         | SettingsOptionId::CameraAspect
         | SettingsOptionId::CameraFraming
+        | SettingsOptionId::ViewShape
         | SettingsOptionId::Flashes
         | SettingsOptionId::Colorblind
         | SettingsOptionId::ShowFps

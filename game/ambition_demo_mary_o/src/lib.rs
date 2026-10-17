@@ -1551,7 +1551,8 @@ impl Plugin for MaryORulesPlugin {
                     .without(ambition_platformer2d::platformer::capability::Capability::HeldUse)
                     .without(ambition_platformer2d::platformer::capability::Capability::FighterSpecials)
                     .without(ambition_platformer2d::platformer::capability::Capability::Portals)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Mounts),
+                    .without(ambition_platformer2d::platformer::capability::Capability::Mounts)
+                    .without(ambition_platformer2d::platformer::capability::Capability::Encounters),
             );
             // The modifier runs, whichever body she drives. The cinder beacon
             // relabels the same slot while she wears it (see `run_technique`).

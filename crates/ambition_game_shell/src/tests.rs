@@ -1620,3 +1620,27 @@ fn same_provider_relaunch_mints_a_fresh_load_transaction() {
     let second = launch(&mut router, &mut loads, &mut prepared);
     assert_ne!(first.barrier.load_id, second.barrier.load_id);
 }
+
+/// With no route pending, the exclusive pending step does not run: an idle
+/// frame does not write the router, the loads or the prepared sessions. The
+/// gate tests above show that a pending route still activates.
+#[test]
+fn an_idle_frame_does_not_run_the_pending_step() {
+    use bevy::prelude::{App, DetectChanges as _};
+    let mut app = App::new();
+    app.add_plugins(MinimalShellPlugins);
+    app.update();
+    assert!(app.world().resource::<ShellRouter>().pending.is_none(), "the premise: no route is pending");
+    let ticks = |app: &App| {
+        let world = app.world();
+        [
+            world.resource_ref::<ShellRouter>().last_changed(),
+            world.resource_ref::<LoadCoordinator>().last_changed(),
+            world.resource_ref::<PreparedSessionRegistry>().last_changed(),
+        ]
+    };
+    let before = ticks(&app);
+    app.update();
+    app.update();
+    assert_eq!(ticks(&app), before, "an idle frame wrote the router, the loads or the prepared sessions");
+}

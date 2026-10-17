@@ -529,3 +529,34 @@ fn a_direct_host_builds_its_one_session_root_at_the_direct_host_scope() {
         Some(DIRECT_HOST_SESSION_SCOPE)
     );
 }
+
+/// The live root is read through the kept query state, and a root made in a
+/// new archetype after the state was made is found. The answers are those of
+/// a query made new: a retired root beside the live one is not a candidate.
+#[test]
+fn the_live_root_is_read_through_the_kept_query_and_a_later_root_is_found() {
+    #[derive(Component)]
+    struct NewArchetype;
+
+    let mut app = session_app();
+    app.insert_resource(SessionGatedSimulation);
+    assert!(app.world().contains_resource::<SessionRootQuery>(), "the plugin keeps the query state");
+    assert_eq!(session_world_entity(app.world()), None, "no root yet");
+
+    let retired = SessionScopeId(1);
+    let live = SessionScopeId(2);
+    app.world_mut().spawn(SessionRoot(retired));
+    // Made after the kept state, in an archetype it has not seen.
+    let live_root = app.world_mut().spawn((SessionRoot(live), NewArchetype)).id();
+    app.world_mut().resource_mut::<ActiveSessionScope>().publish(live);
+
+    assert_eq!(session_world_entity(app.world()), Some(live_root), "the active scope's root, not the retired one");
+    assert_eq!(live_session_scope(app.world()), Some(live));
+    assert_eq!(session_root_owned_by(app.world(), retired).is_some(), true);
+    let archetype = app.world().entity(live_root).archetype().id();
+    let kept = app.world().resource::<SessionRootQuery>();
+    assert!(
+        kept.0.lock().unwrap().matched_archetypes().any(|id| id == archetype),
+        "the lookup did not go through the kept query state"
+    );
+}

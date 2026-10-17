@@ -1408,8 +1408,8 @@ pub fn sleep_light_visibility_without_lights(app: &mut App) {
         PostUpdate,
         SimulationLightSystems::CheckLightVisibility.run_if(
             any_with_component::<DirectionalLight>
-                .or(any_with_component::<PointLight>)
-                .or(any_with_component::<SpotLight>),
+                .or_else(any_with_component::<PointLight>)
+                .or_else(any_with_component::<SpotLight>),
         ),
     );
 }

@@ -109,11 +109,11 @@ pub(super) fn update_hud(
         return;
     };
     if !developer_tools.show_hud || !camera_params.user_settings.gameplay.debug_hud_visible {
-        **text = String::new();
+        text.set_if_neq(Text(String::new()));
         return;
     }
     if !dev_state.debug {
-        **text = "F1 debug | F3 inspector".to_string();
+        text.set_if_neq(Text("F1 debug | F3 inspector".to_string()));
         return;
     }
     let preset =
@@ -301,7 +301,7 @@ pub(super) fn update_hud(
         let vy = player_vel.y;
         let combo_symbols = hud_combo.map_or_else(|| "-".to_string(), |c| c.symbols());
         let preset_name = &preset.name;
-        **text = format!(
+        text.set_if_neq(Text(format!(
             "{world_name} | {mode_label} | room {room_index}/{room_count} | \
              hp {player_hp_current}/{player_hp_max} | vel ({vx:+.0},{vy:+.0}) | \
              grounded {player_on_ground} | dash {player_dash_charges} | jumps {player_air_jumps}\n\
@@ -310,7 +310,7 @@ pub(super) fn update_hud(
              preset {preset_name} | {window_line} | \
              {feature_banner}{cutscene_line}{boss_line}\
              {encounter_line}{map_line}{attack_line}{ledge_line}{movement_line}\n"
-        );
+        )));
         return;
     }
     let flash_line = if dev_state.preset_flash > 0.0 {
@@ -336,7 +336,7 @@ pub(super) fn update_hud(
     let room_count = room.rooms().rooms.len();
     let combo_symbols = hud_combo.map_or_else(|| "-".to_string(), |c| c.symbols());
     let preset_name = &preset.name;
-    **text = format!(
+    text.set_if_neq(Text(format!(
         "{world_name}  mode: {mode_label}  room {room_index}/{room_count}\n\
          hp {player_hp_current}/{player_hp_max}  dash {player_dash_charges}  \
          air_jumps {player_air_jumps}  mana {player_mana_current}  combo: {combo_symbols}\n\
@@ -345,7 +345,7 @@ pub(super) fn update_hud(
          enemies: {enemy_health}\
          {attack_line}{ledge_line}{movement_line}{flash_line}{feature_banner}\
          {cutscene_line}{boss_line}{encounter_line}{map_line}\n"
-    );
+    )));
 }
 
 /// Update the dedicated quest-panel text widget.
@@ -365,13 +365,13 @@ pub fn update_quest_panel(
         return;
     };
     if !user_settings.gameplay.quest_hud_visible {
-        **text = String::new();
+        text.set_if_neq(Text(String::new()));
         return;
     }
     let lines = quests.quest_log_lines();
     if lines.is_empty() {
-        **text = String::new();
+        text.set_if_neq(Text(String::new()));
     } else {
-        **text = format!("QUESTS\n  {}", lines.join("\n  "));
+        text.set_if_neq(Text(format!("QUESTS\n  {}", lines.join("\n  "))));
     }
 }

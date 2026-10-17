@@ -481,17 +481,55 @@ fn live_scope_of(
     }
 }
 
-fn unique_session_world_root(world: &World) -> Option<(Entity, SessionScopeId)> {
+/// The query state for the session roots, kept between frames.
+///
+/// A query state made new matches each archetype of the world, about 2,000 in
+/// the hub, and the exclusive systems of each frame ask for the live root
+/// (findings F25). A kept state updates only for the archetypes made since
+/// its last use. [`SessionScopePlugin`] installs it. In a world without it,
+/// the lookup makes the same query new, and the answer is the same.
+#[derive(Resource)]
+pub struct SessionRootQuery(std::sync::Mutex<QueryState<(Entity, &'static SessionRoot)>>);
+
+impl FromWorld for SessionRootQuery {
+    fn from_world(world: &mut World) -> Self {
+        Self(std::sync::Mutex::new(world.query()))
+    }
+}
+
+/// Call `read` with each session root and its owning scope. `None` when
+/// `SessionRoot` was never registered, which is the correct "no root" answer.
+fn read_session_roots<R>(
+    world: &World,
+    read: impl FnOnce(&mut dyn Iterator<Item = (Entity, SessionScopeId)>) -> R,
+) -> Option<R> {
+    if let Some(kept) = world.get_resource::<SessionRootQuery>() {
+        let mut state = kept.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut roots = state.iter(world).map(|(entity, root)| (entity, root.0));
+        return Some(read(&mut roots));
+    }
     // `try_query` builds read-only query state from `&World` and yields `None`
-    // when `SessionRoot` was never registered — the correct "no root" answer.
+    // when `SessionRoot` was never registered.
     let mut query = world.try_query::<(Entity, &SessionRoot)>()?;
     let mut roots = query.iter(world).map(|(entity, root)| (entity, root.0));
-    let root = roots.next()?;
-    assert!(
-        roots.next().is_none(),
-        "more than one canonical SessionRoot exists"
-    );
-    Some(root)
+    Some(read(&mut roots))
+}
+
+/// The session root that `scope` owns, not a hidden candidate. Unlike
+/// [`session_world_entity`], it does not ask whether that scope is live.
+pub fn session_root_owned_by(world: &World, scope: SessionScopeId) -> Option<Entity> {
+    read_session_roots(world, |mut roots| Iterator::find(&mut roots, |(_, owner)| *owner == scope).map(|(entity, _)| entity))?
+}
+
+fn unique_session_world_root(world: &World) -> Option<(Entity, SessionScopeId)> {
+    read_session_roots(world, |roots| {
+        let root = roots.next()?;
+        assert!(
+            roots.next().is_none(),
+            "more than one canonical SessionRoot exists"
+        );
+        Some(root)
+    })?
 }
 
 /// The canonical root of the LIVE session, and the scope that owns it.
@@ -511,15 +549,11 @@ fn unique_session_world_root(world: &World) -> Option<(Entity, SessionScopeId)> 
 /// A direct-entry host has no activation to name a root, so uniqueness IS the
 /// authority there and the assert stays.
 fn live_session_world_root(world: &World) -> Option<(Entity, SessionScopeId)> {
-    let mut query = world.try_query::<(Entity, &SessionRoot)>()?;
     if world.contains_resource::<SessionGatedSimulation>() {
         let active = world
             .get_resource::<ActiveSessionScope>()
             .and_then(ActiveSessionScope::current)?;
-        return query
-            .iter(world)
-            .find(|(_, root)| root.0 == active)
-            .map(|(entity, root)| (entity, root.0));
+        return read_session_roots(world, |mut roots| Iterator::find(&mut roots, |(_, owner)| *owner == active))?;
     }
     unique_session_world_root(world)
 }
@@ -1041,6 +1075,7 @@ pub struct SessionScopePlugin;
 impl Plugin for SessionScopePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ActiveSessionScope>()
+            .init_resource::<SessionRootQuery>()
             .add_message::<SessionScopeRetired>()
             .add_message::<SessionScopeActivated>()
             .configure_sets(

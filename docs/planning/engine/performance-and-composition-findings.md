@@ -68,6 +68,47 @@ Repeat allocations are no longer the main cost: the hub with Mary-O makes
 ~4,900 a frame of its own (desktop probe, without the probe and the spans),
 near standalone Mary-O's 4,128.
 
+### F35 — Exclusive systems that do their work each frame (2026-10-17)
+
+MEASURED (probe, hub `basement_enemies`, ~600 frames, `time_by_span.csv`
+joined with each `fn x(world: &mut World)`): the exclusive systems of ours
+that ran each frame cost ~130 µs a frame, and most of it was no work. Two
+causes. A query made new with `world.query()` or `try_query()` matches each
+archetype of the world (~2,000 in the hub), and `session_world_entity` made
+one at each call. A `resource_scope` that passes `&mut` through the `Mut`
+marks the resource changed even when nothing changed.
+
+Done: `advance_pending_route` runs only while a route is pending
+(`a_route_is_pending`), 33.3 → 0 µs (its condition 2.0 µs).
+`SessionRootQuery` keeps the session roots' query state, so
+`session_world_entity` and `session_root_owned_by` update it only for new
+archetypes: `enforce_session_contract` 31.8 → 8.9 µs, `maintain_local_session`
+15.5 → 6.9, `commit_confirmed_lifecycle` 17.7 → 8.0.
+`release_departed_experience_state` runs only on a frame that wrote the
+router. Witnesses `an_idle_frame_does_not_run_the_pending_step`,
+`the_live_root_is_read_through_the_kept_query_and_a_later_root_is_found`,
+`the_shell_releases_on_a_departure_and_an_idle_frame_writes_no_scope`.
+
+The same pattern outside exclusive systems: `publish_shell_ui_cues` called
+`ActiveUiCues::sync` through `ResMut` each frame, so the cues were marked
+changed each frame (`changes_by_site.csv`: 1.000 a frame) and
+`rebuild_control_prompt`, which derives on change, derived each frame
+(44 µs). `ActiveUiCues::sync_marked` marks them only when they changed; the
+shell, Smash's select screen and the kaleidoscope call it (witness
+`a_cue_published_again_unchanged_does_not_mark_the_cues_changed`).
+MEASURED (the same probe after): `rebuild_control_prompt` 44.2 → 12.5 µs.
+`prepare_room_plates` found each live and neighbouring room's architecture
+pieces each frame to compare them (34 µs); it now returns at once while the
+live rooms, the room set and the plate count are as it left them and no
+plate draws (witness `a_quiet_frame_prepares_no_plates`): 34.5 → 3.7 µs.
+`release_departed_experience_state` 18.5 → 0 µs (its condition 1.9 µs).
+The debug HUD and quest panel text, the map's status text and visibility,
+the deep-dream overlay and the shield bubbles wrote each frame with no
+compare (a changed `Text` is laid out again); they use `set_if_neq`, and
+their rows of 1.000 a frame are gone from `changes_by_site.csv`. The
+content watchers (`watch_content_sources` 81 µs) are not in the phone build
+(`static_content`).
+
 ### F25 — Where the phone's main thread goes, hub with Mary-O
 
 MEASURED (`android-all-maryo-1-1-morning3`, main thread tid 28006, 83% busy):
@@ -162,7 +203,8 @@ frame 1,602 → 1,444; in the GGRS tick 615 → 470. Smash 49 → 15, held items
 → 0, abilities 24 → 3, boss encounters 34 → 9, conversation 42 → 13,
 `ambition_content` 62 → 47. MEASURED (phone, `android-all-maryo-dormant`
 against `-auto`): 1-1 median 22-30 → 20-25 ms; 1-2 unchanged (33-36 ms).
-Left: portals, mounts, cutscenes, inventory and encounters as capabilities;
+Left (portals, mounts and encounters done below): cutscenes and inventory are
+used by Mary-O;
 Ambition's hub room and the presentation systems; standalone builds that
 compose only what they declare (P1).
 
@@ -248,7 +290,11 @@ deep-dream and sauce overlays, the vanity card), Smash 15, developer tools
 are in its `CapabilitySet`. The publishers (`Carves`, `Passages`), the
 orphan cleanup and the reset stay outside it, so a room with no portal
 publishes an empty answer, not the last answer of a room with portals.
-Mary-O and Sanic declare no portals; Smash keeps them (`portal.rs`). With
+Mary-O declares no portals; Sanic and Smash keep them (`portal.rs`; Sanic's
+Act 3 rifts are portals: declared without them, the rift slept and
+`three_acts` went red, 2026-10-17). `a_game_declares_each_capability_its_maps_author`
+now compares each game's declaration with the entities its LDtk worlds hold
+(red, naming Sanic's `Portal`, with the old declaration). With
 two live rooms there is no one governing room, and the set runs. Witness
 `portals_sleep_in_mary_os_rooms_and_run_in_ambitions` (`app_it`, build-time
 over the composed shipped host): red at "Mary-O's rooms use portals"
@@ -267,6 +313,15 @@ a boss body, and they now join it (witness
 mount crate's seven systems, through its sets; Mary-O and Sanic declare no
 mounts, Ambition and Smash keep them (witness
 `mounts_sleep_in_mary_os_rooms_and_run_in_ambitions`, red at each half).
+
+**Wave encounters sleep too (2026-10-17).** `Capability::Encounters`: the
+lifecycle reducer and the cleared list, the occurrence projection, the wave
+driver, its effects and cleanup, the lock walls and the reward chests (nine
+systems). Mary-O and Sanic declare no encounters (their maps hold no
+encounter entity); Smash keeps them undeclared. The switch drain, the switch
+index and the banners stay awake. `UsedCapabilities` is a `u16`. Witness
+`encounters_sleep_in_mary_os_and_sanics_rooms_and_run_in_ambitions`, red at
+each half.
 
 **Hub frame by system (2026-10-17, `basement_enemies`, the same build,
 `time_by_span.csv`).** MEASURED: Avian's transform propagation before each
@@ -370,7 +425,7 @@ Updated 2026-10-17. Each one helps every game, not only Mary-O.
 
 1. P14: one composed collision world for each room each tick (F24, F33).
    Step 1 done 2026-10-17 (six compositions a frame in 1-2 → one); step 2,
-   the layered view, is next.
+   the layered view, done by the portal work the same day (F24).
 2. P12 and P5: derive on change, and build the read-models once for each
    presented frame, not each tick (F16, F20). MEASURED 2026-10-17 (F5): the
    views are ~3% of a tick, so P5 is smaller than this list first said.
@@ -795,6 +850,17 @@ both the gate and the prompt read. Under rollback a cached value must be
 rollback state or derived from inputs that a restore marks changed; check
 each cache against that before it lands. Together with F15 this is P12.
 
+**`gate_body_control` done (2026-10-17).** `DerivedActionScheme` (required by
+`ActionSet`) keeps the scheme and what change detection cannot see: the
+driven techniques and which optional authorities were present. The gate
+derives again only when an authority is changed, added or removed. It is
+derived rollback state: a restore writes back a differing authority, which
+marks it changed. MEASURED (probe, hub `basement_enemies`, ~600 frames):
+54.8 → 16.4 µs a frame, 209 → 29 allocations a frame. The control prompt
+already derives on change, from the abilities masked while the pose is held,
+so it does not share the gate's cache. Witness
+`the_gate_derives_the_scheme_again_only_when_an_authority_changed`.
+
 ### F17 — The hub respawns a room's parallax every frame
 
 MEASURED (probe churn, hub `basement_enemies`, 595 frames): exactly 1.000
@@ -1093,6 +1159,13 @@ the old overlay" with the overlay left out of the key). Left: the one
 composition a tick in a room with moving platforms (step 2, the layered
 view), and the projectile view (`world_with_gate_solids_and_carves`) and
 `hostable_surfaces`, which compose apart.
+
+**Step 2 done by the portal work (da519ec6d, 2026-10-17).** `World::blocks`
+and `World::chains` are now `ae::layered::Layered`: one shared base and a
+small layer for each world. A clone of the room's world copies no block, and
+`world_with_moving_platforms` and `world_with_sandbox_solids` add the
+platforms and the overlay as a layer. What a composition still copies is
+`water_regions` and `climbable_regions` (`Vec`s, a few entries in each room).
 
 ### Not a lever (keep out of this run)
 

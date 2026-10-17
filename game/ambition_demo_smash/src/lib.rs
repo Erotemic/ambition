@@ -2190,7 +2190,8 @@ fn publish_the_select_ui_cue(
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     mut cues: bevy::prelude::ResMut<ambition_platformer2d::input::ActiveUiCues>,
 ) {
-    cues.sync(
+    ambition_platformer2d::input::ActiveUiCues::sync_marked(
+        &mut cues,
         ambition_platformer2d::input::UiCue {
             context: ambition_platformer2d::input::SELECT_CONTEXT,
             priority: ambition_platformer2d::input::participant::context_priority::SELECT,

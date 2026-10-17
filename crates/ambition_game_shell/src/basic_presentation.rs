@@ -135,7 +135,8 @@ fn publish_shell_ui_cues(
     mut cues: ResMut<ActiveUiCues>,
 ) {
     let sequence_active = sequence.activation_id.is_some() && sequence.runtime.is_some();
-    cues.sync(
+    ActiveUiCues::sync_marked(
+        &mut cues,
         UiCue {
             context: STARTUP_ACKNOWLEDGE_CONTEXT,
             priority: context_priority::STARTUP_ACKNOWLEDGE,
@@ -154,7 +155,8 @@ fn publish_shell_ui_cues(
     } else {
         "Play".to_owned()
     };
-    cues.sync(
+    ActiveUiCues::sync_marked(
+        &mut cues,
         UiCue {
             context: LAUNCHER_CONTEXT,
             priority: context_priority::LAUNCHER,

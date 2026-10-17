@@ -120,3 +120,28 @@ fn a_look_takes_its_doors_and_its_ink_back_on_potato_and_gives_them_again() {
     }
     assert_eq!(dress(&mut app), dressed, "back on the first tier the room is not dressed as it was");
 }
+
+/// Once the plates are drawn, a frame where the live rooms and the room set
+/// did not change has nothing to prepare: the look does not find each room's
+/// pieces again, and it does not write its plate table.
+#[test]
+fn a_quiet_frame_prepares_no_plates() {
+    use ambition_content::presentation::room_look::plates_written_at;
+    let mut app = crate::an_edit_reaches_the_shipped_game::a_running_shipped_session();
+    app.init_asset::<RoomStateMaterial>();
+    app.init_asset::<RoomPlateMaterial>();
+    let waited = std::time::Instant::now();
+    while dress(&mut app).plates == 0 && waited.elapsed() < std::time::Duration::from_secs(60) {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        app.update();
+    }
+    assert!(dress(&mut app).plates > 0, "premise: the hub's architecture is drawn from plates");
+    // The frame that took the drawn pages, and the one after it.
+    app.update();
+    app.update();
+    let written = plates_written_at(app.world()).expect("premise: the look keeps a plate table");
+    for _ in 0..5 {
+        app.update();
+    }
+    assert_eq!(plates_written_at(app.world()), Some(written), "a quiet frame wrote the plate table");
+}

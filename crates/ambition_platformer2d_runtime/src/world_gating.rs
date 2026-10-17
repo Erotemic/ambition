@@ -36,7 +36,11 @@ impl bevy::prelude::Plugin for WorldGatingSchedulePlugin {
             sim,
             (
                 // Encounter phase → seal walls.
-                ambition_encounter_features::contribute_encounter_lock_walls,
+                ambition_encounter_features::contribute_encounter_lock_walls.in_set(
+                    ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                        ambition_platformer2d_shared_tangle::capability::Capability::Encounters,
+                    ),
+                ),
                 // Authored condition → the same overlay field. Registered beside
                 // its sibling ON PURPOSE; see the module doc.
                 ambition_platformer2d_actor_monolith::world::gated_lock_walls::sync_authored_gated_lock_walls,

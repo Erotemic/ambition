@@ -104,6 +104,24 @@ pub fn techniques_of<'a>(
 #[derive(Component, Debug, Clone, Default)]
 pub struct ResolvedTechniqueEdges(pub Vec<(String, Edge)>);
 
+/// The action scheme the control gate last derived for a body, and what it
+/// derived it from that change detection cannot see: the rules' driven
+/// techniques, and which of the optional authorities were present.
+///
+/// The gate derives the scheme again only when one of the body's
+/// authorities changed or this record differs, not every tick. Derived state:
+/// a rewind writes back an authority that differs, which marks it changed,
+/// so the gate derives again.
+#[derive(Component, Debug, Clone, Default)]
+pub struct DerivedActionScheme {
+    /// `None` until the gate first derives it.
+    pub scheme: Option<ActionSchemeContract>,
+    /// The driven techniques it was derived with (`None`: not the driven body).
+    pub driven: Option<DrivenTechniques>,
+    /// Whether the moveset, the techniques and the worn rows were present.
+    pub present: [bool; 3],
+}
+
 impl ResolvedTechniqueEdges {
     /// The edge routed to `id` this tick (`Edge::NONE` if the technique is not on
     /// the scheme / not pressed).

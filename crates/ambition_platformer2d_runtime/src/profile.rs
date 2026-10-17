@@ -72,6 +72,8 @@ impl CapabilityComposition for Capability {
             Capability::Portals => group,
             // Not a unit either: the mount crate is in every engine group.
             Capability::Mounts => group,
+            // Not a unit either: the encounter plugins are in every engine group.
+            Capability::Encounters => group,
         }
     }
 
@@ -110,6 +112,7 @@ impl CapabilityComposition for Capability {
                 return false;
             }
             Capability::Mounts => app.is_plugin_added::<ambition_mount::MountPlugin>(),
+            Capability::Encounters => app.is_plugin_added::<ambition_encounter_features::EncounterSimulationSchedulePlugin>(),
         }
     }
 }

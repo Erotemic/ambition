@@ -394,6 +394,13 @@ fn forget_plates_out_of_budget(mut plates: ResMut<RoomPlates>) {
     }
 }
 
+/// When the room look last wrote its plate table. A frame with nothing to
+/// prepare does not write it.
+pub fn plates_written_at(world: &World) -> Option<bevy::ecs::change_detection::Tick> {
+    use bevy::ecs::change_detection::DetectChanges as _;
+    world.get_resource_ref::<RoomPlates>().map(|plates| plates.last_changed())
+}
+
 /// How many plate pages the room look holds now: textures it keeps loaded for
 /// the rooms that are live and next to a live room.
 pub fn plate_pages_held(world: &World) -> usize {
@@ -1066,7 +1073,20 @@ fn prepare_room_plates(
     mut plates: ResMut<RoomPlates>,
     mut images: ResMut<Assets<Image>>,
     device: Option<Res<bevy::render::renderer::RenderDevice>>,
+    mut prepared_for: Local<Option<(Vec<usize>, usize)>>,
 ) {
+    // The plates wanted follow from the live rooms and the room set. A frame
+    // where neither changed, no plate is drawing and no plate was forgotten
+    // has nothing to do; finding the pieces of each room is dear.
+    let mut live: Vec<usize> = rooms.live_rooms().map(|(_, definition)| definition.index()).collect();
+    live.sort_unstable();
+    let drawing = plates.by_room.values().any(|set| matches!(set.work, PlateWork::Drawing(_)));
+    if !drawing
+        && !rooms.set_is_changed()
+        && prepared_for.as_ref() == Some(&(live.clone(), plates.by_room.len()))
+    {
+        return;
+    }
     let set = rooms.rooms();
     let mut wanted: Vec<(&RoomSpec, Vec<architecture::Piece>)> = Vec::new();
     for (_, definition) in rooms.live_rooms() {
@@ -1120,6 +1140,7 @@ fn prepare_room_plates(
         let pages = drawn.pages.into_iter().map(|(size, data)| images.add(plates::page_image(size, data))).collect();
         set.work = PlateWork::Ready(ReadyPlates { placed: drawn.placed, pages });
     }
+    *prepared_for = Some((live, plates.by_room.len()));
 }
 
 /// The most that [`plate_lifts`] adds to the depth of a piece. The roles of a

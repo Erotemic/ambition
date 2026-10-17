@@ -2296,14 +2296,12 @@ mod held_item_references {
     fn dropping(item: &str) -> EffectRef {
         EffectRef {
             key: DROP_BOMB.to_string(),
-            // ⚠ The real field list, from `DropBombParams`. My first version
-            // carried a `knockback` this technique does not take — and the
-            // params check caught it, reporting ONLY the hydration failure and
-            // not a spurious item complaint, which is the "one defect, one
-            // sentence" rule doing its job on my own fixture.
+            // The real field list, from `DropBombParams`. A missing or extra
+            // field fails hydration, and the premise test below says so.
             params: ParamValue::parse(&format!(
                 "(item_id: \"{item}\", fuse_s: 2.0, damage: 4, blast_radius: 24.0, \
-                 impact_speed: 120.0, half_extents: (8.0, 8.0), offset: (0.0, 0.0))"
+                 impact_speed: 120.0, half_extents: (8.0, 8.0), offset: (0.0, 0.0), \
+                 knockback: 1.0)"
             ))
             .expect("the fixture's params parse"),
         }

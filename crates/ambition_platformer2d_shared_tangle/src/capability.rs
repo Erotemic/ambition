@@ -41,10 +41,15 @@ pub enum Capability {
     /// Mounts and their riders: boarding, leases, dismounts, the link check,
     /// steering, the rider's pose on its mount, and a mount's back as ground.
     Mounts,
+    /// Wave encounters: their occurrences in each live room, the lifecycle
+    /// reducer and the cleared list, the wave driver, its effects and cleanup,
+    /// the lock walls and the reward chests. The switches and their index are
+    /// not in it: other games' rooms press switches too.
+    Encounters,
 }
 
 impl Capability {
-    pub const ALL: [Capability; 8] = [
+    pub const ALL: [Capability; 9] = [
         Capability::Cutscenes,
         Capability::Dialogue,
         Capability::BossEncounters,
@@ -53,6 +58,7 @@ impl Capability {
         Capability::FighterSpecials,
         Capability::Portals,
         Capability::Mounts,
+        Capability::Encounters,
     ];
 
     /// The capabilities a composition can leave out of the engine group (the
@@ -75,6 +81,7 @@ impl Capability {
             Capability::FighterSpecials => "fighter-specials",
             Capability::Portals => "portals",
             Capability::Mounts => "mounts",
+            Capability::Encounters => "encounters",
         }
     }
 
@@ -99,11 +106,12 @@ impl Capability {
             | Capability::Inventory
             | Capability::FighterSpecials
             | Capability::Portals
-            | Capability::Mounts => None,
+            | Capability::Mounts
+            | Capability::Encounters => None,
         }
     }
 
-    const fn bit(self) -> u8 {
+    const fn bit(self) -> u16 {
         1 << self as u8
     }
 }
@@ -118,7 +126,7 @@ pub struct CapabilitySet(pub Capability);
 /// own rule scope (`declare_rules(scope, UsedCapabilities::..)`). A room with
 /// no declaration uses every capability.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct UsedCapabilities(u8);
+pub struct UsedCapabilities(u16);
 
 impl UsedCapabilities {
     /// Every capability.

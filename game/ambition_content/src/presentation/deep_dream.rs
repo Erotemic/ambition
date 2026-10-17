@@ -353,12 +353,12 @@ pub fn sync_puppy_slug_deep_dream_overlays(
         // Hide the sibling mesh entirely when the disable toggle is
         // on. The slug still renders via its base sprite; only the
         // deep-dream sibling stops drawing.
-        *overlay_visibility = if disabled || !source_visible {
+        overlay_visibility.set_if_neq(if disabled || !source_visible {
             Visibility::Hidden
         } else {
             Visibility::Visible
-        };
-        *overlay_transform = overlay_transform_from_source(source_transform, anchor, render_size);
+        });
+        overlay_transform.set_if_neq(overlay_transform_from_source(source_transform, anchor, render_size));
         if let Some(mut material) = materials.get_mut(&material_handle.0) {
             material.uv_rect = uv_rect;
             material.control = Vec4::new(*elapsed, flip, EFFECT_STRENGTH, source.seed);

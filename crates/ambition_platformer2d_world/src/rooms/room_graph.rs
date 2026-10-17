@@ -484,6 +484,12 @@ pub struct LiveRoomSpecs<'w, 's> {
 }
 
 impl LiveRoomSpecs<'_, '_> {
+    /// Whether the session's room set was replaced since this system last ran.
+    pub fn set_is_changed(&self) -> bool {
+        use bevy_ecs::change_detection::DetectChanges;
+        self.rooms.is_changed()
+    }
+
     /// Which definition the live room `entity` is in instantiates. `None`
     /// when its live room cannot be told or has no definition seated.
     pub fn definition_of(&self, entity: bevy_ecs::entity::Entity) -> Option<LiveRoomDefinition> {

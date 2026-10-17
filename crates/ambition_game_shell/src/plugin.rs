@@ -72,7 +72,9 @@ impl Plugin for AmbitionGameShellPlugin {
             )
             .add_systems(
                 Update,
-                advance_pending_route.in_set(AmbitionGameShellSet::Pending),
+                advance_pending_route
+                    .run_if(a_route_is_pending)
+                    .in_set(AmbitionGameShellSet::Pending),
             )
             // After `Pending`, so a route that became active this frame
             // offers its seats in the same frame. In `SeatingDeclared`, so a
@@ -91,7 +93,10 @@ impl Plugin for AmbitionGameShellPlugin {
                     // The resource form of the rule above: provider state lives
                     // only while the provider's routes are active. In `Cleanup`
                     // because `active` and `pending` are settled by then.
-                    crate::scope::release_departed_experience_state,
+                    // A departure is a change of `router.active`, so a frame
+                    // that did not write the router has nothing to release.
+                    crate::scope::release_departed_experience_state
+                        .run_if(bevy::prelude::resource_exists_and_changed::<ShellRouter>),
                     log_shell_routing_failures,
                 )
                     .chain()
@@ -278,6 +283,12 @@ fn process_shell_commands(
 /// of the gates are released together, on the frame where each gate says
 /// `Admit` and no other hold is on the route. A `Refuse` cancels at once, as
 /// before.
+/// Run condition: a route waits to activate. With none, `advance_pending_route`
+/// has nothing to do, and as an exclusive system it is dear to run each frame.
+fn a_route_is_pending(router: bevy::prelude::Res<ShellRouter>) -> bool {
+    router.pending.is_some()
+}
+
 fn advance_pending_route(world: &mut bevy::prelude::World) {
     let pending_route = world
         .resource::<ShellRouter>()

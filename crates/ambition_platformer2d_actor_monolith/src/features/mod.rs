@@ -756,6 +756,21 @@ mod actor_decision_phase_tests {
         );
     }
 
+    /// The boss steps sleep where the room's game has no named bosses: they
+    /// are in the boss capability's set, whose condition asks the room's game.
+    #[test]
+    fn the_boss_steps_are_in_the_boss_capability() {
+        use ambition_platformer2d_shared_tangle::capability::{Capability, CapabilitySet};
+
+        let mut app = composed_app();
+        let sim = app.sim_schedule();
+        let schedules = app.world().resource::<Schedules>();
+        let graph = schedules.get(sim).expect("sim schedule must exist").graph();
+        for leaf in ["integrate_boss_bodies", "update_ecs_bosses", "tick_boss_brains_system", "drive_boss_animators"] {
+            assert_membership(graph, leaf, CapabilitySet(Capability::BossEncounters));
+        }
+    }
+
     #[test]
     fn actor_movement_systems_are_members_of_named_world_prep_phases() {
         let mut app = composed_app();
@@ -1042,9 +1057,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // Ambient NPC chatter (parrot squawks, etc.) on its own timer.
                 tick_npc_idle_barks,
                 // The boss brain decided in front of the control gate (below);
-                // integration consumes the gated frame here.
-                integrate_boss_bodies,
-                update_ecs_bosses,
+                // integration consumes the gated frame here. Boss bodies exist
+                // only where named bosses do, so the boss steps sleep where the
+                // room's game has none (`Capability::BossEncounters`).
+                integrate_boss_bodies.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
+                update_ecs_bosses.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
@@ -1083,6 +1100,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             drive_boss_animators
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters))
                 .after(project_boss_attack_state_from_move)
                 // ⛔ IT WRITES AN INPUT OF THE DAMAGE-FACING PUBLICATION. The
                 // frame sample decides which hurtbox row a boss exposes, and
@@ -1392,6 +1410,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             tick_boss_brains_system
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters))
                 .after(ActorDecisionSet::Publish)
                 .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),

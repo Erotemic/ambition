@@ -250,7 +250,11 @@ impl Plugin for CombatSchedulePlugin {
                 // ONE trigger for every boss strike, retiring both `sync_boss_strike_hitboxes`
                 // and `dispatch_boss_special` (§A1 — the moveset is the boss's melee system).
                 ambition_platformer2d_actor_monolith::features::trigger_boss_attack_moves
-                    .in_set(GameplayGated),
+                    .in_set(GameplayGated)
+                    // Boss bodies exist only where named bosses do.
+                    .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                        ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters,
+                    )),
             )
                 .chain()
                 .in_set(CombatSet::Trigger),
@@ -315,7 +319,10 @@ impl Plugin for CombatSchedulePlugin {
                 // so `t` is current; provably equal to the brain's mirror today, it
                 // flips WHO owns the strike timing to the shared move runtime.
                 ambition_platformer2d_actor_monolith::features::project_boss_attack_state_from_move
-                    .in_set(GameplayGated),
+                    .in_set(GameplayGated)
+                    .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                        ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters,
+                    )),
             )
                 .chain()
                 .in_set(CombatSet::Playback),

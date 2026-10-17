@@ -101,3 +101,39 @@ fn an_ai_slop_is_squashed_by_each_player_of_its_room_and_by_no_other() {
     let elsewhere = a_player_body(&mut app, other);
     assert!(still_there_after_a_stomp(&mut app, mob, elsewhere), "a player of another live room does not");
 }
+
+/// The squash is a module, and its bounce and stomp band are her pack's
+/// (`stomp` in `mary_o_rules.ron`), read through the observation
+/// `mary_o.rules.stomp` at each invocation, not module constants.
+#[test]
+fn the_squash_bounces_her_at_the_speed_her_pack_states() {
+    let (mut app, mob) = a_mob();
+    let mary_o = her(&mut app);
+    let authority = ambition_demo_mary_o::rules::mary_o_rules().stomp.bounce_speed;
+    let mut bounced = None;
+    for _ in 0..20 {
+        let Some(mob_box) = app.world().get::<ae::BodyKinematics>(mob).map(|kin| kin.aabb()) else {
+            break;
+        };
+        if let Some(mut health) = app.world_mut().get_mut::<BodyHealth>(mary_o) {
+            health.health.invulnerable.set(Invulnerability::SCRIPTED, true);
+        }
+        let size = app.world().get::<ae::BodyKinematics>(mary_o).unwrap().size;
+        let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(mary_o).unwrap();
+        kin.pos = Vec2::new(mob_box.center().x, mob_box.min.y + 1.0 - size.y * 0.5);
+        kin.vel = Vec2::ZERO;
+        app.update();
+        if app.world().get::<BodyHealth>(mob).is_none_or(|health| !health.alive()) {
+            bounced = app.world().get::<ae::BodyKinematics>(mary_o).map(|kin| -kin.vel.y);
+            break;
+        }
+    }
+    let bounced = bounced.expect("the premise: her stomp squashes it");
+    // The bounce is set in the contact phase; the rest of the tick's gravity
+    // takes off at most one tick of fall.
+    let tick_of_fall = 2000.0 / 60.0;
+    assert!(
+        bounced <= authority && bounced > authority - tick_of_fall,
+        "she left the squash at {bounced} up, and her pack states {authority}"
+    );
+}

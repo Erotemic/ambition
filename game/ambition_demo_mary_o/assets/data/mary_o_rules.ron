@@ -34,10 +34,17 @@
         travel_tiles: 2.0,
     ),
     // The stomped snake and its shell.
-    shell: (
-        // Upward speed off a stomped snake: a lively hop, a touch less than a
+    // A stomp on any of her enemies (the snake, the AI Slop, the Laden
+    // Swallow), so a bounce off each feels the same.
+    stomp: (
+        // The vertical tolerance (px) for feet on an enemy's head; at most
+        // half the enemy's height counts.
+        band: 16.0,
+        // Upward speed off a stomped enemy: a lively hop, a touch less than a
         // full jump, so a stomp reads as a bounce and not a jump.
-        stomp_bounce_speed: 430.0,
+        bounce_speed: 430.0,
+    ),
+    shell: (
         // Faster than a snake walks, so a kicked shell runs a line of them
         // down instead of trailing behind.
         slide_speed: 300.0,

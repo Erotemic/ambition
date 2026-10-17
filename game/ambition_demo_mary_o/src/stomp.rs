@@ -10,15 +10,17 @@
 
 use ambition_platformer2d::engine_core as ae;
 
-pub use ambition_demo_mary_o_modules::stomp::{PlayerTouch, STOMP_BAND};
+pub use ambition_demo_mary_o_modules::stomp::PlayerTouch;
 
 fn bounds(aabb: ae::Aabb) -> ambition_demo_mary_o_modules::stomp::Bounds {
     ambition_demo_mary_o_modules::stomp::Bounds { min: [aabb.min.x, aabb.min.y], max: [aabb.max.x, aabb.max.y] }
 }
 
-/// Classify the player's contact with one body, or `None` if they are apart.
+/// Classify the player's contact with one body, or `None` if they are apart,
+/// with the stomp band her pack states (`stomp.band`).
 pub fn player_touch(body: ae::Aabb, player: ae::Aabb, player_vel: ae::Vec2) -> Option<PlayerTouch> {
-    ambition_demo_mary_o_modules::stomp::player_touch(bounds(body), bounds(player), [player_vel.x, player_vel.y])
+    let band = crate::rules::mary_o_rules().stomp.band;
+    ambition_demo_mary_o_modules::stomp::player_touch(bounds(body), bounds(player), [player_vel.x, player_vel.y], band)
 }
 
 #[cfg(test)]

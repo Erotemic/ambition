@@ -13,6 +13,7 @@
 //! (`ambition.body.contact`).
 
 pub mod laden_swallow;
+pub mod rules;
 pub mod squash;
 pub mod stomp;
 pub mod void_lizard;

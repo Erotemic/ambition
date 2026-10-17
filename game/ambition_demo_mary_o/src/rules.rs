@@ -20,6 +20,7 @@ pub const MARY_O_RULES_SCHEMA: &str = "mary_o_rules";
 pub struct MaryORules {
     pub snake_plant: SnakePlant,
     pub pipe: Pipe,
+    pub stomp: Stomp,
     pub shell: Shell,
     pub star_seconds: f32,
     pub coins_per_block: i32,
@@ -145,7 +146,6 @@ pub struct Pipe {
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Shell {
-    pub stomp_bounce_speed: f32,
     pub slide_speed: f32,
     pub enemy_damage: i32,
     pub player_damage: i32,
@@ -154,6 +154,22 @@ pub struct Shell {
     pub boxed_seconds: f32,
     pub peek_seconds: f32,
     pub emerge_seconds: f32,
+}
+
+/// A stomp on any of her enemies: the snake's shell and the squash module
+/// read these (the module through `mary_o.rules.stomp`).
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Stomp {
+    pub band: f32,
+    pub bounce_speed: f32,
+}
+
+impl Stomp {
+    /// The value of the module observation `mary_o.rules.stomp`.
+    pub fn observed(&self) -> ambition_demo_mary_o_modules::rules::StompRules {
+        ambition_demo_mary_o_modules::rules::StompRules { band: self.band, bounce_speed: self.bounce_speed }
+    }
 }
 
 /// The beats of the cosmic form.
@@ -181,7 +197,8 @@ impl MaryORules {
             ("pipe.emerge_seconds", pipe.emerge_seconds),
             ("pipe.center_seconds", pipe.center_seconds),
             ("pipe.travel_tiles", pipe.travel_tiles),
-            ("shell.stomp_bounce_speed", shell.stomp_bounce_speed),
+            ("stomp.band", self.stomp.band),
+            ("stomp.bounce_speed", self.stomp.bounce_speed),
             ("shell.slide_speed", shell.slide_speed),
             ("shell.kick_grace_seconds", shell.kick_grace_seconds),
             ("shell.retreat_seconds", shell.retreat_seconds),

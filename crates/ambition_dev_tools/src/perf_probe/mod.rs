@@ -14,8 +14,8 @@
 //!
 //! Each sample prints `[census] alloc`, `[census] churn` and `[census] changes`
 //! for the last window. When `AMBITION_PERF_PROBE_DIR` is set, each sample also
-//! writes `alloc_by_span.csv`, `churn_by_site.csv` and `changes_by_site.csv`
-//! there: totals from the first sample after `AMBITION_PERF_PROBE_SKIP_FRAMES`
+//! writes `alloc_by_span.csv`, `time_by_span.csv`, `churn_by_site.csv` and
+//! `changes_by_site.csv` there: totals from the first sample after `AMBITION_PERF_PROBE_SKIP_FRAMES`
 //! frames, ranked.
 //!
 //! A binary needs two lines to feed the probe: a [`CountingAlloc`] global
@@ -163,11 +163,31 @@ fn span_delta(now: &[SpanTotals], then: &[SpanTotals]) -> Vec<SpanTotals> {
                 calls: row.calls.saturating_sub(before.calls),
                 allocs: row.allocs.saturating_sub(before.allocs),
                 bytes: row.bytes.saturating_sub(before.bytes),
+                nanos: row.nanos.saturating_sub(before.nanos),
             }
         })
         .filter(|row| row.allocs > 0)
         .collect();
     rows.sort_by(|a, b| b.allocs.cmp(&a.allocs).then_with(|| a.label.cmp(&b.label)));
+    rows
+}
+
+/// The spans that ran in the window, the dearest first.
+fn time_delta(now: &[SpanTotals], then: &[SpanTotals]) -> Vec<(String, u64, u64)> {
+    let mut rows: Vec<(String, u64, u64)> = now
+        .iter()
+        .enumerate()
+        .map(|(slot, row)| {
+            let before = then.get(slot);
+            (
+                row.label.clone(),
+                row.calls.saturating_sub(before.map_or(0, |b| b.calls)),
+                row.nanos.saturating_sub(before.map_or(0, |b| b.nanos)),
+            )
+        })
+        .filter(|(_, calls, _)| *calls > 0)
+        .collect();
+    rows.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
     rows
 }
 
@@ -323,6 +343,21 @@ fn write_csvs(
         );
     }
     write_atomically(dir.join("alloc_by_span.csv"), &text);
+
+    // Wall time, nested spans included, so a schedule's row holds its systems'
+    // rows. The probe's counters slow each allocation: read the ranks and the
+    // ratios, not the microseconds.
+    let mut text = String::from("span,calls,us_per_frame,us_per_call,frames\n");
+    for (label, calls, nanos) in time_delta(&now.spans, &baseline.spans) {
+        let _ = writeln!(
+            text,
+            "{},{calls},{:.2},{:.3},{frames}",
+            csv_field(&label),
+            per_frame(nanos, frames) / 1000.0,
+            per_frame(nanos, calls) / 1000.0,
+        );
+    }
+    write_atomically(dir.join("time_by_span.csv"), &text);
 
     let mut text = String::from("event,components,site,count,per_frame,frames\n");
     for (key, count) in churn_delta(&now.churn, &baseline.churn) {

@@ -38,6 +38,8 @@ struct SlotCounters {
     calls: AtomicU64,
     allocs: AtomicU64,
     bytes: AtomicU64,
+    /// Wall time inside the span, nested spans included.
+    nanos: AtomicU64,
 }
 
 impl SlotCounters {
@@ -46,6 +48,7 @@ impl SlotCounters {
             calls: AtomicU64::new(0),
             allocs: AtomicU64::new(0),
             bytes: AtomicU64::new(0),
+            nanos: AtomicU64::new(0),
         }
     }
 }
@@ -59,6 +62,8 @@ struct ThreadState {
     depth: Cell<u32>,
     probe: Cell<u32>,
     stack: [Cell<u32>; STACK_DEPTH],
+    /// When each span of `stack` was entered, in nanoseconds after [`EPOCH`].
+    entered: [Cell<u64>; STACK_DEPTH],
 }
 
 thread_local! {
@@ -67,8 +72,16 @@ thread_local! {
             depth: Cell::new(0),
             probe: Cell::new(0),
             stack: [const { Cell::new(NO_SPAN) }; STACK_DEPTH],
+            entered: [const { Cell::new(0) }; STACK_DEPTH],
         }
     };
+}
+
+/// The zero of the span clock.
+static EPOCH: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+
+fn clock_nanos() -> u64 {
+    EPOCH.get_or_init(std::time::Instant::now).elapsed().as_nanos() as u64
 }
 
 #[inline]
@@ -211,6 +224,7 @@ pub struct SpanTotals {
     pub calls: u64,
     pub allocs: u64,
     pub bytes: u64,
+    pub nanos: u64,
 }
 
 /// Read the counters of every label in use, indexed by slot.
@@ -225,6 +239,7 @@ pub fn snapshot() -> Vec<SpanTotals> {
                 calls: counters.calls.load(Relaxed),
                 allocs: counters.allocs.load(Relaxed),
                 bytes: counters.bytes.load(Relaxed),
+                nanos: counters.nanos.load(Relaxed),
             })
             .collect()
     })
@@ -306,17 +321,27 @@ where
             .and_then(|span| span.extensions().get::<SpanSlot>().copied())
             .map_or(NO_SPAN, |slot| slot.0);
         COUNTERS[slot as usize].calls.fetch_add(1, Relaxed);
+        let now = clock_nanos();
         let _ = STATE.try_with(|state| {
             let depth = state.depth.get() as usize;
             if depth < STACK_DEPTH {
                 state.stack[depth].set(slot);
+                state.entered[depth].set(now);
             }
             state.depth.set(depth as u32 + 1);
         });
     }
 
     fn on_exit(&self, _id: &Id, _ctx: Context<'_, S>) {
-        let _ = STATE.try_with(|state| state.depth.set(state.depth.get().saturating_sub(1)));
+        let now = clock_nanos();
+        let _ = STATE.try_with(|state| {
+            let depth = state.depth.get().saturating_sub(1);
+            // A thread exits its spans in the reverse order it entered them.
+            if let (Some(slot), Some(entered)) = (state.stack.get(depth as usize), state.entered.get(depth as usize)) {
+                COUNTERS[slot.get() as usize].nanos.fetch_add(now.saturating_sub(entered.get()), Relaxed);
+            }
+            state.depth.set(depth);
+        });
     }
 }
 

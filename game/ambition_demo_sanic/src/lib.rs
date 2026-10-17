@@ -655,7 +655,8 @@ impl Plugin for SanicRulesPlugin {
             app.add_plugins(crate::pack::room_rules_reload(scope));
             // In Sanic's rooms: no named boss encounters (his badniks are
             // enemy bodies), no dialogue, no held items, no fighter
-            // specials (his spin dash is his own rule) and no portals. The
+            // specials (his spin dash is his own rule), no portals and no
+            // mounts. The
             // engine's work for those sleeps there.
             app.declare_rules(
                 scope,
@@ -664,7 +665,8 @@ impl Plugin for SanicRulesPlugin {
                     .without(ambition_platformer2d::platformer::capability::Capability::Dialogue)
                     .without(ambition_platformer2d::platformer::capability::Capability::HeldUse)
                     .without(ambition_platformer2d::platformer::capability::Capability::FighterSpecials)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Portals),
+                    .without(ambition_platformer2d::platformer::capability::Capability::Portals)
+                    .without(ambition_platformer2d::platformer::capability::Capability::Mounts),
             );
             // Whoever the player drives here can spin dash and transform.
             app.declare_rules(

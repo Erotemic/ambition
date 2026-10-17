@@ -70,6 +70,8 @@ impl CapabilityComposition for Capability {
             Capability::FighterSpecials => group,
             // Not a unit either: the `portal` cargo feature decides it.
             Capability::Portals => group,
+            // Not a unit either: the mount crate is in every engine group.
+            Capability::Mounts => group,
         }
     }
 
@@ -107,6 +109,7 @@ impl CapabilityComposition for Capability {
                 #[cfg(not(feature = "portal"))]
                 return false;
             }
+            Capability::Mounts => app.is_plugin_added::<ambition_mount::MountPlugin>(),
         }
     }
 }

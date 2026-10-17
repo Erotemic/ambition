@@ -2000,8 +2000,27 @@ pub fn install_mount_simulation_systems(
         schedule.clone(),
         apply_dismount_requests.in_set(DismountRequestsApplied),
     );
-    app.add_systems(schedule, mount_backs_are_ground.in_set(MountBacksContributed));
+    app.add_systems(schedule.clone(), mount_backs_are_ground.in_set(MountBacksContributed));
+    // Where the room's game has no mounts, none of this has a body to act on.
+    app.configure_sets(
+        schedule,
+        (
+            MountRiderLinkEnforced,
+            MountsBoarded,
+            RideLeasesTicked,
+            DismountRequestsApplied,
+            MountBacksContributed,
+        )
+            .in_set(MOUNTS),
+    );
 }
+
+/// The mounts capability's set (`Capability::Mounts`): its condition asks
+/// whether the active room's game uses mounts.
+const MOUNTS: ambition_platformer2d_shared_tangle::capability::CapabilitySet =
+    ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+        ambition_platformer2d_shared_tangle::capability::Capability::Mounts,
+    );
 
 /// [`mount_backs_are_ground`]: a collision-overlay contribution. The
 /// composition places it where the overlay's contributions run.
@@ -2040,7 +2059,8 @@ pub fn install_mount_pose_systems(
         schedule.clone(),
         steer_mount_from_rider.in_set(MountsSteeredByRiders),
     );
-    app.add_systems(schedule, sync_riders_to_mounts.in_set(RidersSyncedToMounts));
+    app.add_systems(schedule.clone(), sync_riders_to_mounts.in_set(RidersSyncedToMounts));
+    app.configure_sets(schedule, (MountsSteeredByRiders, RidersSyncedToMounts).in_set(MOUNTS));
 }
 
 #[cfg(test)]

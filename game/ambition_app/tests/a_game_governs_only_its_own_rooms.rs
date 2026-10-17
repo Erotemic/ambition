@@ -390,3 +390,44 @@ fn portals_sleep_in_mary_os_rooms_and_run_in_ambitions() {
     }
     assert!(inside, "the portal transit is not in the portals' capability set");
 }
+
+/// Mounts sleep in Mary-O's rooms and run in Ambition's, as portals do: her
+/// game declares no mounts, and the mount crate's sets are in the mounts'
+/// capability set.
+#[test]
+fn mounts_sleep_in_mary_os_rooms_and_run_in_ambitions() {
+    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::platformer::capability::{Capability, CapabilitySet, UsedCapabilities};
+    use ambition_platformer2d::platformer::schedule::SimScheduleExt;
+    use bevy::ecs::schedule::graph::Direction;
+    use bevy::ecs::schedule::{NodeId, Schedules, SystemSet};
+
+    let mut app = compose_the_shipped_host();
+    let rules = app
+        .world()
+        .get_resource::<DeclaredRules<UsedCapabilities>>()
+        .expect("the shipped host's games declare the capabilities they use");
+    let uses = |mode: Option<&'static str>| {
+        rules.governing(ActiveRoom::live(mode)).is_none_or(|used| used.uses(Capability::Mounts))
+    };
+    assert!(!uses(Some(ambition_demo_mary_o::MARY_O_MODE)), "Mary-O's rooms use mounts");
+    assert!(uses(None), "the premise: Ambition's own rooms use mounts");
+
+    let sim = app.sim_schedule();
+    let schedules = app.world().resource::<Schedules>();
+    let graph = schedules.get(sim).expect("the sim schedule").graph();
+    let capability = graph
+        .system_sets
+        .get_key(CapabilitySet(Capability::Mounts).intern())
+        .expect("the mounts' capability set");
+    let children: Vec<NodeId> =
+        graph.hierarchy().graph().neighbors_directed(NodeId::Set(capability), Direction::Outgoing).collect();
+    for (name, set) in [
+        ("boarding", ambition_platformer2d::mount::MountsBoarded.intern()),
+        ("steering", ambition_platformer2d::mount::MountsSteeredByRiders.intern()),
+        ("the rider's pose", ambition_platformer2d::mount::RidersSyncedToMounts.intern()),
+    ] {
+        let key = graph.system_sets.get_key(set).unwrap_or_else(|| panic!("the mount set for {name}"));
+        assert!(children.contains(&NodeId::Set(key)), "{name} is not in the mounts' capability set");
+    }
+}

@@ -38,10 +38,13 @@ pub enum Capability {
     /// the passages) and their cleanup are not in it, so a room with no portal
     /// still publishes an empty answer.
     Portals,
+    /// Mounts and their riders: boarding, leases, dismounts, the link check,
+    /// steering, the rider's pose on its mount, and a mount's back as ground.
+    Mounts,
 }
 
 impl Capability {
-    pub const ALL: [Capability; 7] = [
+    pub const ALL: [Capability; 8] = [
         Capability::Cutscenes,
         Capability::Dialogue,
         Capability::BossEncounters,
@@ -49,6 +52,7 @@ impl Capability {
         Capability::Inventory,
         Capability::FighterSpecials,
         Capability::Portals,
+        Capability::Mounts,
     ];
 
     /// The capabilities a composition can leave out of the engine group (the
@@ -70,6 +74,7 @@ impl Capability {
             Capability::Inventory => "inventory",
             Capability::FighterSpecials => "fighter-specials",
             Capability::Portals => "portals",
+            Capability::Mounts => "mounts",
         }
     }
 
@@ -93,7 +98,8 @@ impl Capability {
             | Capability::HeldUse
             | Capability::Inventory
             | Capability::FighterSpecials
-            | Capability::Portals => None,
+            | Capability::Portals
+            | Capability::Mounts => None,
         }
     }
 

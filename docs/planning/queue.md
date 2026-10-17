@@ -918,6 +918,16 @@ from a fresh run, not from here). Cargo diagnostics are read through
 `scripts/tests/test_cargo_diagnostics_are_read_plain.py` holds every script that
 reads cargo output to it.
 
+**Sanic's visible job, 2026-10-17 (RED, inherited):** `cargo test -p
+ambition_demo_sanic_app --features capture,input,perf_probe,visible`: 59
+passed, 1 failed, `ov1_draws_the_world::the_start_line_sign_names_the_keys_his_actions_are_on`
+("left: None": no `signage:` label with an id ending `start` exists after
+600 frames of `build_windowed_demo_app(RenderMode::Headless)`). It fails the
+same way at 98bd44559 (before P18) and with `serialize_main_schedules`
+removed (before D12), so neither slice caused it. Not bisected. First
+question: does the windowed demo still load the speedway, or does it now
+stay at the launcher route, where no room is loaded?
+
 **The repo tooling job (pytest), 2026-10-15:** 1984 passed, 9 failed. The
 content-as-data slices had left 18 of its reds (two checks parsed Rust that
 is now `held_item_art.ron`, the fx census parsed the deleted `FX_SHEETS`,

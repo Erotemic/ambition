@@ -156,6 +156,10 @@
         wand_half: (12.0, 15.5),
         beacon_half: (12.0, 18.0),
         quasar_half: (13.0, 13.0),
+        // How long (s) a pickup takes to climb out of the block that gave it.
+        // Long enough to see it come; short enough that a player who bonked
+        // the block from below is not left waiting under it. 0 pops it out.
+        rise_seconds: 0.4,
     ),
     // The flag at the end of a level.
     flag: (

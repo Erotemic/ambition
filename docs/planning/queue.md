@@ -615,8 +615,11 @@ not part of this row.
    opens a pair in a real room.
 3. **IN7, live sprite refresh (P2).** The launcher theme is the provider's
    (done). Since 2026-10-16 a running development build plays an edited sheet
-   manifest or body rig from the next session (with each cast made from them
-   stated again) and an edited page image at once
+   manifest, body rig, part flipbook (with its landmarks), portrait manifest
+   or sprite pack catalog from the next session (with each cast made from them
+   stated again, and the effect index rebuilt from the new records) and an
+   edited page image at once; the watch looks when the operating system
+   reports a change
    (`content::sprite_reload`; the road and what is not on it yet are in
    [the sprite reload owner](engine/content-generation-and-reload.md#sprite-source-identity-and-live-presentation-refresh)).
 

@@ -899,6 +899,51 @@ pub fn step_projectiles(
             continue;
         }
 
+        // ⭐ THE LEG ENDS AT A PORTAL, AND GOES ON AT ITS PARTNER. Where the
+        // shot's centre enters a paired opening, the pair takes it
+        // (`portal_transit`, next tick's step), so the rest of the leg is not
+        // in this room: a wall or a body behind the portal, in the room the
+        // shot is leaving, is not reached. Every contact below is measured
+        // along `contact_end`, not the endpoint. The rest of the leg is swept
+        // at the exit, where the pair puts it: what is in front of the exit
+        // stops it there (a wall a shot's last step would carry it through).
+        // The stop is kept where the pair takes it from, behind the entry,
+        // so the pair puts the shot at the stop.
+        #[cfg(feature = "portal")]
+        let crossing = ambition_portal2d::first_portal_crossing_through(
+            leg_start,
+            kin.pos,
+            kin.size,
+            portals_by_room.in_room(shot_room),
+            carved.backside_of(proj_entity),
+        );
+        #[cfg(feature = "portal")]
+        let contact_end = match crossing {
+            Some((t, enter, exit)) => {
+                let at = leg_start + (kin.pos - leg_start) * t;
+                let bounces = game.bounces_remaining;
+                if let Some(stop) = ambition_portal2d::rest_of_step_stop(
+                    leg_start,
+                    kin.pos,
+                    kin.size,
+                    t,
+                    &enter,
+                    &exit,
+                    carved.portal_convention(),
+                    collision_world,
+                    |block, travel, shot_box| {
+                        ambition_projectiles::block_obstructs_shot(shot_world_hit, bounces, travel, shot_box, gravity_dir, block)
+                    },
+                ) {
+                    kin.pos = stop;
+                }
+                at
+            }
+            None => kin.pos,
+        };
+        #[cfg(not(feature = "portal"))]
+        let contact_end = kin.pos;
+
         // A shot crosses a portal as every body does (`portal_transit`): it
         // straddles the opening and the pair takes it when its centre
         // crosses. Its leg is its sweep, so a fast shot that crossed a plane
@@ -932,22 +977,6 @@ pub fn step_projectiles(
         // descending onto that support face?" is a fact about the leg the shot
         // just travelled, so the filter cannot be built before the leg exists.
         // Nothing between the old site and this one used it.
-        // ⭐ THE LEG ENDS AT A PORTAL. Where the shot's centre enters a paired
-        // opening, the pair takes it (`portal_transit`, next tick's step), so
-        // the rest of the leg is not in this room: a wall or a body behind the
-        // portal, in the room the shot is leaving, is not reached. Every
-        // contact below is measured along `contact_end`, not the endpoint.
-        #[cfg(feature = "portal")]
-        let contact_end = ambition_portal2d::first_portal_crossing(
-            leg_start,
-            kin.pos,
-            kin.size,
-            portals_by_room.in_room(shot_room),
-            carved.backside_of(proj_entity),
-        )
-        .map_or(kin.pos, |t| leg_start + (kin.pos - leg_start) * t);
-        #[cfg(not(feature = "portal"))]
-        let contact_end = kin.pos;
         let shot_bounces = game.bounces_remaining;
         let shot_velocity = kin.vel;
         // The shot's box where the leg BEGAN — the directional one-way rule asks

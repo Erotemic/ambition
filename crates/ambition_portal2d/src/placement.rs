@@ -443,11 +443,61 @@ pub fn first_portal_crossing(
     portals: &[PlacedPortal],
     backside: Option<crate::PortalBackside>,
 ) -> Option<f32> {
+    first_portal_crossing_through(from, to, size, portals, backside).map(|(t, ..)| t)
+}
+
+/// [`first_portal_crossing`], and the pair that takes the body there: its
+/// entry, then its exit.
+pub fn first_portal_crossing_through(
+    from: Vec2,
+    to: Vec2,
+    size: Vec2,
+    portals: &[PlacedPortal],
+    backside: Option<crate::PortalBackside>,
+) -> Option<(f32, ae::frame::PortalAperture, ae::frame::PortalAperture)> {
     let usable = crate::transit::usable_portals(portals, backside);
     usable
         .iter()
-        .filter_map(|enter| swept_crossing(from, to, size, enter, &usable))
-        .min_by(f32::total_cmp)
+        .filter_map(|enter| {
+            let t = swept_crossing(from, to, size, enter, &usable)?;
+            let exit = find_portal(usable.iter(), enter.channel.partner())?;
+            Some((t, enter.aperture(), exit.aperture()))
+        })
+        .min_by(|a, b| a.0.total_cmp(&b.0))
+}
+
+/// Where a body that crossed `enter` part way along `from -> to` (at
+/// fraction `t`, [`first_portal_crossing_through`]) stops, if the rest of its
+/// step meets something at the exit: the rest is swept where the pair puts
+/// it, in front of `exit`, against what `stops` (but never the exit's own
+/// host, whose face is the plane). The stop is given where the pair takes
+/// the body from, behind `enter`, so the pair puts it there. `None`: nothing
+/// stops it.
+#[allow(clippy::too_many_arguments)]
+pub fn rest_of_step_stop(
+    from: Vec2,
+    to: Vec2,
+    size: Vec2,
+    t: f32,
+    enter: &ae::frame::PortalAperture,
+    exit: &ae::frame::PortalAperture,
+    convention: ae::frame::MapConvention,
+    world: &ae::World,
+    mut stops: impl FnMut(&ae::Block, Vec2, ae::Aabb) -> bool,
+) -> Option<Vec2> {
+    let map = ae::frame::Iso2::through(&enter.frame, &exit.frame, convention);
+    let at = from + (to - from) * t;
+    let (start, end) = (map.point(at), map.point(to));
+    let body = ae::Aabb::new(start, map.vec(size * 0.5).abs());
+    let travel = map.vec(to - from);
+    let in_front = |block: &ae::Block| {
+        let b = block.aabb;
+        [b.min, b.max, Vec2::new(b.min.x, b.max.y), Vec2::new(b.max.x, b.min.y)]
+            .iter()
+            .any(|c| exit.frame.to_local(*c).y > 1e-3)
+    };
+    let hit = ae::cast::body_sweep(world, body, end - start, |block| in_front(block) && stops(block, travel, body))?;
+    Some(map.inverse().point(start + (end - start) * hit.time_of_impact))
 }
 
 /// The swept (CCD) crossing scan used by two arms of

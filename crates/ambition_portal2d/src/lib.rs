@@ -66,7 +66,7 @@ pub use messages::{
     PortalFireIntent, PortalGunEquipped, PortalShotFired, TogglePortalGun, TogglePortalGunsActive,
 };
 pub use placement::{
-    first_portal_crossing, host_material_depth, measure_host_depth, portal_facing_flips_for_convention, portal_fits,
+    first_portal_crossing, first_portal_crossing_through, rest_of_step_stop, host_material_depth, measure_host_depth, portal_facing_flips_for_convention, portal_fits,
     portal_input_warp_flips_horizontal_for_convention, portal_transit_roll,
     raycast_through_portals, raycast_through_portals_tuned, somersault_roll_for_convention,
     transit_step, transit_step_with_tuning, SweptSample, TransitStep,

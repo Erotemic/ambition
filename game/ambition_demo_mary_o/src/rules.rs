@@ -73,6 +73,9 @@ pub struct Level {
     pub starting_lives: i8,
     pub intro_card_seconds: f32,
     pub cycle_dwell_seconds: f32,
+    /// How far over the top of a level its sky zone is, in tiles, to the
+    /// bottom of the zone.
+    pub sky_zone_rise_tiles: f32,
 }
 
 /// How the power-ups move once they are out of their block.
@@ -231,6 +234,7 @@ impl MaryORules {
             ("flag.walk_off_speed", self.flag.walk_off_speed),
             ("level.intro_card_seconds", self.level.intro_card_seconds),
             ("level.cycle_dwell_seconds", self.level.cycle_dwell_seconds),
+            ("level.sky_zone_rise_tiles", self.level.sky_zone_rise_tiles),
             ("power_ups.wand_speed", self.power_ups.wand_speed),
             ("power_ups.quasar_speed", self.power_ups.quasar_speed),
             ("power_ups.rise_seconds", self.power_ups.rise_seconds),
@@ -412,6 +416,29 @@ mod tests {
             Err(failure) => failure.render(),
         };
         assert!(refused.contains("`power_ups.wand_half`"), "the refusal names the field: {refused}");
+
+        // Each sky zone sits the file's rise over the top of its level, and a
+        // rise that sinks the sky into the level is refused.
+        let lifted: Vec<f32> = crate::authored_levels()
+            .iter()
+            .flat_map(|level| level.loading_zones.iter().map(|zone| zone.aabb.max.y))
+            .filter(|bottom| *bottom < 0.0)
+            .collect();
+        assert!(!lifted.is_empty(), "the premise: an authored level has a sky zone");
+        let rise = file.level.sky_zone_rise_tiles * crate::T;
+        assert!(lifted.iter().all(|bottom| *bottom == -rise), "a sky zone is not {rise} px over its level: {lifted:?}");
+        let tiles = "sky_zone_rise_tiles: 5.0,";
+        assert_eq!(authored.matches(tiles).count(), 1, "the probe edits the sky");
+        assert_eq!(rules_of(&authored.replace(tiles, "sky_zone_rise_tiles: 8.0,")).level.sky_zone_rise_tiles, 8.0);
+        std::fs::write(root.join("data/mary_o_rules.ron"), authored.replace(tiles, "sky_zone_rise_tiles: -1.0,")).unwrap();
+        let refused = match EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None)
+            .with_schemas(|| vec![mary_o_rules_schema()])
+            .compile()
+        {
+            Ok(_) => panic!("a sky sunk into its level was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`level.sky_zone_rise_tiles`"), "the refusal names the field: {refused}");
 
         // A reward climbs out of its block for the file's time, and a rise
         // that runs backwards is refused.

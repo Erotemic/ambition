@@ -179,7 +179,7 @@ impl PortalPassages {
             _ => partition(volume, root, links, straddled.map(|l| l.key), budget, self.convention),
         };
         for refusal in &cut.refused {
-            bevy::log::debug!(
+            tracing::debug!(
                 target: "ambition_portal::refusal",
                 "a volume of {owner:?} was not carried through link {} after {:?}: its opening is solid to it ({budget:?})",
                 refusal.link,

@@ -278,7 +278,10 @@ pub fn as_met_by<'w>(
 /// a little more (conservative, never less). A one-way block that the pair
 /// turns on its side has no kind that says it, and is left out; a line with
 /// lanes or junctions, or a closed one, is left out as the hole leaves it
-/// whole. The entry's side is cut by the hole's box, as the hole is.
+/// whole. The entry's side is cut by the hole's box, as the hole is. Water
+/// in front of the exit is carried as the blocks are; a climbable region is
+/// carried when the pair keeps it upright or upside down (a ladder the pair
+/// lays on its side is no ladder).
 pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
     use ae::frame::{map_point, map_vec, FaceRect};
     let (enter, exit) = (&glue.enter, &glue.exit);
@@ -300,6 +303,7 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
     // What is in front of the exit, read before the entry's side is cut: in a
     // thin wall the two regions share space.
     let region = ae::frame::thread::face_rect_planes(&before);
+    let region_planes = region;
     let reach = before.bounds();
     let mut blocks: Vec<ae::Block> = Vec::new();
     for block in world.blocks.iter().filter(|block| reach.strict_intersects(block.aabb)) {
@@ -326,7 +330,23 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
             }
         }
     }
+    let water: Vec<ae::WaterRegion> = world
+        .water_regions
+        .iter()
+        .filter(|region| reach.strict_intersects(region.aabb))
+        .filter_map(|region| Some(ae::WaterRegion { aabb: carried_box(region.aabb, &region_planes, back)?, ..region.clone() }))
+        .collect();
+    let down = back_dir(ae::Vec2::Y);
+    let upright = down.x.abs() < 1e-4;
+    let climbable: Vec<ae::ClimbableRegion> = world
+        .climbable_regions
+        .iter()
+        .filter(|region| upright && reach.strict_intersects(region.aabb))
+        .filter_map(|region| Some(ae::ClimbableRegion { aabb: carried_box(region.aabb, &region_planes, back)?, ..region.clone() }))
+        .collect();
     cut_portal_holes(world, &[&behind]);
+    world.water_regions.extend(water);
+    world.climbable_regions.extend(climbable);
     // After the room's own, in canonical order as contributed blocks are:
     // the room's keep their places.
     extend_in_canonical_order(&mut world.blocks, &blocks);
@@ -1123,6 +1143,33 @@ mod collision_world_tests {
         assert!(solid_at(&met, 40.0, 310.0));
         // For a body in no pair, nothing changed.
         assert!(solid_at(&walls, 120.0, 310.0) && !solid_at(&walls, 90.0, 330.0) || solid_at(&walls, 90.0, 330.0));
+    }
+
+    /// Water in front of the far end is met behind the near one, as the
+    /// solids there are; a ladder is carried where the pair keeps it upright,
+    /// and not where it lays it on its side.
+    #[test]
+    fn a_body_in_a_pair_is_in_the_water_and_on_the_ladder_in_front_of_its_far_end() {
+        use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+        let pool = ae::Aabb::new(ae::Vec2::new(500.0, 180.0), ae::Vec2::new(20.0, 10.0));
+        let walls = ae::World::new("glue", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, Vec::new())
+            .with_water_regions(vec![ae::WaterRegion::new(pool, ae::WaterKind::Clear, ae::WaterVolumeSpec::default())])
+            .with_climbable_regions(vec![ae::ClimbableRegion::ladder(pool)]);
+        // A floor portal to a ceiling portal over the pool: upright.
+        let floor = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), ae::Vec2::new(0.0, -1.0)), half_length: 30.0 };
+        let ceiling = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, 170.0), ae::Vec2::new(0.0, 1.0)), half_length: 30.0 };
+        let glue = PortalGlue { enter: floor, exit: ceiling, convention: MapConvention::Reflection, depth: 60.0 };
+        let met = as_met_by(&walls, &[], &[], &[&glue]);
+        let probe = ae::Aabb::new(ae::Vec2::new(100.0, 312.0), ae::Vec2::splat(2.0));
+        assert!(met.water_at(probe).is_some(), "the far side's water is not met");
+        assert!(met.climbable_at(probe).is_some(), "the far side's ladder is not met");
+        assert!(walls.water_at(probe).is_none());
+        // A wall portal to the same ceiling lays the ladder on its side.
+        let wall = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), ae::Vec2::new(1.0, 0.0)), half_length: 30.0 };
+        let turned = as_met_by(&walls, &[], &[], &[&PortalGlue { enter: wall, ..glue }]);
+        let probe = ae::Aabb::new(ae::Vec2::new(88.0, 300.0), ae::Vec2::splat(2.0));
+        assert!(turned.water_at(probe).is_some(), "water is carried turned");
+        assert!(turned.climbable_at(probe).is_none(), "a ladder on its side is no ladder");
     }
 
     /// A pair that turns what it carries by 45°: a square in front of the

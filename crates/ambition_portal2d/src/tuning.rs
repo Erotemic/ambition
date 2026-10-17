@@ -44,6 +44,37 @@ impl PortalConvention {
     }
 }
 
+/// How much of a body a portal carries while it is in two places
+/// (`docs/planning/engine/portals-a-body-in-two-places.md`, Policy). A rule of
+/// the game, never of a graphics setting; a body may ask for its own
+/// (`PortalPieceBudget`).
+#[derive(Clone, Copy, Debug, Default, Reflect, PartialEq, Eq)]
+pub enum PortalGeometry {
+    /// A body is in one place: moved whole at the crossing, meeting one side.
+    /// No pieces: strikes and hurtboxes are whole, nothing is glued, the
+    /// picture is not cut.
+    TransferOnly,
+    /// A body is in two places through one pair at a time: what went
+    /// through one pair is not cut by another.
+    #[default]
+    SingleHop,
+    /// Through pairs one after another (a chain), up to `max_hops`, and at
+    /// most `max_pieces` pieces; past that an opening is solid to the piece.
+    Composed { max_hops: u8, max_pieces: u16 },
+}
+
+impl PortalGeometry {
+    /// How far a volume is cut, `None` for not at all.
+    pub fn budget(self) -> Option<ambition_platformer2d_core::frame::thread::PieceBudget> {
+        use ambition_platformer2d_core::frame::thread::PieceBudget;
+        match self {
+            Self::TransferOnly => None,
+            Self::SingleHop => Some(PieceBudget::SINGLE_HOP),
+            Self::Composed { max_hops, max_pieces } => Some(PieceBudget { max_hops, max_pieces }),
+        }
+    }
+}
+
 /// Portal mechanics and adapter feel knobs surfaced in the F3 dev inspector.
 #[derive(Resource, Clone, Copy, Debug, PartialEq, Reflect)]
 #[reflect(Resource)]
@@ -73,6 +104,8 @@ pub struct PortalTuning {
     /// population), so it can only suppress the flip. On by default; a host can
     /// mirror its own gameplay setting into it.
     pub reorient_facing: bool,
+    /// How much of a body the portals carry while it is in two places.
+    pub geometry: PortalGeometry,
 }
 
 impl Default for PortalTuning {
@@ -87,6 +120,7 @@ impl Default for PortalTuning {
             input_warp_keep_cos: 0.5,
             suppress_wall_abilities: true,
             reorient_facing: true,
+            geometry: PortalGeometry::SingleHop,
         }
     }
 }

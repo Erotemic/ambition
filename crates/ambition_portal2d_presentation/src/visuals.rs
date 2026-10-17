@@ -199,9 +199,9 @@ pub fn sync_portal_body_pieces(
                 PieceBudget::SINGLE_HOP
             }
             None => match passages.as_deref() {
-                Some(passages) => match passages.budget_in(Some(placement.room)) {
+                Some(passages) => match passages.budget_for(Some(kin.body), Some(placement.room)) {
                     Some(budget) => budget,
-                    // The room moves bodies whole: there are no pieces.
+                    // The body is moved whole: there are no pieces.
                     None => continue,
                 },
                 None => PieceBudget::SINGLE_HOP,

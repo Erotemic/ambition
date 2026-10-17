@@ -3056,3 +3056,20 @@ fn a_strike_through_two_chained_pairs_hurts_where_the_room_lets_it_reach() {
         assert_eq!(struck(&app, far), usize::from(hurts), "{budget:?}");
     }
 }
+
+/// A body whose own portal policy moves it whole is hit where it is, and not
+/// at its far end.
+#[test]
+fn a_body_the_portals_move_whole_is_not_hit_at_its_far_end() {
+    let mut passages = floor_to_ceiling();
+    let (floor, ceiling) = passages.pairs_in(None)[0];
+    let mut app = portal_strike_app(None);
+    let owner = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(500.0, -100.0));
+    let victim = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(0.0, -5.0));
+    passages.add_straddler(victim, floor, ceiling);
+    passages.set_body_budget(victim, None);
+    app.insert_resource(passages);
+    strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, -90.0) }, ae::Vec2::splat(5.0));
+    app.update();
+    assert_eq!(struck(&app, victim), 0);
+}

@@ -80,7 +80,7 @@ pub use transit::{
 };
 pub use tuning::{
     propose_editable_portal_tuning, publish_editable_portal_tuning, EditablePortalTuning,
-    PortalConvention, PortalTuning, portal_tuning_domain, PortalTuningDomain,
+    PortalConvention, PortalGeometry, PortalTuning, portal_tuning_domain, PortalTuningDomain,
 };
 pub use types::{
     find_portal, portal_box,

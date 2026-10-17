@@ -430,6 +430,56 @@ pub fn partition(
     out
 }
 
+/// The links that lead back to themselves: what goes in at one comes out
+/// facing the entry of the next, and so on round to the first (a pair facing
+/// itself, a ring of pairs). A piece in such a ring is cut until its budget
+/// stops it ([`partition`]); this names the ring, for a room that wants to
+/// say so. A link leads to another when part of the other's opening is where
+/// what comes out of its exit is (in front of the exit, between its ends) and
+/// the other faces back at the exit.
+pub fn recursive_links(links: &[PortalLink]) -> Vec<u32> {
+    let leads_to = |from: &PortalLink, to: &PortalLink| {
+        let [a, b] = [-1.0, 1.0].map(|s| from.exit.frame.to_local(to.enter.frame.from_local(Vec2::new(s * to.enter.half_length, 0.0))));
+        // The part of the opening `a..b` (in the exit's local frame) where
+        // `front > 0` and `|along| < half`.
+        let h = from.exit.half_length;
+        let (mut lo, mut hi) = (0.0_f32, 1.0_f32);
+        for (p0, dp, min, max) in [(a.y, b.y - a.y, 0.0, f32::INFINITY), (a.x, b.x - a.x, -h, h)] {
+            if dp.abs() < 1e-9 {
+                if p0 <= min || p0 >= max {
+                    return false;
+                }
+                continue;
+            }
+            let (t0, t1) = ((min - p0) / dp, (max - p0) / dp);
+            lo = lo.max(t0.min(t1));
+            hi = hi.min(t0.max(t1));
+        }
+        hi > lo && to.enter.frame.to_local(from.exit.frame.origin).y > 0.0
+    };
+    let mut on_a_ring: Vec<u32> = links
+        .iter()
+        .filter(|start| {
+            // Is `start` reachable from itself?
+            let mut seen = vec![false; links.len()];
+            let mut stack: Vec<&PortalLink> = links.iter().filter(|next| leads_to(start, next)).collect();
+            while let Some(link) = stack.pop() {
+                if link.key == start.key {
+                    return true;
+                }
+                let at = links.iter().position(|l| l.key == link.key).expect("a link of the list");
+                if !std::mem::replace(&mut seen[at], true) {
+                    stack.extend(links.iter().filter(|next| leads_to(link, next)));
+                }
+            }
+            false
+        })
+        .map(|link| link.key)
+        .collect();
+    on_a_ring.sort_unstable();
+    on_a_ring
+}
+
 fn box_outline(b: crate::Aabb) -> Vec<Vec2> {
     vec![
         Vec2::new(b.min.x, b.min.y),

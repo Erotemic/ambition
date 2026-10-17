@@ -418,3 +418,18 @@ fn the_planes_a_piece_is_drawn_clipped_by_are_the_ones_that_cut_it() {
     let here = pieces.iter().find(|p| !p.is_carried()).unwrap();
     assert_eq!(here.active_bounds().len(), 1);
 }
+
+#[test]
+fn a_pair_facing_itself_is_a_ring_and_a_pair_side_by_side_is_not() {
+    let floor = aperture(Vec2::ZERO, UP, 40.0);
+    let over = aperture(Vec2::new(0.0, -200.0), DOWN, 40.0);
+    assert_eq!(recursive_links(&links(&[(floor, over)])), vec![0, 1]);
+    // The partner far to the side: what comes down out of it does not come
+    // down onto the floor's opening.
+    let aside = aperture(Vec2::new(500.0, -200.0), DOWN, 40.0);
+    assert!(recursive_links(&links(&[(floor, aside)])).is_empty());
+    // Two doors in line, facing each other: an endless corridor.
+    let wall_l = aperture(Vec2::new(-300.0, -100.0), Vec2::X, 40.0);
+    let wall_r = aperture(Vec2::new(300.0, -100.0), -Vec2::X, 40.0);
+    assert_eq!(recursive_links(&links(&[(floor, aside), (wall_l, wall_r)])), vec![2, 3]);
+}

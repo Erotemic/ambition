@@ -331,6 +331,7 @@ fn radio_screen_marks_the_active_station() {
     let radio = RadioSnapshot {
         stations: vec![(0, "A".into()), (1, "B".into())],
         active: Some(1),
+        ..Default::default()
     };
     let model = SystemMenuModel::build(&UserSettings::default(), &radio, &DevSnapshot::default());
     let SystemMenuTarget::Radio(rows) = &model.entry(SystemMenuEntryId::Radio).unwrap().target

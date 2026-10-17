@@ -481,6 +481,7 @@ fn long_system_page_renders_only_a_window_of_clickable_rows() {
     let radio = RadioSnapshot {
         stations: (0..26).map(|i| (i, format!("Station {i}"))).collect(),
         active: Some(0),
+        ..Default::default()
     };
     let focus = MenuFocus::System(13);
     let sys_model = SystemMenuModel::build(&settings, &radio, &DevSnapshot::default());
@@ -573,6 +574,7 @@ fn long_system_page_emits_one_scrollbar_node_with_thumb() {
     let radio = RadioSnapshot {
         stations: (0..26).map(|i| (i, format!("Station {i}"))).collect(),
         active: Some(0),
+        ..Default::default()
     };
     let page = build_system_page(
         &settings,
@@ -606,6 +608,7 @@ fn long_system_page_emits_one_scrollbar_node_with_thumb() {
     let short_radio = RadioSnapshot {
         stations: (0..3).map(|i| (i, format!("Station {i}"))).collect(),
         active: Some(0),
+        ..Default::default()
     };
     let short_page = build_system_page(
         &settings,
@@ -648,4 +651,29 @@ fn viewer_left_button_turns_to_the_right_neighbor() {
         Some(MenuPage::Map),
         "left edge button turns to viewer-left page"
     );
+}
+
+#[test]
+fn the_radio_screen_says_what_is_playing() {
+    let radio = RadioSnapshot {
+        stations: (0..3).map(|i| (i, format!("Station {i}"))).collect(),
+        active: Some(0),
+        now_playing: Some("Galvanic March \u{00b7} Howl".into()),
+    };
+    let texts = |open| {
+        build_system_page(&UserSettings::default(), &radio, &DevSnapshot::default(), MenuFocus::System(0), 0, open)
+            .nodes
+            .into_iter()
+            .filter_map(|n| match n {
+                ambition_platformer2d::menu::MenuNode::Text { text, .. } => Some(text),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+    assert!(
+        texts(Some(SystemMenuEntryId::Radio)).contains(&"Now playing: Galvanic March \u{00b7} Howl".to_string()),
+        "{:?}",
+        texts(Some(SystemMenuEntryId::Radio))
+    );
+    assert!(!texts(None).iter().any(|t| t.starts_with("Now playing")), "only the Radio screen names it");
 }

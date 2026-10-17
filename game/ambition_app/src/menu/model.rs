@@ -1007,6 +1007,18 @@ pub fn build_system_page_with_quality_prompt(
         MenuTextAlign::Center,
         MenuColor::rgba(1.0, 0.84, 0.38, 1.0),
     );
+    // The Radio screen names what is heard, which a boss or encounter cue can
+    // make other than the station marked ▶.
+    if open_entry == Some(SystemMenuEntryId::Radio) {
+        model.text(
+            50.0,
+            16.6,
+            SYSTEM_ROW_FONT * 0.8,
+            &now_playing_line(radio),
+            MenuTextAlign::Center,
+            MenuColor::rgba(0.88, 0.94, 1.0, 0.96),
+        );
+    }
 
     // Lay the VISIBLE rows as one centered vertical column. The pitch is sized to
     // fill the list rect for the visible row count (so a sparse window reads large),
@@ -1132,6 +1144,14 @@ pub fn system_scrollbar_thumb(window_start: usize, total: usize) -> (f32, f32) {
     let max_start = system_max_window_start(total).max(1) as f32;
     let start = (window_start as f32 / max_start).clamp(0.0, 1.0);
     (start, size)
+}
+
+/// The Radio screen's "now playing" line.
+fn now_playing_line(radio: &RadioSnapshot) -> String {
+    match &radio.now_playing {
+        Some(name) => format!("Now playing: {name}"),
+        None => "Now playing: nothing".to_string(),
+    }
 }
 
 /// The System face's BOTTOM detail panel: the focused option's label (its current state) plus a

@@ -1821,6 +1821,7 @@ fn carves_by_room(holes: &[Option<usize>]) -> [usize; 2] {
                 open_for: vec![body],
             })
             .collect(),
+        glues: Vec::new(),
     });
     app.add_systems(Update, crate::portal::bridge_portal_carves);
     app.update();

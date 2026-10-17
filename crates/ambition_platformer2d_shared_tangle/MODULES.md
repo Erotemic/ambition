@@ -28,6 +28,7 @@
 | [`math`](src/math.rs) | Pure portal-map vector math for platformer mechanics. |
 | [`orientation`](src/orientation.rs) | Actor orientation under gravity (the "which way is down" upright reflex). |
 | [`physics`](src/physics.rs) | Shared secondary-physics settings resource. |
+| [`portal_passages`](src/portal_passages.rs) | The portal pairs of each live room this tick, for a domain that is not the portal's: where a volume is when a pair cuts it (`docs/planning/engine/portals-a-body-in-two-places.md`). |
 | [`prelude`](src/prelude.rs) | Convenience imports for reusable platformer-runtime call sites. |
 | [`projectile`](src/projectile/mod.rs) | Content-free projectile physics: authored specs, kinematic state, and world collision. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_platformer2d_shared_tangle`. |
@@ -43,7 +44,7 @@
 | [`world_item_art`](src/world_item_art.rs) | Provider-contributed art declarations for walk-into world items. |
 | [`world_log`](src/world_log.rs) | Coarse `[game-mode]` / `[world-event]` logging. |
 
-_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

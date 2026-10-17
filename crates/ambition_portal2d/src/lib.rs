@@ -25,6 +25,7 @@ mod gun_projectile;
 mod lifecycle;
 mod link;
 mod messages;
+mod passages;
 /// Pure portal-piece geometry. Public because host overlays read it.
 pub mod pieces;
 mod placement;
@@ -70,6 +71,7 @@ pub use placement::{
     raycast_through_portals, raycast_through_portals_tuned, somersault_roll_for_convention,
     transit_step, transit_step_with_tuning, SweptSample, TransitStep,
 };
+pub use passages::publish_portal_passages;
 pub use transit::{
     portal_transit, portal_transit_free_bodies, publish_free_body_carves, publish_portal_carves,
     reconcile_transited_bodies,

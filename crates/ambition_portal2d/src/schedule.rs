@@ -47,4 +47,9 @@ pub enum PortalSet {
     /// host that reads `PortalBodyTransited` puts its system here, so it does
     /// not name the core's system.
     Transited,
+    /// This tick's pairs and straddlers published for other domains
+    /// ([`PortalPassages`](ambition_platformer2d_shared_tangle::portal_passages::PortalPassages)),
+    /// after [`PortalSet::Transit`]. A host places it before anything that
+    /// asks where a volume is (combat).
+    Passages,
 }

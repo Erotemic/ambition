@@ -87,6 +87,11 @@ pub fn install_conduct(app: &mut App) {
         "ambition_boss_encounter",
         crate::conduct::drain_limb_blows.pipe(crate::conduct::pass_limb_blows),
     );
+    app.install_extension_request::<ambition_boss_special_port::LimbStrikePort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::drain_limb_strikes.pipe(crate::conduct::strike_with_limbs),
+    );
     app.install_extension_request::<ambition_boss_special_port::MountLaunchPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",

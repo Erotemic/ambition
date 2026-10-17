@@ -21,7 +21,7 @@
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::geometry::subtract_aabb;
 use ambition_platformer2d_core::AabbExt;
-use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
+use ambition_platformer2d_shared_tangle::feature_overlay::{FeatureEcsWorldOverlay, PortalGlue};
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
 use bevy_ecs::prelude::{Component, Query, With};
 use bevy_ecs::system::SystemParam;
@@ -205,12 +205,12 @@ impl<'a> ComposedRooms<'a> {
         room: Option<&InRoomInstance>,
         subject: bevy_ecs::entity::Entity,
     ) -> Option<Cow<'_, ae::World>> {
-        let (open, holes) = collision
+        let (open, holes, glues) = collision
             .room(room)
-            .map(|room| (room.gates_open_for(subject), room.holes_open_for(subject)))
+            .map(|room| (room.gates_open_for(subject), room.holes_open_for(subject), room.glues_open_for(subject)))
             .unwrap_or_default();
         let walls = self.solids(collision, room)?;
-        Some(as_met_by(walls, &open, &holes))
+        Some(as_met_by(walls, &open, &holes, &glues))
     }
 
     /// The walls of the live room `room` names, as [`CollisionWorld::room`]
@@ -245,14 +245,109 @@ pub struct RoomCollision<'a> {
 /// ([`RoomCollision::gates_open_for`]) and with `holes` cut
 /// ([`RoomCollision::holes_open_for`]). With neither, which is the common case,
 /// these are `walls`, borrowed.
-pub fn as_met_by<'w>(walls: &'w ae::World, open: &[&str], holes: &[&ae::frame::FaceRect]) -> Cow<'w, ae::World> {
+pub fn as_met_by<'w>(
+    walls: &'w ae::World,
+    open: &[&str],
+    holes: &[&ae::frame::FaceRect],
+    glues: &[&PortalGlue],
+) -> Cow<'w, ae::World> {
     let walls = without_gates(walls, open);
-    if holes.is_empty() {
+    if holes.is_empty() && glues.is_empty() {
         return walls;
     }
     let mut walls = walls.into_owned();
     cut_portal_holes(&mut walls, holes);
+    for glue in glues {
+        glue_portal_pair(&mut walls, glue);
+    }
     Cow::Owned(walls)
+}
+
+/// Glue a portal pair into `world` as a body in it meets it
+/// (`docs/planning/engine/portals-a-body-in-two-places.md`): behind the
+/// opening it is in, out to the glue's depth, the entry's own geometry goes,
+/// and what is in front of the exit there is put, mapped back through the
+/// pair. The body meets the far side with the part of it that is past the
+/// plane.
+///
+/// Boxes are bounded by boxes, as the hole is: exact for a floor, wall or
+/// ceiling pair. A one-way block that the pair turns on its side has no box
+/// that says it, and is left out; a line with lanes or junctions, or a closed
+/// one, is left out as the hole leaves it whole.
+pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
+    use ae::frame::{map_point, map_vec, FaceRect};
+    let (enter, exit) = (&glue.enter, &glue.exit);
+    let half_out = glue.depth * 0.5;
+    let behind = FaceRect {
+        center: enter.frame.origin - enter.frame.normal * half_out,
+        normal: enter.frame.normal,
+        half_along: enter.half_length,
+        half_out,
+    };
+    let before = FaceRect {
+        center: exit.frame.origin + exit.frame.normal * half_out,
+        normal: exit.frame.normal,
+        half_along: exit.half_length,
+        half_out,
+    };
+    let back = |p: ae::Vec2| map_point(&exit.frame, &enter.frame, glue.convention, p);
+    let back_dir = |v: ae::Vec2| map_vec(&exit.frame, &enter.frame, glue.convention, v);
+    // What is in front of the exit, read before the entry's side is cut: in a
+    // thin wall the two regions share space.
+    let region = before.bounds();
+    let mut blocks: Vec<ae::Block> = Vec::new();
+    for block in &world.blocks {
+        let (lo, hi) = (block.aabb.min.max(region.min), block.aabb.max.min(region.max));
+        if lo.x >= hi.x || lo.y >= hi.y {
+            continue;
+        }
+        let Some(kind) = carried_kind(block.kind, back_dir) else {
+            continue;
+        };
+        let (a, b) = (back(lo), back(hi));
+        let Some(aabb) = ae::geometry::aabb_from_min_max(a.x.min(b.x), a.y.min(b.y), a.x.max(b.x), a.y.max(b.y)) else {
+            continue;
+        };
+        blocks.push(ae::Block { aabb, kind, velocity: back_dir(block.velocity), ..block.clone() });
+    }
+    let mut chains: Vec<ae::SurfaceChain> = Vec::new();
+    for chain in world.chains.iter().filter(|c| !c.closed && c.junctions.is_empty() && c.depth_lanes.is_empty()) {
+        for pair in chain.points.windows(2) {
+            let (a, b) = (pair[0], pair[1]);
+            if let Some((t0, t1)) = before.clip_segment(a, b) {
+                chains.push(ae::SurfaceChain {
+                    points: vec![back(a + (b - a) * t0), back(a + (b - a) * t1)],
+                    velocity: back_dir(chain.velocity),
+                    earth: Vec::new(),
+                    filled: false,
+                    ..chain.clone()
+                });
+            }
+        }
+    }
+    cut_portal_holes(world, &[&behind]);
+    world.blocks.extend(blocks);
+    world.blocks.sort_by(ae::Block::canonical_cmp);
+    world.chains.extend(chains);
+}
+
+/// A block's kind carried through a pair whose map of directions is `dir`:
+/// one that is solid from one side keeps the side it is solid from, and has
+/// no kind when the pair turns that side to a wall.
+fn carried_kind(kind: ae::BlockKind, dir: impl Fn(ae::Vec2) -> ae::Vec2) -> Option<ae::BlockKind> {
+    use ae::BlockKind;
+    let down = dir(ae::Vec2::Y);
+    let upright = down.distance(ae::Vec2::Y) < 1e-4;
+    let upside_down = down.distance(-ae::Vec2::Y) < 1e-4;
+    match kind {
+        BlockKind::OneWay if upright => Some(BlockKind::OneWay),
+        BlockKind::OneWay if upside_down => Some(BlockKind::BonkOnly),
+        BlockKind::BonkOnly if upright => Some(BlockKind::BonkOnly),
+        BlockKind::BonkOnly if upside_down => Some(BlockKind::OneWay),
+        BlockKind::OneWay | BlockKind::BonkOnly => None,
+        BlockKind::Rebound { impulse } => Some(BlockKind::Rebound { impulse: dir(impulse) }),
+        other => Some(other),
+    }
 }
 
 /// Cut portal holes out of `world`: each hole's box out of the boxes, and its
@@ -336,11 +431,28 @@ impl<'a> RoomCollision<'a> {
     /// open for it passed, the portal holes open for it cut.
     pub fn solids_for(self, subject: bevy_ecs::entity::Entity) -> Option<Cow<'a, ae::World>> {
         let walls = self.solids()?;
-        let (open, holes) = (self.gates_open_for(subject), self.holes_open_for(subject));
-        if open.is_empty() && holes.is_empty() {
+        let (open, holes, glues) = (self.gates_open_for(subject), self.holes_open_for(subject), self.glues_open_for(subject));
+        if open.is_empty() && holes.is_empty() && glues.is_empty() {
             return Some(walls);
         }
-        Some(Cow::Owned(as_met_by(&walls, &open, &holes).into_owned()))
+        Some(Cow::Owned(as_met_by(&walls, &open, &holes, &glues).into_owned()))
+    }
+
+    /// The portal pairs `subject` is in this tick ([`PortalGluePass`]): it
+    /// meets the far side of each with its part past the plane.
+    ///
+    /// [`PortalGluePass`]: ambition_platformer2d_shared_tangle::feature_overlay::PortalGluePass
+    pub fn glues_open_for(&self, subject: bevy_ecs::entity::Entity) -> Vec<&'a PortalGlue> {
+        self.overlay
+            .map(|overlay| {
+                overlay
+                    .portal_glues
+                    .iter()
+                    .filter(|pass| pass.bodies.contains(&subject))
+                    .map(|pass| &pass.glue)
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     /// The portal holes open for `subject` this tick: the ones it opened
@@ -945,6 +1057,39 @@ mod collision_world_tests {
             vec![false, true, true, false],
             "the hole is open for the first body only"
         );
+    }
+
+    /// A body in a pair meets the far side with its part past the plane
+    /// (`docs/planning/engine/portals-a-body-in-two-places.md`): behind a
+    /// floor portal, inside the opening, is what is in front of its partner,
+    /// a wall portal, and not the floor's own inside.
+    #[test]
+    fn a_body_in_a_pair_meets_what_is_in_front_of_its_far_end() {
+        use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+        let floor = ae::Block::solid("floor", ae::Vec2::new(0.0, 300.0), ae::Vec2::new(400.0, 40.0));
+        // A ledge 20 in front of the wall portal, inside its opening.
+        let ledge = ae::Block::solid("ledge", ae::Vec2::new(460.0, 190.0), ae::Vec2::new(20.0, 40.0));
+        let walls = ae::World::new("glue", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, vec![floor, ledge]);
+        let glue = PortalGlue {
+            enter: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), ae::Vec2::new(0.0, -1.0)), half_length: 30.0 },
+            exit: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, 200.0), ae::Vec2::new(-1.0, 0.0)), half_length: 30.0 },
+            convention: MapConvention::Reflection,
+            depth: 60.0,
+        };
+        let solid_at = |world: &ae::World, x: f32, y: f32| {
+            let probe = ae::Aabb::new(ae::Vec2::new(x, y), ae::Vec2::splat(1.0));
+            world.blocks.iter().any(|block| block.aabb.strict_intersects(probe))
+        };
+        let met = as_met_by(&walls, &[], &[], &[&glue]);
+        // The ledge is under the floor portal, where it is from the far end:
+        // 20 into the opening, 10 to 30 along it.
+        assert!(solid_at(&met, 90.0, 330.0), "the far side's ledge is not met");
+        // The floor's own inside behind the opening is not.
+        assert!(!solid_at(&met, 120.0, 310.0), "the near side's floor is still met behind the opening");
+        // Beside the opening the floor is the floor.
+        assert!(solid_at(&met, 40.0, 310.0));
+        // For a body in no pair, nothing changed.
+        assert!(solid_at(&walls, 120.0, 310.0) && !solid_at(&walls, 90.0, 330.0) || solid_at(&walls, 90.0, 330.0));
     }
 
     /// OW1 cut 3d: a reader in live room #1 collides with #1's walls, and

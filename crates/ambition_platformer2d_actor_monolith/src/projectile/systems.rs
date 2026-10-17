@@ -828,7 +828,7 @@ pub fn step_projectiles(
         };
         // The room's walls with the portal holes this shot opened cut.
         let holes = carved.holes_for(shot_room, proj_entity);
-        let met = ambition_platformer2d_world::collision::as_met_by(room_world, &[], &holes.iter().collect::<Vec<_>>());
+        let met = ambition_platformer2d_world::collision::as_met_by(room_world, &[], &holes.iter().collect::<Vec<_>>(), &[]);
         let collision_world: &ambition_platformer2d_core::World = &met;
         let owner_combat_data = owner_entity.and_then(|e| owner_combat.get(e).ok());
         // Projectile allegiance is frozen launch authority and rollback state. Parry may

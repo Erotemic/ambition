@@ -484,6 +484,30 @@ impl StrikeVictimItem<'_, '_> {
             .is_some_and(super::components::DamageableVolumes::intangible)
     }
 
+    /// The volumes this body is hit on, each cut where it is when a portal
+    /// pair cuts it (`docs/planning/engine/portals-a-body-in-two-places.md`):
+    /// its published parts, else its coarse box, and none when intangible.
+    /// The rule of [`strike_reaches_victim`], in pieces.
+    pub fn hurt_pieces(
+        &self,
+        passages: Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Vec<ambition_platformer2d_core::frame::thread::VolumePiece> {
+        use ambition_platformer2d_core::frame::thread::VolumePiece;
+        let parts: Vec<ambition_platformer2d_core::CombatVolume> = match self.volumes {
+            Some(published) if published.intangible() => return Vec::new(),
+            Some(published) if published.published() => published.volumes.clone(),
+            _ => vec![ambition_platformer2d_core::CombatVolume::aabb(self.aabb.aabb())],
+        };
+        match passages {
+            Some(passages) => parts
+                .iter()
+                .flat_map(|part| passages.pieces(part, Some(self.entity), self.aabb.center, room))
+                .collect(),
+            None => parts.into_iter().map(VolumePiece::whole).collect(),
+        }
+    }
+
     /// Does `world_volume` reach the geometry this body actually published?
     ///
     /// The single victim-geometry rule, applied to the victim that owns it.
@@ -697,7 +721,16 @@ pub fn apply_hitbox_damage(
     mut out: StrikeOutcomeWriters,
     // A strike reaches only the bodies of its own live room (OW1 cut 4).
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // ⭐ WHERE A VOLUME IS when a portal pair cuts it: a strike that reaches
+    // through a pair hurts at its far end, and a body half through is hit at
+    // both (`docs/planning/engine/portals-a-body-in-two-places.md`). Absent in
+    // a composition with no portals: every volume is whole.
+    passages: Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
 ) {
+    use ambition_platformer2d_core::frame::thread::VolumePiece;
+    let convention = passages.as_deref().map(|p| p.convention()).unwrap_or_default();
+    // Each victim's pieces, cut once a tick.
+    let mut victim_pieces: std::collections::HashMap<Entity, Vec<VolumePiece>> = std::collections::HashMap::new();
     // ⭐⭐ THE PULSE'S LEDGER, collected here and written to every sibling after
     // the sweep. `(striker, owner, victim)`.
     //
@@ -795,6 +828,16 @@ pub fn apply_hitbox_damage(
         let strike_room = rooms
             .stamped(hitbox_entity)
             .or_else(|| rooms.of(hitbox.owner));
+        // The pairs that can cut a volume of this room, if any.
+        let threaded = passages.as_deref().filter(|p| p.cuts_in(strike_room));
+        // A volume the owner carries (it follows the owner) is cut by the pair
+        // the owner is in; one placed in the world, by what it reaches through.
+        let carrier = matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }).then_some(hitbox.owner);
+        let strike_pieces = |volume: &ambition_platformer2d_core::CombatVolume| match threaded {
+            Some(p) => p.pieces(volume, carrier, spatial_source, strike_room),
+            None => vec![VolumePiece::whole(volume.clone())],
+        };
+        let pieces = strike_pieces(&world_volume);
         if let Some(source_kind) = melee_source {
             let owner_grudge = attacker.grudge(hitbox.owner);
 
@@ -882,9 +925,31 @@ pub fn apply_hitbox_damage(
                 if hits.hit.contains(&victim.entity) {
                     continue;
                 }
-                if !victim.reached_by(&world_volume) {
+                let victim_room = rooms.of(victim.entity);
+                let hurt = victim_pieces
+                    .entry(victim.entity)
+                    .or_insert_with(|| victim.hurt_pieces(threaded, victim_room));
+                // The piece of the strike that reaches a piece of the victim.
+                let Some((strike_piece, victim_piece)) = pieces
+                    .iter()
+                    .find_map(|sp| hurt.iter().find(|vp| sp.meets(vp)).map(|vp| (sp, vp.clone())))
+                else {
                     continue;
-                }
+                };
+                // The strike's own chart into the victim's own: through the pair
+                // the strike piece was carried by, back through the victim's.
+                let to_victim = |p: ae::Vec2| victim_piece.uncarry(strike_piece.carry(p, convention), convention);
+                let to_victim_dir =
+                    |v: ae::Vec2| victim_piece.uncarry_dir(strike_piece.carry_dir(v, convention), convention);
+                let from_victim = |p: ae::Vec2| strike_piece.uncarry(victim_piece.carry(p, convention), convention);
+                let through = strike_piece.carried.is_some() || victim_piece.carried.is_some();
+                // Where they touch: in the chart they meet in.
+                let impact = if through {
+                    midpoint(strike_piece.center(), victim_piece.center())
+                } else {
+                    midpoint(victim.aabb.center, world_volume.center())
+                };
+                let source_here = to_victim(spatial_source);
                 // A PERFECT SHIELD CATCHES THE STRIKE, and it is resolved HERE
                 // because this is the one seam every body-strike passes through.
                 // The two damage roads below it did not agree: the primary
@@ -915,11 +980,9 @@ pub fn apply_hitbox_damage(
                     let outranked = strike_ranks.iter().any(|(_, sibling, sibling_rank)| {
                         sibling.owner == hitbox.owner
                             && sibling_rank < rank
-                            && strike_reaches_victim(
-                                &sibling.world_volume(owner_pos),
-                                victim.volumes,
-                                victim.aabb,
-                            )
+                            && strike_pieces(&sibling.world_volume(owner_pos))
+                                .iter()
+                                .any(|sp| hurt.iter().any(|vp| sp.meets(vp)))
                     });
                     if outranked {
                         continue;
@@ -957,7 +1020,7 @@ pub fn apply_hitbox_damage(
                                 defender: victim.entity,
                                 attacker: hitbox.owner,
                                 hitbox: hitbox_entity,
-                                contact: midpoint(victim.aabb.center, world_volume.center()),
+                                contact: impact,
                             });
                             continue;
                         }
@@ -965,12 +1028,11 @@ pub fn apply_hitbox_damage(
                 }
 
                 let victim_body = victim.aabb.aabb();
-                let impact = midpoint(victim.aabb.center, world_volume.center());
                 // Knockback side in the victim's LOCAL frame (§B11): under
                 // sideways gravity the attacker and victim separate along
                 // world-Y, exactly when a screen-X comparison degenerates.
                 let side = victim.knockback_side();
-                let dir = if (victim_body.center() - spatial_source).dot(side) >= 0.0 {
+                let dir = if (victim_body.center() - source_here).dot(side) >= 0.0 {
                     1.0
                 } else {
                     -1.0
@@ -1034,12 +1096,14 @@ pub fn apply_hitbox_damage(
                     guard: hitbox.hit_guard(),
                     dir,
                     magnitude,
-                    source_pos: spatial_source,
+                    source_pos: source_here,
                     impact_pos: impact,
                     // LOWERED HERE, as the autolink anchor below is: the
                     // volume has the facing and the frame of the body that
                     // threw it, and the reaction of the victim has neither.
-                    launch_dir: hitbox.launch_world(spatial_source, victim_body.center()),
+                    launch_dir: hitbox
+                        .launch_world(spatial_source, from_victim(victim_body.center()))
+                        .map(|launch| launch.mapped(to_victim_dir)),
                     // AUTOLINK, and the ATTACKER'S VELOCITY is sampled HERE.
                     // The reaction holds a victim and no attacker entity, and
                     // the velocity is a fact about this pulse rather than about
@@ -1062,19 +1126,18 @@ pub fn apply_hitbox_damage(
                             // catching somebody BEHIND the attacker mirrored the
                             // anchor toward them, and two bodies in different
                             // frames disagreed about where "toward the feet" was.
-                            anchor_world: ae::hit_response::autolink_anchor_world(
+                            anchor_world: to_victim(ae::hit_response::autolink_anchor_world(
                                 ae::Vec2::new(link.anchor.0, link.anchor.1),
                                 owner_pos,
                                 hitbox.facing,
                                 hitbox.frame_down,
-                            ),
+                            )),
                             carry: link.carry,
                             pull: link.pull,
                             max_speed: link.max_speed,
-                            source_vel: owner_kin
-                                .get(hitbox.owner)
-                                .map(|kin| kin.vel)
-                                .unwrap_or(ae::Vec2::ZERO),
+                            source_vel: to_victim_dir(
+                                owner_kin.get(hitbox.owner).map(|kin| kin.vel).unwrap_or(ae::Vec2::ZERO),
+                            ),
                         }),
                 });
                 out.hit_events.write(HitEvent {

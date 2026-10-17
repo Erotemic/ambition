@@ -104,6 +104,12 @@ impl WorldLaunchDir {
     pub fn world(self) -> Vec2 {
         self.0
     }
+
+    /// The same launch in another chart: through a portal pair, `dir` maps
+    /// the direction of one end into the other's.
+    pub fn mapped(self, dir: impl Fn(Vec2) -> Vec2) -> Self {
+        Self(dir(self.0))
+    }
 }
 
 /// Knockback impulse carried by a hit. Producers fill this on hits that

@@ -17,6 +17,7 @@
 | [`lifecycle`](src/lifecycle.rs) | Portal lifecycle and persistence policy for placed portals and transit cooldowns. |
 | [`link`](src/link.rs) | Explicit portal linking by id, plus the min-aperture equalizer. |
 | [`messages`](src/messages.rs) | Portal intent and outcome messages. |
+| [`passages`](src/passages.rs) | Publish this tick's pairs and straddlers in core geometry ([`PortalPassages`]), for a domain that is not the portal's (combat) to tell where a volume is. |
 | [`pieces`](src/pieces.rs) | Pure portal-piece geometry — the Core invariant of the portal system. |
 | [`placement`](src/placement.rs) | Portal-aware geometry and the surface-fit / aperture-crossing decision logic. |
 | [`plugin`](src/plugin.rs) | Portal plugin assembly: reusable simulation plus an optional portal-gun opener. |
@@ -29,7 +30,7 @@
 | [`types`](src/types.rs) | Shared portal types, geometry constants, and small helpers used across the portal submodules (placement, transit, presentation, …). |
 | [`view`](src/view.rs) | Pure through-portal view geometry. |
 
-_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_23 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

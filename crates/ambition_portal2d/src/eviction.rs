@@ -79,7 +79,7 @@ const EVICT_MARGIN: f32 = 1.0;
 pub fn evict_straddlers_on_portal_change(
     mut history: ResMut<PortalFrameHistory>,
     portals: Query<(Entity, &PlacedPortal)>,
-    mut bodies: Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>)>,
+    mut bodies: Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>, Option<&ae::PoseOwnedExternally>)>,
     live: LiveRooms,
 ) {
     // A hosted aperture moving with its face is the same portal, not a close:
@@ -175,11 +175,12 @@ fn eviction_push(body: ae::Aabb, center: ae::Vec2, plane: &PortalAperture) -> Op
 fn evict_for_plane(
     plane: PortalAperture,
     room: PortalRoom,
-    bodies: &mut Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>)>,
+    bodies: &mut Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>, Option<&ae::PoseOwnedExternally>)>,
     live: &LiveRooms,
 ) {
-    for (entity, mut kin, mut sweep) in bodies.iter_mut() {
-        if live.of(entity) != room {
+    for (entity, mut kin, mut sweep, held) in bodies.iter_mut() {
+        // Its owner places it: a plane that moves does not move it.
+        if live.of(entity) != room || crate::transit::pose_is_held(held) {
             continue;
         }
         // The box the body has: turned as its last step turned it.

@@ -205,16 +205,23 @@ fn openings_near<'a>(all: &'a [PlacedPortal], at: Vec2, size: Vec2) -> impl Iter
 /// across it.
 pub fn snag_straddlers(
     portals: Query<(Entity, &PlacedPortal)>,
-    mut bodies: Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>, Option<&PortalBackside>)>,
+    mut bodies: Query<(
+        Entity,
+        &mut BodyKinematics,
+        Option<&mut ae::SweepSample>,
+        Option<&PortalBackside>,
+        Option<&ae::PoseOwnedExternally>,
+    )>,
     live: LiveRooms,
 ) {
     let by_room = PortalsByRoom::collect(&portals, &live);
     if by_room.is_empty() {
         return;
     }
-    for (entity, mut kin, mut sweep, backside) in &mut bodies {
+    for (entity, mut kin, mut sweep, backside, held) in &mut bodies {
         let all = by_room.in_room(live.of(entity));
-        if all.is_empty() {
+        // Its owner places it, past an end of an opening or not.
+        if all.is_empty() || crate::transit::pose_is_held(held) {
             continue;
         }
         let body = kin.collision_box(sweep.as_deref());

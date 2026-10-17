@@ -313,3 +313,45 @@ fn a_body_standing_past_an_openings_end_does_not_open_it() {
     let over = ambition_platformer2d_core::Aabb::new(Vec2::new(100.0, 300.0 - half.y + 0.5), half);
     assert!(crate::transit::body_opens(&p, over, over.center(), Vec2::new(0.0, 30.0), 0.0));
 }
+
+/// A body whose pose an owner holds (a boss's arm) is posed in its own chart:
+/// the pair does not move it, however far into the opening it is posed, and it
+/// is in the pair while it reaches into it from the front, so its pieces are
+/// at the far end (`docs/planning/engine/portals-a-body-in-two-places.md`).
+#[test]
+fn a_posed_body_is_in_the_pair_it_reaches_into_and_is_not_moved() {
+    let mut app = transit_app();
+    wall_pair(&mut app);
+    let pose = |app: &mut App, body: Entity, x: f32| {
+        app.world_mut().get_mut::<BodyKinematics>(body).unwrap().pos = Vec2::new(x, 200.0);
+        app.update();
+        let at = app.world().get::<BodyKinematics>(body).unwrap().pos.x;
+        (at, app.world().get::<PortalTransit>(body).map(|t| t.straddling))
+    };
+    let body = app
+        .world_mut()
+        .spawn((
+            BodyKinematics { pos: Vec2::new(60.0, 200.0), vel: Vec2::ZERO, size: Vec2::splat(16.0), facing: 1.0 },
+            ambition_platformer2d_core::PoseOwnedExternally::only(ambition_platformer2d_core::PoseHold::Conductor),
+        ))
+        .id();
+    // In front: whole.
+    assert_eq!(pose(&mut app, body, 60.0), (60.0, None));
+    // Reaching 3 into the blue's opening, then its centre past the plane,
+    // then all of it: in the pair, where it was posed.
+    assert_eq!(pose(&mut app, body, 25.0), (25.0, Some(BLUE)));
+    assert_eq!(pose(&mut app, body, 15.0), (15.0, Some(BLUE)));
+    assert_eq!(pose(&mut app, body, 5.0), (5.0, Some(BLUE)));
+    // Out again.
+    assert_eq!(pose(&mut app, body, 40.0), (40.0, None));
+    // Posed behind the opening without coming through it: not in it.
+    assert_eq!(pose(&mut app, body, 5.0), (5.0, None));
+
+    // Control: let go, a body past the plane is taken through.
+    app.world_mut().entity_mut(body).remove::<ambition_platformer2d_core::PoseOwnedExternally>();
+    app.world_mut().entity_mut(body).insert(PortalTransit { straddling: BLUE, crossed: false });
+    app.world_mut().get_mut::<BodyKinematics>(body).unwrap().pos = Vec2::new(15.0, 200.0);
+    app.world_mut().get_mut::<BodyKinematics>(body).unwrap().vel = Vec2::new(-300.0, 0.0);
+    app.update();
+    assert!(app.world().get::<BodyKinematics>(body).unwrap().pos.x > 300.0, "control: the body was not taken");
+}

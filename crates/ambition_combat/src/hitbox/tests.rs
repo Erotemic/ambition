@@ -2911,3 +2911,103 @@ fn the_brain_and_the_resolver_agree_about_a_volume_that_authors_no_growth() {
          percent-scaling move and the brain must rank it as one"
     );
 }
+
+// ── A body in two places (docs/planning/engine/portals-a-body-in-two-places.md) ──
+
+/// y is down. A floor portal at the origin, its front up, and its partner, a
+/// ceiling portal at (500, -200), its front down: what goes down into the
+/// floor comes down out of the ceiling.
+fn floor_to_ceiling() -> ambition_platformer2d_shared_tangle::portal_passages::PortalPassages {
+    use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+    let mut passages = ambition_platformer2d_shared_tangle::portal_passages::PortalPassages::new(MapConvention::Reflection);
+    passages.add_pair(
+        None,
+        (
+            PortalAperture { frame: PortalFrame::fixed(ae::Vec2::ZERO, ae::Vec2::new(0.0, -1.0)), half_length: 40.0 },
+            PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, -200.0), ae::Vec2::new(0.0, 1.0)), half_length: 40.0 },
+        ),
+    );
+    passages
+}
+
+fn portal_strike_app(passages: Option<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>) -> App {
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
+    app.add_message::<VfxInRoom>();
+    app.init_resource::<CapturedHits>();
+    app.init_resource::<crate::targeting::FriendlyFire>();
+    if let Some(passages) = passages {
+        app.insert_resource(passages);
+    }
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+    app
+}
+
+fn strike(app: &mut App, owner: Entity, anchor: HitboxAnchor, half_extent: ae::Vec2) {
+    app.world_mut().spawn((
+        Hitbox {
+            strike_sfx: None,
+            owner,
+            source: HitSide::Player,
+            anchor,
+            half_extent,
+            shape: None,
+            facing: 1.0,
+            damage: 5,
+            knockback: crate::strike::HitboxKnockback::FeelScale(1.0),
+            launch_dir: None,
+            frame_down: ae::Vec2::new(0.0, 1.0),
+            reaction: None,
+            guard: Default::default(),
+        },
+        HitboxLifetime { remaining_s: 0.2 },
+        HitboxHits::default(),
+    ));
+}
+
+fn struck(app: &App, victim: Entity) -> usize {
+    app.world()
+        .resource::<CapturedHits>()
+        .body_hits()
+        .iter()
+        .filter(|e| matches!(e.target, HitTarget::Body(b) if b == victim))
+        .count()
+}
+
+/// A blade thrust down into a floor portal hurts what is under its partner,
+/// as deep as it went in, and not what is in the floor under the opening.
+#[test]
+fn a_strike_into_a_portal_hurts_at_its_partner() {
+    for (passages, hurts) in [(Some(floor_to_ceiling()), true), (None, false)] {
+        let mut app = portal_strike_app(passages);
+        let owner = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(0.0, -60.0));
+        // Its top 10 under the ceiling: the blade comes 15 out of it.
+        let far = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(500.0, -170.0));
+        // Its top 10 under the floor.
+        let below = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(0.0, 30.0));
+        // From the owner's middle, down to 15 under the floor.
+        strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, 60.0) }, ae::Vec2::new(10.0, 15.0));
+        app.update();
+        assert_eq!(struck(&app, far), usize::from(hurts), "the far body (portals: {hurts})");
+        assert_eq!(struck(&app, below), usize::from(!hurts), "the body under the opening (portals: {hurts})");
+    }
+}
+
+/// A body half through a portal is hit at both ends, and once.
+#[test]
+fn a_body_half_through_a_portal_is_hit_at_its_far_end() {
+    let mut passages = floor_to_ceiling();
+    let (floor, ceiling) = passages.pairs_in(None)[0];
+    let mut app = portal_strike_app(None);
+    let owner = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(500.0, -100.0));
+    // Sunk 15 into the floor's opening: 15 of it is under the ceiling.
+    let victim = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(0.0, -5.0));
+    passages.add_straddler(victim, floor, ceiling);
+    app.insert_resource(passages);
+    // A box under the ceiling, in front of it, where the victim's feet are.
+    strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, -90.0) }, ae::Vec2::splat(5.0));
+    app.update();
+    assert_eq!(struck(&app, victim), 1);
+}

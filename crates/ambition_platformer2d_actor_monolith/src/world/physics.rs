@@ -228,7 +228,14 @@ impl Plugin for AmbitionPhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(PhysicsSandboxSettings::default())
             .insert_resource(Gravity(BVec2::new(0.0, -SANDBOX_GRAVITY)))
-            .add_plugins(PhysicsPlugins::default().with_collision_hooks::<OneRoomContacts>())
+            // No body here is interpolated (avian's default interpolates none),
+            // so its interpolation plugin ran 19 systems a frame for no entity.
+            .add_plugins(
+                PhysicsPlugins::default()
+                    .with_collision_hooks::<OneRoomContacts>()
+                    .build()
+                    .disable::<avian2d::interpolation::PhysicsInterpolationPlugin>(),
+            )
             // The trees avian optimizes each step hold the debris, a few dozen
             // pieces. Its default clones the tree into an async task and then
             // waits on it; on the serial executor that wait was ~0.6 ms a frame
@@ -729,6 +736,33 @@ mod tests {
             settings.optimize_in_place && !settings.use_async_tasks,
             "avian optimizes its trees in an async task the step waits on: {settings:?}"
         );
+    }
+
+    /// Avian runs no transform-interpolation system: no body is interpolated.
+    /// The control: avian's own systems are there.
+    #[cfg(feature = "physics_debris")]
+    #[test]
+    fn avian_runs_no_interpolation_for_bodies_it_does_not_interpolate() {
+        let mut app = App::new();
+        app.add_plugins((
+            bevy::MinimalPlugins,
+            bevy::transform::TransformPlugin,
+            bevy::asset::AssetPlugin::default(),
+            bevy::mesh::MeshPlugin,
+            AmbitionPhysicsPlugin,
+        ));
+        app.finish();
+        app.cleanup();
+        let count = |app: &App, prefix: &str| {
+            app.world()
+                .resource::<bevy::ecs::schedule::Schedules>()
+                .iter()
+                .flat_map(|(_, schedule)| schedule.graph().systems.iter().map(|(_, system, _)| system.name().to_string()).collect::<Vec<_>>())
+                .filter(|name| name.starts_with(prefix))
+                .count()
+        };
+        assert!(count(&app, "avian2d::") > 0, "control: avian's systems are installed");
+        assert_eq!(count(&app, "bevy_transform_interpolation::"), 0, "avian installs transform-interpolation systems");
     }
 
     /// ⚠ This witness is built only with the `physics_debris` feature, as

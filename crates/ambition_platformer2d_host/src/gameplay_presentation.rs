@@ -21,7 +21,7 @@ use bevy::window::PrimaryWindow;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
 use ambition_platformer2d_shared_tangle::gameplay_presentation::{
-    resolve_gameplay_presentation, ActiveGameplayPresentationProfiles, ControlFootprints,
+    resolve_gameplay_presentation, ActiveGameplayPresentationProfiles, AspectRatio, ControlFootprints,
     DisplaySafeAreaInsets, GameplayPresentationInput, GameplayPresentationSet,
     GameplayViewportPolicy, NormalizedScreenRegion, PlacedControl, PresentationEnvironment,
     ResolvedGameplayPresentation, ScreenRect,
@@ -235,6 +235,9 @@ pub fn resolve_host_gameplay_presentation(
     insets: Res<DisplaySafeAreaInsets>,
     occupancy: Res<ScreenOccupancy>,
     footprints: Res<ControlFootprints>,
+    // The view shape the player chose in the video settings. It narrows every
+    // game's view, so a slow device draws fewer pixels.
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut resolved: ResMut<ResolvedGameplayPresentation>,
 ) {
     // A window if there is one; otherwise the surface this composition declared.
@@ -247,10 +250,14 @@ pub fn resolve_host_gameplay_presentation(
             None => return,
         },
     };
+    let player_aspect = settings
+        .and_then(|settings| settings.video.view_shape.aspect())
+        .map(|(width, height)| AspectRatio::new(width, height));
+    let profile = profiles.0.for_environment(*environment).with_player_aspect(player_aspect, *environment);
     let next = resolve_gameplay_presentation(GameplayPresentationInput {
         display_px,
         safe_area_insets: insets.0,
-        profile: profiles.0.for_environment(*environment),
+        profile: &profile,
         occlusions: &occupancy.0,
         control_footprints: *footprints,
     });

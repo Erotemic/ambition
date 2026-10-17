@@ -26,6 +26,7 @@ ambition_characters = { path = "../ambition_characters", optional = true }
 ambition_menu = { path = "../ambition_menu", features = ["bevy_ui_menu"], optional = true }
 ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
 ambition_sim_view = { path = "../ambition_sim_view" }
+ambition_persistence = { path = "../ambition_persistence" }
 # Sprite metadata for the projectile visual passes this crate registers:
 # `SheetRegistryPlugin` provides the `SheetRegistry` they read. The edge already
 # existed transitively through `ambition_render`; naming it is what lets this

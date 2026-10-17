@@ -95,7 +95,9 @@ pub fn physics_spawn_debris_messages(
     // may live at once. Debris is the only thing that wakes avian, so on a low
     // tier fewer pieces is less solver.
     quality: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
-    live: Query<(), With<PhysicsDebris>>,
+    // A retired piece (hidden, disabled, despawned after a grace) is not live
+    // debris: it takes no place in the budget.
+    live: Query<(), (With<PhysicsDebris>, Without<PendingPhysicsDespawn>)>,
 ) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
@@ -103,6 +105,11 @@ pub fn physics_spawn_debris_messages(
         messages.clear();
         return;
     };
+    // Debris turned off throws nothing, so it builds no floor to throw it on.
+    if !settings.debris_enabled {
+        messages.clear();
+        return;
+    }
     // The floors built this frame: their spawns are not applied yet, so the
     // query does not see them.
     let mut floored: Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> = Vec::new();
@@ -195,8 +202,10 @@ impl avian2d::collision::hooks::CollisionHooks for OneRoomContacts<'_, '_> {
 #[cfg(feature = "physics_debris")]
 fn pause_physics_when_no_debris_exists(
     // Debris only: a room's floor is a static body that stays for the life
-    // of its room, and it has nothing to solve without debris on it.
-    debris: Query<(), With<PhysicsDebris>>,
+    // of its room, and it has nothing to solve without debris on it. A
+    // retired piece is disabled and waits only for its despawn, which runs in
+    // `Update` while avian is paused.
+    debris: Query<(), (With<PhysicsDebris>, Without<PendingPhysicsDespawn>)>,
     mut physics_time: ResMut<Time<avian2d::schedule::Physics>>,
 ) {
     use avian2d::schedule::PhysicsTime as _;
@@ -828,7 +837,7 @@ mod tests {
         use ambition_persistence::settings::{ResolvedVisualQuality, VisualQualityBudget, VisualQualityProfile};
         use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
         let room = LiveRoomInstance::ACTIVATION;
-        let thrown = |quality: Option<VisualQualityProfile>, alive: u32| {
+        let thrown = |quality: Option<VisualQualityProfile>, alive: u32, retired: bool| {
             let mut app = App::new();
             app.insert_resource(PhysicsSandboxSettings::default());
             if let Some(profile) = quality {
@@ -847,7 +856,10 @@ mod tests {
                 )),
             ));
             for _ in 0..alive {
-                app.world_mut().spawn(PhysicsDebris { lifetime: 10.0 });
+                let piece = app.world_mut().spawn(PhysicsDebris { lifetime: 10.0 }).id();
+                if retired {
+                    app.world_mut().entity_mut(piece).insert(PendingPhysicsDespawn { timer: PHYSICS_DESPAWN_GRACE });
+                }
             }
             app.world_mut().write_message(DebrisBurstMessage {
                 room: Some(room),
@@ -860,10 +872,69 @@ mod tests {
             let floors = world.query_filtered::<(), With<PhysicsRoomFloor>>().iter(world).count();
             (pieces, floors > 0)
         };
-        assert_eq!(thrown(None, 0), (7, true), "control: with no budget a ragdoll throws its seven pieces");
-        assert_eq!(thrown(Some(VisualQualityProfile::Potato), 0), (1, true), "on Potato a ragdoll throws one piece");
+        assert_eq!(thrown(None, 0, false), (7, true), "control: with no budget a ragdoll throws its seven pieces");
+        assert_eq!(thrown(Some(VisualQualityProfile::Potato), 0, false), (1, true), "on Potato a ragdoll throws one piece");
         let cap = VisualQualityBudget::for_profile(VisualQualityProfile::Potato).particles.max_particles;
-        assert_eq!(thrown(Some(VisualQualityProfile::Potato), cap), (0, false), "at the cap a burst throws nothing and builds no floor");
+        assert_eq!(thrown(Some(VisualQualityProfile::Potato), cap, false), (0, false), "at the cap a burst throws nothing and builds no floor");
+        assert_eq!(
+            thrown(Some(VisualQualityProfile::Potato), cap, true),
+            (1, true),
+            "a full cap of retired pieces (waiting for their despawn) took the place of live debris"
+        );
+    }
+
+    /// A burst with debris turned off builds no floor colliders. The control:
+    /// with debris on, the same burst builds the room's one floor.
+    #[cfg(feature = "physics_debris")]
+    #[test]
+    fn a_burst_with_debris_off_builds_no_floor() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+        let floors = |enabled: bool| {
+            let mut app = App::new();
+            app.insert_resource(PhysicsSandboxSettings { debris_enabled: enabled, ..Default::default() });
+            app.add_message::<DebrisBurstMessage>();
+            app.add_systems(Update, physics_spawn_debris_messages);
+            let room = LiveRoomInstance::ACTIVATION;
+            app.world_mut().spawn((
+                RoomInstanceRoot,
+                room,
+                ambition_platformer2d_core::RoomGeometry(ae::World::new(
+                    "room",
+                    ae::Vec2::new(1000.0, 600.0),
+                    ae::Vec2::ZERO,
+                    vec![ae::Block::solid("floor", ae::Vec2::new(0.0, 500.0), ae::Vec2::new(1000.0, 100.0))],
+                )),
+            ));
+            app.world_mut().write_message(DebrisBurstMessage { room: Some(room), pos: ae::Vec2::new(100.0, 100.0), cue: PhysicsDebrisCue::Impact });
+            app.update();
+            let world = app.world_mut();
+            world.query_filtered::<(), With<PhysicsRoomFloor>>().iter(world).count()
+        };
+        assert_eq!(floors(true), 1, "control: with debris on the burst builds the room's floor");
+        assert_eq!(floors(false), 0, "with debris off a burst built floor colliders");
+    }
+
+    /// Avian pauses when the only debris left is retired: hidden, disabled,
+    /// and waiting for its despawn. The control: one live piece keeps it awake.
+    #[cfg(feature = "physics_debris")]
+    #[test]
+    fn retired_debris_does_not_keep_avian_awake() {
+        use avian2d::schedule::PhysicsTime as _;
+        let paused = |live: usize, retired: usize| {
+            let mut app = App::new();
+            app.init_resource::<Time<avian2d::schedule::Physics>>();
+            app.add_systems(Update, pause_physics_when_no_debris_exists);
+            for _ in 0..live {
+                app.world_mut().spawn(PhysicsDebris { lifetime: 10.0 });
+            }
+            for _ in 0..retired {
+                app.world_mut().spawn((PhysicsDebris { lifetime: 0.0 }, PendingPhysicsDespawn { timer: PHYSICS_DESPAWN_GRACE }));
+            }
+            app.update();
+            app.world().resource::<Time<avian2d::schedule::Physics>>().is_paused()
+        };
+        assert!(!paused(1, 3), "control: a live piece keeps avian awake");
+        assert!(paused(0, 3), "retired debris kept avian awake");
     }
 
     /// Debris lands on the floor of its own live room. The first burst in a

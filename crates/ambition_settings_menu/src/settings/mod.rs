@@ -73,6 +73,7 @@ pub enum SettingsOptionId {
     CameraZoom,
     CameraAspect,
     CameraFraming,
+    ViewShape,
     Flashes,
     Colorblind,
     ShowFps,
@@ -159,7 +160,7 @@ impl SettingsOptionId {
     /// This array is hand-kept. `scripts/check_enum_all_constants_are_complete.py`
     /// checks it against the enum.
     /// alone would go stale silently.
-    pub const ALL: [Self; 59] = [
+    pub const ALL: [Self; 60] = [
         Self::AimFrameMode,
         Self::Assist,
         Self::BurstInputMode,
@@ -217,6 +218,7 @@ impl SettingsOptionId {
         Self::TraceAutoDump,
         Self::TriggerPress,
         Self::TriggerRelease,
+        Self::ViewShape,
         Self::VisualQuality,
         Self::Vsync,
     ];

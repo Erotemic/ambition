@@ -203,9 +203,10 @@ pub fn resolve_control_slots(
     let mut unroutable = Vec::new();
 
     for slot in CANONICAL_SLOT_ORDER {
-        let gate = scheme.action_for_slot(slot).map(|a| a.gate.clone());
+        // Borrowed: this runs for each body on each tick.
+        let gate = scheme.action_for_slot(slot).map(|a| &a.gate);
         match slot {
-            ControlSlot::Attack => match gate.as_ref() {
+            ControlSlot::Attack => match gate {
                 Some(ActionGate::Technique(id)) => {
                     edges.set(
                         id,
@@ -221,7 +222,7 @@ pub fn resolve_control_slots(
                 None if !holds_item => clear_attack(control),
                 _ => {}
             },
-            ControlSlot::Special => match gate.as_ref() {
+            ControlSlot::Special => match gate {
                 Some(ActionGate::Technique(id)) => {
                     edges.set(
                         id,
@@ -237,7 +238,7 @@ pub fn resolve_control_slots(
                 // Move → the moveset "special" verb owns the press; keep it.
                 _ => {}
             },
-            ControlSlot::Projectile => match gate.as_ref() {
+            ControlSlot::Projectile => match gate {
                 Some(ActionGate::Technique(id)) => {
                     edges.set(
                         id,
@@ -288,7 +289,7 @@ pub fn resolve_control_slots(
                     control.taunt_pressed = false;
                 }
             }
-            ControlSlot::Shield => match gate.as_ref() {
+            ControlSlot::Shield => match gate {
                 Some(ActionGate::Technique(id)) => {
                     edges.set(
                         id,

@@ -1100,6 +1100,7 @@ dependencies = [
  "ambition_engine_schemas",
  "ambition_input",
  "ambition_menu",
+ "ambition_persistence",
  "ambition_platformer2d_core",
  "ambition_platformer2d_provider",
  "ambition_platformer2d_runtime",

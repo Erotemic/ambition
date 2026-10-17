@@ -42,6 +42,10 @@ pub struct SheetGeneration {
     /// takes a file whose text did not change from here.
     parsed_files: std::collections::HashMap<String, Vec<crate::SheetRecord>>,
     digest: OnceLock<String>,
+    /// Whether each body rig of this generation was parsed and prepared. The
+    /// first table is not checked, so a later preparation checks again a rig
+    /// it holds unchanged.
+    rigs_checked: bool,
 }
 
 impl SheetGeneration {
@@ -65,6 +69,7 @@ impl SheetGeneration {
             registry,
             parsed_files,
             digest: OnceLock::new(),
+            rigs_checked: false,
         }
     }
 
@@ -83,6 +88,7 @@ impl SheetGeneration {
             registry: prepared.registry,
             parsed_files: prepared.parsed_files,
             digest: OnceLock::new(),
+            rigs_checked: true,
         }
     }
 
@@ -290,10 +296,7 @@ pub fn prepare_sheet_table(texts: SheetTexts) -> Result<PreparedSheetTable, Shee
     let previous = current();
     let (parsed_files, mut failed, parsed_now) = crate::parse_sheet_files(&texts.sheets, Some((previous.rons(), &previous.parsed_files)));
     for (target, text) in &texts.body_rigs {
-        // A rig the current generation holds with the same text was checked
-        // when that generation was prepared.
-        let rigs = previous.body_rigs();
-        if rigs.binary_search_by(|(name, _)| name.cmp(target)).is_ok_and(|at| rigs[at].1 == *text) {
+        if !rig_needs_check(previous.body_rigs(), previous.rigs_checked, target, text) {
             continue;
         }
         let checked = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
@@ -311,6 +314,15 @@ pub fn prepare_sheet_table(texts: SheetTexts) -> Result<PreparedSheetTable, Shee
         .map_err(SheetTableRefused)?;
     let registry = crate::SheetRegistry::from_index(crate::index_parsed(&texts.sheets, &parsed_files, Vec::new()));
     Ok(PreparedSheetTable { texts, registry, parsed_files, parsed_now, part_tables, portraits, pack_catalogs })
+}
+
+/// Whether a preparation must parse and prepare the rig `text` of `target`.
+/// Not when the current generation holds the same text AND checked it: the
+/// first generation was not checked, so the same text there is no proof
+/// (found in review, 2026-10-17).
+fn rig_needs_check(current: &[(&str, &str)], current_checked: bool, target: &str, text: &str) -> bool {
+    let unchanged = current.binary_search_by(|(name, _)| (*name).cmp(target)).is_ok_and(|at| current[at].1 == text);
+    !(unchanged && current_checked)
 }
 
 /// Make `prepared` the sheet table every reader reads, with the records
@@ -406,5 +418,22 @@ fn read_texts_under(owner: &std::path::Path, previous: Option<&SheetGeneration>)
             portraits: texts_reusing(portrait_files_under(owner), was(SheetGeneration::portrait_rons)),
             pack_catalogs: texts_reusing(pack_catalog_files_under(owner), was(SheetGeneration::pack_catalog_texts)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::rig_needs_check;
+
+    /// A rig is taken without a check only from a generation that checked it:
+    /// an unchanged rig of the unchecked first table is checked again. The
+    /// control: an unchanged rig of a checked generation is not.
+    #[test]
+    fn an_unchanged_rig_is_taken_only_from_a_checked_generation() {
+        let current = [("alice", "rig a"), ("bob", "rig b")];
+        assert!(!rig_needs_check(&current, true, "bob", "rig b"), "control: an unchanged rig of a checked generation");
+        assert!(rig_needs_check(&current, false, "bob", "rig b"), "an unchanged rig of the unchecked first table was not checked");
+        assert!(rig_needs_check(&current, true, "bob", "rig b2"), "a changed rig");
+        assert!(rig_needs_check(&current, true, "carol", "rig c"), "a new rig");
     }
 }

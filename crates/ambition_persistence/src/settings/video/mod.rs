@@ -638,6 +638,64 @@ fn default_robot_scanlines() -> f32 {
     0.38
 }
 
+/// The shape of the gameplay view. `GameShape` plays each game in the shape
+/// it declares (Mary-O is 4:3, Ambition fills the screen). `FourByThree` plays
+/// every game in a 4:3 view with bars beside it: fewer pixels to draw, so a
+/// slow device can choose it. This is the viewport, not the zoom
+/// ([`CameraAspectPolicy`] sets how the world fits the view).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GameplayViewShape {
+    GameShape,
+    FourByThree,
+}
+
+/// A settings file with no view shape (a fresh install, or one written before
+/// the setting) reads this platform's default.
+impl Default for GameplayViewShape {
+    fn default() -> Self {
+        Self::default_for(cfg!(target_os = "android"))
+    }
+}
+
+impl GameplayViewShape {
+    pub const ALL: [Self; 2] = [Self::GameShape, Self::FourByThree];
+
+    /// The default on a phone is 4:3 for every game (Jon, 2026-10-17): fewer
+    /// pixels on the device least able to draw them. A desktop plays each game
+    /// in its own shape.
+    pub fn default_for(android: bool) -> Self {
+        if android {
+            Self::FourByThree
+        } else {
+            Self::GameShape
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::GameShape => "game's own",
+            Self::FourByThree => "4:3",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        cycle_next(&Self::ALL, self, 0)
+    }
+
+    pub fn prev(self) -> Self {
+        cycle_prev(&Self::ALL, self, 0)
+    }
+
+    /// The aspect the player asks for, as width and height. `None` when each
+    /// game keeps its own.
+    pub fn aspect(self) -> Option<(f32, f32)> {
+        match self {
+            Self::GameShape => None,
+            Self::FourByThree => Some((4.0, 3.0)),
+        }
+    }
+}
+
 fn default_underwater_distortion() -> f32 {
     0.95
 }
@@ -664,6 +722,8 @@ pub struct VideoSettings {
     pub camera_aspect: CameraAspectPolicy,
     #[serde(default)]
     pub camera_framing: CameraFramingPreset,
+    #[serde(default)]
+    pub view_shape: GameplayViewShape,
     #[serde(default)]
     pub flashes: FlashIntensity,
     #[serde(default)]
@@ -701,6 +761,7 @@ impl Default for VideoSettings {
             camera_zoom: CameraZoomPreset::default(),
             camera_aspect: CameraAspectPolicy::default(),
             camera_framing: CameraFramingPreset::default(),
+            view_shape: GameplayViewShape::default(),
             flashes: FlashIntensity::default(),
             colorblind: ColorblindMode::default(),
             show_fps: default_show_fps(),

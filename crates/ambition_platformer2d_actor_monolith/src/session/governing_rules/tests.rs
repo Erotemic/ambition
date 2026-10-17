@@ -129,3 +129,47 @@ fn with_one_live_room_only_its_own_scope_governs() {
     app.update();
     assert_eq!(app.world().resource::<Scopes>().0, vec![true, false, false]);
 }
+
+#[derive(Resource, Default, Debug, PartialEq)]
+struct Gates(Vec<bool>);
+
+fn gate(rules: GoverningRules<ambition_platformer2d_shared_tangle::capability::UsedCapabilities>, mut gates: ResMut<Gates>) {
+    use ambition_platformer2d_shared_tangle::capability::Capability;
+    gates.0 = [Capability::Portals, Capability::Mounts, Capability::Dialogue]
+        .into_iter()
+        .map(|capability| rules.any_live_room_uses(capability))
+        .collect();
+}
+
+/// [`two_game_session`] where Ambition's hall uses no portals and Smash's
+/// stage uses no portals and no mounts.
+fn capability_app(two: bool) -> App {
+    use ambition_platformer2d_shared_tangle::capability::{Capability, UsedCapabilities};
+    let mut app = App::new();
+    let mut rules = DeclaredRules::<UsedCapabilities>::default();
+    rules.declare(RulesScope::UntaggedRooms, UsedCapabilities::ALL.without(Capability::Portals));
+    rules.declare(RulesScope::Mode("smash"), UsedCapabilities::ALL.without(Capability::Portals).without(Capability::Mounts));
+    app.insert_resource(rules);
+    two_game_session(&mut app, two);
+    app.init_resource::<Gates>().add_systems(Update, gate);
+    app
+}
+
+/// OW1: a capability sleeps while NO live room uses it. With the hall and the
+/// stage live, portals (used by neither) sleep, and mounts (the hall's) and
+/// dialogue (both) run. Through THE live room both rooms read as none, and
+/// each capability ran.
+#[test]
+fn a_capability_sleeps_while_no_live_room_uses_it() {
+    let mut app = capability_app(true);
+    app.update();
+    assert_eq!(app.world().resource::<Gates>().0, vec![false, true, true], "portals, mounts, dialogue");
+}
+
+/// The control: with the hall alone live, its own declaration decides.
+#[test]
+fn with_one_live_room_its_own_capabilities_run() {
+    let mut app = capability_app(false);
+    app.update();
+    assert_eq!(app.world().resource::<Gates>().0, vec![false, true, true], "portals, mounts, dialogue");
+}

@@ -824,9 +824,12 @@ fn chunk_key(quad: &SkinQuad) -> SkinChunkKey {
     SkinChunkKey { cell: (cell.x as i32, cell.y as i32), layer: quad.layer, part: quad.part as u8 }
 }
 
-fn chunk_stamp<'a>(quads: impl Iterator<Item = &'a SkinQuad>) -> u64 {
+fn chunk_stamp<'a>(quads: impl Iterator<Item = &'a SkinQuad>, image_size: Vec2) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    // The UVs are each quad's rectangle over the size of its picture.
+    image_size.x.to_bits().hash(&mut hasher);
+    image_size.y.to_bits().hash(&mut hasher);
     for quad in quads {
         for value in [quad.centre.x, quad.centre.y, quad.size.x, quad.size.y, quad.texture.min.x, quad.texture.min.y, quad.texture.max.x, quad.texture.max.y] {
             value.to_bits().hash(&mut hasher);
@@ -889,8 +892,10 @@ pub fn lay_room_terrain(
     meshes: Option<ResMut<Assets<Mesh>>>,
     materials: Option<ResMut<Assets<ColorMaterial>>>,
     density: Option<Res<TerrainDecorDensity>>,
-    mut rooms: Query<(Entity, &mut RoomTerrain, &TerrainKeepOut, Option<&InRoomInstance>)>,
-    added: Query<Option<&InRoomInstance>, Added<TerrainSurface>>,
+    mut image_events: MessageReader<AssetEvent<Image>>,
+    mut rooms: Query<(Entity, &mut RoomTerrain, Ref<TerrainKeepOut>, Option<&InRoomInstance>)>,
+    // A block that comes, or one whose rectangle, kind or theme is written.
+    added: Query<Option<&InRoomInstance>, Changed<TerrainSurface>>,
     arted: Query<Option<&InRoomInstance>, (With<TerrainSurface>, Added<EntityArt>)>,
     mut removed: RemovedComponents<TerrainSurface>,
     mut blocks: Query<(Entity, &TerrainSurface, &mut Sprite, Option<&InRoomInstance>, Has<EntityArt>, Has<TerrainSkinned>)>,
@@ -911,16 +916,44 @@ pub fn lay_room_terrain(
             }
         }
     }
+    // A picture written in place can have another size, and the UVs are
+    // over its size.
+    let pictures_changed: Vec<AssetId<Image>> = image_events
+        .read()
+        .filter_map(|event| match event {
+            AssetEvent::Modified { id } => Some(*id),
+            _ => None,
+        })
+        .collect();
+    let density_changed = density.as_ref().is_some_and(|density| density.is_changed());
     let (Some(assets), Some(mut meshes), Some(mut materials)) = (assets, meshes, materials) else {
         return;
     };
     let skins = &assets.room_dressing;
     let spacing = density.map_or(TerrainDecorDensity::default().spacing, |density| density.spacing);
     for (root, mut terrain, keep_out, at) in &mut rooms {
+        let theme = terrain.theme;
+        // A part whose picture is another handle now (a reload, a quality
+        // change) draws the new one; one written in place is laid again.
+        let mut pictures_moved = false;
+        for (part, material) in &terrain.materials {
+            let wanted = skins.get(theme, *part);
+            if wanted.is_some_and(|handle| pictures_changed.contains(&handle.id())) {
+                pictures_moved = true;
+            }
+            if materials.get(material).is_some_and(|drawn| drawn.texture.as_ref() != wanted) {
+                if let Some(mut drawn) = materials.get_mut(material) {
+                    drawn.texture = wanted.cloned();
+                }
+                pictures_moved = true;
+            }
+        }
+        if (pictures_moved || density_changed || keep_out.is_changed()) && !terrain.dirty {
+            terrain.dirty = true;
+        }
         if !terrain.dirty || !skins.attempted(terrain.theme) {
             continue;
         }
-        let theme = terrain.theme;
         let room = stamp(at);
         let laid: Vec<(Entity, TerrainSurface, bool)> = blocks
             .iter()
@@ -928,7 +961,7 @@ pub fn lay_room_terrain(
             .map(|(entity, surface, _, _, with_art, _)| (entity, *surface, with_art))
             .collect();
         let parts = |part| skins.get(theme, part).is_some();
-        let (block_skins, quads) = lay_room_skin(&laid, Some(keep_out), spacing, &parts);
+        let (block_skins, quads) = lay_room_skin(&laid, Some(&*keep_out), spacing, &parts);
         // Each picture the quads show must be loaded: its size places the
         // quads in it. A room whose pictures are not here yet waits.
         let mut sizes: std::collections::HashMap<RoomDressingPart, Vec2> = std::collections::HashMap::new();
@@ -995,7 +1028,7 @@ pub fn lay_room_terrain(
         }
         for (key, members) in &groups {
             let part = quads[members[0]].part;
-            let chunk_stamp = chunk_stamp(members.iter().map(|&index| &quads[index]));
+            let chunk_stamp = chunk_stamp(members.iter().map(|&index| &quads[index]), sizes[&part]);
             if terrain.chunks.get(key).is_some_and(|chunk| chunk.stamp == chunk_stamp) {
                 continue;
             }
@@ -1522,6 +1555,7 @@ mod tests {
         world.init_resource::<Assets<Mesh>>();
         world.init_resource::<Assets<ColorMaterial>>();
         world.insert_resource(TerrainDecorDensity { spacing: 0.0 });
+        world.init_resource::<Messages<AssetEvent<Image>>>();
         let room = world.spawn((RoomTerrain::new(ParallaxTheme::Cave, Vec2::new(512.0, 256.0)), TerrainKeepOut::default(), Transform::default())).id();
         let block = |world: &mut World, s: TerrainSurface| world.spawn((s, Sprite::from_color(Color::WHITE, s.size))).id();
         let floor = block(&mut world, surface(TerrainSurfaceKind::Solid, 0.0, 100.0, 200.0, 32.0));
@@ -1588,5 +1622,71 @@ mod tests {
         assert_eq!(far_mesh(&world), before, "the far chunk keeps its mesh");
         assert_eq!(far_entities(&world), entities_before, "and its entities");
         assert!(world.entity(room).get::<RoomTerrain>().unwrap().quads_of(far).count() > 0);
+    }
+
+    /// The skin is laid again when any of what it is made of changes in
+    /// place, not only when a block comes or goes: a block's rectangle, the
+    /// room's keep-out and the decor density (the quads), the size of a
+    /// picture (the UVs), and the picture a part draws (the material). The
+    /// control: a frame where nothing changed builds no mesh.
+    #[test]
+    fn the_skin_follows_each_of_its_inputs_changed_in_place() {
+        let (mut world, room, floor, brick) = terrain_world(true);
+        // One system, run each time: its change filters read what changed
+        // since its last run, as in the app (a system made for one run sees
+        // everything as changed).
+        let lay = world.register_system(lay_room_terrain);
+        world.run_system(lay).unwrap();
+        let cap = |world: &World| -> f32 {
+            world.entity(room).get::<RoomTerrain>().unwrap().quads_of(floor).filter(|quad| quad.part == RoomDressingPart::Cap).map(|quad| quad.size.x).sum()
+        };
+        let quad_count = |world: &World| world.entity(room).get::<RoomTerrain>().unwrap().quads.len();
+        let stamps = |world: &World| -> Vec<u64> { world.entity(room).get::<RoomTerrain>().unwrap().chunks.values().map(|chunk| chunk.stamp).collect() };
+
+        let before = stamps(&world);
+        world.run_system(lay).unwrap();
+        assert_eq!(stamps(&world), before, "control: nothing changed, nothing built");
+
+        // The brick moves off the floor, in place.
+        assert_eq!(cap(&world), 200.0 - 16.0);
+        world.entity_mut(brick).get_mut::<TerrainSurface>().unwrap().min.x = 400.0;
+        world.run_system(lay).unwrap();
+        assert_eq!(cap(&world), 200.0, "a block's rectangle written in place");
+
+        // Decor comes with a density, and goes with a keep-out over it.
+        let bare = quad_count(&world);
+        world.resource_mut::<TerrainDecorDensity>().spacing = 40.0;
+        world.run_system(lay).unwrap();
+        let decorated = quad_count(&world);
+        assert!(decorated > bare, "the decor density written in place ({bare} quads, then {decorated})");
+        world.entity_mut(room).get_mut::<TerrainKeepOut>().unwrap().0 = vec![(Vec2::new(-1000.0, -1000.0), Vec2::new(2000.0, 2000.0))];
+        world.run_system(lay).unwrap();
+        assert_eq!(quad_count(&world), bare, "the room's keep-out written in place");
+
+        // The cap's picture is written in place at twice the size.
+        let cap_picture = world.resource::<GameAssets>().room_dressing.get(ParallaxTheme::Cave, RoomDressingPart::Cap).unwrap().clone();
+        let before = stamps(&world);
+        let larger = Image::new_fill(
+            bevy::render::render_resource::Extent3d { width: 256, height: 256, depth_or_array_layers: 1 },
+            bevy::render::render_resource::TextureDimension::D2,
+            &[255, 255, 255, 255],
+            bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::all(),
+        );
+        let _ = world.resource_mut::<Assets<Image>>().insert(&cap_picture, larger);
+        world.write_message(AssetEvent::<Image>::Modified { id: cap_picture.id() });
+        world.run_system(lay).unwrap();
+        assert_ne!(stamps(&world), before, "a picture's size written in place (its UVs)");
+
+        // The cap draws another picture.
+        let other = world.resource_mut::<Assets<Image>>().add(Image::default());
+        world.resource_mut::<GameAssets>().room_dressing.insert(ParallaxTheme::Cave, RoomDressingPart::Cap, other.clone());
+        world.run_system(lay).unwrap();
+        let material = world.entity(room).get::<RoomTerrain>().unwrap().materials[&RoomDressingPart::Cap].clone();
+        assert_eq!(
+            world.resource::<Assets<ColorMaterial>>().get(&material).unwrap().texture.as_ref(),
+            Some(&other),
+            "the picture a part draws, moved to another handle"
+        );
     }
 }

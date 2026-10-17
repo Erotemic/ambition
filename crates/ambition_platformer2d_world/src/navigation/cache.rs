@@ -42,7 +42,21 @@ impl NavGraphKey {
         base_size: BodyBaseSize,
         frame: MotionFrame,
     ) -> Self {
-        Self { room: geometry_stamp(world, exits), spec, abilities, size, base_size, frame }
+        Self::from_stamp(geometry_stamp(world, exits), spec, abilities, size, base_size, frame)
+    }
+
+    /// The key of a graph whose world and exits have the stamp `room`
+    /// ([`geometry_stamp`]): for a caller that keys many bodies in one world
+    /// and stamps the world once.
+    pub fn from_stamp(
+        room: u64,
+        spec: MotionModelSpec,
+        abilities: AbilitySet,
+        size: Vec2,
+        base_size: BodyBaseSize,
+        frame: MotionFrame,
+    ) -> Self {
+        Self { room, spec, abilities, size, base_size, frame }
     }
 
     /// The probe body the graph is built for: the tuning with no history. A
@@ -113,30 +127,257 @@ impl NavGraphCache {
     }
 }
 
-/// One number for the geometry a graph is built from: each block's box, and
-/// what the graph reads of its kind (a support, a wall, a hazard, a one-way
-/// surface, a block that moves), and each exit the graph avoids. Two rooms
-/// with the same blocks and exits have the same graph.
+/// One number for the world a graph is built from, and the exits it avoids.
+///
+/// A graph is built by stepping a probe body through the WHOLE world (its
+/// rollouts call the movement kernel), so the number folds every field of the
+/// world the kernel can read: each block whole, the water and climbable
+/// regions, the surface chains, the edges, the size. It folds them through
+/// serde, so a field added to the world later is in the number without an
+/// edit here. Only `name` fields are left out: a label is not geometry. Two
+/// worlds with one number have the same graph.
 pub fn geometry_stamp(world: &World, exits: &[Aabb]) -> u64 {
-    use ae::collision_semantics::{is_full_collision_surface, is_support_surface};
-    let mut stamp = ae::navigation::mix(world.blocks.len() as u64);
-    let mut fold = |value: u64| stamp = ae::navigation::mix(stamp ^ value);
-    fold(((world.size.x.to_bits() as u64) << 32) | world.size.y.to_bits() as u64);
-    for block in &world.blocks {
-        fold(((block.aabb.min.x.to_bits() as u64) << 32) | block.aabb.min.y.to_bits() as u64);
-        fold(((block.aabb.max.x.to_bits() as u64) << 32) | block.aabb.max.y.to_bits() as u64);
-        fold(
-            u64::from(is_support_surface(block.kind))
-                | u64::from(is_full_collision_surface(block.kind)) << 1
-                | u64::from(block.kind == ae::BlockKind::Hazard) << 2
-                | u64::from(block.kind == ae::BlockKind::OneWay) << 3
-                | u64::from(block.velocity != Vec2::ZERO) << 4,
+    use serde::Serialize as _;
+    let mut fold = fingerprint::Fold(0x6e61_765f_6772_6170);
+    // The fold cannot fail: its error type has no value.
+    let _ = world.serialize(&mut fold);
+    fold.fold(exits.len() as u64);
+    for exit in exits {
+        fold.fold(((exit.min.x.to_bits() as u64) << 32) | exit.min.y.to_bits() as u64);
+        fold.fold(((exit.max.x.to_bits() as u64) << 32) | exit.max.y.to_bits() as u64);
+    }
+    ae::navigation::mix(fold.0)
+}
+
+/// A serde serializer that folds each value into one number, with no
+/// allocation: floats by their bits, strings by their bytes, an enum by its
+/// variant, a sequence by its length and an end mark. Each value is folded by
+/// a multiply and a rotate (as FxHash does), and the result is mixed once at
+/// the end: a world has a few values for each block, and the stamp is asked
+/// for each tick.
+mod fingerprint {
+    use serde::ser::{self, Serialize};
+
+    pub(super) struct Fold(pub u64);
+
+    impl Fold {
+        pub(super) fn fold(&mut self, value: u64) {
+            self.0 = (self.0.rotate_left(5) ^ value).wrapping_mul(0x517c_c1b7_2722_0a95);
+        }
+
+        fn bytes(&mut self, bytes: &[u8]) {
+            self.fold(bytes.len() as u64);
+            for chunk in bytes.chunks(8) {
+                let mut word = [0u8; 8];
+                word[..chunk.len()].copy_from_slice(chunk);
+                self.fold(u64::from_le_bytes(word));
+            }
+        }
+    }
+
+    /// The end of a sequence, a tuple or a struct, so `[a][b]` and `[a, b]`
+    /// fold apart.
+    const END: u64 = 0x656e_645f_6d61_726b;
+
+    #[derive(Debug)]
+    pub(super) enum Never {}
+
+    impl std::fmt::Display for Never {
+        fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match *self {}
+        }
+    }
+
+    impl std::error::Error for Never {}
+
+    impl ser::Error for Never {
+        fn custom<T: std::fmt::Display>(_: T) -> Self {
+            unreachable!("the fold never fails")
+        }
+    }
+
+    type Done = Result<(), Never>;
+
+    impl ser::Serializer for &mut Fold {
+        type Ok = ();
+        type Error = Never;
+        type SerializeSeq = Self;
+        type SerializeTuple = Self;
+        type SerializeTupleStruct = Self;
+        type SerializeTupleVariant = Self;
+        type SerializeMap = Self;
+        type SerializeStruct = Self;
+        type SerializeStructVariant = Self;
+
+        fn serialize_bool(self, v: bool) -> Done { self.fold(u64::from(v)); Ok(()) }
+        fn serialize_i8(self, v: i8) -> Done { self.fold(v as u64); Ok(()) }
+        fn serialize_i16(self, v: i16) -> Done { self.fold(v as u64); Ok(()) }
+        fn serialize_i32(self, v: i32) -> Done { self.fold(v as u64); Ok(()) }
+        fn serialize_i64(self, v: i64) -> Done { self.fold(v as u64); Ok(()) }
+        fn serialize_u8(self, v: u8) -> Done { self.fold(u64::from(v)); Ok(()) }
+        fn serialize_u16(self, v: u16) -> Done { self.fold(u64::from(v)); Ok(()) }
+        fn serialize_u32(self, v: u32) -> Done { self.fold(u64::from(v)); Ok(()) }
+        fn serialize_u64(self, v: u64) -> Done { self.fold(v); Ok(()) }
+        fn serialize_f32(self, v: f32) -> Done { self.fold(u64::from(v.to_bits())); Ok(()) }
+        fn serialize_f64(self, v: f64) -> Done { self.fold(v.to_bits()); Ok(()) }
+        fn serialize_char(self, v: char) -> Done { self.fold(u64::from(v)); Ok(()) }
+        fn serialize_str(self, v: &str) -> Done { self.bytes(v.as_bytes()); Ok(()) }
+        fn serialize_bytes(self, v: &[u8]) -> Done { self.bytes(v); Ok(()) }
+        fn serialize_none(self) -> Done { self.fold(0); Ok(()) }
+        fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Done { self.fold(1); value.serialize(self) }
+        fn serialize_unit(self) -> Done { self.fold(2); Ok(()) }
+        fn serialize_unit_struct(self, _: &'static str) -> Done { self.fold(2); Ok(()) }
+        fn serialize_unit_variant(self, _: &'static str, index: u32, _: &'static str) -> Done {
+            self.fold(u64::from(index));
+            Ok(())
+        }
+        fn serialize_newtype_struct<T: ?Sized + Serialize>(self, _: &'static str, value: &T) -> Done {
+            value.serialize(self)
+        }
+        fn serialize_newtype_variant<T: ?Sized + Serialize>(self, _: &'static str, index: u32, _: &'static str, value: &T) -> Done {
+            self.fold(u64::from(index));
+            value.serialize(self)
+        }
+        fn serialize_seq(self, len: Option<usize>) -> Result<Self, Never> {
+            self.fold(len.map_or(u64::MAX, |len| len as u64));
+            Ok(self)
+        }
+        fn serialize_tuple(self, _: usize) -> Result<Self, Never> { Ok(self) }
+        fn serialize_tuple_struct(self, _: &'static str, _: usize) -> Result<Self, Never> { Ok(self) }
+        fn serialize_tuple_variant(self, _: &'static str, index: u32, _: &'static str, _: usize) -> Result<Self, Never> {
+            self.fold(u64::from(index));
+            Ok(self)
+        }
+        fn serialize_map(self, len: Option<usize>) -> Result<Self, Never> {
+            self.fold(len.map_or(u64::MAX, |len| len as u64));
+            Ok(self)
+        }
+        fn serialize_struct(self, _: &'static str, _: usize) -> Result<Self, Never> { Ok(self) }
+        fn serialize_struct_variant(self, _: &'static str, index: u32, _: &'static str, _: usize) -> Result<Self, Never> {
+            self.fold(u64::from(index));
+            Ok(self)
+        }
+    }
+
+    impl ser::SerializeSeq for &mut Fold {
+        type Ok = ();
+        type Error = Never;
+        fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Done { value.serialize(&mut **self) }
+        fn end(self) -> Done { self.fold(END); Ok(()) }
+    }
+
+    impl ser::SerializeTuple for &mut Fold {
+        type Ok = ();
+        type Error = Never;
+        fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Done { value.serialize(&mut **self) }
+        fn end(self) -> Done { self.fold(END); Ok(()) }
+    }
+
+    impl ser::SerializeTupleStruct for &mut Fold {
+        type Ok = ();
+        type Error = Never;
+        fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Done { value.serialize(&mut **self) }
+        fn end(self) -> Done { self.fold(END); Ok(()) }
+    }
+
+    impl ser::SerializeTupleVariant for &mut Fold {
+        type Ok = ();
+        type Error = Never;
+        fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Done { value.serialize(&mut **self) }
+        fn end(self) -> Done { self.fold(END); Ok(()) }
+    }
+
+    impl ser::SerializeMap for &mut Fold {
+        type Ok = ();
+        type Error = Never;
+        fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Done { key.serialize(&mut **self) }
+        fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Done { value.serialize(&mut **self) }
+        fn end(self) -> Done { self.fold(END); Ok(()) }
+    }
+
+    impl ser::SerializeStruct for &mut Fold {
+        type Ok = ();
+        type Error = Never;
+        fn serialize_field<T: ?Sized + Serialize>(&mut self, key: &'static str, value: &T) -> Done {
+            // A label is not geometry.
+            if key == "name" {
+                return Ok(());
+            }
+            value.serialize(&mut **self)
+        }
+        fn end(self) -> Done { self.fold(END); Ok(()) }
+    }
+
+    impl ser::SerializeStructVariant for &mut Fold {
+        type Ok = ();
+        type Error = Never;
+        fn serialize_field<T: ?Sized + Serialize>(&mut self, key: &'static str, value: &T) -> Done {
+            if key == "name" {
+                return Ok(());
+            }
+            value.serialize(&mut **self)
+        }
+        fn end(self) -> Done { self.fold(END); Ok(()) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn room(blocks: Vec<ae::Block>) -> World {
+        World::new("room", Vec2::new(800.0, 600.0), Vec2::ZERO, blocks)
+    }
+
+    fn floor() -> ae::Block {
+        ae::Block::solid("floor", Vec2::new(0.0, 500.0), Vec2::new(800.0, 100.0))
+    }
+
+    /// A graph's rollouts step a body through the whole world, so each part of
+    /// the world the movement kernel reads moves the stamp: water, a climbable
+    /// region, a surface chain, a block's kind and its velocity, the edges.
+    /// The control: a new label on a block is the same geometry, and the same
+    /// stamp. (Found in review, 2026-10-17: the stamp read blocks, a few kind
+    /// predicates and the exits, so a dry room's graph answered for a wet one.)
+    #[test]
+    fn each_part_of_the_world_the_kernel_reads_moves_the_stamp() {
+        let dry = room(vec![floor()]);
+        let stamp = |world: &World| geometry_stamp(world, &[]);
+        let base = stamp(&dry);
+        let region = ae::Aabb::new(Vec2::new(300.0, 300.0), Vec2::new(200.0, 200.0));
+
+        let mut renamed = floor();
+        renamed.name = "ground".into();
+        assert_eq!(stamp(&room(vec![renamed])), base, "control: a label is not geometry");
+
+        let mut wet = dry.clone();
+        wet.water_regions.push(ae::WaterRegion::new(region, ae::WaterKind::Clear, Default::default()));
+        let mut ladder = dry.clone();
+        ladder.climbable_regions.push(ae::ClimbableRegion::new(region, ae::ClimbableKind::Ladder, Default::default()));
+        let mut sloped = dry.clone();
+        sloped.chains = vec![ae::SurfaceChain::open("slope", vec![Vec2::new(0.0, 500.0), Vec2::new(400.0, 300.0)])].into();
+        let mut blink = floor();
+        blink.kind = ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Soft };
+        let mut moving = floor();
+        moving.velocity = Vec2::new(1.0, 0.0);
+        let mut moving_faster = floor();
+        moving_faster.velocity = Vec2::new(2.0, 0.0);
+        let mut deeper = dry.clone();
+        deeper.edges.fall += 100.0;
+        for (what, world) in [
+            ("water", wet),
+            ("a ladder", ladder),
+            ("a surface chain", sloped),
+            ("a block's kind", room(vec![blink])),
+            ("a block's velocity", room(vec![moving.clone()])),
+            ("the edges", deeper),
+        ] {
+            assert_ne!(stamp(&world), base, "{what} did not move the stamp");
+        }
+        assert_ne!(
+            stamp(&room(vec![moving])),
+            stamp(&room(vec![moving_faster])),
+            "two speeds of one moving block have one stamp"
         );
     }
-    fold(exits.len() as u64);
-    for exit in exits {
-        fold(((exit.min.x.to_bits() as u64) << 32) | exit.min.y.to_bits() as u64);
-        fold(((exit.max.x.to_bits() as u64) << 32) | exit.max.y.to_bits() as u64);
-    }
-    stamp
 }

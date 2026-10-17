@@ -857,6 +857,30 @@ impl GameplayPresentationProfile {
         self.controls = controls;
         self
     }
+
+    /// This profile in the view shape the player chose, or unchanged for
+    /// `None`. A game that declares a fixed aspect keeps its fit and its
+    /// surround. A full-bleed game gets what a game that declares the shape
+    /// gets: centred, or pinned to the top on touch so the slack collects
+    /// under the thumbs, with solid bars that take the HUD and the controls.
+    pub fn with_player_aspect(self, aspect: Option<AspectRatio>, environment: PresentationEnvironment) -> Self {
+        let Some(aspect) = aspect else {
+            return self;
+        };
+        let (fit, declared) = match self.viewport {
+            GameplayViewportPolicy::FixedAspect { fit, .. } => (fit, true),
+            GameplayViewportPolicy::FullBleed => match environment {
+                PresentationEnvironment::TouchPrimary => (FixedAspectFit::Top, false),
+                PresentationEnvironment::Desktop | PresentationEnvironment::Handheld => (FixedAspectFit::Center, false),
+            },
+        };
+        let shaped = Self { viewport: GameplayViewportPolicy::FixedAspect { aspect, fit }, ..self };
+        if declared || shaped.surround != SurroundPolicy::None {
+            shaped
+        } else {
+            shaped.with_reserved_surround()
+        }
+    }
 }
 
 /// A game's declared presentation, per stable environment.

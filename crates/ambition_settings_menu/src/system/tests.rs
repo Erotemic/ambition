@@ -123,13 +123,14 @@ fn video_screen_is_the_curated_subset() {
     // one-global-profile→budget selector from the visual-quality-profiles feature)
     // leads the basic rows.
     assert_eq!(
-        &ids[..8],
+        &ids[..9],
         &[
             SettingsOptionId::VisualQuality,
             SettingsOptionId::DisplayMode,
             SettingsOptionId::CameraZoom,
             SettingsOptionId::CameraAspect,
             SettingsOptionId::CameraFraming,
+            SettingsOptionId::ViewShape,
             SettingsOptionId::Flashes,
             SettingsOptionId::Colorblind,
             SettingsOptionId::ShowFps,
@@ -161,6 +162,7 @@ fn shaders_screen_reaches_every_shader_option() {
                     | SettingsOptionId::CameraZoom
                     | SettingsOptionId::CameraAspect
                     | SettingsOptionId::CameraFraming
+                    | SettingsOptionId::ViewShape
                     | SettingsOptionId::Flashes
                     | SettingsOptionId::Colorblind
                     | SettingsOptionId::ShowFps
@@ -198,10 +200,10 @@ fn shaders_screen_reaches_every_shader_option() {
         ]
     );
     // Each shader option carries a live slider value label (e.g. "0%") so the
-    // cube renders the same control the grid does. (The leading 10 basic Video
-    // rows — 7 basic + FramePacing + Vsync + VisualQuality — are cycles/toggles, so
+    // cube renders the same control the grid does. (The leading 11 basic Video
+    // rows — 8 basic + FramePacing + Vsync + VisualQuality — are cycles/toggles, so
     // only the shader tail is checked.)
-    for o in options.iter().skip(10) {
+    for o in options.iter().skip(11) {
         assert!(matches!(o.kind, SettingsOptionKind::Slider { .. }));
     }
 }
@@ -229,6 +231,7 @@ fn system_screens_surface_every_player_facing_setting() {
         SettingsOptionId::CameraZoom,
         SettingsOptionId::CameraAspect,
         SettingsOptionId::CameraFraming,
+        SettingsOptionId::ViewShape,
         SettingsOptionId::Flashes,
         SettingsOptionId::Colorblind,
         SettingsOptionId::ShowFps,

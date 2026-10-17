@@ -132,6 +132,30 @@ pub struct FeatureDebugQueries<'w, 's> {
             Without<ambition_platformer2d::platformer::markers::PlayerEntity>,
         ),
     >,
+    /// Every item in the world (lying, rolling, thrown): its collision box is
+    /// the box it is drawn at. `Option` because a host without held items
+    /// does not insert it.
+    pub ground_items: Option<Res<'w, ambition_platformer2d::sim_view::GroundItemsView>>,
+}
+
+/// Draw each item's collision box in the shown room, at the pose its sprite
+/// is drawn at (`GroundItemsView`), so a coconut's box can be eyeballed
+/// against the walls and portals it meets.
+#[cfg(feature = "input")]
+pub(crate) fn draw_ground_item_debug(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    items: Option<&ambition_platformer2d::sim_view::GroundItemsView>,
+    room: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+    developer_tools: &DeveloperTools,
+) {
+    let color = Color::srgba(0.55, 1.00, 0.45, 0.92);
+    for item in items.into_iter().flat_map(|items| &items.0) {
+        if item.room != Some(room) {
+            continue;
+        }
+        draw_aabb_styled(gizmos, world, ae::Aabb::new(item.pos, item.half_extent), color, developer_tools);
+    }
 }
 
 pub(crate) fn draw_camera_frame(gizmos: &mut Gizmos, world: &ae::World, view: &CameraViewState) {

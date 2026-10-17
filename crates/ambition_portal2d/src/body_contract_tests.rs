@@ -298,3 +298,18 @@ fn a_body_beside_an_opening_does_not_open_it() {
     let in_line = ambition_platformer2d_core::Aabb::new(Vec2::new(110.0, 260.0), half);
     assert!(crate::transit::body_opens(&p, in_line, in_line.center(), Vec2::new(-138.0, 0.0), 60.0));
 }
+
+#[test]
+fn a_body_standing_past_an_openings_end_does_not_open_it() {
+    // A portal on a floor line (no host depth) facing up, from x 60 to 140.
+    // A body standing on the line past its right end, its box over the end
+    // and settling into the line as standing bodies do, is not falling
+    // through: the hole stays shut under it (the c130 ramp, Jon 2026-10-16).
+    let p = PlacedPortal::fixed(BLUE, Vec2::new(100.0, 300.0), Vec2::new(0.0, -1.0), 40.0);
+    let half = Vec2::new(11.0, 20.0);
+    let past_the_end = ambition_platformer2d_core::Aabb::new(Vec2::new(145.0, 300.0 - half.y + 0.5), half);
+    assert!(!crate::transit::body_opens(&p, past_the_end, past_the_end.center(), Vec2::new(0.0, 30.0), 0.0));
+    // Over the opening, falling, it opens.
+    let over = ambition_platformer2d_core::Aabb::new(Vec2::new(100.0, 300.0 - half.y + 0.5), half);
+    assert!(crate::transit::body_opens(&p, over, over.center(), Vec2::new(0.0, 30.0), 0.0));
+}

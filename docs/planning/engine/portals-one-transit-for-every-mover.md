@@ -275,6 +275,13 @@ the crossing frame.
   line with the opening (`snag::in_line_with`: its span along the face within the opening);
   measured: it walks off the ledge at full speed when its back edge passes the corner, and
   lands once.
+  The "falling through" branch of the rule had no such check, so a body standing on the
+  c130 ramp past the opening's end, settling into the line, opened it and fell and landed
+  every other tick (Jon 2026-10-16). Now no body that is not in line opens it.
+- **A short hop was drawn a hop ahead** (Jon's frames 13→14, the thin-wall door c142/c143,
+  16 px). The frame-clock smoothing (`PresentedPose`) guesses a teleport only past ~50 px,
+  so it took the hop for a step and extrapolated it. The host now declares each portal
+  transit (`DeclaredPoseWarps`); a declared body keeps its pace along its new velocity.
 - **A hole is open only for the bodies that opened it** (Jon 2026-10-16), so a body standing
   on the lintel keeps its floor while another passes. `PortalCarves` holes carry `open_for`;
   the overlay's `portal_holes` (`PortalHolePass`) are cut only in the walls a body meets

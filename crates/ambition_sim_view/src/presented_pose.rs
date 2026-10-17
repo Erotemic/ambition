@@ -169,6 +169,18 @@ impl PresentedPose {
         self.tick = tick;
     }
 
+    /// A warp carried the body here (it did not travel): it keeps the pace it
+    /// had, along the way it now moves (its velocity, which the warp turned
+    /// with it), so it is drawn neither a whole hop ahead nor parked. At rest
+    /// it parks.
+    fn push_warped(&mut self, pos: Vec2, vel: Vec2, tick: u64) {
+        let pace = self.tick_delta().length();
+        self.spanned = tick.saturating_sub(self.tick).clamp(1, u32::MAX as u64) as u32;
+        self.previous = pos - vel.normalize_or_zero() * pace * self.spanned as f32;
+        self.current = pos;
+        self.tick = tick;
+    }
+
     fn resample(&mut self, phase: f32) {
         self.presented = self.current + self.tick_delta() * phase;
     }
@@ -195,6 +207,20 @@ pub(crate) fn travelled_under_own_power(from: Vec2, to: Vec2, vel: Vec2, ticks: 
     from.distance(to) <= expected * TRAVEL_SLACK + TRAVEL_FLOOR_PX
 }
 
+/// The bodies a warp carried to their pose since the last frame (a portal
+/// pair): they did not travel there, however short the hop. The system that
+/// knows declares them; [`advance_presented_body_poses`] reads and clears it.
+/// The travel guess cannot see a short hop: a thin-wall door moves a body
+/// 16 px, which it takes for a step and draws the whole hop ahead.
+#[derive(bevy::prelude::Resource, Default, Debug)]
+pub struct DeclaredPoseWarps(Vec<bevy::prelude::Entity>);
+
+impl DeclaredPoseWarps {
+    pub fn declare(&mut self, body: bevy::prelude::Entity) {
+        self.0.push(body);
+    }
+}
+
 /// Roll every body's presented pose forward: extend the history on a new tick,
 /// then resample for THIS frame's phase.
 ///
@@ -205,6 +231,8 @@ pub fn advance_presented_body_poses(
     mut commands: Commands,
     tick: Res<SimTick>,
     phase: Res<PresentationPhase>,
+    // Optional: an app that registers this system alone has no warps.
+    mut warps: Option<ResMut<DeclaredPoseWarps>>,
     mut bodies: Query<(
         Entity,
         &ambition_platformer2d_core::BodyKinematics,
@@ -228,12 +256,19 @@ pub fn advance_presented_body_poses(
                 .0
                 .saturating_sub(presented.tick)
                 .clamp(1, u32::MAX as u64) as u32;
-            let continuous =
-                travelled_under_own_power(presented.current, pose.pos, pose.vel, spanned);
-            presented.push(pose.pos, tick.0, continuous);
+            if warps.as_ref().is_some_and(|warps| warps.0.contains(&entity)) {
+                presented.push_warped(pose.pos, pose.vel, tick.0);
+            } else {
+                let continuous =
+                    travelled_under_own_power(presented.current, pose.pos, pose.vel, spanned);
+                presented.push(pose.pos, tick.0, continuous);
+            }
         }
         // Resample EVERY frame — that is the entire point.
         presented.resample(phase);
+    }
+    if let Some(warps) = warps.as_mut() {
+        warps.0.clear();
     }
 }
 
@@ -326,6 +361,7 @@ impl bevy::prelude::Plugin for PresentedPosePlugin {
 
         app.init_resource::<PresentationPhase>();
         app.init_resource::<PresentedFeaturePoses>();
+        app.init_resource::<DeclaredPoseWarps>();
 
         // Publish the phase before any presented pose is resampled from it.
         app.configure_sets(
@@ -647,6 +683,28 @@ mod tests {
             Vec2::new(900.0, 0.0),
             "a discontinuous move parks at the destination for the whole tick"
         );
+    }
+
+    #[test]
+    fn a_short_warp_keeps_the_pace_and_is_not_drawn_a_hop_ahead() {
+        // Walking 4.5 px a tick, then a thin-wall door carries it 16 px more.
+        let mut pose = pose_at(Vec2::ZERO);
+        pose.push(Vec2::new(4.5, 0.0), 1, true);
+        pose.push_warped(Vec2::new(25.0, 0.0), Vec2::new(270.0, 0.0), 2);
+        pose.resample(1.0);
+        assert_eq!(pose.presented(), Vec2::new(29.5, 0.0));
+        // A pair that turns it: the pace goes the way it now moves.
+        let mut turned = pose_at(Vec2::ZERO);
+        turned.push(Vec2::new(4.0, 0.0), 1, true);
+        turned.push_warped(Vec2::new(50.0, 50.0), Vec2::new(0.0, -240.0), 2);
+        turned.resample(0.5);
+        assert_eq!(turned.presented(), Vec2::new(50.0, 48.0));
+        // At rest it parks.
+        let mut rest = pose_at(Vec2::ZERO);
+        rest.push(Vec2::new(4.0, 0.0), 1, true);
+        rest.push_warped(Vec2::new(50.0, 0.0), Vec2::ZERO, 2);
+        rest.resample(1.0);
+        assert_eq!(rest.presented(), Vec2::new(50.0, 0.0));
     }
 
     #[test]

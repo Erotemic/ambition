@@ -390,6 +390,23 @@ mod host_adapter {
         }
     }
 
+    /// Each body a portal pair carried this tick did not travel there: say so
+    /// to the frame-clock smoothing, which takes a short hop (a thin-wall door
+    /// moves a body 16 px) for a step and draws the body the whole hop ahead.
+    pub fn declare_portal_pose_warps(
+        mut transited: MessageReader<ambition_portal2d::PortalBodyTransited>,
+        // Absent in a host that does not smooth poses on the frame clock.
+        warps: Option<ResMut<ambition_sim_view::DeclaredPoseWarps>>,
+    ) {
+        let Some(mut warps) = warps else {
+            transited.clear();
+            return;
+        };
+        for transit in transited.read() {
+            warps.declare(transit.body);
+        }
+    }
+
     /// Optional camera-continuity screen anchor for portal transits.
     ///
     /// The host camera then keeps the focus at that exact screen-space offset only while the
@@ -971,6 +988,13 @@ mod host_adapter {
                 )
                     .in_set(PortalObservationSet)
                     .before(apply_portal_camera_continuity),
+            );
+            // After the tick that carried it and before the poses are resampled.
+            app.add_systems(
+                Update,
+                declare_portal_pose_warps
+                    .in_set(ambition_sim_view::PresentedPoseSet)
+                    .before(ambition_sim_view::PresentedPoseStage::Resample),
             );
             // Items and shots that straddle a portal are cut at the seam:
             // their visuals are made this frame (the sprite authorities), and

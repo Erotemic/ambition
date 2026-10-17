@@ -223,13 +223,18 @@ pub(crate) fn body_opens(p: &PlacedPortal, body: ae::Aabb, center: Vec2, vel: Ve
         return false;
     }
     let ap = p.aperture();
+    // Only a body in line with the opening can pass whole, so only it opens
+    // the hole: one beside it (on a ledge whose top is the opening's end, on
+    // a ramp past its end) leaves the host whole under it.
+    if !crate::snag::in_line_with(body, &ap) {
+        return false;
+    }
     let front = pp::front_distance(center, &ap.frame);
     let into = p.relative_velocity(center, vel).dot(p.normal) < 0.0;
     // Front side only: in the opening now, or approaching fast enough to
     // cross this frame. Otherwise a body behind a thin wall could open a hole
     // through it without transiting.
     let frontal = front >= -TRANSIT_BEGIN_MARGIN
-        && crate::snag::in_line_with(body, &ap)
         && (capture_face(p).strict_intersects(body) || (into && approach_face(p).strict_intersects(body)));
     // A fast crossing that skipped Begin keeps the hole open while the body
     // is inside the carve volume, bounded by the host's thickness.

@@ -295,6 +295,16 @@ pub(crate) fn draw_debug_overlay(
         #[cfg(feature = "portal")]
         draw_portals(&mut gizmos, world, portals.iter());
     }
+    // An item's box is a body's collision box, so either body layer draws it.
+    if developer_tools.show_feature_hitboxes || developer_tools.show_player_hitbox {
+        draw_ground_item_debug(
+            &mut gizmos,
+            world,
+            feature_q.ground_items.as_deref(),
+            live,
+            &developer_tools,
+        );
+    }
 }
 
 #[cfg(all(test, feature = "input"))]

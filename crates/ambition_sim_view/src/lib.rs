@@ -55,7 +55,7 @@ pub use pose_view::{
     LaunchedBodyFact, ShieldRingFact, ShieldRingsView,
 };
 pub use presented_pose::{
-    PresentationPhase, PresentedFeaturePoses, PresentedPose, PresentedPosePlugin, PresentedPoseSet,
+    DeclaredPoseWarps, PresentationPhase, PresentedFeaturePoses, PresentedPose, PresentedPosePlugin, PresentedPoseSet,
     PresentedPoseStage,
 };
 pub use view_index::{

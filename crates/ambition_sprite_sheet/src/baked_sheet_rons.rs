@@ -239,6 +239,12 @@ pub fn sheet_files_under(owner: &std::path::Path) -> Vec<(String, std::path::Pat
     crate::sprite_tree::sheet_manifests(owner)
 }
 
+/// The folders the sprite tree under `owner` is in: `assets/sprites` and
+/// each quality tier's.
+pub fn sprite_dirs_under(owner: &std::path::Path) -> Vec<std::path::PathBuf> {
+    crate::sprite_tree::sprite_dirs(owner)
+}
+
 /// Each body rig file of the tree under `owner`, keyed by its target, sorted
 /// by target.
 pub fn body_rig_files_under(owner: &std::path::Path) -> Vec<(String, std::path::PathBuf)> {

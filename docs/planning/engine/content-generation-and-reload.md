@@ -510,8 +510,13 @@ the file-root registry and the mechanics digest are one published generation
 not the published table's" with the index kept in its own `OnceLock`).
 `content::sprite_reload::SpriteSheetReloadPlugin` (installed by
 `ambition_app` where content is read off disk) watches each manifest and each
-page image from a background thread (one look at the published tree is about
-100 ms in a debug build, so a frame does not pay it). A changed page image is
+page image from a background thread. One look at the published tree (a stat
+of each sheet, rig, flipbook and page file) is 0.2 to 0.4 s in a debug build,
+so the thread looks only when the operating system reports a change in a
+sprite folder (`notify`; a burst of reports is one look), and once a second
+only where no report is possible (witness `sprite_watch_reports`: one look in
+three quiet seconds, and one look for one save; red with the reports off, at
+"the watch looked while no file changed"). A changed page image is
 loaded again at once. A changed manifest makes the same thread read the whole
 table again and parse it (`prepare_sheet_table`, median 913 ms in a debug
 build); the parsed table waits for the end of the session, then it is

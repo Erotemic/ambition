@@ -5,9 +5,11 @@
 //! [`SpriteSheetReloadPlugin`]. The plugin looks at each sheet manifest
 //! (`*_spritesheet.ron`), each body rig (`*_body_rig.ron`), each part flipbook
 //! (`*_parts.ron`) and each page image of those sheets and flipbooks. One look at
-//! the published tree costs about 100 ms in a debug build (measured
-//! 2026-10-16), so a background thread looks, once a second, and a frame only
-//! takes the changes it found.
+//! the published tree (a stat of each of those files) costs 0.2 to 0.4 s in a
+//! debug build (measured 2026-10-16), so a background thread looks when the
+//! operating system reports a change in a sprite folder (`notify`), and a
+//! frame only takes the changes it found. Where no report is possible it
+//! looks once a second.
 //!
 //! The rules of the road:
 //!
@@ -43,7 +45,8 @@ use ambition_sprite_sheet::baked_sheet_rons as sheet_table;
 use bevy::prelude::*;
 
 
-/// Time between two looks of the background thread.
+/// Time between two looks where the operating system reports no changes, and
+/// between two checks of the background thread that its watch still lives.
 const LOOK_EVERY: Duration = Duration::from_secs(1);
 
 /// Adds the sprite sheet watch where the build reads its sprite tree off
@@ -117,16 +120,19 @@ struct Scanner {
     /// the watch is made: an App is built many times in a test run, and a
     /// look costs about 100 ms.
     seen_once: bool,
+    /// Looks taken, the first included.
+    looks: u32,
     manifests: Vec<(String, PathBuf, Option<SystemTime>)>,
     pages: Vec<(PathBuf, Option<SystemTime>)>,
 }
 
 impl Scanner {
     fn new(owner: PathBuf) -> Self {
-        Self { owner, seen_once: false, manifests: Vec::new(), pages: Vec::new() }
+        Self { owner, seen_once: false, looks: 0, manifests: Vec::new(), pages: Vec::new() }
     }
 
     fn look(&mut self) -> Found {
+        self.looks += 1;
         if !self.seen_once {
             self.seen_once = true;
             self.manifests = stamped_manifests(&self.owner);
@@ -212,24 +218,38 @@ impl SpriteSheetWatch {
         self.found.lock().unwrap_or_else(PoisonError::into_inner).push(found);
     }
 
-    /// A thread that looks once each [`LOOK_EVERY`]. It ends when the watch
-    /// is dropped.
+    /// A thread that looks when the operating system reports a change in a
+    /// sprite folder, else once each [`LOOK_EVERY`] where no report is
+    /// possible. It ends when the watch is dropped.
     fn look_in_the_background(&self) {
         let scanner = Arc::downgrade(&self.scanner);
         let found = Arc::downgrade(&self.found);
-        let spawned = std::thread::Builder::new().name("sprite-sheet-watch".into()).spawn(move || loop {
-            std::thread::sleep(LOOK_EVERY);
-            let (Some(scanner), Some(found)) = (scanner.upgrade(), found.upgrade()) else {
-                return;
-            };
-            let look = scanner.lock().unwrap_or_else(PoisonError::into_inner).look();
-            if !look.manifests.is_empty() || !look.pages.is_empty() {
-                found.lock().unwrap_or_else(PoisonError::into_inner).push(look);
+        let reports = ChangeReports::of(&self.owner);
+        let spawned = std::thread::Builder::new().name("sprite-sheet-watch".into()).spawn(move || {
+            // The first look takes the baseline: it costs a full look once.
+            let mut changed = true;
+            loop {
+                let (Some(scanner), Some(found)) = (scanner.upgrade(), found.upgrade()) else {
+                    return;
+                };
+                if changed {
+                    let look = scanner.lock().unwrap_or_else(PoisonError::into_inner).look();
+                    if !look.manifests.is_empty() || !look.pages.is_empty() {
+                        found.lock().unwrap_or_else(PoisonError::into_inner).push(look);
+                    }
+                }
+                drop((scanner, found));
+                changed = reports.wait(LOOK_EVERY);
             }
         });
         if let Err(error) = spawned {
             warn!(target: "ambition_platformer2d::sprites", "no sprite sheet watch: {error}");
         }
+    }
+
+    /// The looks at the tree so far, the first included.
+    pub fn looks(&self) -> u32 {
+        self.scanner.lock().unwrap_or_else(PoisonError::into_inner).looks
     }
 
     /// A changed sheet table waits for the end of the session.
@@ -241,6 +261,77 @@ impl SpriteSheetWatch {
     fn asset_path(&self, page: &Path) -> Option<String> {
         page.strip_prefix(self.owner.join("assets")).ok().map(|path| path.to_string_lossy().replace('\\', "/"))
     }
+}
+
+/// What the operating system reports about the sprite folders: a file under
+/// them changed. Without it a look costs a stat of each file of the tree
+/// (about 0.2 to 0.4 s in a debug build) each second.
+struct ChangeReports {
+    #[cfg(not(target_arch = "wasm32"))]
+    reports: Option<(notify::RecommendedWatcher, std::sync::mpsc::Receiver<notify::Result<notify::Event>>)>,
+}
+
+impl ChangeReports {
+    #[cfg(not(target_arch = "wasm32"))]
+    fn of(owner: &Path) -> Self {
+        use notify::Watcher;
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let watcher = notify::recommended_watcher(sender).and_then(|mut watcher| {
+            for dir in sheet_table::sprite_dirs_under(owner).iter().filter(|dir| dir.is_dir()) {
+                watcher.watch(dir, notify::RecursiveMode::Recursive)?;
+            }
+            Ok(watcher)
+        });
+        match watcher {
+            Ok(watcher) => Self { reports: Some((watcher, receiver)) },
+            Err(error) => {
+                warn!(target: "ambition_platformer2d::sprites", "no change reports for the sprite tree ({error}); it is looked at each {LOOK_EVERY:?}");
+                Self { reports: None }
+            }
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn of(_owner: &Path) -> Self {
+        Self {}
+    }
+
+    /// Wait at most `longest` for a report of a change to a file a sheet
+    /// generation or a page is read from. True when one came (and the reports
+    /// that follow it within a short time), or when no reports are possible.
+    fn wait(&self, longest: Duration) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some((_, receiver)) = &self.reports {
+            let relevant = |report: notify::Result<notify::Event>| {
+                // An error can be a lost report: look.
+                report.map_or(true, |event| event.paths.iter().any(|path| watched_file(path)))
+            };
+            let Ok(report) = receiver.recv_timeout(longest) else {
+                return false;
+            };
+            let mut changed = relevant(report);
+            // A save is several reports, and a publish writes many files:
+            // one look for all of them.
+            while let Ok(report) = receiver.recv_timeout(SETTLE) {
+                changed |= relevant(report);
+            }
+            return changed;
+        }
+        std::thread::sleep(longest);
+        true
+    }
+}
+
+/// The time a burst of change reports is given to end before the look.
+const SETTLE: Duration = Duration::from_millis(150);
+
+/// A file a sheet generation or a page image is read from.
+fn watched_file(path: &Path) -> bool {
+    use ambition_sprite_sheet::baked_part_flipbooks::PART_FLIPBOOK_SUFFIX;
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    name.ends_with("_spritesheet.ron") || name.ends_with(sheet_table::BODY_RIG_SUFFIX) || name.ends_with(PART_FLIPBOOK_SUFFIX) || name.ends_with(".png")
 }
 
 fn modified(path: &Path) -> Option<SystemTime> {

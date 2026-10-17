@@ -289,3 +289,9 @@ bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_state",
     "ui_api",
 ] }
+
+# The sprite sheet watch (`content::sprite_reload`) looks at the tree when the
+# operating system reports a change in it, not on a clock. A wasm build has
+# no tree to watch.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+notify = "8.2"

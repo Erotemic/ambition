@@ -186,6 +186,12 @@ def call_paths(profile: Path) -> List[Tuple[float, List[str]]]:
     return paths
 
 
+#: ``(start, end)`` seconds from a profile's first sample, or None: set from
+#: ``--window``, and read by [`sample_paths`] for every table made from the
+#: sample dump.
+WINDOW: Tuple[float, float] | None = None
+
+
 def sample_paths(profile: Path, thread: str | None = None) -> List[Tuple[float, List[str]]] | None:
     """``(share, frames root first)`` of each sample, from the device's
     ``simpleperf report-sample --show-callchain`` dump, or None without one.
@@ -200,6 +206,7 @@ def sample_paths(profile: Path, thread: str | None = None) -> List[Tuple[float, 
     stacks: List[List[str]] = []
     threads: List[str] = []
     tids: List[str] = []
+    times: List[float] = []
     vaddr = None
     for line in dump.read_text(errors="replace").splitlines():
         text = line.strip()
@@ -208,9 +215,12 @@ def sample_paths(profile: Path, thread: str | None = None) -> List[Tuple[float, 
             stacks.append([])
             threads.append("")
             tids.append("")
+            times.append(0.0)
             vaddr = None
         elif not stacks:
             continue
+        elif text.startswith("time:"):
+            times[-1] = float(text.split(":", 1)[1]) * 1e-9
         elif text.startswith("thread_id:"):
             tids[-1] = text.split(":", 1)[1].strip()
         elif text.startswith("thread_name:"):
@@ -223,7 +233,21 @@ def sample_paths(profile: Path, thread: str | None = None) -> List[Tuple[float, 
             path = text.split(":", 1)[1].strip()
             stacks[-1].append(f"libambition_app.so[+{vaddr:x}]" if path.endswith("libambition_app.so") else path)
             vaddr = None
+    if WINDOW is not None and times:
+        # Keep the samples between WINDOW's seconds from the first sample.
+        start = min(times)
+        keep = [WINDOW[0] <= t - start < WINDOW[1] for t in times]
+        weights, stacks, threads, tids = (
+            [x for x, k in zip(column, keep) if k] for column in (weights, stacks, threads, tids)
+        )
     total = sum(weights) or 1.0
+    if thread == "busiest":
+        # The thread with the most samples: the game's main thread, whatever
+        # its id in this run (the render thread has the same name).
+        per_tid: Dict[str, float] = defaultdict(float)
+        for w, tid in zip(weights, tids):
+            per_tid[tid] += w
+        thread = max(per_tid, key=per_tid.get) if per_tid else None
     return [(100.0 * w / total, list(reversed(frames)))
             for w, frames, name, tid in zip(weights, stacks, threads, tids) if thread in (None, name, tid)]
 
@@ -322,6 +346,66 @@ def callers_table(profile: Path, library: Path, pattern: str, thread: str | None
     return by_caller
 
 
+def _last_generic_argument(text: str, head: str) -> str | None:
+    """The last top-level type argument of ``head<...>`` in ``text``."""
+    start = text.find(head + "<")
+    if start < 0:
+        return None
+    i, depth, current, arguments = start + len(head) + 1, 1, "", []
+    while i < len(text) and depth:
+        ch = text[i]
+        if ch in "<([":
+            depth += 1
+        elif ch in ">)]":
+            depth -= 1
+        if depth == 1 and ch == ",":
+            arguments.append(current)
+            current = ""
+        elif depth:
+            current += ch
+        i += 1
+    arguments.append(current)
+    return arguments[-1].strip()
+
+
+def system_table(profile: Path, library: Path, thread: str | None = None) -> Dict[str, float]:
+    """Each sample run by a schedule executor, given to the system it ran in:
+    the framework time inside a system (its parameter fetch, query iteration,
+    command buffers) counts for that system, which is what caused it. A
+    system's name is the last type argument of its ``FunctionSystem<..>`` or
+    ``ExclusiveFunctionSystem<..>``; a run condition is marked ``COND``."""
+    paths = sample_paths(profile, thread)
+    if paths is None:
+        raise SystemExit(f"--by-system needs {profile.name}/simpleperf-device-samples.txt")
+    offsets = sorted({m.group(1) for _s, frames in paths for f in frames if (m := APP.search(f))})
+    frames_at = inline_frames(library, offsets)
+    executors = ("single_threaded", "multi_threaded")
+    by_system: Dict[str, float] = defaultdict(float)
+    for share, frames in paths:
+        # Root to leaf, inlined frames outermost first.
+        chain: List[str] = []
+        for f in frames:
+            match = APP.search(f)
+            chain.extend([fn for fn, _place in reversed(frames_at.get(match.group(1), []))] if match else [f])
+        at = max((i for i, name in enumerate(chain) if any(e in name for e in executors)), default=None)
+        if at is None:
+            by_system["(outside a schedule executor)"] += share
+            continue
+        name = None
+        for function in chain[at + 1:]:
+            for head in ("ExclusiveFunctionSystem", "FunctionSystem"):
+                if (name := _last_generic_argument(function, head)):
+                    break
+            if name:
+                break
+        if name is None:
+            rest = chain[at + 1:at + 2]
+            name = "(the executor: " + (rest[0][:70] if rest else "itself") + ")"
+        condition = any("readonly_run::<bool>" in function for function in chain[at + 1:at + 3])
+        by_system[("COND " if condition else "") + re.sub(r"<.*", "<…>", name)[:120]] += share
+    return by_system
+
+
 def inclusive_table(profile: Path, library: Path, thread: str | None = None) -> Dict[str, float]:
     """Each function of ours: the share of samples with it anywhere on the stack."""
     paths = sample_paths(profile, thread)
@@ -411,14 +495,39 @@ def main() -> None:
     parser.add_argument("--top", type=int, default=30)
     parser.add_argument("--lines", action="store_true", help="add a table by source line (innermost frame)")
     parser.add_argument("--ours", action="store_true", help="add a table by the first line of ours on each sample's stack")
-    parser.add_argument("--thread", help="the --ours and --under tables count only the samples of this thread name or id")
+    parser.add_argument("--thread", help="the --ours, --under, --inclusive and --by-system tables count only the samples "
+                        "of this thread name or id; `busiest` is the thread with the most samples (the game's main thread)")
+    parser.add_argument("--by-system", action="store_true",
+                        help="add a table by the system each sample ran in (framework time inside a system included); "
+                             "with two profiles, also the change")
     parser.add_argument("--inclusive", action="store_true",
                         help="add a table of our functions by inclusive share (framework time under them included)")
     parser.add_argument("--under", action="append", default=[],
                         help="share of samples whose stack passes through a function containing this name (repeatable)")
     parser.add_argument("--callers-of", action="append", default=[],
                         help="for samples under a function containing this name: the first line of ours above it (repeatable)")
+    parser.add_argument("--window", help="START,END: the tables made from the sample dump count only the samples "
+                        "this many seconds from the first one (to compare two scenes of one run)")
+    parser.add_argument("--window-b", help="with --by-system and one profile: a second window, and the change from --window")
     args = parser.parse_args()
+    global WINDOW
+    parse_window = lambda text: tuple(float(x) for x in text.split(","))
+    if args.window:
+        WINDOW = parse_window(args.window)
+    if args.window_b:
+        if len(args.profiles) != 1 or not args.by_system:
+            raise SystemExit("--window-b compares two windows of one profile, with --by-system")
+        profile = args.profiles[0]
+        library = table(profile, False)[4]
+        first = system_table(profile, library, args.thread)
+        WINDOW = parse_window(args.window_b)
+        second = system_table(profile, library, args.thread)
+        a, b = sum(first.values()) or 1.0, sum(second.values()) or 1.0
+        print(f"## {profile.name}: systems, as a share of the thread's samples in each window ({args.window} vs {args.window_b})")
+        change = {k: 100 * (second.get(k, 0.0) / b - first.get(k, 0.0) / a) for k in set(first) | set(second)}
+        show(f"heavier in {args.window_b}", {k: v for k, v in change.items() if v > 0}, args.top)
+        show(f"heavier in {args.window}", {k: -v for k, v in change.items() if v < 0}, args.top)
+        return
     tables = []
     for profile in args.profiles:
         by_function, by_crate, by_object, by_line, library = table(profile, args.lines)
@@ -443,9 +552,21 @@ def main() -> None:
             show("inclusive share under a function", under_table(profile, library, args.under, args.thread), len(args.under))
         for pattern in args.callers_of:
             show(f"lines of ours that lead into {pattern}", callers_table(profile, library, pattern, args.thread), args.top)
+        if args.by_system:
+            systems = system_table(profile, library, args.thread)
+            tables[-1] = tables[-1] + (systems,)
+            where = f", thread {args.thread}" if args.thread else ""
+            show(f"systems (framework time inside each included{where})", systems, args.top)
     if len(tables) > 1:
-        base_name, base_fn, base_crate, _ = tables[0]
-        for profile, by_function, by_crate, _ in tables[1:]:
+        base_name, base_fn, base_crate, _ = tables[0][:4]
+        if args.by_system:
+            base_systems = tables[0][4]
+            for entry in tables[1:]:
+                change = {k: entry[4].get(k, 0.0) - base_systems.get(k, 0.0) for k in set(entry[4]) | set(base_systems)}
+                print(f"\n## {entry[0].name} minus {base_name.name}: systems (points of share)")
+                show("systems that grew", {k: v for k, v in change.items() if v > 0}, args.top)
+                show("systems that shrank", {k: -v for k, v in change.items() if v < 0}, args.top)
+        for profile, by_function, by_crate, _ in (entry[:4] for entry in tables[1:]):
             print(f"\n## {profile.name} minus {base_name.name} (points of share)")
             for label, now, before in (("crates", by_crate, base_crate), ("functions", by_function, base_fn)):
                 change = {k: now.get(k, 0.0) - before.get(k, 0.0) for k in set(now) | set(before)}

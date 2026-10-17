@@ -135,6 +135,38 @@ its room's floor colliders. On Potato a ragdoll throws 1 piece, not 7
 (witness `a_burst_throws_what_the_particle_budget_allows`). With no
 `ResolvedVisualQuality` (tests, tools), every piece.
 
+### F37 — What still runs for nothing on the Mary-O route (2026-10-17)
+
+MEASURED (same probe as F36; `[census] systems_ran` by crate; µs a frame
+from `time_by_span.csv`). After the two slices below, systems run 1,446 →
+1,394 a frame. Shipped on the phone (`android` features):
+- `bevy_lunex` 35/35 systems, 82 µs: it lays out only the kaleidoscope
+  cube, and ran with the cube closed. Its public `UiSystems` sets now sleep
+  with the cube's own render sets (`kaleidoscope_render_needed`): 28
+  systems idle, 82 → 48 µs (witness `lunex_sleeps_while_the_cube_rests`).
+  The 15 left (its software cursor, 2D picking, text animators) are in no
+  public set.
+- `bevy_transform_interpolation` 19/19, 41 µs: avian's
+  `PhysicsInterpolationPlugin` interpolates no body by default and none of
+  ours asks; it is disabled, 41 → 0 µs (witness
+  `avian_runs_no_interpolation_for_bodies_it_does_not_interpolate`).
+- `bevy_pbr` 169 µs and the OIT resolve bind group 130 µs with no 3D camera
+  active: the cube is the only 3D, and OIT is added inside
+  `CorePipelinePlugin`, so neither can be left out from a plugin group. A
+  fork or upstream item; the probe's software GPU inflates both.
+- The FPS frame-time graph, ~180 µs (its material is re-uploaded each
+  frame): on by Jon's choice (2026-08-31, `dev/fps_overlay.rs`).
+- `virtual_joystick` writes the stick's `Node`s each frame (the `JoystickFixed`
+  behaviour zeroes `base_offset`, ours sets it back), so the touch UI lays
+  out each frame. A fork edit (compare before write).
+- `ambition_load_presentation` 15/15, 40 µs between loads; `CurrentRoom`
+  conditions (`in_rules_scope`) ~3 µs a call, 12 calls a frame (F19).
+Not on the phone (`static_content`, no `dev_tools`): the pack and content
+watchers (`look_at_the_pack_sources` 197 µs, `watch_content_sources` 133 µs,
+`poll_world_source_changes` 70 µs, `watch_movement_defaults` 33 µs), egui
+(129 µs) and the trace recorders (81 µs, already off on android). A desktop
+probe of the dev build over-counts by about 0.6 ms a frame for these.
+
 ### F25 — Where the phone's main thread goes, hub with Mary-O
 
 MEASURED (`android-all-maryo-1-1-morning3`, main thread tid 28006, 83% busy):

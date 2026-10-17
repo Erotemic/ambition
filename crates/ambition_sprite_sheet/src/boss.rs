@@ -88,6 +88,21 @@ pub struct BossSheetSpec {
     /// baked sheet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parts: Option<String>,
+    /// The warm PLACEHOLDER TELL: the renderer tints the whole sprite while an
+    /// attack winds up or strikes, standing in for tells a sheet has not
+    /// drawn. On by default; a sheet that draws its own tells turns it off
+    /// (Jon, 2026-10-17: "a convenience placeholder ... available, but not
+    /// something required").
+    #[serde(default = "attack_tint_default", skip_serializing_if = "is_attack_tint_default")]
+    pub attack_tint: bool,
+}
+
+fn attack_tint_default() -> bool {
+    true
+}
+
+fn is_attack_tint_default(on: &bool) -> bool {
+    *on
 }
 
 /// Parsed boss-sheet data used by provider catalog builders and tests.
@@ -141,6 +156,7 @@ impl BossSheetSpec {
             authored_faces_left: false,
             layers: Vec::new(),
             parts: None,
+            attack_tint: true,
         }
     }
 }

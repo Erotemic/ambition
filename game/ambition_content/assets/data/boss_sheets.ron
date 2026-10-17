@@ -551,5 +551,7 @@
         // Drawn from his character's PARTS, row by row by name, where rigged
         // sprites are admitted.
         parts: Some("npc_wolfenstein_boss"),
+        // His tells are drawn (a row for each), so no warm placeholder tint.
+        attack_tint: false,
     ),
 }

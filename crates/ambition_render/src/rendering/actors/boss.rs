@@ -182,8 +182,9 @@ pub fn animate_bosses(
         }
         // Same split as `animate_characters`: hit feedback is the
         // `hit_flash` overlay; the warm attack tint stays on `sprite.color`
-        // so the player can read the boss's swing telegraph.
-        sprite.color = if state.attack_active || state.attack_windup {
+        // so the player can read the boss's swing telegraph. The tint is a
+        // placeholder tell: a sheet that draws its tells opts out.
+        sprite.color = if animator.spec.attack_tint && (state.attack_active || state.attack_windup) {
             Color::srgba(1.0, 0.85, 0.55, 1.0)
         } else {
             Color::WHITE

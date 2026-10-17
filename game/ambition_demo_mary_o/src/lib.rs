@@ -1528,14 +1528,17 @@ impl Plugin for MaryORulesPlugin {
             // Her death replay is the pack's (`assets/data/room_rules.ron`).
             ambition_platformer2d::combat::room_rules::declare_room_rules(app, scope, crate::pack::room_rules());
             app.add_plugins(crate::pack::room_rules_reload(scope));
-            // No named boss encounters in her rooms (a castle's boss is an
-            // enemy body), and no dialogue (she has no talk verb), so the
-            // engine's work for those sleeps there.
+            // In her rooms: no named boss encounters (a castle's boss is an
+            // enemy body), no dialogue (she has no talk verb), no held items
+            // (her spark is her moveset's ranged verb) and no fighter
+            // specials. The engine's work for those sleeps there.
             app.declare_rules(
                 scope,
                 ambition_platformer2d::platformer::capability::UsedCapabilities::ALL
                     .without(ambition_platformer2d::platformer::capability::Capability::BossEncounters)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Dialogue),
+                    .without(ambition_platformer2d::platformer::capability::Capability::Dialogue)
+                    .without(ambition_platformer2d::platformer::capability::Capability::HeldUse)
+                    .without(ambition_platformer2d::platformer::capability::Capability::FighterSpecials),
             );
             // The modifier runs, whichever body she drives. The cinder beacon
             // relabels the same slot while she wears it (see `run_technique`).

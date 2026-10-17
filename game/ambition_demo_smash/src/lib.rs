@@ -470,6 +470,10 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         }
 
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
+        // The fighter specials sleep where the active room's game uses none
+        // (`install_special` puts each handler in their set); so do the
+        // per-tick follow-ups below that only a special starts: the limit
+        // meter, the counter window, mark clocks, bomb fuses and the ride.
         // Sing, in `ContentSpecials`: its effect must exist before the effect
         // executors run. Authored sleeps today: the performer's `speech` pulse
         // (`performer_moveset`) and the Shadow Oni leader's seal. The bridge
@@ -479,7 +483,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // The mash runs first, so a press cannot be spent on a sleep that did
         // not exist when it was made. `apply_authored_sleep` takes a `max`, so
         // the landing tick is the same either way.
-        install_technique(
+        install_special(
             app,
             ambition_platformer2d::entity_catalog::smash_sleep::SLEEP,
             TechniqueOffer {
@@ -499,7 +503,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         );
         // Portal recovery, in `ContentSpecials`. The close is chained after the
         // open, so an aperture's lifetime is spent from the frame it appears.
-        install_technique(
+        install_special(
             app,
             ambition_platformer2d::entity_catalog::smash_portal::PORTAL_PAIR,
             TechniqueOffer {
@@ -521,7 +525,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         );
         // Steered bolt. Fire is chained before flight, so a bolt moves on the
         // tick it appears and does not sit inside the caster for a frame.
-        install_technique(
+        install_special(
             app,
             ambition_platformer2d::entity_catalog::smash_bolt::STEERED_BOLT,
             TechniqueOffer {
@@ -543,7 +547,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         );
         // Homing dash. Begin is chained before carry, so a dash steers on the
         // tick it starts.
-        install_technique(
+        install_special(
             app,
             ambition_platformer2d::entity_catalog::smash_homing::HOMING_DASH,
             TechniqueOffer {
@@ -565,7 +569,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         );
         // Riposte. It reads the same `ActorActionMessage` the counter writes,
         // so it needs no counter-specific wiring.
-        install_technique(
+        install_special(
             app,
             ambition_platformer2d::entity_catalog::smash_riposte::RIPOSTE_STRIKE,
             TechniqueOffer {
@@ -583,7 +587,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // Tether reel. Throw is chained before reel, so a line that bit a ledge
         // pulls on that tick. The reel does not catch the ledge; the movement
         // kernel's ledge authority does, one phase later. See `crate::tether`.
-        install_technique(
+        install_special(
             app,
             ambition_platformer2d::entity_catalog::smash_tether::TETHER_PULL,
             TechniqueOffer {
@@ -605,7 +609,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         );
         // Placed spring. Drop is chained before fire, so a plate starts its
         // arming clock on the tick it lands (while its dropper stands in it).
-        install_technique(
+        install_special(
             app,
             ambition_platformer2d::entity_catalog::smash_spring::PLACE_SPRING,
             TechniqueOffer {
@@ -641,11 +645,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.add_systems(
             sim,
             crate::limit::fill_limit_meters
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentFlavor),
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentFlavor)
+                .in_set(FIGHTER_SPECIALS),
         );
         // The authored half runs where a dispatched special belongs, on the
         // frame it is pressed.
-        install_technique(
+        install_special(
             app,
             ambition_platformer2d::entity_catalog::smash_limit::FILL_METER,
             TechniqueOffer {
@@ -667,7 +672,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         //
         // Re-application is safe: `apply` replaces the scale and the remainder,
         // so slows do not multiply.
-        install_technique(
+        install_special(
             app,
             ambition_platformer2d::entity_catalog::smash_time_dilation::TIME_DILATION,
             TechniqueOffer {
@@ -689,7 +694,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // Remote mine. Arm is chained before press, so a mine that becomes
         // live this tick answers this tick's press. The other order adds a frame
         // to the authored arming delay.
-        install_techniques(
+        install_specials(
             app,
             &[
                 (
@@ -737,14 +742,16 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.add_systems(
             sim,
             crate::counter::hold_counter_parry_windows
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize)
+                .in_set(FIGHTER_SPECIALS),
         );
         // Mark clocks. The body-clock view owner clears it in the sim tail;
         // this contributes the marks after the clear.
         app.add_systems(
             sim,
             crate::mark::publish_mark_clocks
-                .in_set(ambition_platformer2d::sim_view::BodyClockViewSet::Contribute),
+                .in_set(ambition_platformer2d::sim_view::BodyClockViewSet::Contribute)
+                .in_set(FIGHTER_SPECIALS),
         );
         // Counter answer, once the verdict is in. `Settle` needs no explicit
         // edge: `ParriedBodyHit` is written in the earlier `Resolve` phase. An
@@ -753,7 +760,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         //
         // The response lands on the next tick: its `ActorActionMessage` is read
         // in `Materialize`, which has passed. The wait makes the catch visible.
-        install_technique(
+        install_special(
             app,
             ambition_platformer2d::entity_catalog::smash_counter::COUNTER,
             TechniqueOffer {
@@ -771,7 +778,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // Shark summon, in `ContentSpecials`: it must produce its effects
         // before the effect executors run (`ContentSpecials.before(
         // EffectExecutionSet)`). Name the set; do not add a leaf-to-leaf edge.
-        install_technique(
+        install_special(
             app,
             ambition_platformer2d::entity_catalog::smash_ride::SUMMON_RIDE,
             TechniqueOffer {
@@ -792,7 +799,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         );
         // Bomb. Recognised like the shark summon (an `ActorActionMessage`
         // technique); the fuse burns in `Settle`, after item physics.
-        install_technique(
+        install_special(
             app,
             ambition_platformer2d::entity_catalog::smash_bomb::DROP_BOMB,
             TechniqueOffer {
@@ -812,7 +819,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             sim,
             crate::bomb::burn_fuses_and_answer_impacts
                 .after(ambition_platformer2d::platformer::schedule::ItemPickupSet::CoreHeldItems)
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
+                .in_set(FIGHTER_SPECIALS),
         );
         // What ends a ride, and what the shark does afterwards. `Settle`,
         // chained: each reads state the tick already produced. The two that
@@ -828,7 +836,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             )
                 .chain()
                 .before(ambition_platformer2d::mount::DismountRequestsApplied)
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
+                .in_set(FIGHTER_SPECIALS),
         );
         app.add_systems(
             sim,
@@ -838,7 +847,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             )
                 .chain()
                 .after(ambition_platformer2d::mount::DismountRequestsApplied)
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
+                .in_set(FIGHTER_SPECIALS),
         );
         // Departure writes intent after the actor brains publish, so the
         // riderless shark's brain cannot overwrite it before movement, and
@@ -848,7 +858,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             crate::shark_ride::tick_departures
                 .after(ambition_platformer2d::platformer::schedule::ActorDecisionSet::Publish)
                 .before(ambition_platformer2d::platformer::schedule::PlayerInputSet::ControlGate)
-                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep),
+                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
+                .in_set(FIGHTER_SPECIALS),
         );
         // The capture interruption release is in `CombatSchedulePlugin`. Do
         // not add it here; it would run twice.
@@ -2702,4 +2713,33 @@ pub fn agreed_match_seed(select: &select::SmashSelect) -> u64 {
         });
     }
     digest
+}
+
+/// The set of the fighter specials this crate offers: they run only where the
+/// active room's game uses them (`UsedCapabilities`).
+const FIGHTER_SPECIALS: ambition_platformer2d::platformer::capability::CapabilitySet =
+    ambition_platformer2d::platformer::capability::CapabilitySet(
+        ambition_platformer2d::platformer::capability::Capability::FighterSpecials,
+    );
+
+/// [`install_technique`] for a fighter special: its handler also joins
+/// [`FIGHTER_SPECIALS`].
+fn install_special<M>(
+    app: &mut bevy::prelude::App,
+    key: &str,
+    offer: TechniqueOffer,
+    systems: impl bevy::prelude::IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+) {
+    use bevy::prelude::IntoScheduleConfigs as _;
+    install_technique(app, key, offer, systems.into_configs().in_set(FIGHTER_SPECIALS));
+}
+
+/// [`install_techniques`] for a fighter special that answers several keys.
+fn install_specials<M>(
+    app: &mut bevy::prelude::App,
+    offers: &[(&str, TechniqueOffer)],
+    systems: impl bevy::prelude::IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+) {
+    use bevy::prelude::IntoScheduleConfigs as _;
+    install_techniques(app, offers, systems.into_configs().in_set(FIGHTER_SPECIALS));
 }

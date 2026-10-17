@@ -11,7 +11,8 @@
 
 use bevy::ecs::schedule::SystemSet;
 
-/// A removable unit of the engine group.
+/// A unit of engine work a game may not use. The [`Capability::REMOVABLE`]
+/// ones are also units of the engine group a composition can leave out.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Capability {
     /// Authored cutscenes and their trigger queue.
@@ -25,10 +26,28 @@ pub enum Capability {
     /// Touching an item to collect it, and the authored conditions that ask about the bag.
     /// ⚠ The bag itself (`OwnedItems`) is core state and is NOT removed (`Q106`).
     Inventory,
+    /// The fighter specials that `ambition_demo_smash` offers (sing, counter,
+    /// a summoned ride, a steered bolt, a mine, a tether, ...) and their
+    /// per-tick follow-ups. A game crate installs them, not the engine group,
+    /// so this is not removable from the engine group. The traversal and
+    /// combat techniques the runtime installs (teleport, trapdoor, pogo
+    /// bounce) are not in it: platformers use them.
+    FighterSpecials,
 }
 
 impl Capability {
-    pub const ALL: [Capability; 5] = [
+    pub const ALL: [Capability; 6] = [
+        Capability::Cutscenes,
+        Capability::Dialogue,
+        Capability::BossEncounters,
+        Capability::HeldUse,
+        Capability::Inventory,
+        Capability::FighterSpecials,
+    ];
+
+    /// The capabilities a composition can leave out of the engine group (the
+    /// engine profiles).
+    pub const REMOVABLE: [Capability; 5] = [
         Capability::Cutscenes,
         Capability::Dialogue,
         Capability::BossEncounters,
@@ -43,6 +62,7 @@ impl Capability {
             Capability::BossEncounters => "boss-encounters",
             Capability::HeldUse => "held-use",
             Capability::Inventory => "inventory",
+            Capability::FighterSpecials => "fighter-specials",
         }
     }
 
@@ -62,7 +82,10 @@ impl Capability {
         match self {
             Capability::Cutscenes => Some("cutscene"),
             Capability::BossEncounters => Some("boss_pattern"),
-            Capability::Dialogue | Capability::HeldUse | Capability::Inventory => None,
+            Capability::Dialogue
+            | Capability::HeldUse
+            | Capability::Inventory
+            | Capability::FighterSpecials => None,
         }
     }
 

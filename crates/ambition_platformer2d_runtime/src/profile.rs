@@ -36,7 +36,9 @@ pub trait CapabilityComposition {
     fn omit(self, group: PluginGroupBuilder) -> PluginGroupBuilder;
 
     /// Whether this capability is installed in `app`: any of its plugins was
-    /// added, or a resource only it installs exists.
+    /// added, or a resource only it installs exists. Only a
+    /// [`Capability::REMOVABLE`] one is a unit of the engine group; for any
+    /// other, this answers for the engine group, which never installs it.
     ///
     /// ⛔ Both halves, because a plugin check alone is satisfied by the road
     /// that was disabled and a resource check alone by a plugin that installs
@@ -63,6 +65,9 @@ impl CapabilityComposition for Capability {
                 .disable::<ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSimulationPlugin>()
                 .disable::<ambition_world_items::WorldItemSimulationPlugin>()
                 .disable::<ambition_platformer2d_actor_monolith::items::conditions::InventoryConditionsPlugin>(),
+            // Not a unit of the engine group (not in `Capability::REMOVABLE`):
+            // a game crate installs it, so the group has nothing to leave out.
+            Capability::FighterSpecials => group,
         }
     }
 
@@ -92,6 +97,8 @@ impl CapabilityComposition for Capability {
                     || app.is_plugin_added::<ambition_world_items::WorldItemSimulationPlugin>()
                     || app.is_plugin_added::<ambition_platformer2d_actor_monolith::items::conditions::InventoryConditionsPlugin>()
             }
+            // The engine group never installs it (see `omit`).
+            Capability::FighterSpecials => false,
         }
     }
 }

@@ -104,7 +104,7 @@ fn the_control_installs_every_capability_and_the_probe_sees_it() {
     step_a_real_subject(&mut app, &full);
     ambition_platformer2d_runtime::profile::session_edge_params_validate(app.world_mut())
         .expect("the full engine's session-edge parameters must validate");
-    for capability in Capability::ALL {
+    for capability in Capability::REMOVABLE {
         assert!(
             capability.is_installed(&app),
             "the full engine reads `{}` as not installed, so the probe cannot say yes and \
@@ -140,7 +140,7 @@ fn every_supported_profile_steps_a_body_and_installs_none_of_what_it_omits() {
         }
         // The kept capabilities are still there: an omission list that took out
         // everything would pass the line above.
-        for capability in Capability::ALL {
+        for capability in Capability::REMOVABLE {
             if !profile.omits.contains(&capability) {
                 assert!(
                     capability.is_installed(&app),

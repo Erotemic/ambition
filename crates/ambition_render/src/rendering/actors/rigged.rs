@@ -639,20 +639,26 @@ type Views<'w, 's> = Query<
 
 /// What each active orthographic camera that is not an impostor camera
 /// shows: its area in the world, and its layers. A perspective camera does
-/// not draw the world's sprites.
+/// not draw the world's sprites. A camera whose target is not measured yet
+/// (its first frame, a host with no window) has no area yet: it shows the
+/// whole world.
 fn world_views(views: &Views) -> Vec<(Rect, RenderLayers)> {
     views
         .iter()
         .filter(|(camera, ..)| camera.is_active)
-        .filter_map(|(_, projection, transform, layers)| {
+        .filter_map(|(camera, projection, transform, layers)| {
             let Projection::Orthographic(ortho) = projection else {
                 return None;
             };
+            let layers = layers.cloned().unwrap_or_default();
+            if camera.logical_viewport_size().is_none_or(|size| size.min_element() <= 0.0) {
+                return Some((Rect::new(f32::MIN, f32::MIN, f32::MAX, f32::MAX), layers));
+            }
             let area = ortho.area;
             let corners = [area.min, Vec2::new(area.max.x, area.min.y), area.max, Vec2::new(area.min.x, area.max.y)]
                 .map(|corner| transform.transform_point(corner.extend(0.0)).truncate());
             let shown = corners.iter().fold(Rect::from_corners(corners[0], corners[0]), |rect, corner| rect.union_point(*corner));
-            Some((shown, layers.cloned().unwrap_or_default()))
+            Some((shown, layers))
         })
         .collect()
 }
@@ -1202,6 +1208,12 @@ pub fn drive_rigged_presentations(
             && !seen_by_a_view(&views, root_transform, &root_sprite, root_layers)
         {
             owner_visibility.set_if_neq(Visibility::Hidden);
+            // The root draws nothing on the direct road, hidden or not: a
+            // writer that gives it a baked frame (`animate_bosses`) does not
+            // draw it under no parts.
+            if root_sprite.image != ambition_sprite_sheet::character::NO_BAKED_IMAGE {
+                root_sprite.image = ambition_sprite_sheet::character::NO_BAKED_IMAGE;
+            }
             continue;
         }
         let flipbook = presentation.pages.flipbook.clone();

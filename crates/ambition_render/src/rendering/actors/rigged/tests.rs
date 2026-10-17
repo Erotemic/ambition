@@ -1661,10 +1661,11 @@ fn the_driver_answers_each_reader_with_its_own_tracks() {
     assert_eq!(counts(&app), (0, in_b, in_both), "the others keep their answers when one forgets");
 }
 
-/// A body drawn directly that no view shows is hidden and not posed; the
-/// frame a view shows it, it is posed and shown before it is drawn. A view
-/// on other layers does not show it, and with no view at all (a host with no
-/// camera) every body is posed.
+/// A body drawn directly that no view shows is hidden and not posed, and its
+/// root draws no baked frame; the frame a view shows it, it is posed and
+/// shown before it is drawn. A view on other layers does not show it, a view
+/// whose target is not measured yet shows everything, and with no view at
+/// all (a host with no camera) every body is posed.
 #[test]
 fn a_body_no_view_shows_is_not_posed_until_a_view_shows_it() {
     let (flipbook, mut app, root) = robot();
@@ -1692,9 +1693,15 @@ fn a_body_no_view_shows_is_not_posed_until_a_view_shows_it() {
     let first = drawn(&app);
 
     // A view far away, on the body's layer: hidden, and not posed.
+    let measured = || {
+        let mut camera = Camera::default();
+        camera.computed.target_info =
+            Some(bevy::camera::RenderTargetInfo { physical_size: UVec2::new(640, 360), scale_factor: 1.0 });
+        camera
+    };
     let view = |x: f32| {
         (
-            Camera::default(),
+            measured(),
             Projection::Orthographic(OrthographicProjection {
                 area: Rect::new(-320.0, -180.0, 320.0, 180.0),
                 ..OrthographicProjection::default_2d()
@@ -1704,18 +1711,39 @@ fn a_body_no_view_shows_is_not_posed_until_a_view_shows_it() {
     };
     let camera = app.world_mut().spawn(view(10_000.0)).id();
     pin_clip(&mut app, root, "run", 1);
+    // A writer gives the root a baked frame, as the boss animator does.
+    let baked = ready_page(&mut app);
+    app.world_mut().get_mut::<Sprite>(root).unwrap().image = baked;
     app.update();
     assert!(!shown(&app), "a body no view shows is hidden");
     assert_eq!(drawn(&app), first, "a body no view shows is not posed");
+    assert_eq!(
+        app.world().get::<Sprite>(root).unwrap().image,
+        ambition_sprite_sheet::character::NO_BAKED_IMAGE,
+        "a hidden body's root draws a baked frame"
+    );
+
+    // A view whose target is not measured yet shows everything.
+    let unmeasured = app.world_mut().spawn(view(10_000.0)).id();
+    app.world_mut().get_mut::<Camera>(unmeasured).unwrap().computed.target_info = None;
+    app.update();
+    assert!(shown(&app), "a view with no measured target hid the body");
+    let second = drawn(&app);
+    assert_ne!(second, first, "the premise: the unmeasured view posed the second frame");
+    app.world_mut().despawn(unmeasured);
+    app.update();
+    assert!(!shown(&app), "the premise: hidden again with only the far view");
 
     // A view on another layer over the body does not show it.
     app.world_mut().spawn(view(0.0)).insert(RenderLayers::layer(7));
     app.update();
     assert!(!shown(&app), "a view on other layers does not show the body");
 
-    // The view comes over the body: posed and shown in that frame.
+    // The view comes over the body: posed (to the first frame again) and
+    // shown in that frame.
+    pin_clip(&mut app, root, "run", 0);
     *app.world_mut().get_mut::<GlobalTransform>(camera).unwrap() = GlobalTransform::IDENTITY;
     app.update();
     assert!(shown(&app), "the frame a view shows the body, it is shown");
-    assert_ne!(drawn(&app), first, "the frame a view shows the body, it is posed");
+    assert_eq!(drawn(&app), first, "the frame a view shows the body, it is posed");
 }

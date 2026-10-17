@@ -375,14 +375,14 @@ Proposal:
    fist lands where it lands, its dust there.
 4. The joint carries nothing back to the host (a giant does not recoil).
 
-Questions for Jon, built on the recommendation of each (say if a choice
-should change):
+Decisions taken (2026-10-17, on the design's recommendations; Jon may
+revisit any of them, and each is one place in the code):
 
-- Does a posed fist stop at what it meets (physics), or keep its keys
-  (choreography)? Built: it stops, and the owner is told.
-- Does a limb meet its own side too (a fist into the floor beside the
-  giant)? Built: yes, one rule for both sides.
-- Recoil into the host: built: none.
+- A posed fist stops at what it meets (physics), and the owner is told,
+  rather than keeping its keys (`posed_limbs`).
+- A limb meets its own side too (a fist into the floor beside the giant):
+  one rule for both sides.
+- No recoil into the host.
 
 Cost: one box sweep per limb piece per tick.
 
@@ -391,20 +391,20 @@ derived pieces must stay off the snapshot (derived, rebuilt); drawing more than 
 through piece raises render cost — pooled quads and the broad phase keep it to bodies
 that cut a portal.
 
-## Open
-
-Closed since 2026-10-16: a shot's step ends at the crossing and its next step
-sweeps the far side whole, walls and bodies (`5ff8fdd00`); feature hits take
-the pieces (G2); the glue carries water, upright ladders, turned solids
-exactly and turned one-way platforms as lines (`029a03a02`, `da519ec6d`,
-`cb0a6abe2`); each view keeps its own camera anchor (`ef0dfd7e4`); body
-contact is portal-aware both ways (`4cd9bece5`, `22f25a85d`); a posed limb
-takes contact (G6).
-
-Rules (not gaps):
+## Rules
 
 - A volume placed in the world (`HitboxAnchor::World`) is cut by what it
   reaches through from its own centre; a limb's box says what it is attached
   to by riding the limb (`LimbStrike`).
-- A shot that crosses a pair loses the rest of its step past the plane to the
-  next step (a delay of less than a tick, not a skip).
+- A shot that crosses a pair ends its step just past the plane, and the rest
+  of that step is its next one's (a delay of less than a tick, not a skip).
+
+## Open
+
+None. Closed since 2026-10-16: a shot's step ends at the crossing and its
+next step sweeps the far side whole, walls and bodies (`5ff8fdd00`); feature
+hits take the pieces (G2); the glue carries water, upright ladders, turned
+solids exactly and turned one-way platforms as lines (`029a03a02`,
+`da519ec6d`, `cb0a6abe2`); each view keeps its own camera anchor
+(`ef0dfd7e4`); body contact is portal-aware both ways (`4cd9bece5`,
+`22f25a85d`); a posed limb takes contact (G6, `e93fa533c`).

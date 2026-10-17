@@ -126,6 +126,14 @@ uses none, once its project is compiled (witness
 all. Left on this route: the solver's six substeps (383 µs while awake; a
 visual change for cosmetic debris), the rigged presentation (145 µs), the
 body step (144 µs), and the render world, which is most of the frame.
+Found on the way: `ParticleBudget::max_particles` and `spawn_rate_scale`
+(16 on Potato, 1,024 on Ultra) were read by nothing but their own tests, so
+the quality tiers did not reduce the debris that wakes avian. Now each burst
+throws `count × spawn_rate_scale` pieces (at least one) and no burst passes
+`max_particles` live pieces; a burst at the cap is dropped before it builds
+its room's floor colliders. On Potato a ragdoll throws 1 piece, not 7
+(witness `a_burst_throws_what_the_particle_budget_allows`). With no
+`ResolvedVisualQuality` (tests, tools), every piece.
 
 ### F25 — Where the phone's main thread goes, hub with Mary-O
 

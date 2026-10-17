@@ -91,6 +91,11 @@ pub fn physics_spawn_debris_messages(
     settings: Res<PhysicsSandboxSettings>,
     active_session: Option<Res<ActiveSessionScope>>,
     floors: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance, With<PhysicsRoomFloor>>,
+    // The tier's particle budget: how many pieces a burst throws, and how many
+    // may live at once. Debris is the only thing that wakes avian, so on a low
+    // tier fewer pieces is less solver.
+    quality: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
+    live: Query<(), With<PhysicsDebris>>,
 ) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
@@ -101,6 +106,8 @@ pub fn physics_spawn_debris_messages(
     // The floors built this frame: their spawns are not applied yet, so the
     // query does not see them.
     let mut floored: Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> = Vec::new();
+    let budget = quality.as_deref().map(|quality| &quality.budget.particles);
+    let mut alive = live.iter().count() as u32;
     for message in messages.read() {
         let Some(room) = message.room.or_else(|| rooms.sole()) else {
             continue;
@@ -108,6 +115,11 @@ pub fn physics_spawn_debris_messages(
         let Some(world) = geometry.in_room(room) else {
             continue;
         };
+        let pieces = debris_pieces(debris_recipe(message.cue).count as u32, budget, alive);
+        if pieces == 0 {
+            continue;
+        }
+        alive += pieces;
         if !floored.contains(&room) && !floors.iter().any(|stamp| stamp.0 == room) {
             floored.push(room);
             for block in &world.0.blocks {
@@ -126,9 +138,27 @@ pub fn physics_spawn_debris_messages(
             &world.0,
             message.pos,
             message.cue,
+            pieces,
             *settings,
         );
     }
+}
+
+/// How many of a burst's `count` pieces the particle budget allows, with
+/// `alive` pieces already in the world: `count` scaled by the spawn rate,
+/// at least one, and no more than the room left under the cap. With no
+/// budget installed, every piece.
+#[cfg(feature = "physics_debris")]
+fn debris_pieces(
+    count: u32,
+    budget: Option<&ambition_persistence::settings::ParticleBudget>,
+    alive: u32,
+) -> u32 {
+    let Some(budget) = budget else {
+        return count;
+    };
+    let scaled = ((count as f32 * budget.spawn_rate_scale.clamp(0.0, 1.0)).round() as u32).max(1);
+    scaled.min(budget.max_particles.saturating_sub(alive))
 }
 
 /// Two colliders meet only when they are in one live room.
@@ -391,12 +421,14 @@ pub fn spawn_debris_burst(
     world: &ae::World,
     pos: ae::Vec2,
     cue: PhysicsDebrisCue,
+    pieces: u32,
     settings: PhysicsSandboxSettings,
 ) {
     if !settings.debris_enabled {
         return;
     }
     let mut spec = debris_recipe(cue);
+    spec.count = spec.count.min(pieces as usize);
     spec.lifetime = spec.lifetime.min(settings.default_lifetime.max(0.1));
     for index in 0..spec.count {
         let angle = seeded_angle(index, spec.count, pos);
@@ -750,6 +782,54 @@ mod tests {
              `OneRoomContacts` filters its contacts): one burst in each of two live rooms at one \
              position, and one burst that names no room"
         );
+    }
+
+    /// The tier's particle budget sets how many pieces a burst throws and how
+    /// many may live at once. On Potato a ragdoll (seven pieces) throws one,
+    /// and a burst at the cap throws none and builds no floor. With no budget
+    /// installed, every piece (the control).
+    #[cfg(feature = "physics_debris")]
+    #[test]
+    fn a_burst_throws_what_the_particle_budget_allows() {
+        use ambition_persistence::settings::{ResolvedVisualQuality, VisualQualityBudget, VisualQualityProfile};
+        use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+        let room = LiveRoomInstance::ACTIVATION;
+        let thrown = |quality: Option<VisualQualityProfile>, alive: u32| {
+            let mut app = App::new();
+            app.insert_resource(PhysicsSandboxSettings::default());
+            if let Some(profile) = quality {
+                app.insert_resource(ResolvedVisualQuality { profile, budget: VisualQualityBudget::for_profile(profile) });
+            }
+            app.add_message::<DebrisBurstMessage>();
+            app.add_systems(Update, physics_spawn_debris_messages);
+            app.world_mut().spawn((
+                RoomInstanceRoot,
+                room,
+                ambition_platformer2d_core::RoomGeometry(ae::World::new(
+                    "room",
+                    ae::Vec2::new(1000.0, 600.0),
+                    ae::Vec2::ZERO,
+                    vec![ae::Block::solid("floor", ae::Vec2::new(0.0, 500.0), ae::Vec2::new(1000.0, 100.0))],
+                )),
+            ));
+            for _ in 0..alive {
+                app.world_mut().spawn(PhysicsDebris { lifetime: 10.0 });
+            }
+            app.world_mut().write_message(DebrisBurstMessage {
+                room: Some(room),
+                pos: ae::Vec2::new(100.0, 100.0),
+                cue: PhysicsDebrisCue::EnemyRagdoll,
+            });
+            app.update();
+            let world = app.world_mut();
+            let pieces = world.query_filtered::<(), With<PhysicsDebris>>().iter(world).count() as u32 - alive;
+            let floors = world.query_filtered::<(), With<PhysicsRoomFloor>>().iter(world).count();
+            (pieces, floors > 0)
+        };
+        assert_eq!(thrown(None, 0), (7, true), "control: with no budget a ragdoll throws its seven pieces");
+        assert_eq!(thrown(Some(VisualQualityProfile::Potato), 0), (1, true), "on Potato a ragdoll throws one piece");
+        let cap = VisualQualityBudget::for_profile(VisualQualityProfile::Potato).particles.max_particles;
+        assert_eq!(thrown(Some(VisualQualityProfile::Potato), cap), (0, false), "at the cap a burst throws nothing and builds no floor");
     }
 
     /// Debris lands on the floor of its own live room. The first burst in a

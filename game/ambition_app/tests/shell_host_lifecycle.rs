@@ -2594,7 +2594,7 @@ fn what_a_session_spawned_and_cycled_does_not_reach_the_next_session() {
 
     fn replay_the_room(app: &mut App) {
         assert_eq!(
-            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(),
+            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(&app.world().resource::<ambition_content::tuning::AmbitionTuning>().0.cut_rope_trap),
             "anvil",
             "premise: the old session starts on the first prop"
         );
@@ -2605,7 +2605,7 @@ fn what_a_session_spawned_and_cycled_does_not_reach_the_next_session() {
             app.update();
         }
         assert_eq!(
-            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(),
+            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(&app.world().resource::<ambition_content::tuning::AmbitionTuning>().0.cut_rope_trap),
             "piano",
             "premise: the replay moved the cycle off its default"
         );

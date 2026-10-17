@@ -83,6 +83,27 @@
         banner: "NOETHER ATTUNEMENT — every symmetry conserved",
         banner_seconds: 4.0,
     ),
+    // A quest's payout: its banner (each quest's words, in quests.ron) stays
+    // this long, in seconds. Shorter than the attunement's: a payout is read
+    // at a glance, and the items it gives are in the inventory.
+    quest_payout: (
+        banner_seconds: 3.0,
+    ),
+    // The trap over the Smirking Behemoth. What hangs from the rope, in the
+    // order the room's replays take them (a session starts on the first):
+    // each is a prop sheet and a name, which the banner says and the
+    // dialogue asks for (`cut_rope_heavy_object_is("anvil")`).
+    cut_rope_trap: (
+        heavy_objects: [
+            (prop: "cut_rope_anvil", name: "anvil"),
+            (prop: "cut_rope_piano", name: "piano"),
+        ],
+        // When it lands on him; `{object}` is the name of what fell.
+        flattened_banner: "Smirking Behemoth was flattened by a {object}",
+        banner_seconds: 2.8,
+        // Seconds between two sparks on the rope while it waits to be cut.
+        rope_spark_seconds: 0.22,
+    ),
     // Ambition's day: 24 minutes of play (an hour of the day a minute), and a
     // session begins at 8 in the morning. Each phase begins at its hour and
     // lasts until the next one begins. The music of a room by the time of day

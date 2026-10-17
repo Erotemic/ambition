@@ -34,15 +34,25 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
   docs/planning/queue.md | sort -rn | head
 ```
 
-## Priority order (Jon, 2026-10-14, 48 h)
+## Priority order (Jon, 2026-10-14, 48 h; reordered 2026-10-17)
 
 Content packs, and changes to the game, made elegant and efficient and
-possible without a recompile. Work in this order:
+possible without a recompile. **A restart is acceptable; a recompile is not**
+(Jon, 2026-10-17): an edit is ranked by whether it needs a Cargo build, and
+a live reload is a second priority. Work in this order:
 
 1. [CONTENT-AS-DATA](#content-as-data--content-still-written-as-rust):
-   move each content fact that is still Rust onto the pack's data and reload
-   road, and delete the Rust copy. A live reload for the demo packs' tuning
-   is done (2026-10-16); its remainder is listed there.
+   move each content fact that is still Rust onto the pack's data, and
+   delete the Rust copy. A value read once at start is enough. In order:
+   (a) the shown text, which has no data file at all (each demo's banners,
+   HUD labels, cards, launcher rows, select screen, dialogue hints): one
+   strings schema for each pack; (b) the census tail (item 2 there);
+   (c) the procedural techniques still in `ambition_content` Rust, onto the
+   module road (a relink and a restart now; 0.34 s on that road).
+   Second priority, and only where a recompile does not depend on it: the
+   live-reload remainder (a restated schema inside a live session, sprite
+   publication inside a session). A live reload for the demo packs' tuning
+   is done (2026-10-16).
 2. Efficient content preparation: [TEST-LANES](#test-lanes--keep-required-test-lanes-executable)
    item 10, converged 2026-10-15: a publish with nothing to render is 54 s
    (was about 1 hour); a frame that changes size costs its render and 74 s
@@ -342,10 +352,15 @@ Open:
    blast's own time and a margin (it was a 0.25 that had to stay above the
    0.08 by hand). Each reader's arm builds a time that is not the shipped
    one and reads it off the damage box (each red with its reader on a
-   compiled time). Left, in the order a designer would iterate them:
-   Mary-O's sky zone rise (`SKY_ZONE_RISE`), the dropped portal gun
-   (`portal/inventory_adapter.rs`), the cut-rope boss's heavy objects and
-   spark rate, the quest banner's 3.0 s (`quest.rs`), then the shown text of
+   compiled time). Mary-O's sky zone rise is `level.sky_zone_rise_tiles` in
+   her rules file; Ambition's quest payout banner time is
+   `quest_payout.banner_seconds`, and the cut-rope trap (what hangs, in its
+   order, the flattened banner and its time, the rope's spark rate) is
+   `cut_rope_trap` in `ambition_rules.ron` (the anvil and piano enum is
+   deleted; the dialogue asks for a name from that list). Left, in the order
+   a designer would iterate them: the dropped portal gun
+   (`portal/inventory_adapter.rs`; it is in a seam marked for removal), then
+   the shown text of
    each demo's banners, cards and HUD (no text file exists), the select
    cursor's feel, and the effect looks last.
 

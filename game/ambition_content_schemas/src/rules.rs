@@ -21,8 +21,45 @@ pub struct AmbitionRules {
     /// The character a player starts as: a row of the pack's catalog.
     pub starting_character: String,
     pub symmetry_attunement: SymmetryAttunement,
+    /// How a quest's payout is shown.
+    pub quest_payout: QuestPayout,
     pub cut_rope_victory: VictoryNpc,
+    pub cut_rope_trap: CutRopeTrap,
     pub duel: Duel,
+}
+
+/// The trap over the Smirking Behemoth: what hangs from the rope, and the
+/// show when it lands on him.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CutRopeTrap {
+    /// What hangs from the rope, in the order the room's replays take them.
+    /// A session starts on the first.
+    pub heavy_objects: Vec<HeavyObject>,
+    /// The banner when it lands on him; `{object}` is the name of what fell.
+    pub flattened_banner: String,
+    /// How long that banner stays (seconds).
+    pub banner_seconds: f32,
+    /// Seconds between two sparks on the rope while it waits to be cut.
+    pub rope_spark_seconds: f32,
+}
+
+/// One thing the rope can hold.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HeavyObject {
+    /// The prop sheet it is drawn with (`prop_sheets.ron`).
+    pub prop: String,
+    /// Its name: the banner says it, and the dialogue asks for it
+    /// (`cut_rope_heavy_object_is("anvil")`).
+    pub name: String,
+}
+
+impl CutRopeTrap {
+    /// The heavy object the cycle's `index` names: the list wraps.
+    pub fn heavy_object(&self, index: usize) -> &HeavyObject {
+        &self.heavy_objects[index % self.heavy_objects.len()]
+    }
 }
 
 /// The spectator duel: fighters that hold a grudge against each other. The
@@ -83,6 +120,15 @@ pub struct SymmetryAttunement {
     pub signals: Vec<String>,
     /// The banner when it completes, and how long it stays (seconds).
     pub banner: String,
+    pub banner_seconds: f32,
+}
+
+/// How a quest's payout is shown. The banner's words are each quest's own
+/// (`quests.ron`); how long it stays is one rule for all of them.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QuestPayout {
+    /// How long the payout banner stays (seconds).
     pub banner_seconds: f32,
 }
 
@@ -273,6 +319,30 @@ impl AmbitionRules {
                 problems.push(format!("`symmetry_attunement.signals[{index}]` repeats `{signal}`"));
             }
         }
+        let trap = &self.cut_rope_trap;
+        if trap.heavy_objects.is_empty() {
+            problems.push("`cut_rope_trap.heavy_objects` is empty; the rope holds something".to_string());
+        }
+        for (index, object) in trap.heavy_objects.iter().enumerate() {
+            if object.prop.trim().is_empty() || object.name.trim().is_empty() {
+                problems.push(format!("`cut_rope_trap.heavy_objects[{index}]` has no prop or no name"));
+            }
+            if trap.heavy_objects[..index].iter().any(|before| before.name == object.name) {
+                problems.push(format!(
+                    "`cut_rope_trap.heavy_objects[{index}].name` repeats `{}`; the dialogue tells them apart by name",
+                    object.name
+                ));
+            }
+        }
+        for (field, value) in [("cut_rope_trap.banner_seconds", trap.banner_seconds), ("cut_rope_trap.rope_spark_seconds", trap.rope_spark_seconds)] {
+            if !(value.is_finite() && value > 0.0) {
+                problems.push(format!("`{field}` is {value}; it is finite and more than 0"));
+            }
+        }
+        let payout = self.quest_payout.banner_seconds;
+        if !(payout.is_finite() && payout > 0.0) {
+            problems.push(format!("`quest_payout.banner_seconds` is {payout}; a banner stays a while"));
+        }
         if !(attunement.banner_seconds.is_finite() && attunement.banner_seconds > 0.0) {
             problems.push(format!("`symmetry_attunement.banner_seconds` is {}; a banner stays a while", attunement.banner_seconds));
         }
@@ -458,6 +528,13 @@ mod tests {
                 banner: "done".to_string(),
                 banner_seconds: 4.0,
             },
+            quest_payout: QuestPayout { banner_seconds: 3.0 },
+            cut_rope_trap: CutRopeTrap {
+                heavy_objects: vec![HeavyObject { prop: "cut_rope_anvil".to_string(), name: "anvil".to_string() }],
+                flattened_banner: "flattened by a {object}".to_string(),
+                banner_seconds: 2.8,
+                rope_spark_seconds: 0.22,
+            },
             cut_rope_victory: VictoryNpc {
                 name: "The Rope Appreciator".to_string(),
                 dialogue: "smirking_behemoth_victory_npc".to_string(),
@@ -512,5 +589,22 @@ mod tests {
         alone.duel.fighters[1].grudge_against = "b".to_string();
         let problems = alone.problems();
         assert!(problems.iter().any(|problem| problem.contains("duel.fighters[1].grudge_against")), "{problems:?}");
+        let mut gone = rules();
+        gone.quest_payout.banner_seconds = 0.0;
+        let problems = gone.problems();
+        assert!(problems.iter().any(|problem| problem.contains("quest_payout.banner_seconds")), "{problems:?}");
+        let mut empty = rules();
+        empty.cut_rope_trap.heavy_objects.clear();
+        let problems = empty.problems();
+        assert!(problems.iter().any(|problem| problem.contains("cut_rope_trap.heavy_objects")), "{problems:?}");
+        let mut twins = rules();
+        let first = twins.cut_rope_trap.heavy_objects[0].clone();
+        twins.cut_rope_trap.heavy_objects.push(first);
+        let problems = twins.problems();
+        assert!(problems.iter().any(|problem| problem.contains("cut_rope_trap.heavy_objects[1].name")), "{problems:?}");
+        let mut still = rules();
+        still.cut_rope_trap.rope_spark_seconds = 0.0;
+        let problems = still.problems();
+        assert!(problems.iter().any(|problem| problem.contains("cut_rope_trap.rope_spark_seconds")), "{problems:?}");
     }
 }

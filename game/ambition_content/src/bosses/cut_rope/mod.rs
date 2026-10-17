@@ -23,6 +23,7 @@ use ambition_combat::components::{
     PogoTargetVolumes, PostBossNpc,
 };
 use ambition_combat::{GameplayBanner, HitEvent, HitSource, RoomReplayAdmitted};
+use ambition_content_schemas::rules::CutRopeTrap;
 use ambition_platformer2d::world::rooms::{PropSpec, RoomSet};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_actor_spawn::actor_bundles::{EnemyActorBundle, FeatureRenderedBundle};
@@ -41,10 +42,10 @@ pub const CUT_ROPE_BOSS_ID: &str = "smirking_behemoth_boss";
 pub const CUT_ROPE_VICTORY_NPC_ID: &str = "smirking_behemoth_victory_npc";
 const CUT_ROPE_ROOM_ID: &str = "you_have_to_cut_the_rope";
 const ROPE_KIND: &str = "cut_rope_rope";
+/// The prop the level authors where the heavy object hangs. What hangs there
+/// is the rules' `cut_rope_trap.heavy_objects`; this names only the place.
 const ANVIL_KIND: &str = "cut_rope_anvil";
-const PIANO_KIND: &str = "cut_rope_piano";
 const ANVIL_Z_OFFSET: f32 = 0.75;
-const ROPE_SPARK_INTERVAL: f32 = 0.22;
 
 pub fn is_cut_rope_boss(id: &str) -> bool {
     id == CUT_ROPE_BOSS_ID
@@ -71,31 +72,6 @@ pub struct CutRopeRoomReplayRequested;
 pub struct PendingCutRopeRoomReplay {
     pub requested: bool,
 }
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum CutRopeHeavyObjectKind {
-    Anvil,
-    Piano,
-}
-
-impl CutRopeHeavyObjectKind {
-    const fn prop_kind(self) -> &'static str {
-        match self {
-            Self::Anvil => ANVIL_KIND,
-            Self::Piano => PIANO_KIND,
-        }
-    }
-
-    const fn display_name(self) -> &'static str {
-        match self {
-            Self::Anvil => "anvil",
-            Self::Piano => "piano",
-        }
-    }
-}
-
-const CUT_ROPE_HEAVY_OBJECT_CYCLE: [CutRopeHeavyObjectKind; 2] =
-    [CutRopeHeavyObjectKind::Anvil, CutRopeHeavyObjectKind::Piano];
 
 /// Tracks which heavy object is currently hanging from the cut-rope trap.
 ///
@@ -127,17 +103,19 @@ impl CutRopeHeavyObjectCycle {
         checksum_bytes(&bytes)
     }
 
-    fn current(&self) -> CutRopeHeavyObjectKind {
-        CUT_ROPE_HEAVY_OBJECT_CYCLE[self.index % CUT_ROPE_HEAVY_OBJECT_CYCLE.len()]
+    /// The heavy object that hangs now, from the rules' list.
+    pub fn current<'a>(&self, trap: &'a CutRopeTrap) -> &'a ambition_content_schemas::rules::HeavyObject {
+        trap.heavy_object(self.index)
     }
 
-    fn advance(&mut self) {
-        self.index = (self.index + 1) % CUT_ROPE_HEAVY_OBJECT_CYCLE.len();
+    /// The next room replay hangs the next object of a list of `len`.
+    fn advance(&mut self, len: usize) {
+        self.index = (self.index + 1) % len.max(1);
     }
 
-    /// Stable Yarn-facing id for the currently hung heavy object.
-    pub fn current_dialogue_id(&self) -> &'static str {
-        self.current().display_name()
+    /// The name of the heavy object that hangs now: the dialogue asks for it.
+    pub fn current_dialogue_id<'a>(&self, trap: &'a CutRopeTrap) -> &'a str {
+        &self.current(trap).name
     }
 }
 
@@ -402,7 +380,7 @@ mod tests {
         );
 
         // Exactly what the cycle does to it: only `kind` moves.
-        visual.kind = PIANO_KIND.to_string();
+        visual.kind = crate::tuning::shipped().cut_rope_trap.heavy_object(1).prop.clone();
 
         assert_ne!(
             visual.kind, anvil.kind,
@@ -494,10 +472,10 @@ mod tests {
         app.add_message::<SessionScopeActivated>();
         app.init_resource::<CutRopeHeavyObjectCycle>();
         app.add_systems(Update, restart_heavy_object_cycle_on_activation);
-        app.world_mut().resource_mut::<CutRopeHeavyObjectCycle>().advance();
+        app.world_mut().resource_mut::<CutRopeHeavyObjectCycle>().advance(2);
         app.update();
         assert_eq!(
-            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(),
+            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(&crate::tuning::shipped().cut_rope_trap),
             "piano",
             "control: with no activation, the cycle keeps the prop of the last replay"
         );
@@ -505,19 +483,29 @@ mod tests {
             .write_message(SessionScopeActivated(SessionScopeId(2)));
         app.update();
         assert_eq!(
-            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(),
+            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(&crate::tuning::shipped().cut_rope_trap),
             "anvil",
             "the next session starts on the first prop"
         );
     }
 
+    /// The rope holds the rules' heavy objects in their order, and the list
+    /// wraps: a pack that names three gets a cycle of three.
     #[test]
-    fn heavy_object_cycle_alternates_anvil_and_piano_on_advance() {
-        let mut cycle = CutRopeHeavyObjectCycle::default();
-        assert_eq!(cycle.current_dialogue_id(), "anvil");
-        cycle.advance();
-        assert_eq!(cycle.current_dialogue_id(), "piano");
-        cycle.advance();
-        assert_eq!(cycle.current_dialogue_id(), "anvil", "two-step cycle wraps");
+    fn the_heavy_objects_are_the_rules_list_in_its_order() {
+        let mut trap = crate::tuning::shipped().cut_rope_trap;
+        let names = |trap: &CutRopeTrap| {
+            let mut cycle = CutRopeHeavyObjectCycle::default();
+            (0..=trap.heavy_objects.len())
+                .map(|_| {
+                    let name = cycle.current_dialogue_id(trap).to_string();
+                    cycle.advance(trap.heavy_objects.len());
+                    name
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(names(&trap), ["anvil", "piano", "anvil"], "the shipped rope does not hold the shipped list");
+        trap.heavy_objects.push(ambition_content_schemas::rules::HeavyObject { prop: "cut_rope_anvil".into(), name: "safe".into() });
+        assert_eq!(names(&trap), ["anvil", "piano", "safe", "anvil"], "the rope does not hold the list the rules state");
     }
 }

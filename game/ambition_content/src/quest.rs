@@ -98,6 +98,7 @@ pub fn grant_quest_completion_rewards(
     mut inventory: ResMut<OwnedItems>,
     items: ambition_items::ItemCatalogRead,
     mut banner_state: ResMut<GameplayBanner>,
+    tuning: Res<crate::tuning::AmbitionTuning>,
 ) {
     for state in registry.quests.values() {
         let Some(reward) = &state.spec.reward else {
@@ -121,7 +122,7 @@ pub fn grant_quest_completion_rewards(
             inventory.grant(items.get(), item, count);
         }
         save.data_mut().set_flag(flag, true);
-        banner_state.show(reward.banner.clone(), 3.0);
+        banner_state.show(reward.banner.clone(), tuning.0.quest_payout.banner_seconds);
     }
 }
 
@@ -140,6 +141,32 @@ mod tests {
         let mut state = ambition_persistence::quest::QuestState::new(pirate_treasure_spec());
         state.start();
         state
+    }
+
+    /// A payout's banner stays for the rules' `quest_payout.banner_seconds`:
+    /// a pack that states another time gets that time.
+    #[test]
+    fn a_payout_banner_stays_for_the_time_the_rules_state() {
+        use ambition_persistence::quest::{QuestAdvanceEvent, QuestReward, QuestSpec, QuestStepCondition, QuestStepSpec};
+        use bevy::ecs::system::RunSystemOnce as _;
+        let mut spec = QuestSpec::new("probe", "Probe", "A probe quest.", vec![QuestStepSpec::new("set the flag", QuestStepCondition::FlagSet("probe_flag".into()))]);
+        spec.reward = Some(QuestReward { banner: "PROBE PAID".into(), items: Vec::new() });
+        let mut state = ambition_persistence::quest::QuestState::new(spec);
+        state.start();
+        assert!(state.try_advance(&QuestAdvanceEvent::FlagSet("probe_flag".into())) && state.is_complete(), "the premise: the probe quest completes");
+        let mut rules = crate::tuning::shipped();
+        rules.quest_payout.banner_seconds = 7.5;
+        let mut world = World::new();
+        let mut registry = QuestRegistry::default();
+        registry.quests.insert("probe".into(), state);
+        world.insert_resource(registry);
+        world.insert_resource(crate::tuning::AmbitionTuning(rules));
+        world.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+        world.init_resource::<OwnedItems>();
+        world.init_resource::<GameplayBanner>();
+        world.run_system_once(grant_quest_completion_rewards).expect("the payout runs");
+        let banner = world.resource::<GameplayBanner>();
+        assert_eq!((banner.text.as_str(), banner.timer), ("PROBE PAID", 7.5), "the payout banner does not stay for the rules' time");
     }
 
     #[test]

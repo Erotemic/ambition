@@ -593,16 +593,18 @@ pub fn rebuild_feature_view_index(
                 // with it, so the line and the box agree even mid-turn.
                 line_anchor: line_anchor.map(|anchor| anchor.0),
                 // Toward the limb, inside the host's body: where its trail meets it.
-                limb_host: limb.and_then(|limb| hosts.get(limb.of).ok()).map(|host| {
+                limb_host: limb.and_then(|limb| hosts.get(limb.of).ok()).and_then(|host| {
                     if let Some(start) = bond_start {
                         return start.0;
                     }
                     let reach = aabb.center - host.pos;
-                    host.pos
-                        + ae::Vec2::new(
-                            reach.x.clamp(-host.size.x * 0.3, host.size.x * 0.3),
-                            reach.y.clamp(-host.size.y * 0.25, host.size.y * 0.25),
-                        )
+                    Some(
+                        host.pos
+                            + ae::Vec2::new(
+                                reach.x.clamp(-host.size.x * 0.3, host.size.x * 0.3),
+                                reach.y.clamp(-host.size.y * 0.25, host.size.y * 0.25),
+                            ),
+                    )
                 }),
                 depth_plane: depth_plane.copied().unwrap_or_default(),
                 grab_reach: playback.and_then(|pb| {

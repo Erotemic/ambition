@@ -132,6 +132,7 @@ pub fn sync_portal_body_pieces(
             Entity,
             &crate::PortalBodyView,
             Option<&crate::PortalTransitView>,
+            Option<&crate::PortalHostReach>,
             Option<&ActorRoll>,
             &Sprite,
             Option<&Anchor>,
@@ -154,7 +155,8 @@ pub fn sync_portal_body_pieces(
     }
     let drawn_before = std::mem::take(&mut *drawn_last_frame);
     let by_room = frames.portals_by_room(portals.iter());
-    for (source_body, kin, transit, roll, sprite, source_anchor, source_transform, portal_hidden) in &body_visuals {
+    for (source_body, kin, transit, reach, roll, sprite, source_anchor, source_transform, portal_hidden) in &body_visuals {
+        let reach = reach.map(|reach| reach.0);
         // Outside transit the real character sprite shows whole; the pieces are a
         // transit-only replacement. Withdraw the reason instead of writing
         // `Visibility`, so the far-side compositor's hide is not overruled:
@@ -266,24 +268,65 @@ pub fn sync_portal_body_pieces(
                 let tint = crate::piece_tint(sprite);
                 let flip_flag = |flip: bool| Vec4::new(if flip { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0);
 
-                // `here`: the real pose, keeping only what is still in front of
-                // the entry plane (the sunk slice belongs to the exit chart).
-                commands.spawn((
-                    PortalBodyPiece,
-                    Mesh2d(mesh.clone()),
-                    MeshMaterial2d(materials.add(PortalClipMaterial {
-                        uv_rect: basis.uv_rect,
-                        control: flip_flag(sprite.flip_x),
-                        tint,
-                        clip0: clip_plane_render(&frame, enter.frame.origin, enter.frame.normal),
-                        clip1: CLIP_PLANE_OFF,
-                        clip2: CLIP_PLANE_OFF,
-                        color_texture: sprite.image.clone(),
-                    })),
-                    clip_piece_transform(source_transform, source_anchor_v, basis.size),
-                    placement.stamp(),
-                    Name::new("Portal body piece (here)"),
-                ));
+                // The planes that bound what is where, in world units: each
+                // `here` piece keeps one part of the real pose, and `through`
+                // keeps what went through, at the exit.
+                let (o, n) = (enter.frame.origin, enter.frame.normal);
+                let t = Vec2::new(-n.y, n.x);
+                let h = enter.half_length;
+                let along = Vec2::new(-exit.frame.normal.y, exit.frame.normal.x);
+                let aperture_half = exit.half_length;
+                let mut through_planes = vec![
+                    (exit.frame.origin, exit.frame.normal),
+                    (exit.frame.origin - along * aperture_half, along),
+                    (exit.frame.origin + along * aperture_half, -along),
+                ];
+                let here_pieces: Vec<Vec<(Vec2, Vec2)>> = match reach {
+                    // A body: what is still in front of the entry plane (the
+                    // sunk slice belongs to the exit chart).
+                    None => vec![vec![(o, n)]],
+                    // A host's picture its limb carries in: what went through
+                    // is under the opening and no deeper than the limb went;
+                    // the rest of the picture is where it is (in front, deeper,
+                    // or beside the opening).
+                    Some(r) => {
+                        let deep = o - n * r;
+                        through_planes.push((exit.frame.origin + exit.frame.normal * r, -exit.frame.normal));
+                        vec![
+                            vec![(o, n)],
+                            vec![(deep, -n)],
+                            vec![(o, -n), (deep, n), (o - t * h, -t)],
+                            vec![(o, -n), (deep, n), (o + t * h, t)],
+                        ]
+                    }
+                };
+                let planes4 = |planes: &[(Vec2, Vec2)]| {
+                    let mut out = [CLIP_PLANE_OFF; 4];
+                    for (slot, (point, normal)) in out.iter_mut().zip(planes) {
+                        *slot = clip_plane_render(&frame, *point, *normal);
+                    }
+                    out
+                };
+                for planes in &here_pieces {
+                    let [clip0, clip1, clip2, clip3] = planes4(planes);
+                    commands.spawn((
+                        PortalBodyPiece,
+                        Mesh2d(mesh.clone()),
+                        MeshMaterial2d(materials.add(PortalClipMaterial {
+                            uv_rect: basis.uv_rect,
+                            control: flip_flag(sprite.flip_x),
+                            tint,
+                            clip0,
+                            clip1,
+                            clip2,
+                            clip3,
+                            color_texture: sprite.image.clone(),
+                        })),
+                        clip_piece_transform(source_transform, source_anchor_v, basis.size),
+                        placement.stamp(),
+                        Name::new("Portal body piece (here)"),
+                    ));
+                }
 
                 // `through`: the mapped pose, keeping only what has emerged in
                 // front of the exit plane, laterally bounded by the doorway.
@@ -292,8 +335,7 @@ pub fn sync_portal_body_pieces(
                     rotation: Quat::from_rotation_z(exit_roll),
                     scale: source_transform.scale,
                 };
-                let along = Vec2::new(-exit.frame.normal.y, exit.frame.normal.x);
-                let aperture_half = exit.half_length;
+                let [clip0, clip1, clip2, clip3] = planes4(&through_planes);
                 commands.spawn((
                     PortalBodyPiece,
                     Mesh2d(mesh),
@@ -301,17 +343,10 @@ pub fn sync_portal_body_pieces(
                         uv_rect: basis.uv_rect,
                         control: flip_flag(through_flip),
                         tint,
-                        clip0: clip_plane_render(&frame, exit.frame.origin, exit.frame.normal),
-                        clip1: clip_plane_render(
-                            &frame,
-                            exit.frame.origin - along * aperture_half,
-                            along,
-                        ),
-                        clip2: clip_plane_render(
-                            &frame,
-                            exit.frame.origin + along * aperture_half,
-                            -along,
-                        ),
+                        clip0,
+                        clip1,
+                        clip2,
+                        clip3,
                         color_texture: sprite.image.clone(),
                     })),
                     clip_piece_transform(&through_base, through_anchor, basis.size),

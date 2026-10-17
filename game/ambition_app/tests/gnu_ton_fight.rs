@@ -1528,49 +1528,86 @@ fn the_punchs_pair_is_one_pair_across_rewinds() {
     assert_eq!(first_error, None, "the sync-test session stayed healthy");
 }
 
-/// Debt 6: the trail of the fist that is through the pair starts at the pair's
-/// near line. The start is on the fist (`LimbBondStart`), and the view of the
-/// fist carries it (`FeatureView::limb_host`); no resource of the renderer
-/// holds it. The authority is the near end of the pair the portal domain
-/// holds. The control is the other fist, whose bond is on the giant.
+/// A fist on its arm has no trail: the arm joins it, and the giant draws the
+/// arm, through the punch's pair or not (the fist through the pair is cut with
+/// the giant's picture). The start is on the fist (`LimbBondStart`), and the
+/// view of the fist carries it (`FeatureView::limb_host`). The control is a
+/// loose fist in phase 2, whose trail is from its shoulder's line.
 #[test]
-fn the_fist_through_the_pair_has_its_trail_from_the_near_line() {
-    use ambition_platformer2d::portal::extension::HeldPortalOf;
-    use ambition_platformer2d::portal::PlacedPortal;
+fn a_fist_on_its_arm_has_no_trail() {
+    let bonds = |sim: &mut Platformer2dSimHarness| -> Vec<(LimbSlot, Option<ae::Vec2>)> {
+        let world = sim.world_mut();
+        let fists: Vec<(LimbSlot, FeatureId)> =
+            world.query::<(&Limb, &FeatureId)>().iter(world).map(|(limb, id)| (limb.slot, id.clone())).collect();
+        let views = world.resource::<ambition_platformer2d::sim_view::FeatureViewIndex>();
+        fists.into_iter().map(|(slot, id)| (slot, views.get(id.as_str()).and_then(|view| view.limb_host))).collect()
+    };
     let mut sim = arena();
     untouchable_player(&mut sim);
     place_player(&mut sim, ae::Vec2::new(400.0, 1200.0));
     step_until(&mut sim, 900, "the strike of a punch through the pair", |sim| {
         scene(sim).performing == Some(("portal_punch", true))
     });
-    sim.step(AgentAction::default());
-    let world = sim.world_mut();
-    let near = world
-        .query_filtered::<&PlacedPortal, With<HeldPortalOf>>()
-        .iter(world)
-        .find(|portal| portal.normal.y < 0.0)
-        .map(|portal| portal.pos)
-        .expect("the near line of the pair is open");
-    let giant = world
-        .query_filtered::<&ae::BodyKinematics, (With<LimbRig>, Without<Limb>)>()
-        .iter(world)
-        .next()
-        .cloned()
-        .expect("the giant");
-    let fists: Vec<(LimbSlot, FeatureId)> =
-        world.query::<(&Limb, &FeatureId)>().iter(world).map(|(limb, id)| (limb.slot, id.clone())).collect();
-    let views = world.resource::<ambition_platformer2d::sim_view::FeatureViewIndex>();
-    let bond = |slot: LimbSlot| {
-        let (_, id) = fists.iter().find(|(s, _)| *s == slot).expect("the fist");
-        views.get(id.as_str()).and_then(|view| view.limb_host).expect("the fist's view has a bond")
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let on_arms = bonds(&mut sim);
+    assert_eq!(on_arms.len(), 2, "the premise: two fists");
+    assert!(on_arms.iter().all(|(_, host)| host.is_none()), "a fist on its arm has a trail: {on_arms:?}");
+
+    let mut sim = arena_with_free_fists();
+    step_until(&mut sim, 600, "the trails of the loose fists", |sim| bonds(sim).iter().all(|(_, host)| host.is_some()));
+}
+
+/// THE FIST GOES THROUGH THE PAIR (Jon 2026-10-16,
+/// `docs/planning/engine/portals-a-body-in-two-places.md`). The fist's body is
+/// posed under the NEAR line, where the giant's arm puts it, and it is never
+/// under the far line: the portal pair carries it there. A player standing
+/// under the far line is struck, and the fist is in the pair while it is.
+#[test]
+fn the_punch_hurts_under_the_far_line_through_the_pair() {
+    use ambition_platformer2d::portal::extension::HeldPortalOf;
+    use ambition_platformer2d::portal::{PlacedPortal, PortalTransit};
+    let lines = |sim: &mut Platformer2dSimHarness| -> Option<(ae::Vec2, ae::Vec2)> {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&PlacedPortal, With<HeldPortalOf>>();
+        let near = q.iter(world).find(|p| p.normal.y < 0.0)?.pos;
+        let far = q.iter(world).find(|p| p.normal.y > 0.0)?.pos;
+        Some((near, far))
     };
-    assert_eq!(bond(LimbSlot::HAND_RIGHT), near, "the fist through the pair has its trail from the near line");
-    let left = bond(LimbSlot::HAND_LEFT);
-    assert!(left != near, "the control: the other fist's trail is not from the pair");
-    let off = left - giant.pos;
-    assert!(
-        off.x.abs() < giant.size.x * 0.5 && off.y.abs() < giant.size.y * 0.5,
-        "the control: the other fist's bond {left:?} is on the giant at {:?}",
-        giant.pos
-    );
+    let right_fist = |sim: &mut Platformer2dSimHarness| -> (ae::Vec2, bool) {
+        let world = sim.world_mut();
+        world
+            .query::<(&Limb, &ae::BodyKinematics, Has<PortalTransit>)>()
+            .iter(world)
+            .find(|(limb, ..)| limb.slot == LimbSlot::HAND_RIGHT)
+            .map(|(_, kin, threaded)| (kin.pos, threaded))
+            .expect("the right fist")
+    };
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    place_player(&mut sim, ae::Vec2::new(400.0, 1200.0));
+    step_until(&mut sim, 900, "the strike of a punch through the pair", |sim| {
+        scene(sim).performing == Some(("portal_punch", true))
+    });
+    let (near, far) = lines(&mut sim).expect("the pair is open");
+    // Under the far line, on the floor, and touchable again.
+    place_player(&mut sim, ae::Vec2::new(far.x, far.y + 120.0));
+    {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&mut BodyHealth, PrimaryPlayerOnly>();
+        for mut health in q.iter_mut(world) {
+            health.health.invulnerable.set(Invulnerability::SCRIPTED, false);
+        }
+    }
+    let before = player(&mut sim).1;
+    let mut threaded = false;
+    for _ in 0..40 {
+        sim.step(AgentAction::default());
+        let (fist, in_pair) = right_fist(&mut sim);
+        assert!((fist.x - near.x).abs() < 1.0, "the fist is posed under the near line, not the far: {fist:?} near {near:?}");
+        threaded |= in_pair && fist.y > near.y;
+    }
+    assert!(threaded, "the fist went into the near line and was in the pair");
+    assert!(player(&mut sim).1 < before, "the player under the far line was not struck");
 }

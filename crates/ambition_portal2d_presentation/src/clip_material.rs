@@ -63,6 +63,10 @@ pub struct PortalClipMaterial {
     pub clip1: Vec4,
     #[uniform(5)]
     pub clip2: Vec4,
+    /// A fourth plane: the depth a host's picture went through to
+    /// (`PortalHostReach`).
+    #[uniform(8)]
+    pub clip3: Vec4,
     #[texture(6)]
     #[sampler(7)]
     pub color_texture: Handle<Image>,
@@ -133,6 +137,7 @@ fn warm_the_clip_material(
             clip0: CLIP_PLANE_OFF,
             clip1: CLIP_PLANE_OFF,
             clip2: CLIP_PLANE_OFF,
+            clip3: CLIP_PLANE_OFF,
             color_texture: Handle::default(),
         })),
         Transform::default(),

@@ -24,7 +24,8 @@
 
 use ambition_boss_special_port::{
     BossConduct, BossConductPort, BossGuard, BossGuardPort, ConductedPose, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LimbBlow,
-    LimbBlowPort, LimbBond, LimbBondPort, LimbHold, LimbOpening, LimbOpeningPort, LimbPose, LimbPosePort, MountLaunch, MountLaunchPort,
+    LimbBlowPort, LimbBond, LimbBondPort, LimbHold, LimbOpening, LimbOpeningPort, LimbPose, LimbPosePort, LimbStrike,
+    LimbStrikePort, MountLaunch, MountLaunchPort,
     MountView, MountViewPort, Pose as BodyPose,
 };
 use ambition_combat_port::{
@@ -453,6 +454,7 @@ pub fn module() -> ModuleDescriptor {
                 LimbOpeningPort::KEY,
                 LimbBlowPort::KEY,
                 LimbBondPort::KEY,
+                LimbStrikePort::KEY,
                 MountLaunchPort::KEY,
                 HeldDamageBoxPort::KEY,
                 HeldPortalPairPort::KEY,
@@ -1100,42 +1102,52 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             continue;
         };
         let slot = FIST_SLOTS[i].to_string();
-        // The right fist is the one that goes through the pair. A fist that
-        // is not through is in the giant's picture: its body waits inside the
-        // giant, drawn as nothing, and is no opening.
+        // The right fist is the one that goes through the pair. The giant's
+        // picture draws the whole arm and its fist; the fist's body is where
+        // that fist is, posed as if there were no portal: under the near line
+        // while the arm is in it, and the pair carries the body, its box and
+        // the giant's picture of it to the far line
+        // (`docs/planning/engine/portals-a-body-in-two-places.md`). A fist
+        // that is not on its way through waits inside the giant. Its own
+        // sheet draws nothing while it is on its arm, and it is no opening.
         let through = cue.as_ref().filter(|_| fist == Fist::Right).and_then(ch::arms::through);
-        let pos = if through.is_some() { ch::arms::far_fist(v(c.punch_far)) } else { giant_pos };
+        let depth = cue.as_ref().filter(|_| fist == Fist::Right).and_then(ch::arms::fist_depth);
+        let pos = depth.map_or(giant_pos, |d| v(c.punch_near) + Vec2::new(0.0, d));
+        let vel = match (depth, c.last_pos[i]) {
+            (Some(_), Some(last)) => (pos - v(last)) / dt,
+            _ => Vec2::ZERO,
+        };
         inv.submit::<LimbPosePort>(LimbPose {
             slot: slot.clone(),
-            hold: Some(LimbHold { position: a(pos), velocity: [0.0, 0.0], facing: fist.side() }),
+            hold: Some(LimbHold { position: a(pos), velocity: a(vel), facing: fist.side() }),
         })?;
-        draw(inv, fist_part(fist), Some(through.map_or(ch::arms::NO_FIST, |(row, _)| row)))?;
+        draw(inv, fist_part(fist), Some(ch::arms::NO_FIST))?;
         if body.lost_health > 0 {
             inv.submit::<LimbBlowPort>(LimbBlow { slot: slot.clone(), pass: false })?;
         }
-        inv.submit::<LimbOpeningPort>(LimbOpening { slot, open: false })?;
+        inv.submit::<LimbOpeningPort>(LimbOpening { slot: slot.clone(), open: false })?;
         if through.is_some_and(|(_, harmful)| harmful) {
             if !c.armed[i] {
                 c.armed[i] = true;
                 c.armed_at[i] = clock;
                 c.fist_generation[i] = c.fist_generation[i].wrapping_add(1);
             }
-            inv.submit::<HeldDamageBoxPort>(HeldDamageBox {
-                slot: FIST_BOX_SLOT + i as u32,
+            // The fist carries its box: where the fist is through the pair,
+            // the box hurts there.
+            inv.submit::<LimbStrikePort>(LimbStrike {
+                slot: slot.clone(),
                 generation: c.fist_generation[i],
-                center: a(pos),
                 half_extent: a(v(body.size) * 0.5 * FIST_HIT_SCALE),
                 damage: FIST_DAMAGE,
                 knockback: FIST_KNOCKBACK,
-                lifetime_s: REARM + 0.5,
             })?;
         } else {
             c.armed[i] = false;
         }
-        // The blow lands.
+        // The blow lands, on the floor under the far line.
         if let (Some(cue), true) = (cue.as_ref(), through.is_some()) {
             if cue.t < ch::arms::LANDS && cue.t + dt >= ch::arms::LANDS {
-                let at = Vec2::new(pos.x, hall.floor);
+                let at = Vec2::new(v(c.punch_far).x, hall.floor);
                 dust(inv, at, 22, 300.0, [0.6, 0.5, 0.4, 1.0])?;
                 play(inv, SFX_STOMP, at)?;
             }
@@ -1334,10 +1346,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 }
 
 /// The trail of each fist is part of his spell: it joins the two lines the
-/// arm is in. It starts at the shoulder's line (after phase 1), or, for the
-/// right fist when it is through the pair of the punch, at the pair's near
-/// line. A fist with neither has its trail from the giant: no start is asked
-/// for.
+/// arm is in, from the shoulder's line (after phase 1). A fist on its arm
+/// has none: the arm joins it. A loose fist with no line has its trail from
+/// the giant: no start is asked for.
 fn bond_fists(inv: &mut Invocation<'_>, c: &Conductor, giant: &MountView) -> Result<(), Fault> {
     let lines = c.look_lines();
     for fist in Fist::BOTH {
@@ -1345,11 +1356,17 @@ fn bond_fists(inv: &mut Invocation<'_>, c: &Conductor, giant: &MountView) -> Res
         if !giant.limbs.iter().any(|l| l.slot == FIST_SLOTS[i]) {
             continue;
         }
-        let through = c.punch_pair().filter(|_| i == 1).map(|[near, _]| near);
-        let Some(start) = lines[i].map(|(at, _)| at).or(through) else {
-            continue;
+        // A fist on its arm (phase 1, through the punch's pair or not) is
+        // joined by the arm, which the giant draws: it has no trail.
+        let start = if c.loosed {
+            match lines[i] {
+                Some((at, _)) => Some(a(at)),
+                None => continue,
+            }
+        } else {
+            None
         };
-        inv.submit::<LimbBondPort>(LimbBond { slot: FIST_SLOTS[i].into(), start: a(start) })?;
+        inv.submit::<LimbBondPort>(LimbBond { slot: FIST_SLOTS[i].into(), start })?;
     }
     Ok(())
 }

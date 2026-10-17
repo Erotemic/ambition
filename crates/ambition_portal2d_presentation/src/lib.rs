@@ -328,6 +328,15 @@ pub struct PortalTransitView {
     pub straddling: PortalChannel,
 }
 
+/// The visual is a host's picture that a limb of it carries into the pair of
+/// its [`PortalTransitView`] (a giant's arm, drawn by the giant): what went
+/// through is the part past the plane, under the opening, and no deeper than
+/// this (world units, the limb's reach); the rest of the picture is where it
+/// is (`docs/planning/engine/portals-a-body-in-two-places.md`). A body has
+/// none: all of it past the plane went through.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct PortalHostReach(pub f32);
+
 /// Host seam: the loaded portal-gun art (blue / orange mode sprites). The
 /// crate defines the resource; the HOST loads it — asset paths are content.
 /// Absent resource → the held gun doesn't draw and the ground pickup falls

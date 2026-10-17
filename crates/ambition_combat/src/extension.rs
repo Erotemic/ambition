@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use ambition_combat_port::{
     BodyAttachment, BodyAttachments, BodyAttachmentsPort, BodyHold, BodyHoldPort, DamageBoxPort, HeldDamageBoxPort,
-    RidingHitboxPort, RidingKnockback, StrikePort,
+    HeldRay, HeldRayPort, RidingHitboxPort, RidingKnockback, StrikePort,
 };
 use ambition_extension_host::{
     AdmittedExtensions, ExtensionAppExt, ExtensionOutbox, InBossConduct, InTechniqueExecution, InWieldedUse, LowersIn,
@@ -31,6 +31,9 @@ pub fn install(app: &mut App) {
         "ambition_combat",
         lower_damage_boxes::<InTechniqueExecution>,
     );
+    // A ray is lowered with the held damage boxes (one record set): its own
+    // install only offers the port.
+    app.install_extension_request::<HeldRayPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", || {});
     app.install_extension_request::<HeldDamageBoxPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_combat",
@@ -41,6 +44,7 @@ pub fn install(app: &mut App) {
 /// Install the held damage box, the riding hitbox and the body hold in
 /// `boss_conduct`.
 pub fn install_for_boss_conduct(app: &mut App) {
+    app.install_extension_request::<HeldRayPort, _>(BOSS_CONDUCT, "ambition_combat", || {});
     app.install_extension_request::<HeldDamageBoxPort, _>(
         BOSS_CONDUCT,
         "ambition_combat",
@@ -266,20 +270,120 @@ impl ae::snapshot::SnapshotCursor for HeldDamageBoxes {
     }
 }
 
-/// See the port card on `HeldDamageBoxPort`: release what was not asked for
-/// this tick, then spawn what is asked for and not held.
+/// One held volume a module asked for this tick: a box, or a ray cast now.
+struct AskedHeld {
+    scope: Entity,
+    entry: Arc<str>,
+    slot: u32,
+    generation: u32,
+    center: ae::Vec2,
+    half_extent: ae::Vec2,
+    shape: Option<ae::VolumeShape>,
+    ray: Option<crate::strike::RayStrike>,
+    damage: i32,
+    knockback: f32,
+    lifetime_s: f32,
+}
+
+/// Where `ray`, asked for by a body at `body`, goes: from its start along its
+/// direction to the first wall, through the pairs it enters as far as the
+/// body's portal policy lets a volume go, as a volume from its start (so the
+/// pairs cut it where it goes through them). `None`: a body ray of a body
+/// with no position, or no direction.
+fn cast_ray(
+    ray: &HeldRay,
+    body: Option<ae::Vec2>,
+    walls: Option<&ae::World>,
+    passages: Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>,
+    owner: Entity,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) -> Option<(ae::Vec2, crate::strike::RayStrike, ae::VolumeShape)> {
+    let origin = match ray.from {
+        ambition_combat_port::Spot::World(at) => ae::Vec2::from(at),
+        ambition_combat_port::Spot::Body(offset) => body? + ae::Vec2::from(offset),
+    };
+    let dir = ae::Vec2::from(ray.toward).normalize_or_zero();
+    if dir == ae::Vec2::ZERO {
+        return None;
+    }
+    let reach = ray.reach.max(0.0);
+    let length = match walls {
+        Some(walls) => {
+            let (pairs, hops, convention) = match passages {
+                Some(p) => (
+                    p.pairs_in(room),
+                    p.budget_for(Some(owner), room).map_or(0, |budget| u32::from(budget.max_hops)),
+                    p.convention(),
+                ),
+                None => (Vec::new(), 0, Default::default()),
+            };
+            ae::cast::trace_through_apertures(walls, &pairs, origin, dir, reach, false, hops, convention).distance
+        }
+        None => reach,
+    };
+    let strike = crate::strike::RayStrike { dir, length, width: ray.width.max(1.0), look: Arc::from(ray.look.as_str()) };
+    Some((origin, strike.clone(), strike.shape()))
+}
+
+/// See the port cards on `HeldDamageBoxPort` and `HeldRayPort`: release what
+/// was not asked for this tick, move what is held and asked again, then spawn
+/// what is asked for and not held. A ray is a held volume like a box, cast
+/// again each tick it is asked for.
+#[allow(clippy::too_many_arguments)]
 fn lower_held_damage_boxes<P: LowersIn>(
     mut commands: Commands,
     mut outbox: ResMut<ExtensionOutbox>,
     admitted: Res<AdmittedExtensions>,
     mut holders: Query<(Entity, &mut HeldDamageBoxes)>,
-    mut hitboxes: Query<&mut crate::strike::Hitbox>,
+    mut hitboxes: Query<(&mut crate::strike::Hitbox, Option<&mut crate::strike::RayStrike>)>,
     factions: Query<(
         &ActorFaction,
         Option<&ambition_characters::control::DrivingParticipant>,
     )>,
+    bodies: Query<(&ae::BodyKinematics, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>)>,
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
+    passages: Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
 ) {
-    let submitted = outbox.drain::<HeldDamageBoxPort>(&P::PHASE);
+    let mut asked: Vec<AskedHeld> = outbox
+        .drain::<HeldDamageBoxPort>(&P::PHASE)
+        .into_iter()
+        .map(|s| AskedHeld {
+            scope: s.scope,
+            entry: s.entry.clone(),
+            slot: s.value.slot,
+            generation: s.value.generation,
+            center: ae::Vec2::from(s.value.center),
+            half_extent: ae::Vec2::from(s.value.half_extent),
+            shape: None,
+            ray: None,
+            damage: s.value.damage,
+            knockback: s.value.knockback,
+            lifetime_s: s.value.lifetime_s,
+        })
+        .collect();
+    for s in outbox.drain::<HeldRayPort>(&P::PHASE) {
+        let (body, room) = bodies.get(s.scope).map_or((None, None), |(kin, room)| (Some(kin.pos), room));
+        let walls = collision.room(room).and_then(|room| room.solids());
+        let Some((origin, ray, shape)) =
+            cast_ray(&s.value, body, walls.as_deref(), passages.as_deref(), s.scope, room.map(|r| r.0))
+        else {
+            warn!("extension entry {} asked for a ray from {:?} that has no start or no direction; refused", s.entry, s.scope);
+            continue;
+        };
+        asked.push(AskedHeld {
+            scope: s.scope,
+            entry: s.entry.clone(),
+            slot: s.value.slot,
+            generation: s.value.generation,
+            center: origin,
+            half_extent: shape_half(&shape),
+            shape: Some(shape),
+            ray: Some(ray),
+            damage: s.value.damage,
+            knockback: s.value.knockback,
+            lifetime_s: s.value.lifetime_s,
+        });
+    }
     // Only this phase's entries' boxes: the other phase's adapter releases
     // its own.
     let mine: Vec<&str> = admitted
@@ -289,21 +393,18 @@ fn lower_held_damage_boxes<P: LowersIn>(
         .filter(|e| e.descriptor.phase == P::PHASE)
         .map(|e| e.path.as_str())
         .collect();
-    let asked = |owner: Entity, r: &HeldDamageBoxRecord| {
+    let is_asked = |owner: Entity, r: &HeldDamageBoxRecord| {
         !mine.contains(&&*r.entry)
-            || submitted.iter().any(|s| {
-                s.scope == owner
-                    && *s.entry == *r.entry
-                    && s.value.slot == r.slot
-                    && s.value.generation == r.generation
+            || asked.iter().any(|s| {
+                s.scope == owner && *s.entry == *r.entry && s.slot == r.slot && s.generation == r.generation
             })
     };
     for (owner, mut held) in &mut holders {
-        if held.0.iter().all(|r| asked(owner, r)) {
+        if held.0.iter().all(|r| is_asked(owner, r)) {
             continue;
         }
         held.0.retain(|r| {
-            let keep = asked(owner, r);
+            let keep = is_asked(owner, r);
             if !keep {
                 if let Ok(mut e) = commands.get_entity(r.entity) {
                     e.try_despawn();
@@ -316,25 +417,29 @@ fn lower_held_damage_boxes<P: LowersIn>(
     // New boxes, per owner, in submit order. An owner that holds nothing yet
     // gets the component with them.
     let mut new: Vec<(Entity, Vec<HeldDamageBoxRecord>)> = Vec::new();
-    for s in &submitted {
+    for s in &asked {
         let held = holders.get(s.scope).ok().map(|(_, h)| h);
         let pending = new.iter().find(|(o, _)| *o == s.scope).map(|(_, r)| r);
         let is_held = held
             .into_iter()
             .flat_map(|h| h.0.iter())
             .chain(pending.into_iter().flatten())
-            .any(|r| *r.entry == *s.entry && r.slot == s.value.slot && r.generation == s.value.generation);
+            .any(|r| *r.entry == *s.entry && r.slot == s.slot && r.generation == s.generation);
         if is_held {
-            // Held: it follows its submitted centre (version 2).
+            // Held: it follows its submitted centre (version 2), and a ray
+            // its new cast.
             let entity = held
                 .into_iter()
                 .flat_map(|h| h.0.iter())
-                .find(|r| *r.entry == *s.entry && r.slot == s.value.slot && r.generation == s.value.generation)
+                .find(|r| *r.entry == *s.entry && r.slot == s.slot && r.generation == s.generation)
                 .map(|r| r.entity);
-            if let Some(mut hitbox) = entity.and_then(|e| hitboxes.get_mut(e).ok()) {
-                hitbox.anchor = crate::strike::HitboxAnchor::World {
-                    center: ae::Vec2::from(s.value.center),
-                };
+            if let Some((mut hitbox, ray)) = entity.and_then(|e| hitboxes.get_mut(e).ok()) {
+                hitbox.anchor = crate::strike::HitboxAnchor::World { center: s.center };
+                if let (Some(mut held_ray), Some(cast)) = (ray, &s.ray) {
+                    hitbox.shape = s.shape.clone();
+                    hitbox.half_extent = s.half_extent;
+                    *held_ray = cast.clone();
+                }
             }
             continue;
         }
@@ -348,25 +453,27 @@ fn lower_held_damage_boxes<P: LowersIn>(
             continue;
         };
         let faction = crate::targeting::effective_faction(*authored, driver);
-        let b = &s.value;
         let entity = crate::strike::spawn_damage_box(
             &mut commands,
             s.scope,
             crate::hit_side_from_actor_faction(faction),
-            ae::Vec2::from(b.center),
+            s.center,
             crate::strike::DamageBox {
-                half_extent: ae::Vec2::from(b.half_extent),
-                shape: None,
-                damage: b.damage,
-                knockback: b.knockback,
-                lifetime_s: b.lifetime_s,
+                half_extent: s.half_extent,
+                shape: s.shape.clone(),
+                damage: s.damage,
+                knockback: s.knockback,
+                lifetime_s: s.lifetime_s,
                 name: None,
             },
         );
+        if let Some(ray) = &s.ray {
+            commands.entity(entity).insert(ray.clone());
+        }
         let record = HeldDamageBoxRecord {
             entry: s.entry.clone(),
-            slot: b.slot,
-            generation: b.generation,
+            slot: s.slot,
+            generation: s.generation,
             entity,
         };
         match new.iter_mut().find(|(o, _)| *o == s.scope) {
@@ -382,6 +489,13 @@ fn lower_held_damage_boxes<P: LowersIn>(
             commands.entity(owner).insert(HeldDamageBoxes(records));
         }
     }
+}
+
+/// The half extent of a shape's bounds about its origin: what a box of the
+/// shape reports where a reader wants a box.
+fn shape_half(shape: &ae::VolumeShape) -> ae::Vec2 {
+    let bounds = shape.place_at(ae::Vec2::ZERO, 1.0, ae::Vec2::new(0.0, 1.0)).bounds();
+    bounds.max.abs().max(bounds.min.abs())
 }
 
 /// Lower `ambition.combat.riding_hitbox`: a hitbox that follows its owner, on

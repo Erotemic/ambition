@@ -83,6 +83,16 @@ pub fn pane_relation(
     }
 }
 
+/// Is `point` on the other side of `pane`'s plane from the `viewer`: behind
+/// the pane, where the pane draws the view through it? The side test of
+/// [`pane_relation`], for a drawable judged point by point (a mesh built on
+/// the CPU, triangle by triangle).
+pub fn behind_pane(pane: &PlacedPortal, viewer: Vec2, point: Vec2) -> bool {
+    let frame = pane.frame();
+    let front = |p: Vec2| ambition_portal2d::pieces::front_distance(p, &frame) >= 0.0;
+    front(point) != front(viewer)
+}
+
 /// Does the drawn ordering match the relation, given the two actual z values?
 ///
 /// This makes the bug countable in the diagnostics. It takes the z values

@@ -26,7 +26,7 @@ pub use anim_index::{
     ActorSpriteData, BossFrameIndex, BossFrameView, ClipRequest, HazardLaneFact, SMASH_CHARGE_CLIP,
 };
 pub use combat_geometry_view::{
-    rebuild_combat_geometry_view, CombatBodyGeometryView, CombatGeometryView,
+    rebuild_combat_geometry_view, CombatBodyGeometryView, CombatGeometryView, CombatRayView,
     CombatStrikeGeometryView, HurtboxSource,
 };
 pub use control_prompt::{

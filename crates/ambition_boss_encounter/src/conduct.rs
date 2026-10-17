@@ -714,14 +714,15 @@ pub fn lower_bursts(
     }
 }
 
-/// Lower `ambition.feedback.lightning` into `VfxMessage::Lightning`: a body
-/// end follows the asking body, and the lease key is scoped to it.
+/// Lower `ambition.feedback.lightning` (a bolt that shows, not one that
+/// hurts: that is a ray) into `VfxMessage::Lightning`: a body end follows the
+/// asking body, and the lease key is scoped to it.
 pub fn lower_lightning(
     mut outbox: ResMut<ExtensionOutbox>,
     mut vfx: ambition_vfx::vfx::VfxWriter,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
-    use ambition_combat_port::{BoltEnd, LightningPort};
+    use ambition_combat_port::{LightningPort, Spot};
     use ambition_vfx::{LightningEnd, LightningKey, LightningLook};
     for submitted in outbox.drain::<LightningPort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
         let bolt = submitted.value;
@@ -733,9 +734,9 @@ pub fn lower_lightning(
             look = look.tinted(glow);
         }
         let owner = submitted.scope;
-        let end = |end: BoltEnd| match end {
-            BoltEnd::World(at) => LightningEnd::World(ae::Vec2::from(at)),
-            BoltEnd::Body(offset) => LightningEnd::Body { owner, offset: ae::Vec2::from(offset) },
+        let end = |end: Spot| match end {
+            Spot::World(at) => LightningEnd::World(ae::Vec2::from(at)),
+            Spot::Body(offset) => LightningEnd::Body { owner, offset: ae::Vec2::from(offset) },
         };
         vfx.for_room(rooms.of(owner)).write(ambition_vfx::vfx::VfxMessage::Lightning {
             key: LightningKey::scoped(Some(owner), &bolt.key),

@@ -175,36 +175,58 @@ When a semantic source needs a persistent particle/emitter representation:
 
 Do not create this abstraction without a current persistent source.
 
-**First customer (2026-10-17): procedural lightning.** Jon asked for an
-engine that can do procedural lightning: "a force lightning sort of feel" and
-"a DBZ super saiyin 2 power lightning that can be a sort of power up aura".
-It is built as a LEASE, not a reconciled component:
+**First customer (2026-10-17): procedural lightning, then rays.** Jon asked
+for an engine that can do procedural lightning: "a force lightning sort of
+feel" and "a DBZ super saiyin 2 power lightning that can be a sort of power
+up aura". Then: "The presentation should be separate from the attack
+itself. And for portals, it should not be structurally possible to add
+something into the game that doesn't work with portals." And: "we will add
+different types of line or poly-line based moves and effects (e.g.
+lasers)." What is built:
 
-- `VfxMessage::Lightning` (a bolt between two ends) and
-  `VfxMessage::LightningAura` (arcs over a body), in `ambition_vfx::lightning`;
-- the module ports `ambition.feedback.lightning` / `lightning_aura`, offered
-  in `boss_conduct`;
-- a producer re-asks under a key each tick, which renews the effect and moves
-  its ends; when it stops, the effect fades. A rewind that re-asks rebuilds
-  it. Nothing is in rollback.
+- **A ray is an attack** (`ambition.combat.held_ray`, `HeldRay`). The
+  module gives a start, a direction, a reach, a width and a look name. The
+  combat adapter casts it with `trace_through_apertures`: it stops at the
+  first wall, goes through the pairs it enters, and its length is that
+  distance unfolded. It is then an ordinary world hitbox, a band from its
+  start, carrying `RayStrike`. The resolver cuts it through the portal pairs
+  as it cuts any volume (`PortalPassages::pieces`). Its portal handling is
+  therefore everyone's, not its own.
+- **The look is presentation**, by name (`lines::LineLook`: the lightning
+  looks, `laser`). It is drawn from the ray's published geometry
+  (`CombatGeometryView`, `CombatRayView`). A new ray attack is a ray plus a
+  look; a new look is one `LineLook` arm.
+- **A decoration is a look with no attack**:
+  - `ambition.feedback.lightning` / `lightning_aura`, lowered to
+    `VfxMessage::Lightning` / `LightningAura`;
+  - leased by key: asked again it holds and follows, unasked it fades;
+  - nothing of it is in rollback.
+- **Every mesh built on the CPU goes through one writer**
+  (`folded_mesh::FoldedMesh`). A producer writes its triangles into the
+  world, unfolded, and never writes a mesh itself. The writer then:
+  - cuts them where the room's pairs cut a volume and carries each part out
+    of the other end (the same `pieces`, so the drawn line is where the ray
+    hurts);
+  - cuts out of each pane what is behind it from the viewer (`behind_pane`,
+    the far-side rule for sprites).
 
-`ambition_render::lightning` builds the geometry on the CPU each flicker (a
-jagged trunk with forks, or arcs round an ellipse). It is a vertex-coloured
-mesh drawn with additive blending, and the shader draws no shape. Quality:
-
-- with no screen-shader budget, or on Android, only the white core is drawn,
-  with no halo, forks, aura or contact light;
-- the fork and arc counts follow the particle `spawn_rate_scale`.
-
-A bolt is a tell, so its core is drawn on every device. The first user is
-Wolfenstein: ceiling strikes, the arc lash, neck-bolt crackle and his
-unleashed aura.
+  So a line effect cannot be added that ignores portals.
+- **Quality:**
+  - with no screen-shader budget, or on Android, only the white core is
+    drawn: no halo, forks, aura or contact light;
+  - the fork and arc counts follow the particle `spawn_rate_scale`;
+  - a ray's core is drawn on every device: it is the tell.
+- **Wolfenstein:**
+  - the galvanize: three rays from the ceiling, `strike` look;
+  - the arc lash: one ray from his neck, `force` look;
+  - decorations: the transition bolt, the neck-bolt crackle, and the aura
+    while he charges and while he is unleashed.
 
 Open:
-- portal compositing of bolts;
-- the ports in `wielded_use` / a character's power-up state (Empowered), so a
-  player can wear the aura;
-- coils arcing into him at the throne.
+- a player power-up wearing the aura (the decoration ports are offered in
+  `boss_conduct` only);
+- the coils arcing into him at the throne;
+- sprite and particle FX (`fx.rs`) are not yet on a structural portal road.
 
 ### R4 — optional rich provider, only after a capability failure
 

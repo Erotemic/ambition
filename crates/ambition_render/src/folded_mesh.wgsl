@@ -1,6 +1,6 @@
-// Lightning: the colours its mesh was built with (`lightning/mod.rs`),
+// A folded mesh (`folded_mesh.rs`): the colours its triangles were built with,
 // scaled by `strength`. The material's blend adds them to what is under
-// them. It draws no shape: the bolt's geometry is the mesh.
+// them. It draws no shape: the shape is the mesh.
 
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #ifdef SRGB_OUTPUT

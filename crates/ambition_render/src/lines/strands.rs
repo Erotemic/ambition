@@ -1,12 +1,14 @@
-//! The geometry of lightning: jagged strands in a local frame, and the
-//! triangles that draw them. Pure functions of a seed, so a test can hold a
-//! path still.
+//! The geometry of a line effect: strands (jagged for lightning, straight
+//! for a laser) in a local frame, and the ribbons that draw them. Pure
+//! functions of a seed, so a test can hold a path still.
 //!
-//! A bolt's frame runs from its start (0, 0) to its end (1, 0), so a path
+//! A line's frame runs from its start (0, 0) to its end (1, 0), so a path
 //! stretches with its ends as they move between new paths. An aura's frame is
 //! its body's ellipse as the unit circle.
 
 use bevy::math::Vec2;
+
+use crate::folded_mesh::Tris;
 
 /// A small, fast generator; presentation only, so any good spread will do.
 #[derive(Clone, Copy, Debug)]
@@ -107,6 +109,15 @@ pub fn bolt(rng: &mut Rng, length: f32, jag: f32, forks: usize) -> Vec<Strand> {
     strands
 }
 
+/// A laser from (0, 0) to (1, 0): one straight strand, cut finely enough
+/// that a fold through a portal bends it cleanly.
+pub fn straight(length: f32) -> Vec<Strand> {
+    let n = segments_for(length);
+    let points: Vec<Vec2> = (0..=n).map(|i| Vec2::new(i as f32 / n as f32, 0.0)).collect();
+    let widths = vec![1.0; points.len()];
+    vec![Strand { points, widths, appears_at: 0.0, trunk: true }]
+}
+
 /// The arcs of an aura in the unit circle of its body: some crawl the
 /// outline, some leap off it, a few cross the body. Each of `arcs` is drawn
 /// this flicker with a chance, so the crackle comes and goes.
@@ -144,65 +155,49 @@ pub fn aura(rng: &mut Rng, jag: f32, arcs: usize) -> Vec<Strand> {
     strands
 }
 
-/// Triangles with a colour at each corner: one mesh of a whole effect.
-#[derive(Clone, Debug, Default)]
-pub struct Tris {
-    pub positions: Vec<[f32; 3]>,
-    pub colors: Vec<[f32; 4]>,
-    pub indices: Vec<u32>,
+/// A soft band along `points`, `widths` across: `center` down its middle,
+/// fading to `edge` at its sides, with soft caps.
+pub fn ribbon(tris: &mut Tris, points: &[Vec2], widths: &[f32], center: [f32; 4], edge: [f32; 4]) {
+    if points.len() < 2 {
+        return;
+    }
+    let n = points.len();
+    let mut rows = Vec::with_capacity(n);
+    for i in 0..n {
+        let ahead = points[(i + 1).min(n - 1)] - points[i.saturating_sub(1)];
+        let across = ahead.perp().normalize_or(Vec2::Y) * (widths[i] * 0.5);
+        let l = tris.vertex(points[i] + across, edge);
+        let c = tris.vertex(points[i], center);
+        let r = tris.vertex(points[i] - across, edge);
+        rows.push([l, c, r]);
+    }
+    for w in rows.windows(2) {
+        let ([l0, c0, r0], [l1, c1, r1]) = (w[0], w[1]);
+        tris.indices.extend_from_slice(&[l0, c0, l1, c0, c1, l1, c0, r0, c1, r0, r1, c1]);
+    }
+    // A cap past each end, so a strand ends in a point of light, not a cut.
+    for (end, inner, row) in [(0, 1, rows[0]), (n - 1, n - 2, rows[n - 1])] {
+        let out = (points[end] - points[inner]).normalize_or(Vec2::X) * (widths[end] * 0.5);
+        let tip = tris.vertex(points[end] + out, edge);
+        let [l, c, r] = row;
+        tris.indices.extend_from_slice(&[l, c, tip, c, r, tip]);
+    }
 }
 
-impl Tris {
-    fn vertex(&mut self, at: Vec2, color: [f32; 4]) -> u32 {
-        self.positions.push([at.x, at.y, 0.0]);
-        self.colors.push(color);
-        (self.positions.len() - 1) as u32
+/// A disc of light at `at`, `center` in the middle fading to `edge`.
+pub fn glow(tris: &mut Tris, at: Vec2, radius: f32, center: [f32; 4], edge: [f32; 4]) {
+    if radius <= 0.0 {
+        return;
     }
-
-    /// A soft band along `points` (in mesh space), `widths` across: `center`
-    /// down its middle, fading to `edge` at its sides, with soft caps.
-    pub fn ribbon(&mut self, points: &[Vec2], widths: &[f32], center: [f32; 4], edge: [f32; 4]) {
-        if points.len() < 2 {
-            return;
-        }
-        let n = points.len();
-        let mut rows = Vec::with_capacity(n);
-        for i in 0..n {
-            let ahead = points[(i + 1).min(n - 1)] - points[i.saturating_sub(1)];
-            let across = ahead.perp().normalize_or(Vec2::Y) * (widths[i] * 0.5);
-            let l = self.vertex(points[i] + across, edge);
-            let c = self.vertex(points[i], center);
-            let r = self.vertex(points[i] - across, edge);
-            rows.push([l, c, r]);
-        }
-        for w in rows.windows(2) {
-            let ([l0, c0, r0], [l1, c1, r1]) = (w[0], w[1]);
-            self.indices.extend_from_slice(&[l0, c0, l1, c0, c1, l1, c0, r0, c1, r0, r1, c1]);
-        }
-        // A cap past each end, so a strand ends in a point of light, not a cut.
-        for (end, inner, row) in [(0, 1, rows[0]), (n - 1, n - 2, rows[n - 1])] {
-            let out = (points[end] - points[inner]).normalize_or(Vec2::X) * (widths[end] * 0.5);
-            let tip = self.vertex(points[end] + out, edge);
-            let [l, c, r] = row;
-            self.indices.extend_from_slice(&[l, c, tip, c, r, tip]);
-        }
+    let hub = tris.vertex(at, center);
+    let sides = 16;
+    let first = tris.positions.len() as u32;
+    for i in 0..sides {
+        let angle = i as f32 / sides as f32 * std::f32::consts::TAU;
+        tris.vertex(at + Vec2::from_angle(angle) * radius, edge);
     }
-
-    /// A disc of light at `at`, `center` in the middle fading to `edge`.
-    pub fn glow(&mut self, at: Vec2, radius: f32, center: [f32; 4], edge: [f32; 4]) {
-        if radius <= 0.0 {
-            return;
-        }
-        let hub = self.vertex(at, center);
-        let sides = 16;
-        let first = self.positions.len() as u32;
-        for i in 0..sides {
-            let angle = i as f32 / sides as f32 * std::f32::consts::TAU;
-            self.vertex(at + Vec2::from_angle(angle) * radius, edge);
-        }
-        for i in 0..sides {
-            self.indices.extend_from_slice(&[hub, first + i, first + (i + 1) % sides]);
-        }
+    for i in 0..sides {
+        tris.indices.extend_from_slice(&[hub, first + i, first + (i + 1) % sides]);
     }
 }
 
@@ -288,7 +283,7 @@ mod tests {
     fn a_ribbon_has_three_corners_a_point_and_two_caps() {
         let mut tris = Tris::default();
         let points = [Vec2::ZERO, Vec2::X, Vec2::new(2.0, 0.0)];
-        tris.ribbon(&points, &[1.0; 3], [1.0; 4], [0.0; 4]);
+        ribbon(&mut tris, &points, &[1.0; 3], [1.0; 4], [0.0; 4]);
         assert_eq!(tris.positions.len(), 3 * 3 + 2);
         assert_eq!(tris.indices.len(), 2 * 12 + 2 * 6);
         assert!(tris.indices.iter().all(|&i| (i as usize) < tris.positions.len()));

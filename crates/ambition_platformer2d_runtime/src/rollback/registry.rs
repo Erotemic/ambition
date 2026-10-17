@@ -45,7 +45,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// windup and strike lengths of the step's beat (two `f32`s), and a boss
 /// bakes one move for each distinct beat. Each pattern step plays at its own
 /// lengths; before, a move kept the lengths of its first occurrence.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 356;
+/// 356 -> 357: `combat.ray_strike` (`RayStrike`, a ray's line on its strike:
+/// the volume that hurts and the line that is drawn) joins the rollback state.
+/// A held ray is cast through the portal pairs each tick it is asked for.
+/// Also recorded at 357: `035706e4f`'s codec change, which shipped under 356
+/// unrecorded: a skirmisher brain's state encodes its ranged volley (cooldown,
+/// orbit phase, volley phase and aim), and `ActorControlFrame` its
+/// `ranged_aim_held` bool.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 357;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

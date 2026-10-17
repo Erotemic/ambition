@@ -1804,6 +1804,19 @@ wake-up and lightning).
 encounter and the conductor own the dramatic beats), or run them as authored.
 Do not leave a field that decides nothing.
 
+### PORTAL-STRUCTURAL-FX — sprite and particle effects ignore the panes
+
+Jon, 2026-10-17: "it should not be structurally possible to add something
+into the game that doesn't work with portals." Meshes built on the CPU now
+have one road that folds them through pairs and out of far-side panes
+(`ambition_render::folded_mesh`, used by every line look). The `fx.rs`
+effects have none: particles, beams, impacts and slash sprites are drawn
+whole at z 30 and up, over a pane on its far side, and are not cut at a
+crossing. Measured the same day by reading `portal_compositing.rs` (they
+carry no candidate marker). Next: give them that one road (a sprite effect
+through the far-side and transit pieces by construction, or the folded
+writer for quads), not a per-effect opt-in.
+
 ### DOG-THROUGH-THE-DOOR — a roaming dog's door test measured a distance
 
 **Closed 2026-10-16:** `a_dog_sent_for_an_item_in_another_live_room_goes_through_the_door`

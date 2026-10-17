@@ -231,12 +231,42 @@ pub fn ray_through_apertures<W: SolidWorldQuery + ?Sized>(
     max_depth: u32,
     convention: MapConvention,
 ) -> Option<(Vec2, Vec2)> {
+    trace_through_apertures(world, pairs, origin, dir, max_dist, include_one_way, max_depth, convention).hit
+}
+
+/// What [`trace_through_apertures`] found: the solid it stopped at (in the
+/// final chart, with its normal), and how far it went to get there, counted
+/// along the ray as if each pair it went through were not there (its length
+/// UNFOLDED). With no solid in reach, `hit` is `None` and `distance` is the
+/// whole reach; a ray that cannot go on (no direction, out of hops) has gone
+/// as far as it got.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ApertureTrace {
+    pub hit: Option<(Vec2, Vec2)>,
+    pub distance: f32,
+}
+
+/// [`ray_through_apertures`], and how far the ray went: the length of a line
+/// cast from `origin` that stops at the first solid, wherever the pairs take
+/// it. A line attack is that long, and the portal pairs cut it where it goes
+/// through them.
+pub fn trace_through_apertures<W: SolidWorldQuery + ?Sized>(
+    world: &W,
+    pairs: &[(PortalAperture, PortalAperture)],
+    origin: Vec2,
+    dir: Vec2,
+    max_dist: f32,
+    include_one_way: bool,
+    max_depth: u32,
+    convention: MapConvention,
+) -> ApertureTrace {
     let mut origin = origin;
     let mut dir = dir.normalize_or_zero();
     if dir == Vec2::ZERO {
-        return None;
+        return ApertureTrace { hit: None, distance: 0.0 };
     }
     let mut budget = max_dist;
+    let gone = |budget: f32| (max_dist - budget).max(0.0);
     for _ in 0..=max_depth {
         let solid = raycast_solids(world, origin, dir, budget, include_one_way);
         let solid_t = solid
@@ -277,13 +307,19 @@ pub fn ray_through_apertures<W: SolidWorldQuery + ?Sized>(
                         .normalize_or_zero();
                 budget -= t;
                 if budget <= 0.0 || dir == Vec2::ZERO {
-                    return None;
+                    return ApertureTrace { hit: None, distance: gone(budget) };
                 }
             }
-            None => return solid,
+            None => {
+                let distance = match solid {
+                    Some((hit, _)) => gone(budget) + (hit - origin).length(),
+                    None => max_dist,
+                };
+                return ApertureTrace { hit: solid, distance };
+            }
         }
     }
-    None
+    ApertureTrace { hit: None, distance: gone(budget) }
 }
 
 /// Ray-vs-AABB slab query. Returns `(t_near, face_normal)` for a forward hit
@@ -351,6 +387,40 @@ mod tests {
         assert!(!Aabb::new(end, half).strict_intersects(spike));
         // ...but the path tunneled through it.
         assert!(aabb_path_contacts(end, half, delta, spike));
+    }
+
+    /// The trace's length is unfolded: up to the pair, then on from the exit
+    /// to the first solid there.
+    #[test]
+    fn a_trace_is_as_long_as_the_line_it_casts_through_a_pair() {
+        use crate::frame::PortalFrame;
+        use crate::world::{Block, BlockKind};
+        let solid = |name: &str, center: Vec2, half: Vec2| Block {
+            id: crate::geo_id::GeoId::anon(),
+            name: name.into(),
+            aabb: Aabb::new(center, half),
+            kind: BlockKind::Solid,
+            velocity: Vec2::ZERO,
+            art_color: None,
+        };
+        let mut world = World::new("test", Vec2::new(2000.0, 2000.0), Vec2::ZERO, vec![]);
+        world.blocks.push(solid("wall", Vec2::new(210.0, 0.0), Vec2::new(10.0, 200.0)));
+        // Under the exit (a floor portal facing up), a floor 150 below it.
+        world.blocks.push(solid("floor", Vec2::new(500.0, 160.0), Vec2::new(200.0, 10.0)));
+        let enter = PortalAperture { frame: PortalFrame::fixed(Vec2::new(200.0, 0.0), Vec2::new(-1.0, 0.0)), half_length: 46.0 };
+        let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(500.0, 300.0), Vec2::new(0.0, -1.0)), half_length: 46.0 };
+        let trace = |pairs: &[(PortalAperture, PortalAperture)]| {
+            trace_through_apertures(&world, pairs, Vec2::ZERO, Vec2::X, 1000.0, false, 4, MapConvention::Reflection)
+        };
+        let bare = trace(&[]);
+        assert!((bare.distance - 200.0).abs() < 0.5, "into the wall: {bare:?}");
+        let through = trace(&[(enter, exit)]);
+        // 200 to the pair, then up from the exit to the floor's underside at
+        // y 170: 130 more, less the unit the ray steps out of the exit.
+        assert!(through.hit.is_some(), "{through:?}");
+        assert!((through.distance - 330.0).abs() < 1.5, "{through:?}");
+        let open = trace_through_apertures(&world, &[], Vec2::new(0.0, 500.0), Vec2::X, 1000.0, false, 4, MapConvention::Reflection);
+        assert_eq!(open, ApertureTrace { hit: None, distance: 1000.0 }, "nothing in reach: all of it");
     }
 
     #[test]

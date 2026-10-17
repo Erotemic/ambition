@@ -296,28 +296,20 @@ fn a_player_on_a_gallery_is_answered_by_the_arc_lash() {
     for _ in 0..90 {
         place_player(&mut sim, on_gallery);
         sim.step(AgentAction::default());
-        bolt_seen |= asks_for_force_lightning(&mut sim);
+        bolt_seen |= a_force_ray_strikes(&mut sim);
         if player(&mut sim).1 < before {
-            assert!(bolt_seen, "the lash hurt with no bolt drawn down its line");
+            assert!(bolt_seen, "the lash hurt, but not as a ray drawn as force lightning");
             return;
         }
     }
     panic!("the lash missed a player standing still on the gallery; last: {:?}", wolf(&mut sim));
 }
 
-/// Whether this tick asked for a bolt of force lightning out of a body (the
-/// lash's look: from his neck, down the line).
-fn asks_for_force_lightning(sim: &mut Platformer2dSimHarness) -> bool {
-    use ambition_platformer2d::vfx::vfx::{VfxInRoom, VfxMessage};
-    use ambition_platformer2d::vfx::{LightningEnd, LightningLook};
-    let Some(mut messages) = sim.world_mut().get_resource_mut::<Messages<VfxInRoom>>() else {
-        return false;
-    };
-    let asked = messages.drain().any(|row| {
-        matches!(
-            row.vfx,
-            VfxMessage::Lightning { from: LightningEnd::Body { .. }, look, .. } if look == LightningLook::FORCE
-        )
-    });
-    asked
+/// Whether a ray strike drawn as force lightning is live: the lash's (a
+/// ray from his neck down the line, its look the presentation's).
+fn a_force_ray_strikes(sim: &mut Platformer2dSimHarness) -> bool {
+    let world = sim.world_mut();
+    let mut rays = world.query::<&ambition_platformer2d::combat::strike::RayStrike>();
+    let live = rays.iter(world).any(|ray| &*ray.look == "force" && ray.length > 100.0);
+    live
 }

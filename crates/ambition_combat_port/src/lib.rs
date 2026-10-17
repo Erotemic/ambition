@@ -20,6 +20,7 @@ pub mod hold;
 pub mod lightning;
 pub mod module_entity;
 pub mod motion;
+pub mod ray;
 pub mod riding;
 pub mod slow;
 pub mod think;
@@ -31,7 +32,8 @@ pub use module_entity::{
 pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
 pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort};
 pub use hold::{BodyHold, BodyHoldPort};
-pub use lightning::{BoltEnd, Lightning, LightningAura, LightningAuraPort, LightningPort};
+pub use lightning::{Lightning, LightningAura, LightningAuraPort, LightningPort};
+pub use ray::{HeldRay, HeldRayPort, Spot};
 pub use motion::{
     Destination, Effect, EffectPort, HitMark, HitMarkPort, MovementCooldown, MovementCooldownPort, Place, SetVelocity,
     SetVelocityPort, Strike, StrikeKnockback, StrikePort, StrikeVolume, Transit, TransitPort,

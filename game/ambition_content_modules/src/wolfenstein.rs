@@ -40,8 +40,9 @@ use ambition_boss_special_port::{
     Pose,
 };
 use ambition_combat_port::{
-    BodySound, BodySoundPort, BoltEnd, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort,
-    Lightning, LightningAura, LightningAuraPort, LightningPort, RidingHitbox, RidingHitboxPort, RidingKnockback,
+    BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort, HeldRay,
+    HeldRayPort, Lightning, LightningAura, LightningAuraPort, LightningPort, RidingHitbox, RidingHitboxPort,
+    RidingKnockback, Spot,
 };
 use ambition_extension_sdk::{
     phases::BOSS_CONDUCT, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
@@ -182,12 +183,11 @@ const PACK_CHARACTER: &str = "npc_evil_failed_prototype";
 const PACK_HALF: [f32; 2] = [18.0, 20.0];
 const PACK_HEALTH: u32 = 3;
 
-/// The arc lash: out of the bolts in his neck (his arm points the way), along
-/// the line he aims at you, this far; a run of boxes along it (held boxes 5
-/// and up).
+/// The arc lash: a ray out of the bolts in his neck (his arm points the
+/// way), along the line he aims at you, this far or to a wall, through any
+/// portal it meets (held ray 5), drawn as force lightning.
 const LASH_REACH: f32 = 460.0;
-const LASH_BOXES: u32 = 9;
-const LASH_HALF: f32 = 16.0;
+const LASH_WIDTH: f32 = 40.0;
 const LASH_DAMAGE: i32 = 1;
 const LASH_KNOCKBACK: f32 = 1.3;
 /// The aim follows you through the tell until this part of it, then holds:
@@ -197,9 +197,10 @@ const LASH_LOCK: f32 = 0.7;
 const LASH_UP_MAX_DEG: f32 = 80.0;
 
 /// The galvanize: three marks, one under you and one each side; lightning
-/// strikes each from the ceiling (held boxes 2-4).
+/// strikes each from the ceiling: a ray down to the floor (held rays 2-4),
+/// drawn as a strike.
 const MARK_SPREAD: f32 = 230.0;
-const BOLT_HALF: Vec2 = Vec2::new(24.0, 420.0);
+const BOLT_WIDTH: f32 = 48.0;
 const BOLT_DAMAGE: i32 = 2;
 const BOLT_KNOCKBACK: f32 = 1.4;
 const BOLT_S: f32 = 0.3;
@@ -462,6 +463,7 @@ pub fn module() -> ModuleDescriptor {
                 BossSummonPort::KEY,
                 RidingHitboxPort::KEY,
                 HeldDamageBoxPort::KEY,
+                HeldRayPort::KEY,
                 BodySoundPort::KEY,
             ],
             after: Vec::new(),
@@ -516,18 +518,18 @@ fn riding(
     })
 }
 
-/// A lightning strike from the ceiling at `x` down to `land`, and the sparks
-/// where it lands.
+/// Lightning from the ceiling at `x` down to `land`, and the sparks where it
+/// lands: a strike that shows (the transition's), not one that hurts (a ray).
 fn lightning(inv: &mut Invocation<'_>, x: f32, ceiling: f32, land: Vec2) -> Result<(), Fault> {
     let key = format!("strike@{}", x.round() as i32);
-    bolt(inv, &key, BoltEnd::World([x, ceiling]), BoltEnd::World(land.into()), "strike", STRIKE_HOLD_S)?;
+    bolt(inv, &key, Spot::World([x, ceiling]), Spot::World(land.into()), "strike", STRIKE_HOLD_S)?;
     burst(inv, land, 16, 300.0, SPARK, "spark")
 }
 const STRIKE_HOLD_S: f32 = 0.24;
 
 /// A bolt of `look` from `from` to `to`, held `hold` seconds; asked again
 /// under the same `key`, the same bolt held on.
-fn bolt(inv: &mut Invocation<'_>, key: &str, from: BoltEnd, to: BoltEnd, look: &str, hold: f32) -> Result<(), Fault> {
+fn bolt(inv: &mut Invocation<'_>, key: &str, from: Spot, to: Spot, look: &str, hold: f32) -> Result<(), Fault> {
     inv.submit::<LightningPort>(Lightning { key: key.into(), from, to, look: look.into(), glow: None, hold_s: hold })
 }
 
@@ -535,7 +537,7 @@ fn bolt(inv: &mut Invocation<'_>, key: &str, from: BoltEnd, to: BoltEnd, look: &
 fn neck_arc(inv: &mut Invocation<'_>, side: f32, hold: f32) -> Result<(), Fault> {
     let near = Vec2::new(bolts().x * side, bolts().y);
     let far = near + Vec2::new(FAR_BOLT.x * side, FAR_BOLT.y);
-    bolt(inv, "neck", BoltEnd::Body(near.into()), BoltEnd::Body(far.into()), "spark_gap", hold)
+    bolt(inv, "neck", Spot::Body(near.into()), Spot::Body(far.into()), "spark_gap", hold)
 }
 
 /// Lightning crawling over his whole body, for `hold` seconds.
@@ -702,7 +704,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             // Both ends ride him, so it stays upright as he staggers.
             let near = Vec2::new(bolts().x * side, bolts().y);
             let sky = Vec2::new(near.x, ceiling - at.y);
-            bolt(inv, "rearing", BoltEnd::Body(sky.into()), BoltEnd::Body(near.into()), "strike", HOLD_S)?;
+            bolt(inv, "rearing", Spot::Body(sky.into()), Spot::Body(near.into()), "strike", HOLD_S)?;
             aura(inv, 1.1, HOLD_S)?;
         }
         if t >= REAR_SHAKE_S && t - dt < REAR_SHAKE_S {
@@ -845,7 +847,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 play(inv, SFX_BOLT, neck(pos, side))?;
                 shake(inv, SHAKE_BOLT)?;
                 for x in c.marks() {
-                    lightning(inv, x, ceiling, Vec2::new(x, hall.floor - 2.0))?;
+                    burst(inv, Vec2::new(x, hall.floor - 4.0), 16, 300.0, SPARK, "spark")?;
                 }
             }
             _ => {}
@@ -872,7 +874,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         if !striking && c.ticks % 3 == 0 {
             for (i, x) in c.marks().into_iter().enumerate() {
                 let across = ((c.ticks / 3 + i as u32 * 5) % 5) as f32 / 4.0 * 2.0 - 1.0;
-                burst(inv, Vec2::new(x + across * BOLT_HALF.x, hall.floor - 3.0), 3, 90.0, ARC, "spark")?;
+                burst(inv, Vec2::new(x + across * BOLT_WIDTH * 0.5, hall.floor - 3.0), 3, 90.0, ARC, "spark")?;
             }
             // And on his bolts, as the charge builds.
             burst(inv, neck(pos, side), 2, 120.0, ARC, "spark")?;
@@ -886,14 +888,18 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
         if striking && t < BOLT_S {
             for (slot, x) in c.marks().into_iter().enumerate() {
-                inv.submit::<HeldDamageBoxPort>(HeldDamageBox {
+                inv.submit::<HeldRayPort>(HeldRay {
                     slot: 2 + slot as u32,
                     generation: c.bolt_generation,
-                    center: [x, hall.floor - BOLT_HALF.y],
-                    half_extent: BOLT_HALF.into(),
+                    // Just under the ceiling, so the cast does not start in it.
+                    from: Spot::World([x, ceiling + 2.0]),
+                    toward: [0.0, 1.0],
+                    reach: CEILING + 8.0,
+                    width: BOLT_WIDTH,
                     damage: BOLT_DAMAGE,
                     knockback: BOLT_KNOCKBACK,
                     lifetime_s: BOLT_S,
+                    look: "strike".into(),
                 })?;
             }
         }
@@ -929,25 +935,18 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 shake(inv, SHAKE_HOWL)?;
             }
             if t < BOLT_S {
-                let near = Vec2::new(bolts().x * side, bolts().y);
-                let end = hand + dir * LASH_REACH;
-                bolt(inv, "lash", BoltEnd::Body(near.into()), BoltEnd::World(end.into()), "force", HOLD_S)?;
-                for k in 0..LASH_BOXES {
-                    let along = LASH_REACH * (k as f32 + 0.5) / LASH_BOXES as f32;
-                    let at = hand + dir * along;
-                    inv.submit::<HeldDamageBoxPort>(HeldDamageBox {
-                        slot: 5 + k,
-                        generation: c.lash_generation,
-                        center: at.into(),
-                        half_extent: [LASH_HALF, LASH_HALF],
-                        damage: LASH_DAMAGE,
-                        knockback: LASH_KNOCKBACK,
-                        lifetime_s: BOLT_S,
-                    })?;
-                    if (c.ticks + k) % 4 == 0 {
-                        burst(inv, at, 2, 150.0, ARC, "spark")?;
-                    }
-                }
+                inv.submit::<HeldRayPort>(HeldRay {
+                    slot: 5,
+                    generation: c.lash_generation,
+                    from: Spot::Body(Vec2::new(bolts().x * side, bolts().y).into()),
+                    toward: dir.into(),
+                    reach: LASH_REACH,
+                    width: LASH_WIDTH,
+                    damage: LASH_DAMAGE,
+                    knockback: LASH_KNOCKBACK,
+                    lifetime_s: BOLT_S,
+                    look: "force".into(),
+                })?;
             }
         }
     }

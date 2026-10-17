@@ -358,6 +358,104 @@ pub fn open_limbs(
     }
 }
 
+/// The damage box a limb carries for its conductor (`ambition.boss.limb_strike`):
+/// the generation asked for, and the box. Rollback state: a rewind restores
+/// which box the limb holds, or the replay spawns a second.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct LimbStrikeBox {
+    pub generation: u32,
+    pub hitbox: Entity,
+}
+
+impl bevy::ecs::entity::MapEntities for LimbStrikeBox {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.hitbox = mapper.get_mapped(self.hitbox);
+    }
+}
+
+impl ae::snapshot::SnapshotCursor for LimbStrikeBox {
+    fn encode_cursor(&self, out: &mut Vec<u8>) {
+        ae::snapshot::put_u32(out, self.generation);
+    }
+}
+
+/// How long a limb's box lives if it is never let go: it is let go the first
+/// tick it is not asked for, so this only bounds a box whose conductor stopped.
+const LIMB_STRIKE_LIFETIME_S: f32 = 10.0;
+
+/// The `ambition.boss.limb_strike` requests of this tick, for [`strike_with_limbs`].
+pub fn drain_limb_strikes(
+    mut outbox: ResMut<ExtensionOutbox>,
+) -> Vec<ambition_extension_host::Submitted<ambition_boss_special_port::LimbStrike>> {
+    outbox.drain::<ambition_boss_special_port::LimbStrikePort>(&BOSS_CONDUCT)
+}
+
+/// Lower `ambition.boss.limb_strike`: each limb asked for carries its box,
+/// which follows it (`HitboxAnchor::FollowOwner`), so the portal pair the
+/// limb is in cuts it; each limb not asked for lets its box go.
+pub fn strike_with_limbs(
+    In(requests): In<Vec<ambition_extension_host::Submitted<ambition_boss_special_port::LimbStrike>>>,
+    riders: Query<&ambition_mount::RidingOn>,
+    rigs: Query<&ambition_characters::actor::LimbRig>,
+    held: Query<(Entity, &LimbStrikeBox)>,
+    mut commands: Commands,
+) {
+    use ambition_combat::strike::{Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime};
+    let mut asked: Vec<Entity> = Vec::new();
+    for submitted in requests {
+        let strike = submitted.value;
+        let Some(limb) = ridden_limb(submitted.scope, &strike.slot, &riders, &rigs) else {
+            warn!(
+                "extension entry {} asked for a strike of limb {:?} of the mount {:?} rides, which it does not have; refused",
+                submitted.entry, strike.slot, submitted.scope
+            );
+            continue;
+        };
+        asked.push(limb);
+        match held.get(limb) {
+            Ok((_, carried)) if carried.generation == strike.generation => continue,
+            Ok((_, carried)) => {
+                if let Ok(mut box_) = commands.get_entity(carried.hitbox) {
+                    box_.try_despawn();
+                }
+            }
+            Err(_) => {}
+        }
+        let hitbox = commands
+            .spawn((
+                Hitbox {
+                    strike_sfx: None,
+                    owner: limb,
+                    source: ambition_combat::strike::HitSide::Boss,
+                    anchor: HitboxAnchor::FollowOwner { local_offset: ae::Vec2::ZERO },
+                    half_extent: ae::Vec2::from(strike.half_extent),
+                    shape: None,
+                    facing: 1.0,
+                    damage: strike.damage,
+                    knockback: HitboxKnockback::FeelScale(strike.knockback),
+                    launch_dir: None,
+                    frame_down: ae::Vec2::new(0.0, 1.0),
+                    reaction: None,
+                    guard: Default::default(),
+                },
+                HitboxLifetime { remaining_s: LIMB_STRIKE_LIFETIME_S },
+                HitboxHits::default(),
+                Name::new("Limb strike"),
+            ))
+            .id();
+        commands.entity(limb).try_insert(LimbStrikeBox { generation: strike.generation, hitbox });
+    }
+    for (limb, carried) in &held {
+        if asked.contains(&limb) {
+            continue;
+        }
+        if let Ok(mut box_) = commands.get_entity(carried.hitbox) {
+            box_.try_despawn();
+        }
+        commands.entity(limb).try_remove::<LimbStrikeBox>();
+    }
+}
+
 /// The `ambition.boss.limb_blow` requests of this tick, for [`pass_limb_blows`].
 pub fn drain_limb_blows(
     mut outbox: ResMut<ExtensionOutbox>,
@@ -745,6 +843,61 @@ mod limb_pose_tests {
         let kin = *world.get::<ae::BodyKinematics>(limb).unwrap();
         assert_eq!((kin.pos, kin.vel), (ae::Vec2::new(630.0, 970.0), ae::Vec2::new(0.0, -3.0)), "a released limb falls straight down");
         assert!(world.get::<ae::PoseOwnedExternally>(limb).is_none(), "a released limb is not held");
+    }
+}
+
+#[cfg(test)]
+mod limb_strike_tests {
+    use super::*;
+    use ambition_boss_special_port::LimbStrike;
+    use ambition_characters::actor::{LimbRig, LimbSlot};
+    use ambition_combat::strike::{Hitbox, HitboxAnchor};
+    use ambition_extension_host::Submitted;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    fn strike(world: &mut World, boss: Entity, asks: &[(&str, u32)]) {
+        let requests = asks
+            .iter()
+            .map(|(slot, generation)| Submitted {
+                scope: boss,
+                invocation: Default::default(),
+                occurrence: None,
+                entry: "test::gnu/conduct".into(),
+                value: LimbStrike { slot: (*slot).into(), generation: *generation, half_extent: [40.0, 30.0], damage: 2, knockback: 1.2 },
+            })
+            .collect();
+        world.run_system_once_with(strike_with_limbs, requests).unwrap();
+    }
+
+    /// Each box: its owner, and whether it follows the owner's middle.
+    fn boxes(world: &mut World) -> Vec<(Entity, bool)> {
+        world
+            .query::<&Hitbox>()
+            .iter(world)
+            .map(|h| (h.owner, matches!(h.anchor, HitboxAnchor::FollowOwner { local_offset } if local_offset == ae::Vec2::ZERO)))
+            .collect()
+    }
+
+    /// ⭐ A LIMB CARRIES THE BOX ASKED FOR IT: it is the limb's and follows
+    /// it, so a pair the limb is in cuts it. The same generation keeps it, a
+    /// new one replaces it, and a tick that does not ask lets it go.
+    #[test]
+    fn a_limb_carries_the_box_asked_for_it_while_it_is_asked() {
+        let mut world = World::new();
+        let fist = world.spawn_empty().id();
+        let mount = world.spawn(LimbRig::from_pairs([(LimbSlot::HAND_RIGHT, fist)])).id();
+        let boss = world.spawn(ambition_mount::RidingOn { mount }).id();
+
+        strike(&mut world, boss, &[("hand_right", 1)]);
+        assert_eq!(boxes(&mut world), vec![(fist, true)]);
+        let first = world.get::<LimbStrikeBox>(fist).unwrap().hitbox;
+        strike(&mut world, boss, &[("hand_right", 1)]);
+        assert_eq!(world.get::<LimbStrikeBox>(fist).unwrap().hitbox, first, "the same generation is the same box");
+        strike(&mut world, boss, &[("hand_right", 2)]);
+        assert_ne!(world.get::<LimbStrikeBox>(fist).unwrap().hitbox, first, "a new generation is a new box");
+        assert_eq!(boxes(&mut world).len(), 1);
+        strike(&mut world, boss, &[]);
+        assert!(boxes(&mut world).is_empty() && world.get::<LimbStrikeBox>(fist).is_none(), "not asked, let go");
     }
 }
 

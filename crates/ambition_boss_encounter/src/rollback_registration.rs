@@ -18,6 +18,10 @@ where
         |facing| facing.0.to_bits() as u64,
     );
     registrar.rollback_component_clone::<crate::BossConfig>(OWNER, "boss.config");
+    // The box a limb carries for its conductor names the box's entity.
+    registrar
+        .rollback_component_cursor::<crate::conduct::LimbStrikeBox>(OWNER, "boss.limb_strike_box")
+        .rollback_map_entities::<crate::conduct::LimbStrikeBox>(OWNER, "map.boss.limb_strike_box");
     // The defeats since the last checkpoint: the defeat edge writes it on a
     // tick, so a rewind across that tick takes it back with the save row.
     registrar.rollback_resource_clone_checksum::<crate::BossDefeatsSinceCheckpoint>(

@@ -27,6 +27,14 @@ pub fn bridge_portal_carves(
 ) {
     for mut overlay in overlays.each() {
         overlay.portal_holes.clear();
+        overlay.portal_glues.clear();
+    }
+    // Each pair a body is in, for the bodies in it.
+    for (room, pass) in &carves.glues {
+        let stamp = room.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+        if let Some(mut overlay) = overlays.for_room(stamp.as_ref()) {
+            overlay.portal_glues.push(pass.clone());
+        }
     }
     // Each hole is open for the bodies that opened it, and for no other.
     for hole in &carves.holes {

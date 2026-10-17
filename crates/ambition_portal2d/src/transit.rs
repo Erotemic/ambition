@@ -114,6 +114,10 @@ pub struct PortalTransit {
 #[derive(Resource, Clone, Debug, Default)]
 pub struct PortalCarves {
     pub holes: Vec<PortalHole>,
+    /// The pairs bodies are in this frame, each in its live room: a body in a
+    /// pair meets the far side with its part past the plane
+    /// (`docs/planning/engine/portals-a-body-in-two-places.md`).
+    pub glues: Vec<(PortalRoom, ambition_platformer2d_shared_tangle::feature_overlay::PortalGluePass)>,
 }
 
 /// One portal's hole this frame: out of the host's boxes (`face.bounds()`)
@@ -130,6 +134,24 @@ pub struct PortalHole {
 }
 
 impl PortalCarves {
+    /// `body` is in the pair `glue` in `room`: one glue per pair end, for each
+    /// body in it.
+    fn glue(&mut self, room: PortalRoom, glue: ambition_platformer2d_shared_tangle::feature_overlay::PortalGlue, body: Entity) {
+        let pass = match self.glues.iter().position(|(r, pass)| *r == room && pass.glue == glue) {
+            Some(i) => &mut self.glues[i].1,
+            None => {
+                self.glues.push((
+                    room,
+                    ambition_platformer2d_shared_tangle::feature_overlay::PortalGluePass { glue, bodies: Vec::new() },
+                ));
+                &mut self.glues.last_mut().expect("just pushed").1
+            }
+        };
+        if let Err(at) = pass.bodies.binary_search(&body) {
+            pass.bodies.insert(at, body);
+        }
+    }
+
     /// Open `face` in `room` for `body`: one hole per face, open for each
     /// body that opened it.
     fn open(&mut self, room: PortalRoom, face: ae::frame::FaceRect, body: Entity) {
@@ -164,9 +186,12 @@ pub fn publish_portal_carves(
     transits: Query<(Entity, &PortalTransit)>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     host_depths: Option<Res<PortalHostDepthsByRoom>>,
+    tuning: Option<Res<PortalTuning>>,
     mut carves: ResMut<PortalCarves>,
 ) {
     carves.holes.clear();
+    carves.glues.clear();
+    let convention = tuning.map(|t| t.convention.map_convention()).unwrap_or_default();
     let by_room = PortalsByRoom::collect(&portals, &live);
     if by_room.is_empty() {
         return;
@@ -204,9 +229,46 @@ pub fn publish_portal_carves(
     // only the end it entered open, a body the pair took this tick and that
     // moves later in the tick (a shot) met the closed exit's wall.
     for (body_entity, t) in &transits {
-        carve(live.of(body_entity), t.straddling, body_entity, &mut carves);
-        carve(live.of(body_entity), t.straddling.partner(), body_entity, &mut carves);
+        let room = live.of(body_entity);
+        carve(room, t.straddling, body_entity, &mut carves);
+        carve(room, t.straddling.partner(), body_entity, &mut carves);
+        // And it meets the far side: behind the end its centre is in front
+        // of, as deep as a hole is, is what is in front of the other.
+        let all = by_room.in_room(room);
+        if let (Some(front), Some(back)) = (find_portal(all, t.straddling), find_portal(all, t.straddling.partner())) {
+            let glue = ambition_platformer2d_shared_tangle::feature_overlay::PortalGlue {
+                enter: front.aperture(),
+                exit: back.aperture(),
+                convention,
+                depth: pp::CARVE_DEPTH,
+            };
+            carves.glue(room, glue, body_entity);
+        }
     }
+}
+
+/// Does an owner hold the body's pose (`PoseOwnedExternally` with a claim)?
+/// Then the owner places it: the portal cuts it and does not move it.
+pub(crate) fn pose_is_held(held: Option<&ae::PoseOwnedExternally>) -> bool {
+    held.is_some_and(|held| !held.is_empty())
+}
+
+/// The portal of a pair in `all` that a held body is in: the one it was in
+/// while it still reaches into its opening, else one it reaches into from
+/// that portal's front (its centre in front).
+fn threaded_through(body: ae::Aabb, center: Vec2, transit: Option<PortalTransit>, all: &[PlacedPortal]) -> Option<PortalChannel> {
+    use ae::frame::thread::reaches_through;
+    let volume = ae::CombatVolume::aabb(body);
+    let paired = |p: &PlacedPortal| find_portal(all, p.channel.partner()).is_some();
+    if let Some(t) = transit {
+        return find_portal(all, t.straddling)
+            .filter(|p| paired(p) && reaches_through(&volume, &p.aperture()))
+            .map(|p| p.channel);
+    }
+    all.iter()
+        .filter(|p| paired(p))
+        .find(|p| pp::front_distance(center, &p.aperture().frame) > 0.0 && reaches_through(&volume, &p.aperture()))
+        .map(|p| p.channel)
 }
 
 /// Does a body (its box, its centre and its velocity) open `p`? The one rule
@@ -351,6 +413,7 @@ pub fn portal_transit(
             Option<&PortalTransitCooldown>,
             Option<&ae::SweepSample>,
             Option<&PortalBackside>,
+            Option<&ae::PoseOwnedExternally>,
         ),
     >,
     // `GravityCtx::dir_for(aabb)` owns "which way is down for this body":
@@ -372,7 +435,7 @@ pub fn portal_transit(
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
 
-    for (entity, mut kin, mut transit, mut roll, cooldown, record, backside) in &mut bodies {
+    for (entity, mut kin, mut transit, mut roll, cooldown, record, backside, held) in &mut bodies {
         if transit.is_none() && by_room.is_empty() {
             continue;
         }
@@ -383,6 +446,26 @@ pub fn portal_transit(
         if all.is_empty() {
             if transit.is_some() {
                 commands.entity(entity).remove::<PortalTransit>();
+            }
+            continue;
+        }
+        // ⭐ A BODY WHOSE POSE AN OWNER HOLDS is posed in its own chart, as if
+        // there were no portal (`docs/planning/engine/portals-a-body-in-two-places.md`):
+        // the portal does not move it. It is in the pair it reaches into from
+        // a portal's front while it reaches into it, and its pieces carry the
+        // consequences at the far end.
+        if pose_is_held(held) {
+            let body = kin.collision_box(record);
+            let into = threaded_through(body, kin.pos, transit.as_deref().copied(), all);
+            match (into, transit.as_deref()) {
+                (Some(channel), Some(t)) if t.straddling == channel => {}
+                (Some(channel), _) => {
+                    commands.entity(entity).insert(PortalTransit { straddling: channel, crossed: false });
+                }
+                (None, Some(_)) => {
+                    commands.entity(entity).remove::<PortalTransit>();
+                }
+                (None, None) => {}
             }
             continue;
         }

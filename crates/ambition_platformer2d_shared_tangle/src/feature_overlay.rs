@@ -34,6 +34,25 @@ pub struct PortalHolePass {
     pub bodies: Vec<bevy::prelude::Entity>,
 }
 
+/// A portal pair as a body in it meets it
+/// (`docs/planning/engine/portals-a-body-in-two-places.md`): behind the
+/// opening it is in, out to `depth`, is what is in front of the partner.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PortalGlue {
+    /// The end whose front the body's centre is on.
+    pub enter: ae::frame::PortalAperture,
+    pub exit: ae::frame::PortalAperture,
+    pub convention: ae::frame::MapConvention,
+    pub depth: f32,
+}
+
+/// A [`PortalGlue`], for the bodies in the pair (in entity order).
+#[derive(Clone, Debug, PartialEq)]
+pub struct PortalGluePass {
+    pub glue: PortalGlue,
+    pub bodies: Vec<bevy::prelude::Entity>,
+}
+
 #[derive(Component, Default, Clone, Debug)]
 pub struct FeatureEcsWorldOverlay {
     pub blocks: Vec<ae::Block>,
@@ -46,6 +65,9 @@ pub struct FeatureEcsWorldOverlay {
     /// Portal holes open this tick, each for its bodies; see
     /// [`PortalHolePass`]. Owned by the portal bridge.
     pub portal_holes: Vec<PortalHolePass>,
+    /// The pairs bodies are in this tick ([`PortalGluePass`]). Owned by the
+    /// portal bridge.
+    pub portal_glues: Vec<PortalGluePass>,
     pub removed_block_names: Vec<String>,
     pub climbable_carves: Vec<ae::Aabb>,
     pub water_regions: Vec<ae::WaterRegion>,
@@ -78,6 +100,7 @@ impl FeatureEcsWorldOverlay {
             gate_solids,
             gate_passes,
             portal_holes,
+            portal_glues,
             removed_block_names,
             climbable_carves,
             water_regions,
@@ -92,7 +115,7 @@ impl FeatureEcsWorldOverlay {
         // ⛔ NOT OURS. The portal bridge (`bridge_portal_carves`) clears and
         // refills these every frame; clearing them here would race that and
         // blink the aperture depending on system order.
-        let _ = portal_holes;
+        let _ = (portal_holes, portal_glues);
     }
 
     /// Retract every contribution, from both owners, when the active room
@@ -119,6 +142,7 @@ impl FeatureEcsWorldOverlay {
             gate_solids,
             gate_passes,
             portal_holes,
+            portal_glues,
             removed_block_names,
             climbable_carves,
             water_regions,
@@ -127,9 +151,10 @@ impl FeatureEcsWorldOverlay {
         chains.clear();
         gate_solids.clear();
         gate_passes.clear();
-        // The portal bridge refills this from `PortalCarves` on its next run,
+        // The portal bridge refills these from `PortalCarves` on its next run,
         // as it does every frame.
         portal_holes.clear();
+        portal_glues.clear();
         removed_block_names.clear();
         climbable_carves.clear();
         water_regions.clear();

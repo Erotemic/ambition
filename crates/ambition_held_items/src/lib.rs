@@ -784,11 +784,11 @@ impl<'a> SolidsByRoom<'a> {
         item: Entity,
     ) -> Option<std::borrow::Cow<'_, ae::World>> {
         let walls = self.0.iter().find(|(seen, _)| *seen == room).and_then(|(_, solids)| solids.as_deref())?;
-        let holes = collision
+        let (holes, glues) = collision
             .room(room.map(InRoomInstance).as_ref())
-            .map(|room| room.holes_open_for(item))
+            .map(|room| (room.holes_open_for(item), room.glues_open_for(item)))
             .unwrap_or_default();
-        Some(ambition_platformer2d_world::collision::as_met_by(walls, &[], &holes))
+        Some(ambition_platformer2d_world::collision::as_met_by(walls, &[], &holes, &glues))
     }
 }
 

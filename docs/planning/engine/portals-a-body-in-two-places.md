@@ -63,8 +63,23 @@ the shapes and all their half planes share a point.
    near portal; its damage box is cut by the pair like any strike. The giant's pair is
    bigger: he shows he can size his portals. Phase 2 keeps its look-only portals.
 
+## State (2026-10-16)
+
+Stages 1-6 landed. Stage 5: a held body (`PoseOwnedExternally`) is in the pair
+it reaches into from a portal's front while it reaches into it; the transit,
+the snag and the eviction do not move it. Stage 6: `PortalCarves::glues` →
+the overlay's `portal_glues` → `as_met_by` glues each pair a body is in
+(`glue_portal_pair`), CARVE_DEPTH deep, as the hole is.
+
 ## Open
 
 - Projectiles test a sweep, not a volume; a shot past a portal plane already transits
   itself, so they come last.
 - Body-to-body contact (standing on a body) is not portal-aware.
+- Feature hits (bosses, breakables, the feature-side actor fold) still test the
+  strike whole (`HitEvent::volume`).
+- A volume placed in the world (`HitboxAnchor::World`) is cut by what it reaches
+  through from its own centre; a box held on a limb past the plane (GNU-ton's
+  fist) needs to say what it is attached to.
+- The glue carries blocks and open lines; water, climbable regions and a
+  one-way block a pair turns on its side are not carried.

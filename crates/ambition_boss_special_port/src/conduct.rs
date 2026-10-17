@@ -692,6 +692,60 @@ impl Port for LimbBlowPort {
     }
 }
 
+/// The request port marker for a damage box a limb of the mount a boss rides
+/// carries.
+///
+/// Port card:
+///
+/// * **Operation** — the limb carries a damage box about its middle, held
+///   while it is asked for each tick: a box not asked for in a tick is let
+///   go, and a new `generation` replaces it. The box follows the limb, and a
+///   portal pair the limb is in cuts it as it cuts the limb
+///   (`docs/planning/engine/portals-a-body-in-two-places.md`): a fist through
+///   a pair hurts at the far end. Each body it reaches is hit once per
+///   generation.
+/// * **Owner** — `ambition_boss_encounter::conduct`, which keeps the limb's
+///   `LimbStrikeBox`.
+/// * **Scope** — the boss the invocation ran for; the limb is `slot` of the
+///   rig of the mount it rides. A boss that rides nothing, or a slot the rig
+///   does not have, is refused with a warning.
+/// * **Time** — `boss_conduct`; combat resolves the box this tick.
+pub struct LimbStrikePort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LimbStrike {
+    pub slot: String,
+    pub generation: u32,
+    pub half_extent: [f32; 2],
+    pub damage: i32,
+    /// A multiplier over the victim's standard feel-tuned launch.
+    pub knockback: f32,
+}
+
+impl Port for LimbStrikePort {
+    const KEY: PortKey = PortKey::new("ambition.boss.limb_strike", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = LimbStrike;
+
+    fn encode(v: &LimbStrike, out: &mut Vec<u8>) {
+        wire::put_str(out, &v.slot);
+        wire::put_u32(out, v.generation);
+        wire::put_vec2(out, v.half_extent);
+        wire::put_i32(out, v.damage);
+        wire::put_f32(out, v.knockback);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<LimbStrike, WireError> {
+        Ok(LimbStrike {
+            slot: r.str()?.to_owned(),
+            generation: r.u32()?,
+            half_extent: r.vec2()?,
+            damage: r.i32()?,
+            knockback: r.f32()?,
+        })
+    }
+}
+
 /// The request port marker for a launch of the mount a boss rides.
 ///
 /// Port card:
@@ -823,6 +877,14 @@ mod tests {
             assert_eq!(round::<LimbBondPort>(&bond), bond);
             let blow = LimbBlow { slot: "hand_right".into(), pass: flag };
             assert_eq!(round::<LimbBlowPort>(&blow), blow);
+            let strike = LimbStrike {
+                slot: "hand_right".into(),
+                generation: 3,
+                half_extent: [40.0, 30.0],
+                damage: if flag { 2 } else { -1 },
+                knockback: 1.4,
+            };
+            assert_eq!(round::<LimbStrikePort>(&strike), strike);
         }
         for hold in [None, Some(LimbHold { position: [630.0, 970.0], velocity: [12.0, -3.0], facing: -1.0 })] {
             let v = LimbPose { slot: "hand_left".into(), hold };

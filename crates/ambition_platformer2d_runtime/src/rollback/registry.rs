@@ -30,7 +30,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// portal pair) joins the rollback state, and portal transit changes with it:
 /// a crossing begins only from a portal's face, and a body that cuts a
 /// portal's plane past an end of its opening is snagged and not taken.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 353;
+/// 353 -> 354: a body in two places (`docs/planning/engine/portals-a-body-in-
+/// two-places.md`). `boss.limb_strike_box` (`LimbStrikeBox`, the damage box a
+/// boss's limb carries) joins the rollback state. A strike that reaches
+/// through a portal pair hurts at its far end, a body half through is hit at
+/// both, a held body is threaded and not moved by a pair, and a body in a
+/// pair collides with what is in front of its far end.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 354;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

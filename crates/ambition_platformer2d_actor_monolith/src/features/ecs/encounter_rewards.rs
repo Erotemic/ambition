@@ -176,7 +176,10 @@ impl bevy::prelude::Plugin for EncounterRewardSyncPlugin {
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression,
                 )
-                .after(ambition_encounter::EncounterLifecycleSet),
+                .after(ambition_encounter::EncounterLifecycleSet)
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                    ambition_platformer2d_shared_tangle::capability::Capability::Encounters,
+                )),
         );
         // The retire half, on the same plugin. Ordered after the ONE drain,
         // because it reacts to this tick's presses; a reader that ran first
@@ -187,7 +190,10 @@ impl bevy::prelude::Plugin for EncounterRewardSyncPlugin {
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression,
                 )
-                .after(ambition_encounter::switches::SwitchActivationDrained),
+                .after(ambition_encounter::switches::SwitchActivationDrained)
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                    ambition_platformer2d_shared_tangle::capability::Capability::Encounters,
+                )),
         );
     }
 }

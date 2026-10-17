@@ -128,7 +128,10 @@ impl Plugin for ProgressionSchedulePlugin {
         app.add_systems(
             sim,
             ambition_encounter_features::project_live_encounter_occurrences
-                .in_set(Platformer2dSimulationPhase::Progression),
+                .in_set(Platformer2dSimulationPhase::Progression)
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                    ambition_platformer2d_shared_tangle::capability::Capability::Encounters,
+                )),
         );
     }
 }

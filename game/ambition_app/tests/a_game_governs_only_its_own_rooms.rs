@@ -431,3 +431,66 @@ fn mounts_sleep_in_mary_os_rooms_and_run_in_ambitions() {
         assert!(children.contains(&NodeId::Set(key)), "{name} is not in the mounts' capability set");
     }
 }
+
+/// Wave encounters sleep in Mary-O's and Sanic's rooms and run in Ambition's:
+/// their games declare no encounters, and each encounter step is in the
+/// encounters' capability set. The switch drain and the banners are not: other
+/// games' rooms press switches and show banners.
+#[test]
+fn encounters_sleep_in_mary_os_and_sanics_rooms_and_run_in_ambitions() {
+    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::platformer::capability::{Capability, CapabilitySet, UsedCapabilities};
+    use ambition_platformer2d::platformer::schedule::SimScheduleExt;
+    use bevy::ecs::schedule::graph::Direction;
+    use bevy::ecs::schedule::{NodeId, Schedules, SystemSet};
+
+    let mut app = compose_the_shipped_host();
+    let rules = app
+        .world()
+        .get_resource::<DeclaredRules<UsedCapabilities>>()
+        .expect("the shipped host's games declare the capabilities they use");
+    let uses = |mode: Option<&'static str>| {
+        rules.governing(ActiveRoom::live(mode)).is_none_or(|used| used.uses(Capability::Encounters))
+    };
+    assert!(!uses(Some(ambition_demo_mary_o::MARY_O_MODE)), "Mary-O's rooms use encounters");
+    assert!(!uses(Some(ambition_demo_sanic::SANIC_MODE)), "Sanic's rooms use encounters");
+    assert!(uses(None), "the premise: Ambition's own rooms use encounters");
+
+    let sim = app.sim_schedule();
+    let schedules = app.world().resource::<Schedules>();
+    let graph = schedules.get(sim).expect("the sim schedule").graph();
+    let capability = graph
+        .system_sets
+        .get_key(CapabilitySet(Capability::Encounters).intern())
+        .expect("the encounters' capability set");
+    // Each system in the capability set, directly or through a set in it.
+    let mut inside: Vec<String> = Vec::new();
+    let mut stack = vec![NodeId::Set(capability)];
+    while let Some(node) = stack.pop() {
+        for child in graph.hierarchy().graph().neighbors_directed(node, Direction::Outgoing) {
+            match child {
+                NodeId::Set(_) => stack.push(child),
+                NodeId::System(key) => {
+                    let name = format!("{}", graph.systems.get(key).expect("a system node").name());
+                    inside.push(name.rsplit("::").next().unwrap_or_default().to_owned());
+                }
+            }
+        }
+    }
+    for step in [
+        "reduce_encounter_lifecycles",
+        "publish_cleared_encounters",
+        "drive_wave_encounters",
+        "apply_wave_encounter_effects",
+        "apply_encounter_cleanup",
+        "project_live_encounter_occurrences",
+        "contribute_encounter_lock_walls",
+        "sync_encounter_reward_chests",
+        "retire_rewards_for_rearmed_encounters",
+    ] {
+        assert!(inside.iter().any(|name| name == step), "{step} is not in the encounters' capability set");
+    }
+    for awake in ["drain_switch_activations", "rebuild_encounter_switch_index", "apply_gameplay_banner_requests"] {
+        assert!(!inside.iter().any(|name| name == awake), "{awake} sleeps with the encounters");
+    }
+}

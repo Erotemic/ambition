@@ -130,7 +130,11 @@ impl bevy::prelude::Plugin for EncounterRegistryPlugin {
                 crate::rewards::publish_cleared_encounters,
             )
                 .chain()
-                .in_set(crate::EncounterLifecycleSet),
+                .in_set(crate::EncounterLifecycleSet)
+                // Asleep where the active room's game uses no encounters.
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                    ambition_platformer2d_shared_tangle::capability::Capability::Encounters,
+                )),
         );
     }
 }

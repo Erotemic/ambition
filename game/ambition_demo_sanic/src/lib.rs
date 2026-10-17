@@ -666,7 +666,8 @@ impl Plugin for SanicRulesPlugin {
                     .without(ambition_platformer2d::platformer::capability::Capability::HeldUse)
                     .without(ambition_platformer2d::platformer::capability::Capability::FighterSpecials)
                     .without(ambition_platformer2d::platformer::capability::Capability::Portals)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Mounts),
+                    .without(ambition_platformer2d::platformer::capability::Capability::Mounts)
+                    .without(ambition_platformer2d::platformer::capability::Capability::Encounters),
             );
             // Whoever the player drives here can spin dash and transform.
             app.declare_rules(

@@ -32,6 +32,13 @@ pub use systems::{
     project_live_encounter_occurrences, WaveEncounterDriven,
 };
 
+/// The encounters capability's set: asleep where the active room's game uses
+/// no encounters. The switch index and the banners are not in it.
+const ENCOUNTERS: ambition_platformer2d_shared_tangle::capability::CapabilitySet =
+    ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+        ambition_platformer2d_shared_tangle::capability::Capability::Encounters,
+    );
+
 /// Module-local Bevy plugin: schedules the `EncounterSimulation`
 /// simulation set — moving-platform sweep + encounter tick +
 /// gameplay-banner queue drain.
@@ -74,7 +81,8 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                     // late, and on the tick a rewind re-pushed activations, one
                     // applied twice.
                     .after(ambition_encounter::switches::SwitchActivationDrained)
-                    .run_if(bevy::ecs::prelude::any_with_component::<Encounter>),
+                    .run_if(bevy::ecs::prelude::any_with_component::<Encounter>)
+                    .in_set(ENCOUNTERS),
                 // ⭐ THE SPAWN SERVER'S REGISTRATION WENT HOME (2026-09-03).
                 // It is `features::EncounterSpawnServicePlugin`, composed by the
                 // runtime: a plugin that is about to live in
@@ -104,6 +112,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             sim,
             (apply_wave_encounter_effects, apply_encounter_cleanup)
                 .chain()
+                .in_set(ENCOUNTERS)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression)
                 .after(EncounterLifecycleSet),
         );

@@ -52,7 +52,7 @@ pub use source_visibility::{
     resolve_portal_source_visibility, PortalDependantHidden, PortalSourceHidden, PortalTransitHidden,
 };
 pub use compositing::{
-    current_z_policy_is_correct_for, pane_cover_rect, pane_relation, piece_clip_edges,
+    behind_pane, current_z_policy_is_correct_for, pane_cover_rect, pane_relation, piece_clip_edges,
     uncovered_remainder, PaneRelation,
     UncoveredPiece, UncoveredPieces,
 };

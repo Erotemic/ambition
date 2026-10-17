@@ -180,6 +180,29 @@ pub enum HitboxAnchor {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct DepictedByOwner;
 
+/// This strike volume is a RAY: the line from its anchor along `dir`,
+/// `length` long (unfolded: the portal pairs it goes through cut the volume
+/// as they cut any), `width` wide. Its look is the presentation's, by name:
+/// it is drawn from this geometry, so the renderer's stand-in for an
+/// unauthored attack does not draw it.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct RayStrike {
+    pub dir: ae::Vec2,
+    pub length: f32,
+    pub width: f32,
+    pub look: std::sync::Arc<str>,
+}
+
+impl RayStrike {
+    /// The volume of the ray about its start (the hitbox anchor): the band
+    /// from the start along `dir`, `width` across.
+    pub fn shape(&self) -> ae::VolumeShape {
+        let across = self.dir.perp() * (self.width * 0.5);
+        let end = self.dir * self.length.max(1.0);
+        ae::VolumeShape::Convex { points: vec![across, end + across, end - across, -across] }
+    }
+}
+
 #[derive(Component, Clone, Copy, Debug)]
 pub struct HitboxLifetime {
     pub remaining_s: f32,

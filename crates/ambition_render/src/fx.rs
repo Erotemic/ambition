@@ -439,8 +439,8 @@ pub fn vfx_spawn_messages(
             }
             // Drawn by `rendering::actors::animation::start_bark_poses`.
             VfxMessage::BarkGesture { .. } => {}
-            // Drawn by `lightning::receive_lightning`, which keeps each
-            // lease as one effect.
+            // Drawn by `lines::receive_decorations`, which keeps each lease
+            // as one effect.
             VfxMessage::Lightning { .. } | VfxMessage::LightningAura { .. } => {}
         }
     }

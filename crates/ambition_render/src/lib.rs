@@ -15,11 +15,12 @@ pub mod cutscene;
 /// Provider-selectable dialogue presentation: one shared lifecycle / ordering
 /// seam plus a plain opt-in default renderer over `ambition_sim_view::DialogView`.
 pub mod dialog_ui;
+pub mod folded_mesh;
 pub mod fx;
 pub mod gameplay_surround;
 /// The in-world HUD overlay: health/mana bars, ability pips, banner text.
 pub mod hud;
-pub mod lightning;
+pub mod lines;
 pub mod mesh2d_late_meshes;
 /// The presentation face a demo can add. See its module docs.
 pub mod platformer_presentation;

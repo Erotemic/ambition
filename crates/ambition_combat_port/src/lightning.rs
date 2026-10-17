@@ -1,18 +1,12 @@
-//! Procedural lightning a module asks for: a bolt between two ends, and an
-//! aura on its own body. Presentation only; no simulation state reads either.
+//! Lightning a module shows, not one it strikes with: a bolt between two
+//! ends, and an aura on its own body. Presentation only; no simulation state
+//! reads either. A bolt that hurts is a ray ([`crate::ray::HeldRayPort`]),
+//! drawn from its own geometry.
 
 use ambition_extension_sdk::wire::{self, WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
 
-/// Where one end of a module's bolt is.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum BoltEnd {
-    /// A world point, +Y down.
-    World([f32; 2]),
-    /// An offset from the body the invocation ran for, where it is drawn: the
-    /// end follows the body.
-    Body([f32; 2]),
-}
+use crate::ray::Spot;
 
 /// The request port marker for a bolt of lightning.
 ///
@@ -33,41 +27,20 @@ pub struct LightningPort;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Lightning {
     pub key: String,
-    pub from: BoltEnd,
-    pub to: BoltEnd,
+    pub from: Spot,
+    pub to: Spot,
     pub look: String,
     pub glow: Option<[f32; 4]>,
     pub hold_s: f32,
 }
 
-fn put_end(out: &mut Vec<u8>, end: BoltEnd) {
-    match end {
-        BoltEnd::World(at) => {
-            wire::put_u8(out, 0);
-            wire::put_vec2(out, at);
-        }
-        BoltEnd::Body(offset) => {
-            wire::put_u8(out, 1);
-            wire::put_vec2(out, offset);
-        }
-    }
-}
-
-fn end(r: &mut WireReader<'_>) -> Result<BoltEnd, WireError> {
-    match r.u8()? {
-        0 => Ok(BoltEnd::World(r.vec2()?)),
-        1 => Ok(BoltEnd::Body(r.vec2()?)),
-        tag => Err(WireError::BadTag(tag)),
-    }
-}
-
-fn put_rgba(out: &mut Vec<u8>, c: [f32; 4]) {
+pub(crate) fn put_rgba(out: &mut Vec<u8>, c: [f32; 4]) {
     for v in c {
         wire::put_f32(out, v);
     }
 }
 
-fn rgba(r: &mut WireReader<'_>) -> Result<[f32; 4], WireError> {
+pub(crate) fn rgba(r: &mut WireReader<'_>) -> Result<[f32; 4], WireError> {
     Ok([r.f32()?, r.f32()?, r.f32()?, r.f32()?])
 }
 
@@ -78,8 +51,8 @@ impl Port for LightningPort {
 
     fn encode(v: &Lightning, out: &mut Vec<u8>) {
         wire::put_str(out, &v.key);
-        put_end(out, v.from);
-        put_end(out, v.to);
+        v.from.put(out);
+        v.to.put(out);
         wire::put_str(out, &v.look);
         wire::put_opt(out, v.glow, put_rgba);
         wire::put_f32(out, v.hold_s);
@@ -88,8 +61,8 @@ impl Port for LightningPort {
     fn decode(r: &mut WireReader<'_>) -> Result<Lightning, WireError> {
         Ok(Lightning {
             key: r.str()?.to_owned(),
-            from: end(r)?,
-            to: end(r)?,
+            from: Spot::read(r)?,
+            to: Spot::read(r)?,
             look: r.str()?.to_owned(),
             glow: r.opt(rgba)?,
             hold_s: r.f32()?,
@@ -156,8 +129,8 @@ mod tests {
     fn a_bolt_and_an_aura_round_trip() {
         let bolt = Lightning {
             key: "lash".into(),
-            from: BoltEnd::Body([4.0, -40.0]),
-            to: BoltEnd::World([300.0, 120.0]),
+            from: Spot::Body([4.0, -40.0]),
+            to: Spot::World([300.0, 120.0]),
             look: "force".into(),
             glow: Some([0.1, 0.2, 0.3, 0.4]),
             hold_s: 0.1,

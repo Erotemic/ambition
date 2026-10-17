@@ -993,6 +993,7 @@ mod presented_strike_tests {
             damage: 4,
             anchored_to_body,
             depicted_by_owner: false,
+            ray: None,
             hit: Vec::new(),
         }
     }

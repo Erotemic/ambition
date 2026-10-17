@@ -155,6 +155,9 @@ pub struct CombatStrikeGeometryView {
     /// ([`ambition_combat::strike::DepictedByOwner`]), so nothing stands in
     /// for it.
     pub depicted_by_owner: bool,
+    /// The strike is a RAY ([`ambition_combat::strike::RayStrike`]): drawn as
+    /// its look from this line, so nothing stands in for it either.
+    pub ray: Option<CombatRayView>,
     /// The bodies this strike HAS ALREADY CONNECTED WITH.
     ///
     /// ⭐⭐ OVERLAP IS NOT A HIT, and an observer must never conclude one from
@@ -168,6 +171,19 @@ pub struct CombatStrikeGeometryView {
     /// randomized per process — an observation built from it unsorted differs
     /// between two runs of one binary that simulated identically.
     pub hit: Vec<bevy::prelude::Entity>,
+}
+
+/// A ray strike's line, as the presentation draws it: from `origin` along
+/// `dir`, `length` long unfolded (the presentation folds it through the
+/// portal pairs as the resolver cut its volume), `width` wide, looking like
+/// `look`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CombatRayView {
+    pub origin: ae::Vec2,
+    pub dir: ae::Vec2,
+    pub length: f32,
+    pub width: f32,
+    pub look: std::sync::Arc<str>,
 }
 
 /// Presentation-facing snapshot of authoritative combat geometry.
@@ -226,6 +242,7 @@ pub fn rebuild_combat_geometry_view(
         &Hitbox,
         Option<&HitboxHits>,
         bevy::prelude::Has<ambition_combat::strike::DepictedByOwner>,
+        Option<&ambition_combat::strike::RayStrike>,
     )>,
     owner_boxes: Query<&CenteredAabb>,
     owner_kinematics: Query<&ae::BodyKinematics>,
@@ -269,7 +286,7 @@ pub fn rebuild_combat_geometry_view(
         });
     }
 
-    for (strike, hitbox, hits, depicted_by_owner) in &hitboxes {
+    for (strike, hitbox, hits, depicted_by_owner, ray) in &hitboxes {
         let owner_pos = match hitbox.anchor {
             HitboxAnchor::World { .. } => Some(ae::Vec2::ZERO),
             HitboxAnchor::FollowOwner { .. } => owner_boxes
@@ -288,6 +305,16 @@ pub fn rebuild_combat_geometry_view(
             damage: hitbox.damage,
             anchored_to_body: matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }),
             depicted_by_owner,
+            ray: ray.and_then(|ray| match hitbox.anchor {
+                HitboxAnchor::World { center } => Some(CombatRayView {
+                    origin: center,
+                    dir: ray.dir,
+                    length: ray.length,
+                    width: ray.width,
+                    look: ray.look.clone(),
+                }),
+                HitboxAnchor::FollowOwner { .. } => None,
+            }),
             hit: {
                 let mut victims: Vec<_> =
                     hits.map(|hits| hits.hit.iter().copied().collect()).unwrap_or_default();

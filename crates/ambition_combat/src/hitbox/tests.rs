@@ -3073,3 +3073,42 @@ fn a_body_the_portals_move_whole_is_not_hit_at_its_far_end() {
     app.update();
     assert_eq!(struck(&app, victim), 0);
 }
+
+/// ⭐ A ray is one volume from where it starts: down into a floor portal, it
+/// hurts what is under the partner ceiling, as far as it reaches, and not
+/// what is in the floor under the opening. Its portal handling is every
+/// world volume's: the resolver cuts it where it goes through.
+#[test]
+fn a_ray_down_into_a_portal_hurts_under_its_partner() {
+    for (passages, hurts) in [(Some(floor_to_ceiling()), true), (None, false)] {
+        let mut app = portal_strike_app(passages);
+        let owner = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(-300.0, -300.0));
+        let far = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(500.0, -170.0));
+        let below = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(0.0, 30.0));
+        // From 60 over the floor, straight down, 120 long: 60 of it through.
+        let ray = crate::strike::RayStrike { dir: ae::Vec2::new(0.0, 1.0), length: 120.0, width: 20.0, look: "force".into() };
+        app.world_mut().spawn((
+            Hitbox {
+                strike_sfx: None,
+                owner,
+                source: HitSide::Boss,
+                anchor: HitboxAnchor::World { center: ae::Vec2::new(0.0, -60.0) },
+                half_extent: ae::Vec2::new(10.0, 120.0),
+                shape: Some(ray.shape()),
+                facing: 1.0,
+                damage: 5,
+                knockback: crate::strike::HitboxKnockback::FeelScale(1.0),
+                launch_dir: None,
+                frame_down: ae::Vec2::new(0.0, 1.0),
+                reaction: None,
+                guard: Default::default(),
+            },
+            HitboxLifetime { remaining_s: 0.2 },
+            HitboxHits::default(),
+            ray,
+        ));
+        app.update();
+        assert_eq!(struck(&app, far), usize::from(hurts), "the far body (portals: {hurts})");
+        assert_eq!(struck(&app, below), usize::from(!hurts), "the body under the opening (portals: {hurts})");
+    }
+}

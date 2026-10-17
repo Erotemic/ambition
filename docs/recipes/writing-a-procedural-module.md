@@ -153,7 +153,8 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.portal.held_pair` v1 | request (`boss_conduct`; a game with the `portal` feature) | `ambition_portal_port::HeldPortalPair` (a linked pair of portals, held while re-submitted each tick at the submitted places; named by its slot; a look index for each end) |
 | `ambition.portal.light_line` v1 | request (`boss_conduct`; a game with the `portal` feature) | `ambition_portal_port::LightLine` (a line of a portal's light that is no portal: nothing goes through it and it pushes nothing; drawn while re-submitted each tick; named by its slot; a look index) |
 | `ambition.feedback.burst` v1 | request (`boss_conduct`) | `ambition_combat_port::Burst` (particles) |
-| `ambition.feedback.lightning` v1 | request (`boss_conduct`) | `ambition_combat_port::Lightning` (a leased bolt between two ends) |
+| `ambition.combat.held_ray` v1 | request (`technique_execution`, `boss_conduct`) | `ambition_combat_port::HeldRay` (a strike along a line, cast through portals, drawn as its named look) |
+| `ambition.feedback.lightning` v1 | request (`boss_conduct`) | `ambition_combat_port::Lightning` (a leased bolt that shows and does not hurt) |
 | `ambition.feedback.lightning_aura` v1 | request (`boss_conduct`) | `ambition_combat_port::LightningAura` (a leased aura on the asking body) |
 | `ambition.feedback.camera_shake` v1 | request (`boss_conduct`) | `ambition_combat_port::CameraShake` (an amplitude; the strongest of a frame wins) |
 | `ambition.combat.body_hold` v2 | request (`boss_conduct`) | `ambition_combat_port::BodyHold` (seize a body in a reach, carry it, pummel it, throw it, release it: the engine's capture relation; v2: `hold_at` names the attachment of the owner's body rig that the hold rides, and the engine places it from the rig's pose each tick) |

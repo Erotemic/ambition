@@ -480,6 +480,9 @@ where
     // Presentation, but it rides the strike entity family: a volume restored
     // without it would grow the unauthored stand-in over its owner's own art.
     registrar.rollback_component_clone::<crate::strike::DepictedByOwner>(OWNER, "combat.depicted_by_owner");
+    // A ray's geometry rides its strike: restored with it, so the drawn ray
+    // and the volume that hurts stay one line.
+    registrar.rollback_component_clone::<crate::strike::RayStrike>(OWNER, "combat.ray_strike");
     registrar.rollback_component_clone_probed::<crate::strike::HitboxLifetime>(
         OWNER,
         "combat.hitbox_lifetime",

@@ -265,7 +265,10 @@ the arc lash from his neck bolts), and the Hall of Bosses' own copy of his
 throne room, `hall_wolfenstein_arena` (placement `hall.wolfenstein`, a life
 switch by its door). His sheet turns off the warm placeholder tint
 (`attack_tint: false`): his tells are drawn. Not yet: the coils' part in the
-enrage, effect sheets and sounds (borrowed), his music cue (not ready).
+enrage, effect sheets and sounds (borrowed). His music cue is built:
+`galvanic_march` (score `tools/ambition_music_renderer/scores/active/galvanic_march.music.yaml`), bound
+to his phases in `music_cues.ron` `boss_bindings` (Intro awaken, Phase1
+march, Transition unleash, Phase2 and Stagger howl, Enrage storm).
 
 **Jon's rulings (2026-10-17):** first "I want this to be a bipedal boss";
 then, after GPT concept sheets: "we can get rid of the no-all-4's rule, some

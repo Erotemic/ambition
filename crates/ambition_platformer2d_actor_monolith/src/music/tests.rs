@@ -709,3 +709,49 @@ fn a_fight_takes_the_rooms_fight_state_or_the_room() {
     assert_eq!(resolve_room_directive(&catalog, "trailhead", true, &playing), None);
     assert_eq!(resolve_room_directive(&catalog, "hub", false, &playing), None);
 }
+
+fn wolf_catalog() -> MusicCueCatalog {
+    use ambition_audio::music::{BossMusicBinding, BossPhaseState};
+    let row = |phase: &str, state: &str| BossPhaseState { phase: phase.into(), state: state.into() };
+    MusicCueCatalog::from_parts(Vec::new(), Vec::new()).with_boss_bindings(vec![BossMusicBinding {
+        boss_id: "wolf".into(),
+        cue_id: "march".into(),
+        phase_states: vec![row("Phase1", "march"), row("Transition", "unleash"), row("Enrage", "storm")],
+    }])
+}
+
+/// A bound boss's phase chooses the state of its cue; another boss, or a
+/// phase with no state, claims nothing while the cue is quiet.
+#[test]
+fn a_bosss_phase_chooses_the_state_of_its_cue() {
+    let catalog = wolf_catalog();
+    let idle = MusicDirectorState::default();
+    let play = |state: &str| Some(AdaptiveCueDirective::Play { cue_id: "march".into(), state_id: state.into() });
+    assert_eq!(resolve_boss_directive(&catalog, &[("wolf", "Phase1")], &idle), play("march"));
+    assert_eq!(resolve_boss_directive(&catalog, &[("wolf", "Transition")], &idle), play("unleash"));
+    assert_eq!(resolve_boss_directive(&catalog, &[("wolf", "Enrage")], &idle), play("storm"));
+    assert_eq!(resolve_boss_directive(&catalog, &[("other", "Phase1")], &idle), None);
+    assert_eq!(resolve_boss_directive(&catalog, &[("wolf", "Dormant")], &idle), None);
+}
+
+/// A boss that dies (a phase with no state) or leaves the heard room gives
+/// the music back: its cue stops.
+#[test]
+fn a_bound_cue_stops_when_its_boss_has_no_state_left() {
+    let catalog = wolf_catalog();
+    let playing = director_with_active_cue(Some("march"));
+    assert_eq!(resolve_boss_directive(&catalog, &[("wolf", "Death")], &playing), Some(AdaptiveCueDirective::StopNow));
+    assert_eq!(resolve_boss_directive(&catalog, &[], &playing), Some(AdaptiveCueDirective::StopNow));
+}
+
+/// Every phase a binding can name is the key of a phase the boss domain has.
+#[test]
+fn the_boss_phase_keys_are_the_boss_domains_phases() {
+    use ambition_boss_encounter::BossEncounterPhase as P;
+    let keys: Vec<&str> = [P::Intro, P::Phase1, P::Transition, P::Phase2, P::Stagger, P::Enrage, P::Death]
+        .into_iter()
+        .map(boss_phase_key)
+        .collect();
+    assert_eq!(keys, ambition_audio::music::BOSS_PHASE_KEYS.to_vec());
+    assert!(!ambition_audio::music::BOSS_PHASE_KEYS.contains(&boss_phase_key(P::Dormant)));
+}

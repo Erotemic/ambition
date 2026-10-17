@@ -18,6 +18,7 @@
 //! `crate::…` paths keep resolving.
 
 pub mod audio_registries;
+pub mod autoplay;
 pub mod bosses;
 // The native wielded abilities, now modules, and the parity suite that holds
 // each module to them.

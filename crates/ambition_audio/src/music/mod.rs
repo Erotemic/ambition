@@ -52,7 +52,7 @@ pub mod state;
 
 pub use catalog::{
     AdaptiveMusicCatalogAppExt, AdaptiveMusicCatalogError, AdaptiveMusicCatalogRegistry,
-    EncounterMusicBinding, LoadedMusicCueAssets, MusicCueCatalog, MusicCueSpec, MusicLayerGainSpec,
+    BossMusicBinding, BossPhaseState, EncounterMusicBinding, BOSS_PHASE_KEYS, LoadedMusicCueAssets, MusicCueCatalog, MusicCueSpec, MusicLayerGainSpec,
     MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec, MusicStateBalanceOverride,
     MusicStateSpec, RoomMusicBinding,
 };

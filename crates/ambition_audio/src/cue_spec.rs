@@ -140,6 +140,40 @@ pub struct RoomMusicBinding {
     pub fight_state: Option<String>,
 }
 
+/// The adaptive music of a boss: the cue state for each phase of its fight,
+/// for every placement of the archetype `boss_id` (the story's fight and a
+/// practice copy alike). A phase with no state gives the music back to the
+/// room. A state on a section that does not loop plays to its end before the
+/// next phase's state starts (a wake, a transition).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BossMusicBinding {
+    pub boss_id: String,
+    pub cue_id: String,
+    pub phase_states: Vec<BossPhaseState>,
+}
+
+/// One phase of a boss fight and the state of its cue then. `phase` is a key
+/// of [`BOSS_PHASE_KEYS`].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BossPhaseState {
+    pub phase: String,
+    pub state: String,
+}
+
+impl BossMusicBinding {
+    /// The state of the cue in the phase named `phase`, if the binding has one.
+    pub fn state_in(&self, phase: &str) -> Option<&str> {
+        self.phase_states.iter().find(|row| row.phase == phase).map(|row| row.state.as_str())
+    }
+}
+
+/// The phases of a boss fight a binding can name: the names of
+/// `BossEncounterPhase` (this crate does not depend on the boss domain; the
+/// host maps its phase to these keys, and its test holds the lists together).
+pub const BOSS_PHASE_KEYS: [&str; 7] = ["Intro", "Phase1", "Transition", "Phase2", "Stagger", "Enrage", "Death"];
+
 /// The track a room plays in one phase of the day, in place of its own
 /// `music_track`. A phase is a key of the host's day cycle (`"morning"`,
 /// `"day"`, `"evening"`, `"night"` in `ambition_time::DayPhase`). A room with
@@ -172,6 +206,8 @@ pub struct AuthoredMusicCues {
     pub encounter_bindings: Vec<EncounterMusicBinding>,
     #[serde(default)]
     pub room_bindings: Vec<RoomMusicBinding>,
+    #[serde(default)]
+    pub boss_bindings: Vec<BossMusicBinding>,
     /// The tracks of rooms by the time of day.
     #[serde(default)]
     pub room_phase_tracks: Vec<RoomPhaseTrack>,
@@ -186,6 +222,7 @@ pub fn cue_reference_errors<'a>(
     cues: impl IntoIterator<Item = &'a MusicCueSpec>,
     bindings: &[EncounterMusicBinding],
     room_bindings: &[RoomMusicBinding],
+    boss_bindings: &[BossMusicBinding],
 ) -> Vec<String> {
     let cues: Vec<&MusicCueSpec> = cues.into_iter().collect();
     let mut errors = Vec::new();
@@ -326,6 +363,27 @@ pub fn cue_reference_errors<'a>(
                 errors.push(format!(
                     "room binding '{}' entry_state '{}' is on a section of cue '{}' that loops",
                     binding.room_id, state_id, binding.cue_id
+                ));
+            }
+        }
+    }
+
+    for binding in boss_bindings {
+        let Some(cue) = cues.iter().find(|cue| cue.id == binding.cue_id) else {
+            errors.push(format!("boss binding '{}' references unknown cue '{}'", binding.boss_id, binding.cue_id));
+            continue;
+        };
+        for row in &binding.phase_states {
+            if !BOSS_PHASE_KEYS.contains(&row.phase.as_str()) {
+                errors.push(format!(
+                    "boss binding '{}' names unknown phase '{}' (one of {:?})",
+                    binding.boss_id, row.phase, BOSS_PHASE_KEYS
+                ));
+            }
+            if !cue.states.iter().any(|state| state.id == row.state) {
+                errors.push(format!(
+                    "boss binding '{}' phase '{}' references unknown state '{}' on cue '{}'",
+                    binding.boss_id, row.phase, row.state, binding.cue_id
                 ));
             }
         }

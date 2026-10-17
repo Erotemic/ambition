@@ -20,6 +20,7 @@ pub fn music_cue_catalog_from(
     Some(
         MusicCueCatalog::from_parts(authored.cues, authored.encounter_bindings)
             .with_room_bindings(authored.room_bindings)
+            .with_boss_bindings(authored.boss_bindings)
             .with_room_phase_tracks(authored.room_phase_tracks),
     )
 }

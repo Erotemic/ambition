@@ -155,6 +155,60 @@
                 (id: "gate_square", section_id: "town", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "harp", gain: 1.0), (layer_id: "groove", gain: 1.0), (layer_id: "comp", gain: 1.0)]),
             ],
         ),
+        (
+            // Wolfenstein's fight (scores/active/galvanic_march.music.yaml): a
+            // stiff brass march that detunes into a howling theremin theme,
+            // the howl being the march tune slowed and glided; both at once
+            // when he is enraged. His phases choose the section
+            // (`boss_bindings`). Awaken and unleash do not loop: each plays
+            // to its end, then the phase's own loop starts.
+            id: "galvanic_march",
+            asset_root: "audio/music/generated/galvanic_march",
+            bpm: 116.0,
+            beats_per_bar: 4.0,
+            relative_volume: 1.0,
+            sections: [
+                (id: "awaken", duration_beats: 16.0, looped: false, sources: [
+                    (layer_id: "bed", path: "playback/awaken/awaken.bed.ogg"),
+                    (layer_id: "drums", path: "playback/awaken/awaken.drums.ogg"),
+                    (layer_id: "tune", path: "playback/awaken/awaken.tune.ogg"),
+                ]),
+                (id: "march", duration_beats: 64.0, looped: true, sources: [
+                    (layer_id: "bed", path: "playback/march/march.bed.ogg"),
+                    (layer_id: "drums", path: "playback/march/march.drums.ogg"),
+                    (layer_id: "tune", path: "playback/march/march.tune.ogg"),
+                ]),
+                (id: "unleash", duration_beats: 8.0, looped: false, sources: [
+                    (layer_id: "bed", path: "playback/unleash/unleash.bed.ogg"),
+                    (layer_id: "drums", path: "playback/unleash/unleash.drums.ogg"),
+                    (layer_id: "tune", path: "playback/unleash/unleash.tune.ogg"),
+                ]),
+                (id: "howl", duration_beats: 64.0, looped: true, sources: [
+                    (layer_id: "bed", path: "playback/howl/howl.bed.ogg"),
+                    (layer_id: "drums", path: "playback/howl/howl.drums.ogg"),
+                    (layer_id: "tune", path: "playback/howl/howl.tune.ogg"),
+                ]),
+                (id: "storm", duration_beats: 64.0, looped: true, sources: [
+                    (layer_id: "bed", path: "playback/storm/storm.bed.ogg"),
+                    (layer_id: "drums", path: "playback/storm/storm.drums.ogg"),
+                    (layer_id: "tune", path: "playback/storm/storm.tune.ogg"),
+                ]),
+            ],
+            layers: [
+                // Strings, organ, choir, tuba and timpani.
+                (id: "bed", slot: 0),
+                (id: "drums", slot: 1),
+                // The brass march and the theremin howl.
+                (id: "tune", slot: 2),
+            ],
+            states: [
+                (id: "awaken", section_id: "awaken", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
+                (id: "march", section_id: "march", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
+                (id: "unleash", section_id: "unleash", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
+                (id: "howl", section_id: "howl", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
+                (id: "storm", section_id: "storm", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
+            ],
+        ),
     ],
     encounter_bindings: [
         (
@@ -182,6 +236,22 @@
         (room_id: "primeval_ridge", cue_id: "dinosaur_liberators_adaptive", state: "charging"),
         (room_id: "primeval_canopy", cue_id: "dinosaur_liberators_adaptive", state: "blazing"),
         (room_id: "primeval_tyrant_hall", cue_id: "dinosaur_liberators_adaptive", state: "blazing", fight_state: Some("fight")),
+    ],
+    // A boss's phases choose the state of its cue, for every placement of
+    // the archetype (the story's fight and the Hall of Bosses' copy).
+    boss_bindings: [
+        (
+            boss_id: "wolfenstein_boss",
+            cue_id: "galvanic_march",
+            phase_states: [
+                (phase: "Intro", state: "awaken"),
+                (phase: "Phase1", state: "march"),
+                (phase: "Transition", state: "unleash"),
+                (phase: "Phase2", state: "howl"),
+                (phase: "Stagger", state: "howl"),
+                (phase: "Enrage", state: "storm"),
+            ],
+        ),
     ],
     // The town of the Math dimension by the time of day: four pieces of one
     // family (the Euclid Street motif). The gate hall under the street

@@ -300,8 +300,9 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
     // What is in front of the exit, read before the entry's side is cut: in a
     // thin wall the two regions share space.
     let region = ae::frame::thread::face_rect_planes(&before);
+    let reach = before.bounds();
     let mut blocks: Vec<ae::Block> = Vec::new();
-    for block in &world.blocks {
+    for block in world.blocks.iter().filter(|block| reach.strict_intersects(block.aabb)) {
         let Some(kind) = carried_kind(block.kind, back_dir) else {
             continue;
         };
@@ -326,8 +327,9 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
         }
     }
     cut_portal_holes(world, &[&behind]);
-    world.blocks.extend(blocks);
-    world.blocks.sort_by(ae::Block::canonical_cmp);
+    // After the room's own, in canonical order as contributed blocks are:
+    // the room's keep their places.
+    extend_in_canonical_order(&mut world.blocks, &blocks);
     world.chains.extend(chains);
 }
 
@@ -727,10 +729,19 @@ fn remove_named_blocks(blocks: &mut Vec<ae::Block>, removed_block_names: &[Strin
 /// algebra in the foundation. This crate never names the portal MECHANIC; a
 /// carve arrives as a `Vec<Aabb>` on the overlay.
 fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
-    let original = std::mem::take(blocks);
-    for block in original {
-        let carvable = ae::collision_semantics::is_support_surface(block.kind);
-        if !carvable {
+    // A block no hole reaches is kept as it is, in its place, its identity
+    // with it.
+    let reached = |block: &ae::Block| {
+        ae::collision_semantics::is_support_surface(block.kind)
+            && holes.iter().any(|hole| hole.strict_intersects(block.aabb))
+    };
+    let Some(first) = blocks.iter().position(reached) else {
+        return;
+    };
+    let rest = blocks.split_off(first);
+    blocks.reserve(rest.len() + 4);
+    for block in rest {
+        if !reached(&block) {
             blocks.push(block);
             continue;
         }
@@ -1185,7 +1196,12 @@ mod collision_world_tests {
                 kept += as_met_by(&walls, &[], &[], &[]).blocks.len();
             }
             let plain = start.elapsed() / reps;
-            eprintln!("blocks={n}: glued {glued:?} per body per tick, unglued {plain:?} ({kept})");
+            let start = std::time::Instant::now();
+            for _ in 0..reps {
+                kept += walls.clone().blocks.len();
+            }
+            let cloned = start.elapsed() / reps;
+            eprintln!("blocks={n}: glued {glued:?} per body per tick, unglued {plain:?}; of it the clone {cloned:?} ({kept})");
         }
     }
 

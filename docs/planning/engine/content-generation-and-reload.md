@@ -510,8 +510,13 @@ the file-root registry and the mechanics digest are one published generation
 not the published table's" with the index kept in its own `OnceLock`).
 `content::sprite_reload::SpriteSheetReloadPlugin` (installed by
 `ambition_app` where content is read off disk) watches each manifest and each
-page image from a background thread (one look at the published tree is about
-100 ms in a debug build, so a frame does not pay it). A changed page image is
+page image from a background thread. One look at the published tree (a stat
+of each sheet, rig, flipbook and page file) is 0.2 to 0.4 s in a debug build,
+so the thread looks only when the operating system reports a change in a
+sprite folder (`notify`; a burst of reports is one look), and once a second
+only where no report is possible (witness `sprite_watch_reports`: one look in
+three quiet seconds, and one look for one save; red with the reports off, at
+"the watch looked while no file changed"). A changed page image is
 loaded again at once. A changed manifest makes the same thread read the whole
 table again and parse it (`prepare_sheet_table`, median 913 ms in a debug
 build); the parsed table waits for the end of the session, then it is
@@ -534,8 +539,38 @@ registered); the shipped composition's casts are each named by
 `each_cast_of_the_shipped_composition_is_stated_again_with_the_sheets`
 (app_it; red with Ambition's restater removed). Ambition's restater has no
 behaviour witness of its own: it stages the live catalog's cast as a facet
-edit does (`stage_cast_from_catalog`). Not yet on the road: part flipbooks, body rigs,
-landmarks, portraits, pack catalogs, the prop sheets a room drew, and a body
+edit does (`stage_cast_from_catalog`). The body rigs published beside the
+sheets (`*_body_rig.ron`) are a part of the same generation since
+2026-10-16: the watch looks at them, a rig that does not parse or prepare
+refuses the table with the rig named (a reader of a rig panics on one it
+cannot read), and the cast restaters state each cast's rig again (witnesses
+`sheet_generation` and `sheet_derived_cast`, red with the rig table kept in
+its own `OnceLock`, with no rig check, and with the rigs not watched). The
+part flipbooks (`*_parts.ron`, each quality tier too) and the landmark tables
+projected from them are a part of it as well
+(`baked_part_flipbooks::PartTables`): the preparation decodes each
+full-resolution table off the frame (a table whose file kept its
+modification time is taken from the current generation), refuses one that
+does not decode with the file named, and projects the landmarks again when a
+flipbook changed; the watch reloads an edited flipbook's atlas pages
+(`<target>_parts*.png`) at once. The old generation drops its decoded tables
+at the publication. Witness: the flipbook arm of `sprite_sheet_reload`. A
+tier table is not decoded at the preparation, so a broken one is still found
+where a sheet realizes it. The portrait manifests (`*_portraits.ron`) and
+the sprite pack catalogs (`sprite_packs/<tier>/ultrapack.json`) are parts of
+the generation too: a manifest that does not parse or a catalog that does
+not parse or validate refuses the table with the file named, the
+`PortraitSheetRegistry` resource is stated again at the publication, and the
+portrait vocabulary a cast is prepared against is the generation's (the
+portrait and catalog arms of `sprite_sheet_reload`; red with the resource
+not stated again, with no portrait or catalog check, and with the catalogs
+not watched). The effect sheets and the authored effect index
+(`fx::fx_sheets`, `fx::authored_effects`) are built from each generation's
+own records (they were filled once from the first records, so a published
+effect row's timing was not the index's; witness: the effect arm of
+`sheet_generation`, red with the index in its own `OnceLock`). Not yet on
+the road:
+the prop sheets a room drew, and a body
 already bound at the same tier (the generation key above). The retire and
 the page reload have no witness of their own.
 

@@ -82,29 +82,152 @@ pub(crate) const PUBLISHED_SCHEMA_SOURCE: &str = include_str!("character/rigged/
 #[cfg(embedded_sprites)]
 include!(concat!(env!("OUT_DIR"), "/baked_part_flipbooks.rs"));
 
+/// One published flipbook: `(key, table, file)`.
+pub type PartFlipbookRow = (&'static str, BakedPartFlipbook, &'static str);
+
 /// Every published flipbook as `(key, table, file)`, sorted by key. `file` is
-/// the published file on the host that built (or runs) the game.
-pub fn part_flipbooks() -> &'static [(&'static str, BakedPartFlipbook, &'static str)] {
-    #[cfg(embedded_sprites)]
-    {
-        BAKED_PART_FLIPBOOKS
-    }
-    #[cfg(not(embedded_sprites))]
-    {
-        use crate::published_tree;
-        type Row = (&'static str, BakedPartFlipbook, &'static str);
-        static READ: std::sync::OnceLock<Vec<Row>> = std::sync::OnceLock::new();
-        // The files are named and not read: a table is read when a sheet
-        // realizes it (`BakedPartFlipbook::File`).
-        READ.get_or_init(|| {
-            crate::sprite_tree::companions(published_tree::owner(), "_parts.ron", true)
-                .into_iter()
-                .map(|(key, path)| {
-                    let file = published_tree::kept(path.display().to_string());
-                    (published_tree::kept(key), BakedPartFlipbook::File(file), file)
-                })
-                .collect()
+/// the published file on the host that built (or runs) the game. A part of
+/// the current sheet generation ([`crate::baked_sheet_rons::current`]).
+pub fn part_flipbooks() -> &'static [PartFlipbookRow] {
+    crate::baked_sheet_rons::current().part_tables().rows()
+}
+
+/// The suffix of a part flipbook file after its key.
+pub const PART_FLIPBOOK_SUFFIX: &str = "_parts.ron";
+
+/// Each part flipbook file of the tree under `owner` and of its quality
+/// tiers, keyed as the table keys it, sorted by key.
+pub fn part_flipbook_files_under(owner: &std::path::Path) -> Vec<(String, std::path::PathBuf)> {
+    crate::sprite_tree::companions(owner, PART_FLIPBOOK_SUFFIX, true)
+}
+
+/// The flipbooks of the tree under `owner`. The files are named and not read:
+/// a table is read when a sheet realizes it (`BakedPartFlipbook::File`).
+#[cfg(not(embedded_sprites))]
+pub(crate) fn rows_under(owner: &std::path::Path) -> Vec<PartFlipbookRow> {
+    use crate::published_tree::kept;
+    part_flipbook_files_under(owner)
+        .into_iter()
+        .map(|(key, path)| {
+            let file = kept(path.display().to_string());
+            (kept(key), BakedPartFlipbook::File(file), file)
         })
+        .collect()
+}
+
+/// The modification time of a development build's flipbook file; `None` for
+/// an embedded table, which cannot change.
+fn modified(table: BakedPartFlipbook) -> Option<std::time::SystemTime> {
+    match table {
+        BakedPartFlipbook::File(path) => std::fs::metadata(path).and_then(|metadata| metadata.modified()).ok(),
+        BakedPartFlipbook::Encoded(_) | BakedPartFlipbook::Ron(_) => None,
+    }
+}
+
+/// A landmark projection: `(target, bincode)` sorted by target, and its
+/// digest.
+pub(crate) type Landmarks = (Vec<(&'static str, &'static [u8])>, String);
+
+/// The part flipbooks of one sheet generation, and what is derived from
+/// them: each decoded full-resolution table and the landmark tables.
+pub struct PartTables {
+    rows: Vec<PartFlipbookRow>,
+    /// Each decoded full-resolution table, with the modification time its
+    /// file had before it was read.
+    parsed: std::sync::Mutex<std::collections::HashMap<String, (RiggedSpriteAsset, Option<std::time::SystemTime>)>>,
+    landmarks: std::sync::OnceLock<Landmarks>,
+    decoded_landmarks: std::sync::OnceLock<Vec<std::sync::OnceLock<std::sync::Arc<ambition_characters::actor::landmarks::BodyLandmarkTable>>>>,
+}
+
+impl PartTables {
+    /// Tables decoded when first asked for.
+    pub(crate) fn new(rows: Vec<PartFlipbookRow>) -> Self {
+        Self { rows, parsed: Default::default(), landmarks: Default::default(), decoded_landmarks: Default::default() }
+    }
+
+    /// Every flipbook, as `(key, table, file)` sorted by key.
+    pub fn rows(&self) -> &[PartFlipbookRow] {
+        &self.rows
+    }
+
+    /// Decode each full-resolution table of `rows`, and project the
+    /// landmarks, so that a publication is checked before it is played and
+    /// costs the frame nothing. A table whose file did not change since
+    /// `previous` decoded it is taken from `previous`. A table that does not
+    /// decode is returned with its file named and its error.
+    pub(crate) fn prepared(rows: Vec<PartFlipbookRow>, previous: &Self) -> Result<Self, Vec<(String, String)>> {
+        let tables = Self::new(rows);
+        let old = previous.parsed.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut parsed = std::collections::HashMap::new();
+        let mut failed = Vec::new();
+        let mut all_kept = true;
+        for (key, table, file) in tables.rows.iter().filter(|(key, ..)| !key.contains('.')) {
+            let seen = modified(*table);
+            match old.get(*key) {
+                Some((asset, was)) if seen.is_some() && *was == seen => {
+                    parsed.insert((*key).to_owned(), (asset.clone(), seen));
+                }
+                _ => {
+                    all_kept = false;
+                    match table.decode() {
+                        Ok(asset) => {
+                            parsed.insert((*key).to_owned(), (asset, seen));
+                        }
+                        Err(error) => failed.push((file.rsplit('/').next().unwrap_or(file).to_owned(), error.to_string())),
+                    }
+                }
+            }
+        }
+        drop(old);
+        if !failed.is_empty() {
+            return Err(failed);
+        }
+        let same_files = all_kept && previous.rows.len() == tables.rows.len();
+        let landmarks = match previous.landmarks.get() {
+            Some(landmarks) if same_files => landmarks.clone(),
+            _ => crate::baked_landmarks::project_rows(&tables.rows),
+        };
+        let _ = tables.landmarks.set(landmarks);
+        *tables.parsed.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = parsed;
+        Ok(tables)
+    }
+
+    /// The decoded full-resolution table of `target`, decoded now when it is
+    /// not yet.
+    pub(crate) fn decoded(&self, target: &str) -> Option<Result<RiggedSpriteAsset, RiggedSpriteError>> {
+        let index = self.rows.binary_search_by(|(name, _, _)| (*name).cmp(target)).ok()?;
+        let table = self.rows[index].1;
+        if let Some((asset, _)) = self.parsed.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get(target) {
+            return Some(Ok(asset.clone()));
+        }
+        // Decoded with the lock open: the warm threads and the game do not
+        // wait for each other. Two decodes of one table give one table.
+        let seen = modified(table);
+        let asset = match table.decode() {
+            Ok(asset) => asset,
+            Err(error) => return Some(Err(error)),
+        };
+        self.parsed
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(target.to_owned(), (asset.clone(), seen));
+        Some(Ok(asset))
+    }
+
+    /// Drop each decoded table: this generation is no longer the current one.
+    pub(crate) fn forget_decoded(&self) {
+        self.parsed.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clear();
+    }
+
+    /// The landmark tables of this generation, projected when first asked
+    /// for.
+    pub(crate) fn landmarks(&self) -> &Landmarks {
+        self.landmarks.get_or_init(|| crate::baked_landmarks::project_rows(&self.rows))
+    }
+
+    /// One decode slot for each landmark table of [`Self::landmarks`].
+    pub(crate) fn decoded_landmarks(&self) -> &[std::sync::OnceLock<std::sync::Arc<ambition_characters::actor::landmarks::BodyLandmarkTable>>] {
+        self.decoded_landmarks.get_or_init(|| self.landmarks().0.iter().map(|_| std::sync::OnceLock::new()).collect())
     }
 }
 

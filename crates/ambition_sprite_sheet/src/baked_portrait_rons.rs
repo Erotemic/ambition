@@ -9,15 +9,8 @@ include!(concat!(env!("OUT_DIR"), "/baked_portrait_rons.rs"));
 
 /// Every published portrait manifest, as `(asset path, ron_text)` sorted by
 /// path.
+/// A part of the current sheet generation
+/// ([`crate::baked_sheet_rons::current`]).
 pub fn portrait_rons() -> &'static [(&'static str, &'static str)] {
-    #[cfg(embedded_sprites)]
-    {
-        BAKED_PORTRAIT_RONS
-    }
-    #[cfg(not(embedded_sprites))]
-    {
-        use crate::published_tree;
-        static READ: std::sync::OnceLock<Vec<(&'static str, &'static str)>> = std::sync::OnceLock::new();
-        READ.get_or_init(|| published_tree::texts(crate::sprite_tree::portrait_manifests(published_tree::owner())))
-    }
+    crate::baked_sheet_rons::current().portrait_rons()
 }

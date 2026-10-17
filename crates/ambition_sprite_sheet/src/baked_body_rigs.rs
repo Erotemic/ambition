@@ -2,25 +2,16 @@
 //! sorted by target, from the full-resolution `assets/sprites` tree. Embedded
 //! by `build.rs` where there is no source tree (`static_content`, wasm,
 //! Android); read from the tree in a development build. The table is empty on
-//! a checkout that never published a rig.
+//! a checkout that never published a rig. It is a part of the current sheet
+//! generation ([`crate::baked_sheet_rons::current`]), so a development build
+//! can publish an edited rig with its sheets.
 
 #[cfg(embedded_sprites)]
 include!(concat!(env!("OUT_DIR"), "/baked_body_rigs.rs"));
 
 /// Every published body rig, as `(target, ron_text)` sorted by target.
 pub fn body_rigs() -> &'static [(&'static str, &'static str)] {
-    #[cfg(embedded_sprites)]
-    {
-        BAKED_BODY_RIGS
-    }
-    #[cfg(not(embedded_sprites))]
-    {
-        use crate::published_tree;
-        static READ: std::sync::OnceLock<Vec<(&'static str, &'static str)>> = std::sync::OnceLock::new();
-        READ.get_or_init(|| {
-            published_tree::texts(crate::sprite_tree::companions(published_tree::owner(), "_body_rig.ron", false))
-        })
-    }
+    crate::baked_sheet_rons::current().body_rigs()
 }
 
 /// The published body rig of sheet target `target`, as RON text.

@@ -3,33 +3,38 @@
 //!
 //! A build that reads its sprite tree off disk (no `embedded_sprites`) adds
 //! [`SpriteSheetReloadPlugin`]. The plugin looks at each sheet manifest
-//! (`*_spritesheet.ron`) and at each page image of those sheets. One look at
-//! the published tree costs about 100 ms in a debug build (measured
-//! 2026-10-16), so a background thread looks, once a second, and a frame only
-//! takes the changes it found.
+//! (`*_spritesheet.ron`), each body rig (`*_body_rig.ron`), each part flipbook
+//! (`*_parts.ron`) and each page image of those sheets and flipbooks. One look at
+//! the published tree (a stat of each of those files) costs 0.2 to 0.4 s in a
+//! debug build (measured 2026-10-16), so a background thread looks when the
+//! operating system reports a change in a sprite folder (`notify`), and a
+//! frame only takes the changes it found. Where no report is possible it
+//! looks once a second.
 //!
 //! The rules of the road:
 //!
 //! - A changed page image changes only pixels, so it is loaded again at once
 //!   (`AssetServer::reload`), also inside a session. Bevy loads again only an
 //!   image that is loaded.
-//! - A changed sheet manifest changes records that simulation reads too
-//!   (body sizes, hurtboxes, attack volumes, a boss's size), so it waits for
+//! - A changed sheet manifest or body rig changes records that simulation
+//!   reads too (body sizes, hurtboxes, attack volumes, a boss's size, hurt
+//!   parts), so it waits for
 //!   the end of the session, as a restated content schema does. Nothing is
 //!   published while a route prepares a session. The look that saw the
 //!   change reads the whole sheet table again and parses it (about a second
 //!   in a debug build, off the frame); the end of the session publishes it as
 //!   one generation
 //!   (`baked_sheet_rons::publish_sheet_generation`), the `SheetRegistry`
-//!   resource is stated again, each resident character realization is
+//!   resource is stated again, each cast made from the sheets is stated
+//!   again ([`SheetDerivedRestaters`]), each resident character realization is
 //!   retired so that the next session builds it from the new records, and
 //!   the pages of each changed sheet are loaded again.
 //! - A table with a file that does not parse is refused, with each file
 //!   named, and the running table stays.
 //!
-//! Not on this road yet: part flipbooks, body rigs, landmarks, portraits,
-//! the pack catalogs and the prop sheets a running room drew. Each has its
-//! own process cache (see `docs/planning/engine/content-generation-and-reload.md`).
+//! Portrait manifests and sprite pack catalogs are on it too. Not on this road
+//! yet: the prop sheets a running room drew (see
+//! `docs/planning/engine/content-generation-and-reload.md`).
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -40,7 +45,8 @@ use ambition_sprite_sheet::baked_sheet_rons as sheet_table;
 use bevy::prelude::*;
 
 
-/// Time between two looks of the background thread.
+/// Time between two looks where the operating system reports no changes, and
+/// between two checks of the background thread that its watch still lives.
 const LOOK_EVERY: Duration = Duration::from_secs(1);
 
 /// Adds the sprite sheet watch where the build reads its sprite tree off
@@ -114,16 +120,19 @@ struct Scanner {
     /// the watch is made: an App is built many times in a test run, and a
     /// look costs about 100 ms.
     seen_once: bool,
+    /// Looks taken, the first included.
+    looks: u32,
     manifests: Vec<(String, PathBuf, Option<SystemTime>)>,
     pages: Vec<(PathBuf, Option<SystemTime>)>,
 }
 
 impl Scanner {
     fn new(owner: PathBuf) -> Self {
-        Self { owner, seen_once: false, manifests: Vec::new(), pages: Vec::new() }
+        Self { owner, seen_once: false, looks: 0, manifests: Vec::new(), pages: Vec::new() }
     }
 
     fn look(&mut self) -> Found {
+        self.looks += 1;
         if !self.seen_once {
             self.seen_once = true;
             self.manifests = stamped_manifests(&self.owner);
@@ -209,24 +218,38 @@ impl SpriteSheetWatch {
         self.found.lock().unwrap_or_else(PoisonError::into_inner).push(found);
     }
 
-    /// A thread that looks once each [`LOOK_EVERY`]. It ends when the watch
-    /// is dropped.
+    /// A thread that looks when the operating system reports a change in a
+    /// sprite folder, else once each [`LOOK_EVERY`] where no report is
+    /// possible. It ends when the watch is dropped.
     fn look_in_the_background(&self) {
         let scanner = Arc::downgrade(&self.scanner);
         let found = Arc::downgrade(&self.found);
-        let spawned = std::thread::Builder::new().name("sprite-sheet-watch".into()).spawn(move || loop {
-            std::thread::sleep(LOOK_EVERY);
-            let (Some(scanner), Some(found)) = (scanner.upgrade(), found.upgrade()) else {
-                return;
-            };
-            let look = scanner.lock().unwrap_or_else(PoisonError::into_inner).look();
-            if !look.manifests.is_empty() || !look.pages.is_empty() {
-                found.lock().unwrap_or_else(PoisonError::into_inner).push(look);
+        let reports = ChangeReports::of(&self.owner);
+        let spawned = std::thread::Builder::new().name("sprite-sheet-watch".into()).spawn(move || {
+            // The first look takes the baseline: it costs a full look once.
+            let mut changed = true;
+            loop {
+                let (Some(scanner), Some(found)) = (scanner.upgrade(), found.upgrade()) else {
+                    return;
+                };
+                if changed {
+                    let look = scanner.lock().unwrap_or_else(PoisonError::into_inner).look();
+                    if !look.manifests.is_empty() || !look.pages.is_empty() {
+                        found.lock().unwrap_or_else(PoisonError::into_inner).push(look);
+                    }
+                }
+                drop((scanner, found));
+                changed = reports.wait(LOOK_EVERY);
             }
         });
         if let Err(error) = spawned {
             warn!(target: "ambition_platformer2d::sprites", "no sprite sheet watch: {error}");
         }
+    }
+
+    /// The looks at the tree so far, the first included.
+    pub fn looks(&self) -> u32 {
+        self.scanner.lock().unwrap_or_else(PoisonError::into_inner).looks
     }
 
     /// A changed sheet table waits for the end of the session.
@@ -240,13 +263,105 @@ impl SpriteSheetWatch {
     }
 }
 
+/// What the operating system reports about the sprite folders: a file under
+/// them changed. Without it a look costs a stat of each file of the tree
+/// (about 0.2 to 0.4 s in a debug build) each second.
+struct ChangeReports {
+    #[cfg(not(target_arch = "wasm32"))]
+    reports: Option<(notify::RecommendedWatcher, std::sync::mpsc::Receiver<notify::Result<notify::Event>>)>,
+}
+
+impl ChangeReports {
+    #[cfg(not(target_arch = "wasm32"))]
+    fn of(owner: &Path) -> Self {
+        use notify::Watcher;
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let watcher = notify::recommended_watcher(sender).and_then(|mut watcher| {
+            let dirs = sheet_table::sprite_dirs_under(owner).into_iter().chain([sheet_table::pack_catalog_dir_under(owner)]);
+            for dir in dirs.filter(|dir| dir.is_dir()) {
+                watcher.watch(&dir, notify::RecursiveMode::Recursive)?;
+            }
+            Ok(watcher)
+        });
+        match watcher {
+            Ok(watcher) => Self { reports: Some((watcher, receiver)) },
+            Err(error) => {
+                warn!(target: "ambition_platformer2d::sprites", "no change reports for the sprite tree ({error}); it is looked at each {LOOK_EVERY:?}");
+                Self { reports: None }
+            }
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn of(_owner: &Path) -> Self {
+        Self {}
+    }
+
+    /// Wait at most `longest` for a report of a change to a file a sheet
+    /// generation or a page is read from. True when one came (and the reports
+    /// that follow it within a short time), or when no reports are possible.
+    fn wait(&self, longest: Duration) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some((_, receiver)) = &self.reports {
+            let relevant = |report: notify::Result<notify::Event>| {
+                // An error can be a lost report: look.
+                report.map_or(true, |event| event.paths.iter().any(|path| watched_file(path)))
+            };
+            let Ok(report) = receiver.recv_timeout(longest) else {
+                return false;
+            };
+            let mut changed = relevant(report);
+            // A save is several reports, and a publish writes many files:
+            // one look for all of them.
+            while let Ok(report) = receiver.recv_timeout(SETTLE) {
+                changed |= relevant(report);
+            }
+            return changed;
+        }
+        std::thread::sleep(longest);
+        true
+    }
+}
+
+/// The time a burst of change reports is given to end before the look.
+const SETTLE: Duration = Duration::from_millis(150);
+
+/// A file a sheet generation or a page image is read from.
+fn watched_file(path: &Path) -> bool {
+    use ambition_sprite_sheet::baked_part_flipbooks::PART_FLIPBOOK_SUFFIX;
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    name.ends_with("_spritesheet.ron")
+        || name.ends_with(sheet_table::BODY_RIG_SUFFIX)
+        || name.ends_with(PART_FLIPBOOK_SUFFIX)
+        || name.ends_with("_portraits.ron")
+        || name == "ultrapack.json"
+        || name.ends_with(".png")
+}
+
 fn modified(path: &Path) -> Option<SystemTime> {
     std::fs::metadata(path).and_then(|metadata| metadata.modified()).ok()
 }
 
+/// Each sheet manifest, body rig and part flipbook, the files a sheet
+/// generation is read from. A rig or a flipbook is keyed by its file name, so
+/// no such key is a manifest key.
 fn stamped_manifests(owner: &Path) -> Vec<(String, PathBuf, Option<SystemTime>)> {
+    use ambition_sprite_sheet::baked_part_flipbooks::{part_flipbook_files_under, PART_FLIPBOOK_SUFFIX};
+    let rigs = sheet_table::body_rig_files_under(owner)
+        .into_iter()
+        .map(|(target, path)| (format!("{target}{}", sheet_table::BODY_RIG_SUFFIX), path));
+    let flipbooks = part_flipbook_files_under(owner).into_iter().map(|(key, path)| (format!("{key}{PART_FLIPBOOK_SUFFIX}"), path));
+    // A portrait is keyed by its path under `assets/` and a catalog by its
+    // tier's: neither is a manifest key.
+    let catalogs = sheet_table::pack_catalog_files_under(owner).into_iter().map(|(tier, path)| (format!("sprite_packs/{tier}/ultrapack.json"), path));
     sheet_table::sheet_files_under(owner)
         .into_iter()
+        .chain(rigs)
+        .chain(flipbooks)
+        .chain(sheet_table::portrait_files_under(owner))
+        .chain(catalogs)
         .map(|(key, path)| {
             let seen = modified(&path);
             (key, path, seen)
@@ -267,10 +382,41 @@ fn stamped(paths: Vec<PathBuf>) -> Vec<(PathBuf, Option<SystemTime>)> {
 /// Each page image the current sheet generation names for these manifests:
 /// a page file is beside its manifest.
 fn pages_of(manifests: &[(String, PathBuf, Option<SystemTime>)]) -> Vec<PathBuf> {
+    use ambition_sprite_sheet::baked_part_flipbooks::PART_FLIPBOOK_SUFFIX;
+    // Each folder is listed once: about 160 flipbooks share a few folders.
+    let mut listed: std::collections::HashMap<PathBuf, Vec<PathBuf>> = std::collections::HashMap::new();
     let registry = sheet_table::current().registry();
     let mut pages = BTreeSet::new();
+    let portraits = sheet_table::current().portraits();
     for (key, path, _) in manifests {
-        let (Some(record), Some(dir)) = (registry.get(key), path.parent()) else {
+        let Some(dir) = path.parent() else {
+            continue;
+        };
+        if let Some(portrait) = portraits.get(key) {
+            pages.insert(dir.join(&portrait.image));
+            continue;
+        }
+        // A flipbook's atlas pages are beside it, named after it
+        // (`<target>_parts.png`, `<target>_parts_1.png`), and a pack tier's
+        // pages beside its catalog (`ultrapack_<n>.png`).
+        let name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+        let prefix = match name.strip_suffix(PART_FLIPBOOK_SUFFIX) {
+            Some(target) => Some(format!("{target}_parts")),
+            None => (name == "ultrapack.json").then(|| "ultrapack".to_owned()),
+        };
+        if let Some(prefix) = prefix {
+            let files = listed
+                .entry(dir.to_path_buf())
+                .or_insert_with(|| std::fs::read_dir(dir).into_iter().flatten().flatten().map(|entry| entry.path()).collect());
+            let pages_here = files.iter().cloned().filter(|page| {
+                page.file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with(&prefix) && name.ends_with(".png"))
+            });
+            pages.extend(pages_here);
+            continue;
+        }
+        let Some(record) = registry.get(key) else {
             continue;
         };
         for page in 0..record.page_count().max(1) {
@@ -342,6 +488,9 @@ fn publish_the_staged_sheets_between_sessions(world: &mut World) {
     let generation = sheet_table::publish_prepared_sheet_table(table);
     info!(target: "ambition_platformer2d::sprites", "sprite sheet generation {generation} published; changed: {staged:?}");
     world.insert_resource(ambition_sprite_sheet::baked_sheet_registry());
+    if world.contains_resource::<ambition_sprite_sheet::portrait::PortraitSheetRegistry>() {
+        world.insert_resource(ambition_sprite_sheet::portrait::baked_portrait_registry());
+    }
     let restaters = world.get_resource::<SheetDerivedRestaters>().cloned().unwrap_or_default();
     for (name, restate) in &restaters.0 {
         info!(target: "ambition_platformer2d::sprites", "restating `{name}` from sheet generation {generation}");

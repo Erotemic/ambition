@@ -571,25 +571,7 @@ impl RiggedSpriteAsset {
 
     /// [`Self::baked`], with a refused table returned and not a panic.
     fn baked_checked(target: &str) -> Option<Result<Self, RiggedSpriteError>> {
-        use std::collections::HashMap;
-        use std::sync::{Mutex, OnceLock};
-        static PARSED: OnceLock<Mutex<HashMap<String, RiggedSpriteAsset>>> = OnceLock::new();
-        let table = crate::baked_part_flipbooks::baked_part_flipbook(target)?;
-        let parsed = PARSED.get_or_init(Default::default);
-        if let Some(asset) = parsed.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(target) {
-            return Some(Ok(asset.clone()));
-        }
-        // Decoded with the lock open: the warm threads and the game do not
-        // wait for each other. Two decodes of one table give one table.
-        let asset = match table.decode() {
-            Ok(asset) => asset,
-            Err(error) => return Some(Err(error)),
-        };
-        parsed
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .insert(target.to_owned(), asset.clone());
-        Some(Ok(asset))
+        crate::baked_sheet_rons::current().part_tables().decoded(target)
     }
 
     /// Decode every published full-resolution flipbook on background threads,

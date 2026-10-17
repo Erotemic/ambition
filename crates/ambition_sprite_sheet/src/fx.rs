@@ -16,11 +16,10 @@
 //! validator and the renderer therefore get the same answer.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::OnceLock;
 
 use serde::Deserialize;
 
-use crate::character::sheets::{record_for_sheet_key, CharacterSheetSpec, SheetTuning};
+use crate::character::sheets::{CharacterSheetSpec, SheetTuning};
 
 /// One published FX spritesheet: its manifest target, and the SFX cue family
 /// its rows' sounds were packed under.
@@ -80,23 +79,26 @@ pub struct FxSheetFacts {
 /// Core sheets come first, so a name on both a core and a character sheet
 /// resolves to the core one. Today all row names are distinct
 /// (`every_authored_effect_row_is_reachable_by_name`), so this is only a
-/// tie-break. Built once per process from the records, as the effect index is.
+/// tie-break. Built once for each sheet generation from its records, as the
+/// effect index is.
 pub fn fx_sheets() -> &'static [FxSheet] {
-    static SHEETS: OnceLock<Vec<FxSheet>> = OnceLock::new();
-    SHEETS.get_or_init(|| {
-        let mut sheets: Vec<FxSheet> = crate::character::sheets::available_sheet_keys()
-            .into_iter()
-            // A tier copy (`<target>.<marker>`) is the same sheet reduced, not
-            // another effect sheet.
-            .filter(|key| !crate::sprite_tree::TIERS.iter().any(|(_, marker)| key.strip_suffix(marker).is_some_and(|rest| rest.ends_with('.'))))
-            .filter_map(|key| {
-                let facts = record_for_sheet_key(key)?.fx.as_ref()?;
-                Some(FxSheet { target: key, cue_family: facts.cue_family.as_str(), residency: facts.residency, fade: facts.fade })
-            })
-            .collect();
-        sheets.sort_by_key(|sheet| (sheet.residency != FxResidency::Core, sheet.target));
-        sheets
-    })
+    crate::baked_sheet_rons::current().fx_sheets()
+}
+
+/// The effect sheets of the records `records`.
+pub(crate) fn fx_sheets_of(records: &'static std::collections::HashMap<String, crate::SheetRecord>) -> Vec<FxSheet> {
+    let mut sheets: Vec<FxSheet> = records
+        .iter()
+        // A tier copy (`<target>.<marker>`) is the same sheet reduced, not
+        // another effect sheet.
+        .filter(|(key, _)| !crate::sprite_tree::TIERS.iter().any(|(_, marker)| key.strip_suffix(marker).is_some_and(|rest| rest.ends_with('.'))))
+        .filter_map(|(key, record)| {
+            let facts = record.fx.as_ref()?;
+            Some(FxSheet { target: key.as_str(), cue_family: facts.cue_family.as_str(), residency: facts.residency, fade: facts.fade })
+        })
+        .collect();
+    sheets.sort_by_key(|sheet| (sheet.residency != FxResidency::Core, sheet.target));
+    sheets
 }
 
 /// The sheet a target names, if the engine ships one.
@@ -161,15 +163,24 @@ impl AuthoredEffect {
     }
 }
 
-/// Every authored effect, by name. Built once from the baked sheet records.
+/// Every authored effect, by name. Built once for each sheet generation
+/// from its records.
 pub fn authored_effects() -> &'static BTreeMap<&'static str, AuthoredEffect> {
-    static INDEX: OnceLock<BTreeMap<&'static str, AuthoredEffect>> = OnceLock::new();
-    INDEX.get_or_init(|| {
+    crate::baked_sheet_rons::current().authored_effects()
+}
+
+/// The effects of the effect sheets `sheets`, read from the records
+/// `records` of the same generation.
+pub(crate) fn authored_effects_of(
+    sheets: &[FxSheet],
+    records: &'static std::collections::HashMap<String, crate::SheetRecord>,
+) -> BTreeMap<&'static str, AuthoredEffect> {
+    {
         let mut index = BTreeMap::new();
-        for sheet in fx_sheets() {
+        for sheet in sheets {
             // A sheet the build did not bake is absent, like any missing
             // manifest target. The pin test below says it must not happen.
-            let Some(record) = record_for_sheet_key(sheet.target) else {
+            let Some(record) = records.get(sheet.target) else {
                 continue;
             };
             for row in &record.rows {
@@ -190,7 +201,7 @@ pub fn authored_effects() -> &'static BTreeMap<&'static str, AuthoredEffect> {
             }
         }
         index
-    })
+    }
 }
 
 /// The effect `name` addresses, if any sheet has a row by that name.
@@ -248,6 +259,7 @@ mod tests {
     }
 
     use super::*;
+    use crate::character::sheets::record_for_sheet_key;
 
     /// The residency split, asked through the seam a realization uses: a
     /// moveset naming an owned row owes that sheet; core rows and unknown

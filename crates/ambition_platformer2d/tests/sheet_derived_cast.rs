@@ -1,7 +1,7 @@
-//! A cast reads its body scale from its sheets when its definitions are made
-//! (`posed_body_world_per_pixel`). A sheet publication states the cast again,
-//! so the next session's bodies are not built from the new records with a
-//! scale made from the old ones.
+//! A cast reads its body scale and its body rig from its sheets when its
+//! definitions are made (`posed_body_world_per_pixel`, `published_body_rig`).
+//! A sheet publication states the cast again, so the next session's bodies
+//! are not built from the new records with a scale or a rig of the old ones.
 //!
 //! Its own test binary: a publication changes what every reader of the
 //! process reads.
@@ -34,6 +34,28 @@ fn sheet_text(height: i32) -> String {
     )
 }
 
+/// A rig of one joint whose near hand is `x` pixels from it.
+fn rig_text(x: f32) -> String {
+    format!(
+        r#"(
+    schema_version: 1,
+    target: "{PROBE}",
+    joints: [(name: "hip", parent: None)],
+    attachments: [(name: "hand_near", joint: "hip", offset: ({x:?}, 0.0))],
+    hurt_parts: [],
+    clips: {{
+        "idle": (looping: true, frame_duration_s: 0.1, frames: [[(translation: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0))]]),
+    }},
+)"#
+    )
+}
+
+/// Where the near hand of the cast's rig is, in world units.
+fn hand(app: &App) -> Option<f32> {
+    let rig = app.world().resource::<PreparedCharacterRegistry>().get("newcomer")?.body_rig.clone()?;
+    rig.attachments().first().map(|attachment| attachment.offset.x)
+}
+
 fn world_per_pixel(app: &App) -> Option<f32> {
     match app.world().resource::<PreparedCharacterRegistry>().get("newcomer")?.body {
         Some(BodySource::SpriteAuthored { world_per_pixel }) => Some(world_per_pixel),
@@ -51,6 +73,8 @@ fn a_sheet_edit_states_again_the_body_scale_of_the_cast_made_from_it() {
     std::fs::create_dir_all(root.join("data")).unwrap();
     let manifest = sprites.join(format!("{PROBE}_spritesheet.ron"));
     std::fs::write(&manifest, sheet_text(32)).unwrap();
+    let rig = sprites.join(format!("{PROBE}_body_rig.ron"));
+    std::fs::write(&rig, rig_text(3.0)).unwrap();
     std::fs::write(
         root.join("pack.ron"),
         r#"(id: "sheet_derived_cast_probe", version: "0.1.0", namespace: "probe", requires: [], sources: [
@@ -86,12 +110,14 @@ fn a_sheet_edit_states_again_the_body_scale_of_the_cast_made_from_it() {
     app.init_resource::<ambition_platformer2d::actor::ActiveSessionScope>();
     app.init_resource::<ambition_platformer2d::combat::technique::InstalledTechniques>();
     app.init_resource::<ambition_sprite_sheet::SheetRegistry>();
+    app.insert_resource(ambition_platformer2d::characters::actor::BodyRigAdmission::ADMIT);
     app.add_plugins(SpriteSheetReloadPlugin { owner: Some(owner.clone()), manual: true });
     pack.cast("probe", None).register(&mut app);
     close_preparation_barrier_admitting(app.world_mut(), &Default::default());
     app.world().resource::<SpriteSheetWatch>().look_now();
     app.update();
     assert_eq!(world_per_pixel(&app), Some(2.0), "the premise: 64 world units over a 32 pixel body");
+    assert_eq!(hand(&app), Some(6.0), "the premise: the hand is 3 pixels out at 2.0 world units per pixel");
 
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&manifest, sheet_text(16)).unwrap();
@@ -105,5 +131,32 @@ fn a_sheet_edit_states_again_the_body_scale_of_the_cast_made_from_it() {
     );
     assert_eq!(authority, Some(4.0), "the premise: the published sheet makes the body 16 pixels tall");
     assert_eq!(world_per_pixel(&app), authority, "the cast keeps a body scale made from sheet generation {}", published - 1);
+    assert_eq!(hand(&app), Some(12.0), "the cast's rig keeps the old scale");
+
+    // An edit to the rig alone is a sheet publication too.
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&rig, rig_text(5.0)).unwrap();
+    app.world().resource::<SpriteSheetWatch>().look_now();
+    app.update();
+    assert_eq!(app.world().resource::<SpriteSheetWatch>().published, 2, "the rig edit was not published");
+    assert_eq!(
+        ambition_sprite_sheet::baked_body_rigs::baked_body_rig(PROBE),
+        Some(rig_text(5.0).as_str()),
+        "the published generation is not the saved rig"
+    );
+    assert_eq!(hand(&app), Some(20.0), "the cast keeps the rig of the last generation");
+
+    // A rig that does not prepare is refused, and the cast keeps its rig.
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&rig, rig_text(5.0).replace(r#"joint: "hip""#, r#"joint: "elbow""#)).unwrap();
+    app.world().resource::<SpriteSheetWatch>().look_now();
+    app.update();
+    let watch = app.world().resource::<SpriteSheetWatch>();
+    assert!(
+        watch.refused.as_deref().is_some_and(|why| why.contains(&format!("{PROBE}_body_rig.ron"))),
+        "the refusal does not name the rig: {:?}",
+        watch.refused
+    );
+    assert_eq!((watch.published, hand(&app)), (2, Some(20.0)), "a broken rig reached the cast");
     let _ = std::fs::remove_dir_all(&base);
 }

@@ -68,6 +68,7 @@ fn boss_pattern_brain_emits_neutral_in_non_attacking_phase() {
     let mut attack_intent = BossAttackIntent {
         telegraph_profile: None,
         active_profile: Some(BossAttackProfile::Strike("stale".to_string())),
+        ..Default::default()
     };
     let mut out = ambition_characters::actor::control::ActorControlFrame::default();
     out.melee_pressed = true; // pre-poison
@@ -956,7 +957,7 @@ fn a_move_authored_only_inside_a_select_arm_or_a_stance_is_baked() {
         vec![(special("buck"), 0.5), (special("stomp"), 0.4), (special("bow"), 0.2)],
         "every arm's and every stance's strikes are in the repertoire"
     );
-    let telegraphs: Vec<_> = cfg.telegraph_windows().into_iter().map(|(p, t, _)| (p, t)).collect();
+    let telegraphs: Vec<_> = cfg.beats().into_iter().map(|b| (b.profile, b.telegraph_s)).collect();
     assert_eq!(telegraphs, vec![(special("buck"), 0.7), (special("stomp"), 0.8), (special("bow"), 0.3)]);
 }
 
@@ -1664,4 +1665,77 @@ fn a_self_dodging_giant_steps_aside_only_while_its_strike_is_live() {
     assert_eq!(tick_x(0.0, Some(true)), 0.0, "control: a boss that holds its ground");
     assert_eq!(tick_x(70.0, Some(false)), 0.0, "a windup is not the strike window");
     assert_eq!(tick_x(70.0, None), 0.0, "and neither is rest");
+}
+
+/// One telegraph and strike pair of `profile`, then a rest.
+fn beat_steps(profile: &BossAttackProfile, telegraph_s: f32, strike_s: f32) -> BossPattern {
+    BossPattern {
+        steps: vec![
+            BossPatternStep::Telegraph {
+                profile: profile.clone(),
+                duration: telegraph_s,
+                telegraph: None,
+            },
+            BossPatternStep::Strike {
+                profile: profile.clone(),
+                duration: strike_s,
+            },
+            BossPatternStep::Rest { duration: 0.5 },
+        ],
+        ..Default::default()
+    }
+}
+
+/// A phase that winds a move up faster has its own beat, and its steps ask for
+/// that beat. Before beats, a move kept the lengths of its first occurrence, so
+/// a faster phase 2 played at phase 1's speed.
+#[test]
+fn a_phase_that_winds_up_faster_asks_for_its_own_beat() {
+    let sweep = BossAttackProfile::Strike("side_sweep".to_string());
+    let cfg = cfg_with(BossAttackPattern::Scripted {
+        intro: BossPattern::default(),
+        phase1: beat_steps(&sweep, 0.95, 0.4),
+        transition: BossPattern::default(),
+        phase2: beat_steps(&sweep, 0.6, 0.35),
+        enrage: beat_steps(&sweep, 0.95, 0.4),
+    });
+    let beats: Vec<_> = cfg
+        .beats()
+        .into_iter()
+        .map(|b| (b.move_id, b.telegraph_s, b.strike_s))
+        .collect();
+    assert_eq!(
+        beats,
+        vec![
+            ("side_sweep".to_string(), 0.95, 0.4),
+            ("side_sweep@600+350".to_string(), 0.6, 0.35),
+        ],
+        "the first beat has the plain id; a repeat of a beat is not a new beat"
+    );
+
+    let mut state = BossPatternState::default();
+    let telegraph = bd1_tick(&cfg, &mut state, &ctx(BossEncounterPhase::Phase2, 0.05));
+    assert_eq!(telegraph.telegraph_profile, Some(sweep.clone()));
+    assert_eq!((telegraph.telegraph_s, telegraph.strike_s), (0.6, 0.35));
+    for _ in 0..12 {
+        bd1_tick(&cfg, &mut state, &ctx(BossEncounterPhase::Phase2, 0.05));
+    }
+    let strike = state.attack_intent.clone();
+    assert_eq!(strike.active_profile, Some(sweep), "0.65 s in, the strike step runs");
+    assert_eq!(
+        (strike.telegraph_s, strike.strike_s),
+        (0.6, 0.35),
+        "the strike step names the beat its telegraph started"
+    );
+}
+
+/// Every move of one profile resolves to that profile.
+#[test]
+fn a_beat_move_id_resolves_to_its_profile() {
+    for profile in [
+        BossAttackProfile::Strike("side_sweep".to_string()),
+        BossAttackProfile::Special("wolf_rake".to_string()),
+    ] {
+        assert_eq!(BossAttackProfile::from_move_id(&beat_move_id(&profile, 0.6, 0.35)), profile);
+    }
 }

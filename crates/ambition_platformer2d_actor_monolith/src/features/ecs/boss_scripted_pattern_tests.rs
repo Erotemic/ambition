@@ -423,14 +423,12 @@ fn gradient_sentinel_every_special_strike_is_a_moveset_effect() {
     cfg.cycle_attack_cooldown = behavior.attack_cooldown.max(0.05);
 
     let capability = BossCapability::from_cfg(&cfg);
-    let telegraph_windows = cfg.telegraph_windows();
     let moveset = boss_attack_moveset(
-        &capability,
+        &cfg.beats(),
         &behavior,
         behavior
             .combat_size
             .unwrap_or(ambition_platformer2d_core::Vec2::new(100.0, 100.0)),
-        &telegraph_windows,
     )
     .expect("the authored pattern has attack moves");
 

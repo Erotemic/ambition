@@ -212,8 +212,11 @@ pub fn duel_gnu_ton(
         match duel.playing.clone() {
             Some(id) => {
                 duel.started |= on_body.as_deref() == Some(id.as_str());
-                intent.telegraph_profile = Some(BossAttackProfile::Special(id));
-                intent.active_profile = None;
+                // The duel plays the move's first beat: no authored lengths.
+                *intent = BossAttackIntent {
+                    telegraph_profile: Some(BossAttackProfile::Special(id)),
+                    ..Default::default()
+                };
             }
             None => intent.clear(),
         }

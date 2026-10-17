@@ -487,12 +487,78 @@ impl BossAttackProfile {
     /// set projects as `Special` in the READ-MODEL only; its damage still flows
     /// through the authored `Strike` move, so this is cosmetic — refine if a game
     /// needs custom geometry keys visible in the projected telegraph.)
+    ///
+    /// A beat's move id ([`beat_move_id`]) names its profile before the `@`, so
+    /// every move of one profile resolves to that profile.
     pub fn from_move_id(id: &str) -> BossAttackProfile {
+        let id = id.split_once(BEAT_ID_MARK).map_or(id, |(key, _)| key);
         if BUILTIN_STRIKE_KEYS.contains(&id) {
             BossAttackProfile::Strike(id.to_string())
         } else {
             BossAttackProfile::Special(id.to_string())
         }
+    }
+}
+
+/// The mark between a profile key and a beat's lengths in a move id.
+pub const BEAT_ID_MARK: char = '@';
+
+/// The move id of the beat `profile` winds up for `telegraph_s` and strikes
+/// for `strike_s`: `key@<telegraph ms>+<strike ms>`. The first beat of a
+/// profile in a pattern has the plain [`BossAttackProfile::move_id`] instead
+/// (see [`BossPatternCfg::beats`]), so the trigger looks this id up first and
+/// the plain id after it.
+pub fn beat_move_id(profile: &BossAttackProfile, telegraph_s: f32, strike_s: f32) -> String {
+    let ms = |s: f32| (s.max(0.0) * 1000.0).round() as u32;
+    format!("{}{BEAT_ID_MARK}{}+{}", profile.move_id(), ms(telegraph_s), ms(strike_s))
+}
+
+/// One attack as a pattern authors it: a profile, the windup of the
+/// `Telegraph` step before its `Strike` (zero for a bare `Strike`), and the
+/// strike's length. One move is baked for each distinct beat, so each step
+/// plays at its own authored lengths.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BossBeat {
+    pub profile: BossAttackProfile,
+    pub telegraph_s: f32,
+    pub strike_s: f32,
+    /// The `Telegraph` step's authored anticipation, if it says anything.
+    pub telegraph: Option<TelegraphSpec>,
+    /// The move id: the plain profile key for the profile's first beat, else
+    /// [`beat_move_id`].
+    pub move_id: String,
+}
+
+impl BossBeat {
+    /// A profile's first beat: its move id is the plain profile key.
+    pub fn new(profile: BossAttackProfile, telegraph_s: f32, strike_s: f32, telegraph: Option<TelegraphSpec>) -> Self {
+        let move_id = profile.move_id();
+        Self {
+            profile,
+            telegraph_s,
+            strike_s,
+            telegraph,
+            move_id,
+        }
+    }
+
+    /// One first beat per `(profile, strike)` of a capability, each wound up for
+    /// the length `windup` names (zero when it names none).
+    pub fn of_capability(
+        capability: &BossCapability,
+        windup: &[(BossAttackProfile, f32, Option<TelegraphSpec>)],
+    ) -> Vec<Self> {
+        capability
+            .specials
+            .iter()
+            .map(|(profile, strike_s)| {
+                let (telegraph_s, spec) = windup
+                    .iter()
+                    .find(|(p, _, _)| p == profile)
+                    .map_or((0.0, None), |(_, t, spec)| (*t, spec.clone()));
+                Self::new(profile.clone(), telegraph_s, *strike_s, spec)
+            })
+            .collect()
     }
 }
 
@@ -554,7 +620,7 @@ pub struct BossPatternCfg {
     pub combat_size: ae::Vec2,
     /// Cycle-mode windup duration (seconds) — MOVE-AUTHORING input only: it
     /// becomes each rotation move's telegraph prefix via
-    /// [`Self::telegraph_windows`] at spawn. The brain runs no windup clock of
+    /// [`Self::beats`] at spawn. The brain runs no windup clock of
     /// its own; the live move's windows are the one timeline. Built from
     /// `BossBehaviorProfile::attack_windup.max(0.01)`.
     pub cycle_attack_windup: f32,
@@ -661,36 +727,42 @@ impl BossPatternCfg {
         out
     }
 
-    /// First-seen TELEGRAPH window (seconds) per attack profile — the pre-strike
-    /// windup a scripted `Telegraph` step authors before its paired `Strike`.
-    /// Mirrors [`special_repertoire`](Self::special_repertoire) (strike windows)
-    /// so the boss's moveset move can span the whole telegraph→strike as ONE
-    /// timeline: the move's Active window opens at `telegraph_seconds`, encoding
-    /// the offset the projected `BossAttackState.active_elapsed` needs (E53). A
-    /// profile with no authored telegraph (a bare `Strike`, or `Cycle` with no
-    /// windup) is absent → the caller treats it as `0.0`. `Cycle` bosses telegraph
-    /// with `cycle_attack_windup` for every rotation profile.
+    /// Every distinct beat this boss's pattern authors, in authored order (see
+    /// [`BossBeat`]). A `Strike` step makes a beat with the `Telegraph` step just
+    /// before it, when that step winds up the same profile. Two steps with the
+    /// same profile and the same two lengths are one beat; the first one's
+    /// anticipation is the beat's. `Cycle` bosses have one beat per rotation
+    /// profile, with `cycle_attack_windup` and `cycle_attack_active`.
     ///
-    /// Each entry also carries the FIRST-SEEN authored [`TelegraphSpec`] for the
-    /// profile (BD3 anticipation), so the moveset bake can express the cue/vfx as
-    /// `MoveEvent`s on the windup's rising edge — the shared move lifecycle owns
-    /// the anticipation presentation, not a parallel telegraph channel.
-    pub fn telegraph_windows(&self) -> Vec<(BossAttackProfile, f32, Option<TelegraphSpec>)> {
-        let mut out: Vec<(BossAttackProfile, f32, Option<TelegraphSpec>)> = Vec::new();
-        let mut push =
-            |profile: &BossAttackProfile, duration: f32, spec: Option<&TelegraphSpec>| {
-                if duration > 0.0 && !out.iter().any(|(p, _, _)| p == profile) {
-                    out.push((
-                        profile.clone(),
-                        duration,
-                        spec.filter(|s| s.is_authored()).cloned(),
-                    ));
-                }
+    /// The boss moveset bakes one move per beat, so the moves span the whole
+    /// telegraph→strike as one timeline: a move's Active window opens at its
+    /// beat's `telegraph_s` (E53).
+    pub fn beats(&self) -> Vec<BossBeat> {
+        let mut out: Vec<BossBeat> = Vec::new();
+        let mut push = |profile: &BossAttackProfile, telegraph_s: f32, strike_s: f32, spec: Option<&TelegraphSpec>| {
+            let strike_s = strike_s.max(0.05);
+            let telegraph_s = telegraph_s.max(0.0);
+            let same = |b: &BossBeat| b.profile == *profile;
+            if out.iter().any(|b| same(b) && b.telegraph_s == telegraph_s && b.strike_s == strike_s) {
+                return;
+            }
+            let move_id = if out.iter().any(same) {
+                beat_move_id(profile, telegraph_s, strike_s)
+            } else {
+                profile.move_id()
             };
+            out.push(BossBeat {
+                profile: profile.clone(),
+                telegraph_s,
+                strike_s,
+                telegraph: spec.filter(|s| s.is_authored()).cloned(),
+                move_id,
+            });
+        };
         match &self.pattern {
             BossAttackPattern::Cycle => {
                 for profile in &self.cycle_attacks {
-                    push(profile, self.cycle_attack_windup, None);
+                    push(profile, self.cycle_attack_windup, self.cycle_attack_active, None);
                 }
             }
             BossAttackPattern::Scripted {
@@ -701,15 +773,21 @@ impl BossPatternCfg {
                 enrage,
             } => {
                 for pattern in [intro, phase1, transition, phase2, enrage] {
-                    for step in pattern.every_step() {
-                        if let BossPatternStep::Telegraph {
-                            profile,
-                            duration,
-                            telegraph,
-                        } = step
-                        {
-                            push(profile, *duration, telegraph.as_ref());
-                        }
+                    let steps = pattern.every_step();
+                    for (i, step) in steps.iter().enumerate() {
+                        let BossPatternStep::Strike { profile, duration } = step else {
+                            continue;
+                        };
+                        let windup = i.checked_sub(1).and_then(|before| match steps[before] {
+                            BossPatternStep::Telegraph {
+                                profile: wound,
+                                duration,
+                                telegraph,
+                            } if wound == profile => Some((*duration, telegraph.as_ref())),
+                            _ => None,
+                        });
+                        let (telegraph_s, spec) = windup.unwrap_or((0.0, None));
+                        push(profile, telegraph_s, *duration, spec);
                     }
                 }
             }
@@ -1111,13 +1189,17 @@ pub struct BossAttackIntent {
     /// The profile whose move should start AT THE STRIKE (no telegraph — a
     /// possession press or a `tel = 0` path).
     pub active_profile: Option<BossAttackProfile>,
+    /// The beat's authored windup and strike lengths (see [`BossBeat`]): the
+    /// trigger plays the move baked for them. Zero for a possession press,
+    /// which plays the profile's first beat.
+    pub telegraph_s: f32,
+    pub strike_s: f32,
 }
 
 impl BossAttackIntent {
     /// Clear both intents — the driver wants no attack this frame.
     pub fn clear(&mut self) {
-        self.telegraph_profile = None;
-        self.active_profile = None;
+        *self = Self::default();
     }
 }
 

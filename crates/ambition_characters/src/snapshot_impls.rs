@@ -256,11 +256,17 @@ impl SnapshotState for crate::brain::boss_pattern::BossAttackIntent {
     fn encode(&self, out: &mut Vec<u8>) {
         put_opt_profile(out, &self.telegraph_profile);
         put_opt_profile(out, &self.active_profile);
+        // The beat's lengths are state: they choose which move the trigger
+        // starts.
+        put_f32(out, self.telegraph_s);
+        put_f32(out, self.strike_s);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(crate::brain::boss_pattern::BossAttackIntent {
             telegraph_profile: read_opt_profile(r)?,
             active_profile: read_opt_profile(r)?,
+            telegraph_s: r.f32()?,
+            strike_s: r.f32()?,
         })
     }
 }

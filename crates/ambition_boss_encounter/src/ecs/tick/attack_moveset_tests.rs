@@ -21,10 +21,9 @@ fn boss_moveset_for_test() -> ambition_combat::moveset::ActorMoveset {
         ],
     };
     crate::attack_moveset::boss_attack_moveset(
-        &cap,
+        &ambition_characters::brain::boss_pattern::BossBeat::of_capability(&cap, &[]),
         &warden_behavior(),
         ambition_platformer2d_core::Vec2::new(80.0, 80.0),
-        &[],
     )
     .expect("a boss with strikes -> a moveset")
 }
@@ -44,7 +43,11 @@ fn a_boss_geometry_profile_triggers_its_hit_volume_move() {
     };
     let combat_size = ambition_platformer2d_core::Vec2::new(80.0, 80.0);
     let moveset =
-        crate::attack_moveset::boss_attack_moveset(&cap, &warden_behavior(), combat_size, &[])
+        crate::attack_moveset::boss_attack_moveset(
+        &ambition_characters::brain::boss_pattern::BossBeat::of_capability(&cap, &[]),
+        &warden_behavior(),
+        combat_size,
+    )
             .expect("a boss with strikes → a moveset");
     // both profiles now author a move — geometry and special.
     assert_eq!(
@@ -114,14 +117,13 @@ fn telegraph_boss_app() -> (App, Entity) {
     };
     let combat_size = ambition_platformer2d_core::Vec2::new(80.0, 80.0);
     let moveset = crate::attack_moveset::boss_attack_moveset(
-        &cap,
-        &warden_behavior(),
-        combat_size,
-        &[(
+        &ambition_characters::brain::boss_pattern::BossBeat::of_capability(&cap, &[(
             BossAttackProfile::Strike("floor_slam".to_string()),
             0.2,
             None,
-        )],
+        )]),
+        &warden_behavior(),
+        combat_size,
     )
     .expect("a boss with a telegraphed strike → a moveset");
 
@@ -301,10 +303,9 @@ fn a_cancelled_windup_gives_way_to_the_wanted_move_on_the_same_tick() {
         ],
     };
     let moveset = crate::attack_moveset::boss_attack_moveset(
-        &cap,
+        &ambition_characters::brain::boss_pattern::BossBeat::of_capability(&cap, &[(BossAttackProfile::Strike("floor_slam".to_string()), 0.2, None)]),
         &warden_behavior(),
         ambition_platformer2d_core::Vec2::new(80.0, 80.0),
-        &[(BossAttackProfile::Strike("floor_slam".to_string()), 0.2, None)],
     )
     .expect("a boss with strikes -> a moveset");
     app.world_mut().entity_mut(boss).insert(moveset);
@@ -343,14 +344,13 @@ fn the_strike_speed_throttle_is_baked_as_the_moves_motion_lock() {
     };
     let behavior = warden_behavior(); // authors strike_speed_scale = 0.20
     let moveset = crate::attack_moveset::boss_attack_moveset(
-        &cap,
-        &behavior,
-        ambition_platformer2d_core::Vec2::new(80.0, 80.0),
-        &[(
+        &ambition_characters::brain::boss_pattern::BossBeat::of_capability(&cap, &[(
             BossAttackProfile::Strike("floor_slam".to_string()),
             0.2,
             None,
-        )],
+        )]),
+        &behavior,
+        ambition_platformer2d_core::Vec2::new(80.0, 80.0),
     )
     .expect("a strike → a moveset");
     let slam = moveset.0.move_by_id("floor_slam").unwrap();
@@ -390,14 +390,13 @@ fn telegraph_cue_and_vfx_bake_as_rising_edge_move_events() {
         vfx: Some("sparks".into()),
     };
     let moveset = crate::attack_moveset::boss_attack_moveset(
-        &cap,
-        &warden_behavior(),
-        ambition_platformer2d_core::Vec2::new(80.0, 80.0),
-        &[(
+        &ambition_characters::brain::boss_pattern::BossBeat::of_capability(&cap, &[(
             BossAttackProfile::Strike("floor_slam".to_string()),
             0.2,
             Some(spec),
-        )],
+        )]),
+        &warden_behavior(),
+        ambition_platformer2d_core::Vec2::new(80.0, 80.0),
     )
     .expect("a strike → a moveset");
 
@@ -516,4 +515,53 @@ fn two_boss_moves_separated_by_idle_take_different_occurrences() {
          reached `MoveOccurrence({})`.",
         playback.instance, occurrence.0
     );
+}
+
+/// The trigger plays the move baked for the step's beat, and the profile's
+/// first beat when the step names lengths no beat has (a possession press).
+#[test]
+fn the_trigger_plays_the_move_of_the_steps_beat() {
+    use ambition_characters::brain::boss_pattern::BossBeat;
+    let sweep = BossAttackProfile::Strike("side_sweep".to_string());
+    let mut fast = BossBeat::new(sweep.clone(), 0.6, 0.35, None);
+    fast.move_id = ambition_characters::brain::boss_pattern::beat_move_id(&sweep, 0.6, 0.35);
+    let beats = [BossBeat::new(sweep.clone(), 0.95, 0.4, None), fast];
+    let moveset = crate::attack_moveset::boss_attack_moveset(
+        &beats,
+        &warden_behavior(),
+        ambition_platformer2d_core::Vec2::new(80.0, 80.0),
+    )
+    .expect("a boss with strikes -> a moveset");
+    let fast_move = moveset.0.move_by_id("side_sweep@600+350").expect("the fast beat is baked");
+    assert!((fast_move.windows[0].start_s - 0.6).abs() < 1e-6, "its strike opens at its own windup");
+
+    for ((telegraph_s, strike_s), plays) in [((0.6, 0.35), "side_sweep@600+350"), ((0.0, 0.0), "side_sweep")] {
+        let mut app = App::new();
+        app.add_systems(Update, trigger_boss_attack_moves);
+        let boss = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                BossAttackIntent {
+                    telegraph_profile: Some(sweep.clone()),
+                    active_profile: None,
+                    telegraph_s,
+                    strike_s,
+                },
+                moveset.clone(),
+                ambition_platformer2d_core::BodyKinematics {
+                    pos: ambition_platformer2d_core::Vec2::ZERO,
+                    vel: ambition_platformer2d_core::Vec2::ZERO,
+                    size: ambition_platformer2d_core::Vec2::new(80.0, 80.0),
+                    facing: 1.0,
+                },
+            ))
+            .id();
+        app.update();
+        let playback = app
+            .world()
+            .get::<ambition_combat::moveset::MovePlayback>(boss)
+            .expect("the intent starts a move");
+        assert_eq!(playback.spec.id, plays);
+    }
 }

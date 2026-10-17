@@ -258,14 +258,33 @@ fn advance_scripted(
         attack_intent.clear();
         return;
     };
+    // The beat this step is part of: a `Telegraph` and the `Strike` of the same
+    // profile after it, as `BossPatternCfg::beats` pairs them. The trigger
+    // plays the move baked for these lengths.
+    let strike_of = |at: usize, wound: &BossAttackProfile| match steps.get(at) {
+        Some(BossPatternStep::Strike { profile, duration }) if profile == wound => *duration,
+        _ => 0.0,
+    };
+    let windup_of = |at: Option<usize>, striking: &BossAttackProfile| match at.and_then(|at| steps.get(at)) {
+        Some(BossPatternStep::Telegraph { profile, duration, .. }) if profile == striking => *duration,
+        _ => 0.0,
+    };
     match &current {
-        BossPatternStep::Telegraph { profile, .. } => {
-            attack_intent.telegraph_profile = Some(profile.clone());
-            attack_intent.active_profile = None;
+        BossPatternStep::Telegraph { profile, duration, .. } => {
+            *attack_intent = BossAttackIntent {
+                telegraph_profile: Some(profile.clone()),
+                active_profile: None,
+                telegraph_s: *duration,
+                strike_s: strike_of(state.step_index + 1, profile),
+            };
         }
-        BossPatternStep::Strike { profile, .. } => {
-            attack_intent.telegraph_profile = None;
-            attack_intent.active_profile = Some(profile.clone());
+        BossPatternStep::Strike { profile, duration } => {
+            *attack_intent = BossAttackIntent {
+                telegraph_profile: None,
+                active_profile: Some(profile.clone()),
+                telegraph_s: windup_of(state.step_index.checked_sub(1), profile),
+                strike_s: *duration,
+            };
         }
         // Control-flow and rest steps emit no request rather than carrying a
         // stale profile into the move trigger.

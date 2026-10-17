@@ -74,6 +74,11 @@ pub fn order_phases(app: &mut App, schedule: impl bevy::ecs::schedule::ScheduleL
 
 pub struct ExtensionCompositionPlugin;
 
+const BOSS_ENCOUNTERS: ambition_platformer2d_shared_tangle::capability::CapabilitySet =
+    ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+        ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters,
+    );
+
 impl Plugin for ExtensionCompositionPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
@@ -166,7 +171,10 @@ impl Plugin for ExtensionCompositionPlugin {
                 ExtensionSet::Lower(BOSS_CONDUCT),
             )
                 .in_set(GameplayGated)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate)
+                // Conducting a boss is the boss capability's work: it sleeps
+                // where the active room's game has no named bosses.
+                .in_set(BOSS_ENCOUNTERS),
         );
         app.configure_sets(
             sim,
@@ -208,7 +216,8 @@ impl Plugin for ExtensionCompositionPlugin {
             sim,
             ambition_boss_encounter::conduct::face_conducted_bosses
                 .in_set(GameplayGated)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::BossSteerSlot),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::BossSteerSlot)
+                .in_set(BOSS_ENCOUNTERS),
         );
         order_phases(app, sim);
         install_ports(app);

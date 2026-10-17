@@ -248,6 +248,129 @@ Open:
   from no boss.
 - Tuning from `fight_discovery` and Jon's playtest.
 
+## Wolfenstein — the leash (proposed 2026-10-17, Jon: "really make it something special")
+
+Jon: "really polish the Wolfenstein boss fight ... beef up the boss
+animations, and really plan an excellent metroidvania / hollow knight style
+patterned boss." This section is the plan. Nothing in it is built yet.
+
+**Jon's rulings (2026-10-17):** "I want this to be a bipedal boss": he stays upright the whole fight (no fight on
+all fours). He wakes on the throne. He gets his own music cue: a stiff march
+in phase 1 that detunes into a howling theremin theme in phase 2, both in
+enrage. Playable first: the engine fixes and the conductor on his current
+rows come before the rig and art passes.
+
+**Today (read 2026-10-17):** a `Scripted` pattern of three generic strikes
+(`side_sweep`, `floor_slam`, `full_body_pulse`), no conductor, one sheet row
+per strike. Known defects:
+
+- His `intro` and `transition` patterns never run: the pattern ticks only in
+  Phase1, Phase2 and Enrage (`ambition_boss_encounter` `ecs/tick.rs`). This
+  is true for every boss.
+- A move keeps the telegraph and strike lengths of its FIRST occurrence
+  (`telegraph_windows`, `special_repertoire` in `boss_pattern/mod.rs`, baked in
+  `attack_moveset.rs`). The faster phase 2 and enrage timings do nothing. This
+  is true for every boss.
+- The windup and the strike draw the same row. The 0.72 s `slash` row plays
+  out in the 0.95 s windup, so the swing shows before the hit.
+- `attack_side` and `attack_up` never show: three rows name `SideSweep`, and
+  the first wins. Walk and run do not show.
+- The generic volumes do not fit his art: `floor_slam` is below his feet,
+  `side_sweep` reaches 15 px past his body.
+- WOLFENSTEIN-FAIRNESS (`queue.md`): the enrage sweep has no punish window and
+  no move has a telegraph identity.
+
+### The fight's shape
+
+**His failed objective: obey.** The regime sewed a wolf into a soldier and
+gave it orders. The soldier obeys; the wolf cannot. Each phase, the leash is
+looser. He runs on electricity (the bolts in his neck), and each big move
+spends charge. He over-commits to the order and to the hunt. When the charge
+is spent he goes flat: that is the long punish window, at the end of each
+cycle.
+
+**The arena is his laboratory throne room** (`castle_godwin_throne`, 1920 x
+896): the iron throne, two Tesla coils, two side galleries and a high gallery.
+The coils are part of the fight.
+
+| phase (HP) | name | how he moves | what changes |
+|---|---|---|---|
+| intro | "It's alive" | sits dead on the throne | the coils arc into his bolts; he jolts, stands, howls |
+| 1 (100-60%) | The Order | upright, a heavy lurch at you | drilled and slow; one move at a time; long tells |
+| transition | The leash breaks | staggers to the coils | lightning hits him, his stitches flare, the armband tears, a howl |
+| 2 (60-25%) | The Wolf | upright, hunched low, fast | lunges in chains, the wall bound, the pack |
+| enrage (<25%) | Insanity | upright, twitching, faster | chains of 3; the coils fire across the floor |
+| death | | | the charge dies out; a short howl, then "Sorry." |
+
+### The moves (each is a `Special` that the `wolfenstein` conductor performs)
+
+| key | what it is | the tell | the dodge | the punish |
+|---|---|---|---|---|
+| `wolf_rake` | claw rake, a step on each blow; 2 blows (phase 1), 3 with an overhead last (phase 2 on) | the arm cocks back, a snarl | back off, or jump over him after the first blow | after the follow-through |
+| `wolf_hammer` | two fists high, slam; a shock runs along the floor both ways (2 in enrage) | he rises on his toes, fists up (long) | jump the shock | his fists stick in the cracked floor; he pulls them out |
+| `wolf_lunge` | low, then a bite lunge across most of the room; he skids and turns | he drops low, hackles up, jaws open | jump over him, or go up to a gallery | the skid and the turn |
+| `wolf_bound` (signature, phase 2 on) | a lunge into the wall, he kicks off it and lunges back | the same drop, and a look at the wall | jump the first lunge, then jump again | he lands in a crouch, out of breath |
+| `wolf_howl` | head back, a ring that pushes you off him; phase 2 calls two Failed Prototypes once; enrage calls lightning | a deep breath, the chest heaves | walk out | the howl itself (he stands still) |
+| `wolf_galvanize` | hands on his bolts; sparks mark three spots (one under you, galleries too); lightning strikes them | the sparks on the floor | leave the marks | his arms shake after it |
+| `wolf_flatline` | the charge is spent: he sags, his head drops, the bolts sputter; then a coil arc jolts him back up | the bolts flicker out | none needed | the long window (about 2 s, shorter later, never under the floor) |
+
+A cycle is chosen, not fixed: each phase is `Select` arms on where you are
+(near: rake or hammer; far: lunge; above: galvanize; behind: howl), and each
+cycle ends in `wolf_flatline`. Body contact hurts only while a move is live.
+
+**Distinct from the T-rex and the Hunny Horror:** no charge into a wall with a
+daze (T-rex), no pounce from above with a daze (the bear). His window is a
+scheduled one that the tempo of the cycle builds to, not a stun from a
+mistake. The wall bound uses the wall. It does not crash into it.
+
+**Seed back to the library:** `wall_bound` (a dash through that rebounds off
+the arena wall) or `flatline` (a scheduled exhaustion window).
+
+### Animation: what "beef up" means
+
+He is a Python person-rig character (renderer
+`targets/characters/wolfenstein.py`, `_person_rig.py`). Every attack becomes
+four rows: tell, strike, hold or recover, so each phase of a move has its own
+picture and the strike frames play in the strike window. The rows:
+
+- Body: `idle` (12 frames: a heaving breath, a head twitch, bolt sparks),
+  `walk` (a heavy lurch, arms forward), `prowl` (phase 2: hunched low, fast),
+  `turn`, `hit` (a heavy stagger), `death` (16 frames).
+- Story: `throne_dead`, `awaken` (the jolt), `shock` (the lightning in the
+  transition), `flatline` (a loop), `recharge`.
+- Each move: `<move>_tell`, `<move>_strike`, `<move>_hold`, `<move>_recover`.
+
+Rig work first, so that all person-rig characters gain from it: per-key easing
+(in, out, snap, overshoot) and a squash and stretch control, as the robot v3
+strikes have. The key poses go at the move's live-window times, with one snap
+frame, a held contact frame and a follow-through.
+
+The claw trails come out of the baked frames and become his own effect sheet
+(`wolfenstein_claw`: three claw lines that travel and follow through). The
+floor shock, the lightning strike, the spark marks and the coil arcs are
+authored effect sheets too. No shader draws any of them.
+
+The hit volumes come from his art, in sheet pixels, as the Hunny Horror's do.
+
+### Slices, in order
+
+1. **Engine:** the intro and transition patterns run; each step's own
+   telegraph and strike length holds. Both are for every boss. A headless test
+   for each.
+2. **Conductor** (`ambition_content_modules::wolfenstein`) with the phase 1
+   moves on the rows he has now, and `game/ambition_app/tests/wolfenstein_fight.rs`.
+   The fight is playable from here.
+3. **Rig:** per-key easing and squash and stretch in the person rig.
+4. **Art, phase 1:** idle, walk, hit, flatline and the four rows of rake,
+   hammer, lunge and howl. Volumes measured from the art.
+5. **Phase 2:** the prowl, the bound, the pack, the three-blow rake.
+6. **Intro, transition, enrage:** the throne, the coils, the lightning.
+7. **Effects and sound:** the effect sheets; auditioned sound candidates (the
+   howl, the crackle, the sputter, the slam); his own music cue.
+8. **Acceptance:** the validator has no Wolfenstein finding (then lower the
+   roster pin and close WOLFENSTEIN-FAIRNESS); `fight_discovery` tuning;
+   Jon's playtest.
+
 ## The Mockingbird — air chase (proposed 2026-10-06, Jon; built 2026-10-06)
 
 **Art: shipped.** The boss wears `mockingbird_boss_v2`, an SVG-rigged

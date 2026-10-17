@@ -1572,18 +1572,11 @@ fn invalidate_session(world: &mut World, reason: String) {
 /// or hides the current root. The contract belongs to a scope, so it inspects
 /// only that scope's root.
 fn content_identity_of(
-    world: &mut World,
+    world: &World,
     owner: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
 ) -> Option<PreparedContentIdentity> {
-    let owner = owner?;
-    let mut query = world.query::<(
-        &ambition_platformer2d_shared_tangle::lifecycle::SessionRoot,
-        &PreparedContentIdentity,
-    )>();
-    query
-        .iter(world)
-        .find(|(root, _)| root.0 == owner)
-        .map(|(_, identity)| *identity)
+    let root = ambition_platformer2d_shared_tangle::lifecycle::session_root_owned_by(world, owner?)?;
+    world.get::<PreparedContentIdentity>(root).copied()
 }
 
 #[cfg(test)]

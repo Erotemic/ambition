@@ -239,3 +239,33 @@ fn a_witness_may_not_be_released_before_its_dependent() {
             roster.published_by == owner.as_str()
         });
 }
+
+/// Through the shell plugin: a frame that did not write the router does not
+/// run the release, so it does not write the scopes. A change of the active
+/// route still releases on its frame.
+#[test]
+fn the_shell_releases_on_a_departure_and_an_idle_frame_writes_no_scope() {
+    use bevy::prelude::DetectChanges as _;
+    let mut app = App::new();
+    app.add_plugins(crate::MinimalShellPlugins);
+    app.experience_owns("game").covering("game.select").releasing::<LobbyCursor>();
+    app.world_mut().resource_mut::<ShellRouter>().active = Some(active("game_play", "game"));
+    app.update();
+    app.world_mut().insert_resource(LobbyCursor(3));
+    let written = app.world().resource_ref::<ShellExperienceScopes>().last_changed();
+    app.update();
+    app.update();
+    assert_eq!(
+        app.world().resource_ref::<ShellExperienceScopes>().last_changed(),
+        written,
+        "an idle frame ran the release"
+    );
+    assert!(app.world().contains_resource::<LobbyCursor>(), "nothing is released while inside");
+
+    app.world_mut().resource_mut::<ShellRouter>().active = Some(active("other_play", "other"));
+    app.update();
+    assert!(
+        !app.world().contains_resource::<LobbyCursor>(),
+        "a departure did not release the provider's state"
+    );
+}

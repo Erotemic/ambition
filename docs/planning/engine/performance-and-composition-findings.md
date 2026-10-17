@@ -68,6 +68,29 @@ Repeat allocations are no longer the main cost: the hub with Mary-O makes
 ~4,900 a frame of its own (desktop probe, without the probe and the spans),
 near standalone Mary-O's 4,128.
 
+### F35 — Exclusive systems that do their work each frame (2026-10-17)
+
+MEASURED (probe, hub `basement_enemies`, ~600 frames, `time_by_span.csv`
+joined with each `fn x(world: &mut World)`): the exclusive systems of ours
+that ran each frame cost ~130 µs a frame, and most of it was no work. Two
+causes. A query made new with `world.query()` or `try_query()` matches each
+archetype of the world (~2,000 in the hub), and `session_world_entity` made
+one at each call. A `resource_scope` that passes `&mut` through the `Mut`
+marks the resource changed even when nothing changed.
+
+Done: `advance_pending_route` runs only while a route is pending
+(`a_route_is_pending`), 33.3 → 0 µs (its condition 2.0 µs).
+`SessionRootQuery` keeps the session roots' query state, so
+`session_world_entity` and `session_root_owned_by` update it only for new
+archetypes: `enforce_session_contract` 31.8 → 8.9 µs, `maintain_local_session`
+15.5 → 6.9, `commit_confirmed_lifecycle` 17.7 → 8.0.
+`release_departed_experience_state` runs only on a frame that wrote the
+router. Witnesses `an_idle_frame_does_not_run_the_pending_step`,
+`the_live_root_is_read_through_the_kept_query_and_a_later_root_is_found`,
+`the_shell_releases_on_a_departure_and_an_idle_frame_writes_no_scope`. The
+content watchers (`watch_content_sources` 81 µs) are not in the phone build
+(`static_content`).
+
 ### F25 — Where the phone's main thread goes, hub with Mary-O
 
 MEASURED (`android-all-maryo-1-1-morning3`, main thread tid 28006, 83% busy):
@@ -370,7 +393,7 @@ Updated 2026-10-17. Each one helps every game, not only Mary-O.
 
 1. P14: one composed collision world for each room each tick (F24, F33).
    Step 1 done 2026-10-17 (six compositions a frame in 1-2 → one); step 2,
-   the layered view, is next.
+   the layered view, done by the portal work the same day (F24).
 2. P12 and P5: derive on change, and build the read-models once for each
    presented frame, not each tick (F16, F20). MEASURED 2026-10-17 (F5): the
    views are ~3% of a tick, so P5 is smaller than this list first said.
@@ -795,6 +818,17 @@ both the gate and the prompt read. Under rollback a cached value must be
 rollback state or derived from inputs that a restore marks changed; check
 each cache against that before it lands. Together with F15 this is P12.
 
+**`gate_body_control` done (2026-10-17).** `DerivedActionScheme` (required by
+`ActionSet`) keeps the scheme and what change detection cannot see: the
+driven techniques and which optional authorities were present. The gate
+derives again only when an authority is changed, added or removed. It is
+derived rollback state: a restore writes back a differing authority, which
+marks it changed. MEASURED (probe, hub `basement_enemies`, ~600 frames):
+54.8 → 16.4 µs a frame, 209 → 29 allocations a frame. The control prompt
+already derives on change, from the abilities masked while the pose is held,
+so it does not share the gate's cache. Witness
+`the_gate_derives_the_scheme_again_only_when_an_authority_changed`.
+
 ### F17 — The hub respawns a room's parallax every frame
 
 MEASURED (probe churn, hub `basement_enemies`, 595 frames): exactly 1.000
@@ -1093,6 +1127,13 @@ the old overlay" with the overlay left out of the key). Left: the one
 composition a tick in a room with moving platforms (step 2, the layered
 view), and the projectile view (`world_with_gate_solids_and_carves`) and
 `hostable_surfaces`, which compose apart.
+
+**Step 2 done by the portal work (da519ec6d, 2026-10-17).** `World::blocks`
+and `World::chains` are now `ae::layered::Layered`: one shared base and a
+small layer for each world. A clone of the room's world copies no block, and
+`world_with_moving_platforms` and `world_with_sandbox_solids` add the
+platforms and the overlay as a layer. What a composition still copies is
+`water_regions` and `climbable_regions` (`Vec`s, a few entries in each room).
 
 ### Not a lever (keep out of this run)
 

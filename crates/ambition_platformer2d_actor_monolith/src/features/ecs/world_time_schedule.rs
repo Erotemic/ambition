@@ -175,6 +175,14 @@ impl WorldTimeSchedule {
         }
     }
 
+    /// Whether the occurrence `feature` of room `room` has a record. A mirror
+    /// asks this of each occurrence on each tick, through a read: an empty
+    /// schedule (the common case) makes no key, and a tick with nothing to
+    /// forget does not mark the schedule changed.
+    pub fn holds(&self, room: &str, feature: &str) -> bool {
+        !self.due.is_empty() && self.due.contains_key(&(room.to_string(), feature.to_string()))
+    }
+
     /// Forget the record of the occurrence `feature` of room `room`.
     pub fn forget(&mut self, room: &str, feature: &str) {
         let key = (room.to_string(), feature.to_string());
@@ -289,7 +297,8 @@ pub fn mirror_breakable_respawns(
                 elapsed.0 + timer.0,
                 &owners_beside(entity, rooms.live(), &participants),
             ),
-            (false, _) => schedule.forget(room, feature.as_str()),
+            (false, _) if schedule.holds(room, feature.as_str()) => schedule.forget(room, feature.as_str()),
+            (false, _) => {}
             // Broken for good (`Never`, `OnRoomReload`): no respawn to schedule.
             (true, None) => {}
         }
@@ -339,7 +348,8 @@ pub fn regrow_pickups(
                     );
                 }
             }
-            (false, _) => schedule.forget(room, feature.as_str()),
+            (false, _) if schedule.holds(room, feature.as_str()) => schedule.forget(room, feature.as_str()),
+            (false, _) => {}
             // Collected for good (`Never`, `OnRoomReload`): nothing to schedule.
             (true, None) => {}
         }
@@ -503,6 +513,65 @@ mod tests {
             clock(&app),
             records(&app)
         );
+    }
+
+    /// A pickup that is there asks the schedule each tick whether it has a
+    /// record to forget. With none, the tick writes nothing: the schedule is
+    /// not marked changed. A stale record (a rewind put the pickup back) is
+    /// still forgotten on the next tick.
+    #[test]
+    fn a_tick_with_nothing_to_forget_leaves_the_schedule_unchanged() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            require_on_session_root, session_world_component_mut, SessionRoot, SessionScopeId,
+        };
+        use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
+        let dt = 1.0 / 60.0;
+        let mut app = App::new();
+        app.insert_resource(ambition_time::WorldTime::new(dt, dt));
+        require_on_session_root::<GameplayElapsed>(&mut app);
+        require_on_session_root::<WorldTimeSchedule>(&mut app);
+        let room = RoomSpec::new(
+            "hall",
+            ambition_platformer2d_core::World::new(
+                "hall",
+                ambition_platformer2d_core::Vec2::new(320.0, 240.0),
+                ambition_platformer2d_core::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            ),
+        );
+        app.world_mut().spawn((SessionRoot(SessionScopeId(1)), RoomSet::from_parts_or_panic("hall", vec![room], Vec::new())));
+        ambition_platformer2d_world::rooms::seat_sole_live_room_by_id(app.world_mut(), "hall").expect("the hall is live");
+        let live = *ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
+            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        >(app.world())
+        .expect("a live room");
+        app.world_mut().spawn((
+            FeatureId::new("coin"),
+            PickupFeature::new(ambition_interaction::Pickup::new(
+                "coin",
+                ambition_interaction::PickupKind::Currency { amount: 1 },
+            )),
+            FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(live),
+        ));
+        #[derive(Resource, Default)]
+        struct Changed(Vec<bool>);
+        fn watch(schedule: SessionWorldRef<WorldTimeSchedule>, mut seen: ResMut<Changed>) {
+            seen.0.push(schedule.is_changed());
+        }
+        app.init_resource::<Changed>().add_systems(Update, (regrow_pickups, watch).chain());
+        app.update();
+        app.update();
+        app.update();
+        let seen = std::mem::take(&mut app.world_mut().resource_mut::<Changed>().0);
+        assert_eq!(&seen[1..], &[false, false], "a tick with nothing to forget marked the schedule changed");
+
+        session_world_component_mut::<WorldTimeSchedule>(app.world_mut())
+            .expect("a schedule")
+            .record("hall", "coin", 5.0, &[PlayerSlot::PRIMARY]);
+        app.update();
+        let schedule = session_world_component::<WorldTimeSchedule>(app.world()).expect("a schedule");
+        assert!(!schedule.holds("hall", "coin"), "the stale record of a pickup that is there was not forgotten");
     }
 
     /// A record answers how long a breakable stays broken, and nothing once

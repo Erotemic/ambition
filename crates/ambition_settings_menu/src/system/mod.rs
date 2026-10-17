@@ -430,6 +430,9 @@ pub struct RadioSnapshot {
     pub stations: Vec<(usize, String)>,
     /// The currently-active track index, if any.
     pub active: Option<usize>,
+    /// What is heard now, which a boss or encounter cue can make other than
+    /// the selected station. `None` is silence.
+    pub now_playing: Option<String>,
 }
 
 /// A live snapshot of the developer toggles, passed into [`SystemMenuModel::build`]

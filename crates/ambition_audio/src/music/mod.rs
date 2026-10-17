@@ -88,6 +88,47 @@ pub fn silence_music_backend(
     music_state.silence();
 }
 
+/// What the player hears now, named for a "now playing" line: the adaptive
+/// cue and its section while a cue plays (a boss or an encounter claims the
+/// music over the radio), else the simple track's display name. `None` is
+/// silence.
+///
+/// A cue has no display name of its own; one named like a track uses the
+/// track's, and any other is its id in title case (`galvanic_march` is
+/// "Galvanic March").
+pub fn now_playing_label(
+    library: &AudioLibrary,
+    playback: &MusicPlaybackState,
+    director: Option<&MusicDirectorState>,
+) -> Option<String> {
+    let cue = director.filter(|d| {
+        matches!(
+            d.mode,
+            MusicDirectorMode::AdaptiveIntro | MusicDirectorMode::AdaptiveLoop | MusicDirectorMode::AdaptiveOutro
+        )
+    });
+    if let Some((director, cue_id)) = cue.and_then(|d| d.active_cue_id.as_deref().map(|id| (d, id))) {
+        let name = library.track(cue_id).map_or_else(|| title_case(cue_id), |t| t.display_name.clone());
+        return Some(match director.current_section_id.as_deref() {
+            Some(section) => format!("{name} \u{00b7} {}", title_case(section)),
+            None => name,
+        });
+    }
+    let track = playback.active_track();
+    (!track.is_empty()).then(|| library.display_name(track).to_owned())
+}
+
+fn title_case(id: &str) -> String {
+    id.split(['_', '-'])
+        .filter(|word| !word.is_empty())
+        .map(|word| {
+            let mut chars = word.chars();
+            chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect())
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// Whether the current base track can continue across an audio-context change.
 ///
 /// Frontend-to-frontend handoffs preserve an already-playing identical title

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v357
+ggrs-rollback-schema-v358
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -120,7 +120,7 @@ combat.hitbox	component-clone	Hitbox	bevy_ggrs clone snapshot; entity handle rem
 combat.hitbox_hits	component-clone	HitboxHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 combat.hitbox_lifetime	component-clone	HitboxLifetime	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 combat.hitbox_on_hit	component-clone-custom-checksum	HitboxOnHit	bevy_ggrs clone snapshot + entity-less world-contact fired-state checksum projection
-combat.ray_strike	component-clone	RayStrike	bevy_ggrs clone snapshot; not in the session checksum
+combat.ray_strike	component-clone	RayStrike	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 combat.stale_moves	component-canonical	BodyStaleMoves	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 combat.strike_volume	component-clone	StrikeVolume	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.tuning	component-clone	CombatTuning	bevy_ggrs clone snapshot; not in the session checksum

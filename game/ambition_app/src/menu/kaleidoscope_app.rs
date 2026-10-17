@@ -645,6 +645,8 @@ pub(crate) struct SystemMenuParams<'w, 's> {
     #[cfg(feature = "audio")]
     music_state: Option<ResMut<'w, ambition_platformer2d::audio::library::MusicPlaybackState>>,
     #[cfg(feature = "audio")]
+    music_director: Option<Res<'w, ambition_platformer2d::audio::music::MusicDirectorState>>,
+    #[cfg(feature = "audio")]
     radio: Option<ResMut<'w, ambition_platformer2d::audio::library::RadioStationState>>,
     #[cfg(feature = "audio")]
     music_channel: Option<
@@ -813,7 +815,7 @@ impl SystemMenuParams<'_, '_> {
         if let (Some(library), Some(music_state)) =
             (self.library.as_deref(), self.music_state.as_deref())
         {
-            return radio_snapshot_from(library, music_state, self.radio.as_deref());
+            return radio_snapshot_from(library, music_state, self.radio.as_deref(), self.music_director.as_deref());
         }
         RadioSnapshot::default()
     }
@@ -876,6 +878,8 @@ pub(crate) struct SystemMenuSnapshotParams<'w, 's> {
     #[cfg(feature = "audio")]
     music_state: Option<Res<'w, ambition_platformer2d::audio::library::MusicPlaybackState>>,
     #[cfg(feature = "audio")]
+    music_director: Option<Res<'w, ambition_platformer2d::audio::music::MusicDirectorState>>,
+    #[cfg(feature = "audio")]
     radio: Option<Res<'w, ambition_platformer2d::audio::library::RadioStationState>>,
 }
 
@@ -888,7 +892,7 @@ impl SystemMenuSnapshotParams<'_, '_> {
         if let (Some(library), Some(music_state)) =
             (self.library.as_deref(), self.music_state.as_deref())
         {
-            return radio_snapshot_from(library, music_state, self.radio.as_deref());
+            return radio_snapshot_from(library, music_state, self.radio.as_deref(), self.music_director.as_deref());
         }
         RadioSnapshot::default()
     }
@@ -917,6 +921,7 @@ fn radio_snapshot_from(
     library: &ambition_platformer2d::audio::library::AudioLibrary,
     music_state: &ambition_platformer2d::audio::library::MusicPlaybackState,
     radio: Option<&ambition_platformer2d::audio::library::RadioStationState>,
+    director: Option<&ambition_platformer2d::audio::music::MusicDirectorState>,
 ) -> RadioSnapshot {
     let active_id = radio
         .and_then(|r| r.selected_track())
@@ -926,7 +931,8 @@ fn radio_snapshot_from(
     let stations = (0..library.track_count())
         .filter_map(|i| library.display_name_at(i).map(|name| (i, name.to_string())))
         .collect();
-    RadioSnapshot { stations, active }
+    let now_playing = ambition_platformer2d::audio::music::now_playing_label(library, music_state, director);
+    RadioSnapshot { stations, active, now_playing }
 }
 
 mod dev_toggles;

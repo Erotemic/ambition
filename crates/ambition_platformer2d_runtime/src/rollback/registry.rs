@@ -52,7 +52,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// unrecorded: a skirmisher brain's state encodes its ranged volley (cooldown,
 /// orbit phase, volley phase and aim), and `ActorControlFrame` its
 /// `ranged_aim_held` bool.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 357;
+/// 357 -> 358: `combat.ray_strike` is value-probed (its line and look):
+/// a held ray is cast again each tick, so presence alone could not find a
+/// replay that put it elsewhere.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 358;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

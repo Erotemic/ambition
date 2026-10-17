@@ -51,10 +51,10 @@ fn every_hall_door_leads_to_a_room_that_returns_to_the_hall() {
     );
 }
 
-/// The hall's Mockingbird and Warden are practice copies at their own
+/// The hall's Mockingbird, Warden and Wolfenstein are practice copies at their own
 /// placements; the main game's are neither.
 #[test]
-fn the_halls_mockingbird_and_warden_are_practice_copies_at_their_own_placements() {
+fn the_halls_copied_bosses_are_practice_copies_at_their_own_placements() {
     let rooms = shipped_rooms();
     let room = |id: &str| {
         rooms
@@ -67,6 +67,8 @@ fn the_halls_mockingbird_and_warden_are_practice_copies_at_their_own_placements(
         // The Mockingbird is fought in the sky over its shore (2026-10-06).
         ("hall_mockingbird_sky", "hall.mockingbird", "mockingbird_sky"),
         ("hall_warden_arena", "hall.clockwork_warden", "basement_boss"),
+        // Castle Godwin's throne room, cloned into the hall (2026-10-17).
+        ("hall_wolfenstein_arena", "hall.wolfenstein", "castle_godwin_throne"),
     ] {
         let hall = room(hall_room);
         let game = room(game_room);
@@ -108,6 +110,10 @@ fn the_halls_mockingbird_spawns_as_a_practice_boss() {
     assert_eq!(
         boss_practice_in("mockingbird_sky"),
         vec![("cove.mockingbird".to_string(), false)]
+    );
+    assert_eq!(
+        boss_practice_in("hall_wolfenstein_arena"),
+        vec![("hall.wolfenstein".to_string(), true)]
     );
 }
 

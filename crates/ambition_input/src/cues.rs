@@ -53,13 +53,32 @@ impl ActiveUiCues {
     /// Declare when `active`, retract when not. Returns whether the stored
     /// cues changed, so callers can avoid change-detection churn.
     pub fn sync(&mut self, cue: UiCue, active: bool) -> bool {
-        let before = self.cues.clone();
+        let current = self.for_context(cue.context);
+        let unchanged = if active { current == Some(&cue) } else { current.is_none() };
+        if unchanged {
+            return false;
+        }
         if active {
             self.declare(cue);
         } else {
             self.retract(cue.context);
         }
-        before != self.cues
+        true
+    }
+
+    /// [`Self::sync`] through change detection: the cues are marked changed
+    /// only when they changed. A publisher calls it each frame, and a reader
+    /// such as the control prompt derives again on each change.
+    pub fn sync_marked(
+        cues: &mut impl bevy::ecs::change_detection::DetectChangesMut<Inner = Self>,
+        cue: UiCue,
+        active: bool,
+    ) -> bool {
+        let changed = cues.bypass_change_detection().sync(cue, active);
+        if changed {
+            cues.set_changed();
+        }
+        changed
     }
 
     pub fn for_context(&self, context: InputContextId) -> Option<&UiCue> {
@@ -120,5 +139,33 @@ mod cue_tests {
         );
         assert!(cues.sync(cue(A, 10, "Exit"), false));
         assert!(cues.top().is_none());
+        assert!(!cues.sync(cue(A, 10, "Exit"), false), "unchanged retract");
+    }
+
+    #[derive(Resource)]
+    struct Label(&'static str);
+
+    fn publish(label: Res<Label>, mut cues: ResMut<ActiveUiCues>) {
+        ActiveUiCues::sync_marked(&mut cues, cue(A, 10, label.0), true);
+    }
+
+    /// A publisher that states the same cue each frame does not mark the cues
+    /// changed, so a reader that derives on change (the control prompt) stays
+    /// quiet. A new label marks them.
+    #[test]
+    fn a_cue_published_again_unchanged_does_not_mark_the_cues_changed() {
+        use bevy::ecs::change_detection::DetectChanges as _;
+        let mut app = App::new();
+        app.init_resource::<ActiveUiCues>().insert_resource(Label("Play"));
+        app.add_systems(Update, publish);
+        app.update();
+        let first = app.world().resource_ref::<ActiveUiCues>().last_changed();
+        app.update();
+        app.update();
+        assert_eq!(app.world().resource_ref::<ActiveUiCues>().last_changed(), first, "an unchanged cue marked the cues changed");
+        app.world_mut().resource_mut::<Label>().0 = "Exit";
+        app.update();
+        assert_ne!(app.world().resource_ref::<ActiveUiCues>().last_changed(), first, "a new label did not mark the cues changed");
+        assert_eq!(app.world().resource::<ActiveUiCues>().for_context(A).map(|c| c.submit_label.as_str()), Some("Exit"));
     }
 }

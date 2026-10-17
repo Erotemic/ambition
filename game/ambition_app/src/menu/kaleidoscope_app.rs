@@ -1585,11 +1585,7 @@ fn publish_menu_confirm_prompt(
         priority: 150,
         submit_label: label.clone().unwrap_or_default(),
     };
-    // Touch the resource only when the cue actually moves.
-    let current = cues.for_context(INVENTORY_CUE_CONTEXT);
-    if current.map(|c| c.submit_label.as_str()) != label.as_deref() {
-        cues.sync(cue, label.is_some());
-    }
+    ambition_platformer2d::input::ActiveUiCues::sync_marked(&mut cues, cue, label.is_some());
 }
 
 /// The edge-button focus on `to` that turns BACK toward `from` (Fix 1). On `to`, the LEFT edge

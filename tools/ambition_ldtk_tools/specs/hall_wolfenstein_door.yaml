@@ -1,0 +1,27 @@
+# Wolfenstein's door and life switch in the Hall of Bosses (2026-10-17), on
+# the upper gallery past the spaghetti monster's.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools entity add \
+#       tools/ambition_ldtk_tools/specs/hall_wolfenstein_door.yaml \
+#       --ldtk game/ambition_map_assets/ambition_content/worlds/sandbox.ldtk --in-place
+level_id: hall_of_bosses
+entities:
+  - type: LoadingZone
+    px: [1520, 240]
+    size: [48, 96]
+    fields:
+      id: hall_to_wolfenstein_portal
+      name: to Wolfenstein
+      activation: Door
+      target_room: hall_wolfenstein_arena
+      target_zone: hall_wolfenstein_arena_entry
+      bidirectional: true
+  - type: Switch
+    px: [1576, 304]
+    size: [24, 32]
+    fields:
+      id: hall_wolfenstein_life_switch
+      name: Wolfenstein life switch
+      prompt: "Revive or defeat Wolfenstein"
+      target_encounter: hall.wolfenstein
+      action: BossLife

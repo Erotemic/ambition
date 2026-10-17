@@ -259,9 +259,13 @@ authored lengths, for every boss (`073f40c5f`). The conductor
 (`ambition_content_modules::wolfenstein`) performs every move below on his
 current rows, the pattern is `Select` arms on where you stand, and the
 validator has no finding for him. Receipts:
-`game/ambition_app/tests/wolfenstein_fight.rs`. Not yet: the throne (he wakes
-standing where he spawns), the coils' part in the enrage, his own rows, effect
-sheets and sounds (all borrowed).
+`game/ambition_app/tests/wolfenstein_fight.rs`. Since then: his own 36 rows
+(a tell, strike and window row for each move, the flatline-and-awaken intro,
+the arc lash from his neck bolts), and the Hall of Bosses' own copy of his
+throne room, `hall_wolfenstein_arena` (placement `hall.wolfenstein`, a life
+switch by its door). His sheet turns off the warm placeholder tint
+(`attack_tint: false`): his tells are drawn. Not yet: the coils' part in the
+enrage, effect sheets and sounds (borrowed), his music cue (not ready).
 
 **Jon's rulings (2026-10-17):** first "I want this to be a bipedal boss";
 then, after GPT concept sheets: "we can get rid of the no-all-4's rule, some

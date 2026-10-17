@@ -17,31 +17,14 @@
 //! are visual storage only.
 
 use std::collections::HashMap;
-use std::sync::OnceLock;
 
 use crate::SpritePackCatalog;
 
 use crate::character::TextureResolutionScale;
 
-mod baked {
+pub(crate) mod baked {
     #[cfg(embedded_sprites)]
     include!(concat!(env!("OUT_DIR"), "/baked_pack_catalogs.rs"));
-
-    /// Each tier's catalog, as `(tier, json_text)` sorted by tier: embedded
-    /// where there is no source tree, read from the tree in a development
-    /// build.
-    pub fn pack_catalogs() -> &'static [(&'static str, &'static str)] {
-        #[cfg(embedded_sprites)]
-        {
-            BAKED_PACK_CATALOGS
-        }
-        #[cfg(not(embedded_sprites))]
-        {
-            use crate::published_tree;
-            static READ: std::sync::OnceLock<Vec<(&'static str, &'static str)>> = std::sync::OnceLock::new();
-            READ.get_or_init(|| published_tree::texts(crate::sprite_tree::pack_catalogs(published_tree::owner())))
-        }
-    }
 }
 
 /// The pack tier directory for a texture-resolution scale. Every scale has a
@@ -73,16 +56,41 @@ pub fn scale_for_pack_tier(tier: &str) -> Option<TextureResolutionScale> {
     }
 }
 
-/// Parse-once index of every baked pack catalog, keyed by tier name.
-///
-/// §5 classification: immutable asset cache. It is derived from the
-/// compile-time `baked::pack_catalogs` table, so it is a process-global
-/// `OnceLock` (like the sheet `record_index`).
+/// Each pack catalog of the current sheet generation, keyed by tier name.
 fn catalogs() -> &'static HashMap<&'static str, SpritePackCatalog> {
-    static CATALOGS: OnceLock<HashMap<&'static str, SpritePackCatalog>> = OnceLock::new();
-    CATALOGS.get_or_init(|| {
+    crate::baked_sheet_rons::current().pack_catalogs()
+}
+
+/// The catalogs of `texts` (`(tier, json_text)`), or each tier that does not
+/// parse or validate with its first error, named by its file.
+pub(crate) fn checked_catalogs(texts: &[(&'static str, &'static str)]) -> Result<HashMap<&'static str, SpritePackCatalog>, Vec<(String, String)>> {
+    let mut map = HashMap::new();
+    let mut failed = Vec::new();
+    for (tier, json) in texts {
+        let file = format!("sprite_packs/{tier}/ultrapack.json");
+        match SpritePackCatalog::parse(json) {
+            Ok(catalog) => match catalog.validate().first() {
+                None => {
+                    map.insert(*tier, catalog);
+                }
+                Some(error) => failed.push((file, error.to_string())),
+            },
+            Err(error) => failed.push((file, error.to_string())),
+        }
+    }
+    if failed.is_empty() {
+        Ok(map)
+    } else {
+        Err(failed)
+    }
+}
+
+/// The catalogs of `texts` (`(tier, json_text)`) that parse and validate: a
+/// tier that does not is disabled, with a warning.
+pub(crate) fn catalogs_of(texts: &[(&'static str, &'static str)]) -> HashMap<&'static str, SpritePackCatalog> {
+    {
         let mut map = HashMap::new();
-        for (tier, json) in baked::pack_catalogs() {
+        for (tier, json) in texts {
             match SpritePackCatalog::parse(json) {
                 Ok(catalog) => {
                     let errors = catalog.validate();
@@ -106,7 +114,7 @@ fn catalogs() -> &'static HashMap<&'static str, SpritePackCatalog> {
             }
         }
         map
-    })
+    }
 }
 
 /// The baked catalog for a tier dir name, if regen produced one.
@@ -152,7 +160,7 @@ mod tests {
         // Every baked tier survived parse+validate into the index.
         assert_eq!(
             catalogs().len(),
-            baked::pack_catalogs().len(),
+            crate::baked_sheet_rons::current().pack_catalog_texts().len(),
             "a baked pack catalog failed parse/validate"
         );
         let mut coverage: Vec<(&str, usize)> = catalogs()

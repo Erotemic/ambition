@@ -32,9 +32,9 @@
 //! - A table with a file that does not parse is refused, with each file
 //!   named, and the running table stays.
 //!
-//! Not on this road yet: portraits,
-//! the pack catalogs and the prop sheets a running room drew. Each has its
-//! own process cache (see `docs/planning/engine/content-generation-and-reload.md`).
+//! Portrait manifests and sprite pack catalogs are on it too. Not on this road
+//! yet: the prop sheets a running room drew (see
+//! `docs/planning/engine/content-generation-and-reload.md`).
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -277,8 +277,9 @@ impl ChangeReports {
         use notify::Watcher;
         let (sender, receiver) = std::sync::mpsc::channel();
         let watcher = notify::recommended_watcher(sender).and_then(|mut watcher| {
-            for dir in sheet_table::sprite_dirs_under(owner).iter().filter(|dir| dir.is_dir()) {
-                watcher.watch(dir, notify::RecursiveMode::Recursive)?;
+            let dirs = sheet_table::sprite_dirs_under(owner).into_iter().chain([sheet_table::pack_catalog_dir_under(owner)]);
+            for dir in dirs.filter(|dir| dir.is_dir()) {
+                watcher.watch(&dir, notify::RecursiveMode::Recursive)?;
             }
             Ok(watcher)
         });
@@ -331,7 +332,12 @@ fn watched_file(path: &Path) -> bool {
     let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
         return false;
     };
-    name.ends_with("_spritesheet.ron") || name.ends_with(sheet_table::BODY_RIG_SUFFIX) || name.ends_with(PART_FLIPBOOK_SUFFIX) || name.ends_with(".png")
+    name.ends_with("_spritesheet.ron")
+        || name.ends_with(sheet_table::BODY_RIG_SUFFIX)
+        || name.ends_with(PART_FLIPBOOK_SUFFIX)
+        || name.ends_with("_portraits.ron")
+        || name == "ultrapack.json"
+        || name.ends_with(".png")
 }
 
 fn modified(path: &Path) -> Option<SystemTime> {
@@ -347,10 +353,15 @@ fn stamped_manifests(owner: &Path) -> Vec<(String, PathBuf, Option<SystemTime>)>
         .into_iter()
         .map(|(target, path)| (format!("{target}{}", sheet_table::BODY_RIG_SUFFIX), path));
     let flipbooks = part_flipbook_files_under(owner).into_iter().map(|(key, path)| (format!("{key}{PART_FLIPBOOK_SUFFIX}"), path));
+    // A portrait is keyed by its path under `assets/` and a catalog by its
+    // tier's: neither is a manifest key.
+    let catalogs = sheet_table::pack_catalog_files_under(owner).into_iter().map(|(tier, path)| (format!("sprite_packs/{tier}/ultrapack.json"), path));
     sheet_table::sheet_files_under(owner)
         .into_iter()
         .chain(rigs)
         .chain(flipbooks)
+        .chain(sheet_table::portrait_files_under(owner))
+        .chain(catalogs)
         .map(|(key, path)| {
             let seen = modified(&path);
             (key, path, seen)
@@ -376,12 +387,24 @@ fn pages_of(manifests: &[(String, PathBuf, Option<SystemTime>)]) -> Vec<PathBuf>
     let mut listed: std::collections::HashMap<PathBuf, Vec<PathBuf>> = std::collections::HashMap::new();
     let registry = sheet_table::current().registry();
     let mut pages = BTreeSet::new();
+    let portraits = sheet_table::current().portraits();
     for (key, path, _) in manifests {
+        let Some(dir) = path.parent() else {
+            continue;
+        };
+        if let Some(portrait) = portraits.get(key) {
+            pages.insert(dir.join(&portrait.image));
+            continue;
+        }
         // A flipbook's atlas pages are beside it, named after it
-        // (`<target>_parts.png`, `<target>_parts_1.png`).
-        let flipbook = path.file_name().and_then(|name| name.to_str()).and_then(|name| name.strip_suffix(PART_FLIPBOOK_SUFFIX));
-        if let (Some(target), Some(dir)) = (flipbook, path.parent()) {
-            let prefix = format!("{target}_parts");
+        // (`<target>_parts.png`, `<target>_parts_1.png`), and a pack tier's
+        // pages beside its catalog (`ultrapack_<n>.png`).
+        let name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+        let prefix = match name.strip_suffix(PART_FLIPBOOK_SUFFIX) {
+            Some(target) => Some(format!("{target}_parts")),
+            None => (name == "ultrapack.json").then(|| "ultrapack".to_owned()),
+        };
+        if let Some(prefix) = prefix {
             let files = listed
                 .entry(dir.to_path_buf())
                 .or_insert_with(|| std::fs::read_dir(dir).into_iter().flatten().flatten().map(|entry| entry.path()).collect());
@@ -393,7 +416,7 @@ fn pages_of(manifests: &[(String, PathBuf, Option<SystemTime>)]) -> Vec<PathBuf>
             pages.extend(pages_here);
             continue;
         }
-        let (Some(record), Some(dir)) = (registry.get(key), path.parent()) else {
+        let Some(record) = registry.get(key) else {
             continue;
         };
         for page in 0..record.page_count().max(1) {
@@ -465,6 +488,9 @@ fn publish_the_staged_sheets_between_sessions(world: &mut World) {
     let generation = sheet_table::publish_prepared_sheet_table(table);
     info!(target: "ambition_platformer2d::sprites", "sprite sheet generation {generation} published; changed: {staged:?}");
     world.insert_resource(ambition_sprite_sheet::baked_sheet_registry());
+    if world.contains_resource::<ambition_sprite_sheet::portrait::PortraitSheetRegistry>() {
+        world.insert_resource(ambition_sprite_sheet::portrait::baked_portrait_registry());
+    }
     let restaters = world.get_resource::<SheetDerivedRestaters>().cloned().unwrap_or_default();
     for (name, restate) in &restaters.0 {
         info!(target: "ambition_platformer2d::sprites", "restating `{name}` from sheet generation {generation}");

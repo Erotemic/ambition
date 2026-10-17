@@ -27,6 +27,12 @@ pub struct SheetGeneration {
     /// `(target, ron_text)` sorted by target.
     body_rigs: Vec<(&'static str, &'static str)>,
     part_tables: crate::baked_part_flipbooks::PartTables,
+    /// `(asset path, ron_text)` sorted by path.
+    portrait_rons: Vec<(&'static str, &'static str)>,
+    portraits: OnceLock<crate::portrait::PortraitSheetRegistry>,
+    /// `(tier, json_text)` sorted by tier.
+    pack_catalog_texts: Vec<(&'static str, &'static str)>,
+    pack_catalogs: OnceLock<std::collections::HashMap<&'static str, crate::SpritePackCatalog>>,
     /// Keyed by file root ([`crate::index_baked_table`]); its map is the
     /// record index.
     registry: crate::SheetRegistry,
@@ -39,7 +45,18 @@ impl SheetGeneration {
     fn new(id: u64, texts: SheetTexts) -> Self {
         let registry = crate::SheetRegistry::from_baked_table(&texts.sheets);
         let part_tables = crate::baked_part_flipbooks::PartTables::new(texts.part_flipbooks);
-        Self { id, rons: texts.sheets, body_rigs: texts.body_rigs, part_tables, registry, digest: OnceLock::new() }
+        Self {
+            id,
+            rons: texts.sheets,
+            body_rigs: texts.body_rigs,
+            part_tables,
+            portrait_rons: texts.portraits,
+            portraits: OnceLock::new(),
+            pack_catalog_texts: texts.pack_catalogs,
+            pack_catalogs: OnceLock::new(),
+            registry,
+            digest: OnceLock::new(),
+        }
     }
 
     fn of(id: u64, prepared: PreparedSheetTable) -> Self {
@@ -48,6 +65,10 @@ impl SheetGeneration {
             rons: prepared.texts.sheets,
             body_rigs: prepared.texts.body_rigs,
             part_tables: prepared.part_tables,
+            portrait_rons: prepared.texts.portraits,
+            portraits: OnceLock::from(prepared.portraits),
+            pack_catalog_texts: prepared.texts.pack_catalogs,
+            pack_catalogs: OnceLock::from(prepared.pack_catalogs),
             registry: prepared.registry,
             digest: OnceLock::new(),
         }
@@ -66,6 +87,27 @@ impl SheetGeneration {
     /// Every body rig, as `(target, ron_text)` sorted by target.
     pub fn body_rigs(&self) -> &[(&'static str, &'static str)] {
         &self.body_rigs
+    }
+
+    /// Every portrait manifest, as `(asset path, ron_text)` sorted by path.
+    pub fn portrait_rons(&self) -> &[(&'static str, &'static str)] {
+        &self.portrait_rons
+    }
+
+    /// The portrait manifests, parsed on the first ask.
+    pub fn portraits(&self) -> &crate::portrait::PortraitSheetRegistry {
+        self.portraits.get_or_init(|| crate::portrait::PortraitSheetRegistry::from_baked_table(&self.portrait_rons))
+    }
+
+    /// Each sprite pack tier's catalog, as `(tier, json_text)` sorted by tier.
+    pub fn pack_catalog_texts(&self) -> &[(&'static str, &'static str)] {
+        &self.pack_catalog_texts
+    }
+
+    /// The sprite pack catalogs, keyed by tier, parsed on the first ask. A
+    /// tier that does not parse or validate is disabled.
+    pub fn pack_catalogs(&self) -> &std::collections::HashMap<&'static str, crate::SpritePackCatalog> {
+        self.pack_catalogs.get_or_init(|| crate::sprite_packs::catalogs_of(&self.pack_catalog_texts))
     }
 
     /// The part flipbooks and what is derived from them.
@@ -107,13 +149,32 @@ fn first_table() -> SheetTexts {
         SheetTexts {
             sheets: BAKED_SHEET_RONS.to_vec(),
             body_rigs: crate::baked_body_rigs::BAKED_BODY_RIGS.to_vec(),
-            part_flipbooks: crate::baked_part_flipbooks::first_rows(),
+            part_flipbooks: crate::baked_part_flipbooks::BAKED_PART_FLIPBOOKS.to_vec(),
+            portraits: crate::baked_portrait_rons::BAKED_PORTRAIT_RONS.to_vec(),
+            pack_catalogs: crate::sprite_packs::baked::BAKED_PACK_CATALOGS.to_vec(),
         }
     }
     #[cfg(not(embedded_sprites))]
     {
         read_sheet_table_under(crate::published_tree::owner())
     }
+}
+
+/// The folder of the sprite pack catalogs of the tree under `owner`, one
+/// folder for each tier.
+pub fn pack_catalog_dir_under(owner: &std::path::Path) -> std::path::PathBuf {
+    owner.join("assets/sprite_packs")
+}
+
+/// Each sprite pack catalog of the tree under `owner`, keyed by its tier.
+pub fn pack_catalog_files_under(owner: &std::path::Path) -> Vec<(String, std::path::PathBuf)> {
+    crate::sprite_tree::pack_catalogs(owner)
+}
+
+/// Each portrait manifest of the tree under `owner`, keyed by its path under
+/// `assets/`.
+pub fn portrait_files_under(owner: &std::path::Path) -> Vec<(String, std::path::PathBuf)> {
+    crate::sprite_tree::portrait_manifests(owner)
 }
 
 /// The texts of one sheet generation.
@@ -126,6 +187,10 @@ pub struct SheetTexts {
     /// Every part flipbook, sorted by key. Named, not read: a flipbook is
     /// read where it is decoded.
     pub part_flipbooks: Vec<crate::baked_part_flipbooks::PartFlipbookRow>,
+    /// Every portrait manifest, as `(asset path, ron_text)` sorted by path.
+    pub portraits: Vec<(&'static str, &'static str)>,
+    /// Each sprite pack tier's catalog, as `(tier, json_text)` sorted by tier.
+    pub pack_catalogs: Vec<(&'static str, &'static str)>,
 }
 
 impl SheetTexts {
@@ -136,6 +201,8 @@ impl SheetTexts {
             sheets: generation.rons().to_vec(),
             body_rigs: generation.body_rigs().to_vec(),
             part_flipbooks: generation.part_tables().rows().to_vec(),
+            portraits: generation.portrait_rons().to_vec(),
+            pack_catalogs: generation.pack_catalog_texts().to_vec(),
         }
     }
 }
@@ -162,6 +229,8 @@ pub struct PreparedSheetTable {
     texts: SheetTexts,
     registry: crate::SheetRegistry,
     part_tables: crate::baked_part_flipbooks::PartTables,
+    portraits: crate::portrait::PortraitSheetRegistry,
+    pack_catalogs: std::collections::HashMap<&'static str, crate::SpritePackCatalog>,
 }
 
 /// Parse and check `texts`. A table with a sheet that does not parse, a body
@@ -180,12 +249,14 @@ pub fn prepare_sheet_table(texts: SheetTexts) -> Result<PreparedSheetTable, Shee
             failed.push((format!("{target}_body_rig.ron"), error));
         }
     }
-    if !failed.is_empty() {
+    let portraits = crate::portrait::PortraitSheetRegistry::checked(&texts.portraits).map_err(|mut refused| failed.append(&mut refused));
+    let pack_catalogs = crate::sprite_packs::checked_catalogs(&texts.pack_catalogs).map_err(|mut refused| failed.append(&mut refused));
+    let (Ok(portraits), Ok(pack_catalogs), true) = (portraits, pack_catalogs, failed.is_empty()) else {
         return Err(SheetTableRefused(failed));
-    }
+    };
     let part_tables = crate::baked_part_flipbooks::PartTables::prepared(texts.part_flipbooks.clone(), current().part_tables())
         .map_err(SheetTableRefused)?;
-    Ok(PreparedSheetTable { texts, registry: crate::SheetRegistry::from_index(index), part_tables })
+    Ok(PreparedSheetTable { texts, registry: crate::SheetRegistry::from_index(index), part_tables, portraits, pack_catalogs })
 }
 
 /// Make `prepared` the sheet table every reader reads, with the records
@@ -268,6 +339,8 @@ pub fn read_sheet_table_under(owner: &std::path::Path) -> SheetTexts {
             sheets: crate::published_tree::texts(sheet_files_under(owner)),
             body_rigs: crate::published_tree::texts(body_rig_files_under(owner)),
             part_flipbooks: crate::baked_part_flipbooks::rows_under(owner),
+            portraits: crate::published_tree::texts(portrait_files_under(owner)),
+            pack_catalogs: crate::published_tree::texts(pack_catalog_files_under(owner)),
         }
     }
 }

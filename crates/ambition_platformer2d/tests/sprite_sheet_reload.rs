@@ -126,6 +126,55 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     let refused = app.world().resource::<SpriteSheetWatch>().refused.clone();
     assert!(refused.as_deref().is_some_and(|why| why.contains(&format!("{PROBE}_parts.ron"))), "the refusal does not name the flipbook: {refused:?}");
     assert_eq!(feet_x(), Some(120.0), "a broken flipbook changed the running one");
+    std::fs::write(&flipbook, feet("120.0")).unwrap();
+
+    // A portrait manifest and a sprite pack catalog are parts of it too: the
+    // `PortraitSheetRegistry` resource is stated again with the generation.
+    use ambition_sprite_sheet::portrait::{available_portrait_targets, PortraitSheetRegistry};
+    use ambition_sprite_sheet::sprite_packs::catalog_for_tier;
+    let portrait = sprites.join(format!("{PROBE}_portraits.ron"));
+    let portrait_key = format!("sprites/{PROBE}_portraits.ron");
+    let portrait_text = |width: u32| {
+        format!(
+            r#"(target: "{PROBE}", image: "{PROBE}_portraits.png", frame_width: {width}, frame_height: 320, default_clip: "default",
+                clips: {{ "default": (duration_ms: 0, looping: false, frames: [(x: 0, y: 0, w: {width}, h: 320)]) }})"#
+        )
+    };
+    let catalog = owner.join("assets/sprite_packs/full/ultrapack.json");
+    std::fs::create_dir_all(catalog.parent().unwrap()).unwrap();
+    let catalog_text = |page_size: u32| format!(r#"{{"page_size": {page_size}, "scale": 1.0, "pages": [], "targets": {{}}}}"#);
+    app.init_resource::<PortraitSheetRegistry>();
+    let widths = |app: &App| {
+        let of = |registry: &PortraitSheetRegistry| registry.get(&portrait_key).map(|manifest| manifest.frame_width);
+        (of(&ambition_sprite_sheet::portrait::baked_portrait_registry()), of(app.world().resource::<PortraitSheetRegistry>()))
+    };
+    let page_size = || catalog_for_tier("full").map(|catalog| catalog.page_size);
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&portrait, portrait_text(256)).unwrap();
+    std::fs::write(&catalog, catalog_text(64)).unwrap();
+    look(&mut app);
+    assert_eq!(app.world().resource::<SpriteSheetWatch>().refused, None);
+    assert_eq!(widths(&app), (Some(256), Some(256)), "an added portrait is not in the generation or the resource");
+    assert!(available_portrait_targets().contains(&PROBE), "the portrait vocabulary is not the generation's");
+    assert_eq!(page_size(), Some(64), "an added catalog is not in the generation");
+
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&portrait, portrait_text(128)).unwrap();
+    look(&mut app);
+    assert_eq!(widths(&app), (Some(128), Some(128)), "the portrait is not the saved file");
+    // Alone: a change to another file reads the whole table again.
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&catalog, catalog_text(128)).unwrap();
+    look(&mut app);
+    assert_eq!(page_size(), Some(128), "the catalog is not the saved file");
+
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&portrait, "(target: ").unwrap();
+    std::fs::write(&catalog, "{ \"page_size\": ").unwrap();
+    look(&mut app);
+    let refused = app.world().resource::<SpriteSheetWatch>().refused.clone().unwrap_or_default();
+    assert!(refused.contains(&portrait_key) && refused.contains("sprite_packs/full/ultrapack.json"), "the refusal does not name both files: {refused}");
+    assert_eq!((widths(&app), page_size()), ((Some(128), Some(128)), Some(128)), "a broken portrait or catalog changed the running ones");
     let _ = std::fs::remove_dir_all(&owner);
 }
 

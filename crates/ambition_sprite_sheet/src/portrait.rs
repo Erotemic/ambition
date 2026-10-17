@@ -177,6 +177,20 @@ impl PortraitSheetRegistry {
         registry
     }
 
+    /// [`Self::from_baked_table`], or each manifest that does not parse,
+    /// with its error.
+    pub(crate) fn checked(table: &[(&str, &str)]) -> Result<Self, Vec<(String, String)>> {
+        let failed: Vec<(String, String)> = table
+            .iter()
+            .filter_map(|(path, text)| parse_portrait_manifest(text).err().map(|error| ((*path).to_owned(), error)))
+            .collect();
+        if failed.is_empty() {
+            Ok(Self::from_baked_table(table))
+        } else {
+            Err(failed)
+        }
+    }
+
     pub fn get(&self, manifest_path: &str) -> Option<&PortraitSheetManifest> {
         self.manifests.get(&normalize_manifest_path(manifest_path))
     }
@@ -315,8 +329,9 @@ fn normalize_manifest_path(path: &str) -> String {
     path.trim_start_matches("./").replace('\\', "/")
 }
 
+/// The portrait registry of the current sheet generation.
 pub fn baked_portrait_registry() -> PortraitSheetRegistry {
-    PortraitSheetRegistry::from_baked_table(crate::baked_portrait_rons::portrait_rons())
+    crate::baked_sheet_rons::current().portraits().clone()
 }
 
 /// Every baked portrait target, sorted: the vocabulary a character's
@@ -324,24 +339,10 @@ pub fn baked_portrait_registry() -> PortraitSheetRegistry {
 /// `character::sheets::available_targets`. The vocabulary is baked, so a
 /// provider need not supply it to get a typo caught.
 ///
-/// `OnceLock`, because [`baked_portrait_registry`] parses. Preparation runs per
-/// character, and building the registry there would parse every baked portrait
-/// manifest once per character. The sheet index uses a process-global
-/// `OnceLock` for the same reason, as an immutable asset cache.
+/// Read from the current sheet generation, which parses its portraits once.
 pub fn available_portrait_targets() -> Vec<&'static str> {
-    static INDEX: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
-    INDEX
-        .get_or_init(|| {
-            let mut out: Vec<String> = baked_portrait_registry()
-                .available_targets()
-                .map(str::to_owned)
-                .collect();
-            out.sort_unstable();
-            out
-        })
-        .iter()
-        .map(String::as_str)
-        .collect()
+    // Sorted: the targets are the keys of a `BTreeMap`.
+    crate::baked_sheet_rons::current().portraits().available_targets().collect()
 }
 
 /// Install the compile-time portrait manifest index. Presentation code consumes

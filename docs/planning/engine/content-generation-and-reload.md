@@ -556,8 +556,16 @@ flipbook changed; the watch reloads an edited flipbook's atlas pages
 (`<target>_parts*.png`) at once. The old generation drops its decoded tables
 at the publication. Witness: the flipbook arm of `sprite_sheet_reload`. A
 tier table is not decoded at the preparation, so a broken one is still found
-where a sheet realizes it. Not yet on the road:
-landmarks, portraits, pack catalogs, the prop sheets a room drew, and a body
+where a sheet realizes it. The portrait manifests (`*_portraits.ron`) and
+the sprite pack catalogs (`sprite_packs/<tier>/ultrapack.json`) are parts of
+the generation too: a manifest that does not parse or a catalog that does
+not parse or validate refuses the table with the file named, the
+`PortraitSheetRegistry` resource is stated again at the publication, and the
+portrait vocabulary a cast is prepared against is the generation's (the
+portrait and catalog arms of `sprite_sheet_reload`; red with the resource
+not stated again, with no portrait or catalog check, and with the catalogs
+not watched). Not yet on the road:
+the prop sheets a room drew, and a body
 already bound at the same tier (the generation key above). The retire and
 the page reload have no witness of their own.
 

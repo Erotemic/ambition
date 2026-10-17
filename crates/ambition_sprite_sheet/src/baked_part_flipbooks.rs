@@ -92,18 +92,6 @@ pub fn part_flipbooks() -> &'static [PartFlipbookRow] {
     crate::baked_sheet_rons::current().part_tables().rows()
 }
 
-/// The flipbooks the process reads first.
-pub(crate) fn first_rows() -> Vec<PartFlipbookRow> {
-    #[cfg(embedded_sprites)]
-    {
-        BAKED_PART_FLIPBOOKS.to_vec()
-    }
-    #[cfg(not(embedded_sprites))]
-    {
-        rows_under(crate::published_tree::owner())
-    }
-}
-
 /// The suffix of a part flipbook file after its key.
 pub const PART_FLIPBOOK_SUFFIX: &str = "_parts.ron";
 

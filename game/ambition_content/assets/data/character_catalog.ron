@@ -471,7 +471,8 @@
                 damage: 3,
                 visual: Some("pistol_round"),
                 refire_s: 0.18,
-                aim_assist: Some((max_angle_rad: 0.35, max_range: 520.0)),
+                // Burst direction is a committed lane, not a homing stream.
+                aim_assist: None,
                 discharge: Some((muzzle: Hand(ahead: 40.0))),
             ))),
         ),
@@ -4887,6 +4888,9 @@
                 attack_range: 480.0,
                 patrol_effort: 0.3,
                 chase_effort: 0.7,
+                // Hold aim, fire through the gun's own 0.18 s refire gate,
+                // then provide a clear interval to close the distance.
+                ranged_volley: Some((windup_s: 0.55, firing_s: 0.78, recovery_s: 1.45)),
                 shares_sightings: true,
             )),
             max_health: Some(10),

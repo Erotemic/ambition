@@ -591,6 +591,29 @@ impl SnapshotCursor for crate::brain::Brain {
                 put_f32(out, state.until);
                 put_u32(out, state.picks);
             }
+            Brain::StateMachine(StateMachineCfg::Skirmisher { state, .. }) => {
+                use crate::brain::state_machine::RangedVolleyPhase as P;
+                put_u8(out, 5);
+                put_f32(out, state.cooldown_remaining);
+                put_f32(out, state.orbit_phase);
+                match state.volley_phase {
+                    P::Ready => put_u8(out, 0),
+                    P::Windup { remaining, aim } => {
+                        put_u8(out, 1);
+                        put_f32(out, remaining);
+                        put_vec2(out, aim);
+                    }
+                    P::Firing { remaining, aim } => {
+                        put_u8(out, 2);
+                        put_f32(out, remaining);
+                        put_vec2(out, aim);
+                    }
+                    P::Recovery { remaining } => {
+                        put_u8(out, 3);
+                        put_f32(out, remaining);
+                    }
+                }
+            }
             _ => put_u8(out, 0),
         }
     }
@@ -747,6 +770,7 @@ impl SnapshotState for crate::control::ActorControl {
                 ae::AttackStrengthHint::Smash => 2,
             },
         );
+        put_bool(out, f.ranged_aim_held);
         match &f.fire {
             None => put_bool(out, false),
             Some(fire) => {
@@ -817,6 +841,7 @@ impl SnapshotState for crate::control::ActorControl {
             // would desync one peer's tilt into another's smash.
             _ => return None,
         };
+        let ranged_aim_held = r.bool()?;
         let fire = if r.bool()? {
             Some(ActorFireRequest {
                 dir: r.vec2()?,
@@ -843,6 +868,7 @@ impl SnapshotState for crate::control::ActorControl {
             melee_held,
             melee_released,
             melee_strength_hint,
+            ranged_aim_held,
             fire,
             attack_axis,
             jump_pressed: flags[0],
@@ -870,6 +896,25 @@ impl SnapshotState for crate::control::ActorControl {
             blink_aim_step: ae::WorldVec2(r.vec2()?),
             aim: ae::LocalAxes::from_vec(r.vec2()?),
         }))
+    }
+}
+
+#[cfg(test)]
+mod volley_control_snapshot_tests {
+    use crate::actor::control::ActorControlFrame;
+    use crate::control::ActorControl;
+    use ambition_platformer2d_core::snapshot::{decode_state, encode_state};
+
+    #[test]
+    fn held_aim_and_ranged_fire_survive_a_rollback_round_trip() {
+        let mut frame = ActorControlFrame::neutral();
+        frame.ranged_aim_held = true;
+        frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
+            ambition_platformer2d_core::Vec2::new(-1.0, 0.0),
+        ));
+        let bytes = encode_state(&ActorControl(frame));
+        let restored: ActorControl = decode_state(&bytes).expect("decode actor intent");
+        assert_eq!(restored.0, frame);
     }
 }
 

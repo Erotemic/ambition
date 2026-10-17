@@ -335,6 +335,7 @@ fn skirmisher_brain_from_tuning(
             strafe_speed: profile.chase_speed(tuning.max_run_speed),
             fire_cooldown_s,
             orbit_drift_rad_s,
+            ranged_volley: profile.ranged_volley,
         },
         state: SkirmisherState {
             cooldown_remaining: initial_cooldown_s,

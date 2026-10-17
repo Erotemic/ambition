@@ -226,6 +226,9 @@ pub struct ActorControlFrame {
     /// Tilt, so a tilt-stick's full deflection armed a flick and came out Smash
     /// regardless.
     pub melee_strength_hint: AttackStrengthHint,
+    /// Sustain: the controller aims a ranged attack before release.
+    /// This is a presentation cue, not an attempt to fire a shot.
+    pub ranged_aim_held: bool,
     /// Brain wants to fire a projectile this tick. `Some` carries the
     /// launch direction + speed; `None` is "no shot".
     pub fire: Option<ActorFireRequest>,

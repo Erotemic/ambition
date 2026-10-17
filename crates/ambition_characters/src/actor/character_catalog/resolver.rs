@@ -95,6 +95,7 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
                 // is the data-driven NPC spawn helper and uses a
                 // sensible fallback.
                 orbit_drift_rad_s: 0.6,
+                ranged_volley: None,
             },
             state: SkirmisherState::default(),
         },

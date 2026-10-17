@@ -35,6 +35,11 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.add_plugins(crate::rendering::WorldLabelLayoutPlugin);
         // Room/parallax passes consume the resolved quality budget; install its idempotent owner.
         app.add_plugins(crate::quality::VisualQualityPlugin);
+        // The room's terrain skin is chunks of `Mesh2d`: a chunk whose mesh the
+        // upload budget holds back must still be drawn when it arrives.
+        if !app.is_plugin_added::<crate::mesh2d_late_meshes::Mesh2dLateMeshPlugin>() {
+            app.add_plugins(crate::mesh2d_late_meshes::Mesh2dLateMeshPlugin);
+        }
         app.init_resource::<PhysicsSandboxSettings>();
         // The loader's outcome, read by presentation: see `ParallaxThemeAttempts`.
         app.init_resource::<crate::rendering::ParallaxThemeAttempts>();

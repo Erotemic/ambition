@@ -509,6 +509,25 @@ fn pick_actor(
 }
 
 #[test]
+fn actor_ranged_warning_uses_the_aim_pose_then_shoot_pulse_wins() {
+    let mut c = PickClusters::defaults();
+    c.ground.on_ground = true;
+    assert_eq!(pick_actor(&c, None, actor_state()), CharacterAnim::Idle);
+    assert_eq!(
+        pick_actor(&c, None, ActorAnimState { aiming: true, ..actor_state() }),
+        CharacterAnim::Aim,
+    );
+    assert_eq!(
+        pick_actor(&c, None, ActorAnimState {
+            aiming: true,
+            shooting: true,
+            ..actor_state()
+        }),
+        CharacterAnim::Shoot,
+    );
+}
+
+#[test]
 fn actors_show_movement_overlay_poses_like_the_player() {
     // §A9: the movement-driven overlays (wall-jump / dash-startup / landing) are
     // no longer player-only — an actor whose BodyAnimFacts armed one shows that

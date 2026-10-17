@@ -349,6 +349,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                     .filter(|f| f.land_anim_timer > 0.0)
                     .map(|f| f.land_anim_hard),
                 shooting: a.anim.is_some_and(|f| f.shoot_anim_timer > 0.0),
+                aiming: a.anim.is_some_and(|f| f.aim_anim_active),
                 rolling: a.anim.is_some_and(|f| f.rolling),
                 held: a.anim.is_some_and(|f| f.held),
             },

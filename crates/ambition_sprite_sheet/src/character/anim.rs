@@ -303,7 +303,8 @@ impl CharacterAnim {
             // Ranged / charge.
             Shoot => Idle,
             Charge => Aim,
-            Aim => Idle,
+            // A body without a separate aim row can use its braced shoot pose.
+            Aim => Shoot,
             // Defensive / utility.
             Block => Idle,
             // Without a ball row, the held last tumble frame is better than a run.

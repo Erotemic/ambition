@@ -641,16 +641,18 @@ pub fn gate_body_control(
     mut bodies: Query<
         (
             Entity,
-            &ActionSet,
+            bevy::prelude::Ref<ActionSet>,
             // The body's live combat/ability authorities — the SAME inputs the
             // control-prompt read-model derives its labels from. The gate resolves
             // them through the shared `derive_action_scheme` so what a slot GATES
             // here and what the prompt SHOWS are one derivation (no UI drift).
-            &ambition_platformer2d_core::BodyAbilities,
-            Option<&ActorMoveset>,
-            Option<&ambition_characters::action_scheme::ActorTechniques>,
+            // `Ref`: the scheme is derived again only when one of them changed.
+            bevy::prelude::Ref<ambition_platformer2d_core::BodyAbilities>,
+            Option<bevy::prelude::Ref<ActorMoveset>>,
+            Option<bevy::prelude::Ref<ambition_characters::action_scheme::ActorTechniques>>,
             // A worn row can put a technique on a slot.
-            Option<&ambition_characters::equipment::WornEquipment>,
+            Option<bevy::prelude::Ref<ambition_characters::equipment::WornEquipment>>,
+            &mut ambition_characters::action_scheme::DerivedActionScheme,
             &mut ambition_characters::control::ActorControl,
             // Sanctioned technique edges: when a slot resolves to `Technique`, the
             // gate routes the slot's device edge here (and clears the raw verb),
@@ -669,6 +671,7 @@ pub fn gate_body_control(
     use ambition_characters::action_scheme::{
         derive_action_scheme, resolve_control_slots, techniques_of,
     };
+    use bevy::prelude::DetectChanges as _;
 
     let subject = subject.0;
     let driven = subject.and_then(|subject| driven.of(subject));
@@ -679,30 +682,49 @@ pub fn gate_body_control(
         moveset,
         techniques,
         worn,
+        mut derived,
         mut control,
         mut edges,
         has_charge_marker,
         holds_item,
     ) in &mut bodies
     {
-        // THE shared resolver — byte-identical to the call the ControlPrompt
-        // producer makes on the same immediate authorities.
-        let techniques = techniques_of(
-            techniques,
-            driven.as_ref().filter(|_| subject == Some(entity)),
-            worn,
-        );
-        let scheme = derive_action_scheme(
-            &abilities.abilities,
-            moveset.map(|m| &m.0),
-            Some(actions),
-            &techniques,
-        );
+        let driven_here = driven.as_ref().filter(|_| subject == Some(entity));
+        let present = [moveset.is_some(), techniques.is_some(), worn.is_some()];
+        // The authorities change at loading, a pickup or a re-wear, not each
+        // tick (findings F16): a quiet tick reuses the scheme.
+        let stale = derived.scheme.is_none()
+            || actions.is_changed()
+            || abilities.is_changed()
+            || moveset.as_ref().is_some_and(|m| m.is_changed())
+            || techniques.as_ref().is_some_and(|t| t.is_changed())
+            || worn.as_ref().is_some_and(|w| w.is_changed())
+            || derived.present != present
+            || derived.driven.as_ref() != driven_here;
+        if stale {
+            // THE shared resolver — byte-identical to the call the ControlPrompt
+            // producer makes on the same immediate authorities.
+            let techniques = techniques_of(techniques.as_deref(), driven_here, worn.as_deref());
+            let scheme = derive_action_scheme(
+                &abilities.abilities,
+                moveset.as_ref().map(|m| &m.0),
+                Some(&*actions),
+                &techniques,
+            );
+            *derived = ambition_characters::action_scheme::DerivedActionScheme {
+                scheme: Some(scheme),
+                driven: driven_here.cloned(),
+                present,
+            };
+        }
+        let Some(scheme) = derived.scheme.as_ref() else {
+            continue;
+        };
 
         // Per-slot dispatch: route every technique to its sanctioned edge, strip
         // the verbs the scheme doesn't own (Attack/Special/Projectile), and keep
         // the moveset `Move`s.
-        let unroutable = resolve_control_slots(&scheme, &mut control.0, &mut *edges, holds_item);
+        let unroutable = resolve_control_slots(scheme, &mut control.0, &mut *edges, holds_item);
         debug_assert!(
             unroutable.is_empty(),
             "action scheme declared a technique on a slot the combat gate cannot route \

@@ -3110,3 +3110,86 @@ fn the_driven_body_wears_the_techniques_of_its_own_live_room() {
     assert!(spins_in(true), "the driven body on the Smash stage (#1) did not wear Smash's technique");
     assert!(!spins_in(false), "the driven body in the hall (#0) wore Smash's technique");
 }
+
+/// The gate keeps the scheme it derived (findings F16). A quiet tick does not
+/// derive it again. A changed, added or removed authority derives it again,
+/// and the result is the scheme a fresh derivation of the body gives.
+#[test]
+fn the_gate_derives_the_scheme_again_only_when_an_authority_changed() {
+    use ambition_characters::action_scheme::{
+        derive_action_scheme, ActorTechniques, DerivedActionScheme,
+    };
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::ActionSet;
+    use ambition_characters::control::ActorControl;
+    use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
+    use ambition_platformer2d_core::{AbilitySet, BodyAbilities};
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
+    app.add_systems(Update, gate_body_control);
+    let body = app
+        .world_mut()
+        .spawn((
+            BodyAbilities::new(AbilitySet::sandbox_all()),
+            ActionSet::peaceful(),
+            ActorControl(ActorControlFrame::neutral()),
+        ))
+        .id();
+    let spin = ActionSpec {
+        id: ActionId::new("spin_dash"),
+        slot: ControlSlot::Attack,
+        display_name: None,
+        visual: None,
+        gate: ActionGate::Technique("spin_dash".to_owned()),
+    };
+    // The authority: a fresh derivation from the body as it is now.
+    let fresh = |app: &App| {
+        let world = app.world();
+        let techniques = world.get::<ActorTechniques>(body).map(|t| t.0.clone()).unwrap_or_default();
+        derive_action_scheme(
+            &world.get::<BodyAbilities>(body).unwrap().abilities,
+            None,
+            world.get::<ActionSet>(body),
+            &techniques,
+        )
+    };
+    let derived_tick = |app: &App| {
+        app.world()
+            .entity(body)
+            .get_ref::<DerivedActionScheme>()
+            .unwrap()
+            .last_changed()
+    };
+    let derived = |app: &App| {
+        app.world().get::<DerivedActionScheme>(body).unwrap().scheme.clone().unwrap()
+    };
+
+    app.update();
+    assert_eq!(derived(&app), fresh(&app), "the first tick derives the scheme");
+    let first = derived_tick(&app);
+    app.update();
+    app.update();
+    assert_eq!(derived_tick(&app), first, "a quiet tick reuses the scheme");
+
+    app.world_mut().entity_mut(body).insert(ActorTechniques(vec![spin]));
+    app.update();
+    assert!(
+        derived(&app).actions.iter().any(|a| a.id.as_str() == "spin_dash"),
+        "an added technique is on the scheme"
+    );
+    assert_eq!(derived(&app), fresh(&app), "an added authority derives again");
+
+    app.world_mut().entity_mut(body).remove::<ActorTechniques>();
+    app.update();
+    assert_eq!(derived(&app), fresh(&app), "a removed authority derives again");
+
+    let before = derived(&app);
+    app.world_mut().get_mut::<BodyAbilities>(body).unwrap().abilities = AbilitySet::basic();
+    app.update();
+    assert_ne!(derived(&app), before, "fewer abilities give another scheme");
+    assert_eq!(derived(&app), fresh(&app), "a changed authority derives again");
+}

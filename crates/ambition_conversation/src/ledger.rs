@@ -294,7 +294,7 @@ impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
                 Update,
                 NarrativeLedgersForget
                     .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate)
-                    .run_if(resource_exists::<Messages<SessionScopeActivated>>.and(on_message::<SessionScopeActivated>)),
+                    .run_if(resource_exists::<Messages<SessionScopeActivated>>.and_then(on_message::<SessionScopeActivated>)),
             );
         }
     }

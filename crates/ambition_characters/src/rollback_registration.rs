@@ -128,6 +128,11 @@ where
         "derived.resolved_technique_edges",
         "cleared and republished from current input every frame",
     );
+    registrar.declare_rollback_derived_component::<crate::action_scheme::DerivedActionScheme>(
+        OWNER,
+        "derived.action_scheme",
+        "derived again by the control gate when an authority it reads changed; a rewind marks a differing authority changed",
+    );
     registrar
         .declare_rollback_derived_component::<crate::actor::attack_gesture::ResolvedAttackGesture>(
         OWNER,

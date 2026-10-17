@@ -30,7 +30,7 @@ use bevy::ecs::component::Component;
 /// can come from the rules as well as from the body, so each such body needs
 /// somewhere to receive a technique's edge.
 #[derive(Component, Clone, Debug, Default, PartialEq, serde::Serialize)]
-#[require(crate::action_scheme::ResolvedTechniqueEdges)]
+#[require(crate::action_scheme::ResolvedTechniqueEdges, crate::action_scheme::DerivedActionScheme)]
 pub struct ActionSet {
     /// What `frame.melee_pressed = true` resolves to. `None` means
     /// the actor has no melee at all (peaceful patroller, puppy slug,

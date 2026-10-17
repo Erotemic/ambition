@@ -148,6 +148,7 @@ cutscene.last_room	component-canonical	LastCutsceneRoom	bevy_ggrs canonical code
 cutscene.playback	resource-canonical	ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.skip_hold	resource-canonical	CutsceneSkipHold	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 derived.ability_contributions	derived	AbilityContributions	each source rewrites its own key from its own state before integration every tick
+derived.action_scheme	derived	DerivedActionScheme	derived again by the control gate when an authority it reads changed; a rewind marks a differing authority changed
 derived.actor_decision_facts	derived	ActorDecisionFacts	rebuilt from authoritative body state before every autonomous decision phase
 derived.actor_decision_frames	derived	ActorDecisionFrames	rebuilt by autonomous decision and consumed by same-tick control publication
 derived.actor_steering	derived	ActorSteering	rebuilt from the authoritative actor population before movement

@@ -353,3 +353,49 @@ fn a_body_rides_a_swinging_plank() {
     // Back level, the body is where it stood along the plank.
     assert!((scratch.kinematics.pos.x - pivot.x - along).abs() < 2.0, "it slid along the plank: {} -> {}", along, scratch.kinematics.pos.x - pivot.x);
 }
+
+/// A solid outline (`SurfaceKind::Solid`, what a portal pair carries of a
+/// block it turns): a body that walks into its side is stopped there, and one
+/// that falls on its top stands on it — both where the turned shape is, not
+/// where the box around it is.
+#[test]
+fn a_body_meets_a_turned_solid_as_its_shape() {
+    // A square of 80 turned by 30 degrees on the floor: its lowest corner
+    // touches nothing, its top is a 30 degree slope.
+    let centre = Vec2::new(600.0, 780.0);
+    let turn = Vec2::from_angle(30f32.to_radians());
+    let corners: Vec<Vec2> =
+        [Vec2::new(-40.0, -40.0), Vec2::new(40.0, -40.0), Vec2::new(40.0, 40.0), Vec2::new(-40.0, 40.0)].iter().map(|c| centre + turn.rotate(*c)).collect();
+    let mut world = test_world();
+    world.chains.push(SurfaceChain::solid("turned", corners.clone()));
+    let inside = |p: Vec2| crate::solid_lines::push_out(crate::Aabb::new(p, Vec2::splat(0.25)), &corners).is_some();
+    // Walk at it from the left: stopped at its face, never in it.
+    let mut scratch = standing_body(400.0);
+    for tick in 0..240 {
+        step_scratch(&world, &mut scratch, walk(1.0));
+        let body = scratch.kinematics.aabb_oriented(DOWN);
+        assert!(
+            crate::solid_lines::push_out(body, &corners).is_none(),
+            "in the solid on tick {tick} at {:?}",
+            scratch.kinematics.pos
+        );
+    }
+    // The box around it begins at x = 545.4, and its face at the body's
+    // height is further right: the body comes past where the box would have
+    // stopped it, to the face.
+    let front = scratch.kinematics.aabb_oriented(DOWN).max.x;
+    assert!(front > 550.0 && front < 600.0, "not stopped at the turned face: {front}");
+    let body = scratch.kinematics.aabb_oriented(DOWN);
+    assert!(
+        (body.min.y as i32..body.max.y as i32).any(|y| inside(Vec2::new(front + 3.0, y as f32))),
+        "the face is not where it stopped: {body:?}"
+    );
+    // Dropped on its top, it stands there, above the box around it nowhere.
+    let mut scratch = BodyClusterScratch::new_with_abilities(centre + Vec2::new(0.0, -120.0), AbilitySet::sandbox_all());
+    for _ in 0..120 {
+        step_scratch(&world, &mut scratch, InputState::default());
+    }
+    assert!(scratch.ground.on_ground, "it does not stand on the top: {:?}", scratch.kinematics.pos);
+    assert!(crate::solid_lines::push_out(scratch.kinematics.aabb_oriented(DOWN), &corners).is_none());
+    assert!(scratch.kinematics.pos.y < centre.y - 40.0, "{:?}", scratch.kinematics.pos);
+}

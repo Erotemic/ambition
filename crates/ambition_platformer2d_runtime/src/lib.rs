@@ -40,6 +40,7 @@ mod portal_schedule;
 #[cfg(feature = "portal")]
 mod portal_seat;
 mod progression_schedule;
+pub mod posed_limbs;
 pub mod profile;
 pub mod projectile_schedule;
 /// Backend-neutral rollback schema composition and exact prepared-content identity.

@@ -38,15 +38,15 @@ pub(super) fn test_world() -> World {
         name: "movement test world".to_string(),
         size: Vec2::new(w, h),
         spawn: Vec2::new(210.0, h - 95.0),
-        blocks: vec![
+        blocks: (vec![
             crate::world::Block::solid("floor", Vec2::new(0.0, h - 48.0), Vec2::new(w, 48.0)),
             crate::world::Block::solid("left wall", Vec2::new(0.0, 0.0), Vec2::new(36.0, h)),
             crate::world::Block::solid("right wall", Vec2::new(w - 36.0, 0.0), Vec2::new(36.0, h)),
             crate::world::Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(w, 24.0)),
-        ],
+        ]).into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     }
 }

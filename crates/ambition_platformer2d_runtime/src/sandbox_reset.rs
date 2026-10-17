@@ -691,14 +691,14 @@ mod tests {
             name: "reset wiring".to_string(),
             size: ae::Vec2::new(1600.0, 900.0),
             spawn: ae::Vec2::new(120.0, 800.0),
-            blocks: vec![ae::world::Block::solid(
+            blocks: (vec![ae::world::Block::solid(
                 "floor",
                 ae::Vec2::new(0.0, 848.0),
                 ae::Vec2::new(1600.0, 48.0),
-            )],
+            )]).into(),
             water_regions: Vec::new(),
             climbable_regions: Vec::new(),
-            chains: Vec::new(),
+            chains: (Vec::new()).into(),
             edges: Default::default(),
         };
         let mut scratch = ae::BodyClusterScratch::new_with_abilities(
@@ -748,14 +748,14 @@ mod subjectless_replay_tests {
             name: room_id.to_string(),
             size: ae::Vec2::new(640.0, 480.0),
             spawn: ae::Vec2::new(64.0, 400.0),
-            blocks: vec![ae::world::Block::solid(
+            blocks: (vec![ae::world::Block::solid(
                 "floor",
                 ae::Vec2::new(0.0, 440.0),
                 ae::Vec2::new(640.0, 40.0),
-            )],
+            )]).into(),
             water_regions: Vec::new(),
             climbable_regions: Vec::new(),
-            chains: Vec::new(),
+            chains: (Vec::new()).into(),
             edges: Default::default(),
         };
         ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(

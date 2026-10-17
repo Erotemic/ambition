@@ -324,6 +324,7 @@ fn defeat_the_rooms_hostiles(app: &mut App) -> Vec<String> {
     for (entity, _, pos) in &victims {
         let volume: ae::CombatVolume = ae::Aabb::new(*pos, ae::Vec2::new(48.0, 48.0)).into();
         app.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
             strike_sfx: None,
             volume,
             damage: 9_999,

@@ -394,3 +394,46 @@ fn a_shots_leg_ends_only_where_the_transit_takes_it() {
         assert_eq!(taken(from, to), through, "the transit takes the shot at y {y}");
     }
 }
+
+/// How much of a body the portals carry is a rule of the game
+/// ([`crate::PortalGeometry`]), and a body may ask for its own
+/// ([`PortalPieceBudget`]): a body the portals move whole meets only its own
+/// side (no glue), and its volumes are whole.
+#[test]
+fn a_body_the_portals_move_whole_meets_only_its_own_side() {
+    use ambition_platformer2d_core::frame::thread::PieceBudget;
+    use ambition_platformer2d_shared_tangle::portal_passages::{PortalPassages, PortalPieceBudget};
+    let glued = |geometry: crate::PortalGeometry, own: Option<PortalPieceBudget>| {
+        let mut app = App::new();
+        app.insert_resource(PortalTuning { geometry, ..PortalTuning::default() });
+        app.init_resource::<crate::PortalCarves>();
+        app.init_resource::<PortalPassages>();
+        app.add_systems(Update, (crate::publish_portal_carves, crate::publish_portal_passages));
+        wall_pair(&mut app);
+        let body = app
+            .world_mut()
+            .spawn((
+                BodyKinematics { pos: Vec2::new(22.0, 200.0), vel: Vec2::ZERO, size: Vec2::splat(16.0), facing: -1.0 },
+                PortalTransit { straddling: BLUE, crossed: false },
+            ))
+            .id();
+        if let Some(own) = own {
+            app.world_mut().entity_mut(body).insert(own);
+        }
+        app.update();
+        let glues = app.world().resource::<crate::PortalCarves>().glues.len();
+        let passages = app.world().resource::<PortalPassages>();
+        (glues, passages.budget_for(Some(body), None))
+    };
+    let composed = crate::PortalGeometry::Composed { max_hops: 3, max_pieces: 24 };
+    assert_eq!(glued(crate::PortalGeometry::SingleHop, None), (1, Some(PieceBudget::SINGLE_HOP)));
+    assert_eq!(glued(composed, None), (1, Some(PieceBudget { max_hops: 3, max_pieces: 24 })));
+    assert_eq!(glued(crate::PortalGeometry::TransferOnly, None), (0, None));
+    // A body's own policy over the game's, both ways.
+    assert_eq!(glued(crate::PortalGeometry::SingleHop, Some(PortalPieceBudget(None))), (0, None));
+    assert_eq!(
+        glued(crate::PortalGeometry::TransferOnly, Some(PortalPieceBudget(Some(PieceBudget::COMPOSED)))),
+        (1, Some(PieceBudget::COMPOSED))
+    );
+}
+

@@ -100,7 +100,7 @@ pub fn detect_cut_rope_rope_cut(
         let Some(rope) = authored_prop(&spec.props, ROPE_KIND) else {
             continue;
         };
-        if !event.volume.intersects_aabb(prop_aabb(rope)) {
+        if !event.meets_aabb(prop_aabb(rope)) {
             continue;
         }
         // Every hit on the rope fires the gate. Whether the rope is cut, as a

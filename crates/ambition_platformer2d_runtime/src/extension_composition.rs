@@ -180,6 +180,17 @@ impl Plugin for ExtensionCompositionPlugin {
             sim,
             ExtensionSet::Collect(BOSS_CONDUCT).after(ambition_mount::RidersSyncedToMounts),
         );
+        // A limb its conductor posed this tick meets what is there, before
+        // anything reads where it is (body contact, the crossing, combat).
+        app.add_systems(
+            sim,
+            crate::posed_limbs::stop_posed_limbs_at_what_they_meet
+                .after(ExtensionSet::Lower(BOSS_CONDUCT))
+                .before(ExtensionSet::Collect(BODY_CONTACT))
+                .in_set(GameplayGated)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate)
+                .in_set(BOSS_ENCOUNTERS),
+        );
         // `actor_think` guarantees: the brains of this tick have published
         // their control frames and each body's target is settled; a fire asked
         // for here is in the frame the control gate restricts, and the body

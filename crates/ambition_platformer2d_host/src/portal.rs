@@ -476,36 +476,46 @@ mod host_adapter {
         }
     }
 
-    /// Optional camera-continuity screen anchor for portal transits.
+    /// Optional camera-continuity screen anchor for portal transits, for each
+    /// local view.
     ///
-    /// The host camera then keeps the focus at that exact screen-space offset only while the
-    /// focus remains in the aperture; once it leaves, ordinary camera policy resumes
-    /// immediately. Straight-through pairs are exact translation continuity by construction;
-    /// quarter-turn pairs apply their roll immediately for the same aperture interval.
+    /// A view follows a body (its `ResolvedViewSubject`; a view that names
+    /// none follows the [`PortalCameraContinuityFocus`]). When that body
+    /// crosses a pair, the view's camera keeps it at that exact screen-space
+    /// offset while it remains in the aperture; once it leaves, ordinary
+    /// camera policy resumes immediately. Straight-through pairs are exact
+    /// translation continuity by construction; quarter-turn pairs apply their
+    /// roll immediately for the same aperture interval. Each view has its own
+    /// anchor ([`PortalCameraContinuityState`] on the view) and its own camera
+    /// sample ([`ambition_portal2d_presentation::PortalObserverViews`]), so two
+    /// views whose bodies cross at once are each carried, and a crossing in
+    /// one view does not move another.
+    #[allow(clippy::too_many_arguments)]
     pub fn apply_portal_camera_continuity(
+        mut commands: Commands,
         transit: ambition_portal2d_presentation::PortalCameraTransit,
         config: Option<Res<PortalCameraContinuityConfig>>,
-        host_view: Option<Res<PortalCameraContinuityHostView>>,
-        // The focus body's own live room: its size is the room the camera is in.
+        (host_view, observer_views): (
+            Option<Res<PortalCameraContinuityHostView>>,
+            Option<Res<ambition_portal2d_presentation::PortalObserverViews>>,
+        ),
+        // The followed body's own live room: its size is the room the camera is in.
         frames: PortalFrames,
         focus_bodies: Query<Entity, With<PortalCameraContinuityFocus>>,
-        state: Option<ResMut<PortalCameraContinuityState>>,
-        // THE EASING STATE OF EVERY LOCAL VIEW. A portal maps the world, so every observer
-        // of that world has to carry its own smoothed target through the same map
-        mut view_ease: Query<
-            (Entity, &mut CameraEaseState, Option<&ambition_sim_view::ResolvedViewSubject>),
+        // THE EASING STATE AND THE ANCHOR OF EVERY LOCAL VIEW. A portal maps
+        // the world, so every observer of that world carries its own smoothed
+        // target through the same map, and its own anchor.
+        mut views: Query<
+            (
+                Entity,
+                &mut CameraEaseState,
+                Option<&ambition_sim_view::ResolvedViewSubject>,
+                Option<&mut PortalCameraContinuityState>,
+            ),
             With<ambition_sim_view::LocalView>,
         >,
         mut transited: MessageReader<ambition_portal2d::PortalBodyTransited>,
         gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
-        focus: Query<(), With<PortalCameraContinuityFocus>>,
-        active_focus_transits: Query<
-            (&BodyKinematics, &ambition_portal2d::PortalTransit),
-            (
-                With<PortalCameraContinuityFocus>,
-                With<ambition_portal2d::PortalTransit>,
-            ),
-        >,
         body_kinematics: Query<&BodyKinematics>,
         body_transits: Query<&ambition_portal2d::PortalTransit>,
         portals: Query<&ambition_portal2d::PlacedPortal>,
@@ -520,116 +530,269 @@ mod host_adapter {
             .as_deref()
             .map(|tuning| tuning.convention.map_convention())
             .unwrap_or_default();
+        let crossings: Vec<ambition_portal2d::PortalBodyTransited> = transited.read().cloned().collect();
         let Some(transit) = transit.mode() else {
             return;
         };
-        let Some(mut state) = state else {
-            return;
-        };
-        let Some(world_frame) = focus_bodies
-            .iter()
-            .next()
-            .and_then(|focus| frames.of(focus))
-            .map(|placement| placement.frame)
-        else {
-            for _ in transited.read() {}
-            return;
-        };
-        // The host camera policy records the last actually-rendered gameplay
-        // camera center. Treat that visible center as the seam anchor for new
-        // transfers. This is the mathematical continuity invariant:
-        //
-        //     screen_after = body_after - map(camera_before)
-        //                  = map(body_before) - map(camera_before)
-        //                  = body_before - camera_before
-        //
-        // for the translation-only portal pairs, and the same center correction
-        // composes with temporary roll for quarter-turn pairs.
-        let host_sample = host_view.as_deref().filter(|sample| sample.initialized);
-        let previous_host_camera_world = host_sample
-            .map(|sample| sample.current_center_world)
-            .or(state.last_host_camera_world)
-            .unwrap_or(world_frame.size * 0.5);
-        let host_camera_world = host_sample
-            .map(|sample| sample.ordinary_center_world)
-            .unwrap_or(previous_host_camera_world);
-        let host_sample_index = host_sample.map(|sample| sample.sample_index).unwrap_or(0);
-        let host_target_world = host_sample
-            .map(|sample| sample.target_world)
-            .unwrap_or(Vec2::ZERO);
-        let host_visible_view = host_sample
-            .map(|sample| sample.visible_view)
-            .unwrap_or(Vec2::ZERO);
-        let host_active_camera_zones = host_sample
-            .map(|sample| sample.active_camera_zones)
-            .unwrap_or(0);
-        let host_active_camera_zone = host_sample
-            .and_then(|sample| sample.active_camera_zone.as_deref())
-            .unwrap_or("none");
-        let host_sample_source = if host_sample.is_some() {
-            "host_view"
-        } else {
-            "fallback_world_center"
-        };
-
-        if transit == PortalCameraTransitMode::Pop {
-            // Drain while disabled so toggling Continuous later cannot replay a
-            // stale transit from the disabled interval. Keep the last visible
-            // camera anchor fresh even while the effect is disabled.
-            for _ in transited.read() {}
-            state.clear();
-            state.last_host_camera_world = Some(previous_host_camera_world);
-            return;
-        }
-        let Some(config) = config else {
-            for _ in transited.read() {}
-            state.clear();
-            state.last_host_camera_world = Some(previous_host_camera_world);
-            return;
-        };
-
+        let focus = focus_bodies.iter().next();
         let gravity_dir = ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(
             gravity.as_deref(),
         );
         let portal_list: Vec<ambition_portal2d::PlacedPortal> = portals.iter().cloned().collect();
 
-        for ev in transited.read() {
-            if focus.get(ev.body).is_err() {
-                continue;
-            }
-            let Ok(body) = body_kinematics.get(ev.body) else {
-                continue;
-            };
-            let Ok(transit) = body_transits.get(ev.body) else {
+        for (view, mut camera_ease, subject, state) in &mut views {
+            // A view is given its anchor the first frame it is seen.
+            let Some(mut state) = state else {
+                commands.entity(view).insert(PortalCameraContinuityState::default());
                 continue;
             };
-            let exit_channel = transit.straddling;
-            let enter_channel = exit_channel.partner();
-            let Some(exit_portal) = ambition_portal2d::find_portal(&portal_list, exit_channel)
-            else {
+            // The body this view follows.
+            let Some(followed) = subject.and_then(|s| s.0).or(focus) else {
                 continue;
             };
-            let Some(enter_portal) = ambition_portal2d::find_portal(&portal_list, enter_channel)
-            else {
+            let Some(world_frame) = frames.of(followed).map(|placement| placement.frame) else {
+                continue;
+            };
+            // The host camera policy records the last actually-rendered
+            // gameplay camera center of each view. Treat that visible center
+            // as the seam anchor for new transfers. This is the mathematical
+            // continuity invariant:
+            //
+            //     screen_after = body_after - map(camera_before)
+            //                  = map(body_before) - map(camera_before)
+            //                  = body_before - camera_before
+            //
+            // for the translation-only portal pairs, and the same center
+            // correction composes with temporary roll for quarter-turn pairs.
+            let host_sample = observer_views
+                .as_deref()
+                .and_then(|views| views.of(Some(view)))
+                .or(host_view.as_deref())
+                .filter(|sample| sample.initialized);
+            let previous_host_camera_world = host_sample
+                .map(|sample| sample.current_center_world)
+                .or(state.last_host_camera_world)
+                .unwrap_or(world_frame.size * 0.5);
+            let host_camera_world = host_sample
+                .map(|sample| sample.ordinary_center_world)
+                .unwrap_or(previous_host_camera_world);
+            let host_sample_index = host_sample.map(|sample| sample.sample_index).unwrap_or(0);
+            let host_target_world = host_sample.map(|sample| sample.target_world).unwrap_or(Vec2::ZERO);
+            let host_visible_view = host_sample.map(|sample| sample.visible_view).unwrap_or(Vec2::ZERO);
+            let host_active_camera_zones = host_sample.map(|sample| sample.active_camera_zones).unwrap_or(0);
+            let host_active_camera_zone = host_sample
+                .and_then(|sample| sample.active_camera_zone.as_deref())
+                .unwrap_or("none");
+            let host_sample_source = if host_sample.is_some() { "host_view" } else { "fallback_world_center" };
+
+            let Some(config) = config.as_deref().filter(|_| transit != PortalCameraTransitMode::Pop) else {
+                // Disabled: no stale transit is replayed when it is enabled
+                // later. Keep the last visible camera anchor fresh even
+                // while the effect is disabled.
+                state.clear();
+                state.last_host_camera_world = Some(previous_host_camera_world);
                 continue;
             };
 
-            let enter_frame = enter_portal.frame();
-            let exit_frame = exit_portal.frame();
+            for ev in crossings.iter().filter(|ev| ev.body == followed) {
+                let Ok(body) = body_kinematics.get(ev.body) else {
+                    continue;
+                };
+                let Ok(transit) = body_transits.get(ev.body) else {
+                    continue;
+                };
+                let exit_channel = transit.straddling;
+                let enter_channel = exit_channel.partner();
+                let Some(exit_portal) = ambition_portal2d::find_portal(&portal_list, exit_channel) else {
+                    continue;
+                };
+                let Some(enter_portal) = ambition_portal2d::find_portal(&portal_list, enter_channel) else {
+                    continue;
+                };
+                let enter_frame = enter_portal.frame();
+                let exit_frame = exit_portal.frame();
 
-            // The exact-continuity correction is only meaningful when the ENTRY
-            // aperture was on/near the previous visible view. Repeated portal
-            // crossings intentionally chain from that rendered view: body and
-            // camera are both mapped from the same pre-transfer frame.
-            let enter_portal_screen_before = enter_portal.pos - previous_host_camera_world;
-            let entry_visible = enter_portal_screen_before.x.abs()
-                <= config.max_entry_screen_offset.x
-                && enter_portal_screen_before.y.abs() <= config.max_entry_screen_offset.y;
-            if !entry_visible {
+                // The exact-continuity correction is only meaningful when the
+                // ENTRY aperture was on/near the previous visible view.
+                // Repeated portal crossings intentionally chain from that
+                // rendered view: body and camera are both mapped from the same
+                // pre-transfer frame.
+                let enter_portal_screen_before = enter_portal.pos - previous_host_camera_world;
+                let entry_visible = enter_portal_screen_before.x.abs() <= config.max_entry_screen_offset.x
+                    && enter_portal_screen_before.y.abs() <= config.max_entry_screen_offset.y;
+                if !entry_visible {
+                    if config.debug_log {
+                        bevy::log::info!(
+                            target: "ambition_platformer2d::portal::camera",
+                            "portal camera continuity skip: offscreen entry view={:?} body={:?} enter={:?}@({:.1},{:.1}) exit={:?}@({:.1},{:.1}) entry_screen=({:.1},{:.1}) max_entry_screen=({:.1},{:.1}) prev_cam=({:.1},{:.1}) host_cam=({:.1},{:.1}) host_source={} host_sample={} host_target=({:.1},{:.1}) host_visible=({:.1},{:.1}) host_zone={} host_zones={} state_target={:?} active_weight={:.3}",
+                            view,
+                            ev.body,
+                            enter_channel,
+                            enter_portal.pos.x,
+                            enter_portal.pos.y,
+                            exit_channel,
+                            exit_portal.pos.x,
+                            exit_portal.pos.y,
+                            enter_portal_screen_before.x,
+                            enter_portal_screen_before.y,
+                            config.max_entry_screen_offset.x,
+                            config.max_entry_screen_offset.y,
+                            previous_host_camera_world.x,
+                            previous_host_camera_world.y,
+                            host_camera_world.x,
+                            host_camera_world.y,
+                            host_sample_source,
+                            host_sample_index,
+                            host_target_world.x,
+                            host_target_world.y,
+                            host_visible_view.x,
+                            host_visible_view.y,
+                            host_active_camera_zone,
+                            host_active_camera_zones,
+                            state.target_camera_world,
+                            state.active_weight(),
+                        );
+                    }
+                    // Drop any previous screen-anchor: the seam it was
+                    // preserving is no longer the seam being crossed.
+                    state.clear();
+                    continue;
+                }
+
+                let desired_camera_world = ambition_portal2d::pieces::map_point(
+                    previous_host_camera_world,
+                    &enter_frame,
+                    &exit_frame,
+                    convention,
+                );
+                let correction = desired_camera_world - host_camera_world;
+
+                // No pair is a special case: a door through a thin wall cuts
+                // as a teleport does. The cut is by the same translation the
+                // portal map is, and the view window shows the far side
+                // already joined to the near side at the seam, so the picture
+                // on screen is the same before and after it. With no cut, the
+                // whole picture would jump by the wall's thickness when the
+                // charts change over.
+                let raw_roll = ambition_portal2d_presentation::camera_roll_for_portal_transit(
+                    ev.enter_normal,
+                    ev.exit_normal,
+                    gravity_dir,
+                    convention,
+                );
+                let roll = if raw_roll.abs() <= config.roll_epsilon_radians { 0.0 } else { raw_roll };
+
+                // Debug the exact screen-space invariant.
+                let body_after = body.pos;
+                let body_before =
+                    ambition_portal2d::pieces::map_point(body_after, &exit_frame, &enter_frame, convention);
+                let screen_before = body_before - previous_host_camera_world;
+                let screen_after = body_after - desired_camera_world;
+                let screen_error = screen_after - screen_before;
+                let body_screen_offset_world = screen_after;
+
+                // Also log the aperture screen offsets. For pure translation
+                // pairs, this is the user-visible seam invariant: the exit
+                // aperture should occupy the same screen-space offset as the
+                // entry aperture did.
+                let exit_portal_screen_after = exit_portal.pos - desired_camera_world;
+                let exit_portal_screen_host = exit_portal.pos - host_camera_world;
+                let portal_screen_error = exit_portal_screen_after - enter_portal_screen_before;
+                let previous_state_target = state.target_camera_world;
+                let active_weight_before = state.active_weight();
+
+                // Constraint diagnostics for portal-zone authoring: whether
+                // the ordinary camera policy already agrees with the seamless
+                // handoff center. Translation-only pairs should have zero
+                // body/portal screen error here; if they still show a pop
+                // after the screen anchor clears, the normal camera zone needs
+                // enough padding/freedom around this aperture.
+                let desired_minus_host = desired_camera_world - host_camera_world;
+                let desired_minus_host_target = desired_camera_world - host_target_world;
+                let host_center_minus_target = host_camera_world - host_target_world;
+                let desired_room_padding =
+                    camera_room_padding_needed(desired_camera_world, host_visible_view, world_frame.size);
+                let host_room_padding =
+                    camera_room_padding_needed(host_camera_world, host_visible_view, world_frame.size);
+                let desired_outside_room = padding_any(desired_room_padding);
+                let host_outside_room = padding_any(host_room_padding);
+                let host_gap_max = desired_minus_host.x.abs().max(desired_minus_host.y.abs());
+                let target_gap_max = desired_minus_host_target.x.abs().max(desired_minus_host_target.y.abs());
+                let overlap_active = active_weight_before >= config.overlap_warn_weight;
+                let room_padding_max = padding_max(desired_room_padding);
+                let should_log_constraint = config.debug_log
+                    && (host_gap_max >= config.camera_constraint_warn_pixels
+                        || target_gap_max >= config.camera_constraint_warn_pixels
+                        || room_padding_max > 0.0
+                        || overlap_active);
+                if should_log_constraint {
+                    let constraint_kind = if room_padding_max > 0.0 {
+                        "room_padding_or_camera_zone_required"
+                    } else if host_gap_max >= config.camera_constraint_warn_pixels {
+                        "host_camera_recovery_gap"
+                    } else if overlap_active {
+                        "overlapping_continuity_effect"
+                    } else {
+                        "target_mismatch"
+                    };
+                    bevy::log::info!(
+                        target: "ambition_platformer2d::portal::camera",
+                        "portal camera continuity constraint: kind={} view={:?} body={:?} enter={:?} exit={:?} desired_minus_host=({:.1},{:.1}) desired_minus_host_target=({:.1},{:.1}) host_center_minus_target=({:.1},{:.1}) desired_room_padding_lrtb=({:.1},{:.1},{:.1},{:.1}) host_room_padding_lrtb=({:.1},{:.1},{:.1},{:.1}) desired_outside_room={} host_outside_room={} overlap_active={} active_weight={:.3} host_zone={} host_zones={} host_source={} host_sample={} note=if desired_minus_host remains large when the body leaves the aperture, add camera-zone/room padding around this portal so normal camera policy can take over without a pop",
+                        constraint_kind,
+                        view,
+                        ev.body,
+                        enter_channel,
+                        exit_channel,
+                        desired_minus_host.x,
+                        desired_minus_host.y,
+                        desired_minus_host_target.x,
+                        desired_minus_host_target.y,
+                        host_center_minus_target.x,
+                        host_center_minus_target.y,
+                        desired_room_padding.left,
+                        desired_room_padding.right,
+                        desired_room_padding.top,
+                        desired_room_padding.bottom,
+                        host_room_padding.left,
+                        host_room_padding.right,
+                        host_room_padding.top,
+                        host_room_padding.bottom,
+                        desired_outside_room,
+                        host_outside_room,
+                        overlap_active,
+                        active_weight_before,
+                        host_active_camera_zone,
+                        host_active_camera_zones,
+                        host_sample_source,
+                        host_sample_index,
+                    );
+                }
+
+                // This view's camera moves through the pair; no other view's
+                // does (review of 15d0cf99c, finding C).
+                if camera_ease.target_initialized {
+                    camera_ease.live_target_world = ambition_portal2d::pieces::map_point(
+                        camera_ease.live_target_world,
+                        &enter_frame,
+                        &exit_frame,
+                        convention,
+                    );
+                }
+                state.start_screen_anchor(desired_camera_world, body_screen_offset_world, roll);
+                // The camera moves through the pair on this frame; the
+                // foreground does not jump with it.
+                if let Some(carry) = parallax_carry.as_deref_mut() {
+                    carry.carry(
+                        Some(view),
+                        desired_camera_world - previous_host_camera_world,
+                        time.as_deref().map_or(0.0, Time::elapsed_secs),
+                    );
+                }
                 if config.debug_log {
                     bevy::log::info!(
                         target: "ambition_platformer2d::portal::camera",
-                        "portal camera continuity skip: offscreen entry body={:?} enter={:?}@({:.1},{:.1}) exit={:?}@({:.1},{:.1}) entry_screen=({:.1},{:.1}) max_entry_screen=({:.1},{:.1}) prev_cam=({:.1},{:.1}) host_cam=({:.1},{:.1}) visible_cam=({:.1},{:.1}) host_source={} host_sample={} host_target=({:.1},{:.1}) host_visible=({:.1},{:.1}) host_zone={} host_zones={} state_target={:?} active_weight={:.3}",
+                        "portal camera continuity start: view={:?} body={:?} enter={:?}@({:.1},{:.1}) exit={:?}@({:.1},{:.1}) enter_n={:?} exit_n={:?} roll_deg={:.2} body_before=({:.1},{:.1}) body_after=({:.1},{:.1}) prev_cam=({:.1},{:.1}) host_cam=({:.1},{:.1}) desired_cam=({:.1},{:.1}) correction=({:.1},{:.1}) body_screen=({:.1},{:.1}) body_screen_error=({:.3},{:.3}) portal_before=({:.1},{:.1}) portal_after=({:.1},{:.1}) portal_host=({:.1},{:.1}) portal_screen_error=({:.3},{:.3}) host_source={} host_sample={} host_target=({:.1},{:.1}) host_visible=({:.1},{:.1}) host_zone={} host_zones={} previous_state_target={:?} active_weight_before={:.3} max_entry_screen=({:.1},{:.1})",
+                        view,
                         ev.body,
                         enter_channel,
                         enter_portal.pos.x,
@@ -637,16 +800,33 @@ mod host_adapter {
                         exit_channel,
                         exit_portal.pos.x,
                         exit_portal.pos.y,
-                        enter_portal_screen_before.x,
-                        enter_portal_screen_before.y,
-                        config.max_entry_screen_offset.x,
-                        config.max_entry_screen_offset.y,
+                        ev.enter_normal,
+                        ev.exit_normal,
+                        roll.to_degrees(),
+                        body_before.x,
+                        body_before.y,
+                        body_after.x,
+                        body_after.y,
                         previous_host_camera_world.x,
                         previous_host_camera_world.y,
                         host_camera_world.x,
                         host_camera_world.y,
-                        previous_host_camera_world.x,
-                        previous_host_camera_world.y,
+                        desired_camera_world.x,
+                        desired_camera_world.y,
+                        correction.x,
+                        correction.y,
+                        body_screen_offset_world.x,
+                        body_screen_offset_world.y,
+                        screen_error.x,
+                        screen_error.y,
+                        enter_portal_screen_before.x,
+                        enter_portal_screen_before.y,
+                        exit_portal_screen_after.x,
+                        exit_portal_screen_after.y,
+                        exit_portal_screen_host.x,
+                        exit_portal_screen_host.y,
+                        portal_screen_error.x,
+                        portal_screen_error.y,
                         host_sample_source,
                         host_sample_index,
                         host_target_world.x,
@@ -655,241 +835,33 @@ mod host_adapter {
                         host_visible_view.y,
                         host_active_camera_zone,
                         host_active_camera_zones,
-                        state.target_camera_world,
-                        state.active_weight(),
+                        previous_state_target,
+                        active_weight_before,
+                        config.max_entry_screen_offset.x,
+                        config.max_entry_screen_offset.y,
                     );
                 }
-                // Drop any previous screen-anchor: the seam it was preserving
-                // is no longer the seam being crossed.
-                state.clear();
-                continue;
             }
 
-            let desired_camera_world = ambition_portal2d::pieces::map_point(
-                previous_host_camera_world,
-                &enter_frame,
-                &exit_frame,
-                convention,
-            );
-            let correction = desired_camera_world - host_camera_world;
-
-            // No pair is a special case: a door through a thin wall cuts as
-            // a teleport does. The cut is by the same translation the portal
-            // map is, and the view window shows the far side already joined
-            // to the near side at the seam, so the picture on screen is the
-            // same before and after it. With no cut, the whole picture would
-            // jump by the wall's thickness when the charts change over.
-            let raw_roll = ambition_portal2d_presentation::camera_roll_for_portal_transit(
-                ev.enter_normal,
-                ev.exit_normal,
-                gravity_dir,
-                convention,
-            );
-            let roll = if raw_roll.abs() <= config.roll_epsilon_radians {
-                0.0
-            } else {
-                raw_roll
-            };
-
-            // Debug the exact screen-space invariant.
-            let body_after = body.pos;
-            let body_before = ambition_portal2d::pieces::map_point(
-                body_after,
-                &exit_frame,
-                &enter_frame,
-                convention,
-            );
-            let screen_before = body_before - previous_host_camera_world;
-            let screen_after = body_after - desired_camera_world;
-            let screen_error = screen_after - screen_before;
-            let body_screen_offset_world = screen_after;
-
-            // Also log the aperture screen offsets. For pure translation pairs,
-            // this is the user-visible seam invariant: the exit aperture should
-            // occupy the same screen-space offset as the entry aperture did.
-            let exit_portal_screen_after = exit_portal.pos - desired_camera_world;
-            let exit_portal_screen_host = exit_portal.pos - host_camera_world;
-            let portal_screen_error = exit_portal_screen_after - enter_portal_screen_before;
-            let previous_state_target = state.target_camera_world;
-            let active_weight_before = state.active_weight();
-
-            // Constraint diagnostics for portal-zone authoring: whether the
-            // ordinary camera policy already agrees with the seamless handoff
-            // center. Translation-only pairs should have zero body/portal
-            // screen error here; if they still show a pop after the screen
-            // anchor clears, the normal camera zone needs enough padding/freedom
-            // around this aperture.
-            let desired_minus_host = desired_camera_world - host_camera_world;
-            let desired_minus_host_target = desired_camera_world - host_target_world;
-            let host_center_minus_target = host_camera_world - host_target_world;
-            let desired_room_padding = camera_room_padding_needed(
-                desired_camera_world,
-                host_visible_view,
-                world_frame.size,
-            );
-            let host_room_padding =
-                camera_room_padding_needed(host_camera_world, host_visible_view, world_frame.size);
-            let desired_outside_room = padding_any(desired_room_padding);
-            let host_outside_room = padding_any(host_room_padding);
-            let host_gap_max = desired_minus_host.x.abs().max(desired_minus_host.y.abs());
-            let target_gap_max = desired_minus_host_target
-                .x
-                .abs()
-                .max(desired_minus_host_target.y.abs());
-            let overlap_active = active_weight_before >= config.overlap_warn_weight;
-            let room_padding_max = padding_max(desired_room_padding);
-            let should_log_constraint = config.debug_log
-                && (host_gap_max >= config.camera_constraint_warn_pixels
-                    || target_gap_max >= config.camera_constraint_warn_pixels
-                    || room_padding_max > 0.0
-                    || overlap_active);
-            if should_log_constraint {
-                let constraint_kind = if room_padding_max > 0.0 {
-                    "room_padding_or_camera_zone_required"
-                } else if host_gap_max >= config.camera_constraint_warn_pixels {
-                    "host_camera_recovery_gap"
-                } else if overlap_active {
-                    "overlapping_continuity_effect"
-                } else {
-                    "target_mismatch"
-                };
-                bevy::log::info!(
-                    target: "ambition_platformer2d::portal::camera",
-                    "portal camera continuity constraint: kind={} body={:?} enter={:?} exit={:?} desired_minus_host=({:.1},{:.1}) desired_minus_host_target=({:.1},{:.1}) host_center_minus_target=({:.1},{:.1}) desired_room_padding_lrtb=({:.1},{:.1},{:.1},{:.1}) host_room_padding_lrtb=({:.1},{:.1},{:.1},{:.1}) desired_outside_room={} host_outside_room={} overlap_active={} active_weight={:.3} host_zone={} host_zones={} host_source={} host_sample={} note=if desired_minus_host remains large when the body leaves the aperture, add camera-zone/room padding around this portal so normal camera policy can take over without a pop",
-                    constraint_kind,
-                    ev.body,
-                    enter_channel,
-                    exit_channel,
-                    desired_minus_host.x,
-                    desired_minus_host.y,
-                    desired_minus_host_target.x,
-                    desired_minus_host_target.y,
-                    host_center_minus_target.x,
-                    host_center_minus_target.y,
-                    desired_room_padding.left,
-                    desired_room_padding.right,
-                    desired_room_padding.top,
-                    desired_room_padding.bottom,
-                    host_room_padding.left,
-                    host_room_padding.right,
-                    host_room_padding.top,
-                    host_room_padding.bottom,
-                    desired_outside_room,
-                    host_outside_room,
-                    overlap_active,
-                    active_weight_before,
-                    host_active_camera_zone,
-                    host_active_camera_zones,
-                    host_sample_source,
-                    host_sample_index,
-                );
-            }
-
-            // The views that follow the body that crossed: their cameras move
-            // through the pair, and no other view's does (review of
-            // 15d0cf99c, finding C). A view whose subject is not resolved is
-            // the one view of a host that names none.
-            let mut moved_views: Vec<Option<Entity>> = Vec::new();
-            for (view, mut camera_state, subject) in &mut view_ease {
-                if subject.and_then(|s| s.0).is_some_and(|s| s != ev.body) {
-                    continue;
-                }
-                moved_views.push(Some(view));
-                if camera_state.target_initialized {
-                    camera_state.live_target_world = ambition_portal2d::pieces::map_point(
-                        camera_state.live_target_world,
-                        &enter_frame,
-                        &exit_frame,
+            // While the followed body is in the aperture the anchor holds,
+            // rolled as far through as it is; once it leaves, it clears.
+            match (body_kinematics.get(followed), body_transits.get(followed)) {
+                (Ok(body), Ok(transit)) => {
+                    if let Some(roll) = portal_camera_roll_at_progress(
+                        body,
+                        transit,
+                        &portal_list,
+                        gravity_dir,
+                        config.roll_epsilon_radians,
                         convention,
-                    );
+                    ) {
+                        state.roll_radians = roll;
+                    }
                 }
+                _ => state.clear_effect(),
             }
-            state.start_screen_anchor(desired_camera_world, body_screen_offset_world, roll);
-            // The camera moves through the pair on this frame; the foreground
-            // does not jump with it.
-            if let Some(carry) = parallax_carry.as_deref_mut() {
-                if moved_views.is_empty() {
-                    moved_views.push(None);
-                }
-                for view in moved_views {
-                    carry.carry(
-                        view,
-                        desired_camera_world - previous_host_camera_world,
-                        time.as_deref().map_or(0.0, Time::elapsed_secs),
-                    );
-                }
-            }
-            if config.debug_log {
-                bevy::log::info!(
-                    target: "ambition_platformer2d::portal::camera",
-                    "portal camera continuity start: body={:?} enter={:?}@({:.1},{:.1}) exit={:?}@({:.1},{:.1}) enter_n={:?} exit_n={:?} roll_deg={:.2} body_before=({:.1},{:.1}) body_after=({:.1},{:.1}) prev_cam=({:.1},{:.1}) host_cam=({:.1},{:.1}) visible_cam=({:.1},{:.1}) desired_cam=({:.1},{:.1}) correction=({:.1},{:.1}) body_screen=({:.1},{:.1}) body_screen_error=({:.3},{:.3}) portal_before=({:.1},{:.1}) portal_after=({:.1},{:.1}) portal_host=({:.1},{:.1}) portal_screen_error=({:.3},{:.3}) host_source={} host_sample={} host_target=({:.1},{:.1}) host_visible=({:.1},{:.1}) host_zone={} host_zones={} previous_state_target={:?} active_weight_before={:.3} max_entry_screen=({:.1},{:.1})",
-                    ev.body,
-                    enter_channel,
-                    enter_portal.pos.x,
-                    enter_portal.pos.y,
-                    exit_channel,
-                    exit_portal.pos.x,
-                    exit_portal.pos.y,
-                    ev.enter_normal,
-                    ev.exit_normal,
-                    roll.to_degrees(),
-                    body_before.x,
-                    body_before.y,
-                    body_after.x,
-                    body_after.y,
-                    previous_host_camera_world.x,
-                    previous_host_camera_world.y,
-                    host_camera_world.x,
-                    host_camera_world.y,
-                    previous_host_camera_world.x,
-                    previous_host_camera_world.y,
-                    desired_camera_world.x,
-                    desired_camera_world.y,
-                    correction.x,
-                    correction.y,
-                    body_screen_offset_world.x,
-                    body_screen_offset_world.y,
-                    screen_error.x,
-                    screen_error.y,
-                    enter_portal_screen_before.x,
-                    enter_portal_screen_before.y,
-                    exit_portal_screen_after.x,
-                    exit_portal_screen_after.y,
-                    exit_portal_screen_host.x,
-                    exit_portal_screen_host.y,
-                    portal_screen_error.x,
-                    portal_screen_error.y,
-                    host_sample_source,
-                    host_sample_index,
-                    host_target_world.x,
-                    host_target_world.y,
-                    host_visible_view.x,
-                    host_visible_view.y,
-                    host_active_camera_zone,
-                    host_active_camera_zones,
-                    previous_state_target,
-                    active_weight_before,
-                    config.max_entry_screen_offset.x,
-                    config.max_entry_screen_offset.y,
-                );
-            }
+            state.last_host_camera_world = Some(previous_host_camera_world);
         }
-
-        if active_focus_transits.is_empty() {
-            state.clear_effect();
-        } else if let Some(roll) = active_focus_transits.iter().find_map(|(body, transit)| {
-            portal_camera_roll_at_progress(
-                body,
-                transit,
-                &portal_list,
-                gravity_dir,
-                config.roll_epsilon_radians,
-                convention,
-            )
-        }) {
-            state.roll_radians = roll;
-        }
-        state.last_host_camera_world = Some(previous_host_camera_world);
     }
 
     fn portal_camera_roll_at_progress(
@@ -1505,6 +1477,84 @@ mod tests {
             (PortalCameraTransitRule(None), PortalViewConeRule(None)),
             "the arena's portal presentation followed the player home"
         );
+    }
+
+    /// Each local view keeps its own portal anchor (finding C of the review
+    /// of 15d0cf99c): two views whose bodies cross at once are each carried,
+    /// each from its own camera, and a third view, whose body did not cross,
+    /// is not.
+    #[test]
+    fn two_views_whose_bodies_cross_at_once_are_each_carried() {
+        use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
+        use ambition_portal2d::{PlacedPortal, PortalBodyTransited, PortalChannel, PortalChannelColor, PortalTransit};
+        use ambition_portal2d_presentation::{
+            PortalCameraContinuityConfig, PortalCameraContinuitySelection, PortalCameraContinuityState,
+            PortalCameraTransitMode,
+        };
+        let mut app = App::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(),
+            RoomGeometry(ambition_platformer2d_core::World::new(
+                "continuity room",
+                Vec2::new(2000.0, 1000.0),
+                Vec2::new(1000.0, 500.0),
+                Vec::new(),
+            )),
+        );
+        app.insert_resource(PortalCameraContinuitySelection { mode: PortalCameraTransitMode::Continuous });
+        app.insert_resource(PortalCameraContinuityConfig {
+            debug_log: false,
+            max_entry_screen_offset: Vec2::splat(5000.0),
+            ..Default::default()
+        });
+        app.add_message::<PortalBodyTransited>();
+        app.add_systems(Update, super::host_adapter::apply_portal_camera_continuity);
+        let (purple, yellow) = (
+            PortalChannel::Authored(PortalChannelColor::Purple),
+            PortalChannel::Authored(PortalChannelColor::Yellow),
+        );
+        // A wall pair: in at x = 100 facing +x, out at x = 1500 facing -x.
+        app.world_mut().spawn(PlacedPortal::fixed(purple, Vec2::new(100.0, 500.0), Vec2::X, 46.0));
+        app.world_mut().spawn(PlacedPortal::fixed(yellow, Vec2::new(1500.0, 500.0), -Vec2::X, 46.0));
+        let crossed = |app: &mut App, y: f32| {
+            app.world_mut()
+                .spawn((body(Vec2::new(1495.0, y)), PortalTransit { straddling: yellow, crossed: true }))
+                .id()
+        };
+        let (a, b) = (crossed(&mut app, 500.0), crossed(&mut app, 510.0));
+        let c = app.world_mut().spawn(body(Vec2::new(700.0, 500.0))).id();
+        let view = |app: &mut App, subject: Entity, camera_x: f32| {
+            app.world_mut()
+                .spawn((
+                    ambition_sim_view::LocalView,
+                    CameraEaseState::default(),
+                    ambition_sim_view::ResolvedViewSubject(Some(subject)),
+                    PortalCameraContinuityState {
+                        last_host_camera_world: Some(Vec2::new(camera_x, 500.0)),
+                        ..Default::default()
+                    },
+                ))
+                .id()
+        };
+        let (view_a, view_b, view_c) = (view(&mut app, a, 300.0), view(&mut app, b, 250.0), view(&mut app, c, 700.0));
+        for body in [a, b] {
+            app.world_mut().write_message(PortalBodyTransited {
+                body,
+                enter_normal: Vec2::X,
+                exit_normal: -Vec2::X,
+                facing_flip: false,
+                input_warp: false,
+                exit_pos: Vec2::new(1495.0, 500.0),
+            });
+        }
+        app.update();
+        let state = |app: &App, view: Entity| *app.world().get::<PortalCameraContinuityState>(view).unwrap();
+        // Each camera is carried from where it was, through the pair: 200
+        // and 150 in front of the entry are 200 and 150 past the exit's
+        // plane, where they are behind the body as before.
+        assert_eq!(state(&app, view_a).target_camera_world, Some(Vec2::new(1700.0, 500.0)));
+        assert_eq!(state(&app, view_b).target_camera_world, Some(Vec2::new(1650.0, 500.0)));
+        assert_eq!(state(&app, view_c).active_weight(), 0.0, "a view whose body did not cross is not carried");
     }
 }
 

@@ -220,6 +220,58 @@ pub fn map_velocity(a: &PortalFrame, b: &PortalFrame, convention: MapConvention,
     map_vec(a, b, convention, v - a.velocity_at(p)) + b.velocity_at(map_point(a, b, convention, p))
 }
 
+/// A rigid map of the plane: an orthogonal linear part (det ±1: a turn, or a
+/// turn and a mirror) and a translation. A portal pair's map is one
+/// ([`Iso2::through`]); a body carried through several pairs is in the chart
+/// their composition gives.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Iso2 {
+    pub linear: bevy_math::Mat2,
+    pub translation: Vec2,
+}
+
+impl Iso2 {
+    pub const IDENTITY: Self = Self { linear: bevy_math::Mat2::IDENTITY, translation: Vec2::ZERO };
+
+    /// The pair map from `enter` to `exit` ([`map_point`] and [`map_vec`]).
+    pub fn through(enter: &PortalFrame, exit: &PortalFrame, convention: MapConvention) -> Self {
+        let linear = bevy_math::Mat2::from_cols(
+            map_vec(enter, exit, convention, Vec2::X),
+            map_vec(enter, exit, convention, Vec2::Y),
+        );
+        Self { linear, translation: exit.origin - linear * enter.origin }
+    }
+
+    pub fn point(&self, p: Vec2) -> Vec2 {
+        self.linear * p + self.translation
+    }
+
+    pub fn vec(&self, v: Vec2) -> Vec2 {
+        self.linear * v
+    }
+
+    /// `self`, then `next`.
+    pub fn then(&self, next: &Iso2) -> Self {
+        Self { linear: next.linear * self.linear, translation: next.point(self.translation) }
+    }
+
+    /// The map back. The linear part is orthogonal, so its inverse is its
+    /// transpose.
+    pub fn inverse(&self) -> Self {
+        let linear = self.linear.transpose();
+        Self { linear, translation: -(linear * self.translation) }
+    }
+
+    /// +1 for a turn, −1 for a mirror.
+    pub fn det(&self) -> f32 {
+        self.linear.determinant()
+    }
+
+    pub fn is_identity(&self) -> bool {
+        *self == Self::IDENTITY
+    }
+}
+
 pub mod thread;
 
 #[cfg(test)]

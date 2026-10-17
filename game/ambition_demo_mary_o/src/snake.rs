@@ -510,6 +510,7 @@ pub fn run_snake_shells(
     // is the only thing that can hurt the player.
     for (shell_entity, aabb, self_id, hit_player) in sliding {
         hits.write(HitEvent {
+            pieces: Vec::new(),
             strike_sfx: None,
             volume: aabb.into(),
             damage: crate::rules::mary_o_rules().shell.enemy_damage,
@@ -525,6 +526,7 @@ pub fn run_snake_shells(
         if let Some(player_entity) = hit_player {
             {
                 hits.write(HitEvent {
+                    pieces: Vec::new(),
                     strike_sfx: None,
                     volume: aabb.into(),
                     damage: crate::rules::mary_o_rules().shell.player_damage,

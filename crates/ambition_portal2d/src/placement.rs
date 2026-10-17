@@ -443,11 +443,27 @@ pub fn first_portal_crossing(
     portals: &[PlacedPortal],
     backside: Option<crate::PortalBackside>,
 ) -> Option<f32> {
+    first_portal_crossing_through(from, to, size, portals, backside).map(|(t, ..)| t)
+}
+
+/// [`first_portal_crossing`], and the pair that takes the body there: its
+/// entry, then its exit.
+pub fn first_portal_crossing_through(
+    from: Vec2,
+    to: Vec2,
+    size: Vec2,
+    portals: &[PlacedPortal],
+    backside: Option<crate::PortalBackside>,
+) -> Option<(f32, ae::frame::PortalAperture, ae::frame::PortalAperture)> {
     let usable = crate::transit::usable_portals(portals, backside);
     usable
         .iter()
-        .filter_map(|enter| swept_crossing(from, to, size, enter, &usable))
-        .min_by(f32::total_cmp)
+        .filter_map(|enter| {
+            let t = swept_crossing(from, to, size, enter, &usable)?;
+            let exit = find_portal(usable.iter(), enter.channel.partner())?;
+            Some((t, enter.aperture(), exit.aperture()))
+        })
+        .min_by(|a, b| a.0.total_cmp(&b.0))
 }
 
 /// The swept (CCD) crossing scan used by two arms of

@@ -631,6 +631,7 @@ pub(crate) fn emit_landing_splash(
     vfx: &mut VfxWriter,
 ) {
     feature_damage.write(HitEvent {
+        pieces: Vec::new(),
         strike_sfx: None,
         volume: ae::Aabb::new(pos, ae::Vec2::splat(half)).into(),
         damage,
@@ -898,6 +899,33 @@ pub fn step_projectiles(
             continue;
         }
 
+        // ⭐ THE LEG ENDS AT A PORTAL, AND GOES ON AT ITS PARTNER. Where the
+        // shot's centre enters a paired opening, the pair takes it
+        // (`portal_transit`, after this step), so the rest of the leg is not
+        // in this room: a wall or a body behind the portal, in the room the
+        // shot is leaving, is not reached. The step ends there, just past the
+        // plane: the pair puts the shot at the exit, and its next step sweeps
+        // the far side from the plane, walls and bodies alike. The rest of
+        // this step is the next one's, not skipped (a step carried whole to
+        // the far end passed a body inside it).
+        #[cfg(feature = "portal")]
+        let contact_end = match ambition_portal2d::first_portal_crossing_through(
+            leg_start,
+            kin.pos,
+            kin.size,
+            portals_by_room.in_room(shot_room),
+            carved.backside_of(proj_entity),
+        ) {
+            Some((t, enter, _)) => {
+                let at = leg_start + (kin.pos - leg_start) * t;
+                kin.pos = at - enter.frame.normal * 0.01;
+                at
+            }
+            None => kin.pos,
+        };
+        #[cfg(not(feature = "portal"))]
+        let contact_end = kin.pos;
+
         // A shot crosses a portal as every body does (`portal_transit`): it
         // straddles the opening and the pair takes it when its centre
         // crosses. Its leg is its sweep, so a fast shot that crossed a plane
@@ -931,22 +959,6 @@ pub fn step_projectiles(
         // descending onto that support face?" is a fact about the leg the shot
         // just travelled, so the filter cannot be built before the leg exists.
         // Nothing between the old site and this one used it.
-        // ⭐ THE LEG ENDS AT A PORTAL. Where the shot's centre enters a paired
-        // opening, the pair takes it (`portal_transit`, next tick's step), so
-        // the rest of the leg is not in this room: a wall or a body behind the
-        // portal, in the room the shot is leaving, is not reached. Every
-        // contact below is measured along `contact_end`, not the endpoint.
-        #[cfg(feature = "portal")]
-        let contact_end = ambition_portal2d::first_portal_crossing(
-            leg_start,
-            kin.pos,
-            kin.size,
-            portals_by_room.in_room(shot_room),
-            carved.backside_of(proj_entity),
-        )
-        .map_or(kin.pos, |t| leg_start + (kin.pos - leg_start) * t);
-        #[cfg(not(feature = "portal"))]
-        let contact_end = kin.pos;
         let shot_bounces = game.bounces_remaining;
         let shot_velocity = kin.vel;
         // The shot's box where the leg BEGAN — the directional one-way rule asks
@@ -1423,6 +1435,7 @@ pub fn step_projectiles(
                     (victim_body.center().y + contact_center.y) * 0.5,
                 );
                 feature_damage.write(HitEvent {
+                    pieces: Vec::new(),
                     strike_sfx: None,
                     volume: contact_box.into(),
                     damage: game.damage.max(1),
@@ -1521,6 +1534,7 @@ pub fn step_projectiles(
                     ae::Aabb::new(at + inward * 0.5, feature_half)
                 };
                 let direct = HitEvent {
+                    pieces: Vec::new(),
                     strike_sfx: None,
                     volume: feature_contact_box.into(),
                     damage: game.damage.max(1),

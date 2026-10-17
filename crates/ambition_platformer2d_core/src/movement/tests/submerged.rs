@@ -14,14 +14,14 @@ fn platform_with_a_right_ledge() -> World {
         name: "submerged test world".to_string(),
         size: Vec2::new(1600.0, h),
         spawn: Vec2::new(560.0, h - 48.0 - 24.0),
-        blocks: vec![crate::world::Block::solid(
+        blocks: (vec![crate::world::Block::solid(
             "platform",
             Vec2::new(0.0, h - 48.0),
             Vec2::new(600.0, 48.0),
-        )],
+        )]).into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     }
 }

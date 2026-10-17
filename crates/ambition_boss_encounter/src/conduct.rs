@@ -159,6 +159,30 @@ fn swing_of(playback: &ambition_combat::moveset::MovePlayback) -> BodySwing {
 }
 
 /// `ambition.boss.mount`: the body the boss rides, its back and its limbs.
+/// Where a limb touches something solid, in the world it meets (its hole
+/// and the far side of the pair it reaches into, `solids_for`), and where
+/// that is: at the far end when the touch is through the pair.
+fn limb_contact(world: &World, limb: Entity, kin: &ae::BodyKinematics) -> Option<ae::Vec2> {
+    let room = world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(limb);
+    let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
+    let point = ambition_platformer2d_world::collision::with_room_in_world(world, room, |room| {
+        let walls = room.solids_for(limb)?;
+        ae::collision_semantics::touching_point(&walls, body, 1.0)
+    })
+    .flatten()?;
+    // Through the pair the limb is in: where it touches is at the far end.
+    let passages = world.get_resource::<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>();
+    let link = passages.and_then(|p| p.straddled_by(limb).map(|link| (link, p.convention())));
+    Some(match link {
+        Some((link, convention))
+            if ae::frame::thread::opening(&link.enter).iter().all(|plane| plane.contains(point)) =>
+        {
+            link.map(convention).point(point)
+        }
+        _ => point,
+    })
+}
+
 pub fn mount_of(world: &World, scope: Entity) -> Option<ambition_boss_special_port::MountView> {
     use ambition_boss_special_port::{MountLimb, MountView};
     let mount = world.get::<ambition_mount::RidingOn>(scope)?.mount;
@@ -193,6 +217,7 @@ pub fn mount_of(world: &World, scope: Entity) -> Option<ambition_boss_special_po
                         held: world
                             .get::<ae::PoseOwnedExternally>(limb)
                             .is_some_and(|holds| holds.holds(ae::PoseHold::Conductor)),
+                        contact: limb_contact(world, limb, limb_kin).map(|p| [p.x, p.y]),
                     })
                 })
                 .collect()
@@ -782,6 +807,7 @@ mod mount_view_tests {
                         home_offset: [-270.0, -70.0],
                         lost_health: 3,
                         held: true,
+                        contact: None,
                     },
                     ambition_boss_special_port::MountLimb {
                         slot: "hand_right".into(),
@@ -790,6 +816,7 @@ mod mount_view_tests {
                         home_offset: [270.0, -70.0],
                         lost_health: 0,
                         held: false,
+                        contact: None,
                     },
                 ],
             }

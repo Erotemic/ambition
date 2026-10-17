@@ -90,7 +90,6 @@ impl HeadlessCameraHarness {
         });
         app.init_resource::<PortalCameraContinuitySelection>();
         app.init_resource::<PortalCameraContinuityConfig>();
-        app.init_resource::<PortalCameraContinuityState>();
         app.init_resource::<PortalCameraContinuityHostView>();
         // camera_follow is the PRESENTATION half now (E4-17): the sim's
         // CameraObservationPlugin (inside AmbitionGameSimulationPlugin's engine
@@ -154,8 +153,12 @@ impl HeadlessCameraHarness {
                 world.query_filtered::<&PortalTransit, (With<PlayerEntity>, With<PrimaryPlayer>)>();
             transit.single(world).is_ok()
         };
-        let camera_roll = world.resource::<PortalCameraContinuityState>().roll_radians;
         let local_view = ambition_platformer2d::sim_view::the_only_view(world);
+        // The view's own anchor (none the first frame the view is seen).
+        let camera_roll = world
+            .entity(local_view)
+            .get::<PortalCameraContinuityState>()
+            .map_or(0.0, |state| state.roll_radians);
         // Read the framing off the VIEW, the way every production reader now
         // does — through the view this rig already knows how to name.
         let camera_center = world
@@ -197,7 +200,14 @@ impl HeadlessCameraHarness {
             ambition_platformer2d::platformer::camera_ease::CameraEaseState::default();
         *world.resource_mut::<PortalCameraContinuityHostView>() =
             PortalCameraContinuityHostView::default();
-        world.resource_mut::<PortalCameraContinuityState>().clear();
+        if let Some(mut samples) =
+            world.get_resource_mut::<ambition_platformer2d::portal_presentation::PortalObserverViews>()
+        {
+            *samples.of_mut(view) = PortalCameraContinuityHostView::default();
+        }
+        if let Some(mut state) = world.entity_mut(view).get_mut::<PortalCameraContinuityState>() {
+            state.clear();
+        }
     }
 
     /// The convention the SESSION is playing under.

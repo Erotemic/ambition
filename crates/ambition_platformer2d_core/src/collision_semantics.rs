@@ -97,6 +97,25 @@ pub fn is_full_collision_surface(kind: BlockKind) -> bool {
     )
 }
 
+/// Where `body` touches a solid of `world` (within `reach` of it, not in it):
+/// the solid's point nearest the body's centre, the nearest such solid's.
+/// What a held limb reports as its contact.
+pub fn touching_point(world: &World, body: Aabb, reach: f32) -> Option<Vec2> {
+    let near = Aabb::new(body.center(), body.half_size() + Vec2::splat(reach));
+    world
+        .blocks
+        .near(near)
+        .into_iter()
+        .filter(|block| is_full_collision_surface(block.kind) && block.aabb.strict_intersects(near))
+        .map(|block| body.center().clamp(block.aabb.min, block.aabb.max))
+        .min_by(|a, b| {
+            a.distance_squared(body.center())
+                .total_cmp(&b.distance_squared(body.center()))
+                .then(a.x.total_cmp(&b.x))
+                .then(a.y.total_cmp(&b.y))
+        })
+}
+
 /// Whether `kind` is a collision surface for `axis` under this gravity.
 ///
 /// Full solids/blink walls block both axes. One-way surfaces are collision

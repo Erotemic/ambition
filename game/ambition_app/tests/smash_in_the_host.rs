@@ -4481,6 +4481,7 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
                 .into();
             app.world_mut()
                 .write_message(ambition_platformer2d::combat::events::HitEvent {
+                    pieces: Vec::new(),
                     strike_sfx: None,
                     volume,
                     damage: bite,

@@ -134,6 +134,7 @@ pub(crate) fn deal_a_lethal_hit(app: &mut App) -> usize {
         };
         let volume: ae::CombatVolume = ae::Aabb::new(at, Vec2::new(40.0, 40.0)).into();
         app.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
             strike_sfx: None,
             volume,
             // Enough to finish her whatever she is wearing: the classic armor

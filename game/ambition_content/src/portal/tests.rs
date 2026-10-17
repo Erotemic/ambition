@@ -166,13 +166,13 @@ fn portals_adhere_to_one_way_platforms_but_blink_passes_through() {
         name: "one-way".to_string(),
         size: Vec2::new(400.0, 400.0),
         spawn: Vec2::new(200.0, 200.0),
-        blocks: vec![Block::one_way(
+        blocks: (vec![Block::one_way(
             "ledge",
             Vec2::new(100.0, 300.0),
             Vec2::new(200.0, 12.0),
-        )],
+        )]).into(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
         water_regions: Vec::new(),
     };

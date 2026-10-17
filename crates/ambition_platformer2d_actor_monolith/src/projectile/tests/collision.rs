@@ -195,6 +195,42 @@ fn a_shot_that_enters_a_portal_does_not_reach_a_body_behind_it() {
     assert!(!a_body_behind_a_portal_is_hit(true), "the shot reached a body behind the portal it entered");
 }
 
+/// A fast shot through a pair reaches a thin body just in front of the exit,
+/// one its step past the crossing would carry it over: the rest of the step
+/// is not lost at the exit (finding B of the review of 15d0cf99c, gap 1).
+#[cfg(feature = "portal")]
+#[test]
+fn a_fast_shot_through_a_portal_reaches_a_body_just_past_the_exit() {
+    use ambition_combat::events::{HitEvent, HitTarget};
+    use ambition_portal2d::{PlacedPortal, PortalChannel, PortalGunColor};
+
+    #[derive(bevy::prelude::Resource, Default)]
+    struct Struck(Vec<HitTarget>);
+    fn record(mut reader: bevy::prelude::MessageReader<HitEvent>, mut seen: bevy::prelude::ResMut<Struck>) {
+        seen.0.extend(reader.read().map(|event| event.target));
+    }
+    let mut app = open_lane_app();
+    with_the_portal_transit(&mut app);
+    app.init_resource::<Struck>();
+    app.add_systems(Update, record.after(crate::projectile::step_projectiles));
+    let shooter = crate::projectile::tests::primary_player_entity(&mut app);
+    for (channel, pos, normal) in [
+        (PortalChannel::Gun(PortalGunColor::BLUE), ae::Vec2::new(600.0, 200.0), ae::Vec2::new(-1.0, 0.0)),
+        (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0)),
+    ] {
+        app.world_mut().spawn(PlacedPortal::fixed(channel, pos, normal, 40.0));
+    }
+    // 8 wide, 40 in front of the orange: inside a step of 96.
+    let target = spawn_boss(&mut app, "past", ae::Vec2::new(1240.0, 800.0), ae::Vec2::new(4.0, 23.0));
+    let shot = spawn_owned_shot(&mut app, shooter, ae::Vec2::new(590.0, 200.0));
+    app.world_mut().get_mut::<ae::BodyKinematics>(shot).unwrap().vel = ae::Vec2::new(6000.0, 0.0);
+    for _ in 0..4 {
+        advance_time(&mut app, 0.016);
+        app.update();
+    }
+    assert!(app.world().resource::<Struck>().0.contains(&HitTarget::Feature(target)), "the shot passed over the body past the exit");
+}
+
 /// OW1: a shot threads only the portals of its own live room. The pair is in
 /// #1. A shot in #1 at the blue comes out at the orange; a shot in #0 at the
 /// same place flies on. Before, the stepper threaded every placed portal.

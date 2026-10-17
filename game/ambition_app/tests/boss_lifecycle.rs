@@ -160,6 +160,7 @@ pub(crate) fn kill_boss_with_a_real_hit(
             // against the victim's own collision box, and a zero-area box at the
             // centre is a different question from "something struck it".
             sim.world_mut().write_message(HitEvent {
+                pieces: Vec::new(),
                 volume: ambition_platformer2d::engine_core::Aabb::new(
                     ambition_platformer2d::engine_core::Vec2::new(at.x, at.y),
                     ambition_platformer2d::engine_core::Vec2::splat(64.0),

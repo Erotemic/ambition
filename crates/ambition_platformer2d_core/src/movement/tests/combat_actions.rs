@@ -238,12 +238,12 @@ fn guard_and_down_drops_through_a_soft_platform_but_spot_dodges_on_solid_ground(
         name: "platform drop".to_string(),
         size: Vec2::new(800.0, 600.0),
         spawn: Vec2::new(400.0, 100.0),
-        blocks: vec![
+        blocks: (vec![
             Block::solid("floor", Vec2::new(0.0, 500.0), Vec2::new(800.0, 40.0)),
             Block::one_way("platform", Vec2::new(300.0, 300.0), Vec2::new(200.0, 12.0)),
-        ],
+        ]).into(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
         water_regions: Vec::new(),
     };

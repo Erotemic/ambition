@@ -313,14 +313,14 @@ fn partial_wall_cling_overlap_does_not_teleport_upward() {
         spawn: Vec2::new(50.0, 50.0),
         // Column matching the trace: x=[704, 720], y=[16, 400].
         // Center=(712, 208), size=(16, 384).
-        blocks: vec![Block::solid(
+        blocks: (vec![Block::solid(
             "column",
             Vec2::new(712.0, 208.0),
             Vec2::new(16.0, 384.0),
-        )],
+        )]).into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
@@ -368,14 +368,14 @@ fn descending_onto_top_corner_of_tall_block_lands_normally() {
         name: "pillar".into(),
         size: Vec2::new(800.0, 600.0),
         spawn: Vec2::new(50.0, 50.0),
-        blocks: vec![Block::solid(
+        blocks: (vec![Block::solid(
             "pillar",
             Vec2::new(380.0, 200.0),
             Vec2::new(40.0, 400.0),
-        )],
+        )]).into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
@@ -575,7 +575,7 @@ fn sliding_along_the_ceiling_edge_does_not_teleport_across_the_room() {
         name: "hub ceiling".to_string(),
         size: Vec2::new(1900.0, 2004.0),
         spawn: Vec2::new(950.0, 883.0),
-        blocks: vec![
+        blocks: (vec![
             Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(1904.0, 32.0)),
             Block::solid(
                 "right wall",
@@ -583,10 +583,10 @@ fn sliding_along_the_ceiling_edge_does_not_teleport_across_the_room() {
                 Vec2::new(48.0, 224.0),
             ),
             Block::solid("floor", Vec2::new(0.0, 1980.0), Vec2::new(1904.0, 24.0)),
-        ],
+        ]).into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
@@ -627,17 +627,17 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
         name: "hub ceiling".to_string(),
         size: Vec2::new(1900.0, 2004.0),
         spawn: Vec2::new(950.0, 883.0),
-        blocks: vec![
+        blocks: (vec![
             Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(1904.0, 32.0)),
             Block::solid(
                 "right wall",
                 Vec2::new(1856.0, 32.0),
                 Vec2::new(48.0, 224.0),
             ),
-        ],
+        ]).into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
@@ -776,15 +776,15 @@ fn sideways_gravity_blink_wall_is_ground_support() {
         name: "side blink support".to_string(),
         size: Vec2::new(800.0, 600.0),
         spawn: Vec2::new(500.0, 300.0),
-        blocks: vec![Block::blink_wall(
+        blocks: (vec![Block::blink_wall(
             "blink support",
             Vec2::new(300.0, 120.0),
             Vec2::new(16.0, 360.0),
             BlinkWallTier::Soft,
-        )],
+        )]).into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
@@ -830,14 +830,14 @@ fn one_way_platform_works_under_sideways_gravity() {
         name: "side one-way".to_string(),
         size: Vec2::new(800.0, 600.0),
         spawn: Vec2::new(500.0, 300.0),
-        blocks: vec![Block::one_way(
+        blocks: (vec![Block::one_way(
             "side oneway",
             Vec2::new(300.0, 120.0),
             Vec2::new(16.0, 360.0),
-        )],
+        )]).into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
@@ -941,7 +941,7 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
         name: "embed-hub".into(),
         size: Vec2::new(1900.0, 2004.0),
         spawn: Vec2::new(950.0, 1000.0),
-        blocks: vec![
+        blocks: (vec![
             Block::solid("slab", Vec2::new(300.0, 300.0), Vec2::new(700.0, 700.0)),
             // Containing walls (like the hub's perimeter) so a body falling
             // sideways out of the slab is CAUGHT, never flung out of the world.
@@ -951,10 +951,10 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
                 Vec2::new(1852.0, 0.0),
                 Vec2::new(48.0, 2004.0),
             ),
-        ],
+        ]).into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     };
     let start = Vec2::new(650.0, 650.0); // deep inside the 700x700 slab
@@ -1068,10 +1068,10 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
         name: "closing solids".into(),
         size: Vec2::new(1600.0, 900.0),
         spawn: start,
-        blocks,
+        blocks: blocks.into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     };
 
@@ -1186,10 +1186,10 @@ fn two_solids_with_a_legal_interval_resolve_the_same_in_either_block_order() {
         name: "step seam".into(),
         size: Vec2::new(1600.0, 900.0),
         spawn: start,
-        blocks,
+        blocks: blocks.into(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
     };
     // Gravity magnitude zeroed for the same reason as the fixture above: the
@@ -1329,10 +1329,10 @@ fn a_blink_wall_stops_a_body_that_cannot_blink() {
             name: "blink wall in the way".to_string(),
             size: Vec2::new(800.0, 600.0),
             spawn: Vec2::new(200.0, 540.0),
-            blocks,
+            blocks: blocks.into(),
             water_regions: Vec::new(),
             climbable_regions: Vec::new(),
-            chains: Vec::new(),
+            chains: (Vec::new()).into(),
             edges: Default::default(),
         };
         let mut scratch = scratch_with(AbilitySet::default(), world.spawn);
@@ -1442,10 +1442,10 @@ fn a_one_way_does_not_block_a_body_walking_sideways_into_it() {
             name: "sideways into a one-way".to_string(),
             size: Vec2::new(800.0, 600.0),
             spawn: Vec2::new(200.0, 540.0),
-            blocks,
+            blocks: blocks.into(),
             water_regions: Vec::new(),
             climbable_regions: Vec::new(),
-            chains: Vec::new(),
+            chains: (Vec::new()).into(),
             edges: Default::default(),
         };
         let mut scratch = scratch_with(AbilitySet::default(), world.spawn);

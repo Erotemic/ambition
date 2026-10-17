@@ -65,6 +65,7 @@ pub fn thrown_items_strike(
             }
             struck_any = true;
             hits.write(HitEvent {
+                pieces: Vec::new(),
                 volume: ae::Aabb::new(item.pos, item.half_extent).into(),
                 damage: impact.damage,
                 source: HitSource::Hazard,

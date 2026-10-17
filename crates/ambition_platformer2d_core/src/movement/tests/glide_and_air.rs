@@ -21,12 +21,12 @@ fn flipped_gravity_makes_the_player_fall_up_and_stand_on_the_ceiling() {
         name: "gravity flip world".to_string(),
         size: Vec2::new(w, h),
         spawn: Vec2::new(400.0, 300.0),
-        blocks: vec![
+        blocks: (vec![
             Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(w, 40.0)),
             Block::solid("floor", Vec2::new(0.0, h - 40.0), Vec2::new(w, 40.0)),
-        ],
+        ]).into(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
         water_regions: Vec::new(),
     };
@@ -68,13 +68,13 @@ fn sideways_gravity_pulls_the_player_along_x() {
         name: "sideways gravity".to_string(),
         size: Vec2::new(2000.0, 600.0),
         spawn: Vec2::new(200.0, 300.0),
-        blocks: vec![Block::solid(
+        blocks: (vec![Block::solid(
             "right wall",
             Vec2::new(1900.0, 0.0),
             Vec2::new(100.0, 600.0),
-        )],
+        )]).into(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
         water_regions: Vec::new(),
     };
@@ -120,12 +120,12 @@ fn wall_walking_grounds_walks_and_jumps_off_a_side_wall() {
         name: "wall walk".to_string(),
         size: Vec2::new(800.0, 600.0),
         spawn: Vec2::new(400.0, 300.0),
-        blocks: vec![
+        blocks: (vec![
             Block::solid("right wall", Vec2::new(760.0, 0.0), Vec2::new(40.0, 600.0)),
             Block::solid("floor", Vec2::new(0.0, 560.0), Vec2::new(800.0, 40.0)),
-        ],
+        ]).into(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
         water_regions: Vec::new(),
     };
@@ -231,12 +231,12 @@ fn one_way_platform_works_under_flipped_gravity() {
         name: "flip one-way".to_string(),
         size: Vec2::new(800.0, 600.0),
         spawn: Vec2::new(400.0, 400.0),
-        blocks: vec![
+        blocks: (vec![
             Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(800.0, 40.0)),
             Block::one_way("oneway", Vec2::new(300.0, 200.0), Vec2::new(200.0, 12.0)),
-        ],
+        ]).into(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
         water_regions: Vec::new(),
     };
@@ -518,9 +518,9 @@ fn direct_velocity_flight_takes_the_commanded_velocity_verbatim() {
         name: "open air".to_string(),
         size: Vec2::new(4000.0, 4000.0),
         spawn: Vec2::new(2000.0, 2000.0),
-        blocks: Vec::new(),
+        blocks: (Vec::new()).into(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
         water_regions: Vec::new(),
     };
@@ -574,9 +574,9 @@ fn diagonal_free_flight_respects_the_radial_terminal_speed() {
         name: "open air".to_string(),
         size: Vec2::new(4000.0, 4000.0),
         spawn: Vec2::new(2000.0, 2000.0),
-        blocks: Vec::new(),
+        blocks: (Vec::new()).into(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
         water_regions: Vec::new(),
     };
@@ -617,9 +617,9 @@ fn an_invariant_speed_bounds_every_flight_policy_not_just_the_relativistic_one()
         name: "superluminal temptation".to_string(),
         size: Vec2::new(8000.0, 8000.0),
         spawn: Vec2::new(4000.0, 4000.0),
-        blocks: Vec::new(),
+        blocks: (Vec::new()).into(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
         water_regions: Vec::new(),
     };
@@ -670,9 +670,9 @@ fn proper_velocity_free_flight_approaches_the_terminal_without_reaching_c() {
         name: "relativistic open air".to_string(),
         size: Vec2::new(8000.0, 8000.0),
         spawn: Vec2::new(4000.0, 4000.0),
-        blocks: Vec::new(),
+        blocks: (Vec::new()).into(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
         water_regions: Vec::new(),
     };
@@ -722,9 +722,9 @@ fn the_player_rides_a_horizontally_moving_platform() {
         name: "moving platform".to_string(),
         size: Vec2::new(800.0, 600.0),
         spawn: Vec2::new(200.0, 360.0),
-        blocks: vec![platform],
+        blocks: (vec![platform]).into(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
         water_regions: Vec::new(),
     };
@@ -958,9 +958,9 @@ fn rider_on_a_moving_block(kind_one_way: bool) -> (crate::world::World, crate::b
         name: "moving platform".to_string(),
         size: Vec2::new(800.0, 2000.0),
         spawn: Vec2::new(200.0, 360.0),
-        blocks: vec![platform],
+        blocks: (vec![platform]).into(),
         climbable_regions: Vec::new(),
-        chains: Vec::new(),
+        chains: (Vec::new()).into(),
         edges: Default::default(),
         water_regions: Vec::new(),
     };

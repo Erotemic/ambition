@@ -401,7 +401,10 @@ pub fn as_met_by<'w>(
 /// a little more (conservative, never less). A one-way block that the pair
 /// turns on its side has no kind that says it, and is left out; a line with
 /// lanes or junctions, or a closed one, is left out as the hole leaves it
-/// whole. The entry's side is cut by the hole's box, as the hole is.
+/// whole. The entry's side is cut by the hole's box, as the hole is. Water
+/// in front of the exit is carried as the blocks are; a climbable region is
+/// carried when the pair keeps it upright or upside down (a ladder the pair
+/// lays on its side is no ladder).
 pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
     use ae::frame::{map_point, map_vec, FaceRect};
     let (enter, exit) = (&glue.enter, &glue.exit);
@@ -423,9 +426,48 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
     // What is in front of the exit, read before the entry's side is cut: in a
     // thin wall the two regions share space.
     let region = ae::frame::thread::face_rect_planes(&before);
+    let region_planes = region;
+    let reach = before.bounds();
+    // Does the pair keep boxes boxes (a floor, wall or ceiling pair), or turn
+    // them?
+    let turned = {
+        let x = back_dir(ae::Vec2::X);
+        x.x.abs() > 1e-4 && x.y.abs() > 1e-4
+    };
     let mut blocks: Vec<ae::Block> = Vec::new();
-    for block in &world.blocks {
+    let mut chains: Vec<ae::SurfaceChain> = Vec::new();
+    for block in world.blocks.near(reach).into_iter().filter(|block| reach.strict_intersects(block.aabb)) {
+        // A solid block a pair turns is carried as it is: its cut, turned, as
+        // a solid outline (exact; `SurfaceKind::Solid`).
+        if turned && ae::collision_semantics::is_full_collision_surface(block.kind) {
+            if let Some(cut) = ae::frame::thread::clip_convex(box_outline(block.aabb), &region) {
+                chains.push(ae::SurfaceChain {
+                    velocity: back_dir(block.velocity),
+                    ..ae::SurfaceChain::solid(block.name.clone(), cut.into_iter().map(back).collect())
+                });
+            }
+            continue;
+        }
         let Some(kind) = carried_kind(block.kind, back_dir) else {
+            // A one-way block the pair turns off upright is its floor: its
+            // top, carried as a one-way line, which is a floor at any angle
+            // a walker stands on and passed where it is steeper.
+            if block.kind == ae::BlockKind::OneWay {
+                let top = (block.aabb.min, ae::Vec2::new(block.aabb.max.x, block.aabb.min.y));
+                if let Some((t0, t1)) = before.clip_segment(top.0, top.1) {
+                    let (a, b) = (top.0 + (top.1 - top.0) * t0, top.0 + (top.1 - top.0) * t1);
+                    let (a, b) = (back(a), back(b));
+                    // Wound so its outward normal is the block's up, carried.
+                    let up = back_dir(-ae::Vec2::Y);
+                    let t = b - a;
+                    let (a, b) = if ae::Vec2::new(t.y, -t.x).dot(up) >= 0.0 { (a, b) } else { (b, a) };
+                    chains.push(ae::SurfaceChain {
+                        velocity: back_dir(block.velocity),
+                        hidden: true,
+                        ..ae::SurfaceChain::open(block.name.clone(), vec![a, b])
+                    });
+                }
+            }
             continue;
         };
         let Some(aabb) = carried_box(block.aabb, &region, back) else {
@@ -433,8 +475,7 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
         };
         blocks.push(ae::Block { aabb, kind, velocity: back_dir(block.velocity), ..block.clone() });
     }
-    let mut chains: Vec<ae::SurfaceChain> = Vec::new();
-    for chain in world.chains.iter().filter(|c| !c.closed && c.junctions.is_empty() && c.depth_lanes.is_empty()) {
+    for chain in world.chains.near(reach).into_iter().filter(|c| !c.closed && c.junctions.is_empty() && c.depth_lanes.is_empty()) {
         for pair in chain.points.windows(2) {
             let (a, b) = (pair[0], pair[1]);
             if let Some((t0, t1)) = before.clip_segment(a, b) {
@@ -448,10 +489,31 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
             }
         }
     }
+    let water: Vec<ae::WaterRegion> = world
+        .water_regions
+        .iter()
+        .filter(|region| reach.strict_intersects(region.aabb))
+        .filter_map(|region| Some(ae::WaterRegion { aabb: carried_box(region.aabb, &region_planes, back)?, ..region.clone() }))
+        .collect();
+    let down = back_dir(ae::Vec2::Y);
+    let upright = down.x.abs() < 1e-4;
+    let climbable: Vec<ae::ClimbableRegion> = world
+        .climbable_regions
+        .iter()
+        .filter(|region| upright && reach.strict_intersects(region.aabb))
+        .filter_map(|region| Some(ae::ClimbableRegion { aabb: carried_box(region.aabb, &region_planes, back)?, ..region.clone() }))
+        .collect();
     cut_portal_holes(world, &[&behind]);
-    world.blocks.extend(blocks);
-    world.blocks.sort_by(ae::Block::canonical_cmp);
-    world.chains.extend(chains);
+    world.water_regions.extend(water);
+    world.climbable_regions.extend(climbable);
+    // After the room's own, in canonical order as contributed blocks are:
+    // the room's keep their places.
+    extend_in_canonical_order(&mut world.blocks, &blocks);
+    world.chains.add_all(chains);
+}
+
+fn box_outline(aabb: ae::Aabb) -> Vec<ae::Vec2> {
+    vec![aabb.min, ae::Vec2::new(aabb.max.x, aabb.min.y), aabb.max, ae::Vec2::new(aabb.min.x, aabb.max.y)]
 }
 
 /// The part of `aabb` inside `region` (exactly, a convex cut), mapped by
@@ -502,7 +564,20 @@ pub fn cut_portal_holes(world: &mut ae::World, holes: &[&ae::frame::FaceRect]) {
     let boxes: Vec<ae::Aabb> = holes.iter().map(|face| face.bounds()).collect();
     carve_portal_apertures(&mut world.blocks, &boxes);
     for hole in holes {
-        world.chains = world.chains.iter().flat_map(|chain| chain.without(hole)).collect();
+        // The lines a hole cuts are hidden and their pieces added; the rest
+        // are kept, shared.
+        let cuts = |chain: &ae::SurfaceChain| {
+            let pieces = chain.without(hole);
+            !(pieces.len() == 1 && pieces[0].points == chain.points && pieces[0].closed == chain.closed)
+        };
+        let region = hole.bounds();
+        let pieces: Vec<ae::SurfaceChain> =
+            world.chains.near(region).into_iter().filter(|chain| cuts(chain)).flat_map(|chain| chain.without(hole)).collect();
+        if pieces.is_empty() {
+            continue;
+        }
+        world.chains.hide_near(region, cuts);
+        world.chains.add_all(pieces);
     }
 }
 
@@ -514,7 +589,7 @@ pub fn without_gates<'w>(walls: &'w ae::World, open: &[&str]) -> Cow<'w, ae::Wor
         return Cow::Borrowed(walls);
     }
     let mut walls = walls.clone();
-    walls.blocks.retain(|block| !open.contains(&block.name.as_str()));
+    walls.blocks.hide_where(|block| open.contains(&block.name.as_str()));
     Cow::Owned(walls)
 }
 
@@ -704,9 +779,9 @@ pub fn world_with_sandbox_solids(
     extend_in_canonical_order(&mut collision_world.blocks, &ecs_overlay.blocks);
     // Contributed lines after the room's own, by name, so the composed world
     // does not depend on the order the contributors ran in.
-    let start = collision_world.chains.len();
-    collision_world.chains.extend(ecs_overlay.chains.iter().cloned());
-    collision_world.chains[start..].sort_by(|a, b| a.name.cmp(&b.name));
+    let mut lines: Vec<ae::SurfaceChain> = ecs_overlay.chains.clone();
+    lines.sort_by(|a, b| a.name.cmp(&b.name));
+    collision_world.chains.add_all(lines);
     // Gate solids (lock walls) are authored-equivalent statics: added alongside
     // the base/platform solids, so a portal's hole (`as_met_by`) splits them
     // exactly as it would a base wall.
@@ -723,11 +798,12 @@ pub fn world_with_sandbox_solids(
 }
 
 /// Append contributed blocks in [`ae::Block::canonical_cmp`] order, so the
-/// composed world does not depend on the order the contributors ran in.
-fn extend_in_canonical_order(blocks: &mut Vec<ae::Block>, contributed: &[ae::Block]) {
-    let start = blocks.len();
-    blocks.extend(contributed.iter().cloned());
-    blocks[start..].sort_by(ae::Block::canonical_cmp);
+/// composed world does not depend on the order the contributors ran in. They
+/// are a layer over the room's shared list ([`ae::layered::Layered`]).
+fn extend_in_canonical_order(blocks: &mut ae::layered::Layered<ae::Block>, contributed: &[ae::Block]) {
+    let mut added = contributed.to_vec();
+    added.sort_by(ae::Block::canonical_cmp);
+    blocks.add_all(added);
 }
 
 /// The room world with only portal apertures carved out. Projectiles do not use
@@ -816,9 +892,7 @@ pub fn world_with_contributed_solids_and_carves<'w>(
 /// empty.
 fn apply_overlay_subtractions(world: &mut ae::World, overlay: &FeatureEcsWorldOverlay) {
     if !overlay.removed_block_names.is_empty() {
-        world
-            .blocks
-            .retain(|b| !overlay.removed_block_names.iter().any(|n| n == &b.name));
+        world.blocks.hide_where(|b| overlay.removed_block_names.iter().any(|n| n == &b.name));
     }
     if !overlay.climbable_carves.is_empty() {
         world.climbable_regions.retain(|r| {
@@ -833,9 +907,9 @@ fn apply_overlay_subtractions(world: &mut ae::World, overlay: &FeatureEcsWorldOv
 /// Drop authored blocks named in `removed_block_names` from a block list (the
 /// projectile-view half of [`apply_overlay_subtractions`]; projectiles don't read
 /// climbable regions). No-op when the list is empty.
-fn remove_named_blocks(blocks: &mut Vec<ae::Block>, removed_block_names: &[String]) {
+fn remove_named_blocks(blocks: &mut ae::layered::Layered<ae::Block>, removed_block_names: &[String]) {
     if !removed_block_names.is_empty() {
-        blocks.retain(|b| !removed_block_names.iter().any(|n| n == &b.name));
+        blocks.hide_where(|b| removed_block_names.iter().any(|n| n == &b.name));
     }
 }
 
@@ -846,14 +920,26 @@ fn remove_named_blocks(blocks: &mut Vec<ae::Block>, removed_block_names: &[Strin
 /// The set-difference itself is `ae::geometry::subtract_aabb` — plain rectangle
 /// algebra in the foundation. This crate never names the portal MECHANIC; a
 /// carve arrives as a `Vec<Aabb>` on the overlay.
-fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
-    let original = std::mem::take(blocks);
-    for block in original {
-        let carvable = ae::collision_semantics::is_support_surface(block.kind);
-        if !carvable {
-            blocks.push(block);
-            continue;
-        }
+fn carve_portal_apertures(blocks: &mut ae::layered::Layered<ae::Block>, holes: &[ae::Aabb]) {
+    // A block no hole reaches is kept as it is, its identity with it. One a
+    // hole reaches is hidden, and its pieces added: a layer over the room's
+    // shared list, so a hole costs what it cuts, not what the room holds.
+    let reached = |block: &ae::Block| {
+        ae::collision_semantics::is_support_surface(block.kind)
+            && holes.iter().any(|hole| hole.strict_intersects(block.aabb))
+    };
+    let Some(region) = holes.iter().copied().reduce(|a, b| {
+        ae::geometry::aabb_from_min_max(a.min.x.min(b.min.x), a.min.y.min(b.min.y), a.max.x.max(b.max.x), a.max.y.max(b.max.y))
+            .unwrap_or(a)
+    }) else {
+        return;
+    };
+    let cut: Vec<ae::Block> = blocks.near(region).into_iter().filter(|block| reached(block)).cloned().collect();
+    if cut.is_empty() {
+        return;
+    }
+    blocks.hide_near(region, reached);
+    for block in cut {
         // Subtract each hole in turn; a block can be split by more than one
         // portal (rare, but cheap to handle).
         let mut pieces = vec![block.aabb];
@@ -864,17 +950,15 @@ fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
             }
             pieces = next;
         }
-        for aabb in pieces {
-            blocks.push(ae::Block {
-                id: ae::GeoId::anon(),
-                name: block.name.clone(),
-                aabb,
-                kind: block.kind,
-                // A carved piece of a moving host keeps its motion.
-                velocity: block.velocity,
-                art_color: None,
-            });
-        }
+        blocks.add_all(pieces.into_iter().map(|aabb| ae::Block {
+            id: ae::GeoId::anon(),
+            name: block.name.clone(),
+            aabb,
+            kind: block.kind,
+            // A carved piece of a moving host keeps its motion.
+            velocity: block.velocity,
+            art_color: None,
+        }));
     }
 }
 
@@ -1297,14 +1381,40 @@ mod collision_world_tests {
         assert!(solid_at(&walls, 120.0, 310.0) && !solid_at(&walls, 90.0, 330.0) || solid_at(&walls, 90.0, 330.0));
     }
 
+    /// Water in front of the far end is met behind the near one, as the
+    /// solids there are; a ladder is carried where the pair keeps it upright,
+    /// and not where it lays it on its side.
+    #[test]
+    fn a_body_in_a_pair_is_in_the_water_and_on_the_ladder_in_front_of_its_far_end() {
+        use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+        let pool = ae::Aabb::new(ae::Vec2::new(500.0, 180.0), ae::Vec2::new(20.0, 10.0));
+        let walls = ae::World::new("glue", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, Vec::new())
+            .with_water_regions(vec![ae::WaterRegion::new(pool, ae::WaterKind::Clear, ae::WaterVolumeSpec::default())])
+            .with_climbable_regions(vec![ae::ClimbableRegion::ladder(pool)]);
+        // A floor portal to a ceiling portal over the pool: upright.
+        let floor = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), ae::Vec2::new(0.0, -1.0)), half_length: 30.0 };
+        let ceiling = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, 170.0), ae::Vec2::new(0.0, 1.0)), half_length: 30.0 };
+        let glue = PortalGlue { enter: floor, exit: ceiling, convention: MapConvention::Reflection, depth: 60.0 };
+        let met = as_met_by(&walls, &[], &[], &[&glue]);
+        let probe = ae::Aabb::new(ae::Vec2::new(100.0, 312.0), ae::Vec2::splat(2.0));
+        assert!(met.water_at(probe).is_some(), "the far side's water is not met");
+        assert!(met.climbable_at(probe).is_some(), "the far side's ladder is not met");
+        assert!(walls.water_at(probe).is_none());
+        // A wall portal to the same ceiling lays the ladder on its side.
+        let wall = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), ae::Vec2::new(1.0, 0.0)), half_length: 30.0 };
+        let turned = as_met_by(&walls, &[], &[], &[&PortalGlue { enter: wall, ..glue }]);
+        let probe = ae::Aabb::new(ae::Vec2::new(88.0, 300.0), ae::Vec2::splat(2.0));
+        assert!(turned.water_at(probe).is_some(), "water is carried turned");
+        assert!(turned.climbable_at(probe).is_none(), "a ladder on its side is no ladder");
+    }
+
     /// A pair that turns what it carries by 45°: a square in front of the
-    /// exit is a diamond behind the entry. The world's solids are boxes, so
-    /// it is the box that bounds the diamond: solid wherever the diamond is,
-    /// never a sliver. Mapping two opposite corners and boxing them (the
-    /// first glue, review of 15d0cf99c) gave a box of no width: the two
-    /// corners of a square turned by 45° share an x. And a block inside the
-    /// box that bounds the turned region, but outside the region, is not
-    /// carried.
+    /// exit is a diamond behind the entry, carried as it is: a solid outline
+    /// (`SurfaceKind::Solid`) of the square's area, solid inside and not in
+    /// the corners of the box around it. (The first glue mapped two corners
+    /// and boxed them, a box of no width; the next put the box around the
+    /// diamond, more solid than the truth.) A block inside the box that
+    /// bounds the turned region, but outside the region, is not carried.
     #[test]
     fn a_square_through_a_pair_that_turns_it_by_45_degrees_is_solid_where_it_is() {
         use ae::frame::{map_point, MapConvention, PortalAperture, PortalFrame};
@@ -1322,20 +1432,51 @@ mod collision_world_tests {
         let corner = ae::Block::solid("corner", ae::Vec2::new(578.0, 228.0), ae::Vec2::splat(4.0));
         let walls = ae::World::new("glue", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, vec![square.clone(), corner]);
         let met = as_met_by(&walls, &[], &[], &[&glue]);
-        let carried: Vec<&ae::Block> = met.blocks.iter().filter(|b| b.name == "square").collect();
-        let square_at = carried.iter().find(|b| b.aabb.max.y > 300.0).expect("the square is carried behind the entry");
-        let size = square_at.aabb.max - square_at.aabb.min;
-        assert!(size.x > 16.0 && size.y > 16.0, "the carried square has the area of a turned square: {size:?}");
+        let carried: Vec<&ae::SurfaceChain> =
+            met.chains.iter().filter(|c| c.name == "square" && c.kind == ae::SurfaceKind::Solid).collect();
+        let [outline] = carried[..] else { panic!("the square is carried once as an outline: {carried:?}") };
+        let area = (0..outline.points.len())
+            .map(|i| outline.points[i].perp_dot(outline.points[(i + 1) % outline.points.len()]))
+            .sum::<f32>()
+            / 2.0;
+        assert!((area - 256.0).abs() < 0.1, "the carried square has the square's area: {area}");
         let back = |p: ae::Vec2| map_point(&glue.exit.frame, &glue.enter.frame, glue.convention, p);
-        for c in [square.aabb.min, square.aabb.max, ae::Vec2::new(square.aabb.min.x, square.aabb.max.y), ae::Vec2::new(square.aabb.max.x, square.aabb.min.y)] {
-            let p = back(c);
-            assert!(
-                p.x >= square_at.aabb.min.x - 1e-3 && p.x <= square_at.aabb.max.x + 1e-3 && p.y >= square_at.aabb.min.y - 1e-3 && p.y <= square_at.aabb.max.y + 1e-3,
-                "the carried box holds the turned square's corner {p:?}: {:?}",
-                square_at.aabb
-            );
-        }
+        let centre = back(square.aabb.center());
+        let probe = |at: ae::Vec2| ae::solid_lines::push_out(ae::Aabb::new(at, ae::Vec2::splat(0.5)), &outline.points).is_some();
+        assert!(probe(centre), "solid at its middle");
+        // Turned 45°, its corners are 11.3 out along the world's axes: the box
+        // around it reaches (10, 10) from its middle, and it does not.
+        assert!(!probe(centre + ae::Vec2::new(10.0, 10.0)), "solid in a corner of the box around it");
+        assert_eq!(met.blocks.iter().filter(|b| b.name == "square").count(), 1, "and not as a box too (the one is the square where it is)");
         assert_eq!(met.blocks.iter().filter(|b| b.name == "corner").count(), 1, "a block out of the turned region is not carried");
+    }
+
+    /// A one-way platform a pair turns off upright is carried as its top: a
+    /// one-way line facing where its up is carried (a floor pair to a 30°
+    /// slope portal tilts it 30°).
+    #[test]
+    fn a_one_way_platform_a_pair_turns_is_carried_as_its_top() {
+        use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+        let n = ae::Vec2::new(30f32.to_radians().sin(), -30f32.to_radians().cos());
+        let glue = PortalGlue {
+            enter: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), ae::Vec2::new(0.0, -1.0)), half_length: 60.0 },
+            exit: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, 200.0), n), half_length: 60.0 },
+            convention: MapConvention::Reflection,
+            depth: 60.0,
+        };
+        let ledge_at = ae::Vec2::new(500.0, 200.0) + n * 30.0;
+        let mut ledge = ae::Block::solid("ledge", ledge_at - ae::Vec2::new(20.0, 0.0), ae::Vec2::new(40.0, 6.0));
+        ledge.kind = ae::BlockKind::OneWay;
+        let walls = ae::World::new("glue", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, vec![ledge]);
+        let met = as_met_by(&walls, &[], &[], &[&glue]);
+        let line = met.chains.iter().find(|c| c.name == "ledge").expect("the ledge's top is carried");
+        assert_eq!(line.kind, ae::SurfaceKind::Ground);
+        let (a, b) = (line.points[0], line.points[1]);
+        let normal = ae::Vec2::new((b - a).y, -(b - a).x).normalize();
+        // Its up goes in at the entry floor as straight up, turned by the pair.
+        let up = ae::frame::map_vec(&glue.exit.frame, &glue.enter.frame, glue.convention, -ae::Vec2::Y);
+        assert!((normal - up).length() < 1e-4, "{normal:?} vs {up:?}");
+        assert_eq!(met.blocks.iter().filter(|b| b.name == "ledge").count(), 1, "the ledge itself, where it is");
     }
 
     /// What a glued world costs to make (review of 15d0cf99c, finding D):
@@ -1350,13 +1491,17 @@ mod collision_world_tests {
                 .map(|i| ae::Block::solid(format!("b{i}"), ae::Vec2::new((i % 100) as f32 * 32.0, (i / 100) as f32 * 32.0), ae::Vec2::splat(16.0)))
                 .collect();
             let walls = ae::World::new("cost", ae::Vec2::new(3200.0, 3200.0), ae::Vec2::ZERO, blocks);
+            // Both ends on the top of the first row, which every room here
+            // has: what is near the pair is the same whatever the room's size.
             let glue = PortalGlue {
-                enter: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(400.0, 400.0), ae::Vec2::new(0.0, -1.0)), half_length: 48.0 },
-                exit: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0)), half_length: 48.0 },
+                enter: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(400.0, 0.0), ae::Vec2::new(0.0, -1.0)), half_length: 48.0 },
+                exit: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(1200.0, 0.0), ae::Vec2::new(0.0, -1.0)), half_length: 48.0 },
                 convention: MapConvention::Reflection,
-                depth: 60.0,
+                depth: 30.0,
             };
             let reps = 200;
+            // The room's index is made once, the first time it is asked.
+            as_met_by(&walls, &[], &[], &[&glue]);
             let start = std::time::Instant::now();
             let mut kept = 0;
             for _ in 0..reps {
@@ -1368,7 +1513,12 @@ mod collision_world_tests {
                 kept += as_met_by(&walls, &[], &[], &[]).blocks.len();
             }
             let plain = start.elapsed() / reps;
-            eprintln!("blocks={n}: glued {glued:?} per body per tick, unglued {plain:?} ({kept})");
+            let start = std::time::Instant::now();
+            for _ in 0..reps {
+                kept += walls.clone().blocks.len();
+            }
+            let cloned = start.elapsed() / reps;
+            eprintln!("blocks={n}: glued {glued:?} per body per tick, unglued {plain:?}; of it the clone {cloned:?} ({kept})");
         }
     }
 

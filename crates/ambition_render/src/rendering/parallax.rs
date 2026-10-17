@@ -814,8 +814,8 @@ pub fn sync_portal_capture_parallax_layers(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
     // Copy the root set only (`Without<MirroredParallaxLayer>`); copying every
-    // view's panels would stack N skies in one capture. Portal camera continuity
-    // is one global host view (`PortalCameraContinuityState`/`HostView`), so the
+    // view's panels would stack N skies in one capture. The capture is made
+    // for the one global host view (`PortalCameraContinuityHostView`), so the
     // root set is its source.
     sources: Query<
         (Entity, &Sprite, &ParallaxLayerVisual),

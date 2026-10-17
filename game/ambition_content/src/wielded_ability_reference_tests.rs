@@ -1186,6 +1186,7 @@ pub mod blink {
             // so you can blink into enemies to hit them (PlayerSlash spares the
             // player).
             hits.write(ambition_combat::events::HitEvent {
+                pieces: Vec::new(),
                 strike_sfx: None,
                 volume: ae::CombatVolume::circle(target, BLINK_SHOCKWAVE_HALF),
                 damage: BLINK_SHOCKWAVE_DAMAGE,
@@ -1389,6 +1390,7 @@ pub mod dive {
             let corridor: ambition_platformer2d_core::CombatVolume = dive_corridor(from, target).into();
             let corridor_center = corridor.center();
             hits.write(ambition_combat::events::HitEvent {
+                pieces: Vec::new(),
                 strike_sfx: None,
                 volume: corridor,
                 damage: DIVE_DAMAGE,
@@ -1527,6 +1529,7 @@ pub mod mark_recall {
                     // Recall strike: a player-side shockwave at the mark, so you
                     // can lure enemies onto it and recall in to hit them.
                     hits.write(ambition_combat::events::HitEvent {
+                        pieces: Vec::new(),
                         strike_sfx: None,
                         volume: ae::CombatVolume::circle(target, RECALL_SHOCKWAVE_HALF),
                         damage: RECALL_SHOCKWAVE_DAMAGE,

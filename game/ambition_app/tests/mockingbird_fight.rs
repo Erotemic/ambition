@@ -144,6 +144,7 @@ fn strike(sim: &mut Platformer2dSimHarness, damage: i32) -> i32 {
     use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
     let before = bird(sim);
     sim.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
         volume: ae::Aabb::new(before.kin.pos, ae::Vec2::splat(64.0)).into(),
         damage,
         source: HitSource::Melee,

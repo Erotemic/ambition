@@ -88,6 +88,7 @@ pub fn tick_bomb_fuses(
         // Detonate: a broadcast player-side hit over a disc, so the blast is
         // radial.
         hits.write(HitEvent {
+            pieces: Vec::new(),
             strike_sfx: None,
             volume: ae::CombatVolume::circle(ground.pos, BOMB_BLAST_HALF),
             damage: BOMB_DAMAGE,

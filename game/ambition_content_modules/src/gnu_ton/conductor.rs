@@ -1144,10 +1144,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         } else {
             c.armed[i] = false;
         }
-        // The blow lands, on the floor under the far line.
+        // The blow lands: where the fist touches the floor under the far
+        // line (the engine stops a posed limb at what it meets), else on the
+        // floor under the line.
         if let (Some(cue), true) = (cue.as_ref(), through.is_some()) {
             if cue.t < ch::arms::LANDS && cue.t + dt >= ch::arms::LANDS {
-                let at = Vec2::new(v(c.punch_far).x, hall.floor);
+                let at = body.contact.map(v).unwrap_or(Vec2::new(v(c.punch_far).x, hall.floor));
                 dust(inv, at, 22, 300.0, [0.6, 0.5, 0.4, 1.0])?;
                 play(inv, SFX_STOMP, at)?;
             }

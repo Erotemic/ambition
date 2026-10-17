@@ -251,9 +251,10 @@ impl PortalObserverViews {
     }
 }
 
-/// Runtime state for one portal screen-anchor.
-#[derive(Resource, Clone, Copy, Debug, Reflect, PartialEq)]
-#[reflect(Resource)]
+/// The portal screen-anchor of one local view: on the view, so two views
+/// whose bodies cross at once are each carried by their own.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component)]
 pub struct PortalCameraContinuityState {
     /// Immediate render-space camera roll, in radians, while the focus remains
     /// in the portal aperture. The final camera orientation is always identity.

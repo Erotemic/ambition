@@ -909,3 +909,17 @@ People will also have migrated between dimensions so there could be several odd
 bedfellows in places. We could even have a Nazi Embassy that people debate if
 they should be letting the Nazis have an embassy. That would be potentially
 funny.
+
+---
+
+
+Portals are going to be a big part of the game I think. We can do some fun
+things with them. I already like the gnuton case. We need topological lore
+around them though. Gnuton must have learned topology somehow. Maybe different
+mathamaticians can do different things with portals. We can connect these
+different kind of quotients, the medium range portal pairs, the long range
+dimension gates, and then there is blink, which is more of a discontinuity than
+an identification of space, so maybe that is treated differently in lore.
+
+
+Chained portals might be an interesting puzzle component. 

@@ -86,9 +86,10 @@ fn spawn_body(app: &mut App, sprite: Sprite, transiting: bool) -> Entity {
 fn piece_materials(app: &mut App) -> Vec<PortalClipMaterial> {
     let handles: Vec<_> = app
         .world_mut()
-        .query_filtered::<&MeshMaterial2d<PortalClipMaterial>, With<PortalBodyPiece>>()
+        .query_filtered::<(&MeshMaterial2d<PortalClipMaterial>, &Visibility), With<PortalBodyPiece>>()
         .iter(app.world())
-        .map(|m| m.0.clone())
+        .filter(|(_, visibility)| **visibility != Visibility::Hidden)
+        .map(|(m, _)| m.0.clone())
         .collect();
     let materials = app.world().resource::<Assets<PortalClipMaterial>>();
     handles
@@ -136,15 +137,16 @@ fn transit_replaces_sprite_with_two_clipped_pieces() {
         "clip planes face out of each portal, got {normals:?}"
     );
 
-    // The through piece is bounded laterally by the exit aperture (its
-    // material carries all three active planes).
+    // The through piece is clipped by the planes that cut it: the exit's.
+    // It is inside the opening's span, so the span's ends do not cut it and
+    // are not among its planes.
     let through = materials
         .iter()
         .find(|m| m.clip0.z > 0.5)
         .expect("through piece");
     assert!(
-        through.clip1.zw() != Vec2::ZERO && through.clip2.zw() != Vec2::ZERO,
-        "through piece clips to the aperture span"
+        through.clip1.zw() == Vec2::ZERO && through.clip2.zw() == Vec2::ZERO,
+        "through piece clips only where it is cut"
     );
 
     // The through piece sits at the mapped exit pose: body center 2px in
@@ -152,9 +154,10 @@ fn transit_replaces_sprite_with_two_clipped_pieces() {
     // portal (engine x = 530 → render x = 30).
     let mut transforms = app
         .world_mut()
-        .query_filtered::<&Transform, (With<PortalBodyPiece>, With<Mesh2d>)>()
+        .query_filtered::<(&Transform, &Visibility), (With<PortalBodyPiece>, With<Mesh2d>)>()
         .iter(app.world())
-        .map(|t| t.translation)
+        .filter(|(_, visibility)| **visibility != Visibility::Hidden)
+        .map(|(t, _)| t.translation)
         .collect::<Vec<_>>();
     transforms.sort_by(|a, b| a.x.total_cmp(&b.x));
     assert_eq!(transforms.len(), 2);
@@ -388,4 +391,82 @@ fn each_portal_is_drawn_in_its_own_live_room() {
         drawn.sort_by_key(key);
         assert_eq!(drawn, expected, "room {room:?} ({size}): its portals' labels by its own frame");
     }
+}
+
+/// The corners of each visible piece quad, in engine coordinates, by its z.
+fn piece_corners(app: &mut App) -> Vec<(f32, Vec<Vec2>)> {
+    let frame = PortalWorldFrame { size: WORLD };
+    app.world_mut()
+        .query_filtered::<(&Transform, &Visibility), (With<PortalBodyPiece>, With<Mesh2d>)>()
+        .iter(app.world())
+        .filter(|(_, visibility)| **visibility != Visibility::Hidden)
+        .map(|(t, _)| {
+            let corners = [Vec2::new(-0.5, -0.5), Vec2::new(0.5, -0.5), Vec2::new(0.5, 0.5), Vec2::new(-0.5, 0.5)]
+                .map(|c| ae::config::bevy_size_to_world(frame.size, t.transform_point(c.extend(0.0)).truncate()));
+            (t.translation.z, corners.to_vec())
+        })
+        .collect()
+}
+
+/// The through piece is the picture the pair makes of the sprite: each corner
+/// of the sprite as drawn, mapped through the pair, is a corner of the
+/// through quad. So for a rolled body through a pair that mirrors (the thin
+/// wall's, under the reflection convention): a mirror turns the sprite's own
+/// roll the other way, and a copy rolled by the sum of the two was not the
+/// sprite's image.
+#[test]
+fn a_rolled_body_through_a_mirroring_pair_is_drawn_as_its_image() {
+    for roll in [0.0_f32, 0.4, -1.1] {
+        let mut app = test_app();
+        let sprite = loaded_sprite(&mut app);
+        let body = spawn_body(&mut app, sprite, true);
+        let mut entity = app.world_mut().entity_mut(body);
+        entity.insert((ActorRoll { angle: roll }, Anchor(Vec2::new(0.1, -0.2))));
+        entity.get_mut::<Transform>().unwrap().rotation = Quat::from_rotation_z(roll);
+        app.update();
+        app.update();
+        let quads = piece_corners(&mut app);
+        let here = quads.iter().find(|(z, _)| (*z - 20.0).abs() < 1e-3).expect("here piece").1.clone();
+        let through = quads.iter().find(|(z, _)| (*z - crate::PORTAL_EXIT_COPY_Z).abs() < 1e-3).expect("through piece").1.clone();
+        let (left, right) = thin_wall_pair();
+        let map = ae::frame::Iso2::through(&left.aperture().frame, &right.aperture().frame, ae::frame::MapConvention::Reflection);
+        for corner in here {
+            let image = map.point(corner);
+            assert!(
+                through.iter().any(|c| c.distance(image) < 1e-2),
+                "roll {roll}: the image {image:?} of a corner is not a corner of the through quad {through:?}"
+            );
+        }
+    }
+}
+
+/// A host's picture its limb carries into a pair is cut there as deep as the
+/// limb reaches (`PortalHostReach`): out of the far end only that deep, and
+/// the rest of the picture where it is.
+#[test]
+fn a_hosts_picture_goes_through_as_deep_as_its_limb() {
+    let mut app = test_app();
+    let mut sprite = loaded_sprite(&mut app);
+    // A wide picture, 30 of it past the left portal's plane.
+    sprite.custom_size = Some(Vec2::new(80.0, 40.0));
+    let body = spawn_body(&mut app, sprite, true);
+    let frame = PortalWorldFrame { size: WORLD };
+    let mut entity = app.world_mut().entity_mut(body);
+    entity.insert(crate::PortalHostReach(12.0));
+    *entity.get_mut::<Transform>().unwrap() = Transform::from_translation(frame.to_render(Vec2::new(490.0, 300.0), 20.0));
+    app.update();
+    let materials = piece_materials(&mut app);
+    let deep = frame.to_render(Vec2::new(532.0 + 12.0, 300.0), 0.0);
+    let planes = |m: &PortalClipMaterial| [m.clip0, m.clip1, m.clip2, m.clip3, m.clip4, m.clip5];
+    // The through piece: in front of the right portal, no deeper than 12.
+    assert!(
+        materials.iter().any(|m| planes(m).iter().any(|p| (p.zw() - Vec2::new(-1.0, 0.0)).length() < 1e-4 && (p.x - deep.x).abs() < 1e-3)),
+        "no piece is bounded at the limb's depth out of the far end"
+    );
+    // And a piece stays past the left portal's plane, deeper than 12.
+    let deeper = frame.to_render(Vec2::new(500.0 + 12.0, 300.0), 0.0);
+    assert!(
+        materials.iter().any(|m| planes(m).iter().any(|p| (p.zw() - Vec2::new(1.0, 0.0)).length() < 1e-4 && (p.x - deeper.x).abs() < 1e-3)),
+        "the picture deeper than the limb is not kept where it is"
+    );
 }

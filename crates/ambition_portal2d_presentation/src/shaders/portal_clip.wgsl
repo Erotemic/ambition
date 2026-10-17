@@ -33,6 +33,8 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var<uniform> clip1: vec4<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(5) var<uniform> clip2: vec4<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(8) var<uniform> clip3: vec4<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(9) var<uniform> clip4: vec4<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(10) var<uniform> clip5: vec4<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(6) var color_texture: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(7) var color_sampler: sampler;
 
@@ -62,7 +64,8 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     let sample = textureSample(color_texture, color_sampler, atlas_uv);
 
     let p = mesh.world_position.xy;
-    if behind_plane(clip0, p) || behind_plane(clip1, p) || behind_plane(clip2, p) || behind_plane(clip3, p) {
+    if behind_plane(clip0, p) || behind_plane(clip1, p) || behind_plane(clip2, p) || behind_plane(clip3, p)
+        || behind_plane(clip4, p) || behind_plane(clip5, p) {
         discard;
     }
     if sample.a <= 0.01 {

@@ -227,6 +227,26 @@ pub fn copy_transform(
     })
 }
 
+/// Sprite transform for a copy placed by `map` (a pair's map, or several
+/// composed).
+pub fn copy_transform_of(map: &ae::frame::Iso2) -> PortalCopyTransform {
+    let factor = factor_orthogonal(map.vec(Vec2::X), map.vec(Vec2::Y));
+    PortalCopyTransform { roll: -factor.sin.atan2(factor.cos), flip_x: factor.flip_x }
+}
+
+impl PortalCopyTransform {
+    /// The roll of the copy of a sprite drawn with roll `base`. A map that
+    /// mirrors turns the sprite's own roll the other way: the flip is in the
+    /// sprite's texture, before its roll.
+    pub fn rolled(&self, base: f32) -> f32 {
+        if self.flip_x {
+            self.roll - base
+        } else {
+            self.roll + base
+        }
+    }
+}
+
 /// Backward-compatible shorthand for callers that only need the roll.
 pub fn copy_roll(enter: &PortalFrame, exit: &PortalFrame, convention: MapConvention) -> f32 {
     copy_transform(enter, exit, convention).roll

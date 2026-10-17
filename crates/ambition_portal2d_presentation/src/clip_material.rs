@@ -63,13 +63,101 @@ pub struct PortalClipMaterial {
     pub clip1: Vec4,
     #[uniform(5)]
     pub clip2: Vec4,
-    /// A fourth plane: the depth a host's picture went through to
-    /// (`PortalHostReach`).
     #[uniform(8)]
     pub clip3: Vec4,
+    /// A piece carried through two pairs is bounded by more planes.
+    #[uniform(9)]
+    pub clip4: Vec4,
+    #[uniform(10)]
+    pub clip5: Vec4,
     #[texture(6)]
     #[sampler(7)]
     pub color_texture: Handle<Image>,
+}
+
+/// How many half planes a piece can be clipped by.
+pub const CLIP_PLANES: usize = 6;
+
+impl PortalClipMaterial {
+    /// A piece of `color_texture`'s frame `uv_rect`, clipped by `planes`
+    /// (render-space, [`clip_plane_render`]); the planes past
+    /// [`CLIP_PLANES`] are dropped.
+    pub fn new(uv_rect: Vec4, control: Vec4, tint: Vec4, planes: &[Vec4], color_texture: Handle<Image>) -> Self {
+        let mut clip = [CLIP_PLANE_OFF; CLIP_PLANES];
+        for (slot, plane) in clip.iter_mut().zip(planes) {
+            *slot = *plane;
+        }
+        let [clip0, clip1, clip2, clip3, clip4, clip5] = clip;
+        Self { uv_rect, control, tint, clip0, clip1, clip2, clip3, clip4, clip5, color_texture }
+    }
+
+    fn same_as(&self, other: &Self) -> bool {
+        self.uv_rect == other.uv_rect
+            && self.control == other.control
+            && self.tint == other.tint
+            && [self.clip0, self.clip1, self.clip2, self.clip3, self.clip4, self.clip5]
+                == [other.clip0, other.clip1, other.clip2, other.clip3, other.clip4, other.clip5]
+            && self.color_texture == other.color_texture
+    }
+}
+
+/// The clipped quads one system draws, kept from frame to frame: a frame
+/// takes the quads it needs in order, sets each one's material and pose, and
+/// hides the rest. A quad and its material are made once, when a frame first
+/// needs that many, and reused after; nothing is spawned or added per frame.
+#[derive(Default)]
+pub struct ClipQuadPool {
+    slots: Vec<(Entity, Handle<PortalClipMaterial>)>,
+    used: usize,
+}
+
+impl ClipQuadPool {
+    /// Start a frame. `alive` says which quads still exist (a room that
+    /// unloads takes its quads with it).
+    pub fn begin(&mut self, alive: impl Fn(Entity) -> bool) {
+        self.slots.retain(|(entity, _)| alive(*entity));
+        self.used = 0;
+    }
+
+    /// Draw one piece with the next quad. `with` is what else the quad
+    /// carries this frame (its marker, its room's stamp).
+    pub fn draw(
+        &mut self,
+        commands: &mut Commands,
+        materials: &mut Assets<PortalClipMaterial>,
+        mesh: &Handle<Mesh>,
+        material: PortalClipMaterial,
+        transform: Transform,
+        with: impl Bundle,
+        name: &'static str,
+    ) -> Entity {
+        let entity = match self.slots.get(self.used) {
+            Some((entity, handle)) => {
+                if materials.get(handle).is_none_or(|old| !old.same_as(&material)) {
+                    materials.insert(handle.id(), material).ok();
+                }
+                commands.entity(*entity).insert((transform, Visibility::Inherited, with));
+                *entity
+            }
+            None => {
+                let handle = materials.add(material);
+                let entity = commands
+                    .spawn((Mesh2d(mesh.clone()), MeshMaterial2d(handle.clone()), transform, Visibility::Inherited, with, Name::new(name)))
+                    .id();
+                self.slots.push((entity, handle));
+                entity
+            }
+        };
+        self.used += 1;
+        entity
+    }
+
+    /// End a frame: the quads it did not take are hidden.
+    pub fn end(&mut self, commands: &mut Commands) {
+        for (entity, _) in &self.slots[self.used..] {
+            commands.entity(*entity).insert(Visibility::Hidden);
+        }
+    }
 }
 
 impl Material2d for PortalClipMaterial {
@@ -130,16 +218,13 @@ fn warm_the_clip_material(
     commands.insert_resource(PortalPieceQuad(quad.clone()));
     commands.spawn((
         Mesh2d(quad),
-        MeshMaterial2d(materials.add(PortalClipMaterial {
-            uv_rect: Vec4::new(0.0, 0.0, 1.0, 1.0),
-            control: Vec4::ZERO,
-            tint: Vec4::ZERO,
-            clip0: CLIP_PLANE_OFF,
-            clip1: CLIP_PLANE_OFF,
-            clip2: CLIP_PLANE_OFF,
-            clip3: CLIP_PLANE_OFF,
-            color_texture: Handle::default(),
-        })),
+        MeshMaterial2d(materials.add(PortalClipMaterial::new(
+            Vec4::new(0.0, 0.0, 1.0, 1.0),
+            Vec4::ZERO,
+            Vec4::ZERO,
+            &[],
+            Handle::default(),
+        ))),
         Transform::default(),
         bevy::camera::visibility::NoFrustumCulling,
         Name::new("Portal clip material warm-up"),

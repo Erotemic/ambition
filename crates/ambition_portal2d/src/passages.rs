@@ -2,6 +2,7 @@
 //! ([`PortalPassages`]), for a domain that is not the portal's (combat) to
 //! tell where a volume is.
 
+use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
@@ -11,6 +12,17 @@ use crate::rooms::PortalsByRoom;
 use crate::transit::PortalTransit;
 use crate::tuning::PortalTuning;
 use crate::types::{find_portal, PlacedPortal};
+
+/// Each linked pair of `portals` (one room's, in their stable order) once,
+/// from the end whose channel orders first: the pairs every reader of
+/// [`PortalPassages`] and the drawing of pieces cut by.
+pub fn linked_pairs(portals: &[PlacedPortal]) -> Vec<(ae::frame::PortalAperture, ae::frame::PortalAperture)> {
+    portals
+        .iter()
+        .filter(|p| p.channel <= p.channel.partner())
+        .filter_map(|p| find_portal(portals, p.channel.partner()).map(|q| (p.aperture(), q.aperture())))
+        .collect()
+}
 
 /// Rebuilt after the transit, so it says where each body is this tick: each
 /// linked pair of each live room once, and the pair each body in transit
@@ -26,15 +38,8 @@ pub fn publish_portal_passages(
     *passages = PortalPassages::new(convention);
     let by_room = PortalsByRoom::collect(&portals, &live);
     for (room, all) in by_room.rooms() {
-        for p in all {
-            let partner = p.channel.partner();
-            // Each pair once: from the end whose channel orders first.
-            if partner < p.channel {
-                continue;
-            }
-            if let Some(q) = find_portal(all, partner) {
-                passages.add_pair(room, (p.aperture(), q.aperture()));
-            }
+        for pair in linked_pairs(all) {
+            passages.add_pair(room, pair);
         }
     }
     let mut straddlers: Vec<(Entity, &PortalTransit)> = transits.iter().collect();

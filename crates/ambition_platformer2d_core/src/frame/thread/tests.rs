@@ -391,3 +391,30 @@ fn partition_cost() {
     let cycle = links(&[(aperture(Vec2::ZERO, UP, 40.0), aperture(Vec2::new(0.0, -200.0), DOWN, 40.0))]);
     run("a pair facing itself", &boxed(Vec2::new(0.0, 1990.0), Vec2::new(5.0, 2000.0)), Vec2::new(0.0, -10.0), &cycle, None, PieceBudget::COMPOSED);
 }
+
+#[test]
+fn a_link_that_goes_so_deep_keeps_what_is_deeper_where_it_is() {
+    // A picture 60 deep into the floor's opening; its limb went 25 deep.
+    let (floor, ceiling) = floor_pair();
+    let link = PortalLink { enter: floor, exit: ceiling, key: 0, depth: Some(25.0) };
+    let picture = boxed(Vec2::new(0.0, 20.0), Vec2::new(20.0, 40.0));
+    let p = partition(&picture, ABOVE, &[link], Some(0), PieceBudget::SINGLE_HOP, MapConvention::Reflection);
+    assert_tiles(&picture, &p.pieces);
+    // 25 out of the ceiling, and no more.
+    assert!(hits(&p.pieces, Vec2::new(500.0, -200.0 + 20.0)));
+    assert!(!hits(&p.pieces, Vec2::new(500.0, -200.0 + 31.0)));
+    // Deeper than that it is under the floor, where it is; shallower it is not.
+    assert!(hits(&p.pieces, Vec2::new(0.0, 45.0)));
+    assert!(!hits(&p.pieces, Vec2::new(0.0, 15.0)));
+}
+
+#[test]
+fn the_planes_a_piece_is_drawn_clipped_by_are_the_ones_that_cut_it() {
+    let pieces = thread_volume(&boxed(Vec2::new(0.0, 10.0), Vec2::new(10.0, 20.0)), ABOVE, &[floor_pair()], MapConvention::Reflection);
+    let through = pieces.iter().find(|p| p.is_carried()).unwrap();
+    // In front of the exit cuts it; the opening's ends do not (it is inside them).
+    assert_eq!(through.bounds.len(), 3);
+    assert_eq!(through.active_bounds().len(), 1);
+    let here = pieces.iter().find(|p| !p.is_carried()).unwrap();
+    assert_eq!(here.active_bounds().len(), 1);
+}

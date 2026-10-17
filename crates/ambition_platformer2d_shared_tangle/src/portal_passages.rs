@@ -77,7 +77,7 @@ impl PortalPassages {
             .flat_map(|r| &r.links)
             .find(|link| link.enter == front && link.exit == back)
             .copied()
-            .unwrap_or(PortalLink { enter: front, exit: back, key: u32::MAX });
+            .unwrap_or(PortalLink { enter: front, exit: back, key: u32::MAX, depth: None });
         self.straddling.push((body, link));
     }
 

@@ -59,6 +59,11 @@ pub struct PortalLink {
     pub enter: PortalAperture,
     pub exit: PortalAperture,
     pub key: u32,
+    /// How deep past the entry plane what goes through goes; deeper stays
+    /// where it is. `None`: all of it past the plane. A host's picture is cut
+    /// by the pair its limb is in as deep as the limb reaches
+    /// (`PortalHostReach`).
+    pub depth: Option<f32>,
 }
 
 impl PortalLink {
@@ -66,12 +71,28 @@ impl PortalLink {
     /// keyed `2 * index + 1`.
     pub fn both_ways(index: usize, (a, b): (PortalAperture, PortalAperture)) -> [PortalLink; 2] {
         let key = 2 * index as u32;
-        [PortalLink { enter: a, exit: b, key }, PortalLink { enter: b, exit: a, key: key + 1 }]
+        [
+            PortalLink { enter: a, exit: b, key, depth: None },
+            PortalLink { enter: b, exit: a, key: key + 1, depth: None },
+        ]
     }
 
     /// The map of the link.
     pub fn map(&self, convention: MapConvention) -> Iso2 {
         Iso2::through(&self.enter.frame, &self.exit.frame, convention)
+    }
+
+    /// The half planes of what goes through, at the entry: behind the plane,
+    /// between the ends, and no deeper than [`Self::depth`].
+    fn slab(&self) -> Vec<HalfPlane> {
+        let mut planes = opening(&self.enter).to_vec();
+        planes.extend(self.deepest(&self.enter));
+        planes
+    }
+
+    /// The half plane no deeper than [`Self::depth`] past `ap`'s plane.
+    fn deepest(&self, ap: &PortalAperture) -> Option<HalfPlane> {
+        self.depth.map(|d| HalfPlane { point: ap.frame.origin - ap.frame.normal * d, inward: ap.frame.normal })
     }
 }
 
@@ -193,6 +214,24 @@ impl VolumePiece {
         }
     }
 
+    /// The half planes of [`Self::bounds`] that cut the volume: without one
+    /// of them the part here would be larger. What a drawing clips by.
+    pub fn active_bounds(&self) -> Vec<HalfPlane> {
+        let outline = self.volume.polygon().unwrap_or_else(|| box_outline(self.volume.bounds()));
+        let mut kept = self.bounds.clone();
+        let mut i = 0;
+        while i < kept.len() {
+            let without: Vec<HalfPlane> = kept.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, p)| *p).collect();
+            let cuts = cut(outline.clone(), &without).is_some_and(|region| region.iter().any(|p| kept[i].side(*p) < -EPS));
+            if cuts {
+                i += 1;
+            } else {
+                kept.remove(i);
+            }
+        }
+        kept
+    }
+
     fn bounded(&self, more: impl IntoIterator<Item = HalfPlane>) -> Self {
         let mut piece = self.clone();
         piece.bounds.extend(more);
@@ -242,10 +281,12 @@ pub fn opening(ap: &PortalAperture) -> [HalfPlane; 3] {
 
 /// Does `volume` reach past `ap`'s plane inside its opening?
 pub fn reaches_through(volume: &CombatVolume, ap: &PortalAperture) -> bool {
-    piece_reaches_through(&VolumePiece::whole(volume.clone()), ap)
+    let link = PortalLink { enter: *ap, exit: *ap, key: 0, depth: None };
+    piece_reaches_through(&VolumePiece::whole(volume.clone()), &link)
 }
 
-fn piece_reaches_through(piece: &VolumePiece, ap: &PortalAperture) -> bool {
+fn piece_reaches_through(piece: &VolumePiece, link: &PortalLink) -> bool {
+    let ap = &link.enter;
     // The box around the volume first: most openings are nowhere near.
     let b = piece.volume.bounds();
     let corners = [b.min, Vec2::new(b.max.x, b.min.y), b.max, Vec2::new(b.min.x, b.max.y)].map(|c| ap.frame.to_local(c));
@@ -253,12 +294,13 @@ fn piece_reaches_through(piece: &VolumePiece, ap: &PortalAperture) -> bool {
     if corners.iter().all(|l| l.y >= 0.0) || corners.iter().all(|l| l.x <= -h) || corners.iter().all(|l| l.x >= h) {
         return false;
     }
-    !piece.bounded(opening(ap)).is_empty()
+    !piece.bounded(link.slab()).is_empty()
 }
 
 /// `piece` cut by `link`: its part in front of the entry plane, its parts past
-/// the plane and beside the opening, and (unless `refused`) its part through
-/// the opening, at the exit. Empty parts are left out.
+/// the plane and beside the opening, its part deeper than the link goes, and
+/// (unless `refused`) its part through the opening, at the exit. Empty parts
+/// are left out.
 fn cut_by(piece: &VolumePiece, link: &PortalLink, convention: MapConvention, refused: bool) -> Vec<VolumePiece> {
     let [behind, lo, hi] = opening(&link.enter);
     let mut parts = vec![
@@ -266,11 +308,19 @@ fn cut_by(piece: &VolumePiece, link: &PortalLink, convention: MapConvention, ref
         piece.bounded([behind, lo.flipped()]),
         piece.bounded([behind, hi.flipped()]),
     ];
+    if let Some(deepest) = link.deepest(&link.enter) {
+        parts.push(piece.bounded([lo, hi, deepest.flipped()]));
+    }
     if !refused {
         let map = link.map(convention);
         let [exit_behind, exit_lo, exit_hi] = opening(&link.exit);
         let mut path = piece.path.clone();
         path.push(link.key);
+        // Out of the exit, as deep as it went in.
+        let shallow = link.depth.map(|d| HalfPlane {
+            point: link.exit.frame.origin + link.exit.frame.normal * d,
+            inward: -link.exit.frame.normal,
+        });
         parts.push(VolumePiece {
             volume: map_volume(&piece.volume, &map),
             bounds: piece
@@ -278,6 +328,7 @@ fn cut_by(piece: &VolumePiece, link: &PortalLink, convention: MapConvention, ref
                 .iter()
                 .map(|plane| plane.mapped(&map))
                 .chain([exit_behind.flipped(), exit_lo, exit_hi])
+                .chain(shallow)
                 .collect(),
             to_piece: piece.to_piece.then(&map),
             path,
@@ -337,7 +388,7 @@ pub fn partition(
             .iter()
             .filter(|link| {
                 (Some(link.key) == forced || link.enter.frame.to_local(root).y > 0.0)
-                    && piece_reaches_through(&piece, &link.enter)
+                    && piece_reaches_through(&piece, link)
             })
             .min_by(|a, b| {
                 let rank = |link: &PortalLink| {

@@ -198,6 +198,8 @@ pub fn sync_portal_mode_indicator(
                                     clip1,
                                     clip2,
                                     clip3: CLIP_PLANE_OFF,
+                                    clip4: CLIP_PLANE_OFF,
+                                    clip5: CLIP_PLANE_OFF,
                                     color_texture: image.clone(),
                                 })),
                                 clip_piece_transform(&base, Vec2::ZERO, basis.size),

@@ -35,7 +35,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use crate::clip_material::{
-    clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial, CLIP_PLANE_OFF,
+    clip_piece_transform, clip_plane_render, sprite_frame_basis, ClipQuadPool, PortalClipMaterial,
 };
 use crate::{PortalCompositingCandidate, PortalFrames, PortalViewers};
 use ambition_sprite_fx::DeclaredFrame;
@@ -62,7 +62,9 @@ pub struct PortalFarSideHidden;
 pub fn composite_far_side_bodies(
     mut commands: Commands,
     frames: PortalFrames,
-    stale: Query<Entity, With<PortalFarSidePiece>>,
+    // The quads, kept from frame to frame ([`ClipQuadPool`]).
+    quads: Query<(), With<PortalFarSidePiece>>,
+    mut pool: Local<ClipQuadPool>,
     hidden: Query<Entity, With<PortalFarSideHidden>>,
     portals: Query<(Entity, &PlacedPortal)>,
     viewers: Option<Res<PortalViewers>>,
@@ -87,9 +89,7 @@ pub fn composite_far_side_bodies(
         Option<&crate::PortalTransitView>,
     )>,
 ) {
-    for entity in &stale {
-        commands.entity(entity).despawn();
-    }
+    pool.begin(|entity| quads.contains(entity));
     // A body that is no longer a candidate has no pieces this frame, so the
     // reason "pieces replace it" is false now: give it back. Without this, a
     // body that stopped being a candidate (it died behind the pane) kept the
@@ -104,6 +104,7 @@ pub fn composite_far_side_bodies(
     // draws as it did before.
     let Some(viewers) = viewers.filter(|viewers| viewers.iter().any(|viewer| viewer.present)) else {
         restore_hidden(&mut commands, &hidden, &mut candidates);
+        pool.end(&mut commands);
         return;
     };
     let (Some(images), Some(layouts), Some(mut meshes), Some(mut materials)) =
@@ -112,6 +113,7 @@ pub fn composite_far_side_bodies(
         // Headless, or a host that never registered the material: the
         // pre-compositing behaviour is kept rather than a body vanishing.
         restore_hidden(&mut commands, &hidden, &mut candidates);
+        pool.end(&mut commands);
         return;
     };
 
@@ -182,38 +184,23 @@ pub fn composite_far_side_bodies(
 
         for piece in pieces.iter() {
             let edges = crate::piece_clip_edges(&piece, min, max);
-            let mut planes = edges
+            let planes: Vec<Vec4> = edges
                 .iter()
                 .flatten()
-                .map(|(point, normal)| clip_plane_render(&frame, *point, *normal));
-            let (clip0, clip1, clip2) = (
-                planes.next().unwrap_or(CLIP_PLANE_OFF),
-                planes.next().unwrap_or(CLIP_PLANE_OFF),
-                planes.next().unwrap_or(CLIP_PLANE_OFF),
-            );
-            debug_assert!(
-                planes.next().is_none(),
-                "a piece needed a fourth clip plane; the material carries three"
-            );
-            commands.spawn((
-                PortalFarSidePiece,
-                Mesh2d(mesh.clone()),
-                MeshMaterial2d(materials.add(PortalClipMaterial {
-                    uv_rect: look.uv_rect,
-                    control,
-                    tint: look.tint,
-                    clip0,
-                    clip1,
-                    clip2,
-                    clip3: CLIP_PLANE_OFF,
-                    color_texture: look.image.clone(),
-                })),
+                .map(|(point, normal)| clip_plane_render(&frame, *point, *normal))
+                .collect();
+            pool.draw(
+                &mut commands,
+                &mut materials,
+                &mesh,
+                PortalClipMaterial::new(look.uv_rect, control, look.tint, &planes, look.image.clone()),
                 clip_piece_transform(&base, look.anchor, look.size),
-                placement.stamp(),
-                Name::new("Portal far-side piece"),
-            ));
+                (PortalFarSidePiece, placement.stamp()),
+                "Portal far-side piece",
+            );
         }
     }
+    pool.end(&mut commands);
 }
 
 /// Everything a piece needs to look like the drawable it replaces.
@@ -478,9 +465,10 @@ mod tests {
     /// Where every far-side piece currently sits, so a move can be seen.
     fn piece_translations(app: &mut App) -> Vec<(i32, i32)> {
         app.world_mut()
-            .query_filtered::<&Transform, With<PortalFarSidePiece>>()
+            .query_filtered::<(&Transform, &Visibility), With<PortalFarSidePiece>>()
             .iter(app.world())
-            .map(|t| (t.translation.x as i32, t.translation.y as i32))
+            .filter(|(_, visibility)| **visibility != Visibility::Hidden)
+            .map(|(t, _)| (t.translation.x as i32, t.translation.y as i32))
             .collect()
     }
 
@@ -503,12 +491,11 @@ mod tests {
     }
 
     /// B2, the measurement (R8): a far-covered body for 600 frames, still
-    /// and then moving. Each frame makes its pieces and their materials
-    /// again; with the asset store's own handle tracking (`AssetPlugin`),
-    /// the materials of the pieces that went are freed, so the live count
-    /// stays the count of one frame's pieces. Churn, and no growth.
+    /// and then moving. Its pieces' quads and materials are kept from frame
+    /// to frame ([`ClipQuadPool`]): each is made once, and the live count
+    /// stays the count of one frame's pieces. No churn, and no growth.
     #[test]
-    fn far_side_pieces_are_made_each_frame_and_their_materials_do_not_grow() {
+    fn far_side_pieces_are_kept_from_frame_to_frame_and_their_materials_do_not_grow() {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, bevy::asset::AssetPlugin::default()));
         app.init_asset::<Image>()
@@ -545,14 +532,17 @@ mod tests {
         let live = app.world().resource::<Assets<PortalClipMaterial>>().len();
         println!("B2: {made} pieces made in 600 frames, {per_frame} a frame; materials live at the end {live}, at most {most_live}");
         assert!(per_frame > 0, "the premise: the body is drawn as pieces");
-        assert!(made >= 600 * per_frame / 2, "the churn: pieces are made each frame ({made})");
-        assert!(most_live <= 3 * per_frame, "no growth: the materials of old pieces are freed ({most_live} live at most)");
+        // Quads are kept: each is made once, when a frame first needs it.
+        assert!(made <= 2 * per_frame, "no churn: a piece's quad is made once ({made})");
+        assert!(most_live <= 3 * per_frame, "no growth ({most_live} materials live at most)");
     }
 
+    /// The pieces drawn this frame (a kept quad no frame needs is hidden).
     fn pieces(app: &mut App) -> usize {
         app.world_mut()
-            .query_filtered::<Entity, With<PortalFarSidePiece>>()
+            .query_filtered::<&Visibility, With<PortalFarSidePiece>>()
             .iter(app.world())
+            .filter(|visibility| **visibility != Visibility::Hidden)
             .count()
     }
 

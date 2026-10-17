@@ -395,6 +395,7 @@ where
     fn build(&self, app: &mut App) {
         app.add_plugins(UiLunexPlugins)
             .init_resource::<KaleidoscopeOpenState>();
+        sleep_light_visibility_without_lights(app);
         // fontdb::load_system_fonts() is a no-op on Android (explicitly excluded
         // by fontdb via `not(target_os = "android")`). Seed /system/fonts/ on the
         // frame TextRenderer first becomes available so cosmic-text never sees an
@@ -1394,6 +1395,27 @@ fn menu_align(align: MenuTextAlign) -> TextAlign {
     }
 }
 
+/// Bevy's light visibility checks run only while a light exists.
+///
+/// This crate's `bevy_pbr` turns on Bevy's `LightPlugin` for the whole host,
+/// and the cube is unlit. With no light, `check_dir_light_mesh_visibility`
+/// still builds a new `ViewVisibility` query each frame, over every
+/// archetype: ~0.45% of the phone's samples in the hub (findings F34, S2b).
+/// A light that a game spawns wakes the checks in the same frame.
+pub fn sleep_light_visibility_without_lights(app: &mut App) {
+    use bevy::light::{DirectionalLight, PointLight, SimulationLightSystems, SpotLight};
+    app.configure_sets(
+        PostUpdate,
+        SimulationLightSystems::CheckLightVisibility.run_if(
+            any_with_component::<DirectionalLight>
+                .or(any_with_component::<PointLight>)
+                .or(any_with_component::<SpotLight>),
+        ),
+    );
+}
+
+#[cfg(test)]
+mod light_dormancy_tests;
 #[cfg(test)]
 mod fade_tests;
 #[cfg(test)]

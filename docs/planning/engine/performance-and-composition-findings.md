@@ -212,6 +212,28 @@ red at 0 with the old registration). Sanic's eleven groups moved the same
 way, with no witness of their own. `install_attempt_scoped` keeps its
 condition on its two systems in each game.
 
+**S2b: the light checks sleep without a light (2026-10-17).** Only the hub
+installs Bevy's `LightPlugin`: the cube menu's `bevy_pbr` turns it on
+(MEASURED: no `bevy_light` system in the standalone Mary-O census below). No
+crate of ours spawns a light, and the cube is unlit. Source read
+(`bevy_light` 0.19.1, `check_dir_light_mesh_visibility`): with no light the
+system still queues a command that builds `world.query::<&mut
+ViewVisibility>()`, a new query state over every archetype, each frame.
+`sleep_light_visibility_without_lights` (`ambition_menu_kaleidoscope`) puts
+`SimulationLightSystems::CheckLightVisibility` under one condition: a
+directional, point or spot light exists. Witness
+`the_light_checks_run_only_while_a_light_exists`. The cluster assignment
+(~0.11%) is left: the cube's 3D camera needs its clusters.
+
+**Standalone Mary-O census (2026-10-17, debug `capture_mary_o --warmup 600`,
+`bevy/debug`, 1-1).** MEASURED: 939 of 1,264 of our systems ran in one
+frame. Still running for what she does not use: Kira channel systems 30
+(D6), Bevy gizmo groups 32 (D9), capture (grabs) 14 (D4), the narrative
+ledgers' `forget_narrative_inputs_on_activation` 9, developer-tool
+`editable` 8, mounts 7, boss ticks 5, and in `features::ecs` the pets,
+errands, challenges, wear, summons, fighter ladder, barks and boss bodies
+(~20). No `bevy_light` system.
+
 ## Summary (2026-10-16)
 
 - **One thread is the limit.** On the phone the main thread is 82% busy, the
@@ -304,7 +326,8 @@ Updated 2026-10-17. Each one helps every game, not only Mary-O.
    Step 1 done 2026-10-17 (six compositions a frame in 1-2 → one); step 2,
    the layered view, is next.
 2. P12 and P5: derive on change, and build the read-models once for each
-   presented frame, not each tick (F16, F20). The largest multiplier.
+   presented frame, not each tick (F16, F20). MEASURED 2026-10-17 (F5): the
+   views are ~3% of a tick, so P5 is smaller than this list first said.
 3. P1/S2 and P18: the rest of dormancy (F31) and the conditions of F34.
 4. P15: render primitives apart from simulation objects (F32 is the first).
 5. P16: a repeat-allocation pass from `alloc_traces.csv`.
@@ -463,6 +486,21 @@ MEASURED. `SimViewPlugin` (`ambition_sim_view/src/facts.rs:1141-1180`) rebuilds
 its views in the sim schedule's `FeatureViewSync` (about 36 systems); only
 `ambition_render` (and the demo HUDs) read them. A headless host builds them for
 no reader; on a slow frame with several ticks they are built several times.
+
+MEASURED 2026-10-17 (debug, headless standalone Mary-O 1-1, one tick an
+update, `run_system_cached` 200 times for each system): the set holds 30
+systems; the 28 rebuilds of `SimViewPlugin` and `FeatureViewSyncSchedulePlugin`
+cost 0.30 ms a run together (`rebuild_body_pose_views` 0.045,
+`rebuild_feature_view_index` 0.045, `rebuild_actor_anim_index` 0.034,
+`rebuild_actor_render_index` 0.028, `rebuild_nameplate_index` 0.025, the rest
+under 0.02 each), about 3% of the 11 ms tick. Gating the whole set off cut
+the frame by 0.9-1.3 ms, but that arm also starves the readers that wait for
+a view to change, so it overstates the views. REASONED: P5 saves at most one
+build for each extra tick in a frame (~0.3 ms and 30 system runs on a two-tick
+frame), and it moves ~50 registrations across schedules, with two tick-rate
+writers in the set (`advance_body_anim_overlay_clocks`,
+`tick_shrine_activation_pulse`). It is a small lever for its size; keep it
+behind the others.
 
 ### F6 — String identities are cloned, compared and sorted every tick
 

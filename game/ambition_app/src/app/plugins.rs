@@ -116,6 +116,24 @@ pub fn add_simulation_plugins(app: &mut App) {
     {
         if super::hub_games::installs("ambition") {
             app.add_plugins(ambition_content::dialogue::yarn_spinner_plugin());
+            // Yarn's work each frame (its line fetch, its runtime, its waits)
+            // sleeps where the active room's game uses no dialogue: in the
+            // hub with Mary-O, its fetch was ~0.16 ms a frame for no line. It
+            // runs until its project is compiled, so a session that starts in
+            // such a room still has the project when it reaches a room that
+            // talks.
+            {
+                use bevy::ecs::schedule::common_conditions::{not, resource_exists};
+                use bevy::prelude::{IntoScheduleConfigs as _, SystemCondition as _};
+                use ambition_platformer2d::platformer::capability::Capability;
+                app.configure_sets(
+                    bevy::prelude::Update,
+                    bevy_yarnspinner::prelude::YarnSpinnerSystemSet.run_if(
+                        not(resource_exists::<bevy_yarnspinner::prelude::YarnProject>)
+                            .or_else(ambition_platformer2d::runtime::room_uses(Capability::Dialogue)),
+                    ),
+                );
+            }
         }
         app.add_plugins(ambition_platformer2d::conversation::dialog::YarnBridgePlugin);
         app.add_plugins(ambition_platformer2d::conversation::dialog::YarnBindingsPlugin);

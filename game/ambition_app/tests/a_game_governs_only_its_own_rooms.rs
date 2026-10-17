@@ -565,3 +565,33 @@ fn a_game_declares_each_capability_its_maps_author() {
     }
     assert!(checked > 0, "the premise: some game's maps author an entity that needs a capability");
 }
+
+/// Yarn's own set has a condition in the shipped host: its per-frame work
+/// sleeps where the active room's game uses no dialogue, once its project is
+/// compiled (`app::plugins`). Mary-O declares no dialogue, so in her rooms it
+/// sleeps.
+#[test]
+fn yarn_sleeps_in_rooms_whose_game_uses_no_dialogue() {
+    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::platformer::capability::{Capability, UsedCapabilities};
+    use bevy::ecs::schedule::{Schedules, SystemSet};
+
+    let app = compose_the_shipped_host();
+    let rules = app
+        .world()
+        .get_resource::<DeclaredRules<UsedCapabilities>>()
+        .expect("the shipped host's games declare the capabilities they use");
+    assert!(
+        rules.governing(ActiveRoom::live(Some(ambition_demo_mary_o::MARY_O_MODE))).is_some_and(|used| !used.uses(Capability::Dialogue)),
+        "the premise: Mary-O's rooms use no dialogue"
+    );
+    // Read before the first update, while the conditions are in the graph.
+    let schedules = app.world().resource::<Schedules>();
+    let graph = schedules.get(bevy::prelude::Update).expect("the Update schedule").graph();
+    let set = graph
+        .system_sets
+        .get_key(bevy_yarnspinner::prelude::YarnSpinnerSystemSet.intern())
+        .expect("the premise: the shipped host installs Yarn");
+    let conditions = graph.system_sets.get_conditions(set).map_or(0, <[_]>::len);
+    assert_eq!(conditions, 1, "Yarn's set asks {conditions} conditions, not the one that puts it to sleep");
+}

@@ -27,63 +27,27 @@
 use bevy::app::{App, PluginGroupBuilder};
 use bevy::prelude::World;
 
-/// A removable unit of the engine group.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Capability {
-    /// Authored cutscenes and their trigger queue.
-    Cutscenes,
-    /// The dialogue runtime, the conversation authority and its UI bridge.
-    Dialogue,
-    /// Named boss encounters (generic encounters remain).
-    BossEncounters,
-    /// Using a held item or a wielded ability.
-    HeldUse,
-    /// Touching an item to collect it, and the authored conditions that ask about the bag.
-    /// ⚠ The bag itself (`OwnedItems`) is core state and is NOT removed (`Q106`).
-    Inventory,
+pub use ambition_platformer2d_shared_tangle::capability::Capability;
+
+/// What installs each [`Capability`]: the plugins a composition drops to omit
+/// it, and the check that it is not installed by another road.
+pub trait CapabilityComposition {
+    /// Drop this capability's plugins from the engine group.
+    fn omit(self, group: PluginGroupBuilder) -> PluginGroupBuilder;
+
+    /// Whether this capability is installed in `app`: any of its plugins was
+    /// added, or a resource only it installs exists. Only a
+    /// [`Capability::REMOVABLE`] one is a unit of the engine group; for any
+    /// other, this answers for the engine group, which never installs it.
+    ///
+    /// ⛔ Both halves, because a plugin check alone is satisfied by the road
+    /// that was disabled and a resource check alone by a plugin that installs
+    /// nothing observable.
+    fn is_installed(self, app: &App) -> bool;
 }
 
-impl Capability {
-    pub const ALL: [Capability; 5] = [
-        Capability::Cutscenes,
-        Capability::Dialogue,
-        Capability::BossEncounters,
-        Capability::HeldUse,
-        Capability::Inventory,
-    ];
-
-    pub const fn name(self) -> &'static str {
-        match self {
-            Capability::Cutscenes => "cutscenes",
-            Capability::Dialogue => "dialogue",
-            Capability::BossEncounters => "boss-encounters",
-            Capability::HeldUse => "held-use",
-            Capability::Inventory => "inventory",
-        }
-    }
-
-    /// The content-pack capability this runtime capability interprets, when
-    /// authored content can need it: a pack that requires it is refused by a
-    /// composition that omits this capability
-    /// (`ambition_engine_schemas::engine_schemas_without`). `None` when no
-    /// pack capability belongs to this one alone: the item catalog is read by
-    /// collection and by held use, and dialogue is not a pack schema.
-    ///
-    /// The ids are the owners' constants (`ambition_cutscene::content_schema::
-    /// CUTSCENE_CAPABILITY`, `ambition_boss_encounter::pattern::content_schema::
-    /// BOSS_PATTERN_CAPABILITY`), spelled here because this crate does not
-    /// enable their `content_pack` feature; `supported_profiles.rs` holds the
-    /// two equal.
-    pub const fn content_capability(self) -> Option<&'static str> {
-        match self {
-            Capability::Cutscenes => Some("cutscene"),
-            Capability::BossEncounters => Some("boss_pattern"),
-            Capability::Dialogue | Capability::HeldUse | Capability::Inventory => None,
-        }
-    }
-
-    /// Drop this capability's plugins from the engine group.
-    pub fn omit(self, group: PluginGroupBuilder) -> PluginGroupBuilder {
+impl CapabilityComposition for Capability {
+    fn omit(self, group: PluginGroupBuilder) -> PluginGroupBuilder {
         match self {
             Capability::Cutscenes => {
                 group.disable::<ambition_platformer2d_actor_monolith::cutscene::CutsceneSchedulePlugin>()
@@ -101,16 +65,13 @@ impl Capability {
                 .disable::<ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSimulationPlugin>()
                 .disable::<ambition_world_items::WorldItemSimulationPlugin>()
                 .disable::<ambition_platformer2d_actor_monolith::items::conditions::InventoryConditionsPlugin>(),
+            // Not a unit of the engine group (not in `Capability::REMOVABLE`):
+            // a game crate installs it, so the group has nothing to leave out.
+            Capability::FighterSpecials => group,
         }
     }
 
-    /// Whether this capability is installed in `app`: any of its plugins was
-    /// added, or a resource only it installs exists.
-    ///
-    /// ⛔ Both halves, because a plugin check alone is satisfied by the road
-    /// that was disabled and a resource check alone by a plugin that installs
-    /// nothing observable.
-    pub fn is_installed(self, app: &App) -> bool {
+    fn is_installed(self, app: &App) -> bool {
         let world: &World = app.world();
         match self {
             Capability::Cutscenes => {
@@ -136,6 +97,8 @@ impl Capability {
                     || app.is_plugin_added::<ambition_world_items::WorldItemSimulationPlugin>()
                     || app.is_plugin_added::<ambition_platformer2d_actor_monolith::items::conditions::InventoryConditionsPlugin>()
             }
+            // The engine group never installs it (see `omit`).
+            Capability::FighterSpecials => false,
         }
     }
 }

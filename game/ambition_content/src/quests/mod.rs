@@ -34,13 +34,16 @@ impl Plugin for AmbitionQuestContentPlugin {
         // advance pump, before room metadata sync); the quest-registry populate
         // rides the Progression set with its own `initialized` short-circuit.
         // The engine quest EVENT PUMP (push/apply) stays engine-side.
-        app.add_systems(
+        use ambition_platformer2d::runtime::ScopedSystemsAppExt as _;
+        app.add_scoped_systems(
             sim,
+            crate::AMBITION_RULES,
             crate::quest::grant_quest_completion_rewards
                 .in_set(ambition_boss_encounter::ContentQuestRewardSet),
         );
-        app.add_systems(
+        app.add_scoped_systems(
             sim,
+            crate::AMBITION_RULES,
             crate::quest::populate_quest_registry
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression),
         );

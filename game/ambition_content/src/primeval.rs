@@ -162,9 +162,11 @@ pub struct PrimevalPlugin;
 
 impl Plugin for PrimevalPlugin {
     fn build(&self, app: &mut App) {
+        use ambition_platformer2d::runtime::ScopedSystemsAppExt as _;
         let sim = SimScheduleExt::sim_schedule(app);
-        app.add_systems(
+        app.add_scoped_systems(
             sim,
+            crate::AMBITION_RULES,
             swallows_carry_coconuts.in_set(GameplayGated).after(ActorDecisionSet::Publish).before(PlayerInputSet::ControlGate),
         );
     }

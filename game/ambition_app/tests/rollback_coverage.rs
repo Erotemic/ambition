@@ -1878,6 +1878,12 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "its own doc: \"app-local map from experience id to its authored catalog          fragments — the authority the shared preparation systems validate          against\". Authored content indexed at composition time; a rewind does not          re-author a catalog",
     ),
     (
+        "ambition_platformer2d_runtime::mode_scope::ConfiguredScopeSets",
+        "which (schedule, rule scope) sets have their run condition, written while \
+         the App is built so each set gets its condition once. Composition \
+         bookkeeping; nothing reads it after the build",
+    ),
+    (
         "ambition_platformer2d_runtime::mode_scope::ModeScopes",
         "each hosted mode's declared rule scope, written once when its plugin is \
          built. The mode sweep and the owner spawn read it; a rewind does not \

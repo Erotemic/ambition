@@ -14,7 +14,7 @@ use bevy::prelude::*;
 
 /// The rooms that one declaration governs. The variants mirror the
 /// hosted-game mode scopes used for systems and entities.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RulesScope {
     /// Rooms tagged with this game mode: a HOSTED game. The mirror of
     /// `in_mode(mode)`, which gates each system of that game.

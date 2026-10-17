@@ -61,9 +61,16 @@ impl Plugin for AbilitySimulationPlugin {
         // `CoreHeldItems` is the kernel's; see the module header.
         app.configure_sets(
             sim,
-            (ItemPickupSet::ThrownItemEffects, ItemPickupSet::WieldedAbilities).in_set(
-                ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation,
-            ),
+            (ItemPickupSet::ThrownItemEffects, ItemPickupSet::WieldedAbilities)
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation,
+                )
+                // Thrown-item effects and wielded abilities (with the wielded
+                // extension phases in that set) are held use: they sleep where
+                // the active room's game uses no held items.
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                    ambition_platformer2d_shared_tangle::capability::Capability::HeldUse,
+                )),
         );
 
         // Bombs and gravity grenades run after the held-item throw/physics group.

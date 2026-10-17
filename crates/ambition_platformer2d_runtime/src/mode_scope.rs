@@ -14,7 +14,8 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhase, SimScheduleExt as _,
 };
-use ambition_platformer2d_actor_monolith::session::governing_rules::CurrentRoom;
+use ambition_platformer2d_actor_monolith::session::governing_rules::{CurrentRoom, GoverningRules};
+use ambition_platformer2d_shared_tangle::capability::{Capability, CapabilitySet, UsedCapabilities};
 
 /// Run condition: the active room belongs to the game mode `name`.
 ///
@@ -36,6 +37,67 @@ pub fn in_mode(name: &'static str) -> impl FnMut(CurrentRoom) -> bool + Clone {
 /// binary's rules.
 pub fn in_rules_scope(scope: RulesScope) -> impl FnMut(CurrentRoom) -> bool + Clone {
     move |room: CurrentRoom| room.in_scope(scope)
+}
+
+/// The systems that serve the rooms one [`RulesScope`] governs: a game's rules,
+/// for the rooms of that game. The set runs only while an active room is in
+/// its scope ([`in_rules_scope`]), so a game the hub has installed but is not
+/// playing does no work. Add systems with
+/// [`ScopedSystemsAppExt::add_scoped_systems`], which gives the set its
+/// condition in each schedule.
+///
+/// The scope follows the room, not the frontend route: a session can visit
+/// another game's room, and a session being prepared or retired is served by
+/// systems outside the set. Inside the simulation the condition reads room
+/// state that rollback restores, so a resimulated tick runs the same systems.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RulesScopeSet(pub RulesScope);
+
+/// The (schedule, scope) pairs whose [`RulesScopeSet`] has its condition.
+#[derive(Resource, Default)]
+struct ConfiguredScopeSets(std::collections::HashSet<(bevy::ecs::schedule::InternedScheduleLabel, RulesScope)>);
+
+pub trait ScopedSystemsAppExt {
+    /// Add `systems` to `schedule` in the [`RulesScopeSet`] of `scope`: they
+    /// run only while an active room is in `scope`.
+    fn add_scoped_systems<M>(
+        &mut self,
+        schedule: impl bevy::ecs::schedule::ScheduleLabel,
+        scope: RulesScope,
+        systems: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+    ) -> &mut Self;
+}
+
+impl ScopedSystemsAppExt for App {
+    fn add_scoped_systems<M>(
+        &mut self,
+        schedule: impl bevy::ecs::schedule::ScheduleLabel,
+        scope: RulesScope,
+        systems: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+    ) -> &mut Self {
+        let schedule = schedule.intern();
+        let first = self
+            .world_mut()
+            .get_resource_or_insert_with(ConfiguredScopeSets::default)
+            .0
+            .insert((schedule, scope));
+        if first {
+            self.configure_sets(schedule, RulesScopeSet(scope).run_if(in_rules_scope(scope)));
+        }
+        self.add_systems(schedule, systems.in_set(RulesScopeSet(scope)))
+    }
+}
+
+/// Run condition: the active room uses `capability`: its game's declared
+/// [`UsedCapabilities`] name it, or its game declared none. With no session,
+/// only a whole-process declaration governs, so a capability runs unless the
+/// binary's one game left it out.
+pub fn room_uses(
+    capability: Capability,
+) -> impl FnMut(GoverningRules<UsedCapabilities>) -> bool + Clone {
+    move |rules: GoverningRules<UsedCapabilities>| {
+        rules.get().is_none_or(|used| used.uses(capability))
+    }
 }
 
 /// Run condition: a live session is in Ambition's OWN base mode — an active room
@@ -306,6 +368,17 @@ impl Plugin for ModeScopePlugin {
     fn build(&self, app: &mut App) {
         configure_mode_owner_sets(app);
         let sim = app.sim_schedule();
+        use bevy::ecs::schedule::ScheduleLabel as _;
+        // Each capability's systems run where the active room uses it. A set
+        // with no members in a schedule costs nothing there.
+        for schedule in [sim, PreUpdate.intern(), Update.intern(), PostUpdate.intern()] {
+            for capability in Capability::ALL {
+                app.configure_sets(
+                    schedule,
+                    CapabilitySet(capability).run_if(room_uses(capability)),
+                );
+            }
+        }
         app.add_systems(sim, follow_mode_owner_rooms.in_set(ModeOwnerStep::Placed));
         app.add_systems(
             sim,

@@ -55,7 +55,10 @@ impl Plugin for YarnBindingsPlugin {
                 // After this frame's claims are declared, so an overlay opened
                 // over the conversation captures its input from the next frame on.
                 .after(ambition_input::InputSet::ResolveContext)
-                .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
+                .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists)
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                    ambition_platformer2d_shared_tangle::capability::Capability::Dialogue,
+                )),
         );
         // no GAME installer is pushed from here any more. A game's
         // vocabulary arrives through `YarnContentBindings` from the crate that

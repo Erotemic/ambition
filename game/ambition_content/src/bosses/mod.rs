@@ -251,8 +251,10 @@ impl Plugin for AmbitionBossContentPlugin {
         register(app);
         // Its one death: the moon. With the other fights' authored kills,
         // after this tick's hits are resolved; the blow lands on the next.
-        app.add_systems(
+        use ambition_platformer2d::runtime::ScopedSystemsAppExt as _;
+        app.add_scoped_systems(
             sim,
+            crate::AMBITION_RULES,
             mockingbird::strike_it_with_the_moon
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::ContentFlavor),
@@ -353,8 +355,9 @@ impl Plugin for AmbitionBossContentPlugin {
         // observes this frame's alive-flag transitions); the slot's position
         // in the combat chain is configured by the app's `CombatSchedulePlugin`.
         // Grouped into a `.chain()` to preserve the former inline ordering.
-        app.add_systems(
+        app.add_scoped_systems(
             sim,
+            crate::AMBITION_RULES,
             (
                 detect_cut_rope_rope_cut.in_set(GameplayGated),
                 tick_cut_rope_flavor.in_set(GameplayGated),
@@ -369,8 +372,9 @@ impl Plugin for AmbitionBossContentPlugin {
         // exact former position; this plugin never depends on that position, only
         // on the slot (E-track progression de-weave, same shape as the room-reset
         // and combat-flavor slots above).
-        app.add_systems(
+        app.add_scoped_systems(
             sim,
+            crate::AMBITION_RULES,
             // Victory NPC spawn — after the boss chain frees the payload,
             // before the save mirrors run.
             spawn_cut_rope_victory_npc.in_set(ambition_boss_encounter::ContentEncounterVictorySet),
@@ -382,8 +386,9 @@ impl Plugin for AmbitionBossContentPlugin {
         // `FeatureWorldOverlayContributions` runs it after the overlay rebuild
         // and before every body that collides with the overlay, like the lock
         // walls, so this frame's collision sees the derived geometry.
-        app.add_systems(
+        app.add_scoped_systems(
             sim,
+            crate::AMBITION_RULES,
             gate_gnu_ton_arena_ladder
                 .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions)
                 .before(ambition_platformer2d_actor_monolith::features::HazardTickSet)
@@ -391,15 +396,17 @@ impl Plugin for AmbitionBossContentPlugin {
         );
         // The duel on the giant's back: after his conductor chose (its record
         // is written in `boss_conduct`), and before the boss's move starts.
-        app.add_systems(
+        app.add_scoped_systems(
             sim,
+            crate::AMBITION_RULES,
             gnu_ton::duel::duel_gnu_ton
                 .after(ambition_extension_host::ExtensionSet::Lower(ambition_content_modules::gnu_ton::conductor::CONDUCT_PHASE))
                 .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Trigger),
         );
         #[cfg(feature = "portal_render")]
-        app.add_systems(
+        app.add_scoped_systems(
             sim,
+            crate::AMBITION_RULES,
             gnu_ton::fist_lines::light_fist_lines
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );

@@ -70,7 +70,13 @@ impl Plugin for HeldItemSimulationPlugin {
             sim,
             ItemPickupSet::CoreHeldItems
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation)
-                .after(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
+                .after(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled)
+                // Carrying, using and throwing items is the held-use
+                // capability's work: it sleeps where the active room's game
+                // uses no held items.
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                    ambition_platformer2d_shared_tangle::capability::Capability::HeldUse,
+                )),
         );
         // ⭐ THE DOMAIN'S OWN STEPS, as a chain of SETS. `HeldItemStep` is
         // shared_tangle vocabulary so a system that is not this domain's (the

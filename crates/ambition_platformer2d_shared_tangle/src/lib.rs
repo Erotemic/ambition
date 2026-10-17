@@ -14,6 +14,7 @@ pub mod binding;
 pub mod body;
 pub mod camera_ease;
 pub mod camera_layers;
+pub mod capability;
 pub mod class_b;
 pub mod construction;
 pub mod developer_hotkeys;

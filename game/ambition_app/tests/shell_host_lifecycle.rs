@@ -1293,15 +1293,11 @@ fn two_local_histories_name_every_simulated_entity_identically() {
     let shared: Vec<&String> = fresh.iter().filter(|id| sanic.contains(id)).collect();
     assert_eq!(
         shared,
-        vec![
-            "encounter:symmetry_attunement",
-            "session:room_instance",
-            "session:root",
-            "slot:0"
-        ],
-        "exactly the session root, its live room's root, the player slot, and the \
-         App-build encounter authority are shared between two providers; anything \
-         else shared is one provider's content leaking into another's identity space"
+        vec!["session:room_instance", "session:root", "slot:0"],
+        "exactly the session root, its live room's root and the player slot are \
+         shared between two providers; anything else shared is one provider's \
+         content leaking into another's identity space (Ambition's attunement \
+         encounter did, until its systems ran only in Ambition's rooms)"
     );
 }
 

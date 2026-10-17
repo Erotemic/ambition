@@ -55,7 +55,7 @@ Mary-O, so a phone profile cannot miss it (`profile_android.sh` records it).
 | LDtk respawn clean with a kept query state (F25) | done 10-16, replaces D5 | 1.04% of phone samples |
 | ~9.4k allocations a frame with no system owner (old item 7) | resolved: tracing spans of the `trace` feature (F27) | none in the APK |
 | UI, HUD, touch and sprite writes only on a change (F29) | done 10-16 | text re-layout 3.2 → 0.2 a frame; all changes −18% |
-| P1/S2b: foreign games and capabilities while Mary-O plays | open; the largest remaining lever (F28, F30) | ~300 systems, ~150 of them each tick |
+| P1/S2b: foreign games and capabilities while Mary-O plays | in part, 10-16/17 (F31): game scope sets; boss encounters, dialogue, held use and fighter specials sleep where unused | GGRS tick 615 → 470 systems, frame 1,602 → 1,444 |
 | P5 read-models per frame | open | the `ambition_sim_view` rebuilds are ~0.9% of phone samples |
 | F19 live-room lookups | open | `room_instance.rs:172` and `room_graph.rs` ~1.9% |
 | repertoire re-fold in the hub | open, small | 1.3% of phone samples; 0.04 re-folds a frame on the desktop, so room loads and power-ups, not steady state |
@@ -141,6 +141,66 @@ cost on the phone: GGRS framework-only time (10.2% of samples) over ~1.1 M
 system runs in 30 s is ~4.6 µs a run, so the ~150 cost ~1.4 ms a frame, ~2 ms
 with the frame schedules' foreign systems. A faster frame also runs fewer
 ticks per frame, which is the larger effect.
+
+### F31 — Dormancy: a game's rules and the engine's capabilities sleep where unused (2026-10-16/17)
+
+Two sets, both keyed by the active room, so a session that visits another
+game's room is served there, and a rewind restores what the condition reads:
+
+- `RulesScopeSet(scope)` (`ambition_platformer2d_runtime::mode_scope`): the
+  systems of one game's rules, with `in_rules_scope(scope)` as the condition
+  in each schedule (`add_scoped_systems`). Ambition's gameplay systems are in
+  `AMBITION_RULES` (the untagged rooms).
+- `CapabilitySet(capability)` (`shared_tangle::capability`): a capability's
+  per-tick systems. `ModeScopePlugin` gives each set `room_uses(capability)`:
+  the room's game declared `UsedCapabilities` naming it, or declared none.
+  Mary-O and Sanic declare no boss encounters, dialogue, held use or fighter
+  specials; Smash declares no boss encounters or dialogue.
+
+MEASURED (desktop capture, hub Mary-O, `AMBITION_SYSTEM_LIST`): systems run a
+frame 1,602 → 1,444; in the GGRS tick 615 → 470. Smash 49 → 15, held items 9
+→ 0, abilities 24 → 3, boss encounters 34 → 9, conversation 42 → 13,
+`ambition_content` 62 → 47. MEASURED (phone, `android-all-maryo-dormant`
+against `-auto`): 1-1 median 22-30 → 20-25 ms; 1-2 unchanged (33-36 ms).
+Left: portals, mounts, cutscenes, inventory and encounters as capabilities;
+Ambition's hub room and the presentation systems; standalone builds that
+compose only what they declare (P1).
+
+### F32 — The terrain skin was an entity for each piece (2026-10-17)
+
+MEASURED (desktop census, Mary-O 1-2): 1,993 of 3,423 sprite entities were
+pieces of the terrain skin. They are now `SkinQuad`s drawn as a few `Mesh2d`
+chunks for each room (`terrain_skin::lay_room_terrain`): sprites 3,423 →
+1,250, transforms 4,025 → 2,025, the same 1-2 frame pixel for pixel. A block
+that goes now gives its neighbours the trims of their open edges. MEASURED
+(phone, `android-all-maryo-terrain`): 1-2 entities ~5,800 → ~3,800, but its
+median frame did not change (31-37 ms); the render thread went 36% → 33% busy,
+and the visibility and transform systems lost ~0.6 points of samples. The
+entity count followed the cost of 1-2; it did not cause it.
+
+### F33 — What makes 1-2 dear: the body step and the collision world (2026-10-17)
+
+MEASURED (phone, `android-all-maryo-terrain`, `symbolize_android_profile.py
+--by-system --thread busiest --window 44,60 --window-b 2,30`, 1-2 play
+against 1-3 play in one run): as a share of the main thread's samples, 1-2 is
+heavier in `integrate_sim_bodies` by 5.9 points, `tick_actor_brains` 1.7,
+`update_body_mode` 0.6, `apply_player_hit_events` 0.5. Under them, the
+collision-world composition (`world_with_sandbox_solids`,
+`world_with_moving_platforms`) is ~1.6% of all samples in 1-2 and ~0.8% in
+1-3: ~4% of the main thread in 1-2. These are the four composers of F24. Each
+copies the room's blocks, so a large room makes each copy dearer, and the
+phone runs ~2 ticks a frame. REASONED: a slower frame runs more ticks a
+frame, so every cost for each tick is paid more often. Per-tick cost is the
+multiplier. Lever: P14.
+
+### F34 — A run condition on each system costs on each system (2026-10-17)
+
+MEASURED (phone, `android-all-maryo-dormant`, by system): the conditions that
+read `CurrentRoom` are 0.57% of samples. Mary-O and Sanic gate each of their
+systems with its own copy of `in_rules_scope`, so the condition runs once a
+system. MEASURED: `bevy_light`'s `check_dir_light_mesh_visibility` and its
+cluster assignment run for the 2D games (~0.45% and ~0.11%). Levers: move each
+game's systems into its `RulesScopeSet` (P18); S2b for 3D lighting.
 
 ## Summary (2026-10-16)
 
@@ -228,14 +288,18 @@ ticks per frame, which is the larger effect.
 
 ## Next, in order
 
-1. P1/S2: the active game's systems only. A game's session systems (and
-   each capability's) in schedules that the hub runs only while that game's
-   route is live; a proposal with the measured system counts first (F28).
-2. A phone run with `AMBITION_BOOT_ROUTE=mary_o_gameplay` to measure F25-F26.
-3. Fork edits, for Jon: Yarn `fetch_resources` (keep its `SystemState`),
+Updated 2026-10-17. Each one helps every game, not only Mary-O.
+
+1. P14: one composed collision world for each room each tick (F24, F33).
+2. P12 and P5: derive on change, and build the read-models once for each
+   presented frame, not each tick (F16, F20). The largest multiplier.
+3. P1/S2 and P18: the rest of dormancy (F31) and the conditions of F34.
+4. P15: render primitives apart from simulation objects (F32 is the first).
+5. P16: a repeat-allocation pass from `alloc_traces.csv`.
+6. P4: interned identities. P17: baked navigation graphs.
+7. Fork edits, for Jon: Yarn `fetch_resources` (keep its `SystemState`),
    `virtual_joystick::update_ui` (compare before write); `bevy_light` open.
-4. P5 and F19 in the hub; the repertoire re-fold at room load.
-5. D12, small, when the rest allows.
+8. D12, small, when the rest allows.
 
 ## How to answer a cost question
 
@@ -911,7 +975,11 @@ Rollback costs about 0% offline (`check_distance: 0`).
 | P12 | Derive on change, not every tick (F15, F16, F20): first writes that mark only real changes (the cluster step, the resources of F20), then the four systems; the change detector (`changes_by_site.csv`) finds the next ones and verifies each | per-tick re-derivations and false changes that wake change filters | small each | no |
 | P14 | One composed collision world per room per tick, shared; then a layered view with no copy (F24) | ~0.6% of phone CPU in the body step, plus each other composer | medium | no |
 | P13 | One keyed-reconcile helper for presentation entities (F21), and the remaining immediate-mode systems moved onto it | per-frame despawn and spawn of presentation entities | small-medium | no |
-| P3 | Hub: gate each game's session gameplay by its scope (S2); install Ambition, physics debris and 3D lighting only for the games that use them (S2b); move shared techniques out of `ambition_demo_smash` | 82+ foreign systems while one game plays, 72 hub-only systems | medium | no |
+| P3 | Hub: gate each game's session gameplay by its scope (S2, in part: F31); install Ambition, physics debris and 3D lighting only for the games that use them (S2b); move shared techniques out of `ambition_demo_smash` | 82+ foreign systems while one game plays, 72 hub-only systems | medium | no |
+| P15 | Render primitives apart from simulation objects: static visuals as built meshes (the terrain skin is done, F32; next the fixtures, unskinned tile blocks, the hidden sprite each skinned block keeps) | per-entity visibility, transform and extraction work for static art | medium | no |
+| P16 | A repeat-allocation pass: the top call sites of `alloc_traces.csv` reuse their buffers | part of the ~4,900 allocations a frame in the hub (F25); mimalloc ~3.5% of phone samples | small each | no |
+| P17 | Baked navigation graphs: a graph is a function of room geometry and body, so build it once (content time or a cache), not at each room entry | the 11 s phone build of 1-2's graph (autoplay, later NPCs) | medium | no |
+| P18 | Each game's systems in its `RulesScopeSet`, not a condition on each system (F34) | a condition evaluation for each gated system | small | no |
 | P6 | Change-driven systems: the two whole-world queries, input bindings, room isolation (F14) | full scans per tick; 444-2,773 allocations a frame in room isolation | small | no |
 | P4 | Interned identities: an integer handle per body, made when its `SimId` is minted; read-model keys by `Entity` | String clones and sorts in 5+ per-tick systems | medium | no |
 | P5 | Read-models built once per drawn frame, by change | repeat builds on slow frames; builds in headless hosts | medium | D2 |

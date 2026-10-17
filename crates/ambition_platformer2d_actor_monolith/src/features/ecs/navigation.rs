@@ -95,13 +95,15 @@ impl RoomNavigation {
     fn graph_of(
         &mut self,
         world: &ae::World,
+        // `geometry_stamp(world, &[])`, stamped once for each world a tick.
+        stamp: u64,
         spec: ae::movement::MotionModelSpec,
         abilities: ae::AbilitySet,
         size: ae::Vec2,
         base_size: ae::BodyBaseSize,
         frame: ae::MotionFrame,
     ) -> Option<&NavGraph> {
-        let key = NavGraphKey::new(world, &[], spec, abilities, size, base_size, frame);
+        let key = NavGraphKey::from_stamp(stamp, spec, abilities, size, base_size, frame);
         if !self.in_use.contains(&key) {
             self.in_use.push(key);
         }
@@ -157,6 +159,10 @@ pub fn advise_navigation(
 ) {
     advice.by_body.clear();
     cache.in_use.clear();
+    // Each live room's world is stamped once in this run, not once for each
+    // body in it: the stamp folds the whole world. A world is known by its
+    // address, which holds while this run borrows the collision world.
+    let mut stamps: Vec<(*const ae::World, u64)> = Vec::new();
     for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand, config, origin) in &bodies {
         let Some(request) = brain.navigation_request() else {
             continue;
@@ -176,8 +182,18 @@ pub fn advise_navigation(
         let Some(room) = collision.room(stamp.as_ref()) else {
             continue;
         };
+        let world = room.base();
+        let stamp = match stamps.iter().find(|(known, _)| std::ptr::eq(*known, world)) {
+            Some((_, stamp)) => *stamp,
+            None => {
+                let stamp = ambition_platformer2d_world::navigation::geometry_stamp(world, &[]);
+                stamps.push((world, stamp));
+                stamp
+            }
+        };
         let graph = cache.graph_of(
-            room.base(),
+            world,
+            stamp,
             model.spec(),
             abilities.abilities,
             kinematics.size,
@@ -304,7 +320,8 @@ mod tests {
     fn ask(cache: &mut RoomNavigation, world: &World, frame: MotionFrame) -> Option<(Vec2, usize, usize)> {
         let abilities = AbilitySet { move_horizontal: true, jump: true, ..AbilitySet::NONE };
         let body = ae::BodyClusterScratch::new_with_abilities(Vec2::ZERO, abilities);
-        read(cache.graph_of(world, body.model.spec(), abilities, body.kinematics.size, body.base_size, frame))
+        let stamp = ambition_platformer2d_world::navigation::geometry_stamp(world, &[]);
+        read(cache.graph_of(world, stamp, body.model.spec(), abilities, body.kinematics.size, body.base_size, frame))
     }
 
     /// Two bodies whose frames have one net acceleration and are not one

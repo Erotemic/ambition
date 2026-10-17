@@ -82,7 +82,8 @@ pub use content_identity::{
 /// The demo-hosting seam (D-C): gate a hosted ruleset on the active room's mode.
 pub use mode_scope::{
     despawn_departed_mode_entities, in_base_mode, in_mode, in_rules_scope, install_mode_owner,
-    project_room_rule, ModeOwnersSpawned, ModeScopePlugin, ModeScopes,
+    project_room_rule, ModeOwnersSpawned, ModeScopePlugin, ModeScopes, RulesScopeSet,
+    ScopedSystemsAppExt,
 };
 pub use ambition_platformer2d_actor_monolith::session::governing_rules::CurrentRoom;
 /// The one road a host input takes into the simulation. See the module docs.

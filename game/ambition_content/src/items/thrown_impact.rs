@@ -87,9 +87,11 @@ pub fn thrown_items_strike(
 }
 
 pub(crate) fn register(app: &mut App) {
+    use ambition_platformer2d::runtime::ScopedSystemsAppExt as _;
     let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
-    app.add_systems(
+    app.add_scoped_systems(
         sim,
+        crate::AMBITION_RULES,
         thrown_items_strike
             .after(ambition_platformer2d::platformer::schedule::ItemPickupSet::CoreHeldItems)
             .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),

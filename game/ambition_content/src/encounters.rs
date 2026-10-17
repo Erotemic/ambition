@@ -113,16 +113,19 @@ pub struct AmbitionEncounterContentPlugin;
 
 impl Plugin for AmbitionEncounterContentPlugin {
     fn build(&self, app: &mut App) {
+        use ambition_platformer2d::runtime::ScopedSystemsAppExt as _;
         let sim = app.sim_schedule();
-        app.add_systems(
+        app.add_scoped_systems(
             sim,
+            crate::AMBITION_RULES,
             // The chamber starts the attunement in data: `symmetry_room`'s
             // `while_live` line is `encounter.start encounter:symmetry_attunement`.
             spawn_symmetry_attunement
                 .in_set(Platformer2dSimulationPhase::GameplayEffects),
         );
-        app.add_systems(
+        app.add_scoped_systems(
             sim,
+            crate::AMBITION_RULES,
             celebrate_symmetry_attunement
                 .in_set(Platformer2dSimulationPhase::Progression)
                 .after(ambition_encounter::EncounterLifecycleSet),

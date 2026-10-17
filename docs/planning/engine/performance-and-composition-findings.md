@@ -442,6 +442,14 @@ at rest. A body at rest whose step is a fixed point need not step. It must
 be exact: `ActorMut::update` also advances health, timers, the hit flash and
 what a body carries, so the rule needs its own design and a witness that a
 skipped tick and a stepped tick give the same components, under rollback.
+REASONED, the exact form: the step is a pure function of its inputs, so
+keep for each body the fingerprint of the last step that changed nothing
+(the body's clusters, combat, motion model and control frame, the blocks
+near it, its contact field, its frame), and skip a step whose inputs have
+that fingerprint. No dormancy rule is needed for that; dormancy is what
+makes the case common. The risk is an input the fingerprint leaves out,
+so its witness must step and skip the same bodies side by side over many
+ticks and compare every component.
 
 Done: `dress_power_blocks` does its work only when a block, its art or the
 spent set changed (witness `the_dresser_follows_each_of_its_inputs_and_nothing_else`,

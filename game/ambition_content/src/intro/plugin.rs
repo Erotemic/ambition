@@ -10,9 +10,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::assets::game_assets::{PropSheetSource, PropSheetsAppExt};
 
-use super::sprites::intro_prop_sprite_rows;
 
 /// The landing pad of the wake room: the zone the door of the hub arrives at.
 /// It names no target, so nothing leaves through it.
@@ -24,17 +22,6 @@ impl Plugin for IntroPlugin {
     fn build(&self, app: &mut App) {
         // The flag chains the selected pack states (`data/flag_chains.ron`).
         super::route_state::register(app);
-        // The intro props' sheets load with the rest of the art.
-        for (kind, _file, spec, pack_target) in intro_prop_sprite_rows() {
-            app.register_prop_sheet(
-                kind,
-                PropSheetSource::Catalog {
-                    asset: crate::intro::sprites::intro_prop_asset_id(kind),
-                    spec,
-                    pack_target: pack_target.map(str::to_string),
-                },
-            );
-        }
         // The hub has a door to this room and this room has no door back: the
         // zone a body arrives at is a place and not a door, so it has no
         // picture.

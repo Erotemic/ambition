@@ -202,6 +202,38 @@ system. MEASURED: `bevy_light`'s `check_dir_light_mesh_visibility` and its
 cluster assignment run for the 2D games (~0.45% and ~0.11%). Levers: move each
 game's systems into its `RulesScopeSet` (P18); S2b for 3D lighting.
 
+**P18 done for Mary-O and Sanic (2026-10-17).** Their rules are added with
+`add_scoped_systems`: one `in_rules_scope` condition on the set, asked once a
+schedule run. `run_if` on a tuple had put a copy on each system. MEASURED
+(the schedule graph of the shipped standalone Mary-O app): members of her
+`RulesScopeSet` in the sim schedule 0 → 38, so 38 condition calls a tick
+become one. Witness `her_rules_are_members_of_her_scope_set` (`mary_o_it`;
+red at 0 with the old registration). Sanic's eleven groups moved the same
+way, with no witness of their own. `install_attempt_scoped` keeps its
+condition on its two systems in each game.
+
+**S2b: the light checks sleep without a light (2026-10-17).** Only the hub
+installs Bevy's `LightPlugin`: the cube menu's `bevy_pbr` turns it on
+(MEASURED: no `bevy_light` system in the standalone Mary-O census below). No
+crate of ours spawns a light, and the cube is unlit. Source read
+(`bevy_light` 0.19.1, `check_dir_light_mesh_visibility`): with no light the
+system still queues a command that builds `world.query::<&mut
+ViewVisibility>()`, a new query state over every archetype, each frame.
+`sleep_light_visibility_without_lights` (`ambition_menu_kaleidoscope`) puts
+`SimulationLightSystems::CheckLightVisibility` under one condition: a
+directional, point or spot light exists. Witness
+`the_light_checks_run_only_while_a_light_exists`. The cluster assignment
+(~0.11%) is left: the cube's 3D camera needs its clusters.
+
+**Standalone Mary-O census (2026-10-17, debug `capture_mary_o --warmup 600`,
+`bevy/debug`, 1-1).** MEASURED: 939 of 1,264 of our systems ran in one
+frame. Still running for what she does not use: Kira channel systems 30
+(D6), Bevy gizmo groups 32 (D9), capture (grabs) 14 (D4), the narrative
+ledgers' `forget_narrative_inputs_on_activation` 9, developer-tool
+`editable` 8, mounts 7, boss ticks 5, and in `features::ecs` the pets,
+errands, challenges, wear, summons, fighter ladder, barks and boss bodies
+(~20). No `bevy_light` system.
+
 ## Summary (2026-10-16)
 
 - **One thread is the limit.** On the phone the main thread is 82% busy, the
@@ -291,8 +323,11 @@ game's systems into its `RulesScopeSet` (P18); S2b for 3D lighting.
 Updated 2026-10-17. Each one helps every game, not only Mary-O.
 
 1. P14: one composed collision world for each room each tick (F24, F33).
+   Step 1 done 2026-10-17 (six compositions a frame in 1-2 → one); step 2,
+   the layered view, is next.
 2. P12 and P5: derive on change, and build the read-models once for each
-   presented frame, not each tick (F16, F20). The largest multiplier.
+   presented frame, not each tick (F16, F20). MEASURED 2026-10-17 (F5): the
+   views are ~3% of a tick, so P5 is smaller than this list first said.
 3. P1/S2 and P18: the rest of dormancy (F31) and the conditions of F34.
 4. P15: render primitives apart from simulation objects (F32 is the first).
 5. P16: a repeat-allocation pass from `alloc_traces.csv`.
@@ -451,6 +486,21 @@ MEASURED. `SimViewPlugin` (`ambition_sim_view/src/facts.rs:1141-1180`) rebuilds
 its views in the sim schedule's `FeatureViewSync` (about 36 systems); only
 `ambition_render` (and the demo HUDs) read them. A headless host builds them for
 no reader; on a slow frame with several ticks they are built several times.
+
+MEASURED 2026-10-17 (debug, headless standalone Mary-O 1-1, one tick an
+update, `run_system_cached` 200 times for each system): the set holds 30
+systems; the 28 rebuilds of `SimViewPlugin` and `FeatureViewSyncSchedulePlugin`
+cost 0.30 ms a run together (`rebuild_body_pose_views` 0.045,
+`rebuild_feature_view_index` 0.045, `rebuild_actor_anim_index` 0.034,
+`rebuild_actor_render_index` 0.028, `rebuild_nameplate_index` 0.025, the rest
+under 0.02 each), about 3% of the 11 ms tick. Gating the whole set off cut
+the frame by 0.9-1.3 ms, but that arm also starves the readers that wait for
+a view to change, so it overstates the views. REASONED: P5 saves at most one
+build for each extra tick in a frame (~0.3 ms and 30 system runs on a two-tick
+frame), and it moves ~50 registrations across schedules, with two tick-rate
+writers in the set (`advance_body_anim_overlay_clocks`,
+`tick_shrine_activation_pulse`). It is a small lever for its size; keep it
+behind the others.
 
 ### F6 — String identities are cloned, compared and sorted every tick
 
@@ -957,6 +1007,27 @@ geometry, platforms or overlay changed, which every reader borrows. Then a
 layered view (the authored world plus the dynamic parts, read in place) so
 that nothing copies the room at all; `HostSurfaces` already reads two
 sources in place this way.
+
+**Step 1 done (2026-10-17).** `ComposedSolids` (`collision.rs`) keeps the
+composed walls of each room in a few places; every reader of
+`RoomCollision::solids` borrows them. A place is keyed by the change ticks of
+the room's geometry and platforms, and by the contents of the overlay
+(`FeatureEcsWorldOverlay::composes_like`): the overlay is cleared and filled
+again each tick, so its change tick always moves. A reader whose key no place
+holds composes its own, so the retire (`retire_stale_composed_solids`, after
+the platforms advance) changes only how many readers share, never what one
+collides with. `advance_moving_platforms` no longer marks an empty set
+changed. MEASURED (debug, `mary_o_it` in 1-2, holding right and jumping, the
+cache removed and put back in one run, 3 × 200 frames each, the box loaded by
+a parallel `app_it`): compositions a frame 5.7-6.0 → 1.0; frame time 15.1 →
+13.2, 15.2 → 13.1, 15.2 → 15.2 ms. In 1-1 there are none (no platforms, an
+empty overlay: the borrow fast path). Witness
+`the_readers_of_a_tick_share_one_composed_world_and_a_write_composes_again`
+(red with no place kept, and red at "a reader after the write collides with
+the old overlay" with the overlay left out of the key). Left: the one
+composition a tick in a room with moving platforms (step 2, the layered
+view), and the projectile view (`world_with_gate_solids_and_carves`) and
+`hostable_surfaces`, which compose apart.
 
 ### Not a lever (keep out of this run)
 

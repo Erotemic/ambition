@@ -341,8 +341,13 @@ time. The prop sheets a room's props name (the Noodly Temple's keys and
 doors, the Math town's fronts, the palm, the shark; Mary-O's construction;
 Sanic's ring, monitors and goal post) are each game's `prop_sheets.ron` (a
 `prop_sheets` schema owned by the sprite capability); Ambition's reload
-restates its rows and loads their sheets again. The intro's catalog sheets
-keep their road (`intro_prop_sprite_rows`). How a moving platform drawn as
+restates its rows and loads their sheets again. The intro's props (the
+cart, the creator lab's props, the cut-rope arena's props, the gate ring and
+portal) are rows there too since 2026-10-16: a row names its record (`sheet`)
+where the record is not its kind, and `packed: true` draws it from the shared
+sprite pack first; `intro_prop_sprite_rows`, its asset ids and catalog
+entries, and the `Catalog` prop source are deleted, and the pack reach
+scripts read `packed` from the pack files. How a moving platform drawn as
 a prop sheet is laid on its platform (the shark, the intro's cart and its
 ramp, Mary-O's lift) is each game's `platform_looks.ron`, and a reload
 restates Ambition's looks. Mary-O's pickup art (the wand, the beacon, the
@@ -1230,8 +1235,8 @@ variants. Also found in that regen:
     re-packs nothing (the tier runs, finds no runtime sheet changed, and
     keeps its pages). A focused publish (`sprites.sh --target NAME`, 22 s
     for `mallory`: its render and its tiers) packs the runtime groups too,
-    so the one prop that draws from a pack (`intro_cart`,
-    `intro_prop_sprite_rows`) shows its new art at once
+    so the one prop that draws from a pack (`intro_cart`, `packed: true` in
+    Ambition's `prop_sheets.ron`) shows its new art at once
     (`test_a_focused_publish_packs_the_runtime_groups.py`), and it writes
     through the staging root as a full publish does (8.3 s for
     `intro_cart`, 2026-10-16).

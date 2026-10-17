@@ -74,6 +74,20 @@ pub struct FeatureEcsWorldOverlay {
 }
 
 impl FeatureEcsWorldOverlay {
+    /// Whether `self` and `other` add the same solids, lines, water and
+    /// subtractions to a room's walls: the fields the composed walls are made
+    /// of. The per-body passes, holes and glues are read beside the walls, not
+    /// composed into them. The overlay is cleared and filled again each tick,
+    /// so its change tick says nothing about its contents.
+    pub fn composes_like(&self, other: &Self) -> bool {
+        self.blocks == other.blocks
+            && self.chains == other.chains
+            && self.gate_solids == other.gate_solids
+            && self.removed_block_names == other.removed_block_names
+            && self.climbable_carves == other.climbable_carves
+            && self.water_regions == other.water_regions
+    }
+
     /// Clear the fields the engine's per-frame rebuild owns, so contributors
     /// re-extend onto a clean slate.
     ///

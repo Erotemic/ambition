@@ -121,7 +121,7 @@ impl AuthoredBlock {
 }
 
 /// One piece of generated room geometry.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Block {
     /// Durable geometry identity (docs/concepts/movement-collision.md). `name` stays the
     /// human label; `id` is what `WorldDelta` ops / the CC6 portal host ref /
@@ -595,7 +595,7 @@ pub struct SurfaceFrame {
 ///   swept) body stands on a segment within its slope limit as a one-way
 ///   floor and passes the rest (`crate::walkable_lines`); its box never
 ///   sweeps against a chain.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SurfaceChain {
     pub name: String,
     /// Polyline vertices. For a `closed` chain the last point connects back

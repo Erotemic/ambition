@@ -7,15 +7,15 @@ single body of generated art in the tree.
 
 ⛔⛔ THE PACK ROAD HAS EXACTLY ONE PRODUCTION CONSUMER, AND IT IS FOR PROPS.
 `build_prop_sprite_asset_packed` (character_sprites/assets.rs) is called from
-one place — the intro prop loop in `game/ambition_content/src/intro/plugin.rs`
-— and only for rows whose 4th tuple element is `Some(target)`. Characters never
-take it: `load_character_sprites_in` goes to the per-target `*_spritesheet.ron`
+one place — the prop sheet loader (`load_prop_sheet` in the monolith's
+`game_assets`) — and only for a prop sheet row of a pack that states
+`packed: true` (`data/prop_sheets.ron`). Characters never take it: `load_character_sprites_in` goes to the per-target `*_spritesheet.ron`
 every time. So a packed target that no prop row opts into is art that is
 generated, stored and shipped, and that nothing can ask for.
 
 ⭐ REACHABILITY IS A SOURCE FACT; MEGABYTES ARE A MACHINE FACT. The opt-in
-table and the single call site are committed Rust and read the same on every
-checkout. The page sizes are gitignored generated output — a box that never ran
+rows are committed pack data and the single call site is committed Rust; they
+read the same on every checkout. The page sizes are gitignored generated output — a box that never ran
 regen has no packs at all, and a worktree SYMLINKS the main checkout's copies,
 so a second worktree agreeing is not a second source.
 
@@ -45,22 +45,40 @@ REPO = Path(
     ).stdout.strip()
 )
 PACKS = REPO / "crates/ambition_platformer2d_actor_monolith/assets/sprite_packs"
-PROP_ROWS = REPO / "game/ambition_content/src/intro/sprites.rs"
 TIERS = ["full", "half", "quarter", "potato"]
 
-# The 4th element of an `intro_prop_sprite_rows()` tuple: `Some("target"),` on
-# its own line, closing the tuple. `None,` rows use the per-target sheet.
-OPT_IN_RE = re.compile(r'Some\("([a-z0-9_]+)"\),\s*\)')
+# A `prop_sheets` row: `"kind": ( fields ),` where a field value can hold one
+# level of parentheses (`sheet: Some("target")`).
+ROW_RE = re.compile(r'"([a-z0-9_]+)"\s*:\s*\(((?:[^()]|\([^()]*\))*)\)')
+SHEET_RE = re.compile(r'sheet\s*:\s*Some\("([a-z0-9_]+)"\)')
+PACKED_RE = re.compile(r'packed\s*:\s*true')
+
+
+def prop_sheet_files() -> list[Path]:
+    """Each game's prop sheet rows."""
+    return sorted(REPO.glob("game/*/assets/data/prop_sheets.ron"))
+
+
+def read_prop_rows(files: list[Path] | None = None) -> str:
+    """The text of every prop sheet file, one after the other."""
+    return "\n".join(path.read_text() for path in (prop_sheet_files() if files is None else files))
 
 
 def opted_in_targets(source: str) -> set[str]:
-    """Targets a prop row asks the pack for.
+    """Targets a prop row asks the pack for: the `sheet` of each row that
+    states `packed: true`, or its kind when it names no sheet.
 
     ⛔ AN EMPTY RESULT IS A PARSER FAILURE, NOT AN ANSWER. If the table's shape
     changes, matching nothing would report the whole pack unreachable — a
     dramatic finding produced entirely by a broken regex. `main` refuses it.
     """
-    return set(OPT_IN_RE.findall(source))
+    text = "\n".join(line.split("//", 1)[0] for line in source.splitlines())
+    targets = set()
+    for kind, body in ROW_RE.findall(text):
+        if PACKED_RE.search(body):
+            sheet = SHEET_RE.search(body)
+            targets.add(sheet.group(1) if sheet else kind)
+    return targets
 
 
 def pages_used_by(catalog: dict, targets: set[str]) -> set[int]:
@@ -117,15 +135,16 @@ def main(argv: list[str]) -> int:
             "⛔ Absent is not zero."
         )
         return 2
-    if not PROP_ROWS.exists():
-        print(f"NO {PROP_ROWS.relative_to(REPO)} — cannot read the opt-in table.")
+    files = prop_sheet_files()
+    if not files:
+        print("NO game/*/assets/data/prop_sheets.ron — cannot read the opt-in rows.")
         return 2
 
-    targets = opted_in_targets(PROP_ROWS.read_text())
+    targets = opted_in_targets(read_prop_rows(files))
     if not targets:
         print(
-            "NO PACK OPT-IN ROWS PARSED from intro_prop_sprite_rows(). Either the\n"
-            "table's shape changed or the regex is stale. Refusing to report the\n"
+            "NO PACK OPT-IN ROWS PARSED from the prop sheet files. Either the\n"
+            "rows' shape changed or the regex is stale. Refusing to report the\n"
             "pack unreachable on a parser failure — that would be a huge finding\n"
             "manufactured by a broken match."
         )

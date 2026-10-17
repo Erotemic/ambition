@@ -38,6 +38,7 @@ mod shell_cycle;
 mod the_first_quasar_is_drawn;
 mod the_transform_beat_reads_real_art;
 mod two_rooms;
+mod her_rules_ask_their_scope_once;
 mod weaker_form_refusal;
 mod an_attempt_and_its_powers;
 mod crouch_clearance_probe;

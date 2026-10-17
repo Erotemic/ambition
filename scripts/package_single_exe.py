@@ -162,9 +162,9 @@ def unreachable_pack_pages(sources: dict[str, Path]) -> set[str]:
     catalog_rel = "sprite_packs/full/ultrapack.json"
     if catalog_rel not in sources:
         return set()
-    targets = measure_pack_reachability.opted_in_targets(measure_pack_reachability.PROP_ROWS.read_text())
+    targets = measure_pack_reachability.opted_in_targets(measure_pack_reachability.read_prop_rows())
     if not targets:
-        fail(1, f"no prop row in {measure_pack_reachability.PROP_ROWS} asks for the pack; the reach rule read nothing")
+        fail(1, "no prop sheet row (game/*/assets/data/prop_sheets.ron) asks for the pack; the reach rule read nothing")
     catalog = json.loads(sources[catalog_rel].read_text())
     used = measure_pack_reachability.pages_used_by(catalog, targets)
     return {

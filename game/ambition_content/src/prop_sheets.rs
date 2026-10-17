@@ -44,14 +44,12 @@ mod tests {
     use ambition_platformer2d_actor_monolith::assets::game_assets::PropSheetSource;
     use ambition_sprite_sheet::prop_sheets::lowered_prop_sheets;
 
+    fn source_of<'a>(sheets: &'a PropSheets, kind: &str) -> Option<&'a PropSheetSource> {
+        sheets.iter().find(|(known, _)| *known == kind).map(|(_, source)| source)
+    }
+
     fn tuning_of(sheets: &PropSheets, kind: &str) -> Option<ambition_sprite_sheet::character::SheetTuning> {
-        sheets.iter().find(|(known, _)| *known == kind).map(|(_, source)| match source {
-            PropSheetSource::SpriteFolder { target, tuning } => {
-                assert_eq!(target, kind, "a pack row's sheet target is its kind");
-                *tuning
-            }
-            PropSheetSource::Catalog { .. } => panic!("`{kind}` is a pack row, not a catalog sheet"),
-        })
+        source_of(sheets, kind).map(|source| source.tuning)
     }
 
     /// The prop sheets are the pack's rows: the App registers each row the
@@ -64,7 +62,12 @@ mod tests {
         let sheets = app.world().resource::<PropSheets>();
         let shipped = lowered_prop_sheets(crate::pack::shipped()).expect("the pack states its prop sheets");
         for (kind, row) in shipped {
-            assert_eq!(tuning_of(sheets, kind), Some(row.tuning()), "`{kind}` is registered as the file states it");
+            let source = source_of(sheets, kind).unwrap_or_else(|| panic!("`{kind}` is not registered"));
+            assert_eq!((source.target.as_str(), source.tuning, source.packed), (row.target(kind), row.tuning(), row.packed), "`{kind}` is registered as the file states it");
+            // A row names a published record with an idle row, and its page.
+            let spec = ambition_sprite_sheet::character::try_load_spec_for_target(&source.target, &source.tuning)
+                .unwrap_or_else(|| panic!("`{kind}` names the sheet `{}`, which is not published", source.target));
+            assert!(!spec.page_images.is_empty(), "`{kind}`'s sheet names no page");
         }
         assert_eq!(app.world().resource::<AmbitionPropSheets>().0, shipped.keys().cloned().collect::<Vec<_>>());
 
@@ -90,16 +93,16 @@ mod tests {
         let mut app = App::new();
         register(&mut app);
         app.register_prop_sheet(
-            "intro_cart",
-            PropSheetSource::SpriteFolder { target: "intro_cart".into(), tuning: Default::default() },
+            "super_mary_o_lift",
+            PropSheetSource { target: "super_mary_o_lift".into(), tuning: Default::default(), packed: false },
         );
         let ours = app.world().resource::<AmbitionPropSheets>().0.clone();
         let mut next = lowered_prop_sheets(crate::pack::shipped()).cloned().unwrap();
         next.remove("coconut_palm");
         let mut sheets = app.world_mut().resource_mut::<PropSheets>();
         let owned = sheets.restate(ours.iter().map(String::as_str), &next).expect("Ambition's own kinds");
-        assert!(tuning_of(&sheets, "coconut_palm").is_none() && sheets.iter().any(|(kind, _)| kind == "intro_cart"));
-        next.insert("intro_cart".into(), ambition_sprite_sheet::prop_sheets::AuthoredPropSheet { scale: 1.0, frame_sample_inset: 0 });
+        assert!(tuning_of(&sheets, "coconut_palm").is_none() && sheets.iter().any(|(kind, _)| kind == "super_mary_o_lift"));
+        next.insert("super_mary_o_lift".into(), ambition_sprite_sheet::prop_sheets::AuthoredPropSheet { scale: 1.0, frame_sample_inset: 0, sheet: None, packed: false });
         assert!(sheets.restate(owned.iter().map(String::as_str), &next).is_err(), "another provider's kind");
     }
 

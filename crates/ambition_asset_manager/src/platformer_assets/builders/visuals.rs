@@ -193,6 +193,3 @@ pub(in super::super) fn extend_with_sprite_pack_entries(manifest: &mut AssetMani
         );
     }
 }
-
-// `extend_with_intro_sprite_entries` moved to `crate::content::intro::sprites`
-// (content extends the manifest through `build_sandbox_catalog_with`).

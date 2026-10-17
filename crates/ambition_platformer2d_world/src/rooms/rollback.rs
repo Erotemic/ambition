@@ -67,6 +67,13 @@ where
         OWNER,
         "root.moving_platform_set",
     );
+    // Each kept world is keyed by the change ticks of its room's parts, and a
+    // restore writes them: a rewind finds no walls of the abandoned branch.
+    registrar.declare_rollback_derived_resource::<crate::collision::ComposedSolids>(
+        OWNER,
+        "derived.composed_solids",
+        "the walls composed from each room's parts, keyed by their change ticks",
+    );
 }
 
 /// The index of the definition in the session's `RoomSet`. Room order is

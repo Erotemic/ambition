@@ -334,9 +334,10 @@ fn registered_prop_sheets_load_with_the_first_game_assets() {
     app.init_asset::<TextureAtlasLayout>();
     app.register_prop_sheet(
         KIND,
-        PropSheetSource::SpriteFolder {
+        PropSheetSource {
             target: KIND.to_string(),
             tuning: ambition_sprite_sheet::character::SheetTuning::new(1.0, 2),
+            packed: false,
         },
     );
 
@@ -384,11 +385,62 @@ fn registered_prop_sheets_load_with_the_first_game_assets() {
 #[test]
 #[should_panic(expected = "has two sheets registered")]
 fn a_prop_kind_has_one_sheet() {
-    let source = || PropSheetSource::SpriteFolder {
+    let source = || PropSheetSource {
         target: "a".to_string(),
         tuning: ambition_sprite_sheet::character::SheetTuning::new(1.0, 0),
+        packed: false,
     };
     let mut sheets = PropSheets::default();
     sheets.register("a", source());
     sheets.register("a", source());
+}
+
+/// A prop row draws the record it names from that record's own page (the
+/// creator lab's props are records of one sheet), and a `packed` row draws
+/// from the shared sprite pack.
+#[test]
+fn a_prop_row_draws_its_records_page_or_the_pack() {
+    let mut app = App::new();
+    app.add_plugins(bevy::app::TaskPoolPlugin::default());
+    app.add_plugins(bevy::asset::AssetPlugin::default());
+    app.init_asset::<Image>();
+    app.init_asset::<TextureAtlasLayout>();
+    let tuning = ambition_sprite_sheet::character::SheetTuning::new(1.0, 2);
+    app.register_prop_sheet("lab_genesis_vat", PropSheetSource { target: "genesis_vat".to_string(), tuning, packed: false });
+    app.register_prop_sheet("intro_cart", PropSheetSource { target: "intro_cart".to_string(), tuning, packed: true });
+    app.register_prop_sheet("intro_cart_unpacked", PropSheetSource { target: "intro_cart".to_string(), tuning, packed: false });
+
+    let config = GameAssetConfig::default();
+    let characters = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+    let bosses = ambition_boss_encounter::BossCatalog::default();
+    let catalog = crate::assets::platformer_assets::build_platformer2d_asset_catalog(
+        &config,
+        &characters,
+        &bosses,
+        &ambition_audio::spec::MusicRegistry { default_track: String::new(), tracks: Vec::new() },
+        &ambition_platformer2d_world::world_manifest::WorldManifest::default(),
+    );
+    let registered = app.world().resource::<PropSheets>().clone();
+    let world = app.world_mut();
+    let server = world.resource::<AssetServer>().clone();
+    let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
+    let assets = load_game_assets(
+        &config,
+        &characters,
+        &Default::default(),
+        &bosses,
+        &catalog,
+        &server,
+        &mut layouts,
+        &RoomMetadata::default(),
+        None,
+        &registered,
+    );
+    let page = |kind: &str| {
+        let asset = assets.characters.props.get(kind).unwrap_or_else(|| panic!("`{kind}` did not load"));
+        server.get_path(asset.texture.id()).map(|path| path.to_string()).unwrap_or_default()
+    };
+    assert!(page("lab_genesis_vat").ends_with("/creator_lab_props_spritesheet.png"), "the vat is not drawn from its record's page: {}", page("lab_genesis_vat"));
+    assert!(page("intro_cart_unpacked").ends_with("/intro_cart_spritesheet.png"), "control: an unpacked cart: {}", page("intro_cart_unpacked"));
+    assert!(page("intro_cart").contains("sprite_packs/"), "the packed cart is not drawn from the pack: {}", page("intro_cart"));
 }

@@ -97,7 +97,7 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     app.init_asset::<bevy::image::TextureAtlasLayout>();
     app.insert_resource(ambition_sprite_sheet::game_assets::GameAssetConfig::default());
     app.insert_resource(ambition_sprite_sheet::game_assets::GameAssets::default());
-    app.register_prop_sheet("probe_prop", PropSheetSource::SpriteFolder { target: PROBE.to_owned(), tuning: Default::default() });
+    app.register_prop_sheet("probe_prop", PropSheetSource { target: PROBE.to_owned(), tuning: Default::default(), packed: false });
     reload_prop_sheets_of_targets(app.world_mut(), &[PROBE.to_owned()].into());
     let prop_layout = |app: &App| app.world().resource::<ambition_sprite_sheet::game_assets::GameAssets>().characters.props.get("probe_prop").map(|asset| asset.layout.id());
     let first_prop = prop_layout(&app);

@@ -161,6 +161,7 @@ derived.body_rig_pose	derived	BodyRigPose	resolved from BodyRig plus the move an
 derived.boss_animation_frame_sample	derived	BossAnimationFrameSample	republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor
 derived.class_b_remap_log	derived	ClassBRemapLog	frame-local diagnostic ledger cleared before every simulation step
 derived.cleared_encounters	derived	ClearedEncounters	which encounters are cleared this tick; rebuilt from the lifecycles after the reducer
+derived.composed_solids	derived	ComposedSolids	the walls composed from each room's parts, keyed by their change ticks
 derived.contact_threat_withdrawn	derived	ContactThreatWithdrawn	re-derived every tick, before the contact pass, by the system owning the body's canonical state
 derived.contact_touchers	derived	ContactTouchers	written again in each tick's body_contact collect and read only by that tick's lowering
 derived.control_frame	derived	ControlFrame	per-tick input frame regenerated from the synchronized input stream

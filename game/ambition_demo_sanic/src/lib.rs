@@ -718,9 +718,11 @@ impl Plugin for SanicRulesPlugin {
         )
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
             .after(ambition_platformer2d::actors::avatar::WornControlGateSet);
-        let gate = ambition_platformer2d::runtime::in_rules_scope(self.scope);
-        app.add_systems(sim, sanic_pre_gate.run_if(gate.clone()));
-        app.add_systems(sim, sanic_post_gate.run_if(gate));
+        // In his `RulesScopeSet`: one condition a run, not one a system
+        // (findings F34, P18).
+        use ambition_platformer2d::runtime::ScopedSystemsAppExt as _;
+        app.add_scoped_systems(sim, self.scope, sanic_pre_gate);
+        app.add_scoped_systems(sim, self.scope, sanic_post_gate);
         // The ball dash is a rule: it exists only while the Sanic mode is live.
         // Effects run after PlayerInput captured the technique. `tick_ball_dash`
         // precedes `tick_rolling`, so a launch cannot un-ball in the same frame.
@@ -805,19 +807,19 @@ impl Plugin for SanicRulesPlugin {
         // rustfmt then hides which type is being installed.
         use ambition_platformer2d::actors::session::reset::install_attempt_scoped;
         let gate = ambition_platformer2d::runtime::in_rules_scope(self.scope);
-        app.add_systems(sim, rules.run_if(gate.clone()));
-        app.add_systems(sim, milestone_sfx.run_if(gate.clone()));
-        app.add_systems(sim, badniks.run_if(gate.clone()));
-        app.add_systems(sim, ring_loss.run_if(gate.clone()));
-        app.add_systems(sim, scatter_arc.run_if(gate.clone()));
-        app.add_systems(sim, monitor_rules.run_if(gate.clone()));
+        app.add_scoped_systems(sim, self.scope, rules);
+        app.add_scoped_systems(sim, self.scope, milestone_sfx);
+        app.add_scoped_systems(sim, self.scope, badniks);
+        app.add_scoped_systems(sim, self.scope, ring_loss);
+        app.add_scoped_systems(sim, self.scope, scatter_arc);
+        app.add_scoped_systems(sim, self.scope, monitor_rules);
         // The re-arm is not in the monitor rules chain. It answers the
         // admitted replay, and the host anchors `ContentRoomReplayResetSet`
         // before its generic replay consumer: a pit death replays the room
         // in place and never emits `RoomLoaded`. `install_attempt_scoped`
         // pairs the resource with that slot in one statement.
-        install_attempt_scoped::<monitors::SpentMonitors, _>(app, sim, gate.clone());
-        app.add_systems(sim, monitor_overlay.run_if(gate));
+        install_attempt_scoped::<monitors::SpentMonitors, _>(app, sim, gate);
+        app.add_scoped_systems(sim, self.scope, monitor_overlay);
     }
 }
 

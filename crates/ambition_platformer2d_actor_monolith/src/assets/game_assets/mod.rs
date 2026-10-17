@@ -18,22 +18,15 @@ use ambition_sprite_sheet::game_assets::ParallaxTheme;
 use ambition_sprite_sheet::game_assets::load_parallax_layers_for_theme;
 use ambition_sprite_sheet::game_assets::EntitySprite;
 
-/// Where one prop kind's sheet comes from.
+/// Where one prop kind's sheet comes from: the sheet record `target` of the
+/// current sheet generation, drawn from its page image in the sprite folder.
+/// A `packed` sheet is drawn from the shared sprite pack first, at the
+/// quality tier of the game.
 #[derive(Clone, Debug)]
-pub enum PropSheetSource {
-    /// `<sprite_folder>/<target>_spritesheet.png`, with the spec its manifest
-    /// authors.
-    SpriteFolder {
-        target: String,
-        tuning: ambition_sprite_sheet::character::SheetTuning,
-    },
-    /// A sheet the asset catalog registers. `pack_target` names a shared
-    /// quality-tiered pack to try first; the catalog sheet is the fallback.
-    Catalog {
-        asset: ambition_asset_manager::AssetId,
-        spec: ambition_sprite_sheet::character::CharacterSheetSpec,
-        pack_target: Option<String>,
-    },
+pub struct PropSheetSource {
+    pub target: String,
+    pub tuning: ambition_sprite_sheet::character::SheetTuning,
+    pub packed: bool,
 }
 
 /// The prop sheets a composition's content registers, keyed by the
@@ -85,10 +78,28 @@ impl PropSheets {
     }
 }
 
-/// A pack row's source: the sheet in the sprite folder whose target is the
-/// kind.
+/// A pack row's source.
 fn sprite_folder_row(kind: &str, row: &ambition_sprite_sheet::prop_sheets::AuthoredPropSheet) -> PropSheetSource {
-    PropSheetSource::SpriteFolder { target: kind.to_string(), tuning: row.tuning() }
+    PropSheetSource { target: row.target(kind).to_string(), tuning: row.tuning(), packed: row.packed }
+}
+
+/// The realization of the prop sheet `source`: from the shared sprite pack
+/// when it is `packed` and the pack has it, else from the record's page.
+fn load_prop_sheet(
+    source: &PropSheetSource,
+    config: &GameAssetConfig,
+    catalog: Option<&crate::assets::platformer_assets::Platformer2dAssetCatalog>,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    quality: Option<&VisualQualityBudget>,
+) -> Option<ambition_sprite_sheet::character::CharacterSpriteAsset> {
+    let packed = catalog.filter(|_| source.packed).and_then(|catalog| {
+        let spec = ambition_sprite_sheet::character::try_load_spec_for_target(&source.target, &source.tuning)?;
+        character_sprites::build_prop_sprite_asset_packed(catalog, asset_server, layouts, &source.target, &spec, quality)
+    });
+    packed.or_else(|| {
+        character_sprites::load_prop_sheet_for_target(asset_server, layouts, &config.sprite_folder, &source.target, &source.tuning)
+    })
 }
 
 /// Register prop sheets from a content plugin's `build`.
@@ -134,15 +145,14 @@ pub fn restate_prop_sheet_rows(
 
 /// Load again each prop sheet made from a sheet of `targets`, after a sheet
 /// generation is published: a prop's realization holds the frame rects of
-/// the records it was made from. A `Catalog` row holds its own spec, so it
-/// does not follow the sheet generation.
+/// the records it was made from.
 pub fn reload_prop_sheets_of_targets(world: &mut World, targets: &std::collections::BTreeSet<String>) {
     let Some(sheets) = world.get_resource::<PropSheets>() else {
         return;
     };
     let kinds: Vec<String> = sheets
         .iter()
-        .filter(|(_, source)| matches!(source, PropSheetSource::SpriteFolder { target, .. } if targets.contains(target)))
+        .filter(|(_, source)| targets.contains(&source.target))
         .map(|(kind, _)| kind.to_owned())
         .collect();
     if !kinds.is_empty() {
@@ -189,19 +199,18 @@ fn reload_prop_sheets(world: &mut World, dropped: &[String], kinds: &[String]) {
         return;
     }
     let sheets = world.get_resource::<PropSheets>().cloned().unwrap_or_default();
+    let catalog = world.get_resource::<crate::assets::platformer_assets::Platformer2dAssetCatalog>().cloned();
+    // The tier the materializer reads (`converge_character_residency_to_active_quality`).
+    let quality = ambition_persistence::settings::ResolvedVisualQuality::current(
+        world.get_resource::<ambition_persistence::settings::ResolvedVisualQuality>(),
+        world.get_resource::<ambition_persistence::settings::UserSettings>(),
+    )
+    .budget
+    .clone();
     let mut loaded = Vec::new();
     world.resource_scope(|_, mut layouts: Mut<Assets<TextureAtlasLayout>>| {
         for (kind, source) in sheets.iter().filter(|(kind, _)| kinds.iter().any(|wanted| wanted == kind)) {
-            let PropSheetSource::SpriteFolder { target, tuning } = source else {
-                continue;
-            };
-            let asset = character_sprites::load_prop_sheet_for_target(
-                &asset_server,
-                &mut layouts,
-                &config.sprite_folder,
-                target,
-                tuning,
-            );
+            let asset = load_prop_sheet(source, &config, catalog.as_ref(), &asset_server, &mut layouts, Some(&quality));
             loaded.push((kind.to_string(), asset));
         }
     });
@@ -238,42 +247,7 @@ fn load_prop_sheets(
     props: &mut HashMap<String, ambition_sprite_sheet::character::CharacterSpriteAsset>,
 ) {
     for (kind, source) in sheets.iter() {
-        let asset = match source {
-            PropSheetSource::SpriteFolder { target, tuning } => {
-                character_sprites::load_prop_sheet_for_target(
-                    asset_server,
-                    layouts,
-                    &config.sprite_folder,
-                    target,
-                    tuning,
-                )
-            }
-            PropSheetSource::Catalog {
-                asset,
-                spec,
-                pack_target,
-            } => pack_target
-                .as_deref()
-                .and_then(|target| {
-                    character_sprites::build_prop_sprite_asset_packed(
-                        catalog,
-                        asset_server,
-                        layouts,
-                        target,
-                        spec,
-                        quality,
-                    )
-                })
-                .or_else(|| {
-                    character_sprites::build_prop_sprite_asset(
-                        catalog,
-                        asset_server,
-                        layouts,
-                        asset,
-                        spec,
-                    )
-                }),
-        };
+        let asset = load_prop_sheet(source, config, Some(catalog), asset_server, layouts, quality);
         match asset {
             Some(asset) => {
                 props.insert(kind.to_string(), asset);

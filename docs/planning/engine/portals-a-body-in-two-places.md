@@ -66,10 +66,10 @@ the shapes and all their half planes share a point.
 ## State (2026-10-17)
 
 Stages 1-7 landed (`6e9045068`, `15d0cf99c`, `bc9c56af6`); the audit fixes below
-in `049a9081e`. The general model (below) landed as G1-G5 (`5f3a40dc1`,
-`f9410f2cc`, `e16fca525`, `d301399ba`), with the open items after it
-(`677a70393`, `029a03a02`, `ef0dfd7e4`, `4cd9bece5`, `22f25a85d`). What is
-left is in "Not done" and "Open".
+in `049a9081e`. The general model (below) landed as G1-G6 (`5f3a40dc1`,
+`f9410f2cc`, `e16fca525`, `d301399ba`, `da519ec6d`, `e93fa533c`), with the
+open items after it (`029a03a02`, `ef0dfd7e4`, `4cd9bece5`, `22f25a85d`,
+`cb0a6abe2`, `5ff8fdd00`).
 
 - Stage 5: a held body (`PoseOwnedExternally`) is in the pair it reaches into from a
   portal's front while it reaches into it; the transit, the snag and the eviction do
@@ -87,7 +87,7 @@ left is in "Not done" and "Open".
 | A | Glue maps two corners of a box and boxes them; selects by the box of a turned region | **Fixed** (049a9081e) | `collision.rs` `glue_portal_pair`/`carried_box`: exact convex cut by the turned region (`frame::thread::face_rect_planes`, `clip_convex`), every corner mapped. Test `a_square_through_a_pair_that_turns_it_by_45_degrees_is_solid_where_it_is` (passes; that it fails on the old code is REASONED: the two corners of a square turned 45° share an x) | The world's solids are boxes: a turned image is put as its bounding box — conservative, more solid than the truth. A one-way block turned on its side is left out (no kind says it). The entry side is cut by the hole's box (the old hole approximation). Water and climbables are not carried. | Yes: piece queries (below) test the true clipped convex shape; no world is built. |
 | B | A shot's leg ends at a crossing the transit may refuse | **Fixed** (049a9081e) | `placement::swept_crossing` is the one swept crossing: `swept_crossing_step` and `first_portal_crossing` both use it (paired, fits, a moving portal's scoop, backside pair excluded via `ProjectileCollisionWorld::backside_of`). It also exposed that the transit asked "fits whole" where the step ENDS (a fast body past the plane fits trivially) — now where the centre crosses; and the rescue took a body beside the opening — now only one in line (`snag::in_line_with`). Test `a_shots_leg_ends_only_where_the_transit_takes_it`. | (1) After the crossing the rest of the leg is swept in neither room this tick; next tick the shot is put at the mapped end — a wall just in front of the exit inside that remainder can be tunnelled (REASONED, not reproduced). (2) Cooldown: neither the swept crossing nor the leg cut asks it (they agree). (3) Contacts before the crossing are ordered by the leg; the crossing is a cut at its fraction, so a wall before the plane is met first. | Partly: the leg cut stays; the remainder becomes a second sweep in the exit room (stage G2). |
 | C | `PortalParallaxCarry` is one global | **Fixed** (049a9081e) | Per view: `carry(view, by, now)`/`at(view, now)`; the continuity carries the views whose `ResolvedViewSubject` is the body that crossed, and maps only their eased targets; `parallax.rs` reads the layer's own view. Test `a_crossing_in_one_view_carries_no_other_views_foreground`. | `PortalCameraContinuityState` is still one focus (`focus_bodies.iter().next()`): two views crossing at once are not both continued. | No (presentation ownership, separate). |
-| D | Glue rebuilds the room per straddler | **Reduced** (`f9410f2cc`, 1.29 ms → 0.27 ms at 5 000 blocks); the clone is left (see Not done) | `glue_cost` (ignored test, release, this machine): 20 µs/body/tick at 100 blocks, 245 µs at 1 000, 1.7 ms at 5 000; unglued 5 ns (borrowed). The per-body hole (`as_met_by` with holes) already cloned the room the same way. | Linear in the room per straddler per tick. Not a correctness bug; on Android it is several times this (REASONED). | Yes: stage G2 queries the room's broad phase through the piece; no copy. |
+| D | Glue rebuilds the room per straddler | **Fixed** (`f9410f2cc`, `da519ec6d`): a straddler's world is the room's shared lists and a layer; 1.4 µs at 1 000 or 5 000 blocks | `glue_cost` (ignored test, release, this machine): 20 µs/body/tick at 100 blocks, 245 µs at 1 000, 1.7 ms at 5 000; unglued 5 ns (borrowed). The per-body hole (`as_met_by` with holes) already cloned the room the same way. | Linear in the room per straddler per tick. Not a correctness bug; on Android it is several times this (REASONED). | Yes: stage G2 queries the room's broad phase through the piece; no copy. |
 | E | `thread_volume` stops at the first pair | **Fixed** by G1 (`5f3a40dc1`): the partitioner cuts by every pair, chains under `Composed` | `frame/thread.rs` `thread_volume` returns at the first opening; `cut_through` cuts one pair; a through piece is not cut again; `PortalPassages::straddled_by` and `PortalTransit` hold one pair per body. | One volume across two pairs is cut by the first only; nothing chains (A→B then C→D). | Yes: the worklist partitioner (G1). |
 
 The repairs the review found already made (held items, transfer straddle state,
@@ -118,7 +118,7 @@ side always; one after another where the game's `PortalGeometry` composes
 them), the drawing has a piece through each, and a player's strike through a
 pair reaches the giant (feature hits take the pieces).
 
-## The general model (implemented as G1-G5; G6 is a design for review)
+## The general model (implemented, G1-G6)
 
 Invariant: a portal transforms where the parts of an object are; it never makes a
 second object. One logical body (health, brain, inventory, authority) owns any finite
@@ -243,12 +243,21 @@ the path.
   (`hit_reaches_victim`). Tests: a feature under the far line; a strike
   through two chained pairs hurts only where the room composes them. The
   GNU-ton punch tests pass unchanged.
-- **G3** The glue stays a world the body steps against, built from what is
-  near the pair only: a hole rebuilds only the blocks it reaches (it rebuilt
-  and anonymised every carvable block), the exit region is tested only
-  against blocks that can meet it, and the carried blocks are appended in
-  canonical order, so the room's blocks keep their indices. It carries water,
-  and ladders the pair keeps upright. Measured below.
+- **G3** A body steps against one world, and in a pair that world is the
+  room's with a layer of its own. `World::blocks` and `World::chains` are
+  `layered::Layered` lists: the room's base shared (`Arc`), and per world
+  entries hidden and added; readers read them as a `Vec`. The hole, the gates,
+  the glue, moving platforms and contributed blocks are layers, found by a
+  grid over the shared base (`Layered::near`, made once per base), which the
+  body sweep also asks for the blocks near its swept box. So no world is
+  copied (a clone is 40 ns), and a straddler's world costs what is near the
+  pair. A solid block a pair turns is carried as its exact cut, a
+  `SurfaceKind::Solid` outline: the walker stands on its upward edges and is
+  put out of it the shortest way (`solid_lines`). A one-way block turned off
+  upright is carried as its top, a one-way line. Water, and ladders the pair
+  keeps upright, are carried. This is the proposal's "query the room's broad
+  phase through the piece" without a second collision path: the kernel keeps
+  its one step, and the world it steps against is the query's answer.
 - **G4** The straddler drawing cuts the sprite's drawn quad by the
   partitioner (every pair of the room, the straddled one first, the body's
   budget) and draws each piece with its composed map, clipped by up to six
@@ -265,22 +274,15 @@ the path.
   not refused: the budget bounds a ring, and refusing a player's portal shot
   is a game decision.
 
-### Not done, and why
-
-- **Collision by queries (G3 as proposed).** The kernel steps a body against
-  a `World` and indexes it everywhere (`SurfaceRef::Block(i)`, the line a
-  body stands on, ledge and blink casts): about 70 sites in core and 390
-  callers that pass a `&World`. A query trait through the step is that whole
-  refactor, against the angled-surfaces and smash lanes working in the same
-  files. The per-straddler world is built only while a body is in a pair;
-  its cost after G3 is the clone (42 µs at 1 000 blocks). Revisit with a
-  structural share of the room's blocks (an `Arc` block list) if a profile
-  shows it.
-- **Exact turned solids.** A walker collides with boxes and one-way lines; a
-  box a pair turns (a slope portal to a cardinal one) is no box. The glue
-  puts its bounding box (more solid than the truth, never less). Exact needs
-  solid angled walls in the walker kernel, which the angled-surfaces lane
-  lists as left; it is a feel decision (how a body slides on an angled wall).
+- **G6** `posed_limbs::stop_posed_limbs_at_what_they_meet` (after
+  `boss_conduct` lowers): a held limb goes from where it was toward its pose
+  and stops at the first solid of the world it meets (its hole, and the far
+  side of its pair glued behind the near end). A pose into something it was
+  already in, or a move of more than four times its size in a tick (a
+  reposition), is left as posed. `ambition.boss.mount` v2 tells the owner
+  where each limb touches (`contact`, at the far end when through the pair);
+  GNU-ton's landing dust is there. The host does not recoil. Taken on the
+  design's recommendations below, without Jon's answers.
 
 ### Policy (portal geometry modes)
 
@@ -322,13 +324,14 @@ Measured (release, this machine, 2026-10-17; `partition_cost` and
 | partition: a giant across four pairs (10 pieces) | 12.9 µs |
 | partition: an arm through two pairs | 2.0 µs |
 | partition: a pair facing itself (budget 4) | 7.9 µs |
-| glue, 100 / 1 000 / 5 000 blocks, per straddler | 4.4 / 42 / 275 µs (was 18.6 / 205 / 1 287) |
+| glue, 100 / 1 000 / 5 000 blocks, per straddler | 0.9 / 1.5 / 1.4 µs (was 18.6 / 205 / 1 287; the pair moved to the first row so every size has the same neighbourhood) |
+| a world's clone (any size) | 40 ns |
 
 Allocations were not counted.
 
 ## Roadmap (each stage reviewed before the next)
 
-Status 2026-10-17: G0-G5 done (see "As built"); G6 is the design below.
+Status 2026-10-17: G0-G6 done (see "As built").
 
 - **G0 (done)**: audit fixes A-C; D measured.
 - **G1 — pure partitioner** (core, no ECS): `Iso2`, the worklist over convex
@@ -352,7 +355,7 @@ Status 2026-10-17: G0-G5 done (see "As built"); G6 is the design below.
   dynamic portals; the failure contract's snag at an over-budget aperture.
 - **G6 — articulation**: contacts routed to limbs with joints (separate design).
 
-### G6 — articulation (design for review)
+### G6 — articulation (the design it was built from)
 
 Today a held limb (`PoseOwnedExternally`, the GNU-ton fist) hurts and is drawn
 through a pair, and takes no contact: it goes where its owner poses it,
@@ -360,26 +363,26 @@ through whatever is there, on either side.
 
 Proposal:
 
-1. A limb is attached to its host at a joint: `LimbJoint { host, anchor (in
-   the host's chart), reach }`. The owner's pose is the limb's target.
+1. A limb is attached to its host (`Limb::of`); the owner's pose is the
+   limb's target. (The design had a `LimbJoint` with a reach; the owner's
+   pose already keeps a limb within reach, so none was added.)
 2. Each tick the limb moves from its last pose toward the target by a sweep
-   of its pieces: the part on its own side against the room, the part through
-   a pair against the room at the far end, mapped back (as
-   `rest_of_step_stop` does for a shot). It stops at the first contact.
-3. The contact (point, normal, which piece) is a fact on the limb
-   (`LimbContact`) and an observation for the owner's module
-   (`ambition.boss.limb_contact`), so a choreography can react: the fist
-   lands where it lands, its dust there.
-4. The joint carries nothing back to the host by default (a giant does not
-   recoil); a host that should can read the contact.
+   of its box through the world it meets: its own side, and the far side of
+   the pair it is in, glued behind the near end. It stops at the first
+   contact.
+3. Where it touches is an observation for the owner's module (the limb's
+   `contact` in `ambition.boss.mount`), so a choreography can react: the
+   fist lands where it lands, its dust there.
+4. The joint carries nothing back to the host (a giant does not recoil).
 
-For Jon:
+Questions for Jon, built on the recommendation of each (say if a choice
+should change):
 
 - Does a posed fist stop at what it meets (physics), or keep its keys
-  (choreography)? Recommended: it stops, and the owner is told.
+  (choreography)? Built: it stops, and the owner is told.
 - Does a limb meet its own side too (a fist into the floor beside the
-  giant)? Recommended: yes, one rule for both sides.
-- Recoil into the host: recommended none.
+  giant)? Built: yes, one rule for both sides.
+- Recoil into the host: built: none.
 
 Cost: one box sweep per limb piece per tick.
 
@@ -390,19 +393,18 @@ that cut a portal.
 
 ## Open
 
-Closed since 2026-10-16: the rest of a shot's step is swept at the exit and
-stops at a wall there (`rest_of_step_stop`, `677a70393`); feature hits take
-the pieces (G2); the glue carries water and upright ladders (`029a03a02`);
-each view keeps its own camera anchor (`ef0dfd7e4`); body contact is
-portal-aware both ways: a body in a pair blocks at its far part, and meets
-the bodies at its far end (`4cd9bece5`, `22f25a85d`).
+Closed since 2026-10-16: a shot's step ends at the crossing and its next step
+sweeps the far side whole, walls and bodies (`5ff8fdd00`); feature hits take
+the pieces (G2); the glue carries water, upright ladders, turned solids
+exactly and turned one-way platforms as lines (`029a03a02`, `da519ec6d`,
+`cb0a6abe2`); each view keeps its own camera anchor (`ef0dfd7e4`); body
+contact is portal-aware both ways (`4cd9bece5`, `22f25a85d`); a posed limb
+takes contact (G6).
 
-- A shot's victims in the rest of its step past a crossing are reached the
-  next tick, from the exit; one wholly inside that remainder (less than one
-  tick's travel) is passed.
-- A volume placed in the world (`HitboxAnchor::World`) is cut by what it reaches
-  through from its own centre; a limb's box says what it is attached to by riding the
-  limb (`LimbStrike`).
-- A one-way block a pair turns on its side is not carried (no kind says it);
-  a turned block is its bounding box (Not done, above).
-- A held limb takes no contact (G6).
+Rules (not gaps):
+
+- A volume placed in the world (`HitboxAnchor::World`) is cut by what it
+  reaches through from its own centre; a limb's box says what it is attached
+  to by riding the limb (`LimbStrike`).
+- A shot that crosses a pair loses the rest of its step past the plane to the
+  next step (a delay of less than a tick, not a skip).

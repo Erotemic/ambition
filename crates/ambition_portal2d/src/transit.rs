@@ -188,9 +188,11 @@ pub fn publish_portal_carves(
     host_depths: Option<Res<PortalHostDepthsByRoom>>,
     tuning: Option<Res<PortalTuning>>,
     mut carves: ResMut<PortalCarves>,
+    time: Option<Res<ambition_platformer2d_shared_tangle::time::SimDt>>,
 ) {
     carves.holes.clear();
     carves.glues.clear();
+    let dt = time.map_or(0.0, |time| time.get());
     let convention = tuning.as_deref().map(|t| t.convention.map_convention()).unwrap_or_default();
     let geometry = tuning.as_deref().map(|t| t.geometry).unwrap_or_default();
     let by_room = PortalsByRoom::collect(&portals, &live);
@@ -247,6 +249,7 @@ pub fn publish_portal_carves(
                 exit: back.aperture(),
                 convention,
                 depth: pp::CARVE_DEPTH,
+                dt,
             };
             carves.glue(room, glue, body_entity);
         }

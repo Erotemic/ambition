@@ -15,6 +15,7 @@
 //! every piece of a volume is in its root's room; its chart is that room's
 //! world frame.
 
+use std::cell::RefCell;
 use std::collections::VecDeque;
 
 use super::{Iso2, MapConvention, PortalAperture, PortalFrame};
@@ -84,10 +85,8 @@ impl PortalLink {
 
     /// The half planes of what goes through, at the entry: behind the plane,
     /// between the ends, and no deeper than [`Self::depth`].
-    fn slab(&self) -> Vec<HalfPlane> {
-        let mut planes = opening(&self.enter).to_vec();
-        planes.extend(self.deepest(&self.enter));
-        planes
+    fn slab(&self) -> impl Iterator<Item = HalfPlane> {
+        opening(&self.enter).into_iter().chain(self.deepest(&self.enter))
     }
 
     /// The half plane no deeper than [`Self::depth`] past `ap`'s plane.
@@ -162,14 +161,7 @@ impl VolumePiece {
 
     /// Does the piece hold any of its volume?
     pub fn is_empty(&self) -> bool {
-        if self.bounds.is_empty() {
-            return false;
-        }
-        match self.volume.polygon() {
-            Some(outline) => cut(outline, &self.bounds).is_none(),
-            None => cut(box_outline(self.volume.bounds()), &self.bounds)
-                .is_none_or(|region| !self.volume.intersects(&CombatVolume::convex(region))),
-        }
+        !self.bounds.is_empty() && !holds(&self.volume, self.bounds.iter().copied())
     }
 
     /// The part that is here, as a convex polygon in the piece's chart: exact
@@ -294,7 +286,52 @@ fn piece_reaches_through(piece: &VolumePiece, link: &PortalLink) -> bool {
     if corners.iter().all(|l| l.y >= 0.0) || corners.iter().all(|l| l.x <= -h) || corners.iter().all(|l| l.x >= h) {
         return false;
     }
-    !piece.bounded(link.slab()).is_empty()
+    holds(&piece.volume, piece.bounds.iter().copied().chain(link.slab()))
+}
+
+/// The partitioner's working memory, kept between calls on a thread so that a
+/// test of a box piece allocates nothing: the outline being clipped (and, in
+/// `WORK`, the work list). What is in it never reaches a result.
+#[derive(Default)]
+struct Scratch {
+    outline: Vec<Vec2>,
+    kept: Vec<Vec2>,
+}
+
+thread_local! {
+    static SCRATCH: RefCell<Scratch> = RefCell::default();
+    static WORK: RefCell<VecDeque<(VolumePiece, Vec2)>> = RefCell::default();
+}
+
+/// Does any of `volume` lie in every one of `planes`?
+fn holds(volume: &CombatVolume, planes: impl Iterator<Item = HalfPlane>) -> bool {
+    SCRATCH.with_borrow_mut(|Scratch { outline, kept }| {
+        outline.clear();
+        match volume {
+            CombatVolume::Aabb(b) => outline.extend(box_corners(*b)),
+            CombatVolume::Obb { center, half, rotation } => {
+                let (x, y) = (Vec2::from_angle(*rotation) * half.x, Vec2::from_angle(*rotation).perp() * half.y);
+                outline.extend([*center - x - y, *center + x - y, *center + x + y, *center - x + y]);
+            }
+            CombatVolume::Circle { .. } => outline.extend(box_corners(volume.bounds())),
+            CombatVolume::Convex { .. } => outline.extend(volume.polygon().into_iter().flatten()),
+        }
+        for plane in planes {
+            clip_into(outline, plane, kept);
+            std::mem::swap(outline, kept);
+            if outline.len() < 3 {
+                return false;
+            }
+        }
+        if twice_area(outline).abs() <= EPS {
+            return false;
+        }
+        match volume {
+            // The box's part only bounds the disc's: test the disc itself.
+            CombatVolume::Circle { .. } => volume.intersects(&CombatVolume::convex(outline.clone())),
+            _ => true,
+        }
+    })
 }
 
 /// `piece` cut by `link`: its part in front of the entry plane, its parts past
@@ -303,13 +340,17 @@ fn piece_reaches_through(piece: &VolumePiece, link: &PortalLink) -> bool {
 /// are left out.
 fn cut_by(piece: &VolumePiece, link: &PortalLink, convention: MapConvention, refused: bool) -> Vec<VolumePiece> {
     let [behind, lo, hi] = opening(&link.enter);
-    let mut parts = vec![
-        piece.bounded([behind.flipped()]),
-        piece.bounded([behind, lo.flipped()]),
-        piece.bounded([behind, hi.flipped()]),
-    ];
+    let mut parts = Vec::with_capacity(5);
+    let mut stay = |more: &[HalfPlane]| {
+        if holds(&piece.volume, piece.bounds.iter().chain(more).copied()) {
+            parts.push(piece.bounded(more.iter().copied()));
+        }
+    };
+    stay(&[behind.flipped()]);
+    stay(&[behind, lo.flipped()]);
+    stay(&[behind, hi.flipped()]);
     if let Some(deepest) = link.deepest(&link.enter) {
-        parts.push(piece.bounded([lo, hi, deepest.flipped()]));
+        stay(&[lo, hi, deepest.flipped()]);
     }
     if !refused {
         let map = link.map(convention);
@@ -321,7 +362,7 @@ fn cut_by(piece: &VolumePiece, link: &PortalLink, convention: MapConvention, ref
             point: link.exit.frame.origin + link.exit.frame.normal * d,
             inward: -link.exit.frame.normal,
         });
-        parts.push(VolumePiece {
+        let through = VolumePiece {
             volume: map_volume(&piece.volume, &map),
             bounds: piece
                 .bounds
@@ -332,9 +373,11 @@ fn cut_by(piece: &VolumePiece, link: &PortalLink, convention: MapConvention, ref
                 .collect(),
             to_piece: piece.to_piece.then(&map),
             path,
-        });
+        };
+        if !through.is_empty() {
+            parts.push(through);
+        }
     }
-    parts.retain(|part| !part.is_empty());
     parts
 }
 
@@ -375,7 +418,9 @@ pub fn partition(
     convention: MapConvention,
 ) -> Partition {
     let mut out = Partition::default();
-    let mut work: VecDeque<(VolumePiece, Vec2)> = VecDeque::from([(VolumePiece::whole(volume.clone()), root)]);
+    let mut work = WORK.take();
+    work.clear();
+    work.push_back((VolumePiece::whole(volume.clone()), root));
     // A partition that stops growing ends: each cut bounds its parts by the
     // link's planes, and no part of it reaches through that link again. This
     // stops one that the budget lets grow without end, should one exist.
@@ -427,6 +472,7 @@ pub fn partition(
             work.push_back((part, part_root));
         }
     }
+    WORK.set(work);
     out
 }
 
@@ -481,7 +527,11 @@ pub fn recursive_links(links: &[PortalLink]) -> Vec<u32> {
 }
 
 fn box_outline(b: crate::Aabb) -> Vec<Vec2> {
-    vec![
+    box_corners(b).to_vec()
+}
+
+fn box_corners(b: crate::Aabb) -> [Vec2; 4] {
+    [
         Vec2::new(b.min.x, b.min.y),
         Vec2::new(b.max.x, b.min.y),
         Vec2::new(b.max.x, b.max.y),
@@ -507,27 +557,34 @@ pub fn face_rect_planes(rect: &super::FaceRect) -> [HalfPlane; 4] {
 }
 
 fn cut(mut outline: Vec<Vec2>, planes: &[HalfPlane]) -> Option<Vec<Vec2>> {
+    let mut kept = Vec::with_capacity(outline.len() + planes.len());
     for plane in planes {
-        let mut kept = Vec::with_capacity(outline.len() + 2);
-        for i in 0..outline.len() {
-            let (a, b) = (outline[i], outline[(i + 1) % outline.len()]);
-            let (sa, sb) = (plane.side(a), plane.side(b));
-            if sa >= 0.0 {
-                kept.push(a);
-            }
-            if (sa >= 0.0) != (sb >= 0.0) {
-                kept.push(a + (b - a) * (sa / (sa - sb)));
-            }
-        }
-        outline = kept;
+        clip_into(&outline, *plane, &mut kept);
+        std::mem::swap(&mut outline, &mut kept);
         if outline.len() < 3 {
             return None;
         }
     }
-    let twice_area: f32 = (0..outline.len())
-        .map(|i| outline[i].perp_dot(outline[(i + 1) % outline.len()]))
-        .sum();
-    (twice_area.abs() > EPS).then_some(outline)
+    (twice_area(&outline).abs() > EPS).then_some(outline)
+}
+
+/// `outline`'s part on `plane`'s inward side, into `kept`.
+fn clip_into(outline: &[Vec2], plane: HalfPlane, kept: &mut Vec<Vec2>) {
+    kept.clear();
+    for i in 0..outline.len() {
+        let (a, b) = (outline[i], outline[(i + 1) % outline.len()]);
+        let (sa, sb) = (plane.side(a), plane.side(b));
+        if sa >= 0.0 {
+            kept.push(a);
+        }
+        if (sa >= 0.0) != (sb >= 0.0) {
+            kept.push(a + (b - a) * (sa / (sa - sb)));
+        }
+    }
+}
+
+fn twice_area(outline: &[Vec2]) -> f32 {
+    (0..outline.len()).map(|i| outline[i].perp_dot(outline[(i + 1) % outline.len()])).sum()
 }
 
 /// Do two discs and the half planes share a point? Their common part, when

@@ -423,6 +423,16 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
     };
     let back = |p: ae::Vec2| map_point(&exit.frame, &enter.frame, glue.convention, p);
     let back_dir = |v: ae::Vec2| map_vec(&exit.frame, &enter.frame, glue.convention, v);
+    // How far what is at `p` in front of the exit moves this tick, seen
+    // behind the entry: its own displacement `d` and the pair's own motion
+    // over the tick (a moving or turning portal, `map_velocity`).
+    let back_disp = |p: ae::Vec2, d: ae::Vec2| {
+        if glue.dt > 0.0 {
+            ae::frame::map_velocity(&exit.frame, &enter.frame, glue.convention, p, d / glue.dt) * glue.dt
+        } else {
+            back_dir(d)
+        }
+    };
     // What is in front of the exit, read before the entry's side is cut: in a
     // thin wall the two regions share space.
     let region = ae::frame::thread::face_rect_planes(&before);
@@ -442,7 +452,7 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
         if turned && ae::collision_semantics::is_full_collision_surface(block.kind) {
             if let Some(cut) = ae::frame::thread::clip_convex(box_outline(block.aabb), &region) {
                 chains.push(ae::SurfaceChain {
-                    velocity: back_dir(block.velocity),
+                    velocity: back_disp(block.aabb.center(), block.velocity),
                     ..ae::SurfaceChain::solid(block.name.clone(), cut.into_iter().map(back).collect())
                 });
             }
@@ -462,7 +472,7 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
                     let t = b - a;
                     let (a, b) = if ae::Vec2::new(t.y, -t.x).dot(up) >= 0.0 { (a, b) } else { (b, a) };
                     chains.push(ae::SurfaceChain {
-                        velocity: back_dir(block.velocity),
+                        velocity: back_disp(block.aabb.center(), block.velocity),
                         hidden: true,
                         ..ae::SurfaceChain::open(block.name.clone(), vec![a, b])
                     });
@@ -473,7 +483,7 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
         let Some(aabb) = carried_box(block.aabb, &region, back) else {
             continue;
         };
-        blocks.push(ae::Block { aabb, kind, velocity: back_dir(block.velocity), ..block.clone() });
+        blocks.push(ae::Block { aabb, kind, velocity: back_disp(block.aabb.center(), block.velocity), ..block.clone() });
     }
     for chain in world.chains.near(reach).into_iter().filter(|c| !c.closed && c.junctions.is_empty() && c.depth_lanes.is_empty()) {
         for pair in chain.points.windows(2) {
@@ -481,7 +491,7 @@ pub fn glue_portal_pair(world: &mut ae::World, glue: &PortalGlue) {
             if let Some((t0, t1)) = before.clip_segment(a, b) {
                 chains.push(ae::SurfaceChain {
                     points: vec![back(a + (b - a) * t0), back(a + (b - a) * t1)],
-                    velocity: back_dir(chain.velocity),
+                    velocity: back_disp((a + b) * 0.5, chain.velocity),
                     earth: Vec::new(),
                     filled: false,
                     ..chain.clone()
@@ -1364,6 +1374,7 @@ mod collision_world_tests {
             exit: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, 200.0), ae::Vec2::new(-1.0, 0.0)), half_length: 30.0 },
             convention: MapConvention::Reflection,
             depth: 60.0,
+            dt: 0.0,
         };
         let solid_at = |world: &ae::World, x: f32, y: f32| {
             let probe = ae::Aabb::new(ae::Vec2::new(x, y), ae::Vec2::splat(1.0));
@@ -1394,7 +1405,7 @@ mod collision_world_tests {
         // A floor portal to a ceiling portal over the pool: upright.
         let floor = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), ae::Vec2::new(0.0, -1.0)), half_length: 30.0 };
         let ceiling = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, 170.0), ae::Vec2::new(0.0, 1.0)), half_length: 30.0 };
-        let glue = PortalGlue { enter: floor, exit: ceiling, convention: MapConvention::Reflection, depth: 60.0 };
+        let glue = PortalGlue { enter: floor, exit: ceiling, convention: MapConvention::Reflection, depth: 60.0, dt: 0.0 };
         let met = as_met_by(&walls, &[], &[], &[&glue]);
         let probe = ae::Aabb::new(ae::Vec2::new(100.0, 312.0), ae::Vec2::splat(2.0));
         assert!(met.water_at(probe).is_some(), "the far side's water is not met");
@@ -1424,6 +1435,7 @@ mod collision_world_tests {
             exit: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, 200.0), ae::Vec2::new(s, -s)), half_length: 60.0 },
             convention: MapConvention::Reflection,
             depth: 60.0,
+            dt: 0.0,
         };
         // In front of the exit, well inside its region.
         let inside = ae::Vec2::new(500.0, 200.0) + ae::Vec2::new(s, -s) * 30.0;
@@ -1463,6 +1475,7 @@ mod collision_world_tests {
             exit: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, 200.0), n), half_length: 60.0 },
             convention: MapConvention::Reflection,
             depth: 60.0,
+            dt: 0.0,
         };
         let ledge_at = ae::Vec2::new(500.0, 200.0) + n * 30.0;
         let mut ledge = ae::Block::solid("ledge", ledge_at - ae::Vec2::new(20.0, 0.0), ae::Vec2::new(40.0, 6.0));
@@ -1477,6 +1490,28 @@ mod collision_world_tests {
         let up = ae::frame::map_vec(&glue.exit.frame, &glue.enter.frame, glue.convention, -ae::Vec2::Y);
         assert!((normal - up).length() < 1e-4, "{normal:?} vs {up:?}");
         assert_eq!(met.blocks.iter().filter(|b| b.name == "ledge").count(), 1, "the ledge itself, where it is");
+    }
+
+    /// Through a pair that moves, what is carried moves with the pair too: a
+    /// thin-wall door (the turn convention maps it as the wall's width) whose
+    /// far end slides up the wall at 60 px/s shows a still box behind the
+    /// near end sliding down, 1 px a tick at 60 Hz. With no tick given, only
+    /// the box's own motion is carried.
+    #[test]
+    fn a_still_block_through_a_moving_pair_moves_as_the_pair_shows_it() {
+        use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+        let enter = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), ae::Vec2::new(-1.0, 0.0)), half_length: 40.0 };
+        let mut exit = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(132.0, 300.0), ae::Vec2::new(1.0, 0.0)), half_length: 40.0 };
+        exit.frame.velocity = ae::Vec2::new(0.0, -60.0);
+        let crate_ = ae::Block::solid("crate", ae::Vec2::new(150.0, 290.0), ae::Vec2::splat(10.0));
+        let walls = ae::World::new("glue", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, vec![crate_]);
+        let carried = |dt: f32| {
+            let glue = PortalGlue { enter, exit, convention: MapConvention::Rotation, depth: 60.0, dt };
+            let met = as_met_by(&walls, &[], &[], &[&glue]);
+            met.blocks.iter().filter(|b| b.name == "crate").map(|b| b.velocity).last().expect("carried")
+        };
+        assert!((carried(1.0 / 60.0) - ae::Vec2::new(0.0, 1.0)).length() < 1e-4, "{:?}", carried(1.0 / 60.0));
+        assert_eq!(carried(0.0), ae::Vec2::ZERO);
     }
 
     /// What a glued world costs to make (review of 15d0cf99c, finding D):
@@ -1498,6 +1533,7 @@ mod collision_world_tests {
                 exit: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(1200.0, 0.0), ae::Vec2::new(0.0, -1.0)), half_length: 48.0 },
                 convention: MapConvention::Reflection,
                 depth: 30.0,
+                dt: 0.0,
             };
             let reps = 200;
             // The room's index is made once, the first time it is asked.

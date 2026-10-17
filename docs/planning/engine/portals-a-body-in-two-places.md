@@ -205,27 +205,39 @@ the path.
 
 ### Consumers (one geometry, separate algorithms)
 
-- Combat: `apply_hitbox_damage` tests strike pieces × hurt pieces (today) over the
-  worklist output; dedupe stays per hitbox × victim; source and knockback are carried
-  by the composed `Iso2` (today for one hop). Feature hits take the pieces too
-  (`HitEvent` carries the strike's pieces, not one volume).
-- Collision (G2): no glued world. A body's step asks the room's broad phase per piece:
-  each piece's swept primitive is mapped into its room, queried against that room's
-  solids (Parry shape casts on the clipped convex shape), and the contact (point,
-  normal, time) is mapped back by the inverse `Iso2` into the body's chart; the step
-  takes the earliest. Rigid bodies take the contact as they do now. Articulated bodies
-  (an arm) route a contact to the limb that owns the piece; until limbs have joints, a
-  held limb takes no contact (today's rule, stated). Moving portals: the piece's map
-  uses the frames' velocities (`map_velocity`) for relative velocity.
-- Transit: unchanged authority — a body is moved by the transfer rule; pieces describe
-  where its parts are, they do not move it.
-- Drawing (G4): every piece of a visual is drawn by a clipped quad with the piece's
-  `Iso2` and bounds (the clip material carries the bounds; 4 planes today, a few more
-  later, or the piece is split). Pooled quads per visual, reused frame to frame instead
-  of spawned and despawned; one material per piece set. Room and view isolation as
-  today (`InRoomInstance`, `PresentedForView`).
+As proposed, then as built where it differs.
 
-### As built (G1-G5)
+- Combat: `apply_hitbox_damage` tests strike pieces × hurt pieces over the
+  worklist output; dedupe stays per hitbox × victim; source and knockback are
+  carried by the composed `Iso2`. Feature hits take the pieces too
+  (`HitEvent::pieces`). Built so (G2).
+- Collision. Proposed: no glued world; a body's step asks the room's broad
+  phase per piece (Parry casts of the clipped shape), and maps the contact
+  back by the inverse `Iso2`. Built (G3): the step keeps its one world, and in
+  a pair that world is the room's shared lists with a layer of its own (the
+  hole, and the far side mapped back by the inverse `Iso2`), found through the
+  room's grid. It answers the same question (what does each part of the body
+  meet, where) with no second collision path in the kernel and no copy of the
+  room; a turned solid is its exact outline. Moving portals: the layer is
+  made again each tick from the pair's pose, so what is carried is where the
+  pair puts it that tick; a carried block's own motion (a per-tick
+  displacement) and the pair's own motion over the tick are both carried
+  (`PortalGlue::dt`, the sim tick, with `frame::map_velocity`): a body
+  standing on a far-side floor through a moving pair rides it as the pair
+  shows it.
+- Articulated bodies. Proposed: a contact is routed to the limb that owns the
+  piece. Built (G6): a held limb is swept from its last pose to its new one
+  through the world it meets and stops at the first contact; its owner reads
+  where (`ambition.boss.mount`'s `contact`). One limb is one body, so the
+  piece's owner is the limb.
+- Transit: unchanged authority — a body is moved by the transfer rule; pieces
+  describe where its parts are, they do not move it.
+- Drawing (G4): every piece of a visual is drawn by a clipped quad with the
+  piece's `Iso2` and the planes that cut it (up to six). Pooled quads
+  (`ClipQuadPool`), reused frame to frame; room and view isolation as before
+  (`InRoomInstance`, `PresentedForView`).
+
+### As built (G1-G6)
 
 - **G1** `frame::Iso2` (in `frame.rs`), `frame::thread::{partition, PortalLink,
   PieceBudget, Partition, Refusal}`. The worklist as above; a piece carried
@@ -304,7 +316,8 @@ nothing new.
 
 Cost control: a body is partitioned only if its bounds meet an aperture's slab (broad
 phase over the room's apertures, a handful); the worklist runs for those bodies only;
-scratch buffers are reused per system; candidates are sorted vectors, not hash maps.
+scratch buffers are reused (built: per thread, so each system's calls share them);
+candidates are sorted vectors, not hash maps.
 
 ### Benchmarks to take (before and after each stage)
 
@@ -314,20 +327,26 @@ facing itself). Time per tick and allocations per tick, release, on this machine
 the phone (`profile_android.sh`).
 
 Measured (release, this machine, 2026-10-17; `partition_cost` and
-`glue_cost`, ignored tests; not on the phone):
+`glue_cost`, ignored tests, and `partition_allocations`. Not on the phone: this
+machine has no adb and no phone attached, so `profile_android.sh` waits for one):
 
 | case | per call |
 |---|---|
-| partition: no portals | 0.04 µs |
-| partition: one pair, not reached | 0.05 µs |
-| partition: straddling one pair | 0.85 µs |
-| partition: a giant across four pairs (10 pieces) | 12.9 µs |
-| partition: an arm through two pairs | 2.0 µs |
-| partition: a pair facing itself (budget 4) | 7.9 µs |
+| partition: no portals | 0.05 µs, 2 allocations |
+| partition: one pair, not reached | 0.05 µs, 1 |
+| partition: straddling one pair | 0.40 µs, 7 (was 0.85 µs, 36) |
+| partition: a giant across four pairs (10 pieces) | 5.3 µs, 30 (was 12.9 µs, 572) |
+| partition: an arm through two pairs | 0.81 µs, 11 (was 2.0 µs, 89) |
+| partition: a pair facing itself (budget 4) | 3.3 µs, 33 (was 7.9 µs, 371) |
 | glue, 100 / 1 000 / 5 000 blocks, per straddler | 0.9 / 1.5 / 1.4 µs (was 18.6 / 205 / 1 287; the pair moved to the first row so every size has the same neighbourhood) |
 | a world's clone (any size) | 40 ns |
 
-Allocations were not counted.
+Allocations per call are counted by `partition_allocations` (its own test
+binary, with a counting allocator). The "was" figures are before the scratch
+buffers: every emptiness test cloned its piece and allocated a polygon per
+plane. Now a piece is tested in the thread's kept buffers and only the pieces
+of the result are built, so what is left is the result (each piece's planes
+and path) and a convex hull's outline.
 
 ## Roadmap (each stage reviewed before the next)
 
@@ -375,14 +394,14 @@ Proposal:
    fist lands where it lands, its dust there.
 4. The joint carries nothing back to the host (a giant does not recoil).
 
-Questions for Jon, built on the recommendation of each (say if a choice
-should change):
+Decisions taken (2026-10-17, on the design's recommendations; Jon may
+revisit any of them, and each is one place in the code):
 
-- Does a posed fist stop at what it meets (physics), or keep its keys
-  (choreography)? Built: it stops, and the owner is told.
-- Does a limb meet its own side too (a fist into the floor beside the
-  giant)? Built: yes, one rule for both sides.
-- Recoil into the host: built: none.
+- A posed fist stops at what it meets (physics), and the owner is told,
+  rather than keeping its keys (`posed_limbs`).
+- A limb meets its own side too (a fist into the floor beside the giant):
+  one rule for both sides.
+- No recoil into the host.
 
 Cost: one box sweep per limb piece per tick.
 
@@ -391,20 +410,20 @@ derived pieces must stay off the snapshot (derived, rebuilt); drawing more than 
 through piece raises render cost — pooled quads and the broad phase keep it to bodies
 that cut a portal.
 
-## Open
-
-Closed since 2026-10-16: a shot's step ends at the crossing and its next step
-sweeps the far side whole, walls and bodies (`5ff8fdd00`); feature hits take
-the pieces (G2); the glue carries water, upright ladders, turned solids
-exactly and turned one-way platforms as lines (`029a03a02`, `da519ec6d`,
-`cb0a6abe2`); each view keeps its own camera anchor (`ef0dfd7e4`); body
-contact is portal-aware both ways (`4cd9bece5`, `22f25a85d`); a posed limb
-takes contact (G6).
-
-Rules (not gaps):
+## Rules
 
 - A volume placed in the world (`HitboxAnchor::World`) is cut by what it
   reaches through from its own centre; a limb's box says what it is attached
   to by riding the limb (`LimbStrike`).
-- A shot that crosses a pair loses the rest of its step past the plane to the
-  next step (a delay of less than a tick, not a skip).
+- A shot that crosses a pair ends its step just past the plane, and the rest
+  of that step is its next one's (a delay of less than a tick, not a skip).
+
+## Open
+
+None. Closed since 2026-10-16: a shot's step ends at the crossing and its
+next step sweeps the far side whole, walls and bodies (`5ff8fdd00`); feature
+hits take the pieces (G2); the glue carries water, upright ladders, turned
+solids exactly and turned one-way platforms as lines (`029a03a02`,
+`da519ec6d`, `cb0a6abe2`); each view keeps its own camera anchor
+(`ef0dfd7e4`); body contact is portal-aware both ways (`4cd9bece5`,
+`22f25a85d`); a posed limb takes contact (G6, `e93fa533c`).

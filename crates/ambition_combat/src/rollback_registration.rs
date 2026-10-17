@@ -482,7 +482,17 @@ where
     registrar.rollback_component_clone::<crate::strike::DepictedByOwner>(OWNER, "combat.depicted_by_owner");
     // A ray's geometry rides its strike: restored with it, so the drawn ray
     // and the volume that hurts stay one line.
-    registrar.rollback_component_clone::<crate::strike::RayStrike>(OWNER, "combat.ray_strike");
+    // Value-probed: a held ray is cast again each tick, so a replay that put
+    // it somewhere else must be found.
+    registrar.rollback_component_clone_probed::<crate::strike::RayStrike>(OWNER, "combat.ray_strike", |ray| {
+        // FNV-1a over the line and the look: stable across runs.
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        let words = [ray.dir.x.to_bits(), ray.dir.y.to_bits(), ray.length.to_bits(), ray.width.to_bits()];
+        for byte in words.iter().flat_map(|w| w.to_le_bytes()).chain(ray.look.bytes()) {
+            h = (h ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
+        }
+        h
+    });
     registrar.rollback_component_clone_probed::<crate::strike::HitboxLifetime>(
         OWNER,
         "combat.hitbox_lifetime",

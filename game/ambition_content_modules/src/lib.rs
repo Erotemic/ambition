@@ -37,6 +37,7 @@ pub mod trex;
 pub mod volley;
 pub mod vortex;
 mod wielded;
+pub mod wolfenstein;
 
 /// The provider namespace of every module and schema in this crate.
 pub const PROVIDER: &str = "ambition";
@@ -69,6 +70,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     trex::module,
     volley::module,
     vortex::module,
+    wolfenstein::module,
 ];
 
 /// Every module this crate provides.

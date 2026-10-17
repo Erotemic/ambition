@@ -21,6 +21,7 @@
 | [`hit_response`](src/hit_response.rs) | Carved down from `ambition_damage` (FB6b, fighter-brain.md §12.3 route 1) so ONE formula answers both callers: |
 | [`input_stream`](src/input_stream.rs) | Versioned per-tick input recordings for replay, trajectories, and desync analysis. |
 | [`kinematic_path`](src/kinematic_path.rs) | Declarative movement paths for moving platforms, spike balls, patrol dummies, and scripted hazards. |
+| [`layered`](src/layered.rs) | A list shared between worlds, with a layer of its own on top: the room's blocks (or lines) as one shared base, and per world a few of them hidden and a few more added. |
 | [`ledge_grab`](src/ledge_grab/mod.rs) | Ledge grab probe, state, and movement-pipeline tick helpers. |
 | [`motion_codec`](src/motion_codec.rs) | The movement-policy (`MotionModel`) rollback checksum codec — ADR 0024 §9. |
 | [`motion_quality`](src/motion_quality.rs) | Numeric diagnostics for the shape of an authoritative per-tick trajectory. |
@@ -33,11 +34,12 @@
 | [`sim_random`](src/sim_random.rs) | RANDOMNESS THAT SURVIVES A REWIND — and it survives by not existing. |
 | [`snapshot`](src/snapshot.rs) | Backend-neutral deterministic snapshot vocabulary. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
+| [`solid_lines`](src/solid_lines.rs) | A body is not inside a solid outline ([`SurfaceKind::Solid`]): what a portal pair carries of a block when it turns it is that block's true shape, turned, and a walker's box meets it as it is (`docs/planning/engine/portals-a-body-in-two-places.md`, exact turned solids). |
 | [`surface_loop`](src/surface_loop.rs) | Attached loops: a full 360° loop a runner enters from a floor and leaves onto the same floor, as one authored fact. |
 | [`walkable_lines`](src/walkable_lines.rs) | A body that walks stands on a slope: the room's surface lines are ground for the ordinary (axis-swept) body too, as one-way floors. |
 | [`world`](src/world.rs) | Generated sandbox room data. |
 
-_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_32 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

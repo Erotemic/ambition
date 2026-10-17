@@ -1778,31 +1778,35 @@ impl Plugin for MaryORulesPlugin {
         // Aliased: the fully-qualified path wraps three ways at every call and
         // rustfmt then hides which type is being installed.
         use ambition_platformer2d::actors::session::reset::install_attempt_scoped;
+        // Each rule is in her `RulesScopeSet`, whose one condition is asked
+        // once a run: a condition on each system was asked once a system
+        // (findings F34, P18).
+        use ambition_platformer2d::runtime::ScopedSystemsAppExt as _;
         let gate = ambition_platformer2d::runtime::in_rules_scope(self.scope);
-        app.add_systems(sim, rules.run_if(gate.clone()));
-        app.add_systems(sim, pipe_rules.run_if(gate.clone()));
-        app.add_systems(sim, cronies.run_if(gate.clone()));
-        app.add_systems(sim, powerups.run_if(gate.clone()));
-        app.add_systems(sim, after_the_star.run_if(gate.clone()));
-        app.add_systems(sim, bricks.run_if(gate.clone()));
-        app.add_systems(sim, gait.run_if(gate.clone()));
+        app.add_scoped_systems(sim, self.scope, rules);
+        app.add_scoped_systems(sim, self.scope, pipe_rules);
+        app.add_scoped_systems(sim, self.scope, cronies);
+        app.add_scoped_systems(sim, self.scope, powerups);
+        app.add_scoped_systems(sim, self.scope, after_the_star);
+        app.add_scoped_systems(sim, self.scope, bricks);
+        app.add_scoped_systems(sim, self.scope, gait);
         // After the gate: the press of her transformation is a technique edge
         // that the gate resolved. The gate is in `WorldPrep`.
-        app.add_systems(
+        app.add_scoped_systems(
             sim,
+            self.scope,
             (cosmic::toggle_cosmic_form, cosmic::come_back_from_the_form, cosmic::lend_the_jump_in_the_air)
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
-                .after(ambition_platformer2d::actors::avatar::WornControlGateSet)
-                .run_if(gate.clone()),
+                .after(ambition_platformer2d::actors::avatar::WornControlGateSet),
         );
-        app.add_systems(
+        app.add_scoped_systems(
             sim,
+            self.scope,
             (cosmic::shorten_her_hit_stop, cosmic::play_cosmic_music)
-                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects)
-                .run_if(gate.clone()),
+                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects),
         );
-        app.add_systems(sim, brick_overlay.run_if(gate.clone()));
+        app.add_scoped_systems(sim, self.scope, brick_overlay);
         // Mary-O's per-attempt block state. Which bricks are smashed and which
         // ?-blocks are spent is exactly the "content-named per-attempt state"
         // `ContentRoomReplayResetSet` exists for; `install_attempt_scoped` puts the

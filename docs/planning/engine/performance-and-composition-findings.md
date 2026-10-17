@@ -202,6 +202,16 @@ system. MEASURED: `bevy_light`'s `check_dir_light_mesh_visibility` and its
 cluster assignment run for the 2D games (~0.45% and ~0.11%). Levers: move each
 game's systems into its `RulesScopeSet` (P18); S2b for 3D lighting.
 
+**P18 done for Mary-O and Sanic (2026-10-17).** Their rules are added with
+`add_scoped_systems`: one `in_rules_scope` condition on the set, asked once a
+schedule run. `run_if` on a tuple had put a copy on each system. MEASURED
+(the schedule graph of the shipped standalone Mary-O app): members of her
+`RulesScopeSet` in the sim schedule 0 → 38, so 38 condition calls a tick
+become one. Witness `her_rules_are_members_of_her_scope_set` (`mary_o_it`;
+red at 0 with the old registration). Sanic's eleven groups moved the same
+way, with no witness of their own. `install_attempt_scoped` keeps its
+condition on its two systems in each game.
+
 ## Summary (2026-10-16)
 
 - **One thread is the limit.** On the phone the main thread is 82% busy, the

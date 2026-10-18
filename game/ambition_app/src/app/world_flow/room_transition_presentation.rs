@@ -22,6 +22,7 @@ use ambition_platformer2d::load_presentation::{
     LoadPresentationOwnerId, LoadPresentationSet, ReadyTransitionPolicy,
 };
 use ambition_platformer2d::platformer::schedule::GameMode;
+use ambition_platformer2d::render::rendering::presentation_settling::{PresentationSettling, PresentationSettlingSet};
 use ambition_platformer2d::render::rendering::UnclaimedFeatureViews;
 use ambition_platformer2d::sim::Platformer2dSimulationPhase;
 
@@ -254,6 +255,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
         // a host that installs this marker, and the system below completes it.
         .init_resource::<ambition_platformer2d::provider::FirstRoomArtContributor>()
         .init_resource::<super::first_room_art::FirstRoomArtJobs>()
+        .init_resource::<super::first_room_cover::FirstRoomCover>()
         .init_resource::<super::room_transition_assets::ContributedRoomAssets>()
         .init_resource::<RoomTransitionPresentationAvailable>()
         // The presentation floor owns this and fills it every frame. Named here
@@ -262,6 +264,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
         // host without the render plugin then behaves as it does today: nothing
         // is undrawn because nothing is drawing.
         .init_resource::<UnclaimedFeatureViews>()
+        .init_resource::<PresentationSettling>()
         .init_resource::<RoomTransitionPresentationConfig>()
         .init_resource::<RoomTransitionPresentationState>()
         .init_resource::<RoomTransitionTelemetry>()
@@ -283,10 +286,15 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
                 .chain()
                 .before(LoadPresentationSet::Observe),
         )
+        .add_systems(
+            Update,
+            super::first_room_cover::cover_first_room.after(PresentationSettlingSet),
+        )
         .configure_sets(
             Update,
             RoomTransitionCoverSet
-                .after(Platformer2dSimulationPhase::PresentationVisualSync),
+                .after(Platformer2dSimulationPhase::PresentationVisualSync)
+                .after(PresentationSettlingSet),
         )
         .add_systems(
             Update,
@@ -336,7 +344,11 @@ fn drive_room_transition_presentation(
     // frames of a room draw — precisely the frames the cover must not retire in.
     // See `UnclaimedFeatureViews`, and `RoomTransitionCoverSet` for the ordering
     // this read depends on.
-    unclaimed: Res<UnclaimedFeatureViews>,
+    //
+    // And everything else of the room that is still coming in: its terrain
+    // skin, its doors' art, pipelines compiling (`PresentationSettling`, which
+    // names the undrawn feature views too).
+    settling: Res<PresentationSettling>,
     contributed: Res<ContributedRoomAssets>,
     mut presentation: MessageWriter<LoadPresentationCommand>,
     mut loads: ResMut<LoadCoordinator>,
@@ -380,6 +392,7 @@ fn drive_room_transition_presentation(
             RoomTransitionCoverRoot {
                 sequence: active_snapshot.sequence,
             },
+            ambition_platformer2d::render::rendering::presentation_settling::PresentationCover,
             Node {
                 position_type: PositionType::Absolute,
                 width: Val::Percent(100.0),
@@ -496,7 +509,7 @@ fn drive_room_transition_presentation(
     // is a diagnosis of the second and was being read as evidence of the first.
     // give-ups — the two facts were both true because the thing it waited on was
     // never the thing it needed to know.
-    let unsettled = unclaimed.len();
+    let unsettled = settling.pending().len();
     let since_commit = active_snapshot
         .committed_at
         .map(|committed| time.elapsed().saturating_sub(committed))
@@ -508,16 +521,16 @@ fn drive_room_transition_presentation(
         }
         bevy::log::warn!(
             target: "ambition_platformer2d::room_transition::performance",
-            "room transition {} {} -> {} revealed with {unsettled} feature view(s) \
-             still undrawn after {:.0} ms — the cover gave up waiting. Those are \
-             features the sim published and no render family claimed, so either a \
-             spawn path is missing its family marker or this room draws more \
-             slowly than the deadline allows. Undrawn: {:?}",
+            "room transition {} {} -> {} revealed with {unsettled} thing(s) \
+             still undrawn after {:.0} ms — the cover gave up waiting. A feature \
+             view here is one the sim published and no render family claimed, so \
+             either a spawn path is missing its family marker or this room draws \
+             more slowly than the deadline allows. Undrawn: {:?}",
             active_snapshot.sequence,
             active_snapshot.source_room_id,
             active_snapshot.target_room_id(),
             since_commit.as_secs_f64() * 1000.0,
-            unclaimed.ids().collect::<Vec<_>>(),
+            settling.pending(),
         );
     }
 

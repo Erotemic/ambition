@@ -1048,6 +1048,11 @@ impl RoomTerrain {
         self.quads.iter().filter(move |quad| quad.owner == owner)
     }
 
+    /// Whether its skin is laid on the blocks it has now.
+    pub fn is_laid(&self) -> bool {
+        !self.dirty
+    }
+
     /// How many meshes draw the skin of the room.
     pub fn mesh_count(&self) -> usize {
         self.chunks.len()

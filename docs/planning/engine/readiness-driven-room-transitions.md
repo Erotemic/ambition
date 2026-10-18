@@ -42,7 +42,22 @@ draws, through GPU preparation: `AppGpuPreparedImages`) and
 `inspect_demanded_characters` (every demanded character realized) into
 `readiness {settled, total, pending, failed}`. Commit also waits on the
 construction plan and the cover acknowledgement; the cover lifts at commit
-plus the target being presentable (`UnclaimedFeatureViews` empty).
+plus the target being presentable (`PresentationSettling` empty).
+
+**Presentable (2026-10-18).** `PresentationSettling`
+(`crates/ambition_render/src/rendering/presentation_settling.rs`) names, each
+frame, what of the room on screen is still coming in: feature views no
+render family has drawn, a room terrain that waits for its skin, a door or a
+fixture that waits for its theme's art, render pipelines compiling. Every
+cover lifts on it: the room transition cover, the direct start cover
+(`reveal_direct_startup_room`) and the shell route's first room
+(`first_room_cover.rs`, up while a session is published and after it
+activates). The two start covers open gameplay under the cover and lift only
+after a sim tick and two settled updates in a row (`SettledLatch`), so what
+the first tick spawns is drawn before the reveal. Before, the first room
+showed its placeholder tiles and doors for 0.3–0.43 s (MEASURED, llvmpipe
+recordings) and then its look. Each cover gives up after 8 s with a warning
+that names what was pending.
 
 ### What changed
 

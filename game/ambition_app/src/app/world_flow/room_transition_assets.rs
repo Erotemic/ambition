@@ -709,26 +709,32 @@ pub(crate) fn build_loaded_room_asset_manifest(
     let mut draft = RoomManifestDraft::default();
     add_room_specific_sprites(room, staged_actor_names, assets, &mut draft);
 
+    // A theme with a corrupted state draws both (`ensure_parallax_layers_for_room`
+    // loads both): a corrupted or balanced room waits for the second too.
     let theme = ParallaxTheme::from_room_metadata(&room.metadata);
-    for &layer in ParallaxLayerAsset::ALL {
-        if let Some(handle) = assets.parallax_layers.get(theme, layer) {
-            add_image_handle(
-                &mut draft,
-                format!("parallax:{}:{}", theme.key(), layer.key()),
-                handle,
-            );
+    for theme in std::iter::once(theme).chain(theme.corrupted()) {
+        for &layer in ParallaxLayerAsset::ALL {
+            if let Some(handle) = assets.parallax_layers.get(theme, layer) {
+                add_image_handle(
+                    &mut draft,
+                    format!("parallax:{}:{}", theme.key(), layer.key()),
+                    handle,
+                );
+            }
         }
     }
     // The dressing of the room's theme is as much of the picture as the sky:
     // a room that shows before its skin is there shows flat blocks first.
     if let Some(named) = ParallaxTheme::named_by_room_metadata(&room.metadata) {
-        for &part in RoomDressingPart::ALL {
-            if let Some(handle) = assets.room_dressing.get(named, part) {
-                add_image_handle(
-                    &mut draft,
-                    format!("room-dressing:{}:{}", named.key(), part.key()),
-                    handle,
-                );
+        for named in std::iter::once(named).chain(named.corrupted()) {
+            for &part in RoomDressingPart::ALL {
+                if let Some(handle) = assets.room_dressing.get(named, part) {
+                    add_image_handle(
+                        &mut draft,
+                        format!("room-dressing:{}:{}", named.key(), part.key()),
+                        handle,
+                    );
+                }
             }
         }
     }

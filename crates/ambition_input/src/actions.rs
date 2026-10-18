@@ -28,6 +28,11 @@ pub enum Platformer2dInputActionMonolith {
     MoveUp,
     MoveDown,
     Jump,
+    /// A jump that is a SHORT HOP however long it is held: a jump press with
+    /// no hold, so a body whose jump squat decides the hop
+    /// (`AxisJumpLaw::SquatDecided`) launches the short one. Ultimate added
+    /// the same button because a release inside a 3-frame squat is hard.
+    ShortHop,
     Attack,
     /// Device-side strong-attack hint. It is intentionally separate from the
     /// character action-slot vocabulary: the sim combines it with Attack and
@@ -146,6 +151,7 @@ impl Platformer2dInputActionMonolith {
             | Self::MoveUp
             | Self::MoveDown
             | Self::Jump
+            | Self::ShortHop
             | Self::Attack
             | Self::StrongAttack
             | Self::Burst

@@ -679,3 +679,19 @@ fn a_body_drops_through_a_one_way_floor_to_the_floor_under_it() {
     let graph = NavGraph::build(&solid, &walker(), normal_frame()).expect("a walker has a graph");
     assert_eq!(graph.next(loft, under), NavNext::Unreachable, "control: a solid loft has no road down");
 }
+
+/// A graph built on the compute pool is the graph one thread builds: the same
+/// links, in the same order, at the same cost. Peers build on pools of other
+/// sizes, and a rewind builds again.
+#[test]
+fn a_graph_built_on_a_pool_is_the_graph_one_thread_builds() {
+    let fixture = Fixture::new();
+    let alone = NavGraph::build_on(&fixture.world, &[], &fixture.body, normal_frame(), None).expect("a graph");
+    let pool = bevy_tasks::TaskPoolBuilder::new().num_threads(4).build();
+    assert!(pool.thread_num() > 1, "the premise: the pool has threads to share the work");
+    let shared = NavGraph::build_on(&fixture.world, &[], &fixture.body, normal_frame(), Some(&pool)).expect("a graph");
+    assert!(alone.links.len() > 2, "the control: the fixture has links to compare");
+    assert_eq!(alone.links, shared.links);
+    assert_eq!(alone.out, shared.out);
+    assert_eq!(alone.cost, shared.cost);
+}

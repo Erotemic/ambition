@@ -25,6 +25,14 @@ ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 bevy_app = { version = "0.19.1", default-features = false }
 bevy_ecs = { version = "0.19.1", default-features = false }
+# The compute pool a navigation graph is built on, one surface to a task
+# (`NavGraph::build_avoiding`): the graph is the same as built on one thread.
+bevy_tasks = { version = "0.19.1", default-features = false }
 petgraph = "0.8"
 ron = { workspace = true }
 serde = { workspace = true }
+
+[dev-dependencies]
+# A pool with more than one thread, for the test that a graph built on one is
+# the graph one thread builds.
+bevy_tasks = { version = "0.19.1", default-features = false, features = ["multi_threaded"] }

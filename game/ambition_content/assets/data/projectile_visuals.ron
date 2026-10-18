@@ -305,6 +305,85 @@
         label: "pistol_round",
         expiry_vfx: None,
     ),
+    // The PCA's charge blast (his Mewtwo Shadow Ball), in five tiers told apart
+    // by the Life oscillator inside the membrane (blinker, toad, beacon,
+    // clock, pulsar). `Body` sizing, so the drawn ball follows the hitbox the
+    // charge scales.
+    "pca_charge_shot_tier1": (
+        source: Sheet(
+            target: "pca_charge_shot",
+            animation: "travel_tier1",
+            animate: true,
+        ),
+        size: Body(
+            min: 12.0,
+            scale: 2.2,
+        ),
+        rotation: FlipToTravel,
+        debug_tint: (0.22, 0.88, 0.43, 1.0),
+        label: "pca_charge_shot_tier1",
+        expiry_vfx: None,
+    ),
+    "pca_charge_shot_tier2": (
+        source: Sheet(
+            target: "pca_charge_shot",
+            animation: "travel_tier2",
+            animate: true,
+        ),
+        size: Body(
+            min: 12.0,
+            scale: 2.2,
+        ),
+        rotation: FlipToTravel,
+        debug_tint: (0.22, 0.88, 0.43, 1.0),
+        label: "pca_charge_shot_tier2",
+        expiry_vfx: None,
+    ),
+    "pca_charge_shot_tier3": (
+        source: Sheet(
+            target: "pca_charge_shot",
+            animation: "travel_tier3",
+            animate: true,
+        ),
+        size: Body(
+            min: 12.0,
+            scale: 2.2,
+        ),
+        rotation: FlipToTravel,
+        debug_tint: (0.22, 0.88, 0.43, 1.0),
+        label: "pca_charge_shot_tier3",
+        expiry_vfx: None,
+    ),
+    "pca_charge_shot_tier4": (
+        source: Sheet(
+            target: "pca_charge_shot",
+            animation: "travel_tier4",
+            animate: true,
+        ),
+        size: Body(
+            min: 12.0,
+            scale: 2.2,
+        ),
+        rotation: FlipToTravel,
+        debug_tint: (0.22, 0.88, 0.43, 1.0),
+        label: "pca_charge_shot_tier4",
+        expiry_vfx: None,
+    ),
+    "pca_charge_shot_tier5": (
+        source: Sheet(
+            target: "pca_charge_shot",
+            animation: "travel_tier5",
+            animate: true,
+        ),
+        size: Body(
+            min: 12.0,
+            scale: 2.2,
+        ),
+        rotation: FlipToTravel,
+        debug_tint: (0.22, 0.88, 0.43, 1.0),
+        label: "pca_charge_shot_tier5",
+        expiry_vfx: None,
+    ),
     // The Projectile Polygon's charge shot, in five tiers told apart by shape
     // (tier 1 a bare pellet, tier 3 an orbiting arc, tier 5 a compression
     // ring), not by scale. `Body` sizing, so the drawn ball follows the hitbox

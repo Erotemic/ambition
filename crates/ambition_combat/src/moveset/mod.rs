@@ -3189,14 +3189,26 @@ pub fn trigger_moveset_moves(
         // off its expiry silenced fighters that had only spot-dodged, and gating
         // on it broke `an_up_tilt_launches_much_further_at_a_high_percent`.
         //
-        // ⇒ THE KERNEL ARMS `dodge_roll_endlag_timer` ONLY FOR A ROLL now
-        // (`if state.dodge_roll_timer <= 0.0 && !state.spot_dodging`), so the
-        // fact reaches exactly the maneuver that owes recovery. The punish
+        // ⇒ THE KERNEL ARMS `dodge_roll_endlag_timer` WITH THE ROLL'S ENDLAG ONLY
+        // FOR A ROLL now (`if state.dodge_roll_timer <= 0.0 && !state.spot_dodging`),
+        // and with `spot_dodge_endlag` after a spot dodge (0 unless a game
+        // declares it), so the fact reaches exactly a maneuver that owes recovery. The punish
         // window a roll buys is real: it was canonical state that nothing
         // consulted, which is a mechanic recorded and not implemented.
         //
-        // ⛔ A SPOT DODGE STILL OWES NOTHING — it never receives this timer.
+        // A SPOT DODGE owes its own recovery on the same clock, and only when
+        // its game declares one (`spot_dodge_endlag`, 0 by default): the
+        // kernel arms it at the spot dodge's end, never the roll's endlag.
         if motion_facts.is_some_and(|facts| facts.dodge_roll_endlag) {
+            continue;
+        }
+        // ⭐ AND AN AIR DODGE'S: its endlag in the air, and the landing lag it
+        // becomes on the floor. In the genre a fighter cannot act until the
+        // dodge's last frame; a body that could throw an aerial out of the
+        // endlag would make the recovery a formality. A game that declares no
+        // endlag and no landing lag arms nothing, so this refuses nothing it
+        // did not ask for.
+        if motion_facts.is_some_and(|facts| facts.air_dodge_endlag) {
             continue;
         }
         // ⭐⭐ AN EVADE IS A COMMITMENT UNTIL ITS TAIL. Today an attack cancels a

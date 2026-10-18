@@ -83,6 +83,17 @@ impl ProjectileSeqCounter {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FiredByMoveInstance(pub u32);
 
+/// A GROWING LAUNCH this shot deals, as a strike volume authors one: `base` px/s
+/// plus `growth` per point of the victim's percent, resolved at the hit by the
+/// same law (the victim's weight, the room's rules). Smash's projectiles kill
+/// at percent; a shot without this component keeps the fixed nudge every shot
+/// had (`FeelScale(0.85)`).
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ProjectileLaunch {
+    pub base: f32,
+    pub growth: f32,
+}
+
 /// A shot its owner's ranged weapon fired. The weapon's authored `max_live`
 /// counts these, by `ProjectileOwner`.
 ///

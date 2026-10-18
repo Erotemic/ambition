@@ -629,6 +629,7 @@ fn charging_cannon() -> RangedActionSpec {
             damage_mult: 3.0,
             speed_mult: 1.5,
             size_mult: 2.0,
+            launch_mult: 1.0,
             visuals: vec!["t1".into(), "t2".into(), "t3".into()],
         })
 }

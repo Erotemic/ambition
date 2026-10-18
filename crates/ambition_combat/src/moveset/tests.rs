@@ -8010,6 +8010,7 @@ fn a_released_charge_reaches_the_ranged_action_the_dispatcher_emits() {
             damage_mult: 3.0,
             speed_mult: 1.5,
             size_mult: 2.0,
+            launch_mult: 1.0,
             visuals: vec!["pellet".into(), "ball".into()],
         });
 

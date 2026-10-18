@@ -761,6 +761,23 @@ pub struct MovementTuning {
     pub air_dodge_speed: f32,
     #[serde(default)]
     pub air_dodge_endlag: f32,
+    /// A DIRECTIONAL air dodge's own window (s), when the stick aims it;
+    /// `0.0` is the neutral one's (`air_dodge_time`). Ultimate's directional
+    /// dodge is protected for less time and owes far more recovery: it is the
+    /// one that travels.
+    #[serde(default)]
+    pub directional_air_dodge_time: f32,
+    /// A directional air dodge's endlag (s); `0.0` is the neutral one's.
+    #[serde(default)]
+    pub directional_air_dodge_endlag: f32,
+    /// What landing inside an air dodge (its window or its endlag) costs (s):
+    /// standing, planted, unable to act. `0.0` (the default) is a landing that
+    /// ends the dodge outright, as it always did.
+    #[serde(default)]
+    pub air_dodge_landing_lag: f32,
+    /// The same, after a directional air dodge; `0.0` is the neutral one's.
+    #[serde(default)]
+    pub directional_air_dodge_landing_lag: f32,
     /// The launch speed at which a hit sends this body into TUMBLE, px/s.
     /// `0.0` (the default) = this body never tumbles and never gets knocked
     /// down, which is every body until one authors a fighter's floor game.
@@ -990,6 +1007,34 @@ impl PhasedGravityJumpTuning {
     }
 }
 
+impl TraversalAbilityTuning {
+    /// An air dodge's window (s): the directional one's when the stick aimed
+    /// it and one is authored, else the neutral one's.
+    pub fn air_dodge_window(&self, directional: bool) -> f32 {
+        if directional && self.directional_air_dodge_time > 0.0 {
+            self.directional_air_dodge_time
+        } else {
+            self.air_dodge_time
+        }
+    }
+    /// An air dodge's endlag (s), chosen the same way.
+    pub fn air_dodge_recovery(&self, directional: bool) -> f32 {
+        if directional && self.directional_air_dodge_endlag > 0.0 {
+            self.directional_air_dodge_endlag
+        } else {
+            self.air_dodge_endlag
+        }
+    }
+    /// What landing inside an air dodge costs (s), chosen the same way.
+    pub fn air_dodge_landing(&self, directional: bool) -> f32 {
+        if directional && self.directional_air_dodge_landing_lag > 0.0 {
+            self.directional_air_dodge_landing_lag
+        } else {
+            self.air_dodge_landing_lag
+        }
+    }
+}
+
 impl AxisJumpLaw {
     /// Resolve a ground-jump launch from the body's base `jump_speed`. The
     /// optional band is latched by the phased-gravity runtime state.
@@ -1157,6 +1202,23 @@ pub struct TraversalAbilityTuning {
     pub air_dodge_speed: f32,
     #[serde(default)]
     pub air_dodge_endlag: f32,
+    /// A DIRECTIONAL air dodge's own window (s), when the stick aims it;
+    /// `0.0` is the neutral one's (`air_dodge_time`). Ultimate's directional
+    /// dodge is protected for less time and owes far more recovery: it is the
+    /// one that travels.
+    #[serde(default)]
+    pub directional_air_dodge_time: f32,
+    /// A directional air dodge's endlag (s); `0.0` is the neutral one's.
+    #[serde(default)]
+    pub directional_air_dodge_endlag: f32,
+    /// What landing inside an air dodge (its window or its endlag) costs (s):
+    /// standing, planted, unable to act. `0.0` (the default) is a landing that
+    /// ends the dodge outright, as it always did.
+    #[serde(default)]
+    pub air_dodge_landing_lag: f32,
+    /// The same, after a directional air dodge; `0.0` is the neutral one's.
+    #[serde(default)]
+    pub directional_air_dodge_landing_lag: f32,
     /// See [`TraversalAbilityTuning::tumble_speed`].
     #[serde(default)]
     pub tumble_speed: f32,
@@ -1640,6 +1702,10 @@ impl MovementTuning {
                 air_dodge_time: self.air_dodge_time,
                 air_dodge_speed: self.air_dodge_speed,
                 air_dodge_endlag: self.air_dodge_endlag,
+                directional_air_dodge_time: self.directional_air_dodge_time,
+                directional_air_dodge_endlag: self.directional_air_dodge_endlag,
+                air_dodge_landing_lag: self.air_dodge_landing_lag,
+                directional_air_dodge_landing_lag: self.directional_air_dodge_landing_lag,
                 tumble_speed: self.tumble_speed,
                 spot_dodge_time: self.spot_dodge_time,
                 spot_dodge_endlag: self.spot_dodge_endlag,
@@ -1761,6 +1827,10 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     air_dodge_time: 0.0,
     air_dodge_speed: AIR_DODGE_SPEED,
     air_dodge_endlag: AIR_DODGE_ENDLAG,
+    directional_air_dodge_time: 0.0,
+    directional_air_dodge_endlag: 0.0,
+    air_dodge_landing_lag: 0.0,
+    directional_air_dodge_landing_lag: 0.0,
     // zero for the same reason the air dodge is: a wandering enemy that got
     // knocked down and had to stand up would be a different game.
     tumble_speed: 0.0,

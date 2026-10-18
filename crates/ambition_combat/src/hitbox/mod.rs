@@ -222,6 +222,32 @@ pub(crate) fn staled_damage(authored: i32, stale: f32) -> i32 {
     ((authored as f32 * stale).round() as i32).max(damage_floor(authored))
 }
 
+/// THE LAUNCH A SHOT DEALS, by the strike law a hitbox's goes through: a
+/// growing `base + growth` resolved against the victim's percent and weight
+/// and its room's rules (`rules`). A shot is not in the staling queue and its
+/// firer's rage is not read here, so both are `1.0`.
+pub fn projectile_launch_magnitude(
+    base: f32,
+    growth: f32,
+    victim_damage_taken: i32,
+    victim_weight: f32,
+    rules: &crate::rules::ResolvedCombatTuning,
+) -> HitKnockbackMagnitude {
+    resolved_hitbox_knockback_magnitude(
+        HitboxKnockback::LaunchSpeed {
+            base,
+            growth: Some(growth),
+        },
+        victim_damage_taken,
+        victim_weight,
+        rules.knockback_growth,
+        rules.victim_percent_knockback_scale,
+        rules.growth_base,
+        rules.base_knockback_scale,
+        1.0,
+    )
+}
+
 fn resolved_hitbox_knockback_magnitude(
     knockback: HitboxKnockback,
     victim_damage_taken: i32,

@@ -38,6 +38,19 @@ impl SnapshotState for crate::FiredByMoveInstance {
     }
 }
 
+impl SnapshotState for crate::ProjectileLaunch {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.base);
+        put_f32(out, self.growth);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            base: r.f32()?,
+            growth: r.f32()?,
+        })
+    }
+}
+
 impl SnapshotState for crate::ProjectileVisualId {
     fn encode(&self, out: &mut Vec<u8>) {
         put_str(out, &self.0);

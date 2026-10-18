@@ -32,6 +32,8 @@ pub struct MovementKeys {
 #[derive(Clone, Copy, Debug)]
 pub struct ActionKeys {
     pub jump: KeyCode,
+    /// A jump that is always a short hop (`ShortHop`), beside the jump key.
+    pub short_hop: KeyCode,
     pub attack: KeyCode,
     /// The shared dodge/dash burst press.
     pub burst: KeyCode,
@@ -113,6 +115,7 @@ impl KeyboardPreset {
             },
             actions: ActionKeys {
                 jump: KeyCode::KeyZ,
+                short_hop: KeyCode::KeyQ,
                 attack: KeyCode::KeyX,
                 burst: KeyCode::KeyC,
                 secondary: KeyCode::KeyA,
@@ -157,6 +160,7 @@ impl KeyboardPreset {
             },
             actions: ActionKeys {
                 jump: KeyCode::Space,
+                short_hop: KeyCode::KeyM,
                 attack: KeyCode::KeyJ,
                 burst: KeyCode::KeyK,
                 secondary: KeyCode::KeyL,
@@ -191,6 +195,7 @@ impl KeyboardPreset {
             },
             actions: ActionKeys {
                 jump: KeyCode::KeyQ,
+                short_hop: KeyCode::KeyA,
                 burst: KeyCode::KeyW,
                 attack: KeyCode::KeyE,
                 secondary: KeyCode::KeyR,
@@ -225,6 +230,7 @@ impl KeyboardPreset {
             },
             actions: ActionKeys {
                 jump: KeyCode::KeyU,
+                short_hop: KeyCode::KeyM,
                 burst: KeyCode::KeyI,
                 attack: KeyCode::KeyP,
                 secondary: KeyCode::KeyO,
@@ -300,6 +306,7 @@ impl KeyboardPreset {
             self.movement.down,
         );
         map.insert(Platformer2dInputActionMonolith::Jump, self.actions.jump);
+        map.insert(Platformer2dInputActionMonolith::ShortHop, self.actions.short_hop);
         map.insert(Platformer2dInputActionMonolith::Attack, self.actions.attack);
         map.insert(Platformer2dInputActionMonolith::Burst, self.actions.burst);
         map.insert(

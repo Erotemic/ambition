@@ -65,7 +65,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `spot_dodge_endlag` (`f32`), and the axis maneuver state `air_dodge_push`
 /// (`Vec2`), what an air dodge put in and still has to run down. The encoded
 /// locomotion gains `launch_decay` (`f32`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 360;
+/// 360 -> 361: the encoded ability tuning gains the directional air dodge's
+/// window and endlag and both air dodges' landing lags (four `f32`s), and
+/// the axis maneuver state `air_dodge_directional` (`bool`).
+/// `projectile.launch` (`ProjectileLaunch`, two `f32`s: base and growth)
+/// enters: a shot that carries one launches like a hitbox, growing with the
+/// victim's damage, instead of the fixed projectile nudge.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 361;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

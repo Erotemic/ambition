@@ -577,10 +577,18 @@ pub(super) fn apply_dodge(
     let push = (frame.side() * aim.x + frame.down() * aim.y) * tuning.abilities.air_dodge_speed;
     kinematics.vel = push;
     state.air_dodge_push = push;
-    state.air_dodge_timer = spend_evade(state, dodge, tuning.abilities.air_dodge_time, tuning);
-    // The dodge holds the body where its own travel takes it: no gravity for
-    // the window, the genre's air dodge. Endlag falls normally.
-    state.set_gravity_modifier(0.0, tuning.abilities.air_dodge_time);
+    // AIMED OR NEUTRAL, decided here once: the two have their own window,
+    // endlag and landing lag (`TraversalAbilityTuning::air_dodge_window`).
+    let directional = aim != bevy_math::Vec2::ZERO;
+    state.air_dodge_directional = directional;
+    let window = tuning.abilities.air_dodge_window(directional);
+    state.air_dodge_timer = spend_evade(state, dodge, window, tuning);
+    // An aimed dodge holds the body where its own travel takes it: no gravity
+    // for the window, then an endlag that falls normally. A neutral dodge
+    // keeps the body's own arc.
+    if directional {
+        state.set_gravity_modifier(0.0, window);
+    }
     state.air_dodge_endlag_timer = 0.0;
     state.fast_falling = false;
     state.phased_jump.clear();

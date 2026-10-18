@@ -318,8 +318,8 @@
                                                 half_extents: (18.0, 22.0),
                                             ),
                                             damage: 5,
-                                            knockback: 76.0,
-                                            knockback_growth: Some(1.35),
+                                            knockback: 124.7,
+                                            knockback_growth: Some(4.60),
                                             launch_dir: Some((0.12, -1.0)),
                                             reaction: None,
                                             on_hit: None,
@@ -1400,6 +1400,107 @@
                             charge_mult: 1.0,
                             move_charge: None,
                             charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // The charge blast: the PCA's Mewtwo Shadow Ball (Jon, 2026-10-18),
+                        // the neutral special on a Smash stage only (his `smash_fighter`
+                        // facet binds it; his hall kit keeps `cellular_pulse`).
+                        //
+                        // Ultimate's frames: 12 to enter the charge (the latch at 0.20 s),
+                        // 133 to fill it (`max_hold_s` 2.2), the shot out 9 after release
+                        // (0.35 s), 28 in all. It STORES: a full charge waits, and the
+                        // guard, a hit or a jump banks it for the next press. The shot is
+                        // `pca_life_cannon`'s weapon, scaled by the hold; `life_build` is
+                        // one row the length of the hold, so the pattern in the hand reads
+                        // as the tier it will release. No Active volume: the ball is the
+                        // damage.
+                        (
+                            id: "pca_shadow_ball",
+                            display_name: Some("Life Ball"),
+                            clip: (
+                                clip: "charge",
+                                fallbacks: [
+                                    "shoot",
+                                    "special",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.4667,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.35,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.35,
+                                    end_s: 0.4667,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.01,
+                                    kind: Vfx(
+                                        effect: "life_intake",
+                                        at: (20.0, -34.0),
+                                        scale: 1.0,
+                                        sfx: None,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.19,
+                                    kind: Vfx(
+                                        effect: "life_build",
+                                        at: (20.0, -34.0),
+                                        scale: 1.0,
+                                        sfx: None,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.35,
+                                    kind: Vfx(
+                                        effect: "life_release",
+                                        at: (20.0, -34.0),
+                                        scale: 1.0,
+                                        sfx: None,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.35,
+                                    kind: Ranged,
+                                ),
+                            ],
+                            gates: (
+                                grounded: None,
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: Some((
+                                hold_at_s: 0.2,
+                                max_hold_s: 2.2,
+                                stores: true,
+                                roots: true,
+                                sustain: WhileHeld,
+                            )),
+                            charge_gesture: Special,
                             repeat: None,
                             landing_lag_s: None,
                             autocancel_after_s: None,

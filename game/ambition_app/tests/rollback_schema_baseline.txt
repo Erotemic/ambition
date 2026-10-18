@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v360
+ggrs-rollback-schema-v361
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -440,6 +440,7 @@ projectile.fired_by_move_instance	component-canonical	FiredByMoveInstance	bevy_g
 projectile.gameplay	component-canonical	ProjectileGameplay	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.hits	component-clone	ProjectileHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 projectile.kind	component-canonical	ProjectileKind	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+projectile.launch	component-canonical	ProjectileLaunch	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.live_marker	component-canonical	LiveProjectile	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.seq	component-canonical	ProjectileSeq	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.visual_id	component-canonical	ProjectileVisualId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

@@ -204,3 +204,65 @@ fn a_button_released_during_the_squat_still_shortens_the_hop() {
         held.kinematics.vel.y
     );
 }
+
+/// THE SQUAT DECIDES THE HOP (`AxisJumpLaw::SquatDecided`), the platform
+/// fighter's law: a press that is up at takeoff launches the short hop at its
+/// own fraction (the short-hop button is exactly that, a press with no hold),
+/// a press held through the squat is the full hop, and a release once airborne
+/// changes nothing. Under `VelocityCut` the same airborne release cuts the arc,
+/// which is the control: the law, not the fixture, makes the difference.
+#[test]
+fn a_squat_decided_jump_is_short_only_when_the_button_is_up_at_takeoff() {
+    let squat = 3.0 * DT;
+    let frac = 0.69;
+    let mut law = TEST_TUNING;
+    law.jump_squat_time = squat;
+    law.jump_law = crate::AxisJumpLaw::SquatDecided(crate::SquatDecidedJumpTuning {
+        short_hop_speed_frac: frac,
+    });
+
+    // Rise speed (up is -y) on the takeoff tick and a few ticks into the air.
+    let hop = |tuning, held_ticks: usize| -> (f32, f32) {
+        let (world, mut body) = grounded_body();
+        let mut takeoff = None;
+        for i in 0..12 {
+            update_player_with_tuning_scratch(
+                &world,
+                &mut body,
+                jump_input(i == 0, i < held_ticks, i == held_ticks),
+                DT,
+                tuning,
+            );
+            if takeoff.is_none() && !body.ground.on_ground {
+                takeoff = Some(-body.kinematics.vel.y);
+            }
+        }
+        (takeoff.expect("the body took off"), -body.kinematics.vel.y)
+    };
+
+    // The short-hop button: pressed, never held.
+    let (short, _) = hop(law, 0);
+    let (full, full_later) = hop(law, 99);
+    assert!(
+        (short / full - frac).abs() < 0.03,
+        "a press that is up at takeoff launches the short hop at {frac} of the \
+         full one: short {short} full {full}"
+    );
+
+    // Let go after takeoff (tick 5): nothing changes under this law.
+    let (_, released_later) = hop(law, 5);
+    assert!(
+        (released_later - full_later).abs() < 0.5,
+        "an airborne release shortened a squat-decided jump: released {released_later} \
+         held {full_later}"
+    );
+    // Control: the same release does cut a `VelocityCut` jump.
+    let mut cut = law;
+    cut.jump_law = crate::AxisJumpLaw::VelocityCut;
+    let (_, cut_released) = hop(cut, 5);
+    let (_, cut_held) = hop(cut, 99);
+    assert!(
+        cut_released < cut_held - 1.0,
+        "the control is vacuous: a VelocityCut release did not cut ({cut_released} vs {cut_held})"
+    );
+}

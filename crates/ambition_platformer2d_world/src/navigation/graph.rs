@@ -37,12 +37,13 @@
 use ambition_platformer2d_core as ae;
 use ae::movement::{step_motion, ActionEdges, Edge, InputState, MotionStepContext, MovementAction};
 use ae::navigation::{
-    follow_leg, mix, LegFacts, LegPhase, LegProgress, NavLeg, NavLegKind, NavNext, ARRIVE_TOLERANCE,
+    follow_leg, mix, FlightLaw, LegInput, LegFacts, LegPhase, LegProgress, NavLeg, NavLegKind, NavNext, ARRIVE_TOLERANCE,
     LAND_TOLERANCE, NAV_WAYPOINTS,
 };
 use ae::{BodyClusterScratch, LocalAxes, MotionFrame, Vec2, World};
 
 use super::envelope::{EnvelopeProbe, TraversalEnvelope};
+use super::flight::FlightMap;
 use super::surfaces::{standing_surfaces, NavFrame, StandSurface};
 
 /// The most kernel steps one leg may take in its rollout.
@@ -111,6 +112,9 @@ pub struct NavGraph {
     pub links: Vec<NavLink>,
     /// What the build cost.
     pub cost: BuildCost,
+    /// The air of the room for this body, when it can fly: the routes of a
+    /// flight that stays in the air ([`FlightMap::route`]).
+    pub flight: Option<FlightMap>,
     /// The links that leave each surface.
     out: Vec<Vec<usize>>,
 }
@@ -162,6 +166,11 @@ impl NavGraph {
             surfaces,
             links: Vec::new(),
             cost: BuildCost::default(),
+            flight: verbs
+                .fly
+                .then(|| measure_flight(body, frame))
+                .flatten()
+                .map(|law| FlightMap::build(world, exits, half, law)),
         };
         for from in 0..graph.surfaces.len() {
             for to in 0..graph.surfaces.len() {
@@ -649,7 +658,52 @@ fn proposals(a: &StandSurface, b: &StandSurface, half_width: f32, hop: bool, dro
 
 /// One kernel step of a rollout. `true` when the kernel asks for the body to
 /// be reset: it touched a hazard or left the world.
-fn step(body: &mut BodyClusterScratch, world: &World, frame: MotionFrame, dt: f32, input: ae::navigation::LegInput) -> bool {
+/// Steps a flight probe may take to reach its top speed, and to stop.
+const FLIGHT_PROBE_STEPS: usize = 240;
+
+/// How `body` flies under `frame`, measured in the kernel in open air: its
+/// speed at a full stick along the side axis, and how fast it sheds that speed
+/// with the stick let go. `None` when the body does not take flight.
+fn measure_flight(body: &BodyClusterScratch, frame: MotionFrame) -> Option<FlightLaw> {
+    let dt = EnvelopeProbe::default().dt;
+    let world = World::new("flight_probe", Vec2::splat(1.0e5), Vec2::ZERO, Vec::new());
+    let mut body = body.clone();
+    {
+        let (model, mut clusters) = body.parts();
+        ae::movement::transit_body(model, &mut clusters, Vec2::splat(5.0e4), ae::movement::TransitVelocity::Zero);
+    }
+    if !body.flight.fly_enabled {
+        step(&mut body, &world, frame, dt, LegInput { fly_toggle: true, ..LegInput::default() });
+    }
+    if !body.flight.fly_enabled {
+        return None;
+    }
+    let side = frame.side();
+    let speed = |body: &BodyClusterScratch| body.kinematics.vel.dot(side);
+    let mut top = 0.0_f32;
+    for _ in 0..FLIGHT_PROBE_STEPS {
+        step(&mut body, &world, frame, dt, LegInput { axis: 1.0, full_speed: true, ..LegInput::default() });
+        let now = speed(&body);
+        if now <= top + 0.01 && now > 0.0 {
+            break;
+        }
+        top = top.max(now);
+    }
+    if top <= 1.0 {
+        return None;
+    }
+    let mut stop_steps = FLIGHT_PROBE_STEPS;
+    for index in 1..=FLIGHT_PROBE_STEPS {
+        step(&mut body, &world, frame, dt, LegInput::default());
+        if speed(&body) <= top * 0.05 {
+            stop_steps = index;
+            break;
+        }
+    }
+    Some(FlightLaw { top_speed: top, braking: top * 0.95 / (stop_steps as f32 * dt) })
+}
+
+pub(super) fn step(body: &mut BodyClusterScratch, world: &World, frame: MotionFrame, dt: f32, input: ae::navigation::LegInput) -> bool {
     let input = InputState {
         // Up is toward -y in the body's local axes.
         axes: LocalAxes::new(input.axis, ae::navigation::leg_stick_y(input)),

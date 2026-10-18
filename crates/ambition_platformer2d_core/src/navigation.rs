@@ -161,6 +161,9 @@ pub struct LegInput {
     pub fly_toggle: bool,
     /// Press the dash (the burst press), aimed along `axis`.
     pub dash_pressed: bool,
+    /// Along the down axis, -1 (up) to 1, when neither `up` nor `down` is
+    /// held: an analog stick toward the feet. Flight steers with it.
+    pub axis_down: f32,
 }
 
 /// The stick's axis toward the feet that `input` holds, in the body's local
@@ -169,7 +172,7 @@ pub fn leg_stick_y(input: LegInput) -> f32 {
     match (input.up, input.down) {
         (true, false) => -1.0,
         (false, true) => 1.0,
-        _ => 0.0,
+        _ => input.axis_down.clamp(-1.0, 1.0),
     }
 }
 
@@ -341,6 +344,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                     down: false,
                     fly_toggle: false,
                     dash_pressed: false,
+                    axis_down: 0.0,
                 };
                 let next = if falling { LegPhase::SecondAir } else { LegPhase::Air };
                 return (input, LegProgress::Going(next));
@@ -656,6 +660,100 @@ impl RouteFollower {
             NavNext::Unknown => going(None),
         }
     }
+}
+
+/// How a flying body answers its stick, measured in the kernel: what a
+/// flight follower plans its speed by.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FlightLaw {
+    /// The speed a full stick holds (px/s).
+    pub top_speed: f32,
+    /// How fast the body sheds speed with the stick let go (px/s²).
+    pub braking: f32,
+}
+
+/// A flying body is at a point of its flight when its centre is this near it.
+pub const FLIGHT_ARRIVE: f32 = 8.0;
+/// A flight passes a point on its way when its centre is this near it.
+pub const FLIGHT_PASS: f32 = 24.0;
+/// The part of the braking a flight plans by: it stops short rather than
+/// past.
+const FLIGHT_BRAKE_SHARE: f32 = 0.6;
+
+/// What [`follow_flight`] reads of a flying body.
+#[derive(Clone, Copy, Debug)]
+pub struct FlightFacts {
+    /// The centre of the body.
+    pub center: Vec2,
+    pub vel: Vec2,
+    /// The body's motion frame: the stick is in its axes.
+    pub side: Vec2,
+    pub down: Vec2,
+    pub law: FlightLaw,
+}
+
+/// What a step of a flight came to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FlightProgress {
+    /// On the way: the index of the point it flies to now.
+    Going(usize),
+    /// At the last point, and slow.
+    Arrived,
+}
+
+/// One step of a flight along `route` (centre points in the air, the body's
+/// own place first): the input for this step, and the point to fly to next.
+///
+/// The stick asks for a velocity, as the kernel's flight reads it: along the
+/// route at the speed from which the body can still slow for each turn and
+/// stop at the end, by its measured braking. So a body that flies by it does
+/// not run past the turns the route makes round the walls.
+pub fn follow_flight(route: &[Vec2], next: usize, facts: &FlightFacts) -> (LegInput, FlightProgress) {
+    let Some(&last) = route.last() else {
+        return (LegInput::default(), FlightProgress::Arrived);
+    };
+    let mut next = next.min(route.len() - 1);
+    while next + 1 < route.len() && (route[next] - facts.center).length() <= FLIGHT_PASS {
+        next += 1;
+    }
+    let to_end = last - facts.center;
+    if next + 1 == route.len() && to_end.length() <= FLIGHT_ARRIVE && facts.vel.length() <= REST_SPEED * 4.0 {
+        return (LegInput { full_speed: true, ..LegInput::default() }, FlightProgress::Arrived);
+    }
+    let brake = (facts.law.braking * FLIGHT_BRAKE_SHARE).max(1.0);
+    let top = facts.law.top_speed.max(1.0);
+    // The speed it may have now: low enough to slow, by braking, to the speed
+    // of each turn ahead (a turn of a right angle or more is a stop), and to
+    // rest at the end.
+    let mut ahead = (route[next] - facts.center).length();
+    let mut speed = top;
+    for index in next..route.len() {
+        // No turn this far ahead slows the body below its top speed.
+        if 2.0 * brake * ahead >= top * top {
+            break;
+        }
+        let turn_speed = match (route.get(index + 1), index.checked_sub(1).and_then(|i| route.get(i))) {
+            (Some(&after), Some(&before)) => {
+                let cos = (route[index] - before).normalize_or_zero().dot((after - route[index]).normalize_or_zero());
+                top * cos.max(0.0)
+            }
+            (Some(_), None) => top,
+            (None, _) => 0.0,
+        };
+        speed = speed.min((turn_speed * turn_speed + 2.0 * brake * ahead).sqrt());
+        if let Some(&after) = route.get(index + 1) {
+            ahead += (after - route[index]).length();
+        }
+    }
+    let toward = (route[next] - facts.center).normalize_or_zero() * speed.min(top);
+    let stick = toward / top;
+    let input = LegInput {
+        axis: stick.dot(facts.side).clamp(-1.0, 1.0),
+        axis_down: stick.dot(facts.down).clamp(-1.0, 1.0),
+        full_speed: true,
+        ..LegInput::default()
+    };
+    (input, FlightProgress::Going(next))
 }
 
 /// The point a body walks to before a leg commits.

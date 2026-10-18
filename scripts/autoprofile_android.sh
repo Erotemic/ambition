@@ -3,7 +3,7 @@
 # game plays itself by navigation, and `profile_android.sh` builds, installs,
 # launches and records.
 #
-#   scripts/autoprofile_android.sh                 # Ambition (a tour of the world by its doors)
+#   scripts/autoprofile_android.sh                 # Ambition (the hall of characters, then a flight through the primeval trail)
 #   scripts/autoprofile_android.sh mary_o          # Mary-O (the cosmic form, to each goal)
 #   scripts/autoprofile_android.sh ambition --duration 60 --warmup 40
 #

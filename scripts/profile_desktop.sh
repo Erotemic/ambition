@@ -155,6 +155,13 @@ Build selection:
                            churn_by_site.csv and changes_by_site.csv. Its counters slow every
                            allocation, so do not read frame times from it.
 
+Ambition playing itself (the same rooms in the same order, every run):
+  --autoplay              Ambition plays itself: boots into the game and loops
+                          its itinerary (the hall of characters in and out, then
+                          a flight through the primeval trail and back) by
+                          navigation. Every such bundle is scenario
+                          `ambition-autoplay`. Combine with --duration N.
+
 Smash match (a real round, not the character-select menu):
   --smash                 Profile a LIVE Smash match instead of whatever
                            run_game.sh would otherwise launch. Windowed and
@@ -282,6 +289,7 @@ while [[ $# -gt 0 ]]; do
         --perf-probe) want_perf_probe="yes" ;;
         --headless) headless="yes" ;;
         --smash|--smash-match) workload="smash-match" ;;
+        --autoplay) workload="ambition-autoplay" ;;
         --smash-fighters) shift; [[ $# -gt 0 ]] || fail "--smash-fighters requires a value"; is_positive_int "$1" || fail "--smash-fighters must be positive"; workload="smash-match"; smash_fighters="$1" ;;
         --smash-fighters=*) smash_fighters="${1#--smash-fighters=}"; is_positive_int "$smash_fighters" || fail "--smash-fighters must be positive"; workload="smash-match" ;;
         --smash-seconds) shift; [[ $# -gt 0 ]] || fail "--smash-seconds requires a value"; [[ "$1" =~ ^[0-9]+$ ]] || fail "--smash-seconds must be a non-negative integer"; workload="smash-match"; smash_seconds="$1" ;;
@@ -445,6 +453,12 @@ build_effective_run_args() {
         fi
     fi
     effective_run_args+=("${launcher_args[@]+"${launcher_args[@]}"}")
+    # The itinerary is the workload: every autoplay bundle loads the same rooms
+    # in the same order, so they compare with each other and with nothing else.
+    if [[ "$workload" == "ambition-autoplay" ]]; then
+        effective_run_args+=(--autoplay)
+        scenario_id="ambition-autoplay"
+    fi
     if [[ "$headless" == "yes" ]]; then
         extra_game_args+=(--headless --headless-ticks "$headless_ticks")
     fi
@@ -1386,6 +1400,9 @@ main() {
     resolve_launch_plan
     log "profiling the $build_profile build: ${plan_binary:-<unresolved>}"
     if [[ -n "$plan_features" ]]; then log "cargo features: $plan_features"; fi
+    if [[ "$workload" == "ambition-autoplay" ]]; then
+        log "workload: Ambition plays itself (the hall of characters, then a flight through the primeval trail); quit the game or pass --duration to end the capture"
+    fi
     if [[ "$workload" == "smash-match" ]]; then
         log "workload: a LIVE Smash match ($smash_fighters fighters), not the character-select menu"
         if [[ "$headless" == "no" ]]; then

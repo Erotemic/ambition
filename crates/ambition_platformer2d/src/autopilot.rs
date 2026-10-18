@@ -16,6 +16,11 @@
 //! a [`NavGraphCache`] by what each one is a function of, and the geometry is
 //! composed again only when a cheap signature of its inputs changes.
 //!
+//! A goal in the air ([`NavGoal::Fly`]) is flown to: the autopilot turns the
+//! body's flight on, plans a route through the room's air (the graph's
+//! [`FlightMap`], built with it) and follows it with `follow_flight`. A goal on
+//! a surface turns flight off first.
+//!
 //! The graph is built over what the body collides with that does not move:
 //! the room's authored blocks, its contributed solids and gate solids, less
 //! the blocks taken out. Exits that take a body on overlap are avoided: a leg
@@ -26,12 +31,15 @@ use bevy::prelude::*;
 use bevy::tasks::{futures::check_ready, AsyncComputeTaskPool, Task};
 
 use ambition_platformer2d_core as ae;
-use ae::navigation::{approach_point, leg_stick_y, FollowFacts, Followed, LegFacts, LegInput, RouteFollower};
+use ae::navigation::{
+    approach_point, follow_flight, leg_stick_y, FlightFacts, FlightProgress, FollowFacts, Followed, LegFacts, LegInput,
+    RouteFollower,
+};
 use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
 use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use ambition_platformer2d_world::collision::{world_with_sandbox_solids, CollisionWorld};
-use ambition_platformer2d_world::navigation::{NavGraph, NavGraphCache, NavGraphKey};
+use ambition_platformer2d_world::navigation::{FlightMap, FlightSearch, NavGraph, NavGraphCache, NavGraphKey};
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
 
 use crate::scripted_input::ScriptedControls;
@@ -43,6 +51,12 @@ const GRAPHS_KEPT: usize = 8;
 const RETRY_FRAMES: u32 = 60;
 /// A stick past this is a press of that direction, for the `*_pressed` edges.
 const PRESS_THRESHOLD: f32 = 0.5;
+/// Frames after a press of the flight toggle before another: the press is an
+/// edge, and the simulation takes it on its next tick.
+const TOGGLE_FRAMES: u32 = 10;
+/// Frames a flight may go without coming nearer its goal before it is planned
+/// again from where the body is.
+const FLIGHT_STALL_FRAMES: u32 = 90;
 /// A point farther than this is "far" to the walk (px), as for a brain.
 const FAR_BEYOND: f32 = 160.0;
 /// The walk to a far point, as a part of the body's top speed.
@@ -55,6 +69,9 @@ const NEAR_PACE: f32 = 120.0;
 pub enum NavGoal {
     /// Stand on the surface under this point, as near to it as the body can.
     Stand(ae::Vec2),
+    /// Be in the air with the body's centre at this point, by flight. For a
+    /// body that can fly.
+    Fly(ae::Vec2),
 }
 
 /// What the autoplay policy wants of the seat this frame. Written by a game's
@@ -98,6 +115,70 @@ struct BodyTuning {
     frame: ae::MotionFrame,
 }
 
+/// A flight under way: its route, the point it flies to, and what it was
+/// planned for.
+#[derive(Default)]
+struct Flight {
+    search: FlightSearch,
+    route: Vec<ae::Vec2>,
+    next: usize,
+    /// The goal and the graph the route is for. Another of either is planned
+    /// again.
+    planned: Option<(ae::Vec2, NavGraphKey)>,
+    /// The nearest the body came to the goal, and the frames since.
+    nearest: f32,
+    since_nearer: u32,
+}
+
+impl Flight {
+    /// One frame of a flight to `at` through `map`, the air of `graph`'s room
+    /// (the graph of `key`): plan the route when the goal or the room is new
+    /// or the flight is stuck, and fly it.
+    fn step(
+        &mut self,
+        map: &FlightMap,
+        graph: &NavGraph,
+        key: NavGraphKey,
+        at: ae::Vec2,
+        kin: &ae::BodyKinematics,
+    ) -> (LegInput, AutopilotStatus) {
+        let distance = (at - kin.pos).length();
+        if distance + 1.0 < self.nearest {
+            self.nearest = distance;
+            self.since_nearer = 0;
+        } else {
+            self.since_nearer += 1;
+        }
+        if self.planned != Some((at, key)) || self.since_nearer > FLIGHT_STALL_FRAMES {
+            self.planned = Some((at, key));
+            self.nearest = distance;
+            self.since_nearer = 0;
+            self.next = 1;
+            map.route(kin.pos, at, &mut self.search, &mut self.route);
+        }
+        if self.route.is_empty() {
+            return (LegInput::default(), AutopilotStatus::NoRoute);
+        }
+        let facts = FlightFacts { center: kin.pos, vel: kin.vel, side: graph.frame.side, down: graph.frame.down, law: map.law };
+        match follow_flight(&self.route, self.next, &facts) {
+            (input, FlightProgress::Going(next)) => {
+                self.next = next;
+                (input, AutopilotStatus::Going)
+            }
+            (input, FlightProgress::Arrived) => (input, AutopilotStatus::Arrived),
+        }
+    }
+}
+
+/// A press of the flight toggle, at most one in `TOGGLE_FRAMES`.
+fn toggle_flight(wait: &mut u32) -> LegInput {
+    if *wait > 0 {
+        return LegInput::default();
+    }
+    *wait = TOGGLE_FRAMES;
+    LegInput { fly_toggle: true, ..LegInput::default() }
+}
+
 /// A graph that is being built, and the key it is for.
 struct PendingGraph {
     key: NavGraphKey,
@@ -125,6 +206,9 @@ pub struct Autopilot {
     retry_in: u32,
     /// Frames before a recovery may spend another air jump.
     air_jump_wait: u32,
+    flight: Flight,
+    /// Frames before the flight toggle may be pressed again.
+    toggle_wait: u32,
     last: ae::ControlFrame,
     status: AutopilotStatus,
 }
@@ -143,6 +227,8 @@ impl Default for Autopilot {
             goal: None,
             retry_in: 0,
             air_jump_wait: 0,
+            flight: Flight::default(),
+            toggle_wait: 0,
             last: ae::ControlFrame::default(),
             status: AutopilotStatus::Idle,
         }
@@ -185,6 +271,7 @@ type PlayerBody<'a> = (
     &'a ae::BodyBaseSize,
     &'a ResolvedMotionFrame,
     Option<&'a InRoomInstance>,
+    &'a ae::BodyFlightState,
 );
 
 /// One frame of the autopilot: the order in, the seat's input out.
@@ -213,7 +300,7 @@ pub fn drive_autopilot(
         }
         AutopilotOrder::GoTo(goal) => goal,
     };
-    let Ok((entity, (kin, ground, wall, model, abilities, base_size, frame, in_room))) = players.single() else {
+    let Ok((entity, (kin, ground, wall, model, abilities, base_size, frame, in_room, flight))) = players.single() else {
         script.0 = pilot.edges(LegInput::default());
         return;
     };
@@ -300,6 +387,32 @@ pub fn drive_autopilot(
         Some(Some(graph)) => graph,
     };
 
+    pilot.toggle_wait = pilot.toggle_wait.saturating_sub(1);
+    match goal {
+        // A goal in the air: take off, then fly the route.
+        NavGoal::Fly(at) => {
+            pilot.follower.stop();
+            pilot.goal = Some(goal);
+            let (input, status) = match graph.flight.as_ref() {
+                None => (LegInput::default(), AutopilotStatus::NoGraph),
+                Some(_) if !flight.fly_enabled => (toggle_flight(&mut pilot.toggle_wait), AutopilotStatus::Going),
+                Some(map) => pilot.flight.step(map, graph, key, at, kin),
+            };
+            pilot.status = status;
+            script.0 = pilot.edges(input);
+            return;
+        }
+        // A surface is walked to: land first. A fly leg of the surface graph
+        // flies under way, and turns flight off itself.
+        NavGoal::Stand(_) if flight.fly_enabled && !pilot.follower.committed() => {
+            pilot.flight.planned = None;
+            pilot.status = AutopilotStatus::Going;
+            let input = toggle_flight(&mut pilot.toggle_wait);
+            script.0 = pilot.edges(input);
+            return;
+        }
+        NavGoal::Stand(_) => {}
+    }
     let feet = kin.pos + graph.frame.down * graph.half.y;
     // A new goal, or the last one was reached or given up and its wait is
     // over. A leg past its start is not dropped for a new goal: the body is
@@ -482,7 +595,7 @@ impl Autopilot {
 
 /// The feet point of `goal` on the graph: on the surface under it, nearest it.
 fn stand_point(graph: &NavGraph, goal: NavGoal) -> Option<ae::Vec2> {
-    let NavGoal::Stand(at) = goal;
+    let (NavGoal::Stand(at) | NavGoal::Fly(at)) = goal;
     (0..graph.surfaces.len())
         .map(|index| graph.point_on(index, graph.frame.along(at)))
         .filter(|feet| graph.frame.below(*feet) >= graph.frame.below(at) - 1.0)

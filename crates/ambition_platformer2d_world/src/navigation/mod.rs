@@ -5,6 +5,8 @@
 //! - [`surfaces`]: the standing surfaces of a room for a body's size.
 //! - [`graph`]: the legs between surfaces that the body can do, each one
 //!   rolled out in the kernel, and the routes over them.
+//! - [`flight`]: the air of a room for a flying body, and the routes of a
+//!   flight through it, kept in the room's graph.
 //! - [`cache`]: the graphs in use, kept by what each one is a function of.
 //!
 //! The leg itself and the rule that follows it are in
@@ -13,10 +15,12 @@
 
 pub mod cache;
 pub mod envelope;
+pub mod flight;
 pub mod graph;
 pub mod surfaces;
 
 pub use cache::{geometry_stamp, NavGraphCache, NavGraphKey};
 pub use envelope::{ArcSample, EnvelopeProbe, TraversalEnvelope};
+pub use flight::{FlightMap, FlightSearch, FLIGHT_CELL};
 pub use graph::{NavGraph, NavLink};
 pub use surfaces::{standing_surfaces, NavFrame, StandSurface};

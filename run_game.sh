@@ -151,6 +151,8 @@ target_pkg="ambition_app"
 target_bin="ambition_game_bin"
 target_kind="host"
 demo_headless=0
+# `--autoplay`: the game plays itself (`AMBITION_AUTOPLAY`), for profiling.
+autoplay=0
 
 usage() {
     cat <<'USAGE'
@@ -187,6 +189,12 @@ Common commands:
   ./run_game.sh cut-rope
   ./run_game.sh smirking-behemoth
       Run directly in the You Have To Cut The Rope boss arena.
+
+  ./run_game.sh --autoplay
+  ./run_game.sh --autoplay profiling
+      Ambition plays itself: it boots into the game and flies its profiling
+      itinerary (the hall of characters, then the primeval trail) by
+      navigation. `./run_game.sh mary-o --autoplay` plays Mary-O.
 
   ./run_game.sh sanic
   ./run_game.sh mary-o
@@ -449,6 +457,9 @@ while [[ $# -gt 0 ]]; do
         --headless|headless)
             demo_headless=1
             ;;
+        --autoplay|autoplay)
+            autoplay=1
+            ;;
         --print-plan)
             print_plan=1
             ;;
@@ -502,6 +513,18 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+# The game plays itself by navigation. Ambition boots straight into its
+# gameplay route and follows its itinerary (`game/ambition_content/src/autoplay.rs`);
+# Mary-O plays her own policy. An explicit environment value wins.
+if [[ "$autoplay" -eq 1 ]]; then
+    if [[ "$target_bin" == "mary_o_demo" ]]; then
+        export AMBITION_AUTOPLAY="${AMBITION_AUTOPLAY:-mary_o}"
+    else
+        export AMBITION_AUTOPLAY="${AMBITION_AUTOPLAY:-ambition}"
+        export AMBITION_BOOT_ROUTE="${AMBITION_BOOT_ROUTE:-ambition_gameplay}"
+    fi
+fi
 
 if [[ "$build_profile" == "ship" && "$hot_reload" -eq 1 ]]; then
     fail "--ship cannot be combined with hot reload; shipping builds exclude development-only reload machinery"

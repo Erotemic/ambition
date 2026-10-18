@@ -587,7 +587,9 @@ same control. Not yet known: whether the fixture's premise (the closed-floor
 CPU diverges within 60 ticks) relied on the stale self-view, or the probe
 loses a real read of the floor. Lead: the fixture teleports the CPU (`kin.pos`, about 200 px over the void)
 and observes 60 ticks. Under the delayed view the brain sees its
-pre-teleport position for about 18 of them, so check which ticks diverge first.
+pre-teleport position for about 18 of them. Measured on main: bare and closed
+first diverge at tick 25, after that window, so the stale teleport alone does
+not explain it. Under the probe they never diverge in 60 ticks.
 
 Totals over one minute each, one seed. The eight fighters with a true baseline:
 32 → 25 (Sanic 14 → 12, item 2). The other fifteen were first measured after

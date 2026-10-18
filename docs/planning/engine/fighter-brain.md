@@ -532,10 +532,15 @@ Two paths, read from `AMBITION_FIGHTER_TRACE=1`:
    Approach/Dash/Retreat; a Robot rolled off from 33 px out at 530 px/s. Fixed in
    `movement_options` (`roll_walks_off`). After: Pirate 1, Alice 2, Bob 2, Ninja
    1, George 2, Robot 3 in 3265 ticks. Sanic is unchanged.
-2. A grounded move's own travel. Sanic's dash-speed attack, started 115 px from
-   the ledge at 452 px/s, slides off during its recovery, and the lens then
-   finds no route home. In Ultimate most grounded moves stop at the ledge. That
-   is a per-game movement rule, so it waits for Jon.
+2. A grounded move's own travel. Smash declares `edge_cancel_recovery`, so a
+   move slides off a lip by design. Sanic chose `sonic_boom` (rooted) on a view
+   showing 164 px of floor at −182 px/s. The brain perceives through the
+   `reaction_ms` delay, including its OWN body (300 ms at level 5), and
+   Approach kept accelerating it, so the move started at −478 px/s with about
+   145 px left and coasted off. Pricing the move's travel against the floor
+   ahead at decision time changed nothing (tried and reverted 2026-10-18): the
+   input is stale, not the formula. Open question for Jon: should a CPU perceive
+   its own body without the reaction delay?
 
 3. `Recover` held the side whenever the feet were below the top. Just after
    stepping off, that left the Robot 48 px out, and its teleport (aimed by the

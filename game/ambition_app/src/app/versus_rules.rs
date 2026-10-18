@@ -12,15 +12,18 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d::combat::targeting::MatchTeam;
+use ambition_platformer2d::content::hole;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::versus_match::{seat_placement, MatchSeat};
 
 mod arena;
 mod rounds;
 mod seats;
+pub mod text;
 pub use arena::{versus_arena_in, versus_arena_schema, VersusArena, VERSUS_ARENA_SCHEMA};
 pub use rounds::{versus_rounds, versus_rounds_schema, VersusRounds, VERSUS_ROUNDS_SCHEMA};
 pub use seats::{versus_seats, versus_seats_in, versus_seats_schema, VersusSeats, VERSUS_SEATS_SCHEMA};
+pub use text::{versus_text, versus_text_schema, VERSUS_TEXT_SCHEMA};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MatchPhase {
@@ -634,55 +637,90 @@ pub fn publish_versus_hud(
             teams.push(team);
         }
     }
-    let score = teams
-        .iter()
-        .map(|team| format!("{team} {}", state.wins(team)))
-        .collect::<Vec<_>>()
-        .join("  -  ");
     readouts.set(
         ROUNDS_HUD_SLOT,
-        ambition_platformer2d::presentation::HudReadout::bare(if score.is_empty() {
-            String::new()
-        } else {
-            format!("ROUNDS  {score}   (first to {})", versus_rounds().rounds_to_win)
-        }),
+        ambition_platformer2d::presentation::HudReadout::bare(score_line(&state, &teams)),
     );
 
+    match announce_line(&state) {
+        Some(line) => readouts.set(ANNOUNCE_HUD_SLOT, ambition_platformer2d::presentation::HudReadout::bare(line)),
+        None => readouts.clear_slot(ANNOUNCE_HUD_SLOT),
+    }
+}
+
+/// The score line: each of `teams` with its round wins, in that order, and
+/// the wins that take the match. Empty when no team is seated.
+pub fn score_line(state: &VersusMatch, teams: &[&String]) -> String {
+    if teams.is_empty() {
+        return String::new();
+    }
+    let text = versus_text();
+    let score = teams
+        .iter()
+        .map(|team| text.fill("hud.team_score", &[hole("team", team), hole("wins", &state.wins(team))]))
+        .collect::<Vec<_>>()
+        .join(text.line("hud.score_separator"));
+    text.fill("hud.rounds", &[hole("score", &score), hole("to_win", &versus_rounds().rounds_to_win)])
+}
+
+/// The announce line for the match's phase, or `None` while the round is
+/// fought.
+pub fn announce_line(state: &VersusMatch) -> Option<String> {
+    let text = versus_text();
     match &state.phase {
         // The countdown reads in two beats: WHICH round, then GO. Both are
         // derived from the same tick counter the simulation is already using, so
         // the card cannot disagree with the phase — a presentation timer running
         // beside a simulation timer is two clocks for one fact.
-        MatchPhase::Starting { ticks_remaining } => readouts.set(
-            ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(
-                if *ticks_remaining > versus_rounds().fight_call_ticks {
-                    format!("ROUND {}", state.round)
-                } else {
-                    "FIGHT".to_string()
-                },
-            ),
-        ),
-        MatchPhase::Fighting => readouts.clear_slot(ANNOUNCE_HUD_SLOT),
-        MatchPhase::Ko { winner, .. } => readouts.set(
-            ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(match winner {
-                Some(team) => format!("K.O.  {team} wins the round"),
-                None => "DOUBLE K.O.  —  the round is a draw".to_string(),
-            }),
-        ),
-        MatchPhase::Won { winner, .. } => readouts.set(
-            ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(format!(
-                "{winner} WINS THE MATCH"
-            )),
-        ),
+        MatchPhase::Starting { ticks_remaining } => Some(if *ticks_remaining > versus_rounds().fight_call_ticks {
+            text.fill("announce.round", &[("number", &state.round)])
+        } else {
+            text.line("announce.fight").to_string()
+        }),
+        MatchPhase::Fighting => None,
+        MatchPhase::Ko { winner, .. } => Some(match winner {
+            Some(team) => text.fill("announce.ko", &[("team", team)]),
+            None => text.line("announce.double_ko").to_string(),
+        }),
+        MatchPhase::Won { winner, .. } => Some(text.fill("announce.match_won", &[("winner", winner)])),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The score line and the round calls are the pack's text file's; the
+    /// code fills the teams, their wins, the round and the winner.
+    #[test]
+    fn the_stage_says_what_its_text_file_states() {
+        let text = versus_text();
+        let (left, right) = ("Blue".to_string(), "Red".to_string());
+        let mut state = VersusMatch::opening();
+        state.rounds_won.insert(left.clone(), 1);
+        let score = format!(
+            "{}{}{}",
+            text.fill("hud.team_score", &[hole("team", &left), hole("wins", &1)]),
+            text.line("hud.score_separator"),
+            text.fill("hud.team_score", &[hole("team", &right), hole("wins", &0)]),
+        );
+        assert_eq!(
+            score_line(&state, &[&left, &right]),
+            text.fill("hud.rounds", &[hole("score", &score), hole("to_win", &versus_rounds().rounds_to_win)])
+        );
+        assert_eq!(score_line(&state, &[]), "", "no seated team, no score line");
+
+        state.round = 2;
+        state.phase = MatchPhase::Starting { ticks_remaining: versus_rounds().fight_call_ticks + 1 };
+        assert_eq!(announce_line(&state), Some(text.fill("announce.round", &[("number", &2)])));
+        state.phase = MatchPhase::Starting { ticks_remaining: 0 };
+        assert_eq!(announce_line(&state).as_deref(), Some(text.line("announce.fight")));
+        state.phase = MatchPhase::Fighting;
+        assert_eq!(announce_line(&state), None);
+        state.phase = MatchPhase::Won { winner: left.clone(), remaining_s: 1.0 };
+        assert_eq!(announce_line(&state), Some(text.fill("announce.match_won", &[("winner", &left)])));
+        assert!(announce_line(&state).unwrap().contains("Blue"), "the shipped call names the winner");
+    }
 
     /// The countdown waits for the roster.
     ///

@@ -509,9 +509,9 @@ pub fn compose_versus_experience(app: &mut App) {
     PlatformerExperienceAuthoring::new(
         VERSUS_EXPERIENCE,
         VERSUS_GAMEPLAY_ROUTE,
-        "Versus",
-        "Two characters from two providers, fighting",
-        "Prepare Versus",
+        super::versus_rules::text::line("launcher.label"),
+        super::versus_rules::text::line("launcher.description"),
+        super::versus_rules::text::line("launcher.preparing"),
         AuthoredCatalogFragments::new(default_character, VERSUS_EXPERIENCE),
     )
     // The look of its launcher row.

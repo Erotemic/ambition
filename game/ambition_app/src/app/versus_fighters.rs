@@ -17,6 +17,7 @@ pub static PACK: ambition_platformer2d::content::EmbeddedPack =
             super::versus_rules::versus_rounds_schema,
             super::versus_rules::versus_arena_schema,
             super::versus_rules::versus_seats_schema,
+            super::versus_rules::versus_text_schema,
         ],
     };
 
@@ -38,6 +39,9 @@ pub fn register_versus_cast(app: &mut bevy::prelude::App, default_character: &st
             super::versus_rules::VERSUS_ROUNDS_SCHEMA,
             super::versus_rules::VERSUS_SEATS_SCHEMA,
             ambition_platformer2d::versus_match::match_rules::MATCH_RULES_SCHEMA,
+            // Each line is read where it is shown. The launcher row is read
+            // once when the launcher is built, so it keeps its start words.
+            super::versus_rules::VERSUS_TEXT_SCHEMA,
         ],
         restated: Vec::new(),
     });

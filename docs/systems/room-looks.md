@@ -234,7 +234,11 @@ front as it moves.
 2. Implement `RoomLook` for it: the `palette` value and the door. A look whose
    architecture is static sets `ARCHITECTURE_IS_PLATES` and gives its art as
    pixels, as the two-state look does.
-3. Call `install_look::<YourMaterial>` in `room_look::install`.
+3. Call `install_look::<YourMaterial>` in `room_look::install`, and serve the
+   shader there with `content_asset!` (not `embedded_asset!`): a development
+   build reads it off disk at start, so a shader edit costs a restart and no
+   build. `each_shader_is_served_as_its_file_is_saved` names a shader that is
+   not served.
 4. Set `palette` on a level.
 
 ## Limits

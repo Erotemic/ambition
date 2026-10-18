@@ -20,7 +20,6 @@
 //! transformation).
 
 use bevy::{
-    asset::embedded_asset,
     camera::visibility::RenderLayers,
     prelude::*,
     reflect::TypePath,
@@ -120,7 +119,7 @@ pub fn install(app: &mut App) {
         return;
     }
     app.insert_resource(CosmicBarrierInstalled);
-    embedded_asset!(app, "shaders/cosmic_barrier.wgsl");
+    ambition_platformer2d::content_asset!(app, "src/shaders/cosmic_barrier.wgsl");
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<MaryOCosmicBarrierMaterial>::default());
     }

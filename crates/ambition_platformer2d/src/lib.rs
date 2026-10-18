@@ -196,6 +196,29 @@ pub mod content {
                     }),
             }
         }
+
+        /// Put the file's text on Bevy's `embedded://` source at
+        /// `embedded://<crate_name>/<asset_path>`. Use [`crate::content_asset!`],
+        /// which gives the path that `embedded_asset!` gives.
+        ///
+        /// The text is read now, so a development build serves the file as it
+        /// was saved when the app started: a shader edit costs a restart and no
+        /// Rust build. `embedded_asset!` compiles the bytes in.
+        ///
+        /// # Panics
+        ///
+        /// If the app has no `AssetPlugin`, or a development build cannot read
+        /// the file: the game would draw without it and not say why.
+        pub fn serve_embedded(&self, app: &bevy::prelude::App, crate_name: &str, asset_path: &str) {
+            let text = self.text().unwrap_or_else(|error| panic!("{error}"));
+            app.world()
+                .resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>()
+                .insert_asset(
+                    std::path::PathBuf::new(),
+                    &std::path::Path::new(crate_name).join(asset_path),
+                    text.into_owned().into_bytes(),
+                );
+        }
     }
 
     /// The text of `file`, the pack file declared as `declared`, as it is on
@@ -1891,6 +1914,32 @@ macro_rules! content_text {
     ($file:literal $(,)?) => {
         $crate::__content_pack_text!($file)
     };
+}
+
+/// One authored text file of a game, such as a shader, served on Bevy's
+/// `embedded://` source at the path `embedded_asset!` gives it:
+/// `embedded://<crate>/<path after src/>`. A material names it as before.
+///
+/// It is a [`content::PackText`]: read off disk in a development build and
+/// embedded under the calling crate's `static_content` feature. So an edit to
+/// a game's shader costs a restart, not a build of the game's crate.
+///
+/// `$file` is relative to the calling crate's directory, and is under `src/`.
+///
+/// ```ignore
+/// ambition_platformer2d::content_asset!(app, "src/shaders/glow.wgsl");
+/// // "embedded://my_game/shaders/glow.wgsl"
+/// ```
+#[cfg(feature = "content_pack")]
+#[macro_export]
+macro_rules! content_asset {
+    ($app:expr, $file:literal $(,)?) => {{
+        const ASSET_PATH: &str = match $file.as_bytes() {
+            [b's', b'r', b'c', b'/', ..] => $file.split_at(4).1,
+            _ => panic!(concat!("content_asset!: ", $file, " is not under src/")),
+        };
+        $crate::__content_pack_text!($file).serve_embedded($app, env!("CARGO_CRATE_NAME"), ASSET_PATH)
+    }};
 }
 
 /// One [`content::PackText`] for [`content_text!`]. The `cfg` is read in the

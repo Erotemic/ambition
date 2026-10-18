@@ -21,7 +21,6 @@
 use std::collections::HashMap;
 
 use bevy::{
-    asset::embedded_asset,
     image::TextureAtlasLayout,
     prelude::*,
     reflect::TypePath,
@@ -80,7 +79,7 @@ pub fn install(app: &mut App) {
         return;
     }
     // The asset half still needs its own install-time guard, for its own reason:
-    // `embedded_asset!` and `init_asset` both reach into `AssetPlugin`'s
+    // `content_asset!` and `init_asset` both reach into `AssetPlugin`'s
     // registries and panic without them. That is a real precondition of these
     // two lines — not a stand-in for a question about rendering.
     if app
@@ -92,14 +91,14 @@ pub fn install(app: &mut App) {
     }
 
     app.insert_resource(QuasarShaderInstalled);
-    embedded_asset!(app, "shaders/invincible_rainbow_quasar.wgsl");
+    ambition_platformer2d::content_asset!(app, "src/shaders/invincible_rainbow_quasar.wgsl");
     // the MATERIAL plugin asks whether this app RENDERS, which the asset
     // guard above does not. `Material2dPlugin` installs render-world state —
     // `PreparedMaterial2d`, `EntitiesNeedingSpecialization` — into any app that
     // merely has an `AssetPlugin`, which every headless composition has. That is
     // the same "a proxy answers the question next door" mistake this module's
     // own doc records, one line further down: the asset registry is a real
-    // precondition of `embedded_asset!`, and it is not evidence of a renderer.
+    // precondition of `content_asset!`, and it is not evidence of a renderer.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<MaryOQuasarMaterial>::default());
     }

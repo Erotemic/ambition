@@ -13,7 +13,6 @@
 use std::collections::HashMap;
 
 use bevy::{
-    asset::embedded_asset,
     image::TextureAtlasLayout,
     prelude::*,
     reflect::TypePath,
@@ -56,12 +55,12 @@ const SPACE_Z: f32 = -14.2;
 const SPACE_PAD: f32 = 2400.0;
 
 pub fn install(app: &mut App) {
-    // `embedded_asset!` needs the asset registries.
+    // `content_asset!` needs the asset registries.
     if app.world().get_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>().is_none() {
         return;
     }
-    embedded_asset!(app, "shaders/mockingbird_fire.wgsl");
-    embedded_asset!(app, "shaders/mockingbird_space.wgsl");
+    ambition_platformer2d::content_asset!(app, "src/presentation/shaders/mockingbird_fire.wgsl");
+    ambition_platformer2d::content_asset!(app, "src/presentation/shaders/mockingbird_space.wgsl");
     // The material plugins install render-world state: they need an app that
     // renders.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {

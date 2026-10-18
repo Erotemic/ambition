@@ -4025,6 +4025,38 @@ mod tests {
             "the goal stands inside the room"
         );
     }
+
+    /// Each of her shaders in `src/shaders` is served as the file is saved,
+    /// at the path its material names, so a shader edit costs a restart and
+    /// no build of this crate.
+    #[test]
+    fn each_shader_is_served_as_its_file_is_saved() {
+        use bevy::prelude::{AssetApp, AssetPlugin, AssetServer, MinimalPlugins};
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<bevy::shader::Shader>();
+        quasar_shader::install(&mut app);
+        shimmer_shader::install(&mut app);
+        fire_shader::install(&mut app);
+        cosmic_aura::install(&mut app);
+        cosmic_barrier::install(&mut app);
+        let source = app.world().resource::<AssetServer>().get_source("embedded").unwrap().reader();
+        let shaders = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/shaders");
+        let mut files: Vec<_> = std::fs::read_dir(&shaders).unwrap().map(|entry| entry.unwrap().path()).collect();
+        files.sort();
+        assert!(files.len() >= 5, "premise: the shaders are on disk: {files:?}");
+        for file in files {
+            let name = file.file_name().unwrap().to_str().unwrap();
+            let served = std::path::PathBuf::from("ambition_demo_mary_o/shaders").join(name);
+            let bytes = bevy::tasks::block_on(async {
+                let mut reader = source.read(&served).await.unwrap_or_else(|error| panic!("{name} is not served: {error}"));
+                let mut bytes = Vec::new();
+                reader.read_to_end(&mut bytes).await.unwrap();
+                bytes
+            });
+            assert!(bytes == std::fs::read(&file).unwrap(), "{name} is served, but not as its file is saved");
+        }
+    }
 }
 
 #[cfg(test)]

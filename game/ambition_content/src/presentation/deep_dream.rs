@@ -21,7 +21,6 @@
 //! post-process: if the material pipeline is alive, it should be visible.
 
 use bevy::{
-    asset::embedded_asset,
     image::TextureAtlasLayout,
     prelude::*,
     reflect::TypePath,
@@ -83,7 +82,7 @@ pub struct PuppySlugDreamSettings {
 /// Register the embedded shader, the material pipeline, the dev toggle, and
 /// the attach/sync/cleanup systems on the renderer's public overlay seam.
 pub fn install(app: &mut App) {
-    // `embedded_asset!` needs the AssetPlugin's registry; a headless app
+    // `content_asset!` needs the AssetPlugin's registry; a headless app
     // without an asset/render stack simply doesn't get the dream pass — the
     // same guard `ambition_portal2d_presentation`'s clip material uses.
     if app
@@ -93,7 +92,7 @@ pub fn install(app: &mut App) {
     {
         return;
     }
-    embedded_asset!(app, "shaders/puppy_slug_deep_dream.wgsl");
+    ambition_platformer2d::content_asset!(app, "src/presentation/shaders/puppy_slug_deep_dream.wgsl");
     app.add_plugins(Material2dPlugin::<PuppySlugDeepDreamMaterial>::default());
     app.init_resource::<PuppySlugDreamSettings>();
     app.register_type::<PuppySlugDreamSettings>();

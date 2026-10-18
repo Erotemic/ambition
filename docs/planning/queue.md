@@ -386,7 +386,17 @@ Open:
    in `sanic_rules.ron` (the sparkle's reader has no witness of its own;
    the dust's does). Left: Twintrack's two seat colours (a lab exhibit,
    with its code), and the room palettes. The other effect looks are in
-   the WASM modules, on the module road already.
+   the WASM modules, on the module road already. Each game's own shaders
+   (Ambition's nine, Mary-O's five) are served with `content_asset!`, a
+   `PackText` on Bevy's `embedded://` source at the path `embedded_asset!`
+   gave, so no material changed: read off disk at start in a development
+   build, embedded under `static_content`. A shader edit reached its test in
+   1.0 s with no compile; it was a build of the game's crate (58 s for
+   `ambition_content`'s tests, under load) and a relink. Witness
+   `each_shader_is_served_as_its_file_is_saved` in each crate: a file saved
+   after the build is what the built binary serves (red with one shader
+   back on `embedded_asset!`, and with one not served). The engine crates'
+   shaders stay compiled in: they are engine code.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is

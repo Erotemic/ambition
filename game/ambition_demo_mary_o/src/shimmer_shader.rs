@@ -22,7 +22,6 @@
 //! installs none.
 
 use bevy::{
-    asset::embedded_asset,
     image::{ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
     prelude::*,
     reflect::TypePath,
@@ -171,7 +170,7 @@ pub fn install(app: &mut App) {
     if app.world().contains_resource::<ShimmerInstalled>() {
         return;
     }
-    // `embedded_asset!` needs the asset registries.
+    // `content_asset!` needs the asset registries.
     if app
         .world()
         .get_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>()
@@ -180,7 +179,7 @@ pub fn install(app: &mut App) {
         return;
     }
     app.insert_resource(ShimmerInstalled);
-    embedded_asset!(app, "shaders/shimmer.wgsl");
+    ambition_platformer2d::content_asset!(app, "src/shaders/shimmer.wgsl");
     // The material plugin installs render-world state, so it needs an app
     // that renders. An asset registry is not evidence of a renderer.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {

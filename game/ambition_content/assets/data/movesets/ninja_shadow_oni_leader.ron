@@ -165,8 +165,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (24.0, 0.0),
-                                                half_extents: (17.0, 13.0),
+                                                offset: (37.0, -0.6),
+                                                half_extents: (30.0, 13.6),
                                             ),
                                             damage: 3,
                                             knockback: 50.0,
@@ -240,8 +240,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (30.0, -2.0),
-                                                half_extents: (20.0, 13.0),
+                                                offset: (36.6, -2.0),
+                                                half_extents: (26.6, 13.0),
                                             ),
                                             damage: 5,
                                             knockback: 66.0,
@@ -331,8 +331,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (10.0, -26.0),
-                                                half_extents: (17.0, 20.0),
+                                                offset: (10.0, -42.1),
+                                                half_extents: (17.0, 36.1),
                                             ),
                                             damage: 5,
                                             knockback: 72.0,
@@ -406,8 +406,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (24.0, 13.0),
-                                                half_extents: (19.0, 10.0),
+                                                offset: (33.4, 15.8),
+                                                half_extents: (28.4, 12.8),
                                             ),
                                             damage: 4,
                                             knockback: 58.0,
@@ -481,8 +481,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (36.0, -2.0),
-                                                half_extents: (26.0, 19.0),
+                                                offset: (39.9, -2.0),
+                                                half_extents: (29.9, 19.0),
                                             ),
                                             damage: 16,
                                             knockback: 150.0,
@@ -556,8 +556,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (6.0, -32.0),
-                                                half_extents: (22.0, 28.0),
+                                                offset: (6.0, -42.9),
+                                                half_extents: (22.0, 38.9),
                                             ),
                                             damage: 15,
                                             knockback: 148.0,
@@ -631,8 +631,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (0.0, 15.0),
-                                                half_extents: (34.0, 12.0),
+                                                offset: (2.2, 23.4),
+                                                half_extents: (59.5, 25.0),
                                             ),
                                             damage: 13,
                                             knockback: 132.0,
@@ -706,8 +706,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (0.0, 0.0),
-                                                half_extents: (23.0, 21.0),
+                                                offset: (8.5, 0.0),
+                                                half_extents: (31.5, 38.0),
                                             ),
                                             damage: 5,
                                             knockback: 66.0,
@@ -781,8 +781,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (28.0, -2.0),
-                                                half_extents: (21.0, 17.0),
+                                                offset: (34.6, -2.0),
+                                                half_extents: (27.6, 17.0),
                                             ),
                                             damage: 8,
                                             knockback: 98.0,
@@ -856,8 +856,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (-30.0, 0.0),
-                                                half_extents: (21.0, 17.0),
+                                                offset: (-39.0, -4.4),
+                                                half_extents: (30.0, 21.4),
                                             ),
                                             damage: 11,
                                             knockback: 128.0,
@@ -931,8 +931,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (2.0, -28.0),
-                                                half_extents: (19.0, 21.0),
+                                                offset: (5.7, -42.9),
+                                                half_extents: (22.7, 35.9),
                                             ),
                                             damage: 6,
                                             knockback: 84.0,
@@ -1006,8 +1006,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (5.0, 26.0),
-                                                half_extents: (19.0, 19.0),
+                                                offset: (5.0, 24.9),
+                                                half_extents: (19.0, 20.1),
                                             ),
                                             damage: 10,
                                             knockback: 118.0,
@@ -1125,8 +1125,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (24.0, -2.0),
-                                                half_extents: (16.0, 20.0),
+                                                offset: (41.0, -2.0),
+                                                half_extents: (33.0, 20.0),
                                             ),
                                             damage: 7,
                                             knockback: 82.5,
@@ -1183,8 +1183,9 @@
                             id: "shadow_answer",
                             display_name: None,
                             clip: (
-                                clip: "attack",
+                                clip: "shadow_answer",
                                 fallbacks: [
+                                    "attack",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1208,8 +1209,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (26.0, -4.0),
-                                                half_extents: (26.0, 22.0),
+                                                offset: (32.5, -4.0),
+                                                half_extents: (32.5, 22.0),
                                             ),
                                             damage: 12,
                                             knockback: 112.0,
@@ -1326,7 +1327,7 @@
                             id: "iaijutsu",
                             display_name: None,
                             clip: (
-                                clip: "attack_side",
+                                clip: "iaijutsu",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -1351,8 +1352,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (34.0, 0.0),
-                                                half_extents: (30.0, 16.0),
+                                                offset: (37.7, 0.0),
+                                                half_extents: (33.7, 16.0),
                                             ),
                                             damage: 11,
                                             knockback: 106.0,
@@ -1499,8 +1500,9 @@
                             id: "smoke_fold",
                             display_name: None,
                             clip: (
-                                clip: "attack_up",
+                                clip: "smoke_fold",
                                 fallbacks: [
+                                    "attack_up",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1524,8 +1526,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (0.0, -8.0),
-                                                half_extents: (20.0, 30.0),
+                                                offset: (0.0, -28.6),
+                                                half_extents: (20.0, 50.6),
                                             ),
                                             damage: 8,
                                             knockback: 84.0,
@@ -1648,8 +1650,9 @@
                             id: "command_seal",
                             display_name: None,
                             clip: (
-                                clip: "attack_down",
+                                clip: "special_down",
                                 fallbacks: [
+                                    "attack_down",
                                     "attack",
                                     "idle",
                                 ],
@@ -1762,8 +1765,9 @@
                             id: "falling_seal",
                             display_name: None,
                             clip: (
-                                clip: "air_down",
+                                clip: "falling_seal",
                                 fallbacks: [
+                                    "air_down",
                                     "attack_side",
                                     "attack",
                                     "slash",

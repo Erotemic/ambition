@@ -63,7 +63,18 @@ RATCHET = {
     # sheet names his parts (`parts: Some`), so where rigged sprites are
     # admitted he is drawn from the part page (2176 x 1810): reasoned from
     # `boss_sheets.ron`, not measured.
-    "sprites": (16236, 79, 16, 7),
+    # 2026-10-18: 79 -> 81. Two sheets that grew, deliberately: Mary-O's
+    # grown forms got her Smash fighting rows (`_mary_o_v2_attacks.py`, 27 rows
+    # of 160 x 192): `mary_o_v2_tall` 12 -> 39 rows (2432 x 2021) and
+    # `mary_o_v2_fire` 14 -> 41 rows (2622 x 2160). Neither is over 4096 px.
+    # 2026-10-18: 81 -> 82. One sheet that grew, deliberately: `oiler` got a
+    # row for each Smash move (12 -> 25 rows) and his page is 2240 x 1851.
+    # `george_booul` got his (9 -> 28 rows) and stays under (2045 x 1659).
+    # 2026-10-18: 82 -> 83. One sheet that grew, deliberately: the Shadow Oni
+    # Leader (`ninja_shadow_oni_leader`) got a row for each Smash move (12 -> 37
+    # rows of 288 x 224); his page is 2237 x 1863. The pirate admiral got his
+    # too (6 -> 29 rows) and stays under (1728 x 1312).
+    "sprites": (16236, 83, 16, 7),
     # 2026-10-11: 24 -> 25 over 2048 px: the same new fighter's half tier
     # (2176 x 1689).
     # 2026-10-13: 25 -> 28: the half tier of the same sheet is three pages

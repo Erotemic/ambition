@@ -143,6 +143,7 @@ pub fn tick_cut_rope_flavor(
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     mut state: ResMut<CutRopeBossArenaState>,
     heavy_object: Res<CutRopeHeavyObjectCycle>,
+    tuning: Res<crate::tuning::AmbitionTuning>,
     mut gates: MessageReader<EncounterGate>,
     hazards: Query<(Entity, &CenteredAabb, &FallingHazard)>,
     bosses: Query<(Entity, BossClusterRef), With<FeatureSimEntity>>,
@@ -186,6 +187,7 @@ pub fn tick_cut_rope_flavor(
                     rope_pos,
                     boss_pos.unwrap_or(rope_pos),
                     &mut explosions,
+                    tuning.0.cut_rope_trap.rope_spark_seconds,
                 );
             }
         }
@@ -195,12 +197,10 @@ pub fn tick_cut_rope_flavor(
             arena.anvil_exploded = true;
             let center = arena.anvil_center.or(boss_pos).unwrap_or(ae::Vec2::ZERO);
             let burst_pos = boss_pos.unwrap_or(center);
+            let trap = &tuning.0.cut_rope_trap;
             banner.show(
-                format!(
-                    "Smirking Behemoth was flattened by a {}",
-                    heavy_object.current().display_name()
-                ),
-                2.8,
+                trap.flattened_banner.replace("{object}", heavy_object.current_dialogue_id(trap)),
+                trap.banner_seconds,
             );
             explosions.write(FxRequest::classic(Some(room), center).with_scale(1.25));
             if !arena.death_fireworks_sent {
@@ -235,6 +235,7 @@ pub fn sync_cut_rope_boss_arena_prop_visuals(
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     state: Res<CutRopeBossArenaState>,
     heavy_object: Res<CutRopeHeavyObjectCycle>,
+    tuning: Res<crate::tuning::AmbitionTuning>,
     mut prop_visuals: Query<(
         Entity,
         &mut PropVisual,
@@ -259,7 +260,7 @@ pub fn sync_cut_rope_boss_arena_prop_visuals(
             &spec.world,
             arena,
             anvil,
-            heavy_object.current(),
+            &heavy_object.current(&tuning.0.cut_rope_trap).prop,
             assets.as_deref(),
         );
     }
@@ -273,12 +274,14 @@ fn pulse_waiting_rope_explosions(
     rope_pos: ae::Vec2,
     boss_pos: ae::Vec2,
     explosions: &mut MessageWriter<FxRequest>,
+    // The rules' `cut_rope_trap.rope_spark_seconds`.
+    spark_seconds: f32,
 ) {
     state.rope_fx_timer -= dt;
     if state.rope_fx_timer > 0.0 {
         return;
     }
-    state.rope_fx_timer = ROPE_SPARK_INTERVAL;
+    state.rope_fx_timer = spark_seconds;
     let i = state.rope_fx_pulse;
     state.rope_fx_pulse = state.rope_fx_pulse.wrapping_add(1);
     let horizontal_pull = (boss_pos.x - rope_pos.x).clamp(-80.0, 80.0) * 0.18;
@@ -339,7 +342,7 @@ fn sync_cut_rope_prop_visuals(
     world: &ae::World,
     state: &CutRopeArena,
     anvil: &PropSpec,
-    object_kind: CutRopeHeavyObjectKind,
+    object_prop: &str,
     assets: Option<&GameAssets>,
 ) {
     for (entity, mut prop, mut transform, mut sprite, animator, anchor, visibility) in
@@ -372,7 +375,7 @@ fn sync_cut_rope_prop_visuals(
                 animator,
                 anchor,
                 anvil.size,
-                object_kind,
+                object_prop,
                 assets,
             );
             if let Some(mut visibility) = visibility {
@@ -404,10 +407,10 @@ fn apply_cut_rope_heavy_object_sprite(
     animator: Option<Mut<CharacterAnimator>>,
     anchor: Option<Mut<Anchor>>,
     collision: ae::Vec2,
-    object_kind: CutRopeHeavyObjectKind,
+    object_prop: &str,
     assets: Option<&GameAssets>,
 ) {
-    let desired_kind = object_kind.prop_kind();
+    let desired_kind = object_prop;
     if prop.kind == desired_kind {
         return;
     }
@@ -439,6 +442,7 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut state: ResMut<CutRopeBossArenaState>,
     mut heavy_object: ResMut<CutRopeHeavyObjectCycle>,
+    tuning: Res<crate::tuning::AmbitionTuning>,
     mut reset_events: ambition_combat::events::AdmittedReplays,
     mut prop_visuals: Query<(
         Entity,
@@ -469,7 +473,8 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
         state.arenas.remove(&replayed);
         return;
     }
-    heavy_object.advance();
+    let trap = &tuning.0.cut_rope_trap;
+    heavy_object.advance(trap.heavy_objects.len());
     let arena = CutRopeArena::default();
     state.arenas.insert(replayed, arena.clone());
     if let Some(anvil) = authored_prop(&spec.props, ANVIL_KIND) {
@@ -479,7 +484,7 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
             &spec.world,
             &arena,
             anvil,
-            heavy_object.current(),
+            &heavy_object.current(trap).prop,
             assets.as_deref(),
         );
     }

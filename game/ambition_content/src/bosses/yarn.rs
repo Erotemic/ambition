@@ -91,6 +91,7 @@ pub fn install_cut_rope_yarn_bindings(
 pub fn mirror_cut_rope_heavy_object(
     save: Option<Res<AmbitionGameSave>>,
     cycle: Option<Res<CutRopeHeavyObjectCycle>>,
+    tuning: Option<Res<crate::tuning::AmbitionTuning>>,
     mirror: Res<YarnStateMirror>,
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
@@ -98,11 +99,14 @@ pub fn mirror_cut_rope_heavy_object(
         snap.extras.remove(HEAVY_OBJECT_KEY);
         return;
     }
-    let id = cycle
-        .map(|cycle| cycle.current_dialogue_id())
-        .unwrap_or("anvil");
-    snap.extras
-        .insert(HEAVY_OBJECT_KEY.to_string(), id.to_string());
+    // With no cycle the rope holds the first object of the rules' list.
+    let Some(tuning) = tuning else {
+        snap.extras.remove(HEAVY_OBJECT_KEY);
+        return;
+    };
+    let trap = &tuning.0.cut_rope_trap;
+    let id = cycle.map_or_else(|| trap.heavy_object(0).name.as_str(), |cycle| cycle.current_dialogue_id(trap));
+    snap.extras.insert(HEAVY_OBJECT_KEY.to_string(), id.to_string());
 }
 
 #[cfg(test)]

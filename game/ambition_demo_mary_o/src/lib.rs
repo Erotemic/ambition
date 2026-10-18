@@ -609,16 +609,19 @@ fn try_finish_authored_room(mut room: RoomSpec) -> Result<RoomSpec, String> {
     Ok(room)
 }
 
-/// How far over the top of a level its sky zone is, to the bottom of the zone.
+/// How far over the top of a level its sky zone is, to the bottom of the zone:
+/// the rules' `level.sky_zone_rise_tiles`, in px.
 ///
 /// A view of the level ends at the top of the level, so a body in the zone is
 /// this far out of the view (Jon, 2026-10-12: "I want her to have to go a bit
 /// past the normal visible level boundry before she hits that loading zone, so
 /// players who get the fly ability don't always find it").
-pub const SKY_ZONE_RISE: f32 = 5.0 * T;
+pub fn sky_zone_rise() -> f32 {
+    rules::mary_o_rules().level.sky_zone_rise_tiles * T
+}
 
 /// A loading zone on the top line of a level is the sky of the level: the game
-/// puts it [`SKY_ZONE_RISE`] over the top.
+/// puts it [`sky_zone_rise`] over the top.
 ///
 /// The file has the zone IN the level, on its top line, because a level file
 /// holds no thing that is out of its level. Where the sky is, is a rule of the
@@ -629,7 +632,7 @@ fn lift_the_sky_zones(room: &mut RoomSpec) {
         if zone.aabb.min.y > 0.5 {
             continue;
         }
-        let rise = zone.aabb.max.y + SKY_ZONE_RISE;
+        let rise = zone.aabb.max.y + sky_zone_rise();
         zone.aabb.min.y -= rise;
         zone.aabb.max.y -= rise;
     }

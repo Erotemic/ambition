@@ -141,6 +141,11 @@
         // How long the flag tally stays on screen before the level loops.
         // The next level is the same level: the flagpole restarts 1-1.
         cycle_dwell_seconds: 2.0,
+        // How far (tiles) over the top of a level its sky zone is, to the
+        // bottom of the zone. A view ends at the top of the level, so she
+        // must fly this far out of view to find it: a player who gets the fly
+        // ability does not always find it (Jon, 2026-10-12).
+        sky_zone_rise_tiles: 5.0,
     ),
     // How the power-ups move once they are out of their block.
     power_ups: (

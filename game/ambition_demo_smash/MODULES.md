@@ -27,8 +27,9 @@
 | [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
 | [`stages`](src/stages.rs) | The `smash_stages` schema: Smash's stages, as data in its pack (`assets/data/smash_stages.ron`). |
 | [`tether`](src/tether.rs) | The tether reel: she throws a line at a ledge and it pulls her to it. |
+| [`text`](src/text.rs) | The lines Smash shows, as data in its pack (`assets/data/smash_text.ron`): the match's cards, the select screen, the pause offer and the launcher row. |
 
-_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

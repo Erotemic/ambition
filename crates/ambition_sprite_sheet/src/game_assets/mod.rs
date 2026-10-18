@@ -240,9 +240,11 @@ pub enum ParallaxTheme {
     /// drawing paper (`room_look_sky.py` in the parallax renderer). A room
     /// with that look names it as its `parallax_theme`.
     HubClean,
-    /// The same sky in its corrupted state: the city rebuilt in blocks. No
-    /// room names it. The look draws it over [`Self::HubClean`] where the air
-    /// of its room is corrupted.
+    /// The same room in its corrupted state: the city rebuilt in blocks, and
+    /// the stone of its blocks rebuilt in voxels. No room names it. Its sky
+    /// is drawn over [`Self::HubClean`]'s where the air of the room is
+    /// corrupted, and its skin is laid on the same blocks as the clean skin
+    /// (`terrain/two_state.py` in the sprite renderer).
     HubCorrupt,
 }
 
@@ -753,6 +755,10 @@ pub fn ensure_parallax_layers_for_room(
     // A room that names no theme has no skin: see `named_by_room_metadata`.
     if let Some(named) = ParallaxTheme::named_by_room_metadata(metadata) {
         assets.room_dressing.ensure_theme_loaded(catalog, asset_server, named);
+        // A theme with two states lays both skins on its blocks.
+        if let Some(corrupted) = named.corrupted() {
+            assets.room_dressing.ensure_theme_loaded(catalog, asset_server, corrupted);
+        }
     }
     if added > 0 {
         bevy::log::debug!(

@@ -778,7 +778,13 @@ struct SkinChunk {
 /// children, so they go with the room and its view layers.
 #[derive(Component)]
 pub struct RoomTerrain {
+    /// The theme whose pictures this terrain lays.
     pub theme: ParallaxTheme,
+    /// The theme of the blocks it is laid on: [`Self::theme`], or for the
+    /// second state of a two-state theme (`ParallaxTheme::corrupted`) the
+    /// theme the room names. Only the terrain of the room's own theme owns
+    /// the blocks' sprites; the other is laid over the same blocks.
+    pub blocks_of: ParallaxTheme,
     /// The size of the room, which places it in the frame of the room's
     /// visuals.
     pub world_size: Vec2,
@@ -792,8 +798,15 @@ pub struct RoomTerrain {
 
 impl RoomTerrain {
     pub fn new(theme: ParallaxTheme, world_size: Vec2) -> Self {
+        Self::state_of(theme, theme, world_size)
+    }
+
+    /// The terrain that lays the pictures of `theme` on the blocks of
+    /// `blocks_of`.
+    pub fn state_of(blocks_of: ParallaxTheme, theme: ParallaxTheme, world_size: Vec2) -> Self {
         Self {
             theme,
+            blocks_of,
             world_size,
             dirty: true,
             owners: Default::default(),
@@ -813,11 +826,28 @@ impl RoomTerrain {
     pub fn mesh_count(&self) -> usize {
         self.chunks.len()
     }
+
+    /// Whether this terrain owns the sprites of its blocks.
+    fn owns_blocks(&self) -> bool {
+        self.blocks_of == self.theme
+    }
 }
 
 /// A mesh of the skin of a room: a child of its [`RoomTerrain`].
 #[derive(Component, Clone, Copy, Debug)]
-pub struct TerrainSkinMesh;
+pub struct TerrainSkinMesh {
+    /// The theme whose pictures it shows.
+    pub theme: ParallaxTheme,
+    /// The middle of its square of the room ([`SKIN_CHUNK`]), in the
+    /// coordinates of its room (y is down). A look that shows one state of a
+    /// two-state theme in each part of a room decides by it.
+    pub centre: Vec2,
+}
+
+/// The middle of the square of the room of `key`.
+fn chunk_centre(key: &SkinChunkKey) -> Vec2 {
+    (Vec2::new(key.cell.0 as f32, key.cell.1 as f32) + Vec2::splat(0.5)) * SKIN_CHUNK
+}
 
 fn chunk_key(quad: &SkinQuad) -> SkinChunkKey {
     let cell = (quad.centre / SKIN_CHUNK).floor();
@@ -957,7 +987,7 @@ pub fn lay_room_terrain(
         let room = stamp(at);
         let laid: Vec<(Entity, TerrainSurface, bool)> = blocks
             .iter()
-            .filter(|(_, surface, _, block_room, ..)| surface.theme == theme && stamp(*block_room) == room)
+            .filter(|(_, surface, _, block_room, ..)| surface.theme == terrain.blocks_of && stamp(*block_room) == room)
             .map(|(entity, surface, _, _, with_art, _)| (entity, *surface, with_art))
             .collect();
         let parts = |part| skins.get(theme, part).is_some();
@@ -982,7 +1012,8 @@ pub fn lay_room_terrain(
         }
         // Each block's own sprite: nothing where its quads draw it, the
         // repeated fill where it is too large for quads.
-        for ((entity, surface, with_art), skin) in laid.iter().zip(&block_skins) {
+        let owns_blocks = terrain.owns_blocks();
+        for ((entity, surface, with_art), skin) in laid.iter().zip(&block_skins).filter(|_| owns_blocks) {
             // A block with art of its own keeps its sprite as the art made it.
             if *with_art {
                 continue;
@@ -1060,7 +1091,7 @@ pub fn lay_room_terrain(
                             Mesh2d(handle.clone()),
                             MeshMaterial2d(material),
                             Transform::from_xyz(0.0, 0.0, key.layer.z()),
-                            TerrainSkinMesh,
+                            TerrainSkinMesh { theme, centre: chunk_centre(key) },
                             Name::new("Terrain skin mesh"),
                             ChildOf(root),
                         ))

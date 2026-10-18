@@ -3068,6 +3068,50 @@ fn a_strike_through_two_chained_pairs_hurts_where_the_room_lets_it_reach() {
     }
 }
 
+/// Two ranked volumes of one move, one carried by its owner and one placed
+/// in the world, at the same place under a floor opening the owner is half
+/// through. The carried one is cut by the owner's pair and reaches under the
+/// ceiling; the placed one is whole in the floor. Each volume is placed by
+/// its own anchor when the lower-ranked one asks whether the other reaches
+/// the body too, whichever ranks first.
+#[test]
+fn a_ranked_sibling_is_placed_by_its_own_anchor() {
+    use crate::moveset::StrikeRank;
+    let carried = HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, 15.0) };
+    let placed = HitboxAnchor::World { center: ae::Vec2::new(0.0, 10.0) };
+    // (first-ranked, second-ranked, where the victim is, hits it takes)
+    for (first, second, at, hits) in [
+        // Under the ceiling only the carried volume reaches: it is second,
+        // and the placed one, whole in the floor, does not stand it down.
+        (placed, carried, ae::Vec2::new(500.0, -170.0), 1),
+        // In the floor only the placed volume reaches: it is second, and
+        // the carried one, cut away from the floor, does not stand it down.
+        (carried, placed, ae::Vec2::new(0.0, 30.0), 1),
+        // The control: a body both reach takes the first-ranked one only.
+        (carried, carried, ae::Vec2::new(500.0, -170.0), 1),
+    ] {
+        let mut passages = floor_to_ceiling();
+        let (floor, ceiling) = passages.pairs_in(None)[0];
+        let mut app = portal_strike_app(None);
+        // Its bottom 15 under the floor's opening. An enemy's move: a
+        // player's volume placed in the world hurts no body.
+        let owner = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(0.0, -5.0));
+        passages.add_straddler(owner, floor, ceiling);
+        app.insert_resource(passages);
+        let victim = hazard_victim(&mut app, ActorFaction::Player, at);
+        for (volume, anchor) in [(0, first), (1, second)] {
+            strike(&mut app, owner, anchor, ae::Vec2::splat(5.0));
+            let mut boxes = app.world_mut().query_filtered::<Entity, (With<Hitbox>, Without<StrikeRank>)>();
+            let made = boxes.iter(app.world()).next().expect("the volume");
+            let mut made = app.world_mut().entity_mut(made);
+            made.get_mut::<Hitbox>().expect("the volume").source = HitSide::Enemy;
+            made.insert(StrikeRank { window: 0, volume });
+        }
+        app.update();
+        assert_eq!(struck(&app, victim), hits, "{first:?} over {second:?}, the body at {at:?}");
+    }
+}
+
 /// A body whose own portal policy moves it whole is hit where it is, and not
 /// at its far end.
 #[test]

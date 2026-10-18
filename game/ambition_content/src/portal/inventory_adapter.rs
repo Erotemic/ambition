@@ -58,6 +58,7 @@ pub fn drop_portal_gun_system(
         (With<PortalGun>, Without<HeldItem>),
     >,
     mut sfx: ambition_sfx::SfxWriter,
+    tuning: Res<crate::tuning::AmbitionTuning>,
 ) {
     // The body whose press it was, for every drop in the tick. Each intent names
     // its body, so a second seat's drop cannot drop the first seat's gun. Taking
@@ -72,7 +73,7 @@ pub fn drop_portal_gun_system(
         let Some(scope) = scope else {
             continue;
         };
-        drop_one_portal_gun(drop.body, scope, &mut commands, &mut holders, &mut sfx);
+        drop_one_portal_gun(drop.body, scope, &tuning.0.portal_gun_drop, &mut commands, &mut holders, &mut sfx);
     }
 }
 
@@ -81,6 +82,7 @@ pub fn drop_portal_gun_system(
 fn drop_one_portal_gun(
     player: bevy::prelude::Entity,
     scope: SessionSpawnScope,
+    rules: &ambition_content_schemas::rules::PortalGunDrop,
     commands: &mut Commands,
     holders: &mut Query<
         (
@@ -106,9 +108,9 @@ fn drop_one_portal_gun(
         scope,
         (
             PortalGunPickup {
-                pos: kin.pos + Vec2::new(facing * 44.0, 0.0),
-                half_extent: Vec2::splat(20.0),
-                arm_timer: 0.35,
+                pos: kin.pos + Vec2::new(facing * rules.ahead_px, 0.0),
+                half_extent: Vec2::splat(rules.half_extent_px),
+                arm_timer: rules.arm_seconds,
                 // The gun that was just in this hand, not a fresh default one.
                 pair: gun.pair(),
             },

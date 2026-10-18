@@ -30,6 +30,12 @@ pub struct SmashRules {
     /// The stock counts the select screen's stocks button offers, in the
     /// order it walks them.
     pub stock_choices: Vec<u32>,
+    /// How long Back is held on the select screen before it leaves, in
+    /// seconds. Holding Back is navigation; tapping Back is token
+    /// manipulation.
+    pub back_hold_to_leave_seconds: f32,
+    /// How the select cursor feels.
+    pub select_cursor: crate::select_screen::cursor::CursorFeel,
     /// The swing a fighter that authors no kit is seated with
     /// ([`crate::smash_seating_melee`]).
     pub seating_melee: ambition_platformer2d::character::MeleeActionSpec,
@@ -73,6 +79,7 @@ impl SmashRules {
         for (field, value) in [
             ("return_to_select_seconds", self.return_to_select_seconds),
             ("sleep_mash_seconds", self.sleep_mash_seconds),
+            ("back_hold_to_leave_seconds", self.back_hold_to_leave_seconds),
             ("shark_ride.board_radius", ride.board_radius),
             ("shark_ride.board_deadline_seconds", ride.board_deadline_seconds),
             ("shark_ride.depart_speed", ride.depart_speed),
@@ -125,6 +132,7 @@ impl SmashRules {
             problems.push(format!("`seating_melee` reaches {} px; a swing reaches past the body", melee.reach_px()));
         }
         problems.extend(self.limit.problems().into_iter().map(|problem| format!("`limit`: {problem}")));
+        problems.extend(self.select_cursor.problems().into_iter().map(|problem| format!("`select_cursor`: {problem}")));
         problems
     }
 }
@@ -203,6 +211,18 @@ mod tests {
             Err(failure) => failure.render(),
         };
         assert!(refused.contains("`stock_choices[2]` repeats 3"), "the refusal names the field: {refused}");
+
+        // The select cursor's feel is the file's, and a build that takes no
+        // time is refused.
+        assert_eq!(crate::select_screen::cursor::cursor_feel(), file.select_cursor, "the cursor does not feel as the file states");
+        let speed = "cells_per_second: 4.5,";
+        assert_eq!(authored.matches(speed).count(), 1, "the probe edits the cursor speed");
+        assert_eq!(rules_of(&authored.replace(speed, "cells_per_second: 6.0,")).select_cursor.cells_per_second, 6.0);
+        let refused = match compile(&authored.replace("ramp_to_full_seconds: 0.6,", "ramp_to_full_seconds: 0.0,")) {
+            Ok(_) => panic!("a cursor build that takes no time was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`select_cursor`: `ramp_to_full_seconds` is 0"), "the refusal names the field: {refused}");
 
         // The swing a kitless fighter is seated with is the file's, and one
         // that reaches nothing is refused.

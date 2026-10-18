@@ -854,9 +854,6 @@ pub(crate) struct SelectDriverLocal {
     back_hold_seconds: [f32; MAX_SELECT_SOURCES],
 }
 
-/// Holding Back is navigation; tapping Back is token manipulation.
-const BACK_HOLD_TO_LEAVE_SECONDS: f32 = 0.55;
-
 /// Move every seat's cursor, and act on what each one is over.
 ///
 /// A mouse or finger writes a position, a held stick roams, and arrows and
@@ -1191,7 +1188,7 @@ pub(crate) fn drive_the_cursor(
         // hold timer is per seat.
         if drive.back_held {
             local.back_hold_seconds[seat] += inputs.time.delta_secs();
-            if exit && local.back_hold_seconds[seat] >= BACK_HOLD_TO_LEAVE_SECONDS {
+            if exit && local.back_hold_seconds[seat] >= crate::rules::smash_rules().back_hold_to_leave_seconds {
                 leave.0 = true;
             }
         } else {

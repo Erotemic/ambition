@@ -174,7 +174,7 @@ impl SelectLayout {
     /// One portrait cell's size in pixels.
     ///
     /// Public because the cursor speed is scaled from it
-    /// (`CURSOR_CELLS_PER_SECOND`): crossing one portrait always takes the same
+    /// (`CursorFeel::cells_per_second`): crossing one portrait always takes the same
     /// time, whatever the grid size.
     pub fn cell(&self) -> Vec2 {
         self.cell

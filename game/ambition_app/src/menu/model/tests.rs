@@ -670,10 +670,13 @@ fn the_radio_screen_says_what_is_playing() {
             })
             .collect::<Vec<_>>()
     };
+    // The line's words are the host's text file's.
+    let now_playing = crate::app::host_pack::host_text()
+        .fill("menu.system.now_playing", &[("name", &"Galvanic March \u{00b7} Howl")]);
     assert!(
-        texts(Some(SystemMenuEntryId::Radio)).contains(&"Now playing: Galvanic March \u{00b7} Howl".to_string()),
+        texts(Some(SystemMenuEntryId::Radio)).contains(&now_playing),
         "{:?}",
         texts(Some(SystemMenuEntryId::Radio))
     );
-    assert!(!texts(None).iter().any(|t| t.starts_with("Now playing")), "only the Radio screen names it");
+    assert!(!texts(None).contains(&now_playing), "only the Radio screen names it");
 }

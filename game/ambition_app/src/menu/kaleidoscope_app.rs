@@ -1567,8 +1567,8 @@ pub(crate) fn menu_confirm_label(
         return None;
     };
     match owned_item_action(owned, items, idx)? {
-        MenuPageAction::Equip(_) => Some("Equip".to_owned()),
-        MenuPageAction::Use(_) => Some("Use".to_owned()),
+        MenuPageAction::Equip(_) => Some(crate::app::host_pack::host_text().line("menu.items.equip").to_owned()),
+        MenuPageAction::Use(_) => Some(crate::app::host_pack::host_text().line("menu.items.use").to_owned()),
         _ => None,
     }
 }

@@ -51,8 +51,10 @@ a live reload is a second priority. Work in this order:
    game declares its keys and their holes, and admission refuses a missing
    line, an unknown line and an unknown hole, each by key and file. Done
    2026-10-18 for each game: Smash, Mary-O, Sanic and Versus
-   (`data/<game>_text.ron`) and Ambition's launcher row and start cover
-   (`data/ambition_text.ron`). A wording edit is 0.5-0.8 s to a test; it was
+   (`data/<game>_text.ron`) and Ambition's launcher row
+   (`data/ambition_text.ron`); the host's start cover and the pause menu's own
+   rows are the host's own pack (`ambition_app/assets/host/pack.ron`,
+   `host_text`), so no host module reads a content crate for its words. A wording edit is 0.5-0.8 s to a test; it was
    a crate build (Smash 11.7 s, Mary-O 18.7 s, Sanic 6.8 s) and a relink.
    Left: the shell's own words (menus, settings, the engine's "Talk" and
    "HP"), one shell text file by Q68
@@ -367,13 +369,16 @@ Open:
    `quest_payout.banner_seconds`, and the cut-rope trap (what hangs, in its
    order, the flattened banner and its time, the rope's spark rate) is
    `cut_rope_trap` in `ambition_rules.ron` (the anvil and piano enum is
-   deleted; the dialogue asks for a name from that list). Left, in the order
-   a designer would iterate them: the dropped portal gun
-   (`portal/inventory_adapter.rs`; it is in a seam marked for removal), then
-   the shown text of
-   each demo's banners, cards and HUD (done 2026-10-18: each game's
-   `data/<game>_text.ron`; the shell's words are left), the select
-   cursor's feel, and the effect looks last.
+   deleted; the dialogue asks for a name from that list). Done 2026-10-18:
+   the dropped portal gun is `portal_gun_drop` in `ambition_rules.ron`
+   (where it lies, its pickup box, its arm time; host-side policy, as the
+   `portal-gun-seam` FIXME asks, and it goes with that seam); each demo's
+   shown text is its `data/<game>_text.ron` (the shell's words are left);
+   Smash's select cursor (speed, the ramp, the Back hold) is
+   `select_cursor` and `back_hold_to_leave_seconds` in `smash_rules.ron`.
+   Each edit reached its test in 0.7-0.9 s with no compile. Left: the
+   title screen's timing, player colours, and the effect looks last
+   (sparkle, dust, bursts, Mary-O's sky shimmer, the room palette).
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is

@@ -190,11 +190,8 @@ pub(super) fn install_direct_startup_loading(app: &mut App) {
     );
 }
 
-fn spawn_direct_startup_loading_screen(
-    mut commands: Commands,
-    text: Res<ambition_content::shown_text::AmbitionShownText>,
-) {
-    let text = &text.0;
+fn spawn_direct_startup_loading_screen(mut commands: Commands) {
+    let text = super::host_pack::host_text();
     // The loading surface deliberately uses Bevy's built-in font. Depending on
     // an asynchronously loaded product font would make the loading screen
     // itself pop in late, defeating its immediate-response purpose.
@@ -319,9 +316,8 @@ fn drive_direct_startup_loading(
     mut gameplay: ResMut<InitialGameplayReadiness>,
     mut assets: StartupAssetInputs,
     mut ui: StartupUi,
-    text: Res<ambition_content::shown_text::AmbitionShownText>,
 ) {
-    let text = &text.0;
+    let text = super::host_pack::host_text();
     if state.revealed {
         return;
     }
@@ -643,6 +639,25 @@ fn update_startup_ui(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The cover's words are the host's text file's (`host_text.ron`).
+    #[test]
+    fn the_cover_says_what_the_host_file_states() {
+        use bevy::ecs::system::RunSystemOnce;
+        let mut world = World::new();
+        world.run_system_once(spawn_direct_startup_loading_screen).expect("the cover spawns");
+        let text = super::super::host_pack::host_text();
+        let shown = |world: &mut World, name: &str| {
+            let mut texts = world.query::<(&Name, &Text)>();
+            texts
+                .iter(world)
+                .find(|(each, _)| each.as_str() == name)
+                .map(|(_, text)| text.0.clone())
+                .unwrap_or_else(|| panic!("the cover has no `{name}`"))
+        };
+        assert_eq!(shown(&mut world, "Ambition Startup Wordmark"), text.line("loading.title"));
+        assert_eq!(shown(&mut world, "Ambition Startup Subtitle"), text.line("loading.subtitle"));
+    }
 
     #[test]
     fn ready_assets_must_survive_a_later_update_before_reveal() {

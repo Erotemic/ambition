@@ -146,13 +146,23 @@ fn add_edge_buttons(model: &mut MenuPageModel<MenuPage, MenuPageAction>, page: M
     );
 }
 
-fn page_label(page: MenuPage) -> &'static str {
-    match page {
-        MenuPage::Items => "Items",
-        MenuPage::Map => "Map",
-        MenuPage::Quest => "Quest",
-        MenuPage::System => "System",
-    }
+fn page_label(page: MenuPage) -> String {
+    line(match page {
+        MenuPage::Items => "menu.page.items",
+        MenuPage::Map => "menu.page.map",
+        MenuPage::Quest => "menu.page.quest",
+        MenuPage::System => "menu.page.system",
+    })
+}
+
+/// The host's line `key` (`host_text.ron`): the menu's own words.
+fn line(key: &str) -> String {
+    host().line(key).to_string()
+}
+
+/// The host's lines, for a line with holes.
+fn host() -> &'static ambition_platformer2d::content::ShownText {
+    crate::app::host_pack::host_text()
 }
 
 /// The cube faces (pages). `Items` is wired live from our inventory; the rest
@@ -345,7 +355,7 @@ pub fn items_spec(
     items: &ItemCatalog,
     equipped: Option<Item>,
 ) -> ItemsOnlyPageSpec<MenuPage, MenuPageAction> {
-    let mut spec = ItemsOnlyPageSpec::new(MenuPage::Items, "ITEMS")
+    let mut spec = ItemsOnlyPageSpec::new(MenuPage::Items, line("menu.items.title"))
         .with_grid(ITEM_GRID_ROWS, ITEM_GRID_COLS)
         .with_grid_rect(GRID_RECT);
     // No baked `selected_slot`: the focus highlight is applied IN PLACE from the
@@ -375,9 +385,9 @@ pub fn items_spec(
             if owns {
                 // Held-item weapons/abilities equip; everything else "uses".
                 let (action, label) = if items.held_item_id(item).is_some() {
-                    (MenuPageAction::Equip(item), "Equip")
+                    (MenuPageAction::Equip(item), line("menu.items.equip"))
                 } else {
-                    (MenuPageAction::Use(item), "Use")
+                    (MenuPageAction::Use(item), line("menu.items.use"))
                 };
                 node = node.action(action).action_label(label);
             }
@@ -416,7 +426,7 @@ fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
         79.6,
         23.0,
         2.6,
-        "SELECTED",
+        line("menu.items.selected"),
         MenuTextAlign::Center,
         MenuColor::rgba(1.0, 0.84, 0.38, 1.0),
     );
@@ -468,13 +478,13 @@ fn detail_lines(
     lines.truncate(DETAIL_VISIBLE_LINES);
     lines.push(String::new());
     let status = if !owned.has(item) {
-        "not owned".to_string()
+        line("menu.items.not_owned")
     } else if equipped == Some(item) {
-        "equipped".to_string()
+        line("menu.items.equipped")
     } else if items.held_item_id(item).is_some() {
-        "Activate to equip".to_string()
+        line("menu.items.activate_to_equip")
     } else {
-        "Activate to use".to_string()
+        line("menu.items.activate_to_use")
     };
     lines.extend(wrap_text(&status, DETAIL_WRAP_COLS));
     lines
@@ -531,13 +541,13 @@ pub fn build_inventory_pages_with_quality_prompt(
         build_items_page(owned, items, equipped),
         placeholder_page(
             MenuPage::Map,
-            "MAP",
-            "Area map: discovered rooms, anchors, portal markers (host data TODO).",
+            &line("menu.map.title"),
+            &line("menu.map.placeholder"),
         ),
         placeholder_page(
             MenuPage::Quest,
-            "QUEST",
-            "Quest status + key items from save data (host data TODO).",
+            &line("menu.quest.title"),
+            &line("menu.quest.placeholder"),
         ),
         build_system_page_with_quality_prompt(
             settings,
@@ -700,7 +710,7 @@ fn system_option_label(model: &SystemMenuModel, opt: SystemOptionId) -> String {
                 let marker = if r.active { "▶ " } else { "  " };
                 format!("{marker}{}", r.label)
             })
-            .unwrap_or_else(|| "Station".to_string()),
+            .unwrap_or_else(|| line("menu.system.missing_station")),
         SystemOptionId::Locale(id) => model
             .entry(SystemMenuEntryId::Language)
             .and_then(|e| match &e.target {
@@ -717,7 +727,7 @@ fn system_option_label(model: &SystemMenuModel, opt: SystemOptionId) -> String {
                 };
                 format!("{marker}{}", r.label)
             })
-            .unwrap_or_else(|| "Locale".to_string()),
+            .unwrap_or_else(|| line("menu.system.missing_locale")),
         SystemOptionId::Dev(id) => model
             .entry(SystemMenuEntryId::Developer)
             .and_then(|e| match &e.target {
@@ -743,27 +753,23 @@ fn system_option_label(model: &SystemMenuModel, opt: SystemOptionId) -> String {
                     format!("{}: {}", row.label, row.binding)
                 }
             })
-            .unwrap_or_else(|| "Rebind".to_string()),
+            .unwrap_or_else(|| line("menu.system.missing_rebind")),
     }
 }
 
 /// The description for a non-settings screen option.
 fn system_option_description(opt: SystemOptionId) -> String {
     match opt {
-        SystemOptionId::Radio(_) => {
-            "Play this station now (the menu stays open to audition).".to_string()
-        }
+        SystemOptionId::Radio(_) => line("menu.system.radio_detail"),
         SystemOptionId::Locale(id) => {
             if id.is_available() {
-                "Active interface language.".to_string()
+                line("menu.system.locale_detail")
             } else {
-                "Not available yet (real localization is a later pass).".to_string()
+                line("menu.system.locale_unavailable_detail")
             }
         }
         SystemOptionId::Dev(id) => id.description().to_string(),
-        SystemOptionId::Rebind(_) => {
-            "Press to rebind, then press the key or button you want.".to_string()
-        }
+        SystemOptionId::Rebind(_) => line("menu.system.rebind_detail"),
     }
 }
 
@@ -775,9 +781,9 @@ fn system_row_label(model: &SystemMenuModel, row: SystemRow) -> String {
             Some(SystemMenuTarget::Action(_)) => id.label().to_string(),
             _ => format!("{} >", id.label()),
         },
-        SystemRow::Back => "< Back".to_string(),
-        SystemRow::QualityApply(profile) => format!("Apply quality: {}", profile.label()),
-        SystemRow::QualityCancel => "Cancel quality change".to_string(),
+        SystemRow::Back => line("menu.system.back"),
+        SystemRow::QualityApply(profile) => host().fill("menu.system.quality_apply", &[("profile", &profile.label())]),
+        SystemRow::QualityCancel => line("menu.system.quality_cancel"),
         SystemRow::Setting(id) => match setting_entry(model, id) {
             Some(entry) => match entry.kind {
                 SettingsOptionKind::Action => entry.label,
@@ -793,14 +799,11 @@ fn system_row_label(model: &SystemMenuModel, row: SystemRow) -> String {
 fn system_row_description(model: &SystemMenuModel, row: SystemRow) -> String {
     match row {
         SystemRow::Entry(id) => id.description().to_string(),
-        SystemRow::Back => "Return to the SYSTEM list.".to_string(),
-        SystemRow::QualityApply(profile) => format!(
-            "Confirm the {} visual-quality profile. Textures and room visuals reload immediately after this is applied.",
-            profile.label()
-        ),
-        SystemRow::QualityCancel => {
-            "Discard the pending visual-quality profile and keep the current setting.".to_string()
+        SystemRow::Back => line("menu.system.back_detail"),
+        SystemRow::QualityApply(profile) => {
+            host().fill("menu.system.quality_apply_detail", &[("profile", &profile.label())])
         }
+        SystemRow::QualityCancel => line("menu.system.quality_cancel_detail"),
         SystemRow::Setting(id) => setting_entry(model, id)
             .map(|e| e.description)
             .unwrap_or_default(),
@@ -980,7 +983,7 @@ pub fn build_system_page_with_quality_prompt(
     let sys_model = system_menu_model_with_pending_quality(settings, radio, dev, pending_quality);
     let mut model = MenuPageModel::new(
         MenuPage::System,
-        "SYSTEM",
+        line("menu.system.title"),
         MenuColor::rgba(0.03, 0.04, 0.10, 0.96),
     );
     let rows = system_rows_with_quality_prompt(&sys_model, open_entry, pending_quality);
@@ -992,8 +995,8 @@ pub fn build_system_page_with_quality_prompt(
     let (window, indicator) = system_visible_window(&rows, window_start);
 
     let title = match open_entry {
-        None => "SYSTEM".to_string(),
-        Some(id) => format!("SYSTEM \u{2022} {}", id.label().to_uppercase()),
+        None => line("menu.system.title"),
+        Some(id) => host().fill("menu.system.screen_title", &[("screen", &id.label().to_uppercase())]),
     };
     let title = match indicator {
         Some(ind) => format!("{title}  {ind}"),
@@ -1149,8 +1152,8 @@ pub fn system_scrollbar_thumb(window_start: usize, total: usize) -> (f32, f32) {
 /// The Radio screen's "now playing" line.
 fn now_playing_line(radio: &RadioSnapshot) -> String {
     match &radio.now_playing {
-        Some(name) => format!("Now playing: {name}"),
-        None => "Now playing: nothing".to_string(),
+        Some(name) => host().fill("menu.system.now_playing", &[("name", name)]),
+        None => line("menu.system.now_playing_nothing"),
     }
 }
 
@@ -1200,7 +1203,7 @@ pub fn system_detail_slot_text(
                 system_row_description(sys_model, *row),
             )
         })
-        .unwrap_or_else(|| ("System".to_string(), "System options.".to_string()));
+        .unwrap_or_else(|| (line("menu.system.missing_label"), line("menu.system.missing_detail")));
     let mut out = vec![(SYSTEM_DETAIL_LABEL_SLOT, label)];
     let mut lines = wrap_text(&description, SYSTEM_DESC_WRAP_COLS);
     lines.truncate(SYSTEM_DETAIL_BODY_LINES as usize);

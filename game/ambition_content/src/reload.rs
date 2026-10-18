@@ -768,11 +768,11 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         domain: ambition_content_schemas::rules::AMBITION_RULES_SCHEMA,
         publish: publish_ambition_tuning,
     },
-    // The launcher row is read once when the launcher is built, so it keeps
-    // its start words; the cover reads the lines while it is up.
+    // The launcher row is read once, when the provider builds the launcher,
+    // so it keeps its start words until the next start.
     PackDerivedFamily {
         domain: ambition_content_schemas::text::AMBITION_TEXT_SCHEMA,
-        publish: publish_ambition_text,
+        publish: publish_nothing_a_running_game_reads,
     },
     PackDerivedFamily {
         domain: ambition_content_schemas::flag_chains::FLAG_CHAINS_SCHEMA,
@@ -1039,17 +1039,6 @@ fn publish_wielded_item_art(
 /// Ambition's own tuning is required: its readers have no engine answer to
 /// fall back on. So a candidate without `ambition_rules` keeps generation N's
 /// tuning, and says so.
-/// The lines Ambition shows are stated again from the new generation.
-fn publish_ambition_text(
-    world: &mut bevy::ecs::world::World,
-    pack: &ambition_content_pack::PreparedContentPack,
-) {
-    match ambition_content_schemas::text::lowered_ambition_text(pack) {
-        Some(text) => world.insert_resource(crate::shown_text::AmbitionShownText(text)),
-        None => bevy::log::error!("the candidate states no `ambition_text`; the reload keeps Ambition's lines"),
-    }
-}
-
 fn publish_ambition_tuning(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,

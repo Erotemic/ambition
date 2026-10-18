@@ -398,19 +398,68 @@ mod tests {
     }
 }
 
-/// How many portrait cells a fully deflected stick crosses per second.
-///
-/// A speed in cells, not a fraction of the viewport: it does not depend on
-/// aspect ratio (one scalar for both axes), scales with the grid, and is easy
-/// to reason about (4.5 portraits a second at full deflection).
-///
-/// This is the starting speed. A committed push builds up to
-/// [`RAMP_MAX_MULTIPLIER`] times this; see [`CursorRamp`]. Short movements, most
-/// of them, get this base.
-///
-/// Cells are 0.86 as wide as they are tall ([`PORTRAIT_ASPECT`]), so crossing a
-/// cell vertically takes about 16% longer than horizontally.
-pub const CURSOR_CELLS_PER_SECOND: f32 = 4.5;
+/// How the select cursor feels: its speed, and how speed builds while a
+/// direction is held. Smash's `select_cursor` in `assets/data/smash_rules.ron`;
+/// an edit is felt at the next start.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CursorFeel {
+    /// How many portrait cells a fully deflected stick crosses per second.
+    ///
+    /// A speed in cells, not a fraction of the viewport: it does not depend
+    /// on aspect ratio (one scalar for both axes), scales with the grid, and
+    /// is easy to reason about.
+    ///
+    /// This is the starting speed. A committed push builds up to
+    /// `ramp_max_multiplier` times this; see [`CursorRamp`]. Short movements,
+    /// most of them, get this base.
+    ///
+    /// Cells are 0.86 as wide as they are tall ([`PORTRAIT_ASPECT`]), so
+    /// crossing a cell vertically takes about 16% longer than horizontally.
+    pub cells_per_second: f32,
+    /// How far the stick must be pushed before the cursor builds any speed.
+    ///
+    /// A gentle push never accelerates, however long it is held: it means
+    /// "place the hand". Only a committed push builds speed.
+    pub ramp_arm_deflection: f32,
+    /// How long a committed push is held at base speed before it starts
+    /// building. So a correction never ramps: nudging one portrait over
+    /// takes a fraction of this.
+    pub ramp_arm_seconds: f32,
+    /// How long the build takes, once it starts.
+    pub ramp_to_full_seconds: f32,
+    /// Top speed, as a multiple of `cells_per_second`.
+    pub ramp_max_multiplier: f32,
+}
+
+impl CursorFeel {
+    /// Each value the cursor cannot use, named by its field.
+    pub fn problems(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        if !(self.cells_per_second.is_finite() && self.cells_per_second > 0.0) {
+            problems.push(format!("`cells_per_second` is {}; the cursor moves", self.cells_per_second));
+        }
+        if !(0.0..=1.0).contains(&self.ramp_arm_deflection) {
+            problems.push(format!("`ramp_arm_deflection` is {}; a push is from 0 to 1", self.ramp_arm_deflection));
+        }
+        if !(self.ramp_arm_seconds.is_finite() && self.ramp_arm_seconds >= 0.0) {
+            problems.push(format!("`ramp_arm_seconds` is {}; it is finite and not negative", self.ramp_arm_seconds));
+        }
+        // The build divides by it.
+        if !(self.ramp_to_full_seconds.is_finite() && self.ramp_to_full_seconds > 0.0) {
+            problems.push(format!("`ramp_to_full_seconds` is {}; the build takes some time", self.ramp_to_full_seconds));
+        }
+        if !(self.ramp_max_multiplier.is_finite() && self.ramp_max_multiplier >= 1.0) {
+            problems.push(format!("`ramp_max_multiplier` is {}; a held push does not slow the cursor", self.ramp_max_multiplier));
+        }
+        problems
+    }
+}
+
+/// The feel the demo's pack states.
+pub fn cursor_feel() -> CursorFeel {
+    crate::rules::smash_rules().select_cursor
+}
 
 /// The longest frame the cursor will integrate over.
 ///
@@ -418,27 +467,6 @@ pub const CURSOR_CELLS_PER_SECOND: f32 = 4.5;
 /// 0.4 of a cell in one unseen frame. The cursor is a pointer, not a physics
 /// body.
 pub const MAX_CURSOR_DT: f32 = 1.0 / 30.0;
-
-/// How far the stick must be pushed before the cursor builds any speed at all.
-///
-/// A gentle push never accelerates, however long it is held: it means "place
-/// the hand". Only a committed push builds speed.
-pub const RAMP_ARM_DEFLECTION: f32 = 0.6;
-
-/// How long a committed push is held at base speed before it starts building.
-///
-/// So a correction never ramps: nudging one portrait over takes a fraction of
-/// this.
-pub const RAMP_ARM_SECONDS: f32 = 0.18;
-
-/// How long the build takes, once it starts.
-pub const RAMP_TO_FULL_SECONDS: f32 = 0.6;
-
-/// Top speed, as a multiple of [`CURSOR_CELLS_PER_SECOND`].
-///
-/// Reached only after about 0.78s of continuous committed push, longer than
-/// most grid crossings; the cursor usually runs on the middle of the curve.
-pub const RAMP_MAX_MULTIPLIER: f32 = 2.2;
 
 /// Speed built up by holding a direction, so the cursor is unhurried over short
 /// distances and quick over long ones.
@@ -465,7 +493,7 @@ impl CursorRamp {
     /// Fold this frame in, and report the multiplier to apply to base speed.
     pub fn advance(&mut self, analog: Vec2, dt: f32) -> f32 {
         let magnitude = analog.length();
-        if magnitude < RAMP_ARM_DEFLECTION {
+        if magnitude < cursor_feel().ramp_arm_deflection {
             *self = Self::default();
             return 1.0;
         }
@@ -481,15 +509,16 @@ impl CursorRamp {
 
     /// The current multiplier, without advancing.
     pub fn multiplier(&self) -> f32 {
-        let building = (self.held_seconds - RAMP_ARM_SECONDS).max(0.0);
-        let t = (building / RAMP_TO_FULL_SECONDS).clamp(0.0, 1.0);
+        let feel = cursor_feel();
+        let building = (self.held_seconds - feel.ramp_arm_seconds).max(0.0);
+        let t = (building / feel.ramp_to_full_seconds).clamp(0.0, 1.0);
         let eased = t * t * (3.0 - 2.0 * t);
-        1.0 + eased * (RAMP_MAX_MULTIPLIER - 1.0)
+        1.0 + eased * (feel.ramp_max_multiplier - 1.0)
     }
 
     /// Whether any speed has been built. Diagnostics and tests, not gameplay.
     pub fn is_building(&self) -> bool {
-        self.held_seconds > RAMP_ARM_SECONDS
+        self.held_seconds > cursor_feel().ramp_arm_seconds
     }
 }
 
@@ -509,7 +538,7 @@ pub fn cursor_travel(analog: Vec2, cell: Vec2, dt: f32, ramp: f32) -> Vec2 {
         return Vec2::ZERO;
     }
     let direction = analog / analog.length();
-    let speed = magnitude * magnitude * CURSOR_CELLS_PER_SECOND * cell.x * ramp;
+    let speed = magnitude * magnitude * cursor_feel().cells_per_second * cell.x * ramp;
     direction * speed * dt.clamp(0.0, MAX_CURSOR_DT)
 }
 
@@ -560,9 +589,10 @@ mod cursor_travel_tests {
             "one portrait took {a:.3}s to cross on a 16:9 screen and {b:.3}s on a 4:3 one"
         );
         assert!(
-            (a - 1.0 / CURSOR_CELLS_PER_SECOND).abs() < 0.001,
+            (a - 1.0 / cursor_feel().cells_per_second).abs() < 0.001,
             "a full deflection crossed a cell in {a:.3}s, not the \
-             1/{CURSOR_CELLS_PER_SECOND} the constant promises"
+             1/{} the file promises",
+            cursor_feel().cells_per_second
         );
     }
 
@@ -643,7 +673,7 @@ mod cursor_travel_tests {
         let old_px_per_second = layout.viewport.x * 1.15;
         let dt = 1.0 / 60.0;
         let base = cursor_travel(Vec2::X, cell, dt, NO_RAMP).length() / dt;
-        let top = cursor_travel(Vec2::X, cell, dt, RAMP_MAX_MULTIPLIER).length() / dt;
+        let top = cursor_travel(Vec2::X, cell, dt, cursor_feel().ramp_max_multiplier).length() / dt;
         println!(
             "cell {cell:?}: base {base:.0}px/s, top {top:.0}px/s (old was {old_px_per_second:.0})"
         );
@@ -701,8 +731,9 @@ mod cursor_ramp_tests {
             "held 0.05s/{start:.2}x, 0.5s/{middle:.2}x, 1.5s/{end:.2}x — not a build"
         );
         assert!(
-            (end - RAMP_MAX_MULTIPLIER).abs() < 0.01,
-            "a long hold reached {end:.2}x, not the {RAMP_MAX_MULTIPLIER}x the constant promises"
+            (end - cursor_feel().ramp_max_multiplier).abs() < 0.01,
+            "a long hold reached {end:.2}x, not the {}x the file promises",
+            cursor_feel().ramp_max_multiplier
         );
         assert_eq!(
             much_later, end,
@@ -714,7 +745,7 @@ mod cursor_ramp_tests {
     /// the arming delay.
     #[test]
     fn a_short_correction_never_leaves_the_base_speed() {
-        for nudge in [0.016_f32, 0.05, 0.1, RAMP_ARM_SECONDS - 0.01] {
+        for nudge in [0.016_f32, 0.05, 0.1, cursor_feel().ramp_arm_seconds - 0.01] {
             assert_eq!(
                 after_holding(nudge),
                 1.0,
@@ -768,7 +799,7 @@ mod cursor_ramp_tests {
         let dt = 1.0 / 60.0;
         let mut multiplier = 1.0;
         for _ in 0..180 {
-            multiplier = ramp.advance(Vec2::X * (RAMP_ARM_DEFLECTION - 0.05), dt);
+            multiplier = ramp.advance(Vec2::X * (cursor_feel().ramp_arm_deflection - 0.05), dt);
         }
         assert_eq!(
             multiplier, 1.0,
@@ -806,8 +837,9 @@ mod cursor_ramp_tests {
         // The first and last frames of the build move far less than its
         // middle, which a corner would not do.
         let biggest = jumps.iter().cloned().fold(0.0_f32, f32::max);
-        let arming_frame = (RAMP_ARM_SECONDS / dt).ceil() as usize;
-        let full_frame = ((RAMP_ARM_SECONDS + RAMP_TO_FULL_SECONDS) / dt).floor() as usize;
+        let feel = cursor_feel();
+        let arming_frame = (feel.ramp_arm_seconds / dt).ceil() as usize;
+        let full_frame = ((feel.ramp_arm_seconds + feel.ramp_to_full_seconds) / dt).floor() as usize;
         assert!(
             jumps[arming_frame] < biggest * 0.25,
             "the build starts with a {:.4} step against a {biggest:.4} peak — that is a gear change",

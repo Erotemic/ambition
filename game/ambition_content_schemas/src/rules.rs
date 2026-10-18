@@ -23,6 +23,8 @@ pub struct AmbitionRules {
     pub symmetry_attunement: SymmetryAttunement,
     /// How a quest's payout is shown.
     pub quest_payout: QuestPayout,
+    /// Where a dropped portal gun lies, and when it can be taken again.
+    pub portal_gun_drop: PortalGunDrop,
     pub cut_rope_victory: VictoryNpc,
     pub cut_rope_trap: CutRopeTrap,
     pub duel: Duel,
@@ -130,6 +132,19 @@ pub struct SymmetryAttunement {
 pub struct QuestPayout {
     /// How long the payout banner stays (seconds).
     pub banner_seconds: f32,
+}
+
+/// The pickup a player leaves when it drops the portal gun.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PortalGunDrop {
+    /// How far ahead of the body, in the way it faces, the gun lies (px).
+    pub ahead_px: f32,
+    /// The half size of its pickup box (px).
+    pub half_extent_px: f32,
+    /// How long before it can be taken again (seconds), so the press that
+    /// dropped it cannot take it back.
+    pub arm_seconds: f32,
 }
 
 /// Ambition's day: how long it is, the hour each phase begins at, the hour a
@@ -339,6 +354,15 @@ impl AmbitionRules {
                 problems.push(format!("`{field}` is {value}; it is finite and more than 0"));
             }
         }
+        let drop = self.portal_gun_drop;
+        for (field, value) in [("portal_gun_drop.ahead_px", drop.ahead_px), ("portal_gun_drop.arm_seconds", drop.arm_seconds)] {
+            if !(value.is_finite() && value >= 0.0) {
+                problems.push(format!("`{field}` is {value}; it is finite and not negative"));
+            }
+        }
+        if !(drop.half_extent_px.is_finite() && drop.half_extent_px > 0.0) {
+            problems.push(format!("`portal_gun_drop.half_extent_px` is {}; a pickup has a size", drop.half_extent_px));
+        }
         let payout = self.quest_payout.banner_seconds;
         if !(payout.is_finite() && payout > 0.0) {
             problems.push(format!("`quest_payout.banner_seconds` is {payout}; a banner stays a while"));
@@ -529,6 +553,7 @@ mod tests {
                 banner_seconds: 4.0,
             },
             quest_payout: QuestPayout { banner_seconds: 3.0 },
+            portal_gun_drop: PortalGunDrop { ahead_px: 44.0, half_extent_px: 20.0, arm_seconds: 0.35 },
             cut_rope_trap: CutRopeTrap {
                 heavy_objects: vec![HeavyObject { prop: "cut_rope_anvil".to_string(), name: "anvil".to_string() }],
                 flattened_banner: "flattened by a {object}".to_string(),

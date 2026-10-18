@@ -73,7 +73,10 @@ a live reload is a second priority. Work in this order:
    [GNU-ton debts](game/gnu-ton-fight-debts.md)). The demos' remainder (Smash's
    specials, Mary-O's shells and plant, Sanic's ball dash and monitors) is
    named in [the packet catalog](engine/fast-iteration-implementation.md)
-   with the ports each one needs.
+   with the ports each one needs. Since 2026-10-18 Smash's riposte and placed
+   spring are modules (`ambition_demo_smash_modules`, special routes F1 and
+   F2: a fighter's special, a body strike, a module entity a move drops, its
+   touchers and a throw); an edit to one is a 0.6 s module build.
    Second priority, and only where a recompile does not depend on it: the
    live-reload remainder (a restated schema inside a live session, sprite
    publication inside a session). A live reload for the demo packs' tuning

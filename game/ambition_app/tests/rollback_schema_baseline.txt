@@ -180,6 +180,7 @@ derived.global_transform	derived	GlobalTransform	Bevy transform propagation rebu
 derived.gravity_zones	derived	GravityZones	rebuilt from authoritative GravityZone components before body integration
 derived.input_stream_recorder	derived	InputStreamRecorder	tick-addressed recording: a resimulation rewrites its own tail, so the stream needs no restore — and snapshotting it made frame N cost N
 derived.limb_bond_start	derived	LimbBondStart	written again each tick from its game's rollback state before any reader
+derived.module_entity_touchers	derived	ModuleEntityTouchers	written again in each tick's module_entity_tick collect and read only by that tick's lowering
 derived.navigation_advice	derived	NavigationAdvice	rebuilt in the Observe phase from the room's surface graph, each body and its brain's goal
 derived.nearest_interactable	derived	NearestInteractable	proximity read model recomputed per frame
 derived.perception_peers	derived	PerceptionPeers	perception snapshot rebuilt every tick before brains read it

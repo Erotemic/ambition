@@ -96,6 +96,11 @@ where
                 ^ kind
         },
     );
+    registrar.declare_rollback_derived_resource::<ambition_abilities::module_entity::ModuleEntityTouchers>(
+        OWNER,
+        "derived.module_entity_touchers",
+        "written again in each tick's module_entity_tick collect and read only by that tick's lowering",
+    );
     // It is not an actor fact and not an every-game fact — it is an authoring format's. Its
     // declaration now lives in `ambition_platformer2d_ldtk`; the runtime's opt-in `LdtkWorldPlugin`
     // installs that domain offer only for LDtk games.

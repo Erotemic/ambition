@@ -656,22 +656,30 @@ fn skirmisher_steers_away_from_aerial_crowding() {
         cooldown_remaining: cfg.fire_cooldown_s,
         ..Default::default()
     };
-    let mut clear = snap_at(0.0, 200.0);
-    clear.dt = 0.0;
-    let mut clear_brain = StateMachineCfg::Skirmisher { cfg, state };
-    let mut clear_out = crate::actor::control::ActorControlFrame::neutral();
-    tick_simple_state_machine(&mut clear_brain, &clear, &mut clear_out);
+    // A flyer steers by its velocity target; a grounded skirmisher steers by
+    // its throttle, which is the same orbit choice in its own frame.
+    for aerial in [true, false] {
+        let mut clear = snap_at(0.0, 200.0);
+        clear.dt = 0.0;
+        clear.actor_aerial = aerial;
+        let mut clear_brain = StateMachineCfg::Skirmisher { cfg, state };
+        let mut clear_out = crate::actor::control::ActorControlFrame::neutral();
+        tick_simple_state_machine(&mut clear_brain, &clear, &mut clear_out);
 
-    let mut crowded = clear;
-    crowded.crowding = Some(same_faction_crowding(ae::Vec2::new(-1.0, 0.0)));
-    let mut crowded_brain = StateMachineCfg::Skirmisher { cfg, state };
-    let mut crowded_out = crate::actor::control::ActorControlFrame::neutral();
-    tick_simple_state_machine(&mut crowded_brain, &crowded, &mut crowded_out);
+        let mut crowded = clear;
+        crowded.crowding = Some(same_faction_crowding(ae::Vec2::new(-1.0, 0.0)));
+        let mut crowded_brain = StateMachineCfg::Skirmisher { cfg, state };
+        let mut crowded_out = crate::actor::control::ActorControlFrame::neutral();
+        tick_simple_state_machine(&mut crowded_brain, &crowded, &mut crowded_out);
 
-    assert!(
-        crowded_out.velocity_target.x < clear_out.velocity_target.x,
-        "same-faction crowding should pull the skirmisher away from neighbors",
-    );
+        let steer = |out: &crate::actor::control::ActorControlFrame| {
+            if aerial { out.velocity_target.x } else { out.locomotion.x }
+        };
+        assert!(
+            steer(&crowded_out) < steer(&clear_out),
+            "same-faction crowding should pull the skirmisher away from neighbors (aerial: {aerial})",
+        );
+    }
 }
 
 #[test]

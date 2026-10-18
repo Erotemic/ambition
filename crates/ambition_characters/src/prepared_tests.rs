@@ -2301,7 +2301,7 @@ mod held_item_references {
             params: ParamValue::parse(&format!(
                 "(item_id: \"{item}\", fuse_s: 2.0, damage: 4, blast_radius: 24.0, \
                  impact_speed: 120.0, half_extents: (8.0, 8.0), offset: (0.0, 0.0), \
-                 knockback: 1.0)"
+                 knockback: 1.0, blast_s: 0.2)"
             ))
             .expect("the fixture's params parse"),
         }

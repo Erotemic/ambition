@@ -1138,20 +1138,25 @@ fn the_duelist_preset_is_a_fighter_brain() {
 #[test]
 fn every_ending_has_its_own_words() {
     use ambition_platformer2d::actor::MatchVerdict;
+    // The words are the pack's (`smash_text.ron`); the code chooses the line
+    // and fills its name.
+    let text = crate::text::smash_text();
     let seat = MatchVerdict::Winner("seat 2".to_string());
     assert_eq!(
         victory_banner(&seat, Some("Robot v3")),
-        "WINNER: Robot v3",
+        text.fill("banner.winner", &[("name", &"Robot v3")]),
         "the card printed the SIDE when a name was available, which is what \
          Jon was looking at when he asked about `seat 2 wins`"
     );
     assert_eq!(
         victory_banner(&seat, None),
-        "WINNER: seat 2",
+        text.fill("banner.winner", &[("name", &"seat 2")]),
         "with no name resolved, the side is the honest answer"
     );
-    assert!(victory_banner(&MatchVerdict::Draw, None).contains("Draw"));
-    assert!(victory_banner(&MatchVerdict::NoContest, None).contains("NO CONTEST"));
+    assert!(victory_banner(&seat, Some("Robot v3")).contains("Robot v3"), "the shipped card does not name the winner");
+    assert_eq!(victory_banner(&MatchVerdict::Draw, None), text.line("banner.draw"));
+    assert_eq!(victory_banner(&MatchVerdict::NoContest, None), text.line("banner.no_contest"));
+    assert_ne!(text.line("banner.draw"), text.line("banner.no_contest"), "a draw and a no contest read the same");
 }
 
 /// Walking off the respawn platform ends the protection, as in Smash.

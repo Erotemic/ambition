@@ -425,13 +425,13 @@ impl SmashSelect {
         self.decided() >= 2 && self.participating() == self.decided()
     }
 
-    /// Why the match cannot start, in the words the screen puts under the
-    /// cards.
+    /// Why the match cannot start: the key of the line the screen puts under
+    /// the cards (`smash_text.ron`).
     pub fn blocker(&self) -> Option<&'static str> {
         if self.participating() < 2 {
-            Some("Two fighters needed — click a slot's button to add a controller or a CPU")
+            Some("select.needs_two")
         } else if self.participating() != self.decided() {
-            Some("Drag each slot's token onto a portrait")
+            Some("select.drag_tokens")
         } else {
             None
         }
@@ -553,16 +553,16 @@ pub fn source_name_under(
     policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
 ) -> String {
     match local_source_under(device, policy) {
-        ambition_platformer2d::actor::LocalInputSource::Keyboard => "KEYBOARD".to_string(),
+        ambition_platformer2d::actor::LocalInputSource::Keyboard => crate::text::line("select.keyboard"),
         // A slot for an unplugged pad still names that pad; that is more
         // useful for debugging than hiding the gap.
         ambition_platformer2d::actor::LocalInputSource::Pad(pad)
             if devices.pad(pad as usize).is_some() =>
         {
-            format!("PAD {}", pad + 1)
+            crate::text::smash_text().fill("select.pad", &[("number", &(pad + 1))])
         }
         ambition_platformer2d::actor::LocalInputSource::Pad(pad) => {
-            format!("PAD {} (not connected)", pad + 1)
+            crate::text::smash_text().fill("select.pad_missing", &[("number", &(pad + 1))])
         }
     }
 }

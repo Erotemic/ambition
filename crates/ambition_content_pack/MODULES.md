@@ -16,8 +16,9 @@
 | [`refs`](src/refs.rs) | References — the two safe forms, and the one that is not. |
 | [`rules_schema`](src/rules_schema.rs) | A schema for one file of rules: a RON value that its owner reads whole. |
 | [`schema`](src/schema.rs) | Schema registration — how a capability contributes an authored content family WITHOUT editing one central closed enum. |
+| [`shown_text`](src/shown_text.rs) | A schema for a game's shown text: each line the game shows (a banner, a label, a card), by key, as data in its pack. |
 
-_10 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

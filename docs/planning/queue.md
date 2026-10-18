@@ -46,7 +46,13 @@ a live reload is a second priority. Work in this order:
    delete the Rust copy. A value read once at start is enough. In order:
    (a) the shown text, which has no data file at all (each demo's banners,
    HUD labels, cards, launcher rows, select screen, dialogue hints): one
-   strings schema for each pack; (b) the census tail (item 2 there);
+   strings schema for each pack. The engine side is
+   `shown_text_schema::<K>` (`ambition_content_pack::shown_text`): the
+   game declares its keys and their holes, and admission refuses a missing
+   line, an unknown line and an unknown hole, each by key and file. Smash
+   is done (`data/smash_text.ron`, 2026-10-18: a wording edit is 0.5 s to a
+   test, was an 11.7 s crate build and a relink); Mary-O, Sanic, Versus and
+   Ambition are left, in that order; (b) the census tail (item 2 there);
    (c) the procedural techniques still in `ambition_content` Rust, onto the
    module road (a relink and a restart now; 0.34 s on that road).
    Second priority, and only where a recompile does not depend on it: the
@@ -361,7 +367,8 @@ Open:
    a designer would iterate them: the dropped portal gun
    (`portal/inventory_adapter.rs`; it is in a seam marked for removal), then
    the shown text of
-   each demo's banners, cards and HUD (no text file exists), the select
+   each demo's banners, cards and HUD (Smash's is `data/smash_text.ron`;
+   the other demos have no text file yet), the select
    cursor's feel, and the effect looks last.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin

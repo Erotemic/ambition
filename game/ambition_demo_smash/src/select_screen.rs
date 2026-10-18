@@ -101,7 +101,7 @@ pub struct StageButtonLabel;
 /// What the stage button reads. Prefixed so it reads as a control, not only a
 /// state.
 pub fn stage_button_text(choice: crate::SmashStageChoice) -> String {
-    format!("Stage: {}", choice.label())
+    crate::text::smash_text().fill("select.stage", &[("stage", &choice.label())])
 }
 
 /// The stocks button's own label marker.
@@ -110,7 +110,7 @@ pub struct StocksButtonLabel;
 
 /// What the stocks button reads. Prefixed like the stage button's.
 pub fn stocks_button_text(choice: crate::SmashStockChoice) -> String {
-    format!("Stocks: {}", choice.label())
+    crate::text::smash_text().fill("select.stocks", &[("stocks", &choice.label())])
 }
 
 /// The chosen fighter's portrait on a card.
@@ -193,12 +193,12 @@ pub fn role_button_text(
     )>,
 ) -> String {
     match occupant {
-        SlotOccupant::Absent => "NOT PLAYING".to_string(),
+        SlotOccupant::Absent => crate::text::line("select.not_playing"),
         SlotOccupant::Controller { device } => match naming {
             Some((devices, policy)) => crate::select::source_name_under(device, devices, policy),
-            None => format!("CONTROLLER {}", device + 1),
+            None => crate::text::smash_text().fill("select.controller", &[("number", &(device + 1))]),
         },
-        SlotOccupant::Cpu => "CPU".to_string(),
+        SlotOccupant::Cpu => crate::text::line("select.cpu"),
     }
 }
 
@@ -211,7 +211,7 @@ pub fn card_name_text(
     match pick {
         // "RANDOM", not a fighter's name: the draw has not happened. A slot on
         // random is decided, so `ready()` counts it.
-        Some(SlotPick::Random) => "RANDOM".to_string(),
+        Some(SlotPick::Random) => crate::text::line("select.random"),
         Some(SlotPick::Fighter(index)) => match fighters.get(index) {
             Some(id) => display_name(catalog, id),
             None => "— no fighter —".to_string(),
@@ -464,7 +464,7 @@ pub fn spawn_select_screen(
             title.1.align_items = AlignItems::Center;
             root.spawn(title).with_children(|node| {
                 node.spawn((
-                    Text::new("CHOOSE YOUR FIGHTER"),
+                    Text::new(crate::text::line("select.title")),
                     text_font(26.0),
                     TextColor(INK),
                 ));
@@ -488,7 +488,7 @@ pub fn spawn_select_screen(
                     Name::new("back button"),
                 ))
                 .with_children(|node| {
-                    node.spawn((Text::new("BACK"), text_font(15.0), TextColor(DIM_INK)));
+                    node.spawn((Text::new(crate::text::line("select.back")), text_font(15.0), TextColor(DIM_INK)));
                 });
             }
 
@@ -613,7 +613,7 @@ pub fn spawn_select_screen(
                         }
                     }
                     cell.spawn((
-                        Text::new("RANDOM"),
+                        Text::new(crate::text::line("select.random")),
                         text_font(13.0),
                         TextColor(INK),
                         TextLayout::justify(Justify::Center),
@@ -646,7 +646,7 @@ pub fn spawn_select_screen(
                 Name::new("start button"),
             ))
             .with_children(|node| {
-                node.spawn((Text::new("START"), text_font(17.0), TextColor(INK)));
+                node.spawn((Text::new(crate::text::line("select.start")), text_font(17.0), TextColor(INK)));
             });
 
             let mut stage = anchored(Anchored::Stage);
@@ -711,7 +711,7 @@ pub fn spawn_select_screen(
                 ))
                 .with_children(|card| {
                     card.spawn((
-                        Text::new(format!("P{}", slot + 1)),
+                        Text::new(crate::text::smash_text().fill("select.slot", &[("number", &(slot + 1))])),
                         text_font(18.0),
                         TextColor(SLOT_COLORS[slot]),
                     ));
@@ -1578,12 +1578,12 @@ pub fn sync_select_chrome(
 
     for mut text in &mut prompt {
         let next = if let Some(refusal) = refusal.as_deref() {
-            format!("This match cannot start — {refusal}")
+            crate::text::smash_text().fill("select.refused", &[("refusal", &refusal)])
         } else {
             select
                 .blocker()
-                .map(str::to_string)
-                .unwrap_or_else(|| "Ready — click START".to_string())
+                .map(crate::text::line)
+                .unwrap_or_else(|| crate::text::line("select.ready"))
         };
         if text.0 != next {
             text.0 = next;

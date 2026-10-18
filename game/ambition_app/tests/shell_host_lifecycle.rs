@@ -524,7 +524,8 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
             ambition_content::provider::AMBITION_GAMEPLAY_ROUTE,
             ambition_demo_sanic::provider::SANIC_GAMEPLAY_ROUTE,
             ambition_demo_mary_o::provider::MARY_O_GAMEPLAY_ROUTE,
-            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            // Smash's row opens its select screen, not a match.
+            ambition_demo_smash::SMASH_SELECT_ROUTE,
         ],
         "launcher entries derive from the registered experiences, MINUS the \
          unlisted ones. An exact list on purpose — a launcher that silently gains \

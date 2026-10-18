@@ -47,6 +47,33 @@ fn player_x(app: &mut App) -> f32 {
         .unwrap_or(f32::NAN)
 }
 
+/// Each burst the app played since `record_bursts`: (count, speed, colour,
+/// kind).
+#[derive(Resource, Default)]
+pub(crate) struct PlayedBursts(pub(crate) Vec<(u32, f32, [f32; 4], ambition_platformer2d::vfx::ParticleKind)>);
+
+/// Record each burst the app plays from now on, in `PlayedBursts`.
+pub(crate) fn record_bursts(app: &mut App) {
+    fn record(
+        mut played: MessageReader<ambition_platformer2d::vfx::VfxInRoom>,
+        mut bursts: ResMut<PlayedBursts>,
+    ) {
+        for message in played.read() {
+            if let ambition_platformer2d::vfx::VfxMessage::Burst { count, speed, color, kind, .. } = message.vfx {
+                bursts.0.push((count, speed, color, kind));
+            }
+        }
+    }
+    app.init_resource::<PlayedBursts>();
+    app.add_systems(Last, record);
+}
+
+/// What a rules row plays, in the shape `PlayedBursts` records.
+pub(crate) fn shape_of(row: &ambition_demo_sanic::rules::Burst) -> (u32, f32, [f32; 4], ambition_platformer2d::vfx::ParticleKind) {
+    let kind = ambition_platformer2d::vfx::ParticleKind::named(&row.kind).expect("admission checked the kind");
+    (row.count, row.speed, row.color, kind)
+}
+
 fn phase(app: &mut App) -> Option<SanicActPhase> {
     let mut query = app.world_mut().query::<&SanicActState>();
     query.iter(app.world()).next().map(|s| s.phase)
@@ -61,6 +88,7 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
     // the ordering lives in ONE place now — after the participant pipeline's routing stage and
     // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
+    record_bursts(&mut app);
     for _ in 0..8 {
         app.update();
     }
@@ -156,6 +184,10 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
         panic!("the act stayed cleared while the results card is up");
     };
     assert_eq!(still, held, "the clock stops on a clear");
+    // The clear plays the burst its rules file states (`effects.act_clear`).
+    let clear = shape_of(&ambition_demo_sanic::rules::sanic_rules().effects.act_clear);
+    let played = &app.world().resource::<PlayedBursts>().0;
+    assert!(played.contains(&clear), "the clear did not play the file's burst {clear:?}: played {played:?}");
     eprintln!("sanic completed the act at frame {frame} in {time:.2}s with {rings} rings");
 }
 

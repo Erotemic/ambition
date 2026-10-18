@@ -280,13 +280,7 @@ pub fn break_monitor_boxes(
                 if rolling && near {
                     spent.spend(room, &block.name);
                     let center = (b.min + b.max) * 0.5;
-                    vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
-                        pos: center,
-                        count: 24,
-                        speed: 220.0,
-                        color: [0.45, 0.62, 0.70, 1.0],
-                        kind: ambition_platformer2d::vfx::ParticleKind::Shard,
-                    });
+                    vfx.write(crate::rules::sanic_rules().effects.wall_break.at(center));
                     sfx.write_from(
                         crate::provider::SANIC_EXPERIENCE,
                         ambition_platformer2d::sfx::SfxMessage::Play {
@@ -311,13 +305,7 @@ pub fn break_monitor_boxes(
             }
             spent.spend(room, &block.name);
             let center = (b.min + b.max) * 0.5;
-            vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
-                pos: center,
-                count: 16,
-                speed: 170.0,
-                color: [0.55, 0.75, 0.95, 1.0],
-                kind: ambition_platformer2d::vfx::ParticleKind::Shard,
-            });
+            vfx.write(crate::rules::sanic_rules().effects.monitor_break.at(center));
             // The monitor's own pop. H2/I3: a monitor is a prop in this course,
             // so the sound is the course's, not the host's. The breaker's own cue
             // (roll, stomp bounce) is emitted by the breaker.
@@ -586,6 +574,25 @@ mod tests {
             (true, true, held, held),
             "(Alice's monitor broken, Bob's monitor broken, Alice's rings, Bob's rings)"
         );
+    }
+
+    /// A broken monitor plays the burst its rules file states
+    /// (`effects.monitor_break`) at the monitor's centre.
+    #[test]
+    fn a_broken_monitor_plays_the_burst_its_rules_state() {
+        let (mut app, _) = two_room_monitor_app();
+        app.world_mut().spawn(landing_seat(0, LiveRoomInstance::ACTIVATION));
+        app.update();
+        let played: Vec<_> = app
+            .world()
+            .resource::<Messages<ambition_platformer2d::vfx::VfxInRoom>>()
+            .iter_current_update_messages()
+            .filter_map(|message| crate::rules::burst_shape(&message.vfx))
+            .collect();
+        // The fixture's monitor is 32 px square with its corner at (100, 200).
+        let centre = ae::Vec2::new(116.0, 216.0);
+        let stated = crate::rules::burst_shape(&crate::rules::sanic_rules().effects.monitor_break.at(centre));
+        assert_eq!(played, stated.into_iter().collect::<Vec<_>>(), "the monitor's burst is not the file's");
     }
 
     /// Two seats land on one monitor in one room in one tick. It pays once, to

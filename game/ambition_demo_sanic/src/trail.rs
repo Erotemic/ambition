@@ -13,7 +13,7 @@ use ambition_platformer2d::engine_core as ae;
 /// they go, their colour (`effects` in his rules file). `None` when it leaves
 /// none.
 fn dust_of(facts: &ae::BodyMotionFacts) -> Option<(f32, u32, f32, [f32; 4])> {
-    let effects = crate::rules::sanic_rules().effects;
+    let effects = &crate::rules::sanic_rules().effects;
     let puffs = if facts.skidding {
         effects.skid_dust
     } else if facts.running {
@@ -89,7 +89,7 @@ mod tests {
             "a skid is more dust, more often: {skid:?} against {run:?}"
         );
         // Each is the rules file's row.
-        let effects = crate::rules::sanic_rules().effects;
+        let effects = &crate::rules::sanic_rules().effects;
         let row = |puffs: crate::rules::Puffs| (puffs.period_s, puffs.count, puffs.speed, puffs.color);
         assert_eq!(run, row(effects.run_dust), "the run's puff is not the file's");
         assert_eq!(skid, row(effects.skid_dust), "the skid's spray is not the file's");

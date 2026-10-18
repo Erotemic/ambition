@@ -1136,15 +1136,10 @@ pub fn scatter_rings_on_hit(
             ));
         }
 
-        vfx.for_room(rooms.of(event.victim)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
-            pos: event.pos,
-            count: 24,
-            // Matched to the rings' own launch speed, so the sparkle reads as the
-            // same event and not a separate, smaller puff at the centre.
-            speed: loss.burst_speed,
-            color: [1.0, 0.86, 0.28, 1.0],
-            kind: ambition_platformer2d::vfx::ParticleKind::Dust,
-        });
+        // At the rings' own launch speed, so the sparkle reads as the same
+        // event and not a separate, smaller puff at the centre.
+        vfx.for_room(rooms.of(event.victim))
+            .write(crate::rules::sanic_rules().effects.ring_loss.at(event.pos, loss.burst_speed));
         // H2: losing your rings is the struck body's cue.
         sfx.write_for(
             event.victim,
@@ -1392,13 +1387,7 @@ pub fn clear_act_at_goal(
             rings: wallet.balance,
             dwell: crate::rules::sanic_rules().act.clear_dwell,
         };
-        vfx.for_room(rooms.live().of(runner)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
-            pos: kin.pos,
-            count: 40,
-            speed: 320.0,
-            color: [1.0, 0.92, 0.35, 1.0],
-            kind: ambition_platformer2d::vfx::ParticleKind::Dust,
-        });
+        vfx.for_room(rooms.live().of(runner)).write(crate::rules::sanic_rules().effects.act_clear.at(kin.pos));
         // H2/I3: the act's fanfare belongs to the course, not to the runner or
         // the host.
         sfx.write_from(

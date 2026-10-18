@@ -31,8 +31,8 @@ pub struct SanicRules {
     pub effects: Effects,
 }
 
-/// His look in motion.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+/// His look in motion, and the bursts of what he breaks.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Effects {
     /// The sparkles around the super form.
@@ -41,6 +41,105 @@ pub struct Effects {
     pub run_dust: Puffs,
     /// The spray a skidding body leaves.
     pub skid_dust: Puffs,
+    /// The bursts where a badnik is squashed, in the order they play.
+    pub badnik_squash: Vec<Burst>,
+    /// The burst where a monitor breaks.
+    pub monitor_break: Burst,
+    /// The burst where a rolling body breaks a wall.
+    pub wall_break: Burst,
+    /// The burst where a body crosses the goal.
+    pub act_clear: Burst,
+    /// The sparkle where a hit scatters the rings. It leaves at the rings'
+    /// own launch speed (`ring_loss.burst_speed`), so it reads as the same
+    /// event.
+    pub ring_loss: RingSparkle,
+}
+
+/// One burst of particles.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Burst {
+    pub count: u32,
+    /// How fast they leave (px per second).
+    pub speed: f32,
+    /// Their colour (sRGB and alpha, 0 to 1).
+    pub color: [f32; 4],
+    /// Their kind, as the burst port names it: `spark`, `dust`, `shard`,
+    /// `heart` or `streak`.
+    pub kind: String,
+}
+
+/// The ring scatter's sparkle: a burst at the rings' speed.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RingSparkle {
+    pub count: u32,
+    pub color: [f32; 4],
+    pub kind: String,
+}
+
+impl Burst {
+    /// The message that plays this burst at `pos`.
+    pub fn at(&self, pos: ambition_platformer2d::engine_core::Vec2) -> ambition_platformer2d::vfx::VfxMessage {
+        burst(pos, self.count, self.speed, self.color, &self.kind)
+    }
+
+    fn problems(&self, field: &str) -> Vec<String> {
+        let mut problems = look_problems(field, self.color, &self.kind);
+        if !(self.speed.is_finite() && self.speed >= 0.0) {
+            problems.push(format!("`{field}.speed` is {}; it is finite and not negative", self.speed));
+        }
+        problems
+    }
+}
+
+impl RingSparkle {
+    /// The message that plays this sparkle at `pos`, at `speed`.
+    pub fn at(&self, pos: ambition_platformer2d::engine_core::Vec2, speed: f32) -> ambition_platformer2d::vfx::VfxMessage {
+        burst(pos, self.count, speed, self.color, &self.kind)
+    }
+}
+
+fn burst(
+    pos: ambition_platformer2d::engine_core::Vec2,
+    count: u32,
+    speed: f32,
+    color: [f32; 4],
+    kind: &str,
+) -> ambition_platformer2d::vfx::VfxMessage {
+    ambition_platformer2d::vfx::VfxMessage::Burst {
+        pos,
+        count,
+        speed,
+        color,
+        // Admission refuses a kind the port does not name (`look_problems`).
+        kind: ambition_platformer2d::vfx::ParticleKind::named(kind).expect("the pack's admission checked the burst's kind"),
+    }
+}
+
+/// What a burst message plays and where: (place, count, speed, colour,
+/// kind). `None` for a message that is not a burst. A test compares a
+/// message to its rules row by this.
+#[cfg(test)]
+pub(crate) fn burst_shape(
+    message: &ambition_platformer2d::vfx::VfxMessage,
+) -> Option<(ambition_platformer2d::engine_core::Vec2, u32, f32, [f32; 4], ambition_platformer2d::vfx::ParticleKind)> {
+    match *message {
+        ambition_platformer2d::vfx::VfxMessage::Burst { pos, count, speed, color, kind } => Some((pos, count, speed, color, kind)),
+        _ => None,
+    }
+}
+
+/// The problems of a burst's colour and kind.
+fn look_problems(field: &str, color: [f32; 4], kind: &str) -> Vec<String> {
+    let mut problems = Vec::new();
+    if color.iter().any(|channel| !(0.0..=1.0).contains(channel)) {
+        problems.push(format!("`{field}.color` is {color:?}; each channel is from 0 to 1"));
+    }
+    if ambition_platformer2d::vfx::ParticleKind::named(kind).is_none() {
+        problems.push(format!("`{field}.kind` is `{kind}`; it is spark, dust, shard, heart or streak"));
+    }
+    problems
 }
 
 /// Particles left at one rate.
@@ -256,6 +355,13 @@ impl SanicRules {
         problems.extend(effects.super_sparkle.puffs.problems("effects.super_sparkle.puffs"));
         problems.extend(effects.run_dust.problems("effects.run_dust"));
         problems.extend(effects.skid_dust.problems("effects.skid_dust"));
+        for (index, squash) in effects.badnik_squash.iter().enumerate() {
+            problems.extend(squash.problems(&format!("effects.badnik_squash[{index}]")));
+        }
+        problems.extend(effects.monitor_break.problems("effects.monitor_break"));
+        problems.extend(effects.wall_break.problems("effects.wall_break"));
+        problems.extend(effects.act_clear.problems("effects.act_clear"));
+        problems.extend(look_problems("effects.ring_loss", effects.ring_loss.color, &effects.ring_loss.kind));
         for (field, value) in [("effects.super_sparkle.radius_px", effects.super_sparkle.radius_px), ("effects.super_sparkle.rise_px", effects.super_sparkle.rise_px)] {
             if !value.is_finite() {
                 problems.push(format!("`{field}` is {value}; it is finite"));
@@ -384,6 +490,14 @@ mod tests {
             .with_schemas(|| vec![sanic_rules_schema()]);
         let refusal = pack.compile().err().map(|failure| failure.render()).unwrap_or_default();
         assert!(refusal.contains("spin_dash.ball_side"), "a ball with no size is not refused by its field: {refusal}");
+        // A burst of a kind the burst port does not name is refused by its field.
+        let shards = r#"monitor_break: (count: 16, speed: 170.0, color: (0.55, 0.75, 0.95, 1.0), kind: "shard"),"#;
+        assert_eq!(authored.matches(shards).count(), 1, "the probe edits one burst");
+        std::fs::write(root.join("data/sanic_rules.ron"), authored.replace(shards, &shards.replace(r#""shard""#, r#""glitter""#))).unwrap();
+        let pack = EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None)
+            .with_schemas(|| vec![sanic_rules_schema()]);
+        let refusal = pack.compile().err().map(|failure| failure.render()).unwrap_or_default();
+        assert!(refusal.contains("effects.monitor_break.kind"), "a burst of no kind is not refused by its field: {refusal}");
 
         let par = "par_seconds: 30.0,";
         assert_eq!(authored.matches(par).count(), 1, "the probe edits one line of the file");

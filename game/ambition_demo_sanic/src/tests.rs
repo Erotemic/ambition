@@ -1818,6 +1818,18 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     emit_ring_shield_spend(&mut app, sanic, 6);
     app.update(); // the hit spends the rings → they burst
 
+    // The sparkle is the rules file's row (`effects.ring_loss`), at the
+    // rings' own launch speed.
+    let rules = crate::rules::sanic_rules();
+    let played: Vec<_> = app
+        .world()
+        .resource::<bevy::prelude::Messages<ambition_platformer2d::vfx::VfxInRoom>>()
+        .iter_current_update_messages()
+        .filter_map(|message| crate::rules::burst_shape(&message.vfx))
+        .collect();
+    let stated = crate::rules::burst_shape(&rules.effects.ring_loss.at(body, rules.ring_loss.burst_speed));
+    assert_eq!(played, stated.into_iter().collect::<Vec<_>>(), "the ring scatter's sparkle is not the file's");
+
     // Every lost ring launches with a real outward speed (not a static placement)
     // and is born AT the body.
     let bursts: Vec<crate::ScatteredRing> = {

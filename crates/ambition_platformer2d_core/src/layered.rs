@@ -303,6 +303,8 @@ impl Grid {
         let mut found: Vec<u32> = self.large.clone();
         if i64::from(x1 - x0 + 1) * i64::from(y1 - y0 + 1) > GRID_LARGE_CELLS * 16 {
             // A region the size of the room: every entry.
+            // AMBITION_REVIEW(determinism): the hash order does not get out;
+            // `found` is sorted and made unique below.
             found.extend(self.cells.values().flatten().copied());
         } else {
             for x in x0..=x1 {

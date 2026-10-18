@@ -1060,7 +1060,7 @@ struct RoomPlateSet {
 /// pieces now (a level that was loaded again) is drawn again.
 #[derive(Resource, Default)]
 struct RoomPlates {
-    by_room: std::collections::HashMap<String, RoomPlateSet>,
+    by_room: std::collections::BTreeMap<String, RoomPlateSet>,
 }
 
 impl RoomPlates {

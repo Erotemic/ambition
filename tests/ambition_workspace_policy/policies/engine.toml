@@ -2767,6 +2767,11 @@ skip_paths = [
     "ambition_platformer2d_shared_tangle/src/projectile/",
     "ambition_projectiles/src/",
     "ambition_portal2d/src/transit.rs",
+    # The snag: a body that straddles a portal frame meets its edge. It
+    # carries the body out (`carry_body`) and takes out the velocity into
+    # the edge, relative to the moving portal: the portal domain's collision
+    # response, as its transit is.
+    "ambition_portal2d/src/snag.rs",
     "ambition_platformer2d_actor_monolith/src/items/pickup/",
     # Dev tooling body-profile resize (feet-planted recenter).
     "ambition_dev_tools/src/dev_tools/editable.rs",

@@ -62,8 +62,9 @@ pub fn stop_posed_limbs_at_what_they_meet(
             at += out;
         }
         if at != step.curr {
-            kin.pos = at;
-            step.curr = at;
+            // A pin: the limb holds where it stopped, at its own velocity.
+            let vel = kin.vel;
+            ae::movement::constrain_body_pose(&mut kin, Some(&mut *step), at, vel);
             if let Some(mut aabb) = aabb {
                 aabb.center = at;
             }

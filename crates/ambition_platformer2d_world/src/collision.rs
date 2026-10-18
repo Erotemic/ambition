@@ -1538,17 +1538,23 @@ mod collision_world_tests {
             let reps = 200;
             // The room's index is made once, the first time it is asked.
             as_met_by(&walls, &[], &[], &[&glue]);
+            // AMBITION_REVIEW(determinism): a cost measurement reads the wall
+            // clock; no simulated value comes from it.
             let start = std::time::Instant::now();
             let mut kept = 0;
             for _ in 0..reps {
                 kept += as_met_by(&walls, &[], &[], &[&glue]).blocks.len();
             }
             let glued = start.elapsed() / reps;
+            // AMBITION_REVIEW(determinism): a cost measurement reads the wall
+            // clock; no simulated value comes from it.
             let start = std::time::Instant::now();
             for _ in 0..reps {
                 kept += as_met_by(&walls, &[], &[], &[]).blocks.len();
             }
             let plain = start.elapsed() / reps;
+            // AMBITION_REVIEW(determinism): a cost measurement reads the wall
+            // clock; no simulated value comes from it.
             let start = std::time::Instant::now();
             for _ in 0..reps {
                 kept += walls.clone().blocks.len();

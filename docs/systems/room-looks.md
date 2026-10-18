@@ -257,7 +257,9 @@ front as it moves.
   no room load).
 - The architecture of the two-state look is drawn by code when a room comes
   (`architecture.rs`), into textures. It is not a shader, and it is not an
-  authored tileset.
+  authored tileset. Its accent colours (magenta, cyan, gold) are written three times:
+  in `architecture.rs`, `room_plate.wgsl` and `room_state.wgsl`. A change
+  to one is a change to all three.
 - The drawing look (`debug_beautiful`) is still one shader: it draws the
   collision truth of a room, for a developer.
 - On a build with one thread (web), the task that draws the plates runs on the

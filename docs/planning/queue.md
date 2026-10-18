@@ -439,7 +439,15 @@ Open:
    schema of the host's pack (`data/cover_look.ron`; witness
    `the_cover_wears_what_the_host_file_states`, also by an edited file).
    Left in the game crates: developer overlays (gizmos, the rollback
-   observatory, the FPS readout), which are tools, not content.
+   observatory, the FPS readout), which are tools, not content. The room palettes stay Rust (decided 2026-10-18): the two-state
+   look's architecture (`room_look/architecture.rs`) is a procedural
+   program, and its sixteen named colours are a few of its hundreds of tone
+   and shape numbers, so moving them alone would split one author's work
+   between two files. Its shaders are data now (`content_asset!`). The
+   architecture moves with Jon's ruling that a look is authored textures,
+   not code ([room looks](../systems/room-looks.md)). Its accent colours
+   (magenta, cyan, gold) are written again in `room_plate.wgsl` and
+   `room_state.wgsl`; that copy is the look's own debt, recorded there.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is

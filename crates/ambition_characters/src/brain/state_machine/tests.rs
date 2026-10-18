@@ -494,18 +494,23 @@ fn skirmisher_volley_locks_firing_lane_and_does_not_retarget() {
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_simple_state_machine(&mut sm, &s, &mut out);
     assert!(out.ranged_aim_held);
+    let initial_aim = out.aim;
+    assert!(initial_aim.x > 0.0);
     // The foe runs behind the trooper DURING the warning. Both the first
     // shot and the later rounds must keep the original lane.
     s.target_pos = ae::Vec2::new(-130.0, 0.0);
     tick_simple_state_machine(&mut sm, &s, &mut out);
     assert!(out.ranged_aim_held);
+    assert_eq!(out.aim, initial_aim, "the warning pose must keep its locked lane");
     assert_eq!(out.facing, 1.0);
     tick_simple_state_machine(&mut sm, &s, &mut out);
     let first_dir = out.fire.expect("firing began").dir;
     assert!(first_dir.x > 0.0);
+    assert_eq!(out.aim, initial_aim, "the muzzle aim must match the shot");
     assert_eq!(out.facing, 1.0);
     tick_simple_state_machine(&mut sm, &s, &mut out);
     assert_eq!(out.fire.expect("sustained fire").dir, first_dir);
+    assert_eq!(out.aim, initial_aim);
     assert_eq!(out.facing, 1.0);
 }
 

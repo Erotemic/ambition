@@ -58,11 +58,14 @@ pub struct RoomNavigation {
     /// The graphs a body was advised from this tick. For instruments: a
     /// graph that is kept and not in use is no fact about the room now.
     in_use: Vec<NavGraphKey>,
+    /// Each live room's geometry stamp, folded again only when the room's
+    /// geometry is written.
+    stamps: ambition_platformer2d_world::navigation::GeometryStamps,
 }
 
 impl Default for RoomNavigation {
     fn default() -> Self {
-        Self { graphs: NavGraphCache::with_capacity(GRAPHS_KEPT), in_use: Vec::new() }
+        Self { graphs: NavGraphCache::with_capacity(GRAPHS_KEPT), in_use: Vec::new(), stamps: Default::default() }
     }
 }
 
@@ -95,7 +98,7 @@ impl RoomNavigation {
     fn graph_of(
         &mut self,
         world: &ae::World,
-        // `geometry_stamp(world, &[])`, stamped once for each world a tick.
+        // `geometry_stamp(world, &[])`, kept by `GeometryStamps`.
         stamp: u64,
         spec: ae::movement::MotionModelSpec,
         abilities: ae::AbilitySet,
@@ -159,10 +162,6 @@ pub fn advise_navigation(
 ) {
     advice.by_body.clear();
     cache.in_use.clear();
-    // Each live room's world is stamped once in this run, not once for each
-    // body in it: the stamp folds the whole world. A world is known by its
-    // address, which holds while this run borrows the collision world.
-    let mut stamps: Vec<(*const ae::World, u64)> = Vec::new();
     for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand, config, origin) in &bodies {
         let Some(request) = brain.navigation_request() else {
             continue;
@@ -183,14 +182,7 @@ pub fn advise_navigation(
             continue;
         };
         let world = room.base();
-        let stamp = match stamps.iter().find(|(known, _)| std::ptr::eq(*known, world)) {
-            Some((_, stamp)) => *stamp,
-            None => {
-                let stamp = ambition_platformer2d_world::navigation::geometry_stamp(world, &[]);
-                stamps.push((world, stamp));
-                stamp
-            }
-        };
+        let stamp = cache.stamps.of(room);
         let graph = cache.graph_of(
             world,
             stamp,
@@ -291,6 +283,7 @@ pub fn advise_navigation(
             },
         );
     }
+    cache.stamps.retire_unused();
 }
 
 #[cfg(test)]

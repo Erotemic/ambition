@@ -13,6 +13,7 @@ use ae::movement::MotionModelSpec;
 use ae::{AbilitySet, Aabb, BodyBaseSize, BodyClusterScratch, MotionFrame, Vec2, World};
 
 use super::NavGraph;
+use crate::collision::{GeometryRevision, RoomCollision};
 
 /// What one graph is a function of.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -147,6 +148,50 @@ pub fn geometry_stamp(world: &World, exits: &[Aabb]) -> u64 {
         fold.fold(((exit.max.x.to_bits() as u64) << 32) | exit.max.y.to_bits() as u64);
     }
     ae::navigation::mix(fold.0)
+}
+
+/// The stamps of live rooms' authored geometry ([`geometry_stamp`] with no
+/// exits), kept across ticks by [`GeometryRevision`]: a room's stamp is folded
+/// once for each write to its geometry, not once each tick. The fold reads the
+/// whole world: 5 us for the median shipped room and 21 us for the largest
+/// (`hall_of_characters`), in a debug build (measured 2026-10-18).
+#[derive(Default)]
+pub struct GeometryStamps {
+    /// The stamps asked for before the last [`Self::retire_unused`].
+    kept: Vec<(GeometryRevision, u64)>,
+    /// The stamps asked for since.
+    used: Vec<(GeometryRevision, u64)>,
+    folds: u64,
+}
+
+impl GeometryStamps {
+    /// The stamp of `room`'s authored geometry ([`RoomCollision::base`]).
+    pub fn of(&mut self, room: RoomCollision<'_>) -> u64 {
+        let revision = room.geometry_revision();
+        if let Some((_, stamp)) = self.used.iter().find(|(known, _)| *known == revision) {
+            return *stamp;
+        }
+        let stamp = match self.kept.iter().find(|(known, _)| *known == revision) {
+            Some((_, stamp)) => *stamp,
+            None => {
+                self.folds += 1;
+                geometry_stamp(room.base(), &[])
+            }
+        };
+        self.used.push((revision, stamp));
+        stamp
+    }
+
+    /// Forget each stamp not asked for since the last call: of a room that
+    /// is gone, or of geometry written since.
+    pub fn retire_unused(&mut self) {
+        self.kept = std::mem::take(&mut self.used);
+    }
+
+    /// How many times a world was folded. For tests and instruments.
+    pub fn folds(&self) -> u64 {
+        self.folds
+    }
 }
 
 /// A serde serializer that folds each value into one number, with no
@@ -379,5 +424,42 @@ mod tests {
             stamp(&room(vec![moving_faster])),
             "two speeds of one moving block have one stamp"
         );
+    }
+
+    #[derive(bevy_ecs::resource::Resource, Default)]
+    struct Stamped(GeometryStamps, Vec<u64>);
+
+    fn stamp_the_room(collision: crate::collision::CollisionWorld, mut out: bevy_ecs::system::ResMut<Stamped>) {
+        let out = &mut *out;
+        let stamp = out.0.of(collision.room(None).expect("one live room"));
+        // A second reader in one run reads the kept stamp.
+        assert_eq!(out.0.of(collision.room(None).expect("one live room")), stamp);
+        out.0.retire_unused();
+        out.1.push(stamp);
+    }
+
+    /// A room's stamp is folded once for each write to its geometry, and not
+    /// each tick; a write that keeps the count of blocks is a write.
+    #[test]
+    fn a_room_is_stamped_again_only_when_its_geometry_is_written() {
+        use bevy_ecs::world::World as EcsWorld;
+        let mut world = EcsWorld::new();
+        world.init_resource::<Stamped>();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(&mut world, ae::RoomGeometry(room(vec![floor()])));
+        let run = world.register_system(stamp_the_room);
+        world.run_system(run).unwrap();
+        world.run_system(run).unwrap();
+        let stamps = |world: &EcsWorld| (world.resource::<Stamped>().0.folds(), world.resource::<Stamped>().1.clone());
+        let (folds, seen) = stamps(&world);
+        assert_eq!(folds, 1, "an unchanged room was folded again");
+        assert_eq!(seen[0], geometry_stamp(&room(vec![floor()]), &[]), "the kept stamp is the geometry's");
+
+        let mut lower = floor();
+        lower.aabb = ae::Aabb::new(Vec2::new(400.0, 560.0), Vec2::new(400.0, 50.0));
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(&mut world, ae::RoomGeometry(room(vec![lower.clone()])));
+        world.run_system(run).unwrap();
+        let (folds, seen) = stamps(&world);
+        assert_eq!(folds, 2, "a write to the geometry, with the count of blocks kept, was not seen");
+        assert_eq!(seen[2], geometry_stamp(&room(vec![lower]), &[]), "the stamp of the geometry before the write");
     }
 }

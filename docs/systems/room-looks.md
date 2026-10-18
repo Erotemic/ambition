@@ -134,8 +134,10 @@ front as it moves.
   per room: a pillar is a block 48 wide or less and over 96 high, an arcade
   hangs from a platform (40 high or less, 96 wide or more) whose whole
   underside is open, ivy is on some open top corners of a block 96 wide or
-  more, an emblem needs a face of 150 x 150. The hub has no face that large,
-  so it shows no emblem. The frame around a door is not drawn.
+  more, an emblem needs a face of 150 x 150. The hub has no face that large:
+  its emblems are medallions, the emblem at half size hung from the crown of
+  each long bay of an arcade that has no banner. The frame around a door is
+  not drawn.
 - The accent colours (magenta, cyan) are written in `two_state.py`,
   `room_skin.wgsl` and `room_state.wgsl`. A change to one is a change to all
   three.

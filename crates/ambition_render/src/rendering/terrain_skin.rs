@@ -750,6 +750,11 @@ const EMBLEM_SIZE: Vec2 = Vec2::new(76.0, 108.0);
 const EMBLEM_PERIOD: f32 = 320.0;
 const EMBLEM_MIN_FACE: f32 = 150.0;
 const EMBLEM_MARGIN: f32 = 62.0;
+/// The size of the emblem as a medallion in a bay of the arcade, as a
+/// fraction of its size on a wall, and how far below the platform the crown
+/// of an arch is (`arch_part` in `ornaments.py`: the soffit is 6 deep).
+const MEDALLION_SCALE: f32 = 0.5;
+const ARCH_CROWN: f32 = 6.0;
 
 fn is_pillar(size: Vec2) -> bool {
     size.x <= PILLAR_MAX_WIDTH && size.y > PILLAR_MIN_HEIGHT
@@ -803,8 +808,8 @@ fn strip_quad(owner: Entity, part: RoomDressingPart, layer: SkinLayer, centre: V
 }
 
 /// The ornaments of one solid block or one-way platform: the arcade below a
-/// platform and its banners, and the ivy on its top corners with what hangs
-/// below them.
+/// platform, a banner or a medallion in each long bay of it, and the ivy on
+/// its top corners with what hangs below them.
 fn lay_ornaments(
     owner: Entity,
     surface: &TerrainSurface,
@@ -845,9 +850,21 @@ fn lay_ornaments(
                 quad.size.x = bw;
                 out.push(quad);
             }
-            if parts.has(RoomDressingPart::Banner) && bay >= BANNER_MIN_BAY && dice(seed.wrapping_add(i.wrapping_mul(2_654_435_761)).wrapping_add(660)) < 0.55 {
+            if bay < BANNER_MIN_BAY {
+                continue;
+            }
+            let banner = dice(seed.wrapping_add(i.wrapping_mul(2_654_435_761)).wrapping_add(660)) < 0.55;
+            if banner && parts.has(RoomDressingPart::Banner) {
                 let centre = Vec2::new(x0 + bay * 0.5, max.y + BANNER_SIZE.y * 0.5);
                 out.push(SkinQuad::at_scale(owner, RoomDressingPart::Banner, SkinLayer::Banner, centre, BANNER_SIZE, Vec2::ZERO));
+            } else if !banner && parts.has(RoomDressingPart::Emblem) {
+                // A bay with no banner has the emblem as a medallion, hung
+                // from the crown of its arch by its upright line.
+                let size = EMBLEM_SIZE * MEDALLION_SCALE;
+                let centre = Vec2::new(x0 + bay * 0.5, max.y + ARCH_CROWN + size.y * 0.5);
+                let mut quad = SkinQuad::at_scale(owner, RoomDressingPart::Emblem, SkinLayer::Banner, centre, EMBLEM_SIZE, Vec2::ZERO);
+                quad.size = size;
+                out.push(quad);
             }
         }
     }

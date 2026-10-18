@@ -396,7 +396,16 @@ Open:
    `each_shader_is_served_as_its_file_is_saved` in each crate: a file saved
    after the build is what the built binary serves (red with one shader
    back on `embedded_asset!`, and with one not served). The engine crates'
-   shaders stay compiled in: they are engine code.
+   shaders stay compiled in: they are engine code. The cut-rope trap's
+   effects (the shards of the cut, the sparks on the waiting rope and the
+   rows they play, the landing's explosion, fireworks and sparks) are
+   `cut_rope_trap.effects` in `ambition_rules.ron`; each reader reads the
+   row where it plays it, so a content reload reaches the next cut. Admission
+   refuses a colour part outside 0 to 1, no spark rows and a band upside
+   down, by field. Witnesses in `cut_rope_arena.rs`, one for each reader: a
+   row that is not the shipped one is what is played (each red with its
+   reader on the compiled number). An edit reached its test in 0.70 s with
+   no compile.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is

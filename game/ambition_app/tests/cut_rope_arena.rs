@@ -161,6 +161,130 @@ fn slashing_the_rope_publishes_the_gate_the_encounter_script_waits_on() {
     );
 }
 
+/// The shards of the cut are the rules' `cut_rope_trap.effects.cut`: a row
+/// that is not the shipped one is what the cut throws.
+#[test]
+fn the_cut_throws_the_shards_its_rules_state() {
+    let mut sim = cut_rope_sim();
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let cut = {
+        let mut tuning = sim.world_mut().resource_mut::<ambition_content::tuning::AmbitionTuning>();
+        let cut = &mut tuning.0.cut_rope_trap.effects.cut;
+        cut.count += 3;
+        cut.speed += 17.0;
+        cut.color = [0.11, 0.22, 0.33, 0.44];
+        *cut
+    };
+    let rope = rope_pos(&mut sim);
+
+    slash(&mut sim, rope);
+    sim.step(AgentAction::default());
+
+    let shards: Vec<_> = sim
+        .world_mut()
+        .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::VfxInRoom>>()
+        .iter_current_update_messages()
+        .filter_map(|row| match row.vfx {
+            ambition_platformer2d::vfx::VfxMessage::Burst { pos, count, speed, color, .. } if pos == rope => {
+                Some((count, speed, color))
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(shards, vec![(cut.count, cut.speed, cut.color)], "the cut's shards at the rope");
+}
+
+/// The sparks on the cut rope while the object waits over him are the rules'
+/// `cut_rope_trap.effects.rope_sparks`: the effect rows they play and their
+/// size.
+#[test]
+fn the_waiting_rope_sparks_play_the_rows_its_rules_state() {
+    use ambition_platformer2d::vfx::fx::FxId;
+    use ambition_platformer2d::vfx::FxRequest;
+    let mut sim = cut_rope_sim();
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    {
+        let mut tuning = sim.world_mut().resource_mut::<ambition_content::tuning::AmbitionTuning>();
+        let sparks = &mut tuning.0.cut_rope_trap.effects.rope_sparks;
+        sparks.effects = vec!["sonic_boom".to_string()];
+        sparks.scale = 0.9;
+    }
+    let rope = rope_pos(&mut sim);
+    slash(&mut sim, rope);
+    let mut played = Vec::new();
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+        played.extend(
+            sim.world_mut()
+                .resource::<bevy::ecs::message::Messages<FxRequest>>()
+                .iter_current_update_messages()
+                .map(|request| (request.fx, request.scale)),
+        );
+    }
+    assert!(!played.is_empty(), "premise: the waiting rope sparked");
+    assert!(
+        played.iter().all(|&(fx, scale)| fx == FxId::new("sonic_boom") && scale == 0.9),
+        "each spark is the rules' row at the rules' size: {played:?}"
+    );
+}
+
+/// The show when the object lands on him is the rules'
+/// `cut_rope_trap.effects.landing`: a row that is not the shipped one is
+/// what the landing plays.
+#[test]
+fn the_landing_plays_the_show_its_rules_state() {
+    use ambition_platformer2d::vfx::{FireworksRequest, FxRequest, VfxInRoom, VfxMessage};
+    let mut sim = cut_rope_sim();
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let landing = {
+        let mut tuning = sim.world_mut().resource_mut::<ambition_content::tuning::AmbitionTuning>();
+        let landing = &mut tuning.0.cut_rope_trap.effects.landing;
+        landing.explosion_scale = 0.75;
+        landing.fireworks.count += 2;
+        landing.fireworks.spread = (111.0, 222.0);
+        landing.fireworks.seconds = 1.5;
+        landing.sparks.count += 5;
+        landing.sparks.color = [0.5, 0.25, 0.125, 1.0];
+        *landing
+    };
+    let room = *ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+        ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+    >(sim.world_mut())
+    .expect("the session has a live room");
+    sim.world_mut().write_message(EncounterGate::new("cut_rope_impact").in_room(Some(room)));
+    sim.step(AgentAction::default());
+
+    let world = sim.world_mut();
+    let scales: Vec<f32> = world
+        .resource::<bevy::ecs::message::Messages<FxRequest>>()
+        .iter_current_update_messages()
+        .map(|request| request.scale)
+        .collect();
+    assert!(scales.contains(&landing.explosion_scale), "the explosion's scale: {scales:?}");
+    let shows: Vec<_> = world
+        .resource::<bevy::ecs::message::Messages<FireworksRequest>>()
+        .iter_current_update_messages()
+        .map(|show| (show.count, show.spread, show.duration))
+        .collect();
+    let spread = ambition_platformer2d::engine_core::Vec2::new(landing.fireworks.spread.0, landing.fireworks.spread.1);
+    assert_eq!(shows, vec![(landing.fireworks.count, spread, landing.fireworks.seconds)], "the fireworks");
+    let sparks: Vec<_> = world
+        .resource::<bevy::ecs::message::Messages<VfxInRoom>>()
+        .iter_current_update_messages()
+        .filter_map(|row| match row.vfx {
+            VfxMessage::Burst { count, speed, color, .. } if color == landing.sparks.color => Some((count, speed)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(sparks, vec![(landing.sparks.count, landing.sparks.speed)], "the landing's sparks");
+}
+
 /// The rope's beat walks the boss to its mark under the anvil. The script
 /// gives it a `CommandedMove`; the boss integrator must move it by that
 /// steering, which is the one walk road of every body

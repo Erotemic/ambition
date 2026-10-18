@@ -112,6 +112,32 @@
         banner_seconds: 2.8,
         // Seconds between two sparks on the rope while it waits to be cut.
         rope_spark_seconds: 0.22,
+        // How the trap looks. A speed is px per second; a colour is (red,
+        // green, blue, alpha), each 0 to 1.
+        effects: (
+            // The shards when the rope is cut.
+            cut: (count: 14, speed: 160.0, color: (0.90, 0.82, 0.58, 0.78)),
+            // The sparks on the rope while it waits: the effect rows they play
+            // in turn, their size, the band across the rope (px), how far above
+            // its centre (the least and the most, px), and how far toward the
+            // boss (a share of his distance from the rope, up to a reach, px).
+            rope_sparks: (
+                effects: ["starburst", "classic_burst", "burst_round", "shockwave", "smoke_burst"],
+                scale: 0.48,
+                across_px: 44.0,
+                above_px: (16.0, 74.0),
+                pull_share: 0.18,
+                pull_reach_px: 80.0,
+            ),
+            // When it lands on him: the explosion's size, the fireworks (how
+            // many, the area they go off in, px, and for how long, seconds),
+            // and the sparks.
+            landing: (
+                explosion_scale: 1.25,
+                fireworks: (count: 18, spread: (420.0, 280.0), seconds: 2.75),
+                sparks: (count: 28, speed: 260.0, color: (0.84, 0.95, 1.0, 0.86)),
+            ),
+        ),
     ),
     // Ambition's day: 24 minutes of play (an hour of the day a minute), and a
     // session begins at 8 in the morning. Each phase begins at its hour and

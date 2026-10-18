@@ -119,6 +119,12 @@
         panel: (0.07, 0.08, 0.13),
         panel_edge: (0.20, 0.23, 0.33),
         backdrop: (0.03, 0.035, 0.06),
+        // The fill of the stage, stocks and Back buttons.
+        button: (0.11, 0.12, 0.18),
+        // The letters of a portrait that has no art.
+        monogram_ink: (0.28, 0.31, 0.42),
+        // The rim of a slot's token (red, green, blue, alpha).
+        token_rim: (1.0, 1.0, 1.0, 0.85),
     ),
     // The swing a fighter that authors no kit is seated with. Many of
     // Ambition's cast are peaceful; seated in the arena, each throws this. It

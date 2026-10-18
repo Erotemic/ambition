@@ -513,6 +513,34 @@ fn the_stage_button_cycles_the_stage_the_match_will_prepare() {
     );
 }
 
+/// The stage button's fill and each token's rim are `select_look`'s
+/// (`smash_rules.ron`).
+#[test]
+fn the_buttons_and_tokens_wear_the_files_colours() {
+    let mut app = build_demo_app();
+    plug_in(&mut app, 0);
+    app.update();
+    let look = ambition_demo_smash::select_screen::select_look();
+    let [r, g, b] = look.button;
+    let fills: Vec<Color> = app
+        .world_mut()
+        .query::<(&Name, &BackgroundColor)>()
+        .iter(app.world())
+        .filter(|(name, _)| name.as_str() == "stage button")
+        .map(|(_, fill)| fill.0)
+        .collect();
+    assert_eq!(fills, vec![Color::srgb(r, g, b)], "the stage button's fill");
+    let [r, g, b, a] = look.token_rim;
+    let rims: Vec<BorderColor> = app
+        .world_mut()
+        .query_filtered::<&BorderColor, With<SlotToken>>()
+        .iter(app.world())
+        .copied()
+        .collect();
+    assert!(!rims.is_empty(), "premise: the tokens are spawned");
+    assert!(rims.iter().all(|rim| *rim == BorderColor::all(Color::srgba(r, g, b, a))), "each token's rim: {rims:?}");
+}
+
 /// What the stage button is currently showing.
 fn stage_label_text(app: &mut App) -> String {
     use ambition_demo_smash::select_screen::StageButtonLabel;

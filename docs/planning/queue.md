@@ -430,7 +430,16 @@ Open:
    copy of its renderer's constants; the exporter
    (`export_director_vanity_card.py`) now writes them into the baked table
    (`look`), and `the_card_wears_the_renderers_colours` is red when the
-   renderer changes and the bake does not.
+   renderer changes and the bake does not. The select screen's last Rust colours (the
+   stage, stocks and Back buttons' fill, a portrait monogram's ink, a
+   token's rim) are `button`, `monogram_ink` and `token_rim` in Smash's
+   `select_look` (witness `the_buttons_and_tokens_wear_the_files_colours`,
+   a check by an edited file: the look is read from the pack's one
+   generation). The host's start cover's eight colours are `cover_look`, a
+   schema of the host's pack (`data/cover_look.ron`; witness
+   `the_cover_wears_what_the_host_file_states`, also by an edited file).
+   Left in the game crates: developer overlays (gizmos, the rollback
+   observatory, the FPS readout), which are tools, not content.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is

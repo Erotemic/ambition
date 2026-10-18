@@ -235,6 +235,11 @@ mod tests {
             Err(failure) => failure.render(),
         };
         assert!(refused.contains("`select_look`: `ink` is"), "the refusal names the field: {refused}");
+        let refused = match compile(&authored.replace("token_rim: (1.0, 1.0, 1.0, 0.85),", "token_rim: (1.0, 1.0, 1.0, 1.85),")) {
+            Ok(_) => panic!("a token rim more than opaque was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`select_look`: `token_rim` is"), "the refusal names the field: {refused}");
 
         // The swing a kitless fighter is seated with is the file's, and one
         // that reaches nothing is refused.

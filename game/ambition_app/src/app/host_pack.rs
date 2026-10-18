@@ -2,7 +2,8 @@
 //! surfaces (`data/host_text.ron`): the cover while the first frame is
 //! prepared, and the pause menu's own words (each setting's label and
 //! description are the settings' own).
-//! And the title screen's look (`data/title_look.ron`, `title_screen::TitleLook`).
+//! And the title screen's look (`data/title_look.ron`, `title_screen::TitleLook`)
+//! and the start cover's colours (`data/cover_look.ron`, `startup_loading::CoverLook`).
 //!
 //! These are the host's facts, not a game's, so they are a pack of the host
 //! and no content crate is read for them. The pack is compiled at its first
@@ -20,7 +21,7 @@ use ambition_platformer2d::content::{
 /// (`build.rs`).
 pub static HOST_PACK: EmbeddedPack = ambition_platformer2d::content_pack! {
     root: "assets/host",
-    schemas: [host_text_schema, super::title_screen::title_look_schema],
+    schemas: [host_text_schema, super::title_screen::title_look_schema, super::startup_loading::cover_look_schema],
 };
 
 /// The authored FILE kind: the words of the host's surfaces.

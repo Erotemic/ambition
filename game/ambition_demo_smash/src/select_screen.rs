@@ -172,6 +172,12 @@ pub struct SelectLook {
     pub panel: [f32; 3],
     pub panel_edge: [f32; 3],
     pub backdrop: [f32; 3],
+    /// The fill of the stage, stocks and Back buttons.
+    pub button: [f32; 3],
+    /// The letters of a portrait that has no art.
+    pub monogram_ink: [f32; 3],
+    /// The rim of a slot's token: red, green, blue and alpha.
+    pub token_rim: [f32; 4],
 }
 
 fn srgb([r, g, b]: [f32; 3]) -> Color {
@@ -197,6 +203,13 @@ impl SelectLook {
     fn backdrop(&self) -> Color {
         srgb(self.backdrop)
     }
+    fn button(&self) -> Color {
+        srgb(self.button)
+    }
+    fn token_rim(&self) -> Color {
+        let [r, g, b, a] = self.token_rim;
+        Color::srgba(r, g, b, a)
+    }
 
     /// Each colour that is not a colour, named by its field.
     pub fn problems(&self) -> Vec<String> {
@@ -209,14 +222,20 @@ impl SelectLook {
             ("panel", self.panel),
             ("panel_edge", self.panel_edge),
             ("backdrop", self.backdrop),
+            ("button", self.button),
+            ("monogram_ink", self.monogram_ink),
         ] {
             named.push((field.to_string(), colour));
         }
-        named
+        let mut problems: Vec<String> = named
             .into_iter()
             .filter(|(_, colour)| colour.iter().any(|channel| !(0.0..=1.0).contains(channel)))
             .map(|(field, colour)| format!("`{field}` is {colour:?}; each channel is from 0 to 1"))
-            .collect()
+            .collect();
+        if self.token_rim.iter().any(|channel| !(0.0..=1.0).contains(channel)) {
+            problems.push(format!("`token_rim` is {:?}; each channel is from 0 to 1", self.token_rim));
+        }
+        problems
     }
 }
 
@@ -583,7 +602,7 @@ pub fn spawn_select_screen(
                         slate.spawn((
                             Text::new(monogram(&display_name(catalog, id))),
                             text_font(46.0),
-                            TextColor(Color::srgb(0.28, 0.31, 0.42)),
+                            TextColor(srgb(select_look().monogram_ink)),
                         ));
                     });
                     match art {
@@ -708,7 +727,7 @@ pub fn spawn_select_screen(
             stage.1.border_radius = BorderRadius::all(Val::Px(6.0));
             root.spawn((
                 stage,
-                BackgroundColor(Color::srgb(0.11, 0.12, 0.18)),
+                BackgroundColor(select_look().button()),
                 BorderColor::all(select_look().panel_edge()),
                 GlobalZIndex(610),
                 Name::new("stage button"),
@@ -731,7 +750,7 @@ pub fn spawn_select_screen(
             stocks.1.border_radius = BorderRadius::all(Val::Px(6.0));
             root.spawn((
                 stocks,
-                BackgroundColor(Color::srgb(0.11, 0.12, 0.18)),
+                BackgroundColor(select_look().button()),
                 BorderColor::all(select_look().panel_edge()),
                 GlobalZIndex(610),
                 Name::new("stocks button"),
@@ -798,7 +817,7 @@ pub fn spawn_select_screen(
                 button.1.border_radius = BorderRadius::all(Val::Px(6.0));
                 root.spawn((
                     button,
-                    BackgroundColor(Color::srgb(0.11, 0.12, 0.18)),
+                    BackgroundColor(select_look().button()),
                     BorderColor::all(select_look().panel_edge()),
                     GlobalZIndex(610),
                     Name::new(format!("slot {} role button", slot + 1)),
@@ -839,7 +858,7 @@ pub fn spawn_select_screen(
                         ..default()
                     },
                     BackgroundColor(select_look().slot(slot)),
-                    BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.85)),
+                    BorderColor::all(select_look().token_rim()),
                     GlobalZIndex(620),
                     Visibility::Hidden,
                     Name::new(format!("slot {} token", slot + 1)),

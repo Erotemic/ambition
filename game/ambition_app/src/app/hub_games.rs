@@ -12,6 +12,14 @@
 /// `AMBITION_HUB_GAMES=mary_o ./build_for_android.sh ...`.
 pub const HUB_GAMES_ENV: &str = "AMBITION_HUB_GAMES";
 
+/// The value baked in at build time, for a build with no environment at run
+/// time (an APK, the web). Only there: rustc tracks an `option_env!` var, so on
+/// a desktop build a run with the var set would rebuild the crate.
+#[cfg(any(target_os = "android", target_arch = "wasm32"))]
+const BUILT_HUB_GAMES: Option<&str> = option_env!("AMBITION_HUB_GAMES");
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+const BUILT_HUB_GAMES: Option<&str> = None;
+
 /// Whether this hub installs `game`.
 pub fn installs(game: &str) -> bool {
     selection().is_none_or(|games| games.iter().any(|g| g == game))
@@ -24,7 +32,7 @@ pub fn selection() -> Option<&'static [String]> {
         .get_or_init(|| {
             let list = std::env::var(HUB_GAMES_ENV)
                 .ok()
-                .or_else(|| option_env!("AMBITION_HUB_GAMES").map(str::to_owned))?;
+                .or_else(|| BUILT_HUB_GAMES.map(str::to_owned))?;
             Some(
                 list.split(',')
                     .map(|game| game.trim().to_owned())
@@ -44,11 +52,17 @@ pub fn selection() -> Option<&'static [String]> {
 /// APK reads the value at build time.
 pub const BOOT_ROUTE_ENV: &str = "AMBITION_BOOT_ROUTE";
 
+/// As [`BUILT_HUB_GAMES`].
+#[cfg(any(target_os = "android", target_arch = "wasm32"))]
+const BUILT_BOOT_ROUTE: Option<&str> = option_env!("AMBITION_BOOT_ROUTE");
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+const BUILT_BOOT_ROUTE: Option<&str> = None;
+
 /// The route [`BOOT_ROUTE_ENV`] names, if any.
 pub fn boot_route() -> Option<String> {
     std::env::var(BOOT_ROUTE_ENV)
         .ok()
-        .or_else(|| option_env!("AMBITION_BOOT_ROUTE").map(str::to_owned))
+        .or_else(|| BUILT_BOOT_ROUTE.map(str::to_owned))
         .map(|route| route.trim().to_owned())
         .filter(|route| !route.is_empty())
 }

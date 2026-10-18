@@ -104,13 +104,21 @@ pub fn drive_the_local_participant(app: &mut App) {
 /// driven.
 pub const AUTOPLAY_ENV: &str = "AMBITION_AUTOPLAY";
 
+/// The value baked in at build time, for a build with no environment at run
+/// time (an APK, the web). Only there: rustc tracks an `option_env!` var, so on
+/// a desktop build a run with the var set would rebuild the crate.
+#[cfg(any(target_os = "android", target_arch = "wasm32"))]
+const BUILT_AUTOPLAY: Option<&str> = option_env!("AMBITION_AUTOPLAY");
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+const BUILT_AUTOPLAY: Option<&str> = None;
+
 /// The game [`AUTOPLAY_ENV`] names, if any: read at run time, or, for a build
 /// with no environment at run time (an APK), at compile time. Every host
 /// reads it here.
 pub fn autoplay_from_env() -> Option<String> {
     std::env::var(AUTOPLAY_ENV)
         .ok()
-        .or_else(|| option_env!("AMBITION_AUTOPLAY").map(str::to_owned))
+        .or_else(|| BUILT_AUTOPLAY.map(str::to_owned))
         .map(|game| game.trim().to_owned())
         .filter(|game| !game.is_empty())
 }

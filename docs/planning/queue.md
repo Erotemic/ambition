@@ -1386,6 +1386,29 @@ variants. Also found in that regen:
     (`test_a_focused_publish_packs_the_runtime_groups.py`), and it writes
     through the staging root as a full publish does (8.3 s for
     `intro_cart`, 2026-10-16).
+11. **Where `app_it`'s time goes (measured 2026-10-18).** It is most of a
+    pre-push lane: 2467 s of about 3300 s. Per-test times come from libtest's
+    `--report-time`, run on the built binary with `RUSTC_BOOTSTRAP=1` set at
+    run time only, so nothing is rebuilt. The run used `--test-threads=6` on
+    14 cores. The 1276 tests sum to 14,691 s and the wall time is 2467 s:
+    sum / 6 = 2448, so the six threads stay full and the order of tests does
+    not matter. Only a smaller sum cuts the wall time.
+    - 446 tests take 2-5 s (1581 s in total): mostly booting a harness,
+      4.1 s for one alone, about 2.5 s in the suite.
+    - 60 tests over 40 s take 5551 s (38%).
+    - The largest: `every_room_resident_carries_its_live_room_after_combat`
+      469 s (it boots each of 72 rooms and runs 150 ticks in each),
+      `a_player_walks_in_takes_the_four_keys_and_beats_the_monster` 302 s,
+      `a_player_death_reset_survives_the_rollback_window` 269 s,
+      `two_peers_agree_in_the_rooms_that_carry_the_float_rows` 235 s.
+    - The modules over 600 s: `an_edit_reaches_the_shipped_game`,
+      `a_bag_changed_mid_window_reaches_the_save` and
+      `a_boss_special_runs_on_the_extension_host`.
+    The workspace's own crates build at `opt-level = 0`, an accepted policy
+    (Cargo.toml). A test profile at opt-level 1 would trade every focused
+    edit's build for the suite's run time, so it is not taken here. Profiling
+    a harness boot needs `perf`, and this guest refuses it
+    (`perf_event_paranoid` 4).
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

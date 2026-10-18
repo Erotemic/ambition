@@ -76,4 +76,34 @@ mod tests {
         assert_eq!(world.get::<InRoomInstance>(in_room).map(|stamp| stamp.0), Some(room.0));
         assert!(world.get::<InRoomInstance>(in_none).is_none());
     }
+
+    /// Each shader in `src/presentation/shaders` is served as the file is
+    /// saved, at the path its material names, so a shader edit costs a
+    /// restart and no build of this crate.
+    #[test]
+    fn each_shader_is_served_as_its_file_is_saved() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<bevy::shader::Shader>();
+        deep_dream::install(&mut app);
+        fsm_sauce::install(&mut app);
+        mockingbird_sky::install(&mut app);
+        room_look::install(&mut app);
+        let source = app.world().resource::<AssetServer>().get_source("embedded").unwrap().reader();
+        let shaders = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/presentation/shaders");
+        let mut files: Vec<_> = std::fs::read_dir(&shaders).unwrap().map(|entry| entry.unwrap().path()).collect();
+        files.sort();
+        assert!(files.len() >= 9, "premise: the shaders are on disk: {files:?}");
+        for file in files {
+            let name = file.file_name().unwrap().to_str().unwrap();
+            let served = std::path::PathBuf::from("ambition_content/presentation/shaders").join(name);
+            let bytes = bevy::tasks::block_on(async {
+                let mut reader = source.read(&served).await.unwrap_or_else(|error| panic!("{name} is not served: {error}"));
+                let mut bytes = Vec::new();
+                reader.read_to_end(&mut bytes).await.unwrap();
+                bytes
+            });
+            assert!(bytes == std::fs::read(&file).unwrap(), "{name} is served, but not as its file is saved");
+        }
+    }
 }

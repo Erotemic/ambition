@@ -11,7 +11,6 @@
 //! the health bar reads (`FeatureView::hp_current` / `hp_max`).
 
 use bevy::{
-    asset::embedded_asset,
     image::TextureAtlasLayout,
     prelude::*,
     reflect::TypePath,
@@ -37,7 +36,7 @@ pub fn install(app: &mut App) {
     if app.world().get_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>().is_none() {
         return;
     }
-    embedded_asset!(app, "shaders/fsm_sauce.wgsl");
+    ambition_platformer2d::content_asset!(app, "src/presentation/shaders/fsm_sauce.wgsl");
     app.add_plugins(Material2dPlugin::<SauceMaterial>::default());
     app.add_systems(
         Update,

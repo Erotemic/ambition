@@ -44,6 +44,124 @@ pub struct CutRopeTrap {
     pub banner_seconds: f32,
     /// Seconds between two sparks on the rope while it waits to be cut.
     pub rope_spark_seconds: f32,
+    pub effects: CutRopeEffects,
+}
+
+/// How the trap looks: the shards of the cut, the sparks on the rope while
+/// it waits, and the show when the object lands on him.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CutRopeEffects {
+    pub cut: Burst,
+    pub rope_sparks: RopeSparks,
+    pub landing: Landing,
+}
+
+/// A burst of particles.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Burst {
+    pub count: u32,
+    /// Px per second.
+    pub speed: f32,
+    /// Red, green, blue and alpha, each 0 to 1.
+    pub color: [f32; 4],
+}
+
+/// The sparks on the rope while it waits to be cut.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RopeSparks {
+    /// The effect rows the sparks play, in turn.
+    pub effects: Vec<String>,
+    pub scale: f32,
+    /// How wide the band across the rope is that a spark is in (px).
+    pub across_px: f32,
+    /// How far above the rope's centre a spark is: the least and the most (px).
+    pub above_px: (f32, f32),
+    /// How far a spark moves toward the boss: a share of how far he is from
+    /// the rope, up to `pull_reach_px` of that distance.
+    pub pull_share: f32,
+    pub pull_reach_px: f32,
+}
+
+/// The show when the object lands on him.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Landing {
+    pub explosion_scale: f32,
+    pub fireworks: Fireworks,
+    pub sparks: Burst,
+}
+
+/// Fireworks around a point.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Fireworks {
+    pub count: u32,
+    /// The width and height of the area they go off in (px).
+    pub spread: (f32, f32),
+    pub seconds: f32,
+}
+
+impl Burst {
+    /// What is wrong with the burst at `field`.
+    fn problems(&self, field: &str, problems: &mut Vec<String>) {
+        if self.count == 0 {
+            problems.push(format!("`{field}.count` is 0; a burst has a particle"));
+        }
+        if !(self.speed.is_finite() && self.speed >= 0.0) {
+            problems.push(format!("`{field}.speed` is {}; it is finite and not negative", self.speed));
+        }
+        if !self.color.iter().all(|part| (0.0..=1.0).contains(part)) {
+            problems.push(format!("`{field}.color` is {:?}; each part is 0 to 1", self.color));
+        }
+    }
+}
+
+impl CutRopeEffects {
+    fn problems(&self, problems: &mut Vec<String>) {
+        self.cut.problems("cut_rope_trap.effects.cut", problems);
+        self.landing.sparks.problems("cut_rope_trap.effects.landing.sparks", problems);
+        let sparks = &self.rope_sparks;
+        if sparks.effects.is_empty() || sparks.effects.iter().any(|effect| effect.trim().is_empty()) {
+            problems.push(format!(
+                "`cut_rope_trap.effects.rope_sparks.effects` is {:?}; it names one effect row or more",
+                sparks.effects
+            ));
+        }
+        let fireworks = self.landing.fireworks;
+        for (field, value) in [
+            ("rope_sparks.scale", sparks.scale),
+            ("landing.explosion_scale", self.landing.explosion_scale),
+            ("landing.fireworks.seconds", fireworks.seconds),
+        ] {
+            if !(value.is_finite() && value > 0.0) {
+                problems.push(format!("`cut_rope_trap.effects.{field}` is {value}; it is finite and more than 0"));
+            }
+        }
+        for (field, value) in [
+            ("rope_sparks.across_px", sparks.across_px),
+            ("rope_sparks.pull_share", sparks.pull_share),
+            ("rope_sparks.pull_reach_px", sparks.pull_reach_px),
+            ("landing.fireworks.spread.0", fireworks.spread.0),
+            ("landing.fireworks.spread.1", fireworks.spread.1),
+        ] {
+            if !(value.is_finite() && value >= 0.0) {
+                problems.push(format!("`cut_rope_trap.effects.{field}` is {value}; it is finite and not negative"));
+            }
+        }
+        let (least, most) = sparks.above_px;
+        if !(least.is_finite() && most.is_finite() && least <= most) {
+            problems.push(format!(
+                "`cut_rope_trap.effects.rope_sparks.above_px` is {:?}; the least is not more than the most",
+                sparks.above_px
+            ));
+        }
+        if fireworks.count == 0 {
+            problems.push("`cut_rope_trap.effects.landing.fireworks.count` is 0; a show has a firework".to_string());
+        }
+    }
 }
 
 /// One thing the rope can hold.
@@ -354,6 +472,7 @@ impl AmbitionRules {
                 problems.push(format!("`{field}` is {value}; it is finite and more than 0"));
             }
         }
+        trap.effects.problems(&mut problems);
         let drop = self.portal_gun_drop;
         for (field, value) in [("portal_gun_drop.ahead_px", drop.ahead_px), ("portal_gun_drop.arm_seconds", drop.arm_seconds)] {
             if !(value.is_finite() && value >= 0.0) {
@@ -559,6 +678,22 @@ mod tests {
                 flattened_banner: "flattened by a {object}".to_string(),
                 banner_seconds: 2.8,
                 rope_spark_seconds: 0.22,
+                effects: CutRopeEffects {
+                    cut: Burst { count: 14, speed: 160.0, color: [0.90, 0.82, 0.58, 0.78] },
+                    rope_sparks: RopeSparks {
+                        effects: vec!["starburst".to_string()],
+                        scale: 0.48,
+                        across_px: 44.0,
+                        above_px: (16.0, 74.0),
+                        pull_share: 0.18,
+                        pull_reach_px: 80.0,
+                    },
+                    landing: Landing {
+                        explosion_scale: 1.25,
+                        fireworks: Fireworks { count: 18, spread: (420.0, 280.0), seconds: 2.75 },
+                        sparks: Burst { count: 28, speed: 260.0, color: [0.84, 0.95, 1.0, 0.86] },
+                    },
+                },
             },
             cut_rope_victory: VictoryNpc {
                 name: "The Rope Appreciator".to_string(),
@@ -631,5 +766,17 @@ mod tests {
         still.cut_rope_trap.rope_spark_seconds = 0.0;
         let problems = still.problems();
         assert!(problems.iter().any(|problem| problem.contains("cut_rope_trap.rope_spark_seconds")), "{problems:?}");
+        let mut dark = rules();
+        dark.cut_rope_trap.effects.landing.sparks.color[3] = 1.5;
+        let problems = dark.problems();
+        assert!(problems.iter().any(|problem| problem.contains("cut_rope_trap.effects.landing.sparks.color")), "{problems:?}");
+        let mut quiet = rules();
+        quiet.cut_rope_trap.effects.rope_sparks.effects.clear();
+        let problems = quiet.problems();
+        assert!(problems.iter().any(|problem| problem.contains("cut_rope_trap.effects.rope_sparks.effects")), "{problems:?}");
+        let mut upside_down = rules();
+        upside_down.cut_rope_trap.effects.rope_sparks.above_px = (74.0, 16.0);
+        let problems = upside_down.problems();
+        assert!(problems.iter().any(|problem| problem.contains("cut_rope_trap.effects.rope_sparks.above_px")), "{problems:?}");
     }
 }

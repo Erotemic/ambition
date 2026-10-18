@@ -44,7 +44,6 @@
 //! ([`looks_are_in_budget`]).
 
 use bevy::{
-    asset::embedded_asset,
     prelude::*,
     reflect::TypePath,
     render::render_resource::AsBindGroup,
@@ -122,6 +121,9 @@ const KIND_BLINK_HARD: f32 = 3.0;
 /// a sign that crosses the front stays readable.
 const INK_TEXT: Color = Color::srgba(0.165, 0.140, 0.250, 0.96);
 const INK_HALO: Color = Color::srgba(0.965, 0.945, 0.900, 0.80);
+
+/// What the looks' shaders share (`ambition_content::room_look`).
+const ROOM_LOOK_LIBRARY: &str = "embedded://ambition_content/presentation/shaders/room_look_common.wgsl";
 
 /// One named look: a material whose shader draws every role.
 ///
@@ -425,7 +427,7 @@ pub fn install(app: &mut App) {
     if app.world().contains_resource::<RoomLookInstalled>() {
         return;
     }
-    // `embedded_asset!` needs the asset registries.
+    // `content_asset!` needs the asset registries.
     if app
         .world()
         .get_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>()
@@ -434,14 +436,19 @@ pub fn install(app: &mut App) {
         return;
     }
     app.insert_resource(RoomLookInstalled);
-    embedded_asset!(app, "shaders/room_state.wgsl");
-    embedded_asset!(app, "shaders/room_plate.wgsl");
-    embedded_asset!(app, "shaders/room_sky.wgsl");
-    embedded_asset!(app, "shaders/room_blueprint.wgsl");
+    ambition_platformer2d::content_asset!(app, "src/presentation/shaders/room_state.wgsl");
+    ambition_platformer2d::content_asset!(app, "src/presentation/shaders/room_plate.wgsl");
+    ambition_platformer2d::content_asset!(app, "src/presentation/shaders/room_sky.wgsl");
+    ambition_platformer2d::content_asset!(app, "src/presentation/shaders/room_blueprint.wgsl");
     // `ambition_content::room_look`: what the looks share. A composition with
     // no shader assets draws no look to import it.
     if app.world().contains_resource::<Assets<bevy::shader::Shader>>() {
-        bevy::shader::load_shader_library!(app, "shaders/room_look_common.wgsl");
+        ambition_platformer2d::content_asset!(app, "src/presentation/shaders/room_look_common.wgsl");
+        // A library is imported, never named by a material, so a held handle
+        // keeps it loaded (as `load_shader_library!` does).
+        let library: Handle<bevy::shader::Shader> =
+            app.world().resource::<AssetServer>().load(ROOM_LOOK_LIBRARY);
+        core::mem::forget(library);
     }
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<RoomPlateMaterial>::default());

@@ -13,7 +13,9 @@ use super::*;
 
 use ambition_boss_encounter::{EncounterGate, FallingHazard};
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+use ambition_content_schemas::rules::CutRopeTrap;
 use ambition_sfx::SfxWriter;
+use ambition_vfx::fx::FxId;
 
 /// Cut-rope visual and flavor state, one arena per live cut-rope room. It is
 /// presentation: no simulation decision reads it (the rope's gate fires on
@@ -69,6 +71,7 @@ pub fn detect_cut_rope_rope_cut(
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
     mut gate_writer: MessageWriter<EncounterGate>,
+    tuning: Res<crate::tuning::AmbitionTuning>,
 ) {
     // An arena whose live room is gone is forgotten; a new live room of the
     // arena starts with its rope hanging.
@@ -122,11 +125,12 @@ pub fn detect_cut_rope_rope_cut(
         vfx.write(VfxMessage::Impact {
             pos: event.volume.center(),
         });
+        let cut = tuning.0.cut_rope_trap.effects.cut;
         vfx.write(VfxMessage::Burst {
             pos: rope.pos,
-            count: 14,
-            speed: 160.0,
-            color: [0.90, 0.82, 0.58, 0.78],
+            count: cut.count,
+            speed: cut.speed,
+            color: cut.color,
             kind: ParticleKind::Shard,
         });
         sfx.write(SfxMessage::Slash { pos: rope.pos });
@@ -187,7 +191,7 @@ pub fn tick_cut_rope_flavor(
                     rope_pos,
                     boss_pos.unwrap_or(rope_pos),
                     &mut explosions,
-                    tuning.0.cut_rope_trap.rope_spark_seconds,
+                    &tuning.0.cut_rope_trap,
                 );
             }
         }
@@ -202,20 +206,21 @@ pub fn tick_cut_rope_flavor(
                 trap.flattened_banner.replace("{object}", heavy_object.current_dialogue_id(trap)),
                 trap.banner_seconds,
             );
-            explosions.write(FxRequest::classic(Some(room), center).with_scale(1.25));
+            let landing = trap.effects.landing;
+            explosions.write(FxRequest::classic(Some(room), center).with_scale(landing.explosion_scale));
             if !arena.death_fireworks_sent {
                 let mut death_show = FireworksRequest::around(Some(room), burst_pos);
-                death_show.count = 18;
-                death_show.spread = ae::Vec2::new(420.0, 280.0);
-                death_show.duration = 2.75;
+                death_show.count = landing.fireworks.count;
+                death_show.spread = ae::Vec2::new(landing.fireworks.spread.0, landing.fireworks.spread.1);
+                death_show.duration = landing.fireworks.seconds;
                 fireworks.write(death_show);
                 arena.death_fireworks_sent = true;
             }
             vfx.for_room(Some(room)).write(VfxMessage::Burst {
                 pos: burst_pos,
-                count: 28,
-                speed: 260.0,
-                color: [0.84, 0.95, 1.0, 0.86],
+                count: landing.sparks.count,
+                speed: landing.sparks.speed,
+                color: landing.sparks.color,
                 kind: ParticleKind::Spark,
             });
             debris.write(DebrisBurstMessage {
@@ -274,29 +279,29 @@ fn pulse_waiting_rope_explosions(
     rope_pos: ae::Vec2,
     boss_pos: ae::Vec2,
     explosions: &mut MessageWriter<FxRequest>,
-    // The rules' `cut_rope_trap.rope_spark_seconds`.
-    spark_seconds: f32,
+    trap: &CutRopeTrap,
 ) {
     state.rope_fx_timer -= dt;
     if state.rope_fx_timer > 0.0 {
         return;
     }
-    state.rope_fx_timer = spark_seconds;
+    state.rope_fx_timer = trap.rope_spark_seconds;
+    let sparks = &trap.effects.rope_sparks;
     let i = state.rope_fx_pulse;
     state.rope_fx_pulse = state.rope_fx_pulse.wrapping_add(1);
-    let horizontal_pull = (boss_pos.x - rope_pos.x).clamp(-80.0, 80.0) * 0.18;
-    let x = (((i.wrapping_mul(37).wrapping_add(11)) % 101) as f32 / 100.0 - 0.5) * 44.0;
-    let y = -16.0 - ((i.wrapping_mul(53).wrapping_add(7)) % 59) as f32;
-    let fx = match i % 5 {
-        0 => ambition_vfx::fx::ids::STARBURST,
-        1 => ambition_vfx::fx::ids::CLASSIC_BURST,
-        2 => ambition_vfx::fx::ids::BURST_ROUND,
-        3 => ambition_vfx::fx::ids::SHOCKWAVE,
-        _ => ambition_vfx::fx::ids::SMOKE_BURST,
-    };
+    let reach = sparks.pull_reach_px;
+    let horizontal_pull = (boss_pos.x - rope_pos.x).clamp(-reach, reach) * sparks.pull_share;
+    // Two hashes of the pulse: where the spark is across the band (0 to 1)
+    // and how high in it (0 to 1).
+    let across = ((i.wrapping_mul(37).wrapping_add(11)) % 101) as f32 / 100.0;
+    let high = ((i.wrapping_mul(53).wrapping_add(7)) % 59) as f32 / 58.0;
+    let x = (across - 0.5) * sparks.across_px;
+    let (least, most) = sparks.above_px;
+    let y = -(least + high * (most - least));
+    let fx = FxId::new(&sparks.effects[i as usize % sparks.effects.len()]);
     explosions.write(
         FxRequest::new(Some(room), rope_pos + ae::Vec2::new(horizontal_pull + x, y), fx)
-            .with_scale(0.48),
+            .with_scale(sparks.scale),
     );
 }
 

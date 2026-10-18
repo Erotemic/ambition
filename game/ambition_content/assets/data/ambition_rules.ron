@@ -89,6 +89,15 @@
     quest_payout: (
         banner_seconds: 3.0,
     ),
+    // The portal gun a player drops lies this far ahead of it, in the way
+    // it faces (px), with a pickup box of this half size (px). It cannot be
+    // taken again for `arm_seconds`, so the press that dropped it does not
+    // take it back.
+    portal_gun_drop: (
+        ahead_px: 44.0,
+        half_extent_px: 20.0,
+        arm_seconds: 0.35,
+    ),
     // The trap over the Smirking Behemoth. What hangs from the rope, in the
     // order the room's replays take them (a session starts on the first):
     // each is a prop sheet and a name, which the banner says and the

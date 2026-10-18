@@ -167,6 +167,7 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<DropPortalGun>();
+    app.insert_resource(crate::tuning::AmbitionTuning(crate::tuning::shipped()));
     app.add_message::<PickUpPortalGun>();
     app.add_message::<PortalGunEquipped>();
     // The catalog the two systems keep in step. The sibling tests omit it, so
@@ -253,6 +254,7 @@ fn dropped_portal_gun_arms_before_it_can_be_regrabbed() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<DropPortalGun>();
+    app.insert_resource(crate::tuning::AmbitionTuning(crate::tuning::shipped()));
     app.add_message::<PickUpPortalGun>();
     app.add_message::<PortalGunEquipped>();
     app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });
@@ -324,6 +326,7 @@ fn a_dropped_gun_keeps_its_own_pair_when_picked_back_up() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<DropPortalGun>();
+    app.insert_resource(crate::tuning::AmbitionTuning(crate::tuning::shipped()));
     app.add_message::<PickUpPortalGun>();
     app.add_message::<PortalGunEquipped>();
     app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });
@@ -393,6 +396,7 @@ fn two_seats_dropping_on_one_tick_both_drop() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<DropPortalGun>();
+    app.insert_resource(crate::tuning::AmbitionTuning(crate::tuning::shipped()));
     app.add_systems(Update, drop_portal_gun_system);
     let one = spawn_player(&mut app, Vec2::new(0.0, 0.0), 1.0);
     let two = spawn_player(&mut app, Vec2::new(300.0, 0.0), -1.0);
@@ -414,6 +418,36 @@ fn two_seats_dropping_on_one_tick_both_drop() {
     let mut pickups = app.world_mut().query::<&PortalGunPickup>();
     let world = app.world();
     assert_eq!(pickups.iter(world).count(), 2);
+}
+
+/// A dropped gun lies where Ambition's rules file puts it: ahead of the body
+/// in the way it faces, with the file's pickup box, unarmed for the file's
+/// time.
+#[test]
+fn a_dropped_gun_lies_where_the_rules_file_puts_it() {
+    let mut app = App::new();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<DropPortalGun>();
+    let rules = crate::tuning::shipped();
+    let drop = rules.portal_gun_drop;
+    app.insert_resource(crate::tuning::AmbitionTuning(rules));
+    app.add_systems(Update, drop_portal_gun_system);
+    let right = spawn_player(&mut app, Vec2::new(0.0, 0.0), 1.0);
+    let left = spawn_player(&mut app, Vec2::new(300.0, 0.0), -1.0);
+    app.world_mut().write_message(DropPortalGun { body: right });
+    app.world_mut().write_message(DropPortalGun { body: left });
+    app.update();
+
+    let mut pickups = app.world_mut().query::<&PortalGunPickup>();
+    let mut lying: Vec<PortalGunPickup> = pickups.iter(app.world()).copied().collect();
+    lying.sort_by(|a, b| a.pos.x.total_cmp(&b.pos.x));
+    assert_eq!(lying.len(), 2, "each drop leaves a pickup");
+    assert_eq!(lying[0].pos, Vec2::new(drop.ahead_px, 0.0), "the gun dropped facing right");
+    assert_eq!(lying[1].pos, Vec2::new(300.0 - drop.ahead_px, 0.0), "the gun dropped facing left");
+    for pickup in &lying {
+        assert_eq!(pickup.half_extent, Vec2::splat(drop.half_extent_px));
+        assert_eq!(pickup.arm_timer, drop.arm_seconds);
+    }
 }
 
 /// Two seats reach for one gun, and exactly one gets it.

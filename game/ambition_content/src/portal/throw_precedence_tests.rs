@@ -48,6 +48,7 @@ fn press_shield_attack(carrying: Carrying) -> Outcome {
     app.add_message::<FirePortalGun>();
     app.add_message::<TogglePortalGun>();
     app.add_message::<DropPortalGun>();
+    app.insert_resource(crate::tuning::AmbitionTuning(crate::tuning::shipped()));
     app.add_message::<PickUpPortalGun>();
     app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityField>();
     app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityZones>();
@@ -194,6 +195,7 @@ fn one_seats_surroundings_do_not_decide_another_seats_toggle() {
         app.add_message::<FirePortalGun>();
         app.add_message::<TogglePortalGun>();
         app.add_message::<DropPortalGun>();
+        app.insert_resource(crate::tuning::AmbitionTuning(crate::tuning::shipped()));
         app.add_message::<PickUpPortalGun>();
         app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityField>();
         app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityZones>();

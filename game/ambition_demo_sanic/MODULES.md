@@ -13,9 +13,10 @@
 | [`provider`](src/provider.rs) | The Sanic experience provider. |
 | [`rules`](src/rules.rs) | The `sanic_rules` schema: the demo's own tuning, as data in its pack (`assets/data/sanic_rules.ron`). |
 | [`scenery`](src/scenery.rs) | The scenery of a Sanic act: the goal post. |
+| [`text`](src/text.rs) | The lines Sanic shows, as data in his pack (`assets/data/sanic_text.ron`): the HUD labels, the act cards, the signs and the launcher row. |
 | [`trail`](src/trail.rs) | Dust where Sanic's speed shows: a puff at his feet while he runs, a spray of it when he skids. |
 
-_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

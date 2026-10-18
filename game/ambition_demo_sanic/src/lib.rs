@@ -223,10 +223,10 @@ pub fn sanic_speedway() -> RoomSpec {
     let signs = vec![
         (
             "loop".to_string(),
-            "LOOP".to_string(),
+            crate::text::line("sign.loop"),
             ae::Vec2::new(loop_top.x, loop_top.y - 36.0),
         ),
-        ("finish".to_string(), "FINISH".to_string(), finish_sign(&room.world)),
+        ("finish".to_string(), crate::text::line("sign.finish"), finish_sign(&room.world)),
     ];
     room.debug_labels.extend(signs.into_iter().map(|(id, text, position)| {
         ambition_platformer2d::world::rooms::Authored::new(
@@ -269,10 +269,10 @@ pub fn sanic_highway() -> RoomSpec {
     let finish = finish_sign(&room.world);
     room.debug_labels = vec![ambition_platformer2d::world::rooms::Authored::new(
         "sanic_highway_finish",
-        "FINISH",
+        crate::text::line("sign.finish"),
         ae::Aabb::new(finish, ae::Vec2::splat(1.0)),
         ambition_platformer2d::world::debug_label::DebugLabel::new(
-            "FINISH",
+            crate::text::line("sign.finish"),
             finish,
             ambition_platformer2d::world::debug_label::DebugLabelKind::Custom,
         ),
@@ -300,10 +300,10 @@ pub fn sanic_darkness() -> RoomSpec {
     let finish = ae::Vec2::new(goal_x_of(&room.world), 1120.0);
     room.debug_labels = vec![ambition_platformer2d::world::rooms::Authored::new(
         "sanic_darkness_finish",
-        "FINISH",
+        crate::text::line("sign.finish"),
         ae::Aabb::new(finish, ae::Vec2::splat(1.0)),
         ambition_platformer2d::world::debug_label::DebugLabel::new(
-            "FINISH",
+            crate::text::line("sign.finish"),
             finish,
             ambition_platformer2d::world::debug_label::DebugLabelKind::Custom,
         ),
@@ -336,6 +336,7 @@ pub mod scenery;
 pub mod trail;
 pub mod pack;
 pub mod rules;
+pub mod text;
 #[cfg(test)]
 mod smash_moveset;
 
@@ -371,7 +372,9 @@ pub fn install_sanic_content(app: &mut App) {
     // the next session. His cast, audio and prop sheets are read here, once.
     app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin {
         pack: &pack::PACK,
-        live: &[rules::SANIC_RULES_SCHEMA],
+        // Each line is read where it is shown. The launcher row and the signs
+        // are read once, when the launcher and the room are built.
+        live: &[rules::SANIC_RULES_SCHEMA, text::SANIC_TEXT_SCHEMA],
         restated: Vec::new(),
     });
     // His pack states his music and his SFX, his own Dash and Jump among

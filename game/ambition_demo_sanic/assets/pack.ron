@@ -29,5 +29,8 @@
         (path: "data/sanic_rules.ron", schema: "sanic_rules", version: 1),
         // The prop sheets: the ring, the monitors' boxes, the goal post.
         (path: "data/prop_sheets.ron", schema: "prop_sheets", version: 1),
+        // The lines he shows: the HUD labels, the act cards, the signs, his
+        // launcher row.
+        (path: "data/sanic_text.ron", schema: "sanic_text", version: 1),
     ],
 )

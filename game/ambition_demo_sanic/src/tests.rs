@@ -268,7 +268,7 @@ fn sanic_speedway_composes_through_the_umbrella() {
     assert!(
         room.debug_labels
             .iter()
-            .any(|label| label.payload.text == "LOOP"),
+            .any(|label| label.payload.text == crate::text::sanic_text().line("sign.loop")),
         "the speedway labels its major features in world space"
     );
     assert!(

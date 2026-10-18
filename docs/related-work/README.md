@@ -86,6 +86,14 @@ CONCEPTS over claims about spellings.
   — prefabs/scenes/world layers versus Ambition's implemented content compiler,
   `PreparedContentPack` and transactional construction. Checked 2026-08-07.
 
+### Game-feel references
+
+* [Smash Ultimate fighter reference: movement, evades, grabs](smash-ultimate-fighter-reference.md)
+  — Ultimate's per-fighter run, dash, jump, fall, roll, dodge and grab data
+  (90 fighters, attributed, with a re-fetch script), its roster spread and
+  archetype anchors, and the conversion to our stage scale. Checked
+  2026-10-18.
+
 ### Implemented engine subsystems we should benchmark now
 
 * [Movement kernels, character controllers, and collision](movement-character-controllers-and-collision.md)

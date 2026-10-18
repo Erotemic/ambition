@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 
+use ambition_platformer2d::content::hole;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::presentation::profiles;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
@@ -195,9 +196,9 @@ impl Plugin for MaryOExperiencePlugin {
         PlatformerExperienceAuthoring::new(
             MARY_O_EXPERIENCE,
             MARY_O_GAMEPLAY_ROUTE,
-            "Mary-O",
-            "Level 1-1: run, jump, grab the flag",
-            "Prepare Mary-O",
+            crate::text::line("launcher.label"),
+            crate::text::line("launcher.description"),
+            crate::text::line("launcher.preparing"),
             mary_o_authored_catalogs(),
         )
         // The look of its launcher row.
@@ -338,18 +339,18 @@ fn publish_mary_o_readouts(
         .and_then(|spec| spec.metadata.title.as_deref());
     // Zero-padded like the arcade original: the game owns its formatting, the
     // engine just draws the string.
-    readouts.set_labelled(SCORE_HUD_SLOT, "SCORE", format!("{:06}", level.score));
+    readouts.set_labelled(SCORE_HUD_SLOT, crate::text::line("hud.score"), format!("{:06}", level.score));
     readouts.set_labelled(
         COINS_HUD_SLOT,
-        "COINS",
+        crate::text::line("hud.coins"),
         format!("{:02}", facts.present.then_some(facts.balance).unwrap_or(0)),
     );
     readouts.set_labelled(
         TIME_HUD_SLOT,
-        "TIME",
+        crate::text::line("hud.time"),
         format!("{:03}", level.time_remaining.max(0.0).ceil() as u32),
     );
-    readouts.set_labelled(LIVES_HUD_SLOT, "LIVES", level.lives);
+    readouts.set_labelled(LIVES_HUD_SLOT, crate::text::line("hud.lives"), level.lives);
 
     // The card is published ONLY while it should be on screen. An unpublished
     // slot draws nothing, so "stop showing it" needs no hide path and no
@@ -376,21 +377,36 @@ fn card_text(
     flag: Option<&crate::flag::FlagSequence>,
     title: Option<&str>,
 ) -> Option<String> {
+    let text = crate::text::mary_o_text();
     if let Some(score) = flag.and_then(|f| f.score()) {
-        return Some(format!(
-            "COURSE CLEAR    {:06}",
-            level.score.saturating_add(score)
-        ));
+        let total = format!("{:06}", level.score.saturating_add(score));
+        return Some(text.fill("card.course_clear", &[("score", &total)]));
     }
     (level.intro_card > 0.0).then(|| match title {
-        Some(title) => format!("{title}    MARY-O x{}", level.lives),
-        None => format!("MARY-O x{}", level.lives),
+        Some(title) => text.fill("card.intro", &[hole("title", &title), hole("lives", &level.lives)]),
+        None => text.fill("card.intro_untitled", &[("lives", &level.lives)]),
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The intro card's words are her text file's, with the title and her
+    /// lives filled; a room with no title has its own line.
+    #[test]
+    fn her_cards_say_what_her_text_file_states() {
+        let text = crate::text::mary_o_text();
+        let level = crate::MaryOLevelState { intro_card: 1.0, lives: 3, ..Default::default() };
+        assert_eq!(
+            card_text(&level, None, Some("WORLD 1-2")),
+            Some(text.fill("card.intro", &[hole("title", &"WORLD 1-2"), hole("lives", &3)]))
+        );
+        assert!(card_text(&level, None, Some("WORLD 1-2")).unwrap().contains("WORLD 1-2"), "the card names the level");
+        assert_eq!(card_text(&level, None, None), Some(text.fill("card.intro_untitled", &[("lives", &3)])));
+        let gone = crate::MaryOLevelState { intro_card: 0.0, ..level };
+        assert_eq!(card_text(&gone, None, Some("WORLD 1-2")), None, "the card retires after its time");
+    }
 
     /// Each id her ranged actions author has a look, and the look is the
     /// pack file's row: an edit to the file is drawn at the next start.

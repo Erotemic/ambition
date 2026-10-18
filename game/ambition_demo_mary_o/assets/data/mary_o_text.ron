@@ -1,0 +1,26 @@
+// The lines the Mary-O demo shows (schema `mary_o_text`, owned by the demo).
+// An edit here is shown at the next start, with no Rust build. A `{word}` is
+// a hole the game fills; a line may leave out a hole it fills, and may not
+// name one it does not. A key names a line, not its words.
+//
+// Not here: a level's title (the level file's `title` field), a boss's name
+// (its character row), and the rescue's words (its cutscene).
+{
+    // The four readouts across the top. The game pads the numbers, as the
+    // arcade original does.
+    "hud.score": "SCORE",
+    "hud.coins": "COINS",
+    "hud.time": "TIME",
+    "hud.lives": "LIVES",
+    // The card when she takes the flag. `{score}` is the total with the
+    // flag's points, six digits.
+    "card.course_clear": "COURSE CLEAR    {score}",
+    // The card when a level starts: its title, and her lives.
+    "card.intro": "{title}    MARY-O x{lives}",
+    // The same card for a room that has no title.
+    "card.intro_untitled": "MARY-O x{lives}",
+    // The game's row of a launcher.
+    "launcher.label": "Mary-O",
+    "launcher.description": "Level 1-1: run, jump, grab the flag",
+    "launcher.preparing": "Prepare Mary-O",
+}

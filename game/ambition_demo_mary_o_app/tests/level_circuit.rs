@@ -208,6 +208,9 @@ fn each_level_opens_with_its_own_title() {
 
     /// The room's authored title, and the card once it is up.
     fn title_and_card(app: &mut App) -> (Option<String>, Option<String>) {
+        // The words of the clear card before its score: her text file's.
+        let course_clear = ambition_demo_mary_o::text::mary_o_text().fill("card.course_clear", &[("score", &"")]);
+        let course_clear = course_clear.trim_end();
         for _ in 0..COMMIT_CAP {
             let card = app
                 .world()
@@ -215,7 +218,7 @@ fn each_level_opens_with_its_own_title() {
                 .get(&HudSlotId::from(CARD_HUD_SLOT))
                 .map(|readout| readout.text())
                 // The last room's clear can still be up on the arrival frame.
-                .filter(|text| !text.starts_with("COURSE CLEAR"));
+                .filter(|text| !text.starts_with(course_clear));
             if card.is_some() {
                 let title = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
                     .and_then(|room| room.metadata.title.clone());

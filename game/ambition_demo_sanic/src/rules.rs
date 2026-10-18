@@ -27,6 +27,62 @@ pub struct SanicRules {
     pub spin_dash: crate::ball_dash::BallDashTuning,
     /// The acts, in their order: the first is Act 1.
     pub acts: Vec<ActTitle>,
+    /// His look in motion: the super form's sparkle, the run and skid dust.
+    pub effects: Effects,
+}
+
+/// His look in motion.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Effects {
+    /// The sparkles around the super form.
+    pub super_sparkle: SuperSparkle,
+    /// The puff a running body leaves.
+    pub run_dust: Puffs,
+    /// The spray a skidding body leaves.
+    pub skid_dust: Puffs,
+}
+
+/// Particles left at one rate.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Puffs {
+    /// Sim seconds between two.
+    pub period_s: f32,
+    /// Particles in each.
+    pub count: u32,
+    /// How fast they leave (px per second).
+    pub speed: f32,
+    /// Their colour (sRGB and alpha, 0 to 1).
+    pub color: [f32; 4],
+}
+
+/// The super form's sparkles: puffs on a ring around the body.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SuperSparkle {
+    pub puffs: Puffs,
+    /// The ring's radius around the body's centre (px).
+    pub radius_px: f32,
+    /// How far up the ring is lifted (px), so the falling motes stay around
+    /// the torso and do not pool at the feet.
+    pub rise_px: f32,
+}
+
+impl Puffs {
+    fn problems(&self, field: &str) -> Vec<String> {
+        let mut problems = Vec::new();
+        if !(self.period_s.is_finite() && self.period_s > 0.0) {
+            problems.push(format!("`{field}.period_s` is {}; puffs come some time apart", self.period_s));
+        }
+        if !(self.speed.is_finite() && self.speed >= 0.0) {
+            problems.push(format!("`{field}.speed` is {}; it is finite and not negative", self.speed));
+        }
+        if self.color.iter().any(|channel| !(0.0..=1.0).contains(channel)) {
+            problems.push(format!("`{field}.color` is {:?}; each channel is from 0 to 1", self.color));
+        }
+        problems
+    }
 }
 
 /// One act: its room and the name its title card shows.
@@ -195,6 +251,15 @@ impl SanicRules {
         }
         if self.acts.is_empty() {
             problems.push("`acts` is empty; the demo has at least one act".to_string());
+        }
+        let effects = &self.effects;
+        problems.extend(effects.super_sparkle.puffs.problems("effects.super_sparkle.puffs"));
+        problems.extend(effects.run_dust.problems("effects.run_dust"));
+        problems.extend(effects.skid_dust.problems("effects.skid_dust"));
+        for (field, value) in [("effects.super_sparkle.radius_px", effects.super_sparkle.radius_px), ("effects.super_sparkle.rise_px", effects.super_sparkle.rise_px)] {
+            if !value.is_finite() {
+                problems.push(format!("`{field}` is {value}; it is finite"));
+            }
         }
         for (index, act) in self.acts.iter().enumerate() {
             if act.title.trim().is_empty() {

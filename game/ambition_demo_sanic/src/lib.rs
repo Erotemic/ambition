@@ -926,14 +926,6 @@ fn toggle_sanic_form(
     }
 }
 
-/// How often the super form's sparkle trail pulses (sim seconds).
-const SUPER_SPARKLE_PERIOD: f32 = 0.14;
-/// Radius of the sparkle orbit around the body centre (px).
-const SUPER_SPARKLE_RADIUS: f32 = 15.0;
-/// Upward bias of the sparkle ring (px, toward the torso) so the falling motes
-/// hover around the body rather than pooling at the feet.
-const SUPER_SPARKLE_RISE: f32 = 8.0;
-
 /// Sanic's transformation beat: its length and its slow-down are `super_form`
 /// in the pack's `sanic_rules.ron`. He holds his taunt and cannot be touched
 /// while it runs.
@@ -1031,19 +1023,21 @@ fn sync_super_form_traits(
         *sparkle_orbit = 0.0;
         return;
     }
+    // How the sparkles look is `effects.super_sparkle` in his rules file.
+    let sparkle = crate::rules::sanic_rules().effects.super_sparkle;
     *sparkle_accum += time.sim_dt();
-    if *sparkle_accum >= SUPER_SPARKLE_PERIOD {
-        *sparkle_accum -= SUPER_SPARKLE_PERIOD;
+    if *sparkle_accum >= sparkle.puffs.period_s {
+        *sparkle_accum -= sparkle.puffs.period_s;
         // Orbit the emit point around the body so the motes read as an aura
         // ring. The golden-angle step spreads pulses evenly; the upward bias
         // keeps the falling motes around the torso.
         *sparkle_orbit += 2.399_963; // golden angle, radians
-        let ring = ae::Vec2::new(sparkle_orbit.cos(), sparkle_orbit.sin()) * SUPER_SPARKLE_RADIUS;
+        let ring = ae::Vec2::new(sparkle_orbit.cos(), sparkle_orbit.sin()) * sparkle.radius_px;
         vfx.for_room(body.and_then(|body| rooms.of(body))).write(ambition_platformer2d::vfx::VfxMessage::Burst {
-            pos: pos + ring - ae::Vec2::new(0.0, SUPER_SPARKLE_RISE),
-            count: 2,
-            speed: 26.0,
-            color: [1.0, 0.9, 0.4, 1.0],
+            pos: pos + ring - ae::Vec2::new(0.0, sparkle.rise_px),
+            count: sparkle.puffs.count,
+            speed: sparkle.puffs.speed,
+            color: sparkle.puffs.color,
             kind: ambition_platformer2d::vfx::ParticleKind::Spark,
         });
     }

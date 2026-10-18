@@ -9,21 +9,19 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::engine_core as ae;
 
-/// How often a running body leaves a puff, and a skidding one a spray (sim
-/// seconds).
-const RUN_DUST_PERIOD: f32 = 0.07;
-const SKID_DUST_PERIOD: f32 = 0.04;
-
-/// What a body leaves this tick: how many particles, how fast they go, their
-/// colour. `None` when it leaves none.
+/// What a body leaves this tick: how often, how many particles, how fast
+/// they go, their colour (`effects` in his rules file). `None` when it leaves
+/// none.
 fn dust_of(facts: &ae::BodyMotionFacts) -> Option<(f32, u32, f32, [f32; 4])> {
-    if facts.skidding {
-        Some((SKID_DUST_PERIOD, 3, 120.0, [0.93, 0.90, 0.80, 0.90]))
+    let effects = crate::rules::sanic_rules().effects;
+    let puffs = if facts.skidding {
+        effects.skid_dust
     } else if facts.running {
-        Some((RUN_DUST_PERIOD, 1, 46.0, [0.95, 0.97, 1.00, 0.55]))
+        effects.run_dust
     } else {
-        None
-    }
+        return None;
+    };
+    Some((puffs.period_s, puffs.count, puffs.speed, puffs.color))
 }
 
 /// Leave dust at the feet of the controlled body while it runs or skids.
@@ -90,5 +88,10 @@ mod tests {
             skid.1 > run.1 && skid.0 < run.0,
             "a skid is more dust, more often: {skid:?} against {run:?}"
         );
+        // Each is the rules file's row.
+        let effects = crate::rules::sanic_rules().effects;
+        let row = |puffs: crate::rules::Puffs| (puffs.period_s, puffs.count, puffs.speed, puffs.color);
+        assert_eq!(run, row(effects.run_dust), "the run's puff is not the file's");
+        assert_eq!(skid, row(effects.skid_dust), "the skid's spray is not the file's");
     }
 }

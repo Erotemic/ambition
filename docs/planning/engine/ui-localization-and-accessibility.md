@@ -134,10 +134,17 @@ start cover and the pause menu's own rows are `host_text` in `ambition_app`'s
 own pack (`assets/host/pack.ron`), admitted as every game's pack is. Each
 setting's label and description are still the settings crate's Rust.
 Each owner states its own words, so no crate reads another's text to show
-its own surface. Next, the shell's own words (menus,
-settings, the engine's "Talk" and "HP", the cutscene hint): Q68 gives them to
-the evergreen shell, so they are one shell text file, not a copy in each
-game's pack.
+its own surface.
+
+**The engine's own words stay Rust for now (decided 2026-10-18).** The
+settings crate's labels and descriptions, the engine's "Talk" and "HP" and
+the cutscene hint are engine chrome, not a game's content, and their crates
+sit below `ambition_platformer2d`, so they cannot read a pack. Moving them
+needs either a new data road at that level or every host stating words for
+every setting; each makes composing a new host harder (Jon, 2026-10-18: no
+new coupling between crates unless no other elegant design exists). Q68
+gives them to the evergreen shell; build that shell text file when the
+localization trigger above fires, with the road chosen then.
 
 ### Accessibility gaps
 

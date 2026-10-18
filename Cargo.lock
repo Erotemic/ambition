@@ -1256,6 +1256,7 @@ dependencies = [
  "ambition_registry_core",
  "bevy_app",
  "bevy_ecs",
+ "bevy_tasks",
  "petgraph",
  "ron 0.11.0",
  "serde",

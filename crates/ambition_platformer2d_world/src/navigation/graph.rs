@@ -139,6 +139,17 @@ impl NavGraph {
         body: &BodyClusterScratch,
         frame: MotionFrame,
     ) -> Option<Self> {
+        Self::build_on(world, exits, body, frame, bevy_tasks::ComputeTaskPool::try_get().map(|pool| &**pool))
+    }
+
+    /// [`Self::build_avoiding`] on `pool`, or on this thread with none.
+    pub(crate) fn build_on(
+        world: &World,
+        exits: &[ae::Aabb],
+        body: &BodyClusterScratch,
+        frame: MotionFrame,
+        pool: Option<&bevy_tasks::TaskPool>,
+    ) -> Option<Self> {
         let envelope = TraversalEnvelope::measure(body, frame, EnvelopeProbe::default())?;
         let nav = NavFrame { side: frame.side(), down: frame.down() };
         let half = Vec2::new(envelope.body_width * 0.5, envelope.body_height * 0.5);
@@ -172,7 +183,15 @@ impl NavGraph {
                 .flatten()
                 .map(|law| FlightMap::build(world, exits, half, law)),
         };
-        for from in 0..graph.surfaces.len() {
+        // The links that leave each surface are a pure function of the graph
+        // so far, so the surfaces are taken on the compute pool, one to a task,
+        // and their links put back in surface order: the graph is the one a
+        // single thread builds, on each peer and after each rewind (the hub's
+        // dog graph is 83 ms on one thread: MEASURED, `nav_graph_census`,
+        // 2026-10-18).
+        let links_from = |from: usize| -> (Vec<(usize, NavLeg, f32)>, BuildCost) {
+            let mut found = Vec::new();
+            let mut spent = BuildCost::default();
             for to in 0..graph.surfaces.len() {
                 if from == to {
                     continue;
@@ -228,11 +247,30 @@ impl NavGraph {
                         })
                         .flatten()
                     });
-                graph.cost.add(cost);
+                spent.add(cost);
                 if let Some((leg, cost)) = best {
-                    graph.out[from].push(graph.links.len());
-                    graph.links.push(NavLink { from, to, leg, cost });
+                    found.push((to, leg, cost));
                 }
+            }
+            (found, spent)
+        };
+        let surfaces = graph.surfaces.len();
+        let rows: Vec<(Vec<(usize, NavLeg, f32)>, BuildCost)> = match pool {
+            Some(pool) if pool.thread_num() > 1 && surfaces > 1 => {
+                let links_from = &links_from;
+                pool.scope(|scope| {
+                    for from in 0..surfaces {
+                        scope.spawn(async move { links_from(from) });
+                    }
+                })
+            }
+            _ => (0..surfaces).map(links_from).collect(),
+        };
+        for (from, (found, spent)) in rows.into_iter().enumerate() {
+            graph.cost.add(spent);
+            for (to, leg, cost) in found {
+                graph.out[from].push(graph.links.len());
+                graph.links.push(NavLink { from, to, leg, cost });
             }
         }
         Some(graph)

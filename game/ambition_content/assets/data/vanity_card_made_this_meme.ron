@@ -6,6 +6,9 @@
     canvas: (640.0, 360.0),
     frame_ms: 95,
     sheet: "vanity_card_made_this_meme/vanity_card_parts.png",
+    // The renderer's colours (0 to 255) and card margin, so the game draws the
+    // card and the bubbles as the renderer did, and the screen around the card.
+    look: (margin: 8.0, card_fill: (246, 247, 251), card_outline: (210, 216, 228), bubble_fill: (255, 255, 255), bubble_outline: (168, 178, 198), text: (32, 36, 46), backdrop: (12, 14, 22)),
     parts: [
         (name: "robot_far_hand", x: 295, y: 1392, w: 107, h: 106),
         (name: "robot_far_arm_l", x: 1253, y: 1216, w: 146, h: 145),

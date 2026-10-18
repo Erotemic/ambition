@@ -769,10 +769,11 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         publish: publish_ambition_tuning,
     },
     // The launcher row is read once, when the provider builds the launcher,
-    // so it keeps its start words until the next start.
+    // so it keeps its start words until the next start. The dialogue box
+    // reads the selected pack each time it is drawn.
     PackDerivedFamily {
         domain: ambition_content_schemas::text::AMBITION_TEXT_SCHEMA,
-        publish: publish_nothing_a_running_game_reads,
+        publish: publish_nothing_the_selection_carries,
     },
     PackDerivedFamily {
         domain: ambition_content_schemas::flag_chains::FLAG_CHAINS_SCHEMA,
@@ -812,6 +813,14 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
 /// and nothing else changes. If a runtime reader appears, this row must publish
 /// what it reads instead.
 fn publish_nothing_a_running_game_reads(
+    _world: &mut bevy::ecs::world::World,
+    _pack: &ambition_content_pack::PreparedContentPack,
+) {
+}
+
+/// A family whose running readers read the selected pack where they use it:
+/// selecting the new pack is its publication.
+fn publish_nothing_the_selection_carries(
     _world: &mut bevy::ecs::world::World,
     _pack: &ambition_content_pack::PreparedContentPack,
 ) {

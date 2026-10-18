@@ -31,22 +31,31 @@ const MADE_THIS_MEME_RON_STATIC: Option<&'static str> = None;
 /// The `game://` asset source is the content crate's own `assets/` tree.
 const ASSET_SOURCE: &str = "game://";
 
-/// Card colours, matching the renderer's own (`render_director_vanity_dialog.py`).
-const CARD_FILL: Color = Color::srgb(0.965, 0.969, 0.984);
-const CARD_OUTLINE: Color = Color::srgb(0.824, 0.847, 0.894);
-const BACKDROP: Color = Color::srgb(0.047, 0.055, 0.086);
-const BUBBLE_FILL: Color = Color::srgb(1.0, 1.0, 1.0);
-const BUBBLE_OUTLINE: Color = Color::srgb(0.659, 0.698, 0.776);
-const TEXT_INK: Color = Color::srgb(0.125, 0.141, 0.180);
-const CARD_MARGIN: f32 = 8.0;
-
 #[derive(Deserialize)]
 struct RigCard {
     canvas: (f32, f32),
     frame_ms: u64,
     sheet: String,
+    look: CardLook,
     parts: Vec<PartRect>,
     frames: Vec<CardFrame>,
+}
+
+/// The renderer's colours and card margin (`render_director_vanity_dialog.py`),
+/// as its exporter wrote them, and the screen around the card.
+#[derive(Deserialize)]
+struct CardLook {
+    margin: f32,
+    card_fill: [u8; 3],
+    card_outline: [u8; 3],
+    bubble_fill: [u8; 3],
+    bubble_outline: [u8; 3],
+    text: [u8; 3],
+    backdrop: [u8; 3],
+}
+
+fn rgb([r, g, b]: [u8; 3]) -> Color {
+    Color::srgb_u8(r, g, b)
 }
 
 #[derive(Deserialize)]
@@ -202,7 +211,7 @@ fn spawn_vanity_card(
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(BACKDROP),
+            BackgroundColor(rgb(card.look.backdrop)),
             GlobalZIndex(4_500),
             FrontendOwnedEntity::shell(activation_id, FrontendPresentationKind::StartupRoot),
             ShellSegmentScopedEntity {
@@ -240,16 +249,16 @@ fn spawn_vanity_card(
                     stage.spawn((
                         Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(CARD_MARGIN),
-                            top: Val::Px(CARD_MARGIN),
-                            width: Val::Px(canvas_w - CARD_MARGIN * 2.0),
-                            height: Val::Px(canvas_h - CARD_MARGIN * 2.0),
+                            left: Val::Px(card.look.margin),
+                            top: Val::Px(card.look.margin),
+                            width: Val::Px(canvas_w - card.look.margin * 2.0),
+                            height: Val::Px(canvas_h - card.look.margin * 2.0),
                             border: UiRect::all(Val::Px(2.0)),
                             border_radius: BorderRadius::all(Val::Px(22.0)),
                             ..default()
                         },
-                        BackgroundColor(CARD_FILL),
-                        BorderColor::all(CARD_OUTLINE),
+                        BackgroundColor(rgb(card.look.card_fill)),
+                        BorderColor::all(rgb(card.look.card_outline)),
                         Name::new("Ambition Vanity Card Panel"),
                     ));
 
@@ -281,8 +290,8 @@ fn spawn_vanity_card(
                                 position_type: PositionType::Absolute,
                                 ..default()
                             },
-                            BackgroundColor(BUBBLE_FILL),
-                            BorderColor::all(BUBBLE_OUTLINE),
+                            BackgroundColor(rgb(card.look.bubble_fill)),
+                            BorderColor::all(rgb(card.look.bubble_outline)),
                             Visibility::Hidden,
                             Name::new("Ambition Vanity Bubble Tail"),
                         ))
@@ -297,8 +306,8 @@ fn spawn_vanity_card(
                             max_width: Val::Px(186.0),
                             ..default()
                         },
-                        BackgroundColor(BUBBLE_FILL),
-                        BorderColor::all(BUBBLE_OUTLINE),
+                        BackgroundColor(rgb(card.look.bubble_fill)),
+                        BorderColor::all(rgb(card.look.bubble_outline)),
                         Visibility::Hidden,
                         Name::new("Ambition Vanity Speech Bubble"),
                     ));
@@ -311,7 +320,7 @@ fn spawn_vanity_card(
                                     font_size: FontSize::Px(18.0),
                                     ..default()
                                 },
-                                TextColor(TEXT_INK),
+                                TextColor(rgb(card.look.text)),
                                 Name::new("Ambition Vanity Speech Text"),
                             ))
                             .id();
@@ -478,6 +487,41 @@ fn animate_vanity_card(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The card's look is the renderer's: each colour and the margin in the
+    /// baked table are the constants of `render_director_vanity_dialog.py`.
+    /// A renderer edit with no new bake is red here.
+    #[test]
+    fn the_card_wears_the_renderers_colours() {
+        let renderer = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tools/ambition_sprite2d_renderer/scripts/render_director_vanity_dialog.py"
+        ))
+        .unwrap();
+        let constant = |name: &str| -> Vec<u8> {
+            let line = renderer
+                .lines()
+                .find(|line| line.starts_with(&format!("{name} = ")))
+                .unwrap_or_else(|| panic!("the renderer states {name}"));
+            line[name.len() + 3..]
+                .trim_matches(|c: char| c == '(' || c == ')' || c.is_whitespace())
+                .split(',')
+                .map(|part| part.trim().parse().unwrap())
+                .collect()
+        };
+        let look = &card().look;
+        for (name, baked) in [
+            ("CARD_FILL", look.card_fill),
+            ("CARD_OUTLINE", look.card_outline),
+            ("BUBBLE_FILL", look.bubble_fill),
+            ("BUBBLE_OUTLINE", look.bubble_outline),
+            ("TEXT_RGBA", look.text),
+            ("SCREEN_BACKDROP", look.backdrop),
+        ] {
+            assert_eq!(constant(name)[..3], baked, "{name}: the bake is not the renderer's; run the exporter");
+        }
+        assert_eq!(constant("CARD_MARGIN"), [look.margin as u8], "CARD_MARGIN");
+    }
 
     /// The baked table has to be READABLE and internally consistent — every
     /// draw must name a part that exists, or the card silently loses limbs.

@@ -61,7 +61,19 @@ a live reload is a second priority. Work in this order:
    a pack, and either road to data costs composability
    ([UI](engine/ui-localization-and-accessibility.md#localization-trigger)); (b) the census tail (item 2 there);
    (c) the procedural techniques still in `ambition_content` Rust, onto the
-   module road (a relink and a restart now; 0.34 s on that road).
+   module road (a relink and a restart now; 0.34 s on that road). Read
+   2026-10-18: none is left. Each boss special, wielded ability and boss
+   conductor is a module, and its native copy is compiled only under
+   `cfg(test)`, as the parity oracle. What `ambition_content` still runs
+   natively is room glue, not a technique: the cut-rope arena, the GNU-ton
+   duel's move playback, the idle bark ticker, the thrown-item impact rule and
+   the Mockingbird's moon strike. Their numbers are in `ambition_rules.ron`
+   (the cut rope's effects since 2026-10-18); their logic needs ports the
+   module SDK does not have (the duel: a port that starts a fighter's move,
+   [GNU-ton debts](game/gnu-ton-fight-debts.md)). The demos' remainder (Smash's
+   specials, Mary-O's shells and plant, Sanic's ball dash and monitors) is
+   named in [the packet catalog](engine/fast-iteration-implementation.md)
+   with the ports each one needs.
    Second priority, and only where a recompile does not depend on it: the
    live-reload remainder (a restated schema inside a live session, sprite
    publication inside a session). A live reload for the demo packs' tuning
@@ -405,7 +417,20 @@ Open:
    down, by field. Witnesses in `cut_rope_arena.rs`, one for each reader: a
    row that is not the shipped one is what is played (each red with its
    reader on the compiled number). An edit reached its test in 0.70 s with
-   no compile.
+   no compile. Ambition's dialogue box: its words (the two input hints, the speaker of a
+   line with none, the line over a long list of choices) are keys of
+   `ambition_text.ron`, and its colours (panel, inks, scroll bar, the two
+   kinds of choice row, the accents of a portrait with no art) are
+   `dialog_look` in `ambition_rules.ron`. The box reads both each time it
+   is drawn, and a change to either draws it again. Witness
+   `the_box_says_and_wears_what_its_files_state` (red with the panel on a
+   compiled colour, with no redraw on a change, and, with the hint edited in
+   the file, with the hint compiled). A colour edit reached its test in
+   0.64 s with no compile. The start card's colours and margin were a Rust
+   copy of its renderer's constants; the exporter
+   (`export_director_vanity_card.py`) now writes them into the baked table
+   (`look`), and `the_card_wears_the_renderers_colours` is red when the
+   renderer changes and the bake does not.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is

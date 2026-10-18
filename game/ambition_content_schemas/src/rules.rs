@@ -28,6 +28,71 @@ pub struct AmbitionRules {
     pub cut_rope_victory: VictoryNpc,
     pub cut_rope_trap: CutRopeTrap,
     pub duel: Duel,
+    pub dialog_look: DialogLook,
+}
+
+/// The colours of Ambition's dialogue box. Each is red, green and blue, each
+/// 0 to 1.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DialogLook {
+    pub panel: [f32; 3],
+    pub panel_edge: [f32; 3],
+    /// The words that are said.
+    pub body_ink: [f32; 3],
+    /// The input hint at the foot of the box.
+    pub hint_ink: [f32; 3],
+    pub speaker_ink: [f32; 3],
+    pub portrait_edge: [f32; 3],
+    /// The letters a portrait shows when it has no art.
+    pub monogram_ink: [f32; 3],
+    /// The line over a long list of choices that says which part shows.
+    pub scroll_ink: [f32; 3],
+    pub scroll_track: [f32; 3],
+    pub scroll_thumb: [f32; 3],
+    pub selected_choice: ChoiceLook,
+    pub choice: ChoiceLook,
+    /// The colours a portrait with no art can have behind its letters; the
+    /// speaker's name chooses one.
+    pub placeholder_accents: Vec<[f32; 3]>,
+}
+
+/// The look of one row of choices.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChoiceLook {
+    pub fill: [f32; 3],
+    pub ink: [f32; 3],
+    pub edge: [f32; 3],
+}
+
+impl DialogLook {
+    fn problems(&self, problems: &mut Vec<String>) {
+        let mut colours = vec![
+            ("panel", self.panel),
+            ("panel_edge", self.panel_edge),
+            ("body_ink", self.body_ink),
+            ("hint_ink", self.hint_ink),
+            ("speaker_ink", self.speaker_ink),
+            ("portrait_edge", self.portrait_edge),
+            ("monogram_ink", self.monogram_ink),
+            ("scroll_ink", self.scroll_ink),
+            ("scroll_track", self.scroll_track),
+            ("scroll_thumb", self.scroll_thumb),
+        ];
+        for (row, look) in [("selected_choice", self.selected_choice), ("choice", self.choice)] {
+            colours.extend([(row, look.fill), (row, look.ink), (row, look.edge)]);
+        }
+        let accents = self.placeholder_accents.iter().map(|accent| ("placeholder_accents", *accent));
+        for (field, colour) in colours.into_iter().chain(accents) {
+            if !colour.iter().all(|part| (0.0..=1.0).contains(part)) {
+                problems.push(format!("`dialog_look.{field}` has {colour:?}; each part is 0 to 1"));
+            }
+        }
+        if self.placeholder_accents.is_empty() {
+            problems.push("`dialog_look.placeholder_accents` is empty; a portrait with no art has a colour".to_string());
+        }
+    }
 }
 
 /// The trap over the Smirking Behemoth: what hangs from the rope, and the
@@ -473,6 +538,7 @@ impl AmbitionRules {
             }
         }
         trap.effects.problems(&mut problems);
+        self.dialog_look.problems(&mut problems);
         let drop = self.portal_gun_drop;
         for (field, value) in [("portal_gun_drop.ahead_px", drop.ahead_px), ("portal_gun_drop.arm_seconds", drop.arm_seconds)] {
             if !(value.is_finite() && value >= 0.0) {
@@ -701,6 +767,21 @@ mod tests {
                 width: 28.0,
                 height: 48.0,
             },
+            dialog_look: DialogLook {
+                panel: [0.035, 0.025, 0.045],
+                panel_edge: [0.86, 0.67, 0.25],
+                body_ink: [0.98, 0.96, 0.90],
+                hint_ink: [0.72, 0.69, 0.78],
+                speaker_ink: [1.0, 0.88, 0.52],
+                portrait_edge: [0.96, 0.84, 0.48],
+                monogram_ink: [1.0, 0.96, 0.82],
+                scroll_ink: [0.78, 0.73, 0.82],
+                scroll_track: [0.12, 0.09, 0.15],
+                scroll_thumb: [0.86, 0.67, 0.25],
+                selected_choice: ChoiceLook { fill: [0.88, 0.69, 0.27], ink: [0.12, 0.06, 0.10], edge: [1.0, 0.90, 0.58] },
+                choice: ChoiceLook { fill: [0.09, 0.055, 0.105], ink: [0.94, 0.90, 0.96], edge: [0.28, 0.20, 0.32] },
+                placeholder_accents: vec![[0.17, 0.26, 0.42]],
+            },
             duel: Duel {
                 room: "duel_arena".to_string(),
                 arena_offset_x: 360.0,
@@ -774,6 +855,14 @@ mod tests {
         quiet.cut_rope_trap.effects.rope_sparks.effects.clear();
         let problems = quiet.problems();
         assert!(problems.iter().any(|problem| problem.contains("cut_rope_trap.effects.rope_sparks.effects")), "{problems:?}");
+        let mut glaring = rules();
+        glaring.dialog_look.selected_choice.edge = [1.0, 2.0, 1.0];
+        let problems = glaring.problems();
+        assert!(problems.iter().any(|problem| problem.contains("dialog_look.selected_choice")), "{problems:?}");
+        let mut no_accent = rules();
+        no_accent.dialog_look.placeholder_accents.clear();
+        let problems = no_accent.problems();
+        assert!(problems.iter().any(|problem| problem.contains("dialog_look.placeholder_accents")), "{problems:?}");
         let mut upside_down = rules();
         upside_down.cut_rope_trap.effects.rope_sparks.above_px = (74.0, 16.0);
         let problems = upside_down.problems();

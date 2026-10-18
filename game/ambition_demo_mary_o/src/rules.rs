@@ -34,6 +34,25 @@ pub struct MaryORules {
     pub power_ups: PowerUps,
     /// The bursts of what she breaks and what dies in the castle.
     pub effects: Effects,
+    /// The words over a pipe to another level.
+    pub pipe_signs: PipeSigns,
+}
+
+/// The words over a pipe to another level: dark words with an edge of
+/// copies around them, so they read on a pale sky.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PipeSigns {
+    /// The height of the words (world units).
+    pub size_px: f32,
+    /// How far the middle of the words is over the mouth of the pipe.
+    pub rise_px: f32,
+    /// How far each copy of the edge is from the words. Less than the width
+    /// of a stroke, or the edge is most of each letter.
+    pub edge_px: f32,
+    /// The words and their edge (red, green, blue, each 0 to 1).
+    pub ink: [f32; 3],
+    pub edge: [f32; 3],
 }
 
 /// The end of a castle: the switch, the bridge, the boss in the lava, the
@@ -281,6 +300,21 @@ impl MaryORules {
         let scale = self.step_up_clock_scale;
         if !(scale.is_finite() && scale > 0.0 && scale <= 1.0) {
             problems.push(format!("`step_up_clock_scale` is {scale}; a beat slows the clock or leaves it, so it is more than 0 and at most 1"));
+        }
+        let signs = &self.pipe_signs;
+        for (field, value) in [
+            ("pipe_signs.size_px", signs.size_px),
+            ("pipe_signs.rise_px", signs.rise_px),
+            ("pipe_signs.edge_px", signs.edge_px),
+        ] {
+            if !(value.is_finite() && value >= 0.0) {
+                problems.push(format!("`{field}` is {value}; it is finite and not negative"));
+            }
+        }
+        for (field, colour) in [("pipe_signs.ink", signs.ink), ("pipe_signs.edge", signs.edge)] {
+            if colour.iter().any(|part| !(0.0..=1.0).contains(part)) {
+                problems.push(format!("`{field}` is {colour:?}; each part is from 0 to 1"));
+            }
         }
         let effects = &self.effects;
         for (field, burst) in [

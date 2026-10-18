@@ -205,4 +205,16 @@
         // share of its length, in a band this tall (px).
         bridge_fireworks: (count: 9, across_share: 0.85, height_px: 34.0),
     ),
+    // The words over a pipe to another level: the plum of the dark stone of
+    // her castle, with a white edge, so they read on the pale sky (Jon,
+    // 2026-10-12: white words could not be seen there). The edge is copies
+    // of the words this far to each side; at 2.0 the edge was most of each
+    // letter and the words read white (measured in a window, 2026-10-12).
+    pipe_signs: (
+        size_px: 24.0,
+        rise_px: 38.0,
+        edge_px: 1.25,
+        ink: (0.22, 0.11, 0.32),
+        edge: (1.0, 1.0, 1.0),
+    ),
 )

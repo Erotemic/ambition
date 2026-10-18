@@ -29,21 +29,10 @@ use ambition_platformer2d::render::rendering::{
 };
 use ambition_platformer2d::world::rooms::LiveRoomSpecs;
 
-/// The height of the words, in world units.
-const SIGN_PX: f32 = 24.0;
-/// How far the middle of the words is over the mouth of the pipe.
-const SIGN_RISE: f32 = 38.0;
-/// How far each copy of the edge is from the words. It is less than the
-/// width of a stroke of the words: at 2.0 the edge was most of each letter,
-/// and the words were white (measured in a window, 2026-10-12).
-const EDGE_PX: f32 = 1.25;
-/// Where the copies of the edge are, in parts of [`EDGE_PX`]: the four sides
-/// and the four corners.
+/// Where the copies of the edge are, in parts of `pipe_signs.edge_px` (her
+/// rules file): the four sides and the four corners.
 const EDGE_AT: [(f32, f32); 8] =
     [(-1.0, 0.0), (1.0, 0.0), (0.0, -1.0), (0.0, 1.0), (-0.7, -0.7), (0.7, -0.7), (-0.7, 0.7), (0.7, 0.7)];
-/// The plum of the dark stone of her castle.
-const INK: Color = Color::srgb(0.22, 0.11, 0.32);
-const EDGE: Color = Color::WHITE;
 
 /// One per live room that has its signs.
 #[derive(Component)]
@@ -102,6 +91,10 @@ fn present_pipe_signs(
     let Some(session_scope) = SessionSpawnScope::for_optional_active_session(active_session.as_deref()) else {
         return;
     };
+    // How the signs look is `pipe_signs` in her rules file.
+    let look = crate::rules::mary_o_rules().pipe_signs;
+    let rgb = |[r, g, b]: [f32; 3]| Color::srgb(r, g, b);
+    let (ink, edge) = (rgb(look.ink), rgb(look.edge));
     for (room, definition) in rooms.live_rooms() {
         if presented.iter().any(|stamp| stamp.0 == room) {
             continue;
@@ -117,20 +110,20 @@ fn present_pipe_signs(
                 .and_then(|level| level.metadata.title.as_deref());
             let words = sign_words(title, &warp.room);
             let mouth = warp.mouth.aabb;
-            let at = ae::Vec2::new((mouth.min.x + mouth.max.x) * 0.5, mouth.min.y - SIGN_RISE);
+            let at = ae::Vec2::new((mouth.min.x + mouth.max.x) * 0.5, mouth.min.y - look.rise_px);
             let anchor = world_to_bevy(&spec.world, at, WORLD_Z_PLAYER + 8.0);
-            let font = TextFont { font_size: FontSize::Px(SIGN_PX), ..default() };
+            let font = TextFont { font_size: FontSize::Px(look.size_px), ..default() };
             commands
                 .spawn_session_scoped(
                     scope,
                     (
                         Text2d::new(words.clone()),
                         font.clone(),
-                        TextColor(INK),
+                        TextColor(ink),
                         Transform::from_translation(anchor),
                         RoomVisual,
                         WorldLabel::new(format!("mary_o_pipe_sign:{}", warp.mouth.name), WorldLabelFamily::Fixture, anchor)
-                            .with_colors(INK, Some(EDGE)),
+                            .with_colors(ink, Some(edge)),
                         StaticWorldLabel,
                     ),
                 )
@@ -139,8 +132,8 @@ fn present_pipe_signs(
                         sign.spawn((
                             Text2d::new(words.clone()),
                             font.clone(),
-                            TextColor(EDGE),
-                            Transform::from_xyz(dx * EDGE_PX, dy * EDGE_PX, -0.1),
+                            TextColor(edge),
+                            Transform::from_xyz(dx * look.edge_px, dy * look.edge_px, -0.1),
                             PipeSignEdge,
                         ));
                     }

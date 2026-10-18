@@ -50,6 +50,7 @@ pub mod star;
 pub mod stomp;
 pub mod swallow;
 pub mod test_course;
+pub mod text;
 pub mod void_lizard;
 pub mod void_look;
 pub mod void_star;
@@ -1155,7 +1156,9 @@ pub fn install_mary_o_content(app: &mut App) {
     // Her cast is read here, once.
     app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin {
         pack: &pack::PACK,
-        live: &[rules::MARY_O_RULES_SCHEMA, forms::MARY_O_FORMS_SCHEMA],
+        // Each line is read where it is shown. The launcher row is read once
+        // when the launcher is built, so it keeps its start words.
+        live: &[rules::MARY_O_RULES_SCHEMA, forms::MARY_O_FORMS_SCHEMA, text::MARY_O_TEXT_SCHEMA],
         restated: Vec::new(),
     });
     // Seventeen placements, thirty-four actors, and only the prefixed half carried `SnakeShell` /

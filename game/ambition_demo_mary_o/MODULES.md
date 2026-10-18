@@ -36,11 +36,12 @@
 | [`stomp`](src/stomp.rs) | The ONE top/side contact authority for Mary-O's enemies, in the engine's box type. |
 | [`swallow`](src/swallow.rs) | The Laden Swallow: the bird that stays over the player and lets coconuts go. |
 | [`test_course`](src/test_course.rs) | A level for the TESTS to play, which nobody authors. |
+| [`text`](src/text.rs) | The lines Mary-O shows, as data in her pack (`assets/data/mary_o_text.ron`): the HUD labels, the level cards and the launcher row. |
 | [`void_lizard`](src/void_lizard.rs) | The Void Lizard: the boss of the castle. |
 | [`void_look`](src/void_look.rs) | The field of the void about each void thing of Mary-O: the Void Star, the Void Lizard, and the orb the Void Lizard throws. |
 | [`void_star`](src/void_star.rs) | The Void Star: the enemy that no stomp can hurt. |
 
-_33 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_34 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

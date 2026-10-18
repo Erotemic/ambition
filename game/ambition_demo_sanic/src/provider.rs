@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 
+use ambition_platformer2d::content::hole;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::presentation::profiles;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
@@ -76,9 +77,9 @@ impl Plugin for SanicExperiencePlugin {
         PlatformerExperienceAuthoring::new(
             SANIC_EXPERIENCE,
             SANIC_GAMEPLAY_ROUTE,
-            "Sanic",
-            "Three-act momentum course with loops and portals",
-            "Prepare Sanic",
+            crate::text::line("launcher.label"),
+            crate::text::line("launcher.description"),
+            crate::text::line("launcher.preparing"),
             sanic_authored_catalogs(),
         )
         // The look of its launcher row.
@@ -174,7 +175,7 @@ fn publish_sanic_ring_readout(
     if !facts.present {
         return;
     }
-    readouts.set_labelled(RINGS_HUD_SLOT, "RINGS", facts.balance);
+    readouts.set_labelled(RINGS_HUD_SLOT, crate::text::line("hud.rings"), facts.balance);
 
     // The clock: the act's own, which stops when the act is cleared.
     let running = act.iter().find_map(|state| match state.phase {
@@ -187,7 +188,7 @@ fn publish_sanic_ring_readout(
             crate::SanicActPhase::Running => None,
         })
     }) {
-        Some(seconds) => readouts.set_labelled(TIME_HUD_SLOT, "TIME", crate::act_clock_text(seconds)),
+        Some(seconds) => readouts.set_labelled(TIME_HUD_SLOT, crate::text::line("hud.time"), crate::act_clock_text(seconds)),
         None => readouts.clear_slot(TIME_HUD_SLOT),
     }
 
@@ -200,7 +201,7 @@ fn publish_sanic_ring_readout(
     match title {
         Some((name, number)) => readouts.set(
             TITLE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(format!("{name}    ACT {number}")),
+            ambition_platformer2d::presentation::HudReadout::bare(title_card(name, number)),
         ),
         None => readouts.clear_slot(TITLE_HUD_SLOT),
     }
@@ -212,13 +213,40 @@ fn publish_sanic_ring_readout(
     }) {
         Some((time, rings)) => readouts.set(
             RESULTS_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(format!(
-                "ACT CLEAR    TIME {}    RINGS {}    SCORE {}",
-                crate::act_time_text(time),
-                rings,
-                crate::act_score(time, rings),
-            )),
+            ambition_platformer2d::presentation::HudReadout::bare(results_card(time, rings)),
         ),
         None => readouts.clear_slot(RESULTS_HUD_SLOT),
+    }
+}
+
+/// The card while an act is young: its name and its number.
+pub fn title_card(name: &str, number: u8) -> String {
+    crate::text::sanic_text().fill("card.act_title", &[hole("name", &name), hole("number", &number)])
+}
+
+/// The card when an act is cleared after `time` seconds with `rings` held.
+pub fn results_card(time: f32, rings: i32) -> String {
+    crate::text::sanic_text().fill(
+        "card.act_clear",
+        &[hole("time", &crate::act_time_text(time)), hole("rings", &rings), hole("score", &crate::act_score(time, rings))],
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The act cards' words are his text file's; the code fills the act's
+    /// name and number, and the time, rings and score of a clear.
+    #[test]
+    fn his_cards_say_what_his_text_file_states() {
+        let text = crate::text::sanic_text();
+        assert_eq!(title_card("COVE HIGHWAY", 2), text.fill("card.act_title", &[hole("name", &"COVE HIGHWAY"), hole("number", &2)]));
+        let score = crate::act_score(65.0, 12);
+        assert_eq!(
+            results_card(65.0, 12),
+            text.fill("card.act_clear", &[hole("time", &"1:05"), hole("rings", &12), hole("score", &score)])
+        );
+        assert!(results_card(65.0, 12).contains("1:05"), "the shipped card shows the time");
     }
 }

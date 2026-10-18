@@ -11,7 +11,7 @@ use ambition_platformer2d::content::EmbeddedPack;
 pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! {
     root: "assets",
     // The demo's tuning is its own policy.
-    schemas: [crate::rules::mary_o_rules_schema, crate::forms::mary_o_forms_schema],
+    schemas: [crate::rules::mary_o_rules_schema, crate::forms::mary_o_forms_schema, crate::text::mary_o_text_schema],
 };
 
 /// A build that reads the pack off disk states the room rules in `scope`

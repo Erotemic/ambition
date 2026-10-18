@@ -1944,6 +1944,7 @@ fn the_round_counter_counts_rounds_and_not_wins() {
     settle_to_launcher(&mut app);
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    let round_one = ambition_app::app::versus_rules::versus_text().fill("announce.round", &[("number", &1)]);
     let mut opened_with_a_card = false;
     for _ in 0..900 {
         app.update();
@@ -1953,7 +1954,7 @@ fn the_round_counter_counts_rounds_and_not_wins() {
             .get(&ambition_platformer2d::presentation::HudSlotId::from(
                 ANNOUNCE_HUD_SLOT,
             ))
-            .is_some_and(|readout| readout.text().contains("ROUND 1"))
+            .is_some_and(|readout| readout.text().contains(round_one.as_str()))
         {
             opened_with_a_card = true;
             break;

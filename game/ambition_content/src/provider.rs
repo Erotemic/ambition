@@ -85,19 +85,16 @@ pub fn ambition_authored_catalogs(pack: &ambition_content_pack::PreparedContentP
     .with_packed_sfx()
 }
 
+/// The launcher row's words are the pack's (`data/ambition_text.ron`).
 #[derive(Clone, Debug)]
 pub struct AmbitionExperienceConfig {
     pub route_id: String,
-    pub label: String,
-    pub description: String,
 }
 
 impl Default for AmbitionExperienceConfig {
     fn default() -> Self {
         Self {
             route_id: AMBITION_GAMEPLAY_ROUTE.to_owned(),
-            label: "Ambition".to_owned(),
-            description: "The main Ambition campaign".to_owned(),
         }
     }
 }
@@ -120,12 +117,13 @@ impl AmbitionExperiencePlugin {
 
 impl Plugin for AmbitionExperiencePlugin {
     fn build(&self, app: &mut App) {
+        let text = crate::shown_text::ambition_text_of(&crate::pack::select(app.world_mut()));
         PlatformerExperienceAuthoring::new(
             AMBITION_EXPERIENCE,
             self.config.route_id.clone(),
-            self.config.label.clone(),
-            self.config.description.clone(),
-            "Prepare Ambition",
+            text.line("launcher.label"),
+            text.line("launcher.description"),
+            text.line("launcher.preparing"),
             ambition_authored_catalogs(&crate::pack::select(app.world_mut())),
         )
         // Desktop keeps ordinary framing; touch-primary sessions get
@@ -211,6 +209,11 @@ mod tests {
             .get(&experience_id)
             .expect("provider registered itself in an alternate host");
         assert_eq!(registration.launch_route.as_str(), AMBITION_GAMEPLAY_ROUTE);
+        // The launcher row's words, and the lines the host reads, are the
+        // pack's text file's.
+        let text = crate::shown_text::ambition_text_of(crate::pack::shipped());
+        assert_eq!(registration.display_name, text.line("launcher.label"));
+        assert_eq!(app.world().resource::<crate::shown_text::AmbitionShownText>().0, text);
         let route = app
             .world()
             .resource::<ShellRouteCatalog>()

@@ -56,7 +56,8 @@ impl ShownText {
             .unwrap_or_else(|| panic!("the shown text states no line `{key}`; add the key to the game's `TextKeys`"))
     }
 
-    /// The line `key` with each `{hole}` filled.
+    /// The line `key` with each `{hole}` filled. Give holes of different
+    /// types with [`hole`]: `fill(key, &[hole("title", &title), hole("lives", &3)])`.
     pub fn fill(&self, key: &str, holes: &[(&str, &dyn Display)]) -> String {
         let mut line = self.line(key).to_string();
         for (hole, value) in holes {
@@ -91,6 +92,13 @@ impl ShownText {
         }
         problems
     }
+}
+
+/// One hole of [`ShownText::fill`]: its name and its value. A slice of
+/// tuples takes the type of its first value, so holes of different types
+/// need this function to have one type.
+pub fn hole<'a>(name: &'a str, value: &'a dyn Display) -> (&'a str, &'a dyn Display) {
+    (name, value)
 }
 
 /// Each `{word}` of `line`: a word of letters, digits and underscores.

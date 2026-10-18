@@ -1,0 +1,23 @@
+// The lines the Sanic demo shows (schema `sanic_text`, owned by the demo).
+// An edit here is shown at the next start, with no Rust build. A `{word}` is
+// a hole the game fills; a line may leave out a hole it fills, and may not
+// name one it does not. A key names a line, not its words.
+//
+// Not here: an act's name (`acts` in `sanic_rules.ron`).
+{
+    // The two readouts. `{time}` on the card is the game's clock text.
+    "hud.rings": "RINGS",
+    "hud.time": "TIME",
+    // The card while an act is young: its name and its number.
+    "card.act_title": "{name}    ACT {number}",
+    // The card when an act is cleared: its time, the rings held and the
+    // score they give.
+    "card.act_clear": "ACT CLEAR    TIME {time}    RINGS {rings}    SCORE {score}",
+    // The words on the signs in the acts.
+    "sign.loop": "LOOP",
+    "sign.finish": "FINISH",
+    // The game's row of a launcher.
+    "launcher.label": "Sanic",
+    "launcher.description": "Three-act momentum course with loops and portals",
+    "launcher.preparing": "Prepare Sanic",
+}

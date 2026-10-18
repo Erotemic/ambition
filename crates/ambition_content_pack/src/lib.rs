@@ -22,7 +22,7 @@ mod schema;
 
 pub use candidate::{changed_domains, CandidateGeneration, CandidateVerdict};
 pub use rules_schema::{lowered_rules, rules_schema};
-pub use shown_text::{lowered_shown_text, shown_text_schema, ShownText, TextKey, TextKeys};
+pub use shown_text::{hole, lowered_shown_text, shown_text_schema, ShownText, TextKey, TextKeys};
 pub use diagnostic::{CompileFailure, CompileStage, Diagnostic, DiagnosticCode, Severity};
 pub use draft::{ContentPackDraft, ContentPackManifest, SourceDeclaration, SourceFile};
 pub use identity::{

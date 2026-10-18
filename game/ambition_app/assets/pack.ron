@@ -30,5 +30,7 @@
         (path: "data/versus_arena.ron", schema: "versus_arena", version: 1),
         // Who it seats: the fighters, the CPU seats' brain, the teams.
         (path: "data/versus_seats.ron", schema: "versus_seats", version: 1),
+        // The lines it shows: the score line, the round calls, its launcher row.
+        (path: "data/versus_text.ron", schema: "versus_text", version: 1),
     ],
 )

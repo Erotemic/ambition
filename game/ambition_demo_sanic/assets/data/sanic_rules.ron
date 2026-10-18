@@ -136,4 +136,18 @@
         beat_seconds: 0.35,
         beat_clock_scale: 0.5,
     ),
+    // His look in motion. A puff row is how often (sim seconds), how many
+    // particles, how fast (px per second) and their colour (RGBA, 0 to 1).
+    effects: (
+        // Gold motes on a ring around the super form, stepped by the golden
+        // angle so they spread evenly; lifted so they stay at the torso.
+        super_sparkle: (
+            puffs: (period_s: 0.14, count: 2, speed: 26.0, color: (1.0, 0.9, 0.4, 1.0)),
+            radius_px: 15.0,
+            rise_px: 8.0,
+        ),
+        // A pale puff while he runs; a denser, quicker spray when he skids.
+        run_dust: (period_s: 0.07, count: 1, speed: 46.0, color: (0.95, 0.97, 1.0, 0.55)),
+        skid_dust: (period_s: 0.04, count: 3, speed: 120.0, color: (0.93, 0.90, 0.80, 0.90)),
+    ),
 )

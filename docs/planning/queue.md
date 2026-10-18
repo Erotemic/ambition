@@ -56,8 +56,9 @@ a live reload is a second priority. Work in this order:
    rows are the host's own pack (`ambition_app/assets/host/pack.ron`,
    `host_text`), so no host module reads a content crate for its words. A wording edit is 0.5-0.8 s to a test; it was
    a crate build (Smash 11.7 s, Mary-O 18.7 s, Sanic 6.8 s) and a relink.
-   Left: the shell's own words (menus, settings, the engine's "Talk" and
-   "HP"), one shell text file by Q68
+   The engine's own words (settings labels, "Talk", "HP", the cutscene
+   hint) stay Rust until the localization trigger: their crates cannot read
+   a pack, and either road to data costs composability
    ([UI](engine/ui-localization-and-accessibility.md#localization-trigger)); (b) the census tail (item 2 there);
    (c) the procedural techniques still in `ambition_content` Rust, onto the
    module road (a relink and a restart now; 0.34 s on that road).
@@ -376,9 +377,16 @@ Open:
    shown text is its `data/<game>_text.ron` (the shell's words are left);
    Smash's select cursor (speed, the ramp, the Back hold) is
    `select_cursor` and `back_hold_to_leave_seconds` in `smash_rules.ron`.
-   Each edit reached its test in 0.7-0.9 s with no compile. Left: the
-   title screen's timing, player colours, and the effect looks last
-   (sparkle, dust, bursts, Mary-O's sky shimmer, the room palette).
+   The title screen's look (the drifting scene, the fade, the window, the
+   cursor's breath) is `title_look` in the host's own pack
+   (`ambition_app/assets/host`); Smash's select screen colours (each
+   slot's, the extra hand, the inks and panels) are `select_look` in
+   `smash_rules.ron`. Each edit reached its test in 0.7-0.9 s with no
+   compile. Sanic's super sparkle and his run and skid dust are `effects`
+   in `sanic_rules.ron` (the sparkle's reader has no witness of its own;
+   the dust's does). Left: Twintrack's two seat colours (a lab exhibit,
+   with its code), and the room palettes. The other effect looks are in
+   the WASM modules, on the module road already.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is

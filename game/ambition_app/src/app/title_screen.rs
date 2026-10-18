@@ -32,45 +32,153 @@ use ambition_platformer2d::menu::{MenuControlKind, MenuVisualState};
 use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
 use ambition_platformer2d::sprite_sheet::game_assets::ParallaxTheme;
 
-/// The layers of a scene from the far one to the near one, and how much each
-/// one drifts: the near ones more, as they do when a camera moves.
-const LAYERS: [(&str, f32); 4] =
-    [("sky", 0.15), ("far_backplate", 0.4), ("near_background", 0.75), ("foreground_atmosphere", 1.0)];
-/// How wide a layer is, in parts of a hundred of the view's width. A layer is
-/// square, and a 16:9 view of this width shows the middle band of it, as the
-/// game's camera does.
-const LAYER_VW: f32 = 132.0;
-/// How far the nearest layer drifts to each side, in the same unit.
-const DRIFT_VW: f32 = 9.0;
-/// The seconds of one drift there and back.
-const DRIFT_PERIOD_S: f32 = 80.0;
-/// The seconds one scene takes to fade into the next.
-const FADE_S: f32 = 0.9;
+/// The layers of a scene from the far one to the near one. How much each one
+/// drifts is the look's (`TitleLook::layer_drift`).
+const LAYER_IDS: [&str; 4] = ["sky", "far_backplate", "near_background", "foreground_atmosphere"];
 
-/// The scrim the menu puts over what is behind it, on the title screen: the
-/// backdrop is the point of the screen, so it is dimmed only a little.
-const SCRIM: Color = Color::srgba(0.0, 0.0, 0.02, 0.20);
-/// The menu's window, on the title screen: dark glass over the backdrop.
-const WINDOW: Color = Color::srgba(0.035, 0.045, 0.085, 0.70);
+/// The title screen's look: the drifting scene behind the menu and the
+/// menu's window, as the host's pack states them (`data/title_look.ron`). An
+/// edit is shown at the next start, with no Rust build.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TitleLook {
+    /// How much each layer drifts, far to near ([`LAYER_IDS`]): the near
+    /// ones more, as they do when a camera moves.
+    pub layer_drift: [f32; 4],
+    /// How wide a layer is, in parts of a hundred of the view's width. A
+    /// layer is square, and a 16:9 view of this width shows the middle band
+    /// of it, as the game's camera does.
+    pub layer_vw: f32,
+    /// How far the nearest layer drifts to each side, in the same unit.
+    pub drift_vw: f32,
+    /// The seconds of one drift there and back.
+    pub drift_period_s: f32,
+    /// The seconds one scene takes to fade into the next.
+    pub fade_s: f32,
+    /// The scrim over what is behind the menu (RGBA): the backdrop is the
+    /// point of the screen, so it is dimmed only a little.
+    pub scrim: [f32; 4],
+    /// The menu's window (RGBA): dark glass over the backdrop.
+    pub window: [f32; 4],
+    /// The width of the window, in parts of a hundred of the view's height.
+    /// Text is sized by the height of the view, so the window is too: a row
+    /// keeps its shape on a view of any aspect.
+    pub window_width_vh: f32,
+    /// The most of the view's width the window takes (a tall, narrow view).
+    pub window_most_percent: f32,
+    pub window_radius_vh: f32,
+    pub window_edge_vh: f32,
+    pub window_edge: [f32; 4],
+    pub row_radius_vh: f32,
+    pub row_edge_vh: f32,
+    /// The edge of a row the cursor is not on (RGBA).
+    pub row_edge: [f32; 4],
+    /// The edge of the cursor's row at its brightest (RGB). Its alpha goes
+    /// between `cursor_edge_low` and 1 once each `cursor_breath_s`.
+    pub cursor_edge: [f32; 3],
+    pub cursor_edge_low: f32,
+    pub cursor_breath_s: f32,
+}
 
-/// The width of the window, in parts of a hundred of the view's height. Text
-/// is sized by the height of the view, so the window is too: a row keeps its
-/// shape on a view of any aspect. On a 16:9 view this is 54 of its width.
-const WINDOW_WIDTH_VH: f32 = 96.0;
-/// The most of the view's width the window takes (a tall, narrow view).
-const WINDOW_MOST_PERCENT: f32 = 94.0;
-const WINDOW_RADIUS_VH: f32 = 2.4;
-const WINDOW_EDGE_VH: f32 = 0.28;
-const WINDOW_EDGE: Color = Color::srgba(0.78, 0.85, 1.0, 0.30);
-const ROW_RADIUS_VH: f32 = 1.6;
-const ROW_EDGE_VH: f32 = 0.32;
-/// The edge of a row the cursor is not on.
-const ROW_EDGE: Color = Color::srgba(0.72, 0.80, 1.0, 0.22);
-/// The edge of the cursor's row at its brightest. Its alpha goes between
-/// [`CURSOR_EDGE_LOW`] and 1 once each [`CURSOR_BREATH_S`].
-const CURSOR_EDGE: Color = Color::srgb(1.0, 0.98, 0.86);
-const CURSOR_EDGE_LOW: f32 = 0.45;
-const CURSOR_BREATH_S: f32 = 1.8;
+fn rgba([r, g, b, a]: [f32; 4]) -> Color {
+    Color::srgba(r, g, b, a)
+}
+
+impl TitleLook {
+    fn layers(&self) -> [(&'static str, f32); 4] {
+        std::array::from_fn(|index| (LAYER_IDS[index], self.layer_drift[index]))
+    }
+    fn scrim(&self) -> Color {
+        rgba(self.scrim)
+    }
+    fn window(&self) -> Color {
+        rgba(self.window)
+    }
+    fn window_edge(&self) -> Color {
+        rgba(self.window_edge)
+    }
+    fn row_edge(&self) -> Color {
+        rgba(self.row_edge)
+    }
+    fn cursor_edge(&self) -> Color {
+        let [r, g, b] = self.cursor_edge;
+        Color::srgb(r, g, b)
+    }
+
+    /// Each value the title screen cannot use, named by its field.
+    fn problems(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        for (field, value) in [
+            ("drift_period_s", self.drift_period_s),
+            ("fade_s", self.fade_s),
+            ("cursor_breath_s", self.cursor_breath_s),
+            ("window_width_vh", self.window_width_vh),
+            ("window_most_percent", self.window_most_percent),
+        ] {
+            if !(value.is_finite() && value > 0.0) {
+                problems.push(format!("`{field}` is {value}; it is finite and more than 0"));
+            }
+        }
+        for (field, value) in [
+            ("drift_vw", self.drift_vw),
+            ("window_radius_vh", self.window_radius_vh),
+            ("window_edge_vh", self.window_edge_vh),
+            ("row_radius_vh", self.row_radius_vh),
+            ("row_edge_vh", self.row_edge_vh),
+        ] {
+            if !(value.is_finite() && value >= 0.0) {
+                problems.push(format!("`{field}` is {value}; it is finite and not negative"));
+            }
+        }
+        // The window's inner corner is its radius less its edge.
+        if self.window_edge_vh > self.window_radius_vh {
+            problems.push(format!(
+                "`window_edge_vh` is {}, more than `window_radius_vh` {}; the inner corner would be negative",
+                self.window_edge_vh, self.window_radius_vh
+            ));
+        }
+        // A layer wider than the view by less than its drift shows a gap at an edge.
+        let deepest = self.layer_drift.iter().cloned().fold(0.0_f32, f32::max);
+        if (self.layer_vw - 100.0) * 0.5 < deepest * self.drift_vw {
+            problems.push(format!(
+                "`layer_vw` {} leaves {} on each side, less than the deepest drift {}; a layer would show a gap",
+                self.layer_vw,
+                (self.layer_vw - 100.0) * 0.5,
+                deepest * self.drift_vw
+            ));
+        }
+        if !(0.0..=1.0).contains(&self.cursor_edge_low) {
+            problems.push(format!("`cursor_edge_low` is {}; an alpha is from 0 to 1", self.cursor_edge_low));
+        }
+        let colours = [("scrim", &self.scrim[..]), ("window", &self.window[..]), ("window_edge", &self.window_edge[..]), ("row_edge", &self.row_edge[..]), ("cursor_edge", &self.cursor_edge[..])];
+        for (field, channels) in colours {
+            if channels.iter().any(|channel| !(0.0..=1.0).contains(channel)) {
+                problems.push(format!("`{field}` is {channels:?}; each channel is from 0 to 1"));
+            }
+        }
+        problems
+    }
+}
+
+/// The authored FILE kind: the title screen's look.
+pub const TITLE_LOOK_SCHEMA: &str = "title_look";
+
+/// The schema, for the host pack's `content_pack! { schemas: [..] }`.
+pub fn title_look_schema() -> ambition_platformer2d::content::SchemaRegistration {
+    ambition_platformer2d::content::rules_schema(
+        TITLE_LOOK_SCHEMA,
+        1,
+        "ambition_host",
+        "The title screen's look: the drifting scene behind the launcher menu and the menu's window.",
+        TitleLook::problems,
+    )
+}
+
+/// The look the host's pack states.
+pub fn title_look() -> TitleLook {
+    *ambition_platformer2d::content::lowered_rules::<TitleLook>(super::host_pack::HOST_PACK.prepared(), TITLE_LOOK_SCHEMA)
+        .expect("the host's pack states the title look (`data/title_look.ron`)")
+}
 
 /// The scene behind the row `entry`. `None` is the Exit row.
 ///
@@ -88,7 +196,7 @@ fn scene_of(entry: Option<&ShellLaunchEntry>) -> ParallaxTheme {
 #[derive(Component)]
 pub struct TitleBackdrop;
 
-/// One scene of the backdrop. `shown` goes to `wanted` over [`FADE_S`]; a
+/// One scene of the backdrop. `shown` goes to `wanted` over `TitleLook::fade_s`; a
 /// scene that is not wanted and not shown is taken away.
 #[derive(Component)]
 pub struct TitleScene {
@@ -147,8 +255,8 @@ fn smoothstep(t: f32) -> f32 {
 /// Where a layer is at `seconds`: in the middle of the view, and to one side
 /// of it by its drift.
 fn layer_left(depth: f32, seconds: f32) -> Val {
-    let swing = (seconds * std::f32::consts::TAU / DRIFT_PERIOD_S).sin();
-    Val::Vw(-(LAYER_VW - 100.0) * 0.5 + depth * DRIFT_VW * swing)
+    let swing = (seconds * std::f32::consts::TAU / title_look().drift_period_s).sin();
+    Val::Vw(-(title_look().layer_vw - 100.0) * 0.5 + depth * title_look().drift_vw * swing)
 }
 
 /// Want the scene of the row the cursor is on, and make it if it is not there.
@@ -227,18 +335,18 @@ fn show_the_scene_of_the_cursor(
             Name::new(format!("title scene: {}", wanted.key())),
         ))
         .with_children(|scene| {
-            for (layer, depth) in LAYERS {
+            for (layer, depth) in title_look().layers() {
                 let mut image = ImageNode::new(asset_server.load(format!("{subdir}/{}_{layer}.png", wanted.key())));
                 image.color = Color::WHITE.with_alpha(smoothstep(shown));
                 scene.spawn((
                     Node {
                         position_type: PositionType::Absolute,
-                        width: Val::Vw(LAYER_VW),
+                        width: Val::Vw(title_look().layer_vw),
                         aspect_ratio: Some(1.0),
                         left: layer_left(depth, seconds),
                         // Its middle on the middle of the view.
                         top: Val::Percent(50.0),
-                        margin: UiRect::top(Val::Vw(-LAYER_VW * 0.5)),
+                        margin: UiRect::top(Val::Vw(-title_look().layer_vw * 0.5)),
                         ..default()
                     },
                     image,
@@ -256,7 +364,7 @@ fn fade_and_drift_the_scenes(
     mut scenes: Query<(Entity, &mut TitleScene)>,
     mut layers: Query<(&ChildOf, &TitleLayer, &mut Node, &mut ImageNode)>,
 ) {
-    let step = time.delta_secs() / FADE_S;
+    let step = time.delta_secs() / title_look().fade_s;
     for (entity, mut scene) in &mut scenes {
         scene.shown = if scene.wanted > scene.shown { (scene.shown + step).min(1.0) } else { (scene.shown - step).max(0.0) };
         if scene.shown <= 0.0 && scene.wanted <= 0.0 {
@@ -288,8 +396,8 @@ fn in_the_launcher(entity: Entity, steps: usize, parents: &Query<&ChildOf>, root
 
 /// The alpha of the cursor's edge at `seconds`.
 fn cursor_edge_alpha(seconds: f32) -> f32 {
-    let breath = 0.5 + 0.5 * (seconds * std::f32::consts::TAU / CURSOR_BREATH_S).sin();
-    CURSOR_EDGE_LOW + (1.0 - CURSOR_EDGE_LOW) * breath
+    let breath = 0.5 + 0.5 * (seconds * std::f32::consts::TAU / title_look().cursor_breath_s).sin();
+    title_look().cursor_edge_low + (1.0 - title_look().cursor_edge_low) * breath
 }
 
 /// Give the launcher's menu the shape of a title screen (see the module doc).
@@ -327,8 +435,8 @@ fn style_the_launcher_menu(
     if has_backdrop {
         for root in &root_ids {
             if let Ok(mut scrim) = fills.get_mut(root) {
-                if scrim.0 != SCRIM {
-                    scrim.0 = SCRIM;
+                if scrim.0 != title_look().scrim() {
+                    scrim.0 = title_look().scrim();
                 }
             }
         }
@@ -340,22 +448,22 @@ fn style_the_launcher_menu(
         }
         if has_backdrop {
             if let Ok(mut fill) = fills.get_mut(window) {
-                if fill.0 != WINDOW {
-                    fill.0 = WINDOW;
+                if fill.0 != title_look().window() {
+                    fill.0 = title_look().window();
                 }
             }
         }
         if let Ok(mut node) = nodes.get_mut(window) {
-            let radius = BorderRadius::all(Val::Vh(WINDOW_RADIUS_VH));
-            let border = UiRect::all(Val::Vh(WINDOW_EDGE_VH));
-            if node.width != Val::Vh(WINDOW_WIDTH_VH) || node.border_radius != radius || node.border != border {
-                node.width = Val::Vh(WINDOW_WIDTH_VH);
-                node.max_width = Val::Percent(WINDOW_MOST_PERCENT);
+            let radius = BorderRadius::all(Val::Vh(title_look().window_radius_vh));
+            let border = UiRect::all(Val::Vh(title_look().window_edge_vh));
+            if node.width != Val::Vh(title_look().window_width_vh) || node.border_radius != radius || node.border != border {
+                node.width = Val::Vh(title_look().window_width_vh);
+                node.max_width = Val::Percent(title_look().window_most_percent);
                 node.border_radius = radius;
                 node.border = border;
             }
         }
-        edge(window, WINDOW_EDGE);
+        edge(window, title_look().window_edge());
     }
 
     // The two end tabs are in the top corners of the window: they take its
@@ -365,7 +473,7 @@ fn style_the_launcher_menu(
         if !in_the_launcher(entity, 3, &parents, &roots) {
             continue;
         }
-        let corner = Val::Vh(WINDOW_RADIUS_VH - WINDOW_EDGE_VH);
+        let corner = Val::Vh(title_look().window_radius_vh - title_look().window_edge_vh);
         let mut radius = BorderRadius::ZERO;
         if tab.index == 0 {
             radius.top_left = corner;
@@ -380,21 +488,21 @@ fn style_the_launcher_menu(
         }
     }
 
-    let cursor_edge = CURSOR_EDGE.with_alpha(cursor_edge_alpha(time.elapsed_secs()));
+    let cursor_edge = title_look().cursor_edge().with_alpha(cursor_edge_alpha(time.elapsed_secs()));
     for (entity, state, kind) in &rows {
         // A scrollbar is not a row.
         if matches!(kind.0, MenuControlKind::Scrollbar) || !in_the_launcher(entity, 3, &parents, &roots) {
             continue;
         }
         if let Ok(mut node) = nodes.get_mut(entity) {
-            let radius = BorderRadius::all(Val::Vh(ROW_RADIUS_VH));
-            let border = UiRect::all(Val::Vh(ROW_EDGE_VH));
+            let radius = BorderRadius::all(Val::Vh(title_look().row_radius_vh));
+            let border = UiRect::all(Val::Vh(title_look().row_edge_vh));
             if node.border_radius != radius || node.border != border {
                 node.border_radius = radius;
                 node.border = border;
             }
         }
-        edge(entity, if state.focused && !state.disabled { cursor_edge } else { ROW_EDGE });
+        edge(entity, if state.focused && !state.disabled { cursor_edge } else { title_look().row_edge() });
     }
 }
 
@@ -402,6 +510,17 @@ fn style_the_launcher_menu(
 mod tests {
     use super::*;
     use ambition_platformer2d::persistence::settings::TextureResolutionScale;
+
+    /// The look is the host pack's `title_look.ron`: a layer rests on the
+    /// middle of the view by the file's width, and the cursor's edge goes
+    /// down to the file's lowest alpha.
+    #[test]
+    fn the_title_look_is_the_host_packs_file() {
+        let look = title_look();
+        assert_eq!(layer_left(1.0, 0.0), Val::Vw(-(look.layer_vw - 100.0) * 0.5), "a layer at rest is not on the file's width");
+        let trough = cursor_edge_alpha(look.cursor_breath_s * 0.75);
+        assert!((trough - look.cursor_edge_low).abs() < 1e-4, "the cursor's edge went down to {trough}, not the file's {}", look.cursor_edge_low);
+    }
 
     fn launcher_app() -> App {
         let mut app = App::new();
@@ -477,18 +596,18 @@ mod tests {
     fn the_edge_of_the_cursor_breathes_and_never_goes_out() {
         let alphas: Vec<f32> = (0..=180).map(|hundredth| cursor_edge_alpha(hundredth as f32 * 0.01)).collect();
         let (low, high) = alphas.iter().fold((f32::MAX, f32::MIN), |(low, high), a| (low.min(*a), high.max(*a)));
-        assert!(low >= CURSOR_EDGE_LOW - 1e-4, "the edge of the cursor went down to {low}");
+        assert!(low >= title_look().cursor_edge_low - 1e-4, "the edge of the cursor went down to {low}");
         assert!(high > 0.99 && high <= 1.0, "the edge of the cursor went up to {high}");
     }
 
     #[test]
     fn a_layer_stays_over_the_whole_view_through_its_drift() {
-        for (_, depth) in LAYERS {
+        for (_, depth) in title_look().layers() {
             for tenth in 0..=800 {
                 let Val::Vw(left) = layer_left(depth, tenth as f32 * 0.1) else {
                     panic!("a layer is placed in parts of the view's width");
                 };
-                assert!(left <= 0.0 && left + LAYER_VW >= 100.0, "a layer at depth {depth} leaves a gap at {left}");
+                assert!(left <= 0.0 && left + title_look().layer_vw >= 100.0, "a layer at depth {depth} leaves a gap at {left}");
             }
         }
     }

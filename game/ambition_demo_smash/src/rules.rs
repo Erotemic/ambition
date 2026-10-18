@@ -36,6 +36,8 @@ pub struct SmashRules {
     pub back_hold_to_leave_seconds: f32,
     /// How the select cursor feels.
     pub select_cursor: crate::select_screen::cursor::CursorFeel,
+    /// The select screen's colours.
+    pub select_look: crate::select_screen::SelectLook,
     /// The swing a fighter that authors no kit is seated with
     /// ([`crate::smash_seating_melee`]).
     pub seating_melee: ambition_platformer2d::character::MeleeActionSpec,
@@ -133,6 +135,7 @@ impl SmashRules {
         }
         problems.extend(self.limit.problems().into_iter().map(|problem| format!("`limit`: {problem}")));
         problems.extend(self.select_cursor.problems().into_iter().map(|problem| format!("`select_cursor`: {problem}")));
+        problems.extend(self.select_look.problems().into_iter().map(|problem| format!("`select_look`: {problem}")));
         problems
     }
 }
@@ -223,6 +226,15 @@ mod tests {
             Err(failure) => failure.render(),
         };
         assert!(refused.contains("`select_cursor`: `ramp_to_full_seconds` is 0"), "the refusal names the field: {refused}");
+
+        // The select screen's colours are the file's, and a colour that is
+        // not one is refused.
+        assert_eq!(crate::select_screen::select_look(), file.select_look, "the select screen does not wear the file's colours");
+        let refused = match compile(&authored.replace("ink: (0.94, 0.96, 1.0),", "ink: (0.94, 0.96, 1.5),")) {
+            Ok(_) => panic!("an ink brighter than white was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`select_look`: `ink` is"), "the refusal names the field: {refused}");
 
         // The swing a kitless fighter is seated with is the file's, and one
         // that reaches nothing is refused.

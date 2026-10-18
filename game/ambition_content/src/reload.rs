@@ -1044,7 +1044,10 @@ fn publish_ambition_text(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
 ) {
-    world.insert_resource(crate::shown_text::AmbitionShownText(crate::shown_text::ambition_text_of(pack)));
+    match ambition_content_schemas::text::lowered_ambition_text(pack) {
+        Some(text) => world.insert_resource(crate::shown_text::AmbitionShownText(text)),
+        None => bevy::log::error!("the candidate states no `ambition_text`; the reload keeps Ambition's lines"),
+    }
 }
 
 fn publish_ambition_tuning(

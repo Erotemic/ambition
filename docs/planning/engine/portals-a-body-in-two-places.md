@@ -289,7 +289,9 @@ As proposed, then as built where it differs.
 - **G5** `PortalTuning::geometry` (`PortalGeometry::{TransferOnly, SingleHop,
   Composed}`) is the game's rule; `PortalPieceBudget` on a body is its own.
   TransferOnly: no pieces, no glue, no cut picture. A refused cut is logged
-  (`ambition_portal::refusal`) and its opening is solid to the piece; a
+  (`ambition_portal::refusal`) and its opening is solid to the piece, or the
+  piece stays whole where the budget cannot pay for its clipped parts
+  (`Refusal::whole` says which); a
   composed room says its rings once (`ambition_portal::rings`). Placement is
   not refused: the budget bounds a ring, and refusing a player's portal shot
   is a game decision.

@@ -49,8 +49,8 @@ pub enum BindingLayout {
 /// The smash pad layout. DPadUp and DPadDown taunt, because a fighter moves on
 /// the stick only.
 ///
-/// Buttons not listed keep the base preset: RightTrigger still shields and
-/// interacts, RightTrigger2 still fires the burst, and the sticks,
+/// Buttons not listed keep the base preset: RightTrigger2 still fires the
+/// burst, and the sticks,
 /// Select/Start, and thumb clicks do not change.
 const SMASH_PAD: &[PadSlot] = &[
     slot(
@@ -79,6 +79,12 @@ const SMASH_PAD: &[PadSlot] = &[
     slot(
         GamepadButton::LeftTrigger2,
         Platformer2dInputActionMonolith::Shield,
+    ),
+    // The short hop, on the shoulder the base preset gave to a third shield
+    // (and to Interact, which a stage does not use).
+    slot(
+        GamepadButton::RightTrigger,
+        Platformer2dInputActionMonolith::ShortHop,
     ),
 ];
 

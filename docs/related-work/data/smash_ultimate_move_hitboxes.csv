@@ -1,0 +1,1208 @@
+fighter,move,section,id,damage,angle,bk,ks,fkv
+Mario,Forward_tilt,,0,7.0,361,55,70,0
+Mario,Forward_tilt,,1,7.0,361,55,70,0
+Mario,Forward_tilt,,2,7.0,361,55,70,0
+Mario,Up_tilt,,0,5.5,96,28,130,0
+Mario,Up_tilt,,1,5.5,96,28,130,0
+Mario,Up_tilt,,2,5.5,96,28,130,0
+Mario,Down_tilt,,0,7.0,80,35,80,0
+Mario,Down_tilt,,1,5.0,80,35,80,0
+Mario,Dash_attack,,0,8.0,50,100,43,0
+Mario,Dash_attack,,0,6.0,48,100,30,0
+Mario,Forward_smash,,0,14.7,361,25,105,0
+Mario,Forward_smash,,1,17.8,361,25,101,0
+Mario,Forward_smash,,0,14.7,361,25,105,0
+Mario,Forward_smash,,1,17.8,361,25,99,0
+Mario,Forward_smash,,0,14.7,361,25,105,0
+Mario,Forward_smash,,1,17.8,361,25,100,0
+Mario,Up_smash,,0,14.0,83,32,94,0
+Mario,Up_smash,,1,14.0,83,32,94,0
+Mario,Down_smash,,0,10.0,32,30,100,0
+Mario,Down_smash,,1,10.0,32,30,100,0
+Mario,Down_smash,,0,12.0,30,30,100,0
+Mario,Down_smash,,1,12.0,30,30,100,0
+Mario,Neutral_aerial,,0,8.0,361,20,100,0
+Mario,Neutral_aerial,,1,8.0,361,20,100,0
+Mario,Neutral_aerial,,0,5.0,361,13,90,0
+Mario,Neutral_aerial,,1,5.0,361,13,90,0
+Mario,Forward_aerial,,0,12.0,361,30,80,0
+Mario,Forward_aerial,,0,14.0,280,32,78,0
+Mario,Forward_aerial,,1,14.0,280,32,78,0
+Mario,Forward_aerial,,0,10.0,361,20,80,0
+Mario,Forward_aerial,,1,10.0,361,20,80,0
+Mario,Back_aerial,,0,10.5,361,12,106,0
+Mario,Back_aerial,,1,10.5,361,12,106,0
+Mario,Back_aerial,,0,7.0,361,7,90,0
+Mario,Back_aerial,,1,7.0,361,7,90,0
+Mario,Up_aerial,,0,7.0,75,10,135,0
+Mario,Up_aerial,,1,7.0,75,10,135,0
+Mario,Down_aerial,,0,1.4,94,50,15,0
+Mario,Down_aerial,,1,1.4,94,25,15,0
+Mario,Down_aerial,,0,5.5,75,80,100,0
+Mario,Down_aerial,,0,2.0,361,0,100,60
+Mario,Down_aerial,,1,2.0,361,0,100,60
+Luigi,Forward_tilt,,0,9.0,361,50,75,0
+Luigi,Forward_tilt,,1,9.0,361,50,75,0
+Luigi,Up_tilt,,0,6.0,100,8,150,0
+Luigi,Up_tilt,,1,6.0,100,8,150,0
+Luigi,Up_tilt,,2,6.0,100,8,150,0
+Luigi,Down_tilt,,0,5.0,361,32,72,0
+Luigi,Down_tilt,,1,5.0,361,32,72,0
+Luigi,Dash_attack,,0,2.0,0,38,10,0
+Luigi,Dash_attack,,1,2.0,0,60,10,0
+Luigi,Dash_attack,,0,2.0,15,24,10,0
+Luigi,Dash_attack,,1,2.0,10,48,10,0
+Luigi,Dash_attack,,0,4.0,361,60,128,0
+Luigi,Dash_attack,,1,4.0,361,60,128,0
+Luigi,Forward_smash,,0,15.0,52,20,131,0
+Luigi,Forward_smash,,1,15.0,52,20,131,0
+Luigi,Forward_smash,,0,15.0,42,20,121,0
+Luigi,Forward_smash,,1,15.0,42,20,121,0
+Luigi,Forward_smash,,0,15.0,37,20,116,0
+Luigi,Forward_smash,,1,15.0,37,20,116,0
+Luigi,Up_smash,,0,14.0,110,35,102,0
+Luigi,Up_smash,,1,12.0,110,35,102,0
+Luigi,Down_smash,,1,14.0,52,40,85,0
+Luigi,Down_smash,,0,15.0,52,40,85,0
+Luigi,Down_smash,,1,14.0,48,40,104,0
+Luigi,Down_smash,,0,15.0,48,40,104,0
+Luigi,Neutral_aerial,,0,12.0,90,20,90,0
+Luigi,Neutral_aerial,,1,12.0,90,20,90,0
+Luigi,Neutral_aerial,,0,6.0,80,20,100,0
+Luigi,Neutral_aerial,,1,6.0,80,20,100,0
+Luigi,Forward_aerial,,0,8.0,361,30,80,0
+Luigi,Forward_aerial,,1,8.0,361,30,80,0
+Luigi,Back_aerial,,0,14.0,361,12,100,0
+Luigi,Back_aerial,,1,8.0,361,12,100,0
+Luigi,Back_aerial,,0,8.0,361,12,100,0
+Luigi,Back_aerial,,1,8.0,361,12,100,0
+Luigi,Up_aerial,,0,11.0,55,0,100,0
+Luigi,Up_aerial,,1,11.0,55,0,100,0
+Luigi,Down_aerial,,0,10.0,270,30,80,0
+Luigi,Down_aerial,,0,8.0,361,20,100,0
+Luigi,Down_aerial,,1,8.0,361,20,100,0
+Mewtwo,Forward_tilt,,0,12.0,361,70,75,0
+Mewtwo,Forward_tilt,,1,11.0,361,70,75,0
+Mewtwo,Forward_tilt,,2,10.0,361,70,75,0
+Mewtwo,Up_tilt,,0,7.0,110,70,105,0
+Mewtwo,Up_tilt,,1,6.0,110,60,105,0
+Mewtwo,Up_tilt,,2,5.5,110,50,71,0
+Mewtwo,Up_tilt,,3,5.5,110,50,71,0
+Mewtwo,Up_tilt,,0,6.0,78,60,105,0
+Mewtwo,Up_tilt,,1,5.0,78,50,105,0
+Mewtwo,Up_tilt,,2,4.0,78,40,105,0
+Mewtwo,Down_tilt,,0,5.0,80,60,82,0
+Mewtwo,Down_tilt,,1,4.5,70,65,84,0
+Mewtwo,Down_tilt,,2,4.0,60,60,70,0
+Mewtwo,Down_tilt,,0,5.0,80,60,82,0
+Mewtwo,Down_tilt,,1,4.5,70,65,84,0
+Mewtwo,Down_tilt,,2,4.0,60,60,70,0
+Mewtwo,Dash_attack,,0,12.0,54,80,70,0
+Mewtwo,Dash_attack,,1,9.0,60,80,60,0
+Mewtwo,Dash_attack,,0,6.0,60,80,70,0
+Mewtwo,Dash_attack,,1,4.5,70,80,60,0
+Mewtwo,Forward_smash,,0,16.0,361,30,90,0
+Mewtwo,Forward_smash,,1,20.0,361,30,90,0
+Mewtwo,Forward_smash,,0,16.0,361,30,90,0
+Mewtwo,Forward_smash,,1,20.0,361,30,90,0
+Mewtwo,Forward_smash,,0,16.0,361,30,90,0
+Mewtwo,Forward_smash,,1,20.0,361,30,90,0
+Mewtwo,Up_smash,,2,2.0,368,0,100,90
+Mewtwo,Up_smash,,0,2.0,170,0,100,18
+Mewtwo,Up_smash,,1,2.0,170,0,100,18
+Mewtwo,Up_smash,,2,2.0,95,0,100,40
+Mewtwo,Up_smash,,3,2.0,270,0,100,5
+Mewtwo,Up_smash,,0,10.0,80,60,111,0
+Mewtwo,Up_smash,,1,10.0,80,60,111,0
+Mewtwo,Up_smash,,2,10.0,90,60,111,0
+Mewtwo,Up_smash,,3,10.0,90,60,111,0
+Mewtwo,Down_smash,,0,16.0,55,20,118,0
+Mewtwo,Down_smash,,1,16.0,55,20,118,0
+Mewtwo,Neutral_aerial,,0,1.6,185,20,100,30
+Mewtwo,Neutral_aerial,,1,1.6,185,20,100,30
+Mewtwo,Neutral_aerial,,2,1.6,367,20,100,60
+Mewtwo,Neutral_aerial,,3,1.6,367,20,100,60
+Mewtwo,Neutral_aerial,,0,4.0,361,40,110,0
+Mewtwo,Forward_aerial,,0,13.0,47,40,100,0
+Mewtwo,Forward_aerial,,1,13.0,47,40,100,0
+Mewtwo,Back_aerial,,0,13.0,361,20,101,0
+Mewtwo,Back_aerial,,1,12.0,361,20,90,0
+Mewtwo,Back_aerial,,2,11.0,361,20,90,0
+Mewtwo,Up_aerial,,0,12.0,72,40,98,0
+Mewtwo,Up_aerial,,1,11.0,65,40,92,0
+Mewtwo,Up_aerial,,2,10.0,55,40,92,0
+Mewtwo,Down_aerial,,0,15.0,270,10,100,0
+Mewtwo,Down_aerial,,1,14.0,70,20,98,0
+King Dedede,Forward_tilt,,0,2.0,22,0,100,60
+King Dedede,Forward_tilt,,1,2.0,22,0,100,50
+King Dedede,Forward_tilt,,2,2.0,100,0,100,30
+King Dedede,Forward_tilt,,3,2.0,250,0,100,26
+King Dedede,Forward_tilt,,0,3.0,50,30,190,0
+King Dedede,Forward_tilt,,1,3.0,50,30,190,0
+King Dedede,Forward_tilt,,2,3.0,50,30,190,0
+King Dedede,Up_tilt,,0,11.5,96,65,94,0
+King Dedede,Up_tilt,,1,9.5,96,65,94,0
+King Dedede,Down_tilt,,0,10.0,35,60,75,0
+King Dedede,Down_tilt,,0,6.0,35,60,75,0
+King Dedede,Dash_attack,,0,16.0,361,65,92,0
+King Dedede,Dash_attack,,0,13.0,361,55,92,0
+King Dedede,Dash_attack,,0,13.0,361,55,92,0
+King Dedede,Dash_attack,,0,13.0,361,55,92,0
+King Dedede,Forward_smash,,0,0.0,0,0,0,0
+King Dedede,Forward_smash,,1,0.0,0,0,0,0
+King Dedede,Forward_smash,,2,16.0,45,85,55,0
+King Dedede,Forward_smash,,1,18.5,45,50,85,0
+King Dedede,Forward_smash,,2,25.0,361,70,74,0
+King Dedede,Forward_smash,,2,11.0,60,100,30,0
+King Dedede,Up_smash,,0,16.0,80,40,95,0
+King Dedede,Up_smash,,1,16.0,80,40,96,0
+King Dedede,Up_smash,,2,16.0,80,40,96,0
+King Dedede,Up_smash,,3,10.0,80,40,96,0
+King Dedede,Down_smash,,0,13.0,30,60,80,0
+King Dedede,Down_smash,,1,13.0,361,60,80,0
+King Dedede,Neutral_aerial,,0,12.0,60,40,95,0
+King Dedede,Neutral_aerial,,0,7.0,80,40,95,0
+King Dedede,Forward_aerial,,0,12.0,361,15,98,0
+King Dedede,Forward_aerial,,1,12.0,361,15,98,0
+King Dedede,Back_aerial,,0,16.0,361,30,88,0
+King Dedede,Back_aerial,,1,16.0,361,30,88,0
+King Dedede,Back_aerial,,2,16.0,361,30,88,0
+King Dedede,Up_aerial,,0,1.0,367,0,100,20
+King Dedede,Up_aerial,,1,1.0,367,0,100,20
+King Dedede,Up_aerial,,2,1.0,95,0,100,40
+King Dedede,Up_aerial,,3,1.0,95,0,100,40
+King Dedede,Up_aerial,,0,5.0,60,55,167,0
+King Dedede,Up_aerial,,1,5.0,60,55,167,0
+King Dedede,Up_aerial,,2,5.0,60,55,167,0
+King Dedede,Up_aerial,,3,5.0,60,55,167,0
+King Dedede,Down_aerial,,0,15.0,270,20,90,0
+King Dedede,Down_aerial,,1,15.0,361,20,100,0
+King Dedede,Down_aerial,,2,8.0,361,20,100,0
+Sheik,Forward_tilt,,0,3.0,84,20,180,0
+Sheik,Forward_tilt,,1,3.0,86,20,180,0
+Sheik,Forward_tilt,,2,3.0,78,20,188,0
+Sheik,Up_tilt,,0,3.0,0,0,80,30
+Sheik,Up_tilt,,1,3.0,330,0,80,28
+Sheik,Up_tilt,,2,3.0,75,0,80,40
+Sheik,Up_tilt,,0,4.0,60,25,147,0
+Sheik,Up_tilt,,1,4.0,60,25,147,0
+Sheik,Up_tilt,,2,4.0,60,25,147,0
+Sheik,Down_tilt,,0,4.5,70,37,100,0
+Sheik,Down_tilt,,1,4.5,70,37,100,0
+Sheik,Down_tilt,,2,4.5,90,37,100,0
+Sheik,Dash_attack,,0,7.0,60,70,90,0
+Sheik,Dash_attack,,1,7.0,60,70,90,0
+Sheik,Dash_attack,,2,7.0,60,70,90,0
+Sheik,Dash_attack,,0,5.0,361,20,100,0
+Sheik,Dash_attack,,1,5.0,361,20,100,0
+Sheik,Dash_attack,,2,5.0,361,20,100,0
+Sheik,Forward_smash,,0,5.0,35,0,100,47
+Sheik,Forward_smash,,1,5.0,45,0,100,47
+Sheik,Forward_smash,,2,5.0,80,0,100,30
+Sheik,Forward_smash,,0,8.0,361,60,109,0
+Sheik,Forward_smash,,1,8.0,361,60,109,0
+Sheik,Up_smash,,0,15.0,93,52,88,0
+Sheik,Up_smash,,0,11.0,50,38,100,0
+Sheik,Down_smash,,0,4.0,200,0,100,35
+Sheik,Down_smash,,1,4.0,140,0,100,35
+Sheik,Down_smash,,2,4.0,165,0,100,35
+Sheik,Down_smash,,0,6.0,43,35,165,0
+Sheik,Down_smash,,1,6.0,43,35,165,0
+Sheik,Neutral_aerial,,0,6.0,361,30,100,0
+Sheik,Neutral_aerial,,1,6.0,361,30,100,0
+Sheik,Neutral_aerial,,2,5.0,361,30,100,0
+Sheik,Neutral_aerial,,0,4.0,361,30,100,0
+Sheik,Neutral_aerial,,1,4.0,361,30,100,0
+Sheik,Neutral_aerial,,2,3.0,361,30,100,0
+Sheik,Forward_aerial,,0,3.8,50,44,127,0
+Sheik,Forward_aerial,,1,4.5,50,43,127,0
+Sheik,Forward_aerial,,0,3.8,50,44,127,0
+Sheik,Forward_aerial,,1,4.5,50,43,127,0
+Sheik,Back_aerial,,0,7.5,361,32,98,0
+Sheik,Back_aerial,,1,7.5,361,32,98,0
+Sheik,Back_aerial,,2,9.5,361,30,98,0
+Sheik,Back_aerial,,0,6.0,361,10,101,0
+Sheik,Back_aerial,,1,6.0,361,10,101,0
+Sheik,Back_aerial,,2,6.0,361,10,101,0
+Sheik,Up_aerial,,0,1.0,80,20,80,0
+Sheik,Up_aerial,,1,1.0,367,30,100,0
+Sheik,Up_aerial,,0,4.0,80,50,138,0
+Sheik,Down_aerial,,0,10.0,280,30,90,0
+Sheik,Down_aerial,,0,10.0,56,55,78,0
+Sheik,Down_aerial,,0,2.0,48,77,50,0
+Samus,Forward_tilt,,0,8.0,361,30,80,0
+Samus,Forward_tilt,,1,9.0,361,30,100,0
+Samus,Forward_tilt,,2,10.0,361,30,100,0
+Samus,Forward_tilt,,0,9.0,361,30,80,0
+Samus,Forward_tilt,,1,10.0,361,30,100,0
+Samus,Forward_tilt,,2,11.0,361,30,100,0
+Samus,Up_tilt,,0,13.0,270,40,100,0
+Samus,Up_tilt,,1,13.0,270,40,100,0
+Samus,Up_tilt,,2,12.0,361,40,100,0
+Samus,Up_tilt,,3,12.0,361,40,100,0
+Samus,Down_tilt,,0,12.0,75,80,65,0
+Samus,Down_tilt,,1,12.0,75,80,65,0
+Samus,Dash_attack,,0,10.0,55,80,90,0
+Samus,Dash_attack,,0,10.0,55,80,90,0
+Samus,Dash_attack,,0,6.0,55,80,90,0
+Samus,Forward_smash,,0,13.0,361,16,112,0
+Samus,Forward_smash,,1,13.0,361,16,112,0
+Samus,Forward_smash,,2,15.0,361,40,100,0
+Samus,Forward_smash,,0,12.0,361,16,112,0
+Samus,Forward_smash,,1,12.0,361,16,112,0
+Samus,Forward_smash,,2,14.0,361,40,100,0
+Samus,Forward_smash,,0,11.0,361,16,112,0
+Samus,Forward_smash,,1,11.0,361,16,112,0
+Samus,Forward_smash,,2,13.5,361,40,100,0
+Samus,Up_smash,,0,3.0,100,60,30,0
+Samus,Up_smash,,1,3.0,368,0,30,0
+Samus,Up_smash,,2,3.0,368,0,30,0
+Samus,Up_smash,,0,3.0,130,30,30,0
+Samus,Up_smash,,1,3.0,368,0,30,0
+Samus,Up_smash,,2,3.0,160,30,30,0
+Samus,Up_smash,,0,3.0,130,40,30,0
+Samus,Up_smash,,1,3.0,368,0,30,0
+Samus,Up_smash,,2,3.0,160,30,30,0
+Samus,Up_smash,,0,3.0,120,30,30,0
+Samus,Up_smash,,1,3.0,368,0,30,0
+Samus,Up_smash,,2,3.0,170,30,30,0
+Samus,Up_smash,,0,6.0,80,50,162,0
+Samus,Up_smash,,1,6.0,80,50,162,0
+Samus,Down_smash,,0,10.0,30,70,70,0
+Samus,Down_smash,,0,12.0,30,70,68,0
+Samus,Neutral_aerial,,0,10.0,32,40,100,0
+Samus,Neutral_aerial,,1,10.0,32,40,100,0
+Samus,Neutral_aerial,,0,9.0,45,40,100,0
+Samus,Neutral_aerial,,1,9.0,45,40,100,0
+Samus,Neutral_aerial,,0,8.0,45,10,98,0
+Samus,Neutral_aerial,,1,8.0,45,10,98,0
+Samus,Forward_aerial,,0,3.0,367,0,100,25
+Samus,Forward_aerial,,1,3.0,18,0,100,30
+Samus,Forward_aerial,,0,1.6,367,0,100,35
+Samus,Forward_aerial,,1,1.6,18,0,100,40
+Samus,Forward_aerial,,0,5.0,361,40,140,0
+Samus,Forward_aerial,,1,5.0,361,40,140,0
+Samus,Back_aerial,,0,12.0,361,30,98,0
+Samus,Back_aerial,,1,14.0,361,42,98,0
+Samus,Back_aerial,,0,9.0,361,20,90,0
+Samus,Back_aerial,,1,9.0,361,20,90,0
+Samus,Up_aerial,,0,3.0,84,0,100,90
+Samus,Up_aerial,,1,3.0,367,0,100,25
+Samus,Up_aerial,,0,1.3,84,0,100,90
+Samus,Up_aerial,,1,1.3,367,0,100,25
+Samus,Up_aerial,,0,4.0,70,40,160,0
+Samus,Up_aerial,,1,4.0,70,40,160,0
+Samus,Down_aerial,,0,10.0,361,25,100,0
+Samus,Down_aerial,,0,14.0,270,25,85,0
+Samus,Down_aerial,,1,14.0,270,25,85,0
+Samus,Down_aerial,,0,10.0,361,25,100,0
+Samus,Down_aerial,,1,10.0,361,25,100,0
+Diddy Kong,Forward_tilt,,0,10.0,35,60,60,0
+Diddy Kong,Forward_tilt,,1,10.0,35,60,60,0
+Diddy Kong,Forward_tilt,,2,10.0,35,60,60,0
+Diddy Kong,Forward_tilt,,3,10.0,35,60,60,0
+Diddy Kong,Forward_tilt,,0,10.0,35,60,60,0
+Diddy Kong,Forward_tilt,,1,10.0,35,60,60,0
+Diddy Kong,Up_tilt,,0,6.0,92,28,150,0
+Diddy Kong,Up_tilt,,1,6.0,92,28,150,0
+Diddy Kong,Up_tilt,,2,6.0,92,28,150,0
+Diddy Kong,Down_tilt,,0,5.5,60,15,75,0
+Diddy Kong,Down_tilt,,1,5.5,50,15,75,0
+Diddy Kong,Dash_attack,,0,2.0,35,0,100,60
+Diddy Kong,Dash_attack,,1,2.0,10,0,100,45
+Diddy Kong,Dash_attack,,2,2.0,43,0,100,60
+Diddy Kong,Dash_attack,,0,2.0,25,0,100,45
+Diddy Kong,Dash_attack,,1,2.0,10,0,100,45
+Diddy Kong,Dash_attack,,2,2.0,40,0,100,70
+Diddy Kong,Dash_attack,,0,3.0,83,80,90,0
+Diddy Kong,Forward_smash,,0,5.0,10,0,100,20
+Diddy Kong,Forward_smash,,1,5.0,45,0,100,35
+Diddy Kong,Forward_smash,,2,5.0,80,0,100,25
+Diddy Kong,Forward_smash,,3,5.0,22,0,100,42
+Diddy Kong,Forward_smash,,0,5.0,0,0,100,20
+Diddy Kong,Forward_smash,,1,5.0,45,0,100,35
+Diddy Kong,Forward_smash,,2,5.0,80,0,100,25
+Diddy Kong,Forward_smash,,3,5.0,22,0,100,42
+Diddy Kong,Forward_smash,,0,11.0,46,40,116,0
+Diddy Kong,Forward_smash,,1,11.0,50,40,116,0
+Diddy Kong,Forward_smash,,2,9.0,60,40,116,0
+Diddy Kong,Up_smash,,0,2.5,110,0,100,110
+Diddy Kong,Up_smash,,1,2.5,125,0,100,30
+Diddy Kong,Up_smash,,2,2.5,95,0,100,50
+Diddy Kong,Up_smash,,0,2.5,130,0,100,25
+Diddy Kong,Up_smash,,1,2.5,140,0,100,15
+Diddy Kong,Up_smash,,2,2.5,95,0,100,50
+Diddy Kong,Up_smash,,0,2.5,105,0,100,65
+Diddy Kong,Up_smash,,1,2.5,125,0,100,45
+Diddy Kong,Up_smash,,0,2.5,105,0,100,65
+Diddy Kong,Up_smash,,1,2.5,115,0,100,80
+Diddy Kong,Up_smash,,0,6.0,85,55,131,0
+Diddy Kong,Up_smash,,1,6.0,85,55,131,0
+Diddy Kong,Down_smash,,0,12.0,33,46,77,0
+Diddy Kong,Down_smash,,1,12.0,33,46,77,0
+Diddy Kong,Down_smash,,0,15.0,35,38,76,0
+Diddy Kong,Down_smash,,1,15.0,35,38,76,0
+Diddy Kong,Neutral_aerial,,0,6.0,80,60,75,0
+Diddy Kong,Neutral_aerial,,1,6.0,80,60,75,0
+Diddy Kong,Neutral_aerial,,2,6.0,80,60,75,0
+Diddy Kong,Neutral_aerial,,3,6.0,80,60,75,0
+Diddy Kong,Forward_aerial,,0,10.0,361,30,86,0
+Diddy Kong,Forward_aerial,,1,10.0,361,30,86,0
+Diddy Kong,Forward_aerial,,0,8.0,361,30,86,0
+Diddy Kong,Forward_aerial,,1,8.0,361,30,86,0
+Diddy Kong,Back_aerial,,0,9.0,361,30,102,0
+Diddy Kong,Back_aerial,,1,9.0,361,30,102,0
+Diddy Kong,Back_aerial,,2,9.0,361,30,102,0
+Diddy Kong,Up_aerial,,0,7.0,76,57,89,0
+Diddy Kong,Up_aerial,,1,7.0,76,57,89,0
+Diddy Kong,Down_aerial,,0,13.0,270,25,110,0
+Diddy Kong,Down_aerial,,1,10.0,270,20,100,0
+Diddy Kong,Down_aerial,,0,13.0,270,25,110,0
+Zelda,Forward_tilt,,0,11.5,361,72,68,0
+Zelda,Forward_tilt,,1,11.5,361,72,68,0
+Zelda,Forward_tilt,,2,11.5,361,72,68,0
+Zelda,Forward_tilt,,3,15.0,361,72,69,0
+Zelda,Forward_tilt,,4,15.0,361,72,69,0
+Zelda,Up_tilt,,0,7.2,100,45,110,0
+Zelda,Up_tilt,,1,7.2,100,45,110,0
+Zelda,Up_tilt,,2,7.2,100,45,110,0
+Zelda,Down_tilt,,0,5.5,62,15,125,0
+Zelda,Down_tilt,,1,5.5,62,15,125,0
+Zelda,Down_tilt,,2,5.5,62,15,125,0
+Zelda,Dash_attack,,0,12.0,50,85,70,0
+Zelda,Dash_attack,,1,9.0,50,80,50,0
+Zelda,Dash_attack,,0,6.0,50,80,50,0
+Zelda,Forward_smash,,0,1.0,366,0,100,60
+Zelda,Forward_smash,,1,1.0,366,0,100,60
+Zelda,Forward_smash,,0,13.0,361,37,110,0
+Zelda,Forward_smash,,1,13.0,361,37,110,0
+Zelda,Up_smash,,0,2.0,90,0,100,40
+Zelda,Up_smash,,1,2.0,160,0,100,20
+Zelda,Up_smash,,2,2.0,100,0,100,60
+Zelda,Up_smash,,3,2.0,160,0,100,20
+Zelda,Up_smash,,4,2.0,100,0,100,60
+Zelda,Up_smash,,5,2.0,367,0,100,20
+Zelda,Up_smash,,0,0.8,90,0,100,40
+Zelda,Up_smash,,1,0.8,160,0,100,20
+Zelda,Up_smash,,2,0.8,100,0,100,60
+Zelda,Up_smash,,3,0.8,160,0,100,20
+Zelda,Up_smash,,4,0.8,100,0,100,60
+Zelda,Up_smash,,5,0.8,367,0,100,20
+Zelda,Up_smash,,0,5.0,88,24,222,0
+Zelda,Up_smash,,1,5.0,88,24,222,0
+Zelda,Up_smash,,2,5.0,88,24,222,0
+Zelda,Up_smash,,3,5.0,88,24,222,0
+Zelda,Down_smash,,0,12.0,20,20,89,0
+Zelda,Down_smash,,1,12.0,361,20,89,0
+Zelda,Down_smash,,0,10.0,20,20,100,0
+Zelda,Down_smash,,1,10.0,361,20,100,0
+Zelda,Neutral_aerial,,0,2.5,70,50,80,0
+Zelda,Neutral_aerial,,1,2.5,132,30,10,0
+Zelda,Neutral_aerial,,2,2.5,230,15,10,0
+Zelda,Neutral_aerial,,3,1.5,70,50,80,0
+Zelda,Neutral_aerial,,4,1.5,152,30,10,0
+Zelda,Neutral_aerial,,5,1.5,210,15,10,0
+Zelda,Neutral_aerial,,0,5.0,361,35,130,0
+Zelda,Neutral_aerial,,1,5.0,361,35,130,0
+Zelda,Neutral_aerial,,2,5.0,361,35,110,0
+Zelda,Neutral_aerial,,3,5.0,361,35,110,0
+Zelda,Forward_aerial,,0,20.0,361,24,95,0
+Zelda,Forward_aerial,,1,4.0,361,5,80,0
+Zelda,Forward_aerial,,2,4.0,361,5,80,0
+Zelda,Forward_aerial,,3,4.0,361,5,96,0
+Zelda,Back_aerial,,0,20.0,361,30,96,0
+Zelda,Back_aerial,,1,4.0,361,5,80,0
+Zelda,Back_aerial,,2,4.0,361,5,80,0
+Zelda,Back_aerial,,3,4.0,361,5,96,0
+Zelda,Up_aerial,,0,17.0,90,55,73,0
+Zelda,Up_aerial,,0,12.0,90,55,70,0
+Zelda,Down_aerial,,0,16.0,270,30,65,0
+Zelda,Down_aerial,,1,16.0,270,30,65,0
+Zelda,Down_aerial,,0,5.0,275,5,90,0
+Zelda,Down_aerial,,1,4.0,275,0,70,0
+Rosalina & Luma,Forward_tilt,Rosalina,0,7.5,361,65,70,0
+Rosalina & Luma,Forward_tilt,Rosalina,1,7.5,361,65,70,0
+Rosalina & Luma,Forward_tilt,Rosalina,2,6.5,361,65,70,0
+Rosalina & Luma,Forward_tilt,Luma,0,4.5,361,70,106,0
+Rosalina & Luma,Up_tilt,Rosalina,0,10.0,88,75,65,0
+Rosalina & Luma,Up_tilt,Rosalina,0,8.0,88,75,66,0
+Rosalina & Luma,Up_tilt,Luma,0,8.0,86,120,55,0
+Rosalina & Luma,Up_tilt,Luma,0,4.0,96,90,50,0
+Rosalina & Luma,Up_tilt,Luma,1,4.0,93,85,50,0
+Rosalina & Luma,Up_tilt,Luma,0,3.0,90,80,50,0
+Rosalina & Luma,Down_tilt,Rosalina,0,5.5,30,35,98,0
+Rosalina & Luma,Down_tilt,Rosalina,1,5.5,30,35,98,0
+Rosalina & Luma,Down_tilt,Rosalina,2,5.5,30,35,98,0
+Rosalina & Luma,Down_tilt,Luma,0,3.5,30,35,120,0
+Rosalina & Luma,Dash_attack,Rosalina,0,3.0,60,47,12,0
+Rosalina & Luma,Dash_attack,Rosalina,1,3.0,30,30,50,0
+Rosalina & Luma,Dash_attack,Rosalina,0,4.0,65,70,125,0
+Rosalina & Luma,Dash_attack,Rosalina,1,4.0,65,70,125,0
+Rosalina & Luma,Dash_attack,Luma,0,3.0,60,45,50,0
+Rosalina & Luma,Dash_attack,Luma,1,3.0,35,30,50,0
+Rosalina & Luma,Forward_smash,Rosalina,0,12.0,361,30,111,0
+Rosalina & Luma,Forward_smash,Rosalina,0,12.0,361,30,111,0
+Rosalina & Luma,Forward_smash,Rosalina,0,12.0,361,30,111,0
+Rosalina & Luma,Forward_smash,Luma,0,7.0,361,43,183,0
+Rosalina & Luma,Forward_smash,Luma,1,5.0,361,23,219,0
+Rosalina & Luma,Up_smash,Rosalina,0,12.0,86,45,94,0
+Rosalina & Luma,Up_smash,Rosalina,1,12.0,86,45,94,0
+Rosalina & Luma,Up_smash,Luma,0,6.0,85,65,142,0
+Rosalina & Luma,Up_smash,Luma,0,5.0,85,65,142,0
+Rosalina & Luma,Down_smash,Rosalina,0,7.0,32,40,102,0
+Rosalina & Luma,Down_smash,Rosalina,0,9.0,32,36,105,0
+Rosalina & Luma,Down_smash,Luma,0,4.0,33,40,170,0
+Rosalina & Luma,Down_smash,Luma,0,5.0,33,40,171,0
+Rosalina & Luma,Neutral_aerial,Rosalina,0,8.0,60,45,62,0
+Rosalina & Luma,Neutral_aerial,Rosalina,1,10.0,72,50,62,0
+Rosalina & Luma,Neutral_aerial,Rosalina,2,10.0,72,50,62,0
+Rosalina & Luma,Neutral_aerial,Rosalina,0,8.0,60,45,62,0
+Rosalina & Luma,Neutral_aerial,Rosalina,1,10.0,72,50,62,0
+Rosalina & Luma,Neutral_aerial,Rosalina,2,10.0,72,50,62,0
+Rosalina & Luma,Neutral_aerial,Rosalina,0,7.0,60,50,60,0
+Rosalina & Luma,Neutral_aerial,Rosalina,1,8.0,72,50,65,0
+Rosalina & Luma,Neutral_aerial,Rosalina,2,8.0,72,50,65,0
+Rosalina & Luma,Neutral_aerial,Rosalina,0,7.0,60,50,60,0
+Rosalina & Luma,Neutral_aerial,Rosalina,1,8.0,72,50,65,0
+Rosalina & Luma,Neutral_aerial,Rosalina,2,8.0,72,50,65,0
+Rosalina & Luma,Neutral_aerial,Rosalina,0,7.0,60,50,60,0
+Rosalina & Luma,Neutral_aerial,Rosalina,1,8.0,72,50,65,0
+Rosalina & Luma,Neutral_aerial,Rosalina,2,8.0,72,50,65,0
+Rosalina & Luma,Neutral_aerial,Luma,0,3.0,74,60,115,0
+Rosalina & Luma,Neutral_aerial,Luma,0,3.0,74,60,115,0
+Rosalina & Luma,Forward_aerial,Rosalina,0,1.0,70,90,10,0
+Rosalina & Luma,Forward_aerial,Rosalina,1,1.0,70,50,10,0
+Rosalina & Luma,Forward_aerial,Rosalina,1,1.0,36,60,10,0
+Rosalina & Luma,Forward_aerial,Rosalina,2,1.0,366,20,10,0
+Rosalina & Luma,Forward_aerial,Rosalina,3,1.0,366,20,10,0
+Rosalina & Luma,Forward_aerial,Rosalina,4,1.0,100,60,10,0
+Rosalina & Luma,Forward_aerial,Rosalina,5,1.0,86,90,10,0
+Rosalina & Luma,Forward_aerial,Rosalina,1,1.0,36,60,10,0
+Rosalina & Luma,Forward_aerial,Rosalina,2,1.0,366,20,10,0
+Rosalina & Luma,Forward_aerial,Rosalina,3,1.0,366,20,10,0
+Rosalina & Luma,Forward_aerial,Rosalina,4,1.0,100,72,10,0
+Rosalina & Luma,Forward_aerial,Rosalina,5,1.0,86,90,10,0
+Rosalina & Luma,Forward_aerial,Rosalina,0,4.0,361,50,132,0
+Rosalina & Luma,Forward_aerial,Luma,0,3.0,68,85,25,0
+Rosalina & Luma,Forward_aerial,Luma,1,3.0,73,75,20,0
+Rosalina & Luma,Forward_aerial,Luma,0,3.0,70,85,25,0
+Rosalina & Luma,Forward_aerial,Luma,1,3.0,75,75,20,0
+Rosalina & Luma,Back_aerial,Rosalina,0,11.0,30,38,65,0
+Rosalina & Luma,Back_aerial,Rosalina,1,11.0,30,38,65,0
+Rosalina & Luma,Back_aerial,Luma,0,4.0,28,30,150,0
+Rosalina & Luma,Up_aerial,Rosalina,0,10.0,88,40,98,0
+Rosalina & Luma,Up_aerial,Rosalina,0,5.0,88,40,98,0
+Rosalina & Luma,Up_aerial,Rosalina,0,2.0,88,20,98,0
+Rosalina & Luma,Up_aerial,Luma,0,4.0,108,110,60,0
+Rosalina & Luma,Up_aerial,Luma,1,4.0,92,110,60,0
+Rosalina & Luma,Down_aerial,Rosalina,0,8.0,270,20,67,0
+Rosalina & Luma,Down_aerial,Rosalina,0,7.0,270,20,67,0
+Rosalina & Luma,Down_aerial,Rosalina,0,6.0,45,35,100,0
+Rosalina & Luma,Down_aerial,Rosalina,0,2.0,361,20,30,0
+Rosalina & Luma,Down_aerial,Luma,0,5.0,45,90,110,0
+Dr. Mario,Forward_tilt,,0,9.0,361,55,65,0
+Dr. Mario,Forward_tilt,,1,9.0,361,55,65,0
+Dr. Mario,Forward_tilt,,2,9.0,361,55,65,0
+Dr. Mario,Up_tilt,,0,6.3,96,28,130,0
+Dr. Mario,Up_tilt,,1,6.3,96,28,130,0
+Dr. Mario,Up_tilt,,2,6.3,96,28,130,0
+Dr. Mario,Down_tilt,,0,7.0,80,35,55,0
+Dr. Mario,Down_tilt,,1,5.0,80,35,55,0
+Dr. Mario,Dash_attack,,0,9.8,90,90,38,0
+Dr. Mario,Dash_attack,,0,6.0,90,90,42,0
+Dr. Mario,Forward_smash,,0,17.8,361,25,96,0
+Dr. Mario,Forward_smash,,1,14.7,361,25,100,0
+Dr. Mario,Forward_smash,,0,17.8,361,25,94,0
+Dr. Mario,Forward_smash,,1,14.7,361,25,100,0
+Dr. Mario,Forward_smash,,0,17.8,361,25,95,0
+Dr. Mario,Forward_smash,,1,14.7,361,25,100,0
+Dr. Mario,Up_smash,,0,14.0,120,0,117,0
+Dr. Mario,Up_smash,,1,14.0,120,0,117,0
+Dr. Mario,Down_smash,,0,10.0,32,30,100,0
+Dr. Mario,Down_smash,,1,10.0,32,30,100,0
+Dr. Mario,Down_smash,,0,12.0,30,30,100,0
+Dr. Mario,Down_smash,,1,12.0,30,30,100,0
+Dr. Mario,Neutral_aerial,,0,5.0,361,20,100,0
+Dr. Mario,Neutral_aerial,,1,5.0,361,20,100,0
+Dr. Mario,Neutral_aerial,,0,10.0,361,13,100,0
+Dr. Mario,Neutral_aerial,,1,10.0,361,13,100,0
+Dr. Mario,Forward_aerial,,0,10.0,50,30,95,0
+Dr. Mario,Forward_aerial,,0,15.0,50,30,102,0
+Dr. Mario,Forward_aerial,,1,15.0,50,30,102,0
+Dr. Mario,Forward_aerial,,0,9.0,50,20,95,0
+Dr. Mario,Forward_aerial,,1,9.0,50,20,95,0
+Dr. Mario,Back_aerial,,0,12.0,361,10,95,0
+Dr. Mario,Back_aerial,,1,12.0,361,10,95,0
+Dr. Mario,Back_aerial,,0,7.0,361,7,90,0
+Dr. Mario,Back_aerial,,1,7.0,361,7,90,0
+Dr. Mario,Up_aerial,,0,10.2,45,10,100,0
+Dr. Mario,Up_aerial,,1,10.2,45,10,100,0
+Dr. Mario,Down_aerial,,0,12.0,270,10,100,0
+Dr. Mario,Down_aerial,,1,12.0,361,10,100,0
+Marth,Forward_tilt,,0,9.0,361,30,70,0
+Marth,Forward_tilt,,1,9.0,361,30,70,0
+Marth,Forward_tilt,,2,12.0,361,55,85,0
+Marth,Up_tilt,,0,6.0,100,65,100,0
+Marth,Up_tilt,,1,5.0,100,65,100,0
+Marth,Up_tilt,,2,5.0,100,65,100,0
+Marth,Up_tilt,,3,10.0,100,65,100,0
+Marth,Up_tilt,,4,6.0,100,65,100,0
+Marth,Up_tilt,,5,10.0,100,65,100,0
+Marth,Up_tilt,,0,6.0,100,65,100,0
+Marth,Up_tilt,,1,5.0,100,65,100,0
+Marth,Up_tilt,,2,5.0,100,65,100,0
+Marth,Up_tilt,,3,10.0,100,65,100,0
+Marth,Up_tilt,,0,6.0,85,52,100,0
+Marth,Up_tilt,,1,5.0,100,52,100,0
+Marth,Up_tilt,,2,5.0,100,52,100,0
+Marth,Up_tilt,,3,10.0,85,52,100,0
+Marth,Down_tilt,,0,7.0,30,40,40,0
+Marth,Down_tilt,,1,10.0,30,50,40,0
+Marth,Dash_attack,,0,10.0,45,70,55,0
+Marth,Dash_attack,,1,9.0,361,35,60,0
+Marth,Dash_attack,,2,9.0,361,35,60,0
+Marth,Dash_attack,,3,13.0,45,93,58,0
+Marth,Dash_attack,,0,10.0,45,70,55,0
+Marth,Dash_attack,,1,9.0,361,35,60,0
+Marth,Dash_attack,,2,9.0,361,35,60,0
+Marth,Dash_attack,,3,13.0,45,93,58,0
+Marth,Forward_smash,,0,13.0,361,48,75,0
+Marth,Forward_smash,,1,13.0,361,48,75,0
+Marth,Forward_smash,,2,13.0,361,48,75,0
+Marth,Forward_smash,,3,18.0,361,80,80,0
+Marth,Up_smash,,1,13.0,89,45,90,0
+Marth,Up_smash,,2,17.0,89,40,95,0
+Marth,Up_smash,,3,13.0,90,45,90,0
+Marth,Up_smash,,0,3.0,125,0,100,155
+Marth,Down_smash,,0,8.0,361,60,88,0
+Marth,Down_smash,,1,8.0,361,60,88,0
+Marth,Down_smash,,2,8.0,361,60,88,0
+Marth,Down_smash,,3,12.0,361,57,88,0
+Marth,Down_smash,,0,12.0,361,40,88,0
+Marth,Down_smash,,1,12.0,361,40,88,0
+Marth,Down_smash,,2,12.0,361,40,88,0
+Marth,Down_smash,,3,17.0,361,50,92,0
+Marth,Neutral_aerial,,0,3.5,75,45,50,0
+Marth,Neutral_aerial,,1,3.5,80,45,50,0
+Marth,Neutral_aerial,,2,5.0,90,35,50,0
+Marth,Neutral_aerial,,0,7.0,361,50,90,0
+Marth,Neutral_aerial,,1,7.0,361,50,90,0
+Marth,Neutral_aerial,,2,9.5,361,60,100,0
+Marth,Forward_aerial,,0,8.0,361,40,80,0
+Marth,Forward_aerial,,1,8.0,361,40,80,0
+Marth,Forward_aerial,,2,11.5,361,40,80,0
+Marth,Back_aerial,,0,9.0,361,40,85,0
+Marth,Back_aerial,,1,9.0,361,40,85,0
+Marth,Back_aerial,,2,12.5,361,40,94,0
+Marth,Up_aerial,,0,9.5,80,40,80,0
+Marth,Up_aerial,,1,9.5,80,40,80,0
+Marth,Up_aerial,,2,9.5,80,40,80,0
+Marth,Up_aerial,,3,13.0,90,40,84,0
+Marth,Down_aerial,,1,12.0,361,30,70,0
+Marth,Down_aerial,,2,12.0,80,40,70,0
+Marth,Down_aerial,,3,14.0,361,20,80,0
+Marth,Down_aerial,,1,12.0,361,30,70,0
+Marth,Down_aerial,,2,12.0,80,40,70,0
+Marth,Down_aerial,,3,14.0,361,20,80,0
+Marth,Down_aerial,,0,15.0,270,20,80,0
+Robin,Forward_tilt,,0,7.5,361,62,70,0
+Robin,Up_tilt,,0,6.0,96,50,80,0
+Robin,Up_tilt,,1,6.0,96,60,80,0
+Robin,Up_tilt,,2,6.0,96,70,80,0
+Robin,Down_tilt,,0,6.0,30,40,40,0
+Robin,Dash_attack,,0,10.0,45,80,66,0
+Robin,Dash_attack,,0,6.0,65,80,60,0
+Robin,Forward_smash,Levin Sword,0,16.0,361,53,90,0
+Robin,Forward_smash,Levin Sword,0,10.0,361,60,80,0
+Robin,Forward_smash,Bronze Sword,0,9.6,361,50,87,0
+Robin,Up_smash,Levin Sword,0,15.0,92,55,86,0
+Robin,Up_smash,Levin Sword,1,10.0,70,70,79,0
+Robin,Up_smash,Levin Sword,0,15.0,92,55,86,0
+Robin,Up_smash,Levin Sword,0,10.0,70,60,80,0
+Robin,Up_smash,Bronze Sword,0,9.0,55,45,84,0
+Robin,Down_smash,Levin Sword,0,15.0,55,50,95,0
+Robin,Down_smash,Levin Sword,1,15.0,55,50,95,0
+Robin,Down_smash,Levin Sword,2,12.0,45,50,100,0
+Robin,Down_smash,Levin Sword,3,12.0,45,50,100,0
+Robin,Down_smash,Levin Sword,2,12.0,45,50,100,0
+Robin,Down_smash,Levin Sword,3,12.0,45,50,100,0
+Robin,Down_smash,Levin Sword,2,12.0,45,50,100,0
+Robin,Down_smash,Levin Sword,3,12.0,45,50,100,0
+Robin,Down_smash,Levin Sword,2,10.0,45,50,100,0
+Robin,Down_smash,Levin Sword,3,10.0,45,50,100,0
+Robin,Down_smash,Levin Sword,2,10.0,45,50,100,0
+Robin,Down_smash,Levin Sword,3,10.0,45,50,100,0
+Robin,Down_smash,Bronze Sword,0,8.0,28,50,95,0
+Robin,Down_smash,Bronze Sword,1,8.0,28,50,95,0
+Robin,Neutral_aerial,Levin Sword,0,11.5,30,60,64,0
+Robin,Neutral_aerial,Levin Sword,1,11.5,30,60,64,0
+Robin,Neutral_aerial,Levin Sword,2,11.5,30,60,64,0
+Robin,Neutral_aerial,Levin Sword,0,11.5,30,60,64,0
+Robin,Neutral_aerial,Levin Sword,1,11.5,30,60,64,0
+Robin,Neutral_aerial,Levin Sword,2,11.5,30,60,64,0
+Robin,Neutral_aerial,Levin Sword,0,5.0,65,45,80,0
+Robin,Neutral_aerial,Bronze Sword,0,6.9,30,60,55,0
+Robin,Neutral_aerial,Bronze Sword,1,6.9,30,60,55,0
+Robin,Neutral_aerial,Bronze Sword,2,6.9,30,60,55,0
+Robin,Forward_aerial,Levin Sword,0,12.5,55,50,100,0
+Robin,Forward_aerial,Levin Sword,1,12.5,55,50,100,0
+Robin,Forward_aerial,Levin Sword,2,12.5,55,50,100,0
+Robin,Forward_aerial,Levin Sword,0,5.0,65,45,80,0
+Robin,Forward_aerial,Bronze Sword,0,7.5,361,50,100,0
+Robin,Forward_aerial,Bronze Sword,1,7.5,361,50,100,0
+Robin,Forward_aerial,Bronze Sword,2,7.5,361,50,100,0
+Robin,Back_aerial,Levin Sword,0,15.0,361,40,93,0
+Robin,Back_aerial,Levin Sword,1,15.0,361,40,93,0
+Robin,Back_aerial,Levin Sword,2,15.0,361,40,93,0
+Robin,Back_aerial,Levin Sword,0,5.0,65,45,80,0
+Robin,Back_aerial,Bronze Sword,0,9.0,361,40,93,0
+Robin,Back_aerial,Bronze Sword,1,9.0,361,40,93,0
+Robin,Back_aerial,Bronze Sword,2,9.0,361,40,93,0
+Robin,Up_aerial,Levin Sword,0,13.0,95,48,90,0
+Robin,Up_aerial,Levin Sword,1,13.0,95,48,90,0
+Robin,Up_aerial,Levin Sword,2,13.0,95,48,90,0
+Robin,Up_aerial,Levin Sword,0,5.0,65,45,80,0
+Robin,Up_aerial,Bronze Sword,0,7.8,95,48,90,0
+Robin,Up_aerial,Bronze Sword,1,7.8,95,48,90,0
+Robin,Up_aerial,Bronze Sword,2,7.8,95,48,90,0
+Robin,Down_aerial,Levin Sword,0,11.0,270,20,100,0
+Robin,Down_aerial,Levin Sword,1,11.0,70,20,100,0
+Robin,Down_aerial,Levin Sword,0,12.0,40,55,80,0
+Robin,Down_aerial,Levin Sword,0,8.0,65,45,80,0
+Robin,Down_aerial,Bronze Sword,0,7.2,361,55,80,0
+Robin,Down_aerial,Bronze Sword,0,6.0,361,45,80,0
+Charizard,Forward_tilt,,0,11.0,40,45,104,0
+Charizard,Forward_tilt,,1,11.0,40,45,104,0
+Charizard,Forward_tilt,,2,7.0,361,40,100,0
+Charizard,Forward_tilt,,3,11.0,40,45,104,0
+Charizard,Forward_tilt,,4,7.0,361,40,100,0
+Charizard,Forward_tilt,,0,11.0,40,45,104,0
+Charizard,Forward_tilt,,1,11.0,40,45,104,0
+Charizard,Forward_tilt,,2,7.0,361,40,100,0
+Charizard,Forward_tilt,,3,11.0,40,45,104,0
+Charizard,Forward_tilt,,4,7.0,361,40,100,0
+Charizard,Forward_tilt,,0,11.0,40,45,104,0
+Charizard,Forward_tilt,,1,11.0,40,45,104,0
+Charizard,Forward_tilt,,2,7.0,361,40,100,0
+Charizard,Forward_tilt,,3,11.0,40,45,104,0
+Charizard,Forward_tilt,,4,7.0,361,40,100,0
+Charizard,Forward_tilt,,1,11.0,40,45,104,0
+Charizard,Forward_tilt,,2,7.0,361,40,100,0
+Charizard,Forward_tilt,,3,11.0,40,45,104,0
+Charizard,Forward_tilt,,4,7.0,361,40,100,0
+Charizard,Up_tilt,,0,8.0,78,50,80,0
+Charizard,Up_tilt,,1,8.0,84,50,85,0
+Charizard,Up_tilt,,2,8.0,84,50,85,0
+Charizard,Up_tilt,,3,8.0,84,50,85,0
+Charizard,Down_tilt,,0,10.0,30,60,60,0
+Charizard,Dash_attack,,0,13.0,45,96,44,0
+Charizard,Dash_attack,,1,13.0,55,96,44,0
+Charizard,Dash_attack,,0,10.0,55,98,27,0
+Charizard,Dash_attack,,1,10.0,70,98,27,0
+Charizard,Forward_smash,,0,19.0,45,60,91,0
+Charizard,Forward_smash,,0,19.0,45,60,91,0
+Charizard,Forward_smash,,1,16.4,45,60,86,0
+Charizard,Up_smash,,0,5.0,110,0,100,100
+Charizard,Up_smash,,1,5.0,368,0,100,0
+Charizard,Up_smash,,2,5.0,368,0,100,0
+Charizard,Up_smash,,3,5.0,280,0,100,32
+Charizard,Up_smash,,1,5.0,368,0,100,0
+Charizard,Up_smash,,2,5.0,368,0,100,0
+Charizard,Up_smash,,3,5.0,320,0,100,42
+Charizard,Up_smash,,0,5.0,368,0,100,0
+Charizard,Up_smash,,1,5.0,368,0,100,0
+Charizard,Up_smash,,2,5.0,368,0,100,0
+Charizard,Up_smash,,3,5.0,340,0,100,60
+Charizard,Up_smash,,0,11.0,83,40,107,0
+Charizard,Up_smash,,1,11.0,83,40,107,0
+Charizard,Up_smash,,2,11.0,83,40,107,0
+Charizard,Down_smash,,0,16.0,33,40,79,0
+Charizard,Down_smash,,1,16.0,33,40,79,0
+Charizard,Down_smash,,2,16.0,33,40,79,0
+Charizard,Down_smash,,3,16.0,33,40,79,0
+Charizard,Neutral_aerial,,0,12.0,361,30,78,0
+Charizard,Neutral_aerial,,1,9.0,361,30,78,0
+Charizard,Neutral_aerial,,2,9.0,361,30,78,0
+Charizard,Neutral_aerial,,3,9.0,361,30,78,0
+Charizard,Forward_aerial,,0,12.0,361,35,92,0
+Charizard,Forward_aerial,,1,12.0,361,35,92,0
+Charizard,Forward_aerial,,2,12.0,361,35,92,0
+Charizard,Forward_aerial,,0,13.0,34,32,97,0
+Charizard,Forward_aerial,,1,12.0,361,35,92,0
+Charizard,Forward_aerial,,2,12.0,361,35,92,0
+Charizard,Back_aerial,,1,14.0,361,50,90,0
+Charizard,Back_aerial,,2,11.0,361,50,90,0
+Charizard,Back_aerial,,0,16.0,361,50,90,0
+Charizard,Back_aerial,,1,14.0,361,50,90,0
+Charizard,Back_aerial,,2,11.0,361,50,90,0
+Charizard,Back_aerial,,3,11.0,361,50,90,0
+Charizard,Back_aerial,,0,16.0,361,50,90,0
+Charizard,Back_aerial,,1,14.0,361,50,90,0
+Charizard,Back_aerial,,2,11.0,361,50,90,0
+Charizard,Back_aerial,,3,11.0,361,50,90,0
+Charizard,Up_aerial,,0,13.0,85,30,105,0
+Charizard,Up_aerial,,1,13.0,85,30,105,0
+Charizard,Up_aerial,,2,13.0,85,30,105,0
+Charizard,Up_aerial,,3,13.0,85,30,105,0
+Charizard,Down_aerial,,0,14.0,270,20,100,0
+Charizard,Down_aerial,,1,14.0,361,20,90,0
+Charizard,Down_aerial,,0,8.0,55,20,100,0
+Charizard,Down_aerial,,1,8.0,361,20,100,0
+Little Mac,Forward_tilt,,0,4.0,60,0,100,22
+Little Mac,Forward_tilt,,1,4.0,40,0,100,37
+Little Mac,Forward_tilt,,2,4.0,36,0,100,42
+Little Mac,Forward_tilt,,3,4.0,0,0,100,12
+Little Mac,Forward_tilt,,4,4.0,10,0,100,42
+Little Mac,Forward_tilt,,5,4.0,10,0,100,60
+Little Mac,Forward_tilt,,0,8.0,361,40,130,0
+Little Mac,Forward_tilt,,1,8.0,361,40,130,0
+Little Mac,Up_tilt,,0,6.5,96,25,120,0
+Little Mac,Up_tilt,,1,6.5,96,25,120,0
+Little Mac,Up_tilt,,2,6.5,96,25,120,0
+Little Mac,Down_tilt,,0,8.0,80,50,50,0
+Little Mac,Down_tilt,,1,8.0,80,50,50,0
+Little Mac,Down_tilt,,2,8.0,80,50,50,0
+Little Mac,Dash_attack,,0,0.0,361,0,100,20
+Little Mac,Dash_attack,,0,10.0,50,80,70,0
+Little Mac,Dash_attack,,1,10.0,60,80,70,0
+Little Mac,Dash_attack,,2,10.0,70,80,70,0
+Little Mac,Forward_smash,,0,20.0,78,30,81,0
+Little Mac,Forward_smash,,1,18.0,85,30,81,0
+Little Mac,Forward_smash,,0,20.0,361,29,87,0
+Little Mac,Forward_smash,,1,18.0,361,29,87,0
+Little Mac,Forward_smash,,0,24.0,361,65,21,0
+Little Mac,Forward_smash,,1,24.0,361,65,21,0
+Little Mac,Up_smash,,0,21.0,86,40,76,0
+Little Mac,Up_smash,,0,16.0,85,25,96,0
+Little Mac,Up_smash,,1,16.0,85,25,96,0
+Little Mac,Up_smash,,2,16.0,85,25,96,0
+Little Mac,Down_smash,,0,13.0,30,25,94,0
+Little Mac,Down_smash,,1,13.0,30,25,94,0
+Little Mac,Down_smash,,2,13.0,30,25,94,0
+Little Mac,Down_smash,,0,13.0,30,25,94,0
+Little Mac,Down_smash,,1,13.0,30,25,94,0
+Little Mac,Down_smash,,2,13.0,30,25,94,0
+Little Mac,Neutral_aerial,,0,2.0,367,0,100,9
+Little Mac,Neutral_aerial,,1,2.0,80,5,100,0
+Little Mac,Neutral_aerial,,2,2.0,80,5,100,0
+Little Mac,Forward_aerial,,0,5.0,30,25,100,0
+Little Mac,Forward_aerial,,1,4.0,30,25,100,0
+Little Mac,Forward_aerial,,2,4.0,30,25,100,0
+Little Mac,Back_aerial,,0,6.0,30,25,100,0
+Little Mac,Back_aerial,,1,4.0,30,25,100,0
+Little Mac,Back_aerial,,2,4.0,30,25,100,0
+Little Mac,Up_aerial,,0,5.0,80,25,100,0
+Little Mac,Up_aerial,,1,4.0,80,25,100,0
+Little Mac,Up_aerial,,2,4.0,80,25,100,0
+Little Mac,Down_aerial,,0,5.0,361,0,80,0
+Little Mac,Down_aerial,,1,4.0,270,0,80,0
+Little Mac,Down_aerial,,2,4.0,361,0,80,0
+Steve,Forward_tilt,No sword,0,2.72,60,72,50,0
+Steve,Forward_tilt,No sword,4,2.72,60,72,50,0
+Steve,Forward_tilt,Wood/Stone sword,0,3.4,45,27,134,0
+Steve,Forward_tilt,Wood/Stone sword,1,3.4,45,27,134,0
+Steve,Forward_tilt,Wood/Stone sword,2,3.4,45,27,134,0
+Steve,Forward_tilt,Wood/Stone sword,3,3.4,45,27,134,0
+Steve,Forward_tilt,Wood/Stone sword,4,3.4,57,20,134,0
+Steve,Forward_tilt,Wood/Stone sword,5,3.4,57,20,134,0
+Steve,Forward_tilt,Wood/Stone sword,6,3.4,57,20,134,0
+Steve,Forward_tilt,Wood/Stone sword,7,3.4,57,20,134,0
+Steve,Forward_tilt,Iron/Gold/Diamond sword,0,3.4,45,27,134,0
+Steve,Forward_tilt,Iron/Gold/Diamond sword,1,3.4,45,27,134,0
+Steve,Forward_tilt,Iron/Gold/Diamond sword,2,3.4,45,27,134,0
+Steve,Forward_tilt,Iron/Gold/Diamond sword,3,3.4,45,27,134,0
+Steve,Forward_tilt,Iron/Gold/Diamond sword,4,3.4,57,20,134,0
+Steve,Forward_tilt,Iron/Gold/Diamond sword,5,3.4,57,20,134,0
+Steve,Forward_tilt,Iron/Gold/Diamond sword,6,3.4,57,20,134,0
+Steve,Forward_tilt,Iron/Gold/Diamond sword,7,3.4,57,20,134,0
+Steve,Up_tilt,No axe,0,5.2,86,42,78,0
+Steve,Up_tilt,No axe,0,5.2,98,38,74,0
+Steve,Up_tilt,Wood axe,0,6.5,86,42,78,0
+Steve,Up_tilt,Wood axe,1,6.5,86,42,78,0
+Steve,Up_tilt,Wood axe,0,6.5,98,38,74,0
+Steve,Up_tilt,Wood axe,1,6.5,98,38,74,0
+Steve,Up_tilt,Stone axe,0,7.15,86,42,78,0
+Steve,Up_tilt,Stone axe,1,7.15,86,42,78,0
+Steve,Up_tilt,Stone axe,0,7.15,98,38,74,0
+Steve,Up_tilt,Stone axe,1,7.15,98,38,74,0
+Steve,Up_tilt,Iron axe,0,7.8,86,42,78,0
+Steve,Up_tilt,Iron axe,1,7.8,86,42,78,0
+Steve,Up_tilt,Iron axe,0,7.8,98,38,74,0
+Steve,Up_tilt,Iron axe,1,7.8,98,38,74,0
+Steve,Up_tilt,Gold axe,0,6.5,86,42,78,0
+Steve,Up_tilt,Gold axe,1,6.5,86,42,78,0
+Steve,Up_tilt,Gold axe,0,6.5,98,38,74,0
+Steve,Up_tilt,Gold axe,1,6.5,98,38,74,0
+Steve,Up_tilt,Diamond axe,0,8.775,86,42,78,0
+Steve,Up_tilt,Diamond axe,1,8.775,86,42,78,0
+Steve,Up_tilt,Diamond axe,0,8.775,98,38,74,0
+Steve,Up_tilt,Diamond axe,1,8.775,98,38,74,0
+Steve,Down_tilt,,0,0.8,366,0,100,40
+Steve,Down_tilt,,1,0.8,366,0,100,40
+Steve,Down_tilt,,0,6.4,54,42,116,0
+Steve,Down_tilt,,1,6.4,54,42,116,0
+Steve,Dash_attack,No pickaxe,0,8.32,50,68,66,0
+Steve,Dash_attack,No pickaxe,0,6.72,50,66,58,0
+Steve,Dash_attack,Wood,0,10.4,50,68,66,0
+Steve,Dash_attack,Wood,1,10.4,50,68,66,0
+Steve,Dash_attack,Wood,0,8.4,50,66,58,0
+Steve,Dash_attack,Wood,1,8.4,50,66,58,0
+Steve,Dash_attack,Stone,0,11.44,50,68,66,0
+Steve,Dash_attack,Stone,1,11.44,50,68,66,0
+Steve,Dash_attack,Stone,0,9.24,50,66,58,0
+Steve,Dash_attack,Stone,1,9.24,50,66,58,0
+Steve,Dash_attack,Iron,0,12.48,50,68,66,0
+Steve,Dash_attack,Iron,1,12.48,50,68,66,0
+Steve,Dash_attack,Iron,0,10.08,50,66,58,0
+Steve,Dash_attack,Iron,1,10.08,50,66,58,0
+Steve,Dash_attack,Gold,0,10.4,50,68,76,0
+Steve,Dash_attack,Gold,1,10.4,50,68,76,0
+Steve,Dash_attack,Gold,0,8.4,50,66,66,0
+Steve,Dash_attack,Gold,1,8.4,50,66,66,0
+Steve,Dash_attack,Diamond,0,14.04,50,68,66,0
+Steve,Dash_attack,Diamond,1,14.04,50,68,66,0
+Steve,Dash_attack,Diamond,0,11.34,50,66,58,0
+Steve,Dash_attack,Diamond,1,11.34,50,66,58,0
+Steve,Forward_smash,No sword,0,12.0,42,20,85,0
+Steve,Forward_smash,No sword,1,12.0,42,20,85,0
+Steve,Forward_smash,Wood,0,15.0,42,34,85,0
+Steve,Forward_smash,Wood,1,15.0,42,34,85,0
+Steve,Forward_smash,Wood,2,15.0,42,34,85,0
+Steve,Forward_smash,Stone,0,16.5,42,34,85,0
+Steve,Forward_smash,Stone,1,16.5,42,34,85,0
+Steve,Forward_smash,Stone,2,16.5,42,34,85,0
+Steve,Forward_smash,Iron,0,18.0,42,34,85,0
+Steve,Forward_smash,Iron,1,18.0,42,34,85,0
+Steve,Forward_smash,Iron,2,18.0,42,34,85,0
+Steve,Forward_smash,Gold,0,15.0,42,34,101,0
+Steve,Forward_smash,Gold,1,15.0,42,34,101,0
+Steve,Forward_smash,Gold,2,15.0,42,34,101,0
+Steve,Forward_smash,Diamond,0,20.25,42,34,90,0
+Steve,Forward_smash,Diamond,1,20.25,42,34,90,0
+Steve,Forward_smash,Diamond,2,20.25,42,34,90,0
+Steve,Up_smash,Main attack,0,1.0,105,0,100,90
+Steve,Up_smash,Main attack,0,0.4,366,0,100,20
+Steve,Up_smash,Main attack,1,0.4,113,0,100,60
+Steve,Up_smash,Main attack,0,14.0,80,47,90,0
+Steve,Up_smash,Pickaxe,1,7.4,52,56,82,0
+Steve,Up_smash,Pickaxe,1,8.14,52,56,82,0
+Steve,Up_smash,Pickaxe,1,8.88,52,56,82,0
+Steve,Up_smash,Pickaxe,1,7.4,52,56,92,0
+Steve,Up_smash,Pickaxe,1,9.99,52,56,82,0
+Steve,Down_smash,,0,0.6,366,0,100,55
+Steve,Down_smash,,2,0.6,366,0,100,55
+Steve,Down_smash,,0,14.0,27,59,62,0
+Steve,Down_smash,,1,14.0,27,59,62,0
+Steve,Down_smash,,2,14.0,27,59,62,0
+Steve,Down_smash,,3,14.0,27,59,62,0
+Steve,Neutral_aerial,No sword,0,2.72,60,72,50,0
+Steve,Neutral_aerial,No sword,4,2.72,60,72,50,0
+Steve,Neutral_aerial,Wood/Stone sword,0,3.4,45,27,134,0
+Steve,Neutral_aerial,Wood/Stone sword,1,3.4,45,27,134,0
+Steve,Neutral_aerial,Wood/Stone sword,2,3.4,45,27,134,0
+Steve,Neutral_aerial,Wood/Stone sword,3,3.4,45,27,134,0
+Steve,Neutral_aerial,Wood/Stone sword,4,3.4,57,20,134,0
+Steve,Neutral_aerial,Wood/Stone sword,5,3.4,57,20,134,0
+Steve,Neutral_aerial,Wood/Stone sword,6,3.4,57,20,134,0
+Steve,Neutral_aerial,Wood/Stone sword,7,3.4,57,20,134,0
+Steve,Neutral_aerial,Iron/Gold/Diamond sword,0,3.4,45,27,134,0
+Steve,Neutral_aerial,Iron/Gold/Diamond sword,1,3.4,45,27,134,0
+Steve,Neutral_aerial,Iron/Gold/Diamond sword,2,3.4,45,27,134,0
+Steve,Neutral_aerial,Iron/Gold/Diamond sword,3,3.4,45,27,134,0
+Steve,Neutral_aerial,Iron/Gold/Diamond sword,4,3.4,57,20,134,0
+Steve,Neutral_aerial,Iron/Gold/Diamond sword,5,3.4,57,20,134,0
+Steve,Neutral_aerial,Iron/Gold/Diamond sword,6,3.4,57,20,134,0
+Steve,Neutral_aerial,Iron/Gold/Diamond sword,7,3.4,57,20,134,0
+Steve,Forward_aerial,No pickaxe,0,8.4,361,56,63,0
+Steve,Forward_aerial,No pickaxe,1,8.4,361,56,63,0
+Steve,Forward_aerial,No pickaxe,0,9.6,361,48,63,0
+Steve,Forward_aerial,No pickaxe,1,9.6,361,48,63,0
+Steve,Forward_aerial,Wood pickaxe,0,10.5,361,56,63,0
+Steve,Forward_aerial,Wood pickaxe,1,10.5,361,56,63,0
+Steve,Forward_aerial,Wood pickaxe,3,10.5,361,56,69,0
+Steve,Forward_aerial,Wood pickaxe,4,10.5,361,56,69,0
+Steve,Forward_aerial,Wood pickaxe,0,10.5,361,56,63,0
+Steve,Forward_aerial,Wood pickaxe,1,10.5,361,56,63,0
+Steve,Forward_aerial,Wood pickaxe,3,10.5,361,56,69,0
+Steve,Forward_aerial,Wood pickaxe,4,10.5,361,56,69,0
+Steve,Forward_aerial,Wood pickaxe,2,10.5,275,25,58,0
+Steve,Forward_aerial,Wood pickaxe,0,12.0,361,48,63,0
+Steve,Forward_aerial,Wood pickaxe,1,12.0,361,48,63,0
+Steve,Forward_aerial,Wood pickaxe,3,12.0,275,25,58,0
+Steve,Forward_aerial,Wood pickaxe,4,12.0,361,56,67,0
+Steve,Forward_aerial,Stone pickaxe,0,11.55,361,56,63,0
+Steve,Forward_aerial,Stone pickaxe,1,11.55,361,56,63,0
+Steve,Forward_aerial,Stone pickaxe,3,11.55,361,56,69,0
+Steve,Forward_aerial,Stone pickaxe,4,11.55,361,56,69,0
+Steve,Forward_aerial,Stone pickaxe,0,11.55,361,56,63,0
+Steve,Forward_aerial,Stone pickaxe,1,11.55,361,56,63,0
+Steve,Forward_aerial,Stone pickaxe,3,11.55,361,56,69,0
+Steve,Forward_aerial,Stone pickaxe,4,11.55,361,56,69,0
+Steve,Forward_aerial,Stone pickaxe,2,11.55,275,25,58,0
+Steve,Forward_aerial,Stone pickaxe,0,13.2,361,48,63,0
+Steve,Forward_aerial,Stone pickaxe,1,13.2,361,48,63,0
+Steve,Forward_aerial,Stone pickaxe,3,13.2,275,25,58,0
+Steve,Forward_aerial,Stone pickaxe,4,13.2,361,56,67,0
+Steve,Forward_aerial,Iron pickaxe,0,12.6,361,56,63,0
+Steve,Forward_aerial,Iron pickaxe,1,12.6,361,56,63,0
+Steve,Forward_aerial,Iron pickaxe,3,12.6,361,56,69,0
+Steve,Forward_aerial,Iron pickaxe,4,12.6,361,56,69,0
+Steve,Forward_aerial,Iron pickaxe,0,12.6,361,56,63,0
+Steve,Forward_aerial,Iron pickaxe,1,12.6,361,56,63,0
+Steve,Forward_aerial,Iron pickaxe,3,12.6,361,56,69,0
+Steve,Forward_aerial,Iron pickaxe,4,12.6,361,56,69,0
+Steve,Forward_aerial,Iron pickaxe,2,12.6,275,25,58,0
+Steve,Forward_aerial,Iron pickaxe,0,14.4,361,48,63,0
+Steve,Forward_aerial,Iron pickaxe,1,14.4,361,48,63,0
+Steve,Forward_aerial,Iron pickaxe,3,14.4,275,25,58,0
+Steve,Forward_aerial,Iron pickaxe,4,14.4,361,56,67,0
+Steve,Forward_aerial,Gold pickaxe,0,10.5,361,56,81,0
+Steve,Forward_aerial,Gold pickaxe,1,10.5,361,56,81,0
+Steve,Forward_aerial,Gold pickaxe,3,10.5,361,56,81,0
+Steve,Forward_aerial,Gold pickaxe,4,10.5,361,56,81,0
+Steve,Forward_aerial,Gold pickaxe,0,10.5,361,56,81,0
+Steve,Forward_aerial,Gold pickaxe,1,10.5,361,56,81,0
+Steve,Forward_aerial,Gold pickaxe,3,10.5,361,56,81,0
+Steve,Forward_aerial,Gold pickaxe,4,10.5,361,56,81,0
+Steve,Forward_aerial,Gold pickaxe,2,10.5,275,25,67,0
+Steve,Forward_aerial,Gold pickaxe,0,12.0,361,48,79,0
+Steve,Forward_aerial,Gold pickaxe,1,12.0,361,48,79,0
+Steve,Forward_aerial,Gold pickaxe,3,12.0,275,25,68,0
+Steve,Forward_aerial,Gold pickaxe,4,12.0,361,56,79,0
+Steve,Forward_aerial,Diamond pickaxe,0,14.175,361,56,63,0
+Steve,Forward_aerial,Diamond pickaxe,1,14.175,361,56,63,0
+Steve,Forward_aerial,Diamond pickaxe,3,14.175,361,56,69,0
+Steve,Forward_aerial,Diamond pickaxe,4,14.175,361,56,69,0
+Steve,Forward_aerial,Diamond pickaxe,0,14.175,361,56,63,0
+Steve,Forward_aerial,Diamond pickaxe,1,14.175,361,56,63,0
+Steve,Forward_aerial,Diamond pickaxe,3,14.175,361,56,69,0
+Steve,Forward_aerial,Diamond pickaxe,4,14.175,361,56,69,0
+Steve,Forward_aerial,Diamond pickaxe,2,14.175,275,25,67,0
+Steve,Forward_aerial,Diamond pickaxe,0,16.2,361,48,63,0
+Steve,Forward_aerial,Diamond pickaxe,1,16.2,361,48,63,0
+Steve,Forward_aerial,Diamond pickaxe,3,16.2,275,25,58,0
+Steve,Forward_aerial,Diamond pickaxe,4,16.2,361,56,67,0
+Steve,Forward_aerial,No sword,0,2.72,60,72,50,0
+Steve,Forward_aerial,No sword,4,2.72,60,72,50,0
+Steve,Forward_aerial,Wood/Stone sword,0,3.4,45,27,134,0
+Steve,Forward_aerial,Wood/Stone sword,1,3.4,45,27,134,0
+Steve,Forward_aerial,Wood/Stone sword,2,3.4,45,27,134,0
+Steve,Forward_aerial,Wood/Stone sword,3,3.4,45,27,134,0
+Steve,Forward_aerial,Wood/Stone sword,4,3.4,57,20,134,0
+Steve,Forward_aerial,Wood/Stone sword,5,3.4,57,20,134,0
+Steve,Forward_aerial,Wood/Stone sword,6,3.4,57,20,134,0
+Steve,Forward_aerial,Wood/Stone sword,7,3.4,57,20,134,0
+Steve,Forward_aerial,Iron/Gold/Diamond sword,0,3.4,45,27,134,0
+Steve,Forward_aerial,Iron/Gold/Diamond sword,1,3.4,45,27,134,0
+Steve,Forward_aerial,Iron/Gold/Diamond sword,2,3.4,45,27,134,0
+Steve,Forward_aerial,Iron/Gold/Diamond sword,3,3.4,45,27,134,0
+Steve,Forward_aerial,Iron/Gold/Diamond sword,4,3.4,57,20,134,0
+Steve,Forward_aerial,Iron/Gold/Diamond sword,5,3.4,57,20,134,0
+Steve,Forward_aerial,Iron/Gold/Diamond sword,6,3.4,57,20,134,0
+Steve,Forward_aerial,Iron/Gold/Diamond sword,7,3.4,57,20,134,0
+Steve,Back_aerial,No pickaxe,0,9.2,50,56,85,0
+Steve,Back_aerial,No pickaxe,1,9.2,50,56,85,0
+Steve,Back_aerial,No pickaxe,0,10.4,50,52,79,0
+Steve,Back_aerial,No pickaxe,1,10.4,50,52,79,0
+Steve,Back_aerial,Wood pickaxe,0,11.5,50,56,85,0
+Steve,Back_aerial,Wood pickaxe,1,11.5,50,56,85,0
+Steve,Back_aerial,Wood pickaxe,2,11.5,361,51,85,0
+Steve,Back_aerial,Wood pickaxe,3,11.5,361,51,85,0
+Steve,Back_aerial,Wood pickaxe,0,13.0,50,52,79,0
+Steve,Back_aerial,Wood pickaxe,1,13.0,50,52,79,0
+Steve,Back_aerial,Wood pickaxe,2,13.0,361,52,79,0
+Steve,Back_aerial,Wood pickaxe,3,13.0,361,52,79,0
+Steve,Back_aerial,Stone pickaxe,0,12.65,50,56,85,0
+Steve,Back_aerial,Stone pickaxe,1,12.65,50,56,85,0
+Steve,Back_aerial,Stone pickaxe,2,12.65,361,51,85,0
+Steve,Back_aerial,Stone pickaxe,3,12.65,361,51,85,0
+Steve,Back_aerial,Stone pickaxe,0,14.3,50,52,79,0
+Steve,Back_aerial,Stone pickaxe,1,14.3,50,52,79,0
+Steve,Back_aerial,Stone pickaxe,2,14.3,361,52,79,0
+Steve,Back_aerial,Stone pickaxe,3,14.3,361,52,79,0
+Steve,Back_aerial,Iron pickaxe,0,13.8,50,56,85,0
+Steve,Back_aerial,Iron pickaxe,1,13.8,50,56,85,0
+Steve,Back_aerial,Iron pickaxe,2,13.8,361,51,85,0
+Steve,Back_aerial,Iron pickaxe,3,13.8,361,51,85,0
+Steve,Back_aerial,Iron pickaxe,0,15.6,50,52,79,0
+Steve,Back_aerial,Iron pickaxe,1,15.6,50,52,79,0
+Steve,Back_aerial,Iron pickaxe,2,15.6,361,52,79,0
+Steve,Back_aerial,Iron pickaxe,3,15.6,361,52,79,0
+Steve,Back_aerial,Gold pickaxe,0,11.5,50,56,99,0
+Steve,Back_aerial,Gold pickaxe,1,11.5,50,56,99,0
+Steve,Back_aerial,Gold pickaxe,2,11.5,361,51,99,0
+Steve,Back_aerial,Gold pickaxe,3,11.5,361,51,99,0
+Steve,Back_aerial,Gold pickaxe,0,13.0,50,52,93,0
+Steve,Back_aerial,Gold pickaxe,1,13.0,50,52,93,0
+Steve,Back_aerial,Gold pickaxe,2,13.0,361,52,93,0
+Steve,Back_aerial,Gold pickaxe,3,13.0,361,52,93,0
+Steve,Back_aerial,Diamond pickaxe,0,15.525,50,56,85,0
+Steve,Back_aerial,Diamond pickaxe,1,15.525,50,56,85,0
+Steve,Back_aerial,Diamond pickaxe,2,15.525,361,51,85,0
+Steve,Back_aerial,Diamond pickaxe,3,15.525,361,51,85,0
+Steve,Back_aerial,Diamond pickaxe,0,17.55,50,52,79,0
+Steve,Back_aerial,Diamond pickaxe,1,17.55,50,52,79,0
+Steve,Back_aerial,Diamond pickaxe,2,17.55,361,52,79,0
+Steve,Back_aerial,Diamond pickaxe,3,17.55,361,52,79,0
+Steve,Back_aerial,No sword,0,2.72,60,72,50,0
+Steve,Back_aerial,No sword,4,2.72,60,72,50,0
+Steve,Back_aerial,Wood/Stone sword,0,3.4,45,27,134,0
+Steve,Back_aerial,Wood/Stone sword,1,3.4,45,27,134,0
+Steve,Back_aerial,Wood/Stone sword,2,3.4,45,27,134,0
+Steve,Back_aerial,Wood/Stone sword,3,3.4,45,27,134,0
+Steve,Back_aerial,Wood/Stone sword,4,3.4,57,20,134,0
+Steve,Back_aerial,Wood/Stone sword,5,3.4,57,20,134,0
+Steve,Back_aerial,Wood/Stone sword,6,3.4,57,20,134,0
+Steve,Back_aerial,Wood/Stone sword,7,3.4,57,20,134,0
+Steve,Back_aerial,Iron/Gold/Diamond sword,0,3.4,45,27,134,0
+Steve,Back_aerial,Iron/Gold/Diamond sword,1,3.4,45,27,134,0
+Steve,Back_aerial,Iron/Gold/Diamond sword,2,3.4,45,27,134,0
+Steve,Back_aerial,Iron/Gold/Diamond sword,3,3.4,45,27,134,0
+Steve,Back_aerial,Iron/Gold/Diamond sword,4,3.4,57,20,134,0
+Steve,Back_aerial,Iron/Gold/Diamond sword,5,3.4,57,20,134,0
+Steve,Back_aerial,Iron/Gold/Diamond sword,6,3.4,57,20,134,0
+Steve,Back_aerial,Iron/Gold/Diamond sword,7,3.4,57,20,134,0
+Steve,Up_aerial,No axe,0,5.2,71,48,76,0
+Steve,Up_aerial,Wood Axe,0,6.5,71,48,76,0
+Steve,Up_aerial,Wood Axe,1,6.5,71,48,76,0
+Steve,Up_aerial,Stone Axe,0,7.15,71,48,76,0
+Steve,Up_aerial,Stone Axe,1,7.15,71,48,76,0
+Steve,Up_aerial,Iron Axe,0,7.8,71,48,76,0
+Steve,Up_aerial,Iron Axe,1,7.8,71,48,76,0
+Steve,Up_aerial,Gold Axe,0,6.5,71,48,76,0
+Steve,Up_aerial,Gold Axe,1,6.5,71,48,76,0
+Steve,Up_aerial,Diamond Axe,0,8.775,71,48,76,0
+Steve,Up_aerial,Diamond Axe,1,8.775,71,48,76,0
+Steve,Down_aerial,,1,0.0,361,0,0,0
+Steve,Down_aerial,,0,18.0,58,62,84,0
+Steve,Down_aerial,,1,18.0,70,62,84,0
+Steve,Down_aerial,,0,10.0,58,62,78,0
+Steve,Down_aerial,,1,10.0,70,62,78,0
+Steve,Down_aerial,,0,8.0,70,58,78,0
+Steve,Down_aerial,,1,0.0,361,0,0,0
+Lucina,Forward_tilt,,0,11.0,361,42,74,0
+Lucina,Forward_tilt,,1,11.0,361,42,74,0
+Lucina,Forward_tilt,,2,11.0,361,42,74,0
+Lucina,Up_tilt,,0,7.6,100,65,100,0
+Lucina,Up_tilt,,1,7.6,100,65,100,0
+Lucina,Up_tilt,,2,7.6,100,65,100,0
+Lucina,Up_tilt,,3,7.6,100,65,100,0
+Lucina,Up_tilt,,4,7.6,100,65,100,0
+Lucina,Up_tilt,,5,7.6,100,65,100,0
+Lucina,Up_tilt,,0,7.6,100,65,100,0
+Lucina,Up_tilt,,1,7.6,100,65,100,0
+Lucina,Up_tilt,,2,7.6,100,65,100,0
+Lucina,Up_tilt,,3,7.6,100,65,100,0
+Lucina,Up_tilt,,0,8.075,85,52,100,0
+Lucina,Up_tilt,,1,8.075,100,52,100,0
+Lucina,Up_tilt,,2,8.075,100,52,100,0
+Lucina,Up_tilt,,3,8.075,85,52,100,0
+Lucina,Down_tilt,,0,8.5,30,45,40,0
+Lucina,Down_tilt,,1,8.5,30,45,40,0
+Lucina,Dash_attack,,0,10.925,45,75,67,0
+Lucina,Dash_attack,,1,10.925,45,75,67,0
+Lucina,Dash_attack,,2,10.925,45,75,67,0
+Lucina,Dash_attack,,3,10.925,45,75,67,0
+Lucina,Dash_attack,,0,10.925,45,75,67,0
+Lucina,Dash_attack,,1,10.925,45,75,67,0
+Lucina,Dash_attack,,2,10.925,45,75,67,0
+Lucina,Dash_attack,,3,10.925,45,75,67,0
+Lucina,Forward_smash,,0,15.0,361,65,73,0
+Lucina,Forward_smash,,1,15.0,361,65,73,0
+Lucina,Forward_smash,,2,15.0,361,65,73,0
+Lucina,Forward_smash,,3,15.0,361,65,73,0
+Lucina,Up_smash,,1,14.25,89,42,90,0
+Lucina,Up_smash,,2,14.25,89,42,90,0
+Lucina,Up_smash,,3,14.25,89,42,90,0
+Lucina,Up_smash,,0,3.0,125,0,100,155
+Lucina,Down_smash,,0,9.5,361,55,88,0
+Lucina,Down_smash,,1,9.5,361,55,88,0
+Lucina,Down_smash,,2,9.5,361,55,88,0
+Lucina,Down_smash,,3,9.5,361,55,88,0
+Lucina,Down_smash,,0,14.0,361,45,88,0
+Lucina,Down_smash,,1,14.0,361,45,88,0
+Lucina,Down_smash,,2,14.0,361,45,88,0
+Lucina,Down_smash,,3,14.0,361,45,88,0
+Lucina,Neutral_aerial,,0,4.275,75,45,50,0
+Lucina,Neutral_aerial,,1,4.275,80,45,50,0
+Lucina,Neutral_aerial,,2,4.275,90,35,50,0
+Lucina,Neutral_aerial,,0,8.55,361,55,95,0
+Lucina,Neutral_aerial,,1,8.55,361,55,95,0
+Lucina,Neutral_aerial,,2,8.55,361,55,95,0
+Lucina,Forward_aerial,,0,10.5,361,40,77,0
+Lucina,Forward_aerial,,1,10.5,361,40,77,0
+Lucina,Forward_aerial,,2,10.5,361,40,77,0
+Lucina,Back_aerial,,0,11.875,361,40,90,0
+Lucina,Back_aerial,,1,11.875,361,40,90,0
+Lucina,Back_aerial,,0,11.875,361,40,90,0
+Lucina,Up_aerial,,0,11.4,85,40,83,0
+Lucina,Up_aerial,,1,11.4,85,40,83,0
+Lucina,Up_aerial,,2,11.4,85,40,83,0
+Lucina,Up_aerial,,3,11.4,85,40,83,0
+Lucina,Down_aerial,,1,12.35,361,30,75,0
+Lucina,Down_aerial,,2,12.35,80,30,75,0
+Lucina,Down_aerial,,3,12.35,361,30,75,0
+Lucina,Down_aerial,,1,12.35,361,30,75,0
+Lucina,Down_aerial,,2,12.35,80,30,75,0
+Lucina,Down_aerial,,3,12.35,361,30,75,0
+Lucina,Down_aerial,,0,14.25,270,20,80,0
+Palutena,Forward_tilt,,1,6.0,90,0,100,25
+Palutena,Forward_tilt,,0,6.0,45,0,100,45
+Palutena,Forward_tilt,,1,6.0,285,0,100,25
+Palutena,Forward_tilt,,0,6.0,100,0,100,40
+Palutena,Forward_tilt,,1,6.0,20,0,100,35
+Palutena,Forward_tilt,,0,6.0,85,0,100,30
+Palutena,Forward_tilt,,1,7.0,40,78,80,0
+Palutena,Forward_tilt,,0,7.0,40,78,80,0
+Palutena,Up_tilt,,0,1.4,367,0,100,20
+Palutena,Up_tilt,,1,1.4,130,0,100,50
+Palutena,Up_tilt,,2,1.4,190,0,100,30
+Palutena,Up_tilt,,0,4.5,85,75,136,0
+Palutena,Up_tilt,,1,4.5,85,75,136,0
+Palutena,Down_tilt,,0,8.5,35,40,100,0
+Palutena,Down_tilt,,1,5.0,75,38,100,0
+Palutena,Down_tilt,,0,8.5,35,40,100,0
+Palutena,Down_tilt,,1,5.0,75,38,100,0
+Palutena,Down_tilt,,2,8.5,35,40,100,0
+Palutena,Down_tilt,,3,5.0,75,38,100,0
+Palutena,Dash_attack,,0,11.0,70,71,76,0
+Palutena,Dash_attack,,1,11.0,60,71,76,0
+Palutena,Dash_attack,,0,7.0,60,61,56,0
+Palutena,Forward_smash,,0,16.0,361,40,100,0
+Palutena,Forward_smash,,1,13.0,361,40,102,0
+Palutena,Forward_smash,,0,0.0,361,0,100,60
+Palutena,Forward_smash,,0,0.0,361,0,100,35
+Palutena,Up_smash,,0,16.0,88,53,84,0
+Palutena,Up_smash,,1,12.0,88,58,89,0
+Palutena,Up_smash,,2,9.0,88,62,92,0
+Palutena,Up_smash,,0,13.0,88,53,84,0
+Palutena,Up_smash,,1,9.0,88,58,89,0
+Palutena,Up_smash,,2,7.0,88,62,92,0
+Palutena,Down_smash,,0,15.0,60,52,103,0
+Palutena,Down_smash,,0,13.0,28,30,90,0
+Palutena,Down_smash,,0,0.0,361,0,100,55
+Palutena,Neutral_aerial,,0,1.4,367,0,100,0
+Palutena,Neutral_aerial,,1,1.4,367,0,100,0
+Palutena,Neutral_aerial,,2,1.4,100,0,100,65
+Palutena,Neutral_aerial,,3,1.4,95,0,100,80
+Palutena,Neutral_aerial,,0,1.4,367,0,100,0
+Palutena,Neutral_aerial,,1,1.4,367,0,100,0
+Palutena,Neutral_aerial,,2,1.4,100,0,100,65
+Palutena,Neutral_aerial,,3,1.4,100,0,100,65
+Palutena,Neutral_aerial,,0,1.4,367,0,100,65
+Palutena,Neutral_aerial,,1,1.4,367,0,100,65
+Palutena,Neutral_aerial,,2,1.4,100,0,100,65
+Palutena,Neutral_aerial,,3,1.4,100,0,100,65
+Palutena,Neutral_aerial,,0,5.1,55,35,155,0
+Palutena,Neutral_aerial,,1,5.1,55,35,155,0
+Palutena,Forward_aerial,,0,10.0,45,31,92,0
+Palutena,Back_aerial,,0,12.0,361,30,95,0
+Palutena,Up_aerial,,0,1.0,105,0,100,40
+Palutena,Up_aerial,,1,1.0,367,0,100,20
+Palutena,Up_aerial,,2,1.0,367,0,100,20
+Palutena,Up_aerial,,3,1.0,367,0,100,20
+Palutena,Up_aerial,,0,5.0,88,50,152,0
+Palutena,Up_aerial,,1,5.0,88,50,152,0
+Palutena,Up_aerial,,2,5.0,88,50,152,0
+Palutena,Down_aerial,,0,11.0,270,20,100,0
+Palutena,Down_aerial,,1,11.0,55,30,100,0

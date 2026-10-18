@@ -305,6 +305,41 @@ fn a_player_on_a_gallery_is_answered_by_the_arc_lash() {
     panic!("the lash missed a player standing still on the gallery; last: {:?}", wolf(&mut sim));
 }
 
+/// One lash is one ray: it starts once, so the body it reaches is hit by it
+/// once. A second start would be a new ray, with no memory of the first one's
+/// hits.
+#[test]
+fn one_lash_is_one_ray() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    let hall = wolf(&mut sim).view.hall.expect("room");
+    let room_x = hall.left - 16.0;
+    let (kin, _) = player(&mut sim);
+    let on_gallery = ae::Vec2::new(room_x + 1376.0, hall.floor - 160.0 - kin.size.y * 0.5 - 1.0);
+    let mut rays = std::collections::BTreeSet::new();
+    let mut struck = false;
+    for _ in 0..60 * 60 {
+        place_player(&mut sim, on_gallery);
+        sim.step(AgentAction::default());
+        let performing = wolf(&mut sim).view.performing;
+        if performing == Some((Move::Lash, true)) {
+            struck = true;
+            rays.extend(force_rays(&mut sim));
+        } else if struck {
+            break;
+        }
+    }
+    assert!(struck, "he never struck with the lash; last: {:?}", wolf(&mut sim));
+    assert_eq!(rays.len(), 1, "one lash cast {} rays: {rays:?}", rays.len());
+}
+
+/// The live ray strikes drawn as force lightning.
+fn force_rays(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
+    let world = sim.world_mut();
+    let mut rays = world.query::<(Entity, &ambition_platformer2d::combat::strike::RayStrike)>();
+    rays.iter(world).filter(|(_, ray)| &*ray.look == "force").map(|(entity, _)| entity).collect()
+}
+
 /// Whether a ray strike drawn as force lightning is live: the lash's (a
 /// ray from his neck down the line, its look the presentation's).
 fn a_force_ray_strikes(sim: &mut Platformer2dSimHarness) -> bool {

@@ -452,6 +452,7 @@ fn an_authored_ranged_move_with_a_payload_prepares_cleanly() {
                 aim_assist: None,
                 discharge: None,
                 max_live: None,
+                launch: None,
             }),
             ..ActionSet::default()
         })

@@ -224,12 +224,17 @@ impl FlightMap {
         search
             .open
             .push(Reverse((estimate(start).to_bits(), start)));
-        while let Some(Reverse((_, cell))) = search.open.pop() {
+        while let Some(Reverse((priority, cell))) = search.open.pop() {
             if cell == goal {
                 return true;
             }
-            let (col, row) = (cell as i32 % self.cols, cell as i32 / self.cols);
             let here = search.cost[cell as usize];
+            // A cheaper way to this cell was found after this entry was put
+            // in: the cell was gone through from that one.
+            if f32::from_bits(priority) > here + estimate(cell) {
+                continue;
+            }
+            let (col, row) = (cell as i32 % self.cols, cell as i32 / self.cols);
             for (dc, dr) in [
                 (-1, 0),
                 (1, 0),

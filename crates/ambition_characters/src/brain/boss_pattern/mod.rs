@@ -355,18 +355,20 @@ impl BossPattern {
 
 /// How a boss decides which attack hitbox is active each frame.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum BossAttackPattern {
     /// Legacy cycle: rotate through `BossBehaviorProfile::attacks` using the
     /// flat windup / active / cooldown durations on the profile. Cheap, but
     /// every attack uses the same rhythm.
     Cycle,
-    /// Scripted timeline keyed off `BossEncounterPhase`. Each phase carries
-    /// its own ordered list of telegraph / strike / rest beats. Missing
-    /// phases fall back to `phase1`.
+    /// Scripted timeline keyed off `BossEncounterPhase`. Each phase the boss
+    /// attacks in carries its own ordered list of telegraph / strike / rest
+    /// beats. The intro and the transition have none: the boss runs no move
+    /// then, and its encounter and its conductor own those beats. An authored
+    /// `intro` or `transition` is refused (`deny_unknown_fields`), so no field
+    /// decides nothing.
     Scripted {
-        intro: BossPattern,
         phase1: BossPattern,
-        transition: BossPattern,
         phase2: BossPattern,
         enrage: BossPattern,
     },
@@ -376,21 +378,12 @@ impl BossAttackPattern {
     pub fn pattern_for(&self, phase: BossEncounterPhase) -> Option<&BossPattern> {
         match self {
             BossAttackPattern::Cycle => None,
-            BossAttackPattern::Scripted {
-                intro,
-                phase1,
-                transition,
-                phase2,
-                enrage,
-            } => match phase {
-                BossEncounterPhase::Intro => Some(intro),
+            BossAttackPattern::Scripted { phase1, phase2, enrage } => match phase {
                 BossEncounterPhase::Phase1 => Some(phase1),
-                BossEncounterPhase::Transition => Some(transition),
                 BossEncounterPhase::Phase2 => Some(phase2),
                 BossEncounterPhase::Enrage => Some(enrage),
-                // Dormant / Stagger / Death don't run patterns; the caller
-                // already skips attacks in those phases.
-                _ => Some(phase1),
+                // A boss runs no move in any other phase.
+                _ => None,
             },
         }
     }
@@ -708,14 +701,8 @@ impl BossPatternCfg {
                     push(profile, self.cycle_attack_active);
                 }
             }
-            BossAttackPattern::Scripted {
-                intro,
-                phase1,
-                transition,
-                phase2,
-                enrage,
-            } => {
-                for pattern in [intro, phase1, transition, phase2, enrage] {
+            BossAttackPattern::Scripted { phase1, phase2, enrage } => {
+                for pattern in [phase1, phase2, enrage] {
                     for step in pattern.every_step() {
                         if let BossPatternStep::Strike { profile, duration } = step {
                             push(profile, *duration);
@@ -765,14 +752,8 @@ impl BossPatternCfg {
                     push(profile, self.cycle_attack_windup, self.cycle_attack_active, None);
                 }
             }
-            BossAttackPattern::Scripted {
-                intro,
-                phase1,
-                transition,
-                phase2,
-                enrage,
-            } => {
-                for pattern in [intro, phase1, transition, phase2, enrage] {
+            BossAttackPattern::Scripted { phase1, phase2, enrage } => {
+                for pattern in [phase1, phase2, enrage] {
                     let steps = pattern.every_step();
                     for (i, step) in steps.iter().enumerate() {
                         let BossPatternStep::Strike { profile, duration } = step else {

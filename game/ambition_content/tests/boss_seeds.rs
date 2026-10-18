@@ -59,14 +59,8 @@ fn occurrences_by_move_key() -> BTreeMap<String, Vec<Occurrence>> {
                         });
                 }
             }
-            BossAttackPattern::Scripted {
-                intro,
-                phase1,
-                transition,
-                phase2,
-                enrage,
-            } => {
-                for pattern in [intro, phase1, transition, phase2, enrage] {
+            BossAttackPattern::Scripted { phase1, phase2, enrage } => {
+                for pattern in [phase1, phase2, enrage] {
                     collect_scripted(&pattern.steps, &mut out);
                     // BD1: a stance's beats are beats. They are entered, not
                     // scheduled, but they still telegraph and still strike, so the

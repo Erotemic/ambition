@@ -198,7 +198,14 @@ pub fn decor_on_span(a: f32, b: f32, surface: f32, spacing: f32, keep_out: Optio
             let variant = ((roll(1) * DECOR_VARIANTS as f32) as u32).min(DECOR_VARIANTS - 1);
             out.push((x, variant));
         }
-        x += spacing * (0.55 + 0.9 * roll(2));
+        // A step is never less than a quarter of a decor: a spacing near zero
+        // is a small number of decor, and a step too small to move `x` is no
+        // step.
+        let next = x + (spacing * (0.55 + 0.9 * roll(2))).max(DECOR_SIZE * 0.25);
+        if next <= x {
+            break;
+        }
+        x = next;
         index += 1;
     }
     out
@@ -213,6 +220,14 @@ pub struct ThemedDoor(pub ParallaxTheme);
 /// theme has none.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct TerrainSkinned;
+
+/// The block's own presentation, kept while the skin draws it: a block whose
+/// skin goes (its kind or its theme changes) draws as it did before.
+#[derive(Component, Clone, Debug)]
+pub struct SkinTookSprite {
+    sprite: Sprite,
+    bound: Option<BoundEntitySprite>,
+}
 
 /// A piece of the art of a fixture (a ladder, a body of water): a child of
 /// the fixture.
@@ -1179,7 +1194,16 @@ pub fn lay_room_terrain(
     // A block whose art goes is skinned again: its own sprite is still the
     // art's until the skin writes it.
     mut unarted: RemovedComponents<EntityArt>,
-    mut blocks: Query<(Entity, &TerrainSurface, &mut Sprite, Option<&InRoomInstance>, Has<EntityArt>, Has<TerrainSkinned>)>,
+    mut blocks: Query<(
+        Entity,
+        &TerrainSurface,
+        &mut Sprite,
+        Option<&InRoomInstance>,
+        Has<EntityArt>,
+        Has<TerrainSkinned>,
+        Option<&BoundEntitySprite>,
+        Option<&SkinTookSprite>,
+    )>,
 ) {
     let stamp = |room: Option<&InRoomInstance>| room.map(|room| room.0);
     for room in added.iter().chain(arted.iter()) {
@@ -1239,7 +1263,7 @@ pub fn lay_room_terrain(
         let laid: Vec<(Entity, TerrainSurface, bool)> = blocks
             .iter()
             .filter(|(_, surface, _, block_room, ..)| surface.theme == terrain.blocks_of && stamp(*block_room) == room)
-            .map(|(entity, surface, _, _, with_art, _)| (entity, *surface, with_art))
+            .map(|(entity, surface, _, _, with_art, ..)| (entity, *surface, with_art))
             .collect();
         let parts = |part| skins.get(theme, part).is_some();
         let (block_skins, quads) = lay_room_skin(&laid, Some(&*keep_out), spacing, &parts);
@@ -1269,11 +1293,34 @@ pub fn lay_room_terrain(
             if *with_art {
                 continue;
             }
-            let Ok((_, _, mut sprite, _, _, skinned)) = blocks.get_mut(*entity) else {
+            let Ok((_, _, mut sprite, _, _, skinned, bound, took)) = blocks.get_mut(*entity) else {
                 continue;
             };
             if !skinned {
                 commands.entity(*entity).try_insert(TerrainSkinned);
+            }
+            // The skin takes the block's own sprite once, and gives it back
+            // when it no longer draws the block.
+            match (skin, took) {
+                (BlockSkin::Untouched, Some(took)) => {
+                    let mut own = took.sprite.clone();
+                    if own.custom_size.is_some() {
+                        own.custom_size = Some(surface.size);
+                    }
+                    // A quality change while the skin drew it moved the tile.
+                    if let Some(bound) = took.bound {
+                        if let Some(handle) = assets.entities.get(bound.key) {
+                            own.image = handle.clone();
+                        }
+                        commands.entity(*entity).try_insert(bound);
+                    }
+                    *sprite = own;
+                    commands.entity(*entity).try_remove::<SkinTookSprite>();
+                }
+                (BlockSkin::Laid | BlockSkin::OwnFill(_), None) => {
+                    commands.entity(*entity).try_insert(SkinTookSprite { sprite: sprite.clone(), bound: bound.copied() });
+                }
+                _ => {}
             }
             match skin {
                 BlockSkin::Untouched => {}
@@ -1858,7 +1905,8 @@ mod tests {
 
     /// The decor of a span is the same each time, each thing is inside the
     /// span, and none stands on a thing of the play. The control is the same
-    /// span with no keep-out: it has a thing where the keep-out is.
+    /// span with no keep-out: it has a thing where the keep-out is. A spacing
+    /// near zero ends, with a bounded number of things.
     #[test]
     fn the_decor_of_a_span_is_inside_it_and_clear_of_the_play() {
         let free = decor_on_span(0.0, 2000.0, 300.0, 100.0, None);
@@ -1875,6 +1923,10 @@ mod tests {
         assert_eq!(decor_on_span(0.0, 2000.0, 300.0, 100.0, Some(&high)), free);
         assert!(decor_on_span(0.0, 50.0, 300.0, 100.0, None).is_empty(), "a short ledge has none");
         assert!(decor_on_span(0.0, 2000.0, 300.0, 0.0, None).is_empty(), "no spacing, no decor");
+        // A spacing too small to move a place near 1000 ends, with at most
+        // one decor each quarter of a decor.
+        let dense = decor_on_span(1000.0, 1200.0, 300.0, 1e-6, None);
+        assert!(!dense.is_empty() && dense.len() as f32 <= 200.0 / (DECOR_SIZE * 0.25) + 1.0, "{}", dense.len());
     }
 
     /// A room with every picture of the Cave skin loaded, a floor and a
@@ -1987,6 +2039,62 @@ mod tests {
         world.run_system(lay).unwrap();
         assert!(terrain(&world) > 0, "the block whose art went has no skin");
         assert_eq!(world.entity(brick).get::<Sprite>().unwrap().color, Color::NONE, "its own sprite still draws");
+    }
+
+    /// A block draws as its skin says now, whatever the skin said before:
+    /// laid, it draws nothing of its own; filling itself, its picture
+    /// repeated at its size; untouched, its own sprite as it was before the
+    /// skin took it. Each transition between the three, and art of its own
+    /// that comes and goes over them.
+    #[test]
+    fn a_block_draws_as_its_skin_says_after_each_change() {
+        let (mut world, _, _, brick) = terrain_world(true);
+        let own = world.entity(brick).get::<Sprite>().unwrap().clone();
+        let small = world.entity(brick).get::<TerrainSurface>().unwrap().size;
+        let huge = Vec2::new(10_000.0, 2_000.0);
+        let lay = world.register_system(lay_room_terrain);
+        #[derive(Debug, PartialEq)]
+        enum Look {
+            Clear,
+            Fill(Option<Vec2>),
+            Own(Option<Vec2>),
+            Other,
+        }
+        let look = |world: &World| {
+            let sprite = world.entity(brick).get::<Sprite>().unwrap();
+            if sprite.color == Color::NONE {
+                Look::Clear
+            } else if matches!(sprite.image_mode, bevy::sprite::SpriteImageMode::Tiled { .. }) {
+                Look::Fill(sprite.custom_size)
+            } else if sprite.image == own.image && sprite.color == own.color {
+                Look::Own(sprite.custom_size)
+            } else {
+                Look::Other
+            }
+        };
+        let step = |world: &mut World, kind: TerrainSurfaceKind, size: Vec2| {
+            let mut surface = world.entity_mut(brick);
+            let mut surface = surface.get_mut::<TerrainSurface>().unwrap();
+            surface.kind = kind;
+            surface.size = size;
+            world.run_system(lay).unwrap();
+            look(world)
+        };
+        use TerrainSurfaceKind::{Cover, Solid};
+        assert_eq!(step(&mut world, Solid, small), Look::Clear, "untouched to laid");
+        assert_eq!(step(&mut world, Cover, small), Look::Own(Some(small)), "laid to untouched");
+        assert_eq!(step(&mut world, Solid, small), Look::Clear, "untouched to laid, again");
+        assert_eq!(step(&mut world, Solid, huge), Look::Fill(Some(huge)), "laid to its own fill");
+        assert_eq!(step(&mut world, Cover, huge), Look::Own(Some(huge)), "its own fill to untouched, at its size now");
+        assert_eq!(step(&mut world, Solid, huge), Look::Fill(Some(huge)), "untouched to its own fill");
+        assert_eq!(step(&mut world, Solid, small), Look::Clear, "its own fill to laid");
+        // Art of its own comes while it is laid, and goes when its kind has
+        // no skin: it draws as before the skin took it.
+        world.entity_mut(brick).insert(EntityArt(ambition_sprite_sheet::game_assets::EntitySprite::DoorZone));
+        world.run_system(lay).unwrap();
+        world.entity_mut(brick).remove::<EntityArt>();
+        assert_eq!(step(&mut world, Cover, small), Look::Own(Some(small)), "art gone, untouched");
+        assert_eq!(step(&mut world, Cover, small), Look::Own(Some(small)), "the control: nothing changed");
     }
 
     /// A block too large for quads fills itself with its picture repeated;

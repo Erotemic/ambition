@@ -698,6 +698,8 @@ pub fn step_projectiles(
             // that the owner plays at the time of the hit (A12). The value is
             // empty for each shot that no move fired.
             Option<&ambition_projectiles::FiredByMoveInstance>,
+            // The growing launch this shot deals, if its weapon authors one.
+            Option<&ambition_projectiles::ProjectileLaunch>,
             // Whom this shot has already hit on the leg it is flying.
             &mut ambition_platformer2d_shared_tangle::projectile::ProjectileHits,
         ),
@@ -774,7 +776,7 @@ pub fn step_projectiles(
     // across both factions; the seq counter is shared at spawn).
     let mut ordered: Vec<(Entity, ProjectileSeq)> = projectiles
         .iter()
-        .map(|(entity, _, _, _, _, seq, _, _, _, _, _)| (entity, *seq))
+        .map(|(entity, _, _, _, _, seq, _, _, _, _, _, _)| (entity, *seq))
         .collect();
     ordered.sort_by_key(|(_, seq)| *seq);
 
@@ -790,6 +792,7 @@ pub fn step_projectiles(
             visual_id,
             bolt_source,
             fired_by_move,
+            launch,
             mut already_hit,
         )) = projectiles.get_mut(proj_entity)
         else {
@@ -801,6 +804,7 @@ pub fn step_projectiles(
         // facts. The reason is the same: the code writes the damage results
         // below after it releases `projectiles`.
         let fired_by_move = fired_by_move.map(|stamp| stamp.0);
+        let launch = launch.copied();
         // Named kind when the shot uses the named vocabulary; open-visual
         // volleys deliberately remain kind-less.
         let kind = kind.copied();
@@ -1451,7 +1455,22 @@ pub fn step_projectiles(
                         // An ordinary hit: it stuns.
                         reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
                         dir: knock_dir,
-                        magnitude: HitKnockbackMagnitude::FeelScale(0.85),
+                        // A shot whose weapon authors a growing launch deals
+                        // it by the strike law, against this victim's percent
+                        // and weight; every other shot keeps the fixed nudge.
+                        magnitude: match launch {
+                            Some(launch) => {
+                                let (damage_taken, weight) = victim.knockback_growth_inputs();
+                                ambition_combat::hitbox::projectile_launch_magnitude(
+                                    launch.base,
+                                    launch.growth,
+                                    damage_taken,
+                                    weight,
+                                    &tuning.in_room(shot_room).unwrap_or_default(),
+                                )
+                            }
+                            None => HitKnockbackMagnitude::FeelScale(0.85),
+                        },
                         // WHERE THE SHOT WAS, not where it ended: the endpoint of
                         // a fast bolt is past the body it hit, and a knockback
                         // sourced there pushes the victim back toward the muzzle.

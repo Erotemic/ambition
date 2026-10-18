@@ -204,7 +204,9 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
             contact_field,
         );
 
-        if frame.facing.abs() > 0.001 {
+        // A body on a ledge faces the ledge: the ledge tick set that facing,
+        // and the control frame may not turn it away while the hand holds.
+        if frame.facing.abs() > 0.001 && !motion_model.holds_a_ledge() {
             self.kin.facing = frame.facing.signum();
         }
 
@@ -574,5 +576,7 @@ mod body_box_tests;
 mod dash_tests;
 #[cfg(test)]
 mod hitlag_tests;
+#[cfg(test)]
+mod ledge_facing_tests;
 #[cfg(test)]
 mod lunge_tests;

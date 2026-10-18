@@ -303,7 +303,14 @@ mod host_adapter {
         }
         for (visual, feature, has_reach) in &visuals {
             let room = live.of(visual);
-            match carried.iter().find(|(id, r, ..)| *id == feature.id && *r == room) {
+            // One pair cuts the picture: the deepest limb's, then the lower
+            // channel, so the picture does not follow the query's order. Two
+            // limbs in two pairs at once are one cut: PORTAL-HOST-LIMBS.
+            let deepest = carried
+                .iter()
+                .filter(|(id, r, ..)| *id == feature.id && *r == room)
+                .max_by(|a, b| a.4.total_cmp(&b.4).then(b.3.cmp(&a.3)));
+            match deepest {
                 Some((_, _, host, straddling, reach)) => {
                     let Ok((_, kin, step)) = hosts.get(*host) else {
                         continue;
@@ -1087,6 +1094,48 @@ mod tests {
         }
     }
 
+    /// A host whose two limbs are in two pairs at once is cut by the deepest
+    /// limb's pair, whichever limb the query meets first.
+    #[test]
+    fn a_host_with_limbs_in_two_pairs_is_cut_by_the_deepest_in_any_order() {
+        use super::host_adapter::publish_threaded_host_pictures;
+        use ambition_characters::actor::{Limb, LimbSlot};
+        use ambition_portal2d::{PlacedPortal, PortalChannel, PortalChannelColor, PortalTransit};
+        use ambition_portal2d_presentation::PortalTransitView;
+        use ambition_render::rendering::FeatureVisual;
+        let purple = PortalChannel::Authored(PortalChannelColor::Purple);
+        let teal = PortalChannel::Authored(PortalChannelColor::Teal);
+        let cut_by = |deep_first: bool| {
+            let mut app = App::new();
+            ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+                app.world_mut(),
+                RoomGeometry(ambition_platformer2d_core::World::new("two pairs", Vec2::new(1000.0, 600.0), Vec2::ZERO, Vec::new())),
+            );
+            app.add_systems(Update, publish_threaded_host_pictures);
+            // Two floor openings, their fronts up.
+            for (channel, x) in [(purple, 0.0), (teal, 300.0)] {
+                app.world_mut().spawn(PlacedPortal::fixed(channel, Vec2::new(x, 300.0), Vec2::new(0.0, -1.0), 40.0));
+            }
+            let host = app.world_mut().spawn((ambition_combat::FeatureId("giant".into()), body(Vec2::new(150.0, 200.0)))).id();
+            // 30 into the purple opening, and 5 into the teal one.
+            let deep = (purple, 0.0, 30.0, LimbSlot::HAND_LEFT);
+            let shallow = (teal, 300.0, 5.0, LimbSlot::HAND_RIGHT);
+            let limbs = if deep_first { [deep, shallow] } else { [shallow, deep] };
+            for (channel, x, sunk, slot) in limbs {
+                app.world_mut().spawn((
+                    Limb { of: host, slot, home_offset: Vec2::ZERO },
+                    body(Vec2::new(x, 300.0 - 20.0 + sunk)),
+                    PortalTransit { straddling: channel, crossed: false },
+                ));
+            }
+            let visual = app.world_mut().spawn(FeatureVisual { id: "giant".into() }).id();
+            app.update();
+            app.world().get::<PortalTransitView>(visual).map(|view| view.straddling)
+        };
+        assert_eq!(cut_by(true), Some(purple), "the deep limb met first");
+        assert_eq!(cut_by(false), Some(purple), "the deep limb met second");
+    }
+
     /// A body that is not the player (a dog) is drawn by a visual with its
     /// id. While the body straddles a portal the visual has the three facts
     /// the piece builder cuts it by; when the transit ends the transit fact
@@ -1444,6 +1493,8 @@ mod tests {
         // What the plugin's other observers read. This test reads none of them.
         app.init_resource::<ControlledSubject>();
         app.init_resource::<ambition_platformer2d_runtime::host_seams::DeveloperRuntimeState>();
+        app.add_message::<ambition_portal2d::PortalBodyTransited>();
+        app.init_resource::<ambition_sim_view::GroundItemsView>();
         app.declare_rules(RulesScope::Mode("fight"), PortalCameraTransitMode::Pop);
         app.declare_rules(RulesScope::Mode("fight"), PortalViewConeMode::Static);
         ambition_platformer2d_world::rooms::insert_room_set(

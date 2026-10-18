@@ -369,6 +369,9 @@ pub struct AxisManeuverState {
     /// handing its speed to a body whose air friction is low. Tracked apart
     /// from `vel` for [`Self::dodge_roll_push`]'s reason: velocity is shared.
     pub air_dodge_push: bevy_math::Vec2,
+    /// The air dodge in flight (or in its endlag) was AIMED: it takes the
+    /// directional window, endlag and landing lag.
+    pub air_dodge_directional: bool,
     /// Endlag after an air dodge: control is back, the evade is not.
     pub air_dodge_endlag_timer: f32,
     /// Endlag after a GROUND ROLL, the same shape as the air dodge's above and
@@ -516,6 +519,7 @@ impl Default for AxisManeuverState {
             spot_dodging: false,
             air_dodge_timer: 0.0,
             air_dodge_push: bevy_math::Vec2::ZERO,
+            air_dodge_directional: false,
             air_dodge_endlag_timer: 0.0,
             dodge_roll_endlag_timer: 0.0,
             tumble_timer: 0.0,

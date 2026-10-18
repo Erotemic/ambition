@@ -108,14 +108,24 @@
         slash_recoil: 0.0,
         // 3 frames.
         jump_squat_time: 0.05,
-        // The air dodge: 18 frames protected and weightless (Ultimate's
-        // directional dodge is intangible 19, its neutral 27), travelling
-        // 60 px along the stick as its push runs down to nothing, then 27
-        // frames of endlag that fall normally: 45 in all (Ultimate neutral
-        // 38-63, median 49).
-        air_dodge_time: 0.3,
+        // The air dodges, two of them as in Ultimate (Mario's frames,
+        // docs/related-work/smash-ultimate-fighter-reference.md):
+        //
+        //   neutral      protected 27, endlag 25 (52 in all), the body keeps its
+        //                own arc; landing in it costs 10
+        //   directional  protected 19 and weightless, travelling 63 px along
+        //                the stick as its push runs down to nothing, then 68 of
+        //                endlag (87 in all, the sideways dodge); landing in it
+        //                costs 15 (Ultimate 11-19)
+        //
+        // No move can start until a dodge's endlag or landing lag is over.
+        air_dodge_time: 0.45,
         air_dodge_speed: 400.0,
-        air_dodge_endlag: 0.45,
+        air_dodge_endlag: 0.41666667,
+        directional_air_dodge_time: 0.31666667,
+        directional_air_dodge_endlag: 1.1333333,
+        air_dodge_landing_lag: 0.16666667,
+        directional_air_dodge_landing_lag: 0.25,
         // The roll ends at rest and leaves the fighter punishable: 14 frames,
         // so travel (`base_body`'s 15) and recovery total 29, Ultimate's
         // forward roll (Mario 29, median 29).

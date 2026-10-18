@@ -273,7 +273,7 @@ fn a_piece_through_two_pairs_is_in_the_chart_of_both() {
     assert!(hits(&p.pieces, Vec2::new(500.0, -100.0 - 10.0)), "between B and C");
     // With one hop the second opening is solid to it.
     let one = partition(&arm, Vec2::new(0.0, -10.0), &all, None, PieceBudget::SINGLE_HOP, MapConvention::Reflection);
-    assert_eq!(one.refused, vec![Refusal { path: vec![0], link: 2 }]);
+    assert_eq!(one.refused, vec![Refusal { path: vec![0], link: 2, whole: false }]);
     assert!(!hits(&one.pieces, Vec2::new(900.0, -200.0 + 45.0)));
     assert!(one.pieces.iter().all(|p| p.path.len() <= 1));
 }
@@ -425,11 +425,13 @@ fn a_partition_is_never_larger_than_its_budget() {
     assert_tiles(&picture, &free.pieces);
     let refused = cut(4);
     assert_eq!((refused.pieces.len(), refused.refused.len()), (4, 1), "five parts in a budget of four");
+    assert!(!refused.refused[0].whole, "the four parts were kept, and the opening was solid");
     assert!(refused.pieces.iter().all(|piece| !piece.is_carried()), "a refused cut carried a part");
     for max_pieces in 0..4 {
         let whole = cut(max_pieces);
         assert_eq!(whole.pieces, vec![VolumePiece::whole(picture.clone())], "budget {max_pieces}");
         assert_eq!(whole.refused.len(), 1, "budget {max_pieces}");
+        assert!(whole.refused[0].whole, "budget {max_pieces}: the piece stayed whole, and its refusal says the opening was solid");
     }
     // Across several deep links, every budget holds.
     let four: Vec<PortalLink> = (0..4)

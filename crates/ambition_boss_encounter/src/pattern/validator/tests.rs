@@ -62,12 +62,10 @@ fn strike(id: &str, telegraph: f32, active: f32) -> Vec<BossPatternStep> {
 
 fn scripted(steps: Vec<BossPatternStep>) -> BossAttackPattern {
     BossAttackPattern::Scripted {
-        intro: BossPattern::default(),
         phase1: BossPattern {
             steps,
             ..Default::default()
         },
-        transition: BossPattern::default(),
         phase2: BossPattern::default(),
         enrage: BossPattern::default(),
     }

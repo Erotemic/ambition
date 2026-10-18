@@ -362,6 +362,32 @@ fn crouching_out_of_a_run_kills_the_momentum_within_a_few_frames() {
     );
 }
 
+/// Stick and Attack on the same tick are a tilt or a smash from standing: no
+/// dash starts, so the move that starts keeps no burst. The control is the
+/// same stick with no press: at speed at once.
+#[test]
+fn an_attack_pressed_with_the_sticks_first_tick_starts_no_dash() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.initial_dash_time = 14.0 / 60.0;
+    let top = tuning.params().locomotion.max_run_speed;
+    let first_tick = |attack_pressed: bool| {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        scratch.ground.on_ground = true;
+        for _ in 0..40 {
+            super::update_player_with_tuning_scratch(&world, &mut scratch, InputState::default(), 1.0 / 60.0, tuning);
+        }
+        assert!(scratch.ground.on_ground, "the premise: on the floor");
+        let press = InputState { axes: crate::reference_frame::LocalAxes::new(0.65, 0.0), attack_pressed, ..InputState::default() };
+        super::update_player_with_tuning_scratch(&world, &mut scratch, press, 1.0 / 60.0, tuning);
+        (scratch.kinematics.vel.x, scratch.axis().initial_dash_timer)
+    };
+    let (dashed, timer) = first_tick(false);
+    assert!((dashed - top).abs() < 1.0 && timer > 0.0, "the control: the stick alone dashes ({dashed}, {timer})");
+    let (pressed, timer) = first_tick(true);
+    assert!(pressed < top * 0.5 && timer <= 0.0, "a dash started under an attack press ({pressed} px/s, {timer})");
+}
+
 /// THE INITIAL DASH: at speed on frame one, free to reverse, and gone again.
 ///
 /// Five arms. The fourth is the one the mechanic exists for — reversing inside

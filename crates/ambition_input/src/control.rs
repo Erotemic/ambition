@@ -161,7 +161,10 @@ pub fn read_gameplay_control_frame_with_settings(
         // Ambition's simulation uses screen-space world coordinates: +Y is
         // downward. Leafwing's virtual D-pads use the usual +Y-up convention.
         axis_y: -axis.y,
-        jump_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Jump),
+        // A short-hop press is a jump press with no hold: the squat sees the
+        // button up at takeoff and launches the short hop.
+        jump_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Jump)
+            || actions.just_pressed(&Platformer2dInputActionMonolith::ShortHop),
         jump_held: actions.pressed(&Platformer2dInputActionMonolith::Jump),
         jump_released: actions.just_released(&Platformer2dInputActionMonolith::Jump),
         burst_pressed,

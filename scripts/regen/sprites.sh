@@ -841,6 +841,9 @@ tackon_targets=(
     # because it OUTLIVES the pose that fired it — five tiers plus spawn and
     # two impacts, none of which a character row can carry.
     polygon_charge_shot
+    # The PCA's charge blast: a ball of live cells, a real Life oscillator per
+    # tier (blinker to pulsar).
+    pca_charge_shot
     robot_slash
     # The stroke of GNU-ton's quill: the same kind of sheet, his own art
     # (`attack_vfx` of `npc_gnu_ton`).

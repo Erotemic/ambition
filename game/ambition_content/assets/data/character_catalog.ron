@@ -533,6 +533,45 @@
         // `glider_launch` special displaces it instead of spawning a second one.
         // No special here: the moveset binds `special -> cellular_pulse`, and a
         // special here would take the slot the shield uses.
+        // The PCA's own: the automatons' swipe, and his charge blast (Jon,
+        // 2026-10-18: Mewtwo's Shadow Ball). The neutral special
+        // `pca_shadow_ball` holds the charge and fires this. A tap is 3% and a
+        // nudge; a full hold (Ultimate's 133 frames, the move's 2.2 s) is
+        // 25%, flies 1.6 times as fast, is three times the size and launches
+        // five times as hard, a kill at about Mewtwo's percent. Each tier's
+        // look is a Life oscillator in a membrane.
+        "pca_life_cannon": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.24, active_s: 0.08, recover_s: 0.30, damage: 1, reach_px: 30.0)),
+            ranged: Some(Weapon((
+                style: Bolt,
+                speed: 420.0,
+                damage: 3,
+                flight: Some((
+                    gravity: 0.0,
+                    bounces: 0,
+                    bounce_on_world_contact: false,
+                    max_lifetime: 2.2,
+                    half_extent: (8.0, 8.0),
+                    boomerang_return_s: None,
+                )),
+                charge: Some((
+                    damage_mult: 8.33,
+                    launch_mult: 5.0,
+                    speed_mult: 1.6,
+                    size_mult: 3.0,
+                    visuals: [
+                        "pca_charge_shot_tier1",
+                        "pca_charge_shot_tier2",
+                        "pca_charge_shot_tier3",
+                        "pca_charge_shot_tier4",
+                        "pca_charge_shot_tier5",
+                    ],
+                )),
+                launch: Some((base: 30.0, growth: 0.76)),
+                discharge: Some((muzzle: Offset(x: 0.3, y: -0.5))),
+            ))),
+        ),
         "automaton_swipe_and_glider": (
             move_style: Walk,
             melee: Some(Swipe(windup_s: 0.24, active_s: 0.08, recover_s: 0.30, damage: 1, reach_px: 30.0)),
@@ -1422,7 +1461,7 @@
             // art change, which is the whole reason this number is written down now.
             standing_height: Some(67.8),
             composition: None,
-            default_action_set: "automaton_swipe_and_glider",
+            default_action_set: "pca_life_cannon",
             // Its strikes draw its own sheet (`perfect_cellular_automaton_strike_fx`), not the stand-in wedge.
             attack_vfx: Some("perfect_cellular_automaton_strike_fx"),
             // A grounded fighter that can fly: it fights on the ground and flies

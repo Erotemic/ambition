@@ -265,6 +265,7 @@
     "ambition_projectiles::FiredByMoveInstance",
     "ambition_projectiles::PlayerProjectileState",
     "ambition_projectiles::ProjectileKind",
+    "ambition_projectiles::ProjectileLaunch",
     "ambition_projectiles::ProjectileSeq",
     "ambition_projectiles::ProjectileSeqCounter",
     "ambition_projectiles::ProjectileVisualId",

@@ -52,7 +52,7 @@
         skill_tested: "Read the wind-up's aim, then walk or dash out of it — and be greedy enough to come back before it recovers.",
         fair_counters: [WalkOut, Dash],
         threat: Heavy,
-        telegraph: (min_s: 0.50, max_s: 1.40),
+        telegraph: (min_s: 0.50, max_s: 1.20),
         active: (min_s: 0.35, max_s: 2.00),
         instances: [
             "wolf_rake", // Wolfenstein: the claws across in front of him, two blows, a step on each
@@ -75,12 +75,6 @@
         ],
         recipes: [
             (
-                name: "teaching_slam",
-                telegraph_s: 1.40,
-                active_s: 0.40,
-                notes: "The intro beat. `floor_slam`'s intro numbers. 84 ticks of tell is not too many for the first thing a player ever sees.",
-            ),
-            (
                 name: "standard",
                 telegraph_s: 1.20,
                 active_s: 0.40,
@@ -102,7 +96,7 @@
         skill_tested: "Notice you have been camping, and pay to leave.",
         fair_counters: [WalkOut, Dash, Blink],
         threat: Medium,
-        telegraph: (min_s: 0.55, max_s: 1.20),
+        telegraph: (min_s: 0.55, max_s: 1.10),
         active: (min_s: 0.45, max_s: 0.50),
         instances: [
             "wolf_howl", // Wolfenstein: a ring that pushes you off him; unleashed, it calls the pack
@@ -302,7 +296,7 @@
         skill_tested: "Triage. Kill, ignore, or reposition — and be right.",
         fair_counters: [Dash, WalkOut, Jump],
         threat: Pressure,
-        telegraph: (min_s: 0.80, max_s: 1.30),
+        telegraph: (min_s: 0.80, max_s: 1.20),
         active: (min_s: 0.40, max_s: 0.50),
         instances: [
             "gradient_cascade", // 2 × npc_ai_slop per cast

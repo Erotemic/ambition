@@ -1050,6 +1050,17 @@ pub struct MatchBody {
     /// Recovery on the far side of it (seconds), so it is a read rather than a
     /// panic button.
     pub air_dodge_endlag: f32,
+    /// See [`MovementTuning::directional_air_dodge_time`]: the aimed dodge's
+    /// own window, endlag and landing lag. `0.0` falls back to the neutral
+    /// dodge's numbers (the landing lag: to none).
+    #[serde(default)]
+    pub directional_air_dodge_time: f32,
+    #[serde(default)]
+    pub directional_air_dodge_endlag: f32,
+    #[serde(default)]
+    pub air_dodge_landing_lag: f32,
+    #[serde(default)]
+    pub directional_air_dodge_landing_lag: f32,
     /// Recovery after a GROUND ROLL (seconds), and the reason it is declared
     /// HERE rather than left to the movement default: a roll that ends clean
     /// and instantly actionable is the best button in a fighting game whatever
@@ -1165,6 +1176,10 @@ impl MatchBody {
             air_dodge_time: self.air_dodge_time,
             air_dodge_speed: self.air_dodge_speed,
             air_dodge_endlag: self.air_dodge_endlag,
+            directional_air_dodge_time: self.directional_air_dodge_time,
+            directional_air_dodge_endlag: self.directional_air_dodge_endlag,
+            air_dodge_landing_lag: self.air_dodge_landing_lag,
+            directional_air_dodge_landing_lag: self.directional_air_dodge_landing_lag,
             dodge_roll_endlag: self.dodge_roll_endlag,
             dodge_stale_step: self.dodge_stale_step,
             dodge_stale_floor: self.dodge_stale_floor,
@@ -1210,6 +1225,10 @@ mod tests {
             air_dodge_time: 0.2,
             air_dodge_speed: 440.0,
             air_dodge_endlag: 0.16,
+            directional_air_dodge_time: 0.0,
+            directional_air_dodge_endlag: 0.0,
+            air_dodge_landing_lag: 0.0,
+            directional_air_dodge_landing_lag: 0.0,
             // ⭐ SHORTER THAN THE AIR DODGE'S, and that is the read: a ground
             // roll costs less because it also achieves less — it repositions
             // along a floor you were already standing on. ~5 frames at 60Hz,

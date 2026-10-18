@@ -119,7 +119,6 @@ fn gnu_ton_sprite_metrics_fixture() -> ambition_sprite_sheet::ActorSpriteMetrics
 fn gnu_ton_rider_pattern_includes_explicit_rest_beats_in_every_phase() {
     let BossAttackPattern::Scripted {
         phase1,
-        transition,
         phase2,
         enrage,
         ..
@@ -129,7 +128,6 @@ fn gnu_ton_rider_pattern_includes_explicit_rest_beats_in_every_phase() {
     };
     for (label, pattern) in [
         ("phase1", &phase1),
-        ("transition", &transition),
         ("phase2", &phase2),
         ("enrage", &enrage),
     ] {
@@ -314,9 +312,7 @@ fn gradient_sentinel_uses_scripted_pattern() {
 #[test]
 fn gradient_sentinel_every_phase_includes_rest_beats() {
     let BossAttackPattern::Scripted {
-        intro,
         phase1,
-        transition,
         phase2,
         enrage,
     } = BossBehaviorProfile::clockwork_warden().attack_pattern
@@ -324,9 +320,7 @@ fn gradient_sentinel_every_phase_includes_rest_beats() {
         panic!("expected Scripted attack pattern");
     };
     for (label, pattern) in [
-        ("intro", &intro),
         ("phase1", &phase1),
-        ("transition", &transition),
         ("phase2", &phase2),
         ("enrage", &enrage),
     ] {
@@ -462,7 +456,6 @@ fn gradient_sentinel_every_special_strike_is_a_moveset_effect() {
 #[test]
 fn gradient_sentinel_telegraph_steps_are_paired_with_matching_strike() {
     let BossAttackPattern::Scripted {
-        intro,
         phase1,
         phase2,
         enrage,
@@ -472,7 +465,6 @@ fn gradient_sentinel_telegraph_steps_are_paired_with_matching_strike() {
         panic!("expected Scripted");
     };
     for (label, pattern) in [
-        ("intro", &intro),
         ("phase1", &phase1),
         ("phase2", &phase2),
         ("enrage", &enrage),

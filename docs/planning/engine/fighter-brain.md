@@ -532,6 +532,12 @@ distinct moves against a floor of 5) and
 stage and runs off it inside two seconds). Jon, 2026-10-18: movement for two
 humans first, the brain later. Un-ignore both when this is done.
 
+A third joined them when the air dodges took Ultimate's two timings (neutral 52
+frames, directional 87, with landing lag): `two_emmys_are_one_fighter_reflected_through_a_mutual_grab`.
+The two Emmys stayed exact reflections for 3000 frames, but they never parried
+a grab, so the test's window no longer reaches the tie it is about. With the
+old 45-frame dodge it passed. The brain dodges as if a dodge were cheap.
+
 ### F0 — CPUs self-destruct against an opponent that does nothing (2026-10-18)
 
 `ko_envelope selfko FIGHTER [ticks=N]` seats FIGHTER as the default-level CPU

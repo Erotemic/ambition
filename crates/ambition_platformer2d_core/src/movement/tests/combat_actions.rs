@@ -2397,3 +2397,104 @@ fn a_tech_press_into_an_untechable_launch_still_spends_the_lockout() {
          for free, so a player can keep pressing every frame"
     );
 }
+
+/// ⭐ AN AIMED AIR DODGE IS ITS OWN MANEUVER: shorter window, longer endlag,
+/// weightless while it travels; a neutral one keeps the body's arc. And
+/// landing inside either costs its landing lag rather than ending it free.
+/// Ultimate's shape (Mario: neutral protected 27, total 52; sideways
+/// protected 19, total 87; landing lag 10 and 11-19), with the numbers a
+/// game states, here round ones so the arithmetic reads.
+#[test]
+fn an_aimed_air_dodge_has_its_own_timing_and_landing_in_one_costs_its_lag() {
+    let world = test_world();
+    let mut tuning = air_dodge_tuning();
+    tuning.air_dodge_time = 0.4;
+    tuning.air_dodge_endlag = 0.4;
+    tuning.directional_air_dodge_time = 0.2;
+    tuning.directional_air_dodge_endlag = 1.0;
+    tuning.air_dodge_landing_lag = 0.1;
+    tuning.directional_air_dodge_landing_lag = 0.25;
+    let dt = 1.0 / 60.0;
+    let step = |scratch: &mut BodyClusterScratch, input: InputState| {
+        crate::test_support::update_player_with_tuning_scratch(&world, scratch, input, dt, tuning)
+    };
+
+    // Seconds until the window closes and until the endlag does, airborne.
+    let timings = |x: f32| -> (f32, f32, f32) {
+        let mut scratch = airborne_scratch(&world);
+        let fall_before = scratch.kinematics.vel.y;
+        step(&mut scratch, air_dodge_input(x, 0.0));
+        let (mut window, mut total) = (dt, dt);
+        let mut fall_during = scratch.kinematics.vel.y;
+        let height = scratch.kinematics.pos.y;
+        for _ in 0..200 {
+            step(&mut scratch, InputState::default());
+            // Held at its height, so it never lands: these are the AIRBORNE
+            // timings, and a landing would charge the landing lag.
+            scratch.kinematics.pos.y = height;
+            let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+            if facts.air_dodging {
+                window += dt;
+                fall_during = scratch.kinematics.vel.y;
+            }
+            if facts.air_dodging || facts.air_dodge_endlag {
+                total += dt;
+            } else {
+                break;
+            }
+        }
+        (window, total, fall_during - fall_before)
+    };
+    let (n_window, n_total, n_fell) = timings(0.0);
+    let (d_window, d_total, d_fell) = timings(1.0);
+    assert!((n_window - 0.4).abs() < 2.0 * dt && (n_total - 0.8).abs() < 2.0 * dt, "neutral: {n_window} / {n_total}");
+    assert!((d_window - 0.2).abs() < 2.0 * dt && (d_total - 1.2).abs() < 2.0 * dt, "aimed: {d_window} / {d_total}");
+    assert!(n_fell > 1.0, "a neutral dodge keeps the body's arc: it gained {n_fell} px/s of fall");
+    assert!(d_fell.abs() < 1.0, "an aimed dodge is weightless while it travels: gained {d_fell} px/s");
+
+    // Land inside an aimed dodge: its landing lag, planted and refusing moves.
+    let mut scratch = airborne_scratch(&world);
+    scratch.kinematics.pos = world.spawn;
+    scratch.kinematics.vel = Vec2::ZERO;
+    step(&mut scratch, air_dodge_input(0.0, 1.0));
+    let mut landed = false;
+    for _ in 0..60 {
+        step(&mut scratch, InputState::default());
+            if scratch.ground.on_ground {
+            landed = true;
+            break;
+        }
+    }
+    assert!(landed, "the fixture landed inside the dodge");
+    // The floor's fact lands at the end of a step; the next one charges it.
+    step(&mut scratch, InputState::default());
+    let lag = scratch.axis().air_dodge_endlag_timer + dt;
+    assert!(
+        (lag - 0.25).abs() < 2.0 * dt,
+        "landing in an aimed dodge charges its landing lag (0.25 s), got {lag}"
+    );
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    assert!(facts.air_dodge_endlag, "the landing lag is published as the dodge's endlag, which refuses moves");
+    // Planted: the stick does not walk it.
+    let x0 = scratch.kinematics.pos.x;
+    for _ in 0..5 {
+        step(&mut scratch, InputState::with_axes(1.0, 0.0));
+    }
+    assert!(
+        (scratch.kinematics.pos.x - x0).abs() < 0.5,
+        "a body in landing lag walked {} px",
+        scratch.kinematics.pos.x - x0
+    );
+    // And the lag ENDS: it is charged once, on landing, not on every grounded
+    // tick (which held a landed body still forever).
+    for _ in 0..30 {
+        step(&mut scratch, InputState::with_axes(1.0, 0.0));
+    }
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    assert!(!facts.air_dodge_endlag, "the landing lag is over half a second after landing");
+    assert!(
+        scratch.kinematics.pos.x - x0 > 5.0,
+        "a body whose landing lag is over walks again: moved {} px",
+        scratch.kinematics.pos.x - x0
+    );
+}

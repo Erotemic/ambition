@@ -152,6 +152,8 @@ fn combat_problems(combat: &CombatRules) -> Vec<String> {
     amount("stale_floor", Some(combat.stale_floor));
     amount("stale_knockback_influence", combat.stale_knockback_influence);
     amount("victim_percent_knockback_scale", combat.victim_percent_knockback_scale);
+    amount("base_knockback_scale", combat.base_knockback_scale);
+    amount("art_hit_area_min", combat.art_hit_area_min);
     amount("crouch_cancel_scale", Some(combat.crouch_cancel_scale));
     amount("hit_repeat_window_scale", Some(combat.hit_repeat_window_scale));
     amount("grab_hold_base_seconds", Some(combat.grab_hold_base_seconds));
@@ -163,6 +165,11 @@ fn combat_problems(combat: &CombatRules) -> Vec<String> {
     amount("bark_chance", combat.bark_chance);
     amount("ledge_trump_pop", combat.ledge_trump_pop);
     amount("ledge_trump_lockout", combat.ledge_trump_lockout);
+    if let Some(rule) = combat.sakurai_angle {
+        amount("sakurai_angle.flat_below", Some(rule.flat_below));
+        amount("sakurai_angle.full_at", Some(rule.full_at));
+        amount("sakurai_angle.angle_deg", Some(rule.angle_deg));
+    }
     if let Some(curve) = combat.growth_base {
         amount("growth_base.pivot", Some(curve.pivot));
         amount("growth_base.exponent", Some(curve.exponent));

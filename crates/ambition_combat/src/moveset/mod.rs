@@ -1247,6 +1247,7 @@ pub fn advance_move_playback(
     // hands off between contiguous windows must hand off WHO IT ALREADY HIT —
     // see the handoff carry below.
     live_strike_volumes: Query<&HitboxHits, With<StrikeVolume>>,
+    room_rules: crate::rules::CombatTuningOf,
 ) {
     // The tuning a body that carries none is read under — one value, borrowed by
     // every owner below, rather than a second spelling of the defaults.
@@ -1808,6 +1809,15 @@ pub fn advance_move_playback(
                                 Some(window.start_s),
                             )
                         });
+                        // The stage's floor on an art area: a limb drawn
+                        // pixel-true is a sliver (`CombatRules::art_hit_area_min`).
+                        let art_floor = room_rules.of(owner).map_or(0.0, |rules| rules.art_hit_area_min);
+                        let manifest = match manifest {
+                            Some(volume) if art_floor > 0.0 => {
+                                Some(volume.at_least(ae::Vec2::splat(art_floor * kin.size.y)))
+                            }
+                            other => other,
+                        };
                         let (local, half_extent, shape) = match &manifest {
                             // The authored convex blade: body-local points; the
                             // hitbox anchors at the body and `place_at` mirrors
@@ -1900,11 +1910,19 @@ pub fn advance_move_playback(
                             // `Side` and drew a horizontal crescent turned to
                             // point up or down. Rotation hid it: the art aimed
                             // the right way, and was the wrong art.
-                            let pose = match pb.spec.clip.clip.as_str() {
-                                "attack_up" | "air_up" => ambition_vfx::vfx::SlashPose::Up,
-                                "attack_down" | "air_down" => ambition_vfx::vfx::SlashPose::Down,
-                                _ => ambition_vfx::vfx::SlashPose::Side,
+                            //
+                            // A move that names a row of its own the sheet does
+                            // not draw (so that the row's published hit area,
+                            // drawn for another move, is not its damage box) is
+                            // drawn as its first fallback, and takes its pose.
+                            let pose_of = |row: &str| match row {
+                                "attack_up" | "air_up" => Some(ambition_vfx::vfx::SlashPose::Up),
+                                "attack_down" | "air_down" => Some(ambition_vfx::vfx::SlashPose::Down),
+                                _ => None,
                             };
+                            let pose = pose_of(pb.spec.clip.clip.as_str())
+                                .or_else(|| pb.spec.clip.fallbacks.first().and_then(|row| pose_of(row)))
+                                .unwrap_or(ambition_vfx::vfx::SlashPose::Side);
                             crate::util::emit_melee_slash(
                                 &mut vfx.for_room(rooms.of(owner)),
                                 &hb.world_volume(kin.pos),
@@ -4502,8 +4520,9 @@ pub fn melee_swing_of(
     playback: Option<&MovePlayback>,
     moveset: Option<&ActorMoveset>,
 ) -> Option<MeleeSwing> {
-    let moveset = moveset.filter(|moveset| routes_melee(moveset))?;
+    // A body plays no move on most ticks; ask that before walking its verbs.
     let playback = playback?;
+    let moveset = moveset.filter(|moveset| routes_melee(moveset))?;
     is_melee_swing_move(Some(&moveset.0), &playback.spec.id)
         .then(|| synth_swing_from_move(playback))
 }

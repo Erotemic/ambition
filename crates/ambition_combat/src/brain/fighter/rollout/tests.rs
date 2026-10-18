@@ -203,6 +203,7 @@ fn the_hit_response_is_the_authoritative_kernel_not_an_imitation() {
         s.gravity_down,
         Some(&kb),
         ae::Vec2::ZERO,
+        foe_before.on_ground,
         &tuning.response,
     );
     let expected_stun = hit_response::hitstun_duration(Some(&kb), &tuning.response);

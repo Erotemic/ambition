@@ -320,6 +320,54 @@ pub const STANDARD_LAUNCH_SPEED: f32 = 150.0;
 /// combo starter.
 pub const MAX_HITSTUN_SCALE: f32 = 4.0;
 
+/// THE SAKURAI ANGLE: a stage's rule for the angle of a near-horizontal launch.
+///
+/// The genre's most common launch angle (Ultimate's `361`) is not one angle. A
+/// body in the air goes out at [`Self::angle_deg`]. A body on the ground slides
+/// flat under a weak hit and is lifted only by a strong one: `0°` at or below
+/// [`Self::flat_below`], ramping to `angle_deg` at [`Self::full_at`]. So one
+/// move shoves at 0% and launches at 100% without its author stating two
+/// angles, and a grounded exchange resets instead of popping the loser up.
+///
+/// It governs a launch whose authored elevation is in `0 ..angle_deg` (a
+/// forward or backward near-horizontal launch, and the default diagonal). An
+/// up-launcher, a spike and a steeper diagonal keep their angle, and a
+/// feel-scaled hit (Ambition's PvE) is not a launch speed and is never touched.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SakuraiAngle {
+    /// Launch speed (engine units/s) at or below which a grounded body slides
+    /// flat.
+    pub flat_below: f32,
+    /// Launch speed at which a grounded body leaves at the full angle.
+    pub full_at: f32,
+    /// The angle above the horizontal, in degrees. Ultimate's is 38.
+    pub angle_deg: f32,
+}
+
+impl SakuraiAngle {
+    /// `launch` with this rule's angle, keeping its speed and its side.
+    pub fn apply(self, launch: Vec2, gravity_dir: Vec2, grounded: bool) -> Vec2 {
+        let frame = AccelerationFrame::new(gravity_dir);
+        let side = launch.dot(frame.side);
+        let rise = -launch.dot(frame.down);
+        let speed = launch.length();
+        let full = self.angle_deg.to_radians();
+        if speed < 1e-6 || side.abs() < 1e-6 || rise < 0.0 || rise.atan2(side.abs()) >= full {
+            return launch;
+        }
+        let angle = if !grounded {
+            full
+        } else if self.full_at <= self.flat_below {
+            if speed > self.flat_below { full } else { 0.0 }
+        } else {
+            full * ((speed - self.flat_below) / (self.full_at - self.flat_below)).clamp(0.0, 1.0)
+        };
+        let (sin, cos) = angle.sin_cos();
+        frame.side * (side.signum() * speed * cos) - frame.down * (speed * sin)
+    }
+}
+
 /// The victim-side feel numbers one hit resolution needs, ALREADY selected by
 /// the caller (boss vs. enemy rows, difficulty — none of that is the
 /// kernel's business).
@@ -349,6 +397,9 @@ pub struct HitResponseTuning {
     pub hitlag_time: f32,
     /// DI budget (radians). `0.0` disables directional influence entirely.
     pub di_max_angle: f32,
+    /// The stage's angle rule for near-horizontal launches. `None` = every
+    /// launch leaves at the angle its hit states.
+    pub sakurai: Option<SakuraiAngle>,
 }
 
 /// Smash directional influence during hitlag: shift the frozen body in the
@@ -541,6 +592,9 @@ pub fn knockback_velocity(
     // `ZERO` == no DI intent; the effect is also inert unless
     // `tuning.di_max_angle` is nonzero, so this is parity-free by construction.
     di_input_local: Vec2,
+    // Was the victim standing on a surface when struck? Read only by
+    // `tuning.sakurai`.
+    grounded: bool,
     tuning: &HitResponseTuning,
 ) -> Vec2 {
     let frame = AccelerationFrame::new(gravity_dir);
@@ -588,6 +642,11 @@ pub fn knockback_velocity(
                 Vec2::new(dir * tuning.knockback_x, -tuning.knockback_y).normalize_or_zero();
             frame.to_world(default_dir * speed.max(0.0))
         }
+    };
+    // The stage's angle rule, before DI: DI bends the launch the rule chose.
+    let launch = match (tuning.sakurai, magnitude) {
+        (Some(rule), HitKnockbackMagnitude::LaunchSpeed(_)) => rule.apply(launch, gravity_dir, grounded),
+        _ => launch,
     };
     // CM2: the victim's held input rotates its own launch, bounded by the
     // authored DI budget. Inert at `di_max_angle == 0` (Ambition today).
@@ -646,6 +705,7 @@ mod hitlag_tests {
             hitstun_max_scale: MAX_HITSTUN_SCALE,
             hitlag_time: 0.070,
             di_max_angle: 0.0,
+            sakurai: None,
         }
     }
 
@@ -848,6 +908,7 @@ mod launch_direction_tests {
             hitstun_max_scale: MAX_HITSTUN_SCALE,
             hitlag_time: 0.070,
             di_max_angle: 0.0,
+            sakurai: None,
         }
     }
 
@@ -874,6 +935,7 @@ mod launch_direction_tests {
             victim_down,
             Some(&knockback),
             Vec2::ZERO,
+            false,
             &tuning(),
         )
     }
@@ -1004,7 +1066,7 @@ mod launch_direction_tests {
                 follow: None,
                 guard: Default::default(),
             };
-            knockback_velocity(victim, 1.0, down, Some(&knockback), hold, &tuning)
+            knockback_velocity(victim, 1.0, down, Some(&knockback), hold, false, &tuning)
         };
         let left = launched_holding(Vec2::new(-1.0, 0.0), 0.31);
         let right = launched_holding(Vec2::new(1.0, 0.0), 0.31);
@@ -1050,6 +1112,7 @@ mod autolink_tests {
             hitstun_max_scale: MAX_HITSTUN_SCALE,
             hitlag_time: 0.070,
             di_max_angle: 0.0,
+            sakurai: None,
         }
     }
 
@@ -1201,8 +1264,47 @@ mod autolink_tests {
             DOWN,
             Some(&kb),
             Vec2::ZERO,
+            false,
             &tuning(),
         );
         assert!(v.y < -100.0, "an authored up-launcher stopped launching up");
+    }
+}
+
+#[cfg(test)]
+mod sakurai_angle_tests {
+    use super::*;
+
+    const DOWN: Vec2 = Vec2::new(0.0, 1.0);
+    const RULE: SakuraiAngle = SakuraiAngle {
+        flat_below: 200.0,
+        full_at: 300.0,
+        angle_deg: 38.0,
+    };
+
+    fn elevation(v: Vec2) -> f32 {
+        (-v.y).atan2(v.x.abs()).to_degrees()
+    }
+
+    /// Flat on the ground under a weak hit, lifted by a strong one, and the
+    /// full angle in the air; the speed and the side are kept.
+    #[test]
+    fn a_near_horizontal_launch_takes_the_stage_angle() {
+        let at = |speed: f32, grounded| RULE.apply(Vec2::new(-1.0, -0.27).normalize() * speed, DOWN, grounded);
+        assert!(elevation(at(150.0, true)).abs() < 0.01);
+        assert!((elevation(at(250.0, true)) - 19.0).abs() < 0.01);
+        assert!((elevation(at(400.0, true)) - 38.0).abs() < 0.01);
+        assert!((elevation(at(150.0, false)) - 38.0).abs() < 0.01);
+        let v = at(250.0, true);
+        assert!(v.x < 0.0, "the launch kept its side");
+        assert!((v.length() - 250.0).abs() < 0.01);
+    }
+
+    /// An up-launcher, a spike and a steeper diagonal keep their angle.
+    #[test]
+    fn a_launch_outside_the_band_keeps_its_angle() {
+        for v in [Vec2::new(0.0, -400.0), Vec2::new(30.0, 400.0), Vec2::new(300.0, -400.0)] {
+            assert_eq!(RULE.apply(v, DOWN, true), v);
+        }
     }
 }

@@ -236,6 +236,8 @@ fn resolved_hitbox_knockback_magnitude(
     // only inside the match arm below — a caller holding just a
     // `HitboxKnockback` cannot compute the factor to hand in.
     growth_base: crate::rules::GrowthBaseCurve,
+    // The ruleset's scale on a growing launch's base (`1.0` undeclared).
+    base_scale: f32,
     // ⭐ RAGE ARRIVES HERE RATHER THAN AT THE CALLER because this is the only
     // place that knows whether the launch GROWS. The two authoring roads for
     // growth are collapsed below, and a set launch must decline rage — see
@@ -267,6 +269,7 @@ fn resolved_hitbox_knockback_magnitude(
                     growth_base,
                     ruleset_growth,
                     rage,
+                    base_scale,
                 },
             ))
         }
@@ -1078,6 +1081,7 @@ pub fn apply_hitbox_damage(
                     ruleset_growth,
                     growth_scale,
                     rules.growth_base,
+                    rules.base_knockback_scale,
                     rage,
                 );
                 // ⛔ A FEEL SCALE KEEPS TAKING STALING WHOLE. It carries no

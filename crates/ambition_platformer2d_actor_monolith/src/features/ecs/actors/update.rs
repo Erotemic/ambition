@@ -749,6 +749,7 @@ pub fn tick_actor_brains(
                                 // the stage throws it 490.
                                 ruleset_growth: rules.knockback_growth,
                                 rage: rules.rage_scale(body.health.damage_taken()),
+                                base_scale: rules.base_knockback_scale,
                             },
                         ),
                     );

@@ -643,6 +643,7 @@ pub fn apply_feature_hit_events(
         let resolved_rules = bark_draw.rules_in(event_room);
         let mut feel = base_feel;
         feel.di_max_angle = resolved_rules.di_max_angle;
+        feel.sakurai_angle = resolved_rules.sakurai_angle;
         // The MATCH's post-hit window, folded the way `di_max_angle` above is. An
         // undeclared world scales by `1.0` and keeps the repeat guard it always had.
         feel.hit_repeat_window_scale = resolved_rules.hit_repeat_window_scale;

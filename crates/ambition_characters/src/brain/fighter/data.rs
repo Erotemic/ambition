@@ -331,6 +331,7 @@ impl ShadowTuning {
                 // engine default rather than a second opinion about feel.
                 hitlag_time: 0.070,
                 di_max_angle: 0.0,
+                sakurai: None,
             },
             assumed_foe_reach: 60.0,
             assumed_foe_damage: 5,
@@ -375,6 +376,7 @@ impl ShadowTuning {
                 // engine default rather than a second opinion about feel.
                 hitlag_time: 0.070,
                 di_max_angle: 0.0,
+                sakurai: None,
             },
             gravity: movement.gravity,
             ground_speed: movement.max_run_speed,

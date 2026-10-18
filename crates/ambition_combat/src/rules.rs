@@ -168,6 +168,30 @@ pub struct CombatRules {
     /// `None` is IDENTITY: every undeclared world — which is every Ambition
     /// room — resolves byte-for-byte as before.
     pub growth_base: Option<GrowthBaseCurve>,
+    /// A dimensionless multiplier on a GROWING launch's `base`: how hard every
+    /// hit throws a fresh body. `None` (the baseline) = `1.0`.
+    ///
+    /// The other half of [`Self::victim_percent_knockback_scale`]: that knob
+    /// steepens the percent curve and cannot move a 0% hit; this one moves the
+    /// 0% hit and leaves the curve's slope. Hitstun rides the launch, so it
+    /// also decides whether a low-percent connect leaves the attacker ahead.
+    /// A set launch (`Some(0.0)` growth) declines it.
+    pub base_knockback_scale: Option<f32>,
+    /// THE SAKURAI ANGLE: the stage's angle for a near-horizontal launch,
+    /// flat on the ground under a weak hit and lifted by a strong one. See
+    /// [`ambition_platformer2d_core::hit_response::SakuraiAngle`]. `None` (the
+    /// baseline) = each launch at the angle its hit states.
+    pub sakurai_angle: Option<ambition_platformer2d_core::hit_response::SakuraiAngle>,
+    /// The least width AND height a hit area taken from a character's art may
+    /// have, as a fraction of its owner's height. `None` (the baseline) = the
+    /// art's area as drawn.
+    ///
+    /// A sheet that publishes its hit areas draws them pixel-true round the
+    /// limb, and a limb is a sliver: measured on the Smash roster, art areas of
+    /// normals ran down to 0.03 of a body height squared where the authored
+    /// volumes sit near 0.35. A floor grows only the slivers; an area already
+    /// that big is untouched, so a big sweep is not made bigger.
+    pub art_hit_area_min: Option<f32>,
     /// CROUCH CANCEL — what a CROUCHING victim multiplies an incoming launch
     /// by. `1.0` (the baseline) = crouching buys nothing but a shorter
     /// hurtbox.
@@ -416,6 +440,12 @@ pub struct ResolvedCombatTuning {
     /// See [`CombatRules::growth_base`].
     /// [`GrowthBaseCurve::IDENTITY`] = the law exactly as it was first written.
     pub growth_base: GrowthBaseCurve,
+    /// See [`CombatRules::base_knockback_scale`]. `1.0` = the base as authored.
+    pub base_knockback_scale: f32,
+    /// See [`CombatRules::sakurai_angle`].
+    pub sakurai_angle: Option<ambition_platformer2d_core::hit_response::SakuraiAngle>,
+    /// See [`CombatRules::art_hit_area_min`]. `0.0` = the art's area as drawn.
+    pub art_hit_area_min: f32,
     /// See [`CombatRules::crouch_cancel_scale`].
     pub crouch_cancel_scale: f32,
     /// See [`CombatRules::hit_repeat_window_scale`].
@@ -655,6 +685,9 @@ impl ResolvedCombatTuning {
                 // division is well-formed; with the exponent at `0.0` it is
                 // unreachable.
                 growth_base: rules.growth_base.unwrap_or(GrowthBaseCurve::IDENTITY),
+                base_knockback_scale: rules.base_knockback_scale.unwrap_or(1.0).max(0.0),
+                sakurai_angle: rules.sakurai_angle,
+                art_hit_area_min: rules.art_hit_area_min.unwrap_or(0.0).max(0.0),
                 crouch_cancel_scale: rules.crouch_cancel_scale,
                 hit_repeat_window_scale: rules.hit_repeat_window_scale,
                 grab_hold_base_seconds: rules.grab_hold_base_seconds,
@@ -705,6 +738,9 @@ impl ResolvedCombatTuning {
                 // move to buy a platform-fighter feature — the same reasoning
                 // `downward_hit` and `clank_damage_window` state above.
                 growth_base: GrowthBaseCurve::IDENTITY,
+                base_knockback_scale: 1.0,
+                sakurai_angle: None,
+                art_hit_area_min: 0.0,
                 crouch_cancel_scale: 1.0,
                 hit_repeat_window_scale: 1.0,
                 grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -967,6 +1003,9 @@ mod tests {
                 // This fixture is about a declaration not disturbing the
                 // baseline, so it declines the kill-curve knob like the rest.
                 growth_base: None,
+                base_knockback_scale: None,
+                sakurai_angle: None,
+                art_hit_area_min: None,
                 bark_chance: None,
                 ledge_trump_pop: None,
                 ledge_trump_lockout: None,
@@ -1013,6 +1052,9 @@ mod tests {
             stale_knockback_influence: None,
             victim_percent_knockback_scale: None,
             growth_base: None,
+            base_knockback_scale: None,
+            sakurai_angle: None,
+            art_hit_area_min: None,
             bark_chance: None,
             ledge_trump_pop: None,
             ledge_trump_lockout: None,
@@ -1057,6 +1099,9 @@ mod tests {
                 // ...and identity for the base-referenced kill curve, which is
                 // a no-op at every base.
                 growth_base: GrowthBaseCurve::IDENTITY,
+                base_knockback_scale: 1.0,
+                sakurai_angle: None,
+                art_hit_area_min: 0.0,
                 // An undeclared world barks on every hit.
                 bark_chance: 1.0,
                 ledge_trump_pop: 0.0,

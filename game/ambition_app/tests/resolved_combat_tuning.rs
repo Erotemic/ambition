@@ -146,6 +146,9 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         // tuning; the base-referenced kill curve is a separate knob and stays
         // undeclared (identity) so it cannot move what this asserts.
         growth_base: None,
+        base_knockback_scale: None,
+        sakurai_angle: None,
+        art_hit_area_min: None,
         // The versus route drops a trumped body where it hung.
         ledge_trump_pop: None,
         ledge_trump_lockout: None,

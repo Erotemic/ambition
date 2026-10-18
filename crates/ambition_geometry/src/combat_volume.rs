@@ -161,6 +161,37 @@ impl CombatVolume {
         }
     }
 
+    /// The volume grown about the centre of its bounds until those bounds are
+    /// at least `min` across on each axis. An axis already that wide is left
+    /// alone, so a volume is never made smaller and its shape is kept: a hull
+    /// is stretched along the short axis only.
+    pub fn at_least(&self, min: Vec2) -> Self {
+        let size = self.bounds().half_size() * 2.0;
+        let scale = Vec2::new(
+            if size.x > 1e-6 { (min.x / size.x).max(1.0) } else { 1.0 },
+            if size.y > 1e-6 { (min.y / size.y).max(1.0) } else { 1.0 },
+        );
+        if scale == Vec2::ONE {
+            return self.clone();
+        }
+        let c = self.center();
+        match self {
+            CombatVolume::Aabb(a) => CombatVolume::Aabb(Aabb::new(c, a.half_size() * scale)),
+            CombatVolume::Obb { half, rotation, .. } => CombatVolume::Obb {
+                center: c,
+                half: half.max(min * 0.5),
+                rotation: *rotation,
+            },
+            CombatVolume::Circle { radius, .. } => CombatVolume::Circle {
+                center: c,
+                radius: radius.max(min.max_element() * 0.5),
+            },
+            CombatVolume::Convex { points, .. } => {
+                CombatVolume::convex(points.iter().map(|p| c + (*p - c) * scale).collect())
+            }
+        }
+    }
+
     /// Reflect the volume across the vertical line `axis_x`, leaving its size
     /// unchanged.
     ///
@@ -392,6 +423,22 @@ fn pv(x: f32, y: f32) -> Vector {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn at_least_grows_a_sliver_on_its_short_axis_and_never_shrinks() {
+        let sliver = CombatVolume::convex(vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(30.0, 0.0),
+            Vec2::new(30.0, 4.0),
+            Vec2::new(0.0, 4.0),
+        ]);
+        let grown = sliver.at_least(Vec2::new(20.0, 20.0)).bounds();
+        assert!((grown.half_size() * 2.0 - Vec2::new(30.0, 20.0)).length() < 1e-4);
+        assert!((grown.center() - Vec2::new(15.0, 2.0)).length() < 1e-4);
+        let big = CombatVolume::Aabb(Aabb::new(Vec2::ZERO, Vec2::new(40.0, 40.0)));
+        assert_eq!(big.at_least(Vec2::new(20.0, 20.0)), big);
+    }
+
     use super::*;
 
     fn aabb(cx: f32, cy: f32, hx: f32, hy: f32) -> Aabb {

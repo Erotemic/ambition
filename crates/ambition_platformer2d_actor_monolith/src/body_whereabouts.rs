@@ -182,19 +182,22 @@ pub fn record_bodies_away_from_home(
     let mut now = std::collections::BTreeSet::new();
     if let Some(room_set) = room_set {
         for (entity, sim_id, config, origin) in &bodies {
-            // A body with durable whereabouts has a row instead.
-            if keeps_durable_whereabouts(&room_set, config, Some(origin)) {
-                continue;
-            }
             let ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Authored { source, .. } = origin else {
                 continue;
             };
             let Some(definition) = room_set.definition_of(entity) else {
                 continue;
             };
-            if &room_set.rooms().spec(definition).id != source {
-                now.insert(sim_id.clone());
+            // At home is the common case and the cheap question, so it is
+            // asked first; the durable-whereabouts test scans room records.
+            if &room_set.rooms().spec(definition).id == source {
+                continue;
             }
+            // A body with durable whereabouts has a row instead.
+            if keeps_durable_whereabouts(&room_set, config, Some(origin)) {
+                continue;
+            }
+            now.insert(sim_id.clone());
         }
     }
     // Compared first, so the reader's change detection stays quiet.

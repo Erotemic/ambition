@@ -50,7 +50,6 @@ pub fn emit_brain_action_messages(
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
     for (entity, control, action_set, kin, moveset, charges) in &actors {
-        let moveset_ranged = moveset.is_some_and(routes_ranged);
         for request in action_set::resolve(action_set, &control.0, kin.pos) {
             // A body whose ranged shot is a moveset `"ranged"` move fires through the
             // move's timed event (`MoveEventKind::Ranged`), not this flat
@@ -62,8 +61,9 @@ pub fn emit_brain_action_messages(
             // (`emit_player_projectile_tick_messages` hands it over as a press,
             // a release, or an autonomous tap), so it is skipped here for the
             // same reason: one intent, one owner.
-            if (moveset_ranged || charges)
-                && matches!(request, action_set::ActionRequest::Ranged { .. })
+            // The verb lookup only for a ranged request: most ticks have none.
+            if matches!(request, action_set::ActionRequest::Ranged { .. })
+                && (charges || moveset.is_some_and(routes_ranged))
             {
                 continue;
             }

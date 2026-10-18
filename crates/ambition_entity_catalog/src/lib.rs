@@ -3418,11 +3418,13 @@ pub enum AttackDir {
     Back,
 }
 
+const DASH_SUFFIX: &str = "_dash";
+
 /// The running-stance verb for an attack base. This is the only place the
 /// suffix is spelled. Named for the "dash attack", keyed off the body's gait
 /// and not off `AbilitySet::dash`.
 pub fn dash_stance_verb(base: &str) -> String {
-    format!("{base}_dash")
+    format!("{base}{DASH_SUFFIX}")
 }
 
 /// Verb-id fallback chain for a directional attack, most-specific first. A
@@ -3436,27 +3438,44 @@ pub fn dash_stance_verb(base: &str) -> String {
 /// - grounded, `Down`: `attack_down` → `attack`
 /// - grounded, `Neutral`: `attack`
 pub fn directional_verb_chain(base: &str, dir: AttackDir, grounded: bool) -> Vec<String> {
-    let dir_suffix = match dir {
-        AttackDir::Neutral => None,
-        AttackDir::Forward => Some("forward"),
-        AttackDir::Up => Some("up"),
-        AttackDir::Down => Some("down"),
-        AttackDir::Back => Some("back"),
+    directional_suffixes(dir, grounded)
+        .map(|suffix| format!("{base}{suffix}"))
+        .collect()
+}
+
+/// The suffixes of [`directional_verb_chain`], in its order: the chain without
+/// the base, so a lookup can compose each id without allocating.
+fn directional_suffixes(dir: AttackDir, grounded: bool) -> impl Iterator<Item = &'static str> {
+    let (dir_suffix, air_dir_suffix) = match dir {
+        AttackDir::Neutral => (None, None),
+        AttackDir::Forward => (Some("_forward"), Some("_air_forward")),
+        AttackDir::Up => (Some("_up"), Some("_air_up")),
+        AttackDir::Down => (Some("_down"), Some("_air_down")),
+        AttackDir::Back => (Some("_back"), Some("_air_back")),
     };
-    let mut chain = Vec::with_capacity(4);
-    if !grounded {
-        if let Some(s) = dir_suffix {
-            chain.push(format!("{base}_air_{s}"));
-        }
+    let airborne = !grounded;
+    [
+        air_dir_suffix.filter(|_| airborne),
+        dir_suffix,
+        airborne.then_some("_air"),
+        Some(""),
+    ]
+    .into_iter()
+    .flatten()
+}
+
+/// `f` of `base` + `suffix`, composed on the stack. The brains resolve a
+/// dozen composed verbs per body per tick, and a `String` each was the
+/// largest allocator in `tick_actor_brains`.
+fn with_composed_verb<R>(base: &str, suffix: &str, f: impl FnOnce(&str) -> R) -> R {
+    let mut buf = [0u8; 64];
+    let len = base.len() + suffix.len();
+    if len > buf.len() {
+        return f(&format!("{base}{suffix}"));
     }
-    if let Some(s) = dir_suffix {
-        chain.push(format!("{base}_{s}"));
-    }
-    if !grounded {
-        chain.push(format!("{base}_air"));
-    }
-    chain.push(base.to_string());
-    chain
+    buf[..base.len()].copy_from_slice(base.as_bytes());
+    buf[base.len()..len].copy_from_slice(suffix.as_bytes());
+    f(std::str::from_utf8(&buf[..len]).expect("two joined `str`s are UTF-8"))
 }
 
 /// The base verb a composed verb id was built from: the inverse of
@@ -3857,8 +3876,7 @@ impl MovesetContract {
         running: bool,
     ) -> Option<&MoveSpec> {
         if grounded && running {
-            if let Some(mv) = self
-                .move_for_verb(&dash_stance_verb(base))
+            if let Some(mv) = with_composed_verb(base, DASH_SUFFIX, |verb| self.move_for_verb(verb))
                 .filter(|mv| mv.gates.permits(grounded))
             {
                 return Some(mv);
@@ -3880,8 +3898,7 @@ impl MovesetContract {
         running: bool,
     ) -> Option<&MoveSpec> {
         if grounded && running {
-            if let Some(mv) = self
-                .move_for_verb(&dash_stance_verb(base))
+            if let Some(mv) = with_composed_verb(base, DASH_SUFFIX, |verb| self.move_for_verb(verb))
                 .filter(|mv| mv.gates.permits(grounded))
             {
                 return Some(mv);
@@ -3903,12 +3920,10 @@ impl MovesetContract {
         dir: AttackDir,
         grounded: bool,
     ) -> Option<&MoveSpec> {
-        directional_verb_chain(base, dir, grounded)
-            .into_iter()
-            .find_map(|verb| {
-                let mv = self.move_for_verb(&verb)?;
-                mv.gates.permits(grounded).then_some(mv)
-            })
+        directional_suffixes(dir, grounded).find_map(|suffix| {
+            let mv = with_composed_verb(base, suffix, |verb| self.move_for_verb(verb))?;
+            mv.gates.permits(grounded).then_some(mv)
+        })
     }
 }
 

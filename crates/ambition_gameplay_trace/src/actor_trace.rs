@@ -34,7 +34,7 @@ pub struct BodyTraceSnapshot {
     pub actor_id: String,
     pub name: String,
     /// Faction-ish bucket: `player` | `boss` | `enemy` | `npc` | `body`.
-    pub kind: String,
+    pub kind: &'static str,
     pub pos: TracePoint,
     pub vel: TracePoint,
     pub size: TracePoint,
@@ -277,10 +277,17 @@ impl ActorTraceBuffer {
         }
 
         if let Some(identity) = frame.simulation_identity() {
-            if let Some(slot) = self
+            // Rows are in timeline order, so a re-simulated frame's row is
+            // among the trailing rows at or after its own identity: the scan
+            // stops at the first older one instead of walking the whole ring
+            // every tick.
+            if let Some((slot, _)) = self
                 .frames
                 .iter()
-                .rposition(|row| row.simulation_identity() == Some(identity))
+                .enumerate()
+                .rev()
+                .take_while(|(_, row)| row.simulation_identity().is_some_and(|row| row >= identity))
+                .find(|(_, row)| row.simulation_identity() == Some(identity))
             {
                 let (seq, tick) = (self.frames[slot].seq, self.frames[slot].tick);
                 self.frames[slot] = ActorTraceFrame { seq, tick, ..frame };
@@ -311,7 +318,7 @@ impl ActorTraceBuffer {
                     self.request_dump(ActorDumpReason::OobAuto {
                         actor_id: body.actor_id,
                         name: body.name,
-                        kind: body.kind,
+                        kind: body.kind.to_owned(),
                         reason: body.oob.unwrap_or_default(),
                     });
                 }

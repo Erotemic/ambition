@@ -115,7 +115,8 @@ pub fn carry_homing_dashes(
     relations: Option<Res<ambition_platformer2d::combat::targeting::FactionRelations>>,
 ) {
     let dt = time.sim_dt();
-    if dt <= 0.0 {
+    // Nobody dashing is the common tick: gather nothing then.
+    if dt <= 0.0 || !bodies.iter().any(|(_, _, dash, ..)| dash.is_some()) {
         return;
     }
     // Gather first, apply second: every dash this tick steers against the same

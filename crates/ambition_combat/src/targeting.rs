@@ -358,12 +358,14 @@ pub fn select_actor_targets(
     // both facts.
     // ONE candidate set — the player is just another body, carrying faction Player.
     // No unconditional player special-case; nearest foe wins.
+    // Borrowed, not cloned: both identities are Strings, and this list is
+    // rebuilt each tick.
     let mut candidates: Vec<(
         Entity,
         ae::Vec2,
         ActorFaction,
-        Option<SimId>,
-        Option<MatchTeam>,
+        Option<&SimId>,
+        Option<&MatchTeam>,
         Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     )> = players
         .iter()
@@ -375,8 +377,8 @@ pub fn select_actor_targets(
                 e,
                 kin.pos,
                 *faction,
-                sim_ids.get(e).ok().cloned(),
-                team.cloned(),
+                sim_ids.get(e).ok(),
+                team,
                 rooms.of(e),
             )
         })
@@ -391,8 +393,8 @@ pub fn select_actor_targets(
                         e,
                         aabb.center,
                         effective_faction(*faction, driver),
-                        sim_ids.get(e).ok().cloned(),
-                        team.cloned(),
+                        sim_ids.get(e).ok(),
+                        team,
                         rooms.of(e),
                     )
                 }),
@@ -444,6 +446,12 @@ pub fn select_actor_targets(
                 if *entity == self_entity || *cand_room != self_room {
                     continue;
                 }
+                let d = distance_squared(*pos, actor_pos);
+                // Only a strictly nearer candidate can win (see `better`
+                // below), so the relation is not asked of the others.
+                if best.is_some_and(|(_, _, best_d)| d >= best_d) {
+                    continue;
+                }
                 // THE one relationship policy, the same call the damage side makes.
                 //
                 // `has_allegiance` still gates the matrix arm: a body with neither an
@@ -459,12 +467,11 @@ pub fn select_actor_targets(
                     *entity,
                     *cand_faction,
                     None,
-                    cand_team.as_ref(),
+                    *cand_team,
                 );
                 if !relation.is_target() {
                     continue;
                 }
-                let d = distance_squared(*pos, actor_pos);
                 // Deterministic nearest-foe selection: strictly-nearer wins, and an
                 // EXACT distance tie is decided by the canonical candidate ORDER
                 // established above (first-seen wins), not by comparing raw `Entity`

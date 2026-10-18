@@ -53,19 +53,69 @@ pub struct FighterSpecial {
 impl FighterSpecial {
     /// The number at `path`, or `None` when the move states none there.
     pub fn number(&self, path: &str) -> Option<f32> {
-        self.params.iter().find_map(|(at, value)| match value {
-            SpecialParam::Number(n) if at == path => Some(*n),
-            _ => None,
-        })
+        number_at(&self.params, path)
     }
 
     /// The text at `path`, or `None` when the move states none there.
     pub fn text(&self, path: &str) -> Option<&str> {
-        self.params.iter().find_map(|(at, value)| match value {
-            SpecialParam::Text(text) if at == path => Some(text.as_str()),
-            _ => None,
-        })
+        text_at(&self.params, path)
     }
+}
+
+/// The number at `path` of authored params, or `None` when they state none
+/// there.
+pub fn number_at(params: &[(String, SpecialParam)], path: &str) -> Option<f32> {
+    params.iter().find_map(|(at, value)| match value {
+        SpecialParam::Number(n) if at == path => Some(*n),
+        _ => None,
+    })
+}
+
+/// The text at `path` of authored params, or `None` when they state none
+/// there.
+pub fn text_at<'a>(params: &'a [(String, SpecialParam)], path: &str) -> Option<&'a str> {
+    params.iter().find_map(|(at, value)| match value {
+        SpecialParam::Text(text) if at == path => Some(text.as_str()),
+        _ => None,
+    })
+}
+
+/// Authored params on the wire: a count, then each path and its tagged value.
+pub(crate) fn put_params(out: &mut Vec<u8>, params: &[(String, SpecialParam)]) {
+    wire::put_u32(out, params.len() as u32);
+    for (path, value) in params {
+        wire::put_str(out, path);
+        match value {
+            SpecialParam::Number(n) => {
+                wire::put_u8(out, 0);
+                wire::put_f32(out, *n);
+            }
+            SpecialParam::Text(text) => {
+                wire::put_u8(out, 1);
+                wire::put_str(out, text);
+            }
+            SpecialParam::Flag(flag) => {
+                wire::put_u8(out, 2);
+                wire::put_bool(out, *flag);
+            }
+        }
+    }
+}
+
+pub(crate) fn read_params(r: &mut WireReader<'_>) -> Result<Vec<(String, SpecialParam)>, WireError> {
+    let count = r.read_len()?;
+    let mut params = Vec::with_capacity(count);
+    for _ in 0..count {
+        let path = r.str()?.to_owned();
+        let value = match r.u8()? {
+            0 => SpecialParam::Number(r.f32()?),
+            1 => SpecialParam::Text(r.str()?.to_owned()),
+            2 => SpecialParam::Flag(r.bool()?),
+            tag => return Err(WireError::BadTag(tag)),
+        };
+        params.push((path, value));
+    }
+    Ok(params)
 }
 
 impl Port for FighterSpecialPort {
@@ -76,41 +126,13 @@ impl Port for FighterSpecialPort {
     fn encode(v: &FighterSpecial, out: &mut Vec<u8>) {
         wire::put_vec2(out, v.position);
         wire::put_f32(out, v.facing);
-        wire::put_u32(out, v.params.len() as u32);
-        for (path, value) in &v.params {
-            wire::put_str(out, path);
-            match value {
-                SpecialParam::Number(n) => {
-                    wire::put_u8(out, 0);
-                    wire::put_f32(out, *n);
-                }
-                SpecialParam::Text(text) => {
-                    wire::put_u8(out, 1);
-                    wire::put_str(out, text);
-                }
-                SpecialParam::Flag(flag) => {
-                    wire::put_u8(out, 2);
-                    wire::put_bool(out, *flag);
-                }
-            }
-        }
+        put_params(out, &v.params);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<FighterSpecial, WireError> {
         let position = r.vec2()?;
         let facing = r.f32()?;
-        let count = r.read_len()?;
-        let mut params = Vec::with_capacity(count);
-        for _ in 0..count {
-            let path = r.str()?.to_owned();
-            let value = match r.u8()? {
-                0 => SpecialParam::Number(r.f32()?),
-                1 => SpecialParam::Text(r.str()?.to_owned()),
-                2 => SpecialParam::Flag(r.bool()?),
-                tag => return Err(WireError::BadTag(tag)),
-            };
-            params.push((path, value));
-        }
+        let params = read_params(r)?;
         Ok(FighterSpecial { position, facing, params })
     }
 }

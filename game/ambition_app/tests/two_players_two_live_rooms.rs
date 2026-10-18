@@ -2889,11 +2889,7 @@ fn plant_a_long_lived_sentry(sim: &mut Platformer2dSimHarness) -> LiveRoomInstan
     let mut commands = world.commands();
     spawn_module_entity(
         &mut commands,
-        ModuleEntity {
-            kind: "sentry".into(),
-            pos: bevy::math::Vec2::new(300.0, 300.0),
-            remaining_s: 1000.0,
-        },
+        ModuleEntity::point("sentry", bevy::math::Vec2::new(300.0, 300.0), 1000.0),
         Spawner {
             scope,
             side: ambition_platformer2d::actor::ActorFaction::Player,

@@ -27,7 +27,7 @@ use std::sync::Arc;
 use ambition_extension_host::ModuleBackend;
 use ambition_extension_sdk::abi;
 use ambition_extension_sdk::digest::digest_bytes;
-use ambition_extension_sdk::{CodeIdentity, ModuleDescriptor, Name};
+use ambition_extension_sdk::{CodeIdentity, ModuleDescriptor, ModuleKey, Name};
 use wasmi::{Config, Engine, Instance, Linker, Memory, Module, Store};
 
 /// The work one invocation may do, in fuel units (about one per executed
@@ -57,6 +57,9 @@ pub struct WasmModules {
     engine: Engine,
     module: Module,
     fuel: u64,
+    /// The key of each module, in the file's own order: the number
+    /// `amb_invoke` takes.
+    keys: Vec<ModuleKey>,
 }
 
 impl WasmModules {
@@ -81,14 +84,17 @@ impl WasmModules {
                 import.name()
             )));
         }
-        let this = Arc::new(Self {
+        let mut this = Self {
             engine,
             module,
             fuel,
-        });
+            keys: Vec::new(),
+        };
         let description = this.describe().map_err(LoadError::Describe)?;
         let mut modules = abi::read_description(&description)
             .map_err(|e| LoadError::Describe(format!("the description does not decode: {e}")))?;
+        this.keys = modules.iter().map(|module| module.key.clone()).collect();
+        let this = Arc::new(this);
         let digest = digest_bytes(bytes);
         for module in &mut modules {
             module.code = CodeIdentity::Loaded {
@@ -157,6 +163,10 @@ impl ModuleBackend for WasmModules {
             .call(&mut store, (module, entry, ptr, len))
             .map_err(trap)?;
         Self::read_packed(&store, memory, packed)
+    }
+
+    fn module_index(&self, key: &ModuleKey) -> Option<u32> {
+        self.keys.iter().position(|known| known == key).map(|index| index as u32)
     }
 }
 

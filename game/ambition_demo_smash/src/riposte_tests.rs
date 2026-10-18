@@ -55,9 +55,13 @@ fn app_on(road: Road) -> App {
             let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
             let file = ambition_platformer2d::extension::build_module_crate(&root, "ambition_demo_smash_modules")
                 .expect("the Smash module crate builds for wasm32-unknown-unknown");
-            let (backend, modules) =
+            let (backend, mut modules) =
                 ambition_platformer2d::extension::WasmModules::load(&std::fs::read(file).unwrap())
                     .expect("the module file loads");
+            // The file holds every Smash module; this fixture offers the
+            // ports of the riposte only.
+            let key = ambition_demo_smash_modules::riposte::module().key;
+            modules.retain(|module| module.key == key);
             app.add_loaded_extension_modules("ambition_demo_smash_modules.wasm", backend, modules, false);
         }
     }

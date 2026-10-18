@@ -77,6 +77,9 @@ fn deploy(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         kind: ITEM.into(),
         at: w.position,
         lifetime_s: LIFETIME_S,
+        // Nothing touches the turret, and it keeps its numbers here.
+        half_extents: [0.0, 0.0],
+        params: Vec::new(),
     })?;
     wielded::rock_hit(inv, &w)
 }

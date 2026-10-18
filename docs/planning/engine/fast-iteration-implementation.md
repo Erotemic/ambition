@@ -644,6 +644,33 @@ before you add a port.
     riposte, loads it with no relink (`AMBITION_EXTENSION_MODULES`). The
     Smash demo app does not load module files: none of its fighters
     authors a special that is a module yet.
+  - Special route F2 ✅ (2026-10-18): a special that leaves something on the
+    stage. `ambition.world.spawn_module_entity` (v2) is offered in
+    `technique_execution` too, and carries the box that bodies touch and the
+    move's params, which the world keeps on the entity unchanged.
+    `ambition.world.module_entity_tick` (v2) gives them back with the
+    entity's `touchers` (the bodies of its live room whose box meets it, any
+    side, in identity order), and `ambition.world.launch_toucher` throws one
+    of them (the velocity set, not added). `ambition.feedback.effect` is
+    offered in both phases. Smash's placed spring is the module
+    `ambition_demo_smash_modules::spring`: its clocks and uses are the record
+    `smash/spring.plate`, and a plate of this game is stamped with the
+    running match (`stamp_smash_module_entities`), so the match's end sweeps
+    it. The native `spring.rs` and its rollback component
+    (`smash.placed_spring`) are deleted (schema 359). One rule changed: two
+    fighters on one plate, the first in identity order is thrown (it was
+    the lowest seat); both are rewind-stable. Found on the way: the host
+    numbered a loaded file's modules by their place in the list the caller
+    gave, so a caller that declared some of a file's modules ran another
+    module's code for them (the spring's drop ran the riposte's and faulted
+    "reach"). A backend now names the number of each module by key
+    (`ModuleBackend::module_index`). Witnesses: `spring_tests` (the throws of
+    one stand at the authored delays, 16, 29 and 42 ticks; the uses; set not
+    add; the clock; one throw for two fighters; the cues and a silent plate;
+    the match stamp; the loaded file, its runner `Loaded`). Poisons: the
+    module number by list place, red at "the loaded plate throws as the
+    linked one does"; a launch that adds, red at "the plate added to his
+    speed"; no stamp, red at "the plate is not the match's".
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

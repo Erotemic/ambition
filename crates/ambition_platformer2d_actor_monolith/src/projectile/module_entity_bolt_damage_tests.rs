@@ -153,11 +153,7 @@ fn a_module_entitys_bolt_damages_the_enemy_it_was_fired_at() {
         let mut commands = app.world_mut().commands();
         spawn_module_entity(
             &mut commands,
-            ModuleEntity {
-                kind: "sentry".into(),
-                pos: ae::Vec2::new(300.0, 400.0),
-                remaining_s: 5.0,
-            },
+            ModuleEntity::point("sentry", ae::Vec2::new(300.0, 400.0), 5.0),
             Spawner {
                 scope: ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 side,

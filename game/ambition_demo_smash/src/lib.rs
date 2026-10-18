@@ -33,13 +33,14 @@ pub mod motion;
 mod moveset;
 #[cfg(test)]
 mod riposte_tests;
+#[cfg(test)]
+mod spring_tests;
 pub mod portal;
 pub mod select;
 pub mod select_screen;
 pub mod shark_ride;
 pub mod sing;
 pub mod smash_pack;
-pub mod spring;
 pub mod rules;
 pub mod stages;
 pub mod tether;
@@ -610,26 +611,23 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // Placed spring. Drop is chained before fire, so a plate starts its
-        // arming clock on the tick it lands (while its dropper stands in it).
-        install_special(
+        // Placed spring: the module `ambition_demo_smash_modules::spring`.
+        // The drop puts a module entity on the stage, and the module ticks
+        // it; the match owns its end (`stamp_smash_module_entities`).
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_spring::PLACE_SPRING,
             TechniqueOffer {
-                owner: "ambition_demo_smash::spring",
+                owner: "ambition_demo_smash_modules::spring",
                 params: TechniqueParams::Checked(
                     ambition_platformer2d::entity_catalog::smash_spring::check_place_spring_params,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            (
-                crate::spring::drop_authored_springs,
-                crate::spring::fire_and_expire_springs,
-            )
-                .chain()
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+            ambition_demo_smash_modules::spring::module(),
         );
+        app.add_systems(sim, stamp_smash_module_entities);
         // Limit meter: a set of independent sources, not one rule, so a
         // mechanic can author only the source it wants. The fill rule is
         // declared above for Smash's rooms.
@@ -1760,14 +1758,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 crate::bolt::steered_bolt_probe,
             );
 
-            // The plate's three clocks and remaining uses: a restore without
-            // them could replay a launch the confirmed timeline already spent.
-            app.rollback_component_clone_probed::<crate::spring::PlacedSpring>(
-                "ambition_demo_smash",
-                "smash.placed_spring",
-                crate::spring::placed_spring_probe,
-            );
-
             // A dilation's remaining seconds (the scale itself is canonical as
             // `actor.proper_time_scale`). Peers that disagree on it resimulate
             // different swings.
@@ -2719,6 +2709,28 @@ const FIGHTER_SPECIALS: ambition_platformer2d::platformer::capability::Capabilit
     ambition_platformer2d::platformer::capability::CapabilitySet(
         ambition_platformer2d::platformer::capability::Capability::FighterSpecials,
     );
+
+/// A module entity of this game (`smash.*`, a plate) belongs to the match
+/// that made it, as a bomb or a mine does: the match's end sweeps it
+/// (`versus_match::lifetime`). The world spawns it, so the stamp is put on
+/// the first tick it is seen.
+fn stamp_smash_module_entities(
+    mut commands: bevy::prelude::Commands,
+    spawned: bevy::prelude::Query<
+        (bevy::prelude::Entity, &ambition_platformer2d::abilities::module_entity::ModuleEntity),
+        (
+            bevy::prelude::Added<ambition_platformer2d::abilities::module_entity::ModuleEntity>,
+            bevy::prelude::Without<ambition_platformer2d::versus_match::MatchScoped>,
+        ),
+    >,
+    active_match: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
+) {
+    for (entity, module_entity) in &spawned {
+        if module_entity.kind.starts_with("smash.") {
+            ambition_platformer2d::versus_match::stamp_match_object(&mut commands, entity, active_match.as_deref());
+        }
+    }
+}
 
 /// [`install_technique`] for a fighter special: its handler also joins
 /// [`FIGHTER_SPECIALS`].

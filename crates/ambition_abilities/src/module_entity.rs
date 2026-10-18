@@ -10,9 +10,10 @@
 use ambition_combat::components::CenteredAabb;
 use ambition_characters::actor::ActorFaction;
 use ambition_combat_port::{
-    EndModuleEntityPort, ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, SpawnModuleEntityPort,
+    ContactBody, EndModuleEntityPort, ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, SpawnModuleEntityPort,
+    SpecialParam,
 };
-use ambition_extension_host::{AdmittedExtensions, ExtensionInvocations, ExtensionOutbox};
+use ambition_extension_host::{AdmittedExtensions, ExtensionInvocations, ExtensionOutbox, LowersIn};
 use ambition_extension_sdk::phases::MODULE_ENTITY_TICK;
 use ambition_extension_sdk::Port;
 use ambition_platformer2d_core as ae;
@@ -34,7 +35,25 @@ pub struct ModuleEntity {
     pub kind: String,
     pub pos: ae::Vec2,
     pub remaining_s: f32,
+    /// The box that bodies touch; zero is a point, which no body touches.
+    pub half_extents: ae::Vec2,
+    /// The spawn's authored values, given back to the module at each tick.
+    /// They do not change, so the rollback probe leaves them out.
+    pub params: Vec<(String, SpecialParam)>,
 }
+
+impl ModuleEntity {
+    /// An entity that no body touches and that has no params (a turret, a
+    /// well).
+    pub fn point(kind: impl Into<String>, pos: ae::Vec2, remaining_s: f32) -> Self {
+        Self { kind: kind.into(), pos, remaining_s, half_extents: ae::Vec2::ZERO, params: Vec::new() }
+    }
+}
+
+/// The touchers of each module entity of this tick, in the order its
+/// invocation gave them: a launch names a toucher by its index here.
+#[derive(Resource, Default, Debug)]
+pub struct ModuleEntityTouchers(pub Vec<(Entity, Vec<Entity>)>);
 
 /// What a module entity takes from its spawner, frozen at the spawn: the
 /// entity outlives the spawner.
@@ -72,9 +91,9 @@ pub fn spawn_module_entity(commands: &mut Commands, entity: ModuleEntity, from: 
     spawned.id()
 }
 
-/// Lower `ambition.world.spawn_module_entity`: mint the entity's identity from
-/// the spawner, and spawn it with the spawner's side.
-pub fn lower_module_entity_spawns(
+/// Lower `ambition.world.spawn_module_entity` in the phase `L`: mint the
+/// entity's identity from the spawner, and spawn it with the spawner's side.
+pub fn lower_module_entity_spawns<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
     mut spawners: Query<(
         Option<&SimId>,
@@ -88,7 +107,7 @@ pub fn lower_module_entity_spawns(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut commands: Commands,
 ) {
-    for submitted in outbox.drain::<SpawnModuleEntityPort>(&ambition_extension_sdk::phases::WIELDED_USE) {
+    for submitted in outbox.drain::<SpawnModuleEntityPort>(&L::PHASE) {
         let Ok((id, counter, session, side, driver, team)) = spawners.get_mut(submitted.scope) else {
             continue;
         };
@@ -102,13 +121,15 @@ pub fn lower_module_entity_spawns(
             );
             continue;
         };
-        let ModuleEntitySpawn { kind, at, lifetime_s } = submitted.value;
+        let ModuleEntitySpawn { kind, at, lifetime_s, half_extents, params } = submitted.value;
         spawn_module_entity(
             &mut commands,
             ModuleEntity {
                 kind,
                 pos: ae::Vec2::from(at),
                 remaining_s: lifetime_s,
+                half_extents: ae::Vec2::from(half_extents),
+                params,
             },
             Spawner {
                 // In its spawner's live room, as a shot is in its owner's.
@@ -139,6 +160,7 @@ pub fn queue_module_entity_ticks(
     admitted: Res<AdmittedExtensions>,
     world_time: Res<ambition_time::WorldTime>,
     mut invocations: ResMut<ExtensionInvocations>,
+    mut touchers_table: ResMut<ModuleEntityTouchers>,
     mut commands: Commands,
     mut entities: Query<(Entity, &mut ModuleEntity, Option<&SimId>)>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
@@ -154,10 +176,12 @@ pub fn queue_module_entity_ticks(
             ),
             Option<&SimId>,
             Option<&ambition_characters::control::DrivingParticipant>,
+            Option<&ae::BodyKinematics>,
         ),
         With<FeatureSimEntity>,
     >,
 ) {
+    touchers_table.0.clear();
     let dt = world_time.sim_dt();
     if dt <= 0.0 {
         return;
@@ -196,14 +220,28 @@ pub fn queue_module_entity_ticks(
     // untouchable (a corpse, a body out of play or behind the playable plane).
     let enemies: Vec<_> = bodies
         .iter()
-        .filter(|(_, _, side, health, (out_of_play, plane), _, driver)| {
+        .filter(|(_, _, side, health, (out_of_play, plane), _, driver, _)| {
             ambition_combat::targeting::effective_faction(**side, *driver) == ActorFaction::Enemy
                 && !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane)
         })
-        .map(|(body, aabb, _, _, _, id, _)| (aabb.center, id, rooms.of(body)))
+        .map(|(body, aabb, _, _, _, id, _, _)| (aabb.center, id, rooms.of(body)))
         .collect();
+    // The bodies that can touch an entity: any side, and not untouchable. In
+    // identity order, so a rewind gives a module the same first toucher.
+    let mut touchable: Vec<_> = bodies
+        .iter()
+        .filter(|(_, _, _, health, (out_of_play, plane), _, _, _)| {
+            !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane)
+        })
+        .map(|(body, aabb, _, _, _, id, _, kin)| (id.cloned(), body, aabb.center, aabb.half_size, kin.map(|k| k.vel), rooms.of(body)))
+        .collect();
+    touchable.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
     for (pos, remaining_s, _, entity) in living {
-        let kind = entities.get(entity).map(|(_, e, _)| e.kind.clone()).unwrap_or_default();
+        let Ok((_, module_entity, _)) = entities.get(entity) else {
+            continue;
+        };
+        let (kind, half_extents, params) =
+            (module_entity.kind.clone(), module_entity.half_extents, module_entity.params.clone());
         // Nearest, with a named tie-break: equidistant bodies are common, and
         // query order must not decide. Only a body in the entity's own live
         // room: two entities meet only when they are in one room.
@@ -214,6 +252,26 @@ pub fn queue_module_entity_ticks(
             |(_, id, _)| *id,
         )
         .map(|(center, _, _)| [center.x, center.y]);
+        // A body touches the entity's box when the boxes meet, edges included:
+        // a body that stands on a plate meets it.
+        let mut touched_by = Vec::new();
+        let mut touchers = Vec::new();
+        if half_extents != ae::Vec2::ZERO {
+            for (_, body, center, half, vel, body_room) in &touchable {
+                let reach = half_extents + *half;
+                let offset = (*center - pos).abs();
+                if *body_room != room || offset.x > reach.x || offset.y > reach.y {
+                    continue;
+                }
+                touched_by.push(*body);
+                touchers.push(ContactBody {
+                    position: [center.x, center.y],
+                    size: [half.x * 2.0, half.y * 2.0],
+                    velocity: vel.map_or([0.0; 2], |v| [v.x, v.y]),
+                });
+            }
+        }
+        touchers_table.0.push((entity, touched_by));
         invocations.trigger::<ModuleEntityTickPort>(
             &MODULE_ENTITY_TICK,
             kind,
@@ -224,6 +282,8 @@ pub fn queue_module_entity_ticks(
                 position: [pos.x, pos.y],
                 remaining_s,
                 nearest_enemy,
+                params,
+                touchers,
             },
         );
     }

@@ -119,14 +119,17 @@ pub fn stage_loaded_replacements(world: &mut World, artifacts: Vec<LoadedArtifac
         let modules: Vec<DeclaredModule> = loaded
             .modules
             .into_iter()
-            .enumerate()
-            .map(|(index, descriptor)| DeclaredModule {
-                descriptor,
+            .map(|descriptor| DeclaredModule {
                 code: ModuleCode::Loaded {
                     backend: loaded.backend.clone(),
-                    module: index as u32,
+                    module: crate::admission::loaded_module_index(
+                        loaded.backend.as_ref(),
+                        &loaded.artifact,
+                        &descriptor.key,
+                    ),
                     artifact: loaded.artifact.clone(),
                 },
+                descriptor,
                 replaces,
             })
             .collect();

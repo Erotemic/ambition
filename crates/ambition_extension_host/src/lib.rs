@@ -296,14 +296,11 @@ pub trait ExtensionAppExt {
         replaces: bool,
     ) -> &mut Self {
         let artifact: Arc<str> = Arc::from(artifact);
-        for (index, descriptor) in modules.into_iter().enumerate() {
+        for descriptor in modules {
+            let module = admission::loaded_module_index(backend.as_ref(), &artifact, &descriptor.key);
             self.add_declared_extension_module(DeclaredModule {
                 descriptor,
-                code: ModuleCode::Loaded {
-                    backend: backend.clone(),
-                    module: index as u32,
-                    artifact: artifact.clone(),
-                },
+                code: ModuleCode::Loaded { backend: backend.clone(), module, artifact: artifact.clone() },
                 replaces,
             });
         }

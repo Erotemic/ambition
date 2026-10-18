@@ -605,6 +605,10 @@ impl ModuleBackend for InProcess {
     fn invoke(&self, module: u32, entry: u32, input: &[u8]) -> Result<Vec<u8>, String> {
         Ok(ambition_extension_sdk::abi::invoke(&self.0, module, entry, input))
     }
+
+    fn module_index(&self, key: &ambition_extension_sdk::ModuleKey) -> Option<u32> {
+        self.0.iter().position(|module| &module.key == key).map(|index| index as u32)
+    }
 }
 
 /// The modules as a loaded file publishes them: descriptors decoded from the

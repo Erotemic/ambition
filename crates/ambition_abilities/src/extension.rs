@@ -18,8 +18,9 @@
 use ambition_characters::control::ActorControl;
 use ambition_combat::held_items::HeldItem;
 use ambition_combat_port::{
-    AimCast, AimCastPort, AimHit, BodySoundPort, BurstPort, EffectPort, EndModuleEntityPort, HitMarkPort, MarkPort,
-    MarkView, ModuleEntityTickPort, MovementCooldownPort, PullBodiesPort, SetMarkPort, SetVelocityPort,
+    AimCast, AimCastPort, AimHit, BodySoundPort, BurstPort, EffectPort, EndModuleEntityPort, HitMarkPort,
+    LaunchToucherPort, MarkPort, MarkView, ModuleEntityTickPort, MovementCooldownPort, PullBodiesPort, SetMarkPort,
+    SetVelocityPort,
     SpawnModuleEntityPort, SpendManaPort, WieldedAlternatePort, WieldedUsePort, Wielder, AIM_CAST_REACH,
 };
 /// The composition orders this port's lowering as a carry of the travelled
@@ -27,9 +28,11 @@ use ambition_combat_port::{
 pub use ambition_combat_port::TransitPort;
 use ambition_extension_host::{
     AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox, InActorThink, InBodyContact, InBossConduct,
-    InModuleEntityTick, InWieldedUse, LowersIn,
+    InModuleEntityTick, InTechniqueExecution, InWieldedUse, LowersIn,
 };
-use ambition_extension_sdk::phases::{ACTOR_THINK, BODY_CONTACT, BOSS_CONDUCT, MODULE_ENTITY_TICK, WIELDED_USE};
+use ambition_extension_sdk::phases::{
+    ACTOR_THINK, BODY_CONTACT, BOSS_CONDUCT, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE,
+};
 use ambition_extension_sdk::Port;
 use ambition_platformer2d_core::resources::ActorResources;
 use ambition_platformer2d_core::BodyKinematics;
@@ -57,7 +60,7 @@ pub fn install(app: &mut App) {
     // The effect adapter writes the room-bound effect message: a composition
     // with the port has it, whether or not a module shows an effect.
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
-    app.install_extension_request::<EffectPort, _>(WIELDED_USE, "ambition_abilities", lower_effects);
+    app.install_extension_request::<EffectPort, _>(WIELDED_USE, "ambition_abilities", lower_effects::<InWieldedUse>);
     app.install_extension_request::<BurstPort, _>(WIELDED_USE, "ambition_abilities", lower_bursts::<InWieldedUse>);
     app.install_extension_request::<HitMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_hit_marks);
     app.install_extension_request::<SetVelocityPort, _>(WIELDED_USE, "ambition_abilities", lower_velocities::<InWieldedUse>);
@@ -70,18 +73,44 @@ pub fn install(app: &mut App) {
     app.install_extension_request::<SpawnModuleEntityPort, _>(
         WIELDED_USE,
         "ambition_abilities",
-        crate::module_entity::lower_module_entity_spawns,
+        crate::module_entity::lower_module_entity_spawns::<InWieldedUse>,
+    );
+}
+
+/// Install the module-entity spawn and the effect in `technique_execution`: a
+/// move's special can put an entity on the stage (a plate) and announce it.
+pub fn install_for_technique_execution(app: &mut App) {
+    app.install_extension_request::<SpawnModuleEntityPort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_abilities",
+        crate::module_entity::lower_module_entity_spawns::<InTechniqueExecution>,
+    );
+    app.install_extension_request::<EffectPort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_abilities",
+        lower_effects::<InTechniqueExecution>,
     );
 }
 
 /// Install the module-entity trigger port and its request ports in
-/// `module_entity_tick`: a sound (a module entity is heard as itself), a pull,
-/// and the end of the entity.
+/// `module_entity_tick`: a sound (a module entity is heard as itself), an
+/// effect, a pull, a throw of a toucher, and the end of the entity.
 pub fn install_module_entities(app: &mut App) {
+    app.init_resource::<crate::module_entity::ModuleEntityTouchers>();
     app.install_extension_trigger::<ModuleEntityTickPort, _>(
         MODULE_ENTITY_TICK,
         "ambition_abilities",
         crate::module_entity::queue_module_entity_ticks,
+    );
+    app.install_extension_request::<EffectPort, _>(
+        MODULE_ENTITY_TICK,
+        "ambition_abilities",
+        lower_effects::<InModuleEntityTick>,
+    );
+    app.install_extension_request::<LaunchToucherPort, _>(
+        MODULE_ENTITY_TICK,
+        "ambition_abilities",
+        lower_toucher_launches,
     );
     app.install_extension_request::<BodySoundPort, _>(
         MODULE_ENTITY_TICK,
@@ -445,12 +474,12 @@ fn resolve_place(
     }
 }
 
-fn lower_effects(
+fn lower_effects<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
     mut vfx: ambition_vfx::vfx::VfxWriter,
     bodies: Query<(Option<&BodyKinematics>, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>)>,
 ) {
-    for submitted in outbox.drain::<EffectPort>(&WIELDED_USE) {
+    for submitted in outbox.drain::<EffectPort>(&L::PHASE) {
         let effect = submitted.value;
         let (kin, room) = bodies.get(submitted.scope).unwrap_or((None, None));
         let Some(pos) = resolve_place(effect.at, kin) else {
@@ -504,6 +533,34 @@ fn lower_hit_marks(
         };
         // Drawn in the live room of the body.
         vfx.for_room(room.map(|stamp| stamp.0)).write(ambition_vfx::vfx::VfxMessage::Impact { pos });
+    }
+}
+
+/// Lower `ambition.world.launch_toucher`: the named toucher of the entity's
+/// tick leaves at the asked velocity, set and not added.
+fn lower_toucher_launches(
+    mut outbox: ResMut<ExtensionOutbox>,
+    table: Res<crate::module_entity::ModuleEntityTouchers>,
+    mut bodies: Query<&mut BodyKinematics>,
+) {
+    for submitted in outbox.drain::<LaunchToucherPort>(&MODULE_ENTITY_TICK) {
+        let launch = submitted.value;
+        let toucher = table
+            .0
+            .iter()
+            .find(|(entity, _)| *entity == submitted.scope)
+            .and_then(|(_, touchers)| touchers.get(launch.toucher as usize).copied());
+        let Some(toucher) = toucher else {
+            warn!(
+                "extension entry {} asked toucher {} of {:?} to leave, which is not a toucher of its tick; refused",
+                submitted.entry, launch.toucher, submitted.scope
+            );
+            continue;
+        };
+        match bodies.get_mut(toucher) {
+            Ok(mut kin) => kin.vel = Vec2::from(launch.velocity),
+            Err(_) => warn!("extension entry {} asked {:?} to leave, which has no kinematics; refused", submitted.entry, toucher),
+        }
     }
 }
 

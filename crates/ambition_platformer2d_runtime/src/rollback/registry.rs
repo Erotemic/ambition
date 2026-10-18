@@ -55,7 +55,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 357 -> 358: `combat.ray_strike` is value-probed (its line and look):
 /// a held ray is cast again each tick, so presence alone could not find a
 /// replay that put it elsewhere.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 358;
+/// 358 -> 359: `smash.placed_spring` (`PlacedSpring`) leaves the rollback
+/// state. A plate is a module entity (`ability.module_entity`), whose value
+/// now also carries the box bodies touch and the spawn's params, and its
+/// clocks and uses are the module record `smash/spring.plate`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 359;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

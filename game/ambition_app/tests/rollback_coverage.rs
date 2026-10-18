@@ -2960,11 +2960,7 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
         let mut commands = world.commands();
         spawn_module_entity(
             &mut commands,
-            ModuleEntity {
-                kind: "sentry".into(),
-                pos: bevy::math::Vec2::new(96.0, 96.0),
-                remaining_s: 5.0,
-            },
+            ModuleEntity::point("sentry", bevy::math::Vec2::new(96.0, 96.0), 5.0),
             Spawner {
                 scope: SessionSpawnScope::UNSCOPED,
                 side: ActorFaction::Player,
@@ -2978,11 +2974,7 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
         // The vortex well, a module entity like the turret.
         spawn_module_entity(
             &mut commands,
-            ModuleEntity {
-                kind: "vortex".into(),
-                pos: bevy::math::Vec2::new(128.0, 96.0),
-                remaining_s: 1.9,
-            },
+            ModuleEntity::point("vortex", bevy::math::Vec2::new(128.0, 96.0), 1.9),
             Spawner {
                 scope: SessionSpawnScope::UNSCOPED,
                 side: ActorFaction::Player,

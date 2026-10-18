@@ -42,6 +42,20 @@ impl SaveRoad {
 /// out), never a reason to skip it on one peer.
 pub trait ModuleBackend: Send + Sync + 'static {
     fn invoke(&self, module: u32, entry: u32, input: &[u8]) -> Result<Vec<u8>, String>;
+
+    /// The number of the module `key` in this file's own list. A caller that
+    /// declares some of the file's modules, or declares them in another
+    /// order, still runs each module's own code: the number comes from the
+    /// file, by key, and not from the caller's list.
+    fn module_index(&self, key: &ModuleKey) -> Option<u32>;
+}
+
+/// The number of `key` in `backend`'s file. A descriptor that the file does
+/// not provide is a composition error.
+pub(crate) fn loaded_module_index(backend: &dyn ModuleBackend, artifact: &str, key: &ModuleKey) -> u32 {
+    backend
+        .module_index(key)
+        .unwrap_or_else(|| panic!("the loaded file {artifact} does not provide the module {key:?} declared from it"))
 }
 
 /// Where a declared module's code is.

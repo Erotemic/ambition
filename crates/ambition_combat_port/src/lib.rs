@@ -27,8 +27,8 @@ pub mod special;
 pub mod think;
 pub mod wielded;
 pub use module_entity::{
-    EndModuleEntity, EndModuleEntityPort, ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, PullBodies,
-    PullBodiesPort, SpawnModuleEntityPort,
+    EndModuleEntity, EndModuleEntityPort, LaunchToucher, LaunchToucherPort, ModuleEntitySpawn, ModuleEntityTick,
+    ModuleEntityTickPort, PullBodies, PullBodiesPort, SpawnModuleEntityPort,
 };
 pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
 pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort};

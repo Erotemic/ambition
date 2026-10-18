@@ -58,10 +58,10 @@ pub fn author_place_spring(mut spec: MoveSpec, at_s: f32, params: PlaceSpringPar
         spec.id,
         spec.duration_s,
     );
-    // `PlacedSpring` has no persistent sprite, so placement needs an authored cue.
+    // A plate has no persistent sprite, so placement needs an authored cue.
     assert!(
         !params.vfx.trim().is_empty(),
-        "move `{}` drops a plate that announces nothing — `PlacedSpring` draws no \
+        "move `{}` drops a plate that announces nothing — a plate draws no \
          sprite of its own, so a plate with no cue is an object the other player \
          is never told about",
         spec.id,

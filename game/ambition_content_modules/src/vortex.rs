@@ -84,6 +84,9 @@ fn cast(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         kind: ITEM.into(),
         at: center.into(),
         lifetime_s: BACKSTOP_S,
+        // The well pulls by its radius, not by a touch.
+        half_extents: [0.0, 0.0],
+        params: Vec::new(),
     })?;
     inv.submit::<ambition_combat_port::BodySoundPort>(ambition_combat_port::BodySound {
         cue: "player.blink".into(),

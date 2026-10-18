@@ -589,7 +589,15 @@ loses a real read of the floor. Lead: the fixture teleports the CPU (`kin.pos`, 
 and observes 60 ticks. Under the delayed view the brain sees its
 pre-teleport position for about 18 of them. Measured on main: bare and closed
 first diverge at tick 25, after that window, so the stale teleport alone does
-not explain it. Under the probe they never diverge in 60 ticks.
+not explain it. Under the probe they never diverge in 60 ticks. Traced under the kinematics-only
+probe (`AMBITION_FIGHTER_TRACE=1`): the CPU knows its teleported position at
+once and air-dodges home (x 40 → 83 → 120 within three decisions), reaching the
+stage before the gate floor can matter. So the closed and bare runs are equal.
+The fixture's premise is a CPU slow to notice its own teleport, which is what
+the probe removes; it would need the CPU placed out of reach of home. The trace
+also shows the hazard of a partial copy: `ground=true` at x 40 over the void (a
+live position beside a stale grounded flag). A real version takes the body's
+own motion facts live together.
 
 Totals over one minute each, one seed. The eight fighters with a true baseline:
 32 → 25 (Sanic 14 → 12, item 2). The other fifteen were first measured after

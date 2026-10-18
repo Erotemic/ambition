@@ -610,6 +610,55 @@ old code, a poison, and its own commit.
    `GeometryStamps` keeps each stamp by its `GeometryRevision`.
    `a_room_is_stamped_again_only_when_its_geometry_is_written`.
 
+### REVIEW-1018B - the deeper review of the same 48 hours
+
+**Owner:** each finding's crate, named below. A second, deeper review of
+the same commits (read on the `c6aac5c` snapshot). Each finding was read
+again on HEAD first; three were already fixed by REVIEW-1018.
+
+1. ✅ **P1, the partition budget, refused cuts and the step limit.** The
+   budget already held on the parts of an accepted and a refused cut
+   (REVIEW-1018 item 2). Left: a piece kept whole (the refused cut's parts
+   would pass the budget, or the step limit) was recorded and logged as
+   "its opening is solid to it". `Refusal::whole` says which policy kept
+   it; the page states both (45055668e).
+2. ✅ **P1, the autopilot's geometry identity.** Fixed by REVIEW-1018 item 1
+   (`GraphInputs`: one revision for the shared geometry, the overlay's
+   still parts and the exits compared whole). Other navigation paths
+   stamp by `GeometryRevision` (item 6).
+3. ✅ **P2, a ranked sibling was cut with the asking volume's anchor,
+   carrier and room.** Each ranked volume is placed once a tick by its own
+   (`place`). Also the victim's kept pieces were cut with the first
+   strike's passages filter; now with the victim's own.
+   `a_ranked_sibling_is_placed_by_its_own_anchor` (f4c1c969c).
+4. ✅ **P2, a host picture took the first limb the query met.** Now the
+   deepest limb's pair, in any order
+   (`a_host_with_limbs_in_two_pairs_is_cut_by_the_deepest_in_any_order`,
+   672a83406). Several cuts at once is the interface change
+   PORTAL-HOST-LIMBS.
+5. ✅ **P2, terrain skin transitions.** Art removal and the fill size were
+   REVIEW-1018 items 3 and 4. Left: Laid or OwnFill to Untouched kept the
+   cleared sprite or the fill. The skin keeps what it took
+   (`SkinTookSprite`) and gives it back.
+   `a_block_draws_as_its_skin_says_after_each_change` (10fc31f2a).
+6. ✅ **P2, Wolfenstein's lash started twice** (`t < dt * 1.5` is true on
+   the first two striking ticks), so it cast two rays and the second had
+   no memory of the first one's hits. The onset is `fresh`.
+   `one_lash_is_one_ray` (40bc78bfc).
+7. ✅ **P2, the sprite watch missed a tier written after it began.** An
+   absent tier is awaited from the folder above it.
+   `a_tier_written_after_the_watch_began_is_watched` (9202a3105).
+8. ✅ **P2, a small positive decor spacing hung the skin.** A step is at
+   least a quarter of a decor (5b382b9e9).
+9. ✅ **P3, Mary-O's dresser missed removed art.** Removed `EntityArt` is
+   an input (aa2c4844a).
+10. Efficiency: `cuts_in` and the per-tick stamp were REVIEW-1018 items 5
+    and 6. ✅ Flight A* passes over a replaced open entry: 4.1 to 3.6 ms a
+    route on a release bench, the same routes (ffa919b6d).
+11. The fighter's self-view without the reaction delay is Q167 in
+    `awaiting-maintainer-decision.md` (filed 2026-10-18), with its revised
+    control.
+
 ### REVIEW-1014 - sprite cache dependencies and rest-row precedence from the 2026-10-14 review
 
 **Owner:** the sprite publish (`scripts/regen/sprites.sh`) and
@@ -1147,7 +1196,11 @@ not take, and the test counted hidden quads. It counts the quads that draw now.
 `run_tests.py` runs these tests (`ambition_render — its tests behind its own
 features`, which turns on `portal_render`); the pre-push lane (content lib, the
 demo binaries, app_it) does not, so a slice that touches the compositor runs
-them by name.
+them by name. The same day `ambition_platformer2d_host`'s own-features run
+was red as well (`the_host_projects_the_active_rooms_portal_rules`: its
+fixture did not register `PortalBodyTransited` and `GroundItemsView`, which
+the plugin reads); repaired in 672a83406. Both libs with `portal_render`
+take seconds: run them before a push that touches portals.
 
 **Sanic's visible job, 2026-10-17 (RED, inherited):** `cargo test -p
 ambition_demo_sanic_app --features capture,input,perf_probe,visible`: 59
@@ -2057,6 +2110,25 @@ one pane): 64.9 µs a frame, against 34.7 µs for the old rule, which took
 only the 100 marked ones; with no pane 16.3 µs against 24.7 µs. A candidate
 that stays one is written in place: an insert command for each was 179 µs. **Open:** an effect is still not cut at a crossing
 (the transit pieces, `sync_portal_body_pieces`, take only bodies).
+
+### PORTAL-HOST-LIMBS — a host's picture takes one cut, though its limbs can be in several pairs
+
+**Owner:** `ambition_platformer2d_host` (`publish_threaded_host_pictures`)
+and `ambition_portal2d_presentation` (`visuals.rs`, the pieces of a visual
+with a `PortalHostReach`).
+
+**Current (read 2026-10-18, REVIEW-1018B item 4):** the adapter gathers
+each limb that carries its host's picture into a pair, and the visual
+takes one `PortalTransitView` and one `PortalHostReach`: the deepest limb's
+pair (672a83406). With two limbs in two pairs at once, the second limb's
+part of the picture is drawn where it is. No shipped host does that yet
+(Gnu-ton's punch is one fist through one pair).
+
+**Next:** publish the set of (link, reach) of a host, and cut its picture
+with the shared partitioner (each link to its reach), as a body's pieces
+are cut. Not a case for two limbs: that is the same limit at three.
+Witness: two limbs in two pairs, each part of the picture at its own far
+end.
 
 ### DOG-THROUGH-THE-DOOR — a roaming dog's door test measured a distance
 

@@ -876,10 +876,24 @@ scripts/profile_android.sh heap --no-launch --duration 30 --heap-sampling-interv
 
 ## Quick recipes
 
+**An unattended desktop profile of Ambition.** The game plays itself, the
+same rooms in the same order every run: into the hall of characters and
+across it, out, to the primeval trail, a flight through the trail over its
+dinosaurs and across the tyrant's hall, a flight back to the hub, and again.
+
+```bash
+scripts/profile_desktop.sh --autoplay --duration 120   # a bundle, scenario `ambition-autoplay`
+./run_game.sh --autoplay profiling                     # just watch it
+```
+
+`--autoplay` sets `AMBITION_AUTOPLAY=ambition` and
+`AMBITION_BOOT_ROUTE=ambition_gameplay` (an explicit value wins). The
+itinerary is `ITINERARY` in `game/ambition_content/src/autoplay.rs`.
+
 **An unattended phone profile of one game in the hub.** One command:
 
 ```bash
-scripts/autoprofile_android.sh            # Ambition: a tour of the world by its doors
+scripts/autoprofile_android.sh            # Ambition: the hall of characters, then a flight through the primeval trail
 scripts/autoprofile_android.sh mary_o     # Mary-O: the cosmic form, to each goal
 ```
 

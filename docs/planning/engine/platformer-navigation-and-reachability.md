@@ -383,6 +383,33 @@ and rolled out in the kernel with the platform at its predicted positions.
 OPEN: graph build cost on the phone (8,205 rollouts for 1-2); baking graphs at
 content build stays the direction.
 
+## Flight that stays in the air (2026-10-17)
+
+Customer: Ambition's profiling itinerary (Jon, 2026-10-17: walk into the hall
+of characters and out, then "navigate to and fly through the dinosaur level";
+asked, he chose real flight as a navigation capability that NPCs can use
+later, over walking the trail).
+
+| Part | Where |
+| --- | --- |
+| The air of a room | `world::navigation::flight::FlightMap`: a grid (`FLIGHT_CELL`, 8 px) of the places a flying body's centre can be, clear of each block (a hazard by a wider margin), of the exits and of the room's edge, each with its chamfer clearance. Built with the room's `NavGraph` (`graph.flight`), in the same task and cache, for a body with `fly`. |
+| Its law | `ae::navigation::FlightLaw`, measured in the kernel in open air: the speed a full stick holds, and the braking with the stick let go. |
+| A route | `FlightMap::route`: A* over the free cells, each step weighted by how near a wall it is (`PREFERRED_CLEARANCE` 96 px), so a flight keeps to the middle of the air, over what walks on the floor. Then cut to straight parts, each as clear as the cells it stands for. Reuses a `FlightSearch`'s buffers. |
+| The follower | `ae::navigation::follow_flight`: the stick asks for a velocity along the route, at the speed from which the body can still slow, by its braking, for each turn and stop at the end. `LegInput::axis_down` carries the analog vertical stick. |
+| The autopilot | `NavGoal::Fly(centre)`: take off (a toggle press at most each `TOGGLE_FRAMES`), plan when the goal or room is new or the flight has come no nearer for `FLIGHT_STALL_FRAMES`, fly. A `Stand` goal lands first, unless a fly leg of the surface graph is under way. |
+
+Measured: the tests in `flight/tests.rs` fly the route in the kernel (over a
+wall; across an open room, clear of the floor). The itinerary in
+`game/ambition_content/src/autoplay.rs`, run through `capture_scene --route
+ambition_gameplay`, looped three times in 9,000 frames: the six trail rooms
+flown both ways, the tyrant hall crossed.
+
+NOT MODELLED: a route is not rolled out in the kernel before it is flown (a
+stuck flight plans again instead); the bodies in the air (the swallows); a
+block that moves; water. OPEN, not flight: in the hub, a Drop leg off the
+hall's floor catches on a wall face in the air and stalls about 2 s before
+the follower plans again.
+
 ## The cross-room slices: a character fetches an item from another room (design, 2026-10-09)
 
 The queue's NAVIGATION row asks for a character that sees an item in another

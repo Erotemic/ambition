@@ -672,15 +672,20 @@ mod tests {
         assert_eq!(drawn(&mut app), two, "a room whose visuals were taken was not drawn again, or another room was drawn twice");
     }
 
-    /// Non-vacuity check for the tests above: a tier that wants no parallax
-    /// settles both memos on frame one. If the room memo could never settle, the
-    /// first test would pass for the wrong reason.
+    /// Non-vacuity check for the tests above: a tier that wants no parallax,
+    /// in a theme whose flat backdrop was tried and has no art, settles both
+    /// memos on frame one. If the room memo could never settle, the first test
+    /// would pass for the wrong reason. (A tier with no parallax draws the flat
+    /// backdrop, so it waits for it as another tier waits for its layers.)
     #[test]
     fn a_tier_that_wants_no_parallax_settles_both_memos_at_once() {
         let (mut app, _) = app_with_an_active_session();
         let mut quality = crate::quality::ResolvedVisualQuality::default();
         quality.budget.parallax.enabled = false;
         app.insert_resource(quality);
+        app.insert_resource(crate::rendering::ParallaxThemeAttempts {
+            without_art: ambition_sprite_sheet::game_assets::ParallaxTheme::ALL.to_vec(),
+        });
         app.update();
 
         assert!(room_visuals(&mut app) > 0, "the room is drawn");

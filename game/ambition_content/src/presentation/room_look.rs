@@ -345,6 +345,48 @@ fn show_two_state_skins(
     }
 }
 
+/// Out of budget the sky is the flat backdrop of the room's theme
+/// (`ParallaxLayerAsset::Flat`), one picture fixed to the view. A two-state
+/// room shows the flat backdrop of the state the middle of the view is in, so
+/// the sky changes with the room on a tier with no shader too.
+fn show_two_state_backdrop(
+    quality: Option<Res<ResolvedVisualQuality>>,
+    assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
+    save: Option<Res<AmbitionGameSave>>,
+    rooms: LiveRoomSpecs,
+    spreads: Query<(&InRoomInstance, &RoomLookSpread)>,
+    mut panels: Query<(&InRoomInstance, &Transform, &mut Sprite), With<ambition_render::rendering::ParallaxLayerVisual>>,
+) {
+    use ambition_sprite_sheet::game_assets::ParallaxLayerAsset;
+    if draws_looks(quality.as_deref()) {
+        return;
+    }
+    let Some(assets) = assets else {
+        return;
+    };
+    let flat = |theme| assets.parallax_layers.get(theme, ParallaxLayerAsset::Flat);
+    let (Some(clean), Some(corrupted)) = (flat(ParallaxTheme::HubClean), flat(ParallaxTheme::HubCorrupt)) else {
+        return;
+    };
+    for (stamp, transform, mut sprite) in &mut panels {
+        if sprite.image != *clean && sprite.image != *corrupted {
+            continue;
+        }
+        let Some((_, definition)) = rooms.live_rooms().find(|(room, _)| *room == stamp.0) else {
+            continue;
+        };
+        let spec = rooms.rooms().spec(definition);
+        let world = &spec.world;
+        let advance = advance_of(&spreads, stamp, spec, save.as_deref());
+        // The panel is over the camera; the room is drawn centred on the origin, y up.
+        let at = ae::Vec2::new(transform.translation.x + world.size.x * 0.5, world.size.y * 0.5 - transform.translation.y);
+        let wanted = if behind_front(world, at, advance) > 0.0 { corrupted } else { clean };
+        if sprite.image != *wanted {
+            sprite.image = wanted.clone();
+        }
+    }
+}
+
 /// How far behind the play the sky of the two-state look is drawn.
 ///
 /// The play is sharp and clear. The sky is behind it, and it reads so when it
@@ -569,6 +611,7 @@ pub fn install(app: &mut App) {
             .run_if(resource_exists::<Assets<ColorMaterial>>)
             .run_if(resource_exists::<Assets<RoomSkinMaterial>>),
     );
+    app.add_systems(Update, show_two_state_backdrop);
     install_look::<RoomStateMaterial>(app);
     install_look::<RoomBlueprintMaterial>(app);
     app.init_resource::<RoomLookDepth>()

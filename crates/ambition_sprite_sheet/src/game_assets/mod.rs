@@ -437,6 +437,11 @@ pub enum ParallaxLayerAsset {
     /// drawn in front of the play. A theme with no foreground publishes an
     /// empty picture for it.
     Foreground,
+    /// The one picture a tier that draws no parallax shows behind the play,
+    /// fixed to the view: the layers behind the play as a view at the middle
+    /// of the room shows them, made small (`scenes.flat` in the art
+    /// submodule).
+    Flat,
 }
 
 impl ParallaxLayerAsset {
@@ -446,7 +451,24 @@ impl ParallaxLayerAsset {
         Self::NearBackground,
         Self::ForegroundAtmosphere,
         Self::Foreground,
+        Self::Flat,
     ];
+
+    /// The layers a tier that draws parallax draws, back to front.
+    pub const STACK: &'static [Self] = &[
+        Self::Sky,
+        Self::FarBackplate,
+        Self::NearBackground,
+        Self::ForegroundAtmosphere,
+        Self::Foreground,
+    ];
+
+    /// Whether a tier with `budget` draws this layer: the stack where parallax
+    /// is drawn, the flat backdrop where it is not. With no budget, the stack.
+    pub fn drawn_by(self, budget: Option<&VisualQualityBudget>) -> bool {
+        let parallax = budget.is_none_or(|budget| budget.parallax.enabled);
+        (self == Self::Flat) != parallax
+    }
 
     pub const fn key(self) -> &'static str {
         match self {
@@ -455,6 +477,7 @@ impl ParallaxLayerAsset {
             Self::NearBackground => "near_background",
             Self::ForegroundAtmosphere => "foreground_atmosphere",
             Self::Foreground => "foreground",
+            Self::Flat => "flat",
         }
     }
 
@@ -490,7 +513,9 @@ impl ParallaxLayerSet {
         quality: Option<&VisualQualityBudget>,
     ) -> usize {
         let mut added = 0usize;
-        for &layer in ParallaxLayerAsset::ALL {
+        // Only what the tier draws: a tier with no parallax decoded each layer
+        // of the stack and drew none of them.
+        for &layer in ParallaxLayerAsset::ALL.iter().filter(|layer| layer.drawn_by(quality)) {
             if self.handles.contains_key(&(theme, layer)) {
                 continue;
             }
@@ -514,6 +539,14 @@ impl ParallaxLayerSet {
             added += 1;
         }
         added
+    }
+
+    /// Whether a layer of `theme` that a tier with `quality` draws is resident.
+    pub fn has_drawn_layers(&self, theme: ParallaxTheme, quality: Option<&VisualQualityBudget>) -> bool {
+        ParallaxLayerAsset::ALL
+            .iter()
+            .filter(|layer| layer.drawn_by(quality))
+            .any(|layer| self.handles.contains_key(&(theme, *layer)))
     }
 
     /// Drop every layer handle whose theme `keep` rejects; returns how many
@@ -806,7 +839,7 @@ mod parallax_residency_tests {
         let app = asset_app();
         let catalog = packaged_catalog();
         let asset_server = app.world().resource::<AssetServer>().clone();
-        let per_theme = ParallaxLayerAsset::ALL.len();
+        let per_theme = ParallaxLayerAsset::STACK.len();
 
         let mut set = ParallaxLayerSet::default();
         assert!(set.is_empty(), "a fresh set holds nothing");

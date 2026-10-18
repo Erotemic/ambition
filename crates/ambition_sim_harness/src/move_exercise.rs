@@ -53,6 +53,9 @@ pub struct Verb {
     /// Jump first, and CONFIRM the apex. An aerial pressed from the ground
     /// reaches the grounded chain instead and performs the wrong move.
     pub airborne: bool,
+    /// Run first: a dash attack is the attack pressed out of a run, and from a
+    /// standstill the same press is a tilt.
+    pub run_up: bool,
 }
 
 impl Verb {
@@ -116,6 +119,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 0.0,
         button: Button::Attack,
         airborne: false,
+        run_up: false,
     },
     Verb {
         verb: "attack_forward",
@@ -124,6 +128,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 0.0,
         button: Button::Attack,
         airborne: false,
+        run_up: false,
     },
     Verb {
         verb: "attack_up",
@@ -132,6 +137,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: -1.0,
         button: Button::Attack,
         airborne: false,
+        run_up: false,
     },
     Verb {
         verb: "attack_down",
@@ -140,6 +146,16 @@ pub const VERBS: &[Verb] = &[
         axis_y: 1.0,
         button: Button::Attack,
         airborne: false,
+        run_up: false,
+    },
+    Verb {
+        verb: "attack_dash",
+        label: "Dash attack",
+        axis_x: 1.0,
+        axis_y: 0.0,
+        button: Button::Attack,
+        airborne: false,
+        run_up: true,
     },
     Verb {
         verb: "smash_forward",
@@ -148,6 +164,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 0.0,
         button: Button::Smash,
         airborne: false,
+        run_up: false,
     },
     Verb {
         verb: "smash_up",
@@ -156,6 +173,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: -1.0,
         button: Button::Smash,
         airborne: false,
+        run_up: false,
     },
     Verb {
         verb: "smash_down",
@@ -164,6 +182,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 1.0,
         button: Button::Smash,
         airborne: false,
+        run_up: false,
     },
     Verb {
         verb: "attack_air",
@@ -172,6 +191,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 0.0,
         button: Button::Attack,
         airborne: true,
+        run_up: false,
     },
     Verb {
         verb: "attack_air_forward",
@@ -180,6 +200,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 0.0,
         button: Button::Attack,
         airborne: true,
+        run_up: false,
     },
     Verb {
         verb: "attack_air_back",
@@ -188,6 +209,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 0.0,
         button: Button::Attack,
         airborne: true,
+        run_up: false,
     },
     Verb {
         verb: "attack_air_up",
@@ -196,6 +218,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: -1.0,
         button: Button::Attack,
         airborne: true,
+        run_up: false,
     },
     Verb {
         verb: "attack_air_down",
@@ -204,6 +227,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 1.0,
         button: Button::Attack,
         airborne: true,
+        run_up: false,
     },
     Verb {
         verb: "special",
@@ -212,6 +236,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 0.0,
         button: Button::Special,
         airborne: false,
+        run_up: false,
     },
     Verb {
         verb: "special_forward",
@@ -220,6 +245,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 0.0,
         button: Button::Special,
         airborne: false,
+        run_up: false,
     },
     // ⭐ THE UP-B IS RECORDED FROM THE AIR, which is the only place it is the
     // move Jon is asking about. A grounded up-B answers the same press and shows
@@ -231,6 +257,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: -1.0,
         button: Button::Special,
         airborne: true,
+        run_up: false,
     },
     Verb {
         verb: "special_down",
@@ -239,6 +266,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 1.0,
         button: Button::Special,
         airborne: false,
+        run_up: false,
     },
     Verb {
         verb: "special_air_down",
@@ -247,6 +275,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 1.0,
         button: Button::Special,
         airborne: true,
+        run_up: false,
     },
     Verb {
         verb: "grab",
@@ -255,6 +284,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 0.0,
         button: Button::Grab,
         airborne: false,
+        run_up: false,
     },
     Verb {
         verb: "taunt",
@@ -263,6 +293,7 @@ pub const VERBS: &[Verb] = &[
         axis_y: 0.0,
         button: Button::Taunt,
         airborne: false,
+        run_up: false,
     },
 ];
 
@@ -485,6 +516,25 @@ pub fn step(app: &mut App, frame: ControlFrame) {
 /// reverses resolves FORWARD, because the gesture resolver reads `-facing` while
 /// a turnaround runs. Holding DOWN for the same settle would fast-fall.
 pub fn prepare(app: &mut App, verb: &Verb) -> bool {
+    if verb.run_up {
+        // Toward the way she faces until the body says it is RUNNING. ASK, DO
+        // NOT COUNT: a body that accelerates slowly (Mary-O) was still in its
+        // initial dash after 20 ticks, and the press came out as her tilt.
+        for _ in 0..RUN_UP_TICKS {
+            let aim = facing_of(app);
+            step(
+                app,
+                ControlFrame {
+                    axis_x: aim.signum(),
+                    ..Default::default()
+                },
+            );
+            if running(app) {
+                return true;
+            }
+        }
+        return running(app);
+    }
     if !verb.airborne {
         return true;
     }
@@ -513,6 +563,19 @@ pub fn prepare(app: &mut App, verb: &Verb) -> bool {
 
 /// How long a horizontal aim settles before the press.
 const AIM_TICKS: usize = 8;
+
+/// The most a dash attack runs before its press.
+const RUN_UP_TICKS: usize = 90;
+
+/// Is seat 0 running (the state a dash attack is pressed out of)?
+pub fn running(app: &mut App) -> bool {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        &ambition_platformer2d::actor::BodyMotionFacts,
+    )>();
+    q.iter(world).any(|(seat, facts)| seat.0 == 0 && facts.running)
+}
 
 /// Jump, and wait until the world says the body has left the ground.
 ///
@@ -1298,6 +1361,7 @@ mod staging_failure_tests {
             axis_y,
             button: Button::Attack,
             airborne,
+            run_up: false,
         }
     }
 

@@ -1145,8 +1145,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (24.0, -2.0),
-                                                half_extents: (16.0, 20.0),
+                                                offset: (34.0, -2.0),
+                                                half_extents: (24.0, 18.0),
                                             ),
                                             damage: 9,
                                             knockback: 97.5,

@@ -178,7 +178,7 @@
                             id: "jab",
                             display_name: None,
                             clip: (
-                                clip: "attack_side",
+                                clip: "jab",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -636,8 +636,9 @@
                             id: "smash_up",
                             display_name: None,
                             clip: (
-                                clip: "attack_up",
+                                clip: "smash_up",
                                 fallbacks: [
+                                    "attack_up",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -724,8 +725,9 @@
                             id: "smash_down",
                             display_name: None,
                             clip: (
-                                clip: "attack_down",
+                                clip: "smash_down",
                                 fallbacks: [
+                                    "attack_down",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -818,7 +820,7 @@
                             id: "air_neutral",
                             display_name: None,
                             clip: (
-                                clip: "attack_side",
+                                clip: "air_neutral",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -903,7 +905,7 @@
                             id: "air_forward",
                             display_name: None,
                             clip: (
-                                clip: "attack_side",
+                                clip: "air_forward",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -988,7 +990,7 @@
                             id: "air_back",
                             display_name: None,
                             clip: (
-                                clip: "attack_side",
+                                clip: "air_back",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -1073,8 +1075,9 @@
                             id: "air_up",
                             display_name: None,
                             clip: (
-                                clip: "attack_up",
+                                clip: "air_up",
                                 fallbacks: [
+                                    "attack_up",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1160,8 +1163,9 @@
                             id: "air_down",
                             display_name: None,
                             clip: (
-                                clip: "attack_down",
+                                clip: "air_down",
                                 fallbacks: [
+                                    "attack_down",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1383,8 +1387,9 @@
                             id: "convergence",
                             display_name: None,
                             clip: (
-                                clip: "special",
+                                clip: "convergence",
                                 fallbacks: [
+                                    "special",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1552,8 +1557,9 @@
                             id: "slick_dash",
                             display_name: None,
                             clip: (
-                                clip: "special",
+                                clip: "special_side",
                                 fallbacks: [
+                                    "special",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1677,8 +1683,9 @@
                             id: "oil_geyser",
                             display_name: None,
                             clip: (
-                                clip: "special",
+                                clip: "special_up",
                                 fallbacks: [
+                                    "special",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1868,8 +1875,9 @@
                             id: "pressure_vent",
                             display_name: None,
                             clip: (
-                                clip: "special",
+                                clip: "special_down",
                                 fallbacks: [
+                                    "special",
                                     "attack_side",
                                     "attack",
                                     "slash",

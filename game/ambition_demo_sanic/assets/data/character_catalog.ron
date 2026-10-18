@@ -34,6 +34,8 @@
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
+            // Its strikes draw its own sheet (`sanic_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("sanic_strike_fx"),
             tags: ["player"],
             // What this body may do. A row with no grants falls back to the
             // dev sandbox set (`EditableAbilitySet::default()` is

@@ -187,6 +187,8 @@
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
+            // Its strikes draw its own sheet (`mary_o_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("mary_o_strike_fx"),
             abilities: Some([RunJump]),
             axis_tuning_preset: Some("classic"),
             max_health: Some(1),

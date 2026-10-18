@@ -59,7 +59,11 @@
         // 62% multiplies every cell by 1.248). A launch past the tumble
         // threshold is not a ring-out, so calibrate on the stage's knockout
         // verdict.
-        victim_percent_knockback_scale: Some(1.25),
+        //
+        // 2026-10-18: back to 1.0. With `base_knockback_scale` below, the 700%
+        // stale jab converts unaided, so the multiplier is unearned (the
+        // ring_out guards in `smash_in_the_host` say so and pick the value).
+        victim_percent_knockback_scale: Some(1.0),
         // Kill moves are authored explicitly, not inferred. Base knockback is
         // not role: a growth curve on base knockback overrode authored
         // `knockback_growth`, distorted deliberate high-base, low-growth
@@ -68,6 +72,30 @@
         // 0.020), derived from measured stage thresholds
         // (G_new = G_old * p0/p1 for strikes, * (p0+d)/(p1+d) for throws).
         growth_base: None,
+        // How hard a hit throws a fresh body: the growing launch's base, times
+        // this. Without it a tilt at 0% slid the victim 2-4 px and left the
+        // attacker 12 frames behind ON HIT, and an up tilt lifted a body 1 px:
+        // kills were calibrated through growth alone, so everything below kill
+        // percent was a nudge. Measured over the 23-fighter roster
+        // (`ko_envelope feel`, with the Sakurai angle, tumble at 300 and the
+        // percent scale at 1.0): 2.5 puts the forward smash's median KO at
+        // 100% and the down smash's at 120% (Ultimate: 88-104, 124-152), and a
+        // tilt at 0% is even to 3 frames behind on hit (was 11), an up tilt
+        // lifting its victim 11 px (was 1).
+        base_knockback_scale: Some(2.5),
+        // The Sakurai angle: a near-horizontal launch slides a grounded body
+        // flat under a weak hit, is lifted to the full angle by a strong one,
+        // and always leaves an airborne body at the full angle (Ultimate's
+        // `361`: flat to KB 60, 38 degrees from KB 88, tumble above KB 80).
+        // The speeds are those ratios of this stage's tumble line (300). With
+        // it, a forward smash at 60% rises 34 px where it rose 16.
+        sakurai_angle: Some((flat_below: 225.0, full_at: 330.0, angle_deg: 38.0)),
+        // A hit area drawn by a character's art is at least this much of its
+        // owner's height across, each way. Sheets draw their areas pixel-true
+        // round the limb, so a jab or a tilt was a sliver (down to 0.03 of a
+        // body height squared, where the authored volumes are near 0.35). Only
+        // the slivers grow.
+        art_hit_area_min: Some(0.5),
         // Crouch cancel, 0.85x: a defensive read at low percent that does not
         // save anyone from a kill move.
         crouch_cancel_scale: 0.85,

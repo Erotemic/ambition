@@ -841,7 +841,7 @@ fn smashs_rules_are_its_room_rules_file() {
 
     assert_eq!(rules_of(&authored), crate::smash_room_rules(), "the game plays the file");
 
-    let scale = "victim_percent_knockback_scale: Some(1.25),";
+    let scale = "victim_percent_knockback_scale: Some(1.0),";
     assert_eq!(authored.matches(scale).count(), 1, "the probe edits one line of the file");
     let edited = rules_of(&authored.replace(scale, "victim_percent_knockback_scale: Some(1.5),"));
     assert_eq!(edited.combat.and_then(|combat| combat.victim_percent_knockback_scale), Some(1.5));

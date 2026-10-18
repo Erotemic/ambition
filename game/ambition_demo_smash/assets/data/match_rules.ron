@@ -122,11 +122,15 @@
         dodge_stale_floor: 0.34,
         dodge_stale_recovery: 1.2,
         // A kill-power hit cannot be teched. Keep this well above the tumble
-        // threshold (500 px/s) so ordinary launches keep their tech.
+        // threshold (300 px/s) so ordinary launches keep their tech.
         untechable_launch_speed: 1400.0,
         // An evade can cancel into an attack only in its last four frames.
         evade_cancel_tail: 0.06666667,
-        tumble_speed: 500.0,
+        // A launch this fast tumbles. Ultimate tumbles at about 40% of the
+        // launch that kills; this stage kills sideways at about 750, and at
+        // 500 no tilt tumbled by 150%. At 300 tilts tumble from about 100%,
+        // aerials from 20-60%, smashes from 0-20%.
+        tumble_speed: 300.0,
         // Spot dodge, 0.16 s: shorter than the roll because it covers no
         // distance. The engine default is 0.0, so an exploration body keeps
         // the roll.

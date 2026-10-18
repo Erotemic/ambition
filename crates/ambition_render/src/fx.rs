@@ -607,11 +607,19 @@ fn draw_effect_clip(
         [effect.name],
         ambition_sprite_sheet::character::CharacterAnim::Idle,
     );
+    // A packed sheet trims each frame to its own rect. The quad above is the
+    // LOGICAL frame; each drawn frame takes its own size and place inside it
+    // (`trimmed_frame`), or a frame trimmed to an 8 px dot is stretched over
+    // the whole effect as a solid square.
+    animator.ensure_render_basis(render_size, BVec2::ZERO);
+    let mut anchor = bevy::sprite::Anchor::CENTER;
+    trimmed_frame(&mut sprite, &mut anchor, &animator, pose.mirror);
     commands.spawn_session_scoped(
         session_scope,
         (
             Name::new(format!("VFX effect: {}", effect.name)),
             sprite,
+            anchor,
             Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX + 6.0))
                 .with_rotation(Quat::from_rotation_z(pose.angle)),
             animator,
@@ -702,6 +710,24 @@ pub fn update_speech_bubbles(
     }
 }
 
+/// Size and place `sprite` for the animator's current frame: a trimmed frame
+/// draws its own rect where it sits in the logical frame. An untrimmed sheet
+/// keeps the quad it was given.
+fn trimmed_frame(
+    sprite: &mut Sprite,
+    anchor: &mut bevy::sprite::Anchor,
+    animator: &CharacterAnimator,
+    mirror: bool,
+) {
+    if let Some((size, mut at)) = animator.current_render() {
+        sprite.custom_size = Some(size);
+        if mirror {
+            at.x = -at.x;
+        }
+        anchor.0 = at;
+    }
+}
+
 pub fn update_effects(
     mut commands: Commands,
     time: Res<Time>,
@@ -712,10 +738,11 @@ pub fn update_effects(
         &mut Transform,
         &mut Sprite,
         &mut CharacterAnimator,
+        Option<&mut bevy::sprite::Anchor>,
     )>,
 ) {
     let dt = time.delta_secs();
-    for (entity, mut fx, mut transform, mut sprite, mut animator) in &mut query {
+    for (entity, mut fx, mut transform, mut sprite, mut animator, anchor) in &mut query {
         fx.age += dt;
         if fx.age >= fx.duration {
             commands.entity(entity).despawn();
@@ -724,6 +751,10 @@ pub fn update_effects(
         let index = animator.tick(dt);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;
+        }
+        if let Some(mut anchor) = anchor {
+            let mirror = sprite.flip_x;
+            trimmed_frame(&mut sprite, &mut anchor, &animator, mirror);
         }
         let t = (fx.age / fx.duration).clamp(0.0, 1.0);
         let alpha = match fx.fade {

@@ -2682,6 +2682,55 @@ struct FeelTrial {
 /// victim stun minus hitlag minus the attacker's frames from first active to
 /// the move's end; positive = the attacker acts first. An aerial's advantage
 /// ignores its landing lag and is printed but not meaningful.
+/// `selfko FIGHTER [ticks=3600]`: seat FIGHTER as a CPU against a seat 0 that
+/// never presses anything, and report every stock it loses. Nothing can hit it,
+/// so each loss is a self-KO; the line says where the body was the tick before.
+fn run_selfko() {
+    use ambition_platformer2d::actor::{BodyKinematics, FighterStocks};
+    use ambition_platformer2d::characters::actor::BodyHealth;
+
+    let argv: Vec<String> = std::env::args().collect();
+    let ticks: usize = argv
+        .iter()
+        .find_map(|a| a.strip_prefix("ticks="))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(3600);
+    let fighter = argv
+        .iter()
+        .skip_while(|a| a.as_str() != "selfko")
+        .nth(1)
+        .filter(|a| !a.contains('='))
+        .map_or("npc_pirate_admiral", String::as_str);
+    let probe_stage::Staged { mut app, seat1, .. } = probe_stage::stage(probe_stage::StageRequest {
+        cast: ["player_robot_v3", fighter],
+        demo_host: false,
+        rendered: false,
+    });
+    if let Some(mut stocks) = app.world_mut().get_mut::<FighterStocks>(seat1) {
+        stocks.remaining = 9_999;
+        stocks.started_with = 9_999;
+    }
+    let mut last = (0.0f32, 0.0f32, 0.0f32);
+    let mut remaining = 9_999u32;
+    let mut losses = Vec::new();
+    for tick in 0..ticks {
+        app.update();
+        let w = app.world();
+        let Some(stocks) = w.get::<FighterStocks>(seat1) else {
+            println!("# selfko: {fighter}'s body left the match at tick {tick}");
+            break;
+        };
+        if stocks.remaining < remaining {
+            losses.push(format!("t{tick}@({:.0},{:.0}) {:.0}%", last.0, last.1, last.2 * 100.0));
+            remaining = stocks.remaining;
+        }
+        if let (Some(kin), Some(health)) = (w.get::<BodyKinematics>(seat1), w.get::<BodyHealth>(seat1)) {
+            last = (kin.pos.x, kin.pos.y, health.damage_percent());
+        }
+    }
+    println!("selfko\t{fighter}\t{ticks}\t{}\t{}", losses.len(), losses.join(" "));
+}
+
 fn run_feel() {
     let argv: Vec<String> = std::env::args().collect();
     let pcts: Vec<i32> = argv
@@ -2781,6 +2830,10 @@ fn main() {
     // Before `probe`, like `contact`: this says why throw rows refuse.
     if std::env::args().any(|a| a == "throwdiag") {
         run_throw_diag();
+        return;
+    }
+    if std::env::args().any(|a| a == "selfko") {
+        run_selfko();
         return;
     }
     if std::env::args().any(|a| a == "feel") {

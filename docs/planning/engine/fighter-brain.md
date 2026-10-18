@@ -518,6 +518,28 @@ becomes game content. Neither is an AI architecture question.
 
 ## Current work
 
+### F0 — CPUs self-destruct against an opponent that does nothing (2026-10-18)
+
+`ko_envelope selfko FIGHTER [ticks=N]` seats FIGHTER as the default-level CPU
+against a seat 0 that presses nothing and prints every stock it loses with the
+position the tick before. Every loss is a self-KO. Over 3600 ticks, before the
+fix below: Sanic 14, Alice 4, Robot v3 3 (in 1584 ticks), George 3, Pirate 3,
+Bob 3, Ninja 2, all at 0%, into the pit beside a ledge.
+
+Two paths, read from `AMBITION_FIGHTER_TRACE=1`:
+
+1. A ground roll toward the ledge. `Dodge` had no ledge penalty, unlike
+   Approach/Dash/Retreat; a Robot rolled off from 33 px out at 530 px/s. Fixed in
+   `movement_options` (`roll_walks_off`). After: Pirate 1, Alice 2, Bob 2, Ninja
+   1, George 2, Robot 3 in 3265 ticks. Sanic is unchanged.
+2. A grounded move's own travel. Sanic's dash-speed attack, started 115 px from
+   the ledge at 452 px/s, slides off during its recovery, and the lens then
+   finds no route home. In Ultimate most grounded moves stop at the ledge. That
+   is a per-game movement rule, so it waits for Jon.
+
+Off-stage, `Recover` holds the side below the top (`emit_x=0`), so a body that
+is past the ledge with its jumps spent never closes the gap and falls.
+
 ### F1 — the authored ladder is the authority (Q88, 2026-10-03)
 
 Q88 decided it: the generic brain exposes the knobs, and Smash rules/content own

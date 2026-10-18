@@ -570,6 +570,14 @@ Two paths, read from `AMBITION_FIGHTER_TRACE=1`:
    60–90 px, more than the margin being priced. The stale self-view question
    comes first.
 
+⭐ MEASURED 2026-10-18, the answer to items 2 and 5: a probe (not shipped) in
+`PerceptionBuffer::observe` gave every buffered view the LIVE `self_view`, so
+the brain sees the world 300 ms late but its own body now. Roster self-KOs
+went from 46 in 20.0 fighter-minutes to 11 in 20.7: Sanic 12→0, Ramen 5→0,
+Mary-O 3→0, Bob 3→0. It changes the humanity contract (the delay buffer is
+the only read path), so it is Jon's decision. A human knows where their own
+hands are without the screen; the probe is that rule.
+
 Totals over one minute each, one seed. The eight fighters with a true baseline:
 32 → 25 (Sanic 14 → 12, item 2). The other fifteen were first measured after
 items 1 and 3: 27 → about 19.

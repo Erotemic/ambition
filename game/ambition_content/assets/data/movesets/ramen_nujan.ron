@@ -95,7 +95,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (29.0, -13.0),
-                                                half_extents: (14.0, 10.0),
+                                                half_extents: (16.25, 16.25),
                                             ),
                                             damage: 3,
                                             knockback: 34.0,
@@ -183,7 +183,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (31.0, -13.0),
-                                                half_extents: (15.0, 10.0),
+                                                half_extents: (16.25, 16.25),
                                             ),
                                             damage: 3,
                                             knockback: 38.0,
@@ -271,7 +271,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (38.0, -13.0),
-                                                half_extents: (14.0, 12.0),
+                                                half_extents: (16.25, 16.25),
                                             ),
                                             damage: 5,
                                             knockback: 74.0,
@@ -421,7 +421,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (0.0, -35.0),
-                                                half_extents: (21.0, 14.0),
+                                                half_extents: (21.0, 16.25),
                                             ),
                                             damage: 6,
                                             knockback: 66.0,
@@ -496,7 +496,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (28.0, 24.0),
-                                                half_extents: (17.0, 10.0),
+                                                half_extents: (17.0, 16.25),
                                             ),
                                             damage: 5,
                                             knockback: 58.0,
@@ -646,7 +646,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (-6.0, -46.0),
-                                                half_extents: (14.0, 20.0),
+                                                half_extents: (16.25, 20.0),
                                             ),
                                             damage: 14,
                                             knockback: 160.0,
@@ -721,7 +721,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (28.0, 22.0),
-                                                half_extents: (18.0, 14.0),
+                                                half_extents: (18.0, 16.25),
                                             ),
                                             damage: 13,
                                             knockback: 140.0,
@@ -796,7 +796,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (0.0, -5.0),
-                                                half_extents: (28.0, 15.0),
+                                                half_extents: (28.0, 16.25),
                                             ),
                                             damage: 6,
                                             knockback: 62.0,
@@ -871,7 +871,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (29.0, 5.0),
-                                                half_extents: (14.0, 12.0),
+                                                half_extents: (16.25, 16.25),
                                             ),
                                             damage: 8,
                                             knockback: 88.0,
@@ -946,7 +946,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (-34.0, 7.0),
-                                                half_extents: (13.0, 12.0),
+                                                half_extents: (16.25, 16.25),
                                             ),
                                             damage: 11,
                                             knockback: 132.0,
@@ -1021,7 +1021,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (-6.0, -43.0),
-                                                half_extents: (11.0, 16.0),
+                                                half_extents: (16.25, 16.25),
                                             ),
                                             damage: 7,
                                             knockback: 80.0,
@@ -1096,7 +1096,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (0.0, 28.0),
-                                                half_extents: (11.0, 10.0),
+                                                half_extents: (16.25, 16.25),
                                             ),
                                             damage: 11,
                                             knockback: 128.0,
@@ -1214,7 +1214,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (36.0, -11.0),
-                                                half_extents: (13.0, 12.0),
+                                                half_extents: (16.25, 16.25),
                                             ),
                                             damage: 7,
                                             knockback: 86.0,
@@ -1387,7 +1387,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (21.0, -13.0),
-                                                half_extents: (25.0, 14.0),
+                                                half_extents: (25.0, 16.25),
                                             ),
                                             damage: 4,
                                             knockback: 40.0,
@@ -1415,7 +1415,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (24.0, -13.0),
-                                                half_extents: (27.0, 14.0),
+                                                half_extents: (27.0, 16.25),
                                             ),
                                             damage: 8,
                                             knockback: 104.0,
@@ -1497,7 +1497,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (0.0, 6.0),
-                                                half_extents: (13.0, 26.0),
+                                                half_extents: (16.25, 26.0),
                                             ),
                                             damage: 6,
                                             knockback: 78.0,
@@ -1579,7 +1579,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (32.0, -12.0),
-                                                half_extents: (11.0, 12.0),
+                                                half_extents: (16.25, 16.25),
                                             ),
                                             damage: 5,
                                             knockback: 60.0,
@@ -1683,7 +1683,7 @@
                                         (
                                             shape: Rect(
                                                 offset: (0.0, 26.0),
-                                                half_extents: (14.0, 14.0),
+                                                half_extents: (16.25, 16.25),
                                             ),
                                             damage: 10,
                                             knockback: 98.0,

@@ -1,4 +1,4 @@
-# Smash Ultimate fighter reference: movement, evades, grabs
+# Smash Ultimate fighter reference: movement, evades, grabs, knockback
 
 **Checked 2026-10-18.** This page records how *Super Smash Bros. Ultimate*
 fighters move, so Ambition's fighters can be compared against a known-good feel
@@ -28,6 +28,8 @@ and the survey notes behind it.
 | [SmashWiki: Distance unit](https://www.ssbwiki.com/Distance_unit) and [Talk page](https://www.ssbwiki.com/Talk:Distance_unit) | 1 unit is about 0.1 m since Melee; Battlefield and the Ω forms are 160 units wide (Steve's blocks are 10 units) | community wiki | CC BY-SA |
 | [SmashWiki: Final Destination (SSBU)](https://www.ssbwiki.com/Final_Destination_(SSBU)) | Ultimate's Final Destination is the same length as Battlefield | community wiki | CC BY-SA |
 | [SmashWiki: Shield](https://www.ssbwiki.com/Shield), [Shield drop lag](https://www.ssbwiki.com/Shield_drop_lag) | Ultimate's perfect shield is on the shield's RELEASE, a 5-frame window | community wiki | CC BY-SA |
+| SmashWiki move pages, e.g. [Mario (SSBU)/Up tilt](https://www.ssbwiki.com/Mario_(SSBU)/Up_tilt) | per-hitbox damage, angle, base knockback, knockback scaling and set knockback of each fighter's ground and air normals and smash attacks | community wiki | CC BY-SA |
+| [SmashWiki: Knockback, formula](https://www.ssbwiki.com/Knockback#Formula) | Ultimate's knockback from the victim's percent, the hit's damage, the victim's weight, base knockback and scaling | community wiki | CC BY-SA |
 
 The per-fighter table is
 [`data/smash_ultimate_fighter_stats.csv`](data/smash_ultimate_fighter_stats.csv):
@@ -187,6 +189,38 @@ Mario's grabs (startup, active, total, end lag):
 A grab out of shield comes out on frame 6 for most of the cast (frame 10 after
 shield stun). Grab range is about 12 units for most fighters; the long ones
 (Samus 42, Bowser 20, DK 19.5) are tethers or giants.
+
+## Move knockback
+
+The per-hitbox table is
+[`data/smash_ultimate_move_hitboxes.csv`](data/smash_ultimate_move_hitboxes.csv):
+one row per hitbox of twelve moves (the tilts, dash attack, smash attacks and
+aerials) of the archetype anchors, copied from SmashWiki's move pages by
+[`scripts/fetch_smash_ultimate_moves.py`](../../scripts/fetch_smash_ultimate_moves.py)
+(add a fighter with `--fighter`). Columns are the pages' own: `damage` (%),
+`angle` (degrees, 361 = the Sakurai angle), `bk` (base knockback), `ks`
+(knockback scaling), `fkv` (set knockback, 0 = none); `section` names the hit
+of a multi-part move. A charged smash's damage is its uncharged value.
+
+Ultimate's knockback for one hit, with `p` the victim's percent **after** the
+hit's damage `d` and `w` the victim's weight:
+
+    KB = ((p/10 + p*d/20) * 200/(w+100) * 1.4 + 18) * ks/100 + bk
+
+and launch speed is `0.03 * KB` units per frame. The hit's own damage is a
+term of its growth, so a light hit grows slowly unless its scaling is high.
+
+Two shapes the table shows:
+
+- **An up tilt is nearly an up smash.** Across the anchors, an up tilt's
+  knockback at 100 % is 0.6–1.0 of the same fighter's up smash, and stays
+  there to 200 % (Mario 0.73, Sheik 0.61, Diddy Kong 0.92, Marth 0.86). It
+  is a juggle at low percent and a late kill.
+- **Ratios travel; absolute values do not.** Ambition's launch law has no
+  damage term and its stage, gravity and blast zones are its own, so a move is
+  placed by its anchor's ratio to a move that is already calibrated, not by its
+  knockback number. [`scripts/smash_move_fit.py`](../../scripts/smash_move_fit.py)
+  does that against the moveset it names.
 
 ## Known limits of this data
 

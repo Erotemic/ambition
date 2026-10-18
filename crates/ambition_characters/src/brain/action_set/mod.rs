@@ -813,6 +813,13 @@ pub struct RangedActionSpec {
     /// that does not charge, which is every ranged action that has not opted in.
     #[serde(default)]
     pub charge: Option<RangedCharge>,
+    /// The growing launch this shot deals on a hit: `base` px/s plus `growth`
+    /// per point of the victim's percent, resolved by the strike law. `None`
+    /// is the fixed nudge every shot has always dealt, which is right for a
+    /// world where damage is health; a fighter's shot that should kill at
+    /// percent states one.
+    #[serde(default)]
+    pub launch: Option<ProjectileLaunchSpec>,
     /// Seconds the WEAPON needs between shots.
     ///
     /// ⭐⭐ THIS IS THE WEAPON'S RECHARGE, NOT THE MOVE'S RECOVERY, and keeping
@@ -1046,6 +1053,10 @@ fn default_ranged_refire_s() -> f32 {
 pub struct RangedCharge {
     /// Damage at a FULL hold, as a multiple of the uncharged shot.
     pub damage_mult: f32,
+    /// The launch (`RangedActionSpec::launch`, base and growth alike) at a
+    /// FULL hold, as a multiple. `1.0`, the default, leaves it unchanged.
+    #[serde(default = "one")]
+    pub launch_mult: f32,
     /// Launch speed at a full hold, as a multiple.
     pub speed_mult: f32,
     /// Half-extent at a full hold, as a multiple. A charged shot that hits in
@@ -1055,6 +1066,21 @@ pub struct RangedCharge {
     /// every charge, which is the honest answer for a shot whose art does not
     /// change.
     pub visuals: Vec<String>,
+}
+
+fn one() -> f32 {
+    1.0
+}
+
+/// A shot's growing launch, as its weapon authors it. See
+/// [`RangedActionSpec::launch`].
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectileLaunchSpec {
+    /// Launch speed at 0% (px/s).
+    pub base: f32,
+    /// Launch speed added per point of the victim's percent (px/s).
+    pub growth: f32,
 }
 
 impl RangedCharge {
@@ -1081,6 +1107,7 @@ impl RangedActionSpec {
             flight: None,
             visual: None,
             charge: None,
+            launch: None,
             refire_s: DEFAULT_RANGED_REFIRE_S,
             aim_assist: None,
             discharge: None,
@@ -1192,6 +1219,11 @@ impl RangedActionSpec {
         out.speed = self.speed * lerp(charge.speed_mult);
         if let Some(flight) = out.flight.as_mut() {
             flight.half_extent *= lerp(charge.size_mult);
+        }
+        if let Some(launch) = out.launch.as_mut() {
+            let mult = lerp(charge.launch_mult);
+            launch.base *= mult;
+            launch.growth *= mult;
         }
         if let Some(visual) = charge.tier(f) {
             out.visual = Some(visual.to_string());

@@ -2,23 +2,30 @@
 // where that differs from Smash's default fighter.
 (
     character: "perfect_cellular_automaton",
+    // Jon, 2026-10-18: the PCA plays like Ultimate's Mewtwo: big, light,
+    // strong. Light is Mewtwo's own weight (79), taken whole.
     knockback_weight: Some(0.79),
-    // Moves like a light, floating pattern: slow on the ground, steers well in the air, falls slowly.
-    // Shaped like Ultimate's Jigglypuff at 0.60 strength: each number is Smash's
+    // His neutral special on a Smash stage is the charge blast (Mewtwo's Shadow
+    // Ball); his hall kit keeps `cellular_pulse`.
+    verbs: {
+        "special": "pca_shadow_ball",
+    },
+    // A fast dash, a floaty jump, a very high second jump, quick air drift.
+    // Shaped like Ultimate's Mewtwo at 0.80 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Jigglypuff" --strength 0.6`).
+    // roster median (`scripts/smash_fighter_shape.py "Mewtwo" --strength 0.8`).
     body: Some((
-        max_run_speed: Some(263.4),
-        initial_dash_speed: Some(316.2),
-        run_accel: Some(347.5),
-        ground_friction: Some(608.1),
-        max_air_speed: Some(248.0),
-        air_accel: Some(1196.3),
-        gravity: Some(831.5),
-        max_fall_speed: Some(231.0),
-        fast_fall_speed: Some(375.4),
-        jump_speed: Some(365.4),
-        double_jump_speed: Some(363.3),
-        dodge_roll_speed: Some(406.9),
+        max_run_speed: Some(392.6),
+        initial_dash_speed: Some(394.3),
+        run_accel: Some(417.4),
+        ground_friction: Some(730.4),
+        max_air_speed: Some(257.1),
+        air_accel: Some(813.8),
+        gravity: Some(1058.1),
+        max_fall_speed: Some(302.2),
+        fast_fall_speed: Some(492.4),
+        jump_speed: Some(469.4),
+        double_jump_speed: Some(594.7),
+        dodge_roll_speed: Some(424.9),
     )),
 )

@@ -1607,6 +1607,7 @@ fn an_authored_ranged_action_set_derives_a_ranged_move() {
                 aim_assist: None,
                 discharge: None,
                 max_live: None,
+                launch: None,
             }),
             ..ActionSet::default()
         }),
@@ -1772,6 +1773,7 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
             aim_assist: None,
             discharge: None,
             max_live: None,
+            launch: None,
         }),
         ..ActionSet::default()
     };

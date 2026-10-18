@@ -231,6 +231,11 @@ pub struct EditableMovementTuning {
     pub air_dodge_time: f32,
     pub air_dodge_speed: f32,
     pub air_dodge_endlag: f32,
+    /// Carried, not edited: the aimed dodge's numbers and the landing lags.
+    pub directional_air_dodge_time: f32,
+    pub directional_air_dodge_endlag: f32,
+    pub air_dodge_landing_lag: f32,
+    pub directional_air_dodge_landing_lag: f32,
     /// See [`ae::TraversalAbilityTuning::tumble_speed`] — 0.0 means this body
     /// has no floor game.
     pub tumble_speed: f32,
@@ -408,6 +413,10 @@ impl EditableMovementTuning {
             air_dodge_time: self.air_dodge_time,
             air_dodge_speed: self.air_dodge_speed,
             air_dodge_endlag: self.air_dodge_endlag,
+            directional_air_dodge_time: self.directional_air_dodge_time,
+            directional_air_dodge_endlag: self.directional_air_dodge_endlag,
+            air_dodge_landing_lag: self.air_dodge_landing_lag,
+            directional_air_dodge_landing_lag: self.directional_air_dodge_landing_lag,
             tumble_speed: self.tumble_speed,
             sdi_step: self.sdi_step,
             asdi_step: self.asdi_step,
@@ -510,6 +519,10 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             air_dodge_time: value.air_dodge_time,
             air_dodge_speed: value.air_dodge_speed,
             air_dodge_endlag: value.air_dodge_endlag,
+            directional_air_dodge_time: value.directional_air_dodge_time,
+            directional_air_dodge_endlag: value.directional_air_dodge_endlag,
+            air_dodge_landing_lag: value.air_dodge_landing_lag,
+            directional_air_dodge_landing_lag: value.directional_air_dodge_landing_lag,
             tumble_speed: value.tumble_speed,
             sdi_step: value.sdi_step,
             asdi_step: value.asdi_step,

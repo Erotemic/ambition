@@ -2,23 +2,23 @@
 // where that differs from Smash's default fighter.
 (
     character: "npc_bob",
-    knockback_weight: Some(0.98),
-    // Moves like Alice's other half, the floaty one: a higher, slower jump and less traction.
-    // Shaped like Ultimate's Luigi at 0.60 strength: each number is Smash's
+    // Jon, 2026-10-18: Bob is closer to Steve.
+    // Shaped like Ultimate's Steve at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Luigi" --strength 0.6`).
+    // roster median (`scripts/smash_fighter_shape.py "Steve" --strength 0.6`).
+    knockback_weight: Some(0.95),
     body: Some((
-        max_run_speed: Some(308.1),
-        initial_dash_speed: Some(334.8),
-        run_accel: Some(368.6),
-        ground_friction: Some(645.1),
-        max_air_speed: Some(178.5),
-        air_accel: Some(860.0),
-        gravity: Some(1088.2),
-        max_fall_speed: Some(276.2),
-        fast_fall_speed: Some(448.9),
-        jump_speed: Some(531.3),
-        double_jump_speed: Some(518.2),
-        dodge_roll_speed: Some(388.4),
+        max_run_speed: Some(285.1),
+        initial_dash_speed: Some(292.6),
+        run_accel: Some(366.3),
+        ground_friction: Some(641.1),
+        max_air_speed: Some(190.7),
+        air_accel: Some(674.3),
+        gravity: Some(982.5),
+        max_fall_speed: Some(288.6),
+        fast_fall_speed: Some(469.0),
+        jump_speed: Some(376.1),
+        double_jump_speed: Some(410.4),
+        dodge_roll_speed: Some(382.0),
     )),
 )

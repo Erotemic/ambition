@@ -759,6 +759,7 @@ fn a_seated_fighter_receives_its_definitions_action_set() {
             aim_assist: None,
             discharge: None,
             max_live: None,
+            launch: None,
         }),
         ..ActionSet::default()
     };
@@ -1156,6 +1157,10 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
         air_dodge_time: 0.2,
         air_dodge_speed: 440.0,
         air_dodge_endlag: 0.16,
+        directional_air_dodge_time: 0.0,
+        directional_air_dodge_endlag: 0.0,
+        air_dodge_landing_lag: 0.0,
+        directional_air_dodge_landing_lag: 0.0,
         dodge_roll_endlag: 0.08,
         dodge_stale_step: 0.0,
         dodge_stale_floor: 1.0,

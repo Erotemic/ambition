@@ -501,6 +501,26 @@ pub(super) fn integrate_velocity_clusters(
         }
     }
 
+    // Landing ends an air dodge, its window and its endlag, and charges the
+    // game's LANDING LAG for it, if it states one: standing, planted, unable
+    // to act. A body that landed out of a dodge would otherwise be actionable
+    // on the spot, a free cancel of the dodge's own commitment.
+    //
+    // ⛔ ON THE LANDING TICK ONLY (`!was_grounded`). The landing lag is itself
+    // an endlag that runs on the ground; charged on every grounded tick, it
+    // held a landed body still forever.
+    if !was_grounded
+        && clusters.ground.on_ground
+        && (state.air_dodge_timer > 0.0 || state.air_dodge_endlag_timer > 0.0)
+    {
+        if state.air_dodge_timer > 0.0 && state.air_dodge_directional {
+            // The weightless window ends with the dodge.
+            state.set_gravity_modifier(1.0, 0.0);
+        }
+        state.air_dodge_endlag_timer = tuning.abilities.air_dodge_landing(state.air_dodge_directional);
+        state.air_dodge_timer = 0.0;
+        state.air_dodge_push = crate::Vec2::ZERO;
+    }
     if clusters.ground.on_ground {
         crate::body_clusters::refresh_movement_resources_clusters(
             clusters.abilities,
@@ -696,6 +716,9 @@ pub(super) fn integrate_normal_clusters(
                 && !(input.shield_held && ground.on_ground)
                 && state.dodge_roll_timer <= 0.0
                 && state.air_dodge_timer <= 0.0
+                // An air dodge's landing lag plants the body: it skids out
+                // whatever it carried, and does not walk.
+                && !(ground.on_ground && state.air_dodge_endlag_timer > 0.0)
                 && state.held_velocity_timer <= 0.0,
             // ⭐ PLANTED, NOT MERELY UNSTEERABLE. A guard raised mid-run sheds
             // the run; an EVADE does not, because a roll and a spot dodge set

@@ -178,6 +178,7 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_f32(out, state.air_dodge_timer);
     put_vec2(out, state.air_dodge_push);
     put_f32(out, state.air_dodge_endlag_timer);
+    put_bool(out, state.air_dodge_directional);
     put_f32(out, state.dodge_roll_endlag_timer);
     put_f32(out, state.tumble_timer);
     put_bool(out, state.tumble_until_landing);
@@ -238,6 +239,7 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         air_dodge_timer: r.f32()?,
         air_dodge_push: r.vec2()?,
         air_dodge_endlag_timer: r.f32()?,
+        air_dodge_directional: r.bool()?,
         dodge_roll_endlag_timer: r.f32()?,
         tumble_timer: r.f32()?,
         tumble_until_landing: r.bool()?,
@@ -470,6 +472,10 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, a.air_dodge_time);
     put_f32(out, a.air_dodge_speed);
     put_f32(out, a.air_dodge_endlag);
+    put_f32(out, a.directional_air_dodge_time);
+    put_f32(out, a.directional_air_dodge_endlag);
+    put_f32(out, a.air_dodge_landing_lag);
+    put_f32(out, a.directional_air_dodge_landing_lag);
     put_f32(out, a.dodge_roll_endlag);
     put_f32(out, a.dodge_stale_step);
     put_f32(out, a.dodge_stale_floor);
@@ -598,6 +604,10 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             air_dodge_time: r.f32()?,
             air_dodge_speed: r.f32()?,
             air_dodge_endlag: r.f32()?,
+            directional_air_dodge_time: r.f32()?,
+            directional_air_dodge_endlag: r.f32()?,
+            air_dodge_landing_lag: r.f32()?,
+            directional_air_dodge_landing_lag: r.f32()?,
             dodge_roll_endlag: r.f32()?,
             dodge_stale_step: r.f32()?,
             dodge_stale_floor: r.f32()?,

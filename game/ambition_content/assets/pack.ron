@@ -85,6 +85,7 @@
         (path: "data/fighters/special_patent_clerk.ron", schema: "smash_fighter", version: 1),
         (path: "data/fighters/projectile_polygon.ron", schema: "smash_fighter", version: 1),
         (path: "data/fighters/pugnacious_polygon.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/pointed_polygon.ron", schema: "smash_fighter", version: 1),
         (path: "data/encounters/goblin_encounter.ron", schema: "encounter_waves", version: 1),
         // The rules of Ambition's own rooms: the death replay, which hits land
         // heavy, and how much landing lag a move charges.

@@ -34,6 +34,8 @@ where
             OWNER,
             "projectile.fired_by_move_instance",
         )
+        // Absent for a shot that deals the fixed nudge, which is most of them.
+        .rollback_component_canonical::<crate::ProjectileLaunch>(OWNER, "projectile.launch")
         .rollback_component_canonical::<crate::ProjectileVisualId>(
             OWNER,
             "projectile.visual_id",

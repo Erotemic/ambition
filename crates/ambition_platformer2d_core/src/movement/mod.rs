@@ -576,7 +576,7 @@ fn update_body_simulation_inner(
             // what it still holds along its own aim is taken back, never more,
             // so a velocity something else added survives it.
             let push = state.air_dodge_push.length();
-            let window = tuning.abilities.air_dodge_time;
+            let window = tuning.abilities.air_dodge_window(state.air_dodge_directional);
             if push > 0.0 && window > 0.0 {
                 let aim = state.air_dodge_push / push;
                 let along = clusters.kinematics.vel.dot(aim).max(0.0);
@@ -585,7 +585,8 @@ fn update_body_simulation_inner(
                 state.air_dodge_push = aim * (push - shed);
             }
             if state.air_dodge_timer <= 0.0 {
-                state.air_dodge_endlag_timer = tuning.abilities.air_dodge_endlag;
+                state.air_dodge_endlag_timer =
+                    tuning.abilities.air_dodge_recovery(state.air_dodge_directional);
                 state.air_dodge_push = bevy_math::Vec2::ZERO;
             }
         } else {
@@ -653,9 +654,7 @@ fn update_body_simulation_inner(
             state.coyote_timer = tuning.locomotion.coyote_time;
             // Landing gives the ledge grabs back.
             state.ledge_grabs = 0;
-            // Landing ends an air dodge outright — window, endlag and budget.
             state.air_dodge_timer = 0.0;
-            state.air_dodge_endlag_timer = 0.0;
             crate::body_clusters::refresh_movement_resources_clusters(
                 clusters.abilities,
                 clusters.dash,

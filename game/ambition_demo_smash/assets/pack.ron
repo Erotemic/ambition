@@ -44,6 +44,13 @@
         // The stand-ins' platform-fighter facets (their weights).
         (path: "data/fighters/smash_duelist_a.ron", schema: "smash_fighter", version: 1),
         (path: "data/fighters/smash_duelist_b.ron", schema: "smash_fighter", version: 1),
+        // Mary-O's facet, which her own package owns (Mary-O is not a Smash
+        // character; Smash is where the facet is read).
+        (
+            path: "../../ambition_demo_mary_o/assets/data/fighters/mary_o_tall.ron",
+            schema: "smash_fighter",
+            version: 1,
+        ),
         (
             path: "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron",
             schema: "smash_fighter",

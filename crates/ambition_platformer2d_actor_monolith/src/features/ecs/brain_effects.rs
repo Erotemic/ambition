@@ -417,7 +417,13 @@ pub fn spawn_projectiles_from_brain_actions(
         // defect this value prevents. Every other road leaves the value empty.
         // Empty is the correct answer for a gun or a bomb.
         let request = ProjectileSpawnRequest::open(msg.actor, spawn, ProjectileStart::StepThisTick)
-            .from_weapon();
+            .from_weapon()
+            // The weapon's growing launch, at the charge this shot was released
+            // with (`RangedActionSpec::at_charge` scaled it).
+            .with_launch(spec.launch.map(|launch| ambition_projectiles::ProjectileLaunch {
+                base: launch.base,
+                growth: launch.growth,
+            }));
         let request = match commitment {
             RangedCommitment::CommittedMove { instance } => request.fired_by_move(instance),
             RangedCommitment::Attempt => request,

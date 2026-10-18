@@ -70,6 +70,9 @@ pub struct ProjectileSpawnRequest {
     pub move_instance: Option<u32>,
     /// The owner's ranged weapon fired this shot. See [`crate::WeaponShot`].
     pub weapon_shot: bool,
+    /// The growing launch this shot deals, if its weapon authors one. See
+    /// [`crate::ProjectileLaunch`].
+    pub launch: Option<crate::ProjectileLaunch>,
 }
 
 impl ProjectileSpawnRequest {
@@ -87,6 +90,7 @@ impl ProjectileSpawnRequest {
             start,
             move_instance: None,
             weapon_shot: false,
+            launch: None,
         }
     }
 
@@ -104,6 +108,7 @@ impl ProjectileSpawnRequest {
             start,
             move_instance: None,
             weapon_shot: false,
+            launch: None,
         }
     }
 
@@ -114,6 +119,13 @@ impl ProjectileSpawnRequest {
     #[must_use]
     pub fn fired_by_move(mut self, instance: u32) -> Self {
         self.move_instance = Some(instance);
+        self
+    }
+
+    /// Give this shot the growing launch its weapon authors.
+    #[must_use]
+    pub fn with_launch(mut self, launch: Option<crate::ProjectileLaunch>) -> Self {
+        self.launch = launch;
         self
     }
 

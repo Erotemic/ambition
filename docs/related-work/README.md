@@ -88,7 +88,7 @@ CONCEPTS over claims about spellings.
 
 ### Game-feel references
 
-* [Smash Ultimate fighter reference: movement, evades, grabs](smash-ultimate-fighter-reference.md)
+* [Smash Ultimate fighter reference: movement, evades, grabs, knockback](smash-ultimate-fighter-reference.md)
   — Ultimate's per-fighter run, dash, jump, fall, roll, dodge and grab data
   (90 fighters, attributed, with a re-fetch script), its roster spread and
   archetype anchors, and the conversion to our stage scale. Checked

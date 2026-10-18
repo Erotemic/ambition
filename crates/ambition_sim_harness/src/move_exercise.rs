@@ -517,8 +517,9 @@ pub fn step(app: &mut App, frame: ControlFrame) {
 /// a turnaround runs. Holding DOWN for the same settle would fast-fall.
 pub fn prepare(app: &mut App, verb: &Verb) -> bool {
     if verb.run_up {
-        // Past the initial dash (Smash's 14 frames) and into the run, toward
-        // the way she faces.
+        // Toward the way she faces until the body says it is RUNNING. ASK, DO
+        // NOT COUNT: a body that accelerates slowly (Mary-O) was still in its
+        // initial dash after 20 ticks, and the press came out as her tilt.
         for _ in 0..RUN_UP_TICKS {
             let aim = facing_of(app);
             step(
@@ -528,8 +529,11 @@ pub fn prepare(app: &mut App, verb: &Verb) -> bool {
                     ..Default::default()
                 },
             );
+            if running(app) {
+                return true;
+            }
         }
-        return true;
+        return running(app);
     }
     if !verb.airborne {
         return true;
@@ -560,8 +564,18 @@ pub fn prepare(app: &mut App, verb: &Verb) -> bool {
 /// How long a horizontal aim settles before the press.
 const AIM_TICKS: usize = 8;
 
-/// How long a dash attack runs before its press.
-const RUN_UP_TICKS: usize = 20;
+/// The most a dash attack runs before its press.
+const RUN_UP_TICKS: usize = 90;
+
+/// Is seat 0 running (the state a dash attack is pressed out of)?
+pub fn running(app: &mut App) -> bool {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        &ambition_platformer2d::actor::BodyMotionFacts,
+    )>();
+    q.iter(world).any(|(seat, facts)| seat.0 == 0 && facts.running)
+}
 
 /// Jump, and wait until the world says the body has left the ground.
 ///

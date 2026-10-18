@@ -5,7 +5,9 @@
 //! Without a reveal boundary, the window exposes a black/partial world while
 //! sprites, LDtk layers, fonts, and music arrive independently. This module
 //! keeps gameplay dormant behind an opaque product-owned cover, reports honest
-//! asset progress, and reveals only after one complete covered ready frame.
+//! asset progress, then opens gameplay UNDER the cover and reveals only when
+//! the room is drawn: its first tick has run, and nothing of it is still
+//! coming in (`PresentationSettling`).
 
 use bevy::asset::{LoadState, UntypedAssetId};
 use bevy::ecs::system::SystemParam;
@@ -136,6 +138,11 @@ struct DirectStartupLoadingState {
     manifest: Option<StartupAssetManifest>,
     update_serial: u64,
     ready_observed_at: Option<u64>,
+    /// The sim tick when gameplay opened under the cover: the reveal waits for
+    /// a later one, so what the first tick spawns is drawn under the cover.
+    opened_at_tick: Option<u64>,
+    opened_at: Option<std::time::Duration>,
+    presented: ambition_platformer2d::render::rendering::presentation_settling::SettledLatch,
     revealed: bool,
     /// Updates spent with every pending asset decoded and only its GPU upload
     /// owed — the upload half of the boot, measured under the cover.
@@ -205,6 +212,10 @@ struct StartupAssetInputs<'w, 's> {
     audio_library: Option<Res<'w, ambition_platformer2d::audio::library::AudioLibrary>>,
     #[cfg(feature = "audio")]
     music_state: Option<Res<'w, ambition_platformer2d::audio::library::MusicPlaybackState>>,
+    pipelines:
+        Option<Res<'w, ambition_platformer2d::render::rendering::presentation_settling::RenderPipelinesWaiting>>,
+    tick: Option<Res<'w, ambition_platformer2d::time::SimTick>>,
+    time: Res<'w, Time<Real>>,
 }
 
 #[derive(SystemParam)]
@@ -243,6 +254,11 @@ pub(super) fn install_direct_startup_loading(app: &mut App) {
             .before(ambition_platformer2d::platformer::schedule::GameplaySimulationRoot)
             .before(ambition_platformer2d::audio::library::DefaultMusicStart),
     );
+    app.add_systems(
+        Update,
+        reveal_direct_startup_room
+            .after(ambition_platformer2d::render::rendering::presentation_settling::PresentationSettlingSet),
+    );
     #[cfg(not(feature = "audio"))]
     app.add_systems(
         Update,
@@ -279,6 +295,7 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
             BackgroundColor(rgb(look.backdrop)),
             GlobalZIndex(10_000),
             DirectStartupLoadingRoot,
+            ambition_platformer2d::render::rendering::presentation_settling::PresentationCover,
             Name::new("Ambition Direct Startup Loading Cover"),
         ))
         .with_children(|root| {
@@ -373,23 +390,27 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
 }
 
 fn drive_direct_startup_loading(
-    mut commands: Commands,
     mut state: ResMut<DirectStartupLoadingState>,
     mut gameplay: ResMut<InitialGameplayReadiness>,
     mut assets: StartupAssetInputs,
     mut ui: StartupUi,
 ) {
     let text = super::host_pack::host_text();
-    if state.revealed {
+    if state.revealed || state.opened_at_tick.is_some() {
         return;
     }
     state.update_serial = state.update_serial.saturating_add(1);
 
-    // The OS window is created hidden. Expose it only after Startup has built
-    // the opaque cover, eliminating the compositor's uninitialized/ghost frame.
-    if !ui.roots.is_empty() {
+    // The OS window is created hidden. Expose it only once the opaque cover has
+    // been drawn: after a rendered frame, with no pipeline still compiling (the
+    // cover's own is among them), or after a short wait. Before, the window
+    // showed the room for the frames the cover's pipeline compiled in.
+    let pipelines_ready = assets.pipelines.as_ref().is_none_or(|pipelines| pipelines.count() == 0);
+    if !ui.roots.is_empty() && state.update_serial >= 2 && (pipelines_ready || state.update_serial > 30) {
         for mut window in &mut ui.windows {
-            window.visible = true;
+            if !window.visible {
+                window.visible = true;
+            }
         }
     }
 
@@ -468,14 +489,58 @@ fn drive_direct_startup_loading(
         return;
     }
 
-    // Open simulation first, then retire the cover so the first exposed world is also the first
-    // live tick.
+    // Open the simulation under the cover: what its first tick spawns (the
+    // player, the views of the room's features) is drawn before the reveal
+    // (`reveal_direct_startup_room`).
     eprintln!(
-        "[startup-cover] revealed after {} updates ({} of them waiting only on GPU uploads), {} assets",
+        "[startup-cover] assets ready after {} updates ({} of them waiting only on GPU uploads), {} assets",
         state.update_serial, state.waited_on_gpu_updates, summary.total
     );
     gameplay.mark_ready();
-    for entity in &ui.roots {
+    state.opened_at_tick = Some(assets.tick.as_deref().map_or(0, |tick| tick.get()));
+    state.opened_at = Some(assets.time.elapsed());
+}
+
+/// How long the cover waits, after gameplay opened, for the room to be drawn.
+/// Not a budget: past it, showing the room as it is beats a black screen, and
+/// the warning names what was still coming.
+const PRESENTATION_DEADLINE: std::time::Duration = std::time::Duration::from_secs(8);
+
+/// Retire the cover once the room is drawn under it: a sim tick has run since
+/// gameplay opened, and nothing of the room is still coming in.
+fn reveal_direct_startup_room(
+    mut commands: Commands,
+    mut state: ResMut<DirectStartupLoadingState>,
+    settling: Option<Res<ambition_platformer2d::render::rendering::presentation_settling::PresentationSettling>>,
+    tick: Option<Res<ambition_platformer2d::time::SimTick>>,
+    time: Res<Time<Real>>,
+    roots: Query<Entity, With<DirectStartupLoadingRoot>>,
+) {
+    let (Some(opened_tick), Some(opened_at)) = (state.opened_at_tick, state.opened_at) else {
+        return;
+    };
+    if state.revealed {
+        return;
+    }
+    state.update_serial = state.update_serial.saturating_add(1);
+    let ticked = tick.is_none_or(|tick| tick.get() > opened_tick);
+    let settled = settling.as_deref().is_none_or(|settling| settling.is_empty());
+    let update = state.update_serial;
+    let presented = state.presented.observe(update, ticked && settled);
+    let waited = time.elapsed().saturating_sub(opened_at);
+    if !presented {
+        if waited < PRESENTATION_DEADLINE {
+            return;
+        }
+        bevy::log::warn!(
+            target: "ambition_app::startup_cover",
+            "startup cover revealed after {:.0} ms with the room still coming in (ticked={ticked}): {:?}",
+            waited.as_secs_f64() * 1000.0,
+            settling.as_deref().map(|settling| settling.pending()).unwrap_or_default(),
+        );
+    }
+    eprintln!("[startup-cover] revealed {:.0} ms after gameplay opened", waited.as_secs_f64() * 1000.0);
+    for entity in &roots {
         commands.entity(entity).despawn();
     }
     state.revealed = true;

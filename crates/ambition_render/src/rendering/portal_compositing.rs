@@ -56,9 +56,18 @@ pub fn declare_portal_body_demand(
 ///
 /// Each drawable is in the engine coordinates of its own live room; a
 /// drawable whose room cannot be told is not a candidate.
+///
+/// Which drawables: every top-level one in a room that holds a portal, drawn
+/// at or above the window (`PORTAL_WINDOW_Z`), whatever it is. A drawable is not
+/// asked to opt in, so a new kind (an effect, a bar, a sign) works with a
+/// pane when it is made. Below the window a drawable needs nothing: the pane
+/// draws over it. Two kinds opt out, because they are not drawables of the
+/// room's plane: the compositor's own copies (`PortalBodyPiece`) and the
+/// parallax layers, which are placed against the view.
 pub fn publish_portal_compositing_candidates(
     mut commands: Commands,
     frames: ambition_portal2d_presentation::PortalFrames,
+    portals: Query<Entity, With<ambition_portal2d_presentation::PlacedPortal>>,
     // Both `FeatureVisual` and `PlayerVisual`: the exploration player is
     // spawned with `PlayerVisual` (`session/setup.rs`), not `FeatureVisual`.
     //
@@ -71,7 +80,7 @@ pub fn publish_portal_compositing_candidates(
     // This is sound only because these sprites are unparented (top-level
     // world-space entities), so local is world. `Without<ChildOf>` enforces
     // it: a parented drawable would need the propagated pose.
-    drawables: Query<
+    mut drawables: Query<
         (
             Entity,
             &Sprite,
@@ -79,19 +88,12 @@ pub fn publish_portal_compositing_candidates(
             Option<&bevy::sprite::Anchor>,
             Ref<Visibility>,
             Option<&ambition_portal2d_presentation::PortalSourceHidden>,
+            Option<&mut ambition_portal2d_presentation::PortalCompositingCandidate>,
         ),
         (
-            Or<(
-                With<crate::rendering::primitives::FeatureVisual>,
-                With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
-                // A body's other representations draw too. While a player is
-                // morphed, its `PlayerVisual` sprite is hidden and the ball is the
-                // player: a separate root at `WORLD_Z_PLAYER + 0.05` (20.05), above
-                // the portal band (at or below `WORLD_Z_DUMMY`, 10).
-                // `PresentationOf` says whose body such a drawable draws.
-                With<ambition_platformer2d_shared_tangle::lifecycle::PresentationOf>,
-            )>,
             Without<bevy::prelude::ChildOf>,
+            Without<ambition_portal2d_presentation::PortalBodyPiece>,
+            Without<crate::rendering::parallax::ParallaxLayerVisual>,
         ),
     >,
     // Non-sprite drawables. A body-owned `Mesh2d` that declares what it
@@ -100,27 +102,48 @@ pub fn publish_portal_compositing_candidates(
     // the hit-flash silhouette). `Without<Sprite>` keeps the two queries
     // disjoint, so each drawable is published once; a sprite that also
     // declares goes through the sprite arm.
-    declared: Query<
+    mut declared: Query<
         (
             Entity,
             &ambition_sprite_fx::DeclaredFrame,
             &Transform,
             Ref<Visibility>,
             Option<&ambition_portal2d_presentation::PortalSourceHidden>,
+            Option<&mut ambition_portal2d_presentation::PortalCompositingCandidate>,
         ),
-        (
-            With<ambition_platformer2d_shared_tangle::lifecycle::PresentationOf>,
-            Without<Sprite>,
-            Without<bevy::prelude::ChildOf>,
-        ),
+        (Without<Sprite>, Without<bevy::prelude::ChildOf>),
     >,
 ) {
     use ambition_portal2d_presentation::{PortalCompositingCandidate, PortalSourceHidden};
     // A drawable that is not a candidate this frame loses last frame's
     // candidate too: the compositor builds pieces from every candidate it
     // finds, so a stale one draws a body that nothing draws now.
-    let not_a_candidate = |commands: &mut Commands, entity: Entity| {
-        commands.entity(entity).try_remove::<PortalCompositingCandidate>();
+    // Only a drawable that was one is written: most drawables never are, and a
+    // command for each of them each frame would be work for nothing.
+    let not_a_candidate = |commands: &mut Commands, entity: Entity, was: bool| {
+        if was {
+            commands.entity(entity).try_remove::<PortalCompositingCandidate>();
+        }
+    };
+    // A drawable that stays a candidate is written in place. An insert command
+    // for each of them each frame made the publish about three times slower
+    // (179 µs against 65 µs, 1000 candidates, release).
+    let publish = |commands: &mut Commands,
+                   entity: Entity,
+                   existing: Option<Mut<PortalCompositingCandidate>>,
+                   candidate: PortalCompositingCandidate| match existing {
+        Some(mut was) => *was = candidate,
+        None => {
+            commands.entity(entity).insert(candidate);
+        }
+    };
+    let portal_rooms: Vec<_> = portals.iter().filter_map(|portal| frames.room_of(portal)).collect();
+    // A pane covers only what is drawn over it, and only in its own room. At
+    // the window's own z the draw order is a tie (a body's clock bar is
+    // there), so that is "over" too.
+    let may_be_covered = |entity: Entity, transform: &Transform| {
+        transform.translation.z >= ambition_portal2d_presentation::PORTAL_WINDOW_Z
+            && frames.room_of(entity).is_some_and(|room| portal_rooms.contains(&room))
     };
     // Hidden by something other than the portal: nothing draws it, so the
     // compositor must not either. Hidden by the portal alone, it is the body
@@ -128,20 +151,29 @@ pub fn publish_portal_compositing_candidates(
     let hidden_by_another = |visibility: &Ref<Visibility>, marker: Option<&PortalSourceHidden>| {
         matches!(**visibility, Visibility::Hidden) && !PortalSourceHidden::portal_alone_hides(marker, visibility)
     };
-    for (entity, frame, transform, visibility, portal_hid_it) in &declared {
-        if hidden_by_another(&visibility, portal_hid_it) {
-            not_a_candidate(&mut commands, entity);
+    for (entity, frame, transform, visibility, portal_hid_it, existing) in &mut declared {
+        let was = existing.is_some();
+        if !may_be_covered(entity, transform) || hidden_by_another(&visibility, portal_hid_it) {
+            not_a_candidate(&mut commands, entity, was);
             continue;
         }
         let Some(placement) = frames.of(entity) else {
-            not_a_candidate(&mut commands, entity);
+            not_a_candidate(&mut commands, entity, was);
             continue;
         };
-        commands
-            .entity(entity)
-            .insert(candidate_for(placement.frame.size, transform, frame.anchor, frame.size));
+        publish(
+            &mut commands,
+            entity,
+            existing,
+            candidate_for(placement.frame.size, transform, frame.anchor, frame.size),
+        );
     }
-    for (entity, sprite, transform, anchor, visibility, portal_hid_it) in &drawables {
+    for (entity, sprite, transform, anchor, visibility, portal_hid_it, existing) in &mut drawables {
+        let was = existing.is_some();
+        if !may_be_covered(entity, transform) {
+            not_a_candidate(&mut commands, entity, was);
+            continue;
+        }
         // A drawable that nothing draws is not a candidate. For example, a
         // morphed player's hidden base sprite must not produce far-side pieces
         // while the ball draws.
@@ -153,23 +185,23 @@ pub fn publish_portal_compositing_candidates(
         // a body that dies behind a pane is hidden by its owner too, and the
         // portal's marker does not say otherwise.
         if hidden_by_another(&visibility, portal_hid_it) {
-            not_a_candidate(&mut commands, entity);
+            not_a_candidate(&mut commands, entity, was);
             continue;
         }
         let Some(drawn) = sprite.custom_size else {
-            not_a_candidate(&mut commands, entity);
+            not_a_candidate(&mut commands, entity, was);
             continue;
         };
         let Some(placement) = frames.of(entity) else {
-            not_a_candidate(&mut commands, entity);
+            not_a_candidate(&mut commands, entity, was);
             continue;
         };
-        commands.entity(entity).insert(candidate_for(
-            placement.frame.size,
-            transform,
-            anchor.map_or(Vec2::ZERO, |a| a.0),
-            drawn,
-        ));
+        publish(
+            &mut commands,
+            entity,
+            existing,
+            candidate_for(placement.frame.size, transform, anchor.map_or(Vec2::ZERO, |a| a.0), drawn),
+        );
     }
 }
 
@@ -247,6 +279,13 @@ mod tests {
                 Vec::new(),
             )),
         );
+        // A room with a portal: only there can a pane cover a drawable.
+        app.world_mut().spawn(ambition_portal2d_presentation::PlacedPortal::fixed(
+            ambition_portal2d_presentation::PortalChannel::Authored(ambition_portal2d_presentation::PortalChannelColor::Purple),
+            ambition_platformer2d_core::Vec2::new(900.0, 300.0),
+            ambition_platformer2d_core::Vec2::new(-1.0, 0.0),
+            46.0,
+        ));
         app.add_systems(Update, publish_portal_compositing_candidates);
         app
     }
@@ -742,6 +781,52 @@ mod bridge_meets_compositor_tests {
         );
     }
 
+    /// An effect behind a pane is covered like a body, though nothing in it
+    /// asks for that: it is a top-level drawable above the window in a room
+    /// with a portal. The parallax, placed against the view, is not covered;
+    /// and in a room with no portal no drawable is a candidate.
+    #[test]
+    fn a_far_side_effect_is_composited_with_no_marker_of_its_own() {
+        let mut app = app();
+        // A bare sprite at the effects' z: no marker at all.
+        let spark = far_side_body(&mut app, ());
+        app.world_mut().get_mut::<Transform>(spark).unwrap().translation.z = 30.0;
+        let layer = far_side_body(
+            &mut app,
+            crate::rendering::parallax::ParallaxLayerVisual {
+                factor: Vec2::ZERO,
+                z: 40.0,
+                panel_scale: 1.0,
+                travel: Vec2::ZERO,
+                world_size: Vec2::ZERO,
+            },
+        );
+        app.update();
+        assert_eq!(
+            *app.world().get::<Visibility>(spark).expect("visibility"),
+            Visibility::Hidden,
+            "the effect behind the pane is drawn whole over it"
+        );
+        assert!(
+            app.world().get::<ambition_portal2d_presentation::PortalCompositingCandidate>(layer).is_none(),
+            "a parallax layer was cut by a pane"
+        );
+
+        let portals: Vec<Entity> = app
+            .world_mut()
+            .query_filtered::<Entity, With<PlacedPortal>>()
+            .iter(app.world())
+            .collect();
+        for portal in portals {
+            app.world_mut().despawn(portal);
+        }
+        app.update();
+        assert!(
+            app.world().get::<ambition_portal2d_presentation::PortalCompositingCandidate>(spark).is_none(),
+            "a drawable in a room with no portal kept its candidate"
+        );
+    }
+
     /// A body that dies behind a pane is hidden by its owner too, and the
     /// portal's marker does not make it a candidate again: no far-side piece
     /// draws it, and last frame's candidate does not survive. When the pane
@@ -764,11 +849,14 @@ mod bridge_meets_compositor_tests {
         app.insert_resource(Alive(true));
         app.add_systems(Update, owner.before(publish_portal_compositing_candidates));
         let body = far_side_player(&mut app);
+        // The pieces that draw: the compositor keeps its quads from frame to
+        // frame and hides the ones a frame does not take.
         let pieces = |app: &mut App| {
             let world = app.world_mut();
             world
-                .query_filtered::<(), With<ambition_portal2d_presentation::PortalFarSidePiece>>()
+                .query_filtered::<&Visibility, With<ambition_portal2d_presentation::PortalFarSidePiece>>()
                 .iter(world)
+                .filter(|visibility| **visibility != Visibility::Hidden)
                 .count()
         };
         app.update();

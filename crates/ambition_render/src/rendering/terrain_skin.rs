@@ -43,7 +43,8 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
 use ambition_sprite_sheet::game_assets::{
-    GameAssets, ParallaxTheme, RoomDressingPart, DECOR_CELL_PX, DECOR_VARIANTS,
+    GameAssets, ParallaxTheme, RoomDressingPart, DECOR_CELL_PX, DECOR_VARIANTS, IVY_VARIANTS, PILLAR_MAX_WIDTH,
+    PILLAR_MIN_HEIGHT,
 };
 
 use super::primitives::EntityArt;
@@ -197,7 +198,14 @@ pub fn decor_on_span(a: f32, b: f32, surface: f32, spacing: f32, keep_out: Optio
             let variant = ((roll(1) * DECOR_VARIANTS as f32) as u32).min(DECOR_VARIANTS - 1);
             out.push((x, variant));
         }
-        x += spacing * (0.55 + 0.9 * roll(2));
+        // A step is never less than a quarter of a decor: a spacing near zero
+        // is a small number of decor, and a step too small to move `x` is no
+        // step.
+        let next = x + (spacing * (0.55 + 0.9 * roll(2))).max(DECOR_SIZE * 0.25);
+        if next <= x {
+            break;
+        }
+        x = next;
         index += 1;
     }
     out
@@ -212,6 +220,14 @@ pub struct ThemedDoor(pub ParallaxTheme);
 /// theme has none.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct TerrainSkinned;
+
+/// The block's own presentation, kept while the skin draws it: a block whose
+/// skin goes (its kind or its theme changes) draws as it did before.
+#[derive(Component, Clone, Debug)]
+pub struct SkinTookSprite {
+    sprite: Sprite,
+    bound: Option<BoundEntitySprite>,
+}
 
 /// A piece of the art of a fixture (a ladder, a body of water): a child of
 /// the fixture.
@@ -355,9 +371,18 @@ fn pieces_of(image: &Handle<Image>, min: Vec2, size: Vec2, period: Vec2, z: f32)
 /// at the back, the decor at the front.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SkinLayer {
+    /// A banner below a platform, behind its arcade.
+    Banner,
+    /// The arcade below a platform. It is behind each block: a floor covers
+    /// the foot of what hangs over it.
+    Arch,
+    /// The ivy that hangs below a platform, in front of its arcade.
+    IvyStrands,
     /// The fill of a block, the field of a blink wall or a hazard, a one-way
     /// platform.
     Fill,
+    /// The emblem on a large wall face.
+    Emblem,
     /// The shade on a left or right edge.
     Side,
     /// The underside of a bottom edge, and the line of a blink wall or the
@@ -365,6 +390,8 @@ pub enum SkinLayer {
     Under,
     /// The cap of a top edge.
     Cap,
+    /// The ivy on a top corner.
+    Ivy,
     /// The pool of light of a thing of the decor.
     DecorGlow,
     /// A thing of the decor.
@@ -375,10 +402,15 @@ impl SkinLayer {
     /// How far in front of its block the layer is drawn.
     pub fn z(self) -> f32 {
         match self {
+            SkinLayer::Banner => -0.012,
+            SkinLayer::Arch => -0.01,
+            SkinLayer::IvyStrands => -0.008,
             SkinLayer::Fill => 0.005,
+            SkinLayer::Emblem => 0.007,
             SkinLayer::Side => 0.01,
             SkinLayer::Under => 0.02,
             SkinLayer::Cap => 0.03,
+            SkinLayer::Ivy => 0.032,
             SkinLayer::DecorGlow => 0.035,
             SkinLayer::Decor => 0.04,
         }
@@ -591,14 +623,24 @@ pub fn lay_block_skin(
             if !parts.has(RoomDressingPart::OneWay) {
                 return BlockSkin::Untouched;
             }
-            fill(RoomDressingPart::OneWay, Vec2::new(SKIN_PERIOD, 16.0), out)
+            let skin = fill(RoomDressingPart::OneWay, Vec2::new(SKIN_PERIOD, 16.0), out);
+            let top_spans = open_edge_spans(surface, Edge::Top, others);
+            lay_ornaments(owner, surface, others, &top_spans, keep_out, parts, out);
+            skin
         }
         TerrainSurfaceKind::Solid => {
             if !parts.has(RoomDressingPart::Fill) {
                 return BlockSkin::Untouched;
             }
-            let skin = fill(RoomDressingPart::Fill, Vec2::splat(SKIN_PERIOD), out);
-            if parts.has(RoomDressingPart::Side) {
+            // A pillar is one thing, with its own light on its sides.
+            let pillar = parts.has(RoomDressingPart::Pillar) && is_pillar(surface.size);
+            let skin = if pillar {
+                pillar_quads(owner, surface, out);
+                BlockSkin::Laid
+            } else {
+                fill(RoomDressingPart::Fill, Vec2::splat(SKIN_PERIOD), out)
+            };
+            if parts.has(RoomDressingPart::Side) && !pillar {
                 let width = SIDE_WIDTH.min(surface.size.x);
                 for edge in [Edge::Left, Edge::Right] {
                     let right = edge == Edge::Right;
@@ -650,6 +692,12 @@ pub fn lay_block_skin(
                     }
                 }
             }
+            lay_ornaments(owner, surface, others, &top_spans, keep_out, parts, out);
+            if parts.has(RoomDressingPart::Emblem) && !pillar {
+                for centre in emblems_on(surface, keep_out) {
+                    out.push(SkinQuad::at_scale(owner, RoomDressingPart::Emblem, SkinLayer::Emblem, centre, EMBLEM_SIZE, Vec2::ZERO));
+                }
+            }
             if parts.has(RoomDressingPart::Decor) {
                 let cell = DECOR_CELL_PX as f32;
                 let glow = parts.has(RoomDressingPart::DecorGlow);
@@ -681,6 +729,216 @@ pub fn lay_block_skin(
             skin
         }
     }
+}
+
+// The ornaments: what a theme's architecture has once for each block, and not
+// in a pattern that repeats. The sizes are the sizes the art is drawn to
+// (`terrain/ornaments.py` of the sprite renderer). Change the two together.
+
+/// The size of the pillar picture. It repeats down from the top of a pillar.
+const PILLAR_SIZE: Vec2 = Vec2::new(48.0, 224.0);
+/// The right part of the pillar picture that a narrower pillar keeps at its
+/// right side: its shaded edge.
+const PILLAR_EDGE: f32 = 8.0;
+/// The size of one bay of the arcade, and of the bracket at each end of it,
+/// which keeps its size when the bay is longer or shorter.
+const ARCH_SIZE: Vec2 = Vec2::new(150.0, 48.0);
+const ARCH_BRACKET: f32 = 18.0;
+/// A bay this long or longer can have a banner.
+const BANNER_MIN_BAY: f32 = 110.0;
+const BANNER_SIZE: Vec2 = Vec2::new(28.0, 80.0);
+/// The size of one square of the ivy picture, and where the corner of the
+/// block is in it: the clump reaches past the end of the block and over its
+/// top.
+const IVY_SIZE: Vec2 = Vec2::new(64.0, 52.0);
+const IVY_CORNER: Vec2 = Vec2::new(11.0, 8.0);
+/// A block this wide or wider can have ivy, and is a platform when it is
+/// [`PLATFORM_MAX_HEIGHT`] high or less.
+const IVY_MIN_WIDTH: f32 = 96.0;
+const PLATFORM_MAX_HEIGHT: f32 = 40.0;
+/// The size of one square of the strands below the end of a platform.
+const STRANDS_SIZE: Vec2 = Vec2::new(40.0, 120.0);
+/// The size of the emblem picture, the distance between two emblems on one
+/// face, the least size of a face that has one, and how far its middle is
+/// from each edge of the face at least.
+const EMBLEM_SIZE: Vec2 = Vec2::new(76.0, 108.0);
+const EMBLEM_PERIOD: f32 = 320.0;
+const EMBLEM_MIN_FACE: f32 = 150.0;
+const EMBLEM_MARGIN: f32 = 62.0;
+/// The size of the emblem as a medallion in a bay of the arcade, as a
+/// fraction of its size on a wall, and how far below the platform the crown
+/// of an arch is (`arch_part` in `ornaments.py`: the soffit is 6 deep).
+const MEDALLION_SCALE: f32 = 0.5;
+const ARCH_CROWN: f32 = 6.0;
+
+fn is_pillar(size: Vec2) -> bool {
+    size.x <= PILLAR_MAX_WIDTH && size.y > PILLAR_MIN_HEIGHT
+}
+
+fn is_platform(size: Vec2) -> bool {
+    size.y <= PLATFORM_MAX_HEIGHT && size.x >= IVY_MIN_WIDTH
+}
+
+/// A number for a block, the same for each state of a two-state theme: the
+/// ornaments of the two states are on the same blocks at the same places.
+fn block_seed(surface: &TerrainSurface) -> u32 {
+    (surface.min.x as i32 as u32).wrapping_mul(73_856_093) ^ ((surface.min.y + surface.size.y) as i32 as u32).wrapping_mul(19_349_663)
+}
+
+/// True when the rectangle `min..max` is clear of each thing of the play.
+fn clear_of(keep_out: Option<&TerrainKeepOut>, min: Vec2, max: Vec2) -> bool {
+    keep_out.is_none_or(|keep_out| !keep_out.0.iter().any(|(a, b)| a.x < max.x && b.x > min.x && a.y < max.y && b.y > min.y))
+}
+
+/// The quads of a pillar: the picture from its left side, and its shaded
+/// right edge at the right side of a pillar narrower than the picture. It
+/// repeats down from the top of the block.
+fn pillar_quads(owner: Entity, surface: &TerrainSurface, out: &mut Vec<SkinQuad>) {
+    let (min, size) = (surface.min, surface.size);
+    // (start in the picture, start in the block, width)
+    let across: Vec<(f32, f32, f32)> = if size.x >= PILLAR_SIZE.x || size.x < PILLAR_EDGE * 2.0 {
+        vec![(0.0, 0.0, size.x.min(PILLAR_SIZE.x))]
+    } else {
+        vec![(0.0, 0.0, size.x - PILLAR_EDGE), (PILLAR_SIZE.x - PILLAR_EDGE, size.x - PILLAR_EDGE, PILLAR_EDGE)]
+    };
+    for (y0, y1, oy) in anchored_pieces(0.0, size.y, PILLAR_SIZE.y) {
+        for &(tx, x0, w) in &across {
+            out.push(SkinQuad::at_scale(
+                owner,
+                RoomDressingPart::Pillar,
+                SkinLayer::Fill,
+                Vec2::new(min.x + x0 + w * 0.5, min.y + (y0 + y1) * 0.5),
+                Vec2::new(w, y1 - y0),
+                Vec2::new(tx, oy),
+            ));
+        }
+    }
+}
+
+/// The square `variant` of a strip whose squares are `size`, as a quad.
+fn strip_quad(owner: Entity, part: RoomDressingPart, layer: SkinLayer, centre: Vec2, size: Vec2, variant: u32, flip_x: bool) -> SkinQuad {
+    let mut quad = SkinQuad::at_scale(owner, part, layer, centre, size, Vec2::new(variant as f32 * size.x, 0.0));
+    quad.flip_x = flip_x;
+    quad
+}
+
+/// The ornaments of one solid block or one-way platform: the arcade below a
+/// platform, a banner or a medallion in each long bay of it, and the ivy on
+/// its top corners with what hangs below them.
+fn lay_ornaments(
+    owner: Entity,
+    surface: &TerrainSurface,
+    others: &[TerrainSurface],
+    top_spans: &[(f32, f32)],
+    keep_out: Option<&TerrainKeepOut>,
+    parts: &impl SkinParts,
+    out: &mut Vec<SkinQuad>,
+) {
+    let (min, max, size) = (surface.min, surface.max(), surface.size);
+    let seed = block_seed(surface);
+    // An arcade hangs from a platform whose whole underside is open.
+    let bottom = open_edge_spans(surface, Edge::Bottom, others);
+    let open_below = matches!(bottom.as_slice(), [(a, b)] if *a <= min.x + CONTACT && *b >= max.x - CONTACT);
+    let platform = is_platform(size) && open_below;
+    if platform && parts.has(RoomDressingPart::Arch) {
+        let bays = (size.x / ARCH_SIZE.x).round().max(1.0);
+        let bay = size.x / bays;
+        let y = max.y + ARCH_SIZE.y * 0.5;
+        let middle = ARCH_SIZE.x - ARCH_BRACKET * 2.0;
+        for i in 0..bays as u32 {
+            let x0 = min.x + i as f32 * bay;
+            // (start in the picture, width in the picture, start in the bay,
+            // width in the bay)
+            for (tx, tw, bx, bw) in [
+                (0.0, ARCH_BRACKET, 0.0, ARCH_BRACKET),
+                (ARCH_BRACKET, middle, ARCH_BRACKET, bay - ARCH_BRACKET * 2.0),
+                (ARCH_SIZE.x - ARCH_BRACKET, ARCH_BRACKET, bay - ARCH_BRACKET, ARCH_BRACKET),
+            ] {
+                let mut quad = SkinQuad::at_scale(
+                    owner,
+                    RoomDressingPart::Arch,
+                    SkinLayer::Arch,
+                    Vec2::new(x0 + bx + bw * 0.5, y),
+                    Vec2::new(tw, ARCH_SIZE.y),
+                    Vec2::new(tx, 0.0),
+                );
+                quad.size.x = bw;
+                out.push(quad);
+            }
+            if bay < BANNER_MIN_BAY {
+                continue;
+            }
+            let banner = dice(seed.wrapping_add(i.wrapping_mul(2_654_435_761)).wrapping_add(660)) < 0.55;
+            if banner && parts.has(RoomDressingPart::Banner) {
+                let centre = Vec2::new(x0 + bay * 0.5, max.y + BANNER_SIZE.y * 0.5);
+                out.push(SkinQuad::at_scale(owner, RoomDressingPart::Banner, SkinLayer::Banner, centre, BANNER_SIZE, Vec2::ZERO));
+            } else if !banner && parts.has(RoomDressingPart::Emblem) {
+                // A bay with no banner has the emblem as a medallion, hung
+                // from the crown of its arch by its upright line.
+                let size = EMBLEM_SIZE * MEDALLION_SCALE;
+                let centre = Vec2::new(x0 + bay * 0.5, max.y + ARCH_CROWN + size.y * 0.5);
+                let mut quad = SkinQuad::at_scale(owner, RoomDressingPart::Emblem, SkinLayer::Banner, centre, EMBLEM_SIZE, Vec2::ZERO);
+                quad.size = size;
+                out.push(quad);
+            }
+        }
+    }
+    if size.x < IVY_MIN_WIDTH || !parts.has(RoomDressingPart::Ivy) {
+        return;
+    }
+    let left_open = open_edge_spans(surface, Edge::Left, others);
+    let right_open = open_edge_spans(surface, Edge::Right, others);
+    for right in [false, true] {
+        if dice(seed.wrapping_add(700 + right as u32 * 13)) >= 0.55 {
+            continue;
+        }
+        // The corner is open: the top at that end, and the side at its top.
+        let reach = IVY_SIZE.x - IVY_CORNER.x;
+        let top_open = top_spans.iter().any(|&(a, b)| if right { b >= max.x - CONTACT && b - a >= reach } else { a <= min.x + CONTACT && b - a >= reach });
+        let side_open = (if right { &right_open } else { &left_open }).first().is_some_and(|&(a, _)| a <= min.y + CONTACT);
+        if !top_open || !side_open {
+            continue;
+        }
+        let variant = ((dice(seed.wrapping_add(701 + right as u32 * 13)) * IVY_VARIANTS as f32) as u32).min(IVY_VARIANTS - 1);
+        let from_corner = IVY_SIZE * 0.5 - IVY_CORNER;
+        let corner = Vec2::new(if right { max.x } else { min.x }, min.y);
+        let centre = corner + Vec2::new(if right { -from_corner.x } else { from_corner.x }, from_corner.y);
+        if !clear_of(keep_out, centre - IVY_SIZE * 0.5, centre + IVY_SIZE * 0.5) {
+            continue;
+        }
+        out.push(strip_quad(owner, RoomDressingPart::Ivy, SkinLayer::Ivy, centre, IVY_SIZE, variant, right));
+        if platform && parts.has(RoomDressingPart::IvyStrands) {
+            let x = if right { max.x - STRANDS_SIZE.x * 0.5 } else { min.x + STRANDS_SIZE.x * 0.5 };
+            let centre = Vec2::new(x, max.y + STRANDS_SIZE.y * 0.5);
+            out.push(strip_quad(owner, RoomDressingPart::IvyStrands, SkinLayer::IvyStrands, centre, STRANDS_SIZE, variant, right));
+        }
+    }
+}
+
+/// The middles of the emblems on the face of a large solid block: one each
+/// [`EMBLEM_PERIOD`] from the middle of the face, each whole on the face, below
+/// its cap, and clear of each thing of the play.
+fn emblems_on(surface: &TerrainSurface, keep_out: Option<&TerrainKeepOut>) -> Vec<Vec2> {
+    let (min, size) = (surface.min, surface.size);
+    if size.x < EMBLEM_MIN_FACE || size.y < EMBLEM_MIN_FACE {
+        return Vec::new();
+    }
+    let along = |length: f32, margin_lo: f32| {
+        let reach = ((length * 0.5) / EMBLEM_PERIOD).ceil() as i32;
+        (-reach..=reach)
+            .map(move |k| length * 0.5 + k as f32 * EMBLEM_PERIOD)
+            .filter(move |at| *at >= margin_lo && *at <= length - EMBLEM_MARGIN)
+    };
+    let mut out = Vec::new();
+    for x in along(size.x, EMBLEM_MARGIN) {
+        for y in along(size.y, EMBLEM_MARGIN + 16.0) {
+            let centre = min + Vec2::new(x, y);
+            if clear_of(keep_out, centre - EMBLEM_SIZE * 0.5, centre + EMBLEM_SIZE * 0.5) {
+                out.push(centre);
+            }
+        }
+    }
+    out
 }
 
 /// The blocks of a room, found by place: the blocks near a block are the
@@ -822,6 +1080,11 @@ impl RoomTerrain {
         self.quads.iter().filter(move |quad| quad.owner == owner)
     }
 
+    /// Whether its skin is laid on the blocks it has now.
+    pub fn is_laid(&self) -> bool {
+        !self.dirty
+    }
+
     /// How many meshes draw the skin of the room.
     pub fn mesh_count(&self) -> usize {
         self.chunks.len()
@@ -931,7 +1194,16 @@ pub fn lay_room_terrain(
     // A block whose art goes is skinned again: its own sprite is still the
     // art's until the skin writes it.
     mut unarted: RemovedComponents<EntityArt>,
-    mut blocks: Query<(Entity, &TerrainSurface, &mut Sprite, Option<&InRoomInstance>, Has<EntityArt>, Has<TerrainSkinned>)>,
+    mut blocks: Query<(
+        Entity,
+        &TerrainSurface,
+        &mut Sprite,
+        Option<&InRoomInstance>,
+        Has<EntityArt>,
+        Has<TerrainSkinned>,
+        Option<&BoundEntitySprite>,
+        Option<&SkinTookSprite>,
+    )>,
 ) {
     let stamp = |room: Option<&InRoomInstance>| room.map(|room| room.0);
     for room in added.iter().chain(arted.iter()) {
@@ -991,7 +1263,7 @@ pub fn lay_room_terrain(
         let laid: Vec<(Entity, TerrainSurface, bool)> = blocks
             .iter()
             .filter(|(_, surface, _, block_room, ..)| surface.theme == terrain.blocks_of && stamp(*block_room) == room)
-            .map(|(entity, surface, _, _, with_art, _)| (entity, *surface, with_art))
+            .map(|(entity, surface, _, _, with_art, ..)| (entity, *surface, with_art))
             .collect();
         let parts = |part| skins.get(theme, part).is_some();
         let (block_skins, quads) = lay_room_skin(&laid, Some(&*keep_out), spacing, &parts);
@@ -1021,11 +1293,34 @@ pub fn lay_room_terrain(
             if *with_art {
                 continue;
             }
-            let Ok((_, _, mut sprite, _, _, skinned)) = blocks.get_mut(*entity) else {
+            let Ok((_, _, mut sprite, _, _, skinned, bound, took)) = blocks.get_mut(*entity) else {
                 continue;
             };
             if !skinned {
                 commands.entity(*entity).try_insert(TerrainSkinned);
+            }
+            // The skin takes the block's own sprite once, and gives it back
+            // when it no longer draws the block.
+            match (skin, took) {
+                (BlockSkin::Untouched, Some(took)) => {
+                    let mut own = took.sprite.clone();
+                    if own.custom_size.is_some() {
+                        own.custom_size = Some(surface.size);
+                    }
+                    // A quality change while the skin drew it moved the tile.
+                    if let Some(bound) = took.bound {
+                        if let Some(handle) = assets.entities.get(bound.key) {
+                            own.image = handle.clone();
+                        }
+                        commands.entity(*entity).try_insert(bound);
+                    }
+                    *sprite = own;
+                    commands.entity(*entity).try_remove::<SkinTookSprite>();
+                }
+                (BlockSkin::Laid | BlockSkin::OwnFill(_), None) => {
+                    commands.entity(*entity).try_insert(SkinTookSprite { sprite: sprite.clone(), bound: bound.copied() });
+                }
+                _ => {}
             }
             match skin {
                 BlockSkin::Untouched => {}
@@ -1398,9 +1693,69 @@ mod tests {
         assert!(anchored_pieces(5.0, 5.0, 64.0).is_empty());
     }
 
-    /// Every picture of a skin, or none.
-    fn every_part(_: RoomDressingPart) -> bool {
+    /// Every picture of a skin but the ornaments, or none.
+    fn every_part(part: RoomDressingPart) -> bool {
+        !is_ornament(part)
+    }
+
+    fn is_ornament(part: RoomDressingPart) -> bool {
+        use RoomDressingPart::*;
+        matches!(part, Pillar | Arch | Banner | Ivy | IvyStrands | Emblem)
+    }
+
+    fn with_ornaments(_: RoomDressingPart) -> bool {
         true
+    }
+
+    /// A tall narrow block is a pillar: the pillar picture covers it in
+    /// place of the fill, and it has no side shade (the pillar has its own).
+    /// The control is the same block in a theme with no pillar: the fill.
+    #[test]
+    fn a_tall_narrow_block_is_a_pillar_in_a_theme_that_has_one() {
+        for width in [48.0, 32.0, 12.0] {
+            let pillar = surface(TerrainSurfaceKind::Solid, 100.0, 0.0, width, 300.0);
+            let (skins, quads) = lay(&[pillar], &with_ornaments);
+            assert_eq!(skins, vec![BlockSkin::Laid]);
+            assert_eq!(area_of(&quads, owner(0), RoomDressingPart::Pillar), width * 300.0, "width {width}");
+            assert_eq!(area_of(&quads, owner(0), RoomDressingPart::Fill), 0.0);
+            assert_eq!(area_of(&quads, owner(0), RoomDressingPart::Side), 0.0);
+            let (_, quads) = lay(&[pillar], &every_part);
+            assert_eq!(area_of(&quads, owner(0), RoomDressingPart::Fill), width * 300.0);
+        }
+    }
+
+    /// A platform whose underside is open has an arcade along all of it,
+    /// in whole bays. One that lies on a floor has none.
+    #[test]
+    fn an_arcade_hangs_below_a_platform_with_an_open_underside() {
+        let platform = surface(TerrainSurfaceKind::OneWay, 64.0, 200.0, 400.0, 16.0);
+        let (_, quads) = lay(&[platform], &with_ornaments);
+        let arches: Vec<&SkinQuad> = quads.iter().filter(|quad| quad.part == RoomDressingPart::Arch).collect();
+        let width: f32 = arches.iter().map(|quad| quad.size.x).sum();
+        assert!((width - 400.0).abs() < 1e-3, "the arcade is {width} long");
+        // 400 is near three bays of 150: three brackets of each end.
+        assert_eq!(arches.len(), 9);
+        assert!(arches.iter().all(|quad| quad.centre.y - ARCH_SIZE.y * 0.5 == 216.0), "it hangs from the bottom of the platform");
+
+        let floor = surface(TerrainSurfaceKind::Solid, 0.0, 216.0, 600.0, 64.0);
+        let (_, quads) = lay(&[platform, floor], &with_ornaments);
+        assert!(!quads.iter().any(|quad| quad.owner == owner(0) && quad.part == RoomDressingPart::Arch));
+    }
+
+    /// An emblem is whole on its face and clear of each thing of the play;
+    /// a small face has none.
+    #[test]
+    fn an_emblem_is_whole_on_a_large_face_and_clear_of_the_play() {
+        let wall = surface(TerrainSurfaceKind::Solid, 0.0, 0.0, 700.0, 400.0);
+        let centres = emblems_on(&wall, None);
+        assert!(!centres.is_empty());
+        for centre in &centres {
+            let (lo, hi) = (*centre - EMBLEM_SIZE * 0.5, *centre + EMBLEM_SIZE * 0.5);
+            assert!(lo.cmpge(wall.min).all() && hi.cmple(wall.max()).all(), "an emblem at {centre} is cut by the edge");
+        }
+        let door = TerrainKeepOut(vec![(centres[0] - Vec2::splat(10.0), centres[0] + Vec2::splat(10.0))]);
+        assert_eq!(emblems_on(&wall, Some(&door)).len(), centres.len() - 1);
+        assert!(emblems_on(&surface(TerrainSurfaceKind::Solid, 0.0, 0.0, 140.0, 400.0), None).is_empty());
     }
 
     fn no_part(_: RoomDressingPart) -> bool {
@@ -1550,7 +1905,8 @@ mod tests {
 
     /// The decor of a span is the same each time, each thing is inside the
     /// span, and none stands on a thing of the play. The control is the same
-    /// span with no keep-out: it has a thing where the keep-out is.
+    /// span with no keep-out: it has a thing where the keep-out is. A spacing
+    /// near zero ends, with a bounded number of things.
     #[test]
     fn the_decor_of_a_span_is_inside_it_and_clear_of_the_play() {
         let free = decor_on_span(0.0, 2000.0, 300.0, 100.0, None);
@@ -1567,6 +1923,10 @@ mod tests {
         assert_eq!(decor_on_span(0.0, 2000.0, 300.0, 100.0, Some(&high)), free);
         assert!(decor_on_span(0.0, 50.0, 300.0, 100.0, None).is_empty(), "a short ledge has none");
         assert!(decor_on_span(0.0, 2000.0, 300.0, 0.0, None).is_empty(), "no spacing, no decor");
+        // A spacing too small to move a place near 1000 ends, with at most
+        // one decor each quarter of a decor.
+        let dense = decor_on_span(1000.0, 1200.0, 300.0, 1e-6, None);
+        assert!(!dense.is_empty() && dense.len() as f32 <= 200.0 / (DECOR_SIZE * 0.25) + 1.0, "{}", dense.len());
     }
 
     /// A room with every picture of the Cave skin loaded, a floor and a
@@ -1576,7 +1936,8 @@ mod tests {
         let mut images = Assets::<Image>::default();
         let mut assets = GameAssets::default();
         if asked_for {
-            for &part in RoomDressingPart::ALL {
+            // A theme with a skin and no ornaments, as each one but the hub.
+            for &part in RoomDressingPart::ALL.iter().filter(|part| every_part(**part)) {
                 let image = images.add(Image::new_fill(
                     bevy::render::render_resource::Extent3d { width: 128, height: 128, depth_or_array_layers: 1 },
                     bevy::render::render_resource::TextureDimension::D2,
@@ -1678,6 +2039,62 @@ mod tests {
         world.run_system(lay).unwrap();
         assert!(terrain(&world) > 0, "the block whose art went has no skin");
         assert_eq!(world.entity(brick).get::<Sprite>().unwrap().color, Color::NONE, "its own sprite still draws");
+    }
+
+    /// A block draws as its skin says now, whatever the skin said before:
+    /// laid, it draws nothing of its own; filling itself, its picture
+    /// repeated at its size; untouched, its own sprite as it was before the
+    /// skin took it. Each transition between the three, and art of its own
+    /// that comes and goes over them.
+    #[test]
+    fn a_block_draws_as_its_skin_says_after_each_change() {
+        let (mut world, _, _, brick) = terrain_world(true);
+        let own = world.entity(brick).get::<Sprite>().unwrap().clone();
+        let small = world.entity(brick).get::<TerrainSurface>().unwrap().size;
+        let huge = Vec2::new(10_000.0, 2_000.0);
+        let lay = world.register_system(lay_room_terrain);
+        #[derive(Debug, PartialEq)]
+        enum Look {
+            Clear,
+            Fill(Option<Vec2>),
+            Own(Option<Vec2>),
+            Other,
+        }
+        let look = |world: &World| {
+            let sprite = world.entity(brick).get::<Sprite>().unwrap();
+            if sprite.color == Color::NONE {
+                Look::Clear
+            } else if matches!(sprite.image_mode, bevy::sprite::SpriteImageMode::Tiled { .. }) {
+                Look::Fill(sprite.custom_size)
+            } else if sprite.image == own.image && sprite.color == own.color {
+                Look::Own(sprite.custom_size)
+            } else {
+                Look::Other
+            }
+        };
+        let step = |world: &mut World, kind: TerrainSurfaceKind, size: Vec2| {
+            let mut surface = world.entity_mut(brick);
+            let mut surface = surface.get_mut::<TerrainSurface>().unwrap();
+            surface.kind = kind;
+            surface.size = size;
+            world.run_system(lay).unwrap();
+            look(world)
+        };
+        use TerrainSurfaceKind::{Cover, Solid};
+        assert_eq!(step(&mut world, Solid, small), Look::Clear, "untouched to laid");
+        assert_eq!(step(&mut world, Cover, small), Look::Own(Some(small)), "laid to untouched");
+        assert_eq!(step(&mut world, Solid, small), Look::Clear, "untouched to laid, again");
+        assert_eq!(step(&mut world, Solid, huge), Look::Fill(Some(huge)), "laid to its own fill");
+        assert_eq!(step(&mut world, Cover, huge), Look::Own(Some(huge)), "its own fill to untouched, at its size now");
+        assert_eq!(step(&mut world, Solid, huge), Look::Fill(Some(huge)), "untouched to its own fill");
+        assert_eq!(step(&mut world, Solid, small), Look::Clear, "its own fill to laid");
+        // Art of its own comes while it is laid, and goes when its kind has
+        // no skin: it draws as before the skin took it.
+        world.entity_mut(brick).insert(EntityArt(ambition_sprite_sheet::game_assets::EntitySprite::DoorZone));
+        world.run_system(lay).unwrap();
+        world.entity_mut(brick).remove::<EntityArt>();
+        assert_eq!(step(&mut world, Cover, small), Look::Own(Some(small)), "art gone, untouched");
+        assert_eq!(step(&mut world, Cover, small), Look::Own(Some(small)), "the control: nothing changed");
     }
 
     /// A block too large for quads fills itself with its picture repeated;

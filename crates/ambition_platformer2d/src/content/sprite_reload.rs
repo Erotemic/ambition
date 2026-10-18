@@ -243,7 +243,7 @@ impl SpriteSheetWatch {
     fn look_in_the_background(&self) {
         let scanner = Arc::downgrade(&self.scanner);
         let found = Arc::downgrade(&self.found);
-        let reports = ChangeReports::of(&self.owner);
+        let mut reports = ChangeReports::of(&self.owner);
         let spawned = std::thread::Builder::new().name("sprite-sheet-watch".into()).spawn(move || {
             // The first look takes the baseline: it costs a full look once.
             let mut changed = true;
@@ -288,27 +288,64 @@ impl SpriteSheetWatch {
 struct ChangeReports {
     #[cfg(not(target_arch = "wasm32"))]
     reports: Option<(notify::RecommendedWatcher, std::sync::mpsc::Receiver<notify::Result<notify::Event>>)>,
+    /// The sprite folders that are not there yet (a quality tier the
+    /// publisher has not written). The nearest folder above each that is
+    /// there is watched, and each is watched itself once it comes.
+    #[cfg(not(target_arch = "wasm32"))]
+    awaited: Vec<PathBuf>,
+    /// The folders watched, without their contents, for an awaited one.
+    #[cfg(not(target_arch = "wasm32"))]
+    above: Vec<PathBuf>,
 }
 
 impl ChangeReports {
     #[cfg(not(target_arch = "wasm32"))]
     fn of(owner: &Path) -> Self {
-        use notify::Watcher;
         let (sender, receiver) = std::sync::mpsc::channel();
-        let watcher = notify::recommended_watcher(sender).and_then(|mut watcher| {
-            let dirs = sheet_table::sprite_dirs_under(owner).into_iter().chain([sheet_table::pack_catalog_dir_under(owner)]);
-            for dir in dirs.filter(|dir| dir.is_dir()) {
-                watcher.watch(&dir, notify::RecursiveMode::Recursive)?;
+        let dirs = sheet_table::sprite_dirs_under(owner).into_iter().chain([sheet_table::pack_catalog_dir_under(owner)]);
+        let mut reports = Self { reports: None, awaited: dirs.collect(), above: Vec::new() };
+        match notify::recommended_watcher(sender) {
+            Ok(watcher) => {
+                reports.reports = Some((watcher, receiver));
+                if let Err(error) = reports.watch_what_came() {
+                    reports.reports = None;
+                    warn!(target: "ambition_platformer2d::sprites", "no change reports for the sprite tree ({error}); it is looked at each {LOOK_EVERY:?}");
+                }
             }
-            Ok(watcher)
-        });
-        match watcher {
-            Ok(watcher) => Self { reports: Some((watcher, receiver)) },
             Err(error) => {
                 warn!(target: "ambition_platformer2d::sprites", "no change reports for the sprite tree ({error}); it is looked at each {LOOK_EVERY:?}");
-                Self { reports: None }
             }
         }
+        reports
+    }
+
+    /// Watch each awaited folder that is there now, with all it holds, and
+    /// the nearest folder above each one that is not. True when a folder
+    /// came: what it holds was written with no report.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn watch_what_came(&mut self) -> notify::Result<bool> {
+        use notify::Watcher;
+        let Some((watcher, _)) = &mut self.reports else {
+            return Ok(false);
+        };
+        let mut came = false;
+        let mut awaited = Vec::new();
+        for dir in std::mem::take(&mut self.awaited) {
+            if dir.is_dir() {
+                watcher.watch(&dir, notify::RecursiveMode::Recursive)?;
+                came = true;
+                continue;
+            }
+            if let Some(above) = dir.ancestors().skip(1).find(|above| above.is_dir()) {
+                if !self.above.iter().any(|watched| watched == above) {
+                    watcher.watch(above, notify::RecursiveMode::NonRecursive)?;
+                    self.above.push(above.to_path_buf());
+                }
+            }
+            awaited.push(dir);
+        }
+        self.awaited = awaited;
+        Ok(came)
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -316,24 +353,38 @@ impl ChangeReports {
         Self {}
     }
 
+    /// `None` when no report came within `longest`; else whether one of the
+    /// reports (and those that follow it within a short time) is of a file a
+    /// sheet generation or a page is read from.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn reports_within(&self, longest: Duration) -> Option<bool> {
+        let (_, receiver) = self.reports.as_ref()?;
+        let relevant = |report: notify::Result<notify::Event>| {
+            // An error can be a lost report: look.
+            report.map_or(true, |event| event.paths.iter().any(|path| watched_file(path)))
+        };
+        let mut changed = relevant(receiver.recv_timeout(longest).ok()?);
+        // A save is several reports, and a publish writes many files: one
+        // look for all of them.
+        while let Ok(report) = receiver.recv_timeout(SETTLE) {
+            changed |= relevant(report);
+        }
+        Some(changed)
+    }
+
     /// Wait at most `longest` for a report of a change to a file a sheet
     /// generation or a page is read from. True when one came (and the reports
     /// that follow it within a short time), or when no reports are possible.
-    fn wait(&self, longest: Duration) -> bool {
+    fn wait(&mut self, longest: Duration) -> bool {
         #[cfg(not(target_arch = "wasm32"))]
-        if let Some((_, receiver)) = &self.reports {
-            let relevant = |report: notify::Result<notify::Event>| {
-                // An error can be a lost report: look.
-                report.map_or(true, |event| event.paths.iter().any(|path| watched_file(path)))
+        if self.reports.is_some() {
+            let mut changed = match self.reports_within(longest) {
+                Some(changed) => changed,
+                None => return false,
             };
-            let Ok(report) = receiver.recv_timeout(longest) else {
-                return false;
-            };
-            let mut changed = relevant(report);
-            // A save is several reports, and a publish writes many files:
-            // one look for all of them.
-            while let Ok(report) = receiver.recv_timeout(SETTLE) {
-                changed |= relevant(report);
+            // A report can be a folder that came: watch it, and look.
+            if !self.awaited.is_empty() {
+                changed |= self.watch_what_came().unwrap_or(true);
             }
             return changed;
         }
@@ -541,4 +592,30 @@ fn publish_the_staged_sheets(world: &mut World) {
     let mut watch = world.resource_mut::<SpriteSheetWatch>();
     watch.published += 1;
     watch.reloaded_pages += reloaded;
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+
+    /// A quality tier the publisher writes after the watch began is watched
+    /// from when it comes: the folder's coming is reported, and so is a sheet
+    /// written in it. The control: a wait with no change reports none.
+    #[test]
+    fn a_tier_written_after_the_watch_began_is_watched() {
+        let owner = std::env::temp_dir().join(format!("sprite_watch_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&owner);
+        let dirs = sheet_table::sprite_dirs_under(&owner);
+        let (main, tier) = (&dirs[0], &dirs[1]);
+        std::fs::create_dir_all(main).unwrap();
+        let mut reports = ChangeReports::of(&owner);
+        assert!(reports.reports.is_some(), "the premise: this system reports changes");
+        assert!(!reports.wait(Duration::from_millis(300)), "the control: nothing changed");
+
+        std::fs::create_dir_all(tier).unwrap();
+        assert!(reports.wait(Duration::from_secs(5)), "the tier came, and no report said so");
+        std::fs::write(tier.join("a_spritesheet.ron"), "()").unwrap();
+        assert!(reports.wait(Duration::from_secs(5)), "a sheet written in the tier that came was not reported");
+        let _ = std::fs::remove_dir_all(&owner);
+    }
 }

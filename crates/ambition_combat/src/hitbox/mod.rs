@@ -713,6 +713,15 @@ pub struct StrikeOutcomeWriters<'w> {
     pub parried: MessageWriter<'w, ParriedBodyHit>,
 }
 
+/// Where a hit comes from: a placed volume's own centre, a carried one's
+/// owner. The knockback direction and the portal cut start there.
+fn spatial_source_of(hitbox: &Hitbox, owner_pos: ae::Vec2) -> ae::Vec2 {
+    match hitbox.anchor {
+        HitboxAnchor::World { center } => center,
+        HitboxAnchor::FollowOwner { .. } => owner_pos,
+    }
+}
+
 pub fn apply_hitbox_damage(
     // ⭐ THE MOVE INSTANCE RIDES ALONG, `Option` because this system resolves
     // volumes that no move spawned (an ability's own box, a hazard). See
@@ -796,17 +805,17 @@ pub fn apply_hitbox_damage(
     // late sourspot is the SAME pulse and does not re-hit, while a genuine
     // multi-hit puts a GAP in Active time and earns its second hit.
     let mut pulse_records: Vec<(Entity, Entity, Entity)> = Vec::new();
-    for (hitbox_entity, hitbox, mut hits, move_instance) in &mut hitboxes {
-        // Resolve the owner's collision-box center for FollowOwner tracking.
-        // Actors carry `CenteredAabb`; bare fixtures may carry only
-        // `BodyKinematics`. If neither resolves (owner despawned), leave the
-        // hitbox a harmless ghost for `tick_and_despawn_hitboxes`.
+    // Resolve the owner's collision-box center for FollowOwner tracking.
+    // Actors carry `CenteredAabb`; bare fixtures may carry only
+    // `BodyKinematics`. `None` (owner despawned) leaves the hitbox a harmless
+    // ghost for `tick_and_despawn_hitboxes`.
+    let owner_position = |hitbox: &Hitbox| {
         let resolved_owner = owners
             .get(hitbox.owner)
             .map(|aabb| aabb.center)
             .ok()
             .or_else(|| owner_kin.get(hitbox.owner).map(|kin| kin.pos).ok());
-        let owner_pos = match (resolved_owner, hitbox.anchor) {
+        Some(match (resolved_owner, hitbox.anchor) {
             (Some(pos), _) => pos,
             // ⛔⛔ A WORLD-ANCHORED BOX DOES NOT NEED AN OWNER THAT STILL EXISTS,
             // AND REQUIRING ONE MADE EVERY ITEM BLAST A GHOST. `world_volume`
@@ -829,7 +838,39 @@ pub fn apply_hitbox_damage(
             (None, HitboxAnchor::World { center }) => center,
             // A FollowOwner box genuinely cannot be placed without one. Leave it
             // a harmless ghost for `tick_and_despawn_hitboxes`.
-            (None, HitboxAnchor::FollowOwner { .. }) => continue,
+            (None, HitboxAnchor::FollowOwner { .. }) => return None,
+        })
+    };
+    // Where a strike is: its live room and its pieces. Each volume is placed
+    // by its own anchor, carrier and room, also when another volume of the
+    // same move asks about it.
+    let place = |hitbox_entity: Entity, hitbox: &Hitbox, owner_pos: ae::Vec2| {
+        // The strike's live room: the volume's own, else its owner's. Two
+        // live rooms share one local frame, so a body at the same place
+        // in another room is not in reach.
+        let room = rooms.stamped(hitbox_entity).or_else(|| rooms.of(hitbox.owner));
+        // A volume the owner carries (it follows the owner) is cut by the pair
+        // the owner is in; one placed in the world, by what it reaches through.
+        let carrier = matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }).then_some(hitbox.owner);
+        let volume = hitbox.world_volume(owner_pos);
+        let pieces = match passages.as_deref().filter(|p| p.cuts_in(room, carrier)) {
+            Some(p) => p.pieces(&volume, carrier, spatial_source_of(hitbox, owner_pos), room),
+            None => vec![VolumePiece::whole(volume)],
+        };
+        (room, pieces)
+    };
+    // The ranked volumes live this tick, each placed once: a victim loop asks
+    // about each sibling for each body.
+    let ranked: Vec<(Entity, Entity, crate::moveset::StrikeRank, Vec<VolumePiece>)> = strike_ranks
+        .iter()
+        .filter_map(|(entity, hitbox, rank)| {
+            let owner_pos = owner_position(hitbox)?;
+            Some((entity, hitbox.owner, *rank, place(entity, hitbox, owner_pos).1))
+        })
+        .collect();
+    for (hitbox_entity, hitbox, mut hits, move_instance) in &mut hitboxes {
+        let Some(owner_pos) = owner_position(hitbox) else {
+            continue;
         };
         let world_volume = hitbox.world_volume(owner_pos);
         // ⭐⭐ WHERE THE HIT CAME FROM IS THE ANCHOR'S QUESTION, NOT THE OWNER'S.
@@ -844,10 +885,7 @@ pub fn apply_hitbox_damage(
         // `hitbox.owner` still answers "who is credited" for kills, grudges and
         // staleness; this answers "what did the victim get hit BY", and a blast
         // is hit by the blast.
-        let spatial_source = match hitbox.anchor {
-            HitboxAnchor::World { center } => center,
-            HitboxAnchor::FollowOwner { .. } => owner_pos,
-        };
+        let spatial_source = spatial_source_of(hitbox, owner_pos);
         let source_faction = actor_faction_from_hit_side(hitbox.source);
 
         // ONE BODY, ONE PATH: every body-owned melee strike resolves contacts
@@ -867,22 +905,7 @@ pub fn apply_hitbox_damage(
             (HitSide::Environment, _) => Some(HitSource::Melee),
         };
 
-        // The strike's live room: the volume's own, else its owner's. Two
-        // live rooms share one local frame, so a body at the same place
-        // in another room is not in reach.
-        let strike_room = rooms
-            .stamped(hitbox_entity)
-            .or_else(|| rooms.of(hitbox.owner));
-        // A volume the owner carries (it follows the owner) is cut by the pair
-        // the owner is in; one placed in the world, by what it reaches through.
-        let carrier = matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }).then_some(hitbox.owner);
-        // The pairs that can cut this volume, if any.
-        let threaded = passages.as_deref().filter(|p| p.cuts_in(strike_room, carrier));
-        let strike_pieces = |volume: &ambition_platformer2d_core::CombatVolume| match threaded {
-            Some(p) => p.pieces(volume, carrier, spatial_source, strike_room),
-            None => vec![VolumePiece::whole(volume.clone())],
-        };
-        let pieces = strike_pieces(&world_volume);
+        let (strike_room, pieces) = place(hitbox_entity, hitbox, owner_pos);
         // What a feature (a boss, a breakable) is hit by: the pieces, when a
         // pair cut the strike; else the volume, whole.
         let cut = pieces.len() != 1 || !pieces[0].bounds.is_empty();
@@ -975,9 +998,12 @@ pub fn apply_hitbox_damage(
                     continue;
                 }
                 let victim_room = rooms.of(victim.entity);
-                let hurt = victim_pieces
-                    .entry(victim.entity)
-                    .or_insert_with(|| victim.hurt_pieces(threaded, victim_room));
+                // Cut by the victim's own room and transit, not the strike's:
+                // the pieces are kept for each strike of the tick.
+                let hurt = victim_pieces.entry(victim.entity).or_insert_with(|| {
+                    let threaded = passages.as_deref().filter(|p| p.cuts_in(victim_room, Some(victim.entity)));
+                    victim.hurt_pieces(threaded, victim_room)
+                });
                 // The piece of the strike that reaches a piece of the victim.
                 let Some((strike_piece, victim_piece)) = pieces
                     .iter()
@@ -1024,13 +1050,11 @@ pub fn apply_hitbox_damage(
                 // about, and a sourspot whose sweetspot window has closed is
                 // free again on the very next tick, which is what a lingering
                 // late hit should be.
-                if let Ok((_, _, rank)) = strike_ranks.get(hitbox_entity) {
-                    let outranked = strike_ranks.iter().any(|(_, sibling, sibling_rank)| {
-                        sibling.owner == hitbox.owner
+                if let Some((_, _, rank, _)) = ranked.iter().find(|(entity, ..)| *entity == hitbox_entity) {
+                    let outranked = ranked.iter().any(|(_, owner, sibling_rank, sibling_pieces)| {
+                        *owner == hitbox.owner
                             && sibling_rank < rank
-                            && strike_pieces(&sibling.world_volume(owner_pos))
-                                .iter()
-                                .any(|sp| hurt.iter().any(|vp| sp.meets(vp)))
+                            && sibling_pieces.iter().any(|sp| hurt.iter().any(|vp| sp.meets(vp)))
                     });
                     if outranked {
                         continue;

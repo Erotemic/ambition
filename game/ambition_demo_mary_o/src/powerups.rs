@@ -1023,12 +1023,15 @@ pub fn dress_power_blocks(
         Ref<ambition_platformer2d::render::rendering::BlockVisual>,
         Option<Ref<ambition_platformer2d::render::rendering::EntityArt>>,
     )>,
+    // A block whose art goes is dressed again: its art is an input too.
+    mut unarted: RemovedComponents<ambition_platformer2d::render::rendering::EntityArt>,
 ) {
     // The look of a block is a function of its name, its art and the spent
     // set. With none of them changed, the answer of the last run holds: 1-2
     // has 332 blocks, and to decode each name each frame was 140 µs a frame
     // (desktop, `perf_probe`).
     let all = spent.is_changed();
+    let unarted: Vec<Entity> = unarted.read().collect();
     // ⛔ NOT THROUGH `content`, WHICH IS FEATURE-GATED. `EntitySprite` is sprite
     // vocabulary — `ambition_sprite_sheet::game_assets` — and the SDK re-exports
     // that crate UNGATED, two hundred lines from the gated `content` module that
@@ -1038,7 +1041,11 @@ pub fn dress_power_blocks(
     use ambition_platformer2d::render::rendering::EntityArt;
     use ambition_platformer2d::sprite_sheet::game_assets::EntitySprite;
     for (entity, visual, art) in &blocks {
-        if !all && !visual.is_changed() && !art.as_ref().is_some_and(|art| art.is_changed()) {
+        if !all
+            && !visual.is_changed()
+            && !art.as_ref().is_some_and(|art| art.is_changed())
+            && !unarted.contains(&entity)
+        {
             continue;
         }
         let art = art.as_deref();
@@ -2864,7 +2871,8 @@ mod block_dressing_tests {
 
     /// The dresser does its work only when a block, its art or the spent set
     /// changed. Each of the three is witnessed alone: a block spent on a later
-    /// frame, a block that comes later, and art that another writer changes.
+    /// frame, a block that comes later, and art that another writer changes
+    /// or takes away.
     #[test]
     fn the_dresser_follows_each_of_its_inputs_and_nothing_else() {
         let mut app = App::new();
@@ -2897,6 +2905,11 @@ mod block_dressing_tests {
         app.world_mut().entity_mut(later).insert(EntityArt(EntitySprite::BridgePlankTile));
         app.update();
         assert_eq!(art(&app, later), Some(EntitySprite::BonusBlockTile), "art that another writer changed");
+
+        // Art that another writer takes away.
+        app.world_mut().entity_mut(later).remove::<EntityArt>();
+        app.update();
+        assert_eq!(art(&app, later), Some(EntitySprite::BonusBlockTile), "art that another writer took away");
     }
 }
 

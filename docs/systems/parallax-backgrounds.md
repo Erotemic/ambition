@@ -79,6 +79,14 @@ overhang as the camera moves across the room. No tile repeats.
   standing things at the bottom. A theme with no foreground publishes an empty
   picture. A tier that draws fewer layers (`ParallaxBudget::max_layers`) drops
   it first.
+- A tier with parallax off (Potato) draws the **flat backdrop**
+  (`ParallaxLayerAsset::Flat`, `<theme>_flat.png`): the layers behind the play
+  as a view at the middle of the room shows them, composed and made small (512
+  px) by the scene renderer (`scenes.flat`). It is one panel as large as the
+  view and fixed to it: no slide, no overhang. Such a tier loads only it, and
+  not the layers of the stack (`ParallaxLayerAsset::drawn_by`). A two-state
+  room shows the flat backdrop of the state the middle of the view is in
+  (`show_two_state_backdrop` in the room look).
 
 ## Terrain skins
 

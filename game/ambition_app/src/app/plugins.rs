@@ -306,6 +306,8 @@ pub fn add_presentation_plugins(app: &mut App) {
     // The render-world stamp of the image stage ledger (`[image-gpu]` lines);
     // a no-op without a render world.
     app.add_plugins(ambition_platformer2d::render::asset_census::ImageStagePlugin);
+    // What the room on screen has still to draw, which each cover waits on.
+    app.add_plugins(ambition_platformer2d::render::rendering::presentation_settling::PresentationSettlingPlugin);
 }
 
 /// Visible-side resources, registered types, and presentation child

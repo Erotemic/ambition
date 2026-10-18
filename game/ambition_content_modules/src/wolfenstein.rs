@@ -929,7 +929,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             }
         }
         if striking {
-            if t < dt * 1.5 {
+            // The first striking tick, and no other: a new generation is a new
+            // ray, and a new ray hits a body again.
+            if fresh {
                 c.lash_generation = c.lash_generation.wrapping_add(1);
                 play(inv, SFX_BOLT, hand)?;
                 shake(inv, SHAKE_HOWL)?;

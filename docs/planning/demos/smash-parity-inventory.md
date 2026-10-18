@@ -198,6 +198,7 @@ Preserve these and build new features on their seams.
 | Ground-bounce / wall-splat feedback | ✔ | — | — | |
 | Launch beat distinct from tumble | ✔ | — | E1 | `LaunchedBodyFact::launch_beat_secs`. |
 | HUD percent punch | ✔ | S | — | `HudStanding::emphasis`. |
+| Up smashes kill in band | ◐ | S | — | MEASURED 2026-10-18 (`ko_envelope feel`, 23 fighters vs Robot v3, centre stage): the lowest launch that kills is about 1240 px/s upward and 630 sideways. So the up-smash KO median is 160% against 100% for forward smash and 120% for down smash; Ultimate's Mario is 119 / 88–104 / 124–152. Emmy's and Oiler's are weak by design (growth caps with tests, 80dfbda49). Retuning means per-fighter growth. 80dfbda49 derived the lever under the old rules (`growth = (1238 − base) / (1.25 · target%)`). Under base scale 2.5 and the `growth_base` curve it has to be re-fitted from `ko_envelope feel` rows before use. The target band is a call for Jon. |
 
 ## 4. Ground movement and neutral
 

@@ -549,6 +549,59 @@ Two paths, read from `AMBITION_FIGHTER_TRACE=1`:
    not under it), `Recover` now steers in. Below the underside it still holds.
    Same seeds, excluding Sanic: 16 losses → 12 (Mary-O 5→1, George 2→1, Robot
    3→2, Bob 2→4, the rest unchanged). One seed each, so noisy.
+4. Advantage and EdgeGuard offered nothing that brakes a run: with Approach
+   priced off the ledge, GNU-ton chose Jump at 530 px/s with 48 px of floor
+   and carried the run off. They now offer Retreat when Approach would walk off
+   or overshoot. Goblin 3→0, GNU-ton 4→2, Oiler 3→2, Pugnacious 4→1, Ramen 4→5.
+   The first eight fighters are within noise (12→13 excluding Sanic).
+
+5. Open: an AIRBORNE Approach is never priced off the ledge (`walks_off` and
+   `overshoots` need a supporting floor). Ramen, jumping at a foe near the
+   left ledge, drifted past it at −230 px/s and the lens found no route home
+   with `divergent_series`. Mary-O's first loss is the same: Approach from a
+   jump at x 218, still accelerating at x 129 (−236 px/s), Recovery at x 68
+   (−300). A fix needs the floor's span on the side axis for an airborne body
+   (`floor_ahead` reads only the supporting floor) and an airborne stopping
+   distance from the body's own law, as `stop_distance` is for the ground.
+   Tried and reverted 2026-10-18: `walks_off` answered in the air from the floor
+   under the body and an `air_stop_distance` law. Roster 46 self-KOs in 20.0
+   fighter-minutes → 50 in 21.2. Mary-O and Ramen were unchanged; Robot 2→5,
+   Bob 3→6. Like item 2, the view is about 300 ms old: at 200–300 px/s that is
+   60–90 px, more than the margin being priced. The stale self-view question
+   comes first.
+
+⭐ MEASURED 2026-10-18, the answer to items 2 and 5: a probe (not shipped) in
+`PerceptionBuffer::observe` gave every buffered view the LIVE `self_view`, so
+the brain sees the world 300 ms late but its own body now. Roster self-KOs
+went from 46 in 20.0 fighter-minutes to 11 in 20.7: Sanic 12→0, Ramen 5→0,
+Mary-O 3→0, Bob 3→0. It changes the humanity contract (the delay buffer is
+the only read path), so it is Jon's decision. A human knows where their own
+hands are without the screen; the probe is that rule. Offense was unchanged by the probe: the CPU eliminated the passive dummy
+within the minute in 10 of 23 runs before and 9 of 23 with it. The blunt probe is not shippable as written: `smash_it` was 50/51 under it,
+and `a_fighter_over_a_floor_open_for_it_plays_as_over_the_void` failed its
+control (a CPU over a closed gate floor played exactly as over the bare void).
+`SelfView` mixes the body's own state with facts read against that tick's
+world, so a live self with a delayed world disagrees with itself. Kinematics only (live `pos` and `vel`, everything else delayed) is
+as strong: Sanic 12→0, Ramen 5→0, Robot 2→0, Bob 3→0, Mary-O 3→1. It fails the
+same control. Not yet known: whether the fixture's premise (the closed-floor
+CPU diverges within 60 ticks) relied on the stale self-view, or the probe
+loses a real read of the floor. Lead: the fixture teleports the CPU (`kin.pos`, about 200 px over the void)
+and observes 60 ticks. Under the delayed view the brain sees its
+pre-teleport position for about 18 of them. Measured on main: bare and closed
+first diverge at tick 25, after that window, so the stale teleport alone does
+not explain it. Under the probe they never diverge in 60 ticks. Traced under the kinematics-only
+probe (`AMBITION_FIGHTER_TRACE=1`): the CPU knows its teleported position at
+once and air-dodges home (x 40 → 83 → 120 within three decisions), reaching the
+stage before the gate floor can matter. So the closed and bare runs are equal.
+The fixture's premise is a CPU slow to notice its own teleport, which is what
+the probe removes; it would need the CPU placed out of reach of home. The trace
+also shows the hazard of a partial copy: `ground=true` at x 40 over the void (a
+live position beside a stale grounded flag). A real version takes the body's
+own motion facts live together.
+
+Totals over one minute each, one seed. The eight fighters with a true baseline:
+32 → 25 (Sanic 14 → 12, item 2). The other fifteen were first measured after
+items 1 and 3: 27 → about 19.
 
 ### F1 — the authored ladder is the authority (Q88, 2026-10-03)
 

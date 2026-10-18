@@ -563,6 +563,12 @@ Two paths, read from `AMBITION_FIGHTER_TRACE=1`:
    (−300). A fix needs the floor's span on the side axis for an airborne body
    (`floor_ahead` reads only the supporting floor) and an airborne stopping
    distance from the body's own law, as `stop_distance` is for the ground.
+   Tried and reverted 2026-10-18: `walks_off` answered in the air from the floor
+   under the body and an `air_stop_distance` law. Roster 46 self-KOs in 20.0
+   fighter-minutes → 50 in 21.2. Mary-O and Ramen were unchanged; Robot 2→5,
+   Bob 3→6. Like item 2, the view is about 300 ms old: at 200–300 px/s that is
+   60–90 px, more than the margin being priced. The stale self-view question
+   comes first.
 
 Totals over one minute each, one seed. The eight fighters with a true baseline:
 32 → 25 (Sanic 14 → 12, item 2). The other fifteen were first measured after

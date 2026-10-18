@@ -553,8 +553,8 @@ Two paths, read from `AMBITION_FIGHTER_TRACE=1`:
    Approach kept accelerating it, so the move started at −478 px/s with about
    145 px left and coasted off. Pricing the move's travel against the floor
    ahead at decision time changed nothing (tried and reverted 2026-10-18): the
-   input is stale, not the formula. Open question for Jon: should a CPU perceive
-   its own body without the reaction delay?
+   input is stale, not the formula. Open question for Jon:
+   [Q167](../awaiting-maintainer-decision.md#q167--may-a-cpu-perceive-its-own-body-without-the-reaction-delay).
 
 3. `Recover` held the side whenever the feet were below the top. Just after
    stepping off, that left the Robot 48 px out, and its teleport (aimed by the

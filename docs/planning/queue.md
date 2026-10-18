@@ -583,6 +583,33 @@ reader that reads once at start a `Restater`, or move it to read at use.
 Cargo build (measured), a malformed value is refused at admission with the
 file and field named, and the Rust copy is deleted.
 
+### REVIEW-1018 - six findings from the 2026-10-18 review of the last 48 hours
+
+**Owner:** each finding's crate, named below. Jon handed over an external
+review of the last 48 hours; each finding has a witness that fails on the
+old code, a poison, and its own commit.
+
+1. ✅ **P1, the autopilot followed the graph of an old room.** A hand-written
+   hash left out overlay water, a contributed block's kind and a same-count
+   authored change. The graph's inputs are now compared whole
+   (`GraphInputs`: the geometry's change tick, `FeatureEcsWorldOverlay::still`,
+   the exits). `the_wanted_graph_follows_each_part_of_the_room_it_is_built_over`.
+2. ✅ **P1, a portal partition passed its piece budget.** The budget is
+   checked on the parts a cut makes (five with a depth), else the refused
+   cut, else the piece stays whole. `a_partition_is_never_larger_than_its_budget`.
+3. ✅ **P2, the terrain skin did not come back when a block's art went.**
+   `RemovedComponents<EntityArt>` dirties the owning room.
+   `a_block_whose_art_goes_takes_the_skin`.
+4. ✅ **P2, a self-filled block kept its old size.** The fill is compared on
+   picture, size and tiles. `a_block_that_fills_itself_keeps_its_fill_at_its_size`.
+5. ✅ **P3, any body in transit, in any room, turned on cutting.**
+   `PortalPassages::cuts_in(room, carrier)` names the links `pieces()` cuts by.
+   `only_the_room_and_the_carrier_can_cut_a_volume`.
+6. ✅ **P3, the navigation advisor stamped each active room every tick.**
+   Measured first (debug, 114 shipped rooms: 5 us median, 21 us largest).
+   `GeometryStamps` keeps each stamp by its `GeometryRevision`.
+   `a_room_is_stamped_again_only_when_its_geometry_is_written`.
+
 ### REVIEW-1014 - sprite cache dependencies and rest-row precedence from the 2026-10-14 review
 
 **Owner:** the sprite publish (`scripts/regen/sprites.sh`) and

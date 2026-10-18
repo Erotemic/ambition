@@ -909,8 +909,8 @@ fn skin_mesh<'a>(quads: impl Iterator<Item = &'a SkinQuad>, world_size: Vec2, im
 ///
 /// A room lays its skin when its theme's skin has been asked for (the room's
 /// loader does that with the parallax of the theme) and the pictures are
-/// loaded, and again when a block of it comes, goes (a broken brick) or gets
-/// art of its own: the edges of the blocks next to a block that went are open
+/// loaded, and again when a block of it comes, goes (a broken brick), or gets
+/// or loses art of its own: the edges of the blocks next to a block that went are open
 /// now, and they get their trims. Only the meshes whose quads changed are
 /// built again. It runs after `apply_entity_art`: a block with art of its own
 /// keeps it.
@@ -928,6 +928,9 @@ pub fn lay_room_terrain(
     added: Query<Option<&InRoomInstance>, Changed<TerrainSurface>>,
     arted: Query<Option<&InRoomInstance>, (With<TerrainSurface>, Added<EntityArt>)>,
     mut removed: RemovedComponents<TerrainSurface>,
+    // A block whose art goes is skinned again: its own sprite is still the
+    // art's until the skin writes it.
+    mut unarted: RemovedComponents<EntityArt>,
     mut blocks: Query<(Entity, &TerrainSurface, &mut Sprite, Option<&InRoomInstance>, Has<EntityArt>, Has<TerrainSkinned>)>,
 ) {
     let stamp = |room: Option<&InRoomInstance>| room.map(|room| room.0);
@@ -939,7 +942,7 @@ pub fn lay_room_terrain(
             }
         }
     }
-    for gone in removed.read() {
+    for gone in removed.read().chain(unarted.read()) {
         for (_, mut terrain, ..) in &mut rooms {
             if terrain.owners.contains(&gone) {
                 terrain.dirty = true;
@@ -1036,9 +1039,12 @@ pub fn lay_room_terrain(
                 }
                 BlockSkin::OwnFill(part) => {
                     commands.entity(*entity).try_remove::<BoundEntitySprite>();
+                    // The fill is its picture, its size and its tiles: a
+                    // block that grows keeps its picture and needs the rest.
                     if let Some(image) = skins.get(theme, *part) {
-                        if sprite.image != *image {
-                            *sprite = repeated(image.clone(), surface.size);
+                        let fill = repeated(image.clone(), surface.size);
+                        if sprite.image != fill.image || sprite.custom_size != fill.custom_size || sprite.image_mode != fill.image_mode {
+                            *sprite = fill;
                         }
                     }
                 }
@@ -1653,6 +1659,46 @@ mod tests {
         assert_eq!(far_mesh(&world), before, "the far chunk keeps its mesh");
         assert_eq!(far_entities(&world), entities_before, "and its entities");
         assert!(world.entity(room).get::<RoomTerrain>().unwrap().quads_of(far).count() > 0);
+    }
+
+    /// A block whose art goes is skinned like its neighbours, though its
+    /// surface is not written: its quads draw it, and its own sprite is clear.
+    #[test]
+    fn a_block_whose_art_goes_takes_the_skin() {
+        let (mut world, room, floor, brick) = terrain_world(true);
+        world.entity_mut(brick).insert(EntityArt(ambition_sprite_sheet::game_assets::EntitySprite::DoorZone));
+        let lay = world.register_system(lay_room_terrain);
+        world.run_system(lay).unwrap();
+        let terrain = |world: &World| world.entity(room).get::<RoomTerrain>().unwrap().quads_of(brick).count();
+        assert_eq!(terrain(&world), 0, "the premise: a block with art lays no skin");
+        assert_eq!(world.entity(brick).get::<Sprite>().unwrap().color, Color::WHITE, "the premise: it keeps its sprite");
+        assert_eq!(world.entity(floor).get::<Sprite>().unwrap().color, Color::NONE);
+
+        world.entity_mut(brick).remove::<EntityArt>();
+        world.run_system(lay).unwrap();
+        assert!(terrain(&world) > 0, "the block whose art went has no skin");
+        assert_eq!(world.entity(brick).get::<Sprite>().unwrap().color, Color::NONE, "its own sprite still draws");
+    }
+
+    /// A block too large for quads fills itself with its picture repeated;
+    /// when it grows, the fill grows with it, though the picture is the same.
+    #[test]
+    fn a_block_that_fills_itself_keeps_its_fill_at_its_size() {
+        let (mut world, _, _, _) = terrain_world(true);
+        let huge = surface(TerrainSurfaceKind::Solid, 0.0, 400.0, 10_000.0, 2_000.0);
+        let block = world.spawn((huge, Sprite::from_color(Color::WHITE, huge.size))).id();
+        let lay = world.register_system(lay_room_terrain);
+        world.run_system(lay).unwrap();
+        let fill = |world: &World| {
+            let sprite = world.entity(block).get::<Sprite>().unwrap();
+            (sprite.custom_size, matches!(sprite.image_mode, bevy::sprite::SpriteImageMode::Tiled { .. }))
+        };
+        assert_eq!(fill(&world), (Some(huge.size), true), "the premise: the block fills itself");
+
+        let grown = Vec2::new(12_000.0, 2_000.0);
+        world.entity_mut(block).get_mut::<TerrainSurface>().unwrap().size = grown;
+        world.run_system(lay).unwrap();
+        assert_eq!(fill(&world), (Some(grown), true), "the fill kept the size of the block before it grew");
     }
 
     /// The skin is laid again when any of what it is made of changes in

@@ -145,11 +145,14 @@ impl PortalPassages {
         self.straddling.iter().find(|(b, _)| *b == body).map(|(_, link)| *link)
     }
 
-    /// Can a volume in `room` be cut: has it a pair, or is a body in transit?
-    /// (A body's own policy may still leave its volumes whole:
-    /// [`Self::pieces`].)
-    pub fn cuts_in(&self, room: Option<LiveRoomInstance>) -> bool {
-        !self.links_in(room).is_empty() || !self.straddling.is_empty()
+    /// Can a volume in `room` that `carrier` carries be cut: has the room a
+    /// pair, or does the carrier straddle one? These are the links
+    /// [`Self::pieces`] cuts by, so a `false` here is a whole volume there. A
+    /// body in transit in another room, or another body in transit, cuts
+    /// nothing of this volume. (A body's own policy may still leave its
+    /// volumes whole.)
+    pub fn cuts_in(&self, room: Option<LiveRoomInstance>, carrier: Option<Entity>) -> bool {
+        !self.links_in(room).is_empty() || carrier.is_some_and(|carrier| self.straddled_by(carrier).is_some())
     }
 
     /// Where `volume`, which comes from `root`, is in `room`: cut first by the
@@ -187,5 +190,39 @@ impl PortalPassages {
             );
         }
         cut.pieces
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d_core::frame::PortalFrame;
+    use ambition_platformer2d_core::Aabb;
+
+    /// A volume is cut only by its own room's pairs and the pair its own
+    /// carrier straddles: a body in transit elsewhere cuts nothing of it. And
+    /// where the predicate says no, the pieces are whole.
+    #[test]
+    fn only_the_room_and_the_carrier_can_cut_a_volume() {
+        let floor = PortalAperture { frame: PortalFrame::fixed(Vec2::ZERO, Vec2::new(0.0, -1.0)), half_length: 40.0 };
+        let ceiling = PortalAperture { frame: PortalFrame::fixed(Vec2::new(500.0, -200.0), Vec2::new(0.0, 1.0)), half_length: 40.0 };
+        let (here, there) = (LiveRoomInstance::ACTIVATION, LiveRoomInstance::from_ordinal(1));
+        let (traveller, other) = (Entity::from_raw_u32(1).unwrap(), Entity::from_raw_u32(2).unwrap());
+        let mut passages = PortalPassages::default();
+        passages.add_pair(Some(there), (floor, ceiling));
+        passages.add_straddler(traveller, floor, ceiling);
+
+        assert!(passages.cuts_in(Some(there), None), "a room with a pair");
+        assert!(passages.cuts_in(Some(here), Some(traveller)), "the carrier straddles a pair");
+        assert!(!passages.cuts_in(Some(here), None), "a body in transit in another room cut a volume here");
+        assert!(!passages.cuts_in(Some(here), Some(other)), "another body in transit cut this carrier's volume");
+
+        // Across the floor opening: a carrier that straddles it is cut.
+        let volume = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::splat(12.0)));
+        for carrier in [None, Some(other), Some(traveller)] {
+            let pieces = passages.pieces(&volume, carrier, Vec2::new(0.0, -1.0), Some(here));
+            let whole = pieces == vec![VolumePiece::whole(volume.clone())];
+            assert_eq!(!passages.cuts_in(Some(here), carrier), whole, "{carrier:?}: the predicate and the pieces disagree");
+        }
     }
 }

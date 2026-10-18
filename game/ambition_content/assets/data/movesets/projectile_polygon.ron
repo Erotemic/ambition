@@ -1412,8 +1412,9 @@
                             id: "polygon_projectile_recoil_lift",
                             display_name: None,
                             clip: (
-                                clip: "attack_up",
+                                clip: "polygon_projectile_recoil_lift",
                                 fallbacks: [
+                                    "attack_up",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1627,8 +1628,9 @@
                             id: "polygon_projectile_downward_vector",
                             display_name: None,
                             clip: (
-                                clip: "air_down",
+                                clip: "polygon_projectile_downward_vector",
                                 fallbacks: [
+                                    "air_down",
                                     "attack_side",
                                     "attack",
                                     "slash",

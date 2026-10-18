@@ -1823,8 +1823,9 @@
                             id: "collapse_dive",
                             display_name: None,
                             clip: (
-                                clip: "air_down",
+                                clip: "collapse_dive",
                                 fallbacks: [
+                                    "air_down",
                                     "attack_side",
                                     "attack",
                                     "slash",

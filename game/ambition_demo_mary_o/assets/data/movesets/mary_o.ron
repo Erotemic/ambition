@@ -1268,8 +1268,9 @@
                             id: "fireball",
                             display_name: None,
                             clip: (
-                                clip: "attack",
+                                clip: "fireball",
                                 fallbacks: [
+                                    "attack",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1370,7 +1371,7 @@
                             id: "cape_spin",
                             display_name: None,
                             clip: (
-                                clip: "attack_side",
+                                clip: "cape_spin",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -1474,8 +1475,9 @@
                             id: "spring_jump",
                             display_name: None,
                             clip: (
-                                clip: "attack_up",
+                                clip: "spring_jump",
                                 fallbacks: [
+                                    "attack_up",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1583,8 +1585,9 @@
                             id: "pipe_drop",
                             display_name: None,
                             clip: (
-                                clip: "attack_down",
+                                clip: "pipe_drop",
                                 fallbacks: [
+                                    "attack_down",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1691,8 +1694,9 @@
                             id: "pipe_dive",
                             display_name: None,
                             clip: (
-                                clip: "air_down",
+                                clip: "pipe_dive",
                                 fallbacks: [
+                                    "air_down",
                                     "attack_side",
                                     "attack",
                                     "slash",

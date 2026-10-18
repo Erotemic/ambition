@@ -1288,8 +1288,9 @@
                             id: "rivet_gun",
                             display_name: None,
                             clip: (
-                                clip: "attack",
+                                clip: "rivet_gun",
                                 fallbacks: [
+                                    "attack",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1477,7 +1478,7 @@
                             id: "piston_charge",
                             display_name: None,
                             clip: (
-                                clip: "attack_side",
+                                clip: "piston_charge",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -1591,8 +1592,9 @@
                             id: "steam_lift",
                             display_name: None,
                             clip: (
-                                clip: "attack_up",
+                                clip: "steam_lift",
                                 fallbacks: [
+                                    "attack_up",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1700,8 +1702,9 @@
                             id: "bulkhead_drop",
                             display_name: None,
                             clip: (
-                                clip: "attack_down",
+                                clip: "bulkhead_drop",
                                 fallbacks: [
+                                    "attack_down",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1848,8 +1851,9 @@
                             id: "bulkhead_dive",
                             display_name: None,
                             clip: (
-                                clip: "air_down",
+                                clip: "bulkhead_dive",
                                 fallbacks: [
+                                    "air_down",
                                     "attack_side",
                                     "attack",
                                     "slash",

@@ -1171,8 +1171,9 @@
                             id: "polygon_point",
                             display_name: None,
                             clip: (
-                                clip: "slash",
+                                clip: "polygon_point",
                                 fallbacks: [
+                                    "slash",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1272,7 +1273,7 @@
                             id: "polygon_vector_lunge",
                             display_name: None,
                             clip: (
-                                clip: "attack_side",
+                                clip: "polygon_vector_lunge",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -1379,7 +1380,7 @@
                             id: "polygon_rising_edge",
                             display_name: None,
                             clip: (
-                                clip: "attack_side",
+                                clip: "polygon_rising_edge",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -1681,8 +1682,9 @@
                             id: "polygon_falling_edge",
                             display_name: None,
                             clip: (
-                                clip: "air_down",
+                                clip: "polygon_falling_edge",
                                 fallbacks: [
+                                    "air_down",
                                     "attack_side",
                                     "attack",
                                     "slash",

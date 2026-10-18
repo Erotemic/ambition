@@ -1320,8 +1320,9 @@
                             id: "one_time_pad",
                             display_name: None,
                             clip: (
-                                clip: "attack",
+                                clip: "one_time_pad",
                                 fallbacks: [
+                                    "attack",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1442,7 +1443,7 @@
                             id: "key_exchange",
                             display_name: None,
                             clip: (
-                                clip: "attack_side",
+                                clip: "key_exchange",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -1562,8 +1563,9 @@
                             id: "elliptic_curve",
                             display_name: None,
                             clip: (
-                                clip: "attack_up",
+                                clip: "elliptic_curve",
                                 fallbacks: [
+                                    "attack_up",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1686,8 +1688,9 @@
                             id: "hash_collision",
                             display_name: None,
                             clip: (
-                                clip: "attack_down",
+                                clip: "hash_collision",
                                 fallbacks: [
+                                    "attack_down",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1845,8 +1848,9 @@
                             id: "collision_dive",
                             display_name: None,
                             clip: (
-                                clip: "air_down",
+                                clip: "collision_dive",
                                 fallbacks: [
+                                    "air_down",
                                     "attack_side",
                                     "attack",
                                     "slash",

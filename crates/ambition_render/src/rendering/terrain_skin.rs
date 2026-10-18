@@ -197,7 +197,14 @@ pub fn decor_on_span(a: f32, b: f32, surface: f32, spacing: f32, keep_out: Optio
             let variant = ((roll(1) * DECOR_VARIANTS as f32) as u32).min(DECOR_VARIANTS - 1);
             out.push((x, variant));
         }
-        x += spacing * (0.55 + 0.9 * roll(2));
+        // A step is never less than a quarter of a decor: a spacing near zero
+        // is a small number of decor, and a step too small to move `x` is no
+        // step.
+        let next = x + (spacing * (0.55 + 0.9 * roll(2))).max(DECOR_SIZE * 0.25);
+        if next <= x {
+            break;
+        }
+        x = next;
         index += 1;
     }
     out
@@ -1590,7 +1597,8 @@ mod tests {
 
     /// The decor of a span is the same each time, each thing is inside the
     /// span, and none stands on a thing of the play. The control is the same
-    /// span with no keep-out: it has a thing where the keep-out is.
+    /// span with no keep-out: it has a thing where the keep-out is. A spacing
+    /// near zero ends, with a bounded number of things.
     #[test]
     fn the_decor_of_a_span_is_inside_it_and_clear_of_the_play() {
         let free = decor_on_span(0.0, 2000.0, 300.0, 100.0, None);
@@ -1607,6 +1615,10 @@ mod tests {
         assert_eq!(decor_on_span(0.0, 2000.0, 300.0, 100.0, Some(&high)), free);
         assert!(decor_on_span(0.0, 50.0, 300.0, 100.0, None).is_empty(), "a short ledge has none");
         assert!(decor_on_span(0.0, 2000.0, 300.0, 0.0, None).is_empty(), "no spacing, no decor");
+        // A spacing too small to move a place near 1000 ends, with at most
+        // one decor each quarter of a decor.
+        let dense = decor_on_span(1000.0, 1200.0, 300.0, 1e-6, None);
+        assert!(!dense.is_empty() && dense.len() as f32 <= 200.0 / (DECOR_SIZE * 0.25) + 1.0, "{}", dense.len());
     }
 
     /// A room with every picture of the Cave skin loaded, a floor and a

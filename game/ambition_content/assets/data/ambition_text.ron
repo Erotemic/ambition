@@ -1,6 +1,8 @@
 // The lines Ambition shows (schema `ambition_text`, owned by
-// `ambition_content_schemas::text`). An edit here is shown at the next
-// start, with no Rust build. A key names a line, not its words.
+// `ambition_content_schemas::text`). An edit here needs no Rust build: the
+// launcher row is read at the start, and the dialogue box's words each time a
+// box is drawn, so a content reload shows them in the next box. A key names a
+// line, not its words.
 //
 // Not here: dialogue (the Yarn files), quest words (`quests.ron`), names
 // (the character catalog), the host's cover (`ambition_app`'s
@@ -10,4 +12,12 @@
     "launcher.label": "Ambition",
     "launcher.description": "The main Ambition campaign",
     "launcher.preparing": "Prepare Ambition",
+    // The dialogue box: its input hints, the speaker of a line with none,
+    // and the line over a long list of choices (which part of it shows).
+    "dialog.continue_hint": "Confirm / Interact: continue",
+    "dialog.choice_hint": "Choose: arrows, stick, swipe, or wheel    Confirm: select    Back: close",
+    "dialog.unknown_speaker": "Unknown speaker",
+    "dialog.more_before": "▲ more",
+    "dialog.more_after": "▼ more",
+    "dialog.choices": "Choices {first}–{last} of {total}",
 }

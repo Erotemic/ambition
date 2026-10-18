@@ -17,6 +17,9 @@ use std::collections::BTreeMap;
 use std::ops::Range;
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
+use ambition_content_schemas::rules::DialogLook;
+use ambition_content_schemas::text::lowered_ambition_text;
+use ambition_platformer2d::content::{hole, ShownText};
 use ambition_render::dialog_ui::{
     claim_dialog_presentation, DialogOverlayRoot, DialogPresentationSet,
 };
@@ -29,9 +32,6 @@ use ambition_ui_nav::DialogChoiceSlot;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-const CONTINUE_HINT: &str = "Confirm / Interact: continue";
-const CHOICE_HINT: &str =
-    "Choose: arrows, stick, swipe, or wheel    Confirm: select    Back: close";
 const PRESENTER_NAME: &str = "ambition_content::AmbitionDialogUiPlugin";
 const DEFAULT_VIEWPORT: Vec2 = Vec2::new(1280.0, 720.0);
 
@@ -100,6 +100,12 @@ pub struct AmbitionDialogUiPlugin;
 impl Plugin for AmbitionDialogUiPlugin {
     fn build(&self, app: &mut App) {
         claim_dialog_presentation(app, PRESENTER_NAME);
+        // The box's words and colours are the selected pack's
+        // (`ambition_text.ron`, and `dialog_look` in `ambition_rules.ron`).
+        crate::pack::select(app.world_mut());
+        if !app.world().contains_resource::<crate::tuning::AmbitionTuning>() {
+            crate::tuning::register(app);
+        }
         app.add_plugins(PortraitSheetRegistryPlugin)
             .init_resource::<AmbitionDialogPortraitCatalog>()
             .init_resource::<AmbitionDialogLayoutCache>()
@@ -367,8 +373,11 @@ impl DialogChoiceWindow {
         self.end < self.total
     }
 
-    fn position_label(self) -> String {
-        format!("Choices {}–{} of {}", self.start + 1, self.end, self.total)
+    fn position_label(self, text: &ShownText) -> String {
+        text.fill(
+            "dialog.choices",
+            &[hole("first", &(self.start + 1)), hole("last", &self.end), hole("total", &self.total)],
+        )
     }
 
     fn scrollbar(self) -> Option<(f32, f32)> {
@@ -413,6 +422,10 @@ fn sync_ambition_dialog_ui(
     // state — a rewind that moves the selection re-derives it on the next
     // rebuild through the same scroll rule.
     mut choice_window_start: Local<usize>,
+    // The box's colours (`dialog_look` in `ambition_rules.ron`) and its words
+    // (`ambition_text.ron`).
+    tuning: Res<crate::tuning::AmbitionTuning>,
+    pack: Res<crate::pack::SelectedContentPack>,
 ) {
     let viewport = windows
         .single()
@@ -430,7 +443,9 @@ fn sync_ambition_dialog_ui(
         || character_catalog.is_changed()
         || portrait_catalog.is_changed()
         || portrait_registry.is_changed()
-        || quality.as_ref().is_some_and(|quality| quality.is_changed());
+        || quality.as_ref().is_some_and(|quality| quality.is_changed())
+        || tuning.is_changed()
+        || pack.is_changed();
     if !presentation_inputs_changed {
         return;
     }
@@ -444,6 +459,8 @@ fn sync_ambition_dialog_ui(
     }
 
     let profile = DialogLayoutProfile::for_viewport(viewport);
+    let look = &tuning.0.dialog_look;
+    let text = lowered_ambition_text(pack.get()).expect("Ambition's pack states its dialogue words (`data/ambition_text.ron`)");
     // the window used to RECENTER on every selection change, which on a phone is a moving
     // target: touching a row selects it, the list rebuilds around it, and the row you touched
     // is now somewhere else — so the second press Android's tap-mode needs lands on a
@@ -463,8 +480,9 @@ fn sync_ambition_dialog_ui(
         dialogue.option_labels.len(),
         profile.option_capacity,
     );
+    let unknown_speaker = text.line("dialog.unknown_speaker");
     let speaker_label = if dialogue.speaker_label.trim().is_empty() {
-        "Unknown speaker"
+        unknown_speaker
     } else {
         dialogue.speaker_label.trim()
     };
@@ -474,7 +492,7 @@ fn sync_ambition_dialog_ui(
     let portrait_key = character_id.unwrap_or(speaker_label);
     let accent = portrait_override
         .map(|portrait| portrait.accent.clone())
-        .unwrap_or_else(|| placeholder_accent(portrait_key));
+        .unwrap_or_else(|| placeholder_accent(portrait_key, &look.placeholder_accents));
     let monogram = portrait_override
         .and_then(|portrait| portrait.placeholder_text.as_deref())
         .map(str::to_owned)
@@ -571,8 +589,8 @@ fn sync_ambition_dialog_ui(
                 },
                 // Fully opaque by product policy: the world never competes with
                 // dialogue text or controls for contrast.
-                BackgroundColor(Color::srgb(0.035, 0.025, 0.045)),
-                BorderColor::all(Color::srgb(0.86, 0.67, 0.25)),
+                BackgroundColor(rgb(look.panel)),
+                BorderColor::all(rgb(look.panel_edge)),
                 AmbitionDialogPanel,
                 Name::new("Ambition Dialogue Panel"),
             ))
@@ -586,12 +604,13 @@ fn sync_ambition_dialog_ui(
                     speaker_label,
                     &profile,
                     &dialog_font,
+                    look,
                 );
 
                 panel.spawn((
                     Text::new(dialogue.body.clone()),
                     dialog_font(profile.body_font_size, UiFontWeight::Regular),
-                    TextColor(Color::srgb(0.98, 0.96, 0.90)),
+                    TextColor(rgb(look.body_ink)),
                     TextLayout::new(Justify::Left, LineBreak::WordBoundary),
                     Node {
                         width: Val::Percent(100.0),
@@ -612,13 +631,15 @@ fn sync_ambition_dialog_ui(
                         selected_marker,
                         &profile,
                         &dialog_font,
+                        look,
+                        &text,
                     );
                 }
 
                 let hint = if dialogue.option_labels.is_empty() {
-                    CONTINUE_HINT
+                    text.line("dialog.continue_hint")
                 } else {
-                    CHOICE_HINT
+                    text.line("dialog.choice_hint")
                 };
                 panel
                     .spawn((
@@ -637,7 +658,7 @@ fn sync_ambition_dialog_ui(
                         footer.spawn((
                             Text::new(hint),
                             dialog_font(profile.hint_font_size, UiFontWeight::Regular),
-                            TextColor(Color::srgb(0.72, 0.69, 0.78)),
+                            TextColor(rgb(look.hint_ink)),
                             TextLayout::new(Justify::Right, LineBreak::WordBoundary),
                             Node {
                                 width: Val::Percent(100.0),
@@ -684,6 +705,7 @@ fn spawn_dialog_header(
     speaker_label: &str,
     profile: &DialogLayoutProfile,
     dialog_font: &impl Fn(f32, UiFontWeight) -> TextFont,
+    look: &DialogLook,
 ) {
     parent
         .spawn((
@@ -707,11 +729,12 @@ fn spawn_dialog_header(
                 accent,
                 profile,
                 dialog_font,
+                look,
             );
             header.spawn((
                 Text::new(speaker_label.to_string()),
                 dialog_font(profile.speaker_font_size, UiFontWeight::Semibold),
-                TextColor(Color::srgb(1.0, 0.88, 0.52)),
+                TextColor(rgb(look.speaker_ink)),
                 TextLayout::new(Justify::Left, LineBreak::WordOrCharacter),
                 Node {
                     min_width: Val::Px(0.0),
@@ -732,6 +755,7 @@ fn spawn_portrait(
     accent: Color,
     profile: &DialogLayoutProfile,
     dialog_font: &impl Fn(f32, UiFontWeight) -> TextFont,
+    look: &DialogLook,
 ) {
     parent
         .spawn((
@@ -747,7 +771,7 @@ fn spawn_portrait(
                 ..default()
             },
             BackgroundColor(accent),
-            BorderColor::all(Color::srgb(0.96, 0.84, 0.48)),
+            BorderColor::all(rgb(look.portrait_edge)),
             AmbitionDialogPortraitFrame,
             Name::new("Dialogue Speaker Portrait"),
         ))
@@ -769,7 +793,7 @@ fn spawn_portrait(
                 portrait.spawn((
                     Text::new(monogram.to_string()),
                     dialog_font(profile.speaker_font_size + 12.0, UiFontWeight::Semibold),
-                    TextColor(Color::srgb(1.0, 0.96, 0.82)),
+                    TextColor(rgb(look.monogram_ink)),
                     TextLayout::justify(Justify::Center),
                     AmbitionDialogPortraitMonogram,
                     Name::new("Dialogue Portrait Placeholder"),
@@ -785,6 +809,8 @@ fn spawn_choice_viewport(
     selected_marker: &str,
     profile: &DialogLayoutProfile,
     dialog_font: &impl Fn(f32, UiFontWeight) -> TextFont,
+    look: &DialogLook,
+    text: &ShownText,
 ) {
     parent
         .spawn((
@@ -802,12 +828,12 @@ fn spawn_choice_viewport(
         ))
         .with_children(|viewport| {
             if window.is_windowed() {
-                let before = if window.has_before() { "▲ more" } else { "" };
-                let after = if window.has_after() { "▼ more" } else { "" };
+                let before = if window.has_before() { text.line("dialog.more_before") } else { "" };
+                let after = if window.has_after() { text.line("dialog.more_after") } else { "" };
                 viewport.spawn((
-                    Text::new(format!("{before:<8}{}   {after}", window.position_label())),
+                    Text::new(format!("{before:<8}{}   {after}", window.position_label(text))),
                     dialog_font(profile.hint_font_size, UiFontWeight::Regular),
-                    TextColor(Color::srgb(0.78, 0.73, 0.82)),
+                    TextColor(rgb(look.scroll_ink)),
                     TextLayout::new(Justify::Center, LineBreak::WordBoundary),
                     Node {
                         width: Val::Percent(100.0),
@@ -855,6 +881,7 @@ fn spawn_choice_viewport(
                                     selected_marker,
                                     profile,
                                     dialog_font,
+                                    look,
                                 );
                             }
                         });
@@ -869,7 +896,7 @@ fn spawn_choice_viewport(
                                     border_radius: BorderRadius::all(Val::Px(5.0)),
                                     ..default()
                                 },
-                                BackgroundColor(Color::srgb(0.12, 0.09, 0.15)),
+                                BackgroundColor(rgb(look.scroll_track)),
                                 AmbitionDialogScrollTrack,
                                 Name::new("Dialogue Choice Scroll Track"),
                             ))
@@ -884,7 +911,7 @@ fn spawn_choice_viewport(
                                         border_radius: BorderRadius::all(Val::Px(4.0)),
                                         ..default()
                                     },
-                                    BackgroundColor(Color::srgb(0.86, 0.67, 0.25)),
+                                    BackgroundColor(rgb(look.scroll_thumb)),
                                     AmbitionDialogScrollThumb,
                                     Name::new("Dialogue Choice Scroll Thumb"),
                                 ));
@@ -902,20 +929,10 @@ fn spawn_choice_row(
     selected_marker: &str,
     profile: &DialogLayoutProfile,
     dialog_font: &impl Fn(f32, UiFontWeight) -> TextFont,
+    look: &DialogLook,
 ) {
-    let (background, foreground, border) = if selected {
-        (
-            Color::srgb(0.88, 0.69, 0.27),
-            Color::srgb(0.12, 0.06, 0.10),
-            Color::srgb(1.0, 0.90, 0.58),
-        )
-    } else {
-        (
-            Color::srgb(0.09, 0.055, 0.105),
-            Color::srgb(0.94, 0.90, 0.96),
-            Color::srgb(0.28, 0.20, 0.32),
-        )
-    };
+    let row = if selected { look.selected_choice } else { look.choice };
+    let (background, foreground, border) = (rgb(row.fill), rgb(row.ink), rgb(row.edge));
     let marker = if selected { selected_marker } else { " " };
     parent
         .spawn((
@@ -1024,23 +1041,17 @@ fn placeholder_monogram(label: &str) -> String {
     }
 }
 
-fn placeholder_accent(key: &str) -> Color {
-    const PALETTE: [(f32, f32, f32); 8] = [
-        (0.31, 0.12, 0.29),
-        (0.17, 0.26, 0.42),
-        (0.24, 0.34, 0.20),
-        (0.43, 0.20, 0.13),
-        (0.23, 0.18, 0.39),
-        (0.12, 0.34, 0.34),
-        (0.42, 0.16, 0.25),
-        (0.31, 0.28, 0.12),
-    ];
+/// One of `accents`, chosen by `key`, so a speaker keeps its colour.
+fn placeholder_accent(key: &str, accents: &[[f32; 3]]) -> Color {
     let mut hash = 0xcbf29ce484222325_u64;
     for byte in key.bytes() {
         hash ^= u64::from(byte);
         hash = hash.wrapping_mul(0x100000001b3);
     }
-    let (r, g, b) = PALETTE[(hash as usize) % PALETTE.len()];
+    rgb(accents[(hash as usize) % accents.len()])
+}
+
+fn rgb([r, g, b]: [f32; 3]) -> Color {
     Color::srgb(r, g, b)
 }
 
@@ -1297,7 +1308,11 @@ mod tests {
         assert_eq!(window.range(), 5..9);
         assert!(window.has_before());
         assert!(!window.has_after());
-        assert_eq!(window.position_label(), "Choices 6–9 of 9");
+        let text = lowered_ambition_text(crate::pack::shipped()).unwrap();
+        assert_eq!(
+            window.position_label(&text),
+            text.fill("dialog.choices", &[hole("first", &6), hole("last", &9), hole("total", &9)])
+        );
         let (top, height) = window.scrollbar().expect("long list has a thumb");
         assert!((top - (100.0 - height)).abs() < 0.001);
     }
@@ -1325,7 +1340,7 @@ mod tests {
             .world_mut()
             .query_filtered::<(&BackgroundColor, &Node), With<AmbitionDialogPanel>>();
         let (background, panel) = panels.single(app.world()).expect("one dialog panel");
-        assert_eq!(background.0, Color::srgb(0.035, 0.025, 0.045));
+        assert_eq!(background.0, rgb(crate::tuning::shipped().dialog_look.panel), "the panel is the rules file's");
         assert_eq!(panel.width, Val::Percent(96.0));
         assert_eq!(panel.flex_direction, FlexDirection::Column);
 
@@ -1357,6 +1372,26 @@ mod tests {
         assert_eq!(hint.width, Val::Percent(100.0));
         assert_eq!(hint.max_width, Val::Percent(100.0));
         assert_eq!(layout.linebreak, LineBreak::WordBoundary);
+    }
+
+    /// The box says the words of `ambition_text.ron` and wears the colours of
+    /// `dialog_look`, and a change to the colours is drawn at once.
+    #[test]
+    fn the_box_says_and_wears_what_its_files_state() {
+        let mut app = App::new();
+        app.insert_resource(active_view());
+        app.insert_resource(portrait_catalog_fixture());
+        app.add_plugins(AmbitionDialogUiPlugin);
+        app.update();
+        let text = lowered_ambition_text(crate::pack::shipped()).unwrap();
+        let mut hints = app.world_mut().query_filtered::<&Text, With<AmbitionDialogContinueHint>>();
+        assert_eq!(hints.single(app.world()).unwrap().0, text.line("dialog.continue_hint"));
+
+        let grey = [0.5, 0.25, 0.75];
+        app.world_mut().resource_mut::<crate::tuning::AmbitionTuning>().0.dialog_look.panel = grey;
+        app.update();
+        let mut panels = app.world_mut().query_filtered::<&BackgroundColor, With<AmbitionDialogPanel>>();
+        assert_eq!(panels.single(app.world()).unwrap().0, rgb(grey), "the panel after its colour changed");
     }
 
     #[test]

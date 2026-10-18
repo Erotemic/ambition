@@ -24,7 +24,7 @@ use ambition_platformer2d::cutscene::{CutsceneBeat, CutsceneLibrary, CutsceneScr
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::lifecycle::{LiveRoomOf, LiveRooms};
 use ambition_platformer2d::platformer::markers::ControlledSubject;
-use ambition_platformer2d::vfx::{FireworksRequest, FxRequest, ParticleKind, VfxMessage, VfxWriter};
+use ambition_platformer2d::vfx::{FireworksRequest, FxRequest, VfxMessage, VfxWriter};
 use ambition_platformer2d::world::rooms::{LiveRoomSpecs, RoomSpec};
 use bevy::prelude::*;
 
@@ -492,8 +492,9 @@ pub fn charges_go_off_on_the_bridge(
         return;
     };
     let mut show = FireworksRequest::around(Some(room), ae::Vec2::new((left + right) * 0.5, deck));
-    show.count = 9;
-    show.spread = ae::Vec2::new((right - left) * 0.85, 34.0);
+    let look = crate::rules::mary_o_rules().effects.bridge_fireworks;
+    show.count = look.count;
+    show.spread = ae::Vec2::new((right - left) * look.across_share, look.height_px);
     show.duration = CastleBeat::Charges.seconds().unwrap_or(1.0);
     fireworks.write(show);
 }
@@ -550,13 +551,7 @@ pub fn the_lava_takes_the_boss(
                 let at = kin.pos;
                 ae::movement::constrain_body_pose(&mut kin, None, at, ae::Vec2::new(0.0, crate::rules::mary_o_rules().castle_end.sink_speed));
                 if tick.as_ref().is_some_and(|tick| tick.get() % crate::rules::mary_o_rules().castle_end.splash_ticks == 0) {
-                    vfx.for_room(room).write(VfxMessage::Burst {
-                        pos: ae::Vec2::new(kin.pos.x, pool.min.y),
-                        count: 10,
-                        speed: 190.0,
-                        color: [1.0, 0.52, 0.14, 1.0],
-                        kind: ParticleKind::Shard,
-                    });
+                    vfx.for_room(room).write(crate::rules::mary_o_rules().effects.lava_splash.at(ae::Vec2::new(kin.pos.x, pool.min.y)));
                 }
                 (top > pool.min.y + crate::rules::mary_o_rules().castle_end.sunk_under).then_some(ae::Vec2::new(kin.pos.x, pool.min.y))
             }
@@ -568,18 +563,13 @@ pub fn the_lava_takes_the_boss(
         };
         health.health.current = 0;
         // Its death is seen: one explosion where it went, and the lava it throws.
+        let effects = &crate::rules::mary_o_rules().effects;
         explosions.write(
             FxRequest::classic(room, at)
-                .with_scale(1.6)
+                .with_scale(effects.boss_death_explosion_scale)
                 .from_source(crate::provider::MARY_O_EXPERIENCE.into()),
         );
-        vfx.for_room(room).write(VfxMessage::Burst {
-            pos: at,
-            count: 30,
-            speed: 300.0,
-            color: [1.0, 0.6, 0.18, 1.0],
-            kind: ParticleKind::Shard,
-        });
+        vfx.for_room(room).write(effects.boss_death.at(at));
     }
 }
 

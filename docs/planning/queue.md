@@ -61,7 +61,19 @@ a live reload is a second priority. Work in this order:
    a pack, and either road to data costs composability
    ([UI](engine/ui-localization-and-accessibility.md#localization-trigger)); (b) the census tail (item 2 there);
    (c) the procedural techniques still in `ambition_content` Rust, onto the
-   module road (a relink and a restart now; 0.34 s on that road).
+   module road (a relink and a restart now; 0.34 s on that road). Read
+   2026-10-18: none is left. Each boss special, wielded ability and boss
+   conductor is a module, and its native copy is compiled only under
+   `cfg(test)`, as the parity oracle. What `ambition_content` still runs
+   natively is room glue, not a technique: the cut-rope arena, the GNU-ton
+   duel's move playback, the idle bark ticker, the thrown-item impact rule and
+   the Mockingbird's moon strike. Their numbers are in `ambition_rules.ron`
+   (the cut rope's effects since 2026-10-18); their logic needs ports the
+   module SDK does not have (the duel: a port that starts a fighter's move,
+   [GNU-ton debts](game/gnu-ton-fight-debts.md)). The demos' remainder (Smash's
+   specials, Mary-O's shells and plant, Sanic's ball dash and monitors) is
+   named in [the packet catalog](engine/fast-iteration-implementation.md)
+   with the ports each one needs.
    Second priority, and only where a recompile does not depend on it: the
    live-reload remainder (a restated schema inside a live session, sprite
    publication inside a session). A live reload for the demo packs' tuning
@@ -405,7 +417,37 @@ Open:
    down, by field. Witnesses in `cut_rope_arena.rs`, one for each reader: a
    row that is not the shipped one is what is played (each red with its
    reader on the compiled number). An edit reached its test in 0.70 s with
-   no compile.
+   no compile. Ambition's dialogue box: its words (the two input hints, the speaker of a
+   line with none, the line over a long list of choices) are keys of
+   `ambition_text.ron`, and its colours (panel, inks, scroll bar, the two
+   kinds of choice row, the accents of a portrait with no art) are
+   `dialog_look` in `ambition_rules.ron`. The box reads both each time it
+   is drawn, and a change to either draws it again. Witness
+   `the_box_says_and_wears_what_its_files_state` (red with the panel on a
+   compiled colour, with no redraw on a change, and, with the hint edited in
+   the file, with the hint compiled). A colour edit reached its test in
+   0.64 s with no compile. The start card's colours and margin were a Rust
+   copy of its renderer's constants; the exporter
+   (`export_director_vanity_card.py`) now writes them into the baked table
+   (`look`), and `the_card_wears_the_renderers_colours` is red when the
+   renderer changes and the bake does not. The select screen's last Rust colours (the
+   stage, stocks and Back buttons' fill, a portrait monogram's ink, a
+   token's rim) are `button`, `monogram_ink` and `token_rim` in Smash's
+   `select_look` (witness `the_buttons_and_tokens_wear_the_files_colours`,
+   a check by an edited file: the look is read from the pack's one
+   generation). The host's start cover's eight colours are `cover_look`, a
+   schema of the host's pack (`data/cover_look.ron`; witness
+   `the_cover_wears_what_the_host_file_states`, also by an edited file).
+   Left in the game crates: developer overlays (gizmos, the rollback
+   observatory, the FPS readout), which are tools, not content. The room palettes stay Rust (decided 2026-10-18): the two-state
+   look's architecture (`room_look/architecture.rs`) is a procedural
+   program, and its sixteen named colours are a few of its hundreds of tone
+   and shape numbers, so moving them alone would split one author's work
+   between two files. Its shaders are data now (`content_asset!`). The
+   architecture moves with Jon's ruling that a look is authored textures,
+   not code ([room looks](../systems/room-looks.md)). Its accent colours
+   (magenta, cyan, gold) are written again in `room_plate.wgsl` and
+   `room_state.wgsl`; that copy is the look's own debt, recorded there.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin
 (`ROOM_WIDTH`, `LAB_POS`, 46 uses) are the frame its exhibit code is
@@ -1344,6 +1386,29 @@ variants. Also found in that regen:
     (`test_a_focused_publish_packs_the_runtime_groups.py`), and it writes
     through the staging root as a full publish does (8.3 s for
     `intro_cart`, 2026-10-16).
+11. **Where `app_it`'s time goes (measured 2026-10-18).** It is most of a
+    pre-push lane: 2467 s of about 3300 s. Per-test times come from libtest's
+    `--report-time`, run on the built binary with `RUSTC_BOOTSTRAP=1` set at
+    run time only, so nothing is rebuilt. The run used `--test-threads=6` on
+    14 cores. The 1276 tests sum to 14,691 s and the wall time is 2467 s:
+    sum / 6 = 2448, so the six threads stay full and the order of tests does
+    not matter. Only a smaller sum cuts the wall time.
+    - 446 tests take 2-5 s (1581 s in total): mostly booting a harness,
+      4.1 s for one alone, about 2.5 s in the suite.
+    - 60 tests over 40 s take 5551 s (38%).
+    - The largest: `every_room_resident_carries_its_live_room_after_combat`
+      469 s (it boots each of 72 rooms and runs 150 ticks in each),
+      `a_player_walks_in_takes_the_four_keys_and_beats_the_monster` 302 s,
+      `a_player_death_reset_survives_the_rollback_window` 269 s,
+      `two_peers_agree_in_the_rooms_that_carry_the_float_rows` 235 s.
+    - The modules over 600 s: `an_edit_reaches_the_shipped_game`,
+      `a_bag_changed_mid_window_reaches_the_save` and
+      `a_boss_special_runs_on_the_extension_host`.
+    The workspace's own crates build at `opt-level = 0`, an accepted policy
+    (Cargo.toml). A test profile at opt-level 1 would trade every focused
+    edit's build for the suite's run time, so it is not taken here. Profiling
+    a harness boot needs `perf`, and this guest refuses it
+    (`perf_event_paranoid` 4).
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

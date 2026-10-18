@@ -185,4 +185,24 @@
             (at: 0.0, score: 100),
         ),
     ),
+    // The bursts of what she breaks and what dies in the castle. A speed is
+    // px per second; a colour is (red, green, blue, alpha), each 0 to 1; a
+    // kind is spark, dust, shard, heart or streak.
+    effects: (
+        // A brick shatters into brick-red shards; a plank of the bridge into
+        // fewer, with a small explosion.
+        brick_break: (count: 14, speed: 155.0, color: (0.72, 0.35, 0.22, 1.0), kind: "shard"),
+        plank_break: (count: 8, speed: 155.0, color: (0.72, 0.35, 0.22, 1.0), kind: "shard"),
+        plank_explosion_scale: 0.75,
+        // A stomped snake puffs dust as it goes into its shell.
+        shell_stomp: (count: 12, speed: 130.0, color: (0.80, 0.68, 0.48, 1.0), kind: "dust"),
+        // A body that sinks in the lava throws it up as it goes; the boss
+        // dies in one large splash and an explosion.
+        lava_splash: (count: 10, speed: 190.0, color: (1.0, 0.52, 0.14, 1.0), kind: "shard"),
+        boss_death: (count: 30, speed: 300.0, color: (1.0, 0.6, 0.18, 1.0), kind: "shard"),
+        boss_death_explosion_scale: 1.6,
+        // As the boss charges, fireworks go off over the bridge: across this
+        // share of its length, in a band this tall (px).
+        bridge_fireworks: (count: 9, across_share: 0.85, height_px: 34.0),
+    ),
 )

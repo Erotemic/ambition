@@ -1,0 +1,17 @@
+// The colours of the cover the host shows while the first frame is prepared
+// (schema `cover_look`, read by `app::startup_loading`). An edit is shown at
+// the next start, with no Rust build. Each colour is (red, green, blue), from
+// 0 to 1.
+(
+    backdrop: (0.012, 0.014, 0.024),
+    wordmark: (0.92, 0.72, 0.28),
+    subtitle: (0.66, 0.70, 0.82),
+    // The progress bar: its track, the track's edge and the part that is done.
+    track: (0.075, 0.082, 0.12),
+    track_edge: (0.22, 0.24, 0.34),
+    fill: (0.92, 0.66, 0.20),
+    // The line that says what is being prepared, and the line under it about
+    // each thing that loads.
+    progress_ink: (0.90, 0.91, 0.96),
+    detail_ink: (0.56, 0.60, 0.72),
+)

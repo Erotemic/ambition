@@ -25,6 +25,67 @@ use super::world_flow::{
 };
 use super::PresentationSetupSet;
 
+/// The start cover's colours, as the host's pack states them
+/// (`data/cover_look.ron`). Each is red, green and blue, from 0 to 1.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CoverLook {
+    pub backdrop: [f32; 3],
+    pub wordmark: [f32; 3],
+    pub subtitle: [f32; 3],
+    /// The progress bar: its track, the track's edge and the part that is done.
+    pub track: [f32; 3],
+    pub track_edge: [f32; 3],
+    pub fill: [f32; 3],
+    /// The line that says what is being prepared.
+    pub progress_ink: [f32; 3],
+    /// The line under it, about each thing that loads.
+    pub detail_ink: [f32; 3],
+}
+
+impl CoverLook {
+    fn problems(&self) -> Vec<String> {
+        [
+            ("backdrop", self.backdrop),
+            ("wordmark", self.wordmark),
+            ("subtitle", self.subtitle),
+            ("track", self.track),
+            ("track_edge", self.track_edge),
+            ("fill", self.fill),
+            ("progress_ink", self.progress_ink),
+            ("detail_ink", self.detail_ink),
+        ]
+        .into_iter()
+        .filter(|(_, colour)| colour.iter().any(|part| !(0.0..=1.0).contains(part)))
+        .map(|(field, colour)| format!("`{field}` is {colour:?}; each part is from 0 to 1"))
+        .collect()
+    }
+}
+
+fn rgb([r, g, b]: [f32; 3]) -> Color {
+    Color::srgb(r, g, b)
+}
+
+/// The authored FILE kind: the start cover's colours.
+pub const COVER_LOOK_SCHEMA: &str = "cover_look";
+
+/// The schema, for the host pack's `content_pack! { schemas: [..] }`.
+pub fn cover_look_schema() -> ambition_platformer2d::content::SchemaRegistration {
+    ambition_platformer2d::content::rules_schema(
+        COVER_LOOK_SCHEMA,
+        1,
+        "ambition_host",
+        "The colours of the cover the host shows while the first frame is prepared.",
+        CoverLook::problems,
+    )
+}
+
+/// The cover's colours the host's pack states.
+pub fn cover_look() -> CoverLook {
+    *ambition_platformer2d::content::lowered_rules::<CoverLook>(super::host_pack::HOST_PACK.prepared(), COVER_LOOK_SCHEMA)
+        .expect("the host's pack states the cover's colours (`data/cover_look.ron`)")
+}
+
 #[derive(Component)]
 struct DirectStartupLoadingRoot;
 
@@ -192,6 +253,7 @@ pub(super) fn install_direct_startup_loading(app: &mut App) {
 
 fn spawn_direct_startup_loading_screen(mut commands: Commands) {
     let text = super::host_pack::host_text();
+    let look = cover_look();
     // The loading surface deliberately uses Bevy's built-in font. Depending on
     // an asynchronously loaded product font would make the loading screen
     // itself pop in late, defeating its immediate-response purpose.
@@ -214,7 +276,7 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(Color::srgb(0.012, 0.014, 0.024)),
+            BackgroundColor(rgb(look.backdrop)),
             GlobalZIndex(10_000),
             DirectStartupLoadingRoot,
             Name::new("Ambition Direct Startup Loading Cover"),
@@ -223,14 +285,14 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
             root.spawn((
                 Text::new(text.line("loading.title")),
                 font(54.0, UiFontWeight::Semibold),
-                TextColor(Color::srgb(0.92, 0.72, 0.28)),
+                TextColor(rgb(look.wordmark)),
                 TextLayout::new(Justify::Center, LineBreak::NoWrap),
                 Name::new("Ambition Startup Wordmark"),
             ));
             root.spawn((
                 Text::new(text.line("loading.subtitle")),
                 font(18.0, UiFontWeight::Regular),
-                TextColor(Color::srgb(0.66, 0.70, 0.82)),
+                TextColor(rgb(look.subtitle)),
                 TextLayout::new(Justify::Center, LineBreak::NoWrap),
                 Node {
                     margin: UiRect {
@@ -254,8 +316,8 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
                     border: UiRect::all(Val::Px(1.0)),
                     ..default()
                 },
-                BackgroundColor(Color::srgb(0.075, 0.082, 0.12)),
-                BorderColor::all(Color::srgb(0.22, 0.24, 0.34)),
+                BackgroundColor(rgb(look.track)),
+                BorderColor::all(rgb(look.track_edge)),
                 Name::new("Ambition Startup Progress Track"),
             ))
             .with_children(|track| {
@@ -265,7 +327,7 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
                         height: Val::Percent(100.0),
                         ..default()
                     },
-                    BackgroundColor(Color::srgb(0.92, 0.66, 0.20)),
+                    BackgroundColor(rgb(look.fill)),
                     DirectStartupLoadingProgressFill,
                     Name::new("Ambition Startup Progress Fill"),
                 ));
@@ -273,7 +335,7 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
             root.spawn((
                 Text::new(text.line("loading.preparing")),
                 font(17.0, UiFontWeight::Semibold),
-                TextColor(Color::srgb(0.90, 0.91, 0.96)),
+                TextColor(rgb(look.progress_ink)),
                 TextLayout::new(Justify::Center, LineBreak::WordBoundary),
                 Node {
                     width: Val::Percent(72.0),
@@ -291,7 +353,7 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
             root.spawn((
                 Text::new(text.line("loading.building")),
                 font(14.0, UiFontWeight::Regular),
-                TextColor(Color::srgb(0.56, 0.60, 0.72)),
+                TextColor(rgb(look.detail_ink)),
                 TextLayout::new(Justify::Center, LineBreak::WordBoundary),
                 Node {
                     width: Val::Percent(72.0),
@@ -657,6 +719,21 @@ mod tests {
         };
         assert_eq!(shown(&mut world, "Ambition Startup Wordmark"), text.line("loading.title"));
         assert_eq!(shown(&mut world, "Ambition Startup Subtitle"), text.line("loading.subtitle"));
+    }
+
+    /// The cover's colours are the host's `cover_look.ron`.
+    #[test]
+    fn the_cover_wears_what_the_host_file_states() {
+        use bevy::ecs::system::RunSystemOnce;
+        let mut world = World::new();
+        world.run_system_once(spawn_direct_startup_loading_screen).expect("the cover spawns");
+        let look = cover_look();
+        let mut roots = world.query_filtered::<&BackgroundColor, With<DirectStartupLoadingRoot>>();
+        assert_eq!(roots.single(&world).unwrap().0, rgb(look.backdrop), "the backdrop");
+        let mut fills = world.query_filtered::<&BackgroundColor, With<DirectStartupLoadingProgressFill>>();
+        assert_eq!(fills.single(&world).unwrap().0, rgb(look.fill), "the progress fill");
+        let mut inks = world.query_filtered::<&TextColor, With<DirectStartupLoadingProgressText>>();
+        assert_eq!(inks.single(&world).unwrap().0, rgb(look.progress_ink), "the progress line");
     }
 
     #[test]

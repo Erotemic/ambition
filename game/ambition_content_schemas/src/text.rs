@@ -1,5 +1,5 @@
 //! The lines Ambition shows, as data in its pack (`data/ambition_text.ron`):
-//! its launcher row. The host's cover is the host's (`ambition_app`'s
+//! its launcher row and the words of its dialogue box. The host's cover is the host's (`ambition_app`'s
 //! `host_text.ron`), not the game's.
 //!
 //! The game declares each line and the holes it fills ([`AmbitionText`]), so
@@ -21,6 +21,12 @@ impl TextKeys for AmbitionText {
         TextKey::plain("launcher.label"),
         TextKey::plain("launcher.description"),
         TextKey::plain("launcher.preparing"),
+        TextKey::plain("dialog.continue_hint"),
+        TextKey::plain("dialog.choice_hint"),
+        TextKey::plain("dialog.unknown_speaker"),
+        TextKey::plain("dialog.more_before"),
+        TextKey::plain("dialog.more_after"),
+        TextKey::with("dialog.choices", &["first", "last", "total"]),
     ];
 }
 
@@ -29,7 +35,7 @@ pub fn ambition_text_schema() -> SchemaRegistration {
     shown_text_schema::<AmbitionText>(
         AMBITION_TEXT_SCHEMA,
         super::AMBITION_CAPABILITY,
-        "The lines Ambition shows: its launcher row.",
+        "The lines Ambition shows: its launcher row and the words of its dialogue box.",
     )
 }
 

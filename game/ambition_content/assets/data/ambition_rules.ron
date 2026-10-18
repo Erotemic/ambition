@@ -190,4 +190,34 @@
              offset: (75.0, 0.0), half_size: (14.0, 23.0), grudge_against: "duel_pca"),
         ],
     ),
+    // The colours of the dialogue box: (red, green, blue), each 0 to 1. The
+    // panel is opaque so that the world never takes the contrast of the words.
+    dialog_look: (
+        panel: (0.035, 0.025, 0.045),
+        panel_edge: (0.86, 0.67, 0.25),
+        body_ink: (0.98, 0.96, 0.90),
+        hint_ink: (0.72, 0.69, 0.78),
+        speaker_ink: (1.0, 0.88, 0.52),
+        portrait_edge: (0.96, 0.84, 0.48),
+        // The letters of a portrait with no art.
+        monogram_ink: (1.0, 0.96, 0.82),
+        // The line over a long list of choices, and its scroll bar.
+        scroll_ink: (0.78, 0.73, 0.82),
+        scroll_track: (0.12, 0.09, 0.15),
+        scroll_thumb: (0.86, 0.67, 0.25),
+        selected_choice: (fill: (0.88, 0.69, 0.27), ink: (0.12, 0.06, 0.10), edge: (1.0, 0.90, 0.58)),
+        choice: (fill: (0.09, 0.055, 0.105), ink: (0.94, 0.90, 0.96), edge: (0.28, 0.20, 0.32)),
+        // Behind the letters of a portrait with no art: the speaker's name
+        // chooses one, so a speaker keeps its colour.
+        placeholder_accents: [
+            (0.31, 0.12, 0.29),
+            (0.17, 0.26, 0.42),
+            (0.24, 0.34, 0.20),
+            (0.43, 0.20, 0.13),
+            (0.23, 0.18, 0.39),
+            (0.12, 0.34, 0.34),
+            (0.42, 0.16, 0.25),
+            (0.31, 0.28, 0.12),
+        ],
+    ),
 )

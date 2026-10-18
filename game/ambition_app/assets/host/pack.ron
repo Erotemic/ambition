@@ -12,5 +12,7 @@
         (path: "data/host_text.ron", schema: "host_text", version: 1),
         // The title screen's look: the drifting scene and the menu's window.
         (path: "data/title_look.ron", schema: "title_look", version: 1),
+        // The colours of the start cover.
+        (path: "data/cover_look.ron", schema: "cover_look", version: 1),
     ],
 )

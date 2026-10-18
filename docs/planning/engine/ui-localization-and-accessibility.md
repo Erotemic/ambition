@@ -129,7 +129,9 @@ missing line, an unknown line and an unknown hole, each with the file and the
 key named. Keys name lines, not words, so a later catalog of languages states
 the same keys; there is one language and no locale switch. Each game is
 done: Smash, Mary-O, Sanic, Versus (`data/<game>_text.ron`) and Ambition's
-launcher row (`data/ambition_text.ron`). A host's words are the host's: the
+launcher row and dialogue box (`data/ambition_text.ron`; the box reads the
+selected pack each time it is drawn, so a reload shows a new word in the next
+box). A host's words are the host's: the
 start cover and the pause menu's own rows are `host_text` in `ambition_app`'s
 own pack (`assets/host/pack.ron`), admitted as every game's pack is. Each
 setting's label and description are still the settings crate's Rust.

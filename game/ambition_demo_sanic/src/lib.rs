@@ -345,16 +345,9 @@ pub use provider::{
     SANIC_GAMEPLAY_ROUTE, SANIC_LAUNCHER_ROUTE,
 };
 
-/// Content plugin for the Sanic movement demo: registers Sanic's App-local
-/// authored catalogs, installs the world, and adds the engine's sim-world
-/// setup. This is the shape `demo_shell_smoke.rs` in
-/// `ambition_platformer2d_host` prescribes, built through the umbrella alone.
-pub struct SanicDemoContentPlugin;
-
 /// Register Sanic's authored definitions in one Bevy `App`: the character
-/// fragment and the provider-indexed music/SFX fragments. Both
-/// [`SanicDemoContentPlugin`] (Startup-driven) and
-/// [`provider::SanicExperiencePlugin`] (shell-activation-driven) call this.
+/// fragment and the provider-indexed music/SFX fragments, for
+/// [`provider::SanicExperiencePlugin`].
 ///
 /// The registered App-local resources are the sole composition authority.
 /// Consumers receive the assembled catalog through Bevy resources.
@@ -457,113 +450,6 @@ pub fn install_sanic_content(app: &mut App) {
         // Dropped rings have no global id counter: each mints its identity
         // from the spawning player's own `SimIdCounter` (ADR 0030).
     }
-}
-
-impl Plugin for SanicDemoContentPlugin {
-    fn build(&self, app: &mut App) {
-        use ambition_platformer2d::runtime::demo_fixture::RoomSet;
-        use bevy::prelude::IntoScheduleConfigs;
-
-        install_sanic_content(app);
-        let room = sanic_speedway();
-        let source = ambition_platformer2d::runtime::PreparedPlatformerSource::new(
-            SANIC_EXPERIENCE,
-            RoomSet::from_parts_or_panic(SPEEDWAY_ROOM_ID, vec![room.clone()], Vec::new()),
-            ae::RoomGeometry(room.world.clone()),
-            ambition_platformer2d::runtime::demo_fixture::StartingCharacter::new(
-                SANIC_CHARACTER_ID,
-            ),
-        );
-        ambition_platformer2d::provider::install_direct_session_root(
-            app,
-            source,
-            &provider::sanic_authored_catalogs(),
-        )
-        .expect("Sanic direct prepared-content assembly must succeed");
-        app.add_systems(
-            bevy::app::Startup,
-            sanic_setup.in_set(ambition_platformer2d::runtime::demo_fixture::SimulationSetupSet),
-        );
-    }
-}
-
-/// The demo's world construction: the engine's `simulation_world` on the
-/// speedway. Labeled `SimulationSetupSet` so the host's input attach orders after
-/// the player body exists.
-#[allow(clippy::too_many_arguments)]
-fn sanic_setup(
-    mut commands: bevy::prelude::Commands,
-    // The root this demo's world hangs off: setup publishes the session's
-    // content generation ON it rather than into a process global.
-    session_root: bevy::prelude::Single<
-        bevy::prelude::Entity,
-        bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::SessionRoot>,
-    >,
-    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::runtime::demo_fixture::RoomSet,
-    >,
-    tuning: bevy::prelude::Res<ambition_platformer2d::runtime::demo_fixture::ActiveMovementTuning>,
-    initial_body: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::runtime::demo_fixture::InitialBodyPolicy,
-    >,
-    home_body_resources: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::runtime::demo_fixture::HomeBodyResources,
-    >,
-    home_body_abilities: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::runtime::demo_fixture::HomeBodyAbilities,
-    >,
-    character_catalog: bevy::prelude::Res<
-        ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
-    >,
-    prepared_characters: ambition_platformer2d::characters::prepared::SessionCast,
-    authored_sheets: bevy::prelude::Res<ambition_platformer2d::character::AuthoredSheets>,
-    boss_catalog: bevy::prelude::Res<ambition_platformer2d::boss_encounter::BossCatalog>,
-    placement_lowering: bevy::prelude::Res<
-        ambition_platformer2d::runtime::demo_fixture::PlacementLoweringRegistry,
-    >,
-    content_staging: bevy::prelude::Res<
-        ambition_platformer2d::runtime::demo_fixture::RoomContentStagingRegistry,
-    >,
-    construction_recipes: bevy::prelude::Res<
-        ambition_platformer2d::runtime::demo_fixture::ActorConstructionRegistry,
-    >,
-) {
-    ambition_platformer2d::runtime::demo_fixture::simulation_world(
-        &mut commands,
-        ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
-        ambition_platformer2d::runtime::demo_fixture::SimulationSetup {
-            session_root: *session_root,
-            // A direct-entry demo drops the first room's receipt.
-            publication_retention:
-                ambition_platformer2d::runtime::demo_fixture::PublicationRetention::UntilTheVerdictIsRecorded,
-            // One experience: the save of the world is the save of this room.
-            first_room_facts:
-                ambition_platformer2d::runtime::demo_fixture::CommitFactsSource::TheWorldAtTheCommit,
-            world: &world,
-            room_set: &room_set,
-            // The caller converts: who edits the set is a developer
-            // facility, and construction needs only the set.
-            tuning: &tuning,
-            initial_body: &initial_body,
-            home_body_resources: &home_body_resources,
-            home_body_abilities: &home_body_abilities,
-            prepared_characters: prepared_characters.get(),
-            placement_lowering: &placement_lowering,
-            content_staging: &content_staging,
-            // A demo enters directly rather than through provider activation,
-            // so it has no prepared-content generation to state.
-            construction:
-                ambition_platformer2d::runtime::demo_fixture::ActorConstructionContext::new(
-                    &construction_recipes,
-                    &character_catalog,
-                    &authored_sheets,
-                    ambition_platformer2d::platformer::construction::ContentBinding::content_unstated(Default::default()),
-                ),
-            boss_catalog: &boss_catalog,
-            default_character_id: SANIC_CHARACTER_ID,
-        },
-    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1115,11 +1001,6 @@ fn emit_sanic_milestone_sfx(
     }
 }
 
-/// Install the Sanic demo content layer into an engine app.
-pub fn add_demo_content(app: &mut App) {
-    app.add_plugins(SanicDemoContentPlugin);
-}
-
 #[cfg(test)]
 mod tests;
 
@@ -1255,15 +1136,10 @@ pub fn scatter_rings_on_hit(
             ));
         }
 
-        vfx.for_room(rooms.of(event.victim)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
-            pos: event.pos,
-            count: 24,
-            // Matched to the rings' own launch speed, so the sparkle reads as the
-            // same event and not a separate, smaller puff at the centre.
-            speed: loss.burst_speed,
-            color: [1.0, 0.86, 0.28, 1.0],
-            kind: ambition_platformer2d::vfx::ParticleKind::Dust,
-        });
+        // At the rings' own launch speed, so the sparkle reads as the same
+        // event and not a separate, smaller puff at the centre.
+        vfx.for_room(rooms.of(event.victim))
+            .write(crate::rules::sanic_rules().effects.ring_loss.at(event.pos, loss.burst_speed));
         // H2: losing your rings is the struck body's cue.
         sfx.write_for(
             event.victim,
@@ -1511,13 +1387,7 @@ pub fn clear_act_at_goal(
             rings: wallet.balance,
             dwell: crate::rules::sanic_rules().act.clear_dwell,
         };
-        vfx.for_room(rooms.live().of(runner)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
-            pos: kin.pos,
-            count: 40,
-            speed: 320.0,
-            color: [1.0, 0.92, 0.35, 1.0],
-            kind: ambition_platformer2d::vfx::ParticleKind::Dust,
-        });
+        vfx.for_room(rooms.live().of(runner)).write(crate::rules::sanic_rules().effects.act_clear.at(kin.pos));
         // H2/I3: the act's fanfare belongs to the course, not to the runner or
         // the host.
         sfx.write_from(

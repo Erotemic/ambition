@@ -133,6 +133,7 @@ fn the_valley_road_leads_back_to_the_course() {
 fn a_spin_dash_into_the_cliff_opens_the_cave() {
     let mut app = arrive_in_act_two();
     place(&mut app, Vec2::new(5000.0, 1400.0));
+    crate::act_completion::record_bursts(&mut app);
     for frame in 0..240 {
         let input = match frame {
             // Face the cliff.
@@ -158,6 +159,13 @@ fn a_spin_dash_into_the_cliff_opens_the_cave() {
         "and he is in the cave, under the rock: {:?}",
         pos(&mut app)
     );
+    // The wall and the monitors play the bursts their rules file states.
+    let effects = &ambition_demo_sanic::rules::sanic_rules().effects;
+    let played = &app.world().resource::<crate::act_completion::PlayedBursts>().0;
+    for (what, row) in [("wall", &effects.wall_break), ("monitor", &effects.monitor_break)] {
+        let stated = crate::act_completion::shape_of(row);
+        assert!(played.contains(&stated), "the {what} did not play the file's burst {stated:?}: played {played:?}");
+    }
 }
 
 #[test]

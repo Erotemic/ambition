@@ -116,21 +116,9 @@ pub fn defeat_badniks(
                 ae::movement::set_jump_velocity(&mut kin.vel, ae::DEFAULT_GRAVITY_DIR, crate::rules::sanic_rules().badnik.bounce_speed);
             }
         }
-        vfx.for_room(room).write(ambition_platformer2d::vfx::VfxMessage::Burst {
-            pos: badnik_kin.pos,
-            count: 12,
-            speed: 150.0,
-            color: [0.85, 0.62, 0.35, 1.0],
-            kind: ambition_platformer2d::vfx::ParticleKind::Dust,
-        });
-        // And a few bright sparks over the dust: a pop, not only a puff.
-        vfx.for_room(room).write(ambition_platformer2d::vfx::VfxMessage::Burst {
-            pos: badnik_kin.pos,
-            count: 8,
-            speed: 260.0,
-            color: [1.0, 0.94, 0.62, 1.0],
-            kind: ambition_platformer2d::vfx::ParticleKind::Spark,
-        });
+        for squash in &crate::rules::sanic_rules().effects.badnik_squash {
+            vfx.for_room(room).write(squash.at(badnik_kin.pos));
+        }
         // H2: the badnik is a body, and this is it popping. Its own voice.
         sfx.write_for(
             entity,
@@ -190,6 +178,31 @@ mod tests {
             app.world().get_entity(badnik).is_err(),
             "a stomped badnik is squashed (despawned)"
         );
+    }
+
+    /// A squashed badnik plays the bursts its rules file states
+    /// (`effects.badnik_squash`), in their order, where it was.
+    #[test]
+    fn a_squash_plays_the_bursts_its_rules_state() {
+        let mut app = defeat_app();
+        let at = ae::Vec2::new(0.0, 32.0);
+        spawn_badnik(&mut app, at);
+        app.world_mut().spawn((PrimaryPlayer, PlayerEntity, kin(ae::Vec2::ZERO, ae::Vec2::new(0.0, 240.0))));
+        app.update();
+        let played: Vec<_> = app
+            .world()
+            .resource::<Messages<ambition_platformer2d::vfx::VfxInRoom>>()
+            .iter_current_update_messages()
+            .filter_map(|message| crate::rules::burst_shape(&message.vfx))
+            .collect();
+        let stated: Vec<_> = crate::rules::sanic_rules()
+            .effects
+            .badnik_squash
+            .iter()
+            .filter_map(|row| crate::rules::burst_shape(&row.at(at)))
+            .collect();
+        assert!(!stated.is_empty(), "the rules file states a squash");
+        assert_eq!(played, stated, "the squash is not the file's bursts");
     }
 
     #[test]

@@ -39,6 +39,42 @@ fn living_lizards(app: &mut App) -> usize {
         .count()
 }
 
+/// What the app played since `record_effects`: each burst as (count,
+/// speed, colour, kind), each explosion's scale, and each fireworks show as
+/// (count, spread).
+#[derive(Resource, Default)]
+pub(crate) struct Played {
+    pub(crate) bursts: Vec<(u32, f32, [f32; 4], ambition_platformer2d::vfx::ParticleKind)>,
+    pub(crate) explosion_scales: Vec<f32>,
+    pub(crate) fireworks: Vec<(u32, ae::Vec2)>,
+}
+
+/// Record what the app plays from now on, in `Played`.
+pub(crate) fn record_effects(app: &mut App) {
+    fn record(
+        mut bursts: MessageReader<ambition_platformer2d::vfx::VfxInRoom>,
+        mut explosions: MessageReader<ambition_platformer2d::vfx::FxRequest>,
+        mut fireworks: MessageReader<ambition_platformer2d::vfx::FireworksRequest>,
+        mut played: ResMut<Played>,
+    ) {
+        for message in bursts.read() {
+            if let ambition_platformer2d::vfx::VfxMessage::Burst { count, speed, color, kind, .. } = message.vfx {
+                played.bursts.push((count, speed, color, kind));
+            }
+        }
+        played.explosion_scales.extend(explosions.read().map(|request| request.scale));
+        played.fireworks.extend(fireworks.read().map(|show| (show.count, show.spread)));
+    }
+    app.init_resource::<Played>();
+    app.add_systems(Last, record);
+}
+
+/// What a rules row plays, in the shape `Played` records.
+pub(crate) fn shape_of(row: &ambition_demo_mary_o::rules::Burst) -> (u32, f32, [f32; 4], ambition_platformer2d::vfx::ParticleKind) {
+    let kind = ambition_platformer2d::vfx::ParticleKind::named(&row.kind).expect("admission checked the kind");
+    (row.count, row.speed, row.color, kind)
+}
+
 fn line_on_screen(app: &App) -> Option<String> {
     let active = app.world().resource::<ambition_platformer2d::cutscene::ActiveCutscene>();
     let playing = active.runtime.as_ref().is_some_and(|runtime| runtime.script.id == RESCUE_CUTSCENE);
@@ -49,6 +85,7 @@ fn line_on_screen(app: &App) -> Option<String> {
 fn the_switch_drops_the_boss_and_the_robot_thanks_her_before_the_level_goes() {
     let mut app = ambition_demo_mary_o_app::build_demo_app();
     app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(CASTLE.to_string()));
+    record_effects(&mut app);
     let mut seated = false;
     for _ in 0..600 {
         app.update();
@@ -152,6 +189,31 @@ fn the_switch_drops_the_boss_and_the_robot_thanks_her_before_the_level_goes() {
                 line_frame - pressed_at
             );
             assert_eq!(room_id(&mut app).as_deref(), Some("mary_o_2_1"), "the castle names 2-1 as its next room");
+            // The bridge, the lava and the boss's death play what Mary-O's
+            // rules file states (`effects`).
+            let effects = &ambition_demo_mary_o::rules::mary_o_rules().effects;
+            let played = app.world().resource::<Played>();
+            for (what, row) in [
+                ("a plank", &effects.plank_break),
+                ("the lava", &effects.lava_splash),
+                ("the boss's death", &effects.boss_death),
+            ] {
+                let stated = shape_of(row);
+                assert!(played.bursts.contains(&stated), "{what} did not play the file's burst {stated:?}: played {:?}", played.bursts);
+            }
+            for (what, scale) in [("a plank", effects.plank_explosion_scale), ("the boss's death", effects.boss_death_explosion_scale)] {
+                assert!(
+                    played.explosion_scales.contains(&scale),
+                    "{what} did not explode at the file's scale {scale}: played {:?}",
+                    played.explosion_scales
+                );
+            }
+            let show = effects.bridge_fireworks;
+            assert!(
+                played.fireworks.iter().any(|&(count, spread)| count == show.count && spread.y == show.height_px),
+                "the bridge's fireworks are not the file's {show:?}: played {:?}",
+                played.fireworks
+            );
             return;
         }
     }

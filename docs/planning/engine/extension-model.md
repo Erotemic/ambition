@@ -21,7 +21,9 @@ selects work. These pages do not create another queue or rollback backend.
   `ambition_extension_host` (below the runtime composition root) and the
   WebAssembly backend `ambition_extension_wasm` (wasmi). Modules are in
   `game/ambition_content_modules`: every boss special, the wielded kit, the
-  sentry, the vortex and the FSM conductor. Modules run on the linked road and
+  sentry, the vortex, and the conductors of the FSM, GNU-ton, the T-rex,
+  Hunny, Wolfenstein and the Mockingbird (Mary-O's are in
+  `game/ambition_demo_mary_o_modules`). Modules run on the linked road and
   on the loaded WASM road, and a loaded module hot-reloads through the
   mechanical-edit protocol.
 - **Engine tier:** ordinary Bevy plugins.

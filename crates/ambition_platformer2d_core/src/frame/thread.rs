@@ -101,7 +101,8 @@ impl PortalLink {
 pub struct PieceBudget {
     /// Pairs a piece may be carried through, one after another.
     pub max_hops: u8,
-    /// A cut that would make the partition larger than this is refused.
+    /// A cut that would make the partition larger than this is refused, so a
+    /// partition is never larger than this (or than one piece, for none).
     pub max_pieces: u16,
 }
 
@@ -408,7 +409,9 @@ pub struct Partition {
 ///
 /// The budget bounds the work. A cut it refuses leaves the opening solid to
 /// that piece: the part that would have gone through is not anywhere, and the
-/// refusal says so; the parts in front and beside stay.
+/// refusal says so; the parts in front and beside stay. When even those parts
+/// would make the partition larger than the budget, the piece stays whole
+/// where it is, as at the step limit.
 pub fn partition(
     volume: &CombatVolume,
     root: Vec2,
@@ -454,11 +457,26 @@ pub fn partition(
             out.pieces.push(piece);
             continue;
         }
-        let size = out.pieces.len() + work.len() + 1;
-        let refused = piece.path.len() >= usize::from(budget.max_hops) || size + 3 > usize::from(budget.max_pieces);
-        if refused {
-            out.refused.push(Refusal { path: piece.path.clone(), link: link.key });
-        }
+        // The budget is checked on the parts a cut makes, not on a guess of
+        // their number: a link with a depth makes five, and a refused cut
+        // makes up to four. The parts take the place of the piece.
+        let kept = out.pieces.len() + work.len();
+        let fits = |parts: &[VolumePiece]| kept + parts.len() <= usize::from(budget.max_pieces);
+        let through = (piece.path.len() < usize::from(budget.max_hops))
+            .then(|| cut_by(&piece, link, convention, false))
+            .filter(|parts| fits(parts));
+        let parts = match through {
+            Some(parts) => parts,
+            None => {
+                out.refused.push(Refusal { path: piece.path.clone(), link: link.key });
+                let parts = cut_by(&piece, link, convention, true);
+                if !fits(&parts) {
+                    out.pieces.push(piece);
+                    continue;
+                }
+                parts
+            }
+        };
         // The exit point the root's line meets: where a carried piece came
         // from, for the next link's front.
         let exit_root = |link: &PortalLink| {
@@ -467,7 +485,7 @@ pub fn partition(
             let h = link.exit.half_length;
             link.exit.frame.from_local(Vec2::new((local.x * along).clamp(-h, h), 0.0))
         };
-        for part in cut_by(&piece, link, convention, refused) {
+        for part in parts {
             let part_root = if part.path.len() > piece.path.len() { exit_root(link) } else { root };
             work.push_back((part, part_root));
         }

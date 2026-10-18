@@ -408,6 +408,44 @@ fn a_link_that_goes_so_deep_keeps_what_is_deeper_where_it_is() {
     assert!(!hits(&p.pieces, Vec2::new(0.0, 15.0)));
 }
 
+/// The budget bounds the pieces a cut makes, not a guess of their number: a
+/// cut by a link with a depth makes five (in front, both sides, deeper and
+/// through), and a refused one four. When even the refused cut is too many,
+/// the piece stays whole.
+#[test]
+fn a_partition_is_never_larger_than_its_budget() {
+    let (floor, ceiling) = floor_pair();
+    let link = PortalLink { enter: floor, exit: ceiling, key: 0, depth: Some(25.0) };
+    let picture = boxed(Vec2::new(0.0, 20.0), Vec2::new(60.0, 40.0));
+    let cut = |max_pieces| {
+        partition(&picture, ABOVE, &[link], Some(0), PieceBudget { max_hops: 1, max_pieces }, MapConvention::Reflection)
+    };
+    let free = cut(16);
+    assert_eq!((free.pieces.len(), free.refused.len()), (5, 0), "the premise: a cut of five parts");
+    assert_tiles(&picture, &free.pieces);
+    let refused = cut(4);
+    assert_eq!((refused.pieces.len(), refused.refused.len()), (4, 1), "five parts in a budget of four");
+    assert!(refused.pieces.iter().all(|piece| !piece.is_carried()), "a refused cut carried a part");
+    for max_pieces in 0..4 {
+        let whole = cut(max_pieces);
+        assert_eq!(whole.pieces, vec![VolumePiece::whole(picture.clone())], "budget {max_pieces}");
+        assert_eq!(whole.refused.len(), 1, "budget {max_pieces}");
+    }
+    // Across several deep links, every budget holds.
+    let four: Vec<PortalLink> = (0..4)
+        .flat_map(|i| {
+            let pair = (aperture(Vec2::new(i as f32 * 100.0, 0.0), UP, 40.0), aperture(Vec2::new(i as f32 * 100.0 + 1000.0, -300.0), DOWN, 40.0));
+            PortalLink::both_ways(i, pair).map(|link| PortalLink { depth: Some(25.0), ..link })
+        })
+        .collect();
+    let giant = boxed(Vec2::new(150.0, 10.0), Vec2::new(200.0, 40.0));
+    for max_pieces in 0..=24 {
+        let budget = PieceBudget { max_hops: 4, max_pieces };
+        let p = partition(&giant, Vec2::new(150.0, -50.0), &four, None, budget, MapConvention::Reflection);
+        assert!(p.pieces.len() <= usize::from(max_pieces.max(1)), "budget {max_pieces}: {} pieces", p.pieces.len());
+    }
+}
+
 #[test]
 fn the_planes_a_piece_is_drawn_clipped_by_are_the_ones_that_cut_it() {
     let pieces = thread_volume(&boxed(Vec2::new(0.0, 10.0), Vec2::new(10.0, 20.0)), ABOVE, &[floor_pair()], MapConvention::Reflection);

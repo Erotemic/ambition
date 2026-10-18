@@ -558,7 +558,11 @@ Two paths, read from `AMBITION_FIGHTER_TRACE=1`:
 5. Open: an AIRBORNE Approach is never priced off the ledge (`walks_off` and
    `overshoots` need a supporting floor). Ramen, jumping at a foe near the
    left ledge, drifted past it at −230 px/s and the lens found no route home
-   with `divergent_series`.
+   with `divergent_series`. Mary-O's first loss is the same: Approach from a
+   jump at x 218, still accelerating at x 129 (−236 px/s), Recovery at x 68
+   (−300). A fix needs the floor's span on the side axis for an airborne body
+   (`floor_ahead` reads only the supporting floor) and an airborne stopping
+   distance from the body's own law, as `stop_distance` is for the ground.
 
 Totals over one minute each, one seed. The eight fighters with a true baseline:
 32 → 25 (Sanic 14 → 12, item 2). The other fifteen were first measured after

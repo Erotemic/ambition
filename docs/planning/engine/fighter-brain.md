@@ -537,8 +537,13 @@ Two paths, read from `AMBITION_FIGHTER_TRACE=1`:
    finds no route home. In Ultimate most grounded moves stop at the ledge. That
    is a per-game movement rule, so it waits for Jon.
 
-Off-stage, `Recover` holds the side below the top (`emit_x=0`), so a body that
-is past the ledge with its jumps spent never closes the gap and falls.
+3. `Recover` held the side whenever the feet were below the top. Just after
+   stepping off, that left the Robot 48 px out, and its teleport (aimed by the
+   stick, 44 px ledge assist) went straight up past the ledge. Level with the
+   floor's side face (`RecoveryLedge::beside`: head above the floor's bottom,
+   not under it), `Recover` now steers in. Below the underside it still holds.
+   Same seeds, excluding Sanic: 16 losses → 12 (Mary-O 5→1, George 2→1, Robot
+   3→2, Bob 2→4, the rest unchanged). One seed each, so noisy.
 
 ### F1 — the authored ladder is the authority (Q88, 2026-10-03)
 

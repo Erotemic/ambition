@@ -364,8 +364,8 @@ navigation. No hacks, only elegant - efficient ... and correct design").
 | Part | Where |
 | --- | --- |
 | One follower | `ae::navigation::RouteFollower`: goal, leg, phase, clock, misses; `needs_route()` says when it reads a route answer. A brain's `NavFollower` is it, with `DriveFollower` (advice in, `ActorControlFrame` out). |
-| One cache | `world::navigation::cache`: `NavGraphKey` (geometry and exits stamp, tuning, abilities, size, base size, frame), `NavGraphCache`. The advisor's `RoomNavigation` wraps it. |
-| The autopilot | `ambition_platformer2d::autopilot`: an input source outside the timeline. Graphs built on the async compute pool; a no-allocation signature of the geometry gates a rebuild; a leg under way survives a geometry change; another room or form drops the graph. |
+| One cache | `world::navigation::cache`: `NavGraphKey` (geometry and exits stamp, tuning, abilities, size, base size, frame), `NavGraphCache`. The advisor's `RoomNavigation` wraps it, and keeps each room's stamp across ticks by its geometry revision (`GeometryStamps`). |
+| The autopilot | `ambition_platformer2d::autopilot`: an input source outside the timeline. Graphs built on the async compute pool; the graph's inputs, compared whole (the room geometry's change tick, the still parts of its overlay, the exits), gate a recompose and a new key (`the_wanted_graph_follows_each_part_of_the_room_it_is_built_over`); a leg under way survives a geometry change; another room or form drops the graph. |
 | Approach by law | `ae::navigation::ApproachLaw`, from the envelope's measured slide (`stop_distance`, `start_speed`): run, let go where the slide ends, creep (`CREEP_STICK`) inside the band a dash from rest overruns. |
 | Recovery | `NavGraph::landing_in_reach`: a body in the air with no leg comes down on the nearest surface in reach, spending an air jump if it has one. |
 

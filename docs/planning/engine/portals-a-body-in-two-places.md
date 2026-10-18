@@ -173,10 +173,17 @@ while let Some(piece) = work.pop_front():           // FIFO: stable order
     candidates = apertures in piece.room whose bounds meet piece (broad phase), sorted by (room, channel)
     first = the candidate the piece reaches through from its front, nearest the root along the path  // deterministic
     if none: emit piece; continue
-    if path.len() == max_hops or emitted+queued == max_pieces: budget(piece, first); continue
-    emit here/beside parts (bounds += cut planes)
+    parts = cut(piece, first)                        // here, beside, deeper, through: up to five
+    if path.len() == max_hops or emitted+queued+len(parts) > max_pieces:
+        refuse(piece, first); parts = cut without the through part   // up to four
+        if emitted+queued+len(parts) > max_pieces: emit piece whole; continue
+    push here/beside parts (bounds += cut planes)
     push through part: to_piece = Iso(first) ∘ to_piece, bounds mapped + exit planes, path + hop
 ```
+
+The budget is checked on the parts a cut makes, so `max_pieces` is a hard bound on
+the partition (one piece for a budget of none): a link with a depth makes five parts
+(`a_partition_is_never_larger_than_its_budget`).
 
 - Four pairs at once (scenario A): the first cut splits off one through piece; the
   here part is pushed back and cut by the next aperture, and so on — one through piece
@@ -196,7 +203,8 @@ while let Some(piece) = work.pop_front():           // FIFO: stable order
 
 Never drop collision-relevant geometry and play on. The aperture the over-budget piece
 would cross is SOLID for that piece: the piece is clipped at the plane (its through part
-is not made), and the body's motion is held there as the snag holds a body past an end
+is not made; when even the clipped parts would pass the budget, the piece stays whole
+where it is, as at the step limit), and the body's motion is held there as the snag holds a body past an end
 (collision); a combat volume simply does not reach further (it is not a body). A dynamic
 portal is refused at placement when the room's declared policy cannot admit the network
 it would make (e.g. a pair whose exit faces its own entry within `max_hops`); authored

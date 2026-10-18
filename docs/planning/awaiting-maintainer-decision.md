@@ -835,3 +835,36 @@ component whose presence a query filter reads is authoritative, even when its
 value is derived. To witness a presence latch across a rewind, census the latch
 on each resimulated pass. A visible consequence that is not itself rollback
 state cannot witness the defect.
+
+## Q167 — may a CPU perceive its own body without the reaction delay?
+
+**Owner:** the fighter brain (`PerceptionBuffer`, `DelayedPerception`) and the
+humanity contract in [`fighter-brain.md`](engine/fighter-brain.md) ("The brain
+acts through normal perception").
+
+**Context (measured 2026-10-18, F0 in `fighter-brain.md`):** a CPU sees the
+world `reaction_ms` late (300 ms at rung 5), and today it sees its OWN body
+that late too. Against a seat that presses nothing, the roster lost 46 stocks
+in 20.0 fighter-minutes, every one a self-KO: a move or a jump started from a
+view of its own body about 300 ms old carried it off a ledge. A probe that
+gave each view the live self cut that to 11 in 20.7 (Sanic 12 to 0, Ramen 5 to
+0). Offense against the dummy did not change (10 of 23 eliminations before, 9
+of 23 after). A 2026-08-22 ruling already says the easiest rung "is bad at
+fighting, not self-destructive".
+
+**The choice:**
+
+- **Yes (recommended):** a CPU knows its own motion now, as a person knows
+  where their hands are without the screen; the world and the foe stay
+  delayed. The brain then takes its own motion facts live together (position,
+  velocity, ground contact, the move it plays), never a partial copy (a probe
+  that copied only position read "grounded" over the void). One fixture
+  (`a_fighter_over_a_floor_open_for_it_plays_as_over_the_void`) must place
+  its CPU out of reach of home, since its premise is a CPU slow to notice its
+  own teleport.
+- **No:** the delay stays the only read path. Self-KOs are fixed one path at
+  a time (rolls, run braking, recovery steering are done), and the airborne
+  approach (F0 item 5) stays open: a fix there was measured worse, because the
+  margin being priced (60 to 90 px) is smaller than the stale self-view's error.
+
+**What it blocks:** nothing. F0 item 5 waits on it.

@@ -6,7 +6,8 @@ reads from. It is a copy of two community sources, attributed in that page:
 
 * Ultimate Frame Data's roster statistics page (``ultimateframedata.com/stats.php``);
 * SmashWiki's Ultimate rolling-distance tables (``ssbwiki.com/Roll``) and
-  traction table (``ssbwiki.com/Traction``).
+  traction and air friction tables (``ssbwiki.com/Traction``,
+  ``ssbwiki.com/Air_friction``).
 
 Values are kept in Ultimate's own units (distance units, frames at 60 Hz) and
 spelled exactly as the source spells them, so a re-fetch diffs cleanly. Nothing
@@ -29,6 +30,7 @@ from pathlib import Path
 UFD_URL = "https://ultimateframedata.com/stats.php"
 ROLL_URL = "https://www.ssbwiki.com/index.php?title=Roll&action=raw"
 TRACTION_URL = "https://www.ssbwiki.com/index.php?title=Traction&action=raw"
+AIR_FRICTION_URL = "https://www.ssbwiki.com/index.php?title=Air_friction&action=raw"
 OUT = Path(__file__).resolve().parent.parent / "docs/related-work/data/smash_ultimate_fighter_stats.csv"
 
 # The roster is the "Dash and Run Speed" table's: one row per fighter. Other
@@ -164,22 +166,29 @@ def parse_rolls(wiki, cells):
             cells.append((m.group(1), col, m.group(2)))
 
 
-def parse_traction(wiki, cells):
-    """SmashWiki's Ultimate traction table; a value spans tied rows (rowspan)."""
+def parse_wiki_table(wiki, columns, what):
+    """The first table of a SmashWiki page's Ultimate section, one row per
+    fighter. Tied rows share a value through `rowspan`, cell by cell, so each
+    column carries its own span."""
     body = wiki[wiki.index("===''[[Super Smash Bros. Ultimate]]''===") :]
     body = body[: body.index("|}")]
-    value, left = None, 0
+    carry, left = [None] * len(columns), [0] * len(columns)
+    cells = []
     for row in body.split("|-")[1:]:
         who = re.search(r"\{\{CharHead\|([^|}]+)\|SSBU(?:\|[^}]*)?\}\}", row)
         if not who:
             continue
-        own = re.search(r"\}\}\|\|(?:rowspan=(\d+)\|)?(?:\{\{rollover\|)?([0-9.]+)", row)
-        if own:
-            value, left = own.group(2), int(own.group(1) or 1)
-        if not left:
-            sys.exit(f"traction table: no value for {who.group(1)!r}")
-        cells.append((who.group(1), "traction", value))
-        left -= 1
+        given = iter(row[who.end() :].split("||")[1:])
+        for c, col in enumerate(columns):
+            if not left[c]:
+                cell = next(given, None)
+                own = cell and re.match(r"\s*(?:rowspan=(\d+)\|)?(?:\{\{rollover\|)?([0-9.]+)", cell)
+                if not own:
+                    sys.exit(f"{what} table: no {col} for {who.group(1)!r}")
+                carry[c], left[c] = own.group(2), int(own.group(1) or 1)
+            cells.append((who.group(1), col, carry[c]))
+            left[c] -= 1
+    return cells
 
 
 def main():
@@ -187,19 +196,22 @@ def main():
     ap.add_argument("--html", type=Path, help="a saved copy of the stats page")
     ap.add_argument("--roll-wiki", type=Path, help="a saved copy of the Roll page's wikitext")
     ap.add_argument("--traction-wiki", type=Path, help="a saved copy of the Traction page's wikitext")
+    ap.add_argument("--air-friction-wiki", type=Path, help="a saved copy of the Air friction page's wikitext")
     ap.add_argument("--out", type=Path, default=OUT)
     args = ap.parse_args()
 
     page = args.html.read_text(encoding="utf-8") if args.html else fetch(UFD_URL)
     wiki = args.roll_wiki.read_text(encoding="utf-8") if args.roll_wiki else fetch(ROLL_URL)
     traction = args.traction_wiki.read_text(encoding="utf-8") if args.traction_wiki else fetch(TRACTION_URL)
+    friction = args.air_friction_wiki.read_text(encoding="utf-8") if args.air_friction_wiki else fetch(AIR_FRICTION_URL)
     cells, roster = [], []
     parse_ufd(page, cells, roster)
     parse_rolls(wiki, cells)
-    parse_traction(traction, cells)
+    cells += parse_wiki_table(traction, ["traction"], "traction")
+    cells += parse_wiki_table(friction, ["air_friction", "falling_friction"], "air friction")
     rows, dropped = resolve(cells, roster)
 
-    columns = ["character"] + [c for t in UFD_TABLES.values() for c in t.values()] + list(ROLL_SECTIONS.values()) + ["traction"]
+    columns = ["character"] + [c for t in UFD_TABLES.values() for c in t.values()] + list(ROLL_SECTIONS.values()) + ["traction", "air_friction", "falling_friction"]
     args.out.parent.mkdir(parents=True, exist_ok=True)
     tmp = args.out.with_suffix(".tmp")
     with tmp.open("w", newline="", encoding="utf-8") as f:

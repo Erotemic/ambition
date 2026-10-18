@@ -845,6 +845,29 @@ tackon_targets=(
     # The stroke of GNU-ton's quill: the same kind of sheet, his own art
     # (`attack_vfx` of `npc_gnu_ton`).
     gnu_ton_slash
+    # The strikes of the rest of the Smash cast: one sheet each, drawn by
+    # `_strike_fx_common.py` (`attack_vfx` of each fighter).
+    george_booul_strike_fx
+    mary_o_strike_fx
+    sanic_strike_fx
+    pirate_admiral_strike_fx
+    ninja_shadow_oni_leader_strike_fx
+    alice_strike_fx
+    bob_strike_fx
+    oiler_strike_fx
+    perfect_cellular_automaton_strike_fx
+    goblin_strike_fx
+    emmy_noether_strike_fx
+    carl_stargan_strike_fx
+    patent_clerk_strike_fx
+    ramen_nujan_strike_fx
+    pointed_polygon_strike_fx
+    projectile_polygon_strike_fx
+    pugnacious_polygon_strike_fx
+    director_strike_fx
+    performer_strike_fx
+    officer_strike_fx
+    medic_strike_fx
     news_board
     town_tileset
     # Intro / cut-the-rope content (loaded by ambition_content's intro

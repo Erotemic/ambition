@@ -133,6 +133,8 @@
             composition: None,
             default_brain: "duelist",
             default_action_set: "duelist",
+            // Its strikes draw its own sheet (`george_booul_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("george_booul_strike_fx"),
             abilities: Some([RunJump, AirJump, FastFall, Attack, DirectionalPrimary, Pogo, Shield, Dodge, LedgeGrab]),
             axis_tuning: Some(()),
             tags: ["smash"],

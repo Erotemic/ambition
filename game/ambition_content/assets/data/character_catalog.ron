@@ -899,6 +899,8 @@
             body_kind: Standard,
             composition: None,
             default_action_set: "striker_swipe",
+            // Its strikes draw its own sheet (`goblin_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("goblin_strike_fx"),
             // THE BODY. It NAMES its policy rather than carrying one: several creatures
             // point at `medium_striker` and keep their own bodies.
             locomotion: Some((run_speed: 170.0, move_style: Walk)),
@@ -1145,6 +1147,8 @@
             // not a capability, and her own bark is already the reply of somebody
             // who can be hit back.
             default_action_set: "striker_swipe",
+            // Its strikes draw its own sheet (`emmy_noether_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("emmy_noether_strike_fx"),
             // THE BODY: the hall walk, and the humanoid four. A mathematician with a
             // theorem is not a bigger body.
             locomotion_preset: Some("hall_walk"),
@@ -1183,6 +1187,8 @@
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "pirate_pistol",
+            // Its strikes draw its own sheet (`pirate_admiral_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("pirate_admiral_strike_fx"),
             // It ships as `melee_brute_striker`, whose chase speed is absolute, so
             // this speed changes nothing a player sees; it makes the body complete.
             locomotion: Some((run_speed: 110.0, move_style: Walk)),
@@ -1417,6 +1423,8 @@
             standing_height: Some(67.8),
             composition: None,
             default_action_set: "automaton_swipe_and_glider",
+            // Its strikes draw its own sheet (`perfect_cellular_automaton_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("perfect_cellular_automaton_strike_fx"),
             // A grounded fighter that can fly: it fights on the ground and flies
             // only to cross a long gap, so it states `baseline_free_flight: false`
             // beside the `Flight` grant.
@@ -1853,6 +1861,8 @@
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // Its strikes draw its own sheet (`ninja_shadow_oni_leader_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("ninja_shadow_oni_leader_strike_fx"),
             // THE BODY. He ships as `melee_brute_striker` (chase 110), and that preset's
             // speed is absolute, so this speed changes nothing a player sees today. It
             // makes the body complete, which is what let the body-assist seam go.
@@ -1999,6 +2009,8 @@
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
+            // Its strikes draw its own sheet (`alice_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("alice_strike_fx"),
             // THE BODY: the hall walk, and the humanoid four. A person with a
             // repertoire is not a bigger body.
             locomotion_preset: Some("hall_walk"),
@@ -2022,6 +2034,8 @@
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
+            // Its strikes draw its own sheet (`bob_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("bob_strike_fx"),
             // THE BODY: the hall walk, and the humanoid four. A person with a
             // repertoire is not a bigger body.
             locomotion_preset: Some("hall_walk"),
@@ -2072,6 +2086,8 @@
             // the Hall is a policy, not a capability, and his own bark already
             // says "Maintenance mode: hostile!" when somebody starts it.
             default_action_set: "striker_swipe",
+            // Its strikes draw its own sheet (`oiler_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("oiler_strike_fx"),
             // THE BODY: the hall walk, and the humanoid four. A mechanic with a wrench
             // is not a bigger body.
             locomotion_preset: Some("hall_walk"),
@@ -3256,6 +3272,8 @@
             // action set says only that this body can attack. In the hall he
             // stands still; that is his policy there, not what he is able to do.
             default_action_set: "striker_swipe",
+            // Its strikes draw its own sheet (`ramen_nujan_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("ramen_nujan_strike_fx"),
             // THE BODY: a little quicker than the hall walk, and the humanoid
             // four. Ordinary tuning values: change them if play says so.
             locomotion: Some((run_speed: 230.0, move_style: Walk)),
@@ -3834,6 +3852,8 @@
             // does it takes 44 tests down with it.
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // Its strikes draw its own sheet (`pointed_polygon_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("pointed_polygon_strike_fx"),
             // THE BODY of the sword archetype, which its easter eggs borrow.
             locomotion: Some((run_speed: 220.0, move_style: Walk)),
             max_health: Some(5),
@@ -3864,6 +3884,8 @@
             // rule — see its row above. A brawler is a MainHall melee fighter.
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // Its strikes draw its own sheet (`pugnacious_polygon_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("pugnacious_polygon_strike_fx"),
             // THE BODY of the brawler archetype.
             locomotion: Some((run_speed: 230.0, move_style: Walk)),
             max_health: Some(6),
@@ -3892,6 +3914,8 @@
             composition: None,
             default_brain: "skirmisher_ranger",
             default_action_set: "polygon_cannon",
+            // Its strikes draw its own sheet (`projectile_polygon_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("projectile_polygon_strike_fx"),
             locomotion: Some((run_speed: 225.0, move_style: Walk)),
             // The look of an uncharged shot; a charged one takes its tier's look.
             ranged_vfx: Some("polygon_bolt"),
@@ -3929,6 +3953,8 @@
             // the joke, not about his autonomous policy.
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // Its strikes draw its own sheet (`director_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("director_strike_fx"),
             // THE BODY. The sword archetype's own speed: he is that archetype, and a
             // different walk here would be a balance decision nobody made.
             locomotion: Some((run_speed: 220.0, move_style: Walk)),
@@ -3965,6 +3991,8 @@
             // item: the gun is on his own sheet, and an item would put two guns in
             // one hand.
             default_action_set: "officer_sidearm",
+            // Its strikes draw its own sheet (`officer_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("officer_strike_fx"),
             // The brawler archetype's speed: he is that archetype.
             locomotion: Some((run_speed: 230.0, move_style: Walk)),
             max_health: Some(6),
@@ -3998,6 +4026,8 @@
             // archetype's brain for as long as she borrows its table.
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // Its strikes draw its own sheet (`medic_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("medic_strike_fx"),
             // THE BODY. Faster than the archetype she borrows, and this number is hers:
             // her moveset is the brawler's retimed shorter (50 ms jabs against his 58),
             // so his speed would contradict every clip she publishes.
@@ -4033,6 +4063,8 @@
             // gives -- she is that archetype, carrying nothing.
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // Its strikes draw its own sheet (`performer_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("performer_strike_fx"),
             // THE BODY. Slower than the archetype, and this is the one number that is
             // hers: her clips are the sword archetype's held longer (60 ms, with the
             // lunge parked for two frames), and a body that moved at its speed would
@@ -4070,6 +4102,8 @@
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "striker_swipe",
+            // Its strikes draw its own sheet (`patent_clerk_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("patent_clerk_strike_fx"),
             // THE BODY. "A high-mastery HEAVYWEIGHT controller" is his own description,
             // so he walks heavy and takes six rather than the humanoid four. His
             // `patrol_peaceful` policy ambles at its own absolute 28 px/s either way;
@@ -4150,6 +4184,8 @@
             // attack is* — and a `peaceful` row answered the first one NO, so
             // the table could never reach a fighter.
             default_action_set: "carl_swipe",
+            // Its strikes draw its own sheet (`carl_stargan_strike_fx`), not the stand-in wedge.
+            attack_vfx: Some("carl_stargan_strike_fx"),
             // THE BODY. Carl walks and can fight; friendliness and standing still are
             // placement or controller policy, not limits on the body. Walking is stated:
             // do not infer flight from art, role or body kind.

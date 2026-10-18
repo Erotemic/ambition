@@ -25,9 +25,9 @@ use ambition_gameplay_trace::CollisionTraceShape;
 use ambition_gameplay_trace::RoomTraceSnapshot;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 
-fn body_kind(is_player: bool, faction: Option<&ActorFaction>) -> String {
+fn body_kind(is_player: bool, faction: Option<&ActorFaction>) -> &'static str {
     if is_player {
-        return "player".into();
+        return "player";
     }
     match faction {
         Some(ActorFaction::Boss) => "boss",
@@ -37,7 +37,6 @@ fn body_kind(is_player: bool, faction: Option<&ActorFaction>) -> String {
         Some(ActorFaction::Player) => "player",
         None => "body",
     }
-    .into()
 }
 
 /// Build one body's snapshot, running the shared OOB predicate against the
@@ -46,7 +45,7 @@ fn body_kind(is_player: bool, faction: Option<&ActorFaction>) -> String {
 pub fn body_snapshot(
     actor_id: String,
     name: String,
-    kind: String,
+    kind: &'static str,
     kin: ae::BodyKinematics,
     last_step: Option<&ae::SweepSample>,
     world: &ae::World,
@@ -127,7 +126,8 @@ pub fn record_actor_oob_frame_system(
 
     // Each live room's composed world, built once: (room, area, world).
     let mut worlds: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, String, Option<std::borrow::Cow<'_, ae::World>>)> = Vec::new();
-    let mut bodies = Vec::new();
+    // Sized as the last frame was: the body count barely moves tick to tick.
+    let mut bodies = Vec::with_capacity(buffer.frames.back().map_or(0, |frame| frame.bodies.len()));
     for (entity, kin, last_step, identity, faction, is_player) in &bodies_q {
         let room = rooms.live().of(entity);
         let index = match worlds.iter().position(|(seen, ..)| *seen == room) {

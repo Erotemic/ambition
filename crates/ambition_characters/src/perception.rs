@@ -659,6 +659,8 @@ pub struct LaunchLaw {
     /// This body's own rage multiplier, already resolved. `1.0` in a game that
     /// declares no rage.
     pub rage: f32,
+    /// The ruleset's scale on a growing launch's base. `1.0` undeclared.
+    pub base_scale: f32,
 }
 
 impl Default for LaunchLaw {
@@ -670,6 +672,7 @@ impl Default for LaunchLaw {
             growth_base: ambition_entity_catalog::launch::GrowthBaseCurve::IDENTITY,
             ruleset_growth: 0.0,
             rage: 1.0,
+            base_scale: 1.0,
         }
     }
 }
@@ -690,6 +693,7 @@ impl LaunchLaw {
             growth_base: self.growth_base,
             ruleset_growth: self.ruleset_growth,
             rage: self.rage,
+            base_scale: self.base_scale,
         }
     }
 }

@@ -69,10 +69,10 @@ pub fn rebuild_attack_vfx_views(
         let sheet = worn
             .map(|worn| worn.id())
             .or(strikes_as.map(|strikes_as| strikes_as.0.as_str()))
-            .and_then(|character| catalog.attack_vfx(character))
-            .map(str::to_owned);
-        if current.map(|view| &view.sheet) != Some(&sheet) {
-            commands.entity(entity).insert(AttackVfxView { sheet });
+            .and_then(|character| catalog.attack_vfx(character));
+        // Compared as text; a `String` is made only for a change.
+        if current.map(|view| view.sheet.as_deref()) != Some(sheet) {
+            commands.entity(entity).insert(AttackVfxView { sheet: sheet.map(str::to_owned) });
         }
     }
 }

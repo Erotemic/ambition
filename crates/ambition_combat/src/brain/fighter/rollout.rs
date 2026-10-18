@@ -776,6 +776,7 @@ fn strike(
         gravity_down,
         kb,
         ae::Vec2::ZERO,
+        victim.on_ground,
         &tuning.response,
     );
     victim.phase = ShadowPhase::Hitstun {

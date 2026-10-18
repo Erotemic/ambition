@@ -2593,6 +2593,7 @@ fn a_finisher_is_ranked_under_the_launch_law_the_stage_actually_declares() {
         // world wearing the stage's name.
         ruleset_growth: 0.02,
         rage: 1.0,
+        base_scale: 1.0,
     };
     assert_eq!(
         best_under(declared, 0.85),

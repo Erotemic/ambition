@@ -11,6 +11,7 @@
 //! cargo run -p ambition_app_tools --bin headless -- 600                # 600 ticks
 //! cargo run -p ambition_app_tools --bin headless -- 600 --dump-trace path/  # dump trace to dir
 //! cargo run -p ambition_app_tools --bin headless -- 600 --start-room goblin_encounter
+//! cargo run -p ambition_app_tools --bin headless -- 600 --bench --start-room hall_of_characters
 //! ```
 //!
 //! `--dump-trace DIR` writes a GameplayTraceBuffer JSON+Markdown dump
@@ -238,6 +239,30 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
     }
 }
 
+/// `--bench`: exactly one fixed 60 Hz simulation tick per step, idle input,
+/// nothing recorded. The same tick count does the same work on every run, so
+/// `perf stat -e instructions:u` of two counts, subtracted, is the cost of the
+/// ticks between them (`scripts/sim_tick_instructions.sh`).
+fn run_bench(max_ticks: u32, start_room: Option<String>) -> i32 {
+    let mut options =
+        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+    if let Some(room) = start_room {
+        options = options.with_required_start_room(room);
+    }
+    let mut sim = match Platformer2dSimHarness::new_with_options(options) {
+        Ok(sim) => sim,
+        Err(error) => {
+            eprintln!("headless bench failed: {error}");
+            return 1;
+        }
+    };
+    for _ in 0..max_ticks {
+        sim.step(ambition_app::AgentAction::default());
+    }
+    println!("headless bench completed: {max_ticks} ticks");
+    0
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let max_ticks = parse_max_ticks(&args);
@@ -247,6 +272,9 @@ fn main() {
     if let Some(dir) = dump_dir {
         let code = run_with_trace_dump(max_ticks, dir, start_room);
         std::process::exit(code);
+    }
+    if args.iter().any(|arg| arg == "--bench") {
+        std::process::exit(run_bench(max_ticks, start_room));
     }
 
     // Plain run: the existing `run_headless` entry point.

@@ -304,6 +304,7 @@ pub fn apply_body_hit_reaction(
                 gravity_dir,
                 Some(knockback),
                 di_input_local,
+                stance.grounded,
                 &response,
             ) * if stance.crouching {
                 feel.crouch_cancel_scale
@@ -483,6 +484,7 @@ pub fn hit_response_tuning(
         hitstun_max_scale: ae::hit_response::MAX_HITSTUN_SCALE,
         hitlag_time: feel.hitlag_time,
         di_max_angle: feel.di_max_angle,
+        sakurai: feel.sakurai_angle,
     }
 }
 

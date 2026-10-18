@@ -539,15 +539,18 @@ pub fn demand_worn_character_sheets(
     // re-asking would re-fail every frame.
     for identity in &worn {
         let id = identity.id();
+        let sheet = assets.as_deref().map(|assets| assets.characters.sheet_state(id));
+        // A realized sheet is the steady state and needs no ledger lookup.
+        if matches!(sheet, Some(ambition_sprite_sheet::character::CharacterSheetState::Ready(_))) {
+            continue;
+        }
         let outcome = states.as_ref().and_then(|states| states.outcome(id));
         let failed = outcome.is_some_and(|outcome| !matches!(outcome, CharacterLoadOutcome::Ready));
-        let unrealized = match assets.as_deref() {
-            Some(assets) => match assets.characters.sheet_state(id) {
-                ambition_sprite_sheet::character::CharacterSheetState::Declared { .. } => true,
-                // Asked once, so the materializer can NAME it (UnknownCharacter).
-                ambition_sprite_sheet::character::CharacterSheetState::Unknown => outcome.is_none(),
-                ambition_sprite_sheet::character::CharacterSheetState::Ready(_) => false,
-            },
+        let unrealized = match sheet {
+            Some(ambition_sprite_sheet::character::CharacterSheetState::Declared { .. }) => true,
+            // Asked once, so the materializer can NAME it (UnknownCharacter).
+            Some(ambition_sprite_sheet::character::CharacterSheetState::Unknown) => outcome.is_none(),
+            Some(ambition_sprite_sheet::character::CharacterSheetState::Ready(_)) => false,
             None => outcome.is_none(),
         };
         if unrealized && !failed {

@@ -1570,6 +1570,183 @@ impl KoProbe {
         self.fire(Pulse::Strike(hit), entry_percent, victim_x)
     }
 
+    /// Is the victim tumbling, prone, or getting up?
+    fn victim_floor_game(&self) -> bool {
+        self.app
+            .world()
+            .get::<ambition_platformer2d::actor::MotionModel>(self.victim)
+            .is_some_and(|m| match m {
+                ambition_platformer2d::actor::MotionModel::AxisSwept(axis) => {
+                    let s = &axis.state;
+                    s.knockdown_timer > 0.0
+                        || s.getup_invuln_timer > 0.0
+                        || s.tumble_timer > 0.0
+                        || s.tumble_until_landing
+                }
+                _ => false,
+            })
+    }
+
+    /// Fire one strike at the parked victim and watch what it DOES to the
+    /// body, not only whether it kills: the `feel` survey's one trial.
+    ///
+    /// Counts ticks from the contact tick (the first tick a `HitEvent` reaches
+    /// the victim). `stun` is every tick the victim cannot act: hitlag,
+    /// hitstun, or the helpless `tumble_timer` (see `fire` on why
+    /// `tumble_until_landing` is not counted).
+    fn feel_fire(&mut self, hit: &HitVolume, entry_percent: i32, victim_x: f32) -> Option<FeelTrial> {
+        use ambition_platformer2d::combat::events::{HitEvent, HitKnockbackMagnitude, HitTarget};
+        use ambition_platformer2d::engine_core::Vec2 as EVec2;
+
+        // `reset_trial` places the body; it does not end a floor game. A body
+        // still prone from the trial before takes a weak hit as a jab lock,
+        // with no hitstun, so wait the floor game out and place it again.
+        if !self.reset_trial(entry_percent, victim_x) {
+            return None;
+        }
+        if self.victim_floor_game() {
+            for _ in 0..600 {
+                self.app.update();
+                if !self.victim_floor_game() {
+                    break;
+                }
+            }
+            if self.victim_floor_game() || !self.reset_trial(entry_percent, victim_x) {
+                eprintln!("FEEL_REFUSE: victim still in its floor game at pct={entry_percent}");
+                return None;
+            }
+        }
+        let start = self.pos(self.victim);
+        let attacker = self.attacker;
+        let mut hit_cursor = self
+            .app
+            .world()
+            .resource::<bevy::ecs::message::Messages<HitEvent>>()
+            .get_cursor();
+        let mut ko_cursor = self
+            .app
+            .world()
+            .resource::<bevy::ecs::message::Messages<ambition_platformer2d::combat::stocks::BodyKnockedOut>>()
+            .get_cursor();
+        let strike = self
+            .app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d::combat::strike::Hitbox {
+                    owner: attacker,
+                    source: ambition_platformer2d::vfx::HitSide::Enemy,
+                    anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World { center: start },
+                    half_extent: EVec2::new(48.0, 48.0),
+                    shape: None,
+                    facing: 1.0,
+                    damage: hit.damage,
+                    knockback: ambition_platformer2d::combat::strike::HitboxKnockback::LaunchSpeed {
+                        base: hit.knockback,
+                        growth: hit.knockback_growth,
+                    },
+                    launch_dir: hit.launch_dir.map(|(x, y)| {
+                        ambition_platformer2d::combat::strike::HitboxLaunch::OwnerLocal(EVec2::new(x, y))
+                    }),
+                    frame_down: EVec2::new(0.0, 1.0),
+                    strike_sfx: None,
+                    reaction: None,
+                    guard: Default::default(),
+                },
+                ambition_platformer2d::combat::strike::HitboxHits::default(),
+                ambition_platformer2d::combat::strike::HitboxLifetime { remaining_s: 0.1 },
+            ))
+            .id();
+
+        let mut t = FeelTrial::default();
+        let mut contact: Option<usize> = None;
+        let mut stun_over = false;
+        let mut settled_for = 0usize;
+        for tick in 0..240 {
+            self.app.update();
+            if contact.is_none() {
+                let messages = self.app.world().resource::<bevy::ecs::message::Messages<HitEvent>>();
+                for ev in hit_cursor.read(messages) {
+                    if !matches!(ev.target, HitTarget::Body(e) if e == self.victim) {
+                        continue;
+                    }
+                    if let Some(kb) = ev.knockback.as_ref() {
+                        if let HitKnockbackMagnitude::LaunchSpeed(v) = kb.magnitude {
+                            t.launch = v;
+                            contact = Some(tick);
+                            break;
+                        }
+                    }
+                }
+                if contact.is_none() {
+                    continue;
+                }
+            }
+            // The engine's own verdict: a respawned body's pose would read
+            // as a short slide.
+            let knocked_out = {
+                let messages = self
+                    .app
+                    .world()
+                    .resource::<bevy::ecs::message::Messages<ambition_platformer2d::combat::stocks::BodyKnockedOut>>();
+                ko_cursor.read(messages).any(|k| k.body == self.victim)
+            };
+            if knocked_out {
+                t.ko = true;
+                break;
+            }
+            let w = self.app.world();
+            let (hitlag, stunned) = w
+                .get::<ambition_platformer2d::characters::actor::BodyCombat>(self.victim)
+                .map(|c| (c.is_in_hitlag(), c.is_in_hitlag() || c.hitstun_timer > 0.0))
+                .unwrap_or_default();
+            let tumbling = w
+                .get::<ambition_platformer2d::actor::MotionModel>(self.victim)
+                .is_some_and(|m| match m {
+                    ambition_platformer2d::actor::MotionModel::AxisSwept(axis) => axis.state.tumble_timer > 0.0,
+                    _ => false,
+                });
+            let grounded = w
+                .get::<ambition_platformer2d::engine_core::BodyGroundState>(self.victim)
+                .is_some_and(|g| g.on_ground);
+            let vel = w
+                .get::<ambition_platformer2d::actor::BodyKinematics>(self.victim)
+                .map(|k| k.vel)
+                .unwrap_or_default();
+            let pos = self.pos(self.victim);
+            if hitlag {
+                t.hitlag += 1;
+            }
+            if !grounded {
+                t.airborne += 1;
+            }
+            // y grows downward.
+            t.rise = t.rise.max(start.y - pos.y);
+            if !stun_over {
+                if stunned || tumbling {
+                    t.stun += 1;
+                } else {
+                    stun_over = true;
+                    t.travel_at_actionable = (pos.x - start.x).abs();
+                }
+            }
+            t.travel = (pos.x - start.x).abs();
+            if stun_over && grounded && vel.x.abs() < 12.0 && vel.y.abs() < 12.0 {
+                settled_for += 1;
+                if settled_for >= 4 {
+                    break;
+                }
+            } else {
+                settled_for = 0;
+            }
+        }
+        if self.app.world().get_entity(strike).is_ok() {
+            self.app.world_mut().entity_mut(strike).despawn();
+        }
+        contact?;
+        t.tumbled = self.tumble_speed > 0.0 && t.launch >= self.tumble_speed;
+        Some(t)
+    }
+
     /// The resolved launch at one percent, retrying a refused reset.
     fn launch_at(&mut self, pulse: Pulse<'_>, percent: i32, victim_x: f32) -> Option<f32> {
         for _ in 0..3 {
@@ -2477,6 +2654,119 @@ fn run_probe() {
     }
 }
 
+/// What one strike did to one parked victim, in ticks and pixels.
+#[derive(Debug, Default, Clone)]
+struct FeelTrial {
+    launch: f32,
+    tumbled: bool,
+    /// Ticks the victim spent frozen in hitlag (the attacker freezes as long).
+    hitlag: usize,
+    /// Ticks from contact until the victim could act again, hitlag included.
+    stun: usize,
+    airborne: usize,
+    /// Highest the body rose above where it was struck, px.
+    rise: f32,
+    /// Horizontal distance from the strike point when control returned, px.
+    travel_at_actionable: f32,
+    /// Horizontal distance when the body came to rest (or the trial ended), px.
+    travel: f32,
+    ko: bool,
+}
+
+/// `feel`: what each bound move does to a body at a few percents, through the
+/// real simulation, with the kit the MATCH equipped (the attacker's live
+/// `ActorMoveset`, so a fighter facet's Smash damage and verbs are in it).
+///
+/// `ko_envelope feel [ATTACKER [VICTIM]] [pcts=0,40,80,120]`. One row per
+/// (move, percent). `adv` is frame advantage on hit for a GROUNDED move:
+/// victim stun minus hitlag minus the attacker's frames from first active to
+/// the move's end; positive = the attacker acts first. An aerial's advantage
+/// ignores its landing lag and is printed but not meaningful.
+fn run_feel() {
+    let argv: Vec<String> = std::env::args().collect();
+    let pcts: Vec<i32> = argv
+        .iter()
+        .find_map(|a| a.strip_prefix("pcts="))
+        .map(|s| s.split(',').filter_map(|n| n.parse().ok()).collect())
+        .unwrap_or_else(|| vec![0, 40, 80, 120]);
+    let named: Vec<&str> = argv
+        .iter()
+        .skip_while(|a| a.as_str() != "feel")
+        .skip(1)
+        .map(|s| s.as_str())
+        .filter(|a| !a.contains('='))
+        .collect();
+    let attacker = named.first().copied().unwrap_or("npc_pirate_admiral");
+    let victim = named.get(1).copied().unwrap_or("player_robot_v3");
+    let roles = [
+        "attack", "attack_forward", "attack_up", "attack_down", "attack_dash",
+        "attack_air", "attack_air_forward", "attack_air_back", "attack_air_up", "attack_air_down",
+        "smash_forward", "smash_up", "smash_down",
+        "special", "special_forward", "special_up", "special_down",
+    ];
+    let mut probe = KoProbe::new(attacker, victim);
+    let contract = probe
+        .app
+        .world()
+        .get::<ambition_platformer2d::combat::moveset::ActorMoveset>(probe.attacker)
+        .expect("a seated fighter wears a moveset")
+        .0
+        .clone();
+    println!("# feel: {attacker} -> {victim}  pcts={pcts:?}  (attacker's live, match-equipped moveset)");
+    println!("role\tmove\tdmg\tbase\tgrowth\tpct\tlaunch\ttumble\thitlag_f\tstun_f\tair_f\trise_px\tslide_px\trest_px\tko\tfirst_active_f\tdur_f\tadv_f");
+    for role in roles {
+        let Some(spec) = contract.move_for_verb(role) else { continue };
+        let first_active = spec
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active) && !w.volumes.is_empty())
+            .map(|w| w.start_s)
+            .fold(f32::INFINITY, f32::min);
+        // The volume a clean connect lands: the strongest launcher at 100%.
+        let Some(hit) = spec
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active))
+            .flat_map(|w| w.volumes.iter())
+            .filter(|v| v.damage > 0 || v.knockback > 0.0)
+            .max_by(|a, b| {
+                let at = |v: &HitVolume| v.knockback + v.knockback_growth.unwrap_or(v.knockback * 0.02) * 100.0;
+                at(a).total_cmp(&at(b))
+            })
+            .cloned()
+        else {
+            continue;
+        };
+        let after = (spec.duration_s - first_active) * 60.0;
+        for &pct in &pcts {
+            let Some(t) = (0..3).find_map(|_| probe.feel_fire(&hit, pct, probe.centre)) else {
+                println!("{role}\t{}\t{}\t-\t-\t{pct}\tREFUSED", spec.id, hit.damage);
+                continue;
+            };
+            let adv = t.stun as f32 - t.hitlag as f32 - after;
+            println!(
+                "{role}\t{}\t{}\t{:.0}\t{}\t{pct}\t{:.0}\t{}\t{}\t{}\t{}\t{:.0}\t{:.0}\t{:.0}\t{}\t{:.1}\t{:.1}\t{:.1}",
+                spec.id,
+                hit.damage,
+                hit.knockback,
+                hit.knockback_growth.map(|g| format!("{g:.2}")).unwrap_or_else(|| "None".into()),
+                t.launch,
+                if t.tumbled { "yes" } else { "no" },
+                t.hitlag,
+                t.stun,
+                t.airborne,
+                t.rise,
+                t.travel_at_actionable,
+                t.travel,
+                if t.ko { "KO" } else { "-" },
+                first_active * 60.0,
+                spec.duration_s * 60.0,
+                adv,
+            );
+        }
+    }
+}
+
 fn main() {
     // Before `probe`: a table measured with non-independent trials is worse
     // than no table.
@@ -2491,6 +2781,10 @@ fn main() {
     // Before `probe`, like `contact`: this says why throw rows refuse.
     if std::env::args().any(|a| a == "throwdiag") {
         run_throw_diag();
+        return;
+    }
+    if std::env::args().any(|a| a == "feel") {
+        run_feel();
         return;
     }
     if std::env::args().any(|a| a == "probe") {

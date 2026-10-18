@@ -2432,7 +2432,12 @@ pub fn prepare_cast_for_test(
 /// metadata and remaining catalog tuning stay catalog-owned.
 #[derive(bevy::prelude::Resource, Debug, Clone, Default)]
 pub struct PreparedCharacterRegistry {
-    by_id: BTreeMap<ambition_entity_catalog::CharacterId, PreparedCharacterDefinition>,
+    /// Looked up by id for each body each tick, so hashed: a `BTreeMap` of a
+    /// few hundred ids was a dozen string compares a lookup, ~1.5% of the
+    /// hall's simulation (2026-10-18).
+    by_id: bevy::platform::collections::HashMap<ambition_entity_catalog::CharacterId, PreparedCharacterDefinition>,
+    /// The ids in sorted order: every walk of the cast is in id order.
+    order: Vec<ambition_entity_catalog::CharacterId>,
     generation: CharacterCatalogGeneration,
 }
 
@@ -2479,9 +2484,12 @@ impl PreparedCharacterRegistry {
     }
 
     pub fn ids(&self) -> impl ExactSizeIterator<Item = &str> {
-        self.by_id
-            .keys()
-            .map(ambition_entity_catalog::CharacterId::as_str)
+        self.order.iter().map(ambition_entity_catalog::CharacterId::as_str)
+    }
+
+    /// The definitions in id order.
+    fn definitions(&self) -> impl Iterator<Item = &PreparedCharacterDefinition> {
+        self.order.iter().map(|id| &self.by_id[id])
     }
 
     /// The stable id of the character presented under `display_name`.
@@ -2495,8 +2503,7 @@ impl PreparedCharacterRegistry {
     /// A linear scan: the registry is a per-composition cast list (single digits
     /// to low tens), and a second index would be a second thing to keep true.
     pub fn id_for_display_name(&self, display_name: &str) -> Option<&str> {
-        self.by_id
-            .values()
+        self.definitions()
             .find(|prepared| prepared.display_name == display_name)
             .map(|prepared| prepared.id.as_str())
     }
@@ -2510,7 +2517,7 @@ impl PreparedCharacterRegistry {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&str, &PreparedCharacterDefinition)> {
-        self.by_id.iter().map(|(id, def)| (id.as_str(), def))
+        self.order.iter().map(|id| (id.as_str(), &self.by_id[id]))
     }
 
     /// The union of every prepared character's derived cue inventory.
@@ -2519,8 +2526,7 @@ impl PreparedCharacterRegistry {
     /// the whole of it — stage, ruleset, announcer, world-object, UI and shell
     /// dependencies join it at session level.
     pub fn cast_cue_dependencies(&self) -> BTreeSet<&str> {
-        self.by_id
-            .values()
+        self.definitions()
             .flat_map(PreparedCharacterDefinition::cue_dependencies)
             .collect()
     }
@@ -2571,7 +2577,10 @@ impl PreparedCharacterRegistry {
 
     fn insert(&mut self, prepared: PreparedCharacterDefinition) -> Option<String> {
         let id = prepared.id.clone();
-        match self.by_id.insert(id.clone(), prepared) {
+        if let Err(at) = self.order.binary_search(&id) {
+            self.order.insert(at, id.clone());
+        }
+        match self.by_id.insert(id, prepared) {
             Some(previous) => Some(previous.provider),
             None => None,
         }

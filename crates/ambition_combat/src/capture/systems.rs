@@ -3161,6 +3161,8 @@ pub fn apply_capture_throws(
                 // to an authoring that declines to state a growth.
                 ruleset_growth: 0.0,
                 rage: rules.rage_scale(captor_damage_taken),
+                // A throw is a hit, and is thrown as hard as one.
+                base_scale: rules.base_knockback_scale,
             },
         );
         let knockback = ae::hit_response::HitKnockback {

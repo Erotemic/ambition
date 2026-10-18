@@ -102,7 +102,7 @@ Preserve these and build new features on their seams.
 | Cancels | `Always`, `OnHit`, `OnWhiff`, `OnBlock` | `WindowTag::Cancelable`, `CancelCondition`, `MoveContact` |
 | Ground attacks | Directional attacks, smashes, dash attack | `trigger_moveset_moves`, `BodyMotionFacts::running` |
 | Aerial attacks | Directional aerials, landing lag, autocancel | `ambition_combat::moveset` |
-| Damage | Percent, weight, scaled knockback, hitlag, hitstun, DI | `ambition_platformer2d_core::hit_response` |
+| Damage | Percent, weight, scaled knockback, hitlag, hitstun, DI; a stage's base-knockback scale, Sakurai angle and floor on art hit areas (`CombatRules::base_knockback_scale`, `sakurai_angle`, `art_hit_area_min`). Measure a ruleset with `ko_envelope feel ATTACKER VICTIM` (launch, tumble, stun, pop, slide, KO, on-hit advantage per move and percent, through the real simulation) and a fighter's moves with `scripts/smash_move_sheet.py` + `scripts/smash_hitbox_census.py` | `ambition_platformer2d_core::hit_response`, `ambition_entity_catalog::launch` |
 | Smash rules | SDI, ASDI, crouch cancel, rage, stale-move queue, spike/meteor lock | `CombatRules`, `BodyStaleMoves` |
 | Shield | Health, drain, regen, shrink, shieldstun, pushback, break, dizzy, tilt, drop lag, platform drop | `BodyShieldState`, `ShieldTuning` |
 | Parry | Press- or release-timed perfect shield | `MovementTuning::parry_timing` |

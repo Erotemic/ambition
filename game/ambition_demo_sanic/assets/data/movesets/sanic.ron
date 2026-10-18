@@ -1262,8 +1262,9 @@
                             id: "spin_charge",
                             display_name: None,
                             clip: (
-                                clip: "attack",
+                                clip: "spin_charge",
                                 fallbacks: [
+                                    "attack",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1379,7 +1380,7 @@
                             id: "blue_streak",
                             display_name: None,
                             clip: (
-                                clip: "attack_side",
+                                clip: "blue_streak",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -1489,8 +1490,9 @@
                             id: "spring_launch",
                             display_name: None,
                             clip: (
-                                clip: "attack_up",
+                                clip: "spring_launch",
                                 fallbacks: [
+                                    "attack_up",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1598,8 +1600,9 @@
                             id: "ball_hop",
                             display_name: None,
                             clip: (
-                                clip: "attack_down",
+                                clip: "ball_hop",
                                 fallbacks: [
+                                    "attack_down",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1723,8 +1726,9 @@
                             id: "ball_drop",
                             display_name: None,
                             clip: (
-                                clip: "air_down",
+                                clip: "ball_drop",
                                 fallbacks: [
+                                    "air_down",
                                     "attack_side",
                                     "attack",
                                     "slash",

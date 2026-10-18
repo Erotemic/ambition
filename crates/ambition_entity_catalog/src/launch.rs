@@ -131,6 +131,14 @@ pub struct LaunchConditions {
     /// The attacker's rage multiplier, already resolved. Applied to the whole
     /// launch, and declined by a set-knockback move (see [`launch_speed`]).
     pub rage: f32,
+    /// The ruleset's multiplier on a GROWING launch's `base`: how hard a hit
+    /// throws a fresh body. `1.0` is the law as first written.
+    ///
+    /// It is the percent-free half of the launch, so it moves what a hit does
+    /// at low percent (the pop, and the hitstun that rides the launch) without
+    /// steepening the percent curve. A set launch declines it, as it declines
+    /// rage: its author stated the exact speed.
+    pub base_scale: f32,
 }
 
 impl LaunchConditions {
@@ -147,6 +155,7 @@ impl LaunchConditions {
         growth_base: GrowthBaseCurve::IDENTITY,
         ruleset_growth: 0.0,
         rage: 1.0,
+        base_scale: 1.0,
     };
 
     /// The same conditions with a different victim meter: the one axis a
@@ -193,7 +202,7 @@ pub fn launch_speed(base: f32, growth: Option<f32>, conditions: LaunchConditions
         1.0
     };
     let grown = authored * conditions.growth_base.scale(base);
-    let speed = base
+    let speed = base * conditions.base_scale.max(0.0)
         + grown * conditions.growth_scale.max(0.0) * conditions.victim_damage.max(0) as f32
             / weight;
     speed.max(0.0) * conditions.rage
@@ -213,6 +222,7 @@ mod tests {
             growth_base: GrowthBaseCurve::IDENTITY,
             ruleset_growth: 0.0,
             rage: 1.0,
+            base_scale: 1.0,
         }
     }
 
@@ -247,6 +257,20 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The base scale multiplies the percent-free half only, and a set launch
+    /// declines it.
+    #[test]
+    fn the_base_scale_lifts_a_fresh_hit_and_leaves_the_percent_term_and_a_set_launch() {
+        let scaled = |dmg| LaunchConditions {
+            base_scale: 2.0,
+            ..plain(dmg, 1.0, 1.0)
+        };
+        assert_eq!(launch_speed(10.0, Some(2.0), scaled(0)), 20.0);
+        // The percent term is the same 60 it is unscaled.
+        assert_eq!(launch_speed(10.0, Some(2.0), scaled(30)), 80.0);
+        assert_eq!(launch_speed(46.0, Some(0.0), scaled(30)), 46.0);
     }
 
     #[test]
@@ -351,6 +375,7 @@ mod tests {
             // `0.0` here would be the undeclared world.
             ruleset_growth: 0.02,
             rage: 1.0,
+            base_scale: 1.0,
         }
     }
 

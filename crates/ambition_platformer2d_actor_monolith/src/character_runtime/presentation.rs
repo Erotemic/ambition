@@ -158,12 +158,12 @@ pub fn publish_body_presentation_sources(
             .and_then(|id| provider_of_character(registry.get(), id));
         match provider {
             Some(provider) => {
-                let next = ambition_sfx::PresentationSourceId::new(provider);
                 // Change detection: a body's author is stable for the whole session
-                // in every ordinary case, and this runs over every body every tick.
-                if current.map(|c| c.id()) != Some(&next) {
+                // in every ordinary case, and this runs over every body every tick,
+                // so the id is compared as text and made only for a change.
+                if current.map(|c| c.id().as_str()) != Some(provider) {
                     commands.entity(entity).insert((
-                        ambition_sfx::BodyPresentationSource(next),
+                        ambition_sfx::BodyPresentationSource(ambition_sfx::PresentationSourceId::new(provider)),
                         ambition_sfx::DerivedPresentationSource,
                     ));
                 }

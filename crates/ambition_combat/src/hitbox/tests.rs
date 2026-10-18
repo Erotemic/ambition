@@ -24,6 +24,7 @@ fn launch_under(base: f32, growth: Option<f32>, curve: crate::rules::GrowthBaseC
         0.02,
         1.25,
         curve,
+        1.0,
         NO_RAGE,
     ) {
         HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
@@ -92,6 +93,7 @@ fn the_kill_curve_leaves_feel_scales_and_fixed_knockback_exactly_alone() {
             0.02,
             1.25,
             curve,
+            1.0,
             NO_RAGE,
         ),
         HitKnockbackMagnitude::FeelScale(1.6),
@@ -108,6 +110,7 @@ fn the_kill_curve_leaves_feel_scales_and_fixed_knockback_exactly_alone() {
         0.02,
         1.25,
         curve,
+        1.0,
         NO_RAGE,
     ) {
         HitKnockbackMagnitude::LaunchSpeed(speed) => assert_eq!(
@@ -144,6 +147,7 @@ fn rage_rides_a_growing_launch_and_stops_at_a_set_one() {
             0.02,
             1.0,
             crate::rules::GrowthBaseCurve::IDENTITY,
+            1.0,
             rage,
         ) {
             HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
@@ -177,6 +181,7 @@ fn hitbox_knockback_units_remain_distinct() {
             0.0,
             1.0,
             crate::rules::GrowthBaseCurve::IDENTITY,
+            1.0,
             NO_RAGE,
         ),
         HitKnockbackMagnitude::FeelScale(1.6),
@@ -193,6 +198,7 @@ fn hitbox_knockback_units_remain_distinct() {
             0.0,
             1.0,
             crate::rules::GrowthBaseCurve::IDENTITY,
+            1.0,
             NO_RAGE,
         ),
         HitKnockbackMagnitude::LaunchSpeed(150.0),
@@ -1452,6 +1458,7 @@ fn landed_launch(
         victim_down,
         Some(knockback),
         ae::Vec2::ZERO,
+        false,
         &crate::hit_reaction::hit_response_tuning(&Default::default(), false),
     );
     (world, vel)
@@ -1927,6 +1934,7 @@ mod ruleset_knockback_growth {
             ruleset_growth,
             percent_scale,
             crate::rules::GrowthBaseCurve::IDENTITY,
+            1.0,
             NO_RAGE,
         ) {
             HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
@@ -2047,6 +2055,7 @@ mod ruleset_knockback_growth {
             0.01,
             1.0,
             crate::rules::GrowthBaseCurve::IDENTITY,
+            1.0,
             NO_RAGE,
         ) {
             HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
@@ -2845,6 +2854,7 @@ fn the_brain_and_the_resolver_agree_about_a_volume_that_authors_no_growth() {
                 growth_base: GrowthBaseCurve::IDENTITY,
                 ruleset_growth,
                 rage: NO_RAGE,
+                base_scale: 1.0,
             })
     };
     // The RESOLVER's road: what the stage actually throws.
@@ -2859,6 +2869,7 @@ fn the_brain_and_the_resolver_agree_about_a_volume_that_authors_no_growth() {
             ruleset_growth,
             growth_scale,
             crate::rules::GrowthBaseCurve::IDENTITY,
+            1.0,
             NO_RAGE,
         ) {
             HitKnockbackMagnitude::LaunchSpeed(speed) => speed,

@@ -168,6 +168,11 @@ pub struct Platformer2dFeelTuningMonolith {
     /// = no DI (Ambition today, byte-parity); a fighter mode (Super Smash
     /// Siblings) authors a smash-like ≈ 0.31 (18°) to turn it on.
     pub di_max_angle: f32,
+    /// The stage's angle rule for near-horizontal launches, folded from the
+    /// live room's `CombatRules::sakurai_angle` the way `di_max_angle` is.
+    /// `None` (every Ambition room) leaves each launch at its own angle.
+    #[reflect(ignore)]
+    pub sakurai_angle: Option<ambition_platformer2d_core::hit_response::SakuraiAngle>,
 }
 
 impl Default for Platformer2dFeelTuningMonolith {
@@ -207,6 +212,7 @@ impl Default for Platformer2dFeelTuningMonolith {
             // DI off by default — Ambition's PvE knockback is unchanged; a
             // fighter demo authors a nonzero budget to enable it.
             di_max_angle: 0.0,
+            sakurai_angle: None,
         }
     }
 }

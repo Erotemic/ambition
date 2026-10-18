@@ -471,6 +471,53 @@ shows it). MEASURED (same capture, idle box, frames 24-26 ms in both):
 `drive_rigged_presentations` in 1-2 172.7 → 97.7 µs a frame, in 1-1 129.8
 → 104.3 µs.
 
+### F39 — Ambition's hall, and what Tracy does to a profile (2026-10-18)
+
+Asked by Jon ("my game is running slow, even on my 3090"), on the autoplay
+route (hub, hall of characters, the primeval trail).
+
+MEASURED (VM, same commit, same route, `scripts/profile_desktop.sh
+--autoplay`): the Tracy build made the tick ~5× dearer. With `--features
+profile` the simulation sets cost 21 ms a tick; with `--no-tracy` 3.85 ms
+(the GGRS driver 5.68 ms). A span for each of ~560 systems a tick is the
+cost, and with no client connected Tracy also buffers. ⇒ Rank systems with
+Tracy; take milliseconds from a `--no-tracy` run. Jon's host profile (Tracy
+on): the driver 12-21 ms a frame, the simulation sets ~7 ms a tick.
+
+MEASURED (headless hall, `scripts/headless_system_shares.sh`, cycles): the
+per-system cost of running systems at all (executor, parameter fetch,
+`update_archetypes`, deferred application) is ~35% of the main thread at
+~800 systems a tick; then `integrate_sim_bodies` 8%, `tick_actor_brains`
+6%. Local play is a GGRS sync test with `check_distance 0`, which saves
+nothing (ggrs skips `SaveWorld` there), so this is not snapshot cost.
+
+Done (one change each, no behaviour change; the hall, `headless --bench`,
+`scripts/sim_tick_instructions.sh`, interleaved A/B of only these changes):
+**10.0 → 8.5-8.8 M instructions a tick (−13%).**
+
+- The prepared cast is hashed by id, with an ordered id list for walks:
+  each body looked its character up in a `BTreeMap` of ~215 ids each tick
+  (`record_bodies_away_from_home`, the render and pose indexes, wallet
+  shields, rest rows, presentation sources).
+- `record_bodies_away_from_home` asks "at home?" before the durable-row scan.
+- Directional and dash verbs are composed on the stack, not as `String`s
+  (`move_for_attack` ×15 a body a tick in the attack kit).
+- `melee_swing_of` asks for a playing move before walking the verbs.
+- Early outs: `carry_homing_dashes` with nobody dashing; the ranged-route
+  lookup only for a ranged request; a realized sheet before the load ledger.
+- Compare before allocating: presentation source ids, attack VFX sheets.
+- Targeting borrows candidate ids and asks the relation only of a nearer body.
+- The view indexes use the fixed-seed hasher; the OOB recorder's kinds are
+  `&'static str` and its rollback slot scan stops at older rows.
+
+Open, by size (agents' reads, REASONED until built): `MoveSpec::frame_data`
+is derived for each body's kit each tick (hydrating params), ~1% — derive
+once per moveset; `CharacterCatalog` lookups are a `BTreeMap` too
+(`attack_vfx`, `rest_row`), ~1%; `Layered::near` allocates two `Vec`s a
+query; per-room dormancy for Ambition's own rooms (its rooms declare every
+capability, so 45 boss-encounter and 35 fighter-special systems run in the
+hall) is the structural lever, and a design question for Jon.
+
 ## Summary (2026-10-16)
 
 - **One thread is the limit.** On the phone the main thread is 82% busy, the

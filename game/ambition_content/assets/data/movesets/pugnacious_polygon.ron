@@ -1171,7 +1171,7 @@
                             id: "polygon_brawler_haymaker",
                             display_name: None,
                             clip: (
-                                clip: "attack_side",
+                                clip: "polygon_brawler_haymaker",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -1352,8 +1352,9 @@
                             id: "polygon_brawler_uppercut",
                             display_name: None,
                             clip: (
-                                clip: "attack_up",
+                                clip: "polygon_brawler_uppercut",
                                 fallbacks: [
+                                    "attack_up",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1454,8 +1455,9 @@
                             id: "polygon_brawler_ground_slam",
                             display_name: None,
                             clip: (
-                                clip: "attack_down",
+                                clip: "polygon_brawler_ground_slam",
                                 fallbacks: [
+                                    "attack_down",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -1569,8 +1571,9 @@
                             id: "polygon_brawler_body_drop",
                             display_name: None,
                             clip: (
-                                clip: "air_down",
+                                clip: "polygon_brawler_body_drop",
                                 fallbacks: [
+                                    "air_down",
                                     "attack_side",
                                     "attack",
                                     "slash",

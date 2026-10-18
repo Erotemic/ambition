@@ -932,6 +932,7 @@ pub(crate) fn resolved_body_knockback_velocity(
         gravity_dir,
         knockback,
         di_input_local,
+        false,
         &hit_response_tuning(&feel, boss_hit),
     )
 }
@@ -1582,6 +1583,7 @@ pub fn apply_player_hit_events(
         let friendly_fire = combat_rules.friendly_fire();
         let mut feel = base_feel;
         feel.di_max_angle = combat_rules.di_max_angle;
+        feel.sakurai_angle = combat_rules.sakurai_angle;
         // the same fold, for the same reason: a stage's rule is the authority and
         // the baseline is only what an undeclared world keeps.
         feel.meteor_lock_time = combat_rules.meteor_lock_time;

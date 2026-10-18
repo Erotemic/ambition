@@ -242,7 +242,7 @@ pub const SMASH_CHARGE_CLIP: &str = "smash_charge";
 /// schedule — so a headless / RL build never pays for poses it won't draw.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct ActorAnimIndex {
-    frames: std::collections::HashMap<String, (ActorAnimFrame, u64)>,
+    frames: bevy::platform::collections::HashMap<String, (ActorAnimFrame, u64)>,
     generation: u64,
 }
 
@@ -447,7 +447,7 @@ pub struct HazardLaneFact {
 /// carries the static identity.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct BossFrameIndex {
-    frames: std::collections::HashMap<String, (BossFrameView, u64)>,
+    frames: bevy::platform::collections::HashMap<String, (BossFrameView, u64)>,
     generation: u64,
 }
 

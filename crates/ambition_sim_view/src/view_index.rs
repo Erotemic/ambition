@@ -176,7 +176,7 @@ pub struct FeatureViewIndex {
     /// existing key allocation, so a `String` is allocated only for a genuinely
     /// new feature id — not for every id every frame. This index rebuilds every
     /// frame and RL steps the sim millions of times, so avoid per-id churn.
-    views: std::collections::HashMap<String, (FeatureView, u64)>,
+    views: bevy::platform::collections::HashMap<String, (FeatureView, u64)>,
     generation: u64,
 }
 
@@ -769,7 +769,7 @@ pub struct ActorRenderView {
 
 #[derive(Resource, Default, Clone, Debug)]
 pub struct ActorRenderIndex {
-    views: std::collections::HashMap<String, (ActorRenderView, u64)>,
+    views: bevy::platform::collections::HashMap<String, (ActorRenderView, u64)>,
     generation: u64,
 }
 
@@ -900,7 +900,7 @@ pub struct BossRenderView {
 
 #[derive(Resource, Default, Clone, Debug)]
 pub struct BossRenderIndex {
-    views: std::collections::HashMap<String, (BossRenderView, u64)>,
+    views: bevy::platform::collections::HashMap<String, (BossRenderView, u64)>,
     generation: u64,
 }
 
@@ -1017,7 +1017,7 @@ pub struct NameplateFact {
 /// surviving ids re-use their `String` allocations.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct NameplateIndex {
-    rows: std::collections::HashMap<String, (NameplateFact, u64)>,
+    rows: bevy::platform::collections::HashMap<String, (NameplateFact, u64)>,
     generation: u64,
 }
 

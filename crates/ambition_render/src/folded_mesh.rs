@@ -361,7 +361,7 @@ fn write_folded_meshes(
         };
         let room = rooms.of(entity);
         let tris = match (passages.as_deref(), mesh.tris.bounds()) {
-            (Some(passages), Some(bounds)) if passages.cuts_in(room) => {
+            (Some(passages), Some(bounds)) if passages.cuts_in(room, mesh.carrier) => {
                 let pieces = passages.pieces(&ae::CombatVolume::aabb(bounds), mesh.carrier, mesh.root, room);
                 fold(&mesh.tris, &pieces)
             }

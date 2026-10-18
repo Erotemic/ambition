@@ -847,11 +847,11 @@ pub fn apply_hitbox_damage(
         let strike_room = rooms
             .stamped(hitbox_entity)
             .or_else(|| rooms.of(hitbox.owner));
-        // The pairs that can cut a volume of this room, if any.
-        let threaded = passages.as_deref().filter(|p| p.cuts_in(strike_room));
         // A volume the owner carries (it follows the owner) is cut by the pair
         // the owner is in; one placed in the world, by what it reaches through.
         let carrier = matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }).then_some(hitbox.owner);
+        // The pairs that can cut this volume, if any.
+        let threaded = passages.as_deref().filter(|p| p.cuts_in(strike_room, carrier));
         let strike_pieces = |volume: &ambition_platformer2d_core::CombatVolume| match threaded {
             Some(p) => p.pieces(volume, carrier, spatial_source, strike_room),
             None => vec![VolumePiece::whole(volume.clone())],

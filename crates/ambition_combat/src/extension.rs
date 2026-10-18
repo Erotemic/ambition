@@ -778,8 +778,10 @@ fn lower_body_holds(
 }
 
 pub mod contact;
+pub mod special;
 pub mod think;
 pub use contact::install_for_body_contact;
+pub use special::install_for_specials;
 pub use think::install_for_actor_think;
 
 #[cfg(test)]

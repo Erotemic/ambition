@@ -1,0 +1,18 @@
+[package]
+name = "ambition_demo_smash_modules"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The Smash demo's procedural extension modules (its specials), built against the extension SDK and domain port values only."
+
+# ⛔ NO BEVY ECS, NO HOST, NO GAME RUNTIME, as `ambition_demo_mary_o_modules`:
+# a module names the SDK and the pure values of the ports it uses. So an edit
+# here compiles this crate alone (`scripts/build_extension_modules.sh
+# ambition_demo_smash_modules`), and a running game loads the file. The
+# workspace policy `game.ambition_demo_smash_modules-portable-closure` keeps
+# this list closed.
+[dependencies]
+ambition_combat_port = { path = "../../crates/ambition_combat_port" }
+ambition_extension_sdk = { path = "../../crates/ambition_extension_sdk" }
+

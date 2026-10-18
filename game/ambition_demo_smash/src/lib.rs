@@ -31,8 +31,9 @@ pub mod mine;
 pub mod motion;
 #[cfg(test)]
 mod moveset;
+#[cfg(test)]
+mod riposte_tests;
 pub mod portal;
-pub mod riposte;
 pub mod select;
 pub mod select_screen;
 pub mod shark_ride;
@@ -568,13 +569,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // Riposte. It reads the same `ActorActionMessage` the counter writes,
-        // so it needs no counter-specific wiring.
-        install_special(
+        // Riposte: the module `ambition_demo_smash_modules::riposte`, so an
+        // edit to the cut compiles that crate alone. It reads the same
+        // `ActorActionMessage` the counter writes, so it needs no
+        // counter-specific wiring.
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_riposte::RIPOSTE_STRIKE,
             TechniqueOffer {
-                owner: "ambition_demo_smash::riposte",
+                owner: "ambition_demo_smash_modules::riposte",
                 params: TechniqueParams::Checked(
                     // The domain rule, not only "serde can build it".
                     ambition_platformer2d::entity_catalog::smash_riposte::check_riposte_strike_params,
@@ -582,8 +585,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            crate::riposte::cut_where_a_riposte_answers
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+            ambition_demo_smash_modules::riposte::module(),
         );
         // Tether reel. Throw is chained before reel, so a line that bit a ledge
         // pulls on that tick. The reel does not catch the ledge; the movement
@@ -767,7 +769,10 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::entity_catalog::smash_counter::CounterParams>,
                 ),
-                references: NestedReferences::None,
+                // The response is admitted as an effect of its own.
+                references: NestedReferences::Effects(
+                    ambition_platformer2d::entity_catalog::smash_counter::counter_response_refs,
+                ),
                 delivery: TechniqueDelivery::Action,
             },
             crate::counter::answer_a_parry_with_the_authored_counter

@@ -190,3 +190,16 @@ mod round_trip_probe {
         assert!(back.unwrap().answers_the_attacker);
     }
 }
+
+/// The response a counter's params carry: the technique it dispatches after a
+/// parry, with its params. Admission checks it as an effect of its own
+/// (`NestedReferences::Effects`), so a response with no handler, or with
+/// params its handler refuses, is refused at load and not at the parry.
+pub fn counter_response_refs(effect: &crate::EffectRef) -> Vec<crate::EffectRef> {
+    match effect.params.hydrate::<CounterParams>() {
+        Ok(params) => vec![crate::EffectRef { key: params.response, params: params.response_params }],
+        // The counter's own check refuses params that do not hydrate.
+        Err(_) => Vec::new(),
+    }
+}
+

@@ -2512,3 +2512,25 @@ mod technique_flow {
         );
     }
 }
+
+/// A module reads a technique's params by path: each leaf of the authored
+/// RON, a tuple by its index, an option by what it holds, and an absent
+/// option as no leaf; a map's fields in the order of their names.
+#[test]
+fn params_are_read_as_leaves_by_the_path_an_author_reads() {
+    let params = ParamValue::parse(
+        r#"(reach: 30.0, half_extents: (18.0, 12.0), damage: 9, hit_sfx: Some("player.slash"), quiet: None, armed: true)"#,
+    )
+    .unwrap();
+    assert_eq!(
+        params.leaves(),
+        vec![
+            ("armed".to_string(), ParamLeaf::Flag(true)),
+            ("damage".to_string(), ParamLeaf::Number(9.0)),
+            ("half_extents[0]".to_string(), ParamLeaf::Number(18.0)),
+            ("half_extents[1]".to_string(), ParamLeaf::Number(12.0)),
+            ("hit_sfx".to_string(), ParamLeaf::Text("player.slash".to_string())),
+            ("reach".to_string(), ParamLeaf::Number(30.0)),
+        ]
+    );
+}

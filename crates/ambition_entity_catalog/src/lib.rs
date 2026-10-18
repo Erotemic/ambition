@@ -121,6 +121,15 @@ pub enum PickupKind {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ParamValue(pub ron::Value);
 
+/// One authored value of a technique's params, as [`ParamValue::leaves`]
+/// gives it.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParamLeaf {
+    Number(f64),
+    Text(String),
+    Flag(bool),
+}
+
 impl Default for ParamValue {
     fn default() -> Self {
         ParamValue(ron::Value::Map(ron::Map::new()))
@@ -178,6 +187,44 @@ impl ParamValue {
                 | ron::Value::String(_)
                 | ron::Value::Bytes(_)
                 | ron::Value::Unit => {}
+            }
+        }
+        let mut out = Vec::new();
+        walk(&self.0, "", &mut out);
+        out
+    }
+
+    /// Each authored leaf by the path an author reads (`reach`,
+    /// `half_extents[0]`, `hit_sfx`). A map's fields come in the order of
+    /// their names (`ron::Map` sorts them), so the order is the same on each
+    /// run and does not follow the authored order.
+    /// A module that a technique runs in reads its params by these paths: it
+    /// has no RON parser. `Some(x)` is the leaf `x`; `None`, `()` and bytes
+    /// state no leaf, so a module reads an absent optional as absent.
+    pub fn leaves(&self) -> Vec<(String, ParamLeaf)> {
+        fn walk(value: &ron::Value, path: &str, out: &mut Vec<(String, ParamLeaf)>) {
+            match value {
+                ron::Value::Number(number) => out.push((path.to_string(), ParamLeaf::Number(number.into_f64()))),
+                ron::Value::String(text) => out.push((path.to_string(), ParamLeaf::Text(text.clone()))),
+                ron::Value::Char(c) => out.push((path.to_string(), ParamLeaf::Text(c.to_string()))),
+                ron::Value::Bool(flag) => out.push((path.to_string(), ParamLeaf::Flag(*flag))),
+                ron::Value::Map(map) => {
+                    for (key, child) in map.iter() {
+                        let name = match key {
+                            ron::Value::String(name) => name.clone(),
+                            other => format!("{other:?}"),
+                        };
+                        let next = if path.is_empty() { name } else { format!("{path}.{name}") };
+                        walk(child, &next, out);
+                    }
+                }
+                ron::Value::Seq(items) => {
+                    for (index, child) in items.iter().enumerate() {
+                        walk(child, &format!("{path}[{index}]"), out);
+                    }
+                }
+                ron::Value::Option(Some(inner)) => walk(inner, path, out),
+                ron::Value::Option(None) | ron::Value::Bytes(_) | ron::Value::Unit => {}
             }
         }
         let mut out = Vec::new();
@@ -398,6 +445,10 @@ pub enum NestedReferences {
     /// The held-item ids this effect's params name. They are checked against
     /// `held_item_by_id` in `ambition_characters::brain::action_set`.
     HeldItems(fn(&EffectRef) -> Vec<String>),
+    /// The effects this effect's params carry for another technique to answer
+    /// (a counter's response). Each is admitted as an effect of its own: its
+    /// key must be offered and its params must pass that offer's check.
+    Effects(fn(&EffectRef) -> Vec<EffectRef>),
 }
 
 impl std::fmt::Debug for NestedReferences {
@@ -406,6 +457,7 @@ impl std::fmt::Debug for NestedReferences {
             Self::None => f.write_str("None"),
             Self::Characters(_) => f.write_str("Characters(..)"),
             Self::HeldItems(_) => f.write_str("HeldItems(..)"),
+            Self::Effects(_) => f.write_str("Effects(..)"),
         }
     }
 }
@@ -417,6 +469,7 @@ impl PartialEq for NestedReferences {
             (Self::None, Self::None)
                 | (Self::Characters(_), Self::Characters(_))
                 | (Self::HeldItems(_), Self::HeldItems(_))
+                | (Self::Effects(_), Self::Effects(_))
         )
     }
 }
@@ -436,6 +489,15 @@ impl NestedReferences {
     pub fn held_items(&self, effect: &EffectRef) -> Vec<String> {
         match self {
             Self::HeldItems(extract) => extract(effect),
+            _ => Vec::new(),
+        }
+    }
+
+    /// The effects this effect carries for another technique, or empty when
+    /// it carries none.
+    pub fn effects(&self, effect: &EffectRef) -> Vec<EffectRef> {
+        match self {
+            Self::Effects(extract) => extract(effect),
             _ => Vec::new(),
         }
     }

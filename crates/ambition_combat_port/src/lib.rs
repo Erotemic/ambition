@@ -23,6 +23,7 @@ pub mod motion;
 pub mod ray;
 pub mod riding;
 pub mod slow;
+pub mod special;
 pub mod think;
 pub mod wielded;
 pub use module_entity::{
@@ -32,6 +33,7 @@ pub use module_entity::{
 pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
 pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort};
 pub use hold::{BodyHold, BodyHoldPort};
+pub use special::{BodyStrike, BodyStrikePort, FighterSpecial, FighterSpecialPort, SpecialParam};
 pub use lightning::{Lightning, LightningAura, LightningAuraPort, LightningPort};
 pub use ray::{HeldRay, HeldRayPort, Spot};
 pub use motion::{

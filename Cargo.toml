@@ -90,6 +90,7 @@ members = [
     "game/ambition_menu_kaleidoscope",
     "game/ambition_content_modules",
     "game/ambition_demo_mary_o_modules",
+    "game/ambition_demo_smash_modules",
     "fixtures/extension_fixture_modules",
     "tests/ambition_workspace_policy",
 ]

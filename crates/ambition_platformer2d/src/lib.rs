@@ -794,7 +794,7 @@ pub use ambition_platformer2d_runtime as runtime;
 pub mod extension {
     pub use ambition_extension_host::{
         AdmittedExtensions, BodyRecords, DeclaredModule, SessionRecords, EntryRunner, ExtensionAppExt, ExtensionFaults,
-        ModuleBackend, ModuleCode,
+        ExtensionHostPlugin, ExtensionSet, ModuleBackend, ModuleCode,
     };
     pub use ambition_extension_host::{inspect, reload};
     pub use ambition_extension_sdk as sdk;

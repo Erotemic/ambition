@@ -1,32 +1,72 @@
-//! These tests assert damage, not only the request.
+//! The answering cut, on the road a game runs it: the module
+//! `ambition_demo_smash_modules::riposte` on `ambition.fighter.special`, and its
+//! strike lowered by `ambition.combat.body_strike`.
 //!
-//! Asserting an `EffectRequest::DamageBox` with the typed fields checks only the
-//! authoring. A box can be inert (`HitSide::Player` + `World` has no melee path)
-//! or hit its own thrower (`Environment` has no self-exclusion). So the
-//! fixture runs the real resolver, `apply_hitbox_damage`, and asks who got
-//! hit. `the_cut_lands_on_the_attacker_and_not_on_the_fighter_who_answered` is
-//! the technique stated as an outcome.
+//! These tests assert damage, not only the request. A box can be inert
+//! (`HitSide::Player` + `World` has no melee path) or hit its own thrower
+//! (`Environment` has no self-exclusion). So the fixture runs the real
+//! resolver, `apply_hitbox_damage`, and asks who got hit.
+//! `the_cut_lands_on_the_attacker_and_not_on_the_fighter_who_answered` is the
+//! technique stated as an outcome. A cut in the wrong units is refused at
+//! admission (`ambition_characters`' `nested_effects`), so no test here sends
+//! one.
 
-use super::*;
+use bevy::prelude::*;
+
+use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
+use ambition_platformer2d::characters::brain::ActorActionMessage;
 use ambition_platformer2d::combat::events::{HitEvent, HitTarget};
 use ambition_platformer2d::combat::hitbox::{LandedBodyHit, ParriedBodyHit};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::entity_catalog::smash_riposte::{RiposteStrikeParams, RIPOSTE_STRIKE};
+use ambition_platformer2d::extension::sdk::phases::TECHNIQUE_EXECUTION;
+use ambition_platformer2d::extension::{ExtensionAppExt as _, ExtensionHostPlugin, ExtensionSet};
 use ambition_platformer2d::vfx::VfxInRoom;
 
 fn app() -> App {
+    app_on(Road::Linked)
+}
+
+/// Where the riposte module comes from: linked into the game, or its file
+/// built for `wasm32-unknown-unknown` and loaded, the road a developer edits
+/// on.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Road {
+    Linked,
+    Loaded,
+}
+
+fn app_on(road: Road) -> App {
     let mut app = App::new();
     app.add_message::<ActorActionMessage>();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
     app.add_message::<VfxInRoom>();
+    app.add_plugins(ExtensionHostPlugin::new(Update))
+        .init_resource::<ambition_platformer2d::time::SimTick>()
+        .insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
+    ambition_platformer2d::combat::extension::special::install_for_specials(&mut app);
+    match road {
+        Road::Linked => {
+            app.add_extension_module(ambition_demo_smash_modules::riposte::module());
+        }
+        Road::Loaded => {
+            let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+            let file = ambition_platformer2d::extension::build_module_crate(&root, "ambition_demo_smash_modules")
+                .expect("the Smash module crate builds for wasm32-unknown-unknown");
+            let (backend, modules) =
+                ambition_platformer2d::extension::WasmModules::load(&std::fs::read(file).unwrap())
+                    .expect("the module file loads");
+            app.add_loaded_extension_modules("ambition_demo_smash_modules.wasm", backend, modules, false);
+        }
+    }
     app.add_systems(
         Update,
-        (
-            cut_where_a_riposte_answers,
-            ambition_platformer2d::combat::hitbox::apply_hitbox_damage,
-        )
-            .chain(),
+        ambition_platformer2d::combat::hitbox::apply_hitbox_damage
+            .after(ExtensionSet::Lower(TECHNIQUE_EXECUTION)),
     );
+    app.finish();
     app
 }
 
@@ -215,6 +255,30 @@ fn the_cut_lands_on_the_attacker_and_not_on_the_fighter_who_answered() {
     );
 }
 
+/// The cut from the module file is the linked one's: the same fighter is hit
+/// for the same damage, and the entry runs from the file.
+#[test]
+fn the_cut_from_its_module_file_lands_as_the_linked_one_does() {
+    let outcome = |road: Road| {
+        let mut app = app_on(road);
+        let runner = {
+            let admitted = app.world().resource::<ambition_platformer2d::extension::AdmittedExtensions>();
+            let entry = admitted.0.entries.iter().find(|entry| entry.descriptor.key.as_ref() == RIPOSTE_STRIKE);
+            format!("{:?}", entry.expect("the riposte entry is admitted").runner)
+        };
+        assert_eq!(runner.starts_with("Loaded"), road == Road::Loaded, "{road:?}: {runner}");
+        let defender = fighter(&mut app, 0, ae::Vec2::new(100.0, 50.0), -1.0);
+        let behind = fighter(&mut app, 1, ae::Vec2::new(146.0, 50.0), -1.0);
+        let ahead = fighter(&mut app, 2, ae::Vec2::new(54.0, 50.0), 1.0);
+        answer(&mut app, defender, &params());
+        let hits = body_hits(&mut app);
+        (damage_to(&hits, defender), damage_to(&hits, behind), damage_to(&hits, ahead))
+    };
+    let linked = outcome(Road::Linked);
+    assert_eq!(linked, (vec![], vec![], vec![11]), "the linked cut lands ahead of a left-facing fighter");
+    assert_eq!(outcome(Road::Loaded), linked, "the loaded cut lands as the linked one does");
+}
+
 /// A cut wide enough to cover its own thrower still spares him.
 ///
 /// In the test above, geometry alone keeps the defender out of the cut. Here
@@ -298,27 +362,6 @@ fn the_cut_follows_the_fighter_rather_than_the_spot_they_parried_on() {
     );
 }
 
-/// Wrong units are refused: `knockback` is a feel multiplier, and 104.0 is a
-/// launch speed. Nothing is spawned, so nobody is hit.
-#[test]
-fn a_cut_authored_in_the_wrong_units_is_refused() {
-    let mut app = app();
-    let defender = fighter(&mut app, 0, ae::Vec2::new(100.0, 50.0), 1.0);
-    let attacker = fighter(&mut app, 1, ae::Vec2::new(146.0, 50.0), -1.0);
-    answer(
-        &mut app,
-        defender,
-        &RiposteStrikeParams {
-            knockback: 104.0,
-            ..params()
-        },
-    );
-    assert!(
-        damage_to(&body_hits(&mut app), attacker).is_empty(),
-        "a cut with a launch speed in the feel-multiplier field was spawned",
-    );
-}
-
 /// A move that is not this one is left alone, so not every special ends in a
 /// sword cut.
 #[test]
@@ -357,7 +400,6 @@ fn another_technique_does_not_cut() {
 #[test]
 fn a_parry_answered_with_the_blade_cuts_the_attacker() {
     use ambition_platformer2d::entity_catalog::smash_counter::{counter_move, CounterParams};
-    use ambition_platformer2d::combat::hitbox::{LandedBodyHit, ParriedBodyHit};
     use ambition_platformer2d::combat::moveset::MovePlayback;
 
     let stance_spec = counter_move(
@@ -384,15 +426,13 @@ fn a_parry_answered_with_the_blade_cuts_the_attacker() {
     playback.t = (stance.start_s + stance.end_s) * 0.5;
 
     let mut app = app();
-    app.add_message::<ParriedBodyHit>();
-    app.add_message::<LandedBodyHit>();
     app.add_systems(
         Update,
         (
             crate::counter::hold_counter_parry_windows,
             crate::counter::answer_a_parry_with_the_authored_counter,
         )
-            .before(cut_where_a_riposte_answers),
+            .before(ExtensionSet::Collect(TECHNIQUE_EXECUTION)),
     );
 
     let defender = fighter(&mut app, 0, ae::Vec2::new(100.0, 50.0), 1.0);

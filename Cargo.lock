@@ -576,6 +576,7 @@ name = "ambition_demo_smash"
 version = "0.1.0"
 dependencies = [
  "ambition_content_pack",
+ "ambition_demo_smash_modules",
  "ambition_entity_catalog",
  "ambition_platformer2d",
  "ambition_resource_spec",
@@ -592,6 +593,14 @@ dependencies = [
  "ambition_platformer2d",
  "bevy",
  "clap",
+]
+
+[[package]]
+name = "ambition_demo_smash_modules"
+version = "0.1.0"
+dependencies = [
+ "ambition_combat_port",
+ "ambition_extension_sdk",
 ]
 
 [[package]]

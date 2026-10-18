@@ -28,6 +28,9 @@ serde = { workspace = true }
 # computation, and I1's whole point is that it must not pull the graph.
 ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
 ambition_resource_spec = { path = "../../crates/ambition_resource_spec" }
+# Its specials that are extension modules: an edit to one compiles that crate
+# alone (`ambition_demo_smash_modules`).
+ambition_demo_smash_modules = { path = "../ambition_demo_smash_modules" }
 # Authored effect params round-trip through the `ParamValue` seam.
 # The E9 oracle rule, unchanged: `ambition_platformer2d` + `bevy` and nothing else. If authoring
 # a STOCKS match needs a type the umbrella does not re-export, that is an engine leak and it
@@ -46,6 +49,11 @@ ambition_resource_spec = { path = "../../crates/ambition_resource_spec" }
 # belongs here rather than on each app that composes it.
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack", "portal"] }
 bevy = { version = "0.19.1", default-features = false }
+
+[dev-dependencies]
+# The riposte's loaded-file arm builds the module crate for wasm32 and runs it
+# (`riposte_tests`).
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["wasm_modules"] }
 
 # Check this demo's pack without a Rust build of the game: the content CLI,
 # with the schemas this demo owns beside the engine's.

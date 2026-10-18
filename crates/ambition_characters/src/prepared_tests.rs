@@ -2374,6 +2374,104 @@ mod held_item_references {
     }
 }
 
+/// A counter's answer is an effect of its own (`response` and
+/// `response_params`), run when the parry lands. Admission checks it as the
+/// effect it is, so an answer in the wrong units is refused when the cast is
+/// prepared, not skipped in a match.
+mod nested_effects {
+    use super::*;
+    use crate::prepared::admission_refusals;
+    use ambition_entity_catalog::smash_counter::{counter_response_refs, CounterParams, COUNTER};
+    use ambition_entity_catalog::smash_riposte::{check_riposte_strike_params, RiposteStrikeParams, RIPOSTE_STRIKE};
+    use ambition_entity_catalog::{
+        check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery, TechniqueOffer,
+        TechniqueParams, TechniqueSupport,
+    };
+
+    fn support() -> TechniqueSupport {
+        let mut support = TechniqueSupport::default();
+        for (key, offer) in [
+            (
+                COUNTER,
+                TechniqueOffer {
+                    owner: "test::counter",
+                    params: TechniqueParams::Checked(check_hydrates::<CounterParams>),
+                    references: NestedReferences::Effects(counter_response_refs),
+                    delivery: TechniqueDelivery::Action,
+                },
+            ),
+            (
+                RIPOSTE_STRIKE,
+                TechniqueOffer {
+                    owner: "test::riposte",
+                    params: TechniqueParams::Checked(check_riposte_strike_params),
+                    references: NestedReferences::None,
+                    delivery: TechniqueDelivery::Action,
+                },
+            ),
+        ] {
+            support.declare(key, offer).expect("first claim");
+        }
+        support
+    }
+
+    fn answering_with(response: &str, knockback: f32) -> crate::prepared::PreparedCharacterRegistry {
+        use crate::prepared_fixtures::moveset_with;
+        let cut = RiposteStrikeParams {
+            damage: 11,
+            knockback,
+            reach: 46.0,
+            half_extents: (30.0, 16.0),
+            lifetime_s: 0.08,
+            hit_sfx: None,
+        };
+        let counter = CounterParams {
+            window_s: 0.05,
+            answers_the_attacker: false,
+            response: response.to_string(),
+            response_params: ParamValue::from_typed(&cut).expect("the cut serializes"),
+            absorbs_projectiles: false,
+        };
+        let mut spec = crate::prepared_fixtures::slash("the_stance", "cue", "strike");
+        spec.windows[0].sustain_effect = Some(EffectRef {
+            key: COUNTER.to_string(),
+            params: ParamValue::from_typed(&counter).expect("the counter serializes"),
+        });
+        let definition = CharacterDefinition::new("parrier", "Parrier", "test_demo")
+            .with_moveset(moveset_with(&[("special", "the_stance")], vec![spec]));
+        let mut registry = crate::prepared::PreparedCharacterRegistry::default();
+        registry.insert(
+            crate::prepared::prepare_and_finalize_for_test(definition, &CharacterBindings::default())
+                .prepared,
+        );
+        registry
+    }
+
+    /// `knockback` is a feel multiplier, and 104.0 is a launch speed: the
+    /// answer is refused, by the counter's effect, the answer's key and the
+    /// field. The control is the same cast with a feel multiplier.
+    #[test]
+    fn an_answer_in_the_wrong_units_is_refused_at_preparation() {
+        let refusals = admission_refusals(&support(), &answering_with(RIPOSTE_STRIKE, 104.0));
+        assert_eq!(refusals.len(), 1, "expected one refusal; got {refusals:?}");
+        let said = &refusals[0].detail;
+        for name in [COUNTER, RIPOSTE_STRIKE, "knockback"] {
+            assert!(said.contains(name), "the refusal must name '{name}': {said}");
+        }
+
+        let refusals = admission_refusals(&support(), &answering_with(RIPOSTE_STRIKE, 1.35));
+        assert!(refusals.is_empty(), "an answer in feel units was refused: {refusals:?}");
+    }
+
+    /// An answer that nothing in the composition runs is refused by its key.
+    #[test]
+    fn an_answer_nothing_runs_is_refused_at_preparation() {
+        let refusals = admission_refusals(&support(), &answering_with("smash.no_such_answer", 1.35));
+        assert_eq!(refusals.len(), 1, "expected one refusal; got {refusals:?}");
+        assert!(refusals[0].detail.contains("smash.no_such_answer"), "{:?}", refusals[0]);
+    }
+}
+
 /// ⛔⛔ **A NON-FINITE AUTHORED NUMBER IS REFUSED AT ADMISSION, WHATEVER THE
 /// TECHNIQUE.**
 ///

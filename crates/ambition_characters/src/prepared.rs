@@ -464,6 +464,17 @@ pub fn admission_refusals(
                         });
                     }
                 }
+                for nested in offer.references.effects(effect) {
+                    if let Err(refusal) = installed.admit_at(None, &nested) {
+                        refusals.push(AdmissionRefusal {
+                            character: id.to_string(),
+                            detail: format!(
+                                "{id} / {} / {site:?}: effect '{}' answers with '{}': {refusal}",
+                                mv.id, effect.key, nested.key
+                            ),
+                        });
+                    }
+                }
                 for named in offer.references.characters(effect) {
                     if prepared.get(&named).is_none() {
                         refusals.push(AdmissionRefusal {

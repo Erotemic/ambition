@@ -73,7 +73,7 @@ pub use combat_schedule::CombatSchedulePlugin;
 // `add_systems` — which declares nothing, and is why a misspelled authored key
 // still reaches the runtime as a mid-fight warning. Exporting it is what lets
 // the strict unknown-key pass become reachable at all.
-pub use combat_schedule::{install_technique, install_techniques};
+pub use combat_schedule::{install_module_technique, install_technique, install_techniques};
 pub use content_identity::{
     ContentDiagnostic, ContentEpoch, ContentEpochSequence, ContentFingerprint,
     ContentFingerprintSchemaVersion, ContentOwner, PeerContentIdentity, PendingGenerationInputs,

@@ -600,12 +600,56 @@ before you add a port.
     `capture`, `portal`) are move-invoked techniques (`technique_execution`
     exists); each needs its domain's ports (sleep and lock timers, steering,
     a mine as a module entity). Write the contact route first: it serves
-    four rules in two demos.
-  - Snake Plant follow-up: separately verify that proximity decisions use
-    players in the plant's live room, not a global primary player, and
-    that externally owned pose state is released when its brain or pot
-    geometry changes. Keep behavioral decisions distinct from contact
-    consequences: the latter belong in the proposed body-contact phase.
+    four rules in two demos. (Written since: `body_contact`, with
+    `ambition.body.contact`, `contact_bounce` and `defeat`.) Measured
+    2026-10-18 for the smallest special, Smash's `riposte` (105 lines: on
+    its special action, one body strike in front of the fighter): two
+    ports are missing. `technique_execution`'s only trigger is
+    `ambition.boss.special_cast`, so a fighter's special reaches no module;
+    and the cut is a box that follows its owner for `lifetime_s` with a hit
+    sound, where `ambition.combat.strike` (v2) lands in its own tick only
+    and `held_damage_box` (v2) must be submitted again each tick and has no
+    sound. The first port to write is a fighter-special trigger; each
+    special after it then needs only its domain's requests.
+  - Special route F1 ✅ (2026-10-18). The trigger `ambition.fighter.special`
+    (selector: the effect key a move authors) gives the fighter's position,
+    the sign of its facing and the move's params, each leaf by the path an
+    author reads (`ParamValue::leaves`). The request
+    `ambition.combat.body_strike` is a damage box that follows its body for
+    `lifetime_s`, in the body's own frame, with an optional hit sound
+    (`strike::spawn_body_strike`). `install_module_technique` adds a module
+    and declares its key in one statement, and panics at build time when
+    the module does not answer that key. Smash's riposte is the module
+    `ambition_demo_smash_modules::riposte` (workspace policy
+    `game.ambition_demo_smash_modules-portable-closure`); the native
+    `riposte.rs` is deleted. Its run-time check of a counter's answer is
+    deleted too: a counter's answer is a nested effect
+    (`NestedReferences::Effects`), checked at admission, so an answer in the
+    wrong units is refused when the cast is prepared and not skipped in a
+    match. Witnesses: `ambition_demo_smash riposte_tests` (the eight damage
+    tests on the module road, and
+    `the_cut_from_its_module_file_lands_as_the_linked_one_does`, its runner
+    `Loaded`) and `ambition_characters nested_effects`. Poisons: the module
+    not added, seven damage tests red; the adapter without the facing, red
+    at "a left-facing riposte cut somebody standing to its right"; the cut
+    one more in the wasm build only, red at "the loaded cut lands as the
+    linked one does" (12 for 11); the nested loop skipped, both admission
+    tests red. Cost: an edit to the cut builds the module file in 0.55 s
+    (`scripts/build_extension_modules.sh ambition_demo_smash_modules`), and
+    the Ambition app, whose polygons, Gnu-ton and Ramen answer with the
+    riposte, loads it with no relink (`AMBITION_EXTENSION_MODULES`). The
+    Smash demo app does not load module files: none of its fighters
+    authors a special that is a module yet.
+  - Snake Plant follow-up, verified 2026-10-18 against the tree:
+    `run_snake_plants` asks each player of the plant's own live room
+    (`geometry.room_of(player) == room`), witnessed by
+    `mary_o_it::the_snake_plant_is_shy_of_each_player_of_its_room_and_of_no_other`.
+    It lets go of its `PoseHold::Path` whenever it has no pot: a dead plant,
+    a brain that is not the plant's and a pot that is gone take that one
+    branch, and `a_dead_snake_plant_lets_go_of_its_own_hold_only` holds it
+    (and that another holder's hold stays). Keep behavioral decisions
+    distinct from contact consequences: the latter belong in the proposed
+    body-contact phase.
     See [unified movement](unified-movement-kernel.md#pose-ownership-under-script-encounter-and-plant-control-new-customer).
   - Module clock contract: preserve elapsed-time and simulation-rate
     semantics rather than assuming that tick counts always represent

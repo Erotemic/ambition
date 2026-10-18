@@ -635,6 +635,20 @@ exact = true
 allow = ["ambition_extension_sdk", "ambition_combat_port"]
 manifest = "game/ambition_demo_mary_o_modules/Cargo.toml"
 
+# Smash's specials that are modules (the riposte), on the same terms.
+[[policy]]
+id = "game.ambition_demo_smash_modules-portable-closure"
+scope = "game"
+kind = "dependency-allowlist"
+owners = ["ambition_demo_smash_modules"]
+watch_paths = ["game/ambition_demo_smash_modules/Cargo.toml"]
+rationale = "a Smash module names the SDK and the pure port values it uses; never the host, Bevy or the Smash crate, so an edit to it compiles it alone"
+source_doc = "docs/planning/engine/fast-iteration-implementation.md"
+severity = "error"
+exact = true
+allow = ["ambition_extension_sdk", "ambition_combat_port"]
+manifest = "game/ambition_demo_smash_modules/Cargo.toml"
+
 # A demo's world file is read off disk in a development build (`content_text!`)
 # and embedded only under the demo's `static_content`, so a level edit costs a
 # restart and no Rust build. The entity manifest (`mary_o.entities.json`) stays

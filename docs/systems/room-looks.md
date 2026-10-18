@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-10-10
+last_verified: 2026-10-18
 related_docs:
   - docs/systems/camera-and-visual-profiles.md
   - docs/systems/parallax-backgrounds.md
@@ -82,6 +82,7 @@ of both states on the same blocks (`RoomTerrain::state_of`).
 | Part | File | What it does |
 | --- | --- | --- |
 | the art | `terrain/two_state.py` (sprite renderer) | The fill, cap, underside, side and one-way of each state. The corrupted state is derived from the clean construction: the same courses as voxels, the gold fillet as a circuit, one walking line on top. |
+| the ornaments | `terrain/ornaments.py` (sprite renderer) | What the architecture has once for each block: the fluted pillar, the arcade below a platform and its banners, the ivy on a corner and its strands, the emblem on a large face. The terrain places each by the shape of the block (`lay_ornaments` in `terrain_skin.rs`); a theme with no such picture has none. |
 | the skins | `RoomSkinMaterial`, `room_skin.wgsl` | Each mesh of a skin shows it where the room is in its state, and adds what the front does to the stone near it (heat, burn, stain, cracks). |
 | the sky | `RoomSkyMaterial`, `room_sky.wgsl` | Lays the authored corrupted sky over the authored clean one where the air is corrupted, and the fog. See "The sky is authored". |
 | the rest | `RoomStateMaterial`, `room_state.wgsl` | The veil of a blink wall and the overlay: effects of the front. |
@@ -128,10 +129,12 @@ front as it moves.
   (`dress_doors`, `ink_labels_on_the_clean_side`), so they run in each budget.
   Guard: `a_room_look_undresses_when_its_budget_goes` (Full, Potato, Full, with
   no room load).
-- The two-state skins repeat each 64 units like each skin, so what the
-  painted architecture did once for each piece is not there: the arches and
-  banners under a platform, the ivy on a corner, the sigils on a large face,
-  the fluted pillar, and the frame around a door.
+- The ornaments are placed by rules on the shape of a block, not authored
+  per room: a pillar is a block 48 wide or less and over 96 high, an arcade
+  hangs from a platform (40 high or less, 96 wide or more) whose whole
+  underside is open, ivy is on some open top corners of a block 96 wide or
+  more, an emblem needs a face of 150 x 150. The hub has no face that large,
+  so it shows no emblem. The frame around a door is not drawn.
 - The accent colours (magenta, cyan) are written in `two_state.py`,
   `room_skin.wgsl` and `room_state.wgsl`. A change to one is a change to all
   three.

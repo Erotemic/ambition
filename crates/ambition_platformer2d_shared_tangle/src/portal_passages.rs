@@ -182,9 +182,14 @@ impl PortalPassages {
             _ => partition(volume, root, links, straddled.map(|l| l.key), budget, self.convention),
         };
         for refusal in &cut.refused {
+            let kept = if refusal.whole {
+                "it stays whole where it is, its part through the opening with it"
+            } else {
+                "its opening is solid to it"
+            };
             tracing::debug!(
                 target: "ambition_portal::refusal",
-                "a volume of {owner:?} was not carried through link {} after {:?}: its opening is solid to it ({budget:?})",
+                "a volume of {owner:?} was not carried through link {} after {:?}: {kept} ({budget:?})",
                 refusal.link,
                 refusal.path
             );

@@ -383,11 +383,17 @@ fn cut_by(piece: &VolumePiece, link: &PortalLink, convention: MapConvention, ref
 }
 
 /// A cut the budget refused: the piece whose path is `path` would have been
-/// carried through `link`. Its opening was solid to it.
+/// carried through `link`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Refusal {
     pub path: Vec<u32>,
     pub link: u32,
+    /// How the piece was kept. False: the opening was solid to it, and its
+    /// part through the opening is not anywhere. True: the budget could not
+    /// pay even for the parts in front and beside (or the step limit was
+    /// reached), so the piece stayed whole where it is, its part through the
+    /// opening with it.
+    pub whole: bool,
 }
 
 /// Where a volume is: its pieces, and the cuts its budget refused.
@@ -453,7 +459,7 @@ pub fn partition(
             continue;
         };
         if steps > step_limit {
-            out.refused.push(Refusal { path: piece.path.clone(), link: link.key });
+            out.refused.push(Refusal { path: piece.path.clone(), link: link.key, whole: true });
             out.pieces.push(piece);
             continue;
         }
@@ -468,9 +474,10 @@ pub fn partition(
         let parts = match through {
             Some(parts) => parts,
             None => {
-                out.refused.push(Refusal { path: piece.path.clone(), link: link.key });
                 let parts = cut_by(&piece, link, convention, true);
-                if !fits(&parts) {
+                let whole = !fits(&parts);
+                out.refused.push(Refusal { path: piece.path.clone(), link: link.key, whole });
+                if whole {
                     out.pieces.push(piece);
                     continue;
                 }

@@ -810,9 +810,13 @@ fn tick_skirmisher(
         if let Some(aim) = committed_aim {
             let local_aim = snapshot.acceleration_frame().to_local(aim);
             out.facing = snapshot.face_toward(local_aim.x);
+            // The held gun reads this same direction during the warning and
+            // every shot. Do not let its visual aim track the moving target.
+            out.aim = ae::LocalAxes::from_vec(local_aim);
         }
         return;
     }
+    out.aim = ae::LocalAxes::from_vec(snapshot.acceleration_frame().to_local(aim_dir));
     // Fire at the actual target when the cooldown timer is clear.
     // ActionSet supplies the concrete projectile (speed, damage);
     // brain just emits dir.

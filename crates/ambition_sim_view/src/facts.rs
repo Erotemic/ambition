@@ -198,6 +198,29 @@ pub fn rebuild_view_hud_facts(
     }
 }
 
+/// Aim for a held ranged item in world space. The body publishes its intent:
+/// a shot direction during firing, a held aim during a warning, or its facing
+/// when neither is active. Presentation does not select a target again.
+fn held_item_world_aim(
+    control: Option<&ambition_characters::actor::control::ActorControlFrame>,
+    facing: f32,
+    basis: ae::AccelerationFrame,
+) -> ae::Vec2 {
+    control
+        .and_then(|control| {
+            control
+                .fire
+                .map(|shot| shot.dir_to_world(basis))
+                .filter(|direction| direction.length_squared() > 1e-6)
+                .or_else(|| {
+                    (control.aim.vec().length_squared() > 1e-6)
+                        .then(|| basis.to_world(control.aim.vec()))
+                })
+        })
+        .unwrap_or_else(|| basis.to_world(ae::Vec2::new(facing, 0.0)))
+        .normalize_or_zero()
+}
+
 /// EVERY body's held item, resolved sim-side: the geometry facts the hand-sprite
 /// needs plus the item identity and its brain-resolved aim (so a possessed
 /// body's ranged item points where THAT body aims).
@@ -309,6 +332,7 @@ pub fn rebuild_held_item_view(
         &BodyKinematics,
         &ambition_platformer2d_actor_monolith::features::HeldItem,
         &ActorControl,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
         Option<&ambition_combat::components::ActorDisposition>,
         Option<&BodyHealth>,
@@ -322,10 +346,14 @@ pub fn rebuild_held_item_view(
     // stable SimId to keep drawing order independent of ECS iteration.
     let mut rows: Vec<_> = bodies
         .iter()
-        .filter(|(_, _, _, _, _, disposition, health, _, _)| {
+        .filter(|(_, _, _, _, _, _, disposition, health, _, _)| {
             drawn_in_the_hand(disposition.copied(), health.map(|health| health.alive()))
         })
-        .map(|(body, kin, held, control, id, _, _, playback, feature)| {
+        .map(|(body, kin, held, control, motion_frame, id, _, _, playback, feature)| {
+            let basis = motion_frame.map_or_else(
+                || ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR),
+                |frame| frame.basis(),
+            );
             (
                 id.clone(),
                 HeldItemFact {
@@ -334,7 +362,7 @@ pub fn rebuild_held_item_view(
                     facing: kin.facing,
                     item_id: held.spec.id.clone(),
                     ranged: held.spec.ranged.is_some(),
-                    aim: control.0.aim.vec(),
+                    aim: held_item_world_aim(Some(&control.0), kin.facing, basis),
                     swing: playback.and_then(ItemSwingFact::of),
                     room: live.of(body),
                     holder: ItemHolder {
@@ -636,17 +664,9 @@ pub struct HostileWieldedItemFact {
     pub holder: ItemHolder,
 }
 
-/// A WIELDER AIMS AT WHAT IT IS FIGHTING, not at "the player".
-///
-/// This took `Query<&BodyKinematics, PrimaryPlayerOnly>`, `single()`d it, and
-/// `return`ed without one — so in a match, where no session home avatar exists,
-/// every hostile wielder's held item vanished from the view entirely. And when
-/// there WAS a player the fact was still wrong for a match: two fighters both
-/// aimed their weapons at a third body neither was fighting.
-///
-/// The controlled subject is the fallback for a wielder with no target — an exploration enemy
-/// that has not acquired one still points its pistol at the person it is menacing — and a
-/// wielder with neither is simply aimed where it faces, which is a fact rather than a hole.
+/// A wielder's ranged item points where its controller commits to fire.
+/// This view uses the same intent as the projectile system. It does not aim
+/// at the target again after the controller has locked a shot direction.
 #[allow(clippy::type_complexity)]
 pub fn rebuild_hostile_wielded_items_view(
     mut view: ResMut<HostileWieldedItemsView>,
@@ -655,29 +675,19 @@ pub fn rebuild_hostile_wielded_items_view(
         Entity,
         &ambition_combat::components::ActorDisposition,
         &ambition_platformer2d_actor_monolith::features::HeldItem,
+        Option<&ActorControl>,
         Option<&BodyKinematics>,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         Option<&BodyHealth>,
-        Option<&ambition_combat::components::ActorTarget>,
         Option<&ambition_combat::components::FeatureId>,
     )>,
-    bodies: Query<&BodyKinematics>,
-    controlled: Res<ControlledSubject>,
-    player_q: Query<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     // Where a wielder holds its item: the simulation's own answer, which the
     // muzzle of a hand weapon also reads, so the prop is drawn where the shot
     // leaves.
     landmarks: ambition_combat::body_landmarks::BodyLandmarks,
 ) {
     view.0.clear();
-    // The session's own subject, for a wielder that has acquired nothing. `None`
-    // in a match with no local participant, which is legitimate rather than a
-    // reason to publish nothing.
-    let subject_pos = controlled
-        .0
-        .and_then(|entity| bodies.get(entity).ok())
-        .or_else(|| player_q.single().ok())
-        .map(|kin| kin.pos);
-    for (entity, disposition, held_item, kin, health, target, feature) in &wielders {
+    for (entity, disposition, held_item, control, kin, motion_frame, health, feature) in &wielders {
         let Some(kin) = kin else {
             continue;
         };
@@ -687,16 +697,15 @@ pub fn rebuild_hostile_wielded_items_view(
             continue;
         }
         let wielder_height = kin.size.y;
-        // Its own target first; the session subject second; where it faces last.
-        let aim_world = target
-            .and_then(|target| target.entity)
-            .and_then(|entity| bodies.get(entity).ok())
-            .map(|kin| kin.pos)
-            .or(subject_pos)
-            .unwrap_or_else(|| kin.pos + ae::Vec2::new(kin.facing * wielder_height, 0.0));
+        let down = motion_frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
+        let hand_world = ambition_held_items::holding_hand_world(&landmarks, entity, kin, down);
+        let basis = ae::AccelerationFrame::new(down);
+        let aim_world = hand_world
+            + held_item_world_aim(control.map(|control| &control.0), kin.facing, basis)
+                * wielder_height;
         view.0.push(HostileWieldedItemFact {
             item_id: held_item.id().to_owned(),
-            hand_world: ambition_held_items::holding_hand_world(&landmarks, entity, kin, ae::Vec2::Y),
+            hand_world,
             aim_world,
             wielder_height,
             room: live.of(entity),
@@ -1729,5 +1738,90 @@ mod mark_beacon_room_tests {
         let mut rows: Vec<_> = app.world().resource::<MarkBeaconsView>().0.iter().map(|(_, room)| *room).collect();
         rows.sort();
         assert_eq!(rows, vec![Some(first), Some(second)], "(the dropped room, the unroomed mark's player's room)");
+    }
+}
+
+#[cfg(test)]
+mod wielded_aim_tests {
+    use super::*;
+    use ambition_characters::actor::control::{ActorControlFrame, ActorFireRequest};
+    use ambition_combat::components::{ActorDisposition, ActorTarget};
+
+    fn assert_direction(actual: ae::Vec2, expected: ae::Vec2) {
+        assert!(
+            actual.normalize_or_zero().distance(expected.normalize_or_zero()) < 1e-5,
+            "held gun points {actual:?}; expected {expected:?}",
+        );
+    }
+
+    /// The view draws what the body has committed to fire, even when its
+    /// target moves behind it. A target query must not retake aim here.
+    #[test]
+    fn hostile_gun_follows_committed_aim_not_current_target_position() {
+        let mut app = App::new();
+        app.init_resource::<HostileWieldedItemsView>()
+            .add_systems(Update, rebuild_hostile_wielded_items_view);
+        let target = app.world_mut().spawn(BodyKinematics {
+            pos: ae::Vec2::new(-200.0, 40.0),
+            ..Default::default()
+        }).id();
+        let mut control = ActorControlFrame::neutral();
+        control.ranged_aim_held = true;
+        control.aim = ae::LocalAxes::new(0.6, -0.8);
+        let wielder = app.world_mut().spawn((
+            BodyKinematics {
+                pos: ae::Vec2::new(10.0, 20.0),
+                size: ae::Vec2::new(48.0, 80.0),
+                facing: 1.0,
+                ..Default::default()
+            },
+            ActorDisposition::Hostile,
+            BodyHealth::new(ambition_characters::actor::Health::new(10)),
+            ambition_platformer2d_actor_monolith::features::HeldItem::new(
+                ambition_characters::brain::held_item_by_id("gun_sword").expect("test gun"),
+            ),
+            ActorControl(control),
+            ActorTarget { entity: Some(target), pos: ae::Vec2::new(-200.0, 40.0) },
+        )).id();
+        app.update();
+        let view = app.world().resource::<HostileWieldedItemsView>();
+        assert_eq!(view.0.len(), 1);
+        let fact = &view.0[0];
+        assert_eq!(fact.holder.body, wielder);
+        assert_direction(fact.aim_world - fact.hand_world, ae::Vec2::new(0.6, -0.8));
+        let first_aim = fact.aim_world - fact.hand_world;
+
+        // The foe crosses to the other side during the warning.
+        app.world_mut().get_mut::<BodyKinematics>(target).unwrap().pos =
+            ae::Vec2::new(350.0, 160.0);
+        app.update();
+        let fact = &app.world().resource::<HostileWieldedItemsView>().0[0];
+        assert_direction(fact.aim_world - fact.hand_world, first_aim);
+
+        // The actual fire request overrides held aim on a firing tick.
+        app.world_mut().get_mut::<ActorControl>(wielder).unwrap().0.fire =
+            Some(ActorFireRequest::world_space(ae::Vec2::new(-1.0, 0.0)));
+        app.update();
+        let fact = &app.world().resource::<HostileWieldedItemsView>().0[0];
+        assert_direction(fact.aim_world - fact.hand_world, ae::Vec2::NEG_X);
+    }
+
+    /// Both held-item render roads read the body's local aim through its
+    /// gravity frame. An idle body points its gun along its facing.
+    #[test]
+    fn ranged_item_aim_respects_fire_space_local_frame_and_idle_facing() {
+        let frame = ae::AccelerationFrame::new(ae::Vec2::X);
+        let mut control = ActorControlFrame::neutral();
+        assert_direction(
+            held_item_world_aim(Some(&control), -1.0, frame),
+            frame.to_world(ae::Vec2::NEG_X),
+        );
+        control.aim = ae::LocalAxes::new(0.0, -1.0);
+        assert_direction(
+            held_item_world_aim(Some(&control), -1.0, frame),
+            frame.to_world(ae::Vec2::NEG_Y),
+        );
+        control.fire = Some(ActorFireRequest::world_space(ae::Vec2::X));
+        assert_direction(held_item_world_aim(Some(&control), -1.0, frame), ae::Vec2::X);
     }
 }

@@ -555,6 +555,11 @@ Two paths, read from `AMBITION_FIGHTER_TRACE=1`:
    or overshoot. Goblin 3→0, GNU-ton 4→2, Oiler 3→2, Pugnacious 4→1, Ramen 4→5.
    The first eight fighters are within noise (12→13 excluding Sanic).
 
+5. Open: an AIRBORNE Approach is never priced off the ledge (`walks_off` and
+   `overshoots` need a supporting floor). Ramen, jumping at a foe near the
+   left ledge, drifted past it at −230 px/s and the lens found no route home
+   with `divergent_series`.
+
 Totals over one minute each, one seed. The eight fighters with a true baseline:
 32 → 25 (Sanic 14 → 12, item 2). The other fifteen were first measured after
 items 1 and 3: 27 → about 19.

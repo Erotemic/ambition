@@ -192,13 +192,7 @@ fn break_bricks_struck_by(
             // A fresh break shatters into brick-red shards through the engine's
             // shared particle seam — the same `VfxMessage::Burst` the snake squash
             // pops, so a brick reads as breaking with no bespoke vfx.
-            vfx.for_room(Some(room)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
-                pos: center,
-                count: 14,
-                speed: 155.0,
-                color: [0.72, 0.35, 0.22, 1.0],
-                kind: ambition_platformer2d::vfx::ParticleKind::Shard,
-            });
+            vfx.for_room(Some(room)).write(crate::rules::mary_o_rules().effects.brick_break.at(center));
             // ...and cracks, through the engine's shared cue seam. PLACEHOLDER
             // TIMBRE: this reuses the existing `Hit` cue rather than inventing a
             // brick-specific one, and the provider synthesizes it as a short noisy
@@ -289,16 +283,11 @@ pub fn drop_planks_when_the_goal_is_taken(
         if !broken.mark(room, &name) {
             continue;
         }
-        vfx.for_room(Some(room)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
-            pos: center,
-            count: 8,
-            speed: 155.0,
-            color: [0.72, 0.35, 0.22, 1.0],
-            kind: ambition_platformer2d::vfx::ParticleKind::Shard,
-        });
+        let effects = &crate::rules::mary_o_rules().effects;
+        vfx.for_room(Some(room)).write(effects.plank_break.at(center));
         explosions.write(
             ambition_platformer2d::vfx::FxRequest::classic(Some(room), center)
-                .with_scale(0.75)
+                .with_scale(effects.plank_explosion_scale)
                 .from_source(crate::provider::MARY_O_EXPERIENCE.into()),
         );
         // One crack for each plank of a bridge that breaks in time, and one
@@ -482,6 +471,26 @@ mod tests {
             0,
             "an already-broken brick does not re-shatter"
         );
+    }
+
+    /// A broken brick plays the burst Mary-O's rules file states
+    /// (`effects.brick_break`) at the brick's centre.
+    #[test]
+    fn a_broken_brick_plays_the_burst_its_rules_state() {
+        let (struck, _) = two_authored_bricks();
+        let mut app = break_app();
+        let id = authored_brick_id(&struck);
+        app.world_mut().spawn((PlayerEntity, head_bonk_frame(id), tall()));
+        app.update();
+        let block = crate::level_1_1().world.blocks.iter().find(|block| block.name == struck).expect("the struck brick").aabb;
+        let stated = crate::rules::burst_shape(&crate::rules::mary_o_rules().effects.brick_break.at((block.min + block.max) * 0.5));
+        let played: Vec<_> = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::VfxInRoom>>()
+            .drain()
+            .filter_map(|message| crate::rules::burst_shape(&message.vfx))
+            .collect();
+        assert_eq!(played, stated.into_iter().collect::<Vec<_>>(), "the brick's burst is not the file's");
     }
 
     /// A LOADED brick does not break.

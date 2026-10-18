@@ -15,7 +15,7 @@ use serde::Deserialize;
 pub const MARY_O_RULES_SCHEMA: &str = "mary_o_rules";
 
 /// The demo's tuning, as its pack states it.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MaryORules {
     pub snake_plant: SnakePlant,
@@ -32,6 +32,8 @@ pub struct MaryORules {
     pub flag: Flag,
     pub level: Level,
     pub power_ups: PowerUps,
+    /// The bursts of what she breaks and what dies in the castle.
+    pub effects: Effects,
 }
 
 /// The end of a castle: the switch, the bridge, the boss in the lava, the
@@ -137,6 +139,92 @@ pub struct SnakePlant {
     pub harmless_below: f32,
 }
 
+/// The bursts of what she breaks and what dies in the castle.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Effects {
+    /// Where a brick breaks.
+    pub brick_break: Burst,
+    /// Where a plank of a bridge breaks, and the size of its explosion.
+    pub plank_break: Burst,
+    pub plank_explosion_scale: f32,
+    /// Where she stomps a snake into its shell.
+    pub shell_stomp: Burst,
+    /// The lava a body throws as it sinks, each `castle_end.splash_ticks`.
+    pub lava_splash: Burst,
+    /// Where the castle's boss dies, and the size of its explosion.
+    pub boss_death: Burst,
+    pub boss_death_explosion_scale: f32,
+    /// The fireworks over the bridge as the boss charges.
+    pub bridge_fireworks: BridgeFireworks,
+}
+
+/// The fireworks over the castle's bridge. They go off for the charge beat.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BridgeFireworks {
+    pub count: u32,
+    /// The share of the bridge's length they go off across.
+    pub across_share: f32,
+    /// How tall the band they go off in is (px).
+    pub height_px: f32,
+}
+
+/// One burst of particles.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Burst {
+    pub count: u32,
+    /// How fast they leave (px per second).
+    pub speed: f32,
+    /// Their colour (sRGB and alpha, 0 to 1).
+    pub color: [f32; 4],
+    /// Their kind, as the burst port names it: `spark`, `dust`, `shard`,
+    /// `heart` or `streak`.
+    pub kind: String,
+}
+
+impl Burst {
+    /// The message that plays this burst at `pos`.
+    pub fn at(&self, pos: ae::Vec2) -> ambition_platformer2d::vfx::VfxMessage {
+        ambition_platformer2d::vfx::VfxMessage::Burst {
+            pos,
+            count: self.count,
+            speed: self.speed,
+            color: self.color,
+            // Admission refuses a kind the port does not name (`problems`).
+            kind: ambition_platformer2d::vfx::ParticleKind::named(&self.kind).expect("the pack's admission checked the burst's kind"),
+        }
+    }
+
+    fn problems(&self, field: &str) -> Vec<String> {
+        let mut problems = Vec::new();
+        if !(self.speed.is_finite() && self.speed >= 0.0) {
+            problems.push(format!("`{field}.speed` is {}; it is finite and not negative", self.speed));
+        }
+        if self.color.iter().any(|channel| !(0.0..=1.0).contains(channel)) {
+            problems.push(format!("`{field}.color` is {:?}; each channel is from 0 to 1", self.color));
+        }
+        if ambition_platformer2d::vfx::ParticleKind::named(&self.kind).is_none() {
+            problems.push(format!("`{field}.kind` is `{}`; it is spark, dust, shard, heart or streak", self.kind));
+        }
+        problems
+    }
+}
+
+/// What a burst message plays and where: (place, count, speed, colour,
+/// kind). `None` for a message that is not a burst. A test compares a
+/// message to its rules row by this.
+#[cfg(test)]
+pub(crate) fn burst_shape(
+    message: &ambition_platformer2d::vfx::VfxMessage,
+) -> Option<(ae::Vec2, u32, f32, [f32; 4], ambition_platformer2d::vfx::ParticleKind)> {
+    match *message {
+        ambition_platformer2d::vfx::VfxMessage::Burst { pos, count, speed, color, kind } => Some((pos, count, speed, color, kind)),
+        _ => None,
+    }
+}
+
 /// A body's trip through a pipe.
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -193,6 +281,26 @@ impl MaryORules {
         let scale = self.step_up_clock_scale;
         if !(scale.is_finite() && scale > 0.0 && scale <= 1.0) {
             problems.push(format!("`step_up_clock_scale` is {scale}; a beat slows the clock or leaves it, so it is more than 0 and at most 1"));
+        }
+        let effects = &self.effects;
+        for (field, burst) in [
+            ("effects.brick_break", &effects.brick_break),
+            ("effects.plank_break", &effects.plank_break),
+            ("effects.shell_stomp", &effects.shell_stomp),
+            ("effects.lava_splash", &effects.lava_splash),
+            ("effects.boss_death", &effects.boss_death),
+        ] {
+            problems.extend(burst.problems(field));
+        }
+        for (field, scale) in [
+            ("effects.plank_explosion_scale", effects.plank_explosion_scale),
+            ("effects.boss_death_explosion_scale", effects.boss_death_explosion_scale),
+            ("effects.bridge_fireworks.across_share", effects.bridge_fireworks.across_share),
+            ("effects.bridge_fireworks.height_px", effects.bridge_fireworks.height_px),
+        ] {
+            if !(scale.is_finite() && scale > 0.0) {
+                problems.push(format!("`{field}` is {scale}; it is more than 0"));
+            }
         }
         let (plant, pipe, shell) = (&self.snake_plant, &self.pipe, &self.shell);
         for (field, value) in [
@@ -327,8 +435,8 @@ pub fn mary_o_rules_schema() -> SchemaRegistration {
 }
 
 /// The demo's tuning, as its pack states it (`assets/data/mary_o_rules.ron`).
-pub fn mary_o_rules() -> MaryORules {
-    *lowered_rules::<MaryORules>(crate::pack::PACK.prepared(), MARY_O_RULES_SCHEMA)
+pub fn mary_o_rules() -> &'static MaryORules {
+    lowered_rules::<MaryORules>(crate::pack::PACK.prepared(), MARY_O_RULES_SCHEMA)
         .expect("the demo's pack states its tuning (`data/mary_o_rules.ron`)")
 }
 
@@ -360,11 +468,11 @@ mod tests {
             let pack = EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None)
                 .with_schemas(|| vec![mary_o_rules_schema()]);
             let prepared = pack.compile().unwrap_or_else(|failure| panic!("{}", failure.render()));
-            *lowered_rules::<MaryORules>(&prepared, MARY_O_RULES_SCHEMA).expect("the probe pack lowers the tuning")
+            lowered_rules::<MaryORules>(&prepared, MARY_O_RULES_SCHEMA).expect("the probe pack lowers the tuning").clone()
         };
 
         let file = rules_of(&authored);
-        assert_eq!(file, mary_o_rules(), "the demo plays the file");
+        assert_eq!(&file, mary_o_rules(), "the demo plays the file");
         // The plant rises over the file's travel ticks: half out halfway up,
         // all the way out at the end of the rise.
         let travel = file.snake_plant.travel_ticks;
@@ -416,6 +524,19 @@ mod tests {
             Err(failure) => failure.render(),
         };
         assert!(refused.contains("`power_ups.wand_half`"), "the refusal names the field: {refused}");
+
+        // A burst of a kind the burst port does not name is refused by its field.
+        let shards = r#"lava_splash: (count: 10, speed: 190.0, color: (1.0, 0.52, 0.14, 1.0), kind: "shard"),"#;
+        assert_eq!(authored.matches(shards).count(), 1, "the probe edits one burst");
+        std::fs::write(root.join("data/mary_o_rules.ron"), authored.replace(shards, &shards.replace(r#""shard""#, r#""glitter""#))).unwrap();
+        let refused = match EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None)
+            .with_schemas(|| vec![mary_o_rules_schema()])
+            .compile()
+        {
+            Ok(_) => panic!("a burst of no kind was admitted"),
+            Err(failure) => failure.render(),
+        };
+        assert!(refused.contains("`effects.lava_splash.kind`"), "the refusal names the field: {refused}");
 
         // Each sky zone sits the file's rise over the top of its level, and a
         // rise that sinks the sky into the level is refused.

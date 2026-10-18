@@ -100,3 +100,16 @@ fn a_snake_is_stomped_by_each_player_of_its_room_and_by_no_other() {
     let elsewhere = a_player_body(&mut app, other);
     assert!(still_walking_after_a_stomp(&mut app, snake, elsewhere), "a player of another live room does not");
 }
+
+/// A stomp plays the burst Mary-O's rules file states
+/// (`effects.shell_stomp`).
+#[test]
+fn a_stomp_plays_the_burst_its_rules_state() {
+    let (mut app, snake) = a_walking_snake();
+    crate::the_switch_ends_the_castle::record_effects(&mut app);
+    let mary_o = her(&mut app);
+    assert!(!still_walking_after_a_stomp(&mut app, snake, mary_o), "the premise: her stomp makes a shell");
+    let stated = crate::the_switch_ends_the_castle::shape_of(&ambition_demo_mary_o::rules::mary_o_rules().effects.shell_stomp);
+    let played = &app.world().resource::<crate::the_switch_ends_the_castle::Played>().bursts;
+    assert!(played.contains(&stated), "the stomp did not play the file's burst {stated:?}: played {played:?}");
+}

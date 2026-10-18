@@ -1876,6 +1876,13 @@ fn movement_options(
             if can_jump {
                 push(MovementVerb::Jump, 0.3);
             }
+            // THE BRAKE. With the approach priced off the ledge, these arms
+            // offered nothing that stops a run: GNU-ton pressing an advantage
+            // at 530 px/s chose Jump with 48 px of floor left and carried the
+            // run off the stage (`ko_envelope selfko npc_gnu_ton`).
+            if approach_walks_off || approach_overshoots {
+                push(MovementVerb::Retreat, 0.4);
+            }
         }
         Situation::Neutral => {
             push(MovementVerb::Approach, 0.5);

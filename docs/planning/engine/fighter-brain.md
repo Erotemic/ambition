@@ -549,6 +549,14 @@ Two paths, read from `AMBITION_FIGHTER_TRACE=1`:
    not under it), `Recover` now steers in. Below the underside it still holds.
    Same seeds, excluding Sanic: 16 losses → 12 (Mary-O 5→1, George 2→1, Robot
    3→2, Bob 2→4, the rest unchanged). One seed each, so noisy.
+4. Advantage and EdgeGuard offered nothing that brakes a run: with Approach
+   priced off the ledge, GNU-ton chose Jump at 530 px/s with 48 px of floor
+   and carried the run off. They now offer Retreat when Approach would walk off
+   or overshoot. Goblin 3→0, GNU-ton 4→2, Oiler 3→2, Pugnacious 4→1, Ramen 4→5.
+   The first eight fighters are within noise (12→13 excluding Sanic).
+
+Roster total over one minute each, from the first census to now: about 70 → 35
+self-KOs. Sanic (12) is item 2.
 
 ### F1 — the authored ladder is the authority (Q88, 2026-10-03)
 

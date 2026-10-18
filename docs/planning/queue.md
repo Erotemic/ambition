@@ -1140,6 +1140,15 @@ from a fresh run, not from here). Cargo diagnostics are read through
 `scripts/tests/test_cargo_diagnostics_are_read_plain.py` holds every script that
 reads cargo output to it.
 
+**`ambition_render` behind its own features, 2026-10-18 (was RED):**
+`a_body_that_dies_behind_a_pane_draws_no_pieces` failed at HEAD: the far-side
+compositor now keeps its quads (`ClipQuadPool`) and hides the ones a frame does
+not take, and the test counted hidden quads. It counts the quads that draw now.
+`run_tests.py` runs these tests (`ambition_render — its tests behind its own
+features`, which turns on `portal_render`); the pre-push lane (content lib, the
+demo binaries, app_it) does not, so a slice that touches the compositor runs
+them by name.
+
 **Sanic's visible job, 2026-10-17 (RED, inherited):** `cargo test -p
 ambition_demo_sanic_app --features capture,input,perf_probe,visible`: 59
 passed, 1 failed, `ov1_draws_the_world::the_start_line_sign_names_the_keys_his_actions_are_on`
@@ -2034,6 +2043,20 @@ crossing. Measured the same day by reading `portal_compositing.rs` (they
 carry no candidate marker). Next: give them that one road (a sprite effect
 through the far-side and transit pieces by construction, or the folded
 writer for quads), not a per-effect opt-in.
+
+
+**Far side, done 2026-10-18:** a pane composites every top-level drawable of
+its room drawn at or above the window (`publish_portal_compositing_candidates`),
+not only the three marked kinds, so a particle, a beam or a slash behind a
+pane is hidden and redrawn in its uncovered parts by construction. Two kinds
+opt out: the compositor's own copies and the parallax layers (placed against
+the view). Witness: `a_far_side_effect_is_composited_with_no_marker_of_its_own`
+(red under the old marker filter, without the parallax opt-out, and without
+the portal-room check). Cost (release, 2000 sprites, 1000 over the window,
+one pane): 64.9 µs a frame, against 34.7 µs for the old rule, which took
+only the 100 marked ones; with no pane 16.3 µs against 24.7 µs. A candidate
+that stays one is written in place: an insert command for each was 179 µs. **Open:** an effect is still not cut at a crossing
+(the transit pieces, `sync_portal_body_pieces`, take only bodies).
 
 ### DOG-THROUGH-THE-DOOR — a roaming dog's door test measured a distance
 

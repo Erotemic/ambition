@@ -76,5 +76,7 @@
             schema: "fighter_brain_ladder",
             version: 1,
         ),
+        // The lines it shows: banners, the select screen, its launcher row.
+        (path: "data/smash_text.ron", schema: "smash_text", version: 1),
     ],
 )

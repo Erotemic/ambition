@@ -1,0 +1,50 @@
+// The lines the Smash demo shows (schema `smash_text`, owned by the demo).
+// An edit here is shown at the next start, with no Rust build. A `{word}` is
+// a hole the game fills; a line may leave out a hole it fills, and may not
+// name one it does not. A key names a line, not its words.
+{
+    // The card when the match is decided. `{name}` is the winner's name, or
+    // the side's label where no name is known.
+    "banner.winner": "WINNER: {name}",
+    // Two fighters on their last stock, knocked off together.
+    "banner.draw": "Draw — everybody fell",
+    // Abandoned: not "Draw", which would say the fighters settled something.
+    "banner.no_contest": "NO CONTEST",
+    // The timer ran out with a tie.
+    "announce.sudden_death": "SUDDEN DEATH",
+    // The word after the countdown; it holds one beat.
+    "announce.go": "GO!",
+    // The pause menu's offer to abandon the match.
+    "pause.exit_label": "Exit Match",
+    "pause.exit_detail": "End this match as a No Contest.",
+    // The submit prompt on the select screen: the cursor takes a role, takes
+    // a fighter, or presses START.
+    "prompt.choose": "Choose",
+    // The game's row of a launcher.
+    "launcher.label": "Smash Siblings",
+    "launcher.description": "Stocks, a platform, and nothing underneath it",
+    "launcher.preparing": "Prepare Smash",
+    // The select screen.
+    "select.title": "CHOOSE YOUR FIGHTER",
+    "select.back": "BACK",
+    "select.start": "START",
+    // A slot on random: the draw has not happened yet.
+    "select.random": "RANDOM",
+    "select.slot": "P{number}",
+    // The stage and stocks buttons: prefixed, so they read as controls.
+    "select.stage": "Stage: {stage}",
+    "select.stocks": "Stocks: {stocks}",
+    // Who sits in a slot.
+    "select.not_playing": "NOT PLAYING",
+    "select.controller": "CONTROLLER {number}",
+    "select.cpu": "CPU",
+    "select.keyboard": "KEYBOARD",
+    "select.pad": "PAD {number}",
+    // A slot for an unplugged pad still names that pad.
+    "select.pad_missing": "PAD {number} (not connected)",
+    // Why the match cannot start yet, under the cards.
+    "select.needs_two": "Two fighters needed — click a slot's button to add a controller or a CPU",
+    "select.drag_tokens": "Drag each slot's token onto a portrait",
+    "select.refused": "This match cannot start — {refusal}",
+    "select.ready": "Ready — click START",
+}

@@ -42,6 +42,7 @@ pub mod spring;
 pub mod rules;
 pub mod stages;
 pub mod tether;
+pub mod text;
 
 /// The game-MODE tag this demo's rules gate on, so they sleep everywhere else.
 pub const SMASH_MODE: &str = "smash";
@@ -376,12 +377,12 @@ pub fn victory_banner(
     use ambition_platformer2d::actor::MatchVerdict;
     match outcome {
         // The name from the caller; a side label is not a name.
-        MatchVerdict::Winner(side) => format!("WINNER: {}", winner_name.unwrap_or(side)),
+        MatchVerdict::Winner(side) => text::smash_text().fill("banner.winner", &[("name", &winner_name.unwrap_or(side))]),
         // A draw is reachable and cheaply: two fighters on their last stock,
         // knocked off together.
-        MatchVerdict::Draw => "Draw — everybody fell".to_string(),
+        MatchVerdict::Draw => text::line("banner.draw"),
         // Say so: "Draw" would tell players the fighters settled something.
-        MatchVerdict::NoContest => "NO CONTEST".to_string(),
+        MatchVerdict::NoContest => text::line("banner.no_contest"),
     }
 }
 
@@ -1156,7 +1157,7 @@ fn announce_the_opening_countdown(
     if sudden_death.is_some_and(|entered| entered.entered(&active)) {
         readouts.set(
             SMASH_ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare("SUDDEN DEATH".to_string()),
+            ambition_platformer2d::presentation::HudReadout::bare(text::line("announce.sudden_death")),
         );
         return;
     }
@@ -1167,7 +1168,7 @@ fn announce_the_opening_countdown(
     let word = match rules.opening_phase(elapsed) {
         OpeningPhase::Counting { beats_remaining } => Some(beats_remaining.to_string()),
         // GO holds one beat past the release, then the card comes down.
-        OpeningPhase::Live if elapsed < total + per_beat => Some("GO!".to_string()),
+        OpeningPhase::Live if elapsed < total + per_beat => Some(text::line("announce.go")),
         OpeningPhase::Live => None,
     };
     match word {
@@ -1946,8 +1947,8 @@ fn offer_to_exit_the_match(
     match (offer, offered.is_some()) {
         (true, false) => {
             commands.insert_resource(ambition_platformer2d::game_shell::ShellAbandonOffer {
-                label: "Exit Match".to_owned(),
-                detail: "End this match as a No Contest.".to_owned(),
+                label: text::line("pause.exit_label"),
+                detail: text::line("pause.exit_detail"),
             });
         }
         (false, true) => {
@@ -2183,9 +2184,9 @@ fn publish_the_select_ui_cue(
         ambition_platformer2d::input::UiCue {
             context: ambition_platformer2d::input::SELECT_CONTEXT,
             priority: ambition_platformer2d::input::participant::context_priority::SELECT,
-            // The cursor takes a role, takes a fighter, or presses START.
-            // "Choose" fits all three.
-            submit_label: "Choose".to_owned(),
+            // The cursor takes a role, takes a fighter, or presses START: one
+            // word fits all three.
+            submit_label: text::line("prompt.choose"),
         },
         on_the_select_route(&router),
     );
@@ -2363,9 +2364,9 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
             SMASH_EXPERIENCE,
             SMASH_GAMEPLAY_ROUTE,
             // The name of the game, as its row of a launcher shows it.
-            "Smash Siblings",
-            "Stocks, a platform, and nothing underneath it",
-            "Prepare Smash",
+            text::line("launcher.label"),
+            text::line("launcher.description"),
+            text::line("launcher.preparing"),
             // No `.with_procedural_sfx()`: the stage is silent and the
             // fighters bring their own cues.
             ambition_platformer2d::provider::AuthoredCatalogFragments::new(
@@ -2518,6 +2519,9 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             crate::rules::SMASH_RULES_SCHEMA,
             crate::stages::SMASH_STAGES_SCHEMA,
             ambition_platformer2d::versus_match::match_rules::MATCH_RULES_SCHEMA,
+            // Each line is read where it is shown. The launcher row is read
+            // once when the launcher is built, so it keeps its start words.
+            crate::text::SMASH_TEXT_SCHEMA,
         ],
         restated: Vec::new(),
     });

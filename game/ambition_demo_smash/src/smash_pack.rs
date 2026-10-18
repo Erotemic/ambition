@@ -20,7 +20,7 @@ use ambition_platformer2d::content::EmbeddedPack;
 pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! {
     root: "assets",
     // The stages and the demo's own rules are this demo's content.
-    schemas: [crate::stages::smash_stages_schema, crate::rules::smash_rules_schema],
+    schemas: [crate::stages::smash_stages_schema, crate::rules::smash_rules_schema, crate::text::smash_text_schema],
 };
 
 /// The body a character plays on as a fighter, as this pack's facet states

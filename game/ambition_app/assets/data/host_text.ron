@@ -1,0 +1,26 @@
+// The words of the host's own surfaces (read by `app::host_text`). An edit
+// here is shown at the next start, with no Rust build. A `{word}` is a hole
+// the host fills; a line may leave out a hole it fills, and may not name one
+// it does not. A key names a line, not its words.
+//
+// These are the host's words. A game's words are in its own pack (Ambition's
+// launcher row is `ambition_content`'s `data/ambition_text.ron`).
+{
+    // The cover while the first frame is prepared.
+    "loading.title": "AMBITION",
+    "loading.subtitle": "TANGENT SPACE SANDBOX",
+    "loading.preparing": "Preparing sandbox…",
+    "loading.building": "Building the first coherent frame",
+    "loading.loading": "Loading the Ambition sandbox",
+    // The progress line: the headline above, and the assets settled of all.
+    "loading.progress": "{headline}  ·  {settled}/{total}",
+    // `{label}` is the asset it waits for.
+    "loading.item": "Loading {label}",
+    "loading.presentation": "Preparing presentation",
+    "loading.ready": "Ready",
+    "loading.finalizing": "Finalizing the first complete frame…",
+    // `{assets}` is the list of the assets that did not load.
+    "loading.asset_failed": "A required asset failed to load",
+    "loading.failed_list": "Failed: {assets}",
+    "loading.preparation_failed": "Startup preparation failed",
+}

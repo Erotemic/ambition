@@ -129,8 +129,11 @@ missing line, an unknown line and an unknown hole, each with the file and the
 key named. Keys name lines, not words, so a later catalog of languages states
 the same keys; there is one language and no locale switch. Each game is
 done: Smash, Mary-O, Sanic, Versus (`data/<game>_text.ron`) and Ambition's
-launcher row and start cover (`data/ambition_text.ron`). Next, the shell's
-own words (menus,
+launcher row (`data/ambition_text.ron`). A host's words are the host's: the
+start cover is `ambition_app`'s `assets/data/host_text.ron`, a lone file
+(`content_text!`) checked against the host's keys with `ShownText::checked`.
+Each owner states its own words, so no crate reads another's text to show
+its own surface. Next, the shell's own words (menus,
 settings, the engine's "Talk" and "HP", the cutscene hint): Q68 gives them to
 the evergreen shell, so they are one shell text file, not a copy in each
 game's pack.

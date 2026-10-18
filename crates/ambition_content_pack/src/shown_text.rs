@@ -47,6 +47,19 @@ pub trait TextKeys: Send + Sync + 'static {
 pub struct ShownText(BTreeMap<String, String>);
 
 impl ShownText {
+    /// The lines of one file that is not a pack source (a host's own words,
+    /// read with `content_text!`), checked as admission checks a pack's:
+    /// each refusal names its key. The caller names the file.
+    pub fn checked(text: &str, keys: &[TextKey]) -> Result<Self, Vec<String>> {
+        let lines: Self = ron::from_str(text).map_err(|error| vec![error.to_string()])?;
+        let problems = lines.problems(keys);
+        if problems.is_empty() {
+            Ok(lines)
+        } else {
+            Err(problems)
+        }
+    }
+
     /// The line `key`. Admission refused a file without it, so a key the
     /// game did not declare is the only way to miss, and that is a defect in
     /// the game: it panics with the key named.
@@ -177,6 +190,23 @@ mod tests {
         ] {
             let rendered = compiled(text).expect_err(text).render();
             assert!(rendered.contains(says) && rendered.contains("text.ron"), "{text}: {rendered}");
+        }
+    }
+
+    /// A lone file is checked as a pack source is: its lines are read, and
+    /// a missing line, an unknown line or a file that does not parse is
+    /// refused with the key named.
+    #[test]
+    fn a_lone_file_is_checked_as_a_source_is() {
+        let text = ShownText::checked(r#"{"go": "GO!", "winner": "{name} wins"}"#, ProbeKeys::KEYS).expect("the file is whole");
+        assert_eq!(text.fill("winner", &[("name", &"Alice")]), "Alice wins");
+        for (file, says) in [
+            (r#"{"go": "GO!"}"#, "`winner` is not stated"),
+            (r#"{"go": "GO!", "winner": "W", "gone": "G"}"#, "`gone` is not a line the game shows"),
+            (r#"{"go": "GO!", "#, "Expected"),
+        ] {
+            let refused = ShownText::checked(file, ProbeKeys::KEYS).expect_err(file).join("; ");
+            assert!(refused.contains(says), "{file}: {refused}");
         }
     }
 

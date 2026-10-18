@@ -117,7 +117,8 @@ impl AmbitionExperiencePlugin {
 
 impl Plugin for AmbitionExperiencePlugin {
     fn build(&self, app: &mut App) {
-        let text = crate::shown_text::ambition_text_of(&crate::pack::select(app.world_mut()));
+        let text = ambition_content_schemas::text::lowered_ambition_text(&crate::pack::select(app.world_mut()))
+            .expect("Ambition's pack states its launcher row (`data/ambition_text.ron`)");
         PlatformerExperienceAuthoring::new(
             AMBITION_EXPERIENCE,
             self.config.route_id.clone(),
@@ -209,11 +210,10 @@ mod tests {
             .get(&experience_id)
             .expect("provider registered itself in an alternate host");
         assert_eq!(registration.launch_route.as_str(), AMBITION_GAMEPLAY_ROUTE);
-        // The launcher row's words, and the lines the host reads, are the
-        // pack's text file's.
-        let text = crate::shown_text::ambition_text_of(crate::pack::shipped());
+        // The launcher row's words are the pack's text file's.
+        let text = ambition_content_schemas::text::lowered_ambition_text(crate::pack::shipped())
+            .expect("Ambition's pack states its launcher row");
         assert_eq!(registration.display_name, text.line("launcher.label"));
-        assert_eq!(app.world().resource::<crate::shown_text::AmbitionShownText>().0, text);
         let route = app
             .world()
             .resource::<ShellRouteCatalog>()

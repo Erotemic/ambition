@@ -508,23 +508,23 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
     // Boot lands on the title screen: no gameplay was constructed at startup.
     assert_home(&mut app, "boot");
 
-    // The launcher derives its entries from provider registrations.
+    // The launcher derives its entries from provider registrations. Each row
+    // is named by its route: a row's words are its game's text file's, and a
+    // shown word is not an identity.
     let entries: Vec<String> = app
         .world()
         .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
         .launch_entries()
         .iter()
-        .map(|entry| entry.label.clone())
+        .map(|entry| entry.route_id.as_str().to_string())
         .collect();
-    // Each row's words are its game's text file's.
-    let ambition = ambition_content::shown_text::ambition_text_of(ambition_content::pack::shipped());
     assert_eq!(
         entries,
         vec![
-            ambition.line("launcher.label").to_string(),
-            ambition_demo_sanic::text::line("launcher.label"),
-            ambition_demo_mary_o::text::line("launcher.label"),
-            ambition_demo_smash::text::line("launcher.label"),
+            ambition_content::provider::AMBITION_GAMEPLAY_ROUTE,
+            ambition_demo_sanic::provider::SANIC_GAMEPLAY_ROUTE,
+            ambition_demo_mary_o::provider::MARY_O_GAMEPLAY_ROUTE,
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
         ],
         "launcher entries derive from the registered experiences, MINUS the \
          unlisted ones. An exact list on purpose — a launcher that silently gains \
@@ -538,14 +538,12 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
         .world()
         .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
         .iter()
-        .map(|registration| registration.display_name.clone())
+        .map(|registration| registration.launch_route.as_str().to_string())
         .collect();
     // ⚠ POCKET LEFT THE SHIPPED COMPOSITION 2026-09-01 (it was already unlisted;
     // now it is not registered either, and builds only for tests). `Versus` still
     // carries this property — an experience may be REGISTERED and not offered.
-    // The launcher row's name is the versus pack's text file's.
-    let versus = ambition_app::app::versus_rules::text::line("launcher.label");
-    for unlisted in [versus.as_str()] {
+    for unlisted in [ambition_app::app::versus::VERSUS_GAMEPLAY_ROUTE] {
         assert!(
             registered.iter().any(|name| name == unlisted),
             "`{unlisted}` must stay REGISTERED while being unlisted; found {registered:?}"

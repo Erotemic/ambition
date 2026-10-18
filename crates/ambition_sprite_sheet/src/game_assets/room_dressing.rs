@@ -76,7 +76,31 @@ pub enum RoomDressingPart {
     /// one for each thing. The square of a thing that gives no light is
     /// empty.
     DecorGlow,
+    /// The fill of a pillar: a solid block [`PILLAR_MAX_WIDTH`] wide or less
+    /// and more than [`PILLAR_MIN_HEIGHT`] high. It repeats down from the top
+    /// of the block.
+    Pillar,
+    /// One bay of the arcade below a platform: the brackets at its ends keep
+    /// their size, and the span between them is as long as the bay.
+    Arch,
+    /// A banner that hangs in the middle of a bay of the arcade.
+    Banner,
+    /// The ivy on a top corner of a block: a strip of [`IVY_VARIANTS`]
+    /// squares, each for a left corner (a right one is mirrored).
+    Ivy,
+    /// What hangs below the end of a platform whose corner has ivy: a strip
+    /// of [`IVY_VARIANTS`], each for a left end.
+    IvyStrands,
+    /// A sigil in the middle of a large wall face.
+    Emblem,
 }
+
+/// How many squares the ivy pictures of a theme have, side by side.
+pub const IVY_VARIANTS: u32 = 3;
+/// The widest block that is a pillar, in world units.
+pub const PILLAR_MAX_WIDTH: f32 = 48.0;
+/// A pillar is higher than this, in world units.
+pub const PILLAR_MIN_HEIGHT: f32 = 96.0;
 
 /// How many squares the decor picture of a theme has, side by side.
 pub const DECOR_VARIANTS: u32 = 6;
@@ -92,7 +116,8 @@ impl RoomDressingPart {
         &[Self::Fill, Self::Cap, Self::Under, Self::Side, Self::OneWay, Self::Motes, Self::Decor, Self::Door,
             Self::Shadow, Self::Ladder, Self::WaterClear, Self::WaterMurky, Self::WaterSurface,
             Self::BlinkSoft, Self::BlinkHard, Self::BlinkEdge, Self::HazardFill, Self::HazardEdge,
-            Self::DecorGlow];
+            Self::DecorGlow, Self::Pillar, Self::Arch, Self::Banner, Self::Ivy, Self::IvyStrands,
+            Self::Emblem];
 
     pub const fn key(self) -> &'static str {
         match self {
@@ -115,6 +140,12 @@ impl RoomDressingPart {
             Self::HazardFill => "hazard_fill",
             Self::HazardEdge => "hazard_edge",
             Self::DecorGlow => "decor_glow",
+            Self::Pillar => "pillar",
+            Self::Arch => "arch",
+            Self::Banner => "banner",
+            Self::Ivy => "ivy",
+            Self::IvyStrands => "ivy_strands",
+            Self::Emblem => "emblem",
         }
     }
 

@@ -1,0 +1,24 @@
+// THE GOBLIN'S PLATFORM-FIGHTER FACET: what the goblin is on a Smash stage,
+// where that differs from Smash's default fighter.
+(
+    character: "goblin",
+    knockback_weight: Some(0.94),
+    // Moves like small and quick, scrambling rather than sprinting.
+    // Shaped like Ultimate's Diddy Kong at 0.60 strength: each number is Smash's
+    // default fighter's, scaled by how that fighter differs from Ultimate's
+    // roster median (`scripts/smash_fighter_shape.py "Diddy Kong" --strength 0.6`).
+    body: Some((
+        max_run_speed: Some(346.4),
+        initial_dash_speed: Some(364.3),
+        run_accel: Some(361.7),
+        ground_friction: Some(632.9),
+        max_air_speed: Some(199.1),
+        air_accel: Some(674.3),
+        gravity: Some(1391.3),
+        max_fall_speed: Some(327.1),
+        fast_fall_speed: Some(531.6),
+        jump_speed: Some(589.0),
+        double_jump_speed: Some(585.6),
+        dodge_roll_speed: Some(386.7),
+    )),
+)

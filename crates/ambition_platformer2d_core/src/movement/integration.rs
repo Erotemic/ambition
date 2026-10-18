@@ -695,6 +695,7 @@ pub(super) fn integrate_normal_clusters(
             can_move_horizontal: abilities.abilities.move_horizontal
                 && !(input.shield_held && ground.on_ground)
                 && state.dodge_roll_timer <= 0.0
+                && state.air_dodge_timer <= 0.0
                 && state.held_velocity_timer <= 0.0,
             // ⭐ PLANTED, NOT MERELY UNSTEERABLE. A guard raised mid-run sheds
             // the run; an EVADE does not, because a roll and a spot dodge set
@@ -911,7 +912,7 @@ pub fn integrate_normal_spine(
     if !blink_hang_active {
         let down_speed = kin_vel.dot(g);
         let jump_gravity_scale = match tuning.locomotion.jump_law {
-            AxisJumpLaw::VelocityCut => 1.0,
+            AxisJumpLaw::VelocityCut | AxisJumpLaw::SquatDecided(_) => 1.0,
             AxisJumpLaw::PhasedGravity(params) => {
                 if phased_jump.active && down_speed < 0.0 {
                     let upward_speed = -down_speed;
@@ -1155,6 +1156,22 @@ pub fn integrate_normal_spine(
                     approach(along, equilibrium, accel * dt)
                 }
             }
+        };
+        // ⭐ LAUNCH DECAY: airborne speed beyond the body's own air top speed
+        // is somebody else's (a launch, a fling), and it slows at the mode's
+        // rate whatever the stick says — never below the body's own cap, so
+        // its drift is untouched. The carried floor follows it down through
+        // the clamp below.
+        let new_along = if !ctx.on_ground && tuning.locomotion.launch_decay > 0.0 {
+            let cap = tuning.locomotion.air_speed_cap();
+            if new_along.abs() > cap {
+                new_along.signum()
+                    * (new_along.abs() - tuning.locomotion.launch_decay * dt).max(cap)
+            } else {
+                new_along
+            }
+        } else {
+            new_along
         };
         *kin_vel += (new_along - along) * m;
         *carried_run = carried_run.clamp(new_along.min(0.0), new_along.max(0.0));

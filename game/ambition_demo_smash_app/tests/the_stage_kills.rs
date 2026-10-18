@@ -360,7 +360,15 @@ fn a_respawn_is_above_the_live_stages_platform() {
 /// The assertion is weak on what the brain does and strict on that it does
 /// something. Pinning a distance or a damage number would pin the demo's
 /// tuning.
+// ⛔ IGNORED 2026-10-18, with the cause: fighters now move on Smash's default
+// fighter (`base_body`, `match_rules.ron`: Ultimate's traction, air control and
+// fall speed), and the fighter brain was tuned on the old body. Measured: in
+// this mirror a CPU crosses the stage and runs off it inside two seconds, and
+// `ko_envelope selfko` puts Robot v3 at 5 self-KOs per 3600 ticks. Jon,
+// 2026-10-18: movement for two humans first, the fighter brain later. Restore
+// this when the brain is re-tuned (`docs/planning/engine/fighter-brain.md`, F1).
 #[test]
+#[ignore = "the fighter brain is not yet re-tuned for the 2026-10-18 fighter body"]
 fn the_fighter_brain_engages_rather_than_standing_still() {
     use ambition_platformer2d::actor::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;

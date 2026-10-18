@@ -1,0 +1,24 @@
+// CARL STARGAN'S PLATFORM-FIGHTER FACET: what Carl Stargan is on a Smash stage,
+// where that differs from Smash's default fighter.
+(
+    character: "npc_carl_stargan",
+    knockback_weight: Some(0.89),
+    // Moves like cosmic and floaty: a long drift and a slow fall.
+    // Shaped like Ultimate's Rosalina & Luma at 0.60 strength: each number is Smash's
+    // default fighter's, scaled by how that fighter differs from Ultimate's
+    // roster median (`scripts/smash_fighter_shape.py "Rosalina & Luma" --strength 0.6`).
+    body: Some((
+        max_run_speed: Some(324.0),
+        initial_dash_speed: Some(358.5),
+        run_accel: Some(375.5),
+        ground_friction: Some(657.1),
+        max_air_speed: Some(215.0),
+        air_accel: Some(1082.2),
+        gravity: Some(913.5),
+        max_fall_speed: Some(260.9),
+        fast_fall_speed: Some(423.9),
+        jump_speed: Some(473.0),
+        double_jump_speed: Some(470.2),
+        dodge_roll_speed: Some(376.2),
+    )),
+)

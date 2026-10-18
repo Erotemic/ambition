@@ -89,15 +89,9 @@ where
                 // shape that exercises the loop.
                 .on_team(format!("seat {}", index + 1))
         })
-        // Use the fighter body from the character's `smash_fighter` facet, if
-        // it authors one. Without it, the seat composes the stage numbers over
-        // the wandering-enemy baseline of an unauthored actor config.
-        .map(
-            |participant| match crate::smash_pack::fighter_body(participant.character.as_str()) {
-                Some(body) => participant.with_body(body),
-                None => participant,
-            },
-        )
+        // No seat states a body: each fighter plays on its own `smash_fighter`
+        // facet's body over Smash's default fighter, else its catalog feel,
+        // else the default fighter (`MatchRules::seat_body`).
         .collect();
     apply_smash_match_rules(&mut roster, starting_stocks());
     roster.published_by(SMASH_EXPERIENCE)

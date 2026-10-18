@@ -1,0 +1,24 @@
+// OILER'S PLATFORM-FIGHTER FACET: what Oiler is on a Smash stage,
+// where that differs from Smash's default fighter.
+(
+    character: "npc_oiler",
+    knockback_weight: Some(1.05),
+    // Moves like a sturdy floater: middling ground speed, long hang time.
+    // Shaped like Ultimate's Samus at 0.60 strength: each number is Smash's
+    // default fighter's, scaled by how that fighter differs from Ultimate's
+    // roster median (`scripts/smash_fighter_shape.py "Samus" --strength 0.6`).
+    body: Some((
+        max_run_speed: Some(308.5),
+        initial_dash_speed: Some(340.8),
+        run_accel: Some(335.4),
+        ground_friction: Some(586.9),
+        max_air_speed: Some(221.4),
+        air_accel: Some(959.4),
+        gravity: Some(1024.0),
+        max_fall_speed: Some(277.5),
+        fast_fall_speed: Some(450.9),
+        jump_speed: Some(489.3),
+        double_jump_speed: Some(486.4),
+        dodge_roll_speed: Some(438.9),
+    )),
+)

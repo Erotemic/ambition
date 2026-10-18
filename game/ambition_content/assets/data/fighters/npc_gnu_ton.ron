@@ -11,4 +11,22 @@
 (
     character: "npc_gnu_ton",
     knockback_weight: Some(0.86),
+    // Moves like a light fencer: quick feet, a long dash, a floaty jump.
+    // Shaped like Ultimate's Marth at 0.60 strength: each number is Smash's
+    // default fighter's, scaled by how that fighter differs from Ultimate's
+    // roster median (`scripts/smash_fighter_shape.py "Marth" --strength 0.6`).
+    body: Some((
+        max_run_speed: Some(342.0),
+        initial_dash_speed: Some(381.3),
+        run_accel: Some(408.7),
+        ground_friction: Some(715.2),
+        max_air_speed: Some(217.6),
+        air_accel: Some(894.0),
+        gravity: Some(1024.0),
+        max_fall_speed: Some(307.7),
+        fast_fall_speed: Some(500.0),
+        jump_speed: Some(475.6),
+        double_jump_speed: Some(472.8),
+        dodge_roll_speed: Some(402.3),
+    )),
 )

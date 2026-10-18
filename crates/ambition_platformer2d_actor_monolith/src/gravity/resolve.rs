@@ -25,8 +25,10 @@ use ambition_combat::actor_tuning::ActorConfig;
 /// - Player bodies (primary, clones, demo avatars): the authored gravity
 ///   response is the live movement tuning's `gravity`.
 /// - Actors and bosses (both carry the unified actor cluster): the response
-///   is `config.tuning.movement.gravity × surface.gravity_scale` — an aerial
-///   body's 0 scale is the zero-acceleration-with-retained-orientation case.
+///   is the body's gravity × `surface.gravity_scale` — an aerial body's 0
+///   scale is the zero-acceleration-with-retained-orientation case. The
+///   body's gravity is its `AuthoredMovementTuning`'s when it has one, else
+///   `config.tuning.movement.gravity`.
 /// - A HELD body gets the same zero response: one whose pose another
 ///   authority owns ([`PoseOwnedExternally`]: a rider in the saddle, a
 ///   conducted boss) or a captive ([`CapturedBy`]). The constraint moves it, so
@@ -53,6 +55,7 @@ pub fn resolve_body_motion_frames(
             Entity,
             &ambition_platformer2d_core::BodyKinematics,
             &ActorConfig,
+            Option<&ambition_platformer2d_core::AuthoredMovementTuning>,
             &ActorSurfaceState,
             Has<ambition_platformer2d_core::PoseOwnedExternally>,
             Has<ambition_combat::capture::CapturedBy>,
@@ -85,11 +88,16 @@ pub fn resolve_body_motion_frames(
     for (entity, kin, mut resolved) in &mut players {
         resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), player_response));
     }
-    for (entity, kin, config, surface, posed, captive, mut resolved) in &mut actors {
+    for (entity, kin, config, authored, surface, posed, captive, mut resolved) in &mut actors {
         let response = if posed || captive {
             0.0
         } else {
-            config.tuning.movement.gravity * surface.gravity_scale
+            // The gravity this body is integrated against is the one its
+            // authored feel states, when it states one: the same choice the
+            // integrator makes for every other number of the feel
+            // (`movement_law_of`). Reading only the config here gave every
+            // match seat the actor config's gravity whatever its body said.
+            authored.map_or(config.tuning.movement.gravity, |a| a.0.gravity) * surface.gravity_scale
         };
         resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), response));
     }

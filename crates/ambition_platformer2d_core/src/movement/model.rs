@@ -364,6 +364,11 @@ pub struct AxisManeuverState {
     /// standing; an air dodge spends the body's one aerial evade and ends in
     /// endlag with gravity waiting.
     pub air_dodge_timer: f32,
+    /// What the air dodge PUT IN (world px/s along its aim), which runs down to
+    /// nothing over the window: the dodge travels and then stops, rather than
+    /// handing its speed to a body whose air friction is low. Tracked apart
+    /// from `vel` for [`Self::dodge_roll_push`]'s reason: velocity is shared.
+    pub air_dodge_push: bevy_math::Vec2,
     /// Endlag after an air dodge: control is back, the evade is not.
     pub air_dodge_endlag_timer: f32,
     /// Endlag after a GROUND ROLL, the same shape as the air dodge's above and
@@ -510,6 +515,7 @@ impl Default for AxisManeuverState {
             ledge_vulnerable_timer: 0.0,
             spot_dodging: false,
             air_dodge_timer: 0.0,
+            air_dodge_push: bevy_math::Vec2::ZERO,
             air_dodge_endlag_timer: 0.0,
             dodge_roll_endlag_timer: 0.0,
             tumble_timer: 0.0,

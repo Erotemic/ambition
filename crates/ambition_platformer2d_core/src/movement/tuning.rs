@@ -511,6 +511,14 @@ pub struct MovementTuning {
     /// it; positive values make the world slowly forget imparted momentum.
     #[serde(default)]
     pub carried_decay: f32,
+    /// LAUNCH DECAY (px/s²): how fast airborne speed along the run axis
+    /// BEYOND this body's own air top speed bleeds away, whether or not the
+    /// stick is held — a knockback's slowdown, which the body's air friction
+    /// does not decide. `0.0` (the default) leaves world-imparted speed to
+    /// `air_stop_assist` and `carried_decay`, as before. A platform fighter's
+    /// rule: Ultimate decays every launch by 0.051 units/frame².
+    #[serde(default)]
+    pub launch_decay: f32,
     pub max_run_speed: f32,
     /// Air top speed is independent of ground run speed so per-character drift
     /// can differ from ground locomotion.
@@ -763,6 +771,11 @@ pub struct MovementTuning {
     /// which is what every body had before a fighter wanted the other option.
     #[serde(default)]
     pub spot_dodge_time: f32,
+    /// Recovery after a SPOT DODGE (s): standing, no longer protected, not yet
+    /// free to act — the punish window, as `dodge_roll_endlag` is the roll's.
+    /// `0.0` (the default) is a spot dodge that owes nothing.
+    #[serde(default)]
+    pub spot_dodge_endlag: f32,
     /// When this body's perfect-shield window opens. See [`ParryTiming`] —
     /// the two settings are Smash 4's and Ultimate's.
     #[serde(default)]
@@ -894,6 +907,23 @@ pub enum AxisJumpLaw {
     /// Speed-banded launch plus weak held-ascent gravity and stronger
     /// release/fall gravity.
     PhasedGravity(PhasedGravityJumpTuning),
+    /// The platform fighter's jump: the JUMP SQUAT decides the hop. Held
+    /// through the squat is a full hop; let go inside it is a short hop,
+    /// launched at its own fraction of the jump speed. Once the body has left
+    /// the ground the button changes nothing, so every arc is a commitment an
+    /// opponent can read. A body with no squat cannot let go in time and
+    /// always full-hops.
+    SquatDecided(SquatDecidedJumpTuning),
+}
+
+/// Parameters for [`AxisJumpLaw::SquatDecided`].
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SquatDecidedJumpTuning {
+    /// A short hop's launch speed as a fraction of the full hop's. Under
+    /// constant gravity the apex goes as its square, so `0.69` is a short hop
+    /// about 48% as high, the platform-fighter median.
+    pub short_hop_speed_frac: f32,
 }
 
 /// Parameters for a classic phased-gravity jump.
@@ -965,7 +995,7 @@ impl AxisJumpLaw {
     /// optional band is latched by the phased-gravity runtime state.
     pub fn ground_launch(self, base_speed: f32, side_speed: f32) -> (f32, Option<u8>) {
         match self {
-            Self::VelocityCut => (base_speed, None),
+            Self::VelocityCut | Self::SquatDecided(_) => (base_speed, None),
             Self::PhasedGravity(params) => {
                 let band = params.band_for_side_speed(side_speed);
                 (params.launch_speed_for_band(base_speed, band), Some(band))
@@ -992,6 +1022,14 @@ pub struct AxisLocomotion {
     /// See [`MovementTuning::carried_decay`].
     #[serde(default)]
     pub carried_decay: f32,
+    /// LAUNCH DECAY (px/s²): how fast airborne speed along the run axis
+    /// BEYOND this body's own air top speed bleeds away, whether or not the
+    /// stick is held — a knockback's slowdown, which the body's air friction
+    /// does not decide. `0.0` (the default) leaves world-imparted speed to
+    /// `air_stop_assist` and `carried_decay`, as before. A platform fighter's
+    /// rule: Ultimate decays every launch by 0.051 units/frame².
+    #[serde(default)]
+    pub launch_decay: f32,
     pub max_run_speed: f32,
     /// Top horizontal speed while AIRBORNE; `0.0` inherits
     /// [`Self::max_run_speed`]. See the twin on `MovementTuning` for why the
@@ -1125,6 +1163,9 @@ pub struct TraversalAbilityTuning {
     /// See [`MovementTuning::spot_dodge_time`].
     #[serde(default)]
     pub spot_dodge_time: f32,
+    /// See [`MovementTuning::spot_dodge_endlag`].
+    #[serde(default)]
+    pub spot_dodge_endlag: f32,
     /// See [`MovementTuning::parry_timing`].
     #[serde(default)]
     pub parry_timing: ParryTiming,
@@ -1548,6 +1589,7 @@ impl MovementTuning {
                 air_friction: self.air_friction,
                 air_stop_assist: self.air_stop_assist,
                 carried_decay: self.carried_decay,
+                launch_decay: self.launch_decay,
                 max_run_speed: self.max_run_speed,
                 max_air_speed: self.max_air_speed,
                 run_commit_frac: self.run_commit_frac,
@@ -1600,6 +1642,7 @@ impl MovementTuning {
                 air_dodge_endlag: self.air_dodge_endlag,
                 tumble_speed: self.tumble_speed,
                 spot_dodge_time: self.spot_dodge_time,
+                spot_dodge_endlag: self.spot_dodge_endlag,
                 parry_timing: self.parry_timing,
                 sdi_step: self.sdi_step,
                 asdi_step: self.asdi_step,
@@ -1641,6 +1684,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     air_friction: AIR_FRICTION,
     air_stop_assist: AIR_STOP_ASSIST,
     carried_decay: 0.0,
+    launch_decay: 0.0,
     max_run_speed: MAX_RUN_SPEED,
     // Zero inherits the ground run-speed cap.
     max_air_speed: 0.0,
@@ -1723,6 +1767,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     // zero for the same reason: an exploration body's grounded evade is the
     // roll, and a second one it never asked for would take that press away.
     spot_dodge_time: 0.0,
+    spot_dodge_endlag: 0.0,
     // Smash 4's, which is what the parry has always been here — a knob's
     // default is the behaviour that already shipped.
     parry_timing: ParryTiming::OnRaise,

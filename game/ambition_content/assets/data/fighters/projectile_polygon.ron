@@ -1,0 +1,24 @@
+// THE PROJECTILE POLYGON'S PLATFORM-FIGHTER FACET: what the projectile polygon is on a Smash stage,
+// where that differs from Smash's default fighter.
+(
+    character: "projectile_polygon",
+    knockback_weight: Some(1.09),
+    // Moves like a beast biped: a fast dash, heavy.
+    // Shaped like Ultimate's Charizard at 0.60 strength: each number is Smash's
+    // default fighter's, scaled by how that fighter differs from Ultimate's
+    // roster median (`scripts/smash_fighter_shape.py "Charizard" --strength 0.6`).
+    body: Some((
+        max_run_speed: Some(366.1),
+        initial_dash_speed: Some(384.7),
+        run_accel: Some(400.0),
+        ground_friction: Some(700.0),
+        max_air_speed: Some(221.4),
+        air_accel: Some(752.2),
+        gravity: Some(1288.6),
+        max_fall_speed: Some(300.6),
+        fast_fall_speed: Some(488.5),
+        jump_speed: Some(525.5),
+        double_jump_speed: Some(541.1),
+        dodge_roll_speed: Some(419.1),
+    )),
+)

@@ -1,0 +1,24 @@
+// THE PUGNACIOUS POLYGON'S PLATFORM-FIGHTER FACET: what the pugnacious polygon is on a Smash stage,
+// where that differs from Smash's default fighter.
+(
+    character: "pugnacious_polygon",
+    knockback_weight: Some(0.92),
+    // Moves like a brawler: the fastest ground game, poor in the air.
+    // Shaped like Ultimate's Little Mac at 0.60 strength: each number is Smash's
+    // default fighter's, scaled by how that fighter differs from Ultimate's
+    // roster median (`scripts/smash_fighter_shape.py "Little Mac" --strength 0.6`).
+    body: Some((
+        max_run_speed: Some(391.8),
+        initial_dash_speed: Some(392.4),
+        run_accel: Some(413.0),
+        ground_friction: Some(722.7),
+        max_air_speed: Some(233.9),
+        air_accel: Some(589.8),
+        gravity: Some(1142.4),
+        max_fall_speed: Some(349.1),
+        fast_fall_speed: Some(567.3),
+        jump_speed: Some(464.9),
+        double_jump_speed: Some(462.1),
+        dodge_roll_speed: Some(423.3),
+    )),
+)

@@ -108,13 +108,18 @@
         slash_recoil: 0.0,
         // 3 frames.
         jump_squat_time: 0.05,
-        air_dodge_time: 0.2,
-        air_dodge_speed: 440.0,
-        air_dodge_endlag: 0.16,
-        // The roll ends at rest and leaves the fighter punishable. The
-        // distance (530 px/s over 0.22 s, about 117 px) is unchanged on
-        // purpose.
-        dodge_roll_endlag: 0.08,
+        // The air dodge: 18 frames protected and weightless (Ultimate's
+        // directional dodge is intangible 19, its neutral 27), travelling
+        // 60 px along the stick as its push runs down to nothing, then 27
+        // frames of endlag that fall normally: 45 in all (Ultimate neutral
+        // 38-63, median 49).
+        air_dodge_time: 0.3,
+        air_dodge_speed: 400.0,
+        air_dodge_endlag: 0.45,
+        // The roll ends at rest and leaves the fighter punishable: 14 frames,
+        // so travel (`base_body`'s 15) and recovery total 29, Ultimate's
+        // forward roll (Mario 29, median 29).
+        dodge_roll_endlag: 0.23333333,
         // Dodge staling: each recent evade removes a quarter of the
         // invulnerable window, floored at a third, forgiven one per 1.2 s.
         // It reduces the i-frames, not the distance.
@@ -133,10 +138,16 @@
         // air from 60%, the forward air and dash attack from 20%, smashes
         // from 0%; a jab from 140%.
         tumble_speed: 250.0,
-        // Spot dodge, 0.16 s: shorter than the roll because it covers no
-        // distance. The engine default is 0.0, so an exploration body keeps
-        // the roll.
-        spot_dodge_time: 0.16,
+        // Spot dodge: 15 frames protected (Ultimate's 3-17), then 8 of
+        // recovery: 23 in all, between Ultimate's cancel (20) and its end
+        // (25). The engine default is 0.0, so an exploration body keeps the
+        // roll.
+        spot_dodge_time: 0.25,
+        spot_dodge_endlag: 0.13333333,
+        // A launch slows at Ultimate's 0.051 units/frame² (551 px/s² on this
+        // stage) along the run axis, whoever's air friction it is, until it is
+        // down to the fighter's own air speed.
+        launch_decay: 551.0,
         // Smash 4 opens the parry window on the press, Ultimate on the
         // release. The stage chooses; `OnRelease` is fully live (guarded by
         // `the_parry_window_opens_where_the_ruleset_says_it_does`).
@@ -181,12 +192,11 @@
         // Crouching stops the fighter, as in every Smash for characters
         // without a crawl. A fighter with a crawl declares its own.
         crouch_speed_frac: 0.0,
-        // Initial dash: the first 14 frames of a ground move, where a
-        // direction change is free (dash-dance, foxtrot re-tap). A genre
-        // starting point, not a measured value.
-        initial_dash_time: 0.23333333,
-        // Inherit the run speed; the phase controls when you may turn.
-        initial_dash_speed: 0.0,
+        // Initial dash: the first 10 frames of a ground move, where a
+        // direction change is free (dash-dance, foxtrot re-tap). Ultimate's
+        // median (docs/related-work/smash-ultimate-fighter-reference.md); its
+        // speed is the fighter's (`base_body` below).
+        initial_dash_time: 0.16666667,
         // Reversing out of a run costs frames. 3 frames is what the proving
         // ground tolerates: at 7, `smash_it` lost two premise guards because
         // the CPU matchup became one-sided. The value is a feel call for Jon.
@@ -202,6 +212,54 @@
             stomper_invuln: 0.06666667,
             band: 14.0,
         ),
+    )),
+    // The default fighter: the body every fighter plays on unless its own
+    // `smash_fighter` facet states differences (layered over this) or its
+    // catalog row brings a whole feel of its own (Mary-O's). A patch over the
+    // engine's body. Ultimate's middle, put on this stage's scale: 160 units
+    // across 480 px is 3 px a unit, so u/frame x 180 is px/s and u/frame² x
+    // 10800 is px/s² (docs/related-work/smash-ultimate-fighter-reference.md).
+    // `fighter_motion` measures what a fighter actually does on it.
+    base_body: Some((
+        // Run 1.75 u/f (median 1.71, Mario 1.76); the first step bursts at
+        // 1.92 (median 1.91), 1.10 x the run, as the roster's median ratio.
+        max_run_speed: Some(315.0),
+        initial_dash_speed: Some(345.0),
+        // Traction 0.102 u/f² (Mario 0.102, median 0.11): a stopped run
+        // skids about 45 px. The responsive law brakes a let-go stick with
+        // BOTH numbers (it approaches zero at `run_accel`, then applies
+        // friction), so the traction is their sum: 400 + 700 = 1100.
+        run_accel: Some(400.0),
+        ground_friction: Some(700.0),
+        // Air speed 1.19 u/f, air acceleration 0.08 (Mario 1.208, 0.08), and
+        // air friction 0.015 (Mario's): a drift carries until steered out of.
+        max_air_speed: Some(215.0),
+        air_accel: Some(860.0),
+        air_stop_assist: Some(160.0),
+        // Gravity 0.106 u/f² and fall speed 1.72 u/f, both inside the
+        // roster's p10-p90. Chosen with the jump below so the full hop is
+        // 35 u high and lands in about 54 frames (median 33 u, 50 frames),
+        // and the short hop is 16.7 u in about 35 frames (median 16.3, 37).
+        gravity: Some(1150.0),
+        max_fall_speed: Some(310.0),
+        // Fast fall 1.6 x the fall speed, every fighter's ratio; reached
+        // within a few frames, as a fast fall is a commitment, not a ramp.
+        fast_fall_speed: Some(500.0),
+        fast_fall_accel: Some(6000.0),
+        // Full hop 105 px (491 by the formula; the 60 Hz step lands 4% short
+        // of it, so 501). An air jump from rest at the apex rises the same
+        // (Mario's air jump equals his full hop).
+        jump_speed: Some(501.0),
+        double_jump_speed: Some(501.0),
+        air_jumps: Some(1),
+        // The squat decides: let go inside the 3-frame squat for a short hop
+        // at 0.69 of the launch, about 48% of the height (the roster's
+        // median ratio). A release in the air changes nothing.
+        jump_law: Some(SquatDecided((short_hop_speed_frac: 0.69))),
+        // A forward roll covers 96 px (32 u, Mario 32.2, median 31.8) in
+        // 15 frames.
+        dodge_roll_speed: Some(384.0),
+        dodge_roll_time: Some(0.25),
     )),
     // Fighters are solid to each other (jostle). The engine owns the
     // constraint; the match only says its cast has it.

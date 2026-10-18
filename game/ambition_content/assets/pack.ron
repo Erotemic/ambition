@@ -73,6 +73,18 @@
         (path: "data/fighters/player_robot_v3.ron", schema: "smash_fighter", version: 1),
         (path: "data/fighters/npc_gnu_ton.ron", schema: "smash_fighter", version: 1),
         (path: "data/fighters/npc_ramen_nujan.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/npc_alice.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/npc_bob.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/perfect_cellular_automaton.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/npc_ninja_shadow_oni_leader.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/npc_pirate_admiral.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/npc_oiler.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/goblin.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/npc_emmy_noether.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/npc_carl_stargan.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/special_patent_clerk.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/projectile_polygon.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/pugnacious_polygon.ron", schema: "smash_fighter", version: 1),
         (path: "data/encounters/goblin_encounter.ron", schema: "encounter_waves", version: 1),
         // The rules of Ambition's own rooms: the death replay, which hits land
         // heavy, and how much landing lag a move charges.

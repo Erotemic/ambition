@@ -1,0 +1,24 @@
+// THE PATENT CLERK'S PLATFORM-FIGHTER FACET: what the patent clerk is on a Smash stage,
+// where that differs from Smash's default fighter.
+(
+    character: "special_patent_clerk",
+    knockback_weight: Some(0.99),
+    // Moves like the all-rounder at a clerk's pace.
+    // Shaped like Ultimate's Dr. Mario at 0.60 strength: each number is Smash's
+    // default fighter's, scaled by how that fighter differs from Ultimate's
+    // roster median (`scripts/smash_fighter_shape.py "Dr. Mario" --strength 0.6`).
+    body: Some((
+        max_run_speed: Some(278.9),
+        initial_dash_speed: Some(303.0),
+        run_accel: Some(391.2),
+        ground_friction: Some(684.6),
+        max_air_speed: Some(199.1),
+        air_accel: Some(761.1),
+        gravity: Some(1119.4),
+        max_fall_speed: Some(298.2),
+        fast_fall_speed: Some(484.7),
+        jump_speed: Some(484.5),
+        double_jump_speed: Some(505.7),
+        dodge_roll_speed: Some(386.7),
+    )),
+)

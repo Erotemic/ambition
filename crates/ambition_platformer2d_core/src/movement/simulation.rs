@@ -84,10 +84,9 @@ fn tick_jump_squat(
         tuning,
         events,
     );
-    // Honour it now through the body's own variable-jump law instead of authoring a second "short
-    // hop" number.
+    // Honour it now through the body's own jump law.
     if !input.jump_held() {
-        super::abilities::cut_ascent_now(kinematics, state, abilities, frame, tuning);
+        super::abilities::short_hop_at_takeoff(kinematics, state, abilities, frame, tuning);
     }
 }
 
@@ -310,7 +309,7 @@ pub fn handle_jump_buffer_clusters(
             tuning.abilities.footstool.rise_speed,
         );
         match tuning.locomotion.jump_law {
-            AxisJumpLaw::VelocityCut => state.phased_jump.clear(),
+            AxisJumpLaw::VelocityCut | AxisJumpLaw::SquatDecided(_) => state.phased_jump.clear(),
             AxisJumpLaw::PhasedGravity(params) => {
                 let band = params.band_for_side_speed(kinematics.vel.dot(frame.side()).abs());
                 state.phased_jump.begin(band);
@@ -337,7 +336,7 @@ pub fn handle_jump_buffer_clusters(
         // Air jumps are independent ability impulses. Do not accidentally
         // inherit a ground jump's weak-gravity phase.
         match tuning.locomotion.jump_law {
-            AxisJumpLaw::VelocityCut => state.phased_jump.clear(),
+            AxisJumpLaw::VelocityCut | AxisJumpLaw::SquatDecided(_) => state.phased_jump.clear(),
             AxisJumpLaw::PhasedGravity(params) => {
                 let band = params.band_for_side_speed(kinematics.vel.dot(frame.side()).abs());
                 state.phased_jump.begin(band);

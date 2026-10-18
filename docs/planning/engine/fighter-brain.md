@@ -518,6 +518,20 @@ becomes game content. Neither is an AI architecture question.
 
 ## Current work
 
+### F1 — the brain on the new fighter body (2026-10-18, open)
+
+Every fighter now moves on Smash's default fighter or its own facet body
+(`base_body` in `match_rules.ron`, Ultimate's traction, air control, fall
+speed and short hop; `docs/related-work/smash-ultimate-fighter-reference.md`).
+The brain was tuned on the old wandering-enemy body. Measured with `ko_envelope
+selfko`, 3600 ticks each against a passive seat: Robot v3 5, George 4, Alice 3,
+Pirate 1, Ninja 0, Duelist A 0, all at 0%. Two emergent tests are ignored with
+this as their reason: `the_cpu_reaches_for_more_than_one_move` (George, 4
+distinct moves against a floor of 5) and
+`the_fighter_brain_engages_rather_than_standing_still` (a CPU crosses the
+stage and runs off it inside two seconds). Jon, 2026-10-18: movement for two
+humans first, the brain later. Un-ignore both when this is done.
+
 ### F0 — CPUs self-destruct against an opponent that does nothing (2026-10-18)
 
 `ko_envelope selfko FIGHTER [ticks=N]` seats FIGHTER as the default-level CPU

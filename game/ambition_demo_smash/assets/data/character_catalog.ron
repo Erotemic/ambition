@@ -104,9 +104,6 @@
             // floor (`SMASH_FIGHTER_KIT`) and trims to its ceiling, so the verb
             // a fighter brings from home is `Pogo`.
             abilities: Some([RunJump, AirJump, FastFall, Attack, DirectionalPrimary, Pogo, Shield, Dodge, LedgeGrab]),
-            // The player-grade feel, not the actor baseline: without it a
-            // fighter plays floaty and sluggish.
-            axis_tuning: Some(()),
             tags: ["player", "smash"],
             fallback_dialogue: ["Off the edge is the only way out."],
         ),
@@ -121,7 +118,6 @@
             default_brain: "duelist",
             default_action_set: "duelist",
             abilities: Some([RunJump, AirJump, FastFall, Attack, DirectionalPrimary, Pogo, Shield, Dodge, LedgeGrab]),
-            axis_tuning: Some(()),
             tags: ["smash"],
             fallback_dialogue: ["Percent is not health. I learned that the hard way."],
         ),
@@ -136,7 +132,6 @@
             // Its strikes draw its own sheet (`george_booul_strike_fx`), not the stand-in wedge.
             attack_vfx: Some("george_booul_strike_fx"),
             abilities: Some([RunJump, AirJump, FastFall, Attack, DirectionalPrimary, Pogo, Shield, Dodge, LedgeGrab]),
-            axis_tuning: Some(()),
             tags: ["smash"],
             fallback_dialogue: ["Either you are on the stage or you are not."],
         ),

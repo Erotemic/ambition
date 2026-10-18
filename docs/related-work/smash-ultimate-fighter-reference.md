@@ -21,6 +21,7 @@ and the survey notes behind it.
 | [SmashWiki: Roll](https://www.ssbwiki.com/Roll) | forward and back roll **distances** in Ultimate, measured in Training mode and rescaled for the stage grid's error | community wiki | CC BY-SA |
 | [SmashWiki: Traction](https://www.ssbwiki.com/Traction) | per-fighter traction (ground deceleration) in Ultimate | community wiki | CC BY-SA |
 | [SmashWiki: Air friction](https://www.ssbwiki.com/Air_friction) | per-fighter air friction (the horizontal slowdown when the stick is let go in the air) and falling friction | community wiki | CC BY-SA |
+| [SmashWiki: Knockback](https://www.ssbwiki.com/Knockback) | launch speed is 0.03 × knockback (u/f) and decays by 0.051 u/f every frame; air friction is disabled while it decays, fall speed is not | community wiki | CC BY-SA |
 | [SmashWiki: Jump](https://www.ssbwiki.com/Jump#Jump_squat) | every Ultimate fighter has a 3-frame jump squat (exceptions: Kazuya 7, Giga Bowser 15) | community wiki | CC BY-SA |
 | [SmashWiki: Short hop](https://www.ssbwiki.com/Short_hop) | a short hop is a jump released during the jump squat; Ultimate adds the two-button short hop and the short-hop-attack 0.85x damage | community wiki | CC BY-SA |
 | [SmashWiki: Dash](https://www.ssbwiki.com/Dash) | initial dash vs run; turnaround only in an initial dash's first frames; a turnaround dash waits 3 frames before accelerating | community wiki | CC BY-SA |
@@ -102,6 +103,9 @@ Ratios that hold across the roster, and are worth more than any one number:
 - **A fighter reaches its fall speed fast.** Mario hits 1.5 u/f after 17 frames
   of falling; the cap, not gravity, sets most of a descent.
 - **Everyone's jump squat is 3 frames** (0.05 s).
+- **A launch slows at one rate for everyone**: 0.051 u/f² (550 px/s² at
+  `k = 3`), whatever the fighter's air friction. How far a hit sends you is
+  the launch and the rate, not your drift.
 - **Letting go of the stick in the air barely slows a fighter.** Air friction
   is about a tenth of air acceleration (median 0.01 against 0.075): a drift
   carries until it is steered out of. Air friction only applies with the stick

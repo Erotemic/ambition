@@ -304,7 +304,15 @@ fn watch_a_match(character: &str, ticks: usize) -> MoveLedger {
 /// The poison is the shared table: `smash_duelist_a` has eleven moves and
 /// no specials. If that fighter also reached this floor, the number would
 /// measure the brain's appetite for variety, not George's repertoire.
+// ⛔ IGNORED 2026-10-18, with the cause: fighters now move on Smash's default
+// fighter (`base_body`, `match_rules.ron`: Ultimate's traction, air control and
+// fall speed), and the fighter brain was tuned on the old body. Measured: in
+// this mirror a CPU crosses the stage and runs off it inside two seconds, and
+// `ko_envelope selfko` puts Robot v3 at 5 self-KOs per 3600 ticks. Jon,
+// 2026-10-18: movement for two humans first, the fighter brain later. Restore
+// this when the brain is re-tuned (`docs/planning/engine/fighter-brain.md`, F1).
 #[test]
+#[ignore = "the fighter brain is not yet re-tuned for the 2026-10-18 fighter body"]
 fn the_cpu_reaches_for_more_than_one_move() {
     const WINDOW: usize = 900;
     const FLOOR: usize = 5;

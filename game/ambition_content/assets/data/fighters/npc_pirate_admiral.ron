@@ -1,0 +1,24 @@
+// THE PIRATE ADMIRAL'S PLATFORM-FIGHTER FACET: what the pirate admiral is on a Smash stage,
+// where that differs from Smash's default fighter.
+(
+    character: "npc_pirate_admiral",
+    knockback_weight: Some(1.15),
+    // Moves like a heavy who commands rather than chases: slow run, slow drift, falls hard.
+    // Shaped like Ultimate's King Dedede at 0.60 strength: each number is Smash's
+    // default fighter's, scaled by how that fighter differs from Ultimate's
+    // roster median (`scripts/smash_fighter_shape.py "King Dedede" --strength 0.6`).
+    body: Some((
+        max_run_speed: Some(290.5),
+        initial_dash_speed: Some(334.8),
+        run_accel: Some(342.7),
+        ground_friction: Some(599.7),
+        max_air_speed: Some(173.6),
+        air_accel: Some(674.3),
+        gravity: Some(1194.9),
+        max_fall_speed: Some(349.1),
+        fast_fall_speed: Some(567.3),
+        jump_speed: Some(510.0),
+        double_jump_speed: Some(507.0),
+        dodge_roll_speed: Some(394.7),
+    )),
+)

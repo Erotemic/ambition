@@ -178,6 +178,8 @@ pub struct EditableMovementTuning {
     pub air_friction: f32,
     pub air_stop_assist: f32,
     pub carried_decay: f32,
+    /// Carried, not edited: a match rule.
+    pub launch_decay: f32,
     pub max_run_speed: f32,
     /// `0.0` inherits [`Self::max_run_speed`]; see
     /// [`ae::MovementTuning::max_air_speed`].
@@ -244,6 +246,8 @@ pub struct EditableMovementTuning {
     /// See [`ae::MovementTuning::spot_dodge_time`] — 0.0 means the grounded
     /// evade is always the roll.
     pub spot_dodge_time: f32,
+    /// Carried, not edited: the spot dodge's recovery.
+    pub spot_dodge_endlag: f32,
     /// Carried, not edited (see the `parry_timing` line in `as_engine`). A
     /// parry-timing swap is a rules declaration about which game a stage
     /// reproduces, not a slider. `reflect(ignore)` hides it from the inspector,
@@ -338,6 +342,7 @@ impl EditableMovementTuning {
             air_friction: self.air_friction,
             air_stop_assist: self.air_stop_assist,
             carried_decay: self.carried_decay,
+            launch_decay: self.launch_decay,
             max_run_speed: self.max_run_speed,
             max_air_speed: self.max_air_speed,
             run_commit_frac: self.run_commit_frac,
@@ -409,6 +414,7 @@ impl EditableMovementTuning {
             jab_lock_speed: self.jab_lock_speed,
             jab_lock_limit: self.jab_lock_limit,
             spot_dodge_time: self.spot_dodge_time,
+            spot_dodge_endlag: self.spot_dodge_endlag,
             // Not editable, but carried. A parry-timing swap is a rules declaration, not
             // a slider; rebuilding it from `default()` on any edit would delete it.
             parry_timing: self.parry_timing,
@@ -460,6 +466,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             air_friction: value.air_friction,
             air_stop_assist: value.air_stop_assist,
             carried_decay: value.carried_decay,
+            launch_decay: value.launch_decay,
             max_run_speed: value.max_run_speed,
             max_air_speed: value.max_air_speed,
             run_commit_frac: value.run_commit_frac,
@@ -509,6 +516,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             jab_lock_speed: value.jab_lock_speed,
             jab_lock_limit: value.jab_lock_limit,
             spot_dodge_time: value.spot_dodge_time,
+            spot_dodge_endlag: value.spot_dodge_endlag,
             parry_timing: value.parry_timing,
             dodge_stale_step: value.dodge_stale_step,
             dodge_stale_floor: value.dodge_stale_floor,

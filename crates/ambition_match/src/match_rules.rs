@@ -17,6 +17,7 @@ use ambition_content_pack::{
     CapabilityId, ContentSchemaHandler, DiagnosticCode, FacetOutcome, FacetSource,
     RuntimeDisposition, SchemaId, SchemaRegistration, SchemaVersion,
 };
+use ambition_characters::smash_fighter::FighterBodyAuthoring;
 use ambition_platformer2d_core::{MatchAbilities, MatchBody};
 use ambition_platformer2d_shared_tangle::body::BodyContact;
 use serde::Deserialize;
@@ -45,6 +46,9 @@ pub struct AuthoredMatchRules {
     pub time_limit_ticks: u32,
     pub abilities: Option<MatchAbilities>,
     pub body: Option<MatchBody>,
+    /// The game's default fighter body, as a patch over the engine's
+    /// (`DEFAULT_TUNING`). See [`MatchRules::base_body`].
+    pub base_body: Option<FighterBodyAuthoring>,
     pub fighter_contact: Option<AuthoredContact>,
 }
 
@@ -67,6 +71,8 @@ impl Default for AuthoredMatchRules {
             time_limit_ticks: rules.time_limit_ticks,
             abilities: rules.abilities,
             body: rules.body,
+            // `MatchRules` holds the resolved body, not the patch it came from.
+            base_body: None,
             fighter_contact: rules.fighter_contact.map(|contact| AuthoredContact { resistance: contact.resistance }),
         }
     }
@@ -84,6 +90,9 @@ impl AuthoredMatchRules {
         rules.time_limit_ticks = self.time_limit_ticks;
         rules.abilities = self.abilities;
         rules.body = self.body;
+        rules.base_body = self
+            .base_body
+            .map(|body| body.over(ambition_platformer2d_core::DEFAULT_TUNING));
         rules.fighter_contact = self.fighter_contact.map(|contact| BodyContact { resistance: contact.resistance });
     }
 
@@ -117,12 +126,13 @@ impl AuthoredMatchRules {
                 ("evade_cancel_tail", body.evade_cancel_tail),
                 ("tumble_speed", body.tumble_speed),
                 ("spot_dodge_time", body.spot_dodge_time),
+                ("spot_dodge_endlag", body.spot_dodge_endlag),
+                ("launch_decay", body.launch_decay),
                 ("sdi_step", body.sdi_step),
                 ("asdi_step", body.asdi_step),
                 ("jab_lock_speed", body.jab_lock_speed),
                 ("crouch_speed_frac", body.crouch_speed_frac),
                 ("initial_dash_time", body.initial_dash_time),
-                ("initial_dash_speed", body.initial_dash_speed),
                 ("turnaround_time", body.turnaround_time),
                 ("teeter_margin", body.teeter_margin),
             ] {
@@ -131,6 +141,9 @@ impl AuthoredMatchRules {
         }
         if let Some(contact) = &self.fighter_contact {
             amount("fighter_contact.resistance", contact.resistance);
+        }
+        if let Some(body) = &self.base_body {
+            body.problems(&mut problems);
         }
         problems
     }

@@ -87,6 +87,26 @@
     // was measured there), so that count is one of these. One leaves no room
     // to learn the matchup; five makes an early mistake recoverable.
     stock_choices: [1, 3, 5],
+    // How long Back is held on the select screen before it leaves (seconds).
+    // A tap moves a token; a hold leaves.
+    back_hold_to_leave_seconds: 0.55,
+    // How the select cursor feels.
+    select_cursor: (
+        // Portrait cells a fully pushed stick crosses each second. Speed goes
+        // as the push squared, so a half push moves at a quarter speed.
+        cells_per_second: 4.5,
+        // A push this hard (0 to 1) or harder builds speed; a gentler push
+        // never does: it places the hand.
+        ramp_arm_deflection: 0.6,
+        // A hard push holds base speed this long before it builds, so a
+        // correction never speeds up.
+        ramp_arm_seconds: 0.18,
+        // How long the build takes, on a smooth curve.
+        ramp_to_full_seconds: 0.6,
+        // Top speed, as a multiple of base speed: reached after about 0.78 s
+        // of hard push, longer than most grid crossings.
+        ramp_max_multiplier: 2.2,
+    ),
     // The swing a fighter that authors no kit is seated with. Many of
     // Ambition's cast are peaceful; seated in the arena, each throws this. It
     // is the duelists' swipe (character_catalog.ron, `duelist`): a hit must

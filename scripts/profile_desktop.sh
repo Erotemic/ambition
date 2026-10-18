@@ -623,13 +623,26 @@ start_tracy_capture() {
 finish_tracy_capture() {
     local out_dir="$1" capture_pid="${2:-}"
     [[ -n "$capture_pid" ]] || return 0
-    # tracy-capture exits on its own when the game disconnects; give it a
-    # moment, then stop waiting rather than hanging the whole profile run.
-    local waited=0
-    while kill -0 "$capture_pid" 2>/dev/null && (( waited < 30 )); do
+    # tracy-capture exits on its own when the game disconnects, after it has
+    # drained the client's queue and SAVED. ⛔ Only SIGINT makes it save early;
+    # SIGTERM discards everything. On 2026-10-18 a 120 s autoplay run lost its
+    # whole trace to a 30 s wait followed by a plain `kill`: the save of a
+    # gameplay-length trace takes longer than that. So: wait (the save scales
+    # with the run), then SIGINT and wait again, and only then SIGTERM.
+    local waited=0 save_budget=$(( 60 + ${duration:-60} * 2 ))
+    while kill -0 "$capture_pid" 2>/dev/null && (( waited < save_budget )); do
         sleep 1
         waited=$((waited + 1))
     done
+    if kill -0 "$capture_pid" 2>/dev/null; then
+        log "tracy-capture still running after ${waited}s; asking it to save (SIGINT)"
+        kill -INT "$capture_pid" 2>/dev/null || true
+        waited=0
+        while kill -0 "$capture_pid" 2>/dev/null && (( waited < save_budget )); do
+            sleep 1
+            waited=$((waited + 1))
+        done
+    fi
     kill "$capture_pid" 2>/dev/null || true
     wait "$capture_pid" 2>/dev/null || true
     if [[ ! -s "$out_dir/tracy.trace" ]]; then
@@ -1265,9 +1278,9 @@ run_instrumented_launch() {
         log "the game exited with status $status; finalizing the artifacts collected so far"
     fi
     # The heartbeat stops with the game, and what follows can take another half
-    # minute (Tracy waits up to 30s for its client to disconnect). Silence there
+    # minute (tracy-capture drains and saves the trace: minutes for a gameplay-length run). Silence there
     # reads as a hang, which is the same complaint the heartbeat exists to avoid.
-    log "game process exited; finalizing perf.data and the Tracy trace (tracy-capture waits up to 30s for the client to disconnect, then csvexport runs over the trace)"
+    log "game process exited; finalizing perf.data and the Tracy trace (tracy-capture drains and saves the trace, which can take minutes, then csvexport runs over it)"
     finish_tracy_capture "$out_dir" "$tracy_pid"
 }
 

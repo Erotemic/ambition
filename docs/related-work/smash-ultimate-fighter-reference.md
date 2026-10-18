@@ -20,6 +20,7 @@ and the survey notes behind it.
 | [Ultimate Frame Data: Mario](https://ultimateframedata.com/mario) | per-move frame data, including the standing, dash and pivot grabs and the directional air dodges | third-party | facts, attributed |
 | [SmashWiki: Roll](https://www.ssbwiki.com/Roll) | forward and back roll **distances** in Ultimate, measured in Training mode and rescaled for the stage grid's error | community wiki | CC BY-SA |
 | [SmashWiki: Traction](https://www.ssbwiki.com/Traction) | per-fighter traction (ground deceleration) in Ultimate | community wiki | CC BY-SA |
+| [SmashWiki: Air friction](https://www.ssbwiki.com/Air_friction) | per-fighter air friction (the horizontal slowdown when the stick is let go in the air) and falling friction | community wiki | CC BY-SA |
 | [SmashWiki: Jump](https://www.ssbwiki.com/Jump#Jump_squat) | every Ultimate fighter has a 3-frame jump squat (exceptions: Kazuya 7, Giga Bowser 15) | community wiki | CC BY-SA |
 | [SmashWiki: Short hop](https://www.ssbwiki.com/Short_hop) | a short hop is a jump released during the jump squat; Ultimate adds the two-button short hop and the short-hop-attack 0.85x damage | community wiki | CC BY-SA |
 | [SmashWiki: Dash](https://www.ssbwiki.com/Dash) | initial dash vs run; turnaround only in an initial dash's first frames; a turnaround dash waits 3 frames before accelerating | community wiki | CC BY-SA |
@@ -29,7 +30,7 @@ and the survey notes behind it.
 
 The per-fighter table is
 [`data/smash_ultimate_fighter_stats.csv`](data/smash_ultimate_fighter_stats.csv):
-90 fighters × 40 columns, in Ultimate's own units, spelled exactly as the
+90 fighters × 42 columns, in Ultimate's own units, spelled exactly as the
 sources spell them (`??`, `**`, `20/25` and `(2) 6` included). It is written
 by [`scripts/fetch_smash_ultimate_reference.py`](../../scripts/fetch_smash_ultimate_reference.py);
 re-run it to refresh the table and diff the result. Its columns are named after the source columns in the
@@ -81,6 +82,7 @@ numeric value). The px columns are at `k = 3`.
 | short-hop airtime (frames) | 24 | 30 | 37 | 42 | 50 | 0.62 s |
 | full-hop airtime (frames) | 34 | 42 | 50 | 58 | 71 | 0.83 s |
 | traction (u/f²) | 0.076 | 0.085 | 0.11 | 0.13 | 0.138 | 1188 px/s² |
+| air friction (u/f²) | 0.005 | 0.005 | 0.01 | 0.015 | 0.05 | 108 px/s² |
 | forward roll distance (u) | 26.5 | 28.8 | 31.8 | 35.5 | 39.7 | 95 px |
 | back roll distance (u) | 26.4 | 28.9 | 31.5 | 35 | 36.6 | 94 px |
 | forward roll total (frames) | 26 | 28 | 29 | 31 | 35 | 0.48 s |
@@ -100,6 +102,10 @@ Ratios that hold across the roster, and are worth more than any one number:
 - **A fighter reaches its fall speed fast.** Mario hits 1.5 u/f after 17 frames
   of falling; the cap, not gravity, sets most of a descent.
 - **Everyone's jump squat is 3 frames** (0.05 s).
+- **Letting go of the stick in the air barely slows a fighter.** Air friction
+  is about a tenth of air acceleration (median 0.01 against 0.075): a drift
+  carries until it is steered out of. Air friction only applies with the stick
+  let go; steering the other way is air acceleration.
 
 ## Archetype anchors
 

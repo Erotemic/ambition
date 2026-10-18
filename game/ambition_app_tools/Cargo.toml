@@ -198,3 +198,10 @@ path = "src/bin/moveset_render.rs"
 name = "ko_envelope"
 path = "src/bin/ko_envelope.rs"
 bench = false
+
+# How each Smash fighter MOVES (run, hops, falls, rolls, dodges), beside
+# Ultimate's cast from `docs/related-work/data/`. Observational; no arms.
+[[bin]]
+name = "fighter_motion"
+path = "src/bin/fighter_motion.rs"
+test = false

@@ -49,7 +49,6 @@ pub fn present_live_room_visuals(
     >,
     assets: Option<Res<GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     // The zones a game draws no picture for. Absent: each zone has its picture.
     hidden_zones: Option<Res<super::gate_portal_visuals::HiddenLoadingZones>>,
 ) {
@@ -58,9 +57,6 @@ pub fn present_live_room_visuals(
     else {
         return;
     };
-    // A device that draws no screen shader draws no room look: a room with a
-    // look then has its blocks only, and they take the skin of its theme.
-    let looks_are_drawn = quality.is_none_or(|quality| quality.budget.shaders.draws_screen_shaders());
     for (room, definition) in rooms.live_rooms() {
         if presented.iter().any(|stamp| stamp.0 == room) {
             continue;
@@ -71,7 +67,6 @@ pub fn present_live_room_visuals(
             scope,
             rooms.rooms().spec(definition),
             assets.as_deref(),
-            looks_are_drawn,
             hidden_zones.as_deref(),
         );
         commands.spawn_session_scoped(
@@ -86,23 +81,17 @@ pub fn spawn_room_visuals(
     session_scope: SessionSpawnScope,
     spec: &ambition_platformer2d_world::rooms::RoomSpec,
     assets: Option<&GameAssets>,
-    // Whether this device draws the look of a room that has one
-    // (`ShaderBudget::draws_screen_shaders`).
-    looks_are_drawn: bool,
     // The loading zones that have no picture and no nameplate
     // (`HiddenLoadingZones`): a place to arrive at, or a zone that is a secret.
     hidden_zones: Option<&super::gate_portal_visuals::HiddenLoadingZones>,
 ) {
     let world = &spec.world;
     spawn_grid(commands, session_scope, world);
-    // The theme the room names: its blocks take the terrain skin of it.
-    // A room with a look of its own (a `palette`) draws its blocks its own way:
-    // no skin goes on them. On a device that does not draw the look, the
-    // blocks are the room, and they take the skin. (The choice is made when
-    // the room is presented: a room that is live when the tier changes keeps
-    // what it has until it is presented again.)
-    let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::named_by_room_metadata(&spec.metadata)
-        .filter(|_| spec.metadata.visual_profile.palette.is_none() || !looks_are_drawn);
+    // The theme the room names: its blocks take the terrain skin of it. A
+    // room with a look of its own (a `palette`) has a skin too: the look is
+    // drawn over published art, so the room keeps its look with each shader
+    // off.
+    let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::named_by_room_metadata(&spec.metadata);
     spawn_surface_chain_visuals(commands, session_scope, world, theme);
     if let Some(theme) = theme {
         // Where the decor of the skin must not stand: on a thing of the play.
@@ -136,17 +125,23 @@ pub fn spawn_room_visuals(
         );
         // The terrain of the room: where its decor must not stand, and the
         // meshes of its skin, which are its children.
-        commands.spawn_session_scoped(
-            session_scope,
-            (
-                super::terrain_skin::TerrainKeepOut(keep_out),
-                super::terrain_skin::RoomTerrain::new(theme, BVec2::new(world.size.x, world.size.y)),
-                Transform::default(),
-                Visibility::default(),
-                RoomVisual,
-                Name::new("Terrain of the room"),
-            ),
-        );
+        let size = BVec2::new(world.size.x, world.size.y);
+        // A theme with two states lays the skin of each on the same blocks;
+        // the room's look shows each one where the room is in that state.
+        let states = std::iter::once(theme).chain(theme.corrupted());
+        for laid in states {
+            commands.spawn_session_scoped(
+                session_scope,
+                (
+                    super::terrain_skin::TerrainKeepOut(keep_out.clone()),
+                    super::terrain_skin::RoomTerrain::state_of(theme, laid, size),
+                    Transform::default(),
+                    Visibility::default(),
+                    RoomVisual,
+                    Name::new("Terrain of the room"),
+                ),
+            );
+        }
     }
     for block in &world.blocks {
         spawn_block(

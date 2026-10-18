@@ -87,8 +87,9 @@
         // flat under a weak hit, is lifted to the full angle by a strong one,
         // and always leaves an airborne body at the full angle (Ultimate's
         // `361`: flat to KB 60, 38 degrees from KB 88, tumble above KB 80).
-        // The speeds are those ratios of this stage's tumble line (300). With
-        // it, a forward smash at 60% rises 34 px where it rose 16.
+        // The speeds are those ratios of a tumble line of 300 (the stage's is
+        // now 250, a little below the flat band's top). With it, a forward
+        // smash at 60% rises 38 px where it rose 16.
         sakurai_angle: Some((flat_below: 225.0, full_at: 330.0, angle_deg: 38.0)),
         // A hit area drawn by a character's art is at least this much of its
         // owner's height across, each way. Sheets draw their areas pixel-true

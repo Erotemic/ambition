@@ -134,6 +134,9 @@ pub fn report_image_census(
     // session root exists. The shell host boots in `Playing` with only the
     // launcher, so mode alone would mark launcher art as a gameplay hitch.
     sessions: Query<(), With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>>,
+    // And no cover is up: a room's first ticks run under its cover, and what
+    // they draw is not in front of the player.
+    covers: Query<(), With<crate::rendering::presentation_settling::PresentationCover>>,
     // This App's readiness authority. The arrival recorded below is the
     // candidate half; the render world supplies the prepared half. Both must be
     // App-local; see `AppReadiness`.
@@ -141,7 +144,7 @@ pub fn report_image_census(
 ) {
     let live_known = mode
         .as_ref()
-        .map(|mode| mode.get().allows_gameplay() && !sessions.is_empty());
+        .map(|mode| mode.get().allows_gameplay() && !sessions.is_empty() && covers.is_empty());
     let during_gameplay = live_known.unwrap_or(false);
     // The render world reports GPU preparation and has no `GameMode`; tell the
     // shared ledger what the main world knows, once per frame.

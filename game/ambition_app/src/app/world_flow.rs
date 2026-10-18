@@ -11,6 +11,7 @@
 //!   shell route's FIRST room, before it activates.
 
 mod first_room_art;
+mod first_room_cover;
 pub(crate) mod parallax_residency;
 pub(crate) mod room_transition_assets;
 mod room_transition_presentation;

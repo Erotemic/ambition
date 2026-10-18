@@ -23,9 +23,7 @@ fn scripted_two_step_phase1(strike_profile: BossAttackProfile) -> BossAttackPatt
         ..Default::default()
     };
     BossAttackPattern::Scripted {
-        intro: BossPattern::default(),
         phase1,
-        transition: BossPattern::default(),
         phase2: BossPattern::default(),
         enrage: BossPattern::default(),
     }
@@ -155,15 +153,13 @@ fn a_new_phase_waits_for_a_committed_strike_before_its_first_telegraph() {
         ],
         ..Default::default()
     };
-    let BossAttackPattern::Scripted { intro, phase1, transition, enrage, .. } =
+    let BossAttackPattern::Scripted { phase1, enrage, .. } =
         scripted_two_step_phase1(old.clone())
     else {
         unreachable!()
     };
     let cfg = cfg_with(BossAttackPattern::Scripted {
-        intro,
         phase1,
-        transition,
         phase2,
         enrage,
     });
@@ -838,9 +834,7 @@ fn idle_attack_chance_can_gate_rest_into_eye_beam() {
         ..Default::default()
     };
     let mut cfg = cfg_with(BossAttackPattern::Scripted {
-        intro: BossPattern::default(),
         phase1,
-        transition: BossPattern::default(),
         phase2: BossPattern::default(),
         enrage: BossPattern::default(),
     });
@@ -945,9 +939,7 @@ fn a_move_authored_only_inside_a_select_arm_or_a_stance_is_baked() {
         ..Default::default()
     };
     let cfg = cfg_with(BossAttackPattern::Scripted {
-        intro: BossPattern::default(),
         phase1,
-        transition: BossPattern::default(),
         phase2: BossPattern::default(),
         enrage: BossPattern::default(),
     });
@@ -994,9 +986,7 @@ fn scripted_repertoire_dedups_strike_profiles_in_first_seen_order() {
         ..Default::default()
     };
     let mut cfg = cfg_with(BossAttackPattern::Scripted {
-        intro: BossPattern::default(),
         phase1,
-        transition: BossPattern::default(),
         phase2,
         enrage: BossPattern::default(),
     });
@@ -1126,9 +1116,7 @@ fn bd1_tick(
 
 fn bd1_pattern(phase1: BossPattern) -> BossAttackPattern {
     BossAttackPattern::Scripted {
-        intro: BossPattern::default(),
         phase1,
-        transition: BossPattern::default(),
         phase2: BossPattern::default(),
         enrage: BossPattern::default(),
     }
@@ -1334,9 +1322,7 @@ fn bd1_a_phase_change_unwinds_every_stance_and_resolves_afresh() {
         ..Default::default()
     };
     let cfg = cfg_with(BossAttackPattern::Scripted {
-        intro: BossPattern::default(),
         phase1,
-        transition: BossPattern::default(),
         phase2,
         enrage: BossPattern::default(),
     });
@@ -1407,7 +1393,6 @@ fn bd1_the_new_atoms_parse_from_authored_ron() {
 /// contact.
 fn contact_chase_cfg() -> BossPatternCfg {
     let mut cfg = cfg_with(BossAttackPattern::Scripted {
-        intro: BossPattern::default(),
         phase1: BossPattern {
             steps: vec![
                 BossPatternStep::Rest { duration: 0.4 },
@@ -1423,7 +1408,6 @@ fn contact_chase_cfg() -> BossPatternCfg {
             ],
             ..Default::default()
         },
-        transition: BossPattern::default(),
         phase2: BossPattern::default(),
         enrage: BossPattern::default(),
     });
@@ -1693,9 +1677,7 @@ fn beat_steps(profile: &BossAttackProfile, telegraph_s: f32, strike_s: f32) -> B
 fn a_phase_that_winds_up_faster_asks_for_its_own_beat() {
     let sweep = BossAttackProfile::Strike("side_sweep".to_string());
     let cfg = cfg_with(BossAttackPattern::Scripted {
-        intro: BossPattern::default(),
         phase1: beat_steps(&sweep, 0.95, 0.4),
-        transition: BossPattern::default(),
         phase2: beat_steps(&sweep, 0.6, 0.35),
         enrage: beat_steps(&sweep, 0.95, 0.4),
     });
@@ -1737,5 +1719,25 @@ fn a_beat_move_id_resolves_to_its_profile() {
         BossAttackProfile::Special("wolf_rake".to_string()),
     ] {
         assert_eq!(BossAttackProfile::from_move_id(&beat_move_id(&profile, 0.6, 0.35)), profile);
+    }
+}
+
+/// A boss runs no pattern in its intro or its transition: its encounter and
+/// its conductor own those beats. So a profile that authors one is refused
+/// when it is read, and is not kept as data that decides nothing.
+#[test]
+fn a_scripted_pattern_refuses_an_intro_or_a_transition() {
+    let read = |fields: &str| ron::from_str::<BossAttackPattern>(&format!("Scripted({fields})"));
+    let fight = "phase1: (steps: [Rest(duration: 1.0)]), phase2: (steps: []), enrage: (steps: [])";
+    let pattern = read(fight).unwrap_or_else(|error| panic!("the premise: a fight reads ({error})"));
+    for extra in ["intro: (steps: [Rest(duration: 1.0)])", "transition: (steps: [Rest(duration: 1.0)])"] {
+        assert!(read(&format!("{extra}, {fight}")).is_err(), "`{extra}` was read and kept");
+    }
+    use BossEncounterPhase::*;
+    for phase in [Phase1, Phase2, Enrage] {
+        assert!(pattern.pattern_for(phase).is_some(), "{phase:?} has no pattern");
+    }
+    for phase in [Dormant, Intro, Transition, Stagger, Death] {
+        assert!(pattern.pattern_for(phase).is_none(), "{phase:?} runs a pattern");
     }
 }

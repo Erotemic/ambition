@@ -73,11 +73,6 @@
         body_damage: 1,
         attack_pattern: Scripted(
             // Single show-of-force beat to anchor the tone.
-            intro: (steps: [
-                Telegraph(profile: Strike("floor_slam"), duration: 1.4),
-                Strike(profile: Strike("floor_slam"), duration: 0.4),
-                Rest(duration: 1.2),
-            ]),
             phase1: (steps: [
                 // Beat 1: FloorSlam — familiar ground-pound.
                 Telegraph(profile: Strike("floor_slam"), duration: 1.2),
@@ -98,7 +93,6 @@
                 Rest(duration: 2.0),
             ]),
             // Pure 3 s rest so the music swap has space.
-            transition: (steps: [Rest(duration: 3.0)]),
             phase2: (steps: [
                 // Beat 1: PitTrap — pit + puppy_slug spawn.
                 Telegraph(profile: Special("minima_trap"), duration: 1.0),
@@ -198,16 +192,6 @@
         attack_damage: 2,
         body_damage: 1,
         attack_pattern: Scripted(
-            intro: (steps: [
-                // A beat to look at it, then a missile to learn it by. (Each
-                // key has ONE tell and ONE strike length wherever it appears:
-                // the engine compiles one move per key.)
-                Rest(duration: 0.6),
-                Telegraph(profile: Special("mockingbird_missile"), duration: 0.8,
-                    telegraph: Some((pose: Some("missile"), cue: Some("boss.mockingbird.lock_on")))),
-                Strike(profile: Special("mockingbird_missile"), duration: 0.45),
-                Rest(duration: 1.0),
-            ]),
             // PHASE 1: shots from its side, a snap at whoever rides into
             // reach, then the dive. The Rest after the dive is the stun.
             phase1: (steps: [
@@ -238,7 +222,6 @@
                 Strike(profile: Special("mockingbird_dive"), duration: 1.2),
                 Rest(duration: 3.3),
             ]),
-            transition: (steps: [Rest(duration: 2.2)]),
             // PHASE 2: it has lit itself on fire. Salvoes and a wider fan; the
             // dive turns and comes twice; burning lightsabers from its mouth.
             phase2: (steps: [
@@ -408,9 +391,6 @@
         attack_pattern: Scripted(
             // He stands on the giant, and its arms are on it. No move of the
             // free fists here: one would put the arms in their portals.
-            intro: (steps: [
-                Rest(duration: 2.5),
-            ]),
             // Phase 1 — "A Demonstration at a Distance": the giant's arms are
             // on it. It punches down into a portal by its shoulder, and the
             // fist comes down out of the pair's far line, over the player. The
@@ -438,7 +418,6 @@
             ]),
             // The clamp: two lines take the arms and close on them. The
             // conductor performs it while the encounter holds its beat.
-            transition: (steps: [Rest(duration: 3.0)]),
             // Phase 2 — "Lectures on Motion" and "Principia": the fists are
             // bodies of their own. Each turn is short and answers where the
             // player is: a demonstration (the fist that sticks is the way to
@@ -645,13 +624,11 @@
         // (164, 96) of its 208 x 288 frame and the body's centre is (104, 155).
         projectile_origin_offset: (60.0, -59.0),
         attack_pattern: Scripted(
-            intro: (steps: [Rest(duration: 1.0)]),
             phase1: (steps: [
                 Rest(duration: 1.4),
                 Telegraph(profile: Special("eye_beam"), duration: 0.75),
                 Strike(profile: Special("eye_beam"), duration: 0.25),
             ]),
-            transition: (steps: [Rest(duration: 1.0)]),
             phase2: (steps: [
                 Rest(duration: 1.2),
                 Telegraph(profile: Special("eye_beam"), duration: 0.65),
@@ -742,12 +719,6 @@
         body_damage: 0,
         projectile_origin_offset: (0.0, -20.0),
         attack_pattern: Scripted(
-            intro: (steps: [
-                Telegraph(profile: Special("noodly_pulse"), duration: 1.2,
-                    telegraph: Some((pose: Some("pulse"), cue: Some("boss.flying_spaghetti_monster.intro")))),
-                Strike(profile: Special("noodly_pulse"), duration: 0.45),
-                Rest(duration: 1.0),
-            ]),
             phase1: (steps: [
                 Telegraph(profile: Special("meatball_volley"), duration: 1.1,
                     telegraph: Some((pose: Some("floor_slam"), cue: None))),
@@ -767,7 +738,6 @@
                 // Stranded on the floor: the punish window.
                 Rest(duration: 2.2),
             ]),
-            transition: (steps: [Rest(duration: 2.0)]),
             phase2: (steps: [
                 Telegraph(profile: Special("lesser_appendages"), duration: 1.0,
                     telegraph: Some((pose: Some("summon"), cue: None))),
@@ -876,13 +846,6 @@
         attack_damage: 2,
         body_damage: 0,
         attack_pattern: Scripted(
-            intro: (steps: [
-                // A bite to learn him by: the longest tell he ever gives.
-                Telegraph(profile: Special("trex_bite"), duration: 1.1,
-                    telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.growl_snarl_a")))),
-                Strike(profile: Special("trex_bite"), duration: 0.4),
-                Rest(duration: 1.4),
-            ]),
             // PHASE 1, THE HUNT: whatever you do near him is answered (a bite in
             // front, the tail behind, a snap up at a ledge); far away, he stalks
             // you. Then the charge.
@@ -941,7 +904,6 @@
                 Strike(profile: Special("trex_charge"), duration: 0.5),
                 Rest(duration: 3.4),
             ]),
-            transition: (steps: [Rest(duration: 2.0)]),
             // PHASE 2, THE QUAKE: his bite comes twice (a clack of teeth is its
             // tell), and keeping away is answered by the stomp: a shock runs the
             // floor both ways (jump it) and rocks fall where dust trickles first.
@@ -1187,11 +1149,6 @@
         body_damage: 1,
         projectile_origin_offset: (0.0, -36.0),
         attack_pattern: Scripted(
-            intro: (steps: [
-                Telegraph(profile: Special("gradient_cascade"), duration: 1.3),
-                Strike(profile: Special("gradient_cascade"), duration: 0.5),
-                Rest(duration: 1.1),
-            ]),
             phase1: (steps: [
                 Telegraph(profile: Special("gradient_cascade"), duration: 1.2),
                 Strike(profile: Special("gradient_cascade"), duration: 0.5),
@@ -1203,7 +1160,6 @@
                 Strike(profile: Special("saddle_point"), duration: 0.8),
                 Rest(duration: 1.5),
             ]),
-            transition: (steps: [Rest(duration: 2.2)]),
             phase2: (steps: [
                 Telegraph(profile: Special("gradient_cascade"), duration: 1.0),
                 Strike(profile: Special("gradient_cascade"), duration: 0.5),
@@ -1297,13 +1253,6 @@
         attack_damage: 2,
         body_damage: 0,
         attack_pattern: Scripted(
-            intro: (steps: [
-                // A swipe to learn him by: the longest tell he ever gives.
-                Telegraph(profile: Special("hunny_swipe"), duration: 1.1,
-                    telegraph: Some((pose: Some("slash"), cue: Some("boss.bear_mauler.swipe")))),
-                Strike(profile: Special("hunny_swipe"), duration: 0.45),
-                Rest(duration: 1.4),
-            ]),
             // PHASE 1, BEDTIME.
             phase1: (steps: [
                 Select(table: [
@@ -1353,7 +1302,6 @@
                 Strike(profile: Special("hunny_balloon"), duration: 1.9),
                 Rest(duration: 3.0),
             ]),
-            transition: (steps: [Rest(duration: 2.0)]),
             // PHASE 2, RUMBLY TUMMY.
             phase2: (steps: [
                 Select(table: [
@@ -1520,11 +1468,6 @@
         body_damage: 2,
         projectile_origin_offset: (0.0, -34.0),
         attack_pattern: Scripted(
-            intro: (steps: [
-                Telegraph(profile: Strike("full_body_pulse"), duration: 1.0),
-                Strike(profile: Strike("full_body_pulse"), duration: 0.45),
-                Rest(duration: 0.8),
-            ]),
             phase1: (steps: [
                 Telegraph(profile: Strike("side_sweep"), duration: 0.8),
                 Strike(profile: Strike("side_sweep"), duration: 0.4),
@@ -1536,7 +1479,6 @@
                 Strike(profile: Special("overfit_volley"), duration: 0.30),
                 Rest(duration: 1.1),
             ]),
-            transition: (steps: [Rest(duration: 1.8)]),
             phase2: (steps: [
                 Telegraph(profile: Strike("side_sweep"), duration: 0.7),
                 Strike(profile: Strike("side_sweep"), duration: 0.4),
@@ -1618,7 +1560,6 @@
         body_damage: 0,
         attack_pattern: Scripted(
             // His wake-up is conducted (dead, the jolt, the howl): no move.
-            intro: (steps: [Rest(duration: 1.0)]),
             // PHASE 1, THE ORDER: drilled and slow, one move at a time.
             phase1: (steps: [
                 Select(table: [
@@ -1693,7 +1634,6 @@
                 Rest(duration: 2.4),
             ]),
             // The leash breaks: lightning finds him (conducted).
-            transition: (steps: [Rest(duration: 1.8)]),
             // PHASE 2, THE WOLF: hunched low, faster, three blows; the bound and the pack.
             phase2: (steps: [
                 Select(table: [

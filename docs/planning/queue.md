@@ -2009,9 +2009,18 @@ pulse and more), and the validator still counts those beats. A conducted boss
 plays its own intro and transition (the Hunny Horror's roar, Wolfenstein's
 wake-up and lightning).
 
-**Decision owed:** delete `intro` and `transition` from `Scripted` (the
-encounter and the conductor own the dramatic beats), or run them as authored.
-Do not leave a field that decides nothing.
+**Closed 2026-10-18 (decided: delete).** `Scripted` has `phase1`, `phase2`
+and `enrage`; `BossAttackPattern` denies unknown fields, so an authored
+`intro` is refused at admission with its line and column. The encounter and
+the conductor own the dramatic beats. Census first (measured on the shipped
+profiles): six intros authored a longer tell than phase 1 (Clockwork Warden,
+Spaghetti Monster, Hunny Horror, Mode Collapse, Overflow, T-rex), so their
+intro move held the plain move id and phase 1's beat a suffixed one; phase 1's
+beat now holds the plain id (the tick resolves a suffixed id, then the plain
+one), and a possessed boss's first beat and repertoire order follow phase 1.
+The Spaghetti Monster's `boss.flying_spaghetti_monster.intro` cue is no
+longer named by any beat. Witness:
+`a_scripted_pattern_refuses_an_intro_or_a_transition`.
 
 ### PORTAL-STRUCTURAL-FX — sprite and particle effects ignore the panes
 

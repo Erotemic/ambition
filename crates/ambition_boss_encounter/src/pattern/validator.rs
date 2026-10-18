@@ -214,17 +214,9 @@ pub fn fight_beats(
                 });
             }
         }
-        BossAttackPattern::Scripted {
-            intro,
-            phase1,
-            transition,
-            phase2,
-            enrage,
-        } => {
+        BossAttackPattern::Scripted { phase1, phase2, enrage } => {
             for (phase, pattern) in [
-                (BossEncounterPhase::Phase1, intro),
                 (BossEncounterPhase::Phase1, phase1),
-                (BossEncounterPhase::Phase2, transition),
                 (BossEncounterPhase::Phase2, phase2),
                 (BossEncounterPhase::Enrage, enrage),
             ] {

@@ -40,8 +40,8 @@ fn every_boss_telegraph_cue_has_a_recipe() {
         ron::from_str(&boss_profiles_ron()).expect("boss_profiles.ron parses");
     let mut cues = BTreeSet::new();
     for profile in profiles.values() {
-        if let BossAttackPattern::Scripted { intro, phase1, transition, phase2, enrage } = &profile.attack_pattern {
-            for pattern in [intro, phase1, transition, phase2, enrage] {
+        if let BossAttackPattern::Scripted { phase1, phase2, enrage } = &profile.attack_pattern {
+            for pattern in [phase1, phase2, enrage] {
                 cues_in(&pattern.steps, &mut cues);
                 for stance in pattern.stances.values() {
                     cues_in(stance, &mut cues);

@@ -1552,6 +1552,11 @@ variants. Also found in that regen:
     - The modules over 600 s: `an_edit_reaches_the_shipped_game`,
       `a_bag_changed_mid_window_reaches_the_save` and
       `a_boss_special_runs_on_the_extension_host`.
+    - ✅ 2026-10-18: the largest is one session now. It booted a harness for
+      each room (2.1 s each, debug) and skipped a room whose boot failed; it
+      tours the rooms by departure (0.17 s each), and a room it cannot reach
+      fails it. Alone: 409 s before, 179 s after. Its poison (an unstamped
+      resident in the fourth room) still fails at the census, naming the room.
     The workspace's own crates build at `opt-level = 0`, an accepted policy
     (Cargo.toml). A test profile at opt-level 1 would trade every focused
     edit's build for the suite's run time, so it is not taken here. Profiling

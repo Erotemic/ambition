@@ -137,3 +137,16 @@ fn the_squash_bounces_her_at_the_speed_her_pack_states() {
         "she left the squash at {bounced} up, and her pack states {authority}"
     );
 }
+
+/// The squash plays the dust her rules file states (`stomp.dust`), the
+/// snake's dust too, read by the module through `mary_o.rules.stomp`.
+#[test]
+fn the_squash_plays_the_dust_its_rules_state() {
+    let (mut app, mob) = a_mob();
+    crate::the_switch_ends_the_castle::record_effects(&mut app);
+    let mary_o = her(&mut app);
+    assert!(!still_there_after_a_stomp(&mut app, mob, mary_o), "the premise: her stomp squashes it");
+    let stated = crate::the_switch_ends_the_castle::shape_of(&ambition_demo_mary_o::rules::mary_o_rules().stomp.dust);
+    let played = &app.world().resource::<crate::the_switch_ends_the_castle::Played>().bursts;
+    assert!(played.contains(&stated), "the squash did not play the file's dust {stated:?}: played {played:?}");
+}

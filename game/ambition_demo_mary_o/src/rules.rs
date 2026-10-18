@@ -167,8 +167,6 @@ pub struct Effects {
     /// Where a plank of a bridge breaks, and the size of its explosion.
     pub plank_break: Burst,
     pub plank_explosion_scale: f32,
-    /// Where she stomps a snake into its shell.
-    pub shell_stomp: Burst,
     /// The lava a body throws as it sinks, each `castle_end.splash_ticks`.
     pub lava_splash: Burst,
     /// Where the castle's boss dies, and the size of its explosion.
@@ -270,17 +268,29 @@ pub struct Shell {
 
 /// A stomp on any of her enemies: the snake's shell and the squash module
 /// read these (the module through `mary_o.rules.stomp`).
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Stomp {
     pub band: f32,
     pub bounce_speed: f32,
+    /// The dust where an enemy is stomped.
+    pub dust: Burst,
 }
 
 impl Stomp {
     /// The value of the module observation `mary_o.rules.stomp`.
     pub fn observed(&self) -> ambition_demo_mary_o_modules::rules::StompRules {
-        ambition_demo_mary_o_modules::rules::StompRules { band: self.band, bounce_speed: self.bounce_speed }
+        let dust = &self.dust;
+        ambition_demo_mary_o_modules::rules::StompRules {
+            band: self.band,
+            bounce_speed: self.bounce_speed,
+            dust: ambition_demo_mary_o_modules::rules::StompDust {
+                count: dust.count,
+                speed: dust.speed,
+                color: dust.color,
+                kind: dust.kind.clone(),
+            },
+        }
     }
 }
 
@@ -320,7 +330,7 @@ impl MaryORules {
         for (field, burst) in [
             ("effects.brick_break", &effects.brick_break),
             ("effects.plank_break", &effects.plank_break),
-            ("effects.shell_stomp", &effects.shell_stomp),
+            ("stomp.dust", &self.stomp.dust),
             ("effects.lava_splash", &effects.lava_splash),
             ("effects.boss_death", &effects.boss_death),
         ] {

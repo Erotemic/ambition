@@ -581,7 +581,11 @@ before you add a port.
     (`mary_o.rules.stomp`, `ambition_demo_mary_o_modules::rules`, answered
     by the Mary-O plugin from `stomp` in `mary_o_rules.ron`; the squash
     module's `BOUNCE_SPEED` and the modules crate's `STOMP_BAND` are
-    deleted, and the shell reads the same `stomp.bounce_speed`). The badnik
+    deleted, and the shell reads the same `stomp.bounce_speed`). Since
+    2026-10-18 the observation (v2) also gives `stomp.dust`, the one dust
+    row of a stomp, which the snake's shell plays too; the module's `DUST`
+    constant, a second copy of the snake's row, is deleted (witness
+    `mary_o_it::the_squash_plays_the_dust_its_rules_state`). The badnik
     can take the same road for its two facts; its toucher facts above still
     block it. The snake shells read Mary-O's
     `stomp` rule through the modules crate, but their own timers and

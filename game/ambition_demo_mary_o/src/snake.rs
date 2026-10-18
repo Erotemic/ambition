@@ -413,7 +413,7 @@ pub fn run_snake_shells(
                 );
                 stomper = Some(player_entity);
             }
-            vfx.for_room(rooms.of(entity)).write(crate::rules::mary_o_rules().effects.shell_stomp.at(kin.pos));
+            vfx.for_room(rooms.of(entity)).write(crate::rules::mary_o_rules().stomp.dust.at(kin.pos));
             // H2: a stomp is the STOMPER's verb — the same rule the engine's pogo
             // uses, where the bouncing owner owns the cue. It is the player who
             // bounced off this shell, so the thud is the player's.

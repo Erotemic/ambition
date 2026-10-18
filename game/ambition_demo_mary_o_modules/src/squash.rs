@@ -10,7 +10,7 @@
 //! It decides in `body_contact`, before the shared contact damage, so the
 //! squashed mob hurts nobody in that tick (`ambition.body.defeat`). It has no
 //! score value and no drop table, so the squash is the whole of its end; the
-//! dust is the visible pop.
+//! dust is the visible pop, the same dust as the snake's (`stomp.dust`).
 
 use ambition_combat_port::{
     BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, Burst, BurstPort, ContactBounce, ContactBouncePort,
@@ -20,14 +20,11 @@ use ambition_extension_sdk::{
     ModuleDescriptor, ModuleKey, Port, TriggerBinding, API_VERSION,
 };
 
-use crate::rules::{StompRules, StompRulesPort};
+use crate::rules::StompRulesPort;
 use crate::stomp::{player_touch, Bounds, PlayerTouch};
 
 /// The brain key of an AI Slop placement.
 pub const AI_SLOP_BRAIN_KEY: &str = "mary_o_ai_slop";
-
-/// The low, tan dust of a squash.
-const DUST: (u32, f32, [f32; 4]) = (12, 130.0, [0.80, 0.68, 0.48, 1.0]);
 
 fn entry(selector: &'static str) -> EntryDescriptor {
     EntryDescriptor {
@@ -60,23 +57,29 @@ pub fn module() -> ModuleDescriptor {
 }
 
 /// The first toucher (in identity order) that is on the mob's head, if any.
-pub fn stomper(contact: &BodyContact, rules: StompRules) -> Option<usize> {
+pub fn stomper(contact: &BodyContact, band: f32) -> Option<usize> {
     let body = Bounds::of(contact.body.position, contact.body.size);
     contact
         .touchers
         .iter()
-        .position(|t| player_touch(body, Bounds::of(t.position, t.size), t.velocity, rules.band) == Some(PlayerTouch::Top))
+        .position(|t| player_touch(body, Bounds::of(t.position, t.size), t.velocity, band) == Some(PlayerTouch::Top))
 }
 
 fn squash(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let contact: BodyContact = inv.trigger::<BodyContactPort>()?.clone();
-    let rules = *inv.observe::<StompRulesPort>()?;
-    let Some(stomper) = stomper(&contact, rules) else {
+    let rules = inv.observe::<StompRulesPort>()?.clone();
+    let Some(stomper) = stomper(&contact, rules.band) else {
         return Ok(());
     };
     inv.submit::<ContactBouncePort>(ContactBounce { toucher: stomper as u32, speed: rules.bounce_speed, pogo_cue: true })?;
-    let (count, speed, color) = DUST;
-    inv.submit::<BurstPort>(Burst { at: contact.body.position, count, speed, color, kind: "dust".into() })?;
+    let dust = rules.dust;
+    inv.submit::<BurstPort>(Burst {
+        at: contact.body.position,
+        count: dust.count,
+        speed: dust.speed,
+        color: dust.color,
+        kind: dust.kind,
+    })?;
     inv.submit::<BodyDefeatPort>(BodyDefeat)
 }
 
@@ -102,7 +105,7 @@ mod tests {
     fn a_falling_or_resting_player_on_the_head_stomps_and_a_rising_one_does_not() {
         let contact = |touchers: Vec<ContactBody>| BodyContact { body: mob(), touchers };
         // A band wider than half the mob: the half rules.
-        let stomper_of = |contact: &BodyContact| stomper(contact, StompRules { band: 16.0, bounce_speed: 430.0 });
+        let stomper_of = |contact: &BodyContact| stomper(contact, 16.0);
         assert_eq!(stomper_of(&contact(vec![on_head(100.0, 120.0)])), Some(0), "falling onto it");
         assert_eq!(stomper_of(&contact(vec![on_head(100.0, 0.0)])), Some(0), "at rest on it");
         assert_eq!(stomper_of(&contact(vec![on_head(100.0, -80.0)])), None, "rising into it");

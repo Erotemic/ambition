@@ -1142,13 +1142,8 @@ pub fn register_mary_o_cast(app: &mut App) {
         .register(app);
 }
 
-/// Content plugin: registers Mary-O's App-local character fragment, installs
-/// the level, and adds the engine's sim-world setup. The shape `crates/ambition_platformer2d_host/tests/demo_shell_smoke.rs` prescribes.
-pub struct MaryODemoContentPlugin;
-
-/// Register Mary-O's immutable authored character fragment in one Bevy `App`.
-/// Shared by the historical [`MaryODemoContentPlugin`] (Startup construction) and
-/// the new [`provider::MaryOExperiencePlugin`] (shell-activation construction).
+/// Register Mary-O's immutable authored character fragment in one Bevy `App`,
+/// for [`provider::MaryOExperiencePlugin`].
 pub fn install_mary_o_content(app: &mut App) {
     register_mary_o_cast(app);
     // A build that reads her pack off disk plays an edit to her tuning and
@@ -1279,117 +1274,6 @@ pub fn install_mary_o_content(app: &mut App) {
                 rollback_probes::pipe_entry_latch,
             );
     }
-}
-
-impl Plugin for MaryODemoContentPlugin {
-    fn build(&self, app: &mut App) {
-        use ambition_platformer2d::runtime::demo_fixture::RoomSet;
-        use bevy::prelude::IntoScheduleConfigs;
-
-        install_mary_o_content(app);
-        quasar_shader::install(app);
-        shimmer_shader::install(app);
-        pipe_signs::install(app);
-        fire_shader::install(app);
-        void_look::install(app);
-        cosmic_aura::install(app);
-        cosmic_barrier::install(app);
-        let room = level_1_1();
-        let source = ambition_platformer2d::runtime::PreparedPlatformerSource::new(
-            provider::MARY_O_EXPERIENCE,
-            RoomSet::from_parts_or_panic(LEVEL_1_1_ROOM_ID, vec![room.clone()], Vec::new()),
-            ae::RoomGeometry(room.world.clone()),
-            ambition_platformer2d::runtime::demo_fixture::StartingCharacter::new(
-                provider::MARY_O_CHARACTER_ID,
-            ),
-        );
-        ambition_platformer2d::provider::install_direct_session_root(
-            app,
-            source,
-            &provider::mary_o_authored_catalogs(),
-        )
-        .expect("Mary-O direct prepared-content assembly must succeed");
-        app.add_systems(
-            bevy::app::Startup,
-            mary_o_setup.in_set(ambition_platformer2d::runtime::demo_fixture::SimulationSetupSet),
-        );
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn mary_o_setup(
-    mut commands: bevy::prelude::Commands,
-    // The root this demo's world hangs off: setup publishes the session's
-    // content generation ON it rather than into a process global.
-    session_root: bevy::prelude::Single<
-        bevy::prelude::Entity,
-        bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::SessionRoot>,
-    >,
-    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::runtime::demo_fixture::RoomSet,
-    >,
-    tuning: bevy::prelude::Res<ambition_platformer2d::runtime::demo_fixture::ActiveMovementTuning>,
-    initial_body: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::runtime::demo_fixture::InitialBodyPolicy,
-    >,
-    home_body_resources: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::runtime::demo_fixture::HomeBodyResources,
-    >,
-    home_body_abilities: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::runtime::demo_fixture::HomeBodyAbilities,
-    >,
-    character_catalog: bevy::prelude::Res<
-        ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
-    >,
-    prepared_characters: ambition_platformer2d::characters::prepared::SessionCast,
-    authored_sheets: bevy::prelude::Res<ambition_platformer2d::character::AuthoredSheets>,
-    boss_catalog: bevy::prelude::Res<ambition_platformer2d::boss_encounter::BossCatalog>,
-    placement_lowering: bevy::prelude::Res<
-        ambition_platformer2d::runtime::demo_fixture::PlacementLoweringRegistry,
-    >,
-    content_staging: bevy::prelude::Res<
-        ambition_platformer2d::runtime::demo_fixture::RoomContentStagingRegistry,
-    >,
-    construction_recipes: bevy::prelude::Res<
-        ambition_platformer2d::runtime::demo_fixture::ActorConstructionRegistry,
-    >,
-) {
-    ambition_platformer2d::runtime::demo_fixture::simulation_world(
-        &mut commands,
-        ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
-        ambition_platformer2d::runtime::demo_fixture::SimulationSetup {
-            session_root: *session_root,
-            // A direct-entry demo drops the first room's receipt.
-            publication_retention:
-                ambition_platformer2d::runtime::demo_fixture::PublicationRetention::UntilTheVerdictIsRecorded,
-            // One experience: the save of the world is the save of this room.
-            first_room_facts:
-                ambition_platformer2d::runtime::demo_fixture::CommitFactsSource::TheWorldAtTheCommit,
-            world: &world,
-            room_set: &room_set,
-            // The CALLER converts: who edits the set is a developer
-            // facility, and construction needs only the set.
-            tuning: &tuning,
-            initial_body: &initial_body,
-            home_body_resources: &home_body_resources,
-            home_body_abilities: &home_body_abilities,
-            prepared_characters: prepared_characters.get(),
-            placement_lowering: &placement_lowering,
-            content_staging: &content_staging,
-            // A demo enters directly rather than through provider activation,
-            // so it has no prepared-content generation to state.
-            construction:
-                ambition_platformer2d::runtime::demo_fixture::ActorConstructionContext::new(
-                    &construction_recipes,
-                    &character_catalog,
-                    &authored_sheets,
-                    ambition_platformer2d::platformer::construction::ContentBinding::content_unstated(Default::default()),
-                ),
-            boss_catalog: &boss_catalog,
-            default_character_id: provider::MARY_O_CHARACTER_ID,
-        },
-    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2259,11 +2143,6 @@ fn cycle_level_on_flag_tally(
     }
 }
 
-/// Install the Mary-O demo content layer into an engine app.
-pub fn add_demo_content(app: &mut App) {
-    app.add_plugins(MaryODemoContentPlugin);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2348,13 +2227,9 @@ mod tests {
     }
 
     #[test]
-    fn mary_o_demo_content_plugin_installs() {
+    fn mary_o_experience_plugin_installs_her_cast() {
         let mut app = App::new();
-        // See the note in `movement::tests`: authored placements require the
-        // engine foundation's lowering registry.
-        ambition_platformer2d::engine::add_headless_foundation(&mut app);
-        app.add_plugins(ambition_platformer2d::actors::features::WorldPrepSchedulePlugin);
-        add_demo_content(&mut app);
+        app.add_plugins(provider::MaryOExperiencePlugin);
         let catalog = app
             .world()
             .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();

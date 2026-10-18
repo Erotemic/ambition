@@ -66,40 +66,9 @@ fn first_speedway_marker() -> f32 {
 }
 
 #[test]
-fn sanic_demo_content_plugin_installs() {
-    // The direct-entry content plugin publishes an exact PreparedContent root
-    // at plugin-build time, which needs the engine's construction registries
-    // first (the standalone shell's real order). A bare App tests only catalog
-    // registration and cannot validate the speedway's ring placements.
+fn sanic_experience_plugin_installs_his_cast_and_sounds() {
     let mut app = App::new();
-    ambition_platformer2d::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
-    add_demo_content(&mut app);
-
-    let placement_lowering =
-        app.world()
-            .resource::<ambition_platformer2d::runtime::demo_fixture::PlacementLoweringRegistry>();
-    assert!(
-        placement_lowering
-            .schema_descriptors()
-            .iter()
-            .any(|(kind, _, _, schema)| kind == "pickup" && schema == "placement.pickup.v1"),
-        "the engine must install the pickup lowering before Sanic content is prepared"
-    );
-
-    let mut prepared_query = app
-        .world_mut()
-        .query::<&ambition_platformer2d::runtime::PreparedContent>();
-    let prepared = prepared_query
-        .single(app.world())
-        .expect("Sanic direct entry publishes one prepared-content root");
-    assert!(
-        prepared
-            .sections()
-            .iter()
-            .any(|section| section.name == "construction.placement-lowering"),
-        "Sanic's exact content identity includes the installed lowering schema"
-    );
+    app.add_plugins(provider::SanicExperiencePlugin);
 
     let audio = app
         .world()

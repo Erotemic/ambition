@@ -127,13 +127,7 @@ fn the_held_run_survives_the_frame_to_tick_latch() {
 #[test]
 fn her_authored_gait_makes_speed_something_she_builds_and_keeps() {
     let mut app = App::new();
-    // The demo now authors `placements` (the vault's coins), and preparation
-    // refuses a room carrying placements no interpreter claims — so this
-    // harness needs the engine foundation that registers the standard lowering
-    // families, not a bare `App`.
-    ambition_platformer2d::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition_platformer2d::actors::features::WorldPrepSchedulePlugin);
-    crate::add_demo_content(&mut app);
+    app.add_plugins(crate::provider::MaryOExperiencePlugin);
     let catalog = app
         .world()
         .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>(

@@ -577,7 +577,12 @@ went from 46 in 20.0 fighter-minutes to 11 in 20.7: Sanic 12→0, Ramen 5→0,
 Mary-O 3→0, Bob 3→0. It changes the humanity contract (the delay buffer is
 the only read path), so it is Jon's decision. A human knows where their own
 hands are without the screen; the probe is that rule. Offense was unchanged by the probe: the CPU eliminated the passive dummy
-within the minute in 10 of 23 runs before and 9 of 23 with it.
+within the minute in 10 of 23 runs before and 9 of 23 with it. The blunt probe is not shippable as written: `smash_it` was 50/51 under it,
+and `a_fighter_over_a_floor_open_for_it_plays_as_over_the_void` failed its
+control (a CPU over a closed gate floor played exactly as over the bare void).
+`SelfView` mixes the body's own state with facts read against that tick's
+world, so a live self with a delayed world disagrees with itself. A real
+version takes only the body's own kinematics live.
 
 Totals over one minute each, one seed. The eight fighters with a true baseline:
 32 → 25 (Sanic 14 → 12, item 2). The other fifteen were first measured after

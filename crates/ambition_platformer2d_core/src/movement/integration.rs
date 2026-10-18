@@ -828,7 +828,13 @@ fn resolve_initial_dash(
         return 0.0;
     }
     // The EDGE is against what the player was holding; the PERMISSION is `dir`.
-    if dir != 0.0 && held != state.prev_steer_dir {
+    //
+    // ⛔ AN ATTACK PRESSED ON THE EDGE'S TICK TAKES THAT TICK. Stick and button
+    // together are a tilt or a smash from standing, and the move starts later
+    // in the same tick: a burst armed here was kept by the rooted move, and a
+    // fast fighter slid through its own forward tilt. A dash attack is a press
+    // DURING the dash, so it still comes from an edge before it.
+    if dir != 0.0 && held != state.prev_steer_dir && !input.attack_pressed {
         state.initial_dash_timer = tuning.locomotion.initial_dash_time;
         state.initial_dash_dir = dir;
     } else {

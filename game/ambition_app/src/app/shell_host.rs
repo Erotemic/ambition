@@ -195,11 +195,11 @@ fn ambition_startup_segments() -> Vec<ambition_platformer2d::game_shell::ShellSe
     };
 
     vec![
-        // The ENGINE card. Held longer than the 2s default so its ease-in /
-        // hold / ease-out has room to breathe.
-        ShellSegmentSpec::text("powered_by_ambition", "Powered by Ambition").with_policy(
+        // The ENGINE card: its words are `startup.engine_card` in the host's
+        // text file, and its hold is `engine_card_s` in the title look.
+        ShellSegmentSpec::text("powered_by_ambition", super::host_pack::host_text().line("startup.engine_card")).with_policy(
             ShellSegmentPolicy {
-                auto_advance_after: Some(std::time::Duration::from_millis(3600)),
+                auto_advance_after: Some(std::time::Duration::from_secs_f32(super::title_screen::title_look().engine_card_s)),
                 ..Default::default()
             },
         ),

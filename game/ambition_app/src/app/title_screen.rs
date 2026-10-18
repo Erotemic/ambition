@@ -78,6 +78,9 @@ pub struct TitleLook {
     pub cursor_edge: [f32; 3],
     pub cursor_edge_low: f32,
     pub cursor_breath_s: f32,
+    /// How long the run-in's engine card holds before the title, if nobody
+    /// presses confirm.
+    pub engine_card_s: f32,
 }
 
 fn rgba([r, g, b, a]: [f32; 4]) -> Color {
@@ -112,6 +115,7 @@ impl TitleLook {
             ("drift_period_s", self.drift_period_s),
             ("fade_s", self.fade_s),
             ("cursor_breath_s", self.cursor_breath_s),
+            ("engine_card_s", self.engine_card_s),
             ("window_width_vh", self.window_width_vh),
             ("window_most_percent", self.window_most_percent),
         ] {

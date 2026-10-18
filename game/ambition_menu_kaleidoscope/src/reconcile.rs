@@ -367,7 +367,7 @@ fn patch_node<Action>(
             }
             if let (Some(icon_plane), Some(icon)) = (parts.icon, icon) {
                 if old_icon.as_ref() != Some(icon) || old_selected != selected {
-                    let tint = control_icon_tint(disabled, *selected);
+                    let tint = control_icon_tint(&out.config.look, disabled, *selected);
                     let image = out.asset_server.load::<Image>(icon.clone());
                     write_material(out.materials, live, icon_plane, icon_material(image, tint));
                     out.commands.entity(icon_plane).insert(KaleidoscopeFade {

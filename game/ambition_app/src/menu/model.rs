@@ -165,6 +165,97 @@ fn host() -> &'static ambition_platformer2d::content::ShownText {
     crate::app::host_pack::host_text()
 }
 
+/// The colours of the host's pause menu pages, as the host's pack states
+/// them (`data/menu_look.ron`). Each is red, green, blue and alpha, from 0
+/// to 1. The items grid keeps the menu model's own colours.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MenuLook {
+    /// Behind a page.
+    pub page: [f32; 4],
+    /// A detail panel.
+    pub panel: [f32; 4],
+    /// A page's title and a panel's header.
+    pub heading: [f32; 4],
+    /// The lines under a header.
+    pub body: [f32; 4],
+    /// The line of a page that has no content yet.
+    pub placeholder_body: [f32; 4],
+    /// The 3D cube's own colours: its controls, scroll bars, frame and icon
+    /// tints.
+    pub cube: CubeLook,
+}
+
+/// The 3D cube's colours (`KaleidoscopeLook`), each red, green, blue and
+/// alpha, from 0 to 1.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CubeLook {
+    pub selected: [f32; 4],
+    pub important: [f32; 4],
+    pub item: [f32; 4],
+    pub action: [f32; 4],
+    pub control: [f32; 4],
+    pub disabled: [f32; 4],
+    pub scrollbar_track: [f32; 4],
+    pub scrollbar_thumb: [f32; 4],
+    pub edge_frame: [f32; 4],
+    pub icon_disabled: [f32; 4],
+    pub icon_selected: [f32; 4],
+}
+
+impl MenuLook {
+    fn problems(&self) -> Vec<String> {
+        let cube = &self.cube;
+        [
+            ("page", self.page),
+            ("panel", self.panel),
+            ("heading", self.heading),
+            ("body", self.body),
+            ("placeholder_body", self.placeholder_body),
+            ("cube.selected", cube.selected),
+            ("cube.important", cube.important),
+            ("cube.item", cube.item),
+            ("cube.action", cube.action),
+            ("cube.control", cube.control),
+            ("cube.disabled", cube.disabled),
+            ("cube.scrollbar_track", cube.scrollbar_track),
+            ("cube.scrollbar_thumb", cube.scrollbar_thumb),
+            ("cube.edge_frame", cube.edge_frame),
+            ("cube.icon_disabled", cube.icon_disabled),
+            ("cube.icon_selected", cube.icon_selected),
+        ]
+        .into_iter()
+        .filter(|(_, colour)| colour.iter().any(|part| !(0.0..=1.0).contains(part)))
+        .map(|(field, colour)| format!("`{field}` is {colour:?}; each part is from 0 to 1"))
+        .collect()
+    }
+}
+
+/// The authored FILE kind: the pause menu's colours.
+pub const MENU_LOOK_SCHEMA: &str = "menu_look";
+
+/// The schema, for the host pack's `content_pack! { schemas: [..] }`.
+pub fn menu_look_schema() -> ambition_platformer2d::content::SchemaRegistration {
+    ambition_platformer2d::content::rules_schema(
+        MENU_LOOK_SCHEMA,
+        1,
+        "ambition_host",
+        "The colours of the host's pause menu pages (the page, a detail panel, a heading, its body and a placeholder line) and of its 3D cube.",
+        MenuLook::problems,
+    )
+}
+
+/// The pause menu's colours the host's pack states.
+pub fn menu_look() -> MenuLook {
+    *ambition_platformer2d::content::lowered_rules::<MenuLook>(crate::app::host_pack::HOST_PACK.prepared(), MENU_LOOK_SCHEMA)
+        .expect("the host's pack states the menu's colours (`data/menu_look.ron`)")
+}
+
+fn colour([r, g, b, a]: [f32; 4]) -> MenuColor {
+    MenuColor::rgba(r, g, b, a)
+}
+
 /// The cube faces (pages). `Items` is wired live from our inventory; the rest
 /// mirror OoT's subscreen tabs as host-data-driven placeholders for now.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -419,7 +510,7 @@ pub fn build_items_page(
 fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
     model.panel(
         DETAIL_PANEL_RECT,
-        MenuColor::rgba(0.035, 0.046, 0.105, 0.96),
+        colour(menu_look().panel),
         None,
     );
     model.text(
@@ -428,7 +519,7 @@ fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
         2.6,
         line("menu.items.selected"),
         MenuTextAlign::Center,
-        MenuColor::rgba(1.0, 0.84, 0.38, 1.0),
+        colour(menu_look().heading),
     );
     for line_idx in 0..ITEMS_DETAIL_BODY_LINES {
         model.dynamic_text(
@@ -437,7 +528,7 @@ fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
             28.5 + line_idx as f32 * 3.2,
             1.55,
             MenuTextAlign::Center,
-            MenuColor::rgba(0.88, 0.94, 1.0, 0.96),
+            colour(menu_look().body),
         );
     }
 }
@@ -984,7 +1075,7 @@ pub fn build_system_page_with_quality_prompt(
     let mut model = MenuPageModel::new(
         MenuPage::System,
         line("menu.system.title"),
-        MenuColor::rgba(0.03, 0.04, 0.10, 0.96),
+        colour(menu_look().page),
     );
     let rows = system_rows_with_quality_prompt(&sys_model, open_entry, pending_quality);
     let _ = focus;
@@ -1008,7 +1099,7 @@ pub fn build_system_page_with_quality_prompt(
         SYSTEM_TITLE_SIZE,
         &title,
         MenuTextAlign::Center,
-        MenuColor::rgba(1.0, 0.84, 0.38, 1.0),
+        colour(menu_look().heading),
     );
     // The Radio screen names what is heard, which a boss or encounter cue can
     // make other than the station marked ▶.
@@ -1019,7 +1110,7 @@ pub fn build_system_page_with_quality_prompt(
             SYSTEM_ROW_FONT * 0.8,
             &now_playing_line(radio),
             MenuTextAlign::Center,
-            MenuColor::rgba(0.88, 0.94, 1.0, 0.96),
+            colour(menu_look().body),
         );
     }
 
@@ -1164,7 +1255,7 @@ fn now_playing_line(radio: &RadioSnapshot) -> String {
 fn add_system_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
     model.panel(
         SYSTEM_DESC_RECT,
-        MenuColor::rgba(0.035, 0.046, 0.105, 0.96),
+        colour(menu_look().panel),
         None,
     );
     let cx = SYSTEM_DESC_RECT.x + SYSTEM_DESC_RECT.w * 0.5;
@@ -1175,7 +1266,7 @@ fn add_system_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) 
         SYSTEM_DESC_RECT.y + 4.0,
         2.4,
         MenuTextAlign::Center,
-        MenuColor::rgba(1.0, 0.84, 0.38, 1.0),
+        colour(menu_look().heading),
     );
     for line_idx in 0..SYSTEM_DETAIL_BODY_LINES {
         model.dynamic_text(
@@ -1184,7 +1275,7 @@ fn add_system_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) 
             SYSTEM_DESC_RECT.y + 8.5 + line_idx as f32 * 3.0,
             SYSTEM_ROW_FONT * 0.78,
             MenuTextAlign::Center,
-            MenuColor::rgba(0.88, 0.94, 1.0, 0.96),
+            colour(menu_look().body),
         );
     }
 }
@@ -1220,14 +1311,14 @@ fn placeholder_page(
     title: &str,
     body: &str,
 ) -> MenuPageModel<MenuPage, MenuPageAction> {
-    let mut model = MenuPageModel::new(page, title, MenuColor::rgba(0.03, 0.04, 0.10, 0.96));
+    let mut model = MenuPageModel::new(page, title, colour(menu_look().page));
     model.text(
         50.0,
         38.0,
         4.0,
         title,
         MenuTextAlign::Center,
-        MenuColor::rgba(1.0, 0.84, 0.38, 1.0),
+        colour(menu_look().heading),
     );
     model.text(
         50.0,
@@ -1235,7 +1326,7 @@ fn placeholder_page(
         1.7,
         body,
         MenuTextAlign::Center,
-        MenuColor::rgba(0.85, 0.92, 1.0, 0.9),
+        colour(menu_look().placeholder_body),
     );
     // Placeholder pages keep the edge buttons; their focus highlight is applied in
     // place from the live cursor (`kaleidoscope_sync_focus_visuals`), so landing on

@@ -2869,3 +2869,16 @@ fn a_face_key_turns_the_open_cube_to_its_face_and_closes_it_from_there() {
     cube_press(&mut app, |f| f.map = true);
     assert!(!cube_is_open(&app), "the map key on its own face closes the cube");
 }
+
+/// The host's cube wears the colours its `menu_look.ron` states (`cube`), not
+/// the renderer's own. The shipped file states the renderer's colours today,
+/// so this is checked by an edited file.
+#[test]
+fn the_cube_wears_what_the_host_file_states() {
+    let file = crate::menu::model::menu_look().cube;
+    let look = game_kaleidoscope_config().look;
+    let colour = |[r, g, b, a]: [f32; 4]| Color::srgba(r, g, b, a);
+    assert_eq!(look.selected, colour(file.selected), "the control under the cursor");
+    assert_eq!(look.scrollbar_track, colour(file.scrollbar_track), "a scroll bar's track");
+    assert_eq!(look, cube_look(&file), "each colour of the cube");
+}

@@ -267,3 +267,106 @@ fn a_freshly_rebuilt_solid_plane_is_already_opaque() {
         "the fixture's panels are solid planes; none were found"
     );
 }
+
+/// The cube draws the colours its config states (`KaleidoscopeMenuConfig::look`),
+/// not the renderer's own: an item cell, a control that cannot be used, a
+/// scroll bar's track and thumb, and the face's frame. And a scroll bar keeps
+/// its track colour after the cursor changes its state.
+#[test]
+fn the_cube_draws_the_look_its_config_states() {
+    use ambition_menu::MenuControlKind;
+    use super::{KaleidoscopeControlStyle, KaleidoscopeLook};
+
+    // Each colour differs from the renderer's own and from each other.
+    let tone = |n: f32| Color::srgba(0.05 * n, 0.5, 1.0 - 0.05 * n, 0.9);
+    let look = KaleidoscopeLook {
+        selected: tone(1.0),
+        important: tone(2.0),
+        item: tone(3.0),
+        action: tone(4.0),
+        control: tone(5.0),
+        disabled: tone(6.0),
+        scrollbar_track: tone(7.0),
+        scrollbar_thumb: tone(8.0),
+        edge_frame: tone(9.0),
+        icon_disabled: tone(10.0),
+        icon_selected: tone(11.0),
+    };
+    let mut page = MenuPageModel::new(Page::Items, "page", MenuColor::rgba(0.1, 0.1, 0.1, 1.0));
+    let rect = |y: f32| MenuRect { x: 10.0, y, w: 20.0, h: 8.0 };
+    page.control(rect(10.0), MenuControlKind::Item, "cell", None, false, false, Some(Action::Open(Page::Map)));
+    page.control(rect(20.0), MenuControlKind::Action, "none", None, false, false, None);
+    page.scrollbar(MenuRect { x: 80.0, y: 10.0, w: 2.0, h: 60.0 }, 0.0, 0.4);
+    let open = Some(Action::Open(Page::Quest));
+    page.control(rect(30.0), MenuControlKind::Tab, "tab", None, false, false, open);
+    page.control(rect(40.0), MenuControlKind::Slot, "kept", None, false, true, open);
+    page.control_with_icon(rect(50.0), MenuControlKind::Item, "picked", None, Some("picked.png"), true, false, open);
+    page.control_with_icon(rect(60.0), MenuControlKind::Item, "unowned", None, Some("unowned.png"), false, false, None);
+
+    let mut app = App::new();
+    // The icons load, so the asset server needs its task pool.
+    app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+    app.init_asset::<StandardMaterial>();
+    app.init_asset::<Mesh>();
+    app.init_asset::<Image>();
+    app.insert_resource(KaleidoscopeMenuConfig { look: look.clone(), ..Default::default() });
+    app.insert_resource(ActiveMenuPages::<Page, Action> {
+        pages: vec![page],
+        active: Some(Page::Items),
+        visible: true,
+        version: 1,
+    });
+    app.world_mut().spawn(MenuRing);
+    app.add_systems(Update, (rebuild_cube_faces::<Page, Action>, super::sync_control_focus_visuals).chain());
+    app.update();
+
+    let colour_of = |app: &mut App, entity: Entity| {
+        let handle = app.world().get::<MeshMaterial3d<StandardMaterial>>(entity).unwrap().0.clone();
+        app.world().resource::<Assets<StandardMaterial>>().get(&handle).unwrap().base_color
+    };
+    let controls: Vec<(Entity, MenuControlKind, bool)> = {
+        let world = app.world_mut();
+        let mut query = world.query::<(Entity, &KaleidoscopeControlStyle)>();
+        query.iter(world).map(|(entity, style)| (entity, style.kind, style.disabled)).collect()
+    };
+    let control = |kind, disabled| {
+        controls
+            .iter()
+            .find(|(_, k, d)| *k == kind && *d == disabled)
+            .map(|(entity, ..)| *entity)
+            .unwrap_or_else(|| panic!("no {kind:?} control (disabled {disabled})"))
+    };
+    let (item, none, bar) = (
+        control(MenuControlKind::Item, false),
+        control(MenuControlKind::Action, true),
+        control(MenuControlKind::Scrollbar, false),
+    );
+    assert_eq!(colour_of(&mut app, item), look.item, "an item cell");
+    assert_eq!(colour_of(&mut app, none), look.disabled, "a control that cannot be used");
+    assert_eq!(colour_of(&mut app, bar), look.scrollbar_track, "a scroll bar's track");
+    let thumb = {
+        let world = app.world_mut();
+        let mut query = world.query::<(Entity, &Name)>();
+        query.iter(world).find(|(_, name)| name.as_str() == "scrollbar thumb").map(|(entity, _)| entity)
+    }
+    .expect("the scroll bar draws its thumb");
+    assert_eq!(colour_of(&mut app, thumb), look.scrollbar_thumb, "a scroll bar's thumb");
+    assert_eq!(colour_of(&mut app, control(MenuControlKind::Tab, false)), look.control, "any other control");
+    assert_eq!(colour_of(&mut app, control(MenuControlKind::Slot, false)), look.important, "an important control");
+    let materials: Vec<(Color, bool)> = app
+        .world()
+        .resource::<Assets<StandardMaterial>>()
+        .iter()
+        .map(|(_, material)| (material.base_color, material.base_color_texture.is_some()))
+        .collect();
+    assert!(materials.contains(&(look.edge_frame, false)), "the face's frame is not the config's colour");
+    assert!(materials.contains(&(look.selected, false)), "the control under the cursor is not the config's colour");
+    assert!(materials.contains(&(look.action, false)), "the page-turn arrows are not the config's colour");
+    assert!(materials.contains(&(look.icon_selected, true)), "the icon under the cursor is not the config's tint");
+    assert!(materials.contains(&(look.icon_disabled, true)), "an icon that cannot be used is not the config's tint");
+
+    // The cursor's state changes on the bar and leaves it: it keeps its track.
+    app.world_mut().get_mut::<super::MenuVisualState>(bar).unwrap().set_changed();
+    app.update();
+    assert_eq!(colour_of(&mut app, bar), look.scrollbar_track, "a scroll bar after its state changed");
+}

@@ -396,7 +396,21 @@ Open:
    `smash_rules.ron`. Each edit reached its test in 0.7-0.9 s with no
    compile. Sanic's super sparkle and his run and skid dust are `effects`
    in `sanic_rules.ron` (the sparkle's reader has no witness of its own;
-   the dust's does). Left: Twintrack's two seat colours (a lab exhibit,
+   the dust's does). The bursts of what each demo breaks are data too
+   (2026-10-18): Sanic's badnik squash, monitor and wall breaks, ring
+   scatter sparkle and goal burst are `effects` rows in `sanic_rules.ron`,
+   and Mary-O's brick, plank, shell stomp, lava splash and boss death
+   bursts, the two explosion sizes and the bridge's fireworks are `effects`
+   in `mary_o_rules.ron`. A row names its particle kind by the burst port's
+   name (`ParticleKind::named`), and admission refuses another name by
+   field. Witnesses, each red with its reader on the compiled number and
+   the file edited: `a_squash_plays_the_bursts_its_rules_state`,
+   `a_broken_monitor_plays_the_burst_its_rules_state` and the ring scatter
+   test (Sanic lib), the cave and goal runs in sanic_it (wall, monitor,
+   goal), `a_broken_brick_plays_the_burst_its_rules_state` (Mary-O lib),
+   `a_stomp_plays_the_burst_its_rules_state` and the castle run in
+   mary_o_it (plank, lava, boss, both explosion sizes, fireworks). An edit
+   reached its test in 0.98 s with no compile. Left: Twintrack's two seat colours (a lab exhibit,
    with its code), and the room palettes. The other effect looks are in
    the WASM modules, on the module road already. Each game's own shaders
    (Ambition's nine, Mary-O's five) are served with `content_asset!`, a
@@ -438,8 +452,31 @@ Open:
    generation). The host's start cover's eight colours are `cover_look`, a
    schema of the host's pack (`data/cover_look.ron`; witness
    `the_cover_wears_what_the_host_file_states`, also by an edited file).
+   The run-in's engine card ("Powered by Ambition" and its 3.6 s hold) is
+   `startup.engine_card` in `host_text.ron` and `engine_card_s` in
+   `title_look.ron` (witness: the run-in test, by an edited file). The
+   pause menu's colours are `menu_look`, a fourth host schema: the pages'
+   five colours (the gold heading was written four times, the body ink
+   three) and the 3D cube's eleven (`cube`), which the host puts in
+   `KaleidoscopeMenuConfig::look`; the renderer's own default stays as its
+   answer for a host that states none, as its other knobs do. Witnesses
+   `the_menu_wears_what_the_host_file_states`,
+   `the_cube_wears_what_the_host_file_states` (both by an edited file) and
+   `the_cube_draws_the_look_its_config_states` (each of the twelve readers
+   red on its compiled colour). Found on the way: an idle scroll bar was
+   born with the dim track colour, and the recolour system painted it the
+   old yellow on its first frame, so the dim track its comment asks for was
+   never seen. One `scrollbar_track` now serves both paths. An edit to
+   `menu_look.ron` reached its test in 1.36 s with no compile. Mary-O's pipe
+   signs (their size, rise, outline and the two colours) are `pipe_signs`
+   in `mary_o_rules.ron` (witness: the 1-1 sky run asserts the ink, the
+   edge and its width, by an edited file).
    Left in the game crates: developer overlays (gizmos, the rollback
-   observatory, the FPS readout), which are tools, not content. The room palettes stay Rust (decided 2026-10-18): the two-state
+   observatory, the FPS readout), which are tools, not content. (That
+   sentence was false until the burst rows above: a census by
+   `ParticleKind::` in `game/*/src` outside tests found eleven compiled
+   bursts. After them it finds only the particle kind of the cut-rope rows
+   and of Sanic's sparkle and dust, which name a row's look in code.) The room palettes stay Rust (decided 2026-10-18): the two-state
    look's architecture (`room_look/architecture.rs`) is a procedural
    program, and its sixteen named colours are a few of its hundreds of tone
    and shape numbers, so moving them alone would split one author's work
@@ -454,6 +491,25 @@ Not here: Twintrack's plaza. It has no blocks; its size and origin
 written in, so they move with that code, not alone (decided 2026-10-14).
 The boss and Mary-O modules' tuning constants. They are on the
 module road (a 0.34 s WASM rebuild and a live reload).
+
+**Engine feedback bursts (found and decided 2026-10-18):** the engine's own feedback bursts
+are compiled looks too: about 26 `VfxMessage::Burst` literals in the
+engine crates, 14 in `movement_fx.rs` (double jump, dash, dodge roll and
+the others) and one interact/breakable/chest spark repeated in four files.
+A game that wants another double-jump colour edits the engine. The road
+that fits is an engine schema that a pack states, as
+`projectile_visuals` is owned by its capability. Two things to decide
+first: which crate owns the schema without a new crate edge (the monolith
+and `ambition_vfx` link no content pack), and what a game that states no
+row shows. Decided the same day: the engine's look stays the engine's
+answer, as its shaders do, and `room_rules` already says that an absent
+field takes the engine's answer. The road for a game's own look is an
+optional `room_rules` section keyed by movement op: `ambition_combat`
+owns that schema and already links `ambition_vfx` and core's
+`MovementOp`, so it adds no crate edge, and `RulesOf::of(body)` resolves
+it for the body's live room, so each game's rooms keep their own look.
+Not built: no game states its own look yet, and copying the engine's
+table into each game's file would make five owners of one look.
 
 **Done 2026-10-15:** Smash's respawn rise and protection (`smash_stages`),
 its results-card wait and the admiral's shark (`smash_rules`, a new demo

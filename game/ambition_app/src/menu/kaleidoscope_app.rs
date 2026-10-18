@@ -255,7 +255,27 @@ fn game_kaleidoscope_config() -> KaleidoscopeMenuConfig {
         draw_nav_arrows: false,
         pickable_controls: true,
         camera_clears: false,
+        look: cube_look(&crate::menu::model::menu_look().cube),
         ..Default::default()
+    }
+}
+
+/// The cube's colours as the host's `menu_look.ron` states them.
+#[cfg(feature = "kaleidoscope_menu")]
+pub(crate) fn cube_look(cube: &crate::menu::model::CubeLook) -> ambition_menu_kaleidoscope::KaleidoscopeLook {
+    let colour = |[r, g, b, a]: [f32; 4]| Color::srgba(r, g, b, a);
+    ambition_menu_kaleidoscope::KaleidoscopeLook {
+        selected: colour(cube.selected),
+        important: colour(cube.important),
+        item: colour(cube.item),
+        action: colour(cube.action),
+        control: colour(cube.control),
+        disabled: colour(cube.disabled),
+        scrollbar_track: colour(cube.scrollbar_track),
+        scrollbar_thumb: colour(cube.scrollbar_thumb),
+        edge_frame: colour(cube.edge_frame),
+        icon_disabled: colour(cube.icon_disabled),
+        icon_selected: colour(cube.icon_selected),
     }
 }
 

@@ -276,6 +276,8 @@ pub struct KaleidoscopeMenuConfig {
     /// and avoid double-handling. The game sets it `true` to use Bevy picking.
     /// Default `true`.
     pub pickable_controls: bool,
+    /// The renderer's colours.
+    pub look: KaleidoscopeLook,
 }
 
 impl Default for KaleidoscopeMenuConfig {
@@ -303,6 +305,7 @@ impl Default for KaleidoscopeMenuConfig {
             camera_starts_active: false,
             ring_starts_visible: false,
             pickable_controls: true,
+            look: KaleidoscopeLook::default(),
         }
     }
 }
@@ -705,6 +708,7 @@ fn cube_3d_picking(
 /// in the same frame (PostUpdate). Because the handle does not change, the
 /// fade's `touched` filter watches `Changed<MenuVisualState>`.
 pub fn sync_control_focus_visuals(
+    config: Res<KaleidoscopeMenuConfig>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut controls: Query<
         (
@@ -722,9 +726,9 @@ pub fn sync_control_focus_visuals(
     for (style, vis, material, fade) in &mut controls {
         let highlight = vis.focused || vis.selected || vis.hovered;
         let color = if style.disabled {
-            disabled_control_color()
+            config.look.disabled
         } else {
-            control_color(style.kind, highlight, style.important)
+            config.look.control_color(style.kind, highlight, style.important)
         };
         let base_alpha = color.alpha();
         // A control with no `KaleidoscopeFade` has no one driving its alpha, so this
@@ -1350,33 +1354,69 @@ fn is_edge_button_rect(rect: MenuRect) -> bool {
     narrow && tall && near_edge
 }
 
-fn control_color(kind: MenuControlKind, selected: bool, important: bool) -> Color {
-    if selected {
-        Color::srgba(0.98, 0.76, 0.26, 0.96)
-    } else if important {
-        Color::srgba(0.13, 0.34, 0.28, 0.96)
-    } else {
-        match kind {
-            MenuControlKind::Item => Color::srgba(0.055, 0.074, 0.155, 0.96),
-            MenuControlKind::Scrollbar => Color::srgba(0.42, 0.32, 0.08, 0.92),
-            MenuControlKind::Action => Color::srgba(0.09, 0.12, 0.26, 0.96),
-            _ => Color::srgba(0.055, 0.070, 0.145, 0.96),
+/// The renderer's colours. A host states its own look in
+/// [`KaleidoscopeMenuConfig::look`]; the default is the renderer's own.
+#[derive(Clone, Debug, PartialEq)]
+pub struct KaleidoscopeLook {
+    /// A control under the cursor.
+    pub selected: Color,
+    /// A control the host marks important.
+    pub important: Color,
+    /// An item cell.
+    pub item: Color,
+    /// An action button, and the page-turn buttons.
+    pub action: Color,
+    /// Any other control.
+    pub control: Color,
+    /// A control that cannot be used.
+    pub disabled: Color,
+    /// A scroll bar's track. Much darker than the thumb, so the thumb reads
+    /// as the grab handle.
+    pub scrollbar_track: Color,
+    /// A scroll bar's thumb.
+    pub scrollbar_thumb: Color,
+    /// The frame around each face.
+    pub edge_frame: Color,
+    /// The tint of an item's icon that cannot be used, and of one under the
+    /// cursor. Any other icon is not tinted.
+    pub icon_disabled: Color,
+    pub icon_selected: Color,
+}
+
+impl Default for KaleidoscopeLook {
+    fn default() -> Self {
+        Self {
+            selected: Color::srgba(0.98, 0.76, 0.26, 0.96),
+            important: Color::srgba(0.13, 0.34, 0.28, 0.96),
+            item: Color::srgba(0.055, 0.074, 0.155, 0.96),
+            action: Color::srgba(0.09, 0.12, 0.26, 0.96),
+            control: Color::srgba(0.055, 0.070, 0.145, 0.96),
+            disabled: Color::srgba(0.040, 0.045, 0.075, 0.72),
+            scrollbar_track: Color::srgba(0.10, 0.09, 0.04, 0.55),
+            scrollbar_thumb: Color::srgba(0.98, 0.82, 0.36, 0.95),
+            edge_frame: Color::srgba(0.80, 0.92, 1.0, 0.62),
+            icon_disabled: Color::srgba(0.55, 0.58, 0.66, 0.55),
+            icon_selected: Color::srgb(1.0, 0.95, 0.78),
         }
     }
 }
 
-fn disabled_control_color() -> Color {
-    Color::srgba(0.040, 0.045, 0.075, 0.72)
-}
-
-/// Much darker than the old solid yellow so the bright thumb reads as the grab handle.
-fn scrollbar_track_color() -> Color {
-    Color::srgba(0.10, 0.09, 0.04, 0.55)
-}
-
-/// Fix 1: the BRIGHT scrollbar thumb (the grab handle / scroll-position indicator).
-fn scrollbar_thumb_color() -> Color {
-    Color::srgba(0.98, 0.82, 0.36, 0.95)
+impl KaleidoscopeLook {
+    /// The fill of a control that can be used.
+    pub(crate) fn control_color(&self, kind: MenuControlKind, selected: bool, important: bool) -> Color {
+        if selected {
+            self.selected
+        } else if important {
+            self.important
+        } else {
+            match kind {
+                MenuControlKind::Item => self.item,
+                MenuControlKind::Scrollbar => self.scrollbar_track,
+                MenuControlKind::Action => self.action,
+                _ => self.control,
+            }
+        }
+    }
 }
 
 fn menu_color(color: MenuColor) -> Color {

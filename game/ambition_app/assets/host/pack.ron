@@ -8,11 +8,15 @@
     namespace: "host",
     requires: [],
     sources: [
-        // The words of the start cover and of the pause menu's own rows.
+        // The words of the run-in's engine card, the start cover and the
+        // pause menu's own rows.
         (path: "data/host_text.ron", schema: "host_text", version: 1),
-        // The title screen's look: the drifting scene and the menu's window.
+        // The title screen's look: the drifting scene and the menu's window;
+        // and how long the run-in's engine card holds before it.
         (path: "data/title_look.ron", schema: "title_look", version: 1),
         // The colours of the start cover.
         (path: "data/cover_look.ron", schema: "cover_look", version: 1),
+        // The colours of the pause menu's pages.
+        (path: "data/menu_look.ron", schema: "menu_look", version: 1),
     ],
 )

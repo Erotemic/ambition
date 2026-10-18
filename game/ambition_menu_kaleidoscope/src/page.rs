@@ -28,10 +28,10 @@ pub(super) fn render_page_model<PageId, Action>(
         active,
     );
     if config.draw_edge_frame {
-        spawn_cube_edge_frame(ui, materials, active);
+        spawn_cube_edge_frame(ui, materials, &config.look, active);
     }
     if config.draw_nav_arrows {
-        spawn_nav_arrows(ui, materials, active);
+        spawn_nav_arrows(ui, materials, &config.look, active);
     }
     for (index, node) in model.nodes.iter().enumerate() {
         spawn_node(ui, materials, asset_server, config, index, node, active);
@@ -283,7 +283,7 @@ where
 {
     let is_scrollbar = matches!(kind, MenuControlKind::Scrollbar);
     let disabled = control_disabled(kind, action.is_some());
-    let color = control_spawn_color(kind, disabled, selected, important);
+    let color = control_spawn_color(&config.look, kind, disabled, selected, important);
     let base_alpha = color.alpha();
     let material = materials.add(solid_material(color));
     let control_depth = control_plane_depth(rect, kind, action.is_some());
@@ -324,7 +324,7 @@ where
         if let Some(thumb) = thumb {
             if thumb.size < 1.0 {
                 entity.with_children(|children| {
-                    parts.thumb = Some(spawn_scrollbar_thumb(children, materials, thumb, active));
+                    parts.thumb = Some(spawn_scrollbar_thumb(children, materials, &config.look, thumb, active));
                 });
             }
         }
@@ -343,7 +343,7 @@ where
     // otherwise. Equipped (`important`) keeps full brightness but the cell bg
     // already carries the equipped accent, so the icon stays crisp white.
     let icon_handle = icon.map(|path| asset_server.load::<Image>(path.to_string()));
-    let icon_tint = control_icon_tint(disabled, selected);
+    let icon_tint = control_icon_tint(&config.look, disabled, selected);
     entity.with_children(|children| {
         // Spawn the selection corners on every focusable (actionable, non-scrollbar)
         // cell, but HIDDEN — `sync_selection_corner_visuals` reveals the focused
@@ -405,10 +405,11 @@ where
 fn spawn_scrollbar_thumb(
     ui: &mut ChildSpawnerCommands,
     materials: &mut Assets<StandardMaterial>,
+    look: &KaleidoscopeLook,
     thumb: ScrollThumb,
     active: bool,
 ) -> Entity {
-    let color = scrollbar_thumb_color();
+    let color = look.scrollbar_thumb;
     let base_alpha = color.alpha();
     let material = materials.add(solid_material(color));
     ui.spawn((
@@ -531,10 +532,11 @@ fn spawn_corner_piece(
 fn spawn_nav_arrows(
     ui: &mut ChildSpawnerCommands,
     materials: &mut Assets<StandardMaterial>,
+    look: &KaleidoscopeLook,
     active: bool,
 ) {
     // Match the demo's edge-button placement and the unselected Action color.
-    let bg = control_color(MenuControlKind::Action, false, false);
+    let bg = look.action;
     let left = MenuRect::new(1.8, 43.5, 7.5, 13.0);
     let right = MenuRect::new(90.7, 43.5, 7.5, 13.0);
     spawn_panel_at_depth(
@@ -585,9 +587,10 @@ fn spawn_nav_arrows(
 fn spawn_cube_edge_frame(
     ui: &mut ChildSpawnerCommands,
     materials: &mut Assets<StandardMaterial>,
+    look: &KaleidoscopeLook,
     active: bool,
 ) {
-    let color = Color::srgba(0.80, 0.92, 1.0, 0.62);
+    let color = look.edge_frame;
     // Cube borders sit in their own deterministic depth band so they do not
     // shimmer against the page/panel edges while the cube rotates.
     spawn_panel_at_depth(
@@ -734,17 +737,18 @@ pub(super) fn control_disabled(kind: MenuControlKind, has_action: bool) -> bool 
 /// full-height channel behind the brighter thumb and must not read as a solid
 /// bright blob.
 pub(super) fn control_spawn_color(
+    look: &KaleidoscopeLook,
     kind: MenuControlKind,
     disabled: bool,
     selected: bool,
     important: bool,
 ) -> Color {
     if disabled {
-        disabled_control_color()
+        look.disabled
     } else if matches!(kind, MenuControlKind::Scrollbar) {
-        scrollbar_track_color()
+        look.scrollbar_track
     } else {
-        control_color(kind, selected, important)
+        look.control_color(kind, selected, important)
     }
 }
 
@@ -789,11 +793,11 @@ pub(super) fn control_visual_state(
 
 /// An item icon's tint follows the same focus styling a text cell would: dim
 /// when disabled (un-owned), warm when selected, white otherwise.
-pub(super) fn control_icon_tint(disabled: bool, selected: bool) -> Color {
+pub(super) fn control_icon_tint(look: &KaleidoscopeLook, disabled: bool, selected: bool) -> Color {
     if disabled {
-        Color::srgba(0.55, 0.58, 0.66, 0.55)
+        look.icon_disabled
     } else if selected {
-        Color::srgb(1.0, 0.95, 0.78)
+        look.icon_selected
     } else {
         Color::WHITE
     }

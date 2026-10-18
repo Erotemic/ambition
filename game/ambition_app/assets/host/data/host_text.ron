@@ -7,6 +7,9 @@
 // These are the host's words. A game's words are in its own pack (Ambition's
 // launcher row is `ambition_content`'s `data/ambition_text.ron`).
 {
+    // The run-in's first card, before the title: what the game was built
+    // with.
+    "startup.engine_card": "Powered by Ambition",
     // The cover while the first frame is prepared.
     "loading.title": "AMBITION",
     "loading.subtitle": "TANGENT SPACE SANDBOX",

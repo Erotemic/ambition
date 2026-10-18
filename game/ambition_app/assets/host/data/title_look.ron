@@ -1,7 +1,7 @@
-// The title screen's look (schema `title_look`, read by
-// `app::title_screen`). An edit is shown at the next start, with no Rust
-// build. Sizes are in parts of a hundred of the view (vw: its width, vh: its
-// height); colours are sRGB from 0 to 1.
+// The title screen's look, and the hold of the run-in's engine card before
+// it (schema `title_look`, read by `app::title_screen`). An edit is shown at
+// the next start, with no Rust build. Sizes are in parts of a hundred of
+// the view (vw: its width, vh: its height); colours are sRGB from 0 to 1.
 (
     // How much each layer drifts, far to near: sky, far backplate, near
     // background, foreground atmosphere. The near ones drift more, as they do
@@ -38,4 +38,8 @@
     cursor_edge: (1.0, 0.98, 0.86),
     cursor_edge_low: 0.45,
     cursor_breath_s: 1.8,
+    // How long the run-in's engine card holds before the title, if nobody
+    // presses confirm (s). Longer than a card's 2 s default, so its ease-in,
+    // hold and ease-out have room.
+    engine_card_s: 3.6,
 )

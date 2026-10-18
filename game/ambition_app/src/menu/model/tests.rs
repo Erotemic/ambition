@@ -1,4 +1,5 @@
 use super::*;
+use ambition_platformer2d::menu::MenuNode;
 
 #[test]
 fn items_face_wires_all_24_slots_from_our_catalog() {
@@ -679,4 +680,45 @@ fn the_radio_screen_says_what_is_playing() {
         texts(Some(SystemMenuEntryId::Radio))
     );
     assert!(!texts(None).contains(&now_playing), "only the Radio screen names it");
+}
+
+/// The pause menu's pages wear the colours the host's file states
+/// (`data/menu_look.ron`): the items page's detail panel, its header and its
+/// body lines, and a placeholder page's backdrop, title and line.
+#[test]
+fn the_menu_wears_what_the_host_file_states() {
+    let look = menu_look();
+    let items = build_items_page(&OwnedItems::default(), ambition_platformer2d::items::test_item_catalog(), None);
+    let panel = items.nodes.iter().find_map(|node| match node {
+        MenuNode::Panel { rect, color, .. } if *rect == DETAIL_PANEL_RECT => Some(*color),
+        _ => None,
+    });
+    assert_eq!(panel, Some(colour(look.panel)), "the detail panel");
+    let header = items.nodes.iter().find_map(|node| match node {
+        MenuNode::Text { text, color, .. } if *text == line("menu.items.selected") => Some(*color),
+        _ => None,
+    });
+    assert_eq!(header, Some(colour(look.heading)), "the detail panel's header");
+    let body: Vec<_> = items
+        .nodes
+        .iter()
+        .filter_map(|node| match node {
+            MenuNode::DynamicText { slot, color, .. } if (ITEMS_DETAIL_BODY_SLOT0..ITEMS_DETAIL_BODY_SLOT0 + ITEMS_DETAIL_BODY_LINES).contains(slot) => Some(*color),
+            _ => None,
+        })
+        .collect();
+    assert!(!body.is_empty() && body.iter().all(|color| *color == colour(look.body)), "the body lines: {body:?}");
+
+    let placeholder = placeholder_page(MenuPage::Map, "MAP", "a line");
+    assert_eq!(placeholder.background, colour(look.page), "a placeholder page's backdrop");
+    let inks: Vec<_> = placeholder
+        .nodes
+        .iter()
+        .filter_map(|node| match node {
+            MenuNode::Text { text, color, .. } => Some((text.as_str(), *color)),
+            _ => None,
+        })
+        .collect();
+    assert!(inks.contains(&("MAP", colour(look.heading))), "a placeholder page's title: {inks:?}");
+    assert!(inks.contains(&("a line", colour(look.placeholder_body))), "a placeholder page's line: {inks:?}");
 }

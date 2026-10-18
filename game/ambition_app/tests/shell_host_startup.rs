@@ -300,14 +300,22 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
         .segments;
     assert_eq!(segments.len(), 2, "engine card then authorship card");
 
-    // The engine card comes FIRST — built-with before built-by.
+    // The engine card comes FIRST — built-with before built-by. Its words and
+    // its hold are what the host's files state.
+    let words = ambition_app::app::host_pack::host_text().line("startup.engine_card").to_string();
     assert!(
         matches!(
             &segments[0].presentation,
-            ShellSegmentPresentation::TextCard { title, .. } if title.contains("Ambition")
+            ShellSegmentPresentation::TextCard { title, .. } if *title == words
         ),
-        "the first card credits the engine, got {:?}",
+        "the first card does not say the host file's `startup.engine_card` ({words:?}), got {:?}",
         segments[0].presentation,
+    );
+    let hold = ambition_app::app::title_screen::title_look().engine_card_s;
+    assert_eq!(
+        segments[0].policy.auto_advance_after,
+        Some(std::time::Duration::from_secs_f32(hold)),
+        "the engine card does not hold the title look's `engine_card_s`",
     );
 
     let segment = &segments[1];

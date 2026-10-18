@@ -123,6 +123,30 @@ pub struct FighterBodyAuthoring {
     /// Mid-air jump COUNT. Needs the `AirJump` grant to have any effect — the
     /// grant lights the capability, this is the number of them.
     pub air_jumps: Option<u8>,
+    /// How the press becomes a hop: `SquatDecided` is the platform fighter's
+    /// (the squat decides full or short, the air does not).
+    pub jump_law: Option<ambition_platformer2d_core::AxisJumpLaw>,
+    /// Speed of the first step out of standing (px/s), the burst a direction
+    /// change during the initial dash also gets. `0.0` is the run speed.
+    pub initial_dash_speed: Option<f32>,
+    /// Ground deceleration with the stick let go (px/s²): TRACTION, how far a
+    /// stopped run slides.
+    pub ground_friction: Option<f32>,
+    /// Acceleration toward the stick in the air (px/s²): air control.
+    pub air_accel: Option<f32>,
+    /// Top drift speed in the air (px/s). `0.0` is the run speed.
+    pub max_air_speed: Option<f32>,
+    /// Deceleration in the air with the stick let go (px/s²): AIR FRICTION.
+    /// Low is a drift that carries until it is steered out of.
+    pub air_stop_assist: Option<f32>,
+    /// Fall speed cap while fast-falling (px/s).
+    pub fast_fall_speed: Option<f32>,
+    /// How fast a fast fall reaches that cap (px/s²).
+    pub fast_fall_accel: Option<f32>,
+    /// Ground roll speed (px/s); its distance is this times `dodge_roll_time`.
+    pub dodge_roll_speed: Option<f32>,
+    /// Ground roll duration (s): how long it travels and is protected.
+    pub dodge_roll_time: Option<f32>,
 }
 
 impl FighterBodyAuthoring {
@@ -139,6 +163,16 @@ impl FighterBodyAuthoring {
             jump_speed: self.jump_speed.unwrap_or(base.jump_speed),
             double_jump_speed: self.double_jump_speed.unwrap_or(base.double_jump_speed),
             air_jumps: self.air_jumps.unwrap_or(base.air_jumps),
+            jump_law: self.jump_law.unwrap_or(base.jump_law),
+            initial_dash_speed: self.initial_dash_speed.unwrap_or(base.initial_dash_speed),
+            ground_friction: self.ground_friction.unwrap_or(base.ground_friction),
+            air_accel: self.air_accel.unwrap_or(base.air_accel),
+            max_air_speed: self.max_air_speed.unwrap_or(base.max_air_speed),
+            air_stop_assist: self.air_stop_assist.unwrap_or(base.air_stop_assist),
+            fast_fall_speed: self.fast_fall_speed.unwrap_or(base.fast_fall_speed),
+            fast_fall_accel: self.fast_fall_accel.unwrap_or(base.fast_fall_accel),
+            dodge_roll_speed: self.dodge_roll_speed.unwrap_or(base.dodge_roll_speed),
+            dodge_roll_time: self.dodge_roll_time.unwrap_or(base.dodge_roll_time),
             ..base
         }
     }
@@ -148,7 +182,7 @@ impl FighterBodyAuthoring {
         *self == Self::default()
     }
 
-    fn problems(&self, out: &mut Vec<String>) {
+    pub fn problems(&self, out: &mut Vec<String>) {
         if self.states_nothing() {
             out.push(
                 "`body` is present and states no number, so it declares a fighter body and                  means nothing. Author at least one field or remove it"
@@ -162,6 +196,11 @@ impl FighterBodyAuthoring {
             ("max_run_speed", self.max_run_speed),
             ("jump_speed", self.jump_speed),
             ("double_jump_speed", self.double_jump_speed),
+            ("air_accel", self.air_accel),
+            ("fast_fall_speed", self.fast_fall_speed),
+            ("fast_fall_accel", self.fast_fall_accel),
+            ("dodge_roll_speed", self.dodge_roll_speed),
+            ("dodge_roll_time", self.dodge_roll_time),
         ] {
             let Some(value) = value else { continue };
             // ⛔ POSITIVE, not merely finite: every one of these is a MAGNITUDE
@@ -170,6 +209,28 @@ impl FighterBodyAuthoring {
             if !value.is_finite() || value <= 0.0 {
                 out.push(format!(
                     "`body.{name}` is {value}, and every number here is a magnitude the                      movement kernel scales by — zero or negative is a body that cannot                      move rather than a slow one"
+                ));
+            }
+        }
+        // These four may be zero, each meaning something: the run speed, no
+        // traction, the run speed again, no air friction.
+        for (name, value) in [
+            ("initial_dash_speed", self.initial_dash_speed),
+            ("ground_friction", self.ground_friction),
+            ("max_air_speed", self.max_air_speed),
+            ("air_stop_assist", self.air_stop_assist),
+        ] {
+            let Some(value) = value else { continue };
+            if !value.is_finite() || value < 0.0 {
+                out.push(format!("`body.{name}` is {value}; it is finite and not negative"));
+            }
+        }
+        if let Some(ambition_platformer2d_core::AxisJumpLaw::SquatDecided(law)) = self.jump_law {
+            let frac = law.short_hop_speed_frac;
+            if !(frac > 0.0 && frac <= 1.0) {
+                out.push(format!(
+                    "`body.jump_law`'s `short_hop_speed_frac` is {frac}; a short hop is a \
+                     fraction of the full hop's launch, above 0 and at most 1"
                 ));
             }
         }

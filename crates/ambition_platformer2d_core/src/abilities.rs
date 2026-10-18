@@ -1092,6 +1092,15 @@ pub struct MatchBody {
     /// dodge. `0.0` means a grounded evade is always the roll, which is what an
     /// exploration body wants: the press is already spoken for.
     pub spot_dodge_time: f32,
+    /// Recovery after the spot dodge (s), its punish window, as
+    /// `dodge_roll_endlag` is the roll's. A MATCH rule for the same reason.
+    #[serde(default)]
+    pub spot_dodge_endlag: f32,
+    /// See [`MovementTuning::launch_decay`]. How a launch slows is the
+    /// MODE's, like the tumble it starts: one fighter's knockback must not
+    /// carry further because its air friction is low.
+    #[serde(default)]
+    pub launch_decay: f32,
     /// WHICH GAME'S PERFECT SHIELD this mode plays with — Smash 4 opens the
     /// window on the press, Ultimate on the release. See
     /// [`crate::ParryTiming`]; the two are settings a stage declares, not a
@@ -1122,9 +1131,11 @@ pub struct MatchBody {
     pub crouch_speed_frac: f32,
     /// See [`MovementTuning::initial_dash_time`] — the ground phase in which a
     /// direction change is still free. `0.0` = no phase.
+    ///
+    /// The phase's LENGTH is the stage's; its SPEED
+    /// ([`MovementTuning::initial_dash_speed`]) is the fighter's, because how
+    /// hard a first step bursts is the fighter's gait.
     pub initial_dash_time: f32,
-    /// See [`MovementTuning::initial_dash_speed`]. `0.0` inherits the run speed.
-    pub initial_dash_speed: f32,
     /// See [`MovementTuning::turnaround_time`] — what reversing out of a
     /// committed run costs. `0.0` = facing flips instantly.
     pub turnaround_time: f32,
@@ -1162,6 +1173,8 @@ impl MatchBody {
             evade_cancel_tail: self.evade_cancel_tail,
             tumble_speed: self.tumble_speed,
             spot_dodge_time: self.spot_dodge_time,
+            spot_dodge_endlag: self.spot_dodge_endlag,
+            launch_decay: self.launch_decay,
             parry_timing: self.parry_timing,
             sdi_step: self.sdi_step,
             asdi_step: self.asdi_step,
@@ -1171,7 +1184,6 @@ impl MatchBody {
             footstool: self.footstool,
             crouch_speed_frac: self.crouch_speed_frac,
             initial_dash_time: self.initial_dash_time,
-            initial_dash_speed: self.initial_dash_speed,
             turnaround_time: self.turnaround_time,
             teeter_margin: self.teeter_margin,
             ..base
@@ -1218,6 +1230,8 @@ mod tests {
             evade_cancel_tail: 4.0 / 60.0,
             tumble_speed: 500.0,
             spot_dodge_time: 0.16,
+            spot_dodge_endlag: 0.0,
+            launch_decay: 0.0,
             parry_timing: crate::ParryTiming::OnRaise,
             sdi_step: 3.0,
             asdi_step: 6.0,
@@ -1232,7 +1246,6 @@ mod tests {
             footstool: crate::FootstoolTuning::PLATFORM_FIGHTER,
             crouch_speed_frac: 1.0,
             initial_dash_time: 0.0,
-            initial_dash_speed: 0.0,
             turnaround_time: 0.0,
             teeter_margin: 0.0,
         };

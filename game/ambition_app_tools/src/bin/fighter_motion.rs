@@ -570,6 +570,9 @@ fn falls(rig: &mut Rig, out: &mut BTreeMap<&'static str, f32>) {
 /// Shield, then the evade: `dir` is the stick.
 fn evade(rig: &mut Rig, dir: Vec2, airborne: bool) -> (f32, f32, f32) {
     let x = 0.5 * (rig.stage_left + rig.stage_right) - 60.0;
+    // Wait out the last evade's staling (Smash forgives one per 1.2 s), so
+    // every evade is measured fresh.
+    rig.idle(150);
     if airborne {
         rig.hang_at(x, 300.0);
         rig.step(ControlFrame::default());

@@ -9,4 +9,22 @@
 (
     character: "npc_ramen_nujan",
     knockback_weight: Some(0.9),
+    // Moves like a tactician: slow on the ground, ordinary in the air.
+    // Shaped like Ultimate's Robin at 0.60 strength: each number is Smash's
+    // default fighter's, scaled by how that fighter differs from Ultimate's
+    // roster median (`scripts/smash_fighter_shape.py "Robin" --strength 0.6`).
+    body: Some((
+        max_run_speed: Some(262.7),
+        initial_dash_speed: Some(334.8),
+        run_accel: Some(389.0),
+        ground_friction: Some(680.7),
+        max_air_speed: Some(215.0),
+        air_accel: Some(894.0),
+        gravity: Some(1134.8),
+        max_fall_speed: Some(298.2),
+        fast_fall_speed: Some(484.7),
+        jump_speed: Some(498.6),
+        double_jump_speed: Some(495.7),
+        dodge_roll_speed: Some(375.2),
+    )),
 )

@@ -174,11 +174,15 @@ pub struct MatchRules {
     /// `None` to leave every character's own kit alone. See
     /// [`MatchAbilities`](ambition_platformer2d_core::MatchAbilities).
     pub abilities: Option<ambition_platformer2d_core::MatchAbilities>,
-    /// The body this match supplies to a fighter whose character authored
-    /// none — see
-    /// [`MatchParticipantRoster::fighter_body`](super::staging::MatchParticipantRoster::fighter_body),
-    /// the field it is carried from, and [`Self::body_over`] for the precedence.
+    /// The few body numbers this match writes over EVERY fighter's body (the
+    /// jump squat, the evades, the shield). See [`Self::body_over`].
     pub body: Option<ambition_platformer2d_core::MatchBody>,
+    /// The whole body a fighter plays on when neither its seat
+    /// ([`MatchParticipant::body`](super::staging::MatchParticipant::body))
+    /// nor its character (a catalog `axis_tuning`) states one: the game's
+    /// default fighter. `None` leaves such a fighter on the actor body its
+    /// config builds, which is a wandering enemy's, not a fighter's.
+    pub base_body: Option<ambition_platformer2d_core::MovementTuning>,
     /// The pool this match gives every seat, or `None` to keep each
     /// character's own. Carried on
     /// [`MatchParticipantRoster::rules`](super::staging::MatchParticipantRoster::rules),
@@ -265,6 +269,31 @@ impl MatchRules {
     /// [`MatchBody`](ambition_platformer2d_core::MatchBody) holds exactly
     /// those. The character keeps its gait, jump arc, and gravity whether or
     /// not it authored a `MovementTuning`.
+    /// The whole body a seat plays on before [`Self::body_over`] lays the
+    /// stage's numbers over it. First answer wins:
+    ///
+    /// 1. the seat's own (`MatchParticipant::body`), an explicit override;
+    /// 2. the character's FIGHTER body (its `smash_fighter` facet), a patch
+    ///    over this match's default fighter;
+    /// 3. the character's feel everywhere (a catalog `axis_tuning`);
+    /// 4. this match's default fighter ([`Self::base_body`]);
+    /// 5. none: the actor body the seed builds.
+    pub fn seat_body(
+        &self,
+        participant: &crate::staging::MatchParticipant,
+        definition: &ambition_characters::prepared::PreparedCharacterDefinition,
+    ) -> Option<ambition_platformer2d_core::MovementTuning> {
+        participant
+            .body
+            .or_else(|| {
+                definition.fighter_body.map(|body| {
+                    body.over(self.base_body.unwrap_or(ambition_platformer2d_core::DEFAULT_TUNING))
+                })
+            })
+            .or(definition.movement_tuning)
+            .or(self.base_body)
+    }
+
     pub fn body_over(
         &self,
         authored: Option<ambition_platformer2d_core::MovementTuning>,
@@ -750,8 +779,7 @@ pub fn prepare_match(
             // they name. The seat's own body outranks the character's: a
             // catalog row's feel applies everywhere that character appears.
             // See `MatchParticipant::body`.
-            effective_movement_tuning: rules
-                .body_over(participant.body.or(definition.movement_tuning), built_body),
+            effective_movement_tuning: rules.body_over(rules.seat_body(participant, definition), built_body),
             moveset: worn.moveset,
         });
     }

@@ -217,7 +217,8 @@ pub struct BodyMotionFacts {
     /// committed and no longer invulnerable. Presentation and AI read this;
     /// [`Self::evading`] deliberately does NOT include it.
     pub air_dodge_endlag: bool,
-    /// The GROUND ROLL's window has closed but its endlag has not — the same
+    /// The GROUND EVADE's window (a roll, or a spot dodge with a recovery) has
+    /// closed but its endlag has not — the same
     /// distinction as [`Self::air_dodge_endlag`], and the beat a defender is
     /// meant to read. Not part of [`Self::evading`]: the body is committed and
     /// no longer invulnerable, which is the whole point of the state.

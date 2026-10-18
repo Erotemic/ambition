@@ -1013,7 +1013,10 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
 
     // Player two walks right on the PAD. Nothing is touched on the keyboard.
     pad_set(&mut app, pad, GamepadButton::DPadRight, 1.0);
-    for _ in 0..40 {
+    // A third of a second: enough to tell which body a device drives, short
+    // of the stage's edge for any fighter on the grid (a fighter that runs off
+    // and respawns reads as a huge move of the OTHER body's x).
+    for _ in 0..20 {
         app.update();
     }
     let moved_two = x(&app, body_two) - start_two;
@@ -1049,7 +1052,10 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
 
     // Player ONE walks right on the KEYBOARD. The pad is released.
     Buttonlike::press(&KeyCode::ArrowRight, app.world_mut());
-    for _ in 0..40 {
+    // A third of a second: enough to tell which body a device drives, short
+    // of the stage's edge for any fighter on the grid (a fighter that runs off
+    // and respawns reads as a huge move of the OTHER body's x).
+    for _ in 0..20 {
         app.update();
     }
     Buttonlike::release(&KeyCode::ArrowRight, app.world_mut());
@@ -1752,27 +1758,25 @@ fn the_grid_fighters_that_state_their_own_moves_only_grow() {
     );
 }
 
-/// WHICH BODY DOES A GRID FIGHTER ACTUALLY MOVE ON? Measured, because the
-/// planning ledger's answer ("thirteen bodies are floatier than the
-/// fourteenth") predates half the grid and understates the difference.
+/// WHICH BODY DOES A GRID FIGHTER ACTUALLY MOVE ON? Measured at the seat.
 ///
 /// ⭐⭐ A SEAT ALWAYS GETS A BODY, AND THE QUESTION IS WHAT IT IS COMPOSED OVER.
-/// `MatchRules::body_over` reads `smash_fighter_body().over(authored.unwrap_or(built))`,
-/// and `built` is the seed's `ActorTuning.movement` — `BodyMovementTuning::BASELINE`,
-/// the WANDERING-ENEMY body — for every fighter whose character authored no feel
-/// of its own. The stage's six numbers land correctly on top of it and disturb
-/// nothing else, exactly as `MatchBody` promises; what nobody chose is the base.
-///
-/// ⛔ THIS IS A RATCHET AND IT MAY ONLY SHRINK. The fix is per-character
-/// (`MatchBody`'s own doc refuses a mode-owned gravity in advance), so this list
-/// empties one authored fighter at a time and must never grow.
+/// `MatchRules::body_over` lays the stage's few numbers over the seat's facet
+/// body, else the character's catalog feel, else the game's DEFAULT FIGHTER
+/// (`base_body` in Smash's `match_rules.ron`). Before the default existed the
+/// last answer was the seed's own `BodyMovementTuning::BASELINE` — the
+/// WANDERING-ENEMY body, gravity 1450, run accel 650, fall cap 760 — and 21 of
+/// 23 grid fighters played on it (measured 2026-08-26 to 2026-10-12, as a
+/// ratchet that could only shrink). Nobody chose that base; this pins the one
+/// Smash chose.
 #[test]
-fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() {
-    // The wandering-enemy body (`BodyMovementTuning::BASELINE`) against the one
-    // every player-driven body in the game rides (`DEFAULT_TUNING`). Spelled out
-    // rather than imported so the failure message carries the contrast: the
-    // headline is not gravity, it is that a fighter builds speed at an EIGHTH of
-    // the player's rate and caps its fall at forty percent of the player's.
+fn a_grid_fighter_that_authors_no_feel_is_seated_on_smashs_default_fighter() {
+    // Read, never restated: the numbers are `match_rules.ron`'s.
+    let base = ambition_demo_smash::smash_match_rules()
+        .base_body
+        .expect("Smash's match rules state a default fighter body")
+        .over(ambition_platformer2d::engine_core::DEFAULT_TUNING);
+    // The wandering-enemy body, spelled out so a failure says which one it is.
     const ENEMY_GRAVITY: f32 = 1450.0;
     const ENEMY_RUN_ACCEL: f32 = 650.0;
 
@@ -1797,10 +1801,9 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
         // the definition would leave this ratchet stuck at 17 while the work
         // was being done.
         roster.ids().map(str::to_string).partition(|id| {
-            registry
-                .get(id)
-                .is_some_and(|character| character.movement_tuning.is_some())
-                || ambition_demo_smash::smash_pack::fighter_body(id).is_some()
+            registry.get(id).is_some_and(|character| {
+                character.movement_tuning.is_some() || character.fighter_body.is_some()
+            })
         })
     };
     assert!(
@@ -1874,52 +1877,21 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
     );
     let (_, gravity, run_accel, max_fall_speed) = seated[0];
     assert_eq!(
-        (gravity, run_accel),
-        (ENEMY_GRAVITY, ENEMY_RUN_ACCEL),
+        (gravity, run_accel, max_fall_speed),
+        (base.gravity, base.run_accel, base.max_fall_speed),
         "`{subject}` authors no movement feel and is seated on gravity \
-         {gravity} / run accel {run_accel} / fall cap {max_fall_speed}. This \
-         assertion is the CURRENT state, not the wanted one: the wandering-enemy \
-         baseline is 1450/650/760 and the player body every human drives is \
-         2250/5200/1900. When this fighter authors a body of its own, take it \
-         off the ratchet below and pick a different subject"
+         {gravity} / run accel {run_accel} / fall cap {max_fall_speed}, not on \
+         Smash's default fighter ({} / {} / {}). The wandering-enemy body is \
+         {ENEMY_GRAVITY} / {ENEMY_RUN_ACCEL} / 760",
+        base.gravity,
+        base.run_accel,
+        base.max_fall_speed,
     );
-
-    // THE RATCHET. Every fighter here is on the wandering-enemy body.
-    // MEASURED 2026-08-26, not chosen: 17 of 19, with only George Booul and
-    // Mary-O authoring a feel of their own.
-    //
-    // ⛔⛔ RE-BASED 2026-08-27 TO 19 OF 21, AND NOT BECAUSE ANYBODY REGRESSED.
-    // `6a7517dc6` seated two more hand-drawn easter eggs, and neither authors a
-    // feel — so a count of the fighters STILL on the enemy's body rises whenever
-    // the cast grows, which is content breadth doing its job and not the thing
-    // this row exists to catch. The AUTHORED set is unchanged, and the assertion
-    // below is the half that says so: it names both authors, so a fighter LOSING
-    // its own body goes red however wide the grid gets. Re-basing the count
-    // without it would have left a ratchet that only new content can move.
-    //
-    // ⚠ `sanic` is on this list for a DIFFERENT REASON than the other sixteen
-    // and authoring him a `MovementTuning` would not move him: he is a
-    // `SurfaceMomentum` body, so he has no `AxisManeuverState` and reads none of
-    // these numbers. Taking him off costs the other motion model a seat for the
-    // state, which is the engine gap the ledger records — not an authoring job.
-    //
-    // RE-BASED 2026-10-11 TO 20 OF 22 for the same reason: `fdc6622e9` seated
-    // GNU-ton, who authors no feel. The two authors are unchanged.
-    //
-    // RE-BASED 2026-10-12 TO 21 OF 23 for the same reason: `54f9c36c7` seated
-    // Ramen-nujan, who authors no feel. The two authors are unchanged.
-    const ON_THE_ENEMYS_BODY: usize = 21;
-    assert_eq!(
-        silent.len(),
-        ON_THE_ENEMYS_BODY,
-        "{} of {} grid fighters author no movement feel and are therefore \
-         seated on the wandering enemy's body: {silent:?}. The {} that do: \
-         {authored:?}. ⛔ This number may only FALL — a fighter authors its \
-         body beside the moveset it already authors; the stage may not own \
-         gravity (see `MatchBody`'s own doc)",
-        silent.len(),
-        silent.len() + authored.len(),
-        authored.len(),
+    assert_ne!(
+        (base.gravity, base.run_accel),
+        (ENEMY_GRAVITY, ENEMY_RUN_ACCEL),
+        "Smash's default fighter IS the wandering-enemy body, so the assertion \
+         above cannot tell the two apart"
     );
 }
 
@@ -2054,7 +2026,7 @@ fn george_carries_the_knockback_weight_his_own_facet_authors() {
 #[test]
 fn the_smash_demos_cast_is_prepared_from_its_pack_as_the_rust_registration_built_it() {
     use ambition_demo_smash::{SMASH_CHARACTER_ID, SMASH_GEORGE_BOOUL, SMASH_OPPONENT_ID};
-    use ambition_platformer2d::engine_core::{AbilitySet, MatchAbilities, DEFAULT_TUNING};
+    use ambition_platformer2d::engine_core::{AbilitySet, MatchAbilities};
 
     let mut app = shell_host_app();
     settle(&mut app);
@@ -2091,10 +2063,12 @@ fn the_smash_demos_cast_is_prepared_from_its_pack_as_the_rust_registration_built
             .unwrap_or_else(|| panic!("`{id}` is not in the shipped host's prepared cast"));
         assert_eq!(prepared.display_name, name, "{id}");
         assert_eq!(prepared.sheet.as_deref(), Some(sheet), "{id}");
+        // No feel of its own anywhere: as a fighter it plays on Smash's
+        // default fighter (`MatchRules::seat_body`), never the actor baseline.
         assert_eq!(
-            prepared.movement_tuning,
-            Some(DEFAULT_TUNING),
-            "`{id}` must play the player-grade feel, not the actor baseline"
+            prepared.movement_tuning, None,
+            "`{id}` states a feel of its own, which would outrank Smash's default \
+             fighter in every match it plays"
         );
         assert_eq!(
             rule.apply(prepared.abilities),
@@ -2883,6 +2857,26 @@ fn seat_positions(app: &mut App) -> Vec<f32> {
 ///
 /// Real keys through the real host input stack — the flick that makes the press
 /// a smash is the genuine two-tick gesture, not `attack_strength_hint` set by hand.
+/// Step until seat zero is standing on the stage: a round goes live while
+/// the seats may still be dropping in.
+fn stand_seat_zero(app: &mut App) {
+    for _ in 0..240 {
+        let grounded = {
+            let world = app.world_mut();
+            let mut q = world.query::<(
+                &ambition_platformer2d::versus_match::MatchSeat,
+                &ambition_platformer2d::engine_core::BodyGroundState,
+            )>();
+            q.iter(world).any(|(seat, ground)| seat.0 == 0 && ground.on_ground)
+        };
+        if grounded {
+            return;
+        }
+        app.update();
+    }
+    panic!("seat zero never stood on the stage");
+}
+
 #[test]
 fn a_quick_forward_smash_barely_travels_but_plain_forward_still_walks() {
     /// Ticks to watch after the press. The authored startup is shorter than
@@ -2921,6 +2915,9 @@ fn a_quick_forward_smash_barely_travels_but_plain_forward_still_walks() {
         pick_and_start(&mut app, PREPARED_FIGHTER);
         wait_for_the_round_to_go_live(&mut app);
 
+        // The seats drop in from above the stage, and a press made in the air
+        // is an aerial: stand first.
+        stand_seat_zero(&mut app);
         Buttonlike::press(&KeyCode::ArrowRight, app.world_mut());
         app.update();
         Buttonlike::press(&KeyCode::KeyX, app.world_mut());
@@ -2945,6 +2942,7 @@ fn a_quick_forward_smash_barely_travels_but_plain_forward_still_walks() {
         let mut app = open_the_lobby();
         pick_and_start(&mut app, PREPARED_FIGHTER);
         wait_for_the_round_to_go_live(&mut app);
+        stand_seat_zero(&mut app);
 
         Buttonlike::press(&KeyCode::ArrowRight, app.world_mut());
         app.update();
@@ -2968,12 +2966,16 @@ fn a_quick_forward_smash_barely_travels_but_plain_forward_still_walks() {
          {WATCHED_TICKS} ticks), so the smash assertion below proves nothing — \
          a fighter frozen everywhere would pass it"
     );
+    // The smash keeps the first step's speed and SKIDS on traction, as
+    // Ultimate's slide smash does (an initial dash of 1.92 u/f against
+    // traction 0.102 slides ~18 u, ~54 px at 3 px a unit). What it must not do
+    // is keep RUNNING: a body still dashing covers what plain forward covers.
     assert!(
-        travelled_smashing < A_BODY_WIDTH_PX,
+        travelled_smashing < travelled_walking * 0.6,
         "a quick forward smash travelled {travelled_smashing:.1}px before its \
-         startup finished — more than a body width, which reads as dashing and \
-         then smashing. Plain forward went {travelled_walking:.1}px over the \
-         same window"
+         startup finished against plain forward's {travelled_walking:.1}px over \
+         the same window, which reads as dashing and then smashing rather than \
+         a smash skidding out of the first step"
     );
 }
 
@@ -7083,8 +7085,14 @@ mod ring_out {
         // ⚠ This window is deliberately NOT justified by a lateral distance any
         // more: the 720px side-line figure it used to cite was part of the
         // criterion that mis-selected the ruleset constant.
+        //
+        // 2026-10-18: 300 ticks. A fighter now falls at 310 px/s (Smash's
+        // default fighter, `match_rules.ron`), so a body launched high off
+        // the stage takes up to ~3.5 s to reach the fall line below; at 150 a
+        // stronger launch read ALIVE where a weaker one read KO. A body that
+        // comes to rest on the stage still ends the window early.
         let mut reacting = 0usize;
-        for _ in 0..150 {
+        for _ in 0..300 {
             app.update();
             let in_hitlag = app
                 .world()
@@ -7277,8 +7285,14 @@ mod ring_out {
     /// the percent scale returned to `1.0`, as the message below asks, and
     /// this arm pins the new measured branch: the unrepaired percent curve
     /// ends the stock.
+    ///
+    /// ⭐ **2026-10-18, LATER: RED AGAIN, THE OTHER WAY.** A launch now slows
+    /// at Ultimate's 0.051 u/f² (`launch_decay`, `match_rules.ron`) instead of
+    /// being held for all of hitstun and then braked hard, so at `1.0` the
+    /// 700% stale jab travels 247 px and the stock stands. The multiplier is
+    /// earned again (the sweep below picks 1.25); this arm pins that branch.
     #[test]
-    fn the_unrepaired_percent_curve_now_ends_the_stock() {
+    fn the_unrepaired_percent_curve_leaves_the_stock_standing() {
         let mut kill_cell = george_cell(JAB, 0, 700, true);
         kill_cell.scale = Some(1.0);
         let kill = {
@@ -7318,15 +7332,16 @@ mod ring_out {
             !poke.left_the_world,
             "a 0% jab killed at scale 1.0, so this cell cannot witness anything"
         );
-        // ⇒ THE MEASURED FINDING, PINNED IN THE DIRECTION IT WAS MEASURED: at
-        // the law as first written, the stage's base scale lets a fully stale
-        // 700% jab end the stock, so no percent multiplier is declared.
+        // ⇒ THE MEASURED FINDING, PINNED IN THE DIRECTION IT WAS MEASURED:
+        // under the launch decay a fully stale 700% jab at `1.0` leaves the
+        // stock standing, so Smash declares a percent multiplier.
         assert!(
-            kill.left_the_world,
-            "at scale 1.00 a fully stale 700% jab LEFT THE STOCK STANDING: the \
-             engine resolved {:?}px/s and the body travelled {:.1}px. The base \
-             scale no longer carries the percent curve to a knockout, so a \
-             percent multiplier may be earned again (the sweep below picks it).",
+            !kill.left_the_world,
+            "at scale 1.00 a fully stale 700% jab ENDED THE STOCK: the engine \
+             resolved {:?}px/s and the body travelled {:.1}px. The base scale \
+             carries the percent curve to a knockout again, so Smash's \
+             `victim_percent_knockback_scale` is unearned and should return to \
+             1.0 (the sweep below will say so too).",
             kill.resolved_launch,
             kill.peak_lateral,
         );
@@ -8115,7 +8130,10 @@ fn a_pad_claiming_the_first_card_leaves_the_keyboard_driving_the_second() {
     // THE KEYBOARD PLAYER — in seat TWO this time — walks right.
     let (before_pad, before_keyboard) = (x(&app, pad_body), x(&app, keyboard_body));
     Buttonlike::press(&KeyCode::ArrowRight, app.world_mut());
-    for _ in 0..40 {
+    // A third of a second: enough to tell which body a device drives, short
+    // of the stage's edge for any fighter on the grid (a fighter that runs off
+    // and respawns reads as a huge move of the OTHER body's x).
+    for _ in 0..20 {
         app.update();
     }
     Buttonlike::release(&KeyCode::ArrowRight, app.world_mut());
@@ -8146,7 +8164,10 @@ fn a_pad_claiming_the_first_card_leaves_the_keyboard_driving_the_second() {
     }
     let (before_pad, before_keyboard) = (x(&app, pad_body), x(&app, keyboard_body));
     pad_set(&mut app, pad, GamepadButton::DPadRight, 1.0);
-    for _ in 0..40 {
+    // A third of a second: enough to tell which body a device drives, short
+    // of the stage's edge for any fighter on the grid (a fighter that runs off
+    // and respawns reads as a huge move of the OTHER body's x).
+    for _ in 0..20 {
         app.update();
     }
     pad_set(&mut app, pad, GamepadButton::DPadRight, 0.0);

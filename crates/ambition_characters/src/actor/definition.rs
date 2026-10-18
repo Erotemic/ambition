@@ -127,6 +127,11 @@ pub struct CharacterDefinition {
     /// folded in beside the damage. Only a match that plays in a scale reads
     /// that scale's map. See [`crate::move_damage::VerbMoves`].
     pub scaled_verbs: crate::move_damage::ScaledVerbMoves,
+    /// The body this character plays on AS A FIGHTER, as a patch over its
+    /// game's default fighter (`MatchRules::base_body`), folded in from its
+    /// `smash_fighter` facet. Unlike [`Self::movement_tuning`], which is its
+    /// feel everywhere it appears, only a match reads this.
+    pub fighter_body: Option<crate::smash_fighter::FighterBodyAuthoring>,
     /// Actions this character may choose, separate from the moveset that defines the moves.
     pub action_set: Option<crate::brain::ActionSet>,
     /// How this character MOVES — the state-free movement policy.
@@ -226,6 +231,7 @@ impl CharacterDefinition {
             moveset: None,
             scaled_move_damage: crate::move_damage::ScaledMoveDamage::new(),
             scaled_verbs: crate::move_damage::ScaledVerbMoves::new(),
+            fighter_body: None,
             action_set: None,
             motion_model: None,
             movement_tuning: None,
@@ -443,6 +449,7 @@ mod authority_tests {
             moveset: _,
             scaled_move_damage: _,
             scaled_verbs: _,
+            fighter_body: _,
             action_set: _,
             motion_model: _,
             movement_tuning: _,

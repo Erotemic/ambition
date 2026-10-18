@@ -63,7 +63,18 @@
         // 2026-10-18: back to 1.0. With `base_knockback_scale` below, the 700%
         // stale jab converts unaided, so the multiplier is unearned (the
         // ring_out guards in `smash_in_the_host` say so and pick the value).
-        victim_percent_knockback_scale: Some(1.0),
+        //
+        // 2026-10-18, later: 1.25. A launch now slows at Ultimate's rate
+        // (`launch_decay` in `match_rules.ron`) where it used to be held for
+        // all of hitstun, and fighters fall slower. Re-swept:
+        //
+        //     scale | 700% stale jab | lateral
+        //     1.00  | ALIVE          | 246.6px
+        //     1.25  | KO             | 453.5px
+        //     1.50+ | KO             | 519px+
+        //
+        // It multiplies only the percent term, so a 0% hit is unchanged.
+        victim_percent_knockback_scale: Some(1.25),
         // Kill moves are authored explicitly, not inferred. Base knockback is
         // not role: a growth curve on base knockback overrode authored
         // `knockback_growth`, distorted deliberate high-base, low-growth

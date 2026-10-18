@@ -176,6 +176,7 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_f32(out, state.ledge_vulnerable_timer);
     put_bool(out, state.spot_dodging);
     put_f32(out, state.air_dodge_timer);
+    put_vec2(out, state.air_dodge_push);
     put_f32(out, state.air_dodge_endlag_timer);
     put_f32(out, state.dodge_roll_endlag_timer);
     put_f32(out, state.tumble_timer);
@@ -235,6 +236,7 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         ledge_vulnerable_timer: r.f32()?,
         spot_dodging: r.bool()?,
         air_dodge_timer: r.f32()?,
+        air_dodge_push: r.vec2()?,
         air_dodge_endlag_timer: r.f32()?,
         dodge_roll_endlag_timer: r.f32()?,
         tumble_timer: r.f32()?,
@@ -424,6 +426,7 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, l.air_friction);
     put_f32(out, l.air_stop_assist);
     put_f32(out, l.carried_decay);
+    put_f32(out, l.launch_decay);
     put_f32(out, l.max_run_speed);
     put_f32(out, l.max_air_speed);
     put_f32(out, l.run_commit_frac);
@@ -475,6 +478,7 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, a.evade_cancel_tail);
     put_f32(out, a.tumble_speed);
     put_f32(out, a.spot_dodge_time);
+    put_f32(out, a.spot_dodge_endlag);
     put_f32(out, a.sdi_step);
     put_f32(out, a.asdi_step);
     put_f32(out, a.jab_lock_speed);
@@ -549,6 +553,7 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             air_friction: r.f32()?,
             air_stop_assist: r.f32()?,
             carried_decay: r.f32()?,
+            launch_decay: r.f32()?,
             max_run_speed: r.f32()?,
             max_air_speed: r.f32()?,
             run_commit_frac: r.f32()?,
@@ -601,6 +606,7 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             evade_cancel_tail: r.f32()?,
             tumble_speed: r.f32()?,
             spot_dodge_time: r.f32()?,
+            spot_dodge_endlag: r.f32()?,
             sdi_step: r.f32()?,
             asdi_step: r.f32()?,
             jab_lock_speed: r.f32()?,
@@ -700,6 +706,10 @@ fn put_axis_jump_law(out: &mut Vec<u8>, law: crate::AxisJumpLaw) {
             put_f32(out, params.fall_gravity_scale);
             put_f32(out, params.held_phase_min_upward_speed);
         }
+        AxisJumpLaw::SquatDecided(params) => {
+            put_u8(out, 2);
+            put_f32(out, params.short_hop_speed_frac);
+        }
     }
 }
 
@@ -714,6 +724,9 @@ fn axis_jump_law(r: &mut Reader<'_>) -> Option<crate::AxisJumpLaw> {
             released_rise_gravity_scale: r.f32()?,
             fall_gravity_scale: r.f32()?,
             held_phase_min_upward_speed: r.f32()?,
+        }),
+        2 => AxisJumpLaw::SquatDecided(crate::SquatDecidedJumpTuning {
+            short_hop_speed_frac: r.f32()?,
         }),
         _ => return None,
     })

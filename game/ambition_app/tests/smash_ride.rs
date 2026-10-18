@@ -245,10 +245,13 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
         }
     }
     let before = x_of(&mut app, seat0);
+    // A second each way. The shark flies at its OWN top speed under a full
+    // stick (the stick's deflection, not the rider's run speed, sets the
+    // target), so it carries real momentum into the reversal.
     let hold = |app: &mut App, axis_x: f32| {
         press(
             app,
-            40,
+            60,
             ambition_platformer2d::engine_core::ControlFrame {
                 axis_x,
                 ..Default::default()
@@ -1326,8 +1329,12 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
         ..Default::default()
     };
     // ── STILL ABOARD WELL INSIDE THE LEASE. ──
-    for _ in 0..120 {
-        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), fly_up);
+    // Up for a moment, then hover: holding up for the whole lease at the
+    // shark's top speed flies the pair through the top blast line, and a KO
+    // also ends a ride.
+    for tick in 0..120 {
+        let frame = if tick < 20 { fly_up } else { ambition_platformer2d::engine_core::ControlFrame::default() };
+        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
         app.update();
     }
     assert!(
@@ -1344,7 +1351,10 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
     // answered for.
     let mut at_release = None;
     for _ in 0..300 {
-        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), fly_up);
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame::default(),
+        );
         app.update();
         if app.world().get::<RidingOn>(seat0).is_none() {
             at_release = Some((
@@ -1629,6 +1639,25 @@ fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
         .map(|r| r.mount)
         .expect("the admiral boarded, so there is a shark to kill");
 
+    // The rival stands still: this is about the admiral and his shark, and a
+    // CPU that hits him while he waits to summon again turns the press below
+    // into a hitstun refusal (seen 2026-10-18 once fighters moved at their own
+    // speeds).
+    {
+        let rivals: Vec<Entity> = {
+            let world = app.world_mut();
+            let mut q = world.query::<(Entity, &MatchSeat)>();
+            q.iter(world)
+                .filter(|(_, seat)| seat.0 != 0)
+                .map(|(entity, _)| entity)
+                .collect()
+        };
+        for rival in rivals {
+            app.world_mut()
+                .entity_mut(rival)
+                .insert(ambition_platformer2d::characters::brain::Brain::stand_still());
+        }
+    }
     // ── KILL IT. Enough damage that the pool is emptied whatever it is. ──
     {
         let world = app.world_mut();

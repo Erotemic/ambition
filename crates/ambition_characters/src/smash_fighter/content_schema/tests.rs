@@ -89,15 +89,18 @@ fn the_facet_s_owner_folds_its_weight_and_gives_its_body_over_a_fighter() {
     assert_eq!(george.vitals.knockback_weight, Some(1.35));
     assert_eq!(fold_into_definition(&pack, bare("test_nobody")), bare("test_nobody"));
 
-    let body = fighter_body(&pack, "test_george").expect("the facet states a body");
     let base = ambition_platformer2d_core::DEFAULT_TUNING;
+    let body = george
+        .fighter_body
+        .expect("the facet's body is folded into the definition")
+        .over(base);
     assert_eq!((body.gravity, body.max_fall_speed), (1900.0, 640.0));
     assert_eq!(
         (body.run_accel, body.jump_speed),
         (base.run_accel, base.jump_speed),
-        "what the facet does not state is the player-grade body's"
+        "what the facet does not state is the base body's"
     );
-    assert_eq!(fighter_body(&pack, "test_nobody"), None);
+    assert_eq!(fold_into_definition(&pack, bare("test_nobody")).fighter_body, None);
 }
 
 /// the aggregate runs for ONE source too. Without that the artifact's

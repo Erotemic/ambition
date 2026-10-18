@@ -95,7 +95,8 @@ pub use tuning::{
     ActiveMovementTuning, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisSweptParams,
     MechanicalDomain, MechanicalEditAdmission, MechanicalEditSet, PendingMechanicalEdits,
     FlightTuning, FootstoolTuning, LedgeMomentumTuning, MomentumHorizontalTuning, MovementTuning,
-    OutOfShield, ParryTiming, PhasedGravityJumpTuning, ShieldTuning, TraversalAbilityTuning,
+    OutOfShield, ParryTiming, PhasedGravityJumpTuning, ShieldTuning, SquatDecidedJumpTuning,
+    TraversalAbilityTuning,
     AIR_ACCEL, AIR_DODGE_ENDLAG, AIR_DODGE_SPEED, AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS,
     BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_GRACE_TIME, BLINK_HOLD_THRESHOLD,
     BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME,
@@ -534,12 +535,17 @@ fn update_body_simulation_inner(
         if state.dodge_roll_timer > 0.0 {
             state.dodge_roll_timer = dec(state.dodge_roll_timer);
             if state.dodge_roll_timer <= 0.0 && !state.spot_dodging {
-                // ⛔ NOT AFTER A SPOT DODGE. The spot dodge runs on this SAME
-                // timer — `spot_dodging` is a refinement of `dodge_rolling`, not
-                // a sibling — so an endlag hung off the expiry alone is charged
-                // to a maneuver that covers no distance and never asked for one.
+                // ⛔ NOT THE ROLL'S RECOVERY AFTER A SPOT DODGE. The spot dodge
+                // runs on this SAME timer — `spot_dodging` is a refinement of
+                // `dodge_rolling`, not a sibling — so an endlag hung off the
+                // expiry alone is charged to a maneuver that covers no distance
+                // and never asked for one. It owes its own, below.
                 state.dodge_roll_endlag_timer = tuning.abilities.dodge_roll_endlag;
                 shed_dodge_roll_push(clusters.kinematics, state, frame);
+            } else if state.dodge_roll_timer <= 0.0 {
+                // The spot dodge's own recovery, on the ground evade's one
+                // endlag clock (`dodge_roll_endlag` publishes it).
+                state.dodge_roll_endlag_timer = tuning.abilities.spot_dodge_endlag;
             }
         } else {
             state.dodge_roll_endlag_timer = dec(state.dodge_roll_endlag_timer);
@@ -566,8 +572,21 @@ fn update_body_simulation_inner(
         // fused timer — the punish window is the half a defender reads.
         if state.air_dodge_timer > 0.0 {
             state.air_dodge_timer = dec(state.air_dodge_timer);
+            // The push runs down evenly to nothing at the window's end. Only
+            // what it still holds along its own aim is taken back, never more,
+            // so a velocity something else added survives it.
+            let push = state.air_dodge_push.length();
+            let window = tuning.abilities.air_dodge_time;
+            if push > 0.0 && window > 0.0 {
+                let aim = state.air_dodge_push / push;
+                let along = clusters.kinematics.vel.dot(aim).max(0.0);
+                let shed = (tuning.abilities.air_dodge_speed * dt / window).min(along).min(push);
+                clusters.kinematics.vel -= aim * shed;
+                state.air_dodge_push = aim * (push - shed);
+            }
             if state.air_dodge_timer <= 0.0 {
                 state.air_dodge_endlag_timer = tuning.abilities.air_dodge_endlag;
+                state.air_dodge_push = bevy_math::Vec2::ZERO;
             }
         } else {
             state.air_dodge_endlag_timer = dec(state.air_dodge_endlag_timer);

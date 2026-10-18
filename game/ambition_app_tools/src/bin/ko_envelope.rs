@@ -2753,6 +2753,16 @@ fn run_feel() {
         "smash_forward", "smash_up", "smash_down",
         "special", "special_forward", "special_up", "special_down",
     ];
+    // `roles=smash_forward,smash_up` measures only those, for a roster census
+    // that needs a few rows per fighter rather than every move.
+    let only: Option<Vec<&str>> = argv
+        .iter()
+        .find_map(|a| a.strip_prefix("roles="))
+        .map(|s| s.split(',').collect());
+    let roles: Vec<&str> = roles
+        .into_iter()
+        .filter(|role| only.as_ref().is_none_or(|only| only.contains(role)))
+        .collect();
     let mut probe = KoProbe::new(attacker, victim);
     let contract = probe
         .app

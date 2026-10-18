@@ -1,0 +1,24 @@
+// EMMY NOETHER'S PLATFORM-FIGHTER FACET: what Emmy Noether is on a Smash stage,
+// where that differs from Smash's default fighter.
+(
+    character: "npc_emmy_noether",
+    knockback_weight: Some(0.91),
+    // Moves like slow on the ground, light and floaty in the air.
+    // Shaped like Ultimate's Zelda at 0.60 strength: each number is Smash's
+    // default fighter's, scaled by how that fighter differs from Ultimate's
+    // roster median (`scripts/smash_fighter_shape.py "Zelda" --strength 0.6`).
+    body: Some((
+        max_run_speed: Some(282.7),
+        initial_dash_speed: Some(350.3),
+        run_accel: Some(413.0),
+        ground_friction: Some(722.7),
+        max_air_speed: Some(220.1),
+        air_accel: Some(789.2),
+        gravity: Some(990.9),
+        max_fall_speed: Some(280.0),
+        fast_fall_speed: Some(455.0),
+        jump_speed: Some(458.8),
+        double_jump_speed: Some(456.1),
+        dodge_roll_speed: Some(351.3),
+    )),
+)

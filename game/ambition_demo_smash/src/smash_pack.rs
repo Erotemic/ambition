@@ -5,7 +5,6 @@
 //! fighter's platform-fighter facet. George's authored values live with the
 //! character in the sprite-authoring submodule; this demo selects them.
 
-use ambition_platformer2d::characters::smash_fighter::content_schema::fighter_body as fighter_body_in;
 use ambition_platformer2d::content::EmbeddedPack;
 
 /// The demo's pack: `assets/pack.ron` and every source it declares. The
@@ -22,14 +21,6 @@ pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! {
     // The stages and the demo's own rules are this demo's content.
     schemas: [crate::stages::smash_stages_schema, crate::rules::smash_rules_schema, crate::text::smash_text_schema],
 };
-
-/// The body a character plays on as a fighter, as this pack's facet states
-/// it: the other half of `MatchParticipant::body`. The facet's owner
-/// (`smash_fighter::content_schema::fighter_body`) says what the facet means;
-/// this names the pack.
-pub fn fighter_body(character: &str) -> Option<ambition_platformer2d::engine_core::MovementTuning> {
-    fighter_body_in(PACK.prepared(), character)
-}
 
 /// What "CPU level N" means in Smash's rooms, as its pack states it
 /// (`data/fighter_brain_ladder.ron`).

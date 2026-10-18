@@ -574,9 +574,13 @@ pub(super) fn apply_dodge(
     // `wants_drop_through` reads — so the stick's y composes with `down()`, not
     // against it. Negating here would have aimed every "dodge down through the
     // stage" upward, which is the exact input a recovering body uses.
-    kinematics.vel =
-        (frame.side() * aim.x + frame.down() * aim.y) * tuning.abilities.air_dodge_speed;
+    let push = (frame.side() * aim.x + frame.down() * aim.y) * tuning.abilities.air_dodge_speed;
+    kinematics.vel = push;
+    state.air_dodge_push = push;
     state.air_dodge_timer = spend_evade(state, dodge, tuning.abilities.air_dodge_time, tuning);
+    // The dodge holds the body where its own travel takes it: no gravity for
+    // the window, the genre's air dodge. Endlag falls normally.
+    state.set_gravity_modifier(0.0, tuning.abilities.air_dodge_time);
     state.air_dodge_endlag_timer = 0.0;
     state.fast_falling = false;
     state.phased_jump.clear();
@@ -777,6 +781,37 @@ pub(super) fn cut_ascent_now(
             // body's current resolved frame.
             state.phased_jump.cancel_hold();
         }
+        // The squat decided this hop; a release in the air changes nothing.
+        super::tuning::AxisJumpLaw::SquatDecided(_) => {}
+    }
+}
+
+/// A release the JUMP SQUAT swallowed, honoured on the takeoff tick.
+///
+/// A law that decides the hop in the squat launches the short hop at its own
+/// fraction of the launch; every other law shortens the ascent exactly as an
+/// airborne release would ([`cut_ascent_now`]).
+pub(super) fn short_hop_at_takeoff(
+    kinematics: &mut BodyKinematics,
+    state: &mut AxisManeuverState,
+    abilities: &BodyAbilities,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
+) {
+    let super::tuning::AxisJumpLaw::SquatDecided(law) = tuning.locomotion.jump_law else {
+        cut_ascent_now(kinematics, state, abilities, frame, tuning);
+        return;
+    };
+    if !abilities.abilities.variable_jump {
+        return;
+    }
+    let rise = -kinematics.vel.dot(frame.down());
+    if rise > 0.0 {
+        super::integration::set_jump_velocity(
+            &mut kinematics.vel,
+            frame.down(),
+            rise * law.short_hop_speed_frac,
+        );
     }
 }
 

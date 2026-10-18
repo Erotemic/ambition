@@ -14,8 +14,8 @@
 //! records it.
 //!
 //! This module is the one reader of the facet: [`fold_into_definition`] folds
-//! its character facts, and [`fighter_body`] gives its match fact to a
-//! composition.
+//! it into the character's definition, its fighter body included, which a
+//! match reads (`MatchRules::seat_body`).
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -133,8 +133,8 @@ pub fn facet<'a>(
 /// only carries. Its move damage is folded under [`super::FIGHTER_DAMAGE`], and a
 /// match that plays in that scale applies it
 /// (`ambition_combat::worn_kit::WornKit::of`). One of the folds in
-/// [`crate::pack_facets`]. The fighter body is a match fact; see
-/// [`fighter_body`].
+/// [`crate::pack_facets`]. The fighter body is folded as the facet states it, a
+/// patch: the base it is laid over is the match's (`MatchRules::seat_body`).
 pub fn fold_into_definition(
     pack: &ambition_content_pack::PreparedContentPack,
     mut definition: crate::actor::definition::CharacterDefinition,
@@ -145,6 +145,7 @@ pub fn fold_into_definition(
     if let Some(weight) = facet.knockback_weight {
         definition.vitals.knockback_weight = Some(weight);
     }
+    definition.fighter_body = facet.body;
     // Lowered here, under this capability's own scale: the match and the kit
     // resolver read a scale, never the facet (AP78).
     if facet.move_damage.is_empty() {
@@ -160,27 +161,6 @@ pub fn fold_into_definition(
         definition.scaled_verbs.insert(super::FIGHTER_DAMAGE, facet.verbs.clone());
     }
     definition
-}
-
-/// The body `character` plays on as a fighter: its facet's body layered over
-/// the player-grade body. A composition gives it to the seat as
-/// `MatchParticipant::body`.
-///
-/// The base is `DEFAULT_TUNING`, not the actor baseline
-/// (`BodyMovementTuning::BASELINE`, the wandering-enemy body with an eighth of
-/// the player's ground acceleration): an authored body states its differences
-/// from a fighter, so they layer onto a fighter.
-///
-/// `None` when the pack has no facet for the character or the facet states no
-/// body: keep the current body.
-pub fn fighter_body(
-    pack: &ambition_content_pack::PreparedContentPack,
-    character: &str,
-) -> Option<ambition_platformer2d_core::MovementTuning> {
-    facet(pack, character)?
-        .body
-        .as_ref()
-        .map(|body| body.over(ambition_platformer2d_core::DEFAULT_TUNING))
 }
 
 pub fn smash_fighter_schema() -> SchemaRegistration {

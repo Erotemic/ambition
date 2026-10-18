@@ -59,7 +59,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// state. A plate is a module entity (`ability.module_entity`), whose value
 /// now also carries the box bodies touch and the spawn's params, and its
 /// clocks and uses are the module record `smash/spring.plate`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 359;
+/// 359 -> 360: `AxisJumpLaw` gains `SquatDecided` (wire code 2, one `f32`:
+/// the short hop's fraction of the launch), the platform fighter's jump, in
+/// the motion model's encoded tuning. The encoded ability tuning gains
+/// `spot_dodge_endlag` (`f32`), and the axis maneuver state `air_dodge_push`
+/// (`Vec2`), what an air dodge put in and still has to run down. The encoded
+/// locomotion gains `launch_decay` (`f32`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 360;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

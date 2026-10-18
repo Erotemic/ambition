@@ -97,6 +97,8 @@ struct PreparedCharacterOverrides {
     scaled_move_damage: crate::move_damage::ScaledMoveDamage,
     /// See [`CharacterDefinition::scaled_verbs`].
     scaled_verbs: crate::move_damage::ScaledVerbMoves,
+    /// See [`CharacterDefinition::fighter_body`].
+    fighter_body: Option<crate::smash_fighter::FighterBodyAuthoring>,
     /// The authored action set, carried through preparation unchanged.
     ///
     /// `None` and `Some(empty)` mean different things all the way to the body —
@@ -1278,6 +1280,9 @@ pub struct PreparedCharacterDefinition {
     /// See [`CharacterDefinition::scaled_verbs`]. Preparation has checked
     /// each scale's map against the authored moves.
     pub scaled_verbs: crate::move_damage::ScaledVerbMoves,
+    /// See [`CharacterDefinition::fighter_body`]: the patch, not yet laid over
+    /// any base, because the base is the match's.
+    pub fighter_body: Option<crate::smash_fighter::FighterBodyAuthoring>,
     /// The movement policy, resolved. Every body already carries exactly one
     /// explicit model, so this is a value rather than a question.
     pub motion_model: ambition_platformer2d_core::MotionModelSpec,
@@ -1793,6 +1798,7 @@ fn prepare_character(
         moveset: definition.moveset,
         scaled_move_damage: definition.scaled_move_damage,
         scaled_verbs: definition.scaled_verbs,
+        fighter_body: definition.fighter_body,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
         movement_tuning: definition.movement_tuning,
@@ -1875,6 +1881,7 @@ fn finalize_character(
         moveset,
         scaled_move_damage,
         scaled_verbs,
+        fighter_body,
         action_set,
         motion_model,
         movement_tuning,
@@ -2108,6 +2115,7 @@ fn finalize_character(
         authored_moveset,
         scaled_move_damage,
         scaled_verbs,
+        fighter_body,
         // Resolve canonical identity during preparation from the definition's provider. Spawn
         // consumes the prepared identity and does not reinterpret authored references.
         id: ambition_entity_catalog::CharacterId::new(id),

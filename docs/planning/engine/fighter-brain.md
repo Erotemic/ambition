@@ -581,8 +581,11 @@ within the minute in 10 of 23 runs before and 9 of 23 with it. The blunt probe i
 and `a_fighter_over_a_floor_open_for_it_plays_as_over_the_void` failed its
 control (a CPU over a closed gate floor played exactly as over the bare void).
 `SelfView` mixes the body's own state with facts read against that tick's
-world, so a live self with a delayed world disagrees with itself. A real
-version takes only the body's own kinematics live.
+world, so a live self with a delayed world disagrees with itself. Kinematics only (live `pos` and `vel`, everything else delayed) is
+as strong: Sanic 12→0, Ramen 5→0, Robot 2→0, Bob 3→0, Mary-O 3→1. It fails the
+same control. Not yet known: whether the fixture's premise (the closed-floor
+CPU diverges within 60 ticks) relied on the stale self-view, or the probe
+loses a real read of the floor.
 
 Totals over one minute each, one seed. The eight fighters with a true baseline:
 32 → 25 (Sanic 14 → 12, item 2). The other fifteen were first measured after

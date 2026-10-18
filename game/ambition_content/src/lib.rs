@@ -148,6 +148,7 @@ pub mod presentation;
 mod projectile_polygon_moveset;
 pub mod projectiles;
 pub mod tuning;
+pub mod shown_text;
 #[cfg(test)]
 mod pugnacious_polygon_moveset;
 pub mod quest;

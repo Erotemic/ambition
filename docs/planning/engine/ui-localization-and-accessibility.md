@@ -120,6 +120,21 @@ the presentation boundary, and report missing keys with provider/source
 provenance. Do not create an i18n framework only because the old audit named the
 absence.
 
+**Shown text is pack data (2026-10-18).** The trigger here was not a
+translation: a reworded banner cost a Rust build. Each game's lines are now a
+pack source with a schema from `ambition_content_pack::shown_text`
+(`shown_text_schema::<K>`). The game owns the string identity: it declares
+each key and the holes the key fills (`TextKeys`), and admission refuses a
+missing line, an unknown line and an unknown hole, each with the file and the
+key named. Keys name lines, not words, so a later catalog of languages states
+the same keys; there is one language and no locale switch. Each game is
+done: Smash, Mary-O, Sanic, Versus (`data/<game>_text.ron`) and Ambition's
+launcher row and start cover (`data/ambition_text.ron`). Next, the shell's
+own words (menus,
+settings, the engine's "Talk" and "HP", the cutscene hint): Q68 gives them to
+the evergreen shell, so they are one shell text file, not a copy in each
+game's pack.
+
 ### Accessibility gaps
 
 Current remaining capability gaps are:
@@ -147,7 +162,8 @@ requirement proves Bevy UI insufficient.
 - How does focus work when two local participants operate different views and
   one opens a menu?
 - Which menus pause the whole simulation versus only one participant's control?
-- What is the localization source format and who owns string identity?
+- What is the localization source format? (Who owns string identity is
+  answered above: the game that shows the line declares its key.)
 - Which accessibility features are mandatory for the first shippable Ambition
   release?
 - How should dialogue/UI text be scoped across shared and split views?

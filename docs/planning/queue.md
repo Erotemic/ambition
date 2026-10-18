@@ -49,10 +49,14 @@ a live reload is a second priority. Work in this order:
    strings schema for each pack. The engine side is
    `shown_text_schema::<K>` (`ambition_content_pack::shown_text`): the
    game declares its keys and their holes, and admission refuses a missing
-   line, an unknown line and an unknown hole, each by key and file. Smash
-   is done (`data/smash_text.ron`, 2026-10-18: a wording edit is 0.5 s to a
-   test, was an 11.7 s crate build and a relink); Mary-O, Sanic, Versus and
-   Ambition are left, in that order; (b) the census tail (item 2 there);
+   line, an unknown line and an unknown hole, each by key and file. Done
+   2026-10-18 for each game: Smash, Mary-O, Sanic and Versus
+   (`data/<game>_text.ron`) and Ambition's launcher row and start cover
+   (`data/ambition_text.ron`). A wording edit is 0.5-0.8 s to a test; it was
+   a crate build (Smash 11.7 s, Mary-O 18.7 s, Sanic 6.8 s) and a relink.
+   Left: the shell's own words (menus, settings, the engine's "Talk" and
+   "HP"), one shell text file by Q68
+   ([UI](engine/ui-localization-and-accessibility.md#localization-trigger)); (b) the census tail (item 2 there);
    (c) the procedural techniques still in `ambition_content` Rust, onto the
    module road (a relink and a restart now; 0.34 s on that road).
    Second priority, and only where a recompile does not depend on it: the
@@ -367,8 +371,8 @@ Open:
    a designer would iterate them: the dropped portal gun
    (`portal/inventory_adapter.rs`; it is in a seam marked for removal), then
    the shown text of
-   each demo's banners, cards and HUD (Smash's is `data/smash_text.ron`;
-   the other demos have no text file yet), the select
+   each demo's banners, cards and HUD (done 2026-10-18: each game's
+   `data/<game>_text.ron`; the shell's words are left), the select
    cursor's feel, and the effect looks last.
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin

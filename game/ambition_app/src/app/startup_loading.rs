@@ -13,6 +13,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
+use ambition_platformer2d::content::hole;
 use ambition_platformer2d::ldtk_map::LdtkWorldAssets;
 use ambition_platformer2d::platformer::lifecycle::{InitialGameplayReadiness, SessionRoot};
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
@@ -189,7 +190,11 @@ pub(super) fn install_direct_startup_loading(app: &mut App) {
     );
 }
 
-fn spawn_direct_startup_loading_screen(mut commands: Commands) {
+fn spawn_direct_startup_loading_screen(
+    mut commands: Commands,
+    text: Res<ambition_content::shown_text::AmbitionShownText>,
+) {
+    let text = &text.0;
     // The loading surface deliberately uses Bevy's built-in font. Depending on
     // an asynchronously loaded product font would make the loading screen
     // itself pop in late, defeating its immediate-response purpose.
@@ -219,14 +224,14 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
         ))
         .with_children(|root| {
             root.spawn((
-                Text::new("AMBITION"),
+                Text::new(text.line("loading.title")),
                 font(54.0, UiFontWeight::Semibold),
                 TextColor(Color::srgb(0.92, 0.72, 0.28)),
                 TextLayout::new(Justify::Center, LineBreak::NoWrap),
                 Name::new("Ambition Startup Wordmark"),
             ));
             root.spawn((
-                Text::new("TANGENT SPACE SANDBOX"),
+                Text::new(text.line("loading.subtitle")),
                 font(18.0, UiFontWeight::Regular),
                 TextColor(Color::srgb(0.66, 0.70, 0.82)),
                 TextLayout::new(Justify::Center, LineBreak::NoWrap),
@@ -269,7 +274,7 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
                 ));
             });
             root.spawn((
-                Text::new("Preparing sandbox…"),
+                Text::new(text.line("loading.preparing")),
                 font(17.0, UiFontWeight::Semibold),
                 TextColor(Color::srgb(0.90, 0.91, 0.96)),
                 TextLayout::new(Justify::Center, LineBreak::WordBoundary),
@@ -287,7 +292,7 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
                 Name::new("Ambition Startup Progress Text"),
             ));
             root.spawn((
-                Text::new("Building the first coherent frame"),
+                Text::new(text.line("loading.building")),
                 font(14.0, UiFontWeight::Regular),
                 TextColor(Color::srgb(0.56, 0.60, 0.72)),
                 TextLayout::new(Justify::Center, LineBreak::WordBoundary),
@@ -314,7 +319,9 @@ fn drive_direct_startup_loading(
     mut gameplay: ResMut<InitialGameplayReadiness>,
     mut assets: StartupAssetInputs,
     mut ui: StartupUi,
+    text: Res<ambition_content::shown_text::AmbitionShownText>,
 ) {
+    let text = &text.0;
     if state.revealed {
         return;
     }
@@ -332,7 +339,7 @@ fn drive_direct_startup_loading(
         match build_startup_manifest(&mut assets) {
             Ok(manifest) => state.manifest = Some(manifest),
             Err(message) => {
-                update_startup_ui(&mut ui, 0, 1, "Startup preparation failed", &message);
+                update_startup_ui(&mut ui, text, 0, 1, text.line("loading.preparation_failed"), &message);
                 return;
             }
         }
@@ -356,25 +363,26 @@ fn drive_direct_startup_loading(
     let ready = summary.is_ready();
 
     let headline = if failed {
-        "A required asset failed to load"
+        text.line("loading.asset_failed")
     } else if ready {
-        "Ready"
+        text.line("loading.ready")
     } else {
-        "Loading the Ambition sandbox"
+        text.line("loading.loading")
     };
     let detail = if failed {
-        format!("Failed: {}", summary.failed.join(", "))
+        text.fill("loading.failed_list", &[hole("assets", &summary.failed.join(", "))])
     } else if ready {
-        "Finalizing the first complete frame…".to_owned()
+        text.line("loading.finalizing").to_owned()
     } else {
         summary
             .pending
             .first()
-            .map(|label| format!("Loading {label}"))
-            .unwrap_or_else(|| "Preparing presentation".to_owned())
+            .map(|label| text.fill("loading.item", &[("label", label)]))
+            .unwrap_or_else(|| text.line("loading.presentation").to_owned())
     };
     update_startup_ui(
         &mut ui,
+        text,
         summary.settled,
         summary.total.max(1),
         headline,
@@ -612,6 +620,7 @@ fn inspect_startup_manifest(
 
 fn update_startup_ui(
     ui: &mut StartupUi<'_, '_>,
+    text: &ambition_platformer2d::content::ShownText,
     settled: usize,
     total: usize,
     headline: &str,
@@ -621,11 +630,12 @@ fn update_startup_ui(
     for mut node in &mut ui.progress_fill {
         node.width = Val::Percent(percent);
     }
-    for (mut text, progress, status) in &mut ui.texts {
+    let progress_line = text.fill("loading.progress", &[hole("headline", &headline), hole("settled", &settled), hole("total", &total)]);
+    for (mut shown, progress, status) in &mut ui.texts {
         if progress.is_some() {
-            text.0 = format!("{headline}  ·  {settled}/{total}");
+            shown.0 = progress_line.clone();
         } else if status.is_some() {
-            text.0 = detail.to_owned();
+            shown.0 = detail.to_owned();
         }
     }
 }

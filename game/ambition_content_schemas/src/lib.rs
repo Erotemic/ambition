@@ -9,6 +9,7 @@
 
 pub mod flag_chains;
 pub mod rules;
+pub mod text;
 pub mod yarn_dialogue;
 
 use ambition_content_pack::SchemaRegistration;
@@ -20,6 +21,7 @@ pub const AMBITION_CAPABILITY: &str = "ambition";
 pub fn ambition_schemas() -> Vec<SchemaRegistration> {
     vec![
         rules::ambition_rules_schema(),
+        text::ambition_text_schema(),
         flag_chains::flag_chains_schema(),
         yarn_dialogue::yarn_dialogue_schema(),
     ]

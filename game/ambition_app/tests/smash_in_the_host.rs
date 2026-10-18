@@ -550,8 +550,9 @@ fn a_seated_fighter_keeps_its_omniscient_senses() {
 /// which plugin installs it"*. So this asks the composed host.
 ///
 /// ⚠ **BOTH READINGS DISCRIMINATE AGAINST THAT EXACT FAILURE.** The smash
-/// stage declares `victim_percent_knockback_scale` `1.25` where the engine
-/// default is `1.0`, and George's own facet authors a knockback weight of
+/// stage declares a `base_knockback_scale` where the engine default is `1.0`
+/// (its percent scale is now `1.0`, which no longer discriminates, so the
+/// base scale carries that half), and George's own facet authors a knockback weight of
 /// `1.35` where an unauthored body is the reference `1.0`. A view built from a
 /// missing resource, or peers collected without their `CombatTuning`, reads
 /// `1.0` for both.
@@ -634,6 +635,15 @@ fn a_seated_fighters_view_carries_the_launch_law_this_stage_declares() {
         "nobody has been hit yet, so the attacker's rage multiplier is 1.0. \
          A value here at the opening means rage is being read off something \
          other than this body's own damage meter"
+    );
+
+    let declared_base = ambition_demo_smash::smash_combat_rules()
+        .base_knockback_scale
+        .expect("Smash states how hard a fresh hit throws");
+    assert_eq!(
+        law.base_scale, declared_base,
+        "the stage scales a growing launch's base by {} and the brain ranks its          moves under {}: the engine default is 1.0, so nothing in the composed          host installs `ResolvedCombatTuning` where the actor update can see it",
+        declared_base, law.base_scale,
     );
 
     assert!(
@@ -7259,8 +7269,16 @@ mod ring_out {
     /// cannot record whichever answer turns up; it asserts one.** A probe whose
     /// two outcomes are both findings belongs in a `println!` with a passing
     /// test, or it must pick the measured branch — as this now does.
+    ///
+    /// ⭐ **2026-10-18: IT WENT RED, AND SAID WHAT IT EXISTS TO SAY.** Smash
+    /// now declares `base_knockback_scale` (measured over the roster with
+    /// `ko_envelope feel`: every normal had left its attacker 9-16 frames
+    /// behind on hit), and with it the 700% stale jab converts at `1.0`. So
+    /// the percent scale returned to `1.0`, as the message below asks, and
+    /// this arm pins the new measured branch: the unrepaired percent curve
+    /// ends the stock.
     #[test]
-    fn the_unrepaired_percent_curve_leaves_the_stock_standing() {
+    fn the_unrepaired_percent_curve_now_ends_the_stock() {
         let mut kill_cell = george_cell(JAB, 0, 700, true);
         kill_cell.scale = Some(1.0);
         let kill = {
@@ -7300,18 +7318,15 @@ mod ring_out {
             !poke.left_the_world,
             "a 0% jab killed at scale 1.0, so this cell cannot witness anything"
         );
-        // ⇒ THE MEASURED FINDING, PINNED IN THE DIRECTION IT WAS MEASURED. The
-        // launch GROWS with percent and still does not convert — which is the
-        // whole reason a percent multiplier is declared at all.
+        // ⇒ THE MEASURED FINDING, PINNED IN THE DIRECTION IT WAS MEASURED: at
+        // the law as first written, the stage's base scale lets a fully stale
+        // 700% jab end the stock, so no percent multiplier is declared.
         assert!(
-            !kill.left_the_world,
-            "at scale 1.00 a fully stale 700% jab ENDED THE STOCK: the engine \
-             resolved {:?}px/s and the body travelled {:.1}px. The percent curve \
-             now converts unaided, so Smash's `victim_percent_knockback_scale` is \
-             UNEARNED and should return to 1.0.\n\
-             ⛔ Do not green this by flipping the assertion back. This arm is the \
-             premise the shipped constant rests on, and a red here means the \
-             premise changed — which is the one thing it exists to say.",
+            kill.left_the_world,
+            "at scale 1.00 a fully stale 700% jab LEFT THE STOCK STANDING: the \
+             engine resolved {:?}px/s and the body travelled {:.1}px. The base \
+             scale no longer carries the percent curve to a knockout, so a \
+             percent multiplier may be earned again (the sweep below picks it).",
             kill.resolved_launch,
             kill.peak_lateral,
         );
@@ -7347,11 +7362,16 @@ mod ring_out {
             outcome.attacker_damage_taken,
             1.0 + 0.004 * outcome.attacker_damage_taken as f32,
         );
+        // At 0% the launch is the authored base times the stage's base scale,
+        // whatever the percent scale is.
+        let base_scale = ambition_demo_smash::smash_combat_rules()
+            .base_knockback_scale
+            .unwrap_or(1.0);
         assert_eq!(
             outcome.resolved_launch.map(|v| (v * 1000.0).round() / 1000.0),
-            Some(50.0),
+            Some(((50.0 * base_scale) * 1000.0).round() / 1000.0),
             "the engine resolved this 0% jab to {:?}, not the authored base of \
-             50.0px/s. `None` means the fixture's `HitEvent` reader never fired \
+             50.0px/s times the stage's base scale. `None` means the fixture's `HitEvent` reader never fired \
              and every resolved-launch reading in this module is vacuous; a \
              value near 446 means it captured the body's peak TRAJECTORY speed \
              again instead of the launch. Body peak this run: {:.1}px/s.",

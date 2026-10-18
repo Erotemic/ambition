@@ -389,6 +389,10 @@ pub struct RecoveryLedge {
     /// Below the top AND the footprint is over the floor: the body is under
     /// it, and the floor stops a jump.
     pub under: bool,
+    /// Below the top, not under it, and the head above the floor's bottom:
+    /// the body is level with the floor's side face, so going in meets the
+    /// face and the ledge rather than the underside.
+    pub beside: bool,
 }
 
 /// Feet this near the top of a floor are on it, not below it.
@@ -928,10 +932,13 @@ impl WorldView {
             })?;
         let (low, high) = Self::span_on(&floor.aabb, at.side);
         let below_top = at.feet > at.top_of(&floor.aabb) + RECOVERY_LEDGE_TOLERANCE;
+        let under = below_top && at.is_over(&floor.aabb);
+        let bottom = Self::span_on(&floor.aabb, at.down).1;
         Some(RecoveryLedge {
             toward: (low + high) * 0.5 - at.centre,
             below_top,
-            under: below_top && at.is_over(&floor.aabb),
+            under,
+            beside: below_top && !under && at.feet - 2.0 * at.height < bottom,
         })
     }
 

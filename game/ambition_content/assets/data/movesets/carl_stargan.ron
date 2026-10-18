@@ -710,7 +710,7 @@
                                             damage: 13,
                                             knockback: 110.0,
                                             knockback_growth: Some(1.85),
-                                            launch_dir: Some((0.0, 1.0)),
+                                            launch_dir: Some((0.8, -0.58)),
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),

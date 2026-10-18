@@ -1713,6 +1713,18 @@ fn movement_options(
     let approach_walks_off = toward_foe != 0.0 && walks_off(view, toward_foe);
     let approach_overshoots = first_foe.is_some_and(|foe| overshoots(view, foe, toward_foe));
     let retreat_walks_off = toward_foe != 0.0 && walks_off(view, -toward_foe);
+    // A ground roll goes where `apply_movement` aims it: away from a swing,
+    // toward the foe otherwise. It replaces the run's velocity with its own, so
+    // a roll aimed at the edge leaves the stage as surely as a run does.
+    // Measured with `ko_envelope selfko`: Robot v3 rolled off the left ledge
+    // from 33 px out at 530 px/s and lost three stocks in 15 s to a seat that
+    // never pressed anything.
+    let swung_at = view
+        .actors
+        .iter()
+        .any(|actor| actor.hostile_to_self && actor.alive && actor.phase.is_attacking());
+    let roll_toward = if swung_at { -toward_foe } else { toward_foe };
+    let roll_walks_off = me.on_ground && toward_foe != 0.0 && walks_off(view, roll_toward);
     // ⛔⛔ A FOE-RELATIVE VERB WITH NO FOE IS AN OPTION THE EMITTER CANNOT ACT
     // ON. `apply_movement` builds Approach/Retreat/Dash from the direction to
     // `nearest_hostile()` and emits a ZERO stick when there is none — so the
@@ -1747,6 +1759,7 @@ fn movement_options(
         let score = match verb {
             MovementVerb::Approach | MovementVerb::Dash if approach_walks_off || approach_overshoots => score - 1.0,
             MovementVerb::Retreat if retreat_walks_off => score - 1.0,
+            MovementVerb::Dodge if roll_walks_off => score - 1.0,
             _ => score,
         };
         out.push(MoveOption { verb, score })

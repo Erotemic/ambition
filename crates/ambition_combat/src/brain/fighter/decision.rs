@@ -1335,12 +1335,17 @@ fn apply_movement(
             // centre of the room is over the floor, so a body below the top
             // that steers to it goes under the floor, and the floor stops its
             // jumps. Below the top, go out from under the floor or hold the
-            // side; above the top, go in.
+            // side; beside its face, go in to the ledge; above the top, go in.
+            // Holding the side beside the face left a body that had just
+            // stepped off 48 px out, and its aimed recovery went straight up
+            // past a ledge it could have taken.
             let (steer, home) = match view.recovery_ledge() {
                 Some(ledge) => {
                     let home = crate::util::SignumOr::signum_or(ledge.toward, 0.0);
                     let steer = if ledge.under {
                         -home
+                    } else if ledge.beside {
+                        home
                     } else if ledge.below_top {
                         0.0
                     } else {

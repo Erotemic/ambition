@@ -518,6 +518,38 @@ becomes game content. Neither is an AI architecture question.
 
 ## Current work
 
+### F0 — CPUs self-destruct against an opponent that does nothing (2026-10-18)
+
+`ko_envelope selfko FIGHTER [ticks=N]` seats FIGHTER as the default-level CPU
+against a seat 0 that presses nothing and prints every stock it loses with the
+position the tick before. Every loss is a self-KO. Over 3600 ticks, before the
+fix below: Sanic 14, Alice 4, Robot v3 3 (in 1584 ticks), George 3, Pirate 3,
+Bob 3, Ninja 2, all at 0%, into the pit beside a ledge.
+
+Two paths, read from `AMBITION_FIGHTER_TRACE=1`:
+
+1. A ground roll toward the ledge. `Dodge` had no ledge penalty, unlike
+   Approach/Dash/Retreat; a Robot rolled off from 33 px out at 530 px/s. Fixed in
+   `movement_options` (`roll_walks_off`). After: Pirate 1, Alice 2, Bob 2, Ninja
+   1, George 2, Robot 3 in 3265 ticks. Sanic is unchanged.
+2. A grounded move's own travel. Smash declares `edge_cancel_recovery`, so a
+   move slides off a lip by design. Sanic chose `sonic_boom` (rooted) on a view
+   showing 164 px of floor at −182 px/s. The brain perceives through the
+   `reaction_ms` delay, including its OWN body (300 ms at level 5), and
+   Approach kept accelerating it, so the move started at −478 px/s with about
+   145 px left and coasted off. Pricing the move's travel against the floor
+   ahead at decision time changed nothing (tried and reverted 2026-10-18): the
+   input is stale, not the formula. Open question for Jon: should a CPU perceive
+   its own body without the reaction delay?
+
+3. `Recover` held the side whenever the feet were below the top. Just after
+   stepping off, that left the Robot 48 px out, and its teleport (aimed by the
+   stick, 44 px ledge assist) went straight up past the ledge. Level with the
+   floor's side face (`RecoveryLedge::beside`: head above the floor's bottom,
+   not under it), `Recover` now steers in. Below the underside it still holds.
+   Same seeds, excluding Sanic: 16 losses → 12 (Mary-O 5→1, George 2→1, Robot
+   3→2, Bob 2→4, the rest unchanged). One seed each, so noisy.
+
 ### F1 — the authored ladder is the authority (Q88, 2026-10-03)
 
 Q88 decided it: the generic brain exposes the knobs, and Smash rules/content own

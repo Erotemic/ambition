@@ -729,8 +729,8 @@
                             flow: None,
                         ),
                         // (`let mut down_smash = strike(Strike {`)
-                        // The down smash is the up smash reflected: same damage, window and growth,
-                        // opposite launch.
+                        // The down smash is the up smash's damage, window and growth, swept low
+                        // and outward: a launch straight down pins a grounded body in place.
                         (
                             id: "smash_down",
                             display_name: None,
@@ -766,7 +766,7 @@
                                             damage: 12,
                                             knockback: 112.0,
                                             knockback_growth: Some(1.95),
-                                            launch_dir: Some((0.0, 1.0)),
+                                            launch_dir: Some((0.8, -0.58)),
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),

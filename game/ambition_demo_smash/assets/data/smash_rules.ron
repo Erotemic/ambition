@@ -107,6 +107,19 @@
         // of hard push, longer than most grid crossings.
         ramp_max_multiplier: 2.2,
     ),
+    // The select screen's colours (sRGB, 0 to 1).
+    select_look: (
+        // One per slot, in the order a couch fills up: far apart in hue, so
+        // a token and its card match at a glance.
+        slots: ((0.98, 0.36, 0.36), (0.36, 0.62, 0.99), (0.99, 0.82, 0.30), (0.44, 0.90, 0.52)),
+        // The hand of the one input source more than there are slots.
+        extra_hand: (0.80, 0.52, 0.98),
+        ink: (0.94, 0.96, 1.0),
+        dim_ink: (0.55, 0.60, 0.72),
+        panel: (0.07, 0.08, 0.13),
+        panel_edge: (0.20, 0.23, 0.33),
+        backdrop: (0.03, 0.035, 0.06),
+    ),
     // The swing a fighter that authors no kit is seated with. Many of
     // Ambition's cast are peaceful; seated in the arena, each throws this. It
     // is the duelists' swipe (character_catalog.ron, `duelist`): a hit must

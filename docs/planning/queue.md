@@ -376,8 +376,12 @@ Open:
    shown text is its `data/<game>_text.ron` (the shell's words are left);
    Smash's select cursor (speed, the ramp, the Back hold) is
    `select_cursor` and `back_hold_to_leave_seconds` in `smash_rules.ron`.
-   Each edit reached its test in 0.7-0.9 s with no compile. Left: the
-   title screen's timing, player colours, and the effect looks last
+   The title screen's look (the drifting scene, the fade, the window, the
+   cursor's breath) is `title_look` in the host's own pack
+   (`ambition_app/assets/host`); Smash's select screen colours (each
+   slot's, the extra hand, the inks and panels) are `select_look` in
+   `smash_rules.ron`. Each edit reached its test in 0.7-0.9 s with no
+   compile. Left: Twintrack's two seat colours, and the effect looks last
    (sparkle, dust, bursts, Mary-O's sky shimmer, the room palette).
 
 Not here: Twintrack's plaza. It has no blocks; its size and origin

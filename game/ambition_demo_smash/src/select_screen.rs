@@ -156,29 +156,81 @@ pub struct BackButton;
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct LeaveRequested(pub bool);
 
-/// Slot colours, in the order a couch fills up. Far apart in hue, so a token
-/// and its card match at a glance.
-const SLOT_COLORS: [Color; MAX_SMASH_SEATS] = [
-    Color::srgb(0.98, 0.36, 0.36),
-    Color::srgb(0.36, 0.62, 0.99),
-    Color::srgb(0.99, 0.82, 0.30),
-    Color::srgb(0.44, 0.90, 0.52),
-];
+/// The select screen's colours, as Smash's rules file states them
+/// (`select_look` in `smash_rules.ron`). An edit is shown at the next start.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SelectLook {
+    /// Slot colours (sRGB), in the order a couch fills up. Far apart in hue,
+    /// so a token and its card match at a glance.
+    pub slots: [[f32; 3]; MAX_SMASH_SEATS],
+    /// The hand of the one local input source more than there are slots
+    /// (`MAX_SELECT_SOURCES`).
+    pub extra_hand: [f32; 3],
+    pub ink: [f32; 3],
+    pub dim_ink: [f32; 3],
+    pub panel: [f32; 3],
+    pub panel_edge: [f32; 3],
+    pub backdrop: [f32; 3],
+}
+
+fn srgb([r, g, b]: [f32; 3]) -> Color {
+    Color::srgb(r, g, b)
+}
+
+impl SelectLook {
+    fn slot(&self, slot: usize) -> Color {
+        srgb(self.slots[slot])
+    }
+    fn ink(&self) -> Color {
+        srgb(self.ink)
+    }
+    fn dim_ink(&self) -> Color {
+        srgb(self.dim_ink)
+    }
+    fn panel(&self) -> Color {
+        srgb(self.panel)
+    }
+    fn panel_edge(&self) -> Color {
+        srgb(self.panel_edge)
+    }
+    fn backdrop(&self) -> Color {
+        srgb(self.backdrop)
+    }
+
+    /// Each colour that is not a colour, named by its field.
+    pub fn problems(&self) -> Vec<String> {
+        let mut named: Vec<(String, [f32; 3])> =
+            self.slots.iter().enumerate().map(|(index, slot)| (format!("slots[{index}]"), *slot)).collect();
+        for (field, colour) in [
+            ("extra_hand", self.extra_hand),
+            ("ink", self.ink),
+            ("dim_ink", self.dim_ink),
+            ("panel", self.panel),
+            ("panel_edge", self.panel_edge),
+            ("backdrop", self.backdrop),
+        ] {
+            named.push((field.to_string(), colour));
+        }
+        named
+            .into_iter()
+            .filter(|(_, colour)| colour.iter().any(|channel| !(0.0..=1.0).contains(channel)))
+            .map(|(field, colour)| format!("`{field}` is {colour:?}; each channel is from 0 to 1"))
+            .collect()
+    }
+}
+
+/// The look Smash's rules file states.
+pub fn select_look() -> SelectLook {
+    crate::rules::smash_rules().select_look
+}
 
 /// The colour of a seat's hand. A hand is a local input source, and there
 /// is one more of them than slots (`MAX_SELECT_SOURCES`).
 fn hand_color(seat: usize) -> Color {
-    SLOT_COLORS
-        .get(seat)
-        .copied()
-        .unwrap_or(Color::srgb(0.80, 0.52, 0.98))
+    let look = select_look();
+    look.slots.get(seat).copied().map_or(srgb(look.extra_hand), srgb)
 }
-
-const INK: Color = Color::srgb(0.94, 0.96, 1.0);
-const DIM_INK: Color = Color::srgb(0.55, 0.60, 0.72);
-const PANEL: Color = Color::srgb(0.07, 0.08, 0.13);
-const PANEL_EDGE: Color = Color::srgb(0.20, 0.23, 0.33);
-const BACKDROP: Color = Color::srgb(0.03, 0.035, 0.06);
 
 /// What a slot's role button says: the full statement of what that card is.
 ///
@@ -453,7 +505,7 @@ pub fn spawn_select_screen(
                 height: Val::Percent(100.0),
                 ..default()
             },
-            BackgroundColor(BACKDROP),
+            BackgroundColor(select_look().backdrop()),
             // Above the world, below the pause menu.
             GlobalZIndex(600),
             Name::new("smash select screen"),
@@ -466,7 +518,7 @@ pub fn spawn_select_screen(
                 node.spawn((
                     Text::new(crate::text::line("select.title")),
                     text_font(26.0),
-                    TextColor(INK),
+                    TextColor(select_look().ink()),
                 ));
             });
 
@@ -483,12 +535,12 @@ pub fn spawn_select_screen(
                 root.spawn((
                     back,
                     BackButton,
-                    BackgroundColor(PANEL),
-                    BorderColor::all(PANEL_EDGE),
+                    BackgroundColor(select_look().panel()),
+                    BorderColor::all(select_look().panel_edge()),
                     Name::new("back button"),
                 ))
                 .with_children(|node| {
-                    node.spawn((Text::new(crate::text::line("select.back")), text_font(15.0), TextColor(DIM_INK)));
+                    node.spawn((Text::new(crate::text::line("select.back")), text_font(15.0), TextColor(select_look().dim_ink())));
                 });
             }
 
@@ -506,8 +558,8 @@ pub fn spawn_select_screen(
                 root.spawn((
                     cell,
                     PortraitCell(index),
-                    BackgroundColor(PANEL),
-                    BorderColor::all(PANEL_EDGE),
+                    BackgroundColor(select_look().panel()),
+                    BorderColor::all(select_look().panel_edge()),
                     Name::new(format!("portrait cell {index}")),
                 ))
                 .with_children(|cell| {
@@ -560,7 +612,7 @@ pub fn spawn_select_screen(
                     cell.spawn((
                         Text::new(display_name(catalog, id)),
                         text_font(13.0),
-                        TextColor(INK),
+                        TextColor(select_look().ink()),
                         TextLayout::justify(Justify::Center),
                     ));
                 });
@@ -584,8 +636,8 @@ pub fn spawn_select_screen(
                 root.spawn((
                     cell,
                     PortraitCell(index),
-                    BackgroundColor(PANEL),
-                    BorderColor::all(PANEL_EDGE),
+                    BackgroundColor(select_look().panel()),
+                    BorderColor::all(select_look().panel_edge()),
                     Name::new("portrait cell random"),
                 ))
                 .with_children(|cell| {
@@ -615,7 +667,7 @@ pub fn spawn_select_screen(
                     cell.spawn((
                         Text::new(crate::text::line("select.random")),
                         text_font(13.0),
-                        TextColor(INK),
+                        TextColor(select_look().ink()),
                         TextLayout::justify(Justify::Center),
                     ));
                 });
@@ -629,7 +681,7 @@ pub fn spawn_select_screen(
                     SelectPrompt,
                     Text::new(String::new()),
                     text_font(14.0),
-                    TextColor(DIM_INK),
+                    TextColor(select_look().dim_ink()),
                 ));
             });
 
@@ -641,12 +693,12 @@ pub fn spawn_select_screen(
             root.spawn((
                 start,
                 StartButton,
-                BackgroundColor(PANEL),
-                BorderColor::all(PANEL_EDGE),
+                BackgroundColor(select_look().panel()),
+                BorderColor::all(select_look().panel_edge()),
                 Name::new("start button"),
             ))
             .with_children(|node| {
-                node.spawn((Text::new(crate::text::line("select.start")), text_font(17.0), TextColor(INK)));
+                node.spawn((Text::new(crate::text::line("select.start")), text_font(17.0), TextColor(select_look().ink())));
             });
 
             let mut stage = anchored(Anchored::Stage);
@@ -657,7 +709,7 @@ pub fn spawn_select_screen(
             root.spawn((
                 stage,
                 BackgroundColor(Color::srgb(0.11, 0.12, 0.18)),
-                BorderColor::all(PANEL_EDGE),
+                BorderColor::all(select_look().panel_edge()),
                 GlobalZIndex(610),
                 Name::new("stage button"),
             ))
@@ -668,7 +720,7 @@ pub fn spawn_select_screen(
                     // sync system first runs.
                     Text::new(stage_button_text(crate::SmashStageChoice::default())),
                     text_font(14.0),
-                    TextColor(INK),
+                    TextColor(select_look().ink()),
                 ));
             });
 
@@ -680,7 +732,7 @@ pub fn spawn_select_screen(
             root.spawn((
                 stocks,
                 BackgroundColor(Color::srgb(0.11, 0.12, 0.18)),
-                BorderColor::all(PANEL_EDGE),
+                BorderColor::all(select_look().panel_edge()),
                 GlobalZIndex(610),
                 Name::new("stocks button"),
             ))
@@ -690,7 +742,7 @@ pub fn spawn_select_screen(
                     // Seeded with the default, like the stage button.
                     Text::new(stocks_button_text(crate::SmashStockChoice::default())),
                     text_font(14.0),
-                    TextColor(INK),
+                    TextColor(select_look().ink()),
                 ));
             });
 
@@ -705,15 +757,15 @@ pub fn spawn_select_screen(
                 root.spawn((
                     card,
                     SlotCardFrame(slot),
-                    BackgroundColor(PANEL),
-                    BorderColor::all(PANEL_EDGE),
+                    BackgroundColor(select_look().panel()),
+                    BorderColor::all(select_look().panel_edge()),
                     Name::new(format!("slot card {}", slot + 1)),
                 ))
                 .with_children(|card| {
                     card.spawn((
                         Text::new(crate::text::smash_text().fill("select.slot", &[("number", &(slot + 1))])),
                         text_font(18.0),
-                        TextColor(SLOT_COLORS[slot]),
+                        TextColor(select_look().slot(slot)),
                     ));
                     // The fighter's name sits at the BOTTOM of the card, under
                     // the portrait the layout places over it.
@@ -733,7 +785,7 @@ pub fn spawn_select_screen(
                             CardName(slot),
                             Text::new(card_name_text(catalog, &fighters, None)),
                             text_font(13.0),
-                            TextColor(DIM_INK),
+                            TextColor(select_look().dim_ink()),
                             TextLayout::justify(Justify::Center),
                         ));
                     });
@@ -747,7 +799,7 @@ pub fn spawn_select_screen(
                 root.spawn((
                     button,
                     BackgroundColor(Color::srgb(0.11, 0.12, 0.18)),
-                    BorderColor::all(PANEL_EDGE),
+                    BorderColor::all(select_look().panel_edge()),
                     GlobalZIndex(610),
                     Name::new(format!("slot {} role button", slot + 1)),
                 ))
@@ -756,7 +808,7 @@ pub fn spawn_select_screen(
                         RoleButtonLabel(slot),
                         Text::new(role_button_text(SlotOccupant::Absent, None)),
                         text_font(14.0),
-                        TextColor(INK),
+                        TextColor(select_look().ink()),
                     ));
                 });
 
@@ -786,14 +838,14 @@ pub fn spawn_select_screen(
                         border_radius: BorderRadius::MAX,
                         ..default()
                     },
-                    BackgroundColor(SLOT_COLORS[slot]),
+                    BackgroundColor(select_look().slot(slot)),
                     BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.85)),
                     GlobalZIndex(620),
                     Visibility::Hidden,
                     Name::new(format!("slot {} token", slot + 1)),
                 ));
             }
-            // One hand per seat, in the seat's `SLOT_COLORS`, so the hand
+            // One hand per seat, in the seat's slot colour, so the hand
             // matches the token it grabs.
             for seat in 0..MAX_SELECT_SOURCES {
                 let tint = hand_color(seat);
@@ -1423,7 +1475,7 @@ pub fn sync_select_grid(
         });
         set_border(
             &mut border,
-            owner.map_or(PANEL_EDGE, |slot| SLOT_COLORS[slot]),
+            owner.map_or(select_look().panel_edge(), |slot| select_look().slot(slot)),
         );
     }
 
@@ -1495,9 +1547,9 @@ pub fn sync_select_cards(
         set_border(
             &mut border,
             if select.slot(card.0).occupant.participates() {
-                SLOT_COLORS[card.0]
+                select_look().slot(card.0)
             } else {
-                PANEL_EDGE
+                select_look().panel_edge()
             },
         );
     }
@@ -1530,7 +1582,7 @@ pub fn sync_select_cards(
         if text.0 != next {
             text.0 = next;
         }
-        let next_color = if shown.is_some() { INK } else { DIM_INK };
+        let next_color = if shown.is_some() { select_look().ink() } else { select_look().dim_ink() };
         if color.0 != next_color {
             color.0 = next_color;
         }
@@ -1570,7 +1622,7 @@ pub fn sync_select_chrome(
     mut prompt: Query<&mut Text, With<SelectPrompt>>,
 ) {
     for mut border in &mut start_button {
-        set_border(&mut border, if select.ready() { INK } else { PANEL_EDGE });
+        set_border(&mut border, if select.ready() { select_look().ink() } else { select_look().panel_edge() });
     }
 
     for mut text in &mut prompt {
@@ -1701,6 +1753,22 @@ fn set_rect(node: &mut Node, rect: HitRect) {
         if *field != value {
             *field = value;
         }
+    }
+}
+
+#[cfg(test)]
+mod look_tests {
+    use super::*;
+
+    /// Each seat's hand wears the file's slot colour, and the one source more
+    /// than there are slots wears the file's extra hand.
+    #[test]
+    fn each_hand_wears_the_files_colour() {
+        let look = select_look();
+        for (seat, slot) in look.slots.iter().enumerate() {
+            assert_eq!(hand_color(seat), srgb(*slot), "seat {seat}'s hand");
+        }
+        assert_eq!(hand_color(MAX_SMASH_SEATS), srgb(look.extra_hand), "the extra hand");
     }
 }
 

@@ -37,7 +37,7 @@ mod plugins;
 mod resources;
 mod scene_setup;
 mod setup_systems;
-pub mod host_text;
+pub mod host_pack;
 pub mod shell_host;
 pub mod title_screen;
 mod sim_resources;

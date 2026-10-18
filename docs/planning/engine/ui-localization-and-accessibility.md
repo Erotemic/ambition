@@ -130,8 +130,9 @@ key named. Keys name lines, not words, so a later catalog of languages states
 the same keys; there is one language and no locale switch. Each game is
 done: Smash, Mary-O, Sanic, Versus (`data/<game>_text.ron`) and Ambition's
 launcher row (`data/ambition_text.ron`). A host's words are the host's: the
-start cover is `ambition_app`'s `assets/data/host_text.ron`, a lone file
-(`content_text!`) checked against the host's keys with `ShownText::checked`.
+start cover and the pause menu's own rows are `host_text` in `ambition_app`'s
+own pack (`assets/host/pack.ron`), admitted as every game's pack is. Each
+setting's label and description are still the settings crate's Rust.
 Each owner states its own words, so no crate reads another's text to show
 its own surface. Next, the shell's own words (menus,
 settings, the engine's "Talk" and "HP", the cutscene hint): Q68 gives them to

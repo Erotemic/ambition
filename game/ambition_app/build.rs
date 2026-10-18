@@ -14,6 +14,8 @@ fn main() {
     // The versus stage's pack (`app::versus_fighters::PACK`): the list is
     // `assets/pack.ron` itself.
     ambition_content_pack::embed::embed_pack("assets");
+    // The host's own pack (`app::host_pack::HOST_PACK`): its words.
+    ambition_content_pack::embed::embed_pack("assets/host");
 
     // Declare the cfg name so it is never "unexpected", even on the common
     // build where the feature is off and the cfg stays unset.

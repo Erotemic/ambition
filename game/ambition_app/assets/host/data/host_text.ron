@@ -1,4 +1,5 @@
-// The words of the host's own surfaces (read by `app::host_text`). An edit
+// The words of the host's own surfaces (schema `host_text`, in the host's
+// pack `assets/host/pack.ron`, read by `app::host_pack`). An edit
 // here is shown at the next start, with no Rust build. A `{word}` is a hole
 // the host fills; a line may leave out a hole it fills, and may not name one
 // it does not. A key names a line, not its words.
@@ -23,4 +24,46 @@
     "loading.asset_failed": "A required asset failed to load",
     "loading.failed_list": "Failed: {assets}",
     "loading.preparation_failed": "Startup preparation failed",
+    // The pause menu's pages: their names on the side tabs, and their titles.
+    "menu.page.items": "Items",
+    "menu.page.map": "Map",
+    "menu.page.quest": "Quest",
+    "menu.page.system": "System",
+    "menu.items.title": "ITEMS",
+    "menu.map.title": "MAP",
+    "menu.quest.title": "QUEST",
+    "menu.system.title": "SYSTEM",
+    // The SYSTEM page's title inside one of its screens.
+    "menu.system.screen_title": "SYSTEM • {screen}",
+    // Pages that have no content yet.
+    "menu.map.placeholder": "Area map: discovered rooms, anchors, portal markers (host data TODO).",
+    "menu.quest.placeholder": "Quest status + key items from save data (host data TODO).",
+    // The items page: what a press does to the focused item, and its state.
+    "menu.items.equip": "Equip",
+    "menu.items.use": "Use",
+    "menu.items.selected": "SELECTED",
+    "menu.items.not_owned": "not owned",
+    "menu.items.equipped": "equipped",
+    "menu.items.activate_to_equip": "Activate to equip",
+    "menu.items.activate_to_use": "Activate to use",
+    // The SYSTEM page's own rows. Each setting's label and description are the
+    // settings' own.
+    "menu.system.back": "< Back",
+    "menu.system.back_detail": "Return to the SYSTEM list.",
+    "menu.system.quality_apply": "Apply quality: {profile}",
+    "menu.system.quality_apply_detail": "Confirm the {profile} visual-quality profile. Textures and room visuals reload immediately after this is applied.",
+    "menu.system.quality_cancel": "Cancel quality change",
+    "menu.system.quality_cancel_detail": "Discard the pending visual-quality profile and keep the current setting.",
+    "menu.system.radio_detail": "Play this station now (the menu stays open to audition).",
+    "menu.system.locale_detail": "Active interface language.",
+    "menu.system.locale_unavailable_detail": "Not available yet (real localization is a later pass).",
+    "menu.system.rebind_detail": "Press to rebind, then press the key or button you want.",
+    "menu.system.now_playing": "Now playing: {name}",
+    "menu.system.now_playing_nothing": "Now playing: nothing",
+    // A row that is not found any more; the menu is rebuilt each frame.
+    "menu.system.missing_station": "Station",
+    "menu.system.missing_locale": "Locale",
+    "menu.system.missing_rebind": "Rebind",
+    "menu.system.missing_label": "System",
+    "menu.system.missing_detail": "System options.",
 }

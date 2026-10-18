@@ -1,0 +1,14 @@
+// The host's own content pack (`app::host_pack::HOST_PACK`): the facts of
+// the host's own surfaces, which no game owns. A game's facts are in its own
+// pack; the versus stage's are `assets/pack.ron`.
+(
+    id: "ambition_app_host",
+    version: "0.1.0",
+    // Every identity this pack mints is `host:<schema>/<name>`.
+    namespace: "host",
+    requires: [],
+    sources: [
+        // The words of the start cover and of the pause menu's own rows.
+        (path: "data/host_text.ron", schema: "host_text", version: 1),
+    ],
+)

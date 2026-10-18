@@ -191,7 +191,7 @@ pub(super) fn install_direct_startup_loading(app: &mut App) {
 }
 
 fn spawn_direct_startup_loading_screen(mut commands: Commands) {
-    let text = super::host_text::host_text();
+    let text = super::host_pack::host_text();
     // The loading surface deliberately uses Bevy's built-in font. Depending on
     // an asynchronously loaded product font would make the loading screen
     // itself pop in late, defeating its immediate-response purpose.
@@ -317,7 +317,7 @@ fn drive_direct_startup_loading(
     mut assets: StartupAssetInputs,
     mut ui: StartupUi,
 ) {
-    let text = super::host_text::host_text();
+    let text = super::host_pack::host_text();
     if state.revealed {
         return;
     }
@@ -646,7 +646,7 @@ mod tests {
         use bevy::ecs::system::RunSystemOnce;
         let mut world = World::new();
         world.run_system_once(spawn_direct_startup_loading_screen).expect("the cover spawns");
-        let text = super::super::host_text::host_text();
+        let text = super::super::host_pack::host_text();
         let shown = |world: &mut World, name: &str| {
             let mut texts = world.query::<(&Name, &Text)>();
             texts

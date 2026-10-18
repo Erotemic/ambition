@@ -52,9 +52,9 @@ a live reload is a second priority. Work in this order:
    line, an unknown line and an unknown hole, each by key and file. Done
    2026-10-18 for each game: Smash, Mary-O, Sanic and Versus
    (`data/<game>_text.ron`) and Ambition's launcher row
-   (`data/ambition_text.ron`); the host's start cover is the host's own
-   `host_text.ron` in `ambition_app` (a lone file checked as a source is,
-   `ShownText::checked`), so no host module reads a content crate for it. A wording edit is 0.5-0.8 s to a test; it was
+   (`data/ambition_text.ron`); the host's start cover and the pause menu's own
+   rows are the host's own pack (`ambition_app/assets/host/pack.ron`,
+   `host_text`), so no host module reads a content crate for its words. A wording edit is 0.5-0.8 s to a test; it was
    a crate build (Smash 11.7 s, Mary-O 18.7 s, Sanic 6.8 s) and a relink.
    Left: the shell's own words (menus, settings, the engine's "Talk" and
    "HP"), one shell text file by Q68

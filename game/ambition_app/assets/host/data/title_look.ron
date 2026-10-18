@@ -1,0 +1,41 @@
+// The title screen's look (schema `title_look`, read by
+// `app::title_screen`). An edit is shown at the next start, with no Rust
+// build. Sizes are in parts of a hundred of the view (vw: its width, vh: its
+// height); colours are sRGB from 0 to 1.
+(
+    // How much each layer drifts, far to near: sky, far backplate, near
+    // background, foreground atmosphere. The near ones drift more, as they do
+    // when a camera moves.
+    layer_drift: (0.15, 0.4, 0.75, 1.0),
+    // A layer is square and this wide (vw); a 16:9 view shows its middle band.
+    // It must exceed the view by twice the deepest drift, or an edge shows.
+    layer_vw: 132.0,
+    // How far the nearest layer drifts to each side (vw), and the seconds of
+    // one drift there and back.
+    drift_vw: 9.0,
+    drift_period_s: 80.0,
+    // The seconds one scene takes to fade into the next.
+    fade_s: 0.9,
+    // The scrim over the backdrop: the backdrop is the point of the screen,
+    // so it is dimmed only a little.
+    scrim: (0.0, 0.0, 0.02, 0.20),
+    // The menu's window: dark glass over the backdrop.
+    window: (0.035, 0.045, 0.085, 0.70),
+    // The window's width (vh: text is sized by the view's height, so a row
+    // keeps its shape on any aspect; on 16:9 this is 54 of the width), and
+    // the most of the view's width it takes on a tall, narrow view (percent).
+    window_width_vh: 96.0,
+    window_most_percent: 94.0,
+    window_radius_vh: 2.4,
+    window_edge_vh: 0.28,
+    window_edge: (0.78, 0.85, 1.0, 0.30),
+    row_radius_vh: 1.6,
+    row_edge_vh: 0.32,
+    // The edge of a row the cursor is not on.
+    row_edge: (0.72, 0.80, 1.0, 0.22),
+    // The edge of the cursor's row at its brightest. Its alpha breathes
+    // between `cursor_edge_low` and 1, once each `cursor_breath_s`.
+    cursor_edge: (1.0, 0.98, 0.86),
+    cursor_edge_low: 0.45,
+    cursor_breath_s: 1.8,
+)

@@ -92,6 +92,27 @@ impl FeatureEcsWorldOverlay {
             && self.water_regions == other.water_regions
     }
 
+    /// The parts of `self` that do not move: what a graph of the room's
+    /// surfaces is built over. A block or gate solid with a velocity is left
+    /// out, and so are the contributed lines, which move with what carries
+    /// them (a mount's slope). The per-body passes, holes and glues are left
+    /// out: a graph is of the walls as a body meets them when none is open
+    /// for it. Compare two of these with [`Self::composes_like`].
+    pub fn still(&self) -> Self {
+        let still = |block: &&ae::Block| block.velocity == ae::Vec2::ZERO;
+        Self {
+            blocks: self.blocks.iter().filter(still).cloned().collect(),
+            chains: Vec::new(),
+            gate_solids: self.gate_solids.iter().filter(still).cloned().collect(),
+            gate_passes: Vec::new(),
+            portal_holes: Vec::new(),
+            portal_glues: Vec::new(),
+            removed_block_names: self.removed_block_names.clone(),
+            climbable_carves: self.climbable_carves.clone(),
+            water_regions: self.water_regions.clone(),
+        }
+    }
+
     /// Clear the fields the engine's per-frame rebuild owns, so contributors
     /// re-extend onto a clean slate.
     ///

@@ -118,9 +118,24 @@ pub struct SolidsKey {
 }
 
 impl SolidsKey {
+    fn revision(self) -> GeometryRevision {
+        GeometryRevision { root: self.root, geometry: self.geometry }
+    }
+
     fn of(root: bevy_ecs::entity::Entity, geometry: &Ref<ae::RoomGeometry>, platforms: Option<&Ref<MovingPlatformSet>>) -> Self {
         Self { root, geometry: geometry.last_changed(), platforms: platforms.map(DetectChanges::last_changed) }
     }
+}
+
+/// Which authored geometry a live room has: its root and the change tick of
+/// its [`ae::RoomGeometry`]. A write to the geometry, or another room, gives
+/// another revision. A value kept under one revision is a function of that
+/// geometry, so a reader can keep a fact derived from the whole geometry (a
+/// stamp, a graph) and fold it again only when the revision changes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GeometryRevision {
+    root: bevy_ecs::entity::Entity,
+    geometry: Tick,
 }
 
 /// One kept composition: its key, the overlay it was composed with, and the
@@ -296,7 +311,8 @@ fn room_of<'a>(
         geometry: geometry.into_inner(),
         platforms: platforms.map_or(&[][..], |platforms| &platforms.into_inner().0),
         overlay: overlay.map(Ref::into_inner),
-        composed: composed.map(|composed| (composed, key)),
+        key,
+        composed,
     })
 }
 
@@ -360,8 +376,10 @@ pub struct RoomCollision<'a> {
     geometry: &'a ae::RoomGeometry,
     platforms: &'a [MovingPlatformState],
     overlay: Option<&'a FeatureEcsWorldOverlay>,
-    /// The shared composed walls and this room's key in them.
-    composed: Option<(&'a ComposedSolids, SolidsKey)>,
+    /// This room's key in the shared composed walls.
+    key: SolidsKey,
+    /// The shared composed walls.
+    composed: Option<&'a ComposedSolids>,
 }
 
 /// `walls` as a body meets them: without the gate solids named in `open`
@@ -648,7 +666,7 @@ impl<'a> RoomCollision<'a> {
         };
         let empty = FeatureEcsWorldOverlay::default();
         let overlay = self.overlay.unwrap_or(&empty);
-        if let Some(shared) = self.composed.and_then(|(composed, key)| composed.get_or_compose(key, overlay, compose)) {
+        if let Some(shared) = self.composed.and_then(|composed| composed.get_or_compose(self.key, overlay, compose)) {
             return Some(Cow::Borrowed(shared));
         }
         Some(Cow::Owned(compose()))
@@ -739,6 +757,11 @@ impl<'a> RoomCollision<'a> {
 
     pub fn base(self) -> &'a ae::World {
         &self.geometry.0
+    }
+
+    /// Which authored geometry [`Self::base`] is ([`GeometryRevision`]).
+    pub fn geometry_revision(self) -> GeometryRevision {
+        self.key.revision()
     }
 }
 

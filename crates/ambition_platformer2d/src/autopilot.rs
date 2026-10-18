@@ -13,8 +13,9 @@
 //! The autopilot is an INPUT SOURCE, outside the simulation's timeline, as a
 //! person is. Its graphs are built on the async compute pool, never on the
 //! main thread: until a graph is there, the seat is at rest. They are kept in
-//! a [`NavGraphCache`] by what each one is a function of, and the geometry is
-//! composed again only when a cheap signature of its inputs changes.
+//! a [`NavGraphCache`] by what each one is a function of. The geometry is
+//! composed and stamped again only when a part it is composed from changed
+//! ([`GraphInputs`]).
 //!
 //! A goal in the air ([`NavGoal::Fly`]) is flown to: the autopilot turns the
 //! body's flight on, plans a route through the room's air (the graph's
@@ -22,8 +23,8 @@
 //! a surface turns flight off first.
 //!
 //! The graph is built over what the body collides with that does not move:
-//! the room's authored blocks, its contributed solids and gate solids, less
-//! the blocks taken out. Exits that take a body on overlap are avoided: a leg
+//! the room's authored geometry, and the parts of its overlay that do not move
+//! ([`FeatureEcsWorldOverlay::still`]). Exits that take a body on overlap are avoided: a leg
 //! through one would leave the room. A moving platform is not in it; a leg
 //! that one stops fails, and the follower plans again.
 
@@ -38,7 +39,8 @@ use ae::navigation::{
 use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
 use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
-use ambition_platformer2d_world::collision::{world_with_sandbox_solids, CollisionWorld};
+use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
+use ambition_platformer2d_world::collision::{world_with_sandbox_solids, CollisionWorld, GeometryRevision};
 use ambition_platformer2d_world::navigation::{FlightMap, FlightSearch, NavGraph, NavGraphCache, NavGraphKey};
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
 
@@ -185,14 +187,31 @@ struct PendingGraph {
     task: Task<Option<NavGraph>>,
 }
 
+/// What the graph of the player's room is composed from: the room's authored
+/// geometry, the parts of its overlay that do not move, and the exits it
+/// avoids. Equal to the last frame's: the same world, so the same key. Each
+/// part is compared whole, so a change that keeps a count (a block moved, a
+/// water region added in place of a carve) is a change.
+struct GraphInputs {
+    geometry: GeometryRevision,
+    overlay: FeatureEcsWorldOverlay,
+    exits: Vec<ae::Aabb>,
+}
+
+impl GraphInputs {
+    fn same_as(&self, other: &Self) -> bool {
+        self.geometry == other.geometry && self.overlay.composes_like(&other.overlay) && self.exits == other.exits
+    }
+}
+
 /// The autopilot's state: the follower, the graphs and the one being built.
 #[derive(Resource)]
 pub struct Autopilot {
     follower: RouteFollower,
     graphs: NavGraphCache,
     pending: Option<PendingGraph>,
-    /// The geometry signature and the body on the frame `wanted` was made.
-    signature: u64,
+    /// The graph's inputs and the body on the frame `wanted` was made.
+    inputs: Option<GraphInputs>,
     body: Option<BodyTuning>,
     /// The graph of the room as it is now. It is followed once it is built
     /// and no leg is under way: until then the body goes on by `active`.
@@ -219,7 +238,7 @@ impl Default for Autopilot {
             follower: RouteFollower::default(),
             graphs: NavGraphCache::with_capacity(GRAPHS_KEPT),
             pending: None,
-            signature: 0,
+            inputs: None,
             body: None,
             wanted: None,
             active: None,
@@ -317,20 +336,21 @@ pub fn drive_autopilot(
         frame: motion,
     };
 
-    // The graph's inputs: one number for the geometry, with no allocation,
-    // and the body. When both are the last frame's, so is the key.
-    let overlay = room.overlay();
-    let signature = geometry_signature(in_room, room.base(), overlay);
-    if pilot.wanted.is_none() || signature != pilot.signature || pilot.body != Some(body) {
-        let exits: Vec<ae::Aabb> = specs
+    // The graph's inputs and the body. When both are the last frame's, so is
+    // the key: the world is composed and stamped only when one changed.
+    let inputs = GraphInputs {
+        geometry: room.geometry_revision(),
+        overlay: room.overlay().map(FeatureEcsWorldOverlay::still).unwrap_or_default(),
+        exits: specs
             .as_ref()
             .and_then(|specs| specs.spec_of(entity))
             .map(|spec| spec.loading_zones.iter().filter(|zone| zone.is_ready(false)).map(|zone| zone.aabb).collect())
-            .unwrap_or_default();
-        let world = match overlay {
-            Some(overlay) => world_with_sandbox_solids(room.base(), &[], overlay),
-            None => room.base().clone(),
-        };
+            .unwrap_or_default(),
+    };
+    let unchanged = pilot.inputs.as_ref().is_some_and(|kept| kept.same_as(&inputs));
+    if pilot.wanted.is_none() || !unchanged || pilot.body != Some(body) {
+        let world = world_with_sandbox_solids(room.base(), &[], &inputs.overlay);
+        let exits = inputs.exits.clone();
         let key = NavGraphKey::new(&world, &exits, body.spec, body.abilities, body.size, body.base_size, motion);
         // A graph not kept and not on the way is built. A build for an
         // older geometry is dropped, which cancels it.
@@ -340,7 +360,7 @@ pub fn drive_autopilot(
             pilot.pending = Some(PendingGraph { key, task });
         }
         pilot.wanted = Some(key);
-        pilot.signature = signature;
+        pilot.inputs = Some(inputs);
         pilot.body = Some(body);
     }
     if let Some(pending) = pilot.pending.as_mut() {
@@ -602,37 +622,103 @@ fn stand_point(graph: &NavGraph, goal: NavGoal) -> Option<ae::Vec2> {
         .min_by(|a, b| (*a - at).length_squared().total_cmp(&(*b - at).length_squared()))
 }
 
-/// One number for the geometry a graph of the player's room is made from,
-/// folded from its parts with no allocation: the live room (its authored
-/// blocks are fixed for it), each contributed block and gate solid that does
-/// not move, the carves, and the names of the blocks taken out. Equal to the
-/// last frame's: the same geometry.
-fn geometry_signature(
-    room: Option<&InRoomInstance>,
-    base: &ae::World,
-    overlay: Option<&ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
-) -> u64 {
-    use std::hash::{Hash, Hasher};
-    let mut hasher = std::hash::DefaultHasher::new();
-    room.hash(&mut hasher);
-    base.blocks.len().hash(&mut hasher);
-    let mut fold_box = |aabb: ae::Aabb| {
-        for value in [aabb.min.x, aabb.min.y, aabb.max.x, aabb.max.y] {
-            value.to_bits().hash(&mut hasher);
-        }
-    };
-    if let Some(overlay) = overlay {
-        for block in overlay.blocks.iter().chain(&overlay.gate_solids) {
-            if block.velocity == ae::Vec2::ZERO {
-                fold_box(block.aabb);
-            }
-        }
-        // Not the portal holes: a hole is open only for the bodies that opened
-        // it, and the graph is of the walls as a body meets them otherwise.
-        for carve in &overlay.climbable_carves {
-            fold_box(*carve);
-        }
-        overlay.removed_block_names.hash(&mut hasher);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::tasks::TaskPool;
+
+    fn room(floor_y: f32) -> ae::RoomGeometry {
+        ae::RoomGeometry(ae::World::new(
+            "test",
+            ae::Vec2::new(400.0, 400.0),
+            ae::Vec2::new(50.0, 50.0),
+            vec![ae::Block::solid("floor", ae::Vec2::new(0.0, floor_y), ae::Vec2::new(400.0, 20.0))],
+        ))
     }
-    hasher.finish()
+
+    fn autopilot_in_a_room() -> App {
+        AsyncComputeTaskPool::get_or_init(TaskPool::default);
+        let mut app = App::new();
+        app.init_resource::<Time>();
+        app.init_resource::<ScriptedControls>();
+        app.init_resource::<Autopilot>();
+        app.insert_resource(AutopilotOrder::GoTo(NavGoal::Stand(ae::Vec2::new(300.0, 360.0))));
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), room(380.0));
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(),
+            FeatureEcsWorldOverlay { blocks: vec![ae::Block::solid("crate", ae::Vec2::new(100.0, 340.0), ae::Vec2::new(20.0, 20.0))], ..default() },
+        );
+        let body = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::new(100.0, 360.0), ae::AbilitySet::default());
+        app.world_mut().spawn((
+            PrimaryPlayer,
+            body.kinematics,
+            body.ground,
+            body.model,
+            body.abilities,
+            body.base_size,
+            ResolvedMotionFrame::default(),
+            body.flight,
+        ));
+        app.add_systems(Update, drive_autopilot);
+        app
+    }
+
+    fn wanted(app: &App) -> NavGraphKey {
+        app.world().resource::<Autopilot>().wanted.expect("the autopilot wants a graph")
+    }
+
+    fn overlay(app: &mut App) -> Mut<'_, FeatureEcsWorldOverlay> {
+        let mut overlays = app.world_mut().query::<&mut FeatureEcsWorldOverlay>();
+        overlays.single_mut(app.world_mut()).expect("one live room")
+    }
+
+    /// The graph the autopilot wants is the graph of the room as it is: a
+    /// change to any part the world is composed from gives another key, and a
+    /// change that keeps a count is a change. The overlay is filled again each
+    /// tick, so a refill with the same contents, and a part that moves (which
+    /// the graph is not built over), give the same key.
+    #[test]
+    fn the_wanted_graph_follows_each_part_of_the_room_it_is_built_over() {
+        let mut app = autopilot_in_a_room();
+        app.update();
+        let first = wanted(&app);
+
+        {
+            let mut refilled = overlay(&mut app);
+            let crate_block = refilled.blocks[0].clone();
+            refilled.clear_engine_contributions();
+            refilled.blocks.push(crate_block);
+            refilled.blocks.push(ae::Block {
+                velocity: ae::Vec2::new(30.0, 0.0),
+                ..ae::Block::solid("lift", ae::Vec2::new(200.0, 300.0), ae::Vec2::new(40.0, 10.0))
+            });
+        }
+        app.update();
+        assert_eq!(wanted(&app), first, "a refill with the same still parts, and a moving block, re-keyed the graph");
+
+        let mut seen = vec![first];
+        let changes: [(&str, fn(&mut App)); 3] = [
+            ("water added to the overlay", |app| {
+                overlay(app).water_regions.push(ae::WaterRegion::new(
+                    ae::Aabb::new(ae::Vec2::new(250.0, 300.0), ae::Vec2::new(60.0, 60.0)),
+                    ae::WaterKind::Clear,
+                    Default::default(),
+                ));
+            }),
+            ("a contributed block's kind, in the same box", |app| {
+                let mut overlay = overlay(app);
+                overlay.blocks[0].kind = ae::Block::one_way("crate", ae::Vec2::ZERO, ae::Vec2::ONE).kind;
+            }),
+            ("an authored block moved, with the same count", |app| {
+                ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), room(370.0));
+            }),
+        ];
+        for (change, apply) in changes {
+            apply(&mut app);
+            app.update();
+            let key = wanted(&app);
+            assert!(!seen.contains(&key), "{change}: the autopilot kept the graph of the old room");
+            seen.push(key);
+        }
+    }
 }

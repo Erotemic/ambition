@@ -121,7 +121,8 @@ front as it moves.
 - The shape of the front is not authored. It is a line with a fixed lean, and
   the state of the room says how far it has gone.
 - A tier with no budget for screen shaders (`screen_shader_scale` of zero:
-  Potato) draws no look quad: the room is its skins, drawn plain. When the tier changes in a room that is
+  Potato) draws no look quad: the room is its skins, drawn plain, over the
+  flat backdrop of the state the middle of the view is in. When the tier changes in a room that is
   presented, the look takes back what it gave to things that are not its own:
   each inked sign gets its own colours and loses its halo. The doors keep the
   look's art: it is authored, as the skins are. When the budget comes back, the look is presented again

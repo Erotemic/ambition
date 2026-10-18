@@ -240,10 +240,11 @@ pub fn spawn_parallax_layers(
     if assets.parallax_layers.is_empty() {
         return;
     }
+    let theme = ParallaxTheme::from_room_metadata(metadata);
     if quality.is_some_and(|q| !q.enabled) {
+        spawn_flat_backdrop(commands, session_scope, world, theme, assets);
         return;
     }
-    let theme = ParallaxTheme::from_room_metadata(metadata);
     let max_layers = quality.and_then(|q| q.max_layers).unwrap_or(usize::MAX);
     // A room whose sky scrolls draws each layer as a row of wrapping panels.
     let scroll = metadata.visual_profile.sky_scroll_px_s.map(|px_s| px_s as f32);
@@ -314,6 +315,45 @@ pub fn spawn_parallax_layers(
     }
 }
 
+/// The flat backdrop of a tier that draws no parallax: one panel of the
+/// theme's flat picture, as large as the view and fixed to it.
+fn spawn_flat_backdrop(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    world: &ae::World,
+    theme: ParallaxTheme,
+    assets: &GameAssets,
+) {
+    let Some(image) = assets.parallax_layers.get(theme, ParallaxLayerAsset::Flat) else {
+        return;
+    };
+    let mut sprite = Sprite::from_image(image.clone());
+    sprite.custom_size = None;
+    sprite.flip_x = room_mirrors_its_backdrop(&world.name, theme);
+    // The panel of the sky, without its overhang and its slide: no parallax.
+    let z = RUNTIME_PARALLAX_LAYERS[0].z;
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            sprite,
+            Transform::from_translation(Vec3::new(0.0, 0.0, z)),
+            Visibility::Inherited,
+            ParallaxLayerVisual {
+                factor: Vec2::ZERO,
+                z,
+                panel_scale: 1.0,
+                travel: Vec2::ZERO,
+                world_size: Vec2::new(world.size.x.max(1.0), world.size.y.max(1.0)),
+            },
+            BoundParallaxLayer { theme, asset: ParallaxLayerAsset::Flat },
+            parallax_resting_layers(),
+            ProjectionRestingLayers(parallax_resting_layers()),
+            RoomVisual,
+            Name::new(format!("Background flat backdrop: {}", theme.key())),
+        ),
+    );
+}
+
 /// Take every panel and every room's parallax marker when the art or the
 /// quality changes, so [`present_live_room_parallax`] presents each live room
 /// again with the new art and budget.
@@ -381,28 +421,23 @@ pub fn present_live_room_parallax(
     else {
         return;
     };
-    let wants_parallax = quality
-        .as_deref()
-        .map(|q| q.budget.parallax.enabled)
-        .unwrap_or(true);
+    let budget = quality.as_deref().map(|q| &q.budget);
     for (room, definition) in rooms.live_rooms() {
         if presented.iter().any(|stamp| stamp.0 == room) {
             continue;
         }
         let spec = rooms.rooms().spec(definition);
-        if wants_parallax {
-            let theme = ParallaxTheme::from_room_metadata(&spec.metadata);
-            let loaded = assets.as_deref().is_some_and(|assets| {
-                ParallaxLayerAsset::ALL
-                    .iter()
-                    .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
-            });
-            let nothing_is_coming = attempts
-                .as_deref()
-                .is_some_and(|attempts| attempts.attempted_without_art(theme));
-            if !loaded && !nothing_is_coming {
-                continue;
-            }
+        // A tier with no parallax draws the flat backdrop, so each tier waits
+        // for what it draws.
+        let theme = ParallaxTheme::from_room_metadata(&spec.metadata);
+        let loaded = assets
+            .as_deref()
+            .is_some_and(|assets| assets.parallax_layers.has_drawn_layers(theme, budget));
+        let nothing_is_coming = attempts
+            .as_deref()
+            .is_some_and(|attempts| attempts.attempted_without_art(theme));
+        if !loaded && !nothing_is_coming {
+            continue;
         }
         let scope = session_scope.in_room(Some(room));
         spawn_parallax_layers(
@@ -484,11 +519,8 @@ pub fn ensure_active_room_parallax_theme(
         // was not asked for is not resident.
         let skin_asked = ParallaxTheme::named_by_room_metadata(&metadata)
             .is_none_or(|named| assets.room_dressing.attempted(named));
-        if skin_asked
-            && ParallaxLayerAsset::ALL
-                .iter()
-                .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
-        {
+        let budget = quality.as_deref().map(|q| &q.budget);
+        if skin_asked && assets.parallax_layers.has_drawn_layers(theme, budget) {
             continue;
         }
         ambition_sprite_sheet::game_assets::ensure_parallax_layers_for_room(
@@ -501,10 +533,7 @@ pub fn ensure_active_room_parallax_theme(
         // Record the outcome, not the attempt. Only "nothing came" lets
         // presentation stop waiting. A profile that refuses every candidate
         // leaves zero handles, and no later frame adds one.
-        if !ParallaxLayerAsset::ALL
-            .iter()
-            .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
-        {
+        if !assets.parallax_layers.has_drawn_layers(theme, budget) {
             attempts.without_art.push(theme);
         }
     }

@@ -183,6 +183,8 @@ pub fn tick_controlled_brains(
             // generation is therefore inactive here.
             attack_kit: Vec::new(),
             melee_reach: None,
+            // The person picks the range; no brain reads a band here.
+            target_half_width: 0.0,
             // The player brain reads input, not the Smash aerial path; grounded
             // locomotion semantics regardless of fly mode.
             actor_aerial: false,

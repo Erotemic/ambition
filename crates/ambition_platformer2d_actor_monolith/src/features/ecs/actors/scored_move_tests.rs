@@ -1305,3 +1305,34 @@ fn a_brain_reads_the_reach_of_the_polygon_its_strike_spawns_as() {
         "a tagged volume strikes as the drawn polygon, so that is its reach"
     );
 }
+
+/// ⭐ A SWING CONNECTS AT THE TARGET'S NEAR EDGE. The reach is measured from
+/// the swinger's centre; the target's half width is in the band
+/// (`BrainSnapshot::melee_connect_gap`). Without it a body whose box ends at
+/// its own width (the PCA's drawn jab, 28 px) never pressed against a foe it
+/// cannot stand closer to than their half widths. Control: the same reach
+/// against a point target does not swing at 40 px.
+#[test]
+fn a_smash_brain_swings_when_its_reach_meets_the_targets_near_edge() {
+    use ambition_characters::brain::{ActionSet, MeleeActionSpec, SwipeSpec};
+    let actions = ActionSet {
+        melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+        ..ActionSet::peaceful()
+    };
+    let swings_at_40 = |target_half_width: f32| {
+        let Brain::StateMachine(StateMachineCfg::Smash { cfg, mut state }) = smash_brain() else {
+            panic!("fixture built a Smash brain");
+        };
+        let mut snapshot = BrainSnapshot::idle();
+        snapshot.target_pos = ae::Vec2::new(40.0, 0.0);
+        snapshot.target_alive = true;
+        snapshot.actor_on_ground = true;
+        snapshot.melee_reach = Some(28.0);
+        snapshot.target_half_width = target_half_width;
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        ambition_combat::brain::smash::tick_smash(&cfg, &mut state, &actions, &snapshot, None, &mut frame);
+        frame.melee_pressed
+    };
+    assert!(!swings_at_40(0.0), "control: a 28 px reach does not reach a point 40 px away");
+    assert!(swings_at_40(14.0), "a 28 px reach meets the near edge of a body 14 px half wide at 40 px");
+}

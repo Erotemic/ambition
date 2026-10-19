@@ -536,6 +536,12 @@ pub fn tick_actor_brains(
         // and is the primary player's pos in the single-player
         // production game.
         let target_pos = target.pos;
+        // The targeted body's half width, so a brain knows where its near
+        // edge is (`BrainSnapshot::melee_connect_gap`).
+        let target_half_width = target
+            .entity
+            .and_then(|entity| bodies.get(entity).ok())
+            .map_or(0.0, |(kin, _, _)| kin.size.x * 0.5);
         {
             // A production actor carries the complete read-only decision view.
             // `Option` keeps incomplete debug/scripted fixtures from being
@@ -641,6 +647,7 @@ pub fn tick_actor_brains(
                             }),
                         aerial,
                         bodies.get(this_actor_entity).ok().and_then(|(_, _, authored)| authored),
+                        target_half_width,
                         &|spec| {
                             strike_volumes.frame_data(
                                 this_actor_entity,
@@ -908,6 +915,7 @@ pub fn tick_actor_brains(
                             None => {
                                 snapshot.target_pos = body.kin.pos;
                                 snapshot.target_alive = false;
+                                snapshot.target_half_width = 0.0;
                             }
                         }
                     }
@@ -2502,6 +2510,8 @@ fn build_enemy_brain_snapshot(
     aerial: bool,
     // The body's authored movement feel, when it has one. See `movement_law`.
     authored_tuning: Option<&ae::AuthoredMovementTuning>,
+    // The targeted body's half width. See `BrainSnapshot::target_half_width`.
+    target_half_width: f32,
     // Each move's frame data as it is on this body. See `attack_kit_on`.
     frames_of: &dyn Fn(&ambition_entity_catalog::MoveSpec) -> ambition_entity_catalog::MoveFrameData,
 ) -> ambition_characters::brain::BrainSnapshot {
@@ -2557,6 +2567,7 @@ fn build_enemy_brain_snapshot(
         // The reach of the attack press, from the same moveset and the same
         // posture as the kit above. See `melee_reach_of`.
         melee_reach: melee_reach_on(moveset, body.ground.on_ground, motion_facts.running, frames_of),
+        target_half_width,
         // WHICH BODY THIS IS, so a published decision fact can name its
         // subject. The brain cannot know — a snapshot is body state and identity
         // is the host's to assign — so it arrives through the world-in port like

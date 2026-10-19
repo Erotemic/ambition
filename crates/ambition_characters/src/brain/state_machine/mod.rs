@@ -357,7 +357,7 @@ fn tick_patrol(
     // a peaceful patroller: it presses no attack, and its `attack_range` is the
     // distance at which it stops to talk.
     let reach = if cfg.aggressiveness > 0.0 {
-        snapshot.melee_reach.unwrap_or(cfg.attack_range)
+        snapshot.melee_connect_gap().unwrap_or(cfg.attack_range)
     } else {
         cfg.attack_range
     };
@@ -540,7 +540,7 @@ fn tick_melee_brute(
     // a body with no attack move.
     let ai = crate::actor::ai::evaluate_character_ai_output(snapshot.to_character_ai_snapshot(
         cfg.aggro_radius,
-        snapshot.melee_reach.unwrap_or(cfg.attack_range),
+        snapshot.melee_connect_gap().unwrap_or(cfg.attack_range),
         false,
     ));
     state.mode = ai.mode;
@@ -805,7 +805,7 @@ fn tick_skirmisher(
     // CLOSE QUARTERS: a body with a swing uses it on a foe inside its reach
     // instead of backing off to shoot, unless a volley is already under way.
     let volley_busy = matches!(state.volley_phase, RangedVolleyPhase::Windup { .. } | RangedVolleyPhase::Firing { .. });
-    if let (Some(reach), false) = (snapshot.melee_reach, volley_busy) {
+    if let (Some(reach), false) = (snapshot.melee_connect_gap(), volley_busy) {
         if raw_dist <= reach {
             out.melee_pressed = snapshot.attack_cooldown_remaining <= 0.0
                 && snapshot.attack_windup_remaining <= 0.0
@@ -1346,7 +1346,7 @@ fn tick_aerial_hostile(
     let altitude = cfg.roam_radius.max(80.0);
     // The reach of the dive peck is that of the body's attack move (Q35). The
     // cfg distance is only for a body with no attack move.
-    let attack_range = snapshot.melee_reach.unwrap_or(cfg.attack_range);
+    let attack_range = snapshot.melee_connect_gap().unwrap_or(cfg.attack_range);
 
     match state.phase {
         AerialPhase::Stalk => {

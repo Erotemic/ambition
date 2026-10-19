@@ -67,9 +67,12 @@ These are product questions, not reasons to block the engine architecture:
   decided (Q151, 2026-10-03): an ordinary death is local to the dying
   participant and the affected room, and another participant's live room and
   accomplishments stay; only an explicit whole-session reload rewinds
-  everything. Ambition seats a second player on a Jump press of a second
-  pad that was connected when the session started (the Q153 default, in
-  force until it is ruled);
+  everything. Amended 2026-10-19: only a full-party wipe (every active
+  participant dead) rolls the session back to the checkpoint; a death beside
+  a living participant resets nothing. Joining is ruled (Q153, 2026-10-19):
+  solo by default, with every device on Player 1; an opt-in setting accepts
+  a second player through an explicit join gesture, and a menu action
+  removes them (queue row LOCAL-PLAY-MODES);
 - inventory transfer/trading rules between controlled bodies;
 - save ownership and join/leave policy for remote participants;
 - how far shared quest/world causality extends when players explore separately.
@@ -100,8 +103,8 @@ simulation site that uses it, ask whether the fact should be per participant.
 
 ### A2 — adaptive split in one room
 
-✅ Built (default feel, Q162 in
-[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)). A
+✅ Built. Adaptive multiview is the ordinary co-op default (Q162, 2026-10-19);
+the thresholds below are engineering tuning. A
 game that declares `AdaptiveSplit` (`ambition_sim_view`; Ambition declares it)
 opens a view for each seat when a seat's body in seat zero's room leaves 0.9 of
 half the shared view's visible size. The views close when every body has been
@@ -207,8 +210,7 @@ seat, so this is not a regression; it is now written down.
   seat on its shared view, since only A4's client-local layout knows which
   seats are its own.
 - A conversation holds only the talker, also with two players in one room
-  (ruling 2026-08-06; the one-room case is Q163 in
-  [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)):
+  (ruling 2026-08-06; Q163, its one-room duplicate, closed 2026-10-19):
   the session enters the dialogue mode only while one seat drives a body and
   one room is live. Before 2026-10-06 the mode was entered in one room, so a
   second player beside the talker moved but could not pick up or take a door
@@ -233,7 +235,7 @@ The cost is the freeze, for each peer and each live room:
 
 at a link latency of 3 updates each way (`two_peers.rs`, four runs, two
 crossings). The handshake is five GGRS round trips and is most of the cost.
-Whether that hold is acceptable is Q155. Named remainders: a link that loses
+Q155 (2026-10-19): the hold is a performance issue to revisit, not a policy. Named remainders: a link that loses
 parcels needs a linger before the old session ends, and the freeze is of the
 whole world, also of the room that nobody leaves.
 

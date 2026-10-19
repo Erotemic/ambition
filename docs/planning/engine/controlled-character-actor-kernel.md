@@ -119,10 +119,12 @@ Open, each with what makes it live:
   walker's draw size by inverting the footprint when the normal is mostly
   sideways. That is exact for a cardinal normal only; the raw size is
   `BodyKinematics::size`. Read, not measured.
-- Water in a room whose gravity is not down: where the surface of a pool is,
-  and whether a body that is not axis-swept gets wet (the axis arm is the only
-  writer of `BodyEnvironmentContact`), is
-  [Q160](../awaiting-maintainer-decision.md#q160--water-in-a-room-whose-gravity-is-not-down-where-is-the-surface-of-a-pool-and-does-a-body-that-is-not-axis-swept-get-wet).
+- Water in a room whose gravity is not down (Q160, ruled 2026-10-19): fluid
+  simulation is deferred. A pool's surface stays its world-horizontal top
+  edge, a stated limitation: in a turned room it reads wrong to the eye and
+  to `submersion`. The axis arm is the only writer of
+  `BodyEnvironmentContact`, so a crawler or momentum body ignores water it
+  touches; a narrow contact fix for that is allowed, a fluid project is not.
 
 
 Possession acquisition/traversal policy may remain an optional ability. Its

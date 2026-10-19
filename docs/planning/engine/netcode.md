@@ -123,7 +123,7 @@ N2 was the only instrument for two open questions:
   crossing freezes the simulation, each peer commits alone on the frozen world,
   and each peer starts the next generation of its session at frame zero, so no
   rollback crosses the commit. The cost is the hold: 23 to 43 updates measured
-  at a link latency of 3 updates, most of it the GGRS handshake (Q155). See the
+  at a link latency of 3 updates, most of it the GGRS handshake (Q155, 2026-10-19: a performance issue to revisit, not a product policy). See the
   "Remote peers" row of
   [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md).
 
@@ -132,8 +132,11 @@ Q156; the default below now ends it).** Each peer prepares the room of an operat
 `Update`, and commits alone. When one machine's preparation fails, the other
 commits and waits in the handshake of a session that never starts, and the
 machine that failed stays held. No error is reported. When each machine fails,
-both stay held. The measurement is in Q156 of
-[`awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
+both stay held. Q156 was closed 2026-10-19 with invariants, not UX: peers
+never commit divergent worlds, publication is atomic, a failed door or
+respawn never strands a session without a recovery or an explicit failure
+path, and presentation-only preparation does not hold a valid deterministic
+transition. Retry and disconnect UX wait for online play.
 
 The engineering half is built (2026-10-05): **the verdict of each peer
 travels in the peer input.** `PeerInput` is a `ControlFrame` and a
@@ -155,8 +158,8 @@ handle and frame. Witness:
 (poison: the commit with no verdict check commits alone, generation 1 on one
 peer and 0 on the other).
 
-**A `Failed` ends the operation on each peer (2026-10-05, the default in force
-until Q156 is ruled).** `end_an_operation_a_peer_could_not_prepare` (in
+**A `Failed` ends the operation on each peer (2026-10-05; it meets the Q156 invariants, and
+the UX beyond it is deferred).** `end_an_operation_a_peer_could_not_prepare` (in
 `GgrsSchedule`, before the gameplay root) retracts the waiting operation when
 a handle's input of the frame says `Failed` for it. It reads the frame's
 inputs, not the confirmed record: each peer reads the same input for a frame

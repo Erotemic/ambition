@@ -414,7 +414,7 @@ combine a new flow/geometry definition with a prior revision's references merely
 because one asset completed loading first. Stronger hot-reload guarantees need
 revision-pinning and failure fixtures, not a broad mutable content service.
 
-Residency budgets remain a product/hardware decision under Q94. Preparation may
-produce an accurate byte estimate and eviction policy without inventing the
-budget. Distinguish source bytes, decoded CPU data, device residency and active
+No hard residency budget in pre-alpha (Q94, ruled 2026-10-19): a number waits
+for hardware targets and representative content. Preparation may produce an
+accurate byte estimate and eviction policy without a budget. Distinguish source bytes, decoded CPU data, device residency and active
 simulation definitions in measurements; dependency count is none of these.

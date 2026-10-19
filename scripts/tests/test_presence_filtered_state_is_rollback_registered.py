@@ -274,7 +274,9 @@ def test_the_live_intersection_has_a_population_and_no_unwaived_subject():
     assert "HitboxLifetime" not in sites, (
         "a doc comment inside a test module is being read as a filter site again"
     )
-    assert "PresentationOf" in sites and len(sites["PresentationOf"]) == 3
+    # One site since 8dfda4073: a pane composites every drawable of its room
+    # with no marker, so only the portal source-visibility query filters on it.
+    assert "PresentationOf" in sites and len(sites["PresentationOf"]) == 1
     assert len(sites) > 150, len(sites)
     # ⚠ `main` builds an `ArgumentParser` and parses `sys.argv`, which under
     # pytest is pytest's own — it exits 2 rather than running the check.
@@ -304,8 +306,9 @@ def test_every_acknowledged_subject_is_named_by_the_row_it_is_owed_to():
     assert not missing, (
         f"acknowledged subject(s) owed to a row that never names them: {missing}"
     )
+    # An empty table is a real state (nothing is owed), so the arm asserts
+    # each entry names its row, not that an entry exists.
     owed = guard.owed_rows()
-    assert owed, "no acknowledgement names a question row, so the check is vacuous"
     assert set(owed) == set(guard.ACKNOWLEDGED), (
         "an acknowledgement stopped naming the row it is owed to: "
         f"{sorted(set(guard.ACKNOWLEDGED) - set(owed))}"
@@ -322,7 +325,8 @@ def test_the_row_match_is_word_bounded():
     """
     import re
 
-    for subject in guard.ACKNOWLEDGED:
+    # A fixed subject: the table can be empty, and a loop over it then checks nothing.
+    for subject in ["SmirkingBehemothVictoryNpc", *guard.ACKNOWLEDGED]:
         assert not re.search(rf"\b{re.escape(subject)}\b", f"{subject}XX"), (
             f"`{subject}` still matches `{subject}XX` — the boundary is gone"
         )

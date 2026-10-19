@@ -253,7 +253,7 @@ level-scoped only by a string convention. Run
    placement. Candidate and reload IDs never become save identity.
 3. Route queries and transfers through scoped owners; one body and one custody
    writer during handoff.
-4. Only then add residency interests, population changes and budgets (Q94).
+4. Only then add residency interests, population changes and budgets (no hard budget in pre-alpha, Q94 2026-10-19).
 
 **Acceptance:** no cross-instance collision, observation, lookup or despawn;
 transfer preserves body and custody identity; unloading one instance leaves the

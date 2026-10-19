@@ -124,6 +124,12 @@ WAIVERS = {
         "`CoreSimulation`, by the app's physics install); it builds a room's static "
         "debris floor once, on the first debris burst in that room"
     ),
+    "PendingPhysicsDespawn": (
+        "two sites, `physics_spawn_debris_messages` and "
+        "`pause_physics_when_no_debris_exists`, both in `Update`; a retired debris "
+        "piece takes no budget place and does not keep avian awake, and debris is "
+        "a presentation effect a rewind does not replay"
+    ),
     # ⭐⛤ THE `game/*` ARRIVALS, 2026-09-18. These became visible when
     # `registering_crates` stopped assuming every registering crate lives under
     # `crates/` — `game/ambition_content` registers rollback state and its whole
@@ -258,39 +264,10 @@ WAIVERS = {
 }
 
 #: ⚠ REAL AND OWED, not waived. A name here is a finding with somewhere to go.
-ACKNOWLEDGED = {
-    # ⭐ THREE LEFT THIS DICT BY BEING FIXED, 2026-09-17, schema v197 -> v198.
-    # `ReleaseOnDeath`, `RecharacterizeBody` and `EncounterScript` were filed
-    # here as Q142's open question and turned out not to be a question: each is
-    # mutated or consumed by a system in the REWINDING schedule, so each is now
-    # registered and falls out of this list by satisfying the check rather than
-    # by being excused. The remaining entry is the one none of those arguments
-    # reached.
-    "PostBossNpc": (
-        "Q142 — one site is the per-tick view rebuild and the other is "
-        "`AttemptResidue` in `world/rooms/reconstitution.rs`, the set an "
-        "admitted replay retires. Presence decides whether the celebrant a "
-        "defeated boss left behind is swept — a question about what a LOAD "
-        "does, not what a tick does, so it wants a behavioural arm rather than "
-        "a registration by analogy with its three former neighbours"
-    ),
-    # ⛔⛤ THE SIXTH `game/*` ARRIVAL, AND THE ONLY ONE THAT IS NOT PRESENTATION.
-    "SmirkingBehemothVictoryNpc": (
-        "Q142 — its one filter site is `spawn_cut_rope_victory_npc`'s `existing: "
-        "Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>`, a SPAWN-ONCE guard, "
-        "and that system is registered in the REWINDING schedule "
-        "(`app.add_systems(sim, .. .in_set(ContentEncounterVictorySet))` in "
-        "`bosses/mod.rs:379`). So presence decides whether a re-simulated victory "
-        "frame spawns a second celebrant — exactly the shape Q142 is about, on a "
-        "component the question could not name because this guard could not see "
-        "`game/ambition_content` at all until 2026-09-18. ⚠ NOT registered by "
-        "analogy: Q142's own text records that the first `ReleaseOnDeath` arm "
-        "asserted THIS NPC's presence and its poison PASSED, because a visible "
-        "consequence that is not itself rollback state survives the rewind "
-        "whatever the registration does. It wants the per-pass census shape that "
-        "closed the other three, not a fourth row added because its neighbours "
-        "moved"
-    ),
+ACKNOWLEDGED: dict[str, str] = {
+    # Empty since 2026-10-19. The last two (`PostBossNpc`,
+    # `SmirkingBehemothVictoryNpc`) were registered, and their question (Q142)
+    # was closed. A new entry names the open question it is owed to.
 }
 
 _DERIVE_COMPONENT = re.compile(

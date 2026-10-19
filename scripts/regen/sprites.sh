@@ -641,15 +641,17 @@ review_cues=(
     # goblin_forest_spear is NOT here any more: its one config is the main
     # one (configs/goblin_forest_spear.yaml), a runtime config target.
     goblin_brute_hammer goblin_cave_dagger goblin_desert_bow
-    goblin_frost_sword goblin_shaman_staff
+    goblin_frost_sword goblin_shaman_staff goblin_bruiser_club
 )
 
 # The faction leaders the game draws: rows of the faction lineup
 # (`configs/factions/music_factions.yaml`), each a registered config target.
 # The lineup's other characters are review art, and nothing publishes them.
-faction_cues=(goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor)
+faction_cues=(goblin_cantina_chieftain goblin_cantina_bard pulse_voyager_captain tech_bro_disruptor)
 
 tackon_targets=(
+    # The gradient sentinel boss is the one sentinel sheet the catalog draws.
+    gradient_sentinel_boss
     # That file is deleted; this line is what keeps her published.
     noether
     oiler

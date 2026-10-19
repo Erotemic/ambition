@@ -33,8 +33,9 @@ These are settled. Code against them; do not reopen them without a new ruling.
 - **Several live rooms.** Each live room is a root entity; entities carry an
   `InRoomInstance` stamp; each view draws the room it frames. A second seat
   joins with a Jump press at the primary's room
-  (`session/join.rs::seat_a_joining_participant`); that is the default in force
-  until `Q153` is ruled. Owner:
+  (`session/join.rs::seat_a_joining_participant`); the Q153 ruling of
+  2026-10-19 (a solo default, an opt-in join, a menu leave) is queue row
+  LOCAL-PLAY-MODES. Owner:
   [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md).
 - **Content is data, and it reloads.** Content packs compile through
   `ambition_content_pack::compile`. A running session reads the content

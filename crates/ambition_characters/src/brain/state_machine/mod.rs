@@ -464,6 +464,9 @@ pub struct MeleeBruteCfg {
     /// room's routes (jumps, drops), and does not only run at it. Needs the
     /// navigation advisor.
     pub navigates: bool,
+    /// After each swing it backs away this long (s): hit and run
+    /// ([`super::BrainProfile::retreat_after_swing_s`]). `0.0` presses on.
+    pub retreat_after_swing_s: f32,
 }
 
 impl MeleeBruteCfg {
@@ -473,6 +476,7 @@ impl MeleeBruteCfg {
         attack_range: 36.0,
         chase_speed: 110.0,
         navigates: false,
+        retreat_after_swing_s: 0.0,
     };
     pub const BRUTE_DEFAULT: Self = Self {
         aggressiveness: 1.0,
@@ -480,6 +484,7 @@ impl MeleeBruteCfg {
         attack_range: 44.0,
         chase_speed: 75.0,
         navigates: false,
+        retreat_after_swing_s: 0.0,
     };
 }
 
@@ -489,6 +494,10 @@ pub struct MeleeBruteState {
     pub mode: crate::actor::ai::CharacterAiMode,
     /// The route to a target on another surface, for a brute that navigates.
     pub nav: NavFollower,
+    /// Its own swing was live (wound up, striking or recovering) last tick.
+    pub was_swinging: bool,
+    /// Seconds it still backs away after its last swing.
+    pub backing_off: f32,
 }
 
 /// A target's place that moved less than this is the same goal (px).
@@ -536,6 +545,22 @@ fn tick_melee_brute(
     ));
     state.mode = ai.mode;
     *out = crate::actor::control::ActorControlFrame::neutral();
+    // HIT AND RUN: when its swing ends, it backs away a while, facing its foe.
+    let swinging = snapshot.attack_windup_remaining > 0.0
+        || snapshot.attack_active_remaining > 0.0
+        || snapshot.attack_recover_remaining > 0.0;
+    if state.was_swinging && !swinging && cfg.retreat_after_swing_s > 0.0 {
+        state.backing_off = cfg.retreat_after_swing_s;
+    }
+    state.was_swinging = swinging;
+    if state.backing_off > 0.0 {
+        state.backing_off = (state.backing_off - snapshot.dt).max(0.0);
+        let toward = local_target_side(snapshot);
+        let away = if toward < 0.0 { 1.0 } else { -1.0 };
+        out.locomotion = snapshot.locomotion_for(ae::LocalAxes::new(away * cfg.chase_speed, 0.0));
+        out.facing = snapshot.face_toward(toward);
+        return;
+    }
     if cfg.navigates {
         let chasing = matches!(ai.intent, crate::actor::ai::CharacterAiIntent::Chase { .. });
         out.facing = snapshot.actor_facing;
@@ -777,6 +802,18 @@ fn tick_skirmisher(
     // aims at the player rather than the orbit point.
     let aim_dir = to_target_raw.normalize_or_zero();
     out.facing = snapshot.face_toward(to_target_local.x);
+    // CLOSE QUARTERS: a body with a swing uses it on a foe inside its reach
+    // instead of backing off to shoot, unless a volley is already under way.
+    let volley_busy = matches!(state.volley_phase, RangedVolleyPhase::Windup { .. } | RangedVolleyPhase::Firing { .. });
+    if let (Some(reach), false) = (snapshot.melee_reach, volley_busy) {
+        if raw_dist <= reach {
+            out.melee_pressed = snapshot.attack_cooldown_remaining <= 0.0
+                && snapshot.attack_windup_remaining <= 0.0
+                && snapshot.attack_active_remaining <= 0.0
+                && snapshot.attack_recover_remaining <= 0.0;
+            return;
+        }
+    }
     // Move toward the orbit point at strafe_speed. Aerial archetypes
     // (sharks etc.) need 2D motion to actually orbit; the
     // integration uses both x and y when `is_aerial = true`.

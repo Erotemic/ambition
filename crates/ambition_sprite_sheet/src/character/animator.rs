@@ -21,6 +21,11 @@ pub struct RenderBasis {
 /// A body whose sheet can sit sits when it has stood idle this long (s).
 pub const SIT_AFTER_IDLE_S: f32 = 1.5;
 
+/// The row a dead body is drawn from once its `death` row has played: the
+/// body lying there, on a loop. Optional; a sheet without it holds the last
+/// frame of its death row. Publishing one states the corpse pose outright.
+pub const DEATH_IDLE: &str = "death_idle";
+
 /// Per-character animation cursor.
 #[derive(Component)]
 pub struct CharacterAnimator {
@@ -347,7 +352,18 @@ impl CharacterAnimator {
             && self.spec.maps(CharacterAnim::StandUp);
         if anim == CharacterAnim::Death {
             self.social_pose = SocialPose::Stand;
-            self.request(anim);
+            // The death row plays once. After it, a sheet that publishes a
+            // `death_idle` row draws the body lying there from that row, on a
+            // loop; a sheet with none holds the last frame of its death row.
+            let corpse_row = self.spec.clip_slot([DEATH_IDLE]);
+            let row_played = self.clip_slot.is_none()
+                && self.current == self.spec.resolve_anim(CharacterAnim::Death)
+                && self.clip_held;
+            if corpse_row.is_some() && (row_played || self.clip_slot == corpse_row) {
+                self.request_loop([DEATH_IDLE], anim);
+            } else {
+                self.request(anim);
+            }
             return;
         }
         if can_sit {

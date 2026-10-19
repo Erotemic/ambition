@@ -2,7 +2,7 @@
 //! ECS boss update (`update_ecs_bosses`).
 
 // Named imports, not a glob, so the dependencies are visible to grep.
-use ambition_combat::components::{BossDeathAnimation, BossPhase};
+use ambition_combat::components::BossPhase;
 use ambition_platformer2d_core as ae;
 use ambition_time::WorldTime;
 use bevy::prelude::{Query, Res, With, Without};
@@ -736,7 +736,7 @@ pub(crate) fn horizontal_front_wall_clearance(
 }
 
 /// Boss presentation: decay the boss's body-generic reaction timers and sync
-/// the sprite-animation facts (`BossPhase`, death anim).
+/// the sprite-animation fact `BossPhase`.
 ///
 /// This system moves no body and deals no damage. Movement is
 /// [`integrate_boss_bodies`]; strike damage is the moveset's own hitboxes
@@ -749,7 +749,6 @@ pub fn update_ecs_bosses(
         (
             &ambition_characters::actor::BodyHealth,
             &mut ambition_characters::actor::BodyCombat,
-            &mut BossDeathAnimation,
             &mut BossPhase,
         ),
         // The player carries `BodyKinematics`; exclude it so this query is
@@ -762,19 +761,14 @@ pub fn update_ecs_bosses(
 ) {
     // Sim clock: bosses must slow with bullet-time (ADR 0010).
     let dt = world_time.sim_dt();
-    for (health, mut boss_combat, mut death_anim, mut phase) in &mut bosses {
+    for (health, mut boss_combat, mut phase) in &mut bosses {
         let alive = health.alive();
         // Body-generic reaction timers (hit flash, i-frames, stagger) decay
         // through the same `BodyCombat` method the actor tick uses. The boss
         // is excluded from the actor tick, so it calls it here.
         boss_combat.decay_reaction_timers(dt);
-        if alive {
-            death_anim.clear();
-        } else if phase.is_active() && death_anim.remaining_s <= 0.0 {
-            death_anim.start();
-        } else {
-            death_anim.tick(dt);
-        }
+        // How long the dead boss stays drawn is its `DeathBeat`, which every
+        // body carries and one system advances.
         *phase = BossPhase::from_alive(alive);
     }
 }

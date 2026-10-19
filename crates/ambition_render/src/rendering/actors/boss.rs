@@ -111,6 +111,9 @@ pub fn animate_bosses(
     // The sim owns the frame (`drive_boss_animators`); this system mirrors
     // the published cursor into the draw-only animator and renders it.
     boss_frames: Res<ambition_sim_view::BossFrameIndex>,
+    // The boss's render size, which a conductor may change mid-fight
+    // (`ambition.boss.scale`).
+    feature_views: Res<ambition_sim_view::FeatureViewIndex>,
     // Read the cursor from `boss_frames` (by id), not a `BossAnimFrame`
     // component: this presentation entity is a `FeatureVisual` mirror, and
     // `BossAnimFrame` is on the separate sim boss entity.
@@ -118,9 +121,9 @@ pub fn animate_bosses(
         (
             &FeatureVisual,
             &mut Sprite,
-            // Immutable: the animator only addresses the texture; the cursor is
-            // in `boss_frames`.
-            &BossAnimator,
+            // The animator addresses the texture, and holds the render basis
+            // the boss is drawn at; the cursor is in `boss_frames`.
+            &mut BossAnimator,
             Option<&mut bevy::sprite::Anchor>,
             // The cell drawn, published for the companion-layer overlays.
             Option<&mut sprites::BossDrawnCell>,
@@ -131,10 +134,21 @@ pub fn animate_bosses(
     // ADR 0011: per-entity proper time. A boss with `ProperTimeScale > 1.0`
     // keeps animating while its `SimClock` request freezes the world
     // (ADR 0010, narrative authority).
-    for (visual, mut sprite, animator, anchor, drawn) in &mut query {
+    for (visual, mut sprite, mut animator, anchor, drawn) in &mut query {
         let Some(view) = boss_frames.get(&visual.id) else {
             continue;
         };
+        // A boss drawn at another size than its sprite was bound at (a
+        // conductor grew it): draw it at the size the sim builds it at.
+        if let Some(feature) = feature_views.get(&visual.id) {
+            let wanted = animator.spec.render_size(BVec2::new(feature.size.x, feature.size.y));
+            match animator.render_basis.as_mut() {
+                Some(basis) if (basis.render_size - wanted).length_squared() > 1e-4 => basis.render_size = wanted,
+                None => sprite.custom_size = Some(wanted),
+                _ => {}
+            }
+        }
+        let animator = animator.into_inner();
         let state: BossAnimState = view.anim;
         let (row, frame) = drawn_cell(animator, view);
         if let Some(mut drawn) = drawn {

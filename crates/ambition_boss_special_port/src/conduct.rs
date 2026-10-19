@@ -317,6 +317,41 @@ impl Port for BossGuardPort {
     }
 }
 
+/// The request port marker for a boss's size.
+///
+/// Port card:
+///
+/// * **Operation** — draw and build the boss at `scale` times the size it was
+///   built at: its drawn quad, its body box and its hurt volumes, with its
+///   feet where they were. The size holds until changed, so a conductor that
+///   grows its boss (a serum, a transformation) states the scale each tick it
+///   changes it. `1.0` is the size the boss was built at.
+/// * **Owner** — `ambition_boss_encounter::conduct` (`BossEncounter::scale`).
+/// * **Scope** — the boss the invocation ran for. A scope that is not a boss
+///   is refused.
+/// * **Time** — `boss_conduct`, this tick: before movement and combat read
+///   the body.
+pub struct BossScalePort;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BossScale {
+    pub scale: f32,
+}
+
+impl Port for BossScalePort {
+    const KEY: PortKey = PortKey::new("ambition.boss.scale", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = BossScale;
+
+    fn encode(v: &BossScale, out: &mut Vec<u8>) {
+        wire::put_f32(out, v.scale);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<BossScale, WireError> {
+        Ok(BossScale { scale: r.f32()? })
+    }
+}
+
 /// The request port marker for the row a body is drawn with.
 ///
 /// Port card:

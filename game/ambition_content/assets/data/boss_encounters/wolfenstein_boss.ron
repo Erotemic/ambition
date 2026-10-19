@@ -10,10 +10,15 @@
 (
     id: "wolfenstein_boss",
     name: "Wolfenstein",
-    max_hp: 40,
-    phase1_to_transition_hp: 0.6,
-    phase2_to_enrage_hp: 0.25,
-    intro_seconds: 2.2,
+    // More health for a longer fight (Jon, 2026-10-18), in three acts: the
+    // leash (phase 1), the unleashed wolf (phase 2), and from a third of his
+    // health the serum (the enrage phase: he injects it and grows).
+    max_hp: 110,
+    phase1_to_transition_hp: 0.66,
+    phase2_to_enrage_hp: 0.33,
+    // The intro: dead on his throne, the coils wake him, he stands
+    // (`ambition_content_modules::wolfenstein`, `INTRO_*`).
+    intro_seconds: 4.6,
     transition_seconds: 1.8,
     music_intro: "",
     music_phase1: "",

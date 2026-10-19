@@ -2,7 +2,7 @@
 //! rooms, as data in its pack.
 //!
 //! [`DeathRules`], [`StrikeWeightRules`], [`LandingLagRules`],
-//! [`CombatRules`] and [`DormancyRule`] are rules that each game states for its own rooms (ADR
+//! [`CombatRules`], [`DormancyRule`] and [`Corpse`] are rules that each game states for its own rooms (ADR
 //! 0033). They were Rust
 //! constants in each game's plugin, so a change to one number (a feel call
 //! such as Ambition's landing-lag share) was a relink of the host and a
@@ -15,7 +15,8 @@
 //!
 //! A field that is absent declares nothing, and the engine's answer for an
 //! undeclared rule applies (no interlude and no level reset; no heavy hits; the
-//! move's own landing lag; no brain sleeps).
+//! move's own landing lag; no brain sleeps; a dead body vanishes after its
+//! death row).
 
 use std::sync::Arc;
 
@@ -27,6 +28,7 @@ use bevy::prelude::*;
 use serde::Deserialize;
 
 use crate::death_rules::DeathRules;
+use ambition_characters::actor::Corpse;
 use crate::dormancy_rule::DormancyRule;
 use crate::landing_lag::LandingLagRules;
 use crate::rules::CombatRules;
@@ -68,6 +70,10 @@ struct AuthoredRoomRules {
     /// world units. Absent: no brain sleeps.
     #[serde(default)]
     hostile_wake_radius: Option<f32>,
+    /// What a dead body leaves once its death row has played, for a body that
+    /// does not state its own. Absent: [`Corpse::default`].
+    #[serde(default)]
+    corpses: Option<Corpse>,
 }
 
 /// One game's rules for its own rooms, lowered from its pack.
@@ -78,6 +84,7 @@ pub struct RoomRules {
     pub landing_lag: Option<LandingLagRules>,
     pub combat: Option<CombatRules>,
     pub dormancy: Option<DormancyRule>,
+    pub corpses: Option<Corpse>,
 }
 
 impl AuthoredRoomRules {
@@ -126,6 +133,7 @@ impl AuthoredRoomRules {
             landing_lag: self.landing_lag_share.map(LandingLagRules::scaled_by),
             combat: self.combat,
             dormancy: self.hostile_wake_radius.map(|hostile_wake_radius| DormancyRule { hostile_wake_radius }),
+            corpses: self.corpses,
         }
     }
 }
@@ -248,6 +256,9 @@ pub fn declare_room_rules(app: &mut App, scope: RulesScope, rules: RoomRules) {
     if let Some(dormancy) = rules.dormancy {
         app.declare_rules(scope, dormancy);
     }
+    if let Some(corpses) = rules.corpses {
+        app.declare_rules(scope, corpses);
+    }
 }
 
 /// Replace this scope's declaration of each rule with what `rules` states. A
@@ -270,6 +281,9 @@ pub fn restate_room_rules(world: &mut World, scope: RulesScope, rules: Option<&R
     world
         .get_resource_or_insert_with(DeclaredRules::<DormancyRule>::default)
         .restate(scope, rules.dormancy);
+    world
+        .get_resource_or_insert_with(DeclaredRules::<Corpse>::default)
+        .restate(scope, rules.corpses);
 }
 
 #[cfg(test)]

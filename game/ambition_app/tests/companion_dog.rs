@@ -340,6 +340,7 @@ fn a_brute_brain_in_the_dogs_body_climbs_to_its_target_and_one_that_does_not_nav
                     attack_range: 36.0,
                     chase_speed: 110.0,
                     navigates,
+                    retreat_after_swing_s: 0.0,
                 },
                 state: MeleeBruteState::default(),
             });

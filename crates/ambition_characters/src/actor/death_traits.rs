@@ -33,4 +33,26 @@ pub struct CharacterDeathTraits {
     /// The cue this body plays when it dies, as an SFX bank id. `None` plays
     /// the death cue of the game that owns the body.
     pub death_sound: Option<String>,
+    /// What this body leaves when its death row has played. `None` leaves
+    /// what the game of its room states (`DeclaredRules<Corpse>`). A body that
+    /// is taken away by its own death (it explodes) states `Vanish`; it still
+    /// plays its whole death row first.
+    pub corpse: Option<Corpse>,
+}
+
+/// What a dead body leaves once its death row has played.
+///
+/// Health reaches zero on the tick of the kill, so combat, rewards and
+/// progression see the death at once. The body is drawn while its death row
+/// plays in every case; this only says what comes after.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum Corpse {
+    /// The body stays where it fell, drawn on the last frame of its death row,
+    /// until its room goes. Ambition's rule (Jon, 2026-10-18: "bodies persist
+    /// by default unless they explicitly don't").
+    Stay,
+    /// The body holds its last frame for a moment, blinks out, and is drawn no
+    /// more. The engine's answer in a room whose game states no rule.
+    #[default]
+    Vanish,
 }

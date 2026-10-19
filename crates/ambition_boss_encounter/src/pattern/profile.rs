@@ -48,6 +48,16 @@ impl StrikeRect {
 #[serde(deny_unknown_fields)]
 pub struct BossBehaviorProfile {
     pub id: String,
+    /// The line under the boss's name when it enters its fight ("The Galvanic
+    /// Wolf"). `None` shows the name alone.
+    #[serde(default)]
+    pub title: Option<String>,
+    /// What the boss leaves when its death row has played. `None` leaves what
+    /// the game of its room states (`DeclaredRules<Corpse>`): in Ambition the
+    /// body stays. A boss that its death takes away (it explodes) states
+    /// `Vanish`; it still plays its whole death row first.
+    #[serde(default)]
+    pub corpse: Option<ambition_characters::actor::Corpse>,
     /// Sprite-registry target. `None` uses this profile's `id`.
     #[serde(default)]
     pub sprite_target: Option<String>,

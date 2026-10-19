@@ -558,8 +558,8 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored sprite offset; immutable at runtime",
         ),
         (
-            "ambition_combat::components::actors::BossDeathAnimation",
-            "authored animation spec; immutable at runtime",
+            "ambition_combat::components::actors::DeathBeat",
+            "the death beat: its row length is authored, its clock advances only while the body is dead",
         ),
         (
             "ambition_combat::components::features::BreakableFeature",

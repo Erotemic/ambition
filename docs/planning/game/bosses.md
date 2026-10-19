@@ -254,6 +254,27 @@ Jon: "really polish the Wolfenstein boss fight ... beef up the boss
 animations, and really plan an excellent metroidvania / hollow knight style
 patterned boss." This section is the plan.
 
+**Built (2026-10-18), Jon: "the boss to be scaled bigger ... an intro
+presentation, more health, and a phase 3 where it injects itself with a
+serum and becomes even bigger ... a better death sequence":**
+
+- Body 84 x 140 (was 60 x 100). The conductor measures every volume on his
+  art through `Body` (world units per frame pixel from his built box), so
+  every reach, step and speed grows with him.
+- 110 HP; phase 2 at 66%, phase 3 (the encounter's enrage) at 33%.
+- Intro (4.6 s): dead on his throne (`throne_dead`), the coils arc, then
+  strike his bolts twice; he stands (`throne_wake`) and roars. The banner
+  names him and his title (`title` on the profile).
+- Phase 3, the serum: `serum_tell`, `serum_inject`, `serum_surge`; his guard
+  is up for the beat, and the surge grows him to 1.3x
+  (`ambition.boss.scale`, an engine capability: body box, quad and hurt
+  volumes rebuilt at the new scale, feet planted). After it: a green aura,
+  25% faster.
+- Death: his `death` row (28 frames); the bolts sputter out, a broken howl,
+  the fall, the last spark. Every boss's defeat holds the world 0.4 s, pulls
+  the camera in, shakes, plays the defeat cue and chord, and bursts. His
+  corpse stays; his chest drops (`galvanic_bolts`).
+
 **Built (2026-10-17):** slices 1 and 2. Each pattern step plays at its own
 authored lengths, for every boss (`073f40c5f`). The conductor
 (`ambition_content_modules::wolfenstein`) performs every move below on his

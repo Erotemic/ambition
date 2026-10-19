@@ -105,6 +105,10 @@ pub struct BossEncounter {
     /// projectile hits clang off it and take no HP. Holds until the conductor
     /// changes it.
     pub guarded: bool,
+    /// The boss is drawn and built at this many times the size it was built
+    /// at (`ambition.boss.scale`): its quad, body box and hurt volumes. `1.0`
+    /// as built. Holds until its conductor changes it.
+    pub scale: f32,
 }
 
 impl BossEncounter {
@@ -173,9 +177,10 @@ pub struct BossMut<'a> {
 impl<'a> BossRef<'a> {
     /// The sprite render-basis size (the drawn quad's scale input). This is
     /// not `kin.size`, which is the collision envelope (`combat_size`); it is
-    /// the stored spawn-seed basis. See [`BossEncounter::render_size`].
+    /// the stored spawn-seed basis, times the boss's scale. See
+    /// [`BossEncounter::render_size`].
     pub fn render_size(&self) -> ae::Vec2 {
-        self.status.render_size
+        self.status.render_size * self.status.scale
     }
 
     /// The collision body: `kin.size`, which construction resolved once.
@@ -255,6 +260,36 @@ impl<'a> BossMut<'a> {
 
     pub fn render_size(&self) -> ae::Vec2 {
         self.as_ref().render_size()
+    }
+
+    /// Build the boss at `scale` times the size it was built at
+    /// (`ambition.boss.scale`): the sprite metrics and the body box are
+    /// resolved again from its sheet at the new render basis, as
+    /// construction resolved them, and the bottom of its body stays where it
+    /// was. A boss whose sheet publishes no metrics scales its body box.
+    pub fn rescale(&mut self, scale: f32, boss_catalog: &super::BossCatalog) {
+        if !scale.is_finite() || scale <= 0.0 || (scale - self.status.scale).abs() < 1e-4 {
+            return;
+        }
+        let ratio = scale / self.status.scale;
+        let before = self.as_ref().aabb();
+        self.status.scale = scale;
+        let resolved = crate::ecs::boss_sprite_metrics_from_registry(
+            boss_catalog,
+            self.as_ref(),
+            ambition_sprite_sheet::shared_baked_sheet_registry(),
+        );
+        let body = match resolved {
+            Some((metrics, body)) => {
+                self.status.sprite_metrics = Some(metrics);
+                body
+            }
+            None => None,
+        };
+        self.kin.size = body.unwrap_or(self.kin.size * ratio);
+        // Feet where they were: the bottom of the new box on the old one's.
+        let after = self.as_ref().aabb();
+        self.kin.pos.y += before.max.y - after.max.y;
     }
 
     // `reset_to_spawn` is in the room-reset system (its only caller): a boss
@@ -385,6 +420,7 @@ impl BossClusterScratch {
                 encounter: None,
                 render_size: render_basis,
                 guarded: false,
+                scale: 1.0,
             },
             health: ambition_characters::actor::BodyHealth::new(health),
         };
@@ -526,6 +562,7 @@ pub mod test_support {
                 // Test fixtures don't render; a placeholder render basis is fine.
                 render_size: ae::Vec2::splat(64.0),
                 guarded: false,
+                scale: 1.0,
             },
             ambition_characters::actor::BodyHealth::new(health),
         )
@@ -584,6 +621,8 @@ impl SnapshotCursor for BossEncounter {
         }
         // The guard is fight authority too: it decides whether a hit lands.
         put_bool(out, self.guarded);
+        // So is the scale: it decides the body box and every hurt volume.
+        put_f32(out, self.scale);
     }
 }
 

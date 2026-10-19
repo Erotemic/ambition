@@ -144,6 +144,9 @@ pub struct BrainSnapshot {
     /// off and resets after taking a beating instead of trading forever. `1.0`
     /// (full health) for snapshots that don't care.
     pub health_fraction: f32,
+    /// This body's guards (`ambition_combat::guard`): how many strikes they
+    /// have turned aside, and whether they are broken. Default: no guard.
+    pub guard: GuardFact,
 
     /// Sim time at the start of this tick (seconds, scaled clock).
     pub sim_time: f32,
@@ -277,6 +280,16 @@ pub fn face_toward(current: f32, side: f32, half_width: f32) -> f32 {
 /// its centre line is neither side of it.
 pub const MIN_TURN_BAND: f32 = 4.0;
 
+/// What a body knows of its own guards.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct GuardFact {
+    /// How many strikes its guards have turned aside: a new deflect is this
+    /// rising.
+    pub deflects: u32,
+    /// Its guards are broken and it is staggering.
+    pub broken: bool,
+}
+
 /// One use of a move by this body, as the combat authority records it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct OwnMoveFact {
@@ -321,6 +334,7 @@ impl BrainSnapshot {
             target_pos: ae::Vec2::ZERO,
             target_alive: true,
             health_fraction: 1.0,
+            guard: GuardFact::default(),
             sim_time: 0.0,
             dt: 1.0 / 60.0,
             max_run_speed: 120.0,

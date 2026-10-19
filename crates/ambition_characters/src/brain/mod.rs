@@ -46,7 +46,7 @@ pub use boss_pattern::{
 #[allow(unused_imports)]
 pub use player::tick_player_brain;
 pub use profile::AuthoredBrainOverride;
-pub use profile::{BrainProfile, Footsies, MeleeTactics, RangedVolley};
+pub use profile::{BrainProfile, Counter, CounterVerb, Footsies, MeleeTactics, RangedVolley};
 #[allow(unused_imports)]
 // ⛔ THE DATA ONLY. `CrowdingSignal`, `ObservationFrame`, `SpecificAction` and
 // `TerrainAwareness` went with the behaviour to `ambition_platformer2d::combat::brain::smash`
@@ -54,7 +54,7 @@ pub use profile::{BrainProfile, Footsies, MeleeTactics, RangedVolley};
 // `StateMachineCfg::Smash` names by value and what the snapshot encoder reads.
 pub use smash::{BroadMode, DifficultyProfile, SmashCfg, SmashState};
 #[allow(unused_imports)]
-pub use snapshot::{face_toward, BrainSnapshot, OwnMoveFact, MIN_TURN_BAND};
+pub use snapshot::{face_toward, BrainSnapshot, GuardFact, OwnMoveFact, MIN_TURN_BAND};
 #[allow(unused_imports)]
 pub use state_machine::{
     tick_simple_state_machine, AuthoredWorldPatrolLane, ChargeCrashCfg, ChargeCrashState,

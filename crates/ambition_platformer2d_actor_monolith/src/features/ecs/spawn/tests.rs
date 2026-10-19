@@ -593,6 +593,7 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
         target_pos: ae::Vec2::new(72.0, 0.0),
         target_alive: true,
         health_fraction: 1.0,
+        guard: Default::default(),
         sim_time: 0.0,
         dt: 1.0 / 60.0,
         max_run_speed: 120.0,

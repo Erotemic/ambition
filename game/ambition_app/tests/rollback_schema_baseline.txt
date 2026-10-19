@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v366
+ggrs-rollback-schema-v367
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -92,6 +92,7 @@ body.depth_plane	component-canonical	DepthPlane	bevy_ggrs canonical codec snapsh
 body.dodge	component-canonical	BodyDodgeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.flight	component-canonical	BodyFlightState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.ground	component-canonical	BodyGroundState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.guard_state	component-clone-custom-checksum	GuardState	bevy_ggrs clone snapshot + run, since_deflect_s, deflects, broken_s
 body.health	component-canonical	BodyHealth	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.jump	component-canonical	BodyJumpState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.kinematics	component-canonical	BodyKinematics	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -179,6 +180,7 @@ derived.gated_lock_wall_cache	derived	GatedLockWallCache	authored gated walls fo
 derived.gated_lock_wall_verdicts	derived	GatedLockWallVerdicts	why each authored gated wall stands; rebuilt from the walls' verdicts every gate tick
 derived.global_transform	derived	GlobalTransform	Bevy transform propagation rebuilds it from Transform and hierarchy
 derived.gravity_zones	derived	GravityZones	rebuilt from authoritative GravityZone components before body integration
+derived.guard_volumes	derived	GuardVolumes	placed from the worn character's guards, its art and its clocks every tick, before any strike is resolved
 derived.input_stream_recorder	derived	InputStreamRecorder	tick-addressed recording: a resimulation rewrites its own tail, so the stream needs no restore — and snapshotting it made frame N cost N
 derived.limb_bond_start	derived	LimbBondStart	written again each tick from its game's rollback state before any reader
 derived.module_entity_touchers	derived	ModuleEntityTouchers	written again in each tick's module_entity_tick collect and read only by that tick's lowering
@@ -345,6 +347,7 @@ message.conversation_cut_bark	message-clear	ConversationCutBark	clear abandoned-
 message.conversation_ended	message-clear	ConversationEnded	clear abandoned-future message buffer in LoadWorld::Mapping
 message.cut_rope_room_replay_requested	message-clear	CutRopeRoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.debris_burst	message-clear	DebrisBurstMessage	clear abandoned-future message buffer in LoadWorld::Mapping
+message.deflected_body_hit	message-clear	DeflectedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.dismount_requested	message-clear	DismountRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.drop_portal_gun	message-clear	DropPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
 message.effect_request	message-clear	EffectRequest	clear abandoned-future message buffer in LoadWorld::Mapping

@@ -454,6 +454,7 @@ fn a_swing_that_catches_two_bodies_stales_the_move_once() {
     let mut app = App::new();
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_systems(Update, mark_move_playback_landed_hits);
 
     let attacker = app
@@ -648,6 +649,7 @@ fn app_with_victim() -> (App, Entity) {
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<DebrisBurstMessage>();
@@ -1663,6 +1665,7 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<DebrisBurstMessage>();
@@ -5027,6 +5030,7 @@ fn smash_charge_app() -> (App, Entity) {
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
@@ -5712,6 +5716,7 @@ fn playing_app(moveset: MovesetContract) -> (App, Entity) {
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
@@ -7432,6 +7437,7 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
         app.add_message::<HitEvent>();
         app.add_message::<crate::hitbox::LandedBodyHit>();
         app.add_message::<crate::hitbox::ParriedBodyHit>();
+        app.add_message::<crate::guard::DeflectedBodyHit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxInRoom>();
         app.add_message::<DebrisBurstMessage>();
@@ -7529,6 +7535,7 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
         app.add_message::<HitEvent>();
         app.add_message::<crate::hitbox::LandedBodyHit>();
         app.add_message::<crate::hitbox::ParriedBodyHit>();
+        app.add_message::<crate::guard::DeflectedBodyHit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxInRoom>();
         app.add_message::<DebrisBurstMessage>();
@@ -7661,6 +7668,7 @@ fn a_refused_priced_move_falls_through_to_its_authored_variant() {
         app.add_message::<HitEvent>();
         app.add_message::<crate::hitbox::LandedBodyHit>();
         app.add_message::<crate::hitbox::ParriedBodyHit>();
+        app.add_message::<crate::guard::DeflectedBodyHit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxInRoom>();
         app.add_message::<DebrisBurstMessage>();
@@ -7936,6 +7944,7 @@ fn a_special_charge_is_held_by_the_special_button_and_not_the_attack_button() {
         app.add_message::<HitEvent>();
         app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<MoveEventMessage>();
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
@@ -9440,6 +9449,7 @@ fn latch_after(
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
@@ -10310,6 +10320,7 @@ fn an_authored_gravity_beat_reaches_the_movement_policy_and_outlives_the_move() 
     app.add_message::<HitEvent>();
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<DebrisBurstMessage>();
@@ -10461,6 +10472,7 @@ fn a_flow_takes_the_blocked_road_and_only_the_blocked_road() {
         app.add_message::<HitEvent>();
         app.add_message::<crate::hitbox::LandedBodyHit>();
         app.add_message::<crate::hitbox::ParriedBodyHit>();
+        app.add_message::<crate::guard::DeflectedBodyHit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxInRoom>();
         app.add_message::<DebrisBurstMessage>();

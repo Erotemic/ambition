@@ -45,6 +45,7 @@ pub mod falling_chest;
 pub mod feel;
 pub mod finish_zoom;
 pub mod footstool;
+pub mod guard;
 pub mod hazard_runtime;
 pub mod hand;
 pub mod hazards;

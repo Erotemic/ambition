@@ -328,6 +328,19 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
             // crate's private system list for a name.
             .after(ambition_combat::hurtbox_resolution::BodyHurtboxesResolved),
     );
+    // Each guard where its art draws it this tick (`ambition_combat::guard`),
+    // in the same window as the body volumes and for the same reason: after
+    // the move and pose clocks, before the sweep that asks the guards first.
+    app.add_systems(
+        sim,
+        (ambition_combat::guard::tick_guard_states, ambition_combat::guard::publish_guard_volumes)
+            .chain()
+            .in_set(ambition_combat::components::DamageFacingVolumesPublished)
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Combat)
+            .after(ambition_platformer2d_shared_tangle::schedule::CombatSet::Playback)
+            .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Resolve)
+            .after(ambition_combat::hurtbox_resolution::BodyHurtboxesResolved),
+    );
 }
 
 /// The decision chain's boundaries now live in

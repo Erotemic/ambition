@@ -246,6 +246,33 @@ pub struct MeleeTactics {
     /// When it is hit it backs away this long (s). `0.0` stands its ground.
     #[serde(default)]
     pub flinch_back_s: f32,
+    /// When its guard turns a strike aside, it answers ([`Counter`]) while
+    /// the body that swung is locked out. `None` does not answer.
+    #[serde(default)]
+    pub counter: Option<Counter>,
+}
+
+/// The answer to a deflected strike ([`MeleeTactics::counter`]).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Counter {
+    /// How long after the deflect it answers (s): the tell. Shorter than the
+    /// guard's lockout, or the answer comes too late to punish.
+    #[serde(default)]
+    pub after_s: f32,
+    /// The verb it answers with.
+    #[serde(default)]
+    pub with: CounterVerb,
+}
+
+/// The verb of a [`Counter`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub enum CounterVerb {
+    /// Its melee swing.
+    #[default]
+    Melee,
+    /// Its special: a move of its own for the answer (a shield bash).
+    Special,
 }
 
 /// Holding just out of reach ([`MeleeTactics::footsies`]).

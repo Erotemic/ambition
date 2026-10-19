@@ -1544,4 +1544,38 @@ mod melee_tactics {
         s.health_fraction = 0.8;
         assert!(tick(&mut sm, &s).locomotion.x < 0.0, "hit, it backs away");
     }
+
+    /// Its guard turned a strike aside: a brute that counters stands its
+    /// ground facing its foe for its tell, then answers with the authored
+    /// verb, once. A brute that does not counter carries on.
+    #[test]
+    fn a_brute_that_counters_answers_a_deflect_after_its_tell() {
+        let counters = MeleeTactics {
+            counter: Some(crate::brain::Counter { after_s: 0.1, with: crate::brain::CounterVerb::Special }),
+            ..Default::default()
+        };
+        let mut sm = brute(counters);
+        let mut s = snap(0.0, ae::Vec2::new(150.0, 0.0));
+        assert!(tick(&mut sm, &s).locomotion.x > 0.0, "nothing deflected, it closes");
+        s.guard.deflects = 1;
+        let mut pressed_at = None;
+        for frame in 0..30 {
+            let out = tick(&mut sm, &s);
+            if out.special_pressed {
+                assert!(pressed_at.is_none(), "it answered one deflect twice");
+                pressed_at = Some(frame);
+            } else if pressed_at.is_none() {
+                assert_eq!(out.locomotion.x, 0.0, "it stands its ground through its tell (frame {frame})");
+                assert!(out.facing > 0.0, "it faces its foe through its tell");
+            }
+        }
+        let frame = pressed_at.expect("it never answered the deflect");
+        assert!((5..=7).contains(&frame), "it answered at frame {frame}, not after its 0.1 s tell");
+
+        let mut plain = brute(MeleeTactics::default());
+        let mut s = snap(0.0, ae::Vec2::new(150.0, 0.0));
+        s.guard.deflects = 1;
+        let out = tick(&mut plain, &s);
+        assert!(!out.special_pressed && out.locomotion.x > 0.0, "a brute with no counter carries on");
+    }
 }

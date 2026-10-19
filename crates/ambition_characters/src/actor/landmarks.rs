@@ -19,7 +19,7 @@
 
 use std::collections::BTreeMap;
 
-use bevy::math::Vec2;
+use bevy::math::{Rect, Vec2};
 
 use super::body_rig::{FOOT_FAR, FOOT_NEAR, HAND_FAR, HAND_NEAR, HEAD};
 
@@ -98,6 +98,33 @@ impl GestureHand {
 /// in this frame (a hidden hand, a body with no hands).
 pub type LandmarkFrame = [Option<Vec2>; Landmark::ALL.len()];
 
+/// A named BOX on a body: the bounds of a part its art draws, frame by frame,
+/// for a gameplay volume that follows the art. A shield that turns strikes
+/// aside is the first ([`crate::actor::guard`]).
+///
+/// Its art publishes it as the track of that name; a new kind of box is a new
+/// name here and in the published track list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PartBox {
+    /// A shield in the hand.
+    Shield,
+}
+
+impl PartBox {
+    /// Every box, in slot order.
+    pub const ALL: [Self; 1] = [Self::Shield];
+
+    /// This box's slot in a [`PartBoxFrame`].
+    pub fn slot(self) -> usize {
+        self as usize
+    }
+}
+
+/// The boxes of one frame, in the space of a [`LandmarkFrame`]'s points. A slot
+/// is `None` when the art does not draw that part in this frame.
+pub type PartBoxFrame = [Option<Rect>; PartBox::ALL.len()];
+
 /// One clip of a [`BodyLandmarkTable`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct LandmarkClip {
@@ -141,6 +168,9 @@ pub struct BodyLandmarkTable {
     /// drawn quad and not its scale gets the scale from this.
     pub frame_height: f32,
     pub clips: BTreeMap<String, LandmarkClip>,
+    /// The boxes of each clip that draws one ([`PartBox`]), frame by frame,
+    /// on the clip's own frames and clock.
+    pub boxes: BTreeMap<String, Vec<PartBoxFrame>>,
 }
 
 impl BodyLandmarkTable {
@@ -164,6 +194,11 @@ impl BodyLandmarkTable {
         self.clip(clip)?.frames.get(frame)?[landmark.slot()]
     }
 
+    /// `part` in frame `frame` of `clip`, in sheet pixels from the feet.
+    pub fn part_box(&self, part: PartBox, clip: &str, frame: usize) -> Option<Rect> {
+        self.boxes.get(clip)?.get(frame)?[part.slot()]
+    }
+
     /// `landmark` at normalized progress `phase` of `clip`, in sheet pixels
     /// from the feet.
     pub fn point_at_phase(&self, landmark: Landmark, clip: &str, phase: f32) -> Option<Vec2> {
@@ -183,6 +218,7 @@ mod tests {
             frame
         };
         BodyLandmarkTable {
+            boxes: Default::default(),
             frame_height: 100.0,
             clips: BTreeMap::from([(
                 "pet".to_string(),

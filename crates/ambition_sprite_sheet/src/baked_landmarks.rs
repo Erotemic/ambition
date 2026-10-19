@@ -18,10 +18,10 @@
 
 use std::sync::Arc;
 
-use ambition_characters::actor::landmarks::{BodyLandmarkTable, Landmark, LandmarkClip, LandmarkFrame};
-use bevy::math::Vec2;
+use ambition_characters::actor::landmarks::{BodyLandmarkTable, Landmark, LandmarkClip, LandmarkFrame, PartBox, PartBoxFrame};
+use bevy::math::{Rect, Vec2};
 
-use crate::character::landmarks_published::{BakedLandmarks, LANDMARK_TRACKS};
+use crate::character::landmarks_published::{BakedLandmarks, BOX_TRACKS, LANDMARK_TRACKS};
 
 #[cfg(embedded_sprites)]
 include!(concat!(env!("OUT_DIR"), "/baked_landmarks.rs"));
@@ -126,6 +126,7 @@ fn project(full: Vec<(&'static str, &'static str)>) -> (Vec<(&'static str, &'sta
 
 // A slot of the embedded frame is a slot of the semantic frame.
 const _: () = assert!(LANDMARK_TRACKS.len() == Landmark::ALL.len());
+const _: () = assert!(BOX_TRACKS.len() == PartBox::ALL.len());
 
 /// The flipbook tracks that publish `landmark`: one name for each rig family.
 pub fn landmark_tracks(landmark: Landmark) -> &'static [&'static str] {
@@ -134,8 +135,22 @@ pub fn landmark_tracks(landmark: Landmark) -> &'static [&'static str] {
 
 /// The semantic table of one embedded table.
 pub fn landmark_table(baked: BakedLandmarks) -> BodyLandmarkTable {
+    let boxes = baked
+        .boxes
+        .into_iter()
+        .map(|(name, frames)| {
+            let frames = frames
+                .into_iter()
+                .map(|frame| -> PartBoxFrame {
+                    frame.map(|bounds| bounds.map(|(x0, y0, x1, y1)| Rect::new(x0, y0, x1, y1)))
+                })
+                .collect();
+            (name, frames)
+        })
+        .collect();
     BodyLandmarkTable {
         frame_height: baked.frame_height as f32,
+        boxes,
         clips: baked
             .clips
             .into_iter()
@@ -400,6 +415,7 @@ mod tests {
                     },
                 )]
                 .into(),
+                boxes: Default::default(),
             })
             .expect("the table encodes")
         };
@@ -408,5 +424,19 @@ mod tests {
         assert_eq!(digest(&here, "dog"), digest(&here.clone(), "dog"));
         assert_ne!(digest(&here, "dog"), digest(&there, "dog"), "one hand moved a quarter pixel");
         assert_ne!(digest(&here, "dog"), digest(&here, "cat"), "the same table under another target");
+    }
+
+    /// The Shock Warden's flipbook publishes his riot shield as a box, frame
+    /// by frame: about the size of the shield part (61 x 167 sheet pixels), in
+    /// front of his feet, as his art faces +x. His guard is placed from it
+    /// (`ambition_combat::guard`).
+    #[test]
+    fn the_shock_wardens_shield_is_published_as_a_box() {
+        let table = body_landmarks("shock_warden").expect("his flipbook publishes landmarks");
+        let shield = table.part_box(PartBox::Shield, "idle", 0).expect("his idle draws his shield");
+        let size = shield.size();
+        assert!((55.0..100.0).contains(&size.x) && (150.0..200.0).contains(&size.y), "{shield:?}");
+        assert!(shield.center().x > 20.0, "the shield is in front of his feet: {shield:?}");
+        assert!(table.boxes.contains_key("walk") && table.boxes.contains_key("baton_attack"));
     }
 }

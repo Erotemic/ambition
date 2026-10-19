@@ -31,6 +31,7 @@ fn landed_body_hit_projects_the_authored_effect_without_re_resolving_contact() {
     let mut app = App::new();
     app.add_message::<LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<OnHitEffectMessage>();
     app.init_resource::<CapturedEffects>();
     app.add_systems(
@@ -64,6 +65,7 @@ fn pogo_app(
     let mut app = App::new();
     app.add_message::<LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<OnHitEffectMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_systems(
@@ -180,6 +182,7 @@ fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<OnHitEffectMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();

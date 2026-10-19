@@ -484,6 +484,7 @@ impl MeleeBruteCfg {
             waits_its_turn: false,
             footsies: None,
             flinch_back_s: 0.0,
+            counter: None,
         },
     };
     pub const BRUTE_DEFAULT: Self = Self {
@@ -498,6 +499,7 @@ impl MeleeBruteCfg {
             waits_its_turn: false,
             footsies: None,
             flinch_back_s: 0.0,
+            counter: None,
         },
     };
 }
@@ -521,6 +523,10 @@ pub struct MeleeBruteState {
     pub holding: f32,
     /// How many swings it has made: each hold differs from the last.
     pub swings: u32,
+    /// The deflects of its guard it has seen ([`super::GuardFact::deflects`]).
+    pub deflects_seen: u32,
+    /// Seconds until it answers a deflect ([`super::MeleeTactics::counter`]).
+    pub answer_in: Option<f32>,
 }
 
 /// A target's place that moved less than this is the same goal (px).
@@ -569,6 +575,33 @@ fn tick_melee_brute(
     state.mode = ai.mode;
     *out = crate::actor::control::ActorControlFrame::neutral();
     let tactics = cfg.tactics;
+    // COUNTER: its guard turned a strike aside, and the body that swung is
+    // locked out; it answers after its tell, standing its ground and facing
+    // its foe until then.
+    if snapshot.guard.deflects != state.deflects_seen {
+        state.deflects_seen = snapshot.guard.deflects;
+        if let Some(counter) = tactics.counter.filter(|_| snapshot.alive && !snapshot.guard.broken) {
+            state.answer_in = Some(counter.after_s);
+        }
+    }
+    if let (Some(left), Some(counter)) = (state.answer_in, tactics.counter) {
+        out.facing = snapshot.face_toward(local_target_side(snapshot));
+        let left = left - snapshot.dt;
+        if left > 0.0 && !snapshot.guard.broken {
+            state.answer_in = Some(left);
+            return;
+        }
+        state.answer_in = None;
+        if !snapshot.guard.broken {
+            match counter.with {
+                super::CounterVerb::Melee => out.melee_pressed = true,
+                super::CounterVerb::Special => out.special_pressed = true,
+            }
+            state.closing = false;
+            state.last_health = snapshot.health_fraction;
+            return;
+        }
+    }
     // FLINCH: hit, it backs away (its health fell since last tick).
     if tactics.flinch_back_s > 0.0 && snapshot.health_fraction < state.last_health - 1e-4 && snapshot.alive {
         state.backing_off = state.backing_off.max(tactics.flinch_back_s);

@@ -20,7 +20,10 @@ pub use body::{
 pub mod body_rig;
 pub use body_rig::{BodyRigAdmission, BodyRigDefinition, BodyRigError, PreparedBodyRig};
 pub mod landmarks;
-pub use landmarks::{BodyLandmarkTable, GestureHand, Landmark};
+/// Parts of a body that turn strikes aside.
+pub mod guard;
+pub use guard::{Deflect, GuardBreak, GuardFaces, GuardSpec};
+pub use landmarks::{BodyLandmarkTable, GestureHand, Landmark, PartBox};
 pub mod body_step;
 pub use body_step::step_body;
 pub mod attack_gesture;

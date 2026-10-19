@@ -35,6 +35,17 @@ pub const LANDMARK_TRACKS: [&[&str]; 5] = [
 /// The landmark points of one frame, by slot, in sheet pixels from the feet.
 pub type BakedLandmarkFrame = [Option<(f32, f32)>; LANDMARK_TRACKS.len()];
 
+/// The flipbook tracks that publish a BOX, in slot order: the bounds of what
+/// the track draws in each frame, for a gameplay volume that follows the art
+/// (a shield that turns strikes aside). The order is
+/// `ambition_characters::actor::PartBox::ALL`.
+pub const BOX_TRACKS: [&str; 1] = ["shield"];
+
+/// The boxes of one frame, by slot: `(min_x, min_y, max_x, max_y)` in sheet
+/// pixels from the feet, +y down. `None` when the frame does not draw the
+/// track.
+pub type BakedBoxFrame = [Option<(f32, f32, f32, f32)>; BOX_TRACKS.len()];
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct BakedLandmarkClip {
     pub frame_duration_s: f32,
@@ -46,6 +57,9 @@ pub struct BakedLandmarks {
     /// The height of one sheet frame, in sheet pixels.
     pub frame_height: u32,
     pub clips: BTreeMap<String, BakedLandmarkClip>,
+    /// Each clip's boxes, frame by frame ([`BOX_TRACKS`]). A clip whose art
+    /// draws no box track is absent.
+    pub boxes: BTreeMap<String, Vec<BakedBoxFrame>>,
 }
 
 /// The landmark slots of one frame, from its tracked draws.
@@ -57,6 +71,27 @@ pub fn landmark_frame<'a>(tracked: impl IntoIterator<Item = (&'a str, (f32, f32)
     for (track, at) in tracked {
         if let Some(slot) = LANDMARK_TRACKS.iter().position(|names| names.contains(&track)) {
             frame[slot].get_or_insert(at);
+        }
+    }
+    frame
+}
+
+/// The boxes of one frame, from its tracked draws.
+///
+/// `tracked` gives each draw's track name and the corners of its quad in
+/// sheet pixels from the feet. A box is the bounds of every draw of its track.
+pub fn box_frame<'a>(tracked: impl IntoIterator<Item = (&'a str, [(f32, f32); 4])>) -> BakedBoxFrame {
+    let mut frame = BakedBoxFrame::default();
+    for (track, corners) in tracked {
+        let Some(slot) = BOX_TRACKS.iter().position(|name| *name == track) else {
+            continue;
+        };
+        for (x, y) in corners {
+            let (x0, y0, x1, y1) = frame[slot].get_or_insert((x, y, x, y));
+            *x0 = x0.min(x);
+            *y0 = y0.min(y);
+            *x1 = x1.max(x);
+            *y1 = y1.max(y);
         }
     }
     frame

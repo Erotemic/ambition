@@ -762,6 +762,9 @@ impl Plugin for CombatSchedulePlugin {
                     // property this position was defending.
                     ambition_platformer2d_actor_monolith::features::apply_hitbox_damage,
                     ambition_combat::moveset::mark_move_playback_landed_hits,
+                    // A strike a guard turned aside: the rebound, the lockout,
+                    // the guard's run toward breaking.
+                    ambition_combat::guard::resolve_deflects,
                 )
                     .chain()
                     .in_set(GameplayGated),

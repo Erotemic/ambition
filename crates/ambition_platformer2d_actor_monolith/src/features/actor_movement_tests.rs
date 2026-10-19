@@ -127,6 +127,7 @@ fn tick_peaceful(
         target_pos: target,
         target_alive: true,
         health_fraction: 1.0,
+        guard: Default::default(),
         sim_time: 0.0,
         dt,
         // The snapshot's `max_run_speed` MUST be the body's actual physical capability (what

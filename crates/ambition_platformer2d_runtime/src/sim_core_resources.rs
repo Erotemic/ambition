@@ -77,6 +77,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // the other two because a parry is decided on the SAME seam, so a
             // composition that can hear "blocked" can hear "parried".
             .add_message::<ambition_combat::hitbox::ParriedBodyHit>()
+            .add_message::<ambition_combat::guard::DeflectedBodyHit>()
             // S4: the stocks loop. A KO of a body whose death a RULESET owns,
             // and the count that was spent for it.
             .add_message::<ambition_combat::stocks::BodyKnockedOut>()

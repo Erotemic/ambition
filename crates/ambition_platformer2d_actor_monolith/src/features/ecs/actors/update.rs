@@ -281,10 +281,13 @@ pub fn tick_actor_brains(
     //
     // And a body's authored movement feel, when it has one: the tuning the
     // integrator moves it by, for the brain snapshot's movement law.
+    //
+    // And its guards (`ambition_combat::guard`): the strikes they turned.
     bodies: Query<(
         &ae::BodyKinematics,
         bevy::prelude::Has<ae::Unmirrored>,
         Option<&ae::AuthoredMovementTuning>,
+        Option<&ambition_combat::guard::GuardState>,
     )>,
     // A rider's mount, for whether the pair steers in flight. See
     // `steers_in_flight`.
@@ -637,12 +640,18 @@ pub fn tick_actor_brains(
                                 rules: *rules,
                             }),
                         aerial,
-                        bodies.get(this_actor_entity).ok().and_then(|(_, _, authored)| authored),
+                        bodies.get(this_actor_entity).ok().and_then(|(_, _, authored, _)| authored),
                     );
                     snapshot.navigation = navigation.of(this_actor_entity);
+                    if let Some(guard) = bodies.get(this_actor_entity).ok().and_then(|(.., guard)| guard) {
+                        snapshot.guard = ambition_characters::brain::GuardFact {
+                            deflects: guard.deflects,
+                            broken: guard.broken(),
+                        };
+                    }
                     // An `Unmirrored` mount shows no turn, so its rider turns
                     // by its own box.
-                    if let Some((mount, false, _)) = riding.and_then(|riding| bodies.get(riding.mount).ok()) {
+                    if let Some((mount, false, ..)) = riding.and_then(|riding| bodies.get(riding.mount).ok()) {
                         snapshot.actor_half_width = snapshot.actor_half_width.max(mount.size.x * 0.5);
                     }
                     // WHERE THIS WALKER'S GROUND RUNS OUT, asked only for a body
@@ -2518,6 +2527,8 @@ fn build_enemy_brain_snapshot(
             let max = body.health.max().max(1) as f32;
             (body.health.current() as f32 / max).clamp(0.0, 1.0)
         },
+        // Filled by the caller, which holds the guard query.
+        guard: ambition_characters::brain::GuardFact::default(),
         // Real, accumulating sim-time (scaled by bullet-time / pause) — NOT a
         // hardcoded 0.0. The Smash brain's reaction latency (`obs_history`
         // lookback by `reaction_delay_s`) only functions when this advances, so

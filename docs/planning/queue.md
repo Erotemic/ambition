@@ -1208,17 +1208,27 @@ player took only `Contact` resolutions (which arm no freeze, by design).
 Bisected inside the commit: each code group reverted alone left it red; its
 content data reverted made it green. The cause was the PCA's new
 `pca_life_cannon` muzzle, `Offset(x: 0.3, y: -0.5)`, the crown of a 68 px body.
-The brain aims from the body centre, so every shot (probe: 597 shot-frames
-over 900 ticks) flew parallel to its aim, 34 px high, and passed 20 px over a
-standing 48 px player. Before, the Rock left the body origin and hit. Now the
-muzzle is at the chest (`y: -0.15`, Shadow Ball's hands): green, data only.
+Its brain (`cellular_duelist`, the Smash template) fires along the body's
+side axis (`maybe_substitute_ranged`: `(±1, 0)`, then its accuracy jitter),
+so every shot (probe: 597 shot-frames over 900 ticks) flew level at the
+crown, 34 px above the body centre, and passed 20 px over a standing 48 px
+player. Before, the Rock left the body origin and hit. Now the muzzle is at
+the chest (`y: -0.15`, Shadow Ball's hands): green, data only.
 Still open, both found by this bisect:
-- ⛔ AN AIMED SHOT FROM AN OFFSET MUZZLE MISSES BY THE OFFSET, for every
-  brain. `ActorFireRequest` carries a direction, not the point it was aimed
-  at, so `spawn_projectiles_from_brain_actions` cannot re-aim from the muzzle
-  (its aim assist also measures from `kin.pos`, not the muzzle). The fix is
-  that the brain states its aim point and the spawn aims from where the
-  shot is born.
+- ✅ 2026-10-18: a brain that aims AT A POINT aimed from the body centre,
+  and its shot left the muzzle, so an offset muzzle missed by the offset.
+  Shipped case: the Projectile Polygon (`skirmisher_ranger`, muzzle
+  `Offset(0.22, -0.34)` on a 67 px body) shot 22.8 px above its aim line,
+  at the top edge of a standing 48 px player (computed, not played). `ActorFireRequest` now
+  carries the point (`at`, `world_point`); the skirmisher and the sniper
+  state it; `ActionRequest::Ranged` and `MovePlayback::aim` hold the whole
+  request (their copies of `dir` and `dir_policy` are deleted); the spawn
+  aims from the muzzle's pivot at the point, and the aim assist measures
+  from that pivot, not from `kin.pos`. Witness
+  `a_shot_aimed_at_a_point_leaves_its_muzzle_toward_that_point` (control: the
+  direction alone passes 23.6 px off; red at 23.6 px with the point
+  ignored). Not done: the volley locks a direction at its telegraph, not a
+  point, and the Smash template fires level.
 - The PCA brain stops 46 to 48 px from the player and swings
   `generation_wipe` and `corruption_seed`, whose boxes reach about 28 px, so
   its melee never connects there. Why the brain stops at 48 px is not

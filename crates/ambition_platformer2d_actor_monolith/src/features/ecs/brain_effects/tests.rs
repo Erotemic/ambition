@@ -85,8 +85,7 @@ fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
             request: ActionRequest::Ranged {
                 spec: RangedActionSpec::rock(300.0, 1),
                 origin: actor_pos,
-                dir: ae::Vec2::new(1.0, 0.0),
-                dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                fire: ambition_characters::actor::control::ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0)),
                 commitment: RangedCommitment::Attempt,
             },
             move_instance: None,
@@ -138,8 +137,7 @@ fn ranged_shot_carries_archetype_authored_visual_id() {
             request: ActionRequest::Ranged {
                 spec: RangedActionSpec::rock(300.0, 1),
                 origin: actor_pos,
-                dir: ae::Vec2::new(1.0, 0.0),
-                dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                fire: ambition_characters::actor::control::ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0)),
                 commitment: RangedCommitment::Attempt,
             },
             move_instance: None,
@@ -181,8 +179,7 @@ fn ranged_message_converts_local_direction_at_consumer_frame() {
             request: ActionRequest::Ranged {
                 spec: RangedActionSpec::rock(300.0, 1),
                 origin: actor_pos,
-                dir: ae::Vec2::new(1.0, 0.0),
-                dir_policy: ae::GameplayFramePolicy::ControlledBodyLocal,
+                fire: ambition_characters::actor::control::ActorFireRequest::controlled_body_local(ae::Vec2::new(1.0, 0.0)),
                 commitment: RangedCommitment::Attempt,
             },
             move_instance: None,
@@ -212,8 +209,7 @@ fn ranged_message_for_dead_actor_is_dropped() {
             request: ActionRequest::Ranged {
                 spec: RangedActionSpec::bolt(500.0, 1),
                 origin: actor_pos,
-                dir: ae::Vec2::new(1.0, 0.0),
-                dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                fire: ambition_characters::actor::control::ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0)),
                 commitment: RangedCommitment::Attempt,
             },
             move_instance: None,
@@ -284,8 +280,7 @@ fn a_committed_shot_fires_through_a_hot_weapon_and_an_attempt_does_not() {
                 request: ActionRequest::Ranged {
                     spec: RangedActionSpec::rock(300.0, 1),
                     origin: actor_pos,
-                    dir: ae::Vec2::new(1.0, 0.0),
-                    dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                    fire: ambition_characters::actor::control::ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0)),
                     commitment,
                 },
                 move_instance: None,
@@ -343,8 +338,7 @@ fn an_attempt_is_refused_at_the_weapons_live_shot_limit() {
                             .with_refire(0.0)
                             .with_max_live(1),
                         origin: actor_pos,
-                        dir: ae::Vec2::new(1.0, 0.0),
-                        dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                        fire: ambition_characters::actor::control::ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0)),
                         commitment,
                     },
                     move_instance: None,
@@ -444,8 +438,7 @@ fn an_assisted_shot_ignores_an_out_of_play_candidate() {
                 request: ActionRequest::Ranged {
                     spec,
                     origin: shooter_pos,
-                    dir: ae::Vec2::new(1.0, 0.0),
-                    dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                    fire: ambition_characters::actor::control::ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0)),
                     commitment: RangedCommitment::Attempt,
                 },
                 move_instance: None,
@@ -508,8 +501,7 @@ fn a_shot_plays_the_cue_its_weapon_authored_and_otherwise_none() {
                 request: ActionRequest::Ranged {
                     spec,
                     origin: pos,
-                    dir: ae::Vec2::new(1.0, 0.0),
-                    dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                    fire: ambition_characters::actor::control::ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0)),
                     commitment: RangedCommitment::Attempt,
                 },
                 move_instance: None,
@@ -586,8 +578,7 @@ fn ranged_recoil_is_staged_as_a_launch_rather_than_written_onto_velocity() {
             request: ActionRequest::Ranged {
                 spec,
                 origin: actor_pos,
-                dir: ae::Vec2::new(1.0, 0.0),
-                dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                fire: ambition_characters::actor::control::ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0)),
                 commitment: RangedCommitment::Attempt,
             },
             move_instance: None,
@@ -649,8 +640,7 @@ fn recoil_adds_to_a_waiting_launch_instead_of_erasing_it() {
             request: ActionRequest::Ranged {
                 spec,
                 origin: actor_pos,
-                dir: ae::Vec2::new(1.0, 0.0),
-                dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                fire: ambition_characters::actor::control::ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0)),
                 commitment: RangedCommitment::Attempt,
             },
             move_instance: None,
@@ -715,8 +705,7 @@ fn a_press_during_the_recharge_is_refused_with_its_progress() {
                 request: ActionRequest::Ranged {
                     spec: RangedActionSpec::rock(300.0, 1).with_refire(1.0),
                     origin: actor_pos,
-                    dir: ae::Vec2::new(1.0, 0.0),
-                    dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                    fire: ambition_characters::actor::control::ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0)),
                     commitment: RangedCommitment::Attempt,
                 },
                 move_instance: None,
@@ -760,4 +749,59 @@ fn a_press_during_the_recharge_is_refused_with_its_progress() {
         vec![ambition_combat::WeaponReadiness::Recharging { progress: Some(0.75) }],
         "the refusal is a fact, and it says how far the recharge has come"
     );
+}
+
+/// ⭐ A SHOT AIMED AT A POINT IS AIMED FROM ITS MUZZLE. The brain takes its
+/// direction from the body centre; a muzzle at the crown sent the shot on a
+/// parallel line, half a body height off the point. The control fires the same
+/// direction with no point and shows the miss this guards against.
+#[test]
+fn a_shot_aimed_at_a_point_leaves_its_muzzle_toward_that_point() {
+    use ambition_characters::actor::control::ActorFireRequest;
+    use ambition_characters::brain::action_set::{Discharge, Muzzle};
+    let actor_pos = ae::Vec2::new(300.0, 300.0);
+    let target = ae::Vec2::new(520.0, 310.0);
+    // How far the shot's line passes from the target.
+    let miss = |fire: ActorFireRequest| {
+        let mut app = build_app();
+        let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
+        let enemy = ActorClusterSeed::new(
+            "crown_cannon",
+            "Skitter",
+            aabb,
+            ambition_entity_catalog::placements::CharacterBrain::Custom("small_skitter".into()),
+            &[],
+        );
+        let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
+        let spec = RangedActionSpec::bolt(400.0, 1).with_discharge(Discharge {
+            muzzle: Muzzle::Offset { x: 0.3, y: -0.5 },
+            ..Default::default()
+        });
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+                actor,
+                request: ActionRequest::Ranged {
+                    spec,
+                    origin: actor_pos,
+                    fire,
+                    commitment: RangedCommitment::Attempt,
+                },
+                move_instance: None,
+            });
+        app.update();
+        let shots = live_projectile_bodies(&mut app);
+        assert_eq!(shots.len(), 1);
+        let (from, along) = (shots[0].body.kin.pos, shots[0].body.kin.vel.normalize_or_zero());
+        assert!(
+            (from - actor_pos).length() > 10.0,
+            "the muzzle is off the body centre, or this measures nothing: {from:?}"
+        );
+        let to = target - from;
+        (to.x * along.y - to.y * along.x).abs()
+    };
+    let aimed = miss(ActorFireRequest::world_point(actor_pos, target));
+    let parallel = miss(ActorFireRequest::world_space((target - actor_pos).normalize()));
+    assert!(parallel > 10.0, "control: a direction alone passes the point by the offset ({parallel})");
+    assert!(aimed < 0.5, "the shot aimed at a point passes {aimed} px from it");
 }

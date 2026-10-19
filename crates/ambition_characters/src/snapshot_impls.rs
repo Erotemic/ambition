@@ -777,6 +777,15 @@ impl SnapshotState for crate::control::ActorControl {
                 put_bool(out, true);
                 put_vec2(out, fire.dir);
                 fire.dir_policy.encode(out);
+                // The aim point is part of the shot: two peers that agree on
+                // the direction and not on the point fire two different shots.
+                match fire.at {
+                    Some(at) => {
+                        put_bool(out, true);
+                        put_vec2(out, at);
+                    }
+                    None => put_bool(out, false),
+                }
             }
         }
         put_vec2(out, f.attack_axis.vec());
@@ -846,6 +855,7 @@ impl SnapshotState for crate::control::ActorControl {
             Some(ActorFireRequest {
                 dir: r.vec2()?,
                 dir_policy: GameplayFramePolicy::decode(r)?,
+                at: if r.bool()? { Some(r.vec2()?) } else { None },
             })
         } else {
             None
@@ -911,6 +921,14 @@ mod volley_control_snapshot_tests {
         frame.ranged_aim_held = true;
         frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
             ambition_platformer2d_core::Vec2::new(-1.0, 0.0),
+        ));
+        let bytes = encode_state(&ActorControl(frame));
+        let restored: ActorControl = decode_state(&bytes).expect("decode actor intent");
+        assert_eq!(restored.0, frame);
+        // And a shot aimed at a point keeps its point.
+        frame.fire = Some(crate::actor::control::ActorFireRequest::world_point(
+            ambition_platformer2d_core::Vec2::new(10.0, 4.0),
+            ambition_platformer2d_core::Vec2::new(-30.0, 9.0),
         ));
         let bytes = encode_state(&ActorControl(frame));
         let restored: ActorControl = decode_state(&bytes).expect("decode actor intent");

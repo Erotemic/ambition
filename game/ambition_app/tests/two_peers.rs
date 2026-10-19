@@ -364,6 +364,7 @@ fn two_peers_agree_at_every_confirmed_frame() {
             "CombatTuning",
             "ActorRenderSize",
             "ActorSpriteOffset",
+            "DeathBeat",
             "SpawnBaseline",
             "PlayerBlinkCameraState",
             "SpritePosedBody",

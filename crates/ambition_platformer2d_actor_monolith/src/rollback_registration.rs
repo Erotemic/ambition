@@ -289,6 +289,25 @@ where
                 ^ (u64::from(spacing.side.to_bits()) << 1)
         },
     );
+    // A passage through a door or a gate: the scene, its clock, and the
+    // crossing it records when the going-in ends. A rewind into it must
+    // resume it, and one before the press must not keep a passage the
+    // resimulation has not started. The holds are derived from it.
+    registrar.rollback_component_clone_probed::<crate::rooms::passage::ZonePassage>(
+        OWNER,
+        "actor.zone_passage",
+        |passage| {
+            let stage = match passage.stage {
+                crate::rooms::passage::PassageStage::Entering => 0u64,
+                crate::rooms::passage::PassageStage::Exiting => 1,
+            };
+            (u64::from(passage.elapsed.to_bits()) << 8)
+                ^ (stage << 1)
+                ^ u64::from(passage.recorded)
+                ^ (u64::from(passage.from.x.to_bits()) << 32)
+                ^ u64::from(passage.from.y.to_bits())
+        },
+    );
     registrar.rollback_component_clone_probed::<crate::features::transform_beat::TransformBeat>(
         OWNER,
         "actor.transform_beat",

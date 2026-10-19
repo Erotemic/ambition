@@ -107,6 +107,7 @@ pub mod flyline;
 pub mod tether;
 pub mod limb_trail;
 pub mod gate_portal_visuals;
+pub mod passage_visuals;
 pub mod gravity_visuals;
 pub mod ground_shadows;
 mod health;
@@ -601,6 +602,22 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .run_if(session_presentation_is_ready),
         );
 
+        // A body in a passage through a door or a gate: its size, opacity and
+        // shade, after the animator's frame and tint and before the part
+        // driver reads them; and the door it goes through, opening.
+        app.add_systems(
+            Update,
+            (
+                passage_visuals::apply_passage_looks
+                    .after(actors::animate_player)
+                    .before(actors::rigged::drive_rigged_presentations),
+                passage_visuals::sync_door_openings.after(actors::sync_visuals),
+            )
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
+                )
+                .run_if(session_presentation_is_ready),
+        );
         // The rigged-sprite trial (`actors::rigged`): bind after the sheet
         // binders have settled which sheet and tier a root wears, draw after
         // both animators have chosen this frame's row and frame. Both do

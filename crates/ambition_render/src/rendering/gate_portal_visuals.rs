@@ -91,6 +91,8 @@ pub fn sync_portal_sprite_animation(
     presentation_time: PresentationTime,
     portals: Res<GatePortalRegistry>,
     phases: Res<GatePortalPhases>,
+    // A body going in or coming out ripples the surface (`swallow`, `emit`).
+    passages: Option<Res<ambition_sim_view::PassageViews>>,
     mut sprites: Query<(
         &PropVisual,
         &mut Sprite,
@@ -105,17 +107,22 @@ pub fn sync_portal_sprite_animation(
             if prop.name != config.portal_sprite_name {
                 continue;
             }
-            match phase {
-                GatePortalPhase::Off => continue,
-                GatePortalPhase::Opening { .. } => {
+            let ripple = passages.as_ref().and_then(|passages| passages.gate_ripple(zone_id));
+            match (phase, ripple) {
+                (GatePortalPhase::Off, _) => continue,
+                (GatePortalPhase::Opening { .. }, _) => {
                     animator.request_clip(["opening"], CharacterAnim::Idle);
                 }
-                GatePortalPhase::On => animator.request(CharacterAnim::Walk),
-                GatePortalPhase::Closing { .. } => {
+                (GatePortalPhase::On, Some((row, _))) => animator.request_clip([row], CharacterAnim::Walk),
+                (GatePortalPhase::On, None) => animator.request(CharacterAnim::Walk),
+                (GatePortalPhase::Closing { .. }, _) => {
                     animator.request_clip(["closing"], CharacterAnim::Run);
                 }
             }
-            animator.slave_clip_to(phase.sequence_progress());
+            match (phase, ripple) {
+                (GatePortalPhase::On, Some((_, progress))) => animator.slave_clip_to(Some(progress)),
+                _ => animator.slave_clip_to(phase.sequence_progress()),
+            }
             draw_animator_frame(
                 &mut sprite,
                 &mut animator,

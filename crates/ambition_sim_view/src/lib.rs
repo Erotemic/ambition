@@ -16,6 +16,7 @@ mod defense_view;
 mod dialog_view;
 mod facts;
 pub mod local_view;
+mod passage_view;
 mod pose_view;
 pub mod presented_pose;
 mod rollback_registration;
@@ -49,6 +50,7 @@ pub use local_view::{
     PresentedForView, PresentsView, ResolvedViewSubject, SplitForLiveRoom, ViewParticipant,
     ViewPlacement, ViewSubject, ViewsOnHand,
 };
+pub use passage_view::{rebuild_passage_views, PassageLookView, PassageViews};
 pub use pose_view::{
     rebuild_body_pose_views, rebuild_guard_breaks_view, rebuild_launched_bodies_view,
     rebuild_shield_rings_view, BodyPoseView, GuardBreakFact, GuardBreaksView, PoseGeometry, LaunchedBodiesView,
@@ -102,6 +104,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         app.init_resource::<NameplateIndex>();
         app.init_resource::<DialogView>();
         app.init_resource::<ControlPrompt>();
+        app.init_resource::<PassageViews>();
         app.init_resource::<CombatGeometryView>();
         // The frontend half of the prompt: while a startup/launcher context
         // owns the participant's actions, the owning surface's cue labels the
@@ -134,6 +137,9 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // Player-bodied pose components + the pooled shield-ring rows —
                 // the per-body half of the pose read-model (E4 slices 1–4).
                 rebuild_body_pose_views,
+                // A body in a passage draws what its passage says, over the
+                // pose the rebuild picked.
+                rebuild_passage_views.after(rebuild_body_pose_views),
                 rebuild_shield_rings_view,
                 // Which bodies are in an INVOLUNTARY flight, so a
                 // flight-readability cue never has to infer that from speed.

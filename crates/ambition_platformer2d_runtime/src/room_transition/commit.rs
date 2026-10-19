@@ -661,6 +661,9 @@ pub struct RoomTransitionFinalize<'w, 's> {
     /// live room the body arrived in.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
     feel: Res<'w, Platformer2dFeelTuningMonolith>,
+    /// A body that came through a passage comes out of its door or gate: it
+    /// is not flashed in.
+    passages: Query<'w, 's, &'static mut ambition_platformer2d_actor_monolith::rooms::passage::ZonePassage>,
 }
 
 impl RoomTransitionFinalize<'_, '_> {
@@ -721,10 +724,24 @@ impl RoomTransitionFinalize<'_, '_> {
         // Four different domains' state, so no single domain owns this and the
         // operation that composes them does (anti-god rule 6). Optional
         // components are absent for a possessed non-home body, which is allowed.
+        // A body that crossed by a passage comes out of its door or gate.
+        let through_a_passage = match subject.and_then(|subject| self.passages.get_mut(subject).ok()) {
+            Some(mut passage) => {
+                let facing = subject
+                    .and_then(|subject| self.bodies.clusters.get(subject).ok().map(|body| body.kinematics.facing))
+                    .unwrap_or(1.0);
+                passage.arrived(facing);
+                true
+            }
+            None => false,
+        };
         if let Some(mut combat) = subject.and_then(|s| self.bodies.combat.get_mut(s).ok()) {
-            // The arrival flash is the one thing a transition adds.
+            // The arrival flash is the one thing a transition adds; a body
+            // that comes out of its door or gate is seen coming out instead.
             combat.reset();
-            combat.hit_flash = if edge_exit {
+            combat.hit_flash = if through_a_passage {
+                0.0
+            } else if edge_exit {
                 feel.edge_transition_flash
             } else {
                 feel.door_transition_flash
@@ -782,6 +799,8 @@ impl RoomTransitionFinalize<'_, '_> {
                     color: [0.35, 0.95, 1.0, 0.75],
                     kind: ParticleKind::Dust,
                 });
+            } else if through_a_passage {
+                // It comes out of its door or gate (`rooms::passage`).
             } else {
                 // Door transitions are discrete interactions, so a teleport-like
                 // effect is acceptable; use the destination for both endpoints to

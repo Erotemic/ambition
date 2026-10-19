@@ -101,6 +101,8 @@ pub fn detect_room_transition_system(
             Option<&ambition_characters::control::DrivingParticipant>,
             // The frame the body faces in: the Interact reach's facing gate.
             Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+            // A body in a passage is already going through a door.
+            bevy::prelude::Has<super::passage::ZonePassage>,
         ),
         Without<ambition_combat::death_rules::OutOfPlay>,
     >,
@@ -115,7 +117,13 @@ pub fn detect_room_transition_system(
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     mut pending_lifecycle: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
     talkable: crate::features::ecs::TalkableBodies,
+    // A game that plays passages: a door or a gate starts one, and the
+    // passage records the crossing when its going-in ends (`passage`).
+    passage_rules: Option<Res<super::passage::ZonePassageRules>>,
+    mut commands: bevy::prelude::Commands,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
+    let passages = passage_rules.is_some_and(|rules| rules.enabled);
     // Each seat's driven body crosses the doors of its own live room, in slot
     // order (OW1). The intent slot holds one crossing, so the first crossing
     // admitted is this tick's, and another seat asks again on a later tick.
@@ -129,9 +137,12 @@ pub fn detect_room_transition_system(
         let Some(subject_entity) = crate::control::body_driving_seat(&drivers, seat) else {
             continue;
         };
-        let Ok((kin, sweep, driver, frame)) = bodies.get(subject_entity) else {
+        let Ok((kin, sweep, driver, frame, in_passage)) = bodies.get(subject_entity) else {
             continue;
         };
+        if in_passage {
+            continue;
+        }
         let Some(definition) = rooms.definition_of(subject_entity) else {
             continue;
         };
@@ -259,6 +270,66 @@ pub fn detect_room_transition_system(
             );
             continue;
         };
+        // A door or a gate of a game that plays passages: the body goes in by
+        // its passage, which records this crossing when it has gone in. Its
+        // sound is the passage's, now, not the commit's.
+        if passages && matches!(zone.zone.activation, LoadingZoneActivation::Door) {
+            use ae::AabbExt as _;
+            let kind = if portals.is_portal(&zone.zone.id) {
+                super::passage::PassageKind::Gate
+            } else {
+                super::passage::PassageKind::Door
+            };
+            let Some(far) = target_spec.loading_zones.iter().find(|far| far.id == zone.target_zone) else {
+                bevy::log::error_once!(
+                    "the far zone `{}` of `{}` is not in its room; the door is crossed with no passage",
+                    zone.target_zone,
+                    zone.zone.id
+                );
+                continue;
+            };
+            let crossing = crate::session::lifecycle_commit::RoomTransitionIntent {
+                subject: subject.clone(),
+                target_room: target_spec.id.clone(),
+                arrival: zone.arrival,
+                edge_exit: false,
+                zone_sfx: None,
+                participant: driver.map(|driver| driver.0),
+            };
+            let arrival = super::passage::PassageArrival {
+                kind: if portals.is_portal(&far.id) {
+                    Some(super::passage::PassageKind::Gate)
+                } else if matches!(far.activation, LoadingZoneActivation::Door) {
+                    Some(super::passage::PassageKind::Door)
+                } else {
+                    None
+                },
+                zone: far.id.clone(),
+                foot: far.aabb.center() + ae::Vec2::new(0.0, far.aabb.half_size().y),
+                heart: far.aabb.center(),
+            };
+            commands.entity(subject_entity).try_insert(super::passage::ZonePassage::enter(
+                kind,
+                &zone.zone.id,
+                zone.zone.aabb,
+                kin.pos,
+                kin.size.y * 0.5,
+                kin.facing,
+                crossing,
+                arrival,
+            ));
+            sfx.write(ambition_sfx::SfxMessage::Play {
+                id: match kind {
+                    super::passage::PassageKind::Door => ambition_sfx::ids::WORLD_DOOR_OPEN,
+                    super::passage::PassageKind::Gate => ambition_sfx::ids::WORLD_PORTAL_ENTER,
+                },
+                pos: kin.pos,
+            });
+            if let Some(gestures) = slot_gestures.get_mut(seat) {
+                gestures.clear();
+            }
+            continue;
+        }
         // ⛔⛤ **ADMIT FIRST, SPEND SECOND — AND THIS WAS THE OTHER WAY ROUND.**
         // `record` is `#[must_use]` because the slot is earliest-sticky: *"a refused
         // intent must not have its consequences run"*. Clearing the buffer IS a

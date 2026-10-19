@@ -73,6 +73,9 @@ struct SceneCaptureConfig {
     /// (`--interact-on-arrival`). A room capture's keys reach menus and
     /// lobbies, not gameplay, so this is how an interaction is filmed.
     interact_on_arrival: bool,
+    /// Press Interact on this sim tick (`--interact-at TICK`): a door or a
+    /// switch the player stands at (`--player-at`).
+    interact_at: Option<u64>,
     /// World flags to record, each on its sim tick (`--flag NAME[@TICK]`), so
     /// a state the world gets from a flag (a room's look, a gate) can be
     /// photographed, and a change of it can be filmed.
@@ -295,6 +298,8 @@ OPTIONS:
                         [default: 60]
     --interact-on-arrival
                         press Interact on the tick --player-beside arrives
+    --interact-at TICK  press Interact on sim tick TICK (a door or a switch
+                        the player stands at, --player-at)
     --body-warp out|in[@SECONDS]
                         take every part-drawn body apart by the teleport warp
                         of a blink, one time each SECONDS [default: 1.0], on
@@ -1358,6 +1363,7 @@ impl SceneCaptureConfig {
         let mut press_during: Option<u32> = None;
         let mut player_beside: Option<(String, u64)> = None;
         let mut interact_on_arrival = false;
+        let mut interact_at = None;
         let mut flags: Vec<(String, u64)> = Vec::new();
         let mut switches: Vec<(String, u64)> = Vec::new();
         let mut hour: Option<(f32, u64)> = None;
@@ -1459,6 +1465,15 @@ impl SceneCaptureConfig {
                 "--interact-on-arrival" => {
                     interact_on_arrival = true;
                     1
+                }
+                "--interact-at" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--interact-at requires a tick".to_string());
+                    };
+                    interact_at = Some(
+                        value.parse::<u64>().map_err(|_| format!("--interact-at wants a tick, got '{value}'"))?,
+                    );
+                    2
                 }
                 "--body-warp" => {
                     use ambition_platformer2d::render::rendering::actors::rigged::BodyWarpPreview;
@@ -1815,6 +1830,7 @@ impl SceneCaptureConfig {
                 follow_player: false,
                 player_beside: None,
                 interact_on_arrival: false,
+                interact_at: None,
                 flags: Vec::new(),
                 switches: Vec::new(),
                 hour: None,
@@ -1889,6 +1905,7 @@ impl SceneCaptureConfig {
             follow_player,
             player_beside,
             interact_on_arrival,
+            interact_at,
             flags,
             switches,
             hour,
@@ -2399,6 +2416,9 @@ fn place_player_beside(
         Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >,
 ) {
+    if config.interact_at == Some(tick.get()) {
+        seats.primary_mut().interact_buffer_timer = 0.15;
+    }
     let Some((id, arrival)) = config.player_beside.as_ref() else {
         return;
     };

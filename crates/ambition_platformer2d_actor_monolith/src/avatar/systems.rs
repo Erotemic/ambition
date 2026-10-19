@@ -191,6 +191,8 @@ pub fn tick_controlled_brains(
             target_alive: true,
             // The player brain doesn't regroup on damage; full-health is inert here.
             health_fraction: 1.0,
+            // A possessed body's own guards answer nothing on this road.
+            guard: Default::default(),
             sim_time: 0.0,
             dt: 0.0,
             // Free-mover velocity targets use the body's own commanded top speed.

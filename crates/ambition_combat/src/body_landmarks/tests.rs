@@ -23,6 +23,7 @@ fn table() -> BodyLandmarkTable {
             .collect(),
     };
     BodyLandmarkTable {
+        boxes: Default::default(),
         frame_height: 100.0,
         clips: BTreeMap::from([
             ("idle".to_string(), clip(&[10.0, 11.0])),
@@ -221,6 +222,7 @@ fn a_rig_and_a_package_keep_one_time_for_a_looping_and_a_one_shot_clip() {
     .prepare()
     .expect("valid rig");
     let table = BodyLandmarkTable {
+        boxes: Default::default(),
         frame_height: 100.0,
         clips: ["idle", "hurt"]
             .into_iter()

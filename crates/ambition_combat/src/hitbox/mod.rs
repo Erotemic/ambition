@@ -687,6 +687,7 @@ pub fn register_strike_outcome_messages(app: &mut bevy::prelude::App) {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
 }
 
 /// Everything the strike sweep PUBLISHES, in one parameter.
@@ -711,6 +712,8 @@ pub struct StrikeOutcomeWriters<'w> {
     pub landed: MessageWriter<'w, LandedBodyHit>,
     /// A perfect shield caught it.
     pub parried: MessageWriter<'w, ParriedBodyHit>,
+    /// A guard turned it aside (`crate::guard`).
+    pub deflected: MessageWriter<'w, crate::guard::DeflectedBodyHit>,
 }
 
 /// Where a hit comes from: a placed volume's own centre, a carried one's
@@ -771,6 +774,9 @@ pub fn apply_hitbox_damage(
     // `BodyShieldState` is deliberately absent from `StrikeVictim` so this is
     // the system's only access to it.
     mut guards: Query<&mut ambition_platformer2d_core::BodyShieldState>,
+    // The parts of each body that turn strikes aside, where they are this
+    // tick (`crate::guard`): asked before the body.
+    turning: Query<&crate::guard::GuardVolumes>,
     // Live Hitbox state is authoritative for damage; presentation projections must
     // not gate it. One parameter rather than four — see `StrikeOutcomeWriters`.
     mut out: StrikeOutcomeWriters,
@@ -998,6 +1004,50 @@ pub fn apply_hitbox_damage(
                     continue;
                 }
                 let victim_room = rooms.of(victim.entity);
+                // ⭐ A GUARD IS ASKED BEFORE THE BODY. A strike that meets a
+                // guard from a side it covers is turned aside and reaches
+                // nothing behind it, whether or not it also reaches the body:
+                // the shield is in front. Like a parry it is a negation (no
+                // damage, no `LandedBodyHit`), and the strike is recorded as
+                // having reached this body so it cannot reach it again.
+                //
+                // An unblockable strike and a windbox pass every guard: the
+                // first breaks through a guard by its contract, and the second
+                // only pushes.
+                if hitbox.meets_guard() && !matches!(hitbox.reaction, Some(ambition_entity_catalog::VolumeReaction::Windbox(_))) {
+                    if let Ok(turning) = turning.get(victim.entity) {
+                        let down = victim.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
+                        let threaded = passages.as_deref().filter(|p| p.cuts_in(victim_room, Some(victim.entity)));
+                        let turned = turning.pieces.iter().find_map(|guard| {
+                            let volume = ae::CombatVolume::aabb(guard.volume);
+                            let guard_pieces: Vec<VolumePiece> = match threaded {
+                                Some(passages) => passages.pieces(&volume, Some(victim.entity), victim.aabb.center, victim_room),
+                                None => vec![VolumePiece::whole(volume)],
+                            };
+                            pieces.iter().find_map(|sp| {
+                                let gp = guard_pieces.iter().find(|gp| sp.meets(gp))?;
+                                // Where the strike comes from, in the guard's chart.
+                                let source = gp.uncarry(sp.carry(spatial_source));
+                                guard
+                                    .covers(source, down)
+                                    .then(|| (guard.guard, midpoint(sp.center(), gp.center())))
+                            })
+                        });
+                        if let Some((guard, contact)) = turned {
+                            hits.hit.insert(victim.entity);
+                            pulse_records.push((hitbox_entity, hitbox.owner, victim.entity));
+                            out.deflected.write(crate::guard::DeflectedBodyHit {
+                                defender: victim.entity,
+                                attacker: hitbox.owner,
+                                hitbox: hitbox_entity,
+                                guard,
+                                contact,
+                                damage: hitbox.damage,
+                            });
+                            continue;
+                        }
+                    }
+                }
                 // Cut by the victim's own room and transit, not the strike's:
                 // the pieces are kept for each strike of the tick.
                 let hurt = victim_pieces.entry(victim.entity).or_insert_with(|| {

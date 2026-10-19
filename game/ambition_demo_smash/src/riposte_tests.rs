@@ -42,6 +42,7 @@ fn app_on(road: Road) -> App {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<ambition_platformer2d::combat::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.add_plugins(ExtensionHostPlugin::new(Update))
         .init_resource::<ambition_platformer2d::time::SimTick>()

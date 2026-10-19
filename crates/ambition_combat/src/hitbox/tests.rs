@@ -523,6 +523,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -595,6 +596,7 @@ fn a_world_anchored_box_outlives_its_owner_but_a_following_one_does_not() {
         app.add_message::<HitEvent>();
         app.add_message::<LandedBodyHit>();
         app.add_message::<ParriedBodyHit>();
+        app.add_message::<crate::guard::DeflectedBodyHit>();
         app.add_message::<VfxInRoom>();
         app.init_resource::<CapturedHits>();
         app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -674,6 +676,7 @@ fn a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither() {
         app.add_message::<HitEvent>();
         app.add_message::<LandedBodyHit>();
         app.add_message::<ParriedBodyHit>();
+        app.add_message::<crate::guard::DeflectedBodyHit>();
         app.add_message::<VfxInRoom>();
         app.init_resource::<CapturedHits>();
         app.init_resource::<crate::targeting::FriendlyFire>();
@@ -762,6 +765,7 @@ fn a_world_blast_throws_victims_apart_regardless_of_where_its_owner_stands() {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<crate::targeting::FriendlyFire>();
@@ -837,6 +841,7 @@ fn a_following_box_throws_away_from_the_owner_not_from_its_own_volume() {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<crate::targeting::FriendlyFire>();
@@ -898,6 +903,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.insert_resource(relations);
@@ -1058,6 +1064,7 @@ fn enemy_hitbox_over_player_app_dealing(
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.insert_resource(relations);
@@ -1169,6 +1176,7 @@ fn player_faction_hitbox_only_fires_once() {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -1213,6 +1221,7 @@ fn player_melee_never_targets_its_owner() {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<CapturedLandedHits>();
@@ -1291,6 +1300,7 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -1393,6 +1403,7 @@ fn landed_launch(
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -1558,6 +1569,7 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<CapturedLandedHits>();
@@ -1671,6 +1683,7 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -1759,6 +1772,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -1857,6 +1871,7 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -2167,6 +2182,7 @@ mod strike_rank {
         app.add_message::<HitEvent>();
         app.add_message::<LandedBodyHit>();
         app.add_message::<ParriedBodyHit>();
+        app.add_message::<crate::guard::DeflectedBodyHit>();
         app.add_message::<VfxInRoom>();
         app.init_resource::<CapturedHits>();
         app.insert_resource(FactionRelations::default());
@@ -2399,6 +2415,7 @@ fn parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<CapturedLandedHits>();
@@ -2946,6 +2963,7 @@ fn portal_strike_app(passages: Option<ambition_platformer2d_shared_tangle::porta
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
     app.add_message::<VfxInRoom>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<crate::targeting::FriendlyFire>();

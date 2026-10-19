@@ -772,6 +772,10 @@ pub struct CharacterCatalogEntry {
     /// Folded at preparation under a registered definition's own.
     #[serde(default)]
     pub contact_damage: Option<crate::actor::ContactDamage>,
+    /// The parts of this body that turn strikes aside: a shield
+    /// ([`crate::actor::guard`]). Empty (the default): none.
+    #[serde(default)]
+    pub guards: Vec<crate::actor::GuardSpec>,
     /// This character's own autonomous policy. `None` (the default) leaves the
     /// [`default_brain`](Self::default_brain) preset in charge. Folded at
     /// preparation under a registered definition's own.

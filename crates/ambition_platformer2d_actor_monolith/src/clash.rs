@@ -872,6 +872,7 @@ mod tests {
         app.add_message::<ambition_combat::events::HitEvent>();
         app.add_message::<ambition_combat::hitbox::LandedBodyHit>();
         app.add_message::<ambition_combat::hitbox::ParriedBodyHit>();
+        app.add_message::<ambition_combat::guard::DeflectedBodyHit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_combat::moveset::MoveEventMessage>();
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();

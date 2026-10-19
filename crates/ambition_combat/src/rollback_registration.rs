@@ -221,6 +221,24 @@ where
         OWNER,
         "feature.damageable_volumes",
     );
+    // A guard's run toward breaking, its stagger, and its deflect count, which
+    // the guarded body's brain reads to answer a deflect.
+    registrar.rollback_component_clone_checksum::<crate::guard::GuardState>(
+        OWNER,
+        "body.guard_state",
+        "run, since_deflect_s, deflects, broken_s",
+        |state| {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            (state.run, state.since_deflect_s.to_bits(), state.deflects, state.broken_s.to_bits()).hash(&mut hasher);
+            hasher.finish()
+        },
+    );
+    registrar.declare_rollback_derived_component::<crate::guard::GuardVolumes>(
+        OWNER,
+        "derived.guard_volumes",
+        "placed from the worn character's guards, its art and its clocks every tick, before any strike is resolved",
+    );
     registrar.rollback_component_clone::<crate::components::FeatureId>(OWNER, "feature.id");
     // The dormancy rule reads this marker: an encounter mob never sleeps. A
     // restored mob must keep it, or the rule would put it to sleep.
@@ -375,6 +393,12 @@ where
     registrar.clear_message_on_rollback::<crate::hitbox::ParriedBodyHit>(
         OWNER,
         "message.parried_body_hit",
+    );
+    // A turned strike, cleared for the same reason: a rewound frame must not
+    // throw an attacker back for a deflect the resimulation does not produce.
+    registrar.clear_message_on_rollback::<crate::guard::DeflectedBodyHit>(
+        OWNER,
+        "message.deflected_body_hit",
     );
     registrar.clear_message_on_rollback::<crate::events::HitEvent>(OWNER, "message.hit_event");
     registrar.clear_message_on_rollback::<crate::stocks::BodyKnockedOut>(

@@ -181,6 +181,38 @@ impl BodyLandmarks<'_, '_> {
             .find_map(|hand| self.in_rig_space(body, hand, pose))
     }
 
+    /// `part` of `body` this tick, in its rig space (an offset from its feet,
+    /// +x the way it faces, +y down, world units), with the row of its art it
+    /// is drawn in, drawn in `inset_px` sheet pixels from its art's bounds.
+    /// `None` when its art publishes no such box in this frame.
+    ///
+    /// Only a package answers: a rig publishes points, not boxes.
+    pub fn part_box(
+        &self,
+        body: Entity,
+        part: ambition_characters::actor::PartBox,
+        inset_px: f32,
+    ) -> Option<(bevy::math::Rect, String)> {
+        let (worn, posed, render_size, _, playback, clock) = self.bodies.get(body).ok()?;
+        let sheet = self.characters.as_ref()?.get(worn?.id())?.sheet.as_deref()?;
+        let table = ambition_sprite_sheet::baked_landmarks::body_landmarks(sheet)?;
+        let world_per_pixel = drawn_world_per_pixel(posed, render_size, table.frame_height)?;
+        let (clip, frame) = select_pose_frame(
+            &*table,
+            playback.map(|playback| (&playback.spec.clip, playback.phase())),
+            clock.map(|clock| (clock.pose.as_str(), clock.elapsed_s)),
+            clock.map(|clock| (clock.gait, clock.gait_elapsed_s)),
+        )?;
+        let pixels = table.part_box(part, clip, frame)?.inflate(-inset_px);
+        if pixels.is_empty() {
+            return None;
+        }
+        Some((
+            bevy::math::Rect::from_corners(pixels.min * world_per_pixel, pixels.max * world_per_pixel),
+            clip.to_owned(),
+        ))
+    }
+
     /// `landmark` of `body` in the world, for a body at `kin` whose unit DOWN
     /// is `down`. `kin` is the body's own kinematics, which the caller holds.
     pub fn in_world(

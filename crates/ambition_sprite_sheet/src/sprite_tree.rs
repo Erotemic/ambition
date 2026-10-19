@@ -218,7 +218,22 @@ pub fn read_part_flipbook(text: &str) -> Result<super::published::Published, ron
 pub fn landmarks_of(published: &super::published::Published) -> Option<super::landmarks_published::BakedLandmarks> {
     use super::landmarks_published as lp;
     let track_name = |track: Option<u16>| track.and_then(|track| published.tracks.get(usize::from(track)));
+    // The four corners of a draw's quad, from the feet: the part turned
+    // (radians, clockwise with +y down) and scaled about its pivot, its pivot
+    // at `at`. A table at another texel scale states its rect in its texels.
+    let corners = |draw: &super::published::PublishedDraw| -> Option<[(f32, f32); 4]> {
+        let part = published.parts.get(usize::from(draw.part))?;
+        let scale = published.texel_scale.max(f32::EPSILON);
+        let (w, h) = (part.rect.2 as f32 / scale, part.rect.3 as f32 / scale);
+        let (px, py) = (part.pivot.0 / scale, part.pivot.1 / scale);
+        let (c, s) = (draw.rotation.cos(), draw.rotation.sin());
+        Some([(0.0, 0.0), (w, 0.0), (0.0, h), (w, h)].map(|(x, y)| {
+            let (lx, ly) = ((x - px) * draw.scale.0, (y - py) * draw.scale.1);
+            (draw.at.0 + c * lx - s * ly, draw.at.1 + s * lx + c * ly)
+        }))
+    };
     let mut clips = std::collections::BTreeMap::new();
+    let mut boxes = std::collections::BTreeMap::new();
     let mut any = false;
     for (name, clip) in &published.clips {
         if name.contains('~') {
@@ -230,6 +245,17 @@ pub fn landmarks_of(published: &super::published::Published) -> Option<super::la
             .map(|frame| lp::landmark_frame(frame.iter().filter_map(|draw| track_name(draw.track).map(|name| (name.as_str(), draw.at)))))
             .collect();
         any |= frames.iter().flatten().any(Option::is_some);
+        let framed: Vec<lp::BakedBoxFrame> = clip
+            .frames
+            .iter()
+            .map(|frame| {
+                lp::box_frame(frame.iter().filter_map(|draw| Some((track_name(draw.track)?.as_str(), corners(draw)?))))
+            })
+            .collect();
+        if framed.iter().flatten().any(Option::is_some) {
+            any = true;
+            boxes.insert(name.clone(), framed);
+        }
         clips.insert(
             name.clone(),
             lp::BakedLandmarkClip {
@@ -241,6 +267,7 @@ pub fn landmarks_of(published: &super::published::Published) -> Option<super::la
     any.then_some(lp::BakedLandmarks {
         frame_height: published.frame_size.1,
         clips,
+        boxes,
     })
 }
 

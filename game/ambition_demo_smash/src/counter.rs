@@ -144,6 +144,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<ActorActionMessage>();
         app.add_message::<ParriedBodyHit>();
+        app.add_message::<ambition_platformer2d::combat::guard::DeflectedBodyHit>();
         app.add_systems(
             Update,
             (

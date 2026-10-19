@@ -1200,6 +1200,9 @@ pub struct PreparedCharacterDefinition {
     pub locomotion: Option<crate::actor::CharacterLocomotion>,
     /// What touching this body costs, as the character authored it.
     pub contact_damage: Option<crate::actor::ContactDamage>,
+    /// The parts of this body that turn strikes aside, from its catalog row
+    /// ([`crate::actor::guard`]).
+    pub guards: Vec<crate::actor::GuardSpec>,
     /// The POLICY this character runs when nothing else drives it — the
     /// controller authority, carried as a value rather than as a name.
     ///
@@ -2081,6 +2084,7 @@ fn finalize_character(
             ..locomotion
         }),
         contact_damage,
+        guards: catalog_row.map_or_else(Vec::new, |row| row.guards.clone()),
         // See `resolve_autonomous_profile`: provider-relative, inline XOR named, and a name nobody
         // authored is a refusal.
         autonomous_profile: resolve_autonomous_profile(

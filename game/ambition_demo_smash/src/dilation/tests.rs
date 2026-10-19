@@ -149,6 +149,7 @@ fn a_witch_time_stance_slows_the_attacker_across_the_frame_boundary() {
     let mut app = App::new();
     app.add_message::<ActorActionMessage>();
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<ambition_platformer2d::combat::guard::DeflectedBodyHit>();
     app.init_resource::<ambition_platformer2d::time::WorldTime>();
     {
         let mut time = app

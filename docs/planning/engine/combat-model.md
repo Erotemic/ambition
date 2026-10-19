@@ -180,6 +180,22 @@ Move-authored `Invuln` / `Armor` windows should affect combat eligibility or hit
 reaction in the combat runtime. Rendering may visualize the resolved result but
 must not implement the mechanic.
 
+A GUARD (`ambition_combat::guard`, 2026-10-19) is not a second shield. The body
+shield is a state the body enters (raised, spent, broken). A guard is a PART of
+the body that turns strikes aside, such as the Shock Warden's riot shield. It
+belongs to the geometry family, beside the hurtboxes:
+
+- **Authored on** the catalog row's `guards`.
+- **Placed** each tick from the box the art publishes for its track
+  (`PartBox`), as landmarks are.
+- **Asked** by the strike sweep before the body.
+
+A strike it covers is DEFLECTED (`DeflectedBodyHit`): the attacker rebounds and
+is locked out, and the guarded body can counter (`MeleeTactics::counter`). Each
+guard states its gaps: which side it faces, whether it is open above, and the
+rows it is lowered in. It also states when it breaks: after quick repeats, or
+under one heavy strike.
+
 ### Hazards beat a ledge hang (Q43)
 
 Ruling Q43 (2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md)):

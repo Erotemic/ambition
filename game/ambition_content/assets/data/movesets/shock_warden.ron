@@ -1,0 +1,126 @@
+// The source of the Shock Warden's own move. The game loads this file through
+// the content pack (`assets/pack.ron`); edit it here.
+//
+// DESIGN NOTES
+//
+// His baton is his melee (`shock_warden_baton` in the character catalog). This
+// is his ANSWER: when his shield turns a strike aside, the body that swung is
+// thrown back and locked out (his guard's `deflect.lockout_s`), and he steps
+// in behind the shield and shoves it into them (`MeleeTactics::counter`,
+// `with: Special`). The shove has to land inside that lockout, so it is fast
+// and it steps forward to reach a body the rebound threw back.
+//
+// The art is the `shield_bash` row: 14 frames, the shove on frames 3 to 5.
+// The move plays all of it over its own length, so the shove lands at about a
+// quarter of the way through.
+(
+    schema_version: 1,
+    entities: [
+        (
+            id: "npc_shock_warden",
+            contracts: (
+                body: None,
+                hurtboxes: None,
+                presentation: None,
+                moveset: Some((
+                    verbs: {
+                        "special": "shock_warden_shield_bash",
+                    },
+                    moves: [
+                        (
+                            id: "shock_warden_shield_bash",
+                            display_name: Some("Shield Bash"),
+                            clip: (
+                                clip: "shield_bash",
+                                fallbacks: [
+                                    "attack_side",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.85,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.16,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.16,
+                                    end_s: 0.34,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            // The face of the shield, pushed out in front.
+                                            shape: Rect(
+                                                offset: (36.0, -4.0),
+                                                half_extents: (22.0, 28.0),
+                                            ),
+                                            damage: 1,
+                                            knockback: 260.0,
+                                            knockback_growth: None,
+                                            // Away and a little up: a shove off your feet.
+                                            launch_dir: Some((1.0, -0.4)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: None,
+                                            hit_sfx: Some("player.robot.slash.impact.metal.gong"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.34,
+                                    end_s: 0.85,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 0.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                // The step in behind the shield, through the shove.
+                                (
+                                    at_s: 0.12,
+                                    kind: Impulse(
+                                        local: (260.0, 0.0),
+                                        mode: Set,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.34,
+                                    kind: Impulse(
+                                        local: (0.0, 0.0),
+                                        mode: Set,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                    ],
+                )),
+            ),
+        ),
+    ],
+)

@@ -68,6 +68,7 @@
         (path: "data/movesets/projectile_polygon.ron", schema: "moveset", version: 1),
         (path: "data/movesets/pugnacious_polygon.ron", schema: "moveset", version: 1),
         (path: "data/movesets/ramen_nujan.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/shock_warden.ron", schema: "moveset", version: 1),
         // A character's platform-fighter facet: what it is on a Smash stage where
         // that differs from its moves here. The robot's is its damage in percent.
         (path: "data/fighters/player_robot_v3.ron", schema: "smash_fighter", version: 1),

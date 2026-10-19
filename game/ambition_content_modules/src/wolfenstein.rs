@@ -53,48 +53,86 @@ use bevy_math::Vec2;
 /// The behaviour id of the boss it conducts.
 pub const WOLFENSTEIN_ID: &str = "wolfenstein_boss";
 
-/// World units per frame pixel: his body box is 165 frame pixels tall and
-/// 100 units in the world.
-pub const PX: f32 = 100.0 / 165.0;
+/// His body box in the art: 165 frame pixels tall.
+const BODY_PX: f32 = 165.0;
+/// The height of the body his lengths were authored for, in world units.
+const AUTHORED_HEIGHT: f32 = 100.0;
 /// The middle of his body box (129, 75, 45 x 165 frame pixels): his
 /// position.
 const BODY_CENTRE: Vec2 = Vec2::new(151.5, 157.5);
 
-/// A sheet point (pixels, art facing right) as an offset from his position,
-/// unflipped.
-fn art(x: f32, y: f32) -> Vec2 {
-    (Vec2::new(x, y) - BODY_CENTRE) * PX
+/// His body as big as it is in the world. Every volume is measured on his
+/// art, and the box he is built with ([`BossConduct::size`]) says how many
+/// world units one frame pixel is. Every reach, step and speed authored for
+/// a 100-unit body grows with him, so a bigger build and the serum's growth
+/// change no number here.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Body {
+    /// World units per frame pixel.
+    px: f32,
 }
 
-/// A sheet box (pixels: left, top, right, bottom) as `(centre, half)` from his
-/// position, unflipped.
-fn art_box(x0: f32, y0: f32, x1: f32, y1: f32) -> (Vec2, Vec2) {
-    let (a, b) = (art(x0, y0), art(x1, y1));
-    ((a + b) * 0.5, (b - a) * 0.5)
+impl Body {
+    /// The body his lengths were authored for: 100 units tall.
+    pub const AUTHORED: Body = Body { px: AUTHORED_HEIGHT / BODY_PX };
+
+    /// The body whose box is `height` world units tall.
+    pub fn of_height(height: f32) -> Self {
+        Self { px: height.max(1.0) / BODY_PX }
+    }
+
+    /// How many times the authored body he is.
+    pub fn grown(self) -> f32 {
+        self.px / Self::AUTHORED.px
+    }
+
+    /// A length authored for the 100-unit body, at this one.
+    fn len(self, authored: f32) -> f32 {
+        authored * self.grown()
+    }
+
+    /// A sheet point (pixels, art facing right) as an offset from his
+    /// position, unflipped.
+    fn art(self, x: f32, y: f32) -> Vec2 {
+        (Vec2::new(x, y) - BODY_CENTRE) * self.px
+    }
+
+    /// A sheet box (pixels: left, top, right, bottom) as `(centre, half)`
+    /// from his position, unflipped.
+    fn art_box(self, x0: f32, y0: f32, x1: f32, y1: f32) -> (Vec2, Vec2) {
+        let (a, b) = (self.art(x0, y0), self.art(x1, y1));
+        ((a + b) * 0.5, (b - a) * 0.5)
+    }
+
+    /// His soles (pixel 240): standing, his position is this far above the
+    /// floor.
+    pub fn feet_below(self) -> f32 {
+        self.art(0.0, 240.0).y
+    }
+
+    /// How far his body reaches ahead of and behind his position.
+    fn body_half(self) -> f32 {
+        self.art(172.0, 0.0).x
+    }
+
+    /// The bolts in his neck, standing.
+    fn bolts(self) -> Vec2 {
+        self.art(156.0, 112.0)
+    }
+
+    /// His body. It hurts to touch only while a move is live.
+    pub fn trunk(self) -> (Vec2, Vec2) {
+        self.art_box(129.0, 75.0, 174.0, 240.0)
+    }
 }
 
-/// His soles (pixel 240): standing, his position is this far above the floor.
-pub fn feet_below() -> f32 {
-    art(0.0, 240.0).y
-}
-/// How far his body reaches ahead of and behind his position.
-fn body_half() -> f32 {
-    art(172.0, 0.0).x
-}
-/// The bolts in his neck, standing.
-fn bolts() -> Vec2 {
-    art(156.0, 112.0)
-}
 /// The far bolt, behind his neck from the near one: the gap the current
-/// jumps.
+/// jumps (authored body).
 const FAR_BOLT: Vec2 = Vec2::new(-15.0, 3.0);
-/// The ellipse of his aura round his body box, about its middle.
+/// The ellipse of his aura round his body box, about its middle (authored
+/// body).
 const AURA_HALF: Vec2 = Vec2::new(34.0, 56.0);
 
-/// His body. It hurts to touch only while a move is live.
-pub fn trunk() -> (Vec2, Vec2) {
-    art_box(129.0, 75.0, 174.0, 240.0)
-}
 const TRUNK_DAMAGE: i32 = 1;
 const TRUNK_KNOCKBACK: f32 = 1.2;
 const TRUNK_REARM: f32 = 0.6;
@@ -108,13 +146,17 @@ const STANDOFF: f32 = 46.0;
 
 /// The rake: where his claw tips go across in front of him (`rake_a`
 /// frames 1-3, `rake_b` 1-3), from his shoulder to a standing player's knees.
-pub fn rake_box() -> (Vec2, Vec2) {
-    art_box(165.0, 95.0, 262.0, 225.0)
+impl Body {
+    pub fn rake_box(self) -> (Vec2, Vec2) {
+        self.art_box(165.0, 95.0, 262.0, 225.0)
+    }
 }
 /// The high last blow of three (`rake_c` frames 4-6): both claws down in
 /// front of him from over his head.
-pub fn overhead_box() -> (Vec2, Vec2) {
-    art_box(160.0, 100.0, 298.0, 235.0)
+impl Body {
+    pub fn overhead_box(self) -> (Vec2, Vec2) {
+        self.art_box(160.0, 100.0, 298.0, 235.0)
+    }
 }
 const RAKE_DAMAGE: i32 = 1;
 const RAKE_KNOCKBACK: f32 = 1.2;
@@ -127,12 +169,16 @@ const RAKE_STEP: f32 = 22.0;
 
 /// The hammer: both fists into the floor in front of him (`hammer_slam`
 /// frames 1-3).
-pub fn fists_box() -> (Vec2, Vec2) {
-    art_box(190.0, 190.0, 252.0, 242.0)
+impl Body {
+    pub fn fists_box(self) -> (Vec2, Vec2) {
+        self.art_box(190.0, 190.0, 252.0, 242.0)
+    }
 }
 /// Where the fists meet the floor: the shocks start here.
-fn fists_x() -> f32 {
-    art(232.0, 0.0).x
+impl Body {
+    fn fists_x(self) -> f32 {
+        self.art(232.0, 0.0).x
+    }
 }
 const HAMMER_DAMAGE: i32 = 2;
 const HAMMER_KNOCKBACK: f32 = 1.6;
@@ -148,8 +194,10 @@ const STUCK_S: f32 = 0.7;
 const PULL_S: f32 = 0.25;
 
 /// The lunge: his whole body long and low, claws and jaws first (`lunge`).
-pub fn lunge_box() -> (Vec2, Vec2) {
-    art_box(150.0, 92.0, 305.0, 228.0)
+impl Body {
+    pub fn lunge_box(self) -> (Vec2, Vec2) {
+        self.art_box(150.0, 92.0, 305.0, 228.0)
+    }
 }
 const LUNGE_DAMAGE: i32 = 2;
 const LUNGE_KNOCKBACK: f32 = 1.5;
@@ -171,8 +219,10 @@ const BOUND_OFF_WALL: f32 = 0.5;
 const WINDED_S: f32 = 1.6;
 
 /// The howl: a ring round him that pushes you off.
-pub fn howl_box() -> (Vec2, Vec2) {
-    art_box(20.0, 55.0, 283.0, 242.0)
+impl Body {
+    pub fn howl_box(self) -> (Vec2, Vec2) {
+        self.art_box(20.0, 55.0, 283.0, 242.0)
+    }
 }
 const HOWL_DAMAGE: i32 = 1;
 const HOWL_KNOCKBACK: f32 = 2.2;
@@ -534,18 +584,18 @@ fn bolt(inv: &mut Invocation<'_>, key: &str, from: Spot, to: Spot, look: &str, h
 }
 
 /// The current jumping between his neck bolts, for `hold` seconds.
-fn neck_arc(inv: &mut Invocation<'_>, side: f32, hold: f32) -> Result<(), Fault> {
-    let near = Vec2::new(bolts().x * side, bolts().y);
-    let far = near + Vec2::new(FAR_BOLT.x * side, FAR_BOLT.y);
+fn neck_arc(inv: &mut Invocation<'_>, b: Body, side: f32, hold: f32) -> Result<(), Fault> {
+    let near = Vec2::new(b.bolts().x * side, b.bolts().y);
+    let far = near + Vec2::new(FAR_BOLT.x * side, FAR_BOLT.y) * b.grown();
     bolt(inv, "neck", Spot::Body(near.into()), Spot::Body(far.into()), "spark_gap", hold)
 }
 
 /// Lightning crawling over his whole body, for `hold` seconds.
-fn aura(inv: &mut Invocation<'_>, scale: f32, hold: f32) -> Result<(), Fault> {
+fn aura(inv: &mut Invocation<'_>, b: Body, scale: f32, hold: f32) -> Result<(), Fault> {
     inv.submit::<LightningAuraPort>(LightningAura {
         key: "aura".into(),
         center: [0.0, 0.0],
-        half: (AURA_HALF * scale).into(),
+        half: (AURA_HALF * b.grown() * scale).into(),
         look: "aura".into(),
         glow: None,
         hold_s: hold,
@@ -556,6 +606,8 @@ const HOLD_S: f32 = 0.06;
 
 fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let wolf: BossConduct = inv.trigger::<BossConductPort>()?.clone();
+    // His body, as big as he is built now.
+    let b = Body::of_height(wolf.size[1]);
     let dt = inv.dt();
     let mut c = Conductor::load(inv)?;
     if !c.hall_known {
@@ -573,12 +625,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     c.clock += dt;
     c.ticks = c.ticks.wrapping_add(1);
     let at = Vec2::from(wolf.position);
-    let stand_y = hall.floor - feet_below();
+    let stand_y = hall.floor - b.feet_below();
     let target = wolf.target.map_or(Vec2::new((hall.left + hall.right) * 0.5, hall.floor - 24.0), Vec2::from);
     // Where he can stand: his body inside the room.
-    let clamp_x = |x: f32| x.clamp(hall.left + body_half() + WALL_GAP, hall.right - body_half() - WALL_GAP);
+    let clamp_x = |x: f32| x.clamp(hall.left + b.body_half() + WALL_GAP, hall.right - b.body_half() - WALL_GAP);
     let face = |x: f32| if target.x < x { -1.0 } else { 1.0 };
-    let neck = |pos: Vec2, side: f32| pos + Vec2::new(bolts().x * side, bolts().y);
+    let neck = |pos: Vec2, side: f32| pos + Vec2::new(b.bolts().x * side, b.bolts().y);
 
     // ── Dead: he settles on the floor and is drawn by the engine ──
     if !wolf.alive {
@@ -643,9 +695,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                         Move::Bound => {
                             // The wall behind you, and back the other way.
                             c.wall_x = if side > 0.0 {
-                                hall.right - body_half() - WALL_GAP
+                                hall.right - b.body_half() - WALL_GAP
                             } else {
-                                hall.left + body_half() + WALL_GAP
+                                hall.left + b.body_half() + WALL_GAP
                             };
                             c.bound_back_x = clamp_x(c.wall_x - side * BOUND_BACK);
                             c.bound_from_y = at.y;
@@ -702,10 +754,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         if t < REAR_SHAKE_S {
             // The bolt holds in his neck while he shakes in it.
             // Both ends ride him, so it stays upright as he staggers.
-            let near = Vec2::new(bolts().x * side, bolts().y);
+            let near = Vec2::new(b.bolts().x * side, b.bolts().y);
             let sky = Vec2::new(near.x, ceiling - at.y);
             bolt(inv, "rearing", Spot::Body(sky.into()), Spot::Body(near.into()), "strike", HOLD_S)?;
-            aura(inv, 1.1, HOLD_S)?;
+            aura(inv, b, 1.1, HOLD_S)?;
         }
         if t >= REAR_SHAKE_S && t - dt < REAR_SHAKE_S {
             play(inv, SFX_HOWL, neck(at, side))?;
@@ -723,7 +775,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         Some(Part { mv: Move::Rake | Move::RakeThrice, striking: true, t, .. }) => {
             let blow = BLOW_AT.iter().take(part.map_or(2, |p| p.mv.blows())).filter(|at| t >= **at).count().max(1);
             let into = t - BLOW_AT[blow - 1];
-            let x = c.step_from + side * RAKE_STEP * ((blow - 1) as f32 + ease(into / BLOW_S));
+            let x = c.step_from + side * b.len(RAKE_STEP) * ((blow - 1) as f32 + ease(into / BLOW_S));
             Vec2::new(clamp_x(x), stand_y)
         }
         Some(Part { mv: Move::Lunge, striking: true, t, dur }) => {
@@ -735,33 +787,33 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 // Up into the wall behind you: an arc through where you are.
                 let k = u / BOUND_ON_WALL;
                 let x = c.step_from + (c.wall_x - c.step_from) * ease_out(k);
-                let y = c.bound_from_y + (stand_y - BOUND_HIGH - c.bound_from_y) * (k * (2.0 - k));
+                let y = c.bound_from_y + (stand_y - b.len(BOUND_HIGH) - c.bound_from_y) * (k * (2.0 - k));
                 Vec2::new(x, y)
             } else if u < BOUND_OFF_WALL {
                 // On the wall, turned to come back.
                 side = if c.wall_x > c.bound_back_x { -1.0 } else { 1.0 };
-                Vec2::new(c.wall_x, stand_y - BOUND_HIGH)
+                Vec2::new(c.wall_x, stand_y - b.len(BOUND_HIGH))
             } else {
                 side = if c.wall_x > c.bound_back_x { -1.0 } else { 1.0 };
                 let k = (u - BOUND_OFF_WALL) / (1.0 - BOUND_OFF_WALL);
                 let x = c.wall_x + (c.bound_back_x - c.wall_x) * ease_out(k);
-                Vec2::new(x, stand_y - BOUND_HIGH * (1.0 - k * k))
+                Vec2::new(x, stand_y - b.len(BOUND_HIGH) * (1.0 - k * k))
             }
         }
         // Telling and the other strikes, he holds his ground.
         Some(_) => Vec2::new(at.x, stand_y),
         None if c.skid.is_some() => {
             let t = c.skid.unwrap_or(0.0);
-            let x = clamp_x(c.lunge_to + side * SKID * ease_out(t / SKID_S));
+            let x = clamp_x(c.lunge_to + side * b.len(SKID) * ease_out(t / SKID_S));
             Vec2::new(x, stand_y)
         }
         None if c.holding_still() || !c.woke => Vec2::new(at.x, stand_y),
         None => {
             // Between moves he turns to you and lurches into raking range.
             side = face(at.x);
-            let goal = clamp_x(target.x - side * STANDOFF);
+            let goal = clamp_x(target.x - side * b.len(STANDOFF));
             let to = goal - at.x;
-            let speed = if c.unleashed { WALK_SPEED_UNLEASHED } else { WALK_SPEED };
+            let speed = b.len(if c.unleashed { WALK_SPEED_UNLEASHED } else { WALK_SPEED });
             let stride = speed * dt;
             if to.abs() > stride {
                 walking = true;
@@ -792,18 +844,18 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 while (c.blows_struck as usize) < blows && part.t >= BLOW_AT[c.blows_struck as usize] {
                     let last_high = part.mv == Move::RakeThrice && c.blows_struck as usize == blows - 1;
                     let (volume, damage, knockback) = if last_high {
-                        (overhead_box(), OVERHEAD_DAMAGE, OVERHEAD_KNOCKBACK)
+                        (b.overhead_box(), OVERHEAD_DAMAGE, OVERHEAD_KNOCKBACK)
                     } else {
-                        (rake_box(), RAKE_DAMAGE, RAKE_KNOCKBACK)
+                        (b.rake_box(), RAKE_DAMAGE, RAKE_KNOCKBACK)
                     };
                     riding(inv, volume, side, damage, knockback, BLOW_S * 0.6, "wolf_rake")?;
-                    play(inv, SFX_RAKE, pos + Vec2::new(side * body_half() * 2.0, 0.0))?;
+                    play(inv, SFX_RAKE, pos + Vec2::new(side * b.body_half() * 2.0, 0.0))?;
                     c.blows_struck += 1;
                 }
             }
             Move::Hammer if onset => {
-                riding(inv, fists_box(), side, HAMMER_DAMAGE, HAMMER_KNOCKBACK, 0.15, "wolf_hammer")?;
-                let fists = Vec2::new(pos.x + side * fists_x(), hall.floor - 4.0);
+                riding(inv, b.fists_box(), side, HAMMER_DAMAGE, HAMMER_KNOCKBACK, 0.15, "wolf_hammer")?;
+                let fists = Vec2::new(pos.x + side * b.fists_x(), hall.floor - 4.0);
                 c.shock_generation = c.shock_generation.wrapping_add(1);
                 c.shock_left = Some(fists.x);
                 c.shock_right = Some(fists.x);
@@ -817,7 +869,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 play(inv, SFX_LUNGE, pos)?;
             }
             Move::Howl if onset => {
-                riding(inv, howl_box(), side, HOWL_DAMAGE, HOWL_KNOCKBACK, 0.3, "wolf_howl")?;
+                riding(inv, b.howl_box(), side, HOWL_DAMAGE, HOWL_KNOCKBACK, 0.3, "wolf_howl")?;
                 play(inv, SFX_HOWL, neck(pos, side))?;
                 shake(inv, SHAKE_HOWL)?;
                 burst(inv, neck(pos, side), 28, 340.0, RING, "spark")?;
@@ -862,11 +914,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             _ => false,
         };
         if flying && c.ticks % 4 == 0 {
-            riding(inv, lunge_box(), side, LUNGE_DAMAGE, LUNGE_KNOCKBACK, 0.1, "wolf_lunge")?;
+            riding(inv, b.lunge_box(), side, LUNGE_DAMAGE, LUNGE_KNOCKBACK, 0.1, "wolf_lunge")?;
             burst(inv, Vec2::new(pos.x, hall.floor - 6.0), 3, 120.0, DUST, "dust")?;
         }
         if part.mv == Move::Lunge && part.t >= part.dur * 0.2 && part.t - dt < part.dur * 0.2 {
-            play(inv, SFX_BITE, pos + Vec2::new(side * body_half() * 3.0, 0.0))?;
+            play(inv, SFX_BITE, pos + Vec2::new(side * b.body_half() * 3.0, 0.0))?;
         }
     }
     // ── The galvanize: the sparks on its marks, then the lightning ──
@@ -874,16 +926,16 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         if !striking && c.ticks % 3 == 0 {
             for (i, x) in c.marks().into_iter().enumerate() {
                 let across = ((c.ticks / 3 + i as u32 * 5) % 5) as f32 / 4.0 * 2.0 - 1.0;
-                burst(inv, Vec2::new(x + across * BOLT_WIDTH * 0.5, hall.floor - 3.0), 3, 90.0, ARC, "spark")?;
+                burst(inv, Vec2::new(x + across * b.len(BOLT_WIDTH) * 0.5, hall.floor - 3.0), 3, 90.0, ARC, "spark")?;
             }
             // And on his bolts, as the charge builds.
             burst(inv, neck(pos, side), 2, 120.0, ARC, "spark")?;
         }
         if !striking {
             // The charge builds in his neck, then all over him.
-            neck_arc(inv, side, HOLD_S)?;
+            neck_arc(inv, b, side, HOLD_S)?;
             if t > 0.35 {
-                aura(inv, 0.85 + 0.3 * (t / 1.2).min(1.0), HOLD_S)?;
+                aura(inv, b, 0.85 + 0.3 * (t / 1.2).min(1.0), HOLD_S)?;
             }
         }
         if striking && t < BOLT_S {
@@ -895,7 +947,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     from: Spot::World([x, ceiling + 2.0]),
                     toward: [0.0, 1.0],
                     reach: CEILING + 8.0,
-                    width: BOLT_WIDTH,
+                    width: b.len(BOLT_WIDTH),
                     damage: BOLT_DAMAGE,
                     knockback: BOLT_KNOCKBACK,
                     lifetime_s: BOLT_S,
@@ -919,7 +971,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
         let dir = Vec2::new(c.lash_dx, c.lash_dy);
         if !striking {
-            neck_arc(inv, side, HOLD_S)?;
+            neck_arc(inv, b, side, HOLD_S)?;
         }
         if !striking && t > dur * 0.35 && c.ticks % 3 == 0 {
             // The line he will throw it down, marked in sparks.
@@ -940,10 +992,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 inv.submit::<HeldRayPort>(HeldRay {
                     slot: 5,
                     generation: c.lash_generation,
-                    from: Spot::Body(Vec2::new(bolts().x * side, bolts().y).into()),
+                    from: Spot::Body(Vec2::new(b.bolts().x * side, b.bolts().y).into()),
                     toward: dir.into(),
                     reach: LASH_REACH,
-                    width: LASH_WIDTH,
+                    width: b.len(LASH_WIDTH),
                     damage: LASH_DAMAGE,
                     knockback: LASH_KNOCKBACK,
                     lifetime_s: BOLT_S,
@@ -959,7 +1011,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             continue;
         };
         *x += dir * SHOCK_SPEED * dt;
-        if *x < hall.left + SHOCK_HALF.x || *x > hall.right - SHOCK_HALF.x {
+        if *x < hall.left + b.len(SHOCK_HALF.x) || *x > hall.right - b.len(SHOCK_HALF.x) {
             *wave = None;
             continue;
         }
@@ -973,8 +1025,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         inv.submit::<HeldDamageBoxPort>(HeldDamageBox {
             slot,
             generation: c.shock_generation,
-            center: [x, hall.floor - SHOCK_HALF.y],
-            half_extent: SHOCK_HALF.into(),
+            center: [x, hall.floor - b.len(SHOCK_HALF.y)],
+            half_extent: (SHOCK_HALF * b.grown()).into(),
             damage: SHOCK_DAMAGE,
             knockback: SHOCK_KNOCKBACK,
             lifetime_s: SHOCK_LIFETIME_S,
@@ -998,28 +1050,28 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let sputter = (*t / 0.45).floor() != ((*t - dt) / 0.45).floor();
         if sputter {
             burst(inv, neck(pos, side), 4, 90.0, SPARK, "spark")?;
-            neck_arc(inv, side, 0.08)?;
+            neck_arc(inv, b, side, 0.08)?;
         }
     }
     if !c.woke && c.ticks % 5 == 0 {
         // Dead where he stands: the charge creeps into his bolts.
         burst(inv, neck(pos, side), 2, 80.0, ARC, "spark")?;
         if c.ticks % 40 == 0 {
-            neck_arc(inv, side, 0.1)?;
+            neck_arc(inv, b, side, 0.1)?;
         }
     }
     let charging = matches!(part, Some(Part { mv: Move::Galvanize, striking: false, .. }));
     if c.unleashed && !charging && c.rearing.is_none() {
         // Unleashed, the current never leaves him (a charge or the
         // transition asks for its own).
-        aura(inv, 1.0, HOLD_S)?;
+        aura(inv, b, 1.0, HOLD_S)?;
     }
 
     // ── His body hurts to touch while a move is live ──
     c.trunk_rearm -= dt;
     if part.is_some() && c.trunk_rearm <= 0.0 {
         c.trunk_rearm = TRUNK_REARM;
-        riding(inv, trunk(), side, TRUNK_DAMAGE, TRUNK_KNOCKBACK, TRUNK_REARM, "wolf_trunk")?;
+        riding(inv, b.trunk(), side, TRUNK_DAMAGE, TRUNK_KNOCKBACK, TRUNK_REARM, "wolf_trunk")?;
     }
 
     // ── Where he is, and what he is drawn as ──
@@ -1156,7 +1208,7 @@ mod tests {
 
     /// A standing robot: 48 units tall, its soles on the floor.
     fn robot_at(x: f32) -> (Vec2, Vec2) {
-        (Vec2::new(x, feet_below() - 24.0), Vec2::new(14.0, 24.0))
+        (Vec2::new(x, Body::AUTHORED.feet_below() - 24.0), Vec2::new(14.0, 24.0))
     }
 
     fn overlaps((a, ah): (Vec2, Vec2), (b, bh): (Vec2, Vec2)) -> bool {
@@ -1166,7 +1218,7 @@ mod tests {
     /// He stands on the floor: his soles, not his frame, meet it.
     #[test]
     fn his_feet_are_where_his_art_draws_them() {
-        assert!((feet_below() - 50.0).abs() < 0.5, "his 100-unit body box has his soles at its bottom");
+        assert!((Body::AUTHORED.feet_below() - 50.0).abs() < 0.5, "his 100-unit body box has his soles at its bottom");
     }
 
     /// Each blow of the rake and the hammer reaches a standing robot where he
@@ -1174,16 +1226,16 @@ mod tests {
     #[test]
     fn his_blows_reach_a_robot_at_his_standoff() {
         let robot = robot_at(STANDOFF);
-        assert!(overlaps(rake_box(), robot), "the rake");
-        assert!(overlaps(overhead_box(), robot), "the high blow");
-        assert!(overlaps(fists_box(), robot), "the hammer");
-        assert!(overlaps(lunge_box(), robot), "the lunge");
+        assert!(overlaps(Body::AUTHORED.rake_box(), robot), "the rake");
+        assert!(overlaps(Body::AUTHORED.overhead_box(), robot), "the high blow");
+        assert!(overlaps(Body::AUTHORED.fists_box(), robot), "the hammer");
+        assert!(overlaps(Body::AUTHORED.lunge_box(), robot), "the lunge");
     }
 
     /// The howl is the answer to a robot that stands in him or behind him.
     #[test]
     fn the_howl_reaches_both_sides_of_him() {
-        assert!(overlaps(howl_box(), robot_at(0.0)));
-        assert!(overlaps(howl_box(), robot_at(-STANDOFF)));
+        assert!(overlaps(Body::AUTHORED.howl_box(), robot_at(0.0)));
+        assert!(overlaps(Body::AUTHORED.howl_box(), robot_at(-STANDOFF)));
     }
 }

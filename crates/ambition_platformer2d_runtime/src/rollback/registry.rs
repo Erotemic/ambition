@@ -74,7 +74,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 361 -> 362: `boss.death_animation` (`BossDeathAnimation`) is
 /// `body.death_beat` (`DeathBeat`), on every body that can die: the death
 /// row's length, the time since the body died, and what its corpse does.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 362;
+/// 362 -> 363: `boss.encounter`'s cursor encodes the boss's `scale` (one
+/// `f32`): a conductor may grow its boss (`ambition.boss.scale`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 363;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

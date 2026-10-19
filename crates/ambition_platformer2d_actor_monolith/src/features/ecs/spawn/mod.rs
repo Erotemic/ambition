@@ -1371,6 +1371,9 @@ pub fn serve_encounter_spawn_commands(
     // them (`GenerationMechanics::sheets`). `None`: no session runs, see
     // `SessionMechanics`.
     generation: Option<bevy::prelude::Res<crate::session::mechanics::SessionMechanics>>,
+    // The room each mob is built in: it starts on the ground there, as a
+    // placed enemy does. `None`: a composition with no rooms.
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
 ) {
     let (Some(generation), Some(session_scope)) = (generation, commands.spawn_scope()) else {
         return;
@@ -1396,6 +1399,18 @@ pub fn serve_encounter_spawn_commands(
         else {
             continue;
         };
+        let spec = rooms
+            .as_ref()
+            .and_then(|rooms| msg.room.and_then(|room| rooms.definition_in(room)).map(|d| rooms.rooms().spec(d)));
+        let pos = ambition_platformer2d_core::Vec2::new(pos[0], pos[1]);
+        let size = ambition_platformer2d_core::Vec2::new(size[0], size[1]);
+        let flies = character
+            .as_deref()
+            .and_then(|character| prepared.get(character))
+            .and_then(|character| character.locomotion.as_ref())
+            .and_then(|locomotion| locomotion.baseline_free_flight)
+            .unwrap_or(false);
+        let pos = spec.map_or(pos, |spec| wave_mob_start(spec, &msg.encounter, id, pos, size, flies));
         spawn_encounter_mob(
             &mut commands,
             &catalog,
@@ -1410,11 +1425,46 @@ pub fn serve_encounter_spawn_commands(
                 id: id.clone(),
                 character: character.as_deref(),
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(kind.clone()),
-                pos: ambition_platformer2d_core::Vec2::new(pos[0], pos[1]),
-                size: ambition_platformer2d_core::Vec2::new(size[0], size[1]),
+                pos,
+                size,
             },
         );
     }
+}
+
+/// Where a wave mob starts in `room`: on the ground under its authored box,
+/// as a placed enemy does (`RoomSpec::settled_on_ground`), unless it flies.
+///
+/// ⛔ A box the room cannot settle and that is inside solid ground is an
+/// authoring error: the body would start in the floor. It is built where it
+/// was authored and reported loudly, so it is found and fixed (Jon,
+/// 2026-10-18: "if an enemy spawns in the floor we should flag that"). The
+/// content check `wave_spawns_start_clear_of_solid_ground` catches it before
+/// it ships.
+fn wave_mob_start(
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
+    encounter: &str,
+    id: &str,
+    pos: ambition_platformer2d_core::Vec2,
+    size: ambition_platformer2d_core::Vec2,
+    flies: bool,
+) -> ambition_platformer2d_core::Vec2 {
+    use ambition_platformer2d_core::AabbExt;
+    let body = ambition_platformer2d_core::Aabb::new(pos, size * 0.5);
+    if !flies {
+        if let Some(settled) = room.settled_on_ground(body) {
+            return settled.center();
+        }
+    }
+    let inside = room.embeds(body);
+    if !inside.is_empty() {
+        bevy::log::error!(
+            "SPAWNED IN THE FLOOR: wave mob {id} of encounter `{encounter}` in room `{}` starts at {pos:?} \
+             (box {size:?}) inside solid ground {inside:?}; move its spawn in the encounter's waves",
+            room.id
+        );
+    }
+    pos
 }
 
 // ⭐ THE SPAWN SERVICE PLUGIN AND ITS GUARD MOVED TO THE RUNTIME (2026-09-03).

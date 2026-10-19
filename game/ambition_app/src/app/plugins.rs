@@ -585,6 +585,7 @@ fn install_fx_and_hud_systems(app: &mut App) {
         (
             update_hud,
             ambition_platformer2d::render::rendering::sync_boss_health_bar_overlay,
+            ambition_platformer2d::render::rendering::boss_stage::show_boss_name_card,
             // It is now CHAINED after the input in one plugin, which those two never were here.
             ambition_platformer2d::render::cutscene::sync_cutscene_ui,
             // Keeps the overlay in the reading rect as the layout moves; the

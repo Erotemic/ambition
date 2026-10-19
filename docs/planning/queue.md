@@ -1202,15 +1202,37 @@ fixture did not register `PortalBodyTransited` and `GroundItemsView`, which
 the plugin reads); repaired in 672a83406. Both libs with `portal_render`
 take seconds: run them before a push that touches portals.
 
-**The PCA no longer lands a hit, 2026-10-18 (RED, inherited from
-3e2c649c7):** `a_hit_that_lands_on_the_player_freezes_the_match` fails: the
-player takes only `Contact` resolutions (which arm no freeze, by design).
-Measured: the `cellular_automaton_fighter` PCA, with its Mewtwo-shaped body,
-stands 46 to 48 px from a standing player and swings `generation_wipe` and
-`corruption_seed`, whose boxes are centred on him (half width 13 to 14.5), so
-they reach about 28 px and never meet the player. Not caused by the initial
-dash change (the test is red without it). Next: why the brain stops at 48 px
-for a move that reaches 28.
+**The PCA no longer lands a hit, 2026-10-18 (repaired):**
+`a_hit_that_lands_on_the_player_freezes_the_match` failed after 3e2c649c7: the
+player took only `Contact` resolutions (which arm no freeze, by design).
+Bisected inside the commit: each code group reverted alone left it red; its
+content data reverted made it green. The cause was the PCA's new
+`pca_life_cannon` muzzle, `Offset(x: 0.3, y: -0.5)`, the crown of a 68 px body.
+Its brain (`cellular_duelist`, the Smash template) fires along the body's
+side axis (`maybe_substitute_ranged`: `(±1, 0)`, then its accuracy jitter),
+so every shot (probe: 597 shot-frames over 900 ticks) flew level at the
+crown, 34 px above the body centre, and passed 20 px over a standing 48 px
+player. Before, the Rock left the body origin and hit. Now the muzzle is at
+the chest (`y: -0.15`, Shadow Ball's hands): green, data only.
+Still open, both found by this bisect:
+- ✅ 2026-10-18: a brain that aims AT A POINT aimed from the body centre,
+  and its shot left the muzzle, so an offset muzzle missed by the offset.
+  Shipped case: the Projectile Polygon (`skirmisher_ranger`, muzzle
+  `Offset(0.22, -0.34)` on a 67 px body) shot 22.8 px above its aim line,
+  at the top edge of a standing 48 px player (computed, not played). `ActorFireRequest` now
+  carries the point (`at`, `world_point`); the skirmisher and the sniper
+  state it; `ActionRequest::Ranged` and `MovePlayback::aim` hold the whole
+  request (their copies of `dir` and `dir_policy` are deleted); the spawn
+  aims from the muzzle's pivot at the point, and the aim assist measures
+  from that pivot, not from `kin.pos`. Witness
+  `a_shot_aimed_at_a_point_leaves_its_muzzle_toward_that_point` (control: the
+  direction alone passes 23.6 px off; red at 23.6 px with the point
+  ignored). Not done: the volley locks a direction at its telegraph, not a
+  point, and the Smash template fires level.
+- The PCA brain stops 46 to 48 px from the player and swings
+  `generation_wipe` and `corruption_seed`, whose boxes reach about 28 px, so
+  its melee never connects there. Why the brain stops at 48 px is not
+  measured.
 
 **Sanic's visible job, 2026-10-17 (RED, inherited):** `cargo test -p
 ambition_demo_sanic_app --features capture,input,perf_probe,visible`: 59

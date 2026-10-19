@@ -262,9 +262,16 @@ serum and becomes even bigger ... a better death sequence":**
   art through `Body` (world units per frame pixel from his built box), so
   every reach, step and speed grows with him.
 - 110 HP; phase 2 at 66%, phase 3 (the encounter's enrage) at 33%.
-- Intro (4.6 s): dead on his throne (`throne_dead`), the coils arc, then
-  strike his bolts twice; he stands (`throne_wake`) and roars. The banner
-  names him and his title (`title` on the profile).
+- Intro (8.28 s, the length of his cue's `awaken`; Jon: "an awesome intro
+  into this fight"). The throne and coils stand by the door. He sleeps in the
+  dark (`wake_radius` 380: an encounter sleeps until a player comes near),
+  eyes faintly lit, a coil crackling, to `oppressive_crush`. Then: dark; the
+  coils flash and show him on the throne; dark; more lightning; dark; the
+  lights flicker on, the coils strike his bolts, he rises (`throne_wake`);
+  the lightning finds him and he roars under his name card; he leaps back
+  from you (`jump`, `fall`, `land_hard`). The dark, the flashes and the card
+  are an engine capability, `ambition.boss.stage` (`rendering::boss_stage`).
+  The first time, a cutscene (`boss_intro_wolfenstein_boss`) holds input.
 - Phase 3, the serum: `serum_tell`, `serum_inject`, `serum_surge`; his guard
   is up for the beat, and the surge grows him to 1.3x
   (`ambition.boss.scale`, an engine capability: body box, quad and hurt

@@ -902,6 +902,11 @@ pub fn rebuild_actor_render_index(
 pub struct BossRenderView {
     pub name: String,
     pub behavior_id: String,
+    /// The epithet its name card shows under its name.
+    pub title: Option<String>,
+    /// What its conductor stages around it (`ambition.boss.stage`). It
+    /// changes as the boss lives, unlike the rest of this row.
+    pub stage: ambition_boss_encounter::BossStage,
 }
 
 #[derive(Resource, Default, Clone, Debug)]
@@ -954,47 +959,55 @@ impl BossRenderIndex {
         self.views.retain(|_, (_, g)| *g == gen);
     }
 
-    fn upsert(&mut self, id: &str, name: &str, behavior_id: &str) {
+    fn touch(&mut self, id: &str) {
         let gen = self.generation;
         if let Some(slot) = self.views.get_mut(id) {
-            if slot.0.name == name && slot.0.behavior_id == behavior_id {
-                slot.1 = gen;
-                return;
+            slot.1 = gen;
+        }
+    }
+
+    fn upsert(&mut self, id: &str, view: BossRenderView) {
+        let gen = self.generation;
+        if let Some(slot) = self.views.get_mut(id) {
+            if slot.0 != view {
+                slot.0 = view;
             }
-            slot.0 = BossRenderView {
-                name: name.to_string(),
-                behavior_id: behavior_id.to_string(),
-            };
             slot.1 = gen;
             return;
         }
-        self.views.insert(
-            id.to_string(),
-            (
-                BossRenderView {
-                    name: name.to_string(),
-                    behavior_id: behavior_id.to_string(),
-                },
-                gen,
-            ),
-        );
+        self.views.insert(id.to_string(), (view, gen));
     }
 }
 
 /// Rebuild [`BossRenderIndex`] from the live boss clusters. Runs in the sim's
-/// `FeatureViewSync` set beside the other read-model rebuilds; boss identity is
-/// static, so the cost is a per-boss `&str` compare with no allocation once
-/// materialized.
+/// `FeatureViewSync` set beside the other read-model rebuilds; a row that has not
+/// changed costs a compare and no allocation.
 pub fn rebuild_boss_render_index(
     mut index: ResMut<BossRenderIndex>,
     bosses: Query<(&FeatureId, ambition_boss_encounter::BossClusterRef)>,
 ) {
     index.begin_rebuild();
     for (id, boss) in &bosses {
+        let fresh = |view: &BossRenderView| {
+            view.name == boss.config.name
+                && view.behavior_id == boss.config.behavior.id
+                && view.title == boss.config.behavior.title
+                && view.stage == boss.status.stage
+        };
+        // Compared before it is built, so a row that has not changed
+        // allocates nothing.
+        if index.get(id.as_str()).is_some_and(fresh) {
+            index.touch(id.as_str());
+            continue;
+        }
         index.upsert(
             id.as_str(),
-            boss.config.name.as_str(),
-            boss.config.behavior.id.as_str(),
+            BossRenderView {
+                name: boss.config.name.clone(),
+                behavior_id: boss.config.behavior.id.clone(),
+                title: boss.config.behavior.title.clone(),
+                stage: boss.status.stage,
+            },
         );
     }
     index.end_rebuild();

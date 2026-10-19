@@ -58,6 +58,8 @@ pub use presented_pose::{
     DeclaredPoseWarps, PresentationPhase, PresentedFeaturePoses, PresentedPose, PresentedPosePlugin, PresentedPoseSet,
     PresentedPoseStage,
 };
+/// What a conductor stages around its boss, as [`BossRenderView::stage`] carries it.
+pub use ambition_boss_encounter::BossStage;
 pub use view_index::{
     rebuild_actor_render_index, rebuild_boss_render_index, rebuild_feature_view_index,
     rebuild_nameplate_index, ActorRenderIndex, ActorRenderView, BossRenderIndex, BossRenderView,

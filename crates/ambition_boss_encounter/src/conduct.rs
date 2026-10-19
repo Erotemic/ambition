@@ -137,6 +137,7 @@ pub fn queue_boss_conducts(
                     BodyBox { position: [body.pos.x, body.pos.y], size: [body.size.x, body.size.y], swing: playback.map(swing_of) }
                 }),
                 size: [kin.size.x, kin.size.y],
+                awake: encounter.encounter_phase() != BossEncounterPhase::Dormant,
             },
         );
     }
@@ -664,6 +665,24 @@ pub fn lower_boss_scales(
             Ok(mut boss) => boss.as_boss_mut().rescale(submitted.value.scale, boss_catalog),
             Err(_) => warn!(
                 "extension entry {} asked to scale {:?}, which is not a boss; refused",
+                submitted.entry, submitted.scope
+            ),
+        }
+    }
+}
+
+/// Lower `ambition.boss.stage` into the boss's `BossEncounter::stage`. A
+/// scope that is not a boss is refused.
+pub fn lower_boss_stages(mut outbox: ResMut<ExtensionOutbox>, mut bosses: Query<&mut BossEncounter>) {
+    for submitted in outbox.drain::<ambition_boss_special_port::BossStagePort>(&BOSS_CONDUCT) {
+        match bosses.get_mut(submitted.scope) {
+            Ok(mut status) => {
+                if status.stage != submitted.value {
+                    status.stage = submitted.value;
+                }
+            }
+            Err(_) => warn!(
+                "extension entry {} asked to stage {:?}, which is not a boss; refused",
                 submitted.entry, submitted.scope
             ),
         }

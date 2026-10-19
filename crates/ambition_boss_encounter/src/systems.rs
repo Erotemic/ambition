@@ -95,12 +95,21 @@ pub fn update_boss_encounters(
     // And the tick, which dates a music claim.
     // And the boss catalog, for the reward a room hosts for a boss placed in
     // another room (`RoomMetadata::boss_reward_drop`).
-    (mut since_checkpoint, rooms, drivers, sim_tick, catalog): (
+    // And where the players are, for a boss that sleeps until one comes near
+    // (`BossEncounterSpec::wake_radius`).
+    (mut since_checkpoint, rooms, drivers, sim_tick, catalog, players): (
         ResMut<crate::retraction::BossDefeatsSinceCheckpoint>,
         ambition_platformer2d_world::rooms::LiveRoomSpecs,
         Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
         Option<Res<ambition_time::SimTick>>,
         Option<Res<crate::BossCatalog>>,
+        Query<
+            (Entity, &ae::BodyKinematics),
+            (
+                With<ambition_characters::control::DrivingParticipant>,
+                Without<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
+            ),
+        >,
     ),
     mut bosses: Query<
         (
@@ -226,7 +235,20 @@ pub fn update_boss_encounters(
         let mut phase_events = Vec::new();
         {
             let phase = feature.status.encounter.as_mut().expect("seeded above");
-            if alive && matches!(phase.phase, crate::BossEncounterPhase::Dormant) {
+            // A boss with a wake radius sleeps until a player in its room
+            // comes that near; any other wakes with its room.
+            let near = |radius: f32| {
+                let room = rooms.live().of(boss_entity);
+                players.iter().any(|(player, body)| {
+                    room.is_some()
+                        && rooms.live().of(player) == room
+                        && body.pos.distance(feature.kin.pos) <= radius
+                })
+            };
+            if alive
+                && matches!(phase.phase, crate::BossEncounterPhase::Dormant)
+                && spec.wake_radius.is_none_or(near)
+            {
                 phase_events.extend(phase.wake());
             }
             phase_events.extend(phase.tick(dt, hp_fraction));

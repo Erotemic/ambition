@@ -858,11 +858,12 @@ fn tick_skirmisher(
     // ActionSet supplies the concrete projectile (speed, damage);
     // brain just emits dir.
     if state.cooldown_remaining <= 0.0 {
-        // Speed = 0.0 here is a sentinel; the action_set resolver
-        // pulls speed from the actor's RangedActionSpec when it
-        // builds the projectile spawn.
-        out.fire = Some(crate::actor::control::ActorFireRequest::world_space(
-            aim_dir,
+        // The action_set resolver pulls speed from the actor's
+        // RangedActionSpec when it builds the projectile spawn. The shot is
+        // aimed at the target itself, so the spawn aims from its muzzle.
+        out.fire = Some(crate::actor::control::ActorFireRequest::world_point(
+            snapshot.actor_pos,
+            snapshot.target_pos,
         ));
         state.cooldown_remaining = cfg.fire_cooldown_s;
         state.mode = crate::actor::ai::CharacterAiMode::Attack;
@@ -944,11 +945,11 @@ fn tick_sniper(
     if dist > cfg.aggro_radius {
         return;
     }
-    let dir = to_target.normalize_or_zero();
     out.facing = snapshot.face_toward(to_target_local.x);
     if state.cooldown_remaining <= 0.0 {
-        out.fire = Some(crate::actor::control::ActorFireRequest::world_space(
-            dir,
+        out.fire = Some(crate::actor::control::ActorFireRequest::world_point(
+            snapshot.actor_pos,
+            snapshot.target_pos,
         ));
         state.cooldown_remaining = cfg.fire_cooldown_s;
     }

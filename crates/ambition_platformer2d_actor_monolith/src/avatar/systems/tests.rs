@@ -261,8 +261,7 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
                     speed,
                     ..
                 },
-            dir,
-            dir_policy,
+            fire: ambition_characters::actor::control::ActorFireRequest { dir, dir_policy, .. },
             ..
         } => {
             assert!(speed > 0.0, "Bolt has positive speed");

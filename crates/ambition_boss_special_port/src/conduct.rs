@@ -40,6 +40,9 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   `swing` is the move the tracked body plays now (a boss that reads a
 ///   blow guards it, or strikes when it is over): `None` when it plays none.
 ///   `size` is the boss's own body size (its feet are `position.y + size.y / 2`).
+///   `awake` says the encounter has left `Dormant`: a boss whose encounter
+///   has a wake radius sleeps, and its conductor stages its sleep, until a
+///   player comes that near.
 /// * **Absence** — `target` is `None` when the boss tracks nothing, and
 ///   `target_body` also when the tracked entity has no body; `hall`
 ///   is `None` when the room cannot be told or has no floor under the boss;
@@ -98,6 +101,9 @@ pub struct BossConduct {
     pub target_body: Option<BodyBox>,
     /// The boss's own body size.
     pub size: [f32; 2],
+    /// The encounter has woken: it left `Dormant` (a boss with a wake
+    /// radius sleeps until a player comes that near).
+    pub awake: bool,
 }
 
 /// A body's centre and size, and the move it plays.
@@ -145,8 +151,8 @@ impl Port for BossConductPort {
     /// (2026-10-06): `between_phases`. Version 4 (2026-10-06): `room`.
     /// Version 5 (2026-10-10): `health`, `invulnerable`, `target_body`.
     /// Version 6 (2026-10-10): `size`. Version 7 (2026-10-12): the
-    /// `swing` of `target_body`.
-    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 7);
+    /// `swing` of `target_body`. Version 8 (2026-10-18): `awake`.
+    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 8);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossConduct;
 
@@ -184,6 +190,7 @@ impl Port for BossConductPort {
             });
         });
         wire::put_vec2(out, v.size);
+        wire::put_bool(out, v.awake);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossConduct, WireError> {
@@ -221,6 +228,7 @@ impl Port for BossConductPort {
                 })
             })?,
             size: r.vec2()?,
+            awake: r.bool()?,
         })
     }
 }
@@ -349,6 +357,54 @@ impl Port for BossScalePort {
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossScale, WireError> {
         Ok(BossScale { scale: r.f32()? })
+    }
+}
+
+/// The request port marker for what a boss stages around it: how lit its
+/// room is, a flash over the room, and its name card.
+///
+/// Port card:
+///
+/// * **Operation** — light the boss's live room at `lit` (0 dark, 1 as the
+///   room is lit), flash it white at `flash` (0 none, 1 full), and show the
+///   boss's name card (its name and title, large on the screen) at `card` (0
+///   hidden, 1 shown). Presentation only: no body, hit or move reads it.
+///   Holds until changed, so a conductor states it each tick it changes it.
+///   A boss that never states it stands in a lit room with no card.
+/// * **Owner** — `ambition_boss_encounter::conduct` (`BossEncounter::stage`);
+///   drawn by `ambition_render` (`rendering::boss_stage`).
+/// * **Scope** — the boss the invocation ran for. A scope that is not a boss
+///   is refused.
+/// * **Time** — `boss_conduct`, this tick; drawn this frame.
+pub struct BossStagePort;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BossStage {
+    pub lit: f32,
+    pub flash: f32,
+    pub card: f32,
+}
+
+impl Default for BossStage {
+    /// A lit room, no flash, no card.
+    fn default() -> Self {
+        Self { lit: 1.0, flash: 0.0, card: 0.0 }
+    }
+}
+
+impl Port for BossStagePort {
+    const KEY: PortKey = PortKey::new("ambition.boss.stage", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = BossStage;
+
+    fn encode(v: &BossStage, out: &mut Vec<u8>) {
+        wire::put_f32(out, v.lit);
+        wire::put_f32(out, v.flash);
+        wire::put_f32(out, v.card);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<BossStage, WireError> {
+        Ok(BossStage { lit: r.f32()?, flash: r.f32()?, card: r.f32()? })
     }
 }
 
@@ -864,6 +920,7 @@ mod tests {
                 swing: Some(BodySwing { since: 0.1, hurts_in: 0.05, live: false, ends_in: 0.3 }),
             }),
             size: [40.0, 60.0],
+            awake: true,
         };
         assert_eq!(round::<BossConductPort>(&conduct), conduct);
         let at_rest = BossConduct { target_body: Some(BodyBox { position: [1.0, 2.0], size: [3.0, 4.0], swing: None }), ..conduct.clone() };

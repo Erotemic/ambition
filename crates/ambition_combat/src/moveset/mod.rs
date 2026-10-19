@@ -295,8 +295,9 @@ pub struct MovePlayback {
     /// the POLICY travels with the direction. A body-local `(1,0)` and a world
     /// `(1,0)` are different shots under non-default gravity, so storing the
     /// vector alone would re-introduce the frame confusion `dir_to_world` exists
-    /// to prevent.
-    pub aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>,
+    /// to prevent. And so does the point a brain aimed at (`at`): the whole
+    /// request is kept, not a copy of some of its fields.
+    pub aim: Option<ambition_characters::actor::control::ActorFireRequest>,
     /// The last DIRECTION THE PLAYER ASKED FOR since this move began, in the
     /// owner's LOCAL frame — `None` while the stick has not left neutral once.
     ///
@@ -791,7 +792,7 @@ impl MovePlayback {
     }
 
     /// Remember the ranged intent that started this move. See [`Self::aim`].
-    pub fn with_aim(mut self, aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>) -> Self {
+    pub fn with_aim(mut self, aim: Option<ambition_characters::actor::control::ActorFireRequest>) -> Self {
         self.aim = aim;
         self
     }
@@ -2562,7 +2563,7 @@ struct StartingMove<'a, 'cw, 'cs> {
     facing: f32,
     /// Captured at START, because it is gone by the fire frame. See
     /// [`MovePlayback::aim`].
-    aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>,
+    aim: Option<ambition_characters::actor::control::ActorFireRequest>,
     /// The STICK the press was holding, for the same reason and read at the same
     /// instant. See [`MovePlayback::aimed_stick`].
     aimed_stick: Option<ae::Vec2>,
@@ -3859,7 +3860,7 @@ pub fn trigger_moveset_moves(
                 occurrence: MoveOccurrence::next(occurrences.get(entity).ok()),
                 spec,
                 facing: side,
-                aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
+                aim: control.0.fire,
                 aimed_stick: press_aimed_stick,
                 started_by,
                 attack_intent,
@@ -3983,7 +3984,7 @@ pub fn trigger_moveset_moves(
                 occurrence: MoveOccurrence::next(occurrences.get(entity).ok()),
                 spec,
                 facing: side,
-                aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
+                aim: control.0.fire,
                 aimed_stick: press_aimed_stick,
                 started_by,
                 attack_intent,
@@ -4458,14 +4459,11 @@ pub fn dispatch_move_events(
                 // move started, then body-facing in the controlled-body frame.
                 // Startup usually clears the initiating edge before the fire frame.
                 let started_with = playbacks.get(ev.owner).ok().and_then(|pb| pb.aim);
-                let (dir, dir_policy) = match (control.0.fire, started_with) {
-                    (Some(req), _) => (req.dir, req.dir_policy),
-                    (None, Some((dir, policy))) => (dir, policy),
-                    (None, None) => (
+                let fire = control.0.fire.or(started_with).unwrap_or_else(|| {
+                    ambition_characters::actor::control::ActorFireRequest::controlled_body_local(
                         ae::Vec2::new(kin.map(|k| k.facing.signum()).unwrap_or(1.0), 0.0),
-                        ae::GameplayFramePolicy::ControlledBodyLocal,
-                    ),
-                };
+                    )
+                });
                 actions.write(ActorActionMessage {
                     actor: ev.owner,
                     request: ActionRequest::Ranged {
@@ -4484,8 +4482,7 @@ pub fn dispatch_move_events(
                         },
                         spec,
                         origin,
-                        dir,
-                        dir_policy,
+                        fire,
                     },
                     // The same instance the commitment above carries. The
                     // commitment answers *may this shot spend?*; this field

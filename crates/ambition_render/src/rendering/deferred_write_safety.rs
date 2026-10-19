@@ -357,6 +357,8 @@ mod boss_pass {
         let identity = || ambition_sim_view::BossRenderView {
             name: "Probe Boss".to_string(),
             behavior_id: "probe_boss".to_string(),
+            title: None,
+            stage: Default::default(),
         };
         app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([
             (BOSS_ID.to_string(), a_feature_view()),

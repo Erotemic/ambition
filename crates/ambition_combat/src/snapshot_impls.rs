@@ -207,10 +207,17 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
         // produces later is the visible consequence. The POLICY is part of the
         // value: body-local and world `(1,0)` are different shots.
         match self.aim {
-            Some((dir, policy)) => {
+            Some(fire) => {
                 put_bool(out, true);
-                put_vec2(out, dir);
-                put_u32(out, policy as u32);
+                put_vec2(out, fire.dir);
+                put_u32(out, fire.dir_policy as u32);
+                match fire.at {
+                    Some(at) => {
+                        put_bool(out, true);
+                        put_vec2(out, at);
+                    }
+                    None => put_bool(out, false),
+                }
             }
             None => put_bool(out, false),
         }

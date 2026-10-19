@@ -1541,11 +1541,10 @@ pub enum ActionRequest {
     Ranged {
         spec: RangedActionSpec,
         origin: ae::Vec2,
-        /// Direction in the frame named by `dir_policy`.
-        dir: ae::Vec2,
-        /// Frame policy for `dir`; consumers convert at their own simulation
-        /// seam, where the actor's current acceleration frame is known.
-        dir_policy: ae::GameplayFramePolicy,
+        /// The brain's fire request as it was made: the direction, its frame
+        /// (consumers convert at their own simulation seam, where the actor's
+        /// current acceleration frame is known) and the point it aimed at.
+        fire: crate::actor::control::ActorFireRequest,
         /// WHO IS ASKING — and it is the only thing that decides whether the
         /// weapon's recharge may still refuse this shot. See
         /// [`RangedCommitment`].
@@ -1609,19 +1608,14 @@ impl std::fmt::Display for ActionRequest {
             Self::Melee { origin, facing, .. } => {
                 write!(f, "{}(at {:?} facing {:+.0})", self.label(), origin, facing,)
             }
-            Self::Ranged {
-                origin,
-                dir,
-                dir_policy,
-                ..
-            } => {
+            Self::Ranged { origin, fire, .. } => {
                 write!(
                     f,
                     "{}(from {:?} dir {:?} {:?})",
                     self.label(),
                     origin,
-                    dir,
-                    dir_policy,
+                    fire.dir,
+                    fire.dir_policy,
                 )
             }
             Self::Special { .. } => write!(f, "{}", self.label()),
@@ -1709,16 +1703,10 @@ pub fn resolve(
     }
     if let Some(req) = frame.fire {
         if let Some(spec) = actions.ranged.clone() {
-            // Today extracts `dir` off the engine's
-            // `ActorFireRequest` for compat with the existing
-            // enemy/boss callers. When `frame.fire` is narrowed to
-            // `Option<Vec2>` (speed in ActionSet), this becomes
-            // `dir: req`.
             out.push(ActionRequest::Ranged {
                 spec,
                 origin,
-                dir: req.dir,
-                dir_policy: req.dir_policy,
+                fire: req,
                 // The brain polls; the weapon decides. See `RangedCommitment`.
                 commitment: RangedCommitment::Attempt,
             });

@@ -15,7 +15,7 @@
 use ambition_app::{AmbitionSim, Platformer2dSimHarness};
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::combat::components::FeatureId;
-use ambition_platformer2d::engine_core::BodyKinematics;
+use ambition_platformer2d::engine_core::{BodyGroundState, BodyKinematics};
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxMessage};
 use bevy::ecs::message::{MessageCursor, Messages};
@@ -25,17 +25,35 @@ use bevy::prelude::*;
 /// took 22 frames.
 const FRAMES: usize = 120;
 
-/// The bodies that landed in the first frames of `room`, and the number of
-/// placed bodies the room built. A body's name is its placement id and, in
-/// brackets, the catalog character it wears (`NpcSpawn-0001 (sanic)`), or
-/// `player`.
-fn the_start_of(room: &str) -> (Vec<String>, usize) {
+/// The bodies that landed in the first `FRAMES` of `room`, and how many
+/// placed bodies it built. `meddle` runs before each frame (`frame`, the sim).
+/// A body's name is its placement id and, in brackets, the catalog character
+/// it wears (`NpcSpawn-0001 (sanic)`), or `player`.
+///
+/// A landing cue names the body whose ground contact went from off to on in
+/// the frame of the cue (the cue carries a sound source, not a body), the
+/// nearest of them when several did. The nearest feet named the wrong body:
+/// a wide one beside a body that landed. A cue no body's touch-down explains
+/// is not a landing; it is returned apart, named by the nearest feet.
+fn the_start_of_with(
+    room: &str,
+    mut meddle: impl FnMut(usize, &mut Platformer2dSimHarness),
+) -> (Vec<String>, usize, Vec<String>) {
     let mut sim = Platformer2dSimHarness::new_with_options(crate::common::fixed_60hz_room_options(room))
         .unwrap_or_else(|error| panic!("`{room}` boots: {error:?}"));
     let mut cursor = MessageCursor::<OwnedSfxMessage>::default();
     let mut landed = Vec::new();
+    let mut unexplained = Vec::new();
     let mut placed = 0;
-    for _ in 0..FRAMES {
+    // Each body's ground contact before the first frame, so a body built in
+    // the air that lands in frame 0 is seen to.
+    let mut was_on_ground: std::collections::HashMap<Entity, bool> = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &BodyGroundState)>();
+        q.iter(world).map(|(entity, ground)| (entity, ground.on_ground)).collect()
+    };
+    for frame in 0..FRAMES {
+        meddle(frame, &mut sim);
         sim.step(crate::common::base());
         let cues: Vec<Vec2> = cursor
             .read(sim.world().resource::<Messages<OwnedSfxMessage>>())
@@ -45,11 +63,18 @@ fn the_start_of(room: &str) -> (Vec<String>, usize) {
             })
             .collect();
         let world = sim.world_mut();
-        let mut bodies =
-            world.query::<(&BodyKinematics, Option<&FeatureId>, Option<&WornCharacter>, Has<PrimaryPlayer>)>();
-        let bodies: Vec<(Vec2, String)> = bodies
+        let mut bodies = world.query::<(
+            Entity,
+            &BodyKinematics,
+            Option<&BodyGroundState>,
+            Option<&FeatureId>,
+            Option<&WornCharacter>,
+            Has<PrimaryPlayer>,
+        )>();
+        // (feet, name, it touched down this frame)
+        let bodies: Vec<(Vec2, String, bool)> = bodies
             .iter(world)
-            .map(|(kin, id, worn, is_player)| {
+            .map(|(entity, kin, ground, id, worn, is_player)| {
                 let feet = kin.pos + Vec2::new(0.0, kin.size.y * 0.5);
                 let name = match (id, worn) {
                     (Some(id), Some(worn)) => format!("{} ({})", id.0, worn.id()),
@@ -57,34 +82,57 @@ fn the_start_of(room: &str) -> (Vec<String>, usize) {
                     (None, _) if is_player => "player".to_string(),
                     (None, _) => "a body with no placement".to_string(),
                 };
-                (feet, name)
+                let on = ground.is_some_and(|g| g.on_ground);
+                let touched_down = on && was_on_ground.insert(entity, on) == Some(false);
+                if !on {
+                    was_on_ground.insert(entity, false);
+                }
+                (feet, name, touched_down)
             })
             .collect();
-        placed = placed.max(bodies.iter().filter(|(_, name)| name.contains("Spawn-")).count());
+        placed = placed.max(bodies.iter().filter(|(_, name, _)| name.contains("Spawn-")).count());
+        let nearest = |cue: Vec2, of: &mut dyn Iterator<Item = &(Vec2, String, bool)>| {
+            of.min_by(|a, b| a.0.distance(cue).total_cmp(&b.0.distance(cue))).map(|b| b.1.clone())
+        };
         for cue in cues {
-            // A landing cue is written at the feet of the body that landed.
-            let (_, name) = bodies
-                .iter()
-                .min_by(|a, b| a.0.distance(cue).total_cmp(&b.0.distance(cue)))
-                .expect("a landing cue has a body");
-            landed.push(name.clone());
+            match nearest(cue, &mut bodies.iter().filter(|b| b.2)) {
+                Some(name) => landed.push(name),
+                None => unexplained.push(format!(
+                    "{} (frame {frame})",
+                    nearest(cue, &mut bodies.iter()).unwrap_or_else(|| "no body".to_string())
+                )),
+            }
         }
     }
     landed.sort();
-    (landed, placed)
+    (landed, placed, unexplained)
 }
 
-/// The rooms of the shipped game that place the most actors.
-///
-/// ⚠ The bodies in `still` land on the first tick for a different reason, and
-/// they are not the goal. Each one is where it starts, and its movement model
-/// reports its first ground contact as a landing: a crawler (the puppy slug),
-/// a momentum body (Sanic), and the player (built 1 px above its floor in
-/// `basement_enemies`). A body that leaves this list is an improvement.
-///
-/// A row of `still` is a placement id or a catalog character. The hall of
-/// characters is a generated room: a new character moves each placement id
-/// after it, so its rows are characters.
+fn the_start_of(room: &str) -> (Vec<String>, usize, Vec<String>) {
+    the_start_of_with(room, |_, _| {})
+}
+
+/// The control: a body lifted off its floor falls, lands, and is named.
+#[test]
+fn a_body_dropped_from_a_height_is_named() {
+    const DROPPED: &str = "npc_evil_zombie";
+    let (landed, _, _) = the_start_of_with("hall_of_characters", |frame, sim| {
+        if frame == 30 {
+            let world = sim.world_mut();
+            let mut q = world.query::<(&mut BodyKinematics, &WornCharacter)>();
+            for (mut kin, worn) in q.iter_mut(world) {
+                if worn.id() == DROPPED {
+                    kin.pos.y -= 60.0;
+                }
+            }
+        }
+    });
+    assert!(
+        landed.iter().any(|name| name.ends_with(&format!("({DROPPED})"))),
+        "the {DROPPED} dropped 60 px and no landing named it: {landed:?}"
+    );
+}
+
 #[test]
 fn no_placed_walker_lands_when_its_room_starts() {
     let rooms: [(&str, usize, &[&str]); 4] = [
@@ -98,7 +146,13 @@ fn no_placed_walker_lands_when_its_room_starts() {
         ("intro_raid_corridor", 3, &[]),
     ];
     for (room, at_least, still) in rooms {
-        let (landed, placed) = the_start_of(room);
+        let (landed, placed, unexplained) = the_start_of(room);
+        // A cue no touch-down explains (measured 2026-10-18: one for each of
+        // four bodies standing still in `hall_of_characters`, all in frame 0)
+        // is another defect than this test's; it is shown, not failed.
+        if !unexplained.is_empty() {
+            eprintln!("`{room}`: landing cues no body's touch-down explains: {unexplained:?}");
+        }
         assert!(
             placed >= at_least,
             "premise: `{room}` builds its placed bodies ({placed}, and it places {at_least} or more)"

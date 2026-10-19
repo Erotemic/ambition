@@ -45,6 +45,10 @@ pub struct WolfensteinView {
     pub unleashed: bool,
     /// The room he measured, once he has.
     pub hall: Option<Hall>,
+    /// Seconds into his intro: `None` while he sleeps on his throne.
+    pub intro: Option<f32>,
+    /// His intro is over: he fights.
+    pub woke: bool,
 }
 
 /// The conductor's record on `wolf`, as a view. `None` before the module
@@ -61,5 +65,7 @@ pub fn conductor_of(world: &World, wolf: Entity) -> Option<WolfensteinView> {
         shock_rolling: c.shock_rolling(),
         unleashed: c.unleashed(),
         hall: c.hall_known.then_some(Hall { floor: c.hall_floor, left: c.hall_left, right: c.hall_right }),
+        intro: c.intro,
+        woke: c.woke,
     })
 }

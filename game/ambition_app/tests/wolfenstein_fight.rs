@@ -17,7 +17,8 @@ use bevy::prelude::*;
 
 const ARENA: &str = "castle_godwin_throne";
 
-fn arena() -> Platformer2dSimHarness {
+/// The throne room, asleep: he is on his throne and you are at the door.
+fn dark_arena() -> Platformer2dSimHarness {
     let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::fixed_60hz())
         // ⚠ REQUIRED: the tolerant road falls back to the start room, which has
@@ -28,6 +29,63 @@ fn arena() -> Platformer2dSimHarness {
         sim.step(AgentAction::default());
     }
     sim
+}
+
+/// Stand on the floor this far west of him.
+fn stand_west_of_him(sim: &mut Platformer2dSimHarness, by: f32) {
+    let w = wolf(sim);
+    let hall = w.view.hall.expect("room");
+    let (kin, _) = player(sim);
+    place_player(sim, ae::Vec2::new((w.kin.pos.x - by).max(hall.left + 30.0), hall.floor - kin.size.y * 0.5 - 1.0));
+}
+
+/// The throne room, his intro over: you came near and he woke.
+fn arena() -> Platformer2dSimHarness {
+    let mut sim = dark_arena();
+    stand_west_of_him(&mut sim, 200.0);
+    step_until(&mut sim, 60 * 12, "his intro to end", |sim| wolf(sim).view.woke);
+    sim
+}
+
+/// What he stages around him: his room's light and his name card.
+fn stage(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::boss_encounter::BossStage {
+    let world = sim.world_mut();
+    let mut q = world.query::<(&BossConfig, &ambition_platformer2d::boss_encounter::BossEncounter)>();
+    q.iter(world).find(|(config, _)| config.behavior.id == WOLFENSTEIN_ID).expect("Wolfenstein").1.stage
+}
+
+/// He sleeps in the dark on his throne until you come near; then the coils
+/// flash, the lights come on, his name card shows while he roars, and he
+/// leaps back from you.
+#[test]
+fn he_sleeps_in_the_dark_until_you_come_near_then_wakes_roars_and_leaps_back() {
+    let mut sim = dark_arena();
+    untouchable_player(&mut sim, true);
+    let throne = wolf(&mut sim).kin.pos;
+    for _ in 0..60 * 2 {
+        stand_west_of_him(&mut sim, 560.0);
+        sim.step(AgentAction::default());
+    }
+    let w = wolf(&mut sim);
+    assert_eq!(w.view.intro, None, "he woke with you at the door: {w:?}");
+    assert!(stage(&mut sim).lit < 0.05, "his room is dark while he sleeps: {:?}", stage(&mut sim));
+    assert!((w.kin.pos.x - throne.x).abs() < 0.5, "he left his throne asleep: {w:?}");
+
+    let (mut flashed, mut carded, mut lit) = (0.0f32, 0.0f32, 0.0f32);
+    stand_west_of_him(&mut sim, 200.0);
+    step_until(&mut sim, 60 * 12, "his intro to end", |sim| {
+        let s = stage(sim);
+        flashed = flashed.max(s.flash);
+        carded = carded.max(s.card);
+        lit = s.lit;
+        wolf(sim).view.woke
+    });
+    assert!(flashed > 0.5, "the coils never flashed: {flashed}");
+    assert!(carded > 0.99, "his name card never showed: {carded}");
+    assert!(lit > 0.99, "the lights are not on when the fight starts: {lit}");
+    assert!(stage(&mut sim).card < 0.01, "his card is still up in the fight");
+    let w = wolf(&mut sim);
+    assert!(w.kin.pos.x - throne.x > 100.0, "he did not leap back from you (east): {w:?}, throne {throne:?}");
 }
 
 fn place_player(sim: &mut Platformer2dSimHarness, at: ae::Vec2) {

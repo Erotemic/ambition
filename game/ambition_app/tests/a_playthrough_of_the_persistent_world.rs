@@ -561,13 +561,19 @@ fn come_out_of_the_door_to(app: &mut App, target: &str) {
     assert!(held, "the player coming out of the door is not held by its passage");
     // The views are of the last tick; the arrival was in this one.
     app.update();
-    let open = app.world().resource::<ambition_platformer2d::sim_view::PassageViews>().door_open(&arrived.zone);
+    // The door is the one of the room the player arrived in.
+    let body = primary_body(app);
+    let room = app
+        .world()
+        .get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(body)
+        .map(|room| room.0);
+    let open = app.world().resource::<ambition_platformer2d::sim_view::PassageViews>().door_open(room, &arrived.zone);
     assert_eq!(open, Some(1.0), "the door `{}` is not open as the player comes out of it", arrived.zone);
     for _ in 0..90 {
         app.update();
     }
     assert!(passage(app).is_none(), "the passage out of `{}` never ended", arrived.zone);
-    let shut = app.world().resource::<ambition_platformer2d::sim_view::PassageViews>().door_open(&arrived.zone);
+    let shut = app.world().resource::<ambition_platformer2d::sim_view::PassageViews>().door_open(room, &arrived.zone);
     assert_eq!(shut, None, "the door `{}` did not shut", arrived.zone);
 }
 

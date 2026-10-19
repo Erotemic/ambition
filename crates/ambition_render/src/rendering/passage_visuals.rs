@@ -142,12 +142,13 @@ pub fn sync_door_openings(
     images: Option<Res<Assets<Image>>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     mut doors: Query<(Entity, &LoadingZoneVisual, &mut Sprite, Option<&mut DoorOpening>)>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let (Some(passages), Some(assets), Some(images), Some(mut layouts)) = (passages, assets, images, layouts) else {
         return;
     };
     for (entity, visual, mut sprite, opening) in &mut doors {
-        let open = passages.door_open(&visual.id).filter(|open| *open > 0.0);
+        let open = passages.door_open(rooms.of(entity), &visual.id).filter(|open| *open > 0.0);
         match (open, opening) {
             (Some(open), Some(mut opening)) => {
                 if opening.layout.is_none() {

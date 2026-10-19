@@ -12,6 +12,8 @@ use bevy::prelude::*;
 use ambition_platformer2d_actor_monolith::rooms::passage::{PassagePose, ZonePassage};
 use ambition_sprite_sheet::character::CharacterAnim;
 
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
+
 use crate::{ActorAnimIndex, BodyPoseView, ClipRequest};
 
 /// How a body in a passage is drawn: about its feet, `scale` of its size,
@@ -24,24 +26,36 @@ pub struct PassageLookView {
 }
 
 /// The doors and gates passages are going through this tick.
+///
+/// Each by its live room and zone id: a zone id is unique in its room only
+/// (seven sandbox rooms author a `return_door`), and two rooms can be live.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct PassageViews {
-    /// A door's zone and how open it is (0 shut, 1 open).
-    pub doors: Vec<(String, f32)>,
-    /// A gate's zone, the ripple row it plays (`swallow`, `emit`) and how far
-    /// through it.
-    pub gates: Vec<(String, &'static str, f32)>,
+    /// A door's room and zone, and how open it is (0 shut, 1 open).
+    pub doors: Vec<(Option<LiveRoomInstance>, String, f32)>,
+    /// A gate's room and zone, the ripple row it plays (`swallow`, `emit`)
+    /// and how far through it.
+    pub gates: Vec<(Option<LiveRoomInstance>, String, &'static str, f32)>,
 }
 
 impl PassageViews {
-    /// How open the door of `zone` is, when a passage goes through it.
-    pub fn door_open(&self, zone: &str) -> Option<f32> {
-        self.doors.iter().filter(|(id, _)| id == zone).map(|(_, open)| *open).reduce(f32::max)
+    /// How open the door of `zone` in live room `room` is, when a passage
+    /// goes through it.
+    pub fn door_open(&self, room: Option<LiveRoomInstance>, zone: &str) -> Option<f32> {
+        self.doors
+            .iter()
+            .filter(|(at, id, _)| *at == room && id == zone)
+            .map(|(.., open)| *open)
+            .reduce(f32::max)
     }
 
-    /// The ripple the gate of `zone` plays, when a passage goes through it.
-    pub fn gate_ripple(&self, zone: &str) -> Option<(&'static str, f32)> {
-        self.gates.iter().find(|(id, ..)| id == zone).map(|(_, row, k)| (*row, *k))
+    /// The ripple the gate of `zone` in live room `room` plays, when a
+    /// passage goes through it.
+    pub fn gate_ripple(&self, room: Option<LiveRoomInstance>, zone: &str) -> Option<(&'static str, f32)> {
+        self.gates
+            .iter()
+            .find(|(at, id, ..)| *at == room && id == zone)
+            .map(|(.., row, k)| (*row, *k))
     }
 }
 
@@ -73,14 +87,18 @@ pub fn rebuild_passage_views(
         Option<&ambition_combat::components::FeatureId>,
     )>,
     stale: Query<Entity, (With<PassageLookView>, Without<ZonePassage>)>,
+    rooms: LiveRooms,
 ) {
     let mut next = PassageViews::default();
     for (entity, passage, pose, shown, feature) in &mut bodies {
+        // The door or gate is in the room the body is in: the room it leaves
+        // while it goes in, the room it arrived in while it comes out.
+        let room = rooms.of(entity);
         if let Some((zone, open)) = passage.door_open() {
-            next.doors.push((zone.to_string(), open));
+            next.doors.push((room, zone.to_string(), open));
         }
         if let Some((zone, row, k)) = passage.gate_ripple() {
-            next.gates.push((zone.to_string(), row, k));
+            next.gates.push((room, zone.to_string(), row, k));
         }
         match passage.look() {
             Some(look) => {
@@ -133,6 +151,40 @@ mod tests {
             move_charge: None,
             passage_look: None,
         }
+    }
+
+    /// Review finding #9 (2026-10-19). Two live rooms each have a door
+    /// `return_door`, and a body goes through the one in the first room:
+    /// that door opens and the other does not. Measured before: the door was
+    /// named by its zone id alone, so both opened. Poison: drop the room
+    /// from the key.
+    #[test]
+    fn a_passage_opens_the_door_of_its_own_room_only() {
+        use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+        let mut app = App::new();
+        app.init_resource::<PassageViews>();
+        app.add_systems(Update, rebuild_passage_views);
+        let (here, there) = (LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next());
+        let passage = ZonePassage {
+            kind: PassageKind::Door,
+            stage: PassageStage::Entering,
+            elapsed: 0.3,
+            from: ae::Vec2::new(90.0, 177.0),
+            zone: "return_door".into(),
+            foot: ae::Vec2::new(100.0, 200.0),
+            heart: ae::Vec2::new(100.0, 104.0),
+            half_h: 23.0,
+            facing: 1.0,
+            crossing: None,
+            recorded: false,
+            arrival: None,
+            room: None,
+        };
+        app.world_mut().spawn((passage, InRoomInstance(here)));
+        app.update();
+        let views = app.world().resource::<PassageViews>();
+        assert!(views.door_open(Some(here), "return_door").is_some_and(|open| open > 0.0), "premise: its door opens");
+        assert_eq!(views.door_open(Some(there), "return_door"), None, "the door of the same name in the other room opened");
     }
 
     /// Review finding #3 (2026-10-19). A body drawn on the actor road (a

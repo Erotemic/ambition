@@ -139,6 +139,8 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
         app.add_message::<EncounterGate>();
         app.add_message::<PayloadReleased>();
         app.add_message::<BossPhaseChanged>();
+        // A boss's defeat pulls the camera in (`boss_phase_transition_feedback`).
+        app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest>();
         app.init_resource::<BossDefeatsSinceCheckpoint>();
         app.add_message::<BossDefeatRetracted>();
         // A committed checkpoint makes the defeats since the last one part of

@@ -628,6 +628,7 @@ mod phase_feedback_tests {
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.add_message::<CameraShakeRequest>();
+        app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest>();
         app.add_message::<super::super::events::BossPhaseChanged>();
         app.add_systems(Update, boss_phase_transition_feedback);
         app

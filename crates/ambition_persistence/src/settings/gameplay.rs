@@ -132,6 +132,13 @@ pub struct GameplaySettings {
     /// toggled live from the gameplay settings page.
     #[serde(default)]
     pub portal_reverses_facing: bool,
+    /// Whether a second local player may join (Q153). Default OFF: one player,
+    /// and the keyboard and every pad drive that player. ON: a pad that presses
+    /// Start claims a seat of its own, up to the number of seats the game
+    /// declares. Changing it rebuilds the local rollback session and does not
+    /// restart the game.
+    #[serde(default)]
+    pub accept_local_joins: bool,
     /// How raw LOCOMOTION input maps onto the controlled body's local frame.
     /// `BodyRelativeAssist` follows the body frame except when upside-down, where
     /// the mapping accommodates screen orientation. `ScreenRelative` (the default)
@@ -190,6 +197,7 @@ impl Default for GameplaySettings {
             trace_auto_dump: true,
             pause_input_when_unfocused: false,
             portal_reverses_facing: false,
+            accept_local_joins: false,
             movement_frame_mode: default_movement_frame_mode(),
             aim_frame_mode: default_aim_frame_mode(),
             camera_reference_frame: CameraReferenceFrame::default(),

@@ -304,7 +304,7 @@ fn a_rendered_returning_players_session() -> App {
         app.finish();
         app.cleanup();
     }
-    a_returning_player_enters(app, 0)
+    a_returning_player_enters(app, false)
 }
 
 /// ⭐ PLAYABLE WHERE IT IS DRAWN. The same capability, route and hand-over in
@@ -371,15 +371,14 @@ fn the_second_body(app: &mut App) -> Option<Entity> {
         .map(|(entity, _)| entity)
 }
 
-/// The second seat presses Jump until it has a body (the Q153 join road).
+/// The second seat presses Start until it has a body (the Q153 join gesture).
 fn join_the_second_seat(app: &mut App) -> Entity {
-    let jump = ae::ControlFrame {
-        jump_pressed: true,
-        jump_held: true,
+    let start = ae::ControlFrame {
+        start_pressed: true,
         ..ae::ControlFrame::default()
     };
     for frame in 0..120 {
-        let press = if frame % 4 == 0 { jump } else { ae::ControlFrame::default() };
+        let press = if frame % 4 == 0 { start } else { ae::ControlFrame::default() };
         ambition_platformer2d::rollback::drive_slot_frame(app.world_mut(), SECOND_SEAT, press);
         app.update();
         if let Some(body) = the_second_body(app) {
@@ -389,7 +388,7 @@ fn join_the_second_seat(app: &mut App) -> Entity {
             return body;
         }
     }
-    panic!("the second seat pressed Jump for 120 frames and got no body");
+    panic!("the second seat pressed Start for 120 frames and got no body");
 }
 
 /// The live rooms by id, each with whether `block` stands as a gate solid in
@@ -420,8 +419,8 @@ fn gates_by_live_room(app: &mut App, block: &str) -> Vec<(String, bool)> {
 /// them.
 #[test]
 fn the_hand_over_opens_the_wall_in_the_other_participants_room() {
-    // Two pads, so the session holds a seat for a second player.
-    let mut app = crate::the_note_travels_from_alice_to_bob::a_returning_players_session_with_pads(2);
+    // The setting on, so the session holds a seat for a second player.
+    let mut app = crate::the_note_travels_from_alice_to_bob::a_returning_players_session_accepting_joins(true);
     for room in ROUTE_TO_ALICE {
         go_through(&mut app, room);
     }

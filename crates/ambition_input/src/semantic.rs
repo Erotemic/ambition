@@ -390,6 +390,12 @@ pub static ENGINE_ACTIONS: &[SemanticActionDef] = &[
     ),
     engine("jump", ActionControlKind::Button, GAMEPLAY, "Jump"),
     engine(
+        "short_hop",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "A jump that is always a short hop",
+    ),
+    engine(
         "attack",
         ActionControlKind::Button,
         GAMEPLAY,

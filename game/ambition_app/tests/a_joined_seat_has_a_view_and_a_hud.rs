@@ -26,7 +26,7 @@ use ambition_platformer2d::sim_view::{
 };
 use bevy::prelude::*;
 
-use crate::a_second_seat_joins_the_session::{bodies_of_the_seat, die, join, jump, place_of, room_of, the_primary};
+use crate::a_second_seat_joins_the_session::{bodies_of_the_seat, die, join, place_of, room_of, the_primary};
 use crate::common::{a_save_that_has_seen_the_hub_intro, fixed_60hz_room_options, walk_through_the_door_to};
 use crate::two_players_two_live_rooms::{live_rooms, the_views, view_frame, ROOM};
 
@@ -59,9 +59,9 @@ fn give_purse(sim: &mut Platformer2dSimHarness, body: Entity, balance: i32) {
 }
 
 /// Seat 1 joins, and its press is cleared: a seat that is driven by hand keeps
-/// its last frame, so the body would jump on each tick after the join.
+/// its last frame, so it would press Start on each tick after the join.
 fn seat_one_joins(sim: &mut Platformer2dSimHarness) -> Entity {
-    let (body, _) = join(sim, 4).expect("seat 1 pressed Jump and no body was built");
+    let (body, _) = join(sim, 4).expect("seat 1 pressed Start and no body was built");
     sim.drive_seat(SEAT, ControlFrame::default());
     body
 }
@@ -256,23 +256,30 @@ fn the_facts_that_are_one_per_session_stay_the_primarys_after_a_join() {
     );
 }
 
-/// When the second pad connects, for the rendered arm.
+/// The pads of the rendered arm, and when the one that presses Start connects.
 #[derive(Clone, Copy, Debug)]
-enum SecondPad {
-    BeforeTheSession,
-    AfterTheSessionStarted,
-    Never,
+enum Pads {
+    /// Two pads before the session starts; the second presses Start.
+    TwoBeforeTheSession,
+    /// One pad before the session starts, and it presses Start (keyboard
+    /// player one, pad player two).
+    OneBeforeTheSession,
+    /// One pad before the session, a second after it started; the second
+    /// presses Start.
+    SecondAfterTheSessionStarted,
 }
 
 /// The rendered host (the visible composition with no window) starts an
-/// Ambition session, and seat 1 presses Jump for 120 frames or until it has a
-/// body. Returns (the seat of each drawn HUD, the bodies of seat 1) before
-/// the presses and after them.
+/// Ambition session with the second-player setting `accept`, and the last
+/// connected pad presses Start (through the real gamepad event road) for 120
+/// frames or until seat 1 has a body. Returns (the seat of each drawn HUD,
+/// the bodies of seat 1) before the presses and after them.
 #[allow(clippy::type_complexity)]
-fn drawn_huds_around_a_press_of_seat_one(second_pad: SecondPad) -> [(Vec<Option<u8>>, usize); 2] {
+fn drawn_huds_around_a_start_press(pads: Pads, accept: bool) -> [(Vec<Option<u8>>, usize); 2] {
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
     use ambition_platformer2d::game_shell::ShellCommand;
     use ambition_platformer2d::render::hud::{HudOfSeat, PlayerHudRoot};
+    use bevy::input::gamepad::{RawGamepadButtonChangedEvent, RawGamepadEvent};
     use crate::shell_host_rendered::{rendered_app, settle};
 
     fn measure(app: &mut App) -> (Vec<Option<u8>>, usize) {
@@ -290,64 +297,77 @@ fn drawn_huds_around_a_press_of_seat_one(second_pad: SecondPad) -> [(Vec<Option<
             .count();
         (seats, bodies)
     }
-    fn connect_a_pad(app: &mut App) {
-        app.world_mut().spawn(bevy::input::gamepad::Gamepad::default());
+    fn connect_a_pad(app: &mut App) -> Entity {
+        let pad = app.world_mut().spawn(bevy::input::gamepad::Gamepad::default()).id();
         app.update();
+        pad
+    }
+    fn start(app: &mut App, pad: Entity, value: f32) {
+        app.world_mut().write_message(RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+            pad,
+            GamepadButton::Start,
+            value,
+        )));
     }
 
     let mut app = rendered_app();
     settle(&mut app);
-    connect_a_pad(&mut app);
-    if matches!(second_pad, SecondPad::BeforeTheSession) {
-        connect_a_pad(&mut app);
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::persistence::settings::UserSettings>()
+        .gameplay
+        .accept_local_joins = accept;
+    let mut presser = connect_a_pad(&mut app);
+    if matches!(pads, Pads::TwoBeforeTheSession) {
+        presser = connect_a_pad(&mut app);
     }
+    // The hub's intro holds every seat's input while it plays.
+    crate::common::the_hub_intro_has_already_played(app.world_mut());
     app.world_mut().write_message(ShellCommand::GoTo(
         ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     settle(&mut app);
-    if matches!(second_pad, SecondPad::AfterTheSessionStarted) {
-        connect_a_pad(&mut app);
+    if matches!(pads, Pads::SecondAfterTheSessionStarted) {
+        presser = connect_a_pad(&mut app);
     }
     for _ in 0..30 {
         app.update();
     }
     let before = measure(&mut app);
-    for _ in 0..120 {
+    for _ in 0..60 {
         if measure(&mut app).1 > 0 {
             break;
         }
-        ambition_platformer2d::rollback::drive_slot_frame(app.world_mut(), PlayerSlot(SEAT), jump());
+        start(&mut app, presser, 1.0);
+        app.update();
+        start(&mut app, presser, 0.0);
         app.update();
     }
     for _ in 0..6 {
-        ambition_platformer2d::rollback::drive_slot_frame(app.world_mut(), PlayerSlot(SEAT), ControlFrame::default());
         app.update();
     }
     [before, measure(&mut app)]
 }
 
-/// THE DRAWN HUD. Two pads are connected before the session starts, so the
-/// session has two seats. Seat 1 presses Jump and joins, and the screen has a
-/// second HUD, the one of seat 1. Controls: before the press there is one
-/// HUD; with one pad the same presses build no body and no HUD; and a second
-/// pad that connects after the session started has no seat in it, because a
-/// session is not resized.
+/// THE DRAWN HUD (Q153). With the second-player setting on, a pad that
+/// presses Start claims seat 1 and joins, and the screen has a second HUD,
+/// the one of seat 1: with two pads, with keyboard player one and one pad,
+/// and with a pad that connected after the session started (the session held
+/// the seat in reserve). Control: with the setting off, the second pad's
+/// Start builds no body and no HUD.
 #[test]
 fn a_joined_seat_has_a_drawn_hud_in_the_rendered_host() {
     let alone = (vec![None], 0);
+    let joined = (vec![None, Some(SEAT)], 1);
+    for pads in [Pads::TwoBeforeTheSession, Pads::OneBeforeTheSession, Pads::SecondAfterTheSessionStarted] {
+        assert_eq!(
+            drawn_huds_around_a_start_press(pads, true),
+            [alone.clone(), joined.clone()],
+            "{pads:?}, setting on: [before, after] (the seat of each drawn HUD, the bodies of seat 1)"
+        );
+    }
     assert_eq!(
-        drawn_huds_around_a_press_of_seat_one(SecondPad::BeforeTheSession),
-        [alone.clone(), (vec![None, Some(SEAT)], 1)],
-        "[before, after] (the seat of each drawn HUD, the bodies of seat 1), two pads from the start"
-    );
-    assert_eq!(
-        drawn_huds_around_a_press_of_seat_one(SecondPad::Never),
-        [alone.clone(), alone.clone()],
-        "control, one pad: [before, after] (the seat of each drawn HUD, the bodies of seat 1)"
-    );
-    assert_eq!(
-        drawn_huds_around_a_press_of_seat_one(SecondPad::AfterTheSessionStarted),
+        drawn_huds_around_a_start_press(Pads::TwoBeforeTheSession, false),
         [alone.clone(), alone],
-        "a pad that connected after the session started: [before, after] (the seat of each drawn HUD, the bodies of seat 1)"
+        "control, setting off: [before, after] (the seat of each drawn HUD, the bodies of seat 1)"
     );
 }

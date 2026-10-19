@@ -74,7 +74,8 @@ pub use control::{
 pub use glyphs::glyph_for;
 #[cfg(feature = "input")]
 pub use local_seats::{
-    assign_local_seat_devices, track_local_device_order, LocalSeatTopology, NO_PAD,
+    assign_local_seat_devices, claim_local_seats, track_local_device_order, LocalSeatClaims,
+    LocalSeatTopology, NO_PAD,
 };
 pub use seating::{LocalDeviceOrder, LocalSeatOffer, SeatingDeclared, SessionSeatingSource};
 
@@ -167,10 +168,14 @@ pub fn install_input_pipeline(app: &mut bevy::prelude::App) {
             .chain(),
     );
     app.init_resource::<LocalDeviceOrder>();
+    app.init_resource::<LocalSeatClaims>();
     app.add_systems(
         PreUpdate,
-        (track_local_device_order, assign_local_seat_devices)
+        (track_local_device_order, claim_local_seats, assign_local_seat_devices)
             .chain()
+            // After bevy reads the pads, so a press is seen on its own frame:
+            // a claim and the leafwing read of the same press then agree.
+            .after(bevy::input::InputSystems)
             .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
     );
 }

@@ -94,6 +94,7 @@ const ALL_SETTINGS_OPTION_IDS: &[SettingsOptionId] = &[
     SettingsOptionId::TraceAutoDump,
     SettingsOptionId::PauseInputUnfocused,
     SettingsOptionId::PortalReverseFacing,
+    SettingsOptionId::AcceptLocalJoins,
     SettingsOptionId::MovementFrameMode,
     SettingsOptionId::AimFrameMode,
     SettingsOptionId::CameraReferenceFrame,
@@ -164,6 +165,7 @@ fn assert_all_settings_option_ids_listed(id: SettingsOptionId) {
         | SettingsOptionId::TraceAutoDump
         | SettingsOptionId::PauseInputUnfocused
         | SettingsOptionId::PortalReverseFacing
+        | SettingsOptionId::AcceptLocalJoins
         | SettingsOptionId::MovementFrameMode
         | SettingsOptionId::AimFrameMode
         | SettingsOptionId::CameraReferenceFrame

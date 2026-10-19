@@ -133,6 +133,8 @@ pub enum SettingsOptionId {
     /// Reverse facing when transiting a same-wall portal pair.
     /// Default OFF; mirrored into `PortalTuning::reorient_facing`.
     PortalReverseFacing,
+    /// Whether a second local player may join (Q153). Default OFF.
+    AcceptLocalJoins,
     /// How raw LOCOMOTION input maps onto the controlled body's local frame
     /// (`Hybrid` body-relative assist vs `Screen` screen-directed). Flows into
     /// `MovementTuning::movement_frame_mode`.
@@ -160,7 +162,8 @@ impl SettingsOptionId {
     /// This array is hand-kept. `scripts/check_enum_all_constants_are_complete.py`
     /// checks it against the enum.
     /// alone would go stale silently.
-    pub const ALL: [Self; 60] = [
+    pub const ALL: [Self; 61] = [
+        Self::AcceptLocalJoins,
         Self::AimFrameMode,
         Self::Assist,
         Self::BurstInputMode,

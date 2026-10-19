@@ -152,14 +152,128 @@ pub fn track_local_device_order(
     }
 }
 
+/// The pads that claimed a [`LocalInputSource::Claimed`] channel while the
+/// session ran, by channel.
+///
+/// This is input-layer state and not simulation state. The simulation sees
+/// only the claimed channel's input, which GGRS carries. A claim is released
+/// by [`Self::release`] (a player leaves) or when the live plan stops holding
+/// a claimable channel at that position.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct LocalSeatClaims {
+    /// Keyed by channel slot.
+    by_channel: std::collections::BTreeMap<u8, Entity>,
+}
+
+impl LocalSeatClaims {
+    /// The pad that claimed `channel`, if one did.
+    pub fn pad_of(&self, channel: ParticipantId) -> Option<Entity> {
+        self.by_channel.get(&channel.slot()).copied()
+    }
+
+    /// Whether some channel holds `pad`.
+    pub fn holds(&self, pad: Entity) -> bool {
+        self.by_channel.values().any(|held| *held == pad)
+    }
+
+    /// Whether any channel holds a claim.
+    pub fn is_empty(&self) -> bool {
+        self.by_channel.is_empty()
+    }
+
+    /// Give `pad` to `channel`. A test or a tool that seats a pad directly
+    /// uses this; a running game claims by [`claim_local_seats`].
+    pub fn claim(&mut self, channel: ParticipantId, pad: Entity) {
+        self.by_channel.insert(channel.slot(), pad);
+    }
+
+    /// Release the claim of `channel`. Returns whether there was one.
+    pub fn release(&mut self, channel: ParticipantId) -> bool {
+        self.by_channel.remove(&channel.slot()).is_some()
+    }
+}
+
+/// Give an unclaimed pad to a claimable channel when it presses Start.
+///
+/// The gesture is Start because a seat with no body acts on nothing: the
+/// global menu answers to the primary seat only, so the press opens no menu,
+/// and the simulation reads the same press on the claimed channel as the join
+/// (`seat_a_joining_participant`). A pad that the shared seat hears now is the
+/// primary player's pad, and its Start is the pause. Runs before
+/// [`assign_local_seat_devices`], so the claimed channel hears the pad on the
+/// frame of the press.
+pub fn claim_local_seats(
+    order: Res<LocalDeviceOrder>,
+    seating: Option<Res<crate::seating::SessionSeatingSource>>,
+    pads: Query<&Gamepad>,
+    seats: Query<(&InputParticipant, &InputMap<Platformer2dInputActionMonolith>)>,
+    mut claims: ResMut<LocalSeatClaims>,
+) {
+    let plan = seating.as_deref().and_then(|seating| seating.channel_plan());
+    let claimable: Vec<ParticipantId> = plan
+        .map(|plan| {
+            plan.channels_with_sources()
+                .filter(|(_, source)| *source == LocalInputSource::Claimed)
+                .map(|(channel, _)| channel)
+                .collect()
+        })
+        .unwrap_or_default();
+    // A claim lives only while its channel is claimable in the live plan.
+    let is_claimable = |slot: &u8| claimable.iter().any(|channel| channel.slot() == *slot);
+    if claims.by_channel.keys().any(|slot| !is_claimable(slot)) {
+        claims.by_channel.retain(|slot, _| is_claimable(slot));
+    }
+    let Some(open) = claimable.iter().copied().find(|channel| claims.pad_of(*channel).is_none()) else {
+        return;
+    };
+    let shared = plan.and_then(|plan| plan.channel_for_source(LocalInputSource::Shared));
+    let primary_pad = seats
+        .iter()
+        .find(|(participant, _)| Some(participant.id) == shared)
+        .and_then(|(_, map)| map.gamepad());
+    let claimer = order.connected().into_iter().find(|pad| {
+        !claims.holds(*pad)
+            && Some(*pad) != primary_pad
+            && pads
+                .get(*pad)
+                .is_ok_and(|gamepad| gamepad.just_pressed(GamepadButton::Start))
+    });
+    if let Some(pad) = claimer {
+        claims.claim(open, pad);
+    }
+}
+
 /// The pad a lone seat hears: the controller its player used last.
 ///
 /// One player can pick up any connected controller. The seat follows the pad
 /// that shows input, and keeps it while it stays connected.
-fn pad_in_use(current: Option<Entity>, order: &LocalDeviceOrder, pads: &Query<&Gamepad>) -> Option<Entity> {
+fn pad_in_use(
+    current: Option<Entity>,
+    order: &LocalDeviceOrder,
+    pads: &Query<&Gamepad>,
+    claims: Option<&LocalSeatClaims>,
+    fall_back_to_first: bool,
+) -> Option<Entity> {
+    let connected = unclaimed_pads(order, claims);
+    pad_showing_input(&connected, pads)
+        .or(current.filter(|pad| connected.contains(pad)))
+        .or(connected.first().copied().filter(|_| fall_back_to_first))
+}
+
+/// The connected pads that no channel claimed, in slot order.
+fn unclaimed_pads(order: &LocalDeviceOrder, claims: Option<&LocalSeatClaims>) -> Vec<Entity> {
+    order
+        .connected()
+        .into_iter()
+        .filter(|pad| !claims.is_some_and(|claims| claims.holds(*pad)))
+        .collect()
+}
+
+/// The first of `connected` that shows input this frame: a button just
+/// pressed, or a stick past a generous deflection.
+fn pad_showing_input(connected: &[Entity], pads: &Query<&Gamepad>) -> Option<Entity> {
     const AXIS_DEFLECTION: f32 = 0.5;
-    let connected = order.connected();
-    let used = connected.iter().copied().find(|pad| {
+    connected.iter().copied().find(|pad| {
         pads.get(*pad).is_ok_and(|pad| {
             pad.get_just_pressed().next().is_some()
                 || pad.get_analog_axes().any(|axis| {
@@ -167,9 +281,7 @@ fn pad_in_use(current: Option<Entity>, order: &LocalDeviceOrder, pads: &Query<&G
                         .is_some_and(|value| value.abs() >= AXIS_DEFLECTION)
                 })
         })
-    });
-    used.or(current.filter(|pad| connected.contains(pad)))
-        .or(connected.first().copied())
+    })
 }
 
 /// Give each local seat the controller of its source.
@@ -187,11 +299,15 @@ pub fn assign_local_seat_devices(
     topology: Option<Res<LocalSeatTopology>>,
     offer: Option<Res<crate::seating::LocalSeatOffer>>,
     keyboard: Option<Res<crate::sources::KeyboardOwner>>,
+    claims: Option<Res<LocalSeatClaims>>,
     pads: Query<&Gamepad>,
     mut seats: Query<(
         &InputParticipant,
         &mut InputMap<Platformer2dInputActionMonolith>,
     )>,
+    // The pad each shared seat's player used last. Not the map's pad: a map
+    // can hold a pad that leafwing or a fallback gave it and nobody pressed.
+    mut used_last: Local<std::collections::BTreeMap<u8, Entity>>,
 ) {
     let frozen = topology.filter(|topology| topology.is_frozen());
     // The larger of the two counts. During activation a two-player topology can
@@ -223,8 +339,29 @@ pub fn assign_local_seat_devices(
         let wanted = match (source, frozen.as_ref()) {
             // One player with no plan hears the pad that player uses.
             (Some(LocalInputSource::Pad(_)), _) if players < 2 && plan.is_none() => {
-                pad_in_use(map.gamepad(), &order, &pads)
+                pad_in_use(map.gamepad(), &order, &pads, None, true)
             }
+            // The shared seat hears the unclaimed pad its player uses. Where a
+            // pad can claim a channel, an unused pad is not the shared seat's
+            // until it shows input, so its Start can claim.
+            (Some(LocalInputSource::Shared), _) => {
+                let claimable = plan.is_some_and(LocalChannelPlan::has_claimable_channel);
+                if let Some(pad) = pad_showing_input(&unclaimed_pads(&order, claims.as_deref()), &pads) {
+                    used_last.insert(slot, pad);
+                }
+                // Where a pad can claim a channel, the shared seat keeps only
+                // a pad its player pressed; elsewhere it keeps what it holds.
+                let current = if claimable {
+                    used_last.get(&slot).copied()
+                } else {
+                    map.gamepad()
+                };
+                pad_in_use(current, &order, &pads, claims.as_deref(), !claimable)
+            }
+            (Some(LocalInputSource::Claimed), _) => claims
+                .as_deref()
+                .and_then(|claims| claims.pad_of(participant.id))
+                .filter(|pad| order.slot_of(*pad).is_some()),
             (Some(LocalInputSource::Pad(index)), Some(topology)) => {
                 let index = match plan {
                     Some(_) => Some(index as usize),

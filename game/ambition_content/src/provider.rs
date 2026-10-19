@@ -154,26 +154,71 @@ impl Plugin for AmbitionExperiencePlugin {
 /// The most local seats an Ambition session offers.
 pub const AMBITION_SEATS: u8 = 2;
 
-/// Ambition offers one local seat for each connected pad, at most
-/// [`AMBITION_SEATS`] (Q153 default, until the maintainer rules how a second
-/// player joins).
+/// The seating Ambition's route states (Q153, ruled 2026-10-19).
 ///
-/// The policy is the default `UnifiedPrimary`: with one pad, the keyboard and
-/// the pad both drive the primary seat, as before. With two pads, the second
-/// pad drives seat 1, and the session opens a handle for it. The rollback
-/// session is never resized, so a pad that connects after the gameplay session
-/// started gets a seat only in the next session. No channel plan is declared:
-/// a fixed plan of keyboard and first pad would take the pad away from a
-/// player who plays alone on it.
+/// Single-player (the default): one channel on the shared source, so the
+/// keyboard and every pad drive player one, also a pad connected late, and no
+/// press seats anybody else. Accepting joins: the shared channel and
+/// [`AMBITION_SEATS`]` - 1` claimable channels. A claimable channel is reserved
+/// capacity: the session holds its handle from the start, idle until a pad
+/// claims it with Start, so a join needs no rebase. A claim that still stands
+/// keeps its channel when the setting goes off, so a joined player stays until
+/// they leave; the setting only says whether another join is accepted.
+pub fn ambition_route_seating(
+    accept_joins: bool,
+    claimed: bool,
+) -> ambition_platformer2d::game_shell::RouteSeating {
+    use ambition_platformer2d::game_shell::{RouteSeating, SeatCount};
+    use ambition_platformer2d::input::{InputAssignmentPolicy, LocalChannelPlan, LocalInputSource};
+    let seats = if accept_joins || claimed { AMBITION_SEATS } else { 1 };
+    let sources = std::iter::once(LocalInputSource::Shared)
+        .chain((1..seats).map(|_| LocalInputSource::Claimed));
+    let policy = if seats > 1 {
+        InputAssignmentPolicy::JoinToClaim
+    } else {
+        InputAssignmentPolicy::UnifiedPrimary
+    };
+    RouteSeating::new(SeatCount::Fixed(seats), policy)
+        .with_channels(LocalChannelPlan::from_sources(sources))
+}
+
+/// Declare Ambition's route seating (single-player until the setting says
+/// otherwise) and keep it in step with the setting and the claims.
 pub fn declare_ambition_seating(app: &mut App, route: &str) {
-    use ambition_platformer2d::game_shell::{RouteSeating, RouteSeatingAppExt, SeatCount};
-    app.declare_route_seating(
-        route.to_owned(),
-        RouteSeating::new(
-            SeatCount::OnePerSource { max: AMBITION_SEATS },
-            ambition_platformer2d::input::InputAssignmentPolicy::UnifiedPrimary,
-        ),
+    use ambition_platformer2d::game_shell::RouteSeatingAppExt;
+    use bevy::prelude::IntoScheduleConfigs as _;
+    app.declare_route_seating(route.to_owned(), ambition_route_seating(false, false));
+    app.insert_resource(AmbitionSeatingRoute(
+        ambition_platformer2d::game_shell::ShellRouteId::new(route),
+    ));
+    app.add_systems(
+        bevy::prelude::Update,
+        restate_ambition_seating
+            .before(ambition_platformer2d::game_shell::project_route_seating)
+            .in_set(ambition_platformer2d::input::SeatingDeclared),
     );
+}
+
+/// The route whose seating [`restate_ambition_seating`] keeps.
+#[derive(bevy::prelude::Resource, Clone, Debug)]
+struct AmbitionSeatingRoute(ambition_platformer2d::game_shell::ShellRouteId);
+
+fn restate_ambition_seating(
+    route: Res<AmbitionSeatingRoute>,
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    claims: Option<Res<ambition_platformer2d::input::LocalSeatClaims>>,
+    catalog: Option<ResMut<ambition_platformer2d::game_shell::RouteSeatingCatalog>>,
+) {
+    let Some(mut catalog) = catalog else {
+        return;
+    };
+    let accept = settings.is_some_and(|settings| settings.gameplay.accept_local_joins);
+    let claimed = claims.is_some_and(|claims| !claims.is_empty());
+    let wanted = ambition_route_seating(accept, claimed);
+    // Read first: a `ResMut` deref marks the catalog changed every frame.
+    if catalog.get(&route.0) != Some(&wanted) {
+        catalog.restate(&route.0, wanted);
+    }
 }
 
 /// The provider's session-world source: matching preparation requests clone
@@ -222,24 +267,35 @@ mod tests {
         assert!(route.preparation.is_some());
     }
 
-    /// Q153 default: one seat for each pad, at most two, and the keyboard
-    /// stays with the primary. Zero and one pad offer one seat (the solo
-    /// session of before); two pads offer two; a third pad offers no third.
-    /// No channel plan is decided, so the session is sized from devices.
+    /// Q153 (2026-10-19): single-player by default, whatever the pads. The
+    /// route decides a one-channel plan on the shared source, so the session
+    /// is not sized from devices: with 0..3 pads it offers one seat. With the
+    /// setting on, it offers two, the second claimable. A standing claim keeps
+    /// the second channel after the setting goes off. Control: the old
+    /// device-sized offer gave two seats for two pads.
     #[test]
-    fn ambition_offers_a_seat_for_each_pad_up_to_two() {
+    fn ambition_is_single_player_until_the_setting_accepts_a_join() {
         use ambition_platformer2d::game_shell::{
             project_route_seating, ActiveShellExperience, ShellActivationId, ShellRouter,
         };
         use ambition_platformer2d::input::{
-            InputAssignmentPolicy, LocalDeviceOrder, LocalSeatOffer, SessionSeatingSource,
+            LocalDeviceOrder, LocalInputSource, LocalSeatClaims, LocalSeatOffer, ParticipantId,
+            SessionSeatingSource,
         };
-        let offered = |pads: usize| {
+        let seated = |pads: usize, accept: bool, claimed: bool| {
             let mut app = App::new();
-            app.init_resource::<ShellRouter>()
-                .add_systems(bevy::prelude::Update, project_route_seating);
+            app.init_resource::<ShellRouter>();
+            let mut settings = ambition_persistence::settings::UserSettings::default();
+            settings.gameplay.accept_local_joins = accept;
+            app.insert_resource(settings);
             declare_ambition_seating(&mut app, AMBITION_GAMEPLAY_ROUTE);
-            let devices = (0..pads).map(|_| app.world_mut().spawn_empty().id()).collect();
+            app.add_systems(bevy::prelude::Update, project_route_seating);
+            let devices: Vec<Entity> = (0..pads).map(|_| app.world_mut().spawn_empty().id()).collect();
+            let mut claims = LocalSeatClaims::default();
+            if claimed {
+                claims.claim(ParticipantId::SECONDARY, devices[1]);
+            }
+            app.insert_resource(claims);
             app.insert_resource(LocalDeviceOrder::from_devices(devices));
             app.world_mut().resource_mut::<ShellRouter>().active = Some(ActiveShellExperience {
                 activation_id: ShellActivationId(1),
@@ -250,15 +306,22 @@ mod tests {
                 prepared_session: None,
             });
             app.update();
-            let offer = app.world().resource::<LocalSeatOffer>().clone();
-            assert_eq!(offer.policy(), InputAssignmentPolicy::UnifiedPrimary);
-            assert_eq!(
-                app.world().resource::<SessionSeatingSource>().channel_plan(),
-                None,
-                "a decided plan would size the session instead of the devices"
-            );
-            offer.seats()
+            let offer = app.world().resource::<LocalSeatOffer>().seats();
+            let plan = app
+                .world()
+                .resource::<SessionSeatingSource>()
+                .channel_plan()
+                .expect("Ambition decides its plan, so devices do not size the session")
+                .sources()
+                .to_vec();
+            (offer, plan)
         };
-        assert_eq!([0, 1, 2, 3].map(offered), [1, 1, 2, 2], "[seats with 0, 1, 2, 3 pads]");
+        let solo = (1, vec![LocalInputSource::Shared]);
+        let couch = (2, vec![LocalInputSource::Shared, LocalInputSource::Claimed]);
+        for pads in 0..4 {
+            assert_eq!(seated(pads, false, false), solo, "{pads} pad(s), setting off");
+        }
+        assert_eq!(seated(2, true, false), couch, "setting on: a reserved claimable seat");
+        assert_eq!(seated(2, false, true), couch, "setting off with a standing claim");
     }
 }

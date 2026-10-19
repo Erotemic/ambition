@@ -22,6 +22,14 @@ pub enum LocalInputSource {
     Keyboard,
     /// The Nth connected pad, in [`crate::LocalDeviceOrder`]'s arrival order.
     Pad(u8),
+    /// The keyboard and each connected pad that no channel claimed. The seat
+    /// hears the pad its player used last. One person plays on any device,
+    /// also on a pad connected after the session started.
+    Shared,
+    /// A pad that claimed this channel by a join gesture while the session
+    /// ran ([`crate::LocalSeatClaims`]). Until a pad claims it, the channel
+    /// hears nothing, so it is reserved capacity: a join opens no handle.
+    Claimed,
 }
 
 impl LocalInputSource {
@@ -31,8 +39,8 @@ impl LocalInputSource {
     /// This source's index into the frozen device order, if it is a pad.
     pub const fn pad_index(self) -> Option<usize> {
         match self {
-            Self::Keyboard => None,
             Self::Pad(index) => Some(index as usize),
+            Self::Keyboard | Self::Shared | Self::Claimed => None,
         }
     }
 
@@ -101,6 +109,12 @@ impl LocalChannelPlan {
     /// `Entity::PLACEHOLDER` and ignored their pad.
     pub fn keyboard_channel(&self) -> Option<ParticipantId> {
         self.channel_for_source(LocalInputSource::Keyboard)
+            .or_else(|| self.channel_for_source(LocalInputSource::Shared))
+    }
+
+    /// Whether a pad can claim a channel of this plan while the session runs.
+    pub fn has_claimable_channel(&self) -> bool {
+        self.sources.contains(&LocalInputSource::Claimed)
     }
 
     /// Every channel with the source it listens to, in channel order.
@@ -118,11 +132,15 @@ impl LocalChannelPlan {
     ///
     /// One controller cannot drive two fighters; one would never move. This
     /// reports the fault and does not deduplicate, because this type cannot
-    /// choose which seat loses its driver.
+    /// choose which seat loses its driver. [`LocalInputSource::Claimed`] is
+    /// not a repeat: each such channel holds its own claim.
     pub fn repeated_sources(&self) -> Vec<LocalInputSource> {
         let mut seen: Vec<LocalInputSource> = Vec::new();
         let mut repeated: Vec<LocalInputSource> = Vec::new();
         for source in &self.sources {
+            if *source == LocalInputSource::Claimed {
+                continue;
+            }
             if seen.contains(source) {
                 if !repeated.contains(source) {
                     repeated.push(*source);

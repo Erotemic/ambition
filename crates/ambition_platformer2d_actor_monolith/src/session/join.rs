@@ -1,11 +1,14 @@
-//! A second seat joins the session (Q153 default, until the maintainer rules
-//! how a second player joins Ambition).
+//! A second seat joins the session (Q153, ruled 2026-10-19).
 //!
-//! A seat with no body that presses Jump gets its home body beside the
+//! A seat with no body that presses Start gets its home body beside the
 //! primary body, in the primary's live room, wearing the primary's character.
-//! The join is a simulation fact: the press is in the seat's input for the
-//! frame, so a rewind across the join frame builds the same body again, and a
-//! remote peer builds it on the same frame.
+//! Start is the explicit join gesture: the input layer gives a seat a pad only
+//! when that pad claims it with Start (`ambition_input::claim_local_seats`),
+//! and a single-player session holds no handle for any other seat, so no
+//! gameplay button of another pad seats anybody. The join is a simulation
+//! fact: the press is in the seat's input for the frame, so a rewind across
+//! the join frame builds the same body again, and a remote peer builds it on
+//! the same frame.
 
 use bevy::prelude::*;
 
@@ -19,7 +22,7 @@ use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use crate::avatar::{HomeBodyAbilities, HomeBodyResources, InitialBodyPolicy, StartingCharacter};
 use crate::session::setup::{spawn_home_body, HomeBody};
 
-/// Build the home body of each seat that presses Jump and has no body yet.
+/// Build the home body of each seat that presses Start and has no body yet.
 ///
 /// Only a session that builds a home body for its primary seat seats a second
 /// one: a match owns its whole cast (`InitialBodyPolicy`). The primary must be
@@ -46,7 +49,7 @@ pub fn seat_a_joining_participant(
     // next session, for Ambition and for Sanic (review 2026-10-05).
     let joining: Vec<PlayerSlot> = (1..SlotControls::MAX_SLOTS)
         .map(|index| PlayerSlot(index as u8))
-        .filter(|seat| controls.get(*seat).jump_pressed)
+        .filter(|seat| controls.get(*seat).start_pressed)
         .filter(|seat| !seated.iter().any(|driver| driver.0 == *seat))
         .collect();
     if joining.is_empty() {

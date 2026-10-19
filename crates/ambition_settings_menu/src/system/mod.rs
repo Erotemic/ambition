@@ -528,6 +528,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::MovementFrameMode,
             SettingsOptionId::AimFrameMode,
             SettingsOptionId::PortalReverseFacing,
+            SettingsOptionId::AcceptLocalJoins,
             SettingsOptionId::DebugHud,
             SettingsOptionId::QuestHud,
             SettingsOptionId::TraceAutoDump,

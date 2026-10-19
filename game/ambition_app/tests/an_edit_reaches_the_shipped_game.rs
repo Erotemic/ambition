@@ -1540,9 +1540,9 @@ fn a_world_reload_moves_the_body_that_stays_out_of_the_new_solids() {
 /// A WORLD RELOAD MOVES THE BODY OF A JOINED SEAT OUT OF THE NEW SOLIDS.
 ///
 /// The home body of a joined seat is owned by the session, so a reload keeps
-/// it (Q153 default join). The reload moves it to a clear place in the new
+/// it (Q153 join). The reload moves it to a clear place in the new
 /// geometry of its room, as it moves the primary body. Seat 1 joins through
-/// the join system, run once on the world with a Jump press in seat 1's slot
+/// the join system, run once on the world with a Start press in seat 1's slot
 /// (the shipped composition opens one handle, so no device presses for it).
 ///
 /// - Control: the reload moves an NPC and puts no solid over the seat; the
@@ -1566,7 +1566,7 @@ fn a_world_reload_moves_the_body_of_a_joined_seat_out_of_the_new_solids() {
         app.world_mut().resource_mut::<SlotControls>().set(
             PlayerSlot(1),
             ambition_platformer2d::engine_core::ControlFrame {
-                jump_pressed: true,
+                start_pressed: true,
                 ..Default::default()
             },
         );
@@ -1574,7 +1574,7 @@ fn a_world_reload_moves_the_body_of_a_joined_seat_out_of_the_new_solids() {
             .run_system_once(ambition_platformer2d::actors::session::join::seat_a_joining_participant)
             .expect("the join system runs");
         // No handle writes slot 1 in this composition, so the press would
-        // stay and the body would jump for ever.
+        // stay in the slot.
         app.world_mut().resource_mut::<SlotControls>().set(PlayerSlot(1), Default::default());
         let world = app.world_mut();
         let seat = world

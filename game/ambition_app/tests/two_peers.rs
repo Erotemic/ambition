@@ -183,6 +183,8 @@ fn script(slot: usize, frame: i32) -> ControlFrame {
         axis_x: if right { 1.0 } else { -1.0 },
         jump_pressed: frame % jump == 0,
         jump_held: frame % jump < 6,
+        // Bob's Start with his Jump: the join gesture. Seated, it does nothing.
+        start_pressed: slot == 1 && frame % jump == 0,
         ..Default::default()
     }
 }
@@ -264,18 +266,20 @@ fn two_peers(poison: Poison) -> Outcome {
 
 /// [`two_peers`] in `room`, with Alice's input a function of the frame. Bob
 /// always runs his script, so a peer always has a remote input to predict.
-/// His script presses Jump, so he joins with a body of seat 1 (the Q153
-/// default join).
+/// His script presses Start, so he joins with a body of seat 1 (the Q153
+/// join gesture).
 fn two_peers_in(room: &str, alices: fn(i32) -> ControlFrame, poison: Poison) -> Outcome {
     two_peers_with(room, alices, |frame| script(1, frame), poison)
 }
 
-/// Bob's script without its Jump presses: he moves the stick, so a peer still
-/// has a changing remote input to predict, and he never joins with a body.
+/// Bob's script without its Jump and Start presses: he moves the stick, so a
+/// peer still has a changing remote input to predict, and he never joins with
+/// a body.
 fn bob_without_a_body(frame: i32) -> ControlFrame {
     ControlFrame {
         jump_pressed: false,
         jump_held: false,
+        start_pressed: false,
         ..script(1, frame)
     }
 }

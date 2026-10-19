@@ -1506,6 +1506,12 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     // Authored, immutable-by-contract content bound by PreparedContentIdentity;
     // a changed generation invalidates the GGRS session before the next frame.
+    // Which shell route Ambition's seating plan belongs to: set once when the
+    // provider declares its seating, read by the host system that restates the
+    // plan when the join setting changes (`Update`, outside the rollback
+    // window). The plan it feeds reaches the simulation only as the decided
+    // session seating, which a change rebuilds the local session from.
+    ("ambition_content::provider::AmbitionSeatingRoute", "host-side seating configuration"),
     ("ambition_boss_encounter::catalog::", "authored boss catalog"),
     (
         "ambition_boss_encounter::registry::BossEncounterRegistry",

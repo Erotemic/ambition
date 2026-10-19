@@ -647,6 +647,12 @@ pub fn source_name_under(
         ambition_platformer2d::actor::LocalInputSource::Pad(pad) => {
             crate::text::smash_text().fill("select.pad_missing", &[("number", &(pad + 1))])
         }
+        // A lobby hand names a fixed source (`source_for_seat`); the shared and
+        // claimed sources are a running game's, and a lobby never names them.
+        ambition_platformer2d::actor::LocalInputSource::Shared => crate::text::line("select.keyboard"),
+        ambition_platformer2d::actor::LocalInputSource::Claimed => {
+            crate::text::smash_text().fill("select.pad_missing", &[("number", &(device + 1))])
+        }
     }
 }
 
@@ -679,6 +685,9 @@ pub fn source_is_present(
         ambition_platformer2d::actor::LocalInputSource::Pad(pad) => {
             devices.pad(pad as usize).is_some()
         }
+        // Not lobby sources; see `source_name_under`.
+        ambition_platformer2d::actor::LocalInputSource::Shared => true,
+        ambition_platformer2d::actor::LocalInputSource::Claimed => false,
     }
 }
 

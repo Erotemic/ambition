@@ -208,9 +208,10 @@ fn scope_for_source(
         Some(ambition_input::LocalInputSource::Keyboard) => {
             ambition_input::BindingSources::KeyboardOnly
         }
-        Some(ambition_input::LocalInputSource::Pad(_)) => {
+        Some(ambition_input::LocalInputSource::Pad(_) | ambition_input::LocalInputSource::Claimed) => {
             ambition_input::BindingSources::GamepadOnly
         }
+        Some(ambition_input::LocalInputSource::Shared) => ambition_input::BindingSources::Unified,
         None => ambition_input::BindingSources::GamepadOnly,
     }
 }
@@ -2286,6 +2287,7 @@ pub fn freeze_local_seating_for_the_decided_match(
     roster: Option<Res<ambition_match::MatchParticipantRoster>>,
     order: Res<ambition_input::LocalDeviceOrder>,
     existing: Option<Res<ambition_input::LocalSeatTopology>>,
+    seating: Option<Res<ambition_input::SessionSeatingSource>>,
 ) {
     let Some(roster) = roster else {
         // No match. A topology that outlives the roster it describes is the
@@ -2296,7 +2298,15 @@ pub fn freeze_local_seating_for_the_decided_match(
         // removed that topology too, the owner would read "no stated seats" on
         // the next frame and install a new session. Each install resets the
         // input latches, so the seat's keys would never reach the simulation.
-        if existing.is_some_and(|topology| topology.declared_channels().is_some()) {
+        //
+        // ⛔ AND A ROUTE'S DECIDED PLAN IS NOT A ROSTER'S. A route that decides
+        // its channels (Ambition's single-player and second-player plans) has
+        // the session owner freeze that plan with no roster at all. Removing it
+        // left the seats on the no-plan road, where the first pad drove seat 1.
+        let decided = seating.as_deref().and_then(ambition_input::SessionSeatingSource::channel_plan);
+        if existing.is_some_and(|topology| {
+            topology.declared_channels().is_some() && topology.declared_channels() != decided
+        }) {
             commands.remove_resource::<ambition_input::LocalSeatTopology>();
         }
         return;

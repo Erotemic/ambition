@@ -17,6 +17,7 @@ mod common;
 mod app_it_sync;
 mod an_edit_reaches_the_shipped_game;
 mod pirate_sky_crew;
+mod local_play_modes;
 mod robot_blade_at_home;
 mod window_cameras_share_one_main_texture;
 mod the_cart_of_the_wake_room;

@@ -1,6 +1,6 @@
-//! A second seat joins Ambition and comes back after it dies (Q153 defaults).
+//! A second seat joins Ambition and comes back after it dies (Q153).
 //!
-//! The join: a seat with no body that presses Jump gets its home body beside
+//! The join: a seat with no body that presses Start gets its home body beside
 //! the primary body, in the primary's room, on the frame of the press, inside
 //! the simulation. The return: a second seat whose death beat closes comes
 //! back beside the primary, and its death sends no room back, because the
@@ -27,6 +27,14 @@ pub(crate) fn jump() -> ControlFrame {
     ControlFrame {
         jump_pressed: true,
         jump_held: true,
+        ..ControlFrame::default()
+    }
+}
+
+/// The join gesture: Start, the press that claims a pad for a seat.
+pub(crate) fn start() -> ControlFrame {
+    ControlFrame {
+        start_pressed: true,
         ..ControlFrame::default()
     }
 }
@@ -59,12 +67,12 @@ pub(crate) fn room_of(sim: &Platformer2dSimHarness, body: Entity) -> Option<InRo
     sim.world().get::<InRoomInstance>(body).copied()
 }
 
-/// Press Jump on seat `SEAT` for one frame, then step neutral until its body
+/// Press Start on seat `SEAT` for one frame, then step neutral until its body
 /// exists (at most `frames`). Returns the body and the primary's place on the
 /// frame the body first exists.
 pub(crate) fn join(sim: &mut Platformer2dSimHarness, frames: usize) -> Option<(Entity, (i32, i32))> {
     let primary = the_primary(sim);
-    sim.drive_seat(SEAT, jump());
+    sim.drive_seat(SEAT, start());
     sim.step(AgentAction::default());
     for _ in 0..frames {
         if let Some(body) = bodies_of_the_seat(sim).first().copied() {
@@ -101,13 +109,13 @@ pub(crate) fn die(sim: &mut Platformer2dSimHarness, body: Entity) {
 }
 
 /// THE JOIN, under a two-seat sync test that rewinds and resimulates the
-/// frames around the press. Control: 30 frames with seat 1 neutral build no
-/// body. The press builds one body of seat 1 (identity `slot:1`, not primary),
+/// frames around the press. Controls: 30 frames with seat 1 neutral build no
+/// body, and neither does a Jump press (Jump is play, never the join gesture). The press builds one body of seat 1 (identity `slot:1`, not primary),
 /// in the primary's room and where the primary stands. The resimulated
 /// frames agree (no checksum mismatch). A second press builds no second body,
 /// and seat 1's input moves its own body and not the primary.
 #[test]
-fn a_seat_with_no_body_joins_beside_the_primary_on_a_jump_press() {
+fn a_seat_with_no_body_joins_beside_the_primary_on_a_start_press() {
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
@@ -120,9 +128,14 @@ fn a_seat_with_no_body_joins_beside_the_primary_on_a_jump_press() {
         sim.step(AgentAction::default());
     }
     assert!(bodies_of_the_seat(&mut sim).is_empty(), "control: a seat that pressed nothing has no body");
+    for frame in [jump(), ControlFrame::default(), ControlFrame::default()] {
+        sim.drive_seat(SEAT, frame);
+        sim.step(AgentAction::default());
+    }
+    assert!(bodies_of_the_seat(&mut sim).is_empty(), "control: a Jump press is not the join gesture");
     let primary = the_primary(&mut sim);
 
-    let (body, primary_at) = join(&mut sim, 4).expect("seat 1 pressed Jump and no body was built");
+    let (body, primary_at) = join(&mut sim, 4).expect("seat 1 pressed Start and no body was built");
     assert_eq!(
         (
             sim.world().get::<SimId>(body).map(|id| id.as_str().to_string()),
@@ -138,7 +151,7 @@ fn a_seat_with_no_body_joins_beside_the_primary_on_a_jump_press() {
         "the body of seat 1 is at {at:?}, not beside the primary at {primary_at:?}"
     );
     for frame in 0..30 {
-        sim.drive_seat(SEAT, if frame == 10 { jump() } else { ControlFrame::default() });
+        sim.drive_seat(SEAT, if frame == 10 { start() } else { ControlFrame::default() });
         sim.step(AgentAction::default());
         sim.rollback_health()
             .unwrap_or_else(|error| panic!("frame {frame} after the join: {error}"));
@@ -181,7 +194,7 @@ fn a_second_seat_that_dies_comes_back_beside_the_primary() {
         Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     sim.step_n(AgentAction::default(), 15);
     let primary = the_primary(&mut sim);
-    let (body, _) = join(&mut sim, 4).expect("seat 1 pressed Jump and no body was built");
+    let (body, _) = join(&mut sim, 4).expect("seat 1 pressed Start and no body was built");
     // Seat 1 walks away from the primary, so "beside the primary" is a move.
     for _ in 0..40 {
         sim.drive_seat(
@@ -238,7 +251,7 @@ fn a_second_seat_that_dies_in_another_room_comes_back_in_the_primarys_room() {
     )
     .unwrap_or_else(|error| panic!("{ROOM} boots: {error:?}"));
     sim.step_n(AgentAction::default(), 10);
-    let (body, _) = join(&mut sim, 4).expect("seat 1 pressed Jump and no body was built");
+    let (body, _) = join(&mut sim, 4).expect("seat 1 pressed Start and no body was built");
     sim.drive_seat(SEAT, ControlFrame::default());
     assert_eq!(walk_through_the_door_to(&mut sim, HUB), HUB);
     sim.step_n(AgentAction::default(), 30);
@@ -290,7 +303,7 @@ fn booted_in(room: &str) -> Platformer2dSimHarness {
 }
 
 fn seat_one_joins(sim: &mut Platformer2dSimHarness) -> Entity {
-    let (body, _) = join(sim, 4).expect("seat 1 pressed Jump and no body was built");
+    let (body, _) = join(sim, 4).expect("seat 1 pressed Start and no body was built");
     sim.drive_seat(SEAT, ControlFrame::default());
     body
 }

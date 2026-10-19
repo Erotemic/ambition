@@ -83,6 +83,20 @@ impl RouteSeatingCatalog {
         self.by_route.get(route)
     }
 
+    /// Restate the seating of a route that declared one, while the game runs:
+    /// a setting changed how many local players the route accepts.
+    /// [`project_route_seating`] carries it to the session, which rebuilds its
+    /// handles. Returns whether the statement changed.
+    pub fn restate(&mut self, route: &ShellRouteId, seating: RouteSeating) -> bool {
+        match self.by_route.get_mut(route) {
+            Some(held) if *held != seating => {
+                *held = seating;
+                true
+            }
+            _ => false,
+        }
+    }
+
     /// Whether a declared route made the value `owner` names.
     fn owns(&self, owner: Option<&str>) -> bool {
         owner

@@ -419,6 +419,13 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 g.portal_reverses_facing,
                 "Reverse facing when a portal turns the controlled body back along the same wall.",
             ),
+            toggle(
+                SettingsOptionId::AcceptLocalJoins,
+                "Accept Second Player",
+                g.accept_local_joins,
+                "Off: the keyboard and every controller drive player one. On: a controller \
+                 that presses Start joins as another player.",
+            ),
             {
                 let (i, n) = g.camera_reference_frame_index();
                 cycle(

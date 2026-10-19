@@ -545,6 +545,9 @@
     // ============================================================
     "smirking_behemoth_boss": (
         id: "smirking_behemoth_boss",
+        // It explodes when it dies: no corpse after its death row (Jon,
+        // 2026-10-18).
+        corpse: Some(Vanish),
         signature_gauntlet: Some("beam"),
         // Environmental puzzle boss: ordinary slashes/projectiles never
         // damage it; the only kill condition is the LDtk-authored

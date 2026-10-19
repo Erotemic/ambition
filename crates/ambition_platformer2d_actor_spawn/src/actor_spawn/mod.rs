@@ -925,8 +925,12 @@ fn boss_actor_cluster(
     ambition_combat::CombatTuning,
 ) {
     // A boss floats: its movement kit grants flight, unioned into the body's
-    // `AbilitySet` below. Death/weapon consequence traits stay default.
-    let caps = ambition_combat::CombatCapabilities::default();
+    // `AbilitySet` below. Its death traits are default, except what its corpse
+    // does, which its profile may state.
+    let caps = ambition_combat::CombatCapabilities {
+        corpse: config.behavior.corpse,
+        ..Default::default()
+    };
     let movement_kit = ae::AbilitySet {
         fly: true,
         // ⛔ PERMANENT FLIGHT, AND `fly_toggle` MUST STAY FALSE. Nothing ever

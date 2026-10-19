@@ -74,6 +74,7 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
                 chase_speed: *chase_speed,
                 navigates: *navigates,
                 retreat_after_swing_s: 0.0,
+                tactics: Default::default(),
             },
             state: MeleeBruteState::default(),
         },

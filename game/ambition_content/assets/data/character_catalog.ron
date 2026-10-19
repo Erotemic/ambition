@@ -3553,6 +3553,11 @@
                 attack_range: 50.0,
                 patrol_effort: 0.4,
                 chase_effort: 0.9,
+                // A drilled fighter: it holds just out of your reach, steps in to
+                // swing, and steps out again; it climbs after you; hit, it gives ground.
+                navigates: true,
+                retreat_after_swing_s: 0.3,
+                tactics: (lurk_px: 80.0, waits_its_turn: true, footsies: Some((hold_px: 110.0, wait_s: 0.9)), flinch_back_s: 0.25),
             )),
             max_health: Some(4),
             tags: ["enemy", "evil", "minion"],
@@ -5121,6 +5126,10 @@
                 shares_sightings: true,
                 // A swipe, a skitter back: the pack takes turns.
                 retreat_after_swing_s: 0.35,
+                // A skittering pack: it hops after you onto a platform, bites and
+                // darts off, scatters when hit, and the pack takes turns.
+                navigates: true,
+                tactics: (lurk_px: 90.0, waits_its_turn: true, flinch_back_s: 0.3),
             )),
             max_health: Some(2),
             tags: ["enemy", "evil", "monster", "minion"],
@@ -5155,6 +5164,10 @@
                 shares_sightings: true,
                 // It bites and jumps back, then comes in again.
                 retreat_after_swing_s: 0.55,
+                // The hunter: it leaps up after you, bites, runs, and comes again; hit,
+                // it springs back.
+                navigates: true,
+                tactics: (lurk_px: 110.0, waits_its_turn: true, flinch_back_s: 0.4),
             )),
             max_health: Some(3),
             tags: ["enemy", "evil", "animal", "dog", "quadruped"],
@@ -5188,6 +5201,9 @@
                 chase_effort: 0.6,
                 attack_cooldown_s: 0.9,
                 shares_sightings: false,
+                // Relentless and slow: it never backs off, but a horde spreads out,
+                // and it waits under a ledge you stand on, groaning, to one side.
+                tactics: (lurk_px: 70.0, waits_its_turn: true),
             )),
             max_health: Some(3),
             tags: ["enemy", "evil", "undead", "minion"],
@@ -5220,6 +5236,10 @@
                 chase_effort: 0.7,
                 attack_cooldown_s: 0.6,
                 shares_sightings: true,
+                // The wall: slow and patient, it holds its ground just out of reach and
+                // commits only now and then; it does not give ground, and it guards the
+                // place you would come down to from a ledge.
+                tactics: (lurk_px: 140.0, footsies: Some((hold_px: 95.0, wait_s: 1.3))),
             )),
             max_health: Some(8),
             mass: Some(5.0),
@@ -5260,6 +5280,8 @@
                 shares_sightings: true,
                 // It stabs and scuttles back out of reach.
                 retreat_after_swing_s: 0.7,
+                // It skitters in, strikes, skitters off; hit, it scurries away.
+                tactics: (lurk_px: 60.0, waits_its_turn: true, flinch_back_s: 0.5),
             )),
             max_health: Some(2),
             tags: ["enemy", "evil", "machine", "crawler"],

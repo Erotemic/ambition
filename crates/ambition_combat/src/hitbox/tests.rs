@@ -2181,14 +2181,31 @@ mod strike_rank {
         two_ranked_volumes_guarded(victim_x, second_damage, second_is_wind, None, 160.0)
     }
 
-    /// [`two_ranked_volumes`], with a guard that covers every side at `guard`
-    /// and the tip centred at `tip_x`.
+    /// [`two_ranked_volumes`], with the body publishing `published` as the
+    /// one volume it can be hit in.
+    fn two_ranked_volumes_published(victim_x: f32, published: ae::Aabb) -> App {
+        two_ranked_volumes_with(victim_x, 7, false, None, 160.0, Some(published))
+    }
+
     fn two_ranked_volumes_guarded(
         victim_x: f32,
         second_damage: i32,
         second_is_wind: bool,
         guard: Option<ae::Aabb>,
         tip_x: f32,
+    ) -> App {
+        two_ranked_volumes_with(victim_x, second_damage, second_is_wind, guard, tip_x, None)
+    }
+
+    /// [`two_ranked_volumes`], with a guard that covers every side at `guard`,
+    /// the tip centred at `tip_x`, and the volume the body publishes.
+    fn two_ranked_volumes_with(
+        victim_x: f32,
+        second_damage: i32,
+        second_is_wind: bool,
+        guard: Option<ae::Aabb>,
+        tip_x: f32,
+        published: Option<ae::Aabb>,
     ) -> App {
         let mut app = App::new();
         app.add_message::<HitEvent>();
@@ -2274,8 +2291,26 @@ mod strike_rank {
                     .collect(),
             },
         ));
+        if let Some(published) = published {
+            let mut bodies = app.world_mut().query_filtered::<Entity, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>();
+            let body = bodies.single(app.world()).expect("one body");
+            app.world_mut().entity_mut(body).insert(crate::components::DamageableVolumes::single(published));
+        }
         app.update();
         app
+    }
+
+    /// Review finding #10 (2026-10-19): the broad phase asks where a body
+    /// can be hit, not where its box is. The body stands clear of the swing,
+    /// and the volume it publishes (a long reach) is under the tip: the tip
+    /// lands. Poison: the broad phase reads the body's box.
+    #[test]
+    fn a_body_is_hit_in_the_volume_it_publishes_outside_its_box() {
+        // The body's box spans 286..314, clear of the base (85..175); the
+        // volume it publishes spans 150..170, under the tip (152..168).
+        let published = ae::Aabb::new(ae::Vec2::new(160.0, 100.0), ae::Vec2::new(10.0, 20.0));
+        let app = two_ranked_volumes_published(300.0, published);
+        assert_eq!(hits(&app).iter().map(|hit| hit.damage).collect::<Vec<_>>(), vec![14]);
     }
 
     /// The damage of each strike a guard turned aside.
@@ -3280,4 +3315,96 @@ fn a_ray_down_into_a_portal_hurts_under_its_partner() {
         assert_eq!(struck(&app, far), usize::from(hurts), "the far body (portals: {hurts})");
         assert_eq!(struck(&app, below), usize::from(!hurts), "the body under the opening (portals: {hurts})");
     }
+}
+
+/// A timing of the strike resolver, not a check: 24 strike volumes of 8
+/// attackers against 24 guarded bodies spread over one room, each pair
+/// resolved every tick. Run it in release with `--ignored --nocapture`.
+/// `PA` sets the attackers, `PG=0` takes the guards away, and `PF` moves the
+/// bodies that far away, so no strike reaches any.
+#[test]
+#[ignore]
+fn profile_strike_resolution_with_guards() {
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
+    app.add_message::<crate::guard::DeflectedBodyHit>();
+    app.add_message::<VfxInRoom>();
+    app.init_resource::<CapturedHits>();
+    app.insert_resource(FactionRelations::default());
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+    // 8 attackers, 3 volumes each, spread over 2000 px; 24 guarded bodies
+    // spread over the same span. Most pairs are far apart, as in a room.
+    let attackers: usize = std::env::var("PA").ok().and_then(|v| v.parse().ok()).unwrap_or(8);
+    let guards = std::env::var("PG").map_or(true, |v| v != "0");
+    for a in 0..attackers {
+        let x = a as f32 * 250.0;
+        let owner = app.world_mut().spawn(ae::CenteredAabb::new(ae::Vec2::new(x, 100.0), ae::Vec2::new(12.0, 16.0))).id();
+        for v in 0..3u16 {
+            let center = ae::Vec2::new(x + 30.0 + v as f32 * 20.0, 100.0);
+            app.world_mut().spawn((
+                Hitbox {
+                    strike_sfx: None,
+                    owner,
+                    source: HitSide::Enemy,
+                    anchor: HitboxAnchor::World { center },
+                    half_extent: ae::Vec2::new(12.0, 12.0),
+                    shape: None,
+                    facing: 1.0,
+                    damage: 1,
+                    knockback: crate::strike::HitboxKnockback::LaunchSpeed { base: 120.0, growth: None },
+                    launch_dir: None,
+                    frame_down: ae::Vec2::new(0.0, 1.0),
+                    reaction: None,
+                    guard: Default::default(),
+                },
+                HitboxLifetime { remaining_s: 1000.0 },
+                HitboxHits::default(),
+                crate::moveset::StrikeRank { window: 0, volume: v },
+            ));
+        }
+    }
+    let far: f32 = std::env::var("PF").ok().and_then(|v| v.parse().ok()).unwrap_or(0.0);
+    for b in 0..24 {
+        let x = b as f32 * 83.0 + 400.0 + far;
+        let piece = |dx: f32| crate::guard::GuardPiece {
+            guard: 0,
+            volume: ae::Aabb::new(ae::Vec2::new(x + dx, 100.0), ae::Vec2::new(4.0, 20.0)),
+            faces: ambition_characters::actor::GuardFaces::Front,
+            facing: -1.0,
+            open_above: false,
+        };
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ActorFaction::Player,
+            ambition_platformer2d_core::BodyKinematics {
+                pos: ae::Vec2::new(x, 100.0),
+                size: ae::Vec2::new(28.0, 46.0),
+                facing: -1.0,
+                ..Default::default()
+            },
+            ae::CenteredAabb::from_center_size(ae::Vec2::new(x, 100.0), ae::Vec2::new(28.0, 46.0)),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
+            crate::guard::GuardVolumes { pieces: if guards { vec![piece(-18.0), piece(18.0)] } else { vec![] } },
+        ));
+    }
+    app.update();
+    let mut schedule_times = Vec::new();
+    for _ in 0..5 {
+        let start = std::time::Instant::now();
+        for _ in 0..2000 {
+            // Clear the dedupe so every tick resolves every pair again.
+            let mut hits = app.world_mut().query::<&mut HitboxHits>();
+            for mut h in hits.iter_mut(app.world_mut()) {
+                *h = HitboxHits::default();
+            }
+            app.update();
+        }
+        schedule_times.push(start.elapsed().as_secs_f64() / 2000.0 * 1e6);
+    }
+    schedule_times.sort_by(f64::total_cmp);
+    eprintln!("strike resolution: {:.2} us a tick (median of 5 runs of 2000): {:?}", schedule_times[2], schedule_times);
 }

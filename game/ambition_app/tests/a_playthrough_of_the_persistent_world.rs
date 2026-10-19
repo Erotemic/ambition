@@ -539,3 +539,51 @@ fn a_death_sends_the_blink_back_to_where_it_lay() {
     assert_eq!(lying, vec![found_at], "back in the hub, the Blinks lying in the world");
     take(&mut app, &blink);
 }
+
+/// The passage the player is in, and whether its control is held.
+fn passage(app: &mut App) -> Option<(ambition_platformer2d::actors::rooms::passage::ZonePassage, bool)> {
+    let body = primary_body(app);
+    let world = app.world();
+    let held = world
+        .get::<ambition_platformer2d::characters::control::ControlHolds>(body)
+        .is_some_and(|holds| holds.holds(ambition_platformer2d::characters::control::ControlHold::Transit));
+    world.get::<ambition_platformer2d::actors::rooms::passage::ZonePassage>(body).map(|passage| (passage.clone(), held))
+}
+
+/// Through `target`'s door: the player comes out of the far door in its
+/// passage, with the door open, and then is free, the door shut behind it.
+fn come_out_of_the_door_to(app: &mut App, target: &str) {
+    use ambition_platformer2d::actors::rooms::passage::{PassageKind, PassageStage};
+    if let Err(why) = crate::common::walk::walk_through(&mut crate::common::walk::Keys::new(app), target) {
+        panic!("the player did not walk through to `{target}`: {why}");
+    }
+    let (arrived, held) = passage(app).unwrap_or_else(|| panic!("into `{target}`, the player arrived with no passage"));
+    assert_eq!((arrived.kind, arrived.stage), (PassageKind::Door, PassageStage::Exiting), "into `{target}`: {arrived:?}");
+    assert!(held, "the player coming out of the door is not held by its passage");
+    // The views are of the last tick; the arrival was in this one.
+    app.update();
+    let open = app.world().resource::<ambition_platformer2d::sim_view::PassageViews>().door_open(&arrived.zone);
+    assert_eq!(open, Some(1.0), "the door `{}` is not open as the player comes out of it", arrived.zone);
+    for _ in 0..90 {
+        app.update();
+    }
+    assert!(passage(app).is_none(), "the passage out of `{}` never ended", arrived.zone);
+    let shut = app.world().resource::<ambition_platformer2d::sim_view::PassageViews>().door_open(&arrived.zone);
+    assert_eq!(shut, None, "the door `{}` did not shut", arrived.zone);
+}
+
+/// A door opens, the player goes in by it and comes out of the door it leads
+/// to, and the door shuts behind it; a dimension gate takes the player in by
+/// its passage too (Jon, 2026-10-19).
+#[test]
+fn doors_and_gates_take_the_player_through_by_a_passage() {
+    let mut app = a_returning_players_session();
+    come_out_of_the_door_to(&mut app, ROUTE_TO_ALICE[0]);
+    for room in &ROUTE_TO_ALICE[1..4] {
+        go_through(&mut app, room);
+    }
+    go_through(&mut app, "gate_stack_lower");
+    power_the_hub_portal(&mut app);
+    // The gate to the hub comes out of the door of the wake room's hall.
+    come_out_of_the_door_to(&mut app, "central_hub_complex");
+}

@@ -651,6 +651,11 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             // Ambition's bosses; a hub without Ambition has none.
             .run_if(|| super::hub_games::installs("ambition")),
     )
+    // Ambition's doors and gates play a passage: the door opens and you walk
+    // through it; you leap into a gate and it ripples (Jon, 2026-10-19).
+    .insert_resource(ambition_platformer2d::actors::rooms::passage::ZonePassageRules {
+        enabled: super::hub_games::installs("ambition"),
+    })
     // Portal presentation: read GatePortalRegistry.phase + apply
     // visibility / animation row / ring-spin to the matching
     // PropVisual-named sprites + hide the redundant debug

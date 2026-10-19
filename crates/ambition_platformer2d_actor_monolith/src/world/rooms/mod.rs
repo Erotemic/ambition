@@ -13,6 +13,7 @@ pub mod binding;
 // would have had to be applied, and a dead one. A fork you cannot reach is still a fork that
 // lies about how many commits this engine has.
 mod reconstitution;
+pub mod passage;
 pub mod residency;
 pub(crate) mod stage;
 mod systems;

@@ -453,6 +453,7 @@ impl RoomSet {
             return Some(RoomTransition {
                 zone,
                 target_room,
+                target_zone: weight.to_zone.clone(),
                 arrival,
             });
         }

@@ -336,6 +336,8 @@ pub struct RoomHop {
 pub struct RoomTransition {
     pub zone: LoadingZone,
     pub target_room: usize,
+    /// The zone of the target room the body comes out of.
+    pub target_zone: String,
     pub arrival: ae::Vec2,
 }
 

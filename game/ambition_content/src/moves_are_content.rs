@@ -74,9 +74,15 @@ fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
         );
         // Not vacuous: real moves with real timings, not two equal empty maps.
         // v2's table is the theorem chain alone, by design (see
-        // `the_theorem_chain_is_two_hits_on_one_timeline`).
+        // `the_theorem_chain_is_two_hits_on_one_timeline`), and the Shock
+        // Warden's file carries only his shield counter: his baton is his
+        // action set's melee (`movesets/shock_warden.ron`).
+        let floor = match id {
+            "player_robot_v2" | "npc_shock_warden" => 1,
+            _ => 20,
+        };
         assert!(
-            moveset.moves.len() >= if id == "player_robot_v2" { 1 } else { 20 },
+            moveset.moves.len() >= floor,
             "`{id}` was built with {} move(s) — a table nobody would notice \
              losing",
             moveset.moves.len()

@@ -96,17 +96,20 @@ fn the_render_key_is_the_behavior_id_not_the_sprite_target() {
 }
 
 /// The generic fallback is deliberate, and stays: a boss with no authored sheet draws the
-/// gradient-sentinel body rather than nothing.
+/// gradient-sentinel body rather than nothing. Since 2026-10-18 the warden and Mode
+/// Collapse each wear one of the other two sentinel sheets (`boss_art_keys.ron`), so
+/// the overflow boss is the one boss left on the fallback.
 #[test]
 fn a_boss_with_no_authored_sheet_is_absent_from_the_registry_on_purpose() {
     let boss_catalog = content_boss_catalog();
     let sheet_keys: BTreeSet<&str> = boss_catalog.authored_sheet_keys().collect();
-    for id in ["clockwork_warden", "mode_collapse_boss", "overflow_boss"] {
-        assert!(
-            !sheet_keys.contains(id),
-            "{id} has no dedicated art; it must fall back to the generic body, and \
-             `upgrade_boss_sprites` warns once so it is never silent"
-        );
+    assert!(
+        !sheet_keys.contains("overflow_boss"),
+        "overflow_boss has no dedicated art; it must fall back to the generic body, and \
+         `upgrade_boss_sprites` warns once so it is never silent"
+    );
+    for id in ["clockwork_warden", "mode_collapse_boss"] {
+        assert!(sheet_keys.contains(id), "{id} wears a sentinel sheet of its own (2026-10-18)");
     }
 }
 

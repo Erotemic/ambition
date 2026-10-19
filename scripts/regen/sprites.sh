@@ -650,8 +650,12 @@ review_cues=(
 faction_cues=(goblin_cantina_chieftain goblin_cantina_bard pulse_voyager_captain tech_bro_disruptor)
 
 tackon_targets=(
-    # The gradient sentinel boss is the one sentinel sheet the catalog draws.
+    # The three sentinel sheets the catalog draws (`boss_art_keys.ron`): the
+    # gradient sentinel for a boss with no art of its own, the clockwork warden
+    # and the hooded sentinel (Mode Collapse) for the two that wear their own.
     gradient_sentinel_boss
+    clockwork_warden_boss
+    hooded_sentinel_boss
     # That file is deleted; this line is what keeps her published.
     noether
     oiler

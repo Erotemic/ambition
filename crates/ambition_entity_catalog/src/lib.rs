@@ -2777,18 +2777,6 @@ impl MoveSpec {
     /// reads it to time punishes and spacing; the boss validator reads it to
     /// check telegraph/recovery budgets. All times are proper-time seconds.
     pub fn frame_data(&self) -> MoveFrameData {
-        self.frame_data_with(|_, _| None)
-    }
-
-    /// [`Self::frame_data`] on one body, whose strikes can take a box the move
-    /// does not author: `drawn(window, volume)` is the body-local box that
-    /// volume of that window spawns as (the hit polygon a character's sheet
-    /// draws for the clip), or `None` for its authored shape.
-    ///
-    /// ⭐ ONE FORMULA FOR BOTH. A brain reads reach and coverage from here, and
-    /// the strike that lands is the drawn box, so a reach derived from the
-    /// authored shape alone threw a move from where its real box cannot hit.
-    pub fn frame_data_with(&self, drawn: impl Fn(usize, usize) -> Option<MoveCoverage>) -> MoveFrameData {
         let active_spans: Vec<(f32, f32)> = self
             .windows
             .iter()
@@ -2847,14 +2835,11 @@ impl MoveSpec {
         let active_volumes = || {
             self.windows
                 .iter()
-                .enumerate()
-                .filter(|(_, w)| matches!(w.tag, WindowTag::Active))
-                .flat_map(|(w_idx, w)| w.volumes.iter().enumerate().map(move |(v_idx, v)| (w_idx, v_idx, v)))
+                .filter(|w| matches!(w.tag, WindowTag::Active))
+                .flat_map(|w| w.volumes.iter())
         };
-        let box_of = |(w_idx, v_idx, v): (usize, usize, &HitVolume)| {
-            drawn(w_idx, v_idx).unwrap_or_else(|| v.shape.coverage_box())
-        };
-        let hittable = |(_, _, v): &(usize, usize, &HitVolume)| hittable(v);
+        let extent_x = |v: &HitVolume| v.shape.leading_edge_x();
+        let box_of = |v: &HitVolume| v.shape.coverage_box();
         let union = |volumes: &mut dyn Iterator<Item = MoveCoverage>| {
             volumes.reduce(|a, b| MoveCoverage {
                 min: (a.min.0.min(b.min.0), a.min.1.min(b.min.1)),
@@ -2864,8 +2849,8 @@ impl MoveSpec {
         // Reach: the farthest body-local +x extent of any hittable Active
         // volume. Zero when the move has no hittable volume.
         let reach = active_volumes()
-            .filter(hittable)
-            .map(|volume| box_of(volume).max.0)
+            .filter(|v| hittable(v))
+            .map(extent_x)
             .fold(0.0_f32, f32::max);
         // A capture is a reach, and it is not in `volumes`.
         // [`smash_capture::CAPTURE_ATTEMPT`] sustains on an Active window's
@@ -2898,7 +2883,7 @@ impl MoveSpec {
         );
         let coverage = union(
             &mut active_volumes()
-                .filter(hittable)
+                .filter(|v| hittable(v))
                 .map(box_of)
                 .chain(captures().map(|p| capture_box(&p))),
         );
@@ -2908,7 +2893,7 @@ impl MoveSpec {
         // the same fact the guard does. A ruleset can still set it for an
         // unblockable this code cannot recognize.
         let ignores_guard = captures().next().is_some()
-            || active_volumes().any(|volume| hittable(&volume) && volume.2.guard == VolumeGuard::Unblockable);
+            || active_volumes().any(|v| hittable(v) && v.guard == VolumeGuard::Unblockable);
         // Reach through something the move spawns: see [`hazard_of`]. Ask
         // every authored effect, one-shot events and window sustains alike,
         // because a technique may use either.
@@ -2978,7 +2963,7 @@ impl MoveSpec {
         // `push_coverage`. `None` when the move pushes nobody.
         let push_dir = active_volumes()
             .filter(|v| !hittable(v))
-            .find_map(|(_, _, v)| v.launch_dir)
+            .find_map(|v| v.launch_dir)
             .map(|(x, y)| {
                 let len = (x * x + y * y).sqrt();
                 if len > 0.0 {
@@ -3012,8 +2997,8 @@ impl MoveSpec {
         // Only hittable volumes count: a windbox moves a body and finishes
         // nobody.
         let launch = active_volumes()
-            .filter(hittable)
-            .fold(LaunchEnvelope::default(), |envelope, (_, _, v)| {
+            .filter(|v| hittable(v))
+            .fold(LaunchEnvelope::default(), |envelope, v| {
                 envelope.with_volume(v.knockback, v.knockback_growth)
             });
         // Lift: the against-gravity speed this move commands of its owner.

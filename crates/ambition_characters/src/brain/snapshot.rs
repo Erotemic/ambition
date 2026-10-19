@@ -107,10 +107,6 @@ pub struct BrainSnapshot {
     /// `None` when the body has no move on its attack press, and in a
     /// snapshot that no body built. A reader then uses its own fallback band.
     pub melee_reach: Option<f32>,
-    /// Half the width of the target's body, along the side axis: the builder
-    /// reads it off the targeted body's collision box. `0.0` with no targeted
-    /// body, which reads a target as the point at [`Self::target_pos`].
-    pub target_half_width: f32,
     /// Which body this is, as the integration layer names it.
     ///
     /// The brain genuinely cannot know: a snapshot is pure body state, and a
@@ -292,18 +288,6 @@ pub struct OwnMoveFact {
 }
 
 impl BrainSnapshot {
-    /// The gap between the two body centres at which the attack press
-    /// connects: [`Self::melee_reach`] plus [`Self::target_half_width`].
-    ///
-    /// ⭐ A STRIKE LANDS ON THE TARGET'S NEAR EDGE, NOT ITS CENTRE. The reach is
-    /// measured from this body's centre, and two bodies cannot stand closer
-    /// than their half widths, so a brain that compared the centre gap with the
-    /// reach alone never pressed a move whose box ends near its own body: the
-    /// PCA's drawn jab reaches 28 px, and it stood 28 px from a body 28 px wide.
-    pub fn melee_connect_gap(&self) -> Option<f32> {
-        self.melee_reach.map(|reach| reach + self.target_half_width)
-    }
-
     /// [`face_toward`] for this body: keep facing unless `side` is past its edge.
     pub fn face_toward(&self, side: f32) -> f32 {
         face_toward(self.actor_facing, side, self.actor_half_width)
@@ -332,7 +316,6 @@ impl BrainSnapshot {
             actor_aerial: false,
             attack_kit: Vec::new(),
             melee_reach: None,
-            target_half_width: 0.0,
             subject: None,
             alive: true,
             target_pos: ae::Vec2::ZERO,

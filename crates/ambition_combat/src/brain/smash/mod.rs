@@ -67,9 +67,7 @@ pub fn tick_smash(
     // move that this body's attack press starts, not from a number that a
     // profile authors. A body with no attack move keeps the bands of `cfg`.
     let reached;
-    // The band is the centre gap at which the press connects, so the target's
-    // half width is in it (`BrainSnapshot::melee_connect_gap`).
-    let cfg = match snapshot.melee_connect_gap() {
+    let cfg = match snapshot.melee_reach {
         Some(reach) => {
             reached = cfg.with_hit_band(reach);
             &reached

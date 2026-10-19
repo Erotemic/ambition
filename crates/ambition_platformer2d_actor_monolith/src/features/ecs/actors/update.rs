@@ -275,9 +275,6 @@ pub fn tick_actor_brains(
     // law, which is exactly what `LaunchLaw::default()` means. The law of each
     // actor's own live room.
     room_rules: ambition_combat::rules::CombatTuningOf,
-    // What each body's strikes spawn as, so a brain reads the reach of the
-    // box that lands. See `attack_kit_on`.
-    strike_volumes: ambition_combat::authored_volumes::StrikeVolumes,
     mut decisions: ResMut<ActorDecisionFrames>,
     // Any body's collision extent, read-only: a rider's mount, for its width,
     // and whether turning it mirrors it at all.
@@ -536,12 +533,6 @@ pub fn tick_actor_brains(
         // and is the primary player's pos in the single-player
         // production game.
         let target_pos = target.pos;
-        // The targeted body's half width, so a brain knows where its near
-        // edge is (`BrainSnapshot::melee_connect_gap`).
-        let target_half_width = target
-            .entity
-            .and_then(|entity| bodies.get(entity).ok())
-            .map_or(0.0, |(kin, _, _)| kin.size.x * 0.5);
         {
             // A production actor carries the complete read-only decision view.
             // `Option` keeps incomplete debug/scripted fixtures from being
@@ -647,17 +638,6 @@ pub fn tick_actor_brains(
                             }),
                         aerial,
                         bodies.get(this_actor_entity).ok().and_then(|(_, _, authored)| authored),
-                        target_half_width,
-                        &|spec| {
-                            strike_volumes.frame_data(
-                                this_actor_entity,
-                                body.kin.size,
-                                room_rules
-                                    .of(this_actor_entity)
-                                    .map_or(0.0, |rules| rules.art_hit_area_min),
-                                spec,
-                            )
-                        },
                     );
                     snapshot.navigation = navigation.of(this_actor_entity);
                     // An `Unmirrored` mount shows no turn, so its rider turns
@@ -915,7 +895,6 @@ pub fn tick_actor_brains(
                             None => {
                                 snapshot.target_pos = body.kin.pos;
                                 snapshot.target_alive = false;
-                                snapshot.target_half_width = 0.0;
                             }
                         }
                     }
@@ -2003,36 +1982,7 @@ impl WornMoves {
 /// tables would know. Declaration order, which `MovesetContract.moves` is a
 /// `Vec` — so the kit is stable across ticks and across a replay, and no sort is
 /// needed to make it deterministic.
-///
-/// The authored frame data: a test's body with no art. The snapshot builder
-/// calls [`attack_kit_on`] with the body's own.
-#[cfg(test)]
-#[allow(clippy::too_many_arguments)]
 pub(super) fn attack_kit_of(
-    moveset: Option<&ambition_combat::moveset::ActorMoveset>,
-    grounded: bool,
-    running: bool,
-    brain: Option<&ambition_characters::brain::Brain>,
-    playback: Option<&ambition_combat::moveset::MovePlayback>,
-    ranged: Option<&ambition_characters::brain::RangedActionSpec>,
-    worn: Option<WornMoves>,
-) -> Vec<ambition_characters::brain::attack_kit::AttackCandidate> {
-    attack_kit_on(
-        moveset,
-        grounded,
-        running,
-        brain,
-        playback,
-        ranged,
-        worn,
-        &ambition_entity_catalog::MoveSpec::frame_data,
-    )
-}
-
-/// [`attack_kit_of`] with each move's frame data as it is on this body
-/// (`frames_of`: the volumes its strikes spawn as, `StrikeVolumes`).
-#[allow(clippy::too_many_arguments)]
-pub(super) fn attack_kit_on(
     moveset: Option<&ambition_combat::moveset::ActorMoveset>,
     // The body's REAL posture this tick. The kit is what it can press NOW.
     grounded: bool,
@@ -2066,10 +2016,6 @@ pub(super) fn attack_kit_on(
     // layer reads no ECS. `None` is a composition with no staling state or no
     // declared rules, which is every move fresh. See `WornMoves`.
     worn: Option<WornMoves>,
-    // ⭐ EACH MOVE'S FRAME DATA ON THIS BODY. A vfx-tagged volume strikes with
-    // the hit polygon the body's sheet draws (`AuthoredAttackVolumeResolver::
-    // strike_volume`), so its reach is that polygon's, not the authored rect's.
-    frames_of: &dyn Fn(&ambition_entity_catalog::MoveSpec) -> ambition_entity_catalog::MoveFrameData,
 ) -> Vec<ambition_characters::brain::attack_kit::AttackCandidate> {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     if !matches!(
@@ -2135,7 +2081,7 @@ pub(super) fn attack_kit_on(
             if kit.iter().any(|c| c.move_id == spec.id) {
                 continue;
             }
-            let mut frames = frames_of(spec);
+            let mut frames = spec.frame_data();
             resolve_owners_ranged_action(spec, &mut frames, ranged);
             let wear = worn.map_or(
                 ambition_characters::brain::attack_kit::MoveWear::FRESH,
@@ -2181,22 +2127,10 @@ pub(super) fn attack_kit_on(
 /// because its own distance is where it stops to talk.
 /// `None` when no move answers the press, or when the move hits nothing by
 /// itself (a move that only fires a shot has no melee reach).
-#[cfg(test)]
 pub(super) fn melee_reach_of(
     moveset: Option<&ambition_combat::moveset::ActorMoveset>,
     grounded: bool,
     running: bool,
-) -> Option<f32> {
-    melee_reach_on(moveset, grounded, running, &ambition_entity_catalog::MoveSpec::frame_data)
-}
-
-/// [`melee_reach_of`] as the move is on this body: the reach of the volumes
-/// its strike spawns as (see [`attack_kit_on`]).
-pub(super) fn melee_reach_on(
-    moveset: Option<&ambition_combat::moveset::ActorMoveset>,
-    grounded: bool,
-    running: bool,
-    frames_of: &dyn Fn(&ambition_entity_catalog::MoveSpec) -> ambition_entity_catalog::MoveFrameData,
 ) -> Option<f32> {
     let spec = moveset?.0.move_for_attack(
         ambition_combat::moveset::ATTACK_VERB,
@@ -2204,7 +2138,7 @@ pub(super) fn melee_reach_on(
         grounded,
         running,
     )?;
-    let reach = frames_of(spec).reach;
+    let reach = spec.frame_data().reach;
     (reach > 0.0).then_some(reach)
 }
 
@@ -2510,10 +2444,6 @@ fn build_enemy_brain_snapshot(
     aerial: bool,
     // The body's authored movement feel, when it has one. See `movement_law`.
     authored_tuning: Option<&ae::AuthoredMovementTuning>,
-    // The targeted body's half width. See `BrainSnapshot::target_half_width`.
-    target_half_width: f32,
-    // Each move's frame data as it is on this body. See `attack_kit_on`.
-    frames_of: &dyn Fn(&ambition_entity_catalog::MoveSpec) -> ambition_entity_catalog::MoveFrameData,
 ) -> ambition_characters::brain::BrainSnapshot {
     let swing = ambition_combat::moveset::melee_swing_of(playback, moveset);
     // THE MOVEMENT LAW THIS BODY MOVES BY, resolved as the integrator
@@ -2554,7 +2484,7 @@ fn build_enemy_brain_snapshot(
         // world-in port — exactly like `actor_aerial`.
         //
         // Built every tick like every other snapshot field.
-        attack_kit: attack_kit_on(
+        attack_kit: attack_kit_of(
             moveset,
             body.ground.on_ground,
             motion_facts.running,
@@ -2562,12 +2492,10 @@ fn build_enemy_brain_snapshot(
             playback,
             ranged,
             worn,
-            frames_of,
         ),
         // The reach of the attack press, from the same moveset and the same
         // posture as the kit above. See `melee_reach_of`.
-        melee_reach: melee_reach_on(moveset, body.ground.on_ground, motion_facts.running, frames_of),
-        target_half_width,
+        melee_reach: melee_reach_of(moveset, body.ground.on_ground, motion_facts.running),
         // WHICH BODY THIS IS, so a published decision fact can name its
         // subject. The brain cannot know — a snapshot is body state and identity
         // is the host's to assign — so it arrives through the world-in port like

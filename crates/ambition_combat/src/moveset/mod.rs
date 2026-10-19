@@ -1788,27 +1788,37 @@ pub fn advance_move_playback(
                         // same math the bespoke path applied. `None` (no
                         // authored row / silent volume) falls back to the
                         // synthetic authored shape.
-                        // §7.1: a vfx-tagged (bladed) volume takes the owner's
-                        // AUTHORED manifest hit polygon for this move's clip,
-                        // at the window's own start: the box you author and see
-                        // in `debug-hitboxes` IS the gameplay damage box.
-                        // ⛔ `character_id`, the worn character, NOT A SECOND
-                        // RESOLUTION: a body that swaps its character takes its
-                        // new volumes with it. A brain's reach reads the same
-                        // call (`frame_data_on`). `None` (no authored row,
-                        // silent volume) falls back to the authored shape.
-                        let manifest = authored_volumes.strike_volume(
-                            &character_catalog,
-                            super::authored_volumes::StrikingBody {
-                                character_id,
-                                size: kin.size,
+                        let manifest = volume.vfx.as_ref().and_then(|_| {
+                            let clip = pb.spec.clip.clip.as_str();
+                            // ⛔ `character_id`, NOT A SECOND RESOLUTION. It is
+                            // the worn character, which is what lets a body swap
+                            // its character at runtime and take its new volumes
+                            // with it; this seam decides the damage box.
+                            let sprite_cid = character_id;
+                            // The window's OWN start, not the move's clock: a
+                            // hitbox track lays several Active windows end to
+                            // end, and each box wants the shape drawn at the
+                            // moment it appears. Inert for a sheet that
+                            // publishes one shape per row (every character
+                            // sheet today) — it resolves the coarse shape.
+                            authored_volumes.resolve(
+                                &character_catalog,
+                                sprite_cid,
+                                clip,
+                                kin.size,
                                 drawn_quad,
-                                art_floor: room_rules.of(owner).map_or(0.0, |rules| rules.art_hit_area_min),
-                            },
-                            &pb.spec,
-                            window,
-                            volume,
-                        );
+                                Some(window.start_s),
+                            )
+                        });
+                        // The stage's floor on an art area: a limb drawn
+                        // pixel-true is a sliver (`CombatRules::art_hit_area_min`).
+                        let art_floor = room_rules.of(owner).map_or(0.0, |rules| rules.art_hit_area_min);
+                        let manifest = match manifest {
+                            Some(volume) if art_floor > 0.0 => {
+                                Some(volume.at_least(ae::Vec2::splat(art_floor * kin.size.y)))
+                            }
+                            other => other,
+                        };
                         let (local, half_extent, shape) = match &manifest {
                             // The authored convex blade: body-local points; the
                             // hitbox anchors at the body and `place_at` mirrors

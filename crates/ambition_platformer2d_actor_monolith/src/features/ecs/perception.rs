@@ -298,19 +298,8 @@ pub fn body_phase(
 /// The reach of the move a body plays, from the move's own hitboxes
 /// (`MoveFrameData::reach`, Q35), or `None` when it plays no move. What a
 /// watcher reads as `PerceivedActor::attack_reach`.
-#[cfg(test)]
 pub(crate) fn attack_reach_of(playback: Option<&ambition_combat::moveset::MovePlayback>) -> Option<f32> {
-    attack_reach_on(playback, &ambition_entity_catalog::MoveSpec::frame_data)
-}
-
-/// [`attack_reach_of`] as the move is on the body that plays it: the reach of
-/// the volumes its strike spawns as (`StrikeVolumes`), which is the box a
-/// watcher must stay out of.
-pub(crate) fn attack_reach_on(
-    playback: Option<&ambition_combat::moveset::MovePlayback>,
-    frames_of: &dyn Fn(&ambition_entity_catalog::MoveSpec) -> ambition_entity_catalog::MoveFrameData,
-) -> Option<f32> {
-    playback.map(|playback| frames_of(&playback.spec).reach)
+    playback.map(|playback| playback.spec.frame_data().reach)
 }
 
 /// True while the body is in post-hit i-frames — visible, because it flashes.
@@ -347,10 +336,6 @@ pub fn collect_perception_peers(
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-    // What each body's strikes spawn as, in its live room's rules: the reach a
-    // watcher reads is the box that lands. See `attack_reach_on`.
-    strike_volumes: ambition_combat::authored_volumes::StrikeVolumes,
-    room_rules: ambition_combat::rules::CombatTuningOf,
 ) {
     peers.0.clear();
     for (
@@ -414,14 +399,7 @@ pub fn collect_perception_peers(
             shield_raised: shield.is_some_and(|s| s.active),
             phase,
             phase_remaining,
-            attack_reach: attack_reach_on(melee.playback, &|spec| {
-                strike_volumes.frame_data(
-                    entity,
-                    kin.size,
-                    room_rules.of(entity).map_or(0.0, |rules| rules.art_hit_area_min),
-                    spec,
-                )
-            }),
+            attack_reach: attack_reach_of(melee.playback),
             tumbling: facts.is_some_and(|f| f.tumbling),
             // HANGING, not climbing: a body already pulling itself up has left
             // the edge, which is the same distinction `resolve_ledge_trumps`

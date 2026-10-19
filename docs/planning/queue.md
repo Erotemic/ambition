@@ -1235,8 +1235,8 @@ Still open, both found by this bisect:
   the RON rect of `generation_wipe` (offset 40, half 32 × 24) would cover
   the player, but the spawned box is the art polygon of the PCA's manifest
   (a hexagon to 31 px forward), because a vfx-tagged volume takes the
-  authored hit polygon (§7.1). The brain's reach read the RON rect. Fixed
-  2026-10-18: see REACH-VIEW, "two geometries for one move".
+  authored hit polygon (§7.1). The brain's reach reads the RON rect. The
+  fix is built and held: see REACH-VIEW, "two geometries for one move".
 
 **Sanic's visible job, 2026-10-17 (RED, inherited):** `cargo test -p
 ambition_demo_sanic_app --features capture,input,perf_probe,visible`: 59
@@ -2357,20 +2357,32 @@ was poisoned alone, and only its own test failed.
   brain reads must come from the same resolution the strike uses. The art
   polygon depends on the body's size and drawn quad, so it is known only
   where the character's art is (preparation or the snapshot builder), not in
-  the catalog's `frame_data()`. Not measured: how many shipped moves differ.
-  ✅ Fixed the same day: `AuthoredAttackVolumeResolver::strike_volume` is the
-  one road (the strike spawn calls it), `MoveSpec::frame_data_with` takes a
-  drawn box per volume (`frame_data()` is it with none, so reach and coverage
-  keep one formula), and `StrikeVolumes` gives a system each body's frame
-  data. The snapshot builder's attack kit and melee reach
-  (`attack_kit_on`, `melee_reach_on`) and a watcher's view of a swing
-  (`attack_reach_on`) read it; the plain forms are test-only. Witness
-  `a_brain_reads_the_reach_of_the_polygon_its_strike_spawns_as` (control:
-  an untagged volume reads its rect, 72; tagged reads the polygon, 31; red at
-  72 with `StrikeVolumes` on the authored data). In the freeze bout the PCA
-  now throws `generation_wipe` close in and the player serves 0.0425 s of
-  hitlag, more than contact's 0.0356 s. The capture candidate still reads
-  the authored data (a grab's box is its params, not a drawn volume).
+  the catalog's `frame_data()`.
+  **Built and HELD (2026-10-19).** 7d6d06725 makes the brains read the drawn
+  box (`AuthoredAttackVolumeResolver::strike_volume` as the one road for the
+  strike spawn and the reach view, `MoveSpec::frame_data_with`, the
+  `StrikeVolumes` param, `attack_kit_on`, `melee_reach_on`,
+  `attack_reach_on`), and 1661f4a4c adds the target's half width to the band
+  (`BrainSnapshot::melee_connect_gap`). Each has a witness red under its
+  poison. Both are reverted in the next commit, because the honest reach
+  exposed bad art the strikes already used. A census of the 23 published
+  sheets with hit polygons: the robot family (`robot`, `player_robot_v2`)
+  reaches 5.8 and 6.7 body widths (`attack_side` right edge 518 in a 256 px
+  frame, 137 px in the world for a 48 px body); `alice` `air_forward` 2.25
+  and past its frame; every other sheet is at or under about one body width.
+  The cause for the robots: `robot_side.rs` `attack_hitboxes` sizes its cones
+  by the CANVAS (`w * 1.34`), and the canvas is 256 px while the body is
+  drawn at the 128 px scale. `player_robot_v3` found the same fault and
+  authors at 128 px and translates (`_translated_legacy_hitboxes`); the
+  robot family was not changed. With the honest reach, the duel robot pokes
+  from 150 px and the PCA never gets in (`duel_arena`: PCA melee 0, and its
+  shield never rises in the abilities test).
+  Next, in order: (1) author the robot family's (and Alice's air forward)
+  hit polygons at the body's scale, not the canvas's, and republish those
+  targets; (2) `git revert` the revert to re-apply both commits; (3) change
+  `a_smash_enemy_swings_from_the_reach_of_its_own_move` to the connect gap
+  (the brute presses at 63.3 px = 48.4 reach + its target's half width);
+  (4) run the duel and the full lane.
 
 ### CPU-LADDER — the brain owns the knobs, Smash owns the ladder
 

@@ -21,3 +21,4 @@ mod the_tether_catches_a_ledge;
 mod every_fighter_in_a_match_carries_identity;
 mod a_fighter_plans_on_its_own_gates;
 mod each_pad_drives_its_own_seat;
+mod a_seat_is_drawn_in_its_skin;

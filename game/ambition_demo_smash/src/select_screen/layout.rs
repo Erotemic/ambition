@@ -374,6 +374,11 @@ impl SelectLayout {
         for slot in 0..MAX_SMASH_SEATS {
             targets.push((SelectTarget::RoleButton(slot), self.role_button(slot)));
         }
+        // A card's fighter, clicked for its next skin. After the role buttons,
+        // so every earlier target keeps its place in the order.
+        for slot in 0..MAX_SMASH_SEATS {
+            targets.push((SelectTarget::CardPortrait(slot), self.card_portrait(slot)));
+        }
         targets.push((SelectTarget::Start, self.start_button()));
         // Only when there is another page; otherwise the arrows are dead
         // targets.

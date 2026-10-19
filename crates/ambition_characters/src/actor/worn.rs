@@ -47,6 +47,20 @@ impl WornCharacter {
     }
 }
 
+/// The look a body is drawn in, when it is not its worn character's own
+/// sheet: a catalog row that is a look of the worn character (a Smash skin).
+/// Art only. The body, its kit and everything the sim reads stay the worn
+/// character's; the sprite, and nothing else, draws this row's sheet.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct WornSkin(pub ambition_entity_catalog::CharacterId);
+
+impl WornSkin {
+    /// The skin's character id: the art key.
+    pub fn id(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
 /// A body that strikes with the moves of a catalog character it does not wear
 /// (a boss that plays a fighter's table): the character whose attack art
 /// draws those strikes. A body that wears a character needs none: its own

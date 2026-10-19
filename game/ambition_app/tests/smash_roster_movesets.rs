@@ -254,6 +254,7 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
     let roster = select
         .roster_seeded(
             &grid,
+            &Default::default(),
             0,
             ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary,
             &Default::default(),
@@ -1183,4 +1184,34 @@ fn every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip() {
          and it silently opts the move out of the percent loop:\n  {}",
         offenders.join("\n  ")
     );
+}
+
+/// The goblin offers its two looks as skins (Jon, 2026-10-18: "Keep all 3
+/// variants of goblins ... They can be different skins for smash"): each is a
+/// catalog row that is a look of the goblin and is tagged `smash_skin`.
+#[test]
+fn the_goblin_offers_its_raider_and_squat_skins() {
+    use ambition_demo_smash::select::{SmashRoster, SmashSkins};
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.update();
+    let world = app.world();
+    let registry = world.resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
+    let catalog = world.resource::<ambition_platformer2d::character::CharacterCatalog>();
+    let grid = SmashRoster::assemble(registry);
+    assert!(grid.ids().any(|id| id == "goblin"), "the goblin is on the grid");
+    let skins = SmashSkins::assemble(&grid, catalog, registry);
+    assert_eq!(skins.look("goblin", 1), Some("goblin_raider"));
+    assert_eq!(skins.look("goblin", 2), Some("goblin_squat"));
+    assert_eq!(skins.count("goblin"), 2);
+    // A transform is not a skin: a look with no `smash_skin` tag is not offered.
+    for (fighter, looks) in &skins.0 {
+        for look in looks {
+            assert!(
+                catalog.get(look).is_some_and(|row| row.tags.iter().any(|t| t == "smash_skin")),
+                "`{look}` is offered as a skin of `{fighter}` without the tag"
+            );
+        }
+    }
 }

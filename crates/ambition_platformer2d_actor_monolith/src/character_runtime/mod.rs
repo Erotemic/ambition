@@ -511,11 +511,18 @@ pub fn demand_rostered_character_sheets(
     }
     for participant in &roster.participants {
         demand.request(participant.character.as_str());
+        // The look the seat is drawn in is its art: demanded with it.
+        if let Some(skin) = participant.skin.as_ref() {
+            demand.request(skin.as_str());
+        }
     }
 }
 
 pub fn demand_worn_character_sheets(
-    worn: Query<&ambition_characters::actor::WornCharacter>,
+    worn: Query<(
+        &ambition_characters::actor::WornCharacter,
+        Option<&ambition_characters::actor::WornSkin>,
+    )>,
     assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
     states: Option<Res<CharacterLoadStates>>,
     demand: Option<ResMut<CharacterLoadDemand>>,
@@ -537,8 +544,11 @@ pub fn demand_worn_character_sheets(
     // it is a character the ledger has no outcome for. A character whose load
     // already FAILED is not asked again: the materializer recorded why, and
     // re-asking would re-fail every frame.
-    for identity in &worn {
-        let id = identity.id();
+    // A skin is art the body wears too: its sheet is asked for the same way.
+    for id in worn
+        .iter()
+        .flat_map(|(identity, skin)| std::iter::once(identity.id()).chain(skin.map(|skin| skin.id())))
+    {
         let sheet = assets.as_deref().map(|assets| assets.characters.sheet_state(id));
         // A realized sheet is the steady state and needs no ledger lookup.
         if matches!(sheet, Some(ambition_sprite_sheet::character::CharacterSheetState::Ready(_))) {
@@ -598,9 +608,13 @@ pub fn converge_character_residency_to_active_quality(
     demand: Option<ResMut<CharacterLoadDemand>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     resolved: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
-    // WHO STILL USES A RETIRED SHEET: a body wearing the character. Only those
-    // are re-demanded; the rest stay retired until something asks for them again.
-    worn: Query<&ambition_characters::actor::WornCharacter>,
+    // WHO STILL USES A RETIRED SHEET: a body wearing the character, or drawn
+    // in it as a skin. Only those are re-demanded; the rest stay retired until
+    // something asks for them again.
+    worn: Query<(
+        &ambition_characters::actor::WornCharacter,
+        Option<&ambition_characters::actor::WornSkin>,
+    )>,
 ) {
     let (Some(mut assets), Some(mut demand)) = (assets, demand) else {
         return;
@@ -623,8 +637,10 @@ pub fn converge_character_residency_to_active_quality(
     if stale.is_empty() {
         return;
     }
-    let in_use: std::collections::BTreeSet<&str> =
-        worn.iter().map(|worn| worn.0.as_str()).collect();
+    let in_use: std::collections::BTreeSet<&str> = worn
+        .iter()
+        .flat_map(|(worn, skin)| std::iter::once(worn.id()).chain(skin.map(|skin| skin.id())))
+        .collect();
     let (wearing, unworn): (Vec<(String, String)>, Vec<(String, String)>) = stale
         .into_iter()
         .partition(|(_, id)| in_use.contains(id.as_str()));

@@ -46,6 +46,55 @@ pub fn stand_ins() -> &'static [crate::rules::StandIn] {
 #[derive(bevy::prelude::Resource, Clone, Debug, PartialEq, Eq)]
 pub struct SmashRoster(pub Vec<String>);
 
+/// Each fighter's skins: the looks of it (catalog rows whose `form_of` names
+/// it) tagged `smash_skin`, that this composition can draw, in id order.
+/// Resolved once at `Startup`, with [`SmashRoster`]. A fighter with none is
+/// absent. Only tagged looks: a transform (a power-up form) is not a skin.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct SmashSkins(pub std::collections::BTreeMap<String, Vec<String>>);
+
+/// The tag that makes a look of a fighter one of its Smash skins.
+pub const SMASH_SKIN_TAG: &str = "smash_skin";
+
+impl SmashSkins {
+    /// How many skins `fighter` has.
+    pub fn count(&self, fighter: &str) -> usize {
+        self.0.get(fighter).map_or(0, Vec::len)
+    }
+
+    /// The id of `fighter`'s look number `skin` (0 is its own sheet: `None`).
+    pub fn look(&self, fighter: &str, skin: u8) -> Option<&str> {
+        let index = (skin as usize).checked_sub(1)?;
+        self.0.get(fighter)?.get(index).map(String::as_str)
+    }
+
+    /// The skins of each fighter of `fighters`, from the catalog's looks.
+    pub fn assemble(
+        fighters: &SmashRoster,
+        catalog: &ambition_platformer2d::character::CharacterCatalog,
+        registry: &ambition_platformer2d::character::PreparedCharacterRegistry,
+    ) -> Self {
+        Self(
+            fighters
+                .ids()
+                .filter_map(|fighter| {
+                    let looks: Vec<String> = catalog
+                        .forms_of(fighter)
+                        .filter(|id| registry.get(id).is_some())
+                        .filter(|id| {
+                            catalog
+                                .get(id)
+                                .is_some_and(|row| row.tags.iter().any(|tag| tag == SMASH_SKIN_TAG))
+                        })
+                        .map(str::to_string)
+                        .collect();
+                    (!looks.is_empty()).then(|| (fighter.to_string(), looks))
+                })
+                .collect(),
+        )
+    }
+}
+
 /// The ids this demo declares itself: the cast of a composition with no other
 /// providers. Both are stand-ins; see [`stand_ins`].
 pub const OWN_FIGHTERS: &[&str] = &[crate::SMASH_CHARACTER_ID, crate::SMASH_OPPONENT_ID];
@@ -202,6 +251,9 @@ pub struct SlotCard {
     pub occupant: SlotOccupant,
     /// What this slot chose. `None` is the state the match waits on.
     pub pick: Option<SlotPick>,
+    /// Which look the chosen fighter is drawn in: 0 is its own sheet, `n` is
+    /// the `n`th of its skins ([`SmashSkins`]). A new pick starts on 0.
+    pub skin: u8,
 }
 
 /// The grid's cells: the fighters plus the random square.
@@ -362,6 +414,7 @@ impl SmashSelect {
             }
         } else {
             self.slots[slot].pick = None;
+            self.slots[slot].skin = 0;
         }
     }
 
@@ -372,8 +425,26 @@ impl SmashSelect {
     /// seat, not a fighter nobody chose.
     pub fn set_pick(&mut self, slot: usize, pick: impl Into<SlotPick>) {
         if slot < MAX_SMASH_SEATS {
-            self.slots[slot].pick = Some(pick.into());
+            let pick = Some(pick.into());
+            // A skin is a look of one fighter: another fighter starts on its own.
+            if self.slots[slot].pick != pick {
+                self.slots[slot].skin = 0;
+            }
+            self.slots[slot].pick = pick;
         }
+    }
+
+    /// Show a slot's fighter in its next look: its own sheet, then each of its
+    /// `looks` skins, then round again. A slot on random, or with nobody in it,
+    /// has no fighter to dress.
+    pub fn cycle_skin(&mut self, slot: usize, looks: usize) {
+        let Some(card) = self.slots.get_mut(slot) else {
+            return;
+        };
+        if !card.occupant.participates() || !matches!(card.pick, Some(SlotPick::Fighter(_))) {
+            return;
+        }
+        card.skin = ((card.skin as usize + 1) % (looks + 1)) as u8;
     }
 
     /// The character a slot starts on when nothing has been dropped on it yet.
@@ -450,6 +521,7 @@ impl SmashSelect {
         // uses `roster_seeded` with [`crate::smash_seating_melee`].
         self.roster_seeded(
             fighters,
+            &SmashSkins::default(),
             0,
             policy,
             &Default::default(),
@@ -468,6 +540,8 @@ impl SmashSelect {
     pub fn roster_seeded(
         &self,
         fighters: &SmashRoster,
+        // Each fighter's looks, for a slot that chose one.
+        skins: &SmashSkins,
         seed: u64,
         policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
         // Ids whose character authors its own moves; those keep them, and
@@ -500,12 +574,21 @@ impl SmashSelect {
                 // A pick with no id is dropped, not clamped or panicked: the
                 // roster shrank under a decided screen. One fewer seat is
                 // better than a fighter nobody chose.
-                let character = match card.locked_pick()? {
-                    SlotPick::Fighter(index) => fighters.get(index)?,
-                    SlotPick::Random => fighters.get(rng.draw(fighters.len())?)?,
+                let (character, skin) = match card.locked_pick()? {
+                    SlotPick::Fighter(index) => {
+                        let character = fighters.get(index)?;
+                        (character, skins.look(character, card.skin))
+                    }
+                    // A random draw wears the fighter's own look.
+                    SlotPick::Random => (fighters.get(rng.draw(fighters.len())?)?, None),
                 };
                 let authors_its_own = repertoires.contains(character);
-                let seat = MatchParticipant::new(character)
+                let seat = MatchParticipant::new(character);
+                let seat = match skin {
+                    Some(skin) => seat.wearing_skin(skin),
+                    None => seat,
+                };
+                let seat = seat
                     // Driven by whoever the screen says is at the slot. An
                     // absent slot stays out; a CPU slot was asked for.
                     .driven_by(match card.occupant {

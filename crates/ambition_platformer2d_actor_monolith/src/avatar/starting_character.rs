@@ -162,6 +162,21 @@ impl HomeBodyAbilities {
     pub fn apply(&self, authored: ambition_platformer2d_core::AbilitySet) -> ambition_platformer2d_core::AbilitySet {
         self.0.apply(Some(authored))
     }
+
+    /// The home body's base set when it wears a character whose prepared
+    /// definition authors `authored`: that set, else every intrinsic verb but
+    /// Morph Ball, then this experience's grants and permits over it. The one
+    /// answer for a body that is built and for a body that changes form, so a
+    /// form brings its own abilities (Q159) and the experience's grants (Morph
+    /// Ball in Ambition) stay.
+    pub fn base_for(&self, authored: Option<ambition_platformer2d_core::AbilitySet>) -> ambition_platformer2d_core::AbilitySet {
+        self.apply(authored.unwrap_or(ambition_platformer2d_core::AbilitySet {
+            // An unauthored body gets every intrinsic verb. Morph Ball is
+            // progression an experience grants, so a fallback never carries it.
+            morph: false,
+            ..ambition_platformer2d_core::AbilitySet::sandbox_all()
+        }))
+    }
 }
 
 impl Default for InitialBodyPolicy {
@@ -377,6 +392,10 @@ pub fn apply_worn_character_gameplay(
     // compositions are not a match, which is the ordinary case rather than a
     // degraded one.
     roster: Option<Res<ambition_match::MatchParticipantRoster>>,
+    // What the running experience grants a home body, so a home body that
+    // changes form gets the new form's abilities under the same grants.
+    homes: Query<(&ambition_platformer2d_shared_tangle::lifecycle::SessionRoot, &HomeBodyAbilities)>,
+    active: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
     mut commands: Commands,
     // The refusals already reported for a body that stays stale: such a body
     // is asked again every tick, and it is reported once for each generation.
@@ -416,12 +435,20 @@ pub fn apply_worn_character_gameplay(
             // Which seat this body holds, if it is in a match at all.
             Option<&ambition_match::MatchSeat>,
             Has<ambition_characters::actor::RecharacterizeBody>,
+            // A home body's base abilities, rewritten at a change of form.
+            Option<&mut ambition_platformer2d_core::AbilityBase>,
+            Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
         ),
         ),
         (With<ActionSet>, With<ActorMoveset>),
     >,
 ) {
     let registry = cast.get();
+    let home = active
+        .as_deref()
+        .and_then(ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::current)
+        .and_then(|session| homes.iter().find(|(root, _)| root.0 == session))
+        .map(|(_, home)| *home);
     for (
         entity,
         mut character,
@@ -432,7 +459,7 @@ pub fn apply_worn_character_gameplay(
         mass,
         mut combat_tuning,
         has_projectile_state,
-        (baseline, seat, recharacterize),
+        (baseline, seat, recharacterize, ability_base, is_home_body),
     ) in &mut worn
     {
         let id = character.id();
@@ -526,6 +553,17 @@ pub fn apply_worn_character_gameplay(
                     None,
                     ambition_body_seed::PhysicalRetraction::resolve(incoming, displaced),
                 );
+            }
+            // THE FORM'S ABILITIES (Q159): a home body is built with the base
+            // `HomeBodyAbilities::base_for` gives, and a change of form gives it
+            // again for the new form. A match seat's abilities are the match's,
+            // and what progression lends rides `AbilityContributions`, so
+            // neither moves here.
+            if let (true, None, Some(home), Some(mut base)) = (is_home_body, seat, home, ability_base) {
+                let abilities = home.base_for(registry.as_deref().and_then(|registry| registry.get(id)).and_then(|prepared| prepared.abilities));
+                if base.abilities != abilities {
+                    base.abilities = abilities;
+                }
             }
 
             // Movement identity is identity-derived, not ability-derived. Only

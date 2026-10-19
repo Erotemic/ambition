@@ -155,9 +155,6 @@ pub fn sprite_body_collision_for_sheet(
         .unwrap_or_default();
     let spec = sheets::try_load_spec_for_target_authored(authored, sheet, &tuning)?;
     let record = sheets::record_for_sheet_key(sheet)?;
-    let metrics = record.body_metrics.as_ref()?;
-    let (body_w, body_h) = body_pixel_extent(metrics)?;
-    let frame_w = record.frame_width.max(1) as f32;
     let frame_h = record.frame_height.max(1) as f32;
     // Both branches produce `frame x scale`; the renderer must not apply
     // `collision_scale` again to the resulting collision box.
@@ -168,6 +165,25 @@ pub fn sprite_body_collision_for_sheet(
         Some(scale) => scale,
         None => ldtk_collision.x.max(ldtk_collision.y).max(8.0) * spec.collision_scale / frame_h,
     };
+    body_at_scale(record, scale)
+}
+
+/// The body a sheet draws at `standing_height`, with no placement box: the
+/// same numbers [`sprite_body_collision_for_sheet`] gives a character with a
+/// standing height. A live body that changes form is sized by this, so it is
+/// the size an NPC of that form is built at (Q159). `None` when the sheet
+/// publishes no body.
+pub fn sprite_body_at_standing_height(sheet: &str, standing_height: f32) -> Option<SpriteBodyCollision> {
+    let record = sheets::record_for_sheet_key(sheet)?;
+    body_at_scale(record, standing_world_per_pixel(sheet, standing_height)?)
+}
+
+/// The render quad of `record`'s frame at `scale` world units per pixel, and
+/// the collision box of the visible body inside it.
+fn body_at_scale(record: &crate::SheetRecord, scale: f32) -> Option<SpriteBodyCollision> {
+    let (body_w, body_h) = body_pixel_extent(record.body_metrics.as_ref()?)?;
+    let frame_w = record.frame_width.max(1) as f32;
+    let frame_h = record.frame_height.max(1) as f32;
     let render = Vec2::new(frame_w * scale, frame_h * scale);
     // The visible body occupies (body / frame) of that render quad.
     let collision = Vec2::new(body_w / frame_w * render.x, body_h / frame_h * render.y);

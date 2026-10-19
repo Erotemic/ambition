@@ -361,16 +361,11 @@ pub fn spawn_home_body(
     // (`HomeBodyAbilities`): Morph Ball reaches Ambition's home body this way,
     // and never through the character or the fallback below.
     let worn_id = character.effective_id(default_character_id);
-    let authored_abilities = prepared_characters
-        .and_then(|registry| registry.get(worn_id))
-        .and_then(|prepared| prepared.abilities)
-        .unwrap_or(ae::AbilitySet {
-            // An unauthored body gets every intrinsic verb. Morph Ball is
-            // progression an experience grants, so a fallback never carries it.
-            morph: false,
-            ..ae::AbilitySet::sandbox_all()
-        });
-    let base_abilities = abilities.apply(authored_abilities);
+    let base_abilities = abilities.base_for(
+        prepared_characters
+            .and_then(|registry| registry.get(worn_id))
+            .and_then(|prepared| prepared.abilities),
+    );
     let mut initial_scratch = crate::avatar::home_body_scratch(at, base_abilities);
     ae::refresh_movement_resources_clusters(
         &initial_scratch.abilities,

@@ -43,6 +43,9 @@ pub struct GrantedBodyFacts {
     /// A sprite-authored body: the posed-body marker AND the standing geometry
     /// granted with it, carrying what that geometry displaced.
     pub posed_body: Option<DisplacedGeometry>,
+    /// A body sized from its sheet at its standing height ([`sheet_body_for`]):
+    /// the standing box and the quad granted, carrying what they displaced.
+    pub sheet_body: Option<DisplacedGeometry>,
     /// The quad on the body ([`ambition_combat::components::ActorRenderSize`])
     /// is this wear's: the character has a sheet and no posed body, so its art
     /// is drawn from the body's box ([`drawn_from_its_box`]). The grant states
@@ -96,6 +99,7 @@ impl GrantedBodyFacts {
             movement_tuning: movement_tuning.is_some(),
             // Filled by the grant's capture edit, which reads the body.
             posed_body: posed_body_for(prepared).map(|_| DisplacedGeometry::default()),
+            sheet_body: sheet_body_for(prepared).map(|_| DisplacedGeometry::default()),
             drawn_quad: drawn_from_its_box(prepared).is_some(),
             unmirrored: prepared.unmirrored,
             carried: prepared.carries.clone(),
@@ -134,6 +138,7 @@ impl GrantedBodyFacts {
             pose_clock,
             movement_tuning,
             posed_body,
+            sheet_body,
             drawn_quad,
             unmirrored,
             carried,
@@ -159,8 +164,10 @@ impl GrantedBodyFacts {
         if drawn_quad {
             scope.remove::<ambition_combat::components::ActorRenderSize>();
         }
-        if let Some(displaced) = posed_body {
+        if posed_body.is_some() {
             scope.remove::<ambition_sprite_sheet::character::SpritePosedBody>();
+        }
+        if let Some(displaced) = posed_body.or(sheet_body) {
             let DisplacedGeometry {
                 base_size,
                 render_size,
@@ -230,15 +237,34 @@ fn posed_body_for(
     }
 }
 
+/// The body of a character sized from its sheet: it has no posed body, and a
+/// standing height its sheet's published body can be scaled to.
+///
+/// ⭐ A FORM BRINGS ITS OWN SIZE (Q159, ruled 2026-10-19). This is the box an
+/// NPC of the character is built in (`BuiltGeometry::resolve`), with no
+/// placement box, so a body that becomes the dog is a dog of the dog's size,
+/// not a small dog in the box it had. A character with no standing height
+/// would be scaled by a placement box, which a live body has not got; it
+/// keeps its box and its art is fitted to it ([`drawn_from_its_box`]).
+fn sheet_body_for(
+    prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
+) -> Option<ambition_sprite_sheet::character::catalog_join::SpriteBodyCollision> {
+    if posed_body_for(prepared).is_some() {
+        return None;
+    }
+    let height = prepared.sheet_sizing.as_ref()?.standing_height?;
+    ambition_sprite_sheet::character::catalog_join::sprite_body_at_standing_height(prepared.sheet.as_deref()?, height)
+}
+
 /// The sheet of a character whose art is drawn from its body's box: it has a
-/// sheet that publishes an idle body, and no posed body.
+/// sheet that publishes an idle body, no posed body and no standing height.
 ///
 /// The renderer fits the frame of such a body to its standing box
 /// (`sheets::sprite_render_size`). A sheet that publishes no idle body is
 /// drawn by the catalog's `collision_scale`, which is not known here: a body
 /// that wears one states no quad, and the landmark query has no answer for it.
 fn drawn_from_its_box(prepared: &ambition_characters::prepared::PreparedCharacterDefinition) -> Option<&str> {
-    if posed_body_for(prepared).is_some() {
+    if posed_body_for(prepared).is_some() || sheet_body_for(prepared).is_some() {
         return None;
     }
     let sheet = prepared.sheet.as_deref()?;
@@ -475,14 +501,53 @@ pub fn grant_prepared_character_body(
                 ambition_combat::components::ActorSpriteOffset(standing.sprite_offset),
             ));
             scope.insert(posed);
+        } else if let Some(form) = sheet_body_for(prepared) {
+            // The same capture as a posed body's, onto its own record.
+            scope.queue_entity_edit(|mut body| {
+                let displaced = DisplacedGeometry {
+                    base_size: body
+                        .get::<ambition_platformer2d_core::BodyBaseSize>()
+                        .map(|base| base.base_size),
+                    render_size: body
+                        .get::<ambition_combat::components::ActorRenderSize>()
+                        .map(|size| size.0),
+                    sprite_offset: body
+                        .get::<ambition_combat::components::ActorSpriteOffset>()
+                        .map(|offset| offset.0),
+                };
+                if let Some(mut kit) = body.get_mut::<ProjectedCharacterKit>() {
+                    kit.granted.sheet_body = Some(displaced);
+                }
+            });
+            scope.insert((
+                ambition_platformer2d_core::BodyBaseSize {
+                    base_size: form.collision,
+                },
+                ambition_combat::components::ActorRenderSize(form.render_size),
+            ));
+            // No pose pass sizes this body, so the grant stands the live
+            // collider in the new box, under the body's current stance, feet
+            // planted, as the retraction does.
+            let base_size = form.collision;
+            scope.queue_entity_edit(move |mut body| {
+                let gravity_dir = body
+                    .get::<ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>()
+                    .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| frame.down());
+                let stance = body
+                    .get::<ambition_platformer2d_core::BodyModeState>()
+                    .map_or(base_size, |mode| mode.body_mode.shape(base_size).size);
+                if let Some(mut kin) = body.get_mut::<ambition_platformer2d_core::BodyKinematics>() {
+                    if kin.size != stance {
+                        ambition_platformer2d_core::resize_feet_planted(&mut kin, stance, gravity_dir);
+                    }
+                }
+            });
         } else if let Some(sheet) = drawn_from_its_box(prepared) {
             // THE QUAD OF A BODY DRAWN FROM ITS BOX, when the body carries
             // none: the frame fitted to the box the body stands in as this
-            // batch lands, by the renderer's own rule. A re-wear keeps the
-            // box, so the art of the new character is fitted to it, and the
-            // quad the seed resolves for that character (its built size) is
-            // not what is drawn: a player that wears the dog is drawn at a
-            // third of the dog's built size (measured 2026-10-06).
+            // batch lands, by the renderer's own rule. Only a character with
+            // no standing height gets here; one with a height is sized by its
+            // sheet above.
             //
             // A body its spawn built carries the seed's quad for this same
             // character, and keeps it. The retraction of the character before

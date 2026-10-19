@@ -924,11 +924,10 @@ fn drawn_fit(sheet: &str, standing: ambition_platformer2d_core::Vec2) -> ambitio
 /// wears NOW: the frame of that character's sheet fitted to the box the body
 /// stands in, which is what the renderer draws.
 ///
-/// A re-wear keeps the box (`BaselineBoundary::Replacement`), so the quad is
-/// not the one the character is built with. Measured in the shipped game
-/// (2026-10-06): a player that wears the kernel guide is drawn at 32.7 by
-/// 33.5, and the guide is built at 50.4 by 51.6. Until that day a re-wear to
-/// such a character stated no quad, so the landmark query had no answer.
+/// These characters have a sheet and no standing height (no catalog row), so
+/// a re-wear keeps the box and fits their art to it. A character with a
+/// standing height brings its own box (Q159; the shipped arm is
+/// `a_player_that_changes_form_takes_the_size_of_that_form`).
 #[test]
 fn a_body_drawn_from_its_box_states_the_quad_of_the_character_it_wears() {
     let quad = |app: &App, body: Entity| {
@@ -971,7 +970,7 @@ fn a_body_drawn_from_its_box_states_the_quad_of_the_character_it_wears() {
             .get::<ambition_platformer2d_core::BodyBaseSize>(body)
             .map(|base| base.base_size),
         Some(standing),
-        "premise: a re-wear keeps the box",
+        "premise: a character with no standing height keeps the box",
     );
 
     // The same character again changes nothing.

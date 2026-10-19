@@ -131,6 +131,7 @@ DISPLAY_NAMES = {
     "smirking_behemoth_boss": "You Have To Cut The Rope",
     "standing_on_shoulders": "Standing on Shoulders (GNU-ton)",
     "shoulders_at_rest": "Shoulders at Rest",
+    "tritone_decree": "The Tritone Decree",
     "the_algorithm_knows_youre_lonely": "The Algorithm Knows You're Lonely",
     "series_a_bloodbath": "Series A Bloodbath",
     "flying_spaghetti_monster_stage": "Flying Spaghetti Monster (Stage)",

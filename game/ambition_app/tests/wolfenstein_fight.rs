@@ -161,7 +161,7 @@ fn he_stands_on_the_floor() {
         if matches!(w.view.performing, Some((Move::Bound, true))) {
             continue;
         }
-        let feet = w.kin.pos.y + module::feet_below();
+        let feet = w.kin.pos.y + module::Body::of_height(w.kin.size.y).feet_below();
         assert!((feet - floor).abs() < 0.5, "his feet are {feet}, the floor {floor}: {w:?}");
     }
 }
@@ -223,7 +223,7 @@ fn the_galvanize_strikes_where_you_stood_and_leaves_him_flat() {
     step_until(&mut sim, 60 * 2, "him to go flat", |sim| wolf(sim).view.flat);
     // Flat: a window, not a flinch, and touching him does not hurt.
     let w = wolf(&mut sim);
-    let (trunk, _) = module::trunk();
+    let (trunk, _) = module::Body::of_height(w.kin.size.y).trunk();
     untouchable_player(&mut sim, false);
     let (_, before) = player(&mut sim);
     for _ in 0..60 {

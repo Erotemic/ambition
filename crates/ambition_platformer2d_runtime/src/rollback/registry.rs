@@ -76,7 +76,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// row's length, the time since the body died, and what its corpse does.
 /// 362 -> 363: `boss.encounter`'s cursor encodes the boss's `scale` (one
 /// `f32`): a conductor may grow its boss (`ambition.boss.scale`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 363;
+/// 363 -> 364: `actor.brain`'s cursor encodes a `MeleeBrute`'s hit and run
+/// (wire tag 6: whether its swing was live, a `bool`, and how long it still
+/// backs off, an `f32`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 364;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

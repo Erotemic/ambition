@@ -211,6 +211,12 @@ pub struct BrainProfile {
     /// perception exists for, so a character opts in.
     #[serde(default)]
     pub shares_sightings: bool,
+    /// After each swing, a `MeleeBrute` backs away from its foe this long, in
+    /// seconds, before it comes in again: hit and run. The rhythm makes a
+    /// fight readable, and the back-off is the player's opening. `0.0` (the
+    /// default) presses on.
+    #[serde(default)]
+    pub retreat_after_swing_s: f32,
 }
 
 impl Default for BrainProfile {
@@ -232,6 +238,7 @@ impl Default for BrainProfile {
             attack_cooldown_s: 0.0,
             ranged_volley: None,
             shares_sightings: false,
+            retreat_after_swing_s: 0.0,
         }
     }
 }

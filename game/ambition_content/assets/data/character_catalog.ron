@@ -5018,6 +5018,8 @@
                 patrol_effort: 0.6,
                 chase_effort: 1.0,
                 shares_sightings: true,
+                // A swipe, a skitter back: the pack takes turns.
+                retreat_after_swing_s: 0.35,
             )),
             max_health: Some(2),
             tags: ["enemy", "evil", "monster", "minion"],
@@ -5050,6 +5052,8 @@
                 patrol_effort: 0.6,
                 chase_effort: 1.0,
                 shares_sightings: true,
+                // It bites and jumps back, then comes in again.
+                retreat_after_swing_s: 0.55,
             )),
             max_health: Some(3),
             tags: ["enemy", "evil", "animal", "dog", "quadruped"],
@@ -5153,6 +5157,8 @@
                 chase_effort: 0.9,
                 attack_cooldown_s: 0.5,
                 shares_sightings: true,
+                // It stabs and scuttles back out of reach.
+                retreat_after_swing_s: 0.7,
             )),
             max_health: Some(2),
             tags: ["enemy", "evil", "machine", "crawler"],

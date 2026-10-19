@@ -204,6 +204,7 @@ fn forced_hostile_melee_brute_brain(
             attack_range,
             chase_speed,
             navigates: policy.navigates,
+            retreat_after_swing_s: policy.retreat_after_swing_s,
         },
         state: MeleeBruteState::default(),
     })
@@ -226,6 +227,7 @@ pub(super) fn melee_brute_brain_for_enemy(
             attack_range,
             chase_speed,
             navigates: policy.navigates,
+            retreat_after_swing_s: policy.retreat_after_swing_s,
         },
         state: MeleeBruteState::default(),
     })

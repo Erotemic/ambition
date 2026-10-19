@@ -569,7 +569,12 @@
                     ],
                 )),
                 launch: Some((base: 30.0, growth: 0.76)),
-                discharge: Some((muzzle: Offset(x: 0.3, y: -0.5))),
+                // From the chest, in front of the body, as Shadow Ball leaves
+                // Mewtwo's hands. The brain aims from the body centre, so a
+                // muzzle far above it fires on a line parallel to the aim:
+                // from the crown (y -0.5) every shot passed 20 px over a
+                // standing 48 px player.
+                discharge: Some((muzzle: Offset(x: 0.3, y: -0.15))),
             ))),
         ),
         "automaton_swipe_and_glider": (

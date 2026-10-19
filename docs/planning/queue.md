@@ -1202,15 +1202,27 @@ fixture did not register `PortalBodyTransited` and `GroundItemsView`, which
 the plugin reads); repaired in 672a83406. Both libs with `portal_render`
 take seconds: run them before a push that touches portals.
 
-**The PCA no longer lands a hit, 2026-10-18 (RED, inherited from
-3e2c649c7):** `a_hit_that_lands_on_the_player_freezes_the_match` fails: the
-player takes only `Contact` resolutions (which arm no freeze, by design).
-Measured: the `cellular_automaton_fighter` PCA, with its Mewtwo-shaped body,
-stands 46 to 48 px from a standing player and swings `generation_wipe` and
-`corruption_seed`, whose boxes are centred on him (half width 13 to 14.5), so
-they reach about 28 px and never meet the player. Not caused by the initial
-dash change (the test is red without it). Next: why the brain stops at 48 px
-for a move that reaches 28.
+**The PCA no longer lands a hit, 2026-10-18 (repaired):**
+`a_hit_that_lands_on_the_player_freezes_the_match` failed after 3e2c649c7: the
+player took only `Contact` resolutions (which arm no freeze, by design).
+Bisected inside the commit: each code group reverted alone left it red; its
+content data reverted made it green. The cause was the PCA's new
+`pca_life_cannon` muzzle, `Offset(x: 0.3, y: -0.5)`, the crown of a 68 px body.
+The brain aims from the body centre, so every shot (probe: 597 shot-frames
+over 900 ticks) flew parallel to its aim, 34 px high, and passed 20 px over a
+standing 48 px player. Before, the Rock left the body origin and hit. Now the
+muzzle is at the chest (`y: -0.15`, Shadow Ball's hands): green, data only.
+Still open, both found by this bisect:
+- ⛔ AN AIMED SHOT FROM AN OFFSET MUZZLE MISSES BY THE OFFSET, for every
+  brain. `ActorFireRequest` carries a direction, not the point it was aimed
+  at, so `spawn_projectiles_from_brain_actions` cannot re-aim from the muzzle
+  (its aim assist also measures from `kin.pos`, not the muzzle). The fix is
+  that the brain states its aim point and the spawn aims from where the
+  shot is born.
+- The PCA brain stops 46 to 48 px from the player and swings
+  `generation_wipe` and `corruption_seed`, whose boxes reach about 28 px, so
+  its melee never connects there. Why the brain stops at 48 px is not
+  measured.
 
 **Sanic's visible job, 2026-10-17 (RED, inherited):** `cargo test -p
 ambition_demo_sanic_app --features capture,input,perf_probe,visible`: 59

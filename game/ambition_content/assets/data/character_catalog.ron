@@ -995,6 +995,12 @@
             named_autonomous_profile: Some("medium_striker"),
             max_health: Some(5),
             tags: ["enemy", "base", "smash_skin"],
+            // A look of the goblin says what the goblin says.
+            barks: (
+                on_hit: ["Gah! Watch it!", "Dirty trick!", "I'll remember that!"],
+                provoked: ["Come on then!"],
+                hall: ["My cave is UNGUARDED right now. Do you understand?", "I bite ankles professionally. It's a craft."],
+            ),
             form_of: Some("goblin"),
         ),
         // A LOOK of the goblin (Jon, 2026-10-18: "Keep all 3 variants of goblins
@@ -1014,6 +1020,12 @@
             named_autonomous_profile: Some("medium_striker"),
             max_health: Some(5),
             tags: ["enemy", "base", "smash_skin"],
+            // A look of the goblin says what the goblin says.
+            barks: (
+                on_hit: ["Gah! Watch it!", "Dirty trick!", "I'll remember that!"],
+                provoked: ["Come on then!"],
+                hall: ["My cave is UNGUARDED right now. Do you understand?", "I bite ankles professionally. It's a craft."],
+            ),
             form_of: Some("goblin"),
         ),
         "sandbag": (

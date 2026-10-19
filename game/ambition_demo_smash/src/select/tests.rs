@@ -30,6 +30,7 @@ fn a_fighter_that_authors_its_own_moves_is_not_handed_the_stage_kit() {
     let roster = select
         .roster_seeded(
             &fighters,
+            &Default::default(),
             7,
             UNIFIED,
             &repertoires,
@@ -452,7 +453,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     assert!(select.slot(0).pick.is_some_and(SlotPick::is_random));
 
     let roster = select
-        .roster_seeded(&fighters, 12_345, UNIFIED, &Default::default(), None, crate::starting_stocks())
+        .roster_seeded(&fighters, &Default::default(), 12_345, UNIFIED, &Default::default(), None, crate::starting_stocks())
         .expect("two decided seats are a match");
     assert_eq!(roster.participants.len(), 2);
     for participant in &roster.participants {
@@ -468,7 +469,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
 
     // Seeded, not ambient (ADR 0023): the same seed draws the same match.
     let again = select
-        .roster_seeded(&fighters, 12_345, UNIFIED, &Default::default(), None, crate::starting_stocks())
+        .roster_seeded(&fighters, &Default::default(), 12_345, UNIFIED, &Default::default(), None, crate::starting_stocks())
         .expect("the same screen is still a match");
     assert_eq!(
         again.participants[0].character, roster.participants[0].character,
@@ -478,7 +479,57 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     // A different seed may differ. Requiring it to differ would assert that
     // no hash collision happens on a small grid.
     let other = select
-        .roster_seeded(&fighters, 99, UNIFIED, &Default::default(), None, crate::starting_stocks())
+        .roster_seeded(&fighters, &Default::default(), 99, UNIFIED, &Default::default(), None, crate::starting_stocks())
         .expect("the same screen is still a match");
     assert_eq!(other.participants.len(), 2);
+}
+
+/// A card's portrait cycles its fighter's skins, the seat wears the one the
+/// card shows, and choosing another fighter starts it on its own look.
+#[test]
+fn a_card_dresses_its_fighter_in_a_skin_and_a_new_pick_undresses_it() {
+    let fighters = SmashRoster(vec!["goblin".to_string(), "robot".to_string()]);
+    let skins = SmashSkins(
+        [("goblin".to_string(), vec!["goblin_raider".to_string(), "goblin_squat".to_string()])]
+            .into_iter()
+            .collect(),
+    );
+    let mut select = SmashSelect::default();
+    select.set_occupant(0, SlotOccupant::Cpu);
+    select.set_pick(0, SlotPick::Fighter(0));
+    select.set_occupant(1, SlotOccupant::Cpu);
+    select.set_pick(1, SlotPick::Fighter(1));
+
+    let seated = |select: &SmashSelect| {
+        select
+            .roster_seeded(&fighters, &skins, 1, UNIFIED, &Default::default(), None, crate::starting_stocks())
+            .expect("two decided seats are a match")
+            .participants
+            .iter()
+            .map(|p| p.skin.as_ref().map(|skin| skin.to_string()))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(seated(&select), vec![None, None], "a card starts on the fighter's own look");
+
+    // Own look, raider, squat, and round again.
+    select.cycle_skin(0, skins.count("goblin"));
+    assert_eq!(seated(&select)[0].as_deref(), Some("goblin_raider"));
+    select.cycle_skin(0, skins.count("goblin"));
+    assert_eq!(seated(&select)[0].as_deref(), Some("goblin_squat"));
+    select.cycle_skin(0, skins.count("goblin"));
+    assert_eq!(seated(&select)[0], None);
+
+    // A fighter with no skins stays in its own look.
+    select.cycle_skin(1, skins.count("robot"));
+    assert_eq!(seated(&select)[1], None);
+
+    // Another fighter is not the goblin: it starts in its own look.
+    select.cycle_skin(0, skins.count("goblin"));
+    select.set_pick(0, SlotPick::Fighter(1));
+    assert_eq!(select.slot(0).skin, 0);
+    // Choosing the same fighter again keeps its look.
+    select.set_pick(0, SlotPick::Fighter(0));
+    select.cycle_skin(0, skins.count("goblin"));
+    select.set_pick(0, SlotPick::Fighter(0));
+    assert_eq!(seated(&select)[0].as_deref(), Some("goblin_raider"));
 }

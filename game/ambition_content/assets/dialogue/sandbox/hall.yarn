@@ -84,6 +84,15 @@ Goblin: You. Yes, you. Do I LOOK like I agreed to this? My cave is sitting there
     Goblin: I worked very hard to be a nuisance. Now people point at me and read a plaque.
 -> You look dignified, though.
     Goblin: ...go on. Keep talking.
+-> Try the raider's leathers.
+    <<transform "goblin_raider">>
+    Goblin: Leather. Pockets. A nose with ambition. I could raid in this.
+-> Try the cave hide.
+    <<transform "goblin_squat">>
+    Goblin: Damp, warm, smells like home. Do NOT tell my cave I said that.
+-> Back to your own look.
+    <<transform "goblin">>
+    Goblin: Purple. Obviously. It was always going to be the purple.
 ===
 
 title: hall_sandbag

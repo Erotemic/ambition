@@ -71,6 +71,9 @@ pub struct ActorSpriteData {
     /// The character the body wears: its art identity. `None` for a body that
     /// renders from a kind-default sheet.
     pub worn: Option<&'static ambition_characters::actor::WornCharacter>,
+    /// The look the body is drawn in instead of its worn character's own
+    /// sheet (a Smash skin). Art only: it replaces the art key, nothing else.
+    pub skin: Option<&'static ambition_characters::actor::WornSkin>,
     /// A body with no left/right variant is drawn toward `+x` whatever its facing.
     pub unmirrored: bevy::prelude::Has<ae::Unmirrored>,
     /// A named row content pinned this body to: its clip, ahead of any move's.

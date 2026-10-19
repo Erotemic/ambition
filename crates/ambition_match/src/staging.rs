@@ -90,6 +90,11 @@ pub struct MatchParticipant {
     ///
     /// `None` keeps whatever the character brought.
     pub body: Option<ambition_platformer2d_core::MovementTuning>,
+    /// The look this seat is drawn in: a row that is a look of
+    /// [`Self::character`] (its catalog `form_of`), worn as art only. The
+    /// body, the kit and everything the sim reads stay the character's; a
+    /// Smash skin. `None` draws the character's own sheet.
+    pub skin: Option<ambition_entity_catalog::CharacterId>,
 }
 
 impl MatchParticipant {
@@ -105,6 +110,7 @@ impl MatchParticipant {
             team: None,
             action_set: None,
             body: None,
+            skin: None,
         }
     }
 
@@ -119,6 +125,12 @@ impl MatchParticipant {
     /// [`MatchParticipant::body`].
     pub fn with_body(mut self, body: ambition_platformer2d_core::MovementTuning) -> Self {
         self.body = Some(body);
+        self
+    }
+
+    /// Draw this seat in another look. See [`MatchParticipant::skin`].
+    pub fn wearing_skin(mut self, skin: impl Into<ambition_entity_catalog::CharacterId>) -> Self {
+        self.skin = Some(skin.into());
         self
     }
 
@@ -496,9 +508,12 @@ impl MatchParticipantRoster {
 
 impl StagesCharacters for MatchParticipantRoster {
     fn character_tokens(&self) -> Vec<String> {
+        // A skin's sheet is demanded with its seat: it is the art the seat
+        // draws.
         self.participants
             .iter()
-            .map(|p| p.character.to_string())
+            .flat_map(|p| std::iter::once(&p.character).chain(p.skin.as_ref()))
+            .map(|id| id.to_string())
             .collect()
     }
 }

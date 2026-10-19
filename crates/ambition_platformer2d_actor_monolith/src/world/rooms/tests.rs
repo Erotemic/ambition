@@ -88,6 +88,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     app.init_resource::<Captured>();
     app.init_resource::<ambition_time::WorldTime>();
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
     // The vacated home avatar, far from the zone.
@@ -233,6 +234,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     // A 60 fps frame; the body crosses the whole zone within it.
     app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
     // The body has already SHOT PAST the zone this frame: it ends at x = 200
@@ -375,6 +377,7 @@ fn room_crossed_to(
     app.init_resource::<Captured>();
     app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
     let mut entity = app.world_mut().spawn((
@@ -1563,6 +1566,7 @@ fn app_with_a_door(
                 "the fixture could not seed the incumbent into an empty slot",
             );
         }
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_systems(Update, detect_room_transition_system);
 
         // The press is armed directly rather than by running the input producer:
@@ -1830,6 +1834,7 @@ fn a_crossing_reads_the_crossing_bodys_own_live_room() {
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<ambition_time::WorldTime>();
         app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_systems(Update, detect_room_transition_system);
         let body = app
             .world_mut()

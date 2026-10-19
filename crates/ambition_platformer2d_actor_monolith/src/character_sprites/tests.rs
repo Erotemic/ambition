@@ -462,9 +462,21 @@ fn sprite_loader_resolves_a_sheet_for_most_catalog_entries() {
 /// driven into any state, and its sheet decides how richly it reads.
 #[test]
 fn resolve_anim_renders_most_specific_pose_in_the_actor_anim_set() {
-    // The admiral's generated set is idle / walk / slash / taunt / hurt / death —
-    // no dash / run / jump / fly / directional-tilt rows.
-    let spec = sheet_for_character_id("npc_pirate_admiral").expect("admiral resolves a sheet");
+    // A sheet with walk, slash and death rows and no dash, slide, jump, fly or
+    // directional-swing rows. Chosen by its rows, not by name: a republish
+    // adds rows to a named character (the admiral got its moveset rows on
+    // 2026-10-19), and the rule is about the rows.
+    use CharacterAnim as A;
+    let has = [A::Walk, A::Slash, A::Death];
+    let lacks = [A::AttackUp, A::AirDown, A::Punch, A::Dash, A::Slide, A::Fly, A::Jump];
+    let catalog = crate::character_roster::catalog();
+    let mut ids: Vec<_> = catalog.data().characters.keys().cloned().collect();
+    ids.sort();
+    let spec = ids
+        .iter()
+        .filter_map(|id| sheet_for_character_id(id))
+        .find(|spec| has.iter().all(|anim| spec.maps(*anim)) && !lacks.iter().any(|anim| spec.maps(*anim)))
+        .expect("premise: some catalog character has walk, slash and death rows and none of the refined poses");
     // Directional / aerial / heavy swings are refinements of the generic slash
     // it DOES have → render slash, not Idle.
     assert_eq!(

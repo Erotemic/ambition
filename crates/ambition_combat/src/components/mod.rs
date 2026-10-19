@@ -83,6 +83,9 @@ pub struct CombatCapabilities {
     /// The SFX bank id this body plays when it dies. `None` plays the death
     /// cue of the game that owns the body.
     pub death_sound: Option<String>,
+    /// What this body leaves after its death row; `None` leaves what its
+    /// room's game states. See [`ambition_characters::actor::Corpse`].
+    pub corpse: Option<ambition_characters::actor::Corpse>,
 }
 
 impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilities {
@@ -96,6 +99,7 @@ impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilit
             never_dies,
             drops_held_item,
             death_sound,
+            corpse,
         } = traits;
         Self {
             explodes_on_death: *explodes_on_death,
@@ -104,6 +108,7 @@ impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilit
             never_dies: *never_dies,
             drops_held_item: *drops_held_item,
             death_sound: death_sound.clone(),
+            corpse: *corpse,
         }
     }
 }

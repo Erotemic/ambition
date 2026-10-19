@@ -1097,6 +1097,14 @@ tackon_targets=(
     evil_failed_prototype
     # The guard dog of Godwin Castle: the house dog parts, its own clips.
     evil_attack_hound
+    # The first and easiest baddie of Castle Godwin: a dead conscript of
+    # the regime, raised in the lab, on the person rig.
+    evil_zombie
+    # Two more of the castle's troops, SVG rigs: the riot trooper with the
+    # electric shield and baton, and the searchlight on spider legs that
+    # crawls the walls.
+    shock_warden
+    searchlight_crawler
     # The General (`npc_general`): an SVG rig, not a preset of the toon
     # template any more.
     absurd_general

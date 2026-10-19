@@ -88,7 +88,7 @@ pub(crate) fn boss_sprite_metrics_from_registry(
     let mut spec = boss_catalog.sheet_for_behavior(&boss.config.behavior);
     spec.frame_width = frame_w;
     spec.frame_height = frame_h;
-    let basis = boss.status.render_size;
+    let basis = boss.render_size();
     let render = spec.render_size(bevy::math::Vec2::new(basis.x, basis.y));
     let sprite_render_size = ae::Vec2::new(render.x, render.y);
     let mut snapshot = ActorSpriteMetrics {

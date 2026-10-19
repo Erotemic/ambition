@@ -1647,3 +1647,30 @@ Noodling: Blub. You are very tall. Or I am floating low again.
     Noodling: I float at people and bite them. Then I say ramen.
     Noodling: Ramen!
 ===
+
+title: hall_npc_evil_zombie
+---
+Risen Conscript: Hhhhrrr...
+-> Are you all right?
+    Risen Conscript: *it looks at you for a long time* ...Hungry.
+-> Who were you?
+    Risen Conscript: Con... script. Number... I forget the number.
+===
+
+title: hall_npc_shock_warden
+---
+Shock Warden: Halt. Stand behind the line.
+-> What line?
+    Shock Warden: The line is wherever I stand.
+-> Does the shield hurt?
+    Shock Warden: Only the side that faces you.
+===
+
+title: hall_npc_searchlight_crawler
+---
+Searchlight Crawler: *the lamp finds you, and holds*
+-> Hello?
+    Searchlight Crawler: *click* SUBJECT NOTED.
+-> Turn that off.
+    Searchlight Crawler: *the lamp gets brighter*
+===

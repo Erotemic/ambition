@@ -52,6 +52,7 @@ mod brain_effects;
 pub(crate) mod character_policy;
 pub mod chests;
 mod damage;
+pub mod death_beat;
 pub mod dismounted_rider;
 pub mod fighter_ladder;
 // ⛔ `damage_apply` LEFT FOR `crates/ambition_damage`, 2026-08-26. It named no

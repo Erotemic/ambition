@@ -232,7 +232,11 @@ pub fn update_boss_encounters(
             phase_events.extend(phase.tick(dt, hp_fraction));
         }
         for ev in &phase_events {
-            publish_events(&archetype_id, ev, cutscene_queue.as_deref_mut(), &mut banner);
+            let bill = super::events::BossBillName {
+                name: &feature.config.name,
+                title: feature.config.behavior.title.as_deref(),
+            };
+            publish_events(&archetype_id, &bill, ev, cutscene_queue.as_deref_mut(), &mut banner);
             // the transition edge, from the authority that commits it. Every
             // consumer of "this boss just changed phase" reads this, not a
             // diff against its own memory (see `BossPhaseChanged`).
@@ -463,6 +467,11 @@ fn phase_music_track(
 /// Camera-shake amplitude (px) on a dramatic boss phase change. Capped to 14 by
 /// [`CameraShakeState::kick`].
 const BOSS_PHASE_SHAKE_PX: f32 = 11.0;
+/// The shake of a boss's defeat: the cap.
+const BOSS_DEFEAT_SHAKE_PX: f32 = 14.0;
+/// The world holds still this many sim ticks on the blow that kills a boss
+/// (0.4 s at 60 Hz).
+const BOSS_DEFEAT_FREEZE_TICKS: u64 = 24;
 
 /// Consume authoritative same-frame [`BossPhaseChanged`](super::events::BossPhaseChanged)
 /// edges and materialize their gameplay/presentation feedback. The edge comes
@@ -486,14 +495,54 @@ pub fn boss_phase_transition_feedback(
     mut vfx: ambition_vfx::vfx::VfxWriter,
     // The burst is drawn in the boss's own live room.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // The defeat holds the world still a moment and pulls the camera in.
+    defeat: (
+        Option<Res<ambition_time::SimTick>>,
+        Option<ResMut<ambition_combat::impact_hitstop::ImpactHitstop>>,
+        MessageWriter<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest>,
+    ),
 ) {
     use crate::BossEncounterPhase as P;
+    let (tick, mut hold, mut zoom) = defeat;
     for change in phase_changes.read() {
         let entity = change.boss;
         let Ok((kin, aabb)) = bosses.get(entity) else {
             continue;
         };
         let phase = change.to;
+        if phase == P::Death {
+            // THE KILL IS A BEAT. Every boss: the world holds still for a
+            // moment on the killing blow (the impact freeze, an absolute
+            // tick, so a replayed frame holds the same), the camera pulls in,
+            // the hardest shake, the defeat cue and its chord, and the body
+            // bursts. What the boss does in its death row is its own.
+            if let (Some(tick), Some(hold)) = (tick.as_deref(), hold.as_deref_mut()) {
+                let until = tick.0 + BOSS_DEFEAT_FREEZE_TICKS;
+                hold.until_tick = Some(hold.until_tick.map_or(until, |held| held.max(until)));
+            }
+            zoom.write(ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest { closeness: 1.0 });
+            shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
+                amplitude_px: BOSS_DEFEAT_SHAKE_PX,
+            });
+            for cue in ["boss.generic.defeat", "cutscene.dramatic_chord.defeat"] {
+                sfx.write(ambition_sfx::SfxMessage::Play { id: ambition_sfx::SfxId::new(cue), pos: kin.pos });
+            }
+            let mut room_vfx = vfx.for_room(rooms.of(entity));
+            for (count, speed, color) in [
+                (48, 420.0, [1.0, 0.92, 0.45, 1.0]),
+                (32, 260.0, [1.0, 1.0, 1.0, 0.95]),
+                (24, 160.0, [1.0, 0.55, 0.25, 0.9]),
+            ] {
+                room_vfx.write(ambition_vfx::vfx::VfxMessage::Burst {
+                    pos: aabb.center,
+                    count,
+                    speed,
+                    color,
+                    kind: ambition_vfx::vfx::ParticleKind::Spark,
+                });
+            }
+            continue;
+        }
         if matches!(phase, P::Transition | P::Phase2 | P::Enrage | P::Stagger) {
             shake.write(
                 ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {

@@ -80,7 +80,8 @@ ROOMS_AT = {
 #: of a mad wolf. Its pattern is `wolfenstein_boss` (`data/boss_profiles.ron`);
 #: its placement id is its progress (`castle_godwin.wolfenstein`).
 BOSS_NAME, BOSS_BRAIN, BOSS_ENCOUNTER = "Wolfenstein", "PhaseScript:wolfenstein_boss", "castle_godwin.wolfenstein"
-BOSS_BOX = (60, 100)
+#: His body box: big (Jon, 2026-10-18), and the serum grows him again.
+BOSS_BOX = (84, 140)
 
 #: The soldier of the regime, and his box (183 cm).
 SOLDIER = "npc_fascist_enforcer"
@@ -88,7 +89,14 @@ SOLDIER_BOX = (32, 72)
 #: The regime's other fighters: the Iron Trooper with his chain gun (205 cm)
 #: and the lab's Failed Prototypes, which come in packs. Each its box.
 HEAVY, PROTOTYPE, HOUND = "npc_evil_heavy", "npc_evil_failed_prototype", "npc_evil_attack_hound"
-BOX = {SOLDIER: SOLDIER_BOX, HEAVY: (36, 80), PROTOTYPE: (32, 40), HOUND: (52, 50)}
+#: The Risen Conscript, the castle's first and easiest enemy (a slow dead
+#: soldier); the Shock Warden behind its electric shield; the Searchlight
+#: Crawler on its spider legs.
+ZOMBIE, WARDEN, CRAWLER = "npc_evil_zombie", "npc_shock_warden", "npc_searchlight_crawler"
+BOX = {SOLDIER: SOLDIER_BOX, HEAVY: (36, 80), PROTOTYPE: (32, 40), HOUND: (52, 50), ZOMBIE: (30, 67), WARDEN: (40, 64),
+       CRAWLER: (48, 34)}
+KIND = {SOLDIER: "soldier", HEAVY: "heavy", PROTOTYPE: "prototype", HOUND: "hound", ZOMBIE: "zombie", WARDEN: "warden",
+        CRAWLER: "crawler"}
 
 SPRITES = TOOLS.parents[1] / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
 #: Pixels of a castle prop's frame to one world unit (`castle_godwin.PX`).
@@ -131,7 +139,7 @@ def soldier(room, n, x, feet_y, character=SOLDIER):
     """A fighter of the regime (a soldier unless `character` says) whose
     feet are at `feet_y`."""
     w, h = BOX[character]
-    kind = {SOLDIER: "soldier", HEAVY: "heavy", PROTOTYPE: "prototype", HOUND: "hound"}[character]
+    kind = KIND[character]
     return (f'( type: "EnemySpawn", px: [{x}, {feet_y - h}], size: [{w}, {h}], fields: ( name: "{room}_{kind}_{n}", '
             f'brain: "combatant", character_id: "{character}", respawn: "OnRoomReenter" ) ),')
 
@@ -141,6 +149,16 @@ def pack(room, x, feet_y, size=3, gap=44):
     return [soldier(room, i + 1, x + i * gap, feet_y, PROTOTYPE) for i in range(size)]
 
 
+def heal(name, x, floor, amount=3):
+    """A heart that heals `amount`, on `floor`."""
+    return f'( type: "PickupSpawn", px: [{x}, {floor - 24}], size: [24, 24], fields: ( name: "{name}", kind: "health:{amount}" ) ),'
+
+
+def shrine(rid, x, floor, name):
+    """A shrine to rest at: it heals, and the castle starts again from it."""
+    return f'( type: "ShrineSpawn", px: [{x}, {floor - 80}], size: [44, 80], fields: ( id: "{rid}_shrine", name: "{name}" ) ),'
+
+
 def body_box(kind):
     """The body box of `kind`'s published sheet in frame pixels, (x, y, w, h)."""
     text = (SPRITES / f"{kind}_spritesheet.ron").read_text()
@@ -148,6 +166,12 @@ def body_box(kind):
     if not m:
         raise SystemExit(f"{kind}: no body_pixel_bbox in its published RON; publish the sprite first")
     return tuple(int(v) for v in m.groups())
+
+
+def throne_middle(x):
+    """The middle of the iron throne's art, its frame's left at `x`."""
+    bx, _, bw, _ = body_box("castle_iron_throne")
+    return round(x + (bx + bw / 2) / PROP_PX)
 
 
 def standing(name, kind, x, floor):
@@ -231,12 +255,19 @@ def forest():
         standing("castle_godwin_road_sign", "castle_godwin_sign", 1000, floor),
         door(f"{rid}_castle_door", "into Castle Godwin", entrance_x + ENTRANCE_DOOR_X + (ENTRANCE_DOOR_W - 48) // 2, floor,
              GATEHOUSE, f"{GATEHOUSE}_west"),
+        # The dead of the regime walk the road: the first fight of the
+        # dimension, one, then two, then one at the door.
+        soldier(rid, 1, 640, floor, ZOMBIE),
+        soldier(rid, 2, 1060, floor, ZOMBIE),
+        soldier(rid, 3, 1130, floor, ZOMBIE),
+        soldier(rid, 4, entrance_x - 120, floor, ZOMBIE),
     ]
     return rid, room(rid, e, "The forest of the Evil dimension: the way to Castle Godwin.", FOREST_THEME, FOREST_MUSIC, FOREST_BG)
 
 
 def gatehouse():
-    """The first room inside: three soldiers, a raised dais and a gallery."""
+    """The first room inside: the dead at the gate, two soldiers, a dog and
+    a crawler; a raised dais and a gallery."""
     rid = GATEHOUSE
     _, w, h = ROOMS_AT[rid]
     floor, e = shell(rid)
@@ -252,19 +283,22 @@ def gatehouse():
         solid("dais", 560, floor - 64, 192, 64),
         ledge("gallery_west", 880, floor - 160, 224),
         ledge("gallery_east", 1200, floor - 256, 192),
+        # The dead at the gate, a soldier on the dais and one on the gallery,
+        # a dog, and a crawler under the far searchlight.
+        soldier(rid, 1, 380, floor, ZOMBIE),
+        soldier(rid, 2, 470, floor, ZOMBIE),
         soldier(rid, 1, 640, floor - 64),
         soldier(rid, 2, 980, floor - 160),
-        soldier(rid, 3, 1320, floor),
-        # The guard dogs of the gate.
-        soldier(rid, 1, 1000, floor, HOUND),
-        soldier(rid, 2, 1180, floor, HOUND),
+        soldier(rid, 1, 1100, floor, HOUND),
+        soldier(rid, 1, 1300, floor, CRAWLER),
     ]
     return rid, castle(rid, e, "Castle Godwin: the gatehouse.")
 
 
 def barracks():
     """A long hall of bunks in tiers, and pillars that hang from the vault to
-    hide behind. Five soldiers."""
+    hide behind. Soldiers, crawlers on the bunks, a Shock Warden in the
+    middle, a pack and the Iron Trooper at the far end."""
     rid = BARRACKS
     _, w, h = ROOMS_AT[rid]
     floor, e = shell(rid)
@@ -289,10 +323,15 @@ def barracks():
     e += [
         soldier(rid, 1, 520, floor),
         soldier(rid, 2, 1100, floor - 224),
-        soldier(rid, 3, 1300, floor),
-        soldier(rid, 4, 1760, floor - 112),
-        soldier(rid, 5, 2200, floor),
         soldier(rid, 1, 700, floor, HOUND),
+        # Crawlers on the bunks; a heart under the mess table for the room's
+        # middle.
+        soldier(rid, 1, 1060, floor - 112, CRAWLER),
+        soldier(rid, 2, 1700, floor - 224, CRAWLER),
+        heal("barracks_heart", 1330, floor),
+        # A Shock Warden holds the middle of the hall behind its shield.
+        soldier(rid, 1, 1500, floor, WARDEN),
+        soldier(rid, 3, 1760, floor - 112),
         # The far end of the barracks: the lab's door is near, and a pack got
         # out; an Iron Trooper holds the way to the tower.
         *pack(rid, 1840, floor),
@@ -321,7 +360,8 @@ def tower():
         e.append(ledge(f"ledge_{k}", x, y, 288))
         if k % 2 == 1:
             n += 1
-            e.append(soldier(rid, n, x + 128, y))
+            # A soldier, then a crawler, up the climb.
+            e.append(soldier(rid, n, x + 128, y, SOLDIER if n % 2 == 1 else CRAWLER))
         y -= 176
         k += 1
     # The lab on the floor of the tower: the vats the prototypes came out of,
@@ -329,8 +369,11 @@ def tower():
     e += [standing(f"vat_{i}", "castle_specimen_vat", x, floor) for i, x in enumerate((300, 400, 500))]
     e += [standing(f"coil_{i}", "castle_tesla_coil", x, floor) for i, x in enumerate((640, 860))]
     e.append(standing("operating_table", "castle_operating_table", w - 380, top_floor))
-    # The top of the tower: an Iron Trooper, and a pack on the first ledge.
-    e.append(soldier(rid, 1, w - 260, top_floor, HEAVY))
+    # The top of the tower: a Shock Warden at the door, and a pack on the
+    # first ledge. Past the warden, a shrine: the last rest before the muster
+    # and the throne.
+    e.append(soldier(rid, 1, w - 330, top_floor, WARDEN))
+    e.append(shrine(rid, w - 190, top_floor, "the shrine of the lab tower"))
     e += pack(rid, 200, floor - 176)
     # The tower is the castle's lab: where the prototypes were made.
     return rid, castle(rid, e, "Castle Godwin: the lab tower.", theme="castle_godwin_lab")
@@ -391,7 +434,9 @@ def throne():
         standing("iron_throne", "castle_iron_throne", w - 360, floor),
         standing("coil_throne_east", "castle_tesla_coil", w - 160, floor),
         standing("wanted_throne", "castle_wanted_poster", 200, floor - 150),
-        (f'( type: "BossSpawn", px: [{w - 520}, {floor - bh}], size: [{bw}, {bh}], fields: ( name: "{BOSS_NAME}", '
+        # He starts on his throne, dead: his box on the floor in front of
+        # its middle; his conductor lifts him into the seat.
+        (f'( type: "BossSpawn", px: [{throne_middle(w - 360) - bw // 2}, {floor - bh}], size: [{bw}, {bh}], fields: ( name: "{BOSS_NAME}", '
          f'brain: "{BOSS_BRAIN}", encounter_id: "{BOSS_ENCOUNTER}" ) ),'),
     ]
     # A boss arena's camera frames the fight (`Encounter`), as the other arenas do.
@@ -401,18 +446,9 @@ def throne():
 
 ROOMS = (forest, gatehouse, barracks, tower, great_hall, throne)
 
-#: The fight of the great hall, as its room places it: (x, y) of each soldier's
-#: box centre, by wave. Printed for `data/encounters/goblin_encounter.ron`.
-def muster_waves():
-    _, w, h = ROOMS_AT[GREAT_HALL]
-    floor = h - 64
-    cy = floor - SOLDIER_BOX[1] // 2
-    gy = floor - 192 - SOLDIER_BOX[1] // 2
-    return [
-        ("wave 1 — the guard and its dog", [(900, cy), (1200, cy)]),
-        ("wave 2 — the galleries, and a pack", [(600, gy), (w - 600, gy), (1500, cy)]),
-        ("wave 3 — the muster, and the Iron Trooper", [(700, cy), (w // 2, floor - 48 - SOLDIER_BOX[1] // 2), (1300, cy), (w - 600, gy)]),
-    ]
+#: The fight of the great hall: its waves are authored in
+#: `data/encounters/goblin_encounter.ron` (`castle_godwin_muster`), in room
+#: coordinates (box centres; the floor is at y = 832).
 
 
 def home_gate_yaml() -> str:
@@ -479,8 +515,6 @@ def main(argv):
     gate_path = HERE / "home_gate.yaml"
     gate_path.write_text(home_gate_yaml())
     print(gate_path.relative_to(TOOLS))
-    for name, mobs in muster_waves():
-        print(name, mobs)
     if "--apply" in argv:
         # Each room's doors name the other rooms and the hub gate, so the
         # worlds are not whole until all are made: until then it is enough

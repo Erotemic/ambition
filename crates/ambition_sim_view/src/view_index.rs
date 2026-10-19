@@ -11,7 +11,7 @@ use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::ActorDisposition;
 use ambition_combat::components::ActorIdentity;
 use ambition_combat::components::ActorRenderSize;
-use ambition_combat::components::BossDeathAnimation;
+use ambition_combat::components::DeathBeat;
 use ambition_combat::components::BossPhase;
 use ambition_combat::components::BreakableFeature;
 use ambition_combat::components::ChestFeature;
@@ -326,6 +326,8 @@ pub fn rebuild_feature_view_index(
                 // A fighter knocked out past the blast envelope is not drawn
                 // while it waits to come back.
                 bevy::prelude::Has<ambition_combat::stocks::KnockedOutOfTheWorld>,
+                // How long a dead body stays drawn: its death row, and its corpse.
+                Option<&DeathBeat>,
             ),
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., written at
@@ -346,7 +348,7 @@ pub fn rebuild_feature_view_index(
         // same component enemies/NPCs expose.
         &ambition_characters::actor::BodyCombat,
         Option<&ambition_characters::actor::BodyHealth>,
-        Option<&BossDeathAnimation>,
+        Option<&DeathBeat>,
         Option<&BossPhase>,
         // Gravity-upright roll — the SAME `ActorRoll` the player / enemies / NPCs
         // use, so a boss rights itself under flipped / sideways gravity instead of
@@ -522,7 +524,7 @@ pub fn rebuild_feature_view_index(
         sprite_offset,
         respawn_grace,
         body_mode,
-        (playback, line_anchor, limb, bond_start, depth_plane, entity, out_of_the_world),
+        (playback, line_anchor, limb, bond_start, depth_plane, entity, out_of_the_world, death_beat),
     ) in &actors
     {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
@@ -534,15 +536,16 @@ pub fn rebuild_feature_view_index(
         // state and its placeholder shifts to the fighting tint with no type flip.
         let hostile = disposition.is_hostile();
         let alive = health.is_some_and(|h| h.alive());
-        // A body whose health says it is dead is not drawn, whatever its
-        // disposition. A hostile actor is drawn while it is alive. A peaceful
-        // actor with no health (a prop of a person) is always drawn.
-        //
-        // The rule was "peaceful actors are always visible (they don't die)".
-        // They do: a person has health, a hit kills it, and its death is
-        // recorded. A dead person stood in the room, drawn, with no touch and
-        // no talk (Jon, 2026-10-10: the Kernel Guide).
+        // A dead body is drawn while its death row plays, and after that as
+        // its corpse rule says (`DeathBeat`); a dead body with no beat is not
+        // drawn. A live hostile actor is drawn. A peaceful actor with no health
+        // (a prop of a person) is always drawn.
         let dead = health.is_some_and(|h| !h.alive());
+        let shown = if dead {
+            death_beat.is_some_and(|beat| beat.visible(false))
+        } else {
+            !hostile || alive
+        };
         // ⛔⛔ AND A SUBMERGED BODY IS NOT DRAWN, whoever is driving it. This
         // line is the actor road's ONLY visibility authority, and the submerged
         // rule was missing from it — stated only in `sync_submerged_visibility`,
@@ -550,7 +553,7 @@ pub fn rebuild_feature_view_index(
         // fighter. `BodyMode::hides_the_body` is where the sentence lives now so
         // the two roads cannot drift apart again.
         let submerged = body_mode.is_some_and(|m| m.body_mode.hides_the_body());
-        let visible = !dead && (!hostile || alive) && !submerged && !out_of_the_world;
+        let visible = shown && !submerged && !out_of_the_world;
         let flash = combat.is_some_and(|c| c.hit_flash > 0.0)
             || (hostile
                 && ambition_combat::moveset::melee_swing_of(playback, moveset)
@@ -697,7 +700,7 @@ pub fn rebuild_feature_view_index(
         // §A1: a boss's liveness is its `BodyHealth`, never a mirror.
         let boss_alive = health.is_some_and(|h| h.alive());
         let visible = boss_alive
-            || death_anim.is_some_and(|d| d.remaining_s > 0.0)
+            || death_anim.is_some_and(|d| d.visible(false))
             || phase.is_some_and(|p| p.is_active());
         index.insert_if_absent(
             id.as_str(),

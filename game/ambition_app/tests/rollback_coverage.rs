@@ -1810,6 +1810,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the same readiness question asked of a shell route's FIRST room, BEFORE          it activates: per published session, the manifest being waited on and          how many updates it took. Loading work that finishes before any session          simulates; nothing in a session reads it",
     ),
     (
+        "ambition_app::app::world_flow::first_room_cover::FirstRoomCover",
+        "the curtain over a shell route's FIRST room until it is drawn: a phase,          an update count and a settled latch. It reads the sim tick and the          presentation's settling; no simulation system reads it",
+    ),
+    (
         "ambition_platformer2d_provider::lifecycle::FirstRoomArtContributor",
         "a marker inserted by `init_resource` at plugin build: THIS host answers          `prepare-first-room-art` itself. Composition identity, written once,          never taken mutably",
     ),

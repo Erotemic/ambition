@@ -291,6 +291,15 @@ impl BossSheetSpec {
         self.row(anim).frame_count
     }
 
+    /// Seconds the sheet's own `anim` row plays once, or `None` when the sheet
+    /// does not draw that row (no fallback row is measured).
+    pub fn row_seconds(&self, anim: BossAnim) -> Option<f32> {
+        self.row_index(anim).map(|index| {
+            let row = &self.rows[index].1;
+            row.frame_count as f32 * row.duration_secs
+        })
+    }
+
     pub fn render_size(&self, collision: Vec2) -> Vec2 {
         // Height from collision; width keeps the frame's aspect ratio.
         let height = collision.x.max(collision.y).max(8.0) * self.collision_scale;

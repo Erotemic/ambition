@@ -65,7 +65,7 @@ use ambition_boss_encounter::{BossCatalog, BossClusterScratch, BossConfig, BossO
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::limb::LimbSlot;
 use ambition_combat::components::{
-    ActorAggression, BossDeathAnimation, BossPhase, CenteredAabb,
+    ActorAggression, BossPhase, CenteredAabb, DeathBeat,
     DamageableVolumes, EncounterMob, FeatureId, FeatureName, PogoPolicy, PogoTargetVolumes,
 };
 use ambition_encounter::switches::SwitchFeature;
@@ -925,8 +925,12 @@ fn boss_actor_cluster(
     ambition_combat::CombatTuning,
 ) {
     // A boss floats: its movement kit grants flight, unioned into the body's
-    // `AbilitySet` below. Death/weapon consequence traits stay default.
-    let caps = ambition_combat::CombatCapabilities::default();
+    // `AbilitySet` below. Its death traits are default, except what its corpse
+    // does, which its profile may state.
+    let caps = ambition_combat::CombatCapabilities {
+        corpse: config.behavior.corpse,
+        ..Default::default()
+    };
     let movement_kit = ae::AbilitySet {
         fly: true,
         // ⛔ PERMANENT FLIGHT, AND `fly_toggle` MUST STAY FALSE. Nothing ever
@@ -1080,6 +1084,8 @@ pub fn spawn_boss_with_overrides_into(
     let boss_anim_frame = ambition_sprite_sheet::boss::BossAnimFrame::new(
         boss_catalog.sheet_for_behavior(&boss.config.behavior),
     );
+    let boss_death_beat =
+        DeathBeat::with_row(boss_anim_frame.spec.row_seconds(ambition_sprite_sheet::boss::BossAnim::Death));
     let combat_tuning =
         ambition_combat::feel::Platformer2dFeelTuningMonolith::default().feature_combat_tuning();
     let cycle_attack_active = boss
@@ -1155,7 +1161,7 @@ pub fn spawn_boss_with_overrides_into(
             FeatureName::new(authored.name.clone()),
             feature_aabb,
             boss_anim_frame,
-            BossDeathAnimation::default(),
+            boss_death_beat,
             initial_phase,
             ambition_characters::actor::ActorFaction::Boss,
             ambition_combat::components::ActorTarget::default(),

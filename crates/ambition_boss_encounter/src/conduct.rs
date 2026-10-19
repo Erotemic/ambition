@@ -648,6 +648,24 @@ pub fn lower_boss_guards(mut outbox: ResMut<ExtensionOutbox>, mut bosses: Query<
     }
 }
 
+/// Lower `ambition.boss.scale`: build each boss at the scale its conductor
+/// states ([`crate::BossMut::rescale`]). A scope that is not a boss is refused.
+pub fn lower_boss_scales(
+    mut outbox: ResMut<ExtensionOutbox>,
+    boss_catalog: Res<crate::BossCatalog>,
+    mut bosses: Query<crate::BossClusterQueryData>,
+) {
+    for submitted in outbox.drain::<ambition_boss_special_port::BossScalePort>(&BOSS_CONDUCT) {
+        match bosses.get_mut(submitted.scope) {
+            Ok(mut boss) => boss.as_boss_mut().rescale(submitted.value.scale, &boss_catalog),
+            Err(_) => warn!(
+                "extension entry {} asked to scale {:?}, which is not a boss; refused",
+                submitted.entry, submitted.scope
+            ),
+        }
+    }
+}
+
 /// The `ambition.presentation.drawn_row` requests of this tick, for
 /// [`draw_rows`].
 pub fn drain_drawn_rows(mut outbox: ResMut<ExtensionOutbox>) -> Vec<ambition_extension_host::Submitted<DrawnRow>> {

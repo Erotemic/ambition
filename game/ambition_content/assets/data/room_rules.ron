@@ -16,4 +16,8 @@
     // not its run speed, with about 2.4 s of lead. It is a rule of observer
     // motion: do not tune it down to make dormancy occur in today's room sizes.
     hostile_wake_radius: Some(2560.0),
+    // A dead body stays where it fell, on the last frame of its death row
+    // (Jon, 2026-10-18: "bodies persist by default unless they explicitly
+    // don't"). A body that is taken away by its own death states `Vanish`.
+    corpses: Some(Stay),
 )

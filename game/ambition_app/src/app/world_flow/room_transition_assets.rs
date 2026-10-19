@@ -142,6 +142,10 @@ pub(crate) struct RoomPreparationPrefetchState {
     /// prefetch that re-prepares its neighbours every frame is a cache that is pure overhead,
     /// and it would look identical from the hit rate.
     pub(crate) preparations: u64,
+    /// The neighbours whose preparation is owed again since what it was built
+    /// from changed (a new room, a reload, another tier): one is prepared each
+    /// frame, nearest door first, and the rest wait their turn.
+    stale: BTreeSet<String>,
 }
 
 /// Optional presentation-side resources consumed by the simulation-side room
@@ -1588,12 +1592,24 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         .retain(|source, target| wanted.contains(&(source, target)));
     plan_prefetch.retain(|source, target| wanted.contains(&(source, target)));
 
+    if refresh_manifests {
+        cache.stale = prefetch.rooms.iter().map(|(index, _)| rooms.rooms[*index].id.clone()).collect();
+    }
+    // ⭐ ONE NEIGHBOUR A FRAME. A plan and a manifest are 10 ms and more for a
+    // room with a cast, and a room with four neighbours prepared them all in
+    // the frame the player came in: the 44 ms hitch of
+    // `prefetch_neighbor_room_preparation_system` (Tracy, 2026-10-18). The
+    // neighbours are taken nearest door first, so the room a player walks
+    // toward is ready first; a door taken before its room's turn takes the
+    // ordinary covered transition, as a door with no prefetch does.
+    let mut prepared_this_frame = false;
     for (index, sources) in &prefetch.rooms {
         let index = *index;
         let Some(room) = rooms.rooms.get(index) else {
             continue;
         };
-        if !refresh_manifests
+        let stale = cache.stale.contains(&room.id);
+        if !stale
             && sources.iter().all(|&source| {
                 cache
                     .entries
@@ -1603,6 +1619,11 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         {
             continue;
         }
+        if prepared_this_frame {
+            break;
+        }
+        prepared_this_frame = true;
+        cache.stale.remove(&room.id);
         cache.preparations = cache.preparations.saturating_add(1);
         let construction_plan =
             match ambition_platformer2d::actors::rooms::RoomConstructionPlan::prepare_from_parts(
@@ -1710,7 +1731,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         let construction_plan = Arc::new(construction_plan);
         for &source in sources {
             let identity = identity_of(source);
-            let replace = refresh_manifests
+            let replace = stale
                 || cache
                     .entries
                     .peek(identity.source_room_id(), &room.id)

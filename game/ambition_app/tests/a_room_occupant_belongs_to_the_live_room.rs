@@ -148,32 +148,48 @@ fn a_resident_of_another_live_room_stays_when_this_one_is_replaced() {
 /// after the body has run and attacked through it (drops, projectiles, split
 /// offspring).
 ///
+/// One session tours the rooms: a departure (`Destination::Room`, the road a
+/// level's end takes) brings the body to each in turn, and each arrival is a
+/// room loaded and published as at boot. A boot for each room cost 2.1 s and a
+/// departure 0.17 s (debug, measured 2026-10-18). A room the tour cannot
+/// reach fails the census: it is not left out.
+///
 /// ⚠ The sample is what running right and attacking reaches in the headless
 /// harness: no thrown item, portal shot or match item, and no presentation.
 #[test]
 fn every_room_resident_carries_its_live_room_after_combat() {
-    let rooms: Vec<String> = {
-        let mut sim = Platformer2dSimHarness::new_with_options(
-            fixed_60hz_room_options(HUB).with_save(a_save_that_has_seen_the_hub_intro()),
-        )
-        .expect("the hub boots");
-        session_world_component::<ambition_platformer2d::world::rooms::RoomSet>(sim.world_mut())
-            .expect("the session has a room set")
-            .rooms
-            .iter()
-            .map(|room| room.id.clone())
-            .collect()
-    };
+    use ambition_platformer2d::platformer::lifecycle::{Departure, Destination};
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(HUB).with_save(a_save_that_has_seen_the_hub_intro()),
+    )
+    .expect("the hub boots");
+    let rooms: Vec<String> = session_world_component::<ambition_platformer2d::world::rooms::RoomSet>(sim.world_mut())
+        .expect("the session has a room set")
+        .rooms
+        .iter()
+        .map(|room| room.id.clone())
+        .collect();
     assert!(rooms.len() > 50, "only {} rooms: not the shipped world", rooms.len());
+    let leaver = sim.world_mut().spawn(Departure::default()).id();
 
     let mut stamped = 0;
     let mut unstamped = Vec::new();
+    let mut unreached = Vec::new();
     for room in &rooms {
-        let Ok(mut sim) = Platformer2dSimHarness::new_with_options(
-            fixed_60hz_room_options(room).with_save(a_save_that_has_seen_the_hub_intro()),
-        ) else {
-            continue;
-        };
+        if sim.observation().active_room != *room {
+            sim.world_mut()
+                .get_mut::<Departure>(leaver)
+                .expect("the departure")
+                .leave(Destination::Room(room.clone()));
+            let reached = (0..600).any(|_| {
+                sim.step(base());
+                sim.observation().active_room == *room
+            });
+            if !reached {
+                unreached.push(room.clone());
+                continue;
+            }
+        }
         for tick in 0..150 {
             sim.step(AgentAction {
                 attack: tick % 20 < 3,
@@ -192,6 +208,7 @@ fn every_room_resident_carries_its_live_room_after_combat() {
             }
         }
     }
+    assert!(unreached.is_empty(), "the tour did not reach {unreached:?}");
     // 66 over 72 rooms when this was written (2026-09-29). The floor refuses a
     // census that saw nothing, not a room that lost an occupant.
     assert!(stamped >= 50, "only {stamped} stamped residents: the census saw nothing");

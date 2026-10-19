@@ -26,8 +26,16 @@ pub struct BossPhaseChanged {
     pub to: BossEncounterPhase,
 }
 
+/// Who the banners name: the boss's name as its placement shows it, and its
+/// authored title.
+pub(super) struct BossBillName<'a> {
+    pub name: &'a str,
+    pub title: Option<&'a str>,
+}
+
 pub(super) fn publish_events(
     encounter_id: &str,
+    bill: &BossBillName<'_>,
     event: &BossPhaseEvent,
     cutscene_queue: Option<&mut CutsceneTriggerQueue>,
     banner: &mut ambition_combat::GameplayBanner,
@@ -41,7 +49,10 @@ pub(super) fn publish_events(
         queue.request(format!("boss_intro_{encounter_id}"));
     }
     let text = match to {
-        BossEncounterPhase::Intro => format!("BOSS APPROACHES — {encounter_id}"),
+        BossEncounterPhase::Intro => match bill.title {
+            Some(title) => format!("{} — {}", bill.name.to_uppercase(), title),
+            None => format!("BOSS APPROACHES — {}", bill.name),
+        },
         BossEncounterPhase::Phase1 => "PHASE 1".to_string(),
         BossEncounterPhase::Transition => "...".to_string(),
         BossEncounterPhase::Phase2 => "PHASE 2".to_string(),
@@ -53,7 +64,7 @@ pub(super) fn publish_events(
     banner.show(text, 1.4);
     // The victory banner replaces the "DEFEATED" phase banner on a kill.
     if matches!(to, BossEncounterPhase::Death) {
-        banner.show(format!("VICTORY: {encounter_id}"), 2.5);
+        banner.show(format!("{} DEFEATED", bill.name.to_uppercase()), 3.5);
     }
 }
 
@@ -70,12 +81,13 @@ mod tests {
         let phase1 = BossPhaseEvent::PhaseChanged { from: BossEncounterPhase::Intro, to: BossEncounterPhase::Phase1 };
         let mut queue = CutsceneTriggerQueue::default();
         let mut banner = ambition_combat::GameplayBanner::default();
-        publish_events("warden", &intro, Some(&mut queue), &mut banner);
-        publish_events("warden", &phase1, Some(&mut queue), &mut banner);
+        let bill = BossBillName { name: "Warden", title: None };
+        publish_events("warden", &bill, &intro, Some(&mut queue), &mut banner);
+        publish_events("warden", &bill, &phase1, Some(&mut queue), &mut banner);
         assert_eq!(queue.0, vec!["boss_intro_warden".to_string()], "the intro's request, and not phase 1's");
 
         let mut banner = ambition_combat::GameplayBanner::default();
-        publish_events("warden", &intro, None, &mut banner);
-        assert_eq!(banner.text, "BOSS APPROACHES — warden", "with no queue the intro still shows its banner");
+        publish_events("warden", &bill, &intro, None, &mut banner);
+        assert_eq!(banner.text, "BOSS APPROACHES — Warden", "with no queue the intro still shows its banner");
     }
 }

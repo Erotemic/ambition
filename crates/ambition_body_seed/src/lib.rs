@@ -127,6 +127,9 @@ pub struct ActorClusterSeed {
     /// Spawn-resolved special-behavior flags (kit vocabulary), spawned
     /// alongside the clusters by [`Self::into_components`].
     pub caps: ambition_combat::CombatCapabilities,
+    /// How long the body is drawn once it dies: the length of its sheet's
+    /// `death` row.
+    pub death_beat: ambition_combat::components::DeathBeat,
     /// Victim-owned contact material/profile resolved from the catalog row.
     pub hurt_feedback: ambition_vfx::HurtFeedback,
     /// ⛔⛤ **THE PRESENTATION HALF OF THE BODY THIS SEED RESOLVED, OR `None`
@@ -154,6 +157,20 @@ pub struct ActorClusterSeed {
     /// spawned with no quad, and the other 39 agreed only because their label
     /// happened to be their character's display name.
     pub render_size: Option<ae::Vec2>,
+}
+
+/// The death beat of a body that wears `sheet`: as long as the sheet's `death`
+/// row plays.
+fn death_beat_of(
+    authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    sheet: Option<&str>,
+) -> ambition_combat::components::DeathBeat {
+    let record = sheet.and_then(|sheet| {
+        authored
+            .get(sheet)
+            .or_else(|| ambition_sprite_sheet::character::sheets::record_for_sheet_key(sheet))
+    });
+    ambition_combat::components::DeathBeat::with_row(record.and_then(|record| record.row_seconds("death")))
 }
 
 /// The geometry a character's body is built from, resolved from its prepared
@@ -272,7 +289,9 @@ pub type ActorClusterBundle = (
     ActorSurfaceState,
     BodyMelee,
     AncillaryMovementBundle,
-    ambition_combat::CombatCapabilities,
+    // What follows a death, and how long the dead body is drawn. Nested: a
+    // bundle tuple holds at most fifteen.
+    (ambition_combat::CombatCapabilities, ambition_combat::components::DeathBeat),
     ambition_combat::CombatTuning,
     ActorIdentity,
     // A fresh body's ranged weapon starts ready; nothing about it is authored.
@@ -562,6 +581,7 @@ impl ActorClusterSeed {
                 .map(ambition_combat::CombatCapabilities::from)
                 .unwrap_or_default(),
             hurt_feedback: actor_hurt_feedback(catalog, character_id),
+            death_beat: death_beat_of(authored, prepared_character.and_then(|character| character.sheet.as_deref())),
             // Resolved above when the character authors a sprite body; `None`
             // for a placement whose character states no `BodySource`.
             posed,
@@ -782,6 +802,7 @@ impl ActorClusterSeed {
             // than re-derived — see the field's own note.
             posed: geometry.posed,
             render_size: geometry.render,
+            death_beat: death_beat_of(authored, sheet),
         }
     }
     pub fn into_components(self) -> ActorClusterBundle {
@@ -806,7 +827,7 @@ impl ActorClusterSeed {
             self.surface,
             self.attack,
             AncillaryMovementBundle::from_scratch(self.body.0),
-            self.caps,
+            (self.caps, self.death_beat),
             combat_tuning,
             self.identity,
             ambition_combat::RangedRefire::default(),

@@ -734,6 +734,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_input",
  "ambition_menu",
+ "ambition_persistence",
  "ambition_platformer2d_core",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_shared_tangle",
@@ -870,6 +871,7 @@ dependencies = [
  "ambition_registry_core",
  "bevy_app",
  "bevy_ecs",
+ "bevy_tasks",
  "petgraph",
  "ron 0.11.0",
  "serde",

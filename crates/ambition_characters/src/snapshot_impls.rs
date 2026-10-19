@@ -591,6 +591,12 @@ impl SnapshotCursor for crate::brain::Brain {
                 put_f32(out, state.until);
                 put_u32(out, state.picks);
             }
+            // A brute's hit and run decides where it goes next.
+            Brain::StateMachine(StateMachineCfg::MeleeBrute { state, .. }) => {
+                put_u8(out, 6);
+                put_bool(out, state.was_swinging);
+                put_f32(out, state.backing_off);
+            }
             Brain::StateMachine(StateMachineCfg::Skirmisher { state, .. }) => {
                 use crate::brain::state_machine::RangedVolleyPhase as P;
                 put_u8(out, 5);

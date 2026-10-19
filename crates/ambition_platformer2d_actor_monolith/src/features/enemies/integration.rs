@@ -160,11 +160,38 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
                     ae::ResetFacing::Keep,
                     ae::DEFAULT_TUNING.air_jumps,
                 );
+                return (
+                    ambition_characters::actor::control::ActorControlFrame::neutral(),
+                    ae::FrameEvents::default(),
+                );
             }
-            return (
-                ambition_characters::actor::control::ActorControlFrame::neutral(),
-                ae::FrameEvents::default(),
+            // A DEAD BODY IS STILL A BODY (Jon, 2026-10-18: "dead things are
+            // still subject to physics"). Only its will stops: it is moved
+            // by the same kernel with no intent. It cannot fly, so a flyer
+            // falls; a crawler lets go of its surface. A revive restores its
+            // flight (`reset_body_clusters`), and a crawler takes hold again
+            // by its own contact rule.
+            self.flight.fly_enabled = false;
+            if let ambition_platformer2d_core::movement::MotionModel::AdhesiveCrawler(crawler) = motion_model {
+                crawler.detach();
+            }
+            let still = ambition_characters::actor::control::ActorControlFrame::neutral();
+            let events = self.integrate_body(
+                world,
+                &still,
+                motion_model,
+                dt,
+                motion_frame,
+                None,
+                feel,
+                authored_tuning,
+                combat,
+                tumbling,
+                out_of_play,
+                pose_owned_externally,
+                contact_field,
             );
+            return (still, events);
         }
 
         // Melee is NOT advanced here. A body's swing is a moveset `"attack"` move

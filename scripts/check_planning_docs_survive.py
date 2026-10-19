@@ -38,8 +38,14 @@ LIVE_CONTROL_PLANE: dict[str, tuple[int, tuple[str, ...]]] = {
     "docs/planning/queue.md": (300, ("# The queue", "## P0")),
     # 176 lines. The orientation snapshot — the one this check exists for.
     "docs/planning/status.md": (60, ("# Planning status", "## Current execution")),
-    # 526 lines. Unresolved maintainer choices only.
-    "docs/planning/awaiting-maintainer-decision.md": (150, ("# ",)),
+    # 526 lines then, 106 on 2026-10-19. Unresolved maintainer choices only, so
+    # it SHRINKS when Jon rules: a ruling day emptied 19 of 21 questions. The
+    # floor holds the frame (the rules and the blocking set), and the two
+    # headings say the frame survived.
+    "docs/planning/awaiting-maintainer-decision.md": (
+        40,
+        ("# Awaiting a maintainer decision", "## What actually blocks architecture work today"),
+    ),
     # 167 lines. Durable rulings.
     "docs/planning/maintainer-decisions.md": (60, ("# ",)),
     # 199 lines. How the planning tree is used.

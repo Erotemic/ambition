@@ -34,6 +34,32 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
   docs/planning/queue.md | sort -rn | head
 ```
 
+## Work order from the maintainer rulings of 2026-10-19
+
+These rows come before the content campaign below. The rulings are in
+[`maintainer-decisions.md`](maintainer-decisions.md) (2026-10-19 rows and
+"co-op recovery"). Work them in this order, each in slices:
+
+1. [LOCAL-PLAY-MODES](#local-play-modes--two-local-modes-explicit-join-and-menu-leave)
+   (Q153): a second pad must not steal Player 1 in solo play; explicit join;
+   menu leave.
+2. [COOP-RECOVERY](#coop-recovery--four-recovery-operations-not-one-reset)
+   (Q151 amended): same-room survival, different-room survival and a
+   full-party wipe are distinct transitions.
+3. [DIALOGUE-CHECKPOINT](#dialogue-checkpoint--story-facts-and-their-objects-share-one-horizon)
+   (Q164).
+4. [SELF-PERCEPTION](#self-perception--a-cpu-sees-its-own-body-now) (Q167).
+5. [BAKED-SHEET-IDENTITY](#baked-sheet-identity--a-bodys-collision-box-is-outside-the-content-identity)
+   (Q157) and other focused defects.
+6. [GROUNDED-ATTACK-MOMENTUM](#grounded-attack-momentum--measure-before-changing-the-slide)
+   (Q169).
+7. [SMALL-VIEWPORT-UI](#small-viewport-ui--screens-fit-a-phone-in-landscape)
+   (Q165), camera refinement (Q79, Q162 tuning), presentation flair, content
+   tuning (Q36 heights, Q158 range).
+
+Out of scope: fluid simulation (Q160), memory budgets (Q94), production online
+netplay (Q155, Q156).
+
 ## Priority order (Jon, 2026-10-14, 48 h; reordered 2026-10-17)
 
 Content packs, and changes to the game, made elegant and efficient and
@@ -101,7 +127,7 @@ whole engine. Work in this order, and fix an authoritative-state defect found on
 the way in its own slice:
 
 1. **P0:** A4, BAG-RECORD-HORIZON and AUTHORITY-POLISH are receipts
-   (BAG-RECORD-HORIZON's open line is Q161). C03 stops as a
+   (BAG-RECORD-HORIZON's open line, Q161, was ruled 2026-10-19: Bob's dormant-room placements stay). C03 stops as a
    campaign after its family 7: a remaining session resource moves only when a
    two-session witness shows it leaks
    ([consolidation plan §3](consolidation/consolidation-plan.md#3-c03--consolidate-session-owned-state-and-reduce-reset-only-app-globals)).
@@ -143,6 +169,148 @@ universal planner and the Bevy 0.20 upgrade. Q157 is Jon's decision; build
 neither side of it.
 
 ## P0 — architecture and correctness
+
+### LOCAL-PLAY-MODES — two local modes, explicit join and menu leave
+
+**Owner:** `ambition_input` (seating, `sources.rs`), Ambition's seating
+declaration (`ambition_content::provider::declare_ambition_seating`), the join
+road (`session/join.rs`) and the settings owner
+([multiplayer](game/multiplayer.md), ruling Q153 2026-10-19).
+
+**Current failure (the Q153 default before the ruling, measured 2026-10-05):**
+with two pads connected at session start the route offers a seat for each
+pad, so pad 1 drives seat 1 and not the primary, even for a player alone, and
+its Jump builds a second body. A pad that connects after the session started
+gets no seat until the next session (the handle count is fixed per session).
+No setting chooses a mode, and no menu action removes a seat.
+
+**Next action, in slices:**
+
+1. **Solo mode (the default):** every device drives Player 1 (keyboard, any
+   pad, a pad connected late); no press builds a second body. Witnesses: two
+   pads and a keyboard each move Player 1; pad 1's Jump makes no body; a pad
+   connected after the session started moves Player 1.
+2. **The setting and the claim:** a game setting "accept a second player".
+   In that mode an explicit join gesture of an unclaimed device claims seat 1
+   (a reserved second handle, so a join needs no rebase and no restart);
+   the claimed device stops driving Player 1; an unclaimed device never
+   drives seat 1. Keyboard P1 with pad P2, and two pads. A join across a
+   rollback frame resimulates to the same world.
+3. **Leave:** pause-menu actions "remove Player 2" (Player 1) and "leave"
+   (Player 2). Leaving releases the claim, retires the body by an explicit
+   lifetime policy, drops or returns what it holds with no duplicate and no
+   loss, closes its view and HUD, and resets no room. A later join works.
+4. **Presentation:** the join opens the two-player presentation; the adaptive
+   merge stays (Q162). Nice to have: a portal that Player 2 drops out of,
+   presentation only.
+
+**Acceptance:** the controller and multiplayer tests of the 2026-10-19
+assignment (section 11), each a simulation-level witness with a negative
+control.
+
+### COOP-RECOVERY — four recovery operations, not one reset
+
+**Owner:** `session/death.rs`, `sandbox_reset.rs`, the checkpoint restore
+(`session/checkpoint.rs`). Ruling: Q151 amended 2026-10-19 ("co-op recovery" in
+[`maintainer-decisions.md`](maintainer-decisions.md)).
+
+**Current state (the Q153 default, 2026-10-05):** a death sends back only the
+primary's room, and only when nobody is in play there; a fallen seat 1 comes
+back beside the primary; a fallen primary waits while a seat plays in its room.
+The restore's subject is the primary body (`PrimaryPlayerOnly`), so the
+operations are told apart by seat, not by the active set, and there is no
+full-party-wipe condition as such.
+
+**Next action:** one recovery state machine over the active participant set:
+individual death and recovery; local room recovery (only a room no living
+participant holds); full-party wipe (every active participant dead) → the
+checkpoint rollback; explicit whole-session restart. A removed or left seat is
+not counted. An individual recovery leaves time for a wipe to occur.
+
+**Acceptance:** the death tests of section 11: same room, no rollback;
+different rooms, room B unchanged; both dead, the checkpoint restores; a
+removed participant not counted; a local recovery duplicates no object.
+
+### DIALOGUE-CHECKPOINT — story facts and their objects share one horizon
+
+**Owner:** the checkpoint (`OwnedItemsBaseline`, Q124), the world fact store
+(`world.set_flag`, quest steps) and the dialogue effects. Ruling: Q164
+(2026-10-19).
+
+**Current failure (measured 2026-10-09, `a_playthrough_of_the_persistent_world`):**
+the player gives Alice's note to Bob, gets the survey, and dies before any
+checkpoint: the survey leaves the bag (objects go back), and
+`bob_field_survey_received`, the quest step and the wall it opened stay (facts
+have no checkpoint copy). The object is lost for good while the world says it
+was received.
+
+**Next action:** (1) the checkpoint copies the participant's unbanked facts
+(flags, quest steps) with the bag, and a solo death restores both; (2) an
+authored dialogue effect that banks (a checkpoint action through the existing
+persistence road, one transaction with the facts and objects it moves);
+(3) in co-op, shared facts a survivor holds are not rolled back, and their
+objects stay consistent; (4) dialogue history (seen, per participant, Q134)
+kept apart from the world facts, so a seen marker grants nothing.
+
+**Acceptance:** the dialogue arms of section 11: solo rollback consistent; an
+authored checkpointing dialogue banks its consequences; a single co-op death
+does not roll shared facts behind the survivor; a seen marker grants no reward
+or quest step.
+
+### SELF-PERCEPTION — a CPU sees its own body now
+
+**Owner:** the fighter brain (`PerceptionBuffer`, `DelayedPerception`,
+`SelfView`), [`fighter-brain.md`](engine/fighter-brain.md) F0. Ruling: Q167
+(2026-10-19).
+
+**Current failure (measured 2026-10-18):** a CPU sees its own body
+`reaction_ms` late; against a passive seat the roster lost 46 stocks in 20.0
+fighter-minutes, each a self-KO. A probe with a live self view: 11 in 20.7.
+
+**Next action:** the brain reads one live snapshot of its own body (position,
+velocity, ground and support contact, move state) and the delayed view for
+the foe and the world. Never a partial copy. Move
+`a_fighter_over_a_floor_open_for_it_plays_as_over_the_void`'s CPU out of reach
+of home (its premise is a CPU slow to see its own teleport). Then F0 item 5.
+
+**Acceptance:** a witness that the self view is the live body's state on the
+same tick, consistent across its fields; a witness that the foe's view is
+still delayed by the rung's reaction time; the self-KO census re-measured.
+
+### GROUNDED-ATTACK-MOMENTUM — measure before changing the slide
+
+**Owner:** [unified movement kernel](engine/unified-movement-kernel.md) and
+the moveset (`MoveFrameData::roots_steering`). Ruling: Q169 (filed as Q166,
+2026-10-19).
+
+**Current state (2026-10-13):** a rooted grounded move takes the stick; each
+law then brakes at its hands-off rate. The axis laws stop in about 3 px from
+270 px/s; Sanic's surface-momentum law coasts 351 px from 530 px/s.
+
+**Next action:** measure, for representative laws and moves: whether the move
+takes the stick; whether it keeps horizontal speed; which braking law applies
+while it plays; whether authored move motion adds travel; whether it can carry
+its user off a ledge. Compare with Smash Ultimate (traction, dash cancels) and
+Hollow Knight (Cyclone Slash, Dash Slash). Recommend; implement only what the
+evidence justifies, as per-move data if a law cannot express it. The AI's
+move commitment and ledge risk are separate work.
+
+**Acceptance:** a measurement table in the kernel page, one witness per
+distinguished fact (coast, brake, authored displacement, ledge carry), and a
+recommendation.
+
+### SMALL-VIEWPORT-UI — screens fit a phone in landscape
+
+**Owner:** the menu backend (`crates/ambition_menu/src/render/bevy_ui/`) and
+each pixel-laid screen. Ruling: Q165 (2026-10-19), screen by screen.
+
+**Current failure (measured 2026-10-09 at 640x360):** the Smash select screen
+shows 3 of 6 roster columns and no START; the dialogue box covers half the
+screen; the touch stick covers each menu's left side.
+
+**Next action:** one screen at a time, state what it does when small (scroll,
+fewer lines, a floor for text and touch targets), with a `capture_scene`
+witness at 640x360 and 1280x720.
 
 ### CONTENT-AS-DATA — content still written as Rust
 
@@ -349,7 +517,7 @@ Open:
    (`FIGHTERS` and `VERSUS_CPU_BRAIN` deleted); witness
    `the_versus_seats_are_its_pack_file` (red with the teams written in Rust).
    The first fighter is also the stage's catalog default, read when the stage
-   is composed. Left: Ambition's seat count (waits on Q153).
+   is composed. Left: Ambition's seat count (LOCAL-PLAY-MODES, ruled Q153 2026-10-19).
    Sanic's spin dash (the rev, the launch, the roll and the rev sound's
    tiers) is `spin_dash` in `sanic_rules.ron` (2026-10-17); its systems read
    the row where they use it, so a saved edit is played as a live schema,
@@ -655,9 +823,8 @@ again on HEAD first; three were already fixed by REVIEW-1018.
 10. Efficiency: `cuts_in` and the per-tick stamp were REVIEW-1018 items 5
     and 6. ✅ Flight A* passes over a replaced open entry: 4.1 to 3.6 ms a
     route on a release bench, the same routes (ffa919b6d).
-11. The fighter's self-view without the reaction delay is Q167 in
-    `awaiting-maintainer-decision.md` (filed 2026-10-18), with its revised
-    control.
+11. The fighter's self-view without the reaction delay: ruled yes (Q167,
+    2026-10-19); the work is SELF-PERCEPTION.
 
 ### REVIEW-1014 - sprite cache dependencies and rest-row precedence from the 2026-10-14 review
 
@@ -809,7 +976,7 @@ with a witness, a poison and a control.
    height beside him; its box now reaches that head
    (`each_ground_strike_of_gnu_ton_hits_a_short_foe_beside_him`, red before,
    the clerk's up tilt as the control). Open: feel by a hand on a pad in a
-   window. The WORLD-ACCEPTANCE opener now states the Q164 remainder.
+   window. The WORLD-ACCEPTANCE opener now states the Q164 remainder (ruled 2026-10-19; DIALOGUE-CHECKPOINT).
 
 ### REVIEW-1011-INTEGRATION - real engine contracts for new demo behavior
 
@@ -985,8 +1152,8 @@ row starts with a failing production-path witness.
 (WA1-WA8 below): one run of the shipped game explores, takes the Blink,
 carries Alice's note to Bob, opens the wall, dies, saves, reloads in a new
 process and walks back, with a second participant, and in the composition
-that draws it. What is left is the fact horizon of a death, which waits on
-[Q164](awaiting-maintainer-decision.md). (Until WA2 each mechanism had only
+that draws it. What is left is the fact horizon of a death: Q164, ruled 2026-10-19, built
+under DIALOGUE-CHECKPOINT. (Until WA2 each mechanism had only
 its own arm, and no single run proved they compose.)
 
 **Measured 2026-10-09, the content it can run on:** the intro world authors the
@@ -1018,8 +1185,8 @@ that is now open, out to another room, a save, a NEW process loaded from the
 file (bag, flags, quest step), and the walk back to the open wall. Poison
 (the survey flag cleared from the file): red at the after-load assertion.
 Found: a death before any checkpoint takes the survey back and keeps the
-facts it made, two horizons in one death; filed as
-[Q164](awaiting-maintainer-decision.md).
+facts it made, two horizons in one death; filed as Q164 and ruled
+2026-10-19 (DIALOGUE-CHECKPOINT).
 
 **WA3 done 2026-10-09:** the playthrough first takes the Blink from the hub
 basement. Attack moves the player 0 px before the take and 170 px after it,
@@ -1066,7 +1233,7 @@ the drawn game until the sheets were published again; `sprites.sh --check`
 now says so (`0d5c17f20`). The pixels of the open lock are `capture_scene`'s
 question and are not asserted here.
 
-**Next action:** the fact horizon of a death, when Q164 is ruled. Everything
+**Next action:** the fact horizon of a death (DIALOGUE-CHECKPOINT, Q164 ruled 2026-10-19). Everything
 else in the scenario has a witness (WA1-WA5), and the workspace lane runs it.
 What the scenario does not exercise, measured 2026-10-09: the note and the
 survey are `KeyItem` bag quantities (`items.ron`, no `held_item_id`), so they
@@ -2028,7 +2195,7 @@ before and after a change, on one binary, and report both columns.
    counter before a strike moved (GNU-ton 0% → 74%/74%, 2 → 12 moves; the
    patent clerk 11/11% → 198/173%, 2 → 19).
 2. **A buff cannot be chosen between.** Pricing it needs its own feature, not a wider admission rule. **Done 2026-10-12, the counter:** `counter_value` is 1 when the foe is committed to a swing that faces me, reaches me and goes live in the stance, and only a pure counter is priced so (a stance before a strike is priced as the strike: priced as both, the patent clerk's mirror pressed `synchronize_clocks` 160 times for 0%). Weight 0.8, the middle of the band on the Officer's real kit (0.49 against his gust, 1.17 against an uppercut that lands first). Witnesses `a_counter_is_chosen_against_a_swing_that_meets_its_stance` (five poisons, each red at its own arm) and `only_a_pure_counter_has_its_stance_priced`. The grid is identical in all 23 rows: a mirror never holds a swing that outranges the fighter, so the stance is chosen only between two fighters; no cross-fighter measure exists yet.
-3. **`sanic` @5 leaves the stage early** (about 640–780 ticks, both seats airborne). The guard for it is a bout that ends early, not move variety. **Measured 2026-10-13: not a stage defect, the L2 edge margin.** In the mirror (`AMBITION_GRID_ONLY=sanic AMBITION_DUEL_RUNG=5`, positions every 10 ticks) the two seats stand 36 px apart at tick 366, each presses `spin_charge` (no impulse; its windows keep `motion_scale` 1.0, so the stick steers) and each runs outward at up to 571 px/s, off its own edge of the 480 px stage; after the respawn they do it again (ticks 576–650). The brake measured on the way out is about 850 px/s², so from 571 px/s he needs about 190 px to stop. `options.rs::walks_off` penalizes a retreat only when less than one body width (about 32 px) of floor is left, which is right for a walker and six times short for him. No rung rolls the future (`rollout_depth: 0` on all, road 7), so nothing vetoes it. Fix shape: the margin is one body width plus the body's stopping distance at its current speed along that side, a present fact perception gives (`SelfView`), from the body's own law. That needs the braking of each law where it lives (the responsive axis law stops at `ground_friction` hands-off and `run_accel` against; the axis law's momentum variant; `MomentumParams::brake`/`friction` of the surface-momentum model), and none of those defaults is 850, so first find which law Sanic runs in the match. Witness: a fixture with a fast body near the edge (retreat penalized; control: the same body at rest), and this row's mirror no longer leaving early. **Speed term landed 2026-10-13, and it is not what decides this bout.** `MotionModel::ground_stop_distance` (each law's strongest ground braking; the responsive law brakes at `run_accel + ground_friction` hands off, measured, since it applies both) reaches the brain as `SelfView::stop_distance`, and `walks_off` adds it when the body moves toward that edge (kernel tests per law in `movement/tests/stopping.rs` and `surface_momentum/tests.rs`; witness `a_body_coasting_toward_the_edge_does_not_choose_to_retreat_off_it`, two poisons each caught by their own assertion). The mirror's `[grid-sweep]` line is unchanged to the digit, and a probe on `ActorControl` shows why: the trace's `x`/`vx` are the brain's DELAYED view (rung 5, 300 ms, about 20 ticks). The brain saw x=342 vx=347 and pressed against the motion while the body was at x=488 vx=600 with 72 px of floor (it needs about 100). Before that, the two seats were 36 px apart at the `spin_charge` press. The stick stayed live through the move, Approach held full stick toward the foe, and each ran THROUGH the other to 600 px/s, unseen for 20 ticks. **(a) landed 2026-10-13:** `options.rs::overshoots` penalizes Approach and Dash when the body, on the ground and moving toward the foe, cannot stop before it passes the foe's far side (its `stop_distance`); Retreat brakes there. Witness `an_approach_that_runs_through_the_foe_loses_to_the_brake` (controls at rest and moving away, and a walker on a stale view; each poison red at its own arm). ⛔ The first version (26366474f) also added the body's own travel over `staleness_s`: 81 px for a walker at rung 5, so two George mirrors in the Smash demo backed away within about 84 px and threw no move (`smash_it`: four `the_repertoire_gets_used` arms and `the_fighter_brain_engages_rather_than_standing_still` red on main until the lead was removed the same day; a fixture with a live CPU, `the_trap_holds_her_under`, was also red and now seats a passive opponent). The grid numbers taken with the lead are void. Grid at 88d5569da (speed term, arrive rule on the stop distance, rooted slide), one binary, 23 mirrors at the default rung, against the baseline before road 3 (deterministic): 21 rows moved, by cascades of small decision changes; damage taken 6703 → 6820, distinct moves 334 → 341; the medic's one-move lock is broken (1 → 18 moves); the largest falls are Carl Stargan 143/157 → 46/86, the ninja 289/327 → 122/137 and Alice 206/175 → 120/132, not attributed. **At rung 5 Sanic still deals 0%, and the next link is measured:** the rule fires (the brain retreats at vx −458), then it starts `sonic_boom` at about 530 px/s, a grounded move with `roots_steering: true`; a rooted momentum body has no stick, so it coasts at `friction` 400 px/s² (a 355 px slide) to the edge. (c) priced 2026-10-13: a move that roots its owner (`MoveFrameData::roots_steering`) adds the body's hands-off slide (`SelfView::coast_distance`, from `MotionModel::ground_coast_distance`, held to each law's integrator) to its `stage_risk` travel; witness `a_move_that_roots_the_body_is_costed_for_the_slide_it_brings` (controls at rest and running away; three poisons). Grid against (a): 20 rows identical, three moved (the oiler 119/130 → 227/210, the robot 243/140 → 210/156, the cellular automaton 247/255 → 237/256), tie flips on axis bodies whose slide is a few px. It does not save rung-5 Sanic: any admitted attack is pressed, a risk only ranks attacks, and each of his grounded attacks roots. Whether a rooted momentum body slides or plants its feet is [Q166](awaiting-maintainer-decision.md) (recommended: plant, at the law's strongest rate); (b) the ledge margin may add the reaction travel `|vx| * staleness_s`. Each changes every fighter, so each needs the grid before and after.
+3. **`sanic` @5 leaves the stage early** (about 640–780 ticks, both seats airborne). The guard for it is a bout that ends early, not move variety. **Measured 2026-10-13: not a stage defect, the L2 edge margin.** In the mirror (`AMBITION_GRID_ONLY=sanic AMBITION_DUEL_RUNG=5`, positions every 10 ticks) the two seats stand 36 px apart at tick 366, each presses `spin_charge` (no impulse; its windows keep `motion_scale` 1.0, so the stick steers) and each runs outward at up to 571 px/s, off its own edge of the 480 px stage; after the respawn they do it again (ticks 576–650). The brake measured on the way out is about 850 px/s², so from 571 px/s he needs about 190 px to stop. `options.rs::walks_off` penalizes a retreat only when less than one body width (about 32 px) of floor is left, which is right for a walker and six times short for him. No rung rolls the future (`rollout_depth: 0` on all, road 7), so nothing vetoes it. Fix shape: the margin is one body width plus the body's stopping distance at its current speed along that side, a present fact perception gives (`SelfView`), from the body's own law. That needs the braking of each law where it lives (the responsive axis law stops at `ground_friction` hands-off and `run_accel` against; the axis law's momentum variant; `MomentumParams::brake`/`friction` of the surface-momentum model), and none of those defaults is 850, so first find which law Sanic runs in the match. Witness: a fixture with a fast body near the edge (retreat penalized; control: the same body at rest), and this row's mirror no longer leaving early. **Speed term landed 2026-10-13, and it is not what decides this bout.** `MotionModel::ground_stop_distance` (each law's strongest ground braking; the responsive law brakes at `run_accel + ground_friction` hands off, measured, since it applies both) reaches the brain as `SelfView::stop_distance`, and `walks_off` adds it when the body moves toward that edge (kernel tests per law in `movement/tests/stopping.rs` and `surface_momentum/tests.rs`; witness `a_body_coasting_toward_the_edge_does_not_choose_to_retreat_off_it`, two poisons each caught by their own assertion). The mirror's `[grid-sweep]` line is unchanged to the digit, and a probe on `ActorControl` shows why: the trace's `x`/`vx` are the brain's DELAYED view (rung 5, 300 ms, about 20 ticks). The brain saw x=342 vx=347 and pressed against the motion while the body was at x=488 vx=600 with 72 px of floor (it needs about 100). Before that, the two seats were 36 px apart at the `spin_charge` press. The stick stayed live through the move, Approach held full stick toward the foe, and each ran THROUGH the other to 600 px/s, unseen for 20 ticks. **(a) landed 2026-10-13:** `options.rs::overshoots` penalizes Approach and Dash when the body, on the ground and moving toward the foe, cannot stop before it passes the foe's far side (its `stop_distance`); Retreat brakes there. Witness `an_approach_that_runs_through_the_foe_loses_to_the_brake` (controls at rest and moving away, and a walker on a stale view; each poison red at its own arm). ⛔ The first version (26366474f) also added the body's own travel over `staleness_s`: 81 px for a walker at rung 5, so two George mirrors in the Smash demo backed away within about 84 px and threw no move (`smash_it`: four `the_repertoire_gets_used` arms and `the_fighter_brain_engages_rather_than_standing_still` red on main until the lead was removed the same day; a fixture with a live CPU, `the_trap_holds_her_under`, was also red and now seats a passive opponent). The grid numbers taken with the lead are void. Grid at 88d5569da (speed term, arrive rule on the stop distance, rooted slide), one binary, 23 mirrors at the default rung, against the baseline before road 3 (deterministic): 21 rows moved, by cascades of small decision changes; damage taken 6703 → 6820, distinct moves 334 → 341; the medic's one-move lock is broken (1 → 18 moves); the largest falls are Carl Stargan 143/157 → 46/86, the ninja 289/327 → 122/137 and Alice 206/175 → 120/132, not attributed. **At rung 5 Sanic still deals 0%, and the next link is measured:** the rule fires (the brain retreats at vx −458), then it starts `sonic_boom` at about 530 px/s, a grounded move with `roots_steering: true`; a rooted momentum body has no stick, so it coasts at `friction` 400 px/s² (a 355 px slide) to the edge. (c) priced 2026-10-13: a move that roots its owner (`MoveFrameData::roots_steering`) adds the body's hands-off slide (`SelfView::coast_distance`, from `MotionModel::ground_coast_distance`, held to each law's integrator) to its `stage_risk` travel; witness `a_move_that_roots_the_body_is_costed_for_the_slide_it_brings` (controls at rest and running away; three poisons). Grid against (a): 20 rows identical, three moved (the oiler 119/130 → 227/210, the robot 243/140 → 210/156, the cellular automaton 247/255 → 237/256), tie flips on axis bodies whose slide is a few px. It does not save rung-5 Sanic: any admitted attack is pressed, a risk only ranks attacks, and each of his grounded attacks roots. Whether a rooted momentum body slides or plants its feet was filed as Q166 and ruled 2026-10-19 as Q169 (sliding is legitimate; measure first: GROUNDED-ATTACK-MOMENTUM); (b) the ledge margin may add the reaction travel `|vx| * staleness_s`. Each changes every fighter, so each needs the grid before and after.
 4. **A ranged move scores `launch: 0`.** A projectile hit writes a dimensionless `HitKnockbackMagnitude::FeelScale(0.85)`, not `LaunchSpeed`. Settle whether the feel reference belongs on `LaunchConditions`, whether `0.85` leaves the projectile stepper, and what `max_knockback` means for a launcher. A launcher also needs a hazard-coverage feature (its `reach_fit` is zero at every range).
 5. **A placed trap has a position, and `reach` is a radius.** Carry the dangerous region relative to the body at the resolved-offer seam, not another reach scalar.
 6. **A teleport's destination does not reach the brain** (`TeleportParams`: `behind_nearest_foe`, `behind_gap`, aim). It belongs in the same resolved offer.
@@ -2211,9 +2378,7 @@ so two machines at one revision can hold different body metrics under one
 content fingerprint. A rollback timeline contract that compares the
 fingerprint then accepts a peer whose bodies are a different size.
 
-**Blocked by:** [Q157](awaiting-maintainer-decision.md#q157--when-two-machines-hold-different-published-sprite-metrics-may-they-play-together)
-for what a difference does (refuse, warn, or nothing). The projection itself
-is not blocked.
+**Blocked by:** nothing (ruled 2026-10-19: a difference refuses).
 
 **Not the fix:** a digest of each sheet's text. It also changes when only the
 atlas packing changes.
@@ -2230,12 +2395,11 @@ index in key order, computed once at runtime. Witnesses:
 rects; red), `a_sheet_whose_mechanics_differ_has_another_digest`,
 `the_baked_digest_is_this_builds_records_in_key_order`.
 
-**What is left is the ruling.** The digest is not in the content fingerprint,
-because Q157's default in force is (c), leave it out. Ruling (a) is one
-section, `characters.baked-sheets`, beside `characters.baked-landmarks` in
+**Next action (Q157 ruled (a), 2026-10-19):** one section,
+`characters.baked-sheets`, beside `characters.baked-landmarks` in
 `prepare_platformer_content` (a field on `MechanicalRegistries` filled by both
-provider roads, as `baked_landmarks` is). Ruling (b) needs a weaker class of
-identity section.
+provider roads, as `baked_landmarks` is), so a peer whose digest differs is
+refused like any other content difference.
 
 **Acceptance:** a baked sheet whose body box differs gives a different content
 fingerprint; a sheet whose packing alone differs gives the same one.
@@ -2695,8 +2859,11 @@ A restore keeps the grant and spend records it keeps beside the bag
 live room becomes `Consumed` with its room's participants as owners, an ended
 mint's row is compacted at the next checkpoint, and an object in a spared room
 stays where it is. Witnesses are in `death_restores_the_checkpoint.rs`. The one
-open line, whether a dormant row is owned by participants, is Q161 (default (a),
-today's behaviour, in force); nothing is buildable before its answer.
+open line, whether a dormant row is owned by participants, was ruled
+2026-10-19 (Q161): Bob's placements stay when only Alice dies, and an object
+in Alice's restored custody exists once. Next action: give a placement row
+the participants of its room, as a consumption row has, and resolve the
+custody precedence (her checkpoint hand beats his placement row).
 
 ### SETTINGS-ROLLBACK — a settings change reaches simulation only at an admitted rebase — ✅ DONE 2026-10-08
 
@@ -2918,8 +3085,9 @@ A body that is not square tested hazards, water, ladders, a ledge carry and a
 rebound pad with its level box while its step moved the turned box. Each arm
 now states the box it moved and every world read in the step uses it. Witnesses:
 `movement/tests/hazard_footprint.rs`, `step_box_world_reads.rs`,
-`integration/body_box_tests.rs`. Q160 (water in turned gravity) and the view's
-inverse footprint are open in
+`integration/body_box_tests.rs`. Q160 (water in turned gravity) was ruled 2026-10-19: fluids deferred, the
+world-horizontal surface is a stated limitation. The view's inverse footprint
+is open in
 [one box for a turned body](engine/controlled-character-actor-kernel.md#one-box-for-a-turned-body).
 
 ### RIG-LANDMARKS — interactions read authored landmarks — ✅ DONE 2026-10-06
@@ -2933,8 +3101,8 @@ a match seat and a re-worn body state the quad their art is drawn at.
 Witnesses: `a_pet_hand_meets_the_contact_point.rs`,
 `a_fireball_leaves_the_hand.rs`, `a_hand_muzzle_fires_from_the_drawn_hand.rs`,
 `a_seat_with_no_sheet_states_no_drawn_quad`,
-`a_reworn_body_states_the_quad_it_is_drawn_at`. Open questions: Q158 (the
-fireball's flight from the hand) and Q159 (fitting a worn character's art). The
+`a_reworn_body_states_the_quad_it_is_drawn_at`. Q158 was ruled 2026-10-19 (keep
+the hand; range is tuning); Q159 (fitting a worn character's art) is open. The
 design and its open populations are in
 [semantic landmarks](engine/runtime-rigged-sprite-animation.md#semantic-landmarks-q41).
 
@@ -2999,7 +3167,7 @@ the gameplay root in the simulation schedule, so a rewind past it applies it
 again on the same tick. Deleted with the `Update` window: the Q135
 session-start gate, `refuse_a_restore_over_a_live_timeline`, the fixture <!-- cite-ok: records a deleted check -->
 declaration `TheBodyIsBornOnTheTimeline` and three mutator-guard waivers. Q135
-is reopened in the awaiting file. Witnesses:
+was closed 2026-10-19 on this design. Witnesses:
 `the_save_is_applied_by_the_simulation`,
 `a_startup_load_is_applied_on_the_timeline_and_resimulates_identically`,
 `a_mid_session_load_does_not_reach_back_across_the_rewind`.

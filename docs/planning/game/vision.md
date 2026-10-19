@@ -58,8 +58,8 @@ local+remote parties through one body/control architecture. Presentation may be
 shared, fixed split or adaptively split/rejoined. When the rules allow independent
 exploration, participants may occupy different rooms/regions. The engine
 already supports this: separated seats each keep a live room, and each view draws
-its own room. Ambition has no production road for a second player to join yet
-(Q153).
+its own room. A second player joins only in an opt-in mode, by an explicit gesture
+(Q153, ruled 2026-10-19; queue row LOCAL-PLAY-MODES).
 
 See [`multiplayer.md`](multiplayer.md).
 

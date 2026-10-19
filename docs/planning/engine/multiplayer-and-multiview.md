@@ -126,8 +126,10 @@ Built for the simulation and the view (OW1, V1-V5 in
 [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md)).
 A second seat joins with a Jump press at the primary's room
 (`session/join.rs::seat_a_joining_participant`), and a fallen second seat comes
-back beside the primary; both are the default in force until Q153 is ruled. A
-participant's death is local to it and its room (Q151 ruling).
+back beside the primary; both were built before the Q153 ruling of 2026-10-19
+(an explicit join in an opt-in mode, queue row LOCAL-PLAY-MODES). A
+participant's death is local to it and its room, and only a full-party wipe
+rolls the session back (Q151, amended 2026-10-19).
 
 ### M5 — view-scoped HUD/prompt/presentation ownership
 

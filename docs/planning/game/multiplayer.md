@@ -69,7 +69,11 @@ These are product questions, not reasons to block the engine architecture:
   accomplishments stay; only an explicit whole-session reload rewinds
   everything. Amended 2026-10-19: only a full-party wipe (every active
   participant dead) rolls the session back to the checkpoint; a death beside
-  a living participant resets nothing. Joining is ruled (Q153, 2026-10-19):
+  a living participant resets nothing. Later on 2026-10-19 (Q153): the
+  default is independent players in one persistent world, and each
+  participant respawns by the single-player respawn-location policy, for
+  itself; respawning beside a living partner is an optional, configurable
+  policy (queue rows COOP-RECOVERY, PARTNER-RECOVERY). Joining is ruled (Q153, 2026-10-19):
   solo by default, with every device on Player 1; an opt-in setting accepts
   a second player through an explicit join gesture, and a menu action
   removes them (queue row LOCAL-PLAY-MODES);

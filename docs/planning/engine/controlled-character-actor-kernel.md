@@ -31,6 +31,18 @@ to that decision without owning a second control answer. An ability can propose
 a possession transition; the accepted relation belongs with control projection.
 This close relationship may justify one package with internal cycles.
 
+Body, form, skin, possession and body mode are distinct (Q159, ruled
+2026-10-19). The physical body is the world instance: position, collision
+geometry, health, custody, identity. The character form (`WornCharacter`) is
+the authored physical and mechanical configuration the body instantiates; a
+change of form updates the same body's geometry, moveset, movement and
+appearance. The skin (`WornSkin`) is presentation only. Possession moves a
+participant's control to another existing body, which keeps its identity,
+geometry and state, and the original body stays in the world. The body mode
+(`BodyMode`) is a posture of the same body and form. Transformation and
+possession share the body simulation and the control relation above and stay
+two operations. Work: queue row CHARACTER-FORM.
+
 Retraction on disappearance, unmount, release and session retirement is part of
 the relation. A saved room-transition intent captures the body subject when it
 is admitted, not whichever body is driven when it eventually commits.

@@ -279,7 +279,9 @@ frame height and the frame durations. It does not cover atlas packing.
   the retraction removes it. It is NOT the quad the seed resolves: a re-wear
   keeps the box, and a player that wears the kernel guide is drawn at 32.7 by
   33.5 while the guide is built at 50.4 by 51.6
-  ([Q159](../awaiting-maintainer-decision.md#q159--a-player-that-wears-a-character-with-no-posed-body-is-its-art-fitted-to-the-box-it-keeps-or-drawn-at-the-size-that-character-is-built-at)).
+  (measured for Q159, which was ruled 2026-10-19: a change of form takes the
+  new form's authored geometry, so this fitting goes with queue row
+  CHARACTER-FORM).
   A body its spawn built keeps the seed's quad. Witnesses:
   `a_reworn_body_states_the_quad_it_is_drawn_at` (the shipped game: stated
   equals drawn after each wear) and the grant's fixture arms.

@@ -34,6 +34,29 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
   docs/planning/queue.md | sort -rn | head
 ```
 
+## Work order from the additional maintainer rulings of 2026-10-19
+
+These come first. The rulings are the later 2026-10-19 rows in
+[`maintainer-decisions.md`](maintainer-decisions.md) (Q159 character form;
+Q153 independent multiplayer). In order:
+
+1. [MORPH-BALL-VISIBILITY](#morph-ball-visibility--the-standing-sprite-draws-behind-the-ball):
+   the body's own sprite draws behind the morph ball.
+2. [CHARACTER-FORM](#character-form--a-change-of-form-is-the-same-body-in-the-new-forms-geometry)
+   (Q159), slices 1 and 2: a change of form applies the new form's authored
+   geometry, and the construction paths agree on intrinsic geometry.
+3. CHARACTER-FORM slice 3: body, form, skin, possession and body mode as
+   distinct operations over one form-application pipeline and one
+   participant-to-body control authority.
+4. [COOP-RECOVERY](#coop-recovery--independent-respawn-and-a-full-party-wipe)
+   (Q153, Q151): independent respawn by default; a global rollback only on a
+   full-party wipe.
+5. [PARTNER-RECOVERY](#partner-recovery--an-optional-respawn-beside-a-living-partner):
+   the configurable respawn beside a partner, after item 4.
+
+LOCAL-PLAY-MODES slices 1 and 2 (the two modes, the explicit join) are built;
+its leave slice stays in the order below.
+
 ## Work order from the maintainer rulings of 2026-10-19
 
 These rows come before the content campaign below. The rulings are in
@@ -43,9 +66,7 @@ These rows come before the content campaign below. The rulings are in
 1. [LOCAL-PLAY-MODES](#local-play-modes--two-local-modes-explicit-join-and-menu-leave)
    (Q153): a second pad must not steal Player 1 in solo play; explicit join;
    menu leave.
-2. [COOP-RECOVERY](#coop-recovery--four-recovery-operations-not-one-reset)
-   (Q151 amended): same-room survival, different-room survival and a
-   full-party wipe are distinct transitions.
+2. COOP-RECOVERY: moved to the order above (item 4).
 3. [DIALOGUE-CHECKPOINT](#dialogue-checkpoint--story-facts-and-their-objects-share-one-horizon)
    (Q164).
 4. [SELF-PERCEPTION](#self-perception--a-cpu-sees-its-own-body-now) (Q167).
@@ -177,29 +198,35 @@ declaration (`ambition_content::provider::declare_ambition_seating`), the join
 road (`session/join.rs`) and the settings owner
 ([multiplayer](game/multiplayer.md), ruling Q153 2026-10-19).
 
-**Current failure (the Q153 default before the ruling, measured 2026-10-05):**
-with two pads connected at session start the route offers a seat for each
-pad, so pad 1 drives seat 1 and not the primary, even for a player alone, and
-its Jump builds a second body. A pad that connects after the session started
-gets no seat until the next session (the handle count is fixed per session).
-No setting chooses a mode, and no menu action removes a seat.
+**Built 2026-10-19 (slices 1 and 2):** Ambition's route decides a channel
+plan, so devices never size the session (`ambition_route_seating`).
+Single-player is `[Shared]`: the keyboard and every unclaimed pad drive player
+one, the pad in use, also a pad connected late. The gameplay setting
+`accept_local_joins` makes it `[Shared, Claimed]`: the second handle is
+reserved from the start and idle until a pad that player one is not using
+presses Start (`ambition_input::claim_local_seats`, `LocalSeatClaims`). The
+claimed pad drives seat 1 only. The simulation joins a seat with no body on its
+Start press (`session/join.rs`); Jump is not the gesture. A change of plan
+rebuilds the local rollback session, with no restart. A standing claim keeps
+its channel when the setting goes off. Witnesses: `local_play_modes.rs`,
+`a_second_seat_joins_the_session.rs` (the rewound join; Jump builds nothing),
+`a_joined_seat_has_a_view_and_a_hud.rs` (a real pad's Start, with two pads,
+keyboard plus one pad, and a pad connected late; control: setting off),
+`provider::tests::ambition_is_single_player_until_the_setting_accepts_a_join`.
 
 **Next action, in slices:**
 
-1. **Solo mode (the default):** every device drives Player 1 (keyboard, any
-   pad, a pad connected late); no press builds a second body. Witnesses: two
-   pads and a keyboard each move Player 1; pad 1's Jump makes no body; a pad
-   connected after the session started moves Player 1.
-2. **The setting and the claim:** a game setting "accept a second player".
-   In that mode an explicit join gesture of an unclaimed device claims seat 1
-   (a reserved second handle, so a join needs no rebase and no restart);
-   the claimed device stops driving Player 1; an unclaimed device never
-   drives seat 1. Keyboard P1 with pad P2, and two pads. A join across a
-   rollback frame resimulates to the same world.
 3. **Leave:** pause-menu actions "remove Player 2" (Player 1) and "leave"
    (Player 2). Leaving releases the claim, retires the body by an explicit
    lifetime policy, drops or returns what it holds with no duplicate and no
    loss, closes its view and HUD, and resets no room. A later join works.
+   Measured 2026-10-19: Player 2 cannot open a menu. Ambition's grid menu
+   reads `MenuControlFrame`, which only the primary seat fills, against the
+   2026-08-06 ruling "any seat may pause, and the seat that paused drives the
+   menu". The leave slice makes the menu answer to the seat that opened it.
+   Lifetime policy chosen: the body retires, and what it holds or carries is
+   put down where it stood (the bag is session-wide, `OwnedItems`), through
+   `HostIntentWriter` so the leave is a stamped simulation tick.
 4. **Presentation:** the join opens the two-player presentation; the adaptive
    merge stays (Q162). Nice to have: a portal that Player 2 drops out of,
    presentation only.
@@ -208,28 +235,141 @@ No setting chooses a mode, and no menu action removes a seat.
 assignment (section 11), each a simulation-level witness with a negative
 control.
 
-### COOP-RECOVERY — four recovery operations, not one reset
+### MORPH-BALL-VISIBILITY — the standing sprite draws behind the ball
+
+**Owner:** `ambition_render` (`rendering/morph_ball.rs`,
+`rendering/submerged.rs`). A defect, no ruling needed (reported 2026-10-19).
+
+**Cause (read 2026-10-19):** two systems write the body sprite's
+`Visibility`. `sync_morph_ball_visual` hides a morphed body;
+`sync_submerged_visibility` runs after it (`PlayerVisualSchedulePlugin`, "the
+last one wins") and sets every hidden body that is not submerged or out of the
+world back to `Inherited`. So each frame a morphed body is shown again. The
+rigged presentation follows the root's own `Visibility` (`root_shows`), so the
+rig shows too.
+
+**Next action:** one system decides whether a body's normal presentation
+shows (hidden while morphed, submerged or out of the world); the morph-ball
+system draws only the ball. No physics change. Witnesses: entry, a sustained
+morph over several frames, exit, morph while submerged and out of the world,
+and the rigged parts.
+
+### CHARACTER-FORM — a change of form is the same body in the new form's geometry
+
+**Owner:** the form application (`avatar/starting_character.rs`, the re-wear
+road), `ambition_body_seed::PhysicalBaseline` / `BaselineBoundary`, the
+construction paths (home body, NPC placement, summons, match fighters, joined
+seats), and control projection (`control/authority.rs`). Ruling: Q159
+(2026-10-19). Plans:
+[controlled-character actor kernel](engine/controlled-character-actor-kernel.md),
+[control authority](engine/control-authority-and-ai-policy.md).
+
+**Current failure (measured 2026-10-06, Q159's table):** the player (a 30 by
+48 box) wearing the companion dog is drawn 36 by 30 in the player's box,
+while the dog NPC is built at 108.6 by 90.6 (the NPC's drawn quad; its
+collider follows `standing_height` 64). `BaselineBoundary::Replacement`
+applies no geometry.
+
+**Read 2026-10-19 (the construction roads):** actors size through one
+resolver, `BuiltGeometry::resolve` (`ambition_body_seed`): the posed sheet's
+Idle box (`SpriteAuthored`), else the sheet's `body_metrics` scaled by
+`standing_height`, else the placement box. The contradictions:
+
+1. `BodySource::Explicit` sizes the home body, is only the placement box of a
+   match seat (a sheet overrides it), and is ignored by the NPC, minion and
+   enemy roads. No shipped character authors it (the catalog can express only
+   `posed_body`).
+2. A character with no body source (the dog, `npc_kernel_guide`, the
+   pirates) is sized from its sheet as an NPC, and is 30 by 48 as a player,
+   at the start and after a re-wear: the home body never reads the sheet.
+3. At a re-wear, the prepared-body grant
+   (`actor_spawn::character_body::grant_prepared_character_body`) resizes a
+   `SpriteAuthored` body and keeps the old box for the others; their art is
+   fitted to the kept box, and the hurtbox fallback and attack volumes follow
+   that box, so they are undersized.
+4. Two triggers: the gameplay half of a re-wear (`apply_worn_character_gameplay`)
+   needs `RecharacterizeBody`, and the projection runs on
+   `Changed<WornCharacter>`.
+5. A re-wear never writes `AbilityBase`, so the new form's abilities do not
+   arrive.
+6. `PrimaryPlayer`, `PossessionState.home`, `ControlClaims` and
+   `DrivingParticipant` each say who drives which body, and possession is
+   wired to seat 0 only (`control/possession.rs`). There is no general control
+   transfer.
+
+Tests that pin the old behaviour and change with slice 1:
+`a_body_drawn_from_its_box_states_the_quad_of_the_character_it_wears`
+(`character_runtime/presentation/tests.rs`, "a re-wear keeps the box") and
+`a_reworn_body_states_the_quad_it_is_drawn_at` (app tests). The doc of
+`match_activation`'s `Explicit` seating test calls a projection that resizes a
+live body "a second geometry authority"; the ruling makes the form's
+configuration the input and the live body the authority.
+
+**Next action, in slices:** (1) a change of form applies the incoming form's
+geometry, resolved by the same `BuiltGeometry::resolve` as construction, to
+the live collider and to the identity base size (from which body modes
+derive), for every body source, and the home body is built through it too;
+health keeps its damage (clamped), as now; the new form's abilities arrive. (2) The construction paths
+agree on intrinsic geometry for the same form. (3) Distinct operations over
+shared infrastructure: transformation (same body, new form), possession
+(another existing body, same participant), skin (presentation only), body mode
+(same body and form). Investigate the rename `WornCharacter` →
+`CharacterForm` after the semantics are right.
+
+**Acceptance:** the robot becomes the dog: the body is the dog's built size,
+with the dog's moves and abilities, the same entity and identity, and its
+damage kept; back to the robot restores the robot's geometry. A skin change
+moves no collider, hurtbox or movement value. A possession leaves the original
+body in the world, and the possessed body keeps its geometry and state.
+
+### COOP-RECOVERY — independent respawn and a full-party wipe
 
 **Owner:** `session/death.rs`, `sandbox_reset.rs`, the checkpoint restore
-(`session/checkpoint.rs`). Ruling: Q151 amended 2026-10-19 ("co-op recovery" in
-[`maintainer-decisions.md`](maintainer-decisions.md)).
+(`session/checkpoint.rs`). Rulings: Q151 amended and Q153 (2026-10-19, the
+later row: independent multiplayer).
 
 **Current state (the Q153 default, 2026-10-05):** a death sends back only the
 primary's room, and only when nobody is in play there; a fallen seat 1 comes
 back beside the primary; a fallen primary waits while a seat plays in its room.
 The restore's subject is the primary body (`PrimaryPlayerOnly`), so the
 operations are told apart by seat, not by the active set, and there is no
-full-party-wipe condition as such.
+full-party-wipe condition as such. Ambition's death beat is 0 s
+(`room_rules.ron`), so an individual return is immediate and a wipe needs two
+deaths on one tick.
 
-**Next action:** one recovery state machine over the active participant set:
-individual death and recovery; local room recovery (only a room no living
-participant holds); full-party wipe (every active participant dead) → the
-checkpoint rollback; explicit whole-session restart. A removed or left seat is
-not counted. An individual recovery leaves time for a wipe to occur.
+**Next action:** one recovery state machine over the active participant set,
+symmetric for every participant:
 
-**Acceptance:** the death tests of section 11: same room, no rollback;
-different rooms, room B unchanged; both dead, the checkpoint restores; a
-removed participant not counted; a local recovery duplicates no object.
+- **Individual recovery (the default):** the participant respawns by the
+  single-player respawn-location policy, for itself. With nobody else active
+  in its room, that is a local room recovery: its room goes back to its
+  checkpoint and the other participants' rooms and wins are spared (the Q151
+  restore, with the dying participant as its subject, not the primary). With
+  a living participant in its room, the room does not go back; only the
+  participant returns.
+- **Full-party wipe:** every active participant is out of play; the
+  checkpoint restore spares nothing.
+- A participant that left is not counted. The wipe reads death state now,
+  not past deaths.
+- **The wipe stays reachable:** the respawn waits a declared delay while
+  another participant plays (a `room_rules` field); a partner that falls in
+  that time makes the wipe.
+
+**Acceptance:** same room, no room reset and the survivor untouched;
+different rooms, room B and its wins unchanged; both dead, the checkpoint
+restores; a removed participant not counted; a local recovery duplicates no
+object.
+
+### PARTNER-RECOVERY — an optional respawn beside a living partner
+
+**Owner:** as COOP-RECOVERY, plus the settings owner. Ruling: Q153
+(2026-10-19, the later row).
+
+**Next action (after COOP-RECOVERY):** a configurable co-op policy, off by
+default, that respawns a fallen participant beside a living partner (the
+2026-10-05 return beside the primary is this policy, generalized to any
+partner). The assisted-respawn presentation and UI follow it. Teleporting while
+alive is a separate possible feature, not in this row.
 
 ### DIALOGUE-CHECKPOINT — story facts and their objects share one horizon
 
@@ -3102,7 +3242,8 @@ Witnesses: `a_pet_hand_meets_the_contact_point.rs`,
 `a_fireball_leaves_the_hand.rs`, `a_hand_muzzle_fires_from_the_drawn_hand.rs`,
 `a_seat_with_no_sheet_states_no_drawn_quad`,
 `a_reworn_body_states_the_quad_it_is_drawn_at`. Q158 was ruled 2026-10-19 (keep
-the hand; range is tuning); Q159 (fitting a worn character's art) is open. The
+the hand; range is tuning); Q159 was ruled 2026-10-19: a change of form takes the new form's
+authored geometry (queue row CHARACTER-FORM). The
 design and its open populations are in
 [semantic landmarks](engine/runtime-rigged-sprite-animation.md#semantic-landmarks-q41).
 

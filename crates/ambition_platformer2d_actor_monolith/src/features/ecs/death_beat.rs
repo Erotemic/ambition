@@ -21,14 +21,15 @@ pub fn advance_death_beats(
         &mut DeathBeat,
         Option<&ambition_combat::CombatCapabilities>,
     )>,
-    // The kill's own beat: the world holds a moment, and the screen shakes.
+    // The kill's own beat, as the game of the body's room states it.
+    beats: crate::session::governing_rules::RulesOf<ambition_combat::KillBeat>,
     tick: Option<Res<ambition_time::SimTick>>,
     mut hold: Option<ResMut<ambition_combat::impact_hitstop::ImpactHitstop>>,
     mut shake: MessageWriter<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>,
 ) {
     // Sim clock: a death row slows with bullet time, as the body did.
     let dt = world_time.sim_dt();
-    let mut killed = false;
+    let mut beat_of_kills: Option<ambition_combat::KillBeat> = None;
     for (entity, health, mut beat, caps) in &mut bodies {
         let was_dead = beat.since_s.is_some();
         beat.advance(health.alive(), dt, || {
@@ -36,23 +37,29 @@ pub fn advance_death_beats(
                 .or_else(|| rules.of(entity))
                 .unwrap_or_default()
         });
-        killed |= !was_dead && beat.since_s.is_some();
+        if !was_dead && beat.since_s.is_some() {
+            if let Some(kill) = beats.of(entity) {
+                beat_of_kills = Some(beat_of_kills.map_or(kill, |held| ambition_combat::KillBeat {
+                    freeze_s: held.freeze_s.max(kill.freeze_s),
+                    shake_px: held.shake_px.max(kill.shake_px),
+                }));
+            }
+        }
     }
-    if killed {
-        // A KILL LANDS: the world holds still a few ticks past the blow's own
-        // hitlag (the impact freeze: an absolute tick, so a replayed frame
-        // holds the same), and the screen shakes once.
+    if let Some(kill) = beat_of_kills {
+        // A KILL LANDS: the world holds still past the blow's own hitlag (the
+        // impact freeze: an absolute tick, so a replayed frame holds the
+        // same), and the screen shakes once.
         if let (Some(tick), Some(hold)) = (tick.as_deref(), hold.as_deref_mut()) {
-            let until = tick.0 + KILL_FREEZE_TICKS;
+            let until = tick.0 + (kill.freeze_s * TICKS_PER_SECOND).round().max(0.0) as u64;
             hold.until_tick = Some(hold.until_tick.map_or(until, |held| held.max(until)));
         }
-        shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
-            amplitude_px: KILL_SHAKE_PX,
-        });
+        if kill.shake_px > 0.0 {
+            shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest { amplitude_px: kill.shake_px });
+        }
     }
 }
 
-/// The world holds still this many sim ticks on a kill (60 Hz).
-const KILL_FREEZE_TICKS: u64 = 5;
-/// The screen shakes this much on a kill (px).
-const KILL_SHAKE_PX: f32 = 4.0;
+/// The tick rate a kill beat's seconds are counted in: a constant, so a
+/// replayed frame counts the same.
+const TICKS_PER_SECOND: f32 = 60.0;

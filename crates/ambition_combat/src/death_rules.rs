@@ -29,6 +29,17 @@ pub struct DeathRules {
     pub level_reset: LevelReset,
 }
 
+/// What a kill does to the world in one game's rooms, declared in a
+/// [`DeclaredRules`](crate::scoped_rules::DeclaredRules): the world holds still
+/// `freeze_s` past the blow (the impact freeze) and the screen shakes
+/// `shake_px`. A game that declares none has no kill beat.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KillBeat {
+    pub freeze_s: f32,
+    pub shake_px: f32,
+}
+
 impl Default for DeathRules {
     /// The conservative answer for a room whose game said nothing: hold for
     /// nothing, reset nothing.

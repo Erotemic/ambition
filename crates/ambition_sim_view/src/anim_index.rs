@@ -124,6 +124,11 @@ pub struct ActorAnimFrame {
     /// ⛔ presentation must not re-derive it from move names or Startup
     /// progress: a tapped smash and a fully held one share both.
     pub move_charge: Option<f32>,
+    /// How the body is drawn while it goes through a door or a gate: the twin
+    /// of the `PassageLookView` beside a player body's `BodyPoseView`, here
+    /// because a possessed body and an NPC take this road. `None` outside a
+    /// passage. Set by `rebuild_passage_views`, with the passage's row.
+    pub passage_look: Option<crate::PassageLookView>,
 }
 
 /// The clip + fallbacks one active move asks for. See [`ActorAnimFrame::clip`].
@@ -304,6 +309,11 @@ impl ActorAnimIndex {
         self.frames.retain(|_, (_, g)| *g == gen);
     }
 
+    /// The frame of `id`, to draw over: a passage replaces the picked row.
+    pub(crate) fn frame_mut(&mut self, id: &str) -> Option<&mut ActorAnimFrame> {
+        self.frames.get_mut(id).map(|(frame, _)| frame)
+    }
+
     fn insert(&mut self, id: &str, frame: ActorAnimFrame) {
         let gen = self.generation;
         if let Some(slot) = self.frames.get_mut(id) {
@@ -385,6 +395,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 // the move wins: a body that is mid-swing while tumbling is
                 // drawn as its swing, which is what its timeline says it is.
                 move_charge: charge,
+                passage_look: None,
                 // A HELD CHARGE outranks the move's own row, and only while it
                 // is held: the whole point of the beat is that a fighter
                 // winding up looks different from one swinging. It goes AHEAD

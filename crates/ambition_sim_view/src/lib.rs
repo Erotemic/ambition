@@ -139,7 +139,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 rebuild_body_pose_views,
                 // A body in a passage draws what its passage says, over the
                 // pose the rebuild picked.
-                rebuild_passage_views.after(rebuild_body_pose_views),
+                rebuild_passage_views.after(rebuild_body_pose_views).after(rebuild_actor_anim_index),
                 rebuild_shield_rings_view,
                 // Which bodies are in an INVOLUNTARY flight, so a
                 // flight-readability cue never has to infer that from speed.

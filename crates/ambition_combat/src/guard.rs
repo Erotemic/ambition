@@ -246,16 +246,18 @@ pub fn resolve_deflects(
             continue;
         };
         let feel = spec.deflect;
-        let down = frames.get(deflect.defender).map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
-        let right = ae::Vec2::new(down.y, -down.x);
+        let down_of = |body: Entity| frames.get(body).map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
         let defender_at = bodies.get(deflect.defender).map(|(kin, ..)| kin.pos).ok();
         let attacker_at = bodies.get(deflect.attacker).map(|(kin, ..)| kin.pos).ok();
-        // Which way along the body's right the attacker is thrown: away from
-        // the guarded body.
-        let away = match (defender_at, attacker_at) {
-            (Some(defender), Some(attacker)) if (attacker - defender).dot(right) < 0.0 => -1.0,
+        // Which way along the right of a body whose unit down is `down` the
+        // attacker is from the guarded body.
+        let side = |down: ae::Vec2| match (defender_at, attacker_at) {
+            (Some(defender), Some(attacker)) if (attacker - defender).dot(ae::Vec2::new(down.y, -down.x)) < 0.0 => -1.0,
             _ => 1.0,
         };
+        // Each body is thrown in its OWN frame. The attacker's run is carried
+        // along its own right; a run measured on the guarded body's right put
+        // a body in another gravity on axes it does not move along.
         // A body is thrown along its frame's right through the knockback road:
         // the launch is staged, and its run is carried while the body cannot
         // act (`hit_reaction`), so its own walk does not stop it dead. Flinchless:
@@ -265,9 +267,11 @@ pub fn resolve_deflects(
         let throw = |kin: &mut ae::BodyKinematics,
                      flight: Option<&mut ae::BodyFlightState>,
                      ground: Option<&mut ae::BodyGroundState>,
+                     down: ae::Vec2,
                      along: f32,
                      lift: f32,
                      hold: f32| {
+            let right = ae::Vec2::new(down.y, -down.x);
             let fall = kin.vel.dot(down);
             let launch = right * along + down * if lift > 0.0 { fall.min(-lift) } else { fall };
             if let Some(ground) = ground.filter(|_| lift > 0.0) {
@@ -293,11 +297,13 @@ pub fn resolve_deflects(
             );
         }
         if let Ok((mut kin, mut combat, flight, ground)) = bodies.get_mut(deflect.attacker) {
+            let down = down_of(deflect.attacker);
             throw(
                 &mut kin,
                 flight.map(Mut::into_inner),
                 ground.map(Mut::into_inner),
-                away * feel.rebound_speed,
+                down,
+                side(down) * feel.rebound_speed,
                 feel.rebound_lift,
                 feel.lockout_s,
             );
@@ -309,7 +315,16 @@ pub fn resolve_deflects(
             .get_mut(deflect.defender)
             .is_ok_and(|mut state| state.count_deflect(spec, deflect.damage));
         if let Ok((mut kin, mut combat, flight, ground)) = bodies.get_mut(deflect.defender) {
-            throw(&mut kin, flight.map(Mut::into_inner), ground.map(Mut::into_inner), -away * feel.push, 0.0, feel.hitstop_s);
+            let down = down_of(deflect.defender);
+            throw(
+                &mut kin,
+                flight.map(Mut::into_inner),
+                ground.map(Mut::into_inner),
+                down,
+                -side(down) * feel.push,
+                0.0,
+                feel.hitstop_s,
+            );
             combat.hitstop_timer = combat.hitstop_timer.max(feel.hitstop_s);
             if broke {
                 // Staggered: open, and acting on nothing.

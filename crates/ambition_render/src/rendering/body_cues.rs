@@ -342,6 +342,7 @@ mod tests {
                         gravity_dir: ambition_platformer2d_core::DEFAULT_GRAVITY_DIR,
                         clip: None,
                         move_charge: Some(*charge),
+                        passage_look: None,
                     },
                 )
             })

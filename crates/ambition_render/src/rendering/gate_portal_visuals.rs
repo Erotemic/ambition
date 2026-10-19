@@ -94,20 +94,23 @@ pub fn sync_portal_sprite_animation(
     // A body going in or coming out ripples the surface (`swallow`, `emit`).
     passages: Option<Res<ambition_sim_view::PassageViews>>,
     mut sprites: Query<(
+        Entity,
         &PropVisual,
         &mut Sprite,
         &mut CharacterAnimator,
         Option<&mut bevy::sprite::Anchor>,
     )>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let dt = presentation_time.scaled_dt();
     for (zone_id, config) in portals.iter() {
         let phase = phases.phase(zone_id);
-        for (prop, mut sprite, mut animator, mut anchor) in &mut sprites {
+        for (entity, prop, mut sprite, mut animator, mut anchor) in &mut sprites {
             if prop.name != config.portal_sprite_name {
                 continue;
             }
-            let ripple = passages.as_ref().and_then(|passages| passages.gate_ripple(zone_id));
+            // The ripple of the gate in this sprite's own room.
+            let ripple = passages.as_ref().and_then(|passages| passages.gate_ripple(rooms.of(entity), zone_id));
             match (phase, ripple) {
                 (GatePortalPhase::Off, _) => continue,
                 (GatePortalPhase::Opening { .. }, _) => {

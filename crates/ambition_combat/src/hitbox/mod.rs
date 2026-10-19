@@ -716,6 +716,23 @@ pub struct StrikeOutcomeWriters<'w> {
     pub deflected: MessageWriter<'w, crate::guard::DeflectedBodyHit>,
 }
 
+/// Where a victim can be reached this tick: the box around its hurt parts
+/// and its guards; anywhere, when a pair cuts it; nowhere, when it has
+/// neither.
+#[derive(Clone, Copy, Debug)]
+enum VictimReach {
+    Anywhere,
+    Within(ae::Aabb),
+    Nowhere,
+}
+
+/// Whether two boxes touch, edges included, with a pixel to spare: the broad
+/// phase must never reject a pair the exact test accepts.
+fn boxes_touch(a: ae::Aabb, b: ae::Aabb) -> bool {
+    const SPARE: f32 = 1.0;
+    a.min.x <= b.max.x + SPARE && b.min.x <= a.max.x + SPARE && a.min.y <= b.max.y + SPARE && b.min.y <= a.max.y + SPARE
+}
+
 /// A volume of a ranked move, placed once a tick: who owns it, its rank, its
 /// pieces, where it strikes from, and whether a guard can turn it.
 struct RankedStrike {
@@ -902,6 +919,15 @@ pub fn apply_hitbox_damage(
         };
         (room, pieces)
     };
+    // The victims in a stable order (see the victim loop), sorted once a
+    // tick: the order is the same for every strike.
+    let mut ordered: Vec<_> = victims.iter().collect();
+    ordered.sort_by(|a, b| {
+        victim_identity_key(a.sim_id.map(|id| id.as_str())).cmp(&victim_identity_key(b.sim_id.map(|id| id.as_str())))
+    });
+    // Where each victim can be reached this tick (`VictimReach`), worked out
+    // once.
+    let mut victim_reach: std::collections::HashMap<Entity, VictimReach> = std::collections::HashMap::new();
     // The ranked volumes live this tick, each placed once: a victim loop asks
     // about each sibling for each body.
     let ranked: Vec<RankedStrike> = strike_ranks
@@ -989,12 +1015,10 @@ pub fn apply_hitbox_damage(
             let ruleset_growth = room_rules.map(|t| t.knockback_growth).unwrap_or_default();
             let rules = room_rules.unwrap_or_default();
             let friendly_fire = room_rules.map(|t| t.friendly_fire()).unwrap_or_default();
-            let mut ordered: Vec<_> = victims.iter().collect();
-            ordered.sort_by(|a, b| {
-                victim_identity_key(a.sim_id.map(|id| id.as_str()))
-                    .cmp(&victim_identity_key(b.sim_id.map(|id| id.as_str())))
-            });
-            for victim in ordered {
+            // What the strike can touch at most, when no pair cuts it: the
+            // broad phase below rejects a body none of whose parts it reaches.
+            let strike_bounds = (!cut).then(|| world_volume.bounds());
+            for victim in ordered.iter() {
                 // Identity beats every relationship rule. Friendly fire, match
                 // teams, and grudges can decide whether TWO bodies may fight;
                 // none of them can make one body become its own victim.
@@ -1012,6 +1036,29 @@ pub fn apply_hitbox_damage(
                 // Neutral, with no exception carved for whoever spawned it.
                 if victim.entity == hitbox.owner && hitbox.source != HitSide::Environment {
                     continue;
+                }
+                // THE BROAD PHASE: a strike that reaches none of a body's
+                // parts and none of its guards does nothing to it, and the
+                // rules below cost more than this test. Not for a strike or a
+                // body that a pair cuts: their pieces are elsewhere.
+                let reach = *victim_reach.entry(victim.entity).or_insert_with(|| {
+                    let room = rooms.of(victim.entity);
+                    if passages.as_deref().is_some_and(|p| p.cuts_in(room, Some(victim.entity))) {
+                        return VictimReach::Anywhere;
+                    }
+                    let hurt = victim.hurt_pieces(None, room).into_iter().map(|piece| piece.volume.bounds());
+                    let guarded = turning
+                        .get(victim.entity)
+                        .into_iter()
+                        .flat_map(|turning| turning.pieces.iter().map(|guard| guard.volume));
+                    hurt.chain(guarded)
+                        .reduce(|a, b| ae::Aabb { min: a.min.min(b.min), max: a.max.max(b.max) })
+                        .map_or(VictimReach::Nowhere, VictimReach::Within)
+                });
+                match (strike_bounds, reach) {
+                    (_, VictimReach::Nowhere) => continue,
+                    (Some(strike), VictimReach::Within(within)) if !boxes_touch(strike, within) => continue,
+                    _ => {}
                 }
                 // Structural tangibility gate: a dead body is
                 // an intangible corpse — the swing passes through it. Skipping

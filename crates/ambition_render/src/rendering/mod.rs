@@ -610,6 +610,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             (
                 passage_visuals::apply_passage_looks
                     .after(actors::animate_player)
+                    .after(actors::animate_characters)
                     .before(actors::rigged::drive_rigged_presentations),
                 passage_visuals::sync_door_openings.after(actors::sync_visuals),
             )
@@ -642,7 +643,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         );
         app.add_systems(
             Update,
-            hit_flash::declare_hit_flash_demand
+            (hit_flash::declare_hit_flash_demand, passage_visuals::declare_passage_fade_demand)
                 .in_set(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet)
                 .run_if(session_presentation_is_ready),
         );

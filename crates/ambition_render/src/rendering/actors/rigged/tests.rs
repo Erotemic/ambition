@@ -1269,6 +1269,35 @@ fn app_direct(sheet: CharacterSpriteAsset, anchor: Anchor) -> (App, Entity) {
     (app, root)
 }
 
+/// Review finding #7 (2026-10-19). A part-drawn body that its passage
+/// fades is composited: it fades as one picture. Control: a passage look at
+/// full opacity leaves it drawn directly. Measured before: nothing declared
+/// it, so it was drawn directly and each part took the fade, showing the
+/// parts under it. Poison: declare nothing for a passage.
+#[test]
+fn a_body_its_passage_fades_is_composited() {
+    for (alpha, composited) in [(0.5, true), (1.0, false)] {
+        let sheet = raider(true);
+        let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
+        let (mut app, root) = app_direct(sheet, Anchor(feet));
+        app.add_systems(
+            Update,
+            crate::rendering::passage_visuals::declare_passage_fade_demand.before(bind_rigged_presentations),
+        );
+        app.world_mut().entity_mut(root).insert((
+            crate::rendering::primitives::PlayerVisual,
+            ambition_sim_view::PassageLookView { scale: 0.9, alpha, shade: 0.2 },
+        ));
+        settle(&mut app);
+        let owner = owner(&app, root);
+        assert_eq!(
+            app.world().get::<RiggedPresentation>(owner).unwrap().impostor.is_some(),
+            composited,
+            "a passage look at opacity {alpha}"
+        );
+    }
+}
+
 /// A body nothing reads as one image draws its parts in the world: no cell,
 /// no atlas page, no camera; its root draws no image; its slots draw in the
 /// root's own layers, under an owner that follows the root's visibility.

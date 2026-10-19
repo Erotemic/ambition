@@ -285,7 +285,7 @@ const SERUM: [f32; 4] = [0.55, 1.0, 0.35, 1.0];
 /// and says nothing: these name cues `sfx.bank.txt` ships. His own voice is
 /// still to be auditioned; these are borrowed.
 pub const BODY: [&str; 12] = [
-    SFX_RAKE, SFX_BITE, SFX_LUNGE, SFX_HAMMER, SFX_SHOCK, SFX_HOWL, SFX_ARC, SFX_BOLT, SFX_SPUTTER, SFX_STEP, SFX_LAND,
+    SFX_RAKE, SFX_BITE, SFX_LUNGE, SFX_HAMMER, SFX_SHOCK, SFX_HOWL, SFX_ZAP, SFX_STRIKE, SFX_SPUTTER, SFX_STEP, SFX_LAND,
     SFX_GLASS,
 ];
 const SFX_RAKE: &str = "boss.bear_mauler.swipe";
@@ -294,8 +294,12 @@ const SFX_LUNGE: &str = "enemy.robot.guardian_lunge";
 const SFX_HAMMER: &str = "boss.gnu_ton.stomp";
 const SFX_SHOCK: &str = "vfx.explosion.shockwave";
 const SFX_HOWL: &str = "boss.generic.intro_roar";
-const SFX_ARC: &str = "vfx.generic_world.electric_arc";
-const SFX_BOLT: &str = "vfx.generic_world.electric_burst";
+/// His lightning (Jon, 2026-10-18: "more like a zap+thunderclap rather than
+/// an upward beep ... Not every lightning should thunderclap, but we do it for
+/// effect and when there is an impact"): an arc that hits nothing zaps; one
+/// that strikes him, or the floor, or opens his intro, strikes.
+const SFX_ZAP: &str = "boss.wolfenstein.zap";
+const SFX_STRIKE: &str = "boss.wolfenstein.strike";
 const SFX_SPUTTER: &str = "enemy.robot.death_spark";
 const SFX_STEP: &str = "player.land";
 const SFX_LAND: &str = "boss.trex.stomp";
@@ -780,7 +784,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     c.recover = None;
                     if c.flat.take().is_some() {
                         // The coils jolt him back up.
-                        play(inv, SFX_ARC, neck(at, side))?;
+                        play(inv, SFX_ZAP, neck(at, side))?;
                         burst(inv, neck(at, side), 14, 220.0, ARC, "spark")?;
                     }
                     side = face(at.x);
@@ -854,7 +858,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             c.winded = None;
             c.flat = None;
             c.unleashed = true;
-            play(inv, SFX_BOLT, neck(at, side))?;
+            play(inv, SFX_STRIKE, neck(at, side))?;
             lightning(inv, at.x, ceiling, neck(at, side))?;
             shake(inv, SHAKE_BOLT)?;
         }
@@ -885,7 +889,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let bolt_at = neck(at, side);
         if crossed(SERUM_INJECT_AT) {
             // The needle goes in between his bolts; the glass breaks.
-            play(inv, SFX_BOLT, bolt_at)?;
+            play(inv, SFX_ZAP, bolt_at)?;
             play(inv, SFX_GLASS, bolt_at)?;
             shake(inv, SHAKE_HOWL)?;
             burst(inv, bolt_at, 20, 240.0, SERUM, "spark")?;
@@ -909,6 +913,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         if crossed(surge_from + SERUM_SURGE_S * 0.75) {
             // The howl to the sky, and the lightning answers.
             play(inv, SFX_HOWL, bolt_at)?;
+            play(inv, SFX_STRIKE, bolt_at)?;
             lightning(inv, at.x, ceiling, bolt_at)?;
             shake(inv, SHAKE_HAMMER * 1.4)?;
             burst(inv, bolt_at, 36, 380.0, SERUM, "spark")?;
@@ -1052,7 +1057,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             }
             Move::Galvanize if onset => {
                 c.bolt_generation = c.bolt_generation.wrapping_add(1);
-                play(inv, SFX_BOLT, neck(pos, side))?;
+                play(inv, SFX_STRIKE, neck(pos, side))?;
                 shake(inv, SHAKE_BOLT)?;
                 for x in c.marks() {
                     burst(inv, Vec2::new(x, hall.floor - 4.0), 16, 300.0, SPARK, "spark")?;
@@ -1141,7 +1146,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             // ray, and a new ray hits a body again.
             if fresh {
                 c.lash_generation = c.lash_generation.wrapping_add(1);
-                play(inv, SFX_BOLT, hand)?;
+                play(inv, SFX_ZAP, hand)?;
                 shake(inv, SHAKE_HOWL)?;
             }
             if t < BOLT_S {
@@ -1520,10 +1525,10 @@ fn intro(inv: &mut Invocation<'_>, c: &mut Conductor, wolf: &BossConduct, b: Bod
         bolt(inv, &key, Spot::World(from.into()), Spot::World(to.into()), "strike", 0.12 + 0.1 * bright)?;
         burst(inv, from, 4 + (10.0 * bright) as u32, 240.0, ARC, "spark")?;
         if bright > 0.8 {
-            play(inv, SFX_BOLT, from)?;
+            play(inv, SFX_STRIKE, from)?;
             shake(inv, SHAKE_BOLT * 0.6)?;
         } else {
-            play(inv, SFX_ARC, from)?;
+            play(inv, SFX_ZAP, from)?;
         }
     }
     if t < CHARGE_FROM && (t / 0.4).floor() != (was / 0.4).floor() {
@@ -1538,7 +1543,7 @@ fn intro(inv: &mut Invocation<'_>, c: &mut Conductor, wolf: &BossConduct, b: Bod
             let up = coil + Vec2::new(0.0, -b.len(30.0));
             bolt(inv, "coil", Spot::World(coil.into()), Spot::World(up.into()), "spark_gap", 0.12)?;
             burst(inv, coil, 4, 100.0, ARC, "spark")?;
-            play(inv, SFX_ARC, coil)?;
+            play(inv, SFX_ZAP, coil)?;
         }
         if c.ticks % 6 == 0 {
             burst(inv, bolt_at, 2, 70.0, ARC, "spark")?;
@@ -1551,7 +1556,7 @@ fn intro(inv: &mut Invocation<'_>, c: &mut Conductor, wolf: &BossConduct, b: Bod
                 let key = format!("coil_strike_{k}_{i}");
                 bolt(inv, &key, Spot::World(coil.into()), Spot::World(bolt_at.into()), "strike", 0.3)?;
             }
-            play(inv, SFX_BOLT, bolt_at)?;
+            play(inv, SFX_STRIKE, bolt_at)?;
             shake(inv, SHAKE_BOLT)?;
             burst(inv, bolt_at, 24, 300.0, ARC, "spark")?;
         }
@@ -1561,7 +1566,7 @@ fn intro(inv: &mut Invocation<'_>, c: &mut Conductor, wolf: &BossConduct, b: Bod
     }
     if crossed(ROAR_AT) {
         // On his feet: the lightning finds him, and he roars.
-        play(inv, SFX_BOLT, bolt_at)?;
+        play(inv, SFX_STRIKE, bolt_at)?;
         play(inv, SFX_HOWL, bolt_at)?;
         lightning(inv, at.x, ceiling, bolt_at)?;
         shake(inv, SHAKE_HOWL * 1.6)?;

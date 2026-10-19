@@ -131,6 +131,124 @@ impl AuthoredAttackVolumeResolver {
     }
 }
 
+/// The body a strike's drawn volume is resolved for: what
+/// [`AuthoredAttackVolumeResolver::strike_volume`] needs besides the move.
+#[derive(Clone, Copy, Debug)]
+pub struct StrikingBody<'a> {
+    /// The worn character, whose sheet draws the volume (`None`: the
+    /// provider's default body row).
+    pub character_id: Option<&'a str>,
+    /// The collision box.
+    pub size: ae::Vec2,
+    /// The quad the art is drawn at (`ActorRenderSize`), when it carries one.
+    pub drawn_quad: Option<ae::Vec2>,
+    /// The live room's floor on a drawn hit area, as a share of body height
+    /// (`CombatRules::art_hit_area_min`); `0.0` for none.
+    pub art_floor: f32,
+}
+
+impl AuthoredAttackVolumeResolver {
+    /// The volume one authored volume of a move's window spawns as on this
+    /// body: the hit polygon its sheet draws for the move's clip at the
+    /// window's start, grown to the room's floor; `None` when the volume is
+    /// not vfx-tagged or the sheet draws none, and the authored shape spawns.
+    ///
+    /// ⭐ THE ONE ROAD. The strike spawns this and a brain's reach view reads
+    /// it ([`Self::frame_data_on`]), so the move a brain throws from its reach
+    /// is the box that lands.
+    pub fn strike_volume(
+        &self,
+        catalog: &CharacterCatalog,
+        body: StrikingBody<'_>,
+        spec: &ambition_entity_catalog::MoveSpec,
+        window: &ambition_entity_catalog::MoveWindow,
+        volume: &ambition_entity_catalog::HitVolume,
+    ) -> Option<ae::CombatVolume> {
+        volume.vfx.as_ref()?;
+        let drawn = self.resolve(
+            catalog,
+            body.character_id,
+            spec.clip.clip.as_str(),
+            body.size,
+            body.drawn_quad,
+            Some(window.start_s),
+        )?;
+        // A limb drawn pixel-true is a sliver: the room states a floor.
+        Some(if body.art_floor > 0.0 {
+            drawn.at_least(ae::Vec2::splat(body.art_floor * body.size.y))
+        } else {
+            drawn
+        })
+    }
+
+    /// The move's frame data on this body: its reach and coverage are those
+    /// of the volumes its strikes spawn as (see [`Self::strike_volume`]).
+    pub fn frame_data_on(
+        &self,
+        catalog: &CharacterCatalog,
+        body: StrikingBody<'_>,
+        spec: &ambition_entity_catalog::MoveSpec,
+    ) -> ambition_entity_catalog::MoveFrameData {
+        spec.frame_data_with(|w_idx, v_idx| {
+            let window = spec.windows.get(w_idx)?;
+            let volume = window.volumes.get(v_idx)?;
+            let bounds = self.strike_volume(catalog, body, spec, window, volume)?.bounds();
+            Some(ambition_entity_catalog::MoveCoverage {
+                min: (bounds.min.x, bounds.min.y),
+                max: (bounds.max.x, bounds.max.y),
+            })
+        })
+    }
+}
+
+/// What a system needs to read a body's moves as its strikes land: the
+/// catalog and resolver the strike spawn uses, and each body's worn character
+/// and drawn quad.
+///
+/// `Option` resources: a composition with no catalog or resolver spawns every
+/// strike as its authored shape, so its frame data is the authored one.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct StrikeVolumes<'w, 's> {
+    catalog: Option<bevy::prelude::Res<'w, CharacterCatalog>>,
+    resolver: Option<bevy::prelude::Res<'w, AuthoredAttackVolumeResolver>>,
+    bodies: bevy::prelude::Query<
+        'w,
+        's,
+        (
+            Option<&'static ambition_characters::actor::WornCharacter>,
+            Option<&'static crate::components::ActorRenderSize>,
+        ),
+    >,
+}
+
+impl StrikeVolumes<'_, '_> {
+    /// `spec`'s frame data on `body`, whose collision box is `size`, in a
+    /// room whose drawn-area floor is `art_floor` (see
+    /// [`AuthoredAttackVolumeResolver::frame_data_on`]).
+    pub fn frame_data(
+        &self,
+        body: bevy::prelude::Entity,
+        size: ae::Vec2,
+        art_floor: f32,
+        spec: &ambition_entity_catalog::MoveSpec,
+    ) -> ambition_entity_catalog::MoveFrameData {
+        let (Some(catalog), Some(resolver)) = (self.catalog.as_deref(), self.resolver.as_deref()) else {
+            return spec.frame_data();
+        };
+        let (worn, drawn) = self.bodies.get(body).unwrap_or((None, None));
+        resolver.frame_data_on(
+            catalog,
+            StrikingBody {
+                character_id: worn.map(ambition_characters::actor::WornCharacter::id),
+                size,
+                drawn_quad: drawn.map(|quad| quad.0),
+                art_floor,
+            },
+            spec,
+        )
+    }
+}
+
 impl Default for AuthoredAttackVolumeResolver {
     fn default() -> Self {
         Self::disabled()

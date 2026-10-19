@@ -1235,8 +1235,8 @@ Still open, both found by this bisect:
   the RON rect of `generation_wipe` (offset 40, half 32 × 24) would cover
   the player, but the spawned box is the art polygon of the PCA's manifest
   (a hexagon to 31 px forward), because a vfx-tagged volume takes the
-  authored hit polygon (§7.1). The brain's reach reads the RON rect. See
-  REACH-VIEW, "two geometries for one move".
+  authored hit polygon (§7.1). The brain's reach read the RON rect. Fixed
+  2026-10-18: see REACH-VIEW, "two geometries for one move".
 
 **Sanic's visible job, 2026-10-17 (RED, inherited):** `cargo test -p
 ambition_demo_sanic_app --features capture,input,perf_probe,visible`: 59
@@ -2358,6 +2358,19 @@ was poisoned alone, and only its own test failed.
   polygon depends on the body's size and drawn quad, so it is known only
   where the character's art is (preparation or the snapshot builder), not in
   the catalog's `frame_data()`. Not measured: how many shipped moves differ.
+  ✅ Fixed the same day: `AuthoredAttackVolumeResolver::strike_volume` is the
+  one road (the strike spawn calls it), `MoveSpec::frame_data_with` takes a
+  drawn box per volume (`frame_data()` is it with none, so reach and coverage
+  keep one formula), and `StrikeVolumes` gives a system each body's frame
+  data. The snapshot builder's attack kit and melee reach
+  (`attack_kit_on`, `melee_reach_on`) and a watcher's view of a swing
+  (`attack_reach_on`) read it; the plain forms are test-only. Witness
+  `a_brain_reads_the_reach_of_the_polygon_its_strike_spawns_as` (control:
+  an untagged volume reads its rect, 72; tagged reads the polygon, 31; red at
+  72 with `StrikeVolumes` on the authored data). In the freeze bout the PCA
+  now throws `generation_wipe` close in and the player serves 0.0425 s of
+  hitlag, more than contact's 0.0356 s. The capture candidate still reads
+  the authored data (a grab's box is its params, not a drawn volume).
 
 ### CPU-LADDER — the brain owns the knobs, Smash owns the ladder
 

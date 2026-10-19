@@ -1245,3 +1245,63 @@ fn a_watcher_reads_a_swings_reach_from_its_hitbox() {
         "(hitbox at 30 px, hitbox at 50 px, no move): the reach a watcher reads"
     );
 }
+
+/// ⭐ REACH-VIEW: A BRAIN READS THE REACH OF THE BOX THAT LANDS. A vfx-tagged
+/// volume strikes with the hit polygon the body's sheet draws for the clip
+/// (`AuthoredAttackVolumeResolver::strike_volume`, the call the strike spawn
+/// makes), so a reach read off the authored rect threw the move from where it
+/// cannot hit: the PCA's `generation_wipe` read 72 px and struck to 31. The
+/// control is the same move with no vfx tag, which strikes as its rect.
+#[test]
+fn a_brain_reads_the_reach_of_the_polygon_its_strike_spawns_as() {
+    use ambition_characters::actor::character_catalog::CharacterCatalog;
+    use bevy::ecs::system::RunSystemOnce;
+    use ambition_combat::authored_volumes::{AuthoredAttackVolumeResolver, StrikeVolumes};
+    // The sheet draws the swing as a polygon to 31 px in front of the body.
+    fn drawn_swing(
+        _: &CharacterCatalog,
+        _: Option<&str>,
+        clip: &str,
+        _: ae::Vec2,
+        _: Option<ae::Vec2>,
+        _: Option<f32>,
+    ) -> Option<ae::CombatVolume> {
+        (clip == "swing").then(|| {
+            ae::CombatVolume::convex(vec![
+                ae::Vec2::new(2.0, -9.0),
+                ae::Vec2::new(31.0, -9.0),
+                ae::Vec2::new(23.0, 6.0),
+                ae::Vec2::new(9.0, 6.0),
+            ])
+        })
+    }
+    // The authored rect reaches 72 px: offset 66 plus `strike`'s half extent 6.
+    let moveset = |tagged: bool| {
+        let mut swing = strike("swing", 66.0);
+        swing.windows[0].volumes[0].vfx = tagged.then(|| "slash_arc".to_string());
+        ActorMoveset(MovesetContract {
+            verbs: BTreeMap::from([("attack".to_string(), "swing".to_string())]),
+            moves: vec![swing],
+        })
+    };
+    let mut app = App::new();
+    app.insert_resource(CharacterCatalog::empty());
+    app.insert_resource(AuthoredAttackVolumeResolver::new(drawn_swing));
+    let body = app.world_mut().spawn_empty().id();
+    let reach = |app: &mut App, tagged: bool| {
+        let moveset = moveset(tagged);
+        app.world_mut()
+            .run_system_once(move |strikes: StrikeVolumes| {
+                super::update::melee_reach_on(Some(&moveset), true, false, &|spec| {
+                    strikes.frame_data(body, ae::Vec2::new(28.0, 68.0), 0.0, spec)
+                })
+            })
+            .expect("the reach system runs")
+    };
+    assert_eq!(reach(&mut app, false), Some(72.0), "control: an untagged volume strikes as its rect");
+    assert_eq!(
+        reach(&mut app, true),
+        Some(31.0),
+        "a tagged volume strikes as the drawn polygon, so that is its reach"
+    );
+}

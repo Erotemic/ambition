@@ -248,11 +248,13 @@ world back to `Inherited`. So each frame a morphed body is shown again. The
 rigged presentation follows the root's own `Visibility` (`root_shows`), so the
 rig shows too.
 
-**Next action:** one system decides whether a body's normal presentation
-shows (hidden while morphed, submerged or out of the world); the morph-ball
-system draws only the ball. No physics change. Witnesses: entry, a sustained
-morph over several frames, exit, morph while submerged and out of the world,
-and the rigged parts.
+**Done 2026-10-19 (374587567):** `body_visibility::sync_body_visibility` is
+the one writer (hidden while morphed, submerged or out of the world, handed
+back as `Inherited`), before the rig pass; the morph-ball sync draws only the
+ball. Witness `a_morphed_body_hides_its_sprite_and_rig_and_draws_its_ball`
+(rendered host: entry, 30 morphed frames, exit, the rig); poison red at frame
+0 with the sprite and rig drawn. Unit tests: each hiding pose, alone and
+together.
 
 ### CHARACTER-FORM — a change of form is the same body in the new form's geometry
 
@@ -305,11 +307,19 @@ Tests that pin the old behaviour and change with slice 1:
 live body "a second geometry authority"; the ruling makes the form's
 configuration the input and the live body the authority.
 
-**Next action, in slices:** (1) a change of form applies the incoming form's
-geometry, resolved by the same `BuiltGeometry::resolve` as construction, to
-the live collider and to the identity base size (from which body modes
-derive), for every body source, and the home body is built through it too;
-health keeps its damage (clamped), as now; the new form's abilities arrive. (2) The construction paths
+**Built 2026-10-19 (slice 1, 86ae35083):** the prepared-body grant sizes a
+form with no posed body from its sheet at its standing height
+(`catalog_join::sprite_body_at_standing_height`, the NPC road's numbers), at
+construction and at each change of form, and retracts it; damage stays; a home
+body's base abilities are `HomeBodyAbilities::base_for` at build and at a
+change of form. Witness `a_player_that_changes_form_takes_the_size_of_that_form`
+(guide, dog, robot, guide; poison red at the guide's 30 by 48 against a built
+40.4 by 65.8). Contradictions 2, 3 and 5 above are closed for forms with a
+standing height.
+
+**Next action, in slices:** (1b) a form with no standing height (scaled by a
+placement box today) and `BodySource::Explicit` get one answer on every road
+(contradiction 1). (2) The construction paths
 agree on intrinsic geometry for the same form. (3) Distinct operations over
 shared infrastructure: transformation (same body, new form), possession
 (another existing body, same participant), skin (presentation only), body mode

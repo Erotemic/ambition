@@ -182,7 +182,7 @@ impl BodyMode {
     /// read-models — `BodyPoseView.submerged` for the session player's own body
     /// and `FeatureView.visible` for every ACTOR, which is what a Smash match
     /// fighter is. When the rule lived only in the player road,
-    /// `sync_submerged_visibility` was `With<PlayerVisual>`, a marker inserted
+    /// the player road's visibility sync was `With<PlayerVisual>`, a marker inserted
     /// in exactly one place in the engine (`session/setup.rs`), so the
     /// Performer's trapdoor hid her in an Ambition room and drew her standing on
     /// the boards, blinking, in every versus match. It was verified green on the

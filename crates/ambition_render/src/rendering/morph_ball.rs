@@ -146,9 +146,11 @@ pub fn spawn_morph_ball_visual(
     }
 }
 
-/// Draw each ball where its own body is presented while that body is morphed,
-/// and hide each morphed body's standing sprite so the rig does not show
-/// through. A ball whose body is gone is despawned.
+/// Draw each ball where its own body is presented while that body is morphed.
+/// A ball whose body is gone is despawned.
+///
+/// It does not hide the body's own sprite: `body_visibility::sync_body_visibility`
+/// is the one writer of that.
 ///
 /// Every drawn body uses its own `BodyPoseView`, not "the primary player":
 /// a match or a possession has bodies that are not the home avatar.
@@ -158,11 +160,10 @@ pub fn sync_morph_ball_visual(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    mut bodies: Query<
+    bodies: Query<
         (
             &ambition_sim_view::BodyPoseView,
             Option<&ambition_sim_view::PresentedPose>,
-            &mut Visibility,
         ),
         (
             With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
@@ -181,7 +182,7 @@ pub fn sync_morph_ball_visual(
     >,
 ) {
     for (ball, owner, mut transform, mut sprite, mut ball_visibility) in &mut balls {
-        let Ok((pose, presented, _)) = bodies.get(owner.0) else {
+        let Ok((pose, presented)) = bodies.get(owner.0) else {
             commands.entity(ball).despawn();
             continue;
         };
@@ -203,17 +204,6 @@ pub fn sync_morph_ball_visual(
             *ball_visibility = Visibility::Visible;
         } else {
             *ball_visibility = Visibility::Hidden;
-        }
-    }
-    for (pose, _, mut body_visibility) in &mut bodies {
-        if pose.morph_ball {
-            if *body_visibility != Visibility::Hidden {
-                *body_visibility = Visibility::Hidden;
-            }
-        } else if matches!(*body_visibility, Visibility::Hidden) {
-            // Back to `Inherited`, not `Visible`, so the death overlay and the
-            // room-transition fade still control the body.
-            *body_visibility = Visibility::Inherited;
         }
     }
 }
@@ -263,7 +253,10 @@ mod tests {
             ids.push(body.id());
         }
         app.add_systems(Startup, build_morph_ball_sprite);
-        app.add_systems(Update, (spawn_morph_ball_visual, sync_morph_ball_visual).chain());
+        app.add_systems(
+            Update,
+            (spawn_morph_ball_visual, sync_morph_ball_visual, crate::rendering::body_visibility::sync_body_visibility).chain(),
+        );
         (app, ids)
     }
 

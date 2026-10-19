@@ -3,11 +3,8 @@
 //! Same shape as `morph_ball.rs` and `flyline.rs`: a modal body visual, kept
 //! in that shape so the three can later be generalized together.
 //!
-//! It runs after the morph-ball sync and has the last word. Both systems
-//! restore a hidden body to `Inherited`, and morph-ball restores whenever the
-//! body is not morphed. If morph-ball ran last, a submerged body would be
-//! made visible under the stage. Ordering fixes this; morph-ball does not need
-//! to know about submersion.
+//! It draws only the door. Whether the body itself draws is decided in one
+//! place, `body_visibility::sync_body_visibility`.
 
 use bevy::asset::RenderAssetUsages;
 use bevy::image::Image;
@@ -17,27 +14,6 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, PlayerVisual, SessionSpawnScope, SpawnSessionScopedExt,
 };
-
-/// Hide every submerged body and every body knocked out of the world, and
-/// hand every other one back.
-///
-/// Restore to `Inherited`, never `Visible`. A death overlay or a
-/// room-transition fade hides bodies through the parent; `Visible` would
-/// leave a surfacing fighter as the only thing on screen. Morph-ball uses
-/// the same rule.
-pub fn sync_submerged_visibility(
-    mut bodies: Query<(&ambition_sim_view::BodyPoseView, &mut Visibility), With<PlayerVisual>>,
-) {
-    for (pose, mut visibility) in &mut bodies {
-        if pose.submerged || pose.out_of_the_world {
-            if *visibility != Visibility::Hidden {
-                *visibility = Visibility::Hidden;
-            }
-        } else if matches!(*visibility, Visibility::Hidden) {
-            *visibility = Visibility::Inherited;
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests;

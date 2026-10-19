@@ -119,6 +119,7 @@ pub mod knockout;
 pub mod launch_trail;
 pub mod mark_beacon;
 pub mod morph_ball;
+pub mod body_visibility;
 pub mod submerged;
 pub mod moving_platforms;
 mod nameplates;
@@ -296,10 +297,12 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 (
                     morph_ball::spawn_morph_ball_visual,
                     morph_ball::sync_morph_ball_visual.in_set(SpriteVisualSync),
-                    // After the morph-ball sync (`chain()` below). Both restore a
-                    // hidden body to `Inherited`; the last one wins, and only this
-                    // one knows the body is under the stage.
-                    submerged::sync_submerged_visibility.in_set(SpriteVisualSync),
+                    // The one writer of the body sprite's own visibility (the
+                    // morph ball, the stage, out of the world). Before the rig
+                    // pass, which follows the root's own `Visibility`.
+                    body_visibility::sync_body_visibility
+                        .in_set(SpriteVisualSync)
+                        .before(actors::rigged::drive_rigged_presentations),
                     // What the stage shows instead of the hidden body. After the
                     // hide, or a door and the body would both show.
                     submerged::sync_trapdoor_visuals.in_set(SpriteVisualSync),

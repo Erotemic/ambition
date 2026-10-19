@@ -548,7 +548,7 @@ pub fn rebuild_feature_view_index(
         };
         // ⛔⛔ AND A SUBMERGED BODY IS NOT DRAWN, whoever is driving it. This
         // line is the actor road's ONLY visibility authority, and the submerged
-        // rule was missing from it — stated only in `sync_submerged_visibility`,
+        // rule was missing from it — stated only in the player road's visibility sync,
         // which is `With<PlayerVisual>` and therefore never matches a match
         // fighter. `BodyMode::hides_the_body` is where the sentence lives now so
         // the two roads cannot drift apart again.

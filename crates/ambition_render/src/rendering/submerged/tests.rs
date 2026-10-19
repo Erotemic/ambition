@@ -1,50 +1,5 @@
 use super::*;
 
-fn pose(submerged: bool) -> ambition_sim_view::BodyPoseView {
-    ambition_sim_view::BodyPoseView {
-        submerged,
-        ..Default::default()
-    }
-}
-
-fn run(submerged: bool, start: Visibility) -> Visibility {
-    let mut app = App::new();
-    let body = app
-        .world_mut()
-        .spawn((PlayerVisual, pose(submerged), start))
-        .id();
-    app.add_systems(Update, sync_submerged_visibility);
-    app.update();
-    *app.world().entity(body).get::<Visibility>().expect("visibility")
-}
-
-#[test]
-fn a_submerged_body_is_hidden() {
-    assert_eq!(run(true, Visibility::Inherited), Visibility::Hidden);
-}
-
-/// Paired arm: a body that is not submerged is shown again, or she never
-/// comes out of the trapdoor.
-#[test]
-fn a_body_that_surfaced_is_handed_back() {
-    assert_eq!(run(false, Visibility::Hidden), Visibility::Inherited);
-}
-
-/// It is restored as `Inherited`, not `Visible`. A death overlay and a room
-/// fade hide bodies through the parent; `Visible` would leave a surfacing
-/// fighter as the only thing on screen.
-#[test]
-fn the_restore_never_forces_a_body_visible_over_its_parent() {
-    assert_ne!(run(false, Visibility::Hidden), Visibility::Visible);
-}
-
-/// A body nobody hides is left alone, so this system never turns another
-/// system's `Visible` into `Inherited`.
-#[test]
-fn a_visible_body_is_not_touched() {
-    assert_eq!(run(false, Visibility::Visible), Visibility::Visible);
-}
-
 // ---------------------------------------------------------------------------
 // The door
 // ---------------------------------------------------------------------------

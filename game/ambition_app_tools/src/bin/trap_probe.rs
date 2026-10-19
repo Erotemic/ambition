@@ -356,7 +356,7 @@ fn drain_smoke(
 ///
 /// Over every body the presentation layer built, print how many views say
 /// submerged and how many of those are hidden. Submerged in view but not
-/// hidden means `sync_submerged_visibility` fails or is overwritten; submerged
+/// hidden means `body_visibility::sync_body_visibility` fails or is overwritten; submerged
 /// in the sim but not in the view means the projection.
 fn visibility_chain(app: &mut App) -> String {
     // The player path: one body, `PlayerVisual` + `BodyPoseView`.

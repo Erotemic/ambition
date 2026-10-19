@@ -298,7 +298,7 @@ mod tests {
 
     /// The hidden base sprite of a morphed player must not be composited.
     ///
-    /// While morphed, `sync_morph_ball_visual` hides the base `PlayerVisual` and
+    /// While morphed, `sync_body_visibility` hides the base `PlayerVisual` and
     /// the ball draws instead. The hidden sprite must not produce far-side pieces.
     #[test]
     fn a_drawable_hidden_by_someone_else_is_not_composited() {

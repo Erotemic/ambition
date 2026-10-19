@@ -79,7 +79,7 @@ pub mod vitality;
 pub mod worn_kit;
 
 pub use components::*;
-pub use death_rules::{DeathInterlude, DeathRules, LevelReset, OutOfPlay};
+pub use death_rules::{DeathInterlude, DeathRules, KillBeat, LevelReset, OutOfPlay};
 pub use scoped_rules::{DeclareRulesExt, DeclaredRules, RulesScope};
 pub use events::*;
 // `FeatureSimEntity` is the generic entity-marker queried by the reusable

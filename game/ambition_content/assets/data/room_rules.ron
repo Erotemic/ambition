@@ -20,4 +20,8 @@
     // (Jon, 2026-10-18: "bodies persist by default unless they explicitly
     // don't"). A body that is taken away by its own death states `Vanish`.
     corpses: Some(Stay),
+    // A kill lands: the world holds still a twelfth of a second past the
+    // blow, and the screen shakes a little (Jon, 2026-10-18: playing through
+    // a level was not satisfying).
+    kill_beat: Some((freeze_s: 0.083, shake_px: 4.0)),
 )

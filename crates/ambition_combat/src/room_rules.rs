@@ -27,7 +27,7 @@ use ambition_content_pack::{
 use bevy::prelude::*;
 use serde::Deserialize;
 
-use crate::death_rules::DeathRules;
+use crate::death_rules::{DeathRules, KillBeat};
 use ambition_characters::actor::Corpse;
 use crate::dormancy_rule::DormancyRule;
 use crate::landing_lag::LandingLagRules;
@@ -74,6 +74,10 @@ struct AuthoredRoomRules {
     /// does not state its own. Absent: [`Corpse::default`].
     #[serde(default)]
     corpses: Option<Corpse>,
+    /// What a kill does to the world: a short freeze and a shake. Absent: no
+    /// kill beat.
+    #[serde(default)]
+    kill_beat: Option<KillBeat>,
 }
 
 /// One game's rules for its own rooms, lowered from its pack.
@@ -85,6 +89,7 @@ pub struct RoomRules {
     pub combat: Option<CombatRules>,
     pub dormancy: Option<DormancyRule>,
     pub corpses: Option<Corpse>,
+    pub kill_beat: Option<KillBeat>,
 }
 
 impl AuthoredRoomRules {
@@ -115,6 +120,13 @@ impl AuthoredRoomRules {
         if let Some(combat) = &self.combat {
             problems.extend(combat_problems(combat));
         }
+        if let Some(beat) = self.kill_beat {
+            if !(beat.freeze_s.is_finite() && beat.freeze_s >= 0.0 && beat.shake_px.is_finite() && beat.shake_px >= 0.0) {
+                problems.push(format!(
+                    "`kill_beat` is {beat:?}; its freeze is seconds and its shake pixels, each finite and not negative"
+                ));
+            }
+        }
         if let Some(radius) = self.hostile_wake_radius {
             if !(radius.is_finite() && radius > 0.0) {
                 problems.push(format!(
@@ -134,6 +146,7 @@ impl AuthoredRoomRules {
             combat: self.combat,
             dormancy: self.hostile_wake_radius.map(|hostile_wake_radius| DormancyRule { hostile_wake_radius }),
             corpses: self.corpses,
+            kill_beat: self.kill_beat,
         }
     }
 }
@@ -259,6 +272,9 @@ pub fn declare_room_rules(app: &mut App, scope: RulesScope, rules: RoomRules) {
     if let Some(corpses) = rules.corpses {
         app.declare_rules(scope, corpses);
     }
+    if let Some(kill_beat) = rules.kill_beat {
+        app.declare_rules(scope, kill_beat);
+    }
 }
 
 /// Replace this scope's declaration of each rule with what `rules` states. A
@@ -284,6 +300,9 @@ pub fn restate_room_rules(world: &mut World, scope: RulesScope, rules: Option<&R
     world
         .get_resource_or_insert_with(DeclaredRules::<Corpse>::default)
         .restate(scope, rules.corpses);
+    world
+        .get_resource_or_insert_with(DeclaredRules::<KillBeat>::default)
+        .restate(scope, rules.kill_beat);
 }
 
 #[cfg(test)]

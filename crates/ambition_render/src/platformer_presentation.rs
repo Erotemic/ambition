@@ -137,6 +137,8 @@ impl Plugin for SessionRoomVisualsPlugin {
         // The light of the time of day, over the camera's view (a game that
         // inserts no `DaylightStyle` has none).
         app.add_systems(Update, crate::rendering::daylight::light_the_world.after(crate::rendering::camera_follow));
+        // The light a boss asks for in its room (`ambition.boss.stage`).
+        app.add_systems(Update, crate::rendering::boss_stage::light_the_boss_stage.after(crate::rendering::camera_follow));
         // The motes of each live room's air, and their motion.
         app.init_resource::<crate::rendering::ambient_motes::AmbientMoteStyles>();
         app.add_systems(

@@ -101,3 +101,29 @@ fn a_player_body_takes_its_passage_look() {
     assert_eq!(scale, Vec3::new(0.5, 0.5, 1.0));
     assert!((y - 90.0).abs() < 1e-4 && (color.alpha - 0.4).abs() < 1e-4, "y {y}, {color:?}");
 }
+
+/// Review finding #7, the actor road: a body drawn as a feature that its
+/// passage fades is declared as read as one image; one at full opacity is
+/// not. Poison: declare player bodies only.
+#[test]
+fn a_feature_body_its_passage_fades_is_declared_as_one_image() {
+    use ambition_sprite_sheet::character::rigged::ComposedBodyDemand;
+    let mut app = App::new();
+    app.init_resource::<ComposedBodyDemand>();
+    app.add_systems(Update, declare_passage_fade_demand);
+    let opaque = PassageLookView { alpha: 1.0, ..LOOK };
+    app.insert_resource(ActorAnimIndex::from_rows([
+        ("fading".to_string(), frame(Some(LOOK))),
+        ("opaque".to_string(), frame(Some(opaque))),
+        ("outside".to_string(), frame(None)),
+    ]));
+    let body = |app: &mut App, id: &str| app.world_mut().spawn(FeatureVisual { id: id.to_string() }).id();
+    let (fading, opaque, outside) = (body(&mut app, "fading"), body(&mut app, "opaque"), body(&mut app, "outside"));
+    app.update();
+    let demand = app.world().resource::<ComposedBodyDemand>();
+    assert_eq!(
+        [fading, opaque, outside].map(|body| demand.is_declared(body)),
+        [true, false, false],
+        "(fading, opaque, outside a passage)"
+    );
+}

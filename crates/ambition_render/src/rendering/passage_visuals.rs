@@ -96,6 +96,35 @@ fn draw_passage_look(
     }
 }
 
+/// Declare each body that its passage fades as read as one image
+/// (`ComposedBodyDemand`).
+///
+/// A fading body is one picture fading. A part-drawn body drawn directly
+/// takes its root's opacity into each part, so each part shows the part
+/// under it through it. Declared from the passage's look, the fact that
+/// fades it, before the rigged driver runs.
+pub fn declare_passage_fade_demand(
+    players: Query<(Entity, &ambition_sim_view::PassageLookView), With<PlayerVisual>>,
+    actors: Query<(Entity, &FeatureVisual), Without<PlayerVisual>>,
+    frames: Option<Res<ambition_sim_view::ActorAnimIndex>>,
+    mut demand: ResMut<ambition_sprite_sheet::character::rigged::ComposedBodyDemand>,
+) {
+    let fades = |look: &ambition_sim_view::PassageLookView| look.alpha < 1.0;
+    for (body, look) in &players {
+        if fades(look) {
+            demand.declare(body);
+        }
+    }
+    let Some(frames) = frames else {
+        return;
+    };
+    for (body, visual) in &actors {
+        if frames.get(&visual.id).and_then(|frame| frame.passage_look.as_ref()).is_some_and(fades) {
+            demand.declare(body);
+        }
+    }
+}
+
 /// A door's closed picture, while its opening strip draws it.
 #[derive(Component)]
 pub struct DoorOpening {

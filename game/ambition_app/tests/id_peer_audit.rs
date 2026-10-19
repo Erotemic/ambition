@@ -550,6 +550,7 @@ fn two_hosts_with_different_local_history_seat_the_same_agreed_match() {
         select
             .roster_seeded(
                 &fighters,
+                &Default::default(),
                 ambition_demo_smash::agreed_match_seed(&select),
                 POLICY,
                 &Default::default(),

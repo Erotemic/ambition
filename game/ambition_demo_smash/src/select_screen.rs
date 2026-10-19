@@ -942,8 +942,9 @@ pub(crate) fn drive_the_cursor(
     mut start: ResMut<StartRequested>,
     mut leave: ResMut<LeaveRequested>,
     fighters: Res<SmashRoster>,
-    // How many looks each fighter has, for a card's portrait click.
-    skins: Res<SmashSkins>,
+    // How many looks each fighter has, for a card's portrait click. A
+    // composition with no skins table has no skins.
+    skins: Option<Res<SmashSkins>>,
     mut page: ResMut<SelectPage>,
     // The stage the START below plays on. Outside `SmashSelect`, like the
     // cursor: no seat decided it.
@@ -1391,7 +1392,10 @@ pub(crate) fn drive_the_cursor(
                 // Any seat may dress a card's fighter, as for roles.
                 (None, None, Some(SelectTarget::CardPortrait(slot))) => {
                     let looks = match select.slot(slot).pick {
-                        Some(SlotPick::Fighter(index)) => fighters.get(index).map_or(0, |id| skins.count(id)),
+                        Some(SlotPick::Fighter(index)) => fighters
+                            .get(index)
+                            .zip(skins.as_deref())
+                            .map_or(0, |(id, skins)| skins.count(id)),
                         _ => 0,
                     };
                     select.cycle_skin(slot, looks);
@@ -1547,7 +1551,7 @@ fn card_skin<'a>(fighters: &SmashRoster, skins: &'a SmashSkins, card: crate::sel
 pub fn sync_select_cards(
     select: Res<SmashSelect>,
     fighters: Res<SmashRoster>,
-    skins: Res<SmashSkins>,
+    skins: Option<Res<SmashSkins>>,
     art: ScreenArt,
     devices: Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
     assignment: Option<Res<ambition_platformer2d::input::LocalSeatOffer>>,
@@ -1577,6 +1581,8 @@ pub fn sync_select_cards(
     mut card_portraits: Query<(&CardPortrait, &mut ImageNode, &mut Visibility)>,
 ) {
     let catalog = Some(&*art.catalog);
+    let no_skins = SmashSkins::default();
+    let skins = skins.as_deref().unwrap_or(&no_skins);
     let naming = devices.as_deref().map(|devices| {
         (
             devices,
@@ -1622,7 +1628,7 @@ pub fn sync_select_cards(
     for (name, mut text, mut color) in &mut card_names {
         let card = select.slot(name.0);
         let shown = card.occupant.participates().then_some(card.pick).flatten();
-        let next = card_name_text(catalog, &fighters, shown, card_skin(&fighters, &skins, card));
+        let next = card_name_text(catalog, &fighters, shown, card_skin(&fighters, skins, card));
         if text.0 != next {
             text.0 = next;
         }
@@ -1642,7 +1648,7 @@ pub fn sync_select_cards(
             .and_then(|pick| match pick {
                 SlotPick::Fighter(index) => fighters
                     .get(index)
-                    .and_then(|id| art.portrait(card_skin(&fighters, &skins, card).unwrap_or(id))),
+                    .and_then(|id| art.portrait(card_skin(&fighters, skins, card).unwrap_or(id))),
                 SlotPick::Random => random_icon(&art).map(|handle| (handle, None)),
             });
         match shown {

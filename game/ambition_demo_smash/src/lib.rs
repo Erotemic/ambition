@@ -2227,7 +2227,7 @@ fn start_the_battle_when_asked(
     select: bevy::prelude::Res<select::SmashSelect>,
     asked: bevy::prelude::Res<select_screen::StartRequested>,
     fighters: bevy::prelude::Res<select::SmashRoster>,
-    skins: bevy::prelude::Res<select::SmashSkins>,
+    skins: Option<bevy::prelude::Res<select::SmashSkins>>,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
     // The seat policy decides whether source index zero is the keyboard or a
@@ -2265,7 +2265,7 @@ fn start_the_battle_when_asked(
 
     let Some(decided) = select.roster_seeded(
         &fighters,
-        &skins,
+        &skins.as_deref().cloned().unwrap_or_default(),
         seed,
         assignment.policy(),
         // Ids whose character authors its own move timelines. Only this side

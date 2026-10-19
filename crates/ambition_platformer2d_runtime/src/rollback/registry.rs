@@ -79,7 +79,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 363 -> 364: `actor.brain`'s cursor encodes a `MeleeBrute`'s hit and run
 /// (wire tag 6: whether its swing was live, a `bool`, and how long it still
 /// backs off, an `f32`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 364;
+/// 364 -> 365: `actor.worn_skin` (`WornSkin`, a clone of a character id)
+/// enters: the look a Smash seat is drawn in, art only.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 365;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

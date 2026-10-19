@@ -212,6 +212,24 @@ impl Body {
         self.art_box(150.0, 92.0, 305.0, 228.0)
     }
 }
+/// The stab (`stab`, frames 1-5): his near arm out and down at you, the
+/// knife hand driving its claws to the height of a body your size.
+impl Body {
+    pub fn stab_box(self) -> (Vec2, Vec2) {
+        self.art_box(212.0, 172.0, 286.0, 238.0)
+    }
+}
+const STAB_DAMAGE: i32 = 2;
+const STAB_KNOCKBACK: f32 = 1.4;
+/// He steps in at most this far (authored body) as the arm goes out, to put
+/// the claws on you; less when you are nearer.
+const STAB_STEP: f32 = 70.0;
+/// The step is over by this part of the strike; the claws are live from
+/// `STAB_LIVE.0` to `STAB_LIVE.1` of it.
+const STAB_STEP_U: f32 = 0.35;
+const STAB_LIVE: (f32, f32) = (0.18, 0.62);
+/// Overreached after it (`stab_recover`, 8 frames of 80 ms): the opening.
+const OVERREACH_S: f32 = 0.64;
 const LUNGE_DAMAGE: i32 = 2;
 const LUNGE_KNOCKBACK: f32 = 1.5;
 /// He bites across this much of the room at most, and stops short of the wall.
@@ -319,11 +337,12 @@ pub enum Move {
     Howl,
     Galvanize,
     Lash,
+    Stab,
 }
 
 impl Move {
-    pub const ALL: [Move; 8] =
-        [Move::Rake, Move::RakeThrice, Move::Hammer, Move::Lunge, Move::Bound, Move::Howl, Move::Galvanize, Move::Lash];
+    pub const ALL: [Move; 9] =
+        [Move::Rake, Move::RakeThrice, Move::Hammer, Move::Lunge, Move::Bound, Move::Howl, Move::Galvanize, Move::Lash, Move::Stab];
 
     pub fn key(self) -> &'static str {
         match self {
@@ -335,6 +354,7 @@ impl Move {
             Move::Howl => "wolf_howl",
             Move::Galvanize => "wolf_galvanize",
             Move::Lash => "wolf_lash",
+            Move::Stab => "wolf_stab",
         }
     }
 
@@ -361,7 +381,7 @@ impl Move {
 
 record! {
     /// The conductor's memory, on the monster.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "wolfenstein.conductor", 4);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "wolfenstein.conductor", 5);
     /// The room, measured once.
     1 hall_known: bool,
     2 hall_floor: f32,
@@ -435,6 +455,8 @@ record! {
     /// The leap back off his throne: where it starts and where it lands.
     44 leap_from: f32,
     45 leap_to: f32,
+    /// Overreached after a stab: seconds into hauling himself back.
+    46 overreached: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -472,6 +494,11 @@ impl Conductor {
     /// His fists in the floor after the hammer, for tests and inspectors.
     pub fn stuck(&self) -> bool {
         self.stuck.is_some()
+    }
+
+    /// Overreached after a stab.
+    pub fn overreached(&self) -> bool {
+        self.overreached.is_some()
     }
 
     /// A shock is rolling the floor, for tests and inspectors.
@@ -518,6 +545,7 @@ impl Conductor {
             || self.flat.is_some()
             || self.rearing.is_some()
             || self.recover.is_some()
+            || self.overreached.is_some()
             || self.serum.is_some()
     }
 
@@ -782,6 +810,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         c.winded = None;
         c.flat = None;
         c.recover = None;
+        c.overreached = None;
         side = face(at.x);
         // No blow lands on him while he takes it: it is his beat.
         inv.submit::<BossGuardPort>(BossGuard { guarded: true })?;
@@ -817,6 +846,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     c.stuck = None;
                     c.winded = None;
                     c.recover = None;
+                    c.overreached = None;
                     if c.flat.take().is_some() {
                         // The coils jolt him back up.
                         play(inv, SFX_ZAP, neck(at, side))?;
@@ -838,6 +868,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                         Move::Lunge => {
                             let reach = (target.x - at.x).abs().clamp(160.0, LUNGE_REACH) + 60.0;
                             c.lunge_to = clamp_x(at.x + side * reach.min(LUNGE_REACH));
+                        }
+                        Move::Stab => {
+                            // A step that puts the middle of his claws on you.
+                            let ahead = b.stab_box().0.x;
+                            let step = ((target.x - at.x).abs() - ahead).clamp(0.0, b.len(STAB_STEP));
+                            c.lunge_to = clamp_x(at.x + side * step);
                         }
                         Move::Bound => {
                             // The wall behind you, and back the other way.
@@ -877,6 +913,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     play(inv, SFX_SPUTTER, neck(at, side))?;
                 }
                 Move::Rake | Move::RakeThrice => c.recover = Some(0.0),
+                Move::Stab => c.overreached = Some(0.0),
                 _ => {}
             }
         }
@@ -976,6 +1013,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         Some(Part { mv: Move::Lunge, striking: true, t, dur }) => {
             Vec2::new(c.step_from + (c.lunge_to - c.step_from) * ease_out(t / dur), stand_y)
         }
+        Some(Part { mv: Move::Stab, striking: true, t, dur }) => {
+            let k = (t / dur / STAB_STEP_U).min(1.0);
+            Vec2::new(c.step_from + (c.lunge_to - c.step_from) * ease_out(k), stand_y)
+        }
         Some(Part { mv: Move::Bound, striking: true, t, dur }) => {
             let u = t / dur;
             if u < BOUND_ON_WALL {
@@ -1061,7 +1102,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 burst(inv, fists, 30, 340.0, DUST, "dust")?;
                 burst(inv, fists, 10, 260.0, DUST, "shard")?;
             }
-            Move::Lunge | Move::Bound if onset => {
+            Move::Lunge | Move::Bound | Move::Stab if onset => {
                 play(inv, SFX_LUNGE, pos)?;
             }
             Move::Howl if onset => {
@@ -1115,6 +1156,16 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
         if part.mv == Move::Lunge && part.t >= part.dur * 0.2 && part.t - dt < part.dur * 0.2 {
             play(inv, SFX_BITE, pos + Vec2::new(side * b.body_half() * 3.0, 0.0))?;
+        }
+        // The stab: the knife hand's claws, while the arm is going out.
+        let u = part.t / part.dur;
+        if part.mv == Move::Stab {
+            if u >= STAB_LIVE.0 && u - dt / part.dur < STAB_LIVE.0 {
+                play(inv, SFX_RAKE, pos + Vec2::new(side * b.stab_box().0.x, b.stab_box().0.y))?;
+            }
+            if (STAB_LIVE.0..STAB_LIVE.1).contains(&u) && c.ticks % 4 == 0 {
+                riding(inv, b.stab_box(), side, STAB_DAMAGE, STAB_KNOCKBACK, 0.1, "wolf_stab")?;
+            }
         }
     }
     // ── The galvanize: the sparks on its marks, then the lightning ──
@@ -1231,7 +1282,13 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 
     // ── The windows run out ──
     for (state, length) in
-        [(&mut c.skid, SKID_S), (&mut c.stuck, STUCK_S + PULL_S), (&mut c.winded, WINDED_S), (&mut c.recover, RECOVER_S)]
+        [
+            (&mut c.skid, SKID_S),
+            (&mut c.stuck, STUCK_S + PULL_S),
+            (&mut c.winded, WINDED_S),
+            (&mut c.recover, RECOVER_S),
+            (&mut c.overreached, OVERREACH_S),
+        ]
     {
         if let Some(t) = state.as_mut() {
             *t += dt;
@@ -1355,6 +1412,8 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
         Some(p @ Part { mv: Move::Galvanize, .. }) => span("galvanize", 0.0, 8.0, 0.06, u(p)),
         Some(p @ Part { mv: Move::Lash, striking: false, .. }) => tell("lash_tell", 8.0, 0.08, u(p)),
         Some(p @ Part { mv: Move::Lash, .. }) => span("lash", 0.0, 6.0, 0.06, u(p)),
+        Some(p @ Part { mv: Move::Stab, striking: false, .. }) => tell("stab_tell", 8.0, 0.08, u(p)),
+        Some(p @ Part { mv: Move::Stab, .. }) => span("stab", 0.0, 6.0, 0.06, u(p)),
         None => {
             if let Some(t) = c.skid {
                 span("lunge_skid", 0.0, 8.0, 0.05, t / SKID_S)
@@ -1368,6 +1427,8 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
                 ("winded", t, true)
             } else if let Some(t) = c.recover {
                 span("rake_recover", 0.0, 6.0, 0.08, t / RECOVER_S)
+            } else if let Some(t) = c.overreached {
+                span("stab_recover", 0.0, 8.0, 0.08, t / OVERREACH_S)
             } else if let Some(t) = c.flat {
                 // His charge spent: down on his hands, his head hung.
                 ("flatline", t, true)

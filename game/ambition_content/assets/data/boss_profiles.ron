@@ -1553,6 +1553,7 @@
             Special("wolf_rake_thrice"),
             Special("wolf_hammer"),
             Special("wolf_lunge"),
+            Special("wolf_stab"),
             Special("wolf_bound"),
             Special("wolf_howl"),
             Special("wolf_galvanize"),
@@ -1593,6 +1594,12 @@
                         Strike(profile: Special("wolf_hammer"), duration: 0.5),
                         Rest(duration: 1.1),
                     ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("wolf_stab"), duration: 0.75,
+                            telegraph: Some((pose: Some("stab_tell"), cue: Some("boss.trex.growl_snarl_a")))),
+                        Strike(profile: Special("wolf_stab"), duration: 0.5),
+                        Rest(duration: 1.0),
+                    ]),
                     (weight: 1.0, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("wolf_howl"), duration: 0.9,
                             telegraph: Some((pose: Some("howl_tell"), cue: Some("boss.trex.growl_huff_a")))),
@@ -1618,6 +1625,12 @@
                             telegraph: Some((pose: Some("hammer_tell"), cue: Some("boss.trex.growl_grunt_a")))),
                         Strike(profile: Special("wolf_hammer"), duration: 0.5),
                         Rest(duration: 1.1),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("wolf_stab"), duration: 0.75,
+                            telegraph: Some((pose: Some("stab_tell"), cue: Some("boss.trex.growl_snarl_a")))),
+                        Strike(profile: Special("wolf_stab"), duration: 0.5),
+                        Rest(duration: 1.0),
                     ]),
                     (weight: 1.0, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("wolf_howl"), duration: 0.9,
@@ -1667,6 +1680,12 @@
                         Strike(profile: Special("wolf_hammer"), duration: 0.5),
                         Rest(duration: 1.0),
                     ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("wolf_stab"), duration: 0.6,
+                            telegraph: Some((pose: Some("stab_tell"), cue: Some("boss.trex.growl_snarl_a")))),
+                        Strike(profile: Special("wolf_stab"), duration: 0.5),
+                        Rest(duration: 0.9),
+                    ]),
                     (weight: 1.5, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("wolf_howl"), duration: 0.8,
                             telegraph: Some((pose: Some("howl_tell"), cue: Some("boss.trex.growl_huff_a")))),
@@ -1699,6 +1718,12 @@
                         Strike(profile: Special("wolf_hammer"), duration: 0.5),
                         Rest(duration: 1.0),
                     ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("wolf_stab"), duration: 0.6,
+                            telegraph: Some((pose: Some("stab_tell"), cue: Some("boss.trex.growl_snarl_a")))),
+                        Strike(profile: Special("wolf_stab"), duration: 0.5),
+                        Rest(duration: 0.9),
+                    ]),
                     (weight: 1.5, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("wolf_howl"), duration: 0.8,
                             telegraph: Some((pose: Some("howl_tell"), cue: Some("boss.trex.growl_huff_a")))),
@@ -1730,6 +1755,12 @@
                             telegraph: Some((pose: Some("hammer_tell"), cue: Some("boss.trex.growl_grunt_a")))),
                         Strike(profile: Special("wolf_hammer"), duration: 0.5),
                         Rest(duration: 1.0),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("wolf_stab"), duration: 0.6,
+                            telegraph: Some((pose: Some("stab_tell"), cue: Some("boss.trex.growl_snarl_a")))),
+                        Strike(profile: Special("wolf_stab"), duration: 0.5),
+                        Rest(duration: 0.9),
                     ]),
                     (weight: 1.5, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("wolf_howl"), duration: 0.8,
@@ -1784,6 +1815,12 @@
                         Strike(profile: Special("wolf_hammer"), duration: 0.5),
                         Rest(duration: 0.9),
                     ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("wolf_stab"), duration: 0.5,
+                            telegraph: Some((pose: Some("stab_tell"), cue: Some("boss.trex.growl_snarl_a")))),
+                        Strike(profile: Special("wolf_stab"), duration: 0.5),
+                        Rest(duration: 0.75),
+                    ]),
                     (weight: 1.5, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("wolf_howl"), duration: 0.6,
                             telegraph: Some((pose: Some("howl_tell"), cue: Some("boss.trex.growl_huff_a")))),
@@ -1816,6 +1853,12 @@
                         Strike(profile: Special("wolf_hammer"), duration: 0.5),
                         Rest(duration: 0.9),
                     ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("wolf_stab"), duration: 0.5,
+                            telegraph: Some((pose: Some("stab_tell"), cue: Some("boss.trex.growl_snarl_a")))),
+                        Strike(profile: Special("wolf_stab"), duration: 0.5),
+                        Rest(duration: 0.75),
+                    ]),
                     (weight: 1.5, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("wolf_howl"), duration: 0.6,
                             telegraph: Some((pose: Some("howl_tell"), cue: Some("boss.trex.growl_huff_a")))),
@@ -1847,6 +1890,12 @@
                             telegraph: Some((pose: Some("hammer_tell"), cue: Some("boss.trex.growl_grunt_a")))),
                         Strike(profile: Special("wolf_hammer"), duration: 0.5),
                         Rest(duration: 0.9),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("wolf_stab"), duration: 0.5,
+                            telegraph: Some((pose: Some("stab_tell"), cue: Some("boss.trex.growl_snarl_a")))),
+                        Strike(profile: Special("wolf_stab"), duration: 0.5),
+                        Rest(duration: 0.75),
                     ]),
                     (weight: 1.5, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("wolf_howl"), duration: 0.6,

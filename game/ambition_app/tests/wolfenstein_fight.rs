@@ -251,6 +251,26 @@ fn far_away_he_lunges_across_the_room() {
     assert!((w.kin.pos.x - from).abs() > 300.0, "the lunge carried him only {} across the room", (w.kin.pos.x - from).abs());
 }
 
+/// Just past the reach of his claws, he cocks his knife hand at his hip, steps
+/// in and thrusts it at you; then he is overreached: the window.
+#[test]
+fn the_stab_steps_in_and_reaches_you_then_he_is_overreached() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    stand_until(&mut sim, 150.0, 60 * 40, "a stab's tell", |sim| {
+        matches!(wolf(sim).view.performing, Some((Move::Stab, false)))
+    });
+    untouchable_player(&mut sim, false);
+    let from = wolf(&mut sim).kin.pos.x;
+    let (_, before) = player(&mut sim);
+    // Stand where you were: the step is what reaches you.
+    step_until(&mut sim, 90, "the stab to land", |sim| player(sim).1 < before);
+    let w = wolf(&mut sim);
+    assert!((w.kin.pos.x - from) * w.side > 20.0, "he did not step into the stab: {from} -> {}", w.kin.pos.x);
+    untouchable_player(&mut sim, true);
+    step_until(&mut sim, 60, "him to be overreached", |sim| wolf(sim).view.overreached);
+}
+
 /// The hammer sends a shock along the floor, and his fists stay in it: the
 /// window.
 #[test]

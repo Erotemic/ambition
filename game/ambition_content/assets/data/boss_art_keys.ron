@@ -84,6 +84,7 @@
         "wolf_rake_thrice": ["rake_a"],
         "wolf_hammer": ["hammer_slam"],
         "wolf_lunge": ["lunge"],
+        "wolf_stab": ["stab"],
         "wolf_bound": ["bound_dive"],
         "wolf_howl": ["howl"],
         "wolf_galvanize": ["galvanize"],

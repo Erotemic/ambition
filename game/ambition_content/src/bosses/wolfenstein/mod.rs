@@ -39,6 +39,8 @@ pub struct WolfensteinView {
     pub winded: bool,
     /// His fists in the floor after the hammer.
     pub stuck: bool,
+    /// Overreached after the stab.
+    pub overreached: bool,
     /// A shock rolls the floor.
     pub shock_rolling: bool,
     /// The leash is broken: he has been through a transition.
@@ -62,6 +64,7 @@ pub fn conductor_of(world: &World, wolf: Entity) -> Option<WolfensteinView> {
         flat: c.flat(),
         winded: c.winded(),
         stuck: c.stuck(),
+        overreached: c.overreached(),
         shock_rolling: c.shock_rolling(),
         unleashed: c.unleashed(),
         hall: c.hall_known.then_some(Hall { floor: c.hall_floor, left: c.hall_left, right: c.hall_right }),

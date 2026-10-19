@@ -57,6 +57,7 @@
         instances: [
             "wolf_rake", // Wolfenstein: the claws across in front of him, two blows, a step on each
             "wolf_rake_thrice", // Wolfenstein, unleashed: three blows, the last one high
+            "wolf_stab", // Wolfenstein: the knife hand cocked at his hip, then a step and a straight thrust at your chest; he overreaches, and the overreach is the window
             "trex_bite",      // the T-rex: the head rears, then snaps down to your height as he lunges a stride
             "trex_snap_up",   // the T-rex: the head thrown up at the ledge you stand on
             "trex_double_bite", // the T-rex: one clack of teeth, then the bite twice; the second catches a dodge back

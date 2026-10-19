@@ -1202,6 +1202,16 @@ fixture did not register `PortalBodyTransited` and `GroundItemsView`, which
 the plugin reads); repaired in 672a83406. Both libs with `portal_render`
 take seconds: run them before a push that touches portals.
 
+**The PCA no longer lands a hit, 2026-10-18 (RED, inherited from
+3e2c649c7):** `a_hit_that_lands_on_the_player_freezes_the_match` fails: the
+player takes only `Contact` resolutions (which arm no freeze, by design).
+Measured: the `cellular_automaton_fighter` PCA, with its Mewtwo-shaped body,
+stands 46 to 48 px from a standing player and swings `generation_wipe` and
+`corruption_seed`, whose boxes are centred on him (half width 13 to 14.5), so
+they reach about 28 px and never meet the player. Not caused by the initial
+dash change (the test is red without it). Next: why the brain stops at 48 px
+for a move that reaches 28.
+
 **Sanic's visible job, 2026-10-17 (RED, inherited):** `cargo test -p
 ambition_demo_sanic_app --features capture,input,perf_probe,visible`: 59
 passed, 1 failed, `ov1_draws_the_world::the_start_line_sign_names_the_keys_his_actions_are_on`

@@ -438,6 +438,12 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "prepared body rig the worn character grants; immutable at runtime",
         ),
         (
+            "ambition_characters::actor::worn::WornSkin",
+            "the look a Smash seat is drawn in, art only: written once when the \
+             seat is spawned and read only by the sprite; the sim reads the worn \
+             character, never this value, so its presence is all a rewind can lose",
+        ),
+        (
             "ambition_sprite_sheet::character::sheets::SpritePosedBody",
             "authored per-pose body table; immutable at runtime",
         ),

@@ -280,9 +280,10 @@ impl ZonePassage {
         Some(match (self.kind, self.stage) {
             (PassageKind::Door, PassageStage::Entering) => {
                 // To the middle of the doorway while the door opens, then
-                // there: the walk in is into depth.
-                let k = smooth(t / DOOR_OPEN_S);
-                ae::Vec2::new(self.from.x + (stand.x - self.from.x) * k, stand.y)
+                // there: the walk in is into depth. The whole position moves:
+                // a body that came in off the stand line (on a slope, or in a
+                // gravity whose run is along y) is not snapped onto it.
+                self.from.lerp(stand, smooth(t / DOOR_OPEN_S))
             }
             (PassageKind::Door, PassageStage::Exiting) => {
                 let k = smooth(t / DOOR_OUT_S);
@@ -291,8 +292,7 @@ impl ZonePassage {
             (PassageKind::Gate, PassageStage::Entering) => {
                 let set = GATE_TURN_S + GATE_CROUCH_S;
                 if t < set {
-                    let k = smooth(t / set);
-                    ae::Vec2::new(self.from.x + (stand.x - self.from.x) * k, stand.y)
+                    self.from.lerp(stand, smooth(t / set))
                 } else {
                     let k = ((t - set) / GATE_LEAP_S).clamp(0.0, 1.0);
                     let into = self.heart + ae::Vec2::new(0.0, 10.0);
@@ -621,6 +621,40 @@ mod tests {
             Some(&other),
             "the give-up withdrew an operation that was not its own"
         );
+    }
+
+    /// Review finding #5 (2026-10-19). A body that comes in off the stand
+    /// line is moved there, not put there. The body meets the zone 30 px
+    /// along y from the stand point, as a body in sideways gravity does (its
+    /// run is along y). On the first tick it is where it was, and no tick of
+    /// the walk to the doorway or the crouch before a leap moves it further
+    /// than a smooth step. Measured before: y was the stand line's from the
+    /// first tick, a 30 px jump. Poison: snap y again.
+    ///
+    /// ⚠ The stand point is still the zone's bottom edge in world y: the
+    /// passage places a body upright whatever its gravity.
+    #[test]
+    fn a_body_that_comes_in_off_the_stand_line_is_moved_onto_it() {
+        for kind in [PassageKind::Door, PassageKind::Gate] {
+            let mut p = passage(kind);
+            p.from = ae::Vec2::new(p.foot.x - 10.0, p.foot.y - p.half_h - 30.0);
+            assert_eq!(p.body_at(), Some(p.from), "{kind:?}: on the first tick the body is where it was");
+            let settle = match kind {
+                PassageKind::Door => DOOR_OPEN_S,
+                PassageKind::Gate => GATE_TURN_S + GATE_CROUCH_S,
+            };
+            let dt = 1.0 / 60.0;
+            let mut last = p.from;
+            while p.elapsed + dt < settle {
+                p.elapsed += dt;
+                let at = p.body_at().expect("the body is held");
+                assert!(at.distance(last) < 4.0, "{kind:?} at {:.3} s: a step of {} px", p.elapsed, at.distance(last));
+                last = at;
+            }
+            p.elapsed = settle;
+            let stand = ae::Vec2::new(p.foot.x, p.foot.y - p.half_h);
+            assert!(p.body_at().expect("held").distance(stand) < 1e-3, "{kind:?}: then it stands in the doorway");
+        }
     }
 
     /// A door opens before the body goes in, stays open while it is through,

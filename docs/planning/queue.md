@@ -1567,6 +1567,19 @@ variants. Also found in that regen:
       tours the rooms by departure (0.17 s each), and a room it cannot reach
       fails it. Alone: 409 s before, 179 s after. Its poison (an unstamped
       resident in the fourth room) still fails at the census, naming the room.
+    - Where a harness boot goes (measured 2026-10-18 with timers, `perf` is
+      refused; the third boot in one process, debug): 1.98 s. The LDtk
+      pre-check in `ambition_sim_composition` 0.20 s (it loads, validates
+      and lowers the project that `init_sandbox_resources` loads and lowers
+      again: it is there so that a broken world is the harness's `Err`, as
+      the dependency build of `init_sandbox_resources` exits the process);
+      `init_sandbox_resources` 0.28 s; the content plugin 0.19 s; the sprite
+      watch 0.13 s; Yarn 0.13 s; the engine plugins 0.21 s; the shell 0.23 s;
+      the first update 0.37 s; the settle 0.23 s. The FIRST boot of a
+      process adds 1.5 s, once: the baked sheet generation is parsed on the
+      first ask (`posed_body_world_per_pixel` of the cast). No part is over a
+      fifth of a boot, so no single cut buys much: the pre-check is about 1%
+      of the suite's wall time.
     The workspace's own crates build at `opt-level = 0`, an accepted policy
     (Cargo.toml). A test profile at opt-level 1 would trade every focused
     edit's build for the suite's run time, so it is not taken here. Profiling

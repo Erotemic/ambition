@@ -476,6 +476,25 @@
                 discharge: Some((muzzle: Hand(ahead: 40.0))),
             ))),
         ),
+        // The Risen Conscript's lunge and bite: slow to start, so the first
+        // enemy of the castle is read before it lands, and slow to recover, so
+        // a miss is a free hit.
+        "evil_zombie_bite": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.62, active_s: 0.12, recover_s: 0.75, damage: 1, reach_px: 34.0, step_px: 22.0)),
+        ),
+        // The Shock Warden's baton: a raised swing it shows you, two hearts if
+        // it lands, and a long recovery behind the shield (its `recovery` row).
+        "shock_warden_baton": (
+            move_style: WalkHeavy,
+            melee: Some(Swipe(windup_s: 0.5, active_s: 0.12, recover_s: 0.85, damage: 2, reach_px: 50.0)),
+        ),
+        // The Searchlight Crawler's strike: the lamp flares and the front legs
+        // stab.
+        "searchlight_crawler_strike": (
+            move_style: Walk,
+            melee: Some(Bite(windup_s: 0.4, active_s: 0.1, recover_s: 0.45, damage: 1, reach_px: 40.0)),
+        ),
         // The Attack Hound's bite: quick, and it reaches with the lunge.
         "evil_hound_bite": (
             move_style: Walk,
@@ -5040,6 +5059,109 @@
             hall: ["GRRRR. *it will not be petted*", "Woof. (Papers.)"],
         ),
         hall_dialogue_id: Some("hall_npc_evil_attack_hound"),
+        ),
+        // The Risen Conscript: a dead soldier of the regime, raised in the
+        // castle lab. The first and the easiest enemy of Castle Godwin (Jon,
+        // 2026-10-18: "slow and lumbering and a good easy enemy for the
+        // start"): slow, one heart a bite, three hits to put down.
+        "npc_evil_zombie": (
+            display_name: "Risen Conscript",
+            manifest: "sprites/evil_zombie_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 180 cm, stooped.
+            standing_height: Some(67.0),
+            composition: None,
+            default_action_set: "evil_zombie_bite",
+            locomotion: Some((run_speed: 95.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.4, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 560.0,
+                attack_range: 34.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.6,
+                attack_cooldown_s: 0.9,
+                shares_sightings: false,
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "evil", "undead", "minion"],
+        barks: (
+            on_hit: ["*a wet grunt*", "Hhhrk."],
+            idle: ["*a long, wet groan*", "Hhhrrr... or... ders..."],
+            hall: ["*teeth click*", "Hhhh... papers... please..."],
+        ),
+        hall_dialogue_id: Some("hall_npc_evil_zombie"),
+        ),
+        // The Shock Warden: a short, wide trooper behind an electrified riot
+        // shield, with an electric baton. Slow and hard to put down; after
+        // each swing it stands open.
+        "npc_shock_warden": (
+            display_name: "Shock Warden",
+            manifest: "sprites/shock_warden_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm, and broad.
+            standing_height: Some(64.0),
+            composition: None,
+            default_action_set: "shock_warden_baton",
+            locomotion: Some((run_speed: 130.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.7, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 640.0,
+                attack_range: 50.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.7,
+                attack_cooldown_s: 0.6,
+                shares_sightings: true,
+            )),
+            max_health: Some(8),
+            mass: Some(5.0),
+            tags: ["enemy", "evil", "soldier", "armored"],
+        barks: (
+            on_hit: ["Hold the line!", "*the shield crackles*"],
+            idle: ["Move along.", "This corridor is closed."],
+            hall: ["Step back from the shield, citizen.", "Order is a wall. I am the wall."],
+        ),
+        hall_dialogue_id: Some("hall_npc_shock_warden"),
+        ),
+        // The Searchlight Crawler: a lamp on eight spider legs that crawls the
+        // castle's walls and ceilings. A hit knocks it off its surface.
+        "npc_searchlight_crawler": (
+            display_name: "Searchlight Crawler",
+            manifest: "sprites/searchlight_crawler_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Crawler,
+            standing_height: Some(34.0),
+            composition: None,
+            default_action_set: "searchlight_crawler_strike",
+            locomotion: Some((
+                run_speed: 150.0,
+                move_style: Walk,
+                surface_walker: true,
+                cling_breaks_on_hit: true,
+                baseline_free_flight: Some(false),
+            )),
+            abilities: Some([Walk]),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 600.0,
+                attack_range: 40.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.9,
+                attack_cooldown_s: 0.5,
+                shares_sightings: true,
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "evil", "machine", "crawler"],
+        barks: (
+            on_hit: ["*a sharp electronic squeal*"],
+            idle: ["*servos tick*", "*the lamp hums*"],
+            hall: ["*the lamp turns to you and stays there*", "*click. click. click.*"],
+        ),
+        hall_dialogue_id: Some("hall_npc_searchlight_crawler"),
         ),
     },
 )

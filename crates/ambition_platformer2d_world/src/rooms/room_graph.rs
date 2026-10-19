@@ -81,6 +81,21 @@ impl RoomSpec {
         }
     }
 
+    /// The full-collision blocks of this room that `body` is inside: a body
+    /// built there starts in the floor or in a wall. One-way platforms are
+    /// not counted (a body may stand through one). Empty for a body clear of
+    /// them.
+    pub fn embeds(&self, body: ae::Aabb) -> Vec<ae::Aabb> {
+        use ae::AabbExt;
+        self.world
+            .blocks
+            .iter()
+            .filter(|block| ae::collision_semantics::is_full_collision_surface(block.kind))
+            .map(|block| block.aabb)
+            .filter(|block| body.strict_intersects(*block))
+            .collect()
+    }
+
     /// `body` put on the surface of this room that supports it, as the room is
     /// when it starts. `None` when the room has no answer.
     ///

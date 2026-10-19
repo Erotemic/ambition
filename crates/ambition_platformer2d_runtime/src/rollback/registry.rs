@@ -81,7 +81,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// backs off, an `f32`).
 /// 364 -> 365: `actor.worn_skin` (`WornSkin`, a clone of a character id)
 /// enters: the look a Smash seat is drawn in, art only.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 365;
+/// 365 -> 366: `actor.brain`'s cursor encodes more of a `MeleeBrute` (wire
+/// tag 6): the route a brute that navigates follows (as Roam's), and its
+/// tactics: its health last tick (`f32`), whether it closes in (`bool`), how
+/// long it has held (`f32`), and how many swings it has made (`u32`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 366;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

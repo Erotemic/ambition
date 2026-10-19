@@ -313,12 +313,23 @@ pub fn bind_boss_part_animators(
 
 /// Show, on a part-drawn boss's [`CharacterAnimator`], the cell
 /// [`animate_bosses`] drew this frame: the row of the same NAME, the same
-/// frame. After `animate_bosses` and before the rigged driver, which then
-/// draws the boss from its parts over the root's baked frame.
+/// frame, at the size the boss is drawn at. After `animate_bosses` and before
+/// the rigged driver, which then draws the boss from its parts over the root's
+/// baked frame.
+///
+/// ⛔ The size follows the boss's: a conductor that grows a boss
+/// (`ambition.boss.scale`) grows the root's frame, and a parts basis left at
+/// the old size reads the taller root as a stance squash and stretches the
+/// parts in height alone (Wolfenstein's serum, 2026-10-19).
 pub fn pose_boss_part_animators(
     mut bosses: Query<(&BossAnimator, &sprites::BossDrawnCell, &mut CharacterAnimator), With<FeatureVisual>>,
 ) {
     for (boss, drawn, mut animator) in &mut bosses {
+        if let Some(basis) = boss.render_basis {
+            if animator.render_basis.is_some_and(|parts| parts.render_size != basis.render_size) {
+                animator.render_basis = Some(basis);
+            }
+        }
         let Some(name) = boss.record.rows.get(drawn.row).map(|row| row.animation.as_str()) else {
             continue;
         };

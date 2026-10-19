@@ -317,9 +317,55 @@ fn validate_quest_conditions(
         }
     }
 
+    wave_spawns_start_clear_of_solid_ground(rooms, &loaded_encounters, report);
+
     let boss_catalog = crate::bosses::boss_catalog_of(pack);
     let ids = QuestTargets::of(rooms, &loaded_encounters, &boss_catalog);
     check_quest_steps(&crate::quest::quest_specs_of(pack), &ids, report);
+}
+
+/// Every wave mob starts clear of its room's solid ground (Jon, 2026-10-18:
+/// "enemies will spawn in the floor ... we shouldn't let that happen").
+///
+/// A mob starts on the ground under its authored box
+/// (`RoomSpec::settled_on_ground`, at the spawn server), so a box a little in
+/// the floor, or over it, is fine. A box that cannot be settled and is inside
+/// a full-collision block starts in the floor: an error, naming the mob.
+fn wave_spawns_start_clear_of_solid_ground(
+    rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
+    loaded_encounters: &[(
+        String,
+        ambition_encounter::EncounterSpec,
+        ambition_persistence::save_data::PersistedEncounterState,
+    )],
+    report: &mut ContentValidationReport,
+) {
+    use ambition_platformer2d::engine_core as ae;
+    for (id, spec, _) in loaded_encounters {
+        let Some(room) = rooms.iter().find(|room| room.id == spec.room_id) else {
+            continue;
+        };
+        for wave in &spec.waves {
+            for mob in &wave.mobs {
+                let body = ae::Aabb::new(ae::Vec2::from(mob.spawn), ae::Vec2::from(mob.size) * 0.5);
+                if room.settled_on_ground(body).is_some() {
+                    continue;
+                }
+                let inside = room.embeds(body);
+                if !inside.is_empty() {
+                    report.push_error(format!(
+                        "encounter '{id}' ({}): a mob of wave '{}' ({}) spawns at {:?} inside solid ground {:?} of room '{}'",
+                        spec.room_id,
+                        wave.label,
+                        mob.character.as_deref().unwrap_or(&mob.kind),
+                        mob.spawn,
+                        inside,
+                        room.id
+                    ));
+                }
+            }
+        }
+    }
 }
 
 /// What a quest step may name, each set read from the owner of its id.

@@ -217,6 +217,46 @@ pub struct BrainProfile {
     /// default) presses on.
     #[serde(default)]
     pub retreat_after_swing_s: f32,
+    /// How a melee body fights besides closing and swinging
+    /// ([`MeleeTactics`]): read by `MeleeBrute`. The default is none of it.
+    #[serde(default)]
+    pub tactics: MeleeTactics,
+}
+
+/// How a melee body fights, besides closing and swinging (Jon, 2026-10-18:
+/// enemies "get stuck if you are on a platform above them ... they all move
+/// towards you, there is never any defensive move away, and they cluster a
+/// bit together"). Each is off by default, so a body states what it does.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MeleeTactics {
+    /// A foe above it, out of its reach and of its routes, is waited for
+    /// this far to its own side of the foe (px), facing up at it, and not
+    /// stood under. `0.0` stands under.
+    #[serde(default)]
+    pub lurk_px: f32,
+    /// With an ally between it and its foe, it hangs back out of reach and
+    /// waits its turn, so a pack spreads out and does not stack on the foe.
+    #[serde(default)]
+    pub waits_its_turn: bool,
+    /// It holds just out of reach, then commits in, swings, and backs out
+    /// again ([`Footsies`]). `None` closes straight in.
+    #[serde(default)]
+    pub footsies: Option<Footsies>,
+    /// When it is hit it backs away this long (s). `0.0` stands its ground.
+    #[serde(default)]
+    pub flinch_back_s: f32,
+}
+
+/// Holding just out of reach ([`MeleeTactics::footsies`]).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Footsies {
+    /// How far from its foe it holds (px), past its reach.
+    pub hold_px: f32,
+    /// How long it holds before it commits in (s); each body waits a little
+    /// more or less, and each wait differs from the last.
+    pub wait_s: f32,
 }
 
 impl Default for BrainProfile {
@@ -239,6 +279,7 @@ impl Default for BrainProfile {
             ranged_volley: None,
             shares_sightings: false,
             retreat_after_swing_s: 0.0,
+            tactics: MeleeTactics::default(),
         }
     }
 }

@@ -467,6 +467,8 @@ pub struct MeleeBruteCfg {
     /// After each swing it backs away this long (s): hit and run
     /// ([`super::BrainProfile::retreat_after_swing_s`]). `0.0` presses on.
     pub retreat_after_swing_s: f32,
+    /// How it fights besides closing and swinging ([`super::MeleeTactics`]).
+    pub tactics: super::MeleeTactics,
 }
 
 impl MeleeBruteCfg {
@@ -477,6 +479,12 @@ impl MeleeBruteCfg {
         chase_speed: 110.0,
         navigates: false,
         retreat_after_swing_s: 0.0,
+        tactics: super::MeleeTactics {
+            lurk_px: 0.0,
+            waits_its_turn: false,
+            footsies: None,
+            flinch_back_s: 0.0,
+        },
     };
     pub const BRUTE_DEFAULT: Self = Self {
         aggressiveness: 1.0,
@@ -485,6 +493,12 @@ impl MeleeBruteCfg {
         chase_speed: 75.0,
         navigates: false,
         retreat_after_swing_s: 0.0,
+        tactics: super::MeleeTactics {
+            lurk_px: 0.0,
+            waits_its_turn: false,
+            footsies: None,
+            flinch_back_s: 0.0,
+        },
     };
 }
 
@@ -496,8 +510,17 @@ pub struct MeleeBruteState {
     pub nav: NavFollower,
     /// Its own swing was live (wound up, striking or recovering) last tick.
     pub was_swinging: bool,
-    /// Seconds it still backs away after its last swing.
+    /// Seconds it still backs away after its last swing, or after a hit.
     pub backing_off: f32,
+    /// Its health fraction last tick: a drop is a hit
+    /// ([`super::MeleeTactics::flinch_back_s`]).
+    pub last_health: f32,
+    /// Footsies: it has committed in, and closes until it swings.
+    pub closing: bool,
+    /// Footsies: seconds it has held out of reach since its last commit.
+    pub holding: f32,
+    /// How many swings it has made: each hold differs from the last.
+    pub swings: u32,
 }
 
 /// A target's place that moved less than this is the same goal (px).
@@ -545,12 +568,25 @@ fn tick_melee_brute(
     ));
     state.mode = ai.mode;
     *out = crate::actor::control::ActorControlFrame::neutral();
+    let tactics = cfg.tactics;
+    // FLINCH: hit, it backs away (its health fell since last tick).
+    if tactics.flinch_back_s > 0.0 && snapshot.health_fraction < state.last_health - 1e-4 && snapshot.alive {
+        state.backing_off = state.backing_off.max(tactics.flinch_back_s);
+        state.closing = false;
+    }
+    state.last_health = snapshot.health_fraction;
     // HIT AND RUN: when its swing ends, it backs away a while, facing its foe.
     let swinging = snapshot.attack_windup_remaining > 0.0
         || snapshot.attack_active_remaining > 0.0
         || snapshot.attack_recover_remaining > 0.0;
-    if state.was_swinging && !swinging && cfg.retreat_after_swing_s > 0.0 {
-        state.backing_off = cfg.retreat_after_swing_s;
+    if state.was_swinging && !swinging {
+        if cfg.retreat_after_swing_s > 0.0 {
+            state.backing_off = cfg.retreat_after_swing_s;
+        }
+        // Footsies: out again, and a new hold.
+        state.closing = false;
+        state.swings = state.swings.wrapping_add(1);
+        state.holding = 0.0;
     }
     state.was_swinging = swinging;
     if state.backing_off > 0.0 {
@@ -561,13 +597,19 @@ fn tick_melee_brute(
         out.facing = snapshot.face_toward(toward);
         return;
     }
+    let chasing = matches!(ai.intent, crate::actor::ai::CharacterAiIntent::Chase { .. });
     if cfg.navigates {
-        let chasing = matches!(ai.intent, crate::actor::ai::CharacterAiIntent::Chase { .. });
         out.facing = snapshot.actor_facing;
         if pursue_by_route(cfg, state, chasing, snapshot, out) {
             return;
         }
         *out = crate::actor::control::ActorControlFrame::neutral();
+    }
+    // LURK: a foe above, out of reach (and of its routes), is waited for
+    // beside where it stands, not stood under.
+    if chasing && tactics.lurk_px > 0.0 && out_of_reach_above(cfg, snapshot) {
+        lurk(cfg, tactics.lurk_px, snapshot, out);
+        return;
     }
     match ai.intent {
         crate::actor::ai::CharacterAiIntent::Hold => {}
@@ -575,9 +617,34 @@ fn tick_melee_brute(
             // Not used by MeleeBrute today (patrol_enabled=false).
         }
         crate::actor::ai::CharacterAiIntent::Chase { direction_side } => {
+            let toward = local_target_side(snapshot);
+            out.facing = snapshot.face_toward(toward);
+            let reach = snapshot.melee_reach.unwrap_or(cfg.attack_range);
+            // WAITING ITS TURN: an ally between it and its foe; it hangs back.
+            let wait_at = (reach * 2.4).max(96.0);
+            if tactics.waits_its_turn && ally_ahead(snapshot) {
+                out.locomotion = snapshot.locomotion_for(ae::LocalAxes::new(hold_band(toward, wait_at, cfg.chase_speed * 0.6), 0.0));
+                return;
+            }
+            // FOOTSIES: hold out of reach, then commit in.
+            if let (Some(footsies), false) = (tactics.footsies, state.closing) {
+                let at = hold_band(toward, footsies.hold_px.max(reach + 16.0), cfg.chase_speed * 0.55);
+                if at == 0.0 {
+                    state.holding += snapshot.dt;
+                }
+                if state.holding >= hold_for(footsies, state.swings) && at == 0.0 {
+                    state.closing = true;
+                } else {
+                    // It sways in the band while it holds: a step in, a step back.
+                    let step = if (snapshot.sim_time * 0.75).fract() < 0.5 { 0.25 } else { -0.25 };
+                    let sway = if at == 0.0 { step * cfg.chase_speed } else { at };
+                    out.locomotion = snapshot.locomotion_for(ae::LocalAxes::new(sway, 0.0));
+                    return;
+                }
+            }
+            let lunge = if state.closing { 1.35 } else { 1.0 };
             out.locomotion =
-                snapshot.locomotion_for(ae::LocalAxes::new(direction_side * cfg.chase_speed, 0.0));
-            out.facing = snapshot.face_toward(local_target_side(snapshot));
+                snapshot.locomotion_for(ae::LocalAxes::new(direction_side * cfg.chase_speed * lunge, 0.0));
         }
         crate::actor::ai::CharacterAiIntent::Attack { .. } => {
             out.facing = snapshot.face_toward(local_target_side(snapshot));
@@ -591,6 +658,55 @@ fn tick_melee_brute(
                 && snapshot.attack_recover_remaining <= 0.0;
         }
     }
+}
+
+/// How long footsies hold before the `swings`th commit: the authored wait,
+/// longer and shorter by turns, so the rhythm is not a metronome.
+fn hold_for(footsies: super::Footsies, swings: u32) -> f32 {
+    const BEATS: [f32; 4] = [1.0, 0.6, 1.35, 0.8];
+    footsies.wait_s * BEATS[(swings % 4) as usize]
+}
+
+/// The speed (local x) that keeps a body `at` px from its foe, `toward` px
+/// away along its side axis: in when further, out when nearer, and `0.0`
+/// inside a band about it.
+fn hold_band(toward: f32, at: f32, speed: f32) -> f32 {
+    const BAND: f32 = 14.0;
+    let dist = toward.abs();
+    let side = if toward < 0.0 { -1.0 } else { 1.0 };
+    if dist > at + BAND {
+        side * speed
+    } else if dist < at - BAND {
+        -side * speed
+    } else {
+        0.0
+    }
+}
+
+/// An ally crowds it from the side of its foe: the allies near it are, on
+/// the whole, between it and its foe (`CrowdingSignal::away_dir` points away
+/// from them, so away from the foe).
+fn ally_ahead(snapshot: &BrainSnapshot) -> bool {
+    let Some(crowd) = snapshot.crowding else {
+        return false;
+    };
+    let toward = snapshot.target_pos.x - snapshot.actor_pos.x;
+    crowd.same_faction_count > 0 && crowd.away_dir.x * toward < 0.0
+}
+
+/// Its foe is above it and out of its reach: standing under it does nothing.
+fn out_of_reach_above(cfg: &MeleeBruteCfg, snapshot: &BrainSnapshot) -> bool {
+    let reach = snapshot.melee_reach.unwrap_or(cfg.attack_range);
+    let d = snapshot.target_delta_local();
+    d.y < -(reach + 40.0)
+}
+
+/// Wait for a foe above beside where it stands, `lurk_px` to the body's own
+/// side of it, facing up at it.
+fn lurk(cfg: &MeleeBruteCfg, lurk_px: f32, snapshot: &BrainSnapshot, out: &mut crate::actor::control::ActorControlFrame) {
+    let toward = local_target_side(snapshot);
+    out.facing = snapshot.face_toward(toward);
+    out.locomotion = snapshot.locomotion_for(ae::LocalAxes::new(hold_band(toward, lurk_px, cfg.chase_speed * 0.5), 0.0));
 }
 
 // ===== Skirmisher =====

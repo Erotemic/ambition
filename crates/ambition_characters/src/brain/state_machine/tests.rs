@@ -1459,3 +1459,89 @@ mod route_pursuit_tests {
         assert!(in_the_air.jump_held, "{in_the_air:?}");
     }
 }
+
+/// The melee tactics (`MeleeTactics`): what a brute does besides closing in.
+mod melee_tactics {
+    use super::*;
+    use crate::brain::{Footsies, MeleeTactics};
+
+    fn brute(tactics: MeleeTactics) -> StateMachineCfg {
+        StateMachineCfg::MeleeBrute { cfg: MeleeBruteCfg { tactics, ..MeleeBruteCfg::STRIKER_DEFAULT }, state: MeleeBruteState::default() }
+    }
+
+    fn tick(sm: &mut StateMachineCfg, s: &BrainSnapshot) -> crate::actor::control::ActorControlFrame {
+        let mut out = crate::actor::control::ActorControlFrame::neutral();
+        tick_simple_state_machine(sm, s, &mut out);
+        out
+    }
+
+    fn snap(actor_x: f32, target: ae::Vec2) -> BrainSnapshot {
+        let mut s = snap_at(actor_x, target.x);
+        s.target_pos = target;
+        s.dt = 1.0 / 60.0;
+        s.health_fraction = 1.0;
+        // Locomotion is a fraction of this.
+        s.max_run_speed = MeleeBruteCfg::STRIKER_DEFAULT.chase_speed;
+        s
+    }
+
+    /// A foe on a ledge above, out of reach: a lurker waits beside it, facing
+    /// up at it, and does not stand under it. One that does not lurk does.
+    #[test]
+    fn a_lurker_waits_beside_a_foe_above_and_not_under_it() {
+        let lurks = MeleeTactics { lurk_px: 80.0, ..Default::default() };
+        let above = ae::Vec2::new(0.0, -200.0);
+        let out = tick(&mut brute(lurks), &snap(-10.0, above));
+        assert!(out.locomotion.x < 0.0, "under its foe, it walks out to its own side: {:?}", out.locomotion);
+        let out = tick(&mut brute(lurks), &snap(-80.0, above));
+        assert_eq!(out.locomotion.x, 0.0, "beside its foe, it waits");
+        assert_eq!(out.facing, 1.0, "facing up at it");
+        let out = tick(&mut brute(MeleeTactics::default()), &snap(-80.0, above));
+        assert!(out.locomotion.x > 0.0, "control: a brute that does not lurk walks under it");
+    }
+
+    /// With an ally between it and its foe, it hangs back out of reach; with
+    /// the ally behind it, it goes in.
+    #[test]
+    fn a_brute_waits_its_turn_behind_an_ally() {
+        let waits = MeleeTactics { waits_its_turn: true, ..Default::default() };
+        let foe = ae::Vec2::new(70.0, 0.0);
+        let mut s = snap(0.0, foe);
+        // The allies are toward the foe, so away from them is away from it.
+        s.crowding = Some(crate::brain::smash::CrowdingSignal { same_faction_count: 1, away_dir: ae::Vec2::new(-1.0, 0.0), pressure: 0.7 });
+        assert!(tick(&mut brute(waits), &s).locomotion.x < 0.0, "inside the waiting distance it backs out");
+        s.crowding = Some(crate::brain::smash::CrowdingSignal { same_faction_count: 1, away_dir: ae::Vec2::new(1.0, 0.0), pressure: 0.7 });
+        assert!(tick(&mut brute(waits), &s).locomotion.x > 0.0, "an ally behind it: it goes in");
+    }
+
+    /// Footsies: it holds just out of reach, then commits in, faster than it
+    /// walks.
+    #[test]
+    fn a_brute_with_footsies_holds_out_of_reach_then_commits() {
+        let footsies = MeleeTactics { footsies: Some(Footsies { hold_px: 100.0, wait_s: 0.5 }), ..Default::default() };
+        let mut sm = brute(footsies);
+        let s = snap(0.0, ae::Vec2::new(100.0, 0.0));
+        // Locomotion is a fraction of the chase speed (`snap`).
+        let first = tick(&mut sm, &s);
+        assert!(first.locomotion.x.abs() < 0.5, "in its band it holds: {:?}", first.locomotion);
+        let mut committed = false;
+        for _ in 0..60 {
+            if tick(&mut sm, &s).locomotion.x > 1.0 {
+                committed = true;
+                break;
+            }
+        }
+        assert!(committed, "it never committed in after its hold");
+    }
+
+    /// Hit, a brute that flinches backs away from its foe.
+    #[test]
+    fn a_brute_that_flinches_backs_off_when_hit() {
+        let flinches = MeleeTactics { flinch_back_s: 0.4, ..Default::default() };
+        let mut sm = brute(flinches);
+        let mut s = snap(0.0, ae::Vec2::new(150.0, 0.0));
+        assert!(tick(&mut sm, &s).locomotion.x > 0.0, "unhurt, it closes");
+        s.health_fraction = 0.8;
+        assert!(tick(&mut sm, &s).locomotion.x < 0.0, "hit, it backs away");
+    }
+}

@@ -205,9 +205,24 @@ fn forced_hostile_melee_brute_brain(
             chase_speed,
             navigates: policy.navigates,
             retreat_after_swing_s: policy.retreat_after_swing_s,
+            tactics: tactics_for(policy, id),
         },
         state: MeleeBruteState::default(),
     })
+}
+
+/// The policy's tactics for the body `id`: each body lurks at its own
+/// distance and holds its footsies a little longer or shorter, so a group
+/// of one kind does not move as one.
+fn tactics_for(policy: &BrainProfile, id: &str) -> ambition_characters::brain::MeleeTactics {
+    let jitters = five_f32s_from_seed(seed_from_id(id));
+    let mut tactics = policy.tactics;
+    tactics.lurk_px *= 0.75 + 0.5 * jitters.3;
+    if let Some(footsies) = tactics.footsies.as_mut() {
+        footsies.wait_s *= 0.7 + 0.6 * jitters.4;
+        footsies.hold_px *= 0.9 + 0.2 * jitters.3;
+    }
+    tactics
 }
 
 pub(super) fn melee_brute_brain_for_enemy(
@@ -228,6 +243,7 @@ pub(super) fn melee_brute_brain_for_enemy(
             chase_speed,
             navigates: policy.navigates,
             retreat_after_swing_s: policy.retreat_after_swing_s,
+            tactics: tactics_for(policy, id),
         },
         state: MeleeBruteState::default(),
     })

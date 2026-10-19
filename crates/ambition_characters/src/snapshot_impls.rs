@@ -596,6 +596,14 @@ impl SnapshotCursor for crate::brain::Brain {
                 put_u8(out, 6);
                 put_bool(out, state.was_swinging);
                 put_f32(out, state.backing_off);
+                // The route of a brute that navigates, as Roam's; and its
+                // tactics (`MeleeTactics`): the hit it flinches from, its
+                // footsies.
+                put_nav_follower(out, &state.nav);
+                put_f32(out, state.last_health);
+                put_bool(out, state.closing);
+                put_f32(out, state.holding);
+                put_u32(out, state.swings);
             }
             Brain::StateMachine(StateMachineCfg::Skirmisher { state, .. }) => {
                 use crate::brain::state_machine::RangedVolleyPhase as P;

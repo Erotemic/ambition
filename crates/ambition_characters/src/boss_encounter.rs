@@ -50,6 +50,11 @@ pub struct BossEncounterSpec {
     /// `None` is a silent boss.
     #[serde(default)]
     pub voice: Option<String>,
+    /// The boss sleeps (`Dormant`) until a player in its room comes this
+    /// near its middle, in world units; then its intro starts. `None` wakes
+    /// it with its room.
+    #[serde(default)]
+    pub wake_radius: Option<f32>,
 }
 
 // Entity-local phase state. Health stays on `BodyHealth`; phase progression

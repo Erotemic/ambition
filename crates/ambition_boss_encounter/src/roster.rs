@@ -34,6 +34,7 @@ impl BossSpecRoster for BossEncounterSpec {
             extra_phase_triggers: Vec::new(),
             // A generic boss has no character, so it is silent.
             voice: None,
+            wake_radius: None,
         }
     }
 }

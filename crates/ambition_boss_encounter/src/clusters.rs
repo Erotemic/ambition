@@ -109,6 +109,10 @@ pub struct BossEncounter {
     /// at (`ambition.boss.scale`): its quad, body box and hurt volumes. `1.0`
     /// as built. Holds until its conductor changes it.
     pub scale: f32,
+    /// What its conductor stages around it (`ambition.boss.stage`): how lit
+    /// its room is, a flash, its name card. Presentation, so not in the
+    /// cursor. Holds until its conductor changes it.
+    pub stage: ambition_boss_special_port::BossStage,
 }
 
 impl BossEncounter {
@@ -421,6 +425,7 @@ impl BossClusterScratch {
                 render_size: render_basis,
                 guarded: false,
                 scale: 1.0,
+                stage: Default::default(),
             },
             health: ambition_characters::actor::BodyHealth::new(health),
         };
@@ -563,6 +568,7 @@ pub mod test_support {
                 render_size: ae::Vec2::splat(64.0),
                 guarded: false,
                 scale: 1.0,
+                stage: Default::default(),
             },
             ambition_characters::actor::BodyHealth::new(health),
         )

@@ -2648,7 +2648,7 @@
             default_action_set: "exploding_mite_swipe",
             // THE BODY: fast and fragile, and it detonates at the corpse, so a
             // point-blank kill is punished.
-            death_traits: Some((explodes_on_death: true)),
+            death_traits: Some((explodes_on_death: true, corpse: Some(Vanish))),
             locomotion: Some((run_speed: 245.0, move_style: Walk)),
             contact_damage: Some((strength: 0.60, amount: 1)),
             autonomous_profile: Some((
@@ -2683,7 +2683,7 @@
             // THE BODY: four hit points, slower and tankier, and two Puppy Slugs on
             // death. The mite names its own offspring: a reusable platformer has no
             // business knowing what an Ambition mite becomes.
-            death_traits: Some((divides_into: Some("npc_puppy_slug"))),
+            death_traits: Some((divides_into: Some("npc_puppy_slug"), corpse: Some(Vanish))),
             locomotion: Some((run_speed: 130.0, move_style: Walk)),
             contact_damage: Some((strength: 0.70, amount: 1)),
             autonomous_profile: Some((

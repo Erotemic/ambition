@@ -63,14 +63,18 @@ fn stage_here(
 /// Put the veils over the camera's view at the light the boss asks for.
 pub fn light_the_boss_stage(
     mut commands: Commands,
-    index: Res<BossRenderIndex>,
+    // `Option`: a composition with no sim read model has no boss to stage.
+    index: Option<Res<BossRenderIndex>>,
     sprites: Query<(Entity, &super::primitives::FeatureVisual)>,
     rooms: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
     primary: PrimaryLiveRoom,
     cameras: Query<&Transform, (With<MainCamera>, Without<BossStageVeil>)>,
     mut veils: Query<(&BossStageVeil, &mut Transform, &mut Sprite)>,
 ) {
-    let stage = stage_here(&index, &sprites, &rooms, &primary).unwrap_or_default();
+    let stage = index
+        .as_deref()
+        .and_then(|index| stage_here(index, &sprites, &rooms, &primary))
+        .unwrap_or_default();
     let dark = Color::srgba(0.0, 0.0, 0.0, (1.0 - stage.lit).clamp(0.0, 1.0) * DARKEST);
     let flash = Color::srgba(0.86, 0.92, 1.0, stage.flash.clamp(0.0, 1.0) * BRIGHTEST);
     let Some(camera) = cameras.iter().next() else {

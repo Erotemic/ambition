@@ -443,6 +443,12 @@ pub fn run_zone_passages(
         }
         if passage.stage == PassageStage::Entering && passage.recorded && passage.elapsed >= stage_s + CROSSING_GIVE_UP_S {
             bevy::log::warn!("passage through `{}`: the crossing never arrived; the body is given back", passage.zone);
+            // The crossing is withdrawn with the passage. A commit that is
+            // only late would otherwise move the body after its player got
+            // it back.
+            if let Some(crossing) = passage.crossing.clone() {
+                let _ = pending_lifecycle.retract(&LifecycleIntent::Transition(crossing));
+            }
             end_passage(&mut commands, entity, control_holds.as_deref_mut());
             continue;
         }
@@ -513,6 +519,108 @@ mod tests {
             arrival: None,
             room: None,
         }
+    }
+
+    /// A body in a door passage, with its crossing to `elsewhere` not yet
+    /// recorded, in an app that runs only the passage system at 60 Hz.
+    fn passage_app() -> (App, Entity, RoomTransitionIntent) {
+        let mut app = App::new();
+        let mut time = ambition_time::WorldTime::default();
+        time.set_sim_dt(1.0 / 60.0);
+        app.insert_resource(time);
+        app.init_resource::<PendingLifecycleCommit>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_systems(Update, run_zone_passages);
+        let crossing = RoomTransitionIntent {
+            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"),
+                None,
+            ),
+            target_room: "elsewhere".into(),
+            arrival: ae::Vec2::new(1.0, 2.0),
+            edge_exit: false,
+            zone_sfx: None,
+            participant: None,
+        };
+        let body = app
+            .world_mut()
+            .spawn((
+                (
+                    ae::BodyAbilities::default(),
+                    ae::BodyKinematics::default(),
+                    ae::BodyBaseSize::default(),
+                    ae::body_clusters::BodyGroundState::default(),
+                    ae::body_clusters::BodyWallState::default(),
+                    ae::body_clusters::BodyJumpState::default(),
+                    ae::body_clusters::BodyDashState::default(),
+                    ae::body_clusters::BodyFlightState::default(),
+                ),
+                (
+                    ae::body_clusters::BodyBlinkState::default(),
+                    ae::body_clusters::BodyLedgeState::default(),
+                    ae::body_clusters::BodyDodgeState::default(),
+                    ae::body_clusters::BodyShieldState::default(),
+                    ae::body_clusters::BodyModeState::default(),
+                    ae::body_clusters::BodyActionBuffer::default(),
+                    ae::body_clusters::BodyRestartLatch::default(),
+                    ae::MotionModel::default(),
+                ),
+                ZonePassage { crossing: Some(crossing.clone()), ..passage(PassageKind::Door) },
+            ))
+            .id();
+        (app, body, crossing)
+    }
+
+    /// Review finding #4 (2026-10-19). The crossing is recorded and its
+    /// commit is late (the target room is still preparing): the passage gives
+    /// up and gives the body back, and the crossing is withdrawn with it, so a
+    /// later commit cannot move the body. Measured before: the passage ended
+    /// and the crossing stayed pending. Poison: do not retract at the give-up.
+    #[test]
+    fn a_passage_that_gives_up_withdraws_its_crossing() {
+        let (mut app, body, crossing) = passage_app();
+        let frames = |seconds: f32| (seconds * 60.0).ceil() as usize + 1;
+        for _ in 0..frames(ZonePassage::entering_s(PassageKind::Door)) {
+            app.update();
+        }
+        assert_eq!(
+            app.world().resource::<PendingLifecycleCommit>().peek().map(|pending| &pending.kind),
+            Some(&LifecycleIntent::Transition(crossing.clone())),
+            "premise: the going-in ended and recorded the crossing"
+        );
+        assert!(app.world().get::<ZonePassage>(body).is_some(), "premise: the passage waits for the crossing");
+
+        for _ in 0..frames(CROSSING_GIVE_UP_S) {
+            app.update();
+        }
+        assert!(app.world().get::<ZonePassage>(body).is_none(), "premise: the passage gave up");
+        assert_eq!(
+            app.world().resource::<PendingLifecycleCommit>().peek(),
+            None,
+            "the passage gave the body back and its crossing is still pending"
+        );
+    }
+
+    /// Control: the give-up withdraws only its own crossing. Another
+    /// operation that holds the slot stays.
+    #[test]
+    fn a_passage_that_gives_up_leaves_another_operation_pending() {
+        let (mut app, body, crossing) = passage_app();
+        for _ in 0..(ZonePassage::entering_s(PassageKind::Door) * 60.0).ceil() as usize + 1 {
+            app.update();
+        }
+        let other = LifecycleIntent::Transition(RoomTransitionIntent { target_room: "another room".into(), ..crossing });
+        app.world_mut().resource_mut::<PendingLifecycleCommit>().pending =
+            Some(crate::session::lifecycle_commit::PendingIntent { frame: 7, kind: other.clone() });
+        for _ in 0..(CROSSING_GIVE_UP_S * 60.0).ceil() as usize + 1 {
+            app.update();
+        }
+        assert!(app.world().get::<ZonePassage>(body).is_none(), "premise: the passage gave up");
+        assert_eq!(
+            app.world().resource::<PendingLifecycleCommit>().peek().map(|pending| &pending.kind),
+            Some(&other),
+            "the give-up withdrew an operation that was not its own"
+        );
     }
 
     /// A door opens before the body goes in, stays open while it is through,

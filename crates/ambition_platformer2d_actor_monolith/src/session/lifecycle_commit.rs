@@ -295,6 +295,16 @@ impl PendingLifecycleCommit {
         owned_by_subject
     }
 
+    /// Retract the pending intent if it is `kind`. For a producer that
+    /// withdraws its own request; a different intent is untouched.
+    pub fn retract(&mut self, kind: &LifecycleIntent) -> bool {
+        let pending = self.pending.as_ref().is_some_and(|pending| pending.kind == *kind);
+        if pending {
+            self.pending = None;
+        }
+        pending
+    }
+
     /// Retract the pending intent recorded on `frame`, whatever it is. For an
     /// operation that a peer could not prepare: it ends on each peer, on one
     /// frame of the shared timeline.

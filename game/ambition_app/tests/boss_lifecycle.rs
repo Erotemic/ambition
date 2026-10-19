@@ -944,7 +944,7 @@ fn boss_pos(world: &mut World, placement_id: &str) -> Option<bevy::prelude::Vec2
 /// the player beat an hour ago dies again on screen every time they walk in.
 #[test]
 fn a_boss_cleared_before_it_spawns_never_replays_its_death() {
-    use ambition_platformer2d::combat::components::{BossDeathAnimation, BossPhase};
+    use ambition_platformer2d::combat::components::{DeathBeat, BossPhase};
 
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
@@ -961,7 +961,7 @@ fn a_boss_cleared_before_it_spawns_never_replays_its_death() {
         let mut q = world.query::<(
             &BossConfig,
             &ambition_platformer2d::characters::actor::BodyHealth,
-            &BossDeathAnimation,
+            &DeathBeat,
             &BossPhase,
         )>();
         let Some((_, health, death, phase)) =
@@ -972,10 +972,10 @@ fn a_boss_cleared_before_it_spawns_never_replays_its_death() {
         observed += 1;
         assert!(
             !death.visible(health.alive()),
-            "frame {frame}: the pre-cleared boss is visible (alive={}, death animation \
-             {:.2}s left, phase {phase:?}) — it is dying again on screen",
+            "frame {frame}: the pre-cleared boss is visible (alive={}, dead for \
+             {:?}s, phase {phase:?}) — it is dying again on screen",
             health.alive(),
-            death.remaining_s,
+            death.since_s,
         );
     }
     assert!(observed > 0, "the pre-cleared boss was never spawned, so nothing was checked");

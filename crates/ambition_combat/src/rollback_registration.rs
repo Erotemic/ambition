@@ -216,10 +216,7 @@ where
         OWNER,
         "actor.sprite_offset",
     );
-    registrar.rollback_component_clone::<crate::components::BossDeathAnimation>(
-        OWNER,
-        "boss.death_animation",
-    );
+    registrar.rollback_component_clone::<crate::components::DeathBeat>(OWNER, "body.death_beat");
     registrar.rollback_component_clone::<crate::components::DamageableVolumes>(
         OWNER,
         "feature.damageable_volumes",

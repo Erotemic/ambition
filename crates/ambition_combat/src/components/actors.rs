@@ -712,38 +712,152 @@ impl BossPhase {
     }
 }
 
-/// Presentation lifetime for a defeated boss. `BossRuntime::alive` must flip
-/// to false immediately so combat, rewards, and progression see the kill, but
-/// the visual entity should remain visible long enough for the non-looping
-/// death row to play.
+/// The death of a body as the player sees it.
+///
+/// `BodyHealth` reaches zero on the tick of the kill, so combat, rewards and
+/// progression see the death at once. The body is still drawn while its death
+/// row plays, and after that for as long as its [`Corpse`] says. Every body
+/// that can die carries one; a boss is not a special case.
+///
+/// [`Corpse`]: ambition_characters::actor::Corpse
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct BossDeathAnimation {
-    pub remaining_s: f32,
+pub struct DeathBeat {
+    /// Seconds the body's death row plays: its sheet's `death` row, read at
+    /// spawn.
+    pub row_s: f32,
+    /// Seconds since the body died. `None` while it lives, and for a body that
+    /// was never alive since it was built (a cleared boss built dead is not
+    /// seen to die again).
+    pub since_s: Option<f32>,
+    /// The body was alive at some tick since it was built.
+    pub lived: bool,
+    /// What the body leaves after the row. Resolved on the tick it dies.
+    pub corpse: ambition_characters::actor::Corpse,
 }
 
-impl BossDeathAnimation {
-    pub const DEFAULT_DURATION_S: f32 = 1.10;
+impl DeathBeat {
+    /// The beat of a body whose sheet draws no death row: long enough to see
+    /// that it fell.
+    pub const NO_ROW_S: f32 = 0.6;
+    /// A body that vanishes holds its last frame this long after its row ...
+    pub const HOLD_S: f32 = 0.4;
+    /// ... and then blinks out over this long.
+    pub const BLINK_S: f32 = 0.45;
+    /// One on-off cycle of the blink is twice this.
+    const BLINK_STEP_S: f32 = 0.075;
 
-    pub fn start(&mut self) {
-        self.remaining_s = Self::DEFAULT_DURATION_S;
+    /// The beat of a body whose death row plays for `row_s` (`None`: it has
+    /// none).
+    pub fn with_row(row_s: Option<f32>) -> Self {
+        Self {
+            row_s: row_s.filter(|s| s.is_finite() && *s > 0.0).unwrap_or(Self::NO_ROW_S),
+            since_s: None,
+            lived: false,
+            corpse: ambition_characters::actor::Corpse::default(),
+        }
     }
 
-    pub fn clear(&mut self) {
-        self.remaining_s = 0.0;
+    /// One sim tick. `corpse` is asked only on the tick the body dies.
+    pub fn advance(&mut self, alive: bool, dt: f32, corpse: impl FnOnce() -> ambition_characters::actor::Corpse) {
+        if alive {
+            self.lived = true;
+            self.since_s = None;
+            return;
+        }
+        match self.since_s {
+            Some(since) => self.since_s = Some(since + dt.max(0.0)),
+            None if self.lived => {
+                self.since_s = Some(0.0);
+                self.corpse = corpse();
+            }
+            None => {}
+        }
     }
 
-    pub fn tick(&mut self, dt: f32) {
-        self.remaining_s = (self.remaining_s - dt.max(0.0)).max(0.0);
-    }
-
-    pub fn visible(self, alive: bool) -> bool {
-        alive || self.remaining_s > 0.0
+    /// Whether the body is drawn this tick.
+    pub fn visible(&self, alive: bool) -> bool {
+        if alive {
+            return true;
+        }
+        let Some(since) = self.since_s else {
+            return false;
+        };
+        match self.corpse {
+            ambition_characters::actor::Corpse::Stay => true,
+            ambition_characters::actor::Corpse::Vanish => {
+                let blink_from = self.row_s + Self::HOLD_S;
+                if since < blink_from {
+                    return true;
+                }
+                let into = since - blink_from;
+                into < Self::BLINK_S && ((into / Self::BLINK_STEP_S) as u32) % 2 == 0
+            }
+        }
     }
 }
 
-impl Default for BossDeathAnimation {
+impl Default for DeathBeat {
     fn default() -> Self {
-        Self { remaining_s: 0.0 }
+        Self::with_row(None)
+    }
+}
+
+#[cfg(test)]
+mod death_beat_tests {
+    use super::DeathBeat;
+    use ambition_characters::actor::Corpse;
+
+    fn died(corpse: Corpse) -> DeathBeat {
+        let mut beat = DeathBeat::with_row(Some(1.0));
+        beat.advance(true, 0.016, || unreachable!("a live body leaves no corpse"));
+        beat.advance(false, 0.016, || corpse);
+        beat
+    }
+
+    /// A kill shows its death row whatever the body leaves after it.
+    #[test]
+    fn every_body_plays_its_death_row() {
+        for corpse in [Corpse::Stay, Corpse::Vanish] {
+            let mut beat = died(corpse);
+            for _ in 0..55 {
+                assert!(beat.visible(false), "{corpse:?} body hidden during its death row");
+                beat.advance(false, 1.0 / 60.0, || unreachable!());
+            }
+        }
+    }
+
+    /// A corpse that stays is drawn long after; one that vanishes is not.
+    #[test]
+    fn a_corpse_stays_or_vanishes_as_it_is_told() {
+        let mut stays = died(Corpse::Stay);
+        let mut vanishes = died(Corpse::Vanish);
+        for _ in 0..600 {
+            stays.advance(false, 1.0 / 60.0, || unreachable!());
+            vanishes.advance(false, 1.0 / 60.0, || unreachable!());
+        }
+        assert!(stays.visible(false));
+        assert!(!vanishes.visible(false));
+    }
+
+    /// A body built dead (a cleared boss) is not seen to die again.
+    #[test]
+    fn a_body_that_never_lived_is_not_drawn_dead() {
+        let mut beat = DeathBeat::with_row(Some(1.0));
+        beat.advance(false, 0.016, || Corpse::Stay);
+        assert!(!beat.visible(false));
+    }
+
+    /// A body that comes back to life is drawn alive, and dies again in full.
+    #[test]
+    fn a_revived_body_dies_again_in_full() {
+        let mut beat = died(Corpse::Vanish);
+        for _ in 0..600 {
+            beat.advance(false, 1.0 / 60.0, || unreachable!());
+        }
+        beat.advance(true, 0.016, || unreachable!());
+        beat.advance(false, 0.016, || Corpse::Vanish);
+        assert_eq!(beat.since_s, Some(0.0));
+        assert!(beat.visible(false));
     }
 }
 

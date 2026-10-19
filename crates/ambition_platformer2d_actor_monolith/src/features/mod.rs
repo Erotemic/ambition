@@ -1066,6 +1066,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
+        // Every body's death beat, LATE in the tick: a kill in any phase
+        // before this starts its beat on the same tick, so the view rebuilt
+        // after it never hides the body for a frame before its death row.
+        app.add_systems(
+            sim,
+            ecs::death_beat::advance_death_beats
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression),
+        );
         // "This body starts again", announced to whoever authored it.
         //
         // At the FRONT of the tick on purpose. A body can be reset in almost any

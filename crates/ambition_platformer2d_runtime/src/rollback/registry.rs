@@ -71,7 +71,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `projectile.launch` (`ProjectileLaunch`, two `f32`s: base and growth)
 /// enters: a shot that carries one launches like a hitbox, growing with the
 /// victim's damage, instead of the fixed projectile nudge.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 361;
+/// 361 -> 362: `boss.death_animation` (`BossDeathAnimation`) is
+/// `body.death_beat` (`DeathBeat`), on every body that can die: the death
+/// row's length, the time since the body died, and what its corpse does.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 362;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

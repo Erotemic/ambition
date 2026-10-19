@@ -1564,7 +1564,7 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         "item.ground_item",
         "actor.animation_facts",
         "portal.placed",
-        "boss.death_animation",
+        "body.death_beat",
         "actor.render_size",
         "feature.hazard",
         "player.blink_camera_state",
@@ -1728,11 +1728,11 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
             carries: "an authored `PortalGunSpawn` 86px to the player's right",
         },
         // ⛔⛤ **A BOSS DOES NOT HAVE TO DIE, WHICH IS WHY THIS WALK IS UNDRIVEN
-        // AND WHY S7 SAID THE OPPOSITE.** `BossDeathAnimation::default()` is
-        // inserted AT SPAWN (`actor_spawn/mod.rs:1141`), so a room that places a
+        // AND WHY S7 SAID THE OPPOSITE.** A `DeathBeat` is
+        // inserted AT SPAWN on every body, so a room that places a
         // `BossSpawn` carries the row. ⚠ **AND THE CARRIER IS CONSTANT** —
         // measured `(1, 0)` at every one of the 121 observation points, driven or
-        // not, because `remaining_s` stays `0.0` until something kills the boss
+        // not, because `since_s` stays `None` until something kills the boss
         // and 120 driven steps of holding right do not. ⇒ What this compares is
         // the carrier's PRESENCE and identity across two histories, not a varying
         // float. A real boss death is still the stronger observation and still
@@ -1908,7 +1908,7 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
     const CARRIED_BY_THE_WALK: &[&str] = &[
         "actor.animation_facts",
         "actor.render_size",
-        "boss.death_animation",
+        "body.death_beat",
         "entity.transform",
         "feature.hazard",
         "item.ground_item",

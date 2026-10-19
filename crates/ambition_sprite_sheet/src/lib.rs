@@ -182,6 +182,15 @@ pub struct ColumnTile {
 }
 
 impl SheetRecord {
+    /// Seconds the row named `animation` plays once, or `None` when the sheet
+    /// does not draw it.
+    pub fn row_seconds(&self, animation: &str) -> Option<f32> {
+        self.rows
+            .iter()
+            .find(|row| row.animation == animation)
+            .map(|row| row.frame_count as f32 * row.duration_secs)
+    }
+
     /// Number of distinct page images this sheet addresses. `1` for the
     /// common single-PNG case (`images` empty) and for any sheet whose rows
     /// all reference page 0. A freely-packed sheet may carry per-frame pages

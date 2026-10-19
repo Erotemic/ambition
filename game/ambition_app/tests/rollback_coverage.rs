@@ -2022,6 +2022,15 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "WHICH fighters the character-select grid can offer in this composition.          Assembled once in `Startup` from the catalog — the demo's own four plus          every row tagged `smash` — and never written again; the only mutable          reference in the workspace is that one assembler. Composition identity,          decided before any session exists, and the MATCH reads the          `MatchParticipantRoster` this eventually produces rather than this",
     ),
     (
+        "ambition_demo_smash::select::SmashSkins",
+        "each fighter's skins the select screen can offer: the catalog rows tagged \
+         `smash_skin` that are looks of it. Assembled in `Startup` by the same \
+         `assemble_the_smash_roster` that writes `SmashRoster` one row up, and never \
+         written again. Read only by `start_the_battle_when_asked` on the select \
+         route, which has no session; the match reads each seat's `WornSkin`, \
+         which the hand-off writes, never this",
+    ),
+    (
         "ambition_demo_smash::select_screen::StartRequested",
         "whether somebody clicked START on the select screen. Written by          `drive_the_cursor` and cleared on arrival at the screen, both in `Update`          on a route that has no session; read once by the hand-off. ⚠ read to its          readers rather than waived as \"menu state\": a latch that says \"go\" is          exactly the shape that would matter if it ever survived into a match, and          the reason it cannot is that arriving at the screen resets it",
     ),

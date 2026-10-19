@@ -1126,6 +1126,23 @@ fn launch_speed(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> f32 {
     for _ in 0..30 {
         sim.step(common::base());
     }
+    // ⚠ AND THE PRESS WAITS UNTIL THE PLAYER CAN ACT. The room's hostile still
+    // reaches the player now and then, and where it is on a given frame
+    // moves with every published body size; a press inside hitstop or
+    // hitstun launches nothing and reads as a tuning that did not apply.
+    let actionable = |sim: &mut ambition_sim_harness::Platformer2dSimHarness| {
+        use ambition_platformer2d::characters::actor::BodyCombat;
+        let world = sim.world_mut();
+        let mut query = world.query_filtered::<(&BodyCombat, &BodyKinematics), PrimaryPlayerOnly>();
+        let (combat, kin) = query.single(world).expect("the primary player");
+        combat.hitstop_timer <= 0.0 && combat.hitstun_timer <= 0.0 && kin.vel.y == 0.0
+    };
+    let mut waited = 0;
+    while !actionable(sim) {
+        sim.step(common::base());
+        waited += 1;
+        assert!(waited < 180, "the player was not free to act for 180 frames");
+    }
     let resting = vertical(sim);
     sim.step(ambition_app::AgentAction { jump: true, jump_held: true, ..common::base() });
     let mut peak: f32 = 0.0;

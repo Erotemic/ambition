@@ -614,22 +614,40 @@ fn the_arrows_alone_can_work_the_whole_screen() {
     plug_in(&mut app, 1);
     app.update();
 
-    // Down from the grid must reach the cards, then their buttons.
+    // Down from the grid must reach the cards, then their buttons. The walk
+    // stops on the first button it reaches: below it is the card's portrait,
+    // which cycles the fighter's skins.
+    let position = |app: &App| {
+        app.world()
+            .resource::<SelectCursors>()
+            .seat(0)
+            .expect("seat 0")
+            .position
+    };
+    let layout = layout(&app);
+    let on_a_button = |at: Vec2| (0..MAX_SMASH_SEATS).any(|slot| layout.role_button(slot).contains(at));
     for _ in 0..12 {
+        if on_a_button(position(&app)) {
+            break;
+        }
         press(&mut app, 0, arrow("down"));
     }
-    let position = app
-        .world()
-        .resource::<SelectCursors>()
-        .seat(0)
-        .expect("seat 0")
-        .position;
-    let layout = layout(&app);
     assert!(
-        (0..MAX_SMASH_SEATS).any(|slot| layout.role_button(slot).contains(position)),
+        on_a_button(position(&app)),
         "pressing down twelve times never reached a card's button — it stopped \
-         at {position:?}"
+         at {:?}",
+        position(&app)
     );
+    // And one more step down reaches the card's portrait, where a pad picks
+    // a skin; then back up to the button.
+    press(&mut app, 0, arrow("down"));
+    assert!(
+        (0..MAX_SMASH_SEATS).any(|slot| layout.card_portrait(slot).contains(position(&app))),
+        "down from a card's button did not reach its portrait: {:?}",
+        position(&app)
+    );
+    press(&mut app, 0, arrow("up"));
+    assert!(on_a_button(position(&app)), "up from the portrait did not come back to the button");
 
     // And it can act there.
     press(&mut app, 0, confirm());

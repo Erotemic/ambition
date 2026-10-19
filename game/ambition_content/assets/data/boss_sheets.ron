@@ -539,8 +539,28 @@
                 duration_secs: 0.06,
             )),
             (Death, (
-                frame_count: 18,
+                frame_count: 28,
                 duration_secs: 0.09,
+            )),
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.12,
+            )),
+            (Rest, (
+                frame_count: 20,
+                duration_secs: 0.085,
+            )),
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.08,
+            )),
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.08,
+            )),
+            (Rest, (
+                frame_count: 20,
+                duration_secs: 0.08,
             )),
         ],
         collision_scale: 1.939,

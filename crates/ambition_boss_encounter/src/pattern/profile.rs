@@ -48,6 +48,10 @@ impl StrikeRect {
 #[serde(deny_unknown_fields)]
 pub struct BossBehaviorProfile {
     pub id: String,
+    /// The line under the boss's name when it enters its fight ("The Galvanic
+    /// Wolf"). `None` shows the name alone.
+    #[serde(default)]
+    pub title: Option<String>,
     /// Sprite-registry target. `None` uses this profile's `id`.
     #[serde(default)]
     pub sprite_target: Option<String>,

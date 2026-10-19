@@ -25,7 +25,7 @@
         ( type: "Prop", px: [1565, 642], size: [150, 190], fields: ( name: "iron_throne", kind: "castle_iron_throne" ) ),
         ( type: "Prop", px: [1762, 660], size: [56, 172], fields: ( name: "coil_throne_east", kind: "castle_tesla_coil" ) ),
         ( type: "Prop", px: [201, 620], size: [46, 62], fields: ( name: "wanted_throne", kind: "castle_wanted_poster" ) ),
-        ( type: "BossSpawn", px: [1400, 732], size: [60, 100], fields: ( name: "Wolfenstein", brain: "PhaseScript:wolfenstein_boss", encounter_id: "castle_godwin.wolfenstein" ) ),
+        ( type: "BossSpawn", px: [1598, 692], size: [84, 140], fields: ( name: "Wolfenstein", brain: "PhaseScript:wolfenstein_boss", encounter_id: "castle_godwin.wolfenstein" ) ),
         ( type: "CameraZone", px: [0, 0], size: [1920, 896], fields: ( id: "castle_godwin_throne_camera", name: "castle_godwin_throne_camera", mode: "Encounter" ) ),
         ( type: "DebugLabel", px: [70, 40], size: [900, 24], fields: ( name: "castle_godwin_throne_label", text: "Castle Godwin: the throne room of Wolfenstein.", category: "Custom" ) ),
     ],

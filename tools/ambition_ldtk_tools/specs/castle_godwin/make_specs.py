@@ -80,7 +80,8 @@ ROOMS_AT = {
 #: of a mad wolf. Its pattern is `wolfenstein_boss` (`data/boss_profiles.ron`);
 #: its placement id is its progress (`castle_godwin.wolfenstein`).
 BOSS_NAME, BOSS_BRAIN, BOSS_ENCOUNTER = "Wolfenstein", "PhaseScript:wolfenstein_boss", "castle_godwin.wolfenstein"
-BOSS_BOX = (60, 100)
+#: His body box: big (Jon, 2026-10-18), and the serum grows him again.
+BOSS_BOX = (84, 140)
 
 #: The soldier of the regime, and his box (183 cm).
 SOLDIER = "npc_fascist_enforcer"
@@ -165,6 +166,12 @@ def body_box(kind):
     if not m:
         raise SystemExit(f"{kind}: no body_pixel_bbox in its published RON; publish the sprite first")
     return tuple(int(v) for v in m.groups())
+
+
+def throne_middle(x):
+    """The middle of the iron throne's art, its frame's left at `x`."""
+    bx, _, bw, _ = body_box("castle_iron_throne")
+    return round(x + (bx + bw / 2) / PROP_PX)
 
 
 def standing(name, kind, x, floor):
@@ -427,7 +434,9 @@ def throne():
         standing("iron_throne", "castle_iron_throne", w - 360, floor),
         standing("coil_throne_east", "castle_tesla_coil", w - 160, floor),
         standing("wanted_throne", "castle_wanted_poster", 200, floor - 150),
-        (f'( type: "BossSpawn", px: [{w - 520}, {floor - bh}], size: [{bw}, {bh}], fields: ( name: "{BOSS_NAME}", '
+        # He starts on his throne, dead: his box on the floor in front of
+        # its middle; his conductor lifts him into the seat.
+        (f'( type: "BossSpawn", px: [{throne_middle(w - 360) - bw // 2}, {floor - bh}], size: [{bw}, {bh}], fields: ( name: "{BOSS_NAME}", '
          f'brain: "{BOSS_BRAIN}", encounter_id: "{BOSS_ENCOUNTER}" ) ),'),
     ]
     # A boss arena's camera frames the fight (`Encounter`), as the other arenas do.

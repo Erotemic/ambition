@@ -1519,7 +1519,10 @@
     // after it is the flatline: his charge spent, the long punish window.
     "wolfenstein_boss": (
         id: "wolfenstein_boss",
-        combat_size: Some((60.0, 100.0)),
+        title: Some("The Galvanic Wolf"),
+        // Big (Jon, 2026-10-18: "I want the boss to be scaled bigger"); the
+        // serum of his third phase grows him again (`ambition.boss.scale`).
+        combat_size: Some((84.0, 140.0)),
         // He does not drift on his own: the conductor walks him.
         movement: AnchorSway(
             x_radius: 0.0,
@@ -1868,6 +1871,12 @@
                 Strike(profile: Special("wolf_galvanize"), duration: 0.5),
                 Rest(duration: 1.6),
             ]),
+        ),
+        // The chest he leaves: the bolts out of his neck, still warm.
+        reward: DropChest(
+            pickup: Custom("galvanic_bolts"),
+            offset: (0.0, 24.0),
+            size: (54.0, 54.0),
         ),
     ),
 }

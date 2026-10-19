@@ -27,8 +27,12 @@
 //!   points along is marked, and the current goes down it. It answers a
 //!   player on a gallery or in the air.
 //!
-//! Before his first move he is dead where he stands, and the coils wake him.
-//! Between the phases lightning strikes him, he shakes, and he howls.
+//! Before his first move he sits dead on his throne while the coils charge;
+//! their lightning wakes him, he stands, and he roars. Between the phases
+//! lightning strikes him, he shakes, and he howls. At a third of his health
+//! (the encounter's enrage) he draws a syringe of serum, drives it into his
+//! neck, and the surge grows him (`ambition.boss.scale`). When he dies, the
+//! charge goes out of him: his bolts sputter, he howls once, weakly, and falls.
 //!
 //! Every volume is measured from his art (the renderer's `wolfenstein`), in
 //! the renderer's own frame pixels (its 320 px frame; the sheet publishes it
@@ -36,8 +40,8 @@
 //! about the middle of his body box, which is his position.
 
 use ambition_boss_special_port::{
-    BossConduct, BossConductPort, BossSummon, BossSummonPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort,
-    Pose,
+    BossConduct, BossConductPort, BossGuard, BossGuardPort, BossScale, BossScalePort, BossSummon, BossSummonPort,
+    ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose,
 };
 use ambition_combat_port::{
     BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort, HeldRay,
@@ -268,12 +272,15 @@ const DUST: [f32; 4] = [0.74, 0.70, 0.66, 1.0];
 const SPARK: [f32; 4] = [1.0, 0.93, 0.72, 1.0];
 const ARC: [f32; 4] = [0.66, 0.84, 1.0, 1.0];
 const RING: [f32; 4] = [0.90, 0.88, 0.80, 0.9];
+/// The serum's acid green.
+const SERUM: [f32; 4] = [0.55, 1.0, 0.35, 1.0];
 
 /// Every cue his body makes. ⛔ A cue the bank does not hold plays NOTHING
 /// and says nothing: these name cues `sfx.bank.txt` ships. His own voice is
 /// still to be auditioned; these are borrowed.
-pub const BODY: [&str; 11] = [
+pub const BODY: [&str; 12] = [
     SFX_RAKE, SFX_BITE, SFX_LUNGE, SFX_HAMMER, SFX_SHOCK, SFX_HOWL, SFX_ARC, SFX_BOLT, SFX_SPUTTER, SFX_STEP, SFX_LAND,
+    SFX_GLASS,
 ];
 const SFX_RAKE: &str = "boss.bear_mauler.swipe";
 const SFX_BITE: &str = "boss.trex.chomp";
@@ -286,6 +293,7 @@ const SFX_BOLT: &str = "vfx.generic_world.electric_burst";
 const SFX_SPUTTER: &str = "enemy.robot.death_spark";
 const SFX_STEP: &str = "player.land";
 const SFX_LAND: &str = "boss.trex.stomp";
+const SFX_GLASS: &str = "vfx.generic_world.ice_shatter";
 
 /// His moves: the `Special` keys his pattern names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -340,7 +348,7 @@ impl Move {
 
 record! {
     /// The conductor's memory, on the monster.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "wolfenstein.conductor", 2);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "wolfenstein.conductor", 3);
     /// The room, measured once.
     1 hall_known: bool,
     2 hall_floor: f32,
@@ -402,6 +410,12 @@ record! {
     38 lash_generation: u32,
     /// Coming up out of a rake: seconds into it.
     39 recover: Option<f32>,
+    /// The serum (his third phase): seconds into it, while it runs.
+    40 serum: Option<f32>,
+    /// The serum is in him: he is grown, faster, and green with it.
+    41 serumed: bool,
+    /// Dead: seconds since he died.
+    42 dead_for: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -485,6 +499,18 @@ impl Conductor {
             || self.flat.is_some()
             || self.rearing.is_some()
             || self.recover.is_some()
+            || self.serum.is_some()
+    }
+
+    /// The serum is running in him (the story beat of his third phase), for
+    /// tests and inspectors.
+    pub fn taking_the_serum(&self) -> bool {
+        self.serum.is_some()
+    }
+
+    /// The serum is in him, for tests and inspectors.
+    pub fn serumed(&self) -> bool {
+        self.serumed
     }
 }
 
@@ -515,9 +541,11 @@ pub fn module() -> ModuleDescriptor {
                 HeldDamageBoxPort::KEY,
                 HeldRayPort::KEY,
                 BodySoundPort::KEY,
+                BossGuardPort::KEY,
+                BossScalePort::KEY,
             ],
             after: Vec::new(),
-            limits: Limits { max_requests: 48 },
+            limits: Limits { max_requests: 64 },
             on_idle: IdlePolicy::Invoke,
             run: EntryCode::Native(conduct),
         }],
@@ -592,12 +620,17 @@ fn neck_arc(inv: &mut Invocation<'_>, b: Body, side: f32, hold: f32) -> Result<(
 
 /// Lightning crawling over his whole body, for `hold` seconds.
 fn aura(inv: &mut Invocation<'_>, b: Body, scale: f32, hold: f32) -> Result<(), Fault> {
+    aura_of(inv, b, scale, hold, None)
+}
+
+/// [`aura`], in `glow` (the serum's green) when given.
+fn aura_of(inv: &mut Invocation<'_>, b: Body, scale: f32, hold: f32, glow: Option<[f32; 4]>) -> Result<(), Fault> {
     inv.submit::<LightningAuraPort>(LightningAura {
         key: "aura".into(),
         center: [0.0, 0.0],
         half: (AURA_HALF * b.grown() * scale).into(),
         look: "aura".into(),
-        glow: None,
+        glow,
         hold_s: hold,
     })
 }
@@ -632,9 +665,40 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let face = |x: f32| if target.x < x { -1.0 } else { 1.0 };
     let neck = |pos: Vec2, side: f32| pos + Vec2::new(b.bolts().x * side, b.bolts().y);
 
-    // ── Dead: he settles on the floor and is drawn by the engine ──
+    // ── Dead: the charge goes out of him; he falls, drawn by the engine ──
     if !wolf.alive {
         inv.submit::<DrawnRowPort>(DrawnRow::body_as_engine())?;
+        let t = c.dead_for.map_or(0.0, |t| t + dt);
+        let was = t - dt;
+        let crossed = |at: f32| t >= at && was < at;
+        let bolt_at = neck(at, side);
+        if t < DEATH_SPUTTER_S && (t / 0.18).floor() != (was / 0.18).floor() {
+            // The bolts sputter, less each time.
+            let left = 1.0 - t / DEATH_SPUTTER_S;
+            burst(inv, bolt_at, (2.0 + 10.0 * left) as u32, 90.0 + 160.0 * left, if c.serumed { SERUM } else { ARC }, "spark")?;
+            neck_arc(inv, b, side, 0.06 + 0.1 * left)?;
+            if c.dead_for.is_none() {
+                play(inv, SFX_SPUTTER, bolt_at)?;
+            }
+        }
+        if crossed(DEATH_HOWL_AT) {
+            // A howl that breaks in the middle.
+            play(inv, SFX_HOWL, bolt_at)?;
+            burst(inv, bolt_at, 12, 160.0, RING, "spark")?;
+        }
+        if crossed(DEATH_FALL_AT) {
+            let feet = Vec2::new(at.x, hall.floor - 4.0);
+            play(inv, SFX_LAND, feet)?;
+            shake(inv, SHAKE_LANDING * 1.6)?;
+            burst(inv, feet, 40, 320.0, DUST, "dust")?;
+            burst(inv, feet + Vec2::new(side * b.len(50.0), 0.0), 24, 260.0, DUST, "dust")?;
+        }
+        if crossed(DEATH_LAST_SPARK_AT) {
+            // The last of the charge.
+            play(inv, SFX_SPUTTER, Vec2::new(at.x, hall.floor - b.len(20.0)))?;
+            burst(inv, Vec2::new(at.x + side * b.len(30.0), hall.floor - b.len(20.0)), 6, 70.0, ARC, "spark")?;
+        }
+        c.dead_for = Some(t);
         let pos = Vec2::new(at.x, stand_y);
         inv.submit::<ConductedPosePort>(ConductedPose {
             pose: Some(Pose { position: pos.into(), velocity: ((pos - at) / dt).into() }),
@@ -643,8 +707,24 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         return c.store(inv);
     }
 
+    // ── The serum: at the encounter's enrage, once ──
+    if wolf.enraged && !c.serumed && c.serum.is_none() && !wolf.between_phases {
+        c.serum = Some(0.0);
+        c.skid = None;
+        c.stuck = None;
+        c.winded = None;
+        c.flat = None;
+        c.recover = None;
+        side = face(at.x);
+        // No blow lands on him while he takes it: it is his beat.
+        inv.submit::<BossGuardPort>(BossGuard { guarded: true })?;
+        play(inv, SFX_HOWL, neck(at, side))?;
+    }
+
     // ── Which part of which move is live ──
-    let live = match (&wolf.active, &wolf.telegraph) {
+    // While he takes the serum, no move of his pattern is performed.
+    let live = if c.serum.is_some() { (None, None) } else { (wolf.active.as_ref(), wolf.telegraph.as_ref()) };
+    let live = match live {
         (Some(active), _) if Move::from_key(&active.key).is_some() => {
             Move::from_key(&active.key).map(|mv| (mv, true, active.remaining))
         }
@@ -769,6 +849,53 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         c.rearing = None;
     }
 
+    // ── The serum: he draws it, drives it in, and the surge grows him ──
+    if let Some(t) = c.serum {
+        let t = t + dt;
+        let was = t - dt;
+        let crossed = |at: f32| t >= at && was < at;
+        let bolt_at = neck(at, side);
+        if crossed(SERUM_INJECT_AT) {
+            // The needle goes in between his bolts; the glass breaks.
+            play(inv, SFX_BOLT, bolt_at)?;
+            play(inv, SFX_GLASS, bolt_at)?;
+            shake(inv, SHAKE_HOWL)?;
+            burst(inv, bolt_at, 20, 240.0, SERUM, "spark")?;
+        }
+        let surge_from = SERUM_TELL_S + SERUM_INJECT_S;
+        if t >= surge_from {
+            // The surge: green current all over him, and he grows.
+            let u = ((t - surge_from) / SERUM_SURGE_S).min(1.0);
+            inv.submit::<BossScalePort>(BossScale { scale: 1.0 + (SERUM_GROWTH - 1.0) * ease(u) })?;
+            aura_of(inv, b, 1.0 + 0.3 * u, HOLD_S, Some(SERUM))?;
+            if c.ticks % 4 == 0 {
+                burst(inv, at, 6, 220.0, SERUM, "spark")?;
+                neck_arc(inv, b, side, HOLD_S)?;
+            }
+            if (t / 0.4).floor() != (was / 0.4).floor() {
+                shake(inv, SHAKE_HOWL)?;
+            }
+        } else if t >= SERUM_INJECT_AT && c.ticks % 3 == 0 {
+            burst(inv, bolt_at, 3, 120.0, SERUM, "spark")?;
+        }
+        if crossed(surge_from + SERUM_SURGE_S * 0.75) {
+            // The howl to the sky, and the lightning answers.
+            play(inv, SFX_HOWL, bolt_at)?;
+            lightning(inv, at.x, ceiling, bolt_at)?;
+            shake(inv, SHAKE_HAMMER * 1.4)?;
+            burst(inv, bolt_at, 36, 380.0, SERUM, "spark")?;
+            burst(inv, bolt_at, 24, 300.0, RING, "spark")?;
+        }
+        if t >= surge_from + SERUM_SURGE_S {
+            inv.submit::<BossScalePort>(BossScale { scale: SERUM_GROWTH })?;
+            inv.submit::<BossGuardPort>(BossGuard { guarded: false })?;
+            c.serum = None;
+            c.serumed = true;
+        } else {
+            c.serum = Some(t);
+        }
+    }
+
     // ── Where he goes ──
     let mut walking = false;
     let pos = match part {
@@ -807,13 +934,16 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             let x = clamp_x(c.lunge_to + side * b.len(SKID) * ease_out(t / SKID_S));
             Vec2::new(x, stand_y)
         }
-        None if c.holding_still() || !c.woke => Vec2::new(at.x, stand_y),
+        // On his throne, until he stands out of it.
+        None if !c.woke => Vec2::new(at.x, stand_y - b.len(SEAT_LIFT) * (1.0 - stood(c.clock))),
+        None if c.holding_still() => Vec2::new(at.x, stand_y),
         None => {
             // Between moves he turns to you and lurches into raking range.
             side = face(at.x);
             let goal = clamp_x(target.x - side * b.len(STANDOFF));
             let to = goal - at.x;
-            let speed = b.len(if c.unleashed { WALK_SPEED_UNLEASHED } else { WALK_SPEED });
+            let speed = b.len(if c.unleashed { WALK_SPEED_UNLEASHED } else { WALK_SPEED })
+                * if c.serumed { SERUM_SPEED } else { 1.0 };
             let stride = speed * dt;
             if to.abs() > stride {
                 walking = true;
@@ -1053,18 +1183,62 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             neck_arc(inv, b, side, 0.08)?;
         }
     }
-    if !c.woke && c.ticks % 5 == 0 {
-        // Dead where he stands: the charge creeps into his bolts.
-        burst(inv, neck(pos, side), 2, 80.0, ARC, "spark")?;
-        if c.ticks % 40 == 0 {
-            neck_arc(inv, b, side, 0.1)?;
+    if !c.woke {
+        // On his throne: the coils at his sides charge, faster and faster,
+        // then strike his bolts twice; he stands, and he roars.
+        let t = c.clock;
+        let was = t - dt;
+        let crossed = |at: f32| t >= at && was < at;
+        let bolt_at = neck(pos, side);
+        let coils = [
+            Vec2::new(pos.x - b.len(COIL_SPREAD), hall.floor - b.len(COIL_HIGH)),
+            Vec2::new(pos.x + b.len(COIL_SPREAD), hall.floor - b.len(COIL_HIGH)),
+        ];
+        if t < INTRO_DEAD_S {
+            // The charge creeps up: an arc from a coil now and then, then
+            // more often.
+            let every = 0.6 - 0.45 * (t / INTRO_DEAD_S);
+            if (t / every).floor() != (was / every).floor() && t > 0.3 {
+                let coil = coils[(t / every) as usize % 2];
+                bolt(inv, "coil", Spot::World(coil.into()), Spot::World((coil + Vec2::new(0.0, -b.len(30.0))).into()), "spark_gap", 0.12)?;
+                burst(inv, coil, 4, 100.0, ARC, "spark")?;
+                play(inv, SFX_ARC, coil)?;
+            }
+            if c.ticks % 6 == 0 {
+                burst(inv, bolt_at, 2, 70.0, ARC, "spark")?;
+            }
+        }
+        for (k, jolt) in [INTRO_DEAD_S, INTRO_DEAD_S + INTRO_SECOND_JOLT].into_iter().enumerate() {
+            if crossed(jolt) {
+                // Both coils strike his bolts.
+                for (i, coil) in coils.into_iter().enumerate() {
+                    let key = format!("coil_strike_{k}_{i}");
+                    bolt(inv, &key, Spot::World(coil.into()), Spot::World(bolt_at.into()), "strike", 0.3)?;
+                }
+                play(inv, SFX_BOLT, bolt_at)?;
+                shake(inv, SHAKE_BOLT)?;
+                burst(inv, bolt_at, 24, 300.0, ARC, "spark")?;
+            }
+        }
+        if (INTRO_DEAD_S..INTRO_DEAD_S + INTRO_WAKE_S).contains(&t) {
+            aura(inv, b, 0.9, HOLD_S)?;
+        }
+        if crossed(INTRO_DEAD_S + INTRO_WAKE_S) {
+            // On his feet: the roar.
+            play(inv, SFX_HOWL, bolt_at)?;
+            shake(inv, SHAKE_HOWL * 1.6)?;
+            burst(inv, bolt_at, 30, 340.0, RING, "spark")?;
+            let feet = Vec2::new(pos.x, hall.floor - 4.0);
+            play(inv, SFX_LAND, feet)?;
+            burst(inv, feet, 20, 240.0, DUST, "dust")?;
         }
     }
     let charging = matches!(part, Some(Part { mv: Move::Galvanize, striking: false, .. }));
-    if c.unleashed && !charging && c.rearing.is_none() {
-        // Unleashed, the current never leaves him (a charge or the
-        // transition asks for its own).
-        aura(inv, b, 1.0, HOLD_S)?;
+    if (c.unleashed || c.serumed) && !charging && c.rearing.is_none() && c.serum.is_none() {
+        // Unleashed, the current never leaves him (a charge, the transition
+        // and the serum ask for their own); with the serum in him it is
+        // green.
+        aura_of(inv, b, 1.0, HOLD_S, c.serumed.then_some(SERUM))?;
     }
 
     // ── His body hurts to touch while a move is live ──
@@ -1117,14 +1291,25 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
         }
         return span("howl", 0.0, 12.0, 0.07, (t - REAR_SHAKE_S) / 0.84);
     }
+    if let Some(t) = c.serum {
+        return if t < SERUM_TELL_S {
+            span("serum_tell", 0.0, 10.0, 0.08, t / SERUM_TELL_S)
+        } else if t < SERUM_TELL_S + SERUM_INJECT_S {
+            span("serum_inject", 0.0, 10.0, 0.08, (t - SERUM_TELL_S) / SERUM_INJECT_S)
+        } else {
+            span("serum_surge", 0.0, 20.0, 0.08, (t - SERUM_TELL_S - SERUM_INJECT_S) / SERUM_SURGE_S)
+        };
+    }
     if !c.woke {
-        // Dead where he stands, until the coils wake him: the jolt, and he
-        // stands up into himself.
+        // Dead on his throne, until the coils wake him; he stands, and he
+        // roars.
         let t = c.clock;
         return if t < INTRO_DEAD_S {
-            at("flatline", 0.0, 0.11)
+            ("throne_dead", t, true)
         } else if t < INTRO_DEAD_S + INTRO_WAKE_S {
-            span("awaken", 0.0, 14.0, 0.07, (t - INTRO_DEAD_S) / INTRO_WAKE_S)
+            span("throne_wake", 0.0, 20.0, 0.085, (t - INTRO_DEAD_S) / INTRO_WAKE_S)
+        } else if t < INTRO_DEAD_S + INTRO_WAKE_S + 0.84 {
+            span("howl", 0.0, 12.0, 0.07, (t - INTRO_DEAD_S - INTRO_WAKE_S) / 0.84)
         } else {
             ("idle", t, true)
         };
@@ -1196,11 +1381,49 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
     }
 }
 
-/// Before his first move, he is dead this long, then the coils jolt him and
-/// he stands up into himself (`awaken`). The boss wakes when his room does,
-/// so the two fill his encounter's `intro_seconds` (2.2).
-const INTRO_DEAD_S: f32 = 1.1;
-const INTRO_WAKE_S: f32 = 0.98;
+/// Before his first move, he sits dead on his throne this long while the
+/// coils charge (`throne_dead`), then the coils strike him twice and he
+/// stands out of it (`throne_wake`, 20 frames of 85 ms), then he roars
+/// (`howl`). The boss wakes when his room does, so these fill his
+/// encounter's `intro_seconds` (4.6).
+const INTRO_DEAD_S: f32 = 2.3;
+const INTRO_WAKE_S: f32 = 1.7;
+const INTRO_SECOND_JOLT: f32 = 0.6;
+/// How far he rises out of the seat at the end of the wake: from this part
+/// of it on, he stands up.
+const INTRO_STAND_FROM: f32 = 0.55;
+/// Seated, all of him is lifted this far over the floor: the throne's
+/// cushion (84 over its base) less the underside of his seat in his art (18
+/// over his feet line), at his 140-unit build (authored body).
+const SEAT_LIFT: f32 = 47.0;
+/// The coils beside the throne: their tops, from him (authored body).
+const COIL_SPREAD: f32 = 120.0;
+const COIL_HIGH: f32 = 130.0;
+
+/// How far he has stood up out of his throne, `clock` seconds after his room
+/// woke him: 0 seated, 1 standing.
+fn stood(clock: f32) -> f32 {
+    let from = INTRO_DEAD_S + INTRO_WAKE_S * INTRO_STAND_FROM;
+    ease(((clock - from) / (INTRO_WAKE_S * (1.0 - INTRO_STAND_FROM))).clamp(0.0, 1.0))
+}
+
+/// The serum: he draws the syringe (`serum_tell`), drives it in
+/// (`serum_inject`; the needle goes in this far into it), and the surge
+/// (`serum_surge`) grows him to `SERUM_GROWTH` times his build.
+const SERUM_TELL_S: f32 = 0.8;
+const SERUM_INJECT_S: f32 = 0.8;
+const SERUM_INJECT_AT: f32 = SERUM_TELL_S + 0.35;
+const SERUM_SURGE_S: f32 = 1.6;
+const SERUM_GROWTH: f32 = 1.3;
+/// With the serum in him he walks this much faster.
+const SERUM_SPEED: f32 = 1.25;
+
+/// His death (`death`, 28 frames of 90 ms): the bolts sputter for this long;
+/// he howls, weakly; he falls on his face; the last spark.
+const DEATH_SPUTTER_S: f32 = 1.3;
+const DEATH_HOWL_AT: f32 = 0.9;
+const DEATH_FALL_AT: f32 = 1.75;
+const DEATH_LAST_SPARK_AT: f32 = 2.4;
 
 #[cfg(test)]
 mod tests {

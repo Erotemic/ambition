@@ -88,7 +88,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// The same version also covers 6c6cb479d, which landed at 365 with no bump:
 /// `actor.control`'s fire request and `MovePlayback`'s aim each carry the
 /// point a brain aimed at (`ActorFireRequest::at`: a `bool`, then a `Vec2`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 366;
+/// 366 -> 367: guards (`ambition_combat::guard`). `body.guard_state`
+/// (`GuardState`, clone, checksummed: run, since_deflect_s, deflects,
+/// broken_s) and `message.deflected_body_hit` enter, and `GuardVolumes` is
+/// declared derived; `actor.brain`'s `MeleeBrute` cursor (wire tag 6) adds its
+/// counter: the deflects it has seen (`u32`) and when it answers (`bool`,
+/// `f32`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 367;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

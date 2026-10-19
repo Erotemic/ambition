@@ -28,6 +28,22 @@
         ],
         seen_flag: Some("boss_intro_gradient_sentinel_seen"),
     ),
+    // Wolfenstein's intro, requested when his encounter wakes: it holds you
+    // while he wakes, roars and leaps back (his conductor stages it), the
+    // first time; then you have the floor.
+    (
+        id: "boss_intro_wolfenstein_boss",
+        beats: [
+            Wait(
+                seconds: 7.0,
+            ),
+            SetFlag(
+                id: "boss_intro_wolfenstein_boss_seen",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("boss_intro_wolfenstein_boss_seen"),
+    ),
     // The cutscene proof room's: cutscene_lab's `entry_cutscene`.
     (
         id: "cutscene_lab_intro",

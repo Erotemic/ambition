@@ -27,8 +27,14 @@
 //!   points along is marked, and the current goes down it. It answers a
 //!   player on a gallery or in the air.
 //!
-//! Before his first move he sits dead on his throne while the coils charge;
-//! their lightning wakes him, he stands, and he roars. Between the phases
+//! His room is dark, and he sits dead on his throne, his eyes faintly lit,
+//! the coils at his sides crackling, until you come near enough to see him
+//! (his encounter's `wake_radius`). Then his intro: a beat of dark; the
+//! coils fire and their flash shows him on the throne; dark; more lightning;
+//! dark; the lights flicker on, the coils strike his bolts and he rises out
+//! of the throne; he roars in the lightning under his name card
+//! (`ambition.boss.stage`); and he leaps back from you, to give you room
+//! before the fight. Between the phases
 //! lightning strikes him, he shakes, and he howls. At a third of his health
 //! (the encounter's enrage) he draws a syringe of serum, drives it into his
 //! neck, and the surge grows him (`ambition.boss.scale`). When he dies, the
@@ -40,8 +46,8 @@
 //! about the middle of his body box, which is his position.
 
 use ambition_boss_special_port::{
-    BossConduct, BossConductPort, BossGuard, BossGuardPort, BossScale, BossScalePort, BossSummon, BossSummonPort,
-    ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose,
+    BossConduct, BossConductPort, BossGuard, BossGuardPort, BossScale, BossScalePort, BossStage, BossStagePort,
+    BossSummon, BossSummonPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose,
 };
 use ambition_combat_port::{
     BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort, HeldRay,
@@ -348,7 +354,7 @@ impl Move {
 
 record! {
     /// The conductor's memory, on the monster.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "wolfenstein.conductor", 3);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "wolfenstein.conductor", 4);
     /// The room, measured once.
     1 hall_known: bool,
     2 hall_floor: f32,
@@ -395,7 +401,7 @@ record! {
     /// Seconds until his body can hurt again.
     30 trunk_rearm: f32,
     31 stride: f32,
-    /// His first move has started: the coils have woken him.
+    /// His intro is over (or his first move has started): he fights.
     32 woke: bool,
     /// He has been through a transition: the leash is broken.
     33 unleashed: bool,
@@ -416,6 +422,12 @@ record! {
     41 serumed: bool,
     /// Dead: seconds since he died.
     42 dead_for: Option<f32>,
+    /// His intro: seconds since his encounter woke (a player came near his
+    /// throne). `None` while he sleeps.
+    43 intro: Option<f32>,
+    /// The leap back off his throne: where it starts and where it lands.
+    44 leap_from: f32,
+    45 leap_to: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -543,6 +555,7 @@ pub fn module() -> ModuleDescriptor {
                 BodySoundPort::KEY,
                 BossGuardPort::KEY,
                 BossScalePort::KEY,
+                BossStagePort::KEY,
             ],
             after: Vec::new(),
             limits: Limits { max_requests: 64 },
@@ -705,6 +718,21 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             side: Some(side),
         })?;
         return c.store(inv);
+    }
+
+    // ── Asleep on his throne, then his intro ──
+    // It ends when its time is up, or when his pattern starts a move.
+    if !c.woke {
+        if wolf.awake {
+            c.intro = Some(c.intro.map_or(0.0, |t| t + dt));
+        }
+        if c.intro.is_some_and(|t| t >= INTRO_S) || wolf.telegraph.is_some() || wolf.active.is_some() {
+            c.woke = true;
+            inv.submit::<BossStagePort>(BossStage::default())?;
+        } else {
+            intro(inv, &mut c, &wolf, b, hall, dt)?;
+            return c.store(inv);
+        }
     }
 
     // ── The serum: at the encounter's enrage, once ──
@@ -934,8 +962,6 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             let x = clamp_x(c.lunge_to + side * b.len(SKID) * ease_out(t / SKID_S));
             Vec2::new(x, stand_y)
         }
-        // On his throne, until he stands out of it.
-        None if !c.woke => Vec2::new(at.x, stand_y - b.len(SEAT_LIFT) * (1.0 - stood(c.clock))),
         None if c.holding_still() => Vec2::new(at.x, stand_y),
         None => {
             // Between moves he turns to you and lurches into raking range.
@@ -1183,56 +1209,6 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             neck_arc(inv, b, side, 0.08)?;
         }
     }
-    if !c.woke {
-        // On his throne: the coils at his sides charge, faster and faster,
-        // then strike his bolts twice; he stands, and he roars.
-        let t = c.clock;
-        let was = t - dt;
-        let crossed = |at: f32| t >= at && was < at;
-        let bolt_at = neck(pos, side);
-        let coils = [
-            Vec2::new(pos.x - b.len(COIL_SPREAD), hall.floor - b.len(COIL_HIGH)),
-            Vec2::new(pos.x + b.len(COIL_SPREAD), hall.floor - b.len(COIL_HIGH)),
-        ];
-        if t < INTRO_DEAD_S {
-            // The charge creeps up: an arc from a coil now and then, then
-            // more often.
-            let every = 0.6 - 0.45 * (t / INTRO_DEAD_S);
-            if (t / every).floor() != (was / every).floor() && t > 0.3 {
-                let coil = coils[(t / every) as usize % 2];
-                bolt(inv, "coil", Spot::World(coil.into()), Spot::World((coil + Vec2::new(0.0, -b.len(30.0))).into()), "spark_gap", 0.12)?;
-                burst(inv, coil, 4, 100.0, ARC, "spark")?;
-                play(inv, SFX_ARC, coil)?;
-            }
-            if c.ticks % 6 == 0 {
-                burst(inv, bolt_at, 2, 70.0, ARC, "spark")?;
-            }
-        }
-        for (k, jolt) in [INTRO_DEAD_S, INTRO_DEAD_S + INTRO_SECOND_JOLT].into_iter().enumerate() {
-            if crossed(jolt) {
-                // Both coils strike his bolts.
-                for (i, coil) in coils.into_iter().enumerate() {
-                    let key = format!("coil_strike_{k}_{i}");
-                    bolt(inv, &key, Spot::World(coil.into()), Spot::World(bolt_at.into()), "strike", 0.3)?;
-                }
-                play(inv, SFX_BOLT, bolt_at)?;
-                shake(inv, SHAKE_BOLT)?;
-                burst(inv, bolt_at, 24, 300.0, ARC, "spark")?;
-            }
-        }
-        if (INTRO_DEAD_S..INTRO_DEAD_S + INTRO_WAKE_S).contains(&t) {
-            aura(inv, b, 0.9, HOLD_S)?;
-        }
-        if crossed(INTRO_DEAD_S + INTRO_WAKE_S) {
-            // On his feet: the roar.
-            play(inv, SFX_HOWL, bolt_at)?;
-            shake(inv, SHAKE_HOWL * 1.6)?;
-            burst(inv, bolt_at, 30, 340.0, RING, "spark")?;
-            let feet = Vec2::new(pos.x, hall.floor - 4.0);
-            play(inv, SFX_LAND, feet)?;
-            burst(inv, feet, 20, 240.0, DUST, "dust")?;
-        }
-    }
     let charging = matches!(part, Some(Part { mv: Move::Galvanize, striking: false, .. }));
     if (c.unleashed || c.serumed) && !charging && c.rearing.is_none() && c.serum.is_none() {
         // Unleashed, the current never leaves him (a charge, the transition
@@ -1298,20 +1274,6 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
             span("serum_inject", 0.0, 10.0, 0.08, (t - SERUM_TELL_S) / SERUM_INJECT_S)
         } else {
             span("serum_surge", 0.0, 20.0, 0.08, (t - SERUM_TELL_S - SERUM_INJECT_S) / SERUM_SURGE_S)
-        };
-    }
-    if !c.woke {
-        // Dead on his throne, until the coils wake him; he stands, and he
-        // roars.
-        let t = c.clock;
-        return if t < INTRO_DEAD_S {
-            ("throne_dead", t, true)
-        } else if t < INTRO_DEAD_S + INTRO_WAKE_S {
-            span("throne_wake", 0.0, 20.0, 0.085, (t - INTRO_DEAD_S) / INTRO_WAKE_S)
-        } else if t < INTRO_DEAD_S + INTRO_WAKE_S + 0.84 {
-            span("howl", 0.0, 12.0, 0.07, (t - INTRO_DEAD_S - INTRO_WAKE_S) / 0.84)
-        } else {
-            ("idle", t, true)
         };
     }
     let u = |p: Part| p.t / p.dur;
@@ -1381,30 +1343,302 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
     }
 }
 
-/// Before his first move, he sits dead on his throne this long while the
-/// coils charge (`throne_dead`), then the coils strike him twice and he
-/// stands out of it (`throne_wake`, 20 frames of 85 ms), then he roars
-/// (`howl`). The boss wakes when his room does, so these fill his
-/// encounter's `intro_seconds` (4.6).
-const INTRO_DEAD_S: f32 = 2.3;
-const INTRO_WAKE_S: f32 = 1.7;
-const INTRO_SECOND_JOLT: f32 = 0.6;
-/// How far he rises out of the seat at the end of the wake: from this part
-/// of it on, he stands up.
-const INTRO_STAND_FROM: f32 = 0.55;
+/// His intro runs on the clock of `Conductor::intro`, from the tick his
+/// encounter wakes. It is as long as his encounter's `intro_seconds` and as
+/// his music's `awaken` (16 beats at 116 BPM), so the march starts with the
+/// fight.
+const INTRO_S: f32 = 8.28;
+/// The coils fire: when, and how bright. The first flash shows him on his
+/// throne; dark; then more of them.
+const FLASHES: [(f32, f32); 5] = [(0.9, 1.0), (2.3, 0.7), (2.55, 0.55), (2.95, 1.0), (3.2, 0.75)];
+/// A flash fades with this time constant.
+const FLASH_FADE_S: f32 = 0.16;
+/// From here the coils charge, faster and faster, until they strike him.
+const CHARGE_FROM: f32 = 3.4;
+/// The lights flicker on over this long.
+const LIGHTS_FROM: f32 = 3.9;
+const LIGHTS_S: f32 = 1.5;
+/// The coils strike his bolts twice; from the first he rises out of the
+/// throne (`throne_wake`, 20 frames of 85 ms).
+const JOLTS: [f32; 2] = [4.1, 4.6];
+const WAKE_S: f32 = 1.7;
+/// From this part of the wake on, he stands up.
+const STAND_FROM: f32 = 0.55;
+/// He roars (`howl`, 12 frames of 70 ms) in the lightning.
+const ROAR_AT: f32 = JOLTS[0] + WAKE_S;
+const ROAR_S: f32 = 0.84;
+/// His name card comes in with the roar, holds, and goes.
+const CARD_IN: f32 = ROAR_AT + 0.05;
+const CARD_IN_S: f32 = 0.35;
+const CARD_OUT: f32 = 7.5;
+const CARD_OUT_S: f32 = 0.5;
+/// He leaps back from you, this far and this high (authored body): up
+/// (`jump`), down (`fall`); the landing (`land_hard`) skids him a little
+/// further.
+const LEAP_AT: f32 = 6.8;
+const LEAP_S: f32 = 0.75;
+const LEAP_BACK: f32 = 170.0;
+const LEAP_HIGH: f32 = 55.0;
+const LAND_S: f32 = 0.56;
+const LAND_SKID: f32 = 14.0;
+/// Asleep, a coil crackles this often.
+const DORMANT_ARC_S: f32 = 1.4;
+/// His eyes on his throne, from his position (authored body, art facing
+/// right), and their glow in the dark.
+const EYES: Vec2 = Vec2::new(8.0, -40.0);
+const EYE_GLOW: [f32; 4] = [1.0, 0.42, 0.22, 0.7];
 /// Seated, all of him is lifted this far over the floor: the throne's
 /// cushion (84 over its base) less the underside of his seat in his art (18
 /// over his feet line), at his 140-unit build (authored body).
 const SEAT_LIFT: f32 = 47.0;
-/// The coils beside the throne: their tops, from him (authored body).
-const COIL_SPREAD: f32 = 120.0;
-const COIL_HIGH: f32 = 130.0;
+/// The coils beside the throne: their tops, from him (authored body). The
+/// throne room puts their middles 150 world units either side of his, their
+/// tops 172 over the floor, at his 140-unit build
+/// (`specs/castle_godwin/make_specs.py`, `COIL_*_X`).
+const COIL_SPREAD: f32 = 107.0;
+const COIL_HIGH: f32 = 123.0;
 
-/// How far he has stood up out of his throne, `clock` seconds after his room
-/// woke him: 0 seated, 1 standing.
-fn stood(clock: f32) -> f32 {
-    let from = INTRO_DEAD_S + INTRO_WAKE_S * INTRO_STAND_FROM;
-    ease(((clock - from) / (INTRO_WAKE_S * (1.0 - INTRO_STAND_FROM))).clamp(0.0, 1.0))
+/// How far he has stood up out of his throne, `t` seconds into his intro: 0
+/// seated, 1 standing.
+fn stood(t: f32) -> f32 {
+    let from = JOLTS[0] + WAKE_S * STAND_FROM;
+    ease(((t - from) / (WAKE_S * (1.0 - STAND_FROM))).clamp(0.0, 1.0))
+}
+
+/// The tops of the coils either side of the throne at `x`.
+fn coils_of(b: Body, x: f32, floor: f32) -> [Vec2; 2] {
+    [
+        Vec2::new(x - b.len(COIL_SPREAD), floor - b.len(COIL_HIGH)),
+        Vec2::new(x + b.len(COIL_SPREAD), floor - b.len(COIL_HIGH)),
+    ]
+}
+
+/// What he stages around him `t` seconds into his intro (`None` asleep):
+/// the dark, the flashes of the coils, the lights flickering on, his card.
+pub fn stage_at(t: Option<f32>) -> BossStage {
+    let Some(t) = t else {
+        return BossStage { lit: 0.0, flash: 0.0, card: 0.0 };
+    };
+    let flash = FLASHES
+        .iter()
+        .filter(|(at, _)| t >= *at)
+        .map(|(at, bright)| bright * (-(t - at) / FLASH_FADE_S).exp())
+        .fold(0.0, f32::max);
+    let lamps = if t < LIGHTS_FROM {
+        0.0
+    } else {
+        let u = (t - LIGHTS_FROM) / LIGHTS_S;
+        if u >= 1.0 {
+            1.0
+        } else if catches(t, u) {
+            0.35 + 0.65 * ease(u)
+        } else {
+            0.08 * u
+        }
+    };
+    let card = if t < CARD_IN {
+        0.0
+    } else if t < CARD_IN + CARD_IN_S {
+        ease((t - CARD_IN) / CARD_IN_S)
+    } else if t < CARD_OUT {
+        1.0
+    } else {
+        1.0 - ease((t - CARD_OUT) / CARD_OUT_S)
+    };
+    // A flash lights the room, too.
+    BossStage { lit: lamps.max(flash * 0.6), flash, card }
+}
+
+/// The lamps catch and fail as they come on, catching more often as they
+/// warm (`u`, 0 to 1): a hash of each twentieth of a second.
+fn catches(t: f32, u: f32) -> bool {
+    let mut k = (t * 20.0) as u32 ^ 0x9E37_79B9;
+    k ^= k << 13;
+    k ^= k >> 17;
+    k ^= k << 5;
+    (k % 1000) as f32 / 1000.0 < 0.2 + 0.8 * u
+}
+
+/// Frames `from..to` of a row across `u` (0-1) of a beat, `fd` seconds a
+/// frame.
+fn row_span(name: &'static str, from: f32, to: f32, fd: f32, u: f32) -> (&'static str, f32, bool) {
+    (name, (from + u.clamp(0.0, 0.999) * (to - from)) * fd, false)
+}
+
+/// Asleep on his throne, and then his intro (the module docs): where he is,
+/// what he is drawn as, the coils, the lightning and the stage.
+fn intro(inv: &mut Invocation<'_>, c: &mut Conductor, wolf: &BossConduct, b: Body, hall: Hall, dt: f32) -> Result<(), Fault> {
+    let at = Vec2::from(wolf.position);
+    let stand_y = hall.floor - b.feet_below();
+    let ceiling = hall.floor - CEILING;
+    let mut side = wolf.side;
+    let neck = |pos: Vec2, side: f32| pos + Vec2::new(b.bolts().x * side, b.bolts().y);
+    let eyes = |pos: Vec2, side: f32| pos + Vec2::new(EYES.x * side, EYES.y) * b.grown();
+    inv.submit::<BossStagePort>(stage_at(c.intro))?;
+
+    let Some(t) = c.intro else {
+        // Asleep: a coil crackles now and then, and his eyes are lit.
+        let coils = coils_of(b, at.x, hall.floor);
+        let was = c.clock - dt;
+        if (c.clock / DORMANT_ARC_S).floor() != (was / DORMANT_ARC_S).floor() {
+            let coil = coils[(c.clock / DORMANT_ARC_S) as usize % 2];
+            let up = coil + Vec2::new(0.0, -b.len(22.0));
+            bolt(inv, "coil", Spot::World(coil.into()), Spot::World(up.into()), "spark_gap", 0.08)?;
+            burst(inv, coil, 3, 70.0, ARC, "spark")?;
+        }
+        let pos = Vec2::new(at.x, stand_y - b.len(SEAT_LIFT));
+        if c.ticks % 10 == 0 {
+            burst(inv, eyes(pos, side), 1, 4.0, EYE_GLOW, "spark")?;
+        }
+        return held_at(inv, at, pos, side, ("throne_dead", c.clock, true), dt);
+    };
+
+    let was = t - dt;
+    let crossed = |mark: f32| t >= mark && was < mark;
+    let target = wolf.target.map(Vec2::from);
+    let face = |x: f32| match target {
+        Some(target) if target.x < x => -1.0,
+        Some(_) => 1.0,
+        None => wolf.side,
+    };
+    if was < 0.0 {
+        // Woken: he is turned to whoever woke him.
+        side = face(at.x);
+    }
+    let throne_x = if t < LEAP_AT { at.x } else { c.leap_from };
+    let coils = coils_of(b, throne_x, hall.floor);
+    let bolt_at = neck(at, side);
+
+    // The coils fire: across the throne, then at the ceiling.
+    for (k, (mark, bright)) in FLASHES.into_iter().enumerate() {
+        if !crossed(mark) {
+            continue;
+        }
+        let from = coils[k % 2];
+        let to = if k == 0 || k == 3 { coils[1 - k % 2] } else { Vec2::new(from.x, ceiling + 2.0) };
+        let key = format!("intro_flash_{k}");
+        bolt(inv, &key, Spot::World(from.into()), Spot::World(to.into()), "strike", 0.12 + 0.1 * bright)?;
+        burst(inv, from, 4 + (10.0 * bright) as u32, 240.0, ARC, "spark")?;
+        if bright > 0.8 {
+            play(inv, SFX_BOLT, from)?;
+            shake(inv, SHAKE_BOLT * 0.6)?;
+        } else {
+            play(inv, SFX_ARC, from)?;
+        }
+    }
+    if t < CHARGE_FROM && (t / 0.4).floor() != (was / 0.4).floor() {
+        // Between the flashes, the coils crackle.
+        burst(inv, coils[(t / 0.4) as usize % 2], 3, 90.0, ARC, "spark")?;
+    }
+    if (CHARGE_FROM..JOLTS[0]).contains(&t) {
+        // The charge creeps up: an arc from a coil, then more often.
+        let every = 0.45 - 0.33 * ((t - CHARGE_FROM) / (JOLTS[0] - CHARGE_FROM));
+        if (t / every).floor() != (was / every).floor() {
+            let coil = coils[(t / every) as usize % 2];
+            let up = coil + Vec2::new(0.0, -b.len(30.0));
+            bolt(inv, "coil", Spot::World(coil.into()), Spot::World(up.into()), "spark_gap", 0.12)?;
+            burst(inv, coil, 4, 100.0, ARC, "spark")?;
+            play(inv, SFX_ARC, coil)?;
+        }
+        if c.ticks % 6 == 0 {
+            burst(inv, bolt_at, 2, 70.0, ARC, "spark")?;
+        }
+    }
+    for (k, jolt) in JOLTS.into_iter().enumerate() {
+        if crossed(jolt) {
+            // Both coils strike his bolts.
+            for (i, coil) in coils.into_iter().enumerate() {
+                let key = format!("coil_strike_{k}_{i}");
+                bolt(inv, &key, Spot::World(coil.into()), Spot::World(bolt_at.into()), "strike", 0.3)?;
+            }
+            play(inv, SFX_BOLT, bolt_at)?;
+            shake(inv, SHAKE_BOLT)?;
+            burst(inv, bolt_at, 24, 300.0, ARC, "spark")?;
+        }
+    }
+    if (JOLTS[0]..ROAR_AT).contains(&t) {
+        aura(inv, b, 0.9, HOLD_S)?;
+    }
+    if crossed(ROAR_AT) {
+        // On his feet: the lightning finds him, and he roars.
+        play(inv, SFX_BOLT, bolt_at)?;
+        play(inv, SFX_HOWL, bolt_at)?;
+        lightning(inv, at.x, ceiling, bolt_at)?;
+        shake(inv, SHAKE_HOWL * 1.6)?;
+        burst(inv, bolt_at, 30, 340.0, RING, "spark")?;
+        let feet = Vec2::new(at.x, hall.floor - 4.0);
+        play(inv, SFX_LAND, feet)?;
+        burst(inv, feet, 20, 240.0, DUST, "dust")?;
+    }
+    if (ROAR_AT..ROAR_AT + ROAR_S).contains(&t) {
+        aura(inv, b, 1.15, HOLD_S)?;
+        if c.ticks % 4 == 0 {
+            neck_arc(inv, b, side, HOLD_S)?;
+            burst(inv, bolt_at, 4, 200.0, ARC, "spark")?;
+        }
+    }
+    let lo = hall.left + b.body_half() + WALL_GAP;
+    let hi = hall.right - b.body_half() - WALL_GAP;
+    if crossed(LEAP_AT) {
+        // Back, away from you: room to set yourself before the fight.
+        side = face(at.x);
+        c.leap_from = at.x;
+        c.leap_to = (at.x - side * b.len(LEAP_BACK)).clamp(lo, hi);
+        play(inv, SFX_LUNGE, at)?;
+        burst(inv, Vec2::new(at.x, hall.floor - 4.0), 14, 200.0, DUST, "dust")?;
+    }
+    let landed = LEAP_AT + LEAP_S;
+    if crossed(landed) {
+        let feet = Vec2::new(c.leap_to, hall.floor - 4.0);
+        play(inv, SFX_LAND, feet)?;
+        shake(inv, SHAKE_LANDING)?;
+        burst(inv, feet, 30, 300.0, DUST, "dust")?;
+    }
+    let away = if c.leap_to >= c.leap_from { 1.0 } else { -1.0 };
+    if t >= LEAP_AT {
+        // He faces you, back from you.
+        side = -away;
+    }
+    let skid = |u: f32| (c.leap_to + away * b.len(LAND_SKID) * ease_out(u)).clamp(lo, hi);
+
+    let (pos, row) = if t < LEAP_AT {
+        let pos = Vec2::new(at.x, stand_y - b.len(SEAT_LIFT) * (1.0 - stood(t)));
+        let row = if t < JOLTS[0] {
+            ("throne_dead", t, true)
+        } else if t < ROAR_AT {
+            row_span("throne_wake", 0.0, 20.0, 0.085, (t - JOLTS[0]) / WAKE_S)
+        } else if t < ROAR_AT + ROAR_S {
+            row_span("howl", 0.0, 12.0, 0.07, (t - ROAR_AT) / ROAR_S)
+        } else {
+            ("idle", t, true)
+        };
+        (pos, row)
+    } else if t < landed {
+        let k = (t - LEAP_AT) / LEAP_S;
+        let x = c.leap_from + (c.leap_to - c.leap_from) * k;
+        let pos = Vec2::new(x, stand_y - b.len(LEAP_HIGH) * 4.0 * k * (1.0 - k));
+        let row = if k < 0.5 { row_span("jump", 0.0, 6.0, 0.1, k / 0.5) } else { row_span("fall", 0.0, 6.0, 0.1, (k - 0.5) / 0.5) };
+        (pos, row)
+    } else if t < landed + LAND_S {
+        let u = (t - landed) / LAND_S;
+        (Vec2::new(skid(u), stand_y), row_span("land_hard", 0.0, 8.0, 0.07, u))
+    } else {
+        (Vec2::new(skid(1.0), stand_y), ("idle", t, true))
+    };
+    if t < LIGHTS_FROM + 0.5 && c.ticks % 10 == 0 {
+        // His eyes, in the dark.
+        burst(inv, eyes(pos, side), 1, 4.0, EYE_GLOW, "spark")?;
+    }
+    held_at(inv, at, pos, side, row, dt)
+}
+
+/// Put him at `pos`, facing `side`, drawn with `row`.
+fn held_at(inv: &mut Invocation<'_>, at: Vec2, pos: Vec2, side: f32, row: (&'static str, f32, bool), dt: f32) -> Result<(), Fault> {
+    inv.submit::<ConductedPosePort>(ConductedPose {
+        pose: Some(Pose { position: pos.into(), velocity: ((pos - at) / dt).into() }),
+        side: Some(side),
+    })?;
+    inv.submit::<DrawnRowPort>(DrawnRow::body(row.0, row.1, row.2))
 }
 
 /// The serum: he draws the syringe (`serum_tell`), drives it in

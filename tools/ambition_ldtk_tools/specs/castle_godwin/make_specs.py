@@ -416,31 +416,44 @@ def great_hall():
     return rid, castle(rid, e, "Castle Godwin: the great hall.")
 
 
+#: The throne room's music while he sleeps: the regime's dread.
+THRONE_MUSIC = "oppressive_crush"
+
+#: The throne stands near the door you come in by (Jon, 2026-10-18): the
+#: left of its frame, and the coils at its sides.
+THRONE_X = 560
+COIL_WEST_X, COIL_EAST_X = 460, 760
+
+
 def throne():
-    """The throne room: Wolfenstein's arena. A flat floor to fight on, two
-    low galleries to jump to over his sweeps, and his throne at the east end
-    (scenery of the room's look: the banners and braziers)."""
+    """The throne room: Wolfenstein's arena. His throne and its two coils
+    stand near the door you come in by: the room is dark, and his intro
+    starts when you come near enough to see him on it. He leaps back from
+    the throne into the room, where the fight is: a flat floor, two low
+    galleries to jump to over his sweeps, and a high one."""
     rid = THRONE
     _, w, h = ROOMS_AT[rid]
     floor, e = shell(rid)
     bw, bh = BOSS_BOX
     e += [
         door(f"{rid}_west", "back to the great hall", 64, floor, GREAT_HALL, f"{GREAT_HALL}_east"),
-        ledge("gallery_west", 416, floor - 160, 256),
-        ledge("gallery_east", w - 672, floor - 160, 256),
-        ledge("high_gallery", w // 2 - 160, floor - 320, 320),
+        ledge("gallery_west", 960, floor - 160, 256),
+        ledge("gallery_east", w - 480, floor - 160, 256),
+        ledge("high_gallery", 1240, floor - 320, 320),
         # The throne under the wolf's head, coils at its sides.
-        standing("coil_throne_west", "castle_tesla_coil", w - 470, floor),
-        standing("iron_throne", "castle_iron_throne", w - 360, floor),
-        standing("coil_throne_east", "castle_tesla_coil", w - 160, floor),
-        standing("wanted_throne", "castle_wanted_poster", 200, floor - 150),
+        standing("coil_throne_west", "castle_tesla_coil", COIL_WEST_X, floor),
+        standing("iron_throne", "castle_iron_throne", THRONE_X, floor),
+        standing("coil_throne_east", "castle_tesla_coil", COIL_EAST_X, floor),
+        standing("wanted_throne", "castle_wanted_poster", w - 300, floor - 150),
         # He starts on his throne, dead: his box on the floor in front of
         # its middle; his conductor lifts him into the seat.
-        (f'( type: "BossSpawn", px: [{throne_middle(w - 360) - bw // 2}, {floor - bh}], size: [{bw}, {bh}], fields: ( name: "{BOSS_NAME}", '
+        (f'( type: "BossSpawn", px: [{throne_middle(THRONE_X) - bw // 2}, {floor - bh}], size: [{bw}, {bh}], fields: ( name: "{BOSS_NAME}", '
          f'brain: "{BOSS_BRAIN}", encounter_id: "{BOSS_ENCOUNTER}" ) ),'),
     ]
     # A boss arena's camera frames the fight (`Encounter`), as the other arenas do.
-    text = castle(rid, e, "Castle Godwin: the throne room of Wolfenstein.", theme="castle_godwin_throne")
+    # His room's music is ominous while he sleeps; his own cue takes over when
+    # he wakes (`music_cues.ron`, `galvanic_march`).
+    text = room(rid, e, "Castle Godwin: the throne room of Wolfenstein.", "castle_godwin_throne", THRONE_MUSIC, CASTLE_BG)
     return rid, text.replace(f'id: "{rid}_camera", name: "{rid}_camera", mode: "Default"', f'id: "{rid}_camera", name: "{rid}_camera", mode: "Encounter"')
 
 

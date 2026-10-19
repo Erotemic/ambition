@@ -3,7 +3,13 @@
 // boss crate's test catalog, so the two cannot disagree.
 (
     sprite_filenames: {
-        "gradient_sentinel": "boss_spritesheet.png",
+        // The three sentinels (Jon, 2026-10-18: "each can be used to make some of
+        // the non unique bosses unique-ish"): the Gradient Sentinel is the sheet a
+        // boss without art of its own wears, the Warden and Mode Collapse each
+        // wear one of the other two.
+        "gradient_sentinel": "gradient_sentinel_boss_spritesheet.png",
+        "clockwork_warden": "clockwork_warden_boss_spritesheet.png",
+        "mode_collapse_boss": "hooded_sentinel_boss_spritesheet.png",
         "mockingbird": "mockingbird_boss_v2_spritesheet.png",
         "smirking_behemoth_boss": "smirking_behemoth_boss_spritesheet.png",
         "giant_gnu": "gnu_ton_boss/giant_gnu_spritesheet.png",

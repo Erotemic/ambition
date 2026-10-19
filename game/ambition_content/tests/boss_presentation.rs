@@ -19,8 +19,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-/// The eight boss sheets Ambition ships, and the file each one draws from.
-const EXPECTED_SHEETS: [(&str, &str); 9] = [
+/// The boss sheets Ambition ships, and the file each one draws from.
+const EXPECTED_SHEETS: [(&str, &str); 11] = [
     (
         "flying_spaghetti_monster_boss",
         "flying_spaghetti_monster_boss_spritesheet.png",
@@ -32,9 +32,11 @@ const EXPECTED_SHEETS: [(&str, &str); 9] = [
         // duel, from the rig he shares with the fighter `npc_gnu_ton`.
         "gnu_ton_scholar_boss_spritesheet.png",
     ),
-    ("gradient_sentinel", "boss_spritesheet.png"),
+    ("clockwork_warden", "clockwork_warden_boss_spritesheet.png"),
+    ("gradient_sentinel", "gradient_sentinel_boss_spritesheet.png"),
     ("hunny_horror_boss", "hunny_horror_boss_spritesheet.png"),
     ("mockingbird", "mockingbird_boss_v2_spritesheet.png"),
+    ("mode_collapse_boss", "hooded_sentinel_boss_spritesheet.png"),
     (
         "smirking_behemoth_boss",
         "smirking_behemoth_boss_spritesheet.png",

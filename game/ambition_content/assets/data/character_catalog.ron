@@ -2462,7 +2462,7 @@
         ),
         "npc_boss": (
             display_name: "Boss",
-            manifest: "sprites/boss_spritesheet.ron",
+            manifest: "sprites/gradient_sentinel_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
             // Its MEASURED height under the ONE spawn box every level places it

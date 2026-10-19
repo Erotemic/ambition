@@ -151,10 +151,94 @@
         body_centered: true,
         authored_faces_left: false,
     ),
+    // The three sentinel bosses share one skeleton and these seven rows; each
+    // sheet crops its frame to its own drawing (`gradient_sentinel_boss`,
+    // `clockwork_warden_boss`, `hooded_sentinel_boss`). Each publishes its body
+    // box, so it is drawn by the boss placement law.
     "gradient_sentinel": (
         label_width: 100,
-        frame_width: 128,
-        frame_height: 128,
+        frame_width: 255,
+        frame_height: 272,
+        rows: [
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.12,
+            )),
+            (FloorSlam, (
+                frame_count: 7,
+                duration_secs: 0.082,
+            )),
+            (SideSweep, (
+                frame_count: 7,
+                duration_secs: 0.072,
+            )),
+            (SpikeHalo, (
+                frame_count: 8,
+                duration_secs: 0.092,
+            )),
+            (DashEcho, (
+                frame_count: 7,
+                duration_secs: 0.062,
+            )),
+            (Hit, (
+                frame_count: 5,
+                duration_secs: 0.09,
+            )),
+            (Death, (
+                frame_count: 8,
+                duration_secs: 0.11,
+            )),
+        ],
+        collision_scale: 1.6,
+        feet_anchor_y: -0.336,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+    ),
+    "clockwork_warden": (
+        label_width: 100,
+        frame_width: 236,
+        frame_height: 253,
+        rows: [
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.12,
+            )),
+            (FloorSlam, (
+                frame_count: 7,
+                duration_secs: 0.082,
+            )),
+            (SideSweep, (
+                frame_count: 7,
+                duration_secs: 0.072,
+            )),
+            (SpikeHalo, (
+                frame_count: 8,
+                duration_secs: 0.092,
+            )),
+            (DashEcho, (
+                frame_count: 7,
+                duration_secs: 0.062,
+            )),
+            (Hit, (
+                frame_count: 5,
+                duration_secs: 0.09,
+            )),
+            (Death, (
+                frame_count: 8,
+                duration_secs: 0.11,
+            )),
+        ],
+        collision_scale: 1.6,
+        feet_anchor_y: -0.336,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+    ),
+    "mode_collapse_boss": (
+        label_width: 100,
+        frame_width: 243,
+        frame_height: 257,
         rows: [
             (Rest, (
                 frame_count: 8,

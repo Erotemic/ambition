@@ -167,7 +167,9 @@ fn show(app: &mut App, what: &str) {
             card_name_text(
                 catalog.as_ref(),
                 &fighters,
-                card.occupant.participates().then_some(card.pick).flatten()
+                card.occupant.participates().then_some(card.pick).flatten(),
+                // The walkthrough dresses nobody.
+                None,
             ),
             held
         );

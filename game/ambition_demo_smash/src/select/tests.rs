@@ -30,6 +30,7 @@ fn a_fighter_that_authors_its_own_moves_is_not_handed_the_stage_kit() {
     let roster = select
         .roster_seeded(
             &fighters,
+            &Default::default(),
             7,
             UNIFIED,
             &repertoires,
@@ -452,7 +453,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     assert!(select.slot(0).pick.is_some_and(SlotPick::is_random));
 
     let roster = select
-        .roster_seeded(&fighters, 12_345, UNIFIED, &Default::default(), None, crate::starting_stocks())
+        .roster_seeded(&fighters, &Default::default(), 12_345, UNIFIED, &Default::default(), None, crate::starting_stocks())
         .expect("two decided seats are a match");
     assert_eq!(roster.participants.len(), 2);
     for participant in &roster.participants {
@@ -468,7 +469,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
 
     // Seeded, not ambient (ADR 0023): the same seed draws the same match.
     let again = select
-        .roster_seeded(&fighters, 12_345, UNIFIED, &Default::default(), None, crate::starting_stocks())
+        .roster_seeded(&fighters, &Default::default(), 12_345, UNIFIED, &Default::default(), None, crate::starting_stocks())
         .expect("the same screen is still a match");
     assert_eq!(
         again.participants[0].character, roster.participants[0].character,
@@ -478,7 +479,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     // A different seed may differ. Requiring it to differ would assert that
     // no hash collision happens on a small grid.
     let other = select
-        .roster_seeded(&fighters, 99, UNIFIED, &Default::default(), None, crate::starting_stocks())
+        .roster_seeded(&fighters, &Default::default(), 99, UNIFIED, &Default::default(), None, crate::starting_stocks())
         .expect("the same screen is still a match");
     assert_eq!(other.participants.len(), 2);
 }

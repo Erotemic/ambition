@@ -954,6 +954,44 @@
         ),
         hall_dialogue_id: Some("hall_goblin"),
         ),
+        // A LOOK of the goblin (Jon, 2026-10-18: "Keep all 3 variants of goblins
+        // ... They can be different skins for smash"): the fantasy raider: olive skin, a leather tunic, a hooked nose. Its own sheet
+        // on the goblin's skeleton and moves; `smash_skin` lets Smash offer it.
+        "goblin_raider": (
+            sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
+            display_name: "Goblin (Raider)",
+            manifest: "sprites/goblin_raider_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_action_set: "striker_swipe",
+            attack_vfx: Some("goblin_strike_fx"),
+            locomotion: Some((run_speed: 170.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.70, amount: 1)),
+            named_autonomous_profile: Some("medium_striker"),
+            max_health: Some(5),
+            tags: ["enemy", "base", "smash_skin"],
+            form_of: Some("goblin"),
+        ),
+        // A LOOK of the goblin (Jon, 2026-10-18: "Keep all 3 variants of goblins
+        // ... They can be different skins for smash"): the squat cave goblin: grey-green, a pot belly, a hide loincloth. Its own sheet
+        // on the goblin's skeleton and moves; `smash_skin` lets Smash offer it.
+        "goblin_squat": (
+            sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
+            display_name: "Goblin (Squat)",
+            manifest: "sprites/goblin_squat_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_action_set: "striker_swipe",
+            attack_vfx: Some("goblin_strike_fx"),
+            locomotion: Some((run_speed: 170.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.70, amount: 1)),
+            named_autonomous_profile: Some("medium_striker"),
+            max_health: Some(5),
+            tags: ["enemy", "base", "smash_skin"],
+            form_of: Some("goblin"),
+        ),
         "sandbag": (
             sprite_tuning: Some((collision_scale: 1.38, frame_sample_inset: 1)),
             display_name: "Sandbag",
@@ -1082,6 +1120,12 @@
             manifest: "sprites/goblin_brute_hammer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // Bigger than a goblin (Jon, 2026-10-18: "the size of the goblin heavy
+            // should be larger than the normal goblin, currently they are the
+            // same size"). His drawing is 1.32x the goblin's; standing heights
+            // compare idle silhouettes, and his idle stands 1.24x the goblin's
+            // (the goblin's ears are tall, the heavy hunches): 48 x 1.24.
+            standing_height: Some(59.7),
             composition: None,
             default_action_set: "brute_hammer",
             // THE BODY of a separate creature, not an alias for a named goblin. Its
@@ -1110,12 +1154,44 @@
         ),
         hall_dialogue_id: Some("hall_npc_goblin_brute"),
         ),
+        // The other goblin heavy (Jon, 2026-10-18: "keep all of these"): a
+        // bare-knuckle bruiser with a stone club, the brute's body and kit.
+        "npc_goblin_bruiser": (
+            sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
+            display_name: "Goblin Bruiser",
+            manifest: "sprites/goblin_bruiser_club_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // His idle stands 1.18x the goblin's: 48 x 1.18.
+            standing_height: Some(56.8),
+            composition: None,
+            default_action_set: "brute_hammer",
+            locomotion: Some((run_speed: 75.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.85, amount: 1)),
+            autonomous_profile: Some((
+                template: Smash,
+                aggro_radius: 240.0,
+                attack_range: 44.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(8),
+            tags: ["enemy", "goblin", "heavy"],
+        barks: (
+            on_hit: ["Hrrk!", "Bruiser felt that. A little.", "Do it again. Bruiser dares."],
+            provoked: ["Bruiser's turn!"],
+            hall: ["Club is a rock on a stick. Bruiser improved the stick.", "Brute has hammer. Bruiser has hands. And rock."],
+        ),
+        ),
         "npc_goblin_cantina_chieftain": (
             sprite_tuning: Some((collision_scale: 1.16, frame_sample_inset: 1)),
             display_name: "Fretjaw, Cantina Chieftain",
             manifest: "sprites/goblin_cantina_chieftain_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // His drawing is 1.08x the goblin's (the cantina host, Jon 2026-10-18);
+            // his idle stands 0.98x the goblin's tall-eared one: 48 x 0.976.
+            standing_height: Some(46.8),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -1126,6 +1202,26 @@
             hall: ["Fretjaw's stew has a secret ingredient. The secret is you don't ask.", "House rule: the house wins. Fretjaw is the house."],
         ),
         hall_dialogue_id: Some("hall_npc_goblin_cantina_chieftain"),
+        ),
+        // A bard of Fretjaw's band (Jon, 2026-10-18: "the bard variant can be a
+        // different goblin variant"): a plumed hat, a lute on his back.
+        "npc_goblin_cantina_bard": (
+            sprite_tuning: Some((collision_scale: 1.16, frame_sample_inset: 1)),
+            display_name: "Cantina Bard",
+            manifest: "sprites/goblin_cantina_bard_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // His idle (the plume up) stands 1.11x the goblin's: 48 x 1.11.
+            standing_height: Some(53.3),
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["hub"],
+        barks: (
+            on_hit: ["Off-key! You made me go off-key!", "That's not how you request a song."],
+            provoked: ["Bar fight! I know a song for this."],
+            hall: ["Fretjaw pays in stew. I play in the key of stew.", "Every verse is about the house. The house always wins the verse."],
+        ),
         ),
         "npc_pulse_voyager_captain": (
             sprite_tuning: Some((collision_scale: 1.2, frame_sample_inset: 1)),

@@ -154,6 +154,12 @@ fn realize_seat(
     if let Some(resources) = resources {
         commands.entity(body).insert(resources);
     }
+    // A seat wearing a skin draws that look's sheet, and nothing else of it.
+    if let Some(skin) = seat.skin.as_ref() {
+        commands
+            .entity(body)
+            .insert(ambition_characters::actor::WornSkin(skin.clone()));
+    }
     // THE DRAWN QUAD, STATED. Before the grant below, which reads what a
     // posed body displaces. A seat stated none until 2026-10-05, so the
     // simulation did not hold the scale its art is drawn at: a landmark of its

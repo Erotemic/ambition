@@ -17,7 +17,7 @@ use bevy::input::touch::Touches;
 use bevy::prelude::*;
 
 use crate::select::{
-    SlotOccupant, SlotPick, SmashRoster, SmashSelect, MAX_SELECT_SOURCES, MAX_SMASH_SEATS,
+    SlotOccupant, SlotPick, SmashRoster, SmashSelect, SmashSkins, MAX_SELECT_SOURCES, MAX_SMASH_SEATS,
 };
 use cursor::{CursorTarget, HitRect, SelectCursors};
 use layout::SelectLayout;
@@ -39,6 +39,8 @@ pub enum SelectTarget {
     Portrait(usize),
     /// The button that cycles one card between controller / CPU / absent.
     RoleButton(usize),
+    /// The fighter on a card: clicking it shows the fighter's next skin.
+    CardPortrait(usize),
     /// The stage cycle beside START — a match decision, not a per-seat one.
     Stage,
     /// The stocks cycle, left of the stage: also a match decision.
@@ -278,14 +280,18 @@ pub fn card_name_text(
     catalog: Option<&CharacterCatalog>,
     fighters: &SmashRoster,
     pick: Option<SlotPick>,
+    // The look the card's fighter wears, when it is a skin.
+    skin: Option<&str>,
 ) -> String {
     match pick {
         // "RANDOM", not a fighter's name: the draw has not happened. A slot on
         // random is decided, so `ready()` counts it.
         Some(SlotPick::Random) => crate::text::line("select.random"),
-        Some(SlotPick::Fighter(index)) => match fighters.get(index) {
-            Some(id) => display_name(catalog, id),
-            None => "— no fighter —".to_string(),
+        Some(SlotPick::Fighter(index)) => match (fighters.get(index), skin) {
+            // A skin's row names itself ("Goblin (Raider)").
+            (Some(_), Some(skin)) => display_name(catalog, skin),
+            (Some(id), None) => display_name(catalog, id),
+            (None, _) => "— no fighter —".to_string(),
         },
         None => "— no fighter —".to_string(),
     }
@@ -802,7 +808,7 @@ pub fn spawn_select_screen(
                     .with_children(|row| {
                         row.spawn((
                             CardName(slot),
-                            Text::new(card_name_text(catalog, &fighters, None)),
+                            Text::new(card_name_text(catalog, &fighters, None, None)),
                             text_font(13.0),
                             TextColor(select_look().dim_ink()),
                             TextLayout::justify(Justify::Center),
@@ -936,6 +942,8 @@ pub(crate) fn drive_the_cursor(
     mut start: ResMut<StartRequested>,
     mut leave: ResMut<LeaveRequested>,
     fighters: Res<SmashRoster>,
+    // How many looks each fighter has, for a card's portrait click.
+    skins: Res<SmashSkins>,
     mut page: ResMut<SelectPage>,
     // The stage the START below plays on. Outside `SmashSelect`, like the
     // cursor: no seat decided it.
@@ -1380,6 +1388,14 @@ pub(crate) fn drive_the_cursor(
                 (None, None, Some(SelectTarget::RoleButton(slot))) => {
                     select.cycle_role(slot, seat, &connected_sources);
                 }
+                // Any seat may dress a card's fighter, as for roles.
+                (None, None, Some(SelectTarget::CardPortrait(slot))) => {
+                    let looks = match select.slot(slot).pick {
+                        Some(SlotPick::Fighter(index)) => fighters.get(index).map_or(0, |id| skins.count(id)),
+                        _ => 0,
+                    };
+                    select.cycle_skin(slot, looks);
+                }
                 // Any seat may cycle the stage, as for roles; the match is not
                 // player one's.
                 (None, None, Some(SelectTarget::Stage)) => {
@@ -1519,10 +1535,19 @@ pub fn sync_select_grid(
     }
 }
 
+/// The skin a card's fighter wears, when it wears one.
+fn card_skin<'a>(fighters: &SmashRoster, skins: &'a SmashSkins, card: crate::select::SlotCard) -> Option<&'a str> {
+    match card.pick {
+        Some(SlotPick::Fighter(index)) => skins.look(fighters.get(index)?, card.skin),
+        _ => None,
+    }
+}
+
 /// Project participant-slot state onto the four bottom cards.
 pub fn sync_select_cards(
     select: Res<SmashSelect>,
     fighters: Res<SmashRoster>,
+    skins: Res<SmashSkins>,
     art: ScreenArt,
     devices: Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
     assignment: Option<Res<ambition_platformer2d::input::LocalSeatOffer>>,
@@ -1597,7 +1622,7 @@ pub fn sync_select_cards(
     for (name, mut text, mut color) in &mut card_names {
         let card = select.slot(name.0);
         let shown = card.occupant.participates().then_some(card.pick).flatten();
-        let next = card_name_text(catalog, &fighters, shown);
+        let next = card_name_text(catalog, &fighters, shown, card_skin(&fighters, &skins, card));
         if text.0 != next {
             text.0 = next;
         }
@@ -1615,7 +1640,9 @@ pub fn sync_select_cards(
             .then_some(card.pick)
             .flatten()
             .and_then(|pick| match pick {
-                SlotPick::Fighter(index) => fighters.get(index).and_then(|id| art.portrait(id)),
+                SlotPick::Fighter(index) => fighters
+                    .get(index)
+                    .and_then(|id| art.portrait(card_skin(&fighters, &skins, card).unwrap_or(id))),
                 SlotPick::Random => random_icon(&art).map(|handle| (handle, None)),
             });
         match shown {

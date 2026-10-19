@@ -43,7 +43,7 @@ pub use limb::{fan_out_limb_intents, Limb, LimbBondStart, LimbIntents, LimbRig, 
 pub mod intrinsics;
 pub use intrinsics::{CharacterHands, CharacterLocomotion, CharacterMount, ContactDamage, MountBack};
 pub mod worn;
-pub use worn::{RecharacterizeBody, StrikesAs, WornCharacter};
+pub use worn::{RecharacterizeBody, StrikesAs, WornCharacter, WornSkin};
 
 use ambition_entity_catalog::placements::DamageTeam;
 

@@ -18,6 +18,9 @@ where
         .rollback_component_canonical::<crate::actor::WornCharacter>(OWNER, "actor.worn_character");
     registrar
         .rollback_component_clone::<crate::equipment::WornEquipment>(OWNER, "actor.worn_equipment");
+    // Art only, but it is spawned with a match seat, so a rewind that rebuilt
+    // the seat without it would draw the wrong skin.
+    registrar.rollback_component_clone::<crate::actor::WornSkin>(OWNER, "actor.worn_skin");
     // ⛔⛤ A ONE-SHOT REQUEST THAT DELIBERATELY CROSSES A FRAME BOUNDARY, so its
     // presence IS simulation state. Mary-O inserts it in `FeatureInteraction`;
     // `apply_worn_character_gameplay` consumes it in `PlayerInputSet::Persona`,

@@ -157,6 +157,10 @@ pub struct PreparedSeat {
     /// `grant_prepared_character_body`, the one place a prepared definition
     /// becomes a body.
     pub effective_movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
+    /// The look this seat is drawn in, when it wears one (see
+    /// [`MatchParticipant::skin`]): a registered row that is a look of
+    /// [`Self::character_id`]. Art only.
+    pub skin: Option<ambition_entity_catalog::CharacterId>,
 }
 
 /// What every fighter in this match plays under.
@@ -597,6 +601,15 @@ pub fn prepare_match(
             ));
             continue;
         };
+        // A skin is drawn from its own prepared row, so it must be registered.
+        if let Some(skin) = participant.skin.as_ref() {
+            if registry.get(skin.as_str()).is_none() {
+                seat_problem(format!(
+                    "wears skin `{skin}`, which this composition has not REGISTERED"
+                ));
+                continue;
+            }
+        }
 
         // The dense channel for this seat, taken from the plan in seat order
         // and checked against it, so nobody sits on another person's
@@ -781,6 +794,7 @@ pub fn prepare_match(
             // See `MatchParticipant::body`.
             effective_movement_tuning: rules.body_over(rules.seat_body(participant, definition), built_body),
             moveset: worn.moveset,
+            skin: participant.skin.clone(),
         });
     }
 

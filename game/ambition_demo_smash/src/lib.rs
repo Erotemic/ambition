@@ -1794,6 +1794,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // The roster is a composition fact, resolved at `Startup`, once every
         // provider has declared itself.
         app.init_resource::<select::SmashRoster>();
+        app.init_resource::<select::SmashSkins>();
         app.add_systems(bevy::prelude::Startup, assemble_the_smash_roster);
         // Portrait sheet manifests, so a face is one frame. Without them,
         // multi-frame sheets (`alice`, `oiler`) draw as a strip.
@@ -2039,11 +2040,20 @@ fn assemble_the_smash_roster(
     // Optional: with no characters registered, the grid is empty.
     registry: ambition_platformer2d::characters::prepared::SessionCast,
     mut fighters: bevy::prelude::ResMut<select::SmashRoster>,
+    // Each fighter's skins: the catalog says which rows are looks of it.
+    catalog: Option<bevy::prelude::Res<ambition_platformer2d::character::CharacterCatalog>>,
+    mut skins: bevy::prelude::ResMut<select::SmashSkins>,
 ) {
     let Some(registry) = registry.get() else {
         return;
     };
     let assembled = select::SmashRoster::assemble(registry);
+    if let Some(catalog) = catalog.as_deref() {
+        let looks = select::SmashSkins::assemble(&assembled, catalog, registry);
+        if *skins != looks {
+            *skins = looks;
+        }
+    }
     if *fighters != assembled {
         *fighters = assembled;
     }
@@ -2217,6 +2227,7 @@ fn start_the_battle_when_asked(
     select: bevy::prelude::Res<select::SmashSelect>,
     asked: bevy::prelude::Res<select_screen::StartRequested>,
     fighters: bevy::prelude::Res<select::SmashRoster>,
+    skins: bevy::prelude::Res<select::SmashSkins>,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
     // The seat policy decides whether source index zero is the keyboard or a
@@ -2254,6 +2265,7 @@ fn start_the_battle_when_asked(
 
     let Some(decided) = select.roster_seeded(
         &fighters,
+        &skins,
         seed,
         assignment.policy(),
         // Ids whose character authors its own move timelines. Only this side
@@ -2693,6 +2705,8 @@ pub fn agreed_match_seed(select: &select::SmashSelect) -> u64 {
             Some(select::SlotPick::Random) => 12,
             Some(select::SlotPick::Fighter(i)) => 13 ^ ((i as u64) << 8),
         });
+        // The look is agreed too: both peers must draw the same skin.
+        mix(card.skin as u64);
     }
     digest
 }

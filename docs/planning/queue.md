@@ -2370,19 +2370,22 @@ was poisoned alone, and only its own test failed.
   reaches 5.8 and 6.7 body widths (`attack_side` right edge 518 in a 256 px
   frame, 137 px in the world for a 48 px body); `alice` `air_forward` 2.25
   and past its frame; every other sheet is at or under about one body width.
-  The cause for the robots: `robot_side.rs` `attack_hitboxes` sizes its cones
-  by the CANVAS (`w * 1.34`), and the canvas is 256 px while the body is
-  drawn at the 128 px scale. `player_robot_v3` found the same fault and
-  authors at 128 px and translates (`_translated_legacy_hitboxes`); the
-  robot family was not changed. With the honest reach, the duel robot pokes
-  from 150 px and the PCA never gets in (`duel_arena`: PCA melee 0, and its
-  shield never rises in the abilities test).
-  Next, in order: (1) author the robot family's (and Alice's air forward)
-  hit polygons at the body's scale, not the canvas's, and republish those
-  targets; (2) `git revert` the revert to re-apply both commits; (3) change
+  Why the robots reach so far: `robot_side.rs` `attack_hitboxes` makes its
+  forward cone `w * 1.34` long, and the family draws its body at
+  `S = w / 128`, so the cone scales with the body: 5.9 body widths at every
+  frame size. That is how the family's laser-sword arc is authored, and the
+  strike box is the drawn slash (§7.2), so the robot has hit from 137 px all
+  along. (A first reading, pushed in 34f048eb6, called it a canvas-scale
+  fault; the frame code says otherwise.) With the honest reach, the duel
+  robot pokes from 150 px and the PCA never gets in (`duel_arena`: PCA melee
+  0, and its shield never rises in the abilities test).
+  So the re-apply waits on a balance decision, not a bug (Q168): either the robot
+  family's slash is shortened (an art change, then a republish), or the PCA
+  brain learns to approach a longer reach, or the duel's pins change. To
+  re-apply: `git revert` 34f048eb6; change
   `a_smash_enemy_swings_from_the_reach_of_its_own_move` to the connect gap
-  (the brute presses at 63.3 px = 48.4 reach + its target's half width);
-  (4) run the duel and the full lane.
+  (the brute presses at 63.3 px = 48.4 reach + its target's half width); run
+  the duel and the full lane.
 
 ### CPU-LADDER — the brain owns the knobs, Smash owns the ladder
 

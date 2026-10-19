@@ -1230,9 +1230,13 @@ Still open, both found by this bisect:
   ignored). Not done: the volley locks a direction at its telegraph, not a
   point, and the Smash template fires level.
 - The PCA brain stops 46 to 48 px from the player and swings
-  `generation_wipe` and `corruption_seed`, whose boxes reach about 28 px, so
-  its melee never connects there. Why the brain stops at 48 px is not
-  measured.
+  `generation_wipe` and `corruption_seed`, and they never connect. Measured
+  2026-10-18 (probe of the live `Hitbox`es): the brain faces the player, and
+  the RON rect of `generation_wipe` (offset 40, half 32 × 24) would cover
+  the player, but the spawned box is the art polygon of the PCA's manifest
+  (a hexagon to 31 px forward), because a vfx-tagged volume takes the
+  authored hit polygon (§7.1). The brain's reach reads the RON rect. The
+  fix is built and held: see REACH-VIEW, "two geometries for one move".
 
 **Sanic's visible job, 2026-10-17 (RED, inherited):** `cargo test -p
 ambition_demo_sanic_app --features capture,input,perf_probe,visible`: 59
@@ -2342,6 +2346,46 @@ was poisoned alone, and only its own test failed.
 - `MoveFrameData::reach` is the reach of the volumes in the body frame. It
   does not include the motion of the move (a dash attack moves the body), so a
   running Smash enemy reads 40 px for a dash attack that travels farther.
+- ⛔ **Two geometries for one move (found 2026-10-18).** A vfx-tagged volume
+  spawns as the hit polygon the character's sheet manifest authors for the
+  move's clip (`trigger_moveset_moves`, `authored_volumes.resolve`, §7.1:
+  the box drawn in `debug-hitboxes` is the damage box). `MoveFrameData::reach`,
+  and so every brain read of reach, is derived from the RON volume, which
+  then only sets the timing. Measured on the PCA: `generation_wipe` reads
+  72 px (offset 40 + half 32) and strikes with a hexagon to 31 px, so it is
+  thrown from 48 px and misses. The fix belongs to one owner: the reach a
+  brain reads must come from the same resolution the strike uses. The art
+  polygon depends on the body's size and drawn quad, so it is known only
+  where the character's art is (preparation or the snapshot builder), not in
+  the catalog's `frame_data()`.
+  **Built and HELD (2026-10-19).** 7d6d06725 makes the brains read the drawn
+  box (`AuthoredAttackVolumeResolver::strike_volume` as the one road for the
+  strike spawn and the reach view, `MoveSpec::frame_data_with`, the
+  `StrikeVolumes` param, `attack_kit_on`, `melee_reach_on`,
+  `attack_reach_on`), and 1661f4a4c adds the target's half width to the band
+  (`BrainSnapshot::melee_connect_gap`). Each has a witness red under its
+  poison. Both are reverted in the next commit, because the honest reach
+  exposed bad art the strikes already used. A census of the 23 published
+  sheets with hit polygons: the robot family (`robot`, `player_robot_v2`)
+  reaches 5.8 and 6.7 body widths (`attack_side` right edge 518 in a 256 px
+  frame, 137 px in the world for a 48 px body); `alice` `air_forward` 2.25
+  and past its frame; every other sheet is at or under about one body width.
+  Why the robots reach so far: `robot_side.rs` `attack_hitboxes` makes its
+  forward cone `w * 1.34` long, and the family draws its body at
+  `S = w / 128`, so the cone scales with the body: 5.9 body widths at every
+  frame size. That is how the family's laser-sword arc is authored, and the
+  strike box is the drawn slash (§7.2), so the robot has hit from 137 px all
+  along. (A first reading, pushed in 34f048eb6, called it a canvas-scale
+  fault; the frame code says otherwise.) With the honest reach, the duel
+  robot pokes from 150 px and the PCA never gets in (`duel_arena`: PCA melee
+  0, and its shield never rises in the abilities test).
+  So the re-apply waits on a balance decision, not a bug (Q168): either the robot
+  family's slash is shortened (an art change, then a republish), or the PCA
+  brain learns to approach a longer reach, or the duel's pins change. To
+  re-apply: `git revert` 34f048eb6; change
+  `a_smash_enemy_swings_from_the_reach_of_its_own_move` to the connect gap
+  (the brute presses at 63.3 px = 48.4 reach + its target's half width); run
+  the duel and the full lane.
 
 ### CPU-LADDER — the brain owns the knobs, Smash owns the ladder
 

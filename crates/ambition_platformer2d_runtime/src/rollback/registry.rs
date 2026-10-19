@@ -85,6 +85,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// tag 6): the route a brute that navigates follows (as Roam's), and its
 /// tactics: its health last tick (`f32`), whether it closes in (`bool`), how
 /// long it has held (`f32`), and how many swings it has made (`u32`).
+/// The same version also covers 6c6cb479d, which landed at 365 with no bump:
+/// `actor.control`'s fire request and `MovePlayback`'s aim each carry the
+/// point a brain aimed at (`ActorFireRequest::at`: a `bool`, then a `Vec2`).
 pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 366;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;

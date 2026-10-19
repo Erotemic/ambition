@@ -315,7 +315,9 @@ body's base abilities are `HomeBodyAbilities::base_for` at build and at a
 change of form. Witness `a_player_that_changes_form_takes_the_size_of_that_form`
 (guide, dog, robot, guide; poison red at the guide's 30 by 48 against a built
 40.4 by 65.8). Contradictions 2, 3 and 5 above are closed for forms with a
-standing height.
+standing height. Review finding #8 (2026-10-19): the grant no longer sizes an
+`Explicit` body from its sheet (`sheet_body_for`); it keeps its box, as before
+slice 1. Explicit half-extents on a change of form are still slice 1b.
 
 **Next action, in slices:** (1b) a form with no standing height (scaled by a
 placement box today) and `BodySource::Explicit` get one answer on every road

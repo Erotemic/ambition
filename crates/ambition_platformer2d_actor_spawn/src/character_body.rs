@@ -249,7 +249,13 @@ fn posed_body_for(
 fn sheet_body_for(
     prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
 ) -> Option<ambition_sprite_sheet::character::catalog_join::SpriteBodyCollision> {
-    if posed_body_for(prepared).is_some() {
+    // An authored body outranks the sheet: a posed body brings its own box,
+    // and an explicit one is the size its author wrote.
+    let explicit = matches!(
+        prepared.body,
+        Some(ambition_characters::actor::definition::BodySource::Explicit { .. })
+    );
+    if explicit || posed_body_for(prepared).is_some() {
         return None;
     }
     let height = prepared.sheet_sizing.as_ref()?.standing_height?;
@@ -596,5 +602,37 @@ pub fn grant_prepared_character_body(
                 },
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A prepared character on the admiral's sheet (it publishes a body) with
+    /// a standing height, and `body`.
+    fn on_a_sheet(body: Option<ambition_characters::actor::definition::BodySource>) -> ambition_characters::prepared::PreparedCharacterDefinition {
+        let definition = ambition_characters::actor::definition::CharacterDefinition::new("npc_sized", "Sized", "test");
+        let mut prepared = ambition_characters::prepared::prepare_and_finalize_for_test(
+            definition,
+            &ambition_characters::prepared::CharacterBindings::default(),
+        )
+        .prepared;
+        prepared.sheet = Some("pirate_admiral".to_string());
+        prepared.sheet_sizing = Some(ambition_characters::prepared::SheetSizing { tuning: None, standing_height: Some(60.0) });
+        prepared.body = body;
+        prepared
+    }
+
+    /// Review finding #8 (2026-10-19). A character with an explicit body and
+    /// a sheet standing height keeps its explicit body: the sheet does not
+    /// size it. Control: the same character with no authored body is sized
+    /// from its sheet. Measured before: the sheet sized it, over the box its
+    /// author wrote. Poison: ask only about a posed body again.
+    #[test]
+    fn an_explicit_body_is_not_sized_by_its_sheet() {
+        assert!(sheet_body_for(&on_a_sheet(None)).is_some(), "premise: the sheet publishes a body at the height");
+        let explicit = ambition_characters::actor::definition::BodySource::Explicit { half_extents: (10.0, 20.0) };
+        assert!(sheet_body_for(&on_a_sheet(Some(explicit))).is_none(), "the sheet sized an explicit body");
     }
 }

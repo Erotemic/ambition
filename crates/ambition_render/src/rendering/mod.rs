@@ -610,6 +610,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             (
                 passage_visuals::apply_passage_looks
                     .after(actors::animate_player)
+                    .after(actors::animate_characters)
                     .before(actors::rigged::drive_rigged_presentations),
                 passage_visuals::sync_door_openings.after(actors::sync_visuals),
             )

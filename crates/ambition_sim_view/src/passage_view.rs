@@ -12,7 +12,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_actor_monolith::rooms::passage::{PassagePose, ZonePassage};
 use ambition_sprite_sheet::character::CharacterAnim;
 
-use crate::{BodyPoseView, ClipRequest};
+use crate::{ActorAnimIndex, BodyPoseView, ClipRequest};
 
 /// How a body in a passage is drawn: about its feet, `scale` of its size,
 /// `alpha` of it showing, `shade` of the way to black.
@@ -57,14 +57,25 @@ fn row_of(pose: PassagePose) -> (&'static [&'static str], CharacterAnim) {
 }
 
 /// Publish each passage's look, after the pose views are rebuilt.
+///
+/// A player body takes it beside its `BodyPoseView`. A body drawn on the
+/// actor road (a possessed body, an NPC) takes it in its `ActorAnimIndex`
+/// frame, which is rebuilt each tick, so it needs no removal.
 pub fn rebuild_passage_views(
     mut commands: Commands,
     mut views: ResMut<PassageViews>,
-    mut bodies: Query<(Entity, &ZonePassage, Option<&mut BodyPoseView>, Option<&PassageLookView>)>,
+    mut actors: Option<ResMut<ActorAnimIndex>>,
+    mut bodies: Query<(
+        Entity,
+        &ZonePassage,
+        Option<&mut BodyPoseView>,
+        Option<&PassageLookView>,
+        Option<&ambition_combat::components::FeatureId>,
+    )>,
     stale: Query<Entity, (With<PassageLookView>, Without<ZonePassage>)>,
 ) {
     let mut next = PassageViews::default();
-    for (entity, passage, pose, shown) in &mut bodies {
+    for (entity, passage, pose, shown, feature) in &mut bodies {
         if let Some((zone, open)) = passage.door_open() {
             next.doors.push((zone.to_string(), open));
         }
@@ -79,6 +90,13 @@ pub fn rebuild_passage_views(
                     pose.clip = ClipRequest::from_chain(chain);
                 }
                 let view = PassageLookView { scale: look.scale, alpha: look.alpha, shade: look.shade };
+                let actor = feature.zip(actors.as_deref_mut()).and_then(|(id, actors)| actors.frame_mut(id.as_str()));
+                if let Some(frame) = actor {
+                    let (chain, anim) = row_of(look.pose);
+                    frame.anim = anim;
+                    frame.clip = ClipRequest::from_chain(chain);
+                    frame.passage_look = Some(view);
+                }
                 if shown != Some(&view) {
                     commands.entity(entity).try_insert(view);
                 }
@@ -95,5 +113,79 @@ pub fn rebuild_passage_views(
     }
     if *views != next {
         *views = next;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d_actor_monolith::rooms::passage::{PassageKind, PassageStage};
+    use ambition_platformer2d_core as ae;
+
+    fn idle() -> crate::ActorAnimFrame {
+        crate::ActorAnimFrame {
+            anim: CharacterAnim::Idle,
+            conversation_held: false,
+            pos: ae::Vec2::ZERO,
+            facing: 1.0,
+            gravity_dir: ae::DEFAULT_GRAVITY_DIR,
+            clip: None,
+            move_charge: None,
+            passage_look: None,
+        }
+    }
+
+    /// Review finding #3 (2026-10-19). A body drawn on the actor road (a
+    /// possessed body, an NPC) that goes through a door draws its passage's
+    /// row and look, as a player body does. Measured before: its actor frame
+    /// kept the row the picker chose and carried no look. Control: a body
+    /// that is not in a passage keeps its frame. Poison: do not write the
+    /// actor frame.
+    #[test]
+    fn a_body_on_the_actor_road_draws_its_passage() {
+        let mut app = App::new();
+        app.init_resource::<PassageViews>();
+        app.insert_resource(ActorAnimIndex::from_rows([
+            ("npc".to_string(), idle()),
+            ("bystander".to_string(), idle()),
+        ]));
+        app.add_systems(Update, rebuild_passage_views);
+        let passage = ZonePassage {
+            kind: PassageKind::Door,
+            stage: PassageStage::Entering,
+            elapsed: 0.01,
+            from: ae::Vec2::new(90.0, 177.0),
+            zone: "a door".into(),
+            foot: ae::Vec2::new(100.0, 200.0),
+            heart: ae::Vec2::new(100.0, 104.0),
+            half_h: 23.0,
+            facing: 1.0,
+            crossing: None,
+            recorded: false,
+            arrival: None,
+            room: None,
+        };
+        let look = passage.look().expect("premise: the passage holds the body and has a look");
+        app.world_mut().spawn((passage, ambition_combat::components::FeatureId::new("npc")));
+        app.world_mut().spawn(ambition_combat::components::FeatureId::new("bystander"));
+        app.update();
+
+        let index = app.world().resource::<ActorAnimIndex>();
+        let frame = index.get("npc").expect("the npc's frame");
+        assert_eq!(
+            (frame.anim, frame.clip.as_ref().map(|clip| clip.clip.as_str()), frame.passage_look),
+            (
+                CharacterAnim::LadderClimb,
+                Some("turn_away"),
+                Some(PassageLookView { scale: look.scale, alpha: look.alpha, shade: look.shade })
+            ),
+            "the actor frame draws the passage's row and look"
+        );
+        let bystander = index.get("bystander").expect("the bystander's frame");
+        assert_eq!(
+            (bystander.anim, bystander.clip.is_none(), bystander.passage_look),
+            (CharacterAnim::Idle, true, None),
+            "control: a body outside a passage keeps its frame"
+        );
     }
 }

@@ -12,7 +12,10 @@
 
 use bevy::prelude::*;
 
-use super::primitives::{LoadingZoneVisual, PlayerVisual};
+use super::primitives::{FeatureVisual, LoadingZoneVisual, PlayerVisual};
+
+#[cfg(test)]
+mod tests;
 
 /// The frames of a door's opening strip.
 pub const DOOR_OPENING_FRAMES: u32 = 6;
@@ -24,9 +27,12 @@ pub struct PassageScaled;
 
 /// Draw each body in a passage at its passage's size, opacity and shade.
 ///
-/// After the animator, which sets the frame and a white tint, and before the
-/// part driver, which draws a part-drawn body from its root's transform and
-/// tint.
+/// Both roads: a player body reads the look beside its pose, and a body drawn
+/// as a [`FeatureVisual`] (a possessed body, an NPC) reads it in its actor
+/// frame. After the animators, which set the frame and a white tint, and
+/// before the part driver, which draws a part-drawn body from its root's
+/// transform and tint.
+#[allow(clippy::type_complexity)]
 pub fn apply_passage_looks(
     mut commands: Commands,
     mut bodies: Query<
@@ -40,28 +46,53 @@ pub fn apply_passage_looks(
         ),
         With<PlayerVisual>,
     >,
+    mut actors: Query<(Entity, &FeatureVisual, &mut Transform, &mut Sprite, Has<PassageScaled>), Without<PlayerVisual>>,
+    frames: Option<Res<ambition_sim_view::ActorAnimIndex>>,
+    features: Option<Res<ambition_sim_view::FeatureViewIndex>>,
 ) {
     for (entity, mut transform, mut sprite, pose, look, scaled) in &mut bodies {
-        match look {
-            Some(look) => {
-                let scale = look.scale.max(0.01);
-                transform.scale = Vec3::new(scale, scale, 1.0);
-                // About the feet: the translation is the middle of the body
-                // (`sync_visuals`), and Bevy's y is up.
-                transform.translation.y -= (1.0 - scale) * pose.size.y * 0.5;
-                let lit = 1.0 - look.shade.clamp(0.0, 1.0);
-                let tint = sprite.color.to_srgba();
-                sprite.color = Color::srgba(tint.red * lit, tint.green * lit, tint.blue * lit, tint.alpha * look.alpha);
-                if !scaled {
-                    commands.entity(entity).try_insert(PassageScaled);
-                }
-            }
-            None if scaled => {
-                transform.scale = Vec3::ONE;
-                commands.entity(entity).try_remove::<PassageScaled>();
-            }
-            None => {}
+        draw_passage_look(&mut commands, entity, &mut transform, &mut sprite, look.copied(), pose.size.y, scaled);
+    }
+    for (entity, visual, mut transform, mut sprite, scaled) in &mut actors {
+        let look = frames.as_deref().and_then(|frames| frames.get(&visual.id)).and_then(|frame| frame.passage_look);
+        if look.is_none() && !scaled {
+            continue;
         }
+        let height = features.as_deref().and_then(|views| views.get(&visual.id)).map_or(0.0, |view| view.size.y);
+        draw_passage_look(&mut commands, entity, &mut transform, &mut sprite, look, height, scaled);
+    }
+}
+
+/// Draw one body at `look`, about its feet (`height` is its body's height),
+/// or put it back when its passage is over.
+fn draw_passage_look(
+    commands: &mut Commands,
+    entity: Entity,
+    transform: &mut Transform,
+    sprite: &mut Sprite,
+    look: Option<ambition_sim_view::PassageLookView>,
+    height: f32,
+    scaled: bool,
+) {
+    match look {
+        Some(look) => {
+            let scale = look.scale.max(0.01);
+            transform.scale = Vec3::new(scale, scale, 1.0);
+            // About the feet: the translation is the middle of the body
+            // (`sync_visuals`), and Bevy's y is up.
+            transform.translation.y -= (1.0 - scale) * height * 0.5;
+            let lit = 1.0 - look.shade.clamp(0.0, 1.0);
+            let tint = sprite.color.to_srgba();
+            sprite.color = Color::srgba(tint.red * lit, tint.green * lit, tint.blue * lit, tint.alpha * look.alpha);
+            if !scaled {
+                commands.entity(entity).try_insert(PassageScaled);
+            }
+        }
+        None if scaled => {
+            transform.scale = Vec3::ONE;
+            commands.entity(entity).try_remove::<PassageScaled>();
+        }
+        None => {}
     }
 }
 

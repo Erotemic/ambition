@@ -1230,9 +1230,13 @@ Still open, both found by this bisect:
   ignored). Not done: the volley locks a direction at its telegraph, not a
   point, and the Smash template fires level.
 - The PCA brain stops 46 to 48 px from the player and swings
-  `generation_wipe` and `corruption_seed`, whose boxes reach about 28 px, so
-  its melee never connects there. Why the brain stops at 48 px is not
-  measured.
+  `generation_wipe` and `corruption_seed`, and they never connect. Measured
+  2026-10-18 (probe of the live `Hitbox`es): the brain faces the player, and
+  the RON rect of `generation_wipe` (offset 40, half 32 × 24) would cover
+  the player, but the spawned box is the art polygon of the PCA's manifest
+  (a hexagon to 31 px forward), because a vfx-tagged volume takes the
+  authored hit polygon (§7.1). The brain's reach reads the RON rect. See
+  REACH-VIEW, "two geometries for one move".
 
 **Sanic's visible job, 2026-10-17 (RED, inherited):** `cargo test -p
 ambition_demo_sanic_app --features capture,input,perf_probe,visible`: 59
@@ -2342,6 +2346,18 @@ was poisoned alone, and only its own test failed.
 - `MoveFrameData::reach` is the reach of the volumes in the body frame. It
   does not include the motion of the move (a dash attack moves the body), so a
   running Smash enemy reads 40 px for a dash attack that travels farther.
+- ⛔ **Two geometries for one move (found 2026-10-18).** A vfx-tagged volume
+  spawns as the hit polygon the character's sheet manifest authors for the
+  move's clip (`trigger_moveset_moves`, `authored_volumes.resolve`, §7.1:
+  the box drawn in `debug-hitboxes` is the damage box). `MoveFrameData::reach`,
+  and so every brain read of reach, is derived from the RON volume, which
+  then only sets the timing. Measured on the PCA: `generation_wipe` reads
+  72 px (offset 40 + half 32) and strikes with a hexagon to 31 px, so it is
+  thrown from 48 px and misses. The fix belongs to one owner: the reach a
+  brain reads must come from the same resolution the strike uses. The art
+  polygon depends on the body's size and drawn quad, so it is known only
+  where the character's art is (preparation or the snapshot builder), not in
+  the catalog's `frame_data()`. Not measured: how many shipped moves differ.
 
 ### CPU-LADDER — the brain owns the knobs, Smash owns the ladder
 

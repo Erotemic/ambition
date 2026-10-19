@@ -1920,8 +1920,7 @@ pub fn fire_held_ranged_system(
             request: ambition_characters::brain::action_set::ActionRequest::Ranged {
                 spec,
                 origin: kin.pos,
-                dir,
-                dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                fire: ambition_characters::actor::control::ActorFireRequest::world_space(dir),
                 // A press is an attempt: the spec's own refire gate applies,
                 // as it does to every other body that fires this weapon.
                 commitment: ambition_characters::brain::action_set::RangedCommitment::Attempt,

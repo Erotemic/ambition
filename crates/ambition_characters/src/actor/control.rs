@@ -77,6 +77,15 @@ pub struct ActorFireRequest {
     pub dir: Vec2,
     /// Frame in which [`Self::dir`] was authored/interpreted.
     pub dir_policy: GameplayFramePolicy,
+    /// The world point the brain aimed AT, when it aimed at one.
+    ///
+    /// ⭐ THE SHOT IS AIMED FROM WHERE IT LEAVES. A brain aims from the body
+    /// centre, and the weapon fires from its muzzle, which can be a fifth of
+    /// the body height away. A direction alone sends the shot on a line
+    /// parallel to the aim, so it passes the target by the muzzle's offset.
+    /// With the point, the spawn aims from the muzzle at it. `None` (a stick, a
+    /// level shot) keeps `dir`.
+    pub at: Option<Vec2>,
 }
 
 impl ActorFireRequest {
@@ -87,6 +96,7 @@ impl ActorFireRequest {
         Self {
             dir,
             dir_policy: GameplayFramePolicy::ControlledBodyLocal,
+            at: None,
         }
     }
 
@@ -97,6 +107,18 @@ impl ActorFireRequest {
         Self {
             dir,
             dir_policy: GameplayFramePolicy::WorldSpace,
+            at: None,
+        }
+    }
+
+    /// Fire at a world point from `from`, the point the brain aims from: the
+    /// direction is the line from `from` to `at`, and the spawn aims from its
+    /// muzzle at `at` (see [`Self::at`]).
+    pub fn world_point(from: Vec2, at: Vec2) -> Self {
+        Self {
+            dir: (at - from).normalize_or_zero(),
+            dir_policy: GameplayFramePolicy::WorldSpace,
+            at: Some(at),
         }
     }
 

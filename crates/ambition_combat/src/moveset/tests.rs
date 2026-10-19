@@ -2156,7 +2156,7 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
             // Any authored move will do — the aim is what is under test, and
             // `swat()` is the fixture the rest of this file already builds.
             MovePlayback::new(swat(), 1.0)
-                .with_aim(Some((up, ae::GameplayFramePolicy::WorldSpace))),
+                .with_aim(Some(ambition_characters::actor::control::ActorFireRequest::world_space(up))),
         ))
         .id();
     app.world_mut()
@@ -2180,11 +2180,10 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
         .collect();
     assert_eq!(acts.len(), 1, "the Ranged event bridged to one action");
     match &acts[0].request {
-        ActionRequest::Ranged {
-            dir, dir_policy, ..
-        } => {
+        ActionRequest::Ranged { fire, .. } => {
+            let (dir, dir_policy) = (fire.dir, fire.dir_policy);
             assert_eq!(
-                *dir, up,
+                dir, up,
                 "the move was started aiming UP and fired {dir:?} — the startup \
                  cleared the request and the shot fell back to facing"
             );
@@ -2348,8 +2347,9 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     );
     match &acts[0].request {
         ActionRequest::Ranged {
-            spec, origin, dir, ..
+            spec, origin, fire, ..
         } => {
+            let dir = &fire.dir;
             assert!(matches!(
                 spec,
                 RangedActionSpec {
@@ -2423,10 +2423,11 @@ fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
             .drain()
             .collect();
         match &acts[0].request {
-            ActionRequest::Ranged { dir, .. } => assert_eq!(
-                dir.x.signum(),
+            ActionRequest::Ranged { fire, .. } => assert_eq!(
+                fire.dir.x.signum(),
                 facing,
-                "a body facing {facing} fired along {dir:?}"
+                "a body facing {facing} fired along {:?}",
+                fire.dir
             ),
             other => panic!("expected ActionRequest::Ranged, got {other:?}"),
         }

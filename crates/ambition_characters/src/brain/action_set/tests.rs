@@ -380,8 +380,7 @@ fn resolve_fire_pressed_emits_ranged_request() {
     match &reqs[0] {
         ActionRequest::Ranged {
             spec,
-            dir,
-            dir_policy,
+            fire: crate::actor::control::ActorFireRequest { dir, dir_policy, .. },
             ..
         } => {
             assert_eq!(spec.speed(), 400.0);
@@ -407,7 +406,7 @@ fn resolve_preserves_controlled_body_local_fire_policy() {
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
     match &reqs[0] {
         ActionRequest::Ranged {
-            dir, dir_policy, ..
+            fire: crate::actor::control::ActorFireRequest { dir, dir_policy, .. }, ..
         } => {
             assert_eq!(*dir, ae::Vec2::new(0.0, -1.0));
             assert_eq!(*dir_policy, ae::GameplayFramePolicy::ControlledBodyLocal);
@@ -519,8 +518,7 @@ fn action_request_label_returns_per_variant_string() {
     let ranged = ActionRequest::Ranged {
         spec: RangedActionSpec::bolt(380.0, 1),
         origin: ae::Vec2::ZERO,
-        dir: ae::Vec2::new(1.0, 0.0),
-        dir_policy: ae::GameplayFramePolicy::WorldSpace,
+        fire: crate::actor::control::ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0)),
         commitment: RangedCommitment::Attempt,
     };
     assert_eq!(ranged.label(), "ranged_bolt");

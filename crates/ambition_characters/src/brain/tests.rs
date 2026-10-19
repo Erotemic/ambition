@@ -412,8 +412,7 @@ fn skirmisher_brain_resolves_through_action_set_to_ranged_request() {
     match req[0].clone() {
         ActionRequest::Ranged {
             spec,
-            dir,
-            dir_policy,
+            fire: crate::actor::control::ActorFireRequest { dir, dir_policy, at },
             ..
         } => {
             assert!(
@@ -432,6 +431,9 @@ fn skirmisher_brain_resolves_through_action_set_to_ranged_request() {
                 ae::GameplayFramePolicy::WorldSpace,
                 "Skirmisher fires at a direct world-space target vector"
             );
+            // It aimed at the target itself, so the spawn can aim from its
+            // muzzle rather than send the shot parallel to this line.
+            assert_eq!(at, Some(snap.target_pos), "Skirmisher states its aim point");
         }
         other => panic!("expected ActionRequest::Ranged, got {:?}", other),
     }

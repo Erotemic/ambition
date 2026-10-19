@@ -207,8 +207,7 @@ pub fn spawn_projectiles_from_brain_actions(
         let ActionRequest::Ranged {
             spec,
             origin,
-            dir,
-            dir_policy,
+            fire,
             commitment,
         } = msg.request.clone()
         else {
@@ -311,11 +310,27 @@ pub fn spawn_projectiles_from_brain_actions(
             .unwrap_or(ae::Vec2::new(0.0, -1.0))
             .normalize_or(ae::Vec2::new(0.0, -1.0));
         let frame = ae::AccelerationFrame::new(gravity_dir);
-        let request = ambition_characters::actor::control::ActorFireRequest {
-            dir,
-            dir_policy,
+        let hand_world =
+            ambition_held_items::holding_hand_world(&landmarks, msg.actor, &kin, gravity_dir);
+        // WHERE THE SHOT LEAVES, before its direction is known: a hand muzzle
+        // is pushed along the shot from the hand, so the hand is its pivot;
+        // every other muzzle does not depend on the direction.
+        let pivot = muzzle_world_pos(
+            discharge.muzzle,
+            origin,
+            kin.facing,
+            kin.size.y,
+            ae::Vec2::ZERO,
+            frame,
+            hand_world,
+        );
+        // A brain that aimed at a point is aimed from the pivot at it. Its
+        // direction was taken from the body centre, and a shot sent along it
+        // from an offset muzzle passes the point by the offset.
+        let commanded = match fire.at {
+            Some(at) => (at - pivot).normalize_or(fire.dir_to_world(frame).normalize_or_zero()),
+            None => fire.dir_to_world(frame).normalize_or_zero(),
         };
-        let commanded = request.dir_to_world(frame).normalize_or_zero();
         // ⭐ THE ONE PLACE A SHOT'S DIRECTION BECOMES WORLD-SPACE, which is the
         // only place an assist can be applied once and hold for every path that
         // fires — a move's timed `Ranged` event, a flat brain fire, a possessed
@@ -324,7 +339,7 @@ pub fn spawn_projectiles_from_brain_actions(
         let world_dir = match spec.aim_assist {
             None => commanded,
             Some(assist) => {
-                let muzzle = kin.pos;
+                let muzzle = pivot;
                 let matrix = relations.as_deref();
                 let foes = shooters.get(msg.actor).ok().map(|(faction, team, driver)| {
                     candidates
@@ -381,7 +396,7 @@ pub fn spawn_projectiles_from_brain_actions(
             kin.size.y,
             world_dir,
             frame,
-            ambition_held_items::holding_hand_world(&landmarks, msg.actor, &kin, gravity_dir),
+            hand_world,
         );
         // A hand at the hip of a short body is closer to its feet than the shot
         // is tall: the shot is born clear of the ground it stands on.

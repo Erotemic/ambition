@@ -291,12 +291,13 @@ mod tests {
             declare_ambition_seating(&mut app, AMBITION_GAMEPLAY_ROUTE);
             app.add_systems(bevy::prelude::Update, project_route_seating);
             let devices: Vec<Entity> = (0..pads).map(|_| app.world_mut().spawn_empty().id()).collect();
+            let order = LocalDeviceOrder::from_devices(devices.clone());
             let mut claims = LocalSeatClaims::default();
             if claimed {
-                claims.claim(ParticipantId::SECONDARY, devices[1]);
+                claims.claim(ParticipantId::SECONDARY, order.mark(devices[1]).expect("pad 1 is connected"));
             }
             app.insert_resource(claims);
-            app.insert_resource(LocalDeviceOrder::from_devices(devices));
+            app.insert_resource(order);
             app.world_mut().resource_mut::<ShellRouter>().active = Some(ActiveShellExperience {
                 activation_id: ShellActivationId(1),
                 route_id: ShellRouteId::new(AMBITION_GAMEPLAY_ROUTE),

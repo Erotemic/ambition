@@ -16,7 +16,7 @@ use leafwing_input_manager::prelude::InputMap;
 use crate::channels::{LocalChannelPlan, LocalInputSource};
 use crate::participant::ParticipantId;
 pub use crate::seating::LocalDeviceOrder;
-use crate::seating::PadIdentity;
+use crate::seating::{PadIdentity, PadMark};
 use crate::{InputParticipant, Platformer2dInputActionMonolith};
 
 /// The association of a seat that hears no pad: a keyboard seat, a seat whose
@@ -152,28 +152,41 @@ pub fn track_local_device_order(
     }
 }
 
-/// The pads that claimed a [`LocalInputSource::Claimed`] channel while the
-/// session ran, by channel.
+/// The controllers that claimed a [`LocalInputSource::Claimed`] channel while
+/// the session ran, by channel.
 ///
 /// This is input-layer state and not simulation state. The simulation sees
 /// only the claimed channel's input, which GGRS carries. A claim is released
 /// by [`Self::release`] (a player leaves) or when the live plan stops holding
 /// a claimable channel at that position.
+///
+/// A claim keeps a [`PadMark`], not the pad's entity, and is resolved against
+/// the live [`LocalDeviceOrder`]. The claimed controller can disconnect and
+/// come back as a new entity, and its seat hears it again. A different
+/// controller is never heard on the seat.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct LocalSeatClaims {
     /// Keyed by channel slot.
-    by_channel: std::collections::BTreeMap<u8, Entity>,
+    by_channel: std::collections::BTreeMap<u8, PadMark>,
 }
 
 impl LocalSeatClaims {
-    /// The pad that claimed `channel`, if one did.
-    pub fn pad_of(&self, channel: ParticipantId) -> Option<Entity> {
-        self.by_channel.get(&channel.slot()).copied()
+    /// The connected controller that claimed `channel`, if one did and it is
+    /// connected.
+    pub fn pad_of(&self, channel: ParticipantId, order: &LocalDeviceOrder) -> Option<Entity> {
+        order.marked(self.by_channel.get(&channel.slot())?)
     }
 
-    /// Whether some channel holds `pad`.
-    pub fn holds(&self, pad: Entity) -> bool {
-        self.by_channel.values().any(|held| *held == pad)
+    /// Whether some channel holds the connected controller `pad`.
+    pub fn holds(&self, pad: Entity, order: &LocalDeviceOrder) -> bool {
+        self.by_channel
+            .values()
+            .any(|mark| order.marked(mark) == Some(pad))
+    }
+
+    /// Whether `channel` has a claim, connected or not.
+    pub fn is_claimed(&self, channel: ParticipantId) -> bool {
+        self.by_channel.contains_key(&channel.slot())
     }
 
     /// Whether any channel holds a claim.
@@ -181,9 +194,9 @@ impl LocalSeatClaims {
         self.by_channel.is_empty()
     }
 
-    /// Give `pad` to `channel`. A test or a tool that seats a pad directly
-    /// uses this; a running game claims by [`claim_local_seats`].
-    pub fn claim(&mut self, channel: ParticipantId, pad: Entity) {
+    /// Give the marked controller to `channel`. A test or a tool that seats a
+    /// pad directly uses this; a running game claims by [`claim_local_seats`].
+    pub fn claim(&mut self, channel: ParticipantId, pad: PadMark) {
         self.by_channel.insert(channel.slot(), pad);
     }
 
@@ -223,23 +236,40 @@ pub fn claim_local_seats(
     if claims.by_channel.keys().any(|slot| !is_claimable(slot)) {
         claims.by_channel.retain(|slot, _| is_claimable(slot));
     }
-    let Some(open) = claimable.iter().copied().find(|channel| claims.pad_of(*channel).is_none()) else {
+    // An unclaimed channel takes any free pad. A claimed channel whose
+    // controller is not in its slot takes back only that controller, from the
+    // slot it came back to.
+    let open = claimable
+        .iter()
+        .copied()
+        .find(|channel| !claims.is_claimed(*channel))
+        .or_else(|| {
+            claimable
+                .iter()
+                .copied()
+                .find(|channel| claims.pad_of(*channel, &order).is_none())
+        });
+    let Some(open) = open else {
         return;
     };
+    let returning = claims.by_channel.get(&open.slot()).cloned();
     let shared = plan.and_then(|plan| plan.channel_for_source(LocalInputSource::Shared));
     let primary_pad = seats
         .iter()
         .find(|(participant, _)| Some(participant.id) == shared)
         .and_then(|(_, map)| map.gamepad());
     let claimer = order.connected().into_iter().find(|pad| {
-        !claims.holds(*pad)
+        !claims.holds(*pad, &order)
             && Some(*pad) != primary_pad
+            && returning
+                .as_ref()
+                .is_none_or(|mark| order.is_marked(*pad, mark))
             && pads
                 .get(*pad)
                 .is_ok_and(|gamepad| gamepad.just_pressed(GamepadButton::Start))
     });
-    if let Some(pad) = claimer {
-        claims.claim(open, pad);
+    if let Some(mark) = claimer.and_then(|pad| order.mark(pad)) {
+        claims.claim(open, mark);
     }
 }
 
@@ -265,7 +295,7 @@ fn unclaimed_pads(order: &LocalDeviceOrder, claims: Option<&LocalSeatClaims>) ->
     order
         .connected()
         .into_iter()
-        .filter(|pad| !claims.is_some_and(|claims| claims.holds(*pad)))
+        .filter(|pad| !claims.is_some_and(|claims| claims.holds(*pad, order)))
         .collect()
 }
 
@@ -360,8 +390,7 @@ pub fn assign_local_seat_devices(
             }
             (Some(LocalInputSource::Claimed), _) => claims
                 .as_deref()
-                .and_then(|claims| claims.pad_of(participant.id))
-                .filter(|pad| order.slot_of(*pad).is_some()),
+                .and_then(|claims| claims.pad_of(participant.id, &order)),
             (Some(LocalInputSource::Pad(index)), Some(topology)) => {
                 let index = match plan {
                     Some(_) => Some(index as usize),
@@ -1047,6 +1076,109 @@ mod tests {
         app.world_mut().entity_mut(pad_b).insert(Gamepad::default());
         app.update();
         assert_eq!(heard(&app), [Some(NO_PAD), Some(pad_a), Some(pad_b), Some(pad_c)]);
+    }
+
+    /// A couch session where player one shares the devices and seat two is
+    /// claimed by a Start press, as Ambition seats it with joins accepted.
+    /// Returns the app and the two seats.
+    fn claim_app() -> (App, Entity, Entity) {
+        let mut app = App::new();
+        app.init_resource::<LocalDeviceOrder>();
+        app.init_resource::<LocalSeatClaims>();
+        app.add_systems(
+            Update,
+            (track_local_device_order, claim_local_seats, assign_local_seat_devices).chain(),
+        );
+        let plan = LocalChannelPlan::from_sources([LocalInputSource::Shared, LocalInputSource::Claimed]);
+        app.insert_resource(crate::seating::SessionSeatingSource::decided("a couch", plan.clone()));
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        freeze(&mut app, Some(plan));
+        (app, one, two)
+    }
+
+    fn connect(app: &mut App, name: &str) -> Entity {
+        let pad = app.world_mut().spawn((Gamepad::default(), Name::new(name.to_string()))).id();
+        app.update();
+        pad
+    }
+
+    fn press_start(app: &mut App, pad: Entity) {
+        app.world_mut()
+            .get_mut::<Gamepad>(pad)
+            .expect("a connected pad")
+            .digital_mut()
+            .press(GamepadButton::Start);
+        app.update();
+        let mut gamepad = app.world_mut().get_mut::<Gamepad>(pad).expect("a connected pad");
+        gamepad.digital_mut().release(GamepadButton::Start);
+        gamepad.digital_mut().clear();
+        app.update();
+    }
+
+    /// Review finding #6 (2026-10-19). Pad B claims seat two, disconnects,
+    /// and comes back as a new entity: seat two hears it again with no
+    /// restart and no second Start. Measured before: the claim held B's old
+    /// entity, the seat heard no pad, and the channel could not be claimed
+    /// again because it was claimed. Poison: resolve the claim by the entity
+    /// it stored.
+    #[test]
+    fn a_claimed_pad_that_comes_back_as_a_new_entity_drives_its_seat_again() {
+        let (mut app, one, two) = claim_app();
+        let _pad_a = connect(&mut app, "pad a");
+        let pad_b = connect(&mut app, "pad b");
+        assert_eq!(assigned(&app, two), Some(NO_PAD), "control: nobody claimed seat two");
+        press_start(&mut app, pad_b);
+        assert_eq!(assigned(&app, two), Some(pad_b), "premise: pad B's Start claimed seat two");
+
+        app.world_mut().entity_mut(pad_b).despawn();
+        app.update();
+        assert_eq!(assigned(&app, two), Some(NO_PAD), "pad B is gone");
+
+        let pad_b_again = connect(&mut app, "pad b");
+        assert_ne!(pad_b_again, pad_b, "premise: pad B came back as a new entity");
+        app.update();
+        assert_eq!(
+            assigned(&app, two),
+            Some(pad_b_again),
+            "pad B came back and seat two does not hear it"
+        );
+        assert_ne!(assigned(&app, one), Some(pad_b_again), "player one hears player two's pad");
+    }
+
+    /// Control of the finding #6 fix: a different controller never takes the
+    /// seat. Pad B claims seat two and disconnects; pad C connects into B's
+    /// empty slot and presses Start, and seat two does not hear it. Then pad B
+    /// comes back into another slot (C holds its own), presses Start, and
+    /// seat two hears it again.
+    #[test]
+    fn a_different_controller_does_not_take_a_claimed_seat() {
+        let (mut app, _one, two) = claim_app();
+        let _pad_a = connect(&mut app, "pad a");
+        let pad_b = connect(&mut app, "pad b");
+        press_start(&mut app, pad_b);
+        assert_eq!(assigned(&app, two), Some(pad_b), "premise: pad B claimed seat two");
+        app.world_mut().entity_mut(pad_b).despawn();
+        app.update();
+
+        let pad_c = connect(&mut app, "pad c");
+        assert_eq!(
+            app.world().resource::<LocalDeviceOrder>().pad(1),
+            Some(pad_c),
+            "premise: pad C took pad B's empty slot"
+        );
+        assert_eq!(assigned(&app, two), Some(NO_PAD), "pad C took the seat of pad B by its slot");
+        press_start(&mut app, pad_c);
+        assert_eq!(assigned(&app, two), Some(NO_PAD), "pad C's Start took the seat of pad B");
+
+        let pad_b_again = connect(&mut app, "pad b");
+        assert_eq!(
+            app.world().resource::<LocalDeviceOrder>().slot_of(pad_b_again),
+            Some(2),
+            "premise: pad B came back into another slot"
+        );
+        press_start(&mut app, pad_b_again);
+        assert_eq!(assigned(&app, two), Some(pad_b_again), "pad B came back and could not take its seat back");
     }
 
     /// In a match a controller cannot take the seat of another one. Player

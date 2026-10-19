@@ -198,6 +198,33 @@ impl PadIdentity {
     }
 }
 
+/// A controller as a claim remembers it: the slot it held, the entity it had
+/// and what it was.
+///
+/// A claim cannot keep only the entity. A controller can come back as a new
+/// entity, and a claim that held the old one left its seat deaf until a
+/// restart. A claim cannot keep only the slot either, because a different
+/// controller takes an empty slot.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PadMark {
+    slot: usize,
+    entity: Entity,
+    identity: PadIdentity,
+}
+
+impl PadMark {
+    /// The slot the controller held when it was marked.
+    pub fn slot(&self) -> usize {
+        self.slot
+    }
+
+    /// Whether the connected `pad`, which is `identity`, is the marked
+    /// controller. The rule of [`PadSlot::remembers`].
+    fn is(&self, pad: Entity, identity: &PadIdentity) -> bool {
+        self.entity == pad || (identity.is_known() && self.identity == *identity)
+    }
+}
+
 /// One numbered place in the pad table.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct PadSlot {
@@ -278,6 +305,32 @@ impl LocalDeviceOrder {
         let now = live.slots.get(index)?;
         let pad = now.pad?;
         frozen.remembers(pad, &now.identity).then_some(pad)
+    }
+
+    /// Mark the connected controller `pad`, so a claim can find it again.
+    pub fn mark(&self, pad: Entity) -> Option<PadMark> {
+        let slot = self.slot_of(pad)?;
+        Some(PadMark {
+            slot,
+            entity: pad,
+            identity: self.slots[slot].identity.clone(),
+        })
+    }
+
+    /// The connected controller in the slot of `mark`, if it is the marked
+    /// controller. A different controller in that slot is not returned.
+    pub fn marked(&self, mark: &PadMark) -> Option<Entity> {
+        let slot = self.slots.get(mark.slot)?;
+        let pad = slot.pad?;
+        mark.is(pad, &slot.identity).then_some(pad)
+    }
+
+    /// Whether the connected controller `pad`, in any slot, is the marked
+    /// controller. A controller that came back while a different one held
+    /// its slot is in another slot.
+    pub fn is_marked(&self, pad: Entity, mark: &PadMark) -> bool {
+        self.slot_of(pad)
+            .is_some_and(|slot| mark.is(pad, &self.slots[slot].identity))
     }
 
     /// Build a table from a known device list, for a caller that already holds

@@ -35,6 +35,17 @@ fn connect_a_pad(app: &mut App) -> Entity {
     pad
 }
 
+/// Connect a pad with the name the OS gives it, which stays the same when the
+/// controller is unplugged and plugged in again.
+fn connect_named_pad(app: &mut App, name: &str) -> Entity {
+    let pad = app
+        .world_mut()
+        .spawn((bevy::input::gamepad::Gamepad::default(), Name::new(name.to_string())))
+        .id();
+    app.update();
+    pad
+}
+
 fn pad_button(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
     app.world_mut()
         .write_message(RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(pad, button, value)));
@@ -56,12 +67,12 @@ fn accept_joins(app: &mut App, accept: bool) {
 }
 
 /// An Ambition session in the rendered host with `pads` pads connected before
-/// it starts and the setting `accept`.
+/// it starts and the setting `accept`. Pad `n` is named "pad n".
 fn session(pads: usize, accept: bool) -> (App, Vec<Entity>) {
     let mut app = rendered_app();
     settle(&mut app);
     accept_joins(&mut app, accept);
-    let connected = (0..pads).map(|_| connect_a_pad(&mut app)).collect();
+    let connected = (0..pads).map(|index| connect_named_pad(&mut app, &format!("pad {index}"))).collect();
     // The hub's intro holds the seat's input while it plays.
     crate::common::the_hub_intro_has_already_played(app.world_mut());
     app.world_mut().write_message(ShellCommand::GoTo(
@@ -191,6 +202,57 @@ fn a_pad_that_claims_seat_one_drives_only_player_two() {
             "{device:?} after the claim: player one moved {one_moved} px, player two {two_moved} px"
         );
     }
+}
+
+/// A CLAIMED PAD RECONNECTS (review finding #6, 2026-10-19). Pad B claims
+/// seat 1, disconnects, and comes back as a new entity: it moves player two
+/// again, with no restart and no second Start. Measured before: the claim held
+/// B's old entity, so seat 1 heard no pad and could not be claimed again.
+/// Control: while B is away, a different pad in B's slot does not move player
+/// two.
+#[test]
+fn a_claimed_pad_that_reconnects_drives_player_two_again() {
+    let (mut app, pads) = session(2, true);
+    let primary = the_primary(&mut app);
+    push_right(&mut app, Device::Pad(pads[0]), &[primary]);
+    tap(&mut app, pads[1], GamepadButton::Start);
+    for _ in 0..6 {
+        app.update();
+    }
+    let joined = seat_one_bodies(&mut app);
+    assert_eq!(joined.len(), 1, "premise: pad B's Start seated player two");
+    let two = joined[0];
+
+    app.world_mut().entity_mut(pads[1]).despawn();
+    for _ in 0..6 {
+        app.update();
+    }
+    // Its Start would be player one's pause (an unclaimed pad is the shared
+    // seat's); the unit arm `a_different_controller_does_not_take_a_claimed_seat`
+    // presses it.
+    let stranger = connect_named_pad(&mut app, "another pad");
+    let [_, two_moved] = push_right(&mut app, Device::Pad(stranger), &[primary, two])[..] else {
+        unreachable!()
+    };
+    assert!(two_moved.abs() < MOVED, "control: a different pad moved player two {two_moved} px");
+    app.world_mut().entity_mut(stranger).despawn();
+    for _ in 0..6 {
+        app.update();
+    }
+
+    let pad_b_again = connect_named_pad(&mut app, "pad 1");
+    assert_ne!(pad_b_again, pads[1], "premise: pad B came back as a new entity");
+    for _ in 0..6 {
+        app.update();
+    }
+    assert_eq!(seat_one_bodies(&mut app), vec![two], "player two's body did not stay");
+    let [one_moved, two_moved] = push_right(&mut app, Device::Pad(pad_b_again), &[primary, two])[..] else {
+        unreachable!()
+    };
+    assert!(
+        two_moved >= MOVED && one_moved.abs() < MOVED,
+        "pad B after it came back: player one moved {one_moved} px, player two {two_moved} px"
+    );
 }
 
 /// THE SETTING CHANGES WHILE THE SESSION RUNS. Off: pad B's Jump seats

@@ -156,11 +156,14 @@ pub const IMPOSTOR_FRINGE: f32 = 2.0;
 /// smallest first, with the most cells per side each atlas grows to. A frame
 /// with its margins: the player robot's 288 x 288, Mary-O's 192 x 224 and a
 /// pirate's about 135 x 146 take the first; Noether's 528 x 560 the second;
-/// the Perfect Cellular Automaton's 686 x 878 the third.
+/// the Perfect Cellular Automaton's 686 x 878 the third; Wolfenstein's
+/// 956 x 956 the fourth (a 924 px frame at the game's texel density: in the
+/// third, his hit flash had no image and showed nothing, 2026-10-19).
 ///
 /// A page of the first grows to 6 x 6 = 36 bodies (two 1728-texel targets,
 /// about 24 MB); a page of a larger one to 4 x 4 (2304 and 3584 texels a
-/// side), for the few large bodies a room has. The first page is one cell,
+/// side), or 3 x 3 for the largest (3456), for the few large bodies a room
+/// has. The first page is one cell,
 /// made for the first body that needs it; each page after is one step larger
 /// than the last (1, 2, 4, then its most), opened when every cell is taken.
 ///
@@ -168,7 +171,7 @@ pub const IMPOSTOR_FRINGE: f32 = 2.0;
 /// un-premultiplying quad shades the whole target: at 6 x 6 that cost a single
 /// rigged body 13 ms on llvmpipe (measured 2026-10-02), against a quarter of
 /// that for the one cell it needs.
-pub const IMPOSTOR_CELL_CLASSES: [(f32, u32); 3] = [(288.0, 6), (576.0, 4), (896.0, 4)];
+pub const IMPOSTOR_CELL_CLASSES: [(f32, u32); 4] = [(288.0, 6), (576.0, 4), (896.0, 4), (1152.0, 3)];
 
 /// The smallest cell, the one most bodies take.
 pub const IMPOSTOR_CELL: f32 = IMPOSTOR_CELL_CLASSES[0].0;

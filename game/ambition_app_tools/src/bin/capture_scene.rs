@@ -314,10 +314,11 @@ OPTIONS:
                         turn the switch NAME on at sim tick TICK [default: 1],
                         as a press would; repeat for more. Films what a switch
                         commands, such as a gate portal booting.
-    --boss-blow TICK[xHEARTS]
+    --boss-blow TICK[xHEARTS|xall]
                         take HEARTS [default: 1] of each boss's health on sim
-                        tick TICK, as a blow that lands does; repeat for more
-                        blows. What a boss does when it is hurt is
+                        tick TICK, and flash it, as a blow that lands does;
+                        repeat for more blows. A blow leaves a boss 1 heart;
+                        `xall` is the killing blow, which films its death. What a boss does when it is hurt is
                         photographed with no player that swings.
     --player-at X,Y[@TICK][:VX,VY]
                         put the player at world X,Y (its centre) on sim tick
@@ -578,19 +579,30 @@ fn hold_boss_health(
     }
 }
 
-/// `--boss-blow`: take the configured health from each boss on its tick. A
-/// sim system that names its tick, as [`place_player_at`] is.
+/// `--boss-blow TICKxall`: the blow that kills.
+const KILLING_BLOW: i32 = i32::MAX;
+
+/// `--boss-blow`: take the configured health from each boss on its tick, and
+/// flash it as a blow that lands does. A sim system that names its tick, as
+/// [`place_player_at`] is.
 fn blow_on_bosses(
     config: Res<SceneCaptureConfig>,
     tick: Res<ambition_platformer2d::time::SimTick>,
     mut bosses: Query<
-        &mut ambition_platformer2d::characters::actor::BodyHealth,
+        (
+            &mut ambition_platformer2d::characters::actor::BodyHealth,
+            &mut ambition_platformer2d::characters::actor::BodyCombat,
+        ),
         With<ambition_platformer2d::boss_encounter::BossConfig>,
     >,
 ) {
+    // The flash of a blow a boss's limb passed on (`PASSED_BLOW_FLASH_S`).
+    const BLOW_FLASH_S: f32 = 0.18;
     for (_, hearts) in config.boss_blows.iter().filter(|(on_tick, _)| *on_tick == tick.get()) {
-        for mut health in &mut bosses {
-            health.health.current = (health.current() - hearts).max(1);
+        for (mut health, mut combat) in &mut bosses {
+            let floor = if *hearts == KILLING_BLOW { 0 } else { 1 };
+            health.health.current = (health.current() - hearts).max(floor);
+            combat.hit_flash = BLOW_FLASH_S;
         }
         eprintln!("capture_scene: a blow of {hearts} on each boss on tick {}", tick.get());
     }
@@ -1532,6 +1544,7 @@ impl SceneCaptureConfig {
                         return Err("--boss-blow requires TICK[xHEARTS]".to_string());
                     };
                     let (tick, hearts) = match value.split_once('x') {
+                        Some((tick, "all")) => (tick, KILLING_BLOW),
                         Some((tick, hearts)) => (tick, hearts.parse::<i32>().map_err(|_| bad(value))?),
                         None => (value.as_str(), 1),
                     };

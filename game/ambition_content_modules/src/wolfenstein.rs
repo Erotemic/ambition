@@ -38,7 +38,10 @@
 //! lightning strikes him, he shakes, and he howls. At a third of his health
 //! (the encounter's enrage) he draws a syringe of serum, drives it into his
 //! neck, and the surge grows him (`ambition.boss.scale`). When he dies, the
-//! charge goes out of him: his bolts sputter, he howls once, weakly, and falls.
+//! coils pour everything into him in a white flash, and the charge goes out of
+//! him: his bolts sputter and the lights flicker with them, he howls once,
+//! weakly, and falls; the coils blow and the room goes dark; the last spark;
+//! and the lights come back, slowly, on his body.
 //!
 //! Every volume is measured from his art (the renderer's `wolfenstein`), in
 //! the renderer's own frame pixels (its 320 px frame; the sheet publishes it
@@ -682,13 +685,31 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let face = |x: f32| if target.x < x { -1.0 } else { 1.0 };
     let neck = |pos: Vec2, side: f32| pos + Vec2::new(b.bolts().x * side, b.bolts().y);
 
-    // ── Dead: the charge goes out of him; he falls, drawn by the engine ──
+    // ── Dead: the coils overload into him and the charge goes out of him;
+    // he falls, drawn by the engine, and the room goes dark ──
     if !wolf.alive {
         inv.submit::<DrawnRowPort>(DrawnRow::body_as_engine())?;
         let t = c.dead_for.map_or(0.0, |t| t + dt);
         let was = t - dt;
         let crossed = |at: f32| t >= at && was < at;
         let bolt_at = neck(at, side);
+        inv.submit::<BossStagePort>(death_stage_at(t))?;
+        // The coils stand where they stood at his throne, at his build.
+        let built = if c.serumed { Body::of_height(wolf.size[1] / SERUM_GROWTH) } else { b };
+        let coils = coils_of(built, c.leap_from, hall.floor);
+        if c.dead_for.is_none() {
+            // The killing blow: both coils pour everything into him.
+            for (i, coil) in coils.into_iter().enumerate() {
+                bolt(inv, &format!("death_overload_{i}"), Spot::World(coil.into()), Spot::World(bolt_at.into()), "strike", 0.45)?;
+                burst(inv, coil, 18, 280.0, ARC, "spark")?;
+            }
+            lightning(inv, at.x, ceiling, bolt_at)?;
+            play(inv, SFX_STRIKE, bolt_at)?;
+            burst(inv, bolt_at, 40, 380.0, if c.serumed { SERUM } else { ARC }, "spark")?;
+        }
+        if t < DEATH_SPUTTER_S {
+            aura_of(inv, b, 1.2 - 0.5 * t / DEATH_SPUTTER_S, HOLD_S, c.serumed.then_some(SERUM))?;
+        }
         if t < DEATH_SPUTTER_S && (t / 0.18).floor() != (was / 0.18).floor() {
             // The bolts sputter, less each time.
             let left = 1.0 - t / DEATH_SPUTTER_S;
@@ -699,9 +720,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             }
         }
         if crossed(DEATH_HOWL_AT) {
-            // A howl that breaks in the middle.
+            // A howl that breaks in the middle; a coil reaches for him, once.
             play(inv, SFX_HOWL, bolt_at)?;
             burst(inv, bolt_at, 12, 160.0, RING, "spark")?;
+            let coil = coils[if side > 0.0 { 1 } else { 0 }];
+            bolt(inv, "death_reach", Spot::World(coil.into()), Spot::World(bolt_at.into()), "spark_gap", 0.2)?;
+            play(inv, SFX_ZAP, coil)?;
         }
         if crossed(DEATH_FALL_AT) {
             let feet = Vec2::new(at.x, hall.floor - 4.0);
@@ -709,6 +733,17 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             shake(inv, SHAKE_LANDING * 1.6)?;
             burst(inv, feet, 40, 320.0, DUST, "dust")?;
             burst(inv, feet + Vec2::new(side * b.len(50.0), 0.0), 24, 260.0, DUST, "dust")?;
+        }
+        if crossed(DEATH_COILS_BLOW_AT) {
+            // The coils blow, and the lights go with them.
+            for (i, coil) in coils.into_iter().enumerate() {
+                let up = Vec2::new(coil.x, ceiling + 2.0);
+                bolt(inv, &format!("death_blow_{i}"), Spot::World(coil.into()), Spot::World(up.into()), "strike", 0.2)?;
+                burst(inv, coil, 30, 340.0, SPARK, "spark")?;
+            }
+            play(inv, SFX_STRIKE, Vec2::new(c.leap_from, hall.floor - b.len(COIL_HIGH)))?;
+            play(inv, SFX_GLASS, Vec2::new(c.leap_from, ceiling))?;
+            shake(inv, SHAKE_BOLT)?;
         }
         if crossed(DEATH_LAST_SPARK_AT) {
             // The last of the charge.
@@ -1507,8 +1542,9 @@ fn intro(inv: &mut Invocation<'_>, c: &mut Conductor, wolf: &BossConduct, b: Bod
         None => wolf.side,
     };
     if was < 0.0 {
-        // Woken: he is turned to whoever woke him.
+        // Woken: he is turned to whoever woke him. His throne is here.
         side = face(at.x);
+        c.leap_from = at.x;
     }
     let throne_x = if t < LEAP_AT { at.x } else { c.leap_from };
     let coils = coils_of(b, throne_x, hall.floor);
@@ -1663,6 +1699,33 @@ const DEATH_SPUTTER_S: f32 = 1.3;
 const DEATH_HOWL_AT: f32 = 0.9;
 const DEATH_FALL_AT: f32 = 1.75;
 const DEATH_LAST_SPARK_AT: f32 = 2.4;
+/// The flash of the killing blow fades with this time constant.
+const DEATH_FLASH_FADE_S: f32 = 0.35;
+/// As the charge goes out of him the lights flicker, dimmer and dimmer;
+/// when he is down the coils blow and the lights go out; in the dark the
+/// last spark; then the lights come back, slowly, on his body.
+const DEATH_COILS_BLOW_AT: f32 = DEATH_FALL_AT + 0.15;
+const DEATH_DARK: f32 = 0.08;
+const DEATH_LIGHTS_FROM: f32 = 3.6;
+const DEATH_LIGHTS_S: f32 = 2.2;
+
+/// What he stages `t` seconds after he died: the white of the overload, the
+/// lights flickering out with him, the dark, and the lights coming back.
+pub fn death_stage_at(t: f32) -> BossStage {
+    let overload = (-t / DEATH_FLASH_FADE_S).exp();
+    let blown = if t >= DEATH_COILS_BLOW_AT { 0.8 * (-(t - DEATH_COILS_BLOW_AT) / FLASH_FADE_S).exp() } else { 0.0 };
+    let lit = if t < DEATH_COILS_BLOW_AT {
+        // Flickering out: on less and less often, and dimmer.
+        let u = t / DEATH_COILS_BLOW_AT;
+        if catches(t + 17.0, 1.0 - u) { 1.0 - 0.45 * u } else { 0.25 * (1.0 - u) + DEATH_DARK }
+    } else if t < DEATH_LIGHTS_FROM {
+        DEATH_DARK
+    } else {
+        DEATH_DARK + (1.0 - DEATH_DARK) * ease((t - DEATH_LIGHTS_FROM) / DEATH_LIGHTS_S)
+    };
+    let flash = overload.max(blown);
+    BossStage { lit: lit.max(flash * 0.6), flash, card: 0.0 }
+}
 
 #[cfg(test)]
 mod tests {
@@ -1699,5 +1762,18 @@ mod tests {
     fn the_howl_reaches_both_sides_of_him() {
         assert!(overlaps(Body::AUTHORED.howl_box(), robot_at(0.0)));
         assert!(overlaps(Body::AUTHORED.howl_box(), robot_at(-STANDOFF)));
+    }
+
+    /// His death is a white flash, the lights flickering out, the dark while
+    /// he lies there, and the lights back up at the end.
+    #[test]
+    fn his_death_flashes_goes_dark_and_comes_back_lit() {
+        assert!(death_stage_at(0.0).flash > 0.99);
+        let flickers = (0..60).map(|k| death_stage_at(k as f32 * 0.03).lit).collect::<Vec<_>>();
+        assert!(flickers.iter().any(|lit| *lit > 0.6) && flickers.iter().any(|lit| *lit < 0.3), "{flickers:?}");
+        let dark = death_stage_at(DEATH_LAST_SPARK_AT);
+        assert!(dark.lit < 0.15 && dark.flash < 0.05, "{dark:?}");
+        let after = death_stage_at(DEATH_LIGHTS_FROM + DEATH_LIGHTS_S + 1.0);
+        assert!(after.lit > 0.999 && after.flash < 1e-3 && after.card == 0.0, "{after:?}");
     }
 }

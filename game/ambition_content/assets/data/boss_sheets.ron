@@ -471,16 +471,16 @@
     //
     // The sheet publishes his body box, so the body box places him and the
     // frame's centre is the centre of his body. The renderer publishes him at
-    // the game's texel density (`authoring/texel_density.py`): a 660 px frame
-    // with his body 340 px of it. The frame is drawn `collision_scale` x the
-    // body box's height: 660/340.3 (the ratio of his 320-pixel lengths,
+    // the game's texel density (`authoring/texel_density.py`): a 924 px frame
+    // with his body 477 px of it. The frame is drawn `collision_scale` x the
+    // body box's height: 924/476.6 (the ratio of his 320-pixel lengths,
     // 320/165, whatever the density) makes the body the 100 units of his
     // body box.
     // `feet_anchor_y` is the frame's own foot, for a draw with no body box.
     "wolfenstein_boss": (
         label_width: 100,
-        frame_width: 660,
-        frame_height: 660,
+        frame_width: 924,
+        frame_height: 924,
         rows: [
             (Rest, (
                 frame_count: 16,

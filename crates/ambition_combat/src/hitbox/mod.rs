@@ -716,6 +716,41 @@ pub struct StrikeOutcomeWriters<'w> {
     pub deflected: MessageWriter<'w, crate::guard::DeflectedBodyHit>,
 }
 
+/// A volume of a ranked move, placed once a tick: who owns it, its rank, its
+/// pieces, where it strikes from, and whether a guard can turn it.
+struct RankedStrike {
+    entity: Entity,
+    owner: Entity,
+    rank: crate::moveset::StrikeRank,
+    pieces: Vec<ae::frame::thread::VolumePiece>,
+    source: ae::Vec2,
+    meets_guard: bool,
+}
+
+/// A guard of a body and its pieces, cut by the body's own room and transit.
+type CutGuard = (crate::guard::GuardPiece, Vec<ae::frame::thread::VolumePiece>);
+
+/// The guard that turns aside a strike of `strike` pieces from `source`, and
+/// where they touch. A guard turns a strike that meets it from a side it
+/// covers.
+fn turned_aside(
+    strike: &[ae::frame::thread::VolumePiece],
+    source: ae::Vec2,
+    guards: &[CutGuard],
+    down: ae::Vec2,
+) -> Option<(u8, ae::Vec2)> {
+    guards.iter().find_map(|(guard, guard_pieces)| {
+        strike.iter().find_map(|sp| {
+            let gp = guard_pieces.iter().find(|gp| sp.meets(gp))?;
+            // Where the strike comes from, in the guard's chart.
+            let source = gp.uncarry(sp.carry(source));
+            guard
+                .covers(source, down)
+                .then(|| (guard.guard, midpoint(sp.center(), gp.center())))
+        })
+    })
+}
+
 /// Where a hit comes from: a placed volume's own centre, a carried one's
 /// owner. The knockback direction and the portal cut start there.
 fn spatial_source_of(hitbox: &Hitbox, owner_pos: ae::Vec2) -> ae::Vec2 {
@@ -791,6 +826,8 @@ pub fn apply_hitbox_damage(
     use ambition_platformer2d_core::frame::thread::VolumePiece;
     // Each victim's pieces, cut once a tick.
     let mut victim_pieces: std::collections::HashMap<Entity, Vec<VolumePiece>> = std::collections::HashMap::new();
+    // Each victim's guards, cut once a tick.
+    let mut victim_guards: std::collections::HashMap<Entity, Vec<CutGuard>> = std::collections::HashMap::new();
     // ⭐⭐ THE PULSE'S LEDGER, collected here and written to every sibling after
     // the sweep. `(striker, owner, victim)`.
     //
@@ -867,11 +904,18 @@ pub fn apply_hitbox_damage(
     };
     // The ranked volumes live this tick, each placed once: a victim loop asks
     // about each sibling for each body.
-    let ranked: Vec<(Entity, Entity, crate::moveset::StrikeRank, Vec<VolumePiece>)> = strike_ranks
+    let ranked: Vec<RankedStrike> = strike_ranks
         .iter()
         .filter_map(|(entity, hitbox, rank)| {
             let owner_pos = owner_position(hitbox)?;
-            Some((entity, hitbox.owner, *rank, place(entity, hitbox, owner_pos).1))
+            Some(RankedStrike {
+                entity,
+                owner: hitbox.owner,
+                rank: *rank,
+                pieces: place(entity, hitbox, owner_pos).1,
+                source: spatial_source_of(hitbox, owner_pos),
+                meets_guard: hitbox.meets_guard(),
+            })
         })
         .collect();
     for (hitbox_entity, hitbox, mut hits, move_instance) in &mut hitboxes {
@@ -1004,6 +1048,33 @@ pub fn apply_hitbox_damage(
                     continue;
                 }
                 let victim_room = rooms.of(victim.entity);
+                // Cut by the victim's own room and transit, not the strike's:
+                // the pieces are kept for each strike of the tick.
+                let hurt = victim_pieces.entry(victim.entity).or_insert_with(|| {
+                    let threaded = passages.as_deref().filter(|p| p.cuts_in(victim_room, Some(victim.entity)));
+                    victim.hurt_pieces(threaded, victim_room)
+                });
+                let guards_here: &[CutGuard] = victim_guards.entry(victim.entity).or_insert_with(|| {
+                    let threaded = passages.as_deref().filter(|p| p.cuts_in(victim_room, Some(victim.entity)));
+                    turning.get(victim.entity).map_or_else(
+                        |_| Vec::new(),
+                        |turning| {
+                            turning
+                                .pieces
+                                .iter()
+                                .map(|guard| {
+                                    let volume = ae::CombatVolume::aabb(guard.volume);
+                                    let cut = match threaded {
+                                        Some(passages) => passages.pieces(&volume, Some(victim.entity), victim.aabb.center, victim_room),
+                                        None => vec![VolumePiece::whole(volume)],
+                                    };
+                                    (*guard, cut)
+                                })
+                                .collect()
+                        },
+                    )
+                });
+                let down = victim.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
                 // ⭐ A GUARD IS ASKED BEFORE THE BODY. A strike that meets a
                 // guard from a side it covers is turned aside and reaches
                 // nothing behind it, whether or not it also reaches the body:
@@ -1014,51 +1085,63 @@ pub fn apply_hitbox_damage(
                 // An unblockable strike and a windbox pass every guard: the
                 // first breaks through a guard by its contract, and the second
                 // only pushes.
-                if hitbox.meets_guard() && !matches!(hitbox.reaction, Some(ambition_entity_catalog::VolumeReaction::Windbox(_))) {
-                    if let Ok(turning) = turning.get(victim.entity) {
-                        let down = victim.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
-                        let threaded = passages.as_deref().filter(|p| p.cuts_in(victim_room, Some(victim.entity)));
-                        let turned = turning.pieces.iter().find_map(|guard| {
-                            let volume = ae::CombatVolume::aabb(guard.volume);
-                            let guard_pieces: Vec<VolumePiece> = match threaded {
-                                Some(passages) => passages.pieces(&volume, Some(victim.entity), victim.aabb.center, victim_room),
-                                None => vec![VolumePiece::whole(volume)],
-                            };
-                            pieces.iter().find_map(|sp| {
-                                let gp = guard_pieces.iter().find(|gp| sp.meets(gp))?;
-                                // Where the strike comes from, in the guard's chart.
-                                let source = gp.uncarry(sp.carry(spatial_source));
-                                guard
-                                    .covers(source, down)
-                                    .then(|| (guard.guard, midpoint(sp.center(), gp.center())))
-                            })
-                        });
-                        if let Some((guard, contact)) = turned {
-                            hits.hit.insert(victim.entity);
-                            pulse_records.push((hitbox_entity, hitbox.owner, victim.entity));
-                            out.deflected.write(crate::guard::DeflectedBodyHit {
-                                defender: victim.entity,
-                                attacker: hitbox.owner,
-                                hitbox: hitbox_entity,
-                                guard,
-                                contact,
-                                damage: hitbox.damage,
-                            });
-                            continue;
-                        }
+                let turned = if hitbox.meets_guard() {
+                    turned_aside(&pieces, spatial_source, guards_here, down)
+                } else {
+                    None
+                };
+                // The piece of the strike that reaches a piece of the victim.
+                let reach = pieces
+                    .iter()
+                    .find_map(|sp| hurt.iter().find(|vp| sp.meets(vp)).map(|vp| (sp, vp.clone())));
+                if turned.is_none() && reach.is_none() {
+                    continue;
+                }
+                // ⭐ THE SWEETSPOT WINS. A move that authors a tip and a base
+                // has both live at once, and a body standing between them is
+                // reached by both — so one swing landed twice, for two
+                // different damages and two knockbacks, until this.
+                //
+                // The victim takes the FIRST-AUTHORED volume that reaches it
+                // and no other: the loser stands down whenever a lower-ranked
+                // sibling of the same move also reaches this body. Asked from
+                // the LOSER's side deliberately — it needs no shared ledger and
+                // no write, so there is no order for two writers to disagree
+                // about, and a sourspot whose sweetspot window has closed is
+                // free again on the very next tick, which is what a lingering
+                // late hit should be.
+                //
+                // ⛔ A GUARD IS PART OF WHAT A VOLUME REACHES. The guard used to
+                // be asked before this rule, so a sourspot that met the shield
+                // was turned aside while the sweetspot landed on the body: one
+                // swing deflected and landed. A sibling that the guard turns
+                // aside has reached this body as surely as one that hits it.
+                if let Some(me) = ranked.iter().find(|ranked| ranked.entity == hitbox_entity) {
+                    let outranked = ranked.iter().any(|sibling| {
+                        sibling.owner == hitbox.owner
+                            && sibling.rank < me.rank
+                            && (sibling.pieces.iter().any(|sp| hurt.iter().any(|vp| sp.meets(vp)))
+                                || (sibling.meets_guard
+                                    && turned_aside(&sibling.pieces, sibling.source, guards_here, down).is_some()))
+                    });
+                    if outranked {
+                        continue;
                     }
                 }
-                // Cut by the victim's own room and transit, not the strike's:
-                // the pieces are kept for each strike of the tick.
-                let hurt = victim_pieces.entry(victim.entity).or_insert_with(|| {
-                    let threaded = passages.as_deref().filter(|p| p.cuts_in(victim_room, Some(victim.entity)));
-                    victim.hurt_pieces(threaded, victim_room)
-                });
-                // The piece of the strike that reaches a piece of the victim.
-                let Some((strike_piece, victim_piece)) = pieces
-                    .iter()
-                    .find_map(|sp| hurt.iter().find(|vp| sp.meets(vp)).map(|vp| (sp, vp.clone())))
-                else {
+                if let Some((guard, contact)) = turned {
+                    hits.hit.insert(victim.entity);
+                    pulse_records.push((hitbox_entity, hitbox.owner, victim.entity));
+                    out.deflected.write(crate::guard::DeflectedBodyHit {
+                        defender: victim.entity,
+                        attacker: hitbox.owner,
+                        hitbox: hitbox_entity,
+                        guard,
+                        contact,
+                        damage: hitbox.damage,
+                    });
+                    continue;
+                }
+                let Some((strike_piece, victim_piece)) = reach else {
                     continue;
                 };
                 // The strike's own chart into the victim's own: through the pair
@@ -1087,29 +1170,6 @@ pub fn apply_hitbox_damage(
                 // neither confirms an on-hit cancel nor wears itself out on the
                 // stale queue. The strike is still recorded as having reached
                 // this victim so it cannot re-reach it while the window is open.
-                // ⭐ THE SWEETSPOT WINS. A move that authors a tip and a base
-                // has both live at once, and a body standing between them is
-                // reached by both — so one swing landed twice, for two
-                // different damages and two knockbacks, until this.
-                //
-                // The victim takes the FIRST-AUTHORED volume that reaches it
-                // and no other: the loser stands down whenever a lower-ranked
-                // sibling of the same move also reaches this body. Asked from
-                // the LOSER's side deliberately — it needs no shared ledger and
-                // no write, so there is no order for two writers to disagree
-                // about, and a sourspot whose sweetspot window has closed is
-                // free again on the very next tick, which is what a lingering
-                // late hit should be.
-                if let Some((_, _, rank, _)) = ranked.iter().find(|(entity, ..)| *entity == hitbox_entity) {
-                    let outranked = ranked.iter().any(|(_, owner, sibling_rank, sibling_pieces)| {
-                        *owner == hitbox.owner
-                            && sibling_rank < rank
-                            && sibling_pieces.iter().any(|sp| hurt.iter().any(|vp| sp.meets(vp)))
-                    });
-                    if outranked {
-                        continue;
-                    }
-                }
                 // ⛔⛔ A WINDBOX CANNOT BE PARRIED. Its authored contract is that
                 // it PUSHES and does nothing else — no damage, no hitstun, NO
                 // SHIELD — and a parry is the strongest form of the thing it

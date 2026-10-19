@@ -2178,6 +2178,18 @@ mod strike_rank {
     /// reached only by the base. That overlap is the whole point — volumes that
     /// cannot both reach never exercise the rule.
     fn two_ranked_volumes(victim_x: f32, second_damage: i32, second_is_wind: bool) -> App {
+        two_ranked_volumes_guarded(victim_x, second_damage, second_is_wind, None, 160.0)
+    }
+
+    /// [`two_ranked_volumes`], with a guard that covers every side at `guard`
+    /// and the tip centred at `tip_x`.
+    fn two_ranked_volumes_guarded(
+        victim_x: f32,
+        second_damage: i32,
+        second_is_wind: bool,
+        guard: Option<ae::Aabb>,
+        tip_x: f32,
+    ) -> App {
         let mut app = App::new();
         app.add_message::<HitEvent>();
         app.add_message::<LandedBodyHit>();
@@ -2224,7 +2236,7 @@ mod strike_rank {
             ));
         };
         // Rank 0 — the TIP: small, far, and contained by the base below.
-        volume(ae::Vec2::new(160.0, 100.0), ae::Vec2::new(8.0, 8.0), 14, 0, false);
+        volume(ae::Vec2::new(tip_x, 100.0), ae::Vec2::new(8.0, 8.0), 14, 0, false);
         // Rank 1 — the BASE (or, for `wake`, the wind): wide, near, spans 85..175.
         volume(
             ae::Vec2::new(130.0, 100.0),
@@ -2249,9 +2261,30 @@ mod strike_rank {
             ambition_platformer2d_core::BodyMotionFacts::default(),
             ambition_platformer2d_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
+            crate::guard::GuardVolumes {
+                pieces: guard
+                    .into_iter()
+                    .map(|volume| crate::guard::GuardPiece {
+                        guard: 0,
+                        volume,
+                        faces: ambition_characters::actor::GuardFaces::Around,
+                        facing: 1.0,
+                        open_above: false,
+                    })
+                    .collect(),
+            },
         ));
         app.update();
         app
+    }
+
+    /// The damage of each strike a guard turned aside.
+    fn deflected(app: &App) -> Vec<i32> {
+        app.world()
+            .resource::<bevy::ecs::message::Messages<crate::guard::DeflectedBodyHit>>()
+            .iter_current_update_messages()
+            .map(|deflect| deflect.damage)
+            .collect()
     }
 
     fn hits(app: &App) -> Vec<crate::events::HitEvent> {
@@ -2274,6 +2307,69 @@ mod strike_rank {
         let landed = hits(&app);
         assert_eq!(landed.len(), 1, "one swing must land once: {landed:?}");
         assert_eq!(landed[0].damage, 14, "the FIRST-authored volume is the tip");
+    }
+
+    /// Review finding #2 (2026-10-19): ONE SWING, ONE CONTACT, ALSO AT A
+    /// GUARD. The tip reaches the body; the base reaches only a guard in front
+    /// of it. The tip lands and the base stands down. Measured before: the
+    /// guard was asked before the rank rule, so the base was deflected and the
+    /// tip landed, one swing both turned aside and landed. Poison: ask the
+    /// guard before the rank rule again.
+    #[test]
+    fn a_swing_whose_base_meets_a_guard_and_tip_meets_the_body_lands_once() {
+        // The guard spans 112..124: inside the base (85..175), clear of the
+        // tip (152..168) and of the body (146..174).
+        let guard = ae::Aabb::new(ae::Vec2::new(118.0, 100.0), ae::Vec2::new(6.0, 20.0));
+        let app = two_ranked_volumes_guarded(160.0, 7, false, Some(guard), 160.0);
+        let (landed, turned) = (hits(&app), deflected(&app));
+        assert_eq!(
+            (landed.iter().map(|hit| hit.damage).collect::<Vec<_>>(), turned),
+            (vec![14], vec![]),
+            "the tip lands and the base, outranked, is not turned aside"
+        );
+    }
+
+    /// The other way round: the guard covers the tip, and the base reaches the
+    /// body and the guard. The tip is turned aside, and the base stands down.
+    /// Measured before: both volumes were turned aside, two deflections.
+    #[test]
+    fn a_swing_whose_tip_meets_a_guard_is_turned_aside_once() {
+        let guard = ae::Aabb::new(ae::Vec2::new(160.0, 100.0), ae::Vec2::new(10.0, 24.0));
+        let app = two_ranked_volumes_guarded(160.0, 7, false, Some(guard), 160.0);
+        let (landed, turned) = (hits(&app), deflected(&app));
+        assert_eq!(
+            (landed.len(), turned),
+            (0, vec![14]),
+            "the tip is turned aside, and nothing else of the swing connects"
+        );
+    }
+
+    /// A tip apart from the base (a swing whose far hand and near elbow are
+    /// two volumes): the tip meets only a guard, the base reaches only the
+    /// body. The tip is turned aside and the base stands down. Without the
+    /// guard in the rank rule, the base landed beside the deflection.
+    #[test]
+    fn a_tip_turned_aside_by_a_guard_outranks_a_base_on_the_body() {
+        // The tip spans 212..228 and the guard 210..230, clear of the base
+        // (85..175). The body at 100 is reached by the base only.
+        let guard = ae::Aabb::new(ae::Vec2::new(220.0, 100.0), ae::Vec2::new(10.0, 24.0));
+        let app = two_ranked_volumes_guarded(100.0, 7, false, Some(guard), 220.0);
+        let (landed, turned) = (hits(&app), deflected(&app));
+        assert_eq!(
+            (landed.iter().map(|hit| hit.damage).collect::<Vec<_>>(), turned),
+            (vec![], vec![14]),
+            "the tip is turned aside and the base lands nothing beside it"
+        );
+    }
+
+    /// Control: a guard the tip does not reach leaves the base free. The body
+    /// stands up close, where only the base reaches; the base meets the guard
+    /// and is turned aside.
+    #[test]
+    fn a_base_that_alone_meets_a_guard_is_turned_aside() {
+        let guard = ae::Aabb::new(ae::Vec2::new(118.0, 100.0), ae::Vec2::new(6.0, 20.0));
+        let app = two_ranked_volumes_guarded(100.0, 7, false, Some(guard), 160.0);
+        assert_eq!((hits(&app).len(), deflected(&app)), (0, vec![7]));
     }
 
     /// The sourspot is not disabled — it is outranked only where the tip reaches.

@@ -81,3 +81,59 @@ fn ceiling_cross_inverts_the_player_onto_the_ceiling_to_cross_the_hazard() {
         obs.resets,
     );
 }
+
+/// Holding right through `ceiling_cross` with the player-relative camera
+/// (`CameraReferenceFrame::SubjectFrame`) crosses on the ceiling, and the
+/// world turns over once going in (Jon, 2026-10-19: "If I just hold right in
+/// ceiling cross the camera goes wild. It used to just flip the screen once
+/// and let me continue moving in that direction").
+///
+/// Under that camera every movement mode resolves body-relative
+/// (`InputFrameMode::under_camera`), and the gravity of the body is the
+/// screen's. The moment the field turns gravity up, a held right becomes the
+/// body's right, which is world-left: it walks the body back out of the
+/// field, gravity turns down, the camera turns back, right is world-right
+/// again, and so on. Each turn of gravity is a half turn of the camera.
+///
+/// Measured 2026-10-19: 30 turns in 360 ticks, the body bouncing between x 248
+/// and 262 (the field begins at 270) while it rises. With the world-fixed
+/// camera the same hold crosses (the test above).
+#[test]
+#[ignore = "BUG (2026-10-19): fails, 30 turns of gravity in 6 s at the field's left edge; un-ignore with the fix"]
+fn ceiling_cross_with_the_player_relative_camera_turns_the_world_over_once() {
+    use ambition_platformer2d::engine_core::{CameraReferenceFrame, InputFrameMode};
+    use ambition_platformer2d::persistence::settings::UserSettings;
+
+    let mut sim = fixed_60hz_room_sim("ceiling_cross");
+    sim.world_mut().resource_mut::<UserSettings>().gameplay.camera_reference_frame =
+        CameraReferenceFrame::SubjectFrame;
+    // Publishes the RESOLVED mode (body-relative under this camera) to the seat.
+    sim.set_movement_frame_mode(InputFrameMode::ScreenRelative);
+
+    let mut gravity = sim.observation().gravity_dir;
+    let mut turns = Vec::new();
+    for tick in 0..360 {
+        sim.step(hold_right());
+        let obs = sim.observation();
+        if obs.gravity_dir != gravity {
+            turns.push((tick, obs.gravity_dir, obs.player_pos));
+            gravity = obs.gravity_dir;
+        }
+    }
+    let obs = sim.observation();
+    // In, and out over the right ledge: two turns of gravity at most.
+    assert!(
+        turns.len() <= 2,
+        "holding right, gravity (and the player-relative camera) turned {} times: {:?}",
+        turns.len(),
+        &turns[..turns.len().min(8)],
+    );
+    assert!(
+        obs.player_pos.0 > 720.0 && obs.resets == 0,
+        "holding right with the player-relative camera did not cross to the right ledge \
+         (at {:?}, resets {}; gravity turns {:?})",
+        obs.player_pos,
+        obs.resets,
+        &turns[..turns.len().min(8)],
+    );
+}

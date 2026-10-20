@@ -36,6 +36,7 @@ actor.dormant	component-clone	Dormant	bevy_ggrs clone snapshot; not in the sessi
 actor.driving_participant	component-clone	DrivingParticipant	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.errand	component-clone	Errand	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.faction	component-clone	ActorFaction	bevy_ggrs clone snapshot; not in the session checksum
+actor.held_control_frame	component-clone	HeldControlFrame	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.held_item	component-clone	HeldItem	bevy_ggrs clone snapshot; not in the session checksum
 actor.identity	component-clone	ActorIdentity	bevy_ggrs clone snapshot; not in the session checksum
 actor.identity_kit	component-clone	IdentityKit	bevy_ggrs clone snapshot; not in the session checksum

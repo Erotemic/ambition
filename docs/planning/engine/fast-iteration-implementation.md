@@ -671,6 +671,25 @@ before you add a port.
     module number by list place, red at "the loaded plate throws as the
     linked one does"; a launch that adds, red at "the plate added to his
     speed"; no stamp, red at "the plate is not the match's".
+  - Special route F3 ✅ (2026-10-20): a special that acts on the bodies
+    around its fighter. The request `ambition.combat.sleep_area` puts every
+    other body of the fighter's live room whose box meets an area (in the
+    fighter's own frame) to sleep for at least the asked time; the sleep is a
+    floor, so two pulses do not add up. Smash's song is the module
+    `ambition_demo_smash_modules::sing`; the native `apply_authored_sleep` is
+    deleted, and the game's mash rule (`mash_out_of_sleep`) stays in the demo
+    and runs before the song is lowered. Admission now checks a song's params
+    (`check_sleep_params`: a time more than 0 and an area that reaches
+    somebody; it was "serde can build it"). One rule changed: a body of
+    another live room is not caught (the native song read every body of the
+    process). Witnesses: the seven sing tests on the module road
+    (`ambition_demo_smash sing::tests`, among them
+    `the_song_from_its_module_file_sleeps_as_the_linked_one_does`, its runner
+    `Loaded`, and `the_song_does_not_reach_another_live_room`). Poisons, each
+    red on its own line: no room check; the singer not excluded; a sleep that
+    adds; a wasm-only drift of the time. Cost: an edit to the song builds the
+    module file in 0.61 s, and the Ambition app, whose performer and Shadow
+    Oni leader sing, loads it with no relink (`AMBITION_EXTENSION_MODULES`).
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

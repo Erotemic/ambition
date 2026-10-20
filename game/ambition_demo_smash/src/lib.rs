@@ -471,32 +471,36 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // (`install_special` puts each handler in their set); so do the
         // per-tick follow-ups below that only a special starts: the limit
         // meter, the counter window, mark clocks, bomb fuses and the ride.
-        // Sing, in `ContentSpecials`: its effect must exist before the effect
-        // executors run. Authored sleeps today: the performer's `speech` pulse
-        // (`performer_moveset`) and the Shadow Oni leader's seal. The bridge
-        // from `MoveEventKind::Effect` is the keyed-technique dispatch in
-        // `crates/ambition_combat/src/moveset/mod.rs`.
-        //
-        // The mash runs first, so a press cannot be spent on a sleep that did
-        // not exist when it was made. `apply_authored_sleep` takes a `max`, so
-        // the landing tick is the same either way.
-        install_special(
+        // Sing: the module `ambition_demo_smash_modules::sing`, so an edit to
+        // the song compiles that crate alone. Authored sleeps today: the
+        // performer's `speech` pulse (`performer_moveset`) and the Shadow Oni
+        // leader's seal.
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_sleep::SLEEP,
             TechniqueOffer {
-                owner: "ambition_demo_smash::sing",
+                owner: "ambition_demo_smash_modules::sing",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::entity_catalog::smash_sleep::SleepParams>,
+                    // The domain rule, not only "serde can build it".
+                    ambition_platformer2d::entity_catalog::smash_sleep::check_sleep_params,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            (
-                crate::sing::mash_out_of_sleep,
-                crate::sing::apply_authored_sleep,
-            )
-                .chain()
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+            ambition_demo_smash_modules::sing::module(),
+        );
+        // The mash is this game's rule of how a sleeper buys time back. It
+        // runs before the song's sleep is lowered, so a press cannot be spent
+        // on a sleep that did not exist when it was made; the sleep is a
+        // floor, so the landing tick is the same either way.
+        app.add_systems(
+            sim,
+            crate::sing::mash_out_of_sleep
+                .in_set(FIGHTER_SPECIALS)
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials)
+                .before(ambition_platformer2d::extension::ExtensionSet::Collect(
+                    ambition_platformer2d::extension::sdk::phases::TECHNIQUE_EXECUTION,
+                )),
         );
         // Portal recovery, in `ContentSpecials`. The close is chained after the
         // open, so an aperture's lifetime is spent from the frame it appears.

@@ -18,6 +18,39 @@ pub struct SleepParams {
     pub half_extents: (f32, f32),
 }
 
+impl SleepParams {
+    /// Each value the song cannot use, named by its field.
+    pub fn problems(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        if !(self.duration_s.is_finite() && self.duration_s > 0.0) {
+            problems.push(format!(
+                "`duration_s` is {}; a sleep is seconds, finite and more than 0, or it is not a status at all",
+                self.duration_s
+            ));
+        }
+        let (w, h) = self.half_extents;
+        if !(w.is_finite() && w > 0.0 && h.is_finite() && h > 0.0) {
+            problems.push(format!(
+                "`half_extents` is {:?}; each half extent is finite and more than 0, or the song reaches nobody",
+                self.half_extents
+            ));
+        }
+        problems
+    }
+}
+
+/// Admission's check of a sleep's params: they hydrate, and the song can use
+/// them ([`SleepParams::problems`]).
+pub fn check_sleep_params(params: &ParamValue) -> Result<(), String> {
+    let typed: SleepParams = params.hydrate().map_err(|error| error.to_string())?;
+    let problems = typed.problems();
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems.join("; "))
+    }
+}
+
 /// Author a sleep pulse onto `spec`, firing at `at_s`.
 pub fn author_sleep(mut spec: MoveSpec, at_s: f32, params: SleepParams) -> MoveSpec {
     assert!(
@@ -61,6 +94,16 @@ mod tests {
             duration_s: 1.4,
             half_extents: (70.0, 40.0),
         }
+    }
+
+    /// Admission refuses a sleep that is no status and one that reaches
+    /// nobody, and admits the authored one.
+    #[test]
+    fn admission_refuses_a_sleep_the_song_cannot_use() {
+        let check = |params: SleepParams| check_sleep_params(&ParamValue::from_typed(&params).unwrap());
+        assert_eq!(check(params()), Ok(()));
+        assert!(check(SleepParams { duration_s: 0.0, ..params() }).unwrap_err().contains("duration_s"));
+        assert!(check(SleepParams { half_extents: (70.0, 0.0), ..params() }).unwrap_err().contains("half_extents"));
     }
 
     #[test]

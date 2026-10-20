@@ -193,9 +193,61 @@ impl Port for BodyStrikePort {
     }
 }
 
+/// The request port marker for a sleep over an area around the body.
+///
+/// Port card:
+///
+/// * **Operation** — every other body of the invoking body's live room whose
+///   box meets the area falls asleep for at least `duration_s`: it cannot
+///   act until the time runs out or its own presses buy the time back (the
+///   game's mash rule). A body that already sleeps longer keeps its time, so
+///   two pulses do not add up to a sleep nobody wakes from. The area is
+///   `forward` from the body's centre (`x` along its facing, `y` toward its
+///   feet) with the half extents `half_extent`.
+/// * **Owner** — `ambition_combat::extension::special`, which writes
+///   `BodyCombat::sleep_timer`.
+/// * **Scope** — the body the invocation ran for. It never falls asleep.
+/// * **Time** — `technique_execution`, this tick: a body caught now cannot
+///   act from this tick.
+/// * **Read model** — world units, in the body's own frame: a body in turned
+///   gravity sings into its turned frame.
+pub struct SleepAreaPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SleepArea {
+    pub forward: [f32; 2],
+    pub half_extent: [f32; 2],
+    pub duration_s: f32,
+}
+
+impl Port for SleepAreaPort {
+    const KEY: PortKey = PortKey::new("ambition.combat.sleep_area", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = SleepArea;
+
+    fn encode(v: &SleepArea, out: &mut Vec<u8>) {
+        wire::put_vec2(out, v.forward);
+        wire::put_vec2(out, v.half_extent);
+        wire::put_f32(out, v.duration_s);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<SleepArea, WireError> {
+        Ok(SleepArea { forward: r.vec2()?, half_extent: r.vec2()?, duration_s: r.f32()? })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A sleep area decodes to what was encoded.
+    #[test]
+    fn a_sleep_area_crosses_the_wire_unchanged() {
+        let area = SleepArea { forward: [12.0, -3.0], half_extent: [70.0, 40.0], duration_s: 1.4 };
+        let mut bytes = Vec::new();
+        SleepAreaPort::encode(&area, &mut bytes);
+        assert_eq!(SleepAreaPort::decode(&mut WireReader::new(&bytes)).unwrap(), area);
+    }
 
     /// A special and a strike decode to what was encoded.
     #[test]

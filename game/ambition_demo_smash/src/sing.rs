@@ -1,69 +1,16 @@
 //! Sing: an area that takes the floor away from whoever stood too close.
 //!
-//! No status system was written for this. `attack_support`'s
-//! `hard_lock_timer` is a `max()` over named causes of "this body cannot act",
-//! and `BodyCombat::sleep_timer` is one of them. This module finds the bodies in
-//! range and sets that timer; control stripping, the shared decay and the wake
-//! a real hit buys already exist.
+//! The song itself is the module `ambition_demo_smash_modules::sing`: it asks
+//! `ambition.combat.sleep_area` to set the sleep timer of every other body in
+//! the move's area, so an edit to the song compiles the module crate alone.
+//! No status system was written for this: `attack_support`'s
+//! `hard_lock_timer` is a `max()` over named causes of "this body cannot
+//! act", and `BodyCombat::sleep_timer` is one of them.
 //!
-//! The singer is never caught by their own song: the move puts everyone else to
-//! sleep so the singer can act.
+//! What stays here is this game's rule of how a sleeper buys time back.
 
-use bevy::math::bounding::IntersectsVolume as _;
 use bevy::prelude::*;
 
-use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
-use ambition_platformer2d::characters::brain::ActorActionMessage;
-use ambition_platformer2d::entity_catalog::smash_sleep::{SleepParams, SLEEP};
-use ambition_platformer2d::engine_core as ae;
-
-/// Put every eligible body inside the pulse to sleep.
-pub fn apply_authored_sleep(
-    mut actions: MessageReader<ActorActionMessage>,
-    singers: Query<&ae::BodyKinematics>,
-    mut victims: Query<(
-        Entity,
-        &ae::CenteredAabb,
-        &mut ambition_platformer2d::characters::actor::BodyCombat,
-    )>,
-) {
-    for message in actions.read() {
-        let ActionRequest::Special { spec, params } = &message.request else {
-            continue;
-        };
-        let SpecialActionSpec::Special(key) = spec;
-        if key.as_str() != SLEEP {
-            continue;
-        }
-        let params: SleepParams = match params.hydrate() {
-            Ok(p) => p,
-            Err(err) => {
-                warn!("smash sleep params did not hydrate: {err}");
-                continue;
-            }
-        };
-        let Ok(kin) = singers.get(message.actor) else {
-            continue;
-        };
-        // Centred on the singer and symmetric, so facing does not matter.
-        let reach = ae::CenteredAabb::from_center_size(
-            kin.pos,
-            ae::Vec2::new(params.half_extents.0 * 2.0, params.half_extents.1 * 2.0),
-        )
-        .aabb();
-        for (body, aabb, mut combat) in &mut victims {
-            if body == message.actor {
-                continue;
-            }
-            if !reach.intersects(&aabb.aabb()) {
-                continue;
-            }
-            // A floor, not an addition: two overlapping pulses take the longer
-            // one, so they cannot stack into a sleep nobody wakes from.
-            combat.sleep_timer = combat.sleep_timer.max(params.duration_s);
-        }
-    }
-}
 
 /// A sleeping fighter's press buys back time: the counterplay for the longest
 /// disable in the game.
@@ -111,16 +58,54 @@ pub fn mash_out_of_sleep(
 mod tests {
     use super::*;
     use ambition_platformer2d::characters::actor::BodyCombat;
+    use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
+    use ambition_platformer2d::characters::brain::ActorActionMessage;
+    use ambition_platformer2d::engine_core as ae;
+    use ambition_platformer2d::entity_catalog::smash_sleep::{SleepParams, SLEEP};
+    use ambition_platformer2d::extension::sdk::phases::TECHNIQUE_EXECUTION;
+    use ambition_platformer2d::extension::{ExtensionAppExt as _, ExtensionHostPlugin, ExtensionSet};
+
+    /// Where the song comes from: linked into the game, or its file built for
+    /// `wasm32-unknown-unknown` and loaded, the road a developer edits on.
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum Road {
+        Linked,
+        Loaded,
+    }
 
     fn app() -> App {
+        app_on(Road::Linked)
+    }
+
+    /// The song on the road a game runs it, with the shipped order (see
+    /// `lib.rs`): the mash runs before the song is lowered, so a press is
+    /// never spent on a sleep that did not exist when it was made.
+    fn app_on(road: Road) -> App {
         let mut app = App::new();
         app.add_message::<ActorActionMessage>();
-        // The shipped order (see `lib.rs`): the mash runs first, so a press is
-        // never spent on a sleep that did not exist when it was made.
-        app.add_systems(
-            Update,
-            (mash_out_of_sleep, apply_authored_sleep, note_writes).chain(),
-        );
+        app.add_plugins(ExtensionHostPlugin::new(Update))
+            .init_resource::<ambition_platformer2d::time::SimTick>()
+            .insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
+        ambition_platformer2d::combat::extension::special::install_for_specials(&mut app);
+        match road {
+            Road::Linked => {
+                app.add_extension_module(ambition_demo_smash_modules::sing::module());
+            }
+            Road::Loaded => {
+                let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+                let file = ambition_platformer2d::extension::build_module_crate(&root, "ambition_demo_smash_modules")
+                    .expect("the Smash module crate builds for wasm32-unknown-unknown");
+                let (backend, mut modules) =
+                    ambition_platformer2d::extension::WasmModules::load(&std::fs::read(file).unwrap())
+                        .expect("the module file loads");
+                let key = ambition_demo_smash_modules::sing::module().key;
+                modules.retain(|module| module.key == key);
+                app.add_loaded_extension_modules("ambition_demo_smash_modules.wasm", backend, modules, false);
+            }
+        }
+        app.add_systems(Update, mash_out_of_sleep.before(ExtensionSet::Collect(TECHNIQUE_EXECUTION)));
+        app.add_systems(Update, note_writes.after(ExtensionSet::Lower(TECHNIQUE_EXECUTION)));
+        app.finish();
         app
     }
 
@@ -133,6 +118,7 @@ mod tests {
                     ..Default::default()
                 },
                 ae::CenteredAabb::from_center_size(at, ae::Vec2::new(28.0, 46.0)),
+                ambition_platformer2d::world::ResolvedMotionFrame::default(),
                 BodyCombat::default(),
                 control(),
                 Wrote::default(),
@@ -184,6 +170,50 @@ mod tests {
             0.0,
             "a body well outside the pulse was caught, so the area means nothing"
         );
+    }
+
+    /// The loaded file's song is the linked one's: the same bodies sleep for
+    /// the same time. Its runner is the loaded file.
+    #[test]
+    fn the_song_from_its_module_file_sleeps_as_the_linked_one_does() {
+        let mut slept_on = Vec::new();
+        for road in [Road::Linked, Road::Loaded] {
+            let mut app = app_on(road);
+            let singer = body(&mut app, ae::Vec2::new(0.0, 0.0));
+            let near = body(&mut app, ae::Vec2::new(40.0, 0.0));
+            let far = body(&mut app, ae::Vec2::new(400.0, 0.0));
+            sing(&mut app, singer, 1.4);
+            app.update();
+            let runner = {
+                let admitted = app.world().resource::<ambition_platformer2d::extension::AdmittedExtensions>();
+                let entry = admitted.0.entries.iter().find(|entry| entry.descriptor.key.as_ref() == SLEEP);
+                format!("{:?}", entry.expect("the song's entry is admitted").runner)
+            };
+            assert_eq!(runner.starts_with("Loaded"), road == Road::Loaded, "{road:?}: {runner}");
+            slept_on.push([singer, near, far].map(|who| slept(&app, who)));
+        }
+        assert_eq!(slept_on[1], slept_on[0], "the loaded song slept bodies the linked one did not");
+        assert_eq!(slept_on[0], [0.0, 1.4, 0.0], "premise: the linked song caught the near body only");
+    }
+
+    /// A body of another live room is not caught, however close its
+    /// coordinates: it stands in another world. The native song read every
+    /// body of the process.
+    #[test]
+    fn the_song_does_not_reach_another_live_room() {
+        use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance};
+        let mut app = app();
+        let first = LiveRoomInstance::ACTIVATION;
+        let singer = body(&mut app, ae::Vec2::new(0.0, 0.0));
+        let here = body(&mut app, ae::Vec2::new(40.0, 0.0));
+        let elsewhere = body(&mut app, ae::Vec2::new(40.0, 0.0));
+        app.world_mut().entity_mut(singer).insert(InRoomInstance(first));
+        app.world_mut().entity_mut(here).insert(InRoomInstance(first));
+        app.world_mut().entity_mut(elsewhere).insert(InRoomInstance(first.next()));
+        sing(&mut app, singer, 1.4);
+        app.update();
+        assert_eq!(slept(&app, here), 1.4, "control: a body of the singer's room is caught");
+        assert_eq!(slept(&app, elsewhere), 0.0, "a body of another live room was caught");
     }
 
     /// Per-body scratch: was this fighter's `BodyCombat` written this tick?

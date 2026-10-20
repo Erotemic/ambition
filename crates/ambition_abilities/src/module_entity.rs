@@ -10,8 +10,9 @@
 use ambition_combat::components::CenteredAabb;
 use ambition_characters::actor::ActorFaction;
 use ambition_combat_port::{
-    ContactBody, EndModuleEntityPort, ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, SpawnModuleEntityPort,
-    SpecialParam,
+    ContactBody, EndModuleEntityPort, EndOwnedEntityPort, ItemState, ModuleEntitySpawn, ModuleEntityTick,
+    ModuleEntityTickPort, ModuleItemSpawn, MoveModuleEntityPort, OwnedEntities, OwnedEntity, SpawnModuleEntityPort,
+    SpawnModuleItemPort, SpawnerBody, SpecialParam,
 };
 use ambition_extension_host::{AdmittedExtensions, ExtensionInvocations, ExtensionOutbox, LowersIn};
 use ambition_extension_sdk::phases::MODULE_ENTITY_TICK;
@@ -40,13 +41,27 @@ pub struct ModuleEntity {
     /// The spawn's authored values, given back to the module at each tick.
     /// They do not change, so the rollback probe leaves them out.
     pub params: Vec<(String, SpecialParam)>,
+    /// The identity of the body that spawned it, which owns it however it
+    /// changes hands (`ambition.world.owned_entities`). Constant.
+    pub spawner: Option<SimId>,
+    /// Gameplay seconds it has lived, counted up as it ages: not derived from
+    /// its lifetime, which may be too long for a step to register on.
+    pub age_s: f32,
 }
 
 impl ModuleEntity {
     /// An entity that no body touches and that has no params (a turret, a
     /// well).
     pub fn point(kind: impl Into<String>, pos: ae::Vec2, remaining_s: f32) -> Self {
-        Self { kind: kind.into(), pos, remaining_s, half_extents: ae::Vec2::ZERO, params: Vec::new() }
+        Self {
+            kind: kind.into(),
+            pos,
+            remaining_s,
+            half_extents: ae::Vec2::ZERO,
+            params: Vec::new(),
+            spawner: None,
+            age_s: 0.0,
+        }
     }
 }
 
@@ -130,6 +145,8 @@ pub fn lower_module_entity_spawns<L: LowersIn>(
                 remaining_s: lifetime_s,
                 half_extents: ae::Vec2::from(half_extents),
                 params,
+                spawner: Some(id.clone()),
+                age_s: 0.0,
             },
             Spawner {
                 // In its spawner's live room, as a shot is in its owner's.
@@ -196,6 +213,7 @@ pub fn queue_module_entity_ticks(
     let mut living = Vec::new();
     for (entity, mut module_entity, id) in &mut entities {
         module_entity.remaining_s -= dt;
+        module_entity.age_s += dt;
         if module_entity.remaining_s <= 0.0 {
             commands.entity(entity).despawn();
             continue;
@@ -289,6 +307,206 @@ pub fn queue_module_entity_ticks(
     }
 }
 
+/// Lower `ambition.world.spawn_module_item` in `technique_execution`: a
+/// module entity, as `lower_module_entity_spawns` spawns one, that is also a
+/// held item at rest on the stage.
+pub fn lower_module_item_spawns(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut spawners: Query<(
+        Option<&SimId>,
+        Option<&mut SimIdCounter>,
+        Option<&SessionScopedEntity>,
+        Option<&ActorFaction>,
+        Option<&ambition_characters::control::DrivingParticipant>,
+        Option<&ambition_combat::targeting::MatchTeam>,
+    )>,
+    sfx: ambition_sfx::BodySfxWriter,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    mut commands: Commands,
+) {
+    for submitted in outbox.drain::<SpawnModuleItemPort>(&ambition_extension_sdk::phases::TECHNIQUE_EXECUTION) {
+        let ModuleItemSpawn { kind, item, at, lifetime_s, half_extents, params } = submitted.value;
+        let Some(held) = ambition_characters::brain::held_item_by_id(&item) else {
+            warn!(
+                "extension entry {} asked for a {kind:?} that is the item {item:?}, which this game does not \
+                 register; refused",
+                submitted.entry
+            );
+            continue;
+        };
+        let Ok((id, counter, session, side, driver, team)) = spawners.get_mut(submitted.scope) else {
+            continue;
+        };
+        let (Some(id), Some(mut counter)) = (id, counter) else {
+            warn!(
+                "extension entry {} asked {:?}, which has no SimId or no SimIdCounter, to spawn a {kind:?}; refused",
+                submitted.entry, submitted.scope
+            );
+            continue;
+        };
+        let pos = ae::Vec2::from(at);
+        let spawned = spawn_module_entity(
+            &mut commands,
+            ModuleEntity {
+                kind,
+                pos,
+                remaining_s: lifetime_s,
+                // No body touches it as a module entity; it is touched as an
+                // item.
+                half_extents: ae::Vec2::ZERO,
+                params,
+                spawner: Some(id.clone()),
+                age_s: 0.0,
+            },
+            Spawner {
+                scope: SessionSpawnScope::new(session.map(|s| s.0)).in_room(rooms.stamped(submitted.scope)),
+                side: ambition_combat::targeting::effective_faction(
+                    side.copied().unwrap_or(ActorFaction::Player),
+                    driver,
+                ),
+                team: team.cloned(),
+                presentation: sfx.source_of(submitted.scope),
+                id: SimId::spawned(id, counter.next()),
+            },
+        );
+        commands
+            .entity(spawned)
+            .insert(ambition_held_items::GroundItem::at_rest(held, pos, ae::Vec2::from(half_extents)));
+    }
+}
+
+/// Keep each module entity that is an item where the item is, whoever holds
+/// it. Runs before the entities are ticked, after the items moved.
+pub fn follow_module_items(
+    mut entities: Query<(&mut ModuleEntity, &ambition_held_items::GroundItem, &ambition_held_items::ItemCustody)>,
+    where_it_is: ambition_held_items::ItemWorldPos,
+) {
+    for (mut entity, item, custody) in &mut entities {
+        let at = where_it_is.of(custody, item);
+        if entity.pos != at {
+            entity.pos = at;
+        }
+    }
+}
+
+/// The item `scope` is: whether it is loose, and the hardest it struck.
+/// Absent for a scope that is not an item.
+pub fn item_state_of(world: &World, scope: Entity) -> Option<ItemState> {
+    let custody = world.get::<ambition_held_items::ItemCustody>(scope)?;
+    world.get::<ambition_held_items::GroundItem>(scope)?;
+    let settled = world.get::<ambition_held_items::SettledItem>(scope).map_or(0.0, |settled| settled.impact_speed);
+    let struck = world.get::<ambition_held_items::ItemStruckBody>(scope).map_or(0.0, |hit| hit.impact_speed);
+    Some(ItemState { in_world: custody.in_world(), impact_speed: settled.max(struck) })
+}
+
+/// The module entities `scope` spawned, in identity order.
+pub fn owned_entities_of(world: &World, scope: Entity) -> Option<OwnedEntities> {
+    let Some(spawner) = world.get::<SimId>(scope) else {
+        return Some(OwnedEntities::default());
+    };
+    let mut owned: Vec<(&SimId, OwnedEntity)> = world
+        .iter_entities()
+        .filter_map(|entity| {
+            let module_entity = entity.get::<ModuleEntity>()?;
+            let id = entity.get::<SimId>()?;
+            (module_entity.spawner.as_ref() == Some(spawner)).then(|| {
+                (
+                    id,
+                    OwnedEntity {
+                        kind: module_entity.kind.clone(),
+                        position: [module_entity.pos.x, module_entity.pos.y],
+                        age_s: module_entity.age_s,
+                        handle: ambition_combat::extension::blast::credit_of(id),
+                    },
+                )
+            })
+        })
+        .collect();
+    owned.sort_by(|a, b| a.0.cmp(b.0));
+    Some(OwnedEntities { entities: owned.into_iter().map(|(_, owned)| owned).collect() })
+}
+
+/// The body that spawned `scope`: its credit and its player's stick, or
+/// zeros when it is not in the world. Absent for a scope that is not a
+/// module entity.
+pub fn spawner_body_of(world: &World, scope: Entity) -> Option<SpawnerBody> {
+    let module_entity = world.get::<ModuleEntity>(scope)?;
+    let Some(spawner) = module_entity.spawner.as_ref() else {
+        return Some(SpawnerBody::default());
+    };
+    let body = world.iter_entities().find(|entity| entity.get::<SimId>() == Some(spawner));
+    Some(body.map_or_else(SpawnerBody::default, |body| SpawnerBody {
+        credit: ambition_combat::extension::blast::credit_of(spawner),
+        stick: body
+            .get::<ambition_characters::control::ActorControl>()
+            .map_or([0.0; 2], |control| {
+                let stick = control.0.steer_axis().vec();
+                [stick.x, stick.y]
+            }),
+    }))
+}
+
+/// The credit of each toucher of `scope`'s tick, in its tick's order.
+/// Absent for a scope that was not ticked.
+pub fn toucher_credits_of(world: &World, scope: Entity) -> Option<Vec<u64>> {
+    let (_, touchers) = world.resource::<ModuleEntityTouchers>().0.iter().find(|(entity, _)| *entity == scope)?;
+    Some(
+        touchers
+            .iter()
+            .map(|toucher| world.get::<SimId>(*toucher).map_or(0, ambition_combat::extension::blast::credit_of))
+            .collect(),
+    )
+}
+
+/// Lower `ambition.world.move_module_entity`: the entity is where its module
+/// moved it. An item entity is where its item is, so it is not moved.
+pub fn lower_module_entity_moves(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut entities: Query<&mut ModuleEntity, Without<ambition_held_items::GroundItem>>,
+) {
+    for submitted in outbox.drain::<MoveModuleEntityPort>(&MODULE_ENTITY_TICK) {
+        let to = ae::Vec2::from(submitted.value.to);
+        if !to.is_finite() {
+            warn!("extension entry {} asked to move {:?} to {to:?}; refused", submitted.entry, submitted.scope);
+            continue;
+        }
+        match entities.get_mut(submitted.scope) {
+            Ok(mut entity) => entity.pos = to,
+            Err(_) => warn!(
+                "extension entry {} asked to move {:?}, which is not a module entity that is not an item; refused",
+                submitted.entry, submitted.scope
+            ),
+        }
+    }
+}
+
+/// Lower `ambition.world.end_owned_entity`: remove the module entity a
+/// handle names, when the scope spawned it.
+pub fn lower_owned_entity_ends(
+    mut outbox: ResMut<ExtensionOutbox>,
+    spawners: Query<&SimId>,
+    entities: Query<(Entity, &ModuleEntity, &SimId)>,
+    mut commands: Commands,
+) {
+    for submitted in outbox.drain::<EndOwnedEntityPort>(&ambition_extension_sdk::phases::TECHNIQUE_EXECUTION) {
+        let spawner = spawners.get(submitted.scope).ok();
+        let named = entities.iter().find(|(_, entity, id)| {
+            spawner.is_some()
+                && entity.spawner.as_ref() == spawner
+                && ambition_combat::extension::blast::credit_of(id) == submitted.value.handle
+        });
+        match named {
+            Some((entity, ..)) => {
+                commands.entity(entity).despawn();
+            }
+            None => warn!(
+                "extension entry {} asked to end the entity {:#x}, which {:?} did not spawn; refused",
+                submitted.entry, submitted.value.handle, submitted.scope
+            ),
+        }
+    }
+}
+
 /// Lower `ambition.world.end_module_entity`: remove the module entity the
 /// invocation ran for.
 pub fn lower_module_entity_ends(
@@ -364,3 +582,6 @@ pub fn lower_body_pulls(
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

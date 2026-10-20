@@ -116,7 +116,19 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 372 -> 373: a counter's answer is a module's (`ambition.combat.parried`,
 /// `hit_reaction`): `derived.tick_parries` (`TickParries`, the parries an
 /// answer may name, rebuilt each tick) enters.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 373;
+/// 373 -> 374: the delayed mark is a module (`ambition.combat.struck`): its
+/// clock is a record and a status on the marked body. `smash.body_mark` and
+/// `smash.seat_credit_stand_in` leave; `body.status_clocks` (`StatusClocks`,
+/// clone: how much of each status is left) and `combat.credit_stand_in`
+/// (`CreditStandIn`, clone: the owner of a blast whose credited body left)
+/// enter.
+/// 374 -> 375: the bomb and the mine are modules: each is a module entity
+/// that is a held item (`ambition.world.spawn_module_item`); the bomb's fuse
+/// is a record on it, and a mine arms as it ages (`ModuleEntity` gains its
+/// spawner and its age). `smash.live_bomb` and `smash.placed_mine` leave.
+/// 375 -> 376: the steered bolt is a module: a module entity flown by the
+/// module, its heading in a module record; `smash.steered_bolt` is gone.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 376;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

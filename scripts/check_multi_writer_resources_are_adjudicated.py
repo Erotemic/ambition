@@ -2758,10 +2758,11 @@ ADJUDICATED: dict[str, str] = {
         "outright: a Reset phase empties the view and a Contribute phase is "
         "where every mechanic pushes its own clocks and nothing else. "
         "`rebuild_body_clocks_view` (`facts.rs:355`) is the Reset-phase "
-        "clearer; `publish_mark_clocks` "
-        "(`game/ambition_demo_smash/src/mark.rs:304`) is one Contribute-"
-        "phase pusher among however many exist, ordered after Reset via "
-        "`.chain()`. Not a race. Measured by CalculexAmbition, 2026-09-18."
+        "clearer; `publish_status_clocks` (the same file, the clocks of the "
+        "statuses bodies hold, which the delayed mark's module sets) is one "
+        "Contribute-phase pusher among however many exist, ordered after "
+        "Reset by the set chain. Not a race. Measured by CalculexAmbition, "
+        "2026-09-18; the pusher replaced 2026-10-20."
     ),
     "PresentationPhase": (
         "MUTUALLY EXCLUSIVE BY SIMULATION-BACKEND SELECTION. "

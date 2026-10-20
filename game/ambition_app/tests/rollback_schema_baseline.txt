@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v373
+ggrs-rollback-schema-v376
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -102,6 +102,7 @@ body.resources	component-canonical	ActorResources	bevy_ggrs canonical codec snap
 body.restart_latch	component-canonical	BodyRestartLatch	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.shield	component-canonical	BodyShieldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.sim_id_counter	component-canonical	SimIdCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.status_clocks	component-clone	StatusClocks	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 body.statuses	component-clone	BodyStatuses	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 body.sweep_sample	component-canonical	SweepSample	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.unmirrored	component-canonical	Unmirrored	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -119,6 +120,7 @@ boss.overrides	component-clone	BossOverrides	bevy_ggrs clone snapshot; not in th
 boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 capture.captured_by	component-clone	CapturedBy	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot; not in the session checksum
+combat.credit_stand_in	component-clone	CreditStandIn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 combat.depicted_by_owner	component-clone	DepictedByOwner	bevy_ggrs clone snapshot; not in the session checksum
 combat.held_damage_boxes	component-clone-cursor	HeldDamageBoxes	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 combat.hitbox	component-clone	Hitbox	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
@@ -515,12 +517,7 @@ scope.room_instance	component-canonical	InRoomInstance	bevy_ggrs canonical codec
 scope.session	component-clone	SessionScopedEntity	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 session.mode_visit	component-clone	ModeVisit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 session.room_departure	component-clone	Departure	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-smash.body_mark	component-clone	BodyMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.departing_mount	component-clone	Departing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.hold_state	component-canonical	SmashHoldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-smash.live_bomb	component-clone	LiveBomb	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.move_placed_portal	component-clone	MovePlacedPortal	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-smash.placed_mine	component-clone	PlacedMine	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-smash.seat_credit_stand_in	component-clone	SeatCreditStandIn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-smash.steered_bolt	component-clone	SteeredBolt	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.tether_reel	component-clone	TetherReel	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

@@ -6,15 +6,15 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`bolt`](src/bolt.rs) | The steered bolt: a thing you fly with the same stick you walk with. |
-| [`bomb`](src/bomb.rs) | A live bomb on the stage: the ruleset half of `smash.drop_bomb`. |
+| [`bolt`](src/bolt.rs) | The steered bolt, end to end in this game. |
+| [`bomb`](src/bomb.rs) | The bomb, end to end in this game. |
 | [`capture`](src/capture.rs) | Capture's authored-effect chain, exercised end to end. |
 | [`counter`](src/counter.rs) | The counter, end to end in this game. |
 | [`dilation`](src/dilation.rs) | Time dilation: a fighter on a slower clock for a while. |
 | [`homing`](src/homing.rs) | The homing dash: the fighter is carried at whoever they were pointing at. |
 | [`limit`](src/limit.rs) | The game half of the Limit meter: who gains what, and when. |
-| [`mark`](src/mark.rs) | The delayed mark: a clock riding on the body that was hit. |
-| [`mine`](src/mine.rs) | The remote mine: a stage object that answers to one fighter and nobody else. |
+| [`mark`](src/mark.rs) | The delayed mark, end to end in this game. |
+| [`mine`](src/mine.rs) | The remote mine, end to end in this game. |
 | [`motion`](src/motion.rs) | The smash ruleset's commanded-velocity seam (ADR 0024, authority #4). |
 | [`portal`](src/portal.rs) | The portal recovery, assembled from the portal crate's own parts. |
 | [`rules`](src/rules.rs) | The `smash_rules` schema: the demo's own match flow and summon tuning, as data in its pack (`assets/data/smash_rules.ron`). |

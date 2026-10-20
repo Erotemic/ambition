@@ -1,39 +1,33 @@
 //! The ownership claim is the one to guard. A mine answers only its placer; a
-//! mine that any press sets off is a shared button, not a mine.
+//! mine that any press sets off is a shared button, not a mine. The mine
+//! comes from its module on the module road.
 
-use super::*;
-use ambition_platformer2d::actor::MatchSeat;
+use bevy::ecs::message::Messages;
+use bevy::prelude::*;
+
+use crate::module_road::{app_on, runner_of, Road};
+use ambition_demo_smash_modules::mine::MINE;
+use ambition_platformer2d::abilities::module_entity::ModuleEntity;
+use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
+use ambition_platformer2d::characters::brain::ActorActionMessage;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::entity_catalog::smash_mine::{PlaceMineParams, PLACE_MINE};
 use ambition_platformer2d::item::{GroundItem, ItemCustody};
+use ambition_platformer2d::platformer::sim_id::SimId;
 use ambition_platformer2d::vfx::{Effect, EffectRequest};
 
+fn app_with(road: Road) -> App {
+    app_on(road, ambition_demo_smash_modules::mine::module)
+}
+
 fn app() -> App {
-    let mut app = App::new();
-    app.init_resource::<ambition_platformer2d::time::WorldTime>();
-    app.add_message::<EffectRequest>();
-    app.add_message::<ActorActionMessage>();
-    let mut time = app
-        .world_mut()
-        .resource_mut::<ambition_platformer2d::time::WorldTime>();
-    time.set_sim_dt(1.0 / 60.0);
-    time.set_wall_dt(1.0 / 60.0);
-    // The shipped order: see the plugin. Arm before press.
-    app.add_systems(
-        Update,
-        (arm_placed_mines, place_or_detonate_authored_mines).chain(),
-    );
-    app
+    app_with(Road::Linked)
 }
 
 /// A fighter who can place mines, at `x`.
-fn a_fighter(app: &mut App, seat: usize, x: f32) -> Entity {
+fn a_fighter(app: &mut App, slot: u8, x: f32) -> Entity {
     app.world_mut()
-        .spawn((
-            ae::BodyKinematics {
-                pos: ae::Vec2::new(x, 0.0),
-                ..Default::default()
-            },
-            MatchSeat(seat),
-        ))
+        .spawn((ae::BodyKinematics { pos: ae::Vec2::new(x, 0.0), ..Default::default() }, SimId::player_slot(slot)))
         .id()
 }
 
@@ -59,72 +53,48 @@ fn press(app: &mut App, actor: Entity) {
         params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params())
             .expect("place-mine params serialize"),
     };
-    app.world_mut()
-        .write_message(ActorActionMessage { actor, request, move_instance: None });
+    app.world_mut().write_message(ActorActionMessage { actor, request, move_instance: None });
     app.update();
 }
 
-/// Every mine on the stage, with its owner and clock.
-fn mines(app: &mut App) -> Vec<(usize, f32)> {
-    app.world_mut()
-        .query::<&PlacedMine>()
+/// Every mine on the stage: who placed it, and how long it has lived.
+fn mines(app: &mut App) -> Vec<(Option<SimId>, f32)> {
+    let mut out: Vec<_> = app
+        .world_mut()
+        .query::<&ModuleEntity>()
         .iter(app.world())
-        .map(|mine| (mine.owner_seat, mine.arm_s))
-        .collect()
-}
-
-/// Assert the faction, not only that a `DamageBoxEffect` request exists. A blast
-/// with `HitSide::Neutral` is excluded from the body path by
-/// `apply_hitbox_damage` and hurts nobody, but a request-shaped test still
-/// passes.
-///
-/// `HitSide::Environment` damages every fighter including the placer;
-/// `ambition_combat`'s
-/// `a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither`
-/// proves that end. This test asserts the two halves meet.
-#[test]
-fn the_blast_is_authored_as_a_hazard_and_not_as_an_inert_side() {
-    let mut app = app();
-    let fighter = a_fighter(&mut app, 0, 0.0);
-    press(&mut app, fighter);
-    wait(&mut app, 1.5);
-    press(&mut app, fighter);
-    app.update();
-    let messages = app.world().resource::<Messages<EffectRequest>>();
-    let mut cursor = messages.get_cursor();
-    let found: Vec<(ambition_platformer2d::vfx::HitSide, f32, f32)> = cursor
-        .read(messages)
-        .filter_map(|request| match &request.effect {
-            Effect::DamageBox(b) if b.name == Some("mine blast") => Some((b.faction, b.knockback, b.lifetime_s)),
-            _ => None,
-        })
+        .filter(|entity| entity.kind == MINE)
+        .map(|entity| (entity.spawner.clone(), entity.age_s))
         .collect();
-    assert_eq!(found.len(), 1, "the armed mine did not answer at all");
-    let sides: Vec<_> = found.iter().map(|(side, ..)| *side).collect();
-    assert_eq!(found[0].1, params().knockback, "the blast throws with {}, not the move's authored knockback", found[0].1);
-    assert_eq!(found[0].2, params().blast_s, "the blast is live for {} s, not the move's authored time", found[0].2);
-    assert_eq!(
-        sides[0],
-        ambition_platformer2d::vfx::HitSide::Environment,
-        "the mine's blast is authored {:?}, which the damage resolver does not \
-         put on the body path — it would explode and hurt nobody",
-        sides[0]
-    );
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
 }
 
-/// Blasts written this frame, with their centres.
-fn blasts(app: &mut App) -> Vec<ae::Vec2> {
+/// A blast as it was asked for.
+struct Seen {
+    center: ae::Vec2,
+    faction: ambition_platformer2d::vfx::HitSide,
+    knockback: f32,
+    lifetime_s: f32,
+}
+
+/// The blasts written this frame.
+fn blasts_now(app: &mut App) -> Vec<Seen> {
     let messages = app.world().resource::<Messages<EffectRequest>>();
     let mut cursor = messages.get_cursor();
     cursor
         .read(messages)
         .filter_map(|request| match &request.effect {
-            Effect::DamageBox(box_effect) if box_effect.name == Some("mine blast") => {
-                Some(box_effect.center)
+            Effect::DamageBox(b) => {
+                Some(Seen { center: b.center, faction: b.faction, knockback: b.knockback, lifetime_s: b.lifetime_s })
             }
             _ => None,
         })
         .collect()
+}
+
+fn blasts(app: &mut App) -> Vec<ae::Vec2> {
+    blasts_now(app).into_iter().map(|b| b.center).collect()
 }
 
 /// Spend `secs` of arming without pressing anything.
@@ -134,12 +104,35 @@ fn wait(app: &mut App, secs: f32) {
     }
 }
 
+/// Assert the faction, not only that a damage box exists. A blast with
+/// `HitSide::Neutral` is excluded from the body path by `apply_hitbox_damage`
+/// and hurts nobody, but a request-shaped test still passes.
+#[test]
+fn the_blast_is_authored_as_a_hazard_and_not_as_an_inert_side() {
+    let mut app = app();
+    let fighter = a_fighter(&mut app, 0, 0.0);
+    press(&mut app, fighter);
+    wait(&mut app, 1.5);
+    press(&mut app, fighter);
+    let found = blasts_now(&mut app);
+    assert_eq!(found.len(), 1, "the armed mine did not answer at all");
+    assert_eq!(found[0].knockback, params().knockback, "the blast throws with {}, not the move's", found[0].knockback);
+    assert_eq!(found[0].lifetime_s, params().blast_s, "the blast is live for {} s, not the move's", found[0].lifetime_s);
+    assert_eq!(
+        found[0].faction,
+        ambition_platformer2d::vfx::HitSide::Environment,
+        "the mine's blast is authored {:?}, which the damage resolver does not put on the body path — it would \
+         explode and hurt nobody",
+        found[0].faction
+    );
+}
+
 #[test]
 fn a_press_with_nothing_out_places_a_mine_owned_by_the_presser() {
     let mut app = app();
     let fighter = a_fighter(&mut app, 1, 100.0);
     press(&mut app, fighter);
-    assert_eq!(mines(&mut app), vec![(1, 1.2)]);
+    assert_eq!(mines(&mut app), vec![(Some(SimId::player_slot(1)), 0.0)]);
     assert!(blasts(&mut app).is_empty(), "placing is not detonating");
 }
 
@@ -155,7 +148,7 @@ fn a_press_while_the_mine_is_still_arming_does_nothing_at_all() {
     // arming delay.
     let out = mines(&mut app);
     assert_eq!(out.len(), 1, "a second press must not plant a second mine");
-    assert!(out[0].1 > 0.0, "still arming");
+    assert!(out[0].1 < params().arm_s, "still arming");
     assert!(blasts(&mut app).is_empty(), "an unarmed mine does not answer");
 }
 
@@ -171,7 +164,7 @@ fn a_press_once_armed_detonates_the_mine_and_takes_it_off_the_stage() {
 }
 
 #[test]
-fn a_mine_answers_its_own_seat_and_nobody_elses() {
+fn a_mine_answers_its_own_placer_and_nobody_elses() {
     let mut app = app();
     let owner = a_fighter(&mut app, 1, 100.0);
     let rival = a_fighter(&mut app, 0, -100.0);
@@ -179,17 +172,11 @@ fn a_mine_answers_its_own_seat_and_nobody_elses() {
     wait(&mut app, 1.3);
     // The rival presses their own mine button while the owner's mine is armed.
     press(&mut app, rival);
-    assert!(
-        blasts(&mut app).is_empty(),
-        "seat 0 must not be able to set off seat 1's mine"
-    );
+    assert!(blasts(&mut app).is_empty(), "the rival must not be able to set off the owner's mine");
     // The rival got their own mine instead: the press was scoped, not
     // swallowed.
-    let mut out = mines(&mut app);
-    out.sort_by_key(|(seat, _)| *seat);
-    assert_eq!(out.len(), 2, "two seats, two mines");
-    assert_eq!(out[0].0, 0);
-    assert_eq!(out[1].0, 1);
+    let placers: Vec<_> = mines(&mut app).into_iter().map(|(placer, _)| placer).collect();
+    assert_eq!(placers, vec![Some(SimId::player_slot(0)), Some(SimId::player_slot(1))], "two placers, two mines");
 }
 
 #[test]
@@ -203,33 +190,25 @@ fn the_blast_lands_where_the_mine_is_now_not_where_it_was_planted() {
     let thief = a_fighter(&mut app, 0, -400.0);
     let mine = app
         .world_mut()
-        .query_filtered::<Entity, With<PlacedMine>>()
+        .query::<(Entity, &ModuleEntity)>()
         .iter(app.world())
-        .next()
+        .find(|(_, entity)| entity.kind == MINE)
+        .map(|(mine, _)| mine)
         .expect("a mine is out");
-    app.world_mut()
-        .entity_mut(mine)
-        .insert(ItemCustody::Held { holder: thief });
+    app.world_mut().entity_mut(mine).insert(ItemCustody::Held { holder: thief });
     press(&mut app, owner);
     let centres = blasts(&mut app);
     assert_eq!(centres.len(), 1);
-    assert!(
-        centres[0].x < -300.0,
-        "the blast followed the carrier to {:?}, not the planting spot",
-        centres[0]
-    );
+    assert!(centres[0].x < -300.0, "the blast followed the carrier to {:?}, not the planting spot", centres[0]);
 }
 
 #[test]
-fn a_placer_with_no_seat_places_nothing() {
+fn a_placer_with_no_identity_places_nothing() {
     let mut app = app();
-    // No `MatchSeat`. A mine with no nameable owner could never be detonated,
-    // so it must not reach the stage.
-    let unseated = app
-        .world_mut()
-        .spawn(ae::BodyKinematics::default())
-        .id();
-    press(&mut app, unseated);
+    // No `SimId`. A mine with no nameable owner could never be detonated, so
+    // it must not reach the stage.
+    let anonymous = app.world_mut().spawn(ae::BodyKinematics::default()).id();
+    press(&mut app, anonymous);
     assert!(mines(&mut app).is_empty());
 }
 
@@ -242,6 +221,29 @@ fn the_placed_mine_is_a_ground_item_somebody_could_pick_up() {
     let (item, custody) = query.iter(app.world()).next().expect("the mine is an item");
     assert_eq!(item.spec.id.as_str(), "polygon_mine");
     assert_eq!(*custody, ItemCustody::InWorld);
-    // Body-local offset, mirrored by facing: planted behind her, not inside her.
+    // Body-local offset, mirrored by facing: planted behind her, not inside
+    // her.
     assert!(item.pos.x < 100.0, "planted behind the placer");
+}
+
+/// The loaded file's mine places, waits and goes off as the linked one's. Its
+/// runner is the loaded file.
+#[test]
+fn the_mine_from_its_module_file_answers_as_the_linked_one_does() {
+    let mut seen = Vec::new();
+    for road in [Road::Linked, Road::Loaded] {
+        let mut app = app_with(road);
+        let runner = runner_of(&app, PLACE_MINE);
+        assert_eq!(runner.starts_with("Loaded"), road == Road::Loaded, "{road:?}: {runner}");
+        let fighter = a_fighter(&mut app, 1, 100.0);
+        press(&mut app, fighter);
+        wait(&mut app, 0.5);
+        press(&mut app, fighter);
+        let arming = (mines(&mut app).len(), blasts(&mut app));
+        wait(&mut app, 1.0);
+        press(&mut app, fighter);
+        seen.push((arming, mines(&mut app).len(), blasts(&mut app)));
+    }
+    assert_eq!(seen[1], seen[0], "the loaded mine answered unlike the linked one");
+    assert_eq!((seen[0].0 .0, seen[0].1, seen[0].2.len()), (1, 0, 1), "premise: the linked mine waited, then went off");
 }

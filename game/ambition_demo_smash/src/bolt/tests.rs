@@ -1,41 +1,47 @@
 //! The rate limit is the move. A bolt that snaps to the stick is a cursor, and
-//! it removes the move's one cost: a turn spends distance.
+//! it removes the move's one cost: a turn spends distance. The bolt comes from
+//! its module on the module road.
 
-use super::*;
-use ambition_platformer2d::actor::MatchSeat;
+use bevy::ecs::message::Messages;
+use bevy::prelude::*;
+
+use crate::module_road::{app_on, runner_of, Road};
+use ambition_demo_smash_modules::bolt::BOLT;
+use ambition_platformer2d::abilities::module_entity::ModuleEntity;
+use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
+use ambition_platformer2d::characters::brain::ActorActionMessage;
 use ambition_platformer2d::characters::control::ActorControl;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::entity_catalog::smash_bolt::{SteeredBoltParams, STEERED_BOLT};
+use ambition_platformer2d::platformer::sim_id::{SimId, SimIdCounter};
 use ambition_platformer2d::vfx::{Effect, EffectRequest};
 
-fn app() -> App {
-    let mut app = App::new();
-    app.init_resource::<ambition_platformer2d::time::WorldTime>();
-    app.add_message::<EffectRequest>();
-    // The trail channel. `steer_and_fly_bolts` writes it, and a system that
-    // writes an unregistered message fails parameter validation and is
-    // dropped without an error.
-    app.add_message::<ambition_platformer2d::vfx::vfx::VfxInRoom>();
-    app.add_message::<ActorActionMessage>();
-    let mut time = app
-        .world_mut()
-        .resource_mut::<ambition_platformer2d::time::WorldTime>();
-    time.set_sim_dt(1.0 / 60.0);
-    time.set_wall_dt(1.0 / 60.0);
-    app.add_systems(Update, (fire_authored_bolts, steer_and_fly_bolts).chain());
-    app
+const DT: f32 = 1.0 / 60.0;
+
+/// A fighter's half size.
+const HALF: ae::Vec2 = ae::Vec2::new(14.0, 26.0);
+
+fn app_with(road: Road) -> App {
+    app_on(road, ambition_demo_smash_modules::bolt::module)
 }
 
-fn fighter(app: &mut App, seat: usize, x: f32) -> Entity {
+fn app() -> App {
+    app_with(Road::Linked)
+}
+
+/// A fighter in `slot` at `x`, facing right, holding nothing: it can fire a
+/// bolt (it names what it spawns) and be touched by one.
+fn fighter(app: &mut App, slot: u8, x: f32) -> Entity {
+    let at = ae::Vec2::new(x, 0.0);
     app.world_mut()
         .spawn((
-            ae::BodyKinematics {
-                pos: ae::Vec2::new(x, 0.0),
-                facing: 1.0,
-                ..Default::default()
-            },
-            MatchSeat(seat),
-            ActorControl(
-                ambition_platformer2d::characters::actor::control::ActorControlFrame::neutral(),
-            ),
+            ae::BodyKinematics { pos: at, facing: 1.0, size: HALF * 2.0, ..Default::default() },
+            ae::CenteredAabb::new(at, HALF),
+            ambition_platformer2d::actor::ActorFaction::Player,
+            ambition_platformer2d::platformer::lifecycle::FeatureSimEntity,
+            SimId::player_slot(slot),
+            SimIdCounter::default(),
+            ActorControl(ambition_platformer2d::characters::actor::control::ActorControlFrame::neutral()),
         ))
         .id()
 }
@@ -58,14 +64,14 @@ fn params() -> SteeredBoltParams {
     }
 }
 
+/// Press the bolt button as `actor`; the press's tick has run.
 fn fire(app: &mut App, actor: Entity) {
     let request = ActionRequest::Special {
         spec: SpecialActionSpec::Special(STEERED_BOLT.to_string()),
         params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params())
             .expect("bolt params serialize"),
     };
-    app.world_mut()
-        .write_message(ActorActionMessage { actor, request, move_instance: None });
+    app.world_mut().write_message(ActorActionMessage { actor, request, move_instance: None });
     app.update();
 }
 
@@ -77,23 +83,55 @@ fn hold(app: &mut App, who: Entity, stick: ae::Vec2) {
     control.0.undamped_locomotion = Some(ae::LocalAxes::new(stick.x, stick.y));
 }
 
-fn bolts(app: &mut App) -> Vec<SteeredBolt> {
+/// Every bolt on the stage: who fired it, and where it is.
+fn bolts(app: &mut App) -> Vec<(Option<SimId>, ae::Vec2)> {
     app.world_mut()
-        .query::<&SteeredBolt>()
+        .query::<&ModuleEntity>()
         .iter(app.world())
-        .cloned()
+        .filter(|entity| entity.kind == BOLT)
+        .map(|entity| (entity.spawner.clone(), entity.pos))
         .collect()
 }
 
+fn the_bolt(app: &mut App) -> ae::Vec2 {
+    let out = bolts(app);
+    assert_eq!(out.len(), 1, "not one bolt on the stage: {out:?}");
+    out[0].1
+}
+
+/// Put the one bolt at `at`: its next tick reads who is there.
+fn put_bolt(app: &mut App, at: ae::Vec2) {
+    let world = app.world_mut();
+    let mut q = world.query::<&mut ModuleEntity>();
+    let mut bolt = q.iter_mut(world).find(|entity| entity.kind == BOLT).expect("a bolt is out");
+    bolt.pos = at;
+}
+
+/// The hits of this tick and the last, by their live time.
+fn hits(app: &mut App) -> Vec<f32> {
+    let messages = app.world().resource::<Messages<EffectRequest>>();
+    messages
+        .get_cursor()
+        .read(messages)
+        .filter_map(|request| match &request.effect {
+            Effect::DamageBox(hit) => Some(hit.lifetime_s),
+            _ => None,
+        })
+        .collect()
+}
+
+/// It leaves the press at the move's offset, and flies forward from the next
+/// tick; it is its caster's.
 #[test]
-fn the_bolt_leaves_forward_and_belongs_to_the_seat_that_fired_it() {
+fn the_bolt_leaves_forward_and_belongs_to_the_body_that_fired_it() {
     let mut app = app();
     let caster = fighter(&mut app, 1, 0.0);
     fire(&mut app, caster);
     let out = bolts(&mut app);
-    assert_eq!(out.len(), 1);
-    assert_eq!(out[0].owner_seat, 1);
-    assert!(out[0].vel.x > 0.0, "it left backwards: {:?}", out[0].vel);
+    assert_eq!(out, vec![(Some(SimId::player_slot(1)), ae::Vec2::new(18.0, -10.0))]);
+    app.update();
+    let step = the_bolt(&mut app) - ae::Vec2::new(18.0, -10.0);
+    assert!((step - ae::Vec2::new(300.0 * DT, 0.0)).length() < 1e-3, "it did not leave forward at its speed: {step:?}");
 }
 
 /// The turn is rate-limited, which is the cost of steering. At 220°/s one tick
@@ -103,36 +141,25 @@ fn the_stick_turns_the_bolt_gradually_and_never_snaps_it() {
     let mut app = app();
     let caster = fighter(&mut app, 1, 0.0);
     fire(&mut app, caster);
-    let opening = bolts(&mut app)[0].vel;
-
+    app.update();
     // Ask for a hard reversal, and keep asking.
     hold(&mut app, caster, ae::Vec2::new(-1.0, 0.0));
+    let before = the_bolt(&mut app);
     app.update();
-    let after_one = bolts(&mut app)[0].vel;
-    assert!(
-        after_one.x > 0.0,
-        "one tick of stick reversed the bolt, so it snaps rather than turns: {after_one:?}"
-    );
-    assert!(
-        after_one.y.abs() > 0.0 || after_one.x < opening.x,
-        "the bolt did not turn at all"
-    );
-
+    let step = the_bolt(&mut app) - before;
+    assert!(step.x > 0.0, "one tick of stick reversed the bolt, so it snaps rather than turns: {step:?}");
+    assert!(step.y.abs() > 0.0, "the bolt did not turn at all: {step:?}");
+    let turned = step.y.atan2(step.x).abs().to_degrees();
+    assert!(turned <= 220.0 * DT + 1e-3, "it turned {turned}° in a tick against 220°/s");
     // The speed does not change when the bolt turns.
-    assert!(
-        (after_one.length() - opening.length()).abs() < 0.5,
-        "turning changed the speed from {} to {}",
-        opening.length(),
-        after_one.length()
-    );
-
+    assert!((step.length() - 300.0 * DT).abs() < 1e-3, "turning changed the speed: {step:?}");
     // Given enough ticks it does come around.
     for _ in 0..60 {
         app.update();
-        if bolts(&mut app).is_empty() {
-            break;
-        }
     }
+    let before = the_bolt(&mut app);
+    app.update();
+    assert!(the_bolt(&mut app).x < before.x, "a held reversal never brought it around");
 }
 
 /// The thunder jacket: the bolt comes home and launches its caster.
@@ -142,43 +169,31 @@ fn the_bolt_launches_its_caster_and_does_not_damage_him() {
     let caster = fighter(&mut app, 1, 0.0);
     fire(&mut app, caster);
     // The bolt must leave him first. This is the move's rule: otherwise every
-    // press would be an instant self-launch. Ten ticks at 300px/s is 50px,
-    // outside his box.
+    // press would be an instant self-launch. It starts inside him and goes
+    // nowhere near anyone else, so it is still out after ten ticks.
     for _ in 0..10 {
         app.update();
     }
-    assert!(
-        bolts(&mut app)[0].clear_of_caster,
-        "the bolt never got clear of its caster"
-    );
-    // Now bring it home.
-    {
-        let mut bolt = app
-            .world_mut()
-            .query::<&mut SteeredBolt>()
-            .iter_mut(app.world_mut())
-            .next()
-            .expect("a bolt is out");
-        bolt.pos = ae::Vec2::ZERO;
-    }
+    assert!(the_bolt(&mut app).x > HALF.x + 10.0, "the bolt never got clear of its caster");
+    put_bolt(&mut app, ae::Vec2::ZERO);
     app.update();
     let kin = app.world().get::<ae::BodyKinematics>(caster).unwrap();
-    assert!(
-        kin.vel.length() > 300.0,
-        "the bolt came home and did not throw him: {:?}",
-        kin.vel
-    );
+    assert!((kin.vel - ae::Vec2::new(640.0, 0.0)).length() < 1e-2, "the bolt came home and did not throw him along it: {:?}", kin.vel);
     assert!(bolts(&mut app).is_empty(), "the bolt survived coming home");
+    assert!(hits(&mut app).is_empty(), "the caster took the bolt's damage as well as its launch");
+}
 
-    let messages = app.world().resource::<Messages<EffectRequest>>();
-    let mut cursor = messages.get_cursor();
-    assert!(
-        !cursor.read(messages).any(|r| matches!(
-            &r.effect,
-            Effect::DamageBox(b) if b.name == Some("bolt")
-        )),
-        "the caster took the bolt's damage as well as its launch"
-    );
+/// A bolt still inside its caster neither throws nor hurts him: it has not
+/// left him yet.
+#[test]
+fn a_bolt_inside_its_caster_carries_nobody() {
+    let mut app = app();
+    let caster = fighter(&mut app, 1, 0.0);
+    fire(&mut app, caster);
+    put_bolt(&mut app, ae::Vec2::ZERO);
+    app.update();
+    assert_eq!(app.world().get::<ae::BodyKinematics>(caster).unwrap().vel, ae::Vec2::ZERO, "the firing frame threw him");
+    assert_eq!(bolts(&mut app).len(), 1, "the firing frame spent the bolt");
 }
 
 /// A foe takes the hit instead. A bolt that only hit its caster would be a
@@ -189,35 +204,14 @@ fn the_bolt_damages_somebody_else_and_is_spent() {
     let caster = fighter(&mut app, 1, 0.0);
     let rival = fighter(&mut app, 0, 400.0);
     fire(&mut app, caster);
-    {
-        let mut bolt = app
-            .world_mut()
-            .query::<&mut SteeredBolt>()
-            .iter_mut(app.world_mut())
-            .next()
-            .expect("a bolt is out");
-        bolt.pos = ae::Vec2::new(400.0, 0.0);
-    }
+    put_bolt(&mut app, ae::Vec2::new(400.0, 0.0));
     app.update();
-    let messages = app.world().resource::<Messages<EffectRequest>>();
-    let mut cursor = messages.get_cursor();
-    let hits: Vec<f32> = cursor
-        .read(messages)
-        .filter_map(|r| match &r.effect {
-            Effect::DamageBox(b) if b.name == Some("bolt") => Some(b.lifetime_s),
-            _ => None,
-        })
-        .collect();
+    let hits = hits(&mut app);
     assert_eq!(hits.len(), 1, "the bolt reached a foe and did nothing");
     assert_eq!(hits[0], params().hit_s, "the bolt's hit is live for {} s, not its authored time", hits[0]);
     assert!(bolts(&mut app).is_empty(), "the bolt was not spent");
     assert!(
-        app.world()
-            .get::<ae::BodyKinematics>(rival)
-            .unwrap()
-            .vel
-            .length()
-            < 1.0,
+        app.world().get::<ae::BodyKinematics>(rival).unwrap().vel.length() < 1.0,
         "the foe was launched directly rather than through the damage box"
     );
 }
@@ -227,89 +221,54 @@ fn the_bolt_fades_on_its_own_clock() {
     let mut app = app();
     let caster = fighter(&mut app, 1, 0.0);
     fire(&mut app, caster);
-    for _ in 0..(2.0 * 60.0) as usize + 4 {
+    for _ in 0..(2.0 / DT) as usize + 4 {
         app.update();
     }
     assert!(bolts(&mut app).is_empty(), "the bolt outlived its lifetime");
 }
 
+/// A body that cannot name what it spawns fires nothing: nobody could steer
+/// the bolt or be carried by it.
 #[test]
-fn a_caster_with_no_seat_fires_nothing() {
+fn a_caster_with_no_identity_fires_nothing() {
     let mut app = app();
-    let unseated = app
-        .world_mut()
-        .spawn(ae::BodyKinematics::default())
-        .id();
-    fire(&mut app, unseated);
+    let nameless = app.world_mut().spawn(ae::BodyKinematics::default()).id();
+    fire(&mut app, nameless);
     assert!(bolts(&mut app).is_empty());
 }
 
 /// Caster and rival in one bolt: the result is the offensive hit in either spawn
-/// order.
-///
-/// If the loop stops on the first overlapping body, Bevy's iteration order
-/// chooses between the thunder jacket and the hit on the rival. That choice is
-/// not authored and is not stable across a rollback resimulation. A rival
-/// beats the caster by design: the jacket is what the bolt does when it finds
-/// nobody else.
+/// order. A rival beats the caster by design: the jacket is what the bolt does
+/// when it finds nobody else, and the choice must not depend on query order,
+/// which a rollback resimulation does not keep.
 #[test]
 fn a_bolt_touching_both_prefers_the_rival_in_either_spawn_order() {
-    let meeting = ae::Vec2::new(0.0, 0.0);
-
-    let outcome = |reversed: bool| -> (bool, bool) {
+    let outcome = |reversed: bool| -> (bool, usize) {
         let mut app = app();
-        let seats: [usize; 2] = if reversed { [1, 0] } else { [0, 1] };
-        let mut caster = Entity::PLACEHOLDER;
-        for &s in &seats {
-            let e = fighter(&mut app, s, 0.0);
-            if s == 0 {
-                caster = e;
-            }
+        let (caster, _) = if reversed {
+            let rival = fighter(&mut app, 0, 0.0);
+            (fighter(&mut app, 1, 300.0), rival)
+        } else {
+            let caster = fighter(&mut app, 1, 300.0);
+            (caster, fighter(&mut app, 0, 0.0))
+        };
+        fire(&mut app, caster);
+        // Clear of its caster, then on top of both.
+        for _ in 0..10 {
+            app.update();
         }
-        app.world_mut().spawn(SteeredBolt {
-            trail_vfx: "test_trail".to_string(),
-            trail_every_s: 0.05,
-            trail_in_s: 0.0,
-            owner_seat: 0,
-            pos: meeting,
-            vel: ae::Vec2::new(300.0, 0.0),
-            remaining_s: 1.0,
-            turn_rate: 3.0,
-            radius: 10.0,
-            damage: 8,
-            knockback: 90.0,
-            hit_s: 0.06,
-            self_launch: 640.0,
-            // It has left him, so the jacket is legal this tick and both
-            // outcomes are available.
-            clear_of_caster: true,
-        });
+        let world = app.world_mut();
+        world.get_mut::<ae::BodyKinematics>(caster).unwrap().pos = ae::Vec2::ZERO;
+        *world.get_mut::<ae::CenteredAabb>(caster).unwrap() = ae::CenteredAabb::new(ae::Vec2::ZERO, HALF);
+        put_bolt(&mut app, ae::Vec2::ZERO);
         app.update();
-        let caster_launched = app
-            .world()
-            .get::<ae::BodyKinematics>(caster)
-            .is_some_and(|k| k.vel.length() > 1.0);
-        let damaged = !app
-            .world()
-            .resource::<bevy::ecs::message::Messages<EffectRequest>>()
-            .is_empty();
-        (caster_launched, damaged)
+        let launched = app.world().get::<ae::BodyKinematics>(caster).unwrap().vel.length() > 1.0;
+        (launched, hits(&mut app).len())
     };
-
     let forward = outcome(false);
     let backward = outcome(true);
-    assert_eq!(
-        forward, backward,
-        "the bolt did {forward:?} in one spawn order and {backward:?} in the \
-         other (caster_launched, damaged) — iteration order is choosing between \
-         a recovery and an attack"
-    );
-    assert_eq!(
-        forward,
-        (false, true),
-        "a bolt touching a rival AND its caster must take the rival: the jacket \
-         is what it does when it finds nobody else"
-    );
+    assert_eq!(forward, backward, "the bolt did {forward:?} in one spawn order and {backward:?} in the other");
+    assert_eq!(forward, (false, 1), "a bolt touching a rival AND its caster must take the rival");
 }
 
 /// The bolt draws a trail while it flies. The caster steers it, so without a
@@ -323,40 +282,49 @@ fn the_bolt_marks_its_path_on_the_authored_interval_rather_than_every_tick() {
     let mut app = app();
     let caster = fighter(&mut app, 0, 0.0);
     fire(&mut app, caster);
-
     // One cursor across the whole flight — a fresh one per tick re-reads the
     // double buffer and counts every mark twice.
-    let mut seen =
-        bevy::ecs::message::MessageCursor::<ambition_platformer2d::vfx::vfx::VfxInRoom>::default();
+    let mut seen = bevy::ecs::message::MessageCursor::<ambition_platformer2d::vfx::vfx::VfxInRoom>::default();
     let mut marks = 0usize;
     // 30 ticks at 1/60s = 0.5s of flight against a 0.05s interval.
     for _ in 0..30 {
         app.update();
-        let messages = app
-            .world()
-            .resource::<Messages<ambition_platformer2d::vfx::vfx::VfxInRoom>>();
+        let messages = app.world().resource::<Messages<ambition_platformer2d::vfx::vfx::VfxInRoom>>();
         marks += seen
-            .read(messages).map(|m| &m.vfx)
-            .filter(|m| {
-                matches!(
-                    m,
-                    ambition_platformer2d::vfx::vfx::VfxMessage::Effect { .. }
-                )
-            })
+            .read(messages)
+            .filter(|m| matches!(m.vfx, ambition_platformer2d::vfx::vfx::VfxMessage::Effect { .. }))
             .count();
     }
-
-    assert!(
-        marks > 0,
-        "the bolt flew for half a second and drew nothing — the caster is \
-         steering something invisible"
-    );
     // 0.5s / 0.05s = 10, with a tick of slack either way.
     assert!(
         (8..=12).contains(&marks),
-        "the bolt drew {marks} marks in half a second against an authored 0.05s \
-         interval — under eight is a path the player cannot follow, over twelve \
-         means the interval is being ignored and one move is flooding the cue \
-         channel"
+        "the bolt drew {marks} marks in half a second against an authored 0.05s interval — under eight is a \
+         path the player cannot follow, over twelve means the interval is being ignored"
     );
+}
+
+/// The bolt built from its module file flies and hits as the linked one does.
+#[test]
+fn the_bolt_from_its_module_file_flies_as_the_linked_one_does() {
+    let run = |road: Road| {
+        let mut app = app_with(road);
+        let caster = fighter(&mut app, 1, 0.0);
+        fighter(&mut app, 0, 200.0);
+        fire(&mut app, caster);
+        hold(&mut app, caster, ae::Vec2::new(0.0, -1.0));
+        let mut path = Vec::new();
+        for _ in 0..20 {
+            app.update();
+            path.push(bolts(&mut app).first().map(|(_, at)| *at));
+        }
+        put_bolt(&mut app, ae::Vec2::new(200.0, 0.0));
+        app.update();
+        let entry = runner_of(&app, BOLT);
+        (path, hits(&mut app), entry)
+    };
+    let (linked_path, linked_hits, linked) = run(Road::Linked);
+    let (loaded_path, loaded_hits, loaded) = run(Road::Loaded);
+    assert!(loaded.starts_with("Loaded") && !linked.starts_with("Loaded"), "{linked} / {loaded}");
+    assert_eq!(loaded_path, linked_path);
+    assert_eq!((loaded_hits.len(), linked_hits.len()), (1, 1));
 }

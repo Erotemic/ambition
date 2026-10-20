@@ -1,32 +1,41 @@
-//! The adapters of a reaction to a hit: `ambition.combat.parried` and
-//! `ambition.combat.answer_parry`. See the port cards in
-//! `ambition_combat_port::reaction`.
+//! The adapters of a reaction to a hit: `ambition.combat.parried`,
+//! `ambition.combat.answer_parry` and `ambition.combat.struck`. See the port
+//! cards in `ambition_combat_port::reaction`.
 //!
 //! A counter is a parry caught inside a stance. The engine says which parry
 //! was caught in which stance, and presses the technique a module answers
-//! with; what a stance answers with, and on whom, is the module's.
+//! with; what a stance answers with, and on whom, is the module's. A strike
+//! that carries an effect is said to the effect's module on the body it
+//! struck, which holds what the effect leaves there.
 
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_characters::brain::ActorActionMessage;
-use ambition_combat_port::{AnswerParryPort, Parried, ParriedPort};
+use ambition_combat_port::{AnswerParryPort, Parried, ParriedPort, Struck};
+pub use ambition_combat_port::StruckPort;
 use ambition_entity_catalog::ParamValue;
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
 use ambition_extension_sdk::phases::HIT_REACTION;
 use ambition_extension_sdk::Port as _;
 use bevy::prelude::*;
 
+use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
 use crate::hitbox::ParriedBodyHit;
 use crate::moveset::MovePlayback;
+use crate::on_hit::OnHitEffectMessage;
 
 /// Install the parry trigger and the answer in `hit_reaction`.
 pub fn install_for_hit_reaction(app: &mut App) {
     // The adapters read the parries and write the presses, so a composition
     // without combat's own schedule (a module harness) still has both.
     app.add_message::<ParriedBodyHit>();
+    app.add_message::<OnHitEffectMessage>();
     app.add_message::<ActorActionMessage>();
     app.init_resource::<TickParries>();
     app.install_extension_trigger::<ParriedPort, _>(HIT_REACTION, "ambition_combat", queue_parries);
     app.install_extension_request::<AnswerParryPort, _>(HIT_REACTION, "ambition_combat", lower_parry_answers);
+    app.install_extension_trigger::<StruckPort, _>(HIT_REACTION, "ambition_combat", queue_strikes);
+    super::status::install_for_hit_reaction(app);
 }
 
 /// The parries of this tick that a bound stance caught: the defender, the
@@ -86,6 +95,42 @@ pub fn queue_parries(
                 parry: index,
                 contact: [parry.contact.x, parry.contact.y],
                 params: super::special::special_params(&stance.params),
+            },
+        );
+    }
+}
+
+/// One invocation for each strike whose on-hit effect a module binds, on the
+/// body it struck, in the order the strikes landed.
+pub fn queue_strikes(
+    admitted: Res<AdmittedExtensions>,
+    mut strikes: MessageReader<OnHitEffectMessage>,
+    identities: Query<&SimId>,
+    mut invocations: ResMut<ExtensionInvocations>,
+) {
+    let bound: Vec<&str> = admitted
+        .0
+        .entries
+        .iter()
+        .filter(|e| e.descriptor.trigger.port == StruckPort::KEY)
+        .map(|e| e.descriptor.trigger.selector.as_ref())
+        .collect();
+    for strike in strikes.read() {
+        // The host routes a selector no entry binds to nothing anyway; this
+        // spares reading the params of every other on-hit effect.
+        if !bound.contains(&strike.effect.key.as_str()) {
+            continue;
+        }
+        invocations.trigger::<StruckPort>(
+            &HIT_REACTION,
+            strike.effect.key.clone(),
+            strike.victim,
+            None,
+            false,
+            Struck {
+                contact: [strike.contact.x, strike.contact.y],
+                striker: identities.get(strike.owner).map(super::blast::credit_of).unwrap_or(0),
+                params: super::special::special_params(&strike.effect.params),
             },
         );
     }

@@ -8,7 +8,9 @@
 //! the engine keeps no component per move.
 //!
 //! The verbs a status's module needs that are not elsewhere live here too: a
-//! body's clock scale ([`TimeScalePort`]).
+//! body's clock scale ([`TimeScalePort`]), how much of a status is left for a
+//! player to read ([`StatusClockPort`]), and whether the body is in play
+//! ([`InPlayPort`]).
 
 use ambition_extension_sdk::wire::{self, WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
@@ -129,6 +131,71 @@ impl Port for TimeScalePort {
     }
 }
 
+/// The request port marker for how much of a status is left.
+///
+/// Port card:
+///
+/// * **Operation** — the status `kind` of the body the invocation ran for has
+///   `remaining` of it left, `1.0` fresh down to `0.0` (clamped), until a
+///   later request says another. A player reads it as a clock drawn on the
+///   body while the body holds the status; letting go of the status takes
+///   its clock away. An empty kind and a `remaining` that is not finite are
+///   refused.
+/// * **Owner** — `ambition_combat::extension::status` (`StatusClocks`), read
+///   by the body-clock view.
+/// * **Scope** — the body the invocation ran for.
+/// * **Time** — `technique_execution`.
+pub struct StatusClockPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct StatusClock {
+    pub kind: String,
+    pub remaining: f32,
+}
+
+impl Port for StatusClockPort {
+    const KEY: PortKey = PortKey::new("ambition.body.status_clock", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = StatusClock;
+
+    fn encode(v: &StatusClock, out: &mut Vec<u8>) {
+        wire::put_str(out, &v.kind);
+        wire::put_f32(out, v.remaining);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<StatusClock, WireError> {
+        Ok(StatusClock { kind: r.str()?.to_owned(), remaining: r.f32()? })
+    }
+}
+
+/// The observation port marker for whether a body is in play.
+///
+/// Port card:
+///
+/// * **Operation** — `true` while the body the invocation ran for is in play;
+///   `false` while it is out of it (knocked out and waiting for its next
+///   stock, or out of the match), when a status that lives as long as a
+///   stock ends.
+/// * **Owner** — `ambition_combat::extension::status` (`OutOfPlay`).
+/// * **Scope** — the body the invocation ran for.
+/// * **Time** — offered in `technique_execution`; read when the entry runs.
+/// * **Absence** — absent for a scope that is not a body.
+pub struct InPlayPort;
+
+impl Port for InPlayPort {
+    const KEY: PortKey = PortKey::new("ambition.body.in_play", 1);
+    const ROLE: PortRole = PortRole::Observation;
+    type Value = bool;
+
+    fn encode(v: &bool, out: &mut Vec<u8>) {
+        wire::put_bool(out, *v);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<bool, WireError> {
+        r.bool()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,5 +214,8 @@ mod tests {
         let tick = StatusTick { position: [3.0, -4.5], facing: -1.0 };
         assert_eq!(round_trip::<StatusTickPort>(tick.clone()), tick);
         assert_eq!(round_trip::<TimeScalePort>(TimeScale { scale: 0.35 }), TimeScale { scale: 0.35 });
+        let clock = StatusClock { kind: "smash.marked".into(), remaining: 0.5 };
+        assert_eq!(round_trip::<StatusClockPort>(clock.clone()), clock);
+        assert!(!round_trip::<InPlayPort>(false) && round_trip::<InPlayPort>(true));
     }
 }

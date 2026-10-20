@@ -830,6 +830,102 @@ before you add a port.
     the answer always on the defender (in the adapter and in the module);
     the path ignored; an absent path pressed with no params; the module
     naming the unwrapped path; the loaded road linking the module.
+  - Special route F8 ✅ (2026-10-20): the delayed mark, on four new
+    primitives. `ambition.combat.struck` (a trigger in `hit_reaction`) says a
+    strike whose volume authors an on-hit effect to the effect's module, on
+    the body it struck, with the effect's params and the striker's credit (a
+    `u64` that names a body durably: its simulation identity, hashed; `0` for
+    a striker with none). `ambition.combat.blast` (a request in
+    `technique_execution`) is a damage box centred on the scope body that
+    takes no side (`HitSide::Environment`) and is credited to the body a
+    credit names, or to a `CreditStandIn` that is no participant when that
+    body has left (`ambition_match` stamps it with the running match);
+    a credit of 0 and a box out of its ranges are refused.
+    `ambition.body.status_clock` says how much of a status is left
+    (`StatusClocks`, drawn by the body-clock view's
+    `publish_status_clocks` while the body holds the status; letting go of
+    the status removes it), and `ambition.body.in_play` says whether a body
+    is out of play. `ambition.body.hold_status` is also offered in
+    `hit_reaction`, and `install_module_technique` checks the road the
+    offer's delivery names (`struck` for `OnHit`). Smash's `smash.mark_body`
+    is the module `ambition_demo_smash_modules::mark`: the strike puts a
+    record and the status `smash.marked` on the struck body, each tick
+    spends the fuse and shows the clock, and the tick it runs out asks for
+    the blast and lets go; a tick out of play retires it. The native systems
+    and `BodyMark`, `SeatCreditStandIn` are deleted; the rows
+    `smash.body_mark` and `smash.seat_credit_stand_in` leave and
+    `body.status_clocks`, `combat.credit_stand_in` enter (schema 374). Two
+    rules changed: the strike's own tick applies the mark (the native read
+    the previous tick's on-hit messages, which a rewind clears, so a mark
+    went off a tick later than authored and could diverge between peers),
+    and a striker is credited by its identity, not its match seat, so a
+    seated body with no identity leaves no mark and an unseated one with an
+    identity does. The blast's name is `blast`. Witnesses: the thirteen
+    tests of `ambition_demo_smash mark::tests` on the module road (the body
+    it follows, one blast, the fuse, N ticks of fuse, an unbound effect, the
+    refresh, the credit and its refresh, no identity, the retirement and its
+    rewind, the clock, the stand-in, the loaded file);
+    `ambition_combat extension::{blast, reaction, status}::tests`; the
+    module's two tests; `ambition_match`'s stamp test; and app_it
+    `the_director_leaves_a_note`. Poisons, each red at its own assertion,
+    listed in the commit.
+  - Special routes F9 and F10 ✅ (2026-10-20): the bomb and the remote
+    mine, on module items. `ambition.world.spawn_module_item` (a request in
+    `technique_execution`) is a module entity that is also a held item at
+    rest: any body may pick it up and throw it, it stays its spawner's, and
+    the entity is where the item is, whoever holds it (`follow_module_items`,
+    before the entities are ticked); an unregistered item is refused.
+    `ambition.world.item_state` (an observation in `module_entity_tick`) says
+    whether the item is loose and the hardest it struck (the settle's speed
+    or a body's). `ambition.world.owned_entities` (an observation in
+    `technique_execution`) lists the module entities a body spawned, with
+    their kind, place, age and a handle that credits them and that
+    `ambition.world.end_owned_entity` ends them by (refused for an entity
+    another body spawned). `ambition.combat.blast` is now v2 (the module
+    states the centre) and is also offered in `module_entity_tick`, and
+    `ambition.combat.credit` gives a scope its own credit. `ModuleEntity`
+    gains its spawner and an age counted up as it ages (an hour's lifetime
+    is too long for a step to register on as `lifetime - remaining`).
+    Smash's `smash.drop_bomb` is `ambition_demo_smash_modules::bomb` (the
+    fuse is a record on the bomb, burned each tick, and the bomb goes off on
+    its fuse or a hard loose impact, owning its blast) and
+    `smash.place_mine` is `ambition_demo_smash_modules::mine` (no mine out
+    places one; an armed one, by age, goes off where it is and is ended; an
+    arming one ignores the press; the mine owns its blast). `LiveBomb`,
+    `PlacedMine` and their systems and rows are deleted (schema 375). Rules
+    that changed: a bomb's first tick of fuse is the tick after its drop (the
+    native burned on the drop's own tick), a mine is its placer's by
+    identity rather than match seat, the numbers of a mine's blast are the
+    press's that sets it off (the move that placed it), and a mine nobody
+    sets off lives an hour (or to the end of its room). Witnesses: the nine
+    bomb and nine mine tests of `ambition_demo_smash` on the module road
+    (each with its loaded file), `ambition_abilities module_entity::tests`,
+    the modules' tests, `ambition_combat extension::blast::tests`, and
+    `smash_it::a_match_cleans_up_what_it_created`. Poisons listed in the
+    commit.
+  - Special route F11 ✅ (2026-10-20): the steered bolt, on a flown module
+    entity. In `module_entity_tick`, `ambition.world.move_module_entity`
+    puts the entity where its module says (refused for an item entity, which
+    is where its item is, and for a point that is not finite);
+    `ambition.world.spawner_body` gives the spawner's credit and its
+    player's stick (the steering axis, live while a move roots the body);
+    and `ambition.world.toucher_credits` names each toucher of the tick by
+    its credit, so a module can tell its spawner from a rival. Smash's
+    `smash.steered_bolt` is `ambition_demo_smash_modules::bolt`: the press
+    puts a module entity of the kind `smash.bolt`, and the module keeps its
+    heading, trail clock and clearance in a record, turns it toward the
+    stick by at most the turn rate, hits the first rival it touches
+    (credited to the caster, or to itself when the caster has left) and
+    carries its caster home once clear of them. `SteeredBolt`, its systems
+    and the row `smash.steered_bolt` are deleted (schema 376). Rules that
+    changed: the bolt first moves on the tick after the press, and a tick's
+    contact is read where the bolt was drawn the tick before (the native
+    moved and then read contact in one system); rivals tie-break by
+    identity rather than match seat; contact is the bodies' published boxes
+    rather than their kinematic size. Witnesses: the ten bolt tests of
+    `ambition_demo_smash` on the module road (with its loaded file), the
+    module's tests, `ambition_abilities module_entity::tests`. Poisons
+    listed in the commit.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

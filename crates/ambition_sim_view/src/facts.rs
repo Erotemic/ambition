@@ -581,11 +581,12 @@ pub struct BodyClockFact {
 
 /// Every readable clock on every body this tick.
 ///
-/// ⚠ CLEARED HERE, FILLED ELSEWHERE. This crate cannot see the mechanics that
-/// put clocks on bodies — the delayed mark is a smash ruleset component — so
-/// `rebuild_body_clocks_view` only empties the row set, and each contributor
-/// pushes its clocks ordered `.after` it in the same phase. A contributor that
-/// forgot the ordering would race the clear and flicker, which is visible.
+/// ⚠ CLEARED HERE, FILLED IN `BodyClockViewSet::Contribute`.
+/// `rebuild_body_clocks_view` only empties the row set; the clocks of the
+/// statuses bodies hold (`StatusClocks`, which a module sets, a delayed mark
+/// among them) are pushed by `publish_status_clocks`, and a mechanic of its
+/// own pushes its clocks in the same set. A contributor that forgot the set
+/// would race the clear and flicker, which is visible.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct BodyClocksView(pub Vec<BodyClockFact>);
 
@@ -604,6 +605,31 @@ pub enum BodyClockViewSet {
 
 pub fn rebuild_body_clocks_view(mut view: ResMut<BodyClocksView>) {
     view.0.clear();
+}
+
+/// A clock row for each status a body holds that says how much of it is
+/// left, in the order of the bodies' entities, then the statuses' kinds.
+pub fn publish_status_clocks(
+    mut view: ResMut<BodyClocksView>,
+    bodies: Query<(
+        Entity,
+        &ambition_combat::extension::status::StatusClocks,
+        &ambition_combat::extension::status::BodyStatuses,
+        &ae::BodyKinematics,
+    )>,
+) {
+    let mut rows: Vec<_> = bodies.iter().collect();
+    rows.sort_by_key(|(body, ..)| *body);
+    for (body, clocks, held, kin) in rows {
+        for (_, remaining) in clocks.shown(held) {
+            view.0.push(BodyClockFact {
+                body,
+                pos: kin.pos,
+                half_height: kin.size.y * 0.5,
+                remaining_fraction: remaining,
+            });
+        }
+    }
 }
 
 /// Every heal shrine's geometry.
@@ -1189,6 +1215,7 @@ impl Plugin for SimViewPlugin {
                 rebuild_world_items_view,
                 rebuild_mark_beacons_view,
                 rebuild_body_clocks_view.in_set(BodyClockViewSet::Reset),
+                publish_status_clocks.in_set(BodyClockViewSet::Contribute),
                 rebuild_shrines_view,
                 tick_shrine_activation_pulse,
                 rebuild_hostile_wielded_items_view,

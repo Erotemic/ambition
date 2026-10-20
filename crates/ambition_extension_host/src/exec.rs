@@ -194,6 +194,8 @@ pub struct InBossConduct;
 pub struct InActorThink;
 /// The marker of `body_contact`. See [`LowersIn`].
 pub struct InBodyContact;
+/// The marker of `hit_reaction`. See [`LowersIn`].
+pub struct InHitReaction;
 
 impl LowersIn for InTechniqueExecution {
     const PHASE: Phase = ambition_extension_sdk::phases::TECHNIQUE_EXECUTION;
@@ -212,6 +214,9 @@ impl LowersIn for InActorThink {
 }
 impl LowersIn for InBodyContact {
     const PHASE: Phase = ambition_extension_sdk::phases::BODY_CONTACT;
+}
+impl LowersIn for InHitReaction {
+    const PHASE: Phase = ambition_extension_sdk::phases::HIT_REACTION;
 }
 
 /// A recorded fault. Diagnostic only: it is not rollback state.

@@ -130,8 +130,12 @@ a live reload is a second priority. Work in this order:
    mechanic per move: the first is a body's statuses
    (`ambition.body.hold_status`, `ambition.body.status_tick`), on which the
    dilation keeps its own clock; the homing dash followed (route F7) on the
-   foes of a body (`ambition.combat.foes`), and the counter's answer on a
-   reaction to a hit (`hit_reaction`, `ambition.combat.parried`).
+   foes of a body (`ambition.combat.foes`), the counter's answer on a
+   reaction to a hit (`hit_reaction`, `ambition.combat.parried`), and the
+   delayed mark (route F8) on a strike's effect, a blast credited to the
+   striker, a status clock and the in-play fact; the bomb and the mine
+   (F9, F10) on module items and a body's own entities; the steered bolt
+   (F11) on a flown module entity, its spawner's stick and who touches it.
    Second priority, and only where a recompile does not depend on it: the
    live-reload remainder (a restated schema inside a live session, sprite
    publication inside a session). A live reload for the demo packs' tuning

@@ -28,6 +28,9 @@ import re
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 RULESET = REPO / "game/ambition_demo_smash/src"
+# The ruleset's moves that place things live here as modules, and the world
+# spawns what they request; Smash stamps those entities by their kind.
+MODULES = REPO / "game/ambition_demo_smash_modules/src"
 
 SPAWN = re.compile(r"\.spawn\w*\(")
 STAMP = "stamp_match_object"
@@ -66,13 +69,50 @@ def _is_test_module(path):
 # ⇒ A file creates match objects if it spawns, OR stamps, OR names the marker.
 # Add the next road here rather than lowering the number: the floor is protecting
 # against the corpus quietly emptying, and that is still worth catching.
-ROADS = ("a `.spawn(` site", f"a `{STAMP}` call", "a mention of `MatchScoped`")
+ROADS = (
+    "a `.spawn(` site",
+    f"a `{STAMP}` call",
+    "a mention of `MatchScoped`",
+    "a module building a `ModuleEntitySpawn` or `ModuleItemSpawn`",
+)
+
+# ⭐ A MODULE'S SPAWN IS STAMPED BY ITS KIND, NOT AT ITS CALL SITE. The world
+# spawns what a module requests, so the module cannot stamp it; Smash stamps
+# every module entity whose kind starts with a prefix
+# (`stamp_smash_module_entities`). ⇒ What the next module can get wrong is the
+# KIND: a spawn named outside that prefix is never the match's, and outlives it
+# exactly as the mine did. The prefix is read from the stamp itself, so the
+# check and the owner cannot drift apart.
+MODULE_SPAWN = re.compile(r"\b(ModuleEntitySpawn|ModuleItemSpawn)\s*\{")
+MODULE_KIND = re.compile(r"\bkind:\s*([A-Z_][A-Z0-9_]*)\.into\(\)")
+STAMP_PREFIX = re.compile(r'module_entity\.kind\.starts_with\("([^"]+)"\)')
 
 
 def _creates_match_objects(path):
     """Whether this file is on ANY road to creating a match-scoped object."""
     text = path.read_text()
     return bool(_production_spawn_lines(path)) or STAMP in text or "MatchScoped" in text
+
+
+def _module_spawn_kinds(path):
+    """For each module spawn built before the file's test module: its shape,
+    the constant its `kind:` names, and that constant's value (None when the
+    kind is not a constant of the file)."""
+    text = path.read_text().split("\n#[cfg(test)]", 1)[0]
+    kinds = []
+    for found in MODULE_SPAWN.finditer(text):
+        tail = text[found.end():]
+        named = MODULE_KIND.search(tail[: tail.find("}")])
+        if not named:
+            kinds.append((found.group(1), None, None))
+            continue
+        const = re.search(rf'const {named.group(1)}: &str = "([^"]+)";', text)
+        kinds.append((found.group(1), named.group(1), const.group(1) if const else None))
+    return kinds
+
+
+def _module_spawning_files():
+    return [path for path in sorted(MODULES.glob("*.rs")) if _module_spawn_kinds(path)]
 
 
 def _production_spawn_lines(path):
@@ -109,6 +149,7 @@ def test_every_spawn_in_the_ruleset_says_what_ends_it():
             continue
         for number, text in sites:
             unstamped.append(f"{path.name}:{number}: {text}")
+    checked += len(_module_spawning_files())
 
     # ⛔⛔ ANTI-VACUITY FIRST, AND THIS ORDER WAS EARNED. Placed after the main
     # assertion, this arm was UNREACHABLE: renaming the stamp helper makes every
@@ -147,6 +188,36 @@ def test_every_spawn_in_the_ruleset_says_what_ends_it():
     )
 
 
+def test_every_module_spawn_is_named_into_the_stamp():
+    prefixes = STAMP_PREFIX.findall((RULESET / "lib.rs").read_text())
+    assert len(prefixes) == 1, (
+        f"Smash's module-entity stamp tests {len(prefixes)} kind prefixes "
+        "(`module_entity.kind.starts_with(..)` in lib.rs); this check reads the "
+        "one it uses, so a renamed or split stamp must be re-read here, not "
+        "assumed"
+    )
+    prefix = prefixes[0]
+    spawning = _module_spawning_files()
+    assert len(spawning) >= 3, (
+        f"only {[path.name for path in spawning]} build a module spawn; spring, "
+        "bomb and mine did when this check landed, so fewer means the spawn "
+        "shapes were renamed and this check reads nothing"
+    )
+    wrong = [
+        f"{path.name}: a {shape} of kind {name} = {value!r}"
+        for path in spawning
+        for shape, name, value in _module_spawn_kinds(path)
+        if value is None or not value.startswith(prefix)
+    ]
+    assert not wrong, (
+        f"these module spawns are not named into the match's stamp (kinds "
+        f"starting {prefix!r}):\n  " + "\n  ".join(wrong) + "\n"
+        "⇒ The world spawns them and Smash stamps them by kind, so a kind outside "
+        "the prefix is never the match's and outlives it. Name the kind with a "
+        "constant of the module's file, inside the prefix."
+    )
+
+
 def test_a_spawn_that_moves_behind_a_helper_does_not_empty_the_corpus(monkeypatch):
     """⛔⛔ THE FLOOR MUST NOT FAIL ON THE REFACTOR THAT IMPROVES THE THING.
 
@@ -169,7 +240,7 @@ def test_a_spawn_that_moves_behind_a_helper_does_not_empty_the_corpus(monkeypatc
         path.name
         for path in sorted(RULESET.glob("*.rs"))
         if not _is_test_module(path) and _creates_match_objects(path)
-    ]
+    ] + [path.name for path in _module_spawning_files()]
     assert len(surviving) >= 5, (
         "with every spawn moved behind a helper the corpus fell to "
         f"{surviving} — the floor still counts one spelling, so it would fail "

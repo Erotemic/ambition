@@ -4,9 +4,10 @@
 //! mine laid during it. The ruleset stamps `MatchScoped` where an object is
 //! created, and the engine's `sweep_objects_from_ended_matches` in
 //! `CombatSet::Trigger` removes it.
-//! The smash ruleset spawns world objects at five sites (`bomb.rs`,
-//! `bolt.rs`, `mine.rs`, `portal.rs`, `spring.rs`); without the sweep each
-//! ends only by its own rule (fuse, trigger, lifetime, next cast).
+//! The smash ruleset's world objects are its portals (`portal.rs`) and the
+//! module entities of its modules (bomb, bolt, mine, spring), stamped by
+//! kind; without the sweep each ends only by its own rule (fuse, trigger,
+//! lifetime, next cast).
 //!
 //! The test names the move, not the marker: it dispatches the authored
 //! `smash.place_mine` technique and asks only whether that object survived
@@ -101,8 +102,12 @@ fn nothing_a_match_created_survives_into_the_next_one() {
 
     let planted = {
         let world = app.world_mut();
-        let mut q = world.query_filtered::<Entity, With<ambition_demo_smash::mine::PlacedMine>>();
-        let found: Vec<Entity> = q.iter(world).collect();
+        let mut q = world.query::<(Entity, &ambition_platformer2d::abilities::module_entity::ModuleEntity)>();
+        let found: Vec<Entity> = q
+            .iter(world)
+            .filter(|(_, entity)| entity.kind == ambition_demo_smash::mine::MINE)
+            .map(|(mine, _)| mine)
+            .collect();
         assert_eq!(
             found.len(),
             1,

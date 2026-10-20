@@ -132,6 +132,7 @@ DISPLAY_NAMES = {
     "standing_on_shoulders": "Standing on Shoulders (GNU-ton)",
     "shoulders_at_rest": "Shoulders at Rest",
     "tritone_decree": "The Tritone Decree",
+    "phrygian_furnace": "The Phrygian Furnace",
     "the_algorithm_knows_youre_lonely": "The Algorithm Knows You're Lonely",
     "series_a_bloodbath": "Series A Bloodbath",
     "flying_spaghetti_monster_stage": "Flying Spaghetti Monster (Stage)",

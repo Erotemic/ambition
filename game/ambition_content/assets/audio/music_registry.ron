@@ -110,6 +110,7 @@
         (id: "support_theme", display_name: "Support Theme"),
         (id: "tech_bros_disruption", display_name: "Tech Bros Disruption"),
         (id: "tech_bros_disruption_recompiled", display_name: "Tech Bros Disruption Recompiled"),
+        (id: "ten_fathoms_and_a_grudge", display_name: "Ten Fathoms and a Grudge"),
         (id: "terms_and_conditions", display_name: "Terms and Conditions"),
         (id: "the_algorithm_knows_youre_lonely", display_name: "The Algorithm Knows You're Lonely"),
         (id: "the_fire_escape", display_name: "The Fire Escape"),

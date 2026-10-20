@@ -146,3 +146,66 @@ fn a_strike_down_from_over_his_shield_gets_through() {
     assert!(w.hp < hp_before, "a strike down over his shield did not reach him: {w:?}");
     assert_eq!(w.state.deflects, 0, "his shield turned a strike from above: {w:?}");
 }
+
+fn wear(sim: &mut Platformer2dSimHarness, character: &str) {
+    let world = sim.world_mut();
+    let mut q = world.query::<(&FeatureId, &mut ambition_platformer2d::characters::actor::WornCharacter)>();
+    let (_, mut worn) = q.iter_mut(world).find(|(id, _)| id.as_str() == WARDEN).expect("the warden was built");
+    *worn = ambition_platformer2d::characters::actor::WornCharacter::new(character);
+}
+
+/// A BROKEN GUARD IS THE BODY'S, ACROSS A CHANGE OF FORM (review, integration
+/// check, 2026-10-19; Q159: a change of form is the same body). His guard is
+/// broken; he becomes a form with no guards and back while the stagger runs:
+/// his shield stays down until the stagger is over, and then comes up. The
+/// guard state is the same component throughout, and a form with no guards
+/// places none. Control: before the break his shield is placed.
+#[test]
+fn a_broken_guard_stays_broken_across_a_change_of_form() {
+    let mut sim = a_warden_beside_you();
+    let w = warden(&mut sim);
+    assert!(!w.guards.is_empty(), "premise: his shield is placed: {w:?}");
+    // Premise, unbroken: the form with no guards places none, and his own
+    // form places his shield again.
+    wear(&mut sim, "npc_kernel_guide");
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    assert!(warden(&mut sim).guards.is_empty(), "premise: the guide's form places no guard");
+    wear(&mut sim, "npc_shock_warden");
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    assert!(!warden(&mut sim).guards.is_empty(), "premise: back in his form, his shield is placed");
+    {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&FeatureId, &mut GuardState)>();
+        let (_, mut state) = q.iter_mut(world).find(|(id, _)| id.as_str() == WARDEN).expect("his guard state");
+        state.broken_s = 1.0;
+        state.deflects = 7;
+    }
+    sim.step(AgentAction::default());
+    assert!(warden(&mut sim).guards.is_empty(), "premise: a broken guard is not placed");
+
+    wear(&mut sim, "npc_kernel_guide");
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let w = warden(&mut sim);
+    assert!(w.guards.is_empty(), "a form with no guards placed a guard: {w:?}");
+    assert!(w.state.broken() && w.state.deflects == 7, "the change of form reset the guard state: {w:?}");
+
+    wear(&mut sim, "npc_shock_warden");
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let w = warden(&mut sim);
+    assert!(w.state.broken() && w.guards.is_empty(), "back in his form, the stagger is not over and his shield came up: {w:?}");
+
+    for _ in 0..60 {
+        sim.step(AgentAction::default());
+    }
+    let w = warden(&mut sim);
+    assert!(!w.state.broken() && !w.guards.is_empty(), "the stagger is over and his shield did not come up: {w:?}");
+    assert_eq!(w.state.deflects, 7, "the count of deflects is the body's: {w:?}");
+}

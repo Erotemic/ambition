@@ -24,8 +24,10 @@ pub mod ray;
 pub mod riding;
 pub mod slow;
 pub mod special;
+pub mod status;
 pub mod think;
 pub mod wielded;
+pub use status::{HoldStatus, HoldStatusPort, StatusTick, StatusTickPort, TimeScale, TimeScalePort};
 pub use module_entity::{
     EndModuleEntity, EndModuleEntityPort, LaunchToucher, LaunchToucherPort, ModuleEntitySpawn, ModuleEntityTick,
     ModuleEntityTickPort, PullBodies, PullBodiesPort, SpawnModuleEntityPort,
@@ -34,7 +36,7 @@ pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
 pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort};
 pub use hold::{BodyHold, BodyHoldPort};
 pub use special::{
-    BodyStrike, BodyStrikePort, DilateTime, DilateTimePort, FighterSpecial, FighterSpecialPort, ParryWindow,
+    BodyStrike, BodyStrikePort, FighterSpecial, FighterSpecialPort, ParryWindow,
     ParryWindowPort, RefillResource, RefillResourcePort, SleepArea, SleepAreaPort, SpecialParam,
 };
 pub use lightning::{Lightning, LightningAura, LightningAuraPort, LightningPort};

@@ -79,7 +79,7 @@ list, with witnesses, is in I4 of the [packet catalog](fast-iteration-implementa
 | Port values | Ports |
 | --- | --- |
 | `crates/ambition_boss_special_port` | `ambition.boss.special_cast`, `ambition.boss.summon`, `ambition.boss.conduct` and its requests |
-| `crates/ambition_combat_port` | `ambition.combat.damage_box`, `ambition.combat.held_damage_box`, `ambition.combat.riding_hitbox`, `ambition.combat.slow_bodies`, the wielded-use and module-entity ports, the contact ports (`ambition.body.contact`, `ambition.body.contact_bounce`, `ambition.body.defeat`), the special ports (`ambition.fighter.special`, `ambition.combat.body_strike`, `ambition.combat.sleep_area`, `ambition.combat.dilate_time`, `ambition.resources.refill`, `ambition.combat.parry_window`) |
+| `crates/ambition_combat_port` | `ambition.combat.damage_box`, `ambition.combat.held_damage_box`, `ambition.combat.riding_hitbox`, `ambition.combat.slow_bodies`, the wielded-use and module-entity ports, the contact ports (`ambition.body.contact`, `ambition.body.contact_bounce`, `ambition.body.defeat`), the special ports (`ambition.fighter.special`, `ambition.combat.body_strike`, `ambition.combat.sleep_area`, `ambition.resources.refill`, `ambition.combat.parry_window`), the status ports (`ambition.body.hold_status`, `ambition.body.status_tick`, `ambition.body.time_scale`) |
 | `ambition_projectile_spec::ProjectileSpawnPort` | `ambition.projectiles.spawn` |
 | `crates/ambition_portal_port` | `ambition.portal.held_pair`, `ambition.portal.light_line` (with the runtime's `portal` feature) |
 

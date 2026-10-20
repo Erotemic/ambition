@@ -125,9 +125,11 @@ a live reload is a second priority. Work in this order:
    F2: a fighter's special, a body strike, a module entity a move drops, its
    touchers and a throw); an edit to one is a 0.6 s module build. Since
    2026-10-20 the song, the time dilation, the move fill of the Limit and the
-   counter stance are modules too (routes F3 to F6,
-   `ambition.combat.sleep_area`, `ambition.combat.dilate_time`,
-   `ambition.resources.refill` and `ambition.combat.parry_window`).
+   counter stance are modules too (routes F3 to F6). Jon ruled the same day
+   that the remaining specials move on general primitives, not one engine
+   mechanic per move: the first is a body's statuses
+   (`ambition.body.hold_status`, `ambition.body.status_tick`), on which the
+   dilation keeps its own clock.
    Second priority, and only where a recompile does not depend on it: the
    live-reload remainder (a restated schema inside a live session, sprite
    publication inside a session). A live reload for the demo packs' tuning

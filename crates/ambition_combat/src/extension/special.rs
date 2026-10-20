@@ -1,8 +1,8 @@
 //! The adapters of a fighter's special: `ambition.fighter.special`,
 //! `ambition.combat.body_strike`, `ambition.combat.sleep_area`,
-//! `ambition.combat.dilate_time`, `ambition.resources.refill` and
-//! `ambition.combat.parry_window`. See the port cards in
-//! `ambition_combat_port::special`.
+//! `ambition.resources.refill` and `ambition.combat.parry_window`. See the
+//! port cards in `ambition_combat_port::special`. A body's statuses, which a
+//! special's module holds on a body, are `super::status`.
 //!
 //! A move's effect whose key a module binds is that module's to answer. The
 //! module reads the fighter's facts and the move's authored params, and asks
@@ -12,7 +12,7 @@
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_characters::brain::ActorActionMessage;
 use ambition_combat_port::{
-    BodyStrikePort, DilateTimePort, FighterSpecial, ParryWindowPort, RefillResourcePort, SleepAreaPort, SpecialParam,
+    BodyStrikePort, FighterSpecial, ParryWindowPort, RefillResourcePort, SleepAreaPort, SpecialParam,
 };
 pub use ambition_combat_port::FighterSpecialPort;
 use ambition_entity_catalog::ParamLeaf;
@@ -28,29 +28,9 @@ pub fn install_for_specials(app: &mut App) {
     app.install_extension_trigger::<FighterSpecialPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", queue_fighter_specials);
     app.install_extension_request::<BodyStrikePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_body_strikes);
     app.install_extension_request::<SleepAreaPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_sleep_areas);
-    app.install_extension_request::<DilateTimePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_time_dilations);
     app.install_extension_request::<RefillResourcePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_refills);
     app.install_extension_request::<ParryWindowPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_parry_windows);
-}
-
-/// A body running on a slowed clock, and the world seconds left.
-///
-/// It keeps no copy of the scale to put back: the dilation is the only
-/// writer of a body's `ProperTimeScale` that ends, so the clock a body
-/// returns to is the engine default. The timer is its own component and not a
-/// field of `ProperTimeScale`, which is rollback-canonical and has its own
-/// wire format.
-#[derive(Component, Debug, Clone, Copy, PartialEq)]
-pub struct TimeDilated {
-    /// World seconds left. World time, not the body's own: a countdown on the
-    /// slowed clock would stretch itself.
-    pub remaining_s: f32,
-}
-
-/// The rollback value projection. The remainder decides how long a body
-/// stays slow, so a restore that lost it resimulates a different fight.
-pub fn time_dilated_probe(dilation: &TimeDilated) -> u64 {
-    dilation.remaining_s.to_bits() as u64
+    super::status::install(app);
 }
 
 /// One invocation for each press of a bound special, in the order of the
@@ -165,51 +145,6 @@ pub fn lower_sleep_areas(
                 combat.sleep_timer = area.duration_s;
             }
         }
-    }
-}
-
-/// Spend each dilation's world seconds and give the body its own clock back,
-/// then apply each dilation a module asked for this tick.
-///
-/// One system, in that order: a dilation applied this tick is not spent this
-/// tick. The body's step reads the scale from the next tick, so a dilation
-/// of N ticks slows N ticks; spent here first, it would slow N-1.
-pub fn lower_time_dilations(
-    mut commands: Commands,
-    mut outbox: ResMut<ExtensionOutbox>,
-    time: Res<ambition_time::WorldTime>,
-    mut dilated: Query<(Entity, &mut TimeDilated, &mut ambition_time::ProperTimeScale)>,
-    bodies: Query<(), With<ae::BodyKinematics>>,
-) {
-    // The world's second, not the body's (`sim_dt`, not `entity_dt`).
-    let dt = time.sim_dt();
-    if dt > 0.0 {
-        for (entity, mut dilation, mut scale) in &mut dilated {
-            dilation.remaining_s -= dt;
-            if dilation.remaining_s > 0.0 {
-                continue;
-            }
-            *scale = ambition_time::ProperTimeScale::ONE;
-            commands.entity(entity).try_remove::<TimeDilated>();
-        }
-    }
-    for submitted in outbox.drain::<DilateTimePort>(&TECHNIQUE_EXECUTION) {
-        let dilation = submitted.value;
-        if !dilation.is_a_slow() {
-            warn!(
-                "extension entry {} asked for a dilation of scale {} for {} s; only a slow with an end is applied",
-                submitted.entry, dilation.scale, dilation.seconds
-            );
-            continue;
-        }
-        if !bodies.contains(submitted.scope) {
-            continue;
-        }
-        // The newest replaces the scale and the remainder: slows do not nest.
-        commands
-            .entity(submitted.scope)
-            .try_insert(ambition_time::ProperTimeScale(dilation.scale))
-            .try_insert(TimeDilated { remaining_s: dilation.seconds });
     }
 }
 

@@ -250,55 +250,6 @@ impl Port for SleepAreaPort {
     }
 }
 
-/// The request port marker for a slowed clock on the body.
-///
-/// Port card:
-///
-/// * **Operation** — the body the invocation ran for runs on a clock at
-///   `scale` of the world's for `seconds` of world time, and then on its own
-///   clock again. A newer dilation replaces the scale and the remainder, so
-///   two slows do not multiply. A `scale` outside `0 ≤ scale < 1` or a time
-///   that is not more than 0 is refused: a slow is the only direction, and a
-///   slow with no end is never taken away.
-/// * **Owner** — `ambition_combat::extension::special`, which writes the
-///   body's `ProperTimeScale` and owns the countdown (`TimeDilated`).
-/// * **Scope** — the body the invocation ran for. A counter's answer that
-///   names the attacker runs for the attacker (`answers_the_attacker`).
-/// * **Time** — `technique_execution`. The body's own step reads the scale
-///   from the next tick, and the countdown spends world seconds from the next
-///   tick, so `seconds` of N ticks slow N ticks.
-/// * **Read model** — world seconds: a countdown on the slowed clock would
-///   stretch itself.
-pub struct DilateTimePort;
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct DilateTime {
-    pub scale: f32,
-    pub seconds: f32,
-}
-
-impl DilateTime {
-    /// Whether the owner applies it (see the port card).
-    pub fn is_a_slow(&self) -> bool {
-        (0.0..1.0).contains(&self.scale) && self.seconds.is_finite() && self.seconds > 0.0
-    }
-}
-
-impl Port for DilateTimePort {
-    const KEY: PortKey = PortKey::new("ambition.combat.dilate_time", 1);
-    const ROLE: PortRole = PortRole::Request;
-    type Value = DilateTime;
-
-    fn encode(v: &DilateTime, out: &mut Vec<u8>) {
-        wire::put_f32(out, v.scale);
-        wire::put_f32(out, v.seconds);
-    }
-
-    fn decode(r: &mut WireReader<'_>) -> Result<DilateTime, WireError> {
-        Ok(DilateTime { scale: r.f32()?, seconds: r.f32()? })
-    }
-}
-
 /// The request port marker for a refill of one of the body's resources.
 ///
 /// Port card:
@@ -397,15 +348,6 @@ mod tests {
         let mut bytes = Vec::new();
         RefillResourcePort::encode(&refill, &mut bytes);
         assert_eq!(RefillResourcePort::decode(&mut WireReader::new(&bytes)).unwrap(), refill);
-    }
-
-    /// A dilation decodes to what was encoded.
-    #[test]
-    fn a_dilation_crosses_the_wire_unchanged() {
-        let dilation = DilateTime { scale: 0.35, seconds: 0.45 };
-        let mut bytes = Vec::new();
-        DilateTimePort::encode(&dilation, &mut bytes);
-        assert_eq!(DilateTimePort::decode(&mut WireReader::new(&bytes)).unwrap(), dilation);
     }
 
     /// A sleep area decodes to what was encoded.

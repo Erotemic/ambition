@@ -690,26 +690,25 @@ before you add a port.
     adds; a wasm-only drift of the time. Cost: an edit to the song builds the
     module file in 0.61 s, and the Ambition app, whose performer and Shadow
     Oni leader sing, loads it with no relink (`AMBITION_EXTENSION_MODULES`).
-  - Special route F4 ✅ (2026-10-20): a special that changes a body's clock.
-    The request `ambition.combat.dilate_time` runs the body the invocation ran
-    for at a scale of the world's clock for some world seconds; a newer one
-    replaces the scale and the remainder (slows do not multiply), and a scale
-    outside `0 ≤ scale < 1` or a time not more than 0 is refused. The combat
-    engine owns the clock: `lower_time_dilations` spends each `TimeDilated`
-    on the world clock and gives the body `ProperTimeScale::ONE` back, then
-    applies this tick's requests, so N authored ticks slow N ticks. The
-    remainder's rollback row moved with it (`smash.time_dilated` →
-    `body.time_dilated`, schema 370). Smash's time dilation is the module
-    `ambition_demo_smash_modules::dilation`; the native systems are deleted.
-    The clerk's Witch-Time still slows the attacker: the counter's answer
-    runs for the attacker, and the module slows whoever it runs for.
-    Witnesses: the seven tests of `ambition_demo_smash dilation::tests` on the
-    module road, among them
+  - Special route F4 ✅ (2026-10-20, redone the same day on the status
+    primitive below): a special that changes a body's clock. Smash's time
+    dilation is the module `ambition_demo_smash_modules::dilation`, clock and
+    all: it sets the slowed body's scale (`ambition.body.time_scale`), keeps
+    the remainder in a record on that body, spends it each tick of its status
+    `smash.dilated` on the world's step, and gives the body its own clock
+    back at the end; a newer dilation replaces the scale and the remainder.
+    Its spend entry runs before its dilation entry (`after`), so a dilation
+    of N ticks slows N ticks, a replacing one included. The first version put
+    the clock in the combat engine (`ambition.combat.dilate_time`,
+    `TimeDilated`); both are deleted. Witnesses: the eight tests of
+    `ambition_demo_smash dilation::tests` on the module road, among them
     `the_dilation_from_its_module_file_slows_as_the_linked_one_does` (runner
-    `Loaded`), the Witch-Time join and the exact tick count. Poisons, each red
-    at its own assertion: the countdown after the apply (the tick count);
-    no restore; slows that multiply; no refusal; a wasm-only drift of the time.
-    Cost: an edit to the dilation builds the module file in 0.59 s.
+    `Loaded`), the Witch-Time join, the exact tick counts and
+    `a_dilation_that_replaces_another_buys_exactly_its_own_ticks`. Poisons,
+    each red at its own assertion: no restore at the end; the entries
+    declared in the other order without the `after` edge (red at the
+    replacement count; the same order with the edge is green); a wasm-only
+    drift of the time.
   - Special route F5 ✅ (2026-10-20): a special that fills a meter. The
     request `ambition.resources.refill` adds an amount to the resource the
     request names (a resource id) on the body the invocation ran for, up to
@@ -751,6 +750,23 @@ before you add a port.
     absorb opened always; no refusal of an endless window; the answer always
     on the defender; a wasm-only drift of the window. Cost: an edit to the
     stance builds the module file in 0.54 s.
+  - Module primitive: a body's statuses ✅ (2026-10-20). Jon, the same day:
+    a game must be able to define its own moves without the engine carrying
+    one mechanic per move, so a port offers a general verb or fact and the
+    move's logic is its module's. A move that lives on a body for a while
+    keeps its state in its module's records on the body and holds a status of
+    its own kind there (`ambition.body.hold_status`; the body's
+    `BodyStatuses`, rollback row `body.statuses`, schema 371). The world ticks
+    each body that holds a bound kind (`ambition.body.status_tick`, in
+    `technique_execution`, each tick with a gameplay step, in identity
+    order), so the module spends its clock and decides the end; the requests
+    of a tick apply in submission order, so a let-go and a later hold leave
+    the status held. `ambition.body.time_scale` sets a body's clock scale.
+    Witnesses: `ambition_combat extension::status::tests` (a fixture module
+    counts its ticks in a record and lets go; a let-go and a hold on one
+    step; a paused world ticks nothing; a scale of 0 is refused). Poisons,
+    each red at its own assertion: ticks while paused; holds applied before
+    let-gos; a scale of 0 accepted.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

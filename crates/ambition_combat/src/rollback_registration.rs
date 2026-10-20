@@ -221,13 +221,13 @@ where
         OWNER,
         "feature.damageable_volumes",
     );
-    // A dilation's remaining world seconds (the scale itself is canonical as
-    // `actor.proper_time_scale`). Peers that disagree on it resimulate
-    // different swings.
-    registrar.rollback_component_clone_probed::<crate::extension::special::TimeDilated>(
+    // The statuses a module holds on a body: whether a body is ticked for a
+    // status decides what its module does next (its state is the module's
+    // body records, `extension.body_records`).
+    registrar.rollback_component_clone_probed::<crate::extension::status::BodyStatuses>(
         OWNER,
-        "body.time_dilated",
-        crate::extension::special::time_dilated_probe,
+        "body.statuses",
+        crate::extension::status::body_statuses_probe,
     );
     // A guard's run toward breaking, its stagger, and its deflect count, which
     // the guarded body's brain reads to answer a deflect.

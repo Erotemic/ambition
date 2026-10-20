@@ -665,7 +665,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             ambition_demo_smash_modules::limit::module(),
         );
         // Time dilation: the module `ambition_demo_smash_modules::dilation`.
-        // The combat engine owns the clock (`ambition.combat.dilate_time`).
+        // The module keeps the clock too, as a status on the slowed body
+        // (`ambition.body.status_tick`).
         ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_time_dilation::TIME_DILATION,

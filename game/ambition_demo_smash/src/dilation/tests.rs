@@ -337,3 +337,29 @@ fn an_authored_duration_buys_exactly_that_many_slowed_ticks() {
         );
     }
 }
+
+/// A dilation that replaces a running one buys exactly its own ticks from the
+/// press: the running clock is spent before the new one is set on that tick,
+/// not after.
+#[test]
+fn a_dilation_that_replaces_another_buys_exactly_its_own_ticks() {
+    let dt = 1.0 / 64.0;
+    let mut app = app();
+    tick_exactly(&mut app, dt);
+    let who = victim(&mut app);
+    ask(&mut app, who, 0.5, dt * 8.0);
+    app.update();
+    app.update();
+    ask(&mut app, who, 0.25, dt * 4.0);
+    let mut slowed = 0_u32;
+    while scale_of(&app, who) < 1.0 {
+        slowed += 1;
+        assert!(slowed <= 64, "the replacing dilation never expired");
+        app.update();
+    }
+    assert_eq!(
+        slowed, 4,
+        "a dilation of 4 ticks that replaced a running one slowed {slowed}: the \
+         running clock's tick spent the new dilation's first"
+    );
+}

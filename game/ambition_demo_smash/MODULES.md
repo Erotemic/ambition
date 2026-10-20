@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`bolt`](src/bolt.rs) | The steered bolt: a thing you fly with the same stick you walk with. |
+| [`bolt`](src/bolt.rs) | The steered bolt, end to end in this game. |
 | [`bomb`](src/bomb.rs) | The bomb, end to end in this game. |
 | [`capture`](src/capture.rs) | Capture's authored-effect chain, exercised end to end. |
 | [`counter`](src/counter.rs) | The counter, end to end in this game. |

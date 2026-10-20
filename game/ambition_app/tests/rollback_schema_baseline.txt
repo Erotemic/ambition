@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v375
+ggrs-rollback-schema-v376
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -520,5 +520,4 @@ session.room_departure	component-clone	Departure	bevy_ggrs clone snapshot; value
 smash.departing_mount	component-clone	Departing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.hold_state	component-canonical	SmashHoldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 smash.move_placed_portal	component-clone	MovePlacedPortal	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-smash.steered_bolt	component-clone	SteeredBolt	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.tether_reel	component-clone	TetherReel	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

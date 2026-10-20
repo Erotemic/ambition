@@ -903,6 +903,29 @@ before you add a port.
     the modules' tests, `ambition_combat extension::blast::tests`, and
     `smash_it::a_match_cleans_up_what_it_created`. Poisons listed in the
     commit.
+  - Special route F11 ✅ (2026-10-20): the steered bolt, on a flown module
+    entity. In `module_entity_tick`, `ambition.world.move_module_entity`
+    puts the entity where its module says (refused for an item entity, which
+    is where its item is, and for a point that is not finite);
+    `ambition.world.spawner_body` gives the spawner's credit and its
+    player's stick (the steering axis, live while a move roots the body);
+    and `ambition.world.toucher_credits` names each toucher of the tick by
+    its credit, so a module can tell its spawner from a rival. Smash's
+    `smash.steered_bolt` is `ambition_demo_smash_modules::bolt`: the press
+    puts a module entity of the kind `smash.bolt`, and the module keeps its
+    heading, trail clock and clearance in a record, turns it toward the
+    stick by at most the turn rate, hits the first rival it touches
+    (credited to the caster, or to itself when the caster has left) and
+    carries its caster home once clear of them. `SteeredBolt`, its systems
+    and the row `smash.steered_bolt` are deleted (schema 376). Rules that
+    changed: the bolt first moves on the tick after the press, and a tick's
+    contact is read where the bolt was drawn the tick before (the native
+    moved and then read contact in one system); rivals tie-break by
+    identity rather than match seat; contact is the bodies' published boxes
+    rather than their kinematic size. Witnesses: the ten bolt tests of
+    `ambition_demo_smash` on the module road (with its loaded file), the
+    module's tests, `ambition_abilities module_entity::tests`. Poisons
+    listed in the commit.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

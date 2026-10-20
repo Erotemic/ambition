@@ -126,7 +126,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// that is a held item (`ambition.world.spawn_module_item`); the bomb's fuse
 /// is a record on it, and a mine arms as it ages (`ModuleEntity` gains its
 /// spawner and its age). `smash.live_bomb` and `smash.placed_mine` leave.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 375;
+/// 375 -> 376: the steered bolt is a module: a module entity flown by the
+/// module, its heading in a module record; `smash.steered_bolt` is gone.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 376;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

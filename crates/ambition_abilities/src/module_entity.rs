@@ -11,8 +11,8 @@ use ambition_combat::components::CenteredAabb;
 use ambition_characters::actor::ActorFaction;
 use ambition_combat_port::{
     ContactBody, EndModuleEntityPort, EndOwnedEntityPort, ItemState, ModuleEntitySpawn, ModuleEntityTick,
-    ModuleEntityTickPort, ModuleItemSpawn, OwnedEntities, OwnedEntity, SpawnModuleEntityPort, SpawnModuleItemPort,
-    SpecialParam,
+    ModuleEntityTickPort, ModuleItemSpawn, MoveModuleEntityPort, OwnedEntities, OwnedEntity, SpawnModuleEntityPort,
+    SpawnModuleItemPort, SpawnerBody, SpecialParam,
 };
 use ambition_extension_host::{AdmittedExtensions, ExtensionInvocations, ExtensionOutbox, LowersIn};
 use ambition_extension_sdk::phases::MODULE_ENTITY_TICK;
@@ -424,6 +424,60 @@ pub fn owned_entities_of(world: &World, scope: Entity) -> Option<OwnedEntities> 
         .collect();
     owned.sort_by(|a, b| a.0.cmp(b.0));
     Some(OwnedEntities { entities: owned.into_iter().map(|(_, owned)| owned).collect() })
+}
+
+/// The body that spawned `scope`: its credit and its player's stick, or
+/// zeros when it is not in the world. Absent for a scope that is not a
+/// module entity.
+pub fn spawner_body_of(world: &World, scope: Entity) -> Option<SpawnerBody> {
+    let module_entity = world.get::<ModuleEntity>(scope)?;
+    let Some(spawner) = module_entity.spawner.as_ref() else {
+        return Some(SpawnerBody::default());
+    };
+    let body = world.iter_entities().find(|entity| entity.get::<SimId>() == Some(spawner));
+    Some(body.map_or_else(SpawnerBody::default, |body| SpawnerBody {
+        credit: ambition_combat::extension::blast::credit_of(spawner),
+        stick: body
+            .get::<ambition_characters::control::ActorControl>()
+            .map_or([0.0; 2], |control| {
+                let stick = control.0.steer_axis().vec();
+                [stick.x, stick.y]
+            }),
+    }))
+}
+
+/// The credit of each toucher of `scope`'s tick, in its tick's order.
+/// Absent for a scope that was not ticked.
+pub fn toucher_credits_of(world: &World, scope: Entity) -> Option<Vec<u64>> {
+    let (_, touchers) = world.resource::<ModuleEntityTouchers>().0.iter().find(|(entity, _)| *entity == scope)?;
+    Some(
+        touchers
+            .iter()
+            .map(|toucher| world.get::<SimId>(*toucher).map_or(0, ambition_combat::extension::blast::credit_of))
+            .collect(),
+    )
+}
+
+/// Lower `ambition.world.move_module_entity`: the entity is where its module
+/// moved it. An item entity is where its item is, so it is not moved.
+pub fn lower_module_entity_moves(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut entities: Query<&mut ModuleEntity, Without<ambition_held_items::GroundItem>>,
+) {
+    for submitted in outbox.drain::<MoveModuleEntityPort>(&MODULE_ENTITY_TICK) {
+        let to = ae::Vec2::from(submitted.value.to);
+        if !to.is_finite() {
+            warn!("extension entry {} asked to move {:?} to {to:?}; refused", submitted.entry, submitted.scope);
+            continue;
+        }
+        match entities.get_mut(submitted.scope) {
+            Ok(mut entity) => entity.pos = to,
+            Err(_) => warn!(
+                "extension entry {} asked to move {:?}, which is not a module entity that is not an item; refused",
+                submitted.entry, submitted.scope
+            ),
+        }
+    }
 }
 
 /// Lower `ambition.world.end_owned_entity`: remove the module entity a

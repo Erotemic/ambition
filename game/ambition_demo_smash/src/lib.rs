@@ -14,7 +14,7 @@ use ambition_platformer2d::combat::technique::{
 };
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
-use ambition_platformer2d::runtime::{install_technique, install_techniques};
+use ambition_platformer2d::runtime::install_technique;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
 pub mod bolt;
@@ -526,13 +526,14 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // Steered bolt. Fire is chained before flight, so a bolt moves on the
-        // tick it appears and does not sit inside the caster for a frame.
-        install_special(
+        // Steered bolt: the module `ambition_demo_smash_modules::bolt`. A
+        // bolt is a module entity, put on the stage by the press and flown
+        // from the next tick by its caster's stick.
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_bolt::STEERED_BOLT,
             TechniqueOffer {
-                owner: "ambition_demo_smash::bolt",
+                owner: "ambition_demo_smash_modules::bolt",
                 params: TechniqueParams::Checked(
                     // The domain rule, not only "serde can build it": rejects
                     // an invisible bolt, a trail never redrawn, an unsteerable bolt.
@@ -541,12 +542,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            (
-                crate::bolt::fire_authored_bolts,
-                crate::bolt::steer_and_fly_bolts,
-            )
-                .chain()
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+            ambition_demo_smash_modules::bolt::module(),
         );
         // Homing dash: the module `ambition_demo_smash_modules::homing`, clock,
         // cone and steering. It asks the engine only who is a foe
@@ -1673,15 +1669,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 crate::portal::move_placed_portal_probe,
             );
 
-            // The bolt in flight: position, heading, lifetime, and whether it
-            // cleared its caster. The heading matters: peers can agree on the
-            // lifetime and disagree on where the bolt goes.
-            app.rollback_component_clone_probed::<crate::bolt::SteeredBolt>(
-                "ambition_demo_smash",
-                "smash.steered_bolt",
-                crate::bolt::steered_bolt_probe,
-            );
-
             // The tether reel's clock and latched anchor. A peer that lost the
             // anchor would re-probe its own solids and could latch a different
             // ledge.
@@ -2665,12 +2652,3 @@ fn install_special<M>(
     install_technique(app, key, offer, systems.into_configs().in_set(FIGHTER_SPECIALS));
 }
 
-/// [`install_techniques`] for a fighter special that answers several keys.
-fn install_specials<M>(
-    app: &mut bevy::prelude::App,
-    offers: &[(&str, TechniqueOffer)],
-    systems: impl bevy::prelude::IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
-) {
-    use bevy::prelude::IntoScheduleConfigs as _;
-    install_techniques(app, offers, systems.into_configs().in_set(FIGHTER_SPECIALS));
-}

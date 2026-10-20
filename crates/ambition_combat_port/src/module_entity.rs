@@ -448,11 +448,117 @@ impl Port for EndOwnedEntityPort {
     }
 }
 
+/// The request port marker for moving a module entity.
+///
+/// Port card:
+///
+/// * **Operation** — the module entity the invocation ran for is at `to`
+///   (world units, +Y down). A module that flies its entity keeps its own
+///   velocity, and moves the entity by it.
+/// * **Owner** — `ambition_abilities::module_entity`.
+/// * **Scope** — the invocation's scope. A scope that is not a module
+///   entity, an entity that is an item (it is where its item is), and a
+///   point that is not finite are refused, and the refusal is logged.
+/// * **Time** — `module_entity_tick`. The entity is at `to` for what reads
+///   it later in the tick and for its next tick: its touchers there are the
+///   bodies at `to`.
+pub struct MoveModuleEntityPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct MoveModuleEntity {
+    pub to: [f32; 2],
+}
+
+impl Port for MoveModuleEntityPort {
+    const KEY: PortKey = PortKey::new("ambition.world.move_module_entity", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = MoveModuleEntity;
+
+    fn encode(v: &MoveModuleEntity, out: &mut Vec<u8>) {
+        wire::put_vec2(out, v.to);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<MoveModuleEntity, WireError> {
+        Ok(MoveModuleEntity { to: r.vec2()? })
+    }
+}
+
+/// The observation port marker for the body that spawned a module entity.
+///
+/// Port card:
+///
+/// * **Operation** — `credit` names the spawner ([`crate::BlastPort`]), and
+///   `stick` is what its player holds, the steering axis of its control
+///   frame in the body's own axes (`+x` its side, `+y` toward its feet): the
+///   axis is live while a move roots the body, so a body can fly what it
+///   spawned while it stands still.
+/// * **Owner** — `ambition_abilities::module_entity`.
+/// * **Scope** — the module entity the invocation ran for.
+/// * **Time** — offered in `module_entity_tick`.
+/// * **Absence** — `credit` is `0` and `stick` is zero when the spawner is
+///   not in the world (it left the match) or the entity has none; `stick` is
+///   zero for a spawner with no control frame.
+pub struct SpawnerBodyPort;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct SpawnerBody {
+    pub credit: u64,
+    pub stick: [f32; 2],
+}
+
+impl Port for SpawnerBodyPort {
+    const KEY: PortKey = PortKey::new("ambition.world.spawner_body", 1);
+    const ROLE: PortRole = PortRole::Observation;
+    type Value = SpawnerBody;
+
+    fn encode(v: &SpawnerBody, out: &mut Vec<u8>) {
+        wire::put_u64(out, v.credit);
+        wire::put_vec2(out, v.stick);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<SpawnerBody, WireError> {
+        Ok(SpawnerBody { credit: r.u64()?, stick: r.vec2()? })
+    }
+}
+
+/// The observation port marker for who the touchers of a module entity are.
+///
+/// Port card:
+///
+/// * **Operation** — the credit of each of this tick's
+///   [`ModuleEntityTick::touchers`], in the same order: the name a blast is
+///   credited by ([`crate::BlastPort`]) and the one [`SpawnerBodyPort`]
+///   gives, so a module can tell its spawner from a rival.
+/// * **Owner** — `ambition_abilities::module_entity`.
+/// * **Scope** — the module entity the invocation ran for.
+/// * **Time** — offered in `module_entity_tick`.
+/// * **Absence** — `0` for a toucher with no simulation identity; an empty
+///   list for an entity nothing touches.
+pub struct ToucherCreditsPort;
+
+impl Port for ToucherCreditsPort {
+    const KEY: PortKey = PortKey::new("ambition.world.toucher_credits", 1);
+    const ROLE: PortRole = PortRole::Observation;
+    type Value = Vec<u64>;
+
+    fn encode(v: &Vec<u64>, out: &mut Vec<u8>) {
+        wire::put_u32(out, v.len() as u32);
+        for credit in v {
+            wire::put_u64(out, *credit);
+        }
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<Vec<u64>, WireError> {
+        let count = r.read_len()?;
+        (0..count).map(|_| r.u64()).collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// The item ports decode to what was encoded.
+    /// The item and flight ports decode to what was encoded.
     #[test]
     fn module_item_values_survive_the_wire() {
         fn round_trip<P: Port>(value: P::Value) -> P::Value {
@@ -479,6 +585,11 @@ mod tests {
         };
         assert_eq!(round_trip::<OwnedEntitiesPort>(owned.clone()), owned);
         assert_eq!(round_trip::<EndOwnedEntityPort>(EndOwnedEntity { handle: 9 }), EndOwnedEntity { handle: 9 });
+        let to = MoveModuleEntity { to: [-2.5, 40.0] };
+        assert_eq!(round_trip::<MoveModuleEntityPort>(to.clone()), to);
+        let spawner = SpawnerBody { credit: u64::MAX, stick: [-1.0, 0.5] };
+        assert_eq!(round_trip::<SpawnerBodyPort>(spawner), spawner);
+        assert_eq!(round_trip::<ToucherCreditsPort>(vec![0, 7, u64::MAX]), vec![0, 7, u64::MAX]);
     }
 
     #[test]

@@ -1,9 +1,9 @@
 //! The smash ruleset's commanded-velocity seam (ADR 0024, authority #4).
 //!
-//! One operation, not three bare writes. A steered bolt flying its caster home,
-//! a launch plate and a homing dash all say: for this instant, the smash
-//! ruleset, not the movement kernel, sets this body's velocity. The ownership
-//! argument is made once, here.
+//! One operation, not bare writes. A tether reeling its fighter to a ledge
+//! says: for this instant, the smash ruleset, not the movement kernel, sets
+//! this body's velocity. The ownership argument is made once, here. (The
+//! moves that are modules set a velocity through the engine's ports.)
 //!
 //! The waiver is on this operation, not on its callers, as
 //! `engine.velocity-writes-are-authority-only` asks. A new smash move that

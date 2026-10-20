@@ -6,6 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`bolt`](src/bolt.rs) | The steered bolt: a thing you fly with the same stick you walk with. |
 | [`bomb`](src/bomb.rs) | The bomb: a ground item with a fuse. |
 | [`counter`](src/counter.rs) | The counter stance: while it is live, its fighter parries. |
 | [`dilation`](src/dilation.rs) | Time dilation: a body runs on a slower clock for a while. |
@@ -17,7 +18,7 @@
 | [`sing`](src/sing.rs) | The song: a pulse that puts everyone near the singer to sleep. |
 | [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
 
-_10 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

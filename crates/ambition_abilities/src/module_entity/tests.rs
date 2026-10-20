@@ -1,12 +1,13 @@
 //! Module items in a tiny App: a native fixture module spawns items, reads
-//! what it owns and ends one, and an item entity reads what it is, through
-//! the real host.
+//! what it owns and ends one, an item entity reads what it is, and a flown
+//! entity is moved, through the real host.
 
 use super::*;
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_characters::brain::ActorActionMessage;
 use ambition_combat_port::{
-    EndOwnedEntity, FighterSpecialPort, ItemStatePort, ModuleItemSpawn, OwnedEntitiesPort, SpawnModuleItemPort,
+    EndOwnedEntity, FighterSpecialPort, ItemStatePort, ModuleItemSpawn, MoveModuleEntity, OwnedEntitiesPort,
+    SpawnModuleItemPort,
 };
 use ambition_extension_host::{ExtensionAppExt as _, ExtensionHostPlugin, ExtensionSet};
 use ambition_extension_sdk::phases::TECHNIQUE_EXECUTION;
@@ -23,6 +24,8 @@ const PLACE: &str = "test.place";
 const OWN: &str = "test.own";
 const END: &str = "test.end";
 const ITEM: &str = "test.item";
+const FLOWN: &str = "test.flown";
+const DRAGGED: &str = "test.dragged";
 const DT: f32 = 1.0 / 60.0;
 
 record! {
@@ -81,6 +84,13 @@ fn seen(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     Seen { ticks, in_world: state.in_world, impact_speed: state.impact_speed }.store(inv)
 }
 
+/// Move the entity to its params' `to`, or far away.
+fn fly(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let tick = inv.trigger::<ModuleEntityTickPort>()?.clone();
+    let to = [tick.number("to[0]").unwrap_or(500.0), tick.number("to[1]").unwrap_or(500.0)];
+    inv.submit::<MoveModuleEntityPort>(MoveModuleEntity { to })
+}
+
 fn app() -> App {
     let mut app = App::new();
     app.init_schedule(Sim);
@@ -119,6 +129,8 @@ fn app() -> App {
             entry("own", TECHNIQUE_EXECUTION, FighterSpecialPort::KEY, OWN, vec![OwnedEntitiesPort::KEY], vec![Owned::KEY], vec![], own),
             entry("end", TECHNIQUE_EXECUTION, FighterSpecialPort::KEY, END, vec![], vec![], vec![EndOwnedEntityPort::KEY], end),
             entry("seen", MODULE_ENTITY_TICK, ModuleEntityTickPort::KEY, ITEM, vec![ItemStatePort::KEY], vec![Seen::KEY], vec![], seen),
+            entry("fly", MODULE_ENTITY_TICK, ModuleEntityTickPort::KEY, FLOWN, vec![], vec![], vec![MoveModuleEntityPort::KEY], fly),
+            entry("drag", MODULE_ENTITY_TICK, ModuleEntityTickPort::KEY, DRAGGED, vec![], vec![], vec![MoveModuleEntityPort::KEY], fly),
         ],
     });
     app.finish();
@@ -246,4 +258,67 @@ fn an_item_entity_reads_whether_it_is_loose_and_how_hard_it_struck() {
     app.world_mut().entity_mut(item).remove::<ambition_held_items::ItemStruckBody>();
     step(&mut app);
     assert_eq!(read(&app), Seen { ticks: 2, in_world: false, impact_speed: 120.0 });
+}
+
+/// A module moves the entity it flies; a point off the world and an entity
+/// that is an item (it is where its item is) are refused.
+#[test]
+fn a_module_moves_its_entity_but_not_an_item_or_off_the_world() {
+    let mut app = app();
+    let flown = |to: [f32; 2]| ModuleEntity {
+        params: vec![
+            ("to[0]".to_owned(), SpecialParam::Number(to[0])),
+            ("to[1]".to_owned(), SpecialParam::Number(to[1])),
+        ],
+        ..ModuleEntity::point(FLOWN, ae::Vec2::new(1.0, 2.0), 5.0)
+    };
+    let moved = app.world_mut().spawn(flown([40.0, -5.0])).id();
+    let lost = app.world_mut().spawn(flown([f32::INFINITY, 0.0])).id();
+    let placer = body(&mut app, 0, ae::Vec2::ZERO);
+    press(&mut app, placer, PLACE, &format!("(kind: \"{DRAGGED}\")"));
+    step(&mut app);
+    step(&mut app);
+    let at = |app: &App, entity: Entity| app.world().get::<ModuleEntity>(entity).unwrap().pos;
+    assert_eq!(at(&app, moved), ae::Vec2::new(40.0, -5.0), "the flown entity was not moved");
+    assert_eq!(at(&app, lost), ae::Vec2::new(1.0, 2.0), "an entity was moved off the world");
+    let dragged: Vec<_> = items(&mut app).into_iter().filter(|(_, entity)| entity.kind == DRAGGED).collect();
+    assert_eq!(dragged.len(), 1, "the dragged item was not placed");
+    assert_eq!(dragged[0].1.pos, ae::Vec2::ZERO, "an item entity was moved away from its item");
+}
+
+/// A module entity's spawner is its credit and its player's stick while it
+/// is in the world, and nobody once it has left.
+#[test]
+fn an_entity_reads_its_spawners_credit_and_stick() {
+    let mut world = World::new();
+    let id = SimId::player_slot(2);
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.undamped_locomotion = Some(ae::LocalAxes::new(0.5, -1.0));
+    let spawner = world.spawn((id.clone(), ambition_characters::control::ActorControl(frame))).id();
+    let entity = world
+        .spawn(ModuleEntity { spawner: Some(id.clone()), ..ModuleEntity::point("test", ae::Vec2::ZERO, 1.0) })
+        .id();
+    assert_eq!(
+        spawner_body_of(&world, entity),
+        Some(SpawnerBody { credit: ambition_combat::extension::blast::credit_of(&id), stick: [0.5, -1.0] })
+    );
+    assert_eq!(spawner_body_of(&world, spawner), None, "a body that is not a module entity has a spawner");
+    world.despawn(spawner);
+    assert_eq!(spawner_body_of(&world, entity), Some(SpawnerBody::default()), "a spawner that left is somebody");
+}
+
+/// Each toucher of a tick is named by its credit, in the tick's order; one
+/// with no identity is `0`.
+#[test]
+fn a_tick_names_its_touchers_in_order() {
+    let mut world = World::new();
+    let (first, second) = (SimId::player_slot(1), SimId::player_slot(0));
+    let a = world.spawn(first.clone()).id();
+    let nameless = world.spawn_empty().id();
+    let b = world.spawn(second.clone()).id();
+    let entity = world.spawn_empty().id();
+    world.insert_resource(ModuleEntityTouchers(vec![(entity, vec![a, nameless, b])]));
+    let credit = ambition_combat::extension::blast::credit_of;
+    assert_eq!(toucher_credits_of(&world, entity), Some(vec![credit(&first), 0, credit(&second)]));
+    assert_eq!(toucher_credits_of(&world, a), None, "a scope that was not ticked has touchers");
 }

@@ -39,8 +39,9 @@ pub use status::{
 };
 pub use module_entity::{
     EndModuleEntity, EndModuleEntityPort, EndOwnedEntity, EndOwnedEntityPort, ItemState, ItemStatePort, LaunchToucher,
-    LaunchToucherPort, ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, ModuleItemSpawn, OwnedEntities,
-    OwnedEntitiesPort, OwnedEntity, PullBodies, PullBodiesPort, SpawnModuleEntityPort, SpawnModuleItemPort,
+    LaunchToucherPort, ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, ModuleItemSpawn, MoveModuleEntity,
+    MoveModuleEntityPort, OwnedEntities, OwnedEntitiesPort, OwnedEntity, PullBodies, PullBodiesPort, SpawnModuleEntityPort,
+    SpawnModuleItemPort, SpawnerBody, SpawnerBodyPort, ToucherCreditsPort,
 };
 pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
 pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort};

@@ -113,9 +113,10 @@ pub fn install_for_technique_execution(app: &mut App) {
     );
 }
 
-/// Install the module-entity trigger port and its request ports in
-/// `module_entity_tick`: a sound (a module entity is heard as itself), an
-/// effect, a pull, a throw of a toucher, and the end of the entity.
+/// Install the module-entity trigger port and its ports in
+/// `module_entity_tick`: what the entity is (an item's state, its spawner,
+/// who touches it), and a sound (a module entity is heard as itself), an
+/// effect, a move, a pull, a throw of a toucher, and the end of the entity.
 pub fn install_module_entities(app: &mut App) {
     app.init_resource::<crate::module_entity::ModuleEntityTouchers>();
     // An item entity is where its item is before it is ticked.
@@ -128,6 +129,21 @@ pub fn install_module_entities(app: &mut App) {
         MODULE_ENTITY_TICK,
         "ambition_abilities",
         crate::module_entity::item_state_of,
+    );
+    app.install_extension_observation::<ambition_combat_port::SpawnerBodyPort>(
+        MODULE_ENTITY_TICK,
+        "ambition_abilities",
+        crate::module_entity::spawner_body_of,
+    );
+    app.install_extension_observation::<ambition_combat_port::ToucherCreditsPort>(
+        MODULE_ENTITY_TICK,
+        "ambition_abilities",
+        crate::module_entity::toucher_credits_of,
+    );
+    app.install_extension_request::<ambition_combat_port::MoveModuleEntityPort, _>(
+        MODULE_ENTITY_TICK,
+        "ambition_abilities",
+        crate::module_entity::lower_module_entity_moves,
     );
     app.install_extension_request::<EffectPort, _>(
         MODULE_ENTITY_TICK,

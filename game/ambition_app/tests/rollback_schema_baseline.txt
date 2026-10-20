@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v367
+ggrs-rollback-schema-v368
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -36,6 +36,7 @@ actor.dormant	component-clone	Dormant	bevy_ggrs clone snapshot; not in the sessi
 actor.driving_participant	component-clone	DrivingParticipant	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.errand	component-clone	Errand	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.faction	component-clone	ActorFaction	bevy_ggrs clone snapshot; not in the session checksum
+actor.held_control_frame	component-clone	HeldControlFrame	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.held_item	component-clone	HeldItem	bevy_ggrs clone snapshot; not in the session checksum
 actor.identity	component-clone	ActorIdentity	bevy_ggrs clone snapshot; not in the session checksum
 actor.identity_kit	component-clone	IdentityKit	bevy_ggrs clone snapshot; not in the session checksum
@@ -78,6 +79,7 @@ actor.transform_beat_requested	component-clone	TransformBeatRequested	bevy_ggrs 
 actor.worn_character	component-canonical	WornCharacter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.worn_equipment	component-clone	WornEquipment	bevy_ggrs clone snapshot; not in the session checksum
 actor.worn_skin	component-clone	WornSkin	bevy_ggrs clone snapshot; not in the session checksum
+actor.zone_passage	component-clone	ZonePassage	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 body.abilities	component-canonical	BodyAbilities	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.ability_base	component-clone	AbilityBase	bevy_ggrs clone snapshot; not in the session checksum
 body.action_buffer	component-canonical	BodyActionBuffer	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

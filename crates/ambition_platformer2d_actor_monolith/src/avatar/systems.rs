@@ -12,6 +12,57 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::{BodyGroundState, BodyKinematics};
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
+/// The frame a held movement stick was pressed in, kept while it stays held
+/// (Jon, 2026-10-19: in ceiling_cross the player-relative camera "used to
+/// just flip the screen once and let me continue moving in that direction").
+///
+/// A body-relative stick (every mode, under the player-relative camera) is
+/// read in the body's frame. When gravity turns while the stick is held, the
+/// same hold would point the other way in the world: held right into an
+/// upward field became world-left, walked the body back out, turned gravity
+/// back, and so on (30 turns in 6 s, measured). So a held stick keeps the
+/// world direction it had when it was pressed; letting go, or turning the
+/// stick, reads it in the body's frame again. Rollback state: the frame of a
+/// hold is part of the body's input history.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct HeldControlFrame {
+    /// The body's `down` when the hold began.
+    pub down: ae::Vec2,
+    /// The raw stick of the hold, to tell when it turns.
+    pub raw: ae::Vec2,
+}
+
+/// A stick this long is held.
+const HELD: f32 = 0.2;
+/// A stick turned further than this from its hold (cosine) is a new hold.
+const SAME_HOLD_COS: f32 = 0.7;
+
+/// The raw stick to read this tick in the body's frame `down` under `mode`,
+/// and the hold to keep: a held stick points where it pointed in the frame it
+/// was pressed in ([`HeldControlFrame`]).
+pub fn hold_stick_through_turns(
+    hold: Option<HeldControlFrame>,
+    raw: ae::Vec2,
+    down: ae::Vec2,
+    mode: ae::InputFrameMode,
+) -> (Option<HeldControlFrame>, ae::Vec2) {
+    if raw.length() < HELD {
+        return (None, raw);
+    }
+    let held = hold.filter(|hold| raw.normalize().dot(hold.raw.normalize_or_zero()) >= SAME_HOLD_COS);
+    let Some(held) = held else {
+        return (Some(HeldControlFrame { down, raw }), raw);
+    };
+    if held.down == down {
+        return (Some(held), raw);
+    }
+    let then = ae::AccelerationFrame::new(held.down);
+    let now = ae::AccelerationFrame::new(down);
+    let world = then.to_world(then.resolve_input(mode, ae::ScreenAxes::from_vec(raw)).vec());
+    let stick = now.raw_axis_for_resolved_input(mode, ae::LocalAxes::from_vec(now.to_local(world)));
+    (Some(held), stick.vec())
+}
+
 /// Blank scripted bodies after brain production and before control consumers.
 ///
 /// Device state is untouched, so held input resumes when scripted control ends.
@@ -96,7 +147,9 @@ pub struct ControlledBrainTick;
 /// ⇒ ONE AUTHORITY. The seat is resolved through the same helper every other
 /// reader uses, and a body that is not the one it names is skipped. Nothing
 /// changes when a seat has exactly one holder, which is every unambiguous tick.
+#[allow(clippy::too_many_arguments)]
 pub fn tick_controlled_brains(
+    mut commands: Commands,
     // ⛔⛤ THE SEAT'S RESOLVED POLICY, not `Res<UserSettings>`. This system is
     // registered into the simulation schedule by
     // `install_avatar_player_input(app, sim)`, so reading the persisted,
@@ -117,9 +170,10 @@ pub fn tick_controlled_brains(
         Option<&ambition_platformer2d_core::MotionModel>,
         &DrivingParticipant,
         &mut ActorControl,
+        Option<&HeldControlFrame>,
     )>,
 ) {
-    for (entity, kin, ground, resolved_frame, motion_model, driver, mut control) in &mut controlled
+    for (entity, kin, ground, resolved_frame, motion_model, driver, mut control, hold) in &mut controlled
     {
         // Input interpretation uses the same resolved frame as this tick's physics.
         let control_down = resolved_frame.down();
@@ -147,12 +201,32 @@ pub fn tick_controlled_brains(
             control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
             continue;
         }
-        let input = slots.get(slot);
+        let mut input = slots.get(slot);
         // ⭐ ASKED PER SEAT, beside the seat's own control frame. A frame mode is
         // the comfort preference of the human in that chair; resolving every body
         // against one machine-wide answer is what this migration removed.
         // From the seat's own replayed frame, not from an `Update`-written table.
         let control_frame_modes = input.control_frame_modes;
+        // A held stick keeps the world direction it was pressed in through a
+        // turn of gravity (`HeldControlFrame`).
+        let (next_hold, stick) = hold_stick_through_turns(
+            hold.copied(),
+            ae::Vec2::new(input.axis_x, input.axis_y),
+            control_down,
+            control_frame_modes.movement,
+        );
+        if next_hold.as_ref() != hold {
+            match next_hold {
+                Some(next) => {
+                    commands.entity(entity).insert(next);
+                }
+                None => {
+                    commands.entity(entity).remove::<HeldControlFrame>();
+                }
+            }
+        }
+        input.axis_x = stick.x;
+        input.axis_y = stick.y;
         // Same slot frame plus same body snapshot produces the same control frame.
         let snapshot = BrainSnapshot {
             // A possessed body's brain drives a body a person is steering; it is

@@ -289,6 +289,19 @@ where
                 ^ (u64::from(spacing.side.to_bits()) << 1)
         },
     );
+    // The frame a held movement stick was pressed in: a rewind into a hold
+    // must read the stick in the frame it was pressed in, or a resimulated
+    // turn of gravity reads it the other way.
+    registrar.rollback_component_clone_probed::<crate::avatar::systems::HeldControlFrame>(
+        OWNER,
+        "actor.held_control_frame",
+        |hold| {
+            (u64::from(hold.down.x.to_bits()) << 32)
+                ^ u64::from(hold.down.y.to_bits())
+                ^ (u64::from(hold.raw.x.to_bits()) << 16)
+                ^ (u64::from(hold.raw.y.to_bits()) << 8)
+        },
+    );
     // A passage through a door or a gate: the scene, its clock, and the
     // crossing it records when the going-in ends. A rewind into it must
     // resume it, and one before the press must not keep a passage the

@@ -99,7 +99,6 @@ fn ceiling_cross_inverts_the_player_onto_the_ceiling_to_cross_the_hazard() {
 /// and 262 (the field begins at 270) while it rises. With the world-fixed
 /// camera the same hold crosses (the test above).
 #[test]
-#[ignore = "BUG (2026-10-19): fails, 30 turns of gravity in 6 s at the field's left edge; un-ignore with the fix"]
 fn ceiling_cross_with_the_player_relative_camera_turns_the_world_over_once() {
     use ambition_platformer2d::engine_core::{CameraReferenceFrame, InputFrameMode};
     use ambition_platformer2d::persistence::settings::UserSettings;

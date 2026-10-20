@@ -15,6 +15,7 @@
 //! * **Result** — submitted is not applied. No acknowledgement port yet.
 
 pub mod attachments;
+pub mod blast;
 pub mod contact;
 pub mod hold;
 pub mod lightning;
@@ -29,9 +30,13 @@ pub mod status;
 pub mod targets;
 pub mod think;
 pub mod wielded;
-pub use reaction::{AnswerParry, AnswerParryPort, Parried, ParriedPort};
+pub use blast::{Blast, BlastPort};
+pub use reaction::{AnswerParry, AnswerParryPort, Parried, ParriedPort, Struck, StruckPort};
 pub use targets::{Foe, Foes, FoesPort};
-pub use status::{HoldStatus, HoldStatusPort, StatusTick, StatusTickPort, TimeScale, TimeScalePort};
+pub use status::{
+    HoldStatus, HoldStatusPort, InPlayPort, StatusClock, StatusClockPort, StatusTick, StatusTickPort, TimeScale,
+    TimeScalePort,
+};
 pub use module_entity::{
     EndModuleEntity, EndModuleEntityPort, LaunchToucher, LaunchToucherPort, ModuleEntitySpawn, ModuleEntityTick,
     ModuleEntityTickPort, PullBodies, PullBodiesPort, SpawnModuleEntityPort,

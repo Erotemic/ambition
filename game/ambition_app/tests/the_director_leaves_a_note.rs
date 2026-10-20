@@ -2,7 +2,8 @@
 //!
 //! ⭐⭐ THE ROAD, END TO END, IN THE SHIPPED COMPOSITION: the Director's real
 //! `director_tilt_down` → a real strike volume → the real collision resolver →
-//! `OnHitEffectMessage` → `BodyMark` on the victim → a clock the player can read,
+//! `OnHitEffectMessage` → a mark on the victim (the module's status and record
+//! there) → a clock the player can read,
 //! drawn above the body → the authored fuse → a `DamageBox` → real combat
 //! damage, credited to the Director. Every mark test before this one began by
 //! WRITING the on-hit message into a minimal app, which proves the ruleset's
@@ -18,7 +19,8 @@
 //! ⚠ IN `ambition_app`, NOT THE STANDALONE DEMO, because the Director is content
 //! this composition carries and the demo's grid cannot seat him.
 
-use ambition_demo_smash::mark::BodyMark;
+use ambition_demo_smash::mark::MARKED;
+use ambition_platformer2d::combat::extension::status::BodyStatuses;
 use ambition_platformer2d::actor::MatchSeat;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::combat::moveset::{ActorMoveset, MovePlayback};
@@ -43,12 +45,17 @@ fn capture_blasts(
 ) {
     for request in reader.read() {
         if let ambition_platformer2d::vfx::Effect::DamageBox(b) = &request.effect {
-            if b.name == Some("mark detonation") {
+            if b.name == Some("blast") {
                 blasts.detonations += 1;
                 blasts.last_owner = Some(request.owner);
             }
         }
     }
+}
+
+/// Whether `body` holds the mark's status.
+fn marked(app: &App, body: Entity) -> bool {
+    app.world().get::<BodyStatuses>(body).is_some_and(|held| held.holds(MARKED))
 }
 
 fn body_of_seat(app: &mut App, seat: usize) -> Entity {
@@ -208,14 +215,14 @@ fn land_the_tilt(app: &mut App, director: Entity, target: Entity) -> usize {
                 kin.vel = ae::Vec2::ZERO;
             }
         }
-        if app.world().get::<BodyMark>(target).is_some() {
+        if marked(&app, target) {
             return tick;
         }
     }
     panic!(
         "the Director's real `{TILT_DOWN}` never marked a target standing inside \
          its authored volume: the road from the move to the mark is broken \
-         somewhere between the strike and `apply_authored_body_marks`"
+         somewhere between the strike and the mark module's entry on `ambition.combat.struck`"
     );
 }
 
@@ -263,7 +270,7 @@ fn the_real_down_tilt_marks_the_target_who_can_read_it_and_is_then_hit_by_the_di
         }
     }
     assert!(
-        app.world().get::<BodyMark>(target).is_some(),
+        marked(&app, target),
         "the mark did not outlive the move that applied it, so nothing below \
          measures the fuse"
     );
@@ -278,7 +285,7 @@ fn the_real_down_tilt_marks_the_target_who_can_read_it_and_is_then_hit_by_the_di
     let mut went_off_on = None;
     for tick in 0..180 {
         app.update();
-        if app.world().get::<BodyMark>(target).is_none() {
+        if !marked(&app, target) {
             went_off_on = Some(tick);
             break;
         }
@@ -343,7 +350,7 @@ fn a_note_whose_director_was_eliminated_still_credits_the_directors_seat() {
     }
     assert!(gone, "premise: the Director never lost the last stock");
     assert!(
-        app.world().get::<BodyMark>(target).is_some(),
+        marked(&app, target),
         "premise: the note is still on the target after the Director left; the \
          fuse ran out before the elimination and this proves nothing"
     );
@@ -370,7 +377,7 @@ fn a_note_whose_director_was_eliminated_still_credits_the_directors_seat() {
     let third_before = damage_taken_by(&app, third);
     for _ in 0..180 {
         app.update();
-        if app.world().get::<BodyMark>(target).is_none() {
+        if !marked(&app, target) {
             break;
         }
     }
@@ -398,6 +405,10 @@ fn a_note_on_a_fighter_who_loses_the_stock_does_not_go_off_on_the_next_one() {
 
     let (mut app, director, target) = a_settled_match();
     land_the_tilt(&mut app, director, target);
+    // The mark appears on the strike's own tick, before the strike's
+    // knockback reaches the body; a launch written now would be overwritten.
+    app.update();
+    app.update();
     let stocks_before = app
         .world()
         .get::<FighterStocks>(target)
@@ -438,7 +449,7 @@ fn a_note_on_a_fighter_who_loses_the_stock_does_not_go_off_on_the_next_one() {
         "premise: the target is waiting out its death interlude"
     );
     assert!(
-        app.world().get::<BodyMark>(target).is_none(),
+        !marked(&app, target),
         "the stock was spent on tick {spent_on} and the mark is still on the \
          body during the death interlude — it will go off on the next stock"
     );
@@ -463,7 +474,7 @@ fn a_note_on_a_fighter_who_loses_the_stock_does_not_go_off_on_the_next_one() {
         "a previous stock's note went off on the fresh one"
     );
     assert!(
-        app.world().get::<BodyMark>(target).is_none(),
+        !marked(&app, target),
         "the fresh stock came back carrying the old note"
     );
 }

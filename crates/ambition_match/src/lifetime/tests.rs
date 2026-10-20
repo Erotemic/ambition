@@ -75,3 +75,26 @@ fn with_no_active_match_every_scoped_object_is_stale() {
         "the sweep despawned an unmarked entity when no match was running"
     );
 }
+
+/// A credit stand-in belongs to the match running when it appeared, so it is
+/// swept with that match; with no match it carries no stamp.
+#[test]
+fn a_credit_stand_in_is_an_object_of_its_match() {
+    use ambition_combat::extension::blast::CreditStandIn;
+    let mut app = App::new();
+    app.add_systems(Update, stamp_credit_stand_ins);
+    let unmatched = app.world_mut().spawn(CreditStandIn { remaining_s: 1.0 }).id();
+    app.update();
+    assert!(app.world().get::<MatchScoped>(unmatched).is_none(), "a stand-in with no match was stamped");
+
+    let now = seated(2, 100);
+    let instance = now.instance();
+    app.insert_resource(now);
+    let stand_in = app.world_mut().spawn(CreditStandIn { remaining_s: 1.0 }).id();
+    app.update();
+    assert_eq!(
+        app.world().get::<MatchScoped>(stand_in).map(|scoped| scoped.0),
+        Some(instance),
+        "a stand-in spawned in a match is not that match's object"
+    );
+}

@@ -7,6 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`attachments`](src/attachments.rs) | The named points of a body's rig: a jaw, a saddle, a grip, a muzzle, a hand. |
+| [`blast`](src/blast.rs) | A blast: damage where a body is, credited to another body. |
 | [`contact`](src/contact.rs) | The ports of a contact rule: what a touch on a body does, decided by a module in `body_contact` (`ambition_extension_sdk::phases::BODY_CONTACT`). |
 | [`hold`](src/hold.rs) | A body held by another: seized, carried at a point, pummelled, thrown, released. |
 | [`lightning`](src/lightning.rs) | Lightning a module shows, not one it strikes with: a bolt between two ends, and an aura on its own body. |
@@ -22,7 +23,7 @@
 | [`think`](src/think.rs) | The ports of a custom brain: a body whose brain is a `CharacterBrain::Custom` key that a module binds decides through `actor_think` (`ambition_extension_sdk::phases::ACTOR_THINK`). |
 | [`wielded`](src/wielded.rs) | The held-item domain's extension ports: a body uses the item it holds, pays for it from its resource bank, and is heard doing it. |
 
-_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

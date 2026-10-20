@@ -472,7 +472,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // The fighter specials sleep where the active room's game uses none
         // (`install_special` puts each handler in their set); so do the
         // per-tick follow-ups below that only a special starts: the limit
-        // meter, the counter window, mark clocks, bomb fuses and the ride.
+        // meter, bomb fuses and the ride.
         // Sing: the module `ambition_demo_smash_modules::sing`, so an edit to
         // the song compiles that crate alone. Authored sleeps today: the
         // performer's `speech` pulse (`performer_moveset`) and the Shadow Oni
@@ -696,36 +696,27 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                         delivery: TechniqueDelivery::Action,
                     },
                 ),
-                (
-                    ambition_platformer2d::entity_catalog::smash_mark::MARK_BODY,
-                    TechniqueOffer {
-                        owner: "ambition_demo_smash::mark",
-                        params: TechniqueParams::Checked(
-                            ambition_platformer2d::entity_catalog::smash_mark::check_mark_body_params,
-                        ),
-                        references: NestedReferences::None,
-                        delivery: TechniqueDelivery::OnHit,
-                    },
-                ),
             ],
-            (
-                crate::mine::arm_placed_mines,
-                crate::mine::place_or_detonate_authored_mines,
-                // Mark: tick, then apply. The tick that applies a mark spends
-                // none of its fuse, so the victim gets the full authored fuse.
-                crate::mark::detonate_body_marks,
-                crate::mark::apply_authored_body_marks,
-            )
+            (crate::mine::arm_placed_mines, crate::mine::place_or_detonate_authored_mines)
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // Mark clocks. The body-clock view owner clears it in the sim tail;
-        // this contributes the marks after the clear.
-        app.add_systems(
-            sim,
-            crate::mark::publish_mark_clocks
-                .in_set(ambition_platformer2d::sim_view::BodyClockViewSet::Contribute)
-                .in_set(FIGHTER_SPECIALS),
+        // Mark: the module `ambition_demo_smash_modules::mark`, answered on the
+        // body a volume struck (`ambition.combat.struck`, `hit_reaction`), so
+        // the strike's own tick applies it and spends none of its fuse. Its
+        // clock is a status on that body, which the body-clock view draws.
+        ambition_platformer2d::runtime::install_module_technique(
+            app,
+            ambition_platformer2d::entity_catalog::smash_mark::MARK_BODY,
+            TechniqueOffer {
+                owner: "ambition_demo_smash_modules::mark",
+                params: TechniqueParams::Checked(
+                    ambition_platformer2d::entity_catalog::smash_mark::check_mark_body_params,
+                ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::OnHit,
+            },
+            ambition_demo_smash_modules::mark::module(),
         );
         // Counter stance: the module `ambition_demo_smash_modules::counter`.
         // It holds the parry window open each tick of the stance
@@ -1704,23 +1695,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.placed_mine",
                 crate::mine::placed_mine_probe,
-            );
-
-            // The mark and its clock: without the clock the mark detonates on
-            // different frames on two peers. The probe is the clock, because a
-            // presence-only probe cannot see that.
-            app.rollback_component_clone_probed::<crate::mark::BodyMark>(
-                "ambition_demo_smash",
-                "smash.body_mark",
-                crate::mark::body_mark_probe,
-            );
-            // Delayed combat attribution can outlive the fighter body. The
-            // stand-in never counts as a participant because it has no
-            // `MatchSeat`. See `SeatCreditStandIn`.
-            app.rollback_component_clone_probed::<crate::mark::SeatCreditStandIn>(
-                "ambition_demo_smash",
-                "smash.seat_credit_stand_in",
-                crate::mark::seat_credit_stand_in_probe,
             );
 
             // The bolt in flight: position, heading, lifetime, and whether it

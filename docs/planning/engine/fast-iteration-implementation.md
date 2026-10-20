@@ -830,6 +830,45 @@ before you add a port.
     the answer always on the defender (in the adapter and in the module);
     the path ignored; an absent path pressed with no params; the module
     naming the unwrapped path; the loaded road linking the module.
+  - Special route F8 ✅ (2026-10-20): the delayed mark, on four new
+    primitives. `ambition.combat.struck` (a trigger in `hit_reaction`) says a
+    strike whose volume authors an on-hit effect to the effect's module, on
+    the body it struck, with the effect's params and the striker's credit (a
+    `u64` that names a body durably: its simulation identity, hashed; `0` for
+    a striker with none). `ambition.combat.blast` (a request in
+    `technique_execution`) is a damage box centred on the scope body that
+    takes no side (`HitSide::Environment`) and is credited to the body a
+    credit names, or to a `CreditStandIn` that is no participant when that
+    body has left (`ambition_match` stamps it with the running match);
+    a credit of 0 and a box out of its ranges are refused.
+    `ambition.body.status_clock` says how much of a status is left
+    (`StatusClocks`, drawn by the body-clock view's
+    `publish_status_clocks` while the body holds the status; letting go of
+    the status removes it), and `ambition.body.in_play` says whether a body
+    is out of play. `ambition.body.hold_status` is also offered in
+    `hit_reaction`, and `install_module_technique` checks the road the
+    offer's delivery names (`struck` for `OnHit`). Smash's `smash.mark_body`
+    is the module `ambition_demo_smash_modules::mark`: the strike puts a
+    record and the status `smash.marked` on the struck body, each tick
+    spends the fuse and shows the clock, and the tick it runs out asks for
+    the blast and lets go; a tick out of play retires it. The native systems
+    and `BodyMark`, `SeatCreditStandIn` are deleted; the rows
+    `smash.body_mark` and `smash.seat_credit_stand_in` leave and
+    `body.status_clocks`, `combat.credit_stand_in` enter (schema 374). Two
+    rules changed: the strike's own tick applies the mark (the native read
+    the previous tick's on-hit messages, which a rewind clears, so a mark
+    went off a tick later than authored and could diverge between peers),
+    and a striker is credited by its identity, not its match seat, so a
+    seated body with no identity leaves no mark and an unseated one with an
+    identity does. The blast's name is `blast`. Witnesses: the thirteen
+    tests of `ambition_demo_smash mark::tests` on the module road (the body
+    it follows, one blast, the fuse, N ticks of fuse, an unbound effect, the
+    refresh, the credit and its refresh, no identity, the retirement and its
+    rewind, the clock, the stand-in, the loaded file);
+    `ambition_combat extension::{blast, reaction, status}::tests`; the
+    module's two tests; `ambition_match`'s stamp test; and app_it
+    `the_director_leaves_a_note`. Poisons, each red at its own assertion,
+    listed in the commit.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

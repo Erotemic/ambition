@@ -5,7 +5,7 @@
 use super::*;
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_characters::brain::ActorActionMessage;
-use ambition_combat_port::{FighterSpecialPort, HoldStatus, TimeScale};
+use ambition_combat_port::{FighterSpecialPort, HoldStatus, StatusClock, TimeScale};
 use ambition_extension_host::ExtensionHostPlugin;
 use ambition_extension_sdk::{
     record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits, ModuleDescriptor,
@@ -19,6 +19,8 @@ struct Sim;
 const STATUS: &str = "test.counted";
 const HOLD: &str = "test.hold";
 const SCALE: &str = "test.scale";
+const CLOCK: &str = "test.clock";
+const PROBE: &str = "test.probe";
 
 record! {
     /// The fixture's state on a body: the ticks seen and the ticks it lasts.
@@ -45,6 +47,28 @@ fn tick(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     Ok(())
 }
 
+record! {
+    /// What the probe saw of the in-play fact.
+    struct Play = SchemaKey::new("test", "status.play", 1);
+    1 seen: bool,
+    2 in_play: bool,
+}
+
+/// Say the special's `remaining` of the status `kind` (the fixture's own by
+/// default).
+fn clock(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let special = inv.trigger::<FighterSpecialPort>()?.clone();
+    let remaining = special.number("remaining").unwrap_or(f32::NAN);
+    let kind = special.text("kind").unwrap_or(STATUS).to_owned();
+    inv.submit::<StatusClockPort>(StatusClock { kind, remaining })
+}
+
+/// Keep what the in-play fact says.
+fn probe(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let in_play = *inv.observe::<InPlayPort>()?;
+    Play { seen: true, in_play }.store(inv)
+}
+
 fn scale(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let scale = inv.trigger::<FighterSpecialPort>()?.number("scale").unwrap_or(1.0);
     inv.submit::<TimeScalePort>(TimeScale { scale })
@@ -63,8 +87,8 @@ fn app() -> App {
         key: name.into(),
         phase: TECHNIQUE_EXECUTION,
         trigger: TriggerBinding { port, selector: selector.into() },
-        reads: vec![],
-        writes: vec![Ticks::KEY],
+        reads: vec![InPlayPort::KEY],
+        writes: vec![Ticks::KEY, Play::KEY],
         requests,
         after: after.into_iter().map(Into::into).collect(),
         limits: Limits { max_requests: 2 },
@@ -76,12 +100,14 @@ fn app() -> App {
         key,
         api: ambition_extension_sdk::API_VERSION,
         code: CodeIdentity::StaticNative { crate_name: "test".into(), version: "0".into() },
-        schemas: vec![Ticks::schema()],
+        schemas: vec![Ticks::schema(), Play::schema()],
         entries: vec![
             entry("tick", StatusTickPort::KEY, STATUS, vec![HoldStatusPort::KEY], vec![], tick),
             // After the tick: a press on a tick the status ends holds it again.
             entry("hold", FighterSpecialPort::KEY, HOLD, vec![HoldStatusPort::KEY], vec![tick_path], hold),
             entry("scale", FighterSpecialPort::KEY, SCALE, vec![TimeScalePort::KEY], vec![], scale),
+            entry("clock", FighterSpecialPort::KEY, CLOCK, vec![StatusClockPort::KEY], vec![], clock),
+            entry("probe", FighterSpecialPort::KEY, PROBE, vec![], vec![], probe),
         ],
     });
     app.finish();
@@ -186,4 +212,74 @@ fn a_clock_scale_that_stops_the_body_is_refused() {
     press(&mut app, who, SCALE, "(scale: 0.5)");
     step(&mut app);
     assert_eq!(scale(&app), 0.5, "control: a slow is applied");
+}
+
+fn clocks(app: &App, who: Entity) -> Option<Vec<(String, f32)>> {
+    app.world().get::<StatusClocks>(who).map(|clocks| clocks.0.clone())
+}
+
+/// A status's clock is what its module last said, clamped to a fraction; a
+/// clock that is not a number is refused; and letting go of the status takes
+/// its clock away.
+#[test]
+fn a_status_clock_lasts_as_long_as_its_status() {
+    let mut app = app();
+    let who = body(&mut app);
+    press(&mut app, who, HOLD, "(ticks: 3)");
+    press(&mut app, who, CLOCK, "(remaining: 0.5)");
+    step(&mut app);
+    assert_eq!(clocks(&app, who), Some(vec![(STATUS.to_string(), 0.5)]));
+    press(&mut app, who, CLOCK, "(remaining: 2.0)");
+    step(&mut app);
+    assert_eq!(clocks(&app, who), Some(vec![(STATUS.to_string(), 1.0)]), "a clock past full was not clamped");
+    press(&mut app, who, CLOCK, r#"(kind: "")"#);
+    step(&mut app);
+    assert!(holds(&app, who), "premise: the status is still held");
+    assert_eq!(
+        clocks(&app, who),
+        Some(vec![(STATUS.to_string(), 1.0)]),
+        "a clock with no number (or no kind) was taken"
+    );
+    // The third tick lets go of the status.
+    step(&mut app);
+    assert!(!holds(&app, who), "premise: the status was let go of");
+    assert_eq!(clocks(&app, who), None, "a status let go of left its clock behind");
+}
+
+/// A clock is drawn only while its body holds its status, whatever the module
+/// said of a status it does not hold.
+#[test]
+fn a_clock_of_a_status_not_held_is_not_shown() {
+    let mut app = app();
+    let who = body(&mut app);
+    press(&mut app, who, CLOCK, r#"(kind: "test.other", remaining: 0.5)"#);
+    press(&mut app, who, HOLD, "(ticks: 5)");
+    press(&mut app, who, CLOCK, "(remaining: 0.25)");
+    step(&mut app);
+    let world = app.world();
+    let shown: Vec<(String, f32)> = world
+        .get::<StatusClocks>(who)
+        .unwrap()
+        .shown(world.get::<BodyStatuses>(who).unwrap())
+        .map(|(kind, remaining)| (kind.to_string(), remaining))
+        .collect();
+    assert_eq!(shown, vec![(STATUS.to_string(), 0.25)]);
+}
+
+/// A body is in play until it is `OutOfPlay`.
+#[test]
+fn the_in_play_fact_is_false_only_out_of_play() {
+    let mut app = app();
+    let who = body(&mut app);
+    let play = |app: &App| {
+        let records = app.world().get::<ambition_extension_host::BodyRecords>(who).unwrap();
+        Play::from_record(records.get(&Play::KEY).unwrap()).unwrap()
+    };
+    press(&mut app, who, PROBE, "()");
+    step(&mut app);
+    assert_eq!(play(&app), Play { seen: true, in_play: true });
+    app.world_mut().entity_mut(who).insert(crate::death_rules::OutOfPlay);
+    press(&mut app, who, PROBE, "()");
+    step(&mut app);
+    assert_eq!(play(&app), Play { seen: true, in_play: false }, "a body out of play reads as in play");
 }

@@ -92,9 +92,11 @@ pub fn install_techniques<M>(
 /// one statement: the statement that adds what answers a key is the one that
 /// declares it, as for [`install_techniques`].
 ///
-/// The module must have an entry on `ambition.fighter.special` whose selector
-/// is `key`; a module that does not answer the key is a composition error and
-/// panics at build time. A composition with no extension host admits no
+/// The module must answer `key` on each road the offer's delivery names: an
+/// entry on `ambition.fighter.special` for a press (`Action`), on
+/// `ambition.combat.struck` for an on-hit effect (`OnHit`), both for `Either`.
+/// A module that does not answer the key is a composition error and panics at
+/// build time. A composition with no extension host admits no
 /// module, so it declares nothing and the move's effect is refused at
 /// admission, by name, like any key nothing answers.
 pub fn install_module_technique(
@@ -105,11 +107,18 @@ pub fn install_module_technique(
 ) {
     use ambition_extension_host::ExtensionAppExt as _;
     use ambition_extension_sdk::Port as _;
-    let answers = module.entries.iter().any(|entry| {
-        entry.trigger.port == ambition_combat::extension::special::FighterSpecialPort::KEY
-            && entry.trigger.selector.as_ref() == key
-    });
-    assert!(answers, "module {:?} has no entry on `ambition.fighter.special` for `{key}`", module.key);
+    let press = ambition_combat::extension::special::FighterSpecialPort::KEY;
+    let strike = ambition_combat::extension::reaction::StruckPort::KEY;
+    let roads: &[_] = match offer.delivery {
+        TechniqueDelivery::Action => &[press],
+        TechniqueDelivery::OnHit => &[strike],
+        TechniqueDelivery::Either => &[press, strike],
+    };
+    for road in roads {
+        let answers =
+            module.entries.iter().any(|entry| entry.trigger.port == *road && entry.trigger.selector.as_ref() == key);
+        assert!(answers, "module {:?} has no entry on `{road}` for `{key}`", module.key);
+    }
     if !app.has_extension_host() {
         return;
     }

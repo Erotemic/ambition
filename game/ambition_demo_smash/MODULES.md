@@ -13,7 +13,7 @@
 | [`dilation`](src/dilation.rs) | Time dilation: a fighter on a slower clock for a while. |
 | [`homing`](src/homing.rs) | The homing dash: the fighter is carried at whoever they were pointing at. |
 | [`limit`](src/limit.rs) | The game half of the Limit meter: who gains what, and when. |
-| [`mark`](src/mark.rs) | The delayed mark: a clock riding on the body that was hit. |
+| [`mark`](src/mark.rs) | The delayed mark, end to end in this game. |
 | [`mine`](src/mine.rs) | The remote mine: a stage object that answers to one fighter and nobody else. |
 | [`motion`](src/motion.rs) | The smash ruleset's commanded-velocity seam (ADR 0024, authority #4). |
 | [`portal`](src/portal.rs) | The portal recovery, assembled from the portal crate's own parts. |

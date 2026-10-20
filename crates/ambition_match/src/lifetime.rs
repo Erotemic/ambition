@@ -23,6 +23,19 @@ pub fn stamp_match_object(commands: &mut Commands, entity: Entity, active: Optio
     }
 }
 
+/// Stamp each credit stand-in the combat engine spawned since the last run
+/// with the running match: it is an object of the match whose blast it owns,
+/// and the combat engine does not know matches.
+pub fn stamp_credit_stand_ins(
+    mut commands: Commands,
+    added: Query<Entity, (Added<ambition_combat::extension::blast::CreditStandIn>, Without<MatchScoped>)>,
+    active: Option<Res<ActiveMatch>>,
+) {
+    for stand_in in &added {
+        stamp_match_object(&mut commands, stand_in, active.as_deref());
+    }
+}
+
 /// Despawn every stamped object whose match is not the running one.
 ///
 /// The rule is "not the active match", not "a match ended". A match abandoned

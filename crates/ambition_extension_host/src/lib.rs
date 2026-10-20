@@ -41,7 +41,7 @@ pub use admission::{
 };
 pub use exec::{
     run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord, InActorThink, InBodyContact, InBossConduct,
-    InModuleEntityTick, InTechniqueExecution, InWieldedUse, InstalledPortCodecs, InvocationId, LowersIn,
+    InHitReaction, InModuleEntityTick, InTechniqueExecution, InWieldedUse, InstalledPortCodecs, InvocationId, LowersIn,
     PendingInvocation, Submitted, Supplier,
 };
 pub use store::{register_rollback_state, BodyRecords, RecordSet, SessionRecords, StoredRecord};

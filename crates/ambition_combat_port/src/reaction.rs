@@ -3,7 +3,9 @@
 //! (`ambition_extension_sdk::phases::HIT_REACTION`).
 //!
 //! A counter is the first: a stance's window sustains an effect, a parry is
-//! caught inside it, and the stance's module decides the answer.
+//! caught inside it, and the stance's module decides the answer. A strike
+//! that carries an effect is the second ([`StruckPort`]): the module of the
+//! effect decides what it leaves on the body it struck.
 
 use ambition_extension_sdk::wire::{self, WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
@@ -113,6 +115,67 @@ impl Port for AnswerParryPort {
     }
 }
 
+/// The trigger port marker for a strike that carried an effect to a body.
+///
+/// Port card:
+///
+/// * **Operation** — a strike landed on the scope body this tick, and the
+///   volume that landed authors an on-hit effect whose key is the selector
+///   (`smash.mark_body`). `params` are that effect's authored params, each
+///   leaf by its path, as [`crate::FighterSpecial`] gives a move's.
+/// * **Owner** — `ambition_combat::extension::reaction`, which reads
+///   `OnHitEffectMessage`.
+/// * **Scope** — the body that was struck, so the module's records and
+///   statuses are the struck body's. One invocation for each strike, in the
+///   order the strikes landed.
+/// * **Time** — `hit_reaction`: the strike is this tick's.
+/// * **Read model** — world units, +Y down. `striker` is the credit of the
+///   body whose move struck: a token that names it durably (across a rewind,
+///   on every peer) for a later verb that credits it
+///   ([`crate::BlastPort`]); `0` when the striker has no simulation identity,
+///   so it cannot be credited.
+pub struct StruckPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Struck {
+    pub contact: [f32; 2],
+    pub striker: u64,
+    pub params: Vec<(String, SpecialParam)>,
+}
+
+impl Struck {
+    /// The number at `path` of the effect's params.
+    pub fn number(&self, path: &str) -> Option<f32> {
+        crate::special::number_at(&self.params, path)
+    }
+
+    /// The text at `path` of the effect's params.
+    pub fn text(&self, path: &str) -> Option<&str> {
+        crate::special::text_at(&self.params, path)
+    }
+
+    /// The flag at `path` of the effect's params.
+    pub fn flag(&self, path: &str) -> Option<bool> {
+        crate::special::flag_at(&self.params, path)
+    }
+}
+
+impl Port for StruckPort {
+    const KEY: PortKey = PortKey::new("ambition.combat.struck", 1);
+    const ROLE: PortRole = PortRole::Trigger;
+    type Value = Struck;
+
+    fn encode(v: &Struck, out: &mut Vec<u8>) {
+        wire::put_vec2(out, v.contact);
+        wire::put_u64(out, v.striker);
+        put_params(out, &v.params);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<Struck, WireError> {
+        Ok(Struck { contact: r.vec2()?, striker: r.u64()?, params: read_params(r)? })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,5 +202,11 @@ mod tests {
             on_attacker: true,
         };
         assert_eq!(round_trip::<AnswerParryPort>(answer.clone()), answer);
+        let struck = Struck {
+            contact: [4.0, 5.0],
+            striker: u64::MAX - 3,
+            params: vec![("fuse_s".into(), SpecialParam::Number(1.4))],
+        };
+        assert_eq!(round_trip::<StruckPort>(struck.clone()), struck);
     }
 }

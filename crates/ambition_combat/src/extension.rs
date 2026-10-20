@@ -777,6 +777,7 @@ fn lower_body_holds(
     }
 }
 
+pub mod blast;
 pub mod contact;
 pub mod reaction;
 pub mod special;

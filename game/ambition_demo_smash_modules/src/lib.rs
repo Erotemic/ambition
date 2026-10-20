@@ -8,13 +8,17 @@
 //!
 //! Each special decides in `technique_execution`, when its fighter presses
 //! it, from the fighter's facts and the params its move authors
-//! (`ambition.fighter.special`). A special that leaves something on the stage
-//! (a plate) asks the world for a module entity, and the module ticks it.
+//! (`ambition.fighter.special`), or in `hit_reaction`, when a strike that
+//! carries it lands (`ambition.combat.struck`). A special that leaves
+//! something on the stage (a plate) asks the world for a module entity, and
+//! the module ticks it; one that leaves something on a body (a slow, a mark)
+//! holds a status there and keeps its state in records on the body.
 
 pub mod counter;
 pub mod dilation;
 pub mod homing;
 pub mod limit;
+pub mod mark;
 pub mod riposte;
 pub mod sing;
 pub mod spring;
@@ -28,6 +32,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     dilation::module,
     homing::module,
     limit::module,
+    mark::module,
     riposte::module,
     sing::module,
     spring::module,

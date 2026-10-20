@@ -263,8 +263,9 @@
                 id: "hall_gnu_ton_portal",
                 name: "hall_gnu_ton_portal",
                 activation: "Door",
-                target_room: "gnu_ton_arena",
-                target_zone: "gnu_ton_arena_exit",
+                // Through the approach room (gnu_ton_approach_area.ron) to the arena.
+                target_room: "gnu_ton_approach",
+                target_zone: "gnu_ton_approach_from_hall",
                 bidirectional: true,
             ),
         ),

@@ -1,0 +1,76 @@
+// GNU-ton approach — a short causeway between the Hall of Bosses and the GNU-ton
+// arena, so the walk in has its own music before the fight (Jon, 2026-10-20:
+// "a reasonably short new room just followed by the boss room so we can have
+// both tracks in the game"). It plays the original Standing on Shoulders; the
+// arena and the fight play Standing on Shoulders v2.
+//
+// Three terraces step down toward the arena, which is underground and entered
+// from a ledge near its top.
+//
+// Layout (1600 wide x 512 tall), floor tops 320 / 384 / 448:
+//
+//   +----------------------------------------------------------+ y=0
+//   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒|
+//   | [door hall]                                              |
+//   |▓▓▓▓ terrace 1 ▓▓▓▓|                                       |
+//   |                   |▓▓▓▓ terrace 2 ▓▓▓▓|      [door arena] |
+//   |                                       |▓▓▓▓ terrace 3 ▓▓▓▓|
+//   +----------------------------------------------------------+ y=512
+//
+// The two doors are reciprocal with the hall's `hall_gnu_ton_portal` and the
+// arena's `gnu_ton_arena_exit`, which were retargeted here.
+(
+    id: "gnu_ton_approach",
+    level_id: "gnu_ton_approach",
+    // Right of the arena (5120 + 1792), free in the Free-layout world.
+    world_x: 6912,
+    world_y: 6656,
+    px_wid: 1600,
+    px_hei: 512,
+    fill_collision: "empty",
+    biome: "boss",
+    music_track: "standing_on_shoulders",
+    ambient_profile: "hum",
+    visual_theme: "default",
+    entities: [
+        ( type: "Solid", px: [0, 0], size: [1600, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 496], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1584, 16], size: [16, 496], fields: ( name: "right_wall" ) ),
+        ( type: "Solid", px: [16, 320], size: [544, 192], fields: ( name: "terrace_1" ) ),
+        ( type: "Solid", px: [560, 384], size: [480, 128], fields: ( name: "terrace_2" ) ),
+        ( type: "Solid", px: [1040, 448], size: [544, 64], fields: ( name: "terrace_3" ) ),
+        ( type: "PlayerStart", px: [96, 274], size: [28, 46], fields: ( name: "gnu_ton_approach_spawn" ) ),
+        (
+            type: "LoadingZone",
+            px: [24, 224],
+            size: [48, 96],
+            fields: (
+                id: "gnu_ton_approach_from_hall",
+                name: "to hall of bosses",
+                activation: "Door",
+                target_room: "hall_of_bosses",
+                target_zone: "hall_gnu_ton_portal",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [1512, 352],
+            size: [48, 96],
+            fields: (
+                id: "gnu_ton_approach_to_arena",
+                name: "to GNU-ton arena",
+                activation: "Door",
+                target_room: "gnu_ton_arena",
+                target_zone: "gnu_ton_arena_exit",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [1600, 512],
+            fields: ( id: "gnu_ton_approach_camera", name: "gnu_ton_approach_camera", mode: "Default" ),
+        ),
+    ],
+)

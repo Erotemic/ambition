@@ -20,6 +20,7 @@ mod pirate_sky_crew;
 mod local_play_modes;
 mod a_morphed_body_draws_only_its_ball;
 mod a_timed_out_crossing_clears_its_load;
+mod a_cover_waits_on_the_room_it_arrives_in;
 mod robot_blade_at_home;
 mod window_cameras_share_one_main_texture;
 mod the_cart_of_the_wake_room;

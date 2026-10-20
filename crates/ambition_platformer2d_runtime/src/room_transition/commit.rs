@@ -667,7 +667,13 @@ pub struct RoomTransitionFinalize<'w, 's> {
 }
 
 impl RoomTransitionFinalize<'_, '_> {
-    fn apply_crossing(&mut self, staged: &StagedRoomTransition) {
+    /// Apply what a published crossing means, and say the live room it
+    /// arrived in: the subject's, or for a rebuild with nobody in it, the sole
+    /// live room.
+    fn apply_crossing(
+        &mut self,
+        staged: &StagedRoomTransition,
+    ) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
         let feel = *self.feel;
         let StagedRoomTransition {
             scope,
@@ -829,6 +835,10 @@ impl RoomTransitionFinalize<'_, '_> {
                 );
             }
         }
+        match subject {
+            Some(subject) => self.rooms.of(subject),
+            None => self.rooms.sole(),
+        }
     }
 }
 
@@ -863,7 +873,16 @@ pub fn finalize_room_transition(
                 let mut finalize = state.get_mut(world).expect(
                     "RoomTransitionFinalize params are the ones RoomTransitionPlugin installs",
                 );
-                finalize.apply_crossing(staged);
+                let arrived_in = finalize.apply_crossing(staged);
+                // The transaction keeps the live room it arrived in, so its
+                // cover waits on that room: two live rooms can be of one
+                // definition.
+                if let Some(active) = world
+                    .get_resource_mut::<super::loading::RoomTransitionLoadState>()
+                    .and_then(|state| state.into_inner().active.as_mut())
+                {
+                    active.arrived_in = arrived_in;
+                }
             }
             state.apply(world);
         },

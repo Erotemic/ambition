@@ -1003,6 +1003,7 @@ mod tests {
             target_room: 1,
             intent,
             recorded_on: 0,
+            arrived_in: None,
             construction_plan: None,
             barrier: ambition_load::LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,

@@ -349,7 +349,7 @@ fn drive_room_transition_presentation(
     // skin, its doors' art, pipelines compiling (`PresentationSettling`, which
     // names the undrawn feature views too).
     settling: Res<PresentationSettling>,
-    // Which live rooms the cover is over: those of the target's definition.
+    // Which live rooms the cover may be over (`cover_rooms`).
     live_rooms: Query<
         (
             &ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
@@ -520,11 +520,11 @@ fn drive_room_transition_presentation(
     // ⛔ THE TARGET ROOM'S, NOT THE APP'S. Another live room's art still
     // coming in kept this cover up until the deadline. A thing of the whole
     // App (a pipeline compiling) still holds it.
-    let targets: Vec<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance> = live_rooms
-        .iter()
-        .filter(|(_, definition)| definition.index() == active_snapshot.target_room)
-        .map(|(instance, _)| *instance)
-        .collect();
+    let targets = cover_rooms(
+        active_snapshot.arrived_in,
+        active_snapshot.target_room,
+        live_rooms.iter().map(|(instance, definition)| (*instance, *definition)),
+    );
     let waiting = settling.pending_for(&targets);
     let unsettled = waiting.len();
     let since_commit = active_snapshot
@@ -723,9 +723,53 @@ fn handle_room_transition_presentation_events(
     }
 }
 
+/// The live rooms a transition's cover waits on: the one the crossing arrived
+/// in, which its commit recorded.
+///
+/// ⛔ NOT EVERY LIVE ROOM OF THE TARGET'S DEFINITION. Two live rooms can be of
+/// one definition, and the art of the one nobody arrived in held the cover.
+/// Only a transaction that does not know its room (before its commit, or a
+/// commit that could not tell) asks the definition.
+fn cover_rooms(
+    arrived_in: Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance>,
+    target_room: usize,
+    live_rooms: impl IntoIterator<
+        Item = (
+            ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+            ambition_platformer2d::world::rooms::LiveRoomDefinition,
+        ),
+    >,
+) -> Vec<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance> {
+    match arrived_in {
+        Some(room) => vec![room],
+        None => live_rooms
+            .into_iter()
+            .filter(|(_, definition)| definition.index() == target_room)
+            .map(|(instance, _)| instance)
+            .collect(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Review b2c36ae4, finding 7. Two live rooms of the target's definition:
+    /// the cover waits on the one the crossing arrived in. Measured before:
+    /// it waited on both. Control: a transaction that does not know its room
+    /// asks the definition, and a room of another definition is never one.
+    /// Poison: ask the definition always.
+    #[test]
+    fn a_cover_waits_on_the_live_room_it_arrived_in() {
+        use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
+        use ambition_platformer2d::world::rooms::LiveRoomDefinition;
+        let first = LiveRoomInstance::ACTIVATION;
+        let (second, third) = (first.next(), first.next().next());
+        let (hub, lab) = (LiveRoomDefinition::from_index(1), LiveRoomDefinition::from_index(2));
+        let live = [(first, hub), (second, hub), (third, lab)];
+        assert_eq!(cover_rooms(Some(second), 1, live), vec![second]);
+        assert_eq!(cover_rooms(None, 1, live), vec![first, second], "control: the definition");
+    }
 
     #[test]
     fn room_transition_experience_auto_advances_after_hidden_grace() {

@@ -164,6 +164,11 @@ pub struct ActiveRoomTransitionLoad {
     /// (`WithdrawnIntent::recorded_on`), so a later intent for the same
     /// crossing is a different transaction.
     pub recorded_on: i32,
+    /// The live room the crossing arrived in, from its commit: the subject's
+    /// live room after it crossed. `None` before the commit, or when it
+    /// cannot be told. The cover waits on this room's art, not on every live
+    /// room of the target's definition.
+    pub arrived_in: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     pub construction_plan: Option<Arc<rooms::RoomConstructionPlan>>,
     pub barrier: LoadBarrierRef,
     /// The pass of the readiness set that opened this transaction is not
@@ -1085,6 +1090,7 @@ pub fn begin_room_transition_load_system(
             target_room: target_index.unwrap_or(usize::MAX),
             intent: intent.clone(),
             recorded_on: *recorded_on,
+            arrived_in: None,
             construction_plan: None,
             barrier: barrier.clone(),
             // Even when every contributor resolves immediately, the
@@ -1699,6 +1705,7 @@ mod tests {
             target_room: 1,
             intent: request("b"),
             recorded_on: 0,
+            arrived_in: None,
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
@@ -1898,6 +1905,7 @@ mod tests {
             target_room: 1,
             intent: request("b"),
             recorded_on: 0,
+            arrived_in: None,
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
@@ -1935,6 +1943,7 @@ mod tests {
             target_room: 1,
             intent: request("b"),
             recorded_on: 0,
+            arrived_in: None,
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
@@ -2053,6 +2062,7 @@ mod checkpoint_failure_tests {
             target_room: 1,
             intent: crossing(),
             recorded_on: 0,
+            arrived_in: None,
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
@@ -2170,6 +2180,7 @@ mod checkpoint_failure_tests {
             target_room: 1,
             intent: crossing(),
             recorded_on: 0,
+            arrived_in: None,
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,

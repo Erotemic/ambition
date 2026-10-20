@@ -690,6 +690,26 @@ before you add a port.
     adds; a wasm-only drift of the time. Cost: an edit to the song builds the
     module file in 0.61 s, and the Ambition app, whose performer and Shadow
     Oni leader sing, loads it with no relink (`AMBITION_EXTENSION_MODULES`).
+  - Special route F4 ✅ (2026-10-20): a special that changes a body's clock.
+    The request `ambition.combat.dilate_time` runs the body the invocation ran
+    for at a scale of the world's clock for some world seconds; a newer one
+    replaces the scale and the remainder (slows do not multiply), and a scale
+    outside `0 ≤ scale < 1` or a time not more than 0 is refused. The combat
+    engine owns the clock: `lower_time_dilations` spends each `TimeDilated`
+    on the world clock and gives the body `ProperTimeScale::ONE` back, then
+    applies this tick's requests, so N authored ticks slow N ticks. The
+    remainder's rollback row moved with it (`smash.time_dilated` →
+    `body.time_dilated`, schema 370). Smash's time dilation is the module
+    `ambition_demo_smash_modules::dilation`; the native systems are deleted.
+    The clerk's Witch-Time still slows the attacker: the counter's answer
+    runs for the attacker, and the module slows whoever it runs for.
+    Witnesses: the seven tests of `ambition_demo_smash dilation::tests` on the
+    module road, among them
+    `the_dilation_from_its_module_file_slows_as_the_linked_one_does` (runner
+    `Loaded`), the Witch-Time join and the exact tick count. Poisons, each red
+    at its own assertion: the countdown after the apply (the tick count);
+    no restore; slows that multiply; no refusal; a wasm-only drift of the time.
+    Cost: an edit to the dilation builds the module file in 0.59 s.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

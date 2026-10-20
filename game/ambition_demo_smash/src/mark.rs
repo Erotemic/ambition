@@ -151,9 +151,9 @@ pub fn apply_authored_body_marks(
 /// spends none of its fuse (as for the dilation and the tether reel). The
 /// other order gives an N-tick fuse N-1 ticks.
 ///
-/// One system decides how a mark ends, retired or detonated, as in
-/// `expire_time_dilations`. A body that is `OutOfPlay` has its mark retired
-/// here with no blast.
+/// One system decides how a mark ends, retired or detonated, as
+/// `lower_time_dilations` does for a dilation. A body that is `OutOfPlay` has
+/// its mark retired here with no blast.
 pub fn detonate_body_marks(
     mut commands: Commands,
     time: Res<ambition_platformer2d::time::WorldTime>,

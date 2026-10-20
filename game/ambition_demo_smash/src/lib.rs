@@ -663,19 +663,13 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             crate::limit::apply_authored_meter_fills
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // Time dilation, chained expire then apply. `PlayerSimulation` runs
-        // before `Combat`, so a scale written here is first observed on the
-        // next tick. If apply ran before expire, the same tick would spend one
-        // tick of the dilation, and N authored ticks would give N-1 slowed ones.
-        // Guarded by `a_one_tick_dilation_is_still_in_force_next_tick`.
-        //
-        // Re-application is safe: `apply` replaces the scale and the remainder,
-        // so slows do not multiply.
-        install_special(
+        // Time dilation: the module `ambition_demo_smash_modules::dilation`.
+        // The combat engine owns the clock (`ambition.combat.dilate_time`).
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_time_dilation::TIME_DILATION,
             TechniqueOffer {
-                owner: "ambition_demo_smash::dilation",
+                owner: "ambition_demo_smash_modules::dilation",
                 params: TechniqueParams::Checked(
                     // The domain rule, not only "serde can build it".
                     ambition_platformer2d::entity_catalog::smash_time_dilation::check_time_dilation_params,
@@ -683,12 +677,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            (
-                crate::dilation::expire_time_dilations,
-                crate::dilation::apply_authored_time_dilations,
-            )
-                .chain()
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+            ambition_demo_smash_modules::dilation::module(),
         );
         // Remote mine. Arm is chained before press, so a mine that becomes
         // live this tick answers this tick's press. The other order adds a frame
@@ -1754,15 +1743,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.steered_bolt",
                 crate::bolt::steered_bolt_probe,
-            );
-
-            // A dilation's remaining seconds (the scale itself is canonical as
-            // `actor.proper_time_scale`). Peers that disagree on it resimulate
-            // different swings.
-            app.rollback_component_clone_probed::<crate::dilation::TimeDilated>(
-                "ambition_demo_smash",
-                "smash.time_dilated",
-                crate::dilation::time_dilated_probe,
             );
 
             // The homing dash's clock and committed direction: both decide

@@ -548,13 +548,14 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // Homing dash. Begin is chained before carry, so a dash steers on the
-        // tick it starts.
-        install_special(
+        // Homing dash: the module `ambition_demo_smash_modules::homing`, clock,
+        // cone and steering. It asks the engine only who is a foe
+        // (`ambition.combat.foes`) and sets its fighter's velocity.
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_homing::HOMING_DASH,
             TechniqueOffer {
-                owner: "ambition_demo_smash::homing",
+                owner: "ambition_demo_smash_modules::homing",
                 params: TechniqueParams::Checked(
                     check_hydrates::<
                         ambition_platformer2d::entity_catalog::smash_homing::HomingDashParams,
@@ -563,12 +564,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            (
-                crate::homing::begin_authored_homing_dashes,
-                crate::homing::carry_homing_dashes,
-            )
-                .chain()
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+            ambition_demo_smash_modules::homing::module(),
         );
         // Riposte: the module `ambition_demo_smash_modules::riposte`, so an
         // edit to the cut compiles that crate alone. It reads the same
@@ -1745,14 +1741,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.steered_bolt",
                 crate::bolt::steered_bolt_probe,
-            );
-
-            // The homing dash's clock and committed direction: both decide
-            // where a fighter is.
-            app.rollback_component_clone_probed::<crate::homing::HomingDash>(
-                "ambition_demo_smash",
-                "smash.homing_dash",
-                crate::homing::homing_dash_probe,
             );
 
             // The tether reel's clock and latched anchor. A peer that lost the

@@ -1,23 +1,24 @@
 //! The cone is the move: a dash that finds anybody anywhere is a tracking move
 //! nobody has to aim. Every test here pairs a hit with a miss.
 
-use super::*;
+use bevy::prelude::*;
+
+use crate::module_road::{app_on, runner_of, Road};
 use ambition_platformer2d::actor::MatchSeat;
+use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
+use ambition_platformer2d::characters::brain::ActorActionMessage;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::entity_catalog::smash_homing::{HomingDashParams, HOMING_DASH};
 
 fn app() -> App {
-    let mut app = App::new();
-    app.init_resource::<ambition_platformer2d::time::WorldTime>();
-    app.add_message::<ActorActionMessage>();
-    let mut time = app
-        .world_mut()
-        .resource_mut::<ambition_platformer2d::time::WorldTime>();
-    time.set_sim_dt(1.0 / 60.0);
-    time.set_wall_dt(1.0 / 60.0);
-    app.add_systems(
-        Update,
-        (begin_authored_homing_dashes, carry_homing_dashes).chain(),
-    );
-    app
+    app_on(Road::Linked, ambition_demo_smash_modules::homing::module)
+}
+
+/// Is a dash carrying `who`? Its module holds its status while it lasts.
+fn dashing(app: &App, who: Entity) -> bool {
+    app.world()
+        .get::<ambition_platformer2d::combat::extension::status::BodyStatuses>(who)
+        .is_some_and(|held| held.holds(ambition_demo_smash_modules::homing::HOMING))
 }
 
 /// A fighter, not only a position: `ActorFaction::Player` and its own
@@ -123,10 +124,7 @@ fn the_dash_stops_when_its_clock_runs_out() {
     for _ in 0..(0.28 * 60.0) as usize + 4 {
         app.update();
     }
-    assert!(
-        app.world().get::<HomingDash>(hunter).is_none(),
-        "the dash outlived its authored duration"
-    );
+    assert!(!dashing(&app, hunter), "the dash outlived its authored duration");
 }
 
 /// The committed direction is remembered, not re-read: turning mid-dash must
@@ -298,4 +296,62 @@ fn the_bystander_is_damageable_and_still_not_a_target() {
         .is_target(),
         "the bystander IS a target, so there is no disagreement to guard"
     );
+}
+
+/// The loaded file's dash is the linked one's: the same velocity, tick by
+/// tick, to its end. Its runner is the loaded file.
+#[test]
+fn the_dash_from_its_module_file_carries_as_the_linked_one_does() {
+    let mut carried_on = Vec::new();
+    for road in [Road::Linked, Road::Loaded] {
+        let mut app = app_on(road, ambition_demo_smash_modules::homing::module);
+        let hunter = body(&mut app, 1, ae::Vec2::ZERO);
+        let _prey = body(&mut app, 0, ae::Vec2::new(160.0, -160.0));
+        dash(&mut app, hunter);
+        let runner = runner_of(&app, HOMING_DASH);
+        assert_eq!(runner.starts_with("Loaded"), road == Road::Loaded, "{road:?}: {runner}");
+        let mut velocities = vec![velocity(&app, hunter)];
+        for _ in 0..20 {
+            app.update();
+            velocities.push(velocity(&app, hunter));
+        }
+        carried_on.push((velocities, dashing(&app, hunter)));
+    }
+    assert_eq!(carried_on[1], carried_on[0], "the loaded dash carried him unlike the linked one");
+    assert!(carried_on[0].0[0].y < -100.0, "premise: the linked dash bent toward the foe");
+    assert!(!carried_on[0].1, "premise: the linked dash ended");
+}
+
+/// The tick that starts the dash carries it: the move promised a dash that
+/// steers on the tick it fires.
+#[test]
+fn the_dash_carries_on_the_tick_it_starts() {
+    let mut app = app();
+    let hunter = body(&mut app, 1, ae::Vec2::ZERO);
+    dash(&mut app, hunter);
+    assert_eq!(velocity(&app, hunter), ae::Vec2::new(900.0, 0.0), "the dash did not carry on its first tick");
+}
+
+/// A dash pressed while one carries replaces it and lasts as long as a fresh
+/// one: the running dash's tick is spent before the new one is set.
+#[test]
+fn a_dash_that_replaces_another_lasts_as_long_as_a_fresh_one() {
+    let ticks_of = |replacing: bool| {
+        let mut app = app();
+        let hunter = body(&mut app, 1, ae::Vec2::ZERO);
+        if replacing {
+            dash(&mut app, hunter);
+            app.update();
+            app.update();
+        }
+        dash(&mut app, hunter);
+        let mut ticks = 0;
+        while dashing(&app, hunter) {
+            ticks += 1;
+            assert!(ticks < 120, "the dash never ended");
+            app.update();
+        }
+        ticks
+    };
+    assert_eq!(ticks_of(true), ticks_of(false), "a replacing dash did not last as long as a fresh one");
 }

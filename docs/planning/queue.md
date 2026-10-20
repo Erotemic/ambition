@@ -129,7 +129,8 @@ a live reload is a second priority. Work in this order:
    that the remaining specials move on general primitives, not one engine
    mechanic per move: the first is a body's statuses
    (`ambition.body.hold_status`, `ambition.body.status_tick`), on which the
-   dilation keeps its own clock.
+   dilation keeps its own clock; the homing dash followed (route F7) on the
+   foes of a body (`ambition.combat.foes`).
    Second priority, and only where a recompile does not depend on it: the
    live-reload remainder (a restated schema inside a live session, sprite
    publication inside a session). A live reload for the demo packs' tuning

@@ -31,6 +31,7 @@ pub fn install_for_specials(app: &mut App) {
     app.install_extension_request::<RefillResourcePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_refills);
     app.install_extension_request::<ParryWindowPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_parry_windows);
     super::status::install(app);
+    super::targets::install(app);
 }
 
 /// One invocation for each press of a bound special, in the order of the

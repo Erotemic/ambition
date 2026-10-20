@@ -13,6 +13,7 @@
 
 pub mod counter;
 pub mod dilation;
+pub mod homing;
 pub mod limit;
 pub mod riposte;
 pub mod sing;
@@ -25,6 +26,7 @@ pub const PROVIDER: &str = "smash";
 pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     counter::module,
     dilation::module,
+    homing::module,
     limit::module,
     riposte::module,
     sing::module,

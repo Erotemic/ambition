@@ -767,6 +767,41 @@ before you add a port.
     step; a paused world ticks nothing; a scale of 0 is refused). Poisons,
     each red at its own assertion: ticks while paused; holds applied before
     let-gos; a scale of 0 accepted.
+  - Module primitive: a body's foes ✅ (2026-10-20). `ambition.combat.foes`
+    (an observation in `technique_execution`) gives the foes of the scope
+    body: each other body of its live room that it may target (the
+    targeting relation: a team outranks a faction, a neutral bystander is not
+    a foe) and can hit (in play, alive, on the playable plane), in identity
+    order. Who is a foe is the engine's answer, which no module restates; a
+    cone, a nearest or a lock-on is the module's rule. Witnesses:
+    `ambition_combat extension::targets::tests` (a teammate and a bystander
+    are not foes; a body out of play is not; a body of another live room is
+    not; the order is the identity order, with three foes so that it is
+    neither the spawn order nor its reverse). Poisons, each red at its own
+    assertion: no relation filter; no can-hit filter; no room filter; entity
+    order in place of identity order. `ambition.motion.velocity` is now also
+    offered in `technique_execution`.
+  - Special route F7 ✅ (2026-10-20): the homing dash, on the primitives.
+    Smash's `smash.homing_dash` is the module
+    `ambition_demo_smash_modules::homing`: its clock, its committed direction
+    and its speed are a record on the fighter under the status
+    `smash.homing`; each tick it bends the heading toward the nearest foe
+    inside the cone and the range (`ambition.combat.foes`, the first of
+    equals by identity, as `assisted_fire_direction` breaks a tie) and sets
+    the velocity. The tick that starts the dash carries it, and a dash
+    pressed during a dash replaces it and lasts as long as a fresh one (the
+    carry entry runs first, `after`). The native systems and the rollback
+    row `smash.homing_dash` are deleted (schema 372). One rule changed: a
+    body of another live room no longer attracts the dash (the native read
+    every body of the process). Witnesses: the twelve tests of
+    `ambition_demo_smash homing::tests` on the module road (the cone, the
+    range, the clock, the committed direction, a KO'd fighter, a teammate, a
+    bystander that does not outbid the foe, the loaded file carries as the
+    linked module does, the first tick, the replacing dash) and the module's
+    heading test. Poisons, each red at its own assertion: the last of equals
+    in place of the first; no cone; the entries in the other order without
+    `after` (with `after` that order is green); a wasm-only drift of the
+    direction.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

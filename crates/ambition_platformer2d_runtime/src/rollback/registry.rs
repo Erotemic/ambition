@@ -111,7 +111,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// engine no longer keeps a dilation's clock, its module does in its body
 /// records. `body.time_dilated` leaves and `body.statuses` (`BodyStatuses`,
 /// clone: the kinds a body holds) enters.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 371;
+/// 371 -> 372: the homing dash is a module, its clock and direction a record
+/// on the fighter (`extension.body_records`): `smash.homing_dash` leaves.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 372;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

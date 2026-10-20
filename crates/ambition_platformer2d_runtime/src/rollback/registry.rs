@@ -103,7 +103,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// that recorded it and the frame it left on, two `i32`s, and the intent), so
 /// a rollback host retires the load opened for it once that frame is
 /// confirmed.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 369;
+/// 369 -> 370: a dilation's remainder moves from the Smash demo to the combat
+/// engine, which now owns the countdown (`ambition.combat.dilate_time`):
+/// `smash.time_dilated` leaves and `body.time_dilated` (`TimeDilated`, clone,
+/// the same `f32`) enters.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 370;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

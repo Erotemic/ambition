@@ -28,6 +28,8 @@ pub mod homing;
 pub mod limit;
 pub mod mark;
 pub mod mine;
+#[cfg(test)]
+mod module_road;
 pub mod motion;
 #[cfg(test)]
 mod moveset;
@@ -471,32 +473,36 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // (`install_special` puts each handler in their set); so do the
         // per-tick follow-ups below that only a special starts: the limit
         // meter, the counter window, mark clocks, bomb fuses and the ride.
-        // Sing, in `ContentSpecials`: its effect must exist before the effect
-        // executors run. Authored sleeps today: the performer's `speech` pulse
-        // (`performer_moveset`) and the Shadow Oni leader's seal. The bridge
-        // from `MoveEventKind::Effect` is the keyed-technique dispatch in
-        // `crates/ambition_combat/src/moveset/mod.rs`.
-        //
-        // The mash runs first, so a press cannot be spent on a sleep that did
-        // not exist when it was made. `apply_authored_sleep` takes a `max`, so
-        // the landing tick is the same either way.
-        install_special(
+        // Sing: the module `ambition_demo_smash_modules::sing`, so an edit to
+        // the song compiles that crate alone. Authored sleeps today: the
+        // performer's `speech` pulse (`performer_moveset`) and the Shadow Oni
+        // leader's seal.
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_sleep::SLEEP,
             TechniqueOffer {
-                owner: "ambition_demo_smash::sing",
+                owner: "ambition_demo_smash_modules::sing",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::entity_catalog::smash_sleep::SleepParams>,
+                    // The domain rule, not only "serde can build it".
+                    ambition_platformer2d::entity_catalog::smash_sleep::check_sleep_params,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            (
-                crate::sing::mash_out_of_sleep,
-                crate::sing::apply_authored_sleep,
-            )
-                .chain()
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+            ambition_demo_smash_modules::sing::module(),
+        );
+        // The mash is this game's rule of how a sleeper buys time back. It
+        // runs before the song's sleep is lowered, so a press cannot be spent
+        // on a sleep that did not exist when it was made; the sleep is a
+        // floor, so the landing tick is the same either way.
+        app.add_systems(
+            sim,
+            crate::sing::mash_out_of_sleep
+                .in_set(FIGHTER_SPECIALS)
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials)
+                .before(ambition_platformer2d::extension::ExtensionSet::Collect(
+                    ambition_platformer2d::extension::sdk::phases::TECHNIQUE_EXECUTION,
+                )),
         );
         // Portal recovery, in `ContentSpecials`. The close is chained after the
         // open, so an aperture's lifetime is spent from the frame it appears.
@@ -643,35 +649,28 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentFlavor)
                 .in_set(FIGHTER_SPECIALS),
         );
-        // The authored half runs where a dispatched special belongs, on the
-        // frame it is pressed.
-        install_special(
+        // The authored half, a move that fills its own meter, is the module
+        // `ambition_demo_smash_modules::limit` (`ambition.resources.refill`).
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_limit::FILL_METER,
             TechniqueOffer {
-                owner: "ambition_demo_smash::limit",
+                owner: "ambition_demo_smash_modules::limit",
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::entity_catalog::smash_limit::FillMeterParams>,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            crate::limit::apply_authored_meter_fills
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+            ambition_demo_smash_modules::limit::module(),
         );
-        // Time dilation, chained expire then apply. `PlayerSimulation` runs
-        // before `Combat`, so a scale written here is first observed on the
-        // next tick. If apply ran before expire, the same tick would spend one
-        // tick of the dilation, and N authored ticks would give N-1 slowed ones.
-        // Guarded by `a_one_tick_dilation_is_still_in_force_next_tick`.
-        //
-        // Re-application is safe: `apply` replaces the scale and the remainder,
-        // so slows do not multiply.
-        install_special(
+        // Time dilation: the module `ambition_demo_smash_modules::dilation`.
+        // The combat engine owns the clock (`ambition.combat.dilate_time`).
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_time_dilation::TIME_DILATION,
             TechniqueOffer {
-                owner: "ambition_demo_smash::dilation",
+                owner: "ambition_demo_smash_modules::dilation",
                 params: TechniqueParams::Checked(
                     // The domain rule, not only "serde can build it".
                     ambition_platformer2d::entity_catalog::smash_time_dilation::check_time_dilation_params,
@@ -679,12 +678,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            (
-                crate::dilation::expire_time_dilations,
-                crate::dilation::apply_authored_time_dilations,
-            )
-                .chain()
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+            ambition_demo_smash_modules::dilation::module(),
         );
         // Remote mine. Arm is chained before press, so a mine that becomes
         // live this tick answers this tick's press. The other order adds a frame
@@ -1750,15 +1744,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.steered_bolt",
                 crate::bolt::steered_bolt_probe,
-            );
-
-            // A dilation's remaining seconds (the scale itself is canonical as
-            // `actor.proper_time_scale`). Peers that disagree on it resimulate
-            // different swings.
-            app.rollback_component_clone_probed::<crate::dilation::TimeDilated>(
-                "ambition_demo_smash",
-                "smash.time_dilated",
-                crate::dilation::time_dilated_probe,
             );
 
             // The homing dash's clock and committed direction: both decide

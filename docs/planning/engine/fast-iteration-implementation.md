@@ -671,6 +671,64 @@ before you add a port.
     module number by list place, red at "the loaded plate throws as the
     linked one does"; a launch that adds, red at "the plate added to his
     speed"; no stamp, red at "the plate is not the match's".
+  - Special route F3 ✅ (2026-10-20): a special that acts on the bodies
+    around its fighter. The request `ambition.combat.sleep_area` puts every
+    other body of the fighter's live room whose box meets an area (in the
+    fighter's own frame) to sleep for at least the asked time; the sleep is a
+    floor, so two pulses do not add up. Smash's song is the module
+    `ambition_demo_smash_modules::sing`; the native `apply_authored_sleep` is
+    deleted, and the game's mash rule (`mash_out_of_sleep`) stays in the demo
+    and runs before the song is lowered. Admission now checks a song's params
+    (`check_sleep_params`: a time more than 0 and an area that reaches
+    somebody; it was "serde can build it"). One rule changed: a body of
+    another live room is not caught (the native song read every body of the
+    process). Witnesses: the seven sing tests on the module road
+    (`ambition_demo_smash sing::tests`, among them
+    `the_song_from_its_module_file_sleeps_as_the_linked_one_does`, its runner
+    `Loaded`, and `the_song_does_not_reach_another_live_room`). Poisons, each
+    red on its own line: no room check; the singer not excluded; a sleep that
+    adds; a wasm-only drift of the time. Cost: an edit to the song builds the
+    module file in 0.61 s, and the Ambition app, whose performer and Shadow
+    Oni leader sing, loads it with no relink (`AMBITION_EXTENSION_MODULES`).
+  - Special route F4 ✅ (2026-10-20): a special that changes a body's clock.
+    The request `ambition.combat.dilate_time` runs the body the invocation ran
+    for at a scale of the world's clock for some world seconds; a newer one
+    replaces the scale and the remainder (slows do not multiply), and a scale
+    outside `0 ≤ scale < 1` or a time not more than 0 is refused. The combat
+    engine owns the clock: `lower_time_dilations` spends each `TimeDilated`
+    on the world clock and gives the body `ProperTimeScale::ONE` back, then
+    applies this tick's requests, so N authored ticks slow N ticks. The
+    remainder's rollback row moved with it (`smash.time_dilated` →
+    `body.time_dilated`, schema 370). Smash's time dilation is the module
+    `ambition_demo_smash_modules::dilation`; the native systems are deleted.
+    The clerk's Witch-Time still slows the attacker: the counter's answer
+    runs for the attacker, and the module slows whoever it runs for.
+    Witnesses: the seven tests of `ambition_demo_smash dilation::tests` on the
+    module road, among them
+    `the_dilation_from_its_module_file_slows_as_the_linked_one_does` (runner
+    `Loaded`), the Witch-Time join and the exact tick count. Poisons, each red
+    at its own assertion: the countdown after the apply (the tick count);
+    no restore; slows that multiply; no refusal; a wasm-only drift of the time.
+    Cost: an edit to the dilation builds the module file in 0.59 s.
+  - Special route F5 ✅ (2026-10-20): a special that fills a meter. The
+    request `ambition.resources.refill` adds an amount to the resource the
+    request names (a resource id) on the body the invocation ran for, up to
+    its cap; a body that holds no such resource gains nothing, and an amount
+    below 0 or not finite is refused. Smash's move fill (`smash.fill_meter`)
+    is the module `ambition_demo_smash_modules::limit`; the native
+    `apply_authored_meter_fills` is deleted. The match's own sources (time,
+    damage, blocks: `fill_limit_meters`) are the game's rule and stay.
+    The Smash tests share one harness for a module special
+    (`module_road::app_on`, linked or loaded). Witnesses: the limit tests
+    on the module road, among them
+    `a_fill_from_its_module_file_fills_as_the_linked_one_does` (runner
+    `Loaded`), `a_negative_fill_from_a_module_is_refused` and
+    `the_module_fills_the_resource_the_match_declares` (the module's spelling
+    of `smash.limit` is the catalog's). Poisons, each red at its own
+    assertion: no refusal of a negative fill; the first resource filled
+    whatever its name (red at "filled a body's OTHER resource"); no fill; a
+    wasm-only drift of the amount. Cost: an edit to the fill builds the module
+    file in 0.55 s.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

@@ -193,9 +193,166 @@ impl Port for BodyStrikePort {
     }
 }
 
+/// The request port marker for a sleep over an area around the body.
+///
+/// Port card:
+///
+/// * **Operation** — every other body of the invoking body's live room whose
+///   box meets the area falls asleep for at least `duration_s`: it cannot
+///   act until the time runs out or its own presses buy the time back (the
+///   game's mash rule). A body that already sleeps longer keeps its time, so
+///   two pulses do not add up to a sleep nobody wakes from. The area is
+///   `forward` from the body's centre (`x` along its facing, `y` toward its
+///   feet) with the half extents `half_extent`.
+/// * **Owner** — `ambition_combat::extension::special`, which writes
+///   `BodyCombat::sleep_timer`.
+/// * **Scope** — the body the invocation ran for. It never falls asleep.
+/// * **Time** — `technique_execution`, this tick: a body caught now cannot
+///   act from this tick.
+/// * **Read model** — world units, in the body's own frame: a body in turned
+///   gravity sings into its turned frame.
+pub struct SleepAreaPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SleepArea {
+    pub forward: [f32; 2],
+    pub half_extent: [f32; 2],
+    pub duration_s: f32,
+}
+
+impl Port for SleepAreaPort {
+    const KEY: PortKey = PortKey::new("ambition.combat.sleep_area", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = SleepArea;
+
+    fn encode(v: &SleepArea, out: &mut Vec<u8>) {
+        wire::put_vec2(out, v.forward);
+        wire::put_vec2(out, v.half_extent);
+        wire::put_f32(out, v.duration_s);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<SleepArea, WireError> {
+        Ok(SleepArea { forward: r.vec2()?, half_extent: r.vec2()?, duration_s: r.f32()? })
+    }
+}
+
+/// The request port marker for a slowed clock on the body.
+///
+/// Port card:
+///
+/// * **Operation** — the body the invocation ran for runs on a clock at
+///   `scale` of the world's for `seconds` of world time, and then on its own
+///   clock again. A newer dilation replaces the scale and the remainder, so
+///   two slows do not multiply. A `scale` outside `0 ≤ scale < 1` or a time
+///   that is not more than 0 is refused: a slow is the only direction, and a
+///   slow with no end is never taken away.
+/// * **Owner** — `ambition_combat::extension::special`, which writes the
+///   body's `ProperTimeScale` and owns the countdown (`TimeDilated`).
+/// * **Scope** — the body the invocation ran for. A counter's answer that
+///   names the attacker runs for the attacker (`answers_the_attacker`).
+/// * **Time** — `technique_execution`. The body's own step reads the scale
+///   from the next tick, and the countdown spends world seconds from the next
+///   tick, so `seconds` of N ticks slow N ticks.
+/// * **Read model** — world seconds: a countdown on the slowed clock would
+///   stretch itself.
+pub struct DilateTimePort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct DilateTime {
+    pub scale: f32,
+    pub seconds: f32,
+}
+
+impl DilateTime {
+    /// Whether the owner applies it (see the port card).
+    pub fn is_a_slow(&self) -> bool {
+        (0.0..1.0).contains(&self.scale) && self.seconds.is_finite() && self.seconds > 0.0
+    }
+}
+
+impl Port for DilateTimePort {
+    const KEY: PortKey = PortKey::new("ambition.combat.dilate_time", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = DilateTime;
+
+    fn encode(v: &DilateTime, out: &mut Vec<u8>) {
+        wire::put_f32(out, v.scale);
+        wire::put_f32(out, v.seconds);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<DilateTime, WireError> {
+        Ok(DilateTime { scale: r.f32()?, seconds: r.f32()? })
+    }
+}
+
+/// The request port marker for a refill of one of the body's resources.
+///
+/// Port card:
+///
+/// * **Operation** — add `amount` to the resource named `resource` (a
+///   resource id, for example `smash.limit`) of the body the invocation ran
+///   for, up to the resource's cap. A body that holds no resource of that
+///   name gains nothing: the request names what it fills, not whatever pool
+///   the body has. An amount that is not finite or is below 0 is refused: a
+///   refill only adds.
+/// * **Owner** — `ambition_combat::extension::special`, through the body's
+///   `ActorResources`.
+/// * **Scope** — the body the invocation ran for.
+/// * **Time** — `technique_execution`; the level is changed before the
+///   phase's end, so a move that reads it next tick sees it.
+pub struct RefillResourcePort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RefillResource {
+    pub resource: String,
+    pub amount: f32,
+}
+
+impl Port for RefillResourcePort {
+    const KEY: PortKey = PortKey::new("ambition.resources.refill", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = RefillResource;
+
+    fn encode(v: &RefillResource, out: &mut Vec<u8>) {
+        wire::put_str(out, &v.resource);
+        wire::put_f32(out, v.amount);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<RefillResource, WireError> {
+        Ok(RefillResource { resource: r.str()?.to_owned(), amount: r.f32()? })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A refill decodes to what was encoded.
+    #[test]
+    fn a_refill_crosses_the_wire_unchanged() {
+        let refill = RefillResource { resource: "smash.limit".into(), amount: 12.5 };
+        let mut bytes = Vec::new();
+        RefillResourcePort::encode(&refill, &mut bytes);
+        assert_eq!(RefillResourcePort::decode(&mut WireReader::new(&bytes)).unwrap(), refill);
+    }
+
+    /// A dilation decodes to what was encoded.
+    #[test]
+    fn a_dilation_crosses_the_wire_unchanged() {
+        let dilation = DilateTime { scale: 0.35, seconds: 0.45 };
+        let mut bytes = Vec::new();
+        DilateTimePort::encode(&dilation, &mut bytes);
+        assert_eq!(DilateTimePort::decode(&mut WireReader::new(&bytes)).unwrap(), dilation);
+    }
+
+    /// A sleep area decodes to what was encoded.
+    #[test]
+    fn a_sleep_area_crosses_the_wire_unchanged() {
+        let area = SleepArea { forward: [12.0, -3.0], half_extent: [70.0, 40.0], duration_s: 1.4 };
+        let mut bytes = Vec::new();
+        SleepAreaPort::encode(&area, &mut bytes);
+        assert_eq!(SleepAreaPort::decode(&mut WireReader::new(&bytes)).unwrap(), area);
+    }
 
     /// A special and a strike decode to what was encoded.
     #[test]

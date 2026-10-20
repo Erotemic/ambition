@@ -11,14 +11,23 @@
 //! (`ambition.fighter.special`). A special that leaves something on the stage
 //! (a plate) asks the world for a module entity, and the module ticks it.
 
+pub mod dilation;
+pub mod limit;
 pub mod riposte;
+pub mod sing;
 pub mod spring;
 
 /// The provider namespace of every module in this crate.
 pub const PROVIDER: &str = "smash";
 
 /// Every module this crate provides, as constructors.
-pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[riposte::module, spring::module];
+pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
+    dilation::module,
+    limit::module,
+    riposte::module,
+    sing::module,
+    spring::module,
+];
 
 /// Every module this crate provides.
 pub fn modules() -> Vec<ambition_extension_sdk::ModuleDescriptor> {

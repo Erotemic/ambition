@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v369
+ggrs-rollback-schema-v370
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -103,6 +103,7 @@ body.restart_latch	component-canonical	BodyRestartLatch	bevy_ggrs canonical code
 body.shield	component-canonical	BodyShieldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.sim_id_counter	component-canonical	SimIdCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.sweep_sample	component-canonical	SweepSample	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.time_dilated	component-clone	TimeDilated	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 body.unmirrored	component-canonical	Unmirrored	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.wall	component-canonical	BodyWallState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.wallet	component-canonical	BodyWallet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -523,4 +524,3 @@ smash.placed_mine	component-clone	PlacedMine	bevy_ggrs clone snapshot; value-pro
 smash.seat_credit_stand_in	component-clone	SeatCreditStandIn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.steered_bolt	component-clone	SteeredBolt	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.tether_reel	component-clone	TetherReel	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-smash.time_dilated	component-clone	TimeDilated	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

@@ -209,6 +209,46 @@
                 (id: "storm", section_id: "storm", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
             ],
         ),
+        (
+            // The Evil dimension (Castle Godwin): The Tritone Decree
+            // (scores/active/tritone_decree.music.yaml), heavy metal in E
+            // Locrian. Its intro (bells, chant, the riff on floor toms) plays
+            // one time when the cue starts in the forest by the gate; then the
+            // song loops, its turnaround climbing back into the riff. The
+            // forest and the castle's halls share the cue, so walking between
+            // them does not start it again. The layers are pre-master sums:
+            // the song measures -17.7 dB RMS, peak -0.4 dBFS at a gain of one,
+            // so the cue plays at 0.8.
+            id: "tritone_decree",
+            asset_root: "audio/music/generated/tritone_decree",
+            bpm: 140.0,
+            beats_per_bar: 4.0,
+            relative_volume: 0.8,
+            sections: [
+                (id: "intro", duration_beats: 32.0, looped: false, sources: [
+                    (layer_id: "band", path: "playback/intro/intro.band.ogg"),
+                    (layer_id: "orchestra", path: "playback/intro/intro.orchestra.ogg"),
+                    (layer_id: "lead", path: "playback/intro/intro.lead.ogg"),
+                ]),
+                (id: "song", duration_beats: 256.0, looped: true, sources: [
+                    (layer_id: "band", path: "playback/song/song.band.ogg"),
+                    (layer_id: "orchestra", path: "playback/song/song.orchestra.ogg"),
+                    (layer_id: "lead", path: "playback/song/song.lead.ogg"),
+                ]),
+            ],
+            layers: [
+                // Rhythm guitars, bass, drums.
+                (id: "band", slot: 0),
+                // Strings, choir, bells, timpani.
+                (id: "orchestra", slot: 1),
+                // The lead guitar and its harmony.
+                (id: "lead", slot: 2),
+            ],
+            states: [
+                (id: "intro", section_id: "intro", gains: [(layer_id: "band", gain: 1.0), (layer_id: "orchestra", gain: 1.0), (layer_id: "lead", gain: 1.0)]),
+                (id: "decree", section_id: "song", gains: [(layer_id: "band", gain: 1.0), (layer_id: "orchestra", gain: 1.0), (layer_id: "lead", gain: 1.0)]),
+            ],
+        ),
     ],
     encounter_bindings: [
         (
@@ -236,6 +276,13 @@
         (room_id: "primeval_ridge", cue_id: "dinosaur_liberators_adaptive", state: "charging"),
         (room_id: "primeval_canopy", cue_id: "dinosaur_liberators_adaptive", state: "blazing"),
         (room_id: "primeval_tyrant_hall", cue_id: "dinosaur_liberators_adaptive", state: "blazing", fight_state: Some("fight")),
+        // The Evil dimension: the forest by the gate and the castle's halls
+        // (not the throne room, which is Wolfenstein's).
+        (room_id: "evil_gate_forest", cue_id: "tritone_decree", state: "decree", entry_state: Some("intro")),
+        (room_id: "castle_godwin_gatehouse", cue_id: "tritone_decree", state: "decree"),
+        (room_id: "castle_godwin_barracks", cue_id: "tritone_decree", state: "decree"),
+        (room_id: "castle_godwin_tower", cue_id: "tritone_decree", state: "decree"),
+        (room_id: "castle_godwin_great_hall", cue_id: "tritone_decree", state: "decree"),
     ],
     // A boss's phases choose the state of its cue, for every placement of
     // the archetype (the story's fight and the Hall of Bosses' copy).

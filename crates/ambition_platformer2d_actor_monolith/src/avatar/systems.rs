@@ -24,12 +24,20 @@ use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 /// world direction it had when it was pressed; letting go, or turning the
 /// stick, reads it in the body's frame again. Rollback state: the frame of a
 /// hold is part of the body's input history.
+///
+/// A hold belongs to one seat's stick, read under one frame mode. Another
+/// seat that drives the body, or a change of the mode, is a new hold, and a
+/// body that no seat drives keeps none.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct HeldControlFrame {
     /// The body's `down` when the hold began.
     pub down: ae::Vec2,
     /// The raw stick of the hold, to tell when it turns.
     pub raw: ae::Vec2,
+    /// The seat whose stick this is.
+    pub slot: ambition_characters::control::PlayerSlot,
+    /// The movement frame mode the stick was read under.
+    pub mode: ae::InputFrameMode,
 }
 
 /// A stick this long is held.
@@ -45,13 +53,16 @@ pub fn hold_stick_through_turns(
     raw: ae::Vec2,
     down: ae::Vec2,
     mode: ae::InputFrameMode,
+    slot: ambition_characters::control::PlayerSlot,
 ) -> (Option<HeldControlFrame>, ae::Vec2) {
     if raw.length() < HELD {
         return (None, raw);
     }
-    let held = hold.filter(|hold| raw.normalize().dot(hold.raw.normalize_or_zero()) >= SAME_HOLD_COS);
+    let held = hold.filter(|hold| {
+        hold.slot == slot && hold.mode == mode && raw.normalize().dot(hold.raw.normalize_or_zero()) >= SAME_HOLD_COS
+    });
     let Some(held) = held else {
-        return (Some(HeldControlFrame { down, raw }), raw);
+        return (Some(HeldControlFrame { down, raw, slot, mode }), raw);
     };
     if held.down == down {
         return (Some(held), raw);
@@ -162,6 +173,9 @@ pub fn tick_controlled_brains(
     // simulation; the stated architecture is that capture resolves the semantic
     slots: Res<SlotControls>,
     drivers: Query<(bevy::prelude::Entity, &DrivingParticipant)>,
+    // A body that no seat drives keeps no hold: the next seat to drive it
+    // presses its own.
+    undriven: Query<bevy::prelude::Entity, (With<HeldControlFrame>, Without<DrivingParticipant>)>,
     mut controlled: Query<(
         bevy::prelude::Entity,
         &BodyKinematics,
@@ -173,6 +187,9 @@ pub fn tick_controlled_brains(
         Option<&HeldControlFrame>,
     )>,
 ) {
+    for entity in &undriven {
+        commands.entity(entity).remove::<HeldControlFrame>();
+    }
     for (entity, kin, ground, resolved_frame, motion_model, driver, mut control, hold) in &mut controlled
     {
         // Input interpretation uses the same resolved frame as this tick's physics.
@@ -199,6 +216,10 @@ pub fn tick_controlled_brains(
             // the same job. `default()` is equal to it and is a second name for
             // one fact.
             control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
+            // And the seat's hold leaves with its authority.
+            if hold.is_some() {
+                commands.entity(entity).remove::<HeldControlFrame>();
+            }
             continue;
         }
         let mut input = slots.get(slot);
@@ -214,6 +235,7 @@ pub fn tick_controlled_brains(
             ae::Vec2::new(input.axis_x, input.axis_y),
             control_down,
             control_frame_modes.movement,
+            slot,
         );
         if next_hold.as_ref() != hold {
             match next_hold {

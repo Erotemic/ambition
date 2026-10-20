@@ -757,3 +757,123 @@ fn a_dead_body_is_not_walked() {
         "a dead boss's intent was cleared by a walk it does not take"
     );
 }
+
+/// A body driven by `slot` through the controlled brain producer, with the
+/// seat table and its frame modes. Returns the app and the body.
+fn driven_body_app(slot: ambition_characters::control::PlayerSlot) -> (App, Entity) {
+    use ambition_characters::control::DrivingParticipant;
+    let mut app = App::new();
+    app.init_resource::<SeatRawFrames>();
+    app.init_resource::<SlotControls>();
+    app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
+    app.add_systems(Update, (publish_seat_controls_when_nobody_else_does, tick_controlled_brains).chain());
+    let pos = ae::Vec2::new(64.0, 32.0);
+    let size = ae::Vec2::new(44.0, 78.0);
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(
+        "driven",
+        "driven",
+        ae::Aabb::new(pos, size * 0.5),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+        &[],
+    );
+    seed.kin.size = size;
+    seed.kin.pos = pos;
+    let body = app
+        .world_mut()
+        .spawn((seed.into_components(), ActorControl::default(), DrivingParticipant(slot)))
+        .id();
+    (app, body)
+}
+
+fn hold_stick(app: &mut App, slot: ambition_characters::control::PlayerSlot, x: f32) {
+    app.world_mut().resource_mut::<SeatRawFrames>().shape(slot, |cf| cf.axis_x = x);
+}
+
+fn turn_gravity(app: &mut App, body: Entity, down: ae::Vec2) {
+    let mut frame = app
+        .world_mut()
+        .get_mut::<ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>(body)
+        .expect("a driven body has a resolved frame");
+    frame.publish_resolved_frame(ae::MotionFrame::from_direction(down, 0.0));
+}
+
+/// Review b2c36ae4, finding 6. Seat one holds right and the body's hold is
+/// seat one's. Possession moves the body to seat two while gravity turns,
+/// and seat two holds right too: that is seat two's own press, read in the
+/// body's frame now, not seat one's hold carried into the new frame. A body
+/// that no seat drives keeps no hold. Measured before: the hold named no seat,
+/// so seat two inherited it, and an undriven body kept it. Poison: keep a
+/// hold across seats.
+#[test]
+fn a_held_stick_does_not_survive_a_change_of_seat() {
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+    let (mut app, body) = driven_body_app(PlayerSlot::PRIMARY);
+    hold_stick(&mut app, PlayerSlot::PRIMARY, 1.0);
+    app.update();
+    let first = *app.world().get::<HeldControlFrame>(body).expect("premise: seat one's press is held");
+    assert_eq!(first.slot, PlayerSlot::PRIMARY);
+
+    let turned = ae::Vec2::new(1.0, 0.0);
+    assert_ne!(first.down, turned, "premise: gravity turns");
+    turn_gravity(&mut app, body, turned);
+    app.world_mut().entity_mut(body).insert(DrivingParticipant(PlayerSlot(1)));
+    hold_stick(&mut app, PlayerSlot::PRIMARY, 0.0);
+    hold_stick(&mut app, PlayerSlot(1), 1.0);
+    app.update();
+    let second = *app.world().get::<HeldControlFrame>(body).expect("seat two's press is held");
+    assert_eq!(
+        (second.slot, second.down),
+        (PlayerSlot(1), turned),
+        "seat two drives the body under seat one's hold, in the frame seat one pressed in"
+    );
+
+    app.world_mut().entity_mut(body).remove::<DrivingParticipant>();
+    app.update();
+    assert!(app.world().get::<HeldControlFrame>(body).is_none(), "a body no seat drives keeps a hold");
+}
+
+/// A seat that two bodies claim drives neither, and the body that held its
+/// stick gives the hold up with the authority. Poison: keep the hold on a
+/// refused body.
+#[test]
+fn a_refused_seat_leaves_no_hold() {
+    use ambition_characters::control::DrivingParticipant;
+    let (mut app, body) = driven_body_app(PlayerSlot::PRIMARY);
+    hold_stick(&mut app, PlayerSlot::PRIMARY, 1.0);
+    app.update();
+    assert!(app.world().get::<HeldControlFrame>(body).is_some(), "premise: the press is held");
+    app.world_mut().spawn(DrivingParticipant(PlayerSlot::PRIMARY));
+    app.update();
+    assert!(app.world().get::<HeldControlFrame>(body).is_none(), "a body the seat refuses keeps its hold");
+}
+
+/// A change of the frame mode is a new hold, read in the body's frame now.
+#[test]
+fn a_held_stick_does_not_survive_a_change_of_frame_mode() {
+    use ambition_characters::control::PlayerSlot;
+    let held = HeldControlFrame {
+        down: ae::Vec2::new(0.0, 1.0),
+        raw: ae::Vec2::new(1.0, 0.0),
+        slot: PlayerSlot::PRIMARY,
+        mode: ae::InputFrameMode::BodyRelativeStrict,
+    };
+    let turned = ae::Vec2::new(1.0, 0.0);
+    let (kept, stick) = hold_stick_through_turns(
+        Some(held),
+        held.raw,
+        turned,
+        ae::InputFrameMode::BodyRelativeStrict,
+        PlayerSlot::PRIMARY,
+    );
+    assert_eq!(kept, Some(held), "control: the same seat and mode keep the hold through the turn");
+    assert_ne!(stick, held.raw, "control: the kept hold is read in the frame it was pressed in");
+    let (next, stick) = hold_stick_through_turns(
+        Some(held),
+        held.raw,
+        turned,
+        ae::InputFrameMode::ScreenRelative,
+        PlayerSlot::PRIMARY,
+    );
+    assert_eq!(next.map(|next| (next.down, next.mode)), Some((turned, ae::InputFrameMode::ScreenRelative)));
+    assert_eq!(stick, held.raw, "a new hold is read as pressed");
+}

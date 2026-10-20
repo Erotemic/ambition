@@ -296,10 +296,17 @@ where
         OWNER,
         "actor.held_control_frame",
         |hold| {
+            let mode = match hold.mode {
+                ambition_platformer2d_core::InputFrameMode::ScreenRelative => 1u64,
+                ambition_platformer2d_core::InputFrameMode::BodyRelativeStrict => 2,
+                ambition_platformer2d_core::InputFrameMode::BodyRelativeAssist => 3,
+            };
             (u64::from(hold.down.x.to_bits()) << 32)
                 ^ u64::from(hold.down.y.to_bits())
                 ^ (u64::from(hold.raw.x.to_bits()) << 16)
                 ^ (u64::from(hold.raw.y.to_bits()) << 8)
+                ^ (u64::from(hold.slot.0) << 56)
+                ^ (mode << 60)
         },
     );
     // A passage through a door or a gate: the scene, its clock, and the

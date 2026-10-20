@@ -316,17 +316,7 @@ where
     registrar.rollback_component_clone_probed::<crate::rooms::passage::ZonePassage>(
         OWNER,
         "actor.zone_passage",
-        |passage| {
-            let stage = match passage.stage {
-                crate::rooms::passage::PassageStage::Entering => 0u64,
-                crate::rooms::passage::PassageStage::Exiting => 1,
-            };
-            (u64::from(passage.elapsed.to_bits()) << 8)
-                ^ (stage << 1)
-                ^ u64::from(passage.recorded)
-                ^ (u64::from(passage.from.x.to_bits()) << 32)
-                ^ u64::from(passage.from.y.to_bits())
-        },
+        crate::rooms::passage::ZonePassage::checksum,
     );
     registrar.rollback_component_clone_probed::<crate::features::transform_beat::TransformBeat>(
         OWNER,

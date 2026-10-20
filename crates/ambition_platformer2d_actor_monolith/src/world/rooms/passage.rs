@@ -170,6 +170,67 @@ fn smooth(t: f32) -> f32 {
 }
 
 impl ZonePassage {
+    /// A value-complete desync projection of the passage: its scene, its
+    /// clock, the crossing it records and where it comes out.
+    ///
+    /// ⛔ EXHAUSTIVE BY CONSTRUCTION, as `LifecycleIntent::checksum` is: every
+    /// field is destructured by name, so a new one stops this compiling
+    /// instead of falling outside the hash. Two peers whose passages record
+    /// different crossings, or come out of different zones, must disagree.
+    pub fn checksum(&self) -> u64 {
+        use ae::snapshot::{checksum_bytes, put_bool, put_f32, put_str, put_u32, put_u64, put_u8, put_vec2};
+        let Self {
+            kind,
+            stage,
+            elapsed,
+            from,
+            zone,
+            foot,
+            heart,
+            half_h,
+            facing,
+            crossing,
+            recorded,
+            recorded_at,
+            arrival,
+            room,
+        } = self;
+        let kind_code = |kind: PassageKind| match kind {
+            PassageKind::Door => 1u8,
+            PassageKind::Gate => 2,
+        };
+        let mut bytes = Vec::new();
+        put_u8(&mut bytes, kind_code(*kind));
+        put_u8(&mut bytes, match stage {
+            PassageStage::Entering => 0,
+            PassageStage::Exiting => 1,
+        });
+        put_f32(&mut bytes, *elapsed);
+        put_vec2(&mut bytes, *from);
+        put_str(&mut bytes, zone);
+        put_vec2(&mut bytes, *foot);
+        put_vec2(&mut bytes, *heart);
+        put_f32(&mut bytes, *half_h);
+        put_f32(&mut bytes, *facing);
+        put_bool(&mut bytes, crossing.is_some());
+        put_u64(
+            &mut bytes,
+            crossing.as_ref().map_or(0, |crossing| LifecycleIntent::Transition(crossing.clone()).checksum()),
+        );
+        put_bool(&mut bytes, *recorded);
+        put_f32(&mut bytes, *recorded_at);
+        put_bool(&mut bytes, arrival.is_some());
+        if let Some(PassageArrival { kind, zone, foot, heart }) = arrival {
+            put_u8(&mut bytes, kind.map_or(0, kind_code));
+            put_str(&mut bytes, zone);
+            put_vec2(&mut bytes, *foot);
+            put_vec2(&mut bytes, *heart);
+        }
+        put_bool(&mut bytes, room.is_some());
+        put_u32(&mut bytes, room.map_or(0, |room| room.ordinal()));
+        checksum_bytes(&bytes)
+    }
+
     /// The going-in half, at `zone` (its box `aabb`), for a body at `at` of
     /// height `2 * half_h`.
     #[allow(clippy::too_many_arguments)]
@@ -671,6 +732,71 @@ mod tests {
             app.update();
         }
         assert!(app.world().get::<ZonePassage>(body).is_none(), "the passage never gave up");
+    }
+
+    /// Maintainability finding of review b2c36ae4. The desync probe saw only
+    /// the clock, the stage, `recorded` and `from`, so two peers whose
+    /// passages recorded different crossings or came out of different zones
+    /// agreed. Each field of the passage now moves it. Poison: leave a field
+    /// out of the hash.
+    #[test]
+    fn each_field_of_a_passage_moves_its_checksum() {
+        let base = ZonePassage {
+            crossing: Some(RoomTransitionIntent {
+                subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+                    ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"),
+                    None,
+                ),
+                target_room: "elsewhere".into(),
+                arrival: ae::Vec2::new(1.0, 2.0),
+                edge_exit: false,
+                zone_sfx: None,
+                participant: None,
+            }),
+            arrival: Some(PassageArrival {
+                kind: Some(PassageKind::Door),
+                zone: "far door".into(),
+                foot: ae::Vec2::new(5.0, 6.0),
+                heart: ae::Vec2::new(5.0, 3.0),
+            }),
+            ..passage(PassageKind::Door)
+        };
+        let crossing = base.crossing.clone().unwrap();
+        let arrival = base.arrival.clone().unwrap();
+        let changed: Vec<(&str, ZonePassage)> = vec![
+            ("kind", ZonePassage { kind: PassageKind::Gate, ..base.clone() }),
+            ("stage", ZonePassage { stage: PassageStage::Exiting, ..base.clone() }),
+            ("elapsed", ZonePassage { elapsed: 0.5, ..base.clone() }),
+            ("from", ZonePassage { from: ae::Vec2::new(91.0, 177.0), ..base.clone() }),
+            ("zone", ZonePassage { zone: "y".into(), ..base.clone() }),
+            ("foot", ZonePassage { foot: ae::Vec2::new(100.0, 201.0), ..base.clone() }),
+            ("heart", ZonePassage { heart: ae::Vec2::new(101.0, 104.0), ..base.clone() }),
+            ("half_h", ZonePassage { half_h: 24.0, ..base.clone() }),
+            ("facing", ZonePassage { facing: -1.0, ..base.clone() }),
+            ("crossing", ZonePassage { crossing: None, ..base.clone() }),
+            (
+                "crossing target",
+                ZonePassage { crossing: Some(RoomTransitionIntent { target_room: "another".into(), ..crossing.clone() }), ..base.clone() },
+            ),
+            ("recorded", ZonePassage { recorded: true, ..base.clone() }),
+            ("recorded_at", ZonePassage { recorded_at: 0.25, ..base.clone() }),
+            ("arrival", ZonePassage { arrival: None, ..base.clone() }),
+            ("arrival kind", ZonePassage { arrival: Some(PassageArrival { kind: None, ..arrival.clone() }), ..base.clone() }),
+            ("arrival zone", ZonePassage { arrival: Some(PassageArrival { zone: "near door".into(), ..arrival.clone() }), ..base.clone() }),
+            ("arrival foot", ZonePassage { arrival: Some(PassageArrival { foot: ae::Vec2::ZERO, ..arrival.clone() }), ..base.clone() }),
+            ("arrival heart", ZonePassage { arrival: Some(PassageArrival { heart: ae::Vec2::ZERO, ..arrival.clone() }), ..base.clone() }),
+            ("room", ZonePassage { room: Some(LiveRoomInstance::ACTIVATION), ..base.clone() }),
+            ("room instance", ZonePassage { room: Some(LiveRoomInstance::ACTIVATION.next()), ..base.clone() }),
+        ];
+        for (field, passage) in &changed {
+            let against = if *field == "room instance" {
+                ZonePassage { room: Some(LiveRoomInstance::ACTIVATION), ..base.clone() }
+            } else {
+                base.clone()
+            };
+            assert_ne!(passage.checksum(), against.checksum(), "the passage's `{field}` does not move its checksum");
+        }
+        assert_eq!(base.checksum(), base.clone().checksum(), "control: one passage, one checksum");
     }
 
     /// Control: the give-up withdraws only its own crossing. Another

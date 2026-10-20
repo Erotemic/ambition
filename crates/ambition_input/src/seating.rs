@@ -175,7 +175,9 @@ impl LocalSeatOffer {
 ///
 /// The OS-provided name and the USB vendor and product identifiers stay the
 /// same when a controller is unplugged and plugged in again. Two controllers
-/// of one model have equal identities.
+/// of one model have equal identities, so an identity names a controller only
+/// while no other controller in the table has it
+/// ([`LocalDeviceOrder::names_one_controller`]).
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PadIdentity {
     name: Option<String>,
@@ -219,9 +221,10 @@ impl PadMark {
     }
 
     /// Whether the connected `pad`, which is `identity`, is the marked
-    /// controller. The rule of [`PadSlot::remembers`].
-    fn is(&self, pad: Entity, identity: &PadIdentity) -> bool {
-        self.entity == pad || (identity.is_known() && self.identity == *identity)
+    /// controller. The rule of [`PadSlot::remembers`]: the identity counts
+    /// only when it is `unique` in the table.
+    fn is(&self, pad: Entity, identity: &PadIdentity, unique: bool) -> bool {
+        self.entity == pad || (unique && identity.is_known() && self.identity == *identity)
     }
 }
 
@@ -238,8 +241,13 @@ struct PadSlot {
 }
 
 impl PadSlot {
-    fn remembers(&self, pad: Entity, identity: &PadIdentity) -> bool {
-        self.last == Some(pad) || (identity.is_known() && self.identity == *identity)
+    /// Whether `pad`, which is `identity`, is the controller this slot held
+    /// last: the same entity, or the same identity when that identity is
+    /// `unique` in the table. Two controllers of one model cannot be told
+    /// apart by what they are, so then only the entity counts, and a
+    /// controller that comes back as a new entity must be claimed again.
+    fn remembers(&self, pad: Entity, identity: &PadIdentity, unique: bool) -> bool {
+        self.last == Some(pad) || (unique && identity.is_known() && self.identity == *identity)
     }
 
     fn take(&mut self, pad: Entity, identity: PadIdentity) {
@@ -304,7 +312,14 @@ impl LocalDeviceOrder {
         let frozen = self.slots.get(index)?;
         let now = live.slots.get(index)?;
         let pad = now.pad?;
-        frozen.remembers(pad, &now.identity).then_some(pad)
+        let unique = self.names_one_controller(&now.identity) && live.names_one_controller(&now.identity);
+        frozen.remembers(pad, &now.identity, unique).then_some(pad)
+    }
+
+    /// Whether `identity` tells one controller of this table from the
+    /// others: it is known, and no two slots hold it.
+    pub fn names_one_controller(&self, identity: &PadIdentity) -> bool {
+        identity.is_known() && self.slots.iter().filter(|slot| slot.identity == *identity).count() <= 1
     }
 
     /// Mark the connected controller `pad`, so a claim can find it again.
@@ -322,15 +337,20 @@ impl LocalDeviceOrder {
     pub fn marked(&self, mark: &PadMark) -> Option<Entity> {
         let slot = self.slots.get(mark.slot)?;
         let pad = slot.pad?;
-        mark.is(pad, &slot.identity).then_some(pad)
+        mark.is(pad, &slot.identity, self.names_one_controller(&slot.identity))
+            .then_some(pad)
     }
 
-    /// Whether the connected controller `pad`, in any slot, is the marked
-    /// controller. A controller that came back while a different one held
-    /// its slot is in another slot.
-    pub fn is_marked(&self, pad: Entity, mark: &PadMark) -> bool {
+    /// Whether the connected controller `pad`, in any slot, may take back the
+    /// claim of `mark` by an explicit press: it is the marked entity, or it
+    /// is a controller of the marked identity. A controller that came back
+    /// while a different one held its slot is in another slot.
+    ///
+    /// Unlike [`Self::marked`], an identity that two controllers share counts
+    /// here. The press is the person saying which controller is theirs.
+    pub fn may_reclaim(&self, pad: Entity, mark: &PadMark) -> bool {
         self.slot_of(pad)
-            .is_some_and(|slot| mark.is(pad, &self.slots[slot].identity))
+            .is_some_and(|slot| mark.is(pad, &self.slots[slot].identity, true))
     }
 
     /// Build a table from a known device list, for a caller that already holds
@@ -364,17 +384,27 @@ impl LocalDeviceOrder {
             .filter(|(pad, _)| self.slot_of(*pad).is_none())
             .collect();
         // A controller that comes back takes its own slot before a new
-        // controller can take any slot: first by its entity, then by what it is.
-        let own_slot: [fn(&PadSlot, Entity, &PadIdentity) -> bool; 2] = [
-            |slot, pad, _| slot.last == Some(pad),
-            |slot, pad, identity| slot.remembers(pad, identity),
+        // controller can take any slot: first by its entity, then by what it
+        // is, when no other controller is the same thing.
+        let ambiguous: Vec<Entity> = fresh
+            .iter()
+            .filter(|(_, identity)| {
+                !self.names_one_controller(identity)
+                    || fresh.iter().filter(|(_, other)| other == identity).count() > 1
+            })
+            .map(|(pad, _)| *pad)
+            .collect();
+        let own_slot: [fn(&PadSlot, Entity, &PadIdentity, bool) -> bool; 2] = [
+            |slot, pad, _, _| slot.last == Some(pad),
+            |slot, pad, identity, unique| slot.remembers(pad, identity, unique),
         ];
         for is_own in own_slot {
             fresh.retain(|(pad, identity)| {
+                let unique = !ambiguous.contains(pad);
                 let home = self
                     .slots
                     .iter_mut()
-                    .find(|slot| slot.pad.is_none() && is_own(slot, *pad, identity));
+                    .find(|slot| slot.pad.is_none() && is_own(slot, *pad, identity, unique));
                 match home {
                     Some(slot) => {
                         slot.take(*pad, identity.clone());
@@ -490,6 +520,31 @@ mod pad_table_tests {
         live.track(&[(pad(2), named("pad b"))]);
         live.track(&[(pad(2), named("pad b")), (pad(6), named("pad a"))]);
         assert_eq!(frozen.still_held(&live, 0), Some(pad(6)), "it came back");
+    }
+
+    /// Review b2c36ae4, finding 1. Two controllers of one model hold seats
+    /// one and two, and both disconnect. One comes back as a new entity: it
+    /// cannot be told from the other by what it is, so neither frozen seat
+    /// hears it. Measured before: it took slot 0 by its identity and seat one
+    /// heard it, whichever player held it. Control: a controller that comes
+    /// back with its own entity is heard on its own seat. Poison: let a
+    /// shared identity count.
+    #[test]
+    fn two_controllers_of_one_model_do_not_inherit_each_others_seats() {
+        let same_model = named("the same model");
+        let mut live = LocalDeviceOrder::default();
+        live.track(&[(pad(1), same_model.clone()), (pad(2), same_model.clone())]);
+        let frozen = live.clone();
+        live.track(&[]);
+
+        live.track(&[(pad(3), same_model.clone())]);
+        assert_eq!(live.pad(0), Some(pad(3)), "premise: the new entity is in the lowest empty slot");
+        assert_eq!(frozen.still_held(&live, 0), None, "seat one hears a controller that may be player two's");
+        assert_eq!(frozen.still_held(&live, 1), None);
+
+        live.track(&[(pad(3), same_model.clone()), (pad(2), same_model)]);
+        assert_eq!(live.pad(1), Some(pad(2)), "premise: pad 2 came back with its entity to its own slot");
+        assert_eq!(frozen.still_held(&live, 1), Some(pad(2)), "control: the same entity is heard");
     }
 
     #[test]

@@ -263,7 +263,7 @@ pub fn claim_local_seats(
             && Some(*pad) != primary_pad
             && returning
                 .as_ref()
-                .is_none_or(|mark| order.is_marked(*pad, mark))
+                .is_none_or(|mark| order.may_reclaim(*pad, mark))
             && pads
                 .get(*pad)
                 .is_ok_and(|gamepad| gamepad.just_pressed(GamepadButton::Start))
@@ -1144,6 +1144,35 @@ mod tests {
             "pad B came back and seat two does not hear it"
         );
         assert_ne!(assigned(&app, one), Some(pad_b_again), "player one hears player two's pad");
+    }
+
+    /// Review b2c36ae4, finding 1. Two controllers of one model: pad A is
+    /// player one's and pad B claims seat two. Pad B disconnects, and a
+    /// controller of the same model connects as a new entity into B's slot.
+    /// It may be pad B or a third one, so seat two does not hear it until its
+    /// Start reclaims the seat. Measured before: seat two heard it at once,
+    /// by its model. Poison: let a shared identity resolve the claim.
+    #[test]
+    fn a_controller_of_the_same_model_must_reclaim_a_seat() {
+        let (mut app, one, two) = claim_app();
+        let _pad_a = connect(&mut app, "the same model");
+        let pad_b = connect(&mut app, "the same model");
+        press_start(&mut app, pad_b);
+        assert_eq!(assigned(&app, two), Some(pad_b), "premise: pad B claimed seat two");
+        app.world_mut().entity_mut(pad_b).despawn();
+        app.update();
+
+        let pad_c = connect(&mut app, "the same model");
+        app.update();
+        assert_eq!(
+            app.world().resource::<LocalDeviceOrder>().pad(1),
+            Some(pad_c),
+            "premise: the new controller is in pad B's slot"
+        );
+        assert_eq!(assigned(&app, two), Some(NO_PAD), "seat two heard a controller it cannot tell from another");
+        press_start(&mut app, pad_c);
+        assert_eq!(assigned(&app, two), Some(pad_c), "its Start did not reclaim the seat");
+        assert_ne!(assigned(&app, one), Some(pad_c), "player one hears player two's pad");
     }
 
     /// Control of the finding #6 fix: a different controller never takes the

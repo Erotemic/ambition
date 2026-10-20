@@ -336,6 +336,12 @@ impl UnclaimedFeatureViews {
     pub fn ids(&self) -> impl ExactSizeIterator<Item = &str> {
         self.ids.iter().map(String::as_str)
     }
+
+    /// A fixture: these ids undrawn.
+    #[cfg(test)]
+    pub(crate) fn of(ids: &[&str]) -> Self {
+        Self { ids: ids.iter().map(|id| id.to_string()).collect() }
+    }
 }
 
 /// Consecutive frames a view must stay unclaimed before the fallback draws its

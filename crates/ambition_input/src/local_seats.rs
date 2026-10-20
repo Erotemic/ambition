@@ -236,39 +236,39 @@ pub fn claim_local_seats(
     if claims.by_channel.keys().any(|slot| !is_claimable(slot)) {
         claims.by_channel.retain(|slot, _| is_claimable(slot));
     }
-    // An unclaimed channel takes any free pad. A claimed channel whose
-    // controller is not in its slot takes back only that controller, from the
-    // slot it came back to.
-    let open = claimable
-        .iter()
-        .copied()
-        .find(|channel| !claims.is_claimed(*channel))
-        .or_else(|| {
-            claimable
-                .iter()
-                .copied()
-                .find(|channel| claims.pad_of(*channel, &order).is_none())
-        });
-    let Some(open) = open else {
-        return;
-    };
-    let returning = claims.by_channel.get(&open.slot()).cloned();
     let shared = plan.and_then(|plan| plan.channel_for_source(LocalInputSource::Shared));
     let primary_pad = seats
         .iter()
         .find(|(participant, _)| Some(participant.id) == shared)
         .and_then(|(_, map)| map.gamepad());
-    let claimer = order.connected().into_iter().find(|pad| {
+    // The controller that pressed Start comes first: which channel it gets
+    // depends on whose controller it is.
+    let Some(claimer) = order.connected().into_iter().find(|pad| {
         !claims.holds(*pad, &order)
             && Some(*pad) != primary_pad
-            && returning
-                .as_ref()
-                .is_none_or(|mark| order.may_reclaim(*pad, mark))
             && pads
                 .get(*pad)
                 .is_ok_and(|gamepad| gamepad.just_pressed(GamepadButton::Start))
-    });
-    if let Some(mark) = claimer.and_then(|pad| order.mark(pad)) {
+    }) else {
+        return;
+    };
+    // A controller that comes back takes back its own claim, from the slot
+    // it came back to, before it can take a free channel: a free channel
+    // taken first left its player's seat empty and put the player on
+    // another one. A claimed channel whose controller is not in its slot
+    // takes back only that controller.
+    let open = claimable
+        .iter()
+        .copied()
+        .find(|channel| {
+            claims.pad_of(*channel, &order).is_none()
+                && claims
+                    .by_channel
+                    .get(&channel.slot())
+                    .is_some_and(|mark| order.may_reclaim(claimer, mark))
+        })
+        .or_else(|| claimable.iter().copied().find(|channel| !claims.is_claimed(*channel)));
+    if let Some((open, mark)) = open.zip(order.mark(claimer)) {
         claims.claim(open, mark);
     }
 }
@@ -1082,6 +1082,13 @@ mod tests {
     /// claimed by a Start press, as Ambition seats it with joins accepted.
     /// Returns the app and the two seats.
     fn claim_app() -> (App, Entity, Entity) {
+        let (app, seats) = claim_app_of(1);
+        (app, seats[0], seats[1])
+    }
+
+    /// [`claim_app`] with `claimed` claimable seats after the shared one.
+    /// Returns the app and every seat.
+    fn claim_app_of(claimed: u8) -> (App, Vec<Entity>) {
         let mut app = App::new();
         app.init_resource::<LocalDeviceOrder>();
         app.init_resource::<LocalSeatClaims>();
@@ -1089,12 +1096,13 @@ mod tests {
             Update,
             (track_local_device_order, claim_local_seats, assign_local_seat_devices).chain(),
         );
-        let plan = LocalChannelPlan::from_sources([LocalInputSource::Shared, LocalInputSource::Claimed]);
+        let plan = LocalChannelPlan::from_sources(
+            std::iter::once(LocalInputSource::Shared).chain((0..claimed).map(|_| LocalInputSource::Claimed)),
+        );
         app.insert_resource(crate::seating::SessionSeatingSource::decided("a couch", plan.clone()));
-        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
-        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let seats = (0..=claimed).map(|slot| spawn_seat(&mut app, ParticipantId(slot))).collect();
         freeze(&mut app, Some(plan));
-        (app, one, two)
+        (app, seats)
     }
 
     fn connect(app: &mut App, name: &str) -> Entity {
@@ -1173,6 +1181,41 @@ mod tests {
         press_start(&mut app, pad_c);
         assert_eq!(assigned(&app, two), Some(pad_c), "its Start did not reclaim the seat");
         assert_ne!(assigned(&app, one), Some(pad_c), "player one hears player two's pad");
+    }
+
+    /// Review b2c36ae4, finding 5. Three players: pad A shares, pad B claims
+    /// seat two, and seat three is free. Pad B disconnects, pad C takes its
+    /// slot, and pad B comes back into another slot and presses Start: it
+    /// takes back seat two. Measured before: the free seat three was offered
+    /// first, so player two's controller drove seat three and seat two kept a
+    /// claim nobody could take back. Then pad C's Start takes seat three.
+    /// Poison: offer a free channel before a returning claim.
+    #[test]
+    fn a_returning_controller_takes_back_its_seat_before_a_free_one() {
+        let (mut app, seats) = claim_app_of(2);
+        let (two, three) = (seats[1], seats[2]);
+        let _pad_a = connect(&mut app, "pad a");
+        let pad_b = connect(&mut app, "pad b");
+        press_start(&mut app, pad_b);
+        assert_eq!((assigned(&app, two), assigned(&app, three)), (Some(pad_b), Some(NO_PAD)), "premise");
+        app.world_mut().entity_mut(pad_b).despawn();
+        app.update();
+        let pad_c = connect(&mut app, "pad c");
+        let pad_b_again = connect(&mut app, "pad b");
+        assert_eq!(
+            app.world().resource::<LocalDeviceOrder>().slot_of(pad_b_again),
+            Some(2),
+            "premise: pad B came back into another slot"
+        );
+
+        press_start(&mut app, pad_b_again);
+        assert_eq!(
+            (assigned(&app, two), assigned(&app, three)),
+            (Some(pad_b_again), Some(NO_PAD)),
+            "player two's controller came back and did not take back seat two"
+        );
+        press_start(&mut app, pad_c);
+        assert_eq!(assigned(&app, three), Some(pad_c), "control: a new controller takes the free seat");
     }
 
     /// Control of the finding #6 fix: a different controller never takes the

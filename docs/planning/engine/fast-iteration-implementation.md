@@ -729,6 +729,28 @@ before you add a port.
     whatever its name (red at "filled a body's OTHER resource"); no fill; a
     wasm-only drift of the amount. Cost: an edit to the fill builds the module
     file in 0.55 s.
+  - Special route F6 ✅ (2026-10-20): a counter stance. The request
+    `ambition.combat.parry_window` holds the body's parry window open for at
+    least a time (the longer of the guard's and the asked one, so a stance's
+    re-arm never cuts it short), and with `absorbs_projectiles` its absorb
+    too; it never raises the shield, and a window that is not finite or not
+    more than 0 is refused. Smash's stance (`smash.counter`) is the module
+    `ambition_demo_smash_modules::counter`, asked each tick the stance is
+    live. What a caught parry answers with is the stance's authored data,
+    and the answer moved from the demo to the combat engine as shared
+    vocabulary, as capture's is (`ambition_combat::counter::
+    answer_parries_from_counter_stances`, in `Settle`, gated with the
+    demo's specials). `FighterSpecial::flag` reads a flag param. Witnesses:
+    the counter tests of `ambition_demo_smash` (the riposte answer, the
+    Witch-Time target, no answer outside the stance, a parry without a
+    shield) and the module-road arms
+    `the_stance_from_its_module_file_parries_as_the_linked_one_does` (runner
+    `Loaded`), `a_short_re_arm_keeps_the_longer_window_and_absorbs_only_when_authored`
+    and `a_window_with_no_end_is_refused`. Poisons, each red at its own
+    assertion: a raised shield; the newest window in place of the longer; an
+    absorb opened always; no refusal of an endless window; the answer always
+    on the defender; a wasm-only drift of the window. Cost: an edit to the
+    stance builds the module file in 0.54 s.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

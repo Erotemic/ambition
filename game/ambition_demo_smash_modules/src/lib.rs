@@ -11,6 +11,7 @@
 //! (`ambition.fighter.special`). A special that leaves something on the stage
 //! (a plate) asks the world for a module entity, and the module ticks it.
 
+pub mod counter;
 pub mod dilation;
 pub mod limit;
 pub mod riposte;
@@ -22,6 +23,7 @@ pub const PROVIDER: &str = "smash";
 
 /// Every module this crate provides, as constructors.
 pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
+    counter::module,
     dilation::module,
     limit::module,
     riposte::module,

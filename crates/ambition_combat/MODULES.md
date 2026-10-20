@@ -20,6 +20,7 @@
 | [`causal`](src/causal.rs) | Causal facts derived from stock-lifecycle messages. |
 | [`clank`](src/clank.rs) | TWO ATTACKS MEETING — hitbox-vs-hitbox arbitration, before either reaches a victim. |
 | [`components`](src/components/mod.rs) | ECS-native feature components. |
+| [`counter`](src/counter.rs) | A parry caught in a counter stance answers with the stance's authored technique (`smash.counter`). |
 | [`crowd`](src/crowd.rs) | Crowding classification used by fighter spacing logic. |
 | [`death_rules`](src/death_rules.rs) | Game-scoped consequences of participant death (ADR 0033). |
 | [`dormancy_rule`](src/dormancy_rule.rs) | How near an observer must be for a hostile's brain to keep thinking: one game's rule for its own rooms (`room_rules`, field `hostile_wake_radius`). |
@@ -29,6 +30,7 @@
 | [`feel`](src/feel.rs) | Live gameplay-feel tuning owned by the combat domain. |
 | [`finish_zoom`](src/finish_zoom.rs) | The finishing blow pulls the camera in. |
 | [`footstool`](src/footstool.rs) | Footstool interaction: jumping off another body. |
+| [`guard`](src/guard.rs) | Guards at play: where each one is this tick, the strikes they turn aside, and what a turned strike does to the two bodies. |
 | [`hand`](src/hand.rs) | What a body can do right now, kept equal to what its durable facts say. |
 | [`hazard_runtime`](src/hazard_runtime.rs) | `HazardRuntime`: the per-hazard runtime blob (id/name/pos/size, its `DamageVolume`, optional patrol `PathMotion`, and resolve `HitMode`) carried by LDtk-entity hazards. |
 | [`hazards`](src/hazards.rs) | Hazard tick: patrol motion and contact damage. |
@@ -59,7 +61,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_52 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_54 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

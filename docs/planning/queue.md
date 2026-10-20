@@ -124,9 +124,10 @@ a live reload is a second priority. Work in this order:
    spring are modules (`ambition_demo_smash_modules`, special routes F1 and
    F2: a fighter's special, a body strike, a module entity a move drops, its
    touchers and a throw); an edit to one is a 0.6 s module build. Since
-   2026-10-20 the song, the time dilation and the move fill of the Limit are
-   modules too (routes F3 to F5, `ambition.combat.sleep_area`,
-   `ambition.combat.dilate_time` and `ambition.resources.refill`).
+   2026-10-20 the song, the time dilation, the move fill of the Limit and the
+   counter stance are modules too (routes F3 to F6,
+   `ambition.combat.sleep_area`, `ambition.combat.dilate_time`,
+   `ambition.resources.refill` and `ambition.combat.parry_window`).
    Second priority, and only where a recompile does not depend on it: the
    live-reload remainder (a restated schema inside a live session, sprite
    publication inside a session). A live reload for the demo packs' tuning

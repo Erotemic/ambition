@@ -193,7 +193,7 @@ against them.
 | Pocket or storage | Pocket | ownership and projectile identity | Immutable stored payload; respawn through projectile authority | Fighter state + projectile |
 | Persistent traps | C4, mine | Shipped: the trap names its owner by `MatchSeat` (rollback state) | General occurrence identity for steerable projectiles | Owning entity domain |
 | Attach to target or terrain | C4 stick, Pikmin latch | capture and mount relationships | Stable attachment substrate, once several customers overlap | Relationship or world owner |
-| Reactive defense | counters, Revenge | Shipped: `ParriedBodyHit` + `smash.counter`; `answer_a_parry_with_the_authored_counter` dispatches an arbitrary technique. A counter is a trigger | - | Combat |
+| Reactive defense | counters, Revenge | Shipped: `ParriedBodyHit` + `smash.counter`; `ambition_combat::counter::answer_parries_from_counter_stances` dispatches an arbitrary technique; the stance is a module (`ambition.combat.parry_window`). A counter is a trigger | - | Combat |
 | Control impairment | Sing, sleep | Shipped: `sleep_timer` as a named cause in the hard lock, plus `smash.sleep` | Mash escape | Combat or status owner |
 | Local time alteration | Witch Time | `ProperTimeScale`; move and hurtbox clocks use entity proper time | A proper-time completeness audit (locomotion, animation, playback, recovery and status clocks) | Time + consuming domains |
 | Timed stat modifiers | Deep Breathing, Monado | some tuning, armor, invulnerability | Scoped modifiers applied by the owner of the affected quantity; no stat-writing god system | Owner of the quantity |

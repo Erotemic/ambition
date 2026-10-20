@@ -722,16 +722,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // Counter stance, in `Materialize`: `apply_hitbox_damage` judges in
-        // `Resolve`, and the arming effect is emitted in `Playback`. This runs
-        // between them. It runs every frame of the stance, because
-        // `parry_window_timer` decays.
-        app.add_systems(
-            sim,
-            crate::counter::hold_counter_parry_windows
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize)
-                .in_set(FIGHTER_SPECIALS),
-        );
         // Mark clocks. The body-clock view owner clears it in the sim tail;
         // this contributes the marks after the clear.
         app.add_systems(
@@ -740,18 +730,16 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .in_set(ambition_platformer2d::sim_view::BodyClockViewSet::Contribute)
                 .in_set(FIGHTER_SPECIALS),
         );
-        // Counter answer, once the verdict is in. `Settle` needs no explicit
-        // edge: `ParriedBodyHit` is written in the earlier `Resolve` phase. An
-        // explicit edge is needed only for a message written in the reader's
-        // own set.
-        //
-        // The response lands on the next tick: its `ActorActionMessage` is read
-        // in `Materialize`, which has passed. The wait makes the catch visible.
-        install_special(
+        // Counter stance: the module `ambition_demo_smash_modules::counter`.
+        // It holds the parry window open each tick of the stance
+        // (`ambition.combat.parry_window`, lowered in `ContentSpecials`, inside
+        // `Materialize`: after the stance's effect is emitted in `Playback`
+        // and before `apply_hitbox_damage` judges in `Resolve`).
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_counter::COUNTER,
             TechniqueOffer {
-                owner: "ambition_demo_smash::counter",
+                owner: "ambition_demo_smash_modules::counter",
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::entity_catalog::smash_counter::CounterParams>,
                 ),
@@ -761,8 +749,20 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 ),
                 delivery: TechniqueDelivery::Action,
             },
-            crate::counter::answer_a_parry_with_the_authored_counter
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
+            ambition_demo_smash_modules::counter::module(),
+        );
+        // Counter answer, once the verdict is in. `Settle` needs no explicit
+        // edge: `ParriedBodyHit` is written in the earlier `Resolve` phase. An
+        // explicit edge is needed only for a message written in the reader's
+        // own set.
+        //
+        // The response lands on the next tick: its `ActorActionMessage` is read
+        // in `Materialize`, which has passed. The wait makes the catch visible.
+        app.add_systems(
+            sim,
+            ambition_platformer2d::combat::counter::answer_parries_from_counter_stances
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
+                .in_set(FIGHTER_SPECIALS),
         );
 
         // Shark summon, in `ContentSpecials`: it must produce its effects

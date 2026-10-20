@@ -202,11 +202,7 @@ fn a_witch_time_stance_slows_the_attacker_across_the_frame_boundary() {
     // second.
     app.add_systems(
         Update,
-        (
-            crate::counter::hold_counter_parry_windows,
-            crate::counter::answer_a_parry_with_the_authored_counter,
-        )
-            .chain()
+        ambition_platformer2d::combat::counter::answer_parries_from_counter_stances
             .after(ExtensionSet::Lower(TECHNIQUE_EXECUTION)),
     );
 

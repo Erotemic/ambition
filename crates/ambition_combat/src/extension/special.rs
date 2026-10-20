@@ -1,7 +1,8 @@
 //! The adapters of a fighter's special: `ambition.fighter.special`,
 //! `ambition.combat.body_strike`, `ambition.combat.sleep_area`,
-//! `ambition.combat.dilate_time` and `ambition.resources.refill`. See the port
-//! cards in `ambition_combat_port::special`.
+//! `ambition.combat.dilate_time`, `ambition.resources.refill` and
+//! `ambition.combat.parry_window`. See the port cards in
+//! `ambition_combat_port::special`.
 //!
 //! A move's effect whose key a module binds is that module's to answer. The
 //! module reads the fighter's facts and the move's authored params, and asks
@@ -10,7 +11,9 @@
 
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_characters::brain::ActorActionMessage;
-use ambition_combat_port::{BodyStrikePort, DilateTimePort, FighterSpecial, RefillResourcePort, SleepAreaPort, SpecialParam};
+use ambition_combat_port::{
+    BodyStrikePort, DilateTimePort, FighterSpecial, ParryWindowPort, RefillResourcePort, SleepAreaPort, SpecialParam,
+};
 pub use ambition_combat_port::FighterSpecialPort;
 use ambition_entity_catalog::ParamLeaf;
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
@@ -27,6 +30,7 @@ pub fn install_for_specials(app: &mut App) {
     app.install_extension_request::<SleepAreaPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_sleep_areas);
     app.install_extension_request::<DilateTimePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_time_dilations);
     app.install_extension_request::<RefillResourcePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_refills);
+    app.install_extension_request::<ParryWindowPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_parry_windows);
 }
 
 /// A body running on a slowed clock, and the world seconds left.
@@ -231,6 +235,34 @@ pub fn lower_refills(
             .and_then(|bank| bank.into_inner().level_of_mut(&resource))
         {
             level.refill(refill.amount);
+        }
+    }
+}
+
+/// Hold open each parry window a module asked for, on its body's guard.
+///
+/// The timer is the longer of the two, not the newer: a stance re-arms it
+/// every live tick, and a short re-arm must not cut a longer window short.
+/// It never sets `active`: `parrying()` reads the timer alone, and a raised
+/// shield would add a held guard's blocking, guard cost and shieldstun.
+pub fn lower_parry_windows(mut outbox: ResMut<ExtensionOutbox>, mut guards: Query<&mut ae::BodyShieldState>) {
+    for submitted in outbox.drain::<ParryWindowPort>(&TECHNIQUE_EXECUTION) {
+        let window = submitted.value;
+        if !window.window_s.is_finite() || window.window_s <= 0.0 {
+            warn!(
+                "extension entry {} asked for a parry window of {} s; a window is more than 0",
+                submitted.entry, window.window_s
+            );
+            continue;
+        }
+        let Ok(mut shield) = guards.get_mut(submitted.scope) else {
+            continue;
+        };
+        shield.parry_window_timer = shield.parry_window_timer.max(window.window_s);
+        // Armed on the same heartbeat, so a stance that stops asking stops
+        // absorbing and parrying on the same tick.
+        if window.absorbs_projectiles {
+            shield.absorb_window_timer = shield.absorb_window_timer.max(window.window_s);
         }
     }
 }

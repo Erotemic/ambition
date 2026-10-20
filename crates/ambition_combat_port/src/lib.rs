@@ -30,7 +30,7 @@ pub mod status;
 pub mod targets;
 pub mod think;
 pub mod wielded;
-pub use blast::{Blast, BlastPort};
+pub use blast::{Blast, BlastPort, CreditPort};
 pub use reaction::{AnswerParry, AnswerParryPort, Parried, ParriedPort, Struck, StruckPort};
 pub use targets::{Foe, Foes, FoesPort};
 pub use status::{
@@ -38,8 +38,9 @@ pub use status::{
     TimeScalePort,
 };
 pub use module_entity::{
-    EndModuleEntity, EndModuleEntityPort, LaunchToucher, LaunchToucherPort, ModuleEntitySpawn, ModuleEntityTick,
-    ModuleEntityTickPort, PullBodies, PullBodiesPort, SpawnModuleEntityPort,
+    EndModuleEntity, EndModuleEntityPort, EndOwnedEntity, EndOwnedEntityPort, ItemState, ItemStatePort, LaunchToucher,
+    LaunchToucherPort, ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, ModuleItemSpawn, OwnedEntities,
+    OwnedEntitiesPort, OwnedEntity, PullBodies, PullBodiesPort, SpawnModuleEntityPort, SpawnModuleItemPort,
 };
 pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
 pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort};

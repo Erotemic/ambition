@@ -81,7 +81,8 @@ where
         "entity:module_entity",
     );
     // `kind` is in the value: two entities at one place with one lifetime and
-    // a different kind are a different world.
+    // a different kind are a different world. So is the age: a mine whose
+    // lifetime is too long for a step to register on still ages.
     registrar.rollback_component_clone_probed::<ambition_abilities::module_entity::ModuleEntity>(
         OWNER,
         "ability.module_entity",
@@ -93,6 +94,7 @@ where
             ((entity.pos.x.to_bits() as u64) << 32)
                 ^ (entity.pos.y.to_bits() as u64)
                 ^ ((entity.remaining_s.to_bits() as u64) << 16)
+                ^ ((entity.age_s.to_bits() as u64) << 8)
                 ^ kind
         },
     );

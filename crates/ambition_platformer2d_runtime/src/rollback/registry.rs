@@ -122,7 +122,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// clone: how much of each status is left) and `combat.credit_stand_in`
 /// (`CreditStandIn`, clone: the owner of a blast whose credited body left)
 /// enter.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 374;
+/// 374 -> 375: the bomb and the mine are modules: each is a module entity
+/// that is a held item (`ambition.world.spawn_module_item`); the bomb's fuse
+/// is a record on it, and a mine arms as it ages (`ModuleEntity` gains its
+/// spawner and its age). `smash.live_bomb` and `smash.placed_mine` leave.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 375;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

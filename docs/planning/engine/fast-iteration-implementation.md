@@ -869,6 +869,40 @@ before you add a port.
     module's two tests; `ambition_match`'s stamp test; and app_it
     `the_director_leaves_a_note`. Poisons, each red at its own assertion,
     listed in the commit.
+  - Special routes F9 and F10 ✅ (2026-10-20): the bomb and the remote
+    mine, on module items. `ambition.world.spawn_module_item` (a request in
+    `technique_execution`) is a module entity that is also a held item at
+    rest: any body may pick it up and throw it, it stays its spawner's, and
+    the entity is where the item is, whoever holds it (`follow_module_items`,
+    before the entities are ticked); an unregistered item is refused.
+    `ambition.world.item_state` (an observation in `module_entity_tick`) says
+    whether the item is loose and the hardest it struck (the settle's speed
+    or a body's). `ambition.world.owned_entities` (an observation in
+    `technique_execution`) lists the module entities a body spawned, with
+    their kind, place, age and a handle that credits them and that
+    `ambition.world.end_owned_entity` ends them by (refused for an entity
+    another body spawned). `ambition.combat.blast` is now v2 (the module
+    states the centre) and is also offered in `module_entity_tick`, and
+    `ambition.combat.credit` gives a scope its own credit. `ModuleEntity`
+    gains its spawner and an age counted up as it ages (an hour's lifetime
+    is too long for a step to register on as `lifetime - remaining`).
+    Smash's `smash.drop_bomb` is `ambition_demo_smash_modules::bomb` (the
+    fuse is a record on the bomb, burned each tick, and the bomb goes off on
+    its fuse or a hard loose impact, owning its blast) and
+    `smash.place_mine` is `ambition_demo_smash_modules::mine` (no mine out
+    places one; an armed one, by age, goes off where it is and is ended; an
+    arming one ignores the press; the mine owns its blast). `LiveBomb`,
+    `PlacedMine` and their systems and rows are deleted (schema 375). Rules
+    that changed: a bomb's first tick of fuse is the tick after its drop (the
+    native burned on the drop's own tick), a mine is its placer's by
+    identity rather than match seat, the numbers of a mine's blast are the
+    press's that sets it off (the move that placed it), and a mine nobody
+    sets off lives an hour (or to the end of its room). Witnesses: the nine
+    bomb and nine mine tests of `ambition_demo_smash` on the module road
+    (each with its loaded file), `ambition_abilities module_entity::tests`,
+    the modules' tests, `ambition_combat extension::blast::tests`, and
+    `smash_it::a_match_cleans_up_what_it_created`. Poisons listed in the
+    commit.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

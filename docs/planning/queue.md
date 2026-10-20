@@ -133,7 +133,8 @@ a live reload is a second priority. Work in this order:
    foes of a body (`ambition.combat.foes`), the counter's answer on a
    reaction to a hit (`hit_reaction`, `ambition.combat.parried`), and the
    delayed mark (route F8) on a strike's effect, a blast credited to the
-   striker, a status clock and the in-play fact.
+   striker, a status clock and the in-play fact; the bomb and the mine
+   (F9, F10) on module items and a body's own entities.
    Second priority, and only where a recompile does not depend on it: the
    live-reload remainder (a restated schema inside a live session, sprite
    publication inside a session). A live reload for the demo packs' tuning

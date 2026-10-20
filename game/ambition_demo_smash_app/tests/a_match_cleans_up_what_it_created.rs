@@ -101,8 +101,12 @@ fn nothing_a_match_created_survives_into_the_next_one() {
 
     let planted = {
         let world = app.world_mut();
-        let mut q = world.query_filtered::<Entity, With<ambition_demo_smash::mine::PlacedMine>>();
-        let found: Vec<Entity> = q.iter(world).collect();
+        let mut q = world.query::<(Entity, &ambition_platformer2d::abilities::module_entity::ModuleEntity)>();
+        let found: Vec<Entity> = q
+            .iter(world)
+            .filter(|(_, entity)| entity.kind == ambition_demo_smash::mine::MINE)
+            .map(|(mine, _)| mine)
+            .collect();
         assert_eq!(
             found.len(),
             1,

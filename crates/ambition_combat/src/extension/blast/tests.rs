@@ -23,7 +23,9 @@ const DT: f32 = 1.0 / 60.0;
 fn blast(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let special = inv.trigger::<FighterSpecialPort>()?.clone();
     let number = |path: &str, or: f32| special.number(path).unwrap_or(or);
+    let at = inv.trigger::<FighterSpecialPort>()?.position;
     inv.submit::<BlastPort>(Blast {
+        center: [number("x", at[0]), at[1]],
         half_extent: [number("half", 40.0), number("half", 40.0)],
         damage: number("damage", 6.0) as i32,
         knockback: number("knockback", 1.2),
@@ -183,6 +185,7 @@ fn a_blast_out_of_range_or_naming_nobody_is_refused() {
         format!(r#"(credit: "{named}", half: -1.0)"#),
         format!(r#"(credit: "{named}", damage: -1.0)"#),
         format!(r#"(credit: "{named}", knockback: NaN)"#),
+        format!(r#"(credit: "{named}", x: inf)"#),
     ] {
         press(&mut app, marked, &refused);
         step(&mut app);

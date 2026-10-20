@@ -113,10 +113,10 @@ pub fn mark_of(struck: &Struck) -> Result<Mark, Fault> {
     })
 }
 
-/// What a tick of a mark does, given whether its body is in play and the
-/// world's step: the mark it leaves (none when it ends) and the blast it sets
-/// off (none unless it ran out in play).
-pub fn advance(mark: &Mark, in_play: bool, dt: f32) -> (Option<Mark>, Option<Blast>) {
+/// What a tick of a mark does, given whether its body is in play, the
+/// world's step and where the body is: the mark it leaves (none when it
+/// ends) and the blast it sets off there (none unless it ran out in play).
+pub fn advance(mark: &Mark, in_play: bool, dt: f32, at: [f32; 2]) -> (Option<Mark>, Option<Blast>) {
     if !in_play {
         return (None, None);
     }
@@ -125,6 +125,7 @@ pub fn advance(mark: &Mark, in_play: bool, dt: f32) -> (Option<Mark>, Option<Bla
         return (Some(Mark { fuse_s, ..mark.clone() }), None);
     }
     let blast = Blast {
+        center: at,
         half_extent: [mark.blast_radius, mark.blast_radius],
         damage: mark.damage,
         knockback: mark.knockback,
@@ -148,9 +149,10 @@ fn mark(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 /// Spend a tick of a mark: retire it from a body out of play, set off its
 /// blast when it runs out, and otherwise show how much is left.
 fn tick(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let at = inv.trigger::<StatusTickPort>()?.position;
     let mark = Mark::load(inv)?;
     let in_play = *inv.observe::<InPlayPort>()?;
-    match advance(&mark, in_play, inv.dt()) {
+    match advance(&mark, in_play, inv.dt(), at) {
         (Some(left), _) => {
             let remaining = if left.fuse_total_s > 0.0 { left.fuse_s / left.fuse_total_s } else { 0.0 };
             left.store(inv)?;
@@ -203,14 +205,19 @@ mod tests {
     #[test]
     fn a_tick_spends_the_fuse_and_the_last_one_blasts() {
         let mark = mark_of(&struck(7)).unwrap();
-        let (left, blast) = advance(&mark, true, 0.25);
+        let at = [30.0, -4.0];
+        let (left, blast) = advance(&mark, true, 0.25, at);
         assert_eq!((left.map(|m| m.fuse_s), blast), (Some(0.25), None));
-        let (left, blast) = advance(&Mark { fuse_s: 0.25, ..mark.clone() }, true, 0.25);
+        let (left, blast) = advance(&Mark { fuse_s: 0.25, ..mark.clone() }, true, 0.25, at);
         assert!(left.is_none(), "a spent mark stayed");
         assert_eq!(
             blast,
-            Some(Blast { half_extent: [44.0, 44.0], damage: 6, knockback: 1.2, lifetime_s: 0.08, credit: 7 })
+            Some(Blast { center: at, half_extent: [44.0, 44.0], damage: 6, knockback: 1.2, lifetime_s: 0.08, credit: 7 })
         );
-        assert_eq!(advance(&Mark { fuse_s: 0.01, ..mark }, false, 0.25), (None, None), "a mark went off out of play");
+        assert_eq!(
+            advance(&Mark { fuse_s: 0.01, ..mark }, false, 0.25, at),
+            (None, None),
+            "a mark went off out of play"
+        );
     }
 }

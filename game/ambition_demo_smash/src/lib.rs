@@ -472,7 +472,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // The fighter specials sleep where the active room's game uses none
         // (`install_special` puts each handler in their set); so do the
         // per-tick follow-ups below that only a special starts: the limit
-        // meter, bomb fuses and the ride.
+        // meter and the ride.
         // Sing: the module `ambition_demo_smash_modules::sing`, so an edit to
         // the song compiles that crate alone. Authored sleeps today: the
         // performer's `speech` pulse (`performer_moveset`) and the Shadow Oni
@@ -677,29 +677,25 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             },
             ambition_demo_smash_modules::dilation::module(),
         );
-        // Remote mine. Arm is chained before press, so a mine that becomes
-        // live this tick answers this tick's press. The other order adds a frame
-        // to the authored arming delay.
-        install_specials(
+        // Remote mine: the module `ambition_demo_smash_modules::mine`. A placed
+        // mine is a module entity that is a held item; it arms as it ages, and
+        // the module entities age in the player phase, before this tick's
+        // presses, so a mine that becomes live this tick answers this tick's
+        // press.
+        ambition_platformer2d::runtime::install_module_technique(
             app,
-            &[
-                (
-                    ambition_platformer2d::entity_catalog::smash_mine::PLACE_MINE,
-                    TechniqueOffer {
-                        owner: "ambition_demo_smash::mine",
-                        params: TechniqueParams::Checked(
-                            ambition_platformer2d::entity_catalog::smash_mine::check_place_mine_params,
-                        ),
-                        references: NestedReferences::HeldItems(
-                            ambition_platformer2d::entity_catalog::smash_mine::mine_held_item_refs,
-                        ),
-                        delivery: TechniqueDelivery::Action,
-                    },
+            ambition_platformer2d::entity_catalog::smash_mine::PLACE_MINE,
+            TechniqueOffer {
+                owner: "ambition_demo_smash_modules::mine",
+                params: TechniqueParams::Checked(
+                    ambition_platformer2d::entity_catalog::smash_mine::check_place_mine_params,
                 ),
-            ],
-            (crate::mine::arm_placed_mines, crate::mine::place_or_detonate_authored_mines)
-                .chain()
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+                references: NestedReferences::HeldItems(
+                    ambition_platformer2d::entity_catalog::smash_mine::mine_held_item_refs,
+                ),
+                delivery: TechniqueDelivery::Action,
+            },
+            ambition_demo_smash_modules::mine::module(),
         );
         // Mark: the module `ambition_demo_smash_modules::mark`, answered on the
         // body a volume struck (`ambition.combat.struck`, `hit_reaction`), so
@@ -764,13 +760,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                                                                                                   // `EffectExecutionSet`, so set membership is the whole
                                                                                                   // ordering. Without it the shark never appears.
         );
-        // Bomb. Recognised like the shark summon (an `ActorActionMessage`
-        // technique); the fuse burns in `Settle`, after item physics.
-        install_special(
+        // Bomb: the module `ambition_demo_smash_modules::bomb`. A dropped bomb
+        // is a module entity that is a held item, ticked with the items after
+        // item physics (`module_entity_tick`), so an impact is read on the
+        // tick it happens.
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_bomb::DROP_BOMB,
             TechniqueOffer {
-                owner: "ambition_demo_smash::bomb",
+                owner: "ambition_demo_smash_modules::bomb",
                 params: TechniqueParams::Checked(
                     ambition_platformer2d::entity_catalog::smash_bomb::check_drop_bomb_params,
                 ),
@@ -779,15 +777,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 ),
                 delivery: TechniqueDelivery::Action,
             },
-            crate::bomb::translate_bomb_drops
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
-        );
-        app.add_systems(
-            sim,
-            crate::bomb::burn_fuses_and_answer_impacts
-                .after(ambition_platformer2d::platformer::schedule::ItemPickupSet::CoreHeldItems)
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
-                .in_set(FIGHTER_SPECIALS),
+            ambition_demo_smash_modules::bomb::module(),
         );
         // What ends a ride, and what the shark does afterwards. `Settle`,
         // chained: each reads state the tick already produced. The two that
@@ -1675,26 +1665,12 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "smash.departing_mount",
                 crate::shark_ride::departing_probe,
             );
-            // The bomb's fuse and remembered speed outlive the tick that made
-            // them; a restore without them gives a different explosion.
-            app.rollback_component_clone_probed::<crate::bomb::LiveBomb>(
-                "ambition_demo_smash",
-                "smash.live_bomb",
-                crate::bomb::live_bomb_probe,
-            );
             // Move-opened apertures and their clock: a restore without the
             // clock closes the recovery route at a different moment.
             app.rollback_component_clone_probed::<crate::portal::MovePlacedPortal>(
                 "ambition_demo_smash",
                 "smash.move_placed_portal",
                 crate::portal::move_placed_portal_probe,
-            );
-            // The mine's arming clock: a restore without it could answer a
-            // press the confirmed timeline ignored.
-            app.rollback_component_clone_probed::<crate::mine::PlacedMine>(
-                "ambition_demo_smash",
-                "smash.placed_mine",
-                crate::mine::placed_mine_probe,
             );
 
             // The bolt in flight: position, heading, lifetime, and whether it

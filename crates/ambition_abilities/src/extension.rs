@@ -96,6 +96,21 @@ pub fn install_for_technique_execution(app: &mut App) {
         "ambition_abilities",
         lower_effects::<InTechniqueExecution>,
     );
+    app.install_extension_request::<ambition_combat_port::SpawnModuleItemPort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_abilities",
+        crate::module_entity::lower_module_item_spawns,
+    );
+    app.install_extension_observation::<ambition_combat_port::OwnedEntitiesPort>(
+        TECHNIQUE_EXECUTION,
+        "ambition_abilities",
+        crate::module_entity::owned_entities_of,
+    );
+    app.install_extension_request::<ambition_combat_port::EndOwnedEntityPort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_abilities",
+        crate::module_entity::lower_owned_entity_ends,
+    );
 }
 
 /// Install the module-entity trigger port and its request ports in
@@ -103,10 +118,16 @@ pub fn install_for_technique_execution(app: &mut App) {
 /// effect, a pull, a throw of a toucher, and the end of the entity.
 pub fn install_module_entities(app: &mut App) {
     app.init_resource::<crate::module_entity::ModuleEntityTouchers>();
+    // An item entity is where its item is before it is ticked.
     app.install_extension_trigger::<ModuleEntityTickPort, _>(
         MODULE_ENTITY_TICK,
         "ambition_abilities",
-        crate::module_entity::queue_module_entity_ticks,
+        (crate::module_entity::follow_module_items, crate::module_entity::queue_module_entity_ticks).chain(),
+    );
+    app.install_extension_observation::<ambition_combat_port::ItemStatePort>(
+        MODULE_ENTITY_TICK,
+        "ambition_abilities",
+        crate::module_entity::item_state_of,
     );
     app.install_extension_request::<EffectPort, _>(
         MODULE_ENTITY_TICK,

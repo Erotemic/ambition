@@ -14,11 +14,13 @@
 //! the module ticks it; one that leaves something on a body (a slow, a mark)
 //! holds a status there and keeps its state in records on the body.
 
+pub mod bomb;
 pub mod counter;
 pub mod dilation;
 pub mod homing;
 pub mod limit;
 pub mod mark;
+pub mod mine;
 pub mod riposte;
 pub mod sing;
 pub mod spring;
@@ -28,11 +30,13 @@ pub const PROVIDER: &str = "smash";
 
 /// Every module this crate provides, as constructors.
 pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
+    bomb::module,
     counter::module,
     dilation::module,
     homing::module,
     limit::module,
     mark::module,
+    mine::module,
     riposte::module,
     sing::module,
     spring::module,

@@ -259,6 +259,13 @@ pub fn resolve_deflects(
             (Some(defender), Some(attacker)) if (attacker - defender).dot(ae::Vec2::new(down.y, -down.x)) < 0.0 => -1.0,
             _ => 1.0,
         };
+        // Away from the guarded body, in the world: the one direction both
+        // throws must agree with, whatever frame each body is in. `None` when
+        // the two bodies are at one point, or one is not known.
+        let outward = match (defender_at, attacker_at) {
+            (Some(defender), Some(attacker)) => (attacker - defender).try_normalize(),
+            _ => None,
+        };
         // Each body is thrown in its OWN frame. The attacker's run is carried
         // along its own right; a run measured on the guarded body's right put
         // a body in another gravity on axes it does not move along.
@@ -268,17 +275,34 @@ pub fn resolve_deflects(
         // it is thrown, not struck. A throw with lift leaves the ground on the
         // tick it is staged, as a pogo bounce does: a launch too weak to tumble
         // keeps the body planted, and its footing takes the run.
+        //
+        // ⛔ AND IT IS THROWN AWAY. `out` is the world direction away from the
+        // other body. The run along the body's right always has a part along
+        // `out`, but the lift is against the body's own down, and in another
+        // gravity "up" can point at the other body: a body whose down is
+        // away from the guarded body was lifted back into it. When the throw
+        // would not move the body away, its part of `out` along its own down
+        // takes the place of the lift.
         let throw = |kin: &mut ae::BodyKinematics,
                      flight: Option<&mut ae::BodyFlightState>,
                      ground: Option<&mut ae::BodyGroundState>,
                      down: ae::Vec2,
+                     out: Option<ae::Vec2>,
                      along: f32,
                      lift: f32,
                      hold: f32| {
             let right = ae::Vec2::new(down.y, -down.x);
             let fall = kin.vel.dot(down);
-            let launch = right * along + down * if lift > 0.0 { fall.min(-lift) } else { fall };
-            if let Some(ground) = ground.filter(|_| lift > 0.0) {
+            let lifted = right * along + down * if lift > 0.0 { fall.min(-lift) } else { fall };
+            let (launch, leaves_ground) = match out.filter(|out| lifted.dot(*out) <= 0.0) {
+                Some(out) => {
+                    let away = out.dot(down) * along.abs();
+                    let fall = if away > 0.0 { fall.max(away) } else { fall.min(away) };
+                    (right * along + down * fall, away < 0.0)
+                }
+                None => (lifted, lift > 0.0),
+            };
+            if let Some(ground) = ground.filter(|_| leaves_ground) {
                 ground.on_ground = false;
             }
             match flight {
@@ -307,6 +331,7 @@ pub fn resolve_deflects(
                 flight.map(Mut::into_inner),
                 ground.map(Mut::into_inner),
                 down,
+                outward,
                 side(down) * feel.rebound_speed,
                 feel.rebound_lift,
                 feel.lockout_s,
@@ -325,6 +350,7 @@ pub fn resolve_deflects(
                 flight.map(Mut::into_inner),
                 ground.map(Mut::into_inner),
                 down,
+                outward.map(|out| -out),
                 -side(down) * feel.push,
                 0.0,
                 feel.hitstop_s,

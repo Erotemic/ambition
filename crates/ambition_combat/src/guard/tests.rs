@@ -176,3 +176,39 @@ fn a_deflected_attacker_in_the_same_gravity_is_thrown_away_and_up() {
     let (launch, run) = deflected_attacker(ae::Vec2::new(160.0, 100.0), DOWN);
     assert_eq!((launch, run), (ae::Vec2::new(FEEL.rebound_speed, -FEEL.rebound_lift), FEEL.rebound_speed));
 }
+
+/// Review b2c36ae4, finding 4. The guarded body is at (100, 100) and the
+/// attacker at (160, 100), with its down world +x: away from the guarded
+/// body. Its lift is against its own down, so it pointed back at the guarded
+/// body. Measured before: the launch was (-120, -300), toward the guarded
+/// body (its dot with the way out is -7200). Poison: keep the lift when it
+/// points inward.
+#[test]
+fn a_deflected_attacker_whose_down_points_away_is_not_lifted_back_in() {
+    let at = ae::Vec2::new(160.0, 100.0);
+    let (launch, _) = deflected_attacker(at, ae::Vec2::new(1.0, 0.0));
+    assert!(
+        launch.dot(at - ae::Vec2::new(100.0, 100.0)) > 0.0,
+        "the attacker is thrown toward the guarded body: {launch:?}"
+    );
+}
+
+/// Every attacker is thrown away from the guarded body, from each side of
+/// it and in each gravity.
+#[test]
+fn a_deflected_attacker_is_thrown_away_in_every_gravity() {
+    let defender = ae::Vec2::new(100.0, 100.0);
+    let downs = [(0.0, 1.0), (0.0, -1.0), (1.0, 0.0), (-1.0, 0.0), (0.6, 0.8)].map(|(x, y)| ae::Vec2::new(x, y));
+    let offsets = [(60.0, 0.0), (-60.0, 0.0), (0.0, 60.0), (0.0, -60.0), (40.0, -30.0), (-40.0, 30.0)]
+        .map(|(x, y)| ae::Vec2::new(x, y));
+    for down in downs {
+        for offset in offsets {
+            let (launch, _) = deflected_attacker(defender + offset, down);
+            assert!(
+                launch.dot(offset) > 0.0,
+                "an attacker at {offset:?} from the guarded body, with its down {down:?}, is thrown \
+                 toward it: {launch:?}"
+            );
+        }
+    }
+}

@@ -226,6 +226,23 @@ pub struct PendingIntent {
     pub kind: LifecycleIntent,
 }
 
+/// A lifecycle intent that left the slot without a commit, and the frame it
+/// left on.
+///
+/// The host may have opened a transaction for the intent, and `recorded_on`
+/// names that transaction. A rollback host may not read the absence of an
+/// intent as its end, because the absence can be speculative. It retires the
+/// transaction when `withdrawn_on` is confirmed.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WithdrawnIntent {
+    /// The frame that recorded the intent ([`PendingIntent::frame`]).
+    pub recorded_on: i32,
+    /// The frame on which the intent left the slot.
+    pub withdrawn_on: i32,
+    /// The intent that left.
+    pub kind: LifecycleIntent,
+}
+
 /// The single pending confirmed-frame lifecycle commit (Track B, Piece 1).
 ///
 /// Rollback-registered (`rollback/mod.rs`), so the intent rewinds with the world. One slot,
@@ -234,6 +251,11 @@ pub struct PendingIntent {
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct PendingLifecycleCommit {
     pub pending: Option<PendingIntent>,
+    /// The last intent that left the slot without a commit. Each retraction
+    /// writes it, so the host can end the transaction it opened for that
+    /// intent. An admitted record clears it: the host replaces or reuses its
+    /// transaction for the new intent, so the old withdrawal names nothing.
+    pub withdrawn: Option<WithdrawnIntent>,
 }
 
 impl PendingLifecycleCommit {
@@ -255,6 +277,7 @@ impl PendingLifecycleCommit {
             return Admission::AlreadyPending;
         }
         self.pending = Some(PendingIntent { frame, kind });
+        self.withdrawn = None;
         Admission::Admitted
     }
 
@@ -277,43 +300,54 @@ impl PendingLifecycleCommit {
     }
 
     /// Retract the pending room crossing owned by `subject`, if that exact body
-    /// is the one waiting to transit.
+    /// is the one waiting to transit, on frame `now`.
     ///
     /// The lifecycle owner is the only place allowed to spend this rollback-state slot.
     ///
     /// A different body's transition, or any non-transition lifecycle intent, is untouched.
-    pub fn retract_transition_for_subject(&mut self, subject: &LiveBodyId) -> bool {
-        let owned_by_subject = self.pending.as_ref().is_some_and(|pending| {
+    pub fn retract_transition_for_subject(&mut self, subject: &LiveBodyId, now: i32) -> bool {
+        self.withdraw_if(now, |pending| {
             matches!(
                 &pending.kind,
                 LifecycleIntent::Transition(transition) if &transition.subject == subject
             )
+        })
+    }
+
+    /// Retract the pending intent if it is `kind`, on frame `now`. For a
+    /// producer that withdraws its own request; a different intent is
+    /// untouched.
+    pub fn retract(&mut self, kind: &LifecycleIntent, now: i32) -> bool {
+        self.withdraw_if(now, |pending| pending.kind == *kind)
+    }
+
+    /// Retract the pending intent recorded on `frame`, whatever it is, on
+    /// frame `now`. For an operation that a peer could not prepare: it ends
+    /// on each peer, on one frame of the shared timeline.
+    pub fn retract_recorded_on(&mut self, frame: i32, now: i32) -> bool {
+        self.withdraw_if(now, |pending| pending.frame == frame)
+    }
+
+    /// Each retraction goes through here, so each one leaves the record that
+    /// lets the host end its transaction ([`Self::withdrawn`]).
+    fn withdraw_if(&mut self, now: i32, matches: impl FnOnce(&PendingIntent) -> bool) -> bool {
+        let Some(pending) = self.pending.take_if(|pending| matches(pending)) else {
+            return false;
+        };
+        self.withdrawn = Some(WithdrawnIntent {
+            recorded_on: pending.frame,
+            withdrawn_on: now,
+            kind: pending.kind,
         });
-        if owned_by_subject {
-            self.pending = None;
-        }
-        owned_by_subject
+        true
     }
 
-    /// Retract the pending intent if it is `kind`. For a producer that
-    /// withdraws its own request; a different intent is untouched.
-    pub fn retract(&mut self, kind: &LifecycleIntent) -> bool {
-        let pending = self.pending.as_ref().is_some_and(|pending| pending.kind == *kind);
-        if pending {
-            self.pending = None;
-        }
-        pending
-    }
-
-    /// Retract the pending intent recorded on `frame`, whatever it is. For an
-    /// operation that a peer could not prepare: it ends on each peer, on one
-    /// frame of the shared timeline.
-    pub fn retract_recorded_on(&mut self, frame: i32) -> bool {
-        let recorded_then = self.pending.as_ref().is_some_and(|pending| pending.frame == frame);
-        if recorded_then {
-            self.pending = None;
-        }
-        recorded_then
+    /// The last withdrawal, if the frame it happened on is confirmed. `None`
+    /// while it is still speculative: a rewind can undo it.
+    pub fn confirmed_withdrawal(&self, confirmed_frame: i32) -> Option<&WithdrawnIntent> {
+        self.withdrawn
+            .as_ref()
+            .filter(|withdrawn| withdrawn.withdrawn_on <= confirmed_frame)
     }
 
     /// Clear the slot after the host commits the op.
@@ -445,10 +479,10 @@ mod tests {
 
         let mut slot = PendingLifecycleCommit::default();
         let _ = slot.record(8, transition.clone());
-        assert!(!slot.retract_transition_for_subject(&other));
+        assert!(!slot.retract_transition_for_subject(&other, 9));
         assert_eq!(slot.pending.as_ref().map(|p| &p.kind), Some(&transition));
 
-        assert!(slot.retract_transition_for_subject(&hero));
+        assert!(slot.retract_transition_for_subject(&hero, 9));
         assert!(slot.pending.is_none());
 
         // Another body's crossing is not this body's to retract.
@@ -463,7 +497,39 @@ mod tests {
                 participant: None,
             }),
         );
-        assert!(!slot.retract_transition_for_subject(&hero));
+        assert!(!slot.retract_transition_for_subject(&hero, 9));
         assert!(slot.pending.is_some());
+    }
+
+    /// A retraction leaves a record of what left and when, and the record is
+    /// confirmed only with the frame it happened on. A refused retraction
+    /// leaves none, and the next admitted intent clears it.
+    #[test]
+    fn a_retraction_records_the_withdrawal_for_the_host() {
+        let mut slot = PendingLifecycleCommit::default();
+        let _ = slot.record(10, crossing_to("east"));
+        assert!(!slot.retract(&crossing_to("west"), 14), "another intent is not withdrawn");
+        assert_eq!(slot.withdrawn, None);
+
+        assert!(slot.retract(&crossing_to("east"), 14));
+        let withdrawn = WithdrawnIntent { recorded_on: 10, withdrawn_on: 14, kind: crossing_to("east") };
+        assert_eq!(slot.withdrawn.as_ref(), Some(&withdrawn));
+        assert_eq!(slot.confirmed_withdrawal(13), None, "frame 14 is still speculative");
+        assert_eq!(slot.confirmed_withdrawal(14), Some(&withdrawn));
+
+        assert_eq!(slot.record(20, crossing_to("west")), Admission::Admitted);
+        assert_eq!(slot.withdrawn, None, "a new intent supersedes the old transaction");
+        assert!(slot.retract_recorded_on(20, 21));
+        assert_eq!(slot.withdrawn.as_ref().map(|w| (w.recorded_on, w.withdrawn_on)), Some((20, 21)));
+
+        // The withdrawal is rollback state: a rewind keeps it.
+        use ambition_platformer2d_core::snapshot::{Reader, SnapshotState as _};
+        let _ = slot.record(30, crossing_to("north"));
+        let _ = slot.retract(&crossing_to("north"), 31);
+        let _ = slot.record(32, crossing_to("south"));
+        slot.withdrawn = Some(withdrawn);
+        let mut bytes = Vec::new();
+        slot.encode(&mut bytes);
+        assert_eq!(PendingLifecycleCommit::decode(&mut Reader::new(&bytes)), Some(slot));
     }
 }

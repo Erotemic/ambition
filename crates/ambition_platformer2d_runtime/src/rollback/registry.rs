@@ -98,7 +98,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// clone: a body going through a door or a dimension gate, and the crossing
 /// it records) and `actor.held_control_frame` (`HeldControlFrame`, clone: the
 /// body frame a held movement stick was pressed in) enter.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 368;
+/// 368 -> 369: `resource.pending_lifecycle_commit` encodes, after the pending
+/// intent, the last intent withdrawn without a commit (`bool`; then the frame
+/// that recorded it and the frame it left on, two `i32`s, and the intent), so
+/// a rollback host retires the load opened for it once that frame is
+/// confirmed.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 369;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

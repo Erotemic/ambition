@@ -159,6 +159,11 @@ pub struct ActiveRoomTransitionLoad {
     /// (`target_room`, `subject`, `arrival`, `edge_exit`) this file reads it
     /// through, each of which answers for both shapes.
     pub intent: LifecycleIntent,
+    /// The frame that recorded [`Self::intent`]: which transaction this is.
+    /// A withdrawal names the transaction it ends by this frame
+    /// (`WithdrawnIntent::recorded_on`), so a later intent for the same
+    /// crossing is a different transaction.
+    pub recorded_on: i32,
     pub construction_plan: Option<Arc<rooms::RoomConstructionPlan>>,
     pub barrier: LoadBarrierRef,
     /// The pass of the readiness set that opened this transaction is not
@@ -345,6 +350,27 @@ fn apply_load_command(
     for event in loads.apply(command) {
         events.write(event);
     }
+}
+
+/// Cancel the active transaction's load and retire it, and say which
+/// transaction it was. The caller has decided that the transaction lost its
+/// authority.
+fn cancel_active_transaction(
+    state: &mut RoomTransitionLoadState,
+    loads: &mut LoadCoordinator,
+    events: &mut MessageWriter<LoadEvent>,
+) -> Option<u64> {
+    let active = state.active.take()?;
+    let load_id = active.barrier.load_id;
+    apply_load_command(
+        loads,
+        events,
+        ambition_load::LoadCommand::Cancel {
+            load_id: load_id.clone(),
+        },
+    );
+    loads.retire(&load_id);
+    Some(active.sequence)
 }
 
 pub fn set_room_transition_work_state(
@@ -539,7 +565,19 @@ impl ConfirmedRoomTransitionIntent<'_, '_> {
         Some(&self.pending.peek()?.kind)
     }
 
-    fn get(&self) -> Option<&LifecycleIntent> {
+    /// The last withdrawal, once the frame it happened on is confirmed.
+    fn withdrawn(
+        &self,
+    ) -> Option<&ambition_platformer2d_actor_monolith::session::lifecycle_commit::WithdrawnIntent> {
+        let confirmed = confirmation_frame_for_host(
+            *self.host,
+            self.boundary.as_deref(),
+            self.confirmation.state(),
+        )?;
+        self.pending.confirmed_withdrawal(confirmed)
+    }
+
+    fn get(&self) -> Option<&ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingIntent> {
         let confirmed = confirmation_frame_for_host(
             *self.host,
             self.boundary.as_deref(),
@@ -550,7 +588,7 @@ impl ConfirmedRoomTransitionIntent<'_, '_> {
         // room you are standing in. What v146 added is the case that is not a
         // crossing at all: a replay with no controlled body, which rebuilds the
         // room with nobody in it. This road serves both, through the accessors.
-        Some(&self.pending.confirmed(confirmed)?.kind)
+        self.pending.confirmed(confirmed)
     }
 }
 
@@ -813,11 +851,48 @@ pub fn begin_room_transition_load_system(
         ));
     }
 
+    // A confirmed withdrawal ends the transaction opened for the intent it
+    // names. This is the one road by which a rollback host learns that an
+    // intent ended without a commit: the absence below can be speculative,
+    // the withdrawal's frame cannot.
+    if let Some(withdrawn) = pending.withdrawn() {
+        let ended = state.active.as_ref().is_some_and(|active| {
+            active.phase != RoomTransitionLoadPhase::Committed
+                && active.recorded_on == withdrawn.recorded_on
+                && active.intent == withdrawn.kind
+        });
+        if ended {
+            if let Some(sequence) = cancel_active_transaction(&mut state, &mut loads, &mut load_events) {
+                // A rollback host never paused for the load, so only an
+                // eager host has a mode to give back.
+                if !pending.is_rollback_host() {
+                    ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+                        ambition_platformer2d_shared_tangle::schedule::GameMode::Playing,
+                        "room_transition_intent_withdrawn",
+                    );
+                    next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
+                }
+                bevy::log::info!(
+                    target: "ambition_platformer2d::room_transition",
+                    "room transition {sequence} cancelled because its intent (recorded on frame {}) \
+                     was withdrawn on confirmed frame {}",
+                    withdrawn.recorded_on,
+                    withdrawn.withdrawn_on,
+                );
+            }
+        }
+    }
+
     let current_session = active_session.as_deref().and_then(|scope| scope.current());
-    let Some(intent) = pending.get() else {
+    let Some(ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingIntent {
+        frame: recorded_on,
+        kind: intent,
+    }) = pending.get()
+    else {
         // On a rollback host, absence in the current simulation can be
         // speculative. Host-side derived state may only be retired by the
-        // confirmed lifecycle path, never inferred from that temporary absence.
+        // confirmed lifecycle path or a confirmed withdrawal (above), never
+        // inferred from that temporary absence.
         if pending.is_rollback_host() {
             return;
         }
@@ -833,18 +908,11 @@ pub fn begin_room_transition_load_system(
         let orphan = state
             .active
             .as_ref()
-            .filter(|active| active.phase != RoomTransitionLoadPhase::Committed)
-            .map(|active| (active.sequence, active.barrier.load_id.clone()));
-        if let Some((sequence, load_id)) = orphan {
-            apply_load_command(
-                &mut loads,
-                &mut load_events,
-                ambition_load::LoadCommand::Cancel {
-                    load_id: load_id.clone(),
-                },
-            );
-            loads.retire(&load_id);
-            state.active = None;
+            .is_some_and(|active| active.phase != RoomTransitionLoadPhase::Committed);
+        if let Some(sequence) = orphan
+            .then(|| cancel_active_transaction(&mut state, &mut loads, &mut load_events))
+            .flatten()
+        {
             ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
                 ambition_platformer2d_shared_tangle::schedule::GameMode::Playing,
                 "room_transition_intent_retracted",
@@ -1016,6 +1084,7 @@ pub fn begin_room_transition_load_system(
             source_room_id,
             target_room: target_index.unwrap_or(usize::MAX),
             intent: intent.clone(),
+            recorded_on: *recorded_on,
             construction_plan: None,
             barrier: barrier.clone(),
             // Even when every contributor resolves immediately, the
@@ -1629,6 +1698,7 @@ mod tests {
             source_room_id: "a".to_string(),
             target_room: 1,
             intent: request("b"),
+            recorded_on: 0,
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
@@ -1827,6 +1897,7 @@ mod tests {
             source_room_id: "a".to_string(),
             target_room: 1,
             intent: request("b"),
+            recorded_on: 0,
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
@@ -1863,6 +1934,7 @@ mod tests {
             source_room_id: "a".to_string(),
             target_room: 1,
             intent: request("b"),
+            recorded_on: 0,
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
@@ -1980,6 +2052,7 @@ mod checkpoint_failure_tests {
             source_room_id: "here".to_string(),
             target_room: 1,
             intent: crossing(),
+            recorded_on: 0,
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
@@ -2096,6 +2169,7 @@ mod checkpoint_failure_tests {
             source_room_id: "here".to_string(),
             target_room: 1,
             intent: crossing(),
+            recorded_on: 0,
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,

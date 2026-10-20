@@ -61,10 +61,12 @@ pub fn open_death_interlude(
         // recorded a transition in the first place.
         if confirmed_boundary.is_none() {
             if let Some(sim_id) = sim_id {
+                // An eager host has no frame boundary, and each of its
+                // frames is confirmed, so the withdrawal is on frame 0.
                 pending_lifecycle.retract_transition_for_subject(&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
                     sim_id.clone(),
                     ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root),
-                ));
+                ), 0);
             }
         }
 

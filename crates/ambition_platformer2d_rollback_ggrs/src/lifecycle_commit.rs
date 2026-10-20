@@ -186,6 +186,7 @@ pub fn end_an_operation_a_peer_could_not_prepare(
     ownership: Option<Res<RollbackSessionOwnership>>,
     inputs: Option<Res<bevy_ggrs::PlayerInputs<crate::AmbitionGgrsConfig>>>,
     pending: Option<ResMut<PendingLifecycleCommit>>,
+    boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
 ) {
     use crate::peer_input::PreparationVerdict;
     if !matches!(ownership.as_deref(), Some(RollbackSessionOwnership::Peer)) {
@@ -205,7 +206,8 @@ pub fn end_an_operation_a_peer_could_not_prepare(
         })
         .map(|(handle, _)| handle)
         .collect();
-    if !failed.is_empty() && pending.retract_recorded_on(recorded_on) {
+    let now = boundary.map_or(recorded_on, |boundary| boundary.current);
+    if !failed.is_empty() && pending.retract_recorded_on(recorded_on, now) {
         bevy::log::warn!(
             "the peer(s) of handle(s) {failed:?} could not prepare the lifecycle \
              operation recorded on frame {recorded_on}, so it ends on each peer (Q156)"
@@ -1000,6 +1002,7 @@ mod tests {
             source_room_id: "a".to_string(),
             target_room: 1,
             intent,
+            recorded_on: 0,
             construction_plan: None,
             barrier: ambition_load::LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,

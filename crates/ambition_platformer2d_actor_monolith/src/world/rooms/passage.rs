@@ -413,6 +413,7 @@ pub fn run_zone_passages(
     )>,
 ) {
     let dt = world_time.sim_dt();
+    let now = boundary.as_ref().map_or(0, |boundary| boundary.current);
     for (entity, clusters, mut model, mut passage, mut control_holds, pose_holds, stamp) in &mut bodies {
         let here = stamp.map(|stamp| stamp.0);
         if passage.room.is_none() {
@@ -435,7 +436,7 @@ pub fn run_zone_passages(
         if passage.stage == PassageStage::Entering && passage.elapsed >= stage_s && !passage.recorded {
             if let Some(crossing) = passage.crossing.clone() {
                 let admission = pending_lifecycle
-                    .record(boundary.as_ref().map_or(0, |boundary| boundary.current), LifecycleIntent::Transition(crossing));
+                    .record(now, LifecycleIntent::Transition(crossing));
                 // Refused: another lifecycle operation owns this frame; ask
                 // again on the next.
                 passage.recorded = admission.admitted();
@@ -445,9 +446,11 @@ pub fn run_zone_passages(
             bevy::log::warn!("passage through `{}`: the crossing never arrived; the body is given back", passage.zone);
             // The crossing is withdrawn with the passage. A commit that is
             // only late would otherwise move the body after its player got
-            // it back.
+            // it back. The withdrawal is recorded on this frame, so the host
+            // ends the load it opened for the crossing when the frame is
+            // confirmed.
             if let Some(crossing) = passage.crossing.clone() {
-                let _ = pending_lifecycle.retract(&LifecycleIntent::Transition(crossing));
+                let _ = pending_lifecycle.retract(&LifecycleIntent::Transition(crossing), now);
             }
             end_passage(&mut commands, entity, control_holds.as_deref_mut());
             continue;

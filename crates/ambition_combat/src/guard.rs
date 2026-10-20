@@ -77,6 +77,10 @@ pub struct GuardVolumes {
 }
 
 /// The rollback state of a guarded body's guards.
+///
+/// The body's, not its form's: a change of form is the same body (Q159), so a
+/// break, its stagger and the deflect count go through it, also through a
+/// form with no guards (`a_broken_guard_stays_broken_across_a_change_of_form`).
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct GuardState {
     /// Deflects in the current run toward a break.

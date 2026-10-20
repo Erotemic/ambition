@@ -349,6 +349,14 @@ fn drive_room_transition_presentation(
     // skin, its doors' art, pipelines compiling (`PresentationSettling`, which
     // names the undrawn feature views too).
     settling: Res<PresentationSettling>,
+    // Which live rooms the cover is over: those of the target's definition.
+    live_rooms: Query<
+        (
+            &ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+            &ambition_platformer2d::world::rooms::LiveRoomDefinition,
+        ),
+        With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
+    >,
     contributed: Res<ContributedRoomAssets>,
     mut presentation: MessageWriter<LoadPresentationCommand>,
     mut loads: ResMut<LoadCoordinator>,
@@ -509,7 +517,16 @@ fn drive_room_transition_presentation(
     // is a diagnosis of the second and was being read as evidence of the first.
     // give-ups — the two facts were both true because the thing it waited on was
     // never the thing it needed to know.
-    let unsettled = settling.pending().len();
+    // ⛔ THE TARGET ROOM'S, NOT THE APP'S. Another live room's art still
+    // coming in kept this cover up until the deadline. A thing of the whole
+    // App (a pipeline compiling) still holds it.
+    let targets: Vec<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance> = live_rooms
+        .iter()
+        .filter(|(_, definition)| definition.index() == active_snapshot.target_room)
+        .map(|(instance, _)| *instance)
+        .collect();
+    let waiting = settling.pending_for(&targets);
+    let unsettled = waiting.len();
     let since_commit = active_snapshot
         .committed_at
         .map(|committed| time.elapsed().saturating_sub(committed))
@@ -530,7 +547,7 @@ fn drive_room_transition_presentation(
             active_snapshot.source_room_id,
             active_snapshot.target_room_id(),
             since_commit.as_secs_f64() * 1000.0,
-            settling.pending(),
+            waiting,
         );
     }
 

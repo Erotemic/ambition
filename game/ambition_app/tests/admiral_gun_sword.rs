@@ -32,6 +32,7 @@ fn the_admirals_side_b_fires_the_gun_swords_discharge() {
         drawn_hand_before,
         feet_before,
         shot_half_height,
+        tick_flight,
         ..
     } = fire_the_side_b(false);
 
@@ -59,20 +60,22 @@ fn the_admirals_side_b_fires_the_gun_swords_discharge() {
     // fixed hand at chest height (`ambition_held_items::holding_hand_world`).
     let drawn_hand = drawn_hand_before.expect("a match seat states the quad its art is drawn at");
     let along = direction.dot(origin - drawn_hand);
-    let lifted = drawn_hand.y - origin.y;
+    let lifted = lifted_off_the_line(direction, origin, drawn_hand);
     assert!(
-        (-0.5..=shot_half_height + 1.0).contains(&lifted) && (18.0..48.0).contains(&along),
-        "the shot at {origin:?} flying {direction:?} is {lifted} above and {along} along from the hand \
-         the art draws {drawn_hand:?}: an unrigged seat fires from the hand its art draws"
+        (-0.5..=shot_half_height + 1.0).contains(&lifted) && born_at(along, tick_flight),
+        "the shot at {origin:?} flying {direction:?} ({tick_flight} a tick) is {lifted} above and {along} \
+         along from the hand the art draws {drawn_hand:?}: an unrigged seat fires from the hand its art draws"
     );
     assert!(
         origin.y + shot_half_height < feet_before,
         "the shot at {origin:?} reaches the admiral's feet line {feet_before}: it was born touching the ground"
     );
-    // The fixed hand is off that line, so this arm tells the two apart.
+    // The fixed hand does not explain the shot: it is off the line, or at the
+    // wrong distance along it. So this arm tells the two apart.
     assert!(
-        direction.perp_dot(origin - hand_before).abs() > 5.0,
-        "the fixed hand {hand_before:?} is on the shot's line too, so the drawn hand was not shown to be the muzzle"
+        direction.perp_dot(origin - hand_before).abs() > 5.0
+            || !born_at(direction.dot(origin - hand_before), tick_flight),
+        "the fixed hand {hand_before:?} explains the shot too, so the drawn hand was not shown to be the muzzle"
     );
     // ⛔ A DELTA, and a big one. The generic kick is 60px/s and the gun-sword's
     // is 380, so a threshold between them is what tells "the profile applied"
@@ -114,10 +117,43 @@ struct SideB {
     shot_half_height: f32,
     /// Whether the admiral wore a rig.
     rigged: bool,
+    /// How far the shot flies along its line in one tick, measured on its
+    /// path (it was seen two ticks after it was first seen).
+    tick_flight: f32,
 }
 
 /// Seat two admirals and fire the first one's side-B. `admit_rigs` is the
 /// articulated-rig trial switch (`BodyRigAdmission`); the shipped game is off.
+/// How far ahead of its muzzle a hand weapon's shot is born
+/// (`Muzzle::Hand { ahead: 18.0 }`).
+const MUZZLE_AHEAD: f32 = 18.0;
+
+/// Whether a shot first seen at `along` from a hand on its line was born at
+/// that hand: `MUZZLE_AHEAD` in front of it, plus at most one tick of flight,
+/// with a pixel to spare each way.
+///
+/// The window is the shot's own flight, not a loose band. Two hands on one
+/// line (the redrawn admiral holds the gun-sword at the height of the fixed
+/// hand) are told apart only by how far along it each is.
+fn born_at(along: f32, tick_flight: f32) -> bool {
+    (MUZZLE_AHEAD - 1.0..=MUZZLE_AHEAD + tick_flight + 1.0).contains(&along)
+}
+
+/// How far up `origin` is from the line through `hand` along `direction`:
+/// the offset across the line, its upward part (+y is down).
+///
+/// Not `hand.y - origin.y`. The shot is aimed (at the other fighter's
+/// middle), so its line can slope, and a point on a line that slopes down is
+/// lower than the hand by the slope alone: 29 px along a 2° aim is 1 px.
+fn lifted_off_the_line(
+    direction: bevy::math::Vec2,
+    origin: bevy::math::Vec2,
+    hand: bevy::math::Vec2,
+) -> f32 {
+    let offset = origin - hand;
+    -(offset - direction * direction.dot(offset)).y
+}
+
 fn fire_the_side_b(admit_rigs: bool) -> SideB {
     use ambition_platformer2d::actor::MatchSeat;
     use bevy::prelude::*;
@@ -342,7 +378,8 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
                 health_before,
                 other_health(&mut app),
             );
-            shot = Some((found, before, after, hand_before, rig_hand_before, drawn_hand_before, feet_before));
+            let tick_flight = path.get(1).map_or(0.0, |later| found.3.dot(*later - found.2) * 0.5);
+            shot = Some((found, before, after, hand_before, rig_hand_before, drawn_hand_before, feet_before, tick_flight));
             break;
         }
     }
@@ -354,6 +391,7 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
         rig_hand_before,
         drawn_hand_before,
         feet_before,
+        tick_flight,
     ) =
         shot.expect("the admiral's side-B never produced a projectile he owns");
     SideB {
@@ -369,6 +407,7 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
         feet_before,
         shot_half_height,
         rigged,
+        tick_flight,
     }
 }
 
@@ -387,6 +426,7 @@ fn with_rigs_admitted_the_gun_sword_fires_from_the_rig_hand() {
         feet_before,
         shot_half_height,
         rigged,
+        tick_flight,
         ..
     } = fire_the_side_b(true);
     assert!(
@@ -402,10 +442,10 @@ fn with_rigs_admitted_the_gun_sword_fires_from_the_rig_hand() {
     // the feet line: up from the hand's line by at most its half height and
     // the 1 px clearance, never down.
     let along = direction.dot(origin - rig_hand);
-    let lifted = rig_hand.y - origin.y;
+    let lifted = lifted_off_the_line(direction, origin, rig_hand);
     assert!(
-        (-0.5..=shot_half_height + 1.0).contains(&lifted) && (18.0..48.0).contains(&along),
-        "the shot at {origin:?} flying {direction:?} is {lifted} above and \
+        (-0.5..=shot_half_height + 1.0).contains(&lifted) && born_at(along, tick_flight),
+        "the shot at {origin:?} flying {direction:?} ({tick_flight} a tick) is {lifted} above and \
          {along} along from the rig hand {rig_hand:?}: it was not fired from it"
     );
     // ⛔ A SHOT BORN TOUCHING THE GROUND DIES ON ITS FIRST TICK, and this test
@@ -416,10 +456,12 @@ fn with_rigs_admitted_the_gun_sword_fires_from_the_rig_hand() {
         "the shot at {origin:?} reaches the admiral's feet line {feet_before}: \
          it was born touching the ground"
     );
-    // The fixed rider hand is off that line, so this test tells the two apart.
+    // The fixed rider hand does not explain the shot: it is off the line, or
+    // at the wrong distance along it. So this test tells the two apart.
     assert!(
-        direction.perp_dot(origin - hand_before).abs() > 5.0,
-        "the rider hand {hand_before:?} is on the shot's line too, so the rig \
+        direction.perp_dot(origin - hand_before).abs() > 5.0
+            || !born_at(direction.dot(origin - hand_before), tick_flight),
+        "the rider hand {hand_before:?} explains the shot too, so the rig \
          hand was not shown to be the muzzle"
     );
 }

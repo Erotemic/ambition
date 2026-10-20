@@ -177,6 +177,7 @@ mod tests {
             facing: 1.0,
             crossing: None,
             recorded: false,
+            recorded_at: 0.0,
             arrival: None,
             room: None,
         };
@@ -214,6 +215,7 @@ mod tests {
             facing: 1.0,
             crossing: None,
             recorded: false,
+            recorded_at: 0.0,
             arrival: None,
             room: None,
         };

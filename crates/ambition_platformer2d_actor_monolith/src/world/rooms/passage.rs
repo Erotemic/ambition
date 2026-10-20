@@ -127,6 +127,11 @@ pub struct ZonePassage {
     pub crossing: Option<RoomTransitionIntent>,
     /// Going in: the crossing was recorded, and the body waits for its room.
     pub recorded: bool,
+    /// Going in: the seconds into this half at which the crossing was
+    /// admitted. The wait for the crossing ([`CROSSING_GIVE_UP_S`]) starts
+    /// here. A wait for the lifecycle slot, while another operation holds it,
+    /// is not part of it.
+    pub recorded_at: f32,
     /// Going in: the zone it comes out of.
     pub arrival: Option<PassageArrival>,
     /// The live room this half plays in. `None` until its first tick.
@@ -191,6 +196,7 @@ impl ZonePassage {
             facing: if facing < 0.0 { -1.0 } else { 1.0 },
             crossing: Some(crossing),
             recorded: false,
+            recorded_at: 0.0,
             arrival: Some(arrival),
             room: None,
         }
@@ -211,6 +217,7 @@ impl ZonePassage {
             facing: if facing < 0.0 { -1.0 } else { 1.0 },
             crossing: None,
             recorded: false,
+            recorded_at: 0.0,
             arrival: None,
             room,
         }
@@ -440,9 +447,13 @@ pub fn run_zone_passages(
                 // Refused: another lifecycle operation owns this frame; ask
                 // again on the next.
                 passage.recorded = admission.admitted();
+                passage.recorded_at = passage.elapsed;
             }
         }
-        if passage.stage == PassageStage::Entering && passage.recorded && passage.elapsed >= stage_s + CROSSING_GIVE_UP_S {
+        if passage.stage == PassageStage::Entering
+            && passage.recorded
+            && passage.elapsed - passage.recorded_at >= CROSSING_GIVE_UP_S
+        {
             bevy::log::warn!("passage through `{}`: the crossing never arrived; the body is given back", passage.zone);
             // The crossing is withdrawn with the passage. A commit that is
             // only late would otherwise move the body after its player got
@@ -519,6 +530,7 @@ mod tests {
             facing: 1.0,
             crossing: None,
             recorded: false,
+            recorded_at: 0.0,
             arrival: None,
             room: None,
         }
@@ -602,6 +614,63 @@ mod tests {
             None,
             "the passage gave the body back and its crossing is still pending"
         );
+    }
+
+    /// Review b2c36ae4, finding 3. Another operation holds the lifecycle slot
+    /// for longer than the give-up time, so the crossing waits in the queue.
+    /// When the slot comes free the crossing is admitted, and the passage
+    /// waits the full give-up time from then. Measured before: the wait was
+    /// measured from the entry, so the passage gave up on the tick its
+    /// crossing was admitted. Poison: measure from the entry again.
+    #[test]
+    fn a_crossing_admitted_after_a_long_queue_wait_stays_active() {
+        let (mut app, body, crossing) = passage_app();
+        let frames = |seconds: f32| (seconds * 60.0).ceil() as usize + 1;
+        // A second body's crossing, admitted first.
+        let other = LifecycleIntent::Transition(RoomTransitionIntent {
+            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement("partner"),
+                None,
+            ),
+            target_room: "another room".into(),
+            ..crossing.clone()
+        });
+        let _ = app.world_mut().resource_mut::<PendingLifecycleCommit>().record(1, other.clone());
+        for _ in 0..frames(ZonePassage::entering_s(PassageKind::Door) + CROSSING_GIVE_UP_S + 1.0) {
+            app.update();
+        }
+        let waiting = app.world().get::<ZonePassage>(body).expect("premise: the passage waits for the slot");
+        assert!(!waiting.recorded, "premise: the slot is another operation's");
+        assert_eq!(app.world_mut().resource_mut::<PendingLifecycleCommit>().take().map(|p| p.kind), Some(other));
+
+        app.update();
+        assert_eq!(
+            app.world().resource::<PendingLifecycleCommit>().withdrawn.as_ref().map(|withdrawn| &withdrawn.kind),
+            None,
+            "the crossing was withdrawn on the tick the free slot admitted it"
+        );
+        assert_eq!(
+            app.world().resource::<PendingLifecycleCommit>().peek().map(|pending| &pending.kind),
+            Some(&LifecycleIntent::Transition(crossing.clone())),
+            "premise: the free slot admits the crossing"
+        );
+        for _ in 0..frames(CROSSING_GIVE_UP_S - 1.0) {
+            app.update();
+        }
+        assert!(
+            app.world().get::<ZonePassage>(body).is_some_and(|passage| passage.recorded),
+            "the passage gave up a crossing it had waited for for less than {CROSSING_GIVE_UP_S} s"
+        );
+        assert_eq!(
+            app.world().resource::<PendingLifecycleCommit>().peek().map(|pending| &pending.kind),
+            Some(&LifecycleIntent::Transition(crossing)),
+            "the admitted crossing was withdrawn"
+        );
+        // Control: the give-up still comes, a give-up time after the admission.
+        for _ in 0..frames(1.0) {
+            app.update();
+        }
+        assert!(app.world().get::<ZonePassage>(body).is_none(), "the passage never gave up");
     }
 
     /// Control: the give-up withdraws only its own crossing. Another

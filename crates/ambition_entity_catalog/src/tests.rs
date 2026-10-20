@@ -2534,3 +2534,30 @@ fn params_are_read_as_leaves_by_the_path_an_author_reads() {
         ]
     );
 }
+
+/// A part of the params is found by the path its leaves carry, whole: a key,
+/// an index (a nested `ParamValue` is a one-element sequence once a params
+/// struct is written), and through an option. A path that states nothing is
+/// `None`, not an empty part.
+#[test]
+fn a_part_of_the_params_is_found_by_the_path_its_leaves_carry() {
+    #[derive(serde::Serialize)]
+    struct Stance {
+        response_params: ParamValue,
+    }
+    let inner = ParamValue::parse("(scale: 0.35, extra: Some(2.0))").unwrap();
+    let written = ParamValue::from_typed(&Stance { response_params: inner.clone() }).unwrap();
+    assert!(
+        written.leaves().iter().all(|(path, _)| path.starts_with("response_params[0].")),
+        "premise: a nested ParamValue's leaves are under its index: {:?}",
+        written.leaves()
+    );
+    assert_eq!(written.at("response_params[0]"), Some(inner.clone()));
+
+    let authored = ParamValue::parse(r#"(then: Some((pair: ((a: 1.0), (b: 2.0)))))"#).unwrap();
+    assert_eq!(authored.at("then.pair[1]"), Some(ParamValue::parse("(b: 2.0)").unwrap()));
+    assert_eq!(authored.at("then.pair[1].b"), Some(ParamValue::parse("2.0").unwrap()));
+    for absent in ["thne", "then.pair[2]", "then.pair.b", "then.pair[x]", "then..pair"] {
+        assert_eq!(authored.at(absent), None, "`{absent}` stated something");
+    }
+}

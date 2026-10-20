@@ -232,6 +232,49 @@ impl ParamValue {
         out
     }
 
+    /// The params at `path`, in the path syntax of [`leaves`](Self::leaves)
+    /// (`response_params`, `a.b`, `response_params[0]`), or `None` when the
+    /// params state nothing there. A technique that answers with another
+    /// technique hands on a part of its own params by this path, so the part
+    /// keeps its shape (an optional stays optional), which a rebuild from
+    /// leaves would not.
+    ///
+    /// The index matters for a `ParamValue` inside a params struct: RON
+    /// writes the newtype as a one-element sequence, so a module sees its
+    /// leaves under `response_params[0]` and names that.
+    pub fn at(&self, path: &str) -> Option<ParamValue> {
+        // `Some(x)` is `x`, as in `leaves`.
+        fn present(mut value: &ron::Value) -> &ron::Value {
+            while let ron::Value::Option(Some(inner)) = value {
+                value = inner;
+            }
+            value
+        }
+        let mut value = &self.0;
+        for segment in path.split('.') {
+            let (key, indices) = match segment.split_once('[') {
+                Some((key, indices)) => (key, Some(indices)),
+                None => (segment, None),
+            };
+            if !key.is_empty() {
+                let ron::Value::Map(map) = present(value) else {
+                    return None;
+                };
+                value = map.get(&ron::Value::String(key.to_owned()))?;
+            } else if indices.is_none() {
+                return None;
+            }
+            for index in indices.into_iter().flat_map(|indices| indices.split('[')) {
+                let index: usize = index.strip_suffix(']')?.parse().ok()?;
+                let ron::Value::Seq(items) = present(value) else {
+                    return None;
+                };
+                value = items.get(index)?;
+            }
+        }
+        Some(ParamValue(value.clone()))
+    }
+
     /// Parse authored RON param text (`"(rise: 320.0)"`) into a value.
     pub fn parse(ron_text: &str) -> Result<Self, ron::error::SpannedError> {
         Ok(ParamValue(ron::from_str(ron_text)?))

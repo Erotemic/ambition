@@ -12,6 +12,7 @@
 //! | `boss_conduct` | `WorldPrepSet::AfterIntegrate`, after the rider sync, gameplay-gated | trigger `ambition.boss.conduct`; observations `ambition.body.attachments` and `ambition.boss.mount`; requests `ambition.boss.conducted_pose`, `ambition.boss.limb_pose`, `ambition.boss.limb_opening`, `ambition.boss.limb_blow`, `ambition.boss.mount_launch`, `ambition.feedback.speech_bubble`, `ambition.presentation.drawn_row`, `ambition.feedback.burst`, `ambition.feedback.lightning`, `ambition.feedback.lightning_aura`, `ambition.boss.summon` (boss domain), `ambition.combat.held_damage_box`, `ambition.combat.held_ray`, `ambition.combat.riding_hitbox` (combat), `ambition.projectiles.spawn`, `ambition.feedback.body_sound`, `ambition.portal.held_pair` (portal, with the `portal` feature) |
 //! | `module_entity_tick` | `ItemPickupSet::WieldedAbilities`, after `wielded_use`, gameplay-gated | trigger `ambition.world.module_entity_tick`; requests `ambition.feedback.body_sound`, `ambition.feedback.effect`, `ambition.world.launch_toucher`, `ambition.world.pull_bodies` (lowered in `BodyPathSet::Carry`) and `ambition.world.end_module_entity` (`ambition_abilities`), `ambition.projectiles.spawn` |
 //! | `actor_think` | after `ActorDecisionSet::Publish`, before `PlayerInputSet::ControlGate`, gameplay-gated | trigger `ambition.actor.think`; requests `ambition.actor.fire` (`ambition_combat`) and `ambition.motion.velocity` (`ambition_abilities`) |
+//! | `hit_reaction` | `CombatSet::ContentFlavor`, gameplay-gated | trigger `ambition.combat.parried`; request `ambition.combat.answer_parry` (`ambition_combat`) |
 //! | `body_contact` | `WorldPrepSet::AfterIntegrate`, after `boss_conduct`, before `WorldPrepSet::ContactDamage`, gameplay-gated | trigger `ambition.body.contact`; requests `ambition.body.contact_bounce` and `ambition.body.defeat` (`ambition_combat`) |
 
 use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
@@ -22,7 +23,9 @@ pub use ambition_extension_host::ExtensionGeneration;
 
 /// The name of the prepared-content section that holds [`ExtensionGeneration`].
 pub const EXTENSION_MODULES_SECTION: &str = "extension.modules";
-use ambition_extension_sdk::phases::{ACTOR_THINK, BODY_CONTACT, BOSS_CONDUCT, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
+use ambition_extension_sdk::phases::{
+    ACTOR_THINK, BODY_CONTACT, BOSS_CONDUCT, HIT_REACTION, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE,
+};
 use ambition_platformer2d_shared_tangle::schedule::{CombatSet, GameplayGated, ItemPickupSet, SimScheduleExt};
 use bevy::prelude::*;
 
@@ -63,6 +66,8 @@ pub fn install_ports(app: &mut App) {
     // the body they are drawn and heard for.
     ambition_abilities::extension::install_for_body_contact(app);
     ambition_combat::extension::install_for_body_contact(app);
+    // hit_reaction
+    ambition_combat::extension::install_for_hit_reaction(app);
 }
 
 /// Order the phases that depend on each other: an entity spawned in
@@ -105,6 +110,21 @@ impl Plugin for ExtensionCompositionPlugin {
             )
                 .in_set(GameplayGated)
                 .in_set(CombatSet::ContentSpecials),
+        );
+        // `hit_reaction` guarantees: this tick's hits are resolved and the
+        // messages that name them are still readable (they are cleared on a
+        // rewind, so a reader one tick later would diverge between peers),
+        // and a request is consumed this tick. `ContentFlavor` sits between
+        // the resolution and the settlement.
+        app.configure_sets(
+            sim,
+            (
+                ExtensionSet::Collect(HIT_REACTION),
+                ExtensionSet::Invoke(HIT_REACTION),
+                ExtensionSet::Lower(HIT_REACTION),
+            )
+                .in_set(GameplayGated)
+                .in_set(CombatSet::ContentFlavor),
         );
 
         // `wielded_use` guarantees: the body's control frame, kinematics and

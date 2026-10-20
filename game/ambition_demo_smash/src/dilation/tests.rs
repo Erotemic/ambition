@@ -4,46 +4,14 @@ use ambition_platformer2d::characters::brain::action_set::{ActionRequest, Specia
 use ambition_platformer2d::characters::brain::ActorActionMessage;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::smash_time_dilation::{TimeDilationParams, TIME_DILATION};
-use ambition_platformer2d::extension::sdk::phases::TECHNIQUE_EXECUTION;
-use ambition_platformer2d::extension::{ExtensionAppExt as _, ExtensionHostPlugin, ExtensionSet};
-
-/// Where the dilation comes from: linked into the game, or its file built for
-/// `wasm32-unknown-unknown` and loaded, the road a developer edits on.
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Road {
-    Linked,
-    Loaded,
-}
+use crate::module_road::Road;
 
 fn app() -> App {
     app_on(Road::Linked)
 }
 
 fn app_on(road: Road) -> App {
-    let mut app = App::new();
-    app.add_message::<ActorActionMessage>();
-    app.add_plugins(ExtensionHostPlugin::new(Update))
-        .init_resource::<ambition_platformer2d::time::SimTick>()
-        .insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
-    ambition_platformer2d::combat::extension::special::install_for_specials(&mut app);
-    match road {
-        Road::Linked => {
-            app.add_extension_module(ambition_demo_smash_modules::dilation::module());
-        }
-        Road::Loaded => {
-            let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-            let file = ambition_platformer2d::extension::build_module_crate(&root, "ambition_demo_smash_modules")
-                .expect("the Smash module crate builds for wasm32-unknown-unknown");
-            let (backend, mut modules) =
-                ambition_platformer2d::extension::WasmModules::load(&std::fs::read(file).unwrap())
-                    .expect("the module file loads");
-            let key = ambition_demo_smash_modules::dilation::module().key;
-            modules.retain(|module| module.key == key);
-            app.add_loaded_extension_modules("ambition_demo_smash_modules.wasm", backend, modules, false);
-        }
-    }
-    app.finish();
-    app
+    crate::module_road::app_on(road, ambition_demo_smash_modules::dilation::module)
 }
 
 fn victim(app: &mut App) -> Entity {
@@ -185,25 +153,20 @@ fn a_speed_up_or_a_zero_duration_is_refused_rather_than_applied() {
 /// The join: a Witch-Time stance slows the fighter who swung, through the
 /// counter's answer and the module, in the shipped order.
 ///
-/// The counter's tests prove it dispatches to the attacker; the others here
-/// prove the dilation applies a scale. In `lib.rs` the answer runs in
-/// `Settle`, after the specials are lowered, so its `ActorActionMessage` is
-/// read on the following tick. That works because messages survive a frame.
+/// The counter's tests prove it answers on the attacker; the others here
+/// prove the dilation applies a scale. The answer is pressed in
+/// `hit_reaction`, after the specials are lowered, so its
+/// `ActorActionMessage` is read on the following tick. That works because
+/// messages survive a frame.
 #[test]
 fn a_witch_time_stance_slows_the_attacker_across_the_frame_boundary() {
     use ambition_platformer2d::combat::hitbox::ParriedBodyHit;
     use ambition_platformer2d::combat::moveset::MovePlayback;
     use ambition_platformer2d::entity_catalog::smash_counter::CounterParams;
 
-    let mut app = app();
-    app.add_message::<ParriedBodyHit>();
-    app.add_message::<ambition_platformer2d::combat::guard::DeflectedBodyHit>();
-    // The shipped order: the specials are lowered first, the counter's answer
-    // second.
-    app.add_systems(
-        Update,
-        ambition_platformer2d::combat::counter::answer_parries_from_counter_stances
-            .after(ExtensionSet::Lower(TECHNIQUE_EXECUTION)),
+    let mut app = crate::module_road::app_with(
+        Road::Linked,
+        &[ambition_demo_smash_modules::dilation::module, ambition_demo_smash_modules::counter::module],
     );
 
     let stance_params = CounterParams {

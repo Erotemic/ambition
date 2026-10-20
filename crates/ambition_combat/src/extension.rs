@@ -778,11 +778,13 @@ fn lower_body_holds(
 }
 
 pub mod contact;
+pub mod reaction;
 pub mod special;
 pub mod status;
 pub mod targets;
 pub mod think;
 pub use contact::install_for_body_contact;
+pub use reaction::install_for_hit_reaction;
 pub use special::install_for_specials;
 pub use think::install_for_actor_think;
 

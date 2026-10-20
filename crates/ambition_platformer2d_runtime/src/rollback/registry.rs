@@ -113,7 +113,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// clone: the kinds a body holds) enters.
 /// 371 -> 372: the homing dash is a module, its clock and direction a record
 /// on the fighter (`extension.body_records`): `smash.homing_dash` leaves.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 372;
+/// 372 -> 373: a counter's answer is a module's (`ambition.combat.parried`,
+/// `hit_reaction`): `derived.tick_parries` (`TickParries`, the parries an
+/// answer may name, rebuilt each tick) enters.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 373;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

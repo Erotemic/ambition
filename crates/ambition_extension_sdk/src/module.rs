@@ -107,6 +107,16 @@ pub mod phases {
     /// is in `WorldPrepSet::AfterIntegrate` and before
     /// `WorldPrepSet::ContactDamage`.
     pub const BODY_CONTACT: Phase = Phase::new("body_contact");
+
+    /// A body reacts to how this tick's hits came out (a parry it caught, an
+    /// effect its strike carried). Guarantees: this tick's hits are resolved,
+    /// so a reaction reads the hit of this tick and never a leftover of the
+    /// last (a rewind clears a leftover, and a reaction to it would happen on
+    /// one pass and not the other); requests submitted here are consumed
+    /// THIS tick. A technique a reaction asks for is pressed for the next
+    /// tick. In the Ambition runtime this is `CombatSet::ContentFlavor`,
+    /// between `Resolve` and `Settle`.
+    pub const HIT_REACTION: Phase = Phase::new("hit_reaction");
 }
 
 /// The trigger port that starts an entry, and the selector inside that port

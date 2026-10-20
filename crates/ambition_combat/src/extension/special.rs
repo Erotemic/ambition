@@ -59,18 +59,7 @@ pub fn queue_fighter_specials(
         let Ok(kin) = bodies.get(message.actor) else {
             continue;
         };
-        let params = params
-            .leaves()
-            .into_iter()
-            .map(|(path, leaf)| {
-                let value = match leaf {
-                    ParamLeaf::Number(n) => SpecialParam::Number(n as f32),
-                    ParamLeaf::Text(text) => SpecialParam::Text(text),
-                    ParamLeaf::Flag(flag) => SpecialParam::Flag(flag),
-                };
-                (path, value)
-            })
-            .collect();
+        let params = special_params(params);
         invocations.trigger::<FighterSpecialPort>(
             &TECHNIQUE_EXECUTION,
             key.clone(),
@@ -84,6 +73,22 @@ pub fn queue_fighter_specials(
             },
         );
     }
+}
+
+/// Authored params as a module reads them: each leaf by its path.
+pub fn special_params(params: &ambition_entity_catalog::ParamValue) -> Vec<(String, SpecialParam)> {
+    params
+        .leaves()
+        .into_iter()
+        .map(|(path, leaf)| {
+            let value = match leaf {
+                ParamLeaf::Number(n) => SpecialParam::Number(n as f32),
+                ParamLeaf::Text(text) => SpecialParam::Text(text),
+                ParamLeaf::Flag(flag) => SpecialParam::Flag(flag),
+            };
+            (path, value)
+        })
+        .collect()
 }
 
 /// Each strike a module asked for, on the body it ran for, as a move's own

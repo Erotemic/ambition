@@ -19,59 +19,28 @@ use ambition_platformer2d::combat::events::{HitEvent, HitTarget};
 use ambition_platformer2d::combat::hitbox::{LandedBodyHit, ParriedBodyHit};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::smash_riposte::{RiposteStrikeParams, RIPOSTE_STRIKE};
-use ambition_platformer2d::extension::sdk::phases::TECHNIQUE_EXECUTION;
-use ambition_platformer2d::extension::{ExtensionAppExt as _, ExtensionHostPlugin, ExtensionSet};
-use ambition_platformer2d::vfx::VfxInRoom;
+use ambition_platformer2d::extension::sdk::phases::{HIT_REACTION, TECHNIQUE_EXECUTION};
+use ambition_platformer2d::extension::ExtensionSet;
+
+use crate::module_road::{app_with, Road};
 
 fn app() -> App {
     app_on(Road::Linked)
 }
 
-/// Where the riposte module comes from: linked into the game, or its file
-/// built for `wasm32-unknown-unknown` and loaded, the road a developer edits
-/// on.
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Road {
-    Linked,
-    Loaded,
-}
-
+/// The riposte, and the counter whose answer presses it, on `road`, with the
+/// real resolver judging each tick's boxes in the shipped place: after the
+/// specials are lowered, before the hits are reacted to.
 fn app_on(road: Road) -> App {
-    let mut app = App::new();
-    app.add_message::<ActorActionMessage>();
+    let mut app = app_with(road, &[ambition_demo_smash_modules::riposte::module, ambition_demo_smash_modules::counter::module]);
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
-    app.add_message::<ParriedBodyHit>();
-    app.add_message::<ambition_platformer2d::combat::guard::DeflectedBodyHit>();
-    app.add_message::<VfxInRoom>();
-    app.add_plugins(ExtensionHostPlugin::new(Update))
-        .init_resource::<ambition_platformer2d::time::SimTick>()
-        .insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
-    ambition_platformer2d::combat::extension::special::install_for_specials(&mut app);
-    match road {
-        Road::Linked => {
-            app.add_extension_module(ambition_demo_smash_modules::riposte::module());
-        }
-        Road::Loaded => {
-            let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-            let file = ambition_platformer2d::extension::build_module_crate(&root, "ambition_demo_smash_modules")
-                .expect("the Smash module crate builds for wasm32-unknown-unknown");
-            let (backend, mut modules) =
-                ambition_platformer2d::extension::WasmModules::load(&std::fs::read(file).unwrap())
-                    .expect("the module file loads");
-            // The file holds every Smash module; this fixture offers the
-            // ports of the riposte only.
-            let key = ambition_demo_smash_modules::riposte::module().key;
-            modules.retain(|module| module.key == key);
-            app.add_loaded_extension_modules("ambition_demo_smash_modules.wasm", backend, modules, false);
-        }
-    }
     app.add_systems(
         Update,
         ambition_platformer2d::combat::hitbox::apply_hitbox_damage
-            .after(ExtensionSet::Lower(TECHNIQUE_EXECUTION)),
+            .after(ExtensionSet::Lower(TECHNIQUE_EXECUTION))
+            .before(ExtensionSet::Collect(HIT_REACTION)),
     );
-    app.finish();
     app
 }
 
@@ -431,11 +400,6 @@ fn a_parry_answered_with_the_blade_cuts_the_attacker() {
     playback.t = (stance.start_s + stance.end_s) * 0.5;
 
     let mut app = app();
-    app.add_systems(
-        Update,
-        ambition_platformer2d::combat::counter::answer_parries_from_counter_stances
-            .before(ExtensionSet::Collect(TECHNIQUE_EXECUTION)),
-    );
 
     let defender = fighter(&mut app, 0, ae::Vec2::new(100.0, 50.0), 1.0);
     app.world_mut().entity_mut(defender).insert(playback);
@@ -447,8 +411,9 @@ fn a_parry_answered_with_the_blade_cuts_the_attacker() {
         hitbox: attacker,
         contact: ae::Vec2::new(120.0, 50.0),
     });
-    // The response is written on the first tick; its cut resolves on the
-    // second.
+    // The answer is pressed on the first tick, after its specials, as in the
+    // game; the second spawns its cut; the third resolves it.
+    app.update();
     app.update();
     app.update();
 

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v372
+ggrs-rollback-schema-v373
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -207,6 +207,7 @@ derived.room_combat_tuning	derived	RoomCombatTuning	refolded on each live room r
 derived.room_navigation	derived	RoomNavigation	a cache of surface graphs, each a pure function of a room's authored geometry and a body's tuning
 derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
 derived.surface_upright	derived	SurfaceUpright	republished from support facts every movement step
+derived.tick_parries	derived	TickParries	written again in each tick's hit_reaction collect and read only by that tick's lowering
 derived.wallet_shield	derived	BodyWalletShield	re-derived from the worn character and the room's rules every tick, before any hit is resolved
 derived.weapon_readiness	derived	BodyWeaponReadiness	re-derived every tick from the fire-rate floor, the authored action and the shots in flight, before the prompt reads it
 dynamic.projectile	dynamic-anchor	ProjectileGameplay	Rollback entity recreation plus the complete projectile component family

@@ -731,7 +731,10 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // It holds the parry window open each tick of the stance
         // (`ambition.combat.parry_window`, lowered in `ContentSpecials`, inside
         // `Materialize`: after the stance's effect is emitted in `Playback`
-        // and before `apply_hitbox_damage` judges in `Resolve`).
+        // and before `apply_hitbox_damage` judges in `Resolve`), and answers a
+        // parry caught in it (`ambition.combat.parried`, `hit_reaction`). The
+        // answer lands on the next tick: its `ActorActionMessage` is read in
+        // `Materialize`, which has passed. The wait makes the catch visible.
         ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_counter::COUNTER,
@@ -748,20 +751,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             },
             ambition_demo_smash_modules::counter::module(),
         );
-        // Counter answer, once the verdict is in. `Settle` needs no explicit
-        // edge: `ParriedBodyHit` is written in the earlier `Resolve` phase. An
-        // explicit edge is needed only for a message written in the reader's
-        // own set.
-        //
-        // The response lands on the next tick: its `ActorActionMessage` is read
-        // in `Materialize`, which has passed. The wait makes the catch visible.
-        app.add_systems(
-            sim,
-            ambition_platformer2d::combat::counter::answer_parries_from_counter_stances
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
-                .in_set(FIGHTER_SPECIALS),
-        );
-
         // Shark summon, in `ContentSpecials`: it must produce its effects
         // before the effect executors run (`ContentSpecials.before(
         // EffectExecutionSet)`). Name the set; do not add a leaf-to-leaf edge.

@@ -736,10 +736,9 @@ before you add a port.
     more than 0 is refused. Smash's stance (`smash.counter`) is the module
     `ambition_demo_smash_modules::counter`, asked each tick the stance is
     live. What a caught parry answers with is the stance's authored data,
-    and the answer moved from the demo to the combat engine as shared
-    vocabulary, as capture's is (`ambition_combat::counter::
-    answer_parries_from_counter_stances`, in `Settle`, gated with the
-    demo's specials). `FighterSpecial::flag` reads a flag param. Witnesses:
+    which the same module answers since the hit-reaction primitive below
+    (the engine answer this entry first moved into `ambition_combat` is
+    deleted). `FighterSpecial::flag` reads a flag param. Witnesses:
     the counter tests of `ambition_demo_smash` (the riposte answer, the
     Witch-Time target, no answer outside the stance, a parry without a
     shield) and the module-road arms
@@ -802,6 +801,35 @@ before you add a port.
     in place of the first; no cone; the entries in the other order without
     `after` (with `after` that order is green); a wasm-only drift of the
     direction.
+  - Module primitive: a reaction to a hit ✅ (2026-10-20). A phase,
+    `hit_reaction` (`CombatSet::ContentFlavor`: after this tick's hits are
+    resolved and while the messages that name them are still readable, which
+    a reader one tick later is not on a rewind), where a module decides what
+    a body does about how its hits came out. The first trigger is
+    `ambition.combat.parried`: a parry the scope caught while a live window
+    of its move sustains a bound effect (the first bound one, so an unbound
+    effect in an earlier window hides nothing), with that effect's params.
+    The request `ambition.combat.answer_parry` presses a technique on the
+    defender or the attacker with the part of the stance's params at a path
+    (`ParamValue::at`, in the syntax of the params' leaves: a params struct
+    writes a nested `ParamValue` as a one-element sequence, so a shipped
+    stance's are at `response_params[0]`); a parry the scope did not catch
+    and a path the stance states nothing at are refused. The parries an
+    answer may name are `TickParries` (derived, schema 373). Smash's counter
+    answer is the entry `smash.counter_answer` of
+    `ambition_demo_smash_modules::counter`, and
+    `ambition_combat::counter` is deleted. Witnesses:
+    `ambition_combat extension::reaction::tests` (the body and the params an
+    answer names; startup, recovery, an unbound effect and a layered window;
+    a poached and a stale parry; a misspelt path), the module's answer test,
+    `the_answer_from_its_module_file_is_the_linked_one` (runner `Loaded`),
+    and the joins `a_parry_answered_with_the_blade_cuts_the_attacker` and
+    `a_witch_time_stance_slows_the_attacker_across_the_frame_boundary`, now
+    on the module road with both modules. Poisons, each red at its own
+    assertion: no defender check; no live-window filter; no bound filter;
+    the answer always on the defender (in the adapter and in the module);
+    the path ignored; an absent path pressed with no params; the module
+    naming the unwrapped path; the loaded road linking the module.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

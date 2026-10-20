@@ -21,6 +21,7 @@ pub mod lightning;
 pub mod module_entity;
 pub mod motion;
 pub mod ray;
+pub mod reaction;
 pub mod riding;
 pub mod slow;
 pub mod special;
@@ -28,6 +29,7 @@ pub mod status;
 pub mod targets;
 pub mod think;
 pub mod wielded;
+pub use reaction::{AnswerParry, AnswerParryPort, Parried, ParriedPort};
 pub use targets::{Foe, Foes, FoesPort};
 pub use status::{HoldStatus, HoldStatusPort, StatusTick, StatusTickPort, TimeScale, TimeScalePort};
 pub use module_entity::{

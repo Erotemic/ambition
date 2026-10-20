@@ -3,9 +3,10 @@
 //! The stance is the module `ambition_demo_smash_modules::counter`: each
 //! tick it is live, it holds its fighter's parry window open
 //! (`ambition.combat.parry_window`). A parry caught in the stance answers with
-//! the stance's authored technique (`ambition_combat::counter`), so the
-//! response is a technique key: `smash.capture_attempt` gives a
-//! parry-into-grab; a slow gives Witch Time.
+//! the stance's authored technique, which the same module decides in
+//! `hit_reaction` (`ambition.combat.parried`), so the response is a technique
+//! key: `smash.capture_attempt` gives a parry-into-grab; a slow gives Witch
+//! Time.
 //!
 //! What stays here are the tests of the counter this game authors.
 
@@ -16,7 +17,6 @@ mod tests {
     use crate::module_road::{app_on, runner_of, Road};
     use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
     use ambition_platformer2d::characters::brain::ActorActionMessage;
-    use ambition_platformer2d::combat::counter::answer_parries_from_counter_stances;
     use ambition_platformer2d::combat::hitbox::ParriedBodyHit;
     use ambition_platformer2d::combat::moveset::MovePlayback;
     use ambition_platformer2d::engine_core as ae;
@@ -35,17 +35,7 @@ mod tests {
             .expect("the shared contract authors a riposte")
     }
 
-    /// The answer to a caught parry, as the engine gives it.
-    fn app_with_counter_systems() -> App {
-        let mut app = App::new();
-        app.add_message::<ActorActionMessage>();
-        app.add_message::<ParriedBodyHit>();
-        app.add_message::<ambition_platformer2d::combat::guard::DeflectedBodyHit>();
-        app.add_systems(Update, answer_parries_from_counter_stances);
-        app
-    }
-
-    /// The stance through its module on `road`.
+    /// The stance and its answer through its module on `road`.
     fn stance_app(road: Road) -> App {
         app_on(road, ambition_demo_smash_modules::counter::module)
     }
@@ -93,7 +83,7 @@ mod tests {
         let mut playback = MovePlayback::new(riposte, 1.0);
         playback.t = (stance.start_s + stance.end_s) * 0.5;
 
-        let mut app = app_with_counter_systems();
+        let mut app = stance_app(Road::Linked);
         let defender = app.world_mut().spawn(playback).id();
         let attacker = app.world_mut().spawn_empty().id();
         app.world_mut().write_message(ParriedBodyHit {
@@ -132,7 +122,7 @@ mod tests {
     #[test]
     fn a_stance_that_answers_the_attacker_aims_there_and_the_others_still_do_not() {
         let aimed_at = |answers_the_attacker: bool| -> Vec<Entity> {
-            let mut app = app_with_counter_systems();
+            let mut app = stance_app(Road::Linked);
             let defender = app.world_mut().spawn_empty().id();
             let attacker = app.world_mut().spawn_empty().id();
             let mut spec = shipped_riposte();
@@ -195,7 +185,7 @@ mod tests {
         let mut playback = MovePlayback::new(riposte, 1.0);
         playback.t = (recovery.start_s + recovery.end_s) * 0.5;
 
-        let mut app = app_with_counter_systems();
+        let mut app = stance_app(Road::Linked);
         let defender = app.world_mut().spawn(playback).id();
         let attacker = app.world_mut().spawn_empty().id();
         app.world_mut().write_message(ParriedBodyHit {
@@ -290,5 +280,37 @@ mod tests {
         stand(&mut app, body, f32::INFINITY, true);
         let shield = shield(&app, body);
         assert_eq!((shield.parry_window_timer, shield.absorb_window_timer), (0.0, 0.0), "an endless window was held");
+    }
+
+    /// The loaded file answers a parry as the linked module does: the same
+    /// technique on the same body. Its runner is the loaded file.
+    #[test]
+    fn the_answer_from_its_module_file_is_the_linked_one() {
+        let mut answers_on = Vec::new();
+        for road in [Road::Linked, Road::Loaded] {
+            let riposte = shipped_riposte();
+            let stance = riposte.windows[1].clone();
+            let mut playback = MovePlayback::new(riposte, 1.0);
+            playback.t = (stance.start_s + stance.end_s) * 0.5;
+            let mut app = stance_app(road);
+            let runner = runner_of(&app, ambition_demo_smash_modules::counter::ANSWER);
+            assert_eq!(runner.starts_with("Loaded"), road == Road::Loaded, "{road:?}: {runner}");
+            let defender = app.world_mut().spawn(playback).id();
+            let attacker = app.world_mut().spawn_empty().id();
+            app.world_mut().write_message(ParriedBodyHit { defender, attacker, hitbox: attacker, contact: ae::Vec2::ZERO });
+            app.update();
+            let answers: Vec<(bool, String)> = app
+                .world_mut()
+                .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+                .drain()
+                .filter_map(|m| match m.request {
+                    ActionRequest::Special { spec: SpecialActionSpec::Special(key), .. } => Some((m.actor == defender, key)),
+                    _ => None,
+                })
+                .collect();
+            answers_on.push(answers);
+        }
+        assert_eq!(answers_on[1], answers_on[0], "the loaded answer differs from the linked one");
+        assert_eq!(answers_on[0], vec![(true, CAPTURE_ATTEMPT.to_string())], "premise: the linked stance answers");
     }
 }

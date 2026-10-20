@@ -34,7 +34,6 @@ pub mod capture;
 pub mod causal;
 pub mod clank;
 pub mod components;
-pub mod counter;
 pub mod crowd;
 /// What a death MEANS for the run — the interlude and the roster question that
 /// decides a level reset (ADR 0033).

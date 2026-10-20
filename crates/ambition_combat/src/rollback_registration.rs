@@ -334,6 +334,11 @@ where
         "derived.contact_touchers",
         "written again in each tick's body_contact collect and read only by that tick's lowering",
     );
+    registrar.declare_rollback_derived_resource::<crate::extension::reaction::TickParries>(
+        OWNER,
+        "derived.tick_parries",
+        "written again in each tick's hit_reaction collect and read only by that tick's lowering",
+    );
     registrar.declare_rollback_derived_resource::<crate::rules::ResolvedCombatTuning>(
         OWNER,
         "derived.resolved_combat_tuning",

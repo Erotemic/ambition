@@ -30,10 +30,13 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 
 # (file, system, the set it must be registered in, why that phase and no other)
 #
-# BOTH halves of the Limit are listed, because each is an accumulator and each is
-# wrong in the OTHER's phase. The damage half read a frame late and broke
-# rollback; the authored half would read a press a frame late and pay a move that
-# had already ended. One rule, two directions.
+# The damage half of the Limit. The authored half (a move's fill) is the
+# module `ambition_demo_smash_modules::limit`, lowered by the refill adapter;
+# it is checked below, because an extension request is placed by its phase,
+# not by an `.in_set` beside its name. Each half is an accumulator and each
+# is wrong in the OTHER's phase. The damage half read a frame late and broke
+# rollback; the authored half would read a press a frame late and pay a move
+# that had already ended. One rule, two directions.
 ACCUMULATORS = [
     (
         "game/ambition_demo_smash/src/lib.rs",
@@ -46,17 +49,30 @@ ACCUMULATORS = [
         "with `BodyMana` diverging. An ACCUMULATING damage reader belongs in `ContentFlavor`, "
         "between `Resolve` and `Settle`, where every hit is read on the frame it was emitted.",
     ),
-    (
-        "game/ambition_demo_smash/src/lib.rs",
-        "apply_authored_meter_fills",
-        "ContentSpecials",
-        "the authored half reads `ActorActionMessage`, and `ContentSpecials` is the phase whose "
-        "own doc promises that \"a special dispatched this frame reaches its content technique "
-        "THIS frame\". Moved later it would read the press out of the second buffer on the "
-        "following frame — the same cross-frame read, in the same direction, on a different "
-        "channel.",
-    ),
 ]
+
+
+def test_the_authored_fill_is_lowered_in_content_specials():
+    """The authored half reads the press in `technique_execution`, whose
+    `Lower` set the composition places in `ContentSpecials`: the phase whose
+    own doc promises that a special dispatched this frame reaches its
+    technique THIS frame. Moved later it would read the press out of the
+    second buffer on the following frame — the same cross-frame read, in the
+    same direction, on a different channel."""
+    adapter = (REPO / "crates/ambition_combat/src/extension/special.rs").read_text()
+    assert re.search(
+        r"install_extension_request::<RefillResourcePort, _>\(\s*TECHNIQUE_EXECUTION,[^)]*lower_refills\)",
+        adapter,
+    ), "the refill adapter is no longer installed in `technique_execution`"
+    composition = (REPO / "crates/ambition_platformer2d_runtime/src/extension_composition.rs").read_text()
+    placement = re.search(
+        r"ExtensionSet::Lower\(TECHNIQUE_EXECUTION\),\s*\)\s*\.in_set\(GameplayGated\)\s*\.in_set\(CombatSet::(\w+)\)",
+        composition,
+    )
+    assert placement, "could not find where the composition places `technique_execution`"
+    assert placement.group(1) == "ContentSpecials", (
+        f"`technique_execution` is placed in `{placement.group(1)}`, not `ContentSpecials`"
+    )
 
 
 def test_damage_reactive_fills_are_registered_after_resolve():

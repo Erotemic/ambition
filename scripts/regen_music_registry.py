@@ -133,6 +133,7 @@ DISPLAY_NAMES = {
     "shoulders_at_rest": "Shoulders at Rest",
     "tritone_decree": "The Tritone Decree",
     "phrygian_furnace": "The Phrygian Furnace",
+    "iron_toccata": "The Iron Toccata",
     "the_algorithm_knows_youre_lonely": "The Algorithm Knows You're Lonely",
     "series_a_bloodbath": "Series A Bloodbath",
     "flying_spaghetti_monster_stage": "Flying Spaghetti Monster (Stage)",

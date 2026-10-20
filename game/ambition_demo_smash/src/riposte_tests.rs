@@ -433,10 +433,7 @@ fn a_parry_answered_with_the_blade_cuts_the_attacker() {
     let mut app = app();
     app.add_systems(
         Update,
-        (
-            crate::counter::hold_counter_parry_windows,
-            crate::counter::answer_a_parry_with_the_authored_counter,
-        )
+        ambition_platformer2d::combat::counter::answer_parries_from_counter_stances
             .before(ExtensionSet::Collect(TECHNIQUE_EXECUTION)),
     );
 

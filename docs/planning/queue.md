@@ -123,7 +123,14 @@ a live reload is a second priority. Work in this order:
    with the ports each one needs. Since 2026-10-18 Smash's riposte and placed
    spring are modules (`ambition_demo_smash_modules`, special routes F1 and
    F2: a fighter's special, a body strike, a module entity a move drops, its
-   touchers and a throw); an edit to one is a 0.6 s module build.
+   touchers and a throw); an edit to one is a 0.6 s module build. Since
+   2026-10-20 the song, the time dilation, the move fill of the Limit and the
+   counter stance are modules too (routes F3 to F6). Jon ruled the same day
+   that the remaining specials move on general primitives, not one engine
+   mechanic per move: the first is a body's statuses
+   (`ambition.body.hold_status`, `ambition.body.status_tick`), on which the
+   dilation keeps its own clock; the homing dash followed (route F7) on the
+   foes of a body (`ambition.combat.foes`).
    Second priority, and only where a recompile does not depend on it: the
    live-reload remainder (a restated schema inside a live session, sprite
    publication inside a session). A live reload for the demo packs' tuning

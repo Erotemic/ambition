@@ -107,7 +107,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// engine, which now owns the countdown (`ambition.combat.dilate_time`):
 /// `smash.time_dilated` leaves and `body.time_dilated` (`TimeDilated`, clone,
 /// the same `f32`) enters.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 370;
+/// 370 -> 371: a body's statuses (`ambition.body.hold_status`): the combat
+/// engine no longer keeps a dilation's clock, its module does in its body
+/// records. `body.time_dilated` leaves and `body.statuses` (`BodyStatuses`,
+/// clone: the kinds a body holds) enters.
+/// 371 -> 372: the homing dash is a module, its clock and direction a record
+/// on the fighter (`extension.body_records`): `smash.homing_dash` leaves.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 372;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

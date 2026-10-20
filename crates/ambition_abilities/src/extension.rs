@@ -77,9 +77,15 @@ pub fn install(app: &mut App) {
     );
 }
 
-/// Install the module-entity spawn and the effect in `technique_execution`: a
-/// move's special can put an entity on the stage (a plate) and announce it.
+/// Install the module-entity spawn, the effect and the velocity in
+/// `technique_execution`: a move's special can put an entity on the stage (a
+/// plate), announce it, and set its fighter's motion (a dash).
 pub fn install_for_technique_execution(app: &mut App) {
+    app.install_extension_request::<SetVelocityPort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_abilities",
+        lower_velocities::<InTechniqueExecution>,
+    );
     app.install_extension_request::<SpawnModuleEntityPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_abilities",

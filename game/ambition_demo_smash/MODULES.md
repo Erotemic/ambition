@@ -9,27 +9,25 @@
 | [`bolt`](src/bolt.rs) | The steered bolt: a thing you fly with the same stick you walk with. |
 | [`bomb`](src/bomb.rs) | A live bomb on the stage: the ruleset half of `smash.drop_bomb`. |
 | [`capture`](src/capture.rs) | Capture's authored-effect chain, exercised end to end. |
-| [`counter`](src/counter.rs) | The counter, assembled from parts the engine already had. |
-| [`dilation`](src/dilation.rs) | The game half of `smash.time_dilation`: who is slow, and for how long. |
+| [`counter`](src/counter.rs) | The counter, end to end in this game. |
+| [`dilation`](src/dilation.rs) | Time dilation: a fighter on a slower clock for a while. |
 | [`homing`](src/homing.rs) | The homing dash: the fighter is carried at whoever they were pointing at. |
 | [`limit`](src/limit.rs) | The game half of the Limit meter: who gains what, and when. |
 | [`mark`](src/mark.rs) | The delayed mark: a clock riding on the body that was hit. |
 | [`mine`](src/mine.rs) | The remote mine: a stage object that answers to one fighter and nobody else. |
 | [`motion`](src/motion.rs) | The smash ruleset's commanded-velocity seam (ADR 0024, authority #4). |
 | [`portal`](src/portal.rs) | The portal recovery, assembled from the portal crate's own parts. |
-| [`riposte`](src/riposte.rs) | The answering cut: a parry's response that hits back. |
 | [`rules`](src/rules.rs) | The `smash_rules` schema: the demo's own match flow and summon tuning, as data in its pack (`assets/data/smash_rules.ron`). |
 | [`select`](src/select.rs) | Pure character-select state for up to four match seats. |
 | [`select_screen`](src/select_screen.rs) | Smash character-select presentation and cursor interaction. |
 | [`shark_ride`](src/shark_ride.rs) | The pirate's up-special: summon a burning flying shark and ride it. |
 | [`sing`](src/sing.rs) | Sing: an area that takes the floor away from whoever stood too close. |
 | [`smash_pack`](src/smash_pack.rs) | The Smash demo's content pack. |
-| [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
 | [`stages`](src/stages.rs) | The `smash_stages` schema: Smash's stages, as data in its pack (`assets/data/smash_stages.ron`). |
 | [`tether`](src/tether.rs) | The tether reel: she throws a line at a ledge and it pulls her to it. |
 | [`text`](src/text.rs) | The lines Smash shows, as data in its pack (`assets/data/smash_text.ron`): the match's cards, the select screen, the pause offer and the launcher row. |
 
-_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

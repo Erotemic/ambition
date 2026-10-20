@@ -21,10 +21,13 @@ pub enum Road {
 pub fn app_on(road: Road, module: fn() -> ModuleDescriptor) -> App {
     let mut app = App::new();
     app.add_message::<ActorActionMessage>();
+    app.add_message::<ambition_platformer2d::vfx::vfx::VfxInRoom>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_plugins(ExtensionHostPlugin::new(Update))
         .init_resource::<ambition_platformer2d::time::SimTick>()
         .insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
     ambition_platformer2d::combat::extension::special::install_for_specials(&mut app);
+    ambition_platformer2d::abilities::extension::install_for_technique_execution(&mut app);
     match road {
         Road::Linked => {
             app.add_extension_module(module());

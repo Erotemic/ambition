@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v370
+ggrs-rollback-schema-v372
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -102,8 +102,8 @@ body.resources	component-canonical	ActorResources	bevy_ggrs canonical codec snap
 body.restart_latch	component-canonical	BodyRestartLatch	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.shield	component-canonical	BodyShieldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.sim_id_counter	component-canonical	SimIdCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.statuses	component-clone	BodyStatuses	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 body.sweep_sample	component-canonical	SweepSample	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.time_dilated	component-clone	TimeDilated	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 body.unmirrored	component-canonical	Unmirrored	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.wall	component-canonical	BodyWallState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.wallet	component-canonical	BodyWallet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -517,7 +517,6 @@ session.room_departure	component-clone	Departure	bevy_ggrs clone snapshot; value
 smash.body_mark	component-clone	BodyMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.departing_mount	component-clone	Departing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.hold_state	component-canonical	SmashHoldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-smash.homing_dash	component-clone	HomingDash	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.live_bomb	component-clone	LiveBomb	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.move_placed_portal	component-clone	MovePlacedPortal	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.placed_mine	component-clone	PlacedMine	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

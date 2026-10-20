@@ -60,6 +60,11 @@ impl FighterSpecial {
     pub fn text(&self, path: &str) -> Option<&str> {
         text_at(&self.params, path)
     }
+
+    /// The flag at `path`, or `None` when the move states none there.
+    pub fn flag(&self, path: &str) -> Option<bool> {
+        flag_at(&self.params, path)
+    }
 }
 
 /// The number at `path` of authored params, or `None` when they state none
@@ -76,6 +81,15 @@ pub fn number_at(params: &[(String, SpecialParam)], path: &str) -> Option<f32> {
 pub fn text_at<'a>(params: &'a [(String, SpecialParam)], path: &str) -> Option<&'a str> {
     params.iter().find_map(|(at, value)| match value {
         SpecialParam::Text(text) if at == path => Some(text.as_str()),
+        _ => None,
+    })
+}
+
+/// The flag at `path` of authored params, or `None` when they state none
+/// there.
+pub fn flag_at(params: &[(String, SpecialParam)], path: &str) -> Option<bool> {
+    params.iter().find_map(|(at, value)| match value {
+        SpecialParam::Flag(flag) if at == path => Some(*flag),
         _ => None,
     })
 }
@@ -236,55 +250,6 @@ impl Port for SleepAreaPort {
     }
 }
 
-/// The request port marker for a slowed clock on the body.
-///
-/// Port card:
-///
-/// * **Operation** — the body the invocation ran for runs on a clock at
-///   `scale` of the world's for `seconds` of world time, and then on its own
-///   clock again. A newer dilation replaces the scale and the remainder, so
-///   two slows do not multiply. A `scale` outside `0 ≤ scale < 1` or a time
-///   that is not more than 0 is refused: a slow is the only direction, and a
-///   slow with no end is never taken away.
-/// * **Owner** — `ambition_combat::extension::special`, which writes the
-///   body's `ProperTimeScale` and owns the countdown (`TimeDilated`).
-/// * **Scope** — the body the invocation ran for. A counter's answer that
-///   names the attacker runs for the attacker (`answers_the_attacker`).
-/// * **Time** — `technique_execution`. The body's own step reads the scale
-///   from the next tick, and the countdown spends world seconds from the next
-///   tick, so `seconds` of N ticks slow N ticks.
-/// * **Read model** — world seconds: a countdown on the slowed clock would
-///   stretch itself.
-pub struct DilateTimePort;
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct DilateTime {
-    pub scale: f32,
-    pub seconds: f32,
-}
-
-impl DilateTime {
-    /// Whether the owner applies it (see the port card).
-    pub fn is_a_slow(&self) -> bool {
-        (0.0..1.0).contains(&self.scale) && self.seconds.is_finite() && self.seconds > 0.0
-    }
-}
-
-impl Port for DilateTimePort {
-    const KEY: PortKey = PortKey::new("ambition.combat.dilate_time", 1);
-    const ROLE: PortRole = PortRole::Request;
-    type Value = DilateTime;
-
-    fn encode(v: &DilateTime, out: &mut Vec<u8>) {
-        wire::put_f32(out, v.scale);
-        wire::put_f32(out, v.seconds);
-    }
-
-    fn decode(r: &mut WireReader<'_>) -> Result<DilateTime, WireError> {
-        Ok(DilateTime { scale: r.f32()?, seconds: r.f32()? })
-    }
-}
-
 /// The request port marker for a refill of one of the body's resources.
 ///
 /// Port card:
@@ -323,9 +288,58 @@ impl Port for RefillResourcePort {
     }
 }
 
+/// The request port marker for a parry window held open.
+///
+/// Port card:
+///
+/// * **Operation** — the body the invocation ran for parries any qualifying
+///   attack for at least `window_s` from now (its guard's parry window is the
+///   longer of the one it has and this one). With `absorbs_projectiles`, it
+///   also absorbs a projectile for as long. It does not raise the body's
+///   shield: a parry window is not a guard, so it buys no blocking and costs
+///   no guard. A window that is not finite or not more than 0 is refused.
+/// * **Owner** — `ambition_combat::extension::special`, through the body's
+///   `BodyShieldState`.
+/// * **Scope** — the body the invocation ran for.
+/// * **Time** — `technique_execution`, before the tick's hits resolve, so a
+///   window asked for this tick catches this tick's attack. A stance that
+///   asks every tick it is live holds the window open, since the window
+///   decays.
+pub struct ParryWindowPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ParryWindow {
+    pub window_s: f32,
+    pub absorbs_projectiles: bool,
+}
+
+impl Port for ParryWindowPort {
+    const KEY: PortKey = PortKey::new("ambition.combat.parry_window", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = ParryWindow;
+
+    fn encode(v: &ParryWindow, out: &mut Vec<u8>) {
+        wire::put_f32(out, v.window_s);
+        wire::put_bool(out, v.absorbs_projectiles);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<ParryWindow, WireError> {
+        Ok(ParryWindow { window_s: r.f32()?, absorbs_projectiles: r.bool()? })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A parry window decodes to what was encoded.
+    #[test]
+    fn a_parry_window_crosses_the_wire_unchanged() {
+        let window = ParryWindow { window_s: 0.05, absorbs_projectiles: true };
+        let mut bytes = Vec::new();
+        ParryWindowPort::encode(&window, &mut bytes);
+        assert_eq!(ParryWindowPort::decode(&mut WireReader::new(&bytes)).unwrap(), window);
+    }
 
     /// A refill decodes to what was encoded.
     #[test]
@@ -334,15 +348,6 @@ mod tests {
         let mut bytes = Vec::new();
         RefillResourcePort::encode(&refill, &mut bytes);
         assert_eq!(RefillResourcePort::decode(&mut WireReader::new(&bytes)).unwrap(), refill);
-    }
-
-    /// A dilation decodes to what was encoded.
-    #[test]
-    fn a_dilation_crosses_the_wire_unchanged() {
-        let dilation = DilateTime { scale: 0.35, seconds: 0.45 };
-        let mut bytes = Vec::new();
-        DilateTimePort::encode(&dilation, &mut bytes);
-        assert_eq!(DilateTimePort::decode(&mut WireReader::new(&bytes)).unwrap(), dilation);
     }
 
     /// A sleep area decodes to what was encoded.

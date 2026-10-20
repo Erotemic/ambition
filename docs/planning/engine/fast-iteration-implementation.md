@@ -690,26 +690,25 @@ before you add a port.
     adds; a wasm-only drift of the time. Cost: an edit to the song builds the
     module file in 0.61 s, and the Ambition app, whose performer and Shadow
     Oni leader sing, loads it with no relink (`AMBITION_EXTENSION_MODULES`).
-  - Special route F4 ✅ (2026-10-20): a special that changes a body's clock.
-    The request `ambition.combat.dilate_time` runs the body the invocation ran
-    for at a scale of the world's clock for some world seconds; a newer one
-    replaces the scale and the remainder (slows do not multiply), and a scale
-    outside `0 ≤ scale < 1` or a time not more than 0 is refused. The combat
-    engine owns the clock: `lower_time_dilations` spends each `TimeDilated`
-    on the world clock and gives the body `ProperTimeScale::ONE` back, then
-    applies this tick's requests, so N authored ticks slow N ticks. The
-    remainder's rollback row moved with it (`smash.time_dilated` →
-    `body.time_dilated`, schema 370). Smash's time dilation is the module
-    `ambition_demo_smash_modules::dilation`; the native systems are deleted.
-    The clerk's Witch-Time still slows the attacker: the counter's answer
-    runs for the attacker, and the module slows whoever it runs for.
-    Witnesses: the seven tests of `ambition_demo_smash dilation::tests` on the
-    module road, among them
+  - Special route F4 ✅ (2026-10-20, redone the same day on the status
+    primitive below): a special that changes a body's clock. Smash's time
+    dilation is the module `ambition_demo_smash_modules::dilation`, clock and
+    all: it sets the slowed body's scale (`ambition.body.time_scale`), keeps
+    the remainder in a record on that body, spends it each tick of its status
+    `smash.dilated` on the world's step, and gives the body its own clock
+    back at the end; a newer dilation replaces the scale and the remainder.
+    Its spend entry runs before its dilation entry (`after`), so a dilation
+    of N ticks slows N ticks, a replacing one included. The first version put
+    the clock in the combat engine (`ambition.combat.dilate_time`,
+    `TimeDilated`); both are deleted. Witnesses: the eight tests of
+    `ambition_demo_smash dilation::tests` on the module road, among them
     `the_dilation_from_its_module_file_slows_as_the_linked_one_does` (runner
-    `Loaded`), the Witch-Time join and the exact tick count. Poisons, each red
-    at its own assertion: the countdown after the apply (the tick count);
-    no restore; slows that multiply; no refusal; a wasm-only drift of the time.
-    Cost: an edit to the dilation builds the module file in 0.59 s.
+    `Loaded`), the Witch-Time join, the exact tick counts and
+    `a_dilation_that_replaces_another_buys_exactly_its_own_ticks`. Poisons,
+    each red at its own assertion: no restore at the end; the entries
+    declared in the other order without the `after` edge (red at the
+    replacement count; the same order with the edge is green); a wasm-only
+    drift of the time.
   - Special route F5 ✅ (2026-10-20): a special that fills a meter. The
     request `ambition.resources.refill` adds an amount to the resource the
     request names (a resource id) on the body the invocation ran for, up to
@@ -729,6 +728,80 @@ before you add a port.
     whatever its name (red at "filled a body's OTHER resource"); no fill; a
     wasm-only drift of the amount. Cost: an edit to the fill builds the module
     file in 0.55 s.
+  - Special route F6 ✅ (2026-10-20): a counter stance. The request
+    `ambition.combat.parry_window` holds the body's parry window open for at
+    least a time (the longer of the guard's and the asked one, so a stance's
+    re-arm never cuts it short), and with `absorbs_projectiles` its absorb
+    too; it never raises the shield, and a window that is not finite or not
+    more than 0 is refused. Smash's stance (`smash.counter`) is the module
+    `ambition_demo_smash_modules::counter`, asked each tick the stance is
+    live. What a caught parry answers with is the stance's authored data,
+    and the answer moved from the demo to the combat engine as shared
+    vocabulary, as capture's is (`ambition_combat::counter::
+    answer_parries_from_counter_stances`, in `Settle`, gated with the
+    demo's specials). `FighterSpecial::flag` reads a flag param. Witnesses:
+    the counter tests of `ambition_demo_smash` (the riposte answer, the
+    Witch-Time target, no answer outside the stance, a parry without a
+    shield) and the module-road arms
+    `the_stance_from_its_module_file_parries_as_the_linked_one_does` (runner
+    `Loaded`), `a_short_re_arm_keeps_the_longer_window_and_absorbs_only_when_authored`
+    and `a_window_with_no_end_is_refused`. Poisons, each red at its own
+    assertion: a raised shield; the newest window in place of the longer; an
+    absorb opened always; no refusal of an endless window; the answer always
+    on the defender; a wasm-only drift of the window. Cost: an edit to the
+    stance builds the module file in 0.54 s.
+  - Module primitive: a body's statuses ✅ (2026-10-20). Jon, the same day:
+    a game must be able to define its own moves without the engine carrying
+    one mechanic per move, so a port offers a general verb or fact and the
+    move's logic is its module's. A move that lives on a body for a while
+    keeps its state in its module's records on the body and holds a status of
+    its own kind there (`ambition.body.hold_status`; the body's
+    `BodyStatuses`, rollback row `body.statuses`, schema 371). The world ticks
+    each body that holds a bound kind (`ambition.body.status_tick`, in
+    `technique_execution`, each tick with a gameplay step, in identity
+    order), so the module spends its clock and decides the end; the requests
+    of a tick apply in submission order, so a let-go and a later hold leave
+    the status held. `ambition.body.time_scale` sets a body's clock scale.
+    Witnesses: `ambition_combat extension::status::tests` (a fixture module
+    counts its ticks in a record and lets go; a let-go and a hold on one
+    step; a paused world ticks nothing; a scale of 0 is refused). Poisons,
+    each red at its own assertion: ticks while paused; holds applied before
+    let-gos; a scale of 0 accepted.
+  - Module primitive: a body's foes ✅ (2026-10-20). `ambition.combat.foes`
+    (an observation in `technique_execution`) gives the foes of the scope
+    body: each other body of its live room that it may target (the
+    targeting relation: a team outranks a faction, a neutral bystander is not
+    a foe) and can hit (in play, alive, on the playable plane), in identity
+    order. Who is a foe is the engine's answer, which no module restates; a
+    cone, a nearest or a lock-on is the module's rule. Witnesses:
+    `ambition_combat extension::targets::tests` (a teammate and a bystander
+    are not foes; a body out of play is not; a body of another live room is
+    not; the order is the identity order, with three foes so that it is
+    neither the spawn order nor its reverse). Poisons, each red at its own
+    assertion: no relation filter; no can-hit filter; no room filter; entity
+    order in place of identity order. `ambition.motion.velocity` is now also
+    offered in `technique_execution`.
+  - Special route F7 ✅ (2026-10-20): the homing dash, on the primitives.
+    Smash's `smash.homing_dash` is the module
+    `ambition_demo_smash_modules::homing`: its clock, its committed direction
+    and its speed are a record on the fighter under the status
+    `smash.homing`; each tick it bends the heading toward the nearest foe
+    inside the cone and the range (`ambition.combat.foes`, the first of
+    equals by identity, as `assisted_fire_direction` breaks a tie) and sets
+    the velocity. The tick that starts the dash carries it, and a dash
+    pressed during a dash replaces it and lasts as long as a fresh one (the
+    carry entry runs first, `after`). The native systems and the rollback
+    row `smash.homing_dash` are deleted (schema 372). One rule changed: a
+    body of another live room no longer attracts the dash (the native read
+    every body of the process). Witnesses: the twelve tests of
+    `ambition_demo_smash homing::tests` on the module road (the cone, the
+    range, the clock, the committed direction, a KO'd fighter, a teammate, a
+    bystander that does not outbid the foe, the loaded file carries as the
+    linked module does, the first tick, the replacing dash) and the module's
+    heading test. Poisons, each red at its own assertion: the last of equals
+    in place of the first; no cone; the entries in the other order without
+    `after` (with `after` that order is green); a wasm-only drift of the
+    direction.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

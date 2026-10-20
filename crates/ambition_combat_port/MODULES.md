@@ -15,10 +15,13 @@
 | [`ray`](src/ray.rs) | A ray: a strike along a line. |
 | [`riding`](src/riding.rs) | A volume that rides its owner, and a burst of particles: what a conducted boss swings and shows. |
 | [`slow`](src/slow.rs) | A slow on the bodies in a box: honey, glue, tar. |
+| [`special`](src/special.rs) | The ports of a fighter's special: what a special move does when its fighter presses it, decided by a module in `technique_execution` (`ambition_extension_sdk::phases::TECHNIQUE_EXECUTION`). |
+| [`status`](src/status.rs) | A body's statuses: state a module puts on a body and ticks there. |
+| [`targets`](src/targets.rs) | What a body may aim at: the facts a module's targeting reads. |
 | [`think`](src/think.rs) | The ports of a custom brain: a body whose brain is a `CharacterBrain::Custom` key that a module binds decides through `actor_think` (`ambition_extension_sdk::phases::ACTOR_THINK`). |
 | [`wielded`](src/wielded.rs) | The held-item domain's extension ports: a body uses the item it holds, pays for it from its resource bank, and is heard doing it. |
 
-_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

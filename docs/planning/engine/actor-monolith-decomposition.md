@@ -22,17 +22,44 @@ Measure the intra-crate module graph with:
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 ```
 
-The largest cyclic component has eight modules (`abilities`, `avatar`,
-`character_runtime`, `features`, `items`, `projectile`, `session`, `world`).
-A second component holds `assets` and `character_sprites`. Re-run the command
-before you quote these numbers.
+**Re-measured at `be412a299768` (2026-10-20):** the largest component
+has **ten** top-level modules: `abilities`, `avatar`, `body_whereabouts`,
+`character_runtime`, `construction`, `features`, `items`, `projectile`,
+`session`, `world`. The `assets` and `character_sprites` pair remains a
+separate two-module cycle. The earlier eight-module count is no longer
+current. The monolith has about 73,628 production source lines; `features`
+accounts for about 26,665 of them. Size alone is not a carve reason.
 
-The instrument counts textual qualified paths inside one crate. It does not see
-cross-crate ownership, shared writers, message timing, plugin prerequisites,
-macros or re-exports. The same SCC result accompanied both a wrong and a
-corrected spawn boundary. Diff the members, not the count. A `--cuts` line that
-shrinks the component is a fact, not a mandate: cut an edge only when a
-responsibility argument also supports it.
+| Directed edge | Qualified references | Meaning and likely action |
+| --- | ---: | --- |
+| `body_whereabouts -> session` | 3 | Lifecycle-aware custody adapter; **MOVE_ADAPTER** to transition integration |
+| `construction -> session` | 1 | `CommitFactsSource::AfterTheRestore` checkpoint key; **MOVE_ADAPTER** for deferred facts selection |
+| `avatar -> session` | 1 | Per-room rules in a generic body control gate; **HOLD** until the rules-input owner is clear |
+| `character_runtime -> avatar` | 1 | Match activation reads initial-body policy; **MOVE_ADAPTER** with match/session setup |
+| `items -> session` | 4 | Item setup and persistence reach lifecycle policy; **MOVE_ADAPTER** after A7 writer audit |
+| `session -> items` | 20 | Restoration coordinates item state; **KEEP_DIRECT** while item domain owns the restored values |
+| `features -> projectile` | 1 | Perception reads `ProjectileAllegiance`; **KEEP_DIRECT** |
+| `projectile -> features` | 4 | Concrete boss/breakable contact work; **MOVE_ADAPTER** under A2 after contact parity |
+| `world -> features` | 9 | Room feature plans and publication; **MOVE_AUTHORITY** as one room transaction packet |
+| `world -> session` | 11 | Room publication reads checkpoint and lifecycle facts; **MOVE_ADAPTER** with that packet |
+| `session -> world` | 3 | Session setup and publication handles; review as part of one transaction packet |
+| `assets <-> character_sprites` | 2 / 3 | Catalog and art materialization; group or move adapter after its readers are known |
+
+The counts come from `scripts/measure_kernel_module_graph.py`. Removing
+`body_whereabouts -> session` and `construction -> session` from its in-memory
+edge graph reduces the largest component from ten to eight. This is only a
+**graph what-if**; no code was moved, and it does not prove that the resulting
+crates can compile. One real cut can affect other paths not counted here.
+
+The instrument counts textual `crate::<module>` paths inside one crate. It
+misses many imported names, cross-crate dependencies, shared writers, message
+timing, plugin prerequisites, macros and re-exports. Use
+`scripts/module_graph.py --crate ambition_platformer2d_actor_monolith` to
+inspect `use` edges as a second view. The generated ECS and Cargo indexes
+show system registrations and declared/resolved crate dependencies, but the
+resolved Cargo graph is feature-unified across the workspace. A consumer's
+closure still needs its own check. A lower SCC count is evidence, not a goal.
+Keep a cycle only when its shared invariant is stated.
 
 ## Landed carves
 
@@ -107,6 +134,146 @@ Standing examples: interactive objects reading `ActingParticipant` and
 perception reading `ProjectileAllegiance` are KEEP_DIRECT. Session assembling
 world and physics services is ordinary composition. `ActiveContentBinding`
 stays with session; it is not a reason to add world IDs everywhere.
+
+## Target package and integration boundary
+
+Keep `ambition_platformer2d` as the public game-facing facade.
+`ambition_platformer2d_runtime::PlatformerEnginePlugins` already composes
+plugins and simulation phases. Do not add a second plugin-assembly crate.
+Separate two kinds of integration work:
+
+| Layer | Owns | Must not own |
+| --- | --- | --- |
+| `ambition_platformer2d_runtime` (exists) | Profile selection, installation, public phase ordering, schedule policy | Body algorithms and every feature transaction |
+| `ambition_platformer2d_integration` (candidate) | Cross-domain simulation adapters and coordinated room-publication operations | General service lookup, named game content, domain state machines |
+| Actor/body kernel | Accepted control, body custody, movement and action execution | Host load covers, checkpoint routing, content publishing |
+| Construction, world, session, item and combat domains | Each domain's facts, transitions, validation and rollback state | Knowledge of the higher integration crate |
+| Game providers and hosts | Selected content and device/presentation work | Engine-domain algorithms |
+
+The name `ambition_platformer2d_integration` is **proposed**, not a crate
+to create before it has a real owner packet. An `ambition_engine` catch-all
+would not make the responsibilities clearer. Keep integration code in the
+existing runtime where that is the narrowest present owner, then add the
+integration crate **only if** the room-publication move gives it a stable
+independent implementation and dependency direction.
+
+The target dependency direction is host/provider -> runtime -> integration
+-> domains -> foundations. Runtime may also install domain plugins directly.
+Domains must not depend upward on runtime or integration. Dependency direction
+does not dictate message flow or simulation order. A crate move must not add
+scheduled systems by default. It may move a system body and leave its one
+registration in the same phase.
+
+## Dependency-first extraction sequence
+
+These are **design packets**, not a new priority queue. AP14 in
+[the execution queue](../queue.md#ap14--semantic-actor-monolith-scc-decomposition-continuous-deferred-2026-10-09)
+selects when the work proceeds. The A-packet
+[catalog](actor-monolith-work-frontier.md) owns the existing behavior proofs.
+
+### K1 — Move transition custody interpretation upward
+
+`body_whereabouts.rs::CustodyEndingAtCommit` depends on
+`session::lifecycle_commit::LifecycleIntent` and
+`rooms::another_player_stays`; the runtime transition loader is its
+production consumer (`room_transition/loading.rs`). Move the adapter and
+its tests near the room-transition integration path. Keep durable
+whereabouts state and its ordinary readers in the domain. Do not make the
+low-level body-location module import session operation types.
+
+**Proof:** the same away-from-home population is released or retained after
+crossing, checkpoint restore, same-room replay, and a crossing where another
+player stays. Verify cancellation, rollback and two live rooms. Remove the
+qualified edge and ensure no new registration or hidden query work is added.
+
+### K2 — Move commit-facts *selection* above construction
+
+`construction/mod.rs::CommitFactsSource` contains
+`AfterTheRestore(CheckpointOperationKey)`. `world/rooms/stage.rs` resolves
+that selector, while construction owns the resulting `PersistedFates`.
+Move the *choice of when and where to get facts* to the publication/lifecycle
+coordinator. Construction must still receive one resolved value for a commit.
+Do not read a candidate session's save from the currently live session.
+Do not evaluate checkpoint consequences before the operation is admitted.
+
+**Proof:** a session prepared while another game runs; accepted and refused
+checkpoint reset; replay after save changes; candidate failure; first-tick
+spawn state. Remove `construction -> session` without adding a general facts
+provider registry, new global resource, or duplicate saved state.
+
+### K3 — Prepare actor construction for a domain owner
+
+Recheck `construction -> fate_flags` and `construction -> shrine`, plus its
+callers in `features` and `world`. Give death flags and shrine components a
+semantic owner. Do not move a value to `shared_tangle` just to satisfy the
+compiler. Check whether `ambition_platformer2d_actor_spawn` can own more
+planning work without importing the monolith back into itself. If it cannot,
+keep planning separate from spawn materialization. Reuse A3's prepared-plan,
+`SimId`, provenance and preflight tests.
+
+### K4 — Extract room-publication coordination as one packet
+
+Inspect these together, not as separate file moves:
+
+- `world/rooms/stage.rs` and `world/rooms/transaction.rs`;
+- `features/ecs/spawn/mod.rs` (`RoomFeatureConstructionPlan` and receipt);
+- `session/setup.rs`, checkpoint and durable-horizon admission;
+- the current publication and rollback registration path.
+
+Construction owns building a typed plan. Session owns admitted operations,
+restore facts and retirement. World owns geometry and live-instance identity.
+The coordinator owns preparing a hidden candidate, checking its receipt, and
+publishing or refusing it as one operation. Keep `InactiveCandidate` and
+`CandidateSessionRoot` protection, deferred flushes, rollback identity and
+lifecycle cancellation intact. Do not export crate-private receipts merely
+to relocate one file. Move the transaction with its required inputs and tests.
+This is the first plausible reason to create the integration crate.
+
+**Proof:** normal load; hot reload; checkpoint replay; failed candidate;
+rollback-confirmed transition; two players in different live rooms; same
+room definition in two instances when supported. Verify one publication
+and one retirement, not two. A9 then verifies the selected consumer closure.
+
+### K5 — Continue existing domain packets, then assess the residual kernel
+
+Apply A7 to the `items <-> session` loop; keep item identities, custody and
+accounting item-owned while session coordinates restore. Apply A2/A5 to
+projectile contact arbitration; keep `ProjectileAllegiance` a legitimate
+perception input. Apply A6 to session-specific character activation and
+prepared definitions. Keep `avatar`, accepted control and body integration
+together unless A4 finds an independent authority. Handle the
+`assets <-> character_sprites` presentation cycle separately. Do not split
+one coherent actor kernel only to make its internal module graph acyclic.
+
+### Migration acceptance for each packet
+
+Capture a before/after record with: removed file paths and edges, resolved
+imports, API callers, type and state writers, construction/defaults,
+rollback and checksum, ownership of plugin installation, phase order and
+`apply_deferred` barriers, run conditions, teardown, tests and external
+consumers. Re-run the graph and declared Cargo closure. A completed crate
+move adds **zero active ECS invocations** unless a measured behavior need
+justifies one. Keep normal and minimal headless consumer tests and compare
+Android numbers if a hot system moved. See the
+[system fusion plan](system-composition-audit.md#s7--consolidate-coherent-active-ecs-systems-proposed-2026-10-20).
+
+## Index follow-up
+
+The October 20 index is enough to select K1 and K2 and identify likely
+owners for K3/K4. It does not yet prove the reason for each source dependency.
+Extend the existing `scripts/module_graph.py` / agent index when a packet
+needs it. A useful edge record has source and target module and symbol,
+file and line, reference kind (`use`, type, function call, registration),
+Cargo feature or cfg condition, and the active schedule/set for installed
+systems. Human-reviewed edge disposition remains in this plan, not in a
+machine classifier. Use the generation stamp to reject stale reports.
+
+Do not write a new full-repository parser to start K1. Confirm its three
+references and production consumer in source, implement the narrow move,
+then use the result to decide if a durable edge report is needed. The
+current `measure_kernel_module_graph.py` is a text-reference graph, and
+`module_graph.py` only resolves `use` declarations; neither alone certifies
+a Cargo carve.
 
 ## Packet receipt
 

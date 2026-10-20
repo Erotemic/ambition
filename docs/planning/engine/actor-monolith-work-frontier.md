@@ -29,6 +29,16 @@ fresh source/behavior preflight for every packet
             -> A11c explicit activation
 ```
 
+**October 20 dependency preflight:**
+[the decomposition plan](actor-monolith-decomposition.md#dependency-first-extraction-sequence)
+records five K packets. K1 (transition custody) and K2 (commit-facts
+selection) are small boundary moves; K3 prepares A3; K4 is a coordinated
+room-publication transfer; K5 continues A2, A4, A6, A7 and A9. They are not
+new independent authorities and do not replace the A1-A12 proofs. Run the
+[system consolidation plan](system-composition-audit.md#s7--consolidate-coherent-active-ecs-systems-proposed-2026-10-20)
+independently. Do not add a scheduled system merely because its implementation
+moves to a new crate.
+
 A3 and A9 do not wait for A1. Do not build A2c on top of a geometry
 disagreement. A5 follows the resolved-contact contract. Do not split accepted
 control across crates to make A4 green. The

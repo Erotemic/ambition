@@ -4,8 +4,9 @@
 that make a game run only what it uses. **Owners it feeds:**
 [capability and runtime composition](capability-and-runtime-composition.md)
 (profiles), [performance and iteration](performance-and-iteration.md) (Android
-CPU). **Status:** audit measured 2026-10-14; plan reviewed 2026-10-14 (S1
-and the S2 inventory approved, then a review).
+CPU). **Status:** the runtime audit was measured on 2026-10-14; S1 landed on
+2026-10-17. The source and ECS index were reviewed on 2026-10-20 at
+`be412a299768`. S7 is a proposed consolidation campaign, not a measured fix.
 
 ## How to measure
 
@@ -17,6 +18,44 @@ Re-run these before you quote a number. Do not copy counts into other pages.
 - `scripts/system_census_table.py A.txt B.txt ...` compares lists crate by
   crate. The recipe is in its docstring and in `docs/recipes/profiling.md`.
 - `dev/bevy_idle_systems` measures what an idle system costs on each executor.
+
+## Static ECS inventory (2026-10-20)
+
+The generated `.agent/ecs_inventory/project.md` is from commit
+`be412a299768` (`.agent/index/generation_stamp.json`). It counts 1,202
+registered systems in 92 crates. It also counts 2,114 registration records
+and 1,753 system-like functions. These are **different measures**. The
+inventory counts source registration sites. It does not count the systems that
+one selected game runs in one frame. It does not include Bevy's dependency
+systems in the same way as the runtime census. Do not compare its 1,202 with
+the runtime census's 1,950 or 2,059 as a before/after speed result.
+
+| Source crate | Static registered systems | Why inspect it |
+| --- | ---: | --- |
+| `ambition_platformer2d_actor_monolith` | 204 | Large actor, world and feature implementation |
+| `ambition_render` | 155 | Character and effect presentation |
+| `ambition_platformer2d_runtime` | 137 | Installs and orders many systems from other crates |
+| `ambition_app` | 131 | Host, session and developer composition |
+| `ambition_content` | 59 | Game-specific behavior |
+| `ambition_platformer2d_host` | 41 | Host adapters |
+| `ambition_demo_twintrack` | 40 | Game-specific simulation and presentation |
+| `ambition_dev_tools` | 38 | Often absent from the phone build |
+| `ambition_sim_view` | 38 | Simulation read-model publication |
+| `ambition_game_shell` | 31 | Shell and session lifecycle |
+| `ambition_platformer2d_rollback_ggrs` | 26 | Rollback and confirmation |
+| `ambition_demo_mary_o` | 22 | Game-specific behavior |
+| `ambition_touch_input` | 20 | Phone touch controls and UI |
+
+These 13 crates account for 942 of the 1,202 registrations. The remaining
+260 are in other crates. The `runtime` crate defines only 48 system-like
+functions locally but has 137 registrations. It is often a composition site,
+not the owner of each system body. Source size and registration count alone
+cannot rank fusion work.
+
+The source index is enough to find candidates and their registered schedule,
+set and direct resource accesses. The runtime census is still needed to find
+which systems execute in the hub, Mary-O, Smash and Ambition. Keep the
+static and runtime reports separate.
 
 ## Findings (2026-10-14, debug builds, VM)
 
@@ -223,11 +262,138 @@ This is multiplayer correctness, not speed. The list of suspect resources is in
 the 2026-10-14 resource census (`AMBITION_RESOURCE_LIST`). Plan it with the
 owners of those resources; do not mix it with S1-S4.
 
+### S7 — Consolidate coherent active ECS systems (proposed 2026-10-20)
+
+**Objective:** reduce the cost of invoking active Bevy systems on Android.
+Keep narrow Rust helpers and meaningful schedule phases. Do not trade one
+large `World`-exclusive system for several declared systems just to lower the
+registration count. The system boundary is a scheduling choice; the crate
+boundary is an ownership choice. A crate carve must not create new scheduled
+units by default.
+
+**Evidence:** The phone profile described in
+[performance and composition findings](performance-and-composition-findings.md#f0--a-third-of-the-phones-cpu-is-the-executors-work-for-each-system-outside-any-system)
+found substantial schedule-executor work outside system bodies. This predates
+S1, scoped capability gates and the recent rendering changes. It justifies a
+new controlled test. It is **not** a prediction of the gain from any fusion.
+The 2026-10-17 read-model measurement in that same document is also from an
+earlier head and must not be used as the new baseline.
+
+#### S7a — Establish the current active baseline (first)
+
+On commit `be412a299768` or a later named head, collect
+`AMBITION_PROFILE_CENSUS=1` and `AMBITION_SYSTEM_LIST=PATH` for the hub's
+Mary-O 1-1, Mary-O 1-2, Ambition hub, Smash, and standalone Mary-O. Include
+Sanic when its capability path changes. Record a separate count for each
+executed schedule, and separate **simulation ticks per frame** from
+**rendered frames**. Tag each record with commit, app profile, device, build
+mode and active room. `scripts/system_census_table.py` compares the lists.
+
+On the Android device, measure frame-time median and tail, fixed-tick cost,
+executor and parameter-setup time, and system-body time. Warm each scene;
+repeat baseline and candidate runs on the same device and build settings.
+Include the first room load and steady play; do not hide a new load hitch
+inside a steady-state average. The debug VM can screen an experiment but
+cannot decide phone acceptance.
+
+#### S7b — First low-risk fusion: touch prompt UI
+
+Source: `crates/ambition_touch_input/src/bevy_plugin.rs`.
+`update_button_verb_from_prompt` and
+`sync_touch_button_visibility_from_prompt` both run in `Update` and read
+`ControlPrompt`. Try one `reconcile_touch_action_prompt` system with two
+ordinary helpers. Retain the current distinction between button readiness,
+label text, action availability and input-context ownership. Repoint the
+`render_touch_button_text` ordering to the new producer. Check that unchanged
+values still do not mark `Text`, `Visibility` or `ButtonVerb` changed.
+
+**Do not fuse across these boundaries:** `read_joystick_messages` and
+`update_buttons_from_interactions` must still run in `PreUpdate` before
+Leafwing `Unify`; `offset_joystick_art_within_footprint` and
+`drive_joystick_knob_from_axis` remain on their opposite sides of the
+`JoystickSystems::UpdateUI` barrier in `PostUpdate`. Preserve the
+`TouchPresentationSet` placement order and the `InputSet::Route` read.
+
+**Test:** touch button visibility and wording in Gameplay, Menu, Dialogue
+and Empty contexts; Sanic's missing Attack button; preset/device changes;
+real touch press timing, held input and keyboard/gamepad use. Compare a quiet
+frame's changed-component counts. Measure the Android delta. Reject the
+fusion if it adds an ordering exception or does not show repeatable savings.
+
+#### S7c — Simulation-view publication (measured second candidate)
+
+Source: `crates/ambition_sim_view/src/lib.rs`, `facts.rs`, `pose_view.rs`
+and `view_index.rs`. The `FeatureViewSyncSchedulePlugin` publishes related
+indices, pose and presentation facts from the simulation tail. Inspect
+`rebuild_actor_render_index`, `rebuild_actor_anim_index` and
+`rebuild_body_pose_views` for shared body reads. Fuse only a subset that
+uses one observation cut and has a safe shared input traversal. Keep the
+`FeatureViewSync` phase, the nameplate-after-feature order, the animation
+clock advance before its read, and passage views after body pose and
+animation. Preserve the `ControlPromptRebuilt` and readiness ordering.
+
+**Do not** move these publishers wholesale into rendered-frame `Update`.
+Rollback, a multi-tick rendered frame, a headless consumer or a same-tick
+reader may need each simulation snapshot. Do not hide an expensive body
+query inside one very large exclusive system. Compare input query work,
+active invocations and snapshot contents under rollback and two live rooms.
+If the profiles show small CPU cost, defer this packet.
+
+#### S7d — Rendering reconciliation (design and profile before fusion)
+
+Source: `crates/ambition_render/src/rendering/actors/` and related feature
+rendering. Identify independent passes that visit the same drawable and
+publish one presentation result. Prefer a keyed, change-aware reconciliation
+that reuses existing presentation entities over repeated spawn/despawn.
+Do not combine portal partitioning, animation selection, transform writes,
+asset readiness and teardown into an opaque catch-all. Retain root versus
+rigged-part ownership, deferred visibility and render-sub-app boundaries.
+
+Measure entity churn, archetype changes, component writes and renderer CPU
+alongside active system count. A smaller system count with more structural
+writes fails this packet.
+
+#### S7e — Low-priority generic fan-out
+
+`crates/ambition_conversation/src/ledger.rs` installs release, prune and
+forget systems for each `NarrativeInputPlugin<M>`. Check whether a shared
+ledger phase can do the work with fewer active invocations. Keep each
+message type's retention and activation boundary. Do not add type erasure,
+a central registry or a `World` scan to save a few cheap calls. Try this only
+if the new profile shows that this group costs enough to matter.
+
+#### Acceptance and rejection gates
+
+For each candidate, record before/after: registered and **executed** system
+counts by schedule; the exact removed registration(s); system input accesses;
+order and deferred-command edges; change-detection writes; Android median,
+tail and fixed-tick cost; headless and rollback results. Compare the normal
+and selected-capability paths. One fewer registration is not proof of a
+faster frame, and a render-frame win cannot hide a simulation-tick regression.
+
+- Preserve the same action, geometry, visibility and read-model outputs for
+  the same input frames, with the same flush and rollback behavior.
+- Keep tests for initial install, removal, re-entry, two live rooms, and
+  multiple simulation ticks per rendered frame where the packet needs them.
+- Retain ordinary Rust helper functions for independent policy and tests.
+  Give the outer system only the access it needs; do not use a general
+  `&mut World` escape hatch.
+- Report repeated Android measurements, including variance. Revert a fusion
+  that adds coupling, shifts timing or has no repeatable benefit.
+- Do not update a performance baseline merely to accept a regression.
+
+S7 runs alongside the
+[actor decomposition plan](actor-monolith-decomposition.md). Its first
+implementation experiment is the touch prompt pair. A monolith crate split
+can move an installed system without adding another system to the schedule;
+a later fusion can reduce invocations without merging the crate owners.
+
 ## Order
 
-S1 and the S2 inventory first, then a review before any structural change.
-S2 has the largest effect on the hub, where Android Mary-O runs. S3 is the
-structural milestone, and the question it asks of the monolith is "which
-capabilities put work and dependencies on games that did not ask for them".
-S4 is the pass after it. Measure frame time on the phone after each step with
-`profile_android.sh`.
+S1 is complete. Continue S2 and S3 where a selected game still runs an
+unneeded capability. For S7, collect the new runtime/phone baseline first,
+then test the touch prompt fusion. Review its measurements before a wider
+read-model or rendering pass. S4 stays a measured gate-only activity after
+S2 and S3. The [execution queue](../queue.md) selects when an experiment
+runs; this page defines its tests and stop conditions. Use
+`profile_android.sh` after each accepted change.

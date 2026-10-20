@@ -135,6 +135,12 @@ abstraction. A cycle inside one control or custody authority can be correct.
 - Capability owners install their private systems and order their internal
   phases. Composition orders independent capability phases. Zero foreign
   installs is not a requirement.
+- `ambition_platformer2d_runtime` owns installation and scheduling policy.
+  Cross-domain simulation adapters may later move to a separate
+  `ambition_platformer2d_integration` implementation crate, once a coherent
+  room-publication packet needs it. Domain crates do not import that upper
+  layer. A crate carve does not create a new ECS system by default. See the
+  [decomposition plan](actor-monolith-decomposition.md#target-package-and-integration-boundary).
 - A public phase describes an observable guarantee (custody settled, body
   geometry published). Do not publish one set per private function. Do not
   chain the whole tick to hide ordering failures.

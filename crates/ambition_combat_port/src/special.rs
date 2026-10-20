@@ -285,9 +285,56 @@ impl Port for DilateTimePort {
     }
 }
 
+/// The request port marker for a refill of one of the body's resources.
+///
+/// Port card:
+///
+/// * **Operation** — add `amount` to the resource named `resource` (a
+///   resource id, for example `smash.limit`) of the body the invocation ran
+///   for, up to the resource's cap. A body that holds no resource of that
+///   name gains nothing: the request names what it fills, not whatever pool
+///   the body has. An amount that is not finite or is below 0 is refused: a
+///   refill only adds.
+/// * **Owner** — `ambition_combat::extension::special`, through the body's
+///   `ActorResources`.
+/// * **Scope** — the body the invocation ran for.
+/// * **Time** — `technique_execution`; the level is changed before the
+///   phase's end, so a move that reads it next tick sees it.
+pub struct RefillResourcePort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RefillResource {
+    pub resource: String,
+    pub amount: f32,
+}
+
+impl Port for RefillResourcePort {
+    const KEY: PortKey = PortKey::new("ambition.resources.refill", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = RefillResource;
+
+    fn encode(v: &RefillResource, out: &mut Vec<u8>) {
+        wire::put_str(out, &v.resource);
+        wire::put_f32(out, v.amount);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<RefillResource, WireError> {
+        Ok(RefillResource { resource: r.str()?.to_owned(), amount: r.f32()? })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A refill decodes to what was encoded.
+    #[test]
+    fn a_refill_crosses_the_wire_unchanged() {
+        let refill = RefillResource { resource: "smash.limit".into(), amount: 12.5 };
+        let mut bytes = Vec::new();
+        RefillResourcePort::encode(&refill, &mut bytes);
+        assert_eq!(RefillResourcePort::decode(&mut WireReader::new(&bytes)).unwrap(), refill);
+    }
 
     /// A dilation decodes to what was encoded.
     #[test]

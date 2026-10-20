@@ -1,27 +1,39 @@
 use super::*;
+use crate::module_road::{app_on, runner_of, Road};
 use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
+use ambition_platformer2d::characters::brain::ActorActionMessage;
 use ambition_platformer2d::combat::hitbox::{BlockedBodyHit, ResolvedBodyHit};
+use ambition_platformer2d::entity_catalog::smash_limit::{FillMeterParams, FILL_METER};
 
-fn app(fill: LimitMeterFill) -> App {
-    let mut app = App::new();
-    app.add_message::<ActorActionMessage>();
+/// The match's fill rule, and a move's fill through the module on `road`.
+fn app_with(fill: LimitMeterFill, road: Road) -> App {
+    let mut app = app_on(road, ambition_demo_smash_modules::limit::module);
     app.add_message::<ResolvedBodyHit>();
     app.add_message::<BlockedBodyHit>();
-    app.init_resource::<ambition_platformer2d::time::WorldTime>();
     // No session here, so only a whole-process declaration governs.
     {
         use ambition_platformer2d::combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
         app.declare_rules(RulesScope::EveryRoom, SmashLimitFill(fill));
     }
-    {
-        let mut time = app
-            .world_mut()
-            .resource_mut::<ambition_platformer2d::time::WorldTime>();
-        time.set_sim_dt(1.0 / 60.0);
-        time.set_wall_dt(1.0 / 60.0);
-    }
-    app.add_systems(Update, (fill_limit_meters, apply_authored_meter_fills).chain());
+    app.add_systems(Update, fill_limit_meters);
     app
+}
+
+fn app(fill: LimitMeterFill) -> App {
+    app_with(fill, Road::Linked)
+}
+
+/// A move's fill of `amount` on `who`, through its module.
+fn fill_by_move(app: &mut App, who: Entity, amount: f32) {
+    app.world_mut().write_message(ActorActionMessage {
+        actor: who,
+        request: ActionRequest::Special {
+            spec: SpecialActionSpec::Special(FILL_METER.to_string()),
+            params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&FillMeterParams { amount })
+                .expect("fill params serialize"),
+        },
+        move_instance: None,
+    });
 }
 
 /// A bank holding exactly these declarations.
@@ -61,6 +73,8 @@ fn fighter(app: &mut App) -> Entity {
         .spawn((
             ambition_platformer2d::actor::MatchSeat(seat),
             bank(&[declaration]),
+            // A special reaches a module for a body with kinematics.
+            ambition_platformer2d::engine_core::BodyKinematics::default(),
         ))
         .id()
 }
@@ -276,17 +290,7 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
         ..Default::default()
     }));
     let caster = fighter(&mut cloud);
-    cloud.world_mut().write_message(ActorActionMessage {
-        actor: caster,
-        request: ActionRequest::Special {
-            spec: SpecialActionSpec::Special(FILL_METER.to_string()),
-            params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
-                &FillMeterParams { amount: 12.0 },
-            )
-            .expect("fill params serialize"),
-        },
-        move_instance: None,
-    });
+    fill_by_move(&mut cloud, caster, 12.0);
     cloud.update();
     assert_eq!(
         meter(&cloud, caster),
@@ -410,20 +414,14 @@ fn a_body_that_holds_no_limit_gains_nothing_from_any_limit_source() {
     drained.level_of_mut(&OTHER).expect("held").drain(50.0);
     let unlimited = app
         .world_mut()
-        .spawn((ambition_platformer2d::actor::MatchSeat(1), drained))
+        .spawn((
+            ambition_platformer2d::actor::MatchSeat(1),
+            drained,
+            ambition_platformer2d::engine_core::BodyKinematics::default(),
+        ))
         .id();
     for who in [limited, unlimited] {
-        app.world_mut().write_message(ActorActionMessage {
-            actor: who,
-            request: ActionRequest::Special {
-                spec: SpecialActionSpec::Special(FILL_METER.to_string()),
-                params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
-                    &FillMeterParams { amount: 12.0 },
-                )
-                .expect("fill params serialize"),
-            },
-            move_instance: None,
-        });
+        fill_by_move(&mut app, who, 12.0);
     }
     for _ in 0..60 {
         app.update();
@@ -595,4 +593,42 @@ fn a_meter_fills_by_the_rule_of_its_own_live_room() {
         gained(on_stage)
     );
     assert_eq!(gained(in_hall), 0.0, "the seat in the hall (#0) filled by Smash's rule");
+}
+
+/// The loaded file's fill is the linked one's: the same meter after the same
+/// move. Its runner is the loaded file.
+#[test]
+fn a_fill_from_its_module_file_fills_as_the_linked_one_does() {
+    let mut filled_on = Vec::new();
+    for road in [Road::Linked, Road::Loaded] {
+        let mut app = app_with(LimitMeterFill { cap: 60.0, ..Default::default() }, road);
+        let caster = fighter(&mut app);
+        fill_by_move(&mut app, caster, 12.0);
+        app.update();
+        let runner = runner_of(&app, FILL_METER);
+        assert_eq!(runner.starts_with("Loaded"), road == Road::Loaded, "{road:?}: {runner}");
+        filled_on.push(meter(&app, caster));
+    }
+    assert_eq!(filled_on[1], filled_on[0], "the loaded fill filled the meter unlike the linked one");
+    assert_eq!(filled_on[0], 12.0, "premise: the linked fill filled the meter");
+}
+
+/// The module names the Limit by its id, which the module crate cannot
+/// import: the two spellings are one resource.
+#[test]
+fn the_module_fills_the_resource_the_match_declares() {
+    assert_eq!(ambition_demo_smash_modules::limit::LIMIT, LIMIT.name());
+}
+
+/// A fill never takes: a negative amount is refused by the engine, even from
+/// a module that a move's admission did not check.
+#[test]
+fn a_negative_fill_from_a_module_is_refused() {
+    let mut app = app(LimitMeterFill { cap: 60.0, ..Default::default() });
+    let caster = fighter(&mut app);
+    fill_by_move(&mut app, caster, 20.0);
+    app.update();
+    fill_by_move(&mut app, caster, -5.0);
+    app.update();
+    assert_eq!(meter(&app, caster), 20.0, "a negative fill drained the meter");
 }

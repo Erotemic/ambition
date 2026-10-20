@@ -1,7 +1,7 @@
 //! The adapters of a fighter's special: `ambition.fighter.special`,
-//! `ambition.combat.body_strike`, `ambition.combat.sleep_area` and
-//! `ambition.combat.dilate_time`. See the port cards in
-//! `ambition_combat_port::special`.
+//! `ambition.combat.body_strike`, `ambition.combat.sleep_area`,
+//! `ambition.combat.dilate_time` and `ambition.resources.refill`. See the port
+//! cards in `ambition_combat_port::special`.
 //!
 //! A move's effect whose key a module binds is that module's to answer. The
 //! module reads the fighter's facts and the move's authored params, and asks
@@ -10,7 +10,7 @@
 
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_characters::brain::ActorActionMessage;
-use ambition_combat_port::{BodyStrikePort, DilateTimePort, FighterSpecial, SleepAreaPort, SpecialParam};
+use ambition_combat_port::{BodyStrikePort, DilateTimePort, FighterSpecial, RefillResourcePort, SleepAreaPort, SpecialParam};
 pub use ambition_combat_port::FighterSpecialPort;
 use ambition_entity_catalog::ParamLeaf;
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
@@ -26,6 +26,7 @@ pub fn install_for_specials(app: &mut App) {
     app.install_extension_request::<BodyStrikePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_body_strikes);
     app.install_extension_request::<SleepAreaPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_sleep_areas);
     app.install_extension_request::<DilateTimePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_time_dilations);
+    app.install_extension_request::<RefillResourcePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_refills);
 }
 
 /// A body running on a slowed clock, and the world seconds left.
@@ -205,5 +206,31 @@ pub fn lower_time_dilations(
             .entity(submitted.scope)
             .try_insert(ambition_time::ProperTimeScale(dilation.scale))
             .try_insert(TimeDilated { remaining_s: dilation.seconds });
+    }
+}
+
+/// Add each refill a module asked for to the named resource of its body.
+pub fn lower_refills(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut banks: Query<&mut ambition_platformer2d_core::resources::ActorResources>,
+) {
+    for submitted in outbox.drain::<RefillResourcePort>(&TECHNIQUE_EXECUTION) {
+        let refill = submitted.value;
+        if !refill.amount.is_finite() || refill.amount < 0.0 {
+            warn!(
+                "extension entry {} asked to refill `{}` by {}; a refill only adds",
+                submitted.entry, refill.resource, refill.amount
+            );
+            continue;
+        }
+        let resource = ambition_resource_spec::ResourceId::new(refill.resource);
+        // A body that holds no such resource gains nothing (see the port card).
+        if let Some(level) = banks
+            .get_mut(submitted.scope)
+            .ok()
+            .and_then(|bank| bank.into_inner().level_of_mut(&resource))
+        {
+            level.refill(refill.amount);
+        }
     }
 }

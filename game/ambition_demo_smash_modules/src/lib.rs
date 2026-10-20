@@ -12,6 +12,7 @@
 //! (a plate) asks the world for a module entity, and the module ticks it.
 
 pub mod dilation;
+pub mod limit;
 pub mod riposte;
 pub mod sing;
 pub mod spring;
@@ -22,6 +23,7 @@ pub const PROVIDER: &str = "smash";
 /// Every module this crate provides, as constructors.
 pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     dilation::module,
+    limit::module,
     riposte::module,
     sing::module,
     spring::module,

@@ -1,21 +1,19 @@
 //! The game half of the Limit meter: who gains what, and when.
 //!
 //! Four sources fill one meter, and none of them is a new authority. Time comes
-//! from `WorldTime`, damage from `ResolvedBodyHit` (the amount that landed), and
-//! a move-driven fill from an ordinary technique. The meter is the
-//! `smash_limit::LIMIT` slot of a body's `ActorResources`. This module decides
-//! what goes into a meter, not what a meter is.
+//! from `WorldTime` and damage from `ResolvedBodyHit` (the amount that landed).
+//! A move that fills its own meter is the module
+//! `ambition_demo_smash_modules::limit` (`ambition.resources.refill`). The
+//! meter is the `smash_limit::LIMIT` slot of a body's `ActorResources`. This
+//! module decides what goes into a meter, not what a meter is.
 //!
 //! It also does not decide who has a meter. Only the match's seats get a Limit
 //! slot, so other bodies (Ambition's player, room enemies) are not reachable.
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::characters::brain::ActorActionMessage;
 use ambition_platformer2d::engine_core::resources::{ActorResources, ResourceLevel};
-use ambition_platformer2d::entity_catalog::smash_limit::{
-    FillMeterParams, LimitMeterFill, FILL_METER, LIMIT,
-};
+use ambition_platformer2d::entity_catalog::smash_limit::{LimitMeterFill, LIMIT};
 
 fn limit_of(bank: &mut ActorResources) -> Option<&mut ResourceLevel> {
     bank.level_of_mut(&LIMIT)
@@ -123,41 +121,6 @@ pub fn fill_limit_meters(
         };
         if let Some(limit) = meters.get_mut(block.victim).ok().and_then(|(_, bank)| limit_of(bank.into_inner())) {
             limit.refill(fill.blocked());
-        }
-    }
-}
-
-/// The *"cloud like meter, where a move fills it"* case: an authored technique
-/// that charges its own owner.
-pub fn apply_authored_meter_fills(
-    mut actions: MessageReader<ActorActionMessage>,
-    mut meters: Query<&mut ActorResources>,
-) {
-    for message in actions.read() {
-        let ambition_platformer2d::characters::brain::action_set::ActionRequest::Special {
-            spec,
-            params,
-        } = &message.request
-        else {
-            continue;
-        };
-        let ambition_platformer2d::characters::brain::action_set::SpecialActionSpec::Special(key) =
-            spec;
-        if key != FILL_METER {
-            continue;
-        }
-        let Ok(params) = params.hydrate::<FillMeterParams>() else {
-            warn!("a meter fill did not hydrate its params");
-            continue;
-        };
-        // A body that holds no Limit gains nothing: the technique names the
-        // Limit, not whichever meter its user happens to carry.
-        if let Some(limit) = meters
-            .get_mut(message.actor)
-            .ok()
-            .and_then(|bank| limit_of(bank.into_inner()))
-        {
-            limit.refill(params.amount);
         }
     }
 }

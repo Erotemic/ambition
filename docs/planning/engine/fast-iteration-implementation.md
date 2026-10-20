@@ -710,6 +710,25 @@ before you add a port.
     at its own assertion: the countdown after the apply (the tick count);
     no restore; slows that multiply; no refusal; a wasm-only drift of the time.
     Cost: an edit to the dilation builds the module file in 0.59 s.
+  - Special route F5 ✅ (2026-10-20): a special that fills a meter. The
+    request `ambition.resources.refill` adds an amount to the resource the
+    request names (a resource id) on the body the invocation ran for, up to
+    its cap; a body that holds no such resource gains nothing, and an amount
+    below 0 or not finite is refused. Smash's move fill (`smash.fill_meter`)
+    is the module `ambition_demo_smash_modules::limit`; the native
+    `apply_authored_meter_fills` is deleted. The match's own sources (time,
+    damage, blocks: `fill_limit_meters`) are the game's rule and stay.
+    The Smash tests share one harness for a module special
+    (`module_road::app_on`, linked or loaded). Witnesses: the limit tests
+    on the module road, among them
+    `a_fill_from_its_module_file_fills_as_the_linked_one_does` (runner
+    `Loaded`), `a_negative_fill_from_a_module_is_refused` and
+    `the_module_fills_the_resource_the_match_declares` (the module's spelling
+    of `smash.limit` is the catalog's). Poisons, each red at its own
+    assertion: no refusal of a negative fill; the first resource filled
+    whatever its name (red at "filled a body's OTHER resource"); no fill; a
+    wasm-only drift of the amount. Cost: an edit to the fill builds the module
+    file in 0.55 s.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

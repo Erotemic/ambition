@@ -28,6 +28,8 @@ pub mod homing;
 pub mod limit;
 pub mod mark;
 pub mod mine;
+#[cfg(test)]
+mod module_road;
 pub mod motion;
 #[cfg(test)]
 mod moveset;
@@ -647,21 +649,20 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentFlavor)
                 .in_set(FIGHTER_SPECIALS),
         );
-        // The authored half runs where a dispatched special belongs, on the
-        // frame it is pressed.
-        install_special(
+        // The authored half, a move that fills its own meter, is the module
+        // `ambition_demo_smash_modules::limit` (`ambition.resources.refill`).
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_limit::FILL_METER,
             TechniqueOffer {
-                owner: "ambition_demo_smash::limit",
+                owner: "ambition_demo_smash_modules::limit",
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::entity_catalog::smash_limit::FillMeterParams>,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            crate::limit::apply_authored_meter_fills
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+            ambition_demo_smash_modules::limit::module(),
         );
         // Time dilation: the module `ambition_demo_smash_modules::dilation`.
         // The combat engine owns the clock (`ambition.combat.dilate_time`).

@@ -79,7 +79,9 @@ pub fn install(app: &mut App) {
 
 /// Install the module-entity spawn, the effect and the velocity in
 /// `technique_execution`: a move's special can put an entity on the stage (a
-/// plate), announce it, and set its fighter's motion (a dash).
+/// plate), announce it, and set its fighter's motion (a dash); it can place
+/// an item and reach what it placed (a mine), and see a ledge ahead and
+/// whether it stands, and show a line (a tether).
 pub fn install_for_technique_execution(app: &mut App) {
     app.install_extension_request::<SetVelocityPort, _>(
         TECHNIQUE_EXECUTION,
@@ -110,6 +112,21 @@ pub fn install_for_technique_execution(app: &mut App) {
         TECHNIQUE_EXECUTION,
         "ambition_abilities",
         crate::module_entity::lower_owned_entity_ends,
+    );
+    app.install_extension_observation::<ambition_combat_port::LedgeAheadPort>(
+        TECHNIQUE_EXECUTION,
+        "ambition_abilities",
+        ledge_ahead_of,
+    );
+    app.install_extension_observation::<ambition_combat_port::OnGroundPort>(
+        TECHNIQUE_EXECUTION,
+        "ambition_abilities",
+        on_ground_of,
+    );
+    app.install_extension_request::<ambition_combat_port::BodyLinePort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_abilities",
+        lower_body_lines,
     );
 }
 
@@ -352,6 +369,55 @@ fn aim_cast_of(world: &World, scope: Entity) -> Option<AimCast> {
     .flatten()
     .map(|(distance, at, _normal)| AimHit { at: [at.x, at.y], distance });
     Some(AimCast { hit })
+}
+
+/// The first ledge along `scope`'s facing, by the ledge authority's own
+/// probe, within the host's reach (`ambition.body.ledge_ahead`).
+fn ledge_ahead_of(world: &World, scope: Entity) -> Option<ambition_combat_port::LedgeAhead> {
+    use ambition_combat_port::ledge::{LedgeAhead, LedgeSight, LEDGE_SAMPLE_PX, LEDGE_SEARCH_REACH};
+    let (Some(kin), Some(frame)) = (world.get::<BodyKinematics>(scope), world.get::<ResolvedMotionFrame>(scope)) else {
+        return Some(LedgeAhead { ledge: None });
+    };
+    // Along her facing in her own frame's side axis; the wall she wants faces
+    // back at her, a sign in that same axis.
+    let reach_dir = frame.basis().to_world(Vec2::new(kin.facing.signum(), 0.0));
+    let wall_normal_x = -kin.facing.signum();
+    let room = world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(scope);
+    let samples = (LEDGE_SEARCH_REACH / LEDGE_SAMPLE_PX) as u32;
+    let ledge = ambition_platformer2d_world::collision::with_room_in_world(world, room, |room| {
+        let solids = room.solids()?;
+        (0..=samples).find_map(|sample| {
+            let distance = sample as f32 * LEDGE_SAMPLE_PX;
+            ambition_platformer2d_core::ledge_grab::probe_ledge_grab_in_frame(
+                kin.pos + reach_dir * distance,
+                kin.size,
+                wall_normal_x,
+                &solids,
+                frame.down(),
+            )
+            .map(|contact| LedgeSight { anchor: [contact.anchor.x, contact.anchor.y], distance })
+        })
+    })
+    .flatten();
+    Some(LedgeAhead { ledge })
+}
+
+/// Whether `scope` stands on the ground (`ambition.body.on_ground`).
+fn on_ground_of(world: &World, scope: Entity) -> Option<bool> {
+    world.get::<ambition_platformer2d_core::BodyGroundState>(scope).map(|ground| ground.on_ground)
+}
+
+/// Show or clear each body's line (`ambition.feedback.body_line`).
+fn lower_body_lines(mut outbox: ResMut<ExtensionOutbox>, mut commands: Commands) {
+    for submitted in outbox.drain::<ambition_combat_port::BodyLinePort>(&TECHNIQUE_EXECUTION) {
+        let Ok(mut body) = commands.get_entity(submitted.scope) else {
+            continue;
+        };
+        match submitted.value.anchor {
+            Some(anchor) => body.try_insert(ambition_platformer2d_core::BodyLineAnchor(Vec2::from(anchor))),
+            None => body.try_remove::<ambition_platformer2d_core::BodyLineAnchor>(),
+        };
+    }
 }
 
 /// Put each body's mark where the module asked, in the live room the body is
@@ -654,5 +720,61 @@ mod tests {
             let port = level + PAY_EPSILON >= cost;
             assert_eq!(crate::mana::spend(Some(&mut bank), cost), port, "level {level}, cost {cost}");
         }
+    }
+
+    /// The ledge probe's reference geometry: a block spanning x 100..300,
+    /// y 100..300, whose left lip a body centred near x = 86 catches.
+    fn ledge_world() -> bevy::prelude::World {
+        use ambition_platformer2d_core as ae;
+        let mut world = bevy::prelude::World::new();
+        let stage = vec![ae::world::Block::solid("ledge", ae::Vec2::new(100.0, 100.0), ae::Vec2::new(200.0, 200.0))];
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            &mut world,
+            ae::RoomGeometry(ae::World::new("ledge", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, stage)),
+        );
+        world
+    }
+
+    fn reacher(world: &mut bevy::prelude::World, at: bevy::prelude::Vec2, facing: f32) -> bevy::prelude::Entity {
+        world
+            .spawn((
+                super::BodyKinematics { pos: at, size: bevy::prelude::Vec2::new(28.0, 46.0), facing, ..Default::default() },
+                super::ResolvedMotionFrame::default(),
+            ))
+            .id()
+    }
+
+    /// The first ledge ahead is the authority's anchor at the distance of the
+    /// probe that found it; at the anchor it is distance zero; facing away,
+    /// or with no frame, there is none.
+    #[test]
+    fn a_body_sees_the_first_ledge_ahead_and_whether_it_hangs_there() {
+        use bevy::prelude::Vec2;
+        let mut world = ledge_world();
+        let toward = reacher(&mut world, Vec2::new(26.0, 110.0), 1.0);
+        let ledge = super::ledge_ahead_of(&world, toward).unwrap().ledge.expect("a lip 60 px ahead was not seen");
+        assert!((ledge.anchor[0] - 87.0).abs() < 6.0, "the anchor is not the lip: {ledge:?}");
+        assert!(ledge.distance > 0.0 && ledge.distance <= 64.0 && ledge.distance % 16.0 == 0.0, "{ledge:?}");
+        let hanging = reacher(&mut world, Vec2::from(ledge.anchor), 1.0);
+        let here = super::ledge_ahead_of(&world, hanging).unwrap().ledge.expect("the anchor sees no ledge");
+        assert_eq!(here.distance, 0.0, "a body at the anchor is not caught where it is");
+        let away = reacher(&mut world, Vec2::new(26.0, 110.0), -1.0);
+        assert_eq!(super::ledge_ahead_of(&world, away).unwrap().ledge, None, "a ledge behind it was seen");
+        world.entity_mut(toward).remove::<super::ResolvedMotionFrame>();
+        assert_eq!(super::ledge_ahead_of(&world, toward).unwrap().ledge, None, "a body with no frame saw a ledge");
+    }
+
+    /// Whether a body stands is its ground state; a body with none has no
+    /// answer.
+    #[test]
+    fn a_body_reads_whether_it_stands() {
+        let mut world = bevy::prelude::World::new();
+        let standing = world.spawn(ambition_platformer2d_core::BodyGroundState { on_ground: true, ..Default::default() }).id();
+        let falling = world.spawn(ambition_platformer2d_core::BodyGroundState::default()).id();
+        let nothing = world.spawn_empty().id();
+        assert_eq!(
+            [standing, falling, nothing].map(|body| super::on_ground_of(&world, body)),
+            [Some(true), Some(false), None]
+        );
     }
 }

@@ -171,7 +171,8 @@ pub struct BodyPoseView {
     /// two mechanics with no way for a renderer to ask which.
     ///
     /// ⛔ Projected from `BodyLineAnchor`, an ENGINE component a ruleset inserts
-    /// and removes, so this read model never learns what a `TetherReel` is.
+    /// and removes (a module, through `ambition.feedback.body_line`), so this
+    /// read model never learns what a tether is.
     pub line_anchor: Option<ambition_platformer2d_core::Vec2>,
     /// Fireball charge tier while the fire button is held (`None` when not
     /// charging): 0 / 1 / 2+ pick the charge-indicator size/alpha.

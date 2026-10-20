@@ -926,6 +926,29 @@ before you add a port.
     `ambition_demo_smash` on the module road (with its loaded file), the
     module's tests, `ambition_abilities module_entity::tests`. Poisons
     listed in the commit.
+  - Special route F12 ✅ (2026-10-20): the tether, on a ledge ahead. In
+    `technique_execution`, `ambition.body.ledge_ahead` gives the first ledge
+    along a body's facing in its own frame, by the ledge authority's own
+    probe every 16 px within a host reach of 400 px (as
+    `ambition.items.aim_cast` casts to a host reach and a module reads the
+    distance), with distance `0` meaning the authority would catch the body
+    where it is; `ambition.body.on_ground` says whether it stands; and
+    `ambition.feedback.body_line` shows or clears the line it holds.
+    Smash's `smash.tether_pull` is `ambition_demo_smash_modules::tether`: a
+    throw from the air bites the first ledge within the move's reach and
+    pulls on that tick; the status `smash.tethered` and a record reel the
+    fighter each tick (`ambition.motion.velocity`), the last pull shortened
+    onto the anchor, stopping her dead where the authority catches her and
+    letting go untouched when the time runs out. `TetherReel`, its systems
+    and the row `smash.tether_reel` are deleted (schema 377), and with them
+    Smash's `motion.rs`, the commanded-velocity seam and its waiver in the
+    velocity policy: no Smash move writes a velocity itself any more.
+    Rule changes: the line is sampled every 16 px from the body rather than
+    at `reach / ceil(reach / 16)`, so a ledge within a pixel or two of the
+    reach can bite or miss differently. Witnesses: the ten tether tests of
+    `ambition_demo_smash` on the module road (with its loaded file), the
+    module's tests, `ambition_abilities extension::tests`, and
+    `smash_it::the_tether_catches_a_ledge`. Poisons listed in the commit.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

@@ -128,7 +128,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// spawner and its age). `smash.live_bomb` and `smash.placed_mine` leave.
 /// 375 -> 376: the steered bolt is a module: a module entity flown by the
 /// module, its heading in a module record; `smash.steered_bolt` is gone.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 376;
+/// 376 -> 377: the tether is a module: its reel is a record and a status on
+/// the fighter; `smash.tether_reel` is gone.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 377;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

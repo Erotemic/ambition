@@ -2804,20 +2804,6 @@ skip_paths = [
     # fails and has to argue for itself.
     "ambition_demo_mary_o/src/snake.rs",
     "ambition_demo_sanic/src/ball_dash.rs",
-    # ⭐ THE SMASH RULESET'S COMMANDED-VELOCITY SEAM, and it is ONE entry for
-    # what arrived as three bare writes (a steered bolt's self-launch, a launch
-    # plate, a homing dash). Same class as `grapple.rs` two entries up: a
-    # commanded speed, not a nudge — every caller needs the arrival velocity
-    # OVERWRITTEN, which is exactly what an impulse seam will not do.
-    # ⇒ Waived at the OPERATION rather than at its callers, for the reason
-    # `intercept.rs` gives below: the next smash move that launches somebody
-    # adds no entry here, and a bare `kin.vel =` anywhere else in that demo
-    # still fails and still has to argue for itself.
-    # ⚠ It gives up frame-awareness and says so in its own header:
-    # `AccelerationFrame::launch` is the frame-aware operation and is scalar
-    # away-from-feet, which would delete the ANGLED plate that
-    # `PlaceSpringParams::launch` exists to author.
-    "ambition_demo_smash/src/motion.rs",
     # ── three more of authority #4, added 2026-08-30 ──
     # ⭐ THE OWNERSHIP RULE DID NOT CHANGE; THE LEDGER LAGGED THE SEAMS. Each of
     # these is one of the forms quoted above, in a file that was never listed.
@@ -2825,6 +2811,12 @@ skip_paths = [
     #   impulse along the axis between them; the same class as
     #   `features/ecs/damage/actor_hit.rs` already listed.
     "ambition_combat/src/clank.rs",
+    #   guard deflection — the same combat seam as the clank rebound: a strike
+    #   turned aside throws the attacker away from the guarded body. It goes
+    #   through the knockback road (`BodyFlightState::stage_launch`) when the
+    #   body has one, and SETS the throw on a body with no flight state, which
+    #   has no other road to take it.
+    "ambition_combat/src/guard.rs",
     #   ledge trump pop — a FRAME-ROTATED `vel +=` in the literal sense the ADR
     #   means: it projects out the component along the body's own `side` axis
     #   and re-adds the pop there, because under sideways gravity a fighter's

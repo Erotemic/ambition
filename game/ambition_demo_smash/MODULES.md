@@ -15,7 +15,6 @@
 | [`limit`](src/limit.rs) | The game half of the Limit meter: who gains what, and when. |
 | [`mark`](src/mark.rs) | The delayed mark, end to end in this game. |
 | [`mine`](src/mine.rs) | The remote mine, end to end in this game. |
-| [`motion`](src/motion.rs) | The smash ruleset's commanded-velocity seam (ADR 0024, authority #4). |
 | [`portal`](src/portal.rs) | The portal recovery, assembled from the portal crate's own parts. |
 | [`rules`](src/rules.rs) | The `smash_rules` schema: the demo's own match flow and summon tuning, as data in its pack (`assets/data/smash_rules.ron`). |
 | [`select`](src/select.rs) | Pure character-select state for up to four match seats. |
@@ -24,10 +23,10 @@
 | [`sing`](src/sing.rs) | Sing: an area that takes the floor away from whoever stood too close. |
 | [`smash_pack`](src/smash_pack.rs) | The Smash demo's content pack. |
 | [`stages`](src/stages.rs) | The `smash_stages` schema: Smash's stages, as data in its pack (`assets/data/smash_stages.ron`). |
-| [`tether`](src/tether.rs) | The tether reel: she throws a line at a ledge and it pulls her to it. |
+| [`tether`](src/tether.rs) | The tether reel, end to end in this game. |
 | [`text`](src/text.rs) | The lines Smash shows, as data in its pack (`assets/data/smash_text.ron`): the match's cards, the select screen, the pause offer and the launcher row. |
 
-_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

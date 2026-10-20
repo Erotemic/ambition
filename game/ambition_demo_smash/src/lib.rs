@@ -30,7 +30,6 @@ pub mod mark;
 pub mod mine;
 #[cfg(test)]
 mod module_road;
-pub mod motion;
 #[cfg(test)]
 mod moveset;
 #[cfg(test)]
@@ -580,14 +579,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             },
             ambition_demo_smash_modules::riposte::module(),
         );
-        // Tether reel. Throw is chained before reel, so a line that bit a ledge
-        // pulls on that tick. The reel does not catch the ledge; the movement
-        // kernel's ledge authority does, one phase later. See `crate::tether`.
-        install_special(
+        // Tether reel: the module `ambition_demo_smash_modules::tether`. A line
+        // that bit a ledge pulls on that tick, and a status on the fighter
+        // reels her after. The reel does not catch the ledge; the movement
+        // kernel's ledge authority does, one phase later.
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_tether::TETHER_PULL,
             TechniqueOffer {
-                owner: "ambition_demo_smash::tether",
+                owner: "ambition_demo_smash_modules::tether",
                 params: TechniqueParams::Checked(
                     check_hydrates::<
                         ambition_platformer2d::entity_catalog::smash_tether::TetherPullParams,
@@ -596,12 +596,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            (
-                crate::tether::begin_authored_tether_pulls,
-                crate::tether::reel_tethered_fighters,
-            )
-                .chain()
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+            ambition_demo_smash_modules::tether::module(),
         );
         // Placed spring: the module `ambition_demo_smash_modules::spring`.
         // The drop puts a module entity on the stage, and the module ticks
@@ -1667,15 +1662,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.move_placed_portal",
                 crate::portal::move_placed_portal_probe,
-            );
-
-            // The tether reel's clock and latched anchor. A peer that lost the
-            // anchor would re-probe its own solids and could latch a different
-            // ledge.
-            app.rollback_component_clone_probed::<crate::tether::TetherReel>(
-                "ambition_demo_smash",
-                "smash.tether_reel",
-                crate::tether::tether_reel_probe,
             );
         }
         // Init before the preparation source reads it: a missing

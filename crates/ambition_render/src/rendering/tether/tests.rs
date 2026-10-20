@@ -83,7 +83,7 @@ fn lines(app: &mut App) -> Vec<Entity> {
 /// A ledge reel also draws its line, and it is not a grab. The ruleset
 /// publishes a generic `BodyLineAnchor`, the read models project it as
 /// `line_anchor`, and this file draws `grab_reach.or(line_anchor)`. Nothing
-/// here knows what a `TetherReel` is.
+/// here knows what a tether is.
 #[test]
 fn a_fighter_reeled_to_a_ledge_gets_a_line_without_a_grab() {
     let mut app = tether_app();

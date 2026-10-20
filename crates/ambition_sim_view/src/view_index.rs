@@ -65,7 +65,8 @@ pub struct FeatureView {
     /// match.
     ///
     /// ⭐ PROJECTED FROM `BodyLineAnchor`, an ENGINE component whose lifetime a
-    /// ruleset owns, so this read model never learns what a `TetherReel` is. A
+    /// ruleset owns (a module, through `ambition.feedback.body_line`), so this
+    /// read model never learns what a tether is. A
     /// third line mechanic publishes the same fact and needs no change here.
     pub line_anchor: Option<ae::Vec2>,
     /// A LIMB's bond to its host, in world space: where the bond starts. That

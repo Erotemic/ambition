@@ -18,6 +18,7 @@ pub mod attachments;
 pub mod blast;
 pub mod contact;
 pub mod hold;
+pub mod ledge;
 pub mod lightning;
 pub mod module_entity;
 pub mod motion;
@@ -46,6 +47,7 @@ pub use module_entity::{
 pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
 pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort};
 pub use hold::{BodyHold, BodyHoldPort};
+pub use ledge::{BodyLine, BodyLinePort, LedgeAhead, LedgeAheadPort, LedgeSight, OnGroundPort, LEDGE_SEARCH_REACH};
 pub use special::{
     BodyStrike, BodyStrikePort, FighterSpecial, FighterSpecialPort, ParryWindow,
     ParryWindowPort, RefillResource, RefillResourcePort, SleepArea, SleepAreaPort, SpecialParam,

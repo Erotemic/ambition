@@ -25,6 +25,7 @@ pub mod mine;
 pub mod riposte;
 pub mod sing;
 pub mod spring;
+pub mod tether;
 
 /// The provider namespace of every module in this crate.
 pub const PROVIDER: &str = "smash";
@@ -42,6 +43,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     riposte::module,
     sing::module,
     spring::module,
+    tether::module,
 ];
 
 /// Every module this crate provides.

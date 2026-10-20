@@ -130,6 +130,7 @@ DISPLAY_NAMES = {
     "solo_soar_9m08_loud": "Solo Soar (Loud, 9m)",
     "smirking_behemoth_boss": "You Have To Cut The Rope",
     "standing_on_shoulders": "Standing on Shoulders (GNU-ton)",
+    "standing_on_shoulders_v2": "Standing on Shoulders v2 (GNU-ton)",
     "shoulders_at_rest": "Shoulders at Rest",
     "tritone_decree": "The Tritone Decree",
     "phrygian_furnace": "The Phrygian Furnace",

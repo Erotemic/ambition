@@ -4,7 +4,8 @@
 // whole GNU-ton silhouette before descending into the fight.
 //
 // Encounter flow:
-//   1. Player enters from `hall_of_bosses` via the top-left LoadingZone.
+//   1. Player enters from `gnu_ton_approach` (the causeway from `hall_of_bosses`)
+//      via the top-left LoadingZone.
 //   2. Lands on the entry ledge, walks right onto a BreakablePlatform.
 //   3. The platform breaks under their weight, forcing a descent into
 //      the fight (they fall through a column of perches that catches
@@ -65,7 +66,8 @@
     px_hei: 1280,
     fill_collision: "empty",
     biome: "boss",
-    music_track: "standing_on_shoulders",
+    // The approach plays the original Standing on Shoulders; the fight, v2.
+    music_track: "standing_on_shoulders_v2",
     ambient_profile: "hum",
     visual_theme: "default",
     intgrid: (
@@ -356,10 +358,10 @@
             ],
             fields: (
                 id: "gnu_ton_arena_exit",
-                name: "to hall of bosses",
+                name: "to the approach",
                 activation: "Door",
-                target_room: "hall_of_bosses",
-                target_zone: "hall_gnu_ton_portal",
+                target_room: "gnu_ton_approach",
+                target_zone: "gnu_ton_approach_to_arena",
                 bidirectional: true,
             ),
         ),

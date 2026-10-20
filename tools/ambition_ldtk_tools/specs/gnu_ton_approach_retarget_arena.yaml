@@ -1,0 +1,10 @@
+# The GNU-ton arena's entry door leads back to the new approach room, not to
+# the Hall of Bosses (gnu_ton_approach_area.ron).
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/gnu_ton_approach_retarget_arena.yaml \
+#       --ldtk game/ambition_map_assets/ambition_content/worlds/sandbox.ldtk --in-place
+level_id: gnu_ton_arena
+edits:
+  - target: { iid: LoadingZone-6881 }
+    fields: { target_room: "gnu_ton_approach", target_zone: "gnu_ton_approach_to_arena", name: "to the approach" }

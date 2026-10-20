@@ -995,8 +995,8 @@ fn the_scholar_turns_and_the_gnu_under_him_does_not() {
 fn entering_the_arena_the_fists_are_on_the_giants_arms() {
     let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::fixed_60hz())
-        .with_required_start_room("hall_of_bosses");
-    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the hall of bosses builds headlessly");
+        .with_required_start_room("gnu_ton_approach");
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the approach to the arena builds headlessly");
     for _ in 0..10 {
         sim.step(AgentAction::default());
     }
@@ -1008,9 +1008,9 @@ fn entering_the_arena_the_fists_are_on_the_giants_arms() {
         let set = rooms.iter(world).next().expect("a room set");
         set.spec(live_definition).loading_zones
             .iter()
-            .find(|zone| zone.id == "hall_gnu_ton_portal")
+            .find(|zone| zone.id == "gnu_ton_approach_to_arena")
             .cloned()
-            .expect("the hall of bosses has a door to GNU-ton")
+            .expect("the approach has a door to the GNU-ton arena")
     };
     use ambition_platformer2d::engine_core::AabbExt as _;
     let at = door.aabb.center();

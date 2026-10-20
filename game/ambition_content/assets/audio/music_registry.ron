@@ -105,6 +105,7 @@
         (id: "something_worth_building", display_name: "Something Worth Building"),
         (id: "sparse_theme", display_name: "Sparse Theme"),
         (id: "standing_on_shoulders", display_name: "Standing on Shoulders (GNU-ton)"),
+        (id: "standing_on_shoulders_v2", display_name: "Standing on Shoulders v2 (GNU-ton)"),
         (id: "super_smash_siblings_character_select", display_name: "Super Smash Siblings Character Select"),
         (id: "super_smash_siblings_grand_symphony", display_name: "Super Smash Siblings Grand Symphony"),
         (id: "super_smash_siblings_theme", display_name: "Super Smash Siblings Theme"),

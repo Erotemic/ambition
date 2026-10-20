@@ -94,7 +94,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// declared derived; `actor.brain`'s `MeleeBrute` cursor (wire tag 6) adds its
 /// counter: the deflects it has seen (`u32`) and when it answers (`bool`,
 /// `f32`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 367;
+/// 367 -> 368: `actor.zone_passage` (`ZonePassage`, clone, value-probed, not
+/// checksummed), the passage through a door or a gate, registered by
+/// 0c1eb7fcd with no bump.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 368;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

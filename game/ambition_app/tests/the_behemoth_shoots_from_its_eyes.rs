@@ -83,6 +83,7 @@ fn fight(sim: &mut Platformer2dSimHarness, boss: Entity, player: Entity) -> (Vec
                 let look = match &request.presentation {
                     ProjectilePresentation::OpenVisual(id) => id.clone(),
                     ProjectilePresentation::NamedKind(kind) => kind.visual_id().to_string(),
+                    ProjectilePresentation::NamedCharged(kind, tier) => kind.visual_id_at(*tier).to_string(),
                 };
                 (request.projectile.body.kin.pos, look)
             })

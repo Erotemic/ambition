@@ -132,6 +132,13 @@ fn materialize_matching(
                     Name::new("Named projectile (sim)"),
                 ));
             }
+            ProjectilePresentation::NamedCharged(kind, tier) => {
+                entity.insert((
+                    *kind,
+                    ProjectileVisualId(kind.visual_id_at(*tier).to_string()),
+                    Name::new("Named projectile (sim)"),
+                ));
+            }
             ProjectilePresentation::OpenVisual(visual_id) => {
                 entity.insert((
                     ProjectileVisualId(visual_id.clone()),

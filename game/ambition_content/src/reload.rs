@@ -1450,7 +1450,9 @@ enum PublicationBoundary {
 ///
 /// This is about ownership, not liveness. Only a locally maintained sync-test
 /// session may be rebased. `External` (peer-owned) and `Caller`-owned sessions
-/// must never be replaced; see `RollbackSessionOwnership`.
+/// must never be replaced; see `RollbackSessionOwnership`. Production asks
+/// through [`publication_boundary`]; the tests ask this directly.
+#[cfg(test)]
 pub(crate) fn rebasable_local_timeline(world: &bevy::ecs::world::World) -> bool {
     ambition_platformer2d::rollback::locally_rebasable_timeline(world)
 }

@@ -135,7 +135,7 @@ mark_commands=(
     "build -p ambition_app --bin ambition_game_bin --features dev_hot_reload --release"
 )
 
-# Windowed dev is the normal standalone-demo shape selected by run_game.sh.
+# Windowed dev is the standalone-demo shape of `run_game.sh --dev`; the windowed release shape is the launcher's default.
 demo_specs=(
     "ambition_demo_sanic_app:sanic_demo"
     "ambition_demo_mary_o_app:mary_o_demo"

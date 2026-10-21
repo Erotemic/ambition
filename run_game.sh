@@ -126,7 +126,7 @@ if ((${#launcher_config_applied[@]})); then
     printf 'run_game.sh: ambition.local.toml set %s\n' "${launcher_config_applied[@]}" >&2
 fi
 
-build_profile="dev"
+build_profile="release"
 clean_coverage=0
 coverage=0
 hot_reload=0
@@ -249,7 +249,7 @@ Launch targets (mode aliases):
 
 Options and mode aliases:
   -h, --help              Show this help.
-  -r, --release, release  Use cargo --release.
+  -r, --release, release  Use cargo --release. This is the default.
   --ship, ship            Use the native shipping profile intended for the
                           packaged Steam build.
   --profiling, profiling  Use the `profiling` cargo profile: release
@@ -257,7 +257,8 @@ Options and mode aliases:
                           and Tracy can attribute a frame. This is what
                           scripts/profile_desktop.sh builds by default.
   --cov, coverage         Run through cargo llvm-cov run --no-report.
-  --debug, debug, dev     Force dev/debug cargo profile.
+  --dev, --debug, dev     Use the dev cargo profile: unoptimized and
+                          incremental; the fast edit loop.
   --hot-reload, --hot,
   hot, hot-reload         Enable the dev_hot_reload feature.
   --no-hot-reload         Disable hot reload if an earlier alias enabled it.
@@ -394,7 +395,7 @@ while [[ $# -gt 0 ]]; do
         --profiling|profiling|profile-build)
             build_profile="profiling"
             ;;
-        --debug|debug|dev)
+        --dev|--debug|debug|dev)
             build_profile="dev"
             ;;
         --cov|coverage)

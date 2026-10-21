@@ -758,6 +758,13 @@ pub(crate) fn trail_strips(
 /// [`TrailContinuityBreak`], but this module does not depend on the portal crate.
 pub struct PlayerTrailPlugin;
 
+/// The trail's systems sleep in a room whose game does not use trails, and a
+/// profile that omits them leaves this plugin out.
+const TRAILS: ambition_platformer2d_shared_tangle::capability::CapabilitySet =
+    ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+        ambition_platformer2d_shared_tangle::capability::Capability::Trails,
+    );
+
 impl Plugin for PlayerTrailPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
@@ -767,7 +774,8 @@ impl Plugin for PlayerTrailPlugin {
             sim,
             (ensure_player_trail, update_player_trail)
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationSync),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationSync)
+                .in_set(TRAILS),
         );
         // The gizmo draw is the FEEL clock: it paints whatever the last sim tick
         // emitted, once per rendered frame.
@@ -775,6 +783,7 @@ impl Plugin for PlayerTrailPlugin {
             Update,
             (band_the_room_trail_gizmos, render_player_trail)
                 .chain()
+                .in_set(TRAILS)
                 .run_if(resource_exists::<bevy::gizmos::config::GizmoConfigStore>),
         );
     }

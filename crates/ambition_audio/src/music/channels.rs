@@ -1,30 +1,42 @@
 use super::*;
 
-#[derive(Resource)]
-pub struct MusicLayer0AChannel;
-#[derive(Resource)]
-pub struct MusicLayer1AChannel;
-#[derive(Resource)]
-pub struct MusicLayer2AChannel;
-#[derive(Resource)]
-pub struct MusicLayer3AChannel;
-#[derive(Resource)]
-pub struct MusicLayer4AChannel;
-#[derive(Resource)]
-pub struct MusicLayer5AChannel;
+/// The kira channel of each music layer, by bank (A, B) and slot.
+///
+/// Dynamic channels, not typed ones: `bevy_kira_audio` runs two systems every
+/// frame for each typed channel (its play and state passes) and one for all
+/// dynamic channels together. Twelve typed layers were twenty-four systems in
+/// every game; nothing reads a layer's instance states, which is all a typed
+/// channel adds.
+const LAYER_CHANNELS: [[&str; MAX_LAYERS]; 2] = [
+    [
+        "ambition.music.layer0.a",
+        "ambition.music.layer1.a",
+        "ambition.music.layer2.a",
+        "ambition.music.layer3.a",
+        "ambition.music.layer4.a",
+        "ambition.music.layer5.a",
+    ],
+    [
+        "ambition.music.layer0.b",
+        "ambition.music.layer1.b",
+        "ambition.music.layer2.b",
+        "ambition.music.layer3.b",
+        "ambition.music.layer4.b",
+        "ambition.music.layer5.b",
+    ],
+];
 
-#[derive(Resource)]
-pub struct MusicLayer0BChannel;
-#[derive(Resource)]
-pub struct MusicLayer1BChannel;
-#[derive(Resource)]
-pub struct MusicLayer2BChannel;
-#[derive(Resource)]
-pub struct MusicLayer3BChannel;
-#[derive(Resource)]
-pub struct MusicLayer4BChannel;
-#[derive(Resource)]
-pub struct MusicLayer5BChannel;
+/// Create the music layer channels. With a device backend `AudioPlugin` owns
+/// `DynamicAudioChannels`; a recording backend has no plugin, so the resource
+/// is made here and its commands are never played.
+pub fn add_music_layer_channels(app: &mut App) {
+    let mut channels = app.world_mut().get_resource_or_init::<DynamicAudioChannels>();
+    for key in LAYER_CHANNELS.iter().flatten() {
+        if !channels.is_channel(key) {
+            channels.create_channel(key);
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum MusicBank {
@@ -59,18 +71,7 @@ pub(super) type LayerGains = [f32; MAX_LAYERS];
 
 #[derive(SystemParam)]
 pub struct MusicLayerChannels<'w> {
-    layer0_a: Res<'w, AudioChannel<MusicLayer0AChannel>>,
-    layer1_a: Res<'w, AudioChannel<MusicLayer1AChannel>>,
-    layer2_a: Res<'w, AudioChannel<MusicLayer2AChannel>>,
-    layer3_a: Res<'w, AudioChannel<MusicLayer3AChannel>>,
-    layer4_a: Res<'w, AudioChannel<MusicLayer4AChannel>>,
-    layer5_a: Res<'w, AudioChannel<MusicLayer5AChannel>>,
-    layer0_b: Res<'w, AudioChannel<MusicLayer0BChannel>>,
-    layer1_b: Res<'w, AudioChannel<MusicLayer1BChannel>>,
-    layer2_b: Res<'w, AudioChannel<MusicLayer2BChannel>>,
-    layer3_b: Res<'w, AudioChannel<MusicLayer3BChannel>>,
-    layer4_b: Res<'w, AudioChannel<MusicLayer4BChannel>>,
-    layer5_b: Res<'w, AudioChannel<MusicLayer5BChannel>>,
+    channels: Res<'w, DynamicAudioChannels>,
     output: Option<Res<'w, crate::output::AudioOutputMode>>,
 }
 
@@ -80,21 +81,9 @@ impl<'w> MusicLayerChannels<'w> {
         self.output.as_deref().copied().unwrap_or_default()
     }
 
-    pub(super) fn channel(&self, bank: MusicBank, slot: usize) -> &dyn MusicLayerChannel {
-        match (bank, slot.min(MAX_LAYERS - 1)) {
-            (MusicBank::A, 0) => &*self.layer0_a,
-            (MusicBank::A, 1) => &*self.layer1_a,
-            (MusicBank::A, 2) => &*self.layer2_a,
-            (MusicBank::A, 3) => &*self.layer3_a,
-            (MusicBank::A, 4) => &*self.layer4_a,
-            (MusicBank::A, _) => &*self.layer5_a,
-            (MusicBank::B, 0) => &*self.layer0_b,
-            (MusicBank::B, 1) => &*self.layer1_b,
-            (MusicBank::B, 2) => &*self.layer2_b,
-            (MusicBank::B, 3) => &*self.layer3_b,
-            (MusicBank::B, 4) => &*self.layer4_b,
-            (MusicBank::B, _) => &*self.layer5_b,
-        }
+    fn channel(&self, bank: MusicBank, slot: usize) -> &DynamicAudioChannel {
+        self.channels
+            .channel(LAYER_CHANNELS[bank.index()][slot.min(MAX_LAYERS - 1)])
     }
 
     pub(super) fn stop_all(&self, fade_ms: u64) {
@@ -104,18 +93,18 @@ impl<'w> MusicLayerChannels<'w> {
 
     pub(super) fn stop_bank(&self, bank: MusicBank, fade_ms: u64) {
         for slot in 0..MAX_LAYERS {
-            self.channel(bank, slot).stop_with_fade(fade_ms);
+            stop_with_fade(self.channel(bank, slot), fade_ms);
         }
     }
 
     pub(super) fn set_bank_silent(&self, bank: MusicBank) {
         for slot in 0..MAX_LAYERS {
-            self.channel(bank, slot).set_linear_volume(0.0);
+            set_linear_volume(self.channel(bank, slot), 0.0);
         }
     }
 
     pub(super) fn set_layer_volume(&self, bank: MusicBank, slot: usize, linear: f32) {
-        self.channel(bank, slot).set_linear_volume(linear);
+        set_linear_volume(self.channel(bank, slot), linear);
     }
 
     pub(super) fn play_layer(
@@ -127,64 +116,38 @@ impl<'w> MusicLayerChannels<'w> {
         fade_ms: u64,
     ) {
         if self.output_mode().emits_to_device() {
-            self.channel(bank, slot)
-                .play_handle(handle, looped, fade_ms);
+            play_handle(self.channel(bank, slot), handle, looped, fade_ms);
         }
     }
 }
 
-pub(super) trait MusicLayerChannel {
-    fn stop_with_fade(&self, fade_ms: u64);
-    fn set_linear_volume(&self, linear: f32);
-    fn play_handle(&self, handle: Handle<KiraAudioSource>, looped: bool, fade_ms: u64);
+fn stop_with_fade(channel: &DynamicAudioChannel, fade_ms: u64) {
+    channel.stop().fade_out(AudioTween::new(
+        Duration::from_millis(fade_ms),
+        AudioEasing::OutPowi(2),
+    ));
 }
 
-macro_rules! impl_music_layer_channel {
-    ($marker:ty) => {
-        impl MusicLayerChannel for AudioChannel<$marker> {
-            fn stop_with_fade(&self, fade_ms: u64) {
-                self.stop().fade_out(AudioTween::new(
-                    Duration::from_millis(fade_ms),
-                    AudioEasing::OutPowi(2),
-                ));
-            }
+fn set_linear_volume(channel: &DynamicAudioChannel, linear: f32) {
+    channel.set_volume(amplitude_to_decibels(linear));
+}
 
-            fn set_linear_volume(&self, linear: f32) {
-                self.set_volume(amplitude_to_decibels(linear));
-            }
-
-            fn play_handle(&self, handle: Handle<KiraAudioSource>, looped: bool, fade_ms: u64) {
-                if looped {
-                    if fade_ms == 0 {
-                        self.play(handle).looped();
-                    } else {
-                        self.play(handle).looped().fade_in(AudioTween::new(
-                            Duration::from_millis(fade_ms),
-                            AudioEasing::InPowi(2),
-                        ));
-                    }
-                } else if fade_ms == 0 {
-                    self.play(handle);
-                } else {
-                    self.play(handle).fade_in(AudioTween::new(
-                        Duration::from_millis(fade_ms),
-                        AudioEasing::InPowi(2),
-                    ));
-                }
-            }
+fn play_handle(channel: &DynamicAudioChannel, handle: Handle<KiraAudioSource>, looped: bool, fade_ms: u64) {
+    if looped {
+        if fade_ms == 0 {
+            channel.play(handle).looped();
+        } else {
+            channel.play(handle).looped().fade_in(AudioTween::new(
+                Duration::from_millis(fade_ms),
+                AudioEasing::InPowi(2),
+            ));
         }
-    };
+    } else if fade_ms == 0 {
+        channel.play(handle);
+    } else {
+        channel.play(handle).fade_in(AudioTween::new(
+            Duration::from_millis(fade_ms),
+            AudioEasing::InPowi(2),
+        ));
+    }
 }
-
-impl_music_layer_channel!(MusicLayer0AChannel);
-impl_music_layer_channel!(MusicLayer1AChannel);
-impl_music_layer_channel!(MusicLayer2AChannel);
-impl_music_layer_channel!(MusicLayer3AChannel);
-impl_music_layer_channel!(MusicLayer4AChannel);
-impl_music_layer_channel!(MusicLayer5AChannel);
-impl_music_layer_channel!(MusicLayer0BChannel);
-impl_music_layer_channel!(MusicLayer1BChannel);
-impl_music_layer_channel!(MusicLayer2BChannel);
-impl_music_layer_channel!(MusicLayer3BChannel);
-impl_music_layer_channel!(MusicLayer4BChannel);
-impl_music_layer_channel!(MusicLayer5BChannel);

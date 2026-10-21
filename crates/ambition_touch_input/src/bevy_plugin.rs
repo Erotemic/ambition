@@ -272,19 +272,16 @@ impl Plugin for TouchControlsPlugin {
                 )
                     .chain(),
             )
-            // Button-label sync in narrow systems:
-            // `update_button_verb_from_prompt` writes `ButtonVerb` from the
-            // `ControlPrompt` read-model,
-            // `sync_touch_button_visibility_from_prompt` hides buttons for
-            // slots the scheme lacks, and `render_touch_button_text` folds
-            // verb, glyph, and pressed state into the Text node.
+            // Button-label sync: `reconcile_touch_action_prompt` writes
+            // `ButtonVerb` from the `ControlPrompt` read-model and hides
+            // buttons for slots the scheme lacks, and `render_touch_button_text`
+            // folds verb, glyph, and pressed state into the Text node.
             .add_systems(
                 Update,
                 (
                     // Labels come from the controlled subject's action scheme
                     // via `ControlPrompt`. Buttons for missing slots are hidden.
-                    update_button_verb_from_prompt,
-                    sync_touch_button_visibility_from_prompt,
+                    reconcile_touch_action_prompt,
                     // The stick uses the same rule. It runs after the root sync
                     // so it wins over the blanket setting.
                     sync_touch_stick_visibility_from_context.after(sync_touch_ui_visibility),
@@ -294,7 +291,7 @@ impl Plugin for TouchControlsPlugin {
                     update_button_pressed_from_actions
                         .after(ambition_sim_view::affordances::AffordancesSystemSet::Compute),
                     render_touch_button_text
-                        .after(update_button_verb_from_prompt)
+                        .after(reconcile_touch_action_prompt)
                         .after(update_button_glyph_from_active_input)
                         .after(update_button_pressed_from_actions),
                     sync_button_pressed_visual.after(update_button_pressed_from_actions),
@@ -790,7 +787,7 @@ fn spawn_action_button_at(
                 // Marker for the render system. The `ButtonVerb` and
                 // `ButtonGlyph` components are what change each frame.
                 TouchActionLabel(action),
-                // Set by `update_button_verb_from_prompt`, rendered by
+                // Set by `reconcile_touch_action_prompt`, rendered by
                 // `render_touch_button_text`.
                 ButtonVerb::new(label),
                 // Empty until `update_button_glyph_from_active_input` runs,
@@ -806,7 +803,7 @@ fn spawn_action_button_at(
 pub struct TouchActionLabel(pub TouchActionButton);
 
 /// The verb text for a touch button. Set each frame by
-/// [`update_button_verb_from_prompt`] from the
+/// [`reconcile_touch_action_prompt`] from the
 /// [`ambition_sim_view::ControlPrompt`] read-model.
 ///
 /// The fallback is never overwritten, and the current verb is an `Option`.
@@ -883,20 +880,41 @@ fn is_menu_button(action: TouchActionButton) -> bool {
     matches!(action, TouchActionButton::Start | TouchActionButton::Reset)
 }
 
-/// Per frame: label each touch button from the [`ControlPrompt`] read-model.
+/// Per frame: bring every touch button in line with the [`ControlPrompt`]
+/// read-model: its label and readiness ([`label_touch_buttons`]) and whether it
+/// is drawn ([`show_live_touch_buttons`]).
+///
+/// One system, because both halves read the same prompt in the same frame and
+/// write disjoint components (the label node's verb and readiness, the
+/// button's `Visibility`). Each half is still its own function with its own
+/// rule. Reads the sim-published read-model, never the sim's live components.
+pub fn reconcile_touch_action_prompt(
+    prompt: Res<ControlPrompt>,
+    // Whether gameplay owns the participant's actions this frame. Optional:
+    // apps without the participant-context resolver get prompt-only behavior.
+    active_context: Option<Res<ambition_input::SeatInputContexts>>,
+    mut labels: Query<(&TouchActionLabel, &mut ButtonVerb, &mut ButtonReady)>,
+    mut buttons: Query<(&TouchActionButton, &mut Visibility)>,
+) {
+    label_touch_buttons(&prompt, &mut labels);
+    // The touch overlay is one device on one screen: the local primary seat.
+    let gameplay = active_context
+        .as_deref()
+        .is_none_or(|seats| seats.primary().gameplay_owned());
+    show_live_touch_buttons(&prompt, gameplay, &mut buttons);
+}
+
+/// Label each touch button from the prompt.
 ///
 /// - Gameplay: the controlled subject's own action names. A slot the scheme
-///   lacks is left as is (hidden by
-///   [`sync_touch_button_visibility_from_prompt`]).
+///   lacks is left as is (hidden by [`show_live_touch_buttons`]).
 /// - Menu / Dialogue: Jump and Interact show the menu's confirm verb, so a
 ///   menu button never reads "Jump".
-///
-/// Reads the sim-published read-model, never the sim's live components.
-pub fn update_button_verb_from_prompt(
-    prompt: Res<ControlPrompt>,
-    mut labels: Query<(&TouchActionLabel, &mut ButtonVerb, &mut ButtonReady)>,
+fn label_touch_buttons(
+    prompt: &ControlPrompt,
+    labels: &mut Query<(&TouchActionLabel, &mut ButtonVerb, &mut ButtonReady)>,
 ) {
-    for (TouchActionLabel(action), mut verb, mut ready) in &mut labels {
+    for (TouchActionLabel(action), mut verb, mut ready) in labels.iter_mut() {
         // Readiness uses the same slot lookup. Change-detected, so an unchanged
         // button does not trigger a restyle.
         let next_ready = touch_button_slot(*action).is_none_or(|slot| prompt.ready_for(slot));
@@ -1033,27 +1051,20 @@ pub fn sync_touch_stick_visibility_from_context(
     }
 }
 
-/// Per frame: show exactly the buttons that are live (see
+/// Show exactly the buttons that are live (see
 /// [`touch_action_live`]). Shown buttons use `Visibility::Inherited`, not
 /// `Visible`, so they still obey the [`TouchControlsVisible`] root toggle.
-pub fn sync_touch_button_visibility_from_prompt(
-    prompt: Res<ControlPrompt>,
-    // Whether gameplay owns the participant's actions this frame. Optional:
-    // apps without the participant-context resolver get prompt-only behavior.
-    active_context: Option<Res<ambition_input::SeatInputContexts>>,
-    mut buttons: Query<(&TouchActionButton, &mut Visibility)>,
+fn show_live_touch_buttons(
+    prompt: &ControlPrompt,
+    gameplay: bool,
+    buttons: &mut Query<(&TouchActionButton, &mut Visibility)>,
 ) {
     // A verb nobody can press must not be on screen. The prompt describes what
     // the controlled subject can do, even while a menu owns input; whether
     // anyone can drive it now is a question for the input context.
     // Start and Reset are exempt (see `touch_action_live`).
-    // The touch overlay is one device on one screen: the local primary seat.
-    let gameplay = active_context
-        .as_deref()
-        .is_none_or(|seats| seats.primary().gameplay_owned());
-
-    for (action, mut vis) in &mut buttons {
-        let target = if touch_action_live(*action, &prompt, gameplay) {
+    for (action, mut vis) in buttons.iter_mut() {
+        let target = if touch_action_live(*action, prompt, gameplay) {
             Visibility::Inherited
         } else {
             Visibility::Hidden
@@ -1550,7 +1561,7 @@ mod prompt_tests {
             ControlContextKind::Gameplay,
             vec![(ControlSlot::Attack, "Cleave")],
         ));
-        app.add_systems(Update, update_button_verb_from_prompt);
+        app.add_systems(Update, reconcile_touch_action_prompt);
         let text = app
             .world_mut()
             .spawn((
@@ -1572,7 +1583,7 @@ mod prompt_tests {
         fn verb_of_fly_button(prompt: ControlPrompt) -> String {
             let mut app = App::new();
             app.insert_resource(prompt);
-            app.add_systems(Update, update_button_verb_from_prompt);
+            app.add_systems(Update, reconcile_touch_action_prompt);
             let button = app
                 .world_mut()
                 .spawn((
@@ -1615,7 +1626,7 @@ mod prompt_tests {
             ControlContextKind::Gameplay,
             vec![(ControlSlot::Jump, "Jump")],
         ));
-        app.add_systems(Update, sync_touch_button_visibility_from_prompt);
+        app.add_systems(Update, reconcile_touch_action_prompt);
         let jump = app
             .world_mut()
             .spawn((TouchActionButton::Jump, Visibility::Inherited))
@@ -1637,6 +1648,55 @@ mod prompt_tests {
         assert_eq!(vis(start), Visibility::Inherited, "menu button untouched");
     }
 
+    /// A frame whose prompt did not change writes no verb, readiness or
+    /// visibility, so `render_touch_button_text` and the restyle stay idle.
+    #[test]
+    fn a_steady_prompt_marks_no_button_changed() {
+        let mut app = App::new();
+        app.insert_resource(prompt(
+            ControlContextKind::Gameplay,
+            vec![(ControlSlot::Attack, "Cleave")],
+        ));
+        app.add_systems(Update, reconcile_touch_action_prompt);
+        // One shown and labelled, one hidden: both must stay still.
+        let shown = app
+            .world_mut()
+            .spawn((
+                TouchActionButton::Attack,
+                Visibility::Inherited,
+                TouchActionLabel(TouchActionButton::Attack),
+                ButtonVerb::new("Atk"),
+            ))
+            .id();
+        let hidden = app
+            .world_mut()
+            .spawn((
+                TouchActionButton::Blink,
+                Visibility::Inherited,
+                TouchActionLabel(TouchActionButton::Blink),
+                ButtonVerb::new("Blink"),
+            ))
+            .id();
+        app.update();
+        let ticks = |app: &App, e: Entity| {
+            let entity = app.world().entity(e);
+            (
+                entity.get_change_ticks::<ButtonVerb>().unwrap().changed,
+                entity.get_change_ticks::<ButtonReady>().unwrap().changed,
+                entity.get_change_ticks::<Visibility>().unwrap().changed,
+            )
+        };
+        let before = (ticks(&app, shown), ticks(&app, hidden));
+        assert_eq!(
+            app.world().entity(hidden).get::<Visibility>(),
+            Some(&Visibility::Hidden),
+            "the first frame hid the slot the scheme lacks"
+        );
+        app.update();
+        app.update();
+        assert_eq!((ticks(&app, shown), ticks(&app, hidden)), before);
+    }
+
     #[test]
     fn menu_relabels_select_buttons_and_hides_gameplay_buttons() {
         // In a menu the select-functional Jump reads the confirm verb (never
@@ -1645,10 +1705,7 @@ mod prompt_tests {
         app.insert_resource(menu_prompt("Equip"));
         app.add_systems(
             Update,
-            (
-                update_button_verb_from_prompt,
-                sync_touch_button_visibility_from_prompt,
-            ),
+            reconcile_touch_action_prompt,
         );
         let jump = app
             .world_mut()
@@ -1747,7 +1804,7 @@ mod prompt_tests {
         app.insert_resource(menu_prompt(confirm));
         app.add_systems(
             Update,
-            (update_button_verb_from_prompt, render_touch_button_text).chain(),
+            (reconcile_touch_action_prompt, render_touch_button_text).chain(),
         );
         for (action, gameplay_label) in [
             (TouchActionButton::Jump, "Jump"),
@@ -1837,7 +1894,7 @@ mod prompt_tests {
         });
         app.add_systems(
             Update,
-            (update_button_verb_from_prompt, render_touch_button_text).chain(),
+            (reconcile_touch_action_prompt, render_touch_button_text).chain(),
         );
         for (action, gameplay_label) in [
             (TouchActionButton::Jump, "Spin Dash"),

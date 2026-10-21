@@ -161,8 +161,8 @@ group it names.
 | `encounters-without-named-bosses` | headless | `BossEncounters` |
 | `world-without-cutscenes` | headless | `Cutscenes` |
 | `minimal-platformer` | headless | every removable capability |
-| `level-platformer` | headless | `Dialogue`, `BossEncounters`, `HeldUse` |
-| `stage-fighter` | headless | `Dialogue`, `BossEncounters` |
+| `level-platformer` | headless | `Dialogue`, `BossEncounters`, `HeldUse`, `Trails` |
+| `stage-fighter` | headless | `Dialogue`, `BossEncounters`, `Trails` |
 
 **The demo hosts compose these (S3, 2026-10-21).** Mary-O's and Sanic's hosts
 build `level-platformer`, Smash's `stage-fighter`; each names it as its
@@ -174,6 +174,10 @@ installed. Mounts, wave encounters, portals, fighter specials and grabs
 (`Captures`, added 2026-10-21) are gated capabilities, not removable units:
 each game declares whether its rooms use them, and their systems sleep where
 a room does not.
+
+`Trails` (the player trail, S5, 2026-10-21) is a removable unit: leaving it
+out drops `PlayerTrailPlugin` and the four room gizmo groups it registers,
+each of which runs Bevy's per-frame and per-tick gizmo systems.
 
 **Three claims per profile, none of which means anything alone**
 (`ambition_platformer2d_host/tests/supported_profiles.rs`):

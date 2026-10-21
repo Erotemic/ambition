@@ -11,6 +11,7 @@ use bevy::log::{debug, info, warn};
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::{
     AudioChannel, AudioControl, AudioEasing, AudioSource as KiraAudioSource, AudioTween,
+    DynamicAudioChannel, DynamicAudioChannels,
 };
 
 use crate::library::{
@@ -56,12 +57,7 @@ pub use catalog::{
     MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec, MusicStateBalanceOverride,
     MusicStateSpec, RoomMusicBinding,
 };
-pub use channels::{
-    MusicLayer0AChannel, MusicLayer0BChannel, MusicLayer1AChannel, MusicLayer1BChannel,
-    MusicLayer2AChannel, MusicLayer2BChannel, MusicLayer3AChannel, MusicLayer3BChannel,
-    MusicLayer4AChannel, MusicLayer4BChannel, MusicLayer5AChannel, MusicLayer5BChannel,
-    MusicLayerChannels,
-};
+pub use channels::{add_music_layer_channels, MusicLayerChannels};
 pub use director::{drive_music_director, load_music_cues};
 use state::PendingMusicStateTransition;
 pub use state::{AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent};

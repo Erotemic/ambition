@@ -425,13 +425,14 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 &crate::smash_pack::PACK,
                 ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
             ));
-            // No named boss encounters and no dialogue on a Smash stage: the
-            // engine's work for those sleeps there.
+            // No named boss encounters, no dialogue and no player trail on a
+            // Smash stage: the engine's work for those sleeps there.
             app.declare_rules(
                 ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
                 ambition_platformer2d::platformer::capability::UsedCapabilities::ALL
                     .without(ambition_platformer2d::platformer::capability::Capability::BossEncounters)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Dialogue),
+                    .without(ambition_platformer2d::platformer::capability::Capability::Dialogue)
+                    .without(ambition_platformer2d::platformer::capability::Capability::Trails),
             );
             // Name prompts by button. A Smash Attack slot hosts a dozen moves
             // chosen by direction and posture, so naming the move would change

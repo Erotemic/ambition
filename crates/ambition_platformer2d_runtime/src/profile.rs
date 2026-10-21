@@ -76,6 +76,9 @@ impl CapabilityComposition for Capability {
             Capability::Encounters => group,
             // Not a unit either: three of the group's schedules register them.
             Capability::Captures => group,
+            Capability::Trails => {
+                group.disable::<ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailPlugin>()
+            }
         }
     }
 
@@ -116,6 +119,10 @@ impl CapabilityComposition for Capability {
             Capability::Mounts => app.is_plugin_added::<ambition_mount::MountPlugin>(),
             Capability::Encounters => app.is_plugin_added::<ambition_encounter_features::EncounterSimulationSchedulePlugin>(),
             Capability::Captures => app.is_plugin_added::<crate::CombatSchedulePlugin>(),
+            Capability::Trails => {
+                app.is_plugin_added::<ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailPlugin>()
+                    || world.contains_resource::<ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailEnabled>()
+            }
         }
     }
 }
@@ -256,7 +263,7 @@ pub const LEVEL_PLATFORMER: EngineProfile = EngineProfile {
     name: "level-platformer",
     summary: "levels with collectibles and enemies, and no dialogue, named bosses or held use",
     face: HostFace::Headless,
-    omits: &[Capability::Dialogue, Capability::BossEncounters, Capability::HeldUse],
+    omits: &[Capability::Dialogue, Capability::BossEncounters, Capability::HeldUse, Capability::Trails],
 };
 
 /// A stage fighter: fighters, match items and their grabs and specials; no
@@ -266,7 +273,7 @@ pub const STAGE_FIGHTER: EngineProfile = EngineProfile {
     name: "stage-fighter",
     summary: "fighters and match items on a stage, with no dialogue or named bosses",
     face: HostFace::Headless,
-    omits: &[Capability::Dialogue, Capability::BossEncounters],
+    omits: &[Capability::Dialogue, Capability::BossEncounters, Capability::Trails],
 };
 
 /// Every supported profile, in the order the witnesses run them.

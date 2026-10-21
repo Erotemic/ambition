@@ -59,18 +59,6 @@ impl Plugin for Platformer2dAudioPlugin {
             .init_resource::<DefaultMusicStarted>()
             .add_ambition_audio_channel::<MusicChannel>()
             .add_ambition_audio_channel::<SfxChannel>()
-            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer0AChannel>()
-            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer1AChannel>()
-            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer2AChannel>()
-            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer3AChannel>()
-            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer4AChannel>()
-            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer5AChannel>()
-            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer0BChannel>()
-            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer1BChannel>()
-            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer2BChannel>()
-            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer3BChannel>()
-            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer4BChannel>()
-            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer5BChannel>()
             // ⭐ NO PROFILING MARKS HERE. They bracketed this one system from
             // inside the kernel, which made a SIMULATION crate depend on a
             // developer tool to describe itself. Instrumentation can live
@@ -187,6 +175,8 @@ impl Plugin for Platformer2dAudioPlugin {
                 apply_frontend_music_policy
                     .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
             );
+        // After the backend plugin, which owns the channel store on a device.
+        ambition_audio::music::add_music_layer_channels(app);
     }
 }
 

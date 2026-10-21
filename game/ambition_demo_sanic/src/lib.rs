@@ -546,9 +546,9 @@ impl Plugin for SanicRulesPlugin {
             // In Sanic's rooms: no named boss encounters (his badniks are
             // enemy bodies), no dialogue, no held items, no fighter
             // specials (his spin dash is his own rule), no mounts, no wave
-            // encounters and no grabs (his grab is his Smash kit's). The
-            // engine's work for those sleeps there. His Act 3 rifts are
-            // portals.
+            // encounters, no grabs (his grab is his Smash kit's) and no player
+            // trail. The engine's work for those sleeps there. His Act 3 rifts
+            // are portals.
             app.declare_rules(
                 scope,
                 ambition_platformer2d::platformer::capability::UsedCapabilities::ALL
@@ -558,7 +558,8 @@ impl Plugin for SanicRulesPlugin {
                     .without(ambition_platformer2d::platformer::capability::Capability::FighterSpecials)
                     .without(ambition_platformer2d::platformer::capability::Capability::Mounts)
                     .without(ambition_platformer2d::platformer::capability::Capability::Encounters)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Captures),
+                    .without(ambition_platformer2d::platformer::capability::Capability::Captures)
+                    .without(ambition_platformer2d::platformer::capability::Capability::Trails),
             );
             // Whoever the player drives here can spin dash and transform.
             app.declare_rules(
